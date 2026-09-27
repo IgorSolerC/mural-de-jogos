@@ -152,6 +152,14 @@ export const SCORE_SHORT: Record<ScoreKey, string> = {
   visual: 'Visual',
 };
 
+/** Rótulo de casinha no boletim da ficha. */
+export const SCORE_ABBR: Record<RatedKey, string> = {
+  historia: 'His',
+  diversao: 'Div',
+  jogabilidade: 'Jog',
+  visual: 'Vis',
+};
+
 export function weightOf(weights: Weights | undefined, k: RatedKey): Weight {
   return weights?.[k] ?? 'normal';
 }

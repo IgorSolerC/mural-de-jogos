@@ -511,3 +511,12 @@ The single long page was split so the wall reaches the first screen: before, the
 - **Ranking page.** A counter receipt (thermal paper with grain, zigzag bottom edge via a two-layer mask, drop-shadow, -0.5deg) listing every review by the chosen category, chosen with shelf tabs on a rail above it. Rows: ordinal ("1º", ties share it), thumb sleeve, name in condensed 800 with year · status, score in marker (red-deep from 9). First place gets a larger row, the name in marker and the pen circle drawn around its score. Reviews with no score in the category are left out, with a line saying how many. Beside it (below on narrow screens) a second receipt, **Balanço**: dotted-leader totals, "Mais jogado", "Veredito mais dado" and a double-ruled "Média geral".
 - **Ajustes page.** The settings sheet became a page of two pinned cartolinas side by side: Backup (azul) and Catálogo de jogos (lilás).
 - **Removed.** The masthead tally, the in-header pending queue, the visible group labels "Mostrar / Ordenar / Fichas / Qual nota" (kept as accessible names), the "Qual nota" sub-rail, the settings dialog and the "Ajustes e backup" header button.
+
+## Card diet (grid pass)
+
+The full card carried eleven competing elements, and four dotted sub-score rows per card turned a wall of 14 into 56 leader lines. The card now has one hero, one voice, one data line and one note:
+
+- **Boletim.** The four sub-scores sit in one row of ruled cells (HIS · DIV · JOG · VIS, abbreviations from `SCORE_ABBR`, full names for screen readers). Each cell has a condensed-caps label over a marker numeral; cells are split by 1.5px pen rules at 20% ink, and the row is closed above and below by 1.5px rules at 32%. Não tem cells are simply absent (the row gets 3 columns). Weight arrows shrink to 10px after the label. When the wall is sorted by a category, that cell gets the highlighter band.
+- **Cut from the grid** (still in the reader): the release year, the difficulty skulls. The excerpt is clamped to 2 lines (hidden on phones, as before).
+- **Kept:** tachinha, sleeve cover with the starburst, the verdict stamp struck on the cover, the marker title, date · hours, and the status sticker, which closes the written content.
+- **Even rows.** The wall grid stretches its items, so every card in a row has the same height; a card with less written on it shows blank cartolina at the bottom, like a real index card. The per-card drop (0–14px) and tilt still break the line at the top.

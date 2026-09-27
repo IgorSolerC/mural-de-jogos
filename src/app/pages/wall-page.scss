@@ -39,11 +39,12 @@
   }
 }
 
+/* Fichas da mesma fileira têm a mesma altura: o pé de todas se alinha e o mural para de parecer bagunçado */
 .wall {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
   gap: 48px 36px;
-  align-items: start;
+  align-items: stretch;
 
   /* fichas simples: mais jogos por fileira */
   &.compact {

@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
 import {
-  DIFFICULTY_LABEL,
   RATED_KEYS,
   Review,
+  SCORE_ABBR,
   SCORE_LABEL,
   ScoreKey,
   WEIGHT_LABEL,
@@ -15,7 +15,6 @@ import {
 } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
-import { Skulls } from './difficulty';
 import { Pin } from './pin';
 import { ScoreBurst } from './score-burst';
 import { StatusLabel } from './status-label';
@@ -26,7 +25,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
 
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Pin, ScoreBurst, StatusLabel, CoverSleeve, Skulls, VerdictStamp],
+  imports: [LucideAngularModule, Pin, ScoreBurst, StatusLabel, CoverSleeve, VerdictStamp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'cartolina',
@@ -52,9 +51,6 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
 
     <h3 class="title">{{ review().game.name }}</h3>
     <p class="meta">
-      @if (review().game.year && !compact()) {
-        <span>{{ review().game.year }}</span><span aria-hidden="true"> · </span>
-      }
       <time [attr.datetime]="review().completedAt" [title]="dateTitle()">{{ date() }}</time>
       @if (review().hoursPlayed !== null && !compact()) {
         <span aria-hidden="true"> · </span><span [title]="'Tempo jogado'">{{ hours() }}</span>
@@ -62,17 +58,18 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
     </p>
 
     @if (!compact()) {
-      <dl class="subs">
+      <!-- Boletim: as notas numa fileira só de casinhas, como caderneta de professor -->
+      <dl class="boletim" [style.--cols]="subKeys().length">
         @for (k of subKeys(); track k) {
-          <div class="row" [class.hl]="highlight() === k">
+          <div class="cell" [class.hl]="highlight() === k">
             <dt>
-              {{ labels[k] }}
+              <span aria-hidden="true">{{ short[k] }}</span><span class="sr-only">{{ labels[k] }}</span>
               @switch (weightOf(review().weights, k)) {
                 @case ('relevante') {
-                  <lucide-icon class="w" [img]="UpIcon" [size]="13" [strokeWidth]="3" [title]="weightLabels.relevante" />
+                  <lucide-icon class="w" [img]="UpIcon" [size]="10" [strokeWidth]="3.4" [title]="weightLabels.relevante" />
                 }
                 @case ('pouco') {
-                  <lucide-icon class="w" [img]="DownIcon" [size]="13" [strokeWidth]="3" [title]="weightLabels.pouco" />
+                  <lucide-icon class="w" [img]="DownIcon" [size]="10" [strokeWidth]="3.4" [title]="weightLabels.pouco" />
                 }
               }
             </dt>
@@ -88,9 +85,6 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
 
     <div class="tags">
       <app-status-label [status]="review().status" />
-      @if (review().difficulty !== 'nenhuma' && !compact()) {
-        <app-skulls [value]="review().difficulty" [size]="15" [showLabel]="false" [ghosts]="false" [title]="difficultyLabel()" />
-      }
     </div>
 
     <button type="button" class="hit" (click)="opened.emit(review().id)">
@@ -172,55 +166,47 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       color: var(--ink-2);
     }
 
-    .subs {
-      margin: 12px 0 0;
+    .boletim {
       display: grid;
+      grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+      margin: 12px 0 0;
+      border-block: 1.5px solid rgb(21 21 21 / 0.32);
+    }
+    .cell {
+      display: grid;
+      justify-items: center;
       gap: 1px;
+      padding: 5px 2px 4px;
+      min-width: 0;
     }
-    .row {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      padding: 1px 4px;
-      margin: 0 -4px;
-      border-radius: 2px;
-    }
-    .row::after {
-      /* pontilhado feito à caneta ligando nome e nota */
-      content: '';
-      order: 1;
-      flex: 1;
-      border-bottom: 2px dotted rgb(21 21 21 / 0.35);
-      translate: 0 -4px;
+    .cell + .cell {
+      border-left: 1.5px solid rgb(21 21 21 / 0.2);
     }
     dt {
-      order: 0;
       display: inline-flex;
       align-items: center;
-      gap: 3px;
+      gap: 1px;
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.08em;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--ink-2);
+      line-height: 1;
     }
     dd {
-      order: 2;
       margin: 0;
-      min-width: 1.4ch;
-      text-align: right;
       font-family: var(--f-marker);
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
     }
     .w {
       display: inline-flex;
     }
-    /* destaque de marca-texto quando o mural está ordenado por essa nota */
-    .row.hl {
-      background: linear-gradient(transparent 18%, rgb(255 255 255 / 0.55) 18% 88%, transparent 88%);
+    /* marca-texto na casinha da nota que está ordenando o mural */
+    .cell.hl {
+      background: linear-gradient(transparent 6%, rgb(255 255 255 / 0.55) 6% 94%, transparent 94%);
     }
 
     .excerpt {
@@ -229,19 +215,17 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       font-size: 1.02rem;
       line-height: 1.38;
       display: -webkit-box;
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
       overflow-wrap: anywhere;
     }
 
+    /* o status fecha o que foi escrito; ficha com menos texto fica com papel em branco embaixo */
     .tags {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-top: 14px;
+      padding-top: 14px;
     }
 
     .hit {
@@ -276,7 +260,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       padding-right: 22px;
     }
     :host(.compact) .tags {
-      margin-top: 10px;
+      padding-top: 10px;
     }
 
     /* Chegada ao mural: a ficha cai, a tachinha entra com força */
@@ -342,22 +326,24 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       .meta {
         font-size: 0.74rem;
       }
-      .subs {
+      .boletim {
         margin-top: 8px;
       }
+      .cell {
+        padding: 4px 1px 3px;
+      }
       dt {
-        font-size: 0.72rem;
-        letter-spacing: 0.05em;
+        font-size: 0.62rem;
+        letter-spacing: 0.04em;
       }
       dd {
-        font-size: 1rem;
+        font-size: 1.05rem;
       }
       .excerpt {
         display: none;
       }
       .tags {
-        margin-top: 10px;
-        gap: 6px;
+        padding-top: 10px;
       }
       .tags app-status-label {
         scale: 0.86;
@@ -377,7 +363,6 @@ export class ReviewCard {
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   protected readonly date = computed(() => dateFmt.format(parseDay(this.review().completedAt)).replace(/\./g, ''));
   protected readonly dateTitle = computed(() => `${dayLabel(this.review().status)} ${this.date()}`);
-  protected readonly difficultyLabel = computed(() => 'Dificuldade: ' + DIFFICULTY_LABEL[this.review().difficulty]);
   /** Categorias que o jogo "não tem" nem aparecem na ficha. */
   protected readonly subKeys = computed(() => RATED_KEYS.filter((k) => weightOf(this.review().weights, k) !== 'nao-tem'));
   protected readonly hours = computed(() => formatHours(this.review().hoursPlayed));
@@ -387,4 +372,5 @@ export class ReviewCard {
   protected readonly DownIcon = ArrowDown;
   protected readonly fmt = formatScore;
   protected readonly labels = SCORE_LABEL;
+  protected readonly short = SCORE_ABBR;
 }
