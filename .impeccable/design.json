@@ -1,0 +1,873 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-25T20:13:07.211Z",
+  "title": "Design System: Mural de Jogos",
+  "extensions": {
+    "colorMeta": {
+      "wall": {
+        "role": "neutral",
+        "displayName": "Graphite Wall",
+        "canonical": "#1b1c1f",
+        "oklch": "oklch(22.7% 0.006 271.1)",
+        "tonalRamp": [
+          "oklch(15% 0.006 271.1)",
+          "oklch(26% 0.006 271.1)",
+          "oklch(38% 0.006 271.1)",
+          "oklch(49% 0.006 271.1)",
+          "oklch(61% 0.006 271.1)",
+          "oklch(72% 0.006 271.1)",
+          "oklch(84% 0.006 271.1)",
+          "oklch(95% 0.006 271.1)"
+        ]
+      },
+      "wall-hole": {
+        "role": "neutral",
+        "displayName": "Eucatex Hole",
+        "canonical": "#0a0a0c",
+        "oklch": "oklch(14.6% 0.004 285.9)",
+        "tonalRamp": [
+          "oklch(15% 0.004 285.9)",
+          "oklch(26% 0.004 285.9)",
+          "oklch(38% 0.004 285.9)",
+          "oklch(49% 0.004 285.9)",
+          "oklch(61% 0.004 285.9)",
+          "oklch(72% 0.004 285.9)",
+          "oklch(84% 0.004 285.9)",
+          "oklch(95% 0.004 285.9)"
+        ]
+      },
+      "wall-ink": {
+        "role": "neutral",
+        "displayName": "Wall Chalk",
+        "canonical": "#f1f1ec",
+        "oklch": "oklch(95.7% 0.007 106.5)",
+        "tonalRamp": [
+          "oklch(15% 0.007 106.5)",
+          "oklch(26% 0.007 106.5)",
+          "oklch(38% 0.007 106.5)",
+          "oklch(49% 0.007 106.5)",
+          "oklch(61% 0.007 106.5)",
+          "oklch(72% 0.007 106.5)",
+          "oklch(84% 0.007 106.5)",
+          "oklch(95% 0.007 106.5)"
+        ]
+      },
+      "wall-ink-2": {
+        "role": "neutral",
+        "displayName": "Faded Chalk",
+        "canonical": "#b8b8ae",
+        "oklch": "oklch(78.0% 0.014 106.7)",
+        "tonalRamp": [
+          "oklch(15% 0.014 106.7)",
+          "oklch(26% 0.014 106.7)",
+          "oklch(38% 0.014 106.7)",
+          "oklch(49% 0.014 106.7)",
+          "oklch(61% 0.014 106.7)",
+          "oklch(72% 0.014 106.7)",
+          "oklch(84% 0.014 106.7)",
+          "oklch(95% 0.014 106.7)"
+        ]
+      },
+      "stock-rosa": {
+        "role": "tertiary",
+        "displayName": "Neon Pink Cartolina",
+        "canonical": "#ff5fa2",
+        "oklch": "oklch(71.1% 0.203 357.7)",
+        "tonalRamp": [
+          "oklch(15% 0.203 357.7)",
+          "oklch(26% 0.203 357.7)",
+          "oklch(38% 0.203 357.7)",
+          "oklch(49% 0.203 357.7)",
+          "oklch(61% 0.203 357.7)",
+          "oklch(72% 0.203 357.7)",
+          "oklch(84% 0.203 357.7)",
+          "oklch(95% 0.203 357.7)"
+        ]
+      },
+      "stock-amarelo": {
+        "role": "tertiary",
+        "displayName": "Neon Yellow Cartolina",
+        "canonical": "#ffe94a",
+        "oklch": "oklch(92.5% 0.171 101.2)",
+        "tonalRamp": [
+          "oklch(15% 0.171 101.2)",
+          "oklch(26% 0.171 101.2)",
+          "oklch(38% 0.171 101.2)",
+          "oklch(49% 0.171 101.2)",
+          "oklch(61% 0.171 101.2)",
+          "oklch(72% 0.171 101.2)",
+          "oklch(84% 0.171 101.2)",
+          "oklch(95% 0.171 101.2)"
+        ]
+      },
+      "stock-verde": {
+        "role": "tertiary",
+        "displayName": "Neon Green Cartolina",
+        "canonical": "#5cf08a",
+        "oklch": "oklch(85.2% 0.190 150.5)",
+        "tonalRamp": [
+          "oklch(15% 0.190 150.5)",
+          "oklch(26% 0.190 150.5)",
+          "oklch(38% 0.190 150.5)",
+          "oklch(49% 0.190 150.5)",
+          "oklch(61% 0.190 150.5)",
+          "oklch(72% 0.190 150.5)",
+          "oklch(84% 0.190 150.5)",
+          "oklch(95% 0.190 150.5)"
+        ]
+      },
+      "stock-laranja": {
+        "role": "tertiary",
+        "displayName": "Neon Orange Cartolina",
+        "canonical": "#ff9f45",
+        "oklch": "oklch(78.5% 0.153 60.3)",
+        "tonalRamp": [
+          "oklch(15% 0.153 60.3)",
+          "oklch(26% 0.153 60.3)",
+          "oklch(38% 0.153 60.3)",
+          "oklch(49% 0.153 60.3)",
+          "oklch(61% 0.153 60.3)",
+          "oklch(72% 0.153 60.3)",
+          "oklch(84% 0.153 60.3)",
+          "oklch(95% 0.153 60.3)"
+        ]
+      },
+      "stock-azul": {
+        "role": "tertiary",
+        "displayName": "Sky Blue Cartolina",
+        "canonical": "#5ec8ff",
+        "oklch": "oklch(79.2% 0.125 234.1)",
+        "tonalRamp": [
+          "oklch(15% 0.125 234.1)",
+          "oklch(26% 0.125 234.1)",
+          "oklch(38% 0.125 234.1)",
+          "oklch(49% 0.125 234.1)",
+          "oklch(61% 0.125 234.1)",
+          "oklch(72% 0.125 234.1)",
+          "oklch(84% 0.125 234.1)",
+          "oklch(95% 0.125 234.1)"
+        ]
+      },
+      "stock-lilas": {
+        "role": "tertiary",
+        "displayName": "Lilac Cartolina",
+        "canonical": "#c9a4ff",
+        "oklch": "oklch(78.5% 0.132 302.2)",
+        "tonalRamp": [
+          "oklch(15% 0.132 302.2)",
+          "oklch(26% 0.132 302.2)",
+          "oklch(38% 0.132 302.2)",
+          "oklch(49% 0.132 302.2)",
+          "oklch(61% 0.132 302.2)",
+          "oklch(72% 0.132 302.2)",
+          "oklch(84% 0.132 302.2)",
+          "oklch(95% 0.132 302.2)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Marker Black",
+        "canonical": "#151515",
+        "oklch": "oklch(19.6% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15% 0.000 89.9)",
+          "oklch(26% 0.000 89.9)",
+          "oklch(38% 0.000 89.9)",
+          "oklch(49% 0.000 89.9)",
+          "oklch(61% 0.000 89.9)",
+          "oklch(72% 0.000 89.9)",
+          "oklch(84% 0.000 89.9)",
+          "oklch(95% 0.000 89.9)"
+        ]
+      },
+      "red": {
+        "role": "primary",
+        "displayName": "Marker Red",
+        "canonical": "#e62e2d",
+        "oklch": "oklch(60.1% 0.219 27.1)",
+        "tonalRamp": [
+          "oklch(15% 0.219 27.1)",
+          "oklch(26% 0.219 27.1)",
+          "oklch(38% 0.219 27.1)",
+          "oklch(49% 0.219 27.1)",
+          "oklch(61% 0.219 27.1)",
+          "oklch(72% 0.219 27.1)",
+          "oklch(84% 0.219 27.1)",
+          "oklch(95% 0.219 27.1)"
+        ]
+      },
+      "red-deep": {
+        "role": "primary",
+        "displayName": "Deep Marker Red",
+        "canonical": "#b81d1c",
+        "oklch": "oklch(50.4% 0.189 27.6)",
+        "tonalRamp": [
+          "oklch(15% 0.189 27.6)",
+          "oklch(26% 0.189 27.6)",
+          "oklch(38% 0.189 27.6)",
+          "oklch(49% 0.189 27.6)",
+          "oklch(61% 0.189 27.6)",
+          "oklch(72% 0.189 27.6)",
+          "oklch(84% 0.189 27.6)",
+          "oklch(95% 0.189 27.6)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Receipt Paper",
+        "canonical": "#f6f6f1",
+        "oklch": "oklch(97.2% 0.007 106.5)",
+        "tonalRamp": [
+          "oklch(15% 0.007 106.5)",
+          "oklch(26% 0.007 106.5)",
+          "oklch(38% 0.007 106.5)",
+          "oklch(49% 0.007 106.5)",
+          "oklch(61% 0.007 106.5)",
+          "oklch(72% 0.007 106.5)",
+          "oklch(84% 0.007 106.5)",
+          "oklch(95% 0.007 106.5)"
+        ]
+      },
+      "hi": {
+        "role": "secondary",
+        "displayName": "Hi-Vis Yellow",
+        "canonical": "#ffe94a",
+        "oklch": "oklch(92.5% 0.171 101.2)",
+        "tonalRamp": [
+          "oklch(15% 0.171 101.2)",
+          "oklch(26% 0.171 101.2)",
+          "oklch(38% 0.171 101.2)",
+          "oklch(49% 0.171 101.2)",
+          "oklch(61% 0.171 101.2)",
+          "oklch(72% 0.171 101.2)",
+          "oklch(84% 0.171 101.2)",
+          "oklch(95% 0.171 101.2)"
+        ]
+      },
+      "plate-tab": {
+        "role": "neutral",
+        "displayName": "Shelf Tab",
+        "canonical": "#3b3c43",
+        "oklch": "oklch(35.8% 0.012 279.3)",
+        "tonalRamp": [
+          "oklch(15% 0.012 279.3)",
+          "oklch(26% 0.012 279.3)",
+          "oklch(38% 0.012 279.3)",
+          "oklch(49% 0.012 279.3)",
+          "oklch(61% 0.012 279.3)",
+          "oklch(72% 0.012 279.3)",
+          "oklch(84% 0.012 279.3)",
+          "oklch(95% 0.012 279.3)"
+        ]
+      },
+      "plate-tab-hover": {
+        "role": "neutral",
+        "displayName": "Shelf Tab Hover",
+        "canonical": "#4d4e57",
+        "oklch": "oklch(42.6% 0.015 280.7)",
+        "tonalRamp": [
+          "oklch(15% 0.015 280.7)",
+          "oklch(26% 0.015 280.7)",
+          "oklch(38% 0.015 280.7)",
+          "oklch(49% 0.015 280.7)",
+          "oklch(61% 0.015 280.7)",
+          "oklch(72% 0.015 280.7)",
+          "oklch(84% 0.015 280.7)",
+          "oklch(95% 0.015 280.7)"
+        ]
+      },
+      "plate-ink": {
+        "role": "neutral",
+        "displayName": "Tab Print",
+        "canonical": "#e9e9e2",
+        "oklch": "oklch(93.2% 0.009 106.6)",
+        "tonalRamp": [
+          "oklch(15% 0.009 106.6)",
+          "oklch(26% 0.009 106.6)",
+          "oklch(38% 0.009 106.6)",
+          "oklch(49% 0.009 106.6)",
+          "oklch(61% 0.009 106.6)",
+          "oklch(72% 0.009 106.6)",
+          "oklch(84% 0.009 106.6)",
+          "oklch(95% 0.009 106.6)"
+        ]
+      },
+      "rail": {
+        "role": "neutral",
+        "displayName": "Gondola Rail",
+        "canonical": "#6c6e76",
+        "oklch": "oklch(53.9% 0.013 274.7)",
+        "tonalRamp": [
+          "oklch(15% 0.013 274.7)",
+          "oklch(26% 0.013 274.7)",
+          "oklch(38% 0.013 274.7)",
+          "oklch(49% 0.013 274.7)",
+          "oklch(61% 0.013 274.7)",
+          "oklch(72% 0.013 274.7)",
+          "oklch(84% 0.013 274.7)",
+          "oklch(95% 0.013 274.7)"
+        ]
+      },
+      "pin-red": {
+        "role": "tertiary",
+        "displayName": "Red Tachinha",
+        "canonical": "#e62e2d",
+        "oklch": "oklch(60.1% 0.219 27.1)",
+        "tonalRamp": [
+          "oklch(15% 0.219 27.1)",
+          "oklch(26% 0.219 27.1)",
+          "oklch(38% 0.219 27.1)",
+          "oklch(49% 0.219 27.1)",
+          "oklch(61% 0.219 27.1)",
+          "oklch(72% 0.219 27.1)",
+          "oklch(84% 0.219 27.1)",
+          "oklch(95% 0.219 27.1)"
+        ]
+      },
+      "pin-yellow": {
+        "role": "tertiary",
+        "displayName": "Yellow Tachinha",
+        "canonical": "#ffd23f",
+        "oklch": "oklch(87.9% 0.162 90.9)",
+        "tonalRamp": [
+          "oklch(15% 0.162 90.9)",
+          "oklch(26% 0.162 90.9)",
+          "oklch(38% 0.162 90.9)",
+          "oklch(49% 0.162 90.9)",
+          "oklch(61% 0.162 90.9)",
+          "oklch(72% 0.162 90.9)",
+          "oklch(84% 0.162 90.9)",
+          "oklch(95% 0.162 90.9)"
+        ]
+      },
+      "pin-blue": {
+        "role": "tertiary",
+        "displayName": "Blue Tachinha",
+        "canonical": "#2f6bff",
+        "oklch": "oklch(58.1% 0.229 263.9)",
+        "tonalRamp": [
+          "oklch(15% 0.229 263.9)",
+          "oklch(26% 0.229 263.9)",
+          "oklch(38% 0.229 263.9)",
+          "oklch(49% 0.229 263.9)",
+          "oklch(61% 0.229 263.9)",
+          "oklch(72% 0.229 263.9)",
+          "oklch(84% 0.229 263.9)",
+          "oklch(95% 0.229 263.9)"
+        ]
+      },
+      "pin-green": {
+        "role": "tertiary",
+        "displayName": "Green Tachinha",
+        "canonical": "#1fb65a",
+        "oklch": "oklch(68.2% 0.178 150.4)",
+        "tonalRamp": [
+          "oklch(15% 0.178 150.4)",
+          "oklch(26% 0.178 150.4)",
+          "oklch(38% 0.178 150.4)",
+          "oklch(49% 0.178 150.4)",
+          "oklch(61% 0.178 150.4)",
+          "oklch(72% 0.178 150.4)",
+          "oklch(84% 0.178 150.4)",
+          "oklch(95% 0.178 150.4)"
+        ]
+      },
+      "pin-white": {
+        "role": "tertiary",
+        "displayName": "White Tachinha",
+        "canonical": "#f4f4f0",
+        "oklch": "oklch(96.6% 0.005 106.5)",
+        "tonalRamp": [
+          "oklch(15% 0.005 106.5)",
+          "oklch(26% 0.005 106.5)",
+          "oklch(38% 0.005 106.5)",
+          "oklch(49% 0.005 106.5)",
+          "oklch(61% 0.005 106.5)",
+          "oklch(72% 0.005 106.5)",
+          "oklch(84% 0.005 106.5)",
+          "oklch(95% 0.005 106.5)"
+        ]
+      },
+      "pin-orange": {
+        "role": "tertiary",
+        "displayName": "Orange Tachinha",
+        "canonical": "#ff7a1a",
+        "oklch": "oklch(72.4% 0.187 48.9)",
+        "tonalRamp": [
+          "oklch(15% 0.187 48.9)",
+          "oklch(26% 0.187 48.9)",
+          "oklch(38% 0.187 48.9)",
+          "oklch(49% 0.187 48.9)",
+          "oklch(61% 0.187 48.9)",
+          "oklch(72% 0.187 48.9)",
+          "oklch(84% 0.187 48.9)",
+          "oklch(95% 0.187 48.9)"
+        ]
+      },
+      "stripe-incompleto": {
+        "role": "tertiary",
+        "displayName": "Incompleto Stripe",
+        "canonical": "#ff8a1f",
+        "oklch": "oklch(74.8% 0.176 55.4)",
+        "tonalRamp": [
+          "oklch(15% 0.176 55.4)",
+          "oklch(26% 0.176 55.4)",
+          "oklch(38% 0.176 55.4)",
+          "oklch(49% 0.176 55.4)",
+          "oklch(61% 0.176 55.4)",
+          "oklch(72% 0.176 55.4)",
+          "oklch(84% 0.176 55.4)",
+          "oklch(95% 0.176 55.4)"
+        ]
+      },
+      "stripe-finalizado": {
+        "role": "tertiary",
+        "displayName": "Finalizado Stripe",
+        "canonical": "#10a64a",
+        "oklch": "oklch(63.5% 0.175 149.2)",
+        "tonalRamp": [
+          "oklch(15% 0.175 149.2)",
+          "oklch(26% 0.175 149.2)",
+          "oklch(38% 0.175 149.2)",
+          "oklch(49% 0.175 149.2)",
+          "oklch(61% 0.175 149.2)",
+          "oklch(72% 0.175 149.2)",
+          "oklch(84% 0.175 149.2)",
+          "oklch(95% 0.175 149.2)"
+        ]
+      },
+      "error-ink": {
+        "role": "neutral",
+        "displayName": "Error Ink",
+        "canonical": "#6b0000",
+        "oklch": "oklch(33.1% 0.136 29.2)",
+        "tonalRamp": [
+          "oklch(15% 0.136 29.2)",
+          "oklch(26% 0.136 29.2)",
+          "oklch(38% 0.136 29.2)",
+          "oklch(49% 0.136 29.2)",
+          "oklch(61% 0.136 29.2)",
+          "oklch(72% 0.136 29.2)",
+          "oklch(84% 0.136 29.2)",
+          "oklch(95% 0.136 29.2)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Faded Marker",
+        "canonical": "rgb(21 21 21 / 0.78)",
+        "tonalRamp": [
+          "oklch(15% 0.000 89.9)",
+          "oklch(26% 0.000 89.9)",
+          "oklch(38% 0.000 89.9)",
+          "oklch(49% 0.000 89.9)",
+          "oklch(61% 0.000 89.9)",
+          "oklch(72% 0.000 89.9)",
+          "oklch(84% 0.000 89.9)",
+          "oklch(95% 0.000 89.9)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Cartaz masthead only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Sheet titles, empty and no-results headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Game name on a card, balanced, 3-line clamp."
+      },
+      "marker-action": {
+        "displayName": "Marker Action",
+        "purpose": "Text on cartolina and ink buttons."
+      },
+      "score-numeral": {
+        "displayName": "Score Numeral",
+        "purpose": "Sub-scores and picker digits, written like a teacher grading."
+      },
+      "price-numeral": {
+        "displayName": "Price Numeral",
+        "purpose": "Final score on the red starburst only."
+      },
+      "hand": {
+        "displayName": "Reviewer's Hand",
+        "purpose": "Review text on ruled lines, empty-state sentences."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Inputs, hints, messages, settings copy."
+      },
+      "label": {
+        "displayName": "Printed Label",
+        "purpose": "Shelf tabs, quiet buttons, receipt text. Uppercase."
+      },
+      "label-sm": {
+        "displayName": "Printed Label Small",
+        "purpose": "Sub-score names, status labels, picker legends. Uppercase."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Year and date lines under titles. Uppercase."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-card",
+        "value": "0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6)",
+        "purpose": "Hanging card: every card, the cartaz, the search strip, cartolina buttons and the stacked blank sheets."
+      },
+      {
+        "name": "shadow-lift",
+        "value": "0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65)",
+        "purpose": "Card on hover/focus, hovered cartolina button, open sheets, first frame of a landing card."
+      },
+      {
+        "name": "pin-cast",
+        "value": "2px 5px 3px -1px rgb(0 0 0 / 0.45), 5px 10px 10px -2px rgb(0 0 0 / 0.25)",
+        "purpose": "Tachinha shadow on paper, cast down-right because the head stands off the surface."
+      },
+      {
+        "name": "burst-drop",
+        "value": "drop-shadow(1px 3px 2px rgb(0 0 0 / 0.35))",
+        "purpose": "filter on the price starburst sticker."
+      },
+      {
+        "name": "receipt-drop",
+        "value": "drop-shadow(0 8px 12px rgb(0 0 0 / 0.5))",
+        "purpose": "filter on the toast receipt."
+      },
+      {
+        "name": "rail-bevel",
+        "value": "inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 -2px 0 rgb(0 0 0 / 0.3), 0 6px 10px -3px rgb(0 0 0 / 0.6)",
+        "purpose": "Aluminium gondola rail under the shelf tabs."
+      },
+      {
+        "name": "sleeve-film",
+        "value": "inset 0 0 0 1px rgb(255 255 255 / 0.55), 0 1px 2px rgb(0 0 0 / 0.25)",
+        "purpose": "Plastic display sleeve edge around covers, over rgb(255 255 255 / 0.22) film plus two 118deg glare bands."
+      },
+      {
+        "name": "label-sticker",
+        "value": "0 1px 1.5px rgb(0 0 0 / 0.3)",
+        "purpose": "Price-gun status label resting on the card."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 3px solid var(--hi); outline-offset: 3px",
+        "purpose": "Global :focus-visible; inside sheets, controls use a 3px ink outline and fields add a 4px hi-vis ring."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-physical",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Everything that moves like an object: card swing and lift, stack fan, sheet entry, receipt print, view-transition reshuffle."
+      },
+      {
+        "name": "t-physical",
+        "value": "380ms",
+        "purpose": "Duration paired with ease-physical."
+      },
+      {
+        "name": "ease-ui",
+        "value": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+        "purpose": "Colour, tint and tab-rise feedback."
+      },
+      {
+        "name": "t-ui",
+        "value": "160ms",
+        "purpose": "Duration paired with ease-ui; also the backdrop fade."
+      },
+      {
+        "name": "land",
+        "value": "620ms ease-physical; from translate 0 -70px, scale 1.08, rotate tilt x3, opacity 0",
+        "purpose": "A newly saved card dropping onto the wall."
+      },
+      {
+        "name": "punch",
+        "value": "520ms ease-physical, 260ms delay; scale 2.2 -> 0.9 -> 1",
+        "purpose": "Tachinha punching in on save. The only rebound in the system."
+      },
+      {
+        "name": "pen-circle",
+        "value": "280ms ease-ui; stroke-dashoffset 150 -> 0",
+        "purpose": "Red pen circle drawn around the chosen score."
+      },
+      {
+        "name": "holo-shine",
+        "value": "900ms ease-physical on @property --shine (0% -> 100%)",
+        "purpose": "Shine sweep across the Platinado foil on card hover/focus."
+      },
+      {
+        "name": "view-transition",
+        "value": "group 380ms ease-physical; root cross-fade 120ms",
+        "purpose": "Per-card view-transition-name so each card travels on sort, filter, delete and undo."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "all animations and transitions 1ms; scrollIntoView instant",
+        "purpose": "prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "xs",
+        "value": "420px"
+      },
+      {
+        "name": "sm",
+        "value": "480px"
+      },
+      {
+        "name": "compact-wall",
+        "value": "559px"
+      },
+      {
+        "name": "sheet-compact",
+        "value": "560px"
+      },
+      {
+        "name": "reader-stack",
+        "value": "600px"
+      },
+      {
+        "name": "md",
+        "value": "720px"
+      },
+      {
+        "name": "editor-wide",
+        "value": "1024px"
+      },
+      {
+        "name": "shell-max",
+        "value": "1480px"
+      }
+    ],
+    "wallPhysics": {
+      "source": "src/app/core/wall-physics.ts",
+      "hash": "FNV-1a of the review id, splitmix32 per draw",
+      "tilt": "sign * (0.8 + r * 2.6) deg, rounded to 0.1; never straight",
+      "pinX": "40-60% of card width",
+      "pinColors": [
+        "#e62e2d",
+        "#ffd23f",
+        "#2f6bff",
+        "#1fb65a",
+        "#f4f4f0",
+        "#ff7a1a"
+      ],
+      "dropY": "0-14px (halved at 559px and below)",
+      "hover": "tilt x0.35, translate 0 -3px, shadow-lift, origin at the pin",
+      "compactTilt": "tilt x0.55 at 559px and below"
+    },
+    "stockRotation": {
+      "source": "src/app/core/review.ts, src/app/core/review-store.ts",
+      "order": [
+        "rosa",
+        "verde",
+        "amarelo",
+        "azul",
+        "laranja",
+        "lilas"
+      ],
+      "rule": "Assigned once at creation, continuing from the most recent review; persisted on the review; imports without a stock are backfilled with the same rotation."
+    },
+    "rasterSlots": [
+      {
+        "file": "public/textures/parede-eucatex.png",
+        "bodyClass": "has-wall-texture",
+        "status": "planned, not shipped",
+        "tile": "520px",
+        "fallback": "radial-gradient hole grid (26px pitch, lit lower rim) + 300px fractal-noise fibre at 5% + fluorescent falloff"
+      },
+      {
+        "file": "public/textures/cartolina.png",
+        "bodyClass": "has-paper-texture",
+        "status": "planned, not shipped",
+        "tile": "360px",
+        "fallback": "--paper-grain: 220px fractal-noise SVG multiplied over the stock colour"
+      },
+      {
+        "file": "public/textures/tachinhas.png",
+        "bodyClass": "has-pins",
+        "status": "planned, not shipped",
+        "tile": "192x32 sprite, 6 frames of 32px in pin palette order",
+        "fallback": "layered radial-gradient base, head and specular dot"
+      },
+      {
+        "file": "public/textures/holografico.png",
+        "bodyClass": "has-holo",
+        "status": "planned, not shipped",
+        "tile": "180px via --holo-foil",
+        "fallback": "62deg diffraction lines over a pastel spectrum gradient"
+      },
+      {
+        "file": "public/textures/fita-crepe.png",
+        "bodyClass": "has-tape",
+        "status": "planned, not shipped",
+        "tile": "stretched to the 54x20px tape piece",
+        "fallback": "flat rgb(222 205 160 / 0.82) with a 1px drop shadow"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Cartolina Button (blank-card stack)",
+      "kind": "button",
+      "refersTo": "button-cartolina-stack",
+      "description": "Primary action on the wall: a neon pink cartolina card fanned over two blank sheets.",
+      "html": "<div class=\"ds-stack-wrap\"><span class=\"ds-stack\"><button type=\"button\" class=\"ds-btn-cartolina\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg> Pregar resenha</button></span></div>",
+      "css": ".ds-stack-wrap { padding: 28px; background-color: var(--wall, #1b1c1f); background-image: radial-gradient(circle at 50% 44%, #0a0a0c 0 3.1px, transparent 3.6px), radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px); background-size: 26px 26px; background-position: 13px 13px; } .ds-stack { position: relative; display: inline-flex; isolation: isolate; } .ds-stack::before, .ds-stack::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: 2px; box-shadow: var(--shadow-card, 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6)); transition: rotate 380ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)), translate 380ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)); } .ds-stack::before { background: var(--stock-verde, #5cf08a); rotate: 5deg; translate: 6px 3px; } .ds-stack::after { background: var(--stock-azul, #5ec8ff); rotate: -4deg; translate: -5px 5px; } .ds-stack:hover::before { rotate: 9deg; translate: 10px 2px; } .ds-stack:hover::after { rotate: -8deg; translate: -9px 6px; } .ds-btn-cartolina { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 60px; padding: 14px 26px 13px 20px; border: 0; border-radius: 2px; background-color: var(--stock-rosa, #ff5fa2); background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); background-blend-mode: multiply; color: var(--ink, #151515); font-family: var(--f-marker, 'Permanent Marker', 'Comic Sans MS', cursive); font-size: 1.35rem; line-height: 1; cursor: pointer; box-shadow: var(--shadow-card, 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6)); transition: transform 380ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)), box-shadow 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)); } .ds-btn-cartolina:hover { transform: rotate(-1.2deg) translateY(-2px); box-shadow: var(--shadow-lift, 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65)); } .ds-btn-cartolina:active { transform: translateY(1px); } .ds-btn-cartolina:focus-visible { outline: 3px solid var(--hi, #ffe94a); outline-offset: 3px; }"
+    },
+    {
+      "name": "Ink Button",
+      "kind": "button",
+      "refersTo": "button-ink",
+      "description": "The action that completes a sheet: marker-black block with hi-vis marker lettering; danger variant in deep red.",
+      "html": "<div class=\"ds-ink-wrap\"><button type=\"button\" class=\"ds-btn-ink\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 17v5\"/><path d=\"M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z\"/></svg> Pregar no mural</button><button type=\"button\" class=\"ds-btn-ink ds-danger\">Descartar</button></div>",
+      "css": ".ds-ink-wrap { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; background: var(--stock-amarelo, #ffe94a); } .ds-btn-ink { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; padding: 10px 20px 9px; border: 0; border-radius: 3px; background: var(--ink, #151515); color: var(--hi, #ffe94a); font-family: var(--f-marker, 'Permanent Marker', 'Comic Sans MS', cursive); font-size: 1.15rem; line-height: 1; cursor: pointer; box-shadow: 0 6px 12px -4px rgb(0 0 0 / 0.35); transition: transform 380ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)), background-color 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)); } .ds-btn-ink:hover { transform: translateY(-2px) rotate(-1deg); } .ds-btn-ink:active { transform: translateY(1px); } .ds-btn-ink:focus-visible { outline: 3px solid var(--ink, #151515); outline-offset: 3px; } .ds-btn-ink.ds-danger { background: var(--red-deep, #b81d1c); color: #fff; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Secondary action on the wall or a sheet: printed uppercase label with a neutral hover tint.",
+      "html": "<div class=\"ds-quiet-wrap\"><button type=\"button\" class=\"ds-btn-quiet\">Ajustes e backup</button></div>",
+      "css": ".ds-quiet-wrap { padding: 12px; background: var(--wall, #1b1c1f); } .ds-btn-quiet { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--wall-ink, #f1f1ec); font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 0.98rem; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; transition: background-color 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)); } .ds-btn-quiet:hover { background: rgb(127 127 127 / 0.16); } .ds-btn-quiet:focus-visible { outline: 3px solid var(--hi, #ffe94a); outline-offset: 3px; border-radius: 4px; }"
+    },
+    {
+      "name": "Shelf Tabs on the Gondola Rail",
+      "kind": "nav",
+      "refersTo": "plate",
+      "description": "Filter and sort controls: chamfered shelf-divider tabs on an aluminium rail; the active tab is hi-vis yellow and stands up 4px.",
+      "html": "<div class=\"ds-shelf-wrap\"><div class=\"ds-shelf\"><div class=\"ds-group\" role=\"group\" aria-labelledby=\"ds-g1\"><span class=\"ds-group-label\" id=\"ds-g1\">Mostrar</span><div class=\"ds-plates\"><button type=\"button\" class=\"ds-plate\" aria-pressed=\"true\">Todos <span class=\"ds-count\">8</span></button><button type=\"button\" class=\"ds-plate\" aria-pressed=\"false\">Incompleto <span class=\"ds-count\">3</span></button><button type=\"button\" class=\"ds-plate\" aria-pressed=\"false\">Platinado <span class=\"ds-count\">2</span></button></div></div></div></div>",
+      "css": ".ds-shelf-wrap { padding: 16px 16px 28px; background: var(--wall, #1b1c1f); } .ds-shelf { position: relative; display: flex; align-items: flex-end; padding: 0 14px; } .ds-shelf::after { content: ''; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px; border-radius: 1px; background: #6c6e76; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 -2px 0 rgb(0 0 0 / 0.3), 0 6px 10px -3px rgb(0 0 0 / 0.6); } .ds-group { display: grid; gap: 6px; } .ds-group-label { font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--wall-ink-2, #b8b8ae); } .ds-plates { display: flex; flex-wrap: wrap; gap: 6px; } .ds-plate { --tab: #3b3c43; --tab-ink: var(--plate-ink, #e9e9e2); position: relative; isolation: isolate; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 7px 16px 6px; border: 0; background: none; color: var(--tab-ink); font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 0.98rem; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1; white-space: nowrap; cursor: pointer; transition: translate 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)), color 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)); } .ds-plate::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--tab); clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 100%, 0 100%); transition: background-color 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)); } .ds-plate .ds-count { font-weight: 600; opacity: 0.72; font-variant-numeric: tabular-nums; } .ds-plate:hover { --tab: #4d4e57; translate: 0 -2px; } .ds-plate[aria-pressed='true'] { --tab: var(--hi, #ffe94a); --tab-ink: var(--ink, #151515); translate: 0 -4px; } .ds-plate:focus-visible { outline: 3px solid var(--hi, #ffe94a); outline-offset: 3px; border-radius: 2px; }"
+    },
+    {
+      "name": "Taped Search Strip",
+      "kind": "input",
+      "refersTo": "search-strip",
+      "description": "Search on the wall: a receipt-paper strip held by masking tape, tilted -0.6deg, with a hi-vis focus ring.",
+      "html": "<div class=\"ds-search-wrap\"><div class=\"ds-search\"><span class=\"ds-tape ds-tape-l\" aria-hidden=\"true\"></span><span class=\"ds-tape ds-tape-r\" aria-hidden=\"true\"></span><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input type=\"search\" placeholder=\"Procurar no mural…\" aria-label=\"Procurar no mural\" /><kbd aria-hidden=\"true\">/</kbd></div></div>",
+      "css": ".ds-search-wrap { padding: 24px 28px 20px; background-color: var(--wall, #1b1c1f); background-image: radial-gradient(circle at 50% 44%, #0a0a0c 0 3.1px, transparent 3.6px), radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px); background-size: 26px 26px; background-position: 13px 13px; } .ds-search { position: relative; max-width: 620px; display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 12px 0 14px; background: var(--paper, #f6f6f1); color: var(--ink, #151515); border-radius: 2px; rotate: -0.6deg; box-shadow: var(--shadow-card, 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6)); } .ds-search:focus-within { box-shadow: 0 0 0 3px var(--hi, #ffe94a), var(--shadow-card, 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6)); } .ds-search input { flex: 1; min-width: 0; height: 48px; border: 0; background: transparent; outline: none; color: var(--ink, #151515); font-family: var(--f-ui, 'Barlow', system-ui, sans-serif); font-weight: 500; font-size: 1.05rem; caret-color: var(--red, #e62e2d); } .ds-search input::placeholder { color: rgb(21 21 21 / 0.55); } .ds-tape { position: absolute; top: -9px; width: 54px; height: 20px; background: rgb(222 205 160 / 0.82); box-shadow: 0 1px 1px rgb(0 0 0 / 0.2); } .ds-tape-l { left: -14px; rotate: -28deg; } .ds-tape-r { right: -14px; rotate: 24deg; } .ds-search kbd { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.35); color: rgb(21 21 21 / 0.6); font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 0.9rem; }"
+    },
+    {
+      "name": "Price-gun Status Labels",
+      "kind": "chip",
+      "refersTo": "status-label-finalizado",
+      "description": "Completion status as price-gun stickers; Platinado is holographic foil (the CSS fallback that ships today).",
+      "html": "<div class=\"ds-status-row\"><span class=\"ds-status\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10.1 2.182a10 10 0 0 1 3.8 0\"/><path d=\"M13.9 21.818a10 10 0 0 1-3.8 0\"/><path d=\"M17.609 3.721a10 10 0 0 1 2.69 2.7\"/><path d=\"M2.182 13.9a10 10 0 0 1 0-3.8\"/><path d=\"M20.279 17.609a10 10 0 0 1-2.7 2.69\"/><path d=\"M21.818 10.1a10 10 0 0 1 0 3.8\"/><path d=\"M3.721 6.391a10 10 0 0 1 2.7-2.69\"/><path d=\"M6.391 20.279a10 10 0 0 1-2.69-2.7\"/></svg>Incompleto</span><span class=\"ds-status ds-finalizado\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21.801 10A10 10 0 1 1 17 3.335\"/><path d=\"m9 11 3 3L22 4\"/></svg>Finalizado</span><span class=\"ds-status ds-platinado\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 9H4.5a2.5 2.5 0 0 1 0-5H6\"/><path d=\"M18 9h1.5a2.5 2.5 0 0 0 0-5H18\"/><path d=\"M4 22h16\"/><path d=\"M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22\"/><path d=\"M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22\"/><path d=\"M18 2H6v7a6 6 0 0 0 12 0V2Z\"/></svg>Platinado</span></div>",
+      "css": ".ds-status-row { display: flex; flex-wrap: wrap; gap: 14px; padding: 18px; background: var(--stock-lilas, #c9a4ff); } .ds-status { --stripe: #ff8a1f; position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px 5px; background: linear-gradient(var(--stripe), var(--stripe)) top 3px left 0 / 100% 1.5px no-repeat, linear-gradient(var(--stripe), var(--stripe)) bottom 3px left 0 / 100% 1.5px no-repeat, var(--paper, #f6f6f1); border-radius: 2px; color: #5a2a00; font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 0.86rem; letter-spacing: 0.09em; text-transform: uppercase; line-height: 1; box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.3); rotate: -2.5deg; } .ds-status.ds-finalizado { --stripe: #10a64a; color: #0d3b1f; } .ds-status.ds-platinado { color: #16162b; background: linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.9) 45%, transparent 60%) -60% 0 / 220% 100% no-repeat, repeating-linear-gradient(62deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 4px), linear-gradient(100deg, #b6f0ff, #f7b8ff 22%, #fff3a6 42%, #a8ffd6 62%, #b9c9ff 80%, #ffc2e2); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.7), inset 0 -1px 0 rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.35); transition: background-position 900ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)); } .ds-status.ds-platinado:hover { background-position: 100% 0, 0 0, 0 0; }"
+    },
+    {
+      "name": "Price Starburst",
+      "kind": "custom",
+      "refersTo": "score-burst",
+      "description": "The final score on a hand-cut red 18-point price star; the only place the italic price numeral appears.",
+      "html": "<div class=\"ds-burst-wrap\"><span class=\"ds-burst\" role=\"img\" aria-label=\"Nota final 9 de 10\"><svg viewBox=\"0 0 100 100\" aria-hidden=\"true\"><polygon points=\"50.0,2.0 56.4,13.6 66.9,3.5 68.9,17.2 80.2,14.0 77.9,26.6 93.3,25.0 85.9,36.9 95.8,41.9 86.1,50.0 97.8,58.4 85.1,62.8 92.4,74.5 78.8,74.2 79.6,85.2 67.9,81.0 66.9,96.5 56.6,87.3 50.0,97.5 43.6,86.1 32.9,97.0 30.9,83.1 19.8,86.0 22.1,73.4 8.0,74.3 14.9,62.8 4.2,58.1 13.9,50.0 1.7,41.5 14.7,37.1 8.4,26.0 21.7,26.2 19.8,14.0 31.8,18.5 33.1,3.5 43.4,12.7\"/></svg><span class=\"ds-burst-value\" aria-hidden=\"true\">9<small>/10</small></span></span></div>",
+      "css": ".ds-burst-wrap { display: inline-block; padding: 20px; background: var(--stock-amarelo, #ffe94a); } .ds-burst { position: relative; display: inline-grid; place-items: center; width: 76px; height: 76px; rotate: -9deg; filter: drop-shadow(1px 3px 2px rgb(0 0 0 / 0.35)); } .ds-burst svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; } .ds-burst polygon { fill: var(--red, #e62e2d); stroke: var(--ink, #151515); stroke-width: 2.6; stroke-linejoin: round; paint-order: stroke; } .ds-burst .ds-burst-value { position: relative; display: flex; align-items: baseline; color: #fff; font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-style: italic; font-weight: 800; font-size: 2.1rem; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 var(--red-deep, #b81d1c); } .ds-burst small { font-size: 0.42em; margin-left: 1px; opacity: 0.92; }"
+    },
+    {
+      "name": "Review Card",
+      "kind": "card",
+      "refersTo": "review-card",
+      "description": "Signature object: a tilted neon cartolina card with pin, sleeved cover, starburst, dotted sub-scores, handwritten excerpt and status label; swings around its pin on hover and focus.",
+      "html": "<div class=\"ds-wall\"><article class=\"ds-card\" tabindex=\"0\" style=\"--tilt:-2.1;--pin-x:46%\"><span class=\"ds-pin ds-card-pin\" style=\"--pin:#ff7a1a\" aria-hidden=\"true\"><span class=\"ds-pin-base\"></span><span class=\"ds-pin-head\"></span></span><div class=\"ds-cover-wrap\"><div class=\"ds-sleeve\"><div class=\"ds-frame\"><div class=\"ds-blank\"><span class=\"ds-initial\">H</span><span class=\"ds-note\">sem capa</span></div></div></div><span class=\"ds-card-burst\"><span class=\"ds-burst\" role=\"img\" aria-label=\"Nota final 9 de 10\"><svg viewBox=\"0 0 100 100\" aria-hidden=\"true\"><polygon points=\"50.0,2.0 56.4,13.6 66.9,3.5 68.9,17.2 80.2,14.0 77.9,26.6 93.3,25.0 85.9,36.9 95.8,41.9 86.1,50.0 97.8,58.4 85.1,62.8 92.4,74.5 78.8,74.2 79.6,85.2 67.9,81.0 66.9,96.5 56.6,87.3 50.0,97.5 43.6,86.1 32.9,97.0 30.9,83.1 19.8,86.0 22.1,73.4 8.0,74.3 14.9,62.8 4.2,58.1 13.9,50.0 1.7,41.5 14.7,37.1 8.4,26.0 21.7,26.2 19.8,14.0 31.8,18.5 33.1,3.5 43.4,12.7\"/></svg><span class=\"ds-burst-value\" aria-hidden=\"true\">9<small>/10</small></span></span></span></div><h3 class=\"ds-title\">Hollow Knight</h3><p class=\"ds-meta\">2017 · 19 de set de 2026</p><dl class=\"ds-subs\"><div class=\"ds-row\"><dt>História</dt><dd>7</dd></div><div class=\"ds-row\"><dt>Diversão</dt><dd>10</dd></div><div class=\"ds-row\"><dt>Gráfico</dt><dd>9</dd></div></dl><p class=\"ds-excerpt\">Difícil pra caramba e lindo de doer. O mapa é um labirinto que dá vontade de desenhar num caderno.</p><div class=\"ds-tags\"><span class=\"ds-status ds-platinado\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 9H4.5a2.5 2.5 0 0 1 0-5H6\"/><path d=\"M18 9h1.5a2.5 2.5 0 0 0 0-5H18\"/><path d=\"M4 22h16\"/><path d=\"M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22\"/><path d=\"M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22\"/><path d=\"M18 2H6v7a6 6 0 0 0 12 0V2Z\"/></svg>Platinado</span></div></article></div>",
+      "css": ".ds-wall { padding: 36px 44px 40px; background-color: var(--wall, #1b1c1f); background-image: radial-gradient(circle at 50% 44%, #0a0a0c 0 3.1px, transparent 3.6px), radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px); background-size: 26px 26px; background-position: 13px 13px; } .ds-card { position: relative; display: flex; flex-direction: column; width: 260px; padding: 22px 16px 16px; border-radius: 2px; background-color: var(--stock-verde, #5cf08a); background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); background-blend-mode: multiply; color: var(--ink, #151515); box-shadow: var(--shadow-card, 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6)); rotate: calc(var(--tilt) * 1deg); transform-origin: var(--pin-x) 14px; transition: rotate 380ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)), translate 380ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)), box-shadow 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)); outline: none; } .ds-card:hover, .ds-card:focus-visible { rotate: calc(var(--tilt) * 0.35deg); translate: 0 -3px; box-shadow: var(--shadow-lift, 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65)); } .ds-card:focus-visible { outline: 3px solid var(--hi, #ffe94a); outline-offset: 6px; } .ds-card:hover .ds-platinado, .ds-card:focus-visible .ds-platinado { background-position: 100% 0, 0 0, 0 0; } .ds-card-pin { top: -9px; left: calc(var(--pin-x) - 13px); } .ds-cover-wrap { position: relative; margin-bottom: 12px; } .ds-sleeve { position: relative; padding: 5px; border-radius: 3px; background: rgb(255 255 255 / 0.22); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.55), 0 1px 2px rgb(0 0 0 / 0.25); } .ds-sleeve::after { content: ''; position: absolute; inset: 0; border-radius: 3px; pointer-events: none; background: linear-gradient(118deg, transparent 30%, rgb(255 255 255 / 0.28) 38%, transparent 47%), linear-gradient(118deg, transparent 52%, rgb(255 255 255 / 0.12) 56%, transparent 61%); } .ds-frame { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 1px; background: #101012; } .ds-blank { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 4px; background: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.04) 0 8px, transparent 8px 16px), #17171a; color: var(--stock-verde, #5cf08a); } .ds-initial { font-family: var(--f-marker, 'Permanent Marker', 'Comic Sans MS', cursive); font-size: 4.2rem; line-height: 1; } .ds-note { font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 0.8rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--wall-ink-2, #b8b8ae); } .ds-card-burst { position: absolute; right: -22px; bottom: -18px; } .ds-title { margin: 0; padding-right: 36px; font-family: var(--f-marker, 'Permanent Marker', 'Comic Sans MS', cursive); font-weight: 400; font-size: 1.32rem; line-height: 1.12; letter-spacing: 0.005em; text-wrap: balance; } .ds-meta { margin: 4px 0 0; font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 600; font-size: 0.86rem; letter-spacing: 0.04em; text-transform: uppercase; color: rgb(21 21 21 / 0.78); } .ds-subs { margin: 12px 0 0; display: grid; gap: 1px; } .ds-row { display: flex; align-items: baseline; gap: 6px; } .ds-row::after { content: ''; order: 1; flex: 1; border-bottom: 2px dotted rgb(21 21 21 / 0.35); translate: 0 -4px; } .ds-row dt { order: 0; font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 0.86rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgb(21 21 21 / 0.78); } .ds-row dd { order: 2; margin: 0; min-width: 1.4ch; text-align: right; font-family: var(--f-marker, 'Permanent Marker', 'Comic Sans MS', cursive); font-size: 1.2rem; line-height: 1.1; font-variant-numeric: tabular-nums; } .ds-excerpt { margin: 10px 0 0; font-family: var(--f-hand, 'Kalam', 'Segoe Print', cursive); font-size: 1.02rem; line-height: 1.38; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; } .ds-tags { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; } .ds-burst { position: relative; display: inline-grid; place-items: center; width: 76px; height: 76px; rotate: -9deg; filter: drop-shadow(1px 3px 2px rgb(0 0 0 / 0.35)); } .ds-burst svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; } .ds-burst polygon { fill: var(--red, #e62e2d); stroke: var(--ink, #151515); stroke-width: 2.6; stroke-linejoin: round; paint-order: stroke; } .ds-burst .ds-burst-value { position: relative; display: flex; align-items: baseline; color: #fff; font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-style: italic; font-weight: 800; font-size: 2.1rem; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 var(--red-deep, #b81d1c); } .ds-burst small { font-size: 0.42em; margin-left: 1px; opacity: 0.92; } .ds-pin { --pin: #e62e2d; --pin-dark: color-mix(in oklab, var(--pin), black 38%); position: absolute; width: 26px; height: 26px; pointer-events: none; z-index: 3; } .ds-pin .ds-pin-base, .ds-pin .ds-pin-head { position: absolute; border-radius: 50%; } .ds-pin .ds-pin-base { inset: 0; background: radial-gradient(circle at 50% 50%, transparent 52%, rgb(0 0 0 / 0.18) 53% 58%, transparent 60%), radial-gradient(circle at 38% 32%, color-mix(in oklab, var(--pin), white 30%), var(--pin) 45%, var(--pin-dark)); box-shadow: 2px 5px 3px -1px rgb(0 0 0 / 0.45), 5px 10px 10px -2px rgb(0 0 0 / 0.25); } .ds-pin .ds-pin-head { inset: 6px; background: radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.85) 0 14%, transparent 34%), radial-gradient(circle at 50% 45%, color-mix(in oklab, var(--pin), white 12%), var(--pin-dark) 95%); box-shadow: inset 0 -1px 2px rgb(0 0 0 / 0.35), 0 1px 1px rgb(0 0 0 / 0.3); } .ds-status { --stripe: #ff8a1f; position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px 5px; background: linear-gradient(var(--stripe), var(--stripe)) top 3px left 0 / 100% 1.5px no-repeat, linear-gradient(var(--stripe), var(--stripe)) bottom 3px left 0 / 100% 1.5px no-repeat, var(--paper, #f6f6f1); border-radius: 2px; color: #5a2a00; font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 0.86rem; letter-spacing: 0.09em; text-transform: uppercase; line-height: 1; box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.3); rotate: -2.5deg; } .ds-status.ds-finalizado { --stripe: #10a64a; color: #0d3b1f; } .ds-status.ds-platinado { color: #16162b; background: linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.9) 45%, transparent 60%) -60% 0 / 220% 100% no-repeat, repeating-linear-gradient(62deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 4px), linear-gradient(100deg, #b6f0ff, #f7b8ff 22%, #fff3a6 42%, #a8ffd6 62%, #b9c9ff 80%, #ffc2e2); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.7), inset 0 -1px 0 rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.35); transition: background-position 900ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)); } .ds-status.ds-platinado:hover { background-position: 100% 0, 0 0, 0 0; }"
+    },
+    {
+      "name": "Score Picker",
+      "kind": "input",
+      "refersTo": "score-option",
+      "description": "Scores 0-10 written in marker on the sheet; the chosen digit turns deep red and gets a red pen circle.",
+      "html": "<fieldset class=\"ds-score\"><legend>Nota final</legend><div class=\"ds-nums\"><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"0\" aria-label=\"0 de 10\" /><span aria-hidden=\"true\">0</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"1\" aria-label=\"1 de 10\" /><span aria-hidden=\"true\">1</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"2\" aria-label=\"2 de 10\" /><span aria-hidden=\"true\">2</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"3\" aria-label=\"3 de 10\" /><span aria-hidden=\"true\">3</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"4\" aria-label=\"4 de 10\" /><span aria-hidden=\"true\">4</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"5\" aria-label=\"5 de 10\" /><span aria-hidden=\"true\">5</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"6\" aria-label=\"6 de 10\" /><span aria-hidden=\"true\">6</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"7\" aria-label=\"7 de 10\" /><span aria-hidden=\"true\">7</span></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"8\" aria-label=\"8 de 10\" /><span aria-hidden=\"true\">8</span></label><label class=\"ds-num ds-on\"><input type=\"radio\" name=\"ds-nota\" value=\"9\" checked aria-label=\"9 de 10\" /><span aria-hidden=\"true\">9</span><svg viewBox=\"0 0 60 50\" aria-hidden=\"true\"><path d=\"M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7\" /></svg></label><label class=\"ds-num\"><input type=\"radio\" name=\"ds-nota\" value=\"10\" aria-label=\"10 de 10\" /><span aria-hidden=\"true\">10</span></label></div></fieldset>",
+      "css": ".ds-score { margin: 0; padding: 18px 20px; border: 0; min-width: 0; background: var(--stock-amarelo, #ffe94a); color: var(--ink, #151515); } .ds-score legend { float: left; width: 100%; padding: 0; margin-bottom: 4px; font-family: var(--f-marker, 'Permanent Marker', 'Comic Sans MS', cursive); font-size: 1.25rem; } .ds-nums { clear: both; display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 2px; } .ds-num { position: relative; display: grid; place-items: center; height: 50px; border-radius: 4px; cursor: pointer; font-family: var(--f-marker, 'Permanent Marker', 'Comic Sans MS', cursive); font-size: 1.55rem; line-height: 1; font-variant-numeric: tabular-nums; transition: background-color 160ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)); } .ds-num:hover { background: rgb(255 255 255 / 0.35); } .ds-num:has(input:focus-visible) { outline: 3px solid var(--ink, #151515); outline-offset: 1px; } .ds-num input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; } .ds-on span { color: var(--red-deep, #b81d1c); scale: 1.12; } .ds-num svg { position: absolute; inset: -3px -2px; width: calc(100% + 4px); height: calc(100% + 6px); overflow: visible; pointer-events: none; } .ds-num path { fill: none; stroke: var(--red, #e62e2d); stroke-width: 3.2; stroke-linecap: round; stroke-dasharray: 150; stroke-dashoffset: 150; animation: ds-draw 280ms var(--ease-ui, cubic-bezier(0.2, 0.7, 0.2, 1)) forwards; } @keyframes ds-draw { to { stroke-dashoffset: 0; } }"
+    },
+    {
+      "name": "Receipt Toast (cupom)",
+      "kind": "custom",
+      "refersTo": "toast-cupom",
+      "description": "Confirmation printed as a cash-register receipt with a serrated bottom edge and an optional undo.",
+      "html": "<div class=\"ds-toast-wrap\"><div class=\"ds-cupom\" role=\"status\"><p>“Hades” saiu do mural</p><button type=\"button\">Desfazer</button></div></div>",
+      "css": ".ds-toast-wrap { padding: 20px; background: var(--wall, #1b1c1f); } .ds-cupom { display: inline-flex; align-items: center; gap: 14px; padding: 12px 14px 16px 18px; background: var(--paper, #f6f6f1); color: var(--ink, #151515); -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%; mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%; filter: drop-shadow(0 8px 12px rgb(0 0 0 / 0.5)); animation: ds-print 380ms var(--ease-physical, cubic-bezier(0.16, 1, 0.3, 1)); } .ds-cupom p { margin: 0; font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 1.05rem; letter-spacing: 0.05em; text-transform: uppercase; } .ds-cupom button { min-height: 36px; padding: 6px 12px; border: 0; border-radius: 3px; background: var(--ink, #151515); color: var(--hi, #ffe94a); font-family: var(--f-label, 'Barlow Condensed', 'Arial Narrow', sans-serif); font-weight: 800; font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; } .ds-cupom button:focus-visible { outline: 3px solid var(--hi, #ffe94a); outline-offset: 3px; } @keyframes ds-print { from { clip-path: inset(0 0 100% 0); translate: 0 -8px; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Parede de Locadora",
+    "overview": "The whole app is one wall in a 90s Brazilian game-rental store. The page background is graphite-painted perforated eucatex under fluorescent tubes. Every review is a hand-lettered neon cartolina card: the cover sits in a plastic display sleeve, the final score is on a red price starburst, and the card is pinned slightly crooked with a plastic tachinha. Controls are shop fixtures too. Filters and sorts are printed shelf-divider tabs on a painted aluminium gondola rail. Search is a paper strip taped to the wall with masking tape. Confirmations print out as a cash-register receipt (cupom). Dialogs are large cartolina sheets taken down from the wall.\n\nThe density is a real wall's: a responsive grid of cards with generous row gaps, where the only chrome is the store's own furniture. It is loud on purpose (six neon stocks, marker lettering, a red starburst), but it is loud with order. Stocks rotate in a fixed sequence, tilts are deterministic, and every piece of text a user reads or acts on sits on flat, high-contrast paper in near-black ink. Beauty never gets in the way of reading, filtering or editing. All texture sits behind the ink, never over it.\n\nThis world replaces the category default of a uniform dark grid of cover posters with star ratings. There are no stars, no cover-only tiles and no dark glass cards anywhere.",
+    "keyCharacteristics": [
+      "Graphite eucatex wall (26px hole grid) with a fluorescent light falloff at the top of the page.",
+      "Six neon cartolina stocks that rotate per review, always with near-black marker ink on top.",
+      "Permanent Marker for lettering and score numerals, Kalam for the owner's handwriting, Barlow Condensed for printed labels, Barlow for UI body text.",
+      "Physical objects with real behavior: tachinhas, plastic sleeves, price starbursts, price-gun labels, masking tape, receipt paper.",
+      "Deterministic imperfection: every card has a tilt, pin position, pin colour and drop offset derived from its id, so the mess stays the same between visits.",
+      "One physical motion curve, plus one rebound: the tachinha punching in."
+    ],
+    "rules": [
+      {
+        "name": "The One Ink Rule",
+        "body": "Every piece of readable text on a paper surface is marker black (`ink` or `ink-2`). The six stocks change the paper, never the ink. Only two things are not black: the starburst numeral (white on red) and the chosen score numeral (`red-deep`).",
+        "section": "colors"
+      },
+      {
+        "name": "The Yellow Means State Rule",
+        "body": "Hi-vis yellow on the wall means active or focused: the active tab, the focus ring, the selected option. Do not use it as decoration on the wall. As a paper stock it only appears as a full cartolina surface.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rotation Rule",
+        "body": "Card colour is assigned once, by the fixed stock rotation, and saved with the review. Never pick a stock at random or by score, and never let two neighbours match.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Hands Rule",
+        "body": "Each typeface stands for one hand in the store: the owner's marker (Permanent Marker), the reviewer's pen (Kalam), and the store's printer (Barlow Condensed). Choose the face by who \"wrote\" the text, never for variety. Barlow is only for text that is interface, not artifact.",
+        "section": "typography"
+      },
+      {
+        "name": "The Price Tag Numeral Rule",
+        "body": "The final score is always a Barlow Condensed 800 italic numeral on the red starburst. Every other score is a Permanent Marker numeral. Never swap the two.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tracked Caps Are Printed Rule",
+        "body": "Uppercase with letter-spacing is only for printed store matter: tabs, labels, meta lines, and the labels naming control groups. It never sits above a heading as a decorative kicker.",
+        "section": "typography"
+      },
+      {
+        "name": "The Fluorescent Tube Rule",
+        "body": "All light comes from above. Shadows fall downward (the pin, the only object that stands up off the paper, casts down and to the right). Hover lifts a card toward the light, which means a deeper shadow and 3px of rise, never a glow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Paper Is Opaque Rule",
+        "body": "Cards, sheets and strips are solid paper. The only translucent material is the cover sleeve's plastic, and the dialog backdrop dims the wall to `rgb(8 8 10 / 0.72)` with no blur.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** put every review on a cartolina stock from the fixed rotation (`rosa → verde → amarelo → azul → laranja → lilas`), saved on the review, and set all text on it in marker black.",
+      "**Do** derive tilt (±0.8°–3.4°, never 0), pin x (40–60%), pin colour and drop offset (0–14px) from the review id with the wall-physics hash, so the wall looks the same on every visit.",
+      "**Do** rotate cards around their own pin (`transform-origin` at the pin) on hover and focus, reducing the tilt to 35% and lifting 3px with `--shadow-lift`.",
+      "**Do** show the final score only on the red price starburst (Barlow Condensed 800 italic) and every other score as a Permanent Marker numeral.",
+      "**Do** use hi-vis yellow (`hi`) for active tabs, focus rings (3px, 3px offset) and the selected option, and for nothing decorative on the wall.",
+      "**Do** build new controls as store fixtures that already exist in this world: a shelf tab on the rail, a paper strip, a price-gun label, a receipt, an ink or cartolina button.",
+      "**Do** keep motion on the two curves (380ms physical, 160ms UI) and keep the tachinha punch as the only rebound.",
+      "**Do** keep the wall two columns wide at 559px and below; compact cards drop the excerpt instead of collapsing to one column.",
+      "**Do** keep the procedural fallback for every raster slot, and add rasters only through their body class after the file has loaded."
+    ],
+    "donts": [
+      "**Don't** turn the wall into a uniform dark grid of cover posters with star ratings; the cover always sits in a sleeve on a cartolina card.",
+      "**Don't** set readable text directly on a raster or on the wall pattern without a paper surface, except the few chalk labels (`wall-ink`, `wall-ink-2`) that belong to the wall itself.",
+      "**Don't** use frosted glass, backdrop blur, glows or coloured shadows; the cover sleeve's clear plastic is the only translucent material, light comes from the fluorescent tubes above, and shadows are neutral black.",
+      "**Don't** add a seventh stock, colour a card by its score, or choose a stock at random at render time.",
+      "**Don't** put tracked uppercase kickers above headings; tracked caps are only for printed store matter and control-group labels.",
+      "**Don't** round paper past 2–3px or give cards pill or large-radius corners; paper is cut, not moulded.",
+      "**Don't** straighten cards to 0deg or animate their tilt while the wall is idle; the tilt is fixed and changes only on hover, focus and landing."
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+<div class="bar" role="search">
+  <div class="search">
+    <span class="tape tape-l" aria-hidden="true"></span>
+    <span class="tape tape-r" aria-hidden="true"></span>
+    <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+    <label for="busca-mural" class="sr-only">Procurar no mural</label>
+    <input
+      #search
+      id="busca-mural"
+      type="search"
+      placeholder="Procurar no mural…"
+      autocomplete="off"
+      enterkeyhint="search"
+      [value]="view.query()"
+      (input)="view.query.set($any($event.target).value)"
+      (keydown)="onSearchKey($event)"
+    />
+    @if (view.query()) {
+      <button type="button" class="clear" (click)="clearSearch()" aria-label="Limpar busca">
+        <lucide-icon [img]="ClearIcon" [size]="18" [strokeWidth]="2.6" />
+      </button>
+    } @else {
+      <kbd aria-hidden="true">/</kbd>
+    }
+  </div>
+
+  <div class="shelf">
+  <div class="group" role="group" aria-labelledby="filtro-rotulo">
+    <span class="group-label" id="filtro-rotulo">Mostrar</span>
+    <div class="plates">
+      <button type="button" class="plate" [attr.aria-pressed]="view.status() === 'todos'" (click)="setStatus('todos')">
+        Todos <span class="count">{{ view.statusCounts().todos }}</span>
+      </button>
+      @for (s of statuses; track s) {
+        <button type="button" class="plate" [attr.aria-pressed]="view.status() === s" (click)="setStatus(s)">
+          {{ statusLabel[s] }} <span class="count">{{ view.statusCounts()[s] }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="group" role="group" aria-labelledby="ordem-rotulo">
+    <span class="group-label" id="ordem-rotulo">Ordenar</span>
+    <div class="plates">
+      @for (s of sorts; track s.key) {
+        <button type="button" class="plate" [attr.aria-pressed]="view.sort() === s.key" (click)="setSort(s.key)">
+          {{ s.label }}
+        </button>
+      }
+      <button
+        type="button"
+        class="plate dir"
+        (click)="flip()"
+        [attr.aria-label]="directionLabel() + '. Inverter ordem'"
+        [title]="directionLabel()"
+      >
+        <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
+      </button>
+    </div>
+  </div>
+
+  <div class="group" role="group" aria-labelledby="fichas-rotulo">
+    <span class="group-label" id="fichas-rotulo">Fichas</span>
+    <div class="plates">
+      <button type="button" class="plate" [attr.aria-pressed]="view.density() === 'completa'" (click)="setDensity('completa')">
+        <lucide-icon [img]="FullIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+        Completas
+      </button>
+      <button type="button" class="plate" [attr.aria-pressed]="view.density() === 'simples'" (click)="setDensity('simples')">
+        <lucide-icon [img]="CompactIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+        Simples
+      </button>
+    </div>
+  </div>
+
+  @if (view.sort() === 'nota') {
+    <div class="group sub" role="group" aria-labelledby="nota-rotulo">
+      <span class="group-label" id="nota-rotulo">Qual nota</span>
+      <div class="plates">
+        @for (k of scoreKeys; track k) {
+          <button type="button" class="plate" [attr.aria-pressed]="view.scoreKey() === k" (click)="setScoreKey(k)">
+            {{ scoreShort[k] }}
+          </button>
+        }
+      </div>
+    </div>
+  }
+  </div>
+</div>

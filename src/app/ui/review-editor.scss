@@ -1,0 +1,369 @@
+@use 'sheet';
+
+.chosen {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.chosen-cover {
+  rotate: -2deg;
+}
+
+.chosen-name {
+  font-family: var(--f-marker);
+  font-size: 1.6rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.chosen-meta {
+  margin-top: 4px;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0 -8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1.02rem;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(255 255 255 / 0.3);
+  }
+}
+
+.col {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-width: 0;
+}
+
+.scores {
+  display: grid;
+  gap: 14px;
+}
+
+.media {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 2px dashed rgb(21 21 21 / 0.22);
+}
+
+.media-burst {
+  flex: none;
+}
+
+
+/* Fonte da capa: um interruptor de texto discreto, sem chamar atenção */
+.cover-src {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  margin-top: 8px;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  button {
+    min-height: 28px;
+    padding: 2px 4px;
+    border: 0;
+    border-radius: 3px;
+    background: none;
+    color: var(--ink-2);
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      color: var(--ink);
+      background: rgb(255 255 255 / 0.3);
+    }
+
+    &.on {
+      color: var(--ink);
+      font-weight: 800;
+      text-decoration: underline 2px var(--red);
+      text-underline-offset: 4px;
+      cursor: default;
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.cover-busy {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgb(21 21 21 / 0.2);
+  border-top-color: var(--ink);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.cover-error {
+  margin-top: 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #6b0000;
+}
+
+.when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+}
+
+.hours {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink);
+
+  &:focus-within {
+    box-shadow:
+      inset 0 0 0 3px var(--ink),
+      0 0 0 4px var(--focus);
+  }
+
+  input {
+    width: 5.5ch;
+    height: 42px;
+    border: 0;
+    background: transparent;
+    outline: none;
+    color: var(--ink);
+    font-family: var(--f-ui);
+    font-weight: 600;
+    font-size: 1.02rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.4);
+    }
+  }
+
+  .unit {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.86rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+}
+
+.subs {
+  display: grid;
+  gap: 10px;
+}
+
+.date-label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.date-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+/* Tira de papel, igual à busca: o seletor nativo do navegador continua disponível */
+input[type='date'] {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  color-scheme: light;
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 1.02rem;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 2px var(--ink);
+  outline: none;
+
+  &:focus-visible {
+    box-shadow:
+      inset 0 0 0 3px var(--ink),
+      0 0 0 4px var(--focus);
+  }
+
+  &::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.8;
+  }
+}
+
+.today {
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.3);
+  }
+}
+
+
+.notes-label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--f-marker);
+  font-size: 1.25rem;
+}
+
+/* Pauta desenhada à mão na própria cartolina */
+textarea {
+  --line: 1.75rem;
+  field-sizing: content;
+  max-height: 22rem;
+  display: block;
+  width: 100%;
+  min-height: calc(var(--line) * 6 + 8px);
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 2px;
+  resize: vertical;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(21 21 21 / 0.22) calc(var(--line) - 2px) var(--line))
+      0 4px,
+    rgb(255 255 255 / 0.28);
+  background-attachment: local;
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.14rem;
+  line-height: var(--line);
+  caret-color: var(--red);
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgb(21 21 21 / 0.25);
+  transition: box-shadow var(--t-ui) var(--ease-ui);
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+
+  &:focus {
+    box-shadow: inset 0 0 0 3px var(--ink);
+  }
+}
+
+.field-error {
+  margin-top: 6px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: #6b0000;
+}
+
+.missing,
+.discard-msg {
+  flex: 1;
+  min-width: 12ch;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 480px) {
+  .chosen {
+    grid-template-columns: 92px 1fr;
+  }
+
+  .chosen-name {
+    font-size: 1.3rem;
+  }
+}
+
+/* Tela larga: a ficha abre em duas colunas e cabe inteira, sem rolagem */
+@media (min-width: 1024px) {
+  dialog.editor {
+    max-width: min(1080px, calc(100vw - 48px));
+  }
+
+  .body {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    column-gap: 40px;
+  }
+
+  .col-b {
+    padding-left: 40px;
+    margin-left: -1px;
+    border-left: 2px dashed rgb(21 21 21 / 0.22);
+  }
+
+  textarea {
+    min-height: calc(var(--line) * 7 + 8px);
+  }
+}
+
+/* "Salvar pra depois": contorno tracejado, o mesmo da estrela ainda por recortar no pendente */
+.later {
+  border: 2px dashed rgb(21 21 21 / 0.45);
+  border-radius: 3px;
+}
+
+/* RAWG escolhida mas ainda com a arte de fundo: clicar de novo tenta a capa da Steam */
+.cover-src button.on.retry {
+  cursor: pointer;
+}
+
+.cover-src .via {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}

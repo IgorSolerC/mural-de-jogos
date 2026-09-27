@@ -1,0 +1,201 @@
+:host {
+  display: block;
+}
+
+/* A tira de busca colada na parede e, embaixo, o trilho da gôndola com as abas */
+.bar {
+  display: grid;
+  gap: 26px;
+}
+
+.shelf {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 30px;
+  padding: 0 14px;
+
+  /* o trilho de alumínio pintado onde as abas ficam encaixadas */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 8px;
+    border-radius: 1px;
+    background: #6c6e76;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      inset 0 -2px 0 rgb(0 0 0 / 0.3),
+      0 6px 10px -3px rgb(0 0 0 / 0.6);
+  }
+}
+
+.search {
+  position: relative;
+  max-width: 620px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 12px 0 14px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 2px;
+  rotate: -0.6deg;
+  box-shadow: var(--shadow-card);
+
+  &:focus-within {
+    box-shadow:
+      0 0 0 3px var(--focus),
+      var(--shadow-card);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 48px;
+    border: 0;
+    background: transparent;
+    outline: none;
+    color: var(--ink);
+    font-weight: 500;
+    font-size: 1.05rem;
+    caret-color: var(--red);
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.55);
+    }
+
+    &::-webkit-search-cancel-button {
+      display: none;
+    }
+  }
+}
+
+.tape {
+  /* fita crepe segurando a tira de papel */
+  position: absolute;
+  top: -9px;
+  width: 54px;
+  height: 20px;
+  background: rgb(222 205 160 / 0.82);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.2);
+}
+
+.tape-l {
+  left: -14px;
+  rotate: -28deg;
+}
+
+.tape-r {
+  right: -14px;
+  rotate: 24deg;
+}
+
+:host-context(body.has-tape) .tape {
+  background: url('/textures/fita-crepe.png') center / 100% 100% no-repeat;
+  box-shadow: none;
+}
+
+.clear {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.1);
+  }
+}
+
+kbd {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.35);
+  color: rgb(21 21 21 / 0.6);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.group {
+  display: grid;
+  gap: 6px;
+}
+
+.group-label {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wall-ink);
+  opacity: 0.86;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.plates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dir {
+  padding-inline: 10px;
+}
+
+.sub {
+  animation: sub-in var(--t-physical) var(--ease-physical);
+}
+
+@keyframes sub-in {
+  from {
+    opacity: 0;
+    translate: -8px 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .shelf {
+    gap: 16px 18px;
+    padding: 0 8px;
+  }
+
+  .search {
+    max-width: none;
+  }
+
+  kbd {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .group {
+    width: 100%;
+  }
+
+  .plates {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -8px;
+    padding: 6px 8px 0;
+    scrollbar-width: none;
+    scroll-padding-inline: 14px;
+    mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}

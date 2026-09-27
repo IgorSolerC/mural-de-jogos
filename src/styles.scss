@@ -1,0 +1,421 @@
+/* Mural de Jogos: parede de locadora. Tokens globais e materiais. */
+
+:root {
+  /* Parede: eucatex perfurado pintado de grafite */
+  --wall: #1b1c1f;
+  --wall-hole: #0a0a0c;
+  --wall-ink: #f1f1ec;
+  --wall-ink-2: #b8b8ae;
+
+  /* Cartolinas neon */
+  --stock-rosa: #ff5fa2;
+  --stock-amarelo: #ffe94a;
+  --stock-verde: #5cf08a;
+  --stock-laranja: #ff9f45;
+  --stock-azul: #5ec8ff;
+  --stock-lilas: #c9a4ff;
+
+  /* Tintas */
+  --ink: #151515;
+  --ink-2: rgb(21 21 21 / 0.78);
+  --red: #e62e2d;
+  --red-deep: #b81d1c;
+  --paper: #f6f6f1;
+  --hi: #ffe94a;
+
+  /* Abas de divisória: plástico cinza-claro, ativa em amarelo */
+  --tab-plastic: #d3d4cf;
+  --tab-plastic-hover: #e6e7e2;
+
+  /* Anel de foco: amarelo sobre a parede, tinta preta sobre cartolina */
+  --focus: var(--hi);
+
+  /* Sombras: luz fluorescente vinda de cima */
+  --shadow-card: 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6);
+  --shadow-lift: 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65);
+
+  /* Tipos */
+  --f-marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+  --f-hand: 'Kalam', 'Segoe Print', cursive;
+  --f-label: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-ui: 'Barlow', system-ui, sans-serif;
+
+  /* Uma só gramática de movimento */
+  --ease-physical: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-physical: 380ms;
+  --ease-ui: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-ui: 160ms;
+
+  --gutter: clamp(16px, 4vw, 48px);
+
+  /* Papel: fibra procedural (trocar por textures/cartolina.png quando existir) */
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  color-scheme: dark;
+  accent-color: var(--hi);
+}
+
+@property --shine {
+  syntax: '<percentage>';
+  inherits: true;
+  initial-value: 0%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-color: #4a4b52 var(--wall);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--wall);
+  color: var(--wall-ink);
+  font-family: var(--f-ui);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* A parede em si: cobre a página inteira, por mais longo que o mural fique */
+body {
+  background-color: var(--wall);
+  background-image:
+    /* luz das lâmpadas fluorescentes caindo de cima */
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(236 244 255 / 0.11), transparent 70%),
+    /* furos do eucatex: borda de baixo levemente iluminada */
+    radial-gradient(circle at 50% 44%, var(--wall-hole) 0 3.1px, transparent 3.6px),
+    radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px),
+    /* fibra e tinta irregular */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 100% 900px, 26px 26px, 26px 26px, 300px 300px;
+  background-position: 0 0, 13px 13px, 13px 13px, 0 0;
+  background-repeat: no-repeat, repeat, repeat, repeat;
+}
+
+/* Quando a textura fotográfica existir, ela substitui furos e fibra */
+body.has-wall-texture {
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(236 244 255 / 0.13), transparent 70%),
+    /* demão de tinta por cima da foto: os furos continuam lá, mas param de gritar */
+    linear-gradient(rgb(24 24 27 / 0.46), rgb(24 24 27 / 0.46)),
+    url('/textures/parede-eucatex.png');
+  background-size: 100% 900px, auto, 560px 560px;
+  background-position: 0 0, 0 0, 0 0;
+  background-repeat: no-repeat, repeat, repeat;
+}
+
+::selection {
+  background: var(--hi);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== Plaquinha de categoria: aba de divisória de prateleira, plástico impresso ===== */
+.plate {
+  --tab: var(--tab-plastic);
+  --tab-ink: var(--ink);
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px 16px 6px;
+  border: 0;
+  background: none;
+  color: var(--tab-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  /* a aba em si: trapézio com cantos de cima chanfrados, cor chapada */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--tab);
+    clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 100%, 0 100%);
+    transition: background-color var(--t-ui) var(--ease-ui);
+  }
+
+  .count {
+    font-weight: 600;
+    opacity: 0.62;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &:hover:not(:disabled) {
+    --tab: var(--tab-plastic-hover);
+    translate: 0 -2px;
+  }
+
+  &[aria-pressed='true'],
+  &[aria-checked='true'],
+  &.is-active {
+    --tab: var(--hi);
+    --tab-ink: var(--ink);
+    translate: 0 -4px;
+
+    .count {
+      opacity: 0.75;
+    }
+  }
+
+  &:focus-visible {
+    border-radius: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+  }
+}
+
+/* ===== Botão cartolina (ação primária) ===== */
+.btn-cartolina {
+  --stock: var(--stock-rosa);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 20px 9px;
+  border: 0;
+  border-radius: 2px;
+  background-color: var(--stock);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1.15rem;
+  line-height: 1;
+  box-shadow: var(--shadow-card);
+  transition:
+    transform var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    transform: rotate(-1.2deg) translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    filter: saturate(0.25) brightness(0.85);
+  }
+}
+
+/* ===== Botão discreto sobre a parede ===== */
+.btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    background: rgb(127 127 127 / 0.16);
+  }
+
+  &.danger {
+    color: var(--red-deep);
+  }
+}
+
+/* ===== Botão de pincel atômico: a ação que conclui dentro de uma ficha ===== */
+.btn-ink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 10px 20px 9px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-marker);
+  font-size: 1.15rem;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 12px -4px rgb(0 0 0 / 0.35);
+  transition:
+    transform var(--t-physical) var(--ease-physical),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &.danger {
+    background: var(--red-deep);
+    color: #fff;
+  }
+}
+
+/* ===== Diálogos (fichas grandes tiradas da parede) ===== */
+dialog.sheet {
+  padding: 0;
+  outline: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  max-width: min(640px, calc(100vw - 24px));
+  width: 100%;
+  max-height: calc(100dvh - 24px);
+  overflow: visible;
+
+  &::backdrop {
+    background: rgb(8 8 10 / 0.72);
+  }
+
+  &[open] {
+    animation: sheet-in var(--t-physical) var(--ease-physical);
+  }
+
+  &[open]::backdrop {
+    animation: fade-in var(--t-ui) var(--ease-ui);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) rotate(-2deg) scale(0.97);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Superfície de cartolina usada por fichas e diálogos */
+.cartolina {
+  --stock: var(--stock-amarelo);
+  --focus: var(--ink);
+  position: relative;
+  background-color: var(--stock);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  /* controles nativos (rádio, data, rolagem) em versão clara sobre o papel */
+  color-scheme: light;
+}
+
+/* Foto do foil holográfico, quando existir */
+body.has-holo {
+  --holo-foil: url('/textures/holografico.png') 0 0 / 180px 180px;
+}
+
+/* Fibra fotográfica centrada em 50% de cinza + soft-light: textura sem encardir a cartolina */
+body.has-paper-texture .cartolina,
+body.has-paper-texture .btn-cartolina {
+  background-image: url('/textures/cartolina-fibra.png');
+  background-size: 420px 420px;
+  background-blend-mode: soft-light;
+}
+
+/* ===== View transitions: cada ficha anda sozinha ao reordenar ===== */
+::view-transition-group(*) {
+  animation-duration: var(--t-physical);
+  animation-timing-function: var(--ease-physical);
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

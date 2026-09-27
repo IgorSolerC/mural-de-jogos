@@ -1,0 +1,124 @@
+{
+  "title": "Escolha o mundo visual do mural",
+  "question": "O sorteio caiu no Mural de Cortiça do Quarto. Fica com ele, pega uma alternativa ou sorteia de novo.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Mural de Cortiça do Quarto",
+      "kicker": "THE ROLL",
+      "lineage": "o quadro de cortiça em cima da escrivaninha de quem joga",
+      "thesis": "Cada resenha é uma ficha pautada de verdade, pregada com tachinha na cortiça, com a capa presa por fita crepe.",
+      "palette": ["#9a6a3f", "#fbfaf6", "#e0515a", "#8fb8e3", "#1e2a4a", "#ffd23f"],
+      "materials": ["cortiça procedural (canvas)", "ficha pautada 3x5", "tachinhas de plástico", "fita washi", "carimbo de borracha", "etiqueta Dymo", "adesivo holográfico"],
+      "viewport": "Etiqueta Dymo 'MEU MURAL' pregada na cortiça, ao lado um bloco de fichas em branco (ação primária: nova resenha); abaixo, filtros como tiras Dymo e o mural de fichas inclinadas.",
+      "risk": "Pode virar fantasia de scrapbook se os detalhes (fibra da cortiça, sombra do pin, pauta) forem tímidos ou genéricos.",
+      "raised": [
+        { "from": "vernacular-ephemera-cassette-j-card", "raise": "As notas ficam alinhadas à direita numa coluna rígida sobre a pauta da ficha; a pauta é a grade tipográfica real (line-height = espaçamento da pauta)." },
+        { "from": "signals-instruments-darkroom-safelight-bay", "raise": "O editor É a ficha: você vê o cartão sendo escrito ao vivo, e 'Pregar no mural' é o momento de commit, com a tachinha entrando." },
+        { "from": "aww2-zoo-gardens-guide-map", "raise": "Uma única gramática de movimento: tudo que se mexe usa a mesma duração e o mesmo overshoot antes de assentar." },
+        { "from": "paper-folds-pleats-deployable-orizuru-crane-sequence", "raise": "Uma única cor de estado ativo (o círculo de caneta vermelha) marca a nota escolhida, o filtro ativo e o foco." }
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Parede de Locadora",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "locadoras brasileiras de videogame dos anos 90",
+      "thesis": "O mural vira a parede da locadora: cartolina neon, estrela de preço e a resenha do dono escrita a pincel atômico.",
+      "palette": ["#ff3d7f", "#ffe600", "#23e07a", "#2a5cff", "#1a1a1a", "#f4f4f0"],
+      "materials": ["cartolina fluorescente", "pincel atômico", "eucatex perfurado", "estrela de preço"],
+      "viewport": "Um cartaz de cartolina neon 'LANÇAMENTOS DO MÊS' no topo, fichas coladas no eucatex perfurado.",
+      "risk": "Nostálgico e barulhento; mais difícil manter leitura calma de textos longos. É também a leitura mais óbvia de 'games + Brasil'."
+    },
+    {
+      "id": "challenger-jcard",
+      "label": "J-card de Fita Cassete",
+      "verdict": "declined",
+      "lineage": "encartes de fita cassete escritos à mão",
+      "thesis": "Cada resenha é o encarte de uma fita gravada, que dobra até virar só a lombada na lista.",
+      "palette": ["#1f3fbf", "#ffffff", "#9aa0a6", "#d62828"],
+      "materials": ["papel de encarte pautado", "caneta esferográfica"],
+      "viewport": "Encartes abertos lado a lado, lado A e lado B com a resenha.",
+      "case": "Funde mal: o público identifica fita com música, não com jogos; o lado A/B não corresponde a nada do produto.",
+      "kept": "Números alinhados à direita numa coluna rígida sobre a pauta.",
+      "risk": "Confunde o assunto do produto."
+    },
+    {
+      "id": "challenger-darkroom",
+      "label": "Laboratório Fotográfico",
+      "verdict": "declined",
+      "lineage": "câmara escura com luz âmbar de segurança",
+      "thesis": "Cada resenha é revelada como uma foto, estação por estação.",
+      "palette": ["#ffb000", "#2a1a0a", "#c0c0c0", "#f5f5f0"],
+      "materials": ["luz âmbar", "papel fotográfico molhado"],
+      "viewport": "Varal de fotos sob luz âmbar.",
+      "case": "Funde mal: âmbar monocromático atrapalha ler capas e notas; o fluxo por estações deixa o registro lento.",
+      "kept": "Pré-visualização ao vivo antes do commit.",
+      "risk": "Lento e escuro demais para uso diário."
+    },
+    {
+      "id": "challenger-zoomap",
+      "label": "Mapa de Zoológico",
+      "verdict": "declined",
+      "lineage": "mapas ilustrados de parques",
+      "thesis": "O acervo como um mapa de áreas de cor chapada.",
+      "palette": ["#8ed462", "#f5f1e4", "#2c2e2a", "#f5e211", "#ff705d"],
+      "materials": ["cor chapada", "costa em SVG"],
+      "viewport": "Uma grande área verde por gênero.",
+      "case": "Funde mal: contradiz os cartões inclinados com pin que você fixou.",
+      "kept": "Uma única gramática de movimento com overshoot.",
+      "risk": "Briga com o briefing."
+    },
+    {
+      "id": "challenger-orizuru",
+      "label": "Tsuru de Origami",
+      "verdict": "declined",
+      "lineage": "sequência de dobras de origami",
+      "thesis": "Cada resenha como uma folha dobrada passo a passo.",
+      "palette": ["#e34234", "#f7f3ea", "#c9a227", "#111111"],
+      "materials": ["washi", "vincos"],
+      "viewport": "Uma folha vermelha centralizada.",
+      "case": "Funde mal: não tem relação com jogos nem com um mural.",
+      "kept": "Uma só cor para o estado ativo.",
+      "risk": "Sem identificação com o público."
+    },
+    {
+      "id": "challenger-quarry",
+      "label": "Pedreira de Nuvens",
+      "verdict": "declined",
+      "lineage": "mundos surreais impossíveis",
+      "thesis": "Resenhas como blocos de clima cortados.",
+      "palette": ["#f4f6f8", "#5aa9e6", "#6b7280", "#c0c0c0"],
+      "materials": ["nuvem volumétrica"],
+      "viewport": "Penhasco de nuvens.",
+      "case": "Funde mal: perde nas duas medidas, identificação e clareza.",
+      "kept": "Medidas em numerais tabulares.",
+      "risk": "Sem relação com o produto."
+    },
+    {
+      "id": "challenger-ascii",
+      "label": "Cena em ASCII",
+      "verdict": "declined",
+      "lineage": "arte ASCII ao vivo",
+      "thesis": "Capas renderizadas em caracteres.",
+      "palette": ["#00ff66", "#000000"],
+      "materials": ["grade monoespaçada", "fósforo"],
+      "viewport": "Grade de glifos verdes.",
+      "case": "Funde mal: destrói as capas, que são o conteúdo principal.",
+      "kept": "Densidade de tinta como tom (hachura nas barras de nota).",
+      "risk": "Ilegível para capas."
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "O padrão da categoria",
+    "thesis": "Grade escura de capas com estrelas, no estilo Backloggd/Letterboxd, executada com capricho.",
+    "palette": ["#14181c", "#2c3440", "#00e054", "#ffffff"],
+    "materials": ["grade limpa", "capas em pôster"],
+    "viewport": "Grade uniforme de capas, filtros numa barra no topo.",
+    "risk": "Indistinguível dos concorrentes, e ignora o mural que você pediu."
+  },
+  "steer": true
+}

@@ -1,0 +1,176 @@
+:host {
+  display: block;
+  position: relative;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--f-marker);
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+/* Tira de papel colada na cartolina */
+.strip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  background: var(--paper);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    0 1px 3px rgb(0 0 0 / 0.2);
+  color: var(--ink);
+
+  &:focus-within {
+    box-shadow:
+      inset 0 0 0 3px var(--ink),
+      0 0 0 3px var(--stock, var(--hi)),
+      0 0 0 6px var(--focus),
+      0 1px 3px rgb(0 0 0 / 0.2);
+  }
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-family: var(--f-ui);
+  font-weight: 500;
+  font-size: 1.08rem;
+  color: var(--ink);
+  caret-color: var(--red);
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid rgb(21 21 21 / 0.2);
+  border-top-color: var(--ink);
+  opacity: 0;
+  transition: opacity var(--t-ui) var(--ease-ui);
+}
+
+.busy .spinner {
+  opacity: 1;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+
+/* A lista entra no fluxo: nunca fica cortada dentro do diálogo */
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  max-height: min(360px, 48dvh);
+  overflow-y: auto;
+  background: var(--paper);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    0 8px 16px -6px rgb(0 0 0 / 0.35);
+  color: var(--ink);
+  overscroll-behavior: contain;
+}
+
+[role='option'] {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+
+  &.active {
+    background: var(--hi);
+  }
+
+  &.manual {
+    grid-template-columns: 44px 1fr;
+    min-height: 48px;
+    border-top: 2px dashed rgb(21 21 21 / 0.2);
+    margin-top: 4px;
+  }
+}
+
+.thumb {
+  width: 44px;
+}
+
+.manual-icon {
+  justify-self: center;
+  display: inline-flex;
+}
+
+.name {
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.year {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+}
+
+.skeleton {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 5px 6px;
+
+  span {
+    height: 50px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgb(21 21 21 / 0.08), rgb(21 21 21 / 0.16), rgb(21 21 21 / 0.08)) 0 0 / 200% 100%;
+    animation: shimmer 1.1s linear infinite;
+  }
+
+  span + span {
+    height: 14px;
+    width: 70%;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}

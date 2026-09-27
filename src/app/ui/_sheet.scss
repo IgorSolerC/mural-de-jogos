@@ -1,0 +1,110 @@
+/* Ficha grande em diálogo: compartilhado por editor, leitura e ajustes. */
+
+.ficha {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 24px);
+  border-radius: 2px;
+  /* aberta, a cartolina vira pastel: a cor cheia fica só na faixa do topo */
+  background-color: color-mix(in oklab, var(--stock) 30%, var(--paper));
+  box-shadow:
+    inset 0 12px 0 var(--stock),
+    var(--shadow-lift);
+}
+
+.pin {
+  top: -11px;
+  left: calc(50% - 13px);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 32px 24px 10px;
+
+  h2 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.9rem;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+}
+
+.icon-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -6px -8px 0 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.12);
+  }
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  padding: 8px 24px 22px;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px 24px 18px;
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn-quiet {
+  color: var(--ink);
+}
+
+@media (max-width: 560px) {
+  .head {
+    padding: 24px 16px 8px;
+
+    h2 {
+      font-size: 1.6rem;
+    }
+  }
+
+  .body {
+    padding: 8px 16px 18px;
+  }
+
+  .foot {
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .actions {
+    width: 100%;
+
+    .btn-ink {
+      flex: 1;
+    }
+  }
+}
