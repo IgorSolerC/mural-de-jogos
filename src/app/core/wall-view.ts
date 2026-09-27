@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
-import { Review, SCORE_KEYS, STATUS_RANK, ScoreKey, Status, fold } from './review';
+import { Review, SCORE_KEYS, SCORE_LABEL, STATUS_RANK, ScoreKey, Status, fold, parseDay } from './review';
 import { ReviewStore } from './review-store';
 
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status';
@@ -41,6 +41,22 @@ function readPrefs(): ViewPrefs {
 }
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
+const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+const STATUS_GROUP: Record<Status, string> = {
+  platinado: 'Platinados',
+  finalizado: 'Finalizados',
+  incompleto: 'Incompletos',
+};
+
+/** Uma seção do mural: fichas vizinhas na ordem atual que dividem a mesma etiqueta. */
+export interface WallGroup {
+  key: string;
+  label: string;
+  summary: string;
+  reviews: Review[];
+}
 
 /** Estado do mural: busca, filtro de status e ordenação. */
 @Injectable({ providedIn: 'root' })
@@ -77,6 +93,29 @@ export class WallView {
     return list.sort(this.comparator());
   });
 
+  /**
+   * O mural agrupado pelo que ordena: mês, faixa de nota, letra ou status. A lista já vem ordenada,
+   * então cada grupo é só uma sequência de fichas com a mesma chave.
+   */
+  readonly groups = computed<WallGroup[]>(() => {
+    const keyOf = this.groupKey();
+    const groups: WallGroup[] = [];
+    for (const r of this.visible()) {
+      const [key, label] = keyOf(r);
+      const last = groups.at(-1);
+      if (last?.key === key) last.reviews.push(r);
+      else groups.push({ key, label, summary: '', reviews: [r] });
+    }
+    const showAvg = this.sort() !== 'nota';
+    for (const g of groups) {
+      const n = g.reviews.length;
+      const parts = [`${n} ${n === 1 ? 'jogo' : 'jogos'}`];
+      if (showAvg && n > 1) parts.push(`média ${avgFmt.format(g.reviews.reduce((s, r) => s + r.scores.final, 0) / n)}`);
+      g.summary = parts.join(' · ');
+    }
+    return groups;
+  });
+
   constructor() {
     effect(() => {
       const prefs: ViewPrefs = {
@@ -106,6 +145,39 @@ export class WallView {
   clearFilters(): void {
     this.query.set('');
     this.status.set('todos');
+  }
+
+  private groupKey(): (r: Review) => [string, string] {
+    switch (this.sort()) {
+      case 'alfabetica':
+        return (r) => {
+          const c = fold(r.game.name.trim()).charAt(0).toUpperCase();
+          return /[A-Z]/.test(c) ? [c, c] : ['num', '#'];
+        };
+      case 'status':
+        return (r) => [r.status, STATUS_GROUP[r.status]];
+      case 'nota': {
+        const k = this.scoreKey();
+        if (k === 'final') {
+          return (r) => {
+            const band = Math.min(9, Math.floor(r.scores.final));
+            if (band < 5) return ['b-low', 'Abaixo de 5'];
+            return [`b${band}`, band === 9 ? '9 ou mais' : `Na casa do ${band}`];
+          };
+        }
+        const name = SCORE_LABEL[k];
+        return (r) => {
+          const v = r.scores[k];
+          return v === null ? ['none', `Sem nota de ${name}`] : [`v${v}`, `${name} ${String(v).replace('.', ',')}`];
+        };
+      }
+      default:
+        return (r) => {
+          const month = r.completedAt.slice(0, 7);
+          const label = monthFmt.format(parseDay(month + '-01'));
+          return [month, label.charAt(0).toUpperCase() + label.slice(1)];
+        };
+    }
   }
 
   private comparator(): (a: Review, b: Review) => number {

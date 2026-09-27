@@ -39,17 +39,69 @@
   }
 }
 
-/* Fichas da mesma fileira têm a mesma altura: o pé de todas se alinha e o mural para de parecer bagunçado */
+/* ===== A parede em seções =====
+   Cada seção é um grupo de fichas pregadas juntas sob uma etiqueta de fita-crepe. As seções correm
+   lado a lado pela parede: um mês com um jogo só não desperdiça uma fileira inteira. Perto dentro
+   da seção, longe entre seções: o agrupamento se lê sem caixa nenhuma em volta. */
 .wall {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
-  gap: 48px 36px;
-  align-items: stretch;
+  --card-w: 232px;
+  --in-gap: 40px 26px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 64px 76px;
 
-  /* fichas simples: mais jogos por fileira */
   &.compact {
-    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-    gap: 40px 28px;
+    --card-w: 184px;
+    --in-gap: 34px 22px;
+  }
+}
+
+.grupo {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 26px;
+}
+
+.grupo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  /* a etiqueta fica alinhada com a primeira ficha, não com a borda da parede */
+  padding-left: 4px;
+}
+
+.grupo:nth-child(even) .tape-label {
+  rotate: 1.2deg;
+}
+
+.grupo:nth-child(3n) .tape-label {
+  rotate: -0.6deg;
+}
+
+.grupo-sum {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+/* fichas da mesma fileira com a mesma altura: o fundo da seção fica reto */
+.fichas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--in-gap);
+
+  app-review-card {
+    width: var(--card-w);
+    max-width: none;
   }
 }
 
@@ -187,10 +239,24 @@
 }
 
 @media (max-width: 559px) {
-  .wall,
-  .wall.compact {
+  .wall {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 48px;
+  }
+
+  .grupo {
+    gap: 20px;
+  }
+
+  .fichas {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 30px 16px;
+
+    app-review-card {
+      width: auto;
+    }
   }
 
   .ghost:nth-of-type(n + 2) {

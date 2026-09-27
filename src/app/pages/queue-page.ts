@@ -14,7 +14,7 @@ import { DraftCard } from '../ui/draft-card';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="head">
-      <h1 class="label">Pra resenhar depois</h1>
+      <h1 class="tape-label big">Pra resenhar depois</h1>
       @if (store.draftCount(); as n) {
         <p class="sub">{{ n }} {{ n === 1 ? 'jogo esperando' : 'jogos esperando' }} a sua opinião</p>
       }
@@ -56,22 +56,6 @@ import { DraftCard } from '../ui/draft-card';
       align-items: center;
       gap: 8px 18px;
       margin-bottom: 30px;
-    }
-    /* etiqueta improvisada: um pedaço de fita-crepe escrito com pincel atômico */
-    .label {
-      padding: 9px 22px 7px;
-      background-color: rgb(222 205 160 / 0.94);
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      color: var(--ink);
-      font-family: var(--f-marker);
-      font-weight: 400;
-      font-size: 1.7rem;
-      line-height: 1.1;
-      rotate: -1.5deg;
-      /* pontas rasgadas com a mão */
-      clip-path: polygon(0 6%, 6px 28%, 1px 50%, 7px 74%, 0 96%, 100% 100%, calc(100% - 5px) 72%, 100% 48%, calc(100% - 7px) 24%, 100% 2%);
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35));
     }
     .sub {
       font-family: var(--f-label);
@@ -142,7 +126,7 @@ import { DraftCard } from '../ui/draft-card';
     }
 
     @media (max-width: 559px) {
-      .label {
+      .tape-label.big {
         font-size: 1.4rem;
       }
       .sheets {

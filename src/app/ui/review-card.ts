@@ -21,6 +21,7 @@ import { StatusLabel } from './status-label';
 import { VerdictStamp } from './verdict';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
 
 
 @Component({
@@ -46,10 +47,12 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       @if (review().verdict; as v) {
         <app-verdict-stamp class="stamp" [value]="v" />
       }
+      <!-- adesivo de preço colado na caixa, como na locadora -->
+      <app-status-label class="sticker" [status]="review().status" />
       <app-score-burst class="burst" [value]="review().scores.final" [class.hl]="highlight() === 'final'" />
     </div>
 
-    <h3 class="title">{{ review().game.name }}</h3>
+    <h4 class="title">{{ review().game.name }}</h4>
     <p class="meta">
       <time [attr.datetime]="review().completedAt" [title]="dateTitle()">{{ date() }}</time>
       @if (review().hoursPlayed !== null && !compact()) {
@@ -82,10 +85,6 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
         <p class="excerpt">{{ review().text }}</p>
       }
     }
-
-    <div class="tags">
-      <app-status-label [status]="review().status" />
-    </div>
 
     <button type="button" class="hit" (click)="opened.emit(review().id)">
       <span class="sr-only">Abrir resenha de {{ review().game.name }}</span>
@@ -133,6 +132,13 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       position: absolute;
       right: -22px;
       bottom: -18px;
+    }
+    /* etiqueta de preço colada no pé da capinha, meio para fora da borda */
+    .sticker {
+      position: absolute;
+      left: -9px;
+      bottom: 12px;
+      z-index: 2;
     }
     /* carimbo batido no canto da capa, meio para fora */
     .stamp {
@@ -221,13 +227,6 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       overflow-wrap: anywhere;
     }
 
-    /* o status fecha o que foi escrito; ficha com menos texto fica com papel em branco embaixo */
-    .tags {
-      display: flex;
-      align-items: center;
-      padding-top: 14px;
-    }
-
     .hit {
       position: absolute;
       inset: 0;
@@ -258,9 +257,6 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       font-size: 1.1rem;
       -webkit-line-clamp: 2;
       padding-right: 22px;
-    }
-    :host(.compact) .tags {
-      padding-top: 10px;
     }
 
     /* Chegada ao mural: a ficha cai, a tachinha entra com força */
@@ -342,12 +338,11 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
       .excerpt {
         display: none;
       }
-      .tags {
-        padding-top: 10px;
-      }
-      .tags app-status-label {
-        scale: 0.86;
-        transform-origin: 0 50%;
+      .sticker {
+        left: -6px;
+        bottom: 8px;
+        scale: 0.8;
+        transform-origin: 0 100%;
       }
     }
   `,
@@ -358,11 +353,17 @@ export class ReviewCard {
   /** Qual nota está sendo usada na ordenação (para destacar na ficha). */
   readonly highlight = input<ScoreKey | null>(null);
   readonly compact = input(false);
+  /** A seção já diz o mês e o ano: a ficha mostra só o dia. */
+  readonly dayOnly = input(false);
   readonly opened = output<string>();
 
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
-  protected readonly date = computed(() => dateFmt.format(parseDay(this.review().completedAt)).replace(/\./g, ''));
-  protected readonly dateTitle = computed(() => `${dayLabel(this.review().status)} ${this.date()}`);
+  protected readonly date = computed(() =>
+    (this.dayOnly() ? dayFmt : dateFmt).format(parseDay(this.review().completedAt)).replace(/\./g, ''),
+  );
+  protected readonly dateTitle = computed(
+    () => `${dayLabel(this.review().status)} ${dateFmt.format(parseDay(this.review().completedAt)).replace(/\./g, '')}`,
+  );
   /** Categorias que o jogo "não tem" nem aparecem na ficha. */
   protected readonly subKeys = computed(() => RATED_KEYS.filter((k) => weightOf(this.review().weights, k) !== 'nao-tem'));
   protected readonly hours = computed(() => formatHours(this.review().hoursPlayed));

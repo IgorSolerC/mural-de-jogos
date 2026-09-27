@@ -520,3 +520,14 @@ The full card carried eleven competing elements, and four dotted sub-score rows 
 - **Cut from the grid** (still in the reader): the release year, the difficulty skulls. The excerpt is clamped to 2 lines (hidden on phones, as before).
 - **Kept:** tachinha, sleeve cover with the starburst, the verdict stamp struck on the cover, the marker title, date · hours, and the status sticker, which closes the written content.
 - **Even rows.** The wall grid stretches its items, so every card in a row has the same height; a card with less written on it shows blank cartolina at the bottom, like a real index card. The per-card drop (0–14px) and tilt still break the line at the top.
+
+## Wall in sections (composition pass)
+
+Squint test before this pass: fourteen neon rectangles of identical weight, with no primary, secondary or grouping. The wall now reads as a display the shop owner arranged.
+
+- **Sections follow the sort.** `WallView.groups` splits the already sorted list into runs sharing one key: month of completion for Data ("Setembro de 2026"), grade band for Média ("9 ou mais", "Na casa do 8", … "Abaixo de 5"), the integer score for one category ("Diversão 10", then "Sem nota de Diversão" at the end), the folded first letter for Nome ("#" for digits), and Platinados / Finalizados / Incompletos for Status. Direction reverses sections and their contents together.
+- **Section label.** A `.tape-label` (global: masking tape at 94% with grain, torn ends via clip-path, marker 1.3rem, -1.5deg; alternating 1.2deg and -0.6deg by position) beside a chalk summary in condensed caps: "3 jogos · média 9,1" (no average when sorting by score, or for single-game sections). The label carries a view-transition name so it slides to its new place when the sort changes, while the cards fly to their new sections.
+- **Topology.** Sections flow side by side in a wrapping flex row (64px row gap, 76px column gap); inside a section, cards wrap at a fixed width (232px full, 184px simple) with 40px/26px gaps, rows stretched to equal height. Tight inside, generous between: proximity alone makes the groups, with no box around them. On phones sections stack (48px apart) and each is a two-column grid.
+- **Objects on the cover, writing on the card.** Everything that is a physical label lives on the sleeve: the verdict stamp (top-left), the status price-gun sticker (bottom-left, 9px out of the edge, like a price label on a game box) and the starburst (bottom-right). The cartolina holds only handwriting: title (now an h4 under the section h3), date · hours, the boletim and the excerpt. The footer row is gone.
+- **Date without redundancy.** In month sections the card shows only the day ("20 de set"); the full date stays in its tooltip and in the reader.
+- **Known trade-off.** Side-by-side sections leave a hole at the end of a row when the next section does not fit; it reads as bare wall between pinned groups.

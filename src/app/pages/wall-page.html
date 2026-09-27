@@ -43,15 +43,26 @@
       </p>
     }
     <div class="wall" [class.compact]="view.density() === 'simples'">
-      @for (r of view.visible(); track r.id) {
-        <app-review-card
-          [attr.data-ficha]="r.id"
-          [review]="r"
-          [landing]="desk.landingId() === r.id"
-          [highlight]="highlight()"
-          [compact]="view.density() === 'simples'"
-          (opened)="desk.openReview($event)"
-        />
+      @for (g of view.groups(); track g.key) {
+        <section class="grupo" [attr.aria-labelledby]="'grupo-' + g.key">
+          <header class="grupo-head">
+            <h3 class="tape-label" [id]="'grupo-' + g.key" [style.view-transition-name]="'grupo-' + g.key">{{ g.label }}</h3>
+            <p class="grupo-sum">{{ g.summary }}</p>
+          </header>
+          <div class="fichas">
+            @for (r of g.reviews; track r.id) {
+              <app-review-card
+                [attr.data-ficha]="r.id"
+                [review]="r"
+                [landing]="desk.landingId() === r.id"
+                [highlight]="highlight()"
+                [compact]="view.density() === 'simples'"
+                [dayOnly]="view.sort() === 'data'"
+                (opened)="desk.openReview($event)"
+              />
+            }
+          </div>
+        </section>
       }
     </div>
   }
