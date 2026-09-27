@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
-import { Review, SCORE_KEYS, SCORE_LABEL, STATUS_RANK, ScoreKey, Status, fold, parseDay } from './review';
+import { Review, SCORE_KEYS, SCORE_LABEL, STATUS_RANK, ScoreKey, Status, VERDICTS, Verdict, fold, parseDay } from './review';
 import { ReviewStore } from './review-store';
 
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status';
@@ -58,36 +58,39 @@ export interface WallGroup {
   reviews: Review[];
 }
 
-/** Estado do mural: busca, filtro de status e ordenação. */
+/** Filtro do mural: um veredito, as fichas sem veredito, ou todas. */
+export type VerdictFilter = Verdict | 'sem' | 'todos';
+
+/** Estado do mural: busca, filtro de veredito e ordenação. */
 @Injectable({ providedIn: 'root' })
 export class WallView {
   private readonly store = inject(ReviewStore);
   private readonly prefs = readPrefs();
 
   readonly query = signal('');
-  readonly status = signal<Status | 'todos'>('todos');
+  readonly verdict = signal<VerdictFilter>('todos');
   readonly sort = signal<SortKey>(this.prefs.sort);
   readonly scoreKey = signal<ScoreKey>(this.prefs.scoreKey);
   readonly direction = signal<Direction>(this.prefs.direction);
   readonly density = signal<Density>(this.prefs.density);
 
-  readonly statusCounts = computed(() => {
-    const counts: Record<Status | 'todos', number> = { todos: 0, incompleto: 0, finalizado: 0, platinado: 0 };
+  readonly verdictCounts = computed(() => {
+    const counts = { todos: 0, sem: 0, ...Object.fromEntries(VERDICTS.map((v) => [v, 0])) } as Record<VerdictFilter, number>;
     for (const r of this.store.reviews()) {
       counts.todos++;
-      counts[r.status]++;
+      counts[r.verdict ?? 'sem']++;
     }
     return counts;
   });
 
-  readonly isFiltered = computed(() => this.query().trim() !== '' || this.status() !== 'todos');
+  readonly isFiltered = computed(() => this.query().trim() !== '' || this.verdict() !== 'todos');
 
   readonly visible = computed<Review[]>(() => {
     const needle = fold(this.query().trim());
-    const status = this.status();
+    const verdict = this.verdict();
     const list = this.store.reviews().filter(
       (r) =>
-        (status === 'todos' || r.status === status) &&
+        (verdict === 'todos' || (r.verdict ?? 'sem') === verdict) &&
         (!needle || fold(r.game.name).includes(needle) || fold(r.text).includes(needle)),
     );
     return list.sort(this.comparator());
@@ -144,7 +147,7 @@ export class WallView {
 
   clearFilters(): void {
     this.query.set('');
-    this.status.set('todos');
+    this.verdict.set('todos');
   }
 
   private groupKey(): (r: Review) => [string, string] {

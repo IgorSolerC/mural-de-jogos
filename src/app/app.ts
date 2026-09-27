@@ -135,11 +135,12 @@ export class App {
     const t = e.target as HTMLElement | null;
     if (t?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
     if (e.key === '/') {
-      const search = document.getElementById('busca-mural');
+      // a busca da página aberta: o mural ou a fila do Pra depois
+      const search = document.querySelector<HTMLInputElement>('input[data-busca]');
       if (!search) return;
       e.preventDefault();
-      (search as HTMLInputElement).focus();
-      (search as HTMLInputElement).select();
+      search.focus();
+      search.select();
     } else if (e.key === 'n' || e.key === 'N') {
       e.preventDefault();
       this.newReview();

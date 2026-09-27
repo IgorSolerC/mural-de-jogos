@@ -22,7 +22,7 @@ export const VERDICT_ICON: Record<Verdict, LucideIconData> = {
   `,
   styles: `
     :host {
-      --stamp: #b8001f;
+      --stamp: var(--verdict-masterpiece);
       display: inline-flex;
       align-items: center;
       gap: 5px;
@@ -46,20 +46,24 @@ export const VERDICT_ICON: Record<Verdict, LucideIconData> = {
       font-size: 1.05rem;
       padding: 6px 12px 5px;
     }
+    /* Masterpiece: selo de folha de ouro, com moldura em ouro escuro */
     :host(.masterpiece) {
-      --stamp: #b8001f;
+      --stamp: var(--verdict-masterpiece);
+      background: var(--foil-gold);
+      color: var(--foil-gold-ink);
+      text-shadow: 0 1px 0 rgb(255 255 255 / 0.5);
     }
     :host(.recomendo) {
-      --stamp: #0b7a3b;
+      --stamp: var(--verdict-recomendo);
     }
     :host(.legalzinho) {
-      --stamp: #1f4fc4;
+      --stamp: var(--verdict-legalzinho);
     }
     :host(.meh) {
-      --stamp: #8a5200;
+      --stamp: var(--verdict-meh);
     }
     :host(.chato) {
-      --stamp: #5b2d8e;
+      --stamp: var(--verdict-chato);
     }
     lucide-icon {
       display: inline-flex;
@@ -141,7 +145,7 @@ let uid = 0;
       gap: 6px;
     }
     .opt {
-      --stamp: #b8001f;
+      --stamp: var(--verdict-masterpiece);
       position: relative;
       display: grid;
       justify-items: center;
@@ -158,16 +162,16 @@ let uid = 0;
         color var(--t-ui) var(--ease-ui);
     }
     .opt.recomendo {
-      --stamp: #0b7a3b;
+      --stamp: var(--verdict-recomendo);
     }
     .opt.legalzinho {
-      --stamp: #1f4fc4;
+      --stamp: var(--verdict-legalzinho);
     }
     .opt.meh {
-      --stamp: #8a5200;
+      --stamp: var(--verdict-meh);
     }
     .opt.chato {
-      --stamp: #5b2d8e;
+      --stamp: var(--verdict-chato);
     }
     .opt:hover {
       background: rgb(255 255 255 / 0.3);
@@ -181,6 +185,14 @@ let uid = 0;
         inset 0 0 0 4px var(--paper),
         inset 0 0 0 5px var(--stamp);
       rotate: -3deg;
+    }
+    .opt.on.masterpiece {
+      background: var(--foil-gold);
+      color: var(--foil-gold-ink);
+      box-shadow:
+        inset 0 0 0 2.5px var(--stamp),
+        inset 0 0 0 4px rgb(255 244 196 / 0.9),
+        inset 0 0 0 5px var(--stamp);
     }
     .opt:has(input:focus-visible) {
       outline: 3px solid var(--ink);

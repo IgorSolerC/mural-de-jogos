@@ -11,14 +11,14 @@ import { PickedGame } from '../core/review';
       @if (game().coverUrl && !failed()) {
         <img
           [src]="game().coverUrl"
-          [alt]="'Capa de ' + game().name"
+          [alt]="decorative() ? '' : 'Capa de ' + game().name"
           loading="lazy"
           decoding="async"
           referrerpolicy="no-referrer"
           (error)="failed.set(true)"
         />
       } @else {
-        <div class="blank" role="img" [attr.aria-label]="'Sem capa para ' + game().name">
+        <div class="blank" [attr.role]="decorative() ? null : 'img'" [attr.aria-label]="decorative() ? null : 'Sem capa para ' + game().name">
           <span class="initial" aria-hidden="true">{{ initial() }}</span>
           <span class="note" aria-hidden="true">sem capa</span>
         </div>
@@ -107,6 +107,8 @@ import { PickedGame } from '../core/review';
 export class CoverSleeve {
   readonly game = input.required<PickedGame>();
   readonly size = input<'card' | 'big' | 'thumb'>('card');
+  /** A ficha já diz o nome do jogo: a capa não precisa repeti-lo para o leitor de tela. */
+  readonly decorative = input(false);
   protected readonly failed = signal(false);
   protected readonly initial = computed(() => (this.game().name.trim()[0] ?? '?').toUpperCase());
 }

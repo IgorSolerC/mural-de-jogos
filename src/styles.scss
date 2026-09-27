@@ -48,6 +48,17 @@
 
   --gutter: clamp(16px, 4vw, 48px);
 
+  /* tinta de cada veredito: carimbo na leitura, faixa do canhoto na ficha (texto branco, 5:1 ou mais) */
+  /* Masterpiece não é vermelho (vermelho lê como alerta): é selo de folha de ouro */
+  --verdict-masterpiece: #7d5c00;
+  --foil-gold-ink: #3b2a00;
+  --foil-gold:
+    repeating-linear-gradient(100deg, rgb(255 255 255 / 0.16) 0 1px, transparent 1px 3px),
+    linear-gradient(105deg, #c99a3c 0%, #f3d27a 18%, #fff4c4 30%, #d8ab48 46%, #f7dc8a 62%, #c99a3c 80%, #f0cf73 100%);
+  --verdict-recomendo: #0b7a3b;
+  --verdict-legalzinho: #1f4fc4;
+  --verdict-meh: #8a5200;
+  --verdict-chato: #5b2d8e;
   /* Papel: fibra procedural (trocar por textures/cartolina.png quando existir) */
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 

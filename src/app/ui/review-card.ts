@@ -3,107 +3,148 @@ import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
 import {
   RATED_KEYS,
   Review,
-  SCORE_ABBR,
   SCORE_LABEL,
   ScoreKey,
+  STATUS_LABEL,
+  VERDICT_LABEL,
   WEIGHT_LABEL,
   dayLabel,
   formatHours,
   formatScore,
+  leadSentence,
   parseDay,
   weightOf,
 } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
 import { Pin } from './pin';
-import { ScoreBurst } from './score-burst';
 import { StatusLabel } from './status-label';
-import { VerdictStamp } from './verdict';
+import { VERDICT_ICON } from './verdict';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
 
-
+/**
+ * Ficha de balcão: a cartolina é o cartaz escrito à mão do dono da locadora, e a caixa do jogo é
+ * um objeto preso nela com fita-crepe. Nada fica em cima da arte. O julgamento é um par de mesmo
+ * peso: a Média escrita a pincel como preço de cartaz e o carimbo do veredito batido ao lado.
+ */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Pin, ScoreBurst, StatusLabel, CoverSleeve, VerdictStamp],
+  imports: [LucideAngularModule, Pin, StatusLabel, CoverSleeve],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'cartolina',
     '[class.is-landing]': 'landing()',
     '[class.compact]': 'compact()',
-    '[class.highlight-sort]': 'highlight() !== null',
     '[style.--stock]': '"var(--stock-" + pin().stock + ")"',
     '[style.--tilt]': 'pin().tilt',
-    '[style.--pin-x]': 'pin().pinX + "%"',
+    '[style.--pin-x]': 'pinX() + "%"',
     '[style.--drop-y]': 'pin().dropY + "px"',
     '[style.view-transition-name]': '"ficha-" + review().id',
   },
   template: `
     <app-pin class="pin" [color]="pin().pinColor" />
 
-    <div class="cover-wrap">
-      <app-cover-sleeve [game]="review().game" />
-      @if (review().verdict; as v) {
-        <app-verdict-stamp class="stamp" [value]="v" />
-      }
-      <!-- adesivo de preço colado na caixa, como na locadora -->
-      <app-status-label class="sticker" [status]="review().status" />
-      <app-score-burst class="burst" [value]="review().scores.final" [class.hl]="highlight() === 'final'" />
+    <div class="head">
+      <div class="cover">
+        <div class="box">
+          <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'" />
+          <span class="tape tape-a" aria-hidden="true"></span>
+          <span class="tape tape-b" aria-hidden="true"></span>
+        </div>
+      </div>
+
+      <div class="words">
+        <h4 class="title">{{ review().game.name }}</h4>
+        <p class="meta">
+          <time [attr.datetime]="review().completedAt">{{ date() }}</time>
+          @if (review().hoursPlayed !== null && !compact()) {
+            <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
+          }
+          @if (compact() && sortedCell(); as c) {
+            <span aria-hidden="true"> · </span><span class="sorted hl">{{ labels[c.key] }} {{ c.value }}</span>
+          }
+        </p>
+        <!-- Finalizado é o normal e não se anuncia; só o que foge do normal ganha etiqueta -->
+        @if (review().status !== 'finalizado') {
+          <app-status-label class="sticker" [status]="review().status" />
+        }
+      </div>
+
+      <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa da cor dele -->
+      <div class="judge">
+        <p
+          class="grade"
+          role="img"
+          [attr.aria-label]="'Média ' + grade().text + ' de 10'"
+          [class.top]="grade().top"
+          [class.hl]="highlight() === 'final'"
+        >
+          <span class="int" aria-hidden="true">{{ grade().int }}</span>
+          @if (grade().dec) {
+            <span class="dec" aria-hidden="true">,{{ grade().dec }}</span>
+          }
+        </p>
+        @if (review().verdict; as v) {
+          <p class="band" [class.gold]="v === 'masterpiece'" role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + ')'">
+            <lucide-icon [img]="verdictIcons[v]" [size]="compact() ? 16 : 19" [strokeWidth]="2.6" aria-hidden="true" />
+            <span aria-hidden="true">{{ verdictLabels[v] }}</span>
+          </p>
+        }
+      </div>
     </div>
 
-    <h4 class="title">{{ review().game.name }}</h4>
-    <p class="meta">
-      <time [attr.datetime]="review().completedAt" [title]="dateTitle()">{{ date() }}</time>
-      @if (review().hoursPlayed !== null && !compact()) {
-        <span aria-hidden="true"> · </span><span [title]="'Tempo jogado'">{{ hours() }}</span>
-      }
-    </p>
-
     @if (!compact()) {
-      <!-- Boletim: as notas numa fileira só de casinhas, como caderneta de professor -->
-      <dl class="boletim" [style.--cols]="subKeys().length">
-        @for (k of subKeys(); track k) {
-          <div class="cell" [class.hl]="highlight() === k">
-            <dt>
-              <span aria-hidden="true">{{ short[k] }}</span><span class="sr-only">{{ labels[k] }}</span>
-              @switch (weightOf(review().weights, k)) {
-                @case ('relevante') {
-                  <lucide-icon class="w" [img]="UpIcon" [size]="10" [strokeWidth]="3.4" [title]="weightLabels.relevante" />
-                }
-                @case ('pouco') {
-                  <lucide-icon class="w" [img]="DownIcon" [size]="10" [strokeWidth]="3.4" [title]="weightLabels.pouco" />
+      @if (lead(); as line) {
+        <p class="lead">“{{ line }}”</p>
+      }
+
+      <!-- Boletim: quatro casas fixas, sempre na mesma ordem, para comparar ficha com ficha -->
+      <dl class="boletim">
+        @for (c of cells(); track c.key) {
+          <div class="cell" [class.hl]="highlight() === c.key" [class.off]="c.off">
+            <dt>{{ labels[c.key] }}</dt>
+            <dd>
+              @if (c.off) {
+                <span aria-hidden="true">—</span><span class="sr-only">não tem</span>
+              } @else {
+                {{ c.value }}
+                @switch (c.weight) {
+                  @case ('relevante') {
+                    <lucide-icon class="w" [img]="UpIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
+                    <span class="sr-only">({{ weightLabels.relevante }})</span>
+                  }
+                  @case ('pouco') {
+                    <lucide-icon class="w" [img]="DownIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
+                    <span class="sr-only">({{ weightLabels.pouco }})</span>
+                  }
                 }
               }
-            </dt>
-            <dd>{{ fmt(review().scores[k]) }}</dd>
+            </dd>
           </div>
         }
       </dl>
-
-      @if (review().text.trim()) {
-        <p class="excerpt">{{ review().text }}</p>
-      }
     }
 
-    <button type="button" class="hit" (click)="opened.emit(review().id)">
-      <span class="sr-only">Abrir resenha de {{ review().game.name }}</span>
-    </button>
+    <button type="button" class="hit" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)"></button>
   `,
   styles: `
     :host {
+      --pad: 16px;
+      --cover-w: 112px;
       position: relative;
       display: flex;
       flex-direction: column;
       width: 100%;
-      max-width: 300px;
+      max-width: 440px;
       justify-self: center;
       margin-top: var(--drop-y);
-      padding: 22px 16px 16px;
+      padding: var(--pad) var(--pad) 14px;
       border-radius: 2px;
       box-shadow: var(--shadow-card);
       rotate: calc(var(--tilt) * 1deg);
-      transform-origin: var(--pin-x) 14px;
+      transform-origin: var(--pin-x) 12px;
       transition:
         rotate var(--t-physical) var(--ease-physical),
         translate var(--t-physical) var(--ease-physical),
@@ -118,113 +159,282 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       box-shadow: var(--shadow-lift);
       --shine: 100%;
     }
+    /* no toque: a ficha volta a encostar na parede */
+    :host(:active) {
+      translate: 0 0;
+      box-shadow: var(--shadow-card);
+      transition-duration: 80ms;
+    }
+    /* O foco fica na parede, em volta da ficha: amarelo, não preto sobre grafite */
+    :host(:has(.hit:focus-visible)) {
+      outline: 3px solid var(--hi);
+      outline-offset: 5px;
+    }
+    .hit:focus-visible {
+      outline: none;
+    }
 
     .pin {
       top: -9px;
       left: calc(var(--pin-x) - 13px);
     }
 
-    .cover-wrap {
-      position: relative;
-      margin-bottom: 12px;
-    }
-    .burst {
-      position: absolute;
-      right: -22px;
-      bottom: -18px;
-    }
-    /* etiqueta de preço colada no pé da capinha, meio para fora da borda */
-    .sticker {
-      position: absolute;
-      left: -9px;
-      bottom: 12px;
-      z-index: 2;
-    }
-    /* carimbo batido no canto da capa, meio para fora */
-    .stamp {
-      position: absolute;
-      left: -10px;
-      top: 14px;
-      z-index: 2;
+    /* ===== Cabeça: caixa do jogo presa com fita + o que o dono escreveu + o julgamento ===== */
+    .head {
+      display: grid;
+      grid-template-columns: var(--cover-w) minmax(0, 1fr);
+      grid-template-areas:
+        'cover words'
+        'cover judge';
+      grid-template-rows: auto 1fr;
+      gap: 0 16px;
+      align-items: start;
     }
 
+    .cover {
+      grid-area: cover;
+      min-width: 0;
+    }
+    .box {
+      position: relative;
+      rotate: calc(var(--tilt) * -0.6deg);
+    }
+    .tape {
+      position: absolute;
+      top: -6px;
+      width: 36px;
+      height: 14px;
+      background-color: rgb(222 205 160 / 0.86);
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      clip-path: polygon(0 12%, 4px 50%, 0 88%, 100% 100%, calc(100% - 4px) 50%, 100% 0);
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+      z-index: 2;
+    }
+    .tape-a {
+      left: -12px;
+      rotate: -38deg;
+    }
+    .tape-b {
+      right: -12px;
+      rotate: 36deg;
+    }
+
+    .words {
+      grid-area: words;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 0;
+      /* a tachinha fura o papel acima do nome, sem encostar nele */
+      padding-top: 10px;
+    }
     .title {
+      max-width: 100%;
       font-family: var(--f-marker);
       font-weight: 400;
-      font-size: 1.32rem;
-      line-height: 1.12;
+      font-size: 1.62rem;
+      line-height: 1.04;
       letter-spacing: 0.005em;
       text-wrap: balance;
       overflow-wrap: anywhere;
+      /* duas linhas no máximo; o nome inteiro fica no leitor de tela e na leitura */
       display: -webkit-box;
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      padding-right: 36px;
+      padding-bottom: 0.06em;
     }
     .meta {
-      margin-top: 4px;
+      margin-top: 6px;
       font-family: var(--f-label);
-      font-weight: 600;
-      font-size: 0.86rem;
+      font-weight: 800;
+      font-size: 0.9rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+    .sticker {
+      margin-top: 9px;
     }
 
+    /* ===== O julgamento: etiqueta dupla de preço, como canhoto de locadora =====
+       À esquerda, a Média impressa em papel branco; à direita, o veredito numa faixa na cor dele.
+       As duas metades têm a mesma altura e o mesmo peso, unidas por um picote com entalhes. */
+    .judge {
+      --notch: 5px;
+      grid-area: judge;
+      justify-self: start;
+      display: flex;
+      align-items: stretch;
+      min-height: 58px;
+      margin-top: 14px;
+      /* sombra que segue o recorte dos entalhes, colada na cartolina */
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 5px 6px rgb(0 0 0 / 0.22));
+      rotate: calc(var(--tilt) * -0.5deg - 1deg);
+    }
+    .grade {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 76px;
+      padding: 4px 14px 3px 13px;
+      border-radius: 3px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--f-label);
+      font-style: italic;
+      font-weight: 800;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .int {
+      font-size: 2.9rem;
+      letter-spacing: -0.03em;
+    }
+    .dec {
+      font-size: 1.9rem;
+      letter-spacing: -0.02em;
+      /* a vírgula e a casa decimal no mesmo pé do inteiro, só menores */
+      align-self: flex-end;
+      margin-bottom: 0.2em;
+    }
+    /* 9 ou mais: o número sai em vermelho, como nota alta de professor */
+    .grade.top {
+      color: var(--red-deep);
+    }
+    /* ordenado pela Média: marca-texto amarelo por cima do número */
+    .grade.hl {
+      background:
+        linear-gradient(transparent 22%, rgb(255 233 74 / 0.85) 22% 84%, transparent 84%) center / calc(100% - 16px) 100% no-repeat,
+        var(--paper);
+    }
+    .band {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 18px 0 17px;
+      border-radius: 0 3px 3px 0;
+      /* picote: a linha pontilhada onde o canhoto se destaca */
+      border-left: 2px dotted rgb(255 255 255 / 0.55);
+      background: var(--v);
+      color: #fff;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 1.02rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      line-height: 1;
+      white-space: nowrap;
+      mask:
+        radial-gradient(circle at 0 0, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) top / 100% 51% no-repeat,
+        radial-gradient(circle at 0 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) bottom / 100% 51% no-repeat;
+    }
+    /* Moldura interna do selo, desligada por enquanto: repensar o desenho antes de voltar.
+    .band::after {
+      content: '';
+      position: absolute;
+      inset: 4px 4px 4px 6px;
+      border: 2.5px solid currentColor;
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    :host(.compact) .band::after {
+      inset: 3px 3px 3px 5px;
+      border-width: 2px;
+    }
+    */
+    /* Masterpiece: folha de ouro, com o mesmo brilho que corre no Platinado quando a ficha levanta */
+    .band.gold {
+      border-left-color: rgb(59 42 0 / 0.35);
+      background:
+        linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.85) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat,
+        var(--foil-gold);
+      color: var(--foil-gold-ink);
+      text-shadow: 0 1px 0 rgb(255 255 255 / 0.5);
+      transition: --shine 900ms var(--ease-physical);
+    }
+    .band lucide-icon {
+      display: inline-flex;
+      margin-top: -1px;
+    }
+    /* os entalhes de ticket, em cima e embaixo, onde as duas metades se encontram */
+    .grade:not(:only-child) {
+      border-radius: 3px 0 0 3px;
+      mask:
+        radial-gradient(circle at 100% 0, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) top / 100% 51% no-repeat,
+        radial-gradient(circle at 100% 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) bottom / 100% 51% no-repeat;
+    }
+
+    /* ===== A frase do dono, inteira, na letra dele ===== */
+    .lead {
+      margin-top: 14px;
+      font-family: var(--f-hand);
+      font-size: 1.1rem;
+      line-height: 1.36;
+      text-wrap: pretty;
+      overflow-wrap: anywhere;
+    }
+
+    /* ===== Boletim ===== */
     .boletim {
       display: grid;
-      grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
-      margin: 12px 0 0;
-      border-block: 1.5px solid rgb(21 21 21 / 0.32);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      /* o boletim vem logo depois do que foi escrito; o papel que sobra fica no pé, como ficha de fichário */
+      margin: 0;
+      padding-top: 14px;
+    }
+    .boletim::before {
+      content: '';
+      grid-column: 1 / -1;
+      height: 1.5px;
+      margin-bottom: 1px;
+      background: rgb(21 21 21 / 0.34);
     }
     .cell {
       display: grid;
       justify-items: center;
-      gap: 1px;
-      padding: 5px 2px 4px;
+      gap: 2px;
+      padding: 6px 2px 2px;
       min-width: 0;
     }
     .cell + .cell {
       border-left: 1.5px solid rgb(21 21 21 / 0.2);
     }
     dt {
+      max-width: 100%;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: 0.01em;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+    }
+    dd {
       display: inline-flex;
       align-items: center;
       gap: 1px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.72rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--ink-2);
-      line-height: 1;
-    }
-    dd {
       margin: 0;
       font-family: var(--f-marker);
-      font-size: 1.3rem;
+      font-size: 1.32rem;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
+    }
+    /* riscada, mas legível: o risco já diz que não conta */
+    .cell.off dt {
+      text-decoration: line-through 1.5px;
+      opacity: 0.84;
     }
     .w {
       display: inline-flex;
     }
-    /* marca-texto na casinha da nota que está ordenando o mural */
-    .cell.hl {
-      background: linear-gradient(transparent 6%, rgb(255 255 255 / 0.55) 6% 94%, transparent 94%);
-    }
-
-    .excerpt {
-      margin-top: 10px;
-      font-family: var(--f-hand);
-      font-size: 1.02rem;
-      line-height: 1.38;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      overflow-wrap: anywhere;
+    /* marca-texto na nota que está ordenando o mural */
+    .cell.hl,
+    .sorted.hl {
+      background: linear-gradient(transparent 4%, rgb(255 255 255 / 0.62) 4% 96%, transparent 96%);
     }
 
     .hit {
@@ -235,28 +445,68 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       padding: 0;
       background: transparent;
       border-radius: 2px;
-    }
-    .hit:focus-visible {
-      outline-offset: 6px;
+      cursor: pointer;
     }
 
-    /* Ficha simples: capa, nome, data, média, status e veredito */
+    /* ===== Ficha simples: uma etiqueta de prateleira ===== */
     :host(.compact) {
-      padding: 18px 12px 12px;
+      --cover-w: 68px;
+      padding: 14px 14px 12px;
     }
-    :host(.compact) .cover-wrap {
-      margin-bottom: 10px;
+    /* a coluna do nome é estreita demais para a etiqueta: ela desce e ocupa a largura da tira */
+    :host(.compact) .head {
+      grid-template-areas:
+        'cover words'
+        'judge judge';
+      grid-template-rows: auto auto;
+      gap: 0 12px;
     }
-    :host(.compact) .burst {
-      right: -18px;
-      bottom: -16px;
-      scale: 0.86;
-      transform-origin: 100% 100%;
+    :host(.compact) .sticker {
+      margin-top: 6px;
+    }
+    :host(.compact) .tape {
+      width: 28px;
+      height: 11px;
+      top: -5px;
+    }
+    :host(.compact) .tape-a {
+      left: -10px;
+    }
+    :host(.compact) .tape-b {
+      right: -10px;
+    }
+    :host(.compact) .words {
+      padding-top: 6px;
     }
     :host(.compact) .title {
-      font-size: 1.1rem;
-      -webkit-line-clamp: 2;
-      padding-right: 22px;
+      font-size: 1.24rem;
+    }
+    :host(.compact) .meta {
+      margin-top: 4px;
+      font-size: 0.82rem;
+    }
+    :host(.compact) .judge {
+      --notch: 4px;
+      min-height: 46px;
+      margin-top: 10px;
+    }
+    :host(.compact) .grade {
+      min-width: 60px;
+      padding: 3px 11px 2px 10px;
+    }
+    :host(.compact) .int {
+      font-size: 2.25rem;
+    }
+    :host(.compact) .dec {
+      font-size: 1.5rem;
+    }
+    :host(.compact) .band {
+      gap: 6px;
+      padding: 0 13px 0 12px;
+      font-size: 0.86rem;
+    }
+    .sorted {
+      padding: 0 2px;
     }
 
     /* Chegada ao mural: a ficha cai, a tachinha entra com força */
@@ -289,60 +539,29 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       }
     }
 
-    /* Celular: duas colunas de fichas compactas, o mural continua sendo um mural */
+    /* Celular: uma coluna de fichas deitadas, na largura toda */
     @media (max-width: 559px) {
       :host {
-        rotate: calc(var(--tilt) * 0.55deg);
-        padding: 16px 10px 12px;
-        margin-top: calc(var(--drop-y) * 0.5);
+        --cover-w: 104px;
+        max-width: none;
+        rotate: calc(var(--tilt) * 0.5deg);
+        margin-top: calc(var(--drop-y) * 0.4);
       }
-      .pin {
-        top: -8px;
-        scale: 0.85;
+      :host(.compact) {
+        --cover-w: 62px;
       }
-      .cover-wrap {
-        margin-bottom: 10px;
-      }
-      .stamp {
-        left: -6px;
-        top: 8px;
-        scale: 0.86;
-        transform-origin: 0 0;
-      }
-      .burst {
-        right: -14px;
-        bottom: -14px;
-        scale: 0.74;
-        transform-origin: 100% 100%;
+      /* no celular a coluna do nome é estreita: a etiqueta do julgamento desce e ocupa a largura */
+      :host(:not(.compact)) .head {
+        grid-template-areas:
+          'cover words'
+          'judge judge';
+        grid-template-rows: auto auto;
       }
       .title {
-        font-size: 1.02rem;
-        padding-right: 18px;
+        font-size: 1.46rem;
       }
-      .meta {
-        font-size: 0.74rem;
-      }
-      .boletim {
-        margin-top: 8px;
-      }
-      .cell {
-        padding: 4px 1px 3px;
-      }
-      dt {
-        font-size: 0.62rem;
-        letter-spacing: 0.04em;
-      }
-      dd {
-        font-size: 1.05rem;
-      }
-      .excerpt {
-        display: none;
-      }
-      .sticker {
-        left: -6px;
-        bottom: 8px;
-        scale: 0.8;
-        transform-origin: 0 100%;
+      :host(.compact) .title {
+        font-size: 1.2rem;
       }
     }
   `,
@@ -358,20 +577,53 @@ export class ReviewCard {
   readonly opened = output<string>();
 
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
+  /** A tachinha fica no meio do cartaz (42–58%), acima do nome: a fita já segura a capa. */
+  protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   protected readonly date = computed(() =>
     (this.dayOnly() ? dayFmt : dateFmt).format(parseDay(this.review().completedAt)).replace(/\./g, ''),
   );
-  protected readonly dateTitle = computed(
-    () => `${dayLabel(this.review().status)} ${dateFmt.format(parseDay(this.review().completedAt)).replace(/\./g, '')}`,
-  );
-  /** Categorias que o jogo "não tem" nem aparecem na ficha. */
-  protected readonly subKeys = computed(() => RATED_KEYS.filter((k) => weightOf(this.review().weights, k) !== 'nao-tem'));
   protected readonly hours = computed(() => formatHours(this.review().hoursPlayed));
-  protected readonly weightOf = weightOf;
+  protected readonly lead = computed(() => leadSentence(this.review().text));
+
+  /** "9,4" → inteiro 9 e decimal 4, escritos em tamanhos diferentes como preço de cartaz. */
+  protected readonly grade = computed(() => {
+    const v = this.review().scores.final;
+    const text = formatScore(v);
+    const [int, dec = ''] = text.split(',');
+    return { text, int, dec, top: (v ?? 0) >= 9 };
+  });
+
+  /** As quatro casas sempre na mesma ordem; a que o jogo "não tem" fica riscada, sem sair do lugar. */
+  protected readonly cells = computed(() => {
+    const r = this.review();
+    return RATED_KEYS.map((key) => {
+      const weight = weightOf(r.weights, key);
+      return { key, weight, off: weight === 'nao-tem', value: formatScore(r.scores[key]) };
+    });
+  });
+
+  /** Na ficha simples, a nota que ordena o mural aparece ao lado da data. */
+  protected readonly sortedCell = computed(() => {
+    const k = this.highlight();
+    if (!k || k === 'final') return null;
+    const c = this.cells().find((x) => x.key === k);
+    return c && !c.off ? c : null;
+  });
+
+  /** O que o leitor de tela diz ao chegar no botão da ficha. */
+  protected readonly spoken = computed(() => {
+    const r = this.review();
+    const parts = [r.game.name, `média ${formatScore(r.scores.final)}`];
+    if (r.verdict) parts.push(VERDICT_LABEL[r.verdict]);
+    parts.push(STATUS_LABEL[r.status]);
+    parts.push(`${dayLabel(r.status).toLowerCase()} ${dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '')}`);
+    return `Abrir resenha: ${parts.join(', ')}`;
+  });
+
+  protected readonly verdictLabels = VERDICT_LABEL;
+  protected readonly verdictIcons = VERDICT_ICON;
   protected readonly weightLabels = WEIGHT_LABEL;
   protected readonly UpIcon = ArrowUp;
   protected readonly DownIcon = ArrowDown;
-  protected readonly fmt = formatScore;
   protected readonly labels = SCORE_LABEL;
-  protected readonly short = SCORE_ABBR;
 }

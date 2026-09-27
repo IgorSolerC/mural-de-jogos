@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -6,12 +6,11 @@ import {
   LayoutGrid,
   LucideAngularModule,
   Rows3,
-  Search,
-  X,
 } from 'lucide-angular';
-import { RATED_KEYS, STATUSES, STATUS_LABEL, SCORE_LABEL, ScoreKey, Status } from '../core/review';
+import { RATED_KEYS, SCORE_LABEL, ScoreKey, VERDICTS, VERDICT_LABEL } from '../core/review';
 import { ViewTransitions } from '../core/view-transitions';
-import { Density, SortKey, WallView } from '../core/wall-view';
+import { Density, SortKey, VerdictFilter, WallView } from '../core/wall-view';
+import { SearchStrip } from './search-strip';
 
 /** Ordenar é um controle só: data, nome, status ou uma das notas. */
 const SORT_OPTIONS: { value: string; label: string }[] = [
@@ -27,7 +26,7 @@ const SCORE_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -36,8 +35,6 @@ export class WallToolbar {
   protected readonly view = inject(WallView);
   private readonly vt = inject(ViewTransitions);
 
-  protected readonly SearchIcon = Search;
-  protected readonly ClearIcon = X;
   protected readonly DescIcon = ArrowDownWideNarrow;
   protected readonly AscIcon = ArrowUpNarrowWide;
   protected readonly FullIcon = Rows3;
@@ -46,10 +43,10 @@ export class WallToolbar {
 
   protected readonly sortOptions = SORT_OPTIONS;
   protected readonly scoreOptions = SCORE_OPTIONS;
-  protected readonly statuses = STATUSES;
-  protected readonly statusLabel = STATUS_LABEL;
-
-  private readonly searchField = viewChild.required<ElementRef<HTMLInputElement>>('search');
+  /** Os cinco vereditos; "Sem veredito" só entra quando alguma ficha não tem um. */
+  protected readonly verdictTabs = computed<VerdictFilter[]>(() =>
+    this.view.verdictCounts().sem > 0 || this.view.verdict() === 'sem' ? [...VERDICTS, 'sem'] : [...VERDICTS],
+  );
 
   protected readonly sortValue = computed(() =>
     this.view.sort() === 'nota' ? `nota:${this.view.scoreKey()}` : this.view.sort(),
@@ -61,10 +58,11 @@ export class WallToolbar {
     return opt?.label ?? 'Data';
   });
 
-  protected readonly statusText = computed(() => {
-    const s = this.view.status();
-    return s === 'todos' ? 'Todos' : STATUS_LABEL[s];
-  });
+  protected readonly verdictText = computed(() => this.labelOf(this.view.verdict()));
+
+  protected labelOf(v: VerdictFilter): string {
+    return v === 'todos' ? 'Todos' : v === 'sem' ? 'Sem veredito' : VERDICT_LABEL[v];
+  }
 
   protected directionLabel(): string {
     const desc = this.view.direction() === 'desc';
@@ -80,8 +78,8 @@ export class WallToolbar {
     }
   }
 
-  protected setStatus(s: Status | 'todos'): void {
-    this.vt.run(() => this.view.status.set(s));
+  protected setVerdict(v: VerdictFilter): void {
+    this.vt.run(() => this.view.verdict.set(v));
   }
 
   protected setSortValue(v: string): void {
@@ -102,17 +100,5 @@ export class WallToolbar {
 
   protected flip(): void {
     this.vt.run(() => this.view.toggleDirection());
-  }
-
-  protected clearSearch(): void {
-    this.view.query.set('');
-    this.searchField().nativeElement.focus();
-  }
-
-  protected onSearchKey(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && this.view.query()) {
-      e.preventDefault();
-      this.view.query.set('');
-    }
   }
 }

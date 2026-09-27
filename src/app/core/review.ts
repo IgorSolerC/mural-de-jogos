@@ -201,6 +201,25 @@ export function formatScore(v: number | null): string {
   return v === null ? '–' : scoreFmt.format(v);
 }
 
+/**
+ * A frase que vai escrita na ficha: a primeira da resenha, inteira. Se for curta demais, leva a
+ * segunda junto; se passar de `max`, corta no último espaço antes do limite, nunca no meio da palavra.
+ */
+export function leadSentence(text: string, max = 120): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (!flat) return '';
+  // a frase termina na pontuação seguida de espaço: "nota 8.5" não parte a frase no meio
+  const sentences = flat.split(/(?<=[.!?…])\s+/);
+  let lead = sentences[0];
+  if (lead.length < 36 && sentences[1] && lead.length + sentences[1].length + 1 <= max) {
+    lead = `${lead} ${sentences[1]}`;
+  }
+  if (lead.length <= max) return lead;
+  const cut = lead.slice(0, max + 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max * 0.5 ? cut.slice(0, space) : cut.slice(0, max)).replace(/[\s,;:–-]+$/, '')}…`;
+}
+
 /** Uma data no fuso local, 'AAAA-MM-DD'. */
 export function localDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

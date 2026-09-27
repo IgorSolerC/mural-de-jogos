@@ -44,16 +44,17 @@
    lado a lado pela parede: um mês com um jogo só não desperdiça uma fileira inteira. Perto dentro
    da seção, longe entre seções: o agrupamento se lê sem caixa nenhuma em volta. */
 .wall {
-  --card-w: 232px;
-  --in-gap: 40px 26px;
+  /* três fichas por seção enchem a largura da parede */
+  --card-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
+  --in-gap: 44px 34px;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 64px 76px;
 
   &.compact {
-    --card-w: 184px;
-    --in-gap: 34px 22px;
+    --card-w: clamp(270px, 21vw, 300px);
+    --in-gap: 34px 30px;
   }
 }
 
@@ -92,11 +93,11 @@
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
-/* fichas da mesma fileira com a mesma altura: o fundo da seção fica reto */
+/* cada ficha tem a altura do que foi escrito nela: nada de papel sobrando para igualar a fileira */
 .fichas {
   display: flex;
   flex-wrap: wrap;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--in-gap);
 
   app-review-card {
@@ -249,13 +250,14 @@
     gap: 20px;
   }
 
+  /* fichas deitadas numa coluna só: a frase e as notas continuam legíveis no celular */
   .fichas {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 30px 16px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
 
     app-review-card {
-      width: auto;
+      width: 100%;
     }
   }
 

@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Bookmark, LucideAngularModule } from 'lucide-angular';
 import { Desk } from '../core/desk';
+import { fold } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { DraftCard } from '../ui/draft-card';
+import { SearchStrip } from '../ui/search-strip';
 
 /**
  * Pra depois: os jogos guardados só com nome e capa. Antes moravam no topo do mural, disputando
@@ -10,7 +12,7 @@ import { DraftCard } from '../ui/draft-card';
  */
 @Component({
   selector: 'app-queue-page',
-  imports: [DraftCard, LucideAngularModule],
+  imports: [DraftCard, LucideAngularModule, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="head">
@@ -21,8 +23,28 @@ import { DraftCard } from '../ui/draft-card';
     </header>
 
     @if (store.draftCount()) {
+      <app-search-strip
+        class="search"
+        inputId="busca-fila"
+        label="Procurar na fila"
+        placeholder="Procurar na fila…"
+        [value]="query()"
+        (valueChange)="query.set($event)"
+      />
+
+      @if (query().trim()) {
+        <p class="showing" aria-live="polite">
+          Mostrando {{ visible().length }} de {{ store.draftCount() }}
+          <button type="button" class="showing-clear" (click)="query.set('')">Limpar busca</button>
+        </p>
+      }
+
+      @if (!visible().length) {
+        <p class="none">Nenhum jogo da fila tem “{{ query().trim() }}” no nome.</p>
+      }
+
       <div class="sheets">
-        @for (d of store.drafts(); track d.id) {
+        @for (d of visible(); track d.id) {
           <app-draft-card
             [attr.data-ficha]="d.id"
             [draft]="d"
@@ -65,6 +87,45 @@ import { DraftCard } from '../ui/draft-card';
       text-transform: uppercase;
       color: var(--wall-ink-2);
       font-variant-numeric: tabular-nums;
+    }
+
+    .search {
+      max-width: 440px;
+      margin: 0 0 30px 6px;
+    }
+    .showing {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 12px;
+      margin: -12px 0 18px;
+      font-family: var(--f-label);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--wall-ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+    .showing-clear {
+      min-height: 36px;
+      padding: 4px 8px;
+      border: 0;
+      border-radius: 4px;
+      background: none;
+      color: var(--wall-ink);
+      font: inherit;
+      letter-spacing: inherit;
+      text-decoration: underline 2px var(--hi);
+      text-underline-offset: 4px;
+    }
+    .showing-clear:hover {
+      background: rgb(255 255 255 / 0.08);
+    }
+    .none {
+      font-family: var(--f-hand);
+      font-size: 1.2rem;
+      color: var(--wall-ink);
+      overflow-wrap: anywhere;
     }
 
     .sheets {
@@ -136,6 +197,10 @@ import { DraftCard } from '../ui/draft-card';
       .empty {
         padding: 30px 20px 24px 40px;
       }
+      .search {
+        max-width: none;
+        margin-left: 0;
+      }
     }
   `,
 })
@@ -143,4 +208,12 @@ export class QueuePage {
   protected readonly store = inject(ReviewStore);
   protected readonly desk = inject(Desk);
   protected readonly LaterIcon = Bookmark;
+
+  /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
+  protected readonly query = signal('');
+  protected readonly visible = computed(() => {
+    const needle = fold(this.query().trim());
+    const list = this.store.drafts();
+    return needle ? list.filter((d) => fold(d.game.name).includes(needle)) : list;
+  });
 }
