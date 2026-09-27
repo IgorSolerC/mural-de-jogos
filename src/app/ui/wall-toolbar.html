@@ -60,6 +60,23 @@
     </button>
   </div>
 
+  <!-- Marcar fichas para ver lado a lado -->
+  <button
+    type="button"
+    class="plate mark"
+    [attr.aria-pressed]="side.picking()"
+    (click)="side.picking.set(!side.picking())"
+    aria-label="Marcar fichas pra ver lado a lado"
+    title="Marcar fichas pra ver lado a lado"
+  >
+    <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    <span class="mark-word" aria-hidden="true">Marcar</span>
+    @if (side.count()) {
+      <span class="count" aria-hidden="true">{{ side.count() }}</span>
+      <span class="sr-only">({{ side.count() }} marcadas)</span>
+    }
+  </button>
+
   <div class="group density" role="group" aria-label="Tipo de ficha">
     <button
       type="button"

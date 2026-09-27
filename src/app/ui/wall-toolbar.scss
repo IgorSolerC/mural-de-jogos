@@ -57,6 +57,10 @@
   padding-inline: 11px;
 }
 
+.mark {
+  padding-inline: 13px 15px;
+}
+
 /* ===== Seletor em forma de aba: o <select> nativo, invisível, cobre a aba inteira ===== */
 .pick {
   padding-right: 34px;
@@ -121,7 +125,9 @@
 
   .search {
     order: 1;
-    flex: 1 1 calc(100% - 110px);
+    flex: 1 1 calc(100% - 170px);
+    /* a tira encolhe para dividir a fileira com Marcar e o tipo de ficha */
+    min-width: 0;
     max-width: none;
     margin-bottom: 4px;
   }
@@ -131,6 +137,19 @@
     flex: none;
     flex-wrap: nowrap;
     margin-bottom: 4px;
+  }
+
+  /* no celular, Marcar é só o ícone (e a contagem), ao lado do tipo de ficha */
+  .mark {
+    order: 2;
+    flex: none;
+    gap: 4px;
+    margin-bottom: 4px;
+    padding-inline: 11px;
+  }
+
+  .mark-word {
+    display: none;
   }
 
   .status-tabs {

@@ -3,11 +3,12 @@ import {
   Component,
   ElementRef,
   computed,
+  inject,
   output,
   signal,
   viewChild,
 } from '@angular/core';
-import { ArrowDown, ArrowUp, LucideAngularModule, PenLine, Trash2, X } from 'lucide-angular';
+import { ArrowDown, ArrowUp, LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import {
   RATED_KEYS,
   RatedKey,
@@ -20,6 +21,7 @@ import {
   parseDay,
   weightOf,
 } from '../core/review';
+import { SideBySide } from '../core/side-by-side';
 import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
 import { Skulls } from './difficulty';
@@ -113,6 +115,16 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
               Remover do mural
             </button>
             <div class="actions">
+              <button
+                type="button"
+                class="btn-quiet side"
+                [attr.aria-pressed]="side.has(r.id)"
+                (click)="side.toggle(r.id)"
+                title="Marcar pra comparar com outros jogos"
+              >
+                <lucide-icon [img]="side.has(r.id) ? CheckedIcon : UncheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                Lado a lado
+              </button>
               <button type="button" class="btn-ink" (click)="edit.emit(r.id)">
                 <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
                 Editar
@@ -129,7 +141,10 @@ export class ReviewReader {
   readonly edit = output<string>();
   readonly remove = output<string>();
 
+  protected readonly side = inject(SideBySide);
   protected readonly CloseIcon = X;
+  protected readonly CheckedIcon = SquareCheckBig;
+  protected readonly UncheckedIcon = Square;
   protected readonly EditIcon = PenLine;
   protected readonly TrashIcon = Trash2;
   protected readonly labels = SCORE_LABEL;

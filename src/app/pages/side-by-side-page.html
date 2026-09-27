@@ -1,0 +1,222 @@
+@if (!side.count()) {
+  <section class="vazio cartolina" aria-labelledby="lado-titulo">
+    <app-pin class="pin" color="#2f6bff" />
+    <h1 id="lado-titulo">Nada lado a lado ainda</h1>
+    @if (store.count()) {
+      <p>No mural, toque em Marcar e escolha os jogos que você quer comparar: todos os GTAs, por exemplo.</p>
+      <button type="button" class="btn-ink" (click)="pickMore()">
+        <lucide-icon [img]="MarkIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+        Escolher no mural
+      </button>
+    } @else {
+      <p>Primeiro o mural precisa de fichas. Pregue umas resenhas e depois compare os jogos aqui.</p>
+      <button type="button" class="btn-ink" (click)="desk.newReview()">
+        <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+        Pregar resenha
+      </button>
+    }
+  </section>
+} @else {
+  <header class="cabeca">
+    <h1 class="tape-label big" id="lado-titulo">Lado a lado</h1>
+    <p class="resumo">{{ summary() }}</p>
+    <div class="cabeca-acoes">
+      <button type="button" class="btn-quiet" (click)="pickMore()">
+        <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        Marcar mais
+      </button>
+      <button type="button" class="btn-quiet" (click)="clear()">
+        <lucide-icon [img]="RemoveIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+        Limpar
+      </button>
+    </div>
+  </header>
+
+  <div class="shelf">
+    <label class="plate pick">
+      <span class="pick-pre">Ordenar</span>
+      <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
+      <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+      <select aria-label="Ordenar por" [value]="side.sort()" (change)="setSort($any($event.target).value)">
+        @for (o of sortOptions; track o.value) {
+          <option [value]="o.value" [selected]="o.value === side.sort()">{{ o.label }}</option>
+        }
+        <optgroup label="Nota">
+          @for (o of scoreOptions; track o.value) {
+            <option [value]="o.value" [selected]="o.value === side.sort()">{{ o.label }}</option>
+          }
+        </optgroup>
+      </select>
+    </label>
+
+    <div class="group density" role="group" aria-label="Tipo de ficha">
+      <button
+        type="button"
+        class="plate icon"
+        [attr.aria-pressed]="view.density() === 'completa'"
+        (click)="setDensity('completa')"
+        aria-label="Fichas completas"
+        title="Fichas completas"
+      >
+        <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="plate icon"
+        [attr.aria-pressed]="view.density() === 'simples'"
+        (click)="setDensity('simples')"
+        aria-label="Fichas simples"
+        title="Fichas simples"
+      >
+        <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+      </button>
+    </div>
+  </div>
+
+  <h2 class="sr-only">Fichas marcadas</h2>
+  <div class="fichas" [class.compact]="view.density() === 'simples'">
+    @for (r of games(); track r.id) {
+      <app-review-card
+        [attr.data-ficha]="r.id"
+        [review]="r"
+        [highlight]="highlight()"
+        [compact]="view.density() === 'simples'"
+        (opened)="desk.openReview($event)"
+      />
+    }
+  </div>
+
+  @if (side.count() === 1) {
+    <p class="falta">
+      Marque mais um jogo pra comparar nota a nota.
+      <button type="button" class="btn-quiet" (click)="pickMore()">Marcar mais</button>
+    </p>
+  } @else {
+    <!-- A folha de comparação: uma coluna por jogo, a melhor nota de cada linha circulada -->
+    <section class="folha" aria-labelledby="quadro-titulo">
+      <span class="tape tape-a" aria-hidden="true"></span>
+      <span class="tape tape-b" aria-hidden="true"></span>
+      <h2 id="quadro-titulo">Nota a nota</h2>
+
+      <div class="rolagem" role="region" aria-labelledby="quadro-titulo" tabindex="0">
+        <table>
+          <thead>
+            <tr>
+              <td class="canto"></td>
+              @for (r of games(); track r.id) {
+                <th scope="col" [style.view-transition-name]="'coluna-' + r.id">
+                  <div class="jogo">
+                    <button type="button" class="abrir" (click)="desk.openReview(r.id)" [attr.aria-label]="'Abrir resenha: ' + r.game.name">
+                      <app-cover-sleeve class="thumb" size="thumb" [game]="r.game" [decorative]="true" />
+                      <span class="nome" aria-hidden="true">{{ r.game.name }}</span>
+                    </button>
+                    <span class="sr-only">{{ r.game.name }}</span>
+                    <button type="button" class="tirar" (click)="remove(r)" [attr.aria-label]="'Tirar ' + r.game.name + ' do lado a lado'" title="Tirar do lado a lado">
+                      <lucide-icon [img]="RemoveIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                    </button>
+                  </div>
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.id) {
+              <tr [class.split]="row.split" [class]="'k-' + row.kind">
+                <th scope="row">
+                  <span class="rotulo">
+                    {{ row.label }}
+                    @if (row.sorted) {
+                      <app-pen-mark />
+                    }
+                  </span>
+                </th>
+                @for (r of games(); track r.id) {
+                  <td>
+                    @switch (row.kind) {
+                      @case ('final') {
+                        <span class="preco" [class.top]="r.scores.final >= 9" [class.ganhou]="won('final', r.id)">
+                          <span aria-hidden="true">
+                            {{ grade(r.scores.final).int }}@if (grade(r.scores.final).dec) {<small>,{{ grade(r.scores.final).dec }}</small>}
+                          </span>
+                          <span class="sr-only">{{ fmt(r.scores.final) }}@if (won('final', r.id)) {, a maior}</span>
+                          @if (won('final', r.id)) {
+                            <svg class="circulo" viewBox="0 0 60 50" aria-hidden="true">
+                              <path d="M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7" />
+                            </svg>
+                          }
+                        </span>
+                      }
+                      @case ('score') {
+                        @if (weightOf(r.weights, row.score!) === 'nao-tem' || r.scores[row.score!] === null) {
+                          <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">não tem</span></span>
+                        } @else {
+                          <span class="nota" [class.ganhou]="won(row.score!, r.id)">
+                            {{ fmt(r.scores[row.score!]) }}
+                            @switch (weightOf(r.weights, row.score!)) {
+                              @case ('relevante') {
+                                <lucide-icon class="w" [img]="UpIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
+                                <span class="sr-only">({{ weightLabels.relevante }})</span>
+                              }
+                              @case ('pouco') {
+                                <lucide-icon class="w" [img]="DownIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
+                                <span class="sr-only">({{ weightLabels.pouco }})</span>
+                              }
+                            }
+                            @if (won(row.score!, r.id)) {
+                              <span class="sr-only">, a maior</span>
+                              <svg class="circulo" viewBox="0 0 60 50" aria-hidden="true">
+                                <path d="M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7" />
+                              </svg>
+                            }
+                          </span>
+                        }
+                      }
+                      @case ('verdict') {
+                        @if (r.verdict; as v) {
+                          <app-verdict-stamp class="carimbo" [value]="v" />
+                        } @else {
+                          <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">sem veredito</span></span>
+                        }
+                      }
+                      @case ('hours') {
+                        @if (hours(r); as h) {
+                          <span class="fato num">{{ h }}</span>
+                        } @else {
+                          <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">sem horas</span></span>
+                        }
+                      }
+                      @case ('status') {
+                        <app-status-label [status]="r.status" />
+                      }
+                      @case ('difficulty') {
+                        <span class="dificuldade">
+                          <app-skulls [value]="r.difficulty" [size]="15" [showLabel]="false" />
+                          <span class="fato" aria-hidden="true">{{ difficultyLabel[r.difficulty] }}</span>
+                        </span>
+                      }
+                      @case ('date') {
+                        <span class="fato">
+                          @if (r.status === 'incompleto') {
+                            <span class="pre">até</span>
+                          }
+                          <time [attr.datetime]="r.completedAt">{{ date(r) }}</time>
+                        </span>
+                      }
+                      @case ('year') {
+                        @if (r.game.year) {
+                          <span class="fato num">{{ r.game.year }}</span>
+                        } @else {
+                          <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">sem ano</span></span>
+                        }
+                      }
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+}

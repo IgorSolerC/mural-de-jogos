@@ -23,6 +23,8 @@ import { PickedGame } from '../core/review';
           <span class="note" aria-hidden="true">sem capa</span>
         </div>
       }
+      <!-- o que vem impresso na própria capa (a faixa de status das fichas), por baixo do plástico -->
+      <ng-content />
     </div>
   `,
   styles: `

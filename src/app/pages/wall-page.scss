@@ -2,6 +2,11 @@
   display: block;
 }
 
+/* a comanda de marcação cobre o pé da tela: a última ficha precisa poder subir acima dela */
+:host-context(body.has-tray) {
+  padding-bottom: 90px;
+}
+
 .toolbar {
   position: relative;
   z-index: 5;

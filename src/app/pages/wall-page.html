@@ -58,12 +58,19 @@
                 [highlight]="highlight()"
                 [compact]="view.density() === 'simples'"
                 [dayOnly]="view.sort() === 'data'"
+                [picking]="side.picking()"
+                [pickedAt]="side.order().get(r.id) ?? null"
                 (opened)="desk.openReview($event)"
+                (toggled)="side.toggle($event)"
               />
             }
           </div>
         </section>
       }
     </div>
+  }
+
+  @if (side.picking()) {
+    <app-pick-tray />
   }
 }

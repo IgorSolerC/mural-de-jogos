@@ -12,9 +12,8 @@
       <a
         class="tab cartolina"
         [routerLink]="t.path"
-        routerLinkActive="on"
-        [routerLinkActiveOptions]="{ exact: t.exact }"
-        ariaCurrentWhenActive="page"
+        [class.on]="isOn(t)"
+        [attr.aria-current]="isOn(t) ? 'page' : null"
         [style.--stock]="'var(--stock-' + t.stock + ')'"
       >
         <app-pin class="tab-pin" color="#e62e2d" />

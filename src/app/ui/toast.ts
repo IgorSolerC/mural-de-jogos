@@ -50,6 +50,15 @@ export class Toasts {
       width: max-content;
       max-width: calc(100vw - 32px);
     }
+    /* com a comanda de marcação no pé da tela, o cupom sai por cima dela */
+    :host-context(body.has-tray) .live {
+      bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+    @media (max-width: 560px) {
+      :host-context(body.has-tray) .live {
+        bottom: calc(150px + env(safe-area-inset-bottom));
+      }
+    }
     .cupom {
       display: flex;
       align-items: center;

@@ -31,8 +31,6 @@ colors:
   stripe-finalizado: "#10a64a"
   error-ink: "#6b0000"
   tape: "rgb(222 205 160 / 0.86)"
-  highlighter-yellow: "rgb(255 233 74 / 0.85)"
-  highlighter-white: "rgb(255 255 255 / 0.62)"
   verdict-masterpiece: "#7d5c00"
   foil-gold-ink: "#3b2a00"
   verdict-recomendo: "#0b7a3b"
@@ -271,6 +269,17 @@ components:
     typography: "{typography.label-sm}"
     rounded: "{rounded.paper}"
     padding: "6px 9px 5px"
+  status-band-incompleto:
+    backgroundColor: "rgb(21 21 21 / 0.92)"
+    textColor: "{colors.stripe-incompleto}"
+    height: "21px"
+    padding: "1px 2px 0"
+  status-band-platinado:
+    textColor: "#16162b"
+    height: "21px"
+    padding: "1px 2px 0"
+  status-band-compact:
+    height: "16px"
   score-burst:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
@@ -357,8 +366,7 @@ Each review stores its stock when it is created. The value comes from the rotati
 
 ### Materials on paper
 - **Masking Tape** (`tape`): the tape holding the cover on every card, the Pra depois pages and headings. The search-strip tape still uses the older `rgb(222 205 160 / 0.82)`.
-- **Yellow Highlighter** (`highlighter-yellow`): a band from 22% to 84% of the height, inset 8px on each side, behind the Média on the ticket's paper half, only when the wall is sorted by Média.
-- **White Highlighter** (`highlighter-white`): a band from 4% to 96% behind the sorted category's boletim cell (Completa), or behind the sorted score beside the date (Simples).
+- **Pen underline** (`red`): the sorted attribute is marked by a single hand-drawn stroke of Marker Red under its name, never by a highlighter band (see "Sort mark and Lado a lado" below). The yellow and white highlighters were removed: the yellow read as a flat yellow block inside the white ticket, the white as a spreadsheet selection.
 
 ### Pins and status stripes
 - **Tachinhas** (`pin-red`, `pin-yellow`, `pin-blue`, `pin-green`, `pin-white`, `pin-orange`): six plastic pin colours, in this order. The order matters, because it is also the index into the `tachinhas.png` sprite. Each card's pin colour comes from its id.
@@ -370,7 +378,7 @@ Each review stores its stock when it is created. The value comes from the rotati
 ### Named Rules
 **The One Ink Rule.** Every piece of readable text on a paper surface is marker black (`ink` or `ink-2`). The six stocks change the paper, never the ink. The exceptions are all marks made by a different tool, and each sits on white paper or on its own printed ink: the Média numeral of 9 or more (`red-deep`, on the paper half of the card's ticket, the starburst and the Ranking), the chosen score numeral (`red-deep`), the verdict stamps in their own five inks (reader and verdict picker), white text on the card's verdict band (the band is its own printed ink surface, not a neon stock), and the status labels' printed inks. No coloured text ever sits directly on a neon stock.
 
-**The Yellow Means State Rule.** Hi-vis yellow on the wall means active or focused: the active tab, the focus ring, the selected option. Focus is one token, `--focus`: yellow on the wall, marker `ink` on any cartolina (a yellow ring vanishes on yellow paper). The review card is the exception that proves it: its ring is drawn on the wall around the card, so it is yellow. Do not use it as decoration on the wall. As a paper stock it only appears as a full cartolina surface; as a highlighter it only marks the Média that is sorting the wall.
+**The Yellow Means State Rule.** Hi-vis yellow on the wall means active or focused: the active tab, the focus ring, the selected option. Focus is one token, `--focus`: yellow on the wall, marker `ink` on any cartolina (a yellow ring vanishes on yellow paper). The review card is the exception that proves it: its ring is drawn on the wall around the card, so it is yellow. Do not use it as decoration on the wall. As a paper stock it only appears as a full cartolina surface. On cartolina it appears only as the yellow numeral on the ink disc of a marked card's sticker, the same pairing as the ink button.
 
 **The Rotation Rule.** Card colour is assigned once, by the fixed stock rotation, and saved with the review. Never pick a stock at random or by score, and never let two neighbours match.
 
@@ -483,18 +491,19 @@ Tactile store objects, each with its own material.
 - **Rail:** an 8px `rail` bar under the shelf with the rail bevel shadow. Each group has a faded-chalk tracked label above it ("Mostrar", "Ordenar", "Qual nota"), which also names the group for assistive tech. The "Qual nota" group slides in from the left (-8px) over 380ms.
 
 ### Cards / Containers
-- **Review card, "ficha de balcão" (signature):** a horizontal cartolina card in the review's stock, a 2px radius, padding `16px 16px 14px` (`14px 14px 12px` Simples), the hanging-card shadow. Nothing sits on the cover art. Anatomy:
+- **Review card, "ficha de balcão" (signature):** a horizontal cartolina card in the review's stock, a 2px radius, padding `16px 16px 14px` (`14px 14px 12px` Simples), the hanging-card shadow. The only thing on the cover art is the status band printed in its foot. Anatomy:
   - **Head:** a grid of `cover | words` over `cover | judge` on desktop Completa; on phones and on every Simples card, `cover | words` over a full-width `judge` row.
-  - **Cover:** the sleeved cover at 112px (104px phone, 68px Simples, 62px Simples phone), counter-tilted at -0.6 × the card's tilt and held by two masking-tape pieces over its top corners. It is decorative for assistive tech (empty alt), because the card already says the name.
-  - **Words:** the marker title (2 lines max), then the card meta (date · hours, full ink; the date is the user-editable completedAt, day only inside month sections), then a price-gun status label only for Incompleto and Platinado. Finalizado is the normal case and carries no label.
+  - **Cover:** the sleeved cover at 112px (104px phone, 68px Simples, 62px Simples phone), counter-tilted at -0.6 × the card's tilt and held by two masking-tape pieces over its top corners. Incompleto and Platinado print a status band across the foot of the art (see Status band); Finalizado is the normal case and carries none. The cover is decorative for assistive tech (empty alt), because the card already says the name.
+  - **Words:** the marker title (2 lines max), then the card meta (date · hours, full ink; the date is the user-editable completedAt, day only inside month sections). Status lives on the cover, not here.
   - **Judgment ticket:** a two-part rental ticket (see Shapes), 58px tall (46px Simples), 14px under the words (10px Simples), counter-tilted at -0.5 × tilt - 1deg, with the ticket drop. Both halves share the height, so the Média and the verdict weigh the same. Left, the **grade**: flat `paper`, at least 76px wide (60px Simples), padding `4px 14px 3px 13px` (`3px 11px 2px 10px` Simples), the Média in the grade numeral (`red-deep` at 9 or more), exposed as the image "Média X de 10". Right, only when a verdict exists, the **band**: a solid fill in the verdict ink, the verdict name in white verdict-band lettering after its lucide icon (19px, 7px gap; 16px and 6px on Simples), padding `0 18px 0 17px` (`0 13px 0 12px` Simples), exposed as the image "Veredito: X". (An inner frame in the lettering colour, 2.5px inset 4px, was tried and is switched off in the code, pending a better design.) The Masterpiece band is gold foil with dark gold lettering, and it takes the same white shine sweep as the Platinado foil when the card lifts (`--shine`, 900ms).
   - **Lead (Completa only):** the review's first sentence in Kalam, whole, in curly quotes. It is chosen by `leadSentence`: split on terminal punctuation (`. ! ? …`) followed by a space, so "nota 8.5" stays whole; a first sentence under 36 characters takes the second along; over 120 characters it is cut at a word boundary with "…".
   - **Boletim (Completa only):** four fixed cells, always in the order História · Diversão · Jogabilidade · Visual, with full names in the boletim label and 1.32rem marker numerals. A 1.5px rule at 34% ink closes the top; cells are split by 1.5px rules at 20%. A "Não tem" category keeps its cell: the label is struck through at 84% opacity and the value is "—" (spoken "não tem"). Relevante / Pouco importante show a 13px lucide arrow up / down after the numeral, with the weight name as screen-reader text. The boletim follows the content, and the card ends where the writing ends: a row of cards has ragged bottoms, never blank cartolina padded to match the tallest neighbour.
   - **Hit target:** the whole card is one invisible button named "Abrir resenha: {name}, média {X}, {verdict}, {status}, {concluído em / jogado até} {date}".
-- **Simples card:** a shelf strip: cover, title, date and status label, then the full-width judgment ticket. No lead, no boletim, no hours. When the wall is sorted by a category, that score appears beside the date ("Diversão 10") under the white highlighter.
+- **Simples card:** a shelf strip: cover (with its status band), title and date, then the full-width judgment ticket. No lead, no boletim, no hours. When the wall is sorted by a category, that score appears beside the date ("Diversão 10") with the red pen underline.
 - **Card hover / focus / press:** the card swings around its own pin (`transform-origin` is the pin point), its tilt drops to 35% of rest, it rises 3px and takes the lifted shadow. The holographic label's shine runs across. Keyboard focus draws a 3px `hi` ring at a 5px offset around the whole card (via `:has(.hit:focus-visible)`), on the wall where yellow reads. `:active` sets the card back against the wall over 80ms.
 - **Pin:** a tachinha at the card's pin x, 42–58% (the wall-physics 40–60% remapped by 0.8), above the title.
-- **Sorted highlight:** sorted by Média, the yellow highlighter sits behind the Média on the ticket's paper half. Sorted by a category, the white highlighter covers that boletim cell (Completa) or the score beside the date (Simples).
+- **Sort mark:** sorted by Média, the card carries no mark (the Média is already the largest number on it, and the section label names the band). Sorted by a category, a red pen stroke is drawn under that category's name in the boletim (Completa) or under the score beside the date (Simples). Every boletim cell reserves the stroke's space (6px label-to-numeral gap), so no cell changes height when the sort changes.
+- **Picking sticker:** while the wall is in Marcar mode, each card carries a 42px round sticker overlapping its top-right corner at -8deg: empty, a 2.5px dashed ink ring over 90% paper; marked, a solid ink disc with the order number (1, 2, 3…) in hi-vis yellow marker (1.35rem), stuck on with a 280ms scale-in from 0.6 (no rebound). The card's hit button becomes a toggle (`aria-pressed`, "Marcar pra ver lado a lado: {name}").
 - **Landing:** a new card falls in from -70px at 1.08 scale and triple tilt (620ms, physical curve). Its tachinha then punches in after a 260ms delay (520ms, from scale 2.2 to 0.9 to 1). This punch is the system's only rebound.
 - **Cartaz (masthead):** a yellow cartolina at -2deg with two pins (red and blue), the display title with the red scribble under "jogos".
 - **Empty state:** a green card spanning two columns ("Seu mural está vazio", Kalam copy, an ink button "Pregar a primeira resenha", the link "Tenho um backup"), next to three dashed chalk outlines where the next cards will go, each with a single pin hole.
@@ -513,7 +522,13 @@ Tactile store objects, each with its own material.
 - **Style:** receipt paper with two thin stripes (1.5px, inset 3px from the top and bottom edges), Barlow Condensed 800 uppercase at 0.09em, an icon at 15px, a 2px radius, tilted -2.5deg.
 - **Incompleto:** orange stripes and brown ink, with a dashed-circle icon.
 - **Finalizado:** green stripes and dark green ink, with a check-circle icon. Shown in the editor and reader; wall cards omit it.
-- **Platinado:** holographic foil with a trophy icon. The CSS fallback that ships is fine diffraction lines at 62deg over a pastel spectrum gradient, with a white inner edge. On card hover a white shine band sweeps across over 900ms (the animated `--shine` property). When `holografico.png` loads, it replaces the gradient through `--holo-foil`.
+- **Platinado:** holographic foil with a trophy icon. The CSS fallback that ships is fine diffraction lines at 62deg over a pastel spectrum gradient, with a white inner edge. On card hover a white shine band sweeps across over 900ms (the animated `--shine` property). When `holografico.png` loads, it replaces the gradient through `--holo-foil`. A 40% milky varnish (`--varnish`) keeps the word readable.
+
+### Status band (wall cards)
+On wall cards the status is not a sticker: it is a band printed on the box itself, like the Platinum band on a rental-store game case. `app-status-label` with `band` (host class `printed`) is projected into the cover sleeve's frame (`<ng-content>`), absolutely placed flush with the bottom and both sides of the art, so it takes no space the cover does not already take. It sits under the sleeve's plastic, so the glare bands pass over it. Straight, square-cornered, no drop shadow; only a 1px dark seam above it where it meets the art.
+- **Size:** 21px tall, Barlow Condensed 800 uppercase at 0.78rem tracked 0.1em, a 12px lucide icon, 2px side padding (Completa, desktop and phone). Simples: 16px tall, 0.7rem tracked 0.03em (0.66rem on phones), no icon, so "INCOMPLETO" fits inside a 58px art. The caller sets these through `--band-h`, `--band-fs`, `--band-track` and `--band-icon`.
+- **Incompleto:** an ink band (`ink` at 92%) with the lettering and a 1.5px top rule in `stripe-incompleto`, the price-gun orange. Deliberately sober: a warning, not a trophy.
+- **Platinado:** the same holographic foil as the label with the varnish thinned to 22% so the spectrum shows across the wider band, a 1px white top edge, and the same `--shine` sweep when the card lifts.
 
 ### Price starburst
 A paper 18-point hand-cut star with an ink outline, 76px in the editor and 120px in the reader, rotated -9deg, with an ink italic Barlow Condensed numeral and a small "/10"; the numeral turns `red-deep` when the Média is 9 or more. It carries the Média, never a typed score: the weighted average of História, Diversão (2x), Jogabilidade and Visual, one decimal in pt-BR ("8,4"); decimal values step the numeral down (2.1rem to 1.7rem at 76px, 3.4rem to 2.8rem in the reader). It is exposed to assistive tech as the image "Média 8,4 de 10". In the editor it sits at the head of the scores and updates live as scores are circled, showing "–" until the first score. It is not used on wall cards.
@@ -561,7 +576,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 - **Do** derive tilt (±0.8°–3.4°, never 0), pin x (40–60%, remapped to 42–58% on wall cards), pin colour and drop offset (0–14px) from the review id with the wall-physics hash, so the wall looks the same on every visit.
 - **Do** rotate cards around their own pin (`transform-origin` at the pin) on hover and focus, reducing the tilt to 35% and lifting 3px with `--shadow-lift`.
 - **Do** give the Média and the verdict equal weight on a wall card, as the two halves of one rental ticket at the same height: the Média as the Barlow Condensed italic price on the paper half, the verdict as white lettering on a band in its own ink. Every other score is a smaller Permanent Marker numeral.
-- **Do** tape the cover to the card and keep the art clear; labels, stamps and scores live on the cartolina or the judgment ticket, never on the sleeve.
+- **Do** tape the cover to the card and keep the art clear; stamps and scores live on the cartolina or the judgment ticket. The one exception is the status band, printed flush in the foot of the art as part of the box.
 - **Do** show the review's first sentence whole (`leadSentence`), and the boletim as four fixed cells in the same order on every card, so cards compare at a glance.
 - **Do** use hi-vis yellow (`hi`) for active tabs, focus rings on the wall (3px, 3px offset; 5px around a whole card; ink on cartolina via `--focus`) and the selected option, and for nothing decorative on the wall.
 - **Do** build new controls as store fixtures that already exist in this world: a shelf tab on the rail, a paper strip, a price-gun label, a receipt, an ink or cartolina button.
@@ -647,7 +662,27 @@ A critique scored the wall card 19/36: the frame was authored, but at a squint t
 - **Horizontal card.** The cover moved to the left of the text, taped on with masking tape and counter-tilted; nothing sits on the art. Cards widened (Completa 330–424px, three per section row; Simples 270–300px), and phones went to one column of full-width horizontal cards.
 - **One judgment label.** *(Superseded within this pass by "Two-part ticket" below.)* The Média and the verdict share the card's only white paper: the Média as a marker price (3.5rem + 2.1rem decimal, red-deep from 9), the verdict as an ink-tone stamp worn by `--stamp-wear`. The starburst stays only in the editor and reader.
 - **Two-part ticket.** The paper label with the marker numeral and the worn ink stamp read as muddy and mismatched: the grain multiplied the white to grey, the marker numeral and the stamp sat at different scales, and the lowered decimal read as an exponent. It was replaced by the two-part rental ticket (the Média in Barlow Condensed italic on flat paper, the verdict in white on a band in its ink, one height, a notched perforation between them) for equal weight and a crisp finish. VerdictStamp's `tone` input, `--stamp-wear`, `--stamp-tilt` and the marker grade numeral were removed.
-- **Quiet status.** Finalizado is silent; only Incompleto and Platinado get the price-gun label, under the meta.
+- **Quiet status.** Finalizado is silent; only Incompleto and Platinado get the price-gun label, under the meta. *(Superseded by "Status band" below: the label moved onto the cover.)*
 - **Readable writing.** Title at 1.62rem clamped to 2 lines; meta and boletim labels in full ink; the lead sentence whole via `leadSentence`, on phones too; four fixed boletim cells with full names, Não tem struck in place.
 - **Focus and names.** A 3px yellow ring at 5px offset around the whole card, a press state, an accessible name that carries name, Média, verdict, status and date, and a decorative cover.
 - **Pin** remapped to 42–58% so it sits over the title, clear of the tape.
+
+## Status band (cover pass)
+
+The user asked for the Incompleto / Platinado label to move from under the meta to the foot of the cover, flush, as if it were part of the cover, without taking more room than the cover already takes.
+
+- **Printed, not stuck.** The status became a full-width band printed at the bottom of the box art, the way rental-store boxes carried Platinum or Greatest Hits bands. It is projected into the sleeve frame, so the frame's overflow and radius clip it and the plastic glare runs over it. This walks back "nothing sits on the art" for this one object: unlike the old corner sticker, the band is square to the box, edge to edge and flat, so it reads as the box's own print rather than something covering it.
+- **Two finishes.** Platinado is foil (the loudest object on the card after the Masterpiece band); Incompleto is an ink strip with orange lettering and rule, carrying the price-gun orange onto a quieter surface.
+- **Space.** The words column lost the label row, so status cards are now as tall as Finalizado cards next to them. The band covers the bottom 21px of the art (16px Simples); logos that sit at the very bottom of a cover (Dead Cells) are partly covered, a known trade-off.
+- **Fit.** Barlow Condensed 800 "INCOMPLETO" measures 4.56em; the sizes above were chosen so it fits without clipping in every cover width (102, 94, 64 and 58px of art).
+
+## Sort mark and Lado a lado (comparison pass)
+
+The user found the sorted-attribute highlighter ugly (the yellow band on the Média read as a yellow block inside the white ticket) and asked for a custom wall of only the games they tick, to compare e.g. every GTA side by side.
+
+- **Red pen, not highlighter.** `app-pen-mark` is one shared stroke: an inline SVG path (viewBox 100×10, stretched with `preserveAspectRatio="none"` and `vector-effect: non-scaling-stroke` so it stays 2.6px on "Visual" and "Jogabilidade" alike), in `red`, 7px tall, 7% wider than the word on each side, sitting 5px under it. It draws in left to right by opening a `clip-path` inset over 280ms (80ms delay) on the physical curve. It marks the sorted category in the boletim, the sorted score beside the date on Simples cards, and the sorted row in the Nota a nota sheet. Red keeps its meaning: the score, the pen.
+- **Marcar.** A shelf tab on the rail, "Marcar" with a lucide square-check icon and the tabular count of marked games, `aria-pressed` for the mode (icon and count only at 720px and below, beside the density icons; the search strip takes `min-width: 0` there so the three icon tabs share its row). The selection is one list of review ids in marking order, kept in `localStorage` (`mural-de-jogos:lado-a-lado:v1`), outside the JSON backup; deleted reviews drop out of it. The mode ends with Pronto, Esc, "Ver lado a lado" or leaving the Mural. The reader footer has a quiet toggle "Lado a lado" (square / square-check icon, red underline when pressed).
+- **Comanda (picking tray).** While picking, a receipt-paper strip is fixed at the bottom centre (max 820px, -0.4deg, lifted shadow, two masking-tape pieces at ±25deg, rising 30px over 380ms): the count ("2 marcadas", the number in red-deep marker 1.45rem), quiet buttons "Marcar as N visíveis" (only while a search or filter is on), "Limpar" (with a Desfazer receipt) and "Pronto", and the ink button "Ver lado a lado" (disabled at 0). At 560px and below it becomes two rows with the ink button full width. `body.has-tray` lifts the toast receipt above it and adds 90px to the wall's foot.
+- **Lado a lado page** (`/lado-a-lado`). A view of the Mural, not a fifth header tab (five tabs do not fit the phone row), so the Mural tab stays lit there. Head: a big tape label "Lado a lado", the chalk summary ("3 jogos · média 7,5"), and chalk quiet buttons "Marcar mais" (back to the Mural in Marcar mode) and "Limpar". A rail with an "Ordenar" select tab (Como marquei, Lançamento, Data, then the Nota group; fixed directions: chronological for dates, highest first for scores, missing values last) and the density icons. Then the marked cards in one flow with no sections, at the wall's widths.
+- **Nota a nota.** A sheet of flat `paper` (no grain, so the sticky label column matches it), 2px radius, hanging-card shadow, -0.35deg, two tape pieces on its top edge, a marker headline (1.9rem). A table with one column per game (at least 150px; 112px at 720px and below) and a sticky row-label column that stays put while wide comparisons scroll sideways. Column heads: a 58px thumb sleeve and the name (Barlow Condensed 800, 1.05rem, 3 lines max), which opens the reader, and a 32px round X to take the game out (with a Desfazer receipt that restores the old order). Rows: Média (the italic price numeral, 2.2rem with a 0.66em decimal, red-deep from 9), Veredito (the card-size stamp at -4deg), História, Diversão, Jogabilidade, Visual (Permanent Marker 1.45rem with the weight arrows; "Não tem" or missing is a 45% "—"), then a solid 2px rule and the facts: Horas, Status (label), Dificuldade (skulls over the level name), Jogado em ("até" for Incompleto), Lançamento. Rows are split by 1.5px dashed ink rules; the head by a 2px ink rule. In each score row the highest value is circled with the same red pen circle as the Ranking's first place (drawn in over 420ms); ties circle every winner, and nobody is circled when all tie or fewer than two games have the score.
+- **States.** Nothing marked: a blue cartolina note ("Nada lado a lado ainda", Kalam copy, the ink button "Escolher no mural"; with an empty wall it points to "Pregar resenha" instead). One marked: the card, then a Kalam chalk line "Marque mais um jogo pra comparar nota a nota." with "Marcar mais".

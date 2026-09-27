@@ -51,6 +51,12 @@ dialog.reader {
 
 
 
+/* marcada pro lado a lado: o quadradinho vem ticado e a palavra ganha o risco de caneta */
+.side[aria-pressed='true'] {
+  text-decoration: underline 2.5px var(--red);
+  text-underline-offset: 5px;
+}
+
 .meta {
   font-family: var(--f-label);
   font-weight: 600;

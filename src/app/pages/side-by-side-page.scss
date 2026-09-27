@@ -1,0 +1,531 @@
+:host {
+  display: block;
+}
+
+/* ===== Cabeça: a etiqueta de fita, a conta em giz e as ações discretas na parede ===== */
+.cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-bottom: 30px;
+  padding-left: 4px;
+}
+
+.resumo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.cabeca-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+  color: var(--wall-ink);
+}
+
+/* ===== Trilho: ordem e tipo de ficha, iguais aos do mural ===== */
+.shelf {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 22px;
+  margin-bottom: 52px;
+  padding: 0 12px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 8px;
+    border-radius: 1px;
+    background: #6c6e76;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      inset 0 -2px 0 rgb(0 0 0 / 0.3),
+      0 6px 10px -3px rgb(0 0 0 / 0.6);
+  }
+}
+
+.group {
+  display: flex;
+  gap: 6px;
+}
+
+.density {
+  margin-left: auto;
+}
+
+.icon {
+  padding-inline: 11px;
+}
+
+.pick {
+  padding-right: 34px;
+  cursor: pointer;
+
+  select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 16px;
+    color-scheme: dark;
+  }
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+.pick-pre {
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+.chev {
+  position: absolute;
+  right: 11px;
+  top: calc(50% - 8px);
+  display: inline-flex;
+}
+
+/* ===== As fichas marcadas: uma fileira só, sem seções ===== */
+.fichas {
+  --card-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 44px 34px;
+
+  &.compact {
+    --card-w: clamp(270px, 21vw, 300px);
+    gap: 34px 30px;
+  }
+
+  app-review-card {
+    width: var(--card-w);
+    max-width: none;
+  }
+}
+
+.falta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 44px;
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  color: var(--wall-ink);
+
+  .btn-quiet {
+    color: var(--wall-ink);
+    text-decoration: underline 2px var(--hi);
+    text-underline-offset: 4px;
+  }
+}
+
+/* ===== Nota a nota: uma folha de papel presa com fita, pautada a caneta ===== */
+.folha {
+  position: relative;
+  margin-top: 64px;
+  padding: 26px 26px 22px;
+  border-radius: 2px;
+  /* papel liso, como o canhoto: o grão encardia a folha e aparecia como remendo atrás da coluna fixa */
+  background: var(--paper);
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+  box-shadow: var(--shadow-card);
+  rotate: -0.35deg;
+
+  h2 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.9rem;
+    line-height: 1.05;
+  }
+}
+
+.tape {
+  position: absolute;
+  top: -8px;
+  width: 64px;
+  height: 20px;
+  background-color: rgb(222 205 160 / 0.86);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  clip-path: polygon(0 12%, 5px 50%, 0 88%, 100% 100%, calc(100% - 5px) 50%, 100% 0);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+}
+
+.tape-a {
+  left: 22px;
+  rotate: -4deg;
+}
+
+.tape-b {
+  right: 22px;
+  rotate: 5deg;
+}
+
+/* a folha rola para os lados quando os jogos não cabem; o nome das linhas fica parado */
+.rolagem {
+  margin: 16px -10px 0;
+  overflow-x: auto;
+  scrollbar-color: rgb(21 21 21 / 0.4) transparent;
+  border-radius: 2px;
+
+  &:focus-visible {
+    outline-offset: 2px;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  padding: 10px 14px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+thead th {
+  min-width: 150px;
+  padding-top: 6px;
+  padding-bottom: 14px;
+  vertical-align: bottom;
+  border-bottom: 2px solid var(--ink);
+}
+
+.canto {
+  border-bottom: 2px solid var(--ink);
+}
+
+/* o nome das linhas: impresso, parado na esquerda enquanto as colunas rolam */
+tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 1%;
+  padding-left: 10px;
+  text-align: left;
+  white-space: nowrap;
+  background: var(--paper);
+}
+
+.canto {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--paper);
+}
+
+.rotulo {
+  position: relative;
+  display: inline-block;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  --pen-y: -6px;
+}
+
+tbody tr + tr > * {
+  border-top: 1.5px dashed rgb(21 21 21 / 0.24);
+}
+
+/* das notas para os fatos da ficha: um traço cheio */
+tbody tr.split > * {
+  border-top: 2px solid rgb(21 21 21 / 0.55);
+}
+
+/* ===== Cabeça da coluna: a capinha e o nome, e o X para tirar o jogo ===== */
+.jogo {
+  position: relative;
+  display: inline-grid;
+  justify-items: center;
+  padding-right: 22px;
+}
+
+.abrir {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+}
+
+.thumb {
+  width: 58px;
+  rotate: -2deg;
+}
+
+.nome {
+  max-width: 17ch;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.1;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tirar {
+  position: absolute;
+  top: 0;
+  right: -10px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.1);
+    color: var(--red-deep);
+  }
+}
+
+/* ===== As células ===== */
+/* a Média, impressa como o preço do canhoto */
+.preco {
+  position: relative;
+  display: inline-block;
+  font-family: var(--f-label);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 2.2rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+
+  small {
+    font-size: 0.66em;
+    letter-spacing: -0.02em;
+  }
+
+  &.top {
+    color: var(--red-deep);
+  }
+}
+
+/* as outras notas, escritas a pincel como no boletim da ficha */
+.nota {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-family: var(--f-marker);
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.w {
+  display: inline-flex;
+}
+
+.nada {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: rgb(21 21 21 / 0.45);
+}
+
+.fato {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+
+  &.num {
+    font-size: 1.05rem;
+  }
+
+  .pre {
+    font-weight: 600;
+    opacity: 0.7;
+    margin-right: 4px;
+  }
+}
+
+.carimbo {
+  rotate: -4deg;
+}
+
+.dificuldade {
+  display: inline-grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+/* a melhor da linha: circulada a caneta vermelha, como no primeiro lugar do Ranking */
+.circulo {
+  position: absolute;
+  inset: -11px -14px -9px -12px;
+  width: calc(100% + 26px);
+  height: calc(100% + 20px);
+  overflow: visible;
+  pointer-events: none;
+
+  path {
+    fill: none;
+    stroke: var(--red);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-dasharray: 150;
+    stroke-dashoffset: 150;
+    animation: draw 420ms 120ms var(--ease-physical) forwards;
+  }
+}
+
+.preco .circulo {
+  inset: -9px -16px -8px -12px;
+  width: calc(100% + 28px);
+  height: calc(100% + 17px);
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ===== Nada marcado ===== */
+.vazio {
+  --stock: var(--stock-azul);
+  position: relative;
+  max-width: 500px;
+  margin: 20px auto 0;
+  padding: 32px 30px 28px;
+  border-radius: 2px;
+  rotate: -1deg;
+  box-shadow: var(--shadow-card);
+
+  .pin {
+    top: -10px;
+    left: calc(50% - 13px);
+  }
+
+  h1 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.9rem;
+    line-height: 1.05;
+  }
+
+  p {
+    margin: 10px 0 20px;
+    font-family: var(--f-hand);
+    font-size: 1.18rem;
+    line-height: 1.45;
+  }
+}
+
+@media (max-width: 720px) {
+  .cabeca {
+    margin-bottom: 24px;
+  }
+
+  .cabeca-acoes {
+    margin-left: -12px;
+    flex-basis: 100%;
+  }
+
+  .shelf {
+    gap: 10px 8px;
+    margin-bottom: 40px;
+    padding: 0 6px;
+  }
+
+  .pick {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .folha {
+    padding: 22px 14px 16px;
+    rotate: 0deg;
+  }
+
+  .rolagem {
+    margin-inline: -4px;
+  }
+
+  th,
+  td {
+    padding: 9px 10px;
+  }
+
+  thead th {
+    min-width: 112px;
+  }
+
+  tbody th {
+    padding-left: 6px;
+  }
+
+  .rotulo {
+    font-size: 0.86rem;
+  }
+
+  .thumb {
+    width: 48px;
+  }
+
+  .nome {
+    font-size: 0.98rem;
+  }
+}
+
+@media (max-width: 559px) {
+  .fichas {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
+
+    app-review-card {
+      width: 100%;
+    }
+  }
+}

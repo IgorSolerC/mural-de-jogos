@@ -6,8 +6,10 @@ import {
   LayoutGrid,
   LucideAngularModule,
   Rows3,
+  SquareCheckBig,
 } from 'lucide-angular';
 import { RATED_KEYS, SCORE_LABEL, ScoreKey, VERDICTS, VERDICT_LABEL } from '../core/review';
+import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { Density, SortKey, VerdictFilter, WallView } from '../core/wall-view';
 import { SearchStrip } from './search-strip';
@@ -33,6 +35,7 @@ const SCORE_OPTIONS: { value: string; label: string }[] = [
 })
 export class WallToolbar {
   protected readonly view = inject(WallView);
+  protected readonly side = inject(SideBySide);
   private readonly vt = inject(ViewTransitions);
 
   protected readonly DescIcon = ArrowDownWideNarrow;
@@ -40,6 +43,7 @@ export class WallToolbar {
   protected readonly FullIcon = Rows3;
   protected readonly CompactIcon = LayoutGrid;
   protected readonly ChevronIcon = ChevronDown;
+  protected readonly MarkIcon = SquareCheckBig;
 
   protected readonly sortOptions = SORT_OPTIONS;
   protected readonly scoreOptions = SCORE_OPTIONS;

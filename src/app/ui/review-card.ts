@@ -17,6 +17,7 @@ import {
 } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
+import { PenMark } from './pen-mark';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 import { VERDICT_ICON } from './verdict';
@@ -26,17 +27,19 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
 
 /**
  * Ficha de balcão: a cartolina é o cartaz escrito à mão do dono da locadora, e a caixa do jogo é
- * um objeto preso nela com fita-crepe. Nada fica em cima da arte. O julgamento é um par de mesmo
+ * um objeto preso nela com fita-crepe. Na arte, só a faixa de status impressa no pé da caixa. O julgamento é um par de mesmo
  * peso: a Média escrita a pincel como preço de cartaz e o carimbo do veredito batido ao lado.
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Pin, StatusLabel, CoverSleeve],
+  imports: [LucideAngularModule, Pin, PenMark, StatusLabel, CoverSleeve],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'cartolina',
     '[class.is-landing]': 'landing()',
     '[class.compact]': 'compact()',
+    '[class.picking]': 'picking()',
+    '[class.picked]': 'pickedAt() !== null',
     '[style.--stock]': '"var(--stock-" + pin().stock + ")"',
     '[style.--tilt]': 'pin().tilt',
     '[style.--pin-x]': 'pinX() + "%"',
@@ -49,7 +52,12 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     <div class="head">
       <div class="cover">
         <div class="box">
-          <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'" />
+          <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
+            <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
+            @if (review().status !== 'finalizado') {
+              <app-status-label class="faixa" [status]="review().status" [band]="true" />
+            }
+          </app-cover-sleeve>
           <span class="tape tape-a" aria-hidden="true"></span>
           <span class="tape tape-b" aria-hidden="true"></span>
         </div>
@@ -63,13 +71,9 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
           }
           @if (compact() && sortedCell(); as c) {
-            <span aria-hidden="true"> · </span><span class="sorted hl">{{ labels[c.key] }} {{ c.value }}</span>
+            <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} {{ c.value }}<app-pen-mark /></span>
           }
         </p>
-        <!-- Finalizado é o normal e não se anuncia; só o que foge do normal ganha etiqueta -->
-        @if (review().status !== 'finalizado') {
-          <app-status-label class="sticker" [status]="review().status" />
-        }
       </div>
 
       <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa da cor dele -->
@@ -79,7 +83,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
           role="img"
           [attr.aria-label]="'Média ' + grade().text + ' de 10'"
           [class.top]="grade().top"
-          [class.hl]="highlight() === 'final'"
         >
           <span class="int" aria-hidden="true">{{ grade().int }}</span>
           @if (grade().dec) {
@@ -103,8 +106,13 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       <!-- Boletim: quatro casas fixas, sempre na mesma ordem, para comparar ficha com ficha -->
       <dl class="boletim">
         @for (c of cells(); track c.key) {
-          <div class="cell" [class.hl]="highlight() === c.key" [class.off]="c.off">
-            <dt>{{ labels[c.key] }}</dt>
+          <div class="cell" [class.off]="c.off">
+            <dt>
+              {{ labels[c.key] }}
+              @if (highlight() === c.key) {
+                <app-pen-mark />
+              }
+            </dt>
             <dd>
               @if (c.off) {
                 <span aria-hidden="true">—</span><span class="sr-only">não tem</span>
@@ -127,7 +135,23 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       </dl>
     }
 
-    <button type="button" class="hit" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)"></button>
+    <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
+    @if (picking()) {
+      <span class="marca" aria-hidden="true">
+        @if (pickedAt(); as n) {
+          <span class="n">{{ n }}</span>
+        }
+      </span>
+      <button
+        type="button"
+        class="hit"
+        [attr.aria-label]="'Marcar pra ver lado a lado: ' + review().game.name"
+        [attr.aria-pressed]="pickedAt() !== null"
+        (click)="toggled.emit(review().id)"
+      ></button>
+    } @else {
+      <button type="button" class="hit" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)"></button>
+    }
   `,
   styles: `
     :host {
@@ -199,6 +223,11 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       position: relative;
       rotate: calc(var(--tilt) * -0.6deg);
     }
+    /* a faixa de status, impressa no pé da arte, de uma borda à outra */
+    .faixa {
+      position: absolute;
+      inset: auto 0 0;
+    }
     .tape {
       position: absolute;
       top: -6px;
@@ -254,9 +283,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       text-transform: uppercase;
       font-variant-numeric: tabular-nums;
     }
-    .sticker {
-      margin-top: 9px;
-    }
 
     /* ===== O julgamento: etiqueta dupla de preço, como canhoto de locadora =====
        À esquerda, a Média impressa em papel branco; à direita, o veredito numa faixa na cor dele.
@@ -302,12 +328,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     /* 9 ou mais: o número sai em vermelho, como nota alta de professor */
     .grade.top {
       color: var(--red-deep);
-    }
-    /* ordenado pela Média: marca-texto amarelo por cima do número */
-    .grade.hl {
-      background:
-        linear-gradient(transparent 22%, rgb(255 233 74 / 0.85) 22% 84%, transparent 84%) center / calc(100% - 16px) 100% no-repeat,
-        var(--paper);
     }
     .band {
       position: relative;
@@ -395,7 +415,8 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     .cell {
       display: grid;
       justify-items: center;
-      gap: 2px;
+      /* espaço fixo para o risco de caneta: a casa não muda de altura quando a ordem muda */
+      gap: 6px;
       padding: 6px 2px 2px;
       min-width: 0;
     }
@@ -403,6 +424,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       border-left: 1.5px solid rgb(21 21 21 / 0.2);
     }
     dt {
+      position: relative;
       max-width: 100%;
       font-family: var(--f-label);
       font-weight: 800;
@@ -410,7 +432,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       letter-spacing: 0.01em;
       line-height: 1;
       white-space: nowrap;
-      overflow: hidden;
       text-overflow: clip;
     }
     dd {
@@ -431,10 +452,48 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     .w {
       display: inline-flex;
     }
-    /* marca-texto na nota que está ordenando o mural */
-    .cell.hl,
-    .sorted.hl {
-      background: linear-gradient(transparent 4%, rgb(255 255 255 / 0.62) 4% 96%, transparent 96%);
+
+    /* ===== Adesivo de marcação: bolinha de etiqueta colada no canto da cartolina =====
+       Vazio, é só o contorno tracejado de onde o adesivo vai; marcado, é um disco de tinta com o
+       número da ordem em amarelo, a mesma dupla do botão de pincel. Lê bem nas seis cartolinas. */
+    .marca {
+      position: absolute;
+      top: -12px;
+      right: -12px;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 2.5px dashed rgb(21 21 21 / 0.78);
+      background: rgb(246 246 241 / 0.9);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+      rotate: -8deg;
+      transition:
+        background-color var(--t-ui) var(--ease-ui),
+        border-color var(--t-ui) var(--ease-ui);
+    }
+    :host(.picked) .marca {
+      border: 2.5px solid var(--ink);
+      background: var(--ink);
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 4px 6px -2px rgb(0 0 0 / 0.4);
+      animation: stick 280ms var(--ease-physical);
+    }
+    .marca .n {
+      color: var(--hi);
+      font-family: var(--f-marker);
+      font-size: 1.35rem;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      /* o pincel senta um pouco abaixo do centro óptico */
+      translate: 0 1px;
+    }
+    @keyframes stick {
+      from {
+        scale: 0.6;
+        opacity: 0;
+      }
     }
 
     .hit {
@@ -461,8 +520,12 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       grid-template-rows: auto auto;
       gap: 0 12px;
     }
-    :host(.compact) .sticker {
-      margin-top: 6px;
+    /* na capinha pequena a faixa é só a palavra, sem ícone, para caber inteira */
+    :host(.compact) .faixa {
+      --band-h: 16px;
+      --band-fs: 0.7rem;
+      --band-track: 0.03em;
+      --band-icon: none;
     }
     :host(.compact) .tape {
       width: 28px;
@@ -506,7 +569,9 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       font-size: 0.86rem;
     }
     .sorted {
-      padding: 0 2px;
+      position: relative;
+      white-space: nowrap;
+      --pen-y: -4px;
     }
 
     /* Chegada ao mural: a ficha cai, a tachinha entra com força */
@@ -550,6 +615,9 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       :host(.compact) {
         --cover-w: 62px;
       }
+      :host(.compact) .faixa {
+        --band-fs: 0.66rem;
+      }
       /* no celular a coluna do nome é estreita: a etiqueta do julgamento desce e ocupa a largura */
       :host(:not(.compact)) .head {
         grid-template-areas:
@@ -574,7 +642,12 @@ export class ReviewCard {
   readonly compact = input(false);
   /** A seção já diz o mês e o ano: a ficha mostra só o dia. */
   readonly dayOnly = input(false);
+  /** Modo de marcar fichas para o lado a lado: tocar marca em vez de abrir. */
+  readonly picking = input(false);
+  /** Posição da ficha no lado a lado (1, 2, 3…), ou null se não está marcada. */
+  readonly pickedAt = input<number | null>(null);
   readonly opened = output<string>();
+  readonly toggled = output<string>();
 
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   /** A tachinha fica no meio do cartaz (42–58%), acima do nome: a fita já segura a capa. */

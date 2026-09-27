@@ -1,8 +1,11 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, inject, viewChild } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { LucideAngularModule, Plus } from 'lucide-angular';
+import { filter, map } from 'rxjs';
 import { Desk } from './core/desk';
 import { ReviewStore } from './core/review-store';
+import { SideBySide } from './core/side-by-side';
 import { ViewTransitions } from './core/view-transitions';
 import { WallView } from './core/wall-view';
 import { Pin } from './ui/pin';
@@ -14,19 +17,20 @@ interface Tab {
   path: string;
   label: string;
   stock: string;
-  exact: boolean;
+  /** Outras rotas que moram dentro desta aba (o lado a lado é uma vista do mural). */
+  also?: string[];
 }
 
 const TABS: Tab[] = [
-  { path: '/', label: 'Mural', stock: 'laranja', exact: true },
-  { path: '/fila', label: 'Pra depois', stock: 'verde', exact: false },
-  { path: '/ranking', label: 'Ranking', stock: 'azul', exact: false },
-  { path: '/ajustes', label: 'Ajustes', stock: 'lilas', exact: false },
+  { path: '/', label: 'Mural', stock: 'laranja', also: ['/lado-a-lado'] },
+  { path: '/fila', label: 'Pra depois', stock: 'verde' },
+  { path: '/ranking', label: 'Ranking', stock: 'azul' },
+  { path: '/ajustes', label: 'Ajustes', stock: 'lilas' },
 ];
 
 @Component({
   selector: 'app-root',
-  imports: [LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterLinkActive, RouterOutlet, Toast],
+  imports: [LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -39,6 +43,16 @@ export class App {
   private readonly vt = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
+  private readonly side = inject(SideBySide);
+
+  /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
+  private readonly path = toSignal(
+    this.router.events.pipe(
+      filter((e) => e instanceof NavigationEnd),
+      map((e) => (e as NavigationEnd).urlAfterRedirects.split(/[?#]/)[0]),
+    ),
+    { initialValue: '/' },
+  );
 
   protected readonly PlusIcon = Plus;
   protected readonly tabs = TABS;
@@ -66,6 +80,11 @@ export class App {
       this.useTexture('/textures/holografico.png', 'has-holo');
       this.useTexture('/textures/fita-crepe.png', 'has-tape');
     });
+  }
+
+  protected isOn(t: Tab): boolean {
+    const p = this.path();
+    return p === t.path || !!t.also?.includes(p) || (t.path !== '/' && p.startsWith(t.path + '/'));
   }
 
   protected tabCount(path: string): number | null {
@@ -132,6 +151,11 @@ export class App {
 
   protected onGlobalKey(e: KeyboardEvent): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Esc encerra a marcação de fichas (com um diálogo aberto, o Esc é dele)
+    if (e.key === 'Escape' && this.side.picking() && !document.querySelector('dialog[open]')) {
+      this.side.picking.set(false);
+      return;
+    }
     const t = e.target as HTMLElement | null;
     if (t?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
     if (e.key === '/') {
