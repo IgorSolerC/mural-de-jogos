@@ -93,7 +93,7 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
       rotate: 24deg;
     }
     :host-context(body.has-tape) .tape {
-      background: url('/textures/fita-crepe.png') center / 100% 100% no-repeat;
+      background: url('textures/fita-crepe.png') center / 100% 100% no-repeat;
       box-shadow: none;
     }
 

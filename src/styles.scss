@@ -117,7 +117,7 @@ body.has-wall-texture {
     radial-gradient(ellipse 90% 55% at 50% -8%, rgb(236 244 255 / 0.13), transparent 70%),
     /* demão de tinta por cima da foto: os furos continuam lá, mas param de gritar */
     linear-gradient(rgb(24 24 27 / 0.46), rgb(24 24 27 / 0.46)),
-    url('/textures/parede-eucatex.png');
+    url('textures/parede-eucatex.png');
   background-size: 100% 900px, auto, 560px 560px;
   background-position: 0 0, 0 0, 0 0;
   background-repeat: no-repeat, repeat, repeat;
@@ -422,13 +422,13 @@ dialog.sheet {
 
 /* Foto do foil holográfico, quando existir */
 body.has-holo {
-  --holo-foil: url('/textures/holografico.png') 0 0 / 180px 180px;
+  --holo-foil: url('textures/holografico.png') 0 0 / 180px 180px;
 }
 
 /* Fibra fotográfica centrada em 50% de cinza + soft-light: textura sem encardir a cartolina */
 body.has-paper-texture .cartolina,
 body.has-paper-texture .btn-cartolina {
-  background-image: url('/textures/cartolina-fibra.png');
+  background-image: url('textures/cartolina-fibra.png');
   background-size: 420px 420px;
   background-blend-mode: soft-light;
 }

@@ -37,7 +37,7 @@ import { PINS } from '../core/wall-physics';
       width: 32px;
       height: 32px;
       margin: -3px 0 0 -3px;
-      background: url('/textures/tachinhas.png') calc(var(--pin-i) * -32px) 0 / 192px 32px no-repeat;
+      background: url('textures/tachinhas.png') calc(var(--pin-i) * -32px) 0 / 192px 32px no-repeat;
       /* a luz fluorescente vem de cima à esquerda: a sombra cai para baixo e à direita, na cartolina */
       filter: drop-shadow(2px 3px 1.5px rgb(0 0 0 / 0.42)) drop-shadow(5px 7px 5px rgb(0 0 0 / 0.22));
     }

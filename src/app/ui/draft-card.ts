@@ -96,7 +96,7 @@ import { BURST_POINTS } from './score-burst';
       box-shadow: 0 1px 1px rgb(0 0 0 / 0.2);
     }
     :host-context(body.has-tape) .tape {
-      background: url('/textures/fita-crepe.png') center / 100% 100% no-repeat;
+      background: url('textures/fita-crepe.png') center / 100% 100% no-repeat;
       box-shadow: none;
     }
 

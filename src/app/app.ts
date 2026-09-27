@@ -74,11 +74,11 @@ export class App {
     });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
     afterNextRender(() => {
-      this.useTexture('/textures/parede-eucatex.png', 'has-wall-texture');
-      this.useTexture('/textures/cartolina-fibra.png', 'has-paper-texture');
-      this.useTexture('/textures/tachinhas.png', 'has-pins');
-      this.useTexture('/textures/holografico.png', 'has-holo');
-      this.useTexture('/textures/fita-crepe.png', 'has-tape');
+      this.useTexture('textures/parede-eucatex.png', 'has-wall-texture');
+      this.useTexture('textures/cartolina-fibra.png', 'has-paper-texture');
+      this.useTexture('textures/tachinhas.png', 'has-pins');
+      this.useTexture('textures/holografico.png', 'has-holo');
+      this.useTexture('textures/fita-crepe.png', 'has-tape');
     });
   }
 

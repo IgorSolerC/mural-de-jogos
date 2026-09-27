@@ -165,7 +165,7 @@ import { SearchStrip } from '../ui/search-strip';
       background: rgb(222 205 160 / 0.86);
     }
     :host-context(body.has-tape) .empty .tape {
-      background: url('/textures/fita-crepe.png') center / 100% 100% no-repeat;
+      background: url('textures/fita-crepe.png') center / 100% 100% no-repeat;
     }
     .empty h2 {
       font-family: var(--f-marker);
