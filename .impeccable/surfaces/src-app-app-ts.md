@@ -20,7 +20,7 @@ OWN-WORLD: Graphite-painted perforated eucatex wall (hole grid, faint fluorescen
 
 STORY: The user sees their whole history as a store wall they curated, finds any game in seconds, and pins a new card while the opinion is fresh.
 
-FIRST VIEWPORT: Top-left, a big yellow cartolina cartaz tilted -2deg: "MEU MURAL DE JOGOS" lettered in black marker with red scribble underline and live counts. Right of it, primary action: the stack of blank cartolinas labelled "Pregar resenha" (neon pink, plus icon). Beneath, a counter strip: search paper strip, status plates, sort plates (score opens category sub-plates), direction toggle. Then the wall: responsive grid of cards, each tilted -3..3deg deterministically, pin at a varied x, cards pivot around their pin on hover.
+FIRST VIEWPORT (after the pages pass): one header row shared by all pages: a compact yellow cartaz "Meu mural de jogos" (link home), cartolina section tabs (Mural, Pra depois, Ranking, Ajustes; current one neon and pinned), and the pink "Pregar resenha" stack. On the Mural page, one shelf beneath: taped search strip, status plates, a single "Ordenar" select tab + direction toggle, density icons. Then the wall: responsive grid of cards, each tilted -3..3deg deterministically, pin at a varied x, cards pivot around their pin on hover.
 
 FORM: Parede de Locadora, position 1 on my ordered list (chosen by user as IMPECCABLE'S PICK); seed key f447d5fe. Motion grammar (raise from zoo map): one physical curve, 380ms expo ease-out cubic-bezier(.16,1,.3,1) for card/pin, 160ms ease-out for UI; the only rebound is the keyframed tachinha punch. Signature interaction: pin-punch on save + sort reshuffle via View Transitions; cards swing around the pin.
 

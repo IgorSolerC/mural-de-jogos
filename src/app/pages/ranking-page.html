@@ -1,0 +1,93 @@
+@if (!store.count()) {
+  <section class="receipt solo" aria-labelledby="ranking-titulo">
+    <h1 id="ranking-titulo">Ranking</h1>
+    <p class="r-meta">Impresso em {{ today }}</p>
+    <p class="empty">Nada pra ranquear ainda. Pregue umas resenhas e o cupom sai com o seu top.</p>
+    <button type="button" class="btn-ink" (click)="desk.newReview()">
+      <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+      Pregar resenha
+    </button>
+  </section>
+} @else {
+  <div class="rail">
+    <div class="plates" role="group" aria-label="Ranquear por">
+      @for (k of keys; track k) {
+        <button type="button" class="plate" [attr.aria-pressed]="key() === k" (click)="setKey(k)">{{ labels[k] }}</button>
+      }
+    </div>
+  </div>
+
+  <div class="layout">
+    <section class="receipt main" aria-labelledby="ranking-titulo">
+      <header class="r-head">
+        <h1 id="ranking-titulo">Ranking</h1>
+        <p class="r-meta">Por {{ labels[key()] }} · impresso em {{ today }}</p>
+      </header>
+
+      <ol class="list">
+        @for (row of rows(); track row.review.id) {
+          <li [style.view-transition-name]="'rank-' + row.review.id" [attr.data-ficha]="row.review.id">
+            <button
+              type="button"
+              class="row"
+              [class.first]="row.pos === 1"
+              [class.hi]="row.score >= 9"
+              (click)="desk.openReview(row.review.id)"
+            >
+              <span class="pos">{{ ordinal(row.pos) }}</span>
+              <app-cover-sleeve class="thumb" size="thumb" [game]="row.review.game" />
+              <span class="who">
+                <span class="name">{{ row.review.game.name }}</span>
+                <span class="meta">
+                  @if (row.review.game.year) {
+                    {{ row.review.game.year }} ·
+                  }
+                  {{ statusLabel[row.review.status] }}
+                </span>
+              </span>
+              <span class="score">
+                <span class="sr-only">{{ labels[key()] }}</span>
+                {{ fmt(row.score) }}
+                @if (row.pos === 1) {
+                  <svg viewBox="0 0 60 50" aria-hidden="true">
+                    <path d="M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7" />
+                  </svg>
+                }
+              </span>
+            </button>
+          </li>
+        }
+      </ol>
+
+      @if (left(); as n) {
+        <p class="left">
+          {{ n }} {{ n === 1 ? 'jogo ficou' : 'jogos ficaram' }} de fora: {{ n === 1 ? 'não tem' : 'não têm' }} nota de
+          {{ labels[key()] }}.
+        </p>
+      }
+    </section>
+
+    <aside class="receipt totals" aria-labelledby="balanco-titulo">
+      <h2 id="balanco-titulo">Balanço</h2>
+      <dl>
+        <div><dt>Jogos no mural</dt><dd>{{ totals().n }}</dd></div>
+        <div><dt>Platinados</dt><dd>{{ totals().byStatus.platinado }}</dd></div>
+        <div><dt>Finalizados</dt><dd>{{ totals().byStatus.finalizado }}</dd></div>
+        <div><dt>Incompletos</dt><dd>{{ totals().byStatus.incompleto }}</dd></div>
+        @if (store.draftCount()) {
+          <div><dt>Pra depois</dt><dd>{{ store.draftCount() }}</dd></div>
+        }
+        <div><dt>Horas jogadas</dt><dd>{{ totals().hours }}</dd></div>
+      </dl>
+      <dl class="notes">
+        @if (totals().longest; as l) {
+          <div><dt>Mais jogado</dt><dd>{{ l }}</dd></div>
+        }
+        @if (totals().verdict; as v) {
+          <div><dt>Veredito mais dado</dt><dd>{{ v }}</dd></div>
+        }
+      </dl>
+      <p class="total"><span>Média geral</span><span>{{ totals().avg }}</span></p>
+    </aside>
+  </div>
+}

@@ -1,0 +1,58 @@
+<h1 class="sr-only">Mural</h1>
+
+@if (!store.count()) {
+  <section class="empty" aria-labelledby="vazio-titulo">
+    <div class="empty-card cartolina">
+      <app-pin class="pin" color="#ffd23f" />
+      <h2 id="vazio-titulo">Seu mural está vazio</h2>
+      <p>Toda locadora começou com uma parede vazia. Pregue a resenha do último jogo que você jogou.</p>
+      <div class="empty-actions">
+        <button type="button" class="btn-ink" (click)="desk.newReview()">
+          <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+          Pregar a primeira resenha
+        </button>
+        <a class="link" routerLink="/ajustes">Tenho um backup</a>
+      </div>
+    </div>
+    @for (g of ghosts; track g) {
+      <div class="ghost" aria-hidden="true"><span class="hole"></span></div>
+    }
+  </section>
+} @else {
+  <app-wall-toolbar class="toolbar" />
+
+  @if (!view.visible().length) {
+    <section class="no-results cartolina" aria-live="polite">
+      <app-pin class="pin" color="#f4f4f0" />
+      <h2>Nada no mural com esse filtro</h2>
+      <p>
+        @if (view.query().trim()) {
+          Nenhuma ficha fala de “{{ view.query().trim() }}”.
+        } @else {
+          Nenhuma ficha com esse status ainda.
+        }
+      </p>
+      <button type="button" class="btn-ink" (click)="clearFilters()">Mostrar o mural inteiro</button>
+    </section>
+  } @else {
+    <h2 class="sr-only">Fichas no mural</h2>
+    @if (view.isFiltered()) {
+      <p class="showing" aria-live="polite">
+        Mostrando {{ view.visible().length }} de {{ store.count() }}
+        <button type="button" class="showing-clear" (click)="clearFilters()">Limpar filtro</button>
+      </p>
+    }
+    <div class="wall" [class.compact]="view.density() === 'simples'">
+      @for (r of view.visible(); track r.id) {
+        <app-review-card
+          [attr.data-ficha]="r.id"
+          [review]="r"
+          [landing]="desk.landingId() === r.id"
+          [highlight]="highlight()"
+          [compact]="view.density() === 'simples'"
+          (opened)="desk.openReview($event)"
+        />
+      }
+    </div>
+  }
+}

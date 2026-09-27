@@ -329,16 +329,19 @@ All four are self-hosted through `@fontsource` (latin subsets) and loaded from `
 
 ## Layout
 
-The app shell is centred with a maximum width of 1480px, a side gutter of `clamp(16px, 4vw, 48px)`, 36px of top padding and 120px of bottom padding. Page order: a header row with the cartaz on the left and the actions on the right (the blank-card stack plus "Ajustes e backup"), with flex-wrap and a 28px/40px gap. Below it is the toolbar (the taped search strip, max 620px, then the shelf with the tab groups "Mostrar", "Ordenar" and, when sorting by score, "Qual nota") and then the wall.
+The app shell is centred with a maximum width of 1480px, a side gutter of `clamp(16px, 4vw, 48px)`, 28px of top padding and 120px of bottom padding. It is split into four pages (hash routes, so it deploys to any static host): **Mural** (`/`), **Pra depois** (`/fila`), **Ranking** (`/ranking`) and **Ajustes** (`/ajustes`). Every page shares one header row: the compact cartaz on the left (a link home), the section tabs, and the blank-card stack on the right. The editor and the reader stay as sheets owned by the shell, so any page can open them.
+
+The Mural page holds only the toolbar and the wall. The toolbar is one shelf: the taped search strip (max 440px) sits just above the rail, then the status tabs, then, pushed to the right end, a single "Ordenar" select tab with the direction toggle and the two density icon tabs.
 
 The wall is `repeat(auto-fill, minmax(236px, 1fr))` with 48px row and 36px column gaps. Cards are at most 300px wide, centred in their cell, and aligned to the start of the row. Each card also drops 0–14px from the top of its cell (from its id), so rows never line up perfectly.
 
 Responsive behaviour:
 - **1024px and up:** the editor sheet widens to 1080px and splits into two columns (`1.05fr / 1fr`, 40px gap, with a dashed divider), so it fits without scrolling.
-- **720px and below:** the cartaz goes full width and tilts less (-1.2deg); the header actions spread across the row; the search strip loses its max-width and the `/` hint.
+- **1100px and below:** the section tabs drop to their own row under the cartaz and the stack.
+- **720px and below:** the cartaz shrinks to a two-line 1.5rem logo; the four section tabs share one row; the toolbar becomes two rows: search plus density icons, then a "Mostrar" select tab and the "Ordenar" select tab with the direction toggle. The `/` hint hides.
 - **600px and below:** the reader stacks the cover (max 220px, centred) above the facts.
 - **559px and below:** the wall stays a wall. It keeps two columns (30px/16px gaps), and cards become compact: less tilt, smaller type, the excerpt hidden, the pin, starburst and status label scaled down.
-- **480px and below:** each tab group takes the full row and scrolls sideways, with a 36px fade mask on the right.
+- **440px and below:** the primary button reads "Pregar" (the full name stays as its accessible label).
 - **420px and below:** score-picker cells shrink to 36px (44px for big pickers); the difficulty options wrap to 3 columns.
 
 Inside sheets the rhythm is 24px between sections (`section-gap`), with 24px side padding (16px compact). Dashed 2px ink rules (`rgb(21 21 21 / 0.22–0.25)`) separate footers, sub-scores and editor columns. They read as lines ruled in pen on the card.
@@ -495,3 +498,16 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 - **Pastel sheets.** Every dialog sheet (reader, editor, settings) renders its stock as a pastel: `color-mix(in oklab, var(--stock) 30%, var(--paper))`, with the full neon stock kept as a 12px band across the top edge (`inset 0 12px 0 var(--stock)`), where the pin sits. Neon at 760px wide fought the cover, stamp and text; on the wall the cards stay full neon.
 - **Verdict block.** In the reader the Média no longer sits in the bar list and carries no label. It leads a block: the big paper starburst (120px) on the left; to its right, stacked, the verdict stamp at reader size (1.3rem, -5deg, struck on the sheet, not on the cover), then the status label and difficulty skulls. A dashed rule separates the block from the category bars. The difficulty label reads "Dificuldade média" / "Sem dificuldade" so it can't be mistaken for the score.
 - **Mobile reader.** Cover shrinks to `min(170px, 52%)` so the verdict block and bars reach the first screen.
+
+## Restructure (pages pass)
+
+The single long page was split so the wall reaches the first screen: before, the masthead, the pending queue and three tab groups took ~560px on desktop and ~1000px on a phone before the first card; now ~215px and ~330px.
+
+- **Compact cartaz.** "Meu mural de jogos" on one line at 2.05rem (two lines at 1.5rem on phones), same yellow stock, pins and red scribble. The tally line moved to the Ranking page's Balanço.
+- **Section tabs.** Small cartolina strips in Barlow Condensed 800 caps, each with its own stock (Mural laranja, Pra depois verde, Ranking azul, Ajustes lilás). Inactive tabs are faded: `color-mix(in oklab, var(--stock) 34%, #4d4e55)`, 66% on hover. The current tab is full neon, raised 5px, with the hanging-card shadow and a tachinha on its top edge. Tabs tilt ±0.7–1.4deg. Counts (reviews, pending) are tabular at 66%.
+- **Select tab.** A shelf tab that wraps a native `<select>` made invisible over the whole tab, so the browser picker still opens; the tab shows a faded prefix ("Ordenar"), the current value and a chevron. Ordenar merges what used to be four sort tabs plus five "Qual nota" sub-tabs: Data, Nome, Status, then a "Nota" group (Média, História, Diversão, Jogabilidade, Visual). On phones a second select tab replaces the status tabs.
+- **Density icons.** Completas / Simples are two icon-only tabs (Rows3 / LayoutGrid) with spoken labels and tooltips, no group label.
+- **Pra depois page.** The torn notebook pages live on their own page under a masking-tape heading, in a grid of `minmax(168px, 1fr)` (pages up to 200px wide). Empty state: a loose notebook sheet taped to the wall explaining "Salvar pra depois". Saving a draft from another page shows a toast with "Ver fila"; finishing a draft goes to the Mural and plays the landing.
+- **Ranking page.** A counter receipt (thermal paper with grain, zigzag bottom edge via a two-layer mask, drop-shadow, -0.5deg) listing every review by the chosen category, chosen with shelf tabs on a rail above it. Rows: ordinal ("1º", ties share it), thumb sleeve, name in condensed 800 with year · status, score in marker (red-deep from 9). First place gets a larger row, the name in marker and the pen circle drawn around its score. Reviews with no score in the category are left out, with a line saying how many. Beside it (below on narrow screens) a second receipt, **Balanço**: dotted-leader totals, "Mais jogado", "Veredito mais dado" and a double-ruled "Média geral".
+- **Ajustes page.** The settings sheet became a page of two pinned cartolinas side by side: Backup (azul) and Catálogo de jogos (lilás).
+- **Removed.** The masthead tally, the in-header pending queue, the visible group labels "Mostrar / Ordenar / Fichas / Qual nota" (kept as accessible names), the "Qual nota" sub-rail, the settings dialog and the "Ajustes e backup" header button.

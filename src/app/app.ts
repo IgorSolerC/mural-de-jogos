@@ -1,31 +1,32 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  afterNextRender,
-  computed,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
-import { LucideAngularModule, Plus, SlidersHorizontal } from 'lucide-angular';
+import { ChangeDetectionStrategy, Component, afterNextRender, inject, viewChild } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { LucideAngularModule, Plus } from 'lucide-angular';
+import { Desk } from './core/desk';
 import { ReviewStore } from './core/review-store';
 import { ViewTransitions } from './core/view-transitions';
 import { WallView } from './core/wall-view';
-import { DraftCard } from './ui/draft-card';
 import { Pin } from './ui/pin';
-import { ReviewCard } from './ui/review-card';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
-import { SettingsPanel } from './ui/settings-panel';
 import { Toast, Toasts } from './ui/toast';
-import { WallToolbar } from './ui/wall-toolbar';
 
-const numberFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+interface Tab {
+  path: string;
+  label: string;
+  stock: string;
+  exact: boolean;
+}
+
+const TABS: Tab[] = [
+  { path: '/', label: 'Mural', stock: 'laranja', exact: true },
+  { path: '/fila', label: 'Pra depois', stock: 'verde', exact: false },
+  { path: '/ranking', label: 'Ranking', stock: 'azul', exact: false },
+  { path: '/ajustes', label: 'Ajustes', stock: 'lilas', exact: false },
+];
 
 @Component({
   selector: 'app-root',
-  imports: [LucideAngularModule, DraftCard, Pin, ReviewCard, ReviewEditor, ReviewReader, SettingsPanel, Toast, WallToolbar],
+  imports: [LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterLinkActive, RouterOutlet, Toast],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -33,36 +34,30 @@ const numberFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1, min
 })
 export class App {
   protected readonly store = inject(ReviewStore);
-  protected readonly view = inject(WallView);
+  private readonly view = inject(WallView);
+  private readonly desk = inject(Desk);
   private readonly vt = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
+  private readonly router = inject(Router);
 
   protected readonly PlusIcon = Plus;
-  protected readonly SettingsIcon = SlidersHorizontal;
+  protected readonly tabs = TABS;
 
   private readonly editor = viewChild.required(ReviewEditor);
   private readonly reader = viewChild.required(ReviewReader);
-  private readonly settings = viewChild.required(SettingsPanel);
-  private readonly toolbar = viewChild(WallToolbar);
-
-  protected readonly landingId = signal<string | null>(null);
-  protected readonly ghosts = [0, 1, 2];
-
-  protected readonly tally = computed(() => {
-    const list = this.store.reviews();
-    const n = list.length;
-    const plat = list.filter((r) => r.status === 'platinado').length;
-    const avg = n ? list.reduce((s, r) => s + r.scores.final, 0) / n : 0;
-    return {
-      games: n ? `${n} ${n === 1 ? 'jogo' : 'jogos'} no mural` : 'Nenhum jogo pregado ainda',
-      plat: `${plat} ${plat === 1 ? 'platinado' : 'platinados'}`,
-      avg: n ? `nota média ${numberFmt.format(avg)}` : '',
-    };
-  });
-
-  protected readonly highlight = computed(() => (this.view.sort() === 'nota' ? this.view.scoreKey() : null));
 
   constructor() {
+    this.desk.register({
+      newReview: () => this.editor().open(),
+      openReview: (id) => {
+        const r = this.store.get(id);
+        if (r) this.reader().open(r);
+      },
+      openDraft: (id) => {
+        const d = this.store.getDraft(id);
+        if (d) this.editor().open(undefined, d);
+      },
+    });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
     afterNextRender(() => {
       this.useTexture('/textures/parede-eucatex.png', 'has-wall-texture');
@@ -71,25 +66,16 @@ export class App {
       this.useTexture('/textures/holografico.png', 'has-holo');
       this.useTexture('/textures/fita-crepe.png', 'has-tape');
     });
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.landingTimer));
+  }
+
+  protected tabCount(path: string): number | null {
+    if (path === '/') return this.store.count() || null;
+    if (path === '/fila') return this.store.draftCount() || null;
+    return null;
   }
 
   protected newReview(): void {
     this.editor().open();
-  }
-
-  protected openSettings(): void {
-    this.settings().open();
-  }
-
-  protected openReview(id: string): void {
-    const r = this.store.get(id);
-    if (r) this.reader().open(r);
-  }
-
-  protected openDraft(id: string): void {
-    const d = this.store.getDraft(id);
-    if (d) this.editor().open(undefined, d);
   }
 
   protected removeDraft(id: string): void {
@@ -104,8 +90,12 @@ export class App {
 
   protected onDrafted(e: SavedEvent): void {
     const name = this.store.getDraft(e.id)?.game.name ?? '';
-    this.land(e.id);
-    this.toasts.show(e.isNew ? `“${name}” guardado pra resenhar depois` : 'Pendente atualizado');
+    const onQueue = this.router.url.startsWith('/fila');
+    if (onQueue) this.desk.land(e.id);
+    this.toasts.show(
+      e.isNew ? `“${name}” guardado pra depois` : 'Pendente atualizado',
+      onQueue ? undefined : { label: 'Ver fila', run: () => this.goLand('/fila', e.id) },
+    );
   }
 
   protected editReview(id: string): void {
@@ -129,29 +119,15 @@ export class App {
 
   protected onSaved(e: SavedEvent): void {
     const name = this.store.get(e.id)?.game.name ?? '';
-    // Se a ficha nova ficaria escondida pelo filtro, limpa o filtro para ela aparecer.
-    if (!this.view.visible().some((r) => r.id === e.id)) this.view.clearFilters();
-    this.land(e.id);
+    // Ficha nova vai para o mural: se ela ficaria escondida pelo filtro, limpa o filtro.
+    if (e.isNew && !this.view.visible().some((r) => r.id === e.id)) this.view.clearFilters();
+    if (e.isNew && this.router.url !== '/') this.goLand('/', e.id);
+    else this.desk.land(e.id);
     this.toasts.show(e.isNew ? `“${name}” pregado no mural` : 'Resenha atualizada');
   }
 
-  /** A ficha (ou folha) recém-salva cai na parede e a tela vai até ela. */
-  private land(id: string): void {
-    this.landingId.set(id);
-    clearTimeout(this.landingTimer);
-    this.landingTimer = setTimeout(() => this.landingId.set(null), 1100);
-    requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-ficha="${id}"]`);
-      el?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    });
-  }
-
-  protected onImported(n: number): void {
-    if (n) this.toasts.show(`${n} ${n === 1 ? 'resenha voltou' : 'resenhas voltaram'} para o mural`);
-  }
-
-  protected clearFilters(): void {
-    this.vt.run(() => this.view.clearFilters());
+  private goLand(path: string, id: string): void {
+    void this.router.navigateByUrl(path).then(() => this.desk.land(id));
   }
 
   protected onGlobalKey(e: KeyboardEvent): void {
@@ -159,15 +135,16 @@ export class App {
     const t = e.target as HTMLElement | null;
     if (t?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
     if (e.key === '/') {
+      const search = document.getElementById('busca-mural');
+      if (!search) return;
       e.preventDefault();
-      this.toolbar()?.focusSearch();
+      (search as HTMLInputElement).focus();
+      (search as HTMLInputElement).select();
     } else if (e.key === 'n' || e.key === 'N') {
       e.preventDefault();
       this.newReview();
     }
   }
-
-  private landingTimer: ReturnType<typeof setTimeout> | undefined;
 
   private useTexture(url: string, cls: string): void {
     const img = new Image();

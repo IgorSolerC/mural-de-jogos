@@ -1,0 +1,51 @@
+import { Injectable, signal } from '@angular/core';
+
+export interface DeskHandlers {
+  newReview(): void;
+  openReview(id: string): void;
+  openDraft(id: string): void;
+}
+
+/**
+ * O balcão: as fichas grandes (editor e leitura) moram no app, mas qualquer página pode pedir
+ * para abrir uma. Também guarda qual ficha acabou de cair na parede.
+ */
+@Injectable({ providedIn: 'root' })
+export class Desk {
+  private handlers: DeskHandlers | null = null;
+  private landingTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** A ficha (ou folha) recém-salva, para tocar a chegada. */
+  readonly landingId = signal<string | null>(null);
+
+  register(h: DeskHandlers): void {
+    this.handlers = h;
+  }
+
+  newReview(): void {
+    this.handlers?.newReview();
+  }
+
+  openReview(id: string): void {
+    this.handlers?.openReview(id);
+  }
+
+  openDraft(id: string): void {
+    this.handlers?.openDraft(id);
+  }
+
+  /** A ficha cai na parede e a tela vai até ela, assim que ela existir na página. */
+  land(id: string): void {
+    this.landingId.set(id);
+    clearTimeout(this.landingTimer);
+    this.landingTimer = setTimeout(() => this.landingId.set(null), 1100);
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let tries = 0;
+    const seek = () => {
+      const el = document.querySelector(`[data-ficha="${id}"]`);
+      if (el) el.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+      else if (++tries < 20) requestAnimationFrame(seek);
+    };
+    requestAnimationFrame(seek);
+  }
+}

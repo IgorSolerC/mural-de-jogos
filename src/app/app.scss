@@ -2,7 +2,7 @@
   display: block;
   max-width: 1480px;
   margin: 0 auto;
-  padding: 36px var(--gutter) 120px;
+  padding: 28px var(--gutter) 120px;
 }
 
 .skip {
@@ -21,47 +21,66 @@
   }
 }
 
-/* ===== Topo: o cartaz de cartolina e a pilha de fichas em branco ===== */
+main {
+  outline: none;
+}
+
+/* ===== Topo: cartaz, abas de seção e a pilha de fichas em branco, numa faixa só ===== */
 .top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 28px 40px;
-  margin-bottom: 40px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px 36px;
+  margin-bottom: 34px;
 }
 
 .cartaz {
   --stock: var(--stock-amarelo);
   position: relative;
-  padding: 30px 36px 24px;
+  display: block;
+  padding: 18px 26px 16px;
   border-radius: 2px;
   rotate: -2deg;
   box-shadow: var(--shadow-card);
-  max-width: 100%;
+  text-decoration: none;
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
 
-  h1 {
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: clamp(2.5rem, 6vw, 4.4rem);
-    line-height: 0.98;
-    letter-spacing: -0.01em;
+  &:hover {
+    rotate: -1deg;
+    box-shadow: var(--shadow-lift);
+  }
+
+  &:focus-visible {
+    outline-color: var(--hi);
+    outline-offset: 5px;
   }
 
   .pin-l {
     top: -9px;
-    left: 18px;
+    left: 14px;
   }
 
   .pin-r {
     top: -9px;
-    right: 18px;
+    right: 14px;
   }
+}
+
+.logo {
+  display: block;
+  font-family: var(--f-marker);
+  font-size: 2.05rem;
+  line-height: 1;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
 }
 
 /* sublinhado de pincel vermelho, feito de uma passada só */
 .scribble {
   position: relative;
+  isolation: isolate;
   white-space: nowrap;
 
   &::after {
@@ -69,7 +88,7 @@
     position: absolute;
     left: -4%;
     right: -6%;
-    bottom: -0.1em;
+    bottom: -0.12em;
     height: 0.32em;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' preserveAspectRatio='none'%3E%3Cpath d='M3 15c40-9 90-12 150-9 18 1 32 3 44 6-50-2-110 0-150 7' fill='none' stroke='%23e62e2d' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
       center / 100% 100% no-repeat;
@@ -77,26 +96,91 @@
   }
 }
 
-.tally {
+/* ===== Abas de seção: fichas de cartolina desbotadas; a da seção aberta fica viva e pregada ===== */
+.tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 8px;
-  margin-top: 14px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 1.05rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
+  align-items: flex-end;
+  gap: 10px;
+  padding-bottom: 4px;
 }
 
-.top-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
-  padding-bottom: 6px;
+.tab {
+  --faded: color-mix(in oklab, var(--stock) 34%, #4d4e55);
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-height: 44px;
+  padding: 13px 16px 10px;
+  border-radius: 2px;
+  background-color: var(--faded);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 6px 10px -4px rgb(0 0 0 / 0.5);
+  rotate: calc(var(--tilt, 0) * 1deg);
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  &:nth-child(1) {
+    --tilt: -1.4;
+  }
+
+  &:nth-child(2) {
+    --tilt: 1;
+  }
+
+  &:nth-child(3) {
+    --tilt: -0.7;
+  }
+
+  &:nth-child(4) {
+    --tilt: 1.3;
+  }
+
+  .n {
+    font-weight: 600;
+    opacity: 0.66;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--stock) 66%, #4d4e55);
+    translate: 0 -2px;
+  }
+
+  &:focus-visible {
+    outline-color: var(--hi);
+    outline-offset: 4px;
+  }
+
+  .tab-pin {
+    display: none;
+    top: -16px;
+    left: calc(50% - 13px);
+    scale: 0.78;
+  }
+
+  &.on {
+    background-color: var(--stock);
+    translate: 0 -5px;
+    rotate: calc(var(--tilt, 0) * 0.6deg);
+    box-shadow: var(--shadow-card);
+
+    .tab-pin {
+      display: block;
+    }
+  }
 }
 
 /* A pilha: fichas em branco atrás do botão, cada uma de uma cor */
@@ -104,12 +188,13 @@
   position: relative;
   display: inline-flex;
   isolation: isolate;
+  margin-bottom: 4px;
 
   .btn-cartolina {
     --stock: var(--stock-rosa);
-    min-height: 60px;
-    padding: 14px 26px 13px 20px;
-    font-size: 1.35rem;
+    min-height: 54px;
+    padding: 12px 22px 11px 18px;
+    font-size: 1.25rem;
   }
 
   &::before,
@@ -150,316 +235,108 @@
   }
 }
 
-.tools {
-  color: var(--wall-ink);
-}
-
 .save-error {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 14px;
-  margin: -12px 0 24px;
+  margin: -8px 0 28px;
   padding: 12px 16px;
   border-radius: 4px;
   background: var(--red);
   color: #fff;
   font-weight: 600;
 
-  button {
+  a {
+    display: inline-flex;
+    align-items: center;
     min-height: 36px;
     padding: 6px 12px;
-    border: 0;
     border-radius: 3px;
     background: #fff;
     color: var(--red-deep);
     font-weight: 700;
+    text-decoration: none;
   }
 }
 
-/* ===== Bandeja de entrada: jogos guardados para resenhar depois =====
-   Mora no topo, junto do "Pregar resenha": tudo que ainda vai entrar no mural fica num lugar só,
-   e a busca e os filtros logo abaixo valem só para o mural. */
-.fila {
-  flex-basis: 100%;
-  min-width: 0;
-}
-
-.fila-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 14px;
-}
-
-/* etiqueta improvisada: um pedaço de fita-crepe escrito com pincel atômico */
-.fila-label {
-  padding: 7px 18px 5px;
-  background-color: rgb(222 205 160 / 0.94);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 1.15rem;
-  line-height: 1.1;
-  rotate: -1.5deg;
-  /* pontas rasgadas com a mão */
-  clip-path: polygon(0 6%, 5px 28%, 1px 50%, 6px 74%, 0 96%, 100% 100%, calc(100% - 4px) 72%, 100% 48%, calc(100% - 6px) 24%, 100% 2%);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35));
-}
-
-.fila-count {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-/* uma fileira só; o que não cabe rola para o lado e some num degradê na borda */
-.fila-row {
-  --fade: 40px;
-  display: flex;
-  align-items: flex-start;
-  gap: 22px;
-  /* folga para a fita, a inclinação e a sombra não serem cortadas pela rolagem */
-  margin: 0 -10px;
-  padding: 20px calc(var(--fade) + 4px) 26px 12px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  scroll-padding-inline: 12px;
-  scrollbar-width: thin;
-  scrollbar-color: #4a4b52 transparent;
-  -webkit-mask: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent);
-  mask: linear-gradient(90deg, #000 calc(100% - var(--fade)), transparent);
-
-  > * {
-    scroll-snap-align: start;
-  }
-}
-
-/* Tela larga: o cartaz à esquerda; à direita, a ação principal em cima e a bandeja embaixo,
-   ocupando o vão que antes ficava vazio. O mural começa logo depois, na primeira tela. */
-@media (min-width: 1024px) {
-  .top.has-fila {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    align-items: start;
-    gap: 6px 56px;
-
-    .cartaz {
-      grid-row: 1 / 3;
-    }
-
-    .top-actions {
-      justify-self: end;
-      padding-bottom: 0;
-    }
-
-    .fila {
-      grid-column: 2;
-    }
-  }
-}
-
-.toolbar {
-  position: relative;
-  z-index: 5;
-  margin-bottom: 44px;
-}
-
-/* ===== A parede ===== */
-.wall-area {
-  outline: none;
-}
-
-.showing {
-  margin: -24px 0 20px;
-  font-family: var(--f-label);
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-}
-
-.wall {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
-  gap: 48px 36px;
-  align-items: start;
-
-  /* fichas simples: mais jogos por fileira */
-  &.compact {
-    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-    gap: 40px 28px;
-  }
-}
-
-/* ===== Mural vazio ===== */
-.empty {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
-  gap: 48px 36px;
-  align-items: start;
-}
-
-.empty-card {
-  --stock: var(--stock-verde);
-  grid-column: span 2;
-  position: relative;
-  padding: 34px 30px 28px;
-  border-radius: 2px;
-  rotate: -1.5deg;
-  box-shadow: var(--shadow-card);
-
-  .pin {
-    top: -10px;
-    left: calc(50% - 13px);
+/* Tela média: as abas descem para uma fileira própria, embaixo do cartaz e do botão */
+@media (max-width: 1100px) {
+  .top {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 22px;
   }
 
-  h2 {
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: 2rem;
-    line-height: 1.05;
+  .cartaz {
+    justify-self: start;
   }
 
-  p {
-    margin-top: 10px;
-    max-width: 44ch;
-    font-family: var(--f-hand);
-    font-size: 1.2rem;
-    line-height: 1.45;
-  }
-}
-
-.empty-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
-  margin-top: 22px;
-}
-
-.link {
-  min-height: 40px;
-  padding: 6px 4px;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
-}
-
-/* marcas na parede de onde as próximas fichas vão ficar */
-.ghost {
-  position: relative;
-  aspect-ratio: 3 / 4.4;
-  max-width: 300px;
-  border-radius: 3px;
-  border: 2px dashed rgb(241 241 236 / 0.14);
-
-  &:nth-of-type(odd) {
-    rotate: 2deg;
-  }
-
-  &:nth-of-type(even) {
-    rotate: -1.5deg;
-  }
-
-  .hole {
-    position: absolute;
-    top: 8px;
-    left: calc(50% - 3px);
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #000;
-    box-shadow: 0 1px 0 rgb(255 255 255 / 0.12);
-  }
-}
-
-/* ===== Sem resultados ===== */
-.no-results {
-  --stock: var(--stock-laranja);
-  position: relative;
-  max-width: 460px;
-  margin: 10px auto 0;
-  padding: 30px 28px 26px;
-  border-radius: 2px;
-  rotate: 1deg;
-  box-shadow: var(--shadow-card);
-  text-align: center;
-
-  .pin {
-    top: -10px;
-    left: calc(50% - 13px);
-  }
-
-  h2 {
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: 1.6rem;
-    line-height: 1.1;
-  }
-
-  p {
-    margin: 10px 0 18px;
-    font-family: var(--f-hand);
-    font-size: 1.15rem;
-    overflow-wrap: anywhere;
+  .tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 
 @media (max-width: 720px) {
   :host {
-    padding-top: 28px;
+    padding-top: 22px;
   }
 
   .top {
-    margin-bottom: 30px;
+    gap: 20px 14px;
+    margin-bottom: 26px;
   }
 
   .cartaz {
-    padding: 26px 24px 20px;
-    width: 100%;
-    rotate: -1.2deg;
+    padding: 14px 16px 12px;
+    rotate: -1.6deg;
+
+    .pin-l {
+      left: 8px;
+    }
+
+    .pin-r {
+      right: 8px;
+    }
   }
 
-  .top-actions {
-    width: 100%;
-    justify-content: space-between;
+  .logo {
+    font-size: 1.5rem;
+    line-height: 1.02;
   }
 
-  .empty-card {
-    grid-column: 1 / -1;
+  .nl {
+    display: block;
   }
 
-  /* a fileira vai até a borda da tela: a folha cortada na beirada avisa que dá para rolar */
-  .fila-row {
-    --fade: 24px;
-    margin-inline: calc(var(--gutter) * -1);
-    padding-inline: var(--gutter) calc(var(--fade) + 8px);
-    scroll-padding-inline: var(--gutter);
-    scrollbar-width: none;
+  .tabs {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .tab {
+    flex: 1 1 auto;
+    justify-content: center;
+    gap: 5px;
+    padding: 12px 8px 9px;
+    font-size: 0.9rem;
+    letter-spacing: 0.03em;
+  }
+
+  .stack {
+    align-self: center;
+    margin-bottom: 0;
+
+    .btn-cartolina {
+      min-height: 50px;
+      padding: 10px 16px 9px 12px;
+      font-size: 1.1rem;
+    }
   }
 }
 
-@media (max-width: 559px) {
-  .wall,
-  .wall.compact {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 30px 16px;
-  }
-
-  .ghost:nth-of-type(n + 2) {
+@media (max-width: 440px) {
+  .long {
     display: none;
   }
 }

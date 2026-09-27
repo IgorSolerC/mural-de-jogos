@@ -1,5 +1,5 @@
-<div class="bar" role="search">
-  <div class="search">
+<div class="shelf">
+  <div class="search" role="search">
     <span class="tape tape-l" aria-hidden="true"></span>
     <span class="tape tape-r" aria-hidden="true"></span>
     <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
@@ -11,6 +11,7 @@
       placeholder="Procurar no mural…"
       autocomplete="off"
       enterkeyhint="search"
+      aria-keyshortcuts="/"
       [value]="view.query()"
       (input)="view.query.set($any($event.target).value)"
       (keydown)="onSearchKey($event)"
@@ -24,66 +25,77 @@
     }
   </div>
 
-  <div class="shelf">
-  <div class="group" role="group" aria-labelledby="filtro-rotulo">
-    <span class="group-label" id="filtro-rotulo">Mostrar</span>
-    <div class="plates">
-      <button type="button" class="plate" [attr.aria-pressed]="view.status() === 'todos'" (click)="setStatus('todos')">
-        Todos <span class="count">{{ view.statusCounts().todos }}</span>
+  <!-- Status: abas na tela larga, um seletor só no celular -->
+  <div class="group status-tabs" role="group" aria-label="Mostrar">
+    <button type="button" class="plate" [attr.aria-pressed]="view.status() === 'todos'" (click)="setStatus('todos')">
+      Todos <span class="count">{{ view.statusCounts().todos }}</span>
+    </button>
+    @for (s of statuses; track s) {
+      <button type="button" class="plate" [attr.aria-pressed]="view.status() === s" (click)="setStatus(s)">
+        {{ statusLabel[s] }} <span class="count">{{ view.statusCounts()[s] }}</span>
       </button>
+    }
+  </div>
+
+  <label class="plate pick status-pick" [class.is-active]="view.status() !== 'todos'">
+    <span class="pick-pre">Mostrar</span>
+    <span class="pick-val" aria-hidden="true">{{ statusText() }} <span class="count">{{ view.statusCounts()[view.status()] }}</span></span>
+    <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+    <select aria-label="Mostrar" [value]="view.status()" (change)="setStatus($any($event.target).value)">
+      <option value="todos" [selected]="view.status() === 'todos'">Todos ({{ view.statusCounts().todos }})</option>
       @for (s of statuses; track s) {
-        <button type="button" class="plate" [attr.aria-pressed]="view.status() === s" (click)="setStatus(s)">
-          {{ statusLabel[s] }} <span class="count">{{ view.statusCounts()[s] }}</span>
-        </button>
+        <option [value]="s" [selected]="view.status() === s">{{ statusLabel[s] }} ({{ view.statusCounts()[s] }})</option>
       }
-    </div>
-  </div>
+    </select>
+  </label>
 
-  <div class="group" role="group" aria-labelledby="ordem-rotulo">
-    <span class="group-label" id="ordem-rotulo">Ordenar</span>
-    <div class="plates">
-      @for (s of sorts; track s.key) {
-        <button type="button" class="plate" [attr.aria-pressed]="view.sort() === s.key" (click)="setSort(s.key)">
-          {{ s.label }}
-        </button>
-      }
-      <button
-        type="button"
-        class="plate dir"
-        (click)="flip()"
-        [attr.aria-label]="directionLabel() + '. Inverter ordem'"
-        [title]="directionLabel()"
-      >
-        <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
-      </button>
-    </div>
-  </div>
-
-  <div class="group" role="group" aria-labelledby="fichas-rotulo">
-    <span class="group-label" id="fichas-rotulo">Fichas</span>
-    <div class="plates">
-      <button type="button" class="plate" [attr.aria-pressed]="view.density() === 'completa'" (click)="setDensity('completa')">
-        <lucide-icon [img]="FullIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-        Completas
-      </button>
-      <button type="button" class="plate" [attr.aria-pressed]="view.density() === 'simples'" (click)="setDensity('simples')">
-        <lucide-icon [img]="CompactIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-        Simples
-      </button>
-    </div>
-  </div>
-
-  @if (view.sort() === 'nota') {
-    <div class="group sub" role="group" aria-labelledby="nota-rotulo">
-      <span class="group-label" id="nota-rotulo">Qual nota</span>
-      <div class="plates">
-        @for (k of scoreKeys; track k) {
-          <button type="button" class="plate" [attr.aria-pressed]="view.scoreKey() === k" (click)="setScoreKey(k)">
-            {{ scoreShort[k] }}
-          </button>
+  <div class="group order" role="group" aria-label="Ordenar">
+    <label class="plate pick">
+      <span class="pick-pre">Ordenar</span>
+      <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
+      <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+      <select aria-label="Ordenar por" [value]="sortValue()" (change)="setSortValue($any($event.target).value)">
+        @for (o of sortOptions; track o.value) {
+          <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
         }
-      </div>
-    </div>
-  }
+        <optgroup label="Nota">
+          @for (o of scoreOptions; track o.value) {
+            <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
+          }
+        </optgroup>
+      </select>
+    </label>
+    <button
+      type="button"
+      class="plate icon"
+      (click)="flip()"
+      [attr.aria-label]="directionLabel() + '. Inverter ordem'"
+      [title]="directionLabel()"
+    >
+      <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
+    </button>
+  </div>
+
+  <div class="group density" role="group" aria-label="Tipo de ficha">
+    <button
+      type="button"
+      class="plate icon"
+      [attr.aria-pressed]="view.density() === 'completa'"
+      (click)="setDensity('completa')"
+      aria-label="Fichas completas"
+      title="Fichas completas"
+    >
+      <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="plate icon"
+      [attr.aria-pressed]="view.density() === 'simples'"
+      (click)="setDensity('simples')"
+      aria-label="Fichas simples"
+      title="Fichas simples"
+    >
+      <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    </button>
   </div>
 </div>

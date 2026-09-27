@@ -1,0 +1,430 @@
+:host {
+  display: block;
+}
+
+/* ===== As abas de categoria no trilho, iguais às do mural ===== */
+.rail {
+  position: relative;
+  margin-bottom: 44px;
+  padding: 0 12px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 8px;
+    border-radius: 1px;
+    background: #6c6e76;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      inset 0 -2px 0 rgb(0 0 0 / 0.3),
+      0 6px 10px -3px rgb(0 0 0 / 0.6);
+  }
+}
+
+.plates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 780px) minmax(260px, 340px);
+  gap: 56px;
+  align-items: start;
+}
+
+/* ===== Cupom de balcão: papel térmico, pé serrilhado, preso na parede com tachinha ===== */
+.receipt {
+  position: relative;
+  padding: 30px 30px 40px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+  /* só o pé é serrilhado */
+  -webkit-mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 12px repeat-x;
+  mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 12px repeat-x;
+}
+
+/* a sombra de papel recortado vem do embrulho: a máscara cortaria um box-shadow */
+.main,
+.totals,
+.solo {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 14px 16px rgb(0 0 0 / 0.5));
+}
+
+.main {
+  rotate: -0.5deg;
+}
+
+.totals {
+  position: sticky;
+  top: 24px;
+  rotate: 1.2deg;
+  padding: 26px 24px 36px;
+}
+
+.r-head {
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--ink);
+}
+
+h1 {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.r-meta {
+  margin-top: 8px;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== A lista ===== */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li + li {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.28);
+  }
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2.8rem 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:focus-visible {
+    outline-offset: 0;
+  }
+}
+
+.pos {
+  font-family: var(--f-label);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.35rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.thumb {
+  rotate: -2deg;
+}
+
+.who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.22rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.meta {
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* a nota escrita à caneta, como professor corrigindo */
+.score {
+  position: relative;
+  min-width: 2.6ch;
+  padding: 0 4px;
+  font-family: var(--f-marker);
+  font-size: 1.7rem;
+  line-height: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+
+  svg {
+    position: absolute;
+    inset: -12px -12px -10px -10px;
+    width: calc(100% + 22px);
+    height: calc(100% + 22px);
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  path {
+    fill: none;
+    stroke: var(--red);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 150;
+    stroke-dashoffset: 150;
+    animation: draw 420ms 120ms var(--ease-physical) forwards;
+  }
+}
+
+.hi .score {
+  color: var(--red-deep);
+}
+
+/* o primeiro lugar ganha a fileira maior e o círculo vermelho */
+.row.first {
+  grid-template-columns: 2.8rem 70px minmax(0, 1fr) auto;
+  padding-block: 16px 14px;
+
+  .pos {
+    font-size: 1.9rem;
+    color: var(--ink);
+  }
+
+  .name {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.55rem;
+  }
+
+  .score {
+    font-size: 2.3rem;
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.left {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px solid var(--ink);
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ===== Balanço: os totais no pé de outro cupom ===== */
+.totals {
+  h2 {
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--ink);
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.7rem;
+    line-height: 1;
+  }
+
+  dl {
+    display: grid;
+    gap: 6px;
+    margin: 14px 0 0;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+
+    div {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    /* pontilhado ligando nome e número, como na ficha */
+    div::after {
+      content: '';
+      order: 1;
+      flex: 1;
+      border-bottom: 2px dotted rgb(21 21 21 / 0.35);
+      translate: 0 -4px;
+    }
+
+    dt {
+      order: 0;
+    }
+
+    dd {
+      order: 2;
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  /* linhas com texto longo: o valor desce para baixo do rótulo */
+  .notes {
+    padding-top: 12px;
+    border-top: 1.5px dashed rgb(21 21 21 / 0.28);
+
+    div {
+      display: grid;
+      gap: 1px;
+    }
+
+    div::after {
+      display: none;
+    }
+
+    dt {
+      font-weight: 600;
+      font-size: 0.84rem;
+      letter-spacing: 0.08em;
+      color: var(--ink-2);
+    }
+
+    dd {
+      font-size: 1.02rem;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      overflow-wrap: anywhere;
+    }
+  }
+}
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 4px double var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  span + span {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 2.2rem;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===== Sem resenhas ===== */
+.solo {
+  max-width: 520px;
+  rotate: -0.8deg;
+
+  .empty {
+    margin: 16px 0 20px;
+    font-family: var(--f-hand);
+    font-size: 1.2rem;
+    line-height: 1.45;
+    max-width: 40ch;
+  }
+}
+
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .totals {
+    position: relative;
+    top: 0;
+    max-width: 460px;
+  }
+}
+
+@media (max-width: 720px) {
+  .rail {
+    margin-bottom: 34px;
+    padding: 0 6px;
+  }
+
+  .plates {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -6px;
+    padding: 6px 6px 0;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .receipt {
+    padding: 24px 16px 34px;
+  }
+
+  .main {
+    rotate: -0.3deg;
+  }
+
+  h1 {
+    font-size: 2.1rem;
+  }
+
+  .row {
+    grid-template-columns: 2.2rem 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 9px 4px;
+  }
+
+  .row.first {
+    grid-template-columns: 2.2rem 56px minmax(0, 1fr) auto;
+
+    .name {
+      font-size: 1.3rem;
+    }
+
+    .score {
+      font-size: 2rem;
+    }
+  }
+
+  .name {
+    font-size: 1.08rem;
+  }
+
+  .score {
+    font-size: 1.45rem;
+  }
+}
