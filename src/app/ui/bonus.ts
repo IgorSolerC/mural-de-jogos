@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import {
+  Brain,
   Bug,
   CameraOff,
   ChevronUp,
@@ -16,6 +17,7 @@ import {
   Lightbulb,
   LucideAngularModule,
   LucideIconData,
+  Microscope,
   Minus,
   Music,
   Pickaxe,
@@ -52,6 +54,8 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   rir: Laugh,
   emocionou: Heart,
   centavo: Fingerprint,
+  genial: Brain,
+  detalhista: Microscope,
   bugs: Bug,
   'mal-otimizado': Cpu,
   loadings: Hourglass,

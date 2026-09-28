@@ -90,6 +90,8 @@ export const BONUS_CATALOG: readonly Bonus[] = [
   { id: 'rir', label: 'Me fez rir', kind: 'favor' },
   { id: 'emocionou', label: 'Me emocionou', kind: 'favor' },
   { id: 'centavo', label: 'Único', kind: 'favor' },
+  { id: 'genial', label: 'Genial', kind: 'favor' },
+  { id: 'detalhista', label: 'Detalhista', kind: 'favor' },
   { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
   { id: 'mal-otimizado', label: 'Mal otimizado', kind: 'contra' },
   { id: 'loadings', label: 'Loadings longos', kind: 'contra' },
