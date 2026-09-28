@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
 import {
   Bonus,
   RATED_KEYS,
@@ -8,7 +7,6 @@ import {
   ScoreKey,
   STATUS_LABEL,
   VERDICT_LABEL,
-  WEIGHT_LABEL,
   dayLabel,
   formatHours,
   formatScore,
@@ -19,11 +17,12 @@ import {
 } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
+import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
+import { JudgeLabel } from './judge-label';
 import { PenMark } from './pen-mark';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
-import { VERDICT_ICON } from './verdict';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -37,7 +36,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally],
+  imports: [Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'cartolina',
@@ -82,26 +81,8 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         </p>
       </div>
 
-      <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa da cor dele -->
-      <div class="judge">
-        <p
-          class="grade"
-          role="img"
-          [attr.aria-label]="'Média ' + grade().text + ' de 10'"
-          [class.top]="grade().top"
-        >
-          <span class="int" aria-hidden="true">{{ grade().int }}</span>
-          @if (grade().dec) {
-            <span class="dec" aria-hidden="true">,{{ grade().dec }}</span>
-          }
-        </p>
-        @if (review().verdict; as v) {
-          <p class="band" [class.gold]="v === 'masterpiece'" role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + '-lit)'">
-            <lucide-icon [img]="verdictIcons[v]" [size]="compact() ? 16 : 19" [strokeWidth]="2.6" aria-hidden="true" />
-            <span aria-hidden="true">{{ verdictLabels[v] }}</span>
-          </p>
-        }
-      </div>
+      <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
+      <app-judge-label class="judge" [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" />
     </div>
 
     @if (!compact()) {
@@ -124,36 +105,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         </ul>
       }
 
-      <!-- Boletim: quatro casas fixas, sempre na mesma ordem, para comparar ficha com ficha -->
-      <dl class="boletim">
-        @for (c of cells(); track c.key) {
-          <div class="cell" [class.off]="c.off">
-            <dt>
-              {{ labels[c.key] }}
-              @if (highlight() === c.key) {
-                <app-pen-mark />
-              }
-            </dt>
-            <dd>
-              @if (c.off) {
-                <span aria-hidden="true">—</span><span class="sr-only">não tem</span>
-              } @else {
-                {{ c.value }}
-                @switch (c.weight) {
-                  @case ('relevante') {
-                    <lucide-icon class="w" [img]="UpIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
-                    <span class="sr-only">({{ weightLabels.relevante }})</span>
-                  }
-                  @case ('pouco') {
-                    <lucide-icon class="w" [img]="DownIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
-                    <span class="sr-only">({{ weightLabels.pouco }})</span>
-                  }
-                }
-              }
-            </dd>
-          </div>
-        }
-      </dl>
+      <app-boletim class="boletim" [review]="review()" [highlight]="highlight()" />
     }
 
     <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
@@ -285,124 +237,13 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       font-variant-numeric: tabular-nums;
     }
 
-    /* ===== O julgamento: etiqueta adesiva dupla, destacável no picote =====
-       À esquerda, a Média impressa em papel branco; à direita, o veredito numa faixa na cor dele.
-       As duas metades têm a mesma altura e o mesmo peso, unidas por um picote com entalhes. */
+    /* ===== A primeira frase da resenha, inteira, na letra de quem escreveu ===== */
     .judge {
-      --notch: 5px;
       grid-area: judge;
       justify-self: start;
-      display: flex;
-      align-items: stretch;
-      min-height: 58px;
       margin-top: 14px;
-      /* sombra que segue o recorte dos entalhes, colada na cartolina */
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 5px 6px rgb(0 0 0 / 0.22));
-      rotate: calc(var(--tilt) * -0.5deg - 1deg);
-    }
-    .grade {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 76px;
-      padding: 4px 14px 3px 13px;
-      border-radius: 3px;
-      background: var(--paper);
-      color: var(--ink);
-      font-family: var(--f-label);
-      font-style: italic;
-      font-weight: 800;
-      line-height: 1;
-      font-variant-numeric: tabular-nums;
-    }
-    .int {
-      font-size: 2.9rem;
-      letter-spacing: -0.03em;
-    }
-    .dec {
-      font-size: 1.9rem;
-      letter-spacing: -0.02em;
-      /* a vírgula e a casa decimal no mesmo pé do inteiro, só menores */
-      align-self: flex-end;
-      margin-bottom: 0.2em;
-    }
-    /* 9 ou mais: o número sai em vermelho, como nota alta de professor */
-    .grade.top {
-      color: var(--red-deep);
-    }
-    .band {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 0 18px 0 17px;
-      border-radius: 0 3px 3px 0;
-      /* picote: a linha pontilhada onde o canhoto se destaca */
-      border-left: 2px dotted rgb(255 255 255 / 0.5);
-      /* uma tinta só, a do pincel: preto assenta em qualquer uma das seis cartolinas */
-      background: var(--ink);
-      color: var(--paper);
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1.02rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      line-height: 1;
-      white-space: nowrap;
-      mask:
-        radial-gradient(circle at 0 0, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) top / 100% 51% no-repeat,
-        radial-gradient(circle at 0 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) bottom / 100% 51% no-repeat;
-    }
-    /* Moldura interna do selo, desligada por enquanto: repensar o desenho antes de voltar.
-    .band::after {
-      content: '';
-      position: absolute;
-      inset: 4px 4px 4px 6px;
-      border: 2.5px solid currentColor;
-      border-radius: 2px;
-      pointer-events: none;
-    }
-    :host(.compact) .band::after {
-      inset: 3px 3px 3px 5px;
-      border-width: 2px;
-    }
-    */
-    /* Masterpiece: o mesmo canhoto preto, com a palavra e o fio da moldura estampados a quente
-       em folha de ouro. O brilho corre pela folha quando a ficha levanta, como no Platinado. */
-    .band.gold {
-      border-left-color: rgb(243 210 122 / 0.55);
-      transition: --shine 900ms var(--ease-physical);
-    }
-    .band.gold::after {
-      content: '';
-      position: absolute;
-      inset: 4px 4px 4px 5px;
-      border: 1.5px solid #d8ab48;
-      border-radius: 2px;
-      pointer-events: none;
-    }
-    .band.gold span {
-      background:
-        linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.95) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat,
-        linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-    .band lucide-icon {
-      display: inline-flex;
-      margin-top: -1px;
-      color: var(--v);
-    }
-    /* os entalhes de ticket, em cima e embaixo, onde as duas metades se encontram */
-    .grade:not(:only-child) {
-      border-radius: 3px 0 0 3px;
-      mask:
-        radial-gradient(circle at 100% 0, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) top / 100% 51% no-repeat,
-        radial-gradient(circle at 100% 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) bottom / 100% 51% no-repeat;
     }
 
-    /* ===== A primeira frase da resenha, inteira, na letra de quem escreveu ===== */
     .lead {
       margin-top: 14px;
       font-family: var(--f-hand);
@@ -439,60 +280,9 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       margin-left: 8px;
     }
 
-    /* ===== Boletim ===== */
+    /* o boletim vem logo depois do que foi escrito; o papel que sobra fica no pé, como ficha de fichário */
     .boletim {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      /* o boletim vem logo depois do que foi escrito; o papel que sobra fica no pé, como ficha de fichário */
-      margin: 0;
       padding-top: 14px;
-    }
-    .boletim::before {
-      content: '';
-      grid-column: 1 / -1;
-      height: 1.5px;
-      margin-bottom: 1px;
-      background: rgb(21 21 21 / 0.34);
-    }
-    .cell {
-      display: grid;
-      justify-items: center;
-      /* espaço fixo para o risco de caneta: a casa não muda de altura quando a ordem muda */
-      gap: 6px;
-      padding: 6px 2px 2px;
-      min-width: 0;
-    }
-    .cell + .cell {
-      border-left: 1.5px solid rgb(21 21 21 / 0.2);
-    }
-    dt {
-      position: relative;
-      max-width: 100%;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.8rem;
-      letter-spacing: 0.01em;
-      line-height: 1;
-      white-space: nowrap;
-      text-overflow: clip;
-    }
-    dd {
-      display: inline-flex;
-      align-items: center;
-      gap: 1px;
-      margin: 0;
-      font-family: var(--f-marker);
-      font-size: 1.32rem;
-      line-height: 1.1;
-      font-variant-numeric: tabular-nums;
-    }
-    /* riscada, mas legível: o risco já diz que não conta */
-    .cell.off dt {
-      text-decoration: line-through 1.5px;
-      opacity: 0.84;
-    }
-    .w {
-      display: inline-flex;
     }
 
     /* ===== Adesivo de marcação: bolinha de etiqueta colada no canto da cartolina =====
@@ -585,26 +375,8 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     }
     /* com um nome de uma linha só, a etiqueta assenta no pé da foto */
     :host(.compact) .judge {
-      --notch: 4px;
       align-self: end;
-      min-height: 42px;
       margin-top: 8px;
-    }
-    :host(.compact) .grade {
-      min-width: 56px;
-      padding: 3px 10px 2px 9px;
-    }
-    :host(.compact) .int {
-      font-size: 2.25rem;
-    }
-    :host(.compact) .dec {
-      font-size: 1.5rem;
-    }
-    :host(.compact) .band {
-      gap: 5px;
-      padding: 0 11px 0 10px;
-      font-size: 0.84rem;
-      letter-spacing: 0.08em;
     }
     .sorted {
       position: relative;
@@ -710,14 +482,6 @@ export class ReviewCard {
     return { shown: all.filter((b) => pick.has(b.id)), hidden: all.filter((b) => !pick.has(b.id)) };
   });
 
-  /** "9,4" → inteiro 9 e decimal 4, escritos em tamanhos diferentes, o decimal menor. */
-  protected readonly grade = computed(() => {
-    const v = this.review().scores.final;
-    const text = formatScore(v);
-    const [int, dec = ''] = text.split(',');
-    return { text, int, dec, top: (v ?? 0) >= 9 };
-  });
-
   /** As quatro casas sempre na mesma ordem; a que o jogo "não tem" fica riscada, sem sair do lugar. */
   protected readonly cells = computed(() => {
     const r = this.review();
@@ -746,10 +510,5 @@ export class ReviewCard {
     return `Abrir resenha: ${parts.join(', ')}`;
   });
 
-  protected readonly verdictLabels = VERDICT_LABEL;
-  protected readonly verdictIcons = VERDICT_ICON;
-  protected readonly weightLabels = WEIGHT_LABEL;
-  protected readonly UpIcon = ArrowUp;
-  protected readonly DownIcon = ArrowDown;
   protected readonly labels = SCORE_LABEL;
 }

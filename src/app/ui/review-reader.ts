@@ -8,120 +8,82 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ArrowDown, ArrowUp, LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
-import {
-  RATED_KEYS,
-  RatedKey,
-  Review,
-  SCORE_LABEL,
-  BONUS_KIND_LABEL,
-  WEIGHT_LABEL,
-  computeBase,
-  dayLabel,
-  formatHours,
-  formatScore,
-  parseDay,
-  sortBonuses,
-  weightOf,
-} from '../core/review';
+import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { BONUS_KIND_LABEL, Review, computeBase, dayLabel, formatHours, formatScore, parseDay, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { pinningFor } from '../core/wall-physics';
+import { Boletim } from './boletim';
 import { BonusSticker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
 import { Skulls } from './difficulty';
+import { JudgeLabel } from './judge-label';
 import { Pin } from './pin';
-import { ScoreBurst } from './score-burst';
 import { StatusLabel } from './status-label';
-import { VerdictStamp } from './verdict';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, BonusSticker, CoverSleeve, Pin, Skulls, VerdictStamp, ScoreBurst, StatusLabel],
+  imports: [LucideAngularModule, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Pin, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (click)="onBackdrop($event)" (close)="review.set(null)">
       @if (review(); as r) {
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'">
           <app-pin class="pin" [color]="pin().pinColor" />
+          <!-- a cor da cartolina fica só na faixa do cabeçalho, como ficha de fichário -->
           <header class="head">
-            <h2 id="leitura-titulo">{{ r.game.name }}</h2>
             <button type="button" class="icon-btn" (click)="close()" aria-label="Fechar">
               <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
             </button>
           </header>
 
           <div class="body">
+            <!-- A mesma ficha do mural, vista de perto: foto colada, nome, data e a etiqueta do julgamento -->
             <div class="top">
-              <div class="cover-col">
-                <app-cover-sleeve [game]="r.game" size="big" />
-              </div>
-              <div class="facts">
-                <p class="meta">
-                  @if (r.game.year) {
-                    Lançado em {{ r.game.year }} ·
+              <div class="cover">
+                <app-cover-sleeve [game]="r.game" size="big">
+                  @if (r.status !== 'finalizado') {
+                    <app-status-label class="faixa" [status]="r.status" [band]="true" />
                   }
+                </app-cover-sleeve>
+              </div>
+
+              <div class="words">
+                <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
+                <p class="meta">
                   {{ dayLabel(r.status) }} {{ date() }}
                   @if (r.hoursPlayed !== null) {
-                    · {{ hours() }} jogadas
+                    <span aria-hidden="true"> · </span>{{ hours() }} jogadas
                   }
                 </p>
-                <!-- A sentença do jogo: média e veredito juntos, status e dificuldade logo abaixo -->
-                <div class="verdict">
-                  <app-score-burst class="verdict-burst" size="big" [value]="r.scores.final" />
-                  <div class="verdict-side">
-                    @if (r.verdict; as v) {
-                      <app-verdict-stamp class="verdict-stamp" [value]="v" size="big" />
-                    }
-                    <div class="tags">
-                      <app-status-label [status]="r.status" />
-                      <app-skulls [value]="r.difficulty" [size]="17" />
-                    </div>
-                  </div>
-                </div>
-                <dl class="scores">
-                  @for (k of keys(); track k) {
-                    <div class="row">
-                      <dt>
-                        {{ labels[k] }}
-                        @switch (weightOf(r.weights, k)) {
-                          @case ('relevante') {
-                            <lucide-icon class="w" [img]="UpIcon" [size]="14" [strokeWidth]="3" [title]="weightLabels.relevante" />
-                          }
-                          @case ('pouco') {
-                            <lucide-icon class="w" [img]="DownIcon" [size]="14" [strokeWidth]="3" [title]="weightLabels.pouco" />
-                          }
-                        }
-                      </dt>
-                      <dd>
-                        <span class="bar" aria-hidden="true">
-                          <span class="fill" [style.width.%]="(r.scores[k] ?? 0) * 10"></span>
-                        </span>
-                        <span class="num">{{ fmt(r.scores[k]) }}</span>
-                      </dd>
-                    </div>
-                  }
-                  <!-- Os bônus entram na média como notas 10 (a favor) e 0 (contra) -->
-                  @if (bonuses().length) {
-                    <div class="row bonus-row">
-                      <dt>Bônus</dt>
-                      <dd>
-                        <ul class="bonus">
-                          @for (b of bonuses(); track b.id; let i = $index) {
-                            <li>
-                              <app-bonus-sticker [bonus]="b" [index]="i" />
-                              <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
-                            </li>
-                          }
-                        </ul>
-                        <p class="sem">{{ withoutBonus() }}</p>
-                      </dd>
-                    </div>
-                  }
-                </dl>
+                @if (r.game.year) {
+                  <p class="meta year">Lançado em {{ r.game.year }}</p>
+                }
+              </div>
+
+              <div class="judgement">
+                <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" />
+                <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
               </div>
             </div>
+
+            <!-- Os bônus: os mesmos adesivos da ficha, todos, com a conta sem eles logo abaixo -->
+            @if (bonuses().length) {
+              <div class="bonus-block">
+                <ul class="bonus" aria-label="Bônus">
+                  @for (b of bonuses(); track b.id; let i = $index) {
+                    <li>
+                      <app-bonus-sticker [bonus]="b" [index]="i" />
+                      <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
+                    </li>
+                  }
+                </ul>
+                <p class="sem">{{ withoutBonus() }}</p>
+              </div>
+            }
+
+            <app-boletim [review]="r" size="big" />
 
             @if (r.text.trim()) {
               <div class="text">{{ r.text }}</div>
@@ -168,12 +130,6 @@ export class ReviewReader {
   protected readonly UncheckedIcon = Square;
   protected readonly EditIcon = PenLine;
   protected readonly TrashIcon = Trash2;
-  protected readonly labels = SCORE_LABEL;
-  /** As categorias que contam para este jogo (a média tem bloco próprio). */
-  protected readonly keys = computed<RatedKey[]>(() => {
-    const r = this.review();
-    return RATED_KEYS.filter((k) => weightOf(r?.weights, k) !== 'nao-tem');
-  });
   protected readonly hours = computed(() => formatHours(this.review()?.hoursPlayed ?? null));
   protected readonly bonuses = computed(() => sortBonuses(this.review()?.bonuses ?? []));
   protected readonly kindLabels = BONUS_KIND_LABEL;
@@ -184,11 +140,6 @@ export class ReviewReader {
     if (!r || base === null) return '';
     return base === r.scores.final ? 'Sem eles, a média seria a mesma.' : `Sem eles, a média seria ${formatScore(base)}.`;
   });
-  protected readonly weightOf = weightOf;
-  protected readonly weightLabels = WEIGHT_LABEL;
-  protected readonly UpIcon = ArrowUp;
-  protected readonly DownIcon = ArrowDown;
-  protected readonly fmt = formatScore;
   protected readonly dayLabel = dayLabel;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');

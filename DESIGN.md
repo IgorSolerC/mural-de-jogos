@@ -421,13 +421,13 @@ All four are self-hosted through `@fontsource` (latin subsets) and loaded from `
 
 ### Hierarchy
 - **Display** (Permanent Marker 400, `clamp(2.5rem, 6vw, 4.4rem)`, 0.98): only the cartaz masthead, "Meu mural de jogos".
-- **Headline** (Permanent Marker 400, 1.9rem, 1.05; 1.6rem at 560px and below): sheet titles ("Nova resenha", the game name in the reader), empty-state heading (2rem), no-results heading (1.6rem).
+- **Headline** (Permanent Marker 400, 1.9rem, 1.05; 1.6rem at 560px and below): sheet titles ("Nova resenha", "Ajustes"), empty-state heading (2rem), no-results heading (1.6rem).
 - **Title** (Permanent Marker 400, 1.62rem, 1.04; 1.46rem on phones; 1.24rem on Simples cards, 1.2rem on Simples phones): the game name on a card, balanced and clamped to 2 lines.
 - **Grade numeral** (Barlow Condensed 800 italic, 2.9rem integer at -0.03em plus a 1.9rem ",decimal" aligned to the integer's foot, 1, tabular; 2.25rem + 1.5rem on Simples): the Média on the paper half of the card's judgment label, printed big like the number on a sticker.
 - **Verdict band** (Barlow Condensed 800, 1.02rem, 1, 0.1em, uppercase, white; 0.86rem on Simples): the verdict name on the label's ink band.
 - **Marker action** (Permanent Marker 400, 1.15rem, 1): the text on cartolina and ink buttons. It goes up to 1.35rem on the header stack.
-- **Score numeral** (Permanent Marker 400, 1.32rem on the card boletim; 1.2rem, tabular, elsewhere): numbers in the score picker (1.55rem in the large final-score picker), numbers in the reader (1.35rem). The scores are written like a teacher grading the card.
-- **Burst numeral** (Barlow Condensed 800 italic, 2.1rem, 1, -0.02em, tabular; 3.4rem on the big starburst): only the number on the paper starburst in the editor and reader, with a smaller "/10" at 0.42em.
+- **Score numeral** (Permanent Marker 400, 1.32rem on the card boletim; 1.2rem, tabular, elsewhere): numbers in the score picker (1.55rem in the large final-score picker), the reader boletim (2.1rem; 1.7rem at 600px and below). The scores are written like a teacher grading the card.
+- **Burst numeral** (Barlow Condensed 800 italic, 2.1rem, 1, -0.02em, tabular; 3.4rem on the big starburst): only the number on the paper starburst in the editor, with a smaller "/10" at 0.42em.
 - **Hand** (Kalam 400, 1.14rem on a 1.75rem ruled line in the editor; 1.18rem on 1.85rem in the reader, max 68ch): the review text and the empty-state sentences.
 - **Lead** (Kalam 400, 1.1rem, 1.36, `text-wrap: pretty`): the review's first sentence on a Completa card, whole and in curly quotes, on phones too.
 - **Body** (Barlow 400–600, 1rem, 1.5): inputs, hints, messages, settings copy (max 60ch).
@@ -440,7 +440,7 @@ All four are self-hosted through `@fontsource` (latin subsets) and loaded from `
 ### Named Rules
 **The Three Tools Rule.** Each typeface stands for one tool on the desk: the marker (Permanent Marker), the pen (Kalam), and the label printer (Barlow Condensed). Choose the face by who "wrote" the text, never for variety. Barlow is only for text that is interface, not artifact.
 
-**The Label Numeral Rule.** The Média is the one score printed rather than written, and it is always the Barlow Condensed 800 italic numeral. On a wall card it is printed on the paper half of the two-part label (a 2.9rem integer with a smaller ",decimal" aligned to its foot); in the editor and reader it sits on the paper starburst. Every other score is a smaller Permanent Marker numeral. The Média is always the largest number on its surface, and it never loses its paper.
+**The Label Numeral Rule.** The Média is the one score printed rather than written, and it is always the Barlow Condensed 800 italic numeral. On a wall card it is printed on the paper half of the two-part label (a 2.9rem integer with a smaller ",decimal" aligned to its foot; 3.7rem + 2.4rem on the reader's big label); in the editor it sits on the paper starburst. Every other score is a smaller Permanent Marker numeral. The Média is always the largest number on its surface, and it never loses its paper.
 
 **The Tracked Caps Are Printed Rule.** Uppercase with letter-spacing is only for printed matter: tabs, labels, meta lines, and the labels naming control groups. It never sits above a heading as a decorative kicker.
 
@@ -460,7 +460,7 @@ Responsive behaviour:
 - **1024px and up:** the editor sheet widens to 1080px and splits into two columns (`1.05fr / 1fr`, 40px gap, with a dashed divider), so it fits without scrolling.
 - **1100px and below:** the section tabs drop to their own row under the cartaz and the stack.
 - **720px and below:** the cartaz shrinks to a two-line 1.5rem logo; the four section tabs share one row; the toolbar becomes two rows: search plus density icons, then a "Mostrar" select tab and the "Ordenar" select tab with the direction toggle. The `/` hint hides.
-- **600px and below:** the reader stacks the cover (max 220px, centred) above the facts.
+- **600px and below:** the reader keeps the wall card's phone layout: a 112px photo beside the name and date (title 1.62rem), and the judgment label with the skulls on the full-width row below.
 - **559px and below:** sections stack 48px apart, and each section is one column of full-width horizontal cards, 34px apart. Cards keep their whole anatomy (lead sentence and boletim included), with half the tilt, 40% of the drop, a 104px cover, and (Completa) the judgment label moved to the full-width row under the head. Simples keeps its strip layout with a 1.2rem title.
 - **440px and below:** the primary button reads "Pregar" (the full name stays as its accessible label).
 - **420px and below:** score-picker cells shrink to 36px (44px for big pickers); the difficulty options wrap to 3 columns.
@@ -493,7 +493,7 @@ Paper is cut almost square: cards, the cartaz, strips and sheets have a 2px radi
 
 The recurring silhouettes are specific objects, not generic shapes:
 - **Binder divider tab:** a trapezoid with 7px chamfers on the top corners (`clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 100%, 0 100%)`), standing on the ruler.
-- **Paper starburst (editor and reader only):** an 18-point star with uneven, hand-cut points, drawn as an SVG polygon (outer radius about 48, inner about 37, with fixed jitter). Filled with `paper` and a 2.2 ink stroke, rotated -9deg. It was red at first; the user found a red star behind every score too loud, so red moved to the numeral and only for top grades. It left the wall cards in the ficha do mural pass.
+- **Paper starburst (editor only):** an 18-point star with uneven, hand-cut points, drawn as an SVG polygon (outer radius about 48, inner about 37, with fixed jitter). Filled with `paper` and a 2.2 ink stroke, rotated -9deg. It was red at first; the user found a red star behind every score too loud, so red moved to the numeral and only for top grades. It left the wall cards in the ficha do mural pass.
 - **Notepad tear-off:** a zigzag bottom edge made with a conic-gradient mask at a 12px period, where the sheet came off the pad.
 - **Two-part label:** the card's judgment label, a sticker with a tear-off perforation: a paper half and an ink half joined at a 2px dotted white perforation (`rgb(255 255 255 / 0.55)`), with 5px semicircle notches (4px on Simples) cut top and bottom at the junction by radial-gradient masks on the facing edges. A grade without a verdict stands alone, uncut.
 - **Masking tape:** on the search strip, 54×20px pieces of `rgb(222 205 160 / 0.82)` at ±24–28deg over its ends. Wall-card photos carry no tape: the photo is glued flat.
@@ -547,7 +547,7 @@ Tactile stationery, each with its own material.
 ### Status labels (sticker labels)
 - **Style:** notepad paper with two thin stripes (1.5px, inset 3px from the top and bottom edges), Barlow Condensed 800 uppercase at 0.09em, an icon at 15px, a 2px radius, tilted -2.5deg.
 - **Incompleto:** orange stripes and brown ink, with a dashed-circle icon.
-- **Finalizado:** green stripes and dark green ink, with a check-circle icon. Shown in the editor and reader; wall cards omit it.
+- **Finalizado:** green stripes and dark green ink, with a check-circle icon. Shown in the editor; wall cards and the reader omit it.
 - **Platinado:** holographic foil with a trophy icon. The CSS fallback that ships is fine diffraction lines at 62deg over a pastel spectrum gradient, with a white inner edge. On card hover a white shine band sweeps across over 900ms (the animated `--shine` property). When `holografico.png` loads, it replaces the gradient through `--holo-foil`. A 40% milky varnish (`--varnish`) keeps the word readable.
 
 ### Status tape (wall cards)
@@ -557,12 +557,12 @@ On wall cards the status is not a sticker: it is a strip of tape stuck straight 
 - **Platinado:** the same holographic foil as the label with the varnish thinned to 22% so the spectrum shows across the wider band, a 1px white top edge, and the same `--shine` sweep when the card lifts.
 
 ### Paper starburst
-A paper 18-point hand-cut star with an ink outline, 76px in the editor and 120px in the reader, rotated -9deg, with an ink italic Barlow Condensed numeral and a small "/10"; the numeral turns `red-deep` when the Média is 9 or more. It carries the Média, never a typed score: the weighted average of História, Diversão (2x), Jogabilidade and Visual, one decimal in pt-BR ("8,4"); decimal values step the numeral down (2.1rem to 1.7rem at 76px, 3.4rem to 2.8rem in the reader). It is exposed to assistive tech as the image "Média 8,4 de 10". In the editor it sits at the head of the scores and updates live as scores are circled, showing "–" until the first score. It is not used on wall cards.
+A paper 18-point hand-cut star with an ink outline, 76px in the editor, rotated -9deg, with an ink italic Barlow Condensed numeral and a small "/10"; the numeral turns `red-deep` when the Média is 9 or more. It carries the Média, never a typed score: the weighted average of História, Diversão (2x), Jogabilidade and Visual, one decimal in pt-BR ("8,4"); decimal values step the numeral down (2.1rem to 1.7rem at 76px, 3.4rem to 2.8rem in the reader). It is exposed to assistive tech as the image "Média 8,4 de 10". In the editor it sits at the head of the scores and updates live as scores are circled, showing "–" until the first score. It is not used on wall cards.
 
 ### Verdict stamp
 
-A rubber stamp, optional, used in the reader and the verdict picker. Barlow Condensed 800 uppercase tracked 0.1em, one lucide icon, a 4px radius. One ink per verdict (the `verdict-*` tokens): Masterpiece gold foil with `#7d5c00` frame and `#3b2a00` lettering (crown; also the chosen option in the picker), Recomendo `#0b7a3b` (thumbs-up), Legalzinho `#1f4fc4` (smile), Meh `#8a5200` (meh face), Chato `#5b2d8e` (annoyed face). Icons are lucide SVGs, never emoji. Exposed as the image "Veredito: X".
-- **Stamp (reader):** a stamped sticker: paper-white fill at 94%, a 2.5px ink border plus a 1px outline at 2px offset (double frame), 0.86rem (1.05rem big), icon 15px (20px big), rotated -9deg (-5deg in the reader block), with a small drop shadow.
+A rubber stamp, optional, used in the verdict picker and in Nota a nota. Barlow Condensed 800 uppercase tracked 0.1em, one lucide icon, a 4px radius. One ink per verdict (the `verdict-*` tokens): Masterpiece gold foil with `#7d5c00` frame and `#3b2a00` lettering (crown; also the chosen option in the picker), Recomendo `#0b7a3b` (thumbs-up), Legalzinho `#1f4fc4` (smile), Meh `#8a5200` (meh face), Chato `#5b2d8e` (annoyed face). Icons are lucide SVGs, never emoji. Exposed as the image "Veredito: X".
+- **Stamp (Nota a nota; formerly also the reader):** a stamped sticker: paper-white fill at 94%, a 2.5px ink border plus a 1px outline at 2px offset (double frame), 0.86rem (1.05rem big), icon 15px (20px big), rotated -9deg (-5deg in the reader block), with a small drop shadow.
 - **On wall cards** the verdict is not a stamp: it is the black ink band on the right half of the judgment label (see Review card).
 
 In the editor the five options are outlined tiles; the chosen one becomes the stamp itself (paper fill, double inset frame in its ink, rotated -3deg).
@@ -612,7 +612,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 
 ### Don't:
 - **Don't** turn the wall into a uniform dark grid of cover posters with star ratings; the photo always sits under contact plastic on a cartolina card.
-- **Don't** put the paper starburst back on wall cards; the user rejected it there. It stays in the editor and reader.
+- **Don't** put the paper starburst back on wall cards or in the reader; the user rejected it there. It stays in the editor, where the Média moves live.
 - **Don't** set readable text directly on a raster or on the wall pattern without a paper surface, except the few chalk labels (`wall-ink`, `wall-ink-2`) that belong to the wall itself.
 - **Don't** use frosted glass, backdrop blur, glows or coloured shadows; the contact plastic and the masking tape are the only translucent materials, light comes from the fluorescent tubes above, and shadows are neutral black.
 - **Don't** add anything outside the stationery world: every new object must be something you could find at a papelaria.
@@ -644,8 +644,8 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 ## Open sheets (reader refinement)
 
 - **Pastel sheets.** *(Superseded by "Harmonia de cor": sheets are index cards now.)* Every dialog sheet (reader, editor, settings) renders its stock as a pastel: `color-mix(in oklab, var(--stock) 30%, var(--paper))`, with the full neon stock kept as a 12px band across the top edge (`inset 0 12px 0 var(--stock)`), where the pin sits. Neon at 760px wide fought the cover, stamp and text; on the wall the cards stay full neon.
-- **Verdict block.** In the reader the Média no longer sits in the bar list and carries no label. It leads a block: the big paper starburst (120px) on the left; to its right, stacked, the verdict stamp at reader size (1.3rem, -5deg, struck on the sheet, not on the cover), then the status label and difficulty skulls. A dashed rule separates the block from the category bars. The difficulty label reads "Dificuldade média" / "Sem dificuldade" so it can't be mistaken for the score.
-- **Mobile reader.** Cover shrinks to `min(170px, 52%)` so the verdict block and bars reach the first screen.
+- **Verdict block.** *(Superseded by "Leitura como ficha".)* In the reader the Média no longer sits in the bar list and carries no label. It leads a block: the big paper starburst (120px) on the left; to its right, stacked, the verdict stamp at reader size (1.3rem, -5deg, struck on the sheet, not on the cover), then the status label and difficulty skulls. A dashed rule separates the block from the category bars. The difficulty label reads "Dificuldade média" / "Sem dificuldade" so it can't be mistaken for the score.
+- **Mobile reader.** *(Superseded by "Leitura como ficha".)* Cover shrinks to `min(170px, 52%)` so the verdict block and bars reach the first screen.
 
 ## Restructure (pages pass)
 
@@ -751,7 +751,7 @@ The user wants the world to be only a mural of stationery: paper, cartolina, mas
   - Filters sit on binder divider tabs over an aluminium ruler.
   - Toasts, the Ranking and the marking strip are notepad paper (`.bilhete`, `.tira`).
   - Status comes as sticker labels and status tape.
-  - The Média is a paper starburst in the editor and reader.
+  - The Média is a paper starburst in the editor.
   - Photos are under contact plastic.
 - **Copy.** The empty wall reads "Todo mural começou com uma parede vazia." The empty Ranking says "a lista sai com o seu top".
 - **No tape on photos.** The two masking-tape pieces over the photo's top corners were removed. The photo is glued flat to the card, which clears the corners and leaves the tachinha as the only object on top of the card.
@@ -767,7 +767,20 @@ The user wanted bonuses: as many as they like, "a favor" or "contra", things the
 - **Editor.** A "Bônus" section under the four score pickers (the Média it moves sits right above). The heading row carries the label, the tally and a marker-link toggle ("Colar bônus", "Mexer nos bônus", "Fechar cartela"), the same link style as "Trocar jogo". Closed, it shows the stuck stickers, or a one-line hint that states the rule once ("Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo meio ponto."). Open, it is the **cartela**: a whiter sheet (`cartela`) laid on the index card with a faint ink edge, holding two groups, "A favor · até +0,5 cada" and "Contra · até −0,5 cada". A sticker still on the sheet is its kiss-cut outline (1.5px dashed ink at 42%, ink at 74%, straight). Choosing it sticks it: it becomes the solid sticker, tilts and grows to 1.04 on the physical curve. "Escrever outro" at the end of each group turns into a blank sticker input (paper for a favor, ink with a yellow caret for contra); Enter sticks it and leaves another blank one, Esc drops it and returns focus without closing the sheet. A chosen a-favor sticker takes a full 2px ink edge and a small lift shadow, so paper on the whiter sheet still reads as stuck; ghosts sit at 62% ink with a 34% dashed cut. On touch screens slots grow to 40px with 6px gaps. The cartela always opens closed, so a review logged in a hurry never scrolls past 24 stickers. While it is open, the heading row prints the live Média beside the tally ("Média 6,8 (−1,7)"), because the starburst scrolls out of view; it is `aria-hidden`, since the starburst block already announces the Média. The whole picker is a `role="group"` named by its "Bônus" title.
 - **The maths in view.** When a review has bonuses, a printed breakdown sits beside the starburst: "Notas 8,5 / Bônus −1,7" (Barlow Condensed 800 caps, numerals in italic 1.2rem ink), sliding in over 380ms. A contra can take up to half a point off; the breakdown makes that visible while scoring.
 - **Wall card.** Completa: a row of stickers between the lead sentence and the boletim, a favor first, at most four (the user keeps cards uncluttered). Past four, the stickers are picked alternating a favor and contra, so the cap never hides a whole side, and the rest becomes "mais" plus the tally of the hidden ones ("mais +1 −1"). The reader always shows them all. Simples: only a tally in the meta line, two micro-stickers "+2" (paper) and "−1" (ink). The accessible name adds "2 bônus a favor e 1 contra".
-- **Reader.** A "Bônus" row closes the score bars behind a dashed rule, with the label above so the stickers get the column's width, and a meta line "Sem eles, a média seria 7,6." ("…seria a mesma." when it does not change).
+- **Reader.** *(Superseded by "Leitura como ficha": the stickers now sit in their own row above the boletim.)* A "Bônus" row closed the score bars behind a dashed rule, with a meta line "Sem eles, a média seria 7,6." ("…seria a mesma." when it does not change).
 - **Nota a nota.** A "Bônus" row after Visual, only when some marked game has bonuses: mini stickers stacked in each column, "—" for none. No circle: bonuses are not a score to win.
 - **Ranking.** The Média already includes bonuses. The Balanço adds "Bônus a favor mais dado" and "Bônus contra mais dado", each shown as its sticker with the count, only when one stands out (given at least twice, with no tie).
 - **Search** also matches bonus names ("bugs").
+
+## Leitura como ficha (reader pass)
+
+The user found the opened card too far from the wall card: the same facts came as different objects (a starburst and a gold rubber stamp instead of the two-part label, a loose status sticker instead of the tape on the photo, hatched bars instead of the boletim, the name in the header instead of beside the photo, grey meta). The reader is now the wall card seen up close, still on the cream index-card sheet (the user kept the cream paper and the stock header band).
+
+- **Shared parts.** The judgment label and the boletim are components (`app-judge-label`, `app-boletim`) used by the wall card and the reader, so the two cannot drift apart again. The label takes `size` `card | compact | big` and counter-tilts itself at `-0.5 × --tilt - 1deg` (just -1deg in the reader, which has no tilt); the boletim takes `card | big` and the sort `highlight`.
+- **Header.** Only the stock band (46px, 40px on phones), with the tachinha centred and the close button at the right. The name moved down beside the photo.
+- **Head.** A grid of `cover | words` over `cover | judgement`, like a desktop Completa card. Photo: 208px under contact plastic (`size="big"`), counter-tilted -1.2deg, with the status tape across its foot (27px, 0.92rem; 20px, 0.74rem on phones) and nothing for Finalizado. Words: the marker title (2.3rem, 1.04, balanced, never clamped), then the meta in full ink (Barlow Condensed 800 caps, 0.98rem: "Concluído em 23 de setembro de 2026 · 24 h jogadas"), then "Lançado em 2022" in `ink-2`. Judgement, 22px below: the big label (74px tall, 6px notches, grade at least 96px wide, band 1.3rem with a 23px icon, gold frame inset 5px) and the difficulty skulls (18px, with the level name) beside it, wrapping under it when narrow.
+- **Bonus.** Every sticker (no cap of four, unlike the wall), in a row under the head, and "Sem eles, a média seria 8,8." under them.
+- **Boletim.** The wall card's four fixed cells, larger: 2px rules, 1rem labels in sentence case, 2.1rem marker numerals (0.86rem / 1.7rem at 600px and below), 17px weight arrows with the weight name as a tooltip, and the struck "Não tem" cell. The hatched bars are gone (the user left it to the design).
+- **Text.** Unchanged: Kalam on the blue ruled lines, max 68ch, under the boletim.
+- **Removed from the reader:** the paper starburst, the verdict stamp, the status sticker, the bars.
+
