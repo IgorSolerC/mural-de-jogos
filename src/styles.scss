@@ -485,6 +485,55 @@ dialog.sheet {
   transition: --shine 900ms var(--ease-physical);
 }
 
+/* ===== Nota 10 nas categorias: o selo dourado =====
+   O adesivo redondo de ouro que a professora cola na prova que tirou 10: folha dourada polida, que
+   pega a luz em cima, à esquerda, com os raios finos do metal escovado e um friso em relevo na
+   beira, e a margem branca do recorte, que separa o ouro de qualquer cartolina (até da amarela). O
+   10 vem impresso nele, em tinta escura, e gira com ele. O selo é um pouco mais alto que a linha,
+   mas a margem negativa desfaz a diferença: a casa não muda de altura por causa dele. Quando a ficha
+   levanta, o brilho corre pela folha (--shine), como no Masterpiece. O tamanho vem do número
+   (font-size), e o selo acompanha. */
+.selo-dez {
+  position: relative;
+  /* colado depois: fica por cima do risco da caneta */
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 1.5em;
+  height: 1.5em;
+  margin: -0.3em 0.04em;
+  border-radius: 50%;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.88em;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--foil-gold-ink);
+  /* estampado: a luz pega a borda de baixo do número afundado na folha */
+  text-shadow: 0 0.05em 0 rgb(255 244 205 / 0.7);
+  background:
+    radial-gradient(circle at 32% 24%, rgb(255 255 255 / 0.75), rgb(255 255 255 / 0) 42%),
+    repeating-conic-gradient(from 8deg, rgb(255 255 255 / 0.12) 0deg 5deg, rgb(120 70 0 / 0.07) 5deg 10deg),
+    linear-gradient(160deg, #ffe68e 0%, #f5c93e 38%, #e2a91d 70%, #c28a0c 100%);
+  box-shadow:
+    inset 0 0 0 0.07em rgb(160 105 0 / 0.55),
+    inset 0 0 0 0.11em rgb(255 240 180 / 0.55),
+    0 0 0 0.1em #fffdf5,
+    0.5px 1.5px 2.5px 0.1em rgb(0 0 0 / 0.3);
+  rotate: var(--selo-giro, -7deg);
+}
+/* o brilho que corre pela folha quando a ficha levanta */
+.selo-dez::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 34%, rgb(255 255 255 / 0.85) 48%, transparent 62%) calc(var(--shine) * 1.6 - 60%) 0 / 240% 100% no-repeat;
+  transition: --shine 900ms var(--ease-physical);
+  pointer-events: none;
+}
+
 /* ===== Média entre 4 e 4,9: o papel manchado de café =====
    Quase reprovou: a etiqueta pegou café. Manchas chapadas e quase redondas, de tamanhos diferentes,
    espalhadas pelo papel num bege de café seco (#eddec2, escolhido pela pessoa), sem anel e sem

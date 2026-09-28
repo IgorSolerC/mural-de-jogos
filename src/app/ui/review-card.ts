@@ -18,7 +18,6 @@ import {
 } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
-import { BRILHO_PATH } from './brilho';
 import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
 import { JudgeLabel } from './judge-label';
@@ -85,7 +84,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
           }
           @if (compact() && sortedCell(); as c) {
-            <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} @if (c.ten) {<span class="adesivo"><span class="metal-nota">{{ c.value }}</span><svg class="brilho b1" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" [attr.d]="brilhoPath" /></svg><svg class="brilho b2" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" [attr.d]="brilhoPath" /></svg></span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else { {{ c.value }} }<app-pen-mark /></span>
+            <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} @if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else { {{ c.value }} }<app-pen-mark /></span>
           }
           @if (compact() && bonuses().length) {
             <app-bonus-tally class="tally" [bonuses]="bonuses()" />
@@ -406,36 +405,10 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       white-space: nowrap;
       --pen-y: -4px;
     }
-    /* um 10 na nota que ordena: o mesmo adesivo do boletim, em miniatura */
-    .sorted .adesivo {
-      position: relative;
-      background: var(--paper);
-      box-shadow: var(--sombra);
-      min-width: 20px;
-      text-align: center;
-      display: inline-block;
-      padding: 0 4px;
-      --sombra: 0.5px 1.5px 3px rgb(0 0 0 / 20%);
-      border-radius: 12px;
-      line-height: 16px;
-      rotate: -2deg;
-    }
-    /* os brilhos do 8 e do 9, escapando pelos cantos do adesivo (o material vem de .brilho). Eles
-       ficam em cima da cartolina, não do papel: brancos e sem halo, que o halo só serve no branco. */
-    .sorted .adesivo .brilho {
-      --brilho-cor: #fff;
-      filter: none;
-    }
-    .sorted .adesivo .brilho.b1 {
-      --brilho: 0.52em;
-      top: -0.22em;
-      right: -0.26em;
-    }
-    .sorted .adesivo .brilho.b2 {
-      --brilho: 0.38em;
-      --brilho-delay: 0.9s;
-      bottom: -0.1em;
-      left: -0.2em;
+    /* um 10 na nota que ordena: o selo dourado do boletim, em miniatura */
+    .sorted .selo-dez {
+      font-size: 1em;
+      margin-left: 0.1em;
     }
     /* um 0 ou 1: a fita preta rasgada do boletim, em miniatura */
     .sorted .fita-rasgada {
@@ -502,7 +475,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
   `,
 })
 export class ReviewCard {
-  protected readonly brilhoPath = BRILHO_PATH;
   readonly review = input.required<Review>();
   readonly landing = input(false);
   /** Qual nota está sendo usada na ordenação (para destacar na ficha). */

@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
-import { RATED_KEYS, Review, SCORE_LABEL, ScoreKey, WEIGHT_LABEL, formatScore, weightOf } from '../core/review';
-import { BRILHO_PATH } from './brilho';
+import { RATED_KEYS, RatedKey, Review, SCORE_LABEL, ScoreKey, WEIGHT_LABEL, formatScore, weightOf } from '../core/review';
 import { PenMark } from './pen-mark';
 
 /**
@@ -17,8 +16,23 @@ import { PenMark } from './pen-mark';
     <dl>
       @for (c of cells(); track c.key; let i = $index) {
         <div class="cell" [class.off]="c.off">
-          <dt>
-            {{ labels[c.key] }}
+          <dt [class.tem-curto]="!!shortLabels[c.key]">
+            <span class="nome">{{ labels[c.key] }}</span>
+            @if (shortLabels[c.key]; as curto) {
+              <!-- quando o nome inteiro não cabe na casa (celular), fica a abreviação -->
+              <span class="nome-curto" aria-hidden="true">{{ curto }}</span>
+            }
+            <!-- o peso fica no nome: a categoria que conta mais ou menos, com a nota livre embaixo -->
+            @switch (c.weight) {
+              @case ('relevante') {
+                <lucide-icon class="w" [img]="UpIcon" [strokeWidth]="3.4" aria-hidden="true" [title]="weightLabels.relevante" />
+                <span class="sr-only">({{ weightLabels.relevante }})</span>
+              }
+              @case ('pouco') {
+                <lucide-icon class="w" [img]="DownIcon" [strokeWidth]="3.4" aria-hidden="true" [title]="weightLabels.pouco" />
+                <span class="sr-only">({{ weightLabels.pouco }})</span>
+              }
+            }
             @if (highlight() === c.key) {
               <app-pen-mark />
             }
@@ -28,23 +42,13 @@ import { PenMark } from './pen-mark';
               <span aria-hidden="true">—</span><span class="sr-only">não tem</span>
             } @else {
               @if (c.ten) {
-                <!-- 10: um adesivo branco colado na casa, com o número em metal e brilhos -->
-                <span class="adesivo"><span class="metal-nota">{{ c.value }}</span><svg class="brilho b1" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" [attr.d]="brilhoPath" /></svg><svg class="brilho b2" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" [attr.d]="brilhoPath" /></svg></span>
+                <!-- 10: o selo dourado colado na casa, com o 10 impresso nele -->
+                <span class="selo-dez">{{ c.value }}</span>
               } @else if (c.ruim) {
                 <!-- 0 ou 1: nota vermelha num pedaço de fita preta rasgado à mão -->
                 <span class="fita-rasgada">{{ c.value }}</span>
               } @else {
                 {{ c.value }}
-              }
-              @switch (c.weight) {
-                @case ('relevante') {
-                  <lucide-icon class="w" [img]="UpIcon" [size]="arrowSize()" [strokeWidth]="3.2" aria-hidden="true" [title]="weightLabels.relevante" />
-                  <span class="sr-only">({{ weightLabels.relevante }})</span>
-                }
-                @case ('pouco') {
-                  <lucide-icon class="w" [img]="DownIcon" [size]="arrowSize()" [strokeWidth]="3.2" aria-hidden="true" [title]="weightLabels.pouco" />
-                  <span class="sr-only">({{ weightLabels.pouco }})</span>
-                }
               }
             }
           </dd>
@@ -55,6 +59,8 @@ import { PenMark } from './pen-mark';
   styles: `
     :host {
       display: block;
+      /* os rótulos apertam quando o próprio boletim fica estreito (ficha no celular) */
+      container: boletim / inline-size;
     }
     dl {
       display: grid;
@@ -81,11 +87,16 @@ import { PenMark } from './pen-mark';
     }
     dt {
       position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
       max-width: 100%;
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.8rem;
-      letter-spacing: 0.01em;
+      font-size: 0.76rem;
+      /* em caixa alta, como os outros rótulos impressos, um pouco mais aberto para respirar */
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       line-height: 1;
       white-space: nowrap;
       text-overflow: clip;
@@ -105,49 +116,29 @@ import { PenMark } from './pen-mark';
       text-decoration: line-through 1.5px;
       opacity: 0.84;
     }
+    /* a seta do peso, colada no nome, do tamanho das letras e um pouco mais leve que elas */
     .w {
       display: inline-flex;
+      flex: none;
+      opacity: 0.86;
     }
-    /* Nota 10: um adesivo branco de cantos redondos, colado meio torto, que se destaca da cartolina
-       pela sombra. O número é metal, como a Média de 9 para cima (.metal-nota, no styles.scss). */
-    .adesivo {
-      position: relative;
-      display: inline-block;
-      background: var(--paper);
-      box-shadow: var(--sombra);
-      min-width: 1.4em;
-      text-align: center;
-      padding: 0.04em 0.26em 0;
-      margin: -0.08em 0;
-      --sombra: 0.5px 1.5px 3px rgb(0 0 0 / 20%);
-      border-radius: 12px;
-      rotate: -2.5deg;
+    .w ::ng-deep svg {
+      width: 1em;
+      height: 1em;
     }
-    /* os brilhos do 8 e do 9, escapando pelos cantos do adesivo (o material vem de .brilho). Eles
-       ficam em cima da cartolina, não do papel: brancos e sem halo, que o halo só serve no branco. */
-    .adesivo .brilho {
-      --brilho-cor: #fff;
-      filter: none;
+    /* Nota 10: o selo dourado (.selo-dez, no styles.scss), colado um pouco torto, cada casa para
+       um lado, e um tico abaixo do meio, na altura em que o pincel escreve as outras notas */
+    .selo-dez {
+      translate: 0 0.07em;
     }
-    .adesivo .brilho.b1 {
-      --brilho: 0.52em;
-      top: -0.22em;
-      right: -0.26em;
+    .cell:nth-child(even) .selo-dez {
+      --selo-giro: 6deg;
     }
-    .adesivo .brilho.b2 {
-      --brilho: 0.38em;
-      --brilho-delay: 0.9s;
-      bottom: -0.1em;
-      left: -0.2em;
-    }
-    /* 0 ou 1: o avesso do adesivo, um pedaço de fita preta rasgado à mão (.fita-rasgada, no
-       styles.scss), colado mais torto que o adesivo, de quem colou sem cuidado */
+    /* 0 ou 1: o avesso do selo, um pedaço de fita preta rasgado à mão (.fita-rasgada, no
+       styles.scss), colado torto, de quem colou sem cuidado */
     .fita-rasgada {
       margin: -0.06em 0;
       rotate: -3deg;
-    }
-    .cell:nth-child(even) .adesivo {
-      rotate: 1.8deg;
     }
     .cell:nth-child(even) .fita-rasgada {
       rotate: 2.4deg;
@@ -165,8 +156,8 @@ import { PenMark } from './pen-mark';
       border-left-width: 2px;
     }
     :host(.big) dt {
-      font-size: 1rem;
-      letter-spacing: 0.02em;
+      font-size: 0.94rem;
+      letter-spacing: 0.06em;
     }
     :host(.big) dd {
       gap: 2px;
@@ -184,10 +175,27 @@ import { PenMark } from './pen-mark';
         font-size: 1.7rem;
       }
     }
+    /* Em caixa alta, "JOGABILIDADE" não cabe numa casa de boletim estreito (celular): com a seta
+       passa da casa, e sem ela encosta nos fios. Ali o nome vira abreviação, no mesmo tamanho, em
+       todas as fichas. O nome inteiro continua para o leitor de tela. */
+    .nome-curto {
+      display: none;
+    }
+    @container boletim (max-width: 380px) {
+      dt.tem-curto .nome {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      dt.tem-curto .nome-curto {
+        display: inline;
+      }
+    }
   `,
 })
 export class Boletim {
-  protected readonly brilhoPath = BRILHO_PATH;
   readonly review = input.required<Review>();
   /** Qual nota está sendo usada na ordenação do mural, riscada a caneta. */
   readonly highlight = input<ScoreKey | null>(null);
@@ -200,8 +208,8 @@ export class Boletim {
       return { key, weight, off: weight === 'nao-tem', ten: r.scores[key] === 10, ruim: (r.scores[key] ?? 2) < 2, value: formatScore(r.scores[key]) };
     });
   });
-  protected readonly arrowSize = computed(() => (this.size() === 'big' ? 17 : 13));
   protected readonly labels = SCORE_LABEL;
+  protected readonly shortLabels: Partial<Record<RatedKey, string>> = { jogabilidade: 'Jogab.' };
   protected readonly weightLabels = WEIGHT_LABEL;
   protected readonly UpIcon = ArrowUp;
   protected readonly DownIcon = ArrowDown;
