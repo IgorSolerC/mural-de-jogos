@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import {
   Bonus,
+  DIFFICULTY_LABEL,
   RATED_KEYS,
   Review,
   SCORE_LABEL,
@@ -22,6 +23,7 @@ import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
 import { JudgeLabel } from './judge-label';
 import { Luz } from './luz';
+import { Skulls } from './difficulty';
 import { PenMark } from './pen-mark';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
@@ -38,7 +40,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
  */
 @Component({
   selector: 'app-review-card',
-  imports: [Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim],
+  imports: [Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -82,6 +84,9 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
           }
           @if (review().hoursPlayed !== null && !compact()) {
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
+          }
+          @if (review().difficulty !== 'nenhuma') {
+            <span aria-hidden="true"> · </span><app-skulls class="caveiras" [value]="review().difficulty" [size]="compact() ? 13 : 14" [showLabel]="false" [ghosts]="false" />
           }
           @if (compact() && sortedCell(); as c) {
             <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} @if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else { {{ c.value }} }<app-pen-mark /></span>
@@ -256,6 +261,13 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       letter-spacing: 0.04em;
       text-transform: uppercase;
       font-variant-numeric: tabular-nums;
+    }
+
+    /* as caveiras da dificuldade, na mesma linha da data, sentadas na linha do texto */
+    .caveiras {
+      vertical-align: -2px;
+      /* no mural o Impossível fica em tinta preta, como as outras; o roxo mora na leitura e no editor */
+      --chifre-ink: currentColor;
     }
 
     /* ===== A primeira frase da resenha, inteira, na letra de quem escreveu ===== */
@@ -544,6 +556,7 @@ export class ReviewCard {
     if (r.verdict) parts.push(VERDICT_LABEL[r.verdict]);
     if (r.bonuses.length) parts.push(spokenTally(r.bonuses));
     parts.push(STATUS_LABEL[r.status]);
+    if (r.difficulty !== 'nenhuma') parts.push(`dificuldade ${DIFFICULTY_LABEL[r.difficulty].toLowerCase()}`);
     parts.push(
       r.completedAt === null
         ? NO_DAY_LABEL.toLowerCase()

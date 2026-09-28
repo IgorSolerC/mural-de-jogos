@@ -13,7 +13,7 @@ const SLOTS = Array.from({ length: DIFFICULTY_MAX_SKULLS }, (_, i) => i);
 
 /**
  * A caveira do topo da escala: a mesma do Lucide, vazada como as outras, mas riscada de roxo e
- * com dois chifres curtos. Crânio e chifres são um contorno só, sem traço separando um do outro,
+ * com dois chifres curtos (no mural, em tinta preta: `--chifre-ink`). Crânio e chifres são um contorno só, sem traço separando um do outro,
  * e cabem na mesma caixa das outras caveiras.
  */
 @Component({
@@ -24,7 +24,7 @@ const SLOTS = Array.from({ length: DIFFICULTY_MAX_SKULLS }, (_, i) => i);
     <svg
       viewBox="0 0 24 24"
       fill="none"
-      stroke="var(--roxo-impossivel)"
+      stroke="var(--chifre-ink, var(--roxo-impossivel))"
       [attr.stroke-width]="strokeWidth()"
       stroke-linecap="round"
       stroke-linejoin="round"
