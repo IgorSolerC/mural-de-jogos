@@ -520,6 +520,58 @@ dialog.sheet {
     translate: 100px 0;
   }
 }
+/* ===== Média entre 4 e 4,9: o papel manchado de café =====
+   Quase reprovou: a etiqueta pegou café. Manchas chapadas e quase redondas, de tamanhos diferentes,
+   espalhadas pelo papel num bege de café seco (#eddec2, escolhido pela pessoa), sem anel e sem
+   contorno. Tudo por trás da tinta: o número continua lendo em preto. */
+.mancha-cafe {
+  --mancha-cafe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'%3E%3Cfilter id='t' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.1' numOctaves='2' seed='11'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='3.5' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cg filter='url%28%23t%29' fill='%23EDDEC2'%3E%3Ccircle cx='15' cy='14' r='12'/%3E%3Ccircle cx='75' cy='47' r='10'/%3E%3Ccircle cx='91' cy='10' r='6.5'/%3E%3Ccircle cx='44' cy='55' r='4.5'/%3E%3Ccircle cx='57' cy='7' r='3'/%3E%3Ccircle cx='30' cy='44' r='2.6'/%3E%3Ccircle cx='8' cy='52' r='3.4'/%3E%3C/g%3E%3C/svg%3E");
+  background: var(--mancha-cafe) center / cover no-repeat, var(--paper);
+}
+
+/* ===== Média de 8 para cima: brilhos =====
+   Quatro pontas douradas que acendem e apagam em volta do número, cada uma no seu tempo. Com
+   movimento reduzido, ficam acesas e paradas. */
+.brilho {
+  position: absolute;
+  z-index: 1;
+  width: var(--brilho, 15px);
+  height: var(--brilho, 15px);
+  color: var(--brilho-cor, #e9a800);
+  filter: drop-shadow(0 0 1.5px rgb(255 255 255 / 0.95));
+  pointer-events: none;
+  animation: brilho-pisca 2.4s ease-in-out var(--brilho-delay, 0s) infinite;
+}
+@keyframes brilho-pisca {
+  0%,
+  100% {
+    opacity: 0;
+    scale: 0.2;
+    rotate: 0deg;
+  }
+  14% {
+    opacity: 1;
+    scale: 1;
+  }
+  38% {
+    opacity: 1;
+    scale: 0.85;
+    rotate: 45deg;
+  }
+  52% {
+    opacity: 0;
+    scale: 0.2;
+    rotate: 90deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brilho {
+    animation: none;
+    opacity: 1;
+    scale: 0.85;
+  }
+}
+
 /* ===== Nota abaixo de 2: nota vermelha, no preto rasgado =====
    Nota ruim é nota vermelha, como no boletim da escola, e vem num preto que alguém arrancou com
    raiva. A Média é uma etiqueta preta com a borda de fora rasgada: onde a tinta saiu, aparece a

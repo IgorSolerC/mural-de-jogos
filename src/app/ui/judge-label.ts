@@ -36,8 +36,16 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       [attr.aria-label]="'Média ' + grade().text + ' de 10'"
       [class.foil-nota]="grade().foil"
       [class.tarja-rasgada]="grade().ruim"
+      [class.mancha-cafe]="grade().cafe"
       [class.split]="!!verdict()"
     >
+      @if (grade().brilho) {
+        @for (b of brilhos; track b) {
+          <svg class="brilho" [class]="b" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M12 0C12.9 7.6 16.4 11.1 24 12C16.4 12.9 12.9 16.4 12 24C11.1 16.4 7.6 12.9 0 12C7.6 11.1 11.1 7.6 12 0Z" />
+          </svg>
+        }
+      }
       <span class="int" aria-hidden="true">{{ grade().int }}</span>
       @if (grade().dec) {
         <span class="dec" aria-hidden="true">,{{ grade().dec }}</span>
@@ -62,6 +70,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       rotate: calc(var(--tilt, 0) * -0.5deg - 1deg);
     }
     .grade {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -92,6 +101,50 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     .grade.foil-nota {
       --varnish: 0.16;
       color: var(--ink);
+    }
+    /* de 4 a 4,9: a mancha de café vem de .mancha-cafe (styles.scss), por baixo da tinta */
+    .grade.mancha-cafe {
+      background: var(--mancha-cafe) center / cover no-repeat, var(--paper);
+    }
+    /* 8 ou mais: brilhos piscando nos cantos, fora do caminho do número. No holográfico eles
+       ficam brancos, que acendem sobre o arco-íris; no papel, dourados. */
+    .brilho.b1 {
+      top: 3px;
+      right: 7px;
+    }
+    .brilho.b2 {
+      bottom: 3px;
+      left: 4px;
+      --brilho: 12px;
+      --brilho-delay: 0.8s;
+    }
+    .brilho.b3 {
+      top: 4px;
+      left: 6px;
+      --brilho: 10px;
+      --brilho-delay: 1.6s;
+    }
+    .grade.foil-nota .brilho {
+      --brilho-cor: #fff;
+      filter: drop-shadow(0 0 1px rgb(150 110 0 / 0.9)) drop-shadow(0 0 3px rgb(255 255 255 / 0.95));
+    }
+    :host(.compact) .brilho {
+      --brilho: 12px;
+    }
+    :host(.compact) .brilho.b1 {
+      top: 2px;
+      right: 4px;
+    }
+    :host(.compact) .brilho.b2,
+    :host(.compact) .brilho.b3 {
+      --brilho: 9px;
+    }
+    :host(.big) .brilho {
+      --brilho: 20px;
+    }
+    :host(.big) .brilho.b2,
+    :host(.big) .brilho.b3 {
+      --brilho: 14px;
     }
     /* abaixo de 2: nota vermelha numa etiqueta preta com a borda de fora arrancada (o material vem
        de .tarja-rasgada, no styles.scss). O rasgo come a beira, então o número anda um pouco para
@@ -292,11 +345,21 @@ export class JudgeLabel {
     const text = formatScore(v);
     const [int, dec = ''] = text.split(',');
     const n = v ?? 0;
-    // 9 ou mais é adesivo holográfico; abaixo de 4 (até 3,9), nota vermelha na etiqueta preta rasgada.
-    // As notas das categorias só rasgam abaixo de 2 (Boletim): a Média é mais pesada, e reprova antes.
-    return { text, int, dec, foil: n >= 9, ruim: v !== null && n < 4 };
+    // 9 ou mais é adesivo holográfico, e de 8 para cima a etiqueta ganha brilhos; de 4 a 4,9, o papel
+    // manchado de café; abaixo de 4 (até 3,9), nota vermelha na etiqueta preta rasgada. As notas das
+    // categorias só rasgam abaixo de 2 (Boletim): a Média é mais pesada, e reprova antes.
+    return {
+      text,
+      int,
+      dec,
+      foil: n >= 9,
+      brilho: v !== null && n >= 8,
+      cafe: v !== null && n >= 4 && n < 5,
+      ruim: v !== null && n < 4,
+    };
   });
   protected readonly iconSize = computed(() => (this.iconOnly() ? ICON_ONLY_SIZE : ICON_SIZE)[this.size()]);
   protected readonly verdictLabels = VERDICT_LABEL;
   protected readonly verdictIcons = VERDICT_ICON;
+  protected readonly brilhos = ['b1', 'b2', 'b3'];
 }
