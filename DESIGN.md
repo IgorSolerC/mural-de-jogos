@@ -223,7 +223,7 @@ components:
     width: "clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px)"
   review-card-compact:
     padding: "14px 14px 12px"
-    width: "clamp(320px, 23vw, 340px)"
+    width: "var(--simples-w)"
   review-card-phone:
     width: "100%"
   card-grade:
@@ -452,7 +452,7 @@ The Mural page holds only the toolbar and the wall. The toolbar has two rows. Th
 
 The wall is split into sections that follow the sort (see "Wall in sections" below). Sections flow side by side in a wrapping row (64px row gap, 76px column gap). Inside a section, cards wrap at a fixed width, each only as tall as its own content (rows align at the top and are never stretched to the tallest card):
 - **Completa:** `clamp(330px, calc((100vw - 2 × gutter - 84px) / 3), 424px)`, so three cards fill the wall width; 44px row and 34px column gaps.
-- **Simples:** `clamp(320px, 23vw, 340px)`, wide enough for the Masterpiece label beside the photo; 34px row and 30px column gaps.
+- **Simples:** `--simples-w`, as many cards per row as fit at 320px or more (the Masterpiece label beside the photo needs it), stretched to fill the page: four up to 340px from a 1486px viewport (a Full HD monitor at 100% or 125%), three up to 440px from 1136px, two up to 460px from 750px, then one. The page width is `min(100vw - 20px, 1480px)` minus both gutters, the 20px left for the scrollbar; 34px row and 30px column gaps.
 
 Each card also drops 0–14px from the top of its cell (from its id), so rows never line up perfectly.
 

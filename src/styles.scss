@@ -50,6 +50,11 @@
   --t-ui: 160ms;
 
   --gutter: clamp(16px, 4vw, 48px);
+  /* Fichas simples: quantas couberem por fileira com pelo menos 320px (a etiqueta Masterpiece
+     cabe ao lado da foto), esticadas para encher a página. 20px de folga para a barra de rolagem,
+     1480px é a largura máxima da página e 30px o vão entre fichas. */
+  --simples-page: calc(min(100vw - 20px, 1480px) - 2 * var(--gutter));
+  --simples-w: clamp(320px, calc((var(--simples-page) - 90px) / 4), 340px);
 
   /* tinta de cada veredito: carimbo em papel (leitura, editor, nota a nota). Na parede o canhoto é
      sempre tinta preta: cada uma destas cores tem a mesma matiz de uma cartolina e brigava com ela. */
@@ -75,6 +80,23 @@
 
   color-scheme: dark;
   accent-color: var(--hi);
+}
+
+/* abaixo de 4 × 320px cabem três, depois duas, depois uma */
+@media (max-width: 1485px) {
+  :root {
+    --simples-w: clamp(320px, calc((var(--simples-page) - 60px) / 3), 440px);
+  }
+}
+@media (max-width: 1135px) {
+  :root {
+    --simples-w: clamp(320px, calc((var(--simples-page) - 30px) / 2), 460px);
+  }
+}
+@media (max-width: 749px) {
+  :root {
+    --simples-w: clamp(320px, var(--simples-page), 460px);
+  }
 }
 
 @property --shine {
