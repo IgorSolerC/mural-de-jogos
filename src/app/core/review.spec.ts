@@ -259,7 +259,10 @@ describe('murais', () => {
     expect(r.scores.final).toBe(8);
     expect(r.scores.diversao).toBeUndefined();
     expect(r.scores.escrita).toBe(10);
-    expect(computeFinal('filmes', { roteiro: 10, envolvimento: 4, atuacao: 10, visual: 10 })).toBe(7.6);
+    // filmes: Roteiro e Envolvimento pesam 2 — (10*2 + 4*2 + 10 + 10) / 6 = 8
+    expect(computeFinal('filmes', { roteiro: 10, envolvimento: 4, atuacao: 10, visual: 10 })).toBe(8);
+    expect(computeFinal('animes', { roteiro: 4, envolvimento: 10, personagens: 10, animacao: 10 })).toBe(8);
+    expect(computeFinal('series', { roteiro: 10, envolvimento: 10, personagens: 4, visual: 4 })).toBe(8);
   });
 
   it('livro tem dificuldade de leitura e páginas inteiras; o terceiro status é Relido', () => {

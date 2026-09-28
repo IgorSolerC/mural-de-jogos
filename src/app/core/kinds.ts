@@ -8,7 +8,10 @@ export type Kind = 'jogos' | 'livros' | 'filmes' | 'series' | 'animes';
 
 export const KINDS: readonly Kind[] = ['jogos', 'livros', 'filmes', 'series', 'animes'];
 
-/** Uma das quatro notas do mural, e quanto ela pesa na média (a do centro da experiência pesa 2). */
+/**
+ * Uma das quatro notas do mural, e quanto ela pesa na média: a do centro da experiência pesa 2
+ * (Diversão, Envolvimento); em filmes, séries e animes o Roteiro também.
+ */
 export interface Category {
   key: RatedKey;
   base: number;
@@ -197,7 +200,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     singular: 'filme',
     fem: false,
     categories: [
-      { key: 'roteiro', base: 1 },
+      { key: 'roteiro', base: 2 },
       { key: 'envolvimento', base: 2 },
       { key: 'atuacao', base: 1 },
       { key: 'visual', base: 1 },
@@ -241,7 +244,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     singular: 'série',
     fem: true,
     categories: [
-      { key: 'roteiro', base: 1 },
+      { key: 'roteiro', base: 2 },
       { key: 'envolvimento', base: 2 },
       { key: 'personagens', base: 1 },
       { key: 'visual', base: 1 },
@@ -283,7 +286,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     singular: 'anime',
     fem: false,
     categories: [
-      { key: 'roteiro', base: 1 },
+      { key: 'roteiro', base: 2 },
       { key: 'envolvimento', base: 2 },
       { key: 'personagens', base: 1 },
       { key: 'animacao', base: 1 },

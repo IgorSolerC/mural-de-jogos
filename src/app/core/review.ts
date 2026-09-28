@@ -297,7 +297,8 @@ export function counts(weights: Weights | undefined, k: RatedKey): boolean {
 
 /**
  * Média ponderada das notas dadas, com uma casa decimal. A categoria do centro do mural (Diversão
- * num jogo, Envolvimento num livro) tem peso-base 2x; cada categoria ainda pode valer o dobro
+ * num jogo, Envolvimento num livro; Roteiro e Envolvimento em filmes, séries e animes) tem peso-base
+ * 2x; cada categoria ainda pode valer o dobro
  * (Relevante), metade (Pouco importante) ou sair da conta (Não tem).
  * Cada bônus mexe na média o que mais uma nota de peso 1 mexeria (10 se for a favor, 0 se for contra),
  * limitado a um quarto de ponto. Cada um é medido contra a média das notas, sozinho, e os efeitos se somam.
