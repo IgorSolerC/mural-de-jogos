@@ -169,8 +169,11 @@ export interface Review {
   /** Cor da cartolina, escolhida uma vez quando a ficha é criada. */
   stock?: Stock;
   text: string;
-  /** Dia em que o jogo foi concluído (ou jogado pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos. */
-  completedAt: string;
+  /**
+   * Dia em que o jogo foi concluído (ou jogado pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos.
+   * `null` é data não definida: um jogo de tanto tempo atrás que ninguém lembra mais o dia.
+   */
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -365,6 +368,9 @@ export function isValidDay(v: unknown): v is string {
   return !Number.isNaN(d.getTime()) && d.getFullYear() > 1970;
 }
 
+/** O que aparece no lugar da data quando ela não foi definida. */
+export const NO_DAY_LABEL = 'Data não definida';
+
 /** Rótulo da data conforme o status: quem não terminou só "jogou até" aquele dia. */
 export function dayLabel(status: Status): string {
   return status === 'incompleto' ? 'Jogado até' : 'Concluído em';
@@ -493,7 +499,8 @@ export function sanitizeReview(raw: unknown): Review | null {
         : null,
     stock: STOCKS.includes(r['stock']) ? r['stock'] : undefined,
     text: str(r['text']),
-    completedAt: isValidDay(r['completedAt']) ? r['completedAt'] : localDay(new Date(createdAt)),
+    completedAt:
+      r['completedAt'] === null ? null : isValidDay(r['completedAt']) ? r['completedAt'] : localDay(new Date(createdAt)),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };

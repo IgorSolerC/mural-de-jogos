@@ -210,10 +210,14 @@
                       }
                       @case ('date') {
                         <span class="fato">
-                          @if (r.status === 'incompleto') {
-                            <span class="pre">até</span>
+                          @if (r.completedAt === null) {
+                            {{ date(r) }}
+                          } @else {
+                            @if (r.status === 'incompleto') {
+                              <span class="pre">até</span>
+                            }
+                            <time [attr.datetime]="r.completedAt">{{ date(r) }}</time>
                           }
-                          <time [attr.datetime]="r.completedAt">{{ date(r) }}</time>
                         </span>
                       }
                       @case ('year') {

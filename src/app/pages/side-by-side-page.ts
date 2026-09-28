@@ -108,12 +108,18 @@ export class SideBySidePage {
     () => [...SORT_OPTIONS, ...SCORE_OPTIONS].find((o) => o.value === this.side.sort())?.label ?? '',
   );
 
-  /** As fichas na ordem escolhida. Sem nota ou sem ano vai para o fim. */
+  /** As fichas na ordem escolhida. Sem nota, sem data ou sem ano vai para o fim. */
   protected readonly games = computed<Review[]>(() => {
     const list = [...this.side.reviews()];
     const s = this.side.sort();
     if (s === 'marcada') return list;
-    if (s === 'data') return list.sort((a, b) => a.completedAt.localeCompare(b.completedAt));
+    if (s === 'data') {
+      return list.sort((a, b) =>
+        a.completedAt === null || b.completedAt === null
+          ? Number(a.completedAt === null) - Number(b.completedAt === null)
+          : a.completedAt.localeCompare(b.completedAt),
+      );
+    }
     if (s === 'ano') {
       const year = (r: Review) => Number.parseInt(r.game.year ?? '', 10);
       return list.sort((a, b) => {
@@ -199,7 +205,7 @@ export class SideBySidePage {
   }
 
   protected date(r: Review): string {
-    return dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '');
+    return r.completedAt === null ? 'Sem data' : dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '');
   }
 
   protected setSort(v: string): void {

@@ -129,19 +129,27 @@
           </div>
           <div class="campos-linha">
             <div class="campo">
-              <label for="editor-data" class="rotulo">{{ dateLabel() }}</label>
+              <label for="editor-data" class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</label>
               <div class="date-row">
-                <input
-                  id="editor-data"
-                  class="tira"
-                  type="date"
-                  required
-                  [max]="today()"
-                  [value]="completedAt()"
-                  (input)="completedAt.set($any($event.target).value)"
-                />
-                @if (completedAt() !== today()) {
-                  <button type="button" class="acao-caneta" (click)="completedAt.set(today())">Usar hoje</button>
+                @if (dateUnknown()) {
+                  <span class="tira sem-data" aria-labelledby="editor-data-rotulo" role="note">{{ noDay }}</span>
+                  <button type="button" class="acao-caneta" id="editor-data-escolher" (click)="setDateUnknown(false)">
+                    Escolher data
+                  </button>
+                } @else {
+                  <input
+                    id="editor-data"
+                    class="tira"
+                    type="date"
+                    required
+                    [max]="today()"
+                    [value]="completedAt()"
+                    (input)="completedAt.set($any($event.target).value)"
+                  />
+                  @if (completedAt() !== today()) {
+                    <button type="button" class="acao-caneta" (click)="completedAt.set(today())">Usar hoje</button>
+                  }
+                  <button type="button" class="acao-caneta" (click)="setDateUnknown(true)">Não lembro a data</button>
                 }
               </div>
               @if (attempted() && !dateValid()) {

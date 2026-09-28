@@ -1,5 +1,17 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
-import { Review, SCORE_KEYS, SCORE_LABEL, STATUS_RANK, ScoreKey, Status, VERDICTS, Verdict, fold, parseDay } from './review';
+import {
+  NO_DAY_LABEL,
+  Review,
+  SCORE_KEYS,
+  SCORE_LABEL,
+  STATUS_RANK,
+  ScoreKey,
+  Status,
+  VERDICTS,
+  Verdict,
+  fold,
+  parseDay,
+} from './review';
 import { ReviewStore } from './review-store';
 
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status';
@@ -179,6 +191,7 @@ export class WallView {
       }
       default:
         return (r) => {
+          if (r.completedAt === null) return ['sem-data', NO_DAY_LABEL];
           const month = r.completedAt.slice(0, 7);
           const label = monthFmt.format(parseDay(month + '-01'));
           return [month, label.charAt(0).toUpperCase() + label.slice(1)];
@@ -188,9 +201,10 @@ export class WallView {
 
   private comparator(): (a: Review, b: Review) => number {
     const sign = this.direction() === 'desc' ? -1 : 1;
-    // Data de conclusão primeiro; no mesmo dia, a ficha criada por último vem antes.
+    // Data de conclusão primeiro; no mesmo dia, a ficha criada por último vem antes. Sem data conta
+    // como a mais antiga, então fica no fim quando a data só desempata.
     const byDate = (a: Review, b: Review) =>
-      a.completedAt.localeCompare(b.completedAt) || Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt);
     switch (this.sort()) {
       case 'alfabetica':
         return (a, b) => sign * collator.compare(a.game.name, b.game.name) || -byDate(a, b);
@@ -209,7 +223,11 @@ export class WallView {
         };
       }
       default:
-        return (a, b) => sign * byDate(a, b);
+        return (a, b) => {
+          // Sem data vai sempre para o fim, em qualquer direção.
+          if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? 1 : -1;
+          return sign * byDate(a, b);
+        };
     }
   }
 }

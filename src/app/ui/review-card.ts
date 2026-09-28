@@ -7,6 +7,7 @@ import {
   ScoreKey,
   STATUS_LABEL,
   VERDICT_LABEL,
+  NO_DAY_LABEL,
   dayLabel,
   formatHours,
   formatScore,
@@ -74,7 +75,11 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       <div class="words">
         <h4 class="title">{{ empty() ? 'Nome do jogo' : review().game.name }}</h4>
         <p class="meta">
-          <time [attr.datetime]="review().completedAt">{{ date() }}</time>
+          @if (review().completedAt; as day) {
+            <time [attr.datetime]="day">{{ date() }}</time>
+          } @else {
+            <span>{{ date() }}</span>
+          }
           @if (review().hoursPlayed !== null && !compact()) {
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
           }
@@ -501,9 +506,10 @@ export class ReviewCard {
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
-  protected readonly date = computed(() =>
-    (this.dayOnly() ? dayFmt : dateFmt).format(parseDay(this.review().completedAt)).replace(/\./g, ''),
-  );
+  protected readonly date = computed(() => {
+    const day = this.review().completedAt;
+    return day === null ? 'Sem data' : (this.dayOnly() ? dayFmt : dateFmt).format(parseDay(day)).replace(/\./g, '');
+  });
   protected readonly hours = computed(() => formatHours(this.review().hoursPlayed));
   protected readonly lead = computed(() => leadSentence(this.review().text));
   protected readonly bonuses = computed(() => sortBonuses(this.review().bonuses));
@@ -548,7 +554,11 @@ export class ReviewCard {
     if (r.verdict) parts.push(VERDICT_LABEL[r.verdict]);
     if (r.bonuses.length) parts.push(spokenTally(r.bonuses));
     parts.push(STATUS_LABEL[r.status]);
-    parts.push(`${dayLabel(r.status).toLowerCase()} ${dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '')}`);
+    parts.push(
+      r.completedAt === null
+        ? NO_DAY_LABEL.toLowerCase()
+        : `${dayLabel(r.status).toLowerCase()} ${dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '')}`,
+    );
     return `Abrir resenha: ${parts.join(', ')}`;
   });
 

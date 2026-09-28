@@ -22,6 +22,7 @@ import {
   STOCKS,
   STOCK_LABEL,
   Status,
+  NO_DAY_LABEL,
   Stock,
   Verdict,
   Weight,
@@ -139,9 +140,14 @@ export class ReviewEditor {
   protected readonly status = signal<Status | null>(null);
   protected readonly verdict = signal<Verdict | null>(null);
   protected readonly completedAt = signal(todayISO());
+  /** Jogou faz tanto tempo que não lembra o dia: a resenha fica sem data e vai para o fim da ordem por data. */
+  protected readonly dateUnknown = signal(false);
+  protected readonly noDay = NO_DAY_LABEL;
   protected readonly today = signal(todayISO());
   protected readonly dateLabel = computed(() => (this.status() ? dayLabel(this.status()!) : 'Data'));
-  protected readonly dateValid = computed(() => isValidDay(this.completedAt()) && this.completedAt() <= this.today());
+  protected readonly dateValid = computed(
+    () => this.dateUnknown() || (isValidDay(this.completedAt()) && this.completedAt() <= this.today()),
+  );
   protected readonly difficulty = signal<Difficulty>('nenhuma');
   protected readonly text = signal('');
   protected readonly attempted = signal(false);
@@ -184,7 +190,7 @@ export class ReviewEditor {
       hoursPlayed: this.hoursValid() ? this.hoursValue() : null,
       stock: this.stock(),
       text: this.text(),
-      completedAt: this.dateValid() ? this.completedAt() : this.today(),
+      completedAt: this.dateUnknown() ? null : this.dateValid() ? this.completedAt() : this.today(),
       createdAt: '',
       updatedAt: '',
     };
@@ -238,6 +244,7 @@ export class ReviewEditor {
     this.verdict.set(review?.verdict ?? null);
     this.today.set(todayISO());
     this.completedAt.set(review?.completedAt ?? todayISO());
+    this.dateUnknown.set(review?.completedAt === null);
     this.difficulty.set(review?.difficulty ?? 'nenhuma');
     this.weights.set({ ...(review?.weights ?? {}) });
     this.bonuses.set([...(review?.bonuses ?? [])]);
@@ -353,7 +360,7 @@ export class ReviewEditor {
       verdict: this.verdict(),
       stock: this.stock(),
       text: this.text().trim(),
-      completedAt: this.completedAt(),
+      completedAt: this.dateUnknown() ? null : this.completedAt(),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
@@ -384,6 +391,12 @@ export class ReviewEditor {
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.drafted.emit({ id: this.id(), isNew: !prev });
+  }
+
+  /** Troca o campo de data pela tira "Data não definida" e volta, levando o foco junto. */
+  protected setDateUnknown(unknown: boolean): void {
+    this.dateUnknown.set(unknown);
+    setTimeout(() => document.getElementById(unknown ? 'editor-data-escolher' : 'editor-data')?.focus());
   }
 
   protected cancelDraft(): void {
@@ -448,7 +461,7 @@ export class ReviewEditor {
       this.visual(),
       this.status(),
       this.verdict(),
-      this.completedAt(),
+      this.dateUnknown() ? null : this.completedAt(),
       this.weights(),
       this.bonuses().map((b) => b.id),
       this.hours().trim(),

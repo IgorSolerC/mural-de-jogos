@@ -9,7 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
-import { BONUS_KIND_LABEL, Review, computeBase, dayLabel, formatHours, formatScore, parseDay, sortBonuses } from '../core/review';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, dayLabel, formatHours, formatScore, parseDay, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { pinningFor } from '../core/wall-physics';
 import { Boletim } from './boletim';
@@ -53,7 +53,11 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
               <div class="words">
                 <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
                 <p class="meta">
-                  {{ dayLabel(r.status) }} {{ date() }}
+                  @if (r.completedAt === null) {
+                    {{ noDay }}
+                  } @else {
+                    {{ dayLabel(r.status) }} {{ date() }}
+                  }
                   @if (r.hoursPlayed !== null) {
                     <span aria-hidden="true"> · </span>{{ hours() }} jogadas
                   }
@@ -142,13 +146,14 @@ export class ReviewReader {
     return base === r.scores.final ? 'Sem eles, a média seria a mesma.' : `Sem eles, a média seria ${formatScore(base)}.`;
   });
   protected readonly dayLabel = dayLabel;
+  protected readonly noDay = NO_DAY_LABEL;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   protected readonly review = signal<Review | null>(null);
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
   protected readonly date = computed(() => {
     const r = this.review();
-    return r ? dateFmt.format(parseDay(r.completedAt)) : '';
+    return r?.completedAt ? dateFmt.format(parseDay(r.completedAt)) : '';
   });
 
   open(review: Review): void {

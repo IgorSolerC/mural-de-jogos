@@ -373,6 +373,16 @@
   }
 }
 
+/* no lugar do campo, quando a pessoa não lembra o dia */
+.sem-data {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 1.02rem;
+}
+
 /* o seletor nativo do navegador continua disponível */
 input[type='date'] {
   padding: 0 12px;
