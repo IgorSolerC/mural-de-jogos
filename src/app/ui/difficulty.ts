@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, model, signal } from '@angular/core';
-import { LucideAngularModule, Skull } from 'lucide-angular';
+import { Ban, LucideAngularModule, Skull } from 'lucide-angular';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
@@ -12,31 +12,28 @@ import {
 const SLOTS = Array.from({ length: DIFFICULTY_MAX_SKULLS }, (_, i) => i);
 
 /**
- * A caveira do topo da escala: a mesma do Lucide, vazada como as outras, mas riscada de vermelho
- * e com dois chifres. Os chifres saem por cima da caixa (margem negativa), para ela ocupar no
- * texto o mesmo lugar das outras caveiras.
+ * A caveira do topo da escala: a mesma do Lucide, vazada como as outras, mas riscada de roxo e
+ * com dois chifres curtos. Crânio e chifres são um contorno só, sem traço separando um do outro,
+ * e cabem na mesma caixa das outras caveiras.
  */
 @Component({
   selector: 'app-horned-skull',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '[style.width.px]': 'size()',
-    '[style.height.px]': 'size() * 28 / 24',
-    '[style.margin-top.px]': '-size() * 4 / 24',
-  },
+  host: { '[style.width.px]': 'size()', '[style.height.px]': 'size()' },
   template: `
     <svg
-      viewBox="0 -4 24 28"
+      viewBox="0 0 24 24"
       fill="none"
-      stroke="var(--red)"
+      stroke="var(--roxo-impossivel)"
       [attr.stroke-width]="strokeWidth()"
       stroke-linecap="round"
       stroke-linejoin="round"
       aria-hidden="true"
     >
-      <path d="M9.2 3.7Q5.4 2.4 3.6-2.4Q2.6 3.6 5.2 7.2" />
-      <path d="M14.8 3.7Q18.6 2.4 20.4-2.4Q21.4 3.6 18.8 7.2" />
-      <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z" />
+      <!-- o crânio do Lucide (centro 12,11, raio 8), com o arco do alto aberto para os chifres -->
+      <path
+        d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25A8 8 0 0 0 18.55 6.41Q20.6 4.6 20.9 1.1Q18.6 2.2 15.38 3.75A8 8 0 0 0 8.62 3.75Q5.4 2.2 3.1 1.1Q3.4 4.6 5.45 6.41A8 8 0 0 0 6.44 16.75A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"
+      />
       <path d="m12.5 17-.5-1-.5 1h1z" />
       <circle cx="15" cy="12" r="1" />
       <circle cx="9" cy="12" r="1" />
@@ -126,7 +123,7 @@ let uid = 0;
 /**
  * A dificuldade como uma escala, igual à das notas: cinco caveiras numa fileira, e a escolhida
  * enche a fileira até ela, com o nome do nível ao lado. Na quinta, todas ganham chifres. Nenhuma
- * é a fileira vazia, e "limpar" volta para ela.
+ * é o sinal de vazio antes da primeira caveira: a fileira vazia, a um clique.
  */
 @Component({
   selector: 'app-difficulty-picker',
@@ -134,14 +131,20 @@ let uid = 0;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fieldset>
-      <legend>
-        <span class="rotulo">Dificuldade</span>
-        @if (value() !== 'nenhuma') {
-          <button type="button" class="clear" (click)="value.set('nenhuma')">limpar</button>
-        }
-      </legend>
+      <legend class="rotulo">Dificuldade</legend>
       <div class="medidor">
         <div class="caveiras" [class.horned]="horned()" (pointerleave)="preview.set(null)">
+          <label class="zero" [class.on]="value() === 'nenhuma'" (pointerenter)="onEnter($event, 'nenhuma')">
+            <input
+              type="radio"
+              [name]="name"
+              value="nenhuma"
+              [checked]="value() === 'nenhuma'"
+              [attr.aria-label]="labels.nenhuma"
+              (change)="value.set('nenhuma')"
+            />
+            <lucide-icon [img]="NoneIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+          </label>
           @for (d of levels; track d; let i = $index) {
             <label class="cav" [class.on]="i < count()" (pointerenter)="onEnter($event, d)">
               <input
@@ -174,31 +177,8 @@ let uid = 0;
       min-width: 0;
     }
     legend {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 30px;
       padding: 0;
-      margin-bottom: 2px;
-    }
-    legend .rotulo {
-      margin: 0;
-    }
-    .clear {
-      border: 0;
-      padding: 2px 4px;
-      background: none;
-      border-radius: 3px;
-      font-family: var(--f-ui);
-      font-size: 0.84rem;
-      color: var(--ink-2);
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      cursor: pointer;
-    }
-    .clear:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 1px;
+      margin-bottom: 4px;
     }
     .medidor {
       display: flex;
@@ -210,7 +190,8 @@ let uid = 0;
       display: flex;
       margin-left: -6px;
     }
-    .cav {
+    .cav,
+    .zero {
       position: relative;
       display: grid;
       place-items: center;
@@ -221,10 +202,12 @@ let uid = 0;
       cursor: pointer;
       transition: background-color var(--t-ui) var(--ease-ui);
     }
-    .cav:hover {
+    .cav:hover,
+    .zero:hover {
       background: rgb(21 21 21 / 0.06);
     }
-    .cav:has(input:focus-visible) {
+    .cav:has(input:focus-visible),
+    .zero:has(input:focus-visible) {
       outline: 3px solid var(--ink);
       outline-offset: -2px;
     }
@@ -257,8 +240,29 @@ let uid = 0;
     .caveiras .cav:has(~ .cav:hover) > :not(input) {
       opacity: 0.75;
     }
-    .cav:active > :not(input) {
+    .cav:active > :not(input),
+    .zero:active > :not(input) {
       scale: 0.9;
+    }
+    /* o vazio fica um passo antes da escala, meio apagado até ser o escolhido */
+    .zero {
+      margin-right: 6px;
+    }
+    .zero > :not(input) {
+      display: inline-flex;
+      opacity: 0.4;
+      transition:
+        opacity var(--t-ui) var(--ease-ui),
+        scale var(--t-physical) var(--ease-physical);
+    }
+    .zero.on > :not(input) {
+      opacity: 1;
+    }
+    .caveiras:hover .zero > :not(input) {
+      opacity: 0.4;
+    }
+    .caveiras .zero:hover > :not(input) {
+      opacity: 0.75;
     }
     /* Os chifres só aparecem no Impossível. Passando o mouse, a prévia é de caveiras lisas, até
        chegar na quinta: aí a fileira inteira fica vermelha e ganha chifres. */
@@ -285,7 +289,8 @@ let uid = 0;
       color: var(--ink-2);
     }
     @media (prefers-reduced-motion: reduce) {
-      .cav > :not(input) {
+      .cav > :not(input),
+      .zero > :not(input) {
         transition: none;
       }
     }
@@ -302,6 +307,7 @@ export class DifficultyPicker {
   protected readonly preview = signal<Difficulty | null>(null);
   protected readonly shown = computed(() => this.preview() ?? this.value());
   protected readonly SkullIcon = Skull;
+  protected readonly NoneIcon = Ban;
   protected readonly name = `dificuldade-${++uid}`;
 
   /** Só o mouse mostra a prévia; no toque, o dedo já escolhe. */
