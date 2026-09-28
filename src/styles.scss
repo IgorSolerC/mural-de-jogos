@@ -467,59 +467,24 @@ dialog.sheet {
   color-scheme: light;
 }
 
-/* ===== Nota 9 ou mais: adesivo holográfico de nota alta =====
-   A mesma folha do Platinado, mas viva: o arco-íris e a purpurina correm devagar de um lado para
-   o outro, como um adesivo inclinado debaixo da luz. O número fica em tinta por cima do verniz, e
-   quem usa desenha a borda de tinta (borda ou contorno por filtro), que separa a folha de qualquer
-   cartolina. Parado com movimento reduzido. */
-.foil-nota {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: transparent;
-  color: var(--ink);
-  text-shadow: 0 1px 0 rgb(255 255 255 / 0.6);
-}
-.foil-nota::before {
-  content: '';
-  position: absolute;
-  inset: -40px -40px -40px -140px;
-  z-index: -1;
+/* ===== Nota 9 ou mais: número em metal =====
+   O número estampado a quente em folha de ouro, como a palavra do Masterpiece, mas num ouro mais
+   fundo, que lê no papel branco (o do Masterpiece é claro, feito para o preto). A folha é quase lisa:
+   um pouco mais clara em cima, como pega a luz, sem faixas nem sombra. A caixa ganha uma folga
+   (desfeita na margem), porque o ouro só pinta dentro dela e o itálico passa da beira. Quando a
+   ficha levanta, o brilho corre pelo metal (--shine), como no Masterpiece e no Platinado. */
+.metal-nota {
+  padding: 0.06em 0.14em;
+  margin: -0.06em -0.14em;
   background:
-    linear-gradient(rgb(255 255 255 / var(--varnish, 0.3)), rgb(255 255 255 / var(--varnish, 0.3))),
-    var(
-      --holo-foil,
-      repeating-linear-gradient(62deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 4px),
-      linear-gradient(100deg, #b6f0ff, #f7b8ff 22%, #fff3a6 42%, #a8ffd6 62%, #b9c9ff 80%, #ffc2e2)
-    );
-  animation: holo-inclina 5.2s cubic-bezier(0.45, 0, 0.55, 1) var(--foil-delay, 0s) infinite alternate;
-  /* debaixo da lâmpada (--luz, da ficha levantada), o arco-íris troca de cor conforme o ponteiro
-     anda de um lado para o outro, como a folha inclinada na mão (--luz-n vem de Luz) */
-  filter: hue-rotate(calc((var(--luz-n, 0.5) - 0.5) * var(--luz) * 150deg)) saturate(calc(1 + var(--luz) * 0.9)) contrast(calc(1 + var(--luz) * 0.08));
-  pointer-events: none;
-}
-/* o fio branco na borda da estampa, o brilho que corre quando a ficha levanta, como no Platinado,
-   e o reflexo da lâmpada, que acompanha o ponteiro enquanto ela está levantada */
-.foil-nota::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background:
-    radial-gradient(circle at var(--luz-x, 50%) var(--luz-y, 30%), rgb(255 255 255 / calc(var(--luz) * 0.62)), rgb(255 255 255 / calc(var(--luz) * 0.14)) 22%, rgb(255 255 255 / 0) 46%),
-    linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.85) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat;
-  box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.7),
-    inset 0 -1px 0 rgb(0 0 0 / 0.12);
+    linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.7) 46%, transparent 58%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat,
+    linear-gradient(180deg, #d6a73c 0%, #c3922c 48%, #a97c20 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   transition: --shine 900ms var(--ease-physical);
-  pointer-events: none;
 }
-@keyframes holo-inclina {
-  to {
-    translate: 100px 0;
-  }
-}
+
 /* ===== Média entre 4 e 4,9: o papel manchado de café =====
    Quase reprovou: a etiqueta pegou café. Manchas chapadas e quase redondas, de tamanhos diferentes,
    espalhadas pelo papel num bege de café seco (#eddec2, escolhido pela pessoa), sem anel e sem
@@ -606,6 +571,15 @@ dialog.sheet {
   width: var(--rasgo-w, 14px);
   z-index: -2;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 60' preserveAspectRatio='none'%3E%3Cfilter id='r' x='-20%25' y='-5%25' width='140%25' height='110%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' seed='7'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='2.2' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cpath filter='url(%23r)' fill='%23f7f4ec' d='M18.79 -2.77L17.54 -1.48L16.51 -0.7L16.42 1.24L13.69 1.39L13.62 3.64L11.7 4.7L10.4 6.37L8.85 7.55L8.67 9.93L7.08 11L5.84 12.75L4.26 14.14L4.17 16.81L1.9 17.83L2.03 20.74L1.01 22.73L0.97 24.99L-0.02 27.49L1.1 30.1L0.31 32.85L0.75 35.46L0.05 38.07L1.24 40.85L0.15 43.33L1.52 45.75L0.87 48.32L1.56 50.86L0.99 53.15L2.17 55.54L1.52 57.92L2.08 60.15L1.84 61.79L26 62L26 -2Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+}
+/* o mesmo rasgo, do outro lado: para quem tem a borda de fora à direita (o canhoto do Chato) */
+.tarja-rasgada.rasgo-direita::before {
+  transform: scaleX(-1);
+}
+.tarja-rasgada.rasgo-direita::after {
+  left: auto;
+  right: 0;
+  transform: scaleX(-1);
 }
 .fita-rasgada {
   position: relative;

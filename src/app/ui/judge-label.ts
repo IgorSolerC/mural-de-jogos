@@ -13,6 +13,7 @@ import {
 } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { VERDICT_LABEL, Verdict, formatScore } from '../core/review';
+import { BRILHO_PATH } from './brilho';
 import { VERDICT_ICON } from './verdict';
 
 const ICON_SIZE = { card: 19, compact: 16, big: 23 } as const;
@@ -34,7 +35,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       class="grade"
       role="img"
       [attr.aria-label]="'Média ' + grade().text + ' de 10'"
-      [class.foil-nota]="grade().foil"
+      [class.metal]="grade().metal"
       [class.tarja-rasgada]="grade().ruim"
       [class.mancha-cafe]="grade().cafe"
       [class.split]="!!verdict()"
@@ -42,17 +43,22 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       @if (grade().brilho) {
         @for (b of brilhos; track b) {
           <svg class="brilho" [class]="b" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M12 0C12.9 7.6 16.4 11.1 24 12C16.4 12.9 12.9 16.4 12 24C11.1 16.4 7.6 12.9 0 12C7.6 11.1 11.1 7.6 12 0Z" />
+            <path fill="currentColor" [attr.d]="brilhoPath" />
           </svg>
         }
       }
-      <span class="int" aria-hidden="true">{{ grade().int }}</span>
+      <span class="int" [class.metal-nota]="grade().metal" aria-hidden="true">{{ grade().int }}</span>
       @if (grade().dec) {
-        <span class="dec" aria-hidden="true">,{{ grade().dec }}</span>
+        <span class="dec" [class.metal-nota]="grade().metal" aria-hidden="true">,{{ grade().dec }}</span>
       }
     </p>
     @if (verdict(); as v) {
-      <p class="band" [class.gold]="v === 'masterpiece'" role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + '-lit)'">
+      <p
+        class="band"
+        [class.gold]="v === 'masterpiece'"
+        [class.tarja-rasgada]="v === 'chato'"
+        [class.rasgo-direita]="v === 'chato'"
+        role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + '-lit)'">
         <lucide-icon [img]="verdictIcons[v]" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" />
         <span class="palavra" aria-hidden="true">{{ verdictLabels[v] }}</span>
       </p>
@@ -96,12 +102,8 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       align-self: flex-end;
       margin-bottom: 0.2em;
     }
-    /* 9 ou mais: a nota vira adesivo holográfico (o material vem de .foil-nota, no styles.scss),
-       com o número em tinta preta, que lê sobre o arco-íris */
-    .grade.foil-nota {
-      --varnish: 0.16;
-      color: var(--ink);
-    }
+    /* 9 ou mais: o papel continua branco, e o número vira metal (o material vem de .metal-nota,
+       no styles.scss), com os mesmos brilhos do 8 */
     /* de 4 a 4,9: a mancha de café vem de .mancha-cafe (styles.scss), por baixo da tinta */
     .grade.mancha-cafe {
       background: var(--mancha-cafe) center / cover no-repeat, var(--paper);
@@ -123,10 +125,6 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       left: 6px;
       --brilho: 10px;
       --brilho-delay: 1.6s;
-    }
-    .grade.foil-nota .brilho {
-      --brilho-cor: #fff;
-      filter: drop-shadow(0 0 1px rgb(150 110 0 / 0.9)) drop-shadow(0 0 3px rgb(255 255 255 / 0.95));
     }
     :host(.compact) .brilho {
       --brilho: 12px;
@@ -177,6 +175,30 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       mask:
         radial-gradient(circle at 0 0, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) top / 100% 51% no-repeat,
         radial-gradient(circle at 0 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) bottom / 100% 51% no-repeat;
+    }
+    /* Chato: o canhoto preto com a borda de fora arrancada, como a Média que reprova (o rasgo vem
+       de .tarja-rasgada, no styles.scss, virado para a direita). A palavra anda um pouco para
+       dentro, para ficar no meio do que sobrou. */
+    .band.tarja-rasgada {
+      --rasgo-w: 16px;
+      background: transparent;
+      color: var(--paper);
+      padding-right: 26px;
+      border-radius: 0;
+    }
+    :host(.so-icone) .band.tarja-rasgada {
+      padding-right: 28px;
+    }
+    :host(.compact) .band.tarja-rasgada {
+      --rasgo-w: 12px;
+      padding-right: 18px;
+    }
+    :host(.compact.so-icone) .band.tarja-rasgada {
+      padding-right: 20px;
+    }
+    :host(.big) .band.tarja-rasgada {
+      --rasgo-w: 20px;
+      padding-right: 34px;
     }
     /* Masterpiece: o mesmo canhoto preto, com a palavra e o fio da moldura estampados a quente
        em folha de ouro. O brilho corre pela folha quando a ficha levanta, como no Platinado. */
@@ -345,14 +367,14 @@ export class JudgeLabel {
     const text = formatScore(v);
     const [int, dec = ''] = text.split(',');
     const n = v ?? 0;
-    // 9 ou mais é adesivo holográfico, e de 8 para cima a etiqueta ganha brilhos; de 4 a 4,9, o papel
+    // 9 ou mais é número em metal, e de 8 para cima a etiqueta ganha brilhos; de 4 a 4,9, o papel
     // manchado de café; abaixo de 4 (até 3,9), nota vermelha na etiqueta preta rasgada. As notas das
     // categorias só rasgam abaixo de 2 (Boletim): a Média é mais pesada, e reprova antes.
     return {
       text,
       int,
       dec,
-      foil: n >= 9,
+      metal: n >= 9,
       brilho: v !== null && n >= 8,
       cafe: v !== null && n >= 4 && n < 5,
       ruim: v !== null && n < 4,
@@ -362,4 +384,5 @@ export class JudgeLabel {
   protected readonly verdictLabels = VERDICT_LABEL;
   protected readonly verdictIcons = VERDICT_ICON;
   protected readonly brilhos = ['b1', 'b2', 'b3'];
+  protected readonly brilhoPath = BRILHO_PATH;
 }

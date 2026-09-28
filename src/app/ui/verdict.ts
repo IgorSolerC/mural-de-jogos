@@ -106,6 +106,8 @@ let uid = 0;
               [class.recorte]="value() !== v"
               [class.colado]="value() === v"
               [class.gold]="v === 'masterpiece'"
+              [class.tarja-rasgada]="value() === v && v === 'chato'"
+              [class.rasgo-direita]="value() === v && v === 'chato'"
               [style.--v]="'var(--verdict-' + v + '-lit)'"
             >
               <lucide-icon [img]="icons[v]" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
@@ -167,6 +169,15 @@ let uid = 0;
     }
     .canhoto.colado lucide-icon {
       color: var(--v);
+    }
+    /* Chato: o canhoto colado com a borda de fora arrancada, como o da ficha */
+    .canhoto.colado.tarja-rasgada {
+      --rasgo-w: 11px;
+      background: transparent;
+      color: var(--paper);
+      padding-right: 20px;
+      box-shadow: none;
+      filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3));
     }
     /* Masterpiece: palavra e fio da moldura estampados a quente em folha de ouro */
     .canhoto.colado.gold::after {

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
 import { RATED_KEYS, Review, SCORE_LABEL, ScoreKey, WEIGHT_LABEL, formatScore, weightOf } from '../core/review';
+import { BRILHO_PATH } from './brilho';
 import { PenMark } from './pen-mark';
 
 /**
@@ -27,8 +28,8 @@ import { PenMark } from './pen-mark';
               <span aria-hidden="true">—</span><span class="sr-only">não tem</span>
             } @else {
               @if (c.ten) {
-                <!-- 10: o número vem num adesivo holográfico colado na casa -->
-                <span class="adesivo foil-nota" [style.--foil-delay]="i * -1.3 + 's'">{{ c.value }}</span>
+                <!-- 10: um adesivo branco colado na casa, com o número em metal e brilhos -->
+                <span class="adesivo"><span class="metal-nota">{{ c.value }}</span><svg class="brilho b1" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" [attr.d]="brilhoPath" /></svg><svg class="brilho b2" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" [attr.d]="brilhoPath" /></svg></span>
               } @else if (c.ruim) {
                 <!-- 0 ou 1: nota vermelha num pedaço de fita preta rasgado à mão -->
                 <span class="fita-rasgada">{{ c.value }}</span>
@@ -107,21 +108,37 @@ import { PenMark } from './pen-mark';
     .w {
       display: inline-flex;
     }
-    /* Nota 10: um adesivo holográfico de cantos redondos com o número a pincel por cima, colado
-       meio torto, que se destaca da cartolina pela sombra. A folha vem de .foil-nota (styles.scss). */
+    /* Nota 10: um adesivo branco de cantos redondos, colado meio torto, que se destaca da cartolina
+       pela sombra. O número é metal, como a Média de 9 para cima (.metal-nota, no styles.scss). */
     .adesivo {
-      --varnish: 0.22;
+      position: relative;
       display: inline-block;
+      background: var(--paper);
+      box-shadow: var(--sombra);
       min-width: 1.4em;
       text-align: center;
       padding: 0.04em 0.26em 0;
       margin: -0.08em 0;
-      --sombra: 0.5px 1.5px 3px rgb(0 0 0 / 51%);
+      --sombra: 0.5px 1.5px 3px rgb(0 0 0 / 20%);
       border-radius: 12px;
       rotate: -2.5deg;
     }
-    .adesivo.foil-nota {
-      box-shadow: var(--sombra);
+    /* os brilhos do 8 e do 9, escapando pelos cantos do adesivo (o material vem de .brilho). Eles
+       ficam em cima da cartolina, não do papel: brancos e sem halo, que o halo só serve no branco. */
+    .adesivo .brilho {
+      --brilho-cor: #fff;
+      filter: none;
+    }
+    .adesivo .brilho.b1 {
+      --brilho: 0.52em;
+      top: -0.22em;
+      right: -0.26em;
+    }
+    .adesivo .brilho.b2 {
+      --brilho: 0.38em;
+      --brilho-delay: 0.9s;
+      bottom: -0.1em;
+      left: -0.2em;
     }
     /* 0 ou 1: o avesso do adesivo, um pedaço de fita preta rasgado à mão (.fita-rasgada, no
        styles.scss), colado mais torto que o adesivo, de quem colou sem cuidado */
@@ -170,6 +187,7 @@ import { PenMark } from './pen-mark';
   `,
 })
 export class Boletim {
+  protected readonly brilhoPath = BRILHO_PATH;
   readonly review = input.required<Review>();
   /** Qual nota está sendo usada na ordenação do mural, riscada a caneta. */
   readonly highlight = input<ScoreKey | null>(null);
