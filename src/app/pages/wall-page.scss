@@ -58,7 +58,7 @@
   gap: 64px 76px;
 
   &.compact {
-    --card-w: clamp(270px, 21vw, 300px);
+    --card-w: clamp(320px, 23vw, 340px);
     --in-gap: 34px 30px;
   }
 }

@@ -223,7 +223,7 @@ components:
     width: "clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px)"
   review-card-compact:
     padding: "14px 14px 12px"
-    width: "clamp(270px, 21vw, 300px)"
+    width: "clamp(320px, 23vw, 340px)"
   review-card-phone:
     width: "100%"
   card-grade:
@@ -234,8 +234,8 @@ components:
     padding: "4px 14px 3px 13px"
     height: "58px"
   card-grade-compact:
-    padding: "3px 11px 2px 10px"
-    height: "46px"
+    padding: "3px 10px 2px 9px"
+    height: "42px"
   card-band:
     backgroundColor: "{colors.ticket-ink}"
     textColor: "{colors.paper}"
@@ -244,14 +244,14 @@ components:
     padding: "0 18px 0 17px"
     height: "58px"
   card-band-compact:
-    padding: "0 13px 0 12px"
-    height: "46px"
+    padding: "0 11px 0 10px"
+    height: "42px"
   card-cover:
     width: "112px"
   card-cover-phone:
     width: "104px"
   card-cover-compact:
-    width: "68px"
+    width: "calc((var(--strip-h) - 4px) * 0.8 + 4px)"
   sheet:
     backgroundColor: "{colors.stock-amarelo}"
     textColor: "{colors.ink}"
@@ -452,7 +452,7 @@ The Mural page holds only the toolbar and the wall. The toolbar has two rows. Th
 
 The wall is split into sections that follow the sort (see "Wall in sections" below). Sections flow side by side in a wrapping row (64px row gap, 76px column gap). Inside a section, cards wrap at a fixed width, each only as tall as its own content (rows align at the top and are never stretched to the tallest card):
 - **Completa:** `clamp(330px, calc((100vw - 2 × gutter - 84px) / 3), 424px)`, so three cards fill the wall width; 44px row and 34px column gaps.
-- **Simples:** `clamp(270px, 21vw, 300px)`; 34px row and 30px column gaps.
+- **Simples:** `clamp(320px, 23vw, 340px)`, wide enough for the Masterpiece label beside the photo; 34px row and 30px column gaps.
 
 Each card also drops 0–14px from the top of its cell (from its id), so rows never line up perfectly.
 
@@ -461,7 +461,7 @@ Responsive behaviour:
 - **1100px and below:** the section tabs drop to their own row under the cartaz and the stack.
 - **720px and below:** the cartaz shrinks to a two-line 1.5rem logo; the four section tabs share one row; the toolbar becomes two rows: search plus density icons, then a "Mostrar" select tab and the "Ordenar" select tab with the direction toggle. The `/` hint hides.
 - **600px and below:** the reader stacks the cover (max 220px, centred) above the facts.
-- **559px and below:** sections stack 48px apart, and each section is one column of full-width horizontal cards, 34px apart. Cards keep their whole anatomy (lead sentence and boletim included), with half the tilt, 40% of the drop, a 104px cover (62px Simples), and the judgment label moved to the full-width row under the head.
+- **559px and below:** sections stack 48px apart, and each section is one column of full-width horizontal cards, 34px apart. Cards keep their whole anatomy (lead sentence and boletim included), with half the tilt, 40% of the drop, a 104px cover, and (Completa) the judgment label moved to the full-width row under the head. Simples keeps its strip layout with a 1.2rem title.
 - **440px and below:** the primary button reads "Pregar" (the full name stays as its accessible label).
 - **420px and below:** score-picker cells shrink to 36px (44px for big pickers); the difficulty options wrap to 3 columns.
 
@@ -518,14 +518,14 @@ Tactile stationery, each with its own material.
 
 ### Cards / Containers
 - **Review card, "ficha do mural" (signature):** a horizontal cartolina card in the review's stock, a 2px radius, padding `16px 16px 14px` (`14px 14px 12px` Simples), the hanging-card shadow. The only thing on the photo is the status tape across its foot. Anatomy:
-  - **Head:** a grid of `cover | words` over `cover | judge` on desktop Completa; on phones and on every Simples card, `cover | words` over a full-width `judge` row.
-  - **Photo:** the game's photo under contact plastic at 112px (104px phone, 68px Simples, 62px Simples phone), glued to the card and counter-tilted at -0.6 × the card's tilt, with no tape. Incompleto and Platinado get a strip of status tape across the foot of the photo (see Status tape); Finalizado is the normal case and carries none. The cover is decorative for assistive tech (empty alt), because the card already says the name.
+  - **Head:** a grid of `cover | words` over `cover | judge` on desktop Completa and on every Simples card; on Completa phones, `cover | words` over a full-width `judge` row.
+  - **Photo:** the game's photo under contact plastic at 112px (104px phone; on Simples, as wide as the strip height allows, about 100px), glued to the card and counter-tilted at -0.6 × the card's tilt, with no tape. Incompleto and Platinado get a strip of status tape across the foot of the photo (see Status tape); Finalizado is the normal case and carries none. The cover is decorative for assistive tech (empty alt), because the card already says the name.
   - **Words:** the marker title (2 lines max), then the card meta (date · hours, full ink; the date is the user-editable completedAt, day only inside month sections). Status lives on the photo, not here.
-  - **Judgment label:** a two-part sticker label (see Shapes), 58px tall (46px Simples), 14px under the words (10px Simples), counter-tilted at -0.5 × tilt - 1deg, with the label drop. Both halves share the height, so the Média and the verdict weigh the same. Left, the **grade**: flat `paper`, at least 76px wide (60px Simples), padding `4px 14px 3px 13px` (`3px 11px 2px 10px` Simples), the Média in the grade numeral (`red-deep` at 9 or more), exposed as the image "Média X de 10". Right, only when a verdict exists, the **band**: solid `ticket-ink` black, the verdict name in `paper` verdict-band lettering after its lucide icon (19px, 7px gap; 16px and 6px on Simples), padding `0 18px 0 17px` (`0 13px 0 12px` Simples), exposed as the image "Veredito: X". The icon takes the verdict's lightened ink (`verdict-*-lit`). The Masterpiece band has gold-foil lettering and a gold hairline frame, and it takes the same white shine sweep as the Platinado foil when the card lifts (`--shine`, 900ms).
+  - **Judgment label:** a two-part sticker label (see Shapes), 58px tall (42px Simples), 14px under the words (8px Simples), counter-tilted at -0.5 × tilt - 1deg, with the label drop. Both halves share the height, so the Média and the verdict weigh the same. Left, the **grade**: flat `paper`, at least 76px wide (56px Simples), padding `4px 14px 3px 13px` (`3px 10px 2px 9px` Simples), the Média in the grade numeral (`red-deep` at 9 or more), exposed as the image "Média X de 10". Right, only when a verdict exists, the **band**: solid `ticket-ink` black, the verdict name in `paper` verdict-band lettering after its lucide icon (19px, 7px gap; 16px and 5px on Simples), padding `0 18px 0 17px` (`0 11px 0 10px` Simples, 0.84rem at 0.08em), exposed as the image "Veredito: X". The icon takes the verdict's lightened ink (`verdict-*-lit`). The Masterpiece band has gold-foil lettering and a gold hairline frame, and it takes the same white shine sweep as the Platinado foil when the card lifts (`--shine`, 900ms).
   - **Lead (Completa only):** the review's first sentence in Kalam, whole, in curly quotes. It is chosen by `leadSentence`: split on terminal punctuation (`. ! ? …`) followed by a space, so "nota 8.5" stays whole; a first sentence under 36 characters takes the second along; over 120 characters it is cut at a word boundary with "…".
   - **Boletim (Completa only):** four fixed cells, always in the order História · Diversão · Jogabilidade · Visual, with full names in the boletim label and 1.32rem marker numerals. A 1.5px rule at 34% ink closes the top; cells are split by 1.5px rules at 20%. A "Não tem" category keeps its cell: the label is struck through at 84% opacity and the value is "—" (spoken "não tem"). Relevante / Pouco importante show a 13px lucide arrow up / down after the numeral, with the weight name as screen-reader text. The boletim follows the content, and the card ends where the writing ends: a row of cards has ragged bottoms, never blank cartolina padded to match the tallest neighbour.
   - **Hit target:** the whole card is one invisible button named "Abrir resenha: {name}, média {X}, {verdict}, {status}, {concluído em / jogado até} {date}".
-- **Simples card:** a cartolina strip: photo (with its status tape), title and date, then the full-width judgment label. No lead, no boletim, no hours. When the wall is sorted by a category, that score appears beside the date ("Diversão 10") with the red pen underline.
+- **Simples card:** a cartolina strip of fixed height (`--strip-h`: the pin clearance, a two-line title, the 20px date line and the 42px label, about 128px), so every Simples card on the wall is the same height. The photo keeps its 4:5 ratio and fills that whole height; title, date and the judgment label stack beside it, the label sitting at the foot of the photo when the title takes one line. A date line that wraps (a category sort plus bonus tally) is the one case that makes a strip taller. No lead, no boletim, no hours. When the wall is sorted by a category, that score appears beside the date ("Diversão 10") with the red pen underline.
 - **Card hover / focus / press:** the card swings around its own pin (`transform-origin` is the pin point), its tilt drops to 35% of rest, it rises 3px and takes the lifted shadow. The holographic label's shine runs across. Keyboard focus draws a 3px `hi` ring at a 5px offset around the whole card (via `:has(.hit:focus-visible)`), on the wall where yellow reads. `:active` sets the card back against the wall over 80ms.
 - **Pin:** a tachinha at the card's pin x, 42–58% (the wall-physics 40–60% remapped by 0.8), above the title.
 - **Sort mark:** sorted by Média, the card carries no mark (the Média is already the largest number on it, and the section label names the band). Sorted by a category, a red pen stroke is drawn under that category's name in the boletim (Completa) or under the score beside the date (Simples). Every boletim cell reserves the stroke's space (6px label-to-numeral gap), so no cell changes height when the sort changes.

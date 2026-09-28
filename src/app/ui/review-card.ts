@@ -549,17 +549,20 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       cursor: pointer;
     }
 
-    /* ===== Ficha simples: uma tira de cartolina ===== */
+    /* ===== Ficha simples: uma tira de cartolina =====
+       Toda tira tem a mesma altura, a de um nome em duas linhas: a folga da tachinha, o nome,
+       a data e a etiqueta. A foto, na proporção de sempre, ocupa essa altura inteira, e o nome
+       e a etiqueta ficam empilhados ao lado dela. */
     :host(.compact) {
-      --cover-w: 68px;
+      --title-fs: 1.24rem;
+      --strip-h: calc(6px + var(--title-fs) * 2.14 + 4px + 20px + 8px + 42px);
+      /* a capinha tem 2px de plástico em volta de uma foto 4:5 */
+      --cover-w: calc((var(--strip-h) - 4px) * 0.8 + 4px);
       padding: 14px 14px 12px;
     }
-    /* a coluna do nome é estreita demais para a etiqueta: ela desce e ocupa a largura da tira */
     :host(.compact) .head {
-      grid-template-areas:
-        'cover words'
-        'judge judge';
-      grid-template-rows: auto auto;
+      grid-template-rows: auto 1fr;
+      min-height: var(--strip-h);
       gap: 0 12px;
     }
     /* na capinha pequena a faixa é só a palavra, sem ícone, para caber inteira */
@@ -573,20 +576,23 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       padding-top: 6px;
     }
     :host(.compact) .title {
-      font-size: 1.24rem;
+      font-size: var(--title-fs);
     }
     :host(.compact) .meta {
       margin-top: 4px;
       font-size: 0.82rem;
+      line-height: 20px;
     }
+    /* com um nome de uma linha só, a etiqueta assenta no pé da foto */
     :host(.compact) .judge {
       --notch: 4px;
-      min-height: 46px;
-      margin-top: 10px;
+      align-self: end;
+      min-height: 42px;
+      margin-top: 8px;
     }
     :host(.compact) .grade {
-      min-width: 60px;
-      padding: 3px 11px 2px 10px;
+      min-width: 56px;
+      padding: 3px 10px 2px 9px;
     }
     :host(.compact) .int {
       font-size: 2.25rem;
@@ -595,9 +601,10 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       font-size: 1.5rem;
     }
     :host(.compact) .band {
-      gap: 6px;
-      padding: 0 13px 0 12px;
-      font-size: 0.86rem;
+      gap: 5px;
+      padding: 0 11px 0 10px;
+      font-size: 0.84rem;
+      letter-spacing: 0.08em;
     }
     .sorted {
       position: relative;
@@ -644,7 +651,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         margin-top: calc(var(--drop-y) * 0.4);
       }
       :host(.compact) {
-        --cover-w: 62px;
+        --title-fs: 1.2rem;
       }
       :host(.compact) .faixa {
         --band-fs: 0.66rem;
@@ -658,9 +665,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       }
       .title {
         font-size: 1.46rem;
-      }
-      :host(.compact) .title {
-        font-size: 1.2rem;
       }
     }
   `,
