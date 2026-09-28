@@ -90,6 +90,13 @@
       <section class="scores">
         <div class="media" aria-live="polite">
           <app-score-burst class="media-burst" [value]="final()" />
+          <!-- A conta à vista: o que as notas dão sozinhas e quanto os bônus mexeram -->
+          @if (bonuses().length && base() !== null) {
+            <p class="conta">
+              <span>Notas <b>{{ fmt(base()) }}</b></span>
+              <span>Bônus <b>{{ shift() }}</b></span>
+            </p>
+          }
         </div>
         <div class="subs">
           <app-score-picker class="nota-historia" [label]="labels.historia" [required]="true" [(value)]="historia"
@@ -104,6 +111,10 @@
         @if (attempted() && missingScores().length) {
           <p class="field-error">Dê uma nota de 0 a 10 para cada categoria que conta na média.</p>
         }
+      </section>
+
+      <section class="bonus">
+        <app-bonus-picker [(value)]="bonuses" [library]="store.customBonuses()" [final]="final()" [shift]="shift()" />
       </section>
       </div>
 

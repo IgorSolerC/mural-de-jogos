@@ -134,6 +134,44 @@ dd {
   font-variant-numeric: tabular-nums;
 }
 
+/* Bônus: a linha dos adesivos fecha as notas, com a conta sem eles logo abaixo. O rótulo fica
+   em cima para os adesivos terem a largura toda da coluna. */
+.bonus-row {
+  grid-template-columns: 1fr;
+  gap: 9px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.22);
+
+  dd {
+    display: block;
+  }
+}
+
+.bonus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    max-width: 100%;
+  }
+}
+
+.sem {
+  margin-top: 9px;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
 .text {
   --line: 1.85rem;
   padding: 6px 8px;
@@ -170,7 +208,7 @@ dd {
     gap: 14px;
   }
 
-  .row {
+  .row:not(.bonus-row) {
     grid-template-columns: 8.2rem 1fr;
   }
 }

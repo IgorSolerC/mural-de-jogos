@@ -91,7 +91,10 @@ export class WallView {
     const list = this.store.reviews().filter(
       (r) =>
         (verdict === 'todos' || (r.verdict ?? 'sem') === verdict) &&
-        (!needle || fold(r.game.name).includes(needle) || fold(r.text).includes(needle)),
+        (!needle ||
+          fold(r.game.name).includes(needle) ||
+          fold(r.text).includes(needle) ||
+          r.bonuses.some((b) => fold(b.label).includes(needle))),
     );
     return list.sort(this.comparator());
   });

@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import {
+  Bonus,
+  BonusKind,
   Review,
   SCORE_KEYS,
   SCORE_LABEL,
@@ -14,6 +16,7 @@ import {
 } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { ViewTransitions } from '../core/view-transitions';
+import { BonusSticker } from '../ui/bonus';
 import { CoverSleeve } from '../ui/cover-sleeve';
 
 interface Row {
@@ -29,7 +32,7 @@ const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximu
 /** O ranking numa folha de bloquinho destacada: uma lista por nota e, ao lado, o balanço do mural. */
 @Component({
   selector: 'app-ranking-page',
-  imports: [CoverSleeve, LucideAngularModule],
+  imports: [BonusSticker, CoverSleeve, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ranking-page.html',
   styleUrl: './ranking-page.scss',
@@ -76,13 +79,24 @@ export class RankingPage {
     const hours = list.reduce((s, r) => s + (r.hoursPlayed ?? 0), 0);
     const byStatus = { incompleto: 0, finalizado: 0, platinado: 0 };
     const byVerdict = new Map<string, number>();
+    const byBonus = new Map<string, { bonus: Bonus; n: number }>();
     let longest: Review | null = null;
     for (const r of list) {
       byStatus[r.status]++;
       if (r.verdict) byVerdict.set(r.verdict, (byVerdict.get(r.verdict) ?? 0) + 1);
+      for (const b of r.bonuses) {
+        const hit = byBonus.get(b.id);
+        if (hit) hit.n++;
+        else byBonus.set(b.id, { bonus: b, n: 1 });
+      }
       if (r.hoursPlayed !== null && (!longest || r.hoursPlayed > (longest.hoursPlayed ?? 0))) longest = r;
     }
     const topVerdict = VERDICTS.map((v) => ({ v, n: byVerdict.get(v) ?? 0 })).sort((a, b) => b.n - a.n)[0];
+    /** O bônus mais colado de cada lado, só se ele se destaca: dado pelo menos duas vezes e sem empate. */
+    const topBonus = (kind: BonusKind) => {
+      const [first, second] = [...byBonus.values()].filter((x) => x.bonus.kind === kind).sort((a, b) => b.n - a.n);
+      return first && first.n >= 2 && (!second || second.n < first.n) ? first : null;
+    };
     return {
       n,
       avg: n ? avgFmt.format(list.reduce((s, r) => s + r.scores.final, 0) / n) : '–',
@@ -90,6 +104,8 @@ export class RankingPage {
       byStatus,
       longest: longest ? `${longest.game.name} · ${formatHours(longest.hoursPlayed)}` : null,
       verdict: topVerdict?.n ? `${VERDICT_LABEL[topVerdict.v]} · ${topVerdict.n}` : null,
+      favor: topBonus('favor'),
+      contra: topBonus('contra'),
     };
   });
 

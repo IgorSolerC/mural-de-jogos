@@ -37,6 +37,92 @@ export const WEIGHT_FACTOR: Record<Weight, number> = {
   'nao-tem': 0,
 };
 
+/** Bônus a favor contam na média como um 10 a mais; os contra, como um 0 a mais. */
+export type BonusKind = 'favor' | 'contra';
+
+export interface Bonus {
+  /** Da cartela pronta ('trilha-sonora') ou escrito pela pessoa ('u-…', tirado do nome). */
+  id: string;
+  label: string;
+  kind: BonusKind;
+}
+
+export const BONUS_KINDS: readonly BonusKind[] = ['favor', 'contra'];
+
+export const BONUS_KIND_LABEL: Record<BonusKind, string> = { favor: 'A favor', contra: 'Contra' };
+
+/** A nota que cada bônus põe na conta. */
+export const BONUS_SCORE: Record<BonusKind, number> = { favor: 10, contra: 0 };
+
+/** Cada bônus pesa na média o mesmo que uma categoria Normal de peso-base 1 (História, por exemplo). */
+export const BONUS_WEIGHT = 1;
+
+/** Nomes curtos o bastante para caber num adesivo da ficha. */
+export const BONUS_MAX_LABEL = 32;
+
+/** A cartela pronta: coisas que as quatro categorias não cobrem. */
+export const BONUS_CATALOG: readonly Bonus[] = [
+  { id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' },
+  { id: 'personagens', label: 'Personagens marcantes', kind: 'favor' },
+  { id: 'final-memoravel', label: 'Final memorável', kind: 'favor' },
+  { id: 'chefoes', label: 'Chefões épicos', kind: 'favor' },
+  { id: 'mundo', label: 'Mundo pra explorar', kind: 'favor' },
+  { id: 'rejogar', label: 'Dá vontade de rejogar', kind: 'favor' },
+  { id: 'multiplayer', label: 'Multiplayer divertido', kind: 'favor' },
+  { id: 'dublagem', label: 'Dublagem caprichada', kind: 'favor' },
+  { id: 'otimizado', label: 'Bem otimizado', kind: 'favor' },
+  { id: 'rir', label: 'Me fez rir', kind: 'favor' },
+  { id: 'emocionou', label: 'Me emocionou', kind: 'favor' },
+  { id: 'centavo', label: 'Vale cada centavo', kind: 'favor' },
+  { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
+  { id: 'mal-otimizado', label: 'Mal otimizado', kind: 'contra' },
+  { id: 'loadings', label: 'Loadings longos', kind: 'contra' },
+  { id: 'grind', label: 'Grind excessivo', kind: 'contra' },
+  { id: 'microtransacoes', label: 'Microtransações', kind: 'contra' },
+  { id: 'final-decepcionante', label: 'Final decepcionante', kind: 'contra' },
+  { id: 'arrastado', label: 'Arrastado', kind: 'contra' },
+  { id: 'muito-curto', label: 'Muito curto', kind: 'contra' },
+  { id: 'camera', label: 'Câmera ruim', kind: 'contra' },
+  { id: 'sem-legenda', label: 'Sem legenda em PT-BR', kind: 'contra' },
+  { id: 'online', label: 'Online obrigatório', kind: 'contra' },
+  { id: 'caro', label: 'Caro pelo que entrega', kind: 'contra' },
+];
+
+const CATALOG_BY_ID = new Map(BONUS_CATALOG.map((b) => [b.id, b]));
+
+export function isCatalogBonus(id: string): boolean {
+  return CATALOG_BY_ID.has(id);
+}
+
+/**
+ * Id de um bônus escrito pela pessoa: o mesmo nome do mesmo lado dá sempre o mesmo id. O lado entra
+ * no id para "Curto" a favor numa ficha e "Curto" contra noutra não virarem o mesmo bônus.
+ */
+export function customBonusId(label: string, kind: BonusKind): string {
+  const slug = fold(label)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return `u-${kind === 'favor' ? 'f' : 'c'}-${slug || 'bonus'}`;
+}
+
+/** "  muitos   inimigos " → "Muitos inimigos". */
+export function cleanBonusLabel(label: string): string {
+  const flat = label.replace(/\s+/g, ' ').trim().slice(0, BONUS_MAX_LABEL).trim();
+  return flat.charAt(0).toUpperCase() + flat.slice(1);
+}
+
+/** Os a favor primeiro, os contra depois; dentro de cada lado, a ordem em que foram colados. */
+export function sortBonuses(list: readonly Bonus[]): Bonus[] {
+  return [...list.filter((b) => b.kind === 'favor'), ...list.filter((b) => b.kind === 'contra')];
+}
+
+export function bonusTally(list: readonly Bonus[] | undefined): Record<BonusKind, number> {
+  const t = { favor: 0, contra: 0 };
+  for (const b of list ?? []) t[b.kind]++;
+  return t;
+}
+
 /** Notas de 0 a 10. `final` é calculada por `computeFinal` e guardada com uma casa decimal. */
 export interface Scores {
   final: number;
@@ -66,6 +152,8 @@ export interface Review {
   verdict: Verdict | null;
   /** Peso de cada categoria nesta resenha; ausente = normal. */
   weights: Weights;
+  /** Bônus a favor e contra, na ordem em que foram colados. Entram na média. */
+  bonuses: Bonus[];
   /** Horas jogadas; opcional. */
   hoursPlayed: number | null;
   /** Cor da cartolina, escolhida uma vez quando a ficha é criada. */
@@ -172,9 +260,14 @@ export function counts(weights: Weights | undefined, k: RatedKey): boolean {
 /**
  * Média ponderada das notas dadas, com uma casa decimal. Diversão tem peso-base 2x; cada categoria
  * ainda pode valer o dobro (Relevante), metade (Pouco importante) ou sair da conta (Não tem).
- * Null se nenhuma nota que conta foi dada.
+ * Cada bônus entra como mais uma nota de peso 1: 10 se for a favor, 0 se for contra.
+ * Null se nenhuma nota que conta foi dada (bônus sozinho não faz média).
  */
-export function computeFinal(scores: Pick<Scores, RatedKey>, weights?: Weights): number | null {
+export function computeFinal(
+  scores: Pick<Scores, RatedKey>,
+  weights?: Weights,
+  bonuses?: readonly Bonus[],
+): number | null {
   let sum = 0;
   let weight = 0;
   for (const k of RATED_KEYS) {
@@ -184,7 +277,17 @@ export function computeFinal(scores: Pick<Scores, RatedKey>, weights?: Weights):
     sum += v * w;
     weight += w;
   }
-  return weight ? Math.round((sum / weight) * 10) / 10 : null;
+  if (!weight) return null;
+  for (const b of bonuses ?? []) {
+    sum += BONUS_SCORE[b.kind] * BONUS_WEIGHT;
+    weight += BONUS_WEIGHT;
+  }
+  return Math.round((sum / weight) * 10) / 10;
+}
+
+/** A média só das notas, sem os bônus: para mostrar quanto eles mexeram. */
+export function computeBase(review: Pick<Review, 'scores' | 'weights'>): number | null {
+  return computeFinal(review.scores, review.weights);
 }
 
 const hoursFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
@@ -199,6 +302,13 @@ const scoreFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 /** 8.4 → "8,4"; 9 → "9". */
 export function formatScore(v: number | null): string {
   return v === null ? '–' : scoreFmt.format(v);
+}
+
+/** Quanto os bônus mexeram na média: "+0,4", "−0,3" ou "±0". */
+export function formatShift(v: number): string {
+  const r = Math.round(v * 10) / 10;
+  if (r === 0) return '±0';
+  return `${r > 0 ? '+' : '−'}${scoreFmt.format(Math.abs(r))}`;
 }
 
 /**
@@ -287,6 +397,27 @@ function sanitizeGame(raw: unknown): PickedGame | null {
   };
 }
 
+/** Aceita a lista de bônus de um backup: da cartela vale o nome da cartela; os escritos, o nome guardado. */
+export function sanitizeBonuses(raw: unknown): Bonus[] {
+  if (!Array.isArray(raw)) return [];
+  const out = new Map<string, Bonus>();
+  for (const item of raw.slice(0, 60)) {
+    if (!item || typeof item !== 'object') continue;
+    const b = item as Record<string, unknown>;
+    const known = typeof b['id'] === 'string' ? CATALOG_BY_ID.get(b['id']) : undefined;
+    if (known) {
+      out.set(known.id, { ...known });
+      continue;
+    }
+    const label = cleanBonusLabel(str(b['label'], 200));
+    const kind = b['kind'];
+    if (!label || (kind !== 'favor' && kind !== 'contra')) continue;
+    const id = customBonusId(label, kind);
+    if (!out.has(id)) out.set(id, { id, label, kind });
+  }
+  return [...out.values()];
+}
+
 function sanitizeId(v: unknown): string {
   return typeof v === 'string' && /^[\w-]{4,64}$/.test(v) ? v : newId();
 }
@@ -322,11 +453,12 @@ export function sanitizeReview(raw: unknown): Review | null {
     if (typeof w === 'string' && (WEIGHTS as readonly string[]).includes(w) && w !== 'normal') weights[k] = w as Weight;
   }
   for (const k of RATED_KEYS) if (weights[k] === 'nao-tem') rated[k] = null;
+  const bonuses = sanitizeBonuses(r['bonuses']);
   const hours = Number(r['hoursPlayed']);
-  // A média vem das notas; resenhas antigas que só tinham a nota final mantêm a delas.
+  // A média vem das notas e dos bônus; resenhas antigas que só tinham a nota final mantêm a delas.
   const legacyFinal = Number(s['final']);
   const final =
-    computeFinal(rated, weights) ??
+    computeFinal(rated, weights, bonuses) ??
     (Number.isFinite(legacyFinal) ? Math.round(Math.min(10, Math.max(0, legacyFinal)) * 10) / 10 : null);
   if (final === null) return null;
   const status: Status = STATUSES.includes(r['status']) ? r['status'] : 'finalizado';
@@ -341,6 +473,7 @@ export function sanitizeReview(raw: unknown): Review | null {
     difficulty,
     verdict: VERDICTS.includes(r['verdict']) ? r['verdict'] : null,
     weights,
+    bonuses,
     hoursPlayed:
       r['hoursPlayed'] !== null && r['hoursPlayed'] !== undefined && r['hoursPlayed'] !== '' && Number.isFinite(hours) && hours >= 0
         ? Math.round(Math.min(hours, 99999) * 10) / 10

@@ -75,6 +75,40 @@
   flex: none;
 }
 
+/* A conta impressa ao lado da estrela, só quando há bônus: notas sozinhas e o quanto eles mexeram */
+.conta {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  animation: conta-in var(--t-physical) var(--ease-physical);
+
+  span {
+    display: contents;
+  }
+
+  b {
+    color: var(--ink);
+    font-style: italic;
+    font-size: 1.2rem;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes conta-in {
+  from {
+    opacity: 0;
+    translate: -6px 0;
+  }
+}
+
 
 /* Fonte da capa: um interruptor de texto discreto, sem chamar atenção */
 .cover-src {

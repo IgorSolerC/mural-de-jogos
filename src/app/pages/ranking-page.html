@@ -47,12 +47,15 @@
               </span>
               <span class="score">
                 <span class="sr-only">{{ labels[key()] }}</span>
-                {{ fmt(row.score) }}
-                @if (row.pos === 1) {
-                  <svg viewBox="0 0 60 50" aria-hidden="true">
-                    <path d="M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7" />
-                  </svg>
-                }
+                <!-- o círculo abraça o número, não a coluna: "9" e "9,6" ficam no meio dele -->
+                <span class="num">
+                  {{ fmt(row.score) }}
+                  @if (row.pos === 1) {
+                    <svg viewBox="0 0 60 50" preserveAspectRatio="none" aria-hidden="true">
+                      <path d="M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7" />
+                    </svg>
+                  }
+                </span>
               </span>
             </button>
           </li>
@@ -85,6 +88,12 @@
         }
         @if (totals().verdict; as v) {
           <div><dt>Veredito mais dado</dt><dd>{{ v }}</dd></div>
+        }
+        @if (totals().favor; as f) {
+          <div><dt>Bônus a favor mais dado</dt><dd class="bonus-dd"><app-bonus-sticker [bonus]="f.bonus" [index]="0" /> · {{ f.n }}</dd></div>
+        }
+        @if (totals().contra; as c) {
+          <div><dt>Bônus contra mais dado</dt><dd class="bonus-dd"><app-bonus-sticker [bonus]="c.bonus" [index]="1" /> · {{ c.n }}</dd></div>
         }
       </dl>
       <p class="total"><span>Média geral</span><span>{{ totals().avg }}</span></p>

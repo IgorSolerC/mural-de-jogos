@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { Bookmark, LucideAngularModule, Pin as PinIcon, RefreshCw, Trash2, X } from 'lucide-angular';
 import {
+  Bonus,
   Difficulty,
   Draft,
   PickedGame,
@@ -24,6 +25,8 @@ import {
   Weights,
   computeFinal,
   counts,
+  formatScore,
+  formatShift,
   weightOf,
   dayLabel,
   isValidDay,
@@ -34,6 +37,7 @@ import { GameLookup, LookupError, isSteamCover } from '../core/game-lookup';
 import { ReviewStore } from '../core/review-store';
 import { CoverSource, Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
+import { BonusPicker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
 import { GameSearch } from './game-search';
@@ -52,6 +56,7 @@ export interface SavedEvent {
   selector: 'app-review-editor',
   imports: [
     LucideAngularModule,
+    BonusPicker,
     CoverSleeve,
     DifficultyPicker,
     GameSearch,
@@ -66,7 +71,7 @@ export interface SavedEvent {
   styleUrl: './review-editor.scss',
 })
 export class ReviewEditor {
-  private readonly store = inject(ReviewStore);
+  protected readonly store = inject(ReviewStore);
   private readonly lookup = inject(GameLookup);
   protected readonly settings = inject(Settings);
   readonly saved = output<SavedEvent>();
@@ -84,6 +89,7 @@ export class ReviewEditor {
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly search = viewChild(GameSearch);
+  private readonly bonusPicker = viewChild(BonusPicker);
 
   protected readonly id = signal(newId());
   protected readonly editing = signal<Review | null>(null);
@@ -95,18 +101,23 @@ export class ReviewEditor {
   protected readonly jogabilidade = signal<number | null>(null);
   protected readonly visual = signal<number | null>(null);
   protected readonly weights = signal<Weights>({});
-  /** A média se atualiza enquanto as notas e os pesos mudam. */
-  protected readonly final = computed(() =>
-    computeFinal(
-      {
-        historia: this.historia(),
-        diversao: this.diversao(),
-        jogabilidade: this.jogabilidade(),
-        visual: this.visual(),
-      },
-      this.weights(),
-    ),
-  );
+  protected readonly bonuses = signal<Bonus[]>([]);
+  private readonly rated = computed(() => ({
+    historia: this.historia(),
+    diversao: this.diversao(),
+    jogabilidade: this.jogabilidade(),
+    visual: this.visual(),
+  }));
+  /** A média se atualiza enquanto as notas, os pesos e os bônus mudam. */
+  protected readonly final = computed(() => computeFinal(this.rated(), this.weights(), this.bonuses()));
+  /** Só as notas, sem os bônus: a conta ao lado da estrela mostra quanto eles mexeram. */
+  protected readonly base = computed(() => computeFinal(this.rated(), this.weights()));
+  protected readonly shift = computed(() => {
+    const f = this.final();
+    const b = this.base();
+    return f === null || b === null ? '' : formatShift(f - b);
+  });
+  protected readonly fmt = formatScore;
   protected readonly weightOf = weightOf;
   protected readonly isSteamCover = isSteamCover;
   protected readonly hours = signal('');
@@ -181,6 +192,8 @@ export class ReviewEditor {
     this.completedAt.set(review?.completedAt ?? todayISO());
     this.difficulty.set(review?.difficulty ?? 'nenhuma');
     this.weights.set({ ...(review?.weights ?? {}) });
+    this.bonuses.set([...(review?.bonuses ?? [])]);
+    this.bonusPicker()?.reset();
     this.hours.set(review?.hoursPlayed === null || review?.hoursPlayed === undefined ? '' : String(review.hoursPlayed).replace('.', ','));
     this.coverAbort?.abort();
     this.coverLoading.set(null);
@@ -285,6 +298,7 @@ export class ReviewEditor {
         visual: counts(this.weights(), 'visual') ? this.visual() : null,
       },
       weights: this.weights(),
+      bonuses: this.bonuses(),
       hoursPlayed: this.hoursValue(),
       status,
       difficulty: this.difficulty(),
@@ -363,6 +377,7 @@ export class ReviewEditor {
   private hasReviewContent(): boolean {
     return (
       RATED_KEYS.some((k) => this.scoreSignal(k)() !== null) ||
+      this.bonuses().length > 0 ||
       this.status() !== null ||
       this.verdict() !== null ||
       this.difficulty() !== 'nenhuma' ||
@@ -386,6 +401,7 @@ export class ReviewEditor {
       this.verdict(),
       this.completedAt(),
       this.weights(),
+      this.bonuses().map((b) => b.id),
       this.hours().trim(),
       this.game()?.coverUrl,
       this.difficulty(),

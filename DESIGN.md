@@ -46,6 +46,7 @@ colors:
   verdict-legalzinho-lit: "#8ab8ff"
   verdict-meh-lit: "#e8b86a"
   verdict-chato-lit: "#c9a6ff"
+  cartela: "#fdfcf8"
 typography:
   display:
     fontFamily: "Permanent Marker, Comic Sans MS, cursive"
@@ -318,6 +319,22 @@ components:
     textColor: "{colors.ink}"
     typography: "{typography.label}"
     padding: "12px 14px 16px 18px"
+  bonus-sticker-favor:
+    backgroundColor: "{colors.paper}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.paper}"
+    padding: "4px 9px 3px 7px"
+    height: "26px"
+  bonus-sticker-contra:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.paper}"
+    padding: "4px 9px 3px 7px"
+    height: "26px"
+  bonus-cartela:
+    backgroundColor: "{colors.cartela}"
+    rounded: "{rounded.paper}"
+    padding: "14px 14px 12px"
 ---
 
 # Design System: Mural de Jogos
@@ -739,3 +756,18 @@ The user wants the world to be only a mural of stationery: paper, cartolina, mas
 - **Copy.** The empty wall reads "Todo mural começou com uma parede vazia." The empty Ranking says "a lista sai com o seu top".
 - **No tape on photos.** The two masking-tape pieces over the photo's top corners were removed. The photo is glued flat to the card, which clears the corners and leaves the tachinha as the only object on top of the card.
 - **No red rule on sheets.** The index-card sheets keep the stock header band. The red rule under it is gone, so the header meets the cream paper directly.
+
+## Bônus (feature pass)
+
+The user wanted bonuses: as many as they like, "a favor" or "contra", things the four categories do not cover ("Trilha sonora incrível", "Muitos bugs"). Each one enters the Média as one more score, 10 for a favor and 0 for contra, with weight 1 (a Normal História). They are **adesivos**: small printed sticker labels peeled from a sticker sheet (cartela) and stuck on the card.
+
+- **Two finishes, no colour.** A favor is `paper` with a 1.5px ink hairline printed at its edge (so it still reads on the cream sheets); contra is solid `ink` with `paper` lettering, the same ink as the verdict band. The two sides differ by fill, not by hue, so the One Ink Rule and Ink Is Judgement hold and the difference survives colour blindness. Each sticker is Barlow Condensed 800, 0.88rem, sentence case (names are long), a 14px lucide icon (12px on mini), 26px tall (22px mini), a 2px radius and the status label's small drop shadow. Stuck by hand, each one tilts from a fixed sequence by position (`-1.4, 0.9, -0.5, 1.3, -1, 0.6` deg).
+- **Icons.** Every catalog bonus has its own lucide icon (Music, Swords, Bug, Snail, Pickaxe…). A bonus the user wrote gets a plus or a minus.
+- **Catalog.** 12 a favor and 12 contra, chosen to cover what the categories do not (soundtrack, characters, ending, bosses, world, replay, multiplayer, dubbing, optimisation, humour, emotion, value; bugs, performance, loadings, grind, microtransactions, ending, pacing, length, camera, PT-BR subtitles, always-online, price). Custom bonuses have no settings screen: `ReviewStore.customBonuses` derives them from the reviews (most used first), so one that no review uses disappears on its own. Labels are cleaned to 32 characters with a capital first letter, and ids derive from the side and the folded name (`u-f-…` / `u-c-…`), so writing the same name twice on the same side reuses it. A name typed on one side never picks up the same name from the other side (typing "Muitos bugs" under A favor must not stick the contra and drop the Média unannounced).
+- **Editor.** A "Bônus" section under the four score pickers (the Média it moves sits right above). The heading row carries the label, the tally and a marker-link toggle ("Colar bônus", "Mexer nos bônus", "Fechar cartela"), the same link style as "Trocar jogo". Closed, it shows the stuck stickers, or a one-line hint that states the rule once ("Cada bônus a favor conta como um 10 na média; cada um contra, como um 0."). Open, it is the **cartela**: a whiter sheet (`cartela`) laid on the index card with a faint ink edge, holding two groups, "A favor · conta como 10" and "Contra · conta como 0". A sticker still on the sheet is its kiss-cut outline (1.5px dashed ink at 42%, ink at 74%, straight). Choosing it sticks it: it becomes the solid sticker, tilts and grows to 1.04 on the physical curve. "Escrever outro" at the end of each group turns into a blank sticker input (paper for a favor, ink with a yellow caret for contra); Enter sticks it and leaves another blank one, Esc drops it and returns focus without closing the sheet. A chosen a-favor sticker takes a full 2px ink edge and a small lift shadow, so paper on the whiter sheet still reads as stuck; ghosts sit at 62% ink with a 34% dashed cut. On touch screens slots grow to 40px with 6px gaps. The cartela always opens closed, so a review logged in a hurry never scrolls past 24 stickers. While it is open, the heading row prints the live Média beside the tally ("Média 6,8 (−1,7)"), because the starburst scrolls out of view; it is `aria-hidden`, since the starburst block already announces the Média. The whole picker is a `role="group"` named by its "Bônus" title.
+- **The maths in view.** When a review has bonuses, a printed breakdown sits beside the starburst: "Notas 8,5 / Bônus −1,7" (Barlow Condensed 800 caps, numerals in italic 1.2rem ink), sliding in over 380ms. A single contra is a 0, so it weighs a lot; the breakdown makes that visible while scoring.
+- **Wall card.** Completa: a row of stickers between the lead sentence and the boletim, a favor first, at most four (the user keeps cards uncluttered). Past four, the stickers are picked alternating a favor and contra, so the cap never hides a whole side, and the rest becomes "mais" plus the tally of the hidden ones ("mais +1 −1"). The reader always shows them all. Simples: only a tally in the meta line, two micro-stickers "+2" (paper) and "−1" (ink). The accessible name adds "2 bônus a favor e 1 contra".
+- **Reader.** A "Bônus" row closes the score bars behind a dashed rule, with the label above so the stickers get the column's width, and a meta line "Sem eles, a média seria 7,6." ("…seria a mesma." when it does not change).
+- **Nota a nota.** A "Bônus" row after Visual, only when some marked game has bonuses: mini stickers stacked in each column, "—" for none. No circle: bonuses are not a score to win.
+- **Ranking.** The Média already includes bonuses. The Balanço adds "Bônus a favor mais dado" and "Bônus contra mais dado", each shown as its sticker with the count, only when one stands out (given at least twice, with no tie).
+- **Search** also matches bonus names ("bugs").

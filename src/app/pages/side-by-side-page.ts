@@ -23,12 +23,14 @@ import {
   formatHours,
   formatScore,
   parseDay,
+  sortBonuses,
   weightOf,
 } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide, SideSort } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { Density, WallView } from '../core/wall-view';
+import { BonusSticker } from '../ui/bonus';
 import { CoverSleeve } from '../ui/cover-sleeve';
 import { Skulls } from '../ui/difficulty';
 import { PenMark } from '../ui/pen-mark';
@@ -54,7 +56,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** As linhas do quadro: as notas primeiro, os fatos da ficha depois. */
-type RowKind = 'final' | 'score' | 'verdict' | 'hours' | 'status' | 'difficulty' | 'date' | 'year';
+type RowKind = 'final' | 'score' | 'bonus' | 'verdict' | 'hours' | 'status' | 'difficulty' | 'date' | 'year';
 
 interface Row {
   id: string;
@@ -73,7 +75,7 @@ interface Row {
  */
 @Component({
   selector: 'app-side-by-side-page',
-  imports: [CoverSleeve, LucideAngularModule, PenMark, Pin, ReviewCard, Skulls, StatusLabel, VerdictStamp],
+  imports: [BonusSticker, CoverSleeve, LucideAngularModule, PenMark, Pin, ReviewCard, Skulls, StatusLabel, VerdictStamp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './side-by-side-page.html',
   styleUrl: './side-by-side-page.scss',
@@ -149,6 +151,10 @@ export class SideBySidePage {
       { id: 'final', label: 'Média', kind: 'final', sorted: s === 'final' },
       { id: 'verdict', label: 'Veredito', kind: 'verdict', sorted: false },
       ...RATED_KEYS.map<Row>((k) => ({ id: k, label: SCORE_LABEL[k], kind: 'score', score: k, sorted: s === k })),
+      // os bônus só entram quando algum jogo marcado tem: senão seria uma linha só de traços
+      ...(this.side.reviews().some((r) => r.bonuses.length)
+        ? [{ id: 'bonus', label: 'Bônus', kind: 'bonus', sorted: false } as Row]
+        : []),
       { id: 'hours', label: 'Horas', kind: 'hours', sorted: false, split: true },
       { id: 'status', label: 'Status', kind: 'status', sorted: false },
       { id: 'difficulty', label: 'Dificuldade', kind: 'difficulty', sorted: false },
@@ -182,6 +188,10 @@ export class SideBySidePage {
   protected grade(v: number): { int: string; dec: string } {
     const [int, dec = ''] = formatScore(v).split(',');
     return { int, dec };
+  }
+
+  protected bonuses(r: Review) {
+    return sortBonuses(r.bonuses);
   }
 
   protected hours(r: Review): string {

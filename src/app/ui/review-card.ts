@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
 import {
+  Bonus,
   RATED_KEYS,
   Review,
   SCORE_LABEL,
@@ -13,9 +14,11 @@ import {
   formatScore,
   leadSentence,
   parseDay,
+  sortBonuses,
   weightOf,
 } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
+import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
 import { PenMark } from './pen-mark';
 import { Pin } from './pin';
@@ -23,6 +26,8 @@ import { StatusLabel } from './status-label';
 import { VERDICT_ICON } from './verdict';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+/** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
+const MAX_STICKERS = 4;
 const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
 
 /**
@@ -32,7 +37,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Pin, PenMark, StatusLabel, CoverSleeve],
+  imports: [LucideAngularModule, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'cartolina',
@@ -71,6 +76,9 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
           @if (compact() && sortedCell(); as c) {
             <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} {{ c.value }}<app-pen-mark /></span>
           }
+          @if (compact() && bonuses().length) {
+            <app-bonus-tally class="tally" [bonuses]="bonuses()" />
+          }
         </p>
       </div>
 
@@ -99,6 +107,21 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     @if (!compact()) {
       @if (lead(); as line) {
         <p class="lead">“{{ line }}”</p>
+      }
+
+      <!-- Os bônus: adesivos colados na cartolina, os a favor primeiro -->
+      @if (bonuses().length) {
+        <ul class="bonus" aria-label="Bônus">
+          @for (b of shownBonuses().shown; track b.id; let i = $index) {
+            <li>
+              <app-bonus-sticker [bonus]="b" [index]="i" />
+              <span class="sr-only">({{ b.kind === 'favor' ? 'a favor' : 'contra' }})</span>
+            </li>
+          }
+          @if (shownBonuses().hidden.length) {
+            <li class="mais"><span aria-hidden="true">mais</span> <app-bonus-tally [bonuses]="shownBonuses().hidden" /></li>
+          }
+        </ul>
       }
 
       <!-- Boletim: quatro casas fixas, sempre na mesma ordem, para comparar ficha com ficha -->
@@ -389,6 +412,33 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       overflow-wrap: anywhere;
     }
 
+    /* ===== Adesivos de bônus: colados à mão entre a frase e o boletim ===== */
+    .bonus {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px 6px;
+      margin: 14px 0 0;
+      padding: 0 0 0 1px;
+      list-style: none;
+    }
+    .bonus li {
+      display: flex;
+      max-width: 100%;
+    }
+    /* passou de quatro: o resto vira contagem, e a lista inteira fica na leitura */
+    .bonus .mais {
+      align-items: center;
+      gap: 5px;
+      padding-left: 2px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+    }
+    /* na ficha simples, só a contagem na linha da data */
+    .tally {
+      margin-left: 8px;
+    }
+
     /* ===== Boletim ===== */
     .boletim {
       display: grid;
@@ -638,6 +688,23 @@ export class ReviewCard {
   );
   protected readonly hours = computed(() => formatHours(this.review().hoursPlayed));
   protected readonly lead = computed(() => leadSentence(this.review().text));
+  protected readonly bonuses = computed(() => sortBonuses(this.review().bonuses));
+  /**
+   * No máximo quatro adesivos na ficha, para ela não virar álbum. Escolhe alternando a favor e
+   * contra, para o limite nunca esconder todos de um lado; o resto vira a contagem "mais +1 −1".
+   */
+  protected readonly shownBonuses = computed(() => {
+    const all = this.bonuses();
+    if (all.length <= MAX_STICKERS) return { shown: all, hidden: [] as Bonus[] };
+    const favor = all.filter((b) => b.kind === 'favor');
+    const contra = all.filter((b) => b.kind === 'contra');
+    const pick = new Set<string>();
+    for (let i = 0; pick.size < MAX_STICKERS; i++) {
+      if (favor[i]) pick.add(favor[i].id);
+      if (pick.size < MAX_STICKERS && contra[i]) pick.add(contra[i].id);
+    }
+    return { shown: all.filter((b) => pick.has(b.id)), hidden: all.filter((b) => !pick.has(b.id)) };
+  });
 
   /** "9,4" → inteiro 9 e decimal 4, escritos em tamanhos diferentes, o decimal menor. */
   protected readonly grade = computed(() => {
@@ -669,6 +736,7 @@ export class ReviewCard {
     const r = this.review();
     const parts = [r.game.name, `média ${formatScore(r.scores.final)}`];
     if (r.verdict) parts.push(VERDICT_LABEL[r.verdict]);
+    if (r.bonuses.length) parts.push(spokenTally(r.bonuses));
     parts.push(STATUS_LABEL[r.status]);
     parts.push(`${dayLabel(r.status).toLowerCase()} ${dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '')}`);
     return `Abrir resenha: ${parts.join(', ')}`;

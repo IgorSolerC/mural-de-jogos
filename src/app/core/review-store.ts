@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
-import { Draft, Review, STOCKS, Stock, sanitizeDraft, sanitizeReview } from './review';
+import { Bonus, Draft, Review, STOCKS, Stock, isCatalogBonus, sanitizeDraft, sanitizeReview } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -21,6 +21,24 @@ export class ReviewStore {
   /** Jogos guardados para resenhar depois, o mais recente primeiro. */
   readonly drafts = signal<Draft[]>(this.readDrafts());
   readonly draftCount = computed(() => this.drafts().length);
+  /**
+   * Os bônus que a pessoa escreveu, tirados das próprias fichas: o mais usado primeiro. Não há lista
+   * para cuidar; um bônus que nenhuma ficha usa mais some sozinho.
+   */
+  readonly customBonuses = computed<Bonus[]>(() => {
+    const seen = new Map<string, { bonus: Bonus; n: number }>();
+    for (const r of this.reviews()) {
+      for (const b of r.bonuses) {
+        if (isCatalogBonus(b.id)) continue;
+        const hit = seen.get(b.id);
+        if (hit) hit.n++;
+        else seen.set(b.id, { bonus: b, n: 1 });
+      }
+    }
+    return [...seen.values()]
+      .sort((a, b) => b.n - a.n || a.bonus.label.localeCompare(b.bonus.label, 'pt-BR'))
+      .map((x) => x.bonus);
+  });
 
   private skipNextWrite = false;
   private skipNextDraftWrite = false;

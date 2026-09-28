@@ -391,6 +391,22 @@ tbody tr.split > * {
   }
 }
 
+/* bônus: os adesivos empilhados na coluna do jogo, os a favor em cima */
+.bonus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    max-width: 100%;
+  }
+}
+
 .carimbo {
   rotate: -4deg;
 }

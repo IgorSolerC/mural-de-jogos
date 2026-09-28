@@ -14,15 +14,19 @@ import {
   RatedKey,
   Review,
   SCORE_LABEL,
+  BONUS_KIND_LABEL,
   WEIGHT_LABEL,
+  computeBase,
   dayLabel,
   formatHours,
   formatScore,
   parseDay,
+  sortBonuses,
   weightOf,
 } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { pinningFor } from '../core/wall-physics';
+import { BonusSticker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
 import { Skulls } from './difficulty';
 import { Pin } from './pin';
@@ -34,7 +38,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, CoverSleeve, Pin, Skulls, VerdictStamp, ScoreBurst, StatusLabel],
+  imports: [LucideAngularModule, BonusSticker, CoverSleeve, Pin, Skulls, VerdictStamp, ScoreBurst, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (click)="onBackdrop($event)" (close)="review.set(null)">
@@ -98,6 +102,23 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
                       </dd>
                     </div>
                   }
+                  <!-- Os bônus entram na média como notas 10 (a favor) e 0 (contra) -->
+                  @if (bonuses().length) {
+                    <div class="row bonus-row">
+                      <dt>Bônus</dt>
+                      <dd>
+                        <ul class="bonus">
+                          @for (b of bonuses(); track b.id; let i = $index) {
+                            <li>
+                              <app-bonus-sticker [bonus]="b" [index]="i" />
+                              <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
+                            </li>
+                          }
+                        </ul>
+                        <p class="sem">{{ withoutBonus() }}</p>
+                      </dd>
+                    </div>
+                  }
                 </dl>
               </div>
             </div>
@@ -154,6 +175,15 @@ export class ReviewReader {
     return RATED_KEYS.filter((k) => weightOf(r?.weights, k) !== 'nao-tem');
   });
   protected readonly hours = computed(() => formatHours(this.review()?.hoursPlayed ?? null));
+  protected readonly bonuses = computed(() => sortBonuses(this.review()?.bonuses ?? []));
+  protected readonly kindLabels = BONUS_KIND_LABEL;
+  /** "Sem eles, a média seria 7,6." */
+  protected readonly withoutBonus = computed(() => {
+    const r = this.review();
+    const base = r ? computeBase(r) : null;
+    if (!r || base === null) return '';
+    return base === r.scores.final ? 'Sem eles, a média seria a mesma.' : `Sem eles, a média seria ${formatScore(base)}.`;
+  });
   protected readonly weightOf = weightOf;
   protected readonly weightLabels = WEIGHT_LABEL;
   protected readonly UpIcon = ArrowUp;

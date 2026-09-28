@@ -181,11 +181,20 @@ h1 {
   text-align: right;
   font-variant-numeric: tabular-nums;
 
+  .num {
+    position: relative;
+    display: inline-block;
+  }
+
+  /* o círculo de caneta em volta do número, com folga para o traço não passar por cima dele */
   svg {
     position: absolute;
-    inset: -12px -12px -10px -10px;
-    width: calc(100% + 22px);
-    height: calc(100% + 22px);
+    top: -12px;
+    bottom: -12px;
+    left: -15px;
+    right: -15px;
+    width: calc(100% + 30px);
+    height: calc(100% + 24px);
     overflow: visible;
     pointer-events: none;
   }
@@ -317,6 +326,16 @@ h1 {
       letter-spacing: 0.02em;
       text-transform: none;
       overflow-wrap: anywhere;
+    }
+
+    /* o adesivo mais colado, com a conta ao lado */
+    .bonus-dd {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 8px;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
     }
   }
 }

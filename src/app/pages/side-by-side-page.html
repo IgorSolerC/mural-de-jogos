@@ -171,6 +171,20 @@
                           </span>
                         }
                       }
+                      @case ('bonus') {
+                        @if (r.bonuses.length) {
+                          <ul class="bonus">
+                            @for (b of bonuses(r); track b.id; let i = $index) {
+                              <li>
+                                <app-bonus-sticker [bonus]="b" size="mini" [index]="i" />
+                                <span class="sr-only">({{ b.kind === 'favor' ? 'a favor' : 'contra' }})</span>
+                              </li>
+                            }
+                          </ul>
+                        } @else {
+                          <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">sem bônus</span></span>
+                        }
+                      }
                       @case ('verdict') {
                         @if (r.verdict; as v) {
                           <app-verdict-stamp class="carimbo" [value]="v" />
