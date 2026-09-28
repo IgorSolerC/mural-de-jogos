@@ -91,6 +91,16 @@ dialog.reader {
   color: var(--ink-2);
 }
 
+/* o autor do livro, logo abaixo do título, na letra de quem escreveu a ficha */
+.meta.by {
+  margin-top: 4px;
+  font-family: var(--f-hand);
+  font-weight: 400;
+  font-size: 1.15rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .judgement {
   grid-area: judgement;
   display: flex;

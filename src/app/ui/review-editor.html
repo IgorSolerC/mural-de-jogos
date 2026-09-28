@@ -54,14 +54,14 @@
       <div class="form">
         <section class="bloco jogo">
           @if (game(); as g) {
-            <p class="pergunta">Qual jogo?</p>
+            <p class="pergunta">Qual {{ profile().singular }}?</p>
             <!-- o campo, preenchido: a mesma tira de papel da busca, com o jogo escolhido -->
             <div class="tira-jogo">
               <app-cover-sleeve class="tj-capa" size="thumb" [game]="g" />
               <div class="tj-txt">
                 <p class="tj-nome">{{ g.name }}</p>
-                @if (g.year) {
-                  <p class="tj-ano">{{ g.year }}</p>
+                @if (g.year || g.by) {
+                  <p class="tj-ano">{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
                 }
               </div>
               <button type="button" class="acao-caneta" (click)="swapGame()">
@@ -69,6 +69,8 @@
                 Trocar
               </button>
             </div>
+            <!-- a capa de outra fonte é só dos jogos: Wikipedia ou RAWG (com a da Steam) -->
+            @if (kind() === 'jogos') {
             <p class="cover-src" role="group" aria-label="Fonte da capa">
               <span>Capa</span>
               <button
@@ -106,15 +108,16 @@
                 <span class="cover-busy" aria-hidden="true"></span>
               }
             </p>
+            }
             @if (coverError(); as err) {
               <p class="field-error" role="status">{{ err }}</p>
             }
           } @else {
-            <app-game-search [initialQuery]="searchSeed()" (picked)="pick($event)" />
+            <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />
             @if (draftError() && !game()) {
-              <p class="field-error">Escolha o jogo antes de guardar pra depois.</p>
+              <p class="field-error">Escolha {{ words().o }} antes de guardar pra depois.</p>
             } @else if (attempted() && !game()) {
-              <p class="field-error">Escolha um jogo da lista ou use o nome sem capa.</p>
+              <p class="field-error">Escolha {{ words().um }} da lista ou use o nome sem capa.</p>
             }
           }
         </section>
@@ -122,9 +125,9 @@
         <section class="bloco como" aria-labelledby="editor-como">
           <h3 class="pergunta" id="editor-como">Como foi?</h3>
           <div class="campo">
-            <app-status-picker [(value)]="status" />
+            <app-status-picker [kind]="kind()" [(value)]="status" />
             @if (attempted() && !status()) {
-              <p class="field-error">Marque se ficou incompleto, finalizado ou platinado.</p>
+              <p class="field-error">Marque {{ profile().status.incompleto }}, {{ profile().status.finalizado }} ou {{ profile().status.platinado }}.</p>
             }
           </div>
           <div class="campos-linha">
@@ -153,28 +156,32 @@
                 <p class="field-error">Escolha uma data até hoje.</p>
               }
             </div>
+            @if (profile().amount; as a) {
             <div class="campo">
-              <label for="editor-horas" class="rotulo">Tempo jogado</label>
+              <label for="editor-horas" class="rotulo">{{ a.label }}</label>
               <div class="tira hours">
                 <input
                   id="editor-horas"
                   type="text"
-                  inputmode="decimal"
+                  [attr.inputmode]="a.decimals ? 'decimal' : 'numeric'"
                   autocomplete="off"
                   placeholder="0"
                   [value]="hours()"
                   (input)="hours.set($any($event.target).value)"
                 />
-                <span class="unit" aria-hidden="true">horas</span>
+                <span class="unit" aria-hidden="true">{{ a.unit }}</span>
               </div>
               @if (!hoursValid()) {
-                <p class="field-error">Use só números, como 12 ou 12,5.</p>
+                <p class="field-error">Use só números, {{ a.example }}.</p>
               }
             </div>
+            }
           </div>
-          <div class="campo">
-            <app-difficulty-picker [(value)]="difficulty" />
-          </div>
+          @if (profile().difficulty; as d) {
+            <div class="campo">
+              <app-difficulty-picker [label]="d" [(value)]="difficulty" />
+            </div>
+          }
         </section>
 
         <section class="bloco notas" aria-labelledby="editor-notas">
@@ -187,14 +194,17 @@
             </div>
           </div>
           <div class="subs">
-            <app-score-picker class="nota-historia" [label]="labels.historia" [required]="true" [(value)]="historia"
-              [weight]="weightOf(weights(), 'historia')" (weightChange)="setWeight('historia', $event)" />
-            <app-score-picker class="nota-diversao" [label]="labels.diversao" [required]="true" [(value)]="diversao"
-              [weight]="weightOf(weights(), 'diversao')" (weightChange)="setWeight('diversao', $event)" />
-            <app-score-picker class="nota-jogabilidade" [label]="labels.jogabilidade" [required]="true" [(value)]="jogabilidade"
-              [weight]="weightOf(weights(), 'jogabilidade')" (weightChange)="setWeight('jogabilidade', $event)" />
-            <app-score-picker class="nota-visual" [label]="labels.visual" [required]="true" [(value)]="visual"
-              [weight]="weightOf(weights(), 'visual')" (weightChange)="setWeight('visual', $event)" />
+            @for (k of categories(); track k) {
+              <app-score-picker
+                [attr.data-nota]="k"
+                [label]="labels[k]"
+                [required]="true"
+                [value]="scoreOf(k)"
+                (valueChange)="setScore(k, $event)"
+                [weight]="weightOf(weights(), k)"
+                (weightChange)="setWeight(k, $event)"
+              />
+            }
           </div>
           @if (attempted() && missingScores().length) {
             <p class="field-error">Dê uma nota de 0 a 10 para cada categoria que conta na média.</p>
@@ -202,7 +212,7 @@
             <p class="field-error">Todas as categorias estão como “Não tem”. Deixe ao menos uma contar na média.</p>
           }
           <div class="campo bonus">
-            <app-bonus-picker [(value)]="bonuses" [library]="store.customBonuses()" [final]="final()" [shift]="shift()" />
+            <app-bonus-picker [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" [final]="final()" [shift]="shift()" />
           </div>
         </section>
 
@@ -215,7 +225,7 @@
           <textarea
             id="editor-texto"
             rows="6"
-            placeholder="Escreva do seu jeito: o que marcou, o que irritou, se jogaria de novo…"
+            [placeholder]="'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
             [value]="text()"
             (input)="text.set($any($event.target).value)"
           ></textarea>
@@ -236,7 +246,7 @@
           <button type="button" class="btn-quiet" (click)="cancelDraft()">Continuar escrevendo</button>
           <button type="button" class="btn-ink" (click)="saveForLater()">
             <lucide-icon [img]="LaterIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-            Guardar só o jogo
+            Guardar só {{ words().o }}
           </button>
         </div>
       } @else {

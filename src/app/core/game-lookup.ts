@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { PickedGame, fold } from './review';
+import { Kind, PickedGame, fold } from './review';
 import { CoverSource, Settings } from './settings';
 
 export class LookupError extends Error {
@@ -12,6 +12,15 @@ export class LookupError extends Error {
 }
 
 const WIKI = 'https://en.wikipedia.org/w/api.php';
+
+/** Onde cada mural procura na Wikipedia: páginas com a caixa de informações daquele tipo. */
+const WIKI_TEMPLATE: Record<Exclude<Kind, 'livros'>, string> = {
+  jogos: 'Infobox video game',
+  filmes: 'Infobox film',
+  series: 'Infobox television',
+  // a caixa do animanga: a de vídeo deixaria de fora páginas como a de Frieren, que junta mangá e anime
+  animes: 'Infobox animanga/Header',
+};
 
 /** Capa vertical oficial da Steam: a arte da biblioteca, 600x900, com o título do jogo. */
 function steamCoverUrl(appId: string): string {
@@ -42,13 +51,13 @@ function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): Promise
   });
 }
 
-/** Tira "(video game)", "(2018 video game)" etc. do título da Wikipedia. */
+/** Tira "(video game)", "(2010 film)", "(TV series)", "(anime)" etc. do título da Wikipedia. */
 function cleanWikiTitle(title: string): string {
-  return title.replace(/\s*\([^)]*\bgame\b[^)]*\)\s*$/i, '').trim();
+  return title.replace(/\s*\([^)]*\b(game|film|series|miniseries|TV|anime|manga)\b[^)]*\)\s*$/i, '').trim();
 }
 
 /** Monta a busca do CirrusSearch: só letras/números, curinga na última palavra. */
-function wikiQuery(q: string): string {
+function wikiQuery(q: string, template: string): string {
   const words = q
     .replace(/[^\p{L}\p{N}\s':-]/gu, ' ')
     .split(/\s+/)
@@ -56,7 +65,7 @@ function wikiQuery(q: string): string {
   if (!words.length) return '';
   const last = words.length - 1;
   if (words[last].length >= 2 && /[\p{L}\p{N}]$/u.test(words[last])) words[last] += '*';
-  return `${words.join(' ')} hastemplate:"Infobox video game"`;
+  return `${words.join(' ')} hastemplate:"${template}"`;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -65,24 +74,33 @@ export class GameLookup {
   /** O que a busca da RAWG já contou: o jogo está na Steam? (id da RAWG → sim/não) */
   private readonly onSteam = new Map<string, boolean>();
 
-  get usingRawg(): boolean {
-    return this.settings.effectiveSource() === 'rawg';
+  /** O nome do catálogo onde o mural procura, para o leitor de tela. */
+  sourceName(kind: Kind): string {
+    if (kind === 'livros') return 'Open Library';
+    return kind === 'jogos' && this.settings.effectiveSource() === 'rawg' ? 'RAWG' : 'Wikipedia';
   }
 
-  async search(q: string, signal: AbortSignal, source: CoverSource = this.settings.effectiveSource()): Promise<PickedGame[]> {
+  /** Procura no catálogo do mural. A RAWG é só de jogos; livros vêm da Open Library. */
+  async search(
+    q: string,
+    signal: AbortSignal,
+    kind: Kind,
+    source: CoverSource = this.settings.effectiveSource(),
+  ): Promise<PickedGame[]> {
     const query = q.trim();
     if (query.length < 2) return [];
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       throw new LookupError('Sem internet agora.', 'offline');
     }
+    if (kind === 'livros') return this.searchOpenLibrary(query, signal);
     const key = this.settings.rawgKey().trim();
-    if (source === 'rawg' && key) return this.searchRawg(query, key, signal);
-    return this.searchWikipedia(query, signal);
+    if (kind === 'jogos' && source === 'rawg' && key) return this.searchRawg(query, key, signal);
+    return this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
   }
 
-  /** Procura o mesmo jogo na outra fonte e devolve a capa de lá (o jogo mais parecido pelo nome). */
+  /** Procura o mesmo jogo na outra fonte e devolve a capa de lá (o jogo mais parecido pelo nome). Só no mural de jogos. */
   async findCover(game: PickedGame, source: CoverSource, signal: AbortSignal): Promise<PickedGame | null> {
-    const hits = await this.search(game.name, signal, source);
+    const hits = await this.search(game.name, signal, 'jogos', source);
     if (!hits.length) return null;
     const name = fold(game.name);
     const best =
@@ -124,8 +142,8 @@ export class GameLookup {
     }
   }
 
-  private async searchWikipedia(q: string, signal: AbortSignal): Promise<PickedGame[]> {
-    const search = wikiQuery(q);
+  private async searchWikipedia(q: string, signal: AbortSignal, template: string): Promise<PickedGame[]> {
+    const search = wikiQuery(q, template);
     if (!search) return [];
     const params = new URLSearchParams({
       action: 'query',
@@ -165,6 +183,46 @@ export class GameLookup {
       .map((x) => x.game);
   }
 
+  /**
+   * Livros: a Open Library, sem chave. A capa vem do acervo deles pelo número; `default=false` faz
+   * a capa que não existe dar erro (e virar "sem capa") em vez de um quadradinho em branco.
+   */
+  private async searchOpenLibrary(q: string, signal: AbortSignal): Promise<PickedGame[]> {
+    // a Open Library só acha palavra inteira: "dom casmu" vira "dom casmu*", como na Wikipedia
+    const words = q.replace(/[^\p{L}\p{N}\s'-]/gu, ' ').split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    const last = words.length - 1;
+    if (words[last].length >= 2) words[last] += '*';
+    const params = new URLSearchParams({
+      q: words.join(' '),
+      limit: '12',
+      fields: 'key,title,author_name,first_publish_year,cover_i',
+    });
+    const data = await this.fetchJson(`https://openlibrary.org/search.json?${params}`, signal);
+    const docs: any[] = data?.docs ?? [];
+    const needle = fold(q);
+    return docs
+      .filter((d) => typeof d?.title === 'string' && d.title.trim())
+      .map((d, index) => {
+        const game: PickedGame = {
+          name: String(d.title).trim(),
+          coverUrl: typeof d.cover_i === 'number' ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg?default=false` : null,
+          source: 'openlibrary',
+          sourceId: String(d.key ?? '').replace(/^\/works\//, '') || undefined,
+          year: typeof d.first_publish_year === 'number' ? String(d.first_publish_year) : undefined,
+          by: Array.isArray(d.author_name) && typeof d.author_name[0] === 'string' ? d.author_name[0] : undefined,
+        };
+        return { index, game };
+      })
+      .sort((a, b) => {
+        // começando com o que foi digitado e com capa vem primeiro; depois a relevância de lá
+        const rank = (x: { game: PickedGame }) => (fold(x.game.name).startsWith(needle) ? 0 : 2) + (x.game.coverUrl ? 0 : 1);
+        return rank(a) - rank(b) || a.index - b.index;
+      })
+      .slice(0, 8)
+      .map((x) => x.game);
+  }
+
   private async searchRawg(q: string, key: string, signal: AbortSignal): Promise<PickedGame[]> {
     const params = new URLSearchParams({ key, search: q, page_size: '8', search_precise: 'true' });
     const data = await this.fetchJson(`https://api.rawg.io/api/games?${params}`, signal, true);
@@ -192,12 +250,12 @@ export class GameLookup {
       res = await fetch(url, { signal });
     } catch (e) {
       if ((e as Error).name === 'AbortError') throw e;
-      throw new LookupError('Não consegui falar com o catálogo de jogos.', 'offline');
+      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
     }
     if (rawg && (res.status === 401 || res.status === 403)) {
       throw new LookupError('A chave da RAWG foi recusada. Confira em Ajustes.', 'rawg-key');
     }
-    if (!res.ok) throw new LookupError('O catálogo de jogos não respondeu.', 'server');
+    if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
     return res.json();
   }
 }

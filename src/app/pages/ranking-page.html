@@ -1,8 +1,8 @@
-@if (!store.count()) {
+@if (!mural.count()) {
   <section class="receipt solo" aria-labelledby="ranking-titulo">
     <h1 id="ranking-titulo">Ranking</h1>
     <p class="r-meta">Impresso em {{ today }}</p>
-    <p class="empty">Nada pra ranquear ainda. Pregue umas resenhas e a lista sai com o seu top.</p>
+    <p class="empty">{{ emptyText() }}</p>
     <button type="button" class="btn-ink" (click)="desk.newReview()">
       <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
       Nova resenha
@@ -11,7 +11,7 @@
 } @else {
   <div class="rail">
     <div class="plates" role="group" aria-label="Ranquear por">
-      @for (k of keys; track k) {
+      @for (k of keys(); track k) {
         <button type="button" class="plate" [attr.aria-pressed]="key() === k" (click)="setKey(k)">{{ labels[k] }}</button>
       }
     </div>
@@ -42,7 +42,7 @@
                   @if (row.review.game.year) {
                     {{ row.review.game.year }} ·
                   }
-                  {{ statusLabel[row.review.status] }}
+                  {{ mural.profile().status[row.review.status] }}
                 </span>
               </span>
               <span class="score">
@@ -63,28 +63,27 @@
       </ol>
 
       @if (left(); as n) {
-        <p class="left">
-          {{ n }} {{ n === 1 ? 'jogo ficou' : 'jogos ficaram' }} de fora: {{ n === 1 ? 'não tem' : 'não têm' }} nota de
-          {{ labels[key()] }}.
-        </p>
+        <p class="left">{{ leftText() }}</p>
       }
     </section>
 
     <aside class="receipt totals" aria-labelledby="balanco-titulo">
       <h2 id="balanco-titulo">Balanço</h2>
       <dl>
-        <div><dt>Jogos no mural</dt><dd>{{ totals().n }}</dd></div>
-        <div><dt>Platinados</dt><dd>{{ totals().byStatus.platinado }}</dd></div>
-        <div><dt>Finalizados</dt><dd>{{ totals().byStatus.finalizado }}</dd></div>
-        <div><dt>Incompletos</dt><dd>{{ totals().byStatus.incompleto }}</dd></div>
-        @if (store.draftCount()) {
-          <div><dt>Pra depois</dt><dd>{{ store.draftCount() }}</dd></div>
+        <div><dt>{{ inWall() }}</dt><dd>{{ totals().n }}</dd></div>
+        <div><dt>{{ mural.profile().statusGroup.platinado }}</dt><dd>{{ totals().byStatus.platinado }}</dd></div>
+        <div><dt>{{ mural.profile().statusGroup.finalizado }}</dt><dd>{{ totals().byStatus.finalizado }}</dd></div>
+        <div><dt>{{ mural.profile().statusGroup.incompleto }}</dt><dd>{{ totals().byStatus.incompleto }}</dd></div>
+        @if (mural.draftCount()) {
+          <div><dt>Pra depois</dt><dd>{{ mural.draftCount() }}</dd></div>
         }
-        <div><dt>Horas jogadas</dt><dd>{{ totals().hours }}</dd></div>
+        @if (mural.profile().amount; as a) {
+          <div><dt>{{ a.total }}</dt><dd>{{ totals().hours }}</dd></div>
+        }
       </dl>
       <dl class="notes">
-        @if (totals().longest; as l) {
-          <div><dt>Mais jogado</dt><dd>{{ l }}</dd></div>
+        @if (mural.profile().amount && totals().longest; as l) {
+          <div><dt>{{ mural.profile().amount!.most }}</dt><dd>{{ l }}</dd></div>
         }
         @if (totals().verdict; as v) {
           <div><dt>Veredito mais dado</dt><dd>{{ v }}</dd></div>

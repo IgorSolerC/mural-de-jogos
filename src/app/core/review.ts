@@ -1,3 +1,8 @@
+import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
+
+export type { Kind } from './kinds';
+
+/** Não terminei, terminei e fui além (Platinado, Relido, Revisto, Revi). Os nomes mudam por mural; o valor, nunca. */
 export type Status = 'incompleto' | 'finalizado' | 'platinado';
 
 /**
@@ -25,8 +30,21 @@ export const STOCK_LABEL: Record<Stock, string> = {
   cinza: 'Cinza',
 };
 
-/** As notas que a pessoa dá. */
-export type RatedKey = 'historia' | 'diversao' | 'jogabilidade' | 'visual';
+/**
+ * As notas que a pessoa dá, de todos os murais. Cada mural usa quatro (ver `KIND_PROFILES`); a
+ * mesma chave quer dizer a mesma coisa em qualquer mural (História é História num jogo e num livro).
+ */
+export type RatedKey =
+  | 'historia'
+  | 'diversao'
+  | 'jogabilidade'
+  | 'visual'
+  | 'envolvimento'
+  | 'personagens'
+  | 'escrita'
+  | 'roteiro'
+  | 'atuacao'
+  | 'animacao';
 
 /** 'final' é a média ponderada das notas dadas, nunca digitada. */
 export type ScoreKey = 'final' | RatedKey;
@@ -57,7 +75,7 @@ export const WEIGHT_FACTOR: Record<Weight, number> = {
 export type BonusKind = 'favor' | 'contra';
 
 export interface Bonus {
-  /** Da cartela pronta ('trilha-sonora') ou escrito pela pessoa ('u-…', tirado do nome). */
+  /** Da cartela pronta do mural ('trilha-sonora') ou escrito pela pessoa ('u-…', tirado do nome). */
   id: string;
   label: string;
   kind: BonusKind;
@@ -73,42 +91,19 @@ export const BONUS_SCORE: Record<BonusKind, number> = { favor: 10, contra: 0 };
 /** Cada bônus pesa na média o mesmo que uma categoria Normal de peso-base 1 (História, por exemplo). */
 export const BONUS_WEIGHT = 1;
 
-/** O máximo que um bônus sozinho mexe na média, para cima ou para baixo: um defeito não derruba um jogo inteiro. */
+/** O máximo que um bônus sozinho mexe na média, para cima ou para baixo: um defeito não derruba uma ficha inteira. */
 export const BONUS_MAX_SHIFT = 0.25;
 
 /** Nomes curtos o bastante para caber num adesivo da ficha. */
 export const BONUS_MAX_LABEL = 32;
 
-/** A cartela pronta: coisas que as quatro categorias não cobrem. */
-export const BONUS_CATALOG: readonly Bonus[] = [
-  { id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' },
-  { id: 'personagens', label: 'Personagens marcantes', kind: 'favor' },
-  { id: 'final-memoravel', label: 'Final memorável', kind: 'favor' },
-  { id: 'mundo', label: 'Inovador', kind: 'favor' },
-  { id: 'rejogar', label: 'Dá vontade de rejogar', kind: 'favor' },
-  { id: 'multiplayer', label: 'Multiplayer divertido', kind: 'favor' },
-  { id: 'rir', label: 'Me fez rir', kind: 'favor' },
-  { id: 'emocionou', label: 'Me emocionou', kind: 'favor' },
-  { id: 'centavo', label: 'Único', kind: 'favor' },
-  { id: 'genial', label: 'Genial', kind: 'favor' },
-  { id: 'detalhista', label: 'Detalhista', kind: 'favor' },
-  { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
-  { id: 'mal-otimizado', label: 'Mal otimizado', kind: 'contra' },
-  { id: 'loadings', label: 'Loadings longos', kind: 'contra' },
-  { id: 'grind', label: 'Grind excessivo', kind: 'contra' },
-  { id: 'microtransacoes', label: 'Microtransações', kind: 'contra' },
-  { id: 'final-decepcionante', label: 'Final decepcionante', kind: 'contra' },
-  { id: 'arrastado', label: 'Arrastado', kind: 'contra' },
-  { id: 'muito-curto', label: 'Muito curto', kind: 'contra' },
-  { id: 'camera', label: 'Câmera ruim', kind: 'contra' },
-  { id: 'desbalanceado', label: 'Desbalanceado', kind: 'contra' },
-  { id: 'caro', label: 'Caro pelo que entrega', kind: 'contra' },
-];
+const CATALOG_BY_ID = Object.fromEntries(
+  Object.values(KIND_PROFILES).map((p) => [p.kind, new Map(p.bonuses.map((b) => [b.id, b]))]),
+) as Record<Kind, Map<string, Bonus>>;
 
-const CATALOG_BY_ID = new Map(BONUS_CATALOG.map((b) => [b.id, b]));
-
-export function isCatalogBonus(id: string): boolean {
-  return CATALOG_BY_ID.has(id);
+/** É um adesivo da cartela pronta deste mural? */
+export function isCatalogBonus(kind: Kind, id: string): boolean {
+  return CATALOG_BY_ID[kind].has(id);
 }
 
 /**
@@ -140,30 +135,39 @@ export function bonusTally(list: readonly Bonus[] | undefined): Record<BonusKind
   return t;
 }
 
+/** As notas de uma ficha: só as quatro do mural dela, de 0 a 10 (null é sem nota). */
+export type Rated = Partial<Record<RatedKey, number | null>>;
+
 /** Notas de 0 a 10. `final` é calculada por `computeFinal` e guardada com uma casa decimal. */
-export interface Scores {
-  final: number;
-  historia: number | null;
-  diversao: number | null;
-  jogabilidade: number | null;
-  visual: number | null;
+export type Scores = { final: number } & Rated;
+
+/** A nota de uma categoria, ou null (sem nota, ou categoria de outro mural). */
+export function scoreOf(scores: Rated & { final?: number }, k: ScoreKey): number | null {
+  return scores[k] ?? null;
 }
 
-export type GameSource = 'wikipedia' | 'rawg' | 'manual';
+export type GameSource = 'wikipedia' | 'rawg' | 'openlibrary' | 'manual';
 
+/** O que foi escolhido na busca: um jogo, um livro, um filme… O nome ficou de quando o mural só tinha jogos. */
 export interface PickedGame {
   name: string;
   coverUrl: string | null;
   source: GameSource;
   sourceId?: string;
   year?: string;
+  /** Quem escreveu (livros), para distinguir dois títulos iguais. */
+  by?: string;
 }
 
 export interface Review {
   id: string;
+  /** Em qual mural a ficha mora. Fichas de antes dos murais são jogos. */
+  kind: Kind;
+  /** O item resenhado (o campo se chama `game` desde o primeiro backup; renomear perderia dados). */
   game: PickedGame;
   scores: Scores;
   status: Status;
+  /** Só nos murais com dificuldade; nos outros, sempre 'nenhuma'. */
   difficulty: Difficulty;
   /** O carimbo de veredito; opcional. */
   verdict: Verdict | null;
@@ -171,35 +175,30 @@ export interface Review {
   weights: Weights;
   /** Bônus a favor e contra, na ordem em que foram colados. Entram na média. */
   bonuses: Bonus[];
-  /** Horas jogadas; opcional. */
+  /** A quantidade do mural: horas jogadas, páginas lidas. Null nos murais sem quantidade. */
   hoursPlayed: number | null;
   /** Cor da cartolina, escolhida uma vez quando a ficha é criada. */
   stock?: Stock;
   text: string;
   /**
-   * Dia em que o jogo foi concluído (ou jogado pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos.
-   * `null` é data não definida: um jogo de tanto tempo atrás que ninguém lembra mais o dia.
+   * Dia em que foi concluído (ou visto pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos.
+   * `null` é data não definida: algo de tanto tempo atrás que ninguém lembra mais o dia.
    */
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-/** Jogo guardado para resenhar depois: só nome e capa, fora do mural. */
+/** Guardado para resenhar depois: só nome e capa, fora do mural. */
 export interface Draft {
   id: string;
+  kind: Kind;
   game: PickedGame;
   createdAt: string;
   updatedAt: string;
 }
 
 export const STATUSES: readonly Status[] = ['incompleto', 'finalizado', 'platinado'];
-
-export const STATUS_LABEL: Record<Status, string> = {
-  incompleto: 'Incompleto',
-  finalizado: 'Finalizado',
-  platinado: 'Platinado',
-};
 
 export const STATUS_RANK: Record<Status, number> = { incompleto: 1, finalizado: 2, platinado: 3 };
 
@@ -231,7 +230,29 @@ export function isHorned(d: Difficulty): boolean {
   return d === 'infernal';
 }
 
-export const RATED_KEYS: readonly RatedKey[] = ['historia', 'diversao', 'jogabilidade', 'visual'];
+/** Todas as chaves de nota, de todos os murais. */
+export const RATED_KEYS: readonly RatedKey[] = [
+  'historia',
+  'diversao',
+  'jogabilidade',
+  'visual',
+  'envolvimento',
+  'personagens',
+  'escrita',
+  'roteiro',
+  'atuacao',
+  'animacao',
+];
+
+/** As quatro notas do mural, na ordem do boletim. */
+export function ratedKeys(kind: Kind): RatedKey[] {
+  return profileOf(kind).categories.map((c) => c.key);
+}
+
+/** A Média e as quatro notas do mural. */
+export function scoreKeys(kind: Kind): ScoreKey[] {
+  return ['final', ...ratedKeys(kind)];
+}
 
 export const VERDICTS: readonly Verdict[] = ['masterpiece', 'recomendo', 'legalzinho', 'meh', 'chato'];
 
@@ -243,38 +264,26 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   chato: 'Chato',
 };
 
-export const SCORE_KEYS: readonly ScoreKey[] = ['final', ...RATED_KEYS];
-
-/** Diversão pesa o dobro na média. */
-export const SCORE_WEIGHT: Record<RatedKey, number> = {
-  historia: 1,
-  diversao: 2,
-  jogabilidade: 1,
-  visual: 1,
-};
-
+/** O nome de cada nota; a mesma chave tem o mesmo nome em qualquer mural. */
 export const SCORE_LABEL: Record<ScoreKey, string> = {
   final: 'Média',
   historia: 'História',
   diversao: 'Diversão',
   jogabilidade: 'Jogabilidade',
   visual: 'Visual',
+  envolvimento: 'Envolvimento',
+  personagens: 'Personagens',
+  escrita: 'Escrita',
+  roteiro: 'Roteiro',
+  atuacao: 'Atuação',
+  animacao: 'Animação',
 };
 
-export const SCORE_SHORT: Record<ScoreKey, string> = {
-  final: 'Média',
-  historia: 'História',
-  diversao: 'Diversão',
-  jogabilidade: 'Jogabilidade',
-  visual: 'Visual',
-};
-
-/** Rótulo de casinha no boletim da ficha. */
-export const SCORE_ABBR: Record<RatedKey, string> = {
-  historia: 'His',
-  diversao: 'Div',
-  jogabilidade: 'Jog',
-  visual: 'Vis',
+/** Quando o nome inteiro não cabe na casinha do boletim (celular), fica a abreviação. */
+export const SCORE_SHORT: Partial<Record<RatedKey, string>> = {
+  jogabilidade: 'Jogab.',
+  envolvimento: 'Envolv.',
+  personagens: 'Person.',
 };
 
 export function weightOf(weights: Weights | undefined, k: RatedKey): Weight {
@@ -287,53 +296,53 @@ export function counts(weights: Weights | undefined, k: RatedKey): boolean {
 }
 
 /**
- * Média ponderada das notas dadas, com uma casa decimal. Diversão tem peso-base 2x; cada categoria
- * ainda pode valer o dobro (Relevante), metade (Pouco importante) ou sair da conta (Não tem).
+ * Média ponderada das notas dadas, com uma casa decimal. A categoria do centro do mural (Diversão
+ * num jogo, Envolvimento num livro) tem peso-base 2x; cada categoria ainda pode valer o dobro
+ * (Relevante), metade (Pouco importante) ou sair da conta (Não tem).
  * Cada bônus mexe na média o que mais uma nota de peso 1 mexeria (10 se for a favor, 0 se for contra),
  * limitado a um quarto de ponto. Cada um é medido contra a média das notas, sozinho, e os efeitos se somam.
  * Null se nenhuma nota que conta foi dada (bônus sozinho não faz média).
  */
-export function computeFinal(
-  scores: Pick<Scores, RatedKey>,
-  weights?: Weights,
-  bonuses?: readonly Bonus[],
-): number | null {
+export function computeFinal(kind: Kind, scores: Rated, weights?: Weights, bonuses?: readonly Bonus[]): number | null {
   let sum = 0;
   let weight = 0;
-  for (const k of RATED_KEYS) {
-    const v = scores[k];
-    const w = SCORE_WEIGHT[k] * WEIGHT_FACTOR[weightOf(weights, k)];
+  for (const { key, base } of profileOf(kind).categories) {
+    const v = scores[key] ?? null;
+    const w = base * WEIGHT_FACTOR[weightOf(weights, key)];
     if (v === null || w === 0) continue;
     sum += v * w;
     weight += w;
   }
   if (!weight) return null;
-  const base = sum / weight;
+  const avg = sum / weight;
   let shift = 0;
   for (const b of bonuses ?? []) {
-    const alone = ((BONUS_SCORE[b.kind] - base) * BONUS_WEIGHT) / (weight + BONUS_WEIGHT);
+    const alone = ((BONUS_SCORE[b.kind] - avg) * BONUS_WEIGHT) / (weight + BONUS_WEIGHT);
     shift += Math.min(BONUS_MAX_SHIFT, Math.max(-BONUS_MAX_SHIFT, alone));
   }
-  return Math.round(Math.min(10, Math.max(0, base + shift)) * 10) / 10;
+  return Math.round(Math.min(10, Math.max(0, avg + shift)) * 10) / 10;
 }
 
 /** A média só das notas, sem os bônus: para mostrar quanto eles mexeram. */
-export function computeBase(review: Pick<Review, 'scores' | 'weights'>): number | null {
-  return computeFinal(review.scores, review.weights);
+export function computeBase(review: Pick<Review, 'kind' | 'scores' | 'weights'>): number | null {
+  return computeFinal(review.kind, review.scores, review.weights);
 }
 
-const hoursFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+const amountFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
-/** 42 → "42 h"; 1.5 → "1,5 h". */
-export function formatHours(h: number | null): string {
-  return h === null ? '' : `${hoursFmt.format(h)} h`;
+/** 42 → "42 h"; 1.5 → "1,5 h"; 320 páginas → "320 pág.". Vazio nos murais sem quantidade. */
+export function formatAmount(kind: Kind, v: number | null, long = false): string {
+  const a = profileOf(kind).amount;
+  if (v === null || !a) return '';
+  const n = amountFmt.format(v);
+  return long ? a.long(n) : a.short(n);
 }
 
 const scoreFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
 /** 8.4 → "8,4"; 9 → "9". */
-export function formatScore(v: number | null): string {
-  return v === null ? '–' : scoreFmt.format(v);
+export function formatScore(v: number | null | undefined): string {
+  return v === null || v === undefined ? '–' : scoreFmt.format(v);
 }
 
 /** Quanto os bônus mexeram na média: "+0,4", "−0,3" ou "±0". */
@@ -388,9 +397,10 @@ export function isValidDay(v: unknown): v is string {
 /** O que aparece no lugar da data quando ela não foi definida. */
 export const NO_DAY_LABEL = 'Data não definida';
 
-/** Rótulo da data conforme o status: quem não terminou só "jogou até" aquele dia. */
-export function dayLabel(status: Status): string {
-  return status === 'incompleto' ? 'Jogado até' : 'Concluído em';
+/** Rótulo da data conforme o status: quem não terminou só "jogou até" (ou "leu até") aquele dia. */
+export function dayLabel(kind: Kind, status: Status): string {
+  const day = profileOf(kind).day;
+  return status === 'incompleto' ? day.incompleto : day.feito;
 }
 
 export function newId(): string {
@@ -418,38 +428,46 @@ function isoOr(v: unknown, fallback: string): string {
   return Number.isNaN(t) ? fallback : new Date(t).toISOString();
 }
 
+const SOURCES: readonly GameSource[] = ['wikipedia', 'rawg', 'openlibrary', 'manual'];
+
 function sanitizeGame(raw: unknown): PickedGame | null {
   const g = (raw ?? {}) as Record<string, any>;
   const name = str(g['name'], 200).trim();
   if (!name) return null;
   const cover = str(g['coverUrl'], 2000);
-  const source: GameSource = ['wikipedia', 'rawg', 'manual'].includes(g['source']) ? g['source'] : 'manual';
+  const source: GameSource = SOURCES.includes(g['source']) ? g['source'] : 'manual';
   return {
     name,
     coverUrl: /^https:\/\//.test(cover) ? cover : null,
     source,
     sourceId: str(g['sourceId'], 100) || undefined,
     year: str(g['year'], 10) || undefined,
+    by: str(g['by'], 120).trim() || undefined,
   };
 }
 
-/** Aceita a lista de bônus de um backup: da cartela vale o nome da cartela; os escritos, o nome guardado. */
-export function sanitizeBonuses(raw: unknown): Bonus[] {
+function sanitizeKind(v: unknown): Kind {
+  return isKind(v) ? v : 'jogos';
+}
+
+/** Aceita a lista de bônus de um backup: da cartela do mural vale o nome da cartela; os escritos, o nome guardado. */
+export function sanitizeBonuses(raw: unknown, kind: Kind): Bonus[] {
   if (!Array.isArray(raw)) return [];
+  const catalog = CATALOG_BY_ID[kind];
   const out = new Map<string, Bonus>();
   for (const item of raw.slice(0, 60)) {
     if (!item || typeof item !== 'object') continue;
     const b = item as Record<string, unknown>;
-    const known = typeof b['id'] === 'string' ? CATALOG_BY_ID.get(b['id']) : undefined;
+    const known = typeof b['id'] === 'string' ? catalog.get(b['id']) : undefined;
     if (known) {
       out.set(known.id, { ...known });
       continue;
     }
     const label = cleanBonusLabel(str(b['label'], 200));
-    const kind = b['kind'];
-    if (!label || (kind !== 'favor' && kind !== 'contra')) continue;
-    const id = customBonusId(label, kind);
-    if (!out.has(id)) out.set(id, { id, label, kind });
+    const side = b['kind'];
+    if (!label || (side !== 'favor' && side !== 'contra')) continue;
+    const id = customBonusId(label, side);
+    if (!out.has(id)) out.set(id, { id, label, kind: side });
   }
   return [...out.values()];
 }
@@ -465,7 +483,13 @@ export function sanitizeDraft(raw: unknown): Draft | null {
   const game = sanitizeGame(r['game']);
   if (!game) return null;
   const createdAt = isoOr(r['createdAt'], new Date().toISOString());
-  return { id: sanitizeId(r['id']), game, createdAt, updatedAt: isoOr(r['updatedAt'], createdAt) };
+  return {
+    id: sanitizeId(r['id']),
+    kind: sanitizeKind(r['kind']),
+    game,
+    createdAt,
+    updatedAt: isoOr(r['updatedAt'], createdAt),
+  };
 }
 
 /** Aceita dados vindos do localStorage ou de um backup e devolve uma resenha válida (ou null). */
@@ -474,35 +498,36 @@ export function sanitizeReview(raw: unknown): Review | null {
   const r = raw as Record<string, any>;
   const game = sanitizeGame(r['game']);
   if (!game) return null;
+  const kind = sanitizeKind(r['kind']);
+  const profile = profileOf(kind);
   const s = (r['scores'] ?? {}) as Record<string, any>;
-  const rated = {
-    historia: clampScore(s['historia']),
-    diversao: clampScore(s['diversao']),
-    jogabilidade: clampScore(s['jogabilidade']),
-    // resenhas antigas chamavam Visual de "grafico"
-    visual: clampScore(s['visual'] ?? s['grafico']),
-  };
   const rawWeights = (r['weights'] ?? {}) as Record<string, unknown>;
+  const rated: Rated = {};
   const weights: Weights = {};
-  for (const k of RATED_KEYS) {
-    const w = rawWeights[k];
-    if (typeof w === 'string' && (WEIGHTS as readonly string[]).includes(w) && w !== 'normal') weights[k] = w as Weight;
+  for (const { key } of profile.categories) {
+    // resenhas antigas de jogos chamavam Visual de "grafico"
+    rated[key] = clampScore(key === 'visual' && kind === 'jogos' ? (s['visual'] ?? s['grafico']) : s[key]);
+    const w = rawWeights[key];
+    if (typeof w === 'string' && (WEIGHTS as readonly string[]).includes(w) && w !== 'normal') weights[key] = w as Weight;
+    if (weights[key] === 'nao-tem') rated[key] = null;
   }
-  for (const k of RATED_KEYS) if (weights[k] === 'nao-tem') rated[k] = null;
-  const bonuses = sanitizeBonuses(r['bonuses']);
-  const hours = Number(r['hoursPlayed']);
+  const bonuses = sanitizeBonuses(r['bonuses'], kind);
   // A média vem das notas e dos bônus; resenhas antigas que só tinham a nota final mantêm a delas.
   const legacyFinal = Number(s['final']);
   const final =
-    computeFinal(rated, weights, bonuses) ??
+    computeFinal(kind, rated, weights, bonuses) ??
     (Number.isFinite(legacyFinal) ? Math.round(Math.min(10, Math.max(0, legacyFinal)) * 10) / 10 : null);
   if (final === null) return null;
   const status: Status = STATUSES.includes(r['status']) ? r['status'] : 'finalizado';
-  const difficulty: Difficulty = DIFFICULTIES.includes(r['difficulty']) ? r['difficulty'] : 'nenhuma';
+  const difficulty: Difficulty = profile.difficulty && DIFFICULTIES.includes(r['difficulty']) ? r['difficulty'] : 'nenhuma';
+  const amount = Number(r['hoursPlayed']);
+  const hasAmount =
+    !!profile.amount && r['hoursPlayed'] !== null && r['hoursPlayed'] !== undefined && r['hoursPlayed'] !== '' && Number.isFinite(amount) && amount >= 0;
   const now = new Date().toISOString();
   const createdAt = isoOr(r['createdAt'], now);
   return {
     id: sanitizeId(r['id']),
+    kind,
     game,
     scores: { final, ...rated },
     status,
@@ -510,10 +535,11 @@ export function sanitizeReview(raw: unknown): Review | null {
     verdict: VERDICTS.includes(r['verdict']) ? r['verdict'] : null,
     weights,
     bonuses,
-    hoursPlayed:
-      r['hoursPlayed'] !== null && r['hoursPlayed'] !== undefined && r['hoursPlayed'] !== '' && Number.isFinite(hours) && hours >= 0
-        ? Math.round(Math.min(hours, 99999) * 10) / 10
-        : null,
+    hoursPlayed: hasAmount
+      ? profile.amount!.decimals
+        ? Math.round(Math.min(amount, 99999) * 10) / 10
+        : Math.round(Math.min(amount, 99999))
+      : null,
     stock: STOCKS.includes(r['stock']) ? r['stock'] : undefined,
     text: str(r['text']),
     completedAt:

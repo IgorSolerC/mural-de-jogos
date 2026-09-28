@@ -37,6 +37,8 @@ main {
 .cartaz {
   --stock: var(--stock-amarelo);
   position: relative;
+  /* o bloquinho dos murais sai por cima das abas e da prateleira de filtros (z-index 5) */
+  z-index: 20;
   display: block;
   padding: 18px 26px 16px;
   border-radius: 2px;
@@ -50,11 +52,6 @@ main {
   &:hover {
     rotate: -1deg;
     box-shadow: var(--shadow-lift);
-  }
-
-  &:focus-visible {
-    outline-color: var(--hi);
-    outline-offset: 5px;
   }
 
   .pin-l {
@@ -77,22 +74,15 @@ main {
   white-space: nowrap;
 }
 
-/* sublinhado de pincel vermelho, feito de uma passada só */
-.scribble {
-  position: relative;
-  isolation: isolate;
-  white-space: nowrap;
+/* "Meu mural" leva ao início; a palavra do mural abre o bloquinho dos murais */
+.logo-link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 3px;
 
-  &::after {
-    content: '';
-    position: absolute;
-    left: -4%;
-    right: -6%;
-    bottom: -0.12em;
-    height: 0.32em;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' preserveAspectRatio='none'%3E%3Cpath d='M3 15c40-9 90-12 150-9 18 1 32 3 44 6-50-2-110 0-150 7' fill='none' stroke='%23e62e2d' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-      center / 100% 100% no-repeat;
-    z-index: -1;
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
   }
 }
 

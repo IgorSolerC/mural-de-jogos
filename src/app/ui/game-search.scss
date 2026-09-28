@@ -121,6 +121,14 @@ input {
   overflow-wrap: anywhere;
 }
 
+/* quem escreveu o livro, embaixo do título: dois "Dom Casmurro" deixam de ser iguais */
+.by {
+  display: block;
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+
 .year {
   font-family: var(--f-label);
   font-weight: 800;

@@ -12,20 +12,21 @@ import {
 } from '@angular/core';
 import { LucideAngularModule, PenLine, Search, WifiOff } from 'lucide-angular';
 import { GameLookup, LookupError } from '../core/game-lookup';
-import { PickedGame } from '../core/review';
+import { cap, g, profileOf } from '../core/kinds';
+import { Kind, PickedGame } from '../core/review';
 import { CoverSleeve } from './cover-sleeve';
 
 let uid = 0;
 
 type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: PickedGame };
 
-/** Combobox com auto-complete de jogos conhecidos (padrão ARIA 1.2). */
+/** Combobox com auto-complete do catálogo do mural (padrão ARIA 1.2). */
 @Component({
   selector: 'app-game-search',
   imports: [LucideAngularModule, CoverSleeve],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <label class="pergunta" [for]="inputId">Qual jogo?</label>
+    <label class="pergunta" [for]="inputId">Qual {{ profile().singular }}?</label>
     <div class="strip" [class.busy]="loading()">
       <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
       <input
@@ -37,7 +38,7 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
         autocapitalize="off"
         spellcheck="false"
         enterkeyhint="search"
-        placeholder="Comece a digitar: Hollow Knight, Zelda…"
+        [placeholder]="profile().placeholder"
         aria-autocomplete="list"
         [attr.aria-expanded]="open()"
         [attr.aria-controls]="listId"
@@ -52,11 +53,11 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
       <span class="spinner" aria-hidden="true"></span>
     </div>
     <p class="sr-only" [id]="hintId">
-      {{ usingRawg ? 'Buscando na RAWG.' : 'Buscando na Wikipedia.' }} Use as setas e Enter para escolher.
+      Buscando na {{ sourceName() }}. Use as setas e Enter para escolher.
     </p>
 
     @if (open()) {
-      <ul class="list" role="listbox" [id]="listId" aria-label="Jogos encontrados">
+      <ul class="list" role="listbox" [id]="listId" [attr.aria-label]="words().found">
         @if (loading() && !hits().length) {
           @for (s of [1, 2, 3]; track s) {
             <li class="skeleton" role="presentation"><span></span><span></span></li>
@@ -75,7 +76,12 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
           >
             @if (opt.kind === 'hit') {
               <app-cover-sleeve class="thumb" size="thumb" [game]="opt.game" />
-              <span class="name">{{ opt.game.name }}</span>
+              <span class="name">
+                {{ opt.game.name }}
+                @if (opt.game.by) {
+                  <span class="by">{{ opt.game.by }}</span>
+                }
+              </span>
               @if (opt.game.year) {
                 <span class="year">{{ opt.game.year }}</span>
               }
@@ -91,7 +97,7 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
             {{ err }} Você ainda pode seguir sem capa.
           </li>
         } @else if (!loading() && searched() && !hits().length) {
-          <li class="note" role="presentation">Nenhum jogo conhecido com esse nome.</li>
+          <li class="note" role="presentation">{{ words().none }}</li>
         }
       </ul>
     }
@@ -102,6 +108,19 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
 export class GameSearch {
   private readonly lookup = inject(GameLookup);
   readonly initialQuery = input('');
+  readonly kind = input.required<Kind>();
+  protected readonly profile = computed(() => profileOf(this.kind()));
+  protected readonly sourceName = computed(() => this.lookup.sourceName(this.kind()));
+  /** "Séries encontradas", "Nenhum livro conhecido com esse nome." */
+  protected readonly words = computed(() => {
+    const p = this.profile();
+    return {
+      found: `${cap(p.plural)} ${g(p, 'encontrados', 'encontradas')}`,
+      one: `${p.singular} ${g(p, 'encontrado', 'encontrada')}`,
+      many: `${p.plural} ${g(p, 'encontrados', 'encontradas')}`,
+      none: `${g(p, 'Nenhum', 'Nenhuma')} ${p.singular} ${g(p, 'conhecido', 'conhecida')} com esse nome.`,
+    };
+  });
   readonly picked = output<PickedGame>();
 
   protected readonly SearchIcon = Search;
@@ -136,12 +155,8 @@ export class GameSearch {
   protected readonly announcement = computed(() => {
     if (!this.open() || this.loading()) return '';
     const n = this.hits().length;
-    return n ? `${n} ${n === 1 ? 'jogo encontrado' : 'jogos encontrados'}.` : '';
+    return n ? `${n} ${n === 1 ? this.words().one : this.words().many}.` : '';
   });
-
-  get usingRawg(): boolean {
-    return this.lookup.usingRawg;
-  }
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -193,7 +208,7 @@ export class GameSearch {
     const ctrl = new AbortController();
     this.abort = ctrl;
     try {
-      const found = await this.lookup.search(q, ctrl.signal);
+      const found = await this.lookup.search(q, ctrl.signal, this.kind());
       if (ctrl.signal.aborted) return;
       this.hits.set(found);
       this.error.set(null);

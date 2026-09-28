@@ -8,7 +8,8 @@ import {
   Rows3,
   SquareCheckBig,
 } from 'lucide-angular';
-import { RATED_KEYS, SCORE_LABEL, ScoreKey, VERDICTS, VERDICT_LABEL } from '../core/review';
+import { Mural } from '../core/mural';
+import { SCORE_LABEL, ScoreKey, VERDICTS, VERDICT_LABEL, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { Density, SortKey, VerdictFilter, WallView } from '../core/wall-view';
@@ -21,11 +22,6 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'status', label: 'Status' },
 ];
 
-const SCORE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'nota:final', label: 'Média' },
-  ...RATED_KEYS.map((k) => ({ value: `nota:${k}`, label: SCORE_LABEL[k] })),
-];
-
 @Component({
   selector: 'app-wall-toolbar',
   imports: [LucideAngularModule, SearchStrip],
@@ -35,6 +31,7 @@ const SCORE_OPTIONS: { value: string; label: string }[] = [
 })
 export class WallToolbar {
   protected readonly view = inject(WallView);
+  private readonly mural = inject(Mural);
   protected readonly side = inject(SideBySide);
   private readonly vt = inject(ViewTransitions);
 
@@ -46,19 +43,22 @@ export class WallToolbar {
   protected readonly MarkIcon = SquareCheckBig;
 
   protected readonly sortOptions = SORT_OPTIONS;
-  protected readonly scoreOptions = SCORE_OPTIONS;
+  /** A Média e as quatro notas do mural aberto. */
+  protected readonly scoreOptions = computed(() =>
+    scoreKeys(this.mural.kind()).map((k) => ({ value: `nota:${k}`, label: SCORE_LABEL[k] })),
+  );
   /** Os cinco vereditos; "Sem veredito" só entra quando alguma ficha não tem um. */
   protected readonly verdictTabs = computed<VerdictFilter[]>(() =>
     this.view.verdictCounts().sem > 0 || this.view.verdict() === 'sem' ? [...VERDICTS, 'sem'] : [...VERDICTS],
   );
 
   protected readonly sortValue = computed(() =>
-    this.view.sort() === 'nota' ? `nota:${this.view.scoreKey()}` : this.view.sort(),
+    this.view.sort() === 'nota' ? `nota:${this.view.activeScore()}` : this.view.sort(),
   );
 
   protected readonly sortLabel = computed(() => {
     const v = this.sortValue();
-    const opt = [...SORT_OPTIONS, ...SCORE_OPTIONS].find((o) => o.value === v);
+    const opt = [...SORT_OPTIONS, ...this.scoreOptions()].find((o) => o.value === v);
     return opt?.label ?? 'Data';
   });
 
@@ -75,8 +75,10 @@ export class WallToolbar {
         return desc ? 'Mais recentes primeiro' : 'Mais antigas primeiro';
       case 'alfabetica':
         return desc ? 'De Z a A' : 'De A a Z';
-      case 'status':
-        return desc ? 'Platinados primeiro' : 'Incompletos primeiro';
+      case 'status': {
+        const groups = this.mural.profile().statusGroup;
+        return `${desc ? groups.platinado : groups.incompleto} primeiro`;
+      }
       default:
         return desc ? 'Maiores notas primeiro' : 'Menores notas primeiro';
     }

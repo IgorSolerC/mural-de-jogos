@@ -20,7 +20,7 @@ import { Pin } from '../ui/pin';
         <h2 id="backup-titulo">Backup</h2>
         <p class="lead">
           Suas resenhas ficam só neste navegador. Baixe um backup de vez em quando, ou antes de limpar os dados do
-          navegador.
+          navegador. Um arquivo só leva todos os murais.
         </p>
         <div class="row-actions">
           <button type="button" class="btn-ink" (click)="exportFile()" [disabled]="!store.count() && !store.draftCount()">
@@ -51,11 +51,11 @@ import { Pin } from '../ui/pin';
           <legend>Ao restaurar</legend>
           <label>
             <input type="radio" name="modo" value="merge" [checked]="mode() === 'merge'" (change)="mode.set('merge')" />
-            Juntar com o que já está no mural
+            Juntar com o que já está nos murais
           </label>
           <label>
             <input type="radio" name="modo" value="replace" [checked]="mode() === 'replace'" (change)="mode.set('replace')" />
-            Substituir o mural inteiro
+            Substituir todos os murais
           </label>
         </fieldset>
         @if (importMsg(); as m) {
@@ -65,10 +65,11 @@ import { Pin } from '../ui/pin';
 
       <section class="ficha cartolina catalog" aria-labelledby="catalogo-titulo">
         <app-pin class="pin" color="#f4f4f0" />
-        <h2 id="catalogo-titulo">Catálogo de jogos</h2>
+        <h2 id="catalogo-titulo">Catálogos</h2>
         <p class="lead">
-          A busca usa a Wikipedia e funciona sem configurar nada. Para capas e busca mais precisas, crie uma chave
-          gratuita em <a href="https://rawg.io/apidocs" target="_blank" rel="noopener">rawg.io/apidocs</a> e cole aqui.
+          A busca funciona sem configurar nada: livros vêm da Open Library; jogos, filmes, séries e animes, da
+          Wikipedia. Para capas e busca de jogos mais precisas, crie uma chave gratuita em
+          <a href="https://rawg.io/apidocs" target="_blank" rel="noopener">rawg.io/apidocs</a> e cole aqui.
         </p>
         <label class="key-label" for="rawg-key">Chave da RAWG</label>
         <div class="key">
@@ -91,7 +92,7 @@ import { Pin } from '../ui/pin';
           </button>
         </div>
         <fieldset class="mode source">
-          <legend>Buscar jogos e capas em</legend>
+          <legend>Buscar jogos e capas de jogos em</legend>
           <label>
             <input type="radio" name="fonte" value="wikipedia" [checked]="settings.effectiveSource() === 'wikipedia'" (change)="settings.source.set('wikipedia')" />
             Wikipedia
@@ -164,7 +165,7 @@ export class SettingsPage {
     if (
       this.mode() === 'replace' &&
       this.store.count() > 0 &&
-      !confirm(`Substituir as ${this.store.count()} resenhas do mural pelas do backup?`)
+      !confirm(`Substituir as ${this.store.count()} resenhas de todos os murais pelas do backup?`)
     ) {
       return;
     }
@@ -177,7 +178,7 @@ export class SettingsPage {
       if (res.drafts) parts.push(`${res.drafts} ${res.drafts === 1 ? 'jogo' : 'jogos'} pra depois`);
       this.importMsg.set({ text: `Backup restaurado: ${parts.join(', ')}.`, error: false });
       const n = res.added + res.updated;
-      if (n) this.toasts.show(`${n} ${n === 1 ? 'resenha voltou' : 'resenhas voltaram'} para o mural`);
+      if (n) this.toasts.show(`${n} ${n === 1 ? 'resenha voltou' : 'resenhas voltaram'} para os murais`);
     } catch (err) {
       this.importMsg.set({ text: (err as Error).message, error: true });
     }

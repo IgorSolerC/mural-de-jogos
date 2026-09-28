@@ -1,15 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CircleCheckBig, CircleDashed, LucideAngularModule, LucideIconData, Trophy } from 'lucide-angular';
-import { STATUS_LABEL, Status } from '../core/review';
+import { CircleCheckBig, CircleDashed, LucideAngularModule, LucideIconData, RotateCcw, Trophy } from 'lucide-angular';
+import { profileOf } from '../core/kinds';
+import { Kind, Status } from '../core/review';
 
-export const STATUS_ICON: Record<Status, LucideIconData> = {
-  incompleto: CircleDashed,
-  finalizado: CircleCheckBig,
-  platinado: Trophy,
-};
+/** O desenho de cada status: o terceiro é o troféu nos jogos e a volta (Relido, Revisto, Revi) nos outros murais. */
+export function statusIcon(kind: Kind, s: Status): LucideIconData {
+  if (s === 'platinado') return kind === 'jogos' ? Trophy : RotateCcw;
+  return s === 'incompleto' ? CircleDashed : CircleCheckBig;
+}
 
 /**
- * Etiqueta adesiva de papel com dois filetes. Platinado vem em adesivo holográfico.
+ * Etiqueta adesiva de papel com dois filetes. O terceiro status (Platinado, Relido…) vem em adesivo holográfico.
  * Com `band`, vira uma tira de fita colada no pé da foto, de uma borda à outra.
  */
 @Component({
@@ -116,7 +117,8 @@ export const STATUS_ICON: Record<Status, LucideIconData> = {
 })
 export class StatusLabel {
   readonly status = input.required<Status>();
+  readonly kind = input.required<Kind>();
   readonly band = input(false);
-  protected readonly label = computed(() => STATUS_LABEL[this.status()]);
-  protected readonly icon = computed(() => STATUS_ICON[this.status()]);
+  protected readonly label = computed(() => profileOf(this.kind()).status[this.status()]);
+  protected readonly icon = computed(() => statusIcon(this.kind(), this.status()));
 }

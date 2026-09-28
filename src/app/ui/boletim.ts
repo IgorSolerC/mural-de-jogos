@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
-import { RATED_KEYS, RatedKey, Review, SCORE_LABEL, ScoreKey, WEIGHT_LABEL, formatScore, weightOf } from '../core/review';
+import { RatedKey, Review, SCORE_LABEL, SCORE_SHORT, ScoreKey, WEIGHT_LABEL, formatScore, ratedKeys, scoreOf, weightOf } from '../core/review';
 import { PenMark } from './pen-mark';
 
 /**
- * Boletim: quatro casas fixas, sempre na mesma ordem, para comparar ficha com ficha. A que o jogo
+ * Boletim: quatro casas fixas, sempre na mesma ordem, para comparar ficha com ficha. A que a ficha
  * "não tem" fica riscada, sem sair do lugar. O mesmo boletim na ficha do mural e na leitura.
  */
 @Component({
@@ -203,13 +203,14 @@ export class Boletim {
 
   protected readonly cells = computed(() => {
     const r = this.review();
-    return RATED_KEYS.map((key) => {
+    return ratedKeys(r.kind).map((key) => {
       const weight = weightOf(r.weights, key);
-      return { key, weight, off: weight === 'nao-tem', ten: r.scores[key] === 10, ruim: (r.scores[key] ?? 2) < 2, value: formatScore(r.scores[key]) };
+      const v = scoreOf(r.scores, key);
+      return { key, weight, off: weight === 'nao-tem', ten: v === 10, ruim: (v ?? 2) < 2, value: formatScore(v) };
     });
   });
   protected readonly labels = SCORE_LABEL;
-  protected readonly shortLabels: Partial<Record<RatedKey, string>> = { jogabilidade: 'Jogab.' };
+  protected readonly shortLabels: Partial<Record<RatedKey, string>> = SCORE_SHORT;
   protected readonly weightLabels = WEIGHT_LABEL;
   protected readonly UpIcon = ArrowUp;
   protected readonly DownIcon = ArrowDown;

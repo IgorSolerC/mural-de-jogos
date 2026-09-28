@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
-import { ReviewStore } from '../core/review-store';
+import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
@@ -21,7 +21,7 @@ import { WallToolbar } from '../ui/wall-toolbar';
   styleUrl: './wall-page.scss',
 })
 export class WallPage {
-  protected readonly store = inject(ReviewStore);
+  protected readonly mural = inject(Mural);
   protected readonly view = inject(WallView);
   protected readonly desk = inject(Desk);
   protected readonly settings = inject(Settings);
@@ -35,7 +35,7 @@ export class WallPage {
 
   protected readonly PlusIcon = Plus;
   protected readonly ghosts = [0, 1, 2];
-  protected readonly highlight = computed(() => (this.view.sort() === 'nota' ? this.view.scoreKey() : null));
+  protected readonly highlight = computed(() => (this.view.sort() === 'nota' ? this.view.activeScore() : null));
 
   protected clearFilters(): void {
     this.vt.run(() => this.view.clearFilters());

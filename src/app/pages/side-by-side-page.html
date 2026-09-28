@@ -2,14 +2,14 @@
   <section class="vazio cartolina" aria-labelledby="lado-titulo">
     <app-pin class="pin" color="#e62e2d" />
     <h1 id="lado-titulo">Nada lado a lado ainda</h1>
-    @if (store.count()) {
-      <p>No mural, toque em Marcar e escolha os jogos que você quer comparar: todos os GTAs, por exemplo.</p>
+    @if (mural.count()) {
+      <p>No mural, toque em Marcar e escolha {{ words().os }} que você quer comparar, como uma série inteira ou os favoritos de um ano.</p>
       <button type="button" class="btn-ink" (click)="pickMore()">
         <lucide-icon [img]="MarkIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
         Escolher no mural
       </button>
     } @else {
-      <p>Primeiro o mural precisa de fichas. Pregue umas resenhas e depois compare os jogos aqui.</p>
+      <p>Primeiro o mural precisa de fichas. Pregue umas resenhas e depois compare {{ words().os }} aqui.</p>
       <button type="button" class="btn-ink" (click)="desk.newReview()">
         <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
         Nova resenha
@@ -37,13 +37,13 @@
       <span class="pick-pre">Ordenar</span>
       <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
       <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-      <select aria-label="Ordenar por" [value]="side.sort()" (change)="setSort($any($event.target).value)">
+      <select aria-label="Ordenar por" [value]="sort()" (change)="setSort($any($event.target).value)">
         @for (o of sortOptions; track o.value) {
-          <option [value]="o.value" [selected]="o.value === side.sort()">{{ o.label }}</option>
+          <option [value]="o.value" [selected]="o.value === sort()">{{ o.label }}</option>
         }
         <optgroup label="Nota">
-          @for (o of scoreOptions; track o.value) {
-            <option [value]="o.value" [selected]="o.value === side.sort()">{{ o.label }}</option>
+          @for (o of scoreOptions(); track o.value) {
+            <option [value]="o.value" [selected]="o.value === sort()">{{ o.label }}</option>
           }
         </optgroup>
       </select>
@@ -88,11 +88,11 @@
 
   @if (side.count() === 1) {
     <p class="falta">
-      Marque mais um jogo pra comparar nota a nota.
+      Marque {{ words().mais }} pra comparar nota a nota.
       <button type="button" class="btn-quiet" (click)="pickMore()">Marcar mais</button>
     </p>
   } @else {
-    <!-- A folha de comparação: uma coluna por jogo, a melhor nota de cada linha circulada -->
+    <!-- A folha de comparação: uma coluna por ficha, a melhor nota de cada linha circulada -->
     <section class="folha" aria-labelledby="quadro-titulo">
       <span class="tape tape-a" aria-hidden="true"></span>
       <span class="tape tape-b" aria-hidden="true"></span>
@@ -147,11 +147,11 @@
                         </span>
                       }
                       @case ('score') {
-                        @if (weightOf(r.weights, row.score!) === 'nao-tem' || r.scores[row.score!] === null) {
+                        @if (weightOf(r.weights, row.score!) === 'nao-tem' || score(r, row.score!) === null) {
                           <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">não tem</span></span>
                         } @else {
                           <span class="nota" [class.ganhou]="won(row.score!, r.id)">
-                            {{ fmt(r.scores[row.score!]) }}
+                            {{ fmt(score(r, row.score!)) }}
                             @switch (weightOf(r.weights, row.score!)) {
                               @case ('relevante') {
                                 <lucide-icon class="w" [img]="UpIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
@@ -196,11 +196,11 @@
                         @if (hours(r); as h) {
                           <span class="fato num">{{ h }}</span>
                         } @else {
-                          <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">sem horas</span></span>
+                          <span class="nada"><span aria-hidden="true">—</span><span class="sr-only">sem {{ row.label.toLowerCase() }}</span></span>
                         }
                       }
                       @case ('status') {
-                        <app-status-label [status]="r.status" />
+                        <app-status-label [status]="r.status" [kind]="r.kind" />
                       }
                       @case ('difficulty') {
                         <span class="dificuldade">

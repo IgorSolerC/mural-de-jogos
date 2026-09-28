@@ -869,3 +869,14 @@ The user found the editor "meio aleatório, com diversos tipos de estética" and
 - **Que nota?** On narrow screens a compact judgment label rides beside the question (the preview has scrolled away); on desktop it is hidden, since the preview shows it.
 - **Footer on phones:** one row. The header's X already cancels, so Cancelar hides, and "Salvar pra depois" keeps only its bookmark icon (its name stays for screen readers) beside the full-width ink button. "Salvar pra depois" is drawn as the kiss-cut outline everywhere: the card that has not been stuck yet.
 - **Removed:** the starburst, the large chosen-game block with the 116px cover, the boxed weight selects, the old tile pickers.
+
+## Murais (walls pass)
+
+The user asked to turn "Meu mural de JOGOS" into five walls (Jogos, Livros, Filmes, Séries, Animes) behind a click on the word, keeping the whole structure.
+
+- **The word is the switch.** The cartaz reads "Meu mural de *jogos*": "Meu mural" is a link home; the word is a button (the same red brush underline, now global as `.scribble`) with a small 3.2-stroke chevron, `aria-haspopup="menu"`. It opens a notepad slip under the cartaz (paper, serrated bottom like the toast, tilted 1.2deg, drop shadow) with one row per wall: Lucide icon (Gamepad2, BookOpen, Film, Tv, Origami for animes, a paper crane that fits the stationery), the name in Permanent Marker 1.3rem, and the count in Barlow Condensed. The open wall has the red underline. Arrow keys, Home and End move; Esc closes and returns focus; Tab or a click outside closes. The cartaz sits at z-index 20 so the slip covers the filter shelf (5).
+- **Swapping is a view transition:** the cards of one wall leave and the other's arrive; filters and the Marcar mode reset.
+- **Same furniture, other words.** Each wall's profile (`core/kinds.ts`) supplies the four categories, the three status names (the third keeps the holographic sticker; its icon is the trophy for games and a turning arrow for the others), the date labels ("Lido em", "Visto até"), the amount field (hours or pages), whether the skulls exist (games and books), "Lançado/Publicado/Estreou em", the bonus catalog, and every sentence with grammatical gender ("Nenhuma série", "Qual livro?").
+- **Short labels:** Envolvimento and Personagens abbreviate like Jogabilidade (Envolv., Person.) when the boletim cell is narrow.
+- **Author:** books show the author under the title in the search list and in the reader ("de Machado de Assis", Kalam 1.15rem).
+- **Tab title** follows the wall: "Meu mural de livros", "Ranking · Meu mural de séries"; Ajustes, shared by all walls, is "Ajustes · Meu Mural".

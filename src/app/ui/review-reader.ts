@@ -9,7 +9,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, dayLabel, formatHours, formatScore, parseDay, sortBonuses } from '../core/review';
+import { g, profileOf } from '../core/kinds';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, dayLabel, formatAmount, formatScore, parseDay, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { pinningFor } from '../core/wall-physics';
 import { Boletim } from './boletim';
@@ -45,31 +46,36 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
               <div class="cover">
                 <app-cover-sleeve [game]="r.game" size="big">
                   @if (r.status !== 'finalizado') {
-                    <app-status-label class="faixa" [status]="r.status" [band]="true" />
+                    <app-status-label class="faixa" [status]="r.status" [kind]="r.kind" [band]="true" />
                   }
                 </app-cover-sleeve>
               </div>
 
               <div class="words">
                 <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
+                @if (r.game.by) {
+                  <p class="meta by">de {{ r.game.by }}</p>
+                }
                 <p class="meta">
                   @if (r.completedAt === null) {
                     {{ noDay }}
                   } @else {
-                    {{ dayLabel(r.status) }} {{ date() }}
+                    {{ dayLabel(r.kind, r.status) }} {{ date() }}
                   }
-                  @if (r.hoursPlayed !== null) {
-                    <span aria-hidden="true"> · </span>{{ hours() }} jogadas
+                  @if (hours(); as h) {
+                    <span aria-hidden="true"> · </span>{{ h }}
                   }
                 </p>
                 @if (r.game.year) {
-                  <p class="meta year">Lançado em {{ r.game.year }}</p>
+                  <p class="meta year">{{ profile().released }} {{ r.game.year }}</p>
                 }
               </div>
 
               <div class="judgement">
                 <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" />
-                <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
+                @if (profile().difficulty) {
+                  <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
+                }
               </div>
             </div>
 
@@ -108,7 +114,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
                 class="btn-quiet side"
                 [attr.aria-pressed]="side.has(r.id)"
                 (click)="side.toggle(r.id)"
-                title="Marcar pra comparar com outros jogos"
+                [title]="'Marcar pra comparar com ' + others()"
               >
                 <lucide-icon [img]="side.has(r.id) ? CheckedIcon : UncheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
                 Lado a lado
@@ -135,7 +141,13 @@ export class ReviewReader {
   protected readonly UncheckedIcon = Square;
   protected readonly EditIcon = PenLine;
   protected readonly TrashIcon = Trash2;
-  protected readonly hours = computed(() => formatHours(this.review()?.hoursPlayed ?? null));
+  protected readonly profile = computed(() => profileOf(this.review()?.kind ?? 'jogos'));
+  protected readonly hours = computed(() => {
+    const r = this.review();
+    return r ? formatAmount(r.kind, r.hoursPlayed, true) : '';
+  });
+  /** "outros jogos", "outras séries". */
+  protected readonly others = computed(() => `${g(this.profile(), 'outros', 'outras')} ${this.profile().plural}`);
   protected readonly bonuses = computed(() => sortBonuses(this.review()?.bonuses ?? []));
   protected readonly kindLabels = BONUS_KIND_LABEL;
   /** "Sem eles, a média seria 7,6." */

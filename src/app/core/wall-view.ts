@@ -1,18 +1,20 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { countOf } from './kinds';
+import { Mural } from './mural';
 import {
   NO_DAY_LABEL,
+  RATED_KEYS,
   Review,
-  SCORE_KEYS,
   SCORE_LABEL,
   STATUS_RANK,
   ScoreKey,
-  Status,
   VERDICTS,
   Verdict,
   fold,
   parseDay,
+  scoreKeys,
+  scoreOf,
 } from './review';
-import { ReviewStore } from './review-store';
 
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status';
 export type Direction = 'desc' | 'asc';
@@ -41,7 +43,7 @@ function readPrefs(): ViewPrefs {
     if (!raw) return fallback;
     return {
       sort: ['data', 'nota', 'alfabetica', 'status'].includes(raw.sort) ? raw.sort : fallback.sort,
-      scoreKey: (SCORE_KEYS as readonly string[]).includes(raw.scoreKey)
+      scoreKey: raw.scoreKey === 'final' || (RATED_KEYS as readonly string[]).includes(raw.scoreKey)
         ? raw.scoreKey
         : fallback.scoreKey,
       direction: raw.direction === 'asc' ? 'asc' : 'desc',
@@ -56,12 +58,6 @@ const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true
 const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-const STATUS_GROUP: Record<Status, string> = {
-  platinado: 'Platinados',
-  finalizado: 'Finalizados',
-  incompleto: 'Incompletos',
-};
-
 /** Uma seção do mural: fichas vizinhas na ordem atual que dividem a mesma etiqueta. */
 export interface WallGroup {
   key: string;
@@ -73,22 +69,28 @@ export interface WallGroup {
 /** Filtro do mural: um veredito, as fichas sem veredito, ou todas. */
 export type VerdictFilter = Verdict | 'sem' | 'todos';
 
-/** Estado do mural: busca, filtro de veredito e ordenação. */
+/** Estado do mural aberto: busca, filtro de veredito e ordenação. */
 @Injectable({ providedIn: 'root' })
 export class WallView {
-  private readonly store = inject(ReviewStore);
+  private readonly mural = inject(Mural);
   private readonly prefs = readPrefs();
 
   readonly query = signal('');
   readonly verdict = signal<VerdictFilter>('todos');
   readonly sort = signal<SortKey>(this.prefs.sort);
+  /** A nota escolhida para ordenar. Guardada mesmo que o mural aberto não tenha ela (ver `activeScore`). */
   readonly scoreKey = signal<ScoreKey>(this.prefs.scoreKey);
+  /** A nota que ordena de fato: a escolhida, se o mural aberto tem ela; senão, a Média. */
+  readonly activeScore = computed<ScoreKey>(() => {
+    const k = this.scoreKey();
+    return scoreKeys(this.mural.kind()).includes(k) ? k : 'final';
+  });
   readonly direction = signal<Direction>(this.prefs.direction);
   readonly density = signal<Density>(this.prefs.density);
 
   readonly verdictCounts = computed(() => {
     const counts = { todos: 0, sem: 0, ...Object.fromEntries(VERDICTS.map((v) => [v, 0])) } as Record<VerdictFilter, number>;
-    for (const r of this.store.reviews()) {
+    for (const r of this.mural.reviews()) {
       counts.todos++;
       counts[r.verdict ?? 'sem']++;
     }
@@ -100,7 +102,7 @@ export class WallView {
   readonly visible = computed<Review[]>(() => {
     const needle = fold(this.query().trim());
     const verdict = this.verdict();
-    const list = this.store.reviews().filter(
+    const list = this.mural.reviews().filter(
       (r) =>
         (verdict === 'todos' || (r.verdict ?? 'sem') === verdict) &&
         (!needle ||
@@ -127,7 +129,7 @@ export class WallView {
     const showAvg = this.sort() !== 'nota';
     for (const g of groups) {
       const n = g.reviews.length;
-      const parts = [`${n} ${n === 1 ? 'jogo' : 'jogos'}`];
+      const parts = [countOf(this.mural.profile(), n)];
       if (showAvg && n > 1) parts.push(`média ${avgFmt.format(g.reviews.reduce((s, r) => s + r.scores.final, 0) / n)}`);
       g.summary = parts.join(' · ');
     }
@@ -172,10 +174,12 @@ export class WallView {
           const c = fold(r.game.name.trim()).charAt(0).toUpperCase();
           return /[A-Z]/.test(c) ? [c, c] : ['num', '#'];
         };
-      case 'status':
-        return (r) => [r.status, STATUS_GROUP[r.status]];
+      case 'status': {
+        const groups = this.mural.profile().statusGroup;
+        return (r) => [r.status, groups[r.status]];
+      }
       case 'nota': {
-        const k = this.scoreKey();
+        const k = this.activeScore();
         if (k === 'final') {
           return (r) => {
             const band = Math.min(9, Math.floor(r.scores.final));
@@ -185,7 +189,7 @@ export class WallView {
         }
         const name = SCORE_LABEL[k];
         return (r) => {
-          const v = r.scores[k];
+          const v = scoreOf(r.scores, k);
           return v === null ? ['none', `Sem nota de ${name}`] : [`v${v}`, `${name} ${String(v).replace('.', ',')}`];
         };
       }
@@ -211,10 +215,10 @@ export class WallView {
       case 'status':
         return (a, b) => sign * (STATUS_RANK[a.status] - STATUS_RANK[b.status]) || -byDate(a, b);
       case 'nota': {
-        const key = this.scoreKey();
+        const key = this.activeScore();
         return (a, b) => {
-          const av = a.scores[key];
-          const bv = b.scores[key];
+          const av = scoreOf(a.scores, key);
+          const bv = scoreOf(b.scores, key);
           // Sem nota vai sempre para o fim, em qualquer direção.
           if (av === null && bv === null) return -byDate(a, b);
           if (av === null) return 1;

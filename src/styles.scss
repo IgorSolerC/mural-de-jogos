@@ -1,4 +1,4 @@
-/* Mural de Jogos: parede de eucatex com papelaria pregada. Tokens globais e materiais. */
+/* Meu Mural: parede de eucatex com papelaria pregada. Tokens globais e materiais. */
 
 :root {
   /* Parede: eucatex perfurado pintado de grafite */
@@ -821,5 +821,24 @@ body.has-paper-texture .btn-cartolina {
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ===== Sublinhado de pincel vermelho, feito de uma passada só (o cartaz e o bloquinho dos murais) ===== */
+.scribble {
+  position: relative;
+  isolation: isolate;
+  white-space: nowrap;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: -4%;
+    right: -6%;
+    bottom: -0.12em;
+    height: 0.32em;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' preserveAspectRatio='none'%3E%3Cpath d='M3 15c40-9 90-12 150-9 18 1 32 3 44 6-50-2-110 0-150 7' fill='none' stroke='%23e62e2d' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center / 100% 100% no-repeat;
+    z-index: -1;
   }
 }

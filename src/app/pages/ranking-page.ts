@@ -1,20 +1,21 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
+import { cap, countOf, g } from '../core/kinds';
+import { Mural } from '../core/mural';
 import {
   Bonus,
   BonusKind,
   Review,
-  SCORE_KEYS,
   SCORE_LABEL,
-  STATUS_LABEL,
   ScoreKey,
   VERDICTS,
   VERDICT_LABEL,
-  formatHours,
+  formatAmount,
   formatScore,
+  scoreKeys,
+  scoreOf,
 } from '../core/review';
-import { ReviewStore } from '../core/review-store';
 import { ViewTransitions } from '../core/view-transitions';
 import { BonusSticker } from '../ui/bonus';
 import { CoverSleeve } from '../ui/cover-sleeve';
@@ -29,7 +30,10 @@ const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true
 const printed = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-/** O ranking numa folha de bloquinho destacada: uma lista por nota e, ao lado, o balanço do mural. */
+/**
+ * O ranking numa folha de bloquinho destacada: uma lista por nota e, ao lado, o balanço do mural.
+ * Só do mural aberto: um livro nunca disputa posição com um jogo.
+ */
 @Component({
   selector: 'app-ranking-page',
   imports: [BonusSticker, CoverSleeve, LucideAngularModule],
@@ -38,43 +42,60 @@ const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximu
   styleUrl: './ranking-page.scss',
 })
 export class RankingPage {
-  protected readonly store = inject(ReviewStore);
+  protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
   private readonly vt = inject(ViewTransitions);
 
   protected readonly PlusIcon = Plus;
-  protected readonly keys = SCORE_KEYS;
+  protected readonly keys = computed(() => scoreKeys(this.mural.kind()));
   protected readonly labels = SCORE_LABEL;
-  protected readonly statusLabel = STATUS_LABEL;
   protected readonly fmt = formatScore;
   protected readonly today = printed.format(new Date());
 
-  protected readonly key = signal<ScoreKey>('final');
+  private readonly chosen = signal<ScoreKey>('final');
+  /** A nota escolhida, se o mural aberto tem ela; senão, a Média. */
+  protected readonly key = computed<ScoreKey>(() => (this.keys().includes(this.chosen()) ? this.chosen() : 'final'));
+
+  /** "3 jogos ficaram de fora: não têm nota de História." */
+  protected readonly leftText = computed(() => {
+    const n = this.left();
+    const p = this.mural.profile();
+    const who = n === 1 ? `1 ${p.singular} ficou` : `${n} ${p.plural} ficaram`;
+    return `${who} de fora: ${n === 1 ? 'não tem' : 'não têm'} nota de ${SCORE_LABEL[this.key()]}.`;
+  });
+  /** "Jogos no mural", "Séries no mural". */
+  protected readonly inWall = computed(() => `${cap(this.mural.profile().plural)} no mural`);
+  protected readonly emptyText = computed(() => {
+    const p = this.mural.profile();
+    return `Nada pra ranquear ainda. Pregue ${g(p, 'uns', 'umas')} ${p.plural} e a lista sai com o seu top.`;
+  });
+  protected readonly countOf = countOf;
 
   /** Empate divide a posição (1º, 2º, 2º, 4º); no empate, a média decide a ordem. */
   protected readonly rows = computed<Row[]>(() => {
     const k = this.key();
-    const scored = this.store
+    const scored = this.mural
       .reviews()
-      .filter((r) => r.scores[k] !== null)
+      .filter((r) => scoreOf(r.scores, k) !== null)
       .sort(
         (a, b) =>
-          b.scores[k]! - a.scores[k]! ||
+          scoreOf(b.scores, k)! - scoreOf(a.scores, k)! ||
           b.scores.final - a.scores.final ||
           collator.compare(a.game.name, b.game.name),
       );
     let pos = 0;
     return scored.map((r, i) => {
-      const score = r.scores[k]!;
-      if (i === 0 || score !== scored[i - 1].scores[k]) pos = i + 1;
+      const score = scoreOf(r.scores, k)!;
+      if (i === 0 || score !== scoreOf(scored[i - 1].scores, k)) pos = i + 1;
       return { review: r, pos, score };
     });
   });
 
-  protected readonly left = computed(() => this.store.count() - this.rows().length);
+  protected readonly left = computed(() => this.mural.count() - this.rows().length);
 
   protected readonly totals = computed(() => {
-    const list = this.store.reviews();
+    const list = this.mural.reviews();
+    const kind = this.mural.kind();
     const n = list.length;
     const hours = list.reduce((s, r) => s + (r.hoursPlayed ?? 0), 0);
     const byStatus = { incompleto: 0, finalizado: 0, platinado: 0 };
@@ -100,9 +121,9 @@ export class RankingPage {
     return {
       n,
       avg: n ? avgFmt.format(list.reduce((s, r) => s + r.scores.final, 0) / n) : '–',
-      hours: hours ? formatHours(Math.round(hours)) : '–',
+      hours: hours ? formatAmount(kind, Math.round(hours)) : '–',
       byStatus,
-      longest: longest ? `${longest.game.name} · ${formatHours(longest.hoursPlayed)}` : null,
+      longest: longest ? `${longest.game.name} · ${formatAmount(kind, longest.hoursPlayed)}` : null,
       verdict: topVerdict?.n ? `${VERDICT_LABEL[topVerdict.v]} · ${topVerdict.n}` : null,
       favor: topBonus('favor'),
       contra: topBonus('contra'),
@@ -111,7 +132,7 @@ export class RankingPage {
 
   protected setKey(k: ScoreKey): void {
     if (this.key() === k) return;
-    this.vt.run(() => this.key.set(k));
+    this.vt.run(() => this.chosen.set(k));
   }
 
   protected ordinal(n: number): string {

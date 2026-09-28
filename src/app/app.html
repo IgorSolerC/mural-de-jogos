@@ -1,11 +1,13 @@
 <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 
 <header class="top">
-  <a class="cartaz cartolina" routerLink="/" aria-label="Meu mural de jogos, início">
+  <div class="cartaz cartolina">
     <app-pin class="pin pin-l" color="#e62e2d" />
     <app-pin class="pin pin-r" color="#f4f4f0" />
-    <span class="logo" aria-hidden="true">Meu mural <span class="nl">de <span class="scribble">jogos</span></span></span>
-  </a>
+    <p class="logo">
+      <a class="logo-link" routerLink="/">Meu mural</a><span class="nl"> de <app-kind-switcher /></span>
+    </p>
+  </div>
 
   <nav class="tabs" aria-label="Seções">
     @for (t of tabs; track t.path) {

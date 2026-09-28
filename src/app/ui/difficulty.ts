@@ -131,7 +131,7 @@ let uid = 0;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fieldset>
-      <legend class="rotulo">Dificuldade</legend>
+      <legend class="rotulo">{{ label() }}</legend>
       <div class="medidor">
         <div class="caveiras" [class.horned]="horned()" (pointerleave)="preview.set(null)">
           <label class="zero" [class.on]="value() === 'nenhuma'" (pointerenter)="onEnter($event, 'nenhuma')">
@@ -298,6 +298,8 @@ let uid = 0;
 })
 export class DifficultyPicker {
   readonly value = model<Difficulty>('nenhuma');
+  /** "Dificuldade", ou "Dificuldade de leitura" no mural de livros. */
+  readonly label = input('Dificuldade');
   /** Os níveis que têm caveira; Nenhuma é a fileira vazia. */
   protected readonly levels = DIFFICULTIES.filter((d) => d !== 'nenhuma');
   protected readonly labels = DIFFICULTY_LABEL;

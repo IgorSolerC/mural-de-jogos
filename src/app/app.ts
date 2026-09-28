@@ -5,10 +5,12 @@ import { LucideAngularModule, Plus } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
+import { Mural } from './core/mural';
 import { ReviewStore } from './core/review-store';
 import { SideBySide } from './core/side-by-side';
 import { ViewTransitions } from './core/view-transitions';
 import { WallView } from './core/wall-view';
+import { KindSwitcher } from './ui/kind-switcher';
 import { Pin } from './ui/pin';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
@@ -30,7 +32,7 @@ const TABS: Tab[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast],
+  imports: [KindSwitcher, LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -38,6 +40,7 @@ const TABS: Tab[] = [
 })
 export class App {
   protected readonly store = inject(ReviewStore);
+  private readonly mural = inject(Mural);
   private readonly view = inject(WallView);
   private readonly desk = inject(Desk);
   private readonly vt = inject(ViewTransitions);
@@ -89,8 +92,8 @@ export class App {
   }
 
   protected tabCount(path: string): number | null {
-    if (path === '/') return this.store.count() || null;
-    if (path === '/fila') return this.store.draftCount() || null;
+    if (path === '/') return this.mural.count() || null;
+    if (path === '/fila') return this.mural.draftCount() || null;
     return null;
   }
 

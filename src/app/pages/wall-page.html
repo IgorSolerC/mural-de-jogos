@@ -1,11 +1,11 @@
 <h1 class="sr-only">Mural</h1>
 
-@if (!store.count()) {
+@if (!mural.count()) {
   <section class="empty" aria-labelledby="vazio-titulo">
     <div class="empty-card cartolina">
       <app-pin class="pin" color="#e62e2d" />
       <h2 id="vazio-titulo">Seu mural está vazio</h2>
-      <p>Todo mural começou com uma parede vazia. Pregue a resenha do último jogo que você jogou.</p>
+      <p>Todo mural começou com uma parede vazia. Pregue a resenha {{ mural.profile().lastOne }}.</p>
       <div class="empty-actions">
         <button type="button" class="btn-ink" (click)="desk.newReview()">
           <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
@@ -38,7 +38,7 @@
     <h2 class="sr-only">Fichas no mural</h2>
     @if (view.isFiltered()) {
       <p class="showing" aria-live="polite">
-        Mostrando {{ view.visible().length }} de {{ store.count() }}
+        Mostrando {{ view.visible().length }} de {{ mural.count() }}
         <button type="button" class="showing-clear" (click)="clearFilters()">Limpar filtro</button>
       </p>
     }

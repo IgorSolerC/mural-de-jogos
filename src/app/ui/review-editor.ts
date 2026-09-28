@@ -14,8 +14,9 @@ import {
   Bonus,
   Difficulty,
   Draft,
+  Kind,
   PickedGame,
-  RATED_KEYS,
+  Rated,
   RatedKey,
   Review,
   SCORE_LABEL,
@@ -38,6 +39,8 @@ import {
   todayISO,
 } from '../core/review';
 import { GameLookup, LookupError, isSteamCover } from '../core/game-lookup';
+import { g, profileOf } from '../core/kinds';
+import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
 import { CoverSource, Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
@@ -78,6 +81,7 @@ export interface SavedEvent {
 })
 export class ReviewEditor {
   protected readonly store = inject(ReviewStore);
+  private readonly mural = inject(Mural);
   private readonly lookup = inject(GameLookup);
   protected readonly settings = inject(Settings);
   readonly saved = output<SavedEvent>();
@@ -101,23 +105,24 @@ export class ReviewEditor {
   protected readonly editing = signal<Review | null>(null);
   /** O pendente que está sendo terminado, se a ficha veio da fila. */
   protected readonly fromDraft = signal<Draft | null>(null);
+  /** O mural da ficha: o aberto, para uma ficha nova; o dela, para uma que já existe. */
+  protected readonly kind = signal<Kind>('jogos');
+  protected readonly profile = computed(() => profileOf(this.kind()));
+  /** As quatro notas do mural, na ordem do boletim. */
+  protected readonly categories = computed<RatedKey[]>(() => this.profile().categories.map((c) => c.key));
+  /** "o jogo", "uma série": as palavras do editor no gênero do mural. */
+  protected readonly words = computed(() => {
+    const p = this.profile();
+    return { o: `${g(p, 'o', 'a')} ${p.singular}`, um: `${g(p, 'um', 'uma')} ${p.singular}` };
+  });
   protected readonly game = signal<PickedGame | null>(null);
-  protected readonly historia = signal<number | null>(null);
-  protected readonly diversao = signal<number | null>(null);
-  protected readonly jogabilidade = signal<number | null>(null);
-  protected readonly visual = signal<number | null>(null);
+  protected readonly scores = signal<Rated>({});
   protected readonly weights = signal<Weights>({});
   protected readonly bonuses = signal<Bonus[]>([]);
-  private readonly rated = computed(() => ({
-    historia: this.historia(),
-    diversao: this.diversao(),
-    jogabilidade: this.jogabilidade(),
-    visual: this.visual(),
-  }));
   /** A média se atualiza enquanto as notas, os pesos e os bônus mudam. */
-  protected readonly final = computed(() => computeFinal(this.rated(), this.weights(), this.bonuses()));
+  protected readonly final = computed(() => computeFinal(this.kind(), this.scores(), this.weights(), this.bonuses()));
   /** Só as notas, sem os bônus: a conta ao lado da estrela mostra quanto eles mexeram. */
-  protected readonly base = computed(() => computeFinal(this.rated(), this.weights()));
+  protected readonly base = computed(() => computeFinal(this.kind(), this.scores(), this.weights()));
   protected readonly shift = computed(() => {
     const f = this.final();
     const b = this.base();
@@ -127,11 +132,14 @@ export class ReviewEditor {
   protected readonly weightOf = weightOf;
   protected readonly isSteamCover = isSteamCover;
   protected readonly hours = signal('');
+  /** A quantidade do mural (horas, páginas); null se vazia ou se o mural não tem; NaN se não é número. */
   protected readonly hoursValue = computed(() => {
+    const a = this.profile().amount;
     const raw = this.hours().trim().replace(',', '.');
-    if (!raw) return null;
+    if (!a || !raw) return null;
     const n = Number(raw);
-    return Number.isFinite(n) && n >= 0 && n <= 99999 ? Math.round(n * 10) / 10 : NaN;
+    if (!Number.isFinite(n) || n < 0 || n > 99999 || (!a.decimals && !Number.isInteger(n))) return NaN;
+    return Math.round(n * 10) / 10;
   });
   protected readonly hoursValid = computed(() => !Number.isNaN(this.hoursValue()));
   protected readonly coverLoading = signal<CoverSource | null>(null);
@@ -144,7 +152,7 @@ export class ReviewEditor {
   protected readonly dateUnknown = signal(false);
   protected readonly noDay = NO_DAY_LABEL;
   protected readonly today = signal(todayISO());
-  protected readonly dateLabel = computed(() => (this.status() ? dayLabel(this.status()!) : 'Data'));
+  protected readonly dateLabel = computed(() => (this.status() ? dayLabel(this.kind(), this.status()!) : 'Data'));
   protected readonly dateValid = computed(
     () => this.dateUnknown() || (isValidDay(this.completedAt()) && this.completedAt() <= this.today()),
   );
@@ -162,30 +170,24 @@ export class ReviewEditor {
   protected readonly stocks = STOCKS;
   protected readonly stockLabels = STOCK_LABEL;
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
+  protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
 
   /** No celular a prévia é a ficha simples, que cabe no alto da tela sem empurrar o formulário. */
   protected readonly phone = signal(false);
 
   /** A ficha como ela vai para o mural, montada com o que já foi preenchido. */
   protected readonly preview = computed<Review>(() => {
-    const w = this.weights();
-    const score = (k: RatedKey) => (counts(w, k) ? this.scoreSignal(k)() : null);
     return {
       id: this.id(),
+      kind: this.kind(),
       // sem jogo, a capa mostra um ponto de interrogação e o nome fica só marcado (ReviewCard.empty)
       game: this.game() ?? { name: '', coverUrl: null, source: 'manual' },
       // sem nota ainda, a etiqueta mostra o tracinho
-      scores: {
-        final: this.final() as number,
-        historia: score('historia'),
-        diversao: score('diversao'),
-        jogabilidade: score('jogabilidade'),
-        visual: score('visual'),
-      },
+      scores: { final: this.final() as number, ...this.counted() },
       status: this.status() ?? 'finalizado',
       difficulty: this.difficulty(),
       verdict: this.verdict(),
-      weights: w,
+      weights: this.weights(),
       bonuses: this.bonuses(),
       hoursPlayed: this.hoursValid() ? this.hoursValue() : null,
       stock: this.stock(),
@@ -204,23 +206,30 @@ export class ReviewEditor {
     inject(DestroyRef).onDestroy(() => mq.removeEventListener('change', sync));
   }
 
+  /** As notas como vão para a ficha: a categoria que "não tem" vai sem nota. */
+  private readonly counted = computed<Rated>(() => {
+    const w = this.weights();
+    const s = this.scores();
+    return Object.fromEntries(this.categories().map((k) => [k, counts(w, k) ? (s[k] ?? null) : null]));
+  });
+
   protected readonly missingScores = computed(() =>
-    RATED_KEYS.filter((k) => counts(this.weights(), k) && this.scoreSignal(k)() === null),
+    this.categories().filter((k) => counts(this.weights(), k) && (this.scores()[k] ?? null) === null),
   );
 
   /** Todas as categorias como "Não tem": sem nota que conte, não há média para pregar. */
-  protected readonly noneCounts = computed(() => RATED_KEYS.every((k) => !counts(this.weights(), k)));
+  protected readonly noneCounts = computed(() => this.categories().every((k) => !counts(this.weights(), k)));
 
   protected readonly missing = computed(() => {
     const m: string[] = [];
-    if (!this.game()) m.push('o jogo');
+    if (!this.game()) m.push(this.words().o);
     const scores = this.missingScores().map((k) => SCORE_LABEL[k]);
     if (scores.length === 1) m.push(`a nota de ${scores[0]}`);
     else if (scores.length > 1) m.push(`as notas de ${scores.slice(0, -1).join(', ')} e ${scores.at(-1)}`);
     else if (this.noneCounts()) m.push('ao menos uma categoria que conte na média');
     if (!this.status()) m.push('o status');
     if (!this.dateValid()) m.push('uma data válida');
-    if (!this.hoursValid()) m.push('um tempo jogado em horas');
+    if (!this.hoursValid()) m.push(this.profile().amount?.missing ?? '');
     return m;
   });
 
@@ -234,16 +243,16 @@ export class ReviewEditor {
   private snapshot = '';
 
   open(review?: Review, draft?: Draft): void {
+    const kind = review?.kind ?? draft?.kind ?? this.mural.kind();
+    this.kind.set(kind);
     this.editing.set(review ?? null);
     this.fromDraft.set(review ? null : (draft ?? null));
     // O pendente vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? newId());
-    this.stock.set(review?.stock ?? this.store.nextStock());
+    this.stock.set(review?.stock ?? this.store.nextStock(kind));
     this.game.set(review?.game ?? draft?.game ?? null);
-    this.historia.set(review?.scores.historia ?? null);
-    this.diversao.set(review?.scores.diversao ?? null);
-    this.jogabilidade.set(review?.scores.jogabilidade ?? null);
-    this.visual.set(review?.scores.visual ?? null);
+    const { final: _final, ...rated } = review?.scores ?? { final: 0 };
+    this.scores.set(rated);
     this.status.set(review?.status ?? null);
     this.verdict.set(review?.verdict ?? null);
     this.today.set(todayISO());
@@ -348,19 +357,14 @@ export class ReviewEditor {
     const prev = this.editing();
     const review: Review = {
       id: this.id(),
+      kind: this.kind(),
       game,
-      scores: {
-        final,
-        historia: counts(this.weights(), 'historia') ? this.historia() : null,
-        diversao: counts(this.weights(), 'diversao') ? this.diversao() : null,
-        jogabilidade: counts(this.weights(), 'jogabilidade') ? this.jogabilidade() : null,
-        visual: counts(this.weights(), 'visual') ? this.visual() : null,
-      },
+      scores: { final, ...this.counted() },
       weights: this.weights(),
       bonuses: this.bonuses(),
       hoursPlayed: this.hoursValue(),
       status,
-      difficulty: this.difficulty(),
+      difficulty: this.profile().difficulty ? this.difficulty() : 'nenhuma',
       verdict: this.verdict(),
       stock: this.stock(),
       text: this.text().trim(),
@@ -391,7 +395,7 @@ export class ReviewEditor {
     }
     const now = new Date().toISOString();
     const prev = this.fromDraft();
-    this.store.saveDraft({ id: this.id(), game, createdAt: prev?.createdAt ?? now, updatedAt: now });
+    this.store.saveDraft({ id: this.id(), kind: this.kind(), game, createdAt: prev?.createdAt ?? now, updatedAt: now });
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.drafted.emit({ id: this.id(), isNew: !prev });
@@ -441,7 +445,7 @@ export class ReviewEditor {
   /** Algo além do jogo foi preenchido (e seria perdido num pendente)? */
   private hasReviewContent(): boolean {
     return (
-      RATED_KEYS.some((k) => this.scoreSignal(k)() !== null) ||
+      this.categories().some((k) => (this.scores()[k] ?? null) !== null) ||
       this.bonuses().length > 0 ||
       this.status() !== null ||
       this.verdict() !== null ||
@@ -459,10 +463,7 @@ export class ReviewEditor {
     return JSON.stringify([
       this.game()?.name,
       this.stock(),
-      this.historia(),
-      this.diversao(),
-      this.jogabilidade(),
-      this.visual(),
+      this.categories().map((k) => this.scores()[k] ?? null),
       this.status(),
       this.verdict(),
       this.dateUnknown() ? null : this.completedAt(),
@@ -480,7 +481,7 @@ export class ReviewEditor {
     setTimeout(() => {
       if (!this.game()) this.search()?.focus();
       else if (this.missingScores().length)
-        root.querySelector<HTMLInputElement>(`.nota-${this.missingScores()[0]} input`)?.focus();
+        root.querySelector<HTMLInputElement>(`[data-nota="${this.missingScores()[0]}"] input`)?.focus();
       else if (this.noneCounts()) root.querySelector<HTMLSelectElement>('.subs select')?.focus();
       else if (!this.status()) root.querySelector<HTMLInputElement>('app-status-picker input')?.focus();
       else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
@@ -488,7 +489,11 @@ export class ReviewEditor {
     });
   }
 
-  protected scoreSignal(k: RatedKey) {
-    return { historia: this.historia, diversao: this.diversao, jogabilidade: this.jogabilidade, visual: this.visual }[k];
+  protected scoreOf(k: RatedKey): number | null {
+    return this.scores()[k] ?? null;
+  }
+
+  protected setScore(k: RatedKey, v: number | null): void {
+    this.scores.update((cur) => ({ ...cur, [k]: v }));
   }
 }

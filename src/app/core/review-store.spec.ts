@@ -117,8 +117,8 @@ describe('ReviewStore', () => {
     });
 
     it('pendente que vira resenha não fica marcado como apagado; tirado da fila, fica', () => {
-      store.saveDraft({ id: 'rdddd1', game: { name: 'D', coverUrl: null, source: 'manual' }, createdAt: old, updatedAt: old });
-      store.saveDraft({ id: 'reeee1', game: { name: 'E', coverUrl: null, source: 'manual' }, createdAt: old, updatedAt: old });
+      store.saveDraft({ id: 'rdddd1', kind: 'jogos', game: { name: 'D', coverUrl: null, source: 'manual' }, createdAt: old, updatedAt: old });
+      store.saveDraft({ id: 'reeee1', kind: 'jogos', game: { name: 'E', coverUrl: null, source: 'manual' }, createdAt: old, updatedAt: old });
       store.removeDraft('rdddd1', false);
       store.removeDraft('reeee1');
       const res = store.importJson(

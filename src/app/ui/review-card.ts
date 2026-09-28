@@ -1,19 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { g, profileOf } from '../core/kinds';
 import {
   Bonus,
   DIFFICULTY_LABEL,
-  RATED_KEYS,
   Review,
   SCORE_LABEL,
   ScoreKey,
-  STATUS_LABEL,
   VERDICT_LABEL,
   NO_DAY_LABEL,
   dayLabel,
-  formatHours,
+  formatAmount,
   formatScore,
   leadSentence,
   parseDay,
+  ratedKeys,
+  scoreOf,
   sortBonuses,
   weightOf,
 } from '../core/review';
@@ -68,14 +69,14 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
           <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
             <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
             @if (review().status !== 'finalizado') {
-              <app-status-label class="faixa" [status]="review().status" [band]="true" />
+              <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
             }
           </app-cover-sleeve>
         </div>
       </div>
 
       <div class="words">
-        <h4 class="title">{{ empty() ? 'Nome do jogo' : review().game.name }}</h4>
+        <h4 class="title">{{ empty() ? emptyName() : review().game.name }}</h4>
         <p class="meta">
           @if (review().completedAt; as day) {
             <time [attr.datetime]="day">{{ date() }}</time>
@@ -506,13 +507,16 @@ export class ReviewCard {
   readonly toggled = output<string>();
 
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
+  protected readonly profile = computed(() => profileOf(this.review().kind));
+  /** "Nome do jogo", "Nome da série". */
+  protected readonly emptyName = computed(() => `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`);
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   protected readonly date = computed(() => {
     const day = this.review().completedAt;
     return day === null ? 'Sem data' : (this.dayOnly() ? dayFmt : dateFmt).format(parseDay(day)).replace(/\./g, '');
   });
-  protected readonly hours = computed(() => formatHours(this.review().hoursPlayed));
+  protected readonly hours = computed(() => formatAmount(this.review().kind, this.review().hoursPlayed));
   protected readonly lead = computed(() => leadSentence(this.review().text));
   protected readonly bonuses = computed(() => sortBonuses(this.review().bonuses));
   /**
@@ -535,9 +539,10 @@ export class ReviewCard {
   /** As quatro casas sempre na mesma ordem; a que o jogo "não tem" fica riscada, sem sair do lugar. */
   protected readonly cells = computed(() => {
     const r = this.review();
-    return RATED_KEYS.map((key) => {
+    return ratedKeys(r.kind).map((key) => {
       const weight = weightOf(r.weights, key);
-      return { key, weight, off: weight === 'nao-tem', ten: r.scores[key] === 10, ruim: (r.scores[key] ?? 2) < 2, value: formatScore(r.scores[key]) };
+      const v = scoreOf(r.scores, key);
+      return { key, weight, off: weight === 'nao-tem', ten: v === 10, ruim: (v ?? 2) < 2, value: formatScore(v) };
     });
   });
 
@@ -555,12 +560,13 @@ export class ReviewCard {
     const parts = [r.game.name, `média ${formatScore(r.scores.final)}`];
     if (r.verdict) parts.push(VERDICT_LABEL[r.verdict]);
     if (r.bonuses.length) parts.push(spokenTally(r.bonuses));
-    parts.push(STATUS_LABEL[r.status]);
-    if (r.difficulty !== 'nenhuma') parts.push(`dificuldade ${DIFFICULTY_LABEL[r.difficulty].toLowerCase()}`);
+    const p = this.profile();
+    parts.push(p.status[r.status]);
+    if (r.difficulty !== 'nenhuma' && p.difficulty) parts.push(`${p.difficulty.toLowerCase()} ${DIFFICULTY_LABEL[r.difficulty].toLowerCase()}`);
     parts.push(
       r.completedAt === null
         ? NO_DAY_LABEL.toLowerCase()
-        : `${dayLabel(r.status).toLowerCase()} ${dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '')}`,
+        : `${dayLabel(r.kind, r.status).toLowerCase()} ${dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '')}`,
     );
     return `Abrir resenha: ${parts.join(', ')}`;
   });

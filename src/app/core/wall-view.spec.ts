@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
+import { Mural } from './mural';
 import { WallView } from './wall-view';
 
 function r(id: string, name: string, completedAt: string | null, diversao: number, extra: Record<string, unknown> = {}): Review {
@@ -58,6 +59,22 @@ describe('WallView', () => {
   it('busca no nome e no texto, sem ligar para acento', () => {
     view.query.set('ROGUÉLIKE');
     expect(view.visible().map((x) => x.game.name)).toEqual(['Hades']);
+  });
+
+  it('só mostra o mural aberto, e a nota de outro mural ordena pela Média', () => {
+    store.reviews.update((list) => [
+      ...list,
+      sanitizeReview({ id: 'rlivro1', kind: 'livros', game: { name: 'Duna' }, scores: { historia: 9, envolvimento: 9, personagens: 9, escrita: 9 } })!,
+    ]);
+    expect(view.visible().length).toBe(4);
+    const mural = TestBed.inject(Mural);
+    mural.kind.set('livros');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Duna']);
+    view.setSort('nota');
+    view.scoreKey.set('diversao');
+    expect(view.activeScore()).toBe('final');
+    mural.kind.set('jogos');
+    expect(view.activeScore()).toBe('diversao');
   });
 
   it('filtra por veredito e conta cada um', () => {

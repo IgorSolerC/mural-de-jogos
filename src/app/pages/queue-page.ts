@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Bookmark, LucideAngularModule } from 'lucide-angular';
 import { Desk } from '../core/desk';
+import { countOf, g } from '../core/kinds';
+import { Mural } from '../core/mural';
 import { fold } from '../core/review';
-import { ReviewStore } from '../core/review-store';
 import { DraftCard } from '../ui/draft-card';
 import { SearchStrip } from '../ui/search-strip';
 
 /**
- * Pra depois: os jogos guardados só com nome e capa. Antes moravam no topo do mural, disputando
+ * Pra depois: o que foi guardado só com nome e capa, no mural aberto. Antes moravam no topo do mural, disputando
  * espaço com as fichas; aqui cada folha tem lugar e o mural fica só com o que já foi resenhado.
  */
 @Component({
@@ -17,12 +18,12 @@ import { SearchStrip } from '../ui/search-strip';
   template: `
     <header class="head">
       <h1 class="tape-label big">Pra resenhar depois</h1>
-      @if (store.draftCount(); as n) {
-        <p class="sub">{{ n }} {{ n === 1 ? 'jogo esperando' : 'jogos esperando' }} a sua opinião</p>
+      @if (mural.draftCount(); as n) {
+        <p class="sub">{{ countOf(mural.profile(), n) }} esperando a sua opinião</p>
       }
     </header>
 
-    @if (store.draftCount()) {
+    @if (mural.draftCount()) {
       <app-search-strip
         class="search"
         inputId="busca-fila"
@@ -34,13 +35,13 @@ import { SearchStrip } from '../ui/search-strip';
 
       @if (query().trim()) {
         <p class="showing" aria-live="polite">
-          Mostrando {{ visible().length }} de {{ store.draftCount() }}
+          Mostrando {{ visible().length }} de {{ mural.draftCount() }}
           <button type="button" class="showing-clear" (click)="query.set('')">Limpar busca</button>
         </p>
       }
 
       @if (!visible().length) {
-        <p class="none">Nenhum jogo da fila tem “{{ query().trim() }}” no nome.</p>
+        <p class="none">{{ g(mural.profile(), 'Nenhum', 'Nenhuma') }} {{ mural.profile().singular }} da fila tem “{{ query().trim() }}” no nome.</p>
       }
 
       <div class="sheets">
@@ -56,14 +57,14 @@ import { SearchStrip } from '../ui/search-strip';
     } @else {
       <section class="empty" aria-labelledby="fila-vazia">
         <span class="tape" aria-hidden="true"></span>
-        <h2 id="fila-vazia">Nenhum jogo na fila</h2>
+        <h2 id="fila-vazia">{{ g(mural.profile(), 'Nenhum', 'Nenhuma') }} {{ mural.profile().singular }} na fila</h2>
         <p>
-          Zerou algo e ainda não sabe o que achar? Na hora de pregar, escolha o jogo e toque em
+          {{ mural.profile().finished }} Na hora de pregar, escolha {{ g(mural.profile(), 'o', 'a') }} {{ mural.profile().singular }} e toque em
           <strong>Salvar pra depois</strong>. Ele fica aqui, só com nome e capa, até você voltar.
         </p>
         <button type="button" class="btn-ink" (click)="desk.newReview()">
           <lucide-icon [img]="LaterIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-          Guardar um jogo
+          Guardar {{ g(mural.profile(), 'um', 'uma') }} {{ mural.profile().singular }}
         </button>
       </section>
     }
@@ -205,15 +206,17 @@ import { SearchStrip } from '../ui/search-strip';
   `,
 })
 export class QueuePage {
-  protected readonly store = inject(ReviewStore);
+  protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
+  protected readonly countOf = countOf;
+  protected readonly g = g;
   protected readonly LaterIcon = Bookmark;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');
   protected readonly visible = computed(() => {
     const needle = fold(this.query().trim());
-    const list = this.store.drafts();
+    const list = this.mural.drafts();
     return needle ? list.filter((d) => fold(d.game.name).includes(needle)) : list;
   });
 }

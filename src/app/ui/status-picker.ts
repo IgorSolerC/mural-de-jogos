@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { STATUSES, STATUS_LABEL, Status } from '../core/review';
-import { STATUS_ICON, StatusLabel } from './status-label';
+import { profileOf } from '../core/kinds';
+import { Kind, STATUSES, Status } from '../core/review';
+import { statusIcon, StatusLabel } from './status-label';
 
 let uid = 0;
 
@@ -21,11 +22,11 @@ let uid = 0;
           <label class="opcao">
             <input type="radio" [name]="name" [value]="s" [checked]="value() === s" (change)="value.set(s)" />
             @if (value() === s) {
-              <app-status-label class="colado" [status]="s" />
+              <app-status-label class="colado" [status]="s" [kind]="kind()" />
             } @else {
               <span class="recorte">
-                <lucide-icon [img]="icons[s]" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
-                <span>{{ labels[s] }}</span>
+                <lucide-icon [img]="icon(s)" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                <span>{{ labels()[s] }}</span>
               </span>
             }
           </label>
@@ -68,8 +69,11 @@ let uid = 0;
 })
 export class StatusPicker {
   readonly value = model<Status | null>(null);
+  readonly kind = input.required<Kind>();
   protected readonly statuses = STATUSES;
-  protected readonly labels = STATUS_LABEL;
-  protected readonly icons = STATUS_ICON;
+  protected readonly labels = computed(() => profileOf(this.kind()).status);
+  protected icon(s: Status) {
+    return statusIcon(this.kind(), s);
+  }
   protected readonly name = `status-${++uid}`;
 }

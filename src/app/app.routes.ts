@@ -1,14 +1,15 @@
 import { Routes } from '@angular/router';
 
+// O título de cada página ganha o mural aberto (ver core/title.ts); o mural em si não leva nome de página.
 export const routes: Routes = [
-  { path: '', title: 'Mural de Jogos', loadComponent: () => import('./pages/wall-page').then((m) => m.WallPage) },
+  { path: '', loadComponent: () => import('./pages/wall-page').then((m) => m.WallPage) },
   {
     path: 'lado-a-lado',
-    title: 'Lado a lado · Mural de Jogos',
+    title: 'Lado a lado',
     loadComponent: () => import('./pages/side-by-side-page').then((m) => m.SideBySidePage),
   },
-  { path: 'fila', title: 'Pra depois · Mural de Jogos', loadComponent: () => import('./pages/queue-page').then((m) => m.QueuePage) },
-  { path: 'ranking', title: 'Ranking · Mural de Jogos', loadComponent: () => import('./pages/ranking-page').then((m) => m.RankingPage) },
-  { path: 'ajustes', title: 'Ajustes · Mural de Jogos', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
+  { path: 'fila', title: 'Pra depois', loadComponent: () => import('./pages/queue-page').then((m) => m.QueuePage) },
+  { path: 'ranking', title: 'Ranking', loadComponent: () => import('./pages/ranking-page').then((m) => m.RankingPage) },
+  { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },
 ];

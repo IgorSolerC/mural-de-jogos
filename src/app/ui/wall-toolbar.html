@@ -43,7 +43,7 @@
           <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
         }
         <optgroup label="Nota">
-          @for (o of scoreOptions; track o.value) {
+          @for (o of scoreOptions(); track o.value) {
             <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
           }
         </optgroup>

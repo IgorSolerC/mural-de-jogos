@@ -1,5 +1,6 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
-import { PreloadAllModules, provideRouter, withHashLocation, withInMemoryScrolling, withPreloading } from '@angular/router';
+import { PreloadAllModules, TitleStrategy, provideRouter, withHashLocation, withInMemoryScrolling, withPreloading } from '@angular/router';
+import { MuralTitle } from './core/title';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -14,5 +15,6 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ scrollPositionRestoration: 'enabled' }),
       withPreloading(PreloadAllModules),
     ),
+    { provide: TitleStrategy, useExisting: MuralTitle },
   ],
 };

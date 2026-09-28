@@ -1,5 +1,6 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
-import { Bonus, Draft, Review, STOCKS, Stock, isCatalogBonus, sanitizeDraft, sanitizeReview } from './review';
+import { KINDS } from './kinds';
+import { Bonus, Draft, Kind, Review, STOCKS, Stock, isCatalogBonus, sanitizeDraft, sanitizeReview } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -28,27 +29,30 @@ export class ReviewStore {
   /** Mensagem quando o navegador recusa salvar (cota cheia, modo privado…). */
   readonly saveError = signal<string | null>(null);
   readonly count = computed(() => this.reviews().length);
-  /** Jogos guardados para resenhar depois, o mais recente primeiro. */
+  /** Guardados para resenhar depois, o mais recente primeiro (de todos os murais: ver `Mural`). */
   readonly drafts = signal<Draft[]>(this.readDrafts());
   readonly draftCount = computed(() => this.drafts().length);
   private readonly deleted = signal<Deleted>(this.readDeleted());
   /**
-   * Os bônus que a pessoa escreveu, tirados das próprias fichas: o mais usado primeiro. Não há lista
-   * para cuidar; um bônus que nenhuma ficha usa mais some sozinho.
+   * Os bônus que a pessoa escreveu, tirados das próprias fichas de cada mural: o mais usado primeiro.
+   * Não há lista para cuidar; um bônus que nenhuma ficha usa mais some sozinho.
    */
-  readonly customBonuses = computed<Bonus[]>(() => {
-    const seen = new Map<string, { bonus: Bonus; n: number }>();
+  readonly customBonuses = computed<Record<Kind, Bonus[]>>(() => {
+    const seen = Object.fromEntries(KINDS.map((k) => [k, new Map<string, { bonus: Bonus; n: number }>()])) as Record<
+      Kind,
+      Map<string, { bonus: Bonus; n: number }>
+    >;
     for (const r of this.reviews()) {
       for (const b of r.bonuses) {
-        if (isCatalogBonus(b.id)) continue;
-        const hit = seen.get(b.id);
+        if (isCatalogBonus(r.kind, b.id)) continue;
+        const hit = seen[r.kind].get(b.id);
         if (hit) hit.n++;
-        else seen.set(b.id, { bonus: b, n: 1 });
+        else seen[r.kind].set(b.id, { bonus: b, n: 1 });
       }
     }
-    return [...seen.values()]
-      .sort((a, b) => b.n - a.n || a.bonus.label.localeCompare(b.bonus.label, 'pt-BR'))
-      .map((x) => x.bonus);
+    const sorted = (m: Map<string, { bonus: Bonus; n: number }>) =>
+      [...m.values()].sort((a, b) => b.n - a.n || a.bonus.label.localeCompare(b.bonus.label, 'pt-BR')).map((x) => x.bonus);
+    return Object.fromEntries(KINDS.map((k) => [k, sorted(seen[k])])) as Record<Kind, Bonus[]>;
   });
 
   private skipNextWrite = false;
@@ -98,9 +102,9 @@ export class ReviewStore {
     }
   }
 
-  /** A cor com que a ficha nova nasce: sorteada, só não repete a da última pregada. A pessoa troca no editor. */
-  nextStock(): Stock {
-    const latest = this.reviews().reduce<Review | null>(
+  /** A cor com que a ficha nova nasce: sorteada, só não repete a da última pregada no mural. A pessoa troca no editor. */
+  nextStock(kind: Kind): Stock {
+    const latest = this.reviews().filter((r) => r.kind === kind).reduce<Review | null>(
       (acc, r) => (!acc || Date.parse(r.createdAt) > Date.parse(acc.createdAt) ? r : acc),
       null,
     );
@@ -113,7 +117,7 @@ export class ReviewStore {
   }
 
   add(review: Review): void {
-    const withStock = review.stock ? review : { ...review, stock: this.nextStock() };
+    const withStock = review.stock ? review : { ...review, stock: this.nextStock(review.kind) };
     this.reviews.update((list) => [withStock, ...list]);
   }
 
@@ -169,8 +173,9 @@ export class ReviewStore {
   /** O backup sai em gzip (.json.gz); sem CompressionStream no navegador, sai o JSON puro. */
   async exportBackup(): Promise<{ blob: Blob; ext: string }> {
     const payload = {
-      app: 'mural-de-jogos',
-      version: 1,
+      app: 'meu-mural',
+      // 2: cada ficha e cada pendente diz o seu mural; os backups 1 são todos de jogos
+      version: 2,
       exportedAt: new Date().toISOString(),
       reviews: this.reviews(),
       drafts: this.drafts(),
@@ -189,7 +194,7 @@ export class ReviewStore {
     try {
       return await new Response(file.stream().pipeThrough(new DecompressionStream('gzip'))).text();
     } catch {
-      throw new Error('Esse arquivo compactado está corrompido. Escolha o backup baixado pelo Mural de Jogos.');
+      throw new Error('Esse arquivo compactado está corrompido. Escolha o backup baixado pelo Meu Mural.');
     }
   }
 
@@ -199,11 +204,11 @@ export class ReviewStore {
     try {
       data = JSON.parse(text);
     } catch {
-      throw new Error('Esse arquivo não é um JSON válido. Escolha o backup baixado pelo Mural de Jogos.');
+      throw new Error('Esse arquivo não é um JSON válido. Escolha o backup baixado pelo Meu Mural.');
     }
     const rawList = Array.isArray(data) ? data : (data as any)?.reviews;
     if (!Array.isArray(rawList)) {
-      throw new Error('Não achei resenhas nesse arquivo. Escolha o backup baixado pelo Mural de Jogos.');
+      throw new Error('Não achei resenhas nesse arquivo. Escolha o backup baixado pelo Meu Mural.');
     }
     // Backups antigos não têm pendentes: nesse caso a fila atual fica como está.
     const rawDrafts = Array.isArray((data as any)?.drafts) ? ((data as any).drafts as unknown[]) : null;

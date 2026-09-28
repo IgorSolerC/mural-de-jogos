@@ -12,21 +12,24 @@ import {
   X,
 } from 'lucide-angular';
 import { Desk } from '../core/desk';
+import { countOf, g } from '../core/kinds';
+import { Mural } from '../core/mural';
 import {
   DIFFICULTY_LABEL,
-  RATED_KEYS,
   RatedKey,
   Review,
   SCORE_LABEL,
   ScoreKey,
   WEIGHT_LABEL,
-  formatHours,
+  formatAmount,
   formatScore,
   parseDay,
+  ratedKeys,
+  scoreKeys,
+  scoreOf,
   sortBonuses,
   weightOf,
 } from '../core/review';
-import { ReviewStore } from '../core/review-store';
 import { SideBySide, SideSort } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { Density, WallView } from '../core/wall-view';
@@ -44,11 +47,6 @@ const SORT_OPTIONS: { value: SideSort; label: string }[] = [
   { value: 'marcada', label: 'Como marquei' },
   { value: 'ano', label: 'Lançamento' },
   { value: 'data', label: 'Data' },
-];
-
-const SCORE_OPTIONS: { value: SideSort; label: string }[] = [
-  { value: 'final', label: 'Média' },
-  ...RATED_KEYS.map((k) => ({ value: k as SideSort, label: SCORE_LABEL[k] })),
 ];
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
@@ -81,7 +79,7 @@ interface Row {
   styleUrl: './side-by-side-page.scss',
 })
 export class SideBySidePage {
-  protected readonly store = inject(ReviewStore);
+  protected readonly mural = inject(Mural);
   protected readonly side = inject(SideBySide);
   protected readonly view = inject(WallView);
   protected readonly desk = inject(Desk);
@@ -98,20 +96,36 @@ export class SideBySidePage {
   protected readonly UpIcon = ArrowUp;
   protected readonly DownIcon = ArrowDown;
   protected readonly sortOptions = SORT_OPTIONS;
-  protected readonly scoreOptions = SCORE_OPTIONS;
+  /** A Média e as quatro notas do mural aberto. */
+  protected readonly scoreOptions = computed(() =>
+    scoreKeys(this.mural.kind()).map((k) => ({ value: k as SideSort, label: SCORE_LABEL[k] })),
+  );
+  /** A ordem escolhida, se ela existe neste mural (uma nota de outro mural vira "Como marquei"). */
+  protected readonly sort = computed<SideSort>(() => {
+    const s = this.side.sort();
+    return s === 'marcada' || s === 'data' || s === 'ano' || scoreKeys(this.mural.kind()).includes(s) ? s : 'marcada';
+  });
+  /** As frases da página no gênero do mural: "os jogos", "as séries". */
+  protected readonly words = computed(() => {
+    const p = this.mural.profile();
+    return {
+      os: `${g(p, 'os', 'as')} ${p.plural}`,
+      mais: `${g(p, 'mais um', 'mais uma')} ${p.singular}`,
+    };
+  });
   protected readonly weightLabels = WEIGHT_LABEL;
   protected readonly difficultyLabel = DIFFICULTY_LABEL;
   protected readonly weightOf = weightOf;
   protected readonly fmt = formatScore;
 
   protected readonly sortLabel = computed(
-    () => [...SORT_OPTIONS, ...SCORE_OPTIONS].find((o) => o.value === this.side.sort())?.label ?? '',
+    () => [...SORT_OPTIONS, ...this.scoreOptions()].find((o) => o.value === this.sort())?.label ?? '',
   );
 
   /** As fichas na ordem escolhida. Sem nota, sem data ou sem ano vai para o fim. */
   protected readonly games = computed<Review[]>(() => {
     const list = [...this.side.reviews()];
-    const s = this.side.sort();
+    const s = this.sort();
     if (s === 'marcada') return list;
     if (s === 'data') {
       return list.sort((a, b) =>
@@ -130,8 +144,8 @@ export class SideBySidePage {
       });
     }
     return list.sort((a, b) => {
-      const av = a.scores[s];
-      const bv = b.scores[s];
+      const av = scoreOf(a.scores, s);
+      const bv = scoreOf(b.scores, s);
       if (av === null || bv === null) return av === null ? (bv === null ? 0 : 1) : -1;
       return bv - av || b.scores.final - a.scores.final;
     });
@@ -139,33 +153,38 @@ export class SideBySidePage {
 
   /** A nota que ordena as fichas, para o risco de caneta nelas. */
   protected readonly highlight = computed<ScoreKey | null>(() => {
-    const s = this.side.sort();
+    const s = this.sort();
     return s === 'marcada' || s === 'data' || s === 'ano' ? null : s;
   });
 
   protected readonly summary = computed(() => {
     const list = this.side.reviews();
     const n = list.length;
-    const parts = [`${n} ${n === 1 ? 'jogo' : 'jogos'}`];
+    const parts = [countOf(this.mural.profile(), n)];
     if (n > 1) parts.push(`média ${avgFmt.format(list.reduce((s, r) => s + r.scores.final, 0) / n)}`);
     return parts.join(' · ');
   });
 
   protected readonly rows = computed<Row[]>(() => {
-    const s = this.side.sort();
+    const s = this.sort();
+    const p = this.mural.profile();
+    const facts: Row[] = [
+      ...(p.amount ? [{ id: 'hours', label: p.amount.row, kind: 'hours', sorted: false } as Row] : []),
+      { id: 'status', label: 'Status', kind: 'status', sorted: false },
+      ...(p.difficulty ? [{ id: 'difficulty', label: 'Dificuldade', kind: 'difficulty', sorted: false } as Row] : []),
+      { id: 'date', label: 'Data', kind: 'date', sorted: s === 'data' },
+      { id: 'year', label: 'Lançamento', kind: 'year', sorted: s === 'ano' },
+    ];
+    facts[0].split = true;
     return [
       { id: 'final', label: 'Média', kind: 'final', sorted: s === 'final' },
       { id: 'verdict', label: 'Veredito', kind: 'verdict', sorted: false },
-      ...RATED_KEYS.map<Row>((k) => ({ id: k, label: SCORE_LABEL[k], kind: 'score', score: k, sorted: s === k })),
-      // os bônus só entram quando algum jogo marcado tem: senão seria uma linha só de traços
+      ...ratedKeys(p.kind).map<Row>((k) => ({ id: k, label: SCORE_LABEL[k], kind: 'score', score: k, sorted: s === k })),
+      // os bônus só entram quando alguma ficha marcada tem: senão seria uma linha só de traços
       ...(this.side.reviews().some((r) => r.bonuses.length)
         ? [{ id: 'bonus', label: 'Bônus', kind: 'bonus', sorted: false } as Row]
         : []),
-      { id: 'hours', label: 'Horas', kind: 'hours', sorted: false, split: true },
-      { id: 'status', label: 'Status', kind: 'status', sorted: false },
-      { id: 'difficulty', label: 'Dificuldade', kind: 'difficulty', sorted: false },
-      { id: 'date', label: 'Jogado em', kind: 'date', sorted: s === 'data' },
-      { id: 'year', label: 'Lançamento', kind: 'year', sorted: s === 'ano' },
+      ...facts,
     ];
   });
 
@@ -176,11 +195,11 @@ export class SideBySidePage {
   protected readonly winners = computed(() => {
     const games = this.side.reviews();
     const out = new Map<string, Set<string>>();
-    for (const k of ['final', ...RATED_KEYS] as ScoreKey[]) {
-      const scored = games.filter((r) => r.scores[k] !== null && (k === 'final' || weightOf(r.weights, k) !== 'nao-tem'));
+    for (const k of scoreKeys(this.mural.kind())) {
+      const scored = games.filter((r) => scoreOf(r.scores, k) !== null && (k === 'final' || weightOf(r.weights, k) !== 'nao-tem'));
       if (scored.length < 2) continue;
-      const max = Math.max(...scored.map((r) => r.scores[k]!));
-      const top = scored.filter((r) => r.scores[k] === max);
+      const max = Math.max(...scored.map((r) => scoreOf(r.scores, k)!));
+      const top = scored.filter((r) => scoreOf(r.scores, k) === max);
       if (top.length < scored.length) out.set(k, new Set(top.map((r) => r.id)));
     }
     return out;
@@ -201,7 +220,11 @@ export class SideBySidePage {
   }
 
   protected hours(r: Review): string {
-    return r.hoursPlayed === null ? '' : formatHours(r.hoursPlayed);
+    return formatAmount(r.kind, r.hoursPlayed);
+  }
+
+  protected score(r: Review, k: RatedKey): number | null {
+    return scoreOf(r.scores, k);
   }
 
   protected date(r: Review): string {

@@ -17,30 +17,31 @@ const contra = (id: string): Bonus => ({ id, label: id, kind: 'contra' });
 describe('computeFinal', () => {
   it('é a média ponderada, com Diversão valendo o dobro', () => {
     // (8 + 6*2 + 10 + 4) / 5 = 6,8
-    expect(computeFinal({ historia: 8, diversao: 6, jogabilidade: 10, visual: 4 })).toBe(6.8);
+    expect(computeFinal('jogos', { historia: 8, diversao: 6, jogabilidade: 10, visual: 4 })).toBe(6.8);
   });
 
   it('arredonda para uma casa', () => {
     // (7 + 8*2 + 8) / 4 = 7,75 → 7,8
-    expect(computeFinal({ historia: 7, diversao: 8, jogabilidade: 8, visual: null })).toBe(7.8);
+    expect(computeFinal('jogos', { historia: 7, diversao: 8, jogabilidade: 8, visual: null })).toBe(7.8);
   });
 
   it('Relevante dobra e Pouco importante corta pela metade o peso da categoria', () => {
     const s = { historia: 10, diversao: 5, jogabilidade: 5, visual: 5 };
     // História 10 com peso 2: (20 + 10 + 5 + 5) / 6
-    expect(computeFinal(s, { historia: 'relevante' })).toBe(Math.round((40 / 6) * 10) / 10);
+    expect(computeFinal('jogos', s, { historia: 'relevante' })).toBe(Math.round((40 / 6) * 10) / 10);
     // História 10 com peso 0,5: (5 + 10 + 5 + 5) / 4,5
-    expect(computeFinal(s, { historia: 'pouco' })).toBe(Math.round((25 / 4.5) * 10) / 10);
+    expect(computeFinal('jogos', s, { historia: 'pouco' })).toBe(Math.round((25 / 4.5) * 10) / 10);
   });
 
   it('Não tem tira a categoria da conta, mesmo com nota', () => {
-    expect(computeFinal({ historia: 0, diversao: 8, jogabilidade: 8, visual: 8 }, { historia: 'nao-tem' })).toBe(8);
+    expect(computeFinal('jogos', { historia: 0, diversao: 8, jogabilidade: 8, visual: 8 }, { historia: 'nao-tem' })).toBe(8);
   });
 
   it('sem nota que conte, não há média', () => {
-    expect(computeFinal({ historia: null, diversao: null, jogabilidade: null, visual: null })).toBeNull();
+    expect(computeFinal('jogos', { historia: null, diversao: null, jogabilidade: null, visual: null })).toBeNull();
     expect(
       computeFinal(
+        'jogos',
         { historia: 5, diversao: 5, jogabilidade: 5, visual: 5 },
         { historia: 'nao-tem', diversao: 'nao-tem', jogabilidade: 'nao-tem', visual: 'nao-tem' },
       ),
@@ -48,30 +49,30 @@ describe('computeFinal', () => {
   });
 
   it('bônus sozinho não faz média', () => {
-    expect(computeFinal({ historia: null, diversao: null, jogabilidade: null, visual: null }, {}, [favor('a')])).toBeNull();
+    expect(computeFinal('jogos', { historia: null, diversao: null, jogabilidade: null, visual: null }, {}, [favor('a')])).toBeNull();
   });
 
   it('cada bônus mexe no máximo BONUS_MAX_SHIFT', () => {
     const s = { historia: 2, diversao: 2, jogabilidade: 2, visual: 2 };
     const one = (v: number) => Math.round(v * 10) / 10;
-    expect(computeFinal(s, {}, [favor('a')])).toBe(one(2 + BONUS_MAX_SHIFT));
-    expect(computeFinal({ historia: 9, diversao: 9, jogabilidade: 9, visual: 9 }, {}, [contra('a')])).toBe(one(9 - BONUS_MAX_SHIFT));
+    expect(computeFinal('jogos', s, {}, [favor('a')])).toBe(one(2 + BONUS_MAX_SHIFT));
+    expect(computeFinal('jogos', { historia: 9, diversao: 9, jogabilidade: 9, visual: 9 }, {}, [contra('a')])).toBe(one(9 - BONUS_MAX_SHIFT));
   });
 
   it('um bônus perto da média mexe menos que o limite', () => {
     // base 9, peso 5: (10 - 9) / 6 ≈ 0,17
-    expect(computeFinal({ historia: 9, diversao: 9, jogabilidade: 9, visual: 9 }, {}, [favor('a')])).toBe(9.2);
+    expect(computeFinal('jogos', { historia: 9, diversao: 9, jogabilidade: 9, visual: 9 }, {}, [favor('a')])).toBe(9.2);
   });
 
   it('os efeitos dos bônus se somam e a média fica entre 0 e 10', () => {
     const s = { historia: 10, diversao: 10, jogabilidade: 10, visual: 10 };
-    expect(computeFinal(s, {}, [favor('a'), favor('b')])).toBe(10);
+    expect(computeFinal('jogos', s, {}, [favor('a'), favor('b')])).toBe(10);
     const low = { historia: 0, diversao: 0, jogabilidade: 0, visual: 0 };
-    expect(computeFinal(low, {}, [contra('a'), contra('b')])).toBe(0);
+    expect(computeFinal('jogos', low, {}, [contra('a'), contra('b')])).toBe(0);
   });
 
   it('computeBase ignora os bônus', () => {
-    const r = { scores: { final: 0, historia: 5, diversao: 5, jogabilidade: 5, visual: 5 }, weights: {} };
+    const r = { kind: 'jogos' as const, scores: { final: 0, historia: 5, diversao: 5, jogabilidade: 5, visual: 5 }, weights: {} };
     expect(computeBase(r)).toBe(5);
   });
 });
@@ -163,26 +164,29 @@ describe('sanitizeReview', () => {
 
 describe('sanitizeBonuses', () => {
   it('bônus da cartela usam o nome da cartela', () => {
-    expect(sanitizeBonuses([{ id: 'bugs', label: 'qualquer', kind: 'favor' }])).toEqual([
+    expect(sanitizeBonuses([{ id: 'bugs', label: 'qualquer', kind: 'favor' }], 'jogos')).toEqual([
       { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
     ]);
   });
 
   it('bônus escritos ganham id pelo nome e lado, sem repetir', () => {
-    const out = sanitizeBonuses([
-      { id: 'lixo', label: '  chefes   difíceis ', kind: 'contra' },
-      { label: 'Chefes difíceis', kind: 'contra' },
-      { label: 'Chefes difíceis', kind: 'favor' },
-      { label: '', kind: 'favor' },
-      { label: 'sem lado' },
-      'x',
-    ]);
+    const out = sanitizeBonuses(
+      [
+        { id: 'lixo', label: '  chefes   difíceis ', kind: 'contra' },
+        { label: 'Chefes difíceis', kind: 'contra' },
+        { label: 'Chefes difíceis', kind: 'favor' },
+        { label: '', kind: 'favor' },
+        { label: 'sem lado' },
+        'x',
+      ],
+      'jogos',
+    );
     expect(out.map((b) => b.id)).toEqual([customBonusId('Chefes difíceis', 'contra'), customBonusId('Chefes difíceis', 'favor')]);
     expect(out[0].label).toBe('Chefes difíceis');
   });
 
   it('não é lista: nenhum bônus', () => {
-    expect(sanitizeBonuses('x')).toEqual([]);
+    expect(sanitizeBonuses('x', 'jogos')).toEqual([]);
   });
 });
 
@@ -227,5 +231,64 @@ describe('formatShift', () => {
     expect(formatShift(0.44)).toBe('+0,4');
     expect(formatShift(-0.25)).toBe('−0,3');
     expect(formatShift(0.01)).toBe('±0');
+  });
+});
+
+describe('murais', () => {
+  const livro = {
+    id: 'rlivro1',
+    kind: 'livros',
+    game: { name: 'Dom Casmurro', by: 'Machado de Assis', source: 'openlibrary', coverUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg' },
+    scores: { historia: 8, envolvimento: 6, personagens: 10, escrita: 10, diversao: 3 },
+    status: 'platinado',
+    difficulty: 'dificil',
+    hoursPlayed: 256.7,
+    completedAt: '2024-05-01',
+    createdAt: '2024-05-01T10:00:00.000Z',
+  };
+
+  it('ficha sem mural é de jogos (os backups de antes dos murais)', () => {
+    const r = sanitizeReview({ game: { name: 'Hades' }, scores: { historia: 8, diversao: 8, jogabilidade: 8, visual: 8 } })!;
+    expect(r.kind).toBe('jogos');
+    expect(sanitizeReview({ ...livro, kind: 'revistas' })!.kind).toBe('jogos');
+  });
+
+  it('cada mural usa as suas quatro notas, e o centro dele pesa o dobro', () => {
+    const r = sanitizeReview(livro)!;
+    // (8 + 6*2 + 10 + 10) / 5 = 8; a Diversão, que não é nota de livro, fica de fora
+    expect(r.scores.final).toBe(8);
+    expect(r.scores.diversao).toBeUndefined();
+    expect(r.scores.escrita).toBe(10);
+    expect(computeFinal('filmes', { roteiro: 10, envolvimento: 4, atuacao: 10, visual: 10 })).toBe(7.6);
+  });
+
+  it('livro tem dificuldade de leitura e páginas inteiras; o terceiro status é Relido', () => {
+    const r = sanitizeReview(livro)!;
+    expect(r.difficulty).toBe('dificil');
+    expect(r.hoursPlayed).toBe(257);
+    expect(r.status).toBe('platinado');
+    expect(r.game.by).toBe('Machado de Assis');
+    expect(r.game.source).toBe('openlibrary');
+  });
+
+  it('filmes, séries e animes não têm dificuldade nem quantidade', () => {
+    for (const kind of ['filmes', 'series', 'animes']) {
+      const r = sanitizeReview({ ...livro, kind, scores: { roteiro: 7, envolvimento: 7, personagens: 7, atuacao: 7, visual: 7, animacao: 7 } })!;
+      expect(r.difficulty).withContext(kind).toBe('nenhuma');
+      expect(r.hoursPlayed).withContext(kind).toBeNull();
+      expect(r.scores.final).withContext(kind).toBe(7);
+    }
+  });
+
+  it('a cartela pronta é do mural: "Muitos bugs" num livro vira bônus escrito', () => {
+    const [b] = sanitizeBonuses([{ id: 'bugs', label: 'Muitos bugs', kind: 'contra' }], 'livros');
+    expect(b.id).toBe(customBonusId('Muitos bugs', 'contra'));
+    const [c] = sanitizeBonuses([{ id: 'traducao-ruim', label: 'x', kind: 'favor' }], 'livros');
+    expect(c).toEqual({ id: 'traducao-ruim', label: 'Tradução ruim', kind: 'contra' });
+  });
+
+  it('pendente guarda o mural', () => {
+    expect(sanitizeDraft({ id: 'rdraft2', kind: 'animes', game: { name: 'Frieren' } })!.kind).toBe('animes');
+    expect(sanitizeDraft({ id: 'rdraft3', game: { name: 'Hades' } })!.kind).toBe('jogos');
   });
 });

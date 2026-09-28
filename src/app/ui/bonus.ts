@@ -1,8 +1,29 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import {
+  Annoyed,
+  BookOpen,
   Brain,
   Bug,
+  Camera,
   CameraOff,
+  CircleHelp,
+  Clapperboard,
+  Copy,
+  Eye,
+  EyeOff,
+  Feather,
+  Globe,
+  ImageOff,
+  Languages,
+  Layers,
+  Puzzle,
+  Scissors,
+  Shuffle,
+  Sparkles,
+  Swords,
+  TrendingDown,
+  UserX,
+  Zap,
   ChevronUp,
   Clock,
   Coins,
@@ -30,7 +51,6 @@ import {
   Users,
 } from 'lucide-angular';
 import {
-  BONUS_CATALOG,
   BONUS_KINDS,
   BONUS_KIND_LABEL,
   BONUS_MAX_LABEL,
@@ -67,6 +87,38 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   camera: CameraOff,
   desbalanceado: Scale,
   caro: Tag,
+  // livros, filmes, séries e animes: o mesmo id quer dizer a mesma coisa, e tem o mesmo desenho
+  'nao-larguei': BookOpen,
+  'escrita-bonita': Feather,
+  reviravolta: Shuffle,
+  'mundo-rico': Globe,
+  'me-fez-pensar': Brain,
+  reler: Repeat,
+  rever: Repeat,
+  previsivel: Eye,
+  'personagens-rasos': UserX,
+  'traducao-ruim': Languages,
+  'longo-demais': Hourglass,
+  confuso: CircleHelp,
+  cliche: Copy,
+  fotografia: Camera,
+  'atuacao-marcante': Drama,
+  efeitos: Sparkles,
+  furos: Puzzle,
+  'efeitos-ruins': ImageOff,
+  'atuacao-fraca': UserX,
+  maratonei: Zap,
+  abertura: Clapperboard,
+  enrolacao: Snail,
+  caiu: TrendingDown,
+  'sem-final': Scissors,
+  'personagens-irritantes': Annoyed,
+  'temporadas-demais': Layers,
+  'animacao-linda': Sparkles,
+  lutas: Swords,
+  filler: Layers,
+  'animacao-ruim': ImageOff,
+  fanservice: EyeOff,
 };
 
 /** O desenho do adesivo: o da cartela, ou um sinal de mais / menos para os escritos à mão. */
@@ -330,7 +382,7 @@ let uid = 0;
         }
       </ul>
     } @else {
-      <p class="hint">Trilha sonora incrível, muitos bugs… Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo um quarto de ponto.</p>
+      <p class="hint">{{ examples() }} Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo um quarto de ponto.</p>
     }
   `,
   styles: `
@@ -571,7 +623,9 @@ let uid = 0;
 })
 export class BonusPicker {
   readonly value = model<Bonus[]>([]);
-  /** Os bônus que a pessoa já escreveu em outras fichas. */
+  /** A cartela pronta do mural. */
+  readonly catalog = input.required<readonly Bonus[]>();
+  /** Os bônus que a pessoa já escreveu em outras fichas do mural. */
   readonly library = input<readonly Bonus[]>([]);
   /** A média com os bônus e quanto eles mexeram, para a cartela aberta mostrar ao vivo. */
   readonly final = input<number | null>(null);
@@ -601,11 +655,18 @@ export class BonusPicker {
   /** A cartela pronta primeiro, sempre no mesmo lugar; os escritos à mão depois. */
   protected readonly options = computed<Record<BonusKind, Bonus[]>>(() => {
     const all = new Map<string, Bonus>();
-    for (const b of [...BONUS_CATALOG, ...this.library(), ...this.written(), ...this.value()]) {
+    for (const b of [...this.catalog(), ...this.library(), ...this.written(), ...this.value()]) {
       if (!all.has(b.id)) all.set(b.id, b);
     }
     const list = [...all.values()];
     return { favor: list.filter((b) => b.kind === 'favor'), contra: list.filter((b) => b.kind === 'contra') };
+  });
+
+  /** "Trilha sonora incrível, muitos bugs…": o primeiro de cada lado da cartela. */
+  protected readonly examples = computed(() => {
+    const favor = this.catalog().find((b) => b.kind === 'favor')?.label ?? '';
+    const contra = this.catalog().find((b) => b.kind === 'contra')?.label ?? '';
+    return `${favor}, ${contra.charAt(0).toLowerCase()}${contra.slice(1)}…`;
   });
 
   /** Ficha nova ou outra ficha: esquece o que foi escrito na anterior. */
