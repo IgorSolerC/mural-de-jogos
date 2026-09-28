@@ -130,26 +130,23 @@
           <div class="campos-linha">
             <div class="campo">
               <label for="editor-data" class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</label>
-              <div class="date-row">
+              <!-- uma tira só, com a saída para quem não lembra o dia dentro dela, como o Trocar do jogo -->
+              <div class="tira tira-data">
                 @if (dateUnknown()) {
-                  <span class="tira sem-data" aria-labelledby="editor-data-rotulo" role="note">{{ noDay }}</span>
+                  <span class="sem-data" aria-labelledby="editor-data-rotulo" role="note">{{ noDay }}</span>
                   <button type="button" class="acao-caneta" id="editor-data-escolher" (click)="setDateUnknown(false)">
-                    Escolher data
+                    Escolher
                   </button>
                 } @else {
                   <input
                     id="editor-data"
-                    class="tira"
                     type="date"
                     required
                     [max]="today()"
                     [value]="completedAt()"
                     (input)="completedAt.set($any($event.target).value)"
                   />
-                  @if (completedAt() !== today()) {
-                    <button type="button" class="acao-caneta" (click)="completedAt.set(today())">Usar hoje</button>
-                  }
-                  <button type="button" class="acao-caneta" (click)="setDateUnknown(true)">Não lembro a data</button>
+                  <button type="button" class="acao-caneta" (click)="setDateUnknown(true)">Não lembro</button>
                 }
               </div>
               @if (attempted() && !dateValid()) {

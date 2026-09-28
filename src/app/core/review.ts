@@ -1,6 +1,11 @@
 export type Status = 'incompleto' | 'finalizado' | 'platinado';
 
-export type Difficulty = 'nenhuma' | 'facil' | 'media' | 'dificil' | 'impossivel';
+/**
+ * A escala de dificuldade. O valor guardado nunca muda de sentido: quando o topo ganhou o nível
+ * das caveiras vermelhas, 'dificil' passou a se chamar Complicado e 'impossivel' passou a se
+ * chamar Difícil; o novo Impossível é 'infernal'. Resenhas e backups antigos continuam certos.
+ */
+export type Difficulty = 'nenhuma' | 'facil' | 'media' | 'dificil' | 'impossivel' | 'infernal';
 
 export type Verdict = 'masterpiece' | 'recomendo' | 'legalzinho' | 'meh' | 'chato';
 
@@ -196,14 +201,15 @@ export const STATUS_LABEL: Record<Status, string> = {
 
 export const STATUS_RANK: Record<Status, number> = { incompleto: 1, finalizado: 2, platinado: 3 };
 
-export const DIFFICULTIES: readonly Difficulty[] = ['nenhuma', 'facil', 'media', 'dificil', 'impossivel'];
+export const DIFFICULTIES: readonly Difficulty[] = ['nenhuma', 'facil', 'media', 'dificil', 'impossivel', 'infernal'];
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   nenhuma: 'Nenhuma',
   facil: 'Fácil',
   media: 'Média',
-  dificil: 'Difícil',
-  impossivel: 'Impossível',
+  dificil: 'Complicado',
+  impossivel: 'Difícil',
+  infernal: 'Impossível',
 };
 
 /** Quantas caveirinhas cada dificuldade ganha na ficha. */
@@ -213,7 +219,15 @@ export const DIFFICULTY_SKULLS: Record<Difficulty, number> = {
   media: 2,
   dificil: 3,
   impossivel: 4,
+  infernal: 5,
 };
+
+/** O topo da escala: as caveiras ficam vermelhas e ganham chifres. */
+export const DIFFICULTY_MAX_SKULLS = 5;
+
+export function isHorned(d: Difficulty): boolean {
+  return d === 'infernal';
+}
 
 export const RATED_KEYS: readonly RatedKey[] = ['historia', 'diversao', 'jogabilidade', 'visual'];
 
