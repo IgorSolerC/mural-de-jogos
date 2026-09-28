@@ -5,7 +5,7 @@ import { CoverSource, Settings } from './settings';
 export class LookupError extends Error {
   constructor(
     message: string,
-    readonly kind: 'offline' | 'rawg-key' | 'server',
+    readonly kind: 'offline' | 'rawg-key' | 'tmdb-key' | 'server',
   ) {
     super(message);
   }
@@ -13,7 +13,7 @@ export class LookupError extends Error {
 
 const WIKI = 'https://en.wikipedia.org/w/api.php';
 
-/** Onde cada mural procura na Wikipedia: páginas com a caixa de informações daquele tipo. */
+/** Onde cada mural procura na Wikipedia (sem chave): páginas com a caixa de informações daquele tipo. */
 const WIKI_TEMPLATE: Record<Exclude<Kind, 'livros'>, string> = {
   jogos: 'Infobox video game',
   filmes: 'Infobox film',
@@ -76,11 +76,24 @@ export class GameLookup {
 
   /** O nome do catálogo onde o mural procura, para o leitor de tela. */
   sourceName(kind: Kind): string {
-    if (kind === 'livros') return 'Open Library';
-    return kind === 'jogos' && this.settings.effectiveSource() === 'rawg' ? 'RAWG' : 'Wikipedia';
+    switch (kind) {
+      case 'livros':
+        return 'Open Library';
+      case 'animes':
+        return 'Kitsu';
+      case 'filmes':
+      case 'series':
+        return this.settings.hasTmdb() ? 'TMDB' : 'Wikipedia';
+      default:
+        return this.settings.effectiveSource() === 'rawg' ? 'RAWG' : 'Wikipedia';
+    }
   }
 
-  /** Procura no catálogo do mural. A RAWG é só de jogos; livros vêm da Open Library. */
+  /**
+   * Procura no catálogo do mural. Livros: Open Library, na edição em português. Animes: Kitsu (com o
+   * nome em português quando há), e o AniList se o Kitsu não responder. Filmes e séries: o TMDB, em
+   * português, quando há chave; senão a Wikipedia. Jogos: Wikipedia ou RAWG.
+   */
   async search(
     q: string,
     signal: AbortSignal,
@@ -92,10 +105,28 @@ export class GameLookup {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       throw new LookupError('Sem internet agora.', 'offline');
     }
-    if (kind === 'livros') return this.searchOpenLibrary(query, signal);
-    const key = this.settings.rawgKey().trim();
-    if (kind === 'jogos' && source === 'rawg' && key) return this.searchRawg(query, key, signal);
-    return this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
+    switch (kind) {
+      case 'livros':
+        return this.searchOpenLibrary(query, signal);
+      case 'animes':
+        try {
+          return await this.searchKitsu(query, signal);
+        } catch (e) {
+          if ((e as Error).name === 'AbortError') throw e;
+          return this.searchAniList(query, signal);
+        }
+      case 'filmes':
+      case 'series': {
+        const tmdb = this.settings.tmdbKey().trim();
+        if (tmdb) return this.searchTmdb(query, tmdb, kind === 'filmes' ? 'movie' : 'tv', signal);
+        return this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
+      }
+      default: {
+        const key = this.settings.rawgKey().trim();
+        if (source === 'rawg' && key) return this.searchRawg(query, key, signal);
+        return this.searchWikipedia(query, signal, WIKI_TEMPLATE.jogos);
+      }
+    }
   }
 
   /** Procura o mesmo jogo na outra fonte e devolve a capa de lá (o jogo mais parecido pelo nome). Só no mural de jogos. */
@@ -184,8 +215,11 @@ export class GameLookup {
   }
 
   /**
-   * Livros: a Open Library, sem chave. A capa vem do acervo deles pelo número; `default=false` faz
-   * a capa que não existe dar erro (e virar "sem capa") em vez de um quadradinho em branco.
+   * Livros: a Open Library, sem chave. Com `lang=pt`, cada obra vem com a edição em português que
+   * mais combina com a busca ("O Hobbit", não "The Hobbit"), com a capa dela; sem edição em
+   * português, fica o título da obra. As edições só vêm se o campo `key` também for pedido.
+   * A capa vem do acervo deles pelo número; `default=false` faz a capa que não existe dar erro (e
+   * virar "sem capa") em vez de um quadradinho em branco.
    */
   private async searchOpenLibrary(q: string, signal: AbortSignal): Promise<PickedGame[]> {
     // a Open Library só acha palavra inteira: "dom casmu" vira "dom casmu*", como na Wikipedia
@@ -196,7 +230,8 @@ export class GameLookup {
     const params = new URLSearchParams({
       q: words.join(' '),
       limit: '12',
-      fields: 'key,title,author_name,first_publish_year,cover_i',
+      lang: 'pt',
+      fields: 'key,title,author_name,first_publish_year,cover_i,editions,editions.key,editions.title,editions.language,editions.cover_i',
     });
     const data = await this.fetchJson(`https://openlibrary.org/search.json?${params}`, signal);
     const docs: any[] = data?.docs ?? [];
@@ -204,9 +239,12 @@ export class GameLookup {
     return docs
       .filter((d) => typeof d?.title === 'string' && d.title.trim())
       .map((d, index) => {
+        const ed = d.editions?.docs?.[0];
+        const pt = ed && Array.isArray(ed.language) && ed.language.includes('por') && typeof ed.title === 'string' && ed.title.trim();
+        const cover = pt && typeof ed.cover_i === 'number' ? ed.cover_i : d.cover_i;
         const game: PickedGame = {
-          name: String(d.title).trim(),
-          coverUrl: typeof d.cover_i === 'number' ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg?default=false` : null,
+          name: (pt ? String(ed.title) : String(d.title)).replace(/\s+/g, ' ').trim(),
+          coverUrl: typeof cover === 'number' ? `https://covers.openlibrary.org/b/id/${cover}-L.jpg?default=false` : null,
           source: 'openlibrary',
           sourceId: String(d.key ?? '').replace(/^\/works\//, '') || undefined,
           year: typeof d.first_publish_year === 'number' ? String(d.first_publish_year) : undefined,
@@ -221,6 +259,119 @@ export class GameLookup {
       })
       .slice(0, 8)
       .map((x) => x.game);
+  }
+
+  /**
+   * Animes: o Kitsu, sem chave. Completa a palavra pela metade ("fri" já acha Frieren) e tem o nome
+   * brasileiro de muitos animes ("Frieren e a Jornada para o Além"); sem ele, o nome em inglês.
+   */
+  private async searchKitsu(q: string, signal: AbortSignal): Promise<PickedGame[]> {
+    const params = new URLSearchParams({
+      'filter[text]': q,
+      'page[limit]': '10',
+      'fields[anime]': 'canonicalTitle,titles,startDate,posterImage,subtype',
+    });
+    const data = await this.fetchJson(`https://kitsu.io/api/edge/anime?${params}`, signal);
+    const items: any[] = data?.data ?? [];
+    const needle = fold(q);
+    return items
+      .map((a, index) => {
+        const at = a?.attributes ?? {};
+        const t = at.titles ?? {};
+        const names = [t.pt_br, t.en, at.canonicalTitle, t.en_jp].filter((n): n is string => typeof n === 'string' && !!n.trim());
+        const img = at.posterImage ?? {};
+        const cover = img.large || img.medium || img.original;
+        const game: PickedGame = {
+          name: (names[0] ?? '').trim(),
+          coverUrl: typeof cover === 'string' && /^https:\/\//.test(cover) ? cover : null,
+          source: 'kitsu',
+          sourceId: String(a?.id ?? '') || undefined,
+          year: typeof at.startDate === 'string' ? at.startDate.slice(0, 4) || undefined : undefined,
+        };
+        // "fri" põe Frieren antes de One Week Friends: sobe quem começa com o que foi digitado, em qualquer nome
+        const starts = names.some((n) => fold(n).startsWith(needle));
+        return { index, game, rank: starts ? 0 : 1 };
+      })
+      .filter((x) => x.game.name)
+      .sort((a, b) => a.rank - b.rank || a.index - b.index)
+      .slice(0, 8)
+      .map((x) => x.game);
+  }
+
+  /** A reserva dos animes: o AniList (sem chave), quando o Kitsu não responde. */
+  private async searchAniList(q: string, signal: AbortSignal): Promise<PickedGame[]> {
+    const query = `query ($s: String) {
+      Page(perPage: 8) {
+        media(search: $s, type: ANIME, isAdult: false, sort: SEARCH_MATCH) {
+          id
+          title { romaji english }
+          startDate { year }
+          coverImage { extraLarge large }
+        }
+      }
+    }`;
+    let res: Response;
+    try {
+      res = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query, variables: { s: q } }),
+        signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') throw e;
+      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
+    }
+    if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
+    const data = await res.json();
+    const media: any[] = data?.data?.Page?.media ?? [];
+    return media
+      .map((m) => ({
+        name: String(m?.title?.english || m?.title?.romaji || '').trim(),
+        coverUrl: m?.coverImage?.extraLarge || m?.coverImage?.large || null,
+        source: 'anilist' as const,
+        sourceId: String(m?.id ?? '') || undefined,
+        year: m?.startDate?.year ? String(m.startDate.year) : undefined,
+      }))
+      .filter((g) => g.name);
+  }
+
+  /**
+   * Filmes e séries: o TMDB, com a chave da pessoa. Nome e pôster em português (`pt-BR`), na ordem
+   * de relevância de lá. Aceita a "API key" (vai na URL) ou o "token de leitura" (vai no cabeçalho).
+   */
+  private async searchTmdb(q: string, key: string, type: 'movie' | 'tv', signal: AbortSignal): Promise<PickedGame[]> {
+    const token = key.startsWith('eyJ');
+    const params = new URLSearchParams({ query: q, language: 'pt-BR', include_adult: 'false', page: '1' });
+    if (!token) params.set('api_key', key);
+    let res: Response;
+    try {
+      res = await fetch(`https://api.themoviedb.org/3/search/${type}?${params}`, {
+        headers: token ? { Authorization: `Bearer ${key}`, Accept: 'application/json' } : { Accept: 'application/json' },
+        signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') throw e;
+      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
+    }
+    if (res.status === 401) throw new LookupError('A chave do TMDB foi recusada. Confira em Ajustes.', 'tmdb-key');
+    if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
+    const data = await res.json();
+    const results: any[] = data?.results ?? [];
+    return results
+      .map((r) => {
+        const name = String((type === 'movie' ? r?.title || r?.original_title : r?.name || r?.original_name) ?? '').trim();
+        const date = String((type === 'movie' ? r?.release_date : r?.first_air_date) ?? '');
+        return {
+          name,
+          coverUrl: typeof r?.poster_path === 'string' ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+          source: 'tmdb' as const,
+          sourceId: r?.id ? `${type}/${r.id}` : undefined,
+          year: /^\d{4}/.test(date) ? date.slice(0, 4) : undefined,
+        };
+      })
+      .filter((g) => g.name)
+      .slice(0, 8);
   }
 
   private async searchRawg(q: string, key: string, signal: AbortSignal): Promise<PickedGame[]> {

@@ -5,13 +5,14 @@
  * - A página (navegação): rede primeiro, com prazo curto; sem rede, a última versão guardada.
  * - Os arquivos do próprio site: o guardado na hora, e a rede atualiza por trás. Os nomes têm hash,
  *   então uma versão nova do site traz arquivos novos, nunca troca um guardado por outro.
- * - As capas (Wikipedia, Steam, RAWG, Open Library): guardadas na primeira vez, para sempre.
+ * - As capas (Wikipedia, Steam, RAWG, Open Library, TMDB, AniList): guardadas na primeira vez, para sempre.
+ *   As do Kitsu não aceitam CORS: aparecem normalmente, mas não ficam guardadas.
  * - As buscas de catálogo passam direto: sem rede, a busca já avisa e oferece seguir sem capa.
  */
 const SHELL = 'mural-site-v1';
 const COVERS = 'mural-capas-v1';
 const MAX_COVERS = 3000;
-const COVER_HOSTS = /(^|\.)(wikimedia\.org|steamstatic\.com|rawg\.io|openlibrary\.org|archive\.org)$/;
+const COVER_HOSTS = /(^|\.)(wikimedia\.org|steamstatic\.com|rawg\.io|openlibrary\.org|archive\.org|tmdb\.org|anilist\.co)$/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

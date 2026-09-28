@@ -146,7 +146,7 @@ export function scoreOf(scores: Rated & { final?: number }, k: ScoreKey): number
   return scores[k] ?? null;
 }
 
-export type GameSource = 'wikipedia' | 'rawg' | 'openlibrary' | 'manual';
+export type GameSource = 'wikipedia' | 'rawg' | 'openlibrary' | 'kitsu' | 'anilist' | 'tmdb' | 'manual';
 
 /** O que foi escolhido na busca: um jogo, um livro, um filme… O nome ficou de quando o mural só tinha jogos. */
 export interface PickedGame {
@@ -428,7 +428,7 @@ function isoOr(v: unknown, fallback: string): string {
   return Number.isNaN(t) ? fallback : new Date(t).toISOString();
 }
 
-const SOURCES: readonly GameSource[] = ['wikipedia', 'rawg', 'openlibrary', 'manual'];
+const SOURCES: readonly GameSource[] = ['wikipedia', 'rawg', 'openlibrary', 'kitsu', 'anilist', 'tmdb', 'manual'];
 
 function sanitizeGame(raw: unknown): PickedGame | null {
   const g = (raw ?? {}) as Record<string, any>;

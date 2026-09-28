@@ -67,8 +67,41 @@ import { Pin } from '../ui/pin';
         <app-pin class="pin" color="#f4f4f0" />
         <h2 id="catalogo-titulo">Catálogos</h2>
         <p class="lead">
-          A busca funciona sem configurar nada: livros vêm da Open Library; jogos, filmes, séries e animes, da
-          Wikipedia. Para capas e busca de jogos mais precisas, crie uma chave gratuita em
+          A busca funciona sem configurar nada: livros vêm da Open Library, na edição em português; animes, do
+          Kitsu; jogos, filmes e séries, da Wikipedia. Duas chaves gratuitas deixam a busca melhor.
+        </p>
+
+        <h3 class="key-title">Filmes e séries</h3>
+        <p class="lead">
+          Com uma chave do TMDB, filmes e séries vêm com o nome e o pôster em português. Crie uma conta em
+          <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a>, peça
+          a chave de API (uso pessoal) e cole aqui a "Chave da API" ou o "Token de leitura".
+        </p>
+        <label class="key-label" for="tmdb-key">Chave do TMDB</label>
+        <div class="key">
+          <input
+            id="tmdb-key"
+            [type]="showTmdb() ? 'text' : 'password'"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Cole sua chave aqui"
+            [value]="settings.tmdbKey()"
+            (input)="settings.tmdbKey.set($any($event.target).value)"
+          />
+          <button
+            type="button"
+            class="icon-btn"
+            (click)="showTmdb.set(!showTmdb())"
+            [attr.aria-label]="showTmdb() ? 'Esconder chave' : 'Mostrar chave'"
+          >
+            <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
+          </button>
+        </div>
+        <p class="credit">Este site usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.</p>
+
+        <h3 class="key-title">Jogos</h3>
+        <p class="lead">
+          Para capas e busca de jogos mais precisas, crie uma chave gratuita em
           <a href="https://rawg.io/apidocs" target="_blank" rel="noopener">rawg.io/apidocs</a> e cole aqui.
         </p>
         <label class="key-label" for="rawg-key">Chave da RAWG</label>
@@ -142,6 +175,7 @@ export class SettingsPage {
   protected readonly HideIcon = EyeOff;
 
   protected readonly showKey = signal(false);
+  protected readonly showTmdb = signal(false);
   protected readonly mode = signal<'merge' | 'replace'>('merge');
   protected readonly importMsg = signal<{ text: string; error: boolean } | null>(null);
 
