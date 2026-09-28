@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { LucideAngularModule, Plus } from 'lucide-angular';
 import { filter, map } from 'rxjs';
+import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { ReviewStore } from './core/review-store';
 import { SideBySide } from './core/side-by-side';
@@ -43,6 +44,7 @@ export class App {
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
   private readonly side = inject(SideBySide);
+  protected readonly backup = inject(Backup);
 
   /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
   private readonly path = toSignal(
@@ -142,6 +144,11 @@ export class App {
     if (e.isNew && this.router.url !== '/') this.goLand('/', e.id);
     else this.desk.land(e.id);
     this.toasts.show(e.isNew ? `“${name}” pregado no mural` : 'Resenha atualizada');
+    if (e.isNew) void this.backup.protect();
+  }
+
+  protected backupDays(days: number): string {
+    return days === 0 ? 'Você ainda não baixou nenhum backup.' : `Seu último backup foi há ${days} dias.`;
   }
 
   private goLand(path: string, id: string): void {

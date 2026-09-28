@@ -38,6 +38,17 @@
   </p>
 }
 
+@let backupDue = backup.due();
+@if (backupDue !== null) {
+  <aside class="lembrete" aria-label="Lembrete de backup">
+    <p>{{ backupDays(backupDue) }} As resenhas só existem neste navegador.</p>
+    <div class="lembrete-acoes">
+      <button type="button" class="btn-ink" (click)="backup.download()">Baixar backup</button>
+      <button type="button" class="btn-quiet" (click)="backup.snooze()">Depois</button>
+    </div>
+  </aside>
+}
+
 <main id="conteudo" tabindex="-1">
   <router-outlet />
 </main>

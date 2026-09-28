@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Download, Eye, EyeOff, LucideAngularModule, Upload } from 'lucide-angular';
+import { Backup } from '../core/backup';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Toasts } from '../ui/toast';
@@ -39,6 +40,13 @@ import { Pin } from '../ui/pin';
           }
           entram no arquivo.
         </p>
+        <p class="has last">{{ lastBackup() }}</p>
+        @if (backup.persisted() === false) {
+          <p class="tip">
+            O navegador pode apagar o que um site guarda quando falta espaço (o Safari apaga depois de uma semana
+            sem abrir). Instale o mural na tela inicial para ele ficar protegido, e baixe o backup de vez em quando.
+          </p>
+        }
         <fieldset class="mode">
           <legend>Ao restaurar</legend>
           <label>
@@ -124,6 +132,7 @@ import { Pin } from '../ui/pin';
 export class SettingsPage {
   protected readonly store = inject(ReviewStore);
   protected readonly settings = inject(Settings);
+  protected readonly backup = inject(Backup);
   private readonly toasts = inject(Toasts);
 
   protected readonly DownloadIcon = Download;
@@ -135,14 +144,16 @@ export class SettingsPage {
   protected readonly mode = signal<'merge' | 'replace'>('merge');
   protected readonly importMsg = signal<{ text: string; error: boolean } | null>(null);
 
-  protected async exportFile(): Promise<void> {
-    const { blob, ext } = await this.store.exportBackup();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mural-de-jogos-${new Date().toISOString().slice(0, 10)}.${ext}`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  protected readonly lastBackup = computed(() => {
+    const at = this.backup.lastAt();
+    if (!at) return 'Nenhum backup baixado ainda';
+    const days = Math.floor((Date.now() - Date.parse(at)) / 86_400_000);
+    const when = days <= 0 ? 'hoje' : days === 1 ? 'ontem' : `há ${days} dias`;
+    return `Último backup: ${when}`;
+  });
+
+  protected exportFile(): Promise<void> {
+    return this.backup.download();
   }
 
   protected async importFile(e: Event): Promise<void> {
