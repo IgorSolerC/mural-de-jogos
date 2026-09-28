@@ -37,7 +37,7 @@ export const WEIGHT_FACTOR: Record<Weight, number> = {
   'nao-tem': 0,
 };
 
-/** Bônus a favor contam na média como um 10 a mais; os contra, como um 0 a mais. */
+/** Bônus a favor puxam a média como um 10 a mais; os contra, como um 0 a mais. Cada um mexe no máximo meio ponto. */
 export type BonusKind = 'favor' | 'contra';
 
 export interface Bonus {
@@ -56,6 +56,9 @@ export const BONUS_SCORE: Record<BonusKind, number> = { favor: 10, contra: 0 };
 
 /** Cada bônus pesa na média o mesmo que uma categoria Normal de peso-base 1 (História, por exemplo). */
 export const BONUS_WEIGHT = 1;
+
+/** O máximo que um bônus sozinho mexe na média, para cima ou para baixo: um defeito não derruba um jogo inteiro. */
+export const BONUS_MAX_SHIFT = 0.5;
 
 /** Nomes curtos o bastante para caber num adesivo da ficha. */
 export const BONUS_MAX_LABEL = 32;
@@ -260,7 +263,8 @@ export function counts(weights: Weights | undefined, k: RatedKey): boolean {
 /**
  * Média ponderada das notas dadas, com uma casa decimal. Diversão tem peso-base 2x; cada categoria
  * ainda pode valer o dobro (Relevante), metade (Pouco importante) ou sair da conta (Não tem).
- * Cada bônus entra como mais uma nota de peso 1: 10 se for a favor, 0 se for contra.
+ * Cada bônus mexe na média o que mais uma nota de peso 1 mexeria (10 se for a favor, 0 se for contra),
+ * limitado a meio ponto. Cada um é medido contra a média das notas, sozinho, e os efeitos se somam.
  * Null se nenhuma nota que conta foi dada (bônus sozinho não faz média).
  */
 export function computeFinal(
@@ -278,11 +282,13 @@ export function computeFinal(
     weight += w;
   }
   if (!weight) return null;
+  const base = sum / weight;
+  let shift = 0;
   for (const b of bonuses ?? []) {
-    sum += BONUS_SCORE[b.kind] * BONUS_WEIGHT;
-    weight += BONUS_WEIGHT;
+    const alone = ((BONUS_SCORE[b.kind] - base) * BONUS_WEIGHT) / (weight + BONUS_WEIGHT);
+    shift += Math.min(BONUS_MAX_SHIFT, Math.max(-BONUS_MAX_SHIFT, alone));
   }
-  return Math.round((sum / weight) * 10) / 10;
+  return Math.round(Math.min(10, Math.max(0, base + shift)) * 10) / 10;
 }
 
 /** A média só das notas, sem os bônus: para mostrar quanto eles mexeram. */

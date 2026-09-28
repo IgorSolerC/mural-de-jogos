@@ -280,7 +280,7 @@ let uid = 0;
           <div class="lado" role="group" [attr.aria-labelledby]="uid + '-' + k">
             <p class="lado-label" [id]="uid + '-' + k">
               <span>{{ kindLabels[k] }}</span>
-              <span class="lado-conta">conta como {{ k === 'favor' ? '10' : '0' }}</span>
+              <span class="lado-conta">até {{ k === 'favor' ? '+0,5' : '−0,5' }} cada</span>
             </p>
             <div class="slots">
               @for (b of options()[k]; track b.id) {
@@ -334,7 +334,7 @@ let uid = 0;
         }
       </ul>
     } @else {
-      <p class="hint">Trilha sonora incrível, muitos bugs… Cada bônus a favor conta como um 10 na média; cada um contra, como um 0.</p>
+      <p class="hint">Trilha sonora incrível, muitos bugs… Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo meio ponto.</p>
     }
   `,
   styles: `
