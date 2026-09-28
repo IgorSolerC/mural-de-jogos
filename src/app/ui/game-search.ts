@@ -25,7 +25,7 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
   imports: [LucideAngularModule, CoverSleeve],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <label class="label" [for]="inputId">Qual jogo?</label>
+    <label class="pergunta" [for]="inputId">Qual jogo?</label>
     <div class="strip" [class.busy]="loading()">
       <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
       <input

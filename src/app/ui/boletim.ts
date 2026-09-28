@@ -14,7 +14,7 @@ import { PenMark } from './pen-mark';
   host: { '[class]': 'size()' },
   template: `
     <dl>
-      @for (c of cells(); track c.key) {
+      @for (c of cells(); track c.key; let i = $index) {
         <div class="cell" [class.off]="c.off">
           <dt>
             {{ labels[c.key] }}
@@ -26,7 +26,15 @@ import { PenMark } from './pen-mark';
             @if (c.off) {
               <span aria-hidden="true">—</span><span class="sr-only">não tem</span>
             } @else {
-              {{ c.value }}
+              @if (c.ten) {
+                <!-- 10: o número vem num adesivo holográfico colado na casa -->
+                <span class="adesivo foil-nota" [style.--foil-delay]="i * -1.3 + 's'">{{ c.value }}</span>
+              } @else if (c.ruim) {
+                <!-- 0 ou 1: nota vermelha num pedaço de fita preta rasgado à mão -->
+                <span class="fita-rasgada">{{ c.value }}</span>
+              } @else {
+                {{ c.value }}
+              }
               @switch (c.weight) {
                 @case ('relevante') {
                   <lucide-icon class="w" [img]="UpIcon" [size]="arrowSize()" [strokeWidth]="3.2" aria-hidden="true" [title]="weightLabels.relevante" />
@@ -99,6 +107,34 @@ import { PenMark } from './pen-mark';
     .w {
       display: inline-flex;
     }
+    /* Nota 10: um adesivo holográfico de cantos redondos com o número a pincel por cima, colado
+       meio torto, que se destaca da cartolina pela sombra. A folha vem de .foil-nota (styles.scss). */
+    .adesivo {
+      --varnish: 0.22;
+      display: inline-block;
+      min-width: 1.4em;
+      text-align: center;
+      padding: 0.04em 0.26em 0;
+      margin: -0.08em 0;
+      --sombra: 0.5px 1.5px 3px rgb(0 0 0 / 51%);
+      border-radius: 12px;
+      rotate: -2.5deg;
+    }
+    .adesivo.foil-nota {
+      box-shadow: var(--sombra);
+    }
+    /* 0 ou 1: o avesso do adesivo, um pedaço de fita preta rasgado à mão (.fita-rasgada, no
+       styles.scss), colado mais torto que o adesivo, de quem colou sem cuidado */
+    .fita-rasgada {
+      margin: -0.06em 0;
+      rotate: -3deg;
+    }
+    .cell:nth-child(even) .adesivo {
+      rotate: 1.8deg;
+    }
+    .cell:nth-child(even) .fita-rasgada {
+      rotate: 2.4deg;
+    }
 
     /* ===== Leitura: o mesmo boletim, com casas mais altas e números maiores ===== */
     :host(.big) dl::before {
@@ -143,7 +179,7 @@ export class Boletim {
     const r = this.review();
     return RATED_KEYS.map((key) => {
       const weight = weightOf(r.weights, key);
-      return { key, weight, off: weight === 'nao-tem', value: formatScore(r.scores[key]) };
+      return { key, weight, off: weight === 'nao-tem', ten: r.scores[key] === 10, ruim: (r.scores[key] ?? 2) < 2, value: formatScore(r.scores[key]) };
     });
   });
   protected readonly arrowSize = computed(() => (this.size() === 'big' ? 17 : 13));

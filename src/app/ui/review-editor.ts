@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   computed,
   inject,
@@ -18,6 +19,8 @@ import {
   RatedKey,
   Review,
   SCORE_LABEL,
+  STOCKS,
+  STOCK_LABEL,
   Status,
   Stock,
   Verdict,
@@ -41,8 +44,9 @@ import { BonusPicker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
 import { GameSearch } from './game-search';
+import { JudgeLabel } from './judge-label';
 import { Pin } from './pin';
-import { ScoreBurst } from './score-burst';
+import { ReviewCard } from './review-card';
 import { ScorePicker } from './score-picker';
 import { StatusPicker } from './status-picker';
 import { VerdictPicker } from './verdict';
@@ -60,8 +64,9 @@ export interface SavedEvent {
     CoverSleeve,
     DifficultyPicker,
     GameSearch,
+    JudgeLabel,
     Pin,
-    ScoreBurst,
+    ReviewCard,
     ScorePicker,
     StatusPicker,
     VerdictPicker,
@@ -146,9 +151,52 @@ export class ReviewEditor {
   protected readonly draftError = signal(false);
   protected readonly searchSeed = signal('');
 
-  /** A ficha em branco já tem a cor com que vai para o mural. */
-  protected readonly stock = signal<Stock | undefined>(undefined);
+  /** A ficha em branco já nasce com uma cor sorteada; a pessoa troca pela que quiser. */
+  protected readonly stock = signal<Stock>('amarelo');
+  protected readonly stocks = STOCKS;
+  protected readonly stockLabels = STOCK_LABEL;
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
+
+  /** No celular a prévia é a ficha simples, que cabe no alto da tela sem empurrar o formulário. */
+  protected readonly phone = signal(false);
+
+  /** A ficha como ela vai para o mural, montada com o que já foi preenchido. */
+  protected readonly preview = computed<Review>(() => {
+    const w = this.weights();
+    const score = (k: RatedKey) => (counts(w, k) ? this.scoreSignal(k)() : null);
+    return {
+      id: this.id(),
+      // sem jogo, a capa mostra um ponto de interrogação e o nome fica só marcado (ReviewCard.empty)
+      game: this.game() ?? { name: '', coverUrl: null, source: 'manual' },
+      // sem nota ainda, a etiqueta mostra o tracinho
+      scores: {
+        final: this.final() as number,
+        historia: score('historia'),
+        diversao: score('diversao'),
+        jogabilidade: score('jogabilidade'),
+        visual: score('visual'),
+      },
+      status: this.status() ?? 'finalizado',
+      difficulty: this.difficulty(),
+      verdict: this.verdict(),
+      weights: w,
+      bonuses: this.bonuses(),
+      hoursPlayed: this.hoursValid() ? this.hoursValue() : null,
+      stock: this.stock(),
+      text: this.text(),
+      completedAt: this.dateValid() ? this.completedAt() : this.today(),
+      createdAt: '',
+      updatedAt: '',
+    };
+  });
+
+  constructor() {
+    const mq = matchMedia('(max-width: 699px)');
+    const sync = () => this.phone.set(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    inject(DestroyRef).onDestroy(() => mq.removeEventListener('change', sync));
+  }
 
   protected readonly missingScores = computed(() =>
     RATED_KEYS.filter((k) => counts(this.weights(), k) && this.scoreSignal(k)() === null),
@@ -393,6 +441,7 @@ export class ReviewEditor {
   private serialize(): string {
     return JSON.stringify([
       this.game()?.name,
+      this.stock(),
       this.historia(),
       this.diversao(),
       this.jogabilidade(),

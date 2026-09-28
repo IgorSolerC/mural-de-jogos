@@ -23,6 +23,13 @@ dialog.reader {
 
 .body {
   padding-top: 26px;
+  transition: --luz 600ms var(--ease-physical);
+}
+/* com o mouse em cima da ficha aberta, a lâmpada bate nas folhas holográficas onde o ponteiro está */
+@media (hover: hover) {
+  .body:hover {
+    --luz: 1;
+  }
 }
 
 /* ===== A ficha do mural, vista de perto =====

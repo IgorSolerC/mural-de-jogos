@@ -33,7 +33,8 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
     /* traço de espessura constante, seja a palavra curta (Visual) ou longa (Jogabilidade) */
     path {
       fill: none;
-      stroke: var(--red);
+      /* a caneta é vermelha; na cartolina vermelha ela sumiria, então lá quem risca é o pincel (--pen) */
+      stroke: var(--pen, var(--red));
       stroke-width: var(--pen-w, 2.6px);
       stroke-linecap: round;
       vector-effect: non-scaling-stroke;

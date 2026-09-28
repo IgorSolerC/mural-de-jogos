@@ -76,13 +76,14 @@ export class ReviewStore {
   }
 
   /** A próxima cartolina do rodízio, depois da ficha mais recente. */
+  /** A cor com que a ficha nova nasce: sorteada, só não repete a da última pregada. A pessoa troca no editor. */
   nextStock(): Stock {
     const latest = this.reviews().reduce<Review | null>(
       (acc, r) => (!acc || Date.parse(r.createdAt) > Date.parse(acc.createdAt) ? r : acc),
       null,
     );
-    const i = latest?.stock ? STOCKS.indexOf(latest.stock) : -1;
-    return STOCKS[(i + 1) % STOCKS.length];
+    const pool = STOCKS.filter((s) => s !== latest?.stock);
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   get(id: string): Review | undefined {
@@ -131,7 +132,8 @@ export class ReviewStore {
     this.drafts.update((list) => [draft, ...list]);
   }
 
-  exportJson(): Blob {
+  /** O backup sai em gzip (.json.gz); sem CompressionStream no navegador, sai o JSON puro. */
+  async exportBackup(): Promise<{ blob: Blob; ext: string }> {
     const payload = {
       app: 'mural-de-jogos',
       version: 1,
@@ -139,7 +141,21 @@ export class ReviewStore {
       reviews: this.reviews(),
       drafts: this.drafts(),
     };
-    return new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const json = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    if (typeof CompressionStream === 'undefined') return { blob: json, ext: 'json' };
+    const gz = await new Response(json.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+    return { blob: new Blob([gz], { type: 'application/gzip' }), ext: 'json.gz' };
+  }
+
+  /** Lê o arquivo do backup, gzip ou JSON puro (os backups antigos), e devolve o texto do JSON. */
+  async readBackup(file: Blob): Promise<string> {
+    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+    if (head[0] !== 0x1f || head[1] !== 0x8b) return file.text();
+    try {
+      return await new Response(file.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    } catch {
+      throw new Error('Esse arquivo compactado está corrompido. Escolha o backup baixado pelo Mural de Jogos.');
+    }
   }
 
   /** Lança Error com mensagem pronta para o usuário quando o arquivo não serve. */

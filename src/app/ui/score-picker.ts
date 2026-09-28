@@ -11,7 +11,7 @@ let uid = 0;
   template: `
     <fieldset>
       <legend>
-        <span class="label">{{ label() }}</span>
+        <span class="label rotulo">{{ label() }}</span>
         @if (weight(); as w) {
           <select
             class="weight"
@@ -20,7 +20,7 @@ let uid = 0;
             (change)="weightChange.emit($any($event.target).value)"
           >
             @for (opt of weights; track opt) {
-              <option [value]="opt" [selected]="opt === w">{{ weightLabels[opt] }}</option>
+              <option [value]="opt" [selected]="opt === w">{{ opt === 'normal' ? 'Peso normal' : weightLabels[opt] }}</option>
             }
           </select>
         }
@@ -64,18 +64,15 @@ let uid = 0;
     }
     legend {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 10px;
       width: 100%;
+      min-height: 30px;
       padding: 0;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .label {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      margin: 0;
     }
     :host(.big) .label {
       font-family: var(--f-marker);
@@ -84,36 +81,46 @@ let uid = 0;
       letter-spacing: 0;
       text-transform: none;
     }
-    /* Peso da categoria: uma etiquetinha discreta à direita do nome */
+    /* Peso da categoria: no normal, só um lembrete impresso à direita do nome, que não disputa com
+       as notas. Mexeu no peso, ele vira etiqueta colada, como toda escolha da ficha em branco. */
     .weight {
       margin-left: auto;
       height: 30px;
-      padding: 0 26px 0 10px;
+      padding: 0 24px 0 9px;
       border: 0;
-      border-radius: 4px;
+      border-radius: 2px;
       appearance: none;
-      background:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23151515' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-          right 9px center / 10px 6px no-repeat,
-        rgb(255 255 255 / 0.32);
-      color: var(--ink);
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23151515' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+        right 8px center / 9px 6px no-repeat;
+      color: var(--ink-2);
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
       cursor: pointer;
-      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.28);
-      transition: background-color var(--t-ui) var(--ease-ui);
+      transition:
+        background-color var(--t-ui) var(--ease-ui),
+        color var(--t-ui) var(--ease-ui),
+        rotate var(--t-physical) var(--ease-physical);
     }
     .weight:hover {
-      background-color: rgb(255 255 255 / 0.55);
+      background-color: rgb(21 21 21 / 0.06);
+      color: var(--ink);
+    }
+    .weight:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 1px;
     }
     .weight.relevante,
     .weight.pouco,
     .weight.nao-tem {
       background-color: var(--paper);
-      box-shadow: inset 0 0 0 2px var(--ink);
+      color: var(--ink);
+      rotate: -1.5deg;
+      box-shadow:
+        inset 0 0 0 1.5px rgb(21 21 21 / 0.82),
+        0 2px 3px rgb(0 0 0 / 0.3);
     }
     /* categoria que o jogo não tem: some a fileira de números */
     :host(.off) .nums {

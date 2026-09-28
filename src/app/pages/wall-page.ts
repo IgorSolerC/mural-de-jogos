@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { ReviewStore } from '../core/review-store';
+import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { WallView } from '../core/wall-view';
@@ -23,6 +24,7 @@ export class WallPage {
   protected readonly store = inject(ReviewStore);
   protected readonly view = inject(WallView);
   protected readonly desk = inject(Desk);
+  protected readonly settings = inject(Settings);
   protected readonly side = inject(SideBySide);
   private readonly vt = inject(ViewTransitions);
 

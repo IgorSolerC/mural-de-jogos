@@ -5,7 +5,7 @@ import { Settings } from '../core/settings';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 
-/** Ajustes: backup e catálogo de jogos, cada um na sua ficha. Era um diálogo; virou página. */
+/** Ajustes: backup, catálogo de jogos e o jeito do mural, cada um na sua ficha. Era um diálogo; virou página. */
 @Component({
   selector: 'app-settings-page',
   imports: [LucideAngularModule, Pin],
@@ -29,7 +29,7 @@ import { Pin } from '../ui/pin';
           <label class="file-btn">
             <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
             Restaurar backup
-            <input type="file" accept="application/json,.json" (change)="importFile($event)" />
+            <input type="file" accept="application/json,.json,application/gzip,.gz" (change)="importFile($event)" />
           </label>
         </div>
         <p class="has">
@@ -97,6 +97,26 @@ import { Pin } from '../ui/pin';
           </label>
         </fieldset>
       </section>
+
+      <section class="ficha cartolina mural" aria-labelledby="mural-titulo">
+        <app-pin class="pin" color="#e62e2d" />
+        <h2 id="mural-titulo">Mural</h2>
+        <p class="lead">
+          As etiquetas de fita separam o mural pelo que ordena: mês, nota, letra ou status. Esconda para as fichas
+          correrem juntas, sem nada no meio, na hora de tirar um print.
+        </p>
+        <fieldset class="mode">
+          <legend>Etiquetas dos grupos</legend>
+          <label>
+            <input type="radio" name="etiquetas" value="mostrar" [checked]="settings.groupLabels()" (change)="settings.groupLabels.set(true)" />
+            Mostrar
+          </label>
+          <label>
+            <input type="radio" name="etiquetas" value="esconder" [checked]="!settings.groupLabels()" (change)="settings.groupLabels.set(false)" />
+            Esconder
+          </label>
+        </fieldset>
+      </section>
     </div>
   `,
   styleUrl: './settings-page.scss',
@@ -115,12 +135,12 @@ export class SettingsPage {
   protected readonly mode = signal<'merge' | 'replace'>('merge');
   protected readonly importMsg = signal<{ text: string; error: boolean } | null>(null);
 
-  protected exportFile(): void {
-    const blob = this.store.exportJson();
+  protected async exportFile(): Promise<void> {
+    const { blob, ext } = await this.store.exportBackup();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `mural-de-jogos-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `mural-de-jogos-${new Date().toISOString().slice(0, 10)}.${ext}`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -138,7 +158,7 @@ export class SettingsPage {
       return;
     }
     try {
-      const res = this.store.importJson(await file.text(), this.mode());
+      const res = this.store.importJson(await this.store.readBackup(file), this.mode());
       const parts = [`${res.added} ${res.added === 1 ? 'resenha nova' : 'resenhas novas'}`];
       if (res.updated) parts.push(`${res.updated} atualizada${res.updated === 1 ? '' : 's'}`);
       if (res.skipped) parts.push(`${res.skipped} ignorada${res.skipped === 1 ? '' : 's'}`);

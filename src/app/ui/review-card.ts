@@ -20,6 +20,7 @@ import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
 import { JudgeLabel } from './judge-label';
+import { Luz } from './luz';
 import { PenMark } from './pen-mark';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
@@ -38,6 +39,8 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
   selector: 'app-review-card',
   imports: [Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
+  hostDirectives: [Luz],
   host: {
     class: 'cartolina',
     '[class.is-landing]': 'landing()',
@@ -45,10 +48,13 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     '[class.picking]': 'picking()',
     '[class.picked]': 'pickedAt() !== null',
     '[style.--stock]': '"var(--stock-" + pin().stock + ")"',
+    '[style.--pen]': 'pin().stock === "vermelho" ? "var(--ink)" : null',
     '[style.--tilt]': 'pin().tilt',
     '[style.--pin-x]': 'pinX() + "%"',
     '[style.--drop-y]': 'pin().dropY + "px"',
-    '[style.view-transition-name]': '"ficha-" + review().id',
+    // a prévia no editor não disputa o nome com a ficha de verdade que está no mural
+    '[style.view-transition-name]': 'preview() ? null : "ficha-" + review().id',
+    '[class.vazia]': 'empty()',
   },
   template: `
     <app-pin class="pin" [color]="pin().pinColor" />
@@ -66,14 +72,14 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       </div>
 
       <div class="words">
-        <h4 class="title">{{ review().game.name }}</h4>
+        <h4 class="title">{{ empty() ? 'Nome do jogo' : review().game.name }}</h4>
         <p class="meta">
           <time [attr.datetime]="review().completedAt">{{ date() }}</time>
           @if (review().hoursPlayed !== null && !compact()) {
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
           }
           @if (compact() && sortedCell(); as c) {
-            <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} {{ c.value }}<app-pen-mark /></span>
+            <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} @if (c.ten) {<span class="adesivo foil-nota">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else { {{ c.value }} }<app-pen-mark /></span>
           }
           @if (compact() && bonuses().length) {
             <app-bonus-tally class="tally" [bonuses]="bonuses()" />
@@ -82,7 +88,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       </div>
 
       <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
-      <app-judge-label class="judge" [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" />
+      <app-judge-label class="judge" [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" />
     </div>
 
     @if (!compact()) {
@@ -145,7 +151,8 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       transition:
         rotate var(--t-physical) var(--ease-physical),
         translate var(--t-physical) var(--ease-physical),
-        box-shadow var(--t-ui) var(--ease-ui);
+        box-shadow var(--t-ui) var(--ease-ui),
+        --luz 600ms var(--ease-physical);
     }
 
     /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede */
@@ -155,6 +162,12 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       translate: 0 -3px;
       box-shadow: var(--shadow-lift);
       --shine: 100%;
+    }
+    /* com o mouse em cima, a lâmpada bate nas folhas holográficas onde o ponteiro está */
+    @media (hover: hover) {
+      :host(:hover) {
+        --luz: 1;
+      }
     }
     /* no toque: a ficha volta a encostar na parede */
     :host(:active) {
@@ -211,6 +224,9 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       /* a tachinha fura o papel acima do nome, sem encostar nele */
       padding-top: 10px;
     }
+    :host(.vazia) .title {
+      opacity: 0.4;
+    }
     .title {
       max-width: 100%;
       font-family: var(--f-marker);
@@ -238,9 +254,10 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     }
 
     /* ===== A primeira frase da resenha, inteira, na letra de quem escreveu ===== */
+    /* a etiqueta ocupa a coluna toda para saber se o veredito cabe; ela mesma encosta à esquerda */
     .judge {
       grid-area: judge;
-      justify-self: start;
+      min-width: 0;
       margin-top: 14px;
     }
 
@@ -383,6 +400,27 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       white-space: nowrap;
       --pen-y: -4px;
     }
+    /* um 10 na nota que ordena: o mesmo adesivo do boletim, em miniatura */
+    .sorted .adesivo {
+      --varnish: 0.22;
+      min-width: 20px;
+      text-align: center;
+      display: inline-block;
+      padding: 0 4px;
+      --sombra: 0.5px 1.5px 3px rgb(0 0 0 / 51%);
+      border-radius: 12px;
+      line-height: 16px;
+      rotate: -2deg;
+    }
+    .sorted .adesivo.foil-nota {
+      box-shadow: var(--sombra);
+    }
+    /* um 0 ou 1: a fita preta rasgada do boletim, em miniatura */
+    .sorted .fita-rasgada {
+      line-height: 16px;
+      padding: 0 0.34em;
+      rotate: -2.5deg;
+    }
 
     /* Chegada ao mural: a ficha cai, a tachinha entra com força */
     :host(.is-landing) {
@@ -453,6 +491,10 @@ export class ReviewCard {
   readonly picking = input(false);
   /** Posição da ficha no lado a lado (1, 2, 3…), ou null se não está marcada. */
   readonly pickedAt = input<number | null>(null);
+  /** É a prévia no editor, a ficha sendo feita: não entra nas transições do mural. */
+  readonly preview = input(false);
+  /** Ainda sem jogo: o nome no lugar é só um marcador, em tinta rala. */
+  readonly empty = input(false);
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
@@ -487,7 +529,7 @@ export class ReviewCard {
     const r = this.review();
     return RATED_KEYS.map((key) => {
       const weight = weightOf(r.weights, key);
-      return { key, weight, off: weight === 'nao-tem', value: formatScore(r.scores[key]) };
+      return { key, weight, off: weight === 'nao-tem', ten: r.scores[key] === 10, ruim: (r.scores[key] ?? 2) < 2, value: formatScore(r.scores[key]) };
     });
   });
 

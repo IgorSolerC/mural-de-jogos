@@ -16,12 +16,18 @@
   --stock-laranja: #ffa358;
   --stock-azul: #70cdff;
   --stock-lilas: #c4a5fb;
+  /* as duas que a pessoa pediu: vermelho de cartolina, claro o bastante para a tinta (5,3:1),
+     e um cinza quente, no mesmo eixo do papel */
+  --stock-vermelho: #f44f45;
+  --stock-cinza: #c9c3bc;
 
   /* Tintas */
   --ink: #151515;
   --ink-2: rgb(21 21 21 / 0.78);
   --red: #e62e2d;
   --red-deep: #b81d1c;
+  /* nota vermelha: a nota ruim, sempre sobre preto (5,3:1 no ink) */
+  --nota-vermelha: #ff4436;
   /* papel: todos os neutros claros moram no mesmo eixo quente, do papel à fita */
   --paper: #f7f4ec;
   --hi: #ffda42;
@@ -103,6 +109,12 @@
   syntax: '<percentage>';
   inherits: true;
   initial-value: 0%;
+}
+/* quanto da lâmpada bate na folha holográfica: 1 com a ficha levantada, e acende e apaga devagar */
+@property --luz {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
 }
 
 *,
@@ -451,6 +463,253 @@ dialog.sheet {
   color: var(--ink);
   /* controles nativos (rádio, data, rolagem) em versão clara sobre o papel */
   color-scheme: light;
+}
+
+/* ===== Nota 9 ou mais: adesivo holográfico de nota alta =====
+   A mesma folha do Platinado, mas viva: o arco-íris e a purpurina correm devagar de um lado para
+   o outro, como um adesivo inclinado debaixo da luz. O número fica em tinta por cima do verniz, e
+   quem usa desenha a borda de tinta (borda ou contorno por filtro), que separa a folha de qualquer
+   cartolina. Parado com movimento reduzido. */
+.foil-nota {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: transparent;
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.6);
+}
+.foil-nota::before {
+  content: '';
+  position: absolute;
+  inset: -40px -40px -40px -140px;
+  z-index: -1;
+  background:
+    linear-gradient(rgb(255 255 255 / var(--varnish, 0.3)), rgb(255 255 255 / var(--varnish, 0.3))),
+    var(
+      --holo-foil,
+      repeating-linear-gradient(62deg, rgb(255 255 255 / 0.35) 0 1px, transparent 1px 4px),
+      linear-gradient(100deg, #b6f0ff, #f7b8ff 22%, #fff3a6 42%, #a8ffd6 62%, #b9c9ff 80%, #ffc2e2)
+    );
+  animation: holo-inclina 5.2s cubic-bezier(0.45, 0, 0.55, 1) var(--foil-delay, 0s) infinite alternate;
+  /* debaixo da lâmpada (--luz, da ficha levantada), o arco-íris troca de cor conforme o ponteiro
+     anda de um lado para o outro, como a folha inclinada na mão (--luz-n vem de Luz) */
+  filter: hue-rotate(calc((var(--luz-n, 0.5) - 0.5) * var(--luz) * 150deg)) saturate(calc(1 + var(--luz) * 0.9)) contrast(calc(1 + var(--luz) * 0.08));
+  pointer-events: none;
+}
+/* o fio branco na borda da estampa, o brilho que corre quando a ficha levanta, como no Platinado,
+   e o reflexo da lâmpada, que acompanha o ponteiro enquanto ela está levantada */
+.foil-nota::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at var(--luz-x, 50%) var(--luz-y, 30%), rgb(255 255 255 / calc(var(--luz) * 0.62)), rgb(255 255 255 / calc(var(--luz) * 0.14)) 22%, rgb(255 255 255 / 0) 46%),
+    linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.85) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.7),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12);
+  transition: --shine 900ms var(--ease-physical);
+  pointer-events: none;
+}
+@keyframes holo-inclina {
+  to {
+    translate: 100px 0;
+  }
+}
+/* ===== Nota abaixo de 2: nota vermelha, no preto rasgado =====
+   Nota ruim é nota vermelha, como no boletim da escola, e vem num preto que alguém arrancou com
+   raiva. A Média é uma etiqueta preta com a borda de fora rasgada: onde a tinta saiu, aparece a
+   fibra branca do papel (.tarja-rasgada; quem usa acerta a largura do rasgo por --rasgo-w). As notas
+   pequenas são pedaços de fita preta rasgados à mão, todos da mesma largura, então um 1 fininho e um
+   0 largo ficam alinhados igual (.fita-rasgada). O vermelho acende no preto: 5,3:1. */
+.tarja-rasgada {
+  position: relative;
+  isolation: isolate;
+  color: var(--nota-vermelha);
+}
+.tarja-rasgada::before,
+.tarja-rasgada::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+.tarja-rasgada::before {
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--ink);
+  mask:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 60' preserveAspectRatio='none'%3E%3Cfilter id='r' x='-20%25' y='-5%25' width='140%25' height='110%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' seed='7'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='1.1' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cpath filter='url(%23r)' d='M21.4 -2L20.6 0.7L18.9 1.5L18.3 3.2L16.4 3.9L15.8 5.9L13.6 6.6L13.1 8.6L11.2 9.5L10.6 11.6L8.7 12.4L8.1 14.5L6.3 15.5L5.9 17.8L4.3 19L4.1 21.5L2.8 23.1L3.3 25.4L2 27.7L2.8 30.2L1.7 32.9L2.6 35.5L1.6 38.1L2.5 40.8L1.8 43.2L2.9 45.7L2 48.3L3 50.8L2.2 53.1L3.2 55.5L2.4 57.9L3.3 60L2.9 62L26 62L26 -2Z'/%3E%3C/svg%3E") 0 0 / var(--rasgo-w, 14px) 100% no-repeat,
+    linear-gradient(#000 0 0) calc(var(--rasgo-w, 14px) - 1px) 0 / calc(100% - var(--rasgo-w, 14px) + 1px) 100% no-repeat;
+}
+/* a alma do papel, branca e felpuda, aparecendo na beira do rasgo */
+.tarja-rasgada::after {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--rasgo-w, 14px);
+  z-index: -2;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 60' preserveAspectRatio='none'%3E%3Cfilter id='r' x='-20%25' y='-5%25' width='140%25' height='110%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' seed='7'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='2.2' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cpath filter='url(%23r)' fill='%23f7f4ec' d='M18.79 -2.77L17.54 -1.48L16.51 -0.7L16.42 1.24L13.69 1.39L13.62 3.64L11.7 4.7L10.4 6.37L8.85 7.55L8.67 9.93L7.08 11L5.84 12.75L4.26 14.14L4.17 16.81L1.9 17.83L2.03 20.74L1.01 22.73L0.97 24.99L-0.02 27.49L1.1 30.1L0.31 32.85L0.75 35.46L0.05 38.07L1.24 40.85L0.15 43.33L1.52 45.75L0.87 48.32L1.56 50.86L0.99 53.15L2.17 55.54L1.52 57.92L2.08 60.15L1.84 61.79L26 62L26 -2Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+}
+.fita-rasgada {
+  position: relative;
+  isolation: isolate;
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0.06em 0.36em 0;
+  text-align: center;
+  color: var(--nota-vermelha);
+  /* a sombra segue o serrilhado das pontas */
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4));
+}
+/* fita plástica: um reflexo na metade de cima, as duas pontas serrilhadas de rasgar com a mão */
+.fita-rasgada::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgb(255 255 255 / 0.13), rgb(255 255 255 / 0.03) 46%, transparent 54%),
+    var(--ink);
+  mask:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 20' preserveAspectRatio='none'%3E%3Cpath d='M0.5 0L1.8 1.3L0.8 2.9L2.1 4.1L1.2 5.9L1.9 7.2L1 8.4L2.6 10.3L1.6 11.6L2.9 13.5L1.9 14.7L3.2 16.6L2.3 18.1L3.1 20L6 20L6 0Z'/%3E%3C/svg%3E") 0 0 / 0.26em 100% no-repeat,
+    linear-gradient(#000 0 0) 50% 0 / calc(100% - 0.36em) 100% no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 20' preserveAspectRatio='none'%3E%3Cpath d='M0 0L3.1 0L4.3 1.6L3.2 3.2L4.6 4.5L3.6 6.3L4.9 7.8L4 9.1L5.3 10.9L4.1 12.2L5.4 14.1L4.5 15.6L5.7 17.2L4.8 18.8L5.5 20L0 20Z'/%3E%3C/svg%3E") 100% 0 / 0.26em 100% no-repeat;
+  pointer-events: none;
+}
+
+/* ===== A ficha em branco (editor) =====
+   Uma voz por nível: cada bloco abre com uma pergunta a pincel (.pergunta), cada campo leva um
+   rótulo impresso (.rotulo), e toda ação de texto é o mesmo risco de pincel sublinhado
+   (.acao-caneta). Toda escolha é um adesivo de cartela, como os bônus: a opção não escolhida é o
+   recorte picotado (.recorte); a escolhida é o objeto de verdade, colado um pouco torto
+   (.colado). Só as notas fogem disso: nota se escreve e se circula a caneta, não se cola. */
+.pergunta {
+  display: block;
+  margin: 0 0 14px;
+  padding: 0;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.05;
+  color: var(--ink);
+}
+.rotulo {
+  display: block;
+  margin: 0 0 8px;
+  padding: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.acao-caneta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: 0 -8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+}
+.acao-caneta:hover {
+  background: rgb(21 21 21 / 0.06);
+}
+.acao-caneta:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 0;
+}
+.acao-caneta lucide-icon {
+  display: inline-flex;
+}
+/* Uma opção de escolha única: o rádio some, e o que se vê é o adesivo */
+.opcao {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-height: 44px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.opcao > input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+.opcao:has(input:focus-visible) {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+/* ainda na cartela: o recorte picotado, sem cola e sem sombra (o mesmo do bônus) */
+.recorte {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 2px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.74);
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  white-space: nowrap;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui),
+    outline-color var(--t-ui) var(--ease-ui);
+}
+.opcao:hover .recorte {
+  background: rgb(21 21 21 / 0.06);
+  color: var(--ink);
+  outline-color: rgb(21 21 21 / 0.62);
+}
+/* colado: sai da cartela um pouco maior e torto, como adesivo que acabou de grudar */
+.colado {
+  rotate: var(--cola, -2deg);
+  scale: 1.04;
+  animation: cola var(--t-physical) var(--ease-physical);
+}
+@keyframes cola {
+  from {
+    rotate: 0deg;
+    scale: 0.94;
+  }
+}
+/* Um pedaço da parede de eucatex, para ver a ficha como ela vai ficar no mural */
+.parede {
+  background-color: var(--wall);
+  background-image:
+    radial-gradient(circle at 50% 44%, var(--wall-hole) 0 3.1px, transparent 3.6px),
+    radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px);
+  background-size: 26px 26px;
+  background-position: 13px 13px;
+  color: var(--wall-ink);
+  color-scheme: dark;
+}
+body.has-wall-texture .parede {
+  background-image:
+    linear-gradient(rgb(31 27 24 / 0.56), rgb(31 27 24 / 0.56)),
+    url('textures/parede-eucatex.png');
+  background-size: auto, 560px 560px;
+  background-position: 0 0;
 }
 
 /* Foto do foil holográfico, quando existir */

@@ -42,11 +42,11 @@
         <button type="button" class="showing-clear" (click)="clearFilters()">Limpar filtro</button>
       </p>
     }
-    <div class="wall" [class.compact]="view.density() === 'simples'">
+    <div class="wall" [class.compact]="view.density() === 'simples'" [class.sem-etiquetas]="!settings.groupLabels()">
       @for (g of view.groups(); track g.key) {
         <section class="grupo" [attr.aria-labelledby]="'grupo-' + g.key">
           <header class="grupo-head">
-            <h3 class="tape-label" [id]="'grupo-' + g.key" [style.view-transition-name]="'grupo-' + g.key">{{ g.label }}</h3>
+            <h3 class="tape-label" [id]="'grupo-' + g.key" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">{{ g.label }}</h3>
             <p class="grupo-sum">{{ g.summary }}</p>
           </header>
           <div class="fichas">

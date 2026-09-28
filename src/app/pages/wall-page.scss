@@ -46,20 +46,24 @@
 
 /* ===== A parede em seções =====
    Cada seção é um grupo de fichas pregadas juntas sob uma etiqueta de fita-crepe. As seções correm
-   lado a lado pela parede: um mês com um jogo só não desperdiça uma fileira inteira. Perto dentro
-   da seção, longe entre seções: o agrupamento se lê sem caixa nenhuma em volta. */
+   lado a lado pela parede: um mês com um jogo só não desperdiça uma fileira inteira. Entre uma
+   seção e a do lado vai o mesmo vão que entre duas fichas da mesma seção, então toda ficha cai na
+   mesma grade de colunas: três meses de um jogo só enchem a fileira como uma seção de três. Quem
+   separa os grupos é a etiqueta de fita-crepe em cima de cada um (e o vão maior entre fileiras). */
 .wall {
   /* três fichas por seção enchem a largura da parede */
   --card-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
-  --in-gap: 44px 34px;
+  --in-col: 34px;
+  --in-gap: 44px var(--in-col);
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 64px 76px;
+  gap: 64px var(--in-col);
 
   &.compact {
     --card-w: var(--simples-w);
-    --in-gap: 34px 30px;
+    --in-col: 30px;
+    --in-gap: 34px var(--in-col);
   }
 }
 
@@ -77,6 +81,10 @@
   gap: 4px 14px;
   /* a etiqueta fica alinhada com a primeira ficha, não com a borda da parede */
   padding-left: 4px;
+  /* a largura da seção é a das fichas: uma etiqueta comprida quebra a linha em vez de alargar a
+     seção e tirar a grade do lugar */
+  width: 0;
+  min-width: 100%;
 }
 
 .grupo:nth-child(even) .tape-label {
@@ -96,6 +104,29 @@
   color: var(--wall-ink-2);
   font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+/* Sem etiquetas (Ajustes): os grupos se desfazem e as fichas correm numa grade só, para o print. As
+   etiquetas continuam lá para leitores de tela. */
+.wall.sem-etiquetas {
+  gap: var(--in-gap);
+
+  .grupo,
+  .fichas {
+    display: contents;
+  }
+
+  .grupo-head {
+    position: absolute;
+    width: 1px;
+    min-width: 0;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 /* cada ficha tem a altura do que foi escrito nela: nada de papel sobrando para igualar a fileira */

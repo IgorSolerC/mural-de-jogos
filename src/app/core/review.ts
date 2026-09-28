@@ -4,10 +4,21 @@ export type Difficulty = 'nenhuma' | 'facil' | 'media' | 'dificil' | 'impossivel
 
 export type Verdict = 'masterpiece' | 'recomendo' | 'legalzinho' | 'meh' | 'chato';
 
-export type Stock = 'rosa' | 'amarelo' | 'verde' | 'laranja' | 'azul' | 'lilas';
+export type Stock = 'vermelho' | 'laranja' | 'amarelo' | 'verde' | 'azul' | 'lilas' | 'rosa' | 'cinza';
 
-/** Ordem do rodízio de cartolinas: vizinhas nunca repetem cor e as seis aparecem. */
-export const STOCKS: readonly Stock[] = ['rosa', 'laranja', 'amarelo', 'verde', 'azul', 'lilas'];
+/** As cartolinas, na volta do círculo de cores e o cinza no fim: a ordem das amostras no editor. */
+export const STOCKS: readonly Stock[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza'];
+
+export const STOCK_LABEL: Record<Stock, string> = {
+  vermelho: 'Vermelho',
+  laranja: 'Laranja',
+  amarelo: 'Amarelo',
+  verde: 'Verde',
+  azul: 'Azul',
+  lilas: 'Lilás',
+  rosa: 'Rosa',
+  cinza: 'Cinza',
+};
 
 /** As notas que a pessoa dá. */
 export type RatedKey = 'historia' | 'diversao' | 'jogabilidade' | 'visual';
@@ -37,7 +48,7 @@ export const WEIGHT_FACTOR: Record<Weight, number> = {
   'nao-tem': 0,
 };
 
-/** Bônus a favor puxam a média como um 10 a mais; os contra, como um 0 a mais. Cada um mexe no máximo meio ponto. */
+/** Bônus a favor puxam a média como um 10 a mais; os contra, como um 0 a mais. Cada um mexe no máximo um quarto de ponto. */
 export type BonusKind = 'favor' | 'contra';
 
 export interface Bonus {
@@ -58,7 +69,7 @@ export const BONUS_SCORE: Record<BonusKind, number> = { favor: 10, contra: 0 };
 export const BONUS_WEIGHT = 1;
 
 /** O máximo que um bônus sozinho mexe na média, para cima ou para baixo: um defeito não derruba um jogo inteiro. */
-export const BONUS_MAX_SHIFT = 0.5;
+export const BONUS_MAX_SHIFT = 0.25;
 
 /** Nomes curtos o bastante para caber num adesivo da ficha. */
 export const BONUS_MAX_LABEL = 32;
@@ -68,15 +79,12 @@ export const BONUS_CATALOG: readonly Bonus[] = [
   { id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' },
   { id: 'personagens', label: 'Personagens marcantes', kind: 'favor' },
   { id: 'final-memoravel', label: 'Final memorável', kind: 'favor' },
-  { id: 'chefoes', label: 'Chefões épicos', kind: 'favor' },
-  { id: 'mundo', label: 'Mundo pra explorar', kind: 'favor' },
+  { id: 'mundo', label: 'Inovador', kind: 'favor' },
   { id: 'rejogar', label: 'Dá vontade de rejogar', kind: 'favor' },
   { id: 'multiplayer', label: 'Multiplayer divertido', kind: 'favor' },
-  { id: 'dublagem', label: 'Dublagem caprichada', kind: 'favor' },
-  { id: 'otimizado', label: 'Bem otimizado', kind: 'favor' },
   { id: 'rir', label: 'Me fez rir', kind: 'favor' },
   { id: 'emocionou', label: 'Me emocionou', kind: 'favor' },
-  { id: 'centavo', label: 'Vale cada centavo', kind: 'favor' },
+  { id: 'centavo', label: 'Único', kind: 'favor' },
   { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
   { id: 'mal-otimizado', label: 'Mal otimizado', kind: 'contra' },
   { id: 'loadings', label: 'Loadings longos', kind: 'contra' },
@@ -86,8 +94,7 @@ export const BONUS_CATALOG: readonly Bonus[] = [
   { id: 'arrastado', label: 'Arrastado', kind: 'contra' },
   { id: 'muito-curto', label: 'Muito curto', kind: 'contra' },
   { id: 'camera', label: 'Câmera ruim', kind: 'contra' },
-  { id: 'sem-legenda', label: 'Sem legenda em PT-BR', kind: 'contra' },
-  { id: 'online', label: 'Online obrigatório', kind: 'contra' },
+  { id: 'desbalanceado', label: 'Desbalanceado', kind: 'contra' },
   { id: 'caro', label: 'Caro pelo que entrega', kind: 'contra' },
 ];
 
@@ -264,7 +271,7 @@ export function counts(weights: Weights | undefined, k: RatedKey): boolean {
  * Média ponderada das notas dadas, com uma casa decimal. Diversão tem peso-base 2x; cada categoria
  * ainda pode valer o dobro (Relevante), metade (Pouco importante) ou sair da conta (Não tem).
  * Cada bônus mexe na média o que mais uma nota de peso 1 mexeria (10 se for a favor, 0 se for contra),
- * limitado a meio ponto. Cada um é medido contra a média das notas, sozinho, e os efeitos se somam.
+ * limitado a um quarto de ponto. Cada um é medido contra a média das notas, sozinho, e os efeitos se somam.
  * Null se nenhuma nota que conta foi dada (bônus sozinho não faz média).
  */
 export function computeFinal(

@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CircleCheckBig, CircleDashed, LucideAngularModule, Trophy } from 'lucide-angular';
+import { CircleCheckBig, CircleDashed, LucideAngularModule, LucideIconData, Trophy } from 'lucide-angular';
 import { STATUS_LABEL, Status } from '../core/review';
+
+export const STATUS_ICON: Record<Status, LucideIconData> = {
+  incompleto: CircleDashed,
+  finalizado: CircleCheckBig,
+  platinado: Trophy,
+};
 
 /**
  * Etiqueta adesiva de papel com dois filetes. Platinado vem em adesivo holográfico.
@@ -50,6 +56,8 @@ import { STATUS_LABEL, Status } from '../core/review';
       --stripe: transparent;
       color: #16162b;
       background:
+        /* o reflexo da lâmpada, que segue o ponteiro enquanto a ficha está levantada (--luz, de Luz) */
+        radial-gradient(circle at var(--luz-x, 50%) var(--luz-y, 30%), rgb(255 255 255 / calc(var(--luz) * 0.5)), rgb(255 255 255 / calc(var(--luz) * 0.12)) 22%, rgb(255 255 255 / 0) 46%),
         linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.9) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat,
         /* verniz leitoso: o brilho continua, mas a palavra fica legível */
         linear-gradient(rgb(255 255 255 / var(--varnish, 0.4)), rgb(255 255 255 / var(--varnish, 0.4))),
@@ -62,6 +70,8 @@ import { STATUS_LABEL, Status } from '../core/review';
         inset 0 0 0 1px rgb(255 255 255 / 0.7),
         inset 0 -1px 0 rgb(0 0 0 / 0.12),
         0 1px 2px rgb(0 0 0 / 0.35);
+      /* a folha troca de cor conforme a luz anda, como as notas holográficas */
+      filter: hue-rotate(calc((var(--luz-n, 0.5) - 0.5) * var(--luz) * 150deg)) saturate(calc(1 + var(--luz) * 0.9));
       transition: --shine 900ms var(--ease-physical);
     }
     lucide-icon {
@@ -108,7 +118,5 @@ export class StatusLabel {
   readonly status = input.required<Status>();
   readonly band = input(false);
   protected readonly label = computed(() => STATUS_LABEL[this.status()]);
-  protected readonly icon = computed(() =>
-    this.status() === 'platinado' ? Trophy : this.status() === 'finalizado' ? CircleCheckBig : CircleDashed,
-  );
+  protected readonly icon = computed(() => STATUS_ICON[this.status()]);
 }

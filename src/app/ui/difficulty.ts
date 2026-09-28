@@ -65,28 +65,30 @@ export class Skulls {
 
 let uid = 0;
 
+/** A dificuldade, na cartela: o recorte de cada nível, e o escolhido colado como etiqueta de papel. */
 @Component({
   selector: 'app-difficulty-picker',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fieldset>
-      <legend>Dificuldade</legend>
+      <legend class="rotulo">Dificuldade</legend>
       <div class="opts">
         @for (d of options; track d) {
-          <label class="opt" [class.on]="value() === d">
+          <label class="opcao">
             <input type="radio" [name]="name" [value]="d" [checked]="value() === d" (change)="value.set(d)" />
-            <span class="skulls" aria-hidden="true">
-              @for (i of slots; track i) {
-                @if (i < skulls[d]) {
-                  <lucide-icon [img]="SkullIcon" [size]="16" [strokeWidth]="2.4" />
-                }
+            <span class="nivel" [class.recorte]="value() !== d" [class.colado]="value() === d">
+              @if (skulls[d]) {
+                <span class="skulls" aria-hidden="true">
+                  @for (i of slots; track i) {
+                    @if (i < skulls[d]) {
+                      <lucide-icon [img]="SkullIcon" [size]="15" [strokeWidth]="2.4" />
+                    }
+                  }
+                </span>
               }
-              @if (!skulls[d]) {
-                <span class="none">—</span>
-              }
+              <span>{{ labels[d] }}</span>
             </span>
-            <span class="name">{{ labels[d] }}</span>
           </label>
         }
       </div>
@@ -99,82 +101,40 @@ let uid = 0;
       border: 0;
       min-width: 0;
     }
-    legend {
-      padding: 0;
-      margin-bottom: 8px;
+    .opts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+    }
+    .nivel {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 10px 0 9px;
+      border-radius: 2px;
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.08em;
+      font-size: 0.86rem;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
+      line-height: 1;
     }
-    .opts {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 6px;
-    }
-    .opt {
-      position: relative;
-      display: grid;
-      justify-items: center;
-      align-content: center;
-      gap: 3px;
-      min-height: 56px;
-      padding: 6px 4px;
-      border-radius: 6px;
-      cursor: pointer;
-      box-shadow: inset 0 0 0 2px rgb(21 21 21 / 0.18);
-      transition:
-        box-shadow var(--t-ui) var(--ease-ui),
-        background-color var(--t-ui) var(--ease-ui);
-    }
-    .opt:hover {
-      background: rgb(21 21 21 / 0.05);
-    }
-    .opt.on {
-      box-shadow: inset 0 0 0 3px var(--ink);
-      background: rgb(21 21 21 / 0.07);
-    }
-    .opt:has(input:focus-visible) {
-      outline: 3px solid var(--ink);
-      outline-offset: 2px;
+    /* colada: etiqueta de papel com o fio impresso na borda, como o bônus a favor */
+    .nivel.colado {
+      --cola: 1.5deg;
+      background: var(--paper);
+      color: var(--ink);
+      box-shadow:
+        inset 0 0 0 1.5px rgb(21 21 21 / 0.82),
+        0 2px 3px rgb(0 0 0 / 0.3);
     }
     .skulls {
       display: inline-flex;
-      height: 18px;
-      align-items: center;
+      gap: 1px;
     }
     .skulls lucide-icon {
       display: inline-flex;
-    }
-    .none {
-      font-family: var(--f-marker);
-      line-height: 1;
-    }
-    .name {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.9rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      text-align: center;
-    }
-    .on .name {
-      text-decoration: underline 3px var(--red);
-      text-underline-offset: 3px;
-    }
-    input {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      margin: 0;
-      pointer-events: none;
-    }
-    @media (max-width: 420px) {
-      .opts {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
     }
   `,
 })

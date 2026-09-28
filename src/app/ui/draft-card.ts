@@ -2,12 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { Draft } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
-import { BURST_POINTS } from './score-burst';
 
 /**
  * Jogo guardado para resenhar depois: não é cartolina ainda, é uma folha de caderno arrancada
- * às pressas, presa com fita-crepe na bandeja do topo. O nome vai a lápis e a estrela de papel
- * ainda nem foi recortada.
+ * às pressas, presa com fita-crepe na bandeja do topo. O nome vai a lápis.
  */
 @Component({
   selector: 'app-draft-card',
@@ -26,10 +24,6 @@ import { BURST_POINTS } from './score-burst';
     <div class="sheet">
       <div class="cover-wrap">
         <app-cover-sleeve [game]="draft().game" />
-        <span class="burst" aria-hidden="true">
-          <svg viewBox="0 0 100 100"><polygon [attr.points]="points" /></svg>
-          <span class="q">?</span>
-        </span>
       </div>
       <h3 class="title">{{ draft().game.name }}</h3>
     </div>
@@ -101,7 +95,6 @@ import { BURST_POINTS } from './score-burst';
     }
 
     .cover-wrap {
-      position: relative;
       margin-bottom: 8px;
     }
     /* capa sem nota ainda: um pouco apagada, como foto colada de rascunho */
@@ -114,37 +107,6 @@ import { BURST_POINTS } from './score-burst';
     :host(:hover) app-cover-sleeve,
     :host(:focus-within) app-cover-sleeve {
       filter: none;
-    }
-
-    /* a estrela de papel só riscada a lápis, esperando ser recortada */
-    .burst {
-      position: absolute;
-      right: -9px;
-      bottom: -10px;
-      display: grid;
-      place-items: center;
-      width: 44px;
-      height: 44px;
-      rotate: -9deg;
-    }
-    .burst svg {
-      position: absolute;
-      inset: 0;
-      overflow: visible;
-    }
-    .burst polygon {
-      fill: rgb(251 250 243 / 0.92);
-      stroke: var(--graphite);
-      stroke-width: 3;
-      stroke-dasharray: 6 5;
-      stroke-linejoin: round;
-    }
-    .q {
-      position: relative;
-      font-family: var(--f-marker);
-      font-size: 1.35rem;
-      line-height: 1;
-      color: var(--graphite);
     }
 
     /* o nome escrito a lápis, na pauta */
@@ -212,5 +174,4 @@ export class DraftCard {
   protected readonly pin = computed(() => pinningFor(this.draft().id));
   /** A fita vai torta para o lado contrário da folha. */
   protected readonly tapeTilt = computed(() => Math.round(-this.pin().tilt * 2.2 * 10) / 10);
-  protected readonly points = BURST_POINTS;
 }

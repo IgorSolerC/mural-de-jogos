@@ -1,22 +1,33 @@
 import { ChangeDetectionStrategy, Component, model } from '@angular/core';
-import { STATUSES, Status } from '../core/review';
-import { StatusLabel } from './status-label';
+import { LucideAngularModule } from 'lucide-angular';
+import { STATUSES, STATUS_LABEL, Status } from '../core/review';
+import { STATUS_ICON, StatusLabel } from './status-label';
 
 let uid = 0;
 
-/** Escolher o status é escolher qual etiqueta colar na ficha. */
+/**
+ * Escolher o status é escolher qual etiqueta colar na ficha: as três ficam na cartela como recorte
+ * picotado, e a escolhida sai colada, a etiqueta de verdade.
+ */
 @Component({
   selector: 'app-status-picker',
-  imports: [StatusLabel],
+  imports: [LucideAngularModule, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fieldset>
-      <legend>Status</legend>
+      <legend class="rotulo">Status</legend>
       <div class="opts">
         @for (s of statuses; track s) {
-          <label class="opt" [class.on]="value() === s">
+          <label class="opcao">
             <input type="radio" [name]="name" [value]="s" [checked]="value() === s" (change)="value.set(s)" />
-            <app-status-label [status]="s" />
+            @if (value() === s) {
+              <app-status-label class="colado" [status]="s" />
+            } @else {
+              <span class="recorte">
+                <lucide-icon [img]="icons[s]" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                <span>{{ labels[s] }}</span>
+              </span>
+            }
           </label>
         }
       </div>
@@ -29,69 +40,36 @@ let uid = 0;
       border: 0;
       min-width: 0;
     }
-    legend {
-      padding: 0;
-      margin-bottom: 8px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
     .opts {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 6px 12px;
     }
-    .opt {
-      position: relative;
-      display: inline-grid;
-      place-items: center;
-      min-height: 46px;
-      padding: 6px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      box-shadow: inset 0 0 0 2px rgb(21 21 21 / 0.18);
-      transition:
-        box-shadow var(--t-ui) var(--ease-ui),
-        background-color var(--t-ui) var(--ease-ui);
+    /* o recorte tem as medidas da etiqueta, para nada pular quando ela é colada */
+    .recorte,
+    app-status-label {
+      gap: 5px;
+      padding: 6px 9px 5px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      line-height: 1;
     }
-    .opt:hover {
-      background: rgb(21 21 21 / 0.05);
+    .recorte lucide-icon {
+      display: inline-flex;
+      margin-top: -1px;
     }
-    .opt app-status-label {
-      rotate: 0deg;
-      opacity: 0.8;
-      transition:
-        rotate var(--t-physical) var(--ease-physical),
-        opacity var(--t-ui) var(--ease-ui),
-        scale var(--t-physical) var(--ease-physical);
-    }
-    .opt.on {
-      box-shadow: inset 0 0 0 3px var(--ink);
-      background: rgb(21 21 21 / 0.07);
-    }
-    .opt.on app-status-label {
-      opacity: 1;
-      rotate: -3deg;
-      scale: 1.08;
-    }
-    .opt:has(input:focus-visible) {
-      outline: 3px solid var(--ink);
-      outline-offset: 2px;
-    }
-    input {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      margin: 0;
-      pointer-events: none;
+    app-status-label.colado {
+      rotate: -2.5deg;
     }
   `,
 })
 export class StatusPicker {
   readonly value = model<Status | null>(null);
   protected readonly statuses = STATUSES;
+  protected readonly labels = STATUS_LABEL;
+  protected readonly icons = STATUS_ICON;
   protected readonly name = `status-${++uid}`;
 }

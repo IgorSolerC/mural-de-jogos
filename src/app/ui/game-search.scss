@@ -3,14 +3,6 @@
   position: relative;
 }
 
-.label {
-  display: block;
-  margin-bottom: 6px;
-  font-family: var(--f-marker);
-  font-size: 1.25rem;
-  line-height: 1.1;
-}
-
 /* Tira de papel colada na cartolina */
 .strip {
   position: relative;
@@ -26,12 +18,11 @@
     0 1px 3px rgb(0 0 0 / 0.2);
   color: var(--ink);
 
+  /* o mesmo foco de todas as tiras de papel da ficha: o fio engrossa e ganha um halo de tinta rala */
   &:focus-within {
     box-shadow:
       inset 0 0 0 3px var(--ink),
-      0 0 0 3px var(--stock, var(--hi)),
-      0 0 0 6px var(--focus),
-      0 1px 3px rgb(0 0 0 / 0.2);
+      0 0 0 4px rgb(21 21 21 / 0.16);
   }
 }
 

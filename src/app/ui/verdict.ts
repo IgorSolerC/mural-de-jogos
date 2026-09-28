@@ -80,6 +80,11 @@ export class VerdictStamp {
 
 let uid = 0;
 
+/**
+ * O veredito, na cartela: cada um é o recorte do canhoto preto da etiqueta da ficha. O escolhido sai
+ * colado, igualzinho ao canhoto que vai para o mural: tinta preta, a palavra em papel e o ícone na
+ * cor clara do veredito; o Masterpiece com a palavra e o fio em folha de ouro.
+ */
 @Component({
   selector: 'app-verdict-picker',
   imports: [LucideAngularModule],
@@ -87,17 +92,25 @@ let uid = 0;
   template: `
     <fieldset>
       <legend>
-        <span class="label">Veredito</span>
+        <span class="pergunta">E o veredito?</span>
         @if (value()) {
-          <button type="button" class="clear" (click)="value.set(null)">limpar</button>
+          <button type="button" class="acao-caneta" (click)="value.set(null)">tirar</button>
         }
       </legend>
       <div class="opts">
         @for (v of options; track v) {
-          <label class="opt" [class]="v" [class.on]="value() === v">
+          <label class="opcao">
             <input type="radio" [name]="name" [value]="v" [checked]="value() === v" (change)="value.set(v)" />
-            <lucide-icon [img]="icons[v]" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
-            <span class="name">{{ labels[v] }}</span>
+            <span
+              class="canhoto"
+              [class.recorte]="value() !== v"
+              [class.colado]="value() === v"
+              [class.gold]="v === 'masterpiece'"
+              [style.--v]="'var(--verdict-' + v + '-lit)'"
+            >
+              <lucide-icon [img]="icons[v]" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <span class="palavra">{{ labels[v] }}</span>
+            </span>
           </label>
         }
       </div>
@@ -113,114 +126,62 @@ let uid = 0;
     legend {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 16px;
       width: 100%;
       padding: 0;
-      margin-bottom: 8px;
+      margin-bottom: 14px;
     }
-    .label {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .optional,
-    .clear {
-      font-family: var(--f-ui);
-      font-size: 0.84rem;
-      color: var(--ink-2);
-    }
-    .clear {
-      border: 0;
-      padding: 2px 4px;
-      background: none;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      border-radius: 3px;
+    legend .pergunta {
+      margin: 0;
     }
     .opts {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 10px;
     }
-    .opt {
-      --stamp: var(--verdict-masterpiece);
+    /* as medidas do canhoto da ficha, um pouco menor: recorte e colado ocupam o mesmo lugar */
+    .canhoto {
       position: relative;
-      display: grid;
-      justify-items: center;
-      align-content: center;
-      gap: 4px;
-      min-height: 62px;
-      padding: 6px 2px;
-      border-radius: 6px;
-      cursor: pointer;
-      box-shadow: inset 0 0 0 2px rgb(21 21 21 / 0.18);
-      transition:
-        box-shadow var(--t-ui) var(--ease-ui),
-        background-color var(--t-ui) var(--ease-ui),
-        color var(--t-ui) var(--ease-ui);
-    }
-    .opt.recomendo {
-      --stamp: var(--verdict-recomendo);
-    }
-    .opt.legalzinho {
-      --stamp: var(--verdict-legalzinho);
-    }
-    .opt.meh {
-      --stamp: var(--verdict-meh);
-    }
-    .opt.chato {
-      --stamp: var(--verdict-chato);
-    }
-    .opt:hover {
-      background: rgb(21 21 21 / 0.05);
-    }
-    /* escolhido: vira carimbo, na tinta do veredito */
-    .opt.on {
-      background: var(--paper);
-      color: var(--stamp);
-      box-shadow:
-        inset 0 0 0 2.5px var(--stamp),
-        inset 0 0 0 4px var(--paper),
-        inset 0 0 0 5px var(--stamp);
-      rotate: -3deg;
-    }
-    .opt.on.masterpiece {
-      background: var(--foil-gold);
-      color: var(--foil-gold-ink);
-      box-shadow:
-        inset 0 0 0 2.5px var(--stamp),
-        inset 0 0 0 4px rgb(255 244 196 / 0.9),
-        inset 0 0 0 5px var(--stamp);
-    }
-    .opt:has(input:focus-visible) {
-      outline: 3px solid var(--ink);
-      outline-offset: 2px;
-    }
-    lucide-icon {
       display: inline-flex;
-    }
-    .name {
+      align-items: center;
+      gap: 7px;
+      height: 40px;
+      padding: 0 14px 0 12px;
+      border-radius: 3px;
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.04em;
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      text-align: center;
+      line-height: 1;
     }
-    input {
+    .canhoto lucide-icon {
+      display: inline-flex;
+      margin-top: -1px;
+    }
+    .canhoto.colado {
+      --cola: -2deg;
+      background: var(--ink);
+      color: var(--paper);
+      box-shadow: 0 2px 3px rgb(0 0 0 / 0.3);
+    }
+    .canhoto.colado lucide-icon {
+      color: var(--v);
+    }
+    /* Masterpiece: palavra e fio da moldura estampados a quente em folha de ouro */
+    .canhoto.colado.gold::after {
+      content: '';
       position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      margin: 0;
+      inset: 3px;
+      border: 1.5px solid #d8ab48;
+      border-radius: 2px;
       pointer-events: none;
     }
-    @media (max-width: 420px) {
-      .opts {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
+    .canhoto.colado.gold .palavra {
+      background: linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
   `,
 })

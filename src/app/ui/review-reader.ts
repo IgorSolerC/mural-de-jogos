@@ -17,6 +17,7 @@ import { BonusSticker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
 import { Skulls } from './difficulty';
 import { JudgeLabel } from './judge-label';
+import { Luz } from './luz';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 
@@ -24,7 +25,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Pin, Skulls, StatusLabel],
+  imports: [LucideAngularModule, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (click)="onBackdrop($event)" (close)="review.set(null)">
@@ -38,7 +39,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
             </button>
           </header>
 
-          <div class="body">
+          <div class="body" appLuz>
             <!-- A mesma ficha do mural, vista de perto: foto colada, nome, data e a etiqueta do julgamento -->
             <div class="top">
               <div class="cover">

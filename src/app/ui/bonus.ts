@@ -5,29 +5,25 @@ import {
   ChevronUp,
   Clock,
   Coins,
-  Compass,
   Cpu,
   Drama,
   Flag,
   FlagOff,
-  Gauge,
-  Globe,
+  Fingerprint,
   Heart,
   Hourglass,
-  Languages,
   Laugh,
+  Lightbulb,
   LucideAngularModule,
   LucideIconData,
-  Mic,
   Minus,
   Music,
   Pickaxe,
-  PiggyBank,
   Plus,
   Repeat,
+  Scale,
   Snail,
   Sticker,
-  Swords,
   Tag,
   Users,
 } from 'lucide-angular';
@@ -50,15 +46,12 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   'trilha-sonora': Music,
   personagens: Drama,
   'final-memoravel': Flag,
-  chefoes: Swords,
-  mundo: Compass,
+  mundo: Lightbulb,
   rejogar: Repeat,
   multiplayer: Users,
-  dublagem: Mic,
-  otimizado: Gauge,
   rir: Laugh,
   emocionou: Heart,
-  centavo: PiggyBank,
+  centavo: Fingerprint,
   bugs: Bug,
   'mal-otimizado': Cpu,
   loadings: Hourglass,
@@ -68,8 +61,7 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   arrastado: Snail,
   'muito-curto': Clock,
   camera: CameraOff,
-  'sem-legenda': Languages,
-  online: Globe,
+  desbalanceado: Scale,
   caro: Tag,
 };
 
@@ -280,7 +272,7 @@ let uid = 0;
           <div class="lado" role="group" [attr.aria-labelledby]="uid + '-' + k">
             <p class="lado-label" [id]="uid + '-' + k">
               <span>{{ kindLabels[k] }}</span>
-              <span class="lado-conta">até {{ k === 'favor' ? '+0,5' : '−0,5' }} cada</span>
+              <span class="lado-conta">até {{ k === 'favor' ? '+0,25' : '−0,25' }} cada</span>
             </p>
             <div class="slots">
               @for (b of options()[k]; track b.id) {
@@ -334,7 +326,7 @@ let uid = 0;
         }
       </ul>
     } @else {
-      <p class="hint">Trilha sonora incrível, muitos bugs… Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo meio ponto.</p>
+      <p class="hint">Trilha sonora incrível, muitos bugs… Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo um quarto de ponto.</p>
     }
   `,
   styles: `

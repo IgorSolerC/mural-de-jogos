@@ -31,15 +31,17 @@ export interface Pinning {
   dropY: number;
 }
 
-/** Nas fichas do mural a caixinha só tem tachinha vermelha e branca: seis cores de pin por cima de
- *  seis cartolinas viravam confete. O vermelho some no rosa e no laranja; lá vai sempre a branca. */
+/** Nas fichas do mural a caixinha só tem tachinha vermelha e branca: seis cores de pin por cima das
+ *  cartolinas viravam confete. O vermelho some no vermelho, no rosa e no laranja; lá vai sempre a branca. */
 const WALL_PINS: Record<Stock, readonly string[]> = {
+  vermelho: [PINS[4]],
   rosa: [PINS[4]],
   laranja: [PINS[4]],
   amarelo: [PINS[0], PINS[4]],
   verde: [PINS[0], PINS[4]],
   azul: [PINS[0], PINS[4]],
   lilas: [PINS[0], PINS[4]],
+  cinza: [PINS[0], PINS[4]],
 };
 
 export function pinningFor(id: string, stock?: Stock): Pinning {

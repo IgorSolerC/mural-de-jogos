@@ -2,7 +2,7 @@
   display: block;
 }
 
-/* Duas fichas pregadas lado a lado; no celular, uma embaixo da outra */
+/* Fichas pregadas lado a lado; no celular, uma embaixo da outra */
 .boards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
@@ -32,6 +32,11 @@
 .catalog {
   --stock: var(--stock-lilas);
   rotate: 0.9deg;
+}
+
+.mural {
+  --stock: var(--stock-verde);
+  rotate: 0.5deg;
 }
 
 h2 {
@@ -230,7 +235,8 @@ h2 {
     rotate: -0.4deg;
   }
 
-  .catalog {
+  .catalog,
+  .mural {
     rotate: 0.5deg;
   }
 }
