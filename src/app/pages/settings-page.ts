@@ -162,6 +162,7 @@ export class SettingsPage {
       const parts = [`${res.added} ${res.added === 1 ? 'resenha nova' : 'resenhas novas'}`];
       if (res.updated) parts.push(`${res.updated} atualizada${res.updated === 1 ? '' : 's'}`);
       if (res.skipped) parts.push(`${res.skipped} ignorada${res.skipped === 1 ? '' : 's'}`);
+      if (res.removed) parts.push(`${res.removed} ${res.removed === 1 ? 'apagada' : 'apagadas'} como no backup`);
       if (res.drafts) parts.push(`${res.drafts} ${res.drafts === 1 ? 'jogo' : 'jogos'} pra depois`);
       this.importMsg.set({ text: `Backup restaurado: ${parts.join(', ')}.`, error: false });
       const n = res.added + res.updated;

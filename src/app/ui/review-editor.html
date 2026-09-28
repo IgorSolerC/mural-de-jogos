@@ -198,6 +198,8 @@
           </div>
           @if (attempted() && missingScores().length) {
             <p class="field-error">Dê uma nota de 0 a 10 para cada categoria que conta na média.</p>
+          } @else if (attempted() && noneCounts()) {
+            <p class="field-error">Todas as categorias estão como “Não tem”. Deixe ao menos uma contar na média.</p>
           }
           <div class="campo bonus">
             <app-bonus-picker [(value)]="bonuses" [library]="store.customBonuses()" [final]="final()" [shift]="shift()" />

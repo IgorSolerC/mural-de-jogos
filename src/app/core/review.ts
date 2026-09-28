@@ -338,7 +338,8 @@ export function formatScore(v: number | null): string {
 
 /** Quanto os bônus mexeram na média: "+0,4", "−0,3" ou "±0". */
 export function formatShift(v: number): string {
-  const r = Math.round(v * 10) / 10;
+  // arredonda pelo tamanho, não pelo sinal: −0,25 é "−0,3", como +0,25 é "+0,3"
+  const r = (Math.sign(v) * Math.round(Math.abs(v) * 10)) / 10;
   if (r === 0) return '±0';
   return `${r > 0 ? '+' : '−'}${scoreFmt.format(Math.abs(r))}`;
 }

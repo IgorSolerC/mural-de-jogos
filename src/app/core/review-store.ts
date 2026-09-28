@@ -3,6 +3,14 @@ import { Bonus, Draft, Review, STOCKS, Stock, isCatalogBonus, sanitizeDraft, san
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
+/** Quando cada resenha e cada pendente foi apagado: sem isso, juntar um backup antigo traria tudo de volta. */
+const DELETED_KEY = 'mural-de-jogos:apagadas:v1';
+
+/** id → quando foi apagado (ISO). */
+export interface Deleted {
+  reviews: Record<string, string>;
+  drafts: Record<string, string>;
+}
 
 export interface ImportResult {
   added: number;
@@ -10,6 +18,8 @@ export interface ImportResult {
   skipped: number;
   /** Pendentes (só nome e capa) que entraram na fila. */
   drafts: number;
+  /** Resenhas daqui que o backup diz que foram apagadas depois da última mudança nelas. */
+  removed: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -21,6 +31,7 @@ export class ReviewStore {
   /** Jogos guardados para resenhar depois, o mais recente primeiro. */
   readonly drafts = signal<Draft[]>(this.readDrafts());
   readonly draftCount = computed(() => this.drafts().length);
+  private readonly deleted = signal<Deleted>(this.readDeleted());
   /**
    * Os bônus que a pessoa escreveu, tirados das próprias fichas: o mais usado primeiro. Não há lista
    * para cuidar; um bônus que nenhuma ficha usa mais some sozinho.
@@ -42,6 +53,7 @@ export class ReviewStore {
 
   private skipNextWrite = false;
   private skipNextDraftWrite = false;
+  private skipNextDeletedWrite = false;
 
   constructor() {
     effect(() => {
@@ -60,6 +72,14 @@ export class ReviewStore {
       }
       this.write(DRAFTS_KEY, list);
     });
+    effect(() => {
+      const d = this.deleted();
+      if (this.skipNextDeletedWrite) {
+        this.skipNextDeletedWrite = false;
+        return;
+      }
+      this.write(DELETED_KEY, d);
+    });
 
     // Outra aba mexeu no mural: acompanha sem sobrescrever.
     if (typeof window !== 'undefined') {
@@ -70,12 +90,14 @@ export class ReviewStore {
         } else if (e.key === DRAFTS_KEY) {
           this.skipNextDraftWrite = true;
           this.drafts.set(this.readDrafts());
+        } else if (e.key === DELETED_KEY) {
+          this.skipNextDeletedWrite = true;
+          this.deleted.set(this.readDeleted());
         }
       });
     }
   }
 
-  /** A próxima cartolina do rodízio, depois da ficha mais recente. */
   /** A cor com que a ficha nova nasce: sorteada, só não repete a da última pregada. A pessoa troca no editor. */
   nextStock(): Stock {
     const latest = this.reviews().reduce<Review | null>(
@@ -101,13 +123,17 @@ export class ReviewStore {
 
   remove(id: string): Review | undefined {
     const found = this.get(id);
-    if (found) this.reviews.update((list) => list.filter((r) => r.id !== id));
+    if (found) {
+      this.reviews.update((list) => list.filter((r) => r.id !== id));
+      this.mark('reviews', id);
+    }
     return found;
   }
 
   restore(review: Review): void {
     if (this.get(review.id)) return;
     this.reviews.update((list) => [review, ...list]);
+    this.unmark('reviews', review.id);
   }
 
   getDraft(id: string): Draft | undefined {
@@ -121,15 +147,23 @@ export class ReviewStore {
     );
   }
 
-  removeDraft(id: string): Draft | undefined {
+  /**
+   * Tira o pendente da fila. `forget: false` é o pendente que virou resenha (o mesmo id segue vivo
+   * no mural): esse não fica marcado como apagado.
+   */
+  removeDraft(id: string, forget = true): Draft | undefined {
     const found = this.getDraft(id);
-    if (found) this.drafts.update((list) => list.filter((d) => d.id !== id));
+    if (found) {
+      this.drafts.update((list) => list.filter((d) => d.id !== id));
+      if (forget) this.mark('drafts', id);
+    }
     return found;
   }
 
   restoreDraft(draft: Draft): void {
     if (this.getDraft(draft.id)) return;
     this.drafts.update((list) => [draft, ...list]);
+    this.unmark('drafts', draft.id);
   }
 
   /** O backup sai em gzip (.json.gz); sem CompressionStream no navegador, sai o JSON puro. */
@@ -140,6 +174,7 @@ export class ReviewStore {
       exportedAt: new Date().toISOString(),
       reviews: this.reviews(),
       drafts: this.drafts(),
+      deleted: this.deleted(),
     };
     const json = new Blob([JSON.stringify(payload)], { type: 'application/json' });
     if (typeof CompressionStream === 'undefined') return { blob: json, ext: 'json' };
@@ -180,19 +215,35 @@ export class ReviewStore {
       if (r) incoming.push(r);
       else skipped++;
     }
+    const theirs = sanitizeDeleted((data as any)?.deleted);
 
     if (mode === 'replace') {
       this.reviews.set(withStocks(incoming));
       if (rawDrafts) this.drafts.set(incomingDrafts);
-      return { added: incoming.length, updated: 0, skipped, drafts: incomingDrafts.length };
+      this.deleted.set(theirs);
+      return { added: incoming.length, updated: 0, skipped, drafts: incomingDrafts.length, removed: 0 };
     }
+
+    // O que foi apagado depois da última mudança na ficha continua apagado, dos dois lados.
+    const ours = this.deleted();
+    const gone = (when: string | undefined, updatedAt: string) => !!when && Date.parse(when) >= Date.parse(updatedAt);
 
     let added = 0;
     let updated = 0;
+    let removed = 0;
     const byId = new Map(this.reviews().map((r) => [r.id, r]));
+    for (const [id, when] of Object.entries(theirs.reviews)) {
+      const current = byId.get(id);
+      if (current && gone(when, current.updatedAt)) {
+        byId.delete(id);
+        removed++;
+      }
+    }
     for (const r of incoming) {
       const current = byId.get(r.id);
-      if (!current) {
+      if (gone(ours.reviews[r.id], r.updatedAt) || gone(theirs.reviews[r.id], r.updatedAt)) {
+        skipped++;
+      } else if (!current) {
         byId.set(r.id, r);
         added++;
       } else if (Date.parse(r.updatedAt) > Date.parse(current.updatedAt)) {
@@ -204,11 +255,29 @@ export class ReviewStore {
     }
     this.reviews.set(withStocks([...byId.values()]));
 
-    // Pendente que já virou resenha (mesmo id) não volta para a fila.
-    const known = new Set([...byId.keys(), ...this.drafts().map((d) => d.id)]);
-    const newDrafts = incomingDrafts.filter((d) => !known.has(d.id));
-    if (newDrafts.length) this.drafts.update((list) => [...newDrafts, ...list]);
-    return { added, updated, skipped, drafts: newDrafts.length };
+    // Pendente que já virou resenha (mesmo id), ou que foi tirado da fila, não volta para a fila.
+    const kept = this.drafts().filter((d) => !gone(theirs.drafts[d.id], d.updatedAt));
+    const known = new Set([...byId.keys(), ...kept.map((d) => d.id)]);
+    const newDrafts = incomingDrafts.filter(
+      (d) => !known.has(d.id) && !gone(ours.drafts[d.id], d.updatedAt) && !gone(theirs.drafts[d.id], d.updatedAt),
+    );
+    if (newDrafts.length || kept.length !== this.drafts().length) this.drafts.set([...newDrafts, ...kept]);
+    this.deleted.set(mergeDeleted(ours, theirs));
+    return { added, updated, skipped, drafts: newDrafts.length, removed };
+  }
+
+  private mark(kind: keyof Deleted, id: string): void {
+    const when = new Date().toISOString();
+    this.deleted.update((d) => ({ ...d, [kind]: { ...d[kind], [id]: when } }));
+  }
+
+  private unmark(kind: keyof Deleted, id: string): void {
+    if (!(id in this.deleted()[kind])) return;
+    this.deleted.update((d) => {
+      const next = { ...d[kind] };
+      delete next[id];
+      return { ...d, [kind]: next };
+    });
   }
 
   private read(): Review[] {
@@ -232,9 +301,17 @@ export class ReviewStore {
     }
   }
 
-  private write(key: string, list: unknown[]): void {
+  private readDeleted(): Deleted {
     try {
-      localStorage.setItem(key, JSON.stringify(list));
+      return sanitizeDeleted(JSON.parse(localStorage.getItem(DELETED_KEY) ?? 'null'));
+    } catch {
+      return { reviews: {}, drafts: {} };
+    }
+  }
+
+  private write(key: string, value: unknown): void {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
       this.saveError.set(null);
     } catch {
       this.saveError.set(
@@ -242,6 +319,29 @@ export class ReviewStore {
       );
     }
   }
+}
+
+function sanitizeDeleted(raw: unknown): Deleted {
+  const pick = (v: unknown): Record<string, string> => {
+    const out: Record<string, string> = {};
+    if (!v || typeof v !== 'object') return out;
+    for (const [id, when] of Object.entries(v as Record<string, unknown>)) {
+      if (/^[\w-]{4,64}$/.test(id) && typeof when === 'string' && !Number.isNaN(Date.parse(when))) out[id] = when;
+    }
+    return out;
+  };
+  const d = (raw ?? {}) as Record<string, unknown>;
+  return { reviews: pick(d['reviews']), drafts: pick(d['drafts']) };
+}
+
+/** O apagamento mais recente de cada id, dos dois lados. */
+function mergeDeleted(a: Deleted, b: Deleted): Deleted {
+  const join = (x: Record<string, string>, y: Record<string, string>) => {
+    const out = { ...x };
+    for (const [id, when] of Object.entries(y)) if (!out[id] || Date.parse(when) > Date.parse(out[id])) out[id] = when;
+    return out;
+  };
+  return { reviews: join(a.reviews, b.reviews), drafts: join(a.drafts, b.drafts) };
 }
 
 /** Fichas antigas ou importadas sem cor ganham a próxima do rodízio, na ordem em que foram criadas. */

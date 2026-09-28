@@ -208,12 +208,16 @@ export class ReviewEditor {
     RATED_KEYS.filter((k) => counts(this.weights(), k) && this.scoreSignal(k)() === null),
   );
 
+  /** Todas as categorias como "Não tem": sem nota que conte, não há média para pregar. */
+  protected readonly noneCounts = computed(() => RATED_KEYS.every((k) => !counts(this.weights(), k)));
+
   protected readonly missing = computed(() => {
     const m: string[] = [];
     if (!this.game()) m.push('o jogo');
     const scores = this.missingScores().map((k) => SCORE_LABEL[k]);
     if (scores.length === 1) m.push(`a nota de ${scores[0]}`);
     else if (scores.length > 1) m.push(`as notas de ${scores.slice(0, -1).join(', ')} e ${scores.at(-1)}`);
+    else if (this.noneCounts()) m.push('ao menos uma categoria que conte na média');
     if (!this.status()) m.push('o status');
     if (!this.dateValid()) m.push('uma data válida');
     if (!this.hoursValid()) m.push('um tempo jogado em horas');
@@ -367,7 +371,7 @@ export class ReviewEditor {
     if (prev) this.store.update(review);
     else this.store.add(review);
     const draft = this.fromDraft();
-    if (draft) this.store.removeDraft(draft.id);
+    if (draft) this.store.removeDraft(draft.id, false);
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.saved.emit({ id: review.id, isNew: !prev });
@@ -477,6 +481,7 @@ export class ReviewEditor {
       if (!this.game()) this.search()?.focus();
       else if (this.missingScores().length)
         root.querySelector<HTMLInputElement>(`.nota-${this.missingScores()[0]} input`)?.focus();
+      else if (this.noneCounts()) root.querySelector<HTMLSelectElement>('.subs select')?.focus();
       else if (!this.status()) root.querySelector<HTMLInputElement>('app-status-picker input')?.focus();
       else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
       else root.querySelector<HTMLInputElement>('#editor-horas')?.focus();
