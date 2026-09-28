@@ -1,6 +1,6 @@
 @if (!side.count()) {
   <section class="vazio cartolina" aria-labelledby="lado-titulo">
-    <app-pin class="pin" color="#2f6bff" />
+    <app-pin class="pin" color="#e62e2d" />
     <h1 id="lado-titulo">Nada lado a lado ainda</h1>
     @if (store.count()) {
       <p>No mural, toque em Marcar e escolha os jogos que você quer comparar: todos os GTAs, por exemplo.</p>
@@ -104,7 +104,7 @@
             <tr>
               <td class="canto"></td>
               @for (r of games(); track r.id) {
-                <th scope="col" [style.view-transition-name]="'coluna-' + r.id">
+                <th scope="col" [style.view-transition-name]="'coluna-' + r.id" [style.--stock]="'var(--stock-' + r.stock + ')'">
                   <div class="jogo">
                     <button type="button" class="abrir" (click)="desk.openReview(r.id)" [attr.aria-label]="'Abrir resenha: ' + r.game.name">
                       <app-cover-sleeve class="thumb" size="thumb" [game]="r.game" [decorative]="true" />

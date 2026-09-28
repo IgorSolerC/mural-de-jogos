@@ -174,7 +174,7 @@ let uid = 0;
       --stamp: var(--verdict-chato);
     }
     .opt:hover {
-      background: rgb(255 255 255 / 0.3);
+      background: rgb(21 21 21 / 0.05);
     }
     /* escolhido: vira carimbo, na tinta do veredito */
     .opt.on {

@@ -49,7 +49,7 @@
     bottom: -8px;
     height: 8px;
     border-radius: 1px;
-    background: #6c6e76;
+    background: #76726b;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.28),
       inset 0 -2px 0 rgb(0 0 0 / 0.3),
@@ -211,10 +211,12 @@ td {
 
 thead th {
   min-width: 150px;
-  padding-top: 6px;
+  padding-top: 16px;
   padding-bottom: 14px;
   vertical-align: bottom;
   border-bottom: 2px solid var(--ink);
+  /* a cor da cartolina de cada jogo, numa tira no topo da coluna: liga a tabela às fichas acima */
+  background: linear-gradient(var(--stock, transparent), var(--stock, transparent)) center 0 / calc(100% - 24px) 6px no-repeat;
 }
 
 .canto {

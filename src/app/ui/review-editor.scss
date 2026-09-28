@@ -47,7 +47,7 @@
   transition: background-color var(--t-ui) var(--ease-ui);
 
   &:hover {
-    background: rgb(255 255 255 / 0.3);
+    background: rgb(21 21 21 / 0.05);
   }
 }
 
@@ -104,7 +104,7 @@
 
     &:hover:not(:disabled) {
       color: var(--ink);
-      background: rgb(255 255 255 / 0.3);
+      background: rgb(21 21 21 / 0.05);
     }
 
     &.on {
@@ -257,7 +257,7 @@ input[type='date'] {
   text-underline-offset: 5px;
 
   &:hover {
-    background: rgb(255 255 255 / 0.3);
+    background: rgb(21 21 21 / 0.05);
   }
 }
 
@@ -282,9 +282,10 @@ textarea {
   border-radius: 2px;
   resize: vertical;
   background:
-    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(21 21 21 / 0.22) calc(var(--line) - 2px) var(--line))
+    /* pauta azul de fichário, a mesma das folhas do Pra depois */
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line))
       0 4px,
-    rgb(255 255 255 / 0.28);
+    rgb(255 255 255 / 0.5);
   background-attachment: local;
   color: var(--ink);
   font-family: var(--f-hand);

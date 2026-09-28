@@ -2,25 +2,29 @@
 name: Mural de Jogos
 description: A private game-review wall dressed as a 90s Brazilian rental-store wall, with neon cartolina cards pinned crooked to painted eucatex.
 colors:
-  wall: "#1b1c1f"
-  wall-hole: "#0a0a0c"
-  wall-ink: "#f1f1ec"
-  wall-ink-2: "#b8b8ae"
-  stock-rosa: "#ff5fa2"
-  stock-amarelo: "#ffe94a"
-  stock-verde: "#5cf08a"
-  stock-laranja: "#ff9f45"
-  stock-azul: "#5ec8ff"
-  stock-lilas: "#c9a4ff"
+  wall: "#1f1c1a"
+  wall-hole: "#0b0908"
+  wall-ink: "#f3efe6"
+  wall-ink-2: "#bdb5a8"
+  stock-rosa: "#ff79a8"
+  stock-amarelo: "#ffda42"
+  stock-verde: "#7be986"
+  stock-laranja: "#ffa358"
+  stock-azul: "#70cdff"
+  stock-lilas: "#c4a5fb"
   ink: "#151515"
   ink-2: "rgb(21 21 21 / 0.78)"
   red: "#e62e2d"
   red-deep: "#b81d1c"
-  paper: "#f6f6f1"
-  hi: "#ffe94a"
-  plate-tab: "#d3d4cf"
-  plate-tab-hover: "#e6e7e2"
-  rail: "#6c6e76"
+  paper: "#f7f4ec"
+  hi: "#ffda42"
+  plate-tab: "#dcd6c8"
+  plate-tab-hover: "#ebe6da"
+  rail: "#76726b"
+  dymo-tape: "#121212"
+  dymo-emboss: "#ebe5d8"
+  ticket-ink: "#151515"
+  ruling-blue: "rgb(64 110 190 / 0.32)"
   pin-red: "#e62e2d"
   pin-yellow: "#ffd23f"
   pin-blue: "#2f6bff"
@@ -37,6 +41,11 @@ colors:
   verdict-legalzinho: "#1f4fc4"
   verdict-meh: "#8a5200"
   verdict-chato: "#5b2d8e"
+  verdict-masterpiece-lit: "#f3d27a"
+  verdict-recomendo-lit: "#7be39a"
+  verdict-legalzinho-lit: "#8ab8ff"
+  verdict-meh-lit: "#e8b86a"
+  verdict-chato-lit: "#c9a6ff"
 typography:
   display:
     fontFamily: "Permanent Marker, Comic Sans MS, cursive"
@@ -150,7 +159,7 @@ spacing:
   wall-phone-gap: "34px"
 components:
   button-cartolina:
-    backgroundColor: "{colors.stock-rosa}"
+    backgroundColor: "{colors.paper}"
     textColor: "{colors.ink}"
     typography: "{typography.marker-action}"
     rounded: "{rounded.paper}"
@@ -227,8 +236,8 @@ components:
     padding: "3px 11px 2px 10px"
     height: "46px"
   card-band:
-    backgroundColor: "{colors.verdict-recomendo}"
-    textColor: "#ffffff"
+    backgroundColor: "{colors.ticket-ink}"
+    textColor: "{colors.paper}"
     typography: "{typography.verdict-band}"
     rounded: "{rounded.sleeve}"
     padding: "0 18px 0 17px"
@@ -344,13 +353,13 @@ Palette character: six fluorescent paper stocks and a hi-vis yellow against grap
 
 ### Tertiary: the cartolina stocks
 - **Neon Pink** (`stock-rosa`): the primary action ("Pregar resenha") and the first stock in the rotation.
-- **Neon Green** (`stock-verde`): stock; also the empty-state card and the back sheet of the blank-card stack.
+- **Neon Green** (`stock-verde`): stock; also the empty-state card.
 - **Neon Yellow** (`stock-amarelo`): stock; also the cartaz (masthead) and the default dialog sheet.
-- **Sky Blue** (`stock-azul`): stock; also the settings sheet and the front sheet of the blank-card stack.
+- **Sky Blue** (`stock-azul`): stock; also the settings sheet and the back-left sheet of the blank-card stack.
 - **Neon Orange** (`stock-laranja`): stock; also the "no results" card.
 - **Lilac** (`stock-lilas`): stock.
 
-Each review stores its stock when it is created. The value comes from the rotation `rosa → verde → amarelo → azul → laranja → lilas`, continuing from the most recent review, so neighbouring cards never repeat a colour and all six appear. Imported reviews without a stock are filled in with the same rotation. The editor and reader sheets take the colour of the review they show.
+Each review stores its stock when it is created. The value comes from the rotation `rosa → laranja → amarelo → verde → azul → lilas` (a walk around the colour wheel, so neighbours are always analogous, never complementary), continuing from the most recent review, so neighbouring cards never repeat a colour and all six appear. Imported reviews without a stock are filled in with the same rotation. The editor and reader sheets take the colour of the review they show.
 
 ### Neutral
 - **Graphite Wall** (`wall`): the page background, `theme-color`, and the scrollbar track.
@@ -360,7 +369,7 @@ Each review stores its stock when it is created. The value comes from the rotati
 - **Marker Black** (`ink`): all text on paper and cartolina, ink-button fills, field outlines, score bars.
 - **Faded Marker** (`ink-2`): meta lines and hints in sheets. Wall cards no longer use it: their meta and boletim labels are full `ink`.
 - **Receipt Paper** (`paper`): the search strip, field strips, autocomplete list, status labels, the toast receipt, the starburst, and the paper half of the card's judgment ticket (flat, with no grain).
-- **Shelf Tab / Tab Hover** (`plate-tab`, `plate-tab-hover`): light grey printed plastic for the resting shelf-divider tab, with `ink` print. It was dark grey at first and sank into the graphite wall once the photographic eucatex landed; light plastic keeps every tab readable against the holes.
+- **Shelf Tab / Tab Hover** (`plate-tab`, `plate-tab-hover`): ivory printed plastic (on the same warm axis as paper and tape) for the resting shelf-divider tab, with `ink` print. It was dark grey at first and sank into the graphite wall once the photographic eucatex landed; light plastic keeps every tab readable against the holes.
 - **Gondola Rail** (`rail`): the aluminium rail under the tabs.
 - **Error Ink** (`error-ink`): field errors and import errors on paper.
 
@@ -369,7 +378,7 @@ Each review stores its stock when it is created. The value comes from the rotati
 - **Pen underline** (`red`): the sorted attribute is marked by a single hand-drawn stroke of Marker Red under its name, never by a highlighter band (see "Sort mark and Lado a lado" below). The yellow and white highlighters were removed: the yellow read as a flat yellow block inside the white ticket, the white as a spreadsheet selection.
 
 ### Pins and status stripes
-- **Tachinhas** (`pin-red`, `pin-yellow`, `pin-blue`, `pin-green`, `pin-white`, `pin-orange`): six plastic pin colours, in this order. The order matters, because it is also the index into the `tachinhas.png` sprite. Each card's pin colour comes from its id.
+- **Tachinhas** (`pin-red`, `pin-yellow`, `pin-blue`, `pin-green`, `pin-white`, `pin-orange`): six plastic pin colours, in this order. The order matters, because it is also the index into the `tachinhas.png` sprite. Wall cards, the cartaz and the sheets only use red and white (`WALL_PINS`): red or white by id, and always white on rosa and laranja, where red sinks. Six pin hues over six stocks read as confetti.
 - **Price-gun stripes** (`stripe-incompleto`, `stripe-finalizado`): the two thin stripes at the top and bottom of the Incompleto and Finalizado labels. Platinado has no stripes; it is holographic foil instead.
 
 ### Verdict inks
@@ -479,7 +488,7 @@ Tilt is part of the form language. Cards tilt ±0.8°–3.4° (never straight; h
 
 ### Buttons
 Tactile store objects, each with its own material.
-- **Cartolina button (primary):** a neon cartolina card with paper grain multiplied in, marker lettering, a 2px radius, the hanging-card shadow, and a 48px minimum height. On hover it tilts -1.2deg, rises 2px and takes the lifted shadow over 380ms on the physical curve. On press it sinks 1px. In the header it sits on the **blank-card stack**: a green sheet behind it at 5deg and a blue one at -4deg, which fan out further on hover (9deg / -8deg). Label: "Pregar resenha", with a plus icon.
+- **Cartolina button (primary):** a blank white index card (`paper`) with paper grain, marker lettering, a 2px radius, the hanging-card shadow, and a 48px minimum height. On hover it tilts -1.2deg, rises 2px and takes the lifted shadow over 380ms on the physical curve. On press it sinks 1px. In the header it is the top card of the **blank-card stack**: a rosa sheet behind it at 5deg and an azul one at -4deg, only their edges showing, which fan out further on hover (9deg / -8deg). Label: "Pregar resenha", with a plus icon.
 - **Ink button (completes an action inside a sheet):** a marker-black block with yellow marker lettering, a 3px radius and a 50px minimum height. On hover it rises 2px and tilts -1deg. The danger variant is `red-deep` with white text. Examples: "Pregar no mural", "Salvar alterações", "Editar", "Mostrar o mural inteiro", "Descartar".
 - **Quiet button:** transparent, Barlow Condensed 800 uppercase, 40px, with a neutral 16% tint on hover. It takes chalk colour on the wall and ink colour on sheets. Examples: "Ajustes e backup", "Cancelar", "Remover do mural".
 - **Icon button (sheet close):** a 44px circle with a 12% ink tint on hover.
@@ -572,7 +581,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 ## Do's and Don'ts
 
 ### Do:
-- **Do** put every review on a cartolina stock from the fixed rotation (`rosa → verde → amarelo → azul → laranja → lilas`), saved on the review, and set all text on it in marker black.
+- **Do** put every review on a cartolina stock from the fixed rotation (`rosa → laranja → amarelo → verde → azul → lilas`), saved on the review, and set all text on it in marker black.
 - **Do** derive tilt (±0.8°–3.4°, never 0), pin x (40–60%, remapped to 42–58% on wall cards), pin colour and drop offset (0–14px) from the review id with the wall-physics hash, so the wall looks the same on every visit.
 - **Do** rotate cards around their own pin (`transform-origin` at the pin) on hover and focus, reducing the tilt to 35% and lifting 3px with `--shadow-lift`.
 - **Do** give the Média and the verdict equal weight on a wall card, as the two halves of one rental ticket at the same height: the Média as the Barlow Condensed italic price on the paper half, the verdict as white lettering on a band in its own ink. Every other score is a smaller Permanent Marker numeral.
@@ -616,7 +625,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 
 ## Open sheets (reader refinement)
 
-- **Pastel sheets.** Every dialog sheet (reader, editor, settings) renders its stock as a pastel: `color-mix(in oklab, var(--stock) 30%, var(--paper))`, with the full neon stock kept as a 12px band across the top edge (`inset 0 12px 0 var(--stock)`), where the pin sits. Neon at 760px wide fought the cover, stamp and text; on the wall the cards stay full neon.
+- **Pastel sheets.** *(Superseded by "Harmonia de cor": sheets are index cards now.)* Every dialog sheet (reader, editor, settings) renders its stock as a pastel: `color-mix(in oklab, var(--stock) 30%, var(--paper))`, with the full neon stock kept as a 12px band across the top edge (`inset 0 12px 0 var(--stock)`), where the pin sits. Neon at 760px wide fought the cover, stamp and text; on the wall the cards stay full neon.
 - **Verdict block.** In the reader the Média no longer sits in the bar list and carries no label. It leads a block: the big paper starburst (120px) on the left; to its right, stacked, the verdict stamp at reader size (1.3rem, -5deg, struck on the sheet, not on the cover), then the status label and difficulty skulls. A dashed rule separates the block from the category bars. The difficulty label reads "Dificuldade média" / "Sem dificuldade" so it can't be mistaken for the score.
 - **Mobile reader.** Cover shrinks to `min(170px, 52%)` so the verdict block and bars reach the first screen.
 
@@ -625,7 +634,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 The single long page was split so the wall reaches the first screen: before, the masthead, the pending queue and three tab groups took ~560px on desktop and ~1000px on a phone before the first card; now ~215px and ~330px.
 
 - **Compact cartaz.** "Meu mural de jogos" on one line at 2.05rem (two lines at 1.5rem on phones), same yellow stock, pins and red scribble. The tally line moved to the Ranking page's Balanço.
-- **Section tabs.** Small cartolina strips in Barlow Condensed 800 caps, each with its own stock (Mural laranja, Pra depois verde, Ranking azul, Ajustes lilás). Inactive tabs are faded: `color-mix(in oklab, var(--stock) 34%, #4d4e55)`, 66% on hover. The current tab is full neon, raised 5px, with the hanging-card shadow and a tachinha on its top edge. Tabs tilt ±0.7–1.4deg. Counts (reviews, pending) are tabular at 66%.
+- **Section tabs.** *(Superseded by "Harmonia de cor": Dymo tape.)* Small cartolina strips in Barlow Condensed 800 caps, each with its own stock (Mural laranja, Pra depois verde, Ranking azul, Ajustes lilás). Inactive tabs are faded: `color-mix(in oklab, var(--stock) 34%, #4d4e55)`, 66% on hover. The current tab is full neon, raised 5px, with the hanging-card shadow and a tachinha on its top edge. Tabs tilt ±0.7–1.4deg. Counts (reviews, pending) are tabular at 66%.
 - **Select tab.** A shelf tab that wraps a native `<select>` made invisible over the whole tab, so the browser picker still opens; the tab shows a faded prefix ("Ordenar"), the current value and a chevron. Ordenar merges what used to be four sort tabs plus five "Qual nota" sub-tabs: Data, Nome, Status, then a "Nota" group (Média, História, Diversão, Jogabilidade, Visual). On phones a second select tab ("Mostrar") replaces the verdict tabs.
 - **Density icons.** Completas / Simples are two icon-only tabs (Rows3 / LayoutGrid) with spoken labels and tooltips, no group label.
 - **Pra depois page.** The torn notebook pages live on their own page under a masking-tape heading, in a grid of `minmax(168px, 1fr)` (pages up to 200px wide). Empty state: a loose notebook sheet taped to the wall explaining "Salvar pra depois". Saving a draft from another page shows a toast with "Ver fila"; finishing a draft goes to the Mural and plays the landing.
@@ -686,3 +695,31 @@ The user found the sorted-attribute highlighter ugly (the yellow band on the Mé
 - **Lado a lado page** (`/lado-a-lado`). A view of the Mural, not a fifth header tab (five tabs do not fit the phone row), so the Mural tab stays lit there. Head: a big tape label "Lado a lado", the chalk summary ("3 jogos · média 7,5"), and chalk quiet buttons "Marcar mais" (back to the Mural in Marcar mode) and "Limpar". A rail with an "Ordenar" select tab (Como marquei, Lançamento, Data, then the Nota group; fixed directions: chronological for dates, highest first for scores, missing values last) and the density icons. Then the marked cards in one flow with no sections, at the wall's widths.
 - **Nota a nota.** A sheet of flat `paper` (no grain, so the sticky label column matches it), 2px radius, hanging-card shadow, -0.35deg, two tape pieces on its top edge, a marker headline (1.9rem). A table with one column per game (at least 150px; 112px at 720px and below) and a sticky row-label column that stays put while wide comparisons scroll sideways. Column heads: a 58px thumb sleeve and the name (Barlow Condensed 800, 1.05rem, 3 lines max), which opens the reader, and a 32px round X to take the game out (with a Desfazer receipt that restores the old order). Rows: Média (the italic price numeral, 2.2rem with a 0.66em decimal, red-deep from 9), Veredito (the card-size stamp at -4deg), História, Diversão, Jogabilidade, Visual (Permanent Marker 1.45rem with the weight arrows; "Não tem" or missing is a 45% "—"), then a solid 2px rule and the facts: Horas, Status (label), Dificuldade (skulls over the level name), Jogado em ("até" for Incompleto), Lançamento. Rows are split by 1.5px dashed ink rules; the head by a 2px ink rule. In each score row the highest value is circled with the same red pen circle as the Ranking's first place (drawn in over 420ms); ties circle every winner, and nobody is circled when all tie or fewer than two games have the score.
 - **States.** Nothing marked: a blue cartolina note ("Nada lado a lado ainda", Kalam copy, the ink button "Escolher no mural"; with an empty wall it points to "Pregar resenha" instead). One marked: the card, then a Kalam chalk line "Marque mais um jogo pra comparar nota a nota." with "Marcar mais".
+
+## Harmonia de cor (colour pass)
+
+The owner felt that many colours looked wrong next to each other. A dual critique (design review plus detector and contrast measurements) found the causes, and this pass fixed them as a system, not colour by colour.
+
+**What was wrong**
+- **Verdict inks shared a hue with a stock.** Recomendo green (151°) matched verde (150°), Meh brown (66°) matched laranja (60°), Chato purple (302°) matched lilás (302°), and Legalzinho blue (264°) sat next to azul (234°). Every verdict band was therefore muddy tone-on-tone on one stock and vibrated against its complement on another (dark green on pink came in at 1.9:1).
+- **The gold foil band had 1.04–1.05:1 luminance contrast** against laranja and lilás, so it read as khaki cardboard.
+- **The stocks did not weigh the same.** Rosa was L 0.71 / C 0.20 (heavy); amarelo was L 0.93 (glaring). Half the wall read neon and half read chalky.
+- **The rotation put complements side by side** (rosa/verde, azul/laranja).
+- **The faded section tabs were muddy.** Mixing a stock into cool grey gave brown, sage, slate and mauve, at 3.7–4.2:1 for their text.
+- **Pins came from six hues, chosen independently of the stock.**
+- **The neutrals sat at three temperatures:** a cool wall and cool grey plastic against warm tape and warm receipts.
+
+**What ships**
+- **Stocks retuned in OKLCH** to L 0.78–0.90 with close chroma (values in the frontmatter). Every stock gives ink at least 8:1.
+- **Rotation** `rosa → laranja → amarelo → verde → azul → lilas`. Adjacent stocks are always analogous. Stored stocks on existing reviews are untouched; new reviews continue the new order.
+- **One ticket ink.** The verdict half of the wall card's ticket is always `ticket-ink` black with `paper` lettering. The verdict's hue survives only in its icon, lightened (`verdict-*-lit`) and surrounded by black, so no verdict ink ever touches a stock. **Masterpiece** is the same black ticket with the word hot-stamped in gold foil (a metallic gradient clipped to the letters, still carrying the `--shine` sweep on lift) and a 1.5px gold hairline frame inset 4px. The saturated `verdict-*` inks remain for stamps on paper: the reader, the verdict picker and Nota a nota.
+- **Dymo section tabs.** Section tabs are embossed label tape: glossy black `dymo-tape` with a top-half reflection, raised `dymo-emboss` letters (Barlow Condensed 800, tracked 0.14em, lit top edge and shadowed foot), and a 3px radius. The current page is hi-vis yellow tape with ink letters and a tachinha, so yellow keeps meaning state. The tabs no longer carry a stock, which removes four hues from every header.
+- **Index-card sheets.** Reader, editor and settings dialogs are cream `paper`. The review's stock fills only the header band (with its grain), closed by a 2px `red` rule like a fichário card. Ruled text areas use `ruling-blue` pencil lines, the same as the Pra depois pages. Hover tints inside sheets are ink at 5–7%, not white, because white vanishes on cream.
+- **Blank-card stack.** The primary action is a white index card on top of rosa and azul sheets, so it reads as "a fresh card" and no longer copies a card stock.
+- **Pins.** Red and white only, and white on rosa and laranja.
+- **Warm neutrals.** Wall `#1f1c1a` under a warm 56% coat over the eucatex photo; fluorescent falloff `rgb(255 246 230 / 0.11)`; paper `#f7f4ec`; ivory shelf plastic; the rail warmed to `#76726b`; scrollbar `#4d4843`; `theme-color` updated.
+- **Editor digits.** Unselected score digits are ink at 60% (full ink on hover), so the circled choice leads instead of 44 equal numerals.
+- **Nota a nota** column heads carry a 6px strip in each game's stock, linking the table to the cards above it.
+- **Contrast.** The save-error banner moved to `red-deep` (white text now passes 4.5:1). The Dymo tabs and their counts pass.
+
+**Named rule: Ink Is Judgement.** Cartolina is decoration; ink is judgement. Anything that judges a game (the Média, the verdict, the circled best) is printed in ink, paper or red on a neutral surface, never in a hue that competes with a stock. At most one saturated stock per card.

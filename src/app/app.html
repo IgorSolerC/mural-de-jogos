@@ -3,18 +3,17 @@
 <header class="top">
   <a class="cartaz cartolina" routerLink="/" aria-label="Meu mural de jogos, início">
     <app-pin class="pin pin-l" color="#e62e2d" />
-    <app-pin class="pin pin-r" color="#2f6bff" />
+    <app-pin class="pin pin-r" color="#f4f4f0" />
     <span class="logo" aria-hidden="true">Meu mural <span class="nl">de <span class="scribble">jogos</span></span></span>
   </a>
 
   <nav class="tabs" aria-label="Seções">
     @for (t of tabs; track t.path) {
       <a
-        class="tab cartolina"
+        class="tab"
         [routerLink]="t.path"
         [class.on]="isOn(t)"
         [attr.aria-current]="isOn(t) ? 'page' : null"
-        [style.--stock]="'var(--stock-' + t.stock + ')'"
       >
         <app-pin class="tab-pin" color="#e62e2d" />
         <span>{{ t.label }}</span>

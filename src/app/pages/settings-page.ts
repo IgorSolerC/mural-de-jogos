@@ -15,7 +15,7 @@ import { Pin } from '../ui/pin';
 
     <div class="boards">
       <section class="ficha cartolina backup" aria-labelledby="backup-titulo">
-        <app-pin class="pin" color="#2f6bff" />
+        <app-pin class="pin" color="#e62e2d" />
         <h2 id="backup-titulo">Backup</h2>
         <p class="lead">
           Suas resenhas ficam só neste navegador. Baixe um backup de vez em quando, ou antes de limpar os dados do
@@ -56,7 +56,7 @@ import { Pin } from '../ui/pin';
       </section>
 
       <section class="ficha cartolina catalog" aria-labelledby="catalogo-titulo">
-        <app-pin class="pin" color="#1fb65a" />
+        <app-pin class="pin" color="#f4f4f0" />
         <h2 id="catalogo-titulo">Catálogo de jogos</h2>
         <p class="lead">
           A busca usa a Wikipedia e funciona sem configurar nada. Para capas e busca mais precisas, crie uma chave

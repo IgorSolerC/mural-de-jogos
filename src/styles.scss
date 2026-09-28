@@ -2,30 +2,33 @@
 
 :root {
   /* Parede: eucatex perfurado pintado de grafite */
-  --wall: #1b1c1f;
-  --wall-hole: #0a0a0c;
-  --wall-ink: #f1f1ec;
-  --wall-ink-2: #b8b8ae;
+  /* grafite quente: o frio de antes deixava a fita-crepe esverdeada e o neon mais áspero */
+  --wall: #1f1c1a;
+  --wall-hole: #0b0908;
+  --wall-ink: #f3efe6;
+  --wall-ink-2: #bdb5a8;
 
-  /* Cartolinas neon */
-  --stock-rosa: #ff5fa2;
-  --stock-amarelo: #ffe94a;
-  --stock-verde: #5cf08a;
-  --stock-laranja: #ff9f45;
-  --stock-azul: #5ec8ff;
-  --stock-lilas: #c9a4ff;
+  /* Cartolinas neon, afinadas em OKLCH para pesarem igual na parede:
+     nenhuma grita mais que a outra (L 0,78–0,90, croma alto mas parecido). */
+  --stock-rosa: #ff79a8;
+  --stock-amarelo: #ffda42;
+  --stock-verde: #7be986;
+  --stock-laranja: #ffa358;
+  --stock-azul: #70cdff;
+  --stock-lilas: #c4a5fb;
 
   /* Tintas */
   --ink: #151515;
   --ink-2: rgb(21 21 21 / 0.78);
   --red: #e62e2d;
   --red-deep: #b81d1c;
-  --paper: #f6f6f1;
-  --hi: #ffe94a;
+  /* papel: todos os neutros claros moram no mesmo eixo quente, do papel à fita */
+  --paper: #f7f4ec;
+  --hi: #ffda42;
 
-  /* Abas de divisória: plástico cinza-claro, ativa em amarelo */
-  --tab-plastic: #d3d4cf;
-  --tab-plastic-hover: #e6e7e2;
+  /* Abas de divisória: plástico marfim, do mesmo eixo quente do papel; ativa em amarelo */
+  --tab-plastic: #dcd6c8;
+  --tab-plastic-hover: #ebe6da;
 
   /* Anel de foco: amarelo sobre a parede, tinta preta sobre cartolina */
   --focus: var(--hi);
@@ -48,7 +51,8 @@
 
   --gutter: clamp(16px, 4vw, 48px);
 
-  /* tinta de cada veredito: carimbo na leitura, faixa do canhoto na ficha (texto branco, 5:1 ou mais) */
+  /* tinta de cada veredito: carimbo em papel (leitura, editor, nota a nota). Na parede o canhoto é
+     sempre tinta preta: cada uma destas cores tem a mesma matiz de uma cartolina e brigava com ela. */
   /* Masterpiece não é vermelho (vermelho lê como alerta): é selo de folha de ouro */
   --verdict-masterpiece: #7d5c00;
   --foil-gold-ink: #3b2a00;
@@ -59,6 +63,13 @@
   --verdict-legalzinho: #1f4fc4;
   --verdict-meh: #8a5200;
   --verdict-chato: #5b2d8e;
+  /* no canhoto preto da parede, a tinta do veredito sobrevive só no ícone, clareada:
+     cercada de preto, nunca encosta numa cartolina */
+  --verdict-masterpiece-lit: #f3d27a;
+  --verdict-recomendo-lit: #7be39a;
+  --verdict-legalzinho-lit: #8ab8ff;
+  --verdict-meh-lit: #e8b86a;
+  --verdict-chato-lit: #c9a6ff;
   /* Papel: fibra procedural (trocar por textures/cartolina.png quando existir) */
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
@@ -80,7 +91,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  scrollbar-color: #4a4b52 var(--wall);
+  scrollbar-color: #4d4843 var(--wall);
 }
 
 body {
@@ -114,9 +125,9 @@ body {
 /* Quando a textura fotográfica existir, ela substitui furos e fibra */
 body.has-wall-texture {
   background-image:
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(236 244 255 / 0.13), transparent 70%),
-    /* demão de tinta por cima da foto: os furos continuam lá, mas param de gritar */
-    linear-gradient(rgb(24 24 27 / 0.46), rgb(24 24 27 / 0.46)),
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
+    /* demão de tinta quente por cima da foto: os furos continuam lá, mas param de gritar */
+    linear-gradient(rgb(31 27 24 / 0.56), rgb(31 27 24 / 0.56)),
     url('textures/parede-eucatex.png');
   background-size: 100% 900px, auto, 560px 560px;
   background-position: 0 0, 0 0, 0 0;

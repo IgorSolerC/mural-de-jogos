@@ -57,7 +57,7 @@ let uid = 0;
         background-color var(--t-ui) var(--ease-ui);
     }
     .opt:hover {
-      background: rgb(255 255 255 / 0.3);
+      background: rgb(21 21 21 / 0.05);
     }
     .opt app-status-label {
       rotate: 0deg;
@@ -69,7 +69,7 @@ let uid = 0;
     }
     .opt.on {
       box-shadow: inset 0 0 0 3px var(--ink);
-      background: rgb(255 255 255 / 0.35);
+      background: rgb(21 21 21 / 0.07);
     }
     .opt.on app-status-label {
       opacity: 1;

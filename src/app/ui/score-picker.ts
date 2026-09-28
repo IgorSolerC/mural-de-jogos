@@ -153,14 +153,21 @@ let uid = 0;
       font-size: 1.2rem;
       line-height: 1;
       font-variant-numeric: tabular-nums;
-      transition: background-color var(--t-ui) var(--ease-ui);
+      /* 44 números a pincel pesavam como ruído: os não escolhidos ficam em tinta mais rala */
+      color: rgb(21 21 21 / 0.6);
+      transition:
+        background-color var(--t-ui) var(--ease-ui),
+        color var(--t-ui) var(--ease-ui);
+    }
+    .num:hover {
+      color: var(--ink);
     }
     :host(.big) .num {
       height: 50px;
       font-size: 1.55rem;
     }
     .num:hover {
-      background: rgb(255 255 255 / 0.35);
+      background: rgb(21 21 21 / 0.06);
     }
     .num:has(input:focus-visible) {
       outline: 3px solid var(--ink);

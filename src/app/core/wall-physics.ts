@@ -31,16 +31,29 @@ export interface Pinning {
   dropY: number;
 }
 
+/** Nas fichas do mural a caixinha só tem tachinha vermelha e branca: seis cores de pin por cima de
+ *  seis cartolinas viravam confete. O vermelho some no rosa e no laranja; lá vai sempre a branca. */
+const WALL_PINS: Record<Stock, readonly string[]> = {
+  rosa: [PINS[4]],
+  laranja: [PINS[4]],
+  amarelo: [PINS[0], PINS[4]],
+  verde: [PINS[0], PINS[4]],
+  azul: [PINS[0], PINS[4]],
+  lilas: [PINS[0], PINS[4]],
+};
+
 export function pinningFor(id: string, stock?: Stock): Pinning {
   const h = hash(id);
   const sideSign = rand(h, 1) < 0.5 ? -1 : 1;
   // Nunca reta: entre 0,8° e 3,4° para um dos lados.
   const tilt = sideSign * (0.8 + rand(h, 2) * 2.6);
+  const s = stock ?? STOCKS[Math.floor(rand(h, 5) * STOCKS.length)];
+  const pins = WALL_PINS[s];
   return {
     tilt: Math.round(tilt * 10) / 10,
     pinX: Math.round(40 + rand(h, 3) * 20),
-    pinColor: PINS[Math.floor(rand(h, 4) * PINS.length)],
-    stock: stock ?? STOCKS[Math.floor(rand(h, 5) * STOCKS.length)],
+    pinColor: pins[Math.floor(rand(h, 4) * pins.length)],
+    stock: s,
     dropY: Math.round(rand(h, 6) * 14),
   };
 }

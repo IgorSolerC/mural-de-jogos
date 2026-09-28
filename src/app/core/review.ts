@@ -7,7 +7,7 @@ export type Verdict = 'masterpiece' | 'recomendo' | 'legalzinho' | 'meh' | 'chat
 export type Stock = 'rosa' | 'amarelo' | 'verde' | 'laranja' | 'azul' | 'lilas';
 
 /** Ordem do rodízio de cartolinas: vizinhas nunca repetem cor e as seis aparecem. */
-export const STOCKS: readonly Stock[] = ['rosa', 'verde', 'amarelo', 'azul', 'laranja', 'lilas'];
+export const STOCKS: readonly Stock[] = ['rosa', 'laranja', 'amarelo', 'verde', 'azul', 'lilas'];
 
 /** As notas que a pessoa dá. */
 export type RatedKey = 'historia' | 'diversao' | 'jogabilidade' | 'visual';

@@ -96,38 +96,51 @@ main {
   }
 }
 
-/* ===== Abas de seção: fichas de cartolina desbotadas; a da seção aberta fica viva e pregada ===== */
+/* ===== Abas de seção: fita Dymo em relevo colada na parede =====
+   Fita preta com as letras estampadas em alto-relevo (o plástico esticado fica esbranquiçado);
+   a da seção aberta é a fita amarela, a cor de estado, pregada com tachinha. */
 .tabs {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 10px;
-  padding-bottom: 4px;
+  gap: 12px;
+  padding-bottom: 6px;
 }
 
 .tab {
-  --faded: color-mix(in oklab, var(--stock) 34%, #4d4e55);
+  --tape: #121212;
+  --emboss: #ebe5d8;
   position: relative;
   display: inline-flex;
   align-items: baseline;
-  gap: 7px;
-  min-height: 44px;
-  padding: 13px 16px 10px;
-  border-radius: 2px;
-  background-color: var(--faded);
-  color: var(--ink);
+  gap: 8px;
+  min-height: 40px;
+  padding: 12px 15px 10px;
+  border-radius: 3px;
+  /* plástico brilhante: reflexo da lâmpada na metade de cima, borda cortada de tesoura */
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04) 46%, transparent 52%, rgb(0 0 0 / 0.18)),
+    var(--tape);
+  color: var(--emboss);
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 1.02rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
-  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 6px 10px -4px rgb(0 0 0 / 0.5);
+  /* relevo: a luz de cima pega a borda de cima da letra, a sombra fica embaixo */
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 0.35),
+    0 1px 1px rgb(0 0 0 / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    inset 0 0 0 1px rgb(255 255 255 / 0.06),
+    0 1px 1px rgb(0 0 0 / 0.5),
+    0 6px 10px -4px rgb(0 0 0 / 0.6);
   rotate: calc(var(--tilt, 0) * 1deg);
   transition:
-    background-color var(--t-ui) var(--ease-ui),
     translate var(--t-physical) var(--ease-physical),
     rotate var(--t-physical) var(--ease-physical),
     box-shadow var(--t-ui) var(--ease-ui);
@@ -150,12 +163,12 @@ main {
 
   .n {
     font-weight: 600;
-    opacity: 0.66;
+    opacity: 0.72;
+    letter-spacing: 0.06em;
     font-variant-numeric: tabular-nums;
   }
 
   &:hover {
-    background-color: color-mix(in oklab, var(--stock) 66%, #4d4e55);
     translate: 0 -2px;
   }
 
@@ -172,10 +185,16 @@ main {
   }
 
   &.on {
-    background-color: var(--stock);
-    translate: 0 -5px;
+    --tape: var(--hi);
+    --emboss: var(--ink);
+    translate: 0 -4px;
     rotate: calc(var(--tilt, 0) * 0.6deg);
-    box-shadow: var(--shadow-card);
+    /* na fita amarela o relevo aparece como brilho em cima da letra escura */
+    text-shadow: 0 1px 0 rgb(255 255 255 / 0.45);
+
+    .n {
+      opacity: 0.78;
+    }
 
     .tab-pin {
       display: block;
@@ -183,7 +202,7 @@ main {
   }
 }
 
-/* A pilha: fichas em branco atrás do botão, cada uma de uma cor */
+/* A pilha: um bloco de fichas em branco, e o botão é a de cima */
 .stack {
   position: relative;
   display: inline-flex;
@@ -191,7 +210,7 @@ main {
   margin-bottom: 4px;
 
   .btn-cartolina {
-    --stock: var(--stock-rosa);
+    --stock: var(--paper);
     min-height: 54px;
     padding: 12px 22px 11px 18px;
     font-size: 1.25rem;
@@ -210,8 +229,9 @@ main {
       translate var(--t-physical) var(--ease-physical);
   }
 
+  /* atrás, as cartolinas que esperam a próxima resenha: só as bordas aparecem */
   &::before {
-    background: var(--stock-verde);
+    background: var(--stock-rosa);
     rotate: 5deg;
     translate: 6px 3px;
   }
@@ -243,7 +263,8 @@ main {
   margin: -8px 0 28px;
   padding: 12px 16px;
   border-radius: 4px;
-  background: var(--red);
+  /* vermelho fundo: o branco passa de 4,5:1 */
+  background: var(--red-deep);
   color: #fff;
   font-weight: 600;
 

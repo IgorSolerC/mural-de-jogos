@@ -5,11 +5,10 @@
   flex-direction: column;
   max-height: calc(100dvh - 24px);
   border-radius: 2px;
-  /* aberta, a cartolina vira pastel: a cor cheia fica só na faixa do topo */
-  background-color: color-mix(in oklab, var(--stock) 30%, var(--paper));
-  box-shadow:
-    inset 0 12px 0 var(--stock),
-    var(--shadow-lift);
+  /* aberta, a ficha vira ficha de fichário: papel creme, e a cor da cartolina fica só no
+     cabeçalho, fechado pelo fio vermelho. O pastel de antes (neon misturado no papel) encardia. */
+  background-color: var(--paper);
+  box-shadow: var(--shadow-lift);
 }
 
 .pin {
@@ -22,7 +21,14 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 32px 24px 10px;
+  padding: 26px 24px 16px;
+  margin-bottom: 16px;
+  background-color: var(--stock);
+  background-image: inherit;
+  background-size: inherit;
+  background-blend-mode: inherit;
+  /* o fio vermelho do fichário, com uma folga de papel antes das linhas azuis */
+  box-shadow: 0 2px 0 var(--red), 0 5px 0 var(--paper), 0 6px 0 rgb(21 21 21 / 0.08);
 
   h2 {
     font-family: var(--f-marker);
@@ -85,7 +91,7 @@
 
 @media (max-width: 560px) {
   .head {
-    padding: 24px 16px 8px;
+    padding: 22px 16px 12px;
 
     h2 {
       font-size: 1.6rem;

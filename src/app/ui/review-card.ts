@@ -90,7 +90,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
           }
         </p>
         @if (review().verdict; as v) {
-          <p class="band" [class.gold]="v === 'masterpiece'" role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + ')'">
+          <p class="band" [class.gold]="v === 'masterpiece'" role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + '-lit)'">
             <lucide-icon [img]="verdictIcons[v]" [size]="compact() ? 16 : 19" [strokeWidth]="2.6" aria-hidden="true" />
             <span aria-hidden="true">{{ verdictLabels[v] }}</span>
           </p>
@@ -337,9 +337,10 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       padding: 0 18px 0 17px;
       border-radius: 0 3px 3px 0;
       /* picote: a linha pontilhada onde o canhoto se destaca */
-      border-left: 2px dotted rgb(255 255 255 / 0.55);
-      background: var(--v);
-      color: #fff;
+      border-left: 2px dotted rgb(255 255 255 / 0.5);
+      /* uma tinta só, a do pincel: preto assenta em qualquer uma das seis cartolinas */
+      background: var(--ink);
+      color: var(--paper);
       font-family: var(--f-label);
       font-weight: 800;
       font-size: 1.02rem;
@@ -365,19 +366,32 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       border-width: 2px;
     }
     */
-    /* Masterpiece: folha de ouro, com o mesmo brilho que corre no Platinado quando a ficha levanta */
+    /* Masterpiece: o mesmo canhoto preto, com a palavra e o fio da moldura estampados a quente
+       em folha de ouro. O brilho corre pela folha quando a ficha levanta, como no Platinado. */
     .band.gold {
-      border-left-color: rgb(59 42 0 / 0.35);
-      background:
-        linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.85) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat,
-        var(--foil-gold);
-      color: var(--foil-gold-ink);
-      text-shadow: 0 1px 0 rgb(255 255 255 / 0.5);
+      border-left-color: rgb(243 210 122 / 0.55);
       transition: --shine 900ms var(--ease-physical);
+    }
+    .band.gold::after {
+      content: '';
+      position: absolute;
+      inset: 4px 4px 4px 5px;
+      border: 1.5px solid #d8ab48;
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    .band.gold span {
+      background:
+        linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.95) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat,
+        linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
     .band lucide-icon {
       display: inline-flex;
       margin-top: -1px;
+      color: var(--v);
     }
     /* os entalhes de ticket, em cima e embaixo, onde as duas metades se encontram */
     .grade:not(:only-child) {

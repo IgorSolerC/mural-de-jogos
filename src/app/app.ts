@@ -16,16 +16,15 @@ import { Toast, Toasts } from './ui/toast';
 interface Tab {
   path: string;
   label: string;
-  stock: string;
   /** Outras rotas que moram dentro desta aba (o lado a lado é uma vista do mural). */
   also?: string[];
 }
 
 const TABS: Tab[] = [
-  { path: '/', label: 'Mural', stock: 'laranja', also: ['/lado-a-lado'] },
-  { path: '/fila', label: 'Pra depois', stock: 'verde' },
-  { path: '/ranking', label: 'Ranking', stock: 'azul' },
-  { path: '/ajustes', label: 'Ajustes', stock: 'lilas' },
+  { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
+  { path: '/fila', label: 'Pra depois' },
+  { path: '/ranking', label: 'Ranking' },
+  { path: '/ajustes', label: 'Ajustes' },
 ];
 
 @Component({
