@@ -26,9 +26,9 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short
 const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
 
 /**
- * Ficha de balcão: a cartolina é o cartaz escrito à mão do dono da locadora, e a caixa do jogo é
- * um objeto preso nela com fita-crepe. Na arte, só a faixa de status impressa no pé da caixa. O julgamento é um par de mesmo
- * peso: a Média escrita a pincel como preço de cartaz e o carimbo do veredito batido ao lado.
+ * Ficha do mural: uma cartolina escrita à mão a pincel atômico, com a foto do jogo colada nela. Na foto,
+ * só a tira de fita de status colada no pé. O julgamento é um par de mesmo peso: a Média e o veredito
+ * na mesma etiqueta dupla, com picote no meio.
  */
 @Component({
   selector: 'app-review-card',
@@ -58,8 +58,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
               <app-status-label class="faixa" [status]="review().status" [band]="true" />
             }
           </app-cover-sleeve>
-          <span class="tape tape-a" aria-hidden="true"></span>
-          <span class="tape tape-b" aria-hidden="true"></span>
         </div>
       </div>
 
@@ -203,7 +201,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       left: calc(var(--pin-x) - 13px);
     }
 
-    /* ===== Cabeça: caixa do jogo presa com fita + o que o dono escreveu + o julgamento ===== */
+    /* ===== Cabeça: a foto colada + o que foi escrito + o julgamento ===== */
     .head {
       display: grid;
       grid-template-columns: var(--cover-w) minmax(0, 1fr);
@@ -227,26 +225,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     .faixa {
       position: absolute;
       inset: auto 0 0;
-    }
-    .tape {
-      position: absolute;
-      top: -6px;
-      width: 36px;
-      height: 14px;
-      background-color: rgb(222 205 160 / 0.86);
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      clip-path: polygon(0 12%, 4px 50%, 0 88%, 100% 100%, calc(100% - 4px) 50%, 100% 0);
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
-      z-index: 2;
-    }
-    .tape-a {
-      left: -12px;
-      rotate: -38deg;
-    }
-    .tape-b {
-      right: -12px;
-      rotate: 36deg;
     }
 
     .words {
@@ -284,7 +262,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       font-variant-numeric: tabular-nums;
     }
 
-    /* ===== O julgamento: etiqueta dupla de preço, como canhoto de locadora =====
+    /* ===== O julgamento: etiqueta adesiva dupla, destacável no picote =====
        À esquerda, a Média impressa em papel branco; à direita, o veredito numa faixa na cor dele.
        As duas metades têm a mesma altura e o mesmo peso, unidas por um picote com entalhes. */
     .judge {
@@ -401,7 +379,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         radial-gradient(circle at 100% 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) bottom / 100% 51% no-repeat;
     }
 
-    /* ===== A frase do dono, inteira, na letra dele ===== */
+    /* ===== A primeira frase da resenha, inteira, na letra de quem escreveu ===== */
     .lead {
       margin-top: 14px;
       font-family: var(--f-hand);
@@ -521,7 +499,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       cursor: pointer;
     }
 
-    /* ===== Ficha simples: uma etiqueta de prateleira ===== */
+    /* ===== Ficha simples: uma tira de cartolina ===== */
     :host(.compact) {
       --cover-w: 68px;
       padding: 14px 14px 12px;
@@ -540,17 +518,6 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       --band-fs: 0.7rem;
       --band-track: 0.03em;
       --band-icon: none;
-    }
-    :host(.compact) .tape {
-      width: 28px;
-      height: 11px;
-      top: -5px;
-    }
-    :host(.compact) .tape-a {
-      left: -10px;
-    }
-    :host(.compact) .tape-b {
-      right: -10px;
     }
     :host(.compact) .words {
       padding-top: 6px;
@@ -664,7 +631,7 @@ export class ReviewCard {
   readonly toggled = output<string>();
 
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
-  /** A tachinha fica no meio do cartaz (42–58%), acima do nome: a fita já segura a capa. */
+  /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   protected readonly date = computed(() =>
     (this.dayOnly() ? dayFmt : dateFmt).format(parseDay(this.review().completedAt)).replace(/\./g, ''),
@@ -672,7 +639,7 @@ export class ReviewCard {
   protected readonly hours = computed(() => formatHours(this.review().hoursPlayed));
   protected readonly lead = computed(() => leadSentence(this.review().text));
 
-  /** "9,4" → inteiro 9 e decimal 4, escritos em tamanhos diferentes como preço de cartaz. */
+  /** "9,4" → inteiro 9 e decimal 4, escritos em tamanhos diferentes, o decimal menor. */
   protected readonly grade = computed(() => {
     const v = this.review().scores.final;
     const text = formatScore(v);

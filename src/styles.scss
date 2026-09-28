@@ -1,4 +1,4 @@
-/* Mural de Jogos: parede de locadora. Tokens globais e materiais. */
+/* Mural de Jogos: parede de eucatex com papelaria pregada. Tokens globais e materiais. */
 
 :root {
   /* Parede: eucatex perfurado pintado de grafite */
@@ -111,7 +111,7 @@ body {
   background-color: var(--wall);
   background-image:
     /* luz das lâmpadas fluorescentes caindo de cima */
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(236 244 255 / 0.11), transparent 70%),
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
     /* furos do eucatex: borda de baixo levemente iluminada */
     radial-gradient(circle at 50% 44%, var(--wall-hole) 0 3.1px, transparent 3.6px),
     radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px),
@@ -190,7 +190,7 @@ p {
   border: 0;
 }
 
-/* ===== Plaquinha de categoria: aba de divisória de prateleira, plástico impresso ===== */
+/* ===== Plaquinha de categoria: aba de divisória de fichário, plástico impresso ===== */
 .plate {
   --tab: var(--tab-plastic);
   --tab-ink: var(--ink);

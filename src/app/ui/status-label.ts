@@ -3,8 +3,8 @@ import { CircleCheckBig, CircleDashed, LucideAngularModule, Trophy } from 'lucid
 import { STATUS_LABEL, Status } from '../core/review';
 
 /**
- * Etiqueta de etiquetadora de preço. Platinado vem em adesivo holográfico.
- * Com `band`, vira a faixa impressa no pé da capa, como a faixa Platinum das caixas de locadora.
+ * Etiqueta adesiva de papel com dois filetes. Platinado vem em adesivo holográfico.
+ * Com `band`, vira uma tira de fita colada no pé da foto, de uma borda à outra.
  */
 @Component({
   selector: 'app-status-label',
@@ -69,7 +69,7 @@ import { STATUS_LABEL, Status } from '../core/review';
       margin-top: -1px;
     }
 
-    /* ===== Faixa de capa: impressa na caixa, reta, sem sombra, de ponta a ponta da arte =====
+    /* ===== Tira de fita no pé da foto: reta, sem sombra, de ponta a ponta =====
        Quem usa decide a altura e a letra por --band-h, --band-fs, --band-track e --band-icon. */
     :host(.printed) {
       display: flex;
@@ -86,7 +86,7 @@ import { STATUS_LABEL, Status } from '../core/review';
     :host(.printed) lucide-icon {
       display: var(--band-icon, inline-flex);
     }
-    /* Incompleto: faixa preta de tinta, letra e filete no laranja da etiquetadora */
+    /* Incompleto: faixa preta de tinta, letra e filete no laranja da etiqueta */
     :host(.printed.incompleto) {
       color: var(--stripe);
       background: rgb(21 21 21 / 0.92);

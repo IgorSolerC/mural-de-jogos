@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { formatScore } from '../core/review';
 
-/** Estrela de preço da locadora, cortada à mão: 18 pontas levemente irregulares. */
+/** Estrela de papel recortada à mão: 18 pontas levemente irregulares. */
 export const BURST_POINTS = (() => {
   const n = 18;
   const jitter = [0, 3, -2, 4, -3, 1, 2, -4, 3, -1, 4, -2, 1, -3, 2, 0, -2, 3];
@@ -48,7 +48,7 @@ export const BURST_POINTS = (() => {
       height: 100%;
       overflow: visible;
     }
-    /* Etiqueta de preço em papel, recortada à mão, contorno de caneta */
+    /* Estrela de papel recortada à mão, contorno de caneta */
     polygon {
       fill: var(--paper);
       stroke: var(--ink);

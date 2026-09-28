@@ -6,7 +6,7 @@ import { WallView } from '../core/wall-view';
 import { Toasts } from './toast';
 
 /**
- * A comanda do balcão: enquanto o dono marca fichas, uma tira de papel presa no pé da tela
+ * A tira de marcação: enquanto você marca fichas, uma tira de papel presa no pé da tela
  * conta quantas vão e leva para o lado a lado.
  */
 @Component({
@@ -14,7 +14,7 @@ import { Toasts } from './toast';
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="comanda" aria-label="Marcando fichas pra ver lado a lado">
+    <section class="tira" aria-label="Marcando fichas pra ver lado a lado">
       <span class="tape tape-a" aria-hidden="true"></span>
       <span class="tape tape-b" aria-hidden="true"></span>
       <p class="conta" aria-live="polite">
@@ -50,7 +50,7 @@ import { Toasts } from './toast';
       z-index: 40;
       width: min(820px, calc(100vw - 24px));
     }
-    .comanda {
+    .tira {
       position: relative;
       display: flex;
       flex-wrap: wrap;
@@ -125,7 +125,7 @@ import { Toasts } from './toast';
         width: calc(100vw - 20px);
         bottom: calc(10px + env(safe-area-inset-bottom));
       }
-      .comanda {
+      .tira {
         padding: 10px 12px 12px 14px;
         gap: 6px 10px;
       }
@@ -157,7 +157,7 @@ export class PickTray {
   protected readonly rest = computed(() => this.view.visible().filter((r) => !this.side.order().has(r.id)));
 
   constructor() {
-    // o cupom de aviso sobe para não ficar atrás da comanda
+    // o bilhete de aviso sobe para não ficar atrás da tira
     document.body.classList.add('has-tray');
     inject(DestroyRef).onDestroy(() => document.body.classList.remove('has-tray'));
   }

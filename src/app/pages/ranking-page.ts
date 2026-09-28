@@ -26,7 +26,7 @@ const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true
 const printed = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-/** O ranking impresso em cupom de balcão: uma lista por nota e, no pé, o balanço do mural. */
+/** O ranking numa folha de bloquinho destacada: uma lista por nota e, ao lado, o balanço do mural. */
 @Component({
   selector: 'app-ranking-page',
   imports: [CoverSleeve, LucideAngularModule],

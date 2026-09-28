@@ -178,7 +178,7 @@ export class SideBySidePage {
     return this.winners().get(key)?.has(id) ?? false;
   }
 
-  /** "8,8" → 8 e 8, escritos como o preço do canhoto. */
+  /** "8,8" → 8 e 8, escritos como na etiqueta da ficha. */
   protected grade(v: number): { int: string; dec: string } {
     const [int, dec = ''] = formatScore(v).split(',');
     return { int, dec };

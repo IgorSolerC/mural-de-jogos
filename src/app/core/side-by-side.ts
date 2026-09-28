@@ -17,7 +17,7 @@ function readIds(): string[] {
 }
 
 /**
- * Lado a lado: as fichas que o dono tirou da parede para comparar no balcão. Uma seleção por vez,
+ * Lado a lado: as fichas tiradas da parede para comparar na mesa. Uma seleção por vez,
  * na ordem em que foram marcadas, guardada só neste navegador (não entra no backup).
  */
 @Injectable({ providedIn: 'root' })

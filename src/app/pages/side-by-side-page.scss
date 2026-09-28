@@ -329,8 +329,8 @@ tbody tr.split > * {
 }
 
 /* ===== As células ===== */
-/* a Média, impressa como o preço do canhoto */
-.preco {
+/* a Média, impressa como na etiqueta da ficha */
+.media {
   position: relative;
   display: inline-block;
   font-family: var(--f-label);
@@ -421,7 +421,7 @@ tbody tr.split > * {
   }
 }
 
-.preco .circulo {
+.media .circulo {
   inset: -9px -16px -8px -12px;
   width: calc(100% + 28px);
   height: calc(100% + 17px);

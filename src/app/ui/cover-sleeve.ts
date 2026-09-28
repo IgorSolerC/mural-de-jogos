@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { PickedGame } from '../core/review';
 
-/** A capa do jogo dentro da capinha plástica de exposição da locadora. */
+/** A foto do jogo encapada com plástico transparente, como capa de caderno. */
 @Component({
   selector: 'app-cover-sleeve',
   changeDetection: ChangeDetectionStrategy.OnPush,

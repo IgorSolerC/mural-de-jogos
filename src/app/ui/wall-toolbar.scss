@@ -2,7 +2,7 @@
   display: block;
 }
 
-/* Duas fileiras: em cima a tira de busca; embaixo, em pé no trilho da gôndola, as abas de veredito
+/* Duas fileiras: em cima a tira de busca; embaixo, em pé na régua de alumínio, as abas de veredito
    à esquerda e a ordem e o tipo de ficha empurrados para a direita */
 .shelf {
   position: relative;
@@ -12,7 +12,7 @@
   gap: 16px 22px;
   padding: 0 12px;
 
-  /* o trilho de alumínio pintado onde as abas ficam encaixadas */
+  /* a régua de alumínio onde as abas de divisória ficam em pé */
   &::after {
     content: '';
     position: absolute;

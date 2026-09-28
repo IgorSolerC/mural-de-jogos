@@ -7,7 +7,7 @@ export interface DeskHandlers {
 }
 
 /**
- * O balcão: as fichas grandes (editor e leitura) moram no app, mas qualquer página pode pedir
+ * A mesa: as fichas grandes (editor e leitura) moram no app, mas qualquer página pode pedir
  * para abrir uma. Também guarda qual ficha acabou de cair na parede.
  */
 @Injectable({ providedIn: 'root' })

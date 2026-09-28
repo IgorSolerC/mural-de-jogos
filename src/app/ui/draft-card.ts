@@ -6,7 +6,7 @@ import { BURST_POINTS } from './score-burst';
 
 /**
  * Jogo guardado para resenhar depois: não é cartolina ainda, é uma folha de caderno arrancada
- * às pressas, presa com fita-crepe na bandeja do topo. O nome vai a lápis e a estrela de preço
+ * às pressas, presa com fita-crepe na bandeja do topo. O nome vai a lápis e a estrela de papel
  * ainda nem foi recortada.
  */
 @Component({
@@ -116,7 +116,7 @@ import { BURST_POINTS } from './score-burst';
       filter: none;
     }
 
-    /* a estrela de preço só riscada a lápis, esperando ser recortada */
+    /* a estrela de papel só riscada a lápis, esperando ser recortada */
     .burst {
       position: absolute;
       right: -9px;
