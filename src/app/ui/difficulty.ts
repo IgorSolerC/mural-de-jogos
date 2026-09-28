@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, model, signal } from '@angular/core';
 import { LucideAngularModule, Skull } from 'lucide-angular';
 import {
   DIFFICULTIES,
@@ -141,9 +141,9 @@ let uid = 0;
         }
       </legend>
       <div class="medidor">
-        <div class="caveiras" [class.horned]="horned()">
+        <div class="caveiras" [class.horned]="horned()" (pointerleave)="preview.set(null)">
           @for (d of levels; track d; let i = $index) {
-            <label class="cav" [class.on]="i < count()">
+            <label class="cav" [class.on]="i < count()" (pointerenter)="onEnter($event, d)">
               <input
                 type="radio"
                 [name]="name"
@@ -157,7 +157,9 @@ let uid = 0;
             </label>
           }
         </div>
-        <span class="nome" [class.vazio]="value() === 'nenhuma'" aria-hidden="true">{{ labels[value()] }}</span>
+        <span class="nome" [class.vazio]="shown() === 'nenhuma'" [class.previa]="preview() !== null" aria-hidden="true">
+          {{ labels[shown()] }}
+        </span>
       </div>
     </fieldset>
   `,
@@ -278,7 +280,8 @@ let uid = 0;
       white-space: nowrap;
       color: var(--ink);
     }
-    .nome.vazio {
+    .nome.vazio,
+    .nome.previa {
       color: var(--ink-2);
     }
     @media (prefers-reduced-motion: reduce) {
@@ -295,6 +298,14 @@ export class DifficultyPicker {
   protected readonly labels = DIFFICULTY_LABEL;
   protected readonly count = computed(() => DIFFICULTY_SKULLS[this.value()]);
   protected readonly horned = computed(() => isHorned(this.value()));
+  /** O nível sob o mouse: o nome ao lado mostra até onde a escolha iria, como a fileira. */
+  protected readonly preview = signal<Difficulty | null>(null);
+  protected readonly shown = computed(() => this.preview() ?? this.value());
   protected readonly SkullIcon = Skull;
   protected readonly name = `dificuldade-${++uid}`;
+
+  /** Só o mouse mostra a prévia; no toque, o dedo já escolhe. */
+  protected onEnter(e: PointerEvent, d: Difficulty): void {
+    if (e.pointerType === 'mouse') this.preview.set(d);
+  }
 }
