@@ -1,4 +1,5 @@
 import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
+import { Damage, Paper, Pattern, Scribble, sanitizeDamage, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
 
 export type { Kind } from './kinds';
 
@@ -179,6 +180,16 @@ export interface Review {
   hoursPlayed: number | null;
   /** Cor da cartolina, escolhida uma vez quando a ficha é criada. */
   stock?: Stock;
+  /** O papel da cartolina (canson, linho, glitter…); sem o campo, a cartolina de sempre. */
+  paper?: Paper;
+  /** A estampa de papelaria impressa na cartolina (gatinhos, caveiras…); sem o campo, lisa. */
+  pattern?: Pattern;
+  /** O rabisco a lápis que toma a ficha inteira, atrás do que está escrito; sem o campo, nenhum. */
+  scribble?: Scribble;
+  /** O estrago no papel (arrancada, queimada, amassada…): leva o que está escrito, não a foto nem os adesivos. */
+  damage?: Damage;
+  /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
+  damageSeed?: number;
   text: string;
   /**
    * Dia em que foi concluído (ou visto pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos.
@@ -513,6 +524,11 @@ export function sanitizeBonuses(raw: unknown, kind: Kind): Bonus[] {
   return [...out.values()];
 }
 
+/** Um campo que só vai para a resenha quando tem valor: as antigas continuam iguais, sem chave vazia. */
+function optional<K extends string, V>(key: K, v: V | undefined): Partial<Record<K, V>> {
+  return v === undefined ? {} : ({ [key]: v } as Record<K, V>);
+}
+
 function sanitizeId(v: unknown): string {
   return typeof v === 'string' && /^[\w-]{4,64}$/.test(v) ? v : newId();
 }
@@ -591,6 +607,11 @@ export function sanitizeReview(raw: unknown): Review | null {
         : Math.round(Math.min(amount, 99999))
       : null,
     stock: STOCKS.includes(r['stock']) ? r['stock'] : undefined,
+    ...optional('paper', sanitizePaper(r['paper'])),
+    ...optional('pattern', sanitizePattern(r['pattern'])),
+    ...optional('scribble', sanitizeScribble(r['scribble'])),
+    ...optional('damage', sanitizeDamage(r['damage'])),
+    ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
     text: str(r['text']),
     completedAt:
       r['completedAt'] === null

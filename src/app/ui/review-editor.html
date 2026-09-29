@@ -14,7 +14,7 @@
   >
     <app-pin class="pin" [color]="pin().pinColor" />
 
-    <header class="head">
+    <header class="head" [style]="headPaper()">
       <h2 id="editor-titulo">{{ editing() ? 'Editar resenha' : fromDraft() ? 'Terminar resenha' : 'Nova resenha' }}</h2>
       <button type="button" class="icon-btn" (click)="requestClose()" aria-label="Fechar">
         <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
@@ -35,20 +35,8 @@
             </p>
           }
 
-          <fieldset class="cores">
-            <legend class="giz">Cor da cartolina <b>{{ stockLabels[stock()] }}</b></legend>
-            <div class="amostras">
-              @for (s of stocks; track s) {
-                <label class="cor" [class.on]="stock() === s">
-                  <input type="radio" name="editor-cor" [value]="s" [checked]="stock() === s" [attr.aria-label]="stockLabels[s]" (change)="stock.set(s)" />
-                  <span class="amostra cartolina" [style.--stock]="'var(--stock-' + s + ')'"></span>
-                  @if (stock() === s) {
-                    <app-pin class="cor-pin" [color]="pin().pinColor" />
-                  }
-                </label>
-              }
-            </div>
-          </fieldset>
+          <!-- o estojo: a cor da cartolina, o papel e as marcas; a ficha acima muda na hora -->
+          <app-card-kit class="estojo" [id]="id()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(scribble)]="scribble" [(damage)]="damage" [(damageSeed)]="damageSeed" />
         </div>
       </aside>
 

@@ -91,9 +91,29 @@ describe('GameLookup', () => {
     });
   });
 
+  describe('jogos na Wikipedia', () => {
+    it('o nome inteiro também procura sem curinga: God of War vem antes de Warhammer', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) => {
+        const q = new URL(String(input)).searchParams.get('gsrsearch') ?? '';
+        const page = (pageid: number, index: number, title: string, description: string) => ({ pageid, index, title, description });
+        return json({
+          query: {
+            pages: q.includes('War*')
+              ? [page(1, 1, 'Total War: Warhammer', '2016 video game'), page(2, 2, 'Warframe', '2013 video game')]
+              : [page(3, 1, 'God of War (2018 video game)', 'Action-adventure game'), page(1, 2, 'Total War: Warhammer', '2016 video game')],
+          },
+        });
+      });
+      const hits = await lookup.search('God of War', signal, 'jogos', 'wikipedia');
+      expect(hits.map((h) => h.name)).toEqual(['God of War', 'Total War: Warhammer', 'Warframe']);
+      // o ano do jogo está no título, não na descrição
+      expect(hits[0].year).toBe('2018');
+    });
+  });
+
   describe('filmes e séries (TMDB com chave, Wikipedia sem)', () => {
     it('sem chave, procura na Wikipedia pela caixa de filme', async () => {
-      fetchSpy.and.returnValue(json({ query: { pages: [] } }));
+      fetchSpy.and.callFake(() => json({ query: { pages: [] } }));
       await lookup.search('cidade de deus', signal, 'filmes');
       expect(new URL(url()).searchParams.get('gsrsearch')).toContain('hastemplate:"Infobox film"');
     });

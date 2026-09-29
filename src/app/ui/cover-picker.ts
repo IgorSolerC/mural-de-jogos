@@ -17,6 +17,14 @@ import { CoverChoice, GameLookup, LookupError, coverFrom, imageLoads } from '../
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
 
+const SOURCE_ARTICLE: Record<string, string> = { TMDB: 'no', Kitsu: 'no', AniList: 'no' };
+
+/** "na Wikipedia e na RAWG", "no Kitsu e no AniList". */
+function joinSources(list: string[]): string {
+  const parts = list.map((s) => `${SOURCE_ARTICLE[s] ?? 'na'} ${s}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts.at(-1)}` : parts[0];
+}
+
 /**
  * A escolha da capa: as fotos que o catálogo tem do mesmo título, soltas na mesa, e a escolhida sai
  * do monte. Também dá para colar o link de uma imagem, ou ficar sem capa. Serve à wishlist, ao Pra
@@ -39,17 +47,32 @@ import { Settings } from '../core/settings';
             [attr.aria-label]="'Capa ' + (i + 1) + ' de ' + shown().length + ', ' + c.from + (isBroken(c.coverUrl) ? ', não abriu' : '')"
           />
           <span class="foto">
-            <img [src]="c.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="onBroken(c.coverUrl)" />
+            <img
+              [src]="c.coverUrl"
+              alt=""
+              [class.revelada]="isLoaded(c.coverUrl)"
+              [class.escondida]="!isLoaded(c.coverUrl)"
+              decoding="async"
+              referrerpolicy="no-referrer"
+              (load)="onLoaded(c.coverUrl)"
+              (error)="onBroken(c.coverUrl)"
+            />
             @if (isBroken(c.coverUrl)) {
               <span class="nao-abriu" aria-hidden="true">não abriu</span>
+            } @else if (!isLoaded(c.coverUrl)) {
+              <!-- a foto já foi achada, mas ainda está chegando -->
+              <span class="carregando-capa clara" aria-hidden="true"><span class="roda"></span><span class="txt">carregando</span></span>
             }
           </span>
           <span class="de" aria-hidden="true">{{ c.from }}</span>
         </label>
       }
       @if (loading()) {
-        @for (s of [1, 2, 3]; track s) {
-          <span class="capa esperando" aria-hidden="true"><span class="foto"></span></span>
+        <!-- os catálogos ainda procurando: o lugar das fotos que ainda vão chegar -->
+        @for (s of [1, 2]; track s) {
+          <span class="capa esperando" aria-hidden="true">
+            <span class="foto"><span class="carregando-capa clara"><span class="roda"></span><span class="txt">procurando</span></span></span>
+          </span>
         }
       }
       <label class="capa sem" [class.on]="cover() === null">
@@ -60,7 +83,14 @@ import { Settings } from '../core/settings';
         </span>
       </label>
     </div>
-    <p class="sr-only" aria-live="polite">{{ loading() ? 'Procurando outras capas…' : shown().length + ' capas para escolher.' }}</p>
+    <!-- o que ainda está vindo, à vista: onde ainda procura, e quantas fotos ainda estão chegando -->
+    <p class="andamento" [class.parado]="!progress()" role="status">
+      @if (progress(); as msg) {
+        <span class="roda" aria-hidden="true"></span>{{ msg }}
+      } @else {
+        <span class="sr-only">{{ shown().length }} capas para escolher.</span>
+      }
+    </p>
 
     @if (pasting()) {
       <div class="colar">
@@ -255,14 +285,14 @@ import { Settings } from '../core/settings';
       color: rgb(21 21 21 / 0.66);
     }
 
-    /* procurando outras capas: fotos ainda por imprimir */
+    /* procurando outras capas: o lugar das fotos que ainda vão chegar, tracejado */
     .esperando {
       cursor: default;
 
       .foto {
-        background: #ebe8e1;
-        box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.08);
-        animation: esperando 1100ms ease-in-out infinite alternate;
+        outline: 1.5px dashed rgb(21 21 21 / 0.3);
+        outline-offset: -1.5px;
+        box-shadow: none;
       }
 
       &:hover {
@@ -270,13 +300,36 @@ import { Settings } from '../core/settings';
       }
     }
 
-    .esperando:nth-of-type(2n) .foto {
-      animation-delay: 180ms;
+    .foto img.escondida {
+      opacity: 0;
     }
 
-    @keyframes esperando {
-      to {
-        opacity: 0.45;
+    /* o andamento, à vista, embaixo das fotos */
+    .andamento {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 22px;
+      margin: -2px 0 0;
+      font-family: var(--f-ui);
+      font-weight: 600;
+      font-size: 0.92rem;
+      line-height: 1.3;
+      color: var(--ink-2);
+
+      &.parado {
+        min-height: 0;
+        margin: 0;
+      }
+
+      .roda {
+        flex: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        animation: capa-roda 800ms linear infinite;
       }
     }
 
@@ -408,6 +461,19 @@ export class CoverPicker {
   protected readonly error = signal<string | null>(null);
   /** Um catálogo que não respondeu (a RAWG com a chave recusada, a Wikipedia fora do ar): dito, não escondido. */
   protected readonly notes = signal<string[]>([]);
+  /** Os catálogos que ainda não responderam. */
+  protected readonly waiting = signal<string[]>([]);
+  /** As fotos que já chegaram. */
+  private readonly loadedUrls = signal<ReadonlySet<string>>(new Set());
+  /** A linha do andamento: onde ainda procura, ou quantas fotos ainda estão chegando; vazia quando acabou. */
+  protected readonly progress = computed(() => {
+    const w = this.waiting();
+    if (this.loading() && w.length) return `Procurando mais capas ${joinSources(w)}…`;
+    if (this.loading()) return 'Procurando mais capas…';
+    const n = this.shown().filter((c) => c.coverUrl && !this.isLoaded(c.coverUrl) && !this.isBroken(c.coverUrl)).length;
+    if (n) return n === 1 ? 'Carregando 1 foto…' : `Carregando ${n} fotos…`;
+    return '';
+  });
   protected readonly pasting = signal(false);
   protected readonly pasteUrl = signal('');
   protected readonly pasteBusy = signal(false);
@@ -465,18 +531,39 @@ export class CoverPicker {
     this.abort = ctrl;
     this.loading.set(true);
     try {
-      const { choices: found, notes } = await this.lookup.coverChoices(gm, kind, ctrl.signal);
+      // as que já estavam e o catálogo não trouxe (um link colado, a da Steam) continuam na frente
+      const before = this.choices();
+      const show = (found: CoverChoice[]) => {
+        const kept = before.filter((c) => c.coverUrl && !found.some((f) => f.coverUrl === c.coverUrl));
+        const pasted = this.choices().filter((c) => c.from === 'Link' && !before.includes(c) && !found.some((f) => f.coverUrl === c.coverUrl));
+        this.choices.set([...pasted, ...kept, ...found]);
+      };
+      // cada fonte entra quando responde; as fotos por imprimir ficam até a última
+      const { choices: found, notes } = await this.lookup.coverChoices(gm, kind, ctrl.signal, (sofar, waiting) => {
+        if (ctrl.signal.aborted) return;
+        show(sofar);
+        this.waiting.set(waiting);
+      });
       if (ctrl.signal.aborted) return;
       this.notes.set(notes);
-      // as que já estavam e o catálogo não trouxe (um link colado, a da Steam) continuam na frente
-      const kept = this.choices().filter((c) => c.coverUrl && !found.some((f) => f.coverUrl === c.coverUrl));
-      this.choices.set([...kept, ...found]);
+      show(found);
     } catch (e) {
       if (ctrl.signal.aborted || (e as Error).name === 'AbortError') return;
       this.error.set(e instanceof LookupError ? e.message : 'Não consegui procurar outras capas agora.');
     } finally {
-      if (!ctrl.signal.aborted) this.loading.set(false);
+      if (!ctrl.signal.aborted) {
+        this.loading.set(false);
+        this.waiting.set([]);
+      }
     }
+  }
+
+  protected isLoaded(url: string | null): boolean {
+    return !!url && this.loadedUrls().has(url);
+  }
+
+  protected onLoaded(url: string | null): void {
+    if (url && !this.loadedUrls().has(url)) this.loadedUrls.update((set) => new Set(set).add(url));
   }
 
   protected isBroken(url: string | null): boolean {

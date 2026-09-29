@@ -20,8 +20,6 @@ import {
   RatedKey,
   Review,
   SCORE_LABEL,
-  STOCKS,
-  STOCK_LABEL,
   Status,
   NO_DAY_LABEL,
   Stock,
@@ -43,8 +41,11 @@ import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
+import { Damage, Paper, Pattern, Scribble } from '../core/paper';
+import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
+import { CardKit } from './card-kit';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
@@ -66,6 +67,7 @@ export interface SavedEvent {
   imports: [
     LucideAngularModule,
     BonusPicker,
+    CardKit,
     CoverPicker,
     CoverSleeve,
     DifficultyPicker,
@@ -105,6 +107,7 @@ export class ReviewEditor {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
+  private readonly kit = viewChild(CardKit);
 
   protected readonly id = signal(newId());
   protected readonly editing = signal<Review | null>(null);
@@ -176,8 +179,14 @@ export class ReviewEditor {
 
   /** A ficha em branco já nasce com uma cor sorteada; a pessoa troca pela que quiser. */
   protected readonly stock = signal<Stock>('amarelo');
-  protected readonly stocks = STOCKS;
-  protected readonly stockLabels = STOCK_LABEL;
+  /** O papel da cartolina, a estampa, o rabisco e o estrago: a ficha nova nasce na cartolina de sempre, sem nada. */
+  protected readonly paper = signal<Paper>('cartolina');
+  protected readonly pattern = signal<Pattern | null>(null);
+  protected readonly scribble = signal<Scribble | null>(null);
+  protected readonly damage = signal<Damage | null>(null);
+  /** O jeito do estrago que a pessoa sorteou (um clique a mais no estrago, outro jeito). */
+  protected readonly damageSeed = signal<number | null>(null);
+  protected readonly headPaper = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
 
@@ -200,6 +209,11 @@ export class ReviewEditor {
       bonuses: this.bonuses(),
       hoursPlayed: this.hoursValid() ? this.hoursValue() : null,
       stock: this.stock(),
+      paper: this.paper(),
+      pattern: this.pattern() ?? undefined,
+      scribble: this.scribble() ?? undefined,
+      damage: this.damage() ?? undefined,
+      damageSeed: this.damageSeed() ?? undefined,
       text: this.text(),
       completedAt: this.dateUnknown() ? null : this.dateValid() ? this.completedAt() : this.today(),
       createdAt: '',
@@ -260,6 +274,12 @@ export class ReviewEditor {
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
     this.stock.set(review?.stock ?? this.store.nextStock(kind));
+    this.paper.set(review?.paper ?? 'cartolina');
+    this.pattern.set(review?.pattern ?? null);
+    this.scribble.set(review?.scribble ?? null);
+    this.damage.set(review?.damage ?? null);
+    this.damageSeed.set(review?.damageSeed ?? null);
+    this.kit()?.reset();
     this.game.set(review?.game ?? draft?.game ?? wish?.game ?? null);
     const { final: _final, ...rated } = review?.scores ?? { final: 0 };
     this.scores.set(rated);
@@ -376,6 +396,12 @@ export class ReviewEditor {
       difficulty: this.profile().difficulty ? this.difficulty() : 'nenhuma',
       verdict: this.verdict(),
       stock: this.stock(),
+      // o de sempre não vai para o armazenamento: cartolina sem marca é a ficha como era
+      ...(this.paper() !== 'cartolina' ? { paper: this.paper() } : {}),
+      ...(this.pattern() ? { pattern: this.pattern()! } : {}),
+      ...(this.scribble() ? { scribble: this.scribble()! } : {}),
+      ...(this.damage() ? { damage: this.damage()! } : {}),
+      ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
       text: this.text().trim(),
       completedAt: this.dateUnknown() ? null : this.completedAt(),
       createdAt: prev?.createdAt ?? now,
@@ -504,6 +530,11 @@ export class ReviewEditor {
     return JSON.stringify([
       this.game()?.name,
       this.stock(),
+      this.paper(),
+      this.pattern(),
+      this.scribble(),
+      this.damage(),
+      this.damageSeed(),
       this.categories().map((k) => this.scores()[k] ?? null),
       this.status(),
       this.verdict(),

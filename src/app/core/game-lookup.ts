@@ -103,9 +103,21 @@ export function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): 
   });
 }
 
-/** O mesmo título, sem ligar para acento, maiúscula nem pontuação ("Hades II" = "hades ii"). */
+/**
+ * O ano que a RAWG põe no nome para separar jogos de mesmo nome: "God of War (2018)" é "God of War",
+ * de 2018. Só um ano sozinho entre parênteses, no fim: "Blade Runner 2049" fica como está.
+ */
+export function splitYear(name: string): { base: string; year?: string } {
+  const m = name.match(/^(.*\S)\s*\(((?:19|20)\d{2})\)\s*$/);
+  return m ? { base: m[1], year: m[2] } : { base: name };
+}
+
+/**
+ * O mesmo título, sem ligar para acento, maiúscula nem pontuação ("Hades II" = "hades ii"), nem
+ * para o ano que a RAWG põe no fim ("God of War (2018)" = "God of War"; quem precisa, compara o ano).
+ */
 export function sameTitle(a: string, b: string): boolean {
-  const k = (s: string) => fold(s).replace(/[^\p{L}\p{N}]+/gu, '');
+  const k = (s: string) => fold(splitYear(s).base).replace(/[^\p{L}\p{N}]+/gu, '');
   const ka = k(a);
   const kb = k(b);
   // sem letra nem número (só emoji ou pontuação), compara o nome como foi escrito
@@ -255,9 +267,16 @@ export class GameLookup {
    * primeiro, depois as do mesmo título em outro lugar. Jogos: Wikipedia, RAWG e a arte da Steam.
    * Filmes e séries no TMDB: os outros pôsteres do título, os em português primeiro. Livros: as capas
    * das edições, as em português primeiro. Animes: o Kitsu e o AniList. Uma fonte que falha só não
-   * entra; a lista nunca vem vazia se o item tem capa.
+   * entra (e vira um aviso); a lista nunca vem vazia se o item tem capa. `onSome` recebe a lista a
+   * cada fonte que responde (a Wikipedia rápida não espera a RAWG lenta) e quem ainda falta
+   * responder, para a tela dizer onde ainda está procurando.
    */
-  async coverChoices(game: PickedGame, kind: Kind, signal: AbortSignal): Promise<CoverChoices> {
+  async coverChoices(
+    game: PickedGame,
+    kind: Kind,
+    signal: AbortSignal,
+    onSome?: (sofar: CoverChoice[], waiting: string[]) => void,
+  ): Promise<CoverChoices> {
     const tasks: { from: string; run: Promise<CoverChoice[]> }[] = [];
     const add = (from: string, run: Promise<CoverChoice[]>) => tasks.push({ from, run });
     const same = (h: PickedGame) => sameTitle(h.name, game.name) && (!game.year || !h.year || h.year === game.year);
@@ -294,22 +313,46 @@ export class GameLookup {
         );
         break;
     }
-    const settled = await Promise.allSettled(tasks.map((t) => t.run));
+    // a lista sempre na mesma ordem das fontes, por mais que elas respondam fora de ordem
+    const got: CoverChoice[][] = tasks.map(() => []);
+    const merged = () => {
+      const seen = new Set<string>();
+      const out: CoverChoice[] = [];
+      for (const g of [{ ...game, from: coverFrom(game) }, ...got.flat()]) {
+        if (!g.coverUrl || seen.has(g.coverUrl)) continue;
+        seen.add(g.coverUrl);
+        out.push(g);
+      }
+      return out.slice(0, 16);
+    };
+    const pending = new Set(tasks.map((_, i) => i));
+    const waiting = () => [...new Set([...pending].map((i) => tasks[i].from))];
+    if (tasks.length) onSome?.(merged(), waiting());
+    const settled = await Promise.allSettled(
+      tasks.map((t, i) =>
+        t.run.then(
+          (v) => {
+            got[i] = v;
+            pending.delete(i);
+            if (!signal.aborted) onSome?.(merged(), waiting());
+            return v;
+          },
+          (e) => {
+            pending.delete(i);
+            if (!signal.aborted) onSome?.(merged(), waiting());
+            throw e;
+          },
+        ),
+      ),
+    );
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    const seen = new Set<string>();
-    const out: CoverChoice[] = [];
-    for (const g of [{ ...game, from: coverFrom(game) }, ...settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))]) {
-      if (!g.coverUrl || seen.has(g.coverUrl)) continue;
-      seen.add(g.coverUrl);
-      out.push(g);
-    }
     // quem falhou não some calado: a chave recusada diz o que fazer, o resto diz quem não respondeu
     const notes = new Set<string>();
     settled.forEach((r, i) => {
       if (r.status === 'fulfilled' || (r.reason as Error)?.name === 'AbortError') return;
       notes.add(r.reason instanceof LookupError && r.reason.kind === 'rawg-key' ? r.reason.message : `${tasks[i].from} não respondeu agora.`);
     });
-    return { choices: out.slice(0, 16), notes: [...notes] };
+    return { choices: merged(), notes: [...notes] };
   }
 
   /**
@@ -319,7 +362,10 @@ export class GameLookup {
    * O ano, quando os dois lados têm, precisa bater: God of War de 2018 não é o de 2005.
    */
   private async wikiCovers(game: PickedGame, signal: AbortSignal, lang: 'en' | 'pt', template: string | null): Promise<CoverChoice[]> {
-    const name = game.name.replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    // "God of War (2018)", da RAWG: procura "God of War", e o 2018 vale como o ano do item
+    const { base, year: named } = splitYear(game.name);
+    const year = game.year ?? named;
+    const name = base.replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim();
     if (!name) return [];
     const params = new URLSearchParams({
       action: 'query',
@@ -341,7 +387,7 @@ export class GameLookup {
       .filter((p) => sameTitle(String(p.title ?? '').replace(/\s*\([^)]*\)\s*$/, ''), game.name))
       .filter((p) => {
         const y = wikiYear(p);
-        return !game.year || !y || y === game.year;
+        return !year || !y || y === year;
       })
       .sort((a, b) => (Number(a.index) || 99) - (Number(b.index) || 99))
       .map((p) => ({ ...game, coverUrl: p.thumbnail.source as string, from: 'Wikipedia' }));
@@ -353,11 +399,13 @@ export class GameLookup {
    * Wikipedia às vezes discordam, por causa do acesso antecipado: Hades é 2018 numa e 2020 na outra).
    */
   private async rawgChoices(game: PickedGame, key: string, signal: AbortSignal): Promise<CoverChoice[]> {
-    const raw = await this.rawgResults(game.name, key, signal);
+    const { base, year: named } = splitYear(game.name);
+    const itemYear = game.year ?? named;
+    const raw = await this.rawgResults(base, key, signal);
     const year = (g: any) => (typeof g?.released === 'string' ? g.released.slice(0, 4) : undefined);
     const own = (g: any) => game.source === 'rawg' && String(g.id) === game.sourceId;
     // quantos anos longe do item (sem ano de um lado, meio ano: nem perto nem longe)
-    const dist = (g: any) => (own(g) ? -1 : !game.year || !year(g) ? 0.5 : Math.abs(Number(year(g)) - Number(game.year)));
+    const dist = (g: any) => (own(g) ? -1 : !itemYear || !year(g) ? 0.5 : Math.abs(Number(year(g)) - Number(itemYear)));
     // o de mesmo nome mais perto no tempo entra sempre; um segundo só se for quase do mesmo ano (um remaster, uma edição)
     const matches = raw
       .filter((g) => g?.id && g?.name && (own(g) || sameTitle(String(g.name), game.name)))
@@ -416,28 +464,34 @@ export class GameLookup {
       .map((e) => ({ ...game, coverUrl: `https://covers.openlibrary.org/b/id/${e.covers[0]}-L.jpg?default=false` }));
   }
 
+  /**
+   * Duas buscas juntas: a com o curinga na última palavra (para quem ainda está digitando: "hollow
+   * kni") e a das palavras como estão. Só o curinga não basta: "God of War*" enche a lista de
+   * Warhammer e Warframe, e o God of War não aparece. As exatas vêm primeiro na ordem da Wikipedia.
+   */
   private async searchWikipedia(q: string, signal: AbortSignal, template: string): Promise<PickedGame[]> {
     const search = wikiQuery(q, template);
     if (!search) return [];
-    const params = new URLSearchParams({
-      action: 'query',
-      format: 'json',
-      formatversion: '2',
-      origin: '*',
-      generator: 'search',
-      gsrsearch: search,
-      gsrlimit: '10',
-      prop: 'pageimages|description',
-      piprop: 'thumbnail',
-      pithumbsize: '420',
-      pilicense: 'any',
+    const words = q.replace(/[^\p{L}\p{N}\s':-]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const [plain, wild] = await Promise.all([
+      // a exata é um reforço: se só ela falhar, fica a do curinga
+      this.wikiPages(`${words} hastemplate:"${template}"`, signal).catch((e) => {
+        if ((e as Error).name === 'AbortError') throw e;
+        return [];
+      }),
+      this.wikiPages(search, signal),
+    ]);
+    const seen = new Set<string>();
+    const pages = [...plain, ...wild].filter((p) => {
+      const id = String(p?.pageid ?? p?.title);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
     });
-    const data = await this.fetchJson(`${WIKI}?${params}`, signal);
-    const pages: any[] = data?.query?.pages ?? [];
     const needle = fold(q);
     return pages
-      .map((p) => ({
-        index: Number(p.index) || 99,
+      .map((p, i) => ({
+        index: i,
         game: {
           name: cleanWikiTitle(String(p.title ?? '')),
           coverUrl: typeof p.thumbnail?.source === 'string' ? p.thumbnail.source : null,
@@ -455,6 +509,26 @@ export class GameLookup {
       })
       .slice(0, 8)
       .map((x) => x.game);
+  }
+
+  /** As páginas de uma busca da Wikipedia em inglês, na ordem de relevância de lá. */
+  private async wikiPages(search: string, signal: AbortSignal): Promise<any[]> {
+    const params = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      formatversion: '2',
+      origin: '*',
+      generator: 'search',
+      gsrsearch: search,
+      gsrlimit: '10',
+      prop: 'pageimages|description',
+      piprop: 'thumbnail',
+      pithumbsize: '420',
+      pilicense: 'any',
+    });
+    const data = await this.fetchJson(`${WIKI}?${params}`, signal);
+    const pages: any[] = data?.query?.pages ?? [];
+    return pages.sort((a, b) => (Number(a.index) || 99) - (Number(b.index) || 99));
   }
 
   /**

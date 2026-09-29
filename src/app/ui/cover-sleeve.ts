@@ -8,15 +8,25 @@ import { PickedGame, initialOf } from '../core/review';
   host: { '[class]': 'size()' },
   template: `
     <div class="frame">
-      @if (game().coverUrl && !failed()) {
+      @if (game().coverUrl && failed() !== game().coverUrl) {
         <img
           [src]="game().coverUrl"
           [alt]="decorative() ? '' : 'Capa de ' + game().name"
+          [class.revelada]="!loading()"
+          [class.escondida]="loading()"
           loading="lazy"
           decoding="async"
           referrerpolicy="no-referrer"
-          (error)="failed.set(true)"
+          (load)="loaded.set(game().coverUrl)"
+          (error)="failed.set(game().coverUrl)"
         />
+        @if (loading()) {
+          <!-- a capa já tem endereço, mas ainda não chegou: diz isso em vez de mostrar um buraco preto -->
+          <span class="carregando-capa" [class.miuda]="size() === 'thumb'" [attr.role]="decorative() ? null : 'status'">
+            <span class="roda" aria-hidden="true"></span>
+            <span class="txt">carregando</span>
+          </span>
+        }
       } @else {
         <div class="blank" [attr.role]="decorative() ? null : 'img'" [attr.aria-label]="decorative() ? null : 'Sem capa para ' + game().name">
           <span class="initial" aria-hidden="true">{{ initial() }}</span>
@@ -62,6 +72,9 @@ import { PickedGame, initialOf } from '../core/review';
     }
     :host(.thumb) .frame {
       aspect-ratio: 4 / 5;
+    }
+    img.escondida {
+      opacity: 0;
     }
     img {
       width: 100%;
@@ -111,6 +124,12 @@ export class CoverSleeve {
   readonly size = input<'card' | 'big' | 'thumb'>('card');
   /** A ficha já diz o nome do jogo: a capa não precisa repeti-lo para o leitor de tela. */
   readonly decorative = input(false);
-  protected readonly failed = signal(false);
+  /** A capa que não abriu e a que já chegou, pelo endereço: trocar de capa recomeça as duas. */
+  protected readonly failed = signal<string | null>(null);
+  protected readonly loaded = signal<string | null>(null);
+  protected readonly loading = computed(() => {
+    const url = this.game().coverUrl;
+    return !!url && this.loaded() !== url && this.failed() !== url;
+  });
   protected readonly initial = computed(() => initialOf(this.game().name));
 }

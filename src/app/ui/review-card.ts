@@ -18,6 +18,8 @@ import {
   sortBonuses,
   weightOf,
 } from '../core/review';
+import { cutsPaper } from '../core/paper';
+import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
@@ -26,6 +28,7 @@ import { JudgeLabel } from './judge-label';
 import { Luz } from './luz';
 import { Skulls } from './difficulty';
 import { PenMark } from './pen-mark';
+import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 
@@ -41,7 +44,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
  */
 @Component({
   selector: 'app-review-card',
-  imports: [Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
+  imports: [PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -59,12 +62,18 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     // a prévia no editor não disputa o nome com a ficha de verdade que está no mural
     '[style.view-transition-name]': 'preview() ? null : "ficha-" + review().id',
     '[class.vazia]': 'empty()',
+    // o papel escolhido (textura) e, quando falta um pedaço, o papel recortado desenhado nas marcas
+    '[style]': 'paperVars()',
+    '[class.recortada]': 'cut()',
+    '[class.orelha]': 'review().damage === "orelha"',
   },
   template: `
+    <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
+    <app-paper-art [id]="review().id" [scribble]="review().scribble" [damage]="review().damage" [seed]="review().damageSeed" [glitter]="review().paper === 'glitter'" [content]="review()" />
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <div class="head">
-      <div class="cover">
+      <div class="cover" data-colado>
         <div class="box">
           <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
             <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
@@ -76,8 +85,8 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       </div>
 
       <div class="words">
-        <h4 class="title">{{ empty() ? emptyName() : review().game.name }}</h4>
-        <p class="meta">
+        <h4 class="title" data-queima>{{ empty() ? emptyName() : review().game.name }}</h4>
+        <p class="meta" data-queima>
           @if (review().completedAt; as day) {
             <time [attr.datetime]="day">{{ date() }}</time>
           } @else {
@@ -90,7 +99,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
             <span aria-hidden="true"> · </span><app-skulls class="caveiras" [value]="review().difficulty" [size]="compact() ? 13 : 14" [showLabel]="false" [ghosts]="false" />
           }
           @if (compact() && sortedCell(); as c) {
-            <span aria-hidden="true"> · </span><span class="sorted">{{ labels[c.key] }} @if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else { {{ c.value }} }<app-pen-mark /></span>
+            <span aria-hidden="true"> · </span><span class="sorted"><span>{{ labels[c.key] }} </span>@if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else {<span>{{ c.value }}</span>}<app-pen-mark /></span>
           }
           @if (compact() && bonuses().length) {
             <app-bonus-tally class="tally" [bonuses]="bonuses()" />
@@ -99,17 +108,17 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       </div>
 
       <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
-      <app-judge-label class="judge" [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" />
+      <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" />
     </div>
 
     @if (!compact()) {
       @if (lead(); as line) {
-        <p class="lead">“{{ line }}”</p>
+        <p class="lead" data-queima>“{{ line }}”</p>
       }
 
       <!-- Os bônus: adesivos colados na cartolina, os a favor primeiro -->
       @if (bonuses().length) {
-        <ul class="bonus" aria-label="Bônus">
+        <ul class="bonus" data-colado aria-label="Bônus">
           @for (b of shownBonuses().shown; track b.id; let i = $index) {
             <li>
               <app-bonus-sticker [bonus]="b" [index]="i" />
@@ -122,7 +131,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         </ul>
       }
 
-      <app-boletim class="boletim" [review]="review()" [highlight]="highlight()" />
+      <app-boletim class="boletim" data-queima [review]="review()" [highlight]="highlight()" />
     }
 
     <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
@@ -164,6 +173,37 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         translate var(--t-physical) var(--ease-physical),
         box-shadow var(--t-ui) var(--ease-ui),
         --luz 600ms var(--ease-physical);
+    }
+
+    /* O papel é a camada de baixo do app-paper-art (é ela que rasga, queima e dobra); a ficha em si
+       não tem fundo. A foto e os adesivos ficam por cima de tudo, inteiros. */
+    :host {
+      background: none;
+    }
+    .cover,
+    .judge,
+    .bonus {
+      position: relative;
+      z-index: 3;
+    }
+    /* a orelha dobra a foto e os adesivos junto: a aba (z 3) passa por cima deles */
+    :host(.orelha) :is(.cover, .judge, .bonus) {
+      z-index: 2;
+    }
+    /* Faltou um pedaço: a sombra segue o recorte em vez de ser uma caixa */
+    :host(.recortada) {
+      --land-shadow: none;
+      --sombra-papel: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 9px 9px rgb(0 0 0 / 0.42));
+    }
+    :host(.recortada),
+    :host(.recortada:hover),
+    :host(.recortada:focus-within),
+    :host(.recortada:active) {
+      box-shadow: none;
+    }
+    :host(.recortada:hover),
+    :host(.recortada:focus-within) {
+      --sombra-papel: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 18px 16px rgb(0 0 0 / 0.46));
     }
 
     /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede */
@@ -443,7 +483,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         scale: 1.08;
         rotate: calc(var(--tilt) * 3deg);
         opacity: 0;
-        box-shadow: var(--shadow-lift);
+        box-shadow: var(--land-shadow, var(--shadow-lift));
       }
       55% {
         opacity: 1;
@@ -508,6 +548,8 @@ export class ReviewCard {
 
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   protected readonly profile = computed(() => profileOf(this.review().kind));
+  protected readonly paperVars = computed(() => paperStyle(this.review().paper, this.review().pattern));
+  protected readonly cut = computed(() => cutsPaper(this.review().damage));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() => `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`);
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */

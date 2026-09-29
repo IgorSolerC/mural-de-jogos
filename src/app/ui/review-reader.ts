@@ -12,6 +12,7 @@ import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 
 import { g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, dayLabel, formatAmount, formatScore, parseDay, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
+import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { Boletim } from './boletim';
 import { BonusSticker } from './bonus';
@@ -34,7 +35,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'">
           <app-pin class="pin" [color]="pin().pinColor" />
           <!-- a cor da cartolina fica só na faixa do cabeçalho, como ficha de fichário -->
-          <header class="head">
+          <header class="head" [style]="headPaper()">
             <button type="button" class="icon-btn" (click)="close()" aria-label="Fechar">
               <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
             </button>
@@ -163,6 +164,8 @@ export class ReviewReader {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   protected readonly review = signal<Review | null>(null);
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
+  /** A faixa do cabeçalho é a cartolina da ficha, no papel dela. */
+  protected readonly headPaper = computed(() => paperStyle(this.review()?.paper, this.review()?.pattern));
   protected readonly date = computed(() => {
     const r = this.review();
     return r?.completedAt ? dateFmt.format(parseDay(r.completedAt)) : '';

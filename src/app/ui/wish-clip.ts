@@ -49,11 +49,17 @@ import { RelevanceSticker } from './relevance-sticker';
             <img
               [src]="wish().game.coverUrl"
               alt=""
+              [class.revelada]="!loading()"
+              [class.escondida]="loading()"
               loading="lazy"
               decoding="async"
               referrerpolicy="no-referrer"
+              (load)="loaded.set(wish().game.coverUrl)"
               (error)="failed.set(wish().game.coverUrl)"
             />
+            @if (loading()) {
+              <span class="carregando-capa" aria-hidden="true"><span class="roda"></span><span class="txt">carregando</span></span>
+            }
           } @else {
             <div class="blank" aria-hidden="true">
               <span class="initial">{{ initial() }}</span>
@@ -308,6 +314,9 @@ import { RelevanceSticker } from './relevance-sticker';
       background:
         radial-gradient(circle, rgb(0 0 0 / 0.26) 0.9px, transparent 1.5px) 0 0 / 4.5px 4.5px,
         radial-gradient(circle, rgb(255 255 255 / 0.1) 0.9px, transparent 1.5px) 2.25px 2.25px / 4.5px 4.5px;
+    }
+    img.escondida {
+      opacity: 0;
     }
     img {
       display: block;
@@ -918,6 +927,12 @@ export class WishClip {
   protected readonly styles = CUTOUT_STYLES;
   /** A capa que não abriu (a prévia troca de capa: outra pode abrir). */
   protected readonly failed = signal<string | null>(null);
+  /** A foto que já chegou; até lá, o recorte diz que ela está carregando. */
+  protected readonly loaded = signal<string | null>(null);
+  protected readonly loading = computed(() => {
+    const url = this.wish().game.coverUrl;
+    return !!url && this.loaded() !== url && this.failed() !== url;
+  });
   protected readonly initial = computed(() => initialOf(this.wish().game.name));
 
   protected readonly tear = computed(() => tearFor(this.wish().id));

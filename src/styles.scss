@@ -88,6 +88,10 @@
   --verdict-chato-lit: #c9a6ff;
   /* Papel: fibra procedural (trocar por textures/cartolina.png quando existir) */
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* a fibra que a cartolina usa: a procedural até a foto carregar (body.has-paper-texture) */
+  --grao-img: var(--paper-grain);
+  --grao-tam: auto;
+  --grao-mistura: multiply;
 
   color-scheme: dark;
   accent-color: var(--hi);
@@ -529,13 +533,21 @@ dialog.sheet {
 }
 
 /* Superfície de cartolina usada por fichas e diálogos */
+/* O papel: a cor da cartolina, a textura escolhida por cima (`--textura`, ver core/paper.ts), a
+   estampa impressa no meio (`--estampa`, tom sobre tom) e a fibra por baixo de tudo (`--grao`; o
+   papel Liso não tem). Serve à ficha, à camada de papel dela e às amostras do editor. */
+.cartolina,
+.papel {
+  background-color: var(--stock);
+  background-image: var(--textura, none), var(--estampa, none), var(--grao, var(--grao-img));
+  background-size: var(--textura-tam, auto), var(--estampa-tam, 128px 128px), var(--grao-tam);
+  background-blend-mode: var(--textura-mistura, normal), multiply, var(--grao-mistura);
+}
+
 .cartolina {
   --stock: var(--stock-amarelo);
   --focus: var(--ink);
   position: relative;
-  background-color: var(--stock);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
   color: var(--ink);
   /* controles nativos (rádio, data, rolagem) em versão clara sobre o papel */
   color-scheme: light;
@@ -869,7 +881,11 @@ body.has-holo {
 }
 
 /* Fibra fotográfica centrada em 50% de cinza + soft-light: textura sem encardir a cartolina */
-body.has-paper-texture .cartolina,
+body.has-paper-texture {
+  --grao-img: url('textures/cartolina-fibra.png');
+  --grao-tam: 420px 420px;
+  --grao-mistura: soft-light;
+}
 body.has-paper-texture .btn-cartolina {
   background-image: url('textures/cartolina-fibra.png');
   background-size: 420px 420px;
@@ -914,5 +930,107 @@ body.has-paper-texture .btn-cartolina {
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' preserveAspectRatio='none'%3E%3Cpath d='M3 15c40-9 90-12 150-9 18 1 32 3 44 6-50-2-110 0-150 7' fill='none' stroke='%23e62e2d' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
       center / 100% 100% no-repeat;
     z-index: -1;
+  }
+}
+
+/* ===== Capa carregando: a foto ainda está sendo revelada =====
+   Cada capa que já tem endereço mas ainda não chegou mostra o papel fotográfico em branco com um
+   brilho passando, uma rodinha e a palavra "carregando" (as capinhas miúdas, só o brilho e a
+   rodinha). Quando a foto chega, ela aparece revelando: sai do sépia e do desfocado. Com movimento
+   reduzido, o brilho e a rodinha param, e a palavra continua lá. */
+.carregando-capa {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  overflow: hidden;
+  background: #1b1a1d;
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  pointer-events: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 25%, rgb(255 255 255 / 0.07) 42%, rgb(255 255 255 / 0.13) 50%, rgb(255 255 255 / 0.07) 58%, transparent 75%) 0 0 / 260% 100%;
+    animation: capa-brilho 1400ms linear infinite;
+  }
+
+  .roda {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    opacity: 0.85;
+    animation: capa-roda 800ms linear infinite;
+  }
+
+  .txt {
+    position: relative;
+  }
+
+  /* no papel claro (a escolha de capas): papel fotográfico ainda em branco */
+  &.clara {
+    background: #e2ded5;
+    color: rgb(21 21 21 / 0.62);
+
+    &::before {
+      background-image: linear-gradient(100deg, transparent 25%, rgb(255 255 255 / 0.5) 42%, rgb(255 255 255 / 0.8) 50%, rgb(255 255 255 / 0.5) 58%, transparent 75%);
+    }
+  }
+
+  /* nas capinhas de 40px não cabe a palavra */
+  &.miuda {
+    gap: 0;
+
+    .roda {
+      width: 12px;
+      height: 12px;
+      border-width: 1.6px;
+    }
+
+    .txt {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+  }
+}
+
+@keyframes capa-brilho {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -130% 0;
+  }
+}
+
+@keyframes capa-roda {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* a foto chegou: aparece revelando, como no papel de foto */
+img.revelada {
+  animation: capa-revela 560ms var(--ease-ui) both;
+}
+
+@keyframes capa-revela {
+  from {
+    opacity: 0;
+    filter: sepia(0.7) brightness(1.15) blur(3px);
   }
 }

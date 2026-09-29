@@ -11,6 +11,7 @@ import { SideBySide } from './core/side-by-side';
 import { ViewTransitions } from './core/view-transitions';
 import { WallView } from './core/wall-view';
 import { KindSwitcher } from './ui/kind-switcher';
+import { PaperDefs } from './ui/paper-layer';
 import { Pin } from './ui/pin';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
@@ -34,7 +35,7 @@ const TABS: Tab[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [KindSwitcher, LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
+  imports: [KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',

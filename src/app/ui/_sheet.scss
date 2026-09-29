@@ -23,10 +23,11 @@
   gap: 12px;
   padding: 26px 24px 16px;
   margin-bottom: 16px;
+  /* a faixa é da cartolina da ficha: a cor, o papel escolhido e a fibra */
   background-color: var(--stock);
-  background-image: inherit;
-  background-size: inherit;
-  background-blend-mode: inherit;
+  background-image: var(--textura, none), var(--estampa, none), var(--grao, var(--grao-img));
+  background-size: var(--textura-tam, auto), var(--estampa-tam, 128px 128px), var(--grao-tam);
+  background-blend-mode: var(--textura-mistura, normal), multiply, var(--grao-mistura);
 
   h2 {
     font-family: var(--f-marker);

@@ -13,6 +13,14 @@ import { PenMark } from './pen-mark';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class]': 'size()' },
   template: `
+    <!-- a régua e os fios entre as casas, fora das casas: queimam com o papel mesmo quando a casa tem um selo -->
+    <div class="fios" aria-hidden="true">
+      @for (c of cells(); track c.key; let i = $index) {
+        @if (i) {
+          <span class="fio" [style.left.%]="(i / cells().length) * 100"></span>
+        }
+      }
+    </div>
     <dl>
       @for (c of cells(); track c.key; let i = $index) {
         <div class="cell" [class.off]="c.off">
@@ -58,6 +66,7 @@ import { PenMark } from './pen-mark';
   `,
   styles: `
     :host {
+      position: relative;
       display: block;
       /* os rótulos apertam quando o próprio boletim fica estreito (ficha no celular) */
       container: boletim / inline-size;
@@ -66,13 +75,21 @@ import { PenMark } from './pen-mark';
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       margin: 0;
+      /* a régua (1,5 px) e o respiro embaixo dela */
+      padding-top: 2.5px;
     }
-    dl::before {
-      content: '';
-      grid-column: 1 / -1;
-      height: 1.5px;
-      margin-bottom: 1px;
-      background: rgb(21 21 21 / 0.34);
+    .fios {
+      position: absolute;
+      inset: 0;
+      border-top: 1.5px solid rgb(21 21 21 / 0.34);
+      pointer-events: none;
+    }
+    .fio {
+      position: absolute;
+      top: 1px;
+      bottom: 0;
+      width: 1.5px;
+      background: rgb(21 21 21 / 0.2);
     }
     .cell {
       display: grid;
@@ -81,9 +98,6 @@ import { PenMark } from './pen-mark';
       gap: 6px;
       padding: 6px 2px 2px;
       min-width: 0;
-    }
-    .cell + .cell {
-      border-left: 1.5px solid rgb(21 21 21 / 0.2);
     }
     dt {
       position: relative;
@@ -145,15 +159,18 @@ import { PenMark } from './pen-mark';
     }
 
     /* ===== Leitura: o mesmo boletim, com casas mais altas e números maiores ===== */
-    :host(.big) dl::before {
-      height: 2px;
+    :host(.big) dl {
+      padding-top: 3px;
+    }
+    :host(.big) .fios {
+      border-top-width: 2px;
+    }
+    :host(.big) .fio {
+      width: 2px;
     }
     :host(.big) .cell {
       gap: 8px;
       padding: 12px 4px 6px;
-    }
-    :host(.big) .cell + .cell {
-      border-left-width: 2px;
     }
     :host(.big) dt {
       font-size: 0.94rem;

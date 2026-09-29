@@ -78,90 +78,9 @@
   }
 }
 
-/* As amostras de cartolina: a escolhida é pregada com uma tachinha e se solta da parede */
-.cores {
-  width: 100%;
-  max-width: 336px;
-  min-width: 0;
-  margin: 4px 0 0;
-  padding: 0;
-  border: 0;
-
-  legend {
-    width: 100%;
-    padding: 0;
-    margin-bottom: 10px;
-  }
-}
-
-.amostras {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.cor {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 46px;
-  border-radius: 3px;
-  cursor: pointer;
-
-  input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    pointer-events: none;
-  }
-
-  /* na parede o foco é amarelo */
-  &:has(input:focus-visible) {
-    outline: 3px solid var(--hi);
-    outline-offset: 1px;
-  }
-}
-
-.amostra {
-  width: 100%;
-  max-width: 36px;
-  aspect-ratio: 36 / 28;
-  border-radius: 2px;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.35),
-    0 5px 8px -3px rgb(0 0 0 / 0.55);
-  transition:
-    rotate var(--t-physical) var(--ease-physical),
-    translate var(--t-physical) var(--ease-physical),
-    box-shadow var(--t-ui) var(--ease-ui);
-}
-
-.cor:hover .amostra {
-  translate: 0 -2px;
-}
-
-.cor.on .amostra {
-  rotate: -7deg;
-  translate: 0 -3px;
-  box-shadow:
-    0 2px 2px rgb(0 0 0 / 0.3),
-    0 10px 14px -6px rgb(0 0 0 / 0.65);
-}
-
-.cor-pin {
-  top: 2px;
-  left: calc(50% - 13px);
-  scale: 0.6;
-  animation: pino 420ms var(--ease-physical);
-}
-
-@keyframes pino {
-  from {
-    scale: 1.1;
-    opacity: 0;
-  }
+/* o estojo da ficha (cor, papel, marcas), logo abaixo dela */
+.estojo {
+  margin-top: 6px;
 }
 
 /* ===== O formulário ===== */
@@ -535,9 +454,18 @@ textarea {
       inset -10px 0 14px -12px rgb(0 0 0 / 0.6);
   }
 
+  /* parada ao lado do formulário; se o estojo aberto passar da altura da ficha aberta, rola sozinho */
   .bancada-in {
     position: sticky;
     top: 30px;
+    max-height: calc(100dvh - 24px - 210px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+    /* a tachinha da prévia e a sombra das amostras precisam de folga para não serem cortadas */
+    padding: 4px 6px 10px;
+    margin: -4px -6px -10px;
   }
 
   .form {
