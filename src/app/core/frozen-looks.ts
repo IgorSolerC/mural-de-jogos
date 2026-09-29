@@ -24,11 +24,13 @@ export const FROZEN_PATTERNS: readonly Pattern[] = [
   'mineracao', 'carros',
 ];
 // Espirais e Teste de caneta saíram em 2026-09-29, a pedido
-export const FROZEN_SCRIBBLES: readonly Scribble[] = ['novelo', 'hachura', 'riscado', 'contorno', 'aula'];
+export const FROZEN_SCRIBBLES: readonly Scribble[] = ['novelo', 'hachura', 'riscado', 'contorno', 'aula', 'moldura', 'renda', 'cupom', 'pelicula', 'regua', 'trepadeira', 'bandeirinhas'];
 export const FROZEN_DAMAGES: readonly Damage[] = [
   'rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado',
   // 2026-09-29, segunda leva
   'costurado', 'colado', 'picotado', 'caderno', 'arranhado', 'garras', 'mordido', 'descascado',
+  // 2026-09-29, os tiros
+  'baleado',
 ];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
 export const FROZEN_STAINS: readonly Stain[] = ['molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas'];

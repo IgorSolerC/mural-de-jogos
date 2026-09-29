@@ -196,9 +196,22 @@ export function lookOf(r: { patternSpacing?: number; patternSize?: number; patte
 
 // ===================== Rabisco =====================
 
-export type Scribble = 'novelo' | 'hachura' | 'riscado' | 'contorno' | 'aula';
+export type Scribble =
+  | 'novelo'
+  | 'hachura'
+  | 'riscado'
+  | 'contorno'
+  | 'aula'
+  | 'moldura'
+  | 'renda'
+  | 'cupom'
+  | 'pelicula'
+  | 'regua'
+  | 'trepadeira'
+  | 'bandeirinhas';
 
-export const SCRIBBLES: readonly Scribble[] = ['novelo', 'hachura', 'riscado', 'contorno', 'aula'];
+/** Na ordem do estojo: as molduras, os enfeites e, por último, os bagunçados. */
+export const SCRIBBLES: readonly Scribble[] = ['contorno', 'moldura', 'renda', 'cupom', 'pelicula', 'regua', 'trepadeira', 'bandeirinhas', 'aula', 'novelo', 'hachura', 'riscado'];
 
 export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   novelo: 'Novelo',
@@ -206,6 +219,13 @@ export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   riscado: 'Riscado',
   contorno: 'Contorno',
   aula: 'Tédio na aula',
+  moldura: 'Moldura',
+  renda: 'Renda',
+  cupom: 'Recorte aqui',
+  pelicula: 'Película',
+  regua: 'Régua',
+  trepadeira: 'Trepadeira',
+  bandeirinhas: 'Bandeirinhas',
 };
 
 /**
@@ -239,6 +259,7 @@ export type Damage =
   | 'garras'
   | 'mordido'
   | 'furado'
+  | 'baleado'
   | 'queimado'
   | 'descascado';
 
@@ -258,6 +279,7 @@ export const DAMAGES: readonly Damage[] = [
   'garras',
   'mordido',
   'furado',
+  'baleado',
   'queimado',
   'descascado',
 ];
@@ -277,6 +299,7 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
   garras: 'Garras',
   mordido: 'Mordida',
   furado: 'Furada',
+  baleado: 'Baleada',
   queimado: 'Queimada',
   descascado: 'Fita arrancada',
 };
@@ -321,6 +344,7 @@ const CUTS: ReadonlySet<Damage | Stain> = new Set<Damage | Stain>([
   'mordido',
   'tracas',
   'furado',
+  'baleado',
   'queimado',
 ]);
 

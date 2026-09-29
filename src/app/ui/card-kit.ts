@@ -43,7 +43,9 @@ interface Option {
 
 /**
  * O estojo da ficha, na bancada do editor: a cor da cartolina, o papel, a estampa, o rabisco, o
- * estrago e a mancha, um de cada. Abas de fichário em pé numa régua, como os filtros do mural. Cada opção é
+ * estrago e a mancha, um de cada. Abas de fichário em pé numa régua, como os filtros do mural: seis numa
+ * fileira só, com um desenho em cima do nome, e um respiro entre o que é a cartolina (cor, papel,
+ * estampa) e o que vem por cima dela (rabisco, estrago, mancha). Cada opção é
  * um retalho da ficha já com o efeito, na cor dela; a ficha ao lado muda na hora.
  */
 @Component({
@@ -65,7 +67,8 @@ interface Option {
           [attr.tabindex]="tab() === t.id ? 0 : -1"
           (click)="selectTab(t.id)"
         >
-          {{ t.label }}
+          <svg class="aba-icone" viewBox="0 0 24 24" aria-hidden="true" [innerHTML]="tabIcons[t.id]"></svg>
+          <span>{{ t.label }}</span>
         </button>
       }
     </div>
@@ -199,20 +202,20 @@ interface Option {
       }
     }
 
-    /* ===== Abas de fichário em pé numa régua de alumínio ===== */
+    /* ===== Abas de fichário em pé numa régua de alumínio: seis numa fileira, em dois grupos ===== */
     .abas {
       position: relative;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      padding: 0 6px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr));
+      column-gap: 3px;
+      padding: 0 4px;
       margin-bottom: 18px;
 
+      /* duas réguas, uma para cada grupo, com o vão no meio */
+      &::before,
       &::after {
         content: '';
         position: absolute;
-        left: 0;
-        right: 0;
         bottom: -7px;
         height: 7px;
         border-radius: 1px;
@@ -222,19 +225,54 @@ interface Option {
           inset 0 -2px 0 rgb(0 0 0 / 0.3),
           0 5px 8px -3px rgb(0 0 0 / 0.6);
       }
+      &::before {
+        left: 0;
+        right: calc(50% + 3px);
+      }
+      &::after {
+        left: calc(50% + 3px);
+        right: 0;
+      }
     }
+    /* o desenho em cima, o nome embaixo: a fileira cabe inteira até no celular */
     .plate {
-      min-height: 34px;
-      padding: 6px 11px 5px;
-      font-size: 0.88rem;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      min-width: 0;
+      min-height: 50px;
+      padding: 7px 2px 5px;
+      font-size: 0.7rem;
+      letter-spacing: 0.03em;
       cursor: pointer;
+
+      span {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+    .plate:nth-child(4) {
+      grid-column: 5;
+    }
+    .aba-icone {
+      width: 20px;
+      height: 20px;
+      flex: none;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     /* a aba de uma escolha já feita ganha um pontinho, para saber o que a ficha tem sem abrir */
     .plate.usada::after {
       content: '';
+      position: absolute;
+      top: 6px;
+      right: 9px;
       width: 6px;
       height: 6px;
-      margin-left: 2px;
       border-radius: 50%;
       background: currentColor;
     }
@@ -518,9 +556,14 @@ interface Option {
     }
 
     @media (max-width: 400px) {
+      .abas {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) 6px repeat(3, minmax(0, 1fr));
+        column-gap: 2px;
+        padding: 0;
+      }
       .plate {
-        padding-inline: 8px;
-        font-size: 0.8rem;
+        font-size: 0.62rem;
+        letter-spacing: 0.02em;
       }
       .retalhos {
         gap: 12px 10px;
@@ -566,6 +609,19 @@ export class CardKit {
     { id: 'estrago', label: 'Estrago' },
     { id: 'mancha', label: 'Mancha' },
   ];
+  /** O desenho de cada aba, a traço: a amostra, a folha, o carimbo, o rabisco, o rasgo e a mancha. */
+  protected readonly tabIcons: Record<Tab, SafeHtml> = (() => {
+    const sanitizer = inject(DomSanitizer);
+    const icons: Record<Tab, string> = {
+      cor: `<path d='M12 3.5C8.6 8.4 6.5 11.4 6.5 14.6a5.5 5.5 0 0 0 11 0c0-3.2-2.1-6.2-5.5-11.1Z'/><path d='M9.6 15.2a2.6 2.6 0 0 0 2.2 2.4'/>`,
+      papel: `<path d='M6 3.5h8.5l3.5 3.5v13.5H6Z'/><path d='M14.5 3.5V7H18M8.8 11h6.4M8.8 14h6.4M8.8 17h4'/>`,
+      estampa: `<path d='M12 3.8l2.3 4.9 5.3.6-3.9 3.6 1 5.3-4.7-2.7-4.7 2.7 1-5.3-3.9-3.6 5.3-.6Z'/>`,
+      rabisco: `<path d='M3.5 16.5c2.4-5.4 5.2-8.8 6.6-7.2 1.6 1.8-3.4 6.6-1.4 7.8 2.2 1.3 5.4-8.6 8.2-7.6 2 .7-.6 5.2 1.2 5.6 1 .2 1.8-.8 2.4-1.8'/>`,
+      estrago: `<path d='M6 3.5h12v8.2l-2.2 1.3.9 2.2-2.6.6.5 2.6-2.8.8.4 2.3H6Z'/><path d='M9 7.5h6M9 10.5h4'/>`,
+      mancha: `<path d='M12 5.2a6.8 6.8 0 1 1-6.8 6.8'/><path d='M5.2 12a6.8 6.8 0 0 1 3.4-5.9' stroke-dasharray='2 2.4'/><path d='M12 9.3a2.7 2.7 0 1 1-2.7 2.7'/><circle cx='19.6' cy='19.4' r='1.1'/>`,
+    };
+    return Object.fromEntries(Object.entries(icons).map(([k, v]) => [k, sanitizer.bypassSecurityTrustHtml(v)])) as Record<Tab, SafeHtml>;
+  })();
   protected readonly stocks = STOCKS;
   protected readonly stockLabels = STOCK_LABEL;
   protected readonly lookKeys = LOOK_KEYS;
