@@ -8,7 +8,7 @@ export type Status = 'incompleto' | 'finalizado' | 'platinado';
 /**
  * A escala de dificuldade. O valor guardado nunca muda de sentido: quando o topo ganhou o nível
  * das caveiras vermelhas, 'dificil' passou a se chamar Complicado e 'impossivel' passou a se
- * chamar Difícil; o novo Impossível é 'infernal'. Resenhas e backups antigos continuam certos.
+ * chamar Difícil; o novo Infernal é 'infernal'. Resenhas e backups antigos continuam certos.
  */
 export type Difficulty = 'nenhuma' | 'facil' | 'media' | 'dificil' | 'impossivel' | 'infernal';
 
@@ -222,7 +222,7 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   media: 'Média',
   dificil: 'Complicado',
   impossivel: 'Difícil',
-  infernal: 'Impossível',
+  infernal: 'Infernal',
 };
 
 /** Quantas caveirinhas cada dificuldade ganha na ficha. */
@@ -404,7 +404,17 @@ export function parseDay(day: string): Date {
 export function isValidDay(v: unknown): v is string {
   if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
   const d = parseDay(v);
-  return !Number.isNaN(d.getTime()) && d.getFullYear() > 1970;
+  // "2025-02-31" vira 3 de março no Date: só vale o dia que volta igual
+  return !Number.isNaN(d.getTime()) && d.getFullYear() > 1970 && localDay(d) === v;
+}
+
+/** A primeira letra do nome, maiúscula, para o "sem capa": um grafema inteiro (emoji e acento juntos). */
+export function initialOf(name: string): string {
+  const t = name.trim();
+  if (!t) return '?';
+  const Seg = (Intl as any).Segmenter;
+  const first: string = Seg ? new Seg('pt-BR', { granularity: 'grapheme' }).segment(t)[Symbol.iterator]().next().value.segment : [...t][0];
+  return first.toUpperCase();
 }
 
 /** O que aparece no lugar da data quando ela não foi definida. */
@@ -561,7 +571,14 @@ export function sanitizeReview(raw: unknown): Review | null {
     stock: STOCKS.includes(r['stock']) ? r['stock'] : undefined,
     text: str(r['text']),
     completedAt:
-      r['completedAt'] === null ? null : isValidDay(r['completedAt']) ? r['completedAt'] : localDay(new Date(createdAt)),
+      r['completedAt'] === null
+        ? null
+        : isValidDay(r['completedAt'])
+          ? // nunca no futuro (um backup de um fuso adiantado pode trazer o dia de amanhã)
+            r['completedAt'] > todayISO()
+            ? todayISO()
+            : r['completedAt']
+          : localDay(new Date(createdAt)),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };

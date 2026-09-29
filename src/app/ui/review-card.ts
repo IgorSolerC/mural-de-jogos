@@ -267,7 +267,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     /* as caveiras da dificuldade, na mesma linha da data, sentadas na linha do texto */
     .caveiras {
       vertical-align: -2px;
-      /* no mural o Impossível fica em tinta preta, como as outras; o roxo mora na leitura e no editor */
+      /* no mural o Infernal fica em tinta preta, como as outras; o roxo mora na leitura e no editor */
       --chifre-ink: currentColor;
     }
 

@@ -1,3 +1,4 @@
+import { localDay, parseDay } from './review';
 import { wobble } from './wall-physics';
 
 /**
@@ -67,10 +68,17 @@ export function pageHeight(id: string): number {
   return w * (1.25 * 0.84 + (p.kind === 'postit' ? 0.3 : 0.42)) + p.gap / 200;
 }
 
-/** Quantos dias o pendente está na fila. */
+/**
+ * Quantos dias o pendente está na fila, em dias do calendário daqui (como a data do cabeçalho):
+ * guardado ontem às 23h é "ontem" hoje às 9h, não "hoje".
+ */
 export function daysWaiting(createdAt: string, now = Date.now()): number {
   const t = Date.parse(createdAt);
-  return Number.isFinite(t) ? Math.max(0, Math.floor((now - t) / 86_400_000)) : 0;
+  if (!Number.isFinite(t)) return 0;
+  const from = parseDay(localDay(new Date(t)));
+  const to = parseDay(localDay(new Date(now)));
+  // arredonda: um dia com horário de verão tem 23 ou 25 horas
+  return Math.max(0, Math.round((to.getTime() - from.getTime()) / 86_400_000));
 }
 
 /**

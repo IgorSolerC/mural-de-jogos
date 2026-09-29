@@ -29,7 +29,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
   imports: [LucideAngularModule, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (click)="onBackdrop($event)" (close)="review.set(null)">
+    <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="downOnBackdrop = $event.target === $event.currentTarget" (click)="onBackdrop($event)" (close)="review.set(null)">
       @if (review(); as r) {
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'">
           <app-pin class="pin" [color]="pin().pinColor" />
@@ -177,7 +177,10 @@ export class ReviewReader {
     this.dialog().nativeElement.close();
   }
 
+  /** O clique começou fora do cartão? Selecionar texto e soltar fora dele não fecha. */
+  protected downOnBackdrop = false;
+
   protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement) this.close();
+    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.close();
   }
 }

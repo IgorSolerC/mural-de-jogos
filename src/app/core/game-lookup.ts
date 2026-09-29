@@ -32,6 +32,33 @@ export function isSteamCover(url: string | null | undefined): boolean {
 }
 
 /** Nem todo jogo da Steam tem a arte vertical: confere se a imagem existe antes de usar. */
+/** Quanto um catálogo tem para responder antes da busca desistir dele. */
+const LOOKUP_DEADLINE_MS = 9000;
+
+/**
+ * O cancelamento de quem pediu, mais um prazo: um catálogo pendurado (Wi-Fi de hotel, sinal fraco,
+ * com `navigator.onLine` dizendo que está tudo bem) não prende a busca para sempre.
+ */
+function withDeadline(signal: AbortSignal, ms = LOOKUP_DEADLINE_MS): AbortSignal {
+  const ctrl = new AbortController();
+  const stop = () => ctrl.abort(signal.reason);
+  if (signal.aborted) stop();
+  else signal.addEventListener('abort', stop, { once: true });
+  const timer = setTimeout(() => ctrl.abort(new DOMException('O catálogo demorou demais.', 'TimeoutError')), ms);
+  ctrl.signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
+  return ctrl.signal;
+}
+
+/** O erro de uma chamada: o cancelamento de quem pediu passa direto; o resto vira um aviso legível. */
+function lookupFailure(e: unknown, signal: AbortSignal): unknown {
+  if (signal.aborted) return e;
+  const name = (e as Error)?.name;
+  if (name === 'TimeoutError') return new LookupError('O catálogo demorou demais para responder.', 'offline');
+  if (name === 'SyntaxError') return new LookupError('O catálogo não respondeu.', 'server');
+  if (e instanceof LookupError) return e;
+  return new LookupError('Não consegui falar com o catálogo.', 'offline');
+}
+
 export function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -54,7 +81,11 @@ export function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): 
 /** O mesmo título, sem ligar para acento, maiúscula nem pontuação ("Hades II" = "hades ii"). */
 export function sameTitle(a: string, b: string): boolean {
   const k = (s: string) => fold(s).replace(/[^\p{L}\p{N}]+/gu, '');
-  return k(a) === k(b);
+  const ka = k(a);
+  const kb = k(b);
+  // sem letra nem número (só emoji ou pontuação), compara o nome como foi escrito
+  if (!ka || !kb) return a.trim() === b.trim() && !!a.trim();
+  return ka === kb;
 }
 
 /** Tira "(video game)", "(2010 film)", "(TV series)", "(anime)" etc. do título da Wikipedia. */
@@ -430,19 +461,24 @@ export class GameLookup {
       }
     }`;
     let res: Response;
+    const deadline = withDeadline(signal);
     try {
       res = await fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ query, variables: { s: q } }),
-        signal,
+        signal: deadline,
       });
     } catch (e) {
-      if ((e as Error).name === 'AbortError') throw e;
-      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
+      throw lookupFailure(e, signal);
     }
     if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
-    const data = await res.json();
+    let data: any;
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw lookupFailure(e, signal);
+    }
     const media: any[] = data?.data?.Page?.media ?? [];
     return media
       .map((m) => ({
@@ -484,18 +520,22 @@ export class GameLookup {
     const token = key.startsWith('eyJ');
     if (!token) params.set('api_key', key);
     let res: Response;
+    const deadline = withDeadline(signal);
     try {
       res = await fetch(`https://api.themoviedb.org/3/${path}?${params}`, {
         headers: token ? { Authorization: `Bearer ${key}`, Accept: 'application/json' } : { Accept: 'application/json' },
-        signal,
+        signal: deadline,
       });
     } catch (e) {
-      if ((e as Error).name === 'AbortError') throw e;
-      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
+      throw lookupFailure(e, signal);
     }
     if (res.status === 401) throw new LookupError('A chave do TMDB foi recusada. Confira em Ajustes.', 'tmdb-key');
     if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
-    return res.json();
+    try {
+      return await res.json();
+    } catch (e) {
+      throw lookupFailure(e, signal);
+    }
   }
 
   private async searchRawg(q: string, key: string, signal: AbortSignal): Promise<PickedGame[]> {
@@ -521,16 +561,20 @@ export class GameLookup {
 
   private async fetchJson(url: string, signal: AbortSignal, rawg = false): Promise<any> {
     let res: Response;
+    const deadline = withDeadline(signal);
     try {
-      res = await fetch(url, { signal });
+      res = await fetch(url, { signal: deadline });
     } catch (e) {
-      if ((e as Error).name === 'AbortError') throw e;
-      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
+      throw lookupFailure(e, signal);
     }
     if (rawg && (res.status === 401 || res.status === 403)) {
       throw new LookupError('A chave da RAWG foi recusada. Confira em Ajustes.', 'rawg-key');
     }
     if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
-    return res.json();
+    try {
+      return await res.json();
+    } catch (e) {
+      throw lookupFailure(e, signal);
+    }
   }
 }

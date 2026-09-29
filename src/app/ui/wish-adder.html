@@ -1,4 +1,4 @@
-<dialog #dialog class="sheet recortar" aria-labelledby="desejo-titulo" (click)="onBackdrop($event)">
+<dialog #dialog class="sheet recortar" aria-labelledby="desejo-titulo" (pointerdown)="downOnBackdrop = $event.target === $event.currentTarget" (click)="onBackdrop($event)">
   <form class="folha" (submit)="save($event)" novalidate>
     <!-- a faixa vermelha do catálogo, impressa em retícula -->
     <header class="masthead">
@@ -81,7 +81,7 @@
               <label class="capa sem" [class.on]="cover() === null">
                 <input type="radio" name="desejo-capa" class="sr-only" [checked]="cover() === null" (change)="choose(null)" aria-label="Sem capa" />
                 <span class="foto">
-                  <span class="inicial" aria-hidden="true">{{ (gm.name.trim().charAt(0) || '?').toUpperCase() }}</span>
+                  <span class="inicial" aria-hidden="true">{{ initialOf(gm.name) }}</span>
                   <span class="sem-txt" aria-hidden="true">sem capa</span>
                 </span>
               </label>

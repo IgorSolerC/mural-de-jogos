@@ -12,7 +12,9 @@
 const SHELL = 'mural-site-v1';
 const COVERS = 'mural-capas-v1';
 const MAX_COVERS = 3000;
-const COVER_HOSTS = /(^|\.)(wikimedia\.org|steamstatic\.com|rawg\.io|openlibrary\.org|archive\.org|tmdb\.org|anilist\.co)$/;
+/** As capas já postas no fim da fila nesta vida do service worker. */
+const refreshed = new Set();
+const COVER_HOSTS =/(^|\.)(wikimedia\.org|steamstatic\.com|rawg\.io|openlibrary\.org|archive\.org|tmdb\.org|anilist\.co)$/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -81,7 +83,15 @@ async function asset(req, event) {
 async function cover(req) {
   const cache = await caches.open(COVERS);
   const cached = await cache.match(req.url);
-  if (cached) return cached;
+  if (cached) {
+    // Vista de novo: vai para o fim da fila, para as capas do mural não saírem antes das miniaturas
+    // de busca vistas uma vez só. Uma vez por capa enquanto o service worker está acordado.
+    if (!refreshed.has(req.url)) {
+      refreshed.add(req.url);
+      cache.put(req.url, cached.clone()).catch(() => undefined);
+    }
+    return cached;
+  }
   try {
     const res = await fetch(req.url, { mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' });
     if (res.ok) {

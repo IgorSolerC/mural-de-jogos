@@ -167,6 +167,8 @@ export class ReviewEditor {
   protected readonly confirmingDiscard = signal(false);
   /** Já tem nota ou texto e a pessoa pediu para guardar só o jogo: confirma antes de perder. */
   protected readonly confirmingDraft = signal(false);
+  /** Tirar da fila (ou da wishlist) com notas e texto já escritos: pergunta antes, o Desfazer não traz a resenha. */
+  protected readonly confirmingRemove = signal(false);
   protected readonly draftError = signal(false);
   protected readonly searchSeed = signal('');
 
@@ -274,12 +276,25 @@ export class ReviewEditor {
     this.coverError.set(null);
     this.text.set(review?.text ?? '');
     this.searchSeed.set('');
+    // a busca que ficou aberta da última vez (talvez de outro mural) volta vazia
+    this.search()?.reset();
     this.attempted.set(false);
     this.confirmingDiscard.set(false);
     this.confirmingDraft.set(false);
+    this.confirmingRemove.set(false);
     this.draftError.set(false);
     this.snapshot = this.serialize();
-    this.dialog().nativeElement.showModal();
+    const dialog = this.dialog().nativeElement;
+    // O diálogo é sempre o mesmo: sem isso, abre rolado onde a resenha anterior ficou
+    const toTop = () => {
+      dialog.scrollTop = 0;
+      dialog.querySelector('.body')?.scrollTo({ top: 0, behavior: 'instant' });
+    };
+    toTop();
+    dialog.showModal();
+    toTop();
+    // e de novo depois que o conteúdo da resenha nova desenhar (e o foco ir para a busca)
+    requestAnimationFrame(toTop);
     if (!review && !draft) queueMicrotask(() => this.search()?.focus());
   }
 
@@ -425,6 +440,11 @@ export class ReviewEditor {
   protected removeWish(): void {
     const wish = this.fromWish();
     if (!wish) return;
+    if (this.hasReviewContent() && !this.confirmingRemove()) {
+      this.confirmingRemove.set(true);
+      return;
+    }
+    this.confirmingRemove.set(false);
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.wishRemoved.emit(wish.id);
@@ -433,6 +453,11 @@ export class ReviewEditor {
   protected removeDraft(): void {
     const draft = this.fromDraft();
     if (!draft) return;
+    if (this.hasReviewContent() && !this.confirmingRemove()) {
+      this.confirmingRemove.set(true);
+      return;
+    }
+    this.confirmingRemove.set(false);
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.draftRemoved.emit(draft.id);
@@ -443,6 +468,12 @@ export class ReviewEditor {
     if (this.isDirty() && !this.confirmingDiscard()) {
       e?.preventDefault();
       this.confirmingDiscard.set(true);
+      return;
+    }
+    // Esc de novo com a pergunta na tela é "voltar", não "descartar": só o botão Descartar joga fora
+    if (e?.type === 'cancel' && this.isDirty()) {
+      e.preventDefault();
+      this.keepWriting();
       return;
     }
     if (e?.type !== 'cancel') this.dialog().nativeElement.close();
@@ -457,8 +488,11 @@ export class ReviewEditor {
     this.dialog().nativeElement.close();
   }
 
+  /** O clique começou fora do cartão? Selecionar texto e soltar fora dele não fecha. */
+  protected downOnBackdrop = false;
+
   protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement) this.requestClose();
+    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.requestClose();
   }
 
   /** Algo além do jogo foi preenchido (e seria perdido num pendente)? */

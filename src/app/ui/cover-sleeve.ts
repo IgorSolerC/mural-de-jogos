@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
-import { PickedGame } from '../core/review';
+import { PickedGame, initialOf } from '../core/review';
 
 /** A foto do jogo encapada com plástico transparente, como capa de caderno. */
 @Component({
@@ -112,5 +112,5 @@ export class CoverSleeve {
   /** A ficha já diz o nome do jogo: a capa não precisa repeti-lo para o leitor de tela. */
   readonly decorative = input(false);
   protected readonly failed = signal(false);
-  protected readonly initial = computed(() => (this.game().name.trim()[0] ?? '?').toUpperCase());
+  protected readonly initial = computed(() => initialOf(this.game().name));
 }

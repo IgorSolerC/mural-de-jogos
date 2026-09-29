@@ -1,3 +1,4 @@
+import { sameTitle } from './game-lookup';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { GameLookup, LookupError } from './game-lookup';
@@ -137,5 +138,14 @@ describe('GameLookup', () => {
     expect(lookup.sourceName('filmes')).toBe('Wikipedia');
     settings.tmdbKey.set('abc');
     expect(lookup.sourceName('series')).toBe('TMDB');
+  });
+});
+
+describe('sameTitle (caça a bugs)', () => {
+  it('nomes só de emoji ou pontuação não são todos iguais', () => {
+    expect(sameTitle('🎮', '🎲')).toBeFalse();
+    expect(sameTitle('???', '!!!')).toBeFalse();
+    expect(sameTitle('🎮', '🎮')).toBeTrue();
+    expect(sameTitle('Hades II', 'hades ii')).toBeTrue();
   });
 });

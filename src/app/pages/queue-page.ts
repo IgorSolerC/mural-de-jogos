@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal } from '@angular/core';
 import { Bookmark, LucideAngularModule } from 'lucide-angular';
 import { collage } from '../core/clipping';
 import { Desk } from '../core/desk';
@@ -308,6 +308,11 @@ export class QueuePage {
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
     const measure = () => this.cols.set(innerWidth < 560 ? 2 : Math.max(3, Math.floor((host.clientWidth + 32) / (168 + 32))));
+    // "Ver na lista" ou um item novo chegando: se a busca esconde ele, a busca sai da frente
+    effect(() => {
+      const id = this.desk.landingId();
+      if (id && this.query() && !this.visible().some((x) => x.id === id)) this.query.set('');
+    });
     afterNextRender(() => {
       measure();
       const ro = new ResizeObserver(measure);

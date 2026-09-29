@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { localDay } from './review';
 import { ReviewStore } from './review-store';
 
 const KEY = 'mural-de-jogos:backup:v1';
@@ -50,8 +51,8 @@ export class Backup {
     if (!lastAt) return reviews.length >= FIRST_AT ? 0 : null;
     const days = Math.floor((now - Date.parse(lastAt)) / DAY);
     if (days < BACKUP_EVERY_DAYS) return null;
-    const changed = reviews.some((r) => Date.parse(r.updatedAt) > Date.parse(lastAt));
-    return changed ? days : null;
+    // qualquer mudança conta: resenha, pendente, desejo, ou algo apagado
+    return this.store.lastChangeAt() > Date.parse(lastAt) ? days : null;
   });
 
   constructor() {
@@ -63,7 +64,8 @@ export class Backup {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `meu-mural-${new Date().toISOString().slice(0, 10)}.${ext}`;
+    // o dia daqui, não o de Greenwich: depois das 21h o nome já sairia com a data de amanhã
+    a.download = `meu-mural-${localDay(new Date())}.${ext}`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     this.save({ lastAt: new Date().toISOString(), snoozeUntil: null });

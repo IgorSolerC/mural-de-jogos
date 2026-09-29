@@ -58,7 +58,7 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
 
     @if (open()) {
       <ul class="list" role="listbox" [id]="listId" [attr.aria-label]="words().found">
-        @if (loading() && !hits().length) {
+        @if (loading() && !fresh().length) {
           @for (s of [1, 2, 3]; track s) {
             <li class="skeleton" role="presentation"><span></span><span></span></li>
           }
@@ -96,7 +96,7 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
             <lucide-icon [img]="OfflineIcon" [size]="16" aria-hidden="true" />
             {{ err }} Você ainda pode seguir sem capa.
           </li>
-        } @else if (!loading() && searched() && !hits().length) {
+        } @else if (!loading() && searched() && !fresh().length) {
           <li class="note" role="presentation">{{ words().none }}</li>
         }
       </ul>
@@ -133,6 +133,12 @@ export class GameSearch {
 
   protected readonly query = signal('');
   protected readonly hits = signal<PickedGame[]>([]);
+  /** A busca que trouxe `hits`: enquanto a nova carrega, a lista velha não vale para o Enter. */
+  private readonly hitsFor = signal('');
+  /** Os resultados do que está escrito agora (nunca os da busca anterior). */
+  protected readonly fresh = computed(() => (this.hitsFor() === this.query().trim() ? this.hits() : []));
+  /** Enter apertado enquanto a busca carregava: escolhe o primeiro quando ela chegar. */
+  private enterPending = false;
   protected readonly loading = signal(false);
   protected readonly searched = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -145,8 +151,9 @@ export class GameSearch {
 
   protected readonly options = computed<Option[]>(() => {
     const q = this.query().trim();
-    const list: Option[] = this.hits().map((game) => ({ kind: 'hit', game }));
-    if (q && !this.loading()) {
+    const list: Option[] = this.fresh().map((game) => ({ kind: 'hit', game }));
+    // o "sem capa" fica até durante a busca: com a rede lenta, dá para seguir sem esperar
+    if (q) {
       list.push({ kind: 'manual', game: { name: q, coverUrl: null, source: 'manual' } });
     }
     return list;
@@ -154,8 +161,11 @@ export class GameSearch {
 
   protected readonly announcement = computed(() => {
     if (!this.open() || this.loading()) return '';
-    const n = this.hits().length;
-    return n ? `${n} ${n === 1 ? this.words().one : this.words().many}.` : '';
+    const err = this.error();
+    if (err) return `${err} Você ainda pode seguir sem capa.`;
+    const n = this.fresh().length;
+    if (!n) return this.searched() ? this.words().none : '';
+    return `${n} ${n === 1 ? this.words().one : this.words().many}.`;
   });
 
   constructor() {
@@ -177,6 +187,22 @@ export class GameSearch {
     this.field().nativeElement.focus();
   }
 
+  /** Volta ao campo vazio (o diálogo reabriu): sem o texto, a lista e a busca da vez anterior. */
+  reset(value = ''): void {
+    clearTimeout(this.timer);
+    this.abort?.abort();
+    this.enterPending = false;
+    this.query.set(value);
+    this.hits.set([]);
+    this.hitsFor.set('');
+    this.loading.set(false);
+    this.searched.set(false);
+    this.error.set(null);
+    this.open.set(false);
+    this.active.set(-1);
+    if (value) this.schedule(value, 0);
+  }
+
   protected optionId(i: number): string {
     return `${this.listId}-${i}`;
   }
@@ -184,6 +210,7 @@ export class GameSearch {
   protected onInput(value: string): void {
     this.query.set(value);
     this.active.set(-1);
+    this.enterPending = false;
     this.schedule(value, 240);
   }
 
@@ -211,15 +238,22 @@ export class GameSearch {
       const found = await this.lookup.search(q, ctrl.signal, this.kind());
       if (ctrl.signal.aborted) return;
       this.hits.set(found);
+      this.hitsFor.set(q);
       this.error.set(null);
     } catch (e) {
       if (ctrl.signal.aborted || (e as Error).name === 'AbortError') return;
       this.hits.set([]);
+      this.hitsFor.set(q);
       this.error.set(e instanceof LookupError ? e.message : 'Algo deu errado na busca.');
     } finally {
       if (!ctrl.signal.aborted) {
         this.loading.set(false);
         this.searched.set(true);
+        if (this.enterPending) {
+          this.enterPending = false;
+          const first = this.options()[0];
+          if (first && this.open()) this.choose(first);
+        }
       }
     }
   }
@@ -238,6 +272,11 @@ export class GameSearch {
         break;
       case 'Enter': {
         e.preventDefault();
+        // ainda buscando e nada marcado: espera o resultado e fica com o primeiro
+        if (this.loading() && this.active() < 0) {
+          this.enterPending = true;
+          break;
+        }
         const i = this.active() >= 0 ? this.active() : 0;
         const opt = this.options()[i];
         if (opt && this.open()) this.choose(opt);

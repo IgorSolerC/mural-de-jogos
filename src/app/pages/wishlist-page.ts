@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { Dices, LucideAngularModule, Scissors, X } from 'lucide-angular';
 import { CUTOUT_STYLES, collage } from '../core/clipping';
 import { Desk } from '../core/desk';
@@ -531,9 +531,9 @@ export class WishlistPage {
     const found = needle ? list.filter((w) => fold(w.game.name).includes(needle)) : list;
     switch (this.order()) {
       case 'recentes':
-        return found;
+        return [...found].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
       case 'antigos':
-        return [...found].reverse();
+        return [...found].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
       case 'az':
         return [...found].sort((a, b) => a.game.name.localeCompare(b.game.name, 'pt-BR', { sensitivity: 'base', numeric: true }));
     }
@@ -551,6 +551,11 @@ export class WishlistPage {
       const w = host.clientWidth;
       this.cols.set(innerWidth < 560 ? 2 : Math.max(3, Math.floor((w + 34) / (172 + 34))));
     };
+    // "Ver na lista" ou um item novo chegando: se a busca esconde ele, a busca sai da frente
+    effect(() => {
+      const id = this.desk.landingId();
+      if (id && this.query() && !this.visible().some((x) => x.id === id)) this.query.set('');
+    });
     afterNextRender(() => {
       measure();
       const ro = new ResizeObserver(measure);

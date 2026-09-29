@@ -30,8 +30,15 @@ export interface ImportResult {
 @Injectable({ providedIn: 'root' })
 export class ReviewStore {
   readonly reviews = signal<Review[]>(this.read());
-  /** Mensagem quando o navegador recusa salvar (cota cheia, modo privado…). */
-  readonly saveError = signal<string | null>(null);
+  /** As chaves que o navegador se recusou a salvar (cota cheia, modo privado…), até salvarem de novo. */
+  private readonly failedKeys = signal<ReadonlySet<string>>(new Set());
+  /**
+   * Mensagem enquanto alguma chave não conseguiu salvar. Uma chave que salva não apaga a falha de
+   * outra: ao pregar uma resenha vinda da wishlist, a resenha pode falhar e a wishlist (menor) salvar.
+   */
+  readonly saveError = computed(() =>
+    this.failedKeys().size ? 'O navegador não deixou salvar. Baixe um backup agora para não perder essa resenha.' : null,
+  );
   readonly count = computed(() => this.reviews().length);
   /** Guardados para resenhar depois, o mais recente primeiro (de todos os murais: ver `Mural`). */
   readonly drafts = signal<Draft[]>(this.readDrafts());
@@ -39,6 +46,20 @@ export class ReviewStore {
   /** A wishlist, o mais recente primeiro (de todos os murais: ver `Mural`). */
   readonly wishes = signal<Wish[]>(this.readWishes());
   private readonly deleted = signal<Deleted>(this.readDeleted());
+  /** A última mudança em qualquer coisa que vai no backup: resenhas, pendentes, desejos e exclusões (ms). */
+  readonly lastChangeAt = computed(() => {
+    let last = 0;
+    const see = (iso: string) => {
+      const t = Date.parse(iso);
+      if (t > last) last = t;
+    };
+    for (const r of this.reviews()) see(r.updatedAt);
+    for (const d of this.drafts()) see(d.updatedAt);
+    for (const w of this.wishes()) see(w.updatedAt);
+    const del = this.deleted();
+    for (const when of [...Object.values(del.reviews), ...Object.values(del.drafts), ...Object.values(del.wishes)]) see(when);
+    return last;
+  });
   /**
    * Os bônus que a pessoa escreveu, tirados das próprias fichas de cada mural: o mais usado primeiro.
    * Não há lista para cuidar; um bônus que nenhuma ficha usa mais some sozinho.
@@ -65,6 +86,17 @@ export class ReviewStore {
   private skipNextDraftWrite = false;
   private skipNextWishWrite = false;
   private skipNextDeletedWrite = false;
+  /**
+   * As listas como foram lidas ao abrir. Enquanto nada mudou, não há o que gravar, e gravar ali
+   * apagaria um texto corrompido (ou uma entrada que não abriu) antes de alguém poder salvá-lo.
+   * Comparar a referência, em vez de pular a primeira passada, não perde uma mudança feita antes dela.
+   */
+  private readonly loaded = {
+    reviews: this.reviews(),
+    drafts: this.drafts(),
+    wishes: this.wishes(),
+    deleted: this.deleted(),
+  };
 
   constructor() {
     effect(() => {
@@ -73,6 +105,7 @@ export class ReviewStore {
         this.skipNextWrite = false;
         return;
       }
+      if (list === this.loaded.reviews) return;
       this.write(KEY, list);
     });
     effect(() => {
@@ -81,6 +114,7 @@ export class ReviewStore {
         this.skipNextDraftWrite = false;
         return;
       }
+      if (list === this.loaded.drafts) return;
       this.write(DRAFTS_KEY, list);
     });
     effect(() => {
@@ -89,6 +123,7 @@ export class ReviewStore {
         this.skipNextWishWrite = false;
         return;
       }
+      if (list === this.loaded.wishes) return;
       this.write(WISHES_KEY, list);
     });
     effect(() => {
@@ -97,6 +132,7 @@ export class ReviewStore {
         this.skipNextDeletedWrite = false;
         return;
       }
+      if (d === this.loaded.deleted) return;
       this.write(DELETED_KEY, d);
     });
 
@@ -154,7 +190,8 @@ export class ReviewStore {
 
   restore(review: Review): void {
     if (this.get(review.id)) return;
-    this.reviews.update((list) => [review, ...list]);
+    // mudada agora: um backup feito enquanto estava apagada não a apaga de novo ao juntar
+    this.reviews.update((list) => [{ ...review, updatedAt: this.afterDeletion('reviews', review.id) }, ...list]);
     this.unmark('reviews', review.id);
   }
 
@@ -184,7 +221,7 @@ export class ReviewStore {
 
   restoreDraft(draft: Draft): void {
     if (this.getDraft(draft.id)) return;
-    this.drafts.update((list) => [draft, ...list]);
+    this.drafts.update((list) => [{ ...draft, updatedAt: this.afterDeletion('drafts', draft.id) }, ...list]);
     this.unmark('drafts', draft.id);
   }
 
@@ -214,7 +251,7 @@ export class ReviewStore {
 
   restoreWish(wish: Wish): void {
     if (this.getWish(wish.id)) return;
-    this.wishes.update((list) => [wish, ...list]);
+    this.wishes.update((list) => [{ ...wish, updatedAt: this.afterDeletion('wishes', wish.id) }, ...list]);
     this.unmark('wishes', wish.id);
   }
 
@@ -320,23 +357,40 @@ export class ReviewStore {
     }
     this.reviews.set(withStocks([...byId.values()]));
 
-    // Pendente que já virou resenha (mesmo id), ou que foi tirado da fila, não volta para a fila.
-    const kept = this.drafts().filter((d) => !gone(theirs.drafts[d.id], d.updatedAt));
+    // Um pendente ou desejo que virou resenha guarda o mesmo id. Se essa resenha foi apagada depois
+    // (aqui ou lá), o pendente e o desejo de um backup antigo também não voltam.
+    const asReview = (id: string, updatedAt: string) => gone(ours.reviews[id], updatedAt) || gone(theirs.reviews[id], updatedAt);
+    const asDraft = (id: string, updatedAt: string) => gone(ours.drafts[id], updatedAt) || gone(theirs.drafts[id], updatedAt);
+
+    // Pendente que já virou resenha (mesmo id, aqui ou no backup), ou que foi tirado da fila, não fica na fila.
+    const kept = this.drafts().filter((d) => !byId.has(d.id) && !gone(theirs.drafts[d.id], d.updatedAt));
     const known = new Set([...byId.keys(), ...kept.map((d) => d.id)]);
     const newDrafts = incomingDrafts.filter(
-      (d) => !known.has(d.id) && !gone(ours.drafts[d.id], d.updatedAt) && !gone(theirs.drafts[d.id], d.updatedAt),
+      (d) => !known.has(d.id) && !asDraft(d.id, d.updatedAt) && !asReview(d.id, d.updatedAt),
     );
     if (newDrafts.length || kept.length !== this.drafts().length) this.drafts.set([...newDrafts, ...kept]);
 
-    // Desejo que já virou resenha ou pendente (mesmo id), ou que foi tirado da lista, não volta.
-    const keptWishes = this.wishes().filter((w) => !gone(theirs.wishes[w.id], w.updatedAt) && !known.has(w.id));
-    const knownAll = new Set([...known, ...newDrafts.map((d) => d.id), ...keptWishes.map((w) => w.id)]);
+    // Desejo que já virou resenha ou pendente (mesmo id, aqui ou no backup), ou que foi tirado da lista, não fica.
+    const drafted = new Set([...known, ...newDrafts.map((d) => d.id)]);
+    const keptWishes = this.wishes().filter((w) => !drafted.has(w.id) && !gone(theirs.wishes[w.id], w.updatedAt));
+    const knownAll = new Set([...drafted, ...keptWishes.map((w) => w.id)]);
     const newWishes = incomingWishes.filter(
-      (w) => !knownAll.has(w.id) && !gone(ours.wishes[w.id], w.updatedAt) && !gone(theirs.wishes[w.id], w.updatedAt),
+      (w) =>
+        !knownAll.has(w.id) &&
+        !gone(ours.wishes[w.id], w.updatedAt) &&
+        !gone(theirs.wishes[w.id], w.updatedAt) &&
+        !asDraft(w.id, w.updatedAt) &&
+        !asReview(w.id, w.updatedAt),
     );
     if (newWishes.length || keptWishes.length !== this.wishes().length) this.wishes.set([...newWishes, ...keptWishes]);
     this.deleted.set(mergeDeleted(ours, theirs));
     return { added, updated, skipped, drafts: newDrafts.length, wishes: newWishes.length, removed };
+  }
+
+  /** Agora, mas sempre depois do registro de quando foi apagado (o Desfazer pode cair no mesmo milissegundo). */
+  private afterDeletion(kind: keyof Deleted, id: string): string {
+    const when = Date.parse(this.deleted()[kind][id] ?? '');
+    return new Date(Math.max(Date.now(), Number.isFinite(when) ? when + 1 : 0)).toISOString();
   }
 
   private mark(kind: keyof Deleted, id: string): void {
@@ -354,33 +408,15 @@ export class ReviewStore {
   }
 
   private read(): Review[] {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return withStocks(parsed.map(sanitizeReview).filter((r): r is Review => r !== null));
-    } catch {
-      return [];
-    }
+    return withStocks(this.readList(KEY, sanitizeReview));
   }
 
   private readDrafts(): Draft[] {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(DRAFTS_KEY) ?? '[]');
-      return Array.isArray(parsed) ? parsed.map(sanitizeDraft).filter((d): d is Draft => d !== null) : [];
-    } catch {
-      return [];
-    }
+    return this.readList(DRAFTS_KEY, sanitizeDraft);
   }
 
   private readWishes(): Wish[] {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(WISHES_KEY) ?? '[]');
-      return Array.isArray(parsed) ? parsed.map(sanitizeWish).filter((w): w is Wish => w !== null) : [];
-    } catch {
-      return [];
-    }
+    return this.readList(WISHES_KEY, sanitizeWish);
   }
 
   private readDeleted(): Deleted {
@@ -394,11 +430,47 @@ export class ReviewStore {
   private write(key: string, value: unknown): void {
     try {
       localStorage.setItem(key, JSON.stringify(value));
-      this.saveError.set(null);
+      if (this.failedKeys().has(key)) {
+        this.failedKeys.update((set) => {
+          const next = new Set(set);
+          next.delete(key);
+          return next;
+        });
+      }
     } catch {
-      this.saveError.set(
-        'O navegador não deixou salvar. Baixe um backup agora para não perder essa resenha.',
-      );
+      if (!this.failedKeys().has(key)) this.failedKeys.update((set) => new Set(set).add(key));
+    }
+  }
+
+  /**
+   * Lê uma lista guardada. Se o texto não abre (corrompido) ou alguma entrada não serve, o original
+   * vai inteiro para `…:corrompido` antes de qualquer gravação, para poder ser recuperado à mão.
+   */
+  private readList<T>(key: string, sanitize: (raw: unknown) => T | null): T[] {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(key);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        this.keepCorrupt(key, raw);
+        return [];
+      }
+      const out = parsed.map(sanitize).filter((x): x is T => x !== null);
+      if (out.length !== parsed.length) this.keepCorrupt(key, raw);
+      return out;
+    } catch {
+      if (raw) this.keepCorrupt(key, raw);
+      return [];
+    }
+  }
+
+  private keepCorrupt(key: string, raw: string): void {
+    try {
+      // guarda a primeira versão ruim; não troca por uma já limpa numa visita seguinte
+      if (!localStorage.getItem(`${key}:corrompido`)) localStorage.setItem(`${key}:corrompido`, raw);
+    } catch {
+      /* sem espaço: não há o que fazer */
     }
   }
 }

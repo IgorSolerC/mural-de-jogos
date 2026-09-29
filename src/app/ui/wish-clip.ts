@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { CUTOUT_STYLES, placeFor, titleFor } from '../core/clipping';
-import { Wish } from '../core/review';
+import { Wish, initialOf } from '../core/review';
 import { SHAPE_RATIO, stripFor, tearFor } from '../core/tear';
 import { pinningFor } from '../core/wall-physics';
 
@@ -74,13 +74,13 @@ import { pinningFor } from '../core/wall-physics';
           <!-- a tirinha de papel rasgada à mão, o nome a caneta -->
           <h3 class="nome-colado tira" [class]="'papel-' + look().paper + ' ' + spot()">
             <span class="papel" aria-hidden="true"><span class="miolo"></span></span>
-            <span class="nome"><span>{{ wish().game.name }}</span></span>
+            <span class="nome"><span dir="auto">{{ wish().game.name }}</span></span>
           </h3>
         }
         @case ('manchete') {
           <!-- o nome impresso, recortado de outra página da revista -->
           <h3 class="nome-colado manchete" [class]="'face-' + look().face + ' ' + spot()" [class.fio]="look().rule">
-            <span class="corte" [style.clip-path]="look().clip"><span>{{ wish().game.name }}</span></span>
+            <span class="corte" [style.clip-path]="look().clip"><span dir="auto">{{ wish().game.name }}</span></span>
           </h3>
         }
         @case ('tarja') {
@@ -91,7 +91,7 @@ import { pinningFor } from '../core/wall-physics';
         }
         @case ('resgate') {
           <!-- palavra por palavra, cada uma de uma revista -->
-          <h3 class="nome-colado resgate" [class]="spot()" [class.picada]="look().words[1]?.joined" [class.longa]="wish().game.name.length > 9">
+          <h3 class="nome-colado resgate" dir="auto" [class]="spot()" [class.picada]="look().words[1]?.joined" [class.longa]="wish().game.name.length > 9">
             <span class="sr-only">{{ wish().game.name }}</span>
             @for (w of look().words; track $index) {
               <span
@@ -600,7 +600,7 @@ export class WishClip {
   protected readonly styles = CUTOUT_STYLES;
   /** A capa que não abriu (a prévia troca de capa: outra pode abrir). */
   protected readonly failed = signal<string | null>(null);
-  protected readonly initial = computed(() => (this.wish().game.name.trim()[0] ?? '?').toUpperCase());
+  protected readonly initial = computed(() => initialOf(this.wish().game.name));
 
   protected readonly tear = computed(() => tearFor(this.wish().id));
   protected readonly ratio = computed(() => SHAPE_RATIO[this.tear().shape]);

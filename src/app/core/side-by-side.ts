@@ -10,6 +10,12 @@ export type SideSort = 'marcada' | 'data' | 'ano' | ScoreKey;
 
 type Picks = Record<Kind, string[]>;
 
+/** Uma seleção guardada para o Desfazer, com o mural a que ela pertence (o aviso sobrevive à troca de mural). */
+export interface PickSnapshot {
+  kind: Kind;
+  ids: string[];
+}
+
 function empty(): Picks {
   return Object.fromEntries(KINDS.map((k) => [k, []])) as unknown as Picks;
 }
@@ -84,19 +90,20 @@ export class SideBySide {
   }
 
   /** Limpa e devolve o que havia, para o Desfazer. */
-  clear(): string[] {
-    const before = this.live();
+  clear(): PickSnapshot {
+    const before = this.snapshot();
     this.set([]);
     return before;
   }
 
   /** A seleção como está agora, para desfazer uma mudança sem perder a ordem. */
-  snapshot(): string[] {
-    return this.live();
+  snapshot(): PickSnapshot {
+    return { kind: this.mural.kind(), ids: this.live() };
   }
 
-  restore(ids: string[]): void {
-    this.set(ids);
+  /** Volta a seleção guardada para o mural dela, mesmo que outro mural esteja aberto agora. */
+  restore(before: PickSnapshot): void {
+    this.ids.update((all) => ({ ...all, [before.kind]: before.ids }));
   }
 
   private set(list: string[]): void {

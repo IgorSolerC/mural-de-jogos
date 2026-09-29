@@ -55,6 +55,12 @@ function readPrefs(): ViewPrefs {
 }
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+
+/** A letra da seção na ordem alfabética: A a Z sem acento, e "#" para número, símbolo e outras escritas. */
+function letterOf(name: string): string {
+  const c = fold(name.trim()).charAt(0).toUpperCase();
+  return /[A-Z]/.test(c) ? c : '#';
+}
 const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -171,8 +177,8 @@ export class WallView {
     switch (this.sort()) {
       case 'alfabetica':
         return (r) => {
-          const c = fold(r.game.name.trim()).charAt(0).toUpperCase();
-          return /[A-Z]/.test(c) ? [c, c] : ['num', '#'];
+          const c = letterOf(r.game.name);
+          return c === '#' ? ['num', '#'] : [c, c];
         };
       case 'status': {
         const groups = this.mural.profile().statusGroup;
@@ -211,7 +217,11 @@ export class WallView {
       (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt);
     switch (this.sort()) {
       case 'alfabetica':
-        return (a, b) => sign * collator.compare(a.game.name, b.game.name) || -byDate(a, b);
+        // a seção manda primeiro (o "#" antes do A), senão o Ø, o Ł ou um nome em japonês, que o
+        // collator põe no meio do alfabeto, abririam outra seção "#" no meio das letras
+        return (a, b) =>
+          sign * (letterOf(a.game.name).localeCompare(letterOf(b.game.name)) || collator.compare(a.game.name, b.game.name)) ||
+          -byDate(a, b);
       case 'status':
         return (a, b) => sign * (STATUS_RANK[a.status] - STATUS_RANK[b.status]) || -byDate(a, b);
       case 'nota': {

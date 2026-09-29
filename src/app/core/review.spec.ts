@@ -9,6 +9,8 @@ import {
   sanitizeBonuses,
   sanitizeDraft,
   sanitizeReview,
+  isValidDay,
+  initialOf,
 } from './review';
 
 const favor = (id: string): Bonus => ({ id, label: id, kind: 'favor' });
@@ -293,5 +295,18 @@ describe('murais', () => {
   it('pendente guarda o mural', () => {
     expect(sanitizeDraft({ id: 'rdraft2', kind: 'animes', game: { name: 'Frieren' } })!.kind).toBe('animes');
     expect(sanitizeDraft({ id: 'rdraft3', game: { name: 'Hades' } })!.kind).toBe('jogos');
+  });
+});
+
+describe('datas e iniciais (caça a bugs)', () => {
+  it('um dia que não existe não vale', () => {
+    expect(isValidDay('2025-02-31')).toBeFalse();
+    expect(isValidDay('2024-02-29')).toBeTrue();
+  });
+
+  it('a inicial de um nome com emoji é o emoji inteiro', () => {
+    expect(initialOf('🎮 Party')).toBe('🎮');
+    expect(initialOf('  zelda')).toBe('Z');
+    expect(initialOf('   ')).toBe('?');
   });
 });

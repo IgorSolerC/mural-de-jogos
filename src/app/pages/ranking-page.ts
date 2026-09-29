@@ -112,7 +112,10 @@ export class RankingPage {
       }
       if (r.hoursPlayed !== null && (!longest || r.hoursPlayed > (longest.hoursPlayed ?? 0))) longest = r;
     }
-    const topVerdict = VERDICTS.map((v) => ({ v, n: byVerdict.get(v) ?? 0 })).sort((a, b) => b.n - a.n)[0];
+    // no empate, todos os empatados ("Masterpiece e Chato · 3"), não só o que vem primeiro na lista
+    const topN = Math.max(0, ...byVerdict.values());
+    const tied = VERDICTS.filter((v) => topN > 0 && byVerdict.get(v) === topN).map((v) => VERDICT_LABEL[v]);
+    const topVerdict = tied.length ? `${tied.length > 1 ? tied.slice(0, -1).join(', ') + ' e ' + tied.at(-1) : tied[0]} · ${topN}` : null;
     /** O bônus mais colado de cada lado, só se ele se destaca: dado pelo menos duas vezes e sem empate. */
     const topBonus = (kind: BonusKind) => {
       const [first, second] = [...byBonus.values()].filter((x) => x.bonus.kind === kind).sort((a, b) => b.n - a.n);
@@ -124,7 +127,7 @@ export class RankingPage {
       hours: hours ? formatAmount(kind, Math.round(hours)) : '–',
       byStatus,
       longest: longest ? `${longest.game.name} · ${formatAmount(kind, longest.hoursPlayed)}` : null,
-      verdict: topVerdict?.n ? `${VERDICT_LABEL[topVerdict.v]} · ${topVerdict.n}` : null,
+      verdict: topVerdict,
       favor: topBonus('favor'),
       contra: topBonus('contra'),
     };

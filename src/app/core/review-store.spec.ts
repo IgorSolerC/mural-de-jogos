@@ -169,6 +169,72 @@ describe('ReviewStore', () => {
     });
   });
 
+  describe('bugs achados na caça', () => {
+    const wish = (id: string, name: string, updatedAt: string) => ({ id, kind: 'jogos', game: { name, coverUrl: null, source: 'manual' }, createdAt: updatedAt, updatedAt });
+
+    it('juntar um backup não deixa o mesmo id na fila e no mural', () => {
+      store.saveDraft({ id: 'rdddd1', kind: 'jogos', game: { name: 'D', coverUrl: null, source: 'manual' }, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z' });
+      store.importJson(JSON.stringify({ reviews: [review('rdddd1', 'D', '2024-02-01T00:00:00Z')], drafts: [] }), 'merge');
+      expect(store.get('rdddd1')).toBeDefined();
+      expect(store.getDraft('rdddd1')).toBeUndefined();
+    });
+
+    it('juntar um backup não deixa o mesmo id na wishlist e na fila', () => {
+      store.saveWish(wish('rwwww1', 'W', '2024-01-01T00:00:00Z') as any);
+      store.importJson(JSON.stringify({ reviews: [], drafts: [wish('rwwww1', 'W', '2024-02-01T00:00:00Z')] }), 'merge');
+      expect(store.getDraft('rwwww1')).toBeDefined();
+      expect(store.getWish('rwwww1')).toBeUndefined();
+    });
+
+    it('um desejo que virou resenha e foi apagado não volta de um backup antigo', () => {
+      const old = wish('rxxxx1', 'X', '2024-01-01T00:00:00Z');
+      store.saveWish(old as any);
+      store.add(sanitizeReview(review('rxxxx1', 'X', '2024-02-01T00:00:00Z'))!);
+      store.removeWish('rxxxx1', false);
+      store.remove('rxxxx1');
+      store.importJson(JSON.stringify({ reviews: [], wishes: [old] }), 'merge');
+      expect(store.getWish('rxxxx1')).toBeUndefined();
+    });
+
+    it('desfazer e depois juntar um backup feito enquanto estava apagada não apaga de novo', () => {
+      store.add(sanitizeReview(review('ryyyy1', 'Y', '2024-01-01T00:00:00Z'))!);
+      const r = store.remove('ryyyy1')!;
+      TestBed.tick();
+      // o backup exportado enquanto estava apagada leva o mesmo registro de exclusão daqui
+      const deleted = JSON.parse(localStorage.getItem('mural-de-jogos:apagadas:v1')!);
+      expect(deleted.reviews.ryyyy1).toBeDefined();
+      store.restore(r);
+      store.importJson(JSON.stringify({ reviews: [], deleted }), 'merge');
+      expect(store.get('ryyyy1')).toBeDefined();
+    });
+
+    it('a falha ao salvar as resenhas não some quando outra lista salva', () => {
+      const real = localStorage.setItem.bind(localStorage);
+      spyOn(localStorage, 'setItem').and.callFake((k: string, v: string) => {
+        if (k === 'mural-de-jogos:resenhas:v1') throw new DOMException('cheio', 'QuotaExceededError');
+        real(k, v);
+      });
+      store.saveWish(wish('rzzzz1', 'Z', '2024-01-01T00:00:00Z') as any);
+      TestBed.tick();
+      store.add(sanitizeReview(review('rzzzz1', 'Z', '2024-02-01T00:00:00Z'))!);
+      store.removeWish('rzzzz1', false);
+      TestBed.tick();
+      expect(store.saveError()).not.toBeNull();
+    });
+
+    it('um texto corrompido não é apagado ao abrir: vai inteiro para …:corrompido', () => {
+      TestBed.resetTestingModule();
+      localStorage.clear();
+      localStorage.setItem('mural-de-jogos:resenhas:v1', '[{"id":"raaaa1"');
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      const fresh = TestBed.inject(ReviewStore);
+      TestBed.tick();
+      expect(fresh.count()).toBe(0);
+      expect(localStorage.getItem('mural-de-jogos:resenhas:v1')).toBe('[{"id":"raaaa1"');
+      expect(localStorage.getItem('mural-de-jogos:resenhas:v1:corrompido')).toBe('[{"id":"raaaa1"');
+    });
+  });
+
   it('toda ficha ganha uma cartolina', () => {
     store.importJson(JSON.stringify({ reviews: [review('raaaa1', 'A', '2024-01-02T00:00:00Z')] }), 'replace');
     expect(store.get('raaaa1')!.stock).toBeDefined();

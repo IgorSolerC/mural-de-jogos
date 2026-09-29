@@ -13,7 +13,7 @@ import { Link, LucideAngularModule, RefreshCw, Scissors, Shuffle, X } from 'luci
 import { GameLookup, LookupError, imageLoads, sameTitle } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Kind, PickedGame, Wish, formatScore, newId } from '../core/review';
+import { Kind, PickedGame, Wish, formatScore, initialOf, newId } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CoverSleeve } from './cover-sleeve';
 import { GameSearch } from './game-search';
@@ -77,6 +77,8 @@ export class WishAdder {
   private readonly broken = signal<ReadonlySet<string>>(new Set());
   protected readonly shown = computed(() => this.choices().filter((c) => c.coverUrl && !this.broken().has(c.coverUrl)));
   private abort: AbortController | undefined;
+  /** O link colado sendo testado: cancela quando troca de item, fecha o campo ou o diálogo. */
+  private pasteAbort: AbortController | undefined;
 
   /** O mesmo título já está na wishlist deste mural. */
   protected readonly dup = computed<Wish | null>(() => {
@@ -91,6 +93,7 @@ export class WishAdder {
     return this.mural.reviews().find((r) => sameYearTitle(r.game, gm)) ?? null;
   });
   protected readonly fmt = formatScore;
+  protected readonly initialOf = initialOf;
 
   /** O recorte que vai para a parede, montado com o que já foi escolhido. */
   protected readonly preview = computed<Wish>(() => {
@@ -115,6 +118,7 @@ export class WishAdder {
     this.rerolls.set(0);
     this.game.set(null);
     this.searchSeed.set('');
+    this.search()?.reset();
     this.choices.set([]);
     this.cover.set(null);
     this.loadingChoices.set(false);
@@ -138,8 +142,11 @@ export class WishAdder {
     this.dialog().nativeElement.close();
   }
 
+  /** O clique começou fora da folha? Selecionar texto e soltar fora dela não fecha. */
+  protected downOnBackdrop = false;
+
   protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement) this.close();
+    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.close();
   }
 
   protected pick(game: PickedGame): void {
@@ -202,6 +209,7 @@ export class WishAdder {
   }
 
   protected closePaste(): void {
+    this.pasteAbort?.abort();
     this.pasting.set(false);
     this.pasteUrl.set('');
     this.pasteError.set(null);
@@ -219,7 +227,12 @@ export class WishAdder {
     }
     this.pasteBusy.set(true);
     this.pasteError.set(null);
-    const ok = await imageLoads(url, new AbortController().signal);
+    this.pasteAbort?.abort();
+    const ctrl = new AbortController();
+    this.pasteAbort = ctrl;
+    const ok = await imageLoads(url, ctrl.signal);
+    // enquanto testava, a pessoa trocou de item ou desistiu: o link não vai para o outro
+    if (ctrl.signal.aborted || this.game() !== gm) return;
     this.pasteBusy.set(false);
     if (!ok) {
       this.pasteError.set('Esse link não abriu como imagem. Copie o endereço da imagem, não o da página.');

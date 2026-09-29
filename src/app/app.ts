@@ -168,11 +168,21 @@ export class App {
     // Pega a ficha antes: o callback da view transition roda depois deste método.
     const r = this.store.get(id);
     if (!r) return;
+    // O leitor devolveu o foco à ficha, que vai sumir: o teclado segue para a vizinha (ou o Desfazer)
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-ficha]')];
+    const at = cards.findIndex((c) => c.dataset['ficha'] === id);
+    const neighbour = (cards[at + 1] ?? cards[at - 1])?.dataset['ficha'];
     this.vt.run(() => this.store.remove(id));
     this.toasts.show(`“${r.game.name}” saiu do mural`, {
       label: 'Desfazer',
       run: () => this.vt.run(() => this.store.restore(r)),
     });
+    setTimeout(() => {
+      const next =
+        (neighbour && document.querySelector<HTMLElement>(`[data-ficha="${neighbour}"] button.hit`)) ||
+        document.querySelector<HTMLElement>('.bilhete button');
+      next?.focus({ preventScroll: true });
+    }, 60);
   }
 
   protected onSaved(e: SavedEvent): void {
