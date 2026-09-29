@@ -275,6 +275,148 @@ main {
   }
 }
 
+/* ===== No Pra depois e na Wishlist, o botão do topo é o da página: guardar e recortar ===== */
+.anotar,
+.cupom {
+  justify-self: end;
+  margin-bottom: 4px;
+}
+
+/* ===== Guardar: uma folha de caderno arrancada da espiral, pautada, com o lápis em cima =====
+   O irmão do cupom da wishlist: lá a tesoura corre pela linha; aqui o lápis escreve. */
+.anotar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 62px;
+  padding: 11px 22px 10px 34px;
+  border: 0;
+  color: var(--ink);
+  text-align: left;
+  rotate: -1.2deg;
+  background:
+    linear-gradient(90deg, transparent 22px, rgb(230 46 45 / 0.55) 22px 23.5px, transparent 0),
+    repeating-linear-gradient(to top, transparent 0 14px, rgb(70 120 200 / 0.3) 14px 15.5px, transparent 15.5px 20px),
+    #fbfaf3;
+  /* a mordida da espiral na borda esquerda; a sombra vem de filtro, porque a máscara come box-shadow */
+  -webkit-mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+  mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.42));
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    filter var(--t-ui) var(--ease-ui);
+}
+.anotar .lapis {
+  position: absolute;
+  top: 6px;
+  right: 9px;
+  display: inline-flex;
+  color: #3a67b8;
+  transition: translate var(--t-physical) var(--ease-physical), rotate var(--t-physical) var(--ease-physical);
+}
+.anotar-txt {
+  display: grid;
+  padding-right: 22px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.32rem;
+  line-height: 1.05;
+}
+.anotar small {
+  margin-bottom: 3px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #3a67b8;
+}
+.anotar:hover {
+  rotate: 0.6deg;
+  translate: 0 -2px;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 16px 16px rgb(0 0 0 / 0.5));
+}
+/* o lápis escreve: desce um tico pela pauta */
+.anotar:hover .lapis {
+  translate: -6px 4px;
+  rotate: -8deg;
+}
+.anotar:focus-visible {
+  outline-offset: 4px;
+}
+
+/* o botão de adicionar é um cupom de catálogo: a linha tracejada e a tesoura em cima dela */
+.cupom {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 60px;
+  padding: 10px 22px 10px 20px;
+  border: 0;
+  border-radius: 2px;
+  background: #fdfcf9;
+  color: var(--ink);
+  text-align: left;
+  rotate: 1.2deg;
+  box-shadow:
+    inset 0 0 0 5px #fdfcf9,
+    var(--shadow-card);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
+}
+.cupom::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 2px dashed rgb(21 21 21 / 0.5);
+  border-radius: 1px;
+  pointer-events: none;
+}
+.cupom .tesoura {
+  position: absolute;
+  top: -5px;
+  left: 14px;
+  display: inline-flex;
+  padding: 0 3px;
+  background: #fdfcf9;
+  color: var(--ink);
+  transition: translate var(--t-physical) var(--ease-physical);
+}
+.cupom-txt {
+  display: grid;
+  padding-top: 4px;
+  font-family: var(--f-label);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.3rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.cupom small {
+  font-style: normal;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  color: var(--red-deep);
+  margin-bottom: 3px;
+}
+.cupom:hover {
+  rotate: -0.6deg;
+  translate: 0 -2px;
+  box-shadow:
+    inset 0 0 0 5px #fdfcf9,
+    var(--shadow-lift);
+}
+/* a tesoura anda pela linha, cortando */
+.cupom:hover .tesoura {
+  translate: 18px 0;
+}
+.cupom:focus-visible {
+  outline-offset: 4px;
+}
+
 /* Tela média: as abas descem para uma fileira própria, embaixo do cartaz e do botão
    (cinco abas não cabem entre os dois abaixo de uns 1380px) */
 @media (max-width: 1380px) {
@@ -337,6 +479,31 @@ main {
     padding: 12px 8px 9px;
     font-size: 0.9rem;
     letter-spacing: 0.03em;
+  }
+
+  /* o guardar e o recortar encolhem para caber ao lado do cartaz */
+  .anotar,
+  .cupom {
+    align-self: center;
+    margin-bottom: 0;
+    min-height: 54px;
+  }
+
+  .anotar {
+    padding: 9px 16px 8px 30px;
+  }
+
+  .cupom {
+    padding: 9px 16px 8px 15px;
+  }
+
+  .anotar-txt {
+    padding-right: 14px;
+    font-size: 1.14rem;
+  }
+
+  .cupom-txt {
+    font-size: 1.08rem;
   }
 
   .stack {

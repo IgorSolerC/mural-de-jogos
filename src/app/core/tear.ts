@@ -33,6 +33,8 @@ export interface Tear {
   photo: string;
   /** A quina dobrada; null sem dobra. */
   fold: Fold | null;
+  /** A quina arrancada no rasgo de canto (0 no alto à esquerda, 1 no alto à direita); null sem ela. */
+  rip: 0 | 1 | null;
 }
 
 /**
@@ -117,6 +119,7 @@ export function tearFor(id: string): Tear {
       paper: mask(folded.paper.map(([x, y]) => [(x / REF_W) * 100, (y / H) * 100] as Pt)),
       photo: 'none',
       fold: folded.fold,
+      rip: null,
     };
   }
 
@@ -178,6 +181,7 @@ export function tearFor(id: string): Tear {
     paper: mask(folded.paper.map(([x, y]) => [(x / REF_W) * 100, (y / H) * 100] as Pt)),
     photo: mask(outline(photoPlan, r2, 1.9, edgeOfPage)),
     fold: folded.fold,
+    rip: corner ? (corner.at as 0 | 1) : null,
   };
 }
 

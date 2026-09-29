@@ -1,4 +1,4 @@
-import { collage, titleFor } from './clipping';
+import { collage, stickerFor, titleFor } from './clipping';
 import { TEAR_KINDS, tearFor } from './tear';
 
 describe('tearFor', () => {
@@ -65,6 +65,24 @@ describe('titleFor', () => {
   it('nome comprido demais não vira bilhete', () => {
     const long = 'The Legend of Zelda: Breath of the Wild';
     expect(Array.from({ length: 100 }, (_, i) => titleFor(`t${i}`, long, tearFor(`t${i}`)).kind)).not.toContain('resgate');
+  });
+});
+
+describe('stickerFor', () => {
+  it('o adesivo nunca vai na quina dobrada, na arrancada nem na do nome', () => {
+    const corners = new Set<number>();
+    for (let i = 0; i < 300; i++) {
+      const id = `s${i.toString(36)}q`;
+      const tear = tearFor(id);
+      const look = titleFor(id, 'Hollow Knight', tear);
+      const { corner } = stickerFor(id, tear, look);
+      corners.add(corner);
+      const title = look.place === 'topo' ? (look.side === 'esq' ? 0 : 1) : look.side === 'esq' ? 3 : 2;
+      expect(corner).not.toBe(title);
+      if (tear.fold) expect(corner).not.toBe(tear.fold.corner);
+      if (tear.rip !== null) expect(corner).not.toBe(tear.rip);
+    }
+    expect(corners.has(0) && corners.has(1)).toBeTrue();
   });
 });
 

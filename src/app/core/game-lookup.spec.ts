@@ -132,6 +132,83 @@ describe('GameLookup', () => {
     });
   });
 
+  describe('capas de um jogo (Wikipedia, RAWG, Steam)', () => {
+    const hades = { name: 'Hades', year: '2018', coverUrl: 'https://upload.wikimedia.org/hades.jpg', source: 'wikipedia' as const, sourceId: '1' };
+
+    beforeEach(() => {
+      settings.rawgKey.set('k');
+      fetchSpy.and.callFake((input: RequestInfo | URL) => {
+        const u = String(input);
+        if (u.includes('api.rawg.io/api/games?'))
+          return json({
+            results: [
+              {
+                id: 7,
+                name: 'Hades',
+                released: '2020-09-17',
+                background_image: 'https://media.rawg.io/media/games/arte.jpg',
+                short_screenshots: [{ image: 'https://media.rawg.io/media/screenshots/t1.jpg' }, { image: 'https://media.rawg.io/media/screenshots/t2.jpg' }],
+                stores: [],
+              },
+              { id: 8, name: 'Hades', released: '1996-01-01', background_image: 'https://media.rawg.io/media/games/velho.jpg', stores: [] },
+            ],
+          });
+        if (u.includes('api.rawg.io/api/games/7?')) return json({ background_image_additional: 'https://media.rawg.io/media/screenshots/extra.jpg' });
+        return json({ query: { pages: [] } });
+      });
+    });
+
+    it('traz a arte de fundo, a extra e as telas da RAWG, do jogo mais perto no ano, com a etiqueta de cada uma', async () => {
+      const { choices: found } = await lookup.coverChoices(hades, 'jogos', signal);
+      expect(found[0]).toEqual(jasmine.objectContaining({ coverUrl: hades.coverUrl, from: 'Wikipedia' }));
+      const rawg = found.filter((c) => c.from === 'RAWG').map((c) => c.coverUrl);
+      expect(rawg).toEqual([
+        'https://media.rawg.io/media/resize/640/-/games/arte.jpg',
+        'https://media.rawg.io/media/resize/640/-/screenshots/extra.jpg',
+        'https://media.rawg.io/media/resize/640/-/screenshots/t1.jpg',
+        'https://media.rawg.io/media/resize/640/-/screenshots/t2.jpg',
+      ]);
+      // o Hades de 1996 fica de fora: longe demais no ano
+      expect(found.some((c) => c.coverUrl?.includes('velho'))).toBeFalse();
+      expect(found.find((c) => c.from === 'RAWG')).toEqual(jasmine.objectContaining({ source: 'rawg', sourceId: '7' }));
+    });
+
+    it('a Wikipedia procura pelo título exato e separa os jogos de mesmo nome pelo ano do título', async () => {
+      settings.rawgKey.set('');
+      const gow = { name: 'God of War', year: '2018', coverUrl: null, source: 'rawg' as const, sourceId: '58175' };
+      fetchSpy.and.callFake((input: RequestInfo | URL) => {
+        const u = decodeURIComponent(String(input)).replace(/\+/g, ' ');
+        expect(u).toContain('intitle:"God of War"');
+        return json({
+          query: {
+            pages: [
+              { index: 1, title: 'God of War (2018 video game)', description: 'Action-adventure game', thumbnail: { source: 'https://w/gow2018.jpg' } },
+              { index: 2, title: 'God of War (2005 video game)', description: 'Action-adventure game', thumbnail: { source: 'https://w/gow2005.jpg' } },
+              { index: 3, title: 'God of War III', description: '2010 video game', thumbnail: { source: 'https://w/gow3.jpg' } },
+            ],
+          },
+        });
+      });
+      const { choices } = await lookup.coverChoices(gow, 'jogos', signal);
+      expect(choices.map((c) => c.coverUrl)).toEqual(['https://w/gow2018.jpg']);
+    });
+
+    it('a RAWG que falha é dita, não escondida', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) =>
+        String(input).includes('rawg') ? json({ detail: 'Invalid key' }, 401) : json({ query: { pages: [] } }),
+      );
+      const { notes } = await lookup.coverChoices(hades, 'jogos', signal);
+      expect(notes).toEqual(['A chave da RAWG foi recusada. Confira em Ajustes.']);
+    });
+
+    it('sem chave da RAWG, fica só a Wikipedia', async () => {
+      settings.rawgKey.set('');
+      const { choices: found } = await lookup.coverChoices(hades, 'jogos', signal);
+      expect(found.map((c) => c.from)).toEqual(['Wikipedia']);
+      expect(fetchSpy.calls.allArgs().some(([u]) => String(u).includes('rawg'))).toBeFalse();
+    });
+  });
+
   it('diz ao leitor de tela onde está buscando', () => {
     expect(lookup.sourceName('livros')).toBe('Open Library');
     expect(lookup.sourceName('animes')).toBe('Kitsu');

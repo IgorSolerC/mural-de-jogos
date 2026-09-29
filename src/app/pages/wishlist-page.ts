@@ -4,8 +4,10 @@ import { CUTOUT_STYLES, collage } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Wish, fold } from '../core/review';
+import { RELEVANCE_RANK, Relevance, Wish, fold, relevanceLabel, relevanceOf } from '../core/review';
+import { ReviewStore } from '../core/review-store';
 import { ViewTransitions } from '../core/view-transitions';
+import { Toasts } from '../ui/toast';
 import { SearchStrip } from '../ui/search-strip';
 import { WishClip } from '../ui/wish-clip';
 
@@ -29,6 +31,7 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
 /**
  * Wishlist: o que você quer jogar, ler ou ver, no mural aberto. Cada item é a capa recortada de uma
  * revista e colada na parede, uma colagem. Tocar num recorte começa a resenha; pregada, ela sai daqui.
+ * O adesivo na quina diz quanta vontade: MUST PLAY vem na frente, LATER vai para o fim.
  * Sem saber o que escolher? O sorteio tira um da parede.
  */
 @Component({
@@ -63,15 +66,6 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
           <p class="sub">{{ countOf(mural.profile(), n) }} que você quer {{ mural.profile().verb }}</p>
         }
       </div>
-      @if (mural.wishCount()) {
-        <button type="button" class="cupom" (click)="desk.newWish()">
-          <lucide-icon class="tesoura" [img]="CutIcon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
-          <span class="cupom-txt">
-            <small aria-hidden="true">Recorte aqui</small>
-            Adicionar {{ mural.profile().singular }}
-          </span>
-        </button>
-      }
     </header>
 
     @if (mural.wishCount()) {
@@ -143,6 +137,7 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
                 [class.sorteado]="winner()?.id === w.id"
                 [class.na-sombra]="winner() && winner()?.id !== w.id"
                 (opened)="drawn.set(null); desk.openWish($event)"
+                (relevance)="setRelevance(w, $event)"
               />
             }
           </div>
@@ -158,7 +153,7 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
           Viu um trailer, ganhou uma indicação? Recorte aqui o que você quer {{ mural.profile().verb }}: fica só o nome e a
           capa, até a hora de resenhar.
         </p>
-        <button type="button" class="btn-ink" (click)="desk.newWish()">
+        <button type="button" class="btn-ink" (click)="desk.newWish()" aria-keyshortcuts="n">
           <lucide-icon [img]="CutIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
           Adicionar {{ g(mural.profile(), 'um', 'uma') }} {{ mural.profile().singular }}
         </button>
@@ -233,77 +228,6 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
       text-transform: uppercase;
       color: var(--wall-ink-2);
       font-variant-numeric: tabular-nums;
-    }
-
-    /* o botão de adicionar é um cupom de catálogo: a linha tracejada e a tesoura em cima dela */
-    .cupom {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      min-height: 60px;
-      padding: 10px 22px 10px 20px;
-      border: 0;
-      border-radius: 2px;
-      background: #fdfcf9;
-      color: var(--ink);
-      text-align: left;
-      rotate: 1.2deg;
-      box-shadow:
-        inset 0 0 0 5px #fdfcf9,
-        var(--shadow-card);
-      transition:
-        rotate var(--t-physical) var(--ease-physical),
-        translate var(--t-physical) var(--ease-physical),
-        box-shadow var(--t-ui) var(--ease-ui);
-    }
-    .cupom::before {
-      content: '';
-      position: absolute;
-      inset: 5px;
-      border: 2px dashed rgb(21 21 21 / 0.5);
-      border-radius: 1px;
-      pointer-events: none;
-    }
-    .cupom .tesoura {
-      position: absolute;
-      top: -5px;
-      left: 14px;
-      display: inline-flex;
-      padding: 0 3px;
-      background: #fdfcf9;
-      color: var(--ink);
-      transition: translate var(--t-physical) var(--ease-physical);
-    }
-    .cupom-txt {
-      display: grid;
-      padding-top: 4px;
-      font-family: var(--f-label);
-      font-style: italic;
-      font-weight: 800;
-      font-size: 1.3rem;
-      line-height: 1;
-      text-transform: uppercase;
-    }
-    .cupom small {
-      font-style: normal;
-      font-size: 0.72rem;
-      letter-spacing: 0.16em;
-      color: var(--red-deep);
-      margin-bottom: 3px;
-    }
-    .cupom:hover {
-      rotate: -0.6deg;
-      translate: 0 -2px;
-      box-shadow:
-        inset 0 0 0 5px #fdfcf9,
-        var(--shadow-lift);
-    }
-    /* a tesoura anda pela linha, cortando */
-    .cupom:hover .tesoura {
-      translate: 18px 0;
-    }
-    .cupom:focus-visible {
-      outline-offset: 4px;
     }
 
     .sortear {
@@ -485,11 +409,6 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
       .titulo {
         font-size: 2.2rem;
       }
-      .cupom {
-        width: 100%;
-        justify-content: center;
-        rotate: 0.6deg;
-      }
       .recortes {
         column-gap: 18px;
       }
@@ -510,6 +429,8 @@ export class WishlistPage {
   protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
   private readonly transitions = inject(ViewTransitions);
+  private readonly store = inject(ReviewStore);
+  private readonly toasts = inject(Toasts);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly countOf = countOf;
   protected readonly g = g;
@@ -529,14 +450,19 @@ export class WishlistPage {
     const needle = fold(this.query().trim());
     const list = this.mural.wishes();
     const found = needle ? list.filter((w) => fold(w.game.name).includes(needle)) : list;
-    switch (this.order()) {
-      case 'recentes':
-        return [...found].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-      case 'antigos':
-        return [...found].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-      case 'az':
-        return [...found].sort((a, b) => a.game.name.localeCompare(b.game.name, 'pt-BR', { sensitivity: 'base', numeric: true }));
-    }
+    const within = (a: Wish, b: Wish) => {
+      switch (this.order()) {
+        case 'recentes':
+          return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+        case 'antigos':
+          return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+        case 'az':
+          return a.game.name.localeCompare(b.game.name, 'pt-BR', { sensitivity: 'base', numeric: true });
+      }
+    };
+    // a vontade vem sempre primeiro: MUST PLAY na frente, LATER no fim; a aba ordena dentro de cada uma
+    const rank = (w: Wish) => RELEVANCE_RANK[relevanceOf(w)];
+    return [...found].sort((a, b) => rank(a) - rank(b) || within(a, b));
   });
   /** Quantas colunas cabem: recortes de pelo menos 172px, com 34px entre eles (duas no celular). */
   private readonly drawBtn = viewChild<ElementRef<HTMLButtonElement>>('drawBtn');
@@ -563,6 +489,17 @@ export class WishlistPage {
       this.destroyRef.onDestroy(() => ro.disconnect());
     });
   }
+  /** Trocou a vontade no adesivo: o recorte muda de lugar na colagem, e o teclado vai junto com ele. */
+  protected setRelevance(w: Wish, r: Relevance): void {
+    this.transitions.run(() => this.store.setRelevance(w.id, r));
+    this.toasts.show(`“${w.game.name}” agora é ${r === 'comum' ? 'Comum' : relevanceLabel(w.kind, r)}`);
+    setTimeout(() => {
+      const btn = document.querySelector<HTMLElement>(`[data-ficha="${w.id}"] .adesivo-btn`);
+      btn?.focus({ preventScroll: true });
+      btn?.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }, 140);
+  }
+
   protected sort(o: Order): void {
     if (o === this.order()) return;
     this.transitions.run(() => this.order.set(o));

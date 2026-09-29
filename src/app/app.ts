@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, afterNextRender, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { LucideAngularModule, Plus } from 'lucide-angular';
+import { LucideAngularModule, NotebookPen, Plus, Scissors } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
@@ -42,9 +42,9 @@ const TABS: Tab[] = [
 })
 export class App {
   protected readonly store = inject(ReviewStore);
-  private readonly mural = inject(Mural);
+  protected readonly mural = inject(Mural);
   private readonly view = inject(WallView);
-  private readonly desk = inject(Desk);
+  protected readonly desk = inject(Desk);
   private readonly vt = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
@@ -60,7 +60,15 @@ export class App {
     { initialValue: '/' },
   );
 
+  /** Na fila do Pra depois ou na Wishlist: lá o N e o botão do topo adicionam à lista, não ao mural. */
+  protected readonly onList = computed<'fila' | 'wishlist' | null>(() => {
+    const p = this.path();
+    return p.startsWith('/fila') ? 'fila' : p.startsWith('/wishlist') ? 'wishlist' : null;
+  });
+
   protected readonly PlusIcon = Plus;
+  protected readonly NoteIcon = NotebookPen;
+  protected readonly CutIcon = Scissors;
   protected readonly tabs = TABS;
 
   private readonly editor = viewChild.required(ReviewEditor);
@@ -227,7 +235,10 @@ export class App {
       search.select();
     } else if (e.key === 'n' || e.key === 'N') {
       e.preventDefault();
-      this.newReview();
+      const list = this.onList();
+      if (list === 'fila') this.desk.newDraft();
+      else if (list === 'wishlist') this.desk.newWish();
+      else this.newReview();
     }
   }
 

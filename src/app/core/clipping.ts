@@ -164,6 +164,39 @@ export function ransom(id: string, parts: readonly (string | { text: string; joi
   });
 }
 
+/** Onde o adesivo de vontade (MUST PLAY, LATER) é colado: numa quina livre, meio para fora do papel. */
+export interface StickerSpot {
+  /** 0 no alto à esquerda, 1 no alto à direita, 2 embaixo à direita, 3 embaixo à esquerda. */
+  corner: 0 | 1 | 2 | 3;
+  /** Quanto o adesivo sai da beirada, em px, para cada lado. */
+  dx: number;
+  dy: number;
+  /** Um número de -1 a 1: cada adesivo decide o quanto entorta. */
+  tilt: number;
+}
+
+/**
+ * A quina do adesivo: nunca a dobrada, nem a arrancada, nem a do nome. Com o nome no pé, vai no alto
+ * (quase sempre à direita); com o nome no alto, embaixo, do lado oposto ao dele.
+ */
+export function stickerFor(id: string, tear: Tear, look: TitleLook): StickerSpot {
+  const r = (n: number) => wobble(id, 6100 + n);
+  const title = look.place === 'topo' ? (look.side === 'esq' ? 0 : 1) : look.side === 'esq' ? 3 : 2;
+  const blocked = new Set<number>([title]);
+  if (tear.fold) blocked.add(tear.fold.corner);
+  if (tear.rip !== null) blocked.add(tear.rip);
+  const tops: (0 | 1)[] = r(0) < 0.7 ? [1, 0] : [0, 1];
+  const bottoms: (2 | 3)[] = look.side === 'esq' ? [2, 3] : [3, 2];
+  const order = look.place === 'pe' ? [...tops, ...bottoms] : [...bottoms, ...tops];
+  const corner = order.find((c) => !blocked.has(c)) ?? 1;
+  return {
+    corner,
+    dx: Math.round(8 + r(1) * 8),
+    dy: Math.round(10 + r(2) * 8),
+    tilt: Math.round((r(3) * 2 - 1) * 100) / 100,
+  };
+}
+
 /**
  * Onde o recorte cai na colagem: nem todos da mesma largura, nem todos alinhados na coluna, nem
  * todos à mesma distância do de cima. Em % da coluna e px.

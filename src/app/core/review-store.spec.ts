@@ -158,6 +158,26 @@ describe('ReviewStore', () => {
       expect(res.wishes).toBe(0);
     });
 
+    it('trocar a vontade marca a hora, e Comum sai do registro', () => {
+      store.saveWish(wish('rwwww1', 'A'));
+      store.setRelevance('rwwww1', 'must');
+      expect(store.getWish('rwwww1')!.relevance).toBe('must');
+      expect(store.getWish('rwwww1')!.updatedAt).not.toBe(old);
+      store.setRelevance('rwwww1', 'comum');
+      expect('relevance' in store.getWish('rwwww1')!).toBeFalse();
+    });
+
+    it('juntar um backup traz a vontade mudada lá depois', () => {
+      store.saveWish(wish('rwwww1', 'A'));
+      const later = { ...wish('rwwww1', 'A'), relevance: 'later', updatedAt: '2024-03-01T00:00:00Z' };
+      store.importJson(JSON.stringify({ reviews: [], wishes: [later] }), 'merge');
+      expect(store.getWish('rwwww1')!.relevance).toBe('later');
+      // e um backup mais velho não desfaz a de agora
+      store.setRelevance('rwwww1', 'must');
+      store.importJson(JSON.stringify({ reviews: [], wishes: [later] }), 'merge');
+      expect(store.getWish('rwwww1')!.relevance).toBe('must');
+    });
+
     it('desfazer devolve o desejo e esquece que foi apagado', () => {
       const w = wish('rwwww1', 'A');
       store.saveWish(w);

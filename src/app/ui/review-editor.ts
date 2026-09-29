@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Bookmark, LucideAngularModule, Pin as PinIcon, RefreshCw, Trash2, X } from 'lucide-angular';
+import { Bookmark, Check, Images, LucideAngularModule, Pin as PinIcon, RefreshCw, Trash2, X } from 'lucide-angular';
 import {
   Bonus,
   Difficulty,
@@ -39,13 +39,13 @@ import {
   newId,
   todayISO,
 } from '../core/review';
-import { GameLookup, LookupError, isSteamCover } from '../core/game-lookup';
+import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
-import { CoverSource, Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
+import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
 import { GameSearch } from './game-search';
@@ -66,6 +66,7 @@ export interface SavedEvent {
   imports: [
     LucideAngularModule,
     BonusPicker,
+    CoverPicker,
     CoverSleeve,
     DifficultyPicker,
     GameSearch,
@@ -84,7 +85,6 @@ export class ReviewEditor {
   protected readonly store = inject(ReviewStore);
   private readonly mural = inject(Mural);
   private readonly lookup = inject(GameLookup);
-  protected readonly settings = inject(Settings);
   readonly saved = output<SavedEvent>();
   /** Guardou só o jogo (nome e capa) para resenhar depois. */
   readonly drafted = output<SavedEvent>();
@@ -98,6 +98,8 @@ export class ReviewEditor {
   protected readonly TrashIcon = Trash2;
   protected readonly SwapIcon = RefreshCw;
   protected readonly PinIcon = PinIcon;
+  protected readonly CoversIcon = Images;
+  protected readonly DoneIcon = Check;
   protected readonly labels = SCORE_LABEL;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -135,7 +137,6 @@ export class ReviewEditor {
   });
   protected readonly fmt = formatScore;
   protected readonly weightOf = weightOf;
-  protected readonly isSteamCover = isSteamCover;
   protected readonly hours = signal('');
   /** A quantidade do mural (horas, páginas); null se vazia ou se o mural não tem; NaN se não é número. */
   protected readonly hoursValue = computed(() => {
@@ -147,8 +148,9 @@ export class ReviewEditor {
     return Math.round(n * 10) / 10;
   });
   protected readonly hoursValid = computed(() => !Number.isNaN(this.hoursValue()));
-  protected readonly coverLoading = signal<CoverSource | null>(null);
-  protected readonly coverError = signal<string | null>(null);
+  /** As capas do mesmo título abertas na ficha, para trocar a que veio. */
+  protected readonly choosingCover = signal(false);
+  /** A busca da capa da Steam, logo depois de escolher um jogo da RAWG. */
   private coverAbort: AbortController | undefined;
   protected readonly status = signal<Status | null>(null);
   protected readonly verdict = signal<Verdict | null>(null);
@@ -272,8 +274,7 @@ export class ReviewEditor {
     this.bonusPicker()?.reset();
     this.hours.set(review?.hoursPlayed === null || review?.hoursPlayed === undefined ? '' : String(review.hoursPlayed).replace('.', ','));
     this.coverAbort?.abort();
-    this.coverLoading.set(null);
-    this.coverError.set(null);
+    this.choosingCover.set(false);
     this.text.set(review?.text ?? '');
     this.searchSeed.set('');
     // a busca que ficou aberta da última vez (talvez de outro mural) volta vazia
@@ -300,17 +301,38 @@ export class ReviewEditor {
 
   protected pick(game: PickedGame): void {
     this.coverAbort?.abort();
-    this.coverLoading.set(null);
+    this.choosingCover.set(false);
     this.game.set(game);
-    this.coverError.set(null);
     this.draftError.set(false);
     // Achou na RAWG: tenta logo a capa da Steam, que tem o título.
-    if (game.source === 'rawg') void this.useCover('rawg', true);
+    if (game.source === 'rawg') void this.steamCover(game);
   }
 
-  /** Na RAWG, dá para pedir a capa da Steam se a atual ainda é a arte de fundo. */
-  protected canUpgrade(g: PickedGame): boolean {
-    return g.source === 'rawg' && !isSteamCover(g.coverUrl) && this.settings.hasRawg();
+  /** A imagem da RAWG é uma arte de fundo: se o jogo está na Steam, a capa de lá entra no lugar. */
+  private async steamCover(game: PickedGame): Promise<void> {
+    const ctrl = new AbortController();
+    this.coverAbort = ctrl;
+    try {
+      const found = await this.lookup.withSteamCover(game, ctrl.signal);
+      // a pessoa já escolheu outra capa (ou outro jogo) enquanto procurava: fica a dela
+      if (!ctrl.signal.aborted && this.game() === game && isSteamCover(found.coverUrl)) this.game.set(found);
+    } catch {
+      // sem a capa da Steam, a arte da RAWG serve
+    }
+  }
+
+  protected openCovers(e: MouseEvent): void {
+    this.choosingCover.set(true);
+    // pelo teclado (Enter ou espaço não têm clique contado), o foco entra na capa escolhida
+    if (e.detail === 0)
+      setTimeout(() =>
+        this.dialog().nativeElement.querySelector<HTMLInputElement>('.escolher-capa input:checked')?.focus({ preventScroll: true }),
+      );
+  }
+
+  protected closeCovers(): void {
+    this.choosingCover.set(false);
+    setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>('.capa-btn')?.focus());
   }
 
   protected setWeight(k: RatedKey, w: Weight): void {
@@ -322,43 +344,9 @@ export class ReviewEditor {
     });
   }
 
-  /**
-   * Troca a capa pela da outra fonte, procurando o mesmo jogo lá. Na própria RAWG, só tenta a capa
-   * da Steam; `quiet` não reclama se ela não existir (é a tentativa automática ao escolher o jogo).
-   */
-  protected async useCover(source: CoverSource, quiet = false): Promise<void> {
-    const game = this.game();
-    if (!game || this.coverLoading()) return;
-    const upgradeOnly = game.source === source;
-    if (upgradeOnly && !this.canUpgrade(game)) return;
-    this.coverAbort?.abort();
-    const ctrl = new AbortController();
-    this.coverAbort = ctrl;
-    this.coverLoading.set(source);
-    this.coverError.set(null);
-    try {
-      if (upgradeOnly) {
-        const found = await this.lookup.withSteamCover(game, ctrl.signal);
-        if (ctrl.signal.aborted) return;
-        if (isSteamCover(found.coverUrl)) this.game.set(found);
-        else if (!quiet) this.coverError.set('Esse jogo não tem capa na Steam. Ficou a arte da RAWG.');
-        return;
-      }
-      const found = await this.lookup.findCover(game, source, ctrl.signal);
-      if (ctrl.signal.aborted) return;
-      if (found) this.game.set(found);
-      else this.coverError.set(`Não achei capa desse jogo na ${source === 'rawg' ? 'RAWG' : 'Wikipedia'}.`);
-    } catch (e) {
-      if (ctrl.signal.aborted || (e as Error).name === 'AbortError') return;
-      this.coverError.set(e instanceof LookupError ? e.message : 'Não consegui trocar a capa agora.');
-    } finally {
-      if (!ctrl.signal.aborted) this.coverLoading.set(null);
-    }
-  }
-
   protected swapGame(): void {
     this.coverAbort?.abort();
-    this.coverLoading.set(null);
+    this.choosingCover.set(false);
     this.searchSeed.set(this.game()?.name ?? '');
     this.game.set(null);
     setTimeout(() => this.search()?.focus());

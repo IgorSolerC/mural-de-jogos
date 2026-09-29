@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { CUTOUT_STYLES, placeFor, titleFor } from '../core/clipping';
-import { Wish, initialOf } from '../core/review';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
+import { LucideAngularModule, Sticker } from 'lucide-angular';
+import { CUTOUT_STYLES, placeFor, stickerFor, titleFor } from '../core/clipping';
+import { RELEVANCES, Relevance, Wish, initialOf, relevanceLabel, relevanceOf } from '../core/review';
 import { SHAPE_RATIO, stripFor, tearFor } from '../core/tear';
 import { pinningFor } from '../core/wall-physics';
+import { RelevanceSticker } from './relevance-sticker';
 
 /**
  * Um desejo da wishlist: a capa arrancada de uma revista e colada na parede. Cada uma de um jeito
@@ -14,10 +16,13 @@ import { pinningFor } from '../core/wall-physics';
  */
 @Component({
   selector: 'app-wish-clip',
+  imports: [LucideAngularModule, RelevanceSticker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.is-landing]': 'landing()',
     '[class.is-preview]': 'preview()',
+    '[class.com-menu]': 'menu()',
+    '(document:pointerdown)': 'onOutside($event)',
     '[style.--tilt]': 'tilt()',
     '[style.--rasgo]': 'tear().paper',
     '[style.--rasgo-foto]': 'tear().photo',
@@ -153,6 +158,65 @@ import { pinningFor } from '../core/wall-physics';
       <button type="button" class="hit" (click)="opened.emit(wish().id)">
         <span class="sr-only">Começar a resenha de {{ wish().game.name }}</span>
       </button>
+    }
+
+    <!-- a vontade: um adesivo de capa de revista numa quina livre, meio para fora do papel (o oval do
+         LATER, baixo, entra mais, para não boiar); Comum não tem: na parede, o lugar dele aparece
+         quando a mão chega, para escolher -->
+    @if (rel() !== 'comum' || !preview()) {
+      <div
+        class="vontade"
+        [class]="'quina-' + sticker().corner + ' vontade-' + rel()"
+        [style.--ax.px]="rel() === 'later' ? sticker().dx * 0.55 : sticker().dx"
+        [style.--ay.px]="rel() === 'later' ? sticker().dy * 0.5 : sticker().dy"
+        [style.--at]="sticker().tilt"
+      >
+        @if (preview()) {
+          <app-relevance-sticker class="adesivo" [relevance]="rel()" [kind]="wish().kind" />
+        } @else {
+          <button
+            type="button"
+            class="adesivo-btn"
+            (click)="toggleMenu()"
+            (keydown.escape)="closeMenu($event)"
+            [attr.aria-expanded]="menu()"
+            [attr.aria-label]="'Quanta vontade de ' + wish().game.name + ': ' + label() + '. Mudar'"
+            title="Quanta vontade?"
+          >
+            @if (rel() === 'comum') {
+              <span class="fantasma" aria-hidden="true">
+                <lucide-icon [img]="StickerIcon" [size]="16" [strokeWidth]="2.4" />
+              </span>
+            } @else {
+              <app-relevance-sticker class="adesivo" [relevance]="rel()" [kind]="wish().kind" />
+            }
+          </button>
+          @if (menu()) {
+            <div
+              class="vontade-menu"
+              role="group"
+              [attr.aria-label]="'Quanta vontade de ' + wish().game.name + '?'"
+              (keydown.escape)="closeMenu($event)"
+            >
+              <p class="vontade-titulo" aria-hidden="true">Quanta vontade?</p>
+              <div class="vontade-opcoes">
+                @for (o of options; track o) {
+                  <button
+                    type="button"
+                    class="opcao"
+                    [class.on]="rel() === o"
+                    [attr.aria-pressed]="rel() === o"
+                    [attr.aria-label]="labelOf(o)"
+                    (click)="pick(o)"
+                  >
+                    <app-relevance-sticker size="mini" [relevance]="o" [kind]="wish().kind" />
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        }
+      </div>
     }
   `,
   styles: `
@@ -655,6 +719,184 @@ import { pinningFor } from '../core/wall-physics';
     :host(.is-preview) {
       rotate: calc(var(--tilt) * 0.5deg);
     }
+
+    /* ===== A vontade: o adesivo numa quina, meio para fora do papel ===== */
+    .vontade {
+      position: absolute;
+      z-index: 5;
+    }
+    .quina-0 {
+      top: calc(var(--ay) * -1);
+      left: calc(var(--ax) * -1);
+    }
+    .quina-1 {
+      top: calc(var(--ay) * -1);
+      right: calc(var(--ax) * -1);
+    }
+    .quina-2 {
+      bottom: calc(16px - var(--ay));
+      right: calc(var(--ax) * -1);
+    }
+    .quina-3 {
+      bottom: calc(16px - var(--ay));
+      left: calc(var(--ax) * -1);
+    }
+    .adesivo {
+      rotate: calc(var(--at) * 15deg);
+    }
+    .vontade-later .adesivo {
+      rotate: calc(var(--at) * 9deg);
+    }
+    /* o recorte menor, no celular: o adesivo acompanha */
+    @media (max-width: 559px) {
+      .adesivo {
+        font-size: 13.5px;
+      }
+    }
+    .adesivo-btn {
+      display: block;
+      padding: 0;
+      border: 0;
+      background: none;
+      cursor: pointer;
+      transition:
+        scale var(--t-ui) var(--ease-ui),
+        opacity var(--t-ui) var(--ease-ui);
+    }
+    .adesivo-btn:hover {
+      scale: 1.06;
+    }
+    .adesivo-btn:focus-visible {
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+    /* Comum: o lugar do adesivo, vazio, que aparece quando a mão chega no recorte */
+    .fantasma {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      margin: 6px;
+      border-radius: 7px;
+      background: rgb(253 252 249 / 0.94);
+      box-shadow:
+        inset 0 0 0 1.5px rgb(21 21 21 / 0.45),
+        0 2px 4px rgb(0 0 0 / 0.3);
+      color: var(--ink);
+      rotate: calc(var(--at) * 8deg);
+    }
+    .vontade-comum .adesivo-btn {
+      opacity: 0;
+    }
+    :host(:hover) .vontade-comum .adesivo-btn,
+    :host(:focus-within) .vontade-comum .adesivo-btn,
+    :host(.com-menu) .vontade-comum .adesivo-btn {
+      opacity: 1;
+    }
+    /* sem mouse, o lugar fica sempre à vista, bem discreto */
+    @media (hover: none) {
+      .vontade-comum .adesivo-btn {
+        opacity: 0.6;
+      }
+      .fantasma {
+        width: 28px;
+        height: 28px;
+      }
+    }
+
+    /* o menu: um pedacinho de página de revista com as três vontades */
+    :host(.com-menu) {
+      z-index: 6;
+    }
+    .vontade-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      display: grid;
+      gap: 8px;
+      padding: 10px 12px 12px;
+      border-radius: 2px;
+      background: #fdfcf9;
+      color: var(--ink);
+      box-shadow: var(--shadow-lift);
+      rotate: calc(var(--tilt) * -1deg);
+      animation: menu-in var(--t-ui) var(--ease-ui);
+    }
+    .quina-0 .vontade-menu,
+    .quina-3 .vontade-menu {
+      left: 4px;
+    }
+    .quina-1 .vontade-menu,
+    .quina-2 .vontade-menu {
+      right: 4px;
+    }
+    .quina-2 .vontade-menu,
+    .quina-3 .vontade-menu {
+      top: auto;
+      bottom: calc(100% + 4px);
+    }
+    @keyframes menu-in {
+      from {
+        opacity: 0;
+        translate: 0 -4px;
+      }
+    }
+    .vontade-titulo {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      line-height: 1;
+      text-transform: uppercase;
+      color: var(--ink-2);
+      white-space: nowrap;
+    }
+    .vontade-opcoes {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .opcao {
+      display: grid;
+      place-items: center;
+      min-width: 44px;
+      min-height: 52px;
+      padding: 2px 3px;
+      border: 0;
+      border-radius: 3px;
+      background: none;
+      cursor: pointer;
+      transition:
+        translate var(--t-ui) var(--ease-ui),
+        opacity var(--t-ui) var(--ease-ui),
+        filter var(--t-ui) var(--ease-ui);
+    }
+    /* como as capas: as não escolhidas ficam apagadas, a escolhida salta */
+    .opcao:not(.on) {
+      opacity: 0.62;
+      filter: saturate(0.6);
+    }
+    .opcao:hover {
+      opacity: 1;
+      filter: none;
+    }
+    .opcao.on {
+      translate: 0 -2px;
+    }
+    .opcao:focus-visible {
+      outline: 2px dashed var(--ink);
+      outline-offset: 1px;
+    }
+
+    /* chegando na parede: o adesivo é o último a ser colado, com um tapa */
+    :host(.is-landing) .adesivo {
+      animation: tapa 300ms 980ms var(--ease-physical) both;
+    }
+    @keyframes tapa {
+      0% {
+        scale: 1.4;
+        opacity: 0;
+      }
+    }
   `,
 })
 export class WishClip {
@@ -663,6 +905,15 @@ export class WishClip {
   /** A prévia do diálogo de adicionar: sem botão, quase reta. */
   readonly preview = input(false);
   readonly opened = output<string>();
+  /** Escolheu outra vontade no adesivo. */
+  readonly relevance = output<Relevance>();
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected readonly StickerIcon = Sticker;
+  protected readonly options = RELEVANCES;
+  protected readonly menu = signal(false);
+  protected readonly rel = computed(() => relevanceOf(this.wish()));
+  protected readonly label = computed(() => relevanceLabel(this.wish().kind, this.rel()));
 
   protected readonly styles = CUTOUT_STYLES;
   /** A capa que não abriu (a prévia troca de capa: outra pode abrir). */
@@ -677,6 +928,35 @@ export class WishClip {
   /** Colado, não pregado: entorta menos que a cartolina. */
   protected readonly tilt = computed(() => Math.round(pinningFor(this.wish().id).tilt * 7) / 10);
   protected readonly strip = computed(() => stripFor(this.wish().id));
+  protected readonly sticker = computed(() => stickerFor(this.wish().id, this.tear(), this.look()));
+
+  protected labelOf(r: Relevance): string {
+    return relevanceLabel(this.wish().kind, r);
+  }
+
+  protected toggleMenu(): void {
+    const open = !this.menu();
+    this.menu.set(open);
+    if (open) setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.opcao.on')?.focus());
+  }
+
+  protected closeMenu(e?: Event): void {
+    if (!this.menu()) return;
+    e?.stopPropagation();
+    this.menu.set(false);
+    this.host.nativeElement.querySelector<HTMLElement>('.adesivo-btn')?.focus();
+  }
+
+  protected pick(r: Relevance): void {
+    this.menu.set(false);
+    if (r !== this.rel()) this.relevance.emit(r);
+    else this.host.nativeElement.querySelector<HTMLElement>('.adesivo-btn')?.focus();
+  }
+
+  /** Clicou fora do recorte com o menu aberto: fecha, sem roubar o foco de onde a pessoa clicou. */
+  protected onOutside(e: PointerEvent): void {
+    if (this.menu() && !this.host.nativeElement.contains(e.target as Node)) this.menu.set(false);
+  }
 
   /** Um id de SVG só deste recorte (a prévia e o mural podem estar na tela juntos). */
   protected gid(name: string): string {

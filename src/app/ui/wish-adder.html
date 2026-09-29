@@ -61,77 +61,32 @@
           }
         </section>
 
+        @if (game() && mode() === 'wish') {
+          <!-- a vontade: os dois adesivos de capa de revista, e o Comum, sem adesivo -->
+          <fieldset class="bloco vontade">
+            <legend class="pergunta">Quanta vontade?</legend>
+            <div class="vontades">
+              @for (r of relevances; track r) {
+                <label class="vontade-op" [class.on]="relevance() === r">
+                  <input
+                    type="radio"
+                    name="desejo-vontade"
+                    class="sr-only"
+                    [checked]="relevance() === r"
+                    (change)="relevance.set(r)"
+                    [attr.aria-label]="relevanceLabel(kind(), r)"
+                  />
+                  <app-relevance-sticker [relevance]="r" [kind]="kind()" />
+                </label>
+              }
+            </div>
+          </fieldset>
+        }
+
         @if (game(); as gm) {
           <fieldset class="bloco capas">
             <legend class="pergunta">Qual capa?</legend>
-            <div class="grade">
-              @for (c of shown(); track c.coverUrl; let i = $index) {
-                <label class="capa" [class.on]="cover() === c.coverUrl">
-                  <input
-                    type="radio"
-                    name="desejo-capa"
-                    class="sr-only"
-                    [checked]="cover() === c.coverUrl"
-                    (change)="choose(c.coverUrl)"
-                    [attr.aria-label]="'Capa ' + (i + 1) + ' de ' + shown().length"
-                  />
-                  <span class="foto">
-                    <img [src]="c.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="onBroken(c.coverUrl)" />
-                  </span>
-                </label>
-              }
-              @if (loadingChoices()) {
-                @for (s of [1, 2, 3]; track s) {
-                  <span class="capa esperando" aria-hidden="true"><span class="foto"></span></span>
-                }
-              }
-              <label class="capa sem" [class.on]="cover() === null">
-                <input type="radio" name="desejo-capa" class="sr-only" [checked]="cover() === null" (change)="choose(null)" aria-label="Sem capa" />
-                <span class="foto">
-                  <span class="inicial" aria-hidden="true">{{ initialOf(gm.name) }}</span>
-                  <span class="sem-txt" aria-hidden="true">sem capa</span>
-                </span>
-              </label>
-            </div>
-            <p class="sr-only" aria-live="polite">{{ loadingChoices() ? 'Procurando outras capas…' : shown().length + ' capas para escolher.' }}</p>
-
-            @if (pasting()) {
-              <div class="colar">
-                <label class="rotulo" for="desejo-link">Link da imagem</label>
-                <div class="colar-linha">
-                  <div class="tira-link" [class.busy]="pasteBusy()">
-                    <lucide-icon [img]="LinkIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                    <input
-                      #pasteField
-                      id="desejo-link"
-                      type="url"
-                      inputmode="url"
-                      autocomplete="off"
-                      spellcheck="false"
-                      placeholder="https://…"
-                      [value]="pasteUrl()"
-                      (input)="pasteUrl.set($any($event.target).value)"
-                      (keydown)="onPasteKey($event)"
-                      [attr.aria-invalid]="pasteError() ? true : null"
-                      [attr.aria-describedby]="pasteError() ? 'desejo-link-erro' : null"
-                    />
-                  </div>
-                  <button type="button" class="btn-quiet" (click)="usePaste()" [disabled]="pasteBusy()">Usar</button>
-                  <button type="button" class="btn-quiet" (click)="closePaste()">Cancelar</button>
-                </div>
-                @if (pasteError(); as err) {
-                  <p class="field-error" id="desejo-link-erro" role="alert">{{ err }}</p>
-                }
-              </div>
-            } @else {
-              <button type="button" class="acao-caneta colar-btn" (click)="openPaste()">
-                <lucide-icon [img]="LinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                Colar link de imagem
-              </button>
-            }
-            @if (choicesError(); as err) {
-              <p class="aviso" role="status">{{ err }} Dá para colar um link ou seguir sem capa.</p>
-            }
+            <app-cover-picker group="desejo-capa" [game]="gm" [kind]="kind()" (changed)="game.set($event)" />
           </fieldset>
         }
       </div>

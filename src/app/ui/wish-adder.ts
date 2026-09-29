@@ -1,23 +1,15 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  ElementRef,
-  computed,
-  inject,
-  output,
-  signal,
-  viewChild,
-} from '@angular/core';
-import { Link, LucideAngularModule, NotebookPen, RefreshCw, Scissors, Shuffle, X } from 'lucide-angular';
-import { GameLookup, LookupError, imageLoads, sameTitle } from '../core/game-lookup';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
+import { LucideAngularModule, NotebookPen, RefreshCw, Scissors, Shuffle, X } from 'lucide-angular';
+import { sameTitle } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Draft, Kind, PickedGame, Wish, formatScore, initialOf, newId } from '../core/review';
+import { Draft, Kind, PickedGame, RELEVANCES, Relevance, Wish, formatScore, newId, relevanceLabel } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DraftCard } from './draft-card';
 import { GameSearch } from './game-search';
+import { RelevanceSticker } from './relevance-sticker';
 import { WishClip } from './wish-clip';
 
 /** Para onde vai o que se escolhe aqui: a wishlist (recorte de revista) ou o Pra depois (folha de caderno). */
@@ -30,7 +22,7 @@ export type AdderMode = 'wish' | 'draft';
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [CoverSleeve, DraftCard, GameSearch, LucideAngularModule, WishClip],
+  imports: [CoverPicker, CoverSleeve, DraftCard, GameSearch, LucideAngularModule, RelevanceSticker, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
@@ -38,7 +30,6 @@ export type AdderMode = 'wish' | 'draft';
 export class WishAdder {
   private readonly store = inject(ReviewStore);
   private readonly mural = inject(Mural);
-  private readonly lookup = inject(GameLookup);
   /** O desejo novo foi para a lista. */
   readonly wished = output<string>();
   /** Já estava na lista: a pessoa quer ver o que está lá. */
@@ -52,12 +43,10 @@ export class WishAdder {
   protected readonly CutIcon = Scissors;
   protected readonly SwapIcon = RefreshCw;
   protected readonly NoteIcon = NotebookPen;
-  protected readonly LinkIcon = Link;
   protected readonly RerollIcon = Shuffle;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly search = viewChild(GameSearch);
-  private readonly pasteField = viewChild<ElementRef<HTMLInputElement>>('pasteField');
 
   protected readonly kind = signal<Kind>('jogos');
   protected readonly mode = signal<AdderMode>('wish');
@@ -70,26 +59,14 @@ export class WishAdder {
   protected readonly id = signal(newId());
   /** Quantas vezes recortou de novo desde que abriu: a prévia só é colada de novo depois da primeira. */
   protected readonly rerolls = signal(0);
+  /** O item escolhido, já com a capa escolhida (null na capa é recorte sem capa). */
   protected readonly game = signal<PickedGame | null>(null);
   protected readonly searchSeed = signal('');
-  /** As capas que dá para escolher; a primeira é a que veio com o item. */
-  protected readonly choices = signal<PickedGame[]>([]);
-  /** A capa escolhida (a URL); null é recorte sem capa. */
-  protected readonly cover = signal<string | null>(null);
-  protected readonly loadingChoices = signal(false);
-  protected readonly choicesError = signal<string | null>(null);
-  protected readonly pasting = signal(false);
-  protected readonly pasteUrl = signal('');
-  protected readonly pasteBusy = signal(false);
-  protected readonly pasteError = signal<string | null>(null);
   protected readonly attempted = signal(false);
-  /** Capas que não abriram: somem da escolha. */
-  private readonly broken = signal<ReadonlySet<string>>(new Set());
-  protected readonly shown = computed(() => this.choices().filter((c) => c.coverUrl && !this.broken().has(c.coverUrl)));
-  private abort: AbortController | undefined;
-  /** O link colado sendo testado: cancela quando troca de item, fecha o campo ou o diálogo. */
-  private pasteAbort: AbortController | undefined;
-
+  /** Quanta vontade (só na wishlist): o adesivo do recorte. */
+  protected readonly relevance = signal<Relevance>('comum');
+  protected readonly relevances = RELEVANCES;
+  protected readonly relevanceLabel = relevanceLabel;
   /** O mesmo título já está na lista de destino (a wishlist, ou a fila do Pra depois) deste mural. */
   protected readonly dup = computed<Wish | Draft | null>(() => {
     const gm = this.game();
@@ -110,7 +87,6 @@ export class WishAdder {
     return this.mural.reviews().find((r) => sameYearTitle(r.game, gm)) ?? null;
   });
   protected readonly fmt = formatScore;
-  protected readonly initialOf = initialOf;
 
   /** O recorte que vai para a parede, montado com o que já foi escolhido. */
   protected readonly preview = computed<Wish>(() => {
@@ -118,7 +94,8 @@ export class WishAdder {
     return {
       id: this.id(),
       kind: this.kind(),
-      game: gm ? { ...this.chosen(gm) } : { name: '', coverUrl: null, source: 'manual' },
+      game: gm ? { ...gm } : { name: '', coverUrl: null, source: 'manual' },
+      ...this.relevanceField(),
       createdAt: '',
       updatedAt: '',
     };
@@ -130,12 +107,7 @@ export class WishAdder {
     return { ...this.preview(), createdAt: now, updatedAt: now };
   });
 
-  constructor() {
-    inject(DestroyRef).onDestroy(() => this.abort?.abort());
-  }
-
   open(mode: AdderMode = 'wish'): void {
-    this.abort?.abort();
     this.mode.set(mode);
     this.kind.set(this.mural.kind());
     this.id.set(newId());
@@ -143,13 +115,8 @@ export class WishAdder {
     this.game.set(null);
     this.searchSeed.set('');
     this.search()?.reset();
-    this.choices.set([]);
-    this.cover.set(null);
-    this.loadingChoices.set(false);
-    this.choicesError.set(null);
-    this.closePaste();
     this.attempted.set(false);
-    this.broken.set(new Set());
+    this.relevance.set('comum');
     this.dialog().nativeElement.showModal();
     // a busca só nasce depois que o diálogo desenha (se ficou um item da última vez, ela não existia)
     setTimeout(() => this.search()?.focus());
@@ -162,7 +129,6 @@ export class WishAdder {
   }
 
   close(): void {
-    this.abort?.abort();
     this.dialog().nativeElement.close();
   }
 
@@ -175,108 +141,13 @@ export class WishAdder {
 
   protected pick(game: PickedGame): void {
     this.game.set(game);
-    this.cover.set(game.coverUrl);
-    this.choices.set(game.coverUrl ? [game] : []);
-    this.choicesError.set(null);
-    this.closePaste();
     this.attempted.set(false);
-    void this.loadChoices(game);
-  }
-
-  private async loadChoices(game: PickedGame): Promise<void> {
-    this.abort?.abort();
-    // sem nome de catálogo não há outras capas para achar: fica o link ou nenhuma
-    if (game.source === 'manual') return;
-    const ctrl = new AbortController();
-    this.abort = ctrl;
-    this.loadingChoices.set(true);
-    try {
-      const found = await this.lookup.coverChoices(game, this.kind(), ctrl.signal);
-      if (ctrl.signal.aborted) return;
-      // os links colados enquanto buscava continuam na frente
-      const pasted = this.choices().filter((c) => c.coverUrl && !found.some((f) => f.coverUrl === c.coverUrl) && c !== game);
-      this.choices.set([...pasted, ...found]);
-    } catch (e) {
-      if (ctrl.signal.aborted || (e as Error).name === 'AbortError') return;
-      this.choicesError.set(e instanceof LookupError ? e.message : 'Não consegui procurar outras capas agora.');
-    } finally {
-      if (!ctrl.signal.aborted) this.loadingChoices.set(false);
-    }
-  }
-
-  protected choose(url: string | null): void {
-    this.cover.set(url);
-  }
-
-  /** A capa não abriu: sai da escolha, e se era a escolhida, vale a próxima (ou nenhuma). */
-  protected onBroken(url: string | null): void {
-    if (!url) return;
-    this.broken.update((set) => new Set(set).add(url));
-    if (this.cover() === url) this.cover.set(this.shown()[0]?.coverUrl ?? null);
   }
 
   protected swap(): void {
-    this.abort?.abort();
-    this.loadingChoices.set(false);
     this.searchSeed.set(this.game()?.name ?? '');
     this.game.set(null);
-    this.choices.set([]);
-    this.cover.set(null);
-    this.closePaste();
     setTimeout(() => this.search()?.focus());
-  }
-
-  protected openPaste(): void {
-    this.pasting.set(true);
-    this.pasteError.set(null);
-    setTimeout(() => this.pasteField()?.nativeElement.focus());
-  }
-
-  protected closePaste(): void {
-    this.pasteAbort?.abort();
-    this.pasting.set(false);
-    this.pasteUrl.set('');
-    this.pasteError.set(null);
-    this.pasteBusy.set(false);
-  }
-
-  /** Um link de imagem colado vira mais uma capa, se abrir como imagem. */
-  protected async usePaste(): Promise<void> {
-    const gm = this.game();
-    const url = this.pasteUrl().trim();
-    if (!gm || this.pasteBusy()) return;
-    if (!/^https:\/\/\S+$/.test(url) || url.length > 2000) {
-      this.pasteError.set('Cole um link que comece com https://');
-      return;
-    }
-    this.pasteBusy.set(true);
-    this.pasteError.set(null);
-    this.pasteAbort?.abort();
-    const ctrl = new AbortController();
-    this.pasteAbort = ctrl;
-    const ok = await imageLoads(url, ctrl.signal);
-    // enquanto testava, a pessoa trocou de item ou desistiu: o link não vai para o outro
-    if (ctrl.signal.aborted || this.game() !== gm) return;
-    this.pasteBusy.set(false);
-    if (!ok) {
-      this.pasteError.set('Esse link não abriu como imagem. Copie o endereço da imagem, não o da página.');
-      return;
-    }
-    if (!this.choices().some((c) => c.coverUrl === url)) this.choices.update((list) => [{ ...gm, coverUrl: url }, ...list]);
-    this.cover.set(url);
-    this.pasting.set(false);
-    this.pasteUrl.set('');
-  }
-
-  protected onPasteKey(e: KeyboardEvent): void {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      void this.usePaste();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      this.closePaste();
-    }
   }
 
   protected save(e: Event): void {
@@ -296,7 +167,7 @@ export class WishAdder {
     }
     const now = new Date().toISOString();
     if (this.mode() === 'draft') {
-      this.store.saveDraft({ id: this.id(), kind: this.kind(), game: this.chosen(gm), createdAt: now, updatedAt: now });
+      this.store.saveDraft({ id: this.id(), kind: this.kind(), game: gm, createdAt: now, updatedAt: now });
       // estava na wishlist: agora está na fila, e a wishlist não fica com o mesmo título
       const wished = this.alsoWished();
       if (wished) this.store.removeWish(wished.id);
@@ -304,17 +175,15 @@ export class WishAdder {
       this.queued.emit(this.id());
       return;
     }
-    this.store.saveWish({ id: this.id(), kind: this.kind(), game: this.chosen(gm), createdAt: now, updatedAt: now });
+    this.store.saveWish({ id: this.id(), kind: this.kind(), game: gm, ...this.relevanceField(), createdAt: now, updatedAt: now });
     this.close();
     this.wished.emit(this.id());
   }
 
-  /** O item com a capa escolhida, e a fonte de onde ela veio. */
-  private chosen(gm: PickedGame): PickedGame {
-    const url = this.cover();
-    if (!url) return { ...gm, coverUrl: null };
-    const from = this.choices().find((c) => c.coverUrl === url);
-    return from ? { ...gm, coverUrl: url, source: from.source, sourceId: from.sourceId } : { ...gm, coverUrl: url };
+  /** Comum é o padrão: não vai para o registro. */
+  private relevanceField(): Pick<Wish, 'relevance'> {
+    const r = this.relevance();
+    return r === 'comum' ? {} : { relevance: r };
   }
 }
 

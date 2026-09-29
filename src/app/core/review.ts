@@ -206,8 +206,26 @@ export interface Wish {
   id: string;
   kind: Kind;
   game: PickedGame;
+  /** Quanta vontade; sem o campo (os desejos de antes dele), é Comum. */
+  relevance?: Relevance;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Quanta vontade de um desejo: MUST PLAY vai para a frente da wishlist, LATER para o fim. */
+export type Relevance = 'must' | 'comum' | 'later';
+export const RELEVANCES: readonly Relevance[] = ['must', 'comum', 'later'];
+export const RELEVANCE_RANK: Record<Relevance, number> = { must: 0, comum: 1, later: 2 };
+
+export function relevanceOf(w: Wish): Relevance {
+  return w.relevance ?? 'comum';
+}
+
+/** O nome no adesivo, no verbo do mural: MUST PLAY nos jogos, MUST READ nos livros, MUST WATCH no resto. */
+export function relevanceLabel(kind: Kind, r: Relevance): string {
+  if (r === 'comum') return 'Comum';
+  if (r === 'later') return 'LATER';
+  return kind === 'jogos' ? 'MUST PLAY' : kind === 'livros' ? 'MUST READ' : 'MUST WATCH';
 }
 
 export const STATUSES: readonly Status[] = ['incompleto', 'finalizado', 'platinado'];
@@ -517,7 +535,11 @@ export function sanitizeDraft(raw: unknown): Draft | null {
 
 /** Aceita um desejo vindo do localStorage ou de um backup (ou null se não serve). */
 export function sanitizeWish(raw: unknown): Wish | null {
-  return sanitizeDraft(raw);
+  const wish: Wish | null = sanitizeDraft(raw);
+  if (!wish) return null;
+  const rel = (raw as Record<string, unknown>)['relevance'];
+  // Comum é o padrão: não precisa ir para o armazenamento
+  return rel === 'must' || rel === 'later' ? { ...wish, relevance: rel } : wish;
 }
 
 /** Aceita dados vindos do localStorage ou de um backup e devolve uma resenha válida (ou null). */

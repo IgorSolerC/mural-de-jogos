@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { KINDS } from './kinds';
-import { Bonus, Draft, Kind, Review, STOCKS, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
+import { Bonus, Draft, Kind, Relevance, Review, STOCKS, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -236,6 +236,14 @@ export class ReviewStore {
     );
   }
 
+  /** Troca quanta vontade: Comum sai do registro (é o padrão). */
+  setRelevance(id: string, relevance: Relevance): void {
+    const w = this.getWish(id);
+    if (!w || (w.relevance ?? 'comum') === relevance) return;
+    const { relevance: _old, ...rest } = w;
+    this.saveWish({ ...rest, ...(relevance === 'comum' ? {} : { relevance }), updatedAt: new Date().toISOString() });
+  }
+
   /**
    * Tira o desejo da wishlist. `forget: false` é o desejo que virou resenha ou pendente (o mesmo id
    * segue vivo em outro lugar): esse não fica marcado como apagado.
@@ -372,7 +380,17 @@ export class ReviewStore {
 
     // Desejo que já virou resenha ou pendente (mesmo id, aqui ou no backup), ou que foi tirado da lista, não fica.
     const drafted = new Set([...known, ...newDrafts.map((d) => d.id)]);
-    const keptWishes = this.wishes().filter((w) => !drafted.has(w.id) && !gone(theirs.wishes[w.id], w.updatedAt));
+    // o mesmo desejo dos dois lados: fica o mexido por último (a vontade pode ter mudado lá)
+    const theirWish = new Map(incomingWishes.map((w) => [w.id, w]));
+    let changedWishes = 0;
+    const keptWishes = this.wishes()
+      .filter((w) => !drafted.has(w.id) && !gone(theirs.wishes[w.id], w.updatedAt))
+      .map((w) => {
+        const t = theirWish.get(w.id);
+        if (!t || Date.parse(t.updatedAt) <= Date.parse(w.updatedAt)) return w;
+        changedWishes++;
+        return t;
+      });
     const knownAll = new Set([...drafted, ...keptWishes.map((w) => w.id)]);
     const newWishes = incomingWishes.filter(
       (w) =>
@@ -382,7 +400,7 @@ export class ReviewStore {
         !asDraft(w.id, w.updatedAt) &&
         !asReview(w.id, w.updatedAt),
     );
-    if (newWishes.length || keptWishes.length !== this.wishes().length) this.wishes.set([...newWishes, ...keptWishes]);
+    if (newWishes.length || changedWishes || keptWishes.length !== this.wishes().length) this.wishes.set([...newWishes, ...keptWishes]);
     this.deleted.set(mergeDeleted(ours, theirs));
     return { added, updated, skipped, drafts: newDrafts.length, wishes: newWishes.length, removed };
   }

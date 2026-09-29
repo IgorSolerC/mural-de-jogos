@@ -70,48 +70,22 @@
                 Trocar
               </button>
             </div>
-            <!-- a capa de outra fonte é só dos jogos: Wikipedia ou RAWG (com a da Steam) -->
-            @if (kind() === 'jogos') {
-            <p class="cover-src" role="group" aria-label="Fonte da capa">
-              <span>Capa</span>
-              <button
-                type="button"
-                [class.on]="g.source === 'wikipedia'"
-                [attr.aria-pressed]="g.source === 'wikipedia'"
-                [attr.aria-busy]="coverLoading() === 'wikipedia'"
-                (click)="useCover('wikipedia')"
-              >
-                Wikipedia
+            <!-- a capa: fechada, é uma linha de caneta; aberta, as fotos do mesmo título soltas na ficha -->
+            @if (choosingCover()) {
+              <fieldset class="escolher-capa">
+                <legend class="rotulo">Qual capa?</legend>
+                <app-cover-picker group="editor-capa" [game]="g" [kind]="kind()" (changed)="game.set($event)">
+                  <button type="button" class="acao-caneta pronto" (click)="closeCovers()">
+                    <lucide-icon [img]="DoneIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                    Pronto
+                  </button>
+                </app-cover-picker>
+              </fieldset>
+            } @else {
+              <button type="button" class="acao-caneta capa-btn" (click)="openCovers($event)">
+                <lucide-icon [img]="CoversIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                {{ g.coverUrl ? 'Escolher outra capa' : 'Escolher uma capa' }}
               </button>
-              <span aria-hidden="true">·</span>
-              <button
-                type="button"
-                [class.on]="g.source === 'rawg'"
-                [class.retry]="canUpgrade(g)"
-                [attr.aria-pressed]="g.source === 'rawg'"
-                [attr.aria-busy]="coverLoading() === 'rawg'"
-                [disabled]="!settings.hasRawg()"
-                [title]="
-                  !settings.hasRawg()
-                    ? 'Cole uma chave da RAWG em Ajustes para usar'
-                    : canUpgrade(g)
-                      ? 'Tentar a capa da Steam, com o título do jogo'
-                      : ''
-                "
-                (click)="useCover('rawg')"
-              >
-                RAWG
-              </button>
-              @if (isSteamCover(g.coverUrl)) {
-                <span class="via">capa da Steam</span>
-              }
-              @if (coverLoading()) {
-                <span class="cover-busy" aria-hidden="true"></span>
-              }
-            </p>
-            }
-            @if (coverError(); as err) {
-              <p class="field-error" role="status">{{ err }}</p>
             }
           } @else {
             <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />

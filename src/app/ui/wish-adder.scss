@@ -205,6 +205,56 @@ legend.pergunta {
   margin-bottom: 12px;
 }
 
+app-cover-picker {
+  clear: both;
+}
+
+/* ===== Quanta vontade: MUST PLAY, Comum, LATER; a escolhida sai do monte, como a capa ===== */
+.vontades {
+  clear: both;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 4px 4px 2px;
+}
+
+.vontade-op {
+  display: grid;
+  place-items: center;
+  min-width: 64px;
+  min-height: 60px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical),
+    opacity var(--t-ui) var(--ease-ui),
+    filter var(--t-ui) var(--ease-ui);
+
+  &:not(.on) {
+    opacity: 0.6;
+    filter: saturate(0.55);
+  }
+
+  &:hover {
+    opacity: 1;
+    filter: none;
+    translate: 0 -2px;
+  }
+
+  &.on {
+    translate: 0 -3px;
+    rotate: -4deg;
+  }
+
+  &:has(input:focus-visible) {
+    outline: 2px dashed var(--ink);
+    outline-offset: 2px;
+  }
+}
+
 /* o item escolhido: a mesma tira de papel da busca, preenchida */
 .tira-item {
   display: flex;
@@ -272,189 +322,6 @@ legend.pergunta {
   color: var(--error-ink, #6b0000);
 }
 
-/* ===== As capas: fotos da revista; a escolhida sai do monte ===== */
-.grade {
-  clear: both;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-  gap: 16px 14px;
-  padding: 8px 6px 4px;
-}
-
-.capa {
-  position: relative;
-  display: block;
-  cursor: pointer;
-  transition:
-    translate var(--t-ui) var(--ease-ui),
-    rotate var(--t-physical) var(--ease-physical);
-
-  &:hover {
-    translate: 0 -2px;
-  }
-
-  /* o foco é tracejado: não se confunde com a borda da escolhida */
-  &:has(input:focus-visible) {
-    outline: 2px dashed var(--ink);
-    outline-offset: 8px;
-    border-radius: 2px;
-  }
-}
-
-.foto {
-  position: relative;
-  display: block;
-  aspect-ratio: 3 / 4;
-  overflow: hidden;
-  background: #e8e5de;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-  transition:
-    filter var(--t-ui) var(--ease-ui),
-    opacity var(--t-ui) var(--ease-ui);
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: 50% 20%;
-  }
-
-  img[src*='/library_600x900.'] {
-    object-position: 50% 50%;
-  }
-}
-
-/* as que não foram escolhidas ficam um pouco apagadas: a escolhida salta */
-.grade:has(.on) .capa:not(.on) .foto {
-  filter: saturate(0.7);
-  opacity: 0.78;
-}
-
-.grade:has(.on) .capa:not(.on):hover .foto {
-  filter: none;
-  opacity: 1;
-}
-
-/* a escolhida: levantada do papel, com a borda de tinta, como quem separou a foto do monte */
-.capa.on .foto {
-  outline: 3px solid var(--ink);
-  outline-offset: 3px;
-  box-shadow: 0 6px 10px -3px rgb(0 0 0 / 0.45);
-}
-
-.capa.on {
-  translate: 0 -3px;
-  rotate: -1.5deg;
-}
-
-.sem .foto {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 2px;
-  background: repeating-linear-gradient(-45deg, rgb(21 21 21 / 0.05) 0 6px, transparent 6px 12px), #eeebe4;
-  color: rgb(21 21 21 / 0.66);
-}
-
-.inicial {
-  font-family: var(--f-label);
-  font-style: italic;
-  font-weight: 800;
-  font-size: 2rem;
-  line-height: 1;
-}
-
-.sem-txt {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-/* procurando outras capas: fotos ainda por imprimir */
-.esperando {
-  cursor: default;
-
-  .foto {
-    background: #ebe8e1;
-    box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.08);
-    animation: esperando 1100ms ease-in-out infinite alternate;
-  }
-
-  &:hover {
-    translate: none;
-  }
-}
-
-.esperando:nth-of-type(2n) .foto {
-  animation-delay: 180ms;
-}
-
-@keyframes esperando {
-  to {
-    opacity: 0.45;
-  }
-}
-
-.colar-btn {
-  justify-self: start;
-  margin: 2px 0 0 -8px;
-  font-size: 0.95rem;
-}
-
-.colar {
-  display: grid;
-  gap: 2px;
-}
-
-.colar-linha {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.tira-link {
-  flex: 1 1 220px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 0 12px;
-  border-radius: 2px;
-  background: var(--paper);
-  box-shadow: inset 0 0 0 2px var(--ink);
-
-  &:focus-within {
-    box-shadow:
-      inset 0 0 0 3px var(--ink),
-      0 0 0 4px rgb(21 21 21 / 0.16);
-  }
-
-  &.busy {
-    opacity: 0.7;
-  }
-
-  input {
-    flex: 1;
-    min-width: 0;
-    height: 44px;
-    border: 0;
-    background: transparent;
-    outline: none;
-    font-family: var(--f-ui);
-    font-weight: 500;
-    font-size: 1rem;
-    color: var(--ink);
-    caret-color: var(--red);
-
-    &::placeholder {
-      color: rgb(21 21 21 / 0.55);
-    }
-  }
-}
-
 .foot {
   display: flex;
   flex-wrap: wrap;
@@ -517,11 +384,6 @@ legend.pergunta {
 
   .campos {
     padding: 18px 16px 22px;
-  }
-
-  .grade {
-    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
-    gap: 14px 12px;
   }
 
   .foot {

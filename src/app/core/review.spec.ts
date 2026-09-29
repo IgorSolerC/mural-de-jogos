@@ -9,6 +9,8 @@ import {
   sanitizeBonuses,
   sanitizeDraft,
   sanitizeReview,
+  sanitizeWish,
+  relevanceLabel,
   isValidDay,
   initialOf,
 } from './review';
@@ -198,6 +200,22 @@ describe('sanitizeDraft', () => {
     expect(d.game.name).toBe('Hades');
     expect(d.id).toBe('rdraft1');
     expect(sanitizeDraft({ game: {} })).toBeNull();
+  });
+});
+
+describe('vontade na wishlist', () => {
+  it('guarda MUST e LATER; qualquer outra coisa (ou nada) é Comum, sem o campo', () => {
+    expect(sanitizeWish({ id: 'rw1', game: { name: 'Hades' }, relevance: 'must' })!.relevance).toBe('must');
+    expect(sanitizeWish({ id: 'rw1', game: { name: 'Hades' }, relevance: 'later' })!.relevance).toBe('later');
+    expect('relevance' in sanitizeWish({ id: 'rw1', game: { name: 'Hades' }, relevance: 'urgente' })!).toBeFalse();
+    expect('relevance' in sanitizeWish({ id: 'rw1', game: { name: 'Hades' } })!).toBeFalse();
+  });
+
+  it('o adesivo fala o verbo do mural', () => {
+    expect(relevanceLabel('jogos', 'must')).toBe('MUST PLAY');
+    expect(relevanceLabel('livros', 'must')).toBe('MUST READ');
+    expect(relevanceLabel('series', 'must')).toBe('MUST WATCH');
+    expect(relevanceLabel('filmes', 'later')).toBe('LATER');
   });
 });
 

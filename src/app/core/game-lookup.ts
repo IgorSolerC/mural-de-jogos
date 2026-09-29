@@ -31,6 +31,31 @@ export function isSteamCover(url: string | null | undefined): boolean {
   return !!url && /steamstatic\.com\/.+\/library_600x900\.jpg$/.test(url);
 }
 
+/** Uma capa para escolher, com o nome de onde ela veio (a etiqueta embaixo da foto). */
+export interface CoverChoice extends PickedGame {
+  from: string;
+}
+
+const SOURCE_LABEL: Record<PickedGame['source'], string> = {
+  wikipedia: 'Wikipedia',
+  rawg: 'RAWG',
+  openlibrary: 'Open Library',
+  kitsu: 'Kitsu',
+  anilist: 'AniList',
+  tmdb: 'TMDB',
+  manual: 'Link',
+};
+
+/** De onde veio a capa de um item: a da Steam é a da Steam, mesmo quando o jogo foi achado na RAWG. */
+export function coverFrom(g: PickedGame): string {
+  return isSteamCover(g.coverUrl) ? 'Steam' : SOURCE_LABEL[g.source];
+}
+
+/** As imagens da RAWG vêm enormes: a versão de 640px de largura basta para a capa. */
+function rawgResize(url: string): string {
+  return url.replace('/media/games/', '/media/resize/640/-/games/').replace('/media/screenshots/', '/media/resize/640/-/screenshots/');
+}
+
 /** Nem todo jogo da Steam tem a arte vertical: confere se a imagem existe antes de usar. */
 /** Quanto um catálogo tem para responder antes da busca desistir dele. */
 const LOOKUP_DEADLINE_MS = 9000;
@@ -89,6 +114,21 @@ export function sameTitle(a: string, b: string): boolean {
 }
 
 /** Tira "(video game)", "(2010 film)", "(TV series)", "(anime)" etc. do título da Wikipedia. */
+/**
+ * O ano de uma página da Wikipedia: o do título ("God of War (2018 video game)", "jogo eletrônico de
+ * 2018"), que é o que separa os jogos de mesmo nome, ou então o da descrição ("2016 video game").
+ */
+function wikiYear(p: any): string | undefined {
+  const paren = String(p?.title ?? '').match(/\(([^)]*)\)\s*$/)?.[1] ?? '';
+  return paren.match(/\b(19|20)\d{2}\b/)?.[0] ?? String(p?.description ?? '').match(/\b(19|20)\d{2}\b/)?.[0];
+}
+
+/** As capas de onde veio cada uma, e o que não respondeu (para dizer à pessoa, em vez de sumir calado). */
+export interface CoverChoices {
+  choices: CoverChoice[];
+  notes: string[];
+}
+
 function cleanWikiTitle(title: string): string {
   return title.replace(/\s*\([^)]*\b(game|film|series|miniseries|TV|anime|manga)\b[^)]*\)\s*$/i, '').trim();
 }
@@ -217,82 +257,135 @@ export class GameLookup {
    * das edições, as em português primeiro. Animes: o Kitsu e o AniList. Uma fonte que falha só não
    * entra; a lista nunca vem vazia se o item tem capa.
    */
-  async coverChoices(game: PickedGame, kind: Kind, signal: AbortSignal): Promise<PickedGame[]> {
-    const tasks: Promise<PickedGame[]>[] = [];
+  async coverChoices(game: PickedGame, kind: Kind, signal: AbortSignal): Promise<CoverChoices> {
+    const tasks: { from: string; run: Promise<CoverChoice[]> }[] = [];
+    const add = (from: string, run: Promise<CoverChoice[]>) => tasks.push({ from, run });
     const same = (h: PickedGame) => sameTitle(h.name, game.name) && (!game.year || !h.year || h.year === game.year);
-    const alike = (hits: PickedGame[]) => hits.filter(same).map((h) => ({ ...game, coverUrl: h.coverUrl, source: h.source, sourceId: h.sourceId }));
+    const alike = (hits: PickedGame[]) =>
+      hits.filter(same).map((h) => ({ ...game, coverUrl: h.coverUrl, source: h.source, sourceId: h.sourceId, from: coverFrom(h) }));
     switch (kind) {
       case 'jogos': {
-        tasks.push(this.search(game.name, signal, 'jogos', 'wikipedia').then(alike));
-        tasks.push(this.wikiPtImage(game, signal));
-        if (this.settings.rawgKey().trim()) {
-          tasks.push(
-            this.search(game.name, signal, 'jogos', 'rawg').then(async (hits) => {
-              const out: PickedGame[] = [];
-              for (const h of alike(hits).slice(0, 2)) {
-                const steam = await this.withSteamCover(h, signal);
-                if (steam.coverUrl !== h.coverUrl) out.push(steam);
-                out.push(h);
-              }
-              return out;
-            }),
-          );
-        }
+        add('Wikipedia', this.wikiCovers(game, signal, 'en', WIKI_TEMPLATE.jogos));
+        add('Wikipedia', this.wikiCovers(game, signal, 'pt', 'Info/Jogo eletrônico'));
+        const key = this.settings.rawgKey().trim();
+        if (key) add('RAWG', this.rawgChoices(game, key, signal));
         break;
       }
       case 'filmes':
       case 'series': {
         const key = this.settings.tmdbKey().trim();
-        if (key && game.source === 'tmdb' && game.sourceId) tasks.push(this.tmdbPosters(game, key, signal));
-        else tasks.push(this.search(game.name, signal, kind).then(alike));
-        tasks.push(this.wikiPtImage(game, signal));
+        if (key && game.source === 'tmdb' && game.sourceId) add('TMDB', this.tmdbPosters(game, key, signal).then((l) => l.map((g) => ({ ...g, from: 'TMDB' }))));
+        else add('Wikipedia', this.wikiCovers(game, signal, 'en', WIKI_TEMPLATE[kind]));
+        add('Wikipedia', this.wikiCovers(game, signal, 'pt', null));
         break;
       }
       case 'livros':
-        if (game.source === 'openlibrary' && game.sourceId) tasks.push(this.editionCovers(game, signal));
+        if (game.source === 'openlibrary' && game.sourceId)
+          add('Open Library', this.editionCovers(game, signal).then((l) => l.map((g) => ({ ...g, from: 'Open Library' }))));
         break;
       case 'animes':
-        tasks.push(this.searchKitsu(game.name, signal).then(alike));
-        tasks.push(
+        add('Kitsu', this.searchKitsu(game.name, signal).then(alike));
+        add(
+          'AniList',
           this.searchAniList(game.name, signal).then((hits) => {
             const hit = hits.find(same) ?? hits.find((h) => !!game.year && h.year === game.year);
-            return hit ? [{ ...game, coverUrl: hit.coverUrl, source: hit.source, sourceId: hit.sourceId }] : [];
+            return hit ? [{ ...game, coverUrl: hit.coverUrl, source: hit.source, sourceId: hit.sourceId, from: 'AniList' }] : [];
           }),
         );
         break;
     }
-    const settled = await Promise.allSettled(tasks);
+    const settled = await Promise.allSettled(tasks.map((t) => t.run));
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
     const seen = new Set<string>();
-    const out: PickedGame[] = [];
-    for (const g of [game, ...settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))]) {
+    const out: CoverChoice[] = [];
+    for (const g of [{ ...game, from: coverFrom(game) }, ...settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))]) {
       if (!g.coverUrl || seen.has(g.coverUrl)) continue;
       seen.add(g.coverUrl);
       out.push(g);
     }
-    return out.slice(0, 12);
+    // quem falhou não some calado: a chave recusada diz o que fazer, o resto diz quem não respondeu
+    const notes = new Set<string>();
+    settled.forEach((r, i) => {
+      if (r.status === 'fulfilled' || (r.reason as Error)?.name === 'AbortError') return;
+      notes.add(r.reason instanceof LookupError && r.reason.kind === 'rawg-key' ? r.reason.message : `${tasks[i].from} não respondeu agora.`);
+    });
+    return { choices: out.slice(0, 16), notes: [...notes] };
   }
 
-  /** A imagem da página de mesmo nome na Wikipedia em português: muitas vezes a capa brasileira. */
-  private async wikiPtImage(game: PickedGame, signal: AbortSignal): Promise<PickedGame[]> {
+  /**
+   * As capas das páginas de mesmo título na Wikipedia (inglês ou português), pelo título exato: a
+   * busca do auto-complete, com o curinga na última palavra, põe Warhammer na frente de God of War.
+   * Com `template`, só páginas daquela caixa de informações (nos jogos, "Hades" não traz o deus).
+   * O ano, quando os dois lados têm, precisa bater: God of War de 2018 não é o de 2005.
+   */
+  private async wikiCovers(game: PickedGame, signal: AbortSignal, lang: 'en' | 'pt', template: string | null): Promise<CoverChoice[]> {
+    const name = game.name.replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!name) return [];
     const params = new URLSearchParams({
       action: 'query',
       format: 'json',
       formatversion: '2',
       origin: '*',
       generator: 'search',
-      gsrsearch: game.name,
-      gsrlimit: '4',
-      prop: 'pageimages',
+      gsrsearch: template ? `intitle:"${name}" hastemplate:"${template}"` : `intitle:"${name}"`,
+      gsrlimit: '12',
+      prop: 'pageimages|description',
       piprop: 'thumbnail',
       pithumbsize: '420',
       pilicense: 'any',
     });
-    const data = await this.fetchJson(`https://pt.wikipedia.org/w/api.php?${params}`, signal);
+    const data = await this.fetchJson(`https://${lang}.wikipedia.org/w/api.php?${params}`, signal);
     const pages: any[] = data?.query?.pages ?? [];
     return pages
-      .filter((p) => typeof p?.thumbnail?.source === 'string' && sameTitle(cleanWikiTitle(String(p.title ?? '')).replace(/\s*\([^)]*\)\s*$/, ''), game.name))
-      .map((p) => ({ ...game, coverUrl: p.thumbnail.source as string }));
+      .filter((p) => typeof p?.thumbnail?.source === 'string')
+      .filter((p) => sameTitle(String(p.title ?? '').replace(/\s*\([^)]*\)\s*$/, ''), game.name))
+      .filter((p) => {
+        const y = wikiYear(p);
+        return !game.year || !y || y === game.year;
+      })
+      .sort((a, b) => (Number(a.index) || 99) - (Number(b.index) || 99))
+      .map((p) => ({ ...game, coverUrl: p.thumbnail.source as string, from: 'Wikipedia' }));
+  }
+
+  /**
+   * Tudo o que a RAWG tem do mesmo jogo: a capa vertical da Steam (quando está lá), a arte de fundo,
+   * a arte extra e algumas telas. O jogo certo é o de mesmo nome mais perto no ano (a RAWG e a
+   * Wikipedia às vezes discordam, por causa do acesso antecipado: Hades é 2018 numa e 2020 na outra).
+   */
+  private async rawgChoices(game: PickedGame, key: string, signal: AbortSignal): Promise<CoverChoice[]> {
+    const raw = await this.rawgResults(game.name, key, signal);
+    const year = (g: any) => (typeof g?.released === 'string' ? g.released.slice(0, 4) : undefined);
+    const own = (g: any) => game.source === 'rawg' && String(g.id) === game.sourceId;
+    // quantos anos longe do item (sem ano de um lado, meio ano: nem perto nem longe)
+    const dist = (g: any) => (own(g) ? -1 : !game.year || !year(g) ? 0.5 : Math.abs(Number(year(g)) - Number(game.year)));
+    // o de mesmo nome mais perto no tempo entra sempre; um segundo só se for quase do mesmo ano (um remaster, uma edição)
+    const matches = raw
+      .filter((g) => g?.id && g?.name && (own(g) || sameTitle(String(g.name), game.name)))
+      .sort((a, b) => dist(a) - dist(b))
+      .filter((g, i) => i === 0 || dist(g) <= 1)
+      .slice(0, 2);
+    const out: CoverChoice[] = [];
+    for (const [i, m] of matches.entries()) {
+      const id = String(m.id);
+      const art = typeof m.background_image === 'string' ? rawgResize(m.background_image) : null;
+      const base: PickedGame = { ...game, coverUrl: art, source: 'rawg', sourceId: id };
+      const steam = await this.withSteamCover(base, signal);
+      if (isSteamCover(steam.coverUrl)) out.push({ ...steam, from: 'Steam' });
+      if (art) out.push({ ...base, from: 'RAWG' });
+      if (i > 0) continue;
+      // do jogo mais parecido, também a arte extra e as telas
+      const extra: string[] = [];
+      try {
+        const detail = await this.fetchJson(`https://api.rawg.io/api/games/${encodeURIComponent(id)}?${new URLSearchParams({ key })}`, signal, true);
+        if (typeof detail?.background_image_additional === 'string') extra.push(detail.background_image_additional);
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') throw e;
+      }
+      const shots: any[] = Array.isArray(m.short_screenshots) ? m.short_screenshots : [];
+      extra.push(...shots.map((sh) => sh?.image).filter((u): u is string => typeof u === 'string').slice(0, 5));
+      for (const u of extra) out.push({ ...base, coverUrl: rawgResize(u), from: 'RAWG' });
+    }
+    return out;
   }
 
   /** Os pôsteres do título no TMDB: português, inglês e sem texto, os mais votados primeiro. */
@@ -350,7 +443,7 @@ export class GameLookup {
           coverUrl: typeof p.thumbnail?.source === 'string' ? p.thumbnail.source : null,
           source: 'wikipedia' as const,
           sourceId: String(p.pageid ?? ''),
-          year: String(p.description ?? '').match(/\b(19|20)\d{2}\b/)?.[0],
+          year: wikiYear(p),
         },
       }))
       .filter((x) => x.game.name)
@@ -538,21 +631,25 @@ export class GameLookup {
     }
   }
 
-  private async searchRawg(q: string, key: string, signal: AbortSignal): Promise<PickedGame[]> {
+  /** A busca da RAWG como ela vem (com as telas e as lojas), e o que ela diz de quem está na Steam. */
+  private async rawgResults(q: string, key: string, signal: AbortSignal): Promise<any[]> {
     const params = new URLSearchParams({ key, search: q, page_size: '8', search_precise: 'true' });
     const data = await this.fetchJson(`https://api.rawg.io/api/games?${params}`, signal, true);
-    const results: any[] = data?.results ?? [];
+    const results: any[] = Array.isArray(data?.results) ? data.results : [];
     for (const g of results) {
       if (g?.id && Array.isArray(g.stores)) this.onSteam.set(String(g.id), g.stores.some((s: any) => s?.store?.slug === 'steam'));
     }
+    return results;
+  }
+
+  private async searchRawg(q: string, key: string, signal: AbortSignal): Promise<PickedGame[]> {
+    const results = await this.rawgResults(q, key, signal);
     return results
       .filter((g) => g?.name)
       .map((g) => ({
         name: String(g.name),
         coverUrl:
-          typeof g.background_image === 'string'
-            ? g.background_image.replace('/media/games/', '/media/resize/640/-/games/')
-            : null,
+          typeof g.background_image === 'string' ? rawgResize(g.background_image) : null,
         source: 'rawg' as const,
         sourceId: String(g.id ?? ''),
         year: typeof g.released === 'string' ? g.released.slice(0, 4) : undefined,
