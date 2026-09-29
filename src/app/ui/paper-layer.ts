@@ -44,6 +44,15 @@ let uids = 0;
         <feTurbulence type="fractalNoise" baseFrequency=".06" numOctaves="3" seed="5" result="n" />
         <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G" />
       </filter>
+      <filter id="papel-agua" x="-12%" y="-12%" width="124%" height="124%">
+        <feTurbulence type="fractalNoise" baseFrequency=".045" numOctaves="3" seed="9" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="b" />
+        <feTurbulence type="fractalNoise" baseFrequency=".035 .09" numOctaves="3" seed="14" result="grain" />
+        <feColorMatrix in="grain" type="luminanceToAlpha" result="light" />
+        <feComponentTransfer in="light" result="mottle"><feFuncA type="linear" slope=".85" intercept=".55" /></feComponentTransfer>
+        <feComposite in="b" in2="mottle" operator="in" result="pigment" />
+        <feGaussianBlur in="pigment" stdDeviation=".8" />
+      </filter>
       <filter id="papel-borra" x="-30%" y="-30%" width="160%" height="160%">
         <feGaussianBlur stdDeviation="1.8" />
       </filter>

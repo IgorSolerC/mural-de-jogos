@@ -357,6 +357,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
 
     /* o boletim vem logo depois do que foi escrito; o papel que sobra fica no pé, como ficha de fichário */
     .boletim {
+      --fios-top: 14px;
       padding-top: 14px;
     }
 

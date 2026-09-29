@@ -750,19 +750,34 @@ function damageArt(d: Damage, W: number, H: number, k: number, sw: number, r: ()
       break;
     }
     case 'molhado': {
-      const n = r() < 0.6 ? 2 : 1;
-      for (let i = 0; i < n; i++) {
-        const R = Math.min(W, H) * (0.36 + r() * 0.18) * (i ? 0.62 : 1);
-        const cx = W * (0.25 + r() * 0.55),
-          cy = H * (0.3 + r() * 0.45);
-        const blob = blobPath(cx, cy, R, r);
-        const inner = blobPath(cx + (r() - 0.5) * R * 0.2, cy + (r() - 0.5) * R * 0.2, R * 0.78, r);
-        out.clareia += `<path d='${blob}' fill='#fff' fill-opacity='.18'/>`;
-        out.fundo +=
-          `<g filter='url(#papel-mancha)'>` +
-          `<path d='${blob}' fill='rgb(40 50 80)' fill-opacity='.06' stroke='rgb(40 36 60)' stroke-opacity='.45' stroke-width='${f1(2.8 * sw)}'/>` +
-          `<path d='${inner}' fill='none' stroke='rgb(40 36 60)' stroke-opacity='.22' stroke-width='${f1(1.6 * sw)}'/>` +
-          `</g>`;
+      // A água espalha pigmento em ilhas de borda macia, com depósitos mais escuros no meio.
+      // Sem anéis: eles lembram café e ficam artificiais na cartolina colorida.
+      const s = Math.min(W, H);
+      const side = r() < 0.5 ? 1 : -1;
+      const cx = W * (side === 1 ? 0.59 : 0.41) + (r() - 0.5) * W * 0.06;
+      const cy = H * (0.51 + (r() - 0.5) * 0.08);
+      const rx = s * (0.35 + r() * 0.035);
+      const ry = s * (0.19 + r() * 0.025);
+      const sx = cx - side * rx * 1.38;
+      const sy = cy - ry * (0.77 + r() * 0.15);
+      let wash =
+        `<path d='${waterBlobPath(cx, cy, rx, ry, r)}' fill='rgb(70 74 78)' fill-opacity='.18'/>` +
+        `<path d='${waterBlobPath(sx, sy, rx * 0.47, ry * 0.65, r)}' fill='rgb(70 74 78)' fill-opacity='.16'/>`;
+      // Concentrações largas de pigmento, como as ondulações que a água deixa ao secar.
+      for (let i = 0; i < 7; i++) {
+        const x = cx + (r() - 0.5) * rx * 1.25;
+        const y = cy + (r() - 0.5) * ry * 1.2;
+        wash += `<path d='${waterBlobPath(x, y, rx * (0.28 + r() * 0.26), ry * (0.09 + r() * 0.12), r)}' fill='rgb(55 60 64)' fill-opacity='${(0.035 + r() * 0.035).toFixed(3)}'/>`;
+      }
+      out.fundo += `<g filter='url(#papel-agua)'>${wash}</g>`;
+      // Gotas junto da ilha menor, com algumas bem miúdas mais afastadas.
+      for (let i = 0; i < 45; i++) {
+        const angle = r() * Math.PI * 2;
+        const distance = Math.sqrt(r());
+        const x = sx + Math.cos(angle) * distance * rx * 1.2;
+        const y = sy + Math.sin(angle) * distance * ry * 1.15;
+        const radius = s * (0.002 + Math.pow(r(), 3) * 0.019);
+        out.fundo += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(radius)}' fill='rgb(65 70 74)' fill-opacity='${(0.07 + r() * 0.13).toFixed(3)}'/>`;
       }
       break;
     }
@@ -837,6 +852,19 @@ function blobPath(cx: number, cy: number, R: number, r: () => number): string {
     const a = (i / n) * Math.PI * 2;
     const rad = R * (1 + 0.12 * Math.sin(a * 2 + ph[0]) + 0.07 * Math.sin(a * 3 + ph[1]) + 0.04 * Math.sin(a * 5 + ph[2]));
     pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]);
+  }
+  return smooth([...pts, pts[0]]) + 'Z';
+}
+
+/** Mancha de água: lóbulos largos e pequenas reentrâncias, sem geometria de gota ou anel. */
+function waterBlobPath(cx: number, cy: number, rx: number, ry: number, r: () => number): string {
+  const n = 48;
+  const phase = [r() * 6, r() * 6, r() * 6, r() * 6];
+  const pts: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const waviness = 1 + 0.2 * Math.sin(a * 2 + phase[0]) + 0.14 * Math.sin(a * 3 + phase[1]) + 0.09 * Math.sin(a * 5 + phase[2]) + 0.045 * Math.sin(a * 9 + phase[3]);
+    pts.push([cx + Math.cos(a) * rx * waviness, cy + Math.sin(a) * ry * waviness]);
   }
   return smooth([...pts, pts[0]]) + 'Z';
 }

@@ -80,7 +80,7 @@ import { PenMark } from './pen-mark';
     }
     .fios {
       position: absolute;
-      inset: 0;
+      inset: var(--fios-top, 0px) 0 0;
       border-top: 1.5px solid rgb(21 21 21 / 0.34);
       pointer-events: none;
     }
