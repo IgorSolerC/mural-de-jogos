@@ -60,13 +60,47 @@ import { pinningFor } from '../core/wall-physics';
       @if (tear().page === 'baixo') {
         <span class="pagina pe" aria-hidden="true"></span>
       }
-      @if (tear().fold; as f) {
-        <!-- o canto dobrado para trás: aparece o verso da página, com a sombra da dobra -->
-        <span class="dobra" [class.esq]="f.side === 'esq'" [style.width.%]="f.w" [style.height.%]="f.h" aria-hidden="true">
-          <span class="verso"></span>
-        </span>
-      }
     </div>
+
+    @if (tear().fold; as f) {
+      <!-- a quina dobrada, por cima do papel: o verso virado (orelha, curva) ou só a marca da dobra -->
+      <svg class="dobra" [class]="'dobra-' + f.style" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        @if (f.style === 'orelha' || f.style === 'curva') {
+          <defs>
+            <linearGradient
+              [attr.id]="gid('luz')"
+              gradientUnits="userSpaceOnUse"
+              [attr.x1]="f.shade[0]"
+              [attr.y1]="f.shade[1]"
+              [attr.x2]="f.shade[2]"
+              [attr.y2]="f.shade[3]"
+            >
+              @for (st of stops(); track $index) {
+                <stop [attr.offset]="st[0]" [attr.stop-color]="st[1]" [attr.stop-opacity]="st[2]" />
+              }
+            </linearGradient>
+            <clipPath [attr.id]="gid('aba')"><polygon [attr.points]="f.flap" /></clipPath>
+          </defs>
+          <polygon [attr.points]="f.flap" [attr.fill]="f.back === 'cor' ? f.tint : backPaper()" />
+          @if (f.back === 'texto') {
+            <g [attr.clip-path]="'url(#' + gid('aba') + ')'">
+              @for (l of f.lines; track $index) {
+                <line class="verso-texto" [attr.x1]="l[0]" [attr.y1]="l[1]" [attr.x2]="l[2]" [attr.y2]="l[3]" />
+              }
+            </g>
+          }
+          <polygon [attr.points]="f.flap" [attr.fill]="'url(#' + gid('luz') + ')'" />
+          <polygon class="aba-beira" [attr.points]="f.flap" />
+          <line class="dobra-luz" [attr.x1]="f.line[0]" [attr.y1]="f.line[1]" [attr.x2]="f.line[2]" [attr.y2]="f.line[3]" />
+        } @else {
+          @if (f.style === 'vinco') {
+            <polygon class="vinco-quina" [attr.points]="f.area" />
+          }
+          <line class="dobra-sombra" [attr.x1]="f.line[0]" [attr.y1]="f.line[1]" [attr.x2]="f.line[2]" [attr.y2]="f.line[3]" transform="translate(0.35 0.35)" />
+          <line class="dobra-luz" [attr.x1]="f.line[0]" [attr.y1]="f.line[1]" [attr.x2]="f.line[2]" [attr.y2]="f.line[3]" />
+        }
+      </svg>
+    }
 
     @if (wish().game.name.trim()) {
       @switch (look().kind) {
@@ -275,32 +309,65 @@ import { pinningFor } from '../core/wall-physics';
         linear-gradient(rgb(24 22 21 / 0.84) 0 0) 7% 22px / 48% 5px no-repeat;
     }
 
-    /* o canto dobrado: o verso da página, mais escuro perto da dobra, e a sombra que ela faz na foto */
+    /* ===== A quina dobrada: uma camada por cima do papel, do tamanho dele (sem a folga de baixo) ===== */
     .dobra {
       position: absolute;
-      top: 0;
-      right: 0;
       z-index: 1;
-      filter: drop-shadow(-2px 3px 2px rgb(0 0 0 / 0.34));
-    }
-    .dobra.esq {
-      right: auto;
       left: 0;
-      filter: drop-shadow(2px 3px 2px rgb(0 0 0 / 0.34));
+      top: 0;
+      width: 100%;
+      height: calc(100% - 16px);
+      overflow: visible;
+      pointer-events: none;
     }
-    .verso {
-      position: absolute;
-      inset: 0;
-      clip-path: polygon(0 0, 100% 100%, 0 100%);
-      background:
-        repeating-linear-gradient(to bottom, rgb(40 38 36 / 0.1) 0 1.5px, transparent 1.5px 4.5px) 20% 30% / 60% 60% no-repeat,
-        linear-gradient(to top right, #f6f2e8 20%, #ddd6c6);
+    /* o verso achatado por cima faz uma sombra curta na foto; o rolo, mais alta */
+    .dobra-orelha {
+      filter: drop-shadow(0 1.5px 1.5px rgb(0 0 0 / 0.34)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.18));
     }
-    .dobra.esq .verso {
-      clip-path: polygon(100% 0, 100% 100%, 0 100%);
-      background:
-        repeating-linear-gradient(to bottom, rgb(40 38 36 / 0.1) 0 1.5px, transparent 1.5px 4.5px) 80% 30% / 60% 60% no-repeat,
-        linear-gradient(to top left, #f6f2e8 20%, #ddd6c6);
+    .dobra-curva {
+      filter: drop-shadow(0 3px 3px rgb(0 0 0 / 0.38)) drop-shadow(0 8px 9px rgb(0 0 0 / 0.26));
+    }
+    .dobra line {
+      vector-effect: non-scaling-stroke;
+      stroke-linecap: round;
+    }
+    /* o texto da matéria do outro lado da página */
+    .verso-texto {
+      stroke: rgb(40 38 36 / 0.26);
+      stroke-width: 1.5;
+    }
+    /* a luz batendo no vinco da dobra */
+    .dobra-luz {
+      stroke: rgb(255 255 255 / 0.7);
+      stroke-width: 1;
+    }
+    .dobra-sombra {
+      stroke: rgb(0 0 0 / 0.32);
+      stroke-width: 1;
+    }
+    /* a beirada do pedaço virado: o fio de papel pegando luz, para ele se descolar da foto */
+    .aba-beira {
+      fill: none;
+      stroke: rgb(255 255 255 / 0.55);
+      stroke-width: 0.8;
+      vector-effect: non-scaling-stroke;
+    }
+    /* o vinco: a quina que já foi dobrada ficou mais clara e amassada, com a marca funda da dobra */
+    .vinco-quina {
+      fill: rgb(255 255 255 / 0.22);
+    }
+    .dobra-vinco .dobra-luz {
+      stroke: rgb(255 255 255 / 0.9);
+      stroke-width: 1.8;
+    }
+    .dobra-vinco .dobra-sombra {
+      stroke: rgb(0 0 0 / 0.55);
+      stroke-width: 1.8;
+    }
+    /* dobrada para trás: a beirada da dobra, a espessura do papel pegando luz */
+    .dobra-atras .dobra-luz {
+      stroke: rgb(255 255 255 / 0.85);
+      stroke-width: 1.4;
     }
 
     /* ===== O nome, colado depois por cima do recorte ===== */
@@ -610,4 +677,33 @@ export class WishClip {
   /** Colado, não pregado: entorta menos que a cartolina. */
   protected readonly tilt = computed(() => Math.round(pinningFor(this.wish().id).tilt * 7) / 10);
   protected readonly strip = computed(() => stripFor(this.wish().id));
+
+  /** Um id de SVG só deste recorte (a prévia e o mural podem estar na tela juntos). */
+  protected gid(name: string): string {
+    return `dobra-${name}-${this.uid}`;
+  }
+  private readonly uid = `${Math.random().toString(36).slice(2, 8)}`;
+
+  /** O verso da página: do mesmo papel da revista, um tico mais cinza (a luz vem pela frente). */
+  protected readonly backPaper = computed(() => ({ brilho: '#ece7dc', velha: '#e2d4b2', reticula: '#e6e1d5' })[this.tear().print]);
+
+  /**
+   * A luz do verso, do vinco até a ponta: achatada, escura rente à dobra e clara na ponta; em rolo,
+   * um brilho no alto da curva e a sombra por baixo dela.
+   */
+  protected readonly stops = computed<[number, string, number][]>(() =>
+    this.tear().fold?.style === 'curva'
+      ? [
+          [0, '#000000', 0.3],
+          [0.18, '#ffffff', 0.7],
+          [0.45, '#ffffff', 0.1],
+          [0.8, '#000000', 0.22],
+          [1, '#000000', 0.45],
+        ]
+      : [
+          [0, '#000000', 0.2],
+          [0.3, '#000000', 0.04],
+          [1, '#ffffff', 0.28],
+        ],
+  );
 }

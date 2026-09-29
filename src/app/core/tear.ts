@@ -7,9 +7,9 @@ import { wobble } from './wall-physics';
  * antes do papel e sobra a fibra branca entre as duas; onde a tesoura cortou, não sobra nada.
  *
  * Rasgados à mão: `bordas` (tudo), `topo` (um rasgo grande enviesado), `lado`, `canto` (arrancado)
- * e `dois` (dois lados). Cortados: `tesoura` (reto, às vezes com o degrau de onde a tesoura parou,
- * às vezes com o canto dobrado), `picote` (tesoura de picotar, em zigue-zague) e `destacavel` (o
- * cartão destacável da revista: cantos redondos e os dentinhos do picote).
+ * e `dois` (dois lados). Cortados: `tesoura` (reto, às vezes com o degrau de onde a tesoura parou),
+ * `picote` (tesoura de picotar, em zigue-zague) e `destacavel` (o cartão destacável da revista:
+ * cantos redondos e os dentinhos do picote). Qualquer um pode ter uma quina dobrada (`Fold`).
  */
 export type TearKind = 'bordas' | 'topo' | 'lado' | 'canto' | 'dois' | 'tesoura' | 'picote' | 'destacavel';
 /** Um pedaço da página que veio junto com a foto: nada, o pé da matéria, uma coluna ou a cabeça. */
@@ -31,8 +31,38 @@ export interface Tear {
   paper: string;
   /** A máscara da foto; `none` quando foi a tesoura (a foto sai no mesmo corte do papel). */
   photo: string;
-  /** O canto de cima dobrado para trás, em % da largura e da altura; null sem dobra. */
-  fold: { side: 'esq' | 'dir'; w: number; h: number } | null;
+  /** A quina dobrada; null sem dobra. */
+  fold: Fold | null;
+}
+
+/**
+ * Como a quina foi dobrada:
+ * - `orelha`: dobrada para a frente e achatada: aparece o verso da página por cima da foto;
+ * - `curva`: a ponta enrolou e levantou da cola: o verso aparece encurtado, em rolo;
+ * - `atras`: dobrada para trás da página: da frente só se vê a linha reta da dobra;
+ * - `vinco`: dobraram e desdobraram: a quina está lá, com a marca da dobra atravessada.
+ */
+export type FoldStyle = 'orelha' | 'curva' | 'atras' | 'vinco';
+/** O que está impresso no verso da página: texto de matéria, um pedaço de anúncio colorido, nada. */
+export type FoldBack = 'texto' | 'cor' | 'liso';
+
+export interface Fold {
+  style: FoldStyle;
+  /** 0 no alto à esquerda, em sentido horário. */
+  corner: 0 | 1 | 2 | 3;
+  /** A linha da dobra, na caixa 100 × 100: x1 y1 x2 y2. */
+  line: [number, number, number, number];
+  /** O pedaço dobrado já virado por cima (orelha, curva), "x,y x,y …" na caixa 100 × 100. */
+  flap: string;
+  /** A quina marcada pelo vinco, "x,y …" (só no vinco). */
+  area: string;
+  /** Do meio da dobra até a ponta: onde a luz do verso começa e acaba, x1 y1 x2 y2. */
+  shade: [number, number, number, number];
+  back: FoldBack;
+  /** A cor do anúncio no verso (`cor`). */
+  tint: string;
+  /** As linhas de texto do verso, já viradas na direção da dobra: x1 y1 x2 y2 cada. */
+  lines: [number, number, number, number][];
 }
 
 type Pt = [number, number];
@@ -70,21 +100,23 @@ export function tearFor(id: string): Tear {
   const H = photoW / SHAPE_W_H[shape] + extraH;
 
   if (CUT.has(kind)) {
-    const fold =
-      kind === 'tesoura' && r() < 0.7
-        ? { side: (r() < 0.5 ? 'esq' : 'dir') as 'esq' | 'dir', size: 26 + r() * 16 }
-        : null;
+    // o sorteio da dobra antiga da tesoura: consumido do mesmo jeito, para o corte sair igual ao de antes
+    let legacyCorner: 0 | 1 | null = null;
+    if (kind === 'tesoura' && r() < 0.7) {
+      legacyCorner = r() < 0.5 ? 0 : 1;
+      r();
+    }
     const px =
-      kind === 'tesoura' ? scissors(REF_W, H, r, fold) : kind === 'picote' ? pinking(REF_W, H, r) : perforated(REF_W, H, r);
-    const pts = px.map(([x, y]) => [(x / REF_W) * 100, (y / H) * 100] as Pt);
+      kind === 'tesoura' ? scissors(REF_W, H, r) : kind === 'picote' ? pinking(REF_W, H, r) : perforated(REF_W, H, r);
+    const folded = foldFor(id, px, REF_W, H, legacyCorner, kind === 'tesoura' ? legacyCorner !== null : null, null);
     return {
       kind,
       page,
       shape,
       print,
-      paper: mask(pts),
+      paper: mask(folded.paper.map(([x, y]) => [(x / REF_W) * 100, (y / H) * 100] as Pt)),
       photo: 'none',
-      fold: fold && { side: fold.side, w: (fold.size / REF_W) * 100, h: (fold.size / H) * 100 },
+      fold: folded.fold,
     };
   }
 
@@ -136,15 +168,190 @@ export function tearFor(id: string): Tear {
 
   let m = 0;
   const r2 = () => wobble(id, 600 + m++);
+  const paperPx = outline(plan, r, 0).map(([x, y]) => [(x / 100) * REF_W, (y / 100) * H] as Pt);
+  const folded = foldFor(id, paperPx, REF_W, H, null, null, corner?.at ?? null);
   return {
     kind,
     page,
     shape,
     print,
-    paper: mask(outline(plan, r, 0)),
+    paper: mask(folded.paper.map(([x, y]) => [(x / REF_W) * 100, (y / H) * 100] as Pt)),
     photo: mask(outline(photoPlan, r2, 1.9, edgeOfPage)),
-    fold: null,
+    fold: folded.fold,
   };
+}
+
+/* ===== A quina dobrada ===== */
+
+const BACK_TINTS = ['#c8156b', '#0f6fae', '#ffd23a', '#b81d1c', '#1f8a4c'];
+
+/**
+ * Sorteia a dobra (com o seu próprio sorteio, para não mexer no resto do recorte) e aplica: tira
+ * do papel a quina que dobrou (menos no vinco) e devolve o pedaço dobrado, virado pela linha da
+ * dobra, com o contorno de verdade (rasgado, picotado…) da quina. Tudo em px, onde virar é virar.
+ * `present` força ter ou não ter dobra (a tesoura antiga); `avoid` é o canto que já foi arrancado.
+ */
+function foldFor(
+  id: string,
+  paper: Pt[],
+  W: number,
+  H: number,
+  preferCorner: 0 | 1 | null,
+  present: boolean | null,
+  avoid: number | null,
+): { paper: Pt[]; fold: Fold | null } {
+  let n = 0;
+  const r = () => wobble(id, 5000 + n++);
+  const has = present ?? r() < 0.42;
+  if (!has) return { paper, fold: null };
+
+  let corner = (preferCorner ?? Math.floor(r() * 4)) as 0 | 1 | 2 | 3;
+  if (corner === avoid) corner = ((corner + 2) % 4) as 0 | 1 | 2 | 3;
+  const sr = r();
+  const style: FoldStyle = sr < 0.4 ? 'orelha' : sr < 0.6 ? 'curva' : sr < 0.8 ? 'atras' : 'vinco';
+  const zr = r();
+  // orelha pode ser miudinha; rolo, vinco e dobra para trás só aparecem grandes
+  const small = style === 'orelha' && zr < 0.3;
+  const big = zr >= (style === 'orelha' ? 0.75 : 0.6);
+  const size = Math.min(small ? 16 + r() * 8 : big ? 42 + r() * 16 : 30 + r() * 12, Math.min(W, H) * 0.4);
+  // cada perna da dobra de um tamanho: a dobra quase nunca sai a 45 graus
+  const a = size * (0.78 + r() * 0.5);
+  const b = size * (0.78 + r() * 0.5);
+  const br = r();
+  const back: FoldBack = br < 0.5 ? 'texto' : br < 0.75 ? 'cor' : 'liso';
+  const tint = BACK_TINTS[Math.floor(r() * BACK_TINTS.length)];
+
+  // a linha da dobra: A no lado de cima/baixo, B no lado esquerdo/direito da quina
+  const cx = corner === 1 || corner === 2 ? W : 0;
+  const cy = corner >= 2 ? H : 0;
+  const sx = cx === 0 ? 1 : -1;
+  const sy = cy === 0 ? 1 : -1;
+  const A: Pt = [cx + sx * a, cy];
+  const B: Pt = [cx, cy + sy * b];
+  const inside = side(A, B, [W / 2, H / 2]) > 0 ? 1 : -1;
+
+  const kept = style === 'vinco' ? paper : clipHalf(paper, A, B, inside);
+  const removed = clipHalf(paper, A, B, -inside);
+  // a curva enrola: o verso aparece encurtado na direção da dobra
+  const squash = style === 'curva' ? 0.64 : 1;
+  const turn = (p: Pt): Pt => {
+    const q = reflect(p, A, B);
+    if (squash === 1) return q;
+    const f = foot(q, A, B);
+    return [f[0] + (q[0] - f[0]) * squash, f[1] + (q[1] - f[1]) * squash];
+  };
+  const flapPx = style === 'orelha' || style === 'curva' ? removed.map(turn) : [];
+  const tip = turn([cx, cy]);
+  const mid: Pt = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
+
+  // o texto do verso: as linhas da página, viradas junto com a dobra
+  const lines: [number, number, number, number][] = [];
+  if (flapPx.length && back === 'texto') {
+    const d = unit(reflectVector([1, 0], A, B));
+    const nrm: Pt = [-d[1], d[0]];
+    const c = centroid(flapPx);
+    const reach = size * 1.6;
+    for (let k = -12; k <= 12; k++) {
+      if (r() < 0.16) continue; // fim de parágrafo
+      const o = k * 4.5;
+      const p0: Pt = [c[0] + nrm[0] * o - d[0] * reach, c[1] + nrm[1] * o - d[1] * reach];
+      const p1: Pt = [c[0] + nrm[0] * o + d[0] * reach, c[1] + nrm[1] * o + d[1] * reach];
+      lines.push([...u(p0, W, H), ...u(p1, W, H)] as [number, number, number, number]);
+    }
+  }
+
+  // a linha da dobra vai de beirada a beirada do papel (rasgado, picotado…), não da caixa: senão
+  // o vinco passa do papel e aparece riscado na parede
+  const [L0, L1] = chord(paper, A, B) ?? [A, B];
+  const pts = (list: Pt[]) => list.map((p) => u(p, W, H).map((v) => v.toFixed(1)).join(',')).join(' ');
+  return {
+    paper: kept,
+    fold: {
+      style,
+      corner,
+      line: [...u(L0, W, H), ...u(L1, W, H)] as [number, number, number, number],
+      flap: pts(flapPx),
+      area: style === 'vinco' ? pts(removed) : '',
+      shade: [...u(mid, W, H), ...u(tip, W, H)] as [number, number, number, number],
+      back,
+      tint,
+      lines,
+    },
+  };
+}
+
+/** De px para a caixa 100 × 100. */
+function u(p: Pt, W: number, H: number): Pt {
+  return [Math.round((p[0] / W) * 1000) / 10, Math.round((p[1] / H) * 1000) / 10];
+}
+
+/** De que lado da reta AB fica o ponto (o sinal do produto vetorial). */
+function side(a: Pt, b: Pt, p: Pt): number {
+  return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+}
+
+/** Corta o polígono pela reta AB e fica com o lado de sinal `keep` (Sutherland–Hodgman, uma reta só). */
+function clipHalf(poly: Pt[], a: Pt, b: Pt, keep: number): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i];
+    const q = poly[(i + 1) % poly.length];
+    const sp = side(a, b, p) * keep;
+    const sq = side(a, b, q) * keep;
+    if (sp >= 0) out.push(p);
+    if ((sp >= 0) !== (sq >= 0)) {
+      const t = sp / (sp - sq);
+      out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+    }
+  }
+  return out;
+}
+
+/** O trecho da reta AB que fica dentro do papel: do primeiro ao último ponto em que ela cruza o contorno. */
+function chord(poly: Pt[], a: Pt, b: Pt): [Pt, Pt] | null {
+  const d = unit([b[0] - a[0], b[1] - a[1]]);
+  const hits: { t: number; p: Pt }[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i];
+    const q = poly[(i + 1) % poly.length];
+    const sp = side(a, b, p);
+    const sq = side(a, b, q);
+    if ((sp >= 0) === (sq >= 0)) continue;
+    const t = sp / (sp - sq);
+    const x: Pt = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+    hits.push({ t: (x[0] - a[0]) * d[0] + (x[1] - a[1]) * d[1], p: x });
+  }
+  if (hits.length < 2) return null;
+  hits.sort((x, y) => x.t - y.t);
+  return [hits[0].p, hits[hits.length - 1].p];
+}
+
+function foot(p: Pt, a: Pt, b: Pt): Pt {
+  const d = unit([b[0] - a[0], b[1] - a[1]]);
+  const t = (p[0] - a[0]) * d[0] + (p[1] - a[1]) * d[1];
+  return [a[0] + d[0] * t, a[1] + d[1] * t];
+}
+
+function reflect(p: Pt, a: Pt, b: Pt): Pt {
+  const f = foot(p, a, b);
+  return [2 * f[0] - p[0], 2 * f[1] - p[1]];
+}
+
+function reflectVector(v: Pt, a: Pt, b: Pt): Pt {
+  const d = unit([b[0] - a[0], b[1] - a[1]]);
+  const dot = v[0] * d[0] + v[1] * d[1];
+  return [2 * dot * d[0] - v[0], 2 * dot * d[1] - v[1]];
+}
+
+function unit(v: Pt): Pt {
+  const l = Math.hypot(v[0], v[1]) || 1;
+  return [v[0] / l, v[1] / l];
+}
+
+function centroid(poly: Pt[]): Pt {
+  const sx = poly.reduce((s, p) => s + p[0], 0);
+  const sy = poly.reduce((s, p) => s + p[1], 0);
+  return [sx / poly.length, sy / poly.length];
 }
 
 /**
@@ -194,8 +401,8 @@ export function snipFor(id: string, n: number, max = 3): string {
 
 /* ===== Cortes de tesoura, desenhados em px e depois esticados na caixa 100 × 100 ===== */
 
-/** Tesoura comum: quatro cortes quase retos, às vezes o degrau de onde ela parou e voltou, às vezes o canto dobrado. */
-function scissors(W: number, H: number, r: () => number, fold: { side: 'esq' | 'dir'; size: number } | null): Pt[] {
+/** Tesoura comum: quatro cortes quase retos, às vezes o degrau de onde ela parou e voltou. */
+function scissors(W: number, H: number, r: () => number): Pt[] {
   const nudge = () => r() * 2.2;
   const c: Pt[] = [
     [nudge(), nudge()],
@@ -203,10 +410,7 @@ function scissors(W: number, H: number, r: () => number, fold: { side: 'esq' | '
     [W - nudge(), H - nudge()],
     [nudge(), H - nudge()],
   ];
-  // o canto dobrado para trás some do contorno: no lugar dele, a linha da dobra, em diagonal
   const at: Pt[][] = c.map((p) => [p]);
-  if (fold?.side === 'esq') at[0] = [[c[0][0], c[0][1] + fold.size], [c[0][0] + fold.size, c[0][1]]];
-  if (fold?.side === 'dir') at[1] = [[c[1][0] - fold.size, c[1][1]], [c[1][0], c[1][1] + fold.size]];
   const jogSide = r() < 0.55 ? Math.floor(r() * 4) : -1;
   const jogAt = 0.25 + r() * 0.5;
   const pts: Pt[] = [];

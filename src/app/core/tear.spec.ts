@@ -25,6 +25,16 @@ describe('tearFor', () => {
     }
   });
 
+  it('dobra a quina de quatro jeitos, em qualquer canto, com a linha da dobra dentro do papel', () => {
+    const folds = ids.map((id) => tearFor(id).fold).filter((f) => f !== null);
+    expect(new Set(folds.map((f) => f!.style)).size).toBe(4);
+    expect(new Set(folds.map((f) => f!.corner)).size).toBe(4);
+    for (const f of folds) {
+      expect(f!.line.every((v) => v >= -0.5 && v <= 100.5)).toBeTrue();
+      if (f!.style === 'orelha' || f!.style === 'curva') expect(f!.flap.length).toBeGreaterThan(0);
+    }
+  });
+
   it('a tesoura corta a foto junto com o papel: a foto não tem máscara própria', () => {
     const cut = ids.map(tearFor).filter((t) => t.kind === 'tesoura' || t.kind === 'picote' || t.kind === 'destacavel');
     expect(cut.length).toBeGreaterThan(0);
