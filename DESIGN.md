@@ -902,6 +902,8 @@ The user asked to turn "Meu mural de JOGOS" into five walls (Jogos, Livros, Film
 - **It yellows.** Under a week the sheet is fresh; from 7 to 30 days a warm multiply tint at 11%; after 30 days 22% plus darker edges. The chalk hint under the search explains it ("As mais amarelas estão esperando há mais tempo.") only once some sheet has yellowed. The hit button says how long it waited ("…, guardado há 12 dias").
 - **Heading.** A school notebook label: white, 6px die-cut corners, a printed blue double frame (`#3a67b8`), the printed field "Matéria" and "Pra resenhar depois" in Permanent Marker on a dotted line.
 - **Shelf.** The same global `.prateleira` as the Wishlist: search strip, chalk hint, and on the ruler Mais novos (by the day saved), Mais antigos, A–Z. The sheets use the same `collage()` columns (at least 168px, 32px apart; two on phones), each 88–100% of its column (post-its 82–90%).
-- **Empty state.** Unchanged: a loose notebook sheet taped to the wall explaining "Salvar pra depois".
+- **Guardar button.** The sibling of the Wishlist coupon: a sheet torn from a spiral notebook (ruled, red margin, spiral bites on the left, shadow by filter), "Anote aqui" in small blue printed caps over "Guardar jogo" in Kalam 700, and a blue `NotebookPen` that "writes" (slides down the rules) on hover. Full width on phones.
+- **Add dialog, Pra depois mode.** The Wishlist's dialog opened with `open('draft')`: the masthead is a blue notebook cover (`#3a67b8` with a fine cross-hatch) titled "Guardar pra depois" in Permanent Marker; the live preview is the notebook sheet (`app-draft-card` with `preview`, dated today, 150px); "Outra folha" re-draws it; the submit reads "Guardar na fila" (or "Ver na fila" for a repeat) with the `NotebookPen` icon.
+- **Empty state.** A loose notebook sheet taped to the wall; its button now opens the Pra depois dialog.
 
 

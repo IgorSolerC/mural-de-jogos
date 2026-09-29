@@ -62,5 +62,10 @@
   (wishRemoved)="removeWish($event)"
 />
 <app-review-reader (edit)="editReview($event)" (remove)="removeReview($event)" />
-<app-wish-adder (wished)="onWished($event)" (seen)="seeWish($event)" />
+<app-wish-adder
+  (wished)="onWished($event)"
+  (seen)="seeWish($event)"
+  (queued)="onDrafted({ id: $event, isNew: true })"
+  (seenDraft)="seeDraft($event)"
+/>
 <app-toast />

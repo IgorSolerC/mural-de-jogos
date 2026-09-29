@@ -9,24 +9,28 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Link, LucideAngularModule, RefreshCw, Scissors, Shuffle, X } from 'lucide-angular';
+import { Link, LucideAngularModule, NotebookPen, RefreshCw, Scissors, Shuffle, X } from 'lucide-angular';
 import { GameLookup, LookupError, imageLoads, sameTitle } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Kind, PickedGame, Wish, formatScore, initialOf, newId } from '../core/review';
+import { Draft, Kind, PickedGame, Wish, formatScore, initialOf, newId } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CoverSleeve } from './cover-sleeve';
+import { DraftCard } from './draft-card';
 import { GameSearch } from './game-search';
 import { WishClip } from './wish-clip';
 
+/** Para onde vai o que se escolhe aqui: a wishlist (recorte de revista) ou o Pra depois (folha de caderno). */
+export type AdderMode = 'wish' | 'draft';
+
 /**
- * Recortar do catálogo: o diálogo da wishlist. Só o nome (com o auto-complete do mural) e a capa,
+ * Recortar do catálogo: o diálogo da wishlist, e o mesmo diálogo para guardar direto no Pra depois. Só o nome (com o auto-complete do mural) e a capa,
  * escolhida entre as que o catálogo tem do mesmo título, ou colada de um link, ou nenhuma. Ao lado,
  * o recorte como ele vai ficar na parede.
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [CoverSleeve, GameSearch, LucideAngularModule, WishClip],
+  imports: [CoverSleeve, DraftCard, GameSearch, LucideAngularModule, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
@@ -39,10 +43,15 @@ export class WishAdder {
   readonly wished = output<string>();
   /** Já estava na lista: a pessoa quer ver o que está lá. */
   readonly seen = output<string>();
+  /** O item novo foi para o Pra depois. */
+  readonly queued = output<string>();
+  /** Já estava no Pra depois: a pessoa quer ver a folha. */
+  readonly seenDraft = output<string>();
 
   protected readonly CloseIcon = X;
   protected readonly CutIcon = Scissors;
   protected readonly SwapIcon = RefreshCw;
+  protected readonly NoteIcon = NotebookPen;
   protected readonly LinkIcon = Link;
   protected readonly RerollIcon = Shuffle;
 
@@ -51,6 +60,7 @@ export class WishAdder {
   private readonly pasteField = viewChild<ElementRef<HTMLInputElement>>('pasteField');
 
   protected readonly kind = signal<Kind>('jogos');
+  protected readonly mode = signal<AdderMode>('wish');
   protected readonly profile = computed(() => profileOf(this.kind()));
   protected readonly words = computed(() => {
     const p = this.profile();
@@ -80,10 +90,17 @@ export class WishAdder {
   /** O link colado sendo testado: cancela quando troca de item, fecha o campo ou o diálogo. */
   private pasteAbort: AbortController | undefined;
 
-  /** O mesmo título já está na wishlist deste mural. */
-  protected readonly dup = computed<Wish | null>(() => {
+  /** O mesmo título já está na lista de destino (a wishlist, ou a fila do Pra depois) deste mural. */
+  protected readonly dup = computed<Wish | Draft | null>(() => {
     const gm = this.game();
     if (!gm) return null;
+    const list: (Wish | Draft)[] = this.mode() === 'draft' ? this.mural.drafts() : this.mural.wishes();
+    return list.find((w) => sameYearTitle(w.game, gm)) ?? null;
+  });
+  /** Guardando no Pra depois algo que estava na wishlist: sai de lá, como no "Salvar pra depois". */
+  protected readonly alsoWished = computed<Wish | null>(() => {
+    const gm = this.game();
+    if (!gm || this.mode() !== 'draft') return null;
     return this.mural.wishes().find((w) => sameYearTitle(w.game, gm)) ?? null;
   });
   /** Já tem resenha no mural: vale lembrar (quem quer rejogar adiciona assim mesmo). */
@@ -107,12 +124,19 @@ export class WishAdder {
     };
   });
 
+  /** A folha do Pra depois como ela vai ficar, com a data de hoje no cabeçalho. */
+  protected readonly previewDraft = computed<Draft>(() => {
+    const now = new Date().toISOString();
+    return { ...this.preview(), createdAt: now, updatedAt: now };
+  });
+
   constructor() {
     inject(DestroyRef).onDestroy(() => this.abort?.abort());
   }
 
-  open(): void {
+  open(mode: AdderMode = 'wish'): void {
     this.abort?.abort();
+    this.mode.set(mode);
     this.kind.set(this.mural.kind());
     this.id.set(newId());
     this.rerolls.set(0);
@@ -266,10 +290,20 @@ export class WishAdder {
     const dup = this.dup();
     if (dup) {
       this.close();
-      this.seen.emit(dup.id);
+      if (this.mode() === 'draft') this.seenDraft.emit(dup.id);
+      else this.seen.emit(dup.id);
       return;
     }
     const now = new Date().toISOString();
+    if (this.mode() === 'draft') {
+      this.store.saveDraft({ id: this.id(), kind: this.kind(), game: this.chosen(gm), createdAt: now, updatedAt: now });
+      // estava na wishlist: agora está na fila, e a wishlist não fica com o mesmo título
+      const wished = this.alsoWished();
+      if (wished) this.store.removeWish(wished.id);
+      this.close();
+      this.queued.emit(this.id());
+      return;
+    }
     this.store.saveWish({ id: this.id(), kind: this.kind(), game: this.chosen(gm), createdAt: now, updatedAt: now });
     this.close();
     this.wished.emit(this.id());

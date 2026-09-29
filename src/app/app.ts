@@ -79,6 +79,7 @@ export class App {
         if (d) this.editor().open(undefined, d);
       },
       newWish: () => this.wishAdder().open(),
+      newDraft: () => this.wishAdder().open('draft'),
       openWish: (id) => {
         const w = this.store.getWish(id);
         if (w) this.editor().open(undefined, undefined, w);
@@ -144,6 +145,11 @@ export class App {
   protected seeWish(id: string): void {
     if (this.router.url.startsWith('/wishlist')) this.desk.land(id);
     else this.goLand('/wishlist', id);
+  }
+
+  protected seeDraft(id: string): void {
+    if (this.router.url.startsWith('/fila')) this.desk.land(id);
+    else this.goLand('/fila', id);
   }
 
   protected onDrafted(e: SavedEvent): void {

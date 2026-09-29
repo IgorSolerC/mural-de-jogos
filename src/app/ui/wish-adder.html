@@ -1,8 +1,8 @@
-<dialog #dialog class="sheet recortar" aria-labelledby="desejo-titulo" (pointerdown)="downOnBackdrop = $event.target === $event.currentTarget" (click)="onBackdrop($event)">
+<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" aria-labelledby="desejo-titulo" (pointerdown)="downOnBackdrop = $event.target === $event.currentTarget" (click)="onBackdrop($event)">
   <form class="folha" (submit)="save($event)" novalidate>
-    <!-- a faixa vermelha do catálogo, impressa em retícula -->
+    <!-- a faixa vermelha do catálogo, impressa em retícula (no Pra depois, a capa azul do caderno) -->
     <header class="masthead">
-      <h2 id="desejo-titulo">Pôr na wishlist</h2>
+      <h2 id="desejo-titulo">{{ mode() === 'draft' ? 'Guardar pra depois' : 'Pôr na wishlist' }}</h2>
       <button type="button" class="fechar" (click)="close()" aria-label="Fechar">
         <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
       </button>
@@ -13,14 +13,18 @@
       <aside class="mesa parede">
         <div class="mesa-txt">
           <p class="giz" aria-hidden="true">Vai ficar assim</p>
-          <!-- não gostou do corte? a tesoura tenta de novo: outro rasgo, outro formato, outro jeito de colar o nome -->
+          <!-- não gostou? sorteia de novo: outro rasgo e outro jeito de colar o nome (ou outra folha, outro jeito de prender) -->
           <button type="button" class="re-recortar" (click)="reroll()">
             <lucide-icon [img]="RerollIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-            Outro recorte
+            {{ mode() === 'draft' ? 'Outra folha' : 'Outro recorte' }}
           </button>
         </div>
         @for (k of [id()]; track k) {
-          <app-wish-clip class="previa" aria-hidden="true" [wish]="preview()" [preview]="true" [landing]="rerolls() > 0" />
+          @if (mode() === 'draft') {
+            <app-draft-card class="previa folha-previa" aria-hidden="true" [draft]="previewDraft()" [preview]="true" [landing]="rerolls() > 0" />
+          } @else {
+            <app-wish-clip class="previa" aria-hidden="true" [wish]="preview()" [preview]="true" [landing]="rerolls() > 0" />
+          }
         }
       </aside>
 
@@ -42,9 +46,12 @@
               </button>
             </div>
             @if (dup()) {
-              <p class="aviso" role="status">Já está na sua wishlist.</p>
+              <p class="aviso" role="status">{{ mode() === 'draft' ? 'Já está no seu Pra depois.' : 'Já está na sua wishlist.' }}</p>
             } @else if (reviewed(); as r) {
               <p class="aviso" role="status">Você já resenhou {{ words().esse }}: média {{ fmt(r.scores.final) }} no mural.</p>
+            }
+            @if (!dup() && alsoWished()) {
+              <p class="aviso" role="status">Está na sua wishlist: sai de lá e vem pra fila.</p>
             }
           } @else {
             <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />
@@ -135,8 +142,12 @@
       <div class="actions">
         <button type="button" class="btn-quiet cancelar" (click)="close()">Cancelar</button>
         <button type="submit" class="btn-ink">
-          <lucide-icon [img]="CutIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
-          {{ dup() ? 'Ver na lista' : 'Pôr na lista' }}
+          <lucide-icon [img]="mode() === 'draft' ? NoteIcon : CutIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          @if (mode() === 'draft') {
+            {{ dup() ? 'Ver na fila' : 'Guardar na fila' }}
+          } @else {
+            {{ dup() ? 'Ver na lista' : 'Pôr na lista' }}
+          }
         </button>
       </div>
     </footer>

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal } from '@angular/core';
-import { Bookmark, LucideAngularModule } from 'lucide-angular';
+import { LucideAngularModule, NotebookPen } from 'lucide-angular';
 import { collage } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
@@ -24,15 +24,27 @@ type Order = 'recentes' | 'antigos' | 'az';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="head">
-      <!-- a etiqueta da capa do caderno, preenchida à mão -->
-      <h1 class="etiqueta">
-        <span class="etiqueta-campo">
-          <span class="etiqueta-rotulo" aria-hidden="true">Matéria</span>
-          <span class="etiqueta-escrito">Pra resenhar depois</span>
-        </span>
-      </h1>
-      @if (mural.draftCount(); as n) {
-        <p class="sub">{{ countOf(mural.profile(), n) }} esperando a sua opinião</p>
+      <div class="titulo-linha">
+        <!-- a etiqueta da capa do caderno, preenchida à mão -->
+        <h1 class="etiqueta">
+          <span class="etiqueta-campo">
+            <span class="etiqueta-rotulo" aria-hidden="true">Matéria</span>
+            <span class="etiqueta-escrito">Pra resenhar depois</span>
+          </span>
+        </h1>
+        @if (mural.draftCount(); as n) {
+          <p class="sub">{{ countOf(mural.profile(), n) }} esperando a sua opinião</p>
+        }
+      </div>
+      @if (mural.draftCount()) {
+        <!-- o botão de guardar é uma folha arrancada da espiral, com o lápis em cima -->
+        <button type="button" class="anotar" (click)="desk.newDraft()">
+          <lucide-icon class="lapis" [img]="NoteIcon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
+          <span class="anotar-txt">
+            <small aria-hidden="true">Anote aqui</small>
+            Guardar {{ mural.profile().singular }}
+          </span>
+        </button>
       }
     </header>
 
@@ -87,11 +99,11 @@ type Order = 'recentes' | 'antigos' | 'az';
         <span class="tape" aria-hidden="true"></span>
         <h2 id="fila-vazia">{{ g(mural.profile(), 'Nenhum', 'Nenhuma') }} {{ mural.profile().singular }} na fila</h2>
         <p>
-          {{ mural.profile().finished }} Na hora de pregar, escolha {{ g(mural.profile(), 'o', 'a') }} {{ mural.profile().singular }} e toque em
-          <strong>Salvar pra depois</strong>. Ele fica aqui, só com nome e capa, até você voltar.
+          {{ mural.profile().finished }} Guarde aqui só o nome e a capa, e escreva a resenha quando der. Na hora de pregar,
+          <strong>Salvar pra depois</strong> também manda para cá.
         </p>
-        <button type="button" class="btn-ink" (click)="desk.newReview()">
-          <lucide-icon [img]="LaterIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+        <button type="button" class="btn-ink" (click)="desk.newDraft()">
+          <lucide-icon [img]="NoteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
           Guardar {{ g(mural.profile(), 'um', 'uma') }} {{ mural.profile().singular }}
         </button>
       </section>
@@ -105,8 +117,79 @@ type Order = 'recentes' | 'antigos' | 'az';
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 12px 26px;
+      justify-content: space-between;
+      gap: 18px 24px;
       margin-bottom: 30px;
+    }
+    .titulo-linha {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 26px;
+    }
+
+    /* ===== Guardar: uma folha de caderno arrancada da espiral, pautada, com o lápis em cima =====
+       O irmão do cupom da wishlist: lá a tesoura corre pela linha; aqui o lápis escreve. */
+    .anotar {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      min-height: 62px;
+      padding: 11px 22px 10px 34px;
+      border: 0;
+      color: var(--ink);
+      text-align: left;
+      rotate: -1.2deg;
+      background:
+        linear-gradient(90deg, transparent 22px, rgb(230 46 45 / 0.55) 22px 23.5px, transparent 0),
+        repeating-linear-gradient(to top, transparent 0 14px, rgb(70 120 200 / 0.3) 14px 15.5px, transparent 15.5px 20px),
+        #fbfaf3;
+      /* a mordida da espiral na borda esquerda; a sombra vem de filtro, porque a máscara come box-shadow */
+      -webkit-mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+      mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.42));
+      transition:
+        rotate var(--t-physical) var(--ease-physical),
+        translate var(--t-physical) var(--ease-physical),
+        filter var(--t-ui) var(--ease-ui);
+    }
+    .anotar .lapis {
+      position: absolute;
+      top: 6px;
+      right: 9px;
+      display: inline-flex;
+      color: #3a67b8;
+      transition: translate var(--t-physical) var(--ease-physical), rotate var(--t-physical) var(--ease-physical);
+    }
+    .anotar-txt {
+      display: grid;
+      padding-right: 22px;
+      font-family: var(--f-hand);
+      font-weight: 700;
+      font-size: 1.32rem;
+      line-height: 1.05;
+    }
+    .anotar small {
+      margin-bottom: 3px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #3a67b8;
+    }
+    .anotar:hover {
+      rotate: 0.6deg;
+      translate: 0 -2px;
+      filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 16px 16px rgb(0 0 0 / 0.5));
+    }
+    /* o lápis escreve: desce um tico pela pauta */
+    .anotar:hover .lapis {
+      translate: -6px 4px;
+      rotate: -8deg;
+    }
+    .anotar:focus-visible {
+      outline-offset: 4px;
     }
     .sub {
       font-family: var(--f-label);
@@ -258,6 +341,11 @@ type Order = 'recentes' | 'antigos' | 'az';
     }
 
     @media (max-width: 559px) {
+      .anotar {
+        width: 100%;
+        justify-content: center;
+        rotate: -0.6deg;
+      }
       .etiqueta-escrito {
         font-size: 1.35rem;
       }
@@ -280,7 +368,7 @@ export class QueuePage {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly countOf = countOf;
   protected readonly g = g;
-  protected readonly LaterIcon = Bookmark;
+  protected readonly NoteIcon = NotebookPen;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');

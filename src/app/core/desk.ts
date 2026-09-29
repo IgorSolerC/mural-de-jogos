@@ -6,6 +6,8 @@ export interface DeskHandlers {
   openDraft(id: string): void;
   /** Recortar um item novo para a wishlist. */
   newWish(): void;
+  /** Guardar um item novo direto no Pra depois (só nome e capa). */
+  newDraft(): void;
   /** Começar a resenha de um desejo. */
   openWish(id: string): void;
 }
@@ -40,6 +42,10 @@ export class Desk {
 
   newWish(): void {
     this.handlers?.newWish();
+  }
+
+  newDraft(): void {
+    this.handlers?.newDraft();
   }
 
   openWish(id: string): void {

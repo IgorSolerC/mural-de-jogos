@@ -45,6 +45,30 @@ dialog.recortar {
   }
 }
 
+/* No Pra depois o diálogo é a capa de um caderno: azul (o azul da etiqueta "Matéria" da página),
+   com a trama do papelão encapado, e o título escrito a pincel, como na etiqueta. */
+.modo-fila .masthead {
+  background:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.06) 0 1px, transparent 1px 4px),
+    #3a67b8;
+
+  h2 {
+    font-family: var(--f-marker);
+    font-style: normal;
+    font-weight: 400;
+    font-size: 1.9rem;
+    line-height: 1.05;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+}
+
+/* a folha do Pra depois na prévia: do tamanho que ela tem na parede */
+.folha-previa {
+  max-width: 150px;
+}
+
 .fechar {
   flex: none;
   display: grid;

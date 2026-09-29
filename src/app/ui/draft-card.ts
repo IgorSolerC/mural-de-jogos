@@ -17,6 +17,7 @@ import { CoverSleeve } from './cover-sleeve';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.is-landing]': 'landing()',
+    '[class.is-preview]': 'preview()',
     '[class]': '"papel-" + page().kind + " idade-" + age()',
     '[style.--tilt]': 'pin().tilt',
     '[style.--tape-tilt]': 'page().tapeTilt',
@@ -26,7 +27,7 @@ import { CoverSleeve } from './cover-sleeve';
     '[style.--largura]': 'page().width',
     '[style.--desvio]': 'page().shift',
     '[style.--vao]': 'page().gap + "px"',
-    '[style.view-transition-name]': '"pendente-" + draft().id',
+    '[style.view-transition-name]': 'preview() ? null : "pendente-" + draft().id',
   },
   template: `
     @switch (page().hold) {
@@ -73,9 +74,11 @@ import { CoverSleeve } from './cover-sleeve';
       }
     </div>
 
-    <button type="button" class="hit" (click)="opened.emit(draft().id)">
-      <span class="sr-only">Terminar a resenha de {{ draft().game.name }}, guardado {{ waited() }}</span>
-    </button>
+    @if (!preview()) {
+      <button type="button" class="hit" (click)="opened.emit(draft().id)">
+        <span class="sr-only">Terminar a resenha de {{ draft().game.name }}, guardado {{ waited() }}</span>
+      </button>
+    }
   `,
   styles: `
     :host {
@@ -394,6 +397,10 @@ import { CoverSleeve } from './cover-sleeve';
       outline-offset: 3px;
     }
 
+    :host(.is-preview) {
+      rotate: calc(var(--tilt) * 0.5deg);
+    }
+
     /* Chegada: a folha é colada às pressas, a fita bate por cima */
     :host(.is-landing) {
       animation: stick 560ms var(--ease-physical) both;
@@ -422,6 +429,8 @@ import { CoverSleeve } from './cover-sleeve';
 export class DraftCard {
   readonly draft = input.required<Draft>();
   readonly landing = input(false);
+  /** A prévia do diálogo de guardar: sem botão, quase reta. */
+  readonly preview = input(false);
   readonly opened = output<string>();
 
   protected readonly pin = computed(() => pinningFor(this.draft().id));
