@@ -56,7 +56,7 @@ interface Option {
           [attr.aria-selected]="tab() === t.id"
           [attr.aria-controls]="'kit-painel'"
           [attr.tabindex]="tab() === t.id ? 0 : -1"
-          (click)="tab.set(t.id)"
+          (click)="selectTab(t.id)"
         >
           {{ t.label }}
         </button>
@@ -112,6 +112,25 @@ interface Option {
       width: 100%;
       max-width: 420px;
       min-width: 0;
+    }
+
+    :host(.scrollable) {
+      height: 100%;
+      min-height: 0;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    :host(.scrollable) .painel {
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+    }
+
+    @media (min-width: 1024px) {
+      :host(.scrollable) .painel {
+        overscroll-behavior: contain;
+      }
     }
 
     /* ===== Abas de fichário em pé numa régua de alumínio ===== */
@@ -397,6 +416,12 @@ export class CardKit {
   /** Reset ao abrir outra ficha: a primeira aba de novo. */
   reset(): void {
     this.tab.set('cor');
+    this.el.querySelector('.painel')?.scrollTo(0, 0);
+  }
+
+  protected selectTab(tab: Tab): void {
+    this.tab.set(tab);
+    this.el.querySelector('.painel')?.scrollTo(0, 0);
   }
 
   /** A aba mostra um pontinho quando a ficha tem algo escolhido ali. */
@@ -439,7 +464,7 @@ export class CardKit {
     else if (e.key === 'End') next = this.tabs.length - 1;
     else return;
     e.preventDefault();
-    this.tab.set(this.tabs[next].id);
+    this.selectTab(this.tabs[next].id);
     this.el.querySelector<HTMLElement>(`#kit-aba-${this.tabs[next].id}`)?.focus();
   }
 }

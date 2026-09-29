@@ -105,6 +105,8 @@ export class ReviewEditor {
   protected readonly labels = SCORE_LABEL;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly previewSlot = viewChild.required<ElementRef<HTMLDivElement>>('previewSlot');
+  private readonly previewFrame = viewChild.required<ElementRef<HTMLDivElement>>('previewFrame');
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
   private readonly kit = viewChild(CardKit);
@@ -192,6 +194,9 @@ export class ReviewEditor {
 
   /** No celular a prévia é a ficha simples, que cabe no alto da tela sem empurrar o formulário. */
   protected readonly phone = signal(false);
+  protected readonly previewScale = signal(1);
+  protected readonly previewRowHeight = signal(500);
+  private previewObserver: ResizeObserver | null = null;
 
   /** A ficha como ela vai para o mural, montada com o que já foi preenchido. */
   protected readonly preview = computed<Review>(() => {
@@ -226,7 +231,23 @@ export class ReviewEditor {
     const sync = () => this.phone.set(mq.matches);
     sync();
     mq.addEventListener('change', sync);
-    inject(DestroyRef).onDestroy(() => mq.removeEventListener('change', sync));
+    inject(DestroyRef).onDestroy(() => {
+      mq.removeEventListener('change', sync);
+      this.previewObserver?.disconnect();
+    });
+  }
+
+  private fitPreview(): void {
+    const slot = this.previewSlot().nativeElement;
+    const frame = this.previewFrame().nativeElement;
+    const pane = slot.parentElement;
+    const body = pane?.parentElement;
+    if (!pane || !body || !body.clientHeight || !frame.offsetHeight) return;
+    const overhead = pane.clientHeight - slot.clientHeight;
+    const desired = Math.ceil(frame.offsetHeight + overhead + 12);
+    const cap = body.clientHeight * (innerWidth >= 1024 ? 0.6 : 0.45);
+    this.previewRowHeight.set(desired);
+    this.previewScale.set(Math.min(1, Math.max(0, Math.min(desired, cap) - overhead) / frame.offsetHeight));
   }
 
   /** As notas como vão para a ficha: a categoria que "não tem" vai sem nota. */
@@ -309,10 +330,16 @@ export class ReviewEditor {
     // O diálogo é sempre o mesmo: sem isso, abre rolado onde a resenha anterior ficou
     const toTop = () => {
       dialog.scrollTop = 0;
-      dialog.querySelector('.body')?.scrollTo({ top: 0, behavior: 'instant' });
+      dialog.querySelectorAll('.editor-content, .kit-panel, .form, app-card-kit .painel').forEach((pane) => pane.scrollTo({ top: 0, behavior: 'instant' }));
     };
     toTop();
+    this.previewScale.set(1);
     dialog.showModal();
+    this.previewObserver?.disconnect();
+    this.previewObserver = new ResizeObserver(() => this.fitPreview());
+    this.previewObserver.observe(this.previewSlot().nativeElement);
+    this.previewObserver.observe(this.previewFrame().nativeElement);
+    this.fitPreview();
     toTop();
     // e de novo depois que o conteúdo da resenha nova desenhar (e o foco ir para a busca)
     requestAnimationFrame(toTop);

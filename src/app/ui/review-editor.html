@@ -21,26 +21,31 @@
       </button>
     </header>
 
-    <div class="body">
+    <div class="body" [style.--preview-row-height.px]="previewRowHeight()">
       <!-- A bancada: um pedaço da parede com a ficha sendo feita, pregada como vai ficar no mural -->
       <aside class="bancada parede" aria-label="A ficha no mural">
-        <div class="bancada-in">
-          <p class="giz" aria-hidden="true">Vai ficar assim no mural</p>
-          <div class="previa" inert>
-            <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [empty]="!game()" />
+        <p class="giz" aria-hidden="true">Vai ficar assim no mural</p>
+        <div class="previa-slot" #previewSlot>
+          <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
+            <div class="previa" inert>
+              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [empty]="!game()" />
+            </div>
           </div>
-          @if (bonuses().length && base() !== null) {
-            <p class="giz conta" aria-hidden="true">
-              Notas <b>{{ fmt(base()) }}</b> <span class="sep">·</span> Bônus <b>{{ shift() }}</b>
-            </p>
-          }
-
-          <!-- o estojo: a cor da cartolina, o papel e as marcas; a ficha acima muda na hora -->
-          <app-card-kit class="estojo" [id]="id()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(scribble)]="scribble" [(damage)]="damage" [(damageSeed)]="damageSeed" />
         </div>
+        @if (bonuses().length && base() !== null) {
+          <p class="giz conta" aria-hidden="true">
+            Notas <b>{{ fmt(base()) }}</b> <span class="sep">·</span> Bônus <b>{{ shift() }}</b>
+          </p>
+        }
       </aside>
 
-      <div class="form">
+      <div class="editor-content">
+        <div class="kit-panel parede">
+          <!-- o estojo: a cor da cartolina, o papel e as marcas; a ficha acima muda na hora -->
+          <app-card-kit class="estojo scrollable" [id]="id()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(scribble)]="scribble" [(damage)]="damage" [(damageSeed)]="damageSeed" />
+        </div>
+
+        <div class="form">
         <section class="bloco jogo">
           @if (game(); as g) {
             <p class="pergunta">Qual {{ profile().singular }}?</p>
@@ -193,6 +198,7 @@
             (input)="text.set($any($event.target).value)"
           ></textarea>
         </section>
+      </div>
       </div>
     </div>
 
