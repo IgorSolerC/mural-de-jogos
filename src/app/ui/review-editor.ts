@@ -29,7 +29,6 @@ import {
   Wish,
   computeFinal,
   counts,
-  formatScore,
   formatShift,
   weightOf,
   dayLabel,
@@ -133,14 +132,13 @@ export class ReviewEditor {
   protected readonly bonuses = signal<Bonus[]>([]);
   /** A média se atualiza enquanto as notas, os pesos e os bônus mudam. */
   protected readonly final = computed(() => computeFinal(this.kind(), this.scores(), this.weights(), this.bonuses()));
-  /** Só as notas, sem os bônus: a conta ao lado da estrela mostra quanto eles mexeram. */
+  /** Só as notas, sem os bônus, para o seletor mostrar o efeito deles na média. */
   protected readonly base = computed(() => computeFinal(this.kind(), this.scores(), this.weights()));
   protected readonly shift = computed(() => {
     const f = this.final();
     const b = this.base();
     return f === null || b === null ? '' : formatShift(f - b);
   });
-  protected readonly fmt = formatScore;
   protected readonly weightOf = weightOf;
   protected readonly hours = signal('');
   /** A quantidade do mural (horas, páginas); null se vazia ou se o mural não tem; NaN se não é número. */

@@ -24,7 +24,6 @@
     <div class="body" [style.--preview-row-height.px]="previewRowHeight()">
       <!-- A bancada: um pedaço da parede com a ficha sendo feita, pregada como vai ficar no mural -->
       <aside class="bancada parede" aria-label="A ficha no mural">
-        <p class="giz" aria-hidden="true">Vai ficar assim no mural</p>
         <div class="previa-slot" #previewSlot>
           <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
             <div class="previa" inert>
@@ -32,11 +31,6 @@
             </div>
           </div>
         </div>
-        @if (bonuses().length && base() !== null) {
-          <p class="giz conta" aria-hidden="true">
-            Notas <b>{{ fmt(base()) }}</b> <span class="sep">·</span> Bônus <b>{{ shift() }}</b>
-          </p>
-        }
       </aside>
 
       <div class="editor-content">
