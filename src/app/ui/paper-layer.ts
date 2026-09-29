@@ -56,14 +56,35 @@ let uids = 0;
       <filter id="papel-borra" x="-30%" y="-30%" width="160%" height="160%">
         <feGaussianBlur stdDeviation="1.8" />
       </filter>
-      <!-- o chamuscado em volta do queimado: fumaça que não é redonda -->
-      <filter id="papel-fumaca" x="-30%" y="-30%" width="160%" height="160%">
-        <feTurbulence type="fractalNoise" baseFrequency=".04" numOctaves="2" seed="8" result="n" />
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="14" xChannelSelector="R" yChannelSelector="G" result="d" />
-        <feGaussianBlur in="d" stdDeviation="5" />
+      <!-- o calor tinge a fibra; faixas contínuas de fuligem escurecem o próprio contorno -->
+      <filter id="papel-tostado" x="-100%" y="-100%" width="300%" height="300%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency=".055" numOctaves="3" seed="8" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G" result="d" />
+        <feTurbulence type="fractalNoise" baseFrequency=".12" numOctaves="3" seed="27" result="grain" />
+        <feColorMatrix in="grain" type="luminanceToAlpha" result="light" />
+        <feComponentTransfer in="light" result="mottle"><feFuncA type="linear" slope="1.2" intercept=".35" /></feComponentTransfer>
+        <feComposite in="d" in2="mottle" operator="in" result="pigment" />
+        <feGaussianBlur in="pigment" stdDeviation="8" />
       </filter>
-      <filter id="papel-brasa" x="-30%" y="-30%" width="160%" height="160%">
-        <feGaussianBlur stdDeviation=".9" />
+      <filter id="papel-tostado-pequeno" x="-100%" y="-100%" width="300%" height="300%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency=".08" numOctaves="3" seed="8" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="d" />
+        <feGaussianBlur in="d" stdDeviation="4" />
+      </filter>
+      <filter id="papel-fuligem-larga" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="5.5" />
+      </filter>
+      <filter id="papel-fuligem-estreita" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="2.8" />
+      </filter>
+      <filter id="papel-fuligem-larga-pequena" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="2.5" />
+      </filter>
+      <filter id="papel-fuligem-estreita-pequena" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="1.4" />
+      </filter>
+      <filter id="papel-borda-queimada" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="1" />
       </filter>
       <!-- o relevo miúdo do papel amassado, por cima das facetas -->
       <filter id="papel-relevo" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -116,7 +137,7 @@ export class PaperDefs {}
         <div class="camada relevo" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().relevo"></div>
       }
       @if (a.frente) {
-        <div class="camada frente" [class.por-cima]="damage() === 'orelha'" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().frente"></div>
+        <div class="camada frente" [class.por-cima]="damage() === 'orelha'" [style.mask-image]="burnDamage() ? burnMask() : mask()" [style.-webkit-mask-image]="burnDamage() ? burnMask() : mask()" [innerHTML]="html().frente"></div>
       }
       @if (a.fita) {
         <div class="camada frente" [innerHTML]="html().fita"></div>
@@ -218,6 +239,8 @@ export class PaperArtLayer {
   /** Muda quando o que está escrito na ficha muda: hora de medir de novo onde cada texto está. */
   readonly content = input<unknown>(null);
 
+  protected readonly burnDamage = computed(() => this.damage() === 'furado' || this.damage() === 'queimado');
+
   private readonly uid = `pa${++uids}`;
   private readonly size = signal<{ W: number; H: number } | null>(null);
 
@@ -232,6 +255,11 @@ export class PaperArtLayer {
     const a = this.art(),
       s = this.size();
     return a && s ? cutMask(a, s.W, s.H) : null;
+  });
+  protected readonly burnMask = computed(() => {
+    const a = this.art(),
+      s = this.size();
+    return a && s ? cutMask(a, s.W, s.H, 'queima') : null;
   });
   /** A máscara do papel inteiro, para o miolo. */
   protected readonly outer = computed(() => {

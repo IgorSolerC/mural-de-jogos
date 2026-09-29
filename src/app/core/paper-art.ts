@@ -239,14 +239,19 @@ export function paperArt(input: ArtInput): PaperArt {
  * A máscara do papel: opaca onde há papel, transparente nos pedaços que foram embora. A máscara de
  * CSS lê a transparência, não o preto; por isso o recorte é feito dentro do SVG, com um <mask>.
  */
-export function cutMask(art: PaperArt, W: number, H: number, layer: 'cor' | 'miolo' = 'cor'): string | null {
+export function cutMask(art: PaperArt, W: number, H: number, layer: 'cor' | 'miolo' | 'queima' = 'cor'): string | null {
   if (!art.cut.length) return null;
   const w = f1(W),
     h = f1(H);
   // cada pedaço num <path> próprio: juntos eles somam, sem o fill-rule de um furar o outro
   const paths = [...art.cut, ...(layer === 'cor' ? art.core : [])];
+  // O carvão precisa cobrir a antialiasing do recorte, mas o brilho difuso não deve vazar
+  // para o espaço vazio. A máscara da queimadura devolve só 1,5 px ao lado cortado.
+  const edge = layer === 'queima'
+    ? `<g fill='none' stroke='#fff' stroke-width='3' stroke-linejoin='round'>${art.cut.map((d) => `<path d='${d}'/>`).join('')}</g>`
+    : '';
   return `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><mask id='m' maskUnits='userSpaceOnUse' x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}'><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff'/><g fill='#000' fill-rule='${art.evenodd ? 'evenodd' : 'nonzero'}'>${paths.map((d) => `<path d='${d}'/>`).join('')}</g></mask><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff' mask='url(#m)'/></svg>`,
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><mask id='m' maskUnits='userSpaceOnUse' x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}'><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff'/><g fill='#000' fill-rule='${art.evenodd ? 'evenodd' : 'nonzero'}'>${paths.map((d) => `<path d='${d}'/>`).join('')}</g>${edge}</mask><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff' mask='url(#m)'/></svg>`,
   )}")`;
 }
 
@@ -490,13 +495,13 @@ function rip(path: Pt[], paper: Pt, r: () => number, amp: number, step: number):
 function coreBand(pts: Pt[], paper: Pt, r: () => number, min: number, max: number): string {
   const inside = sideOf(pts[0], pts[pts.length - 1], paper);
   const n = pts.length;
-  // a cor não solta no mesmo desenho do rasgo: a beirada de dentro parte do rasgo alisado e tem os
-  // próprios fiapos, então a faixa não vira um contorno do dente de fora (como a foto na wishlist)
+  // A beirada de dentro acompanha os trancos maiores do rasgo, mas ganha dentinhos próprios em vez
+  // de copiar exatamente a borda de fora.
   const soft = pts.map((_, i): Pt => {
     let x = 0,
       y = 0,
       c = 0;
-    for (let j = Math.max(0, i - 2); j <= Math.min(n - 1, i + 2); j++, c++) {
+    for (let j = Math.max(0, i - 1); j <= Math.min(n - 1, i + 1); j++, c++) {
       x += pts[j][0];
       y += pts[j][1];
     }
@@ -505,9 +510,11 @@ function coreBand(pts: Pt[], paper: Pt, r: () => number, min: number, max: numbe
   let w = min + r() * (max - min);
   const inner = soft.map((p, i): Pt => {
     const [nx, ny] = normalAt(soft, i, inside, 3);
-    // a largura passeia devagar entre o fio e a faixa larga; em cima dela, o fiapo miúdo da fibra
-    w = Math.max(min, Math.min(max, w + (r() - 0.5) * (max - min) * 0.34));
-    const d = w + (r() - 0.35) * (max - min) * 0.3;
+    // a largura passeia entre o fio e a faixa larga; alguns fiapos avançam mais sobre a cor
+    w = Math.max(min, Math.min(max, w + (r() - 0.5) * (max - min) * 0.45));
+    const jitter = r();
+    const tooth = jitter > 0.84 ? ((jitter - 0.84) / 0.16) * (max - min) * 0.45 : 0;
+    const d = Math.max(0, w + (jitter - 0.5) * (max - min) * 0.75 + tooth);
     return [p[0] + nx * d, p[1] + ny * d];
   });
   return `${poly(pts)}${cont([...inner].reverse())}Z`;
@@ -703,50 +710,32 @@ function damageArt(d: Damage, W: number, H: number, k: number, sw: number, r: ()
       break;
     }
     case 'furado': {
-      // furos de queimadura (brasa de cigarro, faísca): grandes, redondos por fora e comidos por dentro,
-      // com a borda preta, o marrom do chamuscado e um fio de brasa
-      const n = 2 + Math.floor(r() * 3);
-      const holes: { x: number; y: number; R: number }[] = [];
-      for (let tries = 0; holes.length < n && tries < 60; tries++) {
-        const R = (18 + r() * 26) * k * (holes.length ? 0.8 + r() * 0.4 : 1.25);
-        const x = W * (0.1 + r() * 0.8),
-          y = H * (0.12 + r() * 0.76);
-        if (holes.some((h) => Math.hypot(h.x - x, h.y - y) < (h.R + R) * 1.9)) continue;
-        holes.push({ x, y, R });
-      }
-      for (const h of holes) {
-        const ring = burnRing(h.x, h.y, h.R, r);
-        out.cut.push(ring);
-        out.frente +=
-          `<path d='${ring}' fill='none' stroke='rgb(120 72 24)' stroke-opacity='.3' stroke-width='${f1(h.R * 1.5)}' filter='url(#papel-fumaca)'/>` +
-          `<path d='${ring}' fill='none' stroke='rgb(58 30 10)' stroke-opacity='.7' stroke-width='${f1(h.R * 0.62)}' filter='url(#papel-fumaca)'/>` +
-          `<path d='${ring}' fill='none' stroke='rgb(26 14 6)' stroke-opacity='.92' stroke-width='${f1(Math.max(6, h.R * 0.28))}' filter='url(#papel-borra)'/>` +
-          `<path d='${ring}' fill='none' stroke='#0d0704' stroke-width='${f1(3.6 * sw)}' stroke-linejoin='round'/>` +
-          `<path d='${ring}' fill='none' stroke='rgb(255 128 36)' stroke-opacity='.75' stroke-width='${f1(1.2 * sw)}' filter='url(#papel-brasa)'/>`;
+      // Um buraco principal realmente comido pelo fogo; às vezes uma perfuração menor ao lado.
+      const cx = W * (0.43 + r() * 0.15),
+        cy = H * (0.39 + r() * 0.2);
+      burnHole(cx, cy, (54 + r() * 22) * k, k, r, out);
+      if (r() < 0.55) {
+        const x = W * (cx < W / 2 ? 0.8 : 0.2),
+          y = H * (0.25 + r() * 0.5);
+        burnHole(x, y, (19 + r() * 11) * k, k, r, out);
       }
       break;
     }
     case 'queimado': {
-      // chamuscada: a beirada comida pelo fogo, preta, marrom, e um fio de brasa
+      // A chama come uma quina ou o pé. A mesma fibra tostada dos furos acompanha o recorte.
       let pts: Pt[];
       if (r() < 0.6) {
         const a = (130 + r() * 70) * k,
           b = (110 + r() * 60) * k;
-        pts = wavy(at(corner, a, 0), at(corner, 0, b), r, 9 * k, 5 * Math.max(0.4, k), 14 * k * inward(corner));
+        pts = rip(wavy(at(corner, a, 0), at(corner, 0, b), r, 18 * k, 6 * Math.max(0.4, k), 14 * k * inward(corner)), [W / 2, H / 2], r, 3.2 * k, step);
         const Q = at(corner, -5, -5);
         out.cut.push(`M${f1(Q[0])} ${f1(Q[1])}${cont(pts)}Z`);
       } else {
         const base = (34 + r() * 22) * k;
-        pts = wavy([W + 4, H - base], [-4, H - base * (0.7 + r() * 0.6)], r, 11 * k, 5 * Math.max(0.4, k), 0);
+        pts = rip(wavy([W + 4, H - base], [-4, H - base * (0.7 + r() * 0.6)], r, 16 * k, 6 * Math.max(0.4, k), 0), [W / 2, 0], r, 3.2 * k, step);
         out.cut.push(`M${f1(W + 5)} ${f1(H + 5)}${cont(pts)}L-5 ${f1(H + 5)}Z`);
       }
-      const d = poly(pts);
-      out.frente +=
-        `<path d='${d}' fill='none' stroke='rgb(120 72 24)' stroke-opacity='.22' stroke-width='${f1(110 * k)}' filter='url(#papel-fumaca)'/>` +
-        `<path d='${d}' fill='none' stroke='rgb(58 30 10)' stroke-opacity='.6' stroke-width='${f1(46 * k)}' filter='url(#papel-fumaca)'/>` +
-        `<path d='${d}' fill='none' stroke='rgb(26 14 6)' stroke-opacity='.9' stroke-width='${f1(20 * k)}' filter='url(#papel-borra)'/>` +
-        `<path d='${d}' fill='none' stroke='#0d0704' stroke-width='${f1(4.5 * sw)}' stroke-linejoin='round'/>` +
-        `<path d='${d}' fill='none' stroke='rgb(255 128 36)' stroke-opacity='.8' stroke-width='${f1(1.3 * sw)}' filter='url(#papel-brasa)'/>`;
+      burnEdge(pts, [W / 2, H / 2], W, H, k, r, out);
       break;
     }
     case 'molhado': {
@@ -808,6 +797,100 @@ function damageArt(d: Damage, W: number, H: number, k: number, sw: number, r: ()
   }
 }
 
+/** O tostado se espalha pelo papel em faixas irregulares; só o carvão encosta no recorte. */
+function burnBand(edge: Pt[], paper: Pt, width: number, r: () => number, taper = false): string {
+  const side = sideOf(edge[0], edge[edge.length - 1], paper);
+  const phase = r() * Math.PI * 2;
+  const outer = edge.map((p, i): Pt => {
+    const [nx, ny] = normalAt(edge, i, side, 3);
+    const t = i / (edge.length - 1);
+    let fade = 1;
+    if (taper && i < 3) fade = [0, 0.25, 0.6][i];
+    if (taper && i >= edge.length - 3) fade = [0.6, 0.25, 0][i - edge.length + 3];
+    const d = width * fade * (0.75 + 0.18 * Math.sin(t * 12 + phase) + r() * 0.2);
+    return [p[0] + nx * d, p[1] + ny * d];
+  });
+  return `${poly(edge)}${cont([...outer].reverse())}Z`;
+}
+
+/** Leva a mancha além das duas bordas da ficha para ela não terminar num corte reto. */
+function isCornerBurn(edge: Pt[], W: number, H: number): boolean {
+  const start = edge[0], end = edge[edge.length - 1];
+  return (Math.abs(start[1]) < 1 || Math.abs(start[1] - H) < 1) && (Math.abs(end[0]) < 1 || Math.abs(end[0] - W) < 1);
+}
+
+function extendedBurnEdge(edge: Pt[], W: number, H: number, extra: number): Pt[] {
+  const start = edge[0], next = edge[1], end = edge[edge.length - 1], previous = edge[edge.length - 2];
+  const al = Math.hypot(next[0] - start[0], next[1] - start[1]) || 1;
+  const bl = Math.hypot(end[0] - previous[0], end[1] - previous[1]) || 1;
+  // A quina começa numa borda horizontal e termina numa vertical. A mancha continua por essas
+  // bordas, em vez de ser cortada onde a diagonal encosta nelas.
+  const corner = isCornerBurn(edge, W, H);
+  const before = (d: number): Pt => corner
+    ? [start[0] - Math.sign(next[0] - start[0]) * d, start[1]]
+    : [start[0] - ((next[0] - start[0]) / al) * d, start[1] - ((next[1] - start[1]) / al) * d];
+  const after = (d: number): Pt => corner
+    ? [end[0], end[1] + Math.sign(end[1] - previous[1]) * d]
+    : [end[0] + ((end[0] - previous[0]) / bl) * d, end[1] + ((end[1] - previous[1]) / bl) * d];
+  return [
+    before(extra), before(extra * 0.62), before(extra * 0.28),
+    ...edge,
+    after(extra * 0.28), after(extra * 0.62), after(extra),
+  ];
+}
+
+function burnEdge(edge: Pt[], paper: Pt, W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const corner = isCornerBurn(edge, W, H);
+  const shade = corner ? edge : extendedBurnEdge(edge, W, H, 70 * k);
+  const charcoal = corner ? edge : extendedBurnEdge(edge, W, H, 18 * k);
+  const cap = corner ? 'butt' : 'round';
+  out.fundo += `<path d='${burnBand(shade, paper, 31 * k, r, true)}' fill='rgb(138 108 88)' fill-opacity='.8' filter='url(#papel-tostado)'/>`;
+  out.frente +=
+    `<path d='${poly(charcoal)}' fill='none' stroke='rgb(89 62 48)' stroke-opacity='.76' stroke-width='${f1(25 * k)}' stroke-linecap='${cap}' stroke-linejoin='round' filter='url(#papel-fuligem-larga)'/>` +
+    `<path d='${poly(charcoal)}' fill='none' stroke='rgb(38 27 22)' stroke-opacity='.9' stroke-width='${f1(11 * k)}' stroke-linecap='${cap}' stroke-linejoin='round' filter='url(#papel-fuligem-estreita)'/>` +
+    `<path d='${poly(edge)}' fill='none' stroke='rgb(25 18 15)' stroke-opacity='.82' stroke-width='${f1(2.6 * k)}' stroke-linecap='${cap}' stroke-linejoin='round' filter='url(#papel-borda-queimada)'/>`;
+  const side = sideOf(edge[0], edge[edge.length - 1], paper);
+  for (let j = 0; j < 15; j++) {
+    const i = 1 + Math.floor(r() * (edge.length - 3));
+    out.frente += `<path d='${poly(edge.slice(i, i + 2 + Math.floor(r() * 3)))}' fill='none' stroke='rgb(24 22 20)' stroke-opacity='${(0.2 + r() * 0.35).toFixed(2)}' stroke-width='${f1((0.5 + r() * 1.5) * k)}' stroke-linecap='round'/>`;
+  }
+  let soot = `<g fill='rgb(45 35 30)'>`;
+  for (let i = 0; i < 100; i++) {
+    const at = 1 + Math.floor(r() * (edge.length - 2));
+    const [nx, ny] = normalAt(edge, at, side, 3);
+    const d = (1.5 + r() * r() * 22) * k;
+    soot += `<circle cx='${f1(edge[at][0] + nx * d)}' cy='${f1(edge[at][1] + ny * d)}' r='${f1((0.22 + Math.pow(r(), 4) * 1.4) * k)}' fill-opacity='${(0.18 + r() * 0.37).toFixed(2)}'/>`;
+  }
+  out.frente += `${soot}</g>`;
+}
+
+function burnHole(cx: number, cy: number, R: number, k: number, r: () => number, out: PaperArt): void {
+  const edge = burnRing(cx, cy, R, r);
+  const small = R < 36 * k;
+  const spread = small ? Math.min(15 * k, R * 0.55) : Math.min(36 * k, R * 0.6);
+  const path = `${poly(edge)}Z`;
+  out.cut.push(`${poly(edge)}Z`);
+  out.fundo += `<path d='${path}' fill='none' stroke='rgb(138 108 88)' stroke-opacity='.82' stroke-width='${f1(spread)}' filter='url(#${small ? 'papel-tostado-pequeno' : 'papel-tostado'})'/>`;
+  out.frente +=
+    `<path d='${path}' fill='none' stroke='rgb(89 62 48)' stroke-opacity='.76' stroke-width='${f1((small ? 9 : 23) * k)}' stroke-linejoin='round' filter='url(#${small ? 'papel-fuligem-larga-pequena' : 'papel-fuligem-larga'})'/>` +
+    `<path d='${path}' fill='none' stroke='rgb(38 27 22)' stroke-opacity='.9' stroke-width='${f1((small ? 4.5 : 10) * k)}' stroke-linejoin='round' filter='url(#${small ? 'papel-fuligem-estreita-pequena' : 'papel-fuligem-estreita'})'/>` +
+    `<path d='${path}' fill='none' stroke='rgb(25 18 15)' stroke-opacity='.82' stroke-width='${f1((small ? 1.8 : 2.4) * k)}' stroke-linejoin='round' filter='url(#papel-borda-queimada)'/>`;
+  for (let j = 0; j < 18; j++) {
+    const i = Math.floor(r() * edge.length);
+    const segment = [edge[i], edge[(i + 1) % edge.length], edge[(i + 2) % edge.length]];
+    out.frente += `<path d='${poly(segment)}' fill='none' stroke='rgb(24 22 20)' stroke-opacity='${(0.2 + r() * 0.35).toFixed(2)}' stroke-width='${f1((0.5 + r() * 1.5) * k)}' stroke-linecap='round'/>`;
+  }
+  let soot = `<g fill='rgb(45 35 30)'>`;
+  for (let i = 0; i < 130; i++) {
+    const p = edge[Math.floor(r() * edge.length)];
+    const dx = p[0] - cx, dy = p[1] - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    const d = (1.5 + r() * r() * 27) * k;
+    soot += `<circle cx='${f1(p[0] + (dx / len) * d)}' cy='${f1(p[1] + (dy / len) * d)}' r='${f1((0.22 + Math.pow(r(), 4) * 1.4) * k)}' fill-opacity='${(0.18 + r() * 0.37).toFixed(2)}'/>`;
+  }
+  out.frente += `${soot}</g>`;
+}
+
 /** Uma borda de queimado: ondas largas, sem os dentes miúdos do rasgo. */
 function wavy(a: Pt, b: Pt, r: () => number, amp: number, step: number, bulge: number): Pt[] {
   const dx = b[0] - a[0],
@@ -830,17 +913,18 @@ function wavy(a: Pt, b: Pt, r: () => number, amp: number, step: number, bulge: n
   return pts;
 }
 
-/** A beirada de um furo de queimadura: redonda de longe, comida em dentinhos de perto. */
-function burnRing(cx: number, cy: number, R: number, r: () => number): string {
-  const n = 44;
-  const ph = [r() * 6, r() * 6, r() * 6];
+/** Um furo desigual, com alguns bocados maiores arrancados e fibra miúda na borda. */
+function burnRing(cx: number, cy: number, R: number, r: () => number): Pt[] {
+  const n = 64;
+  const ph = [r() * 6, r() * 6, r() * 6, r() * 6];
+  const rx = R * (0.94 + r() * 0.2), ry = R * (0.78 + r() * 0.2);
   const pts: Pt[] = [];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
-    const rad = R * (1 + 0.16 * Math.sin(a * 2 + ph[0]) + 0.09 * Math.sin(a * 3 + ph[1]) + 0.06 * Math.sin(a * 7 + ph[2]) + (r() - 0.5) * 0.1);
-    pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]);
+    const rad = 1 + 0.18 * Math.sin(a * 2 + ph[0]) + 0.11 * Math.sin(a * 3 + ph[1]) + 0.07 * Math.sin(a * 7 + ph[2]) + 0.035 * Math.sin(a * 17 + ph[3]) + (r() - 0.5) * 0.075;
+    pts.push([cx + Math.cos(a) * rx * rad, cy + Math.sin(a) * ry * rad]);
   }
-  return `${poly(pts)}Z`;
+  return pts;
 }
 
 /** Uma mancha: um círculo que não é redondo. */
