@@ -138,6 +138,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
       f('centavo', 'Único'),
       f('genial', 'Genial'),
       f('detalhista', 'Detalhista'),
+      f('melhor-do-genero', 'Melhor do gênero'),
       c('bugs', 'Muitos bugs'),
       c('mal-otimizado', 'Mal otimizado'),
       c('loadings', 'Loadings longos'),
