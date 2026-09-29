@@ -11,6 +11,8 @@ describe('papel da ficha', () => {
     expect(sanitizePattern('dinossauros')).toBeUndefined();
     expect(sanitizeScribble('novelo')).toBe('novelo');
     expect(sanitizeDamage('furado')).toBe('furado');
+    expect(sanitizeDamage('arrancado')).toBe('rasgado');
+    expect(sanitizeDamage('canto')).toBe('rasgado');
     expect(sanitizeDamage(['canto'])).toBeUndefined();
   });
 
@@ -20,6 +22,10 @@ describe('papel da ficha', () => {
     expect([r.paper, r.pattern, r.scribble, r.damage]).toEqual(['linho', 'caveiras', 'espirais', 'queimado']);
     const old = sanitizeReview({ ...base, marks: ['gato'] })!;
     for (const k of ['paper', 'pattern', 'scribble', 'damage', 'marks']) expect(k in old).withContext(k).toBeFalse();
+    for (const damage of ['arrancado', 'canto']) {
+      const migrated = sanitizeReview({ ...base, damage, damageSeed: 12345 })!;
+      expect([migrated.damage, migrated.damageSeed]).toEqual(['rasgado', 12345]);
+    }
   });
 
   it('o sorteio do estrago vai com a ficha (e com o backup), só quando há estrago', () => {
@@ -52,7 +58,7 @@ describe('papel da ficha', () => {
     const base = { id: 'r1', W: 420, H: 300, uid: 't' };
 
     it('é a mesma ficha a cada visita', () => {
-      expect(paperArt({ ...base, damage: 'canto', scribble: 'novelo' })).toEqual(paperArt({ ...base, damage: 'canto', scribble: 'novelo' }));
+      expect(paperArt({ ...base, damage: 'rasgado', scribble: 'novelo' })).toEqual(paperArt({ ...base, damage: 'rasgado', scribble: 'novelo' }));
     });
 
     it('cada sorteio rasga de outro jeito, e o mesmo sorteio é sempre o mesmo rasgo', () => {
@@ -61,8 +67,25 @@ describe('papel da ficha', () => {
         expect(paperArt({ ...base, damage: d, seed: 111 })).withContext(d).toEqual(one);
         expect(paperArt({ ...base, damage: d, seed: 222 })).withContext(d).not.toEqual(one);
       }
-      // sem sorteio, o jeito de antes: as fichas já salvas não mudam
-      expect(paperArt({ ...base, damage: 'canto' })).not.toEqual(paperArt({ ...base, damage: 'canto', seed: 111 }));
+      // sem sorteio explícito, o id ainda determina uma forma estável
+      expect(paperArt({ ...base, damage: 'rasgado' })).not.toEqual(paperArt({ ...base, damage: 'rasgado', seed: 111 }));
+    });
+
+    it('a Rasgada sorteia canto ou borda nas quatro orientações', () => {
+      const corners = new Set<string>(), sides = new Set<string>();
+      for (let seed = 1; seed <= 250; seed++) {
+        const path = paperArt({ ...base, damage: 'rasgado', seed }).cut[0];
+        const points = [...path.matchAll(/[ML](-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g)]
+          .map((m) => [Number(m[1]), Number(m[2])]);
+        const [a, b] = [points[0], points[points.length - 1]];
+        if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 250) {
+          sides.add(a[1] < 0 && b[1] < 0 ? 'topo' : a[1] > 300 && b[1] > 300 ? 'baixo' : a[0] < 0 && b[0] < 0 ? 'esquerda' : 'direita');
+        } else {
+          corners.add(`${a[0] < 0 ? 'e' : 'd'}${a[1] < 0 ? 'c' : 'b'}`);
+        }
+      }
+      expect(sides.size).toBe(4);
+      expect(corners.size).toBe(4);
     });
 
     it('cada estrago que recorta tem máscara; os outros não', () => {

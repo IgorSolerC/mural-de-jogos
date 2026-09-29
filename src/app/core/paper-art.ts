@@ -578,22 +578,34 @@ function damageArt(d: Damage, W: number, H: number, k: number, sw: number, r: ()
   // o passo do rasgo: miúdo como o da wishlist (uns 4,5 px na ficha completa)
   const step = 4.5 * Math.max(0.45, k);
   switch (d) {
-    case 'arrancado': {
-      // o pé arrancado do bloco: rasgado de ponta a ponta, mais fundo de um lado que do outro
-      const yl = H - (22 + r() * 30) * k,
-        yr = H - (22 + r() * 30) * k;
-      const line = rip(sweep([-4, yl], [W + 4, yr], r, (r() - 0.5) * 18 * k, 7 * k), [W / 2, 0], r, 5.5 * k, step);
-      out.cut.push(`M-6 ${f1(H + 6)}L-6 ${f1(yl)}${cont(line)}L${f1(W + 6)} ${f1(yr)}L${f1(W + 6)} ${f1(H + 6)}Z`);
-      out.core.push(coreBand(line, [W / 2, 0], r, 0.6 * k, 5 * k));
-      break;
-    }
-    case 'canto': {
-      const a = (105 + r() * 60) * k,
-        b = (95 + r() * 55) * k;
-      const line = rip(sweep(at(corner, a, -4), at(corner, -4, b), r, (r() - 0.35) * 22 * k, 8 * k), [W / 2, H / 2], r, 5.5 * k, step);
-      const Q = at(corner, -6, -6);
-      out.cut.push(`M${f1(Q[0])} ${f1(Q[1])}${cont(line)}Z`);
-      out.core.push(coreBand(line, [W / 2, H / 2], r, 0.6 * k, 5.5 * k));
+    case 'rasgado': {
+      const paper: Pt = [W / 2, H / 2];
+      if (r() < 0.5) {
+        // A folha pode perder uma faixa em qualquer uma das quatro bordas.
+        const side = Math.floor(r() * 4);
+        const length = side % 2 ? H : W;
+        const edge = (u: number, v: number): Pt => {
+          switch (side) {
+            case 0: return [u, v];
+            case 1: return [W - v, u];
+            case 2: return [u, H - v];
+            default: return [v, u];
+          }
+        };
+        const a = (22 + r() * 30) * k,
+          b = (22 + r() * 30) * k;
+        const line = rip(sweep(edge(-4, a), edge(length + 4, b), r, (r() - 0.5) * 18 * k, 7 * k), paper, r, 5.5 * k, step);
+        out.cut.push(`${poly([edge(-6, -6), ...line, edge(length + 6, -6)])}Z`);
+        out.core.push(coreBand(line, paper, r, 0.6 * k, 5 * k));
+      } else {
+        // Ou perde uma quina inteira, escolhida entre as quatro.
+        const a = (105 + r() * 60) * k,
+          b = (95 + r() * 55) * k;
+        const line = rip(sweep(at(corner, a, -4), at(corner, -4, b), r, (r() - 0.35) * 22 * k, 8 * k), paper, r, 5.5 * k, step);
+        const Q = at(corner, -6, -6);
+        out.cut.push(`M${f1(Q[0])} ${f1(Q[1])}${cont(line)}Z`);
+        out.core.push(coreBand(line, paper, r, 0.6 * k, 5.5 * k));
+      }
       break;
     }
     case 'rasgao': {

@@ -108,13 +108,12 @@ export const SCRIBBLE_HINT: Record<Scribble, string> = {
 
 // ===================== Estrago =====================
 
-export type Damage = 'arrancado' | 'canto' | 'rasgao' | 'remendado' | 'orelha' | 'dobrado' | 'amassado' | 'furado' | 'queimado' | 'molhado' | 'cafe';
+export type Damage = 'rasgado' | 'rasgao' | 'remendado' | 'orelha' | 'dobrado' | 'amassado' | 'furado' | 'queimado' | 'molhado' | 'cafe';
 
-export const DAMAGES: readonly Damage[] = ['arrancado', 'canto', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado', 'molhado', 'cafe'];
+export const DAMAGES: readonly Damage[] = ['rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado', 'molhado', 'cafe'];
 
 export const DAMAGE_LABEL: Record<Damage, string> = {
-  arrancado: 'Arrancada',
-  canto: 'Canto rasgado',
+  rasgado: 'Rasgada',
   rasgao: 'Rasgão',
   remendado: 'Remendada',
   orelha: 'Orelha',
@@ -127,8 +126,7 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
 };
 
 export const DAMAGE_HINT: Record<Damage, string> = {
-  arrancado: 'Arrancada do bloco: o pé ficou rasgado.',
-  canto: 'Um canto inteiro foi embora, com o que estava escrito nele.',
+  rasgado: 'Um canto ou uma borda foi arrancada; cada tentativa rasga em outro lugar.',
   rasgao: 'Um rasgão entrando pela beirada.',
   remendado: 'Rasgou de cima a baixo e foi colada com fita.',
   orelha: 'O canto dobrado por cima do que estava ali.',
@@ -142,7 +140,7 @@ export const DAMAGE_HINT: Record<Damage, string> = {
 
 /** Os estragos que tiram um pedaço do papel (ou entortam a beirada): a sombra segue o recorte. */
 export function cutsPaper(d: Damage | undefined): boolean {
-  return d === 'arrancado' || d === 'canto' || d === 'rasgao' || d === 'remendado' || d === 'orelha' || d === 'amassado' || d === 'furado' || d === 'queimado';
+  return d === 'rasgado' || d === 'rasgao' || d === 'remendado' || d === 'orelha' || d === 'amassado' || d === 'furado' || d === 'queimado';
 }
 
 // ===================== Guardar =====================
@@ -155,7 +153,10 @@ function oneOf<T extends string>(list: readonly T[], fallback?: T) {
 export const sanitizePaper = oneOf(PAPERS, 'cartolina');
 export const sanitizePattern = oneOf(PATTERNS);
 export const sanitizeScribble = oneOf(SCRIBBLES);
-export const sanitizeDamage = oneOf(DAMAGES);
+const currentDamage = oneOf(DAMAGES);
+/** As fichas e backups antigos usavam dois nomes para os formatos agora reunidos. */
+export const sanitizeDamage = (raw: unknown): Damage | undefined =>
+  raw === 'arrancado' || raw === 'canto' ? 'rasgado' : currentDamage(raw);
 
 /**
  * O sorteio do estrago: cada clique no estrago rasga de outro jeito, e o jeito escolhido fica
