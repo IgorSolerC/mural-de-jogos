@@ -40,7 +40,7 @@ import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
-import { Damage, Paper, Pattern, Scribble } from '../core/paper';
+import { DEFAULT_LOOK, Damage, Paper, Pattern, PatternLook, Scribble, lookOf } from '../core/paper';
 import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
@@ -182,11 +182,17 @@ export class ReviewEditor {
   /** O papel da cartolina, a estampa, o rabisco e o estrago: a ficha nova nasce na cartolina de sempre, sem nada. */
   protected readonly paper = signal<Paper>('cartolina');
   protected readonly pattern = signal<Pattern | null>(null);
+  /** O espaço, o tamanho e o alinhamento dos desenhos da estampa. */
+  protected readonly patternLook = signal<PatternLook>(DEFAULT_LOOK);
+  /** O jeito da estampa que a pessoa sorteou (um clique a mais na estampa, outro deslocamento). */
+  protected readonly patternSeed = signal<number | null>(null);
   protected readonly scribble = signal<Scribble | null>(null);
+  /** O jeito do rabisco que a pessoa sorteou (um clique a mais no rabisco, outro jeito). */
+  protected readonly scribbleSeed = signal<number | null>(null);
   protected readonly damage = signal<Damage | null>(null);
   /** O jeito do estrago que a pessoa sorteou (um clique a mais no estrago, outro jeito). */
   protected readonly damageSeed = signal<number | null>(null);
-  protected readonly headPaper = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined));
+  protected readonly headPaper = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
 
@@ -214,7 +220,10 @@ export class ReviewEditor {
       stock: this.stock(),
       paper: this.paper(),
       pattern: this.pattern() ?? undefined,
+      ...this.lookFields(),
+      patternSeed: this.patternSeed() ?? undefined,
       scribble: this.scribble() ?? undefined,
+      scribbleSeed: this.scribbleSeed() ?? undefined,
       damage: this.damage() ?? undefined,
       damageSeed: this.damageSeed() ?? undefined,
       text: this.text(),
@@ -295,7 +304,10 @@ export class ReviewEditor {
     this.stock.set(review?.stock ?? this.store.nextStock(kind));
     this.paper.set(review?.paper ?? 'cartolina');
     this.pattern.set(review?.pattern ?? null);
+    this.patternLook.set(lookOf(review ?? {}));
+    this.patternSeed.set(review?.patternSeed ?? null);
     this.scribble.set(review?.scribble ?? null);
+    this.scribbleSeed.set(review?.scribbleSeed ?? null);
     this.damage.set(review?.damage ?? null);
     this.damageSeed.set(review?.damageSeed ?? null);
     this.kit()?.reset();
@@ -423,8 +435,10 @@ export class ReviewEditor {
       stock: this.stock(),
       // o de sempre não vai para o armazenamento: cartolina sem marca é a ficha como era
       ...(this.paper() !== 'cartolina' ? { paper: this.paper() } : {}),
-      ...(this.pattern() ? { pattern: this.pattern()! } : {}),
+      ...(this.pattern() ? { pattern: this.pattern()!, ...this.lookFields() } : {}),
+      ...(this.pattern() && this.patternSeed() ? { patternSeed: this.patternSeed()! } : {}),
       ...(this.scribble() ? { scribble: this.scribble()! } : {}),
+      ...(this.scribble() && this.scribbleSeed() ? { scribbleSeed: this.scribbleSeed()! } : {}),
       ...(this.damage() ? { damage: this.damage()! } : {}),
       ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
       text: this.text().trim(),
@@ -528,7 +542,12 @@ export class ReviewEditor {
   }
 
   /** O clique começou fora do cartão? Selecionar texto e soltar fora dele não fecha. */
-  protected downOnBackdrop = false;
+  private downOnBackdrop = false;
+
+  // sem devolver nada: um handler que devolve false ganha preventDefault do Angular, e o campo clicado não recebe o foco
+  protected onPointerDown(e: PointerEvent): void {
+    this.downOnBackdrop = e.target === e.currentTarget;
+  }
 
   protected onBackdrop(e: MouseEvent): void {
     if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.requestClose();
@@ -557,7 +576,10 @@ export class ReviewEditor {
       this.stock(),
       this.paper(),
       this.pattern(),
+      this.patternLook(),
+      this.patternSeed(),
       this.scribble(),
+      this.scribbleSeed(),
       this.damage(),
       this.damageSeed(),
       this.categories().map((k) => this.scores()[k] ?? null),
@@ -584,6 +606,16 @@ export class ReviewEditor {
       else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
       else root.querySelector<HTMLInputElement>('#editor-horas')?.focus();
     });
+  }
+
+  /** Os ajustes da estampa como vão para a ficha: o de sempre não vai. */
+  private lookFields(): Pick<Review, 'patternSpacing' | 'patternSize' | 'patternJitter'> {
+    const l = this.patternLook();
+    return {
+      ...(l.spacing !== DEFAULT_LOOK.spacing ? { patternSpacing: l.spacing } : {}),
+      ...(l.size !== DEFAULT_LOOK.size ? { patternSize: l.size } : {}),
+      ...(l.jitter !== DEFAULT_LOOK.jitter ? { patternJitter: l.jitter } : {}),
+    };
   }
 
   protected scoreOf(k: RatedKey): number | null {

@@ -133,7 +133,12 @@ export class WishAdder {
   }
 
   /** O clique começou fora da folha? Selecionar texto e soltar fora dela não fecha. */
-  protected downOnBackdrop = false;
+  private downOnBackdrop = false;
+
+  // sem devolver nada: um handler que devolve false ganha preventDefault do Angular, e o campo clicado não recebe o foco
+  protected onPointerDown(e: PointerEvent): void {
+    this.downOnBackdrop = e.target === e.currentTarget;
+  }
 
   protected onBackdrop(e: MouseEvent): void {
     if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.close();

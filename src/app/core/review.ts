@@ -1,5 +1,5 @@
 import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
-import { Damage, Paper, Pattern, Scribble, sanitizeDamage, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { Damage, Paper, Pattern, Scribble, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
 
 export type { Kind } from './kinds';
 
@@ -184,8 +184,16 @@ export interface Review {
   paper?: Paper;
   /** A estampa de papelaria impressa na cartolina (gatinhos, caveiras…); sem o campo, lisa. */
   pattern?: Pattern;
+  /** Os ajustes da estampa (PatternLook), um degrau de 0 a 4 cada; sem o campo, o de sempre. */
+  patternSpacing?: number;
+  patternSize?: number;
+  patternJitter?: number;
+  /** O sorteio da estampa (cada clique nela desloca e bagunça de outro jeito); sem ele, centrada. */
+  patternSeed?: number;
   /** O rabisco a lápis que toma a ficha inteira, atrás do que está escrito; sem o campo, nenhum. */
   scribble?: Scribble;
+  /** O sorteio do rabisco que a pessoa escolheu (cada clique rabisca de outro jeito); sem ele, o jeito sai do id. */
+  scribbleSeed?: number;
   /** O estrago no papel (arrancada, queimada, amassada…): leva o que está escrito, não a foto nem os adesivos. */
   damage?: Damage;
   /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
@@ -609,7 +617,12 @@ export function sanitizeReview(raw: unknown): Review | null {
     stock: STOCKS.includes(r['stock']) ? r['stock'] : undefined,
     ...optional('paper', sanitizePaper(r['paper'])),
     ...optional('pattern', sanitizePattern(r['pattern'])),
+    ...optional('patternSpacing', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternSpacing'], 'spacing') : undefined),
+    ...optional('patternSize', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternSize'], 'size') : undefined),
+    ...optional('patternJitter', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternJitter'], 'jitter') : undefined),
+    ...optional('patternSeed', sanitizePattern(r['pattern']) ? sanitizeSeed(r['patternSeed']) : undefined),
     ...optional('scribble', sanitizeScribble(r['scribble'])),
+    ...optional('scribbleSeed', sanitizeScribble(r['scribble']) ? sanitizeSeed(r['scribbleSeed']) : undefined),
     ...optional('damage', sanitizeDamage(r['damage'])),
     ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
     text: str(r['text']),

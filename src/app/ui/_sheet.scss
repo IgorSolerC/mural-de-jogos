@@ -26,7 +26,9 @@
   /* a faixa é da cartolina da ficha: a cor, o papel escolhido e a fibra */
   background-color: var(--stock);
   background-image: var(--textura, none), var(--estampa, none), var(--grao, var(--grao-img));
-  background-size: var(--textura-tam, auto), var(--estampa-tam, 128px 128px), var(--grao-tam);
+  background-size: var(--textura-tam, auto), calc(var(--estampa-lado, 128px) * var(--estampa-zoom, 1)) auto, var(--grao-tam);
+  /* a estampa sai do meio: o desenho gigante fica na ficha, não num canto */
+  background-position: 0 0, center, 0 0;
   background-blend-mode: var(--textura-mistura, normal), multiply, var(--grao-mistura);
 
   h2 {

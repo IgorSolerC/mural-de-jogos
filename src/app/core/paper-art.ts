@@ -3,7 +3,7 @@
  * que tomam a ficha inteira e os estragos. Tudo sai em SVG, em px da ficha, a partir do id: a mesma
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
-import { Damage, Paper, Pattern, Scribble, f1, hash, rng, svgUrl, textureOf } from './paper';
+import { DEFAULT_LOOK, Damage, Paper, Pattern, PatternLook, Scribble, f1, hash, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -150,37 +150,88 @@ const MOTIFS: Record<Pattern, Motif> = {
   },
 };
 
-const tiles = new Map<string, string>();
+const tiles = new Map<string, Tile>();
+
+/** O ladrilho de uma estampa: a imagem e o lado dela, em px da ficha. */
+export interface Tile {
+  url: string;
+  side: number;
+}
+
+/**
+ * Os degraus dos ajustes (PatternLook): o vão entre os desenhos, o tamanho (vezes o de sempre, 38px)
+ * e a bagunça (0 a 1). O vão negativo é uma fração do desenho: eles se sobrepõem; o positivo é em
+ * px. O último tamanho passa dos 500px: um desenho maior que a ficha completa.
+ */
+const GAP = [-0.55, -0.3, 4, 15, 26, 42, 62];
+const SIZE = [0.6, 0.8, 1, 1.3, 1.7, 2.6, 4.2, 7.5, 14];
+const JITTER = [0, 0.25, 0.5, 0.75, 1];
+/** A tinta da estampa: preto multiplicado, clarinho, para ficar atrás do que está escrito. */
+const TINTA = 0.13;
 
 /**
  * O ladrilho de uma estampa, como cartolina temática de papelaria: o motivo em contorno e o motivo
- * cheio se alternando, com o miudinho entre eles, impresso tom sobre tom (preto a 17%, multiplicado:
- * a cor da cartolina escurece, não acinzenta). Em fileiras desencontradas, 128px de lado.
+ * cheio se alternando, com o miudinho entre eles, impresso tom sobre tom (preto a 13%, multiplicado:
+ * a cor da cartolina escurece, não acinzenta). Quatro por quatro casas, em fileiras desencontradas;
+ * o ajuste de alinhamento gira, desloca e muda o tamanho de cada um, e quem passa da beirada do
+ * ladrilho aparece do outro lado, para a emenda não aparecer.
  */
-export function patternTile(p: Pattern, size = 128): string {
-  const key = `${p}:${size}`;
+export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?: number): Tile {
+  const key = `${p}:${look.spacing}:${look.size}:${look.jitter}${seed ? `:${seed}` : ''}`;
   const hit = tiles.get(key);
   if (hit) return hit;
   const m = MOTIFS[p];
-  const place = (x: number, y: number, rot: number, s: number, body: string) =>
-    `<g transform='translate(${x} ${y}) rotate(${rot}) scale(${s}) translate(-20 -20)'>${body}</g>`;
-  const placeC = (x: number, y: number, rot: number) => `<g transform='translate(${x} ${y}) rotate(${rot}) scale(.95) translate(-10 -10)'>${m.c}</g>`;
+  const z = SIZE[look.size] ?? 1,
+    mess = JITTER[look.jitter] ?? 0.25;
+  // a casa: o desenho (38px no tamanho de sempre) e o vão até o vizinho, que cresce junto com os
+  // desenhos gigantes (senão os Soltos se encostam); negativo, os desenhos entram um no outro
+  const g = GAP[look.spacing] ?? 26;
+  const gap = g < 0 ? g * 38 * z : g * Math.max(1, z / 1.7);
+  // gigantes, cabem um ou dois na ficha: duas casas bastam, e o ladrilho não vira uma imagem enorme
+  const N = z >= 4 ? 2 : 4;
+  const side = Math.round(N * (38 * z + gap));
+  const cell = side / N;
+  const r = rng(hash(key));
+  // A estampa é posta a partir do meio da ficha (background-position: center): sem sorteio, um
+  // desenho grande fica bem no meio, e o gigante aparece inteiro. O sorteio muda qual deles vai para o
+  // meio e desloca um pouco, sem deixar o gigante escapar da ficha.
+  const shift = Math.min(cell / 2, 150);
+  const hop = seed && r() < 0.5 ? cell : 0;
+  const px = seed ? hop + (r() - 0.5) * 2 * shift : 0,
+    py = seed ? hop + (r() - 0.5) * 2 * shift : 0;
+  const wrap = (v: number) => ((v % side) + side) % side;
   const outline = `<g class='l'>${m.sil}${m.det ?? ''}${m.extra ?? ''}</g>`;
   // os furos do motivo cheio: o papel aparece nos olhos, no nariz, na boca
   const holes = m.det ? `<g class='m'>${m.det}</g>` : '';
   const filled = `<g mask='url(#furos)'><g class='s'>${m.sil}</g></g><g class='l'>${m.extra ?? ''}</g>`;
-  const s = size / 128;
-  const body =
+  let body = '';
+  for (let j = 0; j < N; j++)
+    for (let i = 0; i < N; i++) {
+      const big = (i + j) % 2 === 0;
+      const cx = wrap((i + 1) * cell + px + (r() - 0.5) * 2 * mess * 0.3 * cell),
+        cy = wrap((j + 1) * cell + py + (r() - 0.5) * 2 * mess * 0.3 * cell);
+      const rot = (r() - 0.5) * 2 * mess * 48;
+      const s = 0.95 * z * (1 + (r() - 0.5) * 2 * mess * 0.28);
+      const ref = big ? (i % 2 ? '#s' : '#o') : '#c';
+      // o raio que o desenho pode ocupar girado: metade da diagonal do quadro dele
+      const reach = (big ? 28 : 14) * s;
+      const half = big ? 20 : 10;
+      for (const ox of [-side, 0, side])
+        for (const oy of [-side, 0, side]) {
+          const x = cx + ox,
+            y = cy + oy;
+          if (x + reach < 0 || x - reach > side || y + reach < 0 || y - reach > side) continue;
+          body += `<use href='${ref}' transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)}) scale(${s.toFixed(3)}) translate(-${half} -${half})'/>`;
+        }
+    }
+  const svg =
     `<style>.l *{fill:none;stroke:#000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.l .f,.l .f *{fill:#000;stroke:none}.s *{fill:#000}.m *{fill:none;stroke:#000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.m .f{fill:#000;stroke:none}.c *{fill:none;stroke:#000;stroke-width:2.2;stroke-linecap:round}.c .f,.c .f *{fill:#000;stroke:none}</style>` +
-    `<defs><mask id='furos' maskUnits='userSpaceOnUse' x='-10' y='-10' width='60' height='60'><rect x='-10' y='-10' width='60' height='60' fill='#fff'/>${holes}</mask></defs>` +
-    `<g opacity='.19' transform='scale(${s})'>` +
-    place(32, 32, -8, 0.95, outline) +
-    place(96, 96, 7, 0.95, filled) +
-    `<g class='c'>${placeC(96, 30, 14)}${placeC(32, 94, -16)}</g>` +
-    `</g>`;
-  const url = svgUrl(size, size, body);
-  tiles.set(key, url);
-  return url;
+    `<defs><mask id='furos' maskUnits='userSpaceOnUse' x='-10' y='-10' width='60' height='60'><rect x='-10' y='-10' width='60' height='60' fill='#fff'/>${holes}</mask>` +
+    `<g id='o'>${outline}</g><g id='s'>${filled}</g><g id='c' class='c'>${m.c}</g></defs>` +
+    `<g opacity='${TINTA}'>${body}</g>`;
+  const tile = { url: svgUrl(side, side, svg), side };
+  tiles.set(key, tile);
+  return tile;
 }
 
 // ===================== O que sai para a ficha =====================
@@ -214,6 +265,8 @@ export interface ArtInput {
   damage?: Damage;
   /** O sorteio do estrago (Review.damageSeed); sem ele, o estrago sai só do id. */
   seed?: number;
+  /** O sorteio do rabisco (Review.scribbleSeed); sem ele, o rabisco sai só do id. */
+  scribbleSeed?: number;
   /** Um prefixo único para os ids do SVG. */
   uid: string;
   /** Sem o filtro de lápis (as amostras miúdas do editor). */
@@ -230,7 +283,7 @@ export function paperArt(input: ArtInput): PaperArt {
   const k = Math.max(0.2, Math.min(1.2, Math.sqrt((W * H) / (420 * 300))));
   // nas amostras miúdas o traço afina junto, senão o novelo vira borrão
   const sw = input.plain ? Math.max(0.3, k * 1.3) : Math.max(0.6, k);
-  if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}`)), input.plain);
+  if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain);
   if (input.damage) damageArt(input.damage, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.damage}${input.seed ? `:${input.seed}` : ''}`)), input.uid, out);
   return out;
 }
@@ -1031,13 +1084,16 @@ function reflect(p: Pt, a: Pt, b: Pt): Pt {
  * As variáveis de CSS do papel e da estampa (`.cartolina`, `.papel`, a faixa das fichas abertas):
  * a textura por cima, a estampa impressa no meio e a fibra por baixo (que a Lisa não tem).
  */
-export function paperStyle(paper: Paper | undefined, pattern: Pattern | undefined): Record<string, string | null> {
+export function paperStyle(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null): Record<string, string | null> {
   const t = textureOf(paper);
+  const tile = pattern ? patternTile(pattern, look, seed ?? undefined) : null;
   return {
     '--textura': t ? t.img : null,
     '--textura-tam': t ? t.size : null,
     '--textura-mistura': t ? t.blend : null,
-    '--estampa': pattern ? patternTile(pattern) : null,
+    '--estampa': tile ? tile.url : null,
+    // o lado do ladrilho muda com o espaço e o tamanho; as amostras do editor o encolhem (--estampa-zoom)
+    '--estampa-lado': tile ? `${tile.side}px` : null,
     '--grao': paper === 'lisa' ? 'none' : null,
   };
 }

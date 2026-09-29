@@ -233,6 +233,8 @@ export class PaperArtLayer {
   readonly damage = input<Damage | undefined>(undefined);
   /** O sorteio do estrago (Review.damageSeed). */
   readonly seed = input<number | null | undefined>(undefined);
+  /** O sorteio do rabisco (Review.scribbleSeed). */
+  readonly scribbleSeed = input<number | null | undefined>(undefined);
   readonly glitter = input(false);
   /** Sem o filtro de lápis: as amostras miúdas do editor. */
   readonly plain = input(false);
@@ -247,7 +249,7 @@ export class PaperArtLayer {
   protected readonly art = computed<Art | null>(() => {
     const s = this.size();
     if (!s || (!this.scribble() && !this.damage())) return null;
-    return paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), damage: this.damage(), seed: this.seed() ?? undefined, uid: this.uid, plain: this.plain() });
+    return paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, uid: this.uid, plain: this.plain() });
   });
 
   /** A máscara da cor e do que está escrito: o papel que foi embora e a faixa em que a cor soltou. */

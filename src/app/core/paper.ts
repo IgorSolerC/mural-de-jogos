@@ -80,6 +80,56 @@ export const PATTERN_LABEL: Record<Pattern, string> = {
   aranhas: 'Aranhas',
 };
 
+/**
+ * Os ajustes da estampa: o espaço entre os desenhos, o tamanho deles e o quanto saem da fileira
+ * (girados, fora do lugar, de tamanhos diferentes). O espaço vai até os desenhos se amontoarem uns
+ * por cima dos outros; o tamanho, até um desenho maior que a ficha inteira. O de sempre não é guardado.
+ */
+export interface PatternLook {
+  spacing: number;
+  size: number;
+  jitter: number;
+}
+
+export type LookKey = keyof PatternLook;
+
+export const LOOK_KEYS: readonly LookKey[] = ['spacing', 'size', 'jitter'];
+
+export const DEFAULT_LOOK: PatternLook = { spacing: 4, size: 2, jitter: 1 };
+
+export const LOOK_LABEL: Record<LookKey, string> = {
+  spacing: 'Espaço',
+  size: 'Tamanho',
+  jitter: 'Alinhamento',
+};
+
+export const LOOK_STEP_LABEL: Record<LookKey, readonly string[]> = {
+  spacing: ['Amontoados', 'Encavalados', 'Grudados', 'Juntinhos', 'Normal', 'Espaçados', 'Soltos'],
+  size: ['Miudinhos', 'Pequenos', 'Normais', 'Grandes', 'Enormes', 'Gigantes', 'Colossais', 'Quase a folha', 'Maiores que a folha'],
+  jitter: ['Alinhados', 'De leve', 'Tortos', 'Bagunçados', 'Espalhados'],
+};
+
+/** Quantos degraus cada ajuste tem. */
+export const LOOK_STEPS: Record<LookKey, number> = {
+  spacing: LOOK_STEP_LABEL.spacing.length,
+  size: LOOK_STEP_LABEL.size.length,
+  jitter: LOOK_STEP_LABEL.jitter.length,
+};
+
+/** O degrau guardado com a ficha; o de sempre não vai para o armazenamento. */
+export function sanitizeLookStep(raw: unknown, key: LookKey): number | undefined {
+  return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < LOOK_STEPS[key] && raw !== DEFAULT_LOOK[key] ? (raw as number) : undefined;
+}
+
+/** Os ajustes de uma ficha, com o de sempre no lugar do que ela não tem. */
+export function lookOf(r: { patternSpacing?: number; patternSize?: number; patternJitter?: number }): PatternLook {
+  return {
+    spacing: r.patternSpacing ?? DEFAULT_LOOK.spacing,
+    size: r.patternSize ?? DEFAULT_LOOK.size,
+    jitter: r.patternJitter ?? DEFAULT_LOOK.jitter,
+  };
+}
+
 // ===================== Rabisco =====================
 
 export type Scribble = 'novelo' | 'espirais' | 'molinhas' | 'hachura' | 'riscado' | 'contorno' | 'aula';
@@ -159,8 +209,8 @@ export const sanitizeDamage = (raw: unknown): Damage | undefined =>
   raw === 'arrancado' || raw === 'canto' ? 'rasgado' : currentDamage(raw);
 
 /**
- * O sorteio do estrago: cada clique no estrago rasga de outro jeito, e o jeito escolhido fica
- * guardado com a ficha. Sem o sorteio (as fichas de antes), o estrago sai do id, como sempre.
+ * O sorteio do estrago e do rabisco: cada clique rasga (ou rabisca) de outro jeito, e o jeito
+ * escolhido fica guardado com a ficha. Sem o sorteio (as fichas de antes), ele sai do id, como sempre.
  */
 export const SEED_MAX = 2 ** 31 - 1;
 export const sanitizeSeed = (raw: unknown): number | undefined =>

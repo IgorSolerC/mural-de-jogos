@@ -1,4 +1,4 @@
-<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" aria-labelledby="desejo-titulo" (pointerdown)="downOnBackdrop = $event.target === $event.currentTarget" (click)="onBackdrop($event)">
+<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" aria-labelledby="desejo-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)">
   <form class="folha" (submit)="save($event)" novalidate>
     <!-- a faixa vermelha do catálogo, impressa em retícula (no Pra depois, a capa azul do caderno) -->
     <header class="masthead">

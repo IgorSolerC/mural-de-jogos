@@ -1,4 +1,4 @@
-import { DAMAGES, SCRIBBLES, cutsPaper, newSeed, sanitizeDamage, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { DAMAGES, DEFAULT_LOOK, SCRIBBLES, cutsPaper, lookOf, newSeed, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
 import { sanitizeReview } from './review';
 
@@ -40,11 +40,47 @@ describe('papel da ficha', () => {
     }
   });
 
-  it('a Lisa tira a fibra; a estampa vira um ladrilho', () => {
+  it('o sorteio do rabisco vai com a ficha, só quando há rabisco', () => {
+    const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
+    expect(sanitizeReview({ ...base, scribble: 'novelo', scribbleSeed: 777 })!.scribbleSeed).toBe(777);
+    expect('scribbleSeed' in sanitizeReview({ ...base, scribbleSeed: 777 })!).toBeFalse();
+  });
+
+  it('os ajustes da estampa vão com a ficha; o de sempre e os sem estampa não', () => {
+    const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
+    const r = sanitizeReview({ ...base, pattern: 'gatinhos', patternSpacing: 0, patternSize: 8, patternJitter: DEFAULT_LOOK.jitter, patternSeed: 99 })!;
+    expect([r.patternSpacing, r.patternSize, r.patternSeed]).toEqual([0, 8, 99]);
+    expect('patternJitter' in r).toBeFalse();
+    expect(lookOf(r)).toEqual({ spacing: 0, size: 8, jitter: DEFAULT_LOOK.jitter });
+    const plain = sanitizeReview({ ...base, patternSpacing: 0, patternSeed: 99 })!;
+    expect('patternSpacing' in plain || 'patternSeed' in plain).toBeFalse();
+    for (const bad of [-1, 7, 1.5, '3', null]) expect(sanitizeLookStep(bad, 'spacing')).withContext(String(bad)).toBeUndefined();
+    // o tamanho vai além: até um desenho maior que a ficha
+    expect(sanitizeLookStep(8, 'size')).toBe(8);
+    expect(sanitizeLookStep(9, 'size')).toBeUndefined();
+  });
+
+  it('a Lisa tira a fibra; a estampa vira um ladrilho do tamanho dos ajustes', () => {
     expect(paperStyle('lisa', undefined)['--grao']).toBe('none');
     expect(paperStyle(undefined, undefined)['--textura']).toBeNull();
-    expect(paperStyle('canson', 'gatinhos')['--estampa']).toBe(patternTile('gatinhos'));
-    expect(patternTile('gatinhos')).toContain('data:image/svg+xml');
+    expect(paperStyle(undefined, undefined)['--estampa-lado']).toBeNull();
+    const tile = patternTile('gatinhos');
+    expect(paperStyle('canson', 'gatinhos')['--estampa']).toBe(tile.url);
+    expect(paperStyle('canson', 'gatinhos')['--estampa-lado']).toBe(`${tile.side}px`);
+    expect(tile.url).toContain('data:image/svg+xml');
+    // mais espaço e desenhos maiores pedem um ladrilho maior; a bagunça não muda o tamanho
+    expect(patternTile('gatinhos', { ...DEFAULT_LOOK, spacing: 6 }).side).toBeGreaterThan(tile.side);
+    // amontoados: a casa fica menor que o desenho (38px), e eles entram um no outro
+    expect(patternTile('gatinhos', { ...DEFAULT_LOOK, spacing: 0 }).side / 4).toBeLessThan(38);
+    // cada sorteio é outra estampa, do mesmo tamanho; o mesmo sorteio, a mesma
+    expect(patternTile('gatinhos', DEFAULT_LOOK, 5).url).not.toBe(patternTile('gatinhos', DEFAULT_LOOK, 6).url);
+    expect(patternTile('gatinhos', DEFAULT_LOOK, 5).side).toBe(tile.side);
+    expect(patternTile('gatinhos', DEFAULT_LOOK, 5)).toEqual(patternTile('gatinhos', DEFAULT_LOOK, 5));
+    expect(patternTile('gatinhos', { ...DEFAULT_LOOK, size: 4 }).side).toBeGreaterThan(tile.side);
+    // o maior: cada desenho passa da largura da ficha completa (420px), com o ladrilho de duas casas
+    expect(patternTile('gatinhos', { ...DEFAULT_LOOK, size: 8 }).side / 2).toBeGreaterThan(420);
+    expect(patternTile('gatinhos', { ...DEFAULT_LOOK, jitter: 4 }).side).toBe(tile.side);
+    expect(patternTile('gatinhos', { ...DEFAULT_LOOK, jitter: 4 }).url).not.toBe(tile.url);
   });
 
   it('só os estragos que tiram papel recortam a ficha', () => {
@@ -86,6 +122,14 @@ describe('papel da ficha', () => {
       }
       expect(sides.size).toBe(4);
       expect(corners.size).toBe(4);
+    });
+
+    it('cada sorteio rabisca de outro jeito, e o mesmo sorteio é sempre o mesmo rabisco', () => {
+      for (const s of SCRIBBLES) {
+        const one = paperArt({ ...base, scribble: s, scribbleSeed: 111 });
+        expect(paperArt({ ...base, scribble: s, scribbleSeed: 111 })).withContext(s).toEqual(one);
+        expect(paperArt({ ...base, scribble: s, scribbleSeed: 222 })).withContext(s).not.toEqual(one);
+      }
     });
 
     it('cada estrago que recorta tem máscara; os outros não', () => {

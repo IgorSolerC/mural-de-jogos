@@ -4,6 +4,10 @@ import {
   DAMAGE_HINT,
   DAMAGE_LABEL,
   Damage,
+  LOOK_KEYS,
+  LOOK_LABEL,
+  LOOK_STEP_LABEL,
+  LookKey,
   PAPERS,
   PAPER_HINT,
   PAPER_LABEL,
@@ -11,6 +15,7 @@ import {
   PATTERN_LABEL,
   Paper,
   Pattern,
+  PatternLook,
   SCRIBBLES,
   SCRIBBLE_HINT,
   SCRIBBLE_LABEL,
@@ -82,12 +87,39 @@ interface Option {
       } @else {
         <fieldset>
           <legend class="giz">{{ tabLabel() }} <b>{{ chosen().label }}</b></legend>
+          <!-- os ajustes da estampa, logo à vista; na Lisa ficam apagados, para a grade não pular ao escolher -->
+          @if (tab() === 'estampa') {
+            <div class="ajustes" [class.apagados]="!pattern()">
+              @for (k of lookKeys; track k) {
+                <label class="ajuste">
+                  <span class="giz">{{ lookLabels[k] }} <b>{{ lookSteps[k][patternLook()[k]] }}</b></span>
+                  <input
+                    type="range"
+                    min="0"
+                    [max]="lookSteps[k].length - 1"
+                    step="1"
+                    [disabled]="!pattern()"
+                    [value]="patternLook()[k]"
+                    [attr.aria-valuetext]="lookSteps[k][patternLook()[k]]"
+                    (input)="setLook(k, +$any($event.target).value)"
+                  />
+                </label>
+              }
+            </div>
+          }
           <div class="retalhos" [class.largos]="tab() === 'estrago' || tab() === 'rabisco'">
             @for (o of options(); track o.value) {
               <label class="retalho" [class.on]="o.value === value()">
                 <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
                 <span class="mini" [style]="miniVars(o)" [style.--stock]="'var(--stock-' + stock() + ')'">
-                  <app-paper-art [id]="id()" [scribble]="o.scribble" [damage]="o.damage" [seed]="o.damage && o.value === value() ? damageSeed() : null" [plain]="true" />
+                  <app-paper-art
+                    [id]="id()"
+                    [scribble]="o.scribble"
+                    [scribbleSeed]="o.scribble && o.value === value() ? scribbleSeed() : null"
+                    [damage]="o.damage"
+                    [seed]="o.damage && o.value === value() ? damageSeed() : null"
+                    [plain]="true"
+                  />
                   @if (o.value === null) {
                     <span class="nada">nenhum</span>
                   }
@@ -98,7 +130,7 @@ interface Option {
           </div>
           <p class="dica" aria-live="polite">
             {{ chosen().hint }}
-            @if (tab() === 'estrago' && damage()) {
+            @if ((tab() === 'estrago' && damage()) || (tab() === 'rabisco' && scribble()) || (tab() === 'estampa' && pattern())) {
               <span class="de-novo">Clique de novo e ele sai de outro jeito.</span>
             }
           </p>
@@ -214,7 +246,7 @@ interface Option {
       display: block;
       color: var(--wall-ink);
     }
-    input {
+    input[type='radio'] {
       position: absolute;
       opacity: 0;
       width: 1px;
@@ -307,7 +339,7 @@ interface Option {
         rotate var(--t-physical) var(--ease-physical),
         translate var(--t-physical) var(--ease-physical);
       /* a estampa em miniatura, para caberem vários motivos no retalho */
-      --estampa-tam: 64px 64px;
+      --estampa-zoom: 0.5;
     }
     .retalho:hover .mini {
       translate: 0 -2px;
@@ -341,6 +373,52 @@ interface Option {
       text-underline-offset: 4px;
     }
 
+    /* ===== Ajustes da estampa: três réguas de cinco degraus, lado a lado acima dos retalhos ===== */
+    .ajustes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin: 0 0 16px;
+      padding-bottom: 14px;
+      border-bottom: 2px dashed rgb(255 255 255 / 0.16);
+      transition: opacity var(--t-ui) var(--ease-ui);
+    }
+    .ajustes.apagados {
+      opacity: 0.4;
+
+      input {
+        cursor: not-allowed;
+      }
+    }
+    .ajuste {
+      display: grid;
+      align-content: start;
+      gap: 2px;
+      min-width: 0;
+
+      .giz {
+        margin: 0;
+        font-size: 0.7rem;
+
+        b {
+          display: block;
+          font-size: 0.78rem;
+        }
+      }
+
+      input {
+        width: 100%;
+        height: 28px;
+        margin: 0;
+        cursor: pointer;
+      }
+
+      input:focus-visible {
+        outline: 3px solid var(--hi);
+        outline-offset: 2px;
+      }
+    }
+
     @media (max-width: 400px) {
       .plate {
         padding-inline: 8px;
@@ -364,6 +442,12 @@ export class CardKit {
   readonly damage = model.required<Damage | null>();
   /** O sorteio do estrago: cada clique num estrago, mesmo no que já está, rasga de outro jeito. */
   readonly damageSeed = model.required<number | null>();
+  /** O sorteio do rabisco, como o do estrago: cada clique rabisca de outro jeito. */
+  readonly scribbleSeed = model.required<number | null>();
+  /** O espaço, o tamanho e o alinhamento dos desenhos da estampa. */
+  readonly patternLook = model.required<PatternLook>();
+  /** O sorteio da estampa: cada clique nela desloca e bagunça de outro jeito. */
+  readonly patternSeed = model.required<number | null>();
 
   protected readonly tab = signal<Tab>('cor');
   protected readonly tabs: readonly { id: Tab; label: string }[] = [
@@ -375,9 +459,12 @@ export class CardKit {
   ];
   protected readonly stocks = STOCKS;
   protected readonly stockLabels = STOCK_LABEL;
+  protected readonly lookKeys = LOOK_KEYS;
+  protected readonly lookLabels = LOOK_LABEL;
+  protected readonly lookSteps = LOOK_STEP_LABEL;
 
   /** O papel e a estampa da ficha, para as amostras de cor. */
-  protected readonly current = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined));
+  protected readonly current = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
 
   private readonly all: Record<Exclude<Tab, 'cor'>, Option[]> = {
     papel: PAPERS.map((p) => ({ value: p, label: PAPER_LABEL[p], hint: PAPER_HINT[p], paper: p })),
@@ -433,7 +520,8 @@ export class CardKit {
   protected miniVars(o: Option): Record<string, string | null> {
     const paper = this.tab() === 'papel' ? o.paper : this.paper();
     const pattern = this.tab() === 'estampa' ? o.pattern : (this.pattern() ?? undefined);
-    return paperStyle(paper, pattern);
+    // o sorteio vale para a estampa escolhida; as outras aparecem centradas
+    return paperStyle(paper, pattern, this.patternLook(), pattern === this.pattern() ? this.patternSeed() : null);
   }
 
   protected choose(v: string | null): void {
@@ -443,15 +531,21 @@ export class CardKit {
         break;
       case 'estampa':
         this.pattern.set(v as Pattern | null);
+        this.patternSeed.set(v ? newSeed(this.patternSeed()) : null);
         break;
       case 'rabisco':
         this.scribble.set(v as Scribble | null);
+        this.scribbleSeed.set(v ? newSeed(this.scribbleSeed()) : null);
         break;
       case 'estrago':
         this.damage.set(v as Damage | null);
         this.damageSeed.set(v ? newSeed(this.damageSeed()) : null);
         break;
     }
+  }
+
+  protected setLook(k: LookKey, step: number): void {
+    this.patternLook.update((cur) => ({ ...cur, [k]: step }));
   }
 
   /** Setas trocam de aba, como um tablist. */
