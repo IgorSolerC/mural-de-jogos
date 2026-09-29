@@ -857,9 +857,8 @@ function damageArt(d: Damage, W: number, H: number, k: number, sw: number, r: ()
         `<g filter='url(#papel-mancha)'>` +
         `<circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R)}' fill='rgb(130 80 36)' fill-opacity='.1'/>` +
         `<circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R)}' fill='none' stroke='${brown}' stroke-opacity='.34' stroke-width='${f1(7 * sw)}' stroke-dasharray='${f1(R * 4.4)} ${f1(R * 0.35)} ${f1(R * 1.2)} ${f1(R * 0.3)}'/>` +
-        `<circle cx='${f1(cx + 4 * k)}' cy='${f1(cy + 3 * k)}' r='${f1(R * 0.965)}' fill='none' stroke='${brown}' stroke-opacity='.18' stroke-width='${f1(3.4 * sw)}' stroke-dasharray='${f1(R * 2.2)} ${f1(R * 1.8)}'/>` +
         // o que derramou: uma poça e os respingos
-        `<path d='${blobPath(sx, sy, (13 + r() * 9) * k, r)}' fill='${brown}' fill-opacity='.34' stroke='${brown}' stroke-opacity='.5' stroke-width='${f1(1.4 * sw)}'/>` +
+        `<path d='${blobPath(sx, sy, (13 + r() * 9) * k, r)}' fill='${brown}' fill-opacity='.34'/>` +
         drops +
         specks(cx, cy, sx, sy, R, k, brown, r) +
         `</g>`;
