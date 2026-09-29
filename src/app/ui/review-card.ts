@@ -18,7 +18,7 @@ import {
   sortBonuses,
   weightOf,
 } from '../core/review';
-import { cutsPaper, lookOf } from '../core/paper';
+import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
@@ -69,7 +69,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
   },
   template: `
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
-    <app-paper-art [id]="review().id" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [glitter]="review().paper === 'glitter'" [content]="review()" />
+    <app-paper-art [id]="review().id" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [content]="review()" />
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <div class="head">
@@ -550,7 +550,7 @@ export class ReviewCard {
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   protected readonly profile = computed(() => profileOf(this.review().kind));
   protected readonly paperVars = computed(() => paperStyle(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed));
-  protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().stain));
+  protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().stain) || decorCuts(this.review().decor));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() => `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`);
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */

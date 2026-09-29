@@ -1,5 +1,5 @@
 import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
-import { Damage, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
+import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
 
 export type { Kind } from './kinds';
 
@@ -209,6 +209,10 @@ export interface Review {
   stain?: Stain;
   /** O sorteio da mancha, como o do estrago. */
   stainSeed?: number;
+  /** A decoração posta por cima de tudo (purpurina, adesivos, argolas…). */
+  decor?: Decor;
+  /** O sorteio da decoração, como o do estrago. */
+  decorSeed?: number;
   text: string;
   /**
    * Dia em que foi concluído (ou visto pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos.
@@ -661,6 +665,8 @@ export function sanitizeReview(raw: unknown): Review | null {
     ...optional('damage', sanitizeDamage(r['damage'])),
     ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
     ...stainFields(r),
+    ...optional('decor', sanitizeDecor(r['decor'])),
+    ...optional('decorSeed', sanitizeDecor(r['decor']) ? sanitizeSeed(r['decorSeed']) : undefined),
     text: str(r['text']),
     completedAt:
       r['completedAt'] === null

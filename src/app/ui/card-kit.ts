@@ -3,7 +3,10 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
   DAMAGES,
   DAMAGE_LABEL,
+  DECORS,
+  DECOR_LABEL,
   Damage,
+  Decor,
   LOOK_KEYS,
   LOOK_LABEL,
   LOOK_STEP_LABEL,
@@ -29,7 +32,7 @@ import { STOCKS, STOCK_LABEL, Stock } from '../core/review';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 
-type Tab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha';
+type Tab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha' | 'decoracao';
 
 interface Option {
   value: string | null;
@@ -39,13 +42,14 @@ interface Option {
   scribble?: Scribble;
   damage?: Damage;
   stain?: Stain;
+  decor?: Decor;
 }
 
 /**
  * O estojo da ficha, na bancada do editor: a cor da cartolina, o papel, a estampa, o rabisco, o
- * estrago e a mancha, um de cada. Abas de fichário em pé numa régua, como os filtros do mural: seis numa
- * fileira só, com um desenho em cima do nome, e um respiro entre o que é a cartolina (cor, papel,
- * estampa) e o que vem por cima dela (rabisco, estrago, mancha). Cada opção é
+ * estrago, a mancha e a decoração, um de cada. Abas de fichário em pé em réguas, como os filtros do
+ * mural: sete numa fileira só, com um desenho em cima do nome, e um respiro entre o que é a cartolina
+ * (cor, papel, estampa) e o que vem por cima dela (rabisco, estrago, mancha, decoração). Cada opção é
  * um retalho da ficha já com o efeito, na cor dela; a ficha ao lado muda na hora.
  */
 @Component({
@@ -71,6 +75,9 @@ interface Option {
           <span>{{ t.label }}</span>
         </button>
       }
+      <!-- as duas réguas: a da cartolina e a do que vem por cima dela -->
+      <span class="regua um" aria-hidden="true"></span>
+      <span class="regua dois" aria-hidden="true"></span>
     </div>
 
     <div class="painel" role="tabpanel" id="kit-painel" [attr.aria-labelledby]="'kit-aba-' + tab()">
@@ -146,7 +153,7 @@ interface Option {
               }
             </div>
           } @else {
-          <div class="retalhos" [class.largos]="tab() === 'estrago' || tab() === 'mancha' || tab() === 'rabisco'">
+          <div class="retalhos" [class.largos]="tab() !== 'papel'">
             @for (o of options(); track o.value) {
               <label class="retalho" [class.on]="o.value === value()">
                 <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
@@ -160,6 +167,8 @@ interface Option {
                     [seed]="o.damage && o.value === value() ? damageSeed() : null"
                     [stain]="o.stain"
                     [stainSeed]="o.stain && o.value === value() ? stainSeed() : null"
+                    [decor]="o.decor"
+                    [decorSeed]="o.decor && o.value === value() ? decorSeed() : null"
                     [plain]="true"
                   />
                   @if (o.value === null) {
@@ -202,37 +211,32 @@ interface Option {
       }
     }
 
-    /* ===== Abas de fichário em pé numa régua de alumínio: seis numa fileira, em dois grupos ===== */
+    /* ===== Abas de fichário em pé em duas réguas de alumínio: sete numa fileira, em dois grupos ===== */
     .abas {
-      position: relative;
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr));
+      /* a Decoração tem o nome mais comprido: a coluna dela é um pouco mais larga */
+      grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr)) minmax(0, 1.4fr);
+      grid-template-rows: auto 7px;
       column-gap: 3px;
       padding: 0 4px;
-      margin-bottom: 18px;
-
-      /* duas réguas, uma para cada grupo, com o vão no meio */
-      &::before,
-      &::after {
-        content: '';
-        position: absolute;
-        bottom: -7px;
-        height: 7px;
-        border-radius: 1px;
-        background: #76726b;
-        box-shadow:
-          inset 0 1px 0 rgb(255 255 255 / 0.28),
-          inset 0 -2px 0 rgb(0 0 0 / 0.3),
-          0 5px 8px -3px rgb(0 0 0 / 0.6);
-      }
-      &::before {
-        left: 0;
-        right: calc(50% + 3px);
-      }
-      &::after {
-        left: calc(50% + 3px);
-        right: 0;
-      }
+      margin-bottom: 11px;
+    }
+    .regua {
+      grid-row: 2;
+      border-radius: 1px;
+      background: #76726b;
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.28),
+        inset 0 -2px 0 rgb(0 0 0 / 0.3),
+        0 5px 8px -3px rgb(0 0 0 / 0.6);
+    }
+    .regua.um {
+      grid-column: 1 / 4;
+      margin-left: -4px;
+    }
+    .regua.dois {
+      grid-column: 5 / 9;
+      margin-right: -4px;
     }
     /* o desenho em cima, o nome embaixo: a fileira cabe inteira até no celular */
     .plate {
@@ -557,13 +561,19 @@ interface Option {
 
     @media (max-width: 400px) {
       .abas {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) 6px repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr)) 6px repeat(3, minmax(0, 1fr)) minmax(0, 1.4fr);
         column-gap: 2px;
         padding: 0;
       }
+      .regua.um {
+        margin-left: 0;
+      }
+      .regua.dois {
+        margin-right: 0;
+      }
       .plate {
-        font-size: 0.62rem;
-        letter-spacing: 0.02em;
+        font-size: 0.58rem;
+        letter-spacing: 0;
       }
       .retalhos {
         gap: 12px 10px;
@@ -591,6 +601,9 @@ export class CardKit {
   /** A mancha por cima do papel, e o sorteio dela (como o do estrago). */
   readonly stain = model.required<Stain | null>();
   readonly stainSeed = model.required<number | null>();
+  /** A decoração por cima de tudo, e o sorteio dela (como o do estrago). */
+  readonly decor = model.required<Decor | null>();
+  readonly decorSeed = model.required<number | null>();
   /** O sorteio do rabisco, como o do estrago: cada clique rabisca de outro jeito. */
   readonly scribbleSeed = model.required<number | null>();
   /** A força do lápis do rabisco, um degrau de SCRIBBLE_INK. */
@@ -608,6 +621,7 @@ export class CardKit {
     { id: 'rabisco', label: 'Rabisco' },
     { id: 'estrago', label: 'Estrago' },
     { id: 'mancha', label: 'Mancha' },
+    { id: 'decoracao', label: 'Decoração' },
   ];
   /** O desenho de cada aba, a traço: a amostra, a folha, o carimbo, o rabisco, o rasgo e a mancha. */
   protected readonly tabIcons: Record<Tab, SafeHtml> = (() => {
@@ -618,6 +632,7 @@ export class CardKit {
       estampa: `<path d='M12 3.8l2.3 4.9 5.3.6-3.9 3.6 1 5.3-4.7-2.7-4.7 2.7 1-5.3-3.9-3.6 5.3-.6Z'/>`,
       rabisco: `<path d='M3.5 16.5c2.4-5.4 5.2-8.8 6.6-7.2 1.6 1.8-3.4 6.6-1.4 7.8 2.2 1.3 5.4-8.6 8.2-7.6 2 .7-.6 5.2 1.2 5.6 1 .2 1.8-.8 2.4-1.8'/>`,
       estrago: `<path d='M6 3.5h12v8.2l-2.2 1.3.9 2.2-2.6.6.5 2.6-2.8.8.4 2.3H6Z'/><path d='M9 7.5h6M9 10.5h4'/>`,
+      decoracao: `<path d='M12 3.6l1.9 4.2 4.5.4-3.4 3 1 4.5L12 13.3l-4 2.4 1-4.5-3.4-3 4.5-.4Z'/><path d='M5 19.4l.9 1.8M19 18.2l-.4 2M12 18.6v2.6M3.6 14.6l1.8.4M20.4 13.6l-1.8.6'/>`,
       mancha: `<path d='M12 5.2a6.8 6.8 0 1 1-6.8 6.8'/><path d='M5.2 12a6.8 6.8 0 0 1 3.4-5.9' stroke-dasharray='2 2.4'/><path d='M12 9.3a2.7 2.7 0 1 1-2.7 2.7'/><circle cx='19.6' cy='19.4' r='1.1'/>`,
     };
     return Object.fromEntries(Object.entries(icons).map(([k, v]) => [k, sanitizer.bypassSecurityTrustHtml(v)])) as Record<Tab, SafeHtml>;
@@ -638,10 +653,11 @@ export class CardKit {
     rabisco: [{ value: null, label: 'Nenhum' }, ...SCRIBBLES.map((s) => ({ value: s, label: SCRIBBLE_LABEL[s], scribble: s }))],
     estrago: [{ value: null, label: 'Nenhum' }, ...DAMAGES.map((d) => ({ value: d, label: DAMAGE_LABEL[d], damage: d }))],
     mancha: [{ value: null, label: 'Nenhuma' }, ...STAINS.map((m) => ({ value: m, label: STAIN_LABEL[m], stain: m }))],
+    decoracao: [{ value: null, label: 'Nenhuma' }, ...DECORS.map((d) => ({ value: d, label: DECOR_LABEL[d], decor: d }))],
   };
 
   protected readonly options = computed(() => (this.tab() === 'cor' ? [] : this.all[this.tab() as Exclude<Tab, 'cor'>]));
-  protected readonly tabLabel = computed(() => ({ cor: 'Cor', papel: 'Papel', estampa: 'Estampa', rabisco: 'Rabisco', estrago: 'Estrago', mancha: 'Mancha' })[this.tab()]);
+  protected readonly tabLabel = computed(() => ({ cor: 'Cor', papel: 'Papel', estampa: 'Estampa', rabisco: 'Rabisco', estrago: 'Estrago', mancha: 'Mancha', decoracao: 'Decoração' })[this.tab()]);
   protected readonly value = computed<string | null>(() => {
     switch (this.tab()) {
       case 'papel':
@@ -654,6 +670,8 @@ export class CardKit {
         return this.damage();
       case 'mancha':
         return this.stain();
+      case 'decoracao':
+        return this.decor();
       default:
         return null;
     }
@@ -673,7 +691,7 @@ export class CardKit {
 
   /** A aba mostra um pontinho quando a ficha tem algo escolhido ali. */
   protected used(t: Tab): boolean {
-    return t === 'papel' ? this.paper() !== 'cartolina' : t === 'estampa' ? !!this.pattern() : t === 'rabisco' ? !!this.scribble() : t === 'estrago' ? !!this.damage() : t === 'mancha' ? !!this.stain() : false;
+    return t === 'papel' ? this.paper() !== 'cartolina' : t === 'estampa' ? !!this.pattern() : t === 'rabisco' ? !!this.scribble() : t === 'estrago' ? !!this.damage() : t === 'mancha' ? !!this.stain() : t === 'decoracao' ? !!this.decor() : false;
   }
 
   /** O retalho mostra só o que a opção muda, sobre o que a ficha já tem nas outras abas. */
@@ -704,6 +722,10 @@ export class CardKit {
       case 'mancha':
         this.stain.set(v as Stain | null);
         this.stainSeed.set(v ? newSeed(this.stainSeed()) : null);
+        break;
+      case 'decoracao':
+        this.decor.set(v as Decor | null);
+        this.decorSeed.set(v ? newSeed(this.decorSeed()) : null);
         break;
     }
   }

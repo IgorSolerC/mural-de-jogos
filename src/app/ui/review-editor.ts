@@ -41,7 +41,7 @@ import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
-import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
 import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
@@ -213,6 +213,9 @@ export class ReviewEditor {
   /** A mancha por cima do papel, e o jeito dela que a pessoa sorteou. */
   protected readonly stain = signal<Stain | null>(null);
   protected readonly stainSeed = signal<number | null>(null);
+  /** A decoração por cima de tudo, e o jeito dela que a pessoa sorteou. */
+  protected readonly decor = signal<Decor | null>(null);
+  protected readonly decorSeed = signal<number | null>(null);
   protected readonly headPaper = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
@@ -250,6 +253,8 @@ export class ReviewEditor {
       damageSeed: this.damageSeed() ?? undefined,
       stain: this.stain() ?? undefined,
       stainSeed: this.stainSeed() ?? undefined,
+      decor: this.decor() ?? undefined,
+      decorSeed: this.decorSeed() ?? undefined,
       text: this.text(),
       completedAt: this.dateUnknown() ? null : this.dateValid() ? this.completedAt() : this.today(),
       createdAt: '',
@@ -340,6 +345,8 @@ export class ReviewEditor {
     this.overrideOn.set(review?.finalOverride !== undefined);
     this.overrideText.set(review?.finalOverride !== undefined ? formatScore(review.finalOverride) : '');
     this.stainSeed.set(review?.stainSeed ?? null);
+    this.decor.set(review?.decor ?? null);
+    this.decorSeed.set(review?.decorSeed ?? null);
     this.kit()?.reset();
     this.game.set(review?.game ?? draft?.game ?? wish?.game ?? null);
     const { final: _final, ...rated } = review?.scores ?? { final: 0 };
@@ -474,6 +481,8 @@ export class ReviewEditor {
       ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
       ...(this.stain() ? { stain: this.stain()! } : {}),
       ...(this.stain() && this.stainSeed() ? { stainSeed: this.stainSeed()! } : {}),
+      ...(this.decor() ? { decor: this.decor()! } : {}),
+      ...(this.decor() && this.decorSeed() ? { decorSeed: this.decorSeed()! } : {}),
       ...(this.overrideOn() ? { finalOverride: final } : {}),
       text: this.text().trim(),
       completedAt: this.dateUnknown() ? null : this.completedAt(),
@@ -619,6 +628,8 @@ export class ReviewEditor {
       this.damageSeed(),
       this.stain(),
       this.stainSeed(),
+      this.decor(),
+      this.decorSeed(),
       this.overrideOn() ? this.overrideText().trim() : null,
       this.categories().map((k) => this.scores()[k] ?? null),
       this.status(),

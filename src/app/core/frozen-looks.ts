@@ -1,6 +1,7 @@
 /**
  * A aparência congelada: uma impressão digital de tudo o que é desenhado por sorteio (as estampas,
- * os rabiscos, os estragos, os papéis; os recortes da wishlist e as folhas do Pra depois), para
+ * os rabiscos, os estragos, as manchas, as decorações, os papéis; os recortes da wishlist e as folhas
+ * do Pra depois), para
  * vários sorteios, ids e tamanhos. `frozen-looks.spec.ts` compara com `frozen-looks.data.ts`: o que
  * já foi aprovado nunca muda por tabela quando se mexe em outra coisa.
  *
@@ -11,11 +12,12 @@
 import { clipHeight, placeFor, ransom, stickerFor, titleFor } from './clipping';
 import { pageFor, pageHeight } from './notebook';
 import { DEFAULT_LOOK, LOOK_KEYS, LOOK_STEPS, PatternLook, hash, textureOf } from './paper';
-import type { Damage, Paper, Pattern, Scribble, Stain } from './paper';
+import type { Damage, Decor, Paper, Pattern, Scribble, Stain } from './paper';
+import { decorArt } from './decor-art';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
 import { snipFor, stripFor, tearFor } from './tear';
 
-export const FROZEN_PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter'];
+export const FROZEN_PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter', 'aquarela', 'feltro', 'arroz', 'ondulado', 'metalizado', 'perolado'];
 export const FROZEN_PATTERNS: readonly Pattern[] = [
   'gatinhos', 'caveiras', 'foguinhos', 'coracoes', 'estrelas', 'fantasmas', 'cogumelos', 'flores', 'raios', 'planetas', 'controles', 'aranhas',
   // 2026-09-29, segunda leva
@@ -34,6 +36,9 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
 ];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
 export const FROZEN_STAINS: readonly Stain[] = ['molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas'];
+
+/** As decorações, desde 2026-09-29. */
+export const FROZEN_DECORS: readonly Decor[] = ['purpurina', 'estrelinhas', 'adesivos', 'selo', 'clipe', 'argolas', 'ilhoses'];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */
 const SEEDS: readonly (number | undefined)[] = [undefined, 1, 111, 222, 4242, 98765, 2147483647];
@@ -85,6 +90,10 @@ export function frozenPrints(): Record<string, string> {
   for (const scribble of FROZEN_SCRIBBLES)
     for (const ink of [0, 1, 2, 4, 5, 6])
       for (const seed of [undefined, 111]) out[`scribble:${scribble}:ink${ink}:${seed ?? '-'}`] = artPrint({ id: 'r1', W: 420, H: 300, scribble, scribbleSeed: seed, scribbleInk: ink, uid: 'f' });
+  for (const decor of FROZEN_DECORS)
+    for (const id of IDS)
+      for (const s of SIZES)
+        for (const seed of SEEDS) out[`decor:${decor}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = print(decorArt({ id, W: s.W, H: s.H, decor, seed, uid: 'f' }));
   for (const pattern of FROZEN_PATTERNS)
     for (const { key, look } of looks())
       for (const seed of PATTERN_SEEDS) out[`pattern:${pattern}:${key}:${seed ?? '-'}`] = print(patternTile(pattern, look, seed));

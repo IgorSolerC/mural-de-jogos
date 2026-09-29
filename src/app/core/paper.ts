@@ -10,9 +10,23 @@
 
 // ===================== Papel (textura) =====================
 
-export type Paper = 'cartolina' | 'lisa' | 'canson' | 'linho' | 'verge' | 'reciclado' | 'glitter';
+export type Paper =
+  | 'cartolina'
+  | 'lisa'
+  | 'canson'
+  | 'linho'
+  | 'verge'
+  | 'reciclado'
+  | 'glitter'
+  | 'aquarela'
+  | 'feltro'
+  | 'arroz'
+  | 'ondulado'
+  | 'metalizado'
+  | 'perolado';
 
-export const PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter'];
+/** Na ordem do estojo: dos lisos aos de relevo, os de fibra e, por último, os que brilham. */
+export const PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'aquarela', 'linho', 'feltro', 'verge', 'arroz', 'reciclado', 'ondulado', 'metalizado', 'perolado', 'glitter'];
 
 export const PAPER_LABEL: Record<Paper, string> = {
   cartolina: 'Cartolina',
@@ -22,6 +36,12 @@ export const PAPER_LABEL: Record<Paper, string> = {
   verge: 'Vergê',
   reciclado: 'Reciclado',
   glitter: 'Glitter',
+  aquarela: 'Aquarela',
+  feltro: 'Feltro',
+  arroz: 'Papel de arroz',
+  ondulado: 'Ondulado',
+  metalizado: 'Metalizado',
+  perolado: 'Perolado',
 };
 
 // ===================== Estampa =====================
@@ -324,6 +344,31 @@ export const STAIN_LABEL: Record<Stain, string> = {
   pegadas: 'Pegadas de gato',
 };
 
+// ===================== Decoração =====================
+
+/**
+ * Coisas de fora postas na ficha depois de pronta: purpurina, estrelinhas douradas, adesivos, um selo,
+ * um clipe, argolas, ilhoses. Ficam por cima de tudo, até da foto. Os desenhos estão em `decor-art.ts`.
+ */
+export type Decor = 'purpurina' | 'estrelinhas' | 'adesivos' | 'selo' | 'clipe' | 'argolas' | 'ilhoses';
+
+export const DECORS: readonly Decor[] = ['purpurina', 'estrelinhas', 'adesivos', 'selo', 'clipe', 'argolas', 'ilhoses'];
+
+export const DECOR_LABEL: Record<Decor, string> = {
+  purpurina: 'Purpurina',
+  estrelinhas: 'Estrelinhas douradas',
+  adesivos: 'Adesivos fofos',
+  selo: 'Selo',
+  clipe: 'Clipe',
+  argolas: 'Argolas',
+  ilhoses: 'Ilhoses',
+};
+
+/** As decorações que furam o papel: a sombra da ficha segue o recorte, como nos estragos. */
+export function decorCuts(d: Decor | undefined): boolean {
+  return d === 'argolas' || d === 'ilhoses';
+}
+
 /** Os estragos (e manchas) que tiram um pedaço do papel (ou entortam a beirada): a sombra segue o recorte. */
 export function cutsPaper(d: Damage | Stain | undefined): boolean {
   return !!d && CUTS.has(d);
@@ -358,6 +403,7 @@ function oneOf<T extends string>(list: readonly T[], fallback?: T) {
 export const sanitizePaper = oneOf(PAPERS, 'cartolina');
 export const sanitizePattern = oneOf(PATTERNS);
 export const sanitizeScribble = oneOf(SCRIBBLES);
+export const sanitizeDecor = oneOf(DECORS);
 const currentDamage = oneOf(DAMAGES);
 /** As fichas e backups antigos usavam dois nomes para os formatos agora reunidos. */
 export const sanitizeDamage = (raw: unknown): Damage | undefined =>
@@ -417,9 +463,59 @@ const TEXTURES: Partial<Record<Paper, Texture>> = {
     img: svgUrl(
       240,
       240,
-      `<defs><filter ${SRGB} id='w'><feTurbulence type='fractalNoise' baseFrequency='.02 .3' numOctaves='2' seed='2' stitchTiles='stitch'/><feDisplacementMap in='SourceGraphic' scale='1.8'/></filter><pattern id='l' width='240' height='3' patternUnits='userSpaceOnUse'><rect width='240' height='1.2' fill='#000' fill-opacity='.42'/><rect y='1.7' width='240' height='1' fill='#fff' fill-opacity='.55'/></pattern></defs><rect width='240' height='240' fill='#808080'/><g filter='url(#w)'><rect width='240' height='240' fill='url(#l)'/><g fill='#fff' fill-opacity='.6'><rect x='28' width='2.4' height='240'/><rect x='108' width='2.4' height='240'/><rect x='188' width='2.4' height='240'/></g></g>`,
+      `<defs><filter ${SRGB} id='w'><feTurbulence type='fractalNoise' baseFrequency='.02 .3' numOctaves='2' seed='2' stitchTiles='stitch'/><feDisplacementMap in='SourceGraphic' scale='1.8'/></filter><pattern id='l' width='240' height='3' patternUnits='userSpaceOnUse'><rect width='240' height='1.2' fill='#000' fill-opacity='.42'/><rect y='1.7' width='240' height='1' fill='#fff' fill-opacity='.55'/></pattern></defs><rect width='240' height='240' fill='#808080'/><g filter='url(#w)'><rect width='240' height='240' fill='url(#l)'/></g>`,
     ),
     size: '240px 240px',
+    blend: 'soft-light',
+  },
+  aquarela: {
+    // o grão graúdo do papel de aquarela: montes e covinhas largos, com luz de lado
+    img: svgUrl(
+      300,
+      300,
+      `<filter ${SRGB} id='f' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.024' numOctaves='5' seed='11' stitchTiles='stitch'/><feColorMatrix type='luminanceToAlpha'/><feDiffuseLighting surfaceScale='11' lighting-color='#fff' diffuseConstant='.62'><feDistantLight azimuth='225' elevation='42'/></feDiffuseLighting></filter><rect width='100%' height='100%' filter='url(#f)'/>`,
+    ),
+    size: '300px 300px',
+    blend: 'soft-light',
+  },
+  feltro: {
+    // penugem fina e fechada, sem direção: cada fiapo um pontinho claro ou escuro
+    img: svgUrl(
+      180,
+      180,
+      `<filter ${SRGB} id='f' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' seed='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feGaussianBlur stdDeviation='.35'/><feComponentTransfer><feFuncR type='linear' slope='2.6' intercept='-.8'/><feFuncG type='linear' slope='2.6' intercept='-.8'/><feFuncB type='linear' slope='2.6' intercept='-.8'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(#f)'/>`,
+    ),
+    size: '180px 180px',
+    blend: 'soft-light',
+  },
+  ondulado: {
+    // o papelão ondulado: as ondas deitadas, luz em cima de cada uma e sombra no vão
+    img: svgUrl(
+      240,
+      9,
+      `<defs><linearGradient id='o' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#5c5c5c'/><stop offset='.35' stop-color='#bdbdbd'/><stop offset='.55' stop-color='#d2d2d2'/><stop offset='1' stop-color='#5c5c5c'/></linearGradient></defs><rect width='240' height='9' fill='url(#o)'/>`,
+    ),
+    size: '240px 9px',
+    blend: 'soft-light',
+  },
+  metalizado: {
+    // metal escovado: riscos finos deitados e duas faixas largas de brilho
+    img: svgUrl(
+      320,
+      320,
+      `<defs><linearGradient id='b' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='.22' stop-color='#fff' stop-opacity='.55'/><stop offset='.4' stop-color='#000' stop-opacity='.25'/><stop offset='.68' stop-color='#fff' stop-opacity='.4'/><stop offset='.86' stop-color='#000' stop-opacity='.2'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></linearGradient><filter ${SRGB} id='f' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.006 .9' numOctaves='2' seed='8' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='2.2' intercept='-.6'/><feFuncG type='linear' slope='2.2' intercept='-.6'/><feFuncB type='linear' slope='2.2' intercept='-.6'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter></defs><rect width='100%' height='100%' filter='url(#f)'/><rect width='100%' height='100%' fill='url(#b)'/>`,
+    ),
+    size: '320px 320px',
+    blend: 'soft-light',
+  },
+  perolado: {
+    // o reflexo furta-cor da cartolina perolada: rosa, creme, verde-água e lilás passando de leve, com nuvens
+    img: svgUrl(
+      420,
+      420,
+      `<defs><linearGradient id='p' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#ff8fd0'/><stop offset='.25' stop-color='#ffe27a'/><stop offset='.5' stop-color='#7fe3ff'/><stop offset='.75' stop-color='#b99bff'/><stop offset='1' stop-color='#ff8fd0'/></linearGradient><filter ${SRGB} id='n' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.008' numOctaves='3' seed='14' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -1.4 1.1'/></filter></defs><rect width='100%' height='100%' fill='url(#p)'/><rect width='100%' height='100%' filter='url(#n)' opacity='.4'/>`,
+    ),
+    size: '420px 420px',
     blend: 'soft-light',
   },
   glitter: {
@@ -432,6 +528,42 @@ const TEXTURES: Partial<Record<Paper, Texture>> = {
     blend: 'screen',
   },
 };
+
+TEXTURES.arroz = (() => {
+  // o papel de arroz: fibras compridas e claras, curvas, espalhadas por cima de nuvens de fibra (soft-light)
+  const r = rng(77);
+  const T = 280;
+  let fib = '';
+  for (let k = 0; k < 90; k++) {
+    const x = r() * T,
+      y = r() * T,
+      a = r() * Math.PI * 2,
+      l = 18 + r() * 50;
+    const x2 = x + Math.cos(a) * l,
+      y2 = y + Math.sin(a) * l;
+    const cx = (x + x2) / 2 + (r() - 0.5) * l * 0.6,
+      cy = (y + y2) / 2 + (r() - 0.5) * l * 0.6;
+    fib += `<path d='M${f1(x)} ${f1(y)}Q${f1(cx)} ${f1(cy)} ${f1(x2)} ${f1(y2)}' stroke-opacity='${(0.3 + r() * 0.45).toFixed(2)}' stroke-width='${(0.4 + r() * 0.8).toFixed(2)}'/>`;
+  }
+  // as fibras que passam da beirada voltam do outro lado: o ladrilho emenda sem costura
+  const copies = [
+    [0, 0],
+    [-T, 0],
+    [0, -T],
+    [-T, -T],
+  ]
+    .map(([dx, dy]) => `<g transform='translate(${dx} ${dy})'>${fib}</g>`)
+    .join('');
+  return {
+    img: svgUrl(
+      T,
+      T,
+      `<filter ${SRGB} id='m' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='3' seed='23' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='.5' intercept='.26'/><feFuncG type='linear' slope='.5' intercept='.26'/><feFuncB type='linear' slope='.5' intercept='.26'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(#m)'/><g fill='none' stroke='#fff' stroke-linecap='round'>${copies}</g>`,
+    ),
+    size: `${T}px ${T}px`,
+    blend: 'soft-light',
+  };
+})();
 
 TEXTURES.reciclado = (() => {
   const r = rng(99);

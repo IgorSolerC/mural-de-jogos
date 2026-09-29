@@ -1,5 +1,6 @@
-import { DAMAGES, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_LABEL, SCRIBBLES, STAINS, cutsPaper, lookOf, newSeed, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_LABEL, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
 import { cutMask, motifIcon, paperArt, paperStyle, patternTile } from './paper-art';
+import { decorArt } from './decor-art';
 import { sanitizeReview } from './review';
 
 describe('papel da ficha', () => {
@@ -62,6 +63,16 @@ describe('papel da ficha', () => {
       expect(sanitizeSeed(s)).toBe(s);
       expect(s).not.toBe(7);
     }
+  });
+
+  it('a decoração e o sorteio dela vão com a ficha, só quando há decoração', () => {
+    const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
+    expect(sanitizeDecor('argolas')).toBe('argolas');
+    expect(sanitizeDecor('confete')).toBeUndefined();
+    const r = sanitizeReview({ ...base, decor: 'selo', decorSeed: 4242 })!;
+    expect([r.decor, r.decorSeed]).toEqual(['selo', 4242]);
+    expect('decorSeed' in sanitizeReview({ ...base, decorSeed: 4242 })!).toBeFalse();
+    expect('decor' in sanitizeReview({ ...base, decor: 'confete' })!).toBeFalse();
   });
 
   it('o sorteio do rabisco vai com a ficha, só quando há rabisco', () => {
@@ -275,6 +286,32 @@ describe('papel da ficha', () => {
 
     it('sem nada escolhido, nada', () => {
       expect(paperArt(base)).toEqual({ cut: [], evenodd: false, core: [], fundo: '', clareia: '', relevo: '', frente: '', fita: '' });
+    });
+  });
+
+  describe('as decorações', () => {
+    const base = { id: 'r1', W: 420, H: 300, uid: 't' };
+
+    it('cada uma desenha algo, e o mesmo sorteio é sempre a mesma; outro sorteio, outra', () => {
+      for (const decor of DECORS) {
+        const one = decorArt({ ...base, decor, seed: 111 });
+        expect(one.front.length).withContext(decor).toBeGreaterThan(100);
+        expect(decorArt({ ...base, decor, seed: 111 })).withContext(decor).toEqual(one);
+        expect(decorArt({ ...base, decor, seed: 222 })).withContext(decor).not.toEqual(one);
+      }
+    });
+
+    it('só as argolas e os ilhoses furam o papel', () => {
+      for (const decor of DECORS) {
+        const holes = decorArt({ ...base, decor }).cut.length;
+        expect(holes > 0).withContext(decor).toBe(decorCuts(decor));
+      }
+    });
+
+    it('não mexem nos desenhos do papel', () => {
+      const plain = paperArt({ ...base, damage: 'rasgado' });
+      expect(JSON.stringify(plain)).not.toContain('enfeite');
+      expect(Object.keys(plain).sort()).toEqual(['clareia', 'core', 'cut', 'evenodd', 'fita', 'frente', 'fundo', 'relevo']);
     });
   });
 });

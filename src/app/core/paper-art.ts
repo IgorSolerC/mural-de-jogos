@@ -969,21 +969,56 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
         right = C.map(([x, y], i): Pt => [x + gaps[i] / 2, y]);
       out.cut.push(`${poly(left)}${cont([...right].reverse())}Z`);
       out.core.push(coreBand(left, [0, H / 2], r, 0.5 * k, 4 * k), coreBand(right, [W, H / 2], r, 0.5 * k, 4 * k));
+      // o durex: filme quase transparente, bordas retas, as pontas no serrilhado do cortador, um
+      // brilho passando na diagonal e o fio de luz na beirada; de vez em quando uma ruguinha
       let tapes = '';
       const n = H < 200 ? 2 : 3;
       for (let i = 0; i < n; i++) {
         const t = (i + 0.5) / n + (r() - 0.5) * 0.12;
         const [cx, cy] = C[Math.min(C.length - 1, Math.max(0, Math.round(t * (C.length - 1))))];
-        const len = (52 + r() * 16) * k,
-          wid = (17 + r() * 3) * k;
-        const ang = (r() - 0.5) * 40;
-        const z = (v: number) => f1(v + (r() - 0.5) * 2.2 * k);
-        const endR = `L${z(len / 2 + 1.5 * k)} ${f1(-wid / 4)}L${z(len / 2 - 1 * k)} 0L${z(len / 2 + 1.5 * k)} ${f1(wid / 4)}`;
-        const endL = `L${z(-len / 2 - 1.5 * k)} ${f1(wid / 4)}L${z(-len / 2 + 1 * k)} 0L${z(-len / 2 - 1.5 * k)} ${f1(-wid / 4)}`;
-        const tape = `M${f1(-len / 2)} ${f1(-wid / 2)}L${f1(len / 2)} ${f1(-wid / 2)}${endR}L${f1(len / 2)} ${f1(wid / 2)}L${f1(-len / 2)} ${f1(wid / 2)}${endL}Z`;
-        tapes += `<g transform='translate(${f1(cx)} ${f1(cy)}) rotate(${f1(ang)})'><path d='${tape}' fill='rgb(240 232 204)' fill-opacity='.52' stroke='rgb(120 105 70)' stroke-opacity='.3' stroke-width='.8'/><path d='${tape}' fill='url(#${uid}-fita)'/><path d='M${f1(-len / 2)} ${f1(-wid / 2 + 1.4 * k)}H${f1(len / 2)}' stroke='#fff' stroke-opacity='.55' stroke-width='${f1(1.4 * sw)}'/></g>`;
+        const len = (54 + r() * 16) * k,
+          wid = (16 + r() * 3) * k;
+        const ang = (r() - 0.5) * 36;
+        const hw = wid / 2;
+        // a ponta serrilhada, de uma beirada à outra; `skew` entorta o corte
+        const teeth = Math.max(4, Math.round(wid / (1.7 * k)));
+        const end = (x0: number, dir: 1 | -1, skew: number) => {
+          let d = '';
+          for (let j = 1; j < teeth; j++) {
+            const y = -hw * dir + ((j / teeth) * wid) * dir;
+            const x = x0 + skew * (y / hw) + dir * (j % 2 ? 1.1 : 0) * k * (0.7 + r() * 0.6);
+            d += `L${f1(x)} ${f1(y)}`;
+          }
+          return d;
+        };
+        const sR = (r() - 0.5) * 3 * k,
+          sL = (r() - 0.5) * 3 * k;
+        const xr = len / 2,
+          xl = -len / 2;
+        const tape =
+          `M${f1(xl - sL)} ${f1(-hw)}L${f1(xr - sR)} ${f1(-hw)}` +
+          end(xr, 1, sR) +
+          `L${f1(xr + sR)} ${f1(hw)}L${f1(xl + sL)} ${f1(hw)}` +
+          end(xl, -1, sL) +
+          'Z';
+        let wrinkle = '';
+        if (r() < 0.55) {
+          const x = (r() - 0.5) * len * 0.6,
+            lean = (r() - 0.5) * 4 * k;
+          wrinkle = `<path d='M${f1(x)} ${f1(-hw)}Q${f1(x + lean)} 0 ${f1(x + lean * 0.4)} ${f1(hw)}' stroke='#fff' stroke-opacity='.4' stroke-width='${f1(0.8 * sw)}'/><path d='M${f1(x + 0.7 * k)} ${f1(-hw)}Q${f1(x + lean + 0.7 * k)} 0 ${f1(x + lean * 0.4 + 0.7 * k)} ${f1(hw)}' stroke='#000' stroke-opacity='.1' stroke-width='${f1(0.6 * sw)}'/>`;
+        }
+        tapes +=
+          `<g transform='translate(${f1(cx)} ${f1(cy)}) rotate(${f1(ang)})'>` +
+          `<path d='${tape}' transform='translate(${f1(0.5 * k)} ${f1(0.9 * k)})' fill='#000' fill-opacity='.06'/>` +
+          `<path d='${tape}' fill='rgb(250 244 214)' fill-opacity='.2'/>` +
+          `<path d='${tape}' fill='url(#${uid}-fita)'/>` +
+          `<path d='${tape}' fill='none' stroke='#fff' stroke-opacity='.35' stroke-width='${f1(0.6 * sw)}' stroke-linejoin='round'/>` +
+          `<path d='M${f1(xl - sL + 1.5 * k)} ${f1(-hw + 0.7 * k)}L${f1(xr - sR - 1.5 * k)} ${f1(-hw + 0.7 * k)}' stroke='#fff' stroke-opacity='.75' stroke-width='${f1(0.9 * sw)}' stroke-linecap='round'/>` +
+          `<path d='M${f1(xl + sL + 1.5 * k)} ${f1(hw - 0.5 * k)}L${f1(xr + sR - 1.5 * k)} ${f1(hw - 0.5 * k)}' stroke='rgb(110 98 66)' stroke-opacity='.28' stroke-width='${f1(0.6 * sw)}' stroke-linecap='round'/>` +
+          wrinkle +
+          `</g>`;
       }
-      out.fita += `<defs><linearGradient id='${uid}-fita' x1='0' y1='0' x2='1' y2='1'><stop offset='.2' stop-color='#fff' stop-opacity='0'/><stop offset='.45' stop-color='#fff' stop-opacity='.4'/><stop offset='.62' stop-color='#fff' stop-opacity='0'/></linearGradient></defs>${tapes}`;
+      out.fita += `<defs><linearGradient id='${uid}-fita' x1='0' y1='0' x2='1' y2='1'><stop offset='.12' stop-color='#fff' stop-opacity='0'/><stop offset='.3' stop-color='#fff' stop-opacity='.42'/><stop offset='.4' stop-color='#fff' stop-opacity='.08'/><stop offset='.58' stop-color='#fff' stop-opacity='.22'/><stop offset='.72' stop-color='#fff' stop-opacity='0'/></linearGradient></defs><g fill='none' stroke-linecap='round'>${tapes}</g>`;
       break;
     }
     case 'orelha': {

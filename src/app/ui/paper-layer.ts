@@ -11,7 +11,8 @@ import {
   signal,
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { Damage, Scribble, Stain } from '../core/paper';
+import { Damage, Decor, Scribble, Stain } from '../core/paper';
+import { decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
 
 let uids = 0;
@@ -170,6 +171,10 @@ export class PaperDefs {}
         <div class="camada frente" [innerHTML]="html().fita"></div>
       }
     }
+    @if (decorHtml(); as d) {
+      <!-- a decoração: por cima de tudo, até da foto e dos adesivos, e pode passar da beirada -->
+      <div class="camada enfeite" [innerHTML]="d"></div>
+    }
   `,
   styles: `
     /* sem caixa própria: as camadas ficam na ficha, abaixo e acima da tinta dela */
@@ -222,6 +227,11 @@ export class PaperDefs {}
     .frente.por-cima {
       z-index: 3;
     }
+    /* acima da foto (3), abaixo do botão invisível da ficha (4, que vem depois) */
+    .enfeite {
+      z-index: 4;
+      overflow: visible;
+    }
     .camada ::ng-deep svg {
       position: absolute;
       inset: 0;
@@ -263,6 +273,9 @@ export class PaperArtLayer {
   /** A mancha por cima do papel (Review.stain) e o sorteio dela. */
   readonly stain = input<Stain | undefined>(undefined);
   readonly stainSeed = input<number | null | undefined>(undefined);
+  /** A decoração por cima de tudo (Review.decor) e o sorteio dela. */
+  readonly decor = input<Decor | undefined>(undefined);
+  readonly decorSeed = input<number | null | undefined>(undefined);
   /** O sorteio do rabisco (Review.scribbleSeed). */
   readonly scribbleSeed = input<number | null | undefined>(undefined);
   /** A força do lápis do rabisco (Review.scribbleInk). */
@@ -278,10 +291,28 @@ export class PaperArtLayer {
   private readonly uid = `pa${++uids}`;
   private readonly size = signal<{ W: number; H: number } | null>(null);
 
+  /** A decoração, desenhada à parte: os furos dela entram no recorte do papel. */
+  private readonly decorDrawing = computed(() => {
+    const s = this.size(),
+      d = this.decor();
+    return s && d ? decorArt({ id: this.id(), W: s.W, H: s.H, decor: d, seed: this.decorSeed() ?? undefined, uid: this.uid }) : null;
+  });
+
   protected readonly art = computed<Art | null>(() => {
     const s = this.size();
-    if (!s || (!this.scribble() && !this.damage() && !this.stain())) return null;
-    return paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stain: this.stain(), stainSeed: this.stainSeed() ?? undefined, uid: this.uid, plain: this.plain() });
+    const holes = this.decorDrawing()?.cut ?? [];
+    if (!s || (!this.scribble() && !this.damage() && !this.stain() && !holes.length)) return null;
+    const art = paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stain: this.stain(), stainSeed: this.stainSeed() ?? undefined, uid: this.uid, plain: this.plain() });
+    return holes.length ? { ...art, cut: [...art.cut, ...holes] } : art;
+  });
+
+  protected readonly decorHtml = computed(() => {
+    const d = this.decorDrawing(),
+      s = this.size();
+    // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
+    return d?.front && s
+      ? this.sanitizer.bypassSecurityTrustHtml(`<svg xmlns="http://www.w3.org/2000/svg" width="${s.W}" height="${s.H}" viewBox="0 0 ${s.W} ${s.H}">${d.front}</svg>`)
+      : null;
   });
 
   /** A máscara da cor e do que está escrito: o papel que foi embora e a faixa em que a cor soltou. */
