@@ -59,6 +59,9 @@
               "node_modules/@fontsource/barlow/latin-400.css",
               "node_modules/@fontsource/barlow/latin-500.css",
               "node_modules/@fontsource/barlow/latin-600.css",
+              "node_modules/@fontsource/abril-fatface/latin-400.css",
+              "node_modules/@fontsource/dm-serif-display/latin-400.css",
+              "node_modules/@fontsource/dm-serif-display/latin-400-italic.css",
               "src/styles.scss"
             ]
           },

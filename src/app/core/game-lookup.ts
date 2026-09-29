@@ -32,7 +32,7 @@ export function isSteamCover(url: string | null | undefined): boolean {
 }
 
 /** Nem todo jogo da Steam tem a arte vertical: confere se a imagem existe antes de usar. */
-function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): Promise<boolean> {
+export function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new Image();
     const done = (ok: boolean) => {
@@ -49,6 +49,12 @@ function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): Promise
     img.referrerPolicy = 'no-referrer';
     img.src = url;
   });
+}
+
+/** O mesmo título, sem ligar para acento, maiúscula nem pontuação ("Hades II" = "hades ii"). */
+export function sameTitle(a: string, b: string): boolean {
+  const k = (s: string) => fold(s).replace(/[^\p{L}\p{N}]+/gu, '');
+  return k(a) === k(b);
 }
 
 /** Tira "(video game)", "(2010 film)", "(TV series)", "(anime)" etc. do título da Wikipedia. */
@@ -171,6 +177,119 @@ export class GameLookup {
       // Sem a capa da Steam, a arte da RAWG serve.
       return game;
     }
+  }
+
+  /**
+   * As capas que dá para escolher para um item já achado (a seleção de capa da wishlist): a dele
+   * primeiro, depois as do mesmo título em outro lugar. Jogos: Wikipedia, RAWG e a arte da Steam.
+   * Filmes e séries no TMDB: os outros pôsteres do título, os em português primeiro. Livros: as capas
+   * das edições, as em português primeiro. Animes: o Kitsu e o AniList. Uma fonte que falha só não
+   * entra; a lista nunca vem vazia se o item tem capa.
+   */
+  async coverChoices(game: PickedGame, kind: Kind, signal: AbortSignal): Promise<PickedGame[]> {
+    const tasks: Promise<PickedGame[]>[] = [];
+    const same = (h: PickedGame) => sameTitle(h.name, game.name) && (!game.year || !h.year || h.year === game.year);
+    const alike = (hits: PickedGame[]) => hits.filter(same).map((h) => ({ ...game, coverUrl: h.coverUrl, source: h.source, sourceId: h.sourceId }));
+    switch (kind) {
+      case 'jogos': {
+        tasks.push(this.search(game.name, signal, 'jogos', 'wikipedia').then(alike));
+        tasks.push(this.wikiPtImage(game, signal));
+        if (this.settings.rawgKey().trim()) {
+          tasks.push(
+            this.search(game.name, signal, 'jogos', 'rawg').then(async (hits) => {
+              const out: PickedGame[] = [];
+              for (const h of alike(hits).slice(0, 2)) {
+                const steam = await this.withSteamCover(h, signal);
+                if (steam.coverUrl !== h.coverUrl) out.push(steam);
+                out.push(h);
+              }
+              return out;
+            }),
+          );
+        }
+        break;
+      }
+      case 'filmes':
+      case 'series': {
+        const key = this.settings.tmdbKey().trim();
+        if (key && game.source === 'tmdb' && game.sourceId) tasks.push(this.tmdbPosters(game, key, signal));
+        else tasks.push(this.search(game.name, signal, kind).then(alike));
+        tasks.push(this.wikiPtImage(game, signal));
+        break;
+      }
+      case 'livros':
+        if (game.source === 'openlibrary' && game.sourceId) tasks.push(this.editionCovers(game, signal));
+        break;
+      case 'animes':
+        tasks.push(this.searchKitsu(game.name, signal).then(alike));
+        tasks.push(
+          this.searchAniList(game.name, signal).then((hits) => {
+            const hit = hits.find(same) ?? hits.find((h) => !!game.year && h.year === game.year);
+            return hit ? [{ ...game, coverUrl: hit.coverUrl, source: hit.source, sourceId: hit.sourceId }] : [];
+          }),
+        );
+        break;
+    }
+    const settled = await Promise.allSettled(tasks);
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    const seen = new Set<string>();
+    const out: PickedGame[] = [];
+    for (const g of [game, ...settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))]) {
+      if (!g.coverUrl || seen.has(g.coverUrl)) continue;
+      seen.add(g.coverUrl);
+      out.push(g);
+    }
+    return out.slice(0, 12);
+  }
+
+  /** A imagem da página de mesmo nome na Wikipedia em português: muitas vezes a capa brasileira. */
+  private async wikiPtImage(game: PickedGame, signal: AbortSignal): Promise<PickedGame[]> {
+    const params = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      formatversion: '2',
+      origin: '*',
+      generator: 'search',
+      gsrsearch: game.name,
+      gsrlimit: '4',
+      prop: 'pageimages',
+      piprop: 'thumbnail',
+      pithumbsize: '420',
+      pilicense: 'any',
+    });
+    const data = await this.fetchJson(`https://pt.wikipedia.org/w/api.php?${params}`, signal);
+    const pages: any[] = data?.query?.pages ?? [];
+    return pages
+      .filter((p) => typeof p?.thumbnail?.source === 'string' && sameTitle(cleanWikiTitle(String(p.title ?? '')).replace(/\s*\([^)]*\)\s*$/, ''), game.name))
+      .map((p) => ({ ...game, coverUrl: p.thumbnail.source as string }));
+  }
+
+  /** Os pôsteres do título no TMDB: português, inglês e sem texto, os mais votados primeiro. */
+  private async tmdbPosters(game: PickedGame, key: string, signal: AbortSignal): Promise<PickedGame[]> {
+    const params = new URLSearchParams({ include_image_language: 'pt,en,null' });
+    const data = await this.tmdbJson(`${game.sourceId}/images`, params, key, signal);
+    const order: Record<string, number> = { pt: 0, en: 1 };
+    const posters: any[] = Array.isArray(data?.posters) ? data.posters : [];
+    return posters
+      .filter((p) => typeof p?.file_path === 'string')
+      .sort((a, b) => (order[a.iso_639_1] ?? 2) - (order[b.iso_639_1] ?? 2) || (b.vote_average ?? 0) - (a.vote_average ?? 0))
+      .slice(0, 11)
+      .map((p) => ({ ...game, coverUrl: `https://image.tmdb.org/t/p/w500${p.file_path}` }));
+  }
+
+  /** As capas das edições da obra na Open Library, as em português primeiro. */
+  private async editionCovers(game: PickedGame, signal: AbortSignal): Promise<PickedGame[]> {
+    const data = await this.fetchJson(
+      `https://openlibrary.org/works/${encodeURIComponent(game.sourceId ?? '')}/editions.json?limit=60`,
+      signal,
+    );
+    const entries: any[] = Array.isArray(data?.entries) ? data.entries : [];
+    const pt = (e: any) => (Array.isArray(e?.languages) && e.languages.some((l: any) => l?.key === '/languages/por') ? 0 : 1);
+    return entries
+      .filter((e) => Array.isArray(e?.covers) && typeof e.covers[0] === 'number' && e.covers[0] > 0)
+      .sort((a, b) => pt(a) - pt(b))
+      .slice(0, 11)
+      .map((e) => ({ ...game, coverUrl: `https://covers.openlibrary.org/b/id/${e.covers[0]}-L.jpg?default=false` }));
   }
 
   private async searchWikipedia(q: string, signal: AbortSignal, template: string): Promise<PickedGame[]> {
@@ -341,22 +460,8 @@ export class GameLookup {
    * de relevância de lá. Aceita a "API key" (vai na URL) ou o "token de leitura" (vai no cabeçalho).
    */
   private async searchTmdb(q: string, key: string, type: 'movie' | 'tv', signal: AbortSignal): Promise<PickedGame[]> {
-    const token = key.startsWith('eyJ');
     const params = new URLSearchParams({ query: q, language: 'pt-BR', include_adult: 'false', page: '1' });
-    if (!token) params.set('api_key', key);
-    let res: Response;
-    try {
-      res = await fetch(`https://api.themoviedb.org/3/search/${type}?${params}`, {
-        headers: token ? { Authorization: `Bearer ${key}`, Accept: 'application/json' } : { Accept: 'application/json' },
-        signal,
-      });
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') throw e;
-      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
-    }
-    if (res.status === 401) throw new LookupError('A chave do TMDB foi recusada. Confira em Ajustes.', 'tmdb-key');
-    if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
-    const data = await res.json();
+    const data = await this.tmdbJson(`search/${type}`, params, key, signal);
     const results: any[] = data?.results ?? [];
     return results
       .map((r) => {
@@ -372,6 +477,25 @@ export class GameLookup {
       })
       .filter((g) => g.name)
       .slice(0, 8);
+  }
+
+  /** Uma chamada ao TMDB. Aceita a "API key" (vai na URL) ou o "token de leitura" (vai no cabeçalho). */
+  private async tmdbJson(path: string, params: URLSearchParams, key: string, signal: AbortSignal): Promise<any> {
+    const token = key.startsWith('eyJ');
+    if (!token) params.set('api_key', key);
+    let res: Response;
+    try {
+      res = await fetch(`https://api.themoviedb.org/3/${path}?${params}`, {
+        headers: token ? { Authorization: `Bearer ${key}`, Accept: 'application/json' } : { Accept: 'application/json' },
+        signal,
+      });
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') throw e;
+      throw new LookupError('Não consegui falar com o catálogo.', 'offline');
+    }
+    if (res.status === 401) throw new LookupError('A chave do TMDB foi recusada. Confira em Ajustes.', 'tmdb-key');
+    if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
+    return res.json();
   }
 
   private async searchRawg(q: string, key: string, signal: AbortSignal): Promise<PickedGame[]> {

@@ -59,3 +59,8 @@ export function pinningFor(id: string, stock?: Stock): Pinning {
     dropY: Math.round(rand(h, 6) * 14),
   };
 }
+
+/** Um número de 0 a 1, estável para o id: o n-ésimo sorteio daquele papel (o corte da tesoura, a caneta). */
+export function wobble(id: string, n: number): number {
+  return rand(hash(id), 100 + n);
+}

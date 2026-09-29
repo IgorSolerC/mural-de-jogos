@@ -41,7 +41,7 @@ describe('ReviewStore', () => {
       }),
       'merge',
     );
-    expect(res).toEqual({ added: 1, updated: 1, skipped: 1, drafts: 0, removed: 0 });
+    expect(res).toEqual({ added: 1, updated: 1, skipped: 1, drafts: 0, wishes: 0, removed: 0 });
     expect(store.get('raaaa1')!.game.name).toBe('A nova');
     expect(store.get('rbbbb1')!.game.name).toBe('B');
     expect(store.count()).toBe(3);
@@ -127,6 +127,45 @@ describe('ReviewStore', () => {
       );
       expect(store.drafts().map((d) => d.id)).toEqual(['rdddd1']);
       expect(res.drafts).toBe(1);
+    });
+  });
+
+  describe('wishlist', () => {
+    const old = '2024-01-02T00:00:00Z';
+    const wish = (id: string, name: string) => ({ id, kind: 'jogos' as const, game: { name, coverUrl: null, source: 'manual' as const }, createdAt: old, updatedAt: old });
+
+    it('vai e volta no backup, e o backup sem wishlist deixa a de agora como está', async () => {
+      store.saveWish(wish('rwwww1', 'Hades II'));
+      const { blob } = await store.exportBackup();
+      const text = await store.readBackup(blob);
+      localStorage.clear();
+      store.importJson(JSON.stringify({ reviews: [] }), 'replace');
+      expect(store.wishes().map((w) => w.id)).toEqual(['rwwww1']);
+      store.wishes.set([]);
+      const res = store.importJson(text, 'merge');
+      expect(store.wishes().map((w) => w.game.name)).toEqual(['Hades II']);
+      expect(res.wishes).toBe(1);
+    });
+
+    it('desejo tirado da lista não volta; o que virou resenha também não', () => {
+      store.saveWish(wish('rwwww1', 'A'));
+      store.saveWish(wish('rwwww2', 'B'));
+      store.removeWish('rwwww1');
+      store.removeWish('rwwww2', false);
+      store.importJson(JSON.stringify({ reviews: [review('rwwww2', 'B', old)] }), 'merge');
+      const res = store.importJson(JSON.stringify({ reviews: [], wishes: [wish('rwwww1', 'A'), wish('rwwww2', 'B')] }), 'merge');
+      expect(store.wishes()).toEqual([]);
+      expect(res.wishes).toBe(0);
+    });
+
+    it('desfazer devolve o desejo e esquece que foi apagado', () => {
+      const w = wish('rwwww1', 'A');
+      store.saveWish(w);
+      store.removeWish('rwwww1');
+      store.restoreWish(w);
+      const res = store.importJson(JSON.stringify({ reviews: [], wishes: [w] }), 'merge');
+      expect(store.wishes().length).toBe(1);
+      expect(res.wishes).toBe(0);
     });
   });
 

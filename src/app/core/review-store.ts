@@ -1,9 +1,10 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { KINDS } from './kinds';
-import { Bonus, Draft, Kind, Review, STOCKS, Stock, isCatalogBonus, sanitizeDraft, sanitizeReview } from './review';
+import { Bonus, Draft, Kind, Review, STOCKS, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
+const WISHES_KEY = 'mural-de-jogos:desejos:v1';
 /** Quando cada resenha e cada pendente foi apagado: sem isso, juntar um backup antigo traria tudo de volta. */
 const DELETED_KEY = 'mural-de-jogos:apagadas:v1';
 
@@ -11,6 +12,7 @@ const DELETED_KEY = 'mural-de-jogos:apagadas:v1';
 export interface Deleted {
   reviews: Record<string, string>;
   drafts: Record<string, string>;
+  wishes: Record<string, string>;
 }
 
 export interface ImportResult {
@@ -19,6 +21,8 @@ export interface ImportResult {
   skipped: number;
   /** Pendentes (só nome e capa) que entraram na fila. */
   drafts: number;
+  /** Desejos que entraram na wishlist. */
+  wishes: number;
   /** Resenhas daqui que o backup diz que foram apagadas depois da última mudança nelas. */
   removed: number;
 }
@@ -32,6 +36,8 @@ export class ReviewStore {
   /** Guardados para resenhar depois, o mais recente primeiro (de todos os murais: ver `Mural`). */
   readonly drafts = signal<Draft[]>(this.readDrafts());
   readonly draftCount = computed(() => this.drafts().length);
+  /** A wishlist, o mais recente primeiro (de todos os murais: ver `Mural`). */
+  readonly wishes = signal<Wish[]>(this.readWishes());
   private readonly deleted = signal<Deleted>(this.readDeleted());
   /**
    * Os bônus que a pessoa escreveu, tirados das próprias fichas de cada mural: o mais usado primeiro.
@@ -57,6 +63,7 @@ export class ReviewStore {
 
   private skipNextWrite = false;
   private skipNextDraftWrite = false;
+  private skipNextWishWrite = false;
   private skipNextDeletedWrite = false;
 
   constructor() {
@@ -77,6 +84,14 @@ export class ReviewStore {
       this.write(DRAFTS_KEY, list);
     });
     effect(() => {
+      const list = this.wishes();
+      if (this.skipNextWishWrite) {
+        this.skipNextWishWrite = false;
+        return;
+      }
+      this.write(WISHES_KEY, list);
+    });
+    effect(() => {
       const d = this.deleted();
       if (this.skipNextDeletedWrite) {
         this.skipNextDeletedWrite = false;
@@ -94,6 +109,9 @@ export class ReviewStore {
         } else if (e.key === DRAFTS_KEY) {
           this.skipNextDraftWrite = true;
           this.drafts.set(this.readDrafts());
+        } else if (e.key === WISHES_KEY) {
+          this.skipNextWishWrite = true;
+          this.wishes.set(this.readWishes());
         } else if (e.key === DELETED_KEY) {
           this.skipNextDeletedWrite = true;
           this.deleted.set(this.readDeleted());
@@ -170,6 +188,36 @@ export class ReviewStore {
     this.unmark('drafts', draft.id);
   }
 
+  getWish(id: string): Wish | undefined {
+    return this.wishes().find((w) => w.id === id);
+  }
+
+  /** Cria ou atualiza um desejo. */
+  saveWish(wish: Wish): void {
+    this.wishes.update((list) =>
+      list.some((w) => w.id === wish.id) ? list.map((w) => (w.id === wish.id ? wish : w)) : [wish, ...list],
+    );
+  }
+
+  /**
+   * Tira o desejo da wishlist. `forget: false` é o desejo que virou resenha ou pendente (o mesmo id
+   * segue vivo em outro lugar): esse não fica marcado como apagado.
+   */
+  removeWish(id: string, forget = true): Wish | undefined {
+    const found = this.getWish(id);
+    if (found) {
+      this.wishes.update((list) => list.filter((w) => w.id !== id));
+      if (forget) this.mark('wishes', id);
+    }
+    return found;
+  }
+
+  restoreWish(wish: Wish): void {
+    if (this.getWish(wish.id)) return;
+    this.wishes.update((list) => [wish, ...list]);
+    this.unmark('wishes', wish.id);
+  }
+
   /** O backup sai em gzip (.json.gz); sem CompressionStream no navegador, sai o JSON puro. */
   async exportBackup(): Promise<{ blob: Blob; ext: string }> {
     const payload = {
@@ -179,6 +227,7 @@ export class ReviewStore {
       exportedAt: new Date().toISOString(),
       reviews: this.reviews(),
       drafts: this.drafts(),
+      wishes: this.wishes(),
       deleted: this.deleted(),
     };
     const json = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -213,6 +262,9 @@ export class ReviewStore {
     // Backups antigos não têm pendentes: nesse caso a fila atual fica como está.
     const rawDrafts = Array.isArray((data as any)?.drafts) ? ((data as any).drafts as unknown[]) : null;
     const incomingDrafts = (rawDrafts ?? []).map(sanitizeDraft).filter((d): d is Draft => d !== null);
+    // Nem a wishlist: backups de antes dela deixam a de agora como está.
+    const rawWishes = Array.isArray((data as any)?.wishes) ? ((data as any).wishes as unknown[]) : null;
+    const incomingWishes = (rawWishes ?? []).map(sanitizeWish).filter((w): w is Wish => w !== null);
     const incoming: Review[] = [];
     let skipped = 0;
     for (const raw of rawList) {
@@ -225,8 +277,16 @@ export class ReviewStore {
     if (mode === 'replace') {
       this.reviews.set(withStocks(incoming));
       if (rawDrafts) this.drafts.set(incomingDrafts);
+      if (rawWishes) this.wishes.set(incomingWishes);
       this.deleted.set(theirs);
-      return { added: incoming.length, updated: 0, skipped, drafts: incomingDrafts.length, removed: 0 };
+      return {
+        added: incoming.length,
+        updated: 0,
+        skipped,
+        drafts: incomingDrafts.length,
+        wishes: incomingWishes.length,
+        removed: 0,
+      };
     }
 
     // O que foi apagado depois da última mudança na ficha continua apagado, dos dois lados.
@@ -267,8 +327,16 @@ export class ReviewStore {
       (d) => !known.has(d.id) && !gone(ours.drafts[d.id], d.updatedAt) && !gone(theirs.drafts[d.id], d.updatedAt),
     );
     if (newDrafts.length || kept.length !== this.drafts().length) this.drafts.set([...newDrafts, ...kept]);
+
+    // Desejo que já virou resenha ou pendente (mesmo id), ou que foi tirado da lista, não volta.
+    const keptWishes = this.wishes().filter((w) => !gone(theirs.wishes[w.id], w.updatedAt) && !known.has(w.id));
+    const knownAll = new Set([...known, ...newDrafts.map((d) => d.id), ...keptWishes.map((w) => w.id)]);
+    const newWishes = incomingWishes.filter(
+      (w) => !knownAll.has(w.id) && !gone(ours.wishes[w.id], w.updatedAt) && !gone(theirs.wishes[w.id], w.updatedAt),
+    );
+    if (newWishes.length || keptWishes.length !== this.wishes().length) this.wishes.set([...newWishes, ...keptWishes]);
     this.deleted.set(mergeDeleted(ours, theirs));
-    return { added, updated, skipped, drafts: newDrafts.length, removed };
+    return { added, updated, skipped, drafts: newDrafts.length, wishes: newWishes.length, removed };
   }
 
   private mark(kind: keyof Deleted, id: string): void {
@@ -306,11 +374,20 @@ export class ReviewStore {
     }
   }
 
+  private readWishes(): Wish[] {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(WISHES_KEY) ?? '[]');
+      return Array.isArray(parsed) ? parsed.map(sanitizeWish).filter((w): w is Wish => w !== null) : [];
+    } catch {
+      return [];
+    }
+  }
+
   private readDeleted(): Deleted {
     try {
       return sanitizeDeleted(JSON.parse(localStorage.getItem(DELETED_KEY) ?? 'null'));
     } catch {
-      return { reviews: {}, drafts: {} };
+      return { reviews: {}, drafts: {}, wishes: {} };
     }
   }
 
@@ -336,7 +413,7 @@ function sanitizeDeleted(raw: unknown): Deleted {
     return out;
   };
   const d = (raw ?? {}) as Record<string, unknown>;
-  return { reviews: pick(d['reviews']), drafts: pick(d['drafts']) };
+  return { reviews: pick(d['reviews']), drafts: pick(d['drafts']), wishes: pick(d['wishes']) };
 }
 
 /** O apagamento mais recente de cada id, dos dois lados. */
@@ -346,7 +423,7 @@ function mergeDeleted(a: Deleted, b: Deleted): Deleted {
     for (const [id, when] of Object.entries(y)) if (!out[id] || Date.parse(when) > Date.parse(out[id])) out[id] = when;
     return out;
   };
-  return { reviews: join(a.reviews, b.reviews), drafts: join(a.drafts, b.drafts) };
+  return { reviews: join(a.reviews, b.reviews), drafts: join(a.drafts, b.drafts), wishes: join(a.wishes, b.wishes) };
 }
 
 /** Fichas antigas ou importadas sem cor ganham a próxima do rodízio, na ordem em que foram criadas. */

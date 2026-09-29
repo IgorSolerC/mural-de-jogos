@@ -28,6 +28,7 @@ import {
   Verdict,
   Weight,
   Weights,
+  Wish,
   computeFinal,
   counts,
   formatScore,
@@ -89,6 +90,8 @@ export class ReviewEditor {
   readonly drafted = output<SavedEvent>();
   /** Pediu para tirar o pendente da fila. */
   readonly draftRemoved = output<string>();
+  /** Pediu para tirar o desejo da wishlist. */
+  readonly wishRemoved = output<string>();
 
   protected readonly CloseIcon = X;
   protected readonly LaterIcon = Bookmark;
@@ -105,6 +108,8 @@ export class ReviewEditor {
   protected readonly editing = signal<Review | null>(null);
   /** O pendente que está sendo terminado, se a ficha veio da fila. */
   protected readonly fromDraft = signal<Draft | null>(null);
+  /** O desejo da wishlist que virou resenha, se a ficha veio de lá. */
+  protected readonly fromWish = signal<Wish | null>(null);
   /** O mural da ficha: o aberto, para uma ficha nova; o dela, para uma que já existe. */
   protected readonly kind = signal<Kind>('jogos');
   protected readonly profile = computed(() => profileOf(this.kind()));
@@ -242,15 +247,16 @@ export class ReviewEditor {
 
   private snapshot = '';
 
-  open(review?: Review, draft?: Draft): void {
-    const kind = review?.kind ?? draft?.kind ?? this.mural.kind();
+  open(review?: Review, draft?: Draft, wish?: Wish): void {
+    const kind = review?.kind ?? draft?.kind ?? wish?.kind ?? this.mural.kind();
     this.kind.set(kind);
     this.editing.set(review ?? null);
     this.fromDraft.set(review ? null : (draft ?? null));
-    // O pendente vira a resenha com o mesmo id.
-    this.id.set(review?.id ?? draft?.id ?? newId());
+    this.fromWish.set(review || draft ? null : (wish ?? null));
+    // O pendente (ou o desejo) vira a resenha com o mesmo id.
+    this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
     this.stock.set(review?.stock ?? this.store.nextStock(kind));
-    this.game.set(review?.game ?? draft?.game ?? null);
+    this.game.set(review?.game ?? draft?.game ?? wish?.game ?? null);
     const { final: _final, ...rated } = review?.scores ?? { final: 0 };
     this.scores.set(rated);
     this.status.set(review?.status ?? null);
@@ -376,6 +382,8 @@ export class ReviewEditor {
     else this.store.add(review);
     const draft = this.fromDraft();
     if (draft) this.store.removeDraft(draft.id, false);
+    const wish = this.fromWish();
+    if (wish) this.store.removeWish(wish.id, false);
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.saved.emit({ id: review.id, isNew: !prev });
@@ -396,6 +404,9 @@ export class ReviewEditor {
     const now = new Date().toISOString();
     const prev = this.fromDraft();
     this.store.saveDraft({ id: this.id(), kind: this.kind(), game, createdAt: prev?.createdAt ?? now, updatedAt: now });
+    // da wishlist para a fila: o desejo sai de lá com o mesmo id, sem ficar marcado como apagado
+    const wish = this.fromWish();
+    if (wish) this.store.removeWish(wish.id, false);
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.drafted.emit({ id: this.id(), isNew: !prev });
@@ -409,6 +420,14 @@ export class ReviewEditor {
 
   protected cancelDraft(): void {
     this.confirmingDraft.set(false);
+  }
+
+  protected removeWish(): void {
+    const wish = this.fromWish();
+    if (!wish) return;
+    this.snapshot = this.serialize();
+    this.dialog().nativeElement.close();
+    this.wishRemoved.emit(wish.id);
   }
 
   protected removeDraft(): void {

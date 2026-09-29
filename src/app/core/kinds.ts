@@ -67,6 +67,8 @@ export interface KindProfile {
   finished: string;
   /** O fim do exemplo do texto da resenha: "…se jogaria de novo". */
   again: string;
+  /** Wishlist: "o que você quer *jogar*". */
+  verb: string;
   bonuses: readonly Bonus[];
 }
 
@@ -126,6 +128,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último jogo que você jogou',
     finished: 'Zerou algo e ainda não sabe o que achar?',
     again: 'se jogaria de novo',
+    verb: 'jogar',
     bonuses: [
       f('trilha-sonora', 'Trilha sonora incrível'),
       f('personagens', 'Personagens marcantes'),
@@ -173,6 +176,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último livro que você leu',
     finished: 'Terminou um livro e ainda não sabe o que achar?',
     again: 'se leria de novo',
+    verb: 'ler',
     bonuses: [
       f('personagens', 'Personagens marcantes'),
       f('final-memoravel', 'Final memorável'),
@@ -216,6 +220,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último filme que você viu',
     finished: 'Viu um filme e ainda não sabe o que achar?',
     again: 'se veria de novo',
+    verb: 'ver',
     bonuses: [
       f('trilha-sonora', 'Trilha sonora incrível'),
       f('fotografia', 'Fotografia linda'),
@@ -260,6 +265,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'da última série que você terminou',
     finished: 'Terminou uma série e ainda não sabe o que achar?',
     again: 'se veria de novo',
+    verb: 'ver',
     bonuses: [
       f('trilha-sonora', 'Trilha sonora incrível'),
       f('personagens', 'Personagens marcantes'),
@@ -301,6 +307,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último anime que você terminou',
     finished: 'Terminou um anime e ainda não sabe o que achar?',
     again: 'se veria de novo',
+    verb: 'ver',
     bonuses: [
       f('abertura', 'Abertura incrível'),
       f('trilha-sonora', 'Trilha sonora incrível'),

@@ -210,6 +210,7 @@ export class SettingsPage {
       if (res.skipped) parts.push(`${res.skipped} ignorada${res.skipped === 1 ? '' : 's'}`);
       if (res.removed) parts.push(`${res.removed} ${res.removed === 1 ? 'apagada' : 'apagadas'} como no backup`);
       if (res.drafts) parts.push(`${res.drafts} ${res.drafts === 1 ? 'jogo' : 'jogos'} pra depois`);
+      if (res.wishes) parts.push(`${res.wishes} na wishlist`);
       this.importMsg.set({ text: `Backup restaurado: ${parts.join(', ')}.`, error: false });
       const n = res.added + res.updated;
       if (n) this.toasts.show(`${n} ${n === 1 ? 'resenha voltou' : 'resenhas voltaram'} para os murais`);

@@ -1,0 +1,522 @@
+/* Recortar do catálogo: uma página de catálogo de loja, papel liso e branco, com a faixa vermelha
+   impressa em retícula no alto. Não é a ficha creme do editor: aqui nada se escreve, se escolhe. */
+
+:host {
+  display: contents;
+}
+
+dialog.recortar {
+  max-width: min(720px, calc(100vw - 24px));
+}
+
+.folha {
+  --print: #fdfcf9;
+  --focus: var(--ink);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 24px);
+  border-radius: 2px;
+  background: var(--print);
+  color: var(--ink);
+  color-scheme: light;
+  box-shadow: var(--shadow-lift);
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 14px 24px;
+  background:
+    radial-gradient(circle, rgb(0 0 0 / 0.14) 0.8px, transparent 1.2px) 0 0 / 4px 4px,
+    var(--red-deep);
+  color: #fff;
+
+  h2 {
+    font-family: var(--f-label);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 2rem;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+}
+
+.fechar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(255 255 255 / 0.16);
+  }
+
+  &:focus-visible {
+    outline-color: #fff;
+    outline-offset: 0;
+  }
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
+
+/* a parede por baixo da faixa: o recorte colado, do tamanho que ele tem no mural */
+.mesa {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 16px;
+  padding: 22px 18px 26px;
+  box-shadow: inset 0 12px 16px -12px rgb(0 0 0 / 0.7);
+}
+
+.giz {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.6);
+}
+
+.previa {
+  order: 1;
+  width: 100%;
+  max-width: 164px;
+}
+
+/* no computador, o giz, o recorte e o botão empilham na faixa de parede */
+.mesa-txt {
+  display: contents;
+}
+
+/* recortar de novo: um botão de giz na parede, com a linha tracejada de recortar em volta */
+.re-recortar {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 6px 13px 5px 11px;
+  border: 2px dashed rgb(243 239 230 / 0.5);
+  border-radius: 6px;
+  background: none;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    border-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    border-color: rgb(243 239 230 / 0.85);
+    background: rgb(255 255 255 / 0.08);
+  }
+
+  &:active lucide-icon {
+    rotate: 180deg;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+    transition: rotate var(--t-physical) var(--ease-physical);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 3px;
+  }
+}
+
+.campos {
+  min-width: 0;
+  padding: 22px 24px 24px;
+}
+
+.bloco {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  > .pergunta {
+    margin: 0;
+  }
+}
+
+.bloco + .bloco {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 2px dashed rgb(21 21 21 / 0.2);
+}
+
+/* a legenda de um fieldset não aceita gap: o espaço vem dela */
+legend.pergunta {
+  float: left;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+/* o item escolhido: a mesma tira de papel da busca, preenchida */
+.tira-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 6px 16px 6px 8px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    0 1px 3px rgb(0 0 0 / 0.2);
+
+  .acao-caneta {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+}
+
+.ti-capa {
+  flex: none;
+  width: 40px;
+}
+
+.ti-txt {
+  flex: 1;
+  min-width: 0;
+}
+
+.ti-nome {
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 1.08rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ti-ano {
+  margin-top: 1px;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* observação a caneta vermelha, na margem */
+.aviso {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.3;
+  color: var(--red-deep);
+}
+
+.field-error {
+  margin-top: 6px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--error-ink, #6b0000);
+}
+
+/* ===== As capas: fotos da revista; a escolhida sai do monte ===== */
+.grade {
+  clear: both;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 16px 14px;
+  padding: 8px 6px 4px;
+}
+
+.capa {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    translate: 0 -2px;
+  }
+
+  /* o foco é tracejado: não se confunde com a borda da escolhida */
+  &:has(input:focus-visible) {
+    outline: 2px dashed var(--ink);
+    outline-offset: 8px;
+    border-radius: 2px;
+  }
+}
+
+.foto {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: #e8e5de;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  transition:
+    filter var(--t-ui) var(--ease-ui),
+    opacity var(--t-ui) var(--ease-ui);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 20%;
+  }
+
+  img[src*='/library_600x900.'] {
+    object-position: 50% 50%;
+  }
+}
+
+/* as que não foram escolhidas ficam um pouco apagadas: a escolhida salta */
+.grade:has(.on) .capa:not(.on) .foto {
+  filter: saturate(0.7);
+  opacity: 0.78;
+}
+
+.grade:has(.on) .capa:not(.on):hover .foto {
+  filter: none;
+  opacity: 1;
+}
+
+/* a escolhida: levantada do papel, com a borda de tinta, como quem separou a foto do monte */
+.capa.on .foto {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+  box-shadow: 0 6px 10px -3px rgb(0 0 0 / 0.45);
+}
+
+.capa.on {
+  translate: 0 -3px;
+  rotate: -1.5deg;
+}
+
+.sem .foto {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  background: repeating-linear-gradient(-45deg, rgb(21 21 21 / 0.05) 0 6px, transparent 6px 12px), #eeebe4;
+  color: rgb(21 21 21 / 0.66);
+}
+
+.inicial {
+  font-family: var(--f-label);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.sem-txt {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* procurando outras capas: fotos ainda por imprimir */
+.esperando {
+  cursor: default;
+
+  .foto {
+    background: #ebe8e1;
+    box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.08);
+    animation: esperando 1100ms ease-in-out infinite alternate;
+  }
+
+  &:hover {
+    translate: none;
+  }
+}
+
+.esperando:nth-of-type(2n) .foto {
+  animation-delay: 180ms;
+}
+
+@keyframes esperando {
+  to {
+    opacity: 0.45;
+  }
+}
+
+.colar-btn {
+  justify-self: start;
+  margin: 2px 0 0 -8px;
+  font-size: 0.95rem;
+}
+
+.colar {
+  display: grid;
+  gap: 2px;
+}
+
+.colar-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tira-link {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink);
+
+  &:focus-within {
+    box-shadow:
+      inset 0 0 0 3px var(--ink),
+      0 0 0 4px rgb(21 21 21 / 0.16);
+  }
+
+  &.busy {
+    opacity: 0.7;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-family: var(--f-ui);
+    font-weight: 500;
+    font-size: 1rem;
+    color: var(--ink);
+    caret-color: var(--red);
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.55);
+    }
+  }
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px 24px 18px;
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+}
+
+.dica {
+  flex: 1 1 200px;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.3;
+  color: var(--ink-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn-quiet {
+  color: var(--ink);
+}
+
+/* celular: a prévia vira uma faixa de parede em cima, com o recorte pequeno ao lado do giz */
+@media (max-width: 600px) {
+  .masthead {
+    padding: 12px 10px 10px 16px;
+
+    h2 {
+      font-size: 1.6rem;
+    }
+  }
+
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mesa {
+    grid-template-columns: auto 104px;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 16px 16px 18px;
+  }
+
+  .previa {
+    max-width: 104px;
+  }
+
+  .mesa-txt {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+  }
+
+  .campos {
+    padding: 18px 16px 22px;
+  }
+
+  .grade {
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+    gap: 14px 12px;
+  }
+
+  .foot {
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .dica {
+    display: none;
+  }
+
+  .cancelar {
+    display: none;
+  }
+
+  .actions {
+    width: 100%;
+
+    .btn-ink {
+      flex: 1;
+    }
+  }
+}

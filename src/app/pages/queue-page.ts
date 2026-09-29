@@ -1,15 +1,22 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, signal } from '@angular/core';
 import { Bookmark, LucideAngularModule } from 'lucide-angular';
+import { collage } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
 import { Mural } from '../core/mural';
+import { ageOf, daysWaiting, pageHeight } from '../core/notebook';
 import { fold } from '../core/review';
+import { ViewTransitions } from '../core/view-transitions';
 import { DraftCard } from '../ui/draft-card';
 import { SearchStrip } from '../ui/search-strip';
 
+type Order = 'recentes' | 'antigos' | 'az';
+
 /**
- * Pra depois: o que foi guardado só com nome e capa, no mural aberto. Antes moravam no topo do mural, disputando
- * espaço com as fichas; aqui cada folha tem lugar e o mural fica só com o que já foi resenhado.
+ * Pra depois: o que foi guardado só com nome e capa, no mural aberto, esperando a opinião. Cada um é
+ * uma folha arrancada e presa na parede, com o dia em que foi guardado no cabeçalho; as folhas
+ * amarelam com o tempo, então quem espera há mais tempo aparece sozinho. Aqui cada folha tem lugar e
+ * o mural fica só com o que já foi resenhado.
  */
 @Component({
   selector: 'app-queue-page',
@@ -17,21 +24,42 @@ import { SearchStrip } from '../ui/search-strip';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="head">
-      <h1 class="tape-label big">Pra resenhar depois</h1>
+      <!-- a etiqueta da capa do caderno, preenchida à mão -->
+      <h1 class="etiqueta">
+        <span class="etiqueta-campo">
+          <span class="etiqueta-rotulo" aria-hidden="true">Matéria</span>
+          <span class="etiqueta-escrito">Pra resenhar depois</span>
+        </span>
+      </h1>
       @if (mural.draftCount(); as n) {
         <p class="sub">{{ countOf(mural.profile(), n) }} esperando a sua opinião</p>
       }
     </header>
 
     @if (mural.draftCount()) {
-      <app-search-strip
-        class="search"
-        inputId="busca-fila"
-        label="Procurar na fila"
-        placeholder="Procurar na fila…"
-        [value]="query()"
-        (valueChange)="query.set($event)"
-      />
+      <div class="prateleira">
+        <app-search-strip
+          class="prateleira-busca"
+          inputId="busca-fila"
+          label="Procurar na fila"
+          placeholder="Procurar na fila…"
+          [value]="query()"
+          (valueChange)="query.set($event)"
+        />
+        <p class="prateleira-giz">
+          Toque numa folha para terminar a resenha.
+          @if (anyAged()) {
+            As mais amarelas estão esperando há mais tempo.
+          }
+        </p>
+        <span class="prateleira-quebra" aria-hidden="true"></span>
+
+        <div class="prateleira-abas" role="group" aria-label="Ordenar">
+          <button type="button" class="plate" [attr.aria-pressed]="order() === 'recentes'" (click)="sort('recentes')">Mais novos</button>
+          <button type="button" class="plate" [attr.aria-pressed]="order() === 'antigos'" (click)="sort('antigos')">Mais antigos</button>
+          <button type="button" class="plate" [attr.aria-pressed]="order() === 'az'" (click)="sort('az')" aria-label="De A a Z">A–Z</button>
+        </div>
+      </div>
 
       @if (query().trim()) {
         <p class="showing" aria-live="polite">
@@ -44,14 +72,14 @@ import { SearchStrip } from '../ui/search-strip';
         <p class="none">{{ g(mural.profile(), 'Nenhum', 'Nenhuma') }} {{ mural.profile().singular }} da fila tem “{{ query().trim() }}” no nome.</p>
       }
 
-      <div class="sheets">
-        @for (d of visible(); track d.id) {
-          <app-draft-card
-            [attr.data-ficha]="d.id"
-            [draft]="d"
-            [landing]="desk.landingId() === d.id"
-            (opened)="desk.openDraft($event)"
-          />
+      <h2 class="sr-only">Folhas</h2>
+      <div class="sheets" [style.--colunas]="cols()">
+        @for (col of columns(); track $index) {
+          <div class="coluna">
+            @for (d of col; track d.id) {
+              <app-draft-card [attr.data-ficha]="d.id" [draft]="d" [landing]="desk.landingId() === d.id" (opened)="desk.openDraft($event)" />
+            }
+          </div>
         }
       </div>
     } @else {
@@ -77,7 +105,7 @@ import { SearchStrip } from '../ui/search-strip';
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 8px 18px;
+      gap: 12px 26px;
       margin-bottom: 30px;
     }
     .sub {
@@ -90,16 +118,58 @@ import { SearchStrip } from '../ui/search-strip';
       font-variant-numeric: tabular-nums;
     }
 
-    .search {
-      max-width: 440px;
-      margin: 0 0 30px 6px;
+    /* ===== A etiqueta escolar: moldura impressa em azul, o campo pautado, o nome a pincel ===== */
+    .etiqueta {
+      position: relative;
+      margin: 0;
+      padding: 9px 12px 10px;
+      rotate: -1.6deg;
+      background: #fdfcf7;
+      border-radius: 6px;
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4));
     }
+    /* a moldura impressa: fio duplo, com os cantinhos recortados para dentro */
+    .etiqueta::before {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border: 2px solid #3a67b8;
+      border-radius: 4px;
+      box-shadow: inset 0 0 0 2px #fdfcf7, inset 0 0 0 3px rgb(58 103 184 / 0.55);
+      pointer-events: none;
+    }
+    .etiqueta-campo {
+      position: relative;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 6px 14px 4px;
+    }
+    .etiqueta-rotulo {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #3a67b8;
+    }
+    /* escrito na linha pontilhada do campo */
+    .etiqueta-escrito {
+      padding: 0 4px 2px;
+      background: radial-gradient(circle, rgb(58 103 184 / 0.6) 0.9px, transparent 1.2px) 0 100% / 5px 3px repeat-x;
+      color: var(--ink);
+      font-family: var(--f-marker);
+      font-weight: 400;
+      font-size: 1.7rem;
+      line-height: 1.1;
+    }
+
     .showing {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 4px 12px;
-      margin: -12px 0 18px;
+      margin: -28px 0 22px;
       font-family: var(--f-label);
       font-weight: 600;
       letter-spacing: 0.1em;
@@ -129,18 +199,18 @@ import { SearchStrip } from '../ui/search-strip';
       overflow-wrap: anywhere;
     }
 
+    /* ===== As folhas, em colagem: cada uma da sua largura, um tanto fora do prumo ===== */
     .sheets {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-      gap: 44px 32px;
+      grid-template-columns: repeat(var(--colunas), minmax(0, 1fr));
       align-items: start;
-      padding-top: 10px;
+      column-gap: 32px;
+      padding-top: 14px;
     }
-    /* aqui a folha tem espaço: cresce até o tamanho de uma ficha simples */
     app-draft-card {
-      width: 100%;
-      max-width: 200px;
-      justify-self: center;
+      width: calc(var(--largura, 100) * 1%);
+      margin-left: calc(var(--desvio, 0) * 1%);
+      margin-bottom: var(--vao, 44px);
     }
 
     /* folha de caderno solta na parede, explicando a fila */
@@ -188,19 +258,17 @@ import { SearchStrip } from '../ui/search-strip';
     }
 
     @media (max-width: 559px) {
-      .tape-label.big {
-        font-size: 1.4rem;
+      .etiqueta-escrito {
+        font-size: 1.35rem;
+      }
+      .etiqueta-campo {
+        padding-inline: 10px;
       }
       .sheets {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 34px 18px;
+        column-gap: 18px;
       }
       .empty {
         padding: 30px 20px 24px 40px;
-      }
-      .search {
-        max-width: none;
-        margin-left: 0;
       }
     }
   `,
@@ -208,15 +276,48 @@ import { SearchStrip } from '../ui/search-strip';
 export class QueuePage {
   protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
+  private readonly transitions = inject(ViewTransitions);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly countOf = countOf;
   protected readonly g = g;
   protected readonly LaterIcon = Bookmark;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');
+  protected readonly order = signal<Order>('recentes');
   protected readonly visible = computed(() => {
     const needle = fold(this.query().trim());
     const list = this.mural.drafts();
-    return needle ? list.filter((d) => fold(d.game.name).includes(needle)) : list;
+    const found = needle ? list.filter((d) => fold(d.game.name).includes(needle)) : list;
+    switch (this.order()) {
+      case 'recentes':
+        return [...found].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      case 'antigos':
+        return [...found].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+      case 'az':
+        return [...found].sort((a, b) => a.game.name.localeCompare(b.game.name, 'pt-BR', { sensitivity: 'base', numeric: true }));
+    }
   });
+  /** Alguma folha já amarelou: vale explicar o que o amarelo quer dizer. */
+  protected readonly anyAged = computed(() => this.mural.drafts().some((d) => ageOf(daysWaiting(d.createdAt)) !== 'nova'));
+
+  /** Quantas colunas cabem: folhas de pelo menos 168px, com 32px entre elas (duas no celular). */
+  protected readonly cols = signal(6);
+  protected readonly columns = computed(() => collage(this.visible(), this.cols(), pageHeight));
+
+  constructor() {
+    const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
+    const measure = () => this.cols.set(innerWidth < 560 ? 2 : Math.max(3, Math.floor((host.clientWidth + 32) / (168 + 32))));
+    afterNextRender(() => {
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(host);
+      this.destroyRef.onDestroy(() => ro.disconnect());
+    });
+  }
+
+  protected sort(o: Order): void {
+    if (o === this.order()) return;
+    this.transitions.run(() => this.order.set(o));
+  }
 }

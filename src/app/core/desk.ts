@@ -4,6 +4,10 @@ export interface DeskHandlers {
   newReview(): void;
   openReview(id: string): void;
   openDraft(id: string): void;
+  /** Recortar um item novo para a wishlist. */
+  newWish(): void;
+  /** Começar a resenha de um desejo. */
+  openWish(id: string): void;
 }
 
 /**
@@ -32,6 +36,14 @@ export class Desk {
 
   openDraft(id: string): void {
     this.handlers?.openDraft(id);
+  }
+
+  newWish(): void {
+    this.handlers?.newWish();
+  }
+
+  openWish(id: string): void {
+    this.handlers?.openWish(id);
   }
 
   /** A ficha cai na parede e a tela vai até ela, assim que ela existir na página. */

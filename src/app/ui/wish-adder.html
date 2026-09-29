@@ -1,0 +1,144 @@
+<dialog #dialog class="sheet recortar" aria-labelledby="desejo-titulo" (click)="onBackdrop($event)">
+  <form class="folha" (submit)="save($event)" novalidate>
+    <!-- a faixa vermelha do catálogo, impressa em retícula -->
+    <header class="masthead">
+      <h2 id="desejo-titulo">Pôr na wishlist</h2>
+      <button type="button" class="fechar" (click)="close()" aria-label="Fechar">
+        <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
+      </button>
+    </header>
+
+    <div class="body">
+      <!-- um pedaço da parede, com o recorte como ele vai ficar -->
+      <aside class="mesa parede">
+        <div class="mesa-txt">
+          <p class="giz" aria-hidden="true">Vai ficar assim</p>
+          <!-- não gostou do corte? a tesoura tenta de novo: outro rasgo, outro formato, outro jeito de colar o nome -->
+          <button type="button" class="re-recortar" (click)="reroll()">
+            <lucide-icon [img]="RerollIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+            Outro recorte
+          </button>
+        </div>
+        @for (k of [id()]; track k) {
+          <app-wish-clip class="previa" aria-hidden="true" [wish]="preview()" [preview]="true" [landing]="rerolls() > 0" />
+        }
+      </aside>
+
+      <div class="campos">
+        <section class="bloco">
+          @if (game(); as gm) {
+            <p class="pergunta">Qual {{ profile().singular }}?</p>
+            <div class="tira-item">
+              <app-cover-sleeve class="ti-capa" size="thumb" [game]="gm" />
+              <div class="ti-txt">
+                <p class="ti-nome">{{ gm.name }}</p>
+                @if (gm.year || gm.by) {
+                  <p class="ti-ano">{{ gm.by }}@if (gm.by && gm.year) {<span aria-hidden="true"> · </span>}{{ gm.year }}</p>
+                }
+              </div>
+              <button type="button" class="acao-caneta" (click)="swap()">
+                <lucide-icon [img]="SwapIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                Trocar
+              </button>
+            </div>
+            @if (dup()) {
+              <p class="aviso" role="status">Já está na sua wishlist.</p>
+            } @else if (reviewed(); as r) {
+              <p class="aviso" role="status">Você já resenhou {{ words().esse }}: média {{ fmt(r.scores.final) }} no mural.</p>
+            }
+          } @else {
+            <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />
+            @if (attempted()) {
+              <p class="field-error">Escolha {{ words().um }} da lista ou use o nome sem capa.</p>
+            }
+          }
+        </section>
+
+        @if (game(); as gm) {
+          <fieldset class="bloco capas">
+            <legend class="pergunta">Qual capa?</legend>
+            <div class="grade">
+              @for (c of shown(); track c.coverUrl; let i = $index) {
+                <label class="capa" [class.on]="cover() === c.coverUrl">
+                  <input
+                    type="radio"
+                    name="desejo-capa"
+                    class="sr-only"
+                    [checked]="cover() === c.coverUrl"
+                    (change)="choose(c.coverUrl)"
+                    [attr.aria-label]="'Capa ' + (i + 1) + ' de ' + shown().length"
+                  />
+                  <span class="foto">
+                    <img [src]="c.coverUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="onBroken(c.coverUrl)" />
+                  </span>
+                </label>
+              }
+              @if (loadingChoices()) {
+                @for (s of [1, 2, 3]; track s) {
+                  <span class="capa esperando" aria-hidden="true"><span class="foto"></span></span>
+                }
+              }
+              <label class="capa sem" [class.on]="cover() === null">
+                <input type="radio" name="desejo-capa" class="sr-only" [checked]="cover() === null" (change)="choose(null)" aria-label="Sem capa" />
+                <span class="foto">
+                  <span class="inicial" aria-hidden="true">{{ (gm.name.trim().charAt(0) || '?').toUpperCase() }}</span>
+                  <span class="sem-txt" aria-hidden="true">sem capa</span>
+                </span>
+              </label>
+            </div>
+            <p class="sr-only" aria-live="polite">{{ loadingChoices() ? 'Procurando outras capas…' : shown().length + ' capas para escolher.' }}</p>
+
+            @if (pasting()) {
+              <div class="colar">
+                <label class="rotulo" for="desejo-link">Link da imagem</label>
+                <div class="colar-linha">
+                  <div class="tira-link" [class.busy]="pasteBusy()">
+                    <lucide-icon [img]="LinkIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                    <input
+                      #pasteField
+                      id="desejo-link"
+                      type="url"
+                      inputmode="url"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="https://…"
+                      [value]="pasteUrl()"
+                      (input)="pasteUrl.set($any($event.target).value)"
+                      (keydown)="onPasteKey($event)"
+                      [attr.aria-invalid]="pasteError() ? true : null"
+                      [attr.aria-describedby]="pasteError() ? 'desejo-link-erro' : null"
+                    />
+                  </div>
+                  <button type="button" class="btn-quiet" (click)="usePaste()" [disabled]="pasteBusy()">Usar</button>
+                  <button type="button" class="btn-quiet" (click)="closePaste()">Cancelar</button>
+                </div>
+                @if (pasteError(); as err) {
+                  <p class="field-error" id="desejo-link-erro" role="alert">{{ err }}</p>
+                }
+              </div>
+            } @else {
+              <button type="button" class="acao-caneta colar-btn" (click)="openPaste()">
+                <lucide-icon [img]="LinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                Colar link de imagem
+              </button>
+            }
+            @if (choicesError(); as err) {
+              <p class="aviso" role="status">{{ err }} Dá para colar um link ou seguir sem capa.</p>
+            }
+          </fieldset>
+        }
+      </div>
+    </div>
+
+    <footer class="foot">
+      <p class="dica">Fica só o nome e a capa, até a hora de resenhar.</p>
+      <div class="actions">
+        <button type="button" class="btn-quiet cancelar" (click)="close()">Cancelar</button>
+        <button type="submit" class="btn-ink">
+          <lucide-icon [img]="CutIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          {{ dup() ? 'Ver na lista' : 'Pôr na lista' }}
+        </button>
+      </div>
+    </footer>
+  </form>
+</dialog>

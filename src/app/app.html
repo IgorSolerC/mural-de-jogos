@@ -55,6 +55,12 @@
   <router-outlet />
 </main>
 
-<app-review-editor (saved)="onSaved($event)" (drafted)="onDrafted($event)" (draftRemoved)="removeDraft($event)" />
+<app-review-editor
+  (saved)="onSaved($event)"
+  (drafted)="onDrafted($event)"
+  (draftRemoved)="removeDraft($event)"
+  (wishRemoved)="removeWish($event)"
+/>
 <app-review-reader (edit)="editReview($event)" (remove)="removeReview($event)" />
+<app-wish-adder (wished)="onWished($event)" (seen)="seeWish($event)" />
 <app-toast />

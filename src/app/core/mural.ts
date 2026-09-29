@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KindProfile, isKind, profileOf } from './kinds';
-import { Bonus, Draft, Kind, Review } from './review';
+import { Bonus, Draft, Kind, Review, Wish } from './review';
 import { ReviewStore } from './review-store';
 
 const KEY = 'mural-de-jogos:mural:v1';
@@ -30,6 +30,8 @@ export class Mural {
   readonly count = computed(() => this.reviews().length);
   readonly drafts = computed<Draft[]>(() => this.store.drafts().filter((d) => d.kind === this.kind()));
   readonly draftCount = computed(() => this.drafts().length);
+  readonly wishes = computed<Wish[]>(() => this.store.wishes().filter((w) => w.kind === this.kind()));
+  readonly wishCount = computed(() => this.wishes().length);
   /** Os bônus escritos à mão nas fichas deste mural. */
   readonly customBonuses = computed<Bonus[]>(() => this.store.customBonuses()[this.kind()]);
 

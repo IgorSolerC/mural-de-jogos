@@ -15,6 +15,7 @@ import { Pin } from './ui/pin';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
 import { Toast, Toasts } from './ui/toast';
+import { WishAdder } from './ui/wish-adder';
 
 interface Tab {
   path: string;
@@ -26,13 +27,14 @@ interface Tab {
 const TABS: Tab[] = [
   { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
   { path: '/fila', label: 'Pra depois' },
+  { path: '/wishlist', label: 'Wishlist' },
   { path: '/ranking', label: 'Ranking' },
   { path: '/ajustes', label: 'Ajustes' },
 ];
 
 @Component({
   selector: 'app-root',
-  imports: [KindSwitcher, LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast],
+  imports: [KindSwitcher, LucideAngularModule, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -63,6 +65,7 @@ export class App {
 
   private readonly editor = viewChild.required(ReviewEditor);
   private readonly reader = viewChild.required(ReviewReader);
+  private readonly wishAdder = viewChild.required(WishAdder);
 
   constructor() {
     this.desk.register({
@@ -74,6 +77,11 @@ export class App {
       openDraft: (id) => {
         const d = this.store.getDraft(id);
         if (d) this.editor().open(undefined, d);
+      },
+      newWish: () => this.wishAdder().open(),
+      openWish: (id) => {
+        const w = this.store.getWish(id);
+        if (w) this.editor().open(undefined, undefined, w);
       },
     });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
@@ -94,6 +102,7 @@ export class App {
   protected tabCount(path: string): number | null {
     if (path === '/') return this.mural.count() || null;
     if (path === '/fila') return this.mural.draftCount() || null;
+    if (path === '/wishlist') return this.mural.wishCount() || null;
     return null;
   }
 
@@ -109,6 +118,32 @@ export class App {
       label: 'Desfazer',
       run: () => this.vt.run(() => this.store.restoreDraft(d)),
     });
+  }
+
+  protected removeWish(id: string): void {
+    const w = this.store.getWish(id);
+    if (!w) return;
+    this.vt.run(() => this.store.removeWish(id));
+    this.toasts.show(`“${w.game.name}” saiu da wishlist`, {
+      label: 'Desfazer',
+      run: () => this.vt.run(() => this.store.restoreWish(w)),
+    });
+  }
+
+  protected onWished(id: string): void {
+    const w = this.store.getWish(id);
+    if (!w) return;
+    const here = this.router.url.startsWith('/wishlist');
+    if (here) this.desk.land(id);
+    this.toasts.show(`“${w.game.name}” está na wishlist`, {
+      label: here ? 'Desfazer' : 'Ver wishlist',
+      run: here ? () => this.vt.run(() => this.store.removeWish(id)) : () => this.goLand('/wishlist', id),
+    });
+  }
+
+  protected seeWish(id: string): void {
+    if (this.router.url.startsWith('/wishlist')) this.desk.land(id);
+    else this.goLand('/wishlist', id);
   }
 
   protected onDrafted(e: SavedEvent): void {

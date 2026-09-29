@@ -198,6 +198,18 @@ export interface Draft {
   updatedAt: string;
 }
 
+/**
+ * Na wishlist: o que você quer jogar, ler ou ver, recortado do catálogo só com nome e capa. Tem a
+ * mesma forma do pendente, mas mora em outra lista: ainda não foi jogado, não espera opinião.
+ */
+export interface Wish {
+  id: string;
+  kind: Kind;
+  game: PickedGame;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const STATUSES: readonly Status[] = ['incompleto', 'finalizado', 'platinado'];
 
 export const STATUS_RANK: Record<Status, number> = { incompleto: 1, finalizado: 2, platinado: 3 };
@@ -491,6 +503,11 @@ export function sanitizeDraft(raw: unknown): Draft | null {
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };
+}
+
+/** Aceita um desejo vindo do localStorage ou de um backup (ou null se não serve). */
+export function sanitizeWish(raw: unknown): Wish | null {
+  return sanitizeDraft(raw);
 }
 
 /** Aceita dados vindos do localStorage ou de um backup e devolve uma resenha válida (ou null). */

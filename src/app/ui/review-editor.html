@@ -257,6 +257,11 @@
               <lucide-icon [img]="TrashIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
               Tirar da fila
             </button>
+          } @else if (fromWish()) {
+            <button type="button" class="btn-quiet danger" (click)="removeWish()">
+              <lucide-icon [img]="TrashIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+              Tirar da wishlist
+            </button>
           } @else {
             <button type="button" class="btn-quiet cancelar" (click)="requestClose()">Cancelar</button>
           }
