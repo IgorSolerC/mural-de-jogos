@@ -3,7 +3,8 @@
  * que tomam a ficha inteira e os estragos. Tudo sai em SVG, em px da ficha, a partir do id: a mesma
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
-import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, f1, hash, rng, svgUrl, textureOf } from './paper';
+import { MORE_MOTIFS, Motif, MotifDrawing } from './pattern-motifs';
+import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, f1, hash, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -74,18 +75,7 @@ export const DOODLE_ART: Record<string, string> = {
 
 // ===================== Estampas =====================
 
-/**
- * Um motivo de estampa, num quadro de 40×40. `sil` é o corpo; `det` são os detalhes (olhos, nariz):
- * na versão de contorno saem em tinta, na versão cheia viram furos; `extra` sai sempre em traço
- * (bigodes, pernas, o anel do planeta). `c` é o miudinho que vai entre um e outro (a patinha), 20×20.
- */
-interface Motif {
-  sil: string;
-  det?: string;
-  extra?: string;
-  c: string;
-}
-
+/** Os motivos, cada um num quadro de 40×40 (o formato está em `pattern-motifs.ts`, com os que vieram depois). */
 const MOTIFS: Record<Pattern, Motif> = {
   gatinhos: {
     sil: `<path d='M8 13L9.5 4.5Q10 3 11.3 4L17 9Q20 8.3 23 9L28.7 4Q30 3 30.5 4.5L32 13Q35 18 34 24Q32 34 20 34.5Q8 34 6 24Q5 18 8 13Z'/>`,
@@ -148,6 +138,7 @@ const MOTIFS: Record<Pattern, Motif> = {
     extra: `<path d='M20 0V11'/><path d='M14.4 21L8 16.4L5 19.6M14 23.8L6.6 23L3.8 27.4M14.4 27L8 30L6.6 34.6M16.4 30L12.4 34.6L12 38.6M25.6 21L32 16.4L35 19.6M26 23.8L33.4 23L36.2 27.4M25.6 27L32 30L33.4 34.6M23.6 30L27.6 34.6L28 38.6'/>`,
     c: `<path d='M2 2L18 18M2 2L18.5 7.5M2 2L7.5 18.5M2 10.6Q7 8 10.6 2M2 16Q12.6 13 16 2'/>`,
   },
+  ...MORE_MOTIFS,
 };
 
 const tiles = new Map<string, Tile>();
@@ -200,10 +191,19 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
   const px = seed ? hop + (r() - 0.5) * 2 * shift : 0,
     py = seed ? hop + (r() - 0.5) * 2 * shift : 0;
   const wrap = (v: number) => ((v % side) + side) % side;
-  const outline = `<g class='l'>${m.sil}${m.det ?? ''}${m.extra ?? ''}</g>`;
-  // os furos do motivo cheio: o papel aparece nos olhos, no nariz, na boca
-  const holes = m.det ? `<g class='m'>${m.det}</g>` : '';
-  const filled = `<g mask='url(#furos)'><g class='s'>${m.sil}</g></g><g class='l'>${m.extra ?? ''}</g>`;
+  // um motivo temático tem vários desenhos, que se revezam nas casas; o primeiro usa os ids de sempre
+  const drawings = [m, ...(m.more ?? [])];
+  const suffix = (k: number) => (k ? String(k) : '');
+  const drawingDefs = (d: MotifDrawing, k: number) => {
+    const outline = `<g class='l'>${d.sil}${d.det ?? ''}${d.extra ?? ''}</g>`;
+    // os furos do motivo cheio: o papel aparece nos olhos, no nariz, na boca
+    const holes = d.det ? `<g class='m'>${d.det}</g>` : '';
+    const filled = `<g mask='url(#furos${suffix(k)})'><g class='s'>${d.sil}</g></g><g class='l'>${d.extra ?? ''}</g>`;
+    return {
+      mask: `<mask id='furos${suffix(k)}' maskUnits='userSpaceOnUse' x='-10' y='-10' width='60' height='60'><rect x='-10' y='-10' width='60' height='60' fill='#fff'/>${holes}</mask>`,
+      groups: `<g id='o${suffix(k)}'>${outline}</g><g id='s${suffix(k)}'>${filled}</g>`,
+    };
+  };
   let body = '';
   for (let j = 0; j < N; j++)
     for (let i = 0; i < N; i++) {
@@ -212,7 +212,8 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
         cy = wrap((j + 1) * cell + py + (r() - 0.5) * 2 * mess * 0.3 * cell);
       const rot = (r() - 0.5) * 2 * mess * 48;
       const s = 0.95 * z * (1 + (r() - 0.5) * 2 * mess * 0.28);
-      const ref = big ? (i % 2 ? '#s' : '#o') : '#c';
+      const v = drawings.length > 1 ? (Math.floor(i / 2) + j) % drawings.length : 0;
+      const ref = big ? `${i % 2 ? '#s' : '#o'}${suffix(v)}` : '#c';
       // o raio que o desenho pode ocupar girado: metade da diagonal do quadro dele
       const reach = (big ? 28 : 14) * s;
       const half = big ? 20 : 10;
@@ -224,14 +225,29 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
           body += `<use href='${ref}' transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)}) scale(${s.toFixed(3)}) translate(-${half} -${half})'/>`;
         }
     }
+  const first = drawingDefs(m, 0);
+  const others = drawings
+    .slice(1)
+    .map((d, k) => drawingDefs(d, k + 1))
+    .map((d) => d.mask + d.groups)
+    .join('');
   const svg =
     `<style>.l *{fill:none;stroke:#000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.l .f,.l .f *{fill:#000;stroke:none}.s *{fill:#000}.m *{fill:none;stroke:#000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.m .f{fill:#000;stroke:none}.c *{fill:none;stroke:#000;stroke-width:2.2;stroke-linecap:round}.c .f,.c .f *{fill:#000;stroke:none}</style>` +
-    `<defs><mask id='furos' maskUnits='userSpaceOnUse' x='-10' y='-10' width='60' height='60'><rect x='-10' y='-10' width='60' height='60' fill='#fff'/>${holes}</mask>` +
-    `<g id='o'>${outline}</g><g id='s'>${filled}</g><g id='c' class='c'>${m.c}</g></defs>` +
+    `<defs>${first.mask}` +
+    `${first.groups}<g id='c' class='c'>${m.c}</g>${others}</defs>` +
     `<g opacity='${TINTA}'>${body}</g>`;
   const tile = { url: svgUrl(side, side, svg), side };
   tiles.set(key, tile);
   return tile;
+}
+
+/**
+ * Um desenho só de cada estampa, em traço, para a seleção no editor: o primeiro desenho do motivo,
+ * sem o papel. A cor é a do texto em volta (`currentColor`, no estilo de quem mostra).
+ */
+export function motifIcon(p: Pattern): string {
+  const m = MOTIFS[p];
+  return `<svg viewBox='-2 -2 44 44' aria-hidden='true' focusable='false'><g class='l'>${m.sil}${m.det ?? ''}${m.extra ?? ''}</g></svg>`;
 }
 
 // ===================== O que sai para a ficha =====================
@@ -265,6 +281,9 @@ export interface ArtInput {
   damage?: Damage;
   /** O sorteio do estrago (Review.damageSeed); sem ele, o estrago sai só do id. */
   seed?: number;
+  /** A mancha por cima do papel (café, água, mofo, pegadas, traças), com o sorteio dela. */
+  stain?: Stain;
+  stainSeed?: number;
   /** O sorteio do rabisco (Review.scribbleSeed); sem ele, o rabisco sai só do id. */
   scribbleSeed?: number;
   /** A força do lápis do rabisco (um degrau de SCRIBBLE_INK); sem ela, o Normal. */
@@ -287,6 +306,8 @@ export function paperArt(input: ArtInput): PaperArt {
   const sw = input.plain ? Math.max(0.3, k * 1.3) : Math.max(0.6, k);
   if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain, SCRIBBLE_INK[input.scribbleInk ?? DEFAULT_SCRIBBLE_INK] ?? 1);
   if (input.damage) damageArt(input.damage, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.damage}${input.seed ? `:${input.seed}` : ''}`)), input.uid, out);
+  // a mancha sorteia do mesmo jeito que quando era um estrago: a ficha de antes sai igualzinha
+  if (input.stain) damageArt(input.stain, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.stain}${input.stainSeed ? `:${input.stainSeed}` : ''}`)), input.uid, out);
   return out;
 }
 
@@ -382,47 +403,6 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
         fling += `<path d='M${f1(p0[0])} ${f1(p0[1])}Q${f1(p1[0])} ${f1(p1[1])} ${f1(p2[0])} ${f1(p2[1])}'/>`;
       }
       return g(`<path d='${smooth(pts)}'/>`, 1.5, 0.95) + g(fling, 1.2, 0.75);
-    }
-    case 'espirais': {
-      let body = '';
-      const n = 3;
-      for (let j = 0; j < n; j++) {
-        const cx = W * ((j + 0.5) / n + (r() - 0.5) * 0.14),
-          cy = H * (0.3 + r() * 0.42);
-        const R = Math.min(W / 2.4, H * (0.32 + r() * 0.2)),
-          turns = 5 + Math.floor(r() * 3);
-        const pts: Pt[] = [];
-        const N = turns * 28;
-        const dir = r() < 0.5 ? 1 : -1;
-        for (let i = 0; i <= N; i++) {
-          const t = i / N,
-            ang = dir * t * turns * Math.PI * 2;
-          const rad = R * t * (1 + 0.06 * Math.sin(i * 0.9));
-          pts.push([cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad * 0.86]);
-        }
-        body += `<path d='${smooth(pts)}'/>`;
-      }
-      return g(body, 1.4, 0.9);
-    }
-    case 'molinhas': {
-      let body = '';
-      const n = 4;
-      for (let j = 0; j < n; j++) {
-        const y0 = H * ((j + 0.5) / n) + (r() - 0.5) * H * 0.06;
-        const slope = (r() - 0.5) * 0.14;
-        const R = (8 + r() * 5) * Math.max(0.4, k),
-          adv = (5 + r() * 2.5) * Math.max(0.4, k);
-        const pts: Pt[] = [];
-        const loops = Math.ceil((W + 20) / adv);
-        for (let i = 0; i <= loops * 10; i++) {
-          const t = i / 10,
-            ang = t * Math.PI * 2;
-          const x = -10 + t * adv - R * 0.55 * Math.sin(ang);
-          pts.push([x, y0 + (x - W / 2) * slope - R * Math.cos(ang) + Math.sin(t * 0.3) * 2 * k]);
-        }
-        body += `<path d='${poly(pts)}'/>`;
-      }
-      return g(body, 1.3, 0.9);
     }
     case 'hachura': {
       let body = '';
@@ -626,7 +606,7 @@ function sweep(a: Pt, b: Pt, r: () => number, bend: number, wave: number, n = 12
 
 type Corner = 'tl' | 'tr' | 'br' | 'bl';
 
-function damageArt(d: Damage, W: number, H: number, k: number, sw: number, r: () => number, uid: string, out: PaperArt): void {
+function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: number, r: () => number, uid: string, out: PaperArt): void {
   const corners: Corner[] = ['br', 'tr', 'bl', 'tl'];
   const corner = corners[Math.floor(r() * 4)];
   /** Um ponto no canto: (u, v) medidos para dentro, a partir da quina. */
@@ -1958,12 +1938,32 @@ const PAW =
  * aos poucos, cada pata um tanto virada; de vez em quando a de trás pisou quase em cima da da frente.
  */
 function pawPrints(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
-  const P = (24 + r() * 7) * k;
-  const ang = r() * Math.PI * 2;
+  const size = r();
+  const P = (24 + size * 7) * k;
+  // Às vezes o gato só cortou caminho por uma quina (nunca a de cima à esquerda, atrás da foto).
+  // A escolha sai do mesmo sorteio do tamanho: as trilhas que atravessam a ficha ficam como eram.
+  const corner = (size * 997) % 1 < 0.4;
+  let ang: number, c: Pt, reach: number;
+  if (!corner) {
+    ang = r() * Math.PI * 2;
+    c = [W * (0.4 + r() * 0.2), H * (0.4 + r() * 0.2)];
+    reach = Math.hypot(W, H) / 2 + P;
+  } else {
+    const [cx, cy] = ([[W, 0], [W, H], [0, H]] as const)[Math.floor(r() * 3)];
+    const sx = cx ? -1 : 1,
+      sy = cy ? -1 : 1;
+    const u = Math.min(W * 0.55, (80 + r() * 60) * k),
+      v = Math.min(H * 0.6, (70 + r() * 50) * k);
+    // de uma beirada até a vizinha, passando por dentro da quina
+    const a: Pt = [cx + sx * u, cy],
+      b: Pt = [cx, cy + sy * v];
+    const [from, to] = r() < 0.5 ? [a, b] : [b, a];
+    ang = Math.atan2(to[1] - from[1], to[0] - from[0]);
+    c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    reach = Math.hypot(b[0] - a[0], b[1] - a[1]) / 2 + P * 0.6;
+  }
   const D: Pt = [Math.cos(ang), Math.sin(ang)],
     N: Pt = [-D[1], D[0]];
-  const c: Pt = [W * (0.4 + r() * 0.2), H * (0.4 + r() * 0.2)];
-  const reach = Math.hypot(W, H) / 2 + P;
   const stride = P * (1.55 + r() * 0.3);
   const rot = (ang * 180) / Math.PI + 90;
   let prints = '';

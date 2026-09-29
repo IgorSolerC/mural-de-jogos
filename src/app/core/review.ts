@@ -1,5 +1,5 @@
 import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
-import { Damage, Paper, Pattern, Scribble, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed } from './paper';
+import { Damage, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
 
 export type { Kind } from './kinds';
 
@@ -176,6 +176,11 @@ export interface Review {
   weights: Weights;
   /** Bônus a favor e contra, na ordem em que foram colados. Entram na média. */
   bonuses: Bonus[];
+  /**
+   * A nota final dada na mão, no lugar da média (0 a 10, uma casa). Quando existe, é ela que vai em
+   * `scores.final`; a média das notas continua saindo de `computeFinal`. Sem o campo, vale a média.
+   */
+  finalOverride?: number;
   /** A quantidade do mural: horas jogadas, páginas lidas. Null nos murais sem quantidade. */
   hoursPlayed: number | null;
   /** Cor da cartolina, escolhida uma vez quando a ficha é criada. */
@@ -200,6 +205,10 @@ export interface Review {
   damage?: Damage;
   /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
   damageSeed?: number;
+  /** A mancha por cima do papel (café, água, mofo, pegadas): vai junto com o estrago. */
+  stain?: Stain;
+  /** O sorteio da mancha, como o do estrago. */
+  stainSeed?: number;
   text: string;
   /**
    * Dia em que foi concluído (ou visto pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos.
@@ -535,6 +544,26 @@ export function sanitizeBonuses(raw: unknown, kind: Kind): Bonus[] {
 }
 
 /** Um campo que só vai para a resenha quando tem valor: as antigas continuam iguais, sem chave vazia. */
+/** A nota final na mão: de 0 a 10, com uma casa. */
+export function sanitizeOverride(raw: unknown): number | undefined {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
+  return Math.round(Math.min(10, Math.max(0, raw)) * 10) / 10;
+}
+
+/**
+ * A mancha e o sorteio dela. As fichas (e backups) de antes guardavam a mancha no lugar do estrago:
+ * ela muda de campo com o mesmo sorteio, e sai igualzinha.
+ */
+function stainFields(r: Record<string, any>): Pick<Review, 'stain' | 'stainSeed'> {
+  const own = sanitizeStain(r['stain']);
+  const legacy = own ? undefined : sanitizeStain(r['damage']);
+  const stain = own ?? legacy;
+  return {
+    ...optional('stain', stain),
+    ...optional('stainSeed', stain ? sanitizeSeed(own ? r['stainSeed'] : r['damageSeed']) : undefined),
+  };
+}
+
 function optional<K extends string, V>(key: K, v: V | undefined): Partial<Record<K, V>> {
   return v === undefined ? {} : ({ [key]: v } as Record<K, V>);
 }
@@ -590,7 +619,9 @@ export function sanitizeReview(raw: unknown): Review | null {
   const bonuses = sanitizeBonuses(r['bonuses'], kind);
   // A média vem das notas e dos bônus; resenhas antigas que só tinham a nota final mantêm a delas.
   const legacyFinal = Number(s['final']);
+  const override = sanitizeOverride(r['finalOverride']);
   const final =
+    override ??
     computeFinal(kind, rated, weights, bonuses) ??
     (Number.isFinite(legacyFinal) ? Math.round(Math.min(10, Math.max(0, legacyFinal)) * 10) / 10 : null);
   if (final === null) return null;
@@ -606,6 +637,7 @@ export function sanitizeReview(raw: unknown): Review | null {
     kind,
     game,
     scores: { final, ...rated },
+    ...optional('finalOverride', override),
     status,
     difficulty,
     verdict: VERDICTS.includes(r['verdict']) ? r['verdict'] : null,
@@ -628,6 +660,7 @@ export function sanitizeReview(raw: unknown): Review | null {
     ...optional('scribbleInk', sanitizeScribble(r['scribble']) ? sanitizeScribbleInk(r['scribbleInk']) : undefined),
     ...optional('damage', sanitizeDamage(r['damage'])),
     ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
+    ...stainFields(r),
     text: str(r['text']),
     completedAt:
       r['completedAt'] === null

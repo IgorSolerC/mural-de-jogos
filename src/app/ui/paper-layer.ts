@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { Damage, Scribble } from '../core/paper';
+import { Damage, Scribble, Stain } from '../core/paper';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
 
 let uids = 0;
@@ -260,6 +260,9 @@ export class PaperArtLayer {
   readonly damage = input<Damage | undefined>(undefined);
   /** O sorteio do estrago (Review.damageSeed). */
   readonly seed = input<number | null | undefined>(undefined);
+  /** A mancha por cima do papel (Review.stain) e o sorteio dela. */
+  readonly stain = input<Stain | undefined>(undefined);
+  readonly stainSeed = input<number | null | undefined>(undefined);
   /** O sorteio do rabisco (Review.scribbleSeed). */
   readonly scribbleSeed = input<number | null | undefined>(undefined);
   /** A força do lápis do rabisco (Review.scribbleInk). */
@@ -277,8 +280,8 @@ export class PaperArtLayer {
 
   protected readonly art = computed<Art | null>(() => {
     const s = this.size();
-    if (!s || (!this.scribble() && !this.damage())) return null;
-    return paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, uid: this.uid, plain: this.plain() });
+    if (!s || (!this.scribble() && !this.damage() && !this.stain())) return null;
+    return paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stain: this.stain(), stainSeed: this.stainSeed() ?? undefined, uid: this.uid, plain: this.plain() });
   });
 
   /** A máscara da cor e do que está escrito: o papel que foi embora e a faixa em que a cor soltou. */

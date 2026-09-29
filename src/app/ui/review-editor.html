@@ -36,7 +36,7 @@
       <div class="editor-content">
         <div class="kit-panel parede">
           <!-- o estojo: a cor da cartolina, o papel e as marcas; a ficha acima muda na hora -->
-          <app-card-kit class="estojo scrollable" [id]="id()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" />
+          <app-card-kit class="estojo scrollable" [id]="id()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stain)]="stain" [(stainSeed)]="stainSeed" />
         </div>
 
         <div class="form">
@@ -151,8 +151,8 @@
             <h3 class="pergunta" id="editor-notas">Que nota?</h3>
             <!-- no celular a prévia fica lá em cima: a Média viaja junto, ao lado da pergunta -->
             <div class="media-ao-vivo">
-              <span class="rotulo">Média</span>
-              <app-judge-label [value]="final()" size="compact" />
+              <span class="rotulo">{{ overrideOn() ? 'Nota final' : 'Média' }}</span>
+              <app-judge-label [value]="shown()" size="compact" />
             </div>
           </div>
           <div class="subs">
@@ -175,6 +175,35 @@
           }
           <div class="campo bonus">
             <app-bonus-picker [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" [final]="final()" [shift]="shift()" />
+          </div>
+          <!-- a nota final na mão: fechada, vale a média; aberta, a nota escrita vai no lugar dela -->
+          <div class="campo nota-mao">
+            @if (overrideOn()) {
+              <label for="editor-nota-final" class="rotulo">Nota final na mão</label>
+              <div class="tira hours">
+                <input
+                  id="editor-nota-final"
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  maxlength="4"
+                  placeholder="0"
+                  [value]="overrideText()"
+                  (input)="overrideText.set($any($event.target).value)"
+                  [attr.aria-invalid]="attempted() && overrideValue() === null"
+                  aria-describedby="editor-nota-final-media"
+                />
+                <span class="unit" aria-hidden="true">de 10</span>
+                <button type="button" class="acao-caneta" (click)="setOverride(false)">Usar a média</button>
+              </div>
+              @if (attempted() && overrideValue() === null) {
+                <p class="field-error">Escreva uma nota de 0 a 10, como 7 ou 7,5.</p>
+              } @else if (final() !== null) {
+                <p class="nota-mao-media" id="editor-nota-final-media">A média das notas daria {{ formatScore(final()) }}.</p>
+              }
+            } @else {
+              <button type="button" class="acao-caneta" (click)="setOverride(true)">Dar a nota final na mão</button>
+            }
           </div>
         </section>
 

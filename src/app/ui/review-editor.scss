@@ -126,6 +126,21 @@
   }
 }
 
+/* a nota final na mão: um convite discreto embaixo dos bônus; aberta, a tira das horas */
+.nota-mao {
+  margin-top: 20px;
+
+  .hours {
+    gap: 10px;
+  }
+}
+.nota-mao-media {
+  margin: 8px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  color: var(--ink-2, rgb(21 21 21 / 0.7));
+}
+
 .media-ao-vivo {
   display: flex;
   align-items: center;

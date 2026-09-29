@@ -11,18 +11,27 @@
 import { clipHeight, placeFor, ransom, stickerFor, titleFor } from './clipping';
 import { pageFor, pageHeight } from './notebook';
 import { DEFAULT_LOOK, LOOK_KEYS, LOOK_STEPS, PatternLook, hash, textureOf } from './paper';
-import type { Damage, Paper, Pattern, Scribble } from './paper';
+import type { Damage, Paper, Pattern, Scribble, Stain } from './paper';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
 import { snipFor, stripFor, tearFor } from './tear';
 
 export const FROZEN_PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter'];
-export const FROZEN_PATTERNS: readonly Pattern[] = ['gatinhos', 'caveiras', 'foguinhos', 'coracoes', 'estrelas', 'fantasmas', 'cogumelos', 'flores', 'raios', 'planetas', 'controles', 'aranhas'];
-export const FROZEN_SCRIBBLES: readonly Scribble[] = ['novelo', 'espirais', 'molinhas', 'hachura', 'riscado', 'contorno', 'aula'];
-export const FROZEN_DAMAGES: readonly Damage[] = [
-  'rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado', 'molhado', 'cafe',
+export const FROZEN_PATTERNS: readonly Pattern[] = [
+  'gatinhos', 'caveiras', 'foguinhos', 'coracoes', 'estrelas', 'fantasmas', 'cogumelos', 'flores', 'raios', 'planetas', 'controles', 'aranhas',
   // 2026-09-29, segunda leva
-  'costurado', 'colado', 'picotado', 'caderno', 'arranhado', 'garras', 'mordido', 'tracas', 'mofado', 'pisado', 'pegadas', 'descascado',
+  'cachorros', 'borboletas', 'abelhas', 'peixes', 'dinossauros', 'morcegos', 'aboboras', 'bruxaria', 'olhos', 'cozinha', 'frutas', 'doces', 'pizza', 'cafe',
+  'dados', 'cartas', 'xadrez', 'pixel', 'alienigenas', 'chuva', 'folhas', 'cactos', 'medieval', 'piratas', 'ninja', 'tatuagens', 'ferramentas', 'robos', 'musica',
+  'mineracao', 'carros',
 ];
+// Espirais e Teste de caneta saíram em 2026-09-29, a pedido
+export const FROZEN_SCRIBBLES: readonly Scribble[] = ['novelo', 'hachura', 'riscado', 'contorno', 'aula'];
+export const FROZEN_DAMAGES: readonly Damage[] = [
+  'rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado',
+  // 2026-09-29, segunda leva
+  'costurado', 'colado', 'picotado', 'caderno', 'arranhado', 'garras', 'mordido', 'descascado',
+];
+/** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
+export const FROZEN_STAINS: readonly Stain[] = ['molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas'];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */
 const SEEDS: readonly (number | undefined)[] = [undefined, 1, 111, 222, 4242, 98765, 2147483647];
@@ -62,6 +71,10 @@ export function frozenPrints(): Record<string, string> {
     for (const id of IDS)
       for (const s of SIZES)
         for (const seed of SEEDS) out[`damage:${damage}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, damage, seed, uid: 'f' });
+  for (const stain of FROZEN_STAINS)
+    for (const id of IDS)
+      for (const s of SIZES)
+        for (const seed of SEEDS) out[`stain:${stain}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, stain, stainSeed: seed, uid: 'f' });
   for (const scribble of FROZEN_SCRIBBLES)
     for (const id of IDS)
       for (const s of SIZES)

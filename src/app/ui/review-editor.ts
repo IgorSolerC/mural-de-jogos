@@ -28,6 +28,7 @@ import {
   Weights,
   Wish,
   computeFinal,
+  formatScore,
   counts,
   formatShift,
   weightOf,
@@ -40,7 +41,7 @@ import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
-import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, Scribble, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
 import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
@@ -134,6 +135,21 @@ export class ReviewEditor {
   protected readonly final = computed(() => computeFinal(this.kind(), this.scores(), this.weights(), this.bonuses()));
   /** Só as notas, sem os bônus, para o seletor mostrar o efeito deles na média. */
   protected readonly base = computed(() => computeFinal(this.kind(), this.scores(), this.weights()));
+  /**
+   * A nota final na mão: fechada por padrão (vale a média). Aberta, a pessoa escreve a nota que quiser
+   * de 0 a 10, com uma casa, e ela vai para a ficha no lugar da média.
+   */
+  protected readonly overrideOn = signal(false);
+  protected readonly overrideText = signal('');
+  protected readonly overrideValue = computed(() => {
+    const t = this.overrideText().trim().replace(',', '.');
+    if (!/^\d{1,2}(\.\d+)?$/.test(t)) return null;
+    const v = Number(t);
+    return v >= 0 && v <= 10 ? Math.round(v * 10) / 10 : null;
+  });
+  /** A nota que vai para a ficha: a da mão, se aberta e válida; senão, a média. */
+  protected readonly shown = computed(() => (this.overrideOn() ? this.overrideValue() : this.final()));
+  protected readonly formatScore = formatScore;
   protected readonly shift = computed(() => {
     const f = this.final();
     const b = this.base();
@@ -194,6 +210,9 @@ export class ReviewEditor {
   protected readonly damage = signal<Damage | null>(null);
   /** O jeito do estrago que a pessoa sorteou (um clique a mais no estrago, outro jeito). */
   protected readonly damageSeed = signal<number | null>(null);
+  /** A mancha por cima do papel, e o jeito dela que a pessoa sorteou. */
+  protected readonly stain = signal<Stain | null>(null);
+  protected readonly stainSeed = signal<number | null>(null);
   protected readonly headPaper = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
@@ -212,7 +231,7 @@ export class ReviewEditor {
       // sem jogo, a capa mostra um ponto de interrogação e o nome fica só marcado (ReviewCard.empty)
       game: this.game() ?? { name: '', coverUrl: null, source: 'manual' },
       // sem nota ainda, a etiqueta mostra o tracinho
-      scores: { final: this.final() as number, ...this.counted() },
+      scores: { final: (this.shown() ?? this.final()) as number, ...this.counted() },
       status: this.status() ?? 'finalizado',
       difficulty: this.difficulty(),
       verdict: this.verdict(),
@@ -229,6 +248,8 @@ export class ReviewEditor {
       scribbleInk: this.scribbleInk(),
       damage: this.damage() ?? undefined,
       damageSeed: this.damageSeed() ?? undefined,
+      stain: this.stain() ?? undefined,
+      stainSeed: this.stainSeed() ?? undefined,
       text: this.text(),
       completedAt: this.dateUnknown() ? null : this.dateValid() ? this.completedAt() : this.today(),
       createdAt: '',
@@ -284,6 +305,7 @@ export class ReviewEditor {
     if (!this.status()) m.push('o status');
     if (!this.dateValid()) m.push('uma data válida');
     if (!this.hoursValid()) m.push(this.profile().amount?.missing ?? '');
+    if (this.overrideOn() && this.overrideValue() === null) m.push('uma nota final de 0 a 10');
     return m;
   });
 
@@ -314,6 +336,10 @@ export class ReviewEditor {
     this.scribbleInk.set(review?.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
     this.damage.set(review?.damage ?? null);
     this.damageSeed.set(review?.damageSeed ?? null);
+    this.stain.set(review?.stain ?? null);
+    this.overrideOn.set(review?.finalOverride !== undefined);
+    this.overrideText.set(review?.finalOverride !== undefined ? formatScore(review.finalOverride) : '');
+    this.stainSeed.set(review?.stainSeed ?? null);
     this.kit()?.reset();
     this.game.set(review?.game ?? draft?.game ?? wish?.game ?? null);
     const { final: _final, ...rated } = review?.scores ?? { final: 0 };
@@ -417,7 +443,7 @@ export class ReviewEditor {
     e.preventDefault();
     this.attempted.set(true);
     const game = this.game();
-    const final = this.final();
+    const final = this.shown();
     const status = this.status();
     if (!game || final === null || this.missingScores().length || !status || !this.dateValid() || !this.hoursValid()) {
       this.focusFirstMissing();
@@ -446,6 +472,9 @@ export class ReviewEditor {
       ...(this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? { scribbleInk: this.scribbleInk() } : {}),
       ...(this.damage() ? { damage: this.damage()! } : {}),
       ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
+      ...(this.stain() ? { stain: this.stain()! } : {}),
+      ...(this.stain() && this.stainSeed() ? { stainSeed: this.stainSeed()! } : {}),
+      ...(this.overrideOn() ? { finalOverride: final } : {}),
       text: this.text().trim(),
       completedAt: this.dateUnknown() ? null : this.completedAt(),
       createdAt: prev?.createdAt ?? now,
@@ -588,6 +617,9 @@ export class ReviewEditor {
       this.scribbleInk(),
       this.damage(),
       this.damageSeed(),
+      this.stain(),
+      this.stainSeed(),
+      this.overrideOn() ? this.overrideText().trim() : null,
       this.categories().map((k) => this.scores()[k] ?? null),
       this.status(),
       this.verdict(),
@@ -622,6 +654,13 @@ export class ReviewEditor {
       ...(l.size !== DEFAULT_LOOK.size ? { patternSize: l.size } : {}),
       ...(l.jitter !== DEFAULT_LOOK.jitter ? { patternJitter: l.jitter } : {}),
     };
+  }
+
+  /** Abre a nota na mão já com a média escrita, para a pessoa só ajustar; fechar volta à média. */
+  protected setOverride(on: boolean): void {
+    this.overrideOn.set(on);
+    if (on && !this.overrideText().trim() && this.final() !== null) this.overrideText.set(formatScore(this.final()));
+    if (on) setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-nota-final')?.select());
   }
 
   protected scoreOf(k: RatedKey): number | null {

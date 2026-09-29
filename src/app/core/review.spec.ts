@@ -327,4 +327,16 @@ describe('datas e iniciais (caça a bugs)', () => {
     expect(initialOf('  zelda')).toBe('Z');
     expect(initialOf('   ')).toBe('?');
   });
+
+  it('a nota final na mão vai no lugar da média; sem ela, vale a média', () => {
+    const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
+    const avg = sanitizeReview(base)!.scores.final;
+    expect('finalOverride' in sanitizeReview(base)!).toBeFalse();
+    const hand = sanitizeReview({ ...base, finalOverride: 3.25 })!;
+    expect([hand.finalOverride, hand.scores.final]).toEqual([3.3, 3.3]);
+    expect(sanitizeReview({ ...base, finalOverride: 12 })!.scores.final).toBe(10);
+    for (const bad of ['7', NaN, null, Infinity]) expect(sanitizeReview({ ...base, finalOverride: bad })!.scores.final).withContext(String(bad)).toBe(avg);
+    // zero é nota: a mão pode reprovar
+    expect(sanitizeReview({ ...base, finalOverride: 0 })!.scores.final).toBe(0);
+  });
 });

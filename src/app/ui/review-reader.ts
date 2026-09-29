@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, dayLabel, formatAmount, formatScore, parseDay, sortBonuses } from '../core/review';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatScore, parseDay, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
 import { paperStyle } from '../core/paper-art';
@@ -75,6 +75,9 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
 
               <div class="judgement">
                 <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" />
+                @if (handAverage(); as avg) {
+                  <p class="na-mao">Nota dada na mão · a média daria {{ avg }}</p>
+                }
                 @if (profile().difficulty) {
                   <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
                 }
@@ -152,12 +155,20 @@ export class ReviewReader {
   protected readonly others = computed(() => `${g(this.profile(), 'outros', 'outras')} ${this.profile().plural}`);
   protected readonly bonuses = computed(() => sortBonuses(this.review()?.bonuses ?? []));
   protected readonly kindLabels = BONUS_KIND_LABEL;
-  /** "Sem eles, a média seria 7,6." */
+  /** "Sem eles, a média seria 7,6." Contra a média com eles, mesmo quando a nota final foi dada na mão. */
   protected readonly withoutBonus = computed(() => {
     const r = this.review();
     const base = r ? computeBase(r) : null;
     if (!r || base === null) return '';
-    return base === r.scores.final ? 'Sem eles, a média seria a mesma.' : `Sem eles, a média seria ${formatScore(base)}.`;
+    const withThem = computeFinal(r.kind, r.scores, r.weights, r.bonuses);
+    return base === withThem ? 'Sem eles, a média seria a mesma.' : `Sem eles, a média seria ${formatScore(base)}.`;
+  });
+  /** A nota final dada na mão: a média que as notas dariam, para comparar. */
+  protected readonly handAverage = computed(() => {
+    const r = this.review();
+    if (!r || r.finalOverride === undefined) return null;
+    const avg = computeFinal(r.kind, r.scores, r.weights, r.bonuses);
+    return avg === null ? null : formatScore(avg);
   });
   protected readonly dayLabel = dayLabel;
   protected readonly noDay = NO_DAY_LABEL;

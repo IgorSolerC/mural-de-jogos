@@ -1,9 +1,9 @@
 /**
  * O papel da ficha, escolhido no editor: o papel da cartolina (textura), uma estampa de papelaria
- * (a cartolina temática: gatinhos, caveiras…), um rabisco que toma a ficha inteira e um estrago
- * (arrancada, dobrada, amassada, queimada, molhada…). Um de cada, no máximo. Estampa e rabisco ficam
- * atrás do que está escrito; o estrago é do papel, então leva junto o que estiver escrito ali, mas
- * não a foto nem os adesivos, que foram colados depois por cima.
+ * (a cartolina temática: gatinhos, caveiras…), um rabisco que toma a ficha inteira, um estrago
+ * (arrancada, dobrada, amassada, queimada…) e uma mancha (café, água, mofo, pegadas). Um de cada, no
+ * máximo. Estampa e rabisco ficam atrás do que está escrito; o estrago é do papel, então leva junto o
+ * que estiver escrito ali, mas não a foto nem os adesivos, que foram colados depois por cima.
  * Tudo é desenhado por id: a mesma ficha rasga sempre do mesmo jeito. Os desenhos estão em
  * `paper-art.ts`.
  */
@@ -24,17 +24,9 @@ export const PAPER_LABEL: Record<Paper, string> = {
   glitter: 'Glitter',
 };
 
-export const PAPER_HINT: Record<Paper, string> = {
-  cartolina: 'A de sempre, com a fibra de papelaria.',
-  lisa: 'Sem fibra nenhuma: cor chapada, lisinha.',
-  canson: 'O relevo grosso do papel de aquarela.',
-  linho: 'A trama cruzada do papel linho de diploma.',
-  verge: 'As listras do papel de convite, contra a luz.',
-  reciclado: 'Pintinhas e fiapos de outros papéis.',
-  glitter: 'Purpurina, que acende quando a luz bate.',
-};
-
 // ===================== Estampa =====================
+
+import type { MorePattern } from './pattern-motifs';
 
 export type Pattern =
   | 'gatinhos'
@@ -48,21 +40,62 @@ export type Pattern =
   | 'raios'
   | 'planetas'
   | 'controles'
-  | 'aranhas';
+  | 'aranhas'
+  | MorePattern;
 
+/** A ordem no editor: por assunto, para achar mais fácil (bichos, terror, comida, jogo, céu, natureza…). */
 export const PATTERNS: readonly Pattern[] = [
+  // bichos
   'gatinhos',
+  'cachorros',
+  'aranhas',
+  'borboletas',
+  'abelhas',
+  'peixes',
+  'dinossauros',
+  // terror
   'caveiras',
+  'fantasmas',
+  'morcegos',
+  'aboboras',
+  'bruxaria',
+  'olhos',
+  // comida
+  'cozinha',
+  'frutas',
+  'doces',
+  'pizza',
+  'cafe',
+  'cogumelos',
+  // jogo
+  'controles',
+  'pixel',
+  'dados',
+  'cartas',
+  'xadrez',
+  // céu
+  'estrelas',
+  'planetas',
+  'alienigenas',
+  'raios',
+  'chuva',
+  // natureza
+  'flores',
+  'folhas',
+  'cactos',
+  // aventura
+  'medieval',
+  'piratas',
+  'ninja',
+  'tatuagens',
+  'mineracao',
+  // coisas
   'foguinhos',
   'coracoes',
-  'estrelas',
-  'fantasmas',
-  'cogumelos',
-  'flores',
-  'raios',
-  'planetas',
-  'controles',
-  'aranhas',
+  'ferramentas',
+  'carros',
+  'robos',
+  'musica',
 ];
 
 export const PATTERN_LABEL: Record<Pattern, string> = {
@@ -78,6 +111,37 @@ export const PATTERN_LABEL: Record<Pattern, string> = {
   planetas: 'Planetas',
   controles: 'Controles',
   aranhas: 'Aranhas',
+  cachorros: 'Cachorros',
+  borboletas: 'Borboletas',
+  abelhas: 'Abelhas',
+  peixes: 'Peixes e baleias',
+  dinossauros: 'Dinossauros',
+  morcegos: 'Morcegos',
+  aboboras: 'Abóboras',
+  bruxaria: 'Bruxaria',
+  olhos: 'Olhos',
+  cozinha: 'Utensílios de cozinha',
+  frutas: 'Frutas',
+  doces: 'Doces',
+  pizza: 'Pizza',
+  cafe: 'Café',
+  pixel: 'Pixel',
+  dados: 'Dados',
+  cartas: 'Naipes',
+  xadrez: 'Xadrez',
+  alienigenas: 'Alienígenas',
+  chuva: 'Chuva',
+  folhas: 'Folhas',
+  cactos: 'Cactos',
+  medieval: 'Armas medievais',
+  piratas: 'Piratas',
+  ninja: 'Ninja',
+  tatuagens: 'Tatuagens de gangue',
+  ferramentas: 'Ferramentas',
+  robos: 'Robôs',
+  musica: 'Música',
+  mineracao: 'Mineração',
+  carros: 'Carros',
 };
 
 /**
@@ -132,28 +196,16 @@ export function lookOf(r: { patternSpacing?: number; patternSize?: number; patte
 
 // ===================== Rabisco =====================
 
-export type Scribble = 'novelo' | 'espirais' | 'molinhas' | 'hachura' | 'riscado' | 'contorno' | 'aula';
+export type Scribble = 'novelo' | 'hachura' | 'riscado' | 'contorno' | 'aula';
 
-export const SCRIBBLES: readonly Scribble[] = ['novelo', 'espirais', 'molinhas', 'hachura', 'riscado', 'contorno', 'aula'];
+export const SCRIBBLES: readonly Scribble[] = ['novelo', 'hachura', 'riscado', 'contorno', 'aula'];
 
 export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   novelo: 'Novelo',
-  espirais: 'Espirais',
-  molinhas: 'Teste de caneta',
   hachura: 'Hachura',
   riscado: 'Riscado',
   contorno: 'Contorno',
   aula: 'Tédio na aula',
-};
-
-export const SCRIBBLE_HINT: Record<Scribble, string> = {
-  novelo: 'Um novelo de lápis enquanto pensava na nota.',
-  espirais: 'Espirais grandes, de quem estava no telefone.',
-  molinhas: 'As molinhas de quem testa se a caneta pega.',
-  hachura: 'Sombreado a lápis, de vai e vem.',
-  riscado: 'Riscado com força, de um lado a outro.',
-  contorno: 'A borda passada a lápis, várias vezes.',
-  aula: 'Desenhinhos por toda parte: jogo da velha, estrelas, gatos.',
 };
 
 /**
@@ -171,6 +223,7 @@ export function sanitizeScribbleInk(raw: unknown): number | undefined {
 
 // ===================== Estrago =====================
 
+/** O que mexe no próprio papel: rasga, fura, dobra, queima, arranha. */
 export type Damage =
   | 'rasgado'
   | 'rasgao'
@@ -185,17 +238,11 @@ export type Damage =
   | 'arranhado'
   | 'garras'
   | 'mordido'
-  | 'tracas'
   | 'furado'
   | 'queimado'
-  | 'molhado'
-  | 'cafe'
-  | 'mofado'
-  | 'pisado'
-  | 'pegadas'
   | 'descascado';
 
-/** A ordem dos retalhos no editor: os rasgos e remendos, as dobras, os bichos, o fogo, as manchas. */
+/** A ordem dos retalhos no editor: os rasgos e remendos, as dobras, os bichos, o fogo. */
 export const DAMAGES: readonly Damage[] = [
   'rasgado',
   'rasgao',
@@ -210,14 +257,8 @@ export const DAMAGES: readonly Damage[] = [
   'arranhado',
   'garras',
   'mordido',
-  'tracas',
   'furado',
   'queimado',
-  'molhado',
-  'cafe',
-  'mofado',
-  'pisado',
-  'pegadas',
   'descascado',
 ];
 
@@ -235,48 +276,37 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
   arranhado: 'Arranhada',
   garras: 'Garras',
   mordido: 'Mordida',
-  tracas: 'Traças',
   furado: 'Furada',
   queimado: 'Queimada',
-  molhado: 'Molhada',
-  cafe: 'Café',
-  mofado: 'Mofada',
-  pisado: 'Pisada',
-  pegadas: 'Pegadas de gato',
   descascado: 'Fita arrancada',
 };
 
-export const DAMAGE_HINT: Record<Damage, string> = {
-  rasgado: 'Um canto ou uma borda foi arrancada; cada tentativa rasga em outro lugar.',
-  rasgao: 'Um rasgão entrando pela beirada.',
-  remendado: 'Rasgou de cima a baixo e foi colada com fita.',
-  costurado: 'Rasgou de lado a lado (ou de quina a quina) e alguém costurou de volta, ponto por ponto.',
-  colado: 'Rasgada em muitos pedaços e montada de volta, cada um no seu lugar.',
-  picotado: 'Recortada com a tesoura de picotar: em zigue-zague ou em ondinha.',
-  caderno: 'Arrancada do espiral: a beirada ficou com o picotinho dos furos.',
-  orelha: 'O canto dobrado por cima do que estava ali.',
-  dobrado: 'Ficou dobrada em quatro na mochila.',
-  amassado: 'Virou bolinha e foi desamassada.',
-  arranhado: 'O gato afiou as unhas bem no meio da ficha.',
-  garras: 'Uma patada de lobo: três ou quatro garradas de lado a lado.',
-  mordido: 'O cachorro achou que era biscoito.',
-  tracas: 'As traças roeram a cor e, em alguns pontos, furaram de vez.',
-  furado: 'Furos de queimadura, de ponta a ponta.',
-  queimado: 'Chegou perto demais da vela.',
-  molhado: 'Pegou chuva: a água secou e deixou a marca.',
-  cafe: 'A caneca de café foi apoiada bem em cima.',
-  mofado: 'Esquecida no porão úmido: mofo e pintinhas de ferrugem.',
-  pisado: 'Caiu no chão e levou uma pisada de tênis.',
-  pegadas: 'Um gato de pata suja de terra passou por cima.',
-  descascado: 'Estava presa na parede com fita crepe; ao tirar, a cor veio junto.',
+// ===================== Mancha =====================
+
+/**
+ * O que caiu em cima do papel, sem mexer nele: o café, a água, o mofo, as pegadas, as traças. Vai
+ * junto com um estrago (uma ficha rasgada pode ter café). Os desenhos são os mesmos de quando as
+ * manchas ficavam entre os estragos: o sorteio guardado dá a mesma mancha.
+ */
+export type Stain = 'cafe' | 'molhado' | 'mofado' | 'tracas' | 'pisado' | 'pegadas';
+
+export const STAINS: readonly Stain[] = ['cafe', 'molhado', 'mofado', 'tracas', 'pisado', 'pegadas'];
+
+export const STAIN_LABEL: Record<Stain, string> = {
+  cafe: 'Café',
+  molhado: 'Molhada',
+  mofado: 'Mofada',
+  tracas: 'Traças',
+  pisado: 'Pisada',
+  pegadas: 'Pegadas de gato',
 };
 
-/** Os estragos que tiram um pedaço do papel (ou entortam a beirada): a sombra segue o recorte. */
-export function cutsPaper(d: Damage | undefined): boolean {
+/** Os estragos (e manchas) que tiram um pedaço do papel (ou entortam a beirada): a sombra segue o recorte. */
+export function cutsPaper(d: Damage | Stain | undefined): boolean {
   return !!d && CUTS.has(d);
 }
 
-const CUTS: ReadonlySet<Damage> = new Set<Damage>([
+const CUTS: ReadonlySet<Damage | Stain> = new Set<Damage | Stain>([
   'rasgado',
   'rasgao',
   'remendado',
@@ -308,6 +338,8 @@ const currentDamage = oneOf(DAMAGES);
 /** As fichas e backups antigos usavam dois nomes para os formatos agora reunidos. */
 export const sanitizeDamage = (raw: unknown): Damage | undefined =>
   raw === 'arrancado' || raw === 'canto' ? 'rasgado' : currentDamage(raw);
+/** Só a mancha; as fichas de antes guardavam a mancha no lugar do estrago (Review.sanitize muda de campo). */
+export const sanitizeStain = oneOf(STAINS);
 
 /**
  * O sorteio do estrago e do rabisco: cada clique rasga (ou rabisca) de outro jeito, e o jeito

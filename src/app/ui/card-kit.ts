@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
   DAMAGES,
-  DAMAGE_HINT,
   DAMAGE_LABEL,
   Damage,
   LOOK_KEYS,
@@ -9,7 +9,6 @@ import {
   LOOK_STEP_LABEL,
   LookKey,
   PAPERS,
-  PAPER_HINT,
   PAPER_LABEL,
   PATTERNS,
   PATTERN_LABEL,
@@ -17,32 +16,34 @@ import {
   Pattern,
   PatternLook,
   SCRIBBLES,
-  SCRIBBLE_HINT,
   SCRIBBLE_INK_LABEL,
   SCRIBBLE_LABEL,
+  STAINS,
+  STAIN_LABEL,
   Scribble,
+  Stain,
   newSeed,
 } from '../core/paper';
-import { paperStyle } from '../core/paper-art';
+import { motifIcon, paperStyle } from '../core/paper-art';
 import { STOCKS, STOCK_LABEL, Stock } from '../core/review';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 
-type Tab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago';
+type Tab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha';
 
 interface Option {
   value: string | null;
   label: string;
-  hint: string;
   paper?: Paper;
   pattern?: Pattern;
   scribble?: Scribble;
   damage?: Damage;
+  stain?: Stain;
 }
 
 /**
- * O estojo da ficha, na bancada do editor: a cor da cartolina, o papel, a estampa, o rabisco e o
- * estrago, um de cada. Abas de fichário em pé numa régua, como os filtros do mural. Cada opção é
+ * O estojo da ficha, na bancada do editor: a cor da cartolina, o papel, a estampa, o rabisco, o
+ * estrago e a mancha, um de cada. Abas de fichário em pé numa régua, como os filtros do mural. Cada opção é
  * um retalho da ficha já com o efeito, na cor dela; a ficha ao lado muda na hora.
  */
 @Component({
@@ -126,7 +127,23 @@ interface Option {
               </label>
             </div>
           }
-          <div class="retalhos" [class.largos]="tab() === 'estrago' || tab() === 'rabisco'">
+          @if (tab() === 'estampa') {
+            <!-- são muitas: um desenho só de cada, sem o retalho de cartolina, para caberem à vista -->
+            <div class="carimbos">
+              @for (o of options(); track o.value) {
+                <label class="carimbo" [class.on]="o.value === value()">
+                  <input type="radio" name="kit-estampa" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+                  @if (o.pattern) {
+                    <span class="icone" [innerHTML]="icons[o.pattern]"></span>
+                  } @else {
+                    <span class="icone lisa"></span>
+                  }
+                  <span class="nome">{{ o.label }}</span>
+                </label>
+              }
+            </div>
+          } @else {
+          <div class="retalhos" [class.largos]="tab() === 'estrago' || tab() === 'mancha' || tab() === 'rabisco'">
             @for (o of options(); track o.value) {
               <label class="retalho" [class.on]="o.value === value()">
                 <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
@@ -138,6 +155,8 @@ interface Option {
                     [scribbleInk]="scribbleInk()"
                     [damage]="o.damage"
                     [seed]="o.damage && o.value === value() ? damageSeed() : null"
+                    [stain]="o.stain"
+                    [stainSeed]="o.stain && o.value === value() ? stainSeed() : null"
                     [plain]="true"
                   />
                   @if (o.value === null) {
@@ -148,12 +167,7 @@ interface Option {
               </label>
             }
           </div>
-          <p class="dica" aria-live="polite">
-            {{ chosen().hint }}
-            @if ((tab() === 'estrago' && damage()) || (tab() === 'rabisco' && scribble()) || (tab() === 'estampa' && pattern())) {
-              <span class="de-novo">Clique de novo e ele sai de outro jeito.</span>
-            }
-          </p>
+          }
         </fieldset>
       }
     </div>
@@ -253,18 +267,6 @@ interface Option {
         color: var(--wall-ink);
         font-weight: 800;
       }
-    }
-    .dica {
-      margin: 12px 0 0;
-      min-height: 1.3em;
-      font-family: var(--f-hand);
-      font-size: 1rem;
-      line-height: 1.3;
-      color: var(--wall-ink-2);
-    }
-    .de-novo {
-      display: block;
-      color: var(--wall-ink);
     }
     input[type='radio'] {
       position: absolute;
@@ -393,6 +395,79 @@ interface Option {
       text-underline-offset: 4px;
     }
 
+    /* ===== Estampas: um desenho a giz de cada, em grade miúda; a escolhida acende em amarelo ===== */
+    .carimbos {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+      gap: 10px 4px;
+    }
+    .carimbo {
+      display: grid;
+      justify-items: center;
+      align-content: start;
+      gap: 5px;
+      padding: 6px 2px 4px;
+      border-radius: 4px;
+      color: var(--wall-ink-2);
+      cursor: pointer;
+      transition: color var(--t-ui) var(--ease-ui);
+
+      &:has(input:focus-visible) {
+        outline: 3px solid var(--hi);
+        outline-offset: 1px;
+      }
+      &:hover {
+        color: var(--wall-ink);
+      }
+      &.on {
+        color: var(--hi);
+      }
+    }
+    .icone {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.6));
+      transition: translate var(--t-physical) var(--ease-physical);
+    }
+    .carimbo:hover .icone,
+    .carimbo.on .icone {
+      translate: 0 -2px;
+    }
+    .icone ::ng-deep svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .icone ::ng-deep .l * {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .icone ::ng-deep .l .f,
+    .icone ::ng-deep .l .f * {
+      fill: currentColor;
+      stroke: none;
+    }
+    /* a Lisa: o quadrado vazio, tracejado */
+    .icone.lisa {
+      width: 34px;
+      height: 34px;
+      margin: 3px;
+      border: 2px dashed currentColor;
+      border-radius: 3px;
+    }
+    .carimbo .nome {
+      font-size: 0.64rem;
+    }
+    .carimbo.on .nome {
+      color: var(--wall-ink);
+      text-decoration: underline 2px var(--hi);
+      text-underline-offset: 4px;
+    }
+
     /* ===== Ajustes da estampa: três réguas de cinco degraus, lado a lado acima dos retalhos ===== */
     .ajustes {
       display: grid;
@@ -455,6 +530,11 @@ interface Option {
 })
 export class CardKit {
   private readonly el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  /** O desenho de cada estampa: só desenhos nossos, nada que a pessoa escreveu. */
+  protected readonly icons: Record<Pattern, SafeHtml> = (() => {
+    const sanitizer = inject(DomSanitizer);
+    return Object.fromEntries(PATTERNS.map((p) => [p, sanitizer.bypassSecurityTrustHtml(motifIcon(p))])) as Record<Pattern, SafeHtml>;
+  })();
 
   readonly id = input.required<string>();
   readonly pinColor = input.required<string>();
@@ -465,6 +545,9 @@ export class CardKit {
   readonly damage = model.required<Damage | null>();
   /** O sorteio do estrago: cada clique num estrago, mesmo no que já está, rasga de outro jeito. */
   readonly damageSeed = model.required<number | null>();
+  /** A mancha por cima do papel, e o sorteio dela (como o do estrago). */
+  readonly stain = model.required<Stain | null>();
+  readonly stainSeed = model.required<number | null>();
   /** O sorteio do rabisco, como o do estrago: cada clique rabisca de outro jeito. */
   readonly scribbleSeed = model.required<number | null>();
   /** A força do lápis do rabisco, um degrau de SCRIBBLE_INK. */
@@ -481,6 +564,7 @@ export class CardKit {
     { id: 'estampa', label: 'Estampa' },
     { id: 'rabisco', label: 'Rabisco' },
     { id: 'estrago', label: 'Estrago' },
+    { id: 'mancha', label: 'Mancha' },
   ];
   protected readonly stocks = STOCKS;
   protected readonly stockLabels = STOCK_LABEL;
@@ -493,23 +577,15 @@ export class CardKit {
   protected readonly current = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
 
   private readonly all: Record<Exclude<Tab, 'cor'>, Option[]> = {
-    papel: PAPERS.map((p) => ({ value: p, label: PAPER_LABEL[p], hint: PAPER_HINT[p], paper: p })),
-    estampa: [
-      { value: null, label: 'Lisa', hint: 'Sem estampa: só a cartolina.' },
-      ...PATTERNS.map((p) => ({ value: p, label: PATTERN_LABEL[p], hint: 'Impressa tom sobre tom, como cartolina temática de papelaria.', pattern: p })),
-    ],
-    rabisco: [
-      { value: null, label: 'Nenhum', hint: 'Sem rabisco.' },
-      ...SCRIBBLES.map((s) => ({ value: s, label: SCRIBBLE_LABEL[s], hint: SCRIBBLE_HINT[s], scribble: s })),
-    ],
-    estrago: [
-      { value: null, label: 'Nenhum', hint: 'Inteira, como saiu da papelaria.' },
-      ...DAMAGES.map((d) => ({ value: d, label: DAMAGE_LABEL[d], hint: DAMAGE_HINT[d], damage: d })),
-    ],
+    papel: PAPERS.map((p) => ({ value: p, label: PAPER_LABEL[p], paper: p })),
+    estampa: [{ value: null, label: 'Lisa' }, ...PATTERNS.map((p) => ({ value: p, label: PATTERN_LABEL[p], pattern: p }))],
+    rabisco: [{ value: null, label: 'Nenhum' }, ...SCRIBBLES.map((s) => ({ value: s, label: SCRIBBLE_LABEL[s], scribble: s }))],
+    estrago: [{ value: null, label: 'Nenhum' }, ...DAMAGES.map((d) => ({ value: d, label: DAMAGE_LABEL[d], damage: d }))],
+    mancha: [{ value: null, label: 'Nenhuma' }, ...STAINS.map((m) => ({ value: m, label: STAIN_LABEL[m], stain: m }))],
   };
 
   protected readonly options = computed(() => (this.tab() === 'cor' ? [] : this.all[this.tab() as Exclude<Tab, 'cor'>]));
-  protected readonly tabLabel = computed(() => ({ cor: 'Cor', papel: 'Papel', estampa: 'Estampa', rabisco: 'Rabisco', estrago: 'Estrago' })[this.tab()]);
+  protected readonly tabLabel = computed(() => ({ cor: 'Cor', papel: 'Papel', estampa: 'Estampa', rabisco: 'Rabisco', estrago: 'Estrago', mancha: 'Mancha' })[this.tab()]);
   protected readonly value = computed<string | null>(() => {
     switch (this.tab()) {
       case 'papel':
@@ -520,11 +596,13 @@ export class CardKit {
         return this.scribble();
       case 'estrago':
         return this.damage();
+      case 'mancha':
+        return this.stain();
       default:
         return null;
     }
   });
-  protected readonly chosen = computed(() => this.options().find((o) => o.value === this.value()) ?? this.options()[0] ?? { label: '', hint: '' });
+  protected readonly chosen = computed(() => this.options().find((o) => o.value === this.value()) ?? this.options()[0] ?? { label: '' });
 
   /** Reset ao abrir outra ficha: a primeira aba de novo. */
   reset(): void {
@@ -539,7 +617,7 @@ export class CardKit {
 
   /** A aba mostra um pontinho quando a ficha tem algo escolhido ali. */
   protected used(t: Tab): boolean {
-    return t === 'papel' ? this.paper() !== 'cartolina' : t === 'estampa' ? !!this.pattern() : t === 'rabisco' ? !!this.scribble() : t === 'estrago' ? !!this.damage() : false;
+    return t === 'papel' ? this.paper() !== 'cartolina' : t === 'estampa' ? !!this.pattern() : t === 'rabisco' ? !!this.scribble() : t === 'estrago' ? !!this.damage() : t === 'mancha' ? !!this.stain() : false;
   }
 
   /** O retalho mostra só o que a opção muda, sobre o que a ficha já tem nas outras abas. */
@@ -566,6 +644,10 @@ export class CardKit {
       case 'estrago':
         this.damage.set(v as Damage | null);
         this.damageSeed.set(v ? newSeed(this.damageSeed()) : null);
+        break;
+      case 'mancha':
+        this.stain.set(v as Stain | null);
+        this.stainSeed.set(v ? newSeed(this.stainSeed()) : null);
         break;
     }
   }

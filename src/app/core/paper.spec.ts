@@ -1,5 +1,5 @@
-import { DAMAGES, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, SCRIBBLES, cutsPaper, lookOf, newSeed, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
-import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
+import { DAMAGES, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_LABEL, SCRIBBLES, STAINS, cutsPaper, lookOf, newSeed, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { cutMask, motifIcon, paperArt, paperStyle, patternTile } from './paper-art';
 import { sanitizeReview } from './review';
 
 describe('papel da ficha', () => {
@@ -8,7 +8,7 @@ describe('papel da ficha', () => {
     expect(sanitizePaper('cartolina')).toBeUndefined();
     expect(sanitizePaper('amassada')).toBeUndefined();
     expect(sanitizePattern('gatinhos')).toBe('gatinhos');
-    expect(sanitizePattern('dinossauros')).toBeUndefined();
+    expect(sanitizePattern('unicornios')).toBeUndefined();
     expect(sanitizeScribble('novelo')).toBe('novelo');
     expect(sanitizeDamage('furado')).toBe('furado');
     expect(sanitizeDamage('arrancado')).toBe('rasgado');
@@ -18,14 +18,38 @@ describe('papel da ficha', () => {
 
   it('a resenha guarda um de cada, e as antigas continuam sem os campos', () => {
     const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
-    const r = sanitizeReview({ ...base, paper: 'linho', pattern: 'caveiras', scribble: 'espirais', damage: 'queimado' })!;
-    expect([r.paper, r.pattern, r.scribble, r.damage]).toEqual(['linho', 'caveiras', 'espirais', 'queimado']);
+    const r = sanitizeReview({ ...base, paper: 'linho', pattern: 'caveiras', scribble: 'hachura', damage: 'queimado' })!;
+    expect([r.paper, r.pattern, r.scribble, r.damage]).toEqual(['linho', 'caveiras', 'hachura', 'queimado']);
     const old = sanitizeReview({ ...base, marks: ['gato'] })!;
     for (const k of ['paper', 'pattern', 'scribble', 'damage', 'marks']) expect(k in old).withContext(k).toBeFalse();
     for (const damage of ['arrancado', 'canto']) {
       const migrated = sanitizeReview({ ...base, damage, damageSeed: 12345 })!;
       expect([migrated.damage, migrated.damageSeed]).toEqual(['rasgado', 12345]);
     }
+  });
+
+  it('as manchas saíram dos estragos: a ficha de antes muda de campo com o mesmo sorteio', () => {
+    const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
+    for (const stain of STAINS) {
+      const old = sanitizeReview({ ...base, damage: stain, damageSeed: 4321 })!;
+      expect([old.damage, old.damageSeed, old.stain, old.stainSeed]).withContext(stain).toEqual([undefined, undefined, stain, 4321]);
+    }
+    // agora vão juntos: uma ficha rasgada com café
+    const both = sanitizeReview({ ...base, damage: 'rasgado', damageSeed: 1, stain: 'cafe', stainSeed: 2 })!;
+    expect([both.damage, both.damageSeed, both.stain, both.stainSeed]).toEqual(['rasgado', 1, 'cafe', 2]);
+    expect('stainSeed' in sanitizeReview({ ...base, stainSeed: 2 })!).toBeFalse();
+    expect(sanitizeReview({ ...base, stain: 'rasgado' })!.stain).toBeUndefined();
+    // Espirais e Teste de caneta saíram: a ficha fica sem rabisco
+    expect(sanitizeReview({ ...base, scribble: 'espirais', scribbleSeed: 3 })!.scribble).toBeUndefined();
+  });
+
+  it('a mancha sai igual à de quando era estrago, e vai por cima do estrago', () => {
+    const b = { id: 'r1', W: 420, H: 300, uid: 't' };
+    const cafe = paperArt({ ...b, stain: 'cafe', stainSeed: 9 });
+    const torn = paperArt({ ...b, damage: 'rasgado', seed: 5 });
+    const both = paperArt({ ...b, damage: 'rasgado', seed: 5, stain: 'cafe', stainSeed: 9 });
+    expect(both.cut).toEqual(torn.cut);
+    expect(both.fundo).toBe(torn.fundo + cafe.fundo);
   });
 
   it('o sorteio do estrago vai com a ficha (e com o backup), só quando há estrago', () => {
@@ -98,6 +122,21 @@ describe('papel da ficha', () => {
     expect(cutsPaper(undefined)).toBeFalse();
   });
 
+  it('cada estampa tem nome, desenho de amostra e ladrilho; as temáticas revezam os desenhos', () => {
+    expect(new Set(PATTERNS).size).toBe(PATTERNS.length);
+    expect(Object.keys(PATTERN_LABEL).sort()).toEqual([...PATTERNS].sort());
+    for (const p of PATTERNS) {
+      expect(motifIcon(p)).withContext(p).toMatch(/^<svg [^>]*><g class='l'>.+<\/g><\/svg>$/);
+      expect(patternTile(p).url).withContext(p).toContain('data:image/svg+xml');
+      expect(sanitizePattern(p)).withContext(p).toBe(p);
+    }
+    // a cozinha: a frigideira, a espátula, o batedor e a colher aparecem todos no ladrilho
+    const kitchen = decodeURIComponent(patternTile('cozinha').url);
+    for (const ref of ['#o', '#s', '#o1', '#s1', '#o2', '#s2', '#o3', '#s3']) expect(kitchen).withContext(ref).toContain(`href='${ref}'`);
+    // as de um desenho só não ganham ids novos
+    expect(decodeURIComponent(patternTile('gatinhos').url)).not.toContain("id='o1'");
+  });
+
   describe('os desenhos', () => {
     const base = { id: 'r1', W: 420, H: 300, uid: 't' };
 
@@ -110,6 +149,11 @@ describe('papel da ficha', () => {
         const one = paperArt({ ...base, damage: d, seed: 111 });
         expect(paperArt({ ...base, damage: d, seed: 111 })).withContext(d).toEqual(one);
         expect(paperArt({ ...base, damage: d, seed: 222 })).withContext(d).not.toEqual(one);
+      }
+      for (const m of STAINS) {
+        const one = paperArt({ ...base, stain: m, stainSeed: 111 });
+        expect(paperArt({ ...base, stain: m, stainSeed: 111 })).withContext(m).toEqual(one);
+        expect(paperArt({ ...base, stain: m, stainSeed: 222 })).withContext(m).not.toEqual(one);
       }
       // sem sorteio explícito, o id ainda determina uma forma estável
       expect(paperArt({ ...base, damage: 'rasgado' })).not.toEqual(paperArt({ ...base, damage: 'rasgado', seed: 111 }));
@@ -160,10 +204,10 @@ describe('papel da ficha', () => {
     });
 
     it('cada estrago desenha alguma coisa, em qualquer sorteio e tamanho', () => {
-      for (const d of DAMAGES)
+      for (const d of [...DAMAGES, ...STAINS])
         for (const s of [{ W: 420, H: 300 }, { W: 340, H: 150 }, { W: 150, H: 107, plain: true }])
           for (let seed = 1; seed <= 12; seed++) {
-            const art = paperArt({ ...base, ...s, damage: d, seed });
+            const art = paperArt({ ...base, ...s, ...((STAINS as readonly string[]).includes(d) ? { stain: d as (typeof STAINS)[number], stainSeed: seed } : { damage: d as (typeof DAMAGES)[number], seed }) });
             const drawn = art.cut.length + art.core.length + art.fundo.length + art.clareia.length + art.relevo.length + art.frente.length + art.fita.length;
             expect(drawn).withContext(`${d} ${s.W}x${s.H} ${seed}`).toBeGreaterThan(0);
             expect(JSON.stringify(art)).withContext(`${d} ${s.W}x${s.H} ${seed}`).not.toMatch(/NaN|Infinity|undefined/);
@@ -186,6 +230,20 @@ describe('papel da ficha', () => {
       alphas(0).forEach((a, i) => expect(a).toBeLessThan(normal[i]));
       alphas(6).forEach((a, i) => expect(a).toBeGreaterThan(normal[i]));
       alphas(6).forEach((a) => expect(a).toBeLessThanOrEqual(1));
+    });
+
+    it('as Pegadas de gato atravessam a ficha ou cortam caminho por uma quina (nunca a da foto)', () => {
+      let corners = 0;
+      for (let seed = 1; seed <= 80; seed++) {
+        const prints = [...paperArt({ ...base, stain: 'pegadas', stainSeed: seed }).fundo.matchAll(/translate\((-?[\d.]+) (-?[\d.]+)\) rotate/g)].map((m) => [Number(m[1]), Number(m[2])]);
+        expect(prints.length).withContext(String(seed)).toBeGreaterThan(0);
+        // todas as patas perto de uma quina só: a trilha cortou caminho
+        const near = (cx: number, cy: number) => prints.every(([x, y]) => Math.abs(x - cx) < 230 && Math.abs(y - cy) < 190);
+        if (near(420, 0) || near(420, 300) || near(0, 300)) corners++;
+        expect(prints.length > 0 && prints.every(([x, y]) => x < 150 && y < 130)).withContext(`${seed}: quina da foto`).toBeFalse();
+      }
+      expect(corners).toBeGreaterThan(15);
+      expect(corners).toBeLessThan(65);
     });
 
     it('a Costurada rasga em pé, deitada ou atravessando uma quina (nunca a da foto)', () => {

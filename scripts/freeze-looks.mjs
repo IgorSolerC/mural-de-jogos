@@ -10,7 +10,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dataFile = join(root, 'src/app/core/frozen-looks.data.ts');
-const prefixes = process.argv.slice(2);
+const args = process.argv.slice(2);
+// "damage:cafe" regrava aquele desenho; "-scribble:espirais" tira do arquivo um desenho que saiu
+const prefixes = args.filter((a) => !a.startsWith('-'));
+const removed = args.filter((a) => a.startsWith('-')).map((a) => a.slice(1));
 
 const dir = mkdtempSync(join(tmpdir(), 'freeze-looks-'));
 const bundle = join(dir, 'looks.mjs');
@@ -31,6 +34,12 @@ if (src !== null) {
 }
 
 const next = { ...old };
+let gone = 0;
+for (const k of Object.keys(next))
+  if (removed.some((p) => k.startsWith(p))) {
+    delete next[k];
+    gone++;
+  }
 let added = 0,
   changed = 0,
   kept = 0;
@@ -55,4 +64,7 @@ writeFileSync(
   `// Gerado por scripts/freeze-looks.mjs: as impressões digitais da aparência aprovada. Não edite à mão.\nexport const FROZEN_LOOKS: Record<string, string> = {\n${body}\n};\n`,
 );
 for (const [item, n] of Object.entries(keptBy)) console.log(`  mudou: ${item} (${n})`);
+if (gone) console.log(`  saíram: ${gone}`);
+const orphans = Object.keys(next).filter((k) => !(k in now));
+if (orphans.length) console.log(`  sem desenho (o teste vai acusar; tire com -prefixo): ${[...new Set(orphans.map((k) => k.split(':').slice(0, 2).join(':')))].join(', ')}`);
 console.log(`${added} novas, ${changed} regravadas${kept ? `, ${kept} diferentes mantidas (o teste vai acusar)` : ''}; ${keys.length} no total.`);
