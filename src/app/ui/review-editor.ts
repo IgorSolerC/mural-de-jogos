@@ -40,7 +40,7 @@ import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
-import { DEFAULT_LOOK, Damage, Paper, Pattern, PatternLook, Scribble, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, Scribble, lookOf } from '../core/paper';
 import { paperStyle } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
@@ -189,6 +189,8 @@ export class ReviewEditor {
   protected readonly scribble = signal<Scribble | null>(null);
   /** O jeito do rabisco que a pessoa sorteou (um clique a mais no rabisco, outro jeito). */
   protected readonly scribbleSeed = signal<number | null>(null);
+  /** A força do lápis do rabisco, um degrau de SCRIBBLE_INK. */
+  protected readonly scribbleInk = signal(DEFAULT_SCRIBBLE_INK);
   protected readonly damage = signal<Damage | null>(null);
   /** O jeito do estrago que a pessoa sorteou (um clique a mais no estrago, outro jeito). */
   protected readonly damageSeed = signal<number | null>(null);
@@ -224,6 +226,7 @@ export class ReviewEditor {
       patternSeed: this.patternSeed() ?? undefined,
       scribble: this.scribble() ?? undefined,
       scribbleSeed: this.scribbleSeed() ?? undefined,
+      scribbleInk: this.scribbleInk(),
       damage: this.damage() ?? undefined,
       damageSeed: this.damageSeed() ?? undefined,
       text: this.text(),
@@ -308,6 +311,7 @@ export class ReviewEditor {
     this.patternSeed.set(review?.patternSeed ?? null);
     this.scribble.set(review?.scribble ?? null);
     this.scribbleSeed.set(review?.scribbleSeed ?? null);
+    this.scribbleInk.set(review?.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
     this.damage.set(review?.damage ?? null);
     this.damageSeed.set(review?.damageSeed ?? null);
     this.kit()?.reset();
@@ -439,6 +443,7 @@ export class ReviewEditor {
       ...(this.pattern() && this.patternSeed() ? { patternSeed: this.patternSeed()! } : {}),
       ...(this.scribble() ? { scribble: this.scribble()! } : {}),
       ...(this.scribble() && this.scribbleSeed() ? { scribbleSeed: this.scribbleSeed()! } : {}),
+      ...(this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? { scribbleInk: this.scribbleInk() } : {}),
       ...(this.damage() ? { damage: this.damage()! } : {}),
       ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
       text: this.text().trim(),
@@ -580,6 +585,7 @@ export class ReviewEditor {
       this.patternSeed(),
       this.scribble(),
       this.scribbleSeed(),
+      this.scribbleInk(),
       this.damage(),
       this.damageSeed(),
       this.categories().map((k) => this.scores()[k] ?? null),

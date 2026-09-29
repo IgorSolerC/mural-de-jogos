@@ -69,7 +69,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
   },
   template: `
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
-    <app-paper-art [id]="review().id" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [damage]="review().damage" [seed]="review().damageSeed" [glitter]="review().paper === 'glitter'" [content]="review()" />
+    <app-paper-art [id]="review().id" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [glitter]="review().paper === 'glitter'" [content]="review()" />
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <div class="head">

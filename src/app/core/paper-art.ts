@@ -3,7 +3,7 @@
  * que tomam a ficha inteira e os estragos. Tudo sai em SVG, em px da ficha, a partir do id: a mesma
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
-import { DEFAULT_LOOK, Damage, Paper, Pattern, PatternLook, Scribble, f1, hash, rng, svgUrl, textureOf } from './paper';
+import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, f1, hash, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -267,6 +267,8 @@ export interface ArtInput {
   seed?: number;
   /** O sorteio do rabisco (Review.scribbleSeed); sem ele, o rabisco sai só do id. */
   scribbleSeed?: number;
+  /** A força do lápis do rabisco (um degrau de SCRIBBLE_INK); sem ela, o Normal. */
+  scribbleInk?: number;
   /** Um prefixo único para os ids do SVG. */
   uid: string;
   /** Sem o filtro de lápis (as amostras miúdas do editor). */
@@ -283,7 +285,7 @@ export function paperArt(input: ArtInput): PaperArt {
   const k = Math.max(0.2, Math.min(1.2, Math.sqrt((W * H) / (420 * 300))));
   // nas amostras miúdas o traço afina junto, senão o novelo vira borrão
   const sw = input.plain ? Math.max(0.3, k * 1.3) : Math.max(0.6, k);
-  if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain);
+  if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain, SCRIBBLE_INK[input.scribbleInk ?? DEFAULT_SCRIBBLE_INK] ?? 1);
   if (input.damage) damageArt(input.damage, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.damage}${input.seed ? `:${input.seed}` : ''}`)), input.uid, out);
   return out;
 }
@@ -293,7 +295,8 @@ export function paperArt(input: ArtInput): PaperArt {
  * CSS lê a transparência, não o preto; por isso o recorte é feito dentro do SVG, com um <mask>.
  */
 export function cutMask(art: PaperArt, W: number, H: number, layer: 'cor' | 'miolo' | 'queima' = 'cor'): string | null {
-  if (!art.cut.length) return null;
+  // a Fita arrancada só tira a cor, sem furar: ela tem máscara da cor, mas não do papel
+  if (!art.cut.length && (layer !== 'cor' || !art.core.length)) return null;
   const w = f1(W),
     h = f1(H);
   // cada pedaço num <path> próprio: juntos eles somam, sem o fill-rule de um furar o outro
@@ -338,9 +341,11 @@ function cont(pts: Pt[]): string {
 /** O rabisco é lápis, não caneta: por baixo do que está escrito ele fica clarinho, e a letra lê. */
 const GRAFITE = 0.5;
 
-function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r: () => number, plain?: boolean): string {
+function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r: () => number, plain?: boolean, ink = 1): string {
+  // a força do lápis só entra na conta fora do Normal: o de sempre sai igualzinho ao de antes
+  const alpha = (op: number) => (ink === 1 ? Math.round(op * GRAFITE * 100) / 100 : Math.min(1, Math.round(op * GRAFITE * ink * 100) / 100));
   const g = (body: string, width = 1.5, op = 1) =>
-    `<g class='rabisco' style='stroke-width:${f1(width * sw)}px;opacity:${Math.round(op * GRAFITE * 100) / 100}'${plain ? '' : " filter='url(#papel-lapis)'"}>${body}</g>`;
+    `<g class='rabisco' style='stroke-width:${f1(width * sw)}px;opacity:${alpha(op)}'${plain ? '' : " filter='url(#papel-lapis)'"}>${body}</g>`;
   switch (s) {
     case 'novelo': {
       // um novelo de lápis: laçadas de tamanhos diferentes, uma emendada na outra, amontoadas no meio
@@ -851,14 +856,51 @@ function damageArt(d: Damage, W: number, H: number, k: number, sw: number, r: ()
       out.fundo +=
         `<g filter='url(#papel-mancha)'>` +
         `<circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R)}' fill='rgb(130 80 36)' fill-opacity='.1'/>` +
-        `<circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R)}' fill='none' stroke='${brown}' stroke-opacity='.62' stroke-width='${f1(3.2 * sw)}' stroke-dasharray='${f1(R * 4.4)} ${f1(R * 0.35)} ${f1(R * 1.2)} ${f1(R * 0.3)}'/>` +
-        `<circle cx='${f1(cx + 4 * k)}' cy='${f1(cy + 3 * k)}' r='${f1(R * 0.965)}' fill='none' stroke='${brown}' stroke-opacity='.3' stroke-width='${f1(1.6 * sw)}' stroke-dasharray='${f1(R * 2.2)} ${f1(R * 1.8)}'/>` +
+        `<circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R)}' fill='none' stroke='${brown}' stroke-opacity='.34' stroke-width='${f1(7 * sw)}' stroke-dasharray='${f1(R * 4.4)} ${f1(R * 0.35)} ${f1(R * 1.2)} ${f1(R * 0.3)}'/>` +
+        `<circle cx='${f1(cx + 4 * k)}' cy='${f1(cy + 3 * k)}' r='${f1(R * 0.965)}' fill='none' stroke='${brown}' stroke-opacity='.18' stroke-width='${f1(3.4 * sw)}' stroke-dasharray='${f1(R * 2.2)} ${f1(R * 1.8)}'/>` +
         // o que derramou: uma poça e os respingos
         `<path d='${blobPath(sx, sy, (13 + r() * 9) * k, r)}' fill='${brown}' fill-opacity='.34' stroke='${brown}' stroke-opacity='.5' stroke-width='${f1(1.4 * sw)}'/>` +
         drops +
+        specks(cx, cy, sx, sy, R, k, brown, r) +
         `</g>`;
       break;
     }
+    case 'costurado':
+      sewn(W, H, k, sw, step, r, out);
+      break;
+    case 'colado':
+      glued(W, H, k, sw, step, r, out);
+      break;
+    case 'picotado':
+      pinked(W, H, k, r, out);
+      break;
+    case 'caderno':
+      notebookEdge(W, H, k, r, out);
+      break;
+    case 'arranhado':
+      catScratch(W, H, k, sw, r, out);
+      break;
+    case 'garras':
+      beastClaws(W, H, k, sw, step, r, out);
+      break;
+    case 'mordido':
+      bitten(W, H, k, sw, step, r, out);
+      break;
+    case 'tracas':
+      moths(W, H, k, r, out);
+      break;
+    case 'mofado':
+      mould(W, H, k, r, out);
+      break;
+    case 'pisado':
+      shoePrint(W, H, k, r, uid, out);
+      break;
+    case 'pegadas':
+      pawPrints(W, H, k, r, out);
+      break;
+    case 'descascado':
+      tapePulled(W, H, k, sw, r, uid, out);
+      break;
   }
 }
 
@@ -1078,6 +1120,944 @@ function reflect(p: Pt, a: Pt, b: Pt): Pt {
   const fx = a[0] + t * dx,
     fy = a[1] + t * dy;
   return [2 * fx - p[0], 2 * fy - p[1]];
+}
+
+/** Os pinguinhos miúdos do café: em volta do anel e da poça, uns mais longe, todos pequenos. */
+function specks(cx: number, cy: number, sx: number, sy: number, R: number, k: number, brown: string, r: () => number): string {
+  let out = '';
+  const n = 22 + Math.floor(r() * 12);
+  for (let i = 0; i < n; i++) {
+    const [ox, oy] = r() < 0.55 ? [cx, cy] : [sx, sy];
+    const a = r() * Math.PI * 2,
+      d = R * (0.9 + Math.pow(r(), 1.5) * 1.3);
+    out += `<circle cx='${f1(ox + Math.cos(a) * d)}' cy='${f1(oy + Math.sin(a) * d)}' r='${f1((0.45 + r() * r() * 1.1) * Math.max(0.4, k))}' fill='${brown}' fill-opacity='${(0.35 + r() * 0.25).toFixed(2)}'/>`;
+  }
+  return out;
+}
+
+// ===================== Os estragos de costura, cola, tesoura e bicho =====================
+
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const pt = (q: Pt) => `${f1(q[0])} ${f1(q[1])}`;
+
+/** O comprimento acumulado de um caminho, ponto a ponto. */
+function lengths(pts: Pt[]): number[] {
+  const out = [0];
+  for (let i = 1; i < pts.length; i++) out.push(out[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  return out;
+}
+
+/** O ponto a `s` px do começo do caminho. */
+function pointAt(pts: Pt[], cum: number[], s: number): Pt {
+  let i = 1;
+  while (i < pts.length - 1 && cum[i] < s) i++;
+  const a = pts[i - 1],
+    b = pts[i];
+  const u = clamp((s - cum[i - 1]) / (cum[i] - cum[i - 1] || 1), 0, 1);
+  return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+}
+
+/** A direção do caminho em `s`, medida `span` px para cada lado (sem virar nos dentinhos do rasgo). */
+function dirAt(pts: Pt[], cum: number[], s: number, span: number): Pt {
+  const a = pointAt(pts, cum, s - span),
+    b = pointAt(pts, cum, s + span);
+  const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  return [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
+}
+
+/**
+ * As duas beiradas de um rasgo que atravessa a ficha, com uma fresta entre elas que abre e fecha
+ * (`min`–`max` px). A primeira fica do lado de `toward`.
+ */
+function split(C: Pt[], toward: Pt, r: () => number, min: number, max: number): [Pt[], Pt[]] {
+  const s = sideOf(C[0], C[C.length - 1], toward);
+  let g = (min + max) / 2;
+  const a: Pt[] = [],
+    b: Pt[] = [];
+  C.forEach((p, i) => {
+    g = clamp(g + (r() - 0.5) * (max - min) * 0.45, min, max);
+    const [nx, ny] = normalAt(C, i, s, 2);
+    a.push([p[0] + (nx * g) / 2, p[1] + (ny * g) / 2]);
+    b.push([p[0] - (nx * g) / 2, p[1] - (ny * g) / 2]);
+  });
+  return [a, b];
+}
+
+/** Uma fenda ao longo do caminho, com a largura `w` em cada ponto e as beiradas ásperas (`rough` px). */
+function slit(path: Pt[], w: number[], r: () => number, rough: number): { a: Pt[]; b: Pt[]; d: string } {
+  const a: Pt[] = [],
+    b: Pt[] = [];
+  path.forEach((p, i) => {
+    const [nx, ny] = normalAt(path, i, 1, 2);
+    const ha = w[i] > 0 ? Math.max(0, w[i] / 2 + (r() - 0.5) * rough) : 0;
+    const hb = w[i] > 0 ? Math.max(0, w[i] / 2 + (r() - 0.5) * rough) : 0;
+    a.push([p[0] + nx * ha, p[1] + ny * ha]);
+    b.push([p[0] - nx * hb, p[1] - ny * hb]);
+  });
+  return { a, b, d: `${poly(a)}${cont([...b].reverse())}Z` };
+}
+
+/** Um contorno fechado reamostrado a cada `step` px, cada ponto tremido até `amp` px. */
+function roughen(pts: Pt[], step: number, amp: number, r: () => number): Pt[] {
+  return resample([...pts, pts[0]], step)
+    .slice(0, -1)
+    .map(([x, y]): Pt => [x + (r() - 0.5) * 2 * amp, y + (r() - 0.5) * 2 * amp]);
+}
+
+// ----- Costurada -----
+
+const THREADS = ['rgb(178 30 38)', 'rgb(30 30 36)', 'rgb(244 240 228)', 'rgb(36 62 128)', 'rgb(214 160 40)'];
+
+/** Um fio de linha: a sombra no papel, o fio, a torção escura e o brilho. */
+function threadPath(d: string, color: string, sw: number, k: number): string {
+  return (
+    `<path d='${d}' stroke='#000' stroke-opacity='.42' stroke-width='${f1(2.7 * sw)}' transform='translate(${f1(0.5 * k)} ${f1(1.1 * k)})' filter='url(#papel-fio)'/>` +
+    `<path d='${d}' stroke='${color}' stroke-width='${f1(1.9 * sw)}'/>` +
+    `<path d='${d}' stroke='#000' stroke-opacity='.2' stroke-width='${f1(1.9 * sw)}' stroke-dasharray='${f1(0.8 * sw)} ${f1(1.7 * sw)}'/>` +
+    `<path d='${d}' stroke='#fff' stroke-opacity='.4' stroke-width='${f1(0.6 * sw)}' stroke-dasharray='${f1(1.2 * sw)} ${f1(1.3 * sw)}'/>`
+  );
+}
+
+/**
+ * Rasgou de lado a lado (em pé ou deitado) e foi costurada: a fresta abre e fecha como na Remendada,
+ * e a linha passa de furo em furo, num de quatro pontos (cruz, zigue-zague, chuleado, reto), com o nó
+ * no começo e a ponta solta no fim. A linha vai por cima do que está escrito e da fresta.
+ */
+function sewn(W: number, H: number, k: number, sw: number, step: number, r: () => number, out: PaperArt): void {
+  const way = r();
+  let a: Pt, b: Pt, one: Pt, other: Pt;
+  if (way < 0.35) {
+    // em pé
+    a = [W * (0.36 + r() * 0.28), -4];
+    b = [a[0] + (r() - 0.5) * W * 0.18, H + 4];
+    one = [0, H / 2];
+    other = [W, H / 2];
+  } else if (way < 0.65) {
+    // deitado
+    a = [-4, H * (0.36 + r() * 0.28)];
+    b = [W + 4, a[1] + (r() - 0.5) * H * 0.24];
+    one = [W / 2, 0];
+    other = [W / 2, H];
+  } else {
+    // numa quina: o canto rasgou na diagonal, de uma beirada até a vizinha, e foi costurado de volta.
+    // Nunca a de cima à esquerda, que fica escondida atrás da foto.
+    const [cx, cy] = ([[W, 0], [W, H], [0, H]] as const)[Math.floor(r() * 3)];
+    const sx = cx ? -1 : 1,
+      sy = cy ? -1 : 1;
+    const u = Math.min(W * 0.45, (70 + r() * 60) * k),
+      v = Math.min(H * 0.55, (60 + r() * 50) * k);
+    a = [cx + sx * u, cy - sy * 4];
+    b = [cx - sx * 4, cy + sy * v];
+    one = [cx + sx * u * 0.25, cy + sy * v * 0.25];
+    other = [W / 2, H / 2];
+  }
+  const C = rip(sweep(a, b, r, (r() - 0.5) * 28 * k, 9 * k, 14), one, r, 5 * k, step);
+  const [A, B] = split(C, one, r, 0.4 * k, 3.4 * k);
+  out.cut.push(`${poly(A)}${cont([...B].reverse())}Z`);
+  out.core.push(coreBand(A, one, r, 0.5 * k, 4 * k), coreBand(B, other, r, 0.5 * k, 4 * k));
+
+  const kk = Math.max(0.5, k);
+  const cum = lengths(C),
+    L = cum[cum.length - 1];
+  const style = (['cruz', 'zigue', 'chuleado', 'reto'] as const)[Math.floor(r() * 4)];
+  const color = THREADS[Math.floor(r() * THREADS.length)];
+  const gap = (13 + r() * 4) * kk;
+  const holes: Pt[] = [];
+  const zig: Pt[] = [];
+  let d = '';
+  let j = 0;
+  let lastT: Pt = [0, 1];
+  for (let s = 10 * kk + r() * gap * 0.5; s < L - 10 * kk; s += gap * (0.86 + r() * 0.28), j++) {
+    const p = pointAt(C, cum, s);
+    const t = dirAt(C, cum, s, 9 * kk);
+    const n: Pt = [-t[1], t[0]];
+    lastT = t;
+    const reach = (6.5 + r() * 1.6) * kk;
+    // à mão: cada furo sai um tanto fora do lugar
+    const hole = (side: number, along: number): Pt => {
+      const rr = reach + (r() - 0.5) * 1.4 * kk,
+        al = along + (r() - 0.5) * 1.2 * kk;
+      return [p[0] + n[0] * rr * side + t[0] * al, p[1] + n[1] * rr * side + t[1] * al];
+    };
+    if (style === 'cruz') {
+      const h = gap * 0.3;
+      const a1 = hole(1, -h),
+        a2 = hole(1, h),
+        b1 = hole(-1, -h),
+        b2 = hole(-1, h);
+      holes.push(a1, a2, b1, b2);
+      d += `M${pt(a1)}L${pt(b2)}M${pt(a2)}L${pt(b1)}`;
+    } else if (style === 'zigue') {
+      const q = hole(j % 2 ? 1 : -1, 0);
+      holes.push(q);
+      zig.push(q);
+    } else if (style === 'chuleado') {
+      const sl = gap * 0.32;
+      const a1 = hole(1, -sl),
+        b1 = hole(-1, sl);
+      holes.push(a1, b1);
+      d += `M${pt(a1)}L${pt(b1)}`;
+    } else {
+      const a1 = hole(1, 0),
+        b1 = hole(-1, 0);
+      holes.push(a1, b1);
+      d += `M${pt(a1)}L${pt(b1)}`;
+    }
+  }
+  if (style === 'zigue') d = poly(zig);
+  if (!holes.length) return;
+  const first = holes[0],
+    last = holes[holes.length - 1];
+  const n: Pt = [-lastT[1], lastT[0]];
+  const tail = smooth([
+    last,
+    [last[0] + lastT[0] * 9 * kk + n[0] * 5 * kk, last[1] + lastT[1] * 9 * kk + n[1] * 5 * kk],
+    [last[0] + lastT[0] * 17 * kk - n[0] * 1 * kk, last[1] + lastT[1] * 17 * kk - n[1] * 1 * kk],
+    [last[0] + lastT[0] * 23 * kk + n[0] * 7 * kk, last[1] + lastT[1] * 23 * kk + n[1] * 7 * kk],
+  ]);
+  out.fita +=
+    `<g fill='rgb(28 22 18)' fill-opacity='.72'>${holes.map((h) => `<circle cx='${f1(h[0])}' cy='${f1(h[1])}' r='${f1(1.15 * sw)}'/>`).join('')}</g>` +
+    `<g fill='none' stroke-linecap='round' stroke-linejoin='round'>${threadPath(d, color, sw, k)}${threadPath(tail, color, sw, k)}</g>` +
+    `<circle cx='${f1(first[0] + 0.5 * k)}' cy='${f1(first[1] + 1.1 * k)}' r='${f1(2.4 * sw)}' fill='#000' fill-opacity='.35' filter='url(#papel-fio)'/>` +
+    `<circle cx='${f1(first[0])}' cy='${f1(first[1])}' r='${f1(2.2 * sw)}' fill='${color}'/>` +
+    `<circle cx='${f1(first[0] - 0.6 * sw)}' cy='${f1(first[1] - 0.6 * sw)}' r='${f1(0.7 * sw)}' fill='#fff' fill-opacity='.35'/>`;
+}
+
+// ----- Colada em pedaços -----
+
+/**
+ * Rasgada em muitos pedaços e posta de volta no lugar: três ou quatro rasgos de beirada a beirada,
+ * que se cruzam e picam a ficha em seis a onze pedaços. As frestas abrem e fecham, cada pedaço
+ * ficou um tanto fora do lugar na beirada e pega a luz de um jeito: cada rasgo clareia ou escurece
+ * um pouco tudo o que fica de um lado dele, e as metades se somam num tom por pedaço.
+ */
+function glued(W: number, H: number, k: number, sw: number, step: number, r: () => number, out: PaperArt): void {
+  const P = 2 * (W + H);
+  const CORNERS: [number, Pt, Pt][] = [
+    [0, [0, 0], [-1, -1]],
+    [W, [W, 0], [1, -1]],
+    [W + H, [W, H], [1, 1]],
+    [2 * W + H, [0, H], [-1, 1]],
+  ];
+  const wrap = (p: number) => ((p % P) + P) % P;
+  /** O ponto da beirada a `p` px do canto de cima à esquerda, em sentido horário, `o` px para fora. */
+  const rimAt = (p: number, o: number): Pt => {
+    const q = wrap(p);
+    for (const [c, at, d] of CORNERS) if (Math.abs(q - c) < 0.01) return [at[0] + d[0] * o, at[1] + d[1] * o];
+    if (q < W) return [q, -o];
+    if (q < W + H) return [W + o, q - W];
+    if (q < 2 * W + H) return [W - (q - W - H), H + o];
+    return [-o, H - (q - 2 * W - H)];
+  };
+  /** A volta pela beirada de `from` até `to`, em sentido horário, passando pelas quinas. */
+  const walk = (from: number, to: number): number[] => {
+    const end = to > from ? to : to + P;
+    return [from, ...[0, W, W + H, 2 * W + H, P, P + W, P + W + H, P + 2 * W + H].filter((c) => c > from && c < end), end];
+  };
+  // longe das quinas: o rasgo que termina numa quina parece um canto arrancado
+  const margin = 24 * k;
+  const nudge = (p: number) => {
+    let q = wrap(p);
+    for (const c of [0, W, W + H, 2 * W + H, P]) if (Math.abs(q - c) < margin) q = c + (q < c ? -margin : margin);
+    return wrap(q);
+  };
+  const tears = 3 + (r() < 0.5 ? 1 : 0);
+  const ends: number[] = [];
+  let tone = '',
+    lifts = '';
+  for (let t = 0; t < tears; t++) {
+    // a outra ponta cai do outro lado da volta, para o rasgo atravessar a ficha
+    const a = nudge(r() * P);
+    const b = nudge(a + P * (0.33 + r() * 0.34));
+    ends.push(a, b);
+    const A = rimAt(a, 5),
+      B = rimAt(b, 5);
+    const dx = B[0] - A[0],
+      dy = B[1] - A[1],
+      l = Math.hypot(dx, dy) || 1;
+    const one: Pt = [(A[0] + B[0]) / 2 - (dy / l) * 50, (A[1] + B[1]) / 2 + (dx / l) * 50];
+    const other: Pt = [(A[0] + B[0]) / 2 + (dy / l) * 50, (A[1] + B[1]) / 2 - (dx / l) * 50];
+    const C = rip(sweep(A, B, r, (r() - 0.5) * 30 * k, 8 * k, 14), one, r, 4.5 * k, step);
+    const [E1, E2] = split(C, one, r, 0.5 * k, 3.4 * k);
+    out.cut.push(`${poly(E1)}${cont([...E2].reverse())}Z`);
+    out.core.push(coreBand(E1, one, r, 0.4 * k, 3.4 * k), coreBand(E2, other, r, 0.4 * k, 3.4 * k));
+    // tudo o que fica de um lado deste rasgo: um tanto mais claro ou mais escuro
+    const light = r() < 0.5;
+    tone += `<path d='${poly([...C, ...walk(b, a).map((p) => rimAt(p, 8))])}Z' fill='${light ? '#fff' : '#000'}' fill-opacity='${(0.12 + r() * 0.12).toFixed(2)}'/>`;
+    // a beirada de cada lado não assentou rente: uma pega luz, a outra faz sombra
+    lifts += `<path d='${poly(E1)}' stroke='#fff' stroke-opacity='.55'/><path d='${poly(E2)}' stroke='#000' stroke-opacity='.45'/>`;
+  }
+  // cada trecho de beirada é de um pedaço, e nenhum voltou exatamente para o lugar
+  ends.sort((x, y) => x - y);
+  ends.forEach((e0, i) => {
+    const e1 = ends[(i + 1) % ends.length];
+    const inset = r() < 0.25 ? 0 : (0.6 + r() * 2.2) * k;
+    if (!inset || Math.abs(e1 - e0) < 1) return;
+    const w = walk(e0, e1);
+    out.cut.push(`${poly([...w.map((p) => rimAt(p, 7)), ...[...w].reverse().map((p) => rimAt(p, -inset))])}Z`);
+  });
+  out.relevo += `<g>${tone}</g><g fill='none' stroke-width='${f1(1.1 * sw)}' stroke-linejoin='round'>${lifts}</g>`;
+}
+
+// ----- Tesoura de picote -----
+
+/**
+ * Recortada em volta com a tesoura de picotar, em zigue-zague ou em ondinha. A tesoura anda aos
+ * pedaços: a cada tesourada o desenho recomeça um tanto fora do compasso, e a linha entorta um pouco.
+ */
+function pinked(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const wave = r() < 0.4;
+  const kk = Math.max(0.5, k);
+  const per = (wave ? 10 : 7) * kk,
+    amp = (wave ? 2.6 : 3.2) * kk,
+    base = 1.4 * kk;
+  const border: Pt[] = [];
+  const side = (len: number, map: (u: number, v: number) => Pt) => {
+    let u = amp * 1.6,
+      end = u,
+      from = u,
+      off = 0,
+      tilt = 0,
+      ph = 0,
+      tip = r() < 0.5;
+    while (u < len - amp * 1.6) {
+      if (u >= end) {
+        from = u;
+        end = u + (48 + r() * 36) * kk;
+        off = (r() - 0.5) * 1.6 * kk;
+        tilt = (r() - 0.5) * 0.02;
+        ph = r();
+      }
+      const drift = off + tilt * (u - from);
+      if (wave) {
+        border.push(map(u, base + drift + (amp * (1 - Math.cos(((u - from) / per + ph) * Math.PI * 2))) / 2));
+        u += per / 6;
+      } else {
+        border.push(map(u, base + drift + (tip ? 0 : amp)));
+        tip = !tip;
+        u += (per / 2) * (0.9 + r() * 0.2);
+      }
+    }
+  };
+  side(W, (u, v) => [u, v]);
+  side(H, (u, v) => [W - v, u]);
+  side(W, (u, v) => [W - u, H - v]);
+  side(H, (u, v) => [v, H - u]);
+  out.cut.push(`M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z${poly(border)}Z`);
+  out.evenodd = true;
+}
+
+// ----- Arrancada do caderno -----
+
+/**
+ * Arrancada do caderno de espiral: na beirada da esquerda (ou de cima) ficou o picotinho, com as
+ * pontes entre os furos rasgadas e a metade de dentro de cada furo mordendo o papel; um ou outro
+ * furo ficou inteiro, e uma ou outra lingueta rasgou mais fundo.
+ */
+function notebookEdge(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const top = r() < 0.4;
+  const L = top ? W : H;
+  const map = (u: number, v: number): Pt => (top ? [u, v] : [v, u]);
+  const kk = Math.max(0.45, k);
+  const pitch = (19 + r() * 3) * kk,
+    R = (3.6 + r() * 1) * kk,
+    vc = (7 + r() * 1.2) * kk;
+  const count = Math.max(1, Math.floor((L - pitch * 0.6) / pitch));
+  const u0 = (L - (count - 1) * pitch) / 2;
+  const edge: Pt[] = [];
+  const tab = (from: number, to: number) => {
+    const deep = r() < 0.22 ? (1.5 + r() * 3.5) * kk : 0;
+    for (let u = from; u < to; u += 2.2 * kk) edge.push([u, deep + r() * r() * 2.2 * kk]);
+  };
+  let u = -6;
+  for (let j = 0; j < count; j++) {
+    const c = u0 + j * pitch;
+    if (r() < 0.16) {
+      // este furo ficou inteiro
+      tab(u, c + R * 1.3);
+      u = c + R * 1.3;
+      const ring: Pt[] = [];
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2,
+          rr = R * (0.94 + r() * 0.1);
+        ring.push(map(c + Math.cos(a) * rr, vc + Math.sin(a) * rr));
+      }
+      out.cut.push(`${poly(ring)}Z`);
+      continue;
+    }
+    // a ponte entre o furo e a beirada rasgou: desce torta, contorna a metade de dentro e sobe
+    tab(u, c - R * 1.3);
+    edge.push([c - R * (1.05 + r() * 0.25), vc * (0.35 + r() * 0.3)]);
+    for (let i = 0; i <= 8; i++) {
+      const a = Math.PI - (i / 8) * Math.PI;
+      edge.push([c + Math.cos(a) * R, vc + Math.sin(a) * R]);
+    }
+    edge.push([c + R * (1.05 + r() * 0.25), vc * (0.35 + r() * 0.3)]);
+    u = c + R * 1.3;
+  }
+  tab(u, L + 6);
+  const pts = edge.map(([a, b]) => map(a, b));
+  out.cut.push(`${poly([map(-6, -6), ...pts, map(L + 6, -6)])}Z`);
+  out.core.push(coreBand(pts, map(L / 2, 80 * kk), r, 0.3 * k, 1.8 * k));
+}
+
+// ----- Arranhada e Garras -----
+
+/** A largura de uma unhada ao longo do caminho: entra rápido, afunda e vai afinando no arrasto. */
+function clawProfile(t: number): number {
+  return t < 0.14 ? Math.sin(((t / 0.14) * Math.PI) / 2) : Math.pow(Math.max(0, (1 - t) / 0.86), 0.6);
+}
+
+/** Um jogo de unhadas paralelas em volta de `c`, na direção `ang`, que abrem um pouco no arrasto. */
+function clawSet(c: Pt, ang: number, L: number, m: number, gap: number, fan: number, bend: number, wave: number, r: () => number, step: number): Pt[][] {
+  const dx = Math.cos(ang),
+    dy = Math.sin(ang),
+    nx = -dy,
+    ny = dx;
+  const out: Pt[][] = [];
+  for (let j = 0; j < m; j++) {
+    const off = (j - (m - 1) / 2) * gap;
+    const outer = j === 0 || j === m - 1;
+    const len = L * (0.82 + r() * 0.2) * (outer ? 0.86 : 1);
+    const s0 = -L / 2 + (r() - 0.3) * 0.14 * L;
+    const S: Pt = [c[0] + dx * s0 + nx * off, c[1] + dy * s0 + ny * off];
+    const E: Pt = [S[0] + dx * len + nx * off * (fan - 1), S[1] + dy * len + ny * off * (fan - 1)];
+    out.push(resample(sweep(S, E, r, bend * (0.9 + r() * 0.2), wave, 12), step));
+  }
+  return out;
+}
+
+/** A fibra levantada na beirada de uma unhada: a do lado da luz (do alto à esquerda) clareia, a outra escurece. */
+function ridges(path: Pt[], a: Pt[], b: Pt[]): string {
+  const [nx, ny] = normalAt(path, Math.floor(path.length / 2), 1, 3);
+  const [lit, dark] = nx + ny < 0 ? [a, b] : [b, a];
+  return `<path d='${poly(lit)}' stroke='#fff' stroke-opacity='.7'/><path d='${poly(dark)}' stroke='#000' stroke-opacity='.55'/>`;
+}
+
+/** Fiapos de fibra soltos na beirada, deitados no sentido do arrasto. */
+function hairsAlong(path: Pt[], a: Pt[], b: Pt[], n: number, len: number, r: () => number): string {
+  let out = '';
+  for (let h = 0; h < n; h++) {
+    const i = 1 + Math.floor(r() * (path.length - 2));
+    const e = r() < 0.5 ? a[i] : b[i];
+    const t = normalAt(path, i, 1, 2);
+    const tx = t[1],
+      ty = -t[0];
+    const tw = (r() - 0.5) * 0.9;
+    const l = len * (0.5 + r());
+    out += `<path d='M${pt(e)}L${f1(e[0] + (tx + ty * tw) * l)} ${f1(e[1] + (ty - tx * tw) * l)}'/>`;
+  }
+  return out;
+}
+
+/**
+ * O gato afiou as unhas: dois ou três jogos de três ou quatro riscos finos, que tiram a cor da
+ * cartolina (e o que está escrito) e deixam o miolo claro; uma ou outra unha furou no meio do
+ * arrasto. A fibra levantada faz uma linha de luz e uma de sombra dos lados.
+ */
+function catScratch(W: number, H: number, k: number, sw: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.4, k);
+  const sets = 2 + (r() < 0.45 ? 1 : 0);
+  let ridge = '',
+    hairs = '',
+    graze = '';
+  for (let q = 0; q < sets; q++) {
+    const c: Pt = [W * (0.22 + r() * 0.56), H * (0.24 + r() * 0.52)];
+    const ang = (((r() < 0.5 ? 50 : 130) + (r() - 0.5) * 50) * Math.PI) / 180;
+    const L = (140 + r() * 90) * k;
+    const m = 3 + (r() < 0.7 ? 1 : 0);
+    const claws = clawSet(c, ang, L, m, (5.5 + r() * 2.5) * k, 1 + r() * 0.5, (r() - 0.5) * 30 * k, 1.5 * k, r, 2.5 * kk);
+    const deep = Math.floor(r() * m);
+    claws.forEach((path, j) => {
+      const wmax = (1.2 + r() * 1) * k;
+      const w = path.map((_, i) => wmax * clawProfile(i / (path.length - 1)) * (0.8 + r() * 0.4));
+      const s = slit(path, w, r, 0.5 * k);
+      out.core.push(s.d);
+      if (j === deep || r() < 0.2) {
+        const a = Math.floor(path.length * (0.1 + r() * 0.18));
+        const b = Math.min(path.length - 1, a + Math.floor(path.length * (0.18 + r() * 0.22)));
+        const sub = path.slice(a, b + 1);
+        if (sub.length > 2) out.cut.push(slit(sub, sub.map((_, i) => w[a + i] * 0.7 * Math.sin((i / (sub.length - 1)) * Math.PI)), r, 0.3 * k).d);
+      }
+      const o = slit(path, w.map((v) => (v > 0.2 * k ? v + 1.6 * k : 0)), () => 0.5, 0);
+      ridge += ridges(path, o.a, o.b);
+      hairs += hairsAlong(path, s.a, s.b, 4, 2.4 * kk, r);
+      // a unha do lado raspou sem entrar: só um fio mais claro
+      if (r() < 0.4) {
+        const g = path.map(([x, y], i): Pt => {
+          const [nx, ny] = normalAt(path, i, 1, 2);
+          return [x + nx * 3 * k, y + ny * 3 * k];
+        });
+        graze += `<path d='${poly(g.slice(0, Math.floor(g.length * (0.5 + r() * 0.4))))}'/>`;
+      }
+    });
+  }
+  out.relevo += `<g fill='none' stroke-width='${f1(0.9 * sw)}' stroke-linecap='round' stroke-linejoin='round'>${ridge}</g>`;
+  out.clareia += `<g fill='none' stroke='#fff' stroke-opacity='.3' stroke-width='${f1(0.7 * sw)}' stroke-linecap='round'>${graze}</g>`;
+  out.frente += `<g stroke='#fbf8f0' stroke-opacity='.65' stroke-width='${f1(0.5 * sw)}' stroke-linecap='round'>${hairs}</g>`;
+}
+
+/**
+ * Uma patada de lobo: três ou quatro garradas largas de lado a lado, curvas como o braço que bateu.
+ * Cada uma entra raspando, abre um talho que atravessa o papel e sai raspando de novo; a fibra clara
+ * aparece nas beiradas, e uma ou duas linguetas de papel ficaram penduradas para dentro do talho.
+ */
+function beastClaws(W: number, H: number, k: number, sw: number, step: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.4, k);
+  const m = 3 + (r() < 0.45 ? 1 : 0);
+  const c: Pt = [W * (0.44 + r() * 0.12), H * (0.44 + r() * 0.12)];
+  const ang = (((r() < 0.5 ? 45 : 135) + (r() - 0.5) * 36) * Math.PI) / 180;
+  const L = Math.hypot(W, H) * (0.62 + r() * 0.2);
+  const claws = clawSet(c, ang, L, m, (22 + r() * 8) * k, 1.15 + r() * 0.2, (r() - 0.5) * 60 * k, 3 * k, r, step);
+  let ridge = '',
+    flaps = '',
+    hairs = '',
+    grime = '';
+  claws.forEach((path, j) => {
+    const middle = j > 0 && j < m - 1;
+    const wmax = (middle ? 15 : 12) * k * (0.9 + r() * 0.25);
+    const fibre = (2.5 + r() * 1.5) * k;
+    const n = path.length - 1;
+    const prof = path.map((_, i) => clawProfile(i / n));
+    const wCut = prof.map((p) => Math.max(0, wmax * p - 1.5 * k));
+    const wCore = prof.map((p, i) => wCut[i] + 2 * fibre * Math.min(1, p * 2.5) + 1.2 * k * p);
+    const core = slit(path, wCore, r, 2.4 * k);
+    out.core.push(core.d);
+    ridge += ridges(path, core.a, core.b);
+    hairs += hairsAlong(path, core.a, core.b, 10, 3.2 * kk, r);
+    grime += `<path d='${smooth(path)}' stroke-width='${f1(wmax * 1.8)}'/>`;
+
+    const a = wCut.findIndex((w) => w > k);
+    const b = n - [...wCut].reverse().findIndex((w) => w > k);
+    if (a < 0 || b - a < 3) return;
+    const sub = path.slice(a, b + 1);
+    const hole = slit(sub, wCut.slice(a, b + 1), r, 0);
+    const mid = Math.floor(sub.length / 2);
+    const [nx, ny] = normalAt(sub, mid, 1, 3);
+    const ea = rip(hole.a, [sub[mid][0] + nx * 200, sub[mid][1] + ny * 200], r, 2.6 * k, step);
+    const eb = rip(hole.b, [sub[mid][0] - nx * 200, sub[mid][1] - ny * 200], r, 2.6 * k, step);
+    out.cut.push(`${poly(ea)}${cont([...eb].reverse())}Z`);
+
+    // as linguetas: um pedaço da beirada arrastado para dentro do talho, no sentido da patada
+    const count = r() < 0.6 ? 1 : 2;
+    for (let f = 0; f < count; f++) {
+      const onA = r() < 0.5;
+      const edge = onA ? ea : eb,
+        other = onA ? eb : ea;
+      if (edge.length < 12) continue;
+      const i = Math.floor(edge.length * (0.3 + r() * 0.4));
+      const span = 2 + Math.floor(r() * 2);
+      const base = edge.slice(i - span, i + span + 1);
+      const B1 = base[0],
+        B2 = base[base.length - 1];
+      const tl = Math.hypot(B2[0] - B1[0], B2[1] - B1[1]) || 1;
+      const t: Pt = [(B2[0] - B1[0]) / tl, (B2[1] - B1[1]) / tl];
+      const o = other[Math.round((i / (edge.length - 1)) * (other.length - 1))];
+      const gw = Math.hypot(o[0] - edge[i][0], o[1] - edge[i][1]) || 1;
+      const N: Pt = [(o[0] - edge[i][0]) / gw, (o[1] - edge[i][1]) / gw];
+      const reach = gw * (0.45 + r() * 0.3),
+        drag = (5 + r() * 7) * k;
+      const X: Pt = [edge[i][0] + N[0] * reach + t[0] * drag, edge[i][1] + N[1] * reach + t[1] * drag];
+      const jit = (p: Pt, q: Pt): Pt => [(p[0] + q[0]) / 2 + (r() - 0.5) * 2 * k, (p[1] + q[1]) / 2 + (r() - 0.5) * 2 * k];
+      const m1 = jit(B2, X),
+        m2 = jit(X, B1);
+      const flap = `${poly([...base, m1, X, m2])}Z`;
+      const bend = `${poly([B1, B2, [B2[0] + (X[0] - B2[0]) * 0.35, B2[1] + (X[1] - B2[1]) * 0.35], [B1[0] + (X[0] - B1[0]) * 0.35, B1[1] + (X[1] - B1[1]) * 0.35]])}Z`;
+      flaps +=
+        `<path d='${flap}' transform='translate(${f1(1.2 * k)} ${f1(2.2 * k)})' fill='#000' fill-opacity='.35' filter='url(#papel-fio)'/>` +
+        `<path d='${flap}' style='fill: color-mix(in oklab, var(--stock) 76%, #000)'/>` +
+        `<path d='${bend}' fill='#fff' fill-opacity='.16'/>` +
+        `<path d='M${pt(B2)}L${pt(m1)}L${pt(X)}L${pt(m2)}L${pt(B1)}' fill='none' stroke='#fbf8f0' stroke-opacity='.85' stroke-width='${f1(1.1 * sw)}' stroke-linejoin='round'/>`;
+    }
+  });
+  out.fundo += `<g fill='none' stroke='rgb(70 55 45)' stroke-opacity='.1' stroke-linecap='round' filter='url(#papel-borra)'>${grime}</g>`;
+  out.relevo += `<g fill='none' stroke-width='${f1(1.1 * sw)}' stroke-linecap='round' stroke-linejoin='round'>${ridge}</g>`;
+  out.frente += `<g stroke='#fbf8f0' stroke-opacity='.7' stroke-width='${f1(0.55 * sw)}' stroke-linecap='round'>${hairs}</g>`;
+  out.fita += flaps;
+}
+
+// ----- Mordida -----
+
+/**
+ * O cachorro mordeu a beirada: um arco de dentes arrancou um bocado (cada dente morde um pouco mais
+ * fundo, os caninos mais ainda), às vezes duas mordidas lado a lado. Os caninos furaram um pouco além,
+ * os dentes deixaram marcas afundadas, o papel vincou em volta e a baba secou numa mancha.
+ */
+function bitten(W: number, H: number, k: number, sw: number, step: number, r: () => number, out: PaperArt): void {
+  const side = Math.floor(r() * 4);
+  const len = side % 2 ? H : W;
+  const frame = (u: number, v: number): Pt => {
+    switch (side) {
+      case 0:
+        return [u, v];
+      case 1:
+        return [W - v, u];
+      case 2:
+        return [W - u, H - v];
+      default:
+        return [v, H - u];
+    }
+  };
+  const bites = r() < 0.55 ? 2 : 1;
+  const u0 = len * (0.28 + r() * 0.44);
+  let dents = '',
+    creases = '',
+    drool = '';
+  for (let b = 0; b < bites; b++) {
+    const s = b ? 0.72 + r() * 0.15 : 1;
+    const bw = (68 + r() * 26) * k * s,
+      bd = (30 + r() * 14) * k * s;
+    const uc = clamp(b ? u0 + (r() < 0.5 ? -1 : 1) * bw * (0.6 + r() * 0.15) : u0, bw / 2 + 8 * k, len - bw / 2 - 8 * k);
+    const teeth = 6 + Math.floor(r() * 3);
+    const at = (a: number, f: number): Pt => frame(uc + ((Math.cos(a) * bw) / 2) * f, Math.sin(a) * bd * f);
+    const arch: Pt[] = [];
+    for (let i = 0; i <= 60; i++) {
+      const a = (i / 60) * Math.PI;
+      const canine = Math.exp(-Math.pow((a - 0.26 * Math.PI) / 0.12, 2)) + Math.exp(-Math.pow((a - 0.74 * Math.PI) / 0.12, 2));
+      arch.push(at(a, 1 + 0.09 * Math.pow(Math.abs(Math.sin(teeth * a)), 0.7) + 0.16 * canine));
+    }
+    const inside = frame(uc, bd * 3);
+    const edge = rip(arch, inside, r, 1.4 * k, step * 0.6);
+    out.cut.push(`${poly([frame(uc + bw / 2 + 3, -6), ...edge, frame(uc - bw / 2 - 3, -6)])}Z`);
+    out.core.push(coreBand(edge, inside, r, 0.5 * k, 3.2 * k));
+    if (b === 0)
+      for (const a of [0.26 * Math.PI, 0.74 * Math.PI]) {
+        const [cx, cy] = at(a + (r() - 0.5) * 0.08, 1.4 + r() * 0.1);
+        const R = (2.3 + r() * 1.1) * k;
+        out.cut.push(`${poly(burnRing(cx, cy, R, r))}Z`);
+        dents += `<circle cx='${f1(cx + 0.8 * k)}' cy='${f1(cy + 0.8 * k)}' r='${f1(R + 1.3 * k)}' fill='none' stroke='#000' stroke-opacity='.45' stroke-width='${f1(1.3 * sw)}'/><circle cx='${f1(cx - 0.6 * k)}' cy='${f1(cy - 0.6 * k)}' r='${f1(R + 1.6 * k)}' fill='none' stroke='#fff' stroke-opacity='.5' stroke-width='${f1(0.9 * sw)}'/>`;
+      }
+    for (let t = 0; t < teeth; t++) {
+      const a = ((t + 0.5) / teeth) * Math.PI;
+      const [x, y] = at(a, 1.22 + r() * 0.06);
+      const [x2, y2] = at(a + 0.02, 1.22);
+      const ang = (Math.atan2(y2 - y, x2 - x) * 180) / Math.PI;
+      dents += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(2.6 * k)}' ry='${f1(1.4 * k)}' transform='rotate(${f1(ang)} ${f1(x)} ${f1(y)})' fill='#000' fill-opacity='.3'/>`;
+    }
+    for (let c = 0; c < 5; c++) {
+      const a = (0.1 + r() * 0.8) * Math.PI;
+      const p1 = at(a, 1.12),
+        p2 = at(a + (r() - 0.5) * 0.25, 1.3 + r() * 0.4);
+      const d = `M${pt(p1)}L${pt(p2)}`;
+      creases += `<path d='${d}' stroke='#fff' stroke-opacity='.45' stroke-width='${f1(sw)}'/><path d='${d}' transform='translate(${f1(0.8 * k)} ${f1(0.8 * k)})' stroke='#000' stroke-opacity='.3' stroke-width='${f1(0.8 * sw)}'/>`;
+    }
+    const [dx, dy] = frame(uc, bd * 0.8);
+    const [rx, ry] = side % 2 ? [bd * 1.2, bw * 0.75] : [bw * 0.75, bd * 1.2];
+    drool += `<path d='${waterBlobPath(dx, dy, rx, ry, r)}' fill='rgb(70 74 78)' fill-opacity='.13'/>`;
+    for (let i = 0; i < 8; i++) {
+      const [x, y] = frame(uc + (r() - 0.5) * bw * 1.3, bd * (1 + r() * 0.9));
+      drool += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1((0.8 + r() * r() * 2.6) * k)}' fill='rgb(65 70 74)' fill-opacity='${(0.08 + r() * 0.12).toFixed(3)}'/>`;
+    }
+  }
+  out.fundo += `<g filter='url(#papel-agua)'>${drool}</g>`;
+  out.relevo += `<g fill='none' stroke-linecap='round'>${creases}</g>${dents}`;
+}
+
+// ----- Traças -----
+
+/**
+ * As traças roeram: duas ou três trilhas tortas, às vezes com um galho (uma costuma entrar pela
+ * beirada), feitas de centenas de mordidinhas que tiraram a cor e deixaram a fibra de baixo, encardida
+ * e rendada na beirada; no meio de uma trilha elas furaram de vez. Em volta, o pozinho que deixaram e
+ * uns furinhos soltos.
+ */
+function moths(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.4, k);
+  const patches = 2 + (r() < 0.5 ? 1 : 0);
+  let grime = '',
+    frass = '';
+  const trail = (p: Pt, a: number, steps: number, size: number, deep: [number, number] | null) => {
+    for (let i = 0; i <= steps; i++) {
+      const here = 5 + Math.floor(r() * 4);
+      for (let b = 0; b < here; b++) {
+        const R = (1.4 + r() * 3.2) * size;
+        const x = p[0] + (r() - 0.5) * 12 * size,
+          y = p[1] + (r() - 0.5) * 12 * size;
+        const bite = blobPath(x, y, R, r);
+        out.core.push(bite);
+        grime += `<path d='${bite}'/>`;
+        if (deep && i >= deep[0] && i <= deep[1] && r() < 0.6) out.cut.push(blobPath(x, y, R * (0.4 + r() * 0.25), r));
+      }
+      for (let f = 0; f < 3; f++)
+        frass += `<circle cx='${f1(p[0] + (r() - 0.5) * 36 * size)}' cy='${f1(p[1] + (r() - 0.5) * 36 * size)}' r='${f1((0.3 + r() * 0.5) * kk)}'/>`;
+      a += (r() - 0.5) * 1.2;
+      p = [p[0] + Math.cos(a) * 9 * size, p[1] + Math.sin(a) * 9 * size];
+    }
+    return { p, a };
+  };
+  for (let q = 0; q < patches; q++) {
+    let p: Pt, a: number;
+    if (q === 0 && r() < 0.65) {
+      const side = Math.floor(r() * 4),
+        u = 0.15 + r() * 0.7;
+      p = side === 0 ? [W * u, -2] : side === 1 ? [W + 2, H * u] : side === 2 ? [W * u, H + 2] : [-2, H * u];
+      a = [Math.PI / 2, Math.PI, -Math.PI / 2, 0][side] + (r() - 0.5) * 0.9;
+    } else {
+      p = [W * (0.2 + r() * 0.6), H * (0.2 + r() * 0.6)];
+      a = r() * Math.PI * 2;
+    }
+    const steps = 7 + Math.floor(r() * 8);
+    const size = (0.85 + r() * 0.45) * k;
+    const d0 = Math.floor(r() * steps * 0.5);
+    const deep: [number, number] | null = r() < 0.8 ? [d0, d0 + Math.floor(steps * (0.2 + r() * 0.3))] : null;
+    const half = Math.floor(steps / 2);
+    const mid = trail(p, a, half, size, deep);
+    trail(mid.p, mid.a, steps - half, size, deep && [deep[0] - half, deep[1] - half]);
+    // um galho que sai do meio da trilha
+    if (r() < 0.6) trail(mid.p, mid.a + (r() < 0.5 ? -1 : 1) * (0.9 + r() * 0.6), 2 + Math.floor(r() * 4), size * 0.85, null);
+  }
+  const pins = 4 + Math.floor(r() * 5);
+  for (let i = 0; i < pins; i++) {
+    const x = W * (0.08 + r() * 0.84),
+      y = H * (0.08 + r() * 0.84),
+      R = (0.9 + r() * 1.1) * kk;
+    out.cut.push(blobPath(x, y, R, r));
+    grime += `<path d='${blobPath(x, y, R + 1.2 * kk, r)}'/>`;
+  }
+  out.fundo += `<g fill='rgb(48 38 28)' fill-opacity='.55'>${frass}</g>`;
+  // a fibra que ficou por baixo da cor não é branca de papelaria: é encardida (por cima do miolo)
+  out.fita += `<g opacity='.28' fill='rgb(120 98 66)'>${grime}</g>`;
+}
+
+// ----- Mofada -----
+
+/**
+ * Esquecida no porão: a umidade entrou por uma beirada e deixou a maré amarelada, e perto dela
+ * nasceram colônias de mofo de tamanhos e cores diferentes (verde, preto, azulado, oliva, uma ou outra
+ * branca e felpuda), com o anel, o miolo pintado e os esporos em volta; pintinhas de ferrugem por perto.
+ */
+function mould(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.4, k);
+  const side = Math.floor(r() * 4);
+  const spot = (reach: number): Pt => {
+    const u = 0.08 + r() * 0.84,
+      v = Math.min(0.92, (Math.abs(r() + r() + r() - 1.5) / 1.5) * reach + 0.04);
+    return side === 0 ? [W * u, H * v] : side === 1 ? [W * (1 - v), H * u] : side === 2 ? [W * u, H * (1 - v)] : [W * v, H * u];
+  };
+  const s = Math.min(W, H);
+  const [tx, ty] = side === 0 ? [W / 2, -s * 0.25] : side === 1 ? [W + s * 0.25, H / 2] : side === 2 ? [W / 2, H + s * 0.25] : [-s * 0.25, H / 2];
+  const [rx, ry] = side % 2 ? [s * 0.7, H * 0.75] : [W * 0.62, s * 0.7];
+  const tide = waterBlobPath(tx, ty, rx, ry, r);
+  // a maré tem a mesma força até a beirada: sem contorno mais escuro
+  let fundo = `<path d='${tide}' fill='rgb(150 128 76)' fill-opacity='.13' filter='url(#papel-agua)'/>`;
+  let light = '';
+  const TONES = [
+    ['rgb(74 96 58)', 'rgb(40 54 34)'],
+    ['rgb(52 54 50)', 'rgb(26 28 26)'],
+    ['rgb(66 94 96)', 'rgb(30 48 50)'],
+    ['rgb(110 104 52)', 'rgb(62 58 28)'],
+  ];
+  const colonies = 5 + Math.floor(r() * 5);
+  for (let c = 0; c < colonies; c++) {
+    const [x, y] = spot(0.75);
+    const R = (8 + Math.pow(r(), 1.6) * 36) * k;
+    const white = r() < 0.25;
+    const [tone, dark] = TONES[Math.floor(r() * TONES.length)];
+    const dots = (n: number, from: number, to: number, fill: string, op: () => number, size: () => number) => {
+      let g = '';
+      for (let i = 0; i < n; i++) {
+        const a = r() * Math.PI * 2,
+          d = R * (from + (to - from) * Math.pow(r(), 0.8));
+        g += `<circle cx='${f1(x + Math.cos(a) * d)}' cy='${f1(y + Math.sin(a) * d)}' r='${f1(size())}' fill='${fill}' fill-opacity='${op().toFixed(2)}'/>`;
+      }
+      return g;
+    };
+    let g = `<path d='${blobPath(x, y, R * 1.7, r)}' fill='rgb(120 112 64)' fill-opacity='.13'/>`;
+    if (white) {
+      light +=
+        `<g filter='url(#papel-mofo)'><path d='${blobPath(x, y, R, r)}' fill='#fbfbf5' fill-opacity='.55'/>` +
+        dots(Math.round(12 + (R / kk) * 1.2), 0, 1.1, '#fff', () => 0.4 + r() * 0.4, () => (0.6 + r() * 1.4) * kk) +
+        `</g>`;
+    } else {
+      g +=
+        `<path d='${blobPath(x, y, R, r)}' fill='${tone}' fill-opacity='.34'/>` +
+        `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R * 0.7)}' fill='none' stroke='${tone}' stroke-opacity='.42' stroke-width='${f1(R * 0.2)}'/>` +
+        dots(Math.round(14 + (R / kk) * 2.2), 0, 0.9, dark, () => 0.4 + r() * 0.45, () => (0.5 + r() * 1.4) * kk);
+    }
+    g += dots(12, 1, 1.9, dark, () => 0.25 + r() * 0.25, () => (0.3 + r() * 0.5) * kk);
+    fundo += `<g filter='url(#papel-mofo)'>${g}</g>`;
+  }
+  let fox = '';
+  const n = 18 + Math.floor(r() * 14);
+  for (let i = 0; i < n; i++) {
+    const [x, y] = spot(1);
+    const R = (0.8 + Math.pow(r(), 2) * 4.5) * kk;
+    fox += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R)}' fill='rgb(160 100 48)' fill-opacity='${(0.18 + r() * 0.3).toFixed(2)}'/>`;
+    if (R > 2.5 * kk) fox += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R * 0.45)}' fill='rgb(130 74 30)' fill-opacity='.3'/>`;
+  }
+  out.fundo += `${fundo}<g filter='url(#papel-mancha)'>${fox}</g>`;
+  out.clareia += light;
+}
+
+// ----- Pisada -----
+
+/** O contorno de uma sola de tênis (pé direito), do bico (0) ao calcanhar (1), em comprimentos de sola. */
+const SOLE: Pt[] = [
+  [0.02, 0], [0.12, 0.015], [0.19, 0.05], [0.222, 0.11], [0.218, 0.2], [0.2, 0.3], [0.172, 0.4], [0.152, 0.5], [0.155, 0.6], [0.165, 0.7],
+  [0.166, 0.8], [0.156, 0.9], [0.12, 0.962], [0.05, 0.996], [-0.03, 1], [-0.1, 0.985], [-0.142, 0.94], [-0.156, 0.86], [-0.15, 0.76], [-0.124, 0.665],
+  [-0.092, 0.585], [-0.1, 0.5], [-0.138, 0.42], [-0.168, 0.32], [-0.182, 0.22], [-0.172, 0.12], [-0.134, 0.052], [-0.07, 0.012],
+];
+
+/**
+ * Caiu no chão e levou uma pisada: a sola de um tênis, bem maior que a ficha, com a frente em cima
+ * dela (o zigue-zague da frente, os sulcos de dobrar, o arco quase sem marca, os gomos do salto),
+ * em terra seca que pegou mais onde o pé pesou. Uns grãos de terra soltos em volta.
+ */
+function shoePrint(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
+  const Ls = (1.2 + r() * 0.3) * Math.max(W, H);
+  const ang = r() * Math.PI * 2;
+  const A: Pt = [W * (0.3 + r() * 0.4), H * (0.3 + r() * 0.4)];
+  const ca = Math.cos(ang),
+    sa = Math.sin(ang);
+  const mirror = r() < 0.5 ? -1 : 1;
+  const T = (u: number, v: number): Pt => {
+    const x = u * mirror * Ls,
+      y = (v - 0.27) * Ls;
+    return [A[0] + x * ca - y * sa, A[1] + x * sa + y * ca];
+  };
+  const outline = SOLE.map(([u, v]) => T(u, v));
+  const sole = `${smooth([...outline, outline[0]])}Z`;
+  const lw = Ls * 0.0105;
+  let tread = `<path d='${sole}' fill='rgb(110 90 64)' fill-opacity='.14' stroke='none'/><path d='${sole}' fill='none' stroke-width='${f1(Ls * 0.05)}'/>`;
+  for (let v = 0.045; v < 0.5; v += 0.029) {
+    if ((v > 0.19 && v < 0.225) || (v > 0.335 && v < 0.37)) continue;
+    const row: Pt[] = [];
+    for (let u = -0.24, i = 0; u <= 0.24; u += 0.024, i++) row.push(T(u, v + (i % 2 ? 0.01 : -0.01)));
+    tread += `<path d='${poly(row)}' fill='none' stroke-width='${f1(lw)}'/>`;
+  }
+  for (let v = 0.52; v < 0.62; v += 0.034) tread += `<path d='${poly([T(-0.07, v), T(0.1, v)])}' fill='none' stroke-width='${f1(lw * 0.8)}' stroke-opacity='.45'/>`;
+  for (let v = 0.66, row = 0; v < 0.97; v += 0.036, row++)
+    for (let u = -0.2 + (row % 2) * 0.021; u < 0.2; u += 0.042) {
+      const [x, y] = T(u, v);
+      tread += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(Ls * 0.013)}' stroke='none'/>`;
+    }
+  let grit = '';
+  for (let i = 0; i < 40; i++) {
+    const a = r() * Math.PI * 2,
+      d = Ls * (0.1 + r() * 0.35);
+    grit += `<circle cx='${f1(A[0] + Math.cos(a) * d)}' cy='${f1(A[1] + Math.sin(a) * d)}' r='${f1((0.3 + r() * 0.8) * Math.max(0.4, k))}' fill-opacity='${(0.3 + r() * 0.3).toFixed(2)}'/>`;
+  }
+  const id = `${uid}-sola`;
+  out.fundo +=
+    `<defs><clipPath id='${id}'><path d='${sole}'/></clipPath></defs>` +
+    `<g filter='url(#papel-poeira)' opacity='.66'><g clip-path='url(#${id})' fill='rgb(80 62 44)' stroke='rgb(80 62 44)' stroke-linejoin='round'>${tread}</g></g>` +
+    `<g fill='rgb(80 62 44)'>${grit}</g>`;
+}
+
+// ----- Pegadas de gato -----
+
+/** Uma pata de gato, uma pata de largura, com os dedos para cima (−y). */
+const PAW =
+  `<path d='M-.3 .05C-.3 -.12 -.12 -.14 0 -.06C.12 -.14 .3 -.12 .3 .05C.36 .2 .32 .36 .2 .4C.12 .44 .06 .36 0 .42C-.06 .36 -.12 .44 -.2 .4C-.32 .36 -.36 .2 -.3 .05Z'/>` +
+  `<ellipse cx='-.38' cy='-.24' rx='.11' ry='.145' transform='rotate(-28 -.38 -.24)'/>` +
+  `<ellipse cx='-.14' cy='-.43' rx='.115' ry='.15' transform='rotate(-9 -.14 -.43)'/>` +
+  `<ellipse cx='.14' cy='-.43' rx='.115' ry='.15' transform='rotate(9 .14 -.43)'/>` +
+  `<ellipse cx='.38' cy='-.24' rx='.11' ry='.145' transform='rotate(28 .38 -.24)'/>`;
+
+/**
+ * Um gato de pata suja de terra atravessou a ficha: pegadas alternadas numa linha, a lama acabando
+ * aos poucos, cada pata um tanto virada; de vez em quando a de trás pisou quase em cima da da frente.
+ */
+function pawPrints(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const P = (24 + r() * 7) * k;
+  const ang = r() * Math.PI * 2;
+  const D: Pt = [Math.cos(ang), Math.sin(ang)],
+    N: Pt = [-D[1], D[0]];
+  const c: Pt = [W * (0.4 + r() * 0.2), H * (0.4 + r() * 0.2)];
+  const reach = Math.hypot(W, H) / 2 + P;
+  const stride = P * (1.55 + r() * 0.3);
+  const rot = (ang * 180) / Math.PI + 90;
+  let prints = '';
+  for (let s = -reach + r() * stride, i = 0; s < reach; s += stride * (0.92 + r() * 0.16), i++) {
+    const side = i % 2 ? 1 : -1;
+    const x = c[0] + D[0] * s + N[0] * side * P * 0.45,
+      y = c[1] + D[1] * s + N[1] * side * P * 0.45;
+    const t = (s + reach) / (2 * reach);
+    const op = (0.85 - t * 0.45) * (0.85 + r() * 0.15);
+    const a = rot + (r() - 0.5) * 16 + side * 4;
+    const sc = P * (0.94 + r() * 0.12);
+    const smear = r() < 0.22;
+    if (x < -P || x > W + P || y < -P || y > H + P) continue;
+    prints += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(a)}) scale(${f1(sc)})' fill-opacity='${op.toFixed(2)}'>${PAW}</g>`;
+    if (smear)
+      prints += `<g transform='translate(${f1(x + D[0] * P * 0.14)} ${f1(y + D[1] * P * 0.14)}) rotate(${f1(a + 6)}) scale(${f1(sc * 0.95)})' fill-opacity='${(op * 0.45).toFixed(2)}'>${PAW}</g>`;
+  }
+  out.fundo += `<g filter='url(#papel-lama)' fill='rgb(92 64 40)'>${prints}</g>`;
+}
+
+// ----- Fita arrancada -----
+
+/**
+ * Estava presa na parede com fita crepe nas quinas (as de cima, ou três, ou as quatro) e, ao tirar,
+ * a fita levou a cor da cartolina junto: às vezes o pedaço inteiro, às vezes só a metade de fora,
+ * rasgada ao comprido. Onde a cor ficou, ficou a cola encardida e a sujeira na beirada da fita. Uma
+ * ou outra fita ainda está lá, e passa da ficha para a parede.
+ */
+function tapePulled(W: number, H: number, k: number, sw: number, r: () => number, uid: string, out: PaperArt): void {
+  const all: Corner[] = ['tl', 'tr', 'br', 'bl'];
+  const n = 2 + Math.floor(r() * 3);
+  const skip = Math.floor(r() * 4);
+  const pair = r();
+  const chosen: Corner[] = n === 2 ? (pair < 0.7 ? ['tl', 'tr'] : pair < 0.85 ? ['tl', 'br'] : ['tr', 'bl']) : n === 3 ? all.filter((_, i) => i !== skip) : all;
+  const keep = n >= 3 && r() < 0.6 ? Math.floor(r() * n) : -1;
+  const at = (c: Corner, u: number, v: number): Pt => [c === 'tl' || c === 'bl' ? u : W - u, c === 'tl' || c === 'tr' ? v : H - v];
+  let residue = '',
+    tapes = '',
+    bits = '';
+  chosen.forEach((c, idx) => {
+    const len = (78 + r() * 22) * k,
+      wid = (20 + r() * 5) * k;
+    const d = (15 + r() * 8) * k;
+    const [cx, cy] = at(c, d * (0.85 + r() * 0.3), d * (0.85 + r() * 0.3));
+    const ang = (((c === 'tl' || c === 'br' ? -45 : 45) + (r() - 0.5) * 26) * Math.PI) / 180;
+    const ux: Pt = [Math.cos(ang), Math.sin(ang)],
+      vy: Pt = [-ux[1], ux[0]];
+    const world = ([u, v]: Pt): Pt => [cx + ux[0] * u + vy[0] * v, cy + ux[1] * u + vy[1] * v];
+    // as pontas rasgadas à mão, em zigue-zague miúdo
+    const end = (u0: number, dir: 1 | -1): Pt[] => {
+      const pts: Pt[] = [];
+      for (let i = 0; i <= 7; i++) pts.push([u0 + dir * (i % 2 ? 1.3 : -0.4) * k + (r() - 0.5) * 0.8 * k, -wid / 2 + (wid * i) / 7]);
+      return pts;
+    };
+    const outline = [...end(len / 2, 1), ...end(-len / 2, -1).reverse()];
+    const shape = `${poly(outline.map(world))}Z`;
+    if (idx === keep) {
+      let crinkles = '';
+      for (let u = -len / 2 + 2 * k; u < len / 2 - 1 * k; u += (1.8 + r() * 1.2) * k) {
+        const u2 = u + (r() - 0.5) * 1.6 * k;
+        crinkles += `<path d='M${pt(world([u, -wid / 2 + 0.5 * k]))}L${pt(world([u2, wid / 2 - 0.5 * k]))}' stroke-opacity='${(0.1 + r() * 0.2).toFixed(2)}'/>`;
+      }
+      tapes +=
+        `<path d='${shape}' transform='translate(${f1(0.6 * k)} ${f1(1.4 * k)})' fill='#000' fill-opacity='.22' filter='url(#papel-fio)'/>` +
+        `<path d='${shape}' fill='rgb(228 213 170)' fill-opacity='.93'/>` +
+        `<g stroke='rgb(150 130 88)' stroke-width='${f1(0.5 * sw)}'>${crinkles}</g>` +
+        `<path d='${shape}' fill='url(#${uid}-crepe)'/>`;
+      return;
+    }
+    const corner = at(c, 0, 0);
+    const toCorner = Math.sign((corner[0] - cx) * vy[0] + (corner[1] - cy) * vy[1]) || 1;
+    let region: Pt[];
+    if (r() < 0.45) region = roughen(outline, 3 * k, 0.7 * k, r);
+    else {
+      // soltou só a metade de fora; a de dentro rasgou ao comprido, no meio da fita
+      const cutV = -toCorner * wid * (0.05 + r() * 0.3);
+      const ph = r() * 6;
+      const tear: Pt[] = [];
+      for (let u = -len / 2; u <= len / 2; u += 3 * k) tear.push([u, cutV + (r() - 0.5) * 3 * k + Math.sin(u / (9 * k) + ph) * 1.5 * k]);
+      region = [...tear, [len / 2, (toCorner * wid) / 2], [-len / 2, (toCorner * wid) / 2]];
+      if (r() < 0.5) {
+        const [bx, by] = world([(r() - 0.5) * len * 0.3, cutV - toCorner * 2 * k]);
+        const s = (2.5 + r() * 2.5) * k;
+        bits += `<path d='M${f1(bx - s)} ${f1(by)}L${f1(bx + s * 0.6)} ${f1(by - s * 0.8)}L${f1(bx + s)} ${f1(by + s * 0.5)}Z'/>`;
+      }
+    }
+    out.core.push(`${poly(region.map(world))}Z`);
+    residue += `<path d='${shape}' fill='rgb(170 150 100)' fill-opacity='.14' stroke='rgb(96 84 60)' stroke-opacity='.24' stroke-width='${f1(0.9 * sw)}'/>`;
+  });
+  out.fundo += residue;
+  if (bits) out.fita += `<g fill='rgb(228 213 170)' fill-opacity='.9'>${bits}</g>`;
+  if (tapes)
+    out.fita += `<defs><linearGradient id='${uid}-crepe' x1='0' y1='0' x2='1' y2='1'><stop offset='.2' stop-color='#fff' stop-opacity='0'/><stop offset='.45' stop-color='#fff' stop-opacity='.3'/><stop offset='.62' stop-color='#fff' stop-opacity='0'/></linearGradient></defs>${tapes}`;
 }
 
 /**

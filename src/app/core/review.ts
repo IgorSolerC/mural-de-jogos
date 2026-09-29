@@ -1,5 +1,5 @@
 import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
-import { Damage, Paper, Pattern, Scribble, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { Damage, Paper, Pattern, Scribble, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed } from './paper';
 
 export type { Kind } from './kinds';
 
@@ -194,6 +194,8 @@ export interface Review {
   scribble?: Scribble;
   /** O sorteio do rabisco que a pessoa escolheu (cada clique rabisca de outro jeito); sem ele, o jeito sai do id. */
   scribbleSeed?: number;
+  /** A força do lápis do rabisco (um degrau de SCRIBBLE_INK); sem o campo, o Normal. */
+  scribbleInk?: number;
   /** O estrago no papel (arrancada, queimada, amassada…): leva o que está escrito, não a foto nem os adesivos. */
   damage?: Damage;
   /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
@@ -623,6 +625,7 @@ export function sanitizeReview(raw: unknown): Review | null {
     ...optional('patternSeed', sanitizePattern(r['pattern']) ? sanitizeSeed(r['patternSeed']) : undefined),
     ...optional('scribble', sanitizeScribble(r['scribble'])),
     ...optional('scribbleSeed', sanitizeScribble(r['scribble']) ? sanitizeSeed(r['scribbleSeed']) : undefined),
+    ...optional('scribbleInk', sanitizeScribble(r['scribble']) ? sanitizeScribbleInk(r['scribbleInk']) : undefined),
     ...optional('damage', sanitizeDamage(r['damage'])),
     ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
     text: str(r['text']),

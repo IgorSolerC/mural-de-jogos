@@ -94,6 +94,33 @@ let uids = 0;
           <feDistantLight azimuth="225" elevation="50" />
         </feDiffuseLighting>
       </filter>
+      <!-- a sombra curta da linha de costura, das linguetas e da fita crepe -->
+      <filter id="papel-fio" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation=".7" />
+      </filter>
+      <!-- terra seca de sola: falha em grãos e pega mais onde o pé pesou -->
+      <filter id="papel-poeira" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="2" seed="17" result="grao" />
+        <feColorMatrix in="grao" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 2" result="poeira" />
+        <feTurbulence type="fractalNoise" baseFrequency=".03" numOctaves="3" seed="31" result="peso" />
+        <feColorMatrix in="peso" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 2.6 -.75" result="pisada" />
+        <feComposite in="SourceGraphic" in2="poeira" operator="in" result="p" />
+        <feComposite in="p" in2="pisada" operator="in" />
+      </filter>
+      <!-- lama de pata: a beirada borrada e o miolo salpicado -->
+      <filter id="papel-lama" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency=".08" numOctaves="2" seed="23" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G" result="d" />
+        <feTurbulence type="fractalNoise" baseFrequency=".7" numOctaves="2" seed="4" result="g" />
+        <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.55" result="ga" />
+        <feComposite in="d" in2="ga" operator="in" />
+      </filter>
+      <!-- o mofo é felpudo: a beirada vira pelinhos -->
+      <filter id="papel-mofo" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency=".35" numOctaves="3" seed="19" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G" result="d" />
+        <feGaussianBlur in="d" stdDeviation=".5" />
+      </filter>
     </svg>
   `,
   styles: `
@@ -235,6 +262,8 @@ export class PaperArtLayer {
   readonly seed = input<number | null | undefined>(undefined);
   /** O sorteio do rabisco (Review.scribbleSeed). */
   readonly scribbleSeed = input<number | null | undefined>(undefined);
+  /** A força do lápis do rabisco (Review.scribbleInk). */
+  readonly scribbleInk = input<number | null | undefined>(undefined);
   readonly glitter = input(false);
   /** Sem o filtro de lápis: as amostras miúdas do editor. */
   readonly plain = input(false);
@@ -249,7 +278,7 @@ export class PaperArtLayer {
   protected readonly art = computed<Art | null>(() => {
     const s = this.size();
     if (!s || (!this.scribble() && !this.damage())) return null;
-    return paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, uid: this.uid, plain: this.plain() });
+    return paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, uid: this.uid, plain: this.plain() });
   });
 
   /** A máscara da cor e do que está escrito: o papel que foi embora e a faixa em que a cor soltou. */

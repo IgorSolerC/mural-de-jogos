@@ -156,42 +156,143 @@ export const SCRIBBLE_HINT: Record<Scribble, string> = {
   aula: 'Desenhinhos por toda parte: jogo da velha, estrelas, gatos.',
 };
 
+/**
+ * A força do lápis do rabisco, em degraus: de quase sumido a carregado. O Normal (o de sempre) não
+ * é guardado; os outros multiplicam a opacidade do grafite.
+ */
+export const SCRIBBLE_INK: readonly number[] = [0.25, 0.45, 0.7, 1, 1.35, 1.7, 2];
+export const SCRIBBLE_INK_LABEL: readonly string[] = ['Quase sumido', 'Bem clarinho', 'Clarinho', 'Normal', 'Mais escuro', 'Escuro', 'Carregado'];
+export const DEFAULT_SCRIBBLE_INK = 3;
+
+/** O degrau guardado com a ficha; o Normal não vai para o armazenamento. */
+export function sanitizeScribbleInk(raw: unknown): number | undefined {
+  return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < SCRIBBLE_INK.length && raw !== DEFAULT_SCRIBBLE_INK ? (raw as number) : undefined;
+}
+
 // ===================== Estrago =====================
 
-export type Damage = 'rasgado' | 'rasgao' | 'remendado' | 'orelha' | 'dobrado' | 'amassado' | 'furado' | 'queimado' | 'molhado' | 'cafe';
+export type Damage =
+  | 'rasgado'
+  | 'rasgao'
+  | 'remendado'
+  | 'costurado'
+  | 'colado'
+  | 'picotado'
+  | 'caderno'
+  | 'orelha'
+  | 'dobrado'
+  | 'amassado'
+  | 'arranhado'
+  | 'garras'
+  | 'mordido'
+  | 'tracas'
+  | 'furado'
+  | 'queimado'
+  | 'molhado'
+  | 'cafe'
+  | 'mofado'
+  | 'pisado'
+  | 'pegadas'
+  | 'descascado';
 
-export const DAMAGES: readonly Damage[] = ['rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado', 'molhado', 'cafe'];
+/** A ordem dos retalhos no editor: os rasgos e remendos, as dobras, os bichos, o fogo, as manchas. */
+export const DAMAGES: readonly Damage[] = [
+  'rasgado',
+  'rasgao',
+  'remendado',
+  'costurado',
+  'colado',
+  'picotado',
+  'caderno',
+  'orelha',
+  'dobrado',
+  'amassado',
+  'arranhado',
+  'garras',
+  'mordido',
+  'tracas',
+  'furado',
+  'queimado',
+  'molhado',
+  'cafe',
+  'mofado',
+  'pisado',
+  'pegadas',
+  'descascado',
+];
 
 export const DAMAGE_LABEL: Record<Damage, string> = {
   rasgado: 'Rasgada',
   rasgao: 'Rasgão',
   remendado: 'Remendada',
+  costurado: 'Costurada',
+  colado: 'Colada em pedaços',
+  picotado: 'Tesoura de picote',
+  caderno: 'Arrancada do caderno',
   orelha: 'Orelha',
   dobrado: 'Dobrada em quatro',
   amassado: 'Amassada',
+  arranhado: 'Arranhada',
+  garras: 'Garras',
+  mordido: 'Mordida',
+  tracas: 'Traças',
   furado: 'Furada',
   queimado: 'Queimada',
   molhado: 'Molhada',
   cafe: 'Café',
+  mofado: 'Mofada',
+  pisado: 'Pisada',
+  pegadas: 'Pegadas de gato',
+  descascado: 'Fita arrancada',
 };
 
 export const DAMAGE_HINT: Record<Damage, string> = {
   rasgado: 'Um canto ou uma borda foi arrancada; cada tentativa rasga em outro lugar.',
   rasgao: 'Um rasgão entrando pela beirada.',
   remendado: 'Rasgou de cima a baixo e foi colada com fita.',
+  costurado: 'Rasgou de lado a lado (ou de quina a quina) e alguém costurou de volta, ponto por ponto.',
+  colado: 'Rasgada em muitos pedaços e montada de volta, cada um no seu lugar.',
+  picotado: 'Recortada com a tesoura de picotar: em zigue-zague ou em ondinha.',
+  caderno: 'Arrancada do espiral: a beirada ficou com o picotinho dos furos.',
   orelha: 'O canto dobrado por cima do que estava ali.',
   dobrado: 'Ficou dobrada em quatro na mochila.',
   amassado: 'Virou bolinha e foi desamassada.',
+  arranhado: 'O gato afiou as unhas bem no meio da ficha.',
+  garras: 'Uma patada de lobo: três ou quatro garradas de lado a lado.',
+  mordido: 'O cachorro achou que era biscoito.',
+  tracas: 'As traças roeram a cor e, em alguns pontos, furaram de vez.',
   furado: 'Furos de queimadura, de ponta a ponta.',
   queimado: 'Chegou perto demais da vela.',
   molhado: 'Pegou chuva: a água secou e deixou a marca.',
   cafe: 'A caneca de café foi apoiada bem em cima.',
+  mofado: 'Esquecida no porão úmido: mofo e pintinhas de ferrugem.',
+  pisado: 'Caiu no chão e levou uma pisada de tênis.',
+  pegadas: 'Um gato de pata suja de terra passou por cima.',
+  descascado: 'Estava presa na parede com fita crepe; ao tirar, a cor veio junto.',
 };
 
 /** Os estragos que tiram um pedaço do papel (ou entortam a beirada): a sombra segue o recorte. */
 export function cutsPaper(d: Damage | undefined): boolean {
-  return d === 'rasgado' || d === 'rasgao' || d === 'remendado' || d === 'orelha' || d === 'amassado' || d === 'furado' || d === 'queimado';
+  return !!d && CUTS.has(d);
 }
+
+const CUTS: ReadonlySet<Damage> = new Set<Damage>([
+  'rasgado',
+  'rasgao',
+  'remendado',
+  'costurado',
+  'colado',
+  'picotado',
+  'caderno',
+  'orelha',
+  'amassado',
+  'arranhado',
+  'garras',
+  'mordido',
+  'tracas',
+  'furado',
+  'queimado',
+]);
 
 // ===================== Guardar =====================
 

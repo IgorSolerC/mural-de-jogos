@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import {
   Annoyed,
+  Bookmark,
   BookOpen,
   Brain,
   Bug,
@@ -42,6 +43,7 @@ import {
   Microscope,
   Minus,
   Music,
+  Palette,
   Pickaxe,
   Plus,
   Repeat,
@@ -78,6 +80,9 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   genial: Brain,
   detalhista: Microscope,
   'melhor-do-genero': Crown,
+  'combate-fluido': Swords,
+  'me-marcou': Bookmark,
+  'pausar-pintura': Palette,
   bugs: Bug,
   'mal-otimizado': Cpu,
   loadings: Hourglass,
@@ -89,7 +94,9 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   camera: CameraOff,
   desbalanceado: Scale,
   caro: Tag,
-  // livros, filmes, séries e animes: o mesmo id quer dizer a mesma coisa, e tem o mesmo desenho
+  repetitivo: Copy,
+  estressante: Annoyed,
+  // O mesmo id em diferentes categorias usa o mesmo desenho.
   'nao-larguei': BookOpen,
   'escrita-bonita': Feather,
   reviravolta: Shuffle,

@@ -1,4 +1,4 @@
-import { DAMAGES, DEFAULT_LOOK, SCRIBBLES, cutsPaper, lookOf, newSeed, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { DAMAGES, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, SCRIBBLES, cutsPaper, lookOf, newSeed, sanitizeDamage, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
 import { sanitizeReview } from './review';
 
@@ -44,6 +44,14 @@ describe('papel da ficha', () => {
     const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
     expect(sanitizeReview({ ...base, scribble: 'novelo', scribbleSeed: 777 })!.scribbleSeed).toBe(777);
     expect('scribbleSeed' in sanitizeReview({ ...base, scribbleSeed: 777 })!).toBeFalse();
+  });
+
+  it('a força do lápis vai com a ficha, só fora do Normal e só quando há rabisco', () => {
+    const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
+    expect(sanitizeReview({ ...base, scribble: 'novelo', scribbleInk: 6 })!.scribbleInk).toBe(6);
+    expect('scribbleInk' in sanitizeReview({ ...base, scribble: 'novelo', scribbleInk: DEFAULT_SCRIBBLE_INK })!).toBeFalse();
+    expect('scribbleInk' in sanitizeReview({ ...base, scribbleInk: 6 })!).toBeFalse();
+    for (const bad of [-1, 7, 1.5, '3', null]) expect('scribbleInk' in sanitizeReview({ ...base, scribble: 'novelo', scribbleInk: bad })!).withContext(String(bad)).toBeFalse();
   });
 
   it('os ajustes da estampa vão com a ficha; o de sempre e os sem estampa não', () => {
@@ -135,8 +143,68 @@ describe('papel da ficha', () => {
     it('cada estrago que recorta tem máscara; os outros não', () => {
       for (const d of DAMAGES) {
         const art = paperArt({ ...base, damage: d });
-        expect(!!cutMask(art, 420, 300)).withContext(d).toBe(cutsPaper(d));
+        expect(!!cutMask(art, 420, 300, 'miolo')).withContext(d).toBe(cutsPaper(d));
+        // onde a cor soltou (o miolo aparecendo), a cor e o que está escrito também são recortados
+        if (art.core.length) expect(cutMask(art, 420, 300)).withContext(d).not.toBeNull();
       }
+    });
+
+    it('a Fita arrancada tira só a cor: sem furo, sem sombra recortada', () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const art = paperArt({ ...base, damage: 'descascado', seed });
+        expect(art.cut).withContext(String(seed)).toEqual([]);
+        expect(art.core.length).withContext(String(seed)).toBeGreaterThan(0);
+        expect(cutMask(art, 420, 300)).not.toBeNull();
+        expect(cutMask(art, 420, 300, 'queima')).toBeNull();
+      }
+    });
+
+    it('cada estrago desenha alguma coisa, em qualquer sorteio e tamanho', () => {
+      for (const d of DAMAGES)
+        for (const s of [{ W: 420, H: 300 }, { W: 340, H: 150 }, { W: 150, H: 107, plain: true }])
+          for (let seed = 1; seed <= 12; seed++) {
+            const art = paperArt({ ...base, ...s, damage: d, seed });
+            const drawn = art.cut.length + art.core.length + art.fundo.length + art.clareia.length + art.relevo.length + art.frente.length + art.fita.length;
+            expect(drawn).withContext(`${d} ${s.W}x${s.H} ${seed}`).toBeGreaterThan(0);
+            expect(JSON.stringify(art)).withContext(`${d} ${s.W}x${s.H} ${seed}`).not.toMatch(/NaN|Infinity|undefined/);
+          }
+    });
+
+    it('a Colada em pedaços pica a ficha em muitos pedaços, sem cola', () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const art = paperArt({ ...base, damage: 'colado', seed });
+        // três ou quatro rasgos de beirada a beirada, e os trechos de beirada fora do lugar
+        expect(art.cut.length).withContext(String(seed)).toBeGreaterThanOrEqual(3);
+        expect(art.fita).withContext(String(seed)).toBe('');
+      }
+    });
+
+    it('a força do lápis clareia e escurece o rabisco; o Normal é o rabisco de sempre', () => {
+      const alphas = (ink?: number) => [...paperArt({ ...base, scribble: 'novelo', scribbleInk: ink }).fundo.matchAll(/opacity:([\d.]+)/g)].map((m) => Number(m[1]));
+      expect(paperArt({ ...base, scribble: 'novelo', scribbleInk: DEFAULT_SCRIBBLE_INK })).toEqual(paperArt({ ...base, scribble: 'novelo' }));
+      const normal = alphas();
+      alphas(0).forEach((a, i) => expect(a).toBeLessThan(normal[i]));
+      alphas(6).forEach((a, i) => expect(a).toBeGreaterThan(normal[i]));
+      alphas(6).forEach((a) => expect(a).toBeLessThanOrEqual(1));
+    });
+
+    it('a Costurada rasga em pé, deitada ou atravessando uma quina (nunca a da foto)', () => {
+      const ways = new Set<string>();
+      for (let seed = 1; seed <= 150; seed++) {
+        const cut = paperArt({ ...base, damage: 'costurado', seed }).cut[0];
+        const pts = [...cut.matchAll(/[ML](-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+        const ends = [pts[0], pts[Math.floor(pts.length / 2) - 1]];
+        const onTopBottom = ends.map(([, y]) => y < 0 || y > 300);
+        if (onTopBottom[0] && onTopBottom[1]) ways.add('em pé');
+        else if (!onTopBottom[0] && !onTopBottom[1]) ways.add('deitada');
+        else {
+          const [h, v] = onTopBottom[0] ? ends : [ends[1], ends[0]];
+          const corner = `${h[1] < 0 ? 'alto' : 'pé'}-${v[0] < 0 ? 'esquerda' : 'direita'}`;
+          expect(corner).withContext(String(seed)).not.toBe('alto-esquerda');
+          ways.add(corner);
+        }
+      }
+      expect([...ways].sort()).toEqual(['alto-direita', 'deitada', 'em pé', 'pé-direita', 'pé-esquerda']);
     });
 
     it('cada rabisco desenha algo, atrás do que está escrito', () => {

@@ -18,6 +18,7 @@ import {
   PatternLook,
   SCRIBBLES,
   SCRIBBLE_HINT,
+  SCRIBBLE_INK_LABEL,
   SCRIBBLE_LABEL,
   Scribble,
   newSeed,
@@ -107,6 +108,24 @@ interface Option {
               }
             </div>
           }
+          <!-- a força do lápis do rabisco, logo à vista; sem rabisco fica apagada, como os ajustes da estampa -->
+          @if (tab() === 'rabisco') {
+            <div class="ajustes um" [class.apagados]="!scribble()">
+              <label class="ajuste">
+                <span class="giz">Opacidade <b>{{ inkSteps[scribbleInk()] }}</b></span>
+                <input
+                  type="range"
+                  min="0"
+                  [max]="inkSteps.length - 1"
+                  step="1"
+                  [disabled]="!scribble()"
+                  [value]="scribbleInk()"
+                  [attr.aria-valuetext]="inkSteps[scribbleInk()]"
+                  (input)="scribbleInk.set(+$any($event.target).value)"
+                />
+              </label>
+            </div>
+          }
           <div class="retalhos" [class.largos]="tab() === 'estrago' || tab() === 'rabisco'">
             @for (o of options(); track o.value) {
               <label class="retalho" [class.on]="o.value === value()">
@@ -116,6 +135,7 @@ interface Option {
                     [id]="id()"
                     [scribble]="o.scribble"
                     [scribbleSeed]="o.scribble && o.value === value() ? scribbleSeed() : null"
+                    [scribbleInk]="scribbleInk()"
                     [damage]="o.damage"
                     [seed]="o.damage && o.value === value() ? damageSeed() : null"
                     [plain]="true"
@@ -383,6 +403,9 @@ interface Option {
       border-bottom: 2px dashed rgb(255 255 255 / 0.16);
       transition: opacity var(--t-ui) var(--ease-ui);
     }
+    .ajustes.um {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .ajustes.apagados {
       opacity: 0.4;
 
@@ -444,6 +467,8 @@ export class CardKit {
   readonly damageSeed = model.required<number | null>();
   /** O sorteio do rabisco, como o do estrago: cada clique rabisca de outro jeito. */
   readonly scribbleSeed = model.required<number | null>();
+  /** A força do lápis do rabisco, um degrau de SCRIBBLE_INK. */
+  readonly scribbleInk = model.required<number>();
   /** O espaço, o tamanho e o alinhamento dos desenhos da estampa. */
   readonly patternLook = model.required<PatternLook>();
   /** O sorteio da estampa: cada clique nela desloca e bagunça de outro jeito. */
@@ -462,6 +487,7 @@ export class CardKit {
   protected readonly lookKeys = LOOK_KEYS;
   protected readonly lookLabels = LOOK_LABEL;
   protected readonly lookSteps = LOOK_STEP_LABEL;
+  protected readonly inkSteps = SCRIBBLE_INK_LABEL;
 
   /** O papel e a estampa da ficha, para as amostras de cor. */
   protected readonly current = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
