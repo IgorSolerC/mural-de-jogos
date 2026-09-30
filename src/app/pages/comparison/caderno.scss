@@ -58,8 +58,10 @@
     display: block;
     background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='38' height='22'%3E%3Ccircle cx='7' cy='12' r='3.3' fill='%232e2924'/%3E%3Ccircle cx='31' cy='12' r='3.3' fill='%232e2924'/%3E%3Cpath d='M7 12C6 1.5 32 1.5 31 12' fill='none' stroke='%23777268' stroke-width='3.4' stroke-linecap='round'/%3E%3Cpath d='M9 8.5C11 4 27 4 29 8.5' fill='none' stroke='%23e6e1d7' stroke-width='1.1' stroke-linecap='round' opacity='.85'/%3E%3C/svg%3E")
-        center 14px / 38px 22px repeat-y,
+        center / 38px 22px no-repeat space content-box,
       linear-gradient(90deg, var(--folha), #e6e1d5 48%, #dcd7ca 50%, #e6e1d5 52%, var(--folha));
+    /* só argolas inteiras, espaçadas por igual e com um respiro das bordas: nenhuma cortada em cima ou embaixo */
+    padding-block: 12px;
   }
 }
 
@@ -400,15 +402,34 @@ h3 {
 }
 
 /* ===== O top 3 de cada um, lado a lado ===== */
+/* as duas colunas dividem as mesmas linhas (subgrid): o 1º de um fica na altura do 1º do outro,
+   e as pautas dos dois lados caem juntas, mesmo quando um nome quebra ou só um lado tem "deu" */
 .dupla {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 26px;
+  column-gap: 26px;
+}
+
+.coluna {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  min-width: 0;
+}
+
+.top {
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
 }
 
 @container (max-width: 500px) {
   .dupla {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coluna + .coluna {
+    margin-top: 14px;
   }
 }
 

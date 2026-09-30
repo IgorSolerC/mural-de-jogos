@@ -7,16 +7,34 @@ import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
 import { KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
 import { mediaSignal } from '../core/media';
 import { Mural } from '../core/mural';
-import { Review, SCORE_LABEL, fold, formatScore, newId, ratedKeys, scoreOf, weightOf } from '../core/review';
+import {
+  DIFFICULTY_LABEL,
+  Review,
+  SCORE_LABEL,
+  fold,
+  formatAmount,
+  formatReviewDate,
+  formatScore,
+  newId,
+  ratedKeys,
+  scoreOf,
+  sortBonuses,
+  weightOf,
+} from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { WallView } from '../core/wall-view';
 import { Desk } from '../core/desk';
+import { NgTemplateOutlet } from '@angular/common';
+import { BonusSticker } from '../ui/bonus';
+import { Skulls } from '../ui/difficulty';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
 import { SearchStrip } from '../ui/search-strip';
+import { StatusLabel } from '../ui/status-label';
 import { Toasts } from '../ui/toast';
+import { VerdictStamp } from '../ui/verdict';
 import { BackupEnvelope } from './comparison/envelope';
 import { Caderno, OpenRequest } from './comparison/caderno';
 import { NameTags } from './comparison/name-tags';
@@ -24,6 +42,22 @@ import { NameTags } from './comparison/name-tags';
 type Tab = 'comum' | 'dicas' | 'minhas';
 type PairSort = 'briga' | 'minha' | 'colega' | 'nome';
 type ListSort = 'nota' | 'nome' | 'recente';
+
+/** Uma linha do Nota a nota: uma nota (com a maior circulada) ou um fato da ficha. */
+interface NoteRow {
+  id: string;
+  label: string;
+  kind: 'final' | 'score' | 'verdict' | 'bonus' | 'hours' | 'status' | 'difficulty' | 'date';
+  mine: number | null;
+  theirs: number | null;
+  weightA: string;
+  weightB: string;
+  best: 'mine' | 'theirs' | null;
+  /** Igual nos dois lados: escrito uma vez, no meio da linha. */
+  same: boolean;
+  /** Primeira linha dos fatos: um traço cheio a separa das notas. */
+  split?: boolean;
+}
 
 /** Quantos pares (ou fichas soltas) aparecem de cada vez. */
 const PAGE = 12;
@@ -39,7 +73,21 @@ const byName = (a: Review, b: Review) => collator.compare(a.game.name, b.game.na
  */
 @Component({
   selector: 'app-comparison-page',
-  imports: [BackupEnvelope, Caderno, LucideAngularModule, NameTags, ReviewCard, ReviewReader, RouterLink, SearchStrip],
+  imports: [
+    BackupEnvelope,
+    BonusSticker,
+    Caderno,
+    LucideAngularModule,
+    NameTags,
+    NgTemplateOutlet,
+    ReviewCard,
+    ReviewReader,
+    RouterLink,
+    SearchStrip,
+    Skulls,
+    StatusLabel,
+    VerdictStamp,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comparison-page.html',
   styleUrl: './comparison-page.scss',
@@ -174,33 +222,78 @@ export class ComparisonPage {
 
   /** O par aberto no "Nota a nota". */
   protected readonly notesOpen = signal<string | null>(null);
-  /** As linhas do nota a nota do par aberto, com a maior de cada linha marcada. */
-  protected readonly noteRows = computed(() => {
+  /**
+   * As linhas do nota a nota do par aberto, na ordem do Lado a lado: as notas (com o veredito e os
+   * bônus) e, depois de um traço cheio, os fatos da ficha. Uma linha em branco dos dois lados some;
+   * um fato igual nos dois lados é escrito uma vez só, no meio, para a folha não repetir o óbvio.
+   */
+  protected readonly noteRows = computed<NoteRow[]>(() => {
     const pair = this.pairs().find((p) => p.key === this.notesOpen());
     if (!pair) return [];
-    const row = (label: string, a: number | null, b: number | null, weightA = '', weightB = '') => ({
+    const a = pair.mine;
+    const b = pair.theirs;
+    const p = profileOf(a.kind);
+    const score = (id: string, label: string, x: number | null, y: number | null, weightA = '', weightB = ''): NoteRow => ({
+      id,
       label,
-      mine: a,
-      theirs: b,
+      kind: id === 'final' ? 'final' : 'score',
+      mine: x,
+      theirs: y,
       weightA,
       weightB,
-      best: a === null || b === null || a === b ? null : a > b ? 'mine' : 'theirs',
+      best: x === null || y === null || x === y ? null : x > y ? 'mine' : 'theirs',
+      same: false,
     });
-    return [
-      row('Nota final', pair.mine.scores.final, pair.theirs.scores.final, pair.mine.finalOverride !== undefined ? 'na mão' : '', pair.theirs.finalOverride !== undefined ? 'na mão' : ''),
-      ...ratedKeys(pair.mine.kind).map((k) => {
-        const wa = weightOf(pair.mine.weights, k);
-        const wb = weightOf(pair.theirs.weights, k);
-        return row(
-          SCORE_LABEL[k],
-          wa === 'nao-tem' ? null : scoreOf(pair.mine.scores, k),
-          wb === 'nao-tem' ? null : scoreOf(pair.theirs.scores, k),
-          wa === 'nao-tem' ? 'não tem' : wa === 'normal' ? '' : wa === 'relevante' ? 'relevante' : 'pouco importa',
-          wb === 'nao-tem' ? 'não tem' : wb === 'normal' ? '' : wb === 'relevante' ? 'relevante' : 'pouco importa',
-        );
-      }),
+    const fact = (id: NoteRow['kind'], label: string, same: boolean, split = false): NoteRow => ({
+      id,
+      label,
+      kind: id,
+      mine: null,
+      theirs: null,
+      weightA: '',
+      weightB: '',
+      best: null,
+      same,
+      split,
+    });
+    const weight = (w: string) => (w === 'nao-tem' ? 'não tem' : w === 'relevante' ? 'relevante' : w === 'pouco' ? 'pouco importa' : '');
+    const rows: NoteRow[] = [
+      score('final', 'Nota final', a.scores.final, b.scores.final, a.finalOverride !== undefined ? 'na mão' : '', b.finalOverride !== undefined ? 'na mão' : ''),
     ];
+    if (a.verdict || b.verdict) rows.push(fact('verdict', 'Veredito', a.verdict === b.verdict));
+    for (const k of ratedKeys(a.kind)) {
+      const wa = weightOf(a.weights, k);
+      const wb = weightOf(b.weights, k);
+      rows.push(
+        score(k, SCORE_LABEL[k], wa === 'nao-tem' ? null : scoreOf(a.scores, k), wb === 'nao-tem' ? null : scoreOf(b.scores, k), weight(wa), weight(wb)),
+      );
+    }
+    if (a.bonuses.length || b.bonuses.length) rows.push(fact('bonus', 'Bônus', false));
+
+    const facts: NoteRow[] = [];
+    if (p.amount && (a.hoursPlayed !== null || b.hoursPlayed !== null)) {
+      facts.push(fact('hours', p.amount.row, a.hoursPlayed === b.hoursPlayed));
+    }
+    facts.push(fact('status', 'Status', a.status === b.status));
+    if (p.difficulty) facts.push(fact('difficulty', p.difficulty, a.difficulty === b.difficulty));
+    if (a.completedAt !== null || b.completedAt !== null) {
+      facts.push(fact('date', 'Data', a.completedAt === b.completedAt && a.status === b.status));
+    }
+    facts[0].split = true;
+    return [...rows, ...facts];
   });
+  protected difficultyOf(r: Review): string {
+    return DIFFICULTY_LABEL[r.difficulty];
+  }
+  protected bonusesOf(r: Review) {
+    return sortBonuses(r.bonuses);
+  }
+  protected amount(r: Review): string {
+    return formatAmount(r.kind, r.hoursPlayed);
+  }
+  protected date(r: Review): string {
+    return formatReviewDate(r.completedAt);
+  }
 
   /** Os títulos que já estão na minha wishlist, para o botão "Quero" virar "Na wishlist". */
   private readonly wished = computed(() => new Set(this.store.wishes().map((w) => `${w.kind}:${fold(w.game.name)}`)));

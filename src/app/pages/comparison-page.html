@@ -197,6 +197,11 @@
                       <div class="notas" [id]="'notas-' + pair.key">
                         <table>
                           <caption class="sr-only">Nota a nota de {{ pair.mine.game.name }}</caption>
+                          <colgroup>
+                            <col class="col-rotulo" />
+                            <col />
+                            <col />
+                          </colgroup>
                           <thead>
                             <tr>
                               <td></td>
@@ -205,26 +210,38 @@
                             </tr>
                           </thead>
                           <tbody>
-                            @for (row of noteRows(); track row.label; let first = $first) {
-                              <tr [class.final]="first">
+                            @for (row of noteRows(); track row.id) {
+                              <tr [class]="'k-' + row.kind" [class.final]="row.kind === 'final'" [class.split]="row.split">
                                 <th scope="row">{{ row.label }}</th>
-                                <td class="voce">
-                                  <span class="valor" [class.melhor]="row.best === 'mine'">{{ row.mine === null ? '–' : fmt(row.mine) }}</span>
-                                  @if (row.weightA) {
-                                    <small>{{ row.weightA }}</small>
-                                  }
-                                </td>
-                                <td class="colega">
-                                  <span class="valor" [class.melhor]="row.best === 'theirs'">{{ row.theirs === null ? '–' : fmt(row.theirs) }}</span>
-                                  @if (row.weightB) {
-                                    <small>{{ row.weightB }}</small>
-                                  }
-                                </td>
+                                @if (row.kind === 'final' || row.kind === 'score') {
+                                  <td class="voce">
+                                    <span class="valor" [class.melhor]="row.best === 'mine'">{{ row.mine === null ? '–' : fmt(row.mine) }}</span>
+                                    @if (row.weightA) {
+                                      <small>{{ row.weightA }}</small>
+                                    }
+                                  </td>
+                                  <td class="colega">
+                                    <span class="valor" [class.melhor]="row.best === 'theirs'">{{ row.theirs === null ? '–' : fmt(row.theirs) }}</span>
+                                    @if (row.weightB) {
+                                      <small>{{ row.weightB }}</small>
+                                    }
+                                  </td>
+                                } @else if (row.same) {
+                                  <!-- igual nos dois lados: uma vez só, no meio, com o sinal de igual a lápis -->
+                                  <td colspan="2" class="igual">
+                                    <span class="igual-marca" aria-hidden="true">=</span>
+                                    <ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.mine, row: row }" />
+                                    <span class="sr-only">(igual para os dois)</span>
+                                  </td>
+                                } @else {
+                                  <td class="voce"><ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.mine, row: row }" /></td>
+                                  <td class="colega"><ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.theirs, row: row }" /></td>
+                                }
                               </tr>
                             }
                           </tbody>
                         </table>
-                        <p class="notas-legenda">Circulado a caneta: a maior nota de cada linha.</p>
+                        <p class="notas-legenda">Circulado a caneta: a maior nota de cada linha. Com <b>=</b>, os dois marcaram igual.</p>
                       </div>
                     }
                   </li>
@@ -310,3 +327,58 @@
 }
 
 <app-review-reader />
+
+<!-- Um fato da ficha numa célula do Nota a nota: o mesmo desenho do Lado a lado, em tamanho de bloquinho -->
+<ng-template #fato let-r let-row="row">
+  @switch (row.kind) {
+    @case ('verdict') {
+      @if (r.verdict) {
+        <app-verdict-stamp class="carimbo" [value]="r.verdict" />
+      } @else {
+        <span class="sem"><span aria-hidden="true">–</span><span class="sr-only">sem veredito</span></span>
+      }
+    }
+    @case ('bonus') {
+      @if (r.bonuses.length) {
+        <ul class="bonus">
+          @for (b of bonusesOf(r); track b.id; let i = $index) {
+            <li>
+              <app-bonus-sticker [bonus]="b" size="mini" [index]="i" />
+              <span class="sr-only">({{ b.kind === 'favor' ? 'a favor' : 'contra' }})</span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <span class="sem"><span aria-hidden="true">–</span><span class="sr-only">sem bônus</span></span>
+      }
+    }
+    @case ('hours') {
+      @if (amount(r); as h) {
+        <span class="fato num">{{ h }}</span>
+      } @else {
+        <span class="sem"><span aria-hidden="true">–</span><span class="sr-only">sem {{ row.label.toLowerCase() }}</span></span>
+      }
+    }
+    @case ('status') {
+      <app-status-label [status]="r.status" [kind]="r.kind" />
+    }
+    @case ('difficulty') {
+      <span class="dificuldade">
+        <app-skulls [value]="r.difficulty" [size]="14" [showLabel]="false" />
+        <span class="fato" aria-hidden="true">{{ difficultyOf(r) }}</span>
+      </span>
+    }
+    @case ('date') {
+      @if (r.completedAt === null) {
+        <span class="sem"><span aria-hidden="true">–</span><span class="sr-only">sem data</span></span>
+      } @else {
+        <span class="fato">
+          @if (r.status === 'incompleto') {
+            <span class="pre">até</span>
+          }
+          <time [attr.datetime]="r.completedAt">{{ date(r) }}</time>
+        </span>
+      }
+    }
+  }
+</ng-template>

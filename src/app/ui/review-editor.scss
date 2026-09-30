@@ -109,9 +109,28 @@
 }
 
 .campos-linha {
+  /* data e horas lado a lado: a mesma altura de cabeçalho e de tira, pra as caixas nascerem na mesma linha */
+  --cabeca-campo: 33px;
+  --tira-campo: 56px;
   display: flex;
   flex-wrap: wrap;
   gap: 18px 32px;
+}
+
+/* as horas não têm atalhos, mas guardam o mesmo espaço de cabeçalho da data */
+.campo-horas {
+  display: grid;
+  grid-template-rows: minmax(var(--cabeca-campo), auto) auto;
+  align-content: start;
+
+  > .rotulo {
+    align-self: end;
+  }
+
+  > .tira {
+    justify-self: start;
+    min-height: var(--tira-campo);
+  }
 }
 
 .pergunta-linha {
@@ -288,9 +307,12 @@
 
 .data-atalhos {
   display: flex;
+  align-items: flex-end;
   justify-content: flex-end;
   gap: 2px;
-  margin-bottom: 3px;
+  min-height: var(--cabeca-campo, 33px);
+  padding-bottom: 3px;
+  box-sizing: border-box;
 }
 
 .data-atalho {
@@ -327,7 +349,7 @@
   display: flex;
   align-items: stretch;
   width: 100%;
-  min-height: 56px;
+  min-height: var(--tira-campo, 56px);
   padding: 0 6px;
 
   &.errada {

@@ -311,7 +311,7 @@ app-caderno {
 .notas {
   grid-column: 1 / -1;
   justify-self: center;
-  width: min(100%, 540px);
+  width: min(100%, 600px);
   padding: 14px 18px 18px;
   background: var(--paper-grain), var(--paper);
   color: var(--ink);
@@ -407,6 +407,91 @@ app-caderno {
   font-family: var(--f-hand);
   font-size: 0.95rem;
   color: var(--ink-2);
+
+  b {
+    font-family: var(--f-marker);
+    font-weight: 400;
+  }
+}
+
+/* A folha inteira, como no Lado a lado: as notas em cima e, depois de um traço cheio, os fatos
+   da ficha. Os fatos falam baixo (etiqueta miúda), para a caneta das notas continuar mandando. */
+.notas .col-rotulo {
+  width: 30%;
+}
+
+.notas td {
+  vertical-align: middle;
+}
+
+.notas tbody tr.split > * {
+  border-top: 2px solid rgb(21 21 21 / 0.55);
+}
+
+.notas .fato {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+
+  &.num {
+    font-size: 0.98rem;
+  }
+
+  .pre {
+    font-weight: 600;
+    opacity: 0.7;
+    margin-right: 3px;
+  }
+}
+
+.notas .sem {
+  font-family: var(--f-marker);
+  color: rgb(21 21 21 / 0.4);
+}
+
+.notas .carimbo {
+  rotate: -4deg;
+}
+
+.notas .dificuldade {
+  display: inline-grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.notas .bonus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 2px 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    max-width: 100%;
+  }
+}
+
+/* igual dos dois lados: escrito uma vez, no meio, com o "=" a lápis na frente */
+.notas td.igual {
+  color: var(--ink);
+}
+
+.igual-marca {
+  margin-right: 8px;
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+  color: rgb(21 21 21 / 0.38);
+  vertical-align: middle;
+}
+
+.notas td.igual > :not(.igual-marca) {
+  vertical-align: middle;
 }
 
 /* ===== Dicas: as fichas que só um tem ===== */
@@ -508,6 +593,16 @@ app-caderno {
   .par {
     row-gap: 14px;
     margin-bottom: 44px;
+  }
+  .notas {
+    padding: 12px 10px 16px;
+  }
+  .notas th,
+  .notas td {
+    padding: 7px 5px;
+  }
+  .notas .col-rotulo {
+    width: 28%;
   }
 }
 
