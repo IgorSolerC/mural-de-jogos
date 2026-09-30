@@ -2305,116 +2305,181 @@ function capsule(a: Pt, b: Pt, w: number): string {
   return `<path d='M${f1(a[0] + nx)} ${f1(a[1] + ny)}L${f1(b[0] + nx)} ${f1(b[1] + ny)}A${R} ${R} 0 0 0 ${f1(b[0] - nx)} ${f1(b[1] - ny)}L${f1(a[0] - nx)} ${f1(a[1] - ny)}A${R} ${R} 0 0 0 ${f1(a[0] + nx)} ${f1(a[1] + ny)}Z'/>`;
 }
 
+/** Uma almofada da mão: um oval torto, de borda irregular, virado `rot` graus. */
+function pad(c: Pt, rx: number, ry: number, rot: number, r: () => number, wob = 1): string {
+  const ph = [r() * 6, r() * 6, r() * 6];
+  const pts: Pt[] = [];
+  const cr = Math.cos((rot * Math.PI) / 180),
+    sr = Math.sin((rot * Math.PI) / 180);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const w = 1 + wob * (0.1 * Math.sin(a * 2 + ph[0]) + 0.07 * Math.sin(a * 3 + ph[1]) + 0.05 * Math.sin(a * 5 + ph[2]));
+    const x = Math.cos(a) * rx * w,
+      y = Math.sin(a) * ry * w;
+    pts.push([c[0] + x * cr - y * sr, c[1] + x * sr + y * cr]);
+  }
+  return `${smooth([...pts, pts[0]])}Z`;
+}
+
 /**
- * A marca de uma mão suja de sangue, como um carimbo de pele: só marca onde a mão encostou. Os
- * dedos em falanges (as dobras ficam em branco), a ponta de cada dedo com as linhas da digital, a
- * palma com o miolo que não encostou e as três linhas da mão abertas no sangue, e o polegar. Pouco
- * sangue: a tinta falha em grãos e quase não respinga. De vez em quando são duas mãos, e às vezes a
- * mão arrastou um pouquinho.
+ * A marca de uma mão suja de sangue, como um carimbo de pele: só marca onde a mão encostou. Dos dedos
+ * ficam os gomos soltos (a ponta mais forte, a base às vezes falhando), longe da palma; a palma é um
+ * punhado de almofadas (a de baixo dos dedos, partida, e as duas grandes da base) com o triângulo do
+ * meio em branco; do polegar, só a pontinha afastada. A tinta é cortada pelas linhas finas da pele e
+ * falha na borda. Pouco sangue, quase sem respingo. De vez em quando são duas mãos.
  */
 function bloodyHand(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
   const q = Math.max(0.4, k);
   const hands = r() < 0.2 ? 2 : 1;
   let body = '',
-    drops = '',
-    masks = '';
+    masks = '',
+    drops = '';
   for (let h = 0; h < hands; h++) {
-    const P = (46 + r() * 8) * q * (h ? 0.88 : 1);
-    const cx = W * (h ? 0.25 + r() * 0.25 : 0.5 + r() * 0.3),
-      cy = H * (0.4 + r() * 0.3);
-    const up = r() < 0.2 ? (r() < 0.5 ? -90 : 90) : (r() - 0.5) * 70;
+    // P: a largura da palma. A mão inteira tem uns 2,1 palmos de altura, da ponta do médio ao pulso
+    const P = (66 + r() * 10) * q * (h ? 0.86 : 1);
+    const cx = W * (h ? 0.24 + r() * 0.18 : 0.56 + r() * 0.24),
+      cy = H * (0.44 + r() * 0.16);
+    const up = (r() - 0.5) * 44;
     const flip = r() < 0.5 ? -1 : 1;
+    const ca = Math.cos((up * Math.PI) / 180),
+      sa = Math.sin((up * Math.PI) / 180);
+    // (u, v) em palmos: u para o lado do polegar, v para o pulso; v = 0 é a linha dos nós dos dedos
     const T = (u: number, v: number): Pt => {
-      const a = (up * Math.PI) / 180,
-        x = u * flip * P,
-        y = v * P;
-      return [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)];
+      const x = u * flip * P,
+        y = (v - 0.05) * P;
+      return [cx + x * ca - y * sa, cy + x * sa + y * ca];
     };
-    let hand = '';
-    // a palma
-    const palm = [
-      T(-0.5, -0.02), T(-0.53, 0.3), T(-0.47, 0.62), T(-0.3, 0.86), T(0, 0.93), T(0.3, 0.86), T(0.47, 0.62), T(0.52, 0.3), T(0.5, -0.02), T(0.25, -0.1), T(0, -0.12), T(-0.25, -0.1),
+    const angOf = (deg: number) => up + flip * deg;
+    let marks = '';
+    // os dedos, do mindinho ao indicador: o nó (u, v), o comprimento, a abertura e a largura. O
+    // mindinho nasce mais baixo e é o mais curto; o médio, o mais comprido.
+    const fingers: [number, number, number, number, number][] = [
+      [-0.38, 0.24, 0.76, -27, 0.17],
+      [-0.13, 0.14, 0.98, -11, 0.2],
+      [0.11, 0.1, 1.06, 1, 0.21],
+      [0.34, 0.14, 0.94, 13, 0.2],
     ];
-    hand += `<path d='${smooth([...palm, palm[0]])}Z'/>`;
-    // os dedos: indicador, médio, anelar e mindinho, cada um em três falanges com a dobra em branco
-    const fingers: [number, number, number][] = [
-      [-0.35, 0.8, -16],
-      [-0.12, 0.92, -5],
-      [0.12, 0.84, 6],
-      [0.35, 0.64, 19],
-    ];
-    const tips: Pt[] = [];
-    // o que não marca: o miolo da palma, as dobras e as linhas da pele (entram na máscara, em preto)
-    let skin = '';
-    for (const [u, len, tilt] of fingers) {
-      const a = (tilt * Math.PI) / 180;
-      const at = (s: number) => T(u + Math.sin(a) * s, -0.1 - Math.cos(a) * s);
-      const segs = [0, 0.42, 0.74, 1].map((f) => f * len * (0.95 + r() * 0.1));
-      for (let j = 0; j < 3; j++) hand += capsule(at(segs[j] + (j ? 0.05 : 0)), at(segs[j + 1] - 0.05), P * (0.21 - j * 0.012));
-      tips.push(at(segs[3] - 0.06));
-      // a digital na ponta do dedo: voltas concêntricas, um pouco achatadas, no rumo do dedo
-      const c = at(segs[2] + (segs[3] - segs[2]) * 0.52);
-      const ang = up + flip * tilt;
-      for (let i = 1; i <= 4; i++) {
-        const t = i / 4.4;
-        skin += `<ellipse cx='${f1(c[0])}' cy='${f1(c[1])}' rx='${f1(P * 0.085 * t)}' ry='${f1(P * 0.12 * t)}' transform='rotate(${f1(ang)} ${f1(c[0])} ${f1(c[1])})'/>`;
+    const tips: { c: Pt; ang: number; rx: number; ry: number }[] = [];
+    // o jeito da marca: em gomos (encostou de leve), cheia (a mão veio encharcada) ou arrastada
+    // (escorregou para o lado do pulso)
+    const kind = r();
+    const style: 'gomos' | 'cheia' | 'arrastada' = kind < 0.4 ? 'gomos' : kind < 0.75 ? 'cheia' : 'arrastada';
+    // uma faixa que afina: do ponto `a` ao `b`, larga `w0` em `a` e `w1` em `b`, com a borda tremida
+    const strip = (a: Pt, b: Pt, w0: number, w1: number, capA = true): string => {
+      const dx = b[0] - a[0],
+        dy = b[1] - a[1],
+        L = Math.hypot(dx, dy) || 1;
+      const nx = -dy / L,
+        ny = dx / L;
+      const left: Pt[] = [],
+        right: Pt[] = [];
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10,
+          w = (w0 + (w1 - w0) * t) / 2,
+          j = (r() - 0.5) * w * 0.35;
+        left.push([a[0] + dx * t + nx * (w + j), a[1] + dy * t + ny * (w + j)]);
+        right.push([a[0] + dx * t - nx * (w - j), a[1] + dy * t - ny * (w - j)]);
+      }
+      // a ponta de cima redonda; a de baixo em bico, esfiapada
+      const cap: Pt[] = [];
+      if (capA)
+        for (let i = 1; i < 6; i++) {
+          const ang = Math.PI * (i / 6);
+          cap.push([a[0] + (nx * Math.cos(ang) - (dx / L) * Math.sin(ang)) * (w0 / 2), a[1] + (ny * Math.cos(ang) - (dy / L) * Math.sin(ang)) * (w0 / 2)]);
+        }
+      const loop = [...right.reverse(), ...cap.reverse(), ...left];
+      return `${smooth([...loop, loop[0]])}Z`;
+    };
+    for (const [u0, v0, len, tilt, wd] of fingers) {
+      const t = ((tilt + (r() - 0.5) * 6) * Math.PI) / 180;
+      const L = len * (0.96 + r() * 0.08);
+      const at = (f: number): Pt => T(u0 + Math.sin(t) * L * f, v0 - Math.cos(t) * L * f);
+      const ang = angOf(tilt);
+      const tip = { c: at(0.835), ang, rx: P * wd * 0.47, ry: P * L * 0.165 };
+      tips.push(tip);
+      if (style === 'gomos') {
+        // a ponta (a que mais marca), a do meio e a de baixo, com as dobras em branco
+        marks += pad(tip.c, tip.rx, tip.ry, ang, r, 0.45);
+        marks += pad(at(0.525), P * wd * 0.41, P * L * 0.105, ang, r, 0.45);
+        if (r() < 0.75) marks += pad(at(0.25 + r() * 0.04), P * wd * 0.38, P * L * (0.06 + r() * 0.05), ang, r, 0.6);
+      } else if (style === 'cheia') {
+        // o dedo inteiro numa faixa só, da ponta redonda até a base esfiapada; às vezes a dobra do meio falha
+        marks += strip(at(0.98), at(0.36 + r() * 0.1), P * wd * 0.95, P * wd * 0.7);
+        if (r() < 0.5) marks += pad(at(0.2), P * wd * 0.36, P * L * 0.06, ang, r, 0.8);
+      } else {
+        // arrastou: uma faixa comprida que afina para baixo, passando da base do dedo
+        marks += strip(at(1), at(0.05 - r() * 0.2), P * wd * 0.9, P * wd * 0.12);
       }
     }
-    // o polegar, aberto para o lado, com a digital na ponta
-    const ta = ((42 + r() * 14) * Math.PI) / 180;
-    const th = (s: number) => T(-0.4 - Math.sin(ta) * s, 0.5 - Math.cos(ta) * s);
-    hand += capsule(th(0.05), th(0.36), P * 0.27) + capsule(th(0.43), th(0.66), P * 0.23);
-    const tc = th(0.55);
-    for (let i = 1; i <= 4; i++) {
-      const t = i / 4.4;
-      skin += `<ellipse cx='${f1(tc[0])}' cy='${f1(tc[1])}' rx='${f1(P * 0.1 * t)}' ry='${f1(P * 0.13 * t)}' transform='rotate(${f1(up - flip * (90 - (ta * 180) / Math.PI))} ${f1(tc[0])} ${f1(tc[1])})'/>`;
+    // a palma: as almofadas de baixo dos dedos, a do lado do mindinho e a grande da base do polegar
+    const grow = style === 'cheia' ? 1.18 : 1;
+    const palm = [
+      pad(T(-0.25, 0.3), P * 0.21 * grow, P * 0.12 * grow, angOf(-10), r),
+      pad(T(0.14, 0.26), P * 0.23 * grow, P * 0.13 * grow, angOf(5), r),
+      pad(T(-0.27, 0.8), P * 0.21 * grow, P * 0.34 * grow, angOf(4), r),
+      pad(T(0.2, 0.84), P * 0.27 * grow, P * 0.3 * grow, angOf(-16), r),
+    ];
+    if (style === 'arrastada') {
+      // só pedaços da palma, cada um puxado para baixo num rastro
+      for (let i = 0; i < 3; i++) {
+        const c = T(-0.3 + i * 0.28 + (r() - 0.5) * 0.1, 0.35 + r() * 0.4);
+        const e = T(-0.3 + i * 0.28, 1.1 + r() * 0.35);
+        if (r() < 0.8) marks += strip(c, e, P * (0.2 + r() * 0.12), P * 0.05);
+      }
+    } else marks += palm.join('');
+    // o polegar: a ponta comprida, afastada, na diagonal para cima e para fora
+    const thumb = T(0.78 + r() * 0.05, 0.4 + r() * 0.06);
+    if (style === 'arrastada') marks += strip(T(0.86, 0.24), T(0.62, 0.72), P * 0.2, P * 0.05);
+    else marks += pad(thumb, P * 0.1, P * 0.21, angOf(-42), r, 0.5);
+    // na cheia, sobra sangue: pingos escorrendo da base da palma e respingos em volta
+    let holes = '';
+    if (style === 'cheia') {
+      // o miolo da palma que não encostou: um buraco torto no meio
+      holes += pad(T(0 + (r() - 0.5) * 0.08, 0.55), P * (0.1 + r() * 0.06), P * (0.14 + r() * 0.08), angOf((r() - 0.5) * 60), r, 1.6);
+      if (r() < 0.6)
+        for (let i = 0; i < 2 + Math.floor(r() * 3); i++) {
+          const u = -0.35 + r() * 0.7;
+          const L2 = 0.15 + r() * 0.45;
+          marks += strip(T(u, 1.02), T(u + (r() - 0.5) * 0.04, 1.02 + L2), P * 0.055, P * 0.045);
+          const e = T(u, 1.02 + L2);
+          marks += `M${f1(e[0] + P * 0.035)} ${f1(e[1])}a${f1(P * 0.035)} ${f1(P * 0.035)} 0 1 1 ${f1(-P * 0.07)} 0a${f1(P * 0.035)} ${f1(P * 0.035)} 0 1 1 ${f1(P * 0.07)} 0Z`;
+        }
+      for (let i = 0; i < 14; i++) {
+        const d = T((r() - 0.5) * 1.3, 1.05 + r() * 0.5);
+        drops += `<circle cx='${f1(d[0])}' cy='${f1(d[1])}' r='${f1((0.5 + Math.pow(r(), 2) * 2) * q)}'/>`;
+      }
     }
-    // as três linhas da mão: do coração, da cabeça e da vida
-    const line = (a: Pt, c: Pt, b: Pt) => `<path d='M${f1(a[0])} ${f1(a[1])}Q${f1(c[0])} ${f1(c[1])} ${f1(b[0])} ${f1(b[1])}'/>`;
-    const creases = line(T(0.52, 0.2), T(0.12, 0.1), T(-0.3, 0.06)) + line(T(-0.45, 0.3), T(0, 0.28), T(0.36, 0.44)) + line(T(-0.36, 0.26), T(-0.06, 0.55), T(-0.14, 0.9));
-    const hollow = T(0.04, 0.45);
+    // a pele: poucas linhas finas cortando a tinta, em dois rumos cruzados, e a digital na ponta dos dedos
+    let skin = '';
+    const a1 = r() * 180;
+    for (let i = 0; i < 110; i++) {
+      const p = T((r() - 0.5) * 1.3, -0.95 + r() * 2.2);
+      const ang = ((a1 + (r() < 0.55 ? 0 : 70) + (r() - 0.5) * 22) * Math.PI) / 180;
+      const l = P * (0.06 + r() * 0.22);
+      const bend = (r() - 0.5) * l * 0.3;
+      const x2 = p[0] + Math.cos(ang) * l,
+        y2 = p[1] + Math.sin(ang) * l;
+      skin += `<path d='M${f1(p[0])} ${f1(p[1])}Q${f1((p[0] + x2) / 2 - Math.sin(ang) * bend)} ${f1((p[1] + y2) / 2 + Math.cos(ang) * bend)} ${f1(x2)} ${f1(y2)}' stroke-width='${f1((0.3 + r() * 0.35) * q)}'/>`;
+    }
+    for (const tp of style === 'arrastada' ? [] : tips)
+      for (let i = 1; i <= 5; i++) {
+        const f = i / 5.6;
+        skin += `<ellipse cx='${f1(tp.c[0])}' cy='${f1(tp.c[1])}' rx='${f1(tp.rx * f)}' ry='${f1(tp.ry * f * 0.85)}' transform='rotate(${f1(tp.ang)} ${f1(tp.c[0])} ${f1(tp.c[1])})' stroke-width='${f1(0.4 * q)}'/>`;
+      }
     masks +=
       `<mask id='${uid}-mao${h}' maskUnits='userSpaceOnUse' x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}'>` +
-      `<rect x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}' fill='#fff'/>` +
-      `<ellipse cx='${f1(hollow[0])}' cy='${f1(hollow[1])}' rx='${f1(P * 0.27)}' ry='${f1(P * 0.21)}' fill='#000' fill-opacity='.8' filter='url(#papel-borra)'/>` +
-      `<g fill='none' stroke='#000'><g stroke-width='${f1(P * 0.024)}' stroke-opacity='.8' stroke-linecap='round'>${creases}</g><g stroke-width='${f1(P * 0.011)}' stroke-opacity='.85'>${skin}</g></g>` +
+      `<g fill='#fff' filter='url(#papel-mancha)'><path d='${marks}'/></g>` +
+      (holes ? `<g fill='#000' filter='url(#papel-mancha)'><path d='${holes}'/></g>` : '') +
+      `<g fill='none' stroke='#000' stroke-opacity='.7' stroke-linecap='round'>${skin}</g>` +
       `</mask>`;
-    // arrastou um pouquinho: rastros curtos de cada dedo e da palma para o lado do pulso
-    let smear = '';
-    if (r() < 0.15) {
-      const back = T(0, 1),
-        base = T(0, 0);
-      const len = Math.hypot(back[0] - base[0], back[1] - base[1]);
-      const dx = (back[0] - base[0]) / len,
-        dy = (back[1] - base[1]) / len;
-      const trail = (from: Pt, wid: number, reach: number) => {
-        const pts: Pt[] = [],
-          back2: Pt[] = [];
-        for (let i = 0; i <= 8; i++) {
-          const t = i / 8,
-            w = (wid / 2) * (1 - t * 0.75) * (0.85 + r() * 0.3),
-            wob = (r() - 0.5) * wid * 0.15;
-          const x = from[0] + dx * reach * t - dy * wob,
-            y = from[1] + dy * reach * t + dx * wob;
-          pts.push([x - dy * w, y + dx * w]);
-          back2.unshift([x + dy * w, y - dx * w]);
-        }
-        return `<path d='${smooth([...pts, ...back2, pts[0]])}Z'/>`;
-      };
-      const reach = P * (0.35 + r() * 0.35);
-      for (const tip of tips) smear += trail(tip, P * 0.16, reach * (0.7 + r() * 0.5));
-      smear += trail(T(0, 0.6), P * 0.6, reach * (0.8 + r() * 0.4));
-    }
-    body += `<g mask='url(#${uid}-mao${h})'>${hand}${smear}</g>`;
-    // um ou outro pingo miúdo, só
-    for (let i = 0; i < Math.floor(r() * 3); i++) {
-      const a = r() * Math.PI * 2,
-        d = P * (0.9 + r() * 0.7);
-      drops += `<circle cx='${f1(cx + Math.cos(a) * d)}' cy='${f1(cy + Math.sin(a) * d)}' r='${f1(P * (0.01 + r() * 0.015))}'/>`;
+    body += `<rect x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}' mask='url(#${uid}-mao${h})'/>`;
+    if (r() < 0.35) {
+      const d = T((r() - 0.5) * 1.4, 1.3 + r() * 0.3);
+      drops += `<circle cx='${f1(d[0])}' cy='${f1(d[1])}' r='${f1((0.8 + r() * 1.2) * q)}'/>`;
     }
   }
-  // o sangue secou na pele e falhou em grãos: o filtro de lama faz a borda borrada e os furinhos
-  out.clareia += `<defs>${masks}</defs><g fill='rgb(126 18 24)' opacity='.72'><g filter='url(#papel-lama)'>${body}</g>${drops}</g>`;
+  // a tinta desigual, mais carregada aqui e ali, como sangue que secou na pele
+  out.clareia += `<defs>${masks}</defs><g fill='rgb(136 22 32)' opacity='.86'><g filter='url(#papel-agua)'>${body}</g>${drops}</g>`;
 }
 
 // ----- Nanquim -----
