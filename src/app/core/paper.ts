@@ -327,17 +327,18 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
 // ===================== Mancha =====================
 
 /**
- * O que caiu em cima do papel, sem mexer nele: o café, a água, o mofo, as pegadas, as traças. Vai
+ * O que caiu em cima do papel, sem mexer nele: o café, a água, o sangue, o mofo, as pegadas, as traças. Vai
  * junto com um estrago (uma ficha rasgada pode ter café). Os desenhos são os mesmos de quando as
  * manchas ficavam entre os estragos: o sorteio guardado dá a mesma mancha.
  */
-export type Stain = 'cafe' | 'molhado' | 'mofado' | 'tracas' | 'pisado' | 'pegadas';
+export type Stain = 'cafe' | 'molhado' | 'sangue' | 'mofado' | 'tracas' | 'pisado' | 'pegadas';
 
-export const STAINS: readonly Stain[] = ['cafe', 'molhado', 'mofado', 'tracas', 'pisado', 'pegadas'];
+export const STAINS: readonly Stain[] = ['cafe', 'molhado', 'sangue', 'mofado', 'tracas', 'pisado', 'pegadas'];
 
 export const STAIN_LABEL: Record<Stain, string> = {
   cafe: 'Café',
   molhado: 'Molhada',
+  sangue: 'Sangue',
   mofado: 'Mofada',
   tracas: 'Traças',
   pisado: 'Pisada',

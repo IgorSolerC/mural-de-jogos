@@ -242,7 +242,7 @@ export interface Review {
   damage?: Damage;
   /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
   damageSeed?: number;
-  /** A mancha por cima do papel (café, água, mofo, pegadas): vai junto com o estrago. */
+  /** A mancha por cima do papel (café, água, sangue, mofo, pegadas): vai junto com o estrago. */
   stain?: Stain;
   /** O sorteio da mancha, como o do estrago. */
   stainSeed?: number;

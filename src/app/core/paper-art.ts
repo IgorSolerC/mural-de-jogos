@@ -263,7 +263,7 @@ export interface PaperArt {
   core: string[];
   /** Grafite e manchas: multiplicado no papel, atrás do que está escrito. */
   fundo: string;
-  /** O que clareia o papel (a água que desbotou), atrás do que está escrito. */
+  /** Pigmento com cor própria (sangue) e o que clareia o papel, atrás do que está escrito. */
   clareia: string;
   /** Relevo do papel (amassado, dobras): cinza em soft-light por cima de tudo, a tinta entorta junto. */
   relevo: string;
@@ -281,7 +281,7 @@ export interface ArtInput {
   damage?: Damage;
   /** O sorteio do estrago (Review.damageSeed); sem ele, o estrago sai só do id. */
   seed?: number;
-  /** A mancha por cima do papel (café, água, mofo, pegadas, traças), com o sorteio dela. */
+  /** A mancha por cima do papel (café, água, sangue, mofo, pegadas, traças), com o sorteio dela. */
   stain?: Stain;
   stainSeed?: number;
   /** O sorteio do rabisco (Review.scribbleSeed); sem ele, o rabisco sai só do id. */
@@ -1147,6 +1147,58 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
       }
       break;
     }
+    case 'sangue': {
+      // A mesma borda e fibra da água, com uma poça maior e respingos que saem do contorno.
+      const s = Math.min(W, H);
+      const side = r() < 0.5 ? 1 : -1;
+      const cx = W * (side === 1 ? 0.54 : 0.46) + (r() - 0.5) * W * 0.05;
+      const cy = H * (0.51 + (r() - 0.5) * 0.08);
+      const rx = W * (0.32 + r() * 0.04);
+      const ry = H * (0.3 + r() * 0.04);
+      const sx = cx - side * rx * 0.86;
+      const sy = cy - ry * (0.42 + r() * 0.12);
+      const red = 'rgb(156 17 28)';
+      let rim: Pt[] = [];
+      let pool = waterBlobPath(cx, cy, rx, ry, r, (pts) => rim = pts);
+      pool += waterBlobPath(sx, sy, rx * 0.52, ry * 0.56, r);
+      let drops = '';
+      const count = 7 + Math.floor(r() * 4);
+      const phase = r() * Math.PI * 2;
+      for (let i = 0; i < count; i++) {
+        const angle = phase + ((i + (r() - 0.5) * 0.65) / count) * Math.PI * 2;
+        const index = (Math.round(angle / (Math.PI * 2) * rim.length) % rim.length + rim.length) % rim.length;
+        const edge = rim[index];
+        const distance = Math.hypot(edge[0] - cx, edge[1] - cy);
+        const ux = (edge[0] - cx) / distance;
+        const uy = (edge[1] - cy) / distance;
+        const length = s * (0.045 + r() * 0.1);
+        const width = s * (0.009 + r() * 0.014);
+        const lean = (r() - 0.5) * width * 1.8;
+        const point = (forward: number, lateral: number) =>
+          `${f1(edge[0] + ux * forward - uy * lateral)} ${f1(edge[1] + uy * forward + ux * lateral)}`;
+        // Raiz dentro da poça, ponta afilada e um desvio de lado, como um splash de impacto.
+        pool += `M${point(-width * 2, -width)}C${point(width, -width * 0.9)} ${point(length * 0.78, lean - width * 0.16)} ${point(length, lean)}C${point(length * 0.7, lean + width * 0.2)} ${point(width, width * 0.9)} ${point(-width * 2, width)}Z`;
+        // Gotas alongadas continuam na direção do splash, já separadas da bolsa.
+        const flight = length + s * (0.016 + r() * 0.035);
+        const x = edge[0] + ux * flight - uy * lean;
+        const y = edge[1] + uy * flight + ux * lean;
+        const radius = s * (0.004 + r() * 0.006);
+        drops += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(radius * (1.5 + r()))}' ry='${f1(radius)}' transform='rotate(${f1(Math.atan2(uy, ux) * 180 / Math.PI)} ${f1(x)} ${f1(y)})'/>`;
+      }
+      // Respingos de vários tamanhos em volta da poça, sem cobrir a escrita.
+      for (let i = 0; i < 32; i++) {
+        const angle = r() * Math.PI * 2;
+        const distance = 0.8 + r() * 0.55;
+        const x = cx + Math.cos(angle) * distance * rx;
+        const y = cy + Math.sin(angle) * distance * ry;
+        const radius = s * (0.003 + Math.pow(r(), 3) * 0.014);
+        drops += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(radius)}'/>`;
+      }
+      // Uma silhueta opaca, com transparência aplicada só ao conjunto: overlap não soma tinta.
+      // Cor própria, em vez de multiply: o vermelho continua visível até na cartolina preta.
+      out.clareia += `<g fill='${red}' opacity='.76'><path d='${pool}' filter='url(#papel-agua)'/>${drops}</g>`;
+      break;
+    }
     case 'cafe': {
       const R = (46 + r() * 16) * k;
       const c = corners[Math.floor(r() * 4)];
@@ -1357,7 +1409,7 @@ function blobPath(cx: number, cy: number, R: number, r: () => number): string {
 }
 
 /** Mancha de água: lóbulos largos e pequenas reentrâncias, sem geometria de gota ou anel. */
-function waterBlobPath(cx: number, cy: number, rx: number, ry: number, r: () => number): string {
+function waterBlobPath(cx: number, cy: number, rx: number, ry: number, r: () => number, contour?: (pts: Pt[]) => void): string {
   const n = 48;
   const phase = [r() * 6, r() * 6, r() * 6, r() * 6];
   const pts: Pt[] = [];
@@ -1366,6 +1418,7 @@ function waterBlobPath(cx: number, cy: number, rx: number, ry: number, r: () => 
     const waviness = 1 + 0.2 * Math.sin(a * 2 + phase[0]) + 0.14 * Math.sin(a * 3 + phase[1]) + 0.09 * Math.sin(a * 5 + phase[2]) + 0.045 * Math.sin(a * 9 + phase[3]);
     pts.push([cx + Math.cos(a) * rx * waviness, cy + Math.sin(a) * ry * waviness]);
   }
+  contour?.(pts);
   return smooth([...pts, pts[0]]) + 'Z';
 }
 

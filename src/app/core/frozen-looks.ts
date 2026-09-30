@@ -35,7 +35,7 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
   'baleado',
 ];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
-export const FROZEN_STAINS: readonly Stain[] = ['molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas'];
+export const FROZEN_STAINS: readonly Stain[] = ['molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue'];
 
 /** As decorações, desde 2026-09-29. */
 export const FROZEN_DECORS: readonly Decor[] = [
