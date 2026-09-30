@@ -954,19 +954,26 @@ function rosette(W: number, H: number, k: number, r: () => number, uid: string, 
 
 // ----- Lacre de cera -----
 
-/** A cera: a cor, a luz e a sombra. Cores fundas e foscas, como cera de verdade (nada de plástico). */
+/** A cera: a cor, a luz (para os relevos) e a sombra. Cores fundas, como cera de verdade. */
 const WAX: readonly (readonly [string, string, string])[] = [
-  ['#8e1b1f', '#c9565a', '#4a0a0d'],
-  ['#23406e', '#5f84bd', '#101f38'],
-  ['#28573a', '#6a9f7c', '#11301d'],
-  ['#5a2a6e', '#9670ad', '#2e1238'],
-  ['#9a7224', '#d9b865', '#4f3809'],
-  ['#1f1d22', '#5b5862', '#070608'],
+  ['#8a1c20', '#c95a5d', '#420a0c'],
+  ['#4b5639', '#8d9c72', '#232a17'],
+  ['#233f6b', '#6486bb', '#0f1d36'],
+  ['#5a2a6c', '#9a74ae', '#2c1237'],
+  ['#9b7428', '#dcbd6c', '#4d3709'],
+  ['#232126', '#6a6770', '#09080a'],
+  ['#7a3b22', '#c07a58', '#3a190c'],
 ];
-/** A fita que passa por baixo do lacre: creme, preta, dourada ou a mesma cor da cera, mais escura. */
+/** A fita que às vezes passa por baixo do lacre: creme, preta ou dourada. */
 const WAX_RIBBON = ['#e9dfc6', '#26242a', '#c4a04d'];
+/** O que está escrito em volta, no anel do sinete (repetido até fechar a volta). */
+const WAX_WORDS = ['LACRADO · CONFIDENCIAL · ', 'DO MURAL · COM CARINHO · ', 'ZERADO · APROVADO · ', 'SELADO · NÃO ABRA · ', 'GAME OVER · CONTINUE? · ', 'CARTA DE AVENTURA · '];
+/** O monograma do meio, numa letra de cartório; a fonte gótica quando o computador tem, senão uma serifada. */
+const WAX_LETTERS = 'ABCDEGHJKLMNPRSTVW';
+// aspas duplas: o desenho vai dentro de atributos com aspas simples
+const WAX_FONT = `"Old English Text MT", "UnifrakturMaguntia", "Goudy Text MT", "Palatino Linotype", "Book Antiqua", Georgia, serif`;
 
-/** O desenho do sinete, num quadro de 40×40, em relevo (preenchido): coroa, estrela, coração, flor-de-lis, caveira, chave. */
+/** O desenho do sinete, num quadro de 40×40, preenchido: coroa, estrela, coração, flor-de-lis, caveira, chave. */
 const WAX_EMBLEM = [
   `<path d='M9 28L7.4 13.4L14.2 19.4L20 9.6L25.8 19.4L32.6 13.4L31 28Z'/><rect x='9' y='29.6' width='22' height='3' rx='1'/><circle cx='7.4' cy='12.2' r='1.8'/><circle cx='20' cy='8.2' r='1.9'/><circle cx='32.6' cy='12.2' r='1.8'/>`,
   `<path d='${star(20, 21, 13.5, 5.6, 0)}'/>`,
@@ -990,98 +997,145 @@ function smoothLoop(pts: Pt[]): string {
   return d + 'Z';
 }
 
+/** Um arco de círculo de raio `R`, de `a0` a `a1` graus (0 é à direita, cresce no sentido do relógio). */
+function arc(R: number, a0: number, a1: number): string {
+  const p = (a: number) => `${f1(Math.cos((a * Math.PI) / 180) * R)} ${f1(Math.sin((a * Math.PI) / 180) * R)}`;
+  return `M${p(a0)}A${f1(R)} ${f1(R)} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${p(a1)}`;
+}
+
 /**
- * O lacre de cera de carta antiga: a poça de cera que escorreu em lóbulos macios, a borda que o sinete
- * empurrou para fora (alta, pegando luz em cima e sombra embaixo), o miolo afundado com o desenho do
- * sinete em relevo e uma volta de continhas. Às vezes as duas pontas de uma fita saindo por baixo.
+ * O lacre de cera de carta, como os de sinete de verdade: um disco quase redondo, com a borda grossa e
+ * abaulada que a cera fez ao ser espremida; um degrau fundo até o miolo chato, onde o sinete deixou,
+ * em relevo, um anel com palavras (ou continhas) e um monograma ou um desenho no meio. A cera é
+ * lustrosa: reflexos brancos, finos e fortes na crista da borda e na beirada do degrau.
+ * A luz vem de cima, à esquerda.
  */
 function waxSeal(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
-  const R = (27 + r() * 5) * k;
+  const R = (28 + r() * 5) * k;
   const [base, light, dark] = WAX[Math.floor(r() * WAX.length)];
   const taken: { p: Pt; R: number }[] = [];
-  const [x, y] = spot(W, H, r, taken, R * 1.3, R * 1.15);
-  const turn = (r() - 0.5) * 24;
+  const [x, y] = spot(W, H, r, taken, R * 1.2, R * 1.1);
+  const turn = (r() - 0.5) * 30;
 
-  // a poça: uma volta quase redonda com quatro a seis lóbulos macios onde a cera escorreu mais
-  const lobes = Array.from({ length: 4 + Math.floor(r() * 3) }, () => ({ a: r() * Math.PI * 2, amp: 0.05 + r() * 0.11, w: 0.32 + r() * 0.3 }));
-  const ph = [r() * 6, r() * 6, r() * 6];
+  // o contorno: quase um círculo, com três a cinco barrigas largas e rasas onde a cera espalhou mais
+  const bulges = Array.from({ length: 3 + Math.floor(r() * 3) }, () => ({ a: r() * Math.PI * 2, amp: 0.025 + r() * 0.05, w: 0.45 + r() * 0.35 }));
+  const ph = [r() * 6, r() * 6];
   const rim: Pt[] = [];
-  for (let i = 0; i < 40; i++) {
-    const a = (i / 40) * Math.PI * 2;
-    let rr = 1 + 0.035 * Math.sin(a * 3 + ph[0]) + 0.025 * Math.sin(a * 5 + ph[1]) + 0.015 * Math.sin(a * 9 + ph[2]);
-    for (const l of lobes) rr += l.amp * Math.exp(-Math.pow(Math.atan2(Math.sin(a - l.a), Math.cos(a - l.a)) / l.w, 2));
-    rim.push([Math.cos(a) * R * rr, Math.sin(a) * R * rr * 0.96]);
+  for (let i = 0; i < 36; i++) {
+    const a = (i / 36) * Math.PI * 2;
+    let rr = 1 + 0.012 * Math.sin(a * 5 + ph[0]) + 0.01 * Math.sin(a * 8 + ph[1]);
+    for (const b of bulges) rr += b.amp * Math.exp(-Math.pow(Math.atan2(Math.sin(a - b.a), Math.cos(a - b.a)) / b.w, 2));
+    rim.push([Math.cos(a) * R * rr, Math.sin(a) * R * rr * 0.97]);
   }
   const puddle = smoothLoop(rim);
 
-  // as pontas da fita, por baixo da cera, com o corte em V
+  // às vezes as pontas de uma fita saindo por baixo, com o corte em V
   let ribbon = '';
-  if (r() < 0.55) {
-    const col = r() < 0.3 ? mix(base, dark, 0.35) : WAX_RIBBON[Math.floor(r() * WAX_RIBBON.length)];
-    const wv = R * 0.4,
-      spread = 16 + r() * 16,
+  if (r() < 0.35) {
+    const col = WAX_RIBBON[Math.floor(r() * WAX_RIBBON.length)];
+    const wv = R * 0.38,
+      spread = 16 + r() * 14,
       down = 90 + (r() - 0.5) * 30;
     for (const side of [-1, 1]) {
-      const L = R * (1.7 + r() * 0.45);
-      const a = down + side * spread;
+      const L = R * (1.65 + r() * 0.4);
       const tail = `M${f1(-wv / 2)} 0L${f1(wv / 2)} 0L${f1(wv / 2)} ${f1(L)}L0 ${f1(L - wv * 0.55)}L${f1(-wv / 2)} ${f1(L)}Z`;
       ribbon +=
-        `<g transform='rotate(${f1(a - 90)})'>` +
+        `<g transform='rotate(${f1(down + side * spread - 90)})'>` +
         `<path d='${tail}' transform='translate(${f1(0.9 * k)} ${f1(1.3 * k)})' fill='#000' opacity='.28' filter='url(#${uid}-cera-sombra)'/>` +
         `<path d='${tail}' fill='${col}'/>` +
         `<path d='M${f1(-wv * 0.18)} ${f1(R * 0.5)}L${f1(-wv * 0.12)} ${f1(L - wv * 0.8)}' stroke='#000' stroke-opacity='.14' stroke-width='${f1(wv * 0.14)}' stroke-linecap='round'/>` +
-        `<path d='M${f1(wv * 0.22)} ${f1(R * 0.5)}L${f1(wv * 0.2)} ${f1(L - wv * 0.7)}' stroke='#fff' stroke-opacity='.18' stroke-width='${f1(wv * 0.1)}' stroke-linecap='round'/>` +
         `</g>`;
     }
   }
 
-  const ri = R * 0.56; // o miolo afundado
-  const rr = R * 0.7; // o meio da borda alta
-  const recess = mix(base, dark, 0.22);
-  const emblem = WAX_EMBLEM[Math.floor(r() * WAX_EMBLEM.length)];
-  const es = (ri * 1.5) / 40;
-  const em = (dx: number, dy: number, fill: string, op = 1) =>
-    `<g transform='translate(${f1(dx)} ${f1(dy)}) scale(${es.toFixed(3)}) translate(-20 -20.5)' fill='${fill}' stroke='${fill}' opacity='${op}'>${emblem}</g>`;
-  let beads = '';
-  const nb = 26;
-  for (let i = 0; i < nb; i++) {
-    const a = (i / nb) * Math.PI * 2;
-    beads += `<circle cx='${f1(Math.cos(a) * ri * 0.86)}' cy='${f1(Math.sin(a) * ri * 0.86)}' r='${f1(ri * 0.045)}'/>`;
+  const rs = R * 0.76; // a beirada do degrau: dali para dentro é o miolo chato
+  const ring = R * 0.52; // o anel em relevo que separa as palavras do monograma
+  const face = mix(base, dark, 0.12);
+  const d = Math.max(0.35, 0.028 * R); // o tamanho do relevo
+  // um relevo: a sombra embaixo à direita, a luz em cima à esquerda, a peça por cima
+  const relief = (body: string, lift = 1) =>
+    `<g transform='translate(${f1(d * lift)} ${f1(d * lift * 1.1)})' fill='${dark}' stroke='${dark}' opacity='.85'>${body}</g>` +
+    `<g transform='translate(${f1(-d * 0.7 * lift)} ${f1(-d * 0.7 * lift)})' fill='#fff' stroke='#fff' opacity='.55'>${body}</g>` +
+    `<g fill='${mix(base, light, 0.08)}' stroke='${mix(base, light, 0.08)}'>${body}</g>`;
+
+  // o anel de palavras (ou de continhas) entre a beirada do degrau e o anel em relevo
+  let band = '';
+  const rt = (rs + ring) / 2;
+  if (r() < 0.65) {
+    const words = WAX_WORDS[Math.floor(r() * WAX_WORDS.length)];
+    const fs = (rs - ring) * 0.62;
+    const circ = Math.PI * 2 * rt;
+    const text = words.repeat(Math.max(1, Math.round(circ / (words.length * fs * 0.62))));
+    band =
+      `<defs><path id='${uid}-cera-volta' d='M0 ${f1(-rt)}A${f1(rt)} ${f1(rt)} 0 1 1 0 ${f1(rt)}A${f1(rt)} ${f1(rt)} 0 1 1 0 ${f1(-rt)}'/></defs>` +
+      relief(
+        `<text stroke='none' style='font:700 ${f1(fs)}px Georgia, serif' dominant-baseline='central' textLength='${f1(circ * 0.985)}' lengthAdjust='spacingAndGlyphs'><textPath href='#${uid}-cera-volta'>${text}</textPath></text>`,
+        0.55,
+      );
+  } else {
+    let beads = '';
+    const nb = Math.round((Math.PI * 2 * rt) / (R * 0.075));
+    for (let i = 0; i < nb; i++) {
+      const a = (i / nb) * Math.PI * 2;
+      beads += `<circle cx='${f1(Math.cos(a) * rt)}' cy='${f1(Math.sin(a) * rt)}' r='${f1(R * 0.022)}' stroke='none'/>`;
+    }
+    band = relief(beads, 0.55);
   }
-  const px = 0.5 * k; // o tamanho do relevo
+
+  // o meio: um monograma numa letra de cartório, ou um dos desenhos do sinete
+  let center: string;
+  if (r() < 0.55) {
+    const letter = WAX_LETTERS[Math.floor(r() * WAX_LETTERS.length)];
+    center = relief(`<text x='0' y='${f1(ring * 0.05)}' text-anchor='middle' dominant-baseline='central' stroke='none' style='font:700 ${f1(ring * 1.75)}px ${WAX_FONT}'>${letter}</text>`);
+  } else {
+    const es = (ring * 1.55) / 40;
+    center = relief(`<g transform='scale(${es.toFixed(3)}) translate(-20 -20.5)' stroke-width='0'>${WAX_EMBLEM[Math.floor(r() * WAX_EMBLEM.length)]}</g>`);
+  }
+
+  const glint = (rad: number, a0: number, a1: number, w: number, op: number, blur = true) =>
+    `<path d='${arc(rad, a0, a1)}' fill='none' stroke='#fff' stroke-opacity='${op}' stroke-width='${f1(w)}' stroke-linecap='round'${blur ? ` filter='url(#${uid}-cera-brilho)'` : ''}/>`;
 
   out.front +=
     `<defs>` +
-    `<radialGradient id='${uid}-cera' cx='.36' cy='.32' r='.8'><stop offset='0' stop-color='${mix(base, light, 0.55)}'/><stop offset='.55' stop-color='${base}'/><stop offset='1' stop-color='${mix(base, dark, 0.55)}'/></radialGradient>` +
-    `<linearGradient id='${uid}-cera-borda' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${mix(base, light, 0.7)}'/><stop offset='.5' stop-color='${base}'/><stop offset='1' stop-color='${mix(base, dark, 0.6)}'/></linearGradient>` +
-    `<clipPath id='${uid}-cera-miolo'><circle r='${f1(ri)}'/></clipPath>` +
-    `<filter id='${uid}-cera-sombra' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(1.1 * k)}'/></filter>` +
-    `<filter id='${uid}-cera-massa' x='-10%' y='-10%' width='120%' height='120%'><feTurbulence type='fractalNoise' baseFrequency='${(0.05 / k).toFixed(3)}' numOctaves='1' seed='${Math.floor(r() * 90)}' result='n'/><feDisplacementMap in='SourceGraphic' in2='n' scale='${f1(2.2 * k)}' xChannelSelector='R' yChannelSelector='G'/></filter>` +
+    // a cera da borda: mais clara em cima à esquerda, funda embaixo à direita, como uma bolota abaulada
+    `<radialGradient id='${uid}-cera' cx='.4' cy='.36' r='.72'><stop offset='0' stop-color='${mix(base, light, 0.18)}'/><stop offset='.7' stop-color='${base}'/><stop offset='1' stop-color='${mix(base, dark, 0.45)}'/></radialGradient>` +
+    `<radialGradient id='${uid}-cera-miolo' cx='.45' cy='.42' r='.65'><stop offset='0' stop-color='${mix(face, light, 0.06)}'/><stop offset='1' stop-color='${mix(face, dark, 0.2)}'/></radialGradient>` +
+    `<clipPath id='${uid}-cera-degrau'><circle r='${f1(rs)}'/></clipPath>` +
+    `<clipPath id='${uid}-cera-borda'><path d='${puddle}'/></clipPath>` +
+    `<filter id='${uid}-cera-sombra' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(1.3 * k)}'/></filter>` +
+    `<filter id='${uid}-cera-brilho' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(0.35 * k)}'/></filter>` +
+    `<filter id='${uid}-cera-macio' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(R * 0.06)}'/></filter>` +
     `</defs>` +
     `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(turn)})'>` +
     ribbon +
-    // a sombra da poça, e a poça
-    `<path d='${puddle}' transform='translate(${f1(0.9 * k)} ${f1(1.5 * k)})' fill='#000' opacity='.34' filter='url(#${uid}-cera-sombra)'/>` +
-    `<g filter='url(#${uid}-cera-massa)'><path d='${puddle}' fill='url(#${uid}-cera)'/>` +
-    `<path d='${puddle}' fill='none' stroke='${mix(base, dark, 0.5)}' stroke-opacity='.55' stroke-width='${f1(0.7 * k)}'/></g>` +
-    // a borda alta que o sinete empurrou: clara em cima à esquerda, escura embaixo à direita
-    `<circle r='${f1(rr)}' fill='none' stroke='${mix(base, dark, 0.45)}' stroke-width='${f1(R * 0.22)}' transform='translate(${f1(px)} ${f1(px * 1.2)})' opacity='.8'/>` +
-    `<circle r='${f1(rr)}' fill='none' stroke='url(#${uid}-cera-borda)' stroke-width='${f1(R * 0.2)}'/>` +
-    // o miolo afundado: a parede de cima à esquerda na sombra, a de baixo à direita na luz
-    `<circle r='${f1(ri)}' fill='${recess}'/>` +
-    `<g clip-path='url(#${uid}-cera-miolo)' fill='none'>` +
-    `<circle r='${f1(ri)}' cx='${f1(ri * 0.1)}' cy='${f1(ri * 0.12)}' stroke='${dark}' stroke-opacity='.75' stroke-width='${f1(ri * 0.22)}'/>` +
-    `<circle r='${f1(ri)}' cx='${f1(-ri * 0.08)}' cy='${f1(-ri * 0.08)}' stroke='${light}' stroke-opacity='.4' stroke-width='${f1(ri * 0.1)}'/>` +
+    // a sombra no papel
+    `<path d='${puddle}' transform='translate(${f1(1 * k)} ${f1(1.8 * k)})' fill='#000' opacity='.38' filter='url(#${uid}-cera-sombra)'/>` +
+    // a borda abaulada: o disco, com a volta de baixo à direita escurecendo para dentro e a de cima clareando
+    `<path d='${puddle}' fill='url(#${uid}-cera)'/>` +
+    `<g clip-path='url(#${uid}-cera-borda)' fill='none' filter='url(#${uid}-cera-macio)'>` +
+    `<path d='${puddle}' stroke='${dark}' stroke-opacity='.55' stroke-width='${f1(R * 0.16)}' transform='translate(${f1(-R * 0.05)} ${f1(-R * 0.05)})'/>` +
+    `<circle r='${f1(rs * 1.04)}' stroke='${mix(base, light, 0.5)}' stroke-opacity='.45' stroke-width='${f1(R * 0.08)}' transform='translate(${f1(-R * 0.03)} ${f1(-R * 0.03)})'/>` +
     `</g>` +
-    // as continhas em volta e o desenho do sinete, em relevo: sombra embaixo à direita, luz em cima à esquerda
-    `<g fill='${dark}' opacity='.7' transform='translate(${f1(px)} ${f1(px)})'>${beads}</g>` +
-    `<g fill='${light}' opacity='.35' transform='translate(${f1(-px * 0.7)} ${f1(-px * 0.7)})'>${beads}</g>` +
-    `<g fill='${mix(base, light, 0.12)}'>${beads}</g>` +
-    em(px * 1.3, px * 1.5, dark, 0.8) +
-    em(-px * 0.8, -px * 0.8, light, 0.5) +
-    em(0, 0, mix(base, light, 0.12)) +
-    // dois brilhos foscos na borda alta, onde a luz bate
-    `<path d='M${f1(Math.cos(3.6) * rr)} ${f1(Math.sin(3.6) * rr)}A${f1(rr)} ${f1(rr)} 0 0 1 ${f1(Math.cos(4.5) * rr)} ${f1(Math.sin(4.5) * rr)}' fill='none' stroke='#fff' stroke-opacity='.32' stroke-width='${f1(R * 0.06)}' stroke-linecap='round' filter='url(#${uid}-cera-sombra)'/>` +
+    // o degrau: o miolo chato, com a parede de cima à esquerda na sombra da borda
+    `<circle r='${f1(rs)}' fill='url(#${uid}-cera-miolo)'/>` +
+    `<g clip-path='url(#${uid}-cera-degrau)' fill='none'>` +
+    `<circle r='${f1(rs)}' cx='${f1(rs * 0.07)}' cy='${f1(rs * 0.08)}' stroke='${dark}' stroke-opacity='.7' stroke-width='${f1(rs * 0.12)}' filter='url(#${uid}-cera-brilho)'/>` +
+    `</g>` +
+    // a beirada do degrau pegando luz embaixo à direita: um fio claro e firme
+    glint(rs - d * 0.6, 10, 105, d * 0.9, 0.5) +
+    glint(rs + d * 0.3, 200, 260, d * 0.9, 0.35) +
+    band +
+    // o anel em relevo
+    relief(`<circle r='${f1(ring)}' fill='none' stroke-width='${f1(R * 0.035)}'/>`, 0.6).replace(/fill='(#[0-9a-f]{6})' stroke=/g, "fill='none' stroke=") +
+    center +
+    // os reflexos da cera lustrosa: um brilho largo e fraco na borda de cima, um fio longo e forte na crista, e uns menores
+    glint(R * 0.87, 185, 275, R * 0.16, 0.16) +
+    glint(R * 0.88, 196, 258, R * 0.055, 0.9) +
+    glint(R * 0.88, 200, 232, R * 0.025, 1, false) +
+    glint(R * 0.9, 290, 312, R * 0.035, 0.55) +
+    glint(R * 0.87, 112, 138, R * 0.04, 0.45) +
+    glint(R * 0.9, 22, 40, R * 0.03, 0.3) +
+    `<ellipse cx='${f1(-R * 0.62)}' cy='${f1(-R * 0.5)}' rx='${f1(R * 0.07)}' ry='${f1(R * 0.035)}' transform='rotate(-40 ${f1(-R * 0.62)} ${f1(-R * 0.5)})' fill='#fff' fill-opacity='.9' filter='url(#${uid}-cera-brilho)'/>` +
     `</g>`;
 }
 
