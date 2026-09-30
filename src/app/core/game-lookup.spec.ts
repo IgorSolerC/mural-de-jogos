@@ -26,9 +26,21 @@ describe('GameLookup', () => {
   const url = (i = 0) => String(fetchSpy.calls.argsFor(i)[0]);
 
   describe('livros (Open Library)', () => {
+    const prince = (edition: Record<string, unknown>) => ({
+      key: '/works/OL82565W',
+      title: 'Harry Potter and the Half-Blood Prince',
+      author_name: ['J. K. Rowling'],
+      first_publish_year: 2005,
+      cover_i: 10716273,
+      editions: { docs: [{ language: ['por'], ...edition }] },
+    });
+    const portuguesePrince = prince({ title: 'Harry Potter e o Príncipe Misterioso', isbn: ['9789722334457'], cover_i: 15160618 });
+    const brazilianPrince = prince({ title: 'Harry Potter e o Enigma do Príncipe', isbn: ['9788532523105'], cover_i: 15156798 });
+    const brazilianQuery = (input: RequestInfo | URL) => new URL(String(input)).searchParams.get('q')?.includes('isbn:(');
+
     it('usa a edição em português, com a capa dela, e completa a última palavra', async () => {
-      fetchSpy.and.returnValue(
-        json({
+      fetchSpy.and.callFake(
+        () => json({
           docs: [
             {
               key: '/works/OL1W',
@@ -48,7 +60,7 @@ describe('GameLookup', () => {
         }),
       );
       const hits = await lookup.search('o hobbi', signal, 'livros');
-      expect(url()).toContain('q=o+hobbi*');
+      expect(new URL(url()).searchParams.get('q')).toBe('o (hobbi OR hobbi*)');
       expect(url()).toContain('lang=pt');
       expect(url()).toContain('editions.title');
       expect(hits[0]).toEqual(
@@ -59,6 +71,82 @@ describe('GameLookup', () => {
       const quijote = hits.find((h) => h.sourceId === 'OL3W')!;
       expect(quijote.name).toBe('Don Quijote');
       expect(quijote.coverUrl).toContain('/b/id/3-L.jpg');
+    });
+
+    it('substitui a edição portuguesa pelo título e pela capa brasileiros da mesma obra, sem duplicar', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) => json({ docs: [brazilianQuery(input) ? brazilianPrince : portuguesePrince] }));
+      const hits = await lookup.search('harry potter', signal, 'livros');
+      expect(hits.length).toBe(1);
+      expect(hits[0]).toEqual(jasmine.objectContaining({
+        name: 'Harry Potter e o Enigma do Príncipe', sourceId: 'OL82565W', year: '2005', by: 'J. K. Rowling',
+        coverUrl: 'https://covers.openlibrary.org/b/id/15156798-L.jpg?default=false',
+      }));
+      const queries = fetchSpy.calls.allArgs().map(([u]) => new URL(String(u)).searchParams.get('q'));
+      expect(queries).toContain('harry (potter OR potter*) language:por isbn:(97885* OR 97865* OR 85* OR 65*)');
+    });
+
+    it('busca o título brasileiro completo sem acentos, preservando a última palavra inteira além do prefixo', async () => {
+      fetchSpy.and.callFake(() => json({ docs: [brazilianPrince] }));
+      const [hit] = await lookup.search('Harry Potter e o enigma do principe', signal, 'livros');
+      expect(hit.name).toBe('Harry Potter e o Enigma do Príncipe');
+      expect(new URL(url()).searchParams.get('q')).toBe('Harry Potter e o enigma do (principe OR principe*)');
+    });
+
+    it('reconhece o grupo brasileiro 65 e ISBNs com separadores, preferindo-os na busca', async () => {
+      const stone = {
+        key: '/works/OL82563W', title: 'Harry Potter and the Philosopher\'s Stone',
+        editions: { docs: [{ title: 'Harry Potter e a Pedra Filosofal', language: ['por'], isbn: ['978-65-86733-50-1'], cover_i: 15168707 }] },
+      };
+      fetchSpy.and.callFake((input: RequestInfo | URL) => json({ docs: brazilianQuery(input) ? [stone] : [portuguesePrince] }));
+      const hits = await lookup.search('harry potter', signal, 'livros');
+      expect(hits.map((h) => h.sourceId)).toEqual(['OL82563W', 'OL82565W']);
+    });
+
+    it('uma edição brasileira sem capa não recebe a imagem portuguesa ou inglesa da obra', async () => {
+      const noCover = prince({ title: 'Harry Potter e o Enigma do Príncipe', isbn: ['85-325-2310-2'] });
+      fetchSpy.and.callFake((input: RequestInfo | URL) => json({ docs: [brazilianQuery(input) ? noCover : portuguesePrince] }));
+      const [hit] = await lookup.search('harry potter', signal, 'livros');
+      expect(hit.name).toBe('Harry Potter e o Enigma do Príncipe');
+      expect(hit.coverUrl).toBeNull();
+    });
+
+    it('mantém a busca geral quando não há edição brasileira ou a consulta regional falha', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) => brazilianQuery(input) ? json({}, 503) : json({ docs: [portuguesePrince] }));
+      const [hit] = await lookup.search('harry potter', signal, 'livros');
+      expect(hit.name).toBe('Harry Potter e o Príncipe Misterioso');
+      expect(hit.coverUrl).toContain('/15160618-L.jpg');
+    });
+
+    it('a consulta brasileira continua funcionando se a consulta geral falhar', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) => brazilianQuery(input) ? json({ docs: [brazilianPrince] }) : json({}, 503));
+      const [hit] = await lookup.search('harry potter', signal, 'livros');
+      expect(hit.name).toBe('Harry Potter e o Enigma do Príncipe');
+    });
+
+    it('não classifica como brasileira uma edição portuguesa devolvida pelo filtro regional', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) => json({ docs: brazilianQuery(input) ? [portuguesePrince] : [] }));
+      expect(await lookup.search('harry potter', signal, 'livros')).toEqual([]);
+    });
+
+    it('propaga falhas dos dois pedidos e respeita o cancelamento da busca', async () => {
+      fetchSpy.and.callFake(() => json({}, 503));
+      await expectAsync(lookup.search('harry potter', signal, 'livros')).toBeRejectedWith(jasmine.any(LookupError));
+      fetchSpy.and.callFake(() => json({ docs: [brazilianPrince] }));
+      const ctrl = new AbortController();
+      ctrl.abort();
+      await expectAsync(lookup.search('harry potter', ctrl.signal, 'livros')).toBeRejectedWith(jasmine.objectContaining({ name: 'AbortError' }));
+    });
+
+    it('as capas brasileiras vêm antes das portuguesas e estrangeiras, antes de limitar a lista', async () => {
+      const portuguese = { title: 'Príncipe Misterioso', languages: [{ key: '/languages/por' }], isbn_13: ['9789722334457'], covers: [20] };
+      const brazilian = { title: 'Enigma do Príncipe', languages: [{ key: '/languages/por' }], isbn_10: ['8532523102'], covers: [30] };
+      const modernBrazilian = { languages: [{ key: '/languages/por' }], isbn_13: ['978-65-86733-50-1'], covers: [31] };
+      const english = Array.from({ length: 12 }, (_, i) => ({ languages: [{ key: '/languages/eng' }], covers: [100 + i] }));
+      fetchSpy.and.callFake(() => json({ entries: [...english, portuguese, brazilian, modernBrazilian] }));
+      const { choices } = await lookup.coverChoices({ name: 'Harry Potter e o Enigma do Príncipe', source: 'openlibrary', sourceId: 'OL82565W', coverUrl: null }, 'livros', signal);
+      expect(choices.slice(0, 3).map((c) => c.coverUrl)).toEqual([30, 31, 20].map((id) => `https://covers.openlibrary.org/b/id/${id}-L.jpg?default=false`));
+      expect(choices.length).toBe(11);
+      expect(choices.every((c) => c.name === 'Harry Potter e o Enigma do Príncipe')).toBeTrue();
     });
   });
 

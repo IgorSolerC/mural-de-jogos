@@ -13,6 +13,23 @@ export class LookupError extends Error {
 
 const WIKI = 'https://en.wikipedia.org/w/api.php';
 
+/** Grupos de ISBN do Brasil (CBL): 85 e 65, nas versões de 13 e de 10 dígitos. */
+const BRAZILIAN_BOOK_FILTER = 'language:por isbn:(97885* OR 97865* OR 85* OR 65*)';
+const BOOK_SEARCH_FIELDS = 'key,title,author_name,first_publish_year,cover_i,editions,editions.key,editions.title,editions.language,editions.cover_i,editions.isbn';
+
+function brazilianBookEdition(e: any): boolean {
+  return [e?.isbn, e?.isbn_13, e?.isbn_10]
+    .flatMap((list) => Array.isArray(list) ? list : [])
+    .some((isbn) => typeof isbn === 'string' && /^(?:978(?:85|65)\d{8}|(?:85|65)\d{7}[\dX])$/.test(isbn.replace(/[\s-]/g, '').toUpperCase()));
+}
+
+/** A busca usa `language`; a lista de edições usa `languages` com chaves do catálogo. */
+function bookEditionRank(e: any): number {
+  const languages: any[] = Array.isArray(e?.language) ? e.language : Array.isArray(e?.languages) ? e.languages : [];
+  if (!languages.some((l) => l === 'por' || l?.key === '/languages/por')) return 2;
+  return brazilianBookEdition(e) ? 0 : 1;
+}
+
 /** Onde cada mural procura na Wikipedia (sem chave): páginas com a caixa de informações daquele tipo. */
 const WIKI_TEMPLATE: Record<Exclude<Kind, 'livros'>, string> = {
   jogos: 'Infobox video game',
@@ -179,7 +196,7 @@ export class GameLookup {
   }
 
   /**
-   * Procura no catálogo do mural. Livros: Open Library, na edição em português. Animes: Kitsu (com o
+   * Procura no catálogo do mural. Livros: Open Library, preferindo a edição brasileira. Animes: Kitsu (com o
    * nome em português quando há), e o AniList se o Kitsu não responder. Filmes e séries: o TMDB, em
    * português, quando há chave; senão a Wikipedia. Jogos: Wikipedia ou RAWG.
    */
@@ -266,7 +283,7 @@ export class GameLookup {
    * As capas que dá para escolher para um item já achado (a seleção de capa da wishlist): a dele
    * primeiro, depois as do mesmo título em outro lugar. Jogos: Wikipedia, RAWG e a arte da Steam.
    * Filmes e séries no TMDB: os outros pôsteres do título, os em português primeiro. Livros: as capas
-   * das edições, as em português primeiro. Animes: o Kitsu e o AniList. Uma fonte que falha só não
+   * das edições, as brasileiras em português primeiro. Animes: o Kitsu e o AniList. Uma fonte que falha só não
    * entra (e vira um aviso); a lista nunca vem vazia se o item tem capa. `onSome` recebe a lista a
    * cada fonte que responde (a Wikipedia rápida não espera a RAWG lenta) e quem ainda falta
    * responder, para a tela dizer onde ainda está procurando.
@@ -449,17 +466,16 @@ export class GameLookup {
       .map((p) => ({ ...game, coverUrl: `https://image.tmdb.org/t/p/w500${p.file_path}` }));
   }
 
-  /** As capas das edições da obra na Open Library, as em português primeiro. */
+  /** As capas das edições da obra: português brasileiro, outro português, outras línguas. */
   private async editionCovers(game: PickedGame, signal: AbortSignal): Promise<PickedGame[]> {
     const data = await this.fetchJson(
       `https://openlibrary.org/works/${encodeURIComponent(game.sourceId ?? '')}/editions.json?limit=60`,
       signal,
     );
     const entries: any[] = Array.isArray(data?.entries) ? data.entries : [];
-    const pt = (e: any) => (Array.isArray(e?.languages) && e.languages.some((l: any) => l?.key === '/languages/por') ? 0 : 1);
     return entries
       .filter((e) => Array.isArray(e?.covers) && typeof e.covers[0] === 'number' && e.covers[0] > 0)
-      .sort((a, b) => pt(a) - pt(b))
+      .sort((a, b) => bookEditionRank(a) - bookEditionRank(b))
       .slice(0, 11)
       .map((e) => ({ ...game, coverUrl: `https://covers.openlibrary.org/b/id/${e.covers[0]}-L.jpg?default=false` }));
   }
@@ -532,47 +548,56 @@ export class GameLookup {
   }
 
   /**
-   * Livros: a Open Library, sem chave. Com `lang=pt`, cada obra vem com a edição em português que
-   * mais combina com a busca ("O Hobbit", não "The Hobbit"), com a capa dela; sem edição em
-   * português, fica o título da obra. As edições só vêm se o campo `key` também for pedido.
+   * Livros: a Open Library, sem chave. `lang=pt` não distingue Brasil de Portugal: uma segunda
+   * busca filtra os ISBNs brasileiros e substitui a edição genérica da mesma obra. O título e a
+   * capa vêm juntos dessa edição; sem edição brasileira, a busca geral continua disponível.
+   * As edições só vêm se o campo `key` também for pedido.
    * A capa vem do acervo deles pelo número; `default=false` faz a capa que não existe dar erro (e
    * virar "sem capa") em vez de um quadradinho em branco.
    */
   private async searchOpenLibrary(q: string, signal: AbortSignal): Promise<PickedGame[]> {
-    // a Open Library só acha palavra inteira: "dom casmu" vira "dom casmu*", como na Wikipedia
+    // O prefixo acha "dom casmu"; a palavra inteira evita perder títulos por acento ou stemming.
     const words = q.replace(/[^\p{L}\p{N}\s'-]/gu, ' ').split(/\s+/).filter(Boolean);
     if (!words.length) return [];
     const last = words.length - 1;
-    if (words[last].length >= 2) words[last] += '*';
-    const params = new URLSearchParams({
-      q: words.join(' '),
-      limit: '12',
-      lang: 'pt',
-      fields: 'key,title,author_name,first_publish_year,cover_i,editions,editions.key,editions.title,editions.language,editions.cover_i',
-    });
-    const data = await this.fetchJson(`https://openlibrary.org/search.json?${params}`, signal);
-    const docs: any[] = data?.docs ?? [];
+    if (words[last].length >= 2) words[last] = `(${words[last]} OR ${words[last]}*)`;
+    const query = words.join(' ');
+    const search = (q: string) => {
+      const params = new URLSearchParams({ q, limit: '12', lang: 'pt', fields: BOOK_SEARCH_FIELDS });
+      return this.fetchJson(`https://openlibrary.org/search.json?${params}`, signal);
+    };
+    const [general, brazil] = await Promise.allSettled([search(query), search(`${query} ${BRAZILIAN_BOOK_FILTER}`)]);
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (general.status === 'rejected' && brazil.status === 'rejected') throw general.reason;
+    const docs = (result: PromiseSettledResult<any>): any[] =>
+      result.status === 'fulfilled' && Array.isArray(result.value?.docs) ? result.value.docs : [];
+    const found = new Map<string, { index: number; region: number; game: PickedGame }>();
+    for (const [index, d] of [...docs(general), ...docs(brazil).filter((d) => bookEditionRank(d?.editions?.docs?.[0]) === 0)].entries()) {
+      if (typeof d?.title !== 'string' || !d.title.trim()) continue;
+      const ed = d.editions?.docs?.[0];
+      const region = typeof ed?.title === 'string' && ed.title.trim() ? bookEditionRank(ed) : 2;
+      const pt = region < 2;
+      // Uma edição localizada sem capa não herda a imagem de outra tradução da obra.
+      const cover = pt ? ed.cover_i : d.cover_i;
+      const game: PickedGame = {
+        name: (pt ? String(ed.title) : d.title).replace(/\s+/g, ' ').trim(),
+        coverUrl: typeof cover === 'number' && cover > 0 ? `https://covers.openlibrary.org/b/id/${cover}-L.jpg?default=false` : null,
+        source: 'openlibrary',
+        sourceId: String(d.key ?? '').replace(/^\/works\//, '') || undefined,
+        year: typeof d.first_publish_year === 'number' ? String(d.first_publish_year) : undefined,
+        by: Array.isArray(d.author_name) && typeof d.author_name[0] === 'string' ? d.author_name[0] : undefined,
+      };
+      const key = game.sourceId ?? `${fold(game.name)}:${fold(game.by ?? '')}`;
+      const previous = found.get(key);
+      if (!previous || region < previous.region || (region === previous.region && !previous.game.coverUrl && game.coverUrl)) {
+        found.set(key, { index: previous?.index ?? index, region, game });
+      }
+    }
     const needle = fold(q);
-    return docs
-      .filter((d) => typeof d?.title === 'string' && d.title.trim())
-      .map((d, index) => {
-        const ed = d.editions?.docs?.[0];
-        const pt = ed && Array.isArray(ed.language) && ed.language.includes('por') && typeof ed.title === 'string' && ed.title.trim();
-        const cover = pt && typeof ed.cover_i === 'number' ? ed.cover_i : d.cover_i;
-        const game: PickedGame = {
-          name: (pt ? String(ed.title) : String(d.title)).replace(/\s+/g, ' ').trim(),
-          coverUrl: typeof cover === 'number' ? `https://covers.openlibrary.org/b/id/${cover}-L.jpg?default=false` : null,
-          source: 'openlibrary',
-          sourceId: String(d.key ?? '').replace(/^\/works\//, '') || undefined,
-          year: typeof d.first_publish_year === 'number' ? String(d.first_publish_year) : undefined,
-          by: Array.isArray(d.author_name) && typeof d.author_name[0] === 'string' ? d.author_name[0] : undefined,
-        };
-        return { index, game };
-      })
+    return [...found.values()]
       .sort((a, b) => {
-        // começando com o que foi digitado e com capa vem primeiro; depois a relevância de lá
-        const rank = (x: { game: PickedGame }) => (fold(x.game.name).startsWith(needle) ? 0 : 2) + (x.game.coverUrl ? 0 : 1);
-        return rank(a) - rank(b) || a.index - b.index;
+        const starts = (x: { game: PickedGame }) => fold(x.game.name).startsWith(needle) ? 0 : 1;
+        return starts(a) - starts(b) || a.region - b.region || Number(!a.game.coverUrl) - Number(!b.game.coverUrl) || a.index - b.index;
       })
       .slice(0, 8)
       .map((x) => x.game);
