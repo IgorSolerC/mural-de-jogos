@@ -228,10 +228,23 @@ export type Scribble =
   | 'pelicula'
   | 'regua'
   | 'trepadeira'
-  | 'bandeirinhas';
+  | 'bandeirinhas'
+  | 'gotica'
+  | 'arabesco'
+  | 'dialogo'
+  | 'hud'
+  | 'runas'
+  | 'farpado'
+  | 'terco'
+  | 'invocacao'
+  | 'tesouro'
+  | 'olhos';
 
 /** Na ordem do estojo: as molduras, os enfeites e, por último, os bagunçados. */
-export const SCRIBBLES: readonly Scribble[] = ['contorno', 'moldura', 'renda', 'cupom', 'pelicula', 'regua', 'trepadeira', 'bandeirinhas', 'aula', 'novelo', 'hachura', 'riscado'];
+export const SCRIBBLES: readonly Scribble[] = [
+  'contorno', 'moldura', 'gotica', 'arabesco', 'dialogo', 'hud', 'runas', 'farpado', 'renda', 'cupom', 'pelicula', 'regua',
+  'trepadeira', 'bandeirinhas', 'terco', 'invocacao', 'tesouro', 'olhos', 'aula', 'novelo', 'hachura', 'riscado',
+];
 
 export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   novelo: 'Novelo',
@@ -246,6 +259,16 @@ export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   regua: 'Régua',
   trepadeira: 'Trepadeira',
   bandeirinhas: 'Bandeirinhas',
+  gotica: 'Moldura gótica',
+  arabesco: 'Arabescos',
+  dialogo: 'Caixa de diálogo',
+  hud: 'Mira de tiro',
+  runas: 'Runas',
+  farpado: 'Arame farpado',
+  terco: 'Terço',
+  invocacao: 'Círculo de invocação',
+  tesouro: 'Mapa do tesouro',
+  olhos: 'Olhos na margem',
 };
 
 /**
@@ -331,9 +354,10 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
  * junto com um estrago (uma ficha rasgada pode ter café). Os desenhos são os mesmos de quando as
  * manchas ficavam entre os estragos: o sorteio guardado dá a mesma mancha.
  */
-export type Stain = 'cafe' | 'molhado' | 'sangue' | 'mofado' | 'tracas' | 'pisado' | 'pegadas';
+export type Stain = 'cafe' | 'molhado' | 'sangue' | 'mofado' | 'tracas' | 'pisado' | 'pegadas' | 'passos' | 'mao' | 'nanquim' | 'gosma' | 'lagrimas' | 'salgadinho';
 
-export const STAINS: readonly Stain[] = ['cafe', 'molhado', 'sangue', 'mofado', 'tracas', 'pisado', 'pegadas'];
+/** Na ordem do estojo: o que se bebe e o que se chora, o sangue e a tinta, a gosma e a gordura, o mofo e os bichos, e quem passou por cima. */
+export const STAINS: readonly Stain[] = ['cafe', 'molhado', 'lagrimas', 'sangue', 'mao', 'nanquim', 'gosma', 'salgadinho', 'mofado', 'tracas', 'pisado', 'pegadas', 'passos'];
 
 export const STAIN_LABEL: Record<Stain, string> = {
   cafe: 'Café',
@@ -343,6 +367,12 @@ export const STAIN_LABEL: Record<Stain, string> = {
   tracas: 'Traças',
   pisado: 'Pisada',
   pegadas: 'Pegadas de gato',
+  passos: 'Passinhos misteriosos',
+  mao: 'Mão de sangue',
+  nanquim: 'Nanquim',
+  gosma: 'Gosma',
+  lagrimas: 'Lágrimas',
+  salgadinho: 'Dedos de salgadinho',
 };
 
 // ===================== Decoração =====================

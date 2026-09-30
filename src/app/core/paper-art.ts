@@ -393,6 +393,26 @@ function inset(W: number, H: number, m: number): Pt[] {
 /** A tesourinha do Cupom, num quadro de 40×40, de ponta para a direita. */
 const SCISSORS = `<circle cx='8.5' cy='12.5' r='5'/><circle cx='8.5' cy='27.5' r='5'/><path d='M12.6 15.4L24.2 20L37.5 25.6M12.6 24.6L24.2 20L37.5 14.4'/><circle cx='24.2' cy='20' r='1.2' class='f'/>`;
 
+/** Runas de traço, num quadro de 6×10: umas do alfabeto antigo, para as faixas e os círculos. */
+const RUNES = [
+  'M1 0V10M1 3L5 1M1 6L5 4', // fehu
+  'M1 10V0L5 3V10', // uruz
+  'M1 0V10M1 2L4 5L1 8', // thurisaz
+  'M1 0V10M1 0L5 3M1 4L5 7', // ansuz
+  'M1 0V10M1 0L5 3L1 6L5 10', // raidho
+  'M5 0L1 5L5 10', // kaunan
+  'M0 0L6 10M6 0L0 10', // gebo
+  'M1 0V10M5 0V10M1 3L5 7', // hagalaz
+  'M3 0V10M1 3L5 7', // naudiz
+  'M3 0V10', // isa
+  'M3 0V10M0 2L6 8', // eihwaz? (usado como traço torto)
+  'M1 0V10M5 0V10M1 0L5 5L1 10', // mannaz-ish
+  'M3 0V10M3 0L0 3M3 0L6 3', // tiwaz
+  'M1 0V10M1 0L5 2.5L1 5L5 7.5L1 10', // berkanan
+  'M3 0L0 5L3 10L6 5Z', // ingwaz
+  'M3 0L6 4L3 8L0 4ZM0 10L3 8L6 10', // othala
+  'M0 0L6 10M0 10L3 5M3 0V10', // algiz-ish
+]
 /** O rabisco é lápis, não caneta: por baixo do que está escrito ele fica clarinho, e a letra lê. */
 const GRAFITE = 0.5;
 
@@ -774,6 +794,481 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
         }
       }
       return g(strings, 1.3, 0.95) + g(flags, 1.3, 0.95);
+    }
+    case 'gotica': {
+      // a moldura de catedral: dois filetes com uma fileira de arquinhos pontudos entre eles, um
+      // quadrifólio em cada canto e uma cruz no meio de baixo
+      const q = Math.max(0.4, k);
+      const m1 = (6 + r() * 2) * q,
+        band = (8 + r() * 2) * q,
+        m2 = m1 + band;
+      const wob = 0.9 * k,
+        seg = 30 * q;
+      const rect = (m: number) => {
+        const c = inset(W, H, m);
+        let d = '';
+        for (let i = 0; i < 4; i++) d += `<path d='${smooth(handLine(c[i], c[(i + 1) % 4], r, wob, seg))}'/>`;
+        return d;
+      };
+      // os arquinhos pontudos, deitados ao longo de cada lado, entre um canto e outro
+      let arches = '';
+      const pitch = band * 1.15;
+      const block = band * 1.25;
+      const c1 = inset(W, H, m1 + band / 2);
+      for (let i = 0; i < 4; i++) {
+        const a = c1[i],
+          b = c1[(i + 1) % 4];
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const ux = (b[0] - a[0]) / len,
+          uy = (b[1] - a[1]) / len;
+        // para dentro da ficha é a direita de quem anda no sentido do relógio
+        const nx = -uy,
+          ny = ux;
+        const n = Math.max(1, Math.floor((len - block * 2) / pitch));
+        const start = (len - n * pitch) / 2;
+        const hb = band * 0.42;
+        let d = '';
+        for (let j = 0; j < n; j++) {
+          const t0 = start + j * pitch,
+            t1 = t0 + pitch;
+          const p0: Pt = [a[0] + ux * t0 + nx * hb, a[1] + uy * t0 + ny * hb],
+            p1: Pt = [a[0] + ux * t1 + nx * hb, a[1] + uy * t1 + ny * hb];
+          const tip: Pt = [a[0] + ux * (t0 + pitch / 2) - nx * hb, a[1] + uy * (t0 + pitch / 2) - ny * hb];
+          // o arco quebrado: dois quartos de círculo que se encontram na ponta
+          d += `M${f1(p0[0])} ${f1(p0[1])}Q${f1(p0[0] - nx * hb * 1.3)} ${f1(p0[1] - ny * hb * 1.3)} ${f1(tip[0])} ${f1(tip[1])}Q${f1(p1[0] - nx * hb * 1.3)} ${f1(p1[1] - ny * hb * 1.3)} ${f1(p1[0])} ${f1(p1[1])}`;
+        }
+        arches += `<path d='${d}'/>`;
+      }
+      // os quadrifólios dos cantos
+      let corners = '';
+      for (const [x, y] of inset(W, H, m1 + band / 2)) {
+        const rr = band * 0.3;
+        corners += `<rect x='${f1(x - block / 2)}' y='${f1(y - block / 2)}' width='${f1(block)}' height='${f1(block)}'/>`;
+        for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) corners += `<circle cx='${f1(x + dx * rr)}' cy='${f1(y + dy * rr)}' r='${f1(rr)}'/>`;
+        corners += `<circle class='f' cx='${f1(x)}' cy='${f1(y)}' r='${f1(rr * 0.35)}'/>`;
+      }
+      // a cruz de pontas em trevo, montada no meio do filete de baixo
+      const cs = band * 1.9,
+        cx = W / 2 + (r() - 0.5) * W * 0.1,
+        cy = H - m2 - cs * 1.35;
+      let cross = `<path d='M${f1(cx)} ${f1(cy - cs)}L${f1(cx)} ${f1(cy + cs)}M${f1(cx - cs * 0.7)} ${f1(cy - cs * 0.25)}L${f1(cx + cs * 0.7)} ${f1(cy - cs * 0.25)}'/>`;
+      for (const [x, y] of [
+        [cx, cy - cs],
+        [cx, cy + cs],
+        [cx - cs * 0.7, cy - cs * 0.25],
+        [cx + cs * 0.7, cy - cs * 0.25],
+      ])
+        cross += `<circle class='f' cx='${f1(x)}' cy='${f1(y)}' r='${f1(cs * 0.14)}'/>`;
+      return g(rect(m1) + rect(m2), 1.4, 0.9) + g(arches, 1, 0.8) + g(corners + cross, 1.2, 0.9);
+    }
+    case 'arabesco': {
+      // arabescos de convite antigo: em cada canto, dois ramos saem pelas beiradas e terminam enrolados
+      // num caracol, com folhinhas em gota no caminho
+      const q = Math.max(0.4, k);
+      const m = (8 + r() * 3) * q;
+      let body = '',
+        leaves = '';
+      const curl = (o: Pt, ux: number, uy: number, nx: number, ny: number, L: number, R0: number) => {
+        // o ramo: sai do canto rente à beirada, sobe um pouco para dentro e enrola no fim
+        const pts: Pt[] = [];
+        for (let i = 0; i <= 10; i++) {
+          const t = i / 10;
+          const bow = Math.sin(t * Math.PI) * R0 * 0.5;
+          pts.push([o[0] + ux * L * t + nx * bow, o[1] + uy * L * t + ny * bow]);
+        }
+        const end = pts[pts.length - 1];
+        // o caracol: gira para dentro da ficha, encolhendo
+        const c: Pt = [end[0] + nx * R0, end[1] + ny * R0];
+        const a0 = Math.atan2(end[1] - c[1], end[0] - c[0]);
+        const turnDir = ux * ny - uy * nx > 0 ? -1 : 1;
+        for (let i = 1; i <= 26; i++) {
+          const t = i / 26;
+          const a = a0 + turnDir * t * Math.PI * 2.1;
+          const rr = R0 * (1 - t * 0.78);
+          pts.push([c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr]);
+        }
+        body += `<path d='${smooth(pts)}'/>`;
+        // no meio do ramo nasce uma volutinha para o outro lado: o S do arabesco
+        const mid = pts[5];
+        const c2: Pt = [mid[0] + nx * R0 * 0.55 + ux * R0 * 0.2, mid[1] + ny * R0 * 0.55 + uy * R0 * 0.2];
+        const b0 = Math.atan2(mid[1] - c2[1], mid[0] - c2[0]);
+        const sp: Pt[] = [mid];
+        for (let i = 1; i <= 18; i++) {
+          const t = i / 18,
+            a = b0 - turnDir * t * Math.PI * 1.7,
+            rr = R0 * 0.55 * (1 - t * 0.7);
+          sp.push([c2[0] + Math.cos(a) * rr, c2[1] + Math.sin(a) * rr]);
+        }
+        body += `<path d='${smooth(sp)}'/>`;
+        // folhinhas em gota, de um lado e do outro do ramo
+        for (const t of [0.35, 0.62]) {
+          const p = pts[Math.round(t * 10)];
+          const side = t < 0.5 ? 1 : -1;
+          const ang = (Math.atan2(uy, ux) * 180) / Math.PI + side * 40 + (side > 0 ? 180 : 0) * 0;
+          const Lf = R0 * 0.9;
+          leaves += `<g transform='translate(${f1(p[0])} ${f1(p[1])}) rotate(${f1(ang + (side > 0 ? -90 : 90) * (ux * ny - uy * nx > 0 ? 1 : -1) * 0.5)})'><path d='M0 0Q${f1(Lf * 0.5)} ${f1(-Lf * 0.38)} ${f1(Lf)} 0Q${f1(Lf * 0.5)} ${f1(Lf * 0.38)} 0 0Z'/></g>`;
+        }
+      };
+      const c = inset(W, H, m);
+      for (let i = 0; i < 4; i++) {
+        const o = c[i];
+        const next = c[(i + 1) % 4],
+          prev = c[(i + 3) % 4];
+        const R0 = (9 + r() * 3) * q;
+        for (const e of [next, prev]) {
+          const len = Math.hypot(e[0] - o[0], e[1] - o[1]);
+          const ux = (e[0] - o[0]) / len,
+            uy = (e[1] - o[1]) / len;
+          const toward = sideOf(o, e, [W / 2, H / 2]);
+          curl(o, ux, uy, -uy * toward, ux * toward, Math.min(len * 0.3, (58 + r() * 18) * q), R0);
+        }
+        // o botão do canto
+        body += `<circle cx='${f1(o[0])}' cy='${f1(o[1])}' r='${f1(3 * q)}'/>`;
+        leaves += `<circle class='f' cx='${f1(o[0])}' cy='${f1(o[1])}' r='${f1(1.3 * q)}'/>`;
+      }
+      return g(body, 1.3, 0.9) + g(leaves, 1, 0.85);
+    }
+    case 'dialogo': {
+      // a caixa de diálogo de RPG antigo: borda dupla em degraus de pixel nas quinas e a setinha piscando
+      const q = Math.max(0.4, k);
+      const px = (3.2 + r() * 0.8) * q;
+      const m = (5 + r() * 2) * q;
+      const box = (mm: number, steps: number) => {
+        const s = px * steps;
+        const pts: Pt[] = [];
+        const corner = (x: number, y: number, sx: number, sy: number) => {
+          // da beirada de cima para a do lado, em degraus
+          for (let i = 0; i <= steps; i++) {
+            pts.push([x + sx * (s - i * px), y + sy * i * px]);
+            if (i < steps) pts.push([x + sx * (s - (i + 1) * px), y + sy * i * px]);
+          }
+        };
+        corner(mm, mm, 1, 1);
+        corner(W - mm, mm, -1, 1);
+        const cA = pts.length;
+        void cA;
+        return pts;
+      };
+      // desenha um retângulo de quinas em degrau, lado a lado
+      const stepped = (mm: number, steps: number) => {
+        const s = px * steps;
+        const L = mm,
+          T = mm,
+          Rr = W - mm,
+          B = H - mm;
+        let d = `M${f1(L + s)} ${f1(T)}L${f1(Rr - s)} ${f1(T)}`;
+        for (let i = 0; i < steps; i++) d += `L${f1(Rr - s + (i + 1) * px)} ${f1(T + i * px)}L${f1(Rr - s + (i + 1) * px)} ${f1(T + (i + 1) * px)}`;
+        d += `L${f1(Rr)} ${f1(B - s)}`;
+        for (let i = 0; i < steps; i++) d += `L${f1(Rr - i * px)} ${f1(B - s + (i + 1) * px)}L${f1(Rr - (i + 1) * px)} ${f1(B - s + (i + 1) * px)}`;
+        d += `L${f1(L + s)} ${f1(B)}`;
+        for (let i = 0; i < steps; i++) d += `L${f1(L + s - (i + 1) * px)} ${f1(B - i * px)}L${f1(L + s - (i + 1) * px)} ${f1(B - (i + 1) * px)}`;
+        d += `L${f1(L)} ${f1(T + s)}`;
+        for (let i = 0; i < steps; i++) d += `L${f1(L + i * px)} ${f1(T + s - (i + 1) * px)}L${f1(L + (i + 1) * px)} ${f1(T + s - (i + 1) * px)}`;
+        return `<path d='${d}Z'/>`;
+      };
+      void box;
+      const outer = stepped(m, 2),
+        inner = stepped(m + px * 1.8, 1);
+      // a setinha de "continua": um triângulo de pixels no canto de baixo à direita
+      const tx = W - m - px * 6,
+        ty = H - m - px * 5.2;
+      let tri = '';
+      for (let row = 0; row < 3; row++)
+        for (let col = row; col < 5 - row; col++) tri += `<rect class='f' x='${f1(tx - px * 2.5 + col * px)}' y='${f1(ty + row * px)}' width='${f1(px * 0.92)}' height='${f1(px * 0.92)}'/>`;
+      return g(outer, 1.5, 0.95) + g(inner, 1, 0.8) + g(tri, 1, 1.1);
+    }
+    case 'hud': {
+      // a tela de jogo de tiro: as quinas da mira, a régua de cima, a barra de vida e um alvo miudinho
+      const q = Math.max(0.4, k);
+      const m = (7 + r() * 2) * q;
+      const arm = Math.min(W, H) * (0.12 + r() * 0.05);
+      let brackets = '';
+      for (const [x, y] of inset(W, H, m)) {
+        const sx = x < W / 2 ? 1 : -1,
+          sy = y < H / 2 ? 1 : -1;
+        brackets += `<path d='M${f1(x)} ${f1(y + sy * arm)}L${f1(x)} ${f1(y)}L${f1(x + sx * arm)} ${f1(y)}'/>`;
+        brackets += `<path d='M${f1(x + sx * 3 * q)} ${f1(y + sy * arm * 0.55)}L${f1(x + sx * 3 * q)} ${f1(y + sy * 3 * q)}L${f1(x + sx * arm * 0.55)} ${f1(y + sy * 3 * q)}' class='h'/>`;
+      }
+      // a régua de rumo no meio de cima, com o risquinho do meio mais alto
+      let ticks = '';
+      const tw = W * 0.32,
+        t0 = W / 2 - tw / 2;
+      for (let i = 0; i <= 16; i++) {
+        const x = t0 + (tw * i) / 16,
+          h = i === 8 ? 6 * q : i % 4 === 0 ? 4 * q : 2.2 * q;
+        ticks += `M${f1(x)} ${f1(m)}L${f1(x)} ${f1(m + h)}`;
+      }
+      ticks += `M${f1(W / 2 - 2.5 * q)} ${f1(m + 9 * q)}L${f1(W / 2)} ${f1(m + 6.5 * q)}L${f1(W / 2 + 2.5 * q)} ${f1(m + 9 * q)}`;
+      // a barra de vida embaixo à esquerda: gomos, uns cheios, e o coraçãozinho
+      const segs = 8,
+        sw2 = 6 * q,
+        sh = 5 * q;
+      const bx = m + arm * 0.25 + 10 * q,
+        by = H - m - sh - 6 * q;
+      const full = 3 + Math.floor(r() * 5);
+      let bar = '';
+      for (let i = 0; i < segs; i++) bar += `<rect${i < full ? " class='f'" : ''} x='${f1(bx + i * (sw2 + 1.6 * q))}' y='${f1(by)}' width='${f1(sw2)}' height='${f1(sh)}'/>`;
+      const hx = bx - 7 * q,
+        hy = by + sh / 2;
+      bar += `<path class='f' d='M${f1(hx)} ${f1(hy + 3 * q)}L${f1(hx - 3 * q)} ${f1(hy)}A${f1(1.5 * q)} ${f1(1.5 * q)} 0 0 1 ${f1(hx)} ${f1(hy - 1.6 * q)}A${f1(1.5 * q)} ${f1(1.5 * q)} 0 0 1 ${f1(hx + 3 * q)} ${f1(hy)}Z'/>`;
+      // a mira miudinha, perto do canto de baixo à direita
+      const rx = W - m - arm * 0.9,
+        ry = H - m - arm * 0.75,
+        rr = 6 * q;
+      const reticle = `<circle cx='${f1(rx)}' cy='${f1(ry)}' r='${f1(rr)}'/><path d='M${f1(rx - rr * 1.7)} ${f1(ry)}L${f1(rx - rr * 0.5)} ${f1(ry)}M${f1(rx + rr * 0.5)} ${f1(ry)}L${f1(rx + rr * 1.7)} ${f1(ry)}M${f1(rx)} ${f1(ry - rr * 1.7)}L${f1(rx)} ${f1(ry - rr * 0.5)}M${f1(rx)} ${f1(ry + rr * 0.5)}L${f1(rx)} ${f1(ry + rr * 1.7)}'/><circle class='f' cx='${f1(rx)}' cy='${f1(ry)}' r='${f1(0.9 * q)}'/>`;
+      return g(brackets, 1.6, 0.95) + g(`<path d='${ticks}'/>`, 1, 0.85) + g(bar + reticle, 1.1, 0.9);
+    }
+    case 'runas': {
+      // uma faixa de runas correndo em volta da ficha, entre dois filetes, como na borda de um mapa antigo
+      const q = Math.max(0.4, k);
+      const m1 = (5 + r() * 2) * q,
+        band = (11 + r() * 2) * q,
+        m2 = m1 + band;
+      const wob = 0.8 * k,
+        seg = 34 * q;
+      const rect = (mm: number) => {
+        const c = inset(W, H, mm);
+        let d = '';
+        for (let i = 0; i < 4; i++) d += `<path d='${smooth(handLine(c[i], c[(i + 1) % 4], r, wob, seg))}'/>`;
+        return d;
+      };
+      const gh = band * 0.66,
+        gw = gh * 0.55,
+        pitch = gw * 2.1;
+      let glyphs = '';
+      const c = inset(W, H, m1 + band / 2);
+      for (let i = 0; i < 4; i++) {
+        const a = c[i],
+          b = c[(i + 1) % 4];
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const ang = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
+        const n = Math.floor((len - band * 1.4) / pitch);
+        const start = (len - n * pitch) / 2 + pitch / 2;
+        for (let j = 0; j < n; j++) {
+          const t = start + j * pitch;
+          const x = a[0] + ((b[0] - a[0]) / len) * t,
+            y = a[1] + ((b[1] - a[1]) / len) * t;
+          // de vez em quando um pontinho separando as palavras
+          if (r() < 0.14) {
+            glyphs += `<circle class='f' cx='${f1(x)}' cy='${f1(y)}' r='${f1(gw * 0.16)}'/>`;
+            continue;
+          }
+          const rune = RUNES[Math.floor(r() * RUNES.length)];
+          glyphs += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(ang)}) scale(${(gw / 6).toFixed(3)} ${(gh / 10).toFixed(3)}) translate(-3 -5)'><path d='${rune}' vector-effect='non-scaling-stroke'/></g>`;
+        }
+      }
+      // um losango em cada canto, onde as faixas se encontram
+      let knots = '';
+      for (const [x, y] of c) {
+        const d = band * 0.36;
+        knots += `<path d='M${f1(x)} ${f1(y - d)}L${f1(x + d)} ${f1(y)}L${f1(x)} ${f1(y + d)}L${f1(x - d)} ${f1(y)}Z'/><circle class='f' cx='${f1(x)}' cy='${f1(y)}' r='${f1(d * 0.3)}'/>`;
+      }
+      return g(rect(m1) + rect(m2), 1.2, 0.85) + g(glyphs, 1.2, 0.95) + g(knots, 1.1, 0.9);
+    }
+    case 'farpado': {
+      // arame farpado atravessando o alto e o pé da ficha: dois fios torcidos e as farpas de tempo em tempo
+      const q = Math.max(0.4, k);
+      let wire = '',
+        barbs = '';
+      for (const top of [true, false]) {
+        const y0 = top ? (6 + r() * 3) * q : H - (6 + r() * 3) * q;
+        const sag = (r() - 0.3) * 5 * q * (top ? 1 : -1);
+        const ph = r() * Math.PI * 2;
+        const period = (11 + r() * 2) * q,
+          amp = 1.5 * q;
+        const yAt = (x: number) => y0 + Math.sin((x / W) * Math.PI) * sag;
+        for (const off of [0, Math.PI]) {
+          const pts: Pt[] = [];
+          for (let x = -4; x <= W + 4; x += 2.5 * q) pts.push([x, yAt(x) + Math.sin((x / period) * Math.PI * 2 + ph + off) * amp]);
+          wire += `<path d='${smooth(pts)}'/>`;
+        }
+        const gap = (36 + r() * 12) * q;
+        for (let x = gap * (0.3 + r() * 0.5); x < W; x += gap * (0.85 + r() * 0.3)) {
+          const y = yAt(x),
+            L = (4.2 + r() * 1.2) * q,
+            tilt = (r() - 0.5) * 0.5;
+          const spikes = [0.8 + tilt, 2.35 + tilt];
+          let d = '';
+          for (const a of spikes) d += `M${f1(x - Math.cos(a) * L)} ${f1(y - Math.sin(a) * L)}L${f1(x + Math.cos(a) * L)} ${f1(y + Math.sin(a) * L)}`;
+          // o fio da farpa enrolado em volta
+          barbs += `<path d='${d}'/><ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(1.8 * q)}' ry='${f1(2.4 * q)}'/>`;
+        }
+      }
+      return g(wire, 1.1, 0.9) + g(barbs, 1.2, 0.95);
+    }
+    case 'terco': {
+      // um terço largado num canto de baixo: a volta de contas (as grandes de dez em dez), a medalhinha
+      // e a cauda com a cruz
+      const q = Math.max(0.4, k);
+      const right = r() < 0.7;
+      const cx = right ? W * (0.8 + r() * 0.05) : W * (0.2 - r() * 0.05),
+        cy = H * (0.72 + r() * 0.06);
+      const rx = Math.min(W * 0.2, 72 * q),
+        ry = Math.min(H * 0.22, 46 * q);
+      const rot = ((right ? -1 : 1) * (15 + r() * 20) * Math.PI) / 180;
+      const E = (a: number): Pt => {
+        const x = Math.cos(a) * rx,
+          y = Math.sin(a) * ry;
+        return [cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)];
+      };
+      // a medalha fica no ponto da volta mais para o lado de dentro da ficha, um pouco abaixo do meio dela
+      let best = 0,
+        bd = Infinity;
+      for (let i = 0; i < 72; i++) {
+        const p = E((i / 72) * Math.PI * 2),
+          d = (right ? p[0] : -p[0]) - p[1] * 0.35;
+        if (d < bd) {
+          bd = d;
+          best = (i / 72) * Math.PI * 2;
+        }
+      }
+      let thread = '',
+        beads = '';
+      const loop: Pt[] = [];
+      const nb = 54;
+      for (let i = 0; i <= nb; i++) loop.push(E(best + (i / nb) * Math.PI * 2));
+      thread += `<path d='${smooth(loop)}'/>`;
+      for (let i = 1; i < nb; i++) {
+        const [x, y] = loop[i];
+        if (x < -6 || x > W + 6 || y < -6 || y > H + 6) continue;
+        const big = i % 11 === 0;
+        beads += `<circle${big ? '' : " class='f'"} cx='${f1(x)}' cy='${f1(y)}' r='${f1((big ? 3.1 : 1.9) * q)}'/>`;
+      }
+      // a medalha e a cauda, descendo para dentro da ficha
+      const J = loop[0];
+      // a cauda sai para o lado de dentro, caindo um pouco com o peso da cruz
+      const dirA = (right ? Math.PI - 0.5 : 0.5) + (r() - 0.5) * 0.3;
+      const ux = Math.cos(dirA),
+        uy = Math.sin(dirA);
+      const md = 4.2 * q;
+      beads += `<path d='M${f1(J[0])} ${f1(J[1] - md)}L${f1(J[0] + md * 0.8)} ${f1(J[1])}L${f1(J[0])} ${f1(J[1] + md)}L${f1(J[0] - md * 0.8)} ${f1(J[1])}Z'/>`;
+      const tail: Pt[] = [];
+      for (let i = 0; i <= 6; i++) tail.push([J[0] + ux * i * 6.5 * q + Math.sin(i) * 0.6 * q, J[1] + uy * i * 6.5 * q]);
+      thread += `<path d='${smooth(tail)}'/>`;
+      tail.slice(1, 6).forEach(([x, y], i) => (beads += `<circle${i === 0 || i === 4 ? '' : " class='f'"} cx='${f1(x)}' cy='${f1(y)}' r='${f1((i === 0 || i === 4 ? 3.1 : 1.9) * q)}'/>`));
+      const [ex, ey] = tail[6];
+      const cs = 11 * q,
+        ang = (dirA * 180) / Math.PI - 90;
+      const cross = `<g transform='translate(${f1(ex + ux * cs * 0.9)} ${f1(ey + uy * cs * 0.9)}) rotate(${f1(ang)})'><path d='M0 ${f1(-cs)}L0 ${f1(cs * 1.2)}M${f1(-cs * 0.6)} ${f1(-cs * 0.3)}L${f1(cs * 0.6)} ${f1(-cs * 0.3)}'/><path d='M${f1(-cs * 0.12)} ${f1(-cs)}H${f1(cs * 0.12)}V${f1(cs * 1.2)}H${f1(-cs * 0.12)}Z' class='f'/></g>`;
+      return g(thread, 0.8, 0.8) + g(beads, 1.1, 0.95) + g(cross, 1.5, 1);
+    }
+    case 'invocacao': {
+      // um círculo de invocação num canto (nunca o da foto), metade para fora: dois anéis com runas
+      // entre eles, a estrela no meio e as velinhas acesas nas pontas
+      const q = Math.max(0.4, k);
+      const corner = 1 + Math.floor(r() * 3);
+      const R = Math.min(H * (0.3 + r() * 0.06), 95 * q);
+      const o = inset(W, H, 0)[corner];
+      const cx = o[0] + (o[0] < W / 2 ? 1 : -1) * R * 0.55,
+        cy = o[1] + (o[1] < H / 2 ? 1 : -1) * R * 0.5;
+      const spin = r() * Math.PI * 2;
+      const pts = [5, 6, 7][Math.floor(r() * 3)];
+      const skip = pts === 6 ? 2 : pts === 5 ? 2 : 3;
+      let rings = `<circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R)}'/><circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R * 0.84)}'/><circle cx='${f1(cx)}' cy='${f1(cy)}' r='${f1(R * 0.18)}'/>`;
+      const P = (i: number, rr = R * 0.84): Pt => [cx + Math.cos(spin + (i / pts) * Math.PI * 2) * rr, cy + Math.sin(spin + (i / pts) * Math.PI * 2) * rr];
+      // a estrela: cada ponta ligada à que fica `skip` adiante (o hexagrama são dois triângulos)
+      let star = '';
+      if (pts === 6) star = poly([P(0), P(2), P(4), P(0)]) + poly([P(1), P(3), P(5), P(1)]);
+      else {
+        const order: Pt[] = [];
+        for (let i = 0; i <= pts; i++) order.push(P((i * skip) % pts));
+        star = poly(order);
+      }
+      // as runas girando entre os dois anéis
+      let glyphs = '';
+      const n = Math.floor((Math.PI * 2 * R * 0.92) / (R * 0.16 * 1.4));
+      for (let i = 0; i < n; i++) {
+        const a = spin + (i / n) * Math.PI * 2;
+        const x = cx + Math.cos(a) * R * 0.92,
+          y = cy + Math.sin(a) * R * 0.92;
+        const s2 = (R * 0.1) / 6;
+        glyphs += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1((a * 180) / Math.PI + 90)}) scale(${s2.toFixed(3)} ${((R * 0.12) / 10).toFixed(3)}) translate(-3 -5)'><path d='${RUNES[Math.floor(r() * RUNES.length)]}' vector-effect='non-scaling-stroke'/></g>`;
+      }
+      // as velinhas nas pontas, do lado de fora do anel
+      let candles = '';
+      for (let i = 0; i < pts; i++) {
+        const [x, y] = P(i, R * 1.14);
+        const w = 3.2 * q,
+          h = 7 * q;
+        candles += `<rect x='${f1(x - w / 2)}' y='${f1(y - h / 2)}' width='${f1(w)}' height='${f1(h)}'/><path class='f' d='M${f1(x)} ${f1(y - h / 2 - 5.5 * q)}Q${f1(x + 2 * q)} ${f1(y - h / 2 - 2 * q)} ${f1(x)} ${f1(y - h / 2 - 0.6 * q)}Q${f1(x - 2 * q)} ${f1(y - h / 2 - 2 * q)} ${f1(x)} ${f1(y - h / 2 - 5.5 * q)}Z'/>`;
+      }
+      return g(rings, 1.4, 0.85) + g(`<path d='${star}'/>`, 1.2, 0.85) + g(glyphs, 1, 0.9) + g(candles, 1.1, 0.95);
+    }
+    case 'tesouro': {
+      // o mapa do tesouro: a trilha tracejada entrando por uma beirada, dando voltas, e o X marcando o
+      // lugar; num canto, a rosa dos ventos
+      const q = Math.max(0.4, k);
+      const fromLeft = r() < 0.5;
+      const pts: Pt[] = [[fromLeft ? -4 : W * (0.15 + r() * 0.3), fromLeft ? H * (0.6 + r() * 0.3) : H + 4]];
+      const n = 3 + Math.floor(r() * 2);
+      for (let i = 1; i <= n; i++) pts.push([W * (0.12 + (0.75 * i) / (n + 1)) + (r() - 0.5) * W * 0.1, H * (0.55 + (r() - 0.5) * 0.45)]);
+      const X: Pt = [W * (0.72 + r() * 0.16), H * (0.62 + r() * 0.22)];
+      pts.push(X);
+      const trail = `<path d='${smooth(pts)}' style='stroke-dasharray:${f1(5 * q)} ${f1(4 * q)}'/>`;
+      const xs = 7 * q;
+      const mark = `<path d='M${f1(X[0] - xs)} ${f1(X[1] - xs)}L${f1(X[0] + xs)} ${f1(X[1] + xs)}M${f1(X[0] + xs)} ${f1(X[1] - xs)}L${f1(X[0] - xs)} ${f1(X[1] + xs)}'/>`;
+      // a rosa dos ventos: oito pontas, as de norte, sul, leste e oeste maiores, pintadas pela metade
+      const top = r() < 0.5;
+      const rc: Pt = top ? [W - 26 * q, 44 * q] : [30 * q, H - 30 * q];
+      const RR = 15 * q;
+      let rose = `<circle cx='${f1(rc[0])}' cy='${f1(rc[1])}' r='${f1(RR * 0.62)}'/>`;
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4 - Math.PI / 2;
+        const L = i % 2 ? RR * 0.62 : RR,
+          w = i % 2 ? RR * 0.14 : RR * 0.2;
+        const tip: Pt = [rc[0] + Math.cos(a) * L, rc[1] + Math.sin(a) * L];
+        const l: Pt = [rc[0] + Math.cos(a - Math.PI / 2) * w, rc[1] + Math.sin(a - Math.PI / 2) * w];
+        const rr2: Pt = [rc[0] + Math.cos(a + Math.PI / 2) * w, rc[1] + Math.sin(a + Math.PI / 2) * w];
+        rose += `<path d='${poly([l, tip, rr2, l])}'/>`;
+        if (i % 2 === 0) rose += `<path class='f' d='${poly([rc, tip, rr2, rc])}'/>`;
+      }
+      rose += `<text class='f' x='${f1(rc[0])}' y='${f1(rc[1] - RR - 5 * q)}' text-anchor='middle' style='font:800 ${f1(8.5 * q)}px var(--f-label, sans-serif)'>N</text>`;
+      return g(trail, 1.4, 0.9) + g(mark, 2.4, 1) + g(rose, 1, 0.9);
+    }
+    case 'olhos': {
+      // olhos desenhados pelas margens, todos olhando para o meio da ficha
+      const q = Math.max(0.4, k);
+      const count = 6 + Math.floor(r() * 5);
+      let body = '';
+      const placed: Pt[] = [];
+      for (let i = 0; i < count; i++) {
+        const E = (8 + r() * 8) * q;
+        let p: Pt = [0, 0];
+        for (let t = 0; t < 12; t++) {
+          const side = Math.floor(r() * 4);
+          const edge = E * 1.1 + r() * 10 * q;
+          p =
+            side === 0
+              ? [W * (0.3 + r() * 0.68), edge]
+              : side === 1
+                ? [W - edge, H * (0.08 + r() * 0.84)]
+                : side === 2
+                  ? [W * (0.04 + r() * 0.92), H - edge]
+                  : [edge, H * (0.62 + r() * 0.34)];
+          if (placed.every((o) => Math.hypot(o[0] - p[0], o[1] - p[1]) > E * 3.2)) break;
+        }
+        placed.push(p);
+        const [x, y] = p;
+        const h = E * (0.5 + r() * 0.2);
+        const lid = r() < 0.25; // meio fechado, desconfiado
+        const look = Math.atan2(H / 2 - y, W / 2 - x);
+        const pr = h * 0.55;
+        const pxx = x + Math.cos(look) * E * 0.35,
+          pyy = y + Math.sin(look) * h * 0.3;
+        body += `<path d='M${f1(x - E)} ${f1(y)}Q${f1(x)} ${f1(y - h * 2)} ${f1(x + E)} ${f1(y)}Q${f1(x)} ${f1(y + h * 2)} ${f1(x - E)} ${f1(y)}Z'/>`;
+        body += `<circle cx='${f1(pxx)}' cy='${f1(pyy)}' r='${f1(pr)}'/><circle class='f' cx='${f1(pxx)}' cy='${f1(pyy)}' r='${f1(pr * 0.5)}'/>`;
+        if (lid) body += `<path d='M${f1(x - E)} ${f1(y)}Q${f1(x)} ${f1(y - h * 0.3)} ${f1(x + E)} ${f1(y)}' /><path class='f' d='M${f1(x - E)} ${f1(y)}Q${f1(x)} ${f1(y - h * 2)} ${f1(x + E)} ${f1(y)}Q${f1(x)} ${f1(y - h * 0.3)} ${f1(x - E)} ${f1(y)}Z'/>`;
+        else if (r() < 0.5) {
+          // os cílios
+          for (let j = 1; j < 5; j++) {
+            const t = j / 5;
+            const bx = x - E + 2 * E * t,
+              by = y - h * 2 * 2 * t * (1 - t);
+            body += `<path d='M${f1(bx)} ${f1(by)}l${f1((t - 0.5) * 4 * q)} ${f1(-3.5 * q)}'/>`;
+          }
+        }
+      }
+      return g(body, 1.2, 0.9);
     }
     case 'aula': {
       const keys =['gato', 'estrelinhas', 'velha', 'pauzinhos', 'espiral', 'coracao', 'raio', 'carinha', 'lua', 'flor', 'fantasma', 'setinha', 'caveira', 'teste', 'cogumelo', 'olho', 'nuvem', 'coroa'];
@@ -1223,6 +1718,24 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
     case 'baleado':
       bulletHoles(W, H, k, sw, r, out);
       break;
+    case 'passos':
+      tinyFootsteps(W, H, k, r, out);
+      break;
+    case 'mao':
+      bloodyHand(W, H, k, r, uid, out);
+      break;
+    case 'nanquim':
+      inkSplat(W, H, k, r, out);
+      break;
+    case 'gosma':
+      slime(W, H, k, r, out);
+      break;
+    case 'lagrimas':
+      tears(W, H, k, r, out);
+      break;
+    case 'salgadinho':
+      snackFingers(W, H, k, r, out);
+      break;
   }
 }
 
@@ -1529,6 +2042,342 @@ function specks(cx: number, cy: number, sx: number, sy: number, R: number, k: nu
     out += `<circle cx='${f1(ox + Math.cos(a) * d)}' cy='${f1(oy + Math.sin(a) * d)}' r='${f1((0.45 + r() * r() * 1.1) * Math.max(0.4, k))}' fill='${brown}' fill-opacity='${(0.35 + r() * 0.25).toFixed(2)}'/>`;
   }
   return out;
+}
+
+// ===================== As manchas da terceira leva (2026-09-30) =====================
+
+// ----- Passinhos -----
+
+/** Um pezinho de tinta, um pé de comprimento, de bico para cima (−y): a planta e o calcanhar separados. */
+const FOOT =
+  `<path d='M.02 -.5C.16 -.5 .22 -.36 .21 -.2C.2 -.06 .15 .06 .11 .14L-.1 .14C-.15 .04 -.2 -.1 -.19 -.24C-.18 -.4 -.11 -.5 .02 -.5Z'/>` +
+  `<ellipse cx='0' cy='.34' rx='.105' ry='.13'/>`;
+
+/**
+ * Passinhos de tinta andando sozinhos pela ficha, como num mapa encantado: um par de pés miúdos que
+ * vai e vem, vira, para, segue; os passos mais antigos já quase sumidos, os últimos bem marcados.
+ * Às vezes são dois andando, cada um para um lado.
+ */
+function tinyFootsteps(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const L = (12.5 + r() * 2.5) * q;
+  const walkers = r() < 0.4 ? 2 : 1;
+  let prints = '';
+  for (let w = 0; w < walkers; w++) {
+    // entra por uma beirada (nunca pela de cima à esquerda, atrás da foto) e vai para dentro
+    const edge = Math.floor(r() * 3);
+    let [x, y]: Pt = edge === 0 ? [W + L, H * (0.25 + r() * 0.6)] : edge === 1 ? [W * (0.3 + r() * 0.6), H + L] : [-L, H * (0.55 + r() * 0.35)];
+    let head = Math.atan2(H * (0.35 + r() * 0.3) - y, W * (0.35 + r() * 0.35) - x);
+    let turn = 0;
+    const stride = L * (1.05 + r() * 0.15);
+    const steps = 14 + Math.floor(r() * 12);
+    const stops = r() < 0.45;
+    for (let i = 0; i < steps; i++) {
+      turn = turn * 0.8 + (r() - 0.5) * 0.28;
+      head += turn;
+      // a beirada empurra o passeio de volta para dentro
+      const cx = W / 2 - x,
+        cy = H / 2 - y;
+      if (x < L * 2 || x > W - L * 2 || y < L * 2 || y > H - L * 2) head += Math.sign(Math.sin(Math.atan2(cy, cx) - head)) * 0.22;
+      x += Math.cos(head) * stride;
+      y += Math.sin(head) * stride;
+      const side = i % 2 ? 1 : -1;
+      const nx = -Math.sin(head),
+        ny = Math.cos(head);
+      const px = x + nx * side * L * 0.28,
+        py = y + ny * side * L * 0.28;
+      if (px < -L || px > W + L || py < -L || py > H + L) continue;
+      const t = i / (steps - 1);
+      const op = 0.18 + 0.72 * t * t;
+      const ang = (head * 180) / Math.PI + 90 + (r() - 0.5) * 10;
+      prints += `<g transform='translate(${f1(px)} ${f1(py)}) rotate(${f1(ang)}) scale(${f1(side * L)} ${f1(L)})' fill-opacity='${op.toFixed(2)}'>${FOOT}</g>`;
+      // parou: o outro pé chega do lado, e os dois ficam ali
+      if (stops && i === steps - 1) {
+        prints += `<g transform='translate(${f1(x - nx * side * L * 0.28)} ${f1(y - ny * side * L * 0.28)}) rotate(${f1(ang + (r() - 0.5) * 12)}) scale(${f1(-side * L)} ${f1(L)})' fill-opacity='.9'>${FOOT}</g>`;
+      }
+    }
+  }
+  out.fundo += `<g filter='url(#papel-mancha)' fill='rgb(58 38 22)'>${prints}</g>`;
+}
+
+// ----- Mão de sangue -----
+
+/** Uma falange: uma cápsula de `a` a `b`, com largura `w`. */
+function capsule(a: Pt, b: Pt, w: number): string {
+  const dx = b[0] - a[0],
+    dy = b[1] - a[1],
+    len = Math.hypot(dx, dy) || 1;
+  const nx = (-dy / len) * (w / 2),
+    ny = (dx / len) * (w / 2);
+  const R = f1(w / 2);
+  return `<path d='M${f1(a[0] + nx)} ${f1(a[1] + ny)}L${f1(b[0] + nx)} ${f1(b[1] + ny)}A${R} ${R} 0 0 0 ${f1(b[0] - nx)} ${f1(b[1] - ny)}L${f1(a[0] - nx)} ${f1(a[1] - ny)}A${R} ${R} 0 0 0 ${f1(a[0] + nx)} ${f1(a[1] + ny)}Z'/>`;
+}
+
+/**
+ * A marca de uma mão suja de sangue: a palma (com o miolo que não encostou mais claro), os dedos em
+ * falanges (as dobras não marcam) e o polegar aberto. Às vezes a mão escorregou: os dedos e a palma
+ * deixam rastros compridos. De vez em quando são duas mãos.
+ */
+function bloodyHand(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const hands = r() < 0.25 ? 2 : 1;
+  let body = '',
+    drops = '',
+    masks = '';
+  for (let h = 0; h < hands; h++) {
+    const P = (46 + r() * 8) * q * (h ? 0.88 : 1);
+    const cx = W * (h ? 0.25 + r() * 0.25 : 0.5 + r() * 0.3),
+      cy = H * (0.4 + r() * 0.3);
+    const up = r() < 0.2 ? (r() < 0.5 ? -90 : 90) : (r() - 0.5) * 70;
+    const flip = r() < 0.5 ? -1 : 1;
+    const T = (u: number, v: number): Pt => {
+      const a = (up * Math.PI) / 180,
+        x = u * flip * P,
+        y = v * P;
+      return [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)];
+    };
+    let hand = '';
+    // a palma
+    const palm = [
+      T(-0.5, -0.02), T(-0.53, 0.3), T(-0.47, 0.62), T(-0.3, 0.86), T(0, 0.93), T(0.3, 0.86), T(0.47, 0.62), T(0.52, 0.3), T(0.5, -0.02), T(0.25, -0.1), T(0, -0.12), T(-0.25, -0.1),
+    ];
+    hand += `<path d='${smooth([...palm, palm[0]])}Z'/>`;
+    // os dedos: indicador, médio, anelar e mindinho, cada um em três falanges com a dobra em branco
+    const fingers: [number, number, number][] = [
+      [-0.35, 0.8, -16],
+      [-0.12, 0.92, -5],
+      [0.12, 0.84, 6],
+      [0.35, 0.64, 19],
+    ];
+    const tips: Pt[] = [];
+    for (const [u, len, tilt] of fingers) {
+      const a = (tilt * Math.PI) / 180;
+      const at = (s: number) => T(u + Math.sin(a) * s, -0.1 - Math.cos(a) * s);
+      const segs = [0, 0.42, 0.74, 1].map((f) => f * len * (0.95 + r() * 0.1));
+      for (let j = 0; j < 3; j++) hand += capsule(at(segs[j] + (j ? 0.05 : 0)), at(segs[j + 1] - 0.05), P * (0.21 - j * 0.012));
+      tips.push(at(segs[3] - 0.06));
+    }
+    // o polegar, aberto para o lado
+    const ta = ((42 + r() * 14) * Math.PI) / 180;
+    const th = (s: number) => T(-0.4 - Math.sin(ta) * s, 0.5 - Math.cos(ta) * s);
+    hand += capsule(th(0.05), th(0.36), P * 0.27) + capsule(th(0.43), th(0.66), P * 0.23);
+    // o miolo da palma quase não encosta: clareia num borrão
+    const hollow = T(0.02, 0.4);
+    masks += `<mask id='${uid}-mao${h}' maskUnits='userSpaceOnUse' x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}'><rect x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}' fill='#fff'/><ellipse cx='${f1(hollow[0])}' cy='${f1(hollow[1])}' rx='${f1(P * 0.2)}' ry='${f1(P * 0.16)}' fill='#000' fill-opacity='.42' filter='url(#papel-borra)'/></mask>`;
+    // escorregou: rastros de cada dedo e da palma para o lado do pulso
+    let smear = '';
+    if (r() < 0.45) {
+      const back = T(0, 1),
+        base = T(0, 0);
+      const len = Math.hypot(back[0] - base[0], back[1] - base[1]);
+      const dx = (back[0] - base[0]) / len,
+        dy = (back[1] - base[1]) / len;
+      const trail = (from: Pt, wid: number, reach: number) => {
+        const pts: Pt[] = [],
+          back2: Pt[] = [];
+        for (let i = 0; i <= 8; i++) {
+          const t = i / 8,
+            w = (wid / 2) * (1 - t * 0.75) * (0.85 + r() * 0.3),
+            wob = (r() - 0.5) * wid * 0.15;
+          const x = from[0] + dx * reach * t - dy * wob,
+            y = from[1] + dy * reach * t + dx * wob;
+          pts.push([x - dy * w, y + dx * w]);
+          back2.unshift([x + dy * w, y - dx * w]);
+        }
+        return `<path d='${smooth([...pts, ...back2, pts[0]])}Z'/>`;
+      };
+      const reach = P * (1.4 + r() * 1.2);
+      for (const tip of tips) smear += trail(tip, P * 0.2, reach * (0.7 + r() * 0.5));
+      smear += trail(T(0, 0.6), P * 0.8, reach * (0.8 + r() * 0.4));
+    }
+    body += `<g mask='url(#${uid}-mao${h})'>${hand}${smear}</g>`;
+    for (let i = 0; i < 6 + Math.floor(r() * 6); i++) {
+      const a = r() * Math.PI * 2,
+        d = P * (0.9 + r() * 0.9);
+      drops += `<circle cx='${f1(cx + Math.cos(a) * d)}' cy='${f1(cy + Math.sin(a) * d)}' r='${f1(P * (0.012 + r() * r() * 0.05))}'/>`;
+    }
+  }
+  out.clareia += `<defs>${masks}</defs><g fill='rgb(150 16 26)' opacity='.78'><g filter='url(#papel-agua)'>${body}</g>${drops}</g>`;
+}
+
+// ----- Nanquim -----
+
+/** Um pingo de nanquim que caiu de alto: o miolo, as pontas espirradas em volta e as gotinhas soltas. */
+function inkSplat(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const R = (22 + r() * 14) * q;
+  const cx = W * (0.35 + r() * 0.5),
+    cy = H * (0.3 + r() * 0.5);
+  let body = `<path d='${blobPath(cx, cy, R, r)}'/>`;
+  const n = 9 + Math.floor(r() * 8);
+  const lean = r() * Math.PI * 2;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + (r() - 0.5) * 0.6;
+    // espirra mais para um lado: o pingo veio de viés
+    const len = R * (0.2 + Math.pow(r(), 1.8) * 1.2) * (1 + 0.6 * Math.max(0, Math.cos(a - lean)));
+    const w = R * (0.08 + r() * 0.12);
+    const ux = Math.cos(a),
+      uy = Math.sin(a);
+    const b0: Pt = [cx + ux * R * 0.8, cy + uy * R * 0.8];
+    const tip: Pt = [cx + ux * (R + len), cy + uy * (R + len)];
+    const tw = w * 0.35;
+    body += `<path d='M${f1(b0[0] - uy * w)} ${f1(b0[1] + ux * w)}Q${f1((b0[0] + tip[0]) / 2 - uy * w * 0.35)} ${f1((b0[1] + tip[1]) / 2 + ux * w * 0.35)} ${f1(tip[0] - uy * tw)} ${f1(tip[1] + ux * tw)}L${f1(tip[0] + uy * tw)} ${f1(tip[1] - ux * tw)}Q${f1((b0[0] + tip[0]) / 2 + uy * w * 0.35)} ${f1((b0[1] + tip[1]) / 2 - ux * w * 0.35)} ${f1(b0[0] + uy * w)} ${f1(b0[1] - ux * w)}Z'/>`;
+    body += `<circle cx='${f1(tip[0])}' cy='${f1(tip[1])}' r='${f1(tw * (1.3 + r() * 0.8))}'/>`;
+    // uma gotinha mais adiante, no rumo da ponta
+    if (r() < 0.6) {
+      const d = R + len + R * (0.15 + r() * 0.6);
+      body += `<circle cx='${f1(cx + ux * d)}' cy='${f1(cy + uy * d)}' r='${f1(R * (0.03 + r() * 0.07))}'/>`;
+    }
+  }
+  // o respingo do pincel sacudido: uma fileira de pingos cada vez menores
+  if (r() < 0.5) {
+    const a = r() * Math.PI * 2;
+    let d = R * 1.6;
+    for (let i = 0; i < 9; i++) {
+      d += R * (0.25 + r() * 0.3);
+      body += `<circle cx='${f1(cx + Math.cos(a) * d + (r() - 0.5) * R * 0.2)}' cy='${f1(cy + Math.sin(a) * d + (r() - 0.5) * R * 0.2)}' r='${f1(R * 0.13 * (1 - i / 11) * (0.7 + r() * 0.5))}'/>`;
+    }
+  }
+  out.clareia += `<g fill='rgb(16 18 34)' opacity='.88'><g filter='url(#papel-mancha)'>${body}</g></g>`;
+}
+
+// ----- Gosma -----
+
+/** Gosma verde escorrendo da beirada de cima: a faixa grudada no alto e os pingos pendurados, com brilho. */
+function slime(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const a = W * (r() * 0.4),
+    b = Math.min(W + 4, a + W * (0.45 + r() * 0.5));
+  const ph = [r() * 6, r() * 6];
+  const band = (x: number) => (4 + 2.5 * Math.sin(x / (21 * q) + ph[0]) + 1.5 * Math.sin(x / (9 * q) + ph[1])) * q;
+  // a faixa: afina nas pontas
+  const pts: Pt[] = [];
+  for (let x = a; x <= b; x += 5 * q) {
+    const t = Math.min(1, (x - a) / (14 * q), (b - x) / (14 * q));
+    pts.push([x, -2 + band(x) * Math.sqrt(Math.max(0, t))]);
+  }
+  let body = `<path d='M${f1(a)} -3${cont(pts.map(([x, y]) => [x, y] as Pt))}L${f1(b)} -3Z'/>`;
+  let shine = '';
+  const n = 3 + Math.floor(r() * 5);
+  for (let i = 0; i < n; i++) {
+    const x = a + (b - a) * ((i + 0.3 + r() * 0.4) / n);
+    const yb = band(x) - 2;
+    const w = (4.5 + r() * 4) * q;
+    const L = (12 + Math.pow(r(), 1.5) * 60) * q;
+    const bl = w * (0.72 + r() * 0.15);
+    // grosso no alto, afinando, e a gota pesada na ponta, só um pouco mais larga que o pescoço
+    body += `<path d='M${f1(x - w * 2)} ${f1(yb - 1)}C${f1(x - w)} ${f1(yb)} ${f1(x - w * 0.8)} ${f1(yb + L * 0.15)} ${f1(x - w * 0.72)} ${f1(yb + L * 0.4)}C${f1(x - w * 0.62)} ${f1(yb + L * 0.7)} ${f1(x - w * 0.55)} ${f1(yb + L - bl * 1.6)} ${f1(x - bl)} ${f1(yb + L - bl)}A${f1(bl)} ${f1(bl)} 0 1 0 ${f1(x + bl)} ${f1(yb + L - bl)}C${f1(x + w * 0.55)} ${f1(yb + L - bl * 1.6)} ${f1(x + w * 0.62)} ${f1(yb + L * 0.7)} ${f1(x + w * 0.72)} ${f1(yb + L * 0.4)}C${f1(x + w * 0.8)} ${f1(yb + L * 0.15)} ${f1(x + w)} ${f1(yb)} ${f1(x + w * 2)} ${f1(yb - 1)}Z'/>`;
+    shine += `<path d='M${f1(x - w * 0.35)} ${f1(yb + 3 * q)}L${f1(x - w * 0.28)} ${f1(yb + L - bl * 1.8)}'/><circle cx='${f1(x - bl * 0.4)}' cy='${f1(yb + L - bl * 1.25)}' r='${f1(bl * 0.2)}' fill='#fff' stroke='none'/>`;
+    // de vez em quando um pingo já caiu, mais abaixo
+    if (r() < 0.35) {
+      const dy = yb + L + (8 + r() * 30) * q,
+        dr = w * (0.5 + r() * 0.5);
+      body += `<ellipse cx='${f1(x)}' cy='${f1(dy)}' rx='${f1(dr)}' ry='${f1(dr * 1.15)}'/>`;
+    }
+  }
+  // umas bolhinhas presas na faixa
+  let bubbles = '';
+  for (let i = 0; i < 5; i++) {
+    const x = a + (b - a) * r();
+    bubbles += `<circle cx='${f1(x)}' cy='${f1(band(x) * 0.5)}' r='${f1((0.8 + r() * 1.4) * q)}'/>`;
+  }
+  out.clareia +=
+    `<g opacity='.82'><g fill='rgb(104 184 36)' stroke='rgb(52 110 14)' stroke-width='${f1(0.9 * q)}'>${body}</g>` +
+    `<g fill='none' stroke='#fff' stroke-opacity='.6' stroke-width='${f1(1.1 * q)}' stroke-linecap='round'>${shine}${bubbles}</g></g>`;
+}
+
+// ----- Lágrimas -----
+
+/** Pingos de choro: um punhado de gotas que secaram, cada uma com a beirada mais escura, umas escorridas. */
+function tears(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const cx = W * (0.3 + r() * 0.5),
+    cy = H * (0.35 + r() * 0.45);
+  const n = 4 + Math.floor(r() * 5);
+  let body = '';
+  for (let i = 0; i < n; i++) {
+    const x = cx + (r() - 0.5) * W * 0.42,
+      y = cy + (r() - 0.5) * H * 0.5;
+    const R = (4.5 + r() * 7) * q;
+    // quase redonda: a gota caiu de pé; a água seca empurrando o pigmento para a beirada, o anel escuro
+    const sq = 0.86 + r() * 0.14;
+    body += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(R)}' ry='${f1(R * sq)}' transform='rotate(${f1(r() * 180)} ${f1(x)} ${f1(y)})' fill='rgb(88 100 112)' fill-opacity='.1' stroke='rgb(58 66 78)' stroke-opacity='.34' stroke-width='${f1(1.3 * q)}'/>`;
+    // a gota que bateu de lado espirra uma menorzinha e escorre um pouco
+    if (r() < 0.4) {
+      const a = r() * Math.PI * 2;
+      body += `<circle cx='${f1(x + Math.cos(a) * R * 1.7)}' cy='${f1(y + Math.sin(a) * R * 1.7)}' r='${f1(R * 0.3)}' fill='rgb(88 100 112)' fill-opacity='.12' stroke='rgb(62 70 80)' stroke-opacity='.28' stroke-width='${f1(0.8 * q)}'/>`;
+    }
+  }
+  out.fundo += `<g filter='url(#papel-borra)' opacity='.7'>${body}</g><g filter='url(#papel-mancha)'>${body}</g>`;
+}
+
+// ----- Dedos de salgadinho -----
+
+/** Uma digital: a volta do dedo e as linhas da pele em laço, dentro de um oval de `w`×`h`. */
+function fingerprint(w: number, h: number, r: () => number, sw: number): string {
+  let d = '';
+  const n = 7;
+  const core = (r() - 0.5) * 0.3;
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    const rx = (w / 2) * t,
+      ry = (h / 2) * t;
+    const oy = (1 - t) * -h * 0.12;
+    const ox = (1 - t) * core * w;
+    // as de dentro abrem embaixo (o laço); as de fora fecham
+    const gap = t < 0.55 ? 0.9 - t : 0.1 + r() * 0.15;
+    const a0 = Math.PI / 2 + gap,
+      a1 = Math.PI / 2 + Math.PI * 2 - gap;
+    const pts: Pt[] = [];
+    for (let s = 0; s <= 16; s++) {
+      const a = a0 + ((a1 - a0) * s) / 16;
+      pts.push([ox + Math.cos(a) * rx * (1 + (r() - 0.5) * 0.04), oy + Math.sin(a) * ry * (1 + (r() - 0.5) * 0.04)]);
+    }
+    d += smooth(pts);
+  }
+  return `<path d='${d}' fill='none' stroke-width='${f1(sw)}'/>`;
+}
+
+/**
+ * Comeu salgadinho e pegou a ficha: digitais de pó laranja nas beiradas, onde os dedos seguram (os
+ * dois polegares dos lados, ou nas quinas de baixo, ou um dedo só passeando), e uns farelos.
+ */
+function snackFingers(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const fw = (19 + r() * 4) * q,
+    fh = fw * 1.32;
+  const way = Math.floor(r() * 3);
+  // onde cada dedo encostou e para onde ele apontava (graus; 0 é para cima)
+  const spots: [number, number, number][] =
+    way === 0
+      ? [
+          [fw * 0.25, H * (0.45 + r() * 0.3), 90],
+          [W - fw * 0.25, H * (0.45 + r() * 0.3), -90],
+        ]
+      : way === 1
+        ? [
+            [fw * 0.9, H - fw * 0.5, 40],
+            [W - fw * 0.9, H - fw * 0.5, -40],
+            [W - fw * 2.3, H - fw * 0.2, -10],
+          ]
+        : Array.from({ length: 3 + Math.floor(r() * 3) }, (_, i) => [W * (0.55 + r() * 0.4), H * (0.2 + i * 0.18 + r() * 0.08), (r() - 0.5) * 80] as [number, number, number]);
+  let prints = '';
+  for (const [x, y, a] of spots) {
+    const turn = a + (r() - 0.5) * 20;
+    prints +=
+      `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(turn)})'>` +
+      `<ellipse rx='${f1(fw / 2)}' ry='${f1(fh / 2)}' fill-opacity='.22' stroke='none'/>` +
+      fingerprint(fw, fh, r, 1.05 * q) +
+      `</g>`;
+  }
+  let crumbs = '';
+  for (let i = 0; i < 6 + Math.floor(r() * 8); i++) {
+    const [sx, sy] = spots[Math.floor(r() * spots.length)];
+    const x = clamp(sx + (r() - 0.5) * fw * 5, 2, W - 2),
+      y = clamp(sy + (r() - 0.5) * fw * 4, 2, H - 2);
+    crumbs += `<path d='${blobPath(x, y, (0.7 + r() * 1.6) * q, r)}'/>`;
+  }
+  out.fundo += `<g filter='url(#papel-lama)' fill='rgb(236 116 24)' stroke='rgb(214 96 16)' stroke-opacity='.85'>${prints}</g><g fill='rgb(226 110 20)' fill-opacity='.8'>${crumbs}</g>`;
 }
 
 // ===================== Os estragos de costura, cola, tesoura e bicho =====================

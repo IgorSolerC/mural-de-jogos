@@ -26,7 +26,11 @@ export const FROZEN_PATTERNS: readonly Pattern[] = [
   'mineracao', 'carros',
 ];
 // Espirais e Teste de caneta saíram em 2026-09-29, a pedido
-export const FROZEN_SCRIBBLES: readonly Scribble[] = ['novelo', 'hachura', 'riscado', 'contorno', 'aula', 'moldura', 'renda', 'cupom', 'pelicula', 'regua', 'trepadeira', 'bandeirinhas'];
+export const FROZEN_SCRIBBLES: readonly Scribble[] = [
+  'novelo', 'hachura', 'riscado', 'contorno', 'aula', 'moldura', 'renda', 'cupom', 'pelicula', 'regua', 'trepadeira', 'bandeirinhas',
+  // 2026-09-30, as molduras e os rabiscos de tema
+  'gotica', 'arabesco', 'dialogo', 'hud', 'runas', 'farpado', 'terco', 'invocacao', 'tesouro', 'olhos',
+];
 export const FROZEN_DAMAGES: readonly Damage[] = [
   'rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado',
   // 2026-09-29, segunda leva
@@ -35,7 +39,11 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
   'baleado',
 ];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
-export const FROZEN_STAINS: readonly Stain[] = ['molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue'];
+export const FROZEN_STAINS: readonly Stain[] = [
+  'molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue',
+  // 2026-09-30, a terceira leva
+  'passos', 'mao', 'nanquim', 'gosma', 'lagrimas', 'salgadinho',
+];
 
 /** As decorações, desde 2026-09-29. */
 export const FROZEN_DECORS: readonly Decor[] = [
