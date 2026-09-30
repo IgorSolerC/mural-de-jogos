@@ -1,7 +1,7 @@
 /** Cada ficha tem um jeito próprio de estar pregada: inclinação, cor e posição do pin.
  *  Derivado do id, então é aleatório mas estável entre visitas. */
 
-import { STOCKS, Stock } from './review';
+import { ROTATION_STOCKS, Stock } from './review';
 
 export const PINS = ['#e62e2d', '#ffd23f', '#2f6bff', '#1fb65a', '#f4f4f0', '#ff7a1a'] as const;
 
@@ -42,6 +42,7 @@ const WALL_PINS: Record<Stock, readonly string[]> = {
   azul: [PINS[0], PINS[4]],
   lilas: [PINS[0], PINS[4]],
   cinza: [PINS[0], PINS[4]],
+  branco: [PINS[0], PINS[4]],
 };
 
 export function pinningFor(id: string, stock?: Stock): Pinning {
@@ -49,7 +50,7 @@ export function pinningFor(id: string, stock?: Stock): Pinning {
   const sideSign = rand(h, 1) < 0.5 ? -1 : 1;
   // Nunca reta: entre 0,8° e 3,4° para um dos lados.
   const tilt = sideSign * (0.8 + rand(h, 2) * 2.6);
-  const s = stock ?? STOCKS[Math.floor(rand(h, 5) * STOCKS.length)];
+  const s = stock ?? ROTATION_STOCKS[Math.floor(rand(h, 5) * ROTATION_STOCKS.length)];
   const pins = WALL_PINS[s];
   return {
     tilt: Math.round(tilt * 10) / 10,

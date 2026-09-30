@@ -350,9 +350,66 @@ export const STAIN_LABEL: Record<Stain, string> = {
  * Coisas de fora postas na ficha depois de pronta: purpurina, estrelinhas douradas, adesivos, um selo,
  * um clipe, argolas, ilhoses. Ficam por cima de tudo, até da foto. Os desenhos estão em `decor-art.ts`.
  */
-export type Decor = 'purpurina' | 'estrelinhas' | 'adesivos' | 'selo' | 'clipe' | 'argolas' | 'ilhoses';
+export type Decor =
+  | 'purpurina'
+  | 'estrelinhas'
+  | 'adesivos'
+  | 'selo'
+  | 'clipe'
+  | 'argolas'
+  | 'ilhoses'
+  | 'confete'
+  | 'neon'
+  | 'gamer'
+  | 'bottons'
+  | 'vidas'
+  | 'postit'
+  | 'ingresso'
+  | 'promocao'
+  | 'carimbo'
+  | 'medalha'
+  | 'lacre'
+  | 'grampos'
+  | 'alfinete'
+  | 'curativo'
+  | 'cuidado'
+  | 'neve'
+  | 'petalas'
+  | 'teia'
+  | 'beijo';
 
-export const DECORS: readonly Decor[] = ['purpurina', 'estrelinhas', 'adesivos', 'selo', 'clipe', 'argolas', 'ilhoses'];
+/**
+ * Na ordem do estojo: o que brilha e a festa; os adesivos e as coisas de jogo; a papelaria (selo,
+ * post-it, ingresso, etiqueta, carimbo, medalha, lacre); o que prende e fura; o tempo e os bichos.
+ */
+export const DECORS: readonly Decor[] = [
+  'purpurina',
+  'confete',
+  'estrelinhas',
+  'neon',
+  'adesivos',
+  'gamer',
+  'bottons',
+  'vidas',
+  'selo',
+  'postit',
+  'ingresso',
+  'promocao',
+  'carimbo',
+  'medalha',
+  'lacre',
+  'clipe',
+  'grampos',
+  'alfinete',
+  'argolas',
+  'ilhoses',
+  'curativo',
+  'cuidado',
+  'neve',
+  'petalas',
+  'teia',
+  'beijo',
+];
 
 export const DECOR_LABEL: Record<Decor, string> = {
   purpurina: 'Purpurina',
@@ -362,11 +419,30 @@ export const DECOR_LABEL: Record<Decor, string> = {
   clipe: 'Clipe',
   argolas: 'Argolas',
   ilhoses: 'Ilhoses',
+  confete: 'Confete',
+  neon: 'Néon',
+  gamer: 'Adesivos gamer',
+  bottons: 'Bottons',
+  vidas: 'Corações de vida',
+  postit: 'Post-it',
+  ingresso: 'Ingresso',
+  promocao: 'Etiqueta de promoção',
+  carimbo: 'Carimbo',
+  medalha: 'Medalha de campeão',
+  lacre: 'Lacre de cera',
+  grampos: 'Grampos',
+  alfinete: 'Alfinete',
+  curativo: 'Curativo',
+  cuidado: 'Fita de cuidado',
+  neve: 'Neve',
+  petalas: 'Pétalas de cerejeira',
+  teia: 'Teia de aranha',
+  beijo: 'Beijo de batom',
 };
 
 /** As decorações que furam o papel: a sombra da ficha segue o recorte, como nos estragos. */
 export function decorCuts(d: Decor | undefined): boolean {
-  return d === 'argolas' || d === 'ilhoses';
+  return d === 'argolas' || d === 'ilhoses' || d === 'alfinete';
 }
 
 /** Os estragos (e manchas) que tiram um pedaço do papel (ou entortam a beirada): a sombra segue o recorte. */

@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { KINDS } from './kinds';
-import { Bonus, Draft, Kind, Relevance, Review, STOCKS, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
+import { Bonus, Draft, Kind, Relevance, ROTATION_STOCKS, Review, STOCKS, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -523,8 +523,9 @@ function withStocks(list: Review[]): Review[] {
   const assigned = new Map<string, Stock>();
   let prev = -1;
   for (const r of byDate) {
-    const i = r.stock ? STOCKS.indexOf(r.stock) : (prev + 1) % STOCKS.length;
-    assigned.set(r.id, STOCKS[i]);
+    // o rodízio de sempre, sem o branco (que veio depois): as fichas de antes não mudam de cor
+    const i = r.stock ? ROTATION_STOCKS.indexOf(r.stock) : (prev + 1) % ROTATION_STOCKS.length;
+    if (!r.stock) assigned.set(r.id, ROTATION_STOCKS[i]);
     prev = i;
   }
   return list.map((r) => (r.stock ? r : { ...r, stock: assigned.get(r.id) }));

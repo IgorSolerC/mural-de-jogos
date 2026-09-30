@@ -15,10 +15,16 @@ export type Difficulty = 'nenhuma' | 'facil' | 'media' | 'dificil' | 'impossivel
 
 export type Verdict = 'masterpiece' | 'recomendo' | 'legalzinho' | 'meh' | 'chato';
 
-export type Stock = 'vermelho' | 'laranja' | 'amarelo' | 'verde' | 'azul' | 'lilas' | 'rosa' | 'cinza';
+export type Stock = 'vermelho' | 'laranja' | 'amarelo' | 'verde' | 'azul' | 'lilas' | 'rosa' | 'cinza' | 'branco';
 
-/** As cartolinas, na volta do círculo de cores e o cinza no fim: a ordem das amostras no editor. */
-export const STOCKS: readonly Stock[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza'];
+/** As cartolinas, na volta do círculo de cores, o cinza e o branco no fim: a ordem das amostras no editor. */
+export const STOCKS: readonly Stock[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'];
+
+/**
+ * O rodízio que dá cor às fichas antigas sem cor (e à tachinha delas): as oito de sempre, sem o
+ * branco, que veio depois. Assim nenhuma ficha de antes muda de cor.
+ */
+export const ROTATION_STOCKS: readonly Stock[] = STOCKS.filter((s) => s !== 'branco');
 
 export const STOCK_LABEL: Record<Stock, string> = {
   vermelho: 'Vermelho',
@@ -29,6 +35,7 @@ export const STOCK_LABEL: Record<Stock, string> = {
   lilas: 'Lilás',
   rosa: 'Rosa',
   cinza: 'Cinza',
+  branco: 'Branco',
 };
 
 /**

@@ -21,6 +21,8 @@
   /* pastel: menos saturado, para o texto preto ter mais contraste */
   --stock-vermelho: #ef7d73;
   --stock-cinza: #c9c3bc;
+  /* o branco de cartolina: um off-white quente, nunca o branco de tela */
+  --stock-branco: #f6f1e7;
 
   /* Tintas */
   --ink: #151515;
@@ -540,11 +542,25 @@ dialog.sheet {
 .cartolina,
 .papel {
   background-color: var(--stock);
-  background-image: var(--textura, none), var(--estampa, none), var(--grao, var(--grao-img));
-  background-size: var(--textura-tam, auto), calc(var(--estampa-lado, 128px) * var(--estampa-zoom, 1)) auto, var(--grao-tam);
+  /* o reforço (--realce, --realce-grao) só existe nas cartolinas claras; nas outras a camada é vazia */
+  background-image: var(--textura, none), var(--realce, none), var(--estampa, none), var(--grao, var(--grao-img)), var(--realce-grao, none);
+  background-size: var(--textura-tam, auto), var(--textura-tam, auto), calc(var(--estampa-lado, 128px) * var(--estampa-zoom, 1)) auto, var(--grao-tam), var(--grao-tam);
   /* a estampa sai do meio: o desenho gigante fica na ficha, não num canto */
-  background-position: 0 0, center, 0 0;
-  background-blend-mode: var(--textura-mistura, normal), multiply, var(--grao-mistura);
+  background-position: 0 0, 0 0, center, 0 0, 0 0;
+  background-blend-mode: var(--textura-mistura, normal), hard-light, multiply, var(--grao-mistura), hard-light;
+}
+
+/* As cartolinas claras: no amarelo e no verde o soft-light quase não mexe (um canal já está no
+   máximo) e o papel sumia (no branco, então, nem se fala). Ganham o reforço em hard-light: a textura mais fraca e a fibra suave (a
+   Lisa, que não tem fibra, fica sem). O azul, um pouco: o reforço leve da textura e a mesma fibra. */
+:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']) :is(.cartolina, .papel, .head),
+:is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']):is(.cartolina, .papel) {
+  --realce: var(--realce-forte, none);
+  --realce-grao: var(--grao-realce, var(--grao-realce-img, none));
+}
+[data-cor='azul'] :is(.cartolina, .papel, .head),
+[data-cor='azul']:is(.cartolina, .papel) {
+  --realce: var(--realce-leve, none);
 }
 
 .cartolina {
@@ -886,6 +902,8 @@ body.has-holo {
 /* Fibra fotográfica centrada em 50% de cinza + soft-light: textura sem encardir a cartolina */
 body.has-paper-texture {
   --grao-img: url('textures/cartolina-fibra.png');
+  /* a mesma fibra, bem mais suave, para o reforço das cartolinas claras */
+  --grao-realce-img: url('textures/cartolina-fibra-realce.png');
   --grao-tam: 420px 420px;
   --grao-mistura: soft-light;
 }

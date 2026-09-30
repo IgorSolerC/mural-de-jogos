@@ -9,6 +9,7 @@
   <form
     class="ficha cartolina"
     [style.--stock]="'var(--stock-' + pin().stock + ')'"
+    [attr.data-cor]="pin().stock"
     (submit)="save($event)"
     novalidate
   >

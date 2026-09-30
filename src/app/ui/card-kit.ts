@@ -27,7 +27,7 @@ import {
   Stain,
   newSeed,
 } from '../core/paper';
-import { motifIcon, paperStyle } from '../core/paper-art';
+import { motifIcon, paperVars } from '../core/paper-art';
 import { STOCKS, STOCK_LABEL, Stock } from '../core/review';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
@@ -88,7 +88,7 @@ interface Option {
             @for (s of stocks; track s) {
               <label class="cor" [class.on]="stock() === s">
                 <input type="radio" name="kit-cor" [value]="s" [checked]="stock() === s" [attr.aria-label]="stockLabels[s]" (change)="stock.set(s)" />
-                <span class="amostra cartolina" [style]="current()" [style.--stock]="'var(--stock-' + s + ')'"></span>
+                <span class="amostra cartolina" [style]="current()" [style.--stock]="'var(--stock-' + s + ')'" [attr.data-cor]="s"></span>
                 @if (stock() === s) {
                   <app-pin class="cor-pin" [color]="pinColor()" />
                 }
@@ -157,7 +157,7 @@ interface Option {
             @for (o of options(); track o.value) {
               <label class="retalho" [class.on]="o.value === value()">
                 <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
-                <span class="mini" [style]="miniVars(o)" [style.--stock]="'var(--stock-' + stock() + ')'">
+                <span class="mini" [style]="miniVars(o)" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
                   <app-paper-art
                     [id]="id()"
                     [scribble]="o.scribble"
@@ -322,7 +322,7 @@ interface Option {
     /* ===== Cor: as amostras de cartolina; a escolhida é pregada com uma tachinha ===== */
     .amostras {
       display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-columns: repeat(9, minmax(0, 1fr));
       gap: 8px;
     }
     .cor {
@@ -645,7 +645,7 @@ export class CardKit {
   protected readonly inkSteps = SCRIBBLE_INK_LABEL;
 
   /** O papel e a estampa da ficha, para as amostras de cor. */
-  protected readonly current = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
+  protected readonly current = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
 
   private readonly all: Record<Exclude<Tab, 'cor'>, Option[]> = {
     papel: PAPERS.map((p) => ({ value: p, label: PAPER_LABEL[p], paper: p })),
@@ -699,7 +699,7 @@ export class CardKit {
     const paper = this.tab() === 'papel' ? o.paper : this.paper();
     const pattern = this.tab() === 'estampa' ? o.pattern : (this.pattern() ?? undefined);
     // o sorteio vale para a estampa escolhida; as outras aparecem centradas
-    return paperStyle(paper, pattern, this.patternLook(), pattern === this.pattern() ? this.patternSeed() : null);
+    return paperVars(paper, pattern, this.patternLook(), pattern === this.pattern() ? this.patternSeed() : null);
   }
 
   protected choose(v: string | null): void {

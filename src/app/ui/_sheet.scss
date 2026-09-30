@@ -25,11 +25,12 @@
   margin-bottom: 16px;
   /* a faixa é da cartolina da ficha: a cor, o papel escolhido e a fibra */
   background-color: var(--stock);
-  background-image: var(--textura, none), var(--estampa, none), var(--grao, var(--grao-img));
-  background-size: var(--textura-tam, auto), calc(var(--estampa-lado, 128px) * var(--estampa-zoom, 1)) auto, var(--grao-tam);
+  /* o reforço (--realce, --realce-grao) só existe nas cartolinas claras; nas outras a camada é vazia */
+  background-image: var(--textura, none), var(--realce, none), var(--estampa, none), var(--grao, var(--grao-img)), var(--realce-grao, none);
+  background-size: var(--textura-tam, auto), var(--textura-tam, auto), calc(var(--estampa-lado, 128px) * var(--estampa-zoom, 1)) auto, var(--grao-tam), var(--grao-tam);
   /* a estampa sai do meio: o desenho gigante fica na ficha, não num canto */
-  background-position: 0 0, center, 0 0;
-  background-blend-mode: var(--textura-mistura, normal), multiply, var(--grao-mistura);
+  background-position: 0 0, 0 0, center, 0 0, 0 0;
+  background-blend-mode: var(--textura-mistura, normal), hard-light, multiply, var(--grao-mistura), hard-light;
 
   h2 {
     font-family: var(--f-marker);

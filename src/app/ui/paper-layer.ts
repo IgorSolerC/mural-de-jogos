@@ -172,8 +172,14 @@ export class PaperDefs {}
       }
     }
     @if (decorHtml(); as d) {
-      <!-- a decoração: por cima de tudo, até da foto e dos adesivos, e pode passar da beirada -->
-      <div class="camada enfeite" [innerHTML]="d"></div>
+      @if (d.under) {
+        <!-- o que foi jogado na ficha (a purpurina, o confete): por cima do texto, por baixo da foto e da nota -->
+        <div class="camada enfeite por-baixo" [innerHTML]="d.under"></div>
+      }
+      @if (d.front) {
+        <!-- a decoração: por cima de tudo, até da foto e dos adesivos, e pode passar da beirada -->
+        <div class="camada enfeite" [innerHTML]="d.front"></div>
+      }
     }
   `,
   styles: `
@@ -231,6 +237,28 @@ export class PaperDefs {}
     .enfeite {
       z-index: 4;
       overflow: visible;
+    }
+    /* acima do texto e do estrago (2), abaixo da foto, da nota e dos adesivos de bônus (3) */
+    .enfeite.por-baixo {
+      z-index: 2;
+    }
+    /* as faíscas da purpurina que piscam */
+    .enfeite ::ng-deep .pisca {
+      animation: pisca 2.6s ease-in-out infinite;
+    }
+    @keyframes pisca {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.12;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .enfeite ::ng-deep .pisca {
+        animation: none;
+      }
     }
     .camada ::ng-deep svg {
       position: absolute;
@@ -309,10 +337,11 @@ export class PaperArtLayer {
   protected readonly decorHtml = computed(() => {
     const d = this.decorDrawing(),
       s = this.size();
+    if (!d || !s || (!d.front && !d.under)) return null;
     // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
-    return d?.front && s
-      ? this.sanitizer.bypassSecurityTrustHtml(`<svg xmlns="http://www.w3.org/2000/svg" width="${s.W}" height="${s.H}" viewBox="0 0 ${s.W} ${s.H}">${d.front}</svg>`)
-      : null;
+    const wrap = (body: string | undefined) =>
+      body ? this.sanitizer.bypassSecurityTrustHtml(`<svg xmlns="http://www.w3.org/2000/svg" width="${s.W}" height="${s.H}" viewBox="0 0 ${s.W} ${s.H}">${body}</svg>`) : null;
+    return { front: wrap(d.front), under: wrap(d.under) };
   });
 
   /** A máscara da cor e do que está escrito: o papel que foi embora e a faixa em que a cor soltou. */

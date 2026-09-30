@@ -2503,3 +2503,27 @@ export function paperStyle(paper: Paper | undefined, pattern: Pattern | undefine
     '--grao': paper === 'lisa' ? 'none' : null,
   };
 }
+
+/**
+ * O reforço do papel nas cartolinas claras (amarelo, verde e, de leve, azul): a mesma textura, mais
+ * fraca, e a fibra suave (`textures/cartolina-fibra-realce.png`), por cima em hard-light. Na cor clara o soft-light quase não mexe (um canal já está no
+ * máximo) e o papel sumia; o hard-light escurece e clareia até ali. A textura vai por cima de um cinza
+ * do meio, com um pouco de opacidade: o reforço forte e o leve. O perolado (que é cor, não relevo), o
+ * glitter e o reciclado ficam como estão. Fora de `paperStyle` de propósito: as digitais dele estão
+ * congeladas.
+ */
+export function accentStyle(paper: Paper | undefined): Record<string, string | null> {
+  const t = textureOf(paper);
+  // a Lisa não tem fibra: nem a do reforço
+  const grain = paper === 'lisa' ? 'none' : null;
+  if (!t || t.blend !== 'soft-light' || paper === 'perolado') return { '--realce-forte': null, '--realce-leve': null, '--grao-realce': grain };
+  const [w, h] = t.size.split(' ').map((v) => parseFloat(v));
+  const inner = t.img.slice(5, -2);
+  const wrap = (op: number) => svgUrl(w, h, `<rect width='100%' height='100%' fill='#808080'/><image href='${inner}' width='${w}' height='${h}' opacity='${op}'/>`);
+  return { '--realce-forte': wrap(0.3), '--realce-leve': wrap(0.16), '--grao-realce': grain };
+}
+
+/** As variáveis do papel, da estampa e do reforço das cartolinas claras, para o `[style]` das fichas. */
+export function paperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null): Record<string, string | null> {
+  return { ...paperStyle(paper, pattern, look, seed), ...accentStyle(paper) };
+}

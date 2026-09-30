@@ -42,7 +42,7 @@ import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
 import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
-import { paperStyle } from '../core/paper-art';
+import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
 import { CardKit } from './card-kit';
@@ -216,7 +216,7 @@ export class ReviewEditor {
   /** A decoração por cima de tudo, e o jeito dela que a pessoa sorteou. */
   protected readonly decor = signal<Decor | null>(null);
   protected readonly decorSeed = signal<number | null>(null);
-  protected readonly headPaper = computed(() => paperStyle(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
+  protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
 

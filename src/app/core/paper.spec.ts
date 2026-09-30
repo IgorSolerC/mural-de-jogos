@@ -68,11 +68,11 @@ describe('papel da ficha', () => {
   it('a decoração e o sorteio dela vão com a ficha, só quando há decoração', () => {
     const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
     expect(sanitizeDecor('argolas')).toBe('argolas');
-    expect(sanitizeDecor('confete')).toBeUndefined();
+    expect(sanitizeDecor('serpentina')).toBeUndefined();
     const r = sanitizeReview({ ...base, decor: 'selo', decorSeed: 4242 })!;
     expect([r.decor, r.decorSeed]).toEqual(['selo', 4242]);
     expect('decorSeed' in sanitizeReview({ ...base, decorSeed: 4242 })!).toBeFalse();
-    expect('decor' in sanitizeReview({ ...base, decor: 'confete' })!).toBeFalse();
+    expect('decor' in sanitizeReview({ ...base, decor: 'serpentina' })!).toBeFalse();
   });
 
   it('o sorteio do rabisco vai com a ficha, só quando há rabisco', () => {
@@ -295,7 +295,7 @@ describe('papel da ficha', () => {
     it('cada uma desenha algo, e o mesmo sorteio é sempre a mesma; outro sorteio, outra', () => {
       for (const decor of DECORS) {
         const one = decorArt({ ...base, decor, seed: 111 });
-        expect(one.front.length).withContext(decor).toBeGreaterThan(100);
+        expect(one.front.length + (one.under?.length ?? 0)).withContext(decor).toBeGreaterThan(100);
         expect(decorArt({ ...base, decor, seed: 111 })).withContext(decor).toEqual(one);
         expect(decorArt({ ...base, decor, seed: 222 })).withContext(decor).not.toEqual(one);
       }

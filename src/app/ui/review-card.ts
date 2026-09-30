@@ -19,7 +19,7 @@ import {
   weightOf,
 } from '../core/review';
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
-import { paperStyle } from '../core/paper-art';
+import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
@@ -55,6 +55,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     '[class.picking]': 'picking()',
     '[class.picked]': 'pickedAt() !== null',
     '[style.--stock]': '"var(--stock-" + pin().stock + ")"',
+    '[attr.data-cor]': 'pin().stock',
     '[style.--pen]': 'pin().stock === "vermelho" ? "var(--ink)" : null',
     '[style.--tilt]': 'pin().tilt',
     '[style.--pin-x]': 'pinX() + "%"',
@@ -235,9 +236,12 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       outline: none;
     }
 
+    /* a tachinha segura tudo, até a decoração (4) que passa por cima da foto */
     .pin {
       top: -9px;
       left: calc(var(--pin-x) - 13px);
+      z-index: 5;
+      pointer-events: none;
     }
 
     /* ===== Cabeça: a foto colada + o que foi escrito + o julgamento ===== */
@@ -549,7 +553,7 @@ export class ReviewCard {
 
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   protected readonly profile = computed(() => profileOf(this.review().kind));
-  protected readonly paperVars = computed(() => paperStyle(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed));
+  protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed));
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().stain) || decorCuts(this.review().decor));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() => `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`);

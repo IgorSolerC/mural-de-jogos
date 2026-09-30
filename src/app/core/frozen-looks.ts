@@ -38,7 +38,12 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
 export const FROZEN_STAINS: readonly Stain[] = ['molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas'];
 
 /** As decorações, desde 2026-09-29. */
-export const FROZEN_DECORS: readonly Decor[] = ['purpurina', 'estrelinhas', 'adesivos', 'selo', 'clipe', 'argolas', 'ilhoses'];
+export const FROZEN_DECORS: readonly Decor[] = [
+  'purpurina', 'estrelinhas', 'adesivos', 'selo', 'clipe', 'argolas', 'ilhoses',
+  // 2026-09-29, a segunda leva
+  'confete', 'neon', 'gamer', 'bottons', 'vidas', 'postit', 'ingresso', 'promocao', 'carimbo', 'medalha', 'lacre',
+  'grampos', 'alfinete', 'curativo', 'cuidado', 'neve', 'petalas', 'teia', 'beijo',
+];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */
 const SEEDS: readonly (number | undefined)[] = [undefined, 1, 111, 222, 4242, 98765, 2147483647];
