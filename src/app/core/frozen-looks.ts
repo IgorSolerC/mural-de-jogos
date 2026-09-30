@@ -30,6 +30,7 @@ export const FROZEN_SCRIBBLES: readonly Scribble[] = [
   'novelo', 'hachura', 'riscado', 'contorno', 'aula', 'moldura', 'renda', 'cupom', 'pelicula', 'regua', 'trepadeira', 'bandeirinhas',
   // 2026-09-30, as molduras e os rabiscos de tema
   'gotica', 'arabesco', 'dialogo', 'hud', 'runas', 'farpado', 'terco', 'invocacao', 'tesouro', 'olhos',
+  'cybertribal',
 ];
 export const FROZEN_DAMAGES: readonly Damage[] = [
   'rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado',
@@ -42,7 +43,7 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
 export const FROZEN_STAINS: readonly Stain[] = [
   'molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue',
   // 2026-09-30, a terceira leva
-  'passos', 'mao', 'nanquim', 'gosma', 'lagrimas', 'salgadinho',
+  'passos', 'mao', 'nanquim', 'gosma', 'lagrimas', 'salgadinho', 'cybertribal',
 ];
 
 /** As decorações, desde 2026-09-29. */

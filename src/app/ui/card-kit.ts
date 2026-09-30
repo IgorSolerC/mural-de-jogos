@@ -27,6 +27,7 @@ import {
   Stain,
   newSeed,
 } from '../core/paper';
+import { DAMAGE_ICON, DECOR_ICON, SCRIBBLE_ICON, STAIN_ICON, kitIcon } from '../core/kit-icons';
 import { motifIcon, paperVars } from '../core/paper-art';
 import { STOCKS, STOCK_LABEL, Stock, isDarkStock } from '../core/review';
 import { PaperArtLayer } from './paper-layer';
@@ -137,14 +138,15 @@ interface Option {
               </label>
             </div>
           }
-          @if (tab() === 'estampa') {
-            <!-- são muitas: um desenho só de cada, sem o retalho de cartolina, para caberem à vista -->
+          @if (tab() !== 'papel') {
+            <!-- são muitas: um desenho só de cada, sem o retalho de cartolina, para caberem à vista e se
+                 lerem de longe; a ficha ao lado mostra como fica -->
             <div class="carimbos">
               @for (o of options(); track o.value) {
                 <label class="carimbo" [class.on]="o.value === value()">
-                  <input type="radio" name="kit-estampa" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
-                  @if (o.pattern) {
-                    <span class="icone" [innerHTML]="icons[o.pattern]"></span>
+                  <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+                  @if (iconOf(o); as icon) {
+                    <span class="icone" [innerHTML]="icon"></span>
                   } @else {
                     <span class="icone lisa"></span>
                   }
@@ -593,6 +595,22 @@ export class CardKit {
     const sanitizer = inject(DomSanitizer);
     return Object.fromEntries(PATTERNS.map((p) => [p, sanitizer.bypassSecurityTrustHtml(motifIcon(p))])) as Record<Pattern, SafeHtml>;
   })();
+  /** O desenho de cada rabisco, estrago, mancha e decoração, no mesmo traço das estampas. */
+  private readonly kitIcons: Record<string, SafeHtml> = (() => {
+    const sanitizer = inject(DomSanitizer);
+    const out: Record<string, SafeHtml> = {};
+    // a mancha e o rabisco cybertribal têm o mesmo nome: a chave leva o tipo junto
+    for (const [kind, set] of Object.entries({ rabisco: SCRIBBLE_ICON, estrago: DAMAGE_ICON, mancha: STAIN_ICON, decoracao: DECOR_ICON }))
+      for (const [k, v] of Object.entries(set)) out[`${kind}:${k}`] = sanitizer.bypassSecurityTrustHtml(kitIcon(v));
+    return out;
+  })();
+
+  /** O ícone da opção: o da estampa, ou o do rabisco, do estrago, da mancha ou da decoração. */
+  protected iconOf(o: Option): SafeHtml | null {
+    if (o.pattern) return this.icons[o.pattern];
+    const kind = o.scribble ? 'rabisco' : o.damage ? 'estrago' : o.stain ? 'mancha' : o.decor ? 'decoracao' : null;
+    return kind ? (this.kitIcons[`${kind}:${o.value}`] ?? null) : null;
+  }
 
   readonly id = input.required<string>();
   readonly pinColor = input.required<string>();

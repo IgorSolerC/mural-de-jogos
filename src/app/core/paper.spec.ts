@@ -244,7 +244,7 @@ describe('papel da ficha', () => {
         for (const s of [{ W: 420, H: 300 }, { W: 340, H: 150 }, { W: 150, H: 107, plain: true }])
           for (let seed = 1; seed <= 12; seed++) {
             const art = paperArt({ ...base, ...s, ...((STAINS as readonly string[]).includes(d) ? { stain: d as (typeof STAINS)[number], stainSeed: seed } : { damage: d as (typeof DAMAGES)[number], seed }) });
-            const drawn = art.cut.length + art.core.length + art.fundo.length + art.clareia.length + art.relevo.length + art.frente.length + art.fita.length;
+            const drawn = art.cut.length + art.core.length + art.fundo.length + art.clareia.length + art.relevo.length + art.frente.length + art.fita.length + (art.topo?.length ?? 0);
             expect(drawn).withContext(`${d} ${s.W}x${s.H} ${seed}`).toBeGreaterThan(0);
             expect(JSON.stringify(art)).withContext(`${d} ${s.W}x${s.H} ${seed}`).not.toMatch(/NaN|Infinity|undefined/);
           }

@@ -271,6 +271,11 @@ export interface PaperArt {
   frente: string;
   /** A fita do remendo: colada por cima do rasgo, atravessa a fresta sem ser recortada. */
   fita: string;
+  /**
+   * Por cima de tudo, até da foto e da nota: o que caiu na ficha depois de pronta (a gosma). Só existe
+   * quando tem algo, para os desenhos de antes continuarem iguais.
+   */
+  topo?: string;
 }
 
 export interface ArtInput {
@@ -1270,6 +1275,18 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
       }
       return g(body, 1.2, 0.9);
     }
+    case 'cybertribal': {
+      // a moldura neotribal: a trama correndo pelas quatro beiradas, mais larga nos lados, a lápis
+      const q = Math.max(0.4, k);
+      const side = Math.min(W * 0.16, H * 0.3);
+      const flat = Math.min(H * 0.14, W * 0.1);
+      let body = '';
+      for (const right of [false, true]) body += `<g transform='translate(${f1(right ? W - side * 0.36 : side * 0.36)} 0)'>${tribalWeave(r, H, side, q * 0.8, 0.5)}</g>`;
+      for (const bottom of [false, true])
+        body += `<g transform='translate(0 ${f1(bottom ? H - flat * 0.34 : flat * 0.34)}) rotate(-90) scale(-1 1)'>${tribalWeave(r, W, flat, q * 0.7, 0)}</g>`;
+      // o lápis bem apertado: a trama só lê se o traço for firme; sem o filtro de teia, que apagaria o fio fino
+      return g(body.replace(/<path /g, "<path class='f' "), 1, 1.5);
+    }
     case 'aula': {
       const keys =['gato', 'estrelinhas', 'velha', 'pauzinhos', 'espiral', 'coracao', 'raio', 'carinha', 'lua', 'flor', 'fantasma', 'setinha', 'caveira', 'teste', 'cogumelo', 'olho', 'nuvem', 'coroa'];
       const cell = 64 * Math.max(0.5, k);
@@ -1728,13 +1745,16 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
       inkSplat(W, H, k, r, out);
       break;
     case 'gosma':
-      slime(W, H, k, r, out);
+      slime(W, H, k, r, uid, out);
       break;
     case 'lagrimas':
       tears(W, H, k, r, out);
       break;
     case 'salgadinho':
       snackFingers(W, H, k, r, out);
+      break;
+    case 'cybertribal':
+      tribalInk(W, H, k, r, out);
       break;
   }
 }
@@ -2044,7 +2064,179 @@ function specks(cx: number, cy: number, sx: number, sy: number, R: number, k: nu
   return out;
 }
 
+// ===================== Cybertribal =====================
+
+/** Pontos ao longo de uma linha macia (Catmull-Rom) que passa pelos pontos de controle. */
+function sampleCurve(ctrl: Pt[], n: number): Pt[] {
+  const out: Pt[] = [];
+  const seg = ctrl.length - 1;
+  for (let i = 0; i <= n; i++) {
+    const u = (i / n) * seg,
+      j = Math.min(seg - 1, Math.floor(u)),
+      t = u - j;
+    const p0 = ctrl[j - 1] ?? ctrl[j],
+      p1 = ctrl[j],
+      p2 = ctrl[j + 1],
+      p3 = ctrl[j + 2] ?? p2;
+    const t2 = t * t,
+      t3 = t2 * t;
+    out.push([
+      0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3),
+      0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3),
+    ]);
+  }
+  return out;
+}
+
+/** Uma lâmina: a linha engrossada pelo perfil `w(t)` (zero nas pontas = ponta afiada), fechada e lisa. */
+function blade(ctrl: Pt[], w: (t: number) => number, n = 28): string {
+  const pts = sampleCurve(ctrl, n);
+  const left: Pt[] = [],
+    right: Pt[] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = pts[Math.max(0, i - 1)],
+      b = pts[Math.min(n, i + 1)];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const nx = -(b[1] - a[1]) / len,
+      ny = (b[0] - a[0]) / len;
+    const hw = w(i / n) / 2;
+    left.push([pts[i][0] + nx * hw, pts[i][1] + ny * hw]);
+    right.push([pts[i][0] - nx * hw, pts[i][1] - ny * hw]);
+  }
+  // a curva lisa dos dois lados, e as pontas em bico (sem arredondar)
+  return `${smooth(left)}${smooth(right.reverse()).replace(/^M/, 'L')}Z`;
+}
+
+/** Perfil de largura: grosso na base e afiado na ponta (os espinhos). */
+const toTip = (base: number) => (t: number) => base * Math.pow(1 - t, 1.5) * (1 + (0.6 * Math.max(0, 0.15 - t)) / 0.15);
+
+/**
+ * A trama cybertribal (o neotribal das tatuagens de agora): uma faixa comprida de fios finos que se
+ * trançam, engrossando e afinando, cheios de espinhos miúdos, e umas células (anéis) presas entre
+ * eles. Desenhada em pé, de 0 a `len` no eixo y, com a largura `wid` centrada em x = 0. O filtro
+ * `papel-teia` funde o que se cruza em membranas, como na tinta de verdade.
+ */
+function tribalWeave(r: () => number, len: number, wid: number, q: number, lace = 1): string {
+  let out = '';
+  const strands = 5 + Math.floor(r() * 4);
+  for (let s = 0; s < strands; s++) {
+    const f = 0.5 + r() * 1.1,
+      ph = r() * Math.PI * 2,
+      f2 = 1.6 + r() * 1.4,
+      ph2 = r() * Math.PI * 2;
+    const amp = (wid / 2) * (0.45 + r() * 0.5);
+    const off = (r() - 0.5) * wid * 0.35;
+    const y0 = -len * (0.02 + r() * 0.08),
+      y1 = len * (1.02 + r() * 0.08);
+    // cada fio só percorre um trecho: uns vão de ponta a ponta, outros nascem e somem no meio
+    const from = r() < 0.6 ? 0 : r() * 0.45,
+      to = r() < 0.6 ? 1 : 0.55 + r() * 0.45;
+    const at = (t: number): Pt => {
+      const y = y0 + (y1 - y0) * t;
+      return [off + amp * Math.sin(Math.PI * 2 * f * t + ph) + amp * 0.25 * Math.sin(Math.PI * 2 * f2 * t + ph2), y];
+    };
+    const n = 40;
+    const ctrl: Pt[] = [];
+    for (let i = 0; i <= 8; i++) ctrl.push(at(from + ((to - from) * i) / 8));
+    const base = (1.2 + r() * 1.6) * q;
+    const swell = [r() * 6, r() * 6, 5 + r() * 6];
+    // traço de pincel: engorda e afina bastante pelo caminho, afiado nas pontas
+    out += `<path d='${blade(ctrl, (t) => base * (0.62 + 0.9 * Math.sin(t * swell[2] + swell[0]) ** 4 + 0.9 * Math.max(0, Math.sin(t * 3 + swell[1])) ** 2) * Math.min(1, t * 7, (1 - t) * 7), n)}'/>`;
+    // os espinhos: pequenos, curvos, dos dois lados, a maioria apontando para o mesmo lado do fio
+    const flow = r() < 0.5 ? 1 : -1;
+    const pts = sampleCurve(ctrl, n);
+    const segLen = Math.hypot(pts[n][0] - pts[0][0], pts[n][1] - pts[0][1]) / n || 1;
+    const every = Math.max(2, Math.round(((14 + r() * 12) * q) / segLen));
+    for (let i = 2 + Math.floor(r() * every); i < n - 1; i += every) {
+      const p = pts[i],
+        a0 = pts[i - 1],
+        a1 = pts[i + 1];
+      const l = Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) || 1;
+      const dx = (a1[0] - a0[0]) / l,
+        dy = (a1[1] - a0[1]) / l;
+      const side = r() < 0.5 ? 1 : -1;
+      const nx = -dy * side,
+        ny = dx * side;
+      const dir = r() < 0.8 ? flow : -flow;
+      // a maioria miúda; de vez em quando uma garra comprida que volta em gancho
+      const hook = r() < 0.15;
+      const L = (hook ? 14 + r() * 12 : 4 + Math.pow(r(), 1.5) * 9) * q;
+      const mid: Pt = [p[0] + nx * L * 0.55 + dx * dir * L * 0.15, p[1] + ny * L * 0.55 + dy * dir * L * 0.15];
+      const tip: Pt = [p[0] + nx * L * 0.75 + dx * dir * L * 0.75, p[1] + ny * L * 0.75 + dy * dir * L * 0.75];
+      const ctrl2: Pt[] = hook ? [p, mid, [p[0] + nx * L * 0.95 + dx * dir * L * 0.6, p[1] + ny * L * 0.95 + dy * dir * L * 0.6], [p[0] + nx * L * 0.6 + dx * dir * L * 1.05, p[1] + ny * L * 0.6 + dy * dir * L * 1.05]] : [p, mid, tip];
+      out += `<path d='${blade(ctrl2, toTip(base * (hook ? 1.9 : 1.4 + r() * 0.6)), hook ? 18 : 10)}'/>`;
+    }
+  }
+  // as membranas: uma lâmina de tinta entre os fios, esticada no rumo da faixa, furada de células
+  // ovais de vários tamanhos (as paredes finas entre elas são o rendado)
+  const patches = Math.round((1 + Math.floor(r() * 3)) * lace);
+  for (let c = 0; c < patches; c++) {
+    const cy = len * (0.15 + r() * 0.7),
+      cx = (r() - 0.5) * wid * 0.35;
+    const mw = wid * (0.22 + r() * 0.18),
+      mh = len * (0.08 + r() * 0.08);
+    const outline: Pt[] = [];
+    const ph = [r() * 6, r() * 6];
+    for (let j = 0; j < 18; j++) {
+      const a = (j / 18) * Math.PI * 2;
+      const w = 1 + 0.18 * Math.sin(a * 3 + ph[0]) + 0.12 * Math.sin(a * 5 + ph[1]);
+      // pontas afiadas em cima e embaixo: a membrana escorre para os fios
+      const pinch = 1 + 0.55 * Math.abs(Math.sin(a)) ** 8;
+      outline.push([cx + Math.cos(a) * mw * 0.5 * w, cy + Math.sin(a) * mh * 0.5 * w * pinch]);
+    }
+    let d = `${smooth([...outline, outline[0]])}Z`;
+    const holes: { x: number; y: number; rx: number; ry: number }[] = [];
+    for (let t = 0; t < 40 && holes.length < 9; t++) {
+      const rx = mw * (0.1 + r() * 0.17),
+        ry = rx * (1.2 + r() * 0.7);
+      const x = cx + (r() - 0.5) * (mw - rx * 2.4),
+        y = cy + (r() - 0.5) * (mh - ry * 2.4);
+      const wall = 1.1 * q;
+      if (holes.every((h) => Math.hypot((h.x - x) / (h.rx + rx + wall), (h.y - y) / (h.ry + ry + wall)) > 1)) holes.push({ x, y, rx, ry });
+    }
+    for (const h of holes) {
+      const pts: Pt[] = [];
+      for (let j = 0; j < 12; j++) {
+        const a = (j / 12) * Math.PI * 2;
+        pts.push([h.x + Math.cos(a) * h.rx, h.y + Math.sin(a) * h.ry]);
+      }
+      d += `${smooth([...pts, pts[0]])}Z`;
+    }
+    out += `<path fill-rule='evenodd' d='${d}'/>`;
+  }
+  return out;
+}
+
 // ===================== As manchas da terceira leva (2026-09-30) =====================
+
+// ----- Cybertribal -----
+
+/**
+ * Uma tatuagem neotribal de canetão: uma faixa de trama descendo por uma beirada (ou duas, uma de
+ * cada lado, como um par de mangas), às vezes atravessando a ficha de viés. Tinta preta chapada; o
+ * filtro de teia funde os fios onde eles se cruzam.
+ */
+function tribalInk(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const way = r();
+  let art = '';
+  if (way < 0.4) {
+    // o par: uma de cada lado
+    const wid = W * (0.18 + r() * 0.06);
+    for (const right of [false, true]) art += `<g transform='translate(${f1(right ? W - wid * 0.42 : wid * 0.42)} 0)'>${tribalWeave(r, H, wid, q)}</g>`;
+  } else if (way < 0.85) {
+    const wid = W * (0.24 + r() * 0.08);
+    const right = r() < 0.7;
+    art = `<g transform='translate(${f1(right ? W - wid * 0.45 : wid * 0.45)} 0)'>${tribalWeave(r, H, wid, q)}</g>`;
+  } else {
+    // de viés, de uma quina de baixo até a de cima do outro lado
+    const len = Math.hypot(W, H) * 1.05;
+    const wid = Math.min(W, H) * (0.3 + r() * 0.08);
+    const ang = (Math.atan2(H, W) * 180) / Math.PI - 90 + (r() < 0.5 ? 0 : 2 * (90 - (Math.atan2(H, W) * 180) / Math.PI));
+    art = `<g transform='translate(${f1(W / 2)} ${f1(H / 2)}) rotate(${f1(ang)}) translate(0 ${f1(-len / 2)})'>${tribalWeave(r, len, wid, q)}</g>`;
+  }
+  out.clareia += `<g opacity='.92' fill='rgb(14 13 18)'><g filter='url(#papel-teia)'>${art}</g></g>`;
+}
 
 // ----- Passinhos -----
 
@@ -2114,13 +2306,15 @@ function capsule(a: Pt, b: Pt, w: number): string {
 }
 
 /**
- * A marca de uma mão suja de sangue: a palma (com o miolo que não encostou mais claro), os dedos em
- * falanges (as dobras não marcam) e o polegar aberto. Às vezes a mão escorregou: os dedos e a palma
- * deixam rastros compridos. De vez em quando são duas mãos.
+ * A marca de uma mão suja de sangue, como um carimbo de pele: só marca onde a mão encostou. Os
+ * dedos em falanges (as dobras ficam em branco), a ponta de cada dedo com as linhas da digital, a
+ * palma com o miolo que não encostou e as três linhas da mão abertas no sangue, e o polegar. Pouco
+ * sangue: a tinta falha em grãos e quase não respinga. De vez em quando são duas mãos, e às vezes a
+ * mão arrastou um pouquinho.
  */
 function bloodyHand(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
   const q = Math.max(0.4, k);
-  const hands = r() < 0.25 ? 2 : 1;
+  const hands = r() < 0.2 ? 2 : 1;
   let body = '',
     drops = '',
     masks = '';
@@ -2150,23 +2344,44 @@ function bloodyHand(W: number, H: number, k: number, r: () => number, uid: strin
       [0.35, 0.64, 19],
     ];
     const tips: Pt[] = [];
+    // o que não marca: o miolo da palma, as dobras e as linhas da pele (entram na máscara, em preto)
+    let skin = '';
     for (const [u, len, tilt] of fingers) {
       const a = (tilt * Math.PI) / 180;
       const at = (s: number) => T(u + Math.sin(a) * s, -0.1 - Math.cos(a) * s);
       const segs = [0, 0.42, 0.74, 1].map((f) => f * len * (0.95 + r() * 0.1));
       for (let j = 0; j < 3; j++) hand += capsule(at(segs[j] + (j ? 0.05 : 0)), at(segs[j + 1] - 0.05), P * (0.21 - j * 0.012));
       tips.push(at(segs[3] - 0.06));
+      // a digital na ponta do dedo: voltas concêntricas, um pouco achatadas, no rumo do dedo
+      const c = at(segs[2] + (segs[3] - segs[2]) * 0.52);
+      const ang = up + flip * tilt;
+      for (let i = 1; i <= 4; i++) {
+        const t = i / 4.4;
+        skin += `<ellipse cx='${f1(c[0])}' cy='${f1(c[1])}' rx='${f1(P * 0.085 * t)}' ry='${f1(P * 0.12 * t)}' transform='rotate(${f1(ang)} ${f1(c[0])} ${f1(c[1])})'/>`;
+      }
     }
-    // o polegar, aberto para o lado
+    // o polegar, aberto para o lado, com a digital na ponta
     const ta = ((42 + r() * 14) * Math.PI) / 180;
     const th = (s: number) => T(-0.4 - Math.sin(ta) * s, 0.5 - Math.cos(ta) * s);
     hand += capsule(th(0.05), th(0.36), P * 0.27) + capsule(th(0.43), th(0.66), P * 0.23);
-    // o miolo da palma quase não encosta: clareia num borrão
-    const hollow = T(0.02, 0.4);
-    masks += `<mask id='${uid}-mao${h}' maskUnits='userSpaceOnUse' x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}'><rect x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}' fill='#fff'/><ellipse cx='${f1(hollow[0])}' cy='${f1(hollow[1])}' rx='${f1(P * 0.2)}' ry='${f1(P * 0.16)}' fill='#000' fill-opacity='.42' filter='url(#papel-borra)'/></mask>`;
-    // escorregou: rastros de cada dedo e da palma para o lado do pulso
+    const tc = th(0.55);
+    for (let i = 1; i <= 4; i++) {
+      const t = i / 4.4;
+      skin += `<ellipse cx='${f1(tc[0])}' cy='${f1(tc[1])}' rx='${f1(P * 0.1 * t)}' ry='${f1(P * 0.13 * t)}' transform='rotate(${f1(up - flip * (90 - (ta * 180) / Math.PI))} ${f1(tc[0])} ${f1(tc[1])})'/>`;
+    }
+    // as três linhas da mão: do coração, da cabeça e da vida
+    const line = (a: Pt, c: Pt, b: Pt) => `<path d='M${f1(a[0])} ${f1(a[1])}Q${f1(c[0])} ${f1(c[1])} ${f1(b[0])} ${f1(b[1])}'/>`;
+    const creases = line(T(0.52, 0.2), T(0.12, 0.1), T(-0.3, 0.06)) + line(T(-0.45, 0.3), T(0, 0.28), T(0.36, 0.44)) + line(T(-0.36, 0.26), T(-0.06, 0.55), T(-0.14, 0.9));
+    const hollow = T(0.04, 0.45);
+    masks +=
+      `<mask id='${uid}-mao${h}' maskUnits='userSpaceOnUse' x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}'>` +
+      `<rect x='-50' y='-50' width='${f1(W + 100)}' height='${f1(H + 100)}' fill='#fff'/>` +
+      `<ellipse cx='${f1(hollow[0])}' cy='${f1(hollow[1])}' rx='${f1(P * 0.27)}' ry='${f1(P * 0.21)}' fill='#000' fill-opacity='.8' filter='url(#papel-borra)'/>` +
+      `<g fill='none' stroke='#000'><g stroke-width='${f1(P * 0.024)}' stroke-opacity='.8' stroke-linecap='round'>${creases}</g><g stroke-width='${f1(P * 0.011)}' stroke-opacity='.85'>${skin}</g></g>` +
+      `</mask>`;
+    // arrastou um pouquinho: rastros curtos de cada dedo e da palma para o lado do pulso
     let smear = '';
-    if (r() < 0.45) {
+    if (r() < 0.15) {
       const back = T(0, 1),
         base = T(0, 0);
       const len = Math.hypot(back[0] - base[0], back[1] - base[1]);
@@ -2186,18 +2401,20 @@ function bloodyHand(W: number, H: number, k: number, r: () => number, uid: strin
         }
         return `<path d='${smooth([...pts, ...back2, pts[0]])}Z'/>`;
       };
-      const reach = P * (1.4 + r() * 1.2);
-      for (const tip of tips) smear += trail(tip, P * 0.2, reach * (0.7 + r() * 0.5));
-      smear += trail(T(0, 0.6), P * 0.8, reach * (0.8 + r() * 0.4));
+      const reach = P * (0.35 + r() * 0.35);
+      for (const tip of tips) smear += trail(tip, P * 0.16, reach * (0.7 + r() * 0.5));
+      smear += trail(T(0, 0.6), P * 0.6, reach * (0.8 + r() * 0.4));
     }
     body += `<g mask='url(#${uid}-mao${h})'>${hand}${smear}</g>`;
-    for (let i = 0; i < 6 + Math.floor(r() * 6); i++) {
+    // um ou outro pingo miúdo, só
+    for (let i = 0; i < Math.floor(r() * 3); i++) {
       const a = r() * Math.PI * 2,
-        d = P * (0.9 + r() * 0.9);
-      drops += `<circle cx='${f1(cx + Math.cos(a) * d)}' cy='${f1(cy + Math.sin(a) * d)}' r='${f1(P * (0.012 + r() * r() * 0.05))}'/>`;
+        d = P * (0.9 + r() * 0.7);
+      drops += `<circle cx='${f1(cx + Math.cos(a) * d)}' cy='${f1(cy + Math.sin(a) * d)}' r='${f1(P * (0.01 + r() * 0.015))}'/>`;
     }
   }
-  out.clareia += `<defs>${masks}</defs><g fill='rgb(150 16 26)' opacity='.78'><g filter='url(#papel-agua)'>${body}</g>${drops}</g>`;
+  // o sangue secou na pele e falhou em grãos: o filtro de lama faz a borda borrada e os furinhos
+  out.clareia += `<defs>${masks}</defs><g fill='rgb(126 18 24)' opacity='.72'><g filter='url(#papel-lama)'>${body}</g>${drops}</g>`;
 }
 
 // ----- Nanquim -----
@@ -2243,52 +2460,139 @@ function inkSplat(W: number, H: number, k: number, r: () => number, out: PaperAr
 
 // ----- Gosma -----
 
-/** Gosma verde escorrendo da beirada de cima: a faixa grudada no alto e os pingos pendurados, com brilho. */
-function slime(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+/** As gosmas: a cor e o brilho. */
+const SLIME: readonly (readonly [string, string])[] = [
+  ['#7fd12c', '#e9ffc9'],
+  ['#ff5ca8', '#ffe0ef'],
+  ['#a35cff', '#efe0ff'],
+  ['#2fb8ff', '#dff4ff'],
+  ['#ff9a1f', '#fff0d6'],
+  ['#d8f23a', '#fbffe0'],
+];
+
+/**
+ * Gosma escorrendo da beirada de cima, por cima de tudo (até da foto): a faixa grudada no alto e os
+ * pingos pendurados, uns compridos com a gota pesada na ponta, tudo numa massa só (os pedaços se
+ * fundem como líquido), translúcida, de uma cor só, com o brilho molhado e umas bolhas. Às vezes uns
+ * pingos já caíram mais abaixo.
+ */
+function slime(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
   const q = Math.max(0.4, k);
-  const a = W * (r() * 0.4),
-    b = Math.min(W + 4, a + W * (0.45 + r() * 0.5));
+  const [color, shine] = SLIME[Math.floor(r() * SLIME.length)];
+  const a = W * (r() * 0.35),
+    b = Math.min(W + 6, a + W * (0.45 + r() * 0.5));
   const ph = [r() * 6, r() * 6];
-  const band = (x: number) => (4 + 2.5 * Math.sin(x / (21 * q) + ph[0]) + 1.5 * Math.sin(x / (9 * q) + ph[1])) * q;
-  // a faixa: afina nas pontas
+  const band = (x: number) => (10 + 3.5 * Math.sin(x / (23 * q) + ph[0]) + 2 * Math.sin(x / (9 * q) + ph[1])) * q;
+  // a faixa grudada no alto, afinando nas pontas
   const pts: Pt[] = [];
-  for (let x = a; x <= b; x += 5 * q) {
-    const t = Math.min(1, (x - a) / (14 * q), (b - x) / (14 * q));
-    pts.push([x, -2 + band(x) * Math.sqrt(Math.max(0, t))]);
+  for (let x = a; x <= b; x += 4 * q) {
+    const t = Math.min(1, (x - a) / (16 * q), (b - x) / (16 * q));
+    pts.push([x, -4 + (band(x) + 4) * Math.sqrt(Math.max(0, t))]);
   }
-  let body = `<path d='M${f1(a)} -3${cont(pts.map(([x, y]) => [x, y] as Pt))}L${f1(b)} -3Z'/>`;
-  let shine = '';
-  const n = 3 + Math.floor(r() * 5);
+  let goo = `<path d='M${f1(a)} -6${cont(pts)}L${f1(b)} -6Z'/>`;
+  let gloss = '';
+  /**
+   * Um fio de gosma: um tubo que desce quase da mesma grossura, engordando e afinando um pouco pelo
+   * caminho, largo onde sai da massa (o filtro solda e faz o arco entre um fio e outro) e que incha
+   * devagar no fim numa gota comprida, fechada em meia-volta. Devolve o contorno e a linha do brilho.
+   */
+  const drip = (x: number, top: number, L: number, w: number): { d: string; shine: string; tip: Pt; tw: number } => {
+    const ph = r() * 6,
+      wave = (7 + r() * 6) * q,
+      bulge = 0.1 + r() * 0.12;
+    const drop = Math.min(L * 0.4, w * (2.6 + r() * 1.2));
+    const swell = 1.4 + r() * 0.25;
+    const half = (y: number) => {
+      const s = y - top;
+      const flare = 1 + 1.6 * Math.exp(-s / (w * 0.9));
+      const body = 1 + bulge * Math.sin(s / wave + ph) * Math.min(1, s / (w * 2));
+      const t = clamp((s - (L - drop * 1.6)) / drop, 0, 1);
+      const tail = 1 + (swell - 1) * (t * t * (3 - 2 * t));
+      return (w / 2) * flare * body * tail;
+    };
+    const n = Math.max(10, Math.round(L / (3 * q)));
+    const left: Pt[] = [],
+      right: Pt[] = [];
+    const lean = (r() - 0.5) * w * 0.6;
+    const cx = (y: number) => x + lean * ((y - top) / L) ** 2;
+    const end = top + L - half(top + L);
+    for (let i = 0; i <= n; i++) {
+      const y = top + ((end - top) * i) / n;
+      left.push([cx(y) - half(y), y]);
+      right.push([cx(y) + half(y), y]);
+    }
+    // o fim: meia-volta por baixo, da direita para a esquerda
+    const hr = half(end);
+    const capLR: Pt[] = [];
+    for (let i = 7; i >= 1; i--) {
+      const ang = (i / 8) * Math.PI;
+      capLR.push([cx(end) + Math.cos(ang) * hr, end + Math.sin(ang) * hr * 1.08]);
+    }
+    const outline = [...left, ...capLR, ...right.reverse()];
+    const d = `${smooth([...outline, outline[0]])}Z`;
+    // o brilho: um fio fino rente à beirada da esquerda, do alto até perto da gota
+    const sl: Pt[] = [];
+    for (let i = 1; i < n - 1; i += 2) {
+      const y = top + ((end - top) * i) / n;
+      sl.push([cx(y) - half(y) * 0.45, y]);
+    }
+    return { d, shine: sl.length > 1 ? smooth(sl) : '', tip: [cx(end), end], tw: hr };
+  };
+  const n = 4 + Math.floor(r() * 4);
   for (let i = 0; i < n; i++) {
-    const x = a + (b - a) * ((i + 0.3 + r() * 0.4) / n);
-    const yb = band(x) - 2;
-    const w = (4.5 + r() * 4) * q;
-    const L = (12 + Math.pow(r(), 1.5) * 60) * q;
-    const bl = w * (0.72 + r() * 0.15);
-    // grosso no alto, afinando, e a gota pesada na ponta, só um pouco mais larga que o pescoço
-    body += `<path d='M${f1(x - w * 2)} ${f1(yb - 1)}C${f1(x - w)} ${f1(yb)} ${f1(x - w * 0.8)} ${f1(yb + L * 0.15)} ${f1(x - w * 0.72)} ${f1(yb + L * 0.4)}C${f1(x - w * 0.62)} ${f1(yb + L * 0.7)} ${f1(x - w * 0.55)} ${f1(yb + L - bl * 1.6)} ${f1(x - bl)} ${f1(yb + L - bl)}A${f1(bl)} ${f1(bl)} 0 1 0 ${f1(x + bl)} ${f1(yb + L - bl)}C${f1(x + w * 0.55)} ${f1(yb + L - bl * 1.6)} ${f1(x + w * 0.62)} ${f1(yb + L * 0.7)} ${f1(x + w * 0.72)} ${f1(yb + L * 0.4)}C${f1(x + w * 0.8)} ${f1(yb + L * 0.15)} ${f1(x + w)} ${f1(yb)} ${f1(x + w * 2)} ${f1(yb - 1)}Z'/>`;
-    shine += `<path d='M${f1(x - w * 0.35)} ${f1(yb + 3 * q)}L${f1(x - w * 0.28)} ${f1(yb + L - bl * 1.8)}'/><circle cx='${f1(x - bl * 0.4)}' cy='${f1(yb + L - bl * 1.25)}' r='${f1(bl * 0.2)}' fill='#fff' stroke='none'/>`;
-    // de vez em quando um pingo já caiu, mais abaixo
-    if (r() < 0.35) {
-      const dy = yb + L + (8 + r() * 30) * q,
-        dr = w * (0.5 + r() * 0.5);
-      body += `<ellipse cx='${f1(x)}' cy='${f1(dy)}' rx='${f1(dr)}' ry='${f1(dr * 1.15)}'/>`;
+    const x = a + (b - a) * ((i + 0.25 + r() * 0.5) / n);
+    const top = band(x) - 2;
+    const thin = r() < 0.3;
+    const w = (thin ? 4.4 + r() * 1.4 : 6 + r() * 3.4) * q;
+    const L = (18 + Math.pow(r(), 1.2) * Math.min(H * 0.55, 130 * q) * (thin ? 1.1 : 1)) * q ** 0.2;
+    const dr = drip(x, top, L, w);
+    goo += `<path d='${dr.d}'/>`;
+    if (dr.shine) gloss += `<path d='${dr.shine}'/>`;
+    // o reflexo da gota: um risquinho comprido do lado de cima à esquerda
+    gloss += `<ellipse cx='${f1(dr.tip[0] - dr.tw * 0.38)}' cy='${f1(dr.tip[1] - dr.tw * 0.15)}' rx='${f1(dr.tw * 0.18)}' ry='${f1(dr.tw * 0.5)}' fill='${shine}' stroke='none'/>`;
+    // de vez em quando uma gotinha que já caiu, em gota também (ponta para cima)
+    if (r() < 0.25) {
+      const dy = dr.tip[1] + (12 + r() * 30) * q,
+        rr = w * (0.45 + r() * 0.25);
+      goo += `<path d='M${f1(x)} ${f1(dy - rr * 2.4)}C${f1(x + rr * 0.3)} ${f1(dy - rr * 1.2)} ${f1(x + rr)} ${f1(dy - rr * 0.6)} ${f1(x + rr)} ${f1(dy)}A${f1(rr)} ${f1(rr)} 0 0 1 ${f1(x - rr)} ${f1(dy)}C${f1(x - rr)} ${f1(dy - rr * 0.6)} ${f1(x - rr * 0.3)} ${f1(dy - rr * 1.2)} ${f1(x)} ${f1(dy - rr * 2.4)}Z'/>`;
     }
   }
-  // umas bolhinhas presas na faixa
-  let bubbles = '';
-  for (let i = 0; i < 5; i++) {
-    const x = a + (b - a) * r();
-    bubbles += `<circle cx='${f1(x)}' cy='${f1(band(x) * 0.5)}' r='${f1((0.8 + r() * 1.4) * q)}'/>`;
+  // respingos miúdos em volta da massa
+  let specks = '';
+  for (let i = 0; i < 5 + Math.floor(r() * 6); i++) {
+    const x = a + (b - a) * r(),
+      y = band(x) + (4 + r() * 30) * q;
+    specks += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1((0.5 + r() * 1.2) * q)}'/>`;
   }
-  out.clareia +=
-    `<g opacity='.82'><g fill='rgb(104 184 36)' stroke='rgb(52 110 14)' stroke-width='${f1(0.9 * q)}'>${body}</g>` +
-    `<g fill='none' stroke='#fff' stroke-opacity='.6' stroke-width='${f1(1.1 * q)}' stroke-linecap='round'>${shine}${bubbles}</g></g>`;
+  // o brilho comprido da faixa, rente à beirada de baixo dela
+  const lip: Pt[] = [];
+  for (let x = a + 18 * q; x <= b - 18 * q; x += 6 * q) lip.push([x, band(x) * 0.55]);
+  if (lip.length > 1) gloss += `<path d='${smooth(lip)}'/>`;
+  // as bolhas presas na massa
+  let bubbles = '';
+  for (let i = 0; i < 4 + Math.floor(r() * 4); i++) {
+    const x = a + (b - a) * (0.08 + r() * 0.84);
+    bubbles += `<circle cx='${f1(x)}' cy='${f1(band(x) * (0.25 + r() * 0.4))}' r='${f1((0.9 + r() * 1.3) * q)}'/>`;
+  }
+  const blur = f1(2.6 * q);
+  out.topo =
+    (out.topo ?? '') +
+    `<defs><filter id='${uid}-gosma' filterUnits='userSpaceOnUse' x='-20' y='-40' width='${f1(W + 40)}' height='${f1(H + 80)}'>` +
+    `<feGaussianBlur in='SourceGraphic' stdDeviation='${blur}' result='b'/>` +
+    `<feColorMatrix in='b' type='matrix' values='1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10'/>` +
+    `</filter></defs>` +
+    // translúcida por inteiro: a massa, o brilho e as bolhas numa só transparência
+    `<g opacity='.74'><g fill='${color}' filter='url(#${uid}-gosma)'>${goo}</g><g fill='${color}'>${specks}</g>` +
+    `<g fill='none' stroke='${shine}' stroke-width='${f1(1.3 * q)}' stroke-linecap='round' stroke-opacity='.85'>${gloss}</g>` +
+    `<g fill='none' stroke='${shine}' stroke-width='${f1(0.8 * q)}' stroke-opacity='.8'>${bubbles}</g></g>`;
 }
 
 // ----- Lágrimas -----
 
-/** Pingos de choro: um punhado de gotas que secaram, cada uma com a beirada mais escura, umas escorridas. */
+/**
+ * Pingos de choro: um punhado de gotas que secaram, cada uma de uma cor só, como a mancha de água
+ * (sem beirada escura), e às vezes uma menorzinha espirrada do lado.
+ */
 function tears(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
   const q = Math.max(0.4, k);
   const cx = W * (0.3 + r() * 0.5),
@@ -2299,16 +2603,16 @@ function tears(W: number, H: number, k: number, r: () => number, out: PaperArt):
     const x = cx + (r() - 0.5) * W * 0.42,
       y = cy + (r() - 0.5) * H * 0.5;
     const R = (4.5 + r() * 7) * q;
-    // quase redonda: a gota caiu de pé; a água seca empurrando o pigmento para a beirada, o anel escuro
+    // quase redonda: a gota caiu de pé
     const sq = 0.86 + r() * 0.14;
-    body += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(R)}' ry='${f1(R * sq)}' transform='rotate(${f1(r() * 180)} ${f1(x)} ${f1(y)})' fill='rgb(88 100 112)' fill-opacity='.1' stroke='rgb(58 66 78)' stroke-opacity='.34' stroke-width='${f1(1.3 * q)}'/>`;
-    // a gota que bateu de lado espirra uma menorzinha e escorre um pouco
+    body += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(R)}' ry='${f1(R * sq)}' transform='rotate(${f1(r() * 180)} ${f1(x)} ${f1(y)})'/>`;
     if (r() < 0.4) {
       const a = r() * Math.PI * 2;
-      body += `<circle cx='${f1(x + Math.cos(a) * R * 1.7)}' cy='${f1(y + Math.sin(a) * R * 1.7)}' r='${f1(R * 0.3)}' fill='rgb(88 100 112)' fill-opacity='.12' stroke='rgb(62 70 80)' stroke-opacity='.28' stroke-width='${f1(0.8 * q)}'/>`;
+      body += `<circle cx='${f1(x + Math.cos(a) * R * 1.7)}' cy='${f1(y + Math.sin(a) * R * 1.7)}' r='${f1(R * 0.3)}'/>`;
     }
   }
-  out.fundo += `<g filter='url(#papel-borra)' opacity='.7'>${body}</g><g filter='url(#papel-mancha)'>${body}</g>`;
+  // uma cor só, com a transparência no conjunto: como a mancha de água, o filtro faz a beirada macia
+  out.fundo += `<g filter='url(#papel-agua)' fill='rgb(70 76 84)' opacity='.2'>${body}</g>`;
 }
 
 // ----- Dedos de salgadinho -----

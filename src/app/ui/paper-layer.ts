@@ -116,6 +116,11 @@ let uids = 0;
         <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.55" result="ga" />
         <feComposite in="d" in2="ga" operator="in" />
       </filter>
+      <!-- a trama neotribal: os fios finos que se cruzam fundem em membranas, como tinta que escorreu -->
+      <filter id="papel-teia" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="1.1" result="b" />
+        <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 14 -4.6" />
+      </filter>
       <!-- o mofo é felpudo: a beirada vira pelinhos -->
       <filter id="papel-mofo" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
         <feTurbulence type="fractalNoise" baseFrequency=".35" numOctaves="3" seed="19" result="n" />
@@ -173,6 +178,10 @@ export class PaperDefs {}
       }
       @if (a.fita) {
         <div class="camada frente" [innerHTML]="html().fita"></div>
+      }
+      @if (a.topo) {
+        <!-- o que caiu na ficha depois de pronta (a gosma): por cima de tudo, até da foto e da nota -->
+        <div class="camada topo" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().topo"></div>
       }
     }
     @if (decorHtml(); as d) {
@@ -244,6 +253,10 @@ export class PaperDefs {}
        tudo (a ficha abaixa a foto e os adesivos para 2 quando tem orelha); a tachinha continua acima */
     .frente.por-cima {
       z-index: 3;
+    }
+    /* a gosma: acima da foto e da nota (3), como a decoração; abaixo do botão invisível da ficha */
+    .topo {
+      z-index: 4;
     }
     /* acima da foto (3), abaixo do botão invisível da ficha (4, que vem depois) */
     .enfeite {
@@ -403,6 +416,7 @@ export class PaperArtLayer {
       relevo: wrap(a?.relevo ?? ''),
       frente: wrap(a?.frente ?? ''),
       fita: wrap(a?.fita ?? ''),
+      topo: wrap(a?.topo ?? ''),
     };
   });
 

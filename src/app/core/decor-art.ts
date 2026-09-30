@@ -964,8 +964,6 @@ const WAX: readonly (readonly [string, string, string])[] = [
   ['#232126', '#6a6770', '#09080a'],
   ['#7a3b22', '#c07a58', '#3a190c'],
 ];
-/** A fita que às vezes passa por baixo do lacre: creme, preta ou dourada. */
-const WAX_RIBBON = ['#e9dfc6', '#26242a', '#c4a04d'];
 /** O que está escrito em volta, no anel do sinete (repetido até fechar a volta). */
 const WAX_WORDS = ['LACRADO · CONFIDENCIAL · ', 'DO MURAL · COM CARINHO · ', 'ZERADO · APROVADO · ', 'SELADO · NÃO ABRA · ', 'GAME OVER · CONTINUE? · ', 'CARTA DE AVENTURA · '];
 /** O monograma do meio, numa letra de cartório; a fonte gótica quando o computador tem, senão uma serifada. */
@@ -1007,7 +1005,7 @@ function arc(R: number, a0: number, a1: number): string {
  * O lacre de cera de carta, como os de sinete de verdade: um disco quase redondo, com a borda grossa e
  * abaulada que a cera fez ao ser espremida; um degrau fundo até o miolo chato, onde o sinete deixou,
  * em relevo, um anel com palavras (ou continhas) e um monograma ou um desenho no meio. A cera é
- * lustrosa: reflexos brancos, finos e fortes na crista da borda e na beirada do degrau.
+ * lustrosa: reflexos brancos, finos e fortes na crista da borda e na beirada do degrau; o fundo, mais escuro.
  * A luz vem de cima, à esquerda.
  */
 function waxSeal(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
@@ -1029,28 +1027,9 @@ function waxSeal(W: number, H: number, k: number, r: () => number, uid: string, 
   }
   const puddle = smoothLoop(rim);
 
-  // às vezes as pontas de uma fita saindo por baixo, com o corte em V
-  let ribbon = '';
-  if (r() < 0.35) {
-    const col = WAX_RIBBON[Math.floor(r() * WAX_RIBBON.length)];
-    const wv = R * 0.38,
-      spread = 16 + r() * 14,
-      down = 90 + (r() - 0.5) * 30;
-    for (const side of [-1, 1]) {
-      const L = R * (1.65 + r() * 0.4);
-      const tail = `M${f1(-wv / 2)} 0L${f1(wv / 2)} 0L${f1(wv / 2)} ${f1(L)}L0 ${f1(L - wv * 0.55)}L${f1(-wv / 2)} ${f1(L)}Z`;
-      ribbon +=
-        `<g transform='rotate(${f1(down + side * spread - 90)})'>` +
-        `<path d='${tail}' transform='translate(${f1(0.9 * k)} ${f1(1.3 * k)})' fill='#000' opacity='.28' filter='url(#${uid}-cera-sombra)'/>` +
-        `<path d='${tail}' fill='${col}'/>` +
-        `<path d='M${f1(-wv * 0.18)} ${f1(R * 0.5)}L${f1(-wv * 0.12)} ${f1(L - wv * 0.8)}' stroke='#000' stroke-opacity='.14' stroke-width='${f1(wv * 0.14)}' stroke-linecap='round'/>` +
-        `</g>`;
-    }
-  }
-
   const rs = R * 0.76; // a beirada do degrau: dali para dentro é o miolo chato
   const ring = R * 0.52; // o anel em relevo que separa as palavras do monograma
-  const face = mix(base, dark, 0.12);
+  const face = mix(base, dark, 0.3);
   const d = Math.max(0.35, 0.028 * R); // o tamanho do relevo
   // um relevo: a sombra embaixo à direita, a luz em cima à esquerda, a peça por cima
   const relief = (body: string, lift = 1) =>
@@ -1099,7 +1078,7 @@ function waxSeal(W: number, H: number, k: number, r: () => number, uid: string, 
     `<defs>` +
     // a cera da borda: mais clara em cima à esquerda, funda embaixo à direita, como uma bolota abaulada
     `<radialGradient id='${uid}-cera' cx='.4' cy='.36' r='.72'><stop offset='0' stop-color='${mix(base, light, 0.18)}'/><stop offset='.7' stop-color='${base}'/><stop offset='1' stop-color='${mix(base, dark, 0.45)}'/></radialGradient>` +
-    `<radialGradient id='${uid}-cera-miolo' cx='.45' cy='.42' r='.65'><stop offset='0' stop-color='${mix(face, light, 0.06)}'/><stop offset='1' stop-color='${mix(face, dark, 0.2)}'/></radialGradient>` +
+    `<radialGradient id='${uid}-cera-miolo' cx='.5' cy='.5' r='.55'><stop offset='0' stop-color='${face}'/><stop offset='1' stop-color='${mix(face, dark, 0.35)}'/></radialGradient>` +
     `<clipPath id='${uid}-cera-degrau'><circle r='${f1(rs)}'/></clipPath>` +
     `<clipPath id='${uid}-cera-borda'><path d='${puddle}'/></clipPath>` +
     `<filter id='${uid}-cera-sombra' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(1.3 * k)}'/></filter>` +
@@ -1107,7 +1086,6 @@ function waxSeal(W: number, H: number, k: number, r: () => number, uid: string, 
     `<filter id='${uid}-cera-macio' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(R * 0.06)}'/></filter>` +
     `</defs>` +
     `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(turn)})'>` +
-    ribbon +
     // a sombra no papel
     `<path d='${puddle}' transform='translate(${f1(1 * k)} ${f1(1.8 * k)})' fill='#000' opacity='.38' filter='url(#${uid}-cera-sombra)'/>` +
     // a borda abaulada: o disco, com a volta de baixo à direita escurecendo para dentro e a de cima clareando
@@ -1119,7 +1097,7 @@ function waxSeal(W: number, H: number, k: number, r: () => number, uid: string, 
     // o degrau: o miolo chato, com a parede de cima à esquerda na sombra da borda
     `<circle r='${f1(rs)}' fill='url(#${uid}-cera-miolo)'/>` +
     `<g clip-path='url(#${uid}-cera-degrau)' fill='none'>` +
-    `<circle r='${f1(rs)}' cx='${f1(rs * 0.07)}' cy='${f1(rs * 0.08)}' stroke='${dark}' stroke-opacity='.7' stroke-width='${f1(rs * 0.12)}' filter='url(#${uid}-cera-brilho)'/>` +
+    `<circle r='${f1(rs)}' cx='${f1(rs * 0.08)}' cy='${f1(rs * 0.09)}' stroke='${dark}' stroke-opacity='.9' stroke-width='${f1(rs * 0.16)}' filter='url(#${uid}-cera-brilho)'/>` +
     `</g>` +
     // a beirada do degrau pegando luz embaixo à direita: um fio claro e firme
     glint(rs - d * 0.6, 10, 105, d * 0.9, 0.5) +
