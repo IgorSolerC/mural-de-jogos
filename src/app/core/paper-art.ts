@@ -307,7 +307,14 @@ export function paperArt(input: ArtInput): PaperArt {
   if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain, SCRIBBLE_INK[input.scribbleInk ?? DEFAULT_SCRIBBLE_INK] ?? 1);
   if (input.damage) damageArt(input.damage, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.damage}${input.seed ? `:${input.seed}` : ''}`)), input.uid, out);
   // a mancha sorteia do mesmo jeito que quando era um estrago: a ficha de antes sai igualzinha
-  if (input.stain) damageArt(input.stain, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.stain}${input.stainSeed ? `:${input.stainSeed}` : ''}`)), input.uid, out);
+  if (input.stain) {
+    const key = `${input.id}:estrago:${input.stain}${input.stainSeed ? `:${input.stainSeed}` : ''}`;
+    const random = rng(hash(key));
+    // Sorteio separado: a opção de uma bolsa preserva o formato da poça grande aprovada.
+    const composition = input.stain === 'sangue' ? rng(hash(`${key}:composicao`)) : null;
+    if (composition && composition() < 0.5) out.clareia += smallBloodPoolsArt(W, H, composition() < 0.5 ? 2 : 3, random);
+    else damageArt(input.stain, W, H, k, sw, random, input.uid, out);
+  }
   return out;
 }
 
@@ -1148,55 +1155,9 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
       break;
     }
     case 'sangue': {
-      // A mesma borda e fibra da água, com uma poça maior e respingos que saem do contorno.
-      const s = Math.min(W, H);
-      const side = r() < 0.5 ? 1 : -1;
-      const cx = W * (side === 1 ? 0.54 : 0.46) + (r() - 0.5) * W * 0.05;
-      const cy = H * (0.51 + (r() - 0.5) * 0.08);
-      const rx = W * (0.32 + r() * 0.04);
-      const ry = H * (0.3 + r() * 0.04);
-      const sx = cx - side * rx * 0.86;
-      const sy = cy - ry * (0.42 + r() * 0.12);
-      const red = 'rgb(156 17 28)';
-      let rim: Pt[] = [];
-      let pool = waterBlobPath(cx, cy, rx, ry, r, (pts) => rim = pts);
-      pool += waterBlobPath(sx, sy, rx * 0.52, ry * 0.56, r);
-      let drops = '';
-      const count = 7 + Math.floor(r() * 4);
-      const phase = r() * Math.PI * 2;
-      for (let i = 0; i < count; i++) {
-        const angle = phase + ((i + (r() - 0.5) * 0.65) / count) * Math.PI * 2;
-        const index = (Math.round(angle / (Math.PI * 2) * rim.length) % rim.length + rim.length) % rim.length;
-        const edge = rim[index];
-        const distance = Math.hypot(edge[0] - cx, edge[1] - cy);
-        const ux = (edge[0] - cx) / distance;
-        const uy = (edge[1] - cy) / distance;
-        const length = s * (0.045 + r() * 0.1);
-        const width = s * (0.009 + r() * 0.014);
-        const lean = (r() - 0.5) * width * 1.8;
-        const point = (forward: number, lateral: number) =>
-          `${f1(edge[0] + ux * forward - uy * lateral)} ${f1(edge[1] + uy * forward + ux * lateral)}`;
-        // Raiz dentro da poça, ponta afilada e um desvio de lado, como um splash de impacto.
-        pool += `M${point(-width * 2, -width)}C${point(width, -width * 0.9)} ${point(length * 0.78, lean - width * 0.16)} ${point(length, lean)}C${point(length * 0.7, lean + width * 0.2)} ${point(width, width * 0.9)} ${point(-width * 2, width)}Z`;
-        // Gotas alongadas continuam na direção do splash, já separadas da bolsa.
-        const flight = length + s * (0.016 + r() * 0.035);
-        const x = edge[0] + ux * flight - uy * lean;
-        const y = edge[1] + uy * flight + ux * lean;
-        const radius = s * (0.004 + r() * 0.006);
-        drops += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(radius * (1.5 + r()))}' ry='${f1(radius)}' transform='rotate(${f1(Math.atan2(uy, ux) * 180 / Math.PI)} ${f1(x)} ${f1(y)})'/>`;
-      }
-      // Respingos de vários tamanhos em volta da poça, sem cobrir a escrita.
-      for (let i = 0; i < 32; i++) {
-        const angle = r() * Math.PI * 2;
-        const distance = 0.8 + r() * 0.55;
-        const x = cx + Math.cos(angle) * distance * rx;
-        const y = cy + Math.sin(angle) * distance * ry;
-        const radius = s * (0.003 + Math.pow(r(), 3) * 0.014);
-        drops += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(radius)}'/>`;
-      }
+      const { pool, drops } = bloodPoolArt(W, H, r);
       // Uma silhueta opaca, com transparência aplicada só ao conjunto: overlap não soma tinta.
-      // Cor própria, em vez de multiply: o vermelho continua visível até na cartolina preta.
-      out.clareia += `<g fill='${red}' opacity='.76'><path d='${pool}' filter='url(#papel-agua)'/>${drops}</g>`;
+      out.clareia += `<g fill='rgb(156 17 28)' opacity='.76'><path d='${pool}' filter='url(#papel-agua)'/>${drops}</g>`;
       break;
     }
     case 'cafe': {
@@ -1406,6 +1367,79 @@ function blobPath(cx: number, cy: number, R: number, r: () => number): string {
     pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]);
   }
   return smooth([...pts, pts[0]]) + 'Z';
+}
+
+/** Uma bolsa de sangue opaca, com o contorno, os splashes e as gotas aprovados. */
+function bloodPoolArt(W: number, H: number, r: () => number): { pool: string; drops: string } {
+  const s = Math.min(W, H);
+  const side = r() < 0.5 ? 1 : -1;
+  const cx = W * (side === 1 ? 0.54 : 0.46) + (r() - 0.5) * W * 0.05;
+  const cy = H * (0.51 + (r() - 0.5) * 0.08);
+  const rx = W * (0.32 + r() * 0.04);
+  const ry = H * (0.3 + r() * 0.04);
+  const sx = cx - side * rx * 0.86;
+  const sy = cy - ry * (0.42 + r() * 0.12);
+  let rim: Pt[] = [];
+  let pool = waterBlobPath(cx, cy, rx, ry, r, (pts) => rim = pts);
+  pool += waterBlobPath(sx, sy, rx * 0.52, ry * 0.56, r);
+  let drops = '';
+  const count = 7 + Math.floor(r() * 4);
+  const phase = r() * Math.PI * 2;
+  for (let i = 0; i < count; i++) {
+    const angle = phase + ((i + (r() - 0.5) * 0.65) / count) * Math.PI * 2;
+    const index = (Math.round(angle / (Math.PI * 2) * rim.length) % rim.length + rim.length) % rim.length;
+    const edge = rim[index];
+    const distance = Math.hypot(edge[0] - cx, edge[1] - cy);
+    const ux = (edge[0] - cx) / distance;
+    const uy = (edge[1] - cy) / distance;
+    const length = s * (0.045 + r() * 0.1);
+    const width = s * (0.009 + r() * 0.014);
+    const lean = (r() - 0.5) * width * 1.8;
+    const point = (forward: number, lateral: number) =>
+      `${f1(edge[0] + ux * forward - uy * lateral)} ${f1(edge[1] + uy * forward + ux * lateral)}`;
+    // Os pés seguem a tangente da borda: a bolsa entra no splash com ombros arredondados.
+    const at = (offset: number) => rim[(index + offset + rim.length) % rim.length];
+    const left = at(-1), right = at(1);
+    const shoulder = Math.min(length * 0.45, Math.hypot(right[0] - left[0], right[1] - left[1]) * 0.3);
+    const tangent = (foot: Pt, before: Pt, after: Pt, sign: number) => {
+      const dx = after[0] - before[0], dy = after[1] - before[1];
+      const span = Math.hypot(dx, dy);
+      return `${f1(foot[0] + sign * dx / span * shoulder)} ${f1(foot[1] + sign * dy / span * shoulder)}`;
+    };
+    pool += `M${f1(left[0])} ${f1(left[1])}C${tangent(left, at(-2), edge, 1)} ${point(length * 0.7, lean - width * 0.16)} ${point(length, lean)}C${point(length * 0.7, lean + width * 0.2)} ${tangent(right, edge, at(2), -1)} ${f1(right[0])} ${f1(right[1])}L${point(-width * 3, 0)}Z`;
+    // Gotas alongadas continuam na direção do splash, já separadas da bolsa.
+    const flight = length + s * (0.016 + r() * 0.035);
+    const x = edge[0] + ux * flight - uy * lean;
+    const y = edge[1] + uy * flight + ux * lean;
+    const radius = s * (0.004 + r() * 0.006);
+    drops += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(radius * (1.5 + r()))}' ry='${f1(radius)}' transform='rotate(${f1(Math.atan2(uy, ux) * 180 / Math.PI)} ${f1(x)} ${f1(y)})'/>`;
+  }
+  // Respingos de vários tamanhos em volta da poça, sem cobrir a escrita.
+  for (let i = 0; i < 32; i++) {
+    const angle = r() * Math.PI * 2;
+    const distance = 0.8 + r() * 0.55;
+    const x = cx + Math.cos(angle) * distance * rx;
+    const y = cy + Math.sin(angle) * distance * ry;
+    const radius = s * (0.003 + Math.pow(r(), 3) * 0.014);
+    drops += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(radius)}'/>`;
+  }
+  return { pool, drops };
+}
+
+/** Duas ou três bolsas menores, com transparência aplicada uma vez ao conjunto. */
+function smallBloodPoolsArt(W: number, H: number, count: 2 | 3, r: () => number): string {
+  const centers: Pt[] = count === 2 ? [[0.44, 0.75], [0.76, 0.3]] : [[0.5, 0.26], [0.79, 0.64], [0.29, 0.78]];
+  let pools = '', drops = '';
+  for (const [x, y] of centers) {
+    const scale = (count === 2 ? 0.46 : 0.36) + r() * 0.04;
+    const tx = W * (x + (r() - 0.5) * 0.045 - scale * 0.5);
+    const ty = H * (y + (r() - 0.5) * 0.045 - scale * 0.5);
+    const transform = `translate(${f1(tx)} ${f1(ty)}) scale(${scale.toFixed(3)})`;
+    const art = bloodPoolArt(W, H, r);
+    pools += `<path d='${art.pool}' transform='${transform}'/>`;
+    drops += `<g transform='${transform}'>${art.drops}</g>`;
+  }
+  return `<g fill='rgb(156 17 28)' opacity='.76'><g filter='url(#papel-agua)'>${pools}</g>${drops}</g>`;
 }
 
 /** Mancha de água: lóbulos largos e pequenas reentrâncias, sem geometria de gota ou anel. */

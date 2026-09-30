@@ -170,6 +170,31 @@ describe('papel da ficha', () => {
       expect(paperArt({ ...base, damage: 'rasgado' })).not.toEqual(paperArt({ ...base, damage: 'rasgado', seed: 111 }));
     });
 
+    it('o sangue alterna uma poça grande e duas ou três menores, com um só nível de transparência', () => {
+      const counts = [0, 0, 0, 0];
+      for (let seed = 1; seed <= 1000; seed++) {
+        const art = paperArt({ ...base, stain: 'sangue', stainSeed: seed });
+        const svg = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${art.clareia}</svg>`, 'image/svg+xml');
+        const paths = svg.querySelectorAll('path');
+        expect(paths.length).withContext(String(seed)).toBeGreaterThanOrEqual(1);
+        expect(paths.length).withContext(String(seed)).toBeLessThanOrEqual(3);
+        counts[paths.length]++;
+        // As bolsas não têm transparência individual: nem um overlap engrossa a tinta.
+        expect(svg.querySelectorAll('[opacity], [fill-opacity]').length).withContext(String(seed)).toBe(1);
+        for (const path of paths) {
+          const scale = path.getAttribute('transform')?.match(/scale\(([\d.]+)\)/)?.[1];
+          if (paths.length === 1) expect(scale).toBeUndefined();
+          else expect(Number(scale)).withContext(String(seed)).toBeLessThan(0.51);
+        }
+      }
+      expect(counts[1]).toBeGreaterThan(450);
+      expect(counts[1]).toBeLessThan(550);
+      for (const n of [2, 3]) {
+        expect(counts[n]).withContext(`${n} bolsas`).toBeGreaterThan(200);
+        expect(counts[n]).withContext(`${n} bolsas`).toBeLessThan(300);
+      }
+    });
+
     it('a Rasgada sorteia canto ou borda nas quatro orientações', () => {
       const corners = new Set<string>(), sides = new Set<string>();
       for (let seed = 1; seed <= 250; seed++) {
