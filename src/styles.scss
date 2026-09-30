@@ -600,14 +600,12 @@ dialog.sheet {
 .cartolina:is([data-cor='vermelho-escuro'], [data-cor='rosa-escuro'], [data-cor='laranja-escuro']):not(.ficha) {
   --pen: var(--ink-claro);
 }
-/* O que foi colado por cima tem papel (ou fita) próprio e continua em tinta preta: a etiqueta do
-   julgamento, a foto e a faixa de status, os adesivos de bônus, o selo do 10, a fita do 0, a bolinha
-   de marcação. */
+/* O que foi colado por cima usa tinta preta como material de fundo, mesmo na cartolina escura.
+   Cada adesivo define a própria cor do texto: vermelho na nota baixa, claro no bônus contra etc. */
 .cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha)
   :is(app-judge-label, app-cover-sleeve, app-bonus-sticker, app-bonus-tally, .selo-dez, .fita-rasgada, .marca) {
   --ink: #151515;
   --ink-2: rgb(21 21 21 / 0.78);
-  color: var(--ink);
 }
 
 .cartolina {
