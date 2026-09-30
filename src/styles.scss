@@ -23,18 +23,18 @@
   --stock-cinza: #c9c3bc;
   /* o branco de cartolina: um off-white quente, nunca o branco de tela */
   --stock-branco: #f6f1e7;
-  /* As escuras: cada cor, no mesmo matiz (OKLCH), com a luz lá embaixo (L 0,34) e o croma contido,
-     para nenhuma virar neon apagado. A tinta clara fica legível sobre todas. A preta é mais funda que a
-     parede, para a ficha não sumir nela. */
-  --stock-vermelho-escuro: #5d221e;
-  --stock-laranja-escuro: #552c04;
-  --stock-amarelo-escuro: #433704;
-  --stock-verde-escuro: #0b4418;
-  --stock-azul-escuro: #0d3b56;
-  --stock-lilas-escuro: #3e2d59;
-  --stock-rosa-escuro: #601a36;
+  /* As escuras: cada cor, no mesmo matiz (OKLCH), com a luz lá embaixo (L 0,31) e o croma contido.
+     A luminosidade caiu 9%, preservando o cinza original. A tinta clara fica legível sobre todas.
+     A preta é mais funda que a parede, para a ficha não sumir nela. */
+  --stock-vermelho-escuro: #511d19;
+  --stock-laranja-escuro: #4a2603;
+  --stock-amarelo-escuro: #3a2f03;
+  --stock-verde-escuro: #083b14;
+  --stock-azul-escuro: #0a334b;
+  --stock-lilas-escuro: #36264e;
+  --stock-rosa-escuro: #54162e;
   --stock-cinza-escuro: #403c38;
-  --stock-preto: #141312;
+  --stock-preto: #100f0e;
 
   /* Tintas */
   --ink: #151515;
