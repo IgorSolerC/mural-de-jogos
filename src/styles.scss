@@ -24,7 +24,7 @@
   /* o branco de cartolina: um off-white quente, nunca o branco de tela */
   --stock-branco: #f6f1e7;
   /* As escuras: cada cor, no mesmo matiz (OKLCH), com a luz lá embaixo (L 0,34) e o croma contido,
-     para nenhuma virar neon apagado. A tinta clara passa de 9:1 em todas. A preta é mais funda que a
+     para nenhuma virar neon apagado. A tinta clara fica legível sobre todas. A preta é mais funda que a
      parede, para a ficha não sumir nela. */
   --stock-vermelho-escuro: #5d221e;
   --stock-laranja-escuro: #552c04;
@@ -39,9 +39,10 @@
   /* Tintas */
   --ink: #151515;
   --ink-2: rgb(21 21 21 / 0.78);
-  /* a tinta das cartolinas escuras: caneta de gel branca, no mesmo creme quente da parede */
-  --ink-claro: #f3ece0;
+  /* a tinta das cartolinas escuras: creme quente com 20% de transparência sobre o papel */
+  --ink-claro: rgb(243 236 224 / 0.8);
   --ink-claro-2: rgb(243 236 224 / 0.8);
+  --ink-claro-solido: #f3ece0;
   --red: #e62e2d;
   --red-deep: #b81d1c;
   /* nota vermelha: a nota ruim, sempre sobre preto (5,3:1 no ink) */
@@ -599,6 +600,11 @@ dialog.sheet {
 }
 .cartolina:is([data-cor='vermelho-escuro'], [data-cor='rosa-escuro'], [data-cor='laranja-escuro']):not(.ficha) {
   --pen: var(--ink-claro);
+}
+/* O nome principal e os números das notas têm tinta cheia; os demais textos continuam suaves. */
+.cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha)
+  :is(.title, app-boletim dd, .sorted .nota-valor) {
+  color: var(--ink-claro-solido);
 }
 /* O que foi colado por cima usa tinta preta como material de fundo, mesmo na cartolina escura.
    Cada adesivo define a própria cor do texto: vermelho na nota baixa, claro no bônus contra etc. */

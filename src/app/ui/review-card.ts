@@ -101,7 +101,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
             <span aria-hidden="true"> · </span><app-skulls class="caveiras" [value]="review().difficulty" [size]="compact() ? 13 : 14" [showLabel]="false" [ghosts]="false" />
           }
           @if (compact() && sortedCell(); as c) {
-            <span aria-hidden="true"> · </span><span class="sorted"><span>{{ labels[c.key] }} </span>@if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else {<span>{{ c.value }}</span>}<app-pen-mark /></span>
+            <span aria-hidden="true"> · </span><span class="sorted"><span>{{ labels[c.key] }} </span>@if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else {<span class="nota-valor">{{ c.value }}</span>}<app-pen-mark /></span>
           }
           @if (compact() && bonuses().length) {
             <app-bonus-tally class="tally" [bonuses]="bonuses()" />
