@@ -30,6 +30,7 @@ const TABS: Tab[] = [
   { path: '/fila', label: 'Pra depois' },
   { path: '/wishlist', label: 'Wishlist' },
   { path: '/ranking', label: 'Ranking' },
+  { path: '/comparar', label: 'Comparar' },
   { path: '/ajustes', label: 'Ajustes' },
 ];
 
@@ -228,10 +229,12 @@ export class App {
     const t = e.target as HTMLElement | null;
     if (t?.closest('input, textarea, select, [contenteditable="true"]') || document.querySelector('dialog[open]')) return;
     if (e.key === '/') {
-      // a busca da página aberta: o mural ou a fila do Pra depois
+      // Abre a busca da página, inclusive a gaveta de filtros no celular.
       const search = document.querySelector<HTMLInputElement>('input[data-busca]');
       if (!search) return;
       e.preventDefault();
+      const disclosure = search.closest('details');
+      if (disclosure) disclosure.open = true;
       search.focus();
       search.select();
     } else if (e.key === 'n' || e.key === 'N') {

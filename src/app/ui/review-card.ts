@@ -12,7 +12,7 @@ import {
   formatAmount,
   formatScore,
   leadSentence,
-  parseDay,
+  formatReviewDate,
   ratedKeys,
   scoreOf,
   sortBonuses,
@@ -33,10 +33,8 @@ import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 
-const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
-const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
 
 /**
  * Ficha do mural: uma cartolina escrita à mão a pincel atômico, com a foto do jogo colada nela. Na foto,
@@ -53,6 +51,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
     class: 'cartolina',
     '[class.is-landing]': 'landing()',
     '[class.compact]': 'compact()',
+    '[class.paired]': 'paired()',
     '[class.picking]': 'picking()',
     '[class.picked]': 'pickedAt() !== null',
     '[style.--stock]': '"var(--stock-" + pin().stock + ")"',
@@ -506,6 +505,21 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
       }
     }
 
+    @media (max-width: 699px) {
+      :host(.compact.paired) { --cover-w: 66px; --title-fs: 1.02rem; padding: 14px 9px 12px; }
+      :host(.compact.paired) .head {
+        grid-template-areas: 'cover' 'words' 'judge';
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto;
+        gap: 10px;
+      }
+      :host(.compact.paired) .cover { width: var(--cover-w); justify-self: center; }
+      :host(.compact.paired) .words { padding-top: 0; min-width: 0; align-items: center; text-align: center; }
+      :host(.compact.paired) .title { font-size: var(--title-fs); min-height: 2.14em; overflow-wrap: anywhere; }
+      :host(.compact.paired) .meta { min-height: 40px; line-height: 1.35; }
+      :host(.compact.paired) .judge { width: 100%; justify-content: center; }
+    }
+
     /* Celular: uma coluna de fichas deitadas, na largura toda */
     @media (max-width: 559px) {
       :host {
@@ -514,7 +528,7 @@ const dayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
         rotate: calc(var(--tilt) * 0.5deg);
         margin-top: calc(var(--drop-y) * 0.4);
       }
-      :host(.compact) {
+      :host(.compact:not(.paired)) {
         --title-fs: 1.2rem;
       }
       :host(.compact) .faixa {
@@ -539,6 +553,8 @@ export class ReviewCard {
   /** Qual nota está sendo usada na ordenação (para destacar na ficha). */
   readonly highlight = input<ScoreKey | null>(null);
   readonly compact = input(false);
+  /** Duas fichas em colunas no celular, mantendo a orientação da comparação. */
+  readonly paired = input(false);
   /** A seção já diz o mês e o ano: a ficha mostra só o dia. */
   readonly dayOnly = input(false);
   /** Modo de marcar fichas para o lado a lado: tocar marca em vez de abrir. */
@@ -564,7 +580,7 @@ export class ReviewCard {
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   protected readonly date = computed(() => {
     const day = this.review().completedAt;
-    return day === null ? 'Sem data' : (this.dayOnly() ? dayFmt : dateFmt).format(parseDay(day)).replace(/\./g, '');
+    return formatReviewDate(day, this.dayOnly());
   });
   protected readonly hours = computed(() => formatAmount(this.review().kind, this.review().hoursPlayed));
   protected readonly lead = computed(() => leadSentence(this.review().text));
@@ -616,7 +632,7 @@ export class ReviewCard {
     parts.push(
       r.completedAt === null
         ? NO_DAY_LABEL.toLowerCase()
-        : `${dayLabel(r.kind, r.status).toLowerCase()} ${dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '')}`,
+        : `${dayLabel(r.kind, r.status).toLowerCase()} ${formatReviewDate(r.completedAt)}`,
     );
     return `Abrir resenha: ${parts.join(', ')}`;
   });

@@ -34,7 +34,8 @@ import {
   formatShift,
   weightOf,
   dayLabel,
-  isValidDay,
+  isValidReviewDate,
+  isYearOnly,
   newId,
   todayISO,
 } from '../core/review';
@@ -138,7 +139,7 @@ export class ReviewEditor {
   protected readonly base = computed(() => computeFinal(this.kind(), this.scores(), this.weights()));
   /**
    * A nota final na mão: fechada por padrão (vale a média). Aberta, a pessoa escreve a nota que quiser
-   * de 0 a 10, com uma casa, e ela vai para a ficha no lugar da média.
+   * de 0 a 11, com uma casa, e ela vai para a ficha no lugar da média.
    */
   protected readonly overrideOn = signal(false);
   protected readonly overrideText = signal('');
@@ -146,7 +147,7 @@ export class ReviewEditor {
     const t = this.overrideText().trim().replace(',', '.');
     if (!/^\d{1,2}(\.\d+)?$/.test(t)) return null;
     const v = Number(t);
-    return v >= 0 && v <= 10 ? Math.round(v * 10) / 10 : null;
+    return v >= 0 && v <= 11 ? Math.round(v * 10) / 10 : null;
   });
   /** A nota que vai para a ficha: a da mão, se aberta e válida; senão, a média. */
   protected readonly shown = computed(() => (this.overrideOn() ? this.overrideValue() : this.final()));
@@ -177,11 +178,15 @@ export class ReviewEditor {
   protected readonly completedAt = signal(todayISO());
   /** Jogou faz tanto tempo que não lembra o dia: a resenha fica sem data e vai para o fim da ordem por data. */
   protected readonly dateUnknown = signal(false);
+  protected readonly yearOnly = signal(false);
+  private exactDate = '';
   protected readonly noDay = NO_DAY_LABEL;
   protected readonly today = signal(todayISO());
   protected readonly dateLabel = computed(() => (this.status() ? dayLabel(this.kind(), this.status()!) : 'Data'));
   protected readonly dateValid = computed(
-    () => this.dateUnknown() || (isValidDay(this.completedAt()) && this.completedAt() <= this.today()),
+    () => this.dateUnknown() || (isValidReviewDate(this.completedAt()) &&
+      (this.yearOnly() ? isYearOnly(this.completedAt()) && this.completedAt() <= this.today().slice(0, 4)
+        : this.completedAt().length === 10 && this.completedAt() <= this.today())),
   );
   protected readonly difficulty = signal<Difficulty>('nenhuma');
   protected readonly text = signal('');
@@ -311,7 +316,7 @@ export class ReviewEditor {
     if (!this.status()) m.push('o status');
     if (!this.dateValid()) m.push('uma data válida');
     if (!this.hoursValid()) m.push(this.profile().amount?.missing ?? '');
-    if (this.overrideOn() && this.overrideValue() === null) m.push('uma nota final de 0 a 10');
+    if (this.overrideOn() && this.overrideValue() === null) m.push('uma nota final de 0 a 11');
     return m;
   });
 
@@ -356,6 +361,8 @@ export class ReviewEditor {
     this.verdict.set(review?.verdict ?? null);
     this.today.set(todayISO());
     this.completedAt.set(review?.completedAt ?? todayISO());
+    this.yearOnly.set(isYearOnly(review?.completedAt));
+    this.exactDate = this.yearOnly() ? '' : this.completedAt();
     this.dateUnknown.set(review?.completedAt === null);
     this.difficulty.set(review?.difficulty ?? 'nenhuma');
     this.weights.set({ ...(review?.weights ?? {}) });
@@ -528,6 +535,17 @@ export class ReviewEditor {
   protected setDateUnknown(unknown: boolean): void {
     this.dateUnknown.set(unknown);
     setTimeout(() => document.getElementById(unknown ? 'editor-data-escolher' : 'editor-data')?.focus());
+  }
+
+  protected setYearOnly(on: boolean): void {
+    if (on) {
+      this.exactDate = this.completedAt();
+      this.completedAt.set(this.completedAt().slice(0, 4));
+    } else {
+      this.completedAt.set(this.exactDate.startsWith(this.completedAt()) ? this.exactDate : '');
+    }
+    this.yearOnly.set(on);
+    setTimeout(() => document.getElementById('editor-data')?.focus());
   }
 
   protected cancelDraft(): void {

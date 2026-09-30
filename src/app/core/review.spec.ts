@@ -12,6 +12,9 @@ import {
   sanitizeWish,
   relevanceLabel,
   isValidDay,
+  isYearOnly,
+  formatReviewDate,
+  todayISO,
   initialOf,
   DARK_STOCKS,
   LIGHT_STOCKS,
@@ -331,6 +334,25 @@ describe('murais', () => {
 });
 
 describe('datas e iniciais (caça a bugs)', () => {
+  it('guarda apenas o ano sem inventar um dia, incluindo a leitura abreviada do card', () => {
+    expect(isYearOnly('2020')).toBeTrue();
+    expect(isYearOnly('20')).toBeFalse();
+    expect(isYearOnly('2020-01-01')).toBeFalse();
+    const review = sanitizeReview({ game: { name: 'Hades' }, scores: { final: 8 }, completedAt: '2020' })!;
+    expect(review.completedAt).toBe('2020');
+    expect(formatReviewDate(review.completedAt)).toBe('2020');
+    expect(formatReviewDate(review.completedAt, true)).toBe('2020');
+    expect(sanitizeReview({ ...review, completedAt: '9999' })!.completedAt).toBe(todayISO().slice(0, 4));
+    expect(formatReviewDate(null)).toBe('Sem data');
+  });
+  it('11 é exclusivo da nota manual; categorias e média automática continuam até 10', () => {
+    const review = { game: { name: 'Hades' }, scores: { final: 11, historia: 11, diversao: 11, jogabilidade: 11, visual: 11 } };
+    expect(sanitizeReview(review)!.scores.final).toBe(10);
+    const manual = sanitizeReview({ ...review, finalOverride: 11 })!;
+    expect(manual.scores.final).toBe(11);
+    expect(manual.scores.diversao).toBe(10);
+    expect(sanitizeReview({ game: { name: 'Antiga' }, scores: { final: 11 } })!.scores.final).toBe(10);
+  });
   it('um dia que não existe não vale', () => {
     expect(isValidDay('2025-02-31')).toBeFalse();
     expect(isValidDay('2024-02-29')).toBeTrue();
@@ -348,7 +370,7 @@ describe('datas e iniciais (caça a bugs)', () => {
     expect('finalOverride' in sanitizeReview(base)!).toBeFalse();
     const hand = sanitizeReview({ ...base, finalOverride: 3.25 })!;
     expect([hand.finalOverride, hand.scores.final]).toEqual([3.3, 3.3]);
-    expect(sanitizeReview({ ...base, finalOverride: 12 })!.scores.final).toBe(10);
+    expect(sanitizeReview({ ...base, finalOverride: 12 })!.scores.final).toBe(11);
     for (const bad of ['7', NaN, null, Infinity]) expect(sanitizeReview({ ...base, finalOverride: bad })!.scores.final).withContext(String(bad)).toBe(avg);
     // zero é nota: a mão pode reprovar
     expect(sanitizeReview({ ...base, finalOverride: 0 })!.scores.final).toBe(0);

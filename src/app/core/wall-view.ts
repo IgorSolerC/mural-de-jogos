@@ -202,6 +202,7 @@ export class WallView {
       default:
         return (r) => {
           if (r.completedAt === null) return ['sem-data', NO_DAY_LABEL];
+          if (r.completedAt.length === 4) return [r.completedAt, `${r.completedAt} · dia não definido`];
           const month = r.completedAt.slice(0, 7);
           const label = monthFmt.format(parseDay(month + '-01'));
           return [month, label.charAt(0).toUpperCase() + label.slice(1)];

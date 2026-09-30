@@ -23,7 +23,7 @@ import {
   WEIGHT_LABEL,
   formatAmount,
   formatScore,
-  parseDay,
+  formatReviewDate,
   ratedKeys,
   scoreKeys,
   scoreOf,
@@ -50,7 +50,6 @@ const SORT_OPTIONS: { value: SideSort; label: string }[] = [
 ];
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
-const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** As linhas do quadro: as notas primeiro, os fatos da ficha depois. */
@@ -228,7 +227,7 @@ export class SideBySidePage {
   }
 
   protected date(r: Review): string {
-    return r.completedAt === null ? 'Sem data' : dateFmt.format(parseDay(r.completedAt)).replace(/\./g, '');
+    return formatReviewDate(r.completedAt);
   }
 
   protected setSort(v: string): void {

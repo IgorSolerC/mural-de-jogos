@@ -50,6 +50,15 @@ describe('WallView', () => {
     expect(view.groups().map((g) => g.label)).toEqual(['A', 'C', 'H', 'Z']);
   });
 
+  it('ano sem dia fica em sua própria seção e ordena sem presumir janeiro', () => {
+    store.reviews.update((list) => [...list, r('year11', 'Ano lembrado', '2024', 8)]);
+    view.setSort('data');
+    expect(view.groups().map((g) => g.label)).toEqual(['Março de 2024', 'Janeiro de 2024', '2024 · dia não definido', 'Data não definida']);
+    view.toggleDirection();
+    expect(view.visible()[0].game.name).toBe('Ano lembrado');
+    expect(view.visible().at(-1)!.completedAt).toBeNull();
+  });
+
   it('por nota: maiores primeiro, em faixas', () => {
     view.setSort('nota');
     view.scoreKey.set('diversao');

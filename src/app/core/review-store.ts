@@ -1,5 +1,6 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { KINDS } from './kinds';
+import { readBackupFile } from './backup-file';
 import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
@@ -286,13 +287,7 @@ export class ReviewStore {
 
   /** Lê o arquivo do backup, gzip ou JSON puro (os backups antigos), e devolve o texto do JSON. */
   async readBackup(file: Blob): Promise<string> {
-    const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
-    if (head[0] !== 0x1f || head[1] !== 0x8b) return file.text();
-    try {
-      return await new Response(file.stream().pipeThrough(new DecompressionStream('gzip'))).text();
-    } catch {
-      throw new Error('Esse arquivo compactado está corrompido. Escolha o backup baixado pelo Meu Mural.');
-    }
+    return readBackupFile(file);
   }
 
   /** Lança Error com mensagem pronta para o usuário quando o arquivo não serve. */

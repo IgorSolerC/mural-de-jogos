@@ -176,7 +176,7 @@ export function bonusTally(list: readonly Bonus[] | undefined): Record<BonusKind
 /** As notas de uma ficha: só as quatro do mural dela, de 0 a 10 (null é sem nota). */
 export type Rated = Partial<Record<RatedKey, number | null>>;
 
-/** Notas de 0 a 10. `final` é calculada por `computeFinal` e guardada com uma casa decimal. */
+/** Categorias de 0 a 10; final com uma casa decimal, até 11 somente quando dada na mão. */
 export type Scores = { final: number } & Rated;
 
 /** A nota de uma categoria, ou null (sem nota, ou categoria de outro mural). */
@@ -214,7 +214,7 @@ export interface Review {
   /** Bônus a favor e contra, na ordem em que foram colados. Entram na média. */
   bonuses: Bonus[];
   /**
-   * A nota final dada na mão, no lugar da média (0 a 10, uma casa). Quando existe, é ela que vai em
+   * A nota final dada na mão, no lugar da média (0 a 11, uma casa). Quando existe, é ela que vai em
    * `scores.final`; a média das notas continua saindo de `computeFinal`. Sem o campo, vale a média.
    */
   finalOverride?: number;
@@ -252,7 +252,7 @@ export interface Review {
   decorSeed?: number;
   text: string;
   /**
-   * Dia em que foi concluído (ou visto pela última vez), 'AAAA-MM-DD'. Editável para cadastros antigos.
+   * Dia em que foi concluído (ou visto pela última vez), 'AAAA-MM-DD', ou apenas 'AAAA'.
    * `null` é data não definida: algo de tanto tempo atrás que ninguém lembra mais o dia.
    */
   completedAt: string | null;
@@ -497,6 +497,24 @@ export function isValidDay(v: unknown): v is string {
   return !Number.isNaN(d.getTime()) && d.getFullYear() > 1970 && localDay(d) === v;
 }
 
+/** Ano lembrado sem inventar um dia de conclusão. Mantém a precisão nos backups. */
+export function isYearOnly(v: unknown): v is string {
+  return typeof v === 'string' && /^\d{4}$/.test(v) && Number(v) > 1970;
+}
+
+export function isValidReviewDate(v: unknown): v is string {
+  return isYearOnly(v) || isValidDay(v);
+}
+
+const reviewDateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+const reviewDayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
+
+export function formatReviewDate(date: string | null, dayOnly = false): string {
+  if (date === null) return 'Sem data';
+  if (isYearOnly(date)) return date;
+  return (dayOnly ? reviewDayFmt : reviewDateFmt).format(parseDay(date)).replace(/\./g, '');
+}
+
 /** A primeira letra do nome, maiúscula, para o "sem capa": um grafema inteiro (emoji e acento juntos). */
 export function initialOf(name: string): string {
   const t = name.trim();
@@ -585,10 +603,10 @@ export function sanitizeBonuses(raw: unknown, kind: Kind): Bonus[] {
 }
 
 /** Um campo que só vai para a resenha quando tem valor: as antigas continuam iguais, sem chave vazia. */
-/** A nota final na mão: de 0 a 10, com uma casa. */
+/** A nota final na mão: de 0 a 11, com uma casa; a média automática continua até 10. */
 export function sanitizeOverride(raw: unknown): number | undefined {
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
-  return Math.round(Math.min(10, Math.max(0, raw)) * 10) / 10;
+  return Math.round(Math.min(11, Math.max(0, raw)) * 10) / 10;
 }
 
 /**
@@ -708,10 +726,10 @@ export function sanitizeReview(raw: unknown): Review | null {
     completedAt:
       r['completedAt'] === null
         ? null
-        : isValidDay(r['completedAt'])
+        : isValidReviewDate(r['completedAt'])
           ? // nunca no futuro (um backup de um fuso adiantado pode trazer o dia de amanhã)
             r['completedAt'] > todayISO()
-            ? todayISO()
+            ? isYearOnly(r['completedAt']) ? todayISO().slice(0, 4) : todayISO()
             : r['completedAt']
           : localDay(new Date(createdAt)),
     createdAt,

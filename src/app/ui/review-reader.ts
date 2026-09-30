@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatScore, isDarkStock, parseDay, sortBonuses } from '../core/review';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatScore, isYearOnly, parseDay, isDarkStock, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
@@ -104,11 +104,15 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
             @if (r.text.trim()) {
               <div class="text">{{ r.text }}</div>
             } @else {
-              <p class="no-text">Sem texto nessa ficha. Dá para escrever depois, em Editar.</p>
+              <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
             }
           </div>
 
           <footer class="foot">
+            @if (owner(); as name) {
+              <p>{{ name === 'Você' ? 'Sua resenha' : 'Resenha de ' + name }}</p>
+              <button type="button" class="btn-ink" (click)="close()">Fechar</button>
+            } @else {
             <button type="button" class="btn-quiet danger" (click)="remove.emit(r.id)">
               <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
               Remover do mural
@@ -129,6 +133,7 @@ const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long'
                 Editar
               </button>
             </div>
+            }
           </footer>
         </article>
       }
@@ -175,15 +180,18 @@ export class ReviewReader {
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   protected readonly review = signal<Review | null>(null);
+  /** Backups de colegas são somente leitura e nunca acionam as ações do mural pessoal. */
+  protected readonly owner = signal<string | null>(null);
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
   /** A faixa do cabeçalho é a cartolina da ficha, no papel dela. */
   protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock)));
   protected readonly date = computed(() => {
     const r = this.review();
-    return r?.completedAt ? dateFmt.format(parseDay(r.completedAt)) : '';
+    return r?.completedAt ? isYearOnly(r.completedAt) ? r.completedAt : dateFmt.format(parseDay(r.completedAt)) : '';
   });
 
-  open(review: Review): void {
+  open(review: Review, owner: string | null = null): void {
+    this.owner.set(owner);
     this.review.set(review);
     this.dialog().nativeElement.showModal();
   }

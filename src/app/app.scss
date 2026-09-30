@@ -28,7 +28,7 @@ main {
 /* ===== Topo: cartaz, abas de seção e a pilha de fichas em branco, numa faixa só ===== */
 .top {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 18px 36px;
   margin-bottom: 34px;
@@ -40,6 +40,7 @@ main {
   /* o bloquinho dos murais sai por cima das abas e da prateleira de filtros (z-index 5) */
   z-index: 20;
   display: block;
+  justify-self: start;
   padding: 18px 26px 16px;
   border-radius: 2px;
   rotate: -2deg;
@@ -91,6 +92,8 @@ main {
    a da seção aberta é a fita amarela, a cor de estado, pregada com tachinha. */
 .tabs {
   display: flex;
+  grid-column: 1 / -1;
+  grid-row: 2;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
@@ -468,12 +471,12 @@ main {
   }
 
   .tabs {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
   }
 
   .tab {
-    flex: 1 1 auto;
+    flex: 1 1 calc(33.333% - 6px);
     justify-content: center;
     gap: 5px;
     padding: 12px 8px 9px;
