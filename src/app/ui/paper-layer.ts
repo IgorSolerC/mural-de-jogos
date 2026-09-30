@@ -156,7 +156,11 @@ export class PaperDefs {}
     }
     @if (art(); as a) {
       @if (a.fundo) {
-        <div class="camada fundo" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().fundo"></div>
+        <div class="camada fundo" [class.sem-lapis]="!!lapisHtml()" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().fundo"></div>
+      }
+      @if (lapisHtml(); as l) {
+        <!-- na cartolina escura o rabisco é de lápis claro: clareia o papel em vez de escurecer -->
+        <div class="camada fundo lapis" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="l"></div>
       }
       @if (a.clareia) {
         <div class="camada clareia" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().clareia"></div>
@@ -213,6 +217,14 @@ export class PaperDefs {}
       z-index: -1;
       mix-blend-mode: multiply;
       --lapis: rgb(36 34 42);
+    }
+    /* o lápis claro, sozinho numa camada que clareia; o do fundo (que multiplica) fica escondido */
+    .fundo.lapis {
+      mix-blend-mode: screen;
+      --lapis: rgb(240 235 226);
+    }
+    .fundo.sem-lapis ::ng-deep .rabisco {
+      display: none;
     }
     .clareia {
       z-index: -1;
@@ -311,6 +323,8 @@ export class PaperArtLayer {
   readonly glitter = input(false);
   /** Sem o filtro de lápis: as amostras miúdas do editor. */
   readonly plain = input(false);
+  /** Cartolina escura: o rabisco sai em lápis claro. */
+  readonly dark = input(false);
   /** Muda quando o que está escrito na ficha muda: hora de medir de novo onde cada texto está. */
   readonly content = input<unknown>(null);
 
@@ -332,6 +346,19 @@ export class PaperArtLayer {
     if (!s || (!this.scribble() && !this.damage() && !this.stain() && !holes.length)) return null;
     const art = paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stain: this.stain(), stainSeed: this.stainSeed() ?? undefined, uid: this.uid, plain: this.plain() });
     return holes.length ? { ...art, cut: [...art.cut, ...holes] } : art;
+  });
+
+  /**
+   * O rabisco sozinho, para a camada do lápis claro da cartolina escura: o mesmo desenho (o sorteio é
+   * pelo id), desenhado sem o estrago e a mancha, que continuam no fundo, multiplicando.
+   */
+  protected readonly lapisHtml = computed(() => {
+    const s = this.size(),
+      scribble = this.scribble();
+    if (!this.dark() || !s || !scribble) return null;
+    const art = paperArt({ id: this.id(), W: s.W, H: s.H, scribble, scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, uid: `${this.uid}l`, plain: this.plain() });
+    // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
+    return this.sanitizer.bypassSecurityTrustHtml(`<svg xmlns="http://www.w3.org/2000/svg" width="${s.W}" height="${s.H}" viewBox="0 0 ${s.W} ${s.H}">${art.fundo}</svg>`);
   });
 
   protected readonly decorHtml = computed(() => {

@@ -1,5 +1,5 @@
 import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_LABEL, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
-import { cutMask, motifIcon, paperArt, paperStyle, patternTile } from './paper-art';
+import { cutMask, lightPattern, motifIcon, paperArt, paperStyle, paperVars, patternTile } from './paper-art';
 import { decorArt } from './decor-art';
 import { sanitizeReview } from './review';
 
@@ -313,5 +313,17 @@ describe('papel da ficha', () => {
       expect(JSON.stringify(plain)).not.toContain('enfeite');
       expect(Object.keys(plain).sort()).toEqual(['clareia', 'core', 'cut', 'evenodd', 'fita', 'frente', 'fundo', 'relevo']);
     });
+  });
+
+  it('na cartolina escura a estampa sai em branco, com os furos intactos', () => {
+    const dark = decodeURIComponent(lightPattern('gatinhos'));
+    const light = decodeURIComponent(patternTile('gatinhos').url);
+    expect(dark).not.toBe(light);
+    // a tinta vira branca, a máscara dos furos continua preta
+    expect(dark).toContain('.s *{fill:#fff}');
+    expect(dark).toContain('.m *{fill:none;stroke:#000');
+    expect(dark.replace(/#fff/g, '#000')).toBe(light.replace(/#fff/g, '#000'));
+    expect(paperVars('cartolina', 'gatinhos')['--estampa-clara']).toBeNull();
+    expect(paperVars('cartolina', 'gatinhos', undefined, undefined, true)['--estampa-clara']).toBe(lightPattern('gatinhos'));
   });
 });

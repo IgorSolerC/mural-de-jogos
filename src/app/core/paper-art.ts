@@ -2516,14 +2516,41 @@ export function accentStyle(paper: Paper | undefined): Record<string, string | n
   const t = textureOf(paper);
   // a Lisa não tem fibra: nem a do reforço
   const grain = paper === 'lisa' ? 'none' : null;
-  if (!t || t.blend !== 'soft-light' || paper === 'perolado') return { '--realce-forte': null, '--realce-leve': null, '--grao-realce': grain };
+  if (!t || t.blend !== 'soft-light' || paper === 'perolado') return { '--realce-forte': null, '--realce-leve': null, '--realce-escuro': null, '--textura-escura': null, '--grao-realce': grain };
   const [w, h] = t.size.split(' ').map((v) => parseFloat(v));
   const inner = t.img.slice(5, -2);
   const wrap = (op: number) => svgUrl(w, h, `<rect width='100%' height='100%' fill='#808080'/><image href='${inner}' width='${w}' height='${h}' opacity='${op}'/>`);
-  return { '--realce-forte': wrap(0.3), '--realce-leve': wrap(0.16), '--grao-realce': grain };
+  // na cartolina escura a textura em soft-light some (--textura-escura) e fica só a versão fraca
+  return { '--realce-forte': wrap(0.3), '--realce-leve': wrap(0.16), '--realce-escuro': wrap(0.12), '--textura-escura': 'none', '--grao-realce': grain };
 }
 
-/** As variáveis do papel, da estampa e do reforço das cartolinas claras, para o `[style]` das fichas. */
-export function paperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null): Record<string, string | null> {
-  return { ...paperStyle(paper, pattern, look, seed), ...accentStyle(paper) };
+const lightTiles = new Map<string, string>();
+
+/**
+ * A estampa da cartolina escura: o mesmo ladrilho, com a tinta branca em vez da preta (os furos do
+ * motivo cheio continuam furos). No escuro o preto multiplicado some; o branco, em screen (ver
+ * `--estampa-mistura` no styles.scss), clareia o papel tom sobre tom. Fora de `paperStyle` de
+ * propósito: as digitais dele estão congeladas.
+ */
+export function lightPattern(pattern: Pattern, look?: PatternLook, seed?: number | null): string {
+  const url = patternTile(pattern, look, seed ?? undefined).url;
+  const hit = lightTiles.get(url);
+  if (hit) return hit;
+  const head = 'url("data:image/svg+xml,';
+  const svg = decodeURIComponent(url.slice(head.length, -2));
+  // só a tinta (.l, .s, .c) vira branca; a máscara dos furos (.m) continua preta
+  const light = svg.replace(/<style>(.*?)<\/style>/, (_, css: string) =>
+    `<style>${css.replace(/([^{}]+)\{([^}]*)\}/g, (rule: string, sel: string, body: string) => (sel.trim().startsWith('.m') ? rule : `${sel}{${body.replace(/#000/g, '#fff')}}`))}</style>`,
+  );
+  const out = `${head}${encodeURIComponent(light)}")`;
+  lightTiles.set(url, out);
+  return out;
+}
+
+/**
+ * As variáveis do papel, da estampa e do reforço das cartolinas claras, para o `[style]` das fichas.
+ * Na cartolina escura (`dark`), a estampa também sai em branco (`--estampa-clara`).
+ */
+export function paperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null, dark = false): Record<string, string | null> {
+  return { ...paperStyle(paper, pattern, look, seed), ...accentStyle(paper), '--estampa-clara': dark && pattern ? lightPattern(pattern, look, seed) : null };
 }

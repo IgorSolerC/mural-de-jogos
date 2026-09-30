@@ -15,16 +15,37 @@ export type Difficulty = 'nenhuma' | 'facil' | 'media' | 'dificil' | 'impossivel
 
 export type Verdict = 'masterpiece' | 'recomendo' | 'legalzinho' | 'meh' | 'chato';
 
-export type Stock = 'vermelho' | 'laranja' | 'amarelo' | 'verde' | 'azul' | 'lilas' | 'rosa' | 'cinza' | 'branco';
+export type LightStock = 'vermelho' | 'laranja' | 'amarelo' | 'verde' | 'azul' | 'lilas' | 'rosa' | 'cinza' | 'branco';
+/** A versão bem escura de cada cartolina: a do branco é a preta. */
+export type DarkStock =
+  | 'vermelho-escuro'
+  | 'laranja-escuro'
+  | 'amarelo-escuro'
+  | 'verde-escuro'
+  | 'azul-escuro'
+  | 'lilas-escuro'
+  | 'rosa-escuro'
+  | 'cinza-escuro'
+  | 'preto';
+export type Stock = LightStock | DarkStock;
 
-/** As cartolinas, na volta do círculo de cores, o cinza e o branco no fim: a ordem das amostras no editor. */
-export const STOCKS: readonly Stock[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'];
+/** As cartolinas claras, na volta do círculo de cores, o cinza e o branco no fim. */
+export const LIGHT_STOCKS: readonly LightStock[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'];
+/** As escuras, na mesma ordem: cada uma embaixo da clara dela, no editor. */
+export const DARK_STOCKS: readonly DarkStock[] = ['vermelho-escuro', 'laranja-escuro', 'amarelo-escuro', 'verde-escuro', 'azul-escuro', 'lilas-escuro', 'rosa-escuro', 'cinza-escuro', 'preto'];
+/** Todas: a ordem das amostras no editor, as claras numa fileira e as escuras na de baixo. */
+export const STOCKS: readonly Stock[] = [...LIGHT_STOCKS, ...DARK_STOCKS];
+
+/** Na cartolina escura a tinta é clara: o que está escrito nela, o lápis do rabisco e a estampa. */
+export function isDarkStock(s: Stock | undefined): s is DarkStock {
+  return !!s && (DARK_STOCKS as readonly string[]).includes(s);
+}
 
 /**
  * O rodízio que dá cor às fichas antigas sem cor (e à tachinha delas): as oito de sempre, sem o
- * branco, que veio depois. Assim nenhuma ficha de antes muda de cor.
+ * branco nem as escuras, que vieram depois. Assim nenhuma ficha de antes muda de cor.
  */
-export const ROTATION_STOCKS: readonly Stock[] = STOCKS.filter((s) => s !== 'branco');
+export const ROTATION_STOCKS: readonly Stock[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza'];
 
 export const STOCK_LABEL: Record<Stock, string> = {
   vermelho: 'Vermelho',
@@ -36,6 +57,15 @@ export const STOCK_LABEL: Record<Stock, string> = {
   rosa: 'Rosa',
   cinza: 'Cinza',
   branco: 'Branco',
+  'vermelho-escuro': 'Vermelho escuro',
+  'laranja-escuro': 'Laranja escuro',
+  'amarelo-escuro': 'Amarelo escuro',
+  'verde-escuro': 'Verde escuro',
+  'azul-escuro': 'Azul escuro',
+  'lilas-escuro': 'Lilás escuro',
+  'rosa-escuro': 'Rosa escuro',
+  'cinza-escuro': 'Cinza escuro',
+  preto: 'Preto',
 };
 
 /**

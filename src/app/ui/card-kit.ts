@@ -28,7 +28,7 @@ import {
   newSeed,
 } from '../core/paper';
 import { motifIcon, paperVars } from '../core/paper-art';
-import { STOCKS, STOCK_LABEL, Stock } from '../core/review';
+import { STOCKS, STOCK_LABEL, Stock, isDarkStock } from '../core/review';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 
@@ -88,7 +88,7 @@ interface Option {
             @for (s of stocks; track s) {
               <label class="cor" [class.on]="stock() === s">
                 <input type="radio" name="kit-cor" [value]="s" [checked]="stock() === s" [attr.aria-label]="stockLabels[s]" (change)="stock.set(s)" />
-                <span class="amostra cartolina" [style]="current()" [style.--stock]="'var(--stock-' + s + ')'" [attr.data-cor]="s"></span>
+                <span class="amostra cartolina" [style]="isDark(s) ? currentDark() : current()" [style.--stock]="'var(--stock-' + s + ')'" [attr.data-cor]="s"></span>
                 @if (stock() === s) {
                   <app-pin class="cor-pin" [color]="pinColor()" />
                 }
@@ -167,6 +167,7 @@ interface Option {
                     [seed]="o.damage && o.value === value() ? damageSeed() : null"
                     [stain]="o.stain"
                     [stainSeed]="o.stain && o.value === value() ? stainSeed() : null"
+                    [dark]="isDark(stock())"
                     [decor]="o.decor"
                     [decorSeed]="o.decor && o.value === value() ? decorSeed() : null"
                     [plain]="true"
@@ -420,6 +421,10 @@ interface Option {
       text-transform: uppercase;
       color: rgb(21 21 21 / 0.5);
     }
+    /* no retalho de cartolina escura, a palavra em tinta clara */
+    .mini:is([data-cor$='-escuro'], [data-cor='preto']) .nada {
+      color: rgb(243 236 224 / 0.6);
+    }
     .nome {
       max-width: 100%;
       font-family: var(--f-label);
@@ -646,6 +651,9 @@ export class CardKit {
 
   /** O papel e a estampa da ficha, para as amostras de cor. */
   protected readonly current = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
+  /** A amostra da cartolina escura: a estampa em branco. */
+  protected readonly currentDark = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), true));
+  protected readonly isDark = isDarkStock;
 
   private readonly all: Record<Exclude<Tab, 'cor'>, Option[]> = {
     papel: PAPERS.map((p) => ({ value: p, label: PAPER_LABEL[p], paper: p })),
@@ -699,7 +707,7 @@ export class CardKit {
     const paper = this.tab() === 'papel' ? o.paper : this.paper();
     const pattern = this.tab() === 'estampa' ? o.pattern : (this.pattern() ?? undefined);
     // o sorteio vale para a estampa escolhida; as outras aparecem centradas
-    return paperVars(paper, pattern, this.patternLook(), pattern === this.pattern() ? this.patternSeed() : null);
+    return paperVars(paper, pattern, this.patternLook(), pattern === this.pattern() ? this.patternSeed() : null, isDarkStock(this.stock()));
   }
 
   protected choose(v: string | null): void {

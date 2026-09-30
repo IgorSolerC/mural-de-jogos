@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { KINDS } from './kinds';
-import { Bonus, Draft, Kind, Relevance, ROTATION_STOCKS, Review, STOCKS, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -156,13 +156,16 @@ export class ReviewStore {
     }
   }
 
-  /** A cor com que a ficha nova nasce: sorteada, só não repete a da última pregada no mural. A pessoa troca no editor. */
+  /**
+   * A cor com que a ficha nova nasce: sorteada entre as claras (a escura é escolha da pessoa), só não
+   * repete a da última pregada no mural. A pessoa troca no editor.
+   */
   nextStock(kind: Kind): Stock {
     const latest = this.reviews().filter((r) => r.kind === kind).reduce<Review | null>(
       (acc, r) => (!acc || Date.parse(r.createdAt) > Date.parse(acc.createdAt) ? r : acc),
       null,
     );
-    const pool = STOCKS.filter((s) => s !== latest?.stock);
+    const pool = LIGHT_STOCKS.filter((s) => s !== latest?.stock);
     return pool[Math.floor(Math.random() * pool.length)];
   }
 

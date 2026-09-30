@@ -43,6 +43,16 @@ const WALL_PINS: Record<Stock, readonly string[]> = {
   lilas: [PINS[0], PINS[4]],
   cinza: [PINS[0], PINS[4]],
   branco: [PINS[0], PINS[4]],
+  // nas escuras a branca acende; a vermelha só onde não some no vinho, no marrom e na berinjela
+  'vermelho-escuro': [PINS[4]],
+  'rosa-escuro': [PINS[4]],
+  'laranja-escuro': [PINS[4]],
+  'amarelo-escuro': [PINS[0], PINS[4]],
+  'verde-escuro': [PINS[0], PINS[4]],
+  'azul-escuro': [PINS[0], PINS[4]],
+  'lilas-escuro': [PINS[4]],
+  'cinza-escuro': [PINS[0], PINS[4]],
+  preto: [PINS[0], PINS[4]],
 };
 
 export function pinningFor(id: string, stock?: Stock): Pinning {

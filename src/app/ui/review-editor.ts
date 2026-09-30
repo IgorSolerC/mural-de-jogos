@@ -28,6 +28,7 @@ import {
   Weights,
   Wish,
   computeFinal,
+  isDarkStock,
   formatScore,
   counts,
   formatShift,
@@ -216,7 +217,7 @@ export class ReviewEditor {
   /** A decoração por cima de tudo, e o jeito dela que a pessoa sorteou. */
   protected readonly decor = signal<Decor | null>(null);
   protected readonly decorSeed = signal<number | null>(null);
-  protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
+  protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), isDarkStock(this.stock())));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
 

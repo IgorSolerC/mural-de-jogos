@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatScore, parseDay, sortBonuses } from '../core/review';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatScore, isDarkStock, parseDay, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
@@ -177,7 +177,7 @@ export class ReviewReader {
   protected readonly review = signal<Review | null>(null);
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
   /** A faixa do cabeçalho é a cartolina da ficha, no papel dela. */
-  protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed));
+  protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock)));
   protected readonly date = computed(() => {
     const r = this.review();
     return r?.completedAt ? dateFmt.format(parseDay(r.completedAt)) : '';

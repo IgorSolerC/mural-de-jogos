@@ -23,10 +23,25 @@
   --stock-cinza: #c9c3bc;
   /* o branco de cartolina: um off-white quente, nunca o branco de tela */
   --stock-branco: #f6f1e7;
+  /* As escuras: cada cor, no mesmo matiz (OKLCH), com a luz lá embaixo (L 0,34) e o croma contido,
+     para nenhuma virar neon apagado. A tinta clara passa de 9:1 em todas. A preta é mais funda que a
+     parede, para a ficha não sumir nela. */
+  --stock-vermelho-escuro: #5d221e;
+  --stock-laranja-escuro: #552c04;
+  --stock-amarelo-escuro: #433704;
+  --stock-verde-escuro: #0b4418;
+  --stock-azul-escuro: #0d3b56;
+  --stock-lilas-escuro: #3e2d59;
+  --stock-rosa-escuro: #601a36;
+  --stock-cinza-escuro: #403c38;
+  --stock-preto: #141312;
 
   /* Tintas */
   --ink: #151515;
   --ink-2: rgb(21 21 21 / 0.78);
+  /* a tinta das cartolinas escuras: caneta de gel branca, no mesmo creme quente da parede */
+  --ink-claro: #f3ece0;
+  --ink-claro-2: rgb(243 236 224 / 0.8);
   --red: #e62e2d;
   --red-deep: #b81d1c;
   /* nota vermelha: a nota ruim, sempre sobre preto (5,3:1 no ink) */
@@ -543,11 +558,11 @@ dialog.sheet {
 .papel {
   background-color: var(--stock);
   /* o reforço (--realce, --realce-grao) só existe nas cartolinas claras; nas outras a camada é vazia */
-  background-image: var(--textura, none), var(--realce, none), var(--estampa, none), var(--grao, var(--grao-img)), var(--realce-grao, none);
+  background-image: var(--textura-uso, var(--textura, none)), var(--realce, none), var(--estampa-uso, var(--estampa, none)), var(--grao, var(--grao-img)), var(--realce-grao, none);
   background-size: var(--textura-tam, auto), var(--textura-tam, auto), calc(var(--estampa-lado, 128px) * var(--estampa-zoom, 1)) auto, var(--grao-tam), var(--grao-tam);
   /* a estampa sai do meio: o desenho gigante fica na ficha, não num canto */
   background-position: 0 0, 0 0, center, 0 0, 0 0;
-  background-blend-mode: var(--textura-mistura, normal), hard-light, multiply, var(--grao-mistura), hard-light;
+  background-blend-mode: var(--textura-mistura, normal), hard-light, var(--estampa-mistura, multiply), var(--grao-mistura), hard-light;
 }
 
 /* As cartolinas claras: no amarelo e no verde o soft-light quase não mexe (um canal já está no
@@ -561,6 +576,43 @@ dialog.sheet {
 [data-cor='azul'] :is(.cartolina, .papel, .head),
 [data-cor='azul']:is(.cartolina, .papel) {
   --realce: var(--realce-leve, none);
+}
+
+/* As cartolinas escuras. No escuro o soft-light pesa demais (clareia a sombra com raiz quadrada) e o
+   papel ficava poluído: a textura sai do soft-light e volta fraquinha, em hard-light sobre o cinza do
+   meio (--realce-escuro, ver accentStyle em core/paper-art.ts). A estampa troca o preto multiplicado
+   pelo branco em screen (--estampa-clara, ver lightPattern), tom sobre tom. */
+:is([data-cor$='-escuro'], [data-cor='preto']) :is(.cartolina, .papel, .head),
+:is([data-cor$='-escuro'], [data-cor='preto']):is(.cartolina, .papel) {
+  --textura-uso: var(--textura-escura, var(--textura, none));
+  --realce: var(--realce-escuro, none);
+  /* a fibra da cartolina, mais suave (até a foto carregar, a procedural de sempre) */
+  --grao-img: var(--grao-escuro-img, var(--paper-grain));
+  --estampa-uso: var(--estampa-clara, none);
+  --estampa-mistura: screen;
+}
+/* O que está escrito nelas sai em tinta clara: a ficha do mural (e a amostra) inteira; na ficha
+   aberta, que é papel creme, só a faixa do cabeçalho. A caneta vermelha que risca a nota da ordem
+   acende um pouco (e onde a cartolina já é vermelha, quem risca é a própria tinta). */
+.cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha),
+.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .head {
+  --ink: var(--ink-claro);
+  --ink-2: var(--ink-claro-2);
+  --pen: #ff7a68;
+  --focus: var(--ink);
+  color: var(--ink);
+}
+.cartolina:is([data-cor='vermelho-escuro'], [data-cor='rosa-escuro'], [data-cor='laranja-escuro']):not(.ficha) {
+  --pen: var(--ink-claro);
+}
+/* O que foi colado por cima tem papel (ou fita) próprio e continua em tinta preta: a etiqueta do
+   julgamento, a foto e a faixa de status, os adesivos de bônus, o selo do 10, a fita do 0, a bolinha
+   de marcação. */
+.cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha)
+  :is(app-judge-label, app-cover-sleeve, app-bonus-sticker, app-bonus-tally, .selo-dez, .fita-rasgada, .marca) {
+  --ink: #151515;
+  --ink-2: rgb(21 21 21 / 0.78);
+  color: var(--ink);
 }
 
 .cartolina {
@@ -904,6 +956,8 @@ body.has-paper-texture {
   --grao-img: url('textures/cartolina-fibra.png');
   /* a mesma fibra, bem mais suave, para o reforço das cartolinas claras */
   --grao-realce-img: url('textures/cartolina-fibra-realce.png');
+  /* e a das escuras, onde o soft-light pesa: metade do contraste */
+  --grao-escuro-img: url('textures/cartolina-fibra-escura.png');
   --grao-tam: 420px 420px;
   --grao-mistura: soft-light;
 }

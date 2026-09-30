@@ -81,7 +81,7 @@ import { PenMark } from './pen-mark';
     .fios {
       position: absolute;
       inset: var(--fios-top, 0px) 0 0;
-      border-top: 1.5px solid rgb(21 21 21 / 0.34);
+      border-top: 1.5px solid color-mix(in srgb, currentColor 34%, transparent);
       pointer-events: none;
     }
     .fio {
@@ -89,7 +89,7 @@ import { PenMark } from './pen-mark';
       top: 1px;
       bottom: 0;
       width: 1.5px;
-      background: rgb(21 21 21 / 0.2);
+      background: color-mix(in srgb, currentColor 20%, transparent);
     }
     .cell {
       display: grid;

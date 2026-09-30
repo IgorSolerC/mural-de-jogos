@@ -13,6 +13,10 @@ import {
   relevanceLabel,
   isValidDay,
   initialOf,
+  DARK_STOCKS,
+  LIGHT_STOCKS,
+  ROTATION_STOCKS,
+  isDarkStock,
 } from './review';
 
 const favor = (id: string): Bonus => ({ id, label: id, kind: 'favor' });
@@ -135,6 +139,16 @@ describe('sanitizeReview', () => {
     expect(r.difficulty).toBe('nenhuma');
     expect(r.verdict).toBeNull();
     expect(r.stock).toBeUndefined();
+  });
+
+  it('guarda as cartolinas escuras, e só elas pedem a tinta clara', () => {
+    for (const stock of DARK_STOCKS) {
+      expect(sanitizeReview({ ...base, stock })!.stock).toBe(stock);
+      expect(isDarkStock(stock)).toBeTrue();
+    }
+    for (const stock of LIGHT_STOCKS) expect(isDarkStock(stock)).toBeFalse();
+    // as fichas antigas sem cor continuam no rodízio de sempre
+    expect(ROTATION_STOCKS.some((s) => isDarkStock(s) || s === 'branco')).toBeFalse();
   });
 
   it('zera a nota da categoria que o jogo não tem', () => {
