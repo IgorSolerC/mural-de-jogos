@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatScore, isYearOnly, parseDay, isDarkStock, sortBonuses } from '../core/review';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDateLong, formatScore, isDarkStock, sortBonuses } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
@@ -24,7 +24,6 @@ import { Luz } from './luz';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 
-const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
 @Component({
   selector: 'app-review-reader',
@@ -187,7 +186,7 @@ export class ReviewReader {
   protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock)));
   protected readonly date = computed(() => {
     const r = this.review();
-    return r?.completedAt ? isYearOnly(r.completedAt) ? r.completedAt : dateFmt.format(parseDay(r.completedAt)) : '';
+    return formatReviewDateLong(r?.completedAt ?? null);
   });
 
   open(review: Review, owner: string | null = null): void {

@@ -1,0 +1,156 @@
+/* Peças que a comparação e o mural do colega dividem: atalhos de mural, a cartolina de vazio e a régua. */
+
+/* ===== Atalhos para os outros murais ===== */
+.murais {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 8px;
+  margin-bottom: 44px;
+}
+
+.murais-giz {
+  margin-right: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+}
+
+.murais .count {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* ===== Nada por aqui: a cartolina verde de sempre ===== */
+.vazio {
+  --stock: var(--stock-verde);
+  max-width: 560px;
+  padding: 30px 30px 32px;
+  box-shadow: var(--shadow-card);
+  rotate: 0.5deg;
+}
+
+.vazio h2 {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.7rem;
+  line-height: 1.1;
+}
+
+.vazio p {
+  margin-top: 12px;
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.45;
+}
+
+.fita-vazio {
+  position: absolute;
+  top: -11px;
+  left: calc(50% - 50px);
+  width: 100px;
+  height: 24px;
+  background: var(--paper-grain), rgb(222 205 160 / 0.88);
+  rotate: -3deg;
+}
+
+.prateleira-fim {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 18px;
+  margin-left: auto;
+}
+
+.aba-nome {
+  display: inline-block;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.pick {
+  padding-right: 34px;
+  cursor: pointer;
+}
+
+.pick select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px;
+  color-scheme: dark;
+}
+
+.pick:has(select:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* o valor escolhido aparece por cima do select invisível, como nas outras réguas */
+.pick-pre {
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+.pick select + .chev,
+.chev {
+  position: absolute;
+  right: 11px;
+  top: calc(50% - 8px);
+  display: inline-flex;
+  pointer-events: none;
+}
+
+.densidade {
+  display: flex;
+  gap: 6px;
+}
+
+.plate.icon {
+  padding-inline: 11px;
+}
+
+.mostrando {
+  margin: -22px 0 26px;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--wall-ink-2);
+}
+
+.limpar {
+  margin-left: 8px;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--wall-ink);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.nada {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  max-width: 60ch;
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.45;
+  color: var(--wall-ink);
+}
+
+.nada .btn-quiet {
+  color: var(--hi);
+  margin-left: -12px;
+}
+

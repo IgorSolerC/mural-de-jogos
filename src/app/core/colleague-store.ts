@@ -1,10 +1,20 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import {
   BackupSnapshot,
   parseBackupSnapshot,
   readBackupFile,
 } from './backup-file';
 import { newId, sanitizeReview } from './review';
+
+const CHOSEN_KEY = 'meu-mural:colega-aberto';
+
+function readChosen(): string | null {
+  try {
+    return localStorage.getItem(CHOSEN_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export interface Colleague extends BackupSnapshot {
   id: string;
@@ -22,6 +32,23 @@ export class ColleagueStore {
   private database: Promise<IDBDatabase> | undefined;
   readonly ready = this.load();
 
+  /** O colega aberto na comparação, lembrado entre as visitas (só o id, neste navegador). */
+  private readonly chosenId = signal<string | null>(readChosen());
+  /** O escolhido, ou o backup aberto mais recentemente quando a escolha sumiu. */
+  readonly selected = computed<Colleague | null>(() => {
+    const list = this.colleagues();
+    return list.find((c) => c.id === this.chosenId()) ?? list[0] ?? null;
+  });
+
+  select(id: string): void {
+    this.chosenId.set(id);
+    try {
+      localStorage.setItem(CHOSEN_KEY, id);
+    } catch {
+      /* sem armazenamento, a escolha vale só até recarregar */
+    }
+  }
+
   async add(file: File, name: string): Promise<Colleague> {
     await this.ready;
     const snapshot = parseBackupSnapshot(await readBackupFile(file));
@@ -34,6 +61,24 @@ export class ColleagueStore {
     };
     await this.put(colleague);
     this.colleagues.update((list) => [colleague, ...list]);
+    this.select(colleague.id);
+    return colleague;
+  }
+
+  /** Um backup mais novo do mesmo colega: troca as fichas, mantém o nome e a vez na lista. */
+  async replace(id: string, file: File): Promise<Colleague> {
+    await this.ready;
+    const old = this.colleagues().find((c) => c.id === id);
+    if (!old) throw new Error('Esse colega não está mais na comparação. Carregue o arquivo de novo.');
+    const snapshot = parseBackupSnapshot(await readBackupFile(file));
+    const colleague: Colleague = {
+      ...old,
+      ...snapshot,
+      fileName: file.name,
+      loadedAt: new Date().toISOString(),
+    };
+    await this.put(colleague);
+    this.colleagues.update((list) => list.map((c) => (c.id === id ? colleague : c)));
     return colleague;
   }
 
@@ -59,6 +104,7 @@ export class ColleagueStore {
       colleague,
       ...list.filter((c) => c.id !== colleague.id),
     ]);
+    this.select(colleague.id);
   }
 
   private open(): Promise<IDBDatabase> {

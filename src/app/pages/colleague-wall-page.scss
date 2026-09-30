@@ -1,0 +1,198 @@
+/*
+ * O mural do colega: a mesma parede em seções do seu mural, com as fichas dele, e no alto a placa
+ * com o nome dele na faixa azul (a cor do colega em toda a comparação).
+ */
+@use './comparison/shelf';
+
+:host {
+  display: block;
+}
+
+.voltar {
+  margin: -6px 0 22px -12px;
+  color: var(--wall-ink);
+  text-decoration: none;
+}
+
+.cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+  margin-bottom: 36px;
+}
+
+/* a placa: um crachá grande, faixa azul impressa e o nome a pincel azul */
+.placa {
+  position: relative;
+  display: grid;
+  min-width: min(100%, 300px);
+  max-width: 100%;
+  overflow: hidden;
+  padding-bottom: 10px;
+  border-radius: 10px;
+  background:
+    linear-gradient(to top, var(--caneta-azul) 0 10px, transparent 10px),
+    #fdfcf8;
+  color: var(--caneta-azul);
+  box-shadow: var(--shadow-card);
+  rotate: -1.6deg;
+}
+
+.placa::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.42) 46%, transparent 56%);
+  pointer-events: none;
+}
+
+.placa-faixa {
+  display: block;
+  padding: 8px 18px 6px;
+  background: var(--caneta-azul);
+  color: #fdfcf8;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.18em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.placa-nome {
+  overflow: hidden;
+  padding: 12px 28px 8px;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.05;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.giz {
+  padding-bottom: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.ordem {
+  display: flex;
+  gap: 6px;
+}
+
+/* no celular os vereditos viram um seletor só, como no seu mural */
+.mostrar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .prateleira-abas {
+    display: none;
+  }
+  .mostrar {
+    display: inline-flex;
+  }
+}
+
+/* ===== A parede em seções, igual à do seu mural ===== */
+.wall {
+  --card-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
+  --in-col: 34px;
+  --in-gap: 44px var(--in-col);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 64px var(--in-col);
+}
+
+.wall.compact {
+  --card-w: var(--simples-w);
+  --in-col: 30px;
+  --in-gap: 34px var(--in-col);
+}
+
+.grupo {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 26px;
+}
+
+.grupo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  padding-left: 4px;
+  width: 0;
+  min-width: 100%;
+}
+
+.grupo:nth-child(even) .tape-label {
+  rotate: 1.2deg;
+}
+
+.grupo-sum {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.fichas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--in-gap);
+}
+
+.fichas app-review-card {
+  width: var(--card-w);
+  max-width: none;
+}
+
+@media (max-width: 699px) {
+  .densidade {
+    display: none;
+  }
+}
+
+@media (max-width: 559px) {
+  .prateleira-fim {
+    margin-left: 0;
+  }
+  .placa {
+    min-width: 0;
+    width: 100%;
+  }
+  .wall {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 48px;
+  }
+  .grupo {
+    gap: 20px;
+  }
+  .fichas {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 34px;
+  }
+  .fichas app-review-card {
+    width: 100%;
+  }
+}

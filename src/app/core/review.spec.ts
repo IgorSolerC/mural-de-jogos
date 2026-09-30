@@ -13,6 +13,8 @@ import {
   relevanceLabel,
   isValidDay,
   isYearOnly,
+  isYearMonth,
+  formatReviewDateLong,
   formatReviewDate,
   todayISO,
   initialOf,
@@ -344,6 +346,17 @@ describe('datas e iniciais (caça a bugs)', () => {
     expect(formatReviewDate(review.completedAt, true)).toBe('2020');
     expect(sanitizeReview({ ...review, completedAt: '9999' })!.completedAt).toBe(todayISO().slice(0, 4));
     expect(formatReviewDate(null)).toBe('Sem data');
+  });
+  it('guarda mês e ano sem inventar o dia', () => {
+    expect(isYearMonth('2024-03')).toBeTrue();
+    expect(isYearMonth('2024-13')).toBeFalse();
+    expect(isYearMonth('2024-3')).toBeFalse();
+    const review = sanitizeReview({ game: { name: 'Hades' }, scores: { final: 8 }, completedAt: '2024-03' })!;
+    expect(review.completedAt).toBe('2024-03');
+    expect(formatReviewDate('2024-03')).toBe('mar de 2024');
+    expect(formatReviewDate('2024-03', true)).toBe('mar');
+    expect(formatReviewDateLong('2024-03')).toBe('março de 2024');
+    expect(sanitizeReview({ ...review, completedAt: '9999-12' })!.completedAt).toBe(todayISO().slice(0, 7));
   });
   it('11 é exclusivo da nota manual; categorias e média automática continuam até 10', () => {
     const review = { game: { name: 'Hades' }, scores: { final: 11, historia: 11, diversao: 11, jogabilidade: 11, visual: 11 } };

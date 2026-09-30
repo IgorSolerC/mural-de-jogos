@@ -16,6 +16,11 @@ export const routes: Routes = [
   },
   { path: 'ranking', title: 'Ranking', loadComponent: () => import('./pages/ranking-page').then((m) => m.RankingPage) },
   { path: 'comparar', title: 'Comparar murais', loadComponent: () => import('./pages/comparison-page').then((m) => m.ComparisonPage) },
+  {
+    path: 'comparar/mural',
+    title: 'Mural do colega',
+    loadComponent: () => import('./pages/colleague-wall-page').then((m) => m.ColleagueWallPage),
+  },
   { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },
 ];

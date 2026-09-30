@@ -16,9 +16,15 @@
         [routerLink]="t.path"
         [class.on]="isOn(t)"
         [attr.aria-current]="isOn(t) ? 'page' : null"
+        [attr.title]="t.icon ? t.label : null"
       >
         <app-pin class="tab-pin" color="#e62e2d" />
-        <span>{{ t.label }}</span>
+        @if (t.icon) {
+          <lucide-icon class="tab-icon" [img]="t.icon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          <span class="sr-only">{{ t.label }}</span>
+        } @else {
+          <span>{{ t.label }}</span>
+        }
         @if (tabCount(t.path); as n) {
           <span class="n">{{ n }}</span>
         }

@@ -1,0 +1,255 @@
+<span class="fita fita-a" aria-hidden="true"></span>
+<span class="fita fita-b" aria-hidden="true"></span>
+
+<!-- página da esquerda: a sintonia, o top, se termina o que começa e os bônus -->
+<div class="pagina">
+  <p class="cabecalho">
+    <span><span class="campo">Nome:</span> Você<span class="e"> &amp; </span><span class="colega">{{ name() }}</span></span>
+    <span><span class="campo">Matéria:</span> {{ profile().plural }}</span>
+  </p>
+
+  <section class="pergunta sintonia" aria-labelledby="q-sintonia">
+    <h3 id="q-sintonia">Vocês combinam?</h3>
+    @if (affinity(); as a) {
+      <p class="resultado">
+        <span class="pct">{{ a.percent }}%</span>
+        <span class="frase">{{ a.phrase }}</span>
+      </p>
+      <div class="regua" aria-hidden="true">
+        <div class="regua-escala">
+          <span class="regua-marcas"></span>
+          @for (t of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; track t) {
+            <span class="regua-num" [style.left.%]="t * 10">{{ t }}</span>
+          }
+          <svg class="caneta" [style.left.%]="a.percent" viewBox="0 0 60 50" preserveAspectRatio="none">
+            <path pathLength="1" d="M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7" />
+          </svg>
+        </div>
+        <span class="regua-rotulo esq">opostos</span>
+        <span class="regua-rotulo dir">almas gêmeas</span>
+      </div>
+      <p class="fatos">
+        Em {{ countOf(profile(), pairs().length) }} em comum, as notas ficam, em média, a
+        <strong>{{ avg(a.distance) }}</strong> {{ a.distance >= 2 ? 'pontos' : 'ponto' }} de distância.
+        Mesma nota (até meio ponto) em {{ a.agree }}; mesmo veredito em {{ a.sameVerdict }}.
+      </p>
+      <div class="bilhetes">
+        @if (a.fight; as f) {
+          <button type="button" class="bilhete briga" (click)="showPair.emit(f)">
+            <span class="bilhete-rotulo">A maior briga</span>
+            <span class="bilhete-obra">{{ f.mine.game.name }}</span>
+            <span class="placar">
+              <span class="voce">{{ fmt(f.mine.scores.final) }}</span>
+              <span class="contra" aria-hidden="true">×</span>
+              <span class="sr-only">contra</span>
+              <span class="colega">{{ fmt(f.theirs.scores.final) }}</span>
+            </span>
+          </button>
+        }
+        @if (a.harmony; as h) {
+          <button type="button" class="bilhete paz" (click)="showPair.emit(h)">
+            <span class="bilhete-rotulo">Unanimidade</span>
+            <span class="bilhete-obra">{{ h.mine.game.name }}</span>
+            <span class="placar">
+              <span class="voce">{{ fmt(h.mine.scores.final) }}</span>
+              <span class="contra" aria-hidden="true">=</span>
+              <span class="sr-only">e</span>
+              <span class="colega">{{ fmt(h.theirs.scores.final) }}</span>
+            </span>
+          </button>
+        }
+      </div>
+    } @else {
+      <p class="resposta sem-regua">
+        Ainda não dá pra medir: nenhum {{ profile().singular }} foi resenhado pelos dois. As perguntas
+        abaixo comparam o gosto mesmo assim.
+      </p>
+    }
+  </section>
+
+  <section class="pergunta" aria-labelledby="q-top">
+    <h3 id="q-top">Qual o seu top 3?</h3>
+    <div class="dupla">
+      @for (x of people(); track x.side) {
+        <div class="coluna" [class]="x.side">
+          <p class="quem">{{ x.who }}:</p>
+          @if (x.p.top.length) {
+            <ol class="top">
+              @for (r of x.p.top; track r.id; let i = $index) {
+                <li>
+                  <button type="button" class="top-item" (click)="open(r, x.side)">
+                    <span class="pos">{{ i + 1 }}º</span>
+                    <app-cover-sleeve class="capinha" size="thumb" [game]="r.game" [decorative]="true" />
+                    <span class="top-nome">{{ r.game.name }}</span>
+                    <span class="top-nota">{{ fmt(r.scores.final) }}</span>
+                  </button>
+                  @if (partner().get(r); as other) {
+                    <span class="outro" [class.colega]="x.side === 'voce'" [class.voce]="x.side !== 'voce'">
+                      {{ x.side === 'voce' ? name() : 'você' }} deu {{ fmt(other.scores.final) }}
+                    </span>
+                  }
+                </li>
+              }
+            </ol>
+          } @else {
+            <p class="vazio">nenhum {{ profile().singular }} resenhado</p>
+          }
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="pergunta" aria-labelledby="q-termina">
+    <h3 id="q-termina">Termina o que começa?</h3>
+    @for (x of people(); track x.side) {
+      <p class="resposta" [class]="x.side">
+        <span class="quem">{{ x.who }}:</span>
+        @if (x.rate !== null) {
+          <span class="grande">{{ x.rate }}%</span>
+          <span class="detalhe">{{ x.status }}</span>
+        } @else {
+          <span class="detalhe">ainda nada no mural</span>
+        }
+      </p>
+    }
+  </section>
+
+  <section class="pergunta" aria-labelledby="q-bonus">
+    <h3 id="q-bonus">Que bônus você mais cola?</h3>
+    @for (x of people(); track x.side) {
+      <p class="resposta adesivos" [class]="x.side">
+        <span class="quem">{{ x.who }}:</span>
+        @if (x.p.bonus.favor || x.p.bonus.contra) {
+          @if (x.p.bonus.favor; as b) {
+            <span class="adesivo"><app-bonus-sticker [bonus]="b.value" size="mini" [index]="0" /><span class="vezes">×{{ b.n }}</span></span>
+          }
+          @if (x.p.bonus.contra; as b) {
+            <span class="adesivo"><app-bonus-sticker [bonus]="b.value" size="mini" [index]="1" /><span class="vezes">×{{ b.n }}</span></span>
+          }
+        } @else {
+          <span class="detalhe">nenhum bônus colado</span>
+        }
+      </p>
+    }
+  </section>
+</div>
+
+<div class="espiral" aria-hidden="true"></div>
+
+<!-- página da direita: notas, cores, vereditos e quantidade -->
+<div class="pagina">
+  <section class="pergunta" aria-labelledby="q-notas">
+    <h3 id="q-notas">Que nota você costuma dar?</h3>
+    <div class="escala">
+      @for (x of people(); track x.side) {
+        <div class="escala-linha" [class]="x.side">
+          <span class="quem">{{ x.who }}</span>
+          <div class="trilho" role="img" [attr.aria-label]="x.who + ': média ' + avg(x.p.average) + ', ' + x.p.count + ' notas'">
+            @for (d of x.dots; track $index) {
+              <span class="bolinha" [style.left.%]="d.left" [style.bottom.px]="d.bottom"></span>
+            }
+            @if (x.p.average !== null) {
+              <span class="media" [class.fim]="x.p.average / top() > 0.72" [style.left.%]="(x.p.average / top()) * 100">
+                <span class="media-txt">média {{ avg(x.p.average) }}</span>
+              </span>
+            }
+          </div>
+        </div>
+      }
+      <div class="escala-numeros" aria-hidden="true">
+        <i></i>
+        <div>
+          @for (t of ticks(); track t) {
+            <span [style.left.%]="(t / top()) * 100">{{ t }}</span>
+          }
+        </div>
+      </div>
+    </div>
+    @if (strictness()) {
+      <p class="conclusao">{{ strictness() }}</p>
+    }
+  </section>
+
+  <section class="pergunta" aria-labelledby="q-cor">
+    <h3 id="q-cor">Qual a sua cor de cartolina?</h3>
+    @for (x of people(); track x.side) {
+      <div class="cores" [class]="x.side">
+        <p class="resposta">
+          <span class="quem">{{ x.who }}:</span>
+          @if (x.p.stocks[0]; as fav) {
+            <span class="grande">{{ stockLabel[fav.value] }}</span>
+            <span class="detalhe">{{ share(fav.n, x.p.count) }}</span>
+          } @else {
+            <span class="detalhe">nenhuma cartolina ainda</span>
+          }
+        </p>
+        @if (x.p.stocks.length) {
+          <ul class="tiras" [attr.aria-label]="'Cartolinas de ' + x.who">
+            @for (s of x.p.stocks; track s.value; let i = $index) {
+              <li
+                class="tira"
+                [attr.data-cor]="s.value"
+                [style.--stock]="'var(--stock-' + s.value + ')'"
+                [style.flex-grow]="s.n"
+                [style.--torto]="(i % 3) - 1"
+                [title]="stockLabel[s.value] + ': ' + s.n"
+              >
+                <span class="sr-only">{{ stockLabel[s.value] }}: {{ s.n }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </section>
+
+  <section class="pergunta" aria-labelledby="q-veredito">
+    <h3 id="q-veredito">Qual veredito você mais carimba?</h3>
+    @if (verdictRows().length) {
+      <table class="vereditos">
+        <caption class="sr-only">Quantas vezes cada um deu cada veredito</caption>
+        <thead>
+          <tr>
+            <td></td>
+            <th scope="col" class="voce">Você</th>
+            <th scope="col" class="colega">{{ name() }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of verdictRows(); track row.value) {
+            <tr>
+              <th scope="row" [class]="row.value">
+                <lucide-icon [img]="verdictIcon[row.value]" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                {{ verdictLabel[row.value] }}
+              </th>
+              <td class="voce" [class.lider]="favourite().you?.value === row.value"><app-tally [n]="row.you" /></td>
+              <td class="colega" [class.lider]="favourite().them?.value === row.value"><app-tally [n]="row.them" /></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (verdictLine()) {
+      <p class="conclusao">{{ verdictLine() }}</p>
+    }
+  </section>
+
+  @if (profile().amount; as a) {
+    <section class="pergunta" aria-labelledby="q-quanto">
+      <h3 id="q-quanto">{{ a.total }}, no total?</h3>
+      @for (x of people(); track x.side) {
+        <p class="resposta" [class]="x.side">
+          <span class="quem">{{ x.who }}:</span>
+          @if (x.p.amount) {
+            <span class="grande">{{ x.amount }}</span>
+            @if (x.longest) {
+              <span class="detalhe">{{ a.most.toLowerCase() }}: {{ x.longest }}</span>
+            }
+          } @else {
+            <span class="detalhe">não anotou</span>
+          }
+        </p>
+      }
+    </section>
+  }
+</div>

@@ -1,4 +1,4 @@
-import { commonReviews } from './comparison';
+import { commonReviews, compareCollections } from './comparison';
 import { Review, sanitizeReview } from './review';
 
 function review(
@@ -116,5 +116,14 @@ describe('obras em comum', () => {
     );
     expect(pairs.length).toBe(1);
     expect(pairs[0].mine.id).toBe(recent.id);
+  });
+
+  it('separa o que só um dos dois resenhou, sem afirmar nada sobre homônimos ambíguos', () => {
+    const mine = [review('minha1', 'Hades'), review('minha2', 'Celeste'), review('minha3', 'God of War', { year: '2005' })];
+    const theirs = [review('outra1', 'Hades'), review('outra2', 'Balatro'), review('outra3', 'God of War', { year: '2018' })];
+    const { pairs, onlyMine, onlyTheirs } = compareCollections(mine, theirs);
+    expect(pairs.map((p) => p.mine.id)).toEqual(['minha1']);
+    expect(onlyMine.map((r) => r.id)).toEqual(['minha2']);
+    expect(onlyTheirs.map((r) => r.id)).toEqual(['outra2']);
   });
 });

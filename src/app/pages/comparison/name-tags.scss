@@ -1,0 +1,255 @@
+/* Crachás adesivos "OLÁ, EU SOU": a faixa impressa (preta a sua, azul a do colega) e o nome a pincel. */
+:host {
+  display: block;
+}
+
+.crachas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 22px;
+}
+
+.cracha,
+.mini {
+  --faixa: var(--ink);
+  --tinta: var(--ink);
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    linear-gradient(to top, var(--faixa) 0 9px, transparent 9px),
+    #fdfcf8;
+  color: var(--tinta);
+  color-scheme: light;
+  --focus: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+/* o brilho do vinil do adesivo */
+.cracha::after,
+.mini::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.42) 46%, transparent 56%);
+  pointer-events: none;
+}
+
+.cracha {
+  display: grid;
+  width: 250px;
+  padding-bottom: 9px;
+  rotate: -2deg;
+}
+
+.cracha.colega,
+.mini {
+  --faixa: var(--caneta-azul);
+  --tinta: var(--caneta-azul);
+  --focus: var(--caneta-azul);
+}
+
+.cracha.colega {
+  rotate: 2.2deg;
+}
+
+.faixa {
+  display: block;
+  padding: 7px 10px 5px;
+  background: var(--faixa);
+  color: #fdfcf8;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.18em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.nome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  min-height: 68px;
+  padding: 8px 16px 6px;
+  border: 0;
+  background: none;
+  color: var(--tinta);
+  font-family: var(--f-marker);
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+button.nome {
+  cursor: text;
+}
+
+.nome-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-block: 4px;
+}
+
+.lapis {
+  display: inline-flex;
+  flex: none;
+  opacity: 0.45;
+  transition: opacity var(--t-ui) var(--ease-ui);
+}
+
+button.nome:hover .lapis,
+button.nome:focus-visible .lapis {
+  opacity: 1;
+}
+
+button.nome:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -6px;
+  border-radius: 6px;
+}
+
+.nome-form {
+  display: block;
+}
+
+input.nome {
+  text-align: center;
+  background: rgb(31 63 176 / 0.07);
+  caret-color: var(--red);
+  outline: none;
+  box-shadow: inset 0 -2.5px 0 var(--caneta-azul);
+}
+
+.versus {
+  font-family: var(--f-marker);
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--wall-ink);
+  rotate: -8deg;
+  text-shadow: 0 2px 3px rgb(0 0 0 / 0.6);
+}
+
+/* ===== Os outros colegas: crachás pequenos, é só tocar para trocar ===== */
+.outros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-left: 8px;
+}
+
+.mini {
+  display: grid;
+  width: 124px;
+  padding: 0 0 6px;
+  border: 0;
+  cursor: pointer;
+  rotate: -1.5deg;
+  background:
+    linear-gradient(to top, var(--faixa) 0 6px, transparent 6px),
+    #fdfcf8;
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
+}
+
+.mini:nth-child(even) {
+  rotate: 2deg;
+}
+
+.mini:hover:not(:disabled) {
+  rotate: 0deg;
+  translate: 0 -3px;
+  box-shadow: var(--shadow-lift);
+}
+
+.mini .faixa {
+  padding: 4px 6px 3px;
+  font-size: 0.62rem;
+}
+
+.mini-nome {
+  overflow: hidden;
+  padding: 7px 10px 5px;
+  font-family: var(--f-marker);
+  font-size: 1.06rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== A gaveta: o que diz o arquivo e o que dá para fazer com ele ===== */
+.gaveta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  margin-top: 18px;
+  color: var(--wall-ink);
+}
+
+.giz {
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.98rem;
+  letter-spacing: 0.02em;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+/* o caminho principal da gaveta: ver as fichas dele sem nada seu no meio */
+.ver-mural {
+  color: var(--hi);
+  text-decoration: none;
+}
+
+@media (max-width: 559px) {
+  .crachas {
+    gap: 12px 8px;
+  }
+  .cracha {
+    width: calc(50% - 22px);
+  }
+  .faixa {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+  }
+  .nome {
+    min-height: 52px;
+    padding-inline: 8px;
+    font-size: 1.36rem;
+  }
+  .lapis {
+    display: none;
+  }
+  .versus {
+    font-size: 1.8rem;
+  }
+  .outros {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+  .acoes {
+    margin-left: -10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini {
+    transition: none;
+  }
+}

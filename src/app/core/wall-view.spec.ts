@@ -53,7 +53,7 @@ describe('WallView', () => {
   it('ano sem dia fica em sua própria seção e ordena sem presumir janeiro', () => {
     store.reviews.update((list) => [...list, r('year11', 'Ano lembrado', '2024', 8)]);
     view.setSort('data');
-    expect(view.groups().map((g) => g.label)).toEqual(['Março de 2024', 'Janeiro de 2024', '2024 · dia não definido', 'Data não definida']);
+    expect(view.groups().map((g) => g.label)).toEqual(['Março de 2024', 'Janeiro de 2024', '2024, mês não lembrado', 'Data não definida']);
     view.toggleDirection();
     expect(view.visible()[0].game.name).toBe('Ano lembrado');
     expect(view.visible().at(-1)!.completedAt).toBeNull();

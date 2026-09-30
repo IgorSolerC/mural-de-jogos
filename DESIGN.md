@@ -956,3 +956,22 @@ The user asked that every tab with cover choice make it clearer when an image is
 - **One treatment everywhere** (`.carregando-capa`, global): a cover with an address that has not arrived shows blank photo paper with a light sweep passing, a small spinning ring and the word CARREGANDO in label caps. Dark on the plastic sleeves (wall cards, reader, editor preview, Pra depois sheets, the thumbs in search and in the filled search strip) and on the magazine clippings; light (`.clara`) on the cover picker's paper. 40px thumbs keep only the sweep and the ring (`.miuda`). When the photo arrives it appears developing: from sepia and blur to sharp in 560ms (`img.revelada`). With reduced motion the sweep and ring stop and the word stays.
 - **Cover picker.** Each photo still loading shows the treatment; the places of photos still being searched say PROCURANDO under a dashed outline. A visible line under the grid says what is still happening: "Procurando mais capas na Wikipedia e na RAWG…" (the catalogs that have not answered yet, reported by `GameLookup.coverChoices`), then "Carregando 3 fotos…", then nothing. It is a status region, so screen readers hear it too.
 - **Per URL.** Sleeves, clippings and the picker remember which address loaded and which failed, so changing the cover restarts the loading state instead of showing a black box or the old failure.
+
+## Caderno de perguntas (comparison redesign)
+
+The user found the first comparison a paginated list of card pairs that compared nothing of taste, and asked for a page that is fun to use: import a friend's backup, compare top games, colours, verdicts, and see the same cards side by side.
+
+- **Two pens.** On this page the owner writes in black and the colleague in blue ballpoint (`--caneta-azul` `#1f3fb0`, 8:1 on the notebook paper). It is a different tool, so it is allowed by the One Ink Rule, and it is the only way the page tells the two apart: name tags, answers, dots, tallies, the difference note and the Nota a nota columns. Red stays the teacher's correction (the affinity percentage, its circle on the ruler, the verdict each one stamps most).
+- **Envelope.** First use is a kraft envelope (`#c9a472`, flap `#b98f5c`) pinned by its flap, a ruled letter in blue pen peeking out, a perforated stamp and a postmark. Dropping a file raises the letter and lifts the envelope; errors come as a paper note on it. Beside it, a ruled note says how to ask for a backup.
+- **Name tags.** "OLÁ, EU SOU" vinyl stickers: printed band (ink for Você, blue for the colleague), name in marker, a sheen. The colleague's name is edited on the tag itself. Other colleagues are small tags; the colleague's own wall page wears a large tag ("O mural de").
+- **Caderno.** A spiral notebook opened in two pages (one column below 1100px), taped to the wall. Each question in marker, each answer on its own blue rule (no page-wide ruling: the answers sit on their lines). Answers use real data forms drawn as school marks: a translucent school ruler with a red pen circle (drawn once, 900ms), a dot strip of every final score with dashed average ticks, cartolina strips sized by use, tally marks in groups of five (a number above 20), bonus stickers, cover thumbs in sleeves.
+- **Pairs.** The owner's card left, the colleague's right, a torn notepad scrap in the middle with "+3 pra você" in the pen of whoever scored higher; sticky mini tags head the two columns. On phones the note sits above two compact cards.
+
+## Data em três partes (date pass)
+
+The user asked for the completion date as day, month and year boxes, each optional. One paper strip holds three cells like a printed form (tiny DIA / MÊS / ANO captions, marker slashes between them): day and year are numeric text, the month a native list of month names. "Hoje" and "Não lembro" are pen links on the label row. A Kalam line under the strip reads back what will be saved, turns to bold ink with the problem while it is incomplete, and to `error-ink` after a save attempt (the strip border too). `AAAA-MM` joins `AAAA` and `AAAA-MM-DD` as a stored date.
+
+## Seis abas (header pass)
+
+With Comparar the header had six tabs and was pushed to a second row at every width. Ajustes became an icon-only Dymo tape (gear); the tabs are back in one row between the cartaz and the add button from 1230px, with a tighter cartaz (1.62rem) and tapes (11px padding, 0.09em tracking) under 1480px. Phones keep all six on one row (no count on the Mural tape under 400px).
+

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { LucideAngularModule, NotebookPen, Plus, Scissors } from 'lucide-angular';
+import { LucideAngularModule, LucideIconData, NotebookPen, Plus, Scissors, Settings } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
@@ -23,6 +23,8 @@ interface Tab {
   label: string;
   /** Outras rotas que moram dentro desta aba (o lado a lado é uma vista do mural). */
   also?: string[];
+  /** Só o desenho na fita (o nome fica para o leitor de tela e a dica): Ajustes é uma ferramenta, não um lugar. */
+  icon?: LucideIconData;
 }
 
 const TABS: Tab[] = [
@@ -31,7 +33,7 @@ const TABS: Tab[] = [
   { path: '/wishlist', label: 'Wishlist' },
   { path: '/ranking', label: 'Ranking' },
   { path: '/comparar', label: 'Comparar' },
-  { path: '/ajustes', label: 'Ajustes' },
+  { path: '/ajustes', label: 'Ajustes', icon: Settings },
 ];
 
 @Component({

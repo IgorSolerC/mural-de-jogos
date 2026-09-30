@@ -1,271 +1,341 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DestroyRef,
-  computed,
-  inject,
-  signal,
-  viewChild,
-} from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
-import {
-  LucideAngularModule,
-  Upload,
-  X,
-  Rows3,
-  LayoutGrid,
-  Search,
-  ChevronDown,
-} from 'lucide-angular';
+import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, signal, viewChild } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
-import { ReviewPair, commonReviews } from '../core/comparison';
-import { KINDS, Kind, profileOf } from '../core/kinds';
-import {
-  Review,
-  SCORE_LABEL,
-  fold,
-  formatScore,
-  ratedKeys,
-  scoreOf,
-  weightOf,
-  WEIGHT_LABEL,
-} from '../core/review';
+import { ReviewPair, compareCollections, distinctReviews } from '../core/comparison';
+import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
+import { KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
+import { mediaSignal } from '../core/media';
+import { Mural } from '../core/mural';
+import { Review, SCORE_LABEL, fold, formatScore, newId, ratedKeys, scoreOf, weightOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { Pin } from '../ui/pin';
+import { SideBySide } from '../core/side-by-side';
+import { ViewTransitions } from '../core/view-transitions';
+import { WallView } from '../core/wall-view';
+import { Desk } from '../core/desk';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
+import { SearchStrip } from '../ui/search-strip';
 import { Toasts } from '../ui/toast';
+import { BackupEnvelope } from './comparison/envelope';
+import { Caderno, OpenRequest } from './comparison/caderno';
+import { NameTags } from './comparison/name-tags';
 
-const collator = new Intl.Collator('pt-BR', {
-  sensitivity: 'base',
-  numeric: true,
-});
-const exportedFmt = new Intl.DateTimeFormat('pt-BR', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-});
-type Order = 'nome' | 'diferenca' | 'minha' | 'colega';
+type Tab = 'comum' | 'dicas' | 'minhas';
+type PairSort = 'briga' | 'minha' | 'colega' | 'nome';
+type ListSort = 'nota' | 'nome' | 'recente';
 
+/** Quantos pares (ou fichas soltas) aparecem de cada vez. */
+const PAGE = 12;
+
+const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+const byName = (a: Review, b: Review) => collator.compare(a.game.name, b.game.name) || a.id.localeCompare(b.id);
+
+/**
+ * Comparar murais: o backup de um colega aberto ao lado do seu mural, sem se misturar com ele.
+ * Chega num envelope, se apresenta num crachá, responde o caderno de perguntas (o gosto de cada um)
+ * e, embaixo, as fichas: as obras em comum lado a lado e as dicas de cada um para o outro.
+ * Segue o mural aberto no cartaz, como o Ranking; os outros murais ficam a um toque.
+ */
 @Component({
   selector: 'app-comparison-page',
-  imports: [
-    NgTemplateOutlet,
-    LucideAngularModule,
-    Pin,
-    ReviewCard,
-    ReviewReader,
-  ],
+  imports: [BackupEnvelope, Caderno, LucideAngularModule, NameTags, ReviewCard, ReviewReader, RouterLink, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comparison-page.html',
   styleUrl: './comparison-page.scss',
 })
 export class ComparisonPage {
   protected readonly colleagues = inject(ColleagueStore);
-  protected readonly store = inject(ReviewStore);
+  protected readonly mural = inject(Mural);
+  private readonly store = inject(ReviewStore);
+  private readonly desk = inject(Desk);
   private readonly toasts = inject(Toasts);
-  private readonly destroy = inject(DestroyRef);
+  private readonly vt = inject(ViewTransitions);
+  private readonly view = inject(WallView);
+  private readonly side = inject(SideBySide);
   private readonly reader = viewChild.required(ReviewReader);
-  protected readonly selectedId = signal('');
-  protected readonly selected = computed(
-    () =>
-      this.colleagues.colleagues().find((c) => c.id === this.selectedId()) ??
-      this.colleagues.colleagues()[0] ??
-      null,
-  );
-  protected readonly adding = signal(false);
-  protected readonly managing = signal(false);
-  protected readonly name = signal('');
-  protected readonly renaming = signal(false);
-  protected readonly renameText = signal('');
-  protected readonly busy = signal(false);
-  protected readonly error = signal('');
-  protected readonly query = signal('');
-  protected readonly kind = signal<Kind | 'todos'>('todos');
-  protected readonly order = signal<Order>('nome');
-  protected readonly activeFilters = computed(
-    () =>
-      Number(!!this.query().trim()) +
-      Number(this.kind() !== 'todos') +
-      Number(this.order() !== 'nome'),
-  );
-  protected readonly compact = signal(false);
-  protected readonly phone = signal(false);
-  protected readonly simple = computed(() => this.compact() || this.phone());
-  protected readonly limit = signal(20);
-  protected readonly UploadIcon = Upload;
-  protected readonly RemoveIcon = X;
+
+  protected readonly ChevronIcon = ChevronDown;
   protected readonly FullIcon = Rows3;
   protected readonly CompactIcon = LayoutGrid;
-  protected readonly SearchIcon = Search;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly WishIcon = Heart;
+  protected readonly DoneIcon = Check;
   protected readonly fmt = formatScore;
-  protected readonly profile = profileOf;
+  protected readonly abs = Math.abs;
   protected readonly labels = SCORE_LABEL;
-  protected readonly scoreOf = scoreOf;
-  protected readonly ratedKeys = ratedKeys;
-  protected readonly weightOf = weightOf;
-  protected readonly weightLabels = WEIGHT_LABEL;
-  protected readonly pairs = computed(() =>
-    commonReviews(this.store.reviews(), this.selected()?.reviews ?? []),
+  protected readonly countOf = countOf;
+  protected readonly g = g;
+  protected readonly cap = cap;
+  protected readonly PAGE = PAGE;
+
+  private readonly phone = mediaSignal('(max-width: 699px)');
+
+  // ===== O colega =====
+  protected readonly colleague = this.colleagues.selected;
+  /** O envelope aberto para mais um colega (com um já na mesa). */
+  protected readonly adding = signal(false);
+  /** O colega acabou de chegar com um nome provisório: o crachá já abre pedindo o nome. */
+  protected readonly naming = signal(false);
+  protected readonly busy = signal(false);
+  protected readonly error = signal('');
+  protected readonly name = computed(() => this.colleague()?.name ?? 'Colega');
+
+  // ===== O que se compara: o mural aberto, uma ficha por obra =====
+  protected readonly profile = this.mural.profile;
+  private readonly mine = computed(() => distinctReviews(this.mural.reviews()));
+  private readonly theirs = computed(() =>
+    distinctReviews((this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind())),
   );
-  protected readonly kinds = computed(() =>
-    KINDS.map((kind) => ({
-      kind,
-      label: profileOf(kind).plural,
-      count: this.pairs().filter((p) => p.mine.kind === kind).length,
-    })),
-  );
-  protected readonly filtered = computed(() => {
-    const q = fold(this.query().trim());
-    return this.pairs()
-      .filter(
-        (p) =>
-          (this.kind() === 'todos' || p.mine.kind === this.kind()) &&
-          (!q ||
-            fold(
-              `${p.mine.game.name} ${p.theirs.game.name} ${p.mine.game.by ?? ''} ${p.theirs.game.by ?? ''}`,
-            ).includes(q)),
-      )
-      .sort((a, b) => {
-        const byName =
-          collator.compare(a.mine.game.name, b.mine.game.name) ||
-          a.key.localeCompare(b.key);
-        switch (this.order()) {
-          case 'diferenca':
-            return Math.abs(b.difference) - Math.abs(a.difference) || byName;
-          case 'minha':
-            return b.mine.scores.final - a.mine.scores.final || byName;
-          case 'colega':
-            return b.theirs.scores.final - a.theirs.scores.final || byName;
-          default:
-            return byName;
-        }
-      });
-  });
-  protected readonly visible = computed(() =>
-    this.filtered().slice(0, this.limit()),
-  );
-  protected readonly backupDate = computed(() => {
-    const date = this.selected()?.exportedAt;
-    return date ? exportedFmt.format(new Date(date)) : null;
+  protected readonly collections = computed(() => compareCollections(this.mine(), this.theirs()));
+  protected readonly you = computed(() => portrait(this.mine()));
+  protected readonly them = computed(() => portrait(this.theirs()));
+  protected readonly affinity = computed(() => affinity(this.collections().pairs));
+  protected readonly nothingHere = computed(() => !this.mine().length && !this.theirs().length);
+
+  /** Os outros murais onde há o que comparar: "Livros · 3 em comum". */
+  protected readonly otherWalls = computed(() => {
+    const c = this.colleague();
+    if (!c) return [];
+    const all = compareCollections(distinctReviews(this.store.reviews()), distinctReviews(c.reviews)).pairs;
+    return KINDS.filter((k) => k !== this.mural.kind())
+      .map((kind) => ({
+        kind,
+        label: cap(profileOf(kind).plural),
+        common: all.filter((p) => p.mine.kind === kind).length,
+        theirs: c.reviews.some((r) => r.kind === kind),
+      }))
+      .filter((w) => w.common || w.theirs);
   });
 
-  constructor() {
-    const mq = matchMedia('(max-width: 699px)');
-    const sync = () => this.phone.set(mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    this.destroy.onDestroy(() => mq.removeEventListener('change', sync));
+  // ===== As fichas =====
+  protected readonly tab = linkedSignal<string | undefined, Tab>({
+    source: () => this.colleague()?.id,
+    computation: () => 'comum',
+  });
+  protected readonly query = signal('');
+  protected readonly pairSort = signal<PairSort>('briga');
+  protected readonly listSort = signal<ListSort>('nota');
+  /** O nome da ordem escolhida, escrito na aba (o select por cima é invisível). */
+  protected readonly sortLabel = computed(() => {
+    if (this.tab() !== 'comum') return { nota: 'Maior nota', recente: 'Mais recentes', nome: 'A–Z' }[this.listSort()];
+    return { briga: 'Maior briga', minha: 'Maior nota sua', colega: `Maior nota de ${this.name()}`, nome: 'A–Z' }[this.pairSort()];
+  });
+  protected readonly simple = computed(() => this.phone() || this.view.density() === 'simples');
+  protected readonly paired = this.phone;
+
+  private readonly q = computed(() => fold(this.query().trim()));
+  private matches(r: Review): boolean {
+    const q = this.q();
+    return !q || fold(`${r.game.name} ${r.game.by ?? ''}`).includes(q);
   }
 
-  protected difference(pair: ReviewPair): string {
-    if (pair.difference === 0) return 'Mesma nota';
-    return `Sua nota é ${formatScore(Math.abs(pair.difference))} ${pair.difference > 0 ? 'maior' : 'menor'}`;
-  }
+  protected readonly pairs = computed(() => {
+    const list = this.collections().pairs.filter((p) => this.matches(p.mine) || this.matches(p.theirs));
+    const name = (a: ReviewPair, b: ReviewPair) => byName(a.mine, b.mine);
+    switch (this.pairSort()) {
+      case 'briga':
+        return list.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference) || name(a, b));
+      case 'minha':
+        return list.sort((a, b) => b.mine.scores.final - a.mine.scores.final || name(a, b));
+      case 'colega':
+        return list.sort((a, b) => b.theirs.scores.final - a.theirs.scores.final || name(a, b));
+      default:
+        return list.sort(name);
+    }
+  });
 
-  protected async load(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file || this.busy()) return;
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      const c = await this.colleagues.add(
-        file,
-        this.name() ||
-          `Colega${this.colleagues.colleagues().length ? ' ' + (this.colleagues.colleagues().length + 1) : ''}`,
-      );
-      if (this.destroy.destroyed) return;
-      this.selectedId.set(c.id);
-      this.adding.set(false);
-      this.managing.set(false);
-      this.name.set('');
-      this.resetFilters();
-      this.toasts.show(`Backup de ${c.name} carregado`);
-    } catch (e) {
-      if (!this.destroy.destroyed)
-        this.error.set(
-          e instanceof Error
-            ? e.message
-            : 'Não consegui abrir o backup. Tente outro arquivo.',
-        );
-    } finally {
-      if (!this.destroy.destroyed) this.busy.set(false);
+  private sortList(list: Review[]): Review[] {
+    switch (this.listSort()) {
+      case 'nome':
+        return list.sort(byName);
+      case 'recente':
+        return list.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || byName(a, b));
+      default:
+        return list.sort((a, b) => b.scores.final - a.scores.final || byName(a, b));
     }
   }
+  protected readonly tips = computed(() => this.sortList(this.collections().onlyTheirs.filter((r) => this.matches(r))));
+  protected readonly myTips = computed(() => this.sortList(this.collections().onlyMine.filter((r) => this.matches(r))));
 
-  protected choose(id: string): void {
-    this.selectedId.set(id);
-    this.error.set('');
-    this.renaming.set(false);
-    this.managing.set(false);
-    this.resetFilters();
+  /** Quantos aparecem: volta ao começo sempre que a lista muda de assunto. */
+  protected readonly limit = linkedSignal({
+    source: () => [this.tab(), this.q(), this.pairSort(), this.listSort(), this.colleague()?.id, this.mural.kind()],
+    computation: () => PAGE,
+  });
+  protected readonly shownPairs = computed(() => this.pairs().slice(0, this.limit()));
+  protected readonly shownTips = computed(() => this.tips().slice(0, this.limit() * 2));
+  protected readonly shownMine = computed(() => this.myTips().slice(0, this.limit() * 2));
+  protected readonly total = computed(() =>
+    this.tab() === 'comum' ? this.pairs().length : this.tab() === 'dicas' ? this.tips().length : this.myTips().length,
+  );
+  protected readonly shown = computed(() =>
+    this.tab() === 'comum' ? this.shownPairs().length : this.tab() === 'dicas' ? this.shownTips().length : this.shownMine().length,
+  );
+
+  /** O par aberto no "Nota a nota". */
+  protected readonly notesOpen = signal<string | null>(null);
+  /** As linhas do nota a nota do par aberto, com a maior de cada linha marcada. */
+  protected readonly noteRows = computed(() => {
+    const pair = this.pairs().find((p) => p.key === this.notesOpen());
+    if (!pair) return [];
+    const row = (label: string, a: number | null, b: number | null, weightA = '', weightB = '') => ({
+      label,
+      mine: a,
+      theirs: b,
+      weightA,
+      weightB,
+      best: a === null || b === null || a === b ? null : a > b ? 'mine' : 'theirs',
+    });
+    return [
+      row('Nota final', pair.mine.scores.final, pair.theirs.scores.final, pair.mine.finalOverride !== undefined ? 'na mão' : '', pair.theirs.finalOverride !== undefined ? 'na mão' : ''),
+      ...ratedKeys(pair.mine.kind).map((k) => {
+        const wa = weightOf(pair.mine.weights, k);
+        const wb = weightOf(pair.theirs.weights, k);
+        return row(
+          SCORE_LABEL[k],
+          wa === 'nao-tem' ? null : scoreOf(pair.mine.scores, k),
+          wb === 'nao-tem' ? null : scoreOf(pair.theirs.scores, k),
+          wa === 'nao-tem' ? 'não tem' : wa === 'normal' ? '' : wa === 'relevante' ? 'relevante' : 'pouco importa',
+          wb === 'nao-tem' ? 'não tem' : wb === 'normal' ? '' : wb === 'relevante' ? 'relevante' : 'pouco importa',
+        );
+      }),
+    ];
+  });
+
+  /** Os títulos que já estão na minha wishlist, para o botão "Quero" virar "Na wishlist". */
+  private readonly wished = computed(() => new Set(this.store.wishes().map((w) => `${w.kind}:${fold(w.game.name)}`)));
+  protected isWished(r: Review): boolean {
+    return this.wished().has(`${r.kind}:${fold(r.game.name)}`);
   }
 
-  protected resetFilters(): void {
-    this.query.set('');
-    this.kind.set('todos');
-    this.order.set('nome');
-    this.limit.set(20);
-  }
-
-  protected more(): void {
-    this.limit.update((n) => n + 20);
-  }
-
-  protected async rename(): Promise<void> {
-    const c = this.selected();
-    if (!c || !this.renameText().trim() || this.busy()) return;
+  // ===== Ações =====
+  protected async load(file: File): Promise<void> {
+    if (this.busy()) return;
     this.busy.set(true);
     this.error.set('');
+    const guess = nameFromFile(file.name);
+    const n = this.colleagues.colleagues().length;
     try {
-      await this.colleagues.rename(c.id, this.renameText());
-      this.renaming.set(false);
-      this.managing.set(false);
+      const c = await this.colleagues.add(file, guess || (n ? `Colega ${n + 1}` : 'Colega'));
+      this.adding.set(false);
+      this.query.set('');
+      this.naming.set(!guess);
+      this.toasts.show(`O mural de ${c.name} chegou`);
     } catch (e) {
-      this.error.set(
-        e instanceof Error
-          ? e.message
-          : 'Não consegui salvar o nome. Tente novamente.',
-      );
+      this.error.set(e instanceof Error ? e.message : 'Não consegui abrir esse backup. Tente outro arquivo.');
     } finally {
       this.busy.set(false);
     }
   }
 
+  protected async replace(file: File): Promise<void> {
+    const c = this.colleague();
+    if (!c || this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const fresh = await this.colleagues.replace(c.id, file);
+      this.toasts.show(`Backup de ${fresh.name} atualizado: ${fresh.reviews.length} resenhas`);
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Não consegui ler esse backup. O anterior continua aqui.');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  protected async rename(name: string): Promise<void> {
+    const c = this.colleague();
+    this.naming.set(false);
+    if (!c) return;
+    try {
+      await this.colleagues.rename(c.id, name);
+    } catch {
+      this.error.set('Não consegui guardar o nome. Tente de novo.');
+    }
+  }
+
+  protected choose(id: string): void {
+    this.naming.set(false);
+    this.error.set('');
+    this.query.set('');
+    this.notesOpen.set(null);
+    this.colleagues.select(id);
+  }
+
   protected async remove(): Promise<void> {
-    const c = this.selected();
+    const c = this.colleague();
     if (!c || this.busy()) return;
     this.busy.set(true);
     this.error.set('');
     try {
       await this.colleagues.remove(c.id);
-      this.renaming.set(false);
-      this.managing.set(false);
-      this.resetFilters();
-      this.toasts.show(`Backup de ${c.name} removido da comparação`, {
+      this.naming.set(false);
+      this.toasts.show(`${c.name} saiu da comparação`, {
         label: 'Desfazer',
-        run: () => {
-          void this.colleagues
-            .restore(c)
-            .then(() => this.selectedId.set(c.id))
-            .catch(() =>
-              this.error.set(
-                'Não consegui recuperar o backup. Carregue o arquivo novamente.',
-              ),
-            );
-        },
+        run: () => void this.colleagues.restore(c).catch(() => this.error.set('Não consegui trazer de volta. Abra o arquivo de novo.')),
       });
     } catch {
-      this.error.set('Não consegui remover esse backup. Tente novamente.');
+      this.error.set('Não consegui tirar esse backup. Tente de novo.');
     } finally {
       this.busy.set(false);
     }
   }
 
-  protected open(review: Review, owner: string): void {
-    this.reader().open(review, owner);
+  protected switchWall(kind: Kind): void {
+    this.vt.run(() => {
+      this.side.picking.set(false);
+      this.view.clearFilters();
+      this.mural.kind.set(kind);
+    });
+  }
+
+  protected open(req: OpenRequest): void {
+    this.openReview(req.review, req.side === 'voce');
+  }
+
+  protected openReview(review: Review, mine: boolean): void {
+    // a minha abre na mesa de sempre (dá para editar); a do colega, só para ler, com o nome dele
+    if (mine) this.desk.openReview(review.id);
+    else this.reader().open(review, this.name());
+  }
+
+  /** A maior briga ou a unanimidade: leva para a lista, com o par encontrado pela busca. */
+  protected focusPair(pair: ReviewPair): void {
+    this.tab.set('comum');
+    this.query.set(pair.mine.game.name);
+    this.notesOpen.set(pair.key);
+    requestAnimationFrame(() =>
+      document.getElementById('fichas')?.scrollIntoView({
+        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      }),
+    );
+  }
+
+  protected toggleNotes(key: string): void {
+    this.notesOpen.update((k) => (k === key ? null : key));
+  }
+
+  protected wish(r: Review): void {
+    if (this.isWished(r)) return;
+    const now = new Date().toISOString();
+    const id = newId();
+    this.store.saveWish({ id, kind: r.kind, game: { ...r.game }, createdAt: now, updatedAt: now });
+    this.toasts.show(`${r.game.name} foi pra sua wishlist`, {
+      label: 'Desfazer',
+      run: () => this.store.removeWish(id),
+    });
+  }
+
+  protected setDensity(simple: boolean): void {
+    this.view.density.set(simple ? 'simples' : 'completa');
+  }
+
+  /** "Sua nota é 3 maior", para quem não vê o bilhete. */
+  protected spoken(pair: ReviewPair): string {
+    if (pair.difference === 0) return 'Mesma nota';
+    return pair.difference > 0
+      ? `Sua nota é ${formatScore(pair.difference)} maior`
+      : `A nota de ${this.name()} é ${formatScore(-pair.difference)} maior`;
   }
 }

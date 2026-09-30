@@ -1,0 +1,273 @@
+/* Envelope pardo, aberto: a aba para cima, a carta na boca, o bolso na frente com selo e carimbo. */
+:host {
+  --kraft: #c9a472;
+  --kraft-aba: #b98f5c;
+  --dobra: rgb(74 46 16 / 0.3);
+  --aba-h: 132px;
+  position: relative;
+  display: block;
+  width: min(100%, 620px);
+  margin-top: calc(var(--aba-h) - 12px);
+  rotate: -0.8deg;
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 16px 20px rgb(0 0 0 / 0.45));
+  transition: filter var(--t-ui) var(--ease-ui);
+}
+
+/* A aba aberta: um triângulo virado para cima, atrás da carta, com a tachinha na ponta */
+.aba {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% - 2px);
+  height: var(--aba-h);
+  background:
+    linear-gradient(to top, rgb(74 46 16 / 0.22), transparent 40%),
+    var(--paper-grain),
+    var(--kraft-aba);
+  background-blend-mode: normal, multiply, normal;
+  clip-path: polygon(0 100%, 47% 4%, 50% 0, 53% 4%, 100% 100%);
+}
+
+.aba::after {
+  /* a tachinha que prende o envelope, na ponta da aba */
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: calc(50% - 9px);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 30%, rgb(255 255 255 / 0.9) 0 16%, transparent 38%),
+    radial-gradient(circle at 50% 50%, #f4f4f0, #b9b6ad 96%);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+}
+
+/* A carta, saindo da boca do envelope */
+.carta {
+  position: absolute;
+  z-index: 1;
+  left: 8%;
+  right: 8%;
+  bottom: calc(100% - 48px);
+  height: 132px;
+  padding: 16px 22px 0 46px;
+  background:
+    linear-gradient(90deg, transparent 34px, rgb(230 46 45 / 0.45) 34px 35.5px, transparent 0),
+    repeating-linear-gradient(transparent 0 25px, rgb(64 110 190 / 0.3) 25px 26.5px, transparent 26.5px 28px),
+    #fbfaf3;
+  background-position: 0 0, 0 12px, 0 0;
+  box-shadow: 0 -1px 2px rgb(0 0 0 / 0.12);
+  rotate: 1.4deg;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 28px;
+  color: #1f3fb0;
+  transition: translate var(--t-physical) var(--ease-physical), rotate var(--t-physical) var(--ease-physical);
+}
+
+.carta p {
+  margin: 0;
+}
+
+/* O bolso: o verso do envelope, com as dobras em V e a boca levemente sombreada */
+.bolso {
+  position: relative;
+  z-index: 2;
+  min-height: 300px;
+  padding: 36px clamp(20px, 5vw, 40px) 30px;
+  border-radius: 2px;
+  background:
+    linear-gradient(rgb(74 46 16 / 0.28), transparent 10px),
+    linear-gradient(to top right, transparent calc(50% - 1px), var(--dobra) 50%, transparent calc(50% + 1.5px)) left bottom / 50.2% 62% no-repeat,
+    linear-gradient(to top left, transparent calc(50% - 1px), var(--dobra) 50%, transparent calc(50% + 1.5px)) right bottom / 50.2% 62% no-repeat,
+    var(--paper-grain),
+    var(--kraft);
+  background-blend-mode: normal, normal, normal, multiply, normal;
+}
+
+h2 {
+  max-width: calc(100% - 110px);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.9rem;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.convite {
+  max-width: 44ch;
+  margin: 12px 0 22px;
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+}
+
+.miudo {
+  margin-top: 16px;
+  max-width: 48ch;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: rgb(21 21 21 / 0.82);
+}
+
+.erro {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 16px;
+  padding: 8px 14px;
+  background: var(--paper-grain), var(--paper);
+  color: var(--error-ink, #6b0000);
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.08rem;
+  line-height: 1.35;
+  rotate: -0.6deg;
+  box-shadow: 0 2px 3px rgb(0 0 0 / 0.25);
+}
+
+/* O selo: papel picotado, com a cartolina impressa no meio */
+.selo {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 80px;
+  padding: 7px;
+  background: #fbfaf3;
+  -webkit-mask:
+    radial-gradient(circle, #0000 2.4px, #000 2.9px) -4px -4px / 8px 8px round,
+    linear-gradient(#000 0 0) 4px 4px / calc(100% - 8px) calc(100% - 8px) no-repeat;
+  mask:
+    radial-gradient(circle, #0000 2.4px, #000 2.9px) -4px -4px / 8px 8px round,
+    linear-gradient(#000 0 0) 4px 4px / calc(100% - 8px) calc(100% - 8px) no-repeat;
+  rotate: 5deg;
+}
+
+.selo span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--paper-grain), var(--stock-rosa);
+  background-blend-mode: multiply;
+  font-family: var(--f-marker);
+  font-size: 0.78rem;
+  line-height: 1.05;
+  text-align: center;
+}
+
+/* O carimbo do correio: tinta preta rala, batida por cima do selo */
+.carimbo {
+  position: absolute;
+  top: 34px;
+  right: 58px;
+  width: 92px;
+  height: 92px;
+  rotate: -14deg;
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.carimbo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.carimbo circle {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.2;
+  stroke-dasharray: 26 3 40 2 60 4;
+}
+
+.carimbo text {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  fill: var(--ink);
+}
+
+/* Um arquivo passando por cima: a carta sobe e o envelope vem na direção da luz */
+:host(.chegando) {
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 26px 30px rgb(0 0 0 / 0.55));
+}
+
+:host(.chegando) .carta,
+:host(.abrindo) .carta {
+  translate: 0 -34px;
+  rotate: -1.2deg;
+}
+
+:host(.chegando) .bolso {
+  outline: 3px dashed var(--ink);
+  outline-offset: -12px;
+}
+
+@media (hover: hover) {
+  :host(:hover) .carta {
+    translate: 0 -10px;
+  }
+}
+
+@media (max-width: 559px) {
+  :host {
+    --aba-h: 96px;
+    rotate: -0.4deg;
+  }
+  .carta {
+    height: 110px;
+    padding: 12px 14px 0 38px;
+    font-size: 1rem;
+    background-position: 0 0, 0 10px, 0 0;
+    bottom: calc(100% - 40px);
+  }
+  .bolso {
+    padding-top: 30px;
+  }
+  h2 {
+    max-width: calc(100% - 64px);
+    font-size: 1.55rem;
+  }
+  .selo {
+    top: 16px;
+    right: 14px;
+    width: 50px;
+    height: 62px;
+    padding: 6px;
+  }
+  .selo span {
+    font-size: 0.62rem;
+  }
+  .carimbo {
+    top: 24px;
+    right: 34px;
+    width: 70px;
+    height: 70px;
+  }
+  .acoes .btn-ink {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carta {
+    transition: none;
+  }
+}

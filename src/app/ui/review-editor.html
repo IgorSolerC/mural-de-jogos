@@ -94,39 +94,58 @@
             }
           </div>
           <div class="campos-linha">
-            <div class="campo">
-              <label for="editor-data" class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</label>
-              <!-- uma tira só, com a saída para quem não lembra o dia dentro dela, como o Trocar do jogo -->
-              <div class="tira tira-data">
-                @if (dateUnknown()) {
-                  <span class="sem-data" aria-labelledby="editor-data-rotulo" role="note">{{ noDay }}</span>
-                  <button type="button" class="acao-caneta" id="editor-data-escolher" (click)="setDateUnknown(false)">
-                    Escolher
-                  </button>
-                } @else {
+            <div class="campo campo-data" role="group" aria-labelledby="editor-data-rotulo" aria-describedby="editor-data-leitura">
+              <span class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</span>
+              <div class="data-atalhos">
+                <button type="button" class="data-atalho" [disabled]="isToday()" (click)="setToday()">Hoje</button>
+                <button type="button" class="data-atalho" [disabled]="dateUnknown()" (click)="clearDate()">Não lembro</button>
+              </div>
+              <!-- dia, mês e ano numa tira só, como um formulário impresso: cada parte pode ficar em branco -->
+              <div class="tira tira-data" [class.vazia]="dateUnknown()" [class.errada]="attempted() && !dateValid()">
+                <label class="parte parte-dia">
+                  <span class="parte-rotulo">Dia</span>
                   <input
                     id="editor-data"
-                    [type]="yearOnly() ? 'text' : 'date'"
-                    [attr.inputmode]="yearOnly() ? 'numeric' : null"
-                    [attr.maxlength]="yearOnly() ? 4 : null"
-                    [attr.placeholder]="yearOnly() ? 'AAAA' : null"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="2"
+                    autocomplete="off"
+                    placeholder="–"
+                    [value]="dateDay()"
                     [attr.aria-invalid]="attempted() && !dateValid()"
-                    required
-                    [max]="today()"
-                    [value]="completedAt()"
-                    (input)="completedAt.set($any($event.target).value)"
+                    (input)="typeDate($any($event.target), 'day')"
                   />
-                  <button type="button" class="acao-caneta" (click)="setDateUnknown(true)">Não lembro</button>
-                }
+                </label>
+                <span class="barra" aria-hidden="true">/</span>
+                <label class="parte parte-mes">
+                  <span class="parte-rotulo">Mês</span>
+                  <select id="editor-data-mes" [value]="dateMonth()" (change)="dateMonth.set($any($event.target).value)">
+                    <option value="" [selected]="!dateMonth()">–</option>
+                    @for (m of months; track m; let i = $index) {
+                      <option [value]="(i + 1 < 10 ? '0' : '') + (i + 1)" [selected]="+dateMonth() === i + 1">{{ m }}</option>
+                    }
+                  </select>
+                </label>
+                <span class="barra" aria-hidden="true">/</span>
+                <label class="parte parte-ano">
+                  <span class="parte-rotulo">Ano</span>
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="4"
+                    autocomplete="off"
+                    placeholder="–"
+                    [value]="dateYear()"
+                    [attr.aria-invalid]="attempted() && !dateValid()"
+                    (input)="typeDate($any($event.target), 'year')"
+                    (keydown.arrowup)="$event.preventDefault(); stepYear(1)"
+                    (keydown.arrowdown)="$event.preventDefault(); stepYear(-1)"
+                  />
+                </label>
               </div>
-              @if (!dateUnknown()) {
-                <button type="button" class="acao-caneta" (click)="setYearOnly(!yearOnly())">
-                  {{ yearOnly() ? 'Informar dia e mês' : 'Lembro só o ano' }}
-                </button>
-              }
-              @if (attempted() && !dateValid()) {
-                <p class="field-error">{{ yearOnly() ? 'Escreva um ano entre 1971 e ' + today().slice(0, 4) + '.' : 'Escolha uma data até hoje.' }}</p>
-              }
+              <p class="data-leitura" id="editor-data-leitura" [class.problema]="dateProblem()" [class.erro]="attempted() && dateProblem()" aria-live="polite">
+                {{ dateProblem() || dateReading() }}
+              </p>
             </div>
             @if (profile().amount; as a) {
             <div class="campo">

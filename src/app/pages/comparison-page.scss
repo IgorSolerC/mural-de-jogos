@@ -1,450 +1,529 @@
+/*
+ * Comparar murais. A página só arruma o que já existe no mural: fita, crachás, o caderno, as abas
+ * na régua e as fichas de verdade. O colega escreve de azul em todo lugar; você, de preto.
+ */
+@use './comparison/shelf';
+
 :host {
   display: block;
 }
-.cabeca {
+
+/* ===== Topo: a etiqueta da página e os crachás ===== */
+.topo {
+  display: grid;
+  justify-items: start;
+  gap: 26px;
+  margin-bottom: 40px;
+}
+
+.aviso {
+  width: fit-content;
+  max-width: min(100%, 62ch);
+  margin: 0 0 28px;
+  padding: 10px 16px;
+  background: var(--paper-grain), var(--paper);
+  color: var(--error-ink);
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.08rem;
+  line-height: 1.4;
+  rotate: -0.5deg;
+  box-shadow: var(--shadow-card);
+}
+
+.abrindo {
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  color: var(--wall-ink-2);
+}
+
+/* ===== Primeiro uso: o envelope e, ao lado, o bilhete de como pedir o arquivo ===== */
+.chegada {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 20px;
-  margin-bottom: 12px;
+  align-items: flex-end;
+  gap: 48px 64px;
+  margin-bottom: 64px;
 }
-.resumo,
-.resultados {
-  color: var(--wall-ink-2);
-  font-family: var(--f-label);
-  font-weight: 600;
-  font-size: 1rem;
-}
-.arquivo {
-  --stock: var(--stock-azul);
+
+.como {
   position: relative;
-  padding: 22px 26px;
+  width: min(100%, 360px);
+  padding: 26px 26px 22px;
+  background:
+    repeating-linear-gradient(transparent 0 29px, rgb(64 110 190 / 0.28) 29px 30.5px),
+    linear-gradient(rgb(255 255 255 / 0.4), rgb(255 255 255 / 0.4)),
+    var(--paper-grain),
+    var(--paper);
+  /* as linhas caem no pé de cada linha de texto (30px) */
+  background-position: 0 20px, 0 0, 0 0, 0 0;
+  color: var(--ink);
+  rotate: 1.6deg;
   box-shadow: var(--shadow-card);
-  border-radius: 2px;
-  max-width: 1040px;
-  margin-bottom: 32px;
 }
-.arquivo.carregado {
-  padding: 12px 20px;
-  margin-bottom: 12px;
+
+.como-fita {
+  position: absolute;
+  top: -12px;
+  left: calc(50% - 46px);
+  width: 92px;
+  height: 26px;
+  background: var(--paper-grain), rgb(222 205 160 / 0.88);
+  clip-path: polygon(0 10%, 5px 50%, 0 90%, 100% 100%, calc(100% - 5px) 48%, 100% 0);
+  rotate: -3deg;
 }
-.pin {
-  top: -17px;
-  left: 24px;
-}
-h2 {
+
+.como h2 {
   font-family: var(--f-marker);
   font-weight: 400;
-  font-size: 1.6rem;
-  line-height: 1.2;
-  text-wrap: balance;
+  font-size: 1.28rem;
+  line-height: 30px;
 }
-.convite {
+
+.como ol {
+  margin: 0;
+  padding-left: 1.3em;
   font-family: var(--f-hand);
-  font-size: 1.18rem;
-  max-width: 60ch;
-  margin: 10px 0 20px;
+  font-size: 1.08rem;
+  line-height: 30px;
 }
-.carregar,
-.colega-linha,
-.nome-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 12px 18px;
+
+.como li::marker {
+  font-family: var(--f-marker);
 }
-.colega-linha {
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 12px;
-}
-.acoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.gestao summary,
-.filtros-moveis summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  list-style: none;
-  font-family: var(--f-label);
+
+.como strong {
   font-weight: 700;
 }
-.gestao summary::-webkit-details-marker,
-.filtros-moveis summary::-webkit-details-marker {
-  display: none;
-}
-.gestao summary {
-  padding: 10px 0 10px 8px;
-}
-.gestao[open] summary lucide-icon,
-.filtros-moveis[open] summary lucide-icon {
-  transform: rotate(180deg);
-}
-.gestao-corpo {
-  position: absolute;
-  top: calc(100% - 2px);
-  left: 0;
-  right: 0;
-  z-index: 8;
-  background: var(--paper);
-  color: var(--ink);
-  padding: 16px 20px;
-  border-radius: 2px;
-  box-shadow: var(--shadow-card);
-}
-.gestao-corpo .carregar {
-  margin-top: 18px;
-}
-.nome-campo {
-  display: grid;
-  gap: 6px;
-  width: min(100%, 360px);
-  font-weight: 600;
-}
-.nome-campo span {
-  font-weight: 400;
-  font-size: 0.9rem;
-}
-input,
-select {
-  min-height: 44px;
-  border: 0;
-  border-radius: 2px;
-  padding: 10px 12px;
-  background: var(--paper);
-  color: var(--ink);
-  font: inherit;
-  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.4);
-  caret-color: var(--red);
-}
-input {
-  min-width: 0;
-  width: 100%;
-}
-input::placeholder {
-  color: var(--ink-2);
-  opacity: 1;
-}
-input:focus-visible,
-select:focus-visible {
-  outline: 3px solid var(--ink);
-  outline-offset: 3px;
-}
-.escolha {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--f-marker);
-  font-size: 1.15rem;
-}
-.escolha select {
-  min-width: 0;
-  max-width: 300px;
-  font-family: var(--f-ui);
-  font-weight: 600;
+
+.como p {
+  margin-top: 30px;
+  font-family: var(--f-hand);
   font-size: 1rem;
+  line-height: 30px;
 }
-.ajuda,
-.arquivo-meta,
-.aviso {
-  margin-top: 10px;
-  font-size: 0.95rem;
+
+.como a {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--red);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* ===== O caderno ===== */
+app-caderno {
+  margin-bottom: 88px;
+}
+
+/* ===== As fichas: a prateleira e as abas ===== */
+.fichas {
+  scroll-margin-top: 20px;
+}
+
+.fichas > h2 {
+  margin-bottom: 28px;
+}
+
+.giz-lista {
+  max-width: 62ch;
+  margin: -12px 0 30px;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
   line-height: 1.45;
-  max-width: 70ch;
-}
-.arquivo-meta {
-  font-family: var(--f-label);
-}
-.nome-form {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px dashed var(--ink-2);
-}
-.nome-form input {
-  width: min(100%, 260px);
-}
-.erro {
-  margin-top: 14px;
-  font-weight: 600;
-  color: var(--error-ink);
-}
-.ferramentas {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px 20px;
-  margin-bottom: 8px;
-}
-.busca {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--paper);
-  padding-left: 14px;
-  box-shadow: var(--shadow-card);
-  width: min(100%, 430px);
-  border-radius: 2px;
-}
-.busca input {
-  box-shadow: none;
-  background: transparent;
-}
-.busca:focus-within {
-  outline: 3px solid var(--hi);
-  outline-offset: 3px;
-}
-.busca input:focus-visible {
-  outline: none;
-}
-.ordem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--wall-ink);
-  font-family: var(--f-label);
-  font-weight: 600;
-}
-.ordem select {
-  font-size: 1rem;
-}
-.ordem select:focus-visible {
-  outline-color: var(--hi);
-}
-.densidade {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-}
-.murais {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.murais span {
-  margin-left: 6px;
-  font-variant-numeric: tabular-nums;
-}
-.resultados {
-  margin: 8px 0 10px;
-}
-.par {
-  max-width: 1040px;
-  margin-bottom: 48px;
-}
-.par-cabeca {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px 20px;
-  margin-bottom: 8px;
-  color: var(--wall-ink);
-}
-.par-cabeca h2 {
-  font-size: 1.24rem;
-}
-.par-cabeca h2 span {
-  font-family: var(--f-label);
-  font-size: 0.88rem;
-  font-weight: 600;
-  margin-left: 10px;
-  text-transform: uppercase;
   color: var(--wall-ink-2);
 }
-.diferenca {
-  font-family: var(--f-hand);
-  font-size: 1.1rem;
-  color: var(--hi);
-}
-.diferenca.igual {
-  color: var(--wall-ink);
-}
-.donos,
-.fichas {
+
+/* ===== Os pares: minha ficha, o bilhete da diferença, a do colega ===== */
+.lados,
+.par {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 36px;
+  grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr);
+  column-gap: 20px;
 }
-.donos {
-  align-items: start;
-  justify-items: center;
-  margin-bottom: 8px;
+
+/* as cabeças das colunas ficam paradas no alto enquanto as fichas passam */
+.lados {
+  position: sticky;
+  top: 10px;
+  z-index: 6;
+  margin-bottom: 18px;
+  pointer-events: none;
 }
-.donos p {
+
+.lado {
+  justify-self: center;
+  display: grid;
+  min-width: 120px;
   max-width: 100%;
-  overflow-wrap: anywhere;
-  text-align: center;
-}
-.fichas {
-  padding: 0 12px;
-  align-items: start;
-}
-.ficha-coluna {
-  min-width: 0;
-}
-.ficha-coluna app-review-card {
-  max-width: 440px;
-  margin-inline: auto;
-}
-.notas {
-  margin: 28px auto 0;
-  width: min(100%, 620px);
-  background: var(--paper);
-  color: var(--ink);
-  border-radius: 2px;
-  box-shadow: var(--shadow-card);
-}
-summary {
-  cursor: pointer;
-  padding: 13px 18px;
+  overflow: hidden;
+  padding-bottom: 6px;
+  border-radius: 8px;
+  background:
+    linear-gradient(to top, var(--faixa) 0 5px, transparent 5px),
+    #fdfcf8;
+  color: var(--faixa);
   font-family: var(--f-marker);
-  font-size: 1rem;
-  min-height: 44px;
+  font-size: 1.1rem;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.3), 0 6px 10px -4px rgb(0 0 0 / 0.55);
+  rotate: -1.5deg;
 }
-summary:hover {
-  background: rgb(21 21 21 / 0.06);
+
+.lado.voce {
+  --faixa: var(--ink);
 }
-summary:focus-visible {
-  outline: 3px solid var(--hi);
-  outline-offset: 3px;
+
+.lado.colega {
+  --faixa: var(--caneta-azul);
+  rotate: 1.6deg;
 }
-table {
+
+.lado-faixa {
+  display: block;
+  margin-bottom: 6px;
+  padding: 3px 12px 2px;
+  background: var(--faixa);
+  color: #fdfcf8;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pares,
+.soltas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.par {
+  align-items: start;
+  row-gap: 26px;
+  margin-bottom: 64px;
+}
+
+.lado-a,
+.lado-b {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+}
+
+.lado-a app-review-card,
+.lado-b app-review-card {
+  width: 100%;
+  max-width: 424px;
+}
+
+.pares.simples .lado-a app-review-card,
+.pares.simples .lado-b app-review-card {
+  max-width: 360px;
+}
+
+.meio {
+  align-self: center;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+/* o bilhete: um pedaço de bloquinho, a diferença a caneta de quem deu mais */
+.diferenca {
+  display: grid;
+  justify-items: center;
+  width: 118px;
+  padding: 12px 8px 14px;
+  background: var(--paper-grain), var(--paper);
+  color: var(--ink);
+  text-align: center;
+  rotate: -2deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 8px 8px rgb(0 0 0 / 0.35));
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 100% repeat-x;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 100% repeat-x;
+}
+
+.par:nth-child(even) .diferenca {
+  rotate: 1.6deg;
+}
+
+.diferenca.dela {
+  color: var(--caneta-azul);
+}
+
+.dif-num {
+  font-family: var(--f-marker);
+  font-size: 2rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.dif-txt {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nota-a-nota {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+}
+
+.nota-a-nota:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+
+.nota-a-nota lucide-icon {
+  display: inline-flex;
+  transition: rotate var(--t-ui) var(--ease-ui);
+}
+
+.nota-a-nota[aria-expanded='true'] lucide-icon {
+  rotate: 180deg;
+}
+
+/* ===== Nota a nota: uma folha de bloquinho arrancada, embaixo do par ===== */
+.notas {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 540px);
+  padding: 14px 18px 18px;
+  background: var(--paper-grain), var(--paper);
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+  rotate: -0.4deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 12px 12px rgb(0 0 0 / 0.38));
+  animation: folha var(--t-physical) var(--ease-physical);
+}
+
+@keyframes folha {
+  from {
+    opacity: 0;
+    translate: 0 -10px;
+    rotate: -2deg;
+  }
+}
+
+.notas table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
-th,
-td {
-  padding: 10px 14px;
+
+.notas th,
+.notas td {
+  padding: 8px 10px;
+  border-bottom: 1.5px solid rgb(64 110 190 / 0.3);
   text-align: center;
-  border-top: 1px solid rgb(21 21 21 / 0.18);
   overflow-wrap: anywhere;
 }
-th {
-  font-family: var(--f-label);
-  font-weight: 800;
+
+.notas thead th {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+  border-bottom: 2px solid var(--ink);
 }
-th:first-child {
+
+.notas tbody th {
   text-align: left;
+  font-family: var(--f-hand);
+  font-weight: 400;
+  font-size: 1.06rem;
 }
-td {
+
+.notas td {
   font-family: var(--f-marker);
-  font-size: 1.12rem;
+  font-size: 1.15rem;
   font-variant-numeric: tabular-nums;
 }
-td small {
+
+.notas td.voce {
+  color: var(--ink);
+}
+
+.notas .colega {
+  color: var(--caneta-azul);
+}
+
+.notas .final td {
+  font-size: 1.4rem;
+}
+
+.notas small {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   font-family: var(--f-label);
-  font-size: 0.82rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
 }
-.final td {
-  color: var(--red-deep);
-}
-.nota-mao {
-  padding: 12px 14px;
-  font-size: 0.9rem;
-}
-.vazio {
-  --stock: var(--stock-verde);
+
+.valor {
   position: relative;
-  max-width: 640px;
-  padding: 30px;
-  box-shadow: var(--shadow-card);
+  display: inline-block;
+  min-width: 2.3rem;
+  padding: 3px 5px;
 }
-.vazio p {
+
+.valor.melhor::after {
+  content: '';
+  position: absolute;
+  inset: -2px -3px;
+  border: 2px solid var(--red);
+  border-radius: 47% 54% 48% 45%;
+  rotate: -8deg;
+  pointer-events: none;
+}
+
+.notas-legenda {
+  margin-top: 8px;
   font-family: var(--f-hand);
-  font-size: 1.15rem;
-  margin: 12px 0 20px;
+  font-size: 0.95rem;
+  color: var(--ink-2);
 }
-.mais {
+
+/* ===== Dicas: as fichas que só um tem ===== */
+.soltas {
+  --card-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 48px 34px;
+}
+
+.soltas.simples {
+  --card-w: var(--simples-w);
+  gap: 40px 30px;
+}
+
+.solta {
   display: grid;
   justify-items: center;
   gap: 12px;
+  width: var(--card-w);
+  max-width: 100%;
+}
+
+.solta app-review-card {
+  width: 100%;
+  max-width: none;
+}
+
+.quero {
   color: var(--wall-ink);
 }
+
+.quero.feito {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+}
+
+/* ===== Mostrar mais ===== */
+.mais {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 600;
+}
+
+.mais .btn-ink {
+  rotate: -0.6deg;
+}
+
+/* ===== Celular: as duas fichas em duas colunas, o bilhete em cima delas ===== */
 @media (max-width: 699px) {
-  .cabeca {
-    margin-bottom: 14px;
+  .densidade {
+    display: none;
   }
-  .arquivo {
-    padding: 20px 18px;
+  .lados,
+  .par {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 12px;
   }
-  .arquivo.carregado {
-    padding: 8px 14px;
-    margin-bottom: 12px;
+  .lados > span:nth-child(2) {
+    display: none;
   }
-  .escolha {
+  .lado {
+    min-width: 0;
+    width: min(100%, 140px);
+    font-size: 0.98rem;
+  }
+  .meio {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+  }
+  .diferenca {
+    grid-auto-flow: column;
+    align-items: baseline;
     gap: 8px;
-    font-size: 1rem;
+    width: auto;
+    max-width: 70%;
+    padding: 8px 14px 12px;
   }
-  .escolha select {
-    flex: 1;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .carregar {
-    align-items: stretch;
-  }
-  .carregar .btn-ink {
-    width: 100%;
-  }
-  .ordem {
-    width: 100%;
-  }
-  .ordem select {
-    flex: 1;
-    min-width: 0;
-  }
-  .busca {
-    width: 100%;
-  }
-  .filtros-moveis summary {
-    width: 100%;
-    text-align: left;
-  }
-  .filtros-moveis summary span {
-    font-weight: 400;
-  }
-  .filtros-moveis summary lucide-icon {
-    margin-left: auto;
-  }
-  .filtros-corpo {
-    padding-block: 12px 4px;
-  }
-  .resultados {
-    margin-bottom: 12px;
-  }
-  .donos,
-  .fichas {
-    gap: 16px;
-  }
-  .fichas {
-    padding-inline: 8px;
-  }
-  .donos {
-    margin-bottom: 12px;
-  }
-  .donos .tape-label {
-    padding-inline: 10px;
-    font-size: 0.92rem;
-  }
-  .par-cabeca h2 {
-    font-size: 1.14rem;
+  .dif-num {
+    font-size: 1.5rem;
   }
   .par {
-    margin-bottom: 38px;
+    row-gap: 14px;
+    margin-bottom: 44px;
   }
-  th,
-  td {
-    padding: 9px 10px;
+}
+
+@media (max-width: 559px) {
+  .prateleira-fim {
+    margin-left: 0;
   }
+  .soltas,
+  .soltas.simples {
+    --card-w: 100%;
+    gap: 34px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
   .notas {
-    margin-top: 24px;
+    animation: none;
   }
 }

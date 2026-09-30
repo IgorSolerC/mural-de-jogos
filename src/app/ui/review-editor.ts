@@ -36,6 +36,8 @@ import {
   dayLabel,
   isValidReviewDate,
   isYearOnly,
+  isYearMonth,
+  formatReviewDateLong,
   newId,
   todayISO,
 } from '../core/review';
@@ -63,6 +65,11 @@ export interface SavedEvent {
   id: string;
   isNew: boolean;
 }
+
+/** O ano mais antigo aceito na data (o mesmo limite da validação dos backups). */
+const MIN_YEAR = 1971;
+
+const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
 @Component({
   selector: 'app-review-editor',
@@ -175,19 +182,49 @@ export class ReviewEditor {
   private coverAbort: AbortController | undefined;
   protected readonly status = signal<Status | null>(null);
   protected readonly verdict = signal<Verdict | null>(null);
-  protected readonly completedAt = signal(todayISO());
-  /** Jogou faz tanto tempo que não lembra o dia: a resenha fica sem data e vai para o fim da ordem por data. */
-  protected readonly dateUnknown = signal(false);
-  protected readonly yearOnly = signal(false);
-  private exactDate = '';
+  /**
+   * A data em três partes, e cada uma pode ficar em branco: com tudo, o dia certo; sem o dia, o mês;
+   * só o ano; ou nada, a data não definida (vai para o fim da ordem por data).
+   */
+  protected readonly dateDay = signal('');
+  protected readonly dateMonth = signal('');
+  protected readonly dateYear = signal('');
   protected readonly noDay = NO_DAY_LABEL;
   protected readonly today = signal(todayISO());
   protected readonly dateLabel = computed(() => (this.status() ? dayLabel(this.kind(), this.status()!) : 'Data'));
-  protected readonly dateValid = computed(
-    () => this.dateUnknown() || (isValidReviewDate(this.completedAt()) &&
-      (this.yearOnly() ? isYearOnly(this.completedAt()) && this.completedAt() <= this.today().slice(0, 4)
-        : this.completedAt().length === 10 && this.completedAt() <= this.today())),
-  );
+  protected readonly months = MONTHS;
+  protected readonly dateUnknown = computed(() => !this.dateDay().trim() && !this.dateMonth() && !this.dateYear().trim());
+  /** A data montada com o que foi preenchido ('AAAA-MM-DD', 'AAAA-MM', 'AAAA'); null sem nada. */
+  protected readonly dateValue = computed<string | null>(() => {
+    if (this.dateUnknown()) return null;
+    const y = this.dateYear().trim();
+    const m = this.dateMonth();
+    const d = this.dateDay().trim();
+    return [y, m, d && d.padStart(2, '0')].filter(Boolean).join('-');
+  });
+  /** O que falta ou sobra na data, em uma frase; vazio quando ela vale. */
+  protected readonly dateProblem = computed(() => {
+    const value = this.dateValue();
+    if (value === null) return '';
+    const y = this.dateYear().trim();
+    const top = this.today().slice(0, 4);
+    if (!y) return this.dateDay().trim() || this.dateMonth() ? 'Falta o ano. Se não lembra nem o ano, deixe tudo em branco.' : '';
+    if (!/^\d{4}$/.test(y) || Number(y) < MIN_YEAR || y > top) return `O ano vai de ${MIN_YEAR} a ${top}.`;
+    if (this.dateDay().trim() && !this.dateMonth()) return 'Para o dia valer, escolha o mês também.';
+    if (!isValidReviewDate(value)) return `${MONTHS[Number(this.dateMonth()) - 1]} de ${y} não tem dia ${Number(this.dateDay())}.`;
+    if (value > this.today().slice(0, value.length)) return 'Essa data ainda não chegou.';
+    return '';
+  });
+  protected readonly dateValid = computed(() => !this.dateProblem());
+  /** Como a data vai ficar escrita na ficha, para conferir enquanto preenche. */
+  protected readonly dateReading = computed(() => {
+    const v = this.dateValue();
+    if (v === null) return 'Sem data: a ficha vai para o fim quando o mural for ordenado por data.';
+    if (isYearOnly(v)) return `Só o ano: ${v}.`;
+    if (isYearMonth(v)) return `Só o mês: ${formatReviewDateLong(v)}.`;
+    return `${formatReviewDateLong(v)}.`;
+  });
+  protected readonly isToday = computed(() => this.dateValue() === this.today());
   protected readonly difficulty = signal<Difficulty>('nenhuma');
   protected readonly text = signal('');
   protected readonly attempted = signal(false);
@@ -262,7 +299,7 @@ export class ReviewEditor {
       decor: this.decor() ?? undefined,
       decorSeed: this.decorSeed() ?? undefined,
       text: this.text(),
-      completedAt: this.dateUnknown() ? null : this.dateValid() ? this.completedAt() : this.today(),
+      completedAt: this.dateValid() ? this.dateValue() : this.today(),
       createdAt: '',
       updatedAt: '',
     };
@@ -360,10 +397,7 @@ export class ReviewEditor {
     this.status.set(review?.status ?? null);
     this.verdict.set(review?.verdict ?? null);
     this.today.set(todayISO());
-    this.completedAt.set(review?.completedAt ?? todayISO());
-    this.yearOnly.set(isYearOnly(review?.completedAt));
-    this.exactDate = this.yearOnly() ? '' : this.completedAt();
-    this.dateUnknown.set(review?.completedAt === null);
+    this.setDateParts(review ? review.completedAt : todayISO());
     this.difficulty.set(review?.difficulty ?? 'nenhuma');
     this.weights.set({ ...(review?.weights ?? {}) });
     this.bonuses.set([...(review?.bonuses ?? [])]);
@@ -493,7 +527,7 @@ export class ReviewEditor {
       ...(this.decor() && this.decorSeed() ? { decorSeed: this.decorSeed()! } : {}),
       ...(this.overrideOn() ? { finalOverride: final } : {}),
       text: this.text().trim(),
-      completedAt: this.dateUnknown() ? null : this.completedAt(),
+      completedAt: this.dateValue(),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
@@ -531,21 +565,35 @@ export class ReviewEditor {
     this.drafted.emit({ id: this.id(), isNew: !prev });
   }
 
-  /** Troca o campo de data pela tira "Data não definida" e volta, levando o foco junto. */
-  protected setDateUnknown(unknown: boolean): void {
-    this.dateUnknown.set(unknown);
-    setTimeout(() => document.getElementById(unknown ? 'editor-data-escolher' : 'editor-data')?.focus());
+  /** Reparte uma data guardada nos três campos. */
+  private setDateParts(date: string | null): void {
+    const [y = '', m = '', d = ''] = (date ?? '').split('-');
+    this.dateYear.set(y);
+    this.dateMonth.set(m);
+    this.dateDay.set(d ? String(Number(d)) : '');
   }
 
-  protected setYearOnly(on: boolean): void {
-    if (on) {
-      this.exactDate = this.completedAt();
-      this.completedAt.set(this.completedAt().slice(0, 4));
-    } else {
-      this.completedAt.set(this.exactDate.startsWith(this.completedAt()) ? this.exactDate : '');
-    }
-    this.yearOnly.set(on);
-    setTimeout(() => document.getElementById('editor-data')?.focus());
+  protected setToday(): void {
+    this.setDateParts(this.today());
+  }
+
+  protected clearDate(): void {
+    this.setDateParts(null);
+    document.getElementById('editor-data')?.focus();
+  }
+
+  /** Só algarismos nos campos de dia e ano; o dia completo passa a vez para o mês. */
+  protected typeDate(el: HTMLInputElement, part: 'day' | 'year'): void {
+    const v = el.value.replace(/\D/g, '').slice(0, part === 'day' ? 2 : 4);
+    if (el.value !== v) el.value = v;
+    (part === 'day' ? this.dateDay : this.dateYear).set(v);
+    if (part === 'day' && (v.length === 2 || Number(v) > 3)) document.getElementById('editor-data-mes')?.focus();
+  }
+
+  protected stepYear(delta: number): void {
+    const top = Number(this.today().slice(0, 4));
+    const y = Number(this.dateYear()) || top;
+    this.dateYear.set(String(Math.min(top, Math.max(MIN_YEAR, y + delta))));
   }
 
   protected cancelDraft(): void {
@@ -653,7 +701,7 @@ export class ReviewEditor {
       this.categories().map((k) => this.scores()[k] ?? null),
       this.status(),
       this.verdict(),
-      this.dateUnknown() ? null : this.completedAt(),
+      this.dateValue(),
       this.weights(),
       this.bonuses().map((b) => b.id),
       this.hours().trim(),

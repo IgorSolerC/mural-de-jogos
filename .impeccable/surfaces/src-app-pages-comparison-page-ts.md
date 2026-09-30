@@ -44,3 +44,16 @@ O handoff registra build bem-sucedido, 161 testes aprovados e teclado, JSON/gzip
 Documentação concluída: PRODUCT.md recebeu somente as verdades dos três recursos, seis abas e IndexedDB separado; o brief da comparação e este surface brief registram o estado final. DESIGN.md e `.impeccable/design.json` ficam byte a byte preservados, incluindo a alteração anterior de livros brasileiros. Nenhum novo asset de produto ou regra global foi gerado.
 
 Limite da etapa documental: evidência de fonte conferida; build, testes e review são resultados recebidos do handoff, sem repetição de navegador, detector ou varredura visual. Finish concluído para a extensão aprovada do Mural de Papelaria (`f447d5fe`), sem correções materiais abertas no escopo do verdict.
+
+## Redesenho — caderno de perguntas (2026-09-30)
+
+Substitui a lista paginada de pares. Mesmo mundo (Mural de Papelaria), nova composição, pedida pelo dono: estética e sensação antes da utilidade, sem perder UX.
+
+- Primeiro uso: envelope pardo (arrastar ou escolher o arquivo) e um bilhete de como pedir o backup. O nome do colega sai do nome do arquivo, ou é pedido no crachá.
+- Cabeçalho: crachás "OLÁ, EU SOU" (Você preto × colega azul), outros colegas em crachás pequenos; ações: ver o mural do colega, atualizar backup, outro colega, tirar da comparação.
+- Duas canetas: o colega escreve de azul (`--caneta-azul`) em toda a página; o vermelho é a correção.
+- Caderno de espiral: sintonia na régua escolar, maior briga e unanimidade, top 3, termina o que começa, bônus, bolinhas das notas com médias, tiras de cartolina, vereditos em risquinhos, horas ou páginas.
+- Fichas: abas Em comum (pares lado a lado com bilhete da diferença e Nota a nota), Dicas do colega (com "Quero jogar" para a wishlist) e Suas dicas.
+- Segue o mural aberto no cartaz; nova rota `/comparar/mural` mostra só o mural do colega.
+- Código: `core/comparison-stats.ts` (puro, com testes), `compareCollections` separa o que só um tem, `pages/comparison/*` (envelope, crachás, caderno, risquinhos).
+- Validação: build de produção, 167 testes, capturas desktop 1440 e celular 390 com dados de exemplo.

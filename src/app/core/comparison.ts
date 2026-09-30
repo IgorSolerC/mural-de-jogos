@@ -56,11 +56,20 @@ function distinctWorks(list: readonly Review[]): Review[] {
   });
 }
 
+export interface Collections {
+  /** As obras que os dois resenharam, uma ficha de cada lado. */
+  pairs: ReviewPair[];
+  /** O que só eu resenhei. Homônimos ambíguos ficam de fora: talvez o colega tenha a obra. */
+  onlyMine: Review[];
+  /** O que só o colega resenhou, com a mesma cautela. */
+  onlyTheirs: Review[];
+}
+
 /** IDs de fichas não identificam obras; colegas podem ter importado o mesmo backup antigo. */
-export function commonReviews(
+export function compareCollections(
   mine: readonly Review[],
   theirs: readonly Review[],
-): ReviewPair[] {
+): Collections {
   const own = distinctWorks(mine);
   const other = distinctWorks(theirs);
   const byCatalog = new Map<string, Review>();
@@ -94,12 +103,39 @@ export function commonReviews(
   }
   for (const [match, candidates] of proposals) {
     // Ano/autoria ausente com vários homônimos não adivinha qual das obras é.
-    if (candidates.length === 1) matches.set(candidates[0], match);
+    if (candidates.length === 1) {
+      matches.set(candidates[0], match);
+      used.add(match);
+    }
   }
-  return [...matches].map(([mine, theirs]) => ({
+  const pairs = [...matches].map(([mine, theirs]) => ({
     key: `${mine.id}:${theirs.id}`,
     mine,
     theirs,
     difference: Math.round((mine.scores.final - theirs.scores.final) * 10) / 10,
   }));
+  // "Só um tem" é uma dica: na dúvida (um homônimo que não casou), não afirma que o outro não tem.
+  const ownTitles = new Set(own.map((r) => `${r.kind}:${titleKey(r)}`));
+  const otherTitles = new Set(byTitle.keys());
+  return {
+    pairs,
+    onlyMine: own.filter(
+      (r) => !matches.has(r) && !otherTitles.has(`${r.kind}:${titleKey(r)}`) && !(catalogKey(r) && byCatalog.has(catalogKey(r)!)),
+    ),
+    onlyTheirs: other.filter(
+      (r) => !used.has(r) && !ownTitles.has(`${r.kind}:${titleKey(r)}`),
+    ),
+  };
+}
+
+export function commonReviews(
+  mine: readonly Review[],
+  theirs: readonly Review[],
+): ReviewPair[] {
+  return compareCollections(mine, theirs).pairs;
+}
+
+/** Uma ficha por obra: a mesma regra da comparação, para contar e ranquear sem repetir. */
+export function distinctReviews(list: readonly Review[]): Review[] {
+  return distinctWorks(list);
 }

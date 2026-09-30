@@ -1,0 +1,134 @@
+<a class="voltar btn-quiet" routerLink="/comparar">
+  <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+  Voltar à comparação
+</a>
+
+@if (colleagues.loading()) {
+  <p class="giz" role="status">Abrindo os envelopes guardados…</p>
+} @else if (colleague(); as c) {
+  <header class="cabeca">
+    <h1 class="placa">
+      <span class="placa-faixa">O mural de</span>
+      <span class="placa-nome">{{ c.name }}</span>
+    </h1>
+    @if (summary()) {
+      <p class="giz">{{ summary() }}</p>
+    }
+  </header>
+
+  @if (otherWalls().length) {
+    <nav class="murais" [attr.aria-label]="'Outros murais de ' + c.name">
+      <span class="murais-giz">Outros murais:</span>
+      @for (w of otherWalls(); track w.kind) {
+        <button type="button" class="plate" (click)="switchWall(w.kind)">{{ w.label }} <span class="count">{{ w.n }}</span></button>
+      }
+    </nav>
+  }
+
+  @if (!reviews().length) {
+    <section class="vazio cartolina" aria-labelledby="vazio-titulo">
+      <span class="fita-vazio" aria-hidden="true"></span>
+      <h2 id="vazio-titulo">{{ c.name }} não tem {{ profile().plural }} no mural</h2>
+      <p>O backup só tem resenhas de outros murais. Troque de mural no cartaz{{ otherWalls().length ? ' ou toque num dos murais acima' : '' }}.</p>
+    </section>
+  } @else {
+    <div class="prateleira">
+      <app-search-strip
+        class="prateleira-busca"
+        inputId="busca-colega"
+        [label]="'Procurar no mural de ' + c.name"
+        placeholder="Procurar neste mural…"
+        [value]="query()"
+        (valueChange)="query.set($event)"
+      />
+      <span class="prateleira-quebra" aria-hidden="true"></span>
+
+      <div class="prateleira-abas" role="group" aria-label="Mostrar">
+        @for (t of verdicts(); track t.value) {
+          <button type="button" class="plate" [attr.aria-pressed]="verdict() === t.value" (click)="setVerdict(t.value)">
+            {{ t.label }} <span class="count">{{ t.n }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="prateleira-fim">
+        <label class="plate pick mostrar">
+          <span class="pick-pre">Mostrar</span>
+          <span class="pick-val" aria-hidden="true">{{ verdictShown() }}</span>
+          <select aria-label="Mostrar" [value]="verdict()" (change)="setVerdict($any($event.target).value)">
+            @for (t of verdicts(); track t.value) {
+              <option [value]="t.value" [selected]="verdict() === t.value">{{ t.label }} ({{ t.n }})</option>
+            }
+          </select>
+          <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+        </label>
+        <div class="ordem">
+          <label class="plate pick">
+            <span class="pick-pre">Ordenar</span>
+            <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
+            <select aria-label="Ordenar o mural" [value]="sort()" (change)="setSort($any($event.target).value)">
+              @for (s of sorts; track s.value) {
+                <option [value]="s.value">{{ s.label }}</option>
+              }
+            </select>
+            <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+          </label>
+          <button
+            type="button"
+            class="plate icon"
+            (click)="toggleDirection()"
+            [attr.aria-label]="direction() === 'desc' ? 'Ordem decrescente; inverter' : 'Ordem crescente; inverter'"
+            [title]="direction() === 'desc' ? 'Decrescente' : 'Crescente'"
+          >
+            <lucide-icon [img]="direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+        </div>
+        <div class="densidade" role="group" aria-label="Tipo de ficha">
+          <button type="button" class="plate icon" [attr.aria-pressed]="!simple()" (click)="view.density.set('completa')" aria-label="Fichas completas" title="Fichas completas">
+            <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+          <button type="button" class="plate icon" [attr.aria-pressed]="simple()" (click)="view.density.set('simples')" aria-label="Fichas simples" title="Fichas simples">
+            <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    @if (query().trim() || verdict() !== 'todos') {
+      <p class="mostrando" aria-live="polite">
+        Mostrando {{ visible().length }} de {{ reviews().length }}
+        <button type="button" class="limpar" (click)="clear()">Limpar filtro</button>
+      </p>
+    }
+
+    @if (!visible().length) {
+      <p class="nada">Nenhuma ficha de {{ c.name }} com esse filtro.</p>
+    } @else {
+      <h2 class="sr-only">Fichas de {{ c.name }}</h2>
+      <div class="wall" [class.compact]="simple()">
+        @for (g of groups(); track g.key) {
+          <section class="grupo" [attr.aria-labelledby]="'grupo-' + g.key">
+            <header class="grupo-head">
+              <h3 class="tape-label" [id]="'grupo-' + g.key">{{ g.label }}</h3>
+              <p class="grupo-sum">{{ g.summary }}</p>
+            </header>
+            <div class="fichas">
+              @for (r of g.reviews; track r.id) {
+                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [dayOnly]="sort() === 'data'" (opened)="open(r)" />
+              }
+            </div>
+          </section>
+        }
+      </div>
+    }
+  }
+} @else {
+  <section class="vazio cartolina" aria-labelledby="vazio-titulo">
+    <span class="fita-vazio" aria-hidden="true"></span>
+    <h2 id="vazio-titulo">Nenhum colega aberto</h2>
+    <p>Abra o backup de alguém em Comparar e o mural dele aparece aqui.</p>
+    <a class="btn-ink" routerLink="/comparar">Ir para Comparar</a>
+  </section>
+}
+
+<app-review-reader />

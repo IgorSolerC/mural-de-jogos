@@ -502,17 +502,37 @@ export function isYearOnly(v: unknown): v is string {
   return typeof v === 'string' && /^\d{4}$/.test(v) && Number(v) > 1970;
 }
 
+/** Mês e ano lembrados, sem o dia: 'AAAA-MM'. */
+export function isYearMonth(v: unknown): v is string {
+  return typeof v === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(v) && Number(v.slice(0, 4)) > 1970;
+}
+
+/** Uma data de conclusão com a precisão que a pessoa lembra: dia, mês ou só o ano. */
 export function isValidReviewDate(v: unknown): v is string {
-  return isYearOnly(v) || isValidDay(v);
+  return isYearOnly(v) || isYearMonth(v) || isValidDay(v);
 }
 
 const reviewDateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 const reviewDayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
+const reviewMonthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' });
+const reviewMonthOnlyFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
+const longDayFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+const longMonthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
+/** "15 mar 2024", "mar 2024" ou "2024"; com `dayOnly` (o mês já está na seção), "15 mar" ou "mar". */
 export function formatReviewDate(date: string | null, dayOnly = false): string {
   if (date === null) return 'Sem data';
   if (isYearOnly(date)) return date;
+  if (isYearMonth(date)) return (dayOnly ? reviewMonthOnlyFmt : reviewMonthFmt).format(parseDay(date + '-01')).replace(/\./g, '');
   return (dayOnly ? reviewDayFmt : reviewDateFmt).format(parseDay(date)).replace(/\./g, '');
+}
+
+/** Por extenso, para a leitura: "15 de março de 2024", "março de 2024" ou "2024". */
+export function formatReviewDateLong(date: string | null): string {
+  if (date === null) return '';
+  if (isYearOnly(date)) return date;
+  if (isYearMonth(date)) return longMonthFmt.format(parseDay(date + '-01'));
+  return longDayFmt.format(parseDay(date));
 }
 
 /** A primeira letra do nome, maiúscula, para o "sem capa": um grafema inteiro (emoji e acento juntos). */
@@ -729,7 +749,7 @@ export function sanitizeReview(raw: unknown): Review | null {
         : isValidReviewDate(r['completedAt'])
           ? // nunca no futuro (um backup de um fuso adiantado pode trazer o dia de amanhã)
             r['completedAt'] > todayISO()
-            ? isYearOnly(r['completedAt']) ? todayISO().slice(0, 4) : todayISO()
+            ? todayISO().slice(0, r['completedAt'].length)
             : r['completedAt']
           : localDay(new Date(createdAt)),
     createdAt,

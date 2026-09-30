@@ -28,7 +28,7 @@ main {
 /* ===== Topo: cartaz, abas de seção e a pilha de fichas em branco, numa faixa só ===== */
 .top {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: end;
   gap: 18px 36px;
   margin-bottom: 34px;
@@ -92,8 +92,6 @@ main {
    a da seção aberta é a fita amarela, a cor de estado, pregada com tachinha. */
 .tabs {
   display: flex;
-  grid-column: 1 / -1;
-  grid-row: 2;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
@@ -156,6 +154,26 @@ main {
 
   &:nth-child(5) {
     --tilt: -1;
+  }
+
+  &:nth-child(6) {
+    --tilt: 1.6;
+  }
+
+  /* Ajustes: um pedacinho de fita só com a engrenagem */
+  &:has(.tab-icon) {
+    align-self: stretch;
+    align-items: center;
+    padding-inline: 11px;
+  }
+
+  .tab-icon {
+    display: inline-flex;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.7));
+  }
+
+  &.on .tab-icon {
+    filter: none;
   }
 
   .n {
@@ -420,9 +438,35 @@ main {
   outline-offset: 4px;
 }
 
+/* Notebook: tudo continua numa faixa só, entre o cartaz e o botão, só que mais justo
+   (cartaz menor, fitas com menos folga) */
+@media (max-width: 1479px) {
+  .top {
+    column-gap: 22px;
+  }
+
+  .logo {
+    font-size: 1.62rem;
+  }
+
+  .tabs {
+    gap: 8px;
+  }
+
+  .tab {
+    padding-inline: 11px;
+    letter-spacing: 0.09em;
+  }
+
+  .stack .btn-cartolina {
+    padding-inline: 16px 18px;
+    font-size: 1.12rem;
+  }
+}
+
 /* Tela média: as abas descem para uma fileira própria, embaixo do cartaz e do botão
-   (cinco abas não cabem entre os dois abaixo de uns 1380px) */
-@media (max-width: 1380px) {
+   (as seis fitas não cabem entre os dois abaixo de uns 1230px) */
+@media (max-width: 1229px) {
   .top {
     grid-template-columns: minmax(0, 1fr) auto;
     row-gap: 22px;
@@ -471,13 +515,18 @@ main {
   }
 
   .tabs {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 6px;
   }
 
   .tab {
-    flex: 1 1 calc(33.333% - 6px);
+    flex: 1 1 auto;
     justify-content: center;
+
+    &:has(.tab-icon) {
+      flex: 0 0 auto;
+    }
+
     gap: 5px;
     padding: 12px 8px 9px;
     font-size: 0.9rem;
@@ -527,17 +576,26 @@ main {
   }
 }
 
-/* celular estreito: as cinco fitas cabem numa fileira, mais justas */
+/* celular estreito: as seis fitas cabem numa fileira, mais justas */
 @media (max-width: 400px) {
   .tabs {
-    gap: 4px;
+    gap: 2px;
   }
 
   .tab {
     gap: 4px;
-    padding: 12px 5px 9px;
-    font-size: 0.84rem;
-    letter-spacing: 0.01em;
+    padding: 12px 4px 9px;
+    font-size: 0.8rem;
+    letter-spacing: 0;
+
+    /* a contagem do mural já está no cartaz do mural; aqui ela empurraria a última fita para fora */
+    .n {
+      display: none;
+    }
+
+    &:has(.tab-icon) {
+      padding-inline: 7px;
+    }
   }
 }
 
