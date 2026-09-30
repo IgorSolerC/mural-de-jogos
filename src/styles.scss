@@ -566,16 +566,11 @@ dialog.sheet {
 }
 
 /* As cartolinas claras: no amarelo e no verde o soft-light quase não mexe (um canal já está no
-   máximo) e o papel sumia (no branco, então, nem se fala). Ganham o reforço em hard-light: a textura mais fraca e a fibra suave (a
-   Lisa, que não tem fibra, fica sem). O azul, um pouco: o reforço leve da textura e a mesma fibra. */
+   máximo) e o papel sumia (no branco, então, nem se fala). Ganham a fibra suave de reforço, em
+   hard-light (a Lisa, que não tem fibra, fica sem). */
 :is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']) :is(.cartolina, .papel, .head),
 :is([data-cor='amarelo'], [data-cor='verde'], [data-cor='azul'], [data-cor='branco']):is(.cartolina, .papel) {
-  --realce: var(--realce-forte, none);
   --realce-grao: var(--grao-realce, var(--grao-realce-img, none));
-}
-[data-cor='azul'] :is(.cartolina, .papel, .head),
-[data-cor='azul']:is(.cartolina, .papel) {
-  --realce: var(--realce-leve, none);
 }
 
 /* As cartolinas escuras. No escuro o soft-light pesa demais (clareia a sombra com raiz quadrada) e o

@@ -2505,23 +2505,22 @@ export function paperStyle(paper: Paper | undefined, pattern: Pattern | undefine
 }
 
 /**
- * O reforço do papel nas cartolinas claras (amarelo, verde e, de leve, azul): a mesma textura, mais
- * fraca, e a fibra suave (`textures/cartolina-fibra-realce.png`), por cima em hard-light. Na cor clara o soft-light quase não mexe (um canal já está no
- * máximo) e o papel sumia; o hard-light escurece e clareia até ali. A textura vai por cima de um cinza
- * do meio, com um pouco de opacidade: o reforço forte e o leve. O perolado (que é cor, não relevo), o
- * glitter e o reciclado ficam como estão. Fora de `paperStyle` de propósito: as digitais dele estão
- * congeladas.
+ * O papel nas cartolinas fora do comum. Nas claras (amarelo, verde, azul, branco) só a fibra suave
+ * entra de reforço (`--grao-realce`; a Lisa, que não tem fibra, fica sem). Nas escuras o soft-light da
+ * textura pesa demais: ela sai (`--textura-escura`) e volta fraca, em hard-light, por cima de um cinza
+ * do meio (`--realce-escuro`). O perolado (que é cor, não relevo), o glitter e o reciclado ficam como
+ * estão. Fora de `paperStyle` de propósito: as digitais dele estão congeladas.
  */
 export function accentStyle(paper: Paper | undefined): Record<string, string | null> {
   const t = textureOf(paper);
   // a Lisa não tem fibra: nem a do reforço
   const grain = paper === 'lisa' ? 'none' : null;
-  if (!t || t.blend !== 'soft-light' || paper === 'perolado') return { '--realce-forte': null, '--realce-leve': null, '--realce-escuro': null, '--textura-escura': null, '--grao-realce': grain };
+  if (!t || t.blend !== 'soft-light' || paper === 'perolado') return { '--realce-escuro': null, '--textura-escura': null, '--grao-realce': grain };
   const [w, h] = t.size.split(' ').map((v) => parseFloat(v));
-  const inner = t.img.slice(5, -2);
+  // a textura vai num atributo entre aspas simples: as dela mesma são escapadas, senão a imagem quebra
+  const inner = t.img.slice(5, -2).replace(/'/g, '%27');
   const wrap = (op: number) => svgUrl(w, h, `<rect width='100%' height='100%' fill='#808080'/><image href='${inner}' width='${w}' height='${h}' opacity='${op}'/>`);
-  // na cartolina escura a textura em soft-light some (--textura-escura) e fica só a versão fraca
-  return { '--realce-forte': wrap(0.3), '--realce-leve': wrap(0.16), '--realce-escuro': wrap(0.12), '--textura-escura': 'none', '--grao-realce': grain };
+  return { '--realce-escuro': wrap(0.2), '--textura-escura': 'none', '--grao-realce': grain };
 }
 
 const lightTiles = new Map<string, string>();
