@@ -357,7 +357,16 @@ export class PaperArtLayer {
     if (this.drawn.size > 9) this.drawn.delete(this.drawn.keys().next().value!);
     return out;
   }
-  private readonly size = signal<{ W: number; H: number } | null>(null);
+  /** O tamanho da ficha, medido. */
+  private readonly measured = signal<{ W: number; H: number } | null>(null);
+  /** Perto da tela (ver watchPaper), ou segurada acordada pela view transition (ver wakePaper). */
+  readonly nearScreen = signal(false);
+  readonly pinned = signal(false);
+  /**
+   * O tamanho em que o papel é desenhado: só com a ficha perto da tela. Longe dela, a ficha fica na
+   * cartolina lisa e não calcula nem desenha nada (trocar o tipo de ficha redesenha só as da tela).
+   */
+  private readonly size = computed(() => (this.nearScreen() || this.pinned() ? this.measured() : null));
 
   /** A decoração, desenhada à parte: os furos dela entram no recorte do papel. */
   private readonly decorDrawing = computed(() => {
@@ -449,8 +458,18 @@ export class PaperArtLayer {
       const ro = new ResizeObserver(schedule);
       ro.observe(paper);
       document.fonts?.ready.then(schedule);
-      destroy.onDestroy(() => ro.disconnect());
+      const unwatch = watchPaper(paper, this);
+      destroy.onDestroy(() => {
+        ro.disconnect();
+        unwatch();
+      });
     });
+  }
+
+  /** Desenha já, no tamanho de agora (ver wakePaper). */
+  wakeNow(): void {
+    this.pinned.set(true);
+    this.measure();
   }
 
   /** Um quadro do lote (ver scheduleBatch): mede, lê onde está cada texto e devolve as escritas. */
@@ -465,8 +484,8 @@ export class PaperArtLayer {
     const W = paper.offsetWidth,
       H = paper.offsetHeight;
     if (!W || !H) return;
-    const prev = this.size();
-    if (!prev || prev.W !== W || prev.H !== H) this.size.set({ W, H });
+    const prev = this.measured();
+    if (!prev || prev.W !== W || prev.H !== H) this.measured.set({ W, H });
   }
 
   private burnt = new Set<HTMLElement>();
@@ -554,3 +573,44 @@ function clearMask(el: HTMLElement): void {
   for (const p of ['mask-image', '-webkit-mask-image', 'mask-size', '-webkit-mask-size', 'mask-position', '-webkit-mask-position', 'mask-repeat', '-webkit-mask-repeat', 'mask-clip'])
     el.style.removeProperty(p);
 }
+
+/** Folga em volta da tela em que o papel já fica desenhado: uma tela acima e uma abaixo. */
+const NEAR_MARGIN = '100% 0px';
+const layers = new WeakMap<Element, PaperArtLayer>();
+let nearObserver: IntersectionObserver | undefined;
+
+/** Avisa o papel da ficha quando ela chega perto da tela ou se afasta dela. */
+function watchPaper(card: HTMLElement, layer: PaperArtLayer): () => void {
+  layers.set(card, layer);
+  if (typeof IntersectionObserver === 'undefined') {
+    layer.nearScreen.set(true);
+    return () => layers.delete(card);
+  }
+  nearObserver ??= new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) layers.get(e.target)?.nearScreen.set(e.isIntersecting);
+    },
+    { rootMargin: NEAR_MARGIN },
+  );
+  nearObserver.observe(card);
+  return () => {
+    nearObserver?.unobserve(card);
+    layers.delete(card);
+  };
+}
+
+/**
+ * Para a view transition: as fichas que vão aparecer na animação, mesmo vindo de longe, ganham o
+ * papel desenhado antes da foto do "antes", e ficam desenhadas até `until` acabar.
+ */
+export function wakePaper(cards: Iterable<Element>, until: Promise<unknown>): void {
+  const woken: PaperArtLayer[] = [];
+  for (const card of cards) {
+    const layer = layers.get(card);
+    if (!layer || layer.nearScreen()) continue;
+    layer.wakeNow();
+    woken.push(layer);
+  }
+  if (woken.length) until.finally(() => woken.forEach((l) => l.pinned.set(false)));
+}
+

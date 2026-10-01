@@ -12,7 +12,7 @@ import {
 import { Mural } from '../core/mural';
 import { SCORE_LABEL, ScoreKey, VERDICTS, VERDICT_LABEL, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
-import { ViewTransitions } from '../core/view-transitions';
+import { WallMotion } from '../core/wall-motion';
 import { Density, SortKey, VerdictFilter, WallView } from '../core/wall-view';
 import { SearchStrip } from './search-strip';
 
@@ -34,7 +34,7 @@ export class WallToolbar {
   protected readonly view = inject(WallView);
   private readonly mural = inject(Mural);
   protected readonly side = inject(SideBySide);
-  private readonly vt = inject(ViewTransitions);
+  private readonly motion = inject(WallMotion);
 
   protected readonly DescIcon = ArrowDownWideNarrow;
   protected readonly AscIcon = ArrowUpNarrowWide;
@@ -86,30 +86,27 @@ export class WallToolbar {
     }
   }
 
-  /** Para a transição medir onde as fichas vão parar e voltar atrás (ver ViewTransitions.run). */
-  private readonly snapshot = () => this.view.snapshot();
-
   protected setVerdict(v: VerdictFilter): void {
-    this.vt.run(() => this.view.verdict.set(v), this.snapshot);
+    this.motion.run(() => this.view.verdict.set(v));
   }
 
   protected setSortValue(v: string): void {
-    this.vt.run(() => {
+    this.motion.run(() => {
       if (v.startsWith('nota:')) {
         this.view.setSort('nota');
         this.view.scoreKey.set(v.slice(5) as ScoreKey);
       } else {
         this.view.setSort(v as SortKey);
       }
-    }, this.snapshot);
+    });
   }
 
   protected setDensity(d: Density): void {
     if (this.view.density() === d) return;
-    this.vt.run(() => this.view.density.set(d), this.snapshot);
+    this.motion.run(() => this.view.density.set(d));
   }
 
   protected flip(): void {
-    this.vt.run(() => this.view.toggleDirection(), this.snapshot);
+    this.motion.run(() => this.view.toggleDirection());
   }
 }

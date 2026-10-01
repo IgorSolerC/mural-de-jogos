@@ -5,7 +5,7 @@ import { Desk } from '../core/desk';
 import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
-import { ViewTransitions } from '../core/view-transitions';
+import { WallMotion } from '../core/wall-motion';
 import { WallView } from '../core/wall-view';
 import { Pin } from '../ui/pin';
 import { PickTray } from '../ui/pick-tray';
@@ -27,7 +27,7 @@ export class WallPage {
   protected readonly desk = inject(Desk);
   protected readonly settings = inject(Settings);
   protected readonly side = inject(SideBySide);
-  private readonly vt = inject(ViewTransitions);
+  private readonly motion = inject(WallMotion);
   private readonly pool = inject(WallCardPool);
 
   protected readonly PlusIcon = Plus;
@@ -58,6 +58,6 @@ export class WallPage {
   }
 
   protected clearFilters(): void {
-    this.vt.run(() => this.view.clearFilters(), () => this.view.snapshot());
+    this.motion.run(() => this.view.clearFilters());
   }
 }
