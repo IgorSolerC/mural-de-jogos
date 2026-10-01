@@ -86,8 +86,11 @@ export class WallToolbar {
     }
   }
 
+  /** Para a transição medir onde as fichas vão parar e voltar atrás (ver ViewTransitions.run). */
+  private readonly snapshot = () => this.view.snapshot();
+
   protected setVerdict(v: VerdictFilter): void {
-    this.vt.run(() => this.view.verdict.set(v));
+    this.vt.run(() => this.view.verdict.set(v), this.snapshot);
   }
 
   protected setSortValue(v: string): void {
@@ -98,15 +101,15 @@ export class WallToolbar {
       } else {
         this.view.setSort(v as SortKey);
       }
-    });
+    }, this.snapshot);
   }
 
   protected setDensity(d: Density): void {
     if (this.view.density() === d) return;
-    this.vt.run(() => this.view.density.set(d));
+    this.vt.run(() => this.view.density.set(d), this.snapshot);
   }
 
   protected flip(): void {
-    this.vt.run(() => this.view.toggleDirection());
+    this.vt.run(() => this.view.toggleDirection(), this.snapshot);
   }
 }

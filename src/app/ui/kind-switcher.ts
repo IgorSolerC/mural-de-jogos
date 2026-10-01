@@ -219,11 +219,23 @@ export class KindSwitcher {
   protected choose(kind: Kind): void {
     this.close(true);
     if (kind === this.mural.kind()) return;
-    this.vt.run(() => {
-      this.side.picking.set(false);
-      this.view.clearFilters();
-      this.mural.kind.set(kind);
-    });
+    this.vt.run(
+      () => {
+        this.side.picking.set(false);
+        this.view.clearFilters();
+        this.mural.kind.set(kind);
+      },
+      () => {
+        const picking = this.side.picking(),
+          kind = this.mural.kind(),
+          view = this.view.snapshot();
+        return () => {
+          this.side.picking.set(picking);
+          this.mural.kind.set(kind);
+          view();
+        };
+      },
+    );
   }
 
   protected onTriggerKey(e: KeyboardEvent): void {

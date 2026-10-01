@@ -714,6 +714,11 @@ dialog.sheet {
   pointer-events: none;
   animation: brilho-pisca 2.4s ease-in-out var(--brilho-delay, 0s) infinite;
 }
+.brilho > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 @keyframes brilho-pisca {
   0%,
   100% {
@@ -974,6 +979,17 @@ body.has-paper-texture .btn-cartolina {
   animation-timing-function: var(--ease-physical);
 }
 
+/* Trocar o tipo de ficha muda o formato dela (a capinha estreita e alta vira uma ficha larga). A
+   foto de antes e a de depois ficam no tamanho real, presas no alto da caixa da ficha, que vai
+   crescendo ou encolhendo: nada estica. Antes, a foto estreita era esticada até a largura nova e a
+   ficha ficava enorme no meio da animação. */
+::view-transition-old(*.ficha),
+::view-transition-new(*.ficha) {
+  height: 100%;
+  object-fit: none;
+  object-position: 50% 0;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 120ms;
@@ -1032,11 +1048,17 @@ body.has-paper-texture .btn-cartolina {
   text-transform: uppercase;
   pointer-events: none;
 
+  /* O brilho corre deslizando uma faixa comprida (três ladrilhos de 260% da capa) em vez de mexer no
+     fundo: o deslize roda no compositor, sem redesenhar a página a cada quadro. O desenho é o mesmo
+     de um fundo de 260% indo de 130% a -130%, repetido de lado. */
   &::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background: linear-gradient(100deg, transparent 25%, rgb(255 255 255 / 0.07) 42%, rgb(255 255 255 / 0.13) 50%, rgb(255 255 255 / 0.07) 58%, transparent 75%) 0 0 / 260% 100%;
+    top: 0;
+    bottom: 0;
+    left: -260%;
+    width: 780%;
+    background: linear-gradient(100deg, transparent 25%, rgb(255 255 255 / 0.07) 42%, rgb(255 255 255 / 0.13) 50%, rgb(255 255 255 / 0.07) 58%, transparent 75%) 0 0 / calc(100% / 3) 100%;
     animation: capa-brilho 1400ms linear infinite;
   }
 
@@ -1086,11 +1108,20 @@ body.has-paper-texture .btn-cartolina {
 
 @keyframes capa-brilho {
   from {
-    background-position: 130% 0;
+    translate: calc(-208% / 7.8) 0;
   }
   to {
-    background-position: -130% 0;
+    translate: calc(208% / 7.8) 0;
   }
+}
+
+/* Ficha longe da tela: o que pisca sem parar (os brilhos da nota, a purpurina, a capa carregando)
+   espera ela chegar perto. Ninguém vê, e cada piscada fazia o navegador redesenhar a página. */
+[data-longe] .brilho,
+[data-longe] .camada.enfeite .pisca,
+[data-longe] .carregando-capa .roda,
+[data-longe] .carregando-capa::before {
+  animation-play-state: paused;
 }
 
 @keyframes capa-roda {

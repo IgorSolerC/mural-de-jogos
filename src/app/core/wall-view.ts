@@ -159,6 +159,24 @@ export class WallView {
     this.query.set('');
     this.verdict.set('todos');
   }
+
+  /** Guarda a busca, o filtro e a ordem, e devolve como voltar a eles (ver ViewTransitions.run). */
+  snapshot(): () => void {
+    const query = this.query(),
+      verdict = this.verdict(),
+      sort = this.sort(),
+      scoreKey = this.scoreKey(),
+      direction = this.direction(),
+      density = this.density();
+    return () => {
+      this.query.set(query);
+      this.verdict.set(verdict);
+      this.sort.set(sort);
+      this.scoreKey.set(scoreKey);
+      this.direction.set(direction);
+      this.density.set(density);
+    };
+  }
 }
 
 

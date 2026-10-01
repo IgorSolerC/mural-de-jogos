@@ -344,20 +344,33 @@ export class PaperArtLayer {
   protected readonly burnDamage = computed(() => this.damage() === 'furado' || this.damage() === 'queimado');
 
   private readonly uid = `pa${++uids}`;
+  /**
+   * Os últimos desenhos feitos, pelo que entrou neles: trocar o tipo de ficha e voltar não desenha o
+   * papel de novo (o desenho só depende das entradas, e é sempre o mesmo para as mesmas entradas).
+   */
+  private readonly drawn = new Map<string, unknown>();
+  private memo<A, R>(kind: string, draw: (a: A) => R, a: A): R {
+    const key = `${kind}|${JSON.stringify(a)}`;
+    if (this.drawn.has(key)) return this.drawn.get(key) as R;
+    const out = draw(a);
+    this.drawn.set(key, out);
+    if (this.drawn.size > 9) this.drawn.delete(this.drawn.keys().next().value!);
+    return out;
+  }
   private readonly size = signal<{ W: number; H: number } | null>(null);
 
   /** A decoração, desenhada à parte: os furos dela entram no recorte do papel. */
   private readonly decorDrawing = computed(() => {
     const s = this.size(),
       d = this.decor();
-    return s && d ? decorArt({ id: this.id(), W: s.W, H: s.H, decor: d, seed: this.decorSeed() ?? undefined, uid: this.uid }) : null;
+    return s && d ? this.memo('decor', decorArt, { id: this.id(), W: s.W, H: s.H, decor: d, seed: this.decorSeed() ?? undefined, uid: this.uid }) : null;
   });
 
   protected readonly art = computed<Art | null>(() => {
     const s = this.size();
     const holes = this.decorDrawing()?.cut ?? [];
     if (!s || (!this.scribble() && !this.damage() && !this.stain() && !holes.length)) return null;
-    const art = paperArt({ id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stain: this.stain(), stainSeed: this.stainSeed() ?? undefined, uid: this.uid, plain: this.plain() });
+    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stain: this.stain(), stainSeed: this.stainSeed() ?? undefined, uid: this.uid, plain: this.plain() });
     return holes.length ? { ...art, cut: [...art.cut, ...holes] } : art;
   });
 
@@ -369,7 +382,7 @@ export class PaperArtLayer {
     const s = this.size(),
       scribble = this.scribble();
     if (!this.dark() || !s || !scribble) return null;
-    const art = paperArt({ id: this.id(), W: s.W, H: s.H, scribble, scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, uid: `${this.uid}l`, plain: this.plain() });
+    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble, scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, uid: `${this.uid}l`, plain: this.plain() });
     // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
     return this.sanitizer.bypassSecurityTrustHtml(`<svg xmlns="http://www.w3.org/2000/svg" width="${s.W}" height="${s.H}" viewBox="0 0 ${s.W} ${s.H}">${art.fundo}</svg>`);
   });
@@ -421,14 +434,7 @@ export class PaperArtLayer {
   });
 
   constructor() {
-    let frame = 0;
-    const schedule = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        this.measure();
-        this.burnText();
-      });
-    };
+    const schedule = () => scheduleBatch(this);
     // o estrago mudou, ou o que está escrito mudou de lugar: o recorte dos textos acompanha
     effect(() => {
       this.mask();
@@ -436,17 +442,21 @@ export class PaperArtLayer {
       schedule();
     });
     const destroy = inject(DestroyRef);
+    destroy.onDestroy(() => pending.delete(this));
     afterNextRender(() => {
       const paper = this.host.parentElement;
       if (!paper) return;
       const ro = new ResizeObserver(schedule);
       ro.observe(paper);
       document.fonts?.ready.then(schedule);
-      destroy.onDestroy(() => {
-        ro.disconnect();
-        cancelAnimationFrame(frame);
-      });
+      destroy.onDestroy(() => ro.disconnect());
     });
+  }
+
+  /** Um quadro do lote (ver scheduleBatch): mede, lê onde está cada texto e devolve as escritas. */
+  measureAndRead(): () => void {
+    this.measure();
+    return this.burnText();
   }
 
   private measure(): void {
@@ -468,9 +478,9 @@ export class PaperArtLayer {
    * um deles. Só a orelha, que dobra a ficha com tudo o que está colado, leva também a foto e os
    * adesivos (`[data-colado]`).
    */
-  private burnText(): void {
+  private burnText(): () => void {
     const paper = this.host.parentElement;
-    if (!paper) return;
+    if (!paper) return () => {};
     const mask = this.mask();
     const s = this.size();
     const next = new Set<HTMLElement>();
@@ -486,7 +496,8 @@ export class PaperArtLayer {
       paper.querySelectorAll<HTMLElement>('[data-queima]').forEach(burn);
       if (all) paper.querySelectorAll<HTMLElement>('[data-colado]').forEach((el) => next.add(el));
     }
-    for (const el of this.burnt) if (!next.has(el)) clearMask(el);
+    // primeiro só lê onde cada texto está; as escritas vêm depois, junto com as das outras fichas
+    const at = new Map<HTMLElement, [number, number]>();
     for (const el of next) {
       let x = 0,
         y = 0;
@@ -495,20 +506,45 @@ export class PaperArtLayer {
         y += n.offsetTop;
         if (n.offsetParent === null) break;
       }
-      const set = (p: string, v: string) => el.style.setProperty(p, v);
-      set('mask-image', mask!);
-      set('-webkit-mask-image', mask!);
-      set('mask-size', `${s!.W}px ${s!.H}px`);
-      set('-webkit-mask-size', `${s!.W}px ${s!.H}px`);
-      set('mask-position', `${-x}px ${-y}px`);
-      set('-webkit-mask-position', `${-x}px ${-y}px`);
-      set('mask-repeat', 'no-repeat');
-      set('-webkit-mask-repeat', 'no-repeat');
-      // o que passa da caixa do elemento (o selo que sobra da casa, a sombra) não é cortado na caixa
-      set('mask-clip', 'no-clip');
+      at.set(el, [x, y]);
     }
+    const prev = this.burnt;
     this.burnt = next;
+    return () => {
+      for (const el of prev) if (!next.has(el)) clearMask(el);
+      for (const [el, [x, y]] of at) {
+        const set = (p: string, v: string) => el.style.setProperty(p, v);
+        set('mask-image', mask!);
+        set('-webkit-mask-image', mask!);
+        set('mask-size', `${s!.W}px ${s!.H}px`);
+        set('-webkit-mask-size', `${s!.W}px ${s!.H}px`);
+        set('mask-position', `${-x}px ${-y}px`);
+        set('-webkit-mask-position', `${-x}px ${-y}px`);
+        set('mask-repeat', 'no-repeat');
+        set('-webkit-mask-repeat', 'no-repeat');
+        // o que passa da caixa do elemento (o selo que sobra da casa, a sombra) não é cortado na caixa
+        set('mask-clip', 'no-clip');
+      }
+    };
   }
+}
+
+/**
+ * As fichas medem e recortam o texto todas no mesmo quadro: primeiro todas leem (um cálculo de
+ * layout só), depois todas escrevem. Cada uma no seu quadro, ler depois da escrita da outra obrigava
+ * o navegador a refazer o layout da página a cada ficha.
+ */
+const pending = new Set<PaperArtLayer>();
+let batchFrame = 0;
+function scheduleBatch(layer: PaperArtLayer): void {
+  pending.add(layer);
+  batchFrame ||= requestAnimationFrame(() => {
+    batchFrame = 0;
+    const layers = [...pending];
+    pending.clear();
+    const writes = layers.map((l) => l.measureAndRead());
+    for (const w of writes) w();
+  });
 }
 
 /** Os adesivos colados por cima do que está escrito: não queimam com o texto. */

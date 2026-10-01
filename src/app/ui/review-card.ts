@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output } from '@angular/core';
 import { g, profileOf } from '../core/kinds';
 import {
   Bonus,
@@ -35,6 +35,23 @@ import { StatusLabel } from './status-label';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
+
+/**
+ * Marca as fichas longe da tela (`data-longe`), meia tela para cima e para baixo de folga: o que
+ * pisca sem parar nelas espera (ver styles.scss). Um observador só para todas as fichas.
+ */
+let farAway: IntersectionObserver | undefined;
+function watchDistance(el: HTMLElement): () => void {
+  if (typeof IntersectionObserver === 'undefined') return () => {};
+  farAway ??= new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) e.target.toggleAttribute('data-longe', !e.isIntersecting);
+    },
+    { rootMargin: '50% 0px' },
+  );
+  farAway.observe(el);
+  return () => farAway?.unobserve(el);
+}
 
 /**
  * Ficha do mural: uma cartolina escrita à mão a pincel atômico, com a foto do jogo colada nela. Na foto,
@@ -160,6 +177,8 @@ const MAX_STICKERS = 4;
   `,
   styles: `
     :host {
+      /* ver ::view-transition-old(*.ficha) no styles.scss */
+      view-transition-class: ficha;
       --pad: 16px;
       --cover-w: 112px;
       position: relative;
@@ -690,4 +709,11 @@ export class ReviewCard {
   });
 
   protected readonly labels = SCORE_LABEL;
+
+  constructor() {
+    const el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    let unwatch = () => {};
+    afterNextRender(() => (unwatch = watchDistance(el)));
+    inject(DestroyRef).onDestroy(() => unwatch());
+  }
 }

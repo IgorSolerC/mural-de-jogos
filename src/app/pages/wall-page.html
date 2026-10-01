@@ -49,23 +49,7 @@
             <h3 class="tape-label" [id]="'grupo-' + g.key" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">{{ g.label }}</h3>
             <p class="grupo-sum">{{ g.summary }}</p>
           </header>
-          <div class="fichas">
-            @for (r of g.reviews; track r.id) {
-              <app-review-card
-                [attr.data-ficha]="r.id"
-                [review]="r"
-                [landing]="desk.landingId() === r.id"
-                [highlight]="highlight()"
-                [compact]="view.density() === 'simples'"
-                [capas]="view.density() === 'capas'"
-                [dayOnly]="view.sort() === 'data'"
-                [picking]="side.picking()"
-                [pickedAt]="side.order().get(r.id) ?? null"
-                (opened)="desk.openReview($event)"
-                (toggled)="side.toggle($event)"
-              />
-            }
-          </div>
+          <div class="fichas" [appFichas]="g.reviews"></div>
         </section>
       }
     </div>

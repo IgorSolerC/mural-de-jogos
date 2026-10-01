@@ -42,9 +42,10 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     >
       @if (grade().brilho) {
         @for (b of brilhos; track b) {
-          <svg class="brilho" [class]="b" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" [attr.d]="brilhoPath" />
-          </svg>
+          <!-- o desenho vai dentro de um span: piscando, o span gira e encolhe no compositor; o próprio svg não pode -->
+          <span class="brilho" [class]="b" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" [attr.d]="brilhoPath" /></svg>
+          </span>
         }
       }
       <span class="int" [class.metal-nota]="grade().metal" aria-hidden="true">{{ grade().int }}</span>
