@@ -146,6 +146,8 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
       f('combate-fluido', 'Combate fluido'),
       f('me-marcou', 'Me marcou'),
       f('pausar-pintura', 'Se pausar vira pintura'),
+      f('worldbuilding', 'Worldbuilding marcante'),
+      f('classico', 'Clássico'),
       c('bugs', 'Muitos bugs'),
       c('mal-otimizado', 'Mal otimizado'),
       c('loadings', 'Loadings longos'),
@@ -160,6 +162,8 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
       c('caro', 'Caro pelo que entrega'),
       c('repetitivo', 'Repetitivo'),
       c('estressante', 'Estressante'),
+      c('simplista', 'Simplista'),
+      c('historia-cliche', 'História clichê'),
     ],
   },
   livros: {
