@@ -102,8 +102,9 @@ export class WallToolbar {
   }
 
   protected setDensity(d: Density): void {
-    if (this.view.density() === d) return;
-    this.motion.run(() => this.view.density.set(d));
+    // (com uma troca esperando, voltar ao tipo de agora também conta: a troca esperando é desfeita)
+    if (this.view.density() === d && !this.motion.swapping) return;
+    this.motion.swap(() => this.view.density.set(d));
   }
 
   protected flip(): void {

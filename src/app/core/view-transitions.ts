@@ -1,5 +1,4 @@
 import { ApplicationRef, Injectable, inject } from '@angular/core';
-import { wakePaper } from '../ui/paper-layer';
 import { Mural } from './mural';
 
 /** Folga em volta da tela: a sombra, a tachinha e os enfeites passam da caixa da ficha. */
@@ -32,14 +31,8 @@ export class ViewTransitions {
     }
     this.giveNamesBack();
     const hide = snapshot ? this.farAway(change, snapshot) : null;
-    let done = () => {};
     if (hide) {
       this.unname(hide);
-      // as fichas que entram na animação vindo de longe ainda estão sem o papel desenhado: desenha já
-      const shown = Array.from(document.querySelectorAll<HTMLElement>('[style*="view-transition-name"]')).filter(
-        (el) => el.style.viewTransitionName && el.style.viewTransitionName !== 'none',
-      );
-      wakePaper(shown, new Promise<void>((resolve) => (done = resolve)));
       this.appRef.tick();
     }
     const transition = doc.startViewTransition(() => {
@@ -50,7 +43,6 @@ export class ViewTransitions {
     });
     const mine = this.offstage;
     transition.finished.finally(() => {
-      done();
       if (this.offstage === mine) this.giveNamesBack();
     });
   }

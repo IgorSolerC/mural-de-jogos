@@ -50,6 +50,7 @@ export class WallCardPool implements OnDestroy {
   private readonly cards = new Map<string, ComponentRef<ReviewCard>>();
   private wanted = new Set<string>();
   private sweep: ReturnType<typeof setTimeout> | undefined;
+  private preload: ReturnType<typeof setTimeout> | undefined;
 
   /** Lido pelas seções a cada desenho: o que vale para todas as fichas. */
   props: () => WallCardProps = () => NO_PROPS;
@@ -69,6 +70,22 @@ export class WallCardPool implements OnDestroy {
     }
     // as que sobraram saíram desta seção: outra seção as pega, ou elas saíram do mural (ver keepOnly)
     while (host.children.length > i) host.lastElementChild!.remove();
+    this.preloadCovers();
+  }
+
+  /**
+   * As capas das fichas longe da tela vêm aos poucos, com o mural parado: a capa preguiçosa só
+   * carregava quando a ficha chegava perto, e reordenar trazia fichas de longe com a capa vazia
+   * aparecendo no meio do caminho.
+   */
+  private preloadCovers(): void {
+    if (this.preload) return;
+    const step = () => {
+      const lazy = Array.from(document.querySelectorAll<HTMLImageElement>('app-wall-page [data-ficha] img[loading="lazy"]'));
+      for (const img of lazy.slice(0, 2)) img.loading = 'eager';
+      this.preload = lazy.length > 2 ? setTimeout(step, 250) : undefined;
+    };
+    this.preload = setTimeout(step, 2000);
   }
 
   /**
@@ -87,6 +104,7 @@ export class WallCardPool implements OnDestroy {
 
   ngOnDestroy(): void {
     clearTimeout(this.sweep);
+    clearTimeout(this.preload);
     for (const [id, ref] of this.cards) this.drop(id, ref);
   }
 

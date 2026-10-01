@@ -1,5 +1,6 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   ElementRef,
@@ -9,11 +10,13 @@ import {
   inject,
   input,
   signal,
+  untracked,
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Damage, Decor, Scribble, Stain } from '../core/paper';
 import { decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
+import { isVeiled, reveal, veil } from './veil';
 
 let uids = 0;
 
@@ -357,16 +360,21 @@ export class PaperArtLayer {
     if (this.drawn.size > 9) this.drawn.delete(this.drawn.keys().next().value!);
     return out;
   }
-  /** O tamanho da ficha, medido. */
-  private readonly measured = signal<{ W: number; H: number } | null>(null);
-  /** Perto da tela (ver watchPaper), ou segurada acordada pela view transition (ver wakePaper). */
-  readonly nearScreen = signal(false);
-  readonly pinned = signal(false);
   /**
-   * O tamanho em que o papel é desenhado: só com a ficha perto da tela. Longe dela, a ficha fica na
-   * cartolina lisa e não calcula nem desenha nada (trocar o tipo de ficha redesenha só as da tela).
+   * O tamanho em que o papel está desenhado. Só a fila do papel muda (ver `drawAt`), quando chega a
+   * vez desta ficha; até lá o desenho fica no tamanho antigo, com a ficha escondida (ver veil.ts).
+   * O desenho continua com a ficha longe da tela: voltar a ela não desenha de novo.
    */
-  private readonly size = computed(() => (this.nearScreen() || this.pinned() ? this.measured() : null));
+  private readonly size = signal<Size | null>(null);
+  /** Tem algo desenhado no papel (rabisco, estrago, mancha, decoração): mudar de tamanho custa. */
+  readonly needsArt = computed(() => !!(this.scribble() || this.damage() || this.stain() || this.decor()));
+  /** A ficha (o elemento em volta do papel), conhecida depois da primeira renderização. */
+  card: HTMLElement | null = null;
+  /**
+   * A ficha some até o papel ficar pronto e entra com fade. A prévia no editor não: lá o papel muda
+   * a cada clique e precisa responder na hora.
+   */
+  veils = false;
 
   /** A decoração, desenhada à parte: os furos dela entram no recorte do papel. */
   private readonly decorDrawing = computed(() => {
@@ -393,7 +401,7 @@ export class PaperArtLayer {
     if (!this.dark() || !s || !scribble) return null;
     const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble, scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, uid: `${this.uid}l`, plain: this.plain() });
     // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
-    return this.sanitizer.bypassSecurityTrustHtml(`<svg xmlns="http://www.w3.org/2000/svg" width="${s.W}" height="${s.H}" viewBox="0 0 ${s.W} ${s.H}">${art.fundo}</svg>`);
+    return this.sanitizer.bypassSecurityTrustHtml(`${svgOpen(s)}${art.fundo}</svg>`);
   });
 
   protected readonly decorHtml = computed(() => {
@@ -402,7 +410,7 @@ export class PaperArtLayer {
     if (!d || !s || (!d.front && !d.under)) return null;
     // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
     const wrap = (body: string | undefined) =>
-      body ? this.sanitizer.bypassSecurityTrustHtml(`<svg xmlns="http://www.w3.org/2000/svg" width="${s.W}" height="${s.H}" viewBox="0 0 ${s.W} ${s.H}">${body}</svg>`) : null;
+      body ? this.sanitizer.bypassSecurityTrustHtml(`${svgOpen(s)}${body}</svg>`) : null;
     return { front: wrap(d.front), under: wrap(d.under) };
   });
 
@@ -430,7 +438,7 @@ export class PaperArtLayer {
     const wrap = (body: string): SafeHtml =>
       // só desenhos nossos e números: nada que a pessoa escreveu entra aqui
       this.sanitizer.bypassSecurityTrustHtml(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${s?.W ?? 0}" height="${s?.H ?? 0}" viewBox="0 0 ${s?.W ?? 0} ${s?.H ?? 0}">${body}</svg>`,
+        `${svgOpen(s ?? { W: 0, H: 0 })}${body}</svg>`,
       );
     return {
       fundo: wrap(a?.fundo ?? ''),
@@ -442,50 +450,120 @@ export class PaperArtLayer {
     };
   });
 
+  private readonly cdr = inject(ChangeDetectorRef);
+
   constructor() {
-    const schedule = () => scheduleBatch(this);
     // o estrago mudou, ou o que está escrito mudou de lugar: o recorte dos textos acompanha
     effect(() => {
       this.mask();
       this.content();
-      schedule();
+      untracked(() => enqueue(this));
     });
     const destroy = inject(DestroyRef);
-    destroy.onDestroy(() => pending.delete(this));
+    destroy.onDestroy(() => forget(this));
     afterNextRender(() => {
-      const paper = this.host.parentElement;
-      if (!paper) return;
-      const ro = new ResizeObserver(schedule);
-      ro.observe(paper);
-      document.fonts?.ready.then(schedule);
-      const unwatch = watchPaper(paper, this);
+      const card = this.host.parentElement;
+      if (!card) return;
+      this.card = card;
+      this.veils = card.matches('app-review-card') && !card.closest('app-review-editor');
+      // a ficha acabou de entrar na página: só aparece com o papel pronto. Ainda antes da pintura,
+      // então ela nunca aparece lisa para ganhar o papel um instante depois.
+      if (this.veils) veil(card);
+      layers.set(card, this);
+      enqueue(this);
+      const ro = new ResizeObserver(() => this.resized());
+      ro.observe(card);
       destroy.onDestroy(() => {
         ro.disconnect();
-        unwatch();
+        layers.delete(card);
       });
     });
   }
 
-  /** Desenha já, no tamanho de agora (ver wakePaper). */
-  wakeNow(): void {
-    this.pinned.set(true);
-    this.measure();
-  }
-
-  /** Um quadro do lote (ver scheduleBatch): mede, lê onde está cada texto e devolve as escritas. */
-  measureAndRead(): () => void {
-    this.measure();
-    return this.burnText();
-  }
-
-  private measure(): void {
-    const paper = this.host.parentElement;
-    if (!paper) return;
-    const W = paper.offsetWidth,
-      H = paper.offsetHeight;
+  /**
+   * A ficha mudou de tamanho. O ResizeObserver avisa depois do layout e antes da pintura: a ficha
+   * cujo papel ficou velho some já neste quadro, e nunca é vista com o desenho no tamanho errado.
+   */
+  private resized(): void {
+    const card = this.card;
+    if (!card) return;
+    const W = card.offsetWidth,
+      H = card.offsetHeight;
     if (!W || !H) return;
-    const prev = this.measured();
-    if (!prev || prev.W !== W || prev.H !== H) this.measured.set({ W, H });
+    const s = this.size();
+    if (s && s.W === W && s.H === H && !isVeiled(card)) return;
+    // Mudou muito (outro tipo de ficha, outra coluna): o desenho velho esticado ficaria torto, então
+    // a ficha some e entra de novo com o papel pronto. Mudou pouco (a data encurtou e a linha subiu):
+    // o desenho velho, esticado uns pixels, nem se nota; a ficha fica, e o papel novo entra por
+    // baixo do velho com um fade (ver drawAt). Arrastando a borda da janela, a ficha muda de tamanho
+    // a cada quadro: fica com o desenho esticado até a janela parar, em vez de piscar.
+    const big = !s || Math.abs(W - s.W) > s.W * BIG_CHANGE || Math.abs(H - s.H) > s.H * BIG_CHANGE;
+    if (this.veils && this.needsArt() && s && big && !windowResizing()) veil(card);
+    enqueue(this);
+  }
+
+  /** O tamanho da ficha agora (só lê). */
+  readSize(): Size | null {
+    const card = this.card;
+    if (!card) return null;
+    const W = card.offsetWidth,
+      H = card.offsetHeight;
+    return W && H ? { W, H } : null;
+  }
+
+  /** Desenhar neste tamanho dá trabalho: o papel tem desenho e o tamanho mudou. */
+  costly(at: Size): boolean {
+    const s = this.size();
+    return this.needsArt() && (!s || s.W !== at.W || s.H !== at.H);
+  }
+
+  /**
+   * Desenha no tamanho dado, já: atualiza o papel fora do ciclo do Angular, para o desenho novo sair
+   * no mesmo quadro em que a fila chegou nesta ficha.
+   */
+  drawAt(at: Size, crossfade: boolean): void {
+    const s = this.size();
+    const changed = !s || s.W !== at.W || s.H !== at.H;
+    const ghosts = crossfade && changed && s && this.needsArt() ? this.ghost() : [];
+    if (changed) this.size.set(at);
+    this.cdr.detectChanges();
+    for (const { el, from } of ghosts) {
+      const a = el.animate([{ opacity: from }, { opacity: 0 }], { duration: CROSSFADE, easing: 'ease-in-out', fill: 'forwards' });
+      a.finished.then(
+        () => el.remove(),
+        () => el.remove(),
+      );
+    }
+  }
+
+  /** As cópias do desenho anterior que ainda estão sumindo (ver ghost). */
+  private ghosts: HTMLElement[] = [];
+
+  /**
+   * Copia as camadas desenhadas agora para cima delas mesmas: o desenho novo entra por baixo e a
+   * cópia some num fade, como uma ficha trocada por outra. Na mesma camada (o mesmo z-index), a
+   * cópia vem depois no documento e fica por cima. Os ids de dentro do desenho (gradientes,
+   * recortes) ganham outro nome na cópia, para não se confundirem com os do desenho novo.
+   */
+  private ghost(): { el: HTMLElement; from: string }[] {
+    for (const g of this.ghosts) g.remove();
+    const out: { el: HTMLElement; from: string }[] = [];
+    const n = ++ghostIds;
+    for (const el of Array.from(this.host.children)) {
+      if (!(el instanceof HTMLElement) || !el.classList.contains('camada') || el.hasAttribute('data-fantasma')) continue;
+      const copy = el.cloneNode(true) as HTMLElement;
+      copy.setAttribute('data-fantasma', '');
+      renameIds(copy, `-f${n}`);
+      out.push({ el: copy, from: getComputedStyle(el).opacity });
+    }
+    for (const { el } of out) this.host.append(el);
+    this.ghosts = out.map((g) => g.el);
+    return out;
+  }
+
+  /** Lê onde está cada texto e devolve as escritas do recorte (ver a fila). */
+  readBurn(): () => void {
+    return this.burnText();
   }
 
   private burnt = new Set<HTMLElement>();
@@ -548,24 +626,6 @@ export class PaperArtLayer {
   }
 }
 
-/**
- * As fichas medem e recortam o texto todas no mesmo quadro: primeiro todas leem (um cálculo de
- * layout só), depois todas escrevem. Cada uma no seu quadro, ler depois da escrita da outra obrigava
- * o navegador a refazer o layout da página a cada ficha.
- */
-const pending = new Set<PaperArtLayer>();
-let batchFrame = 0;
-function scheduleBatch(layer: PaperArtLayer): void {
-  pending.add(layer);
-  batchFrame ||= requestAnimationFrame(() => {
-    batchFrame = 0;
-    const layers = [...pending];
-    pending.clear();
-    const writes = layers.map((l) => l.measureAndRead());
-    for (const w of writes) w();
-  });
-}
-
 /** Os adesivos colados por cima do que está escrito: não queimam com o texto. */
 const STICKERS = '[data-colado], .selo-dez, .fita-rasgada, app-bonus-tally, app-bonus-sticker';
 
@@ -574,43 +634,226 @@ function clearMask(el: HTMLElement): void {
     el.style.removeProperty(p);
 }
 
-/** Folga em volta da tela em que o papel já fica desenhado: uma tela acima e uma abaixo. */
-const NEAR_MARGIN = '100% 0px';
-const layers = new WeakMap<Element, PaperArtLayer>();
-let nearObserver: IntersectionObserver | undefined;
+type Size = { W: number; H: number };
 
-/** Avisa o papel da ficha quando ela chega perto da tela ou se afasta dela. */
-function watchPaper(card: HTMLElement, layer: PaperArtLayer): () => void {
-  layers.set(card, layer);
-  if (typeof IntersectionObserver === 'undefined') {
-    layer.nearScreen.set(true);
-    return () => layers.delete(card);
+/** Mudança de tamanho a partir da qual a ficha some e entra de novo, em vez de trocar o papel com fade. */
+const BIG_CHANGE = 0.12;
+/** O fade do papel velho para o novo, com a ficha na tela. */
+const CROSSFADE = 320;
+let ghostIds = 0;
+
+/** Renomeia os ids da cópia e tudo o que aponta para eles dentro dela (url(#id), href="#id"). */
+function renameIds(root: Element, suffix: string): void {
+  const ids = new Set<string>();
+  for (const el of Array.from(root.querySelectorAll('[id]'))) {
+    ids.add(el.id);
+    el.id += suffix;
   }
-  nearObserver ??= new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) layers.get(e.target)?.nearScreen.set(e.isIntersecting);
-    },
-    { rootMargin: NEAR_MARGIN },
-  );
-  nearObserver.observe(card);
-  return () => {
-    nearObserver?.unobserve(card);
-    layers.delete(card);
-  };
+  if (!ids.size) return;
+  const fix = (v: string) => v.replace(/url\(\s*['"]?#([^'")\s]+)['"]?\s*\)/g, (m, id: string) => (ids.has(id) ? `url(#${id}${suffix})` : m));
+  for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+    for (const attr of Array.from(el.attributes)) {
+      const v = attr.value;
+      if (v.includes('url(')) {
+        const w = fix(v);
+        if (w !== v) el.setAttribute(attr.name, w);
+      } else if ((attr.name === 'href' || attr.name === 'xlink:href') && v.startsWith('#') && ids.has(v.slice(1))) {
+        el.setAttribute(attr.name, v + suffix);
+      }
+    }
+  }
 }
 
 /**
- * Para a view transition: as fichas que vão aparecer na animação, mesmo vindo de longe, ganham o
- * papel desenhado antes da foto do "antes", e ficam desenhadas até `until` acabar.
+ * A abertura do <svg> de cada camada. O desenho ocupa a camada inteira e estica junto com ela: se
+ * a ficha muda de tamanho antes de a fila redesenhar o papel, o desenho velho fica esticado na
+ * ficha (e escondido, ver veil.ts), em vez de encolhido no meio dela ou passando da beirada.
  */
-export function wakePaper(cards: Iterable<Element>, until: Promise<unknown>): void {
-  const woken: PaperArtLayer[] = [];
-  for (const card of cards) {
-    const layer = layers.get(card);
-    if (!layer || layer.nearScreen()) continue;
-    layer.wakeNow();
-    woken.push(layer);
-  }
-  if (woken.length) until.finally(() => woken.forEach((l) => l.pinned.set(false)));
+function svgOpen(s: Size): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 ${s.W} ${s.H}" preserveAspectRatio="none">`;
 }
 
+/*
+ * A fila do papel: as fichas que precisam desenhar o papel de novo (mudaram de tamanho, acabaram de
+ * entrar na página, o que está escrito mudou de lugar). Desenhar o papel é caro (o desenho, o recorte
+ * do texto e, depois, rasterizar os filtros), e trocar o tipo de ficha pedia isso para todas as
+ * fichas da tela no mesmo quadro: o mural travava e mostrava o papel velho até acabar.
+ *
+ * Agora a fila desenha poucas por quadro, dentro de um orçamento de tempo, e na ordem em que importam:
+ * primeiro as da tela, de cima para baixo, depois as que estão a uma tela de distância; as longes
+ * esperam o navegador ficar ocioso. Cada ficha fica escondida até o papel dela ficar pronto e entra
+ * com fade (ver veil.ts): nunca aparece com o desenho no tamanho errado.
+ */
+const layers = new WeakMap<Element, PaperArtLayer>();
+const waiting = new Set<PaperArtLayer>();
+/** Quanto tempo de cada quadro a fila pode usar. */
+const BUDGET = 8;
+/** Quantas fichas com desenho a fila redesenha num quadro, no máximo. */
+const MAX_COSTLY = 3;
+/** Longe da tela ninguém vê o quadro: com o navegador à toa, a fila pode redesenhar mais de uma. */
+const MAX_COSTLY_IDLE = 3;
+/** Quantas fichas a fila olha num quadro (as sem desenho custam quase nada). */
+const MAX_PER_FRAME = 16;
+
+let frame = 0;
+let later: ReturnType<typeof setTimeout> | undefined;
+let idle: number | undefined;
+
+function enqueue(layer: PaperArtLayer): void {
+  waiting.add(layer);
+  kick();
+}
+
+function forget(layer: PaperArtLayer): void {
+  waiting.delete(layer);
+}
+
+function kick(): void {
+  if (!frame && !later) frame = requestAnimationFrame(onFrame);
+}
+
+/** Pede à fila que olhe de novo estas fichas (depois de uma troca feita às escondidas). */
+export function repaint(cards: Iterable<Element>): void {
+  for (const card of cards) {
+    const layer = layers.get(card);
+    if (layer) waiting.add(layer);
+  }
+  kick();
+}
+
+let resizedAt = -Infinity;
+if (typeof window !== 'undefined') addEventListener('resize', () => (resizedAt = performance.now()), { passive: true });
+
+/** A janela está sendo redimensionada: as fichas mudam de tamanho a cada quadro. */
+function reducedMotion(): boolean {
+  return matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function windowResizing(): boolean {
+  return performance.now() - resizedAt < 250;
+}
+
+/** Vale esperar: a janela ainda está mudando, ou uma fonte ainda está chegando (e o texto vai mudar de lugar). */
+function settling(): boolean {
+  return windowResizing() || (typeof document !== 'undefined' && document.fonts?.status === 'loading');
+}
+
+function onFrame(): void {
+  frame = 0;
+  if (settling()) {
+    later = setTimeout(() => {
+      later = undefined;
+      kick();
+    }, 120);
+    return;
+  }
+  const left = step(false, BUDGET, MAX_COSTLY);
+  if (left.urgent) kick();
+  else if (left.far) idleSoon();
+}
+
+type Deadline = { timeRemaining(): number };
+
+function idleSoon(): void {
+  if (idle !== undefined) return;
+  const ric = (globalThis as { requestIdleCallback?: (cb: (d: Deadline) => void) => number }).requestIdleCallback;
+  idle = ric ? ric(onIdle) : (setTimeout(() => onIdle({ timeRemaining: () => 8 }), 80) as unknown as number);
+}
+
+/** As fichas longe da tela, uma de cada vez, quando o navegador não tem mais nada para fazer. */
+function onIdle(deadline: Deadline): void {
+  idle = undefined;
+  // tem quadro marcado: ele cuida das da tela e chama de volta quando acabar
+  if (frame || later) return;
+  if (settling() || deadline.timeRemaining() < 6) {
+    if (settling()) kick();
+    else idleSoon();
+    return;
+  }
+  const left = step(true, deadline.timeRemaining() - 3, MAX_COSTLY_IDLE);
+  if (left.urgent) kick();
+  else if (left.far) idleSoon();
+}
+
+interface Job {
+  layer: PaperArtLayer;
+  card: HTMLElement;
+  top: number;
+  onScreen: boolean;
+  /** A distância até a tela, em px (0 na tela). */
+  dist: number;
+  /** Na tela, a uma tela de distância, ou a prévia do editor: não espera o navegador ficar ocioso. */
+  urgent: boolean;
+}
+
+/** As fichas esperando, na ordem em que a fila as desenha. */
+function jobs(): Job[] {
+  const vh = innerHeight,
+    vw = innerWidth;
+  const out: Job[] = [];
+  for (const layer of waiting) {
+    const card = layer.card;
+    // ainda sem a ficha (o primeiro desenho põe na fila de novo), fora da página ou escondida pelo
+    // layout (o ResizeObserver põe de volta quando ela voltar a ter tamanho)
+    if (!card || !card.isConnected) {
+      waiting.delete(layer);
+      continue;
+    }
+    const r = card.getBoundingClientRect();
+    if (!r.width && !r.height) {
+      waiting.delete(layer);
+      continue;
+    }
+    const onScreen = r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw;
+    const dist = onScreen ? 0 : Math.max(r.top - vh, -r.bottom, 0);
+    out.push({ layer, card, top: r.top, onScreen, dist, urgent: !layer.veils || dist < vh });
+  }
+  // a prévia do editor primeiro; depois a tela, na ordem de leitura (a do documento); depois as mais perto
+  return out.sort(
+    (a, b) =>
+      Number(a.layer.veils) - Number(b.layer.veils) ||
+      Number(b.onScreen) - Number(a.onScreen) ||
+      (a.onScreen ? (a.card.compareDocumentPosition(b.card) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1) : a.dist - b.dist),
+  );
+}
+
+/**
+ * Um passo da fila: lê o tamanho das próximas fichas (tudo lido de uma vez, um cálculo de layout
+ * só), desenha as que couberem no orçamento, lê onde está o texto delas e só então escreve os
+ * recortes. As prontas tiram o véu, na ordem.
+ */
+function step(far: boolean, budget: number, maxCostly: number): { urgent: boolean; far: boolean } {
+  const list = jobs();
+  const t0 = performance.now();
+  const picked: { job: Job; at: Size }[] = [];
+  let costly = 0;
+  for (const job of list) {
+    if (!job.urgent && !far) break;
+    if (picked.length >= MAX_PER_FRAME && job.layer.veils) break;
+    const at = job.layer.readSize();
+    if (!at) {
+      waiting.delete(job.layer);
+      continue;
+    }
+    const heavy = job.layer.costly(at);
+    // a próxima com desenho não cabe neste quadro: para aqui, para as fichas entrarem na ordem
+    if (heavy && job.layer.veils && costly >= maxCostly) break;
+    if (heavy) costly++;
+    picked.push({ job, at });
+  }
+  const done: Job[] = [];
+  for (const { job, at } of picked) {
+    if (done.length && job.layer.veils && performance.now() - t0 > budget) break;
+    // na tela e à vista: o papel novo entra com fade por baixo do velho
+    job.layer.drawAt(at, job.onScreen && !isVeiled(job.card) && !reducedMotion());
+    done.push(job);
+  }
+  const writes = done.map((job) => job.layer.readBurn());
+  for (const write of writes) write();
+  for (const job of done) {
+    waiting.delete(job.layer);
+    reveal(job.card, job.onScreen);
+  }
+  const rest = list.filter((job) => waiting.has(job.layer));
+  return { urgent: rest.some((job) => job.urgent), far: rest.some((job) => !job.urgent) };
+}

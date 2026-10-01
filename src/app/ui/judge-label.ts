@@ -44,7 +44,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
         @for (b of brilhos; track b) {
           <!-- o desenho vai dentro de um span: piscando, o span gira e encolhe no compositor; o próprio svg não pode -->
           <span class="brilho" [class]="b" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path fill="currentColor" [attr.d]="brilhoPath" /></svg>
+            <svg viewBox="0 0 24 24"><path class="halo largo" [attr.d]="brilhoPath" /><path class="halo" [attr.d]="brilhoPath" /><path fill="currentColor" [attr.d]="brilhoPath" /></svg>
           </span>
         }
       }

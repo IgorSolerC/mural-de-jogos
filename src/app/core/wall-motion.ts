@@ -1,7 +1,13 @@
 import { ApplicationRef, Injectable, inject } from '@angular/core';
+import { repaint } from '../ui/paper-layer';
+import { isVeiled, veil } from '../ui/veil';
 
 /** Folga em volta da tela: a sombra, a tachinha e os enfeites passam da caixa da ficha. */
 const MARGIN = 240;
+/** O sumiço das fichas antes de trocar o tipo de ficha. */
+const FADE_OUT = 130;
+const WALL = 'app-wall-page [data-ficha]';
+const HEADS = 'app-wall-page .grupo-head, app-wall-page .showing';
 
 type Box = { top: number; left: number; bottom: number; right: number };
 
@@ -15,6 +21,66 @@ type Box = { top: number; left: number; bottom: number; right: number };
 @Injectable({ providedIn: 'root' })
 export class WallMotion {
   private readonly appRef = inject(ApplicationRef);
+  /** A troca de tipo de ficha esperando as fichas sumirem (a mais nova, se a pessoa clicou de novo). */
+  private pendingSwap: (() => void) | null = null;
+
+  /** Uma troca de tipo de ficha esperando as fichas sumirem. */
+  get swapping(): boolean {
+    return this.pendingSwap !== null;
+  }
+
+  /**
+   * Trocar o tipo de ficha (completa, simples, só capa): a ficha muda de forma, e o papel dela tem
+   * que ser desenhado de novo no tamanho novo. Deslizar não ajuda (a forma de antes não é a de
+   * depois) e o papel novo não fica pronto no mesmo quadro. Então as fichas da tela somem rápido, a
+   * troca acontece com todas escondidas (o recálculo de estilo do mural inteiro trava um instante,
+   * mas não tem nada na tela para engasgar), a rolagem volta para a mesma ficha que estava no alto, e
+   * cada ficha entra quando o papel dela fica pronto, de cima para baixo (ver a fila do papel).
+   */
+  swap(change: () => void): void {
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || typeof Element.prototype.animate !== 'function') {
+      change();
+      return;
+    }
+    const fading = this.pendingSwap !== null;
+    this.pendingSwap = change;
+    // já estão sumindo: a troca mais nova entra no lugar quando acabarem
+    if (fading) return;
+
+    const shown = Array.from(document.querySelectorAll<HTMLElement>(`${WALL}, ${HEADS}`)).filter(
+      (el) => !isVeiled(el) && onScreen(el.getBoundingClientRect()),
+    );
+    const from = shown.map((el) => getComputedStyle(el).opacity);
+    const out = shown.map((el, i) =>
+      el.animate([{ opacity: from[i] }, { opacity: 0 }], { duration: FADE_OUT, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }),
+    );
+    setTimeout(() => this.swapNow(out), shown.length ? FADE_OUT : 0);
+  }
+
+  private swapNow(out: Animation[]): void {
+    const change = this.pendingSwap;
+    this.pendingSwap = null;
+    if (!change) return;
+    const anchor = window.scrollY > 0 ? topCard() : null;
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(WALL));
+    // todas escondidas até o papel ficar pronto no tamanho novo; as que não mudam também, para a
+    // entrada ser uma só, de cima para baixo
+    for (const el of cards) veil(el);
+    for (const a of out) a.cancel();
+    change();
+    this.appRef.tick();
+    if (anchor?.el.isConnected) {
+      const dy = anchor.el.getBoundingClientRect().top - anchor.top;
+      if (Math.abs(dy) > 1) window.scrollBy({ top: dy, behavior: 'instant' });
+    }
+    // as etiquetas das seções não têm papel: voltam já, um pouco antes das fichas
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(HEADS))) {
+      if (onScreen(el.getBoundingClientRect()))
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+    }
+    repaint(document.querySelectorAll(WALL));
+  }
 
   run(change: () => void): void {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -36,7 +102,8 @@ export class WallMotion {
       const was = before.get(key);
       if (!was) {
         // chegou agora (o filtro mostrou de novo): aparece no lugar, como a troca de antes
-        if (crosses(now.box, screen)) now.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: 'linear' });
+        // (a que nasceu agora entra sozinha quando o papel fica pronto, ver veil.ts)
+        if (crosses(now.box, screen) && !isVeiled(now.el)) now.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 120, easing: 'linear' });
         continue;
       }
       const dx = was.box.left - now.box.left;
@@ -86,4 +153,17 @@ function cover(a: Box, b: Box): Box {
 
 function crosses(a: Box, b: Box): boolean {
   return a.top < b.bottom && a.bottom > b.top && a.left < b.right && a.right > b.left;
+}
+
+function onScreen(r: DOMRect): boolean {
+  return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && (r.width > 0 || r.height > 0);
+}
+
+/** A primeira ficha que aparece no alto da tela, e onde ela está: a rolagem volta para ela. */
+function topCard(): { el: HTMLElement; top: number } | null {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(WALL))) {
+    const r = el.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < innerHeight) return { el, top: r.top };
+  }
+  return null;
 }
