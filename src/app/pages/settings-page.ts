@@ -1,163 +1,336 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { Download, Eye, EyeOff, LucideAngularModule, Upload } from 'lucide-angular';
-import { Backup } from '../core/backup';
+import {
+  BookOpen,
+  Check,
+  CircleCheck,
+  Download,
+  Eye,
+  EyeOff,
+  Film,
+  Gamepad2,
+  LucideAngularModule,
+  Origami,
+  ShieldAlert,
+  TriangleAlert,
+  Tv,
+  Upload,
+  X,
+} from 'lucide-angular';
+import { BACKUP_EVERY_DAYS, Backup } from '../core/backup';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 
-/** Ajustes: backup, catálogo de jogos e o jeito do mural, cada um na sua ficha. Era um diálogo; virou página. */
+const DAY = 86_400_000;
+
+/**
+ * Ajustes: três fichas pregadas. Backup (azul) e Mural (verde) numa coluna, Busca e capas (lilás) na
+ * outra, para nenhuma deixar um buraco na parede. Toda escolha é o adesivo da cartela, como no editor:
+ * a não escolhida é o recorte picotado, a escolhida sai colada. Nada aqui tem botão de salvar: vale na hora.
+ */
 @Component({
   selector: 'app-settings-page',
   imports: [LucideAngularModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h1 class="sr-only">Ajustes</h1>
+    <header class="cabeca">
+      <h1 class="tape-label big">Ajustes</h1>
+      <p class="resumo">Vale na hora e fica salvo neste navegador</p>
+    </header>
 
     <div class="boards">
+      <!-- ===== Backup ===== -->
       <section class="ficha cartolina backup" aria-labelledby="backup-titulo">
         <app-pin class="pin" color="#e62e2d" />
         <h2 id="backup-titulo">Backup</h2>
         <p class="lead">
-          Suas resenhas ficam só neste navegador. Baixe um backup de vez em quando, ou antes de limpar os dados do
-          navegador. Um arquivo só leva todos os murais.
+          Suas resenhas moram só neste navegador. O backup é um arquivo com todos os murais: resenhas, pra depois e
+          wishlist.
         </p>
-        <div class="row-actions">
-          <button type="button" class="btn-ink" (click)="exportFile()" [disabled]="!store.count() && !store.draftCount()">
-            <lucide-icon [img]="DownloadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-            Baixar backup
-          </button>
-          <label class="file-btn">
-            <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-            Restaurar backup
-            <input type="file" accept="application/json,.json,application/gzip,.gz" (change)="importFile($event)" />
-          </label>
+
+        <div class="estado" [class.atrasado]="overdue()">
+          <lucide-icon
+            class="estado-icone"
+            [img]="overdue() ? AlertIcon : OkIcon"
+            [size]="22"
+            [strokeWidth]="2.4"
+            aria-hidden="true"
+          />
+          <div>
+            <p class="estado-linha">{{ lastBackup() }}</p>
+            <p class="estado-sub">{{ contents() }}</p>
+          </div>
         </div>
-        <p class="has">
-          {{ store.count() }} {{ store.count() === 1 ? 'resenha' : 'resenhas' }}
-          @if (store.draftCount()) {
-            e {{ store.draftCount() }} pra depois
-          }
-          entram no arquivo.
-        </p>
-        <p class="has last">{{ lastBackup() }}</p>
+
+        <button type="button" class="btn-ink baixar" (click)="exportFile()" [disabled]="!hasData()">
+          <lucide-icon [img]="DownloadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          Baixar backup
+        </button>
+
         @if (backup.persisted() === false) {
           <p class="tip">
-            O navegador pode apagar o que um site guarda quando falta espaço (o Safari apaga depois de uma semana
-            sem abrir). Instale o mural na tela inicial para ele ficar protegido, e baixe o backup de vez em quando.
+            <lucide-icon [img]="ShieldIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+            <span>
+              O navegador pode apagar o que um site guarda quando falta espaço (o Safari apaga depois de uma semana sem
+              abrir). Instale o mural na tela inicial para ele ficar protegido.
+            </span>
           </p>
         }
-        <fieldset class="mode">
-          <legend>Ao restaurar</legend>
-          <label>
-            <input type="radio" name="modo" value="merge" [checked]="mode() === 'merge'" (change)="mode.set('merge')" />
-            Juntar com o que já está nos murais
+
+        <div class="bloco" role="group" aria-labelledby="restaurar-titulo">
+          <h3 id="restaurar-titulo" class="sub">Restaurar um backup</h3>
+          <fieldset class="escolha">
+            <legend class="rotulo">O que fazer com o que já está aqui?</legend>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="modo" value="merge" [checked]="mode() === 'merge'" (change)="mode.set('merge')" />
+                <span class="adesivo" [class.recorte]="mode() !== 'merge'" [class.colado]="mode() === 'merge'">Juntar</span>
+              </span>
+              <span class="op-texto">Soma o arquivo ao que já está aqui. Se uma resenha está nos dois, fica a mais nova.</span>
+            </label>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="modo" value="replace" [checked]="mode() === 'replace'" (change)="mode.set('replace')" />
+                <span class="adesivo" [class.recorte]="mode() !== 'replace'" [class.colado]="mode() === 'replace'">Substituir</span>
+              </span>
+              <span class="op-texto">Apaga o que está aqui e deixa os murais iguais ao arquivo.</span>
+            </label>
+          </fieldset>
+          <label class="file-btn">
+            <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+            {{ mode() === 'replace' ? 'Escolher arquivo e substituir' : 'Escolher arquivo e juntar' }}
+            <input type="file" accept="application/json,.json,application/gzip,.gz" (change)="importFile($event)" />
           </label>
-          <label>
-            <input type="radio" name="modo" value="replace" [checked]="mode() === 'replace'" (change)="mode.set('replace')" />
-            Substituir todos os murais
-          </label>
-        </fieldset>
-        @if (importMsg(); as m) {
-          <p class="msg" [class.error]="m.error" role="status">{{ m.text }}</p>
-        }
+          <p class="hint">O arquivo .json ou .json.gz baixado aqui, em qualquer navegador.</p>
+          @if (importMsg(); as m) {
+            <p class="msg" [class.error]="m.error" role="status">{{ m.text }}</p>
+          }
+        </div>
       </section>
 
-      <section class="ficha cartolina catalog" aria-labelledby="catalogo-titulo">
-        <app-pin class="pin" color="#f4f4f0" />
-        <h2 id="catalogo-titulo">Catálogos</h2>
-        <p class="lead">
-          A busca funciona sem configurar nada: livros vêm da Open Library, na edição em português; animes, do
-          Kitsu; jogos, filmes e séries, da Wikipedia. Duas chaves gratuitas deixam a busca melhor.
-        </p>
-
-        <h3 class="key-title">Filmes e séries</h3>
-        <p class="lead">
-          Com uma chave do TMDB, filmes e séries vêm com o nome e o pôster em português. Crie uma conta em
-          <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a>, peça
-          a chave de API (uso pessoal) e cole aqui a "Chave da API" ou o "Token de leitura".
-        </p>
-        <label class="key-label" for="tmdb-key">Chave do TMDB</label>
-        <div class="key">
-          <input
-            id="tmdb-key"
-            [type]="showTmdb() ? 'text' : 'password'"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Cole sua chave aqui"
-            [value]="settings.tmdbKey()"
-            (input)="settings.tmdbKey.set($any($event.target).value)"
-          />
-          <button
-            type="button"
-            class="icon-btn"
-            (click)="showTmdb.set(!showTmdb())"
-            [attr.aria-label]="showTmdb() ? 'Esconder chave' : 'Mostrar chave'"
-          >
-            <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
-          </button>
-        </div>
-        <p class="credit">Este site usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.</p>
-
-        <h3 class="key-title">Jogos</h3>
-        <p class="lead">
-          Para capas e busca de jogos mais precisas, crie uma chave gratuita em
-          <a href="https://rawg.io/apidocs" target="_blank" rel="noopener">rawg.io/apidocs</a> e cole aqui.
-        </p>
-        <label class="key-label" for="rawg-key">Chave da RAWG</label>
-        <div class="key">
-          <input
-            id="rawg-key"
-            [type]="showKey() ? 'text' : 'password'"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Cole sua chave aqui"
-            [value]="settings.rawgKey()"
-            (input)="settings.rawgKey.set($any($event.target).value)"
-          />
-          <button
-            type="button"
-            class="icon-btn"
-            (click)="showKey.set(!showKey())"
-            [attr.aria-label]="showKey() ? 'Esconder chave' : 'Mostrar chave'"
-          >
-            <lucide-icon [img]="showKey() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
-          </button>
-        </div>
-        <fieldset class="mode source">
-          <legend>Buscar jogos e capas de jogos em</legend>
-          <label>
-            <input type="radio" name="fonte" value="wikipedia" [checked]="settings.effectiveSource() === 'wikipedia'" (change)="settings.source.set('wikipedia')" />
-            Wikipedia
-          </label>
-          <label [class.disabled]="!settings.hasRawg()">
-            <input type="radio" name="fonte" value="rawg" [disabled]="!settings.hasRawg()" [checked]="settings.effectiveSource() === 'rawg'" (change)="settings.source.set('rawg')" />
-            RAWG
-            @if (!settings.hasRawg()) {
-              <span class="needs">precisa da chave acima</span>
-            }
-          </label>
-        </fieldset>
-      </section>
-
+      <!-- ===== Mural ===== -->
       <section class="ficha cartolina mural" aria-labelledby="mural-titulo">
         <app-pin class="pin" color="#e62e2d" />
         <h2 id="mural-titulo">Mural</h2>
-        <p class="lead">
-          As etiquetas de fita separam o mural pelo que ordena: mês, nota, letra ou status. Esconda para as fichas
-          correrem juntas, sem nada no meio, na hora de tirar um print.
-        </p>
-        <fieldset class="mode">
-          <legend>Etiquetas dos grupos</legend>
-          <label>
-            <input type="radio" name="etiquetas" value="mostrar" [checked]="settings.groupLabels()" (change)="settings.groupLabels.set(true)" />
-            Mostrar
+        <fieldset class="escolha">
+          <legend class="rotulo">Etiquetas dos grupos</legend>
+          <label class="op">
+            <span class="opcao">
+              <input type="radio" name="etiquetas" value="mostrar" [checked]="settings.groupLabels()" (change)="settings.groupLabels.set(true)" />
+              <span class="adesivo" [class.recorte]="!settings.groupLabels()" [class.colado]="settings.groupLabels()">Mostrar</span>
+            </span>
+            <span class="op-texto">Uma fita separa cada grupo pelo que ordena: mês, nota, letra ou status.</span>
           </label>
-          <label>
-            <input type="radio" name="etiquetas" value="esconder" [checked]="!settings.groupLabels()" (change)="settings.groupLabels.set(false)" />
-            Esconder
+          <label class="op">
+            <span class="opcao">
+              <input type="radio" name="etiquetas" value="esconder" [checked]="!settings.groupLabels()" (change)="settings.groupLabels.set(false)" />
+              <span class="adesivo" [class.recorte]="settings.groupLabels()" [class.colado]="!settings.groupLabels()">Esconder</span>
+            </span>
+            <span class="op-texto">As fichas correm juntas, sem nada no meio. Bom para tirar print.</span>
           </label>
         </fieldset>
+
+        <!-- um pedaço da parede, para ver o efeito antes de voltar ao mural -->
+        <div class="previa parede" [class.junta]="!settings.groupLabels()" aria-hidden="true">
+          @for (g of preview; track g.label) {
+            <div class="p-grupo">
+              @if (settings.groupLabels()) {
+                <span class="p-fita">{{ g.label }}</span>
+              }
+              <div class="p-fichas">
+                @for (s of g.stocks; track $index) {
+                  <span class="p-ficha" [style.--stock]="'var(--stock-' + s + ')'"></span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- ===== Busca e capas ===== -->
+      <section class="ficha cartolina catalog" aria-labelledby="catalogo-titulo">
+        <app-pin class="pin" color="#f4f4f0" />
+        <h2 id="catalogo-titulo">Busca e capas</h2>
+        <p class="lead">A busca já funciona sem configurar nada. Duas chaves gratuitas deixam ela melhor.</p>
+
+        <h3 class="rotulo fontes-titulo" id="fontes-titulo">De onde vem a busca agora</h3>
+        <dl class="fontes" aria-labelledby="fontes-titulo">
+          <div>
+            <dt><lucide-icon [img]="GamesIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Jogos</dt>
+            <dd>
+              @if (settings.effectiveSource() === 'rawg') {
+                RAWG <span class="via">com capa da Steam</span>
+              } @else {
+                Wikipedia <span class="via">em inglês</span>
+              }
+            </dd>
+          </div>
+          <div>
+            <dt><lucide-icon [img]="BooksIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Livros</dt>
+            <dd>Open Library <span class="via">edição em português</span></dd>
+          </div>
+          <div>
+            <dt>
+              <lucide-icon [img]="FilmsIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="SeriesIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Filmes e séries
+            </dt>
+            <dd>
+              @if (settings.hasTmdb()) {
+                TMDB <span class="via">em português</span>
+              } @else {
+                Wikipedia <span class="via">em inglês</span>
+              }
+            </dd>
+          </div>
+          <div>
+            <dt><lucide-icon [img]="AnimesIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Animes</dt>
+            <dd>Kitsu <span class="via">nome brasileiro quando tem</span></dd>
+          </div>
+        </dl>
+
+        <!-- TMDB -->
+        <section class="chave" aria-labelledby="tmdb-titulo">
+          <div class="chave-topo">
+            <h3 id="tmdb-titulo" class="sub">Chave do TMDB</h3>
+            <span class="selo" [class.ok]="settings.hasTmdb()">
+              @if (settings.hasTmdb()) {
+                <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+                Chave salva
+              } @else {
+                Sem chave
+              }
+            </span>
+          </div>
+          <p class="ganho">Filmes e séries com o nome e o pôster em português.</p>
+          <ol class="passos">
+            <li>
+              Crie uma conta grátis em
+              <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a>.
+            </li>
+            <li>Peça uma chave de API para uso pessoal.</li>
+            <li>Cole aqui a "Chave da API" ou o "Token de leitura".</li>
+          </ol>
+          <div class="key">
+            <input
+              #tmdbInput
+              id="tmdb-key"
+              aria-labelledby="tmdb-titulo"
+              [type]="showTmdb() ? 'text' : 'password'"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Cole sua chave do TMDB"
+              [value]="settings.tmdbKey()"
+              (input)="settings.tmdbKey.set($any($event.target).value)"
+            />
+            @if (settings.tmdbKey()) {
+              <button type="button" class="icon-btn" (click)="settings.tmdbKey.set(''); tmdbInput.focus()" aria-label="Apagar a chave do TMDB">
+                <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
+              </button>
+            }
+            <button
+              type="button"
+              class="icon-btn"
+              (click)="showTmdb.set(!showTmdb())"
+              [attr.aria-label]="showTmdb() ? 'Esconder chave' : 'Mostrar chave'"
+              [attr.aria-pressed]="showTmdb()"
+            >
+              <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
+            </button>
+          </div>
+          <p class="credit">Este site usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.</p>
+        </section>
+
+        <!-- RAWG -->
+        <section class="chave" aria-labelledby="rawg-titulo">
+          <div class="chave-topo">
+            <h3 id="rawg-titulo" class="sub">Chave da RAWG</h3>
+            <span class="selo" [class.ok]="settings.hasRawg()">
+              @if (settings.hasRawg()) {
+                <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+                Chave salva
+              } @else {
+                Sem chave
+              }
+            </span>
+          </div>
+          <p class="ganho">Busca de jogos mais precisa, e a capa vertical da Steam quando o jogo está lá.</p>
+          <ol class="passos">
+            <li>
+              Crie uma chave grátis em
+              <a href="https://rawg.io/apidocs" target="_blank" rel="noopener">rawg.io/apidocs</a>.
+            </li>
+            <li>Cole a chave aqui.</li>
+          </ol>
+          <div class="key">
+            <input
+              #rawgInput
+              id="rawg-key"
+              aria-labelledby="rawg-titulo"
+              [type]="showKey() ? 'text' : 'password'"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Cole sua chave da RAWG"
+              [value]="settings.rawgKey()"
+              (input)="settings.rawgKey.set($any($event.target).value)"
+            />
+            @if (settings.rawgKey()) {
+              <button type="button" class="icon-btn" (click)="settings.rawgKey.set(''); rawgInput.focus()" aria-label="Apagar a chave da RAWG">
+                <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
+              </button>
+            }
+            <button
+              type="button"
+              class="icon-btn"
+              (click)="showKey.set(!showKey())"
+              [attr.aria-label]="showKey() ? 'Esconder chave' : 'Mostrar chave'"
+              [attr.aria-pressed]="showKey()"
+            >
+              <lucide-icon [img]="showKey() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
+            </button>
+          </div>
+
+          <fieldset class="escolha fonte">
+            <legend class="rotulo">Buscar jogos e capas de jogos em</legend>
+            <label class="op">
+              <span class="opcao">
+                <input
+                  type="radio"
+                  name="fonte"
+                  value="wikipedia"
+                  [checked]="settings.effectiveSource() === 'wikipedia'"
+                  (change)="settings.source.set('wikipedia')"
+                />
+                <span class="adesivo" [class.recorte]="settings.effectiveSource() !== 'wikipedia'" [class.colado]="settings.effectiveSource() === 'wikipedia'">
+                  Wikipedia
+                </span>
+              </span>
+              <span class="op-texto">Não precisa de chave.</span>
+            </label>
+            <label class="op" [class.off]="!settings.hasRawg()">
+              <span class="opcao">
+                <input
+                  type="radio"
+                  name="fonte"
+                  value="rawg"
+                  [disabled]="!settings.hasRawg()"
+                  [checked]="settings.effectiveSource() === 'rawg'"
+                  (change)="settings.source.set('rawg')"
+                />
+                <span class="adesivo" [class.recorte]="settings.effectiveSource() !== 'rawg'" [class.colado]="settings.effectiveSource() === 'rawg'">
+                  RAWG
+                </span>
+              </span>
+              <span class="op-texto">
+                @if (settings.hasRawg()) {
+                  Usa a sua chave, e traz a capa da Steam.
+                } @else {
+                  Cole a chave acima para usar.
+                }
+              </span>
+            </label>
+          </fieldset>
+        </section>
       </section>
     </div>
   `,
@@ -173,18 +346,61 @@ export class SettingsPage {
   protected readonly UploadIcon = Upload;
   protected readonly ShowIcon = Eye;
   protected readonly HideIcon = EyeOff;
+  protected readonly ClearIcon = X;
+  protected readonly CheckIcon = Check;
+  protected readonly OkIcon = CircleCheck;
+  protected readonly AlertIcon = TriangleAlert;
+  protected readonly ShieldIcon = ShieldAlert;
+  protected readonly GamesIcon = Gamepad2;
+  protected readonly BooksIcon = BookOpen;
+  protected readonly FilmsIcon = Film;
+  protected readonly SeriesIcon = Tv;
+  protected readonly AnimesIcon = Origami;
+
+  /** O pedaço de parede da prévia das etiquetas: dois meses, cinco fichas. */
+  protected readonly preview = [
+    { label: 'Março', stocks: ['rosa', 'azul', 'verde'] },
+    { label: 'Fevereiro', stocks: ['amarelo', 'laranja'] },
+  ];
 
   protected readonly showKey = signal(false);
   protected readonly showTmdb = signal(false);
   protected readonly mode = signal<'merge' | 'replace'>('merge');
   protected readonly importMsg = signal<{ text: string; error: boolean } | null>(null);
 
-  protected readonly lastBackup = computed(() => {
+  private readonly wishCount = computed(() => this.store.wishes().length);
+  protected readonly hasData = computed(() => this.store.count() > 0 || this.store.draftCount() > 0 || this.wishCount() > 0);
+
+  /** Dias desde o último backup (null: nunca baixou). */
+  private readonly daysSince = computed(() => {
     const at = this.backup.lastAt();
-    if (!at) return 'Nenhum backup baixado ainda';
-    const days = Math.floor((Date.now() - Date.parse(at)) / 86_400_000);
-    const when = days <= 0 ? 'hoje' : days === 1 ? 'ontem' : `há ${days} dias`;
-    return `Último backup: ${when}`;
+    return at ? Math.max(0, Math.floor((Date.now() - Date.parse(at)) / DAY)) : null;
+  });
+
+  /** Mesmo critério do bilhete em cima do mural: passou do prazo, ou nunca baixou e já tem o que guardar. */
+  protected readonly overdue = computed(() => {
+    const d = this.daysSince();
+    return this.hasData() && (d === null || d >= BACKUP_EVERY_DAYS);
+  });
+
+  protected readonly lastBackup = computed(() => {
+    const d = this.daysSince();
+    if (d === null) return 'Nenhum backup baixado ainda';
+    const when = d === 0 ? 'hoje' : d === 1 ? 'ontem' : `há ${d} dias`;
+    return this.overdue() ? `Último backup: ${when}. Hora de baixar outro.` : `Último backup: ${when}`;
+  });
+
+  /** O que entra no arquivo, contado. */
+  protected readonly contents = computed(() => {
+    const n = this.store.count();
+    const drafts = this.store.draftCount();
+    const wishes = this.wishCount();
+    if (!n && !drafts && !wishes) return 'Ainda não há nada para guardar.';
+    const parts = [`${n} ${n === 1 ? 'resenha' : 'resenhas'}`];
+    if (drafts) parts.push(`${drafts} pra depois`);
+    if (wishes) parts.push(`${wishes} na wishlist`);
+    const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}` : parts[0];
+    return `O arquivo leva ${list}.`;
   });
 
   protected exportFile(): Promise<void> {
@@ -196,10 +412,13 @@ export class SettingsPage {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
+    const n = this.store.count();
     if (
       this.mode() === 'replace' &&
-      this.store.count() > 0 &&
-      !confirm(`Substituir as ${this.store.count()} resenhas de todos os murais pelas do backup?`)
+      n > 0 &&
+      !confirm(
+        `Substituir pelo backup? ${n === 1 ? 'A resenha que está aqui sai' : `As ${n} resenhas que estão aqui saem`} e os murais ficam iguais ao arquivo.`,
+      )
     ) {
       return;
     }
@@ -212,8 +431,8 @@ export class SettingsPage {
       if (res.drafts) parts.push(`${res.drafts} ${res.drafts === 1 ? 'jogo' : 'jogos'} pra depois`);
       if (res.wishes) parts.push(`${res.wishes} na wishlist`);
       this.importMsg.set({ text: `Backup restaurado: ${parts.join(', ')}.`, error: false });
-      const n = res.added + res.updated;
-      if (n) this.toasts.show(`${n} ${n === 1 ? 'resenha voltou' : 'resenhas voltaram'} para os murais`);
+      const total = res.added + res.updated;
+      if (total) this.toasts.show(`${total} ${total === 1 ? 'resenha voltou' : 'resenhas voltaram'} para os murais`);
     } catch (err) {
       this.importMsg.set({ text: (err as Error).message, error: true });
     }

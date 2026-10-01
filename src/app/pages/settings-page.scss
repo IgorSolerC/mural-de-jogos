@@ -2,14 +2,56 @@
   display: block;
 }
 
-/* Fichas pregadas lado a lado; no celular, uma embaixo da outra */
+/* ===== Cabeça da página: a fita com o nome, como Lado a lado e Comparar ===== */
+.cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-bottom: 34px;
+  padding-left: 4px;
+}
+
+.resumo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+/* ===== As fichas: Backup e Mural numa coluna, Busca e capas na outra; no celular, uma embaixo da outra ===== */
 .boards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
-  gap: 44px 40px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 44px;
   align-items: start;
-  max-width: 1080px;
-  padding-top: 10px;
+  max-width: 1160px;
+}
+
+@media (min-width: 960px) {
+  .boards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      'backup catalog'
+      'mural catalog';
+    grid-template-rows: auto 1fr;
+    gap: 44px 40px;
+  }
+
+  .backup {
+    grid-area: backup;
+  }
+
+  .mural {
+    grid-area: mural;
+  }
+
+  .catalog {
+    grid-area: catalog;
+  }
 }
 
 .ficha {
@@ -31,7 +73,7 @@
 
 .catalog {
   --stock: var(--stock-lilas);
-  rotate: 0.9deg;
+  rotate: 0.7deg;
 }
 
 .mural {
@@ -47,54 +89,106 @@ h2 {
   margin-bottom: 10px;
 }
 
+/* o subtítulo de um bloco dentro da ficha, a pincel */
+.sub {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  line-height: 1.1;
+}
+
 .lead {
   max-width: 56ch;
   line-height: 1.5;
+}
 
-  a {
-    color: inherit;
-    font-weight: 600;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
+a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* bloco novo dentro da ficha: separado por uma linha tracejada a caneta */
+.bloco,
+.chave {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+}
+
+/* ===== Backup ===== */
+
+/* o estado do backup: um bilhete de papel colado na ficha */
+.estado {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.5);
+
+  .estado-icone {
+    display: inline-flex;
+    flex: none;
+    margin-top: 1px;
+  }
+
+  &.atrasado {
+    background: var(--paper);
+    box-shadow: inset 0 0 0 2px var(--ink);
   }
 }
 
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
+.estado-linha {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
 
-  .btn-ink:disabled {
+.estado-sub {
+  margin-top: 3px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.baixar {
+  margin-top: 14px;
+
+  &:disabled {
     opacity: 0.5;
     transform: none;
     cursor: not-allowed;
   }
 }
 
-.has {
-  margin-top: 10px;
-  font-family: var(--f-label);
-  font-weight: 600;
-  font-size: 0.92rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.has.last {
-  margin-top: 2px;
-}
-
 .tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   max-width: 56ch;
-  margin-top: 12px;
-  padding: 8px 12px;
-  border-radius: 3px;
-  background: rgb(255 255 255 / 0.45);
-  font-size: 0.95rem;
+  margin-top: 16px;
+  font-size: 0.92rem;
   line-height: 1.45;
+  color: var(--ink-2);
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+    margin-top: 1px;
+    color: var(--ink);
+  }
+}
+
+.bloco .sub {
+  margin-bottom: 14px;
 }
 
 .file-btn {
@@ -103,11 +197,13 @@ h2 {
   align-items: center;
   gap: 8px;
   min-height: 50px;
+  margin-top: 18px;
   padding: 10px 18px;
   border-radius: 3px;
   box-shadow: inset 0 0 0 2.5px var(--ink);
   font-family: var(--f-marker);
   font-size: 1.1rem;
+  line-height: 1.1;
   cursor: pointer;
   transition: background-color var(--t-ui) var(--ease-ui);
 
@@ -128,46 +224,20 @@ h2 {
   }
 }
 
-.mode {
-  margin: 18px 0 0;
-  padding: 16px 0 0;
-  border: 0;
-  border-top: 2px dashed rgb(21 21 21 / 0.25);
-  display: grid;
-  gap: 6px;
-
-  legend {
-    float: left;
-    width: 100%;
-    padding: 0;
-    margin-bottom: 4px;
-    font-family: var(--f-label);
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 36px;
-    cursor: pointer;
-  }
-
-  input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--ink);
-  }
+.hint {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink-2);
 }
 
 .msg {
   margin-top: 12px;
   padding: 8px 12px;
   border-radius: 3px;
-  background: rgb(255 255 255 / 0.45);
+  background: rgb(255 255 255 / 0.5);
   font-weight: 600;
+  line-height: 1.4;
 
   &.error {
     background: #fff;
@@ -175,15 +245,251 @@ h2 {
   }
 }
 
-/* cada catálogo com chave tem o seu subtítulo dentro da ficha */
-.key-title {
-  margin: 22px 0 6px;
-  padding-top: 16px;
-  border-top: 2px dashed rgb(21 21 21 / 0.25);
+/* ===== Escolhas: o adesivo da cartela, como no editor ===== */
+.escolha {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+
+  legend {
+    float: left;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+}
+
+/* uma linha por opção: o adesivo, e do lado o que ele faz */
+.op {
+  display: grid;
+  grid-template-columns: 8.4em minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+
+  .opcao {
+    width: 100%;
+  }
+
+  &.off {
+    cursor: not-allowed;
+
+    .opcao {
+      cursor: not-allowed;
+    }
+
+    .adesivo {
+      opacity: 0.5;
+    }
+  }
+
+  &:not(.off):hover .recorte {
+    background: rgb(21 21 21 / 0.06);
+    color: var(--ink);
+    outline-color: rgb(21 21 21 / 0.62);
+  }
+}
+
+/* o recorte e o colado têm a mesma medida, para nada pular quando ele é colado */
+.adesivo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+
+  &.colado {
+    --cola: -2deg;
+    border-radius: 2px;
+    background: var(--paper);
+    color: var(--ink);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.2));
+  }
+}
+
+.op:nth-of-type(2) .adesivo.colado {
+  --cola: 1.6deg;
+}
+
+.op-texto {
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* ===== Mural: um pedaço da parede para ver o que a escolha faz ===== */
+.previa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 18px;
+  min-height: 92px;
+  margin-top: 20px;
+  padding: 14px 16px 16px;
+  border-radius: 2px;
+  box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.55);
+
+  /* sem as fitas, os grupos encostam no mesmo vão de uma ficha para a outra */
+  &.junta {
+    column-gap: 10px;
+  }
+}
+
+.p-grupo {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.p-fita {
+  padding: 3px 9px 2px;
+  background: rgb(222 205 160 / 0.94);
+  color: var(--ink);
   font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 1.25rem;
+  font-size: 0.8rem;
   line-height: 1.1;
+  rotate: -1.5deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35));
+}
+
+.p-fichas {
+  display: flex;
+  gap: 10px;
+}
+
+.p-ficha {
+  width: 38px;
+  height: 26px;
+  border-radius: 1px;
+  background: var(--stock);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 4px 6px -2px rgb(0 0 0 / 0.55);
+  rotate: -2deg;
+
+  &:nth-child(2n) {
+    rotate: 1.8deg;
+    translate: 0 2px;
+  }
+
+  &:nth-child(3n) {
+    rotate: -0.8deg;
+    translate: 0 -1px;
+  }
+}
+
+/* ===== Busca e capas ===== */
+.fontes-titulo {
+  margin: 20px 0 6px;
+}
+
+/* a tabelinha impressa: cada mural e de onde ele busca agora */
+.fontes {
+  margin: 0;
+  border-top: 1.5px solid rgb(21 21 21 / 0.55);
+
+  > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 16px;
+    padding: 8px 0 7px;
+    border-bottom: 1.5px dashed rgb(21 21 21 / 0.28);
+  }
+
+  dt {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 600;
+
+    lucide-icon {
+      display: inline-flex;
+      align-self: center;
+    }
+
+    lucide-icon + lucide-icon {
+      margin-left: -3px;
+    }
+  }
+
+  dd {
+    margin: 0;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.98rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .via {
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+}
+
+.chave-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+/* o estado da chave: um selinho de papel, sem cor para dizer o que já diz em palavra */
+.selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 3px;
+  border-radius: 2px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: rgb(21 21 21 / 0.74);
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+
+  &.ok {
+    outline: 0;
+    background: var(--paper);
+    color: var(--ink);
+    rotate: -2deg;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.ganho {
+  margin-top: 6px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.passos {
+  margin: 10px 0 14px;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 3px;
+  line-height: 1.45;
+
+  li::marker {
+    font-family: var(--f-label);
+    font-weight: 800;
+  }
 }
 
 .credit {
@@ -193,20 +499,10 @@ h2 {
   color: var(--ink-2);
 }
 
-.key-label {
-  display: block;
-  margin-top: 18px;
-  margin-bottom: 6px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .key {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 0 4px 0 14px;
   min-height: 50px;
   background: var(--paper);
@@ -229,6 +525,10 @@ h2 {
     color: var(--ink);
     font-family: var(--f-ui);
     font-size: 1rem;
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.6);
+    }
   }
 }
 
@@ -249,16 +549,8 @@ h2 {
   }
 }
 
-.source {
-  .disabled {
-    opacity: 0.72;
-    cursor: not-allowed;
-  }
-
-  .needs {
-    font-size: 0.86rem;
-    color: var(--ink-2);
-  }
+.fonte {
+  margin-top: 22px;
 }
 
 @media (max-width: 560px) {
@@ -270,5 +562,10 @@ h2 {
   .catalog,
   .mural {
     rotate: 0.5deg;
+  }
+
+  .op {
+    grid-template-columns: 7.4em minmax(0, 1fr);
+    gap: 12px;
   }
 }
