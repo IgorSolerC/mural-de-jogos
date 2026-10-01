@@ -3,6 +3,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   ChevronDown,
+  Grid3x3,
   LayoutGrid,
   LucideAngularModule,
   Rows3,
@@ -39,6 +40,7 @@ export class WallToolbar {
   protected readonly AscIcon = ArrowUpNarrowWide;
   protected readonly FullIcon = Rows3;
   protected readonly CompactIcon = LayoutGrid;
+  protected readonly CoversIcon = Grid3x3;
   protected readonly ChevronIcon = ChevronDown;
   protected readonly MarkIcon = SquareCheckBig;
 

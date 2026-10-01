@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, LayoutGrid, LucideAngularModule, Rows3 } from 'lucide-angular';
+import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, LucideAngularModule, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
 import { KINDS, Kind, cap, countOf, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -39,6 +39,7 @@ export class ColleagueWallPage {
   protected readonly ChevronIcon = ChevronDown;
   protected readonly FullIcon = Rows3;
   protected readonly CompactIcon = LayoutGrid;
+  protected readonly CoversIcon = Grid3x3;
   protected readonly DescIcon = ArrowDownWideNarrow;
   protected readonly AscIcon = ArrowUpNarrowWide;
   protected readonly verdictLabel = VERDICT_LABEL;
@@ -52,6 +53,7 @@ export class ColleagueWallPage {
   protected readonly sort = signal<SortKey>('data');
   protected readonly direction = signal<Direction>('desc');
   protected readonly simple = computed(() => this.view.density() === 'simples');
+  protected readonly capas = computed(() => this.view.density() === 'capas');
 
   protected readonly sorts: readonly { value: SortKey; label: string }[] = [
     { value: 'data', label: 'Data' },

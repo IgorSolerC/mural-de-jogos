@@ -51,6 +51,7 @@ const MAX_STICKERS = 4;
     class: 'cartolina',
     '[class.is-landing]': 'landing()',
     '[class.compact]': 'compact()',
+    '[class.capas]': 'capas()',
     '[class.paired]': 'paired()',
     '[class.picking]': 'picking()',
     '[class.picked]': 'pickedAt() !== null',
@@ -78,7 +79,7 @@ const MAX_STICKERS = 4;
         <div class="box">
           <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
             <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
-            @if (review().status !== 'finalizado') {
+            @if (review().status !== 'finalizado' && !capas()) {
               <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
             }
           </app-cover-sleeve>
@@ -87,6 +88,7 @@ const MAX_STICKERS = 4;
 
       <div class="words">
         <h4 class="title" data-queima>{{ empty() ? emptyName() : review().game.name }}</h4>
+        @if (!capas()) {
         <p class="meta" data-queima>
           @if (review().completedAt; as day) {
             <time [attr.datetime]="day">{{ date() }}</time>
@@ -106,13 +108,16 @@ const MAX_STICKERS = 4;
             <app-bonus-tally class="tally" [bonuses]="bonuses()" />
           }
         </p>
+        }
       </div>
 
       <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
-      <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" />
+      @if (!capas()) {
+        <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" />
+      }
     </div>
 
-    @if (!compact()) {
+    @if (!compact() && !capas()) {
       @if (lead(); as line) {
         <p class="lead" data-queima>“{{ line }}”</p>
       }
@@ -475,6 +480,44 @@ const MAX_STICKERS = 4;
       rotate: -2.5deg;
     }
 
+    /* ===== Só capa e nome: a foto colada e o nome escrito embaixo, como legenda =====
+       Para ver o máximo de fichas de uma vez. A tachinha fura a cartolina acima da foto; o nome
+       ocupa sempre a altura de duas linhas, para as fileiras não ficarem desencontradas. */
+    :host(.capas) {
+      --cover-w: 100%;
+      padding: 18px 9px 9px;
+      margin-top: calc(var(--drop-y) * 0.4);
+    }
+    :host(.capas) .head {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        'cover'
+        'words';
+      grid-template-rows: auto auto;
+      gap: 7px;
+    }
+    :host(.capas) .words {
+      padding-top: 0;
+      align-items: center;
+      text-align: center;
+    }
+    :host(.capas) .title {
+      width: 100%;
+      min-height: 2.16em;
+      font-size: 1rem;
+      line-height: 1.08;
+    }
+    /* o adesivo de marcar encolhe junto com a ficha */
+    :host(.capas) .marca {
+      top: -10px;
+      right: -10px;
+      width: 34px;
+      height: 34px;
+    }
+    :host(.capas) .marca .n {
+      font-size: 1.1rem;
+    }
+
     /* Chegada ao mural: a ficha cai, a tachinha entra com força */
     :host(.is-landing) {
       animation: land 620ms var(--ease-physical) both;
@@ -534,8 +577,15 @@ const MAX_STICKERS = 4;
       :host(.compact) .faixa {
         --band-fs: 0.66rem;
       }
+      :host(.capas) {
+        --cover-w: 100%;
+        padding: 16px 7px 8px;
+      }
+      :host(.capas) .title {
+        font-size: 0.9rem;
+      }
       /* no celular a coluna do nome é estreita: a etiqueta do julgamento desce e ocupa a largura */
-      :host(:not(.compact)) .head {
+      :host(:not(.compact):not(.capas)) .head {
         grid-template-areas:
           'cover words'
           'judge judge';
@@ -553,6 +603,8 @@ export class ReviewCard {
   /** Qual nota está sendo usada na ordenação (para destacar na ficha). */
   readonly highlight = input<ScoreKey | null>(null);
   readonly compact = input(false);
+  /** Só a foto e o nome: a ficha mais enxuta, para caber o máximo no mural. */
+  readonly capas = input(false);
   /** Duas fichas em colunas no celular, mantendo a orientação da comparação. */
   readonly paired = input(false);
   /** A seção já diz o mês e o ano: a ficha mostra só o dia. */

@@ -84,11 +84,14 @@
           </button>
         </div>
         <div class="densidade" role="group" aria-label="Tipo de ficha">
-          <button type="button" class="plate icon" [attr.aria-pressed]="!simple()" (click)="view.density.set('completa')" aria-label="Fichas completas" title="Fichas completas">
+          <button type="button" class="plate icon" [attr.aria-pressed]="view.density() === 'completa'" (click)="view.density.set('completa')" aria-label="Fichas completas" title="Fichas completas">
             <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
           <button type="button" class="plate icon" [attr.aria-pressed]="simple()" (click)="view.density.set('simples')" aria-label="Fichas simples" title="Fichas simples">
             <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+          <button type="button" class="plate icon" [attr.aria-pressed]="capas()" (click)="view.density.set('capas')" aria-label="Só capa e nome" title="Só capa e nome">
+            <lucide-icon [img]="CoversIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -105,7 +108,7 @@
       <p class="nada">Nenhuma ficha de {{ c.name }} com esse filtro.</p>
     } @else {
       <h2 class="sr-only">Fichas de {{ c.name }}</h2>
-      <div class="wall" [class.compact]="simple()">
+      <div class="wall" [class.compact]="simple()" [class.capas]="capas()">
         @for (g of groups(); track g.key) {
           <section class="grupo" [attr.aria-labelledby]="'grupo-' + g.key">
             <header class="grupo-head">
@@ -114,7 +117,7 @@
             </header>
             <div class="fichas">
               @for (r of g.reviews; track r.id) {
-                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [dayOnly]="sort() === 'data'" (opened)="open(r)" />
+                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [capas]="capas()" [dayOnly]="sort() === 'data'" (opened)="open(r)" />
               }
             </div>
           </section>

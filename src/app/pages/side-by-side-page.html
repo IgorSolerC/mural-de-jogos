@@ -53,7 +53,7 @@
       <button
         type="button"
         class="plate icon"
-        [attr.aria-pressed]="view.density() === 'completa'"
+        [attr.aria-pressed]="view.density() !== 'simples'"
         (click)="setDensity('completa')"
         aria-label="Fichas completas"
         title="Fichas completas"

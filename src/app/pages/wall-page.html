@@ -42,7 +42,7 @@
         <button type="button" class="showing-clear" (click)="clearFilters()">Limpar filtro</button>
       </p>
     }
-    <div class="wall" [class.compact]="view.density() === 'simples'" [class.sem-etiquetas]="!settings.groupLabels()">
+    <div class="wall" [class.compact]="view.density() === 'simples'" [class.capas]="view.density() === 'capas'" [class.sem-etiquetas]="!settings.groupLabels()">
       @for (g of view.groups(); track g.key) {
         <section class="grupo" [attr.aria-labelledby]="'grupo-' + g.key">
           <header class="grupo-head">
@@ -57,6 +57,7 @@
                 [landing]="desk.landingId() === r.id"
                 [highlight]="highlight()"
                 [compact]="view.density() === 'simples'"
+                [capas]="view.density() === 'capas'"
                 [dayOnly]="view.sort() === 'data'"
                 [picking]="side.picking()"
                 [pickedAt]="side.order().get(r.id) ?? null"

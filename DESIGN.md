@@ -986,3 +986,11 @@ The settings page was three equal cartolinas in an auto-fit grid: a hole opened 
 - **Mural.** The Etiquetas dos grupos choice, plus a strip of eucatex (`.parede`) with two tiny groups of cartolina chips under tape labels ("Março", "Fevereiro"). Hidden, the tapes go and the groups close up to the chips' own gap, as on the wall.
 - **Busca e capas.** A printed table, "De onde vem a busca agora": each wall's icon and name, then its source in label caps with the qualifier at `ink-2` ("Wikipedia em inglês", "TMDB em português", "RAWG com capa da Steam"); it follows the keys and the games source live. Each key is its own block under a dashed rule: a marker title, a status seal on the right (a dashed "Sem chave", or a paper "Chave salva" sticker with a check), one bold line of what the key gives, numbered steps, and the field with a clear button (X, which puts focus back in the field) and the show/hide toggle (`aria-pressed`). The TMDB attribution line stays under its field.
 
+## Só capa e nome (density pass)
+
+The user asked for a third, even leaner density, to see as many cards as possible. The wall's density tabs gained a third icon tab (Grid3x3, "Só capa e nome") after Completa (Rows3) and Simples (LayoutGrid), stored as `density: 'capas'` with the other view preferences.
+
+- **Card.** The same ficha (cartolina, stock, tilt, pin, paper art), turned upright: the photo under contact plastic fills the width, and the name is written under it in marker as a caption (1rem, 0.9rem on phones, centred, two lines at most and always two lines tall, so rows stay level). No date, no label, no bonuses, no boletim, and no status band on the photo. Padding `18px 9px 9px`, so the tachinha pierces the cartolina above the photo; the drop offset is 40%. The marking sticker shrinks to 34px.
+- **Wall.** Card width `clamp(116px, (page - 7 × 22px) / 8, 156px)`: eight per row on a wide screen, with 22px columns and 26px rows. Sections keep their tape labels; with Etiquetas hidden it is one continuous grid. Below 560px, three per row (12px columns, 22px rows), one grid when the labels are hidden. The search strip on phones leaves room for three density tabs.
+- **Elsewhere.** The colleague's wall offers the same three. Lado a lado and Comparar have only Completa and Simples; with Capas chosen they show full cards, and the Completa tab reads as pressed.
+

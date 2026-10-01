@@ -18,7 +18,8 @@ import {
 
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status';
 export type Direction = 'desc' | 'asc';
-export type Density = 'completa' | 'simples';
+/** Completa (tudo), simples (a tira com a nota) ou capas (só a foto e o nome, para ver o máximo de fichas). */
+export type Density = 'completa' | 'simples' | 'capas';
 
 const KEY = 'mural-de-jogos:vista:v1';
 
@@ -47,7 +48,7 @@ function readPrefs(): ViewPrefs {
         ? raw.scoreKey
         : fallback.scoreKey,
       direction: raw.direction === 'asc' ? 'asc' : 'desc',
-      density: raw.density === 'simples' ? 'simples' : 'completa',
+      density: raw.density === 'simples' || raw.density === 'capas' ? raw.density : 'completa',
     };
   } catch {
     return fallback;

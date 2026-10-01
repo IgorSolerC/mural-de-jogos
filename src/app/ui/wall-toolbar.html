@@ -98,5 +98,15 @@
     >
       <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
     </button>
+    <button
+      type="button"
+      class="plate icon"
+      [attr.aria-pressed]="view.density() === 'capas'"
+      (click)="setDensity('capas')"
+      aria-label="Só capa e nome"
+      title="Só capa e nome"
+    >
+      <lucide-icon [img]="CoversIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    </button>
   </div>
 </div>
