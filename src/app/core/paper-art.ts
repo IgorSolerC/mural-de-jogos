@@ -801,70 +801,130 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
       return g(strings, 1.3, 0.95) + g(flags, 1.3, 0.95);
     }
     case 'gotica': {
-      // a moldura de catedral: dois filetes com uma fileira de arquinhos pontudos entre eles, um
-      // quadrifólio em cada canto e uma cruz no meio de baixo
+      // o portal de igreja gótica: uma coluna de cada lado (feixe de fustes, capitel e base), e por cima
+      // delas o arco ogival em ponta, de linha dupla, com os ganchinhos de pedra (crochets) por fora;
+      // um pináculo sobre cada coluna, uma rosácea em cada canto de cima e, no rodapé, a arcada de arquinhos
       const q = Math.max(0.4, k);
-      const m1 = (6 + r() * 2) * q,
-        band = (8 + r() * 2) * q,
-        m2 = m1 + band;
-      const wob = 0.9 * k,
+      const wob = 0.8 * k,
         seg = 30 * q;
-      const rect = (m: number) => {
-        const c = inset(W, H, m);
-        let d = '';
-        for (let i = 0; i < 4; i++) d += `<path d='${smooth(handLine(c[i], c[(i + 1) % 4], r, wob, seg))}'/>`;
-        return d;
-      };
-      // os arquinhos pontudos, deitados ao longo de cada lado, entre um canto e outro
-      let arches = '';
-      const pitch = band * 1.15;
-      const block = band * 1.25;
-      const c1 = inset(W, H, m1 + band / 2);
-      for (let i = 0; i < 4; i++) {
-        const a = c1[i],
-          b = c1[(i + 1) % 4];
-        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        const ux = (b[0] - a[0]) / len,
-          uy = (b[1] - a[1]) / len;
-        // para dentro da ficha é a direita de quem anda no sentido do relógio
-        const nx = -uy,
-          ny = ux;
-        const n = Math.max(1, Math.floor((len - block * 2) / pitch));
-        const start = (len - n * pitch) / 2;
-        const hb = band * 0.42;
-        let d = '';
-        for (let j = 0; j < n; j++) {
-          const t0 = start + j * pitch,
-            t1 = t0 + pitch;
-          const p0: Pt = [a[0] + ux * t0 + nx * hb, a[1] + uy * t0 + ny * hb],
-            p1: Pt = [a[0] + ux * t1 + nx * hb, a[1] + uy * t1 + ny * hb];
-          const tip: Pt = [a[0] + ux * (t0 + pitch / 2) - nx * hb, a[1] + uy * (t0 + pitch / 2) - ny * hb];
-          // o arco quebrado: dois quartos de círculo que se encontram na ponta
-          d += `M${f1(p0[0])} ${f1(p0[1])}Q${f1(p0[0] - nx * hb * 1.3)} ${f1(p0[1] - ny * hb * 1.3)} ${f1(tip[0])} ${f1(tip[1])}Q${f1(p1[0] - nx * hb * 1.3)} ${f1(p1[1] - ny * hb * 1.3)} ${f1(p1[0])} ${f1(p1[1])}`;
+      const line = (a: Pt, b: Pt) => `<path d='${smooth(handLine(a, b, r, wob, seg))}'/>`;
+      const m = (6 + r() * 2) * q; // a beirada de fora das colunas
+      const cw = (11 + r() * 3) * q; // a largura da coluna
+      const ys = H * (0.3 + r() * 0.08); // onde o arco nasce (a altura dos capitéis)
+      const ya = (5 + r() * 2) * q; // a ponta do arco
+      const foot = (14 + r() * 4) * q; // a altura do rodapé
+      const band = (6.5 + r() * 1.5) * q; // a espessura do arco
+      let cols = '',
+        arch = '',
+        orn = '';
+      // as colunas: dois fustes e o filete do meio, o capitel em degraus e a base
+      for (const right of [false, true]) {
+        const x0 = right ? W - m - cw : m,
+          x1 = x0 + cw;
+        const top = ys + 4 * q,
+          bot = H - foot - 4 * q;
+        cols += line([x0, top], [x0, bot]) + line([x1, top], [x1, bot]);
+        cols += `<path class='h' d='M${f1((x0 + x1) / 2)} ${f1(top + 3 * q)}V${f1(bot - 3 * q)}'/>`;
+        // o capitel: um bloco que alarga, com duas folhinhas
+        cols += `<path d='M${f1(x0 - 2 * q)} ${f1(top)}H${f1(x1 + 2 * q)}L${f1(x1 + 3.5 * q)} ${f1(ys)}H${f1(x0 - 3.5 * q)}Z'/>`;
+        cols += `<path class='h' d='M${f1(x0 + 1.5 * q)} ${f1(top)}q${f1(1.5 * q)} ${f1(-3 * q)} ${f1(3.5 * q)} 0M${f1(x1 - 1.5 * q)} ${f1(top)}q${f1(-1.5 * q)} ${f1(-3 * q)} ${f1(-3.5 * q)} 0'/>`;
+        // a base: dois degraus
+        cols += `<path d='M${f1(x0 - 2 * q)} ${f1(bot)}H${f1(x1 + 2 * q)}V${f1(bot + 2.5 * q)}H${f1(x0 - 2 * q)}ZM${f1(x0 - 3.5 * q)} ${f1(bot + 2.5 * q)}H${f1(x1 + 3.5 * q)}V${f1(bot + 4.5 * q)}H${f1(x0 - 3.5 * q)}Z'/>`;
+        // o pináculo: uma torrezinha pontuda em cima do capitel, com crochets e a florzinha na ponta
+        const px = (x0 + x1) / 2,
+          pb = ys - 1,
+          pt = Math.max(ya + 2 * q, ys - Math.min(ys * 0.75, 46 * q));
+        orn += `<path d='M${f1(x0 + 1.5 * q)} ${f1(pb)}L${f1(px)} ${f1(pt)}L${f1(x1 - 1.5 * q)} ${f1(pb)}'/>`;
+        for (let i = 1; i < 4; i++) {
+          const t = i / 4,
+            yy = pb + (pt - pb) * t,
+            hw = (cw / 2 - 1.5 * q) * (1 - t);
+          orn += `<path class='h' d='M${f1(px - hw)} ${f1(yy)}q${f1(-2.4 * q)} ${f1(-0.4 * q)} ${f1(-2.6 * q)} ${f1(-2.6 * q)}M${f1(px + hw)} ${f1(yy)}q${f1(2.4 * q)} ${f1(-0.4 * q)} ${f1(2.6 * q)} ${f1(-2.6 * q)}'/>`;
         }
-        arches += `<path d='${d}'/>`;
+        orn += `<circle class='f' cx='${f1(px)}' cy='${f1(pt - 1.6 * q)}' r='${f1(1.5 * q)}'/>`;
       }
-      // os quadrifólios dos cantos
-      let corners = '';
-      for (const [x, y] of inset(W, H, m1 + band / 2)) {
-        const rr = band * 0.3;
-        corners += `<rect x='${f1(x - block / 2)}' y='${f1(y - block / 2)}' width='${f1(block)}' height='${f1(block)}'/>`;
-        for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) corners += `<circle cx='${f1(x + dx * rr)}' cy='${f1(y + dy * rr)}' r='${f1(rr)}'/>`;
-        corners += `<circle class='f' cx='${f1(x)}' cy='${f1(y)}' r='${f1(rr * 0.35)}'/>`;
+      // o arco ogival: de capitel a capitel, subindo reto, abrindo e fechando em ponta no meio de cima
+      const xL = m + cw / 2,
+        xR = W - m - cw / 2;
+      const half = (x0: number, dir: 1 | -1, inset: number): Pt[] => {
+        const sx = x0 + dir * inset,
+          sy = ys,
+          ex = W / 2,
+          ey = ya + inset;
+        const c1: Pt = [sx, sy - (sy - ey) * 0.85],
+          c2: Pt = [ex - dir * (ex - sx) * 0.42, ey + (sy - ey) * 0.08];
+        const pts: Pt[] = [];
+        for (let i = 0; i <= 24; i++) {
+          const t = i / 24,
+            u = 1 - t;
+          pts.push([
+            u * u * u * sx + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * ex,
+            u * u * u * sy + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * ey,
+          ]);
+        }
+        return pts;
+      };
+      for (const inset of [0, band]) {
+        const lft = half(xL, 1, inset),
+          rgt = half(xR, -1, inset);
+        arch += `<path d='${smooth(lft)}'/><path d='${smooth(rgt)}'/>`;
       }
-      // a cruz de pontas em trevo, montada no meio do filete de baixo
-      const cs = band * 1.9,
-        cx = W / 2 + (r() - 0.5) * W * 0.1,
-        cy = H - m2 - cs * 1.35;
-      let cross = `<path d='M${f1(cx)} ${f1(cy - cs)}L${f1(cx)} ${f1(cy + cs)}M${f1(cx - cs * 0.7)} ${f1(cy - cs * 0.25)}L${f1(cx + cs * 0.7)} ${f1(cy - cs * 0.25)}'/>`;
-      for (const [x, y] of [
-        [cx, cy - cs],
-        [cx, cy + cs],
-        [cx - cs * 0.7, cy - cs * 0.25],
-        [cx + cs * 0.7, cy - cs * 0.25],
-      ])
-        cross += `<circle class='f' cx='${f1(x)}' cy='${f1(y)}' r='${f1(cs * 0.14)}'/>`;
-      return g(rect(m1) + rect(m2), 1.4, 0.9) + g(arches, 1, 0.8) + g(corners + cross, 1.2, 0.9);
+      // os crochets: ganchinhos de folha subindo pelo lado de fora do arco
+      for (const [x0, dir] of [
+        [xL, 1],
+        [xR, -1],
+      ] as const) {
+        const pts = half(x0, dir, 0);
+        for (let i = 5; i < 22; i += 3) {
+          const [x, y] = pts[i],
+            [x2, y2] = pts[i + 1];
+          const l = Math.hypot(x2 - x, y2 - y) || 1;
+          const nx = (y2 - y) / l,
+            ny = -(x2 - x) / l;
+          const o = dir === 1 ? 1 : -1;
+          orn += `<path class='h' d='M${f1(x)} ${f1(y)}q${f1(nx * o * 4 * q + (x2 - x) / l * 1.5 * q)} ${f1(ny * o * 4 * q + (y2 - y) / l * 1.5 * q)} ${f1(nx * o * 3 * q + (x2 - x) / l * 4 * q)} ${f1(ny * o * 3 * q + (y2 - y) / l * 4 * q)}'/>`;
+        }
+      }
+      // a ponta do arco: um trevo (o florão), cortado pela beirada se não couber
+      const fx = W / 2,
+        fy = ya;
+      orn += `<circle cx='${f1(fx)}' cy='${f1(fy - 3 * q)}' r='${f1(2.2 * q)}'/><circle cx='${f1(fx - 3 * q)}' cy='${f1(fy - 0.5 * q)}' r='${f1(2 * q)}'/><circle cx='${f1(fx + 3 * q)}' cy='${f1(fy - 0.5 * q)}' r='${f1(2 * q)}'/>`;
+      // as rosáceas nos cantos de cima, entre o arco e a beirada
+      for (const right of [false, true]) {
+        const R = Math.min(ys * 0.32, 13 * q);
+        const rx = right ? W - m - R * 0.9 - 2 * q : m + R * 0.9 + 2 * q,
+          ry = m + R * 0.9 + 1 * q;
+        orn += `<circle cx='${f1(rx)}' cy='${f1(ry)}' r='${f1(R)}'/><circle cx='${f1(rx)}' cy='${f1(ry)}' r='${f1(R * 0.3)}'/>`;
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          orn += `<path class='h' d='M${f1(rx + Math.cos(a) * R * 0.3)} ${f1(ry + Math.sin(a) * R * 0.3)}L${f1(rx + Math.cos(a) * R)} ${f1(ry + Math.sin(a) * R)}'/>`;
+          const b = a + Math.PI / 8;
+          orn += `<circle cx='${f1(rx + Math.cos(b) * R * 0.68)}' cy='${f1(ry + Math.sin(b) * R * 0.68)}' r='${f1(R * 0.2)}' class='h'/>`;
+        }
+      }
+      // o rodapé: o friso de cima e de baixo e a arcada de arquinhos pontudos entre as colunas
+      const fy0 = H - foot,
+        fy1 = H - m * 0.6;
+      let foots = line([m, fy0], [W - m, fy0]) + line([m, fy1], [W - m, fy1]);
+      const pitch = (10 + r() * 2) * q;
+      const x0 = m + cw + 4 * q,
+        x1 = W - m - cw - 4 * q;
+      const n = Math.max(2, Math.floor((x1 - x0) / pitch));
+      const step = (x1 - x0) / n;
+      let d = '';
+      for (let j = 0; j < n; j++) {
+        const a = x0 + j * step,
+          b2 = a + step,
+          mid = a + step / 2;
+        const base = fy1 - 1 * q,
+          tip = fy0 + 2.5 * q;
+        // o arquinho em lanceta: as duas metades se encontram em ponta
+        const spring = tip + (base - tip) * 0.5,
+          hh = spring - tip;
+        d += `M${f1(a)} ${f1(base)}V${f1(spring)}C${f1(a)} ${f1(spring - hh * 0.55)} ${f1(mid - step * 0.18)} ${f1(tip + hh * 0.2)} ${f1(mid)} ${f1(tip)}C${f1(mid + step * 0.18)} ${f1(tip + hh * 0.2)} ${f1(b2)} ${f1(spring - hh * 0.55)} ${f1(b2)} ${f1(spring)}`;
+      }
+      foots += `<path class='h' d='${d}'/>`;
+      return g(cols + arch + foots, 1.3, 1.05) + g(orn, 1, 0.95);
     }
     case 'arabesco': {
       // arabescos de convite antigo: em cada canto, dois ramos saem pelas beiradas e terminam enrolados
