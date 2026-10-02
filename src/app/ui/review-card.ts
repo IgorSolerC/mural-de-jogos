@@ -87,6 +87,9 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.orelha]': 'review().damage === "orelha"',
   },
   template: `
+    <!-- tudo o que está na ficha, junto: é o que entra com fade quando o papel fica pronto (ver
+         ui/veil.ts); a marca tracejada da vaga fica na própria ficha, por baixo -->
+    <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
     <app-paper-art [id]="review().id" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
     <app-pin class="pin" [color]="pin().pinColor" />
@@ -174,6 +177,7 @@ function watchDistance(el: HTMLElement): () => void {
     } @else {
       <button type="button" class="hit" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)"></button>
     }
+    </div>
   `,
   styles: `
     :host {
@@ -198,6 +202,55 @@ function watchDistance(el: HTMLElement): () => void {
         translate var(--t-physical) var(--ease-physical),
         box-shadow var(--t-ui) var(--ease-ui),
         --luz 600ms var(--ease-physical);
+    }
+
+    /* O corpo é a ficha toda, no lugar dela: sem posição própria (as camadas do papel, a tachinha e o
+       botão continuam medidos pela ficha) e sem transformação (que mudaria isso). Só a opacidade
+       dele anima, quando a ficha entra (ver ui/veil.ts). */
+    .corpo {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    /* Esperando o papel ficar pronto (ver ui/veil.ts): no lugar da ficha, só a marca tracejada na
+       parede e o furo da tachinha, como as vagas do mural vazio. A ficha escondida não é pintada nem
+       rasterizada, e não recebe clique. */
+    :host([data-veu]) .corpo {
+      visibility: hidden;
+    }
+    /* As camadas do papel saem de vez (são absolutas: a ficha não muda de tamanho). Só esconder não
+       bastava: o Chrome pinta mesmo assim o relevo do papel amassado (um filtro que gera a textura
+       sozinho, sem depender do desenho), e a vaga aparecia como um retângulo cinza. */
+    :host([data-veu]) ::ng-deep .camada {
+      display: none;
+    }
+    :host([data-veu]) {
+      box-shadow: none;
+      pointer-events: none;
+    }
+    :host([data-veu])::before,
+    :host([data-entrando])::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border: 2px dashed rgb(241 241 236 / 0.16);
+      border-radius: 3px;
+      pointer-events: none;
+    }
+    :host([data-veu])::after,
+    :host([data-entrando])::after {
+      content: '';
+      position: absolute;
+      top: 8px;
+      left: calc(var(--pin-x) - 3px);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #000;
+      box-shadow: 0 1px 0 rgb(255 255 255 / 0.12);
+      pointer-events: none;
     }
 
     /* O papel é a camada de baixo do app-paper-art (é ela que rasga, queima e dobra); a ficha em si

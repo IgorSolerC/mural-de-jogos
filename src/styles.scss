@@ -1137,12 +1137,6 @@ body.has-paper-texture .btn-cartolina {
   animation-play-state: paused;
 }
 
-/* Ficha esperando o papel ficar pronto no tamanho dela (ver ui/veil.ts): some em vez de aparecer com
-   o desenho velho. Sem pintar, ela também não custa nada para rasterizar até a vez dela. */
-[data-veu] {
-  visibility: hidden;
-}
-
 @keyframes capa-roda {
   to {
     rotate: 1turn;

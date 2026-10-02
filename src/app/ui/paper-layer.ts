@@ -462,7 +462,8 @@ export class PaperArtLayer {
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => forget(this));
     afterNextRender(() => {
-      const card = this.host.parentElement;
+      // a ficha do mural guarda tudo num corpo (ver ReviewCard): o papel é medido pela ficha
+      const card = (this.host.parentElement?.closest('app-review-card') as HTMLElement | null) ?? this.host.parentElement;
       if (!card) return;
       this.card = card;
       this.veils = card.matches('app-review-card') && !card.closest('app-review-editor');
@@ -576,7 +577,7 @@ export class PaperArtLayer {
    * adesivos (`[data-colado]`).
    */
   private burnText(): () => void {
-    const paper = this.host.parentElement;
+    const paper = this.card;
     if (!paper) return () => {};
     const mask = this.mask();
     const s = this.size();
@@ -722,7 +723,14 @@ export function repaint(cards: Iterable<Element>): void {
 }
 
 let resizedAt = -Infinity;
-if (typeof window !== 'undefined') addEventListener('resize', () => (resizedAt = performance.now()), { passive: true });
+if (typeof window !== 'undefined') {
+  addEventListener('resize', () => (resizedAt = performance.now()), { passive: true });
+  // Rolando, fichas que estavam longe chegam perto e passam na frente da fila. Sem isto a fila só
+  // olhava de novo quando algo entrava nela: se ela estava esperando o navegador ficar à toa (o que
+  // pode demorar muito, ou nunca acontecer com a página ocupada), as fichas que chegavam à tela
+  // ficavam na vaga sem papel até alguma outra coisa acordar a fila.
+  addEventListener('scroll', () => waiting.size && kick(), { passive: true, capture: true });
+}
 
 /** A janela está sendo redimensionada: as fichas mudam de tamanho a cada quadro. */
 function reducedMotion(): boolean {
@@ -733,9 +741,13 @@ function windowResizing(): boolean {
   return performance.now() - resizedAt < 250;
 }
 
-/** Vale esperar: a janela ainda está mudando, ou uma fonte ainda está chegando (e o texto vai mudar de lugar). */
+/**
+ * Vale esperar: a janela ainda está mudando de tamanho. (Esperar as fontes chegarem travava a fila
+ * inteira enquanto qualquer fonte estivesse carregando; se o texto muda de lugar quando ela chega, o
+ * ResizeObserver avisa e a ficha é redesenhada.)
+ */
 function settling(): boolean {
-  return windowResizing() || (typeof document !== 'undefined' && document.fonts?.status === 'loading');
+  return windowResizing();
 }
 
 function onFrame(): void {
@@ -752,12 +764,15 @@ function onFrame(): void {
   else if (left.far) idleSoon();
 }
 
-type Deadline = { timeRemaining(): number };
+type Deadline = { timeRemaining(): number; didTimeout?: boolean };
+/** O máximo que as fichas longe esperam o navegador ficar à toa. */
+const IDLE_TIMEOUT = 600;
 
 function idleSoon(): void {
   if (idle !== undefined) return;
-  const ric = (globalThis as { requestIdleCallback?: (cb: (d: Deadline) => void) => number }).requestIdleCallback;
-  idle = ric ? ric(onIdle) : (setTimeout(() => onIdle({ timeRemaining: () => 8 }), 80) as unknown as number);
+  const ric = (globalThis as { requestIdleCallback?: (cb: (d: Deadline) => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  // com prazo: numa página que nunca fica à toa, as fichas longe ainda ficam prontas
+  idle = ric ? ric(onIdle, { timeout: IDLE_TIMEOUT }) : (setTimeout(() => onIdle({ timeRemaining: () => 8, didTimeout: true }), 80) as unknown as number);
 }
 
 /** As fichas longe da tela, uma de cada vez, quando o navegador não tem mais nada para fazer. */
@@ -765,12 +780,17 @@ function onIdle(deadline: Deadline): void {
   idle = undefined;
   // tem quadro marcado: ele cuida das da tela e chama de volta quando acabar
   if (frame || later) return;
-  if (settling() || deadline.timeRemaining() < 6) {
-    if (settling()) kick();
-    else idleSoon();
+  if (settling()) {
+    kick();
     return;
   }
-  const left = step(true, deadline.timeRemaining() - 3, MAX_COSTLY_IDLE);
+  // o prazo venceu sem o navegador ficar à toa: uma ficha só, para não pesar no quadro
+  const late = !!deadline.didTimeout;
+  if (!late && deadline.timeRemaining() < 6) {
+    idleSoon();
+    return;
+  }
+  const left = late ? step(true, 6, 1) : step(true, deadline.timeRemaining() - 3, MAX_COSTLY_IDLE);
   if (left.urgent) kick();
   else if (left.far) idleSoon();
 }
