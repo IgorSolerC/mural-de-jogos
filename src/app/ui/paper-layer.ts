@@ -283,8 +283,21 @@ export class PaperDefs {}
         opacity: 0.12;
       }
     }
+    /* a faixa clara que rola pela TV de tubo (e o chuvisco), de cima para baixo */
+    .enfeite ::ng-deep .rola {
+      animation: rola 7s linear infinite;
+    }
+    @keyframes rola {
+      from {
+        transform: translateY(0);
+      }
+      to {
+        transform: translateY(var(--rola));
+      }
+    }
     @media (prefers-reduced-motion: reduce) {
-      .enfeite ::ng-deep .pisca {
+      .enfeite ::ng-deep .pisca,
+      .enfeite ::ng-deep .rola {
         animation: none;
       }
     }

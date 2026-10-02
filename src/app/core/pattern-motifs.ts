@@ -104,6 +104,26 @@ function pixels(rows: string[], cell: number): string {
   return d;
 }
 
+/** As emendas de dentro de um desenho de pixels (a mesma conta de `pixels`): os blocos aparecem um a um. */
+function seams(rows: string[], cell: number): string {
+  const h = rows.length,
+    w = Math.max(...rows.map((r) => r.length));
+  const x0 = 20 - (w * cell) / 2,
+    y0 = 20 - (h * cell) / 2;
+  const on = (i: number, j: number) => j >= 0 && j < h && i >= 0 && rows[j][i] === '#';
+  let d = '';
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++) {
+      if (!on(i, j)) continue;
+      if (on(i + 1, j)) d += `M${f1(x0 + (i + 1) * cell)} ${f1(y0 + j * cell)}V${f1(y0 + (j + 1) * cell)}`;
+      if (on(i, j + 1)) d += `M${f1(x0 + i * cell)} ${f1(y0 + (j + 1) * cell)}H${f1(x0 + (i + 1) * cell)}`;
+    }
+  return d;
+}
+
+/** Um bloco de encaixar: o contorno de pixels e as emendas entre os quadradinhos. */
+const block = (rows: string[], cell: number): MotifDrawing => ({ sil: `<path d='${pixels(rows, cell)}'/>`, det: `<path d='${seams(rows, cell)}'/>` });
+
 /** Um anel: o de fora e o de dentro no mesmo caminho (a rosquinha, o timão). */
 const ring = (cx: number, cy: number, R: number, r: number) =>
   `<path fill-rule='evenodd' d='M${cx - R} ${cy}a${R} ${R} 0 1 0 ${2 * R} 0a${R} ${R} 0 1 0 ${-2 * R} 0ZM${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z'/>`;
@@ -514,6 +534,105 @@ export const MORE_MOTIFS = {
       },
     ],
     c: `<ellipse class='f' cx='7' cy='15' rx='3.6' ry='2.7' transform='rotate(-20 7 15)'/><path d='M10.2 14V3Q14 4 15.5 8'/>`,
+  },
+  // ===== Computador =====
+  computadores: {
+    // o monitor de tubo, com o prompt piscando na tela
+    sil: `<path d='M6 5.5H34Q36 5.5 36 7.5V26.5Q36 28.5 34 28.5H6Q4 28.5 4 26.5V7.5Q4 5.5 6 5.5Z'/><path d='M15.5 28.5H24.5L26.5 33.5H13.5Z'/><path d='M9.5 33.5H30.5Q31.5 33.5 31.5 34.5V36H8.5V34.5Q8.5 33.5 9.5 33.5Z'/>`,
+    det: `<path d='M9 9.5H31V24.5H9Z'/>`,
+    extra: `<path d='M12.4 13.4L15.6 16L12.4 18.6M17.6 20H21.8' style='stroke-width:1.8'/>`,
+    more: [
+      {
+        // o disquete
+        sil: `<path d='M6 4.5H30.5L35.5 9.5V35.5H6Z'/>`,
+        det: `<path d='M12.5 4.5V13.5H27.5V4.5'/><path class='f' d='M22.4 6.4H25.4V11.6H22.4Z'/><path d='M10 19.5H31.5V35.5H10Z'/>`,
+        extra: `<path d='M13.5 24H28M13.5 28.4H24.6' style='stroke-width:1.6'/>`,
+      },
+      {
+        // o mouse de bolinha, com o fio
+        sil: `<path d='M20 12.5C13.6 12.5 11.5 17.4 11.5 23.4C11.5 31 15.2 35.5 20 35.5C24.8 35.5 28.5 31 28.5 23.4C28.5 17.4 26.4 12.5 20 12.5Z'/>`,
+        det: `<path d='M11.8 21.6H28.2M20 12.5V21.6'/>`,
+        extra: `<path d='M20 12.5C20 6.6 26.4 9.4 27.4 3.4'/>`,
+      },
+    ],
+    c: `<path d='M3.6 6.4L8 10L3.6 13.6'/><path class='f' d='M10 13.2H16.4V15.6H10Z'/>`,
+  },
+  janelas: {
+    // a janelinha de aviso: a barra de título com o X, as linhas do recado e o botão de OK
+    sil: `<path d='M4 7.5H36V33.5H4Z'/>`,
+    det: `<path d='M4 13.5H36'/><path d='M30.6 9L33.6 12M33.6 9L30.6 12' style='stroke-width:1.6'/><path d='M9 19H25M9 23.4H20'/><path d='M23.5 26.6H31.5V30.6H23.5Z'/>`,
+    more: [
+      {
+        // o erro: o X num círculo
+        sil: `<circle cx='20' cy='20' r='14.5'/>`,
+        det: `<path d='M14.2 14.2L25.8 25.8M25.8 14.2L14.2 25.8' style='stroke-width:3.4'/>`,
+      },
+      {
+        // o cuidado: a exclamação no triângulo
+        sil: `<path d='M20 4.5Q21.2 4.5 21.9 5.7L36.2 31.4Q37 33.5 34.6 33.5H5.4Q3 33.5 3.8 31.4L18.1 5.7Q18.8 4.5 20 4.5Z'/>`,
+        det: `<path d='M20 13.5V23.5' style='stroke-width:3.2'/><circle class='f' cx='20' cy='28.4' r='2.1'/>`,
+      },
+      {
+        // a pasta
+        sil: `<path d='M4 10.5Q4 9 5.5 9H14.5L17.5 12H34.5Q36 12 36 13.5V31Q36 32.5 34.5 32.5H5.5Q4 32.5 4 31Z'/>`,
+        det: `<path d='M4 17H36'/>`,
+      },
+    ],
+    c: `<path d='M3 5H17V15.5H3ZM3 8.4H17'/><path class='f' d='M13.4 5.8H15.8V7.6H13.4Z'/>`,
+  },
+  cursores: {
+    // a setinha do mouse
+    sil: `<path d='M11 3.5V31L17.4 25.2L21.8 35.4L26.4 33.4L22 23.6H30.4Z'/>`,
+    det: `<path d='M14 11.5V22.4' style='stroke-width:1.6'/>`,
+    more: [
+      {
+        // a mãozinha do link
+        sil: `<path d='M15.5 5Q15.5 3 17.6 3Q19.7 3 19.7 5V16.5H20.4V14.6Q20.4 12.6 22.4 12.6Q24.4 12.6 24.4 14.6V17.4H25V16Q25 14 27 14Q29 14 29 16V18.8H29.6V18Q29.6 16.2 31.4 16.2Q33.2 16.2 33.2 18V27Q33.2 33.4 28 36.5H19Q15.8 34.6 12.4 28.6L8.8 22.4Q8 20.2 9.8 19.6Q11.4 19 12.8 20.8L15.5 24.2Z'/>`,
+        det: `<path d='M20.4 17V23.4M25 17.6V23.4M29.6 19V23.4'/>`,
+      },
+      {
+        // a ampulheta de espera
+        sil: `<path d='M9.5 3.5H30.5V7H28.6Q28.6 15 22 20Q28.6 25 28.6 33H30.5V36.5H9.5V33H11.4Q11.4 25 18 20Q11.4 15 11.4 7H9.5Z'/>`,
+        det: `<path d='M14.6 31.5Q16.4 27 20 26.4Q23.6 27 25.4 31.5Z'/><path d='M15.6 10.8H24.4Q23.4 14.6 20 16.6Q16.6 14.6 15.6 10.8Z'/>`,
+      },
+      {
+        // o cursor de texto
+        sil: `<path d='M18.7 7.5H21.3V32.5H18.7Z'/>`,
+        extra: `<path d='M13.5 4.5Q17 4.5 20 7.6Q23 4.5 26.5 4.5M13.5 35.5Q17 35.5 20 32.4Q23 35.5 26.5 35.5'/>`,
+      },
+    ],
+    c: `<path class='f' d='M5 2.5V15.5L8.2 12.6L10.4 17.6L12.6 16.6L10.4 11.8H14.6Z'/>`,
+  },
+  circuitos: {
+    // o chip, com as perninhas dos dois lados e a bolinha do pino 1
+    sil: `<path d='M10 9H30Q31 9 31 10V30Q31 31 30 31H10Q9 31 9 30V10Q9 9 10 9Z'/>`,
+    det: `<circle class='f' cx='13.6' cy='13.6' r='1.8'/><path d='M14 26.5H26' style='stroke-width:1.5'/>`,
+    extra: `<path d='M14 9V4M20 9V4M26 9V4M14 31V36M20 31V36M26 31V36M9 14H4M9 20H4M9 26H4M31 14H36M31 20H36M31 26H36'/>`,
+    more: [
+      {
+        // a trilha de cobre entre duas ilhas de solda
+        sil: `<circle cx='8' cy='8.5' r='4.4'/><circle cx='32' cy='31.5' r='4.4'/>`,
+        det: `<circle class='f' cx='8' cy='8.5' r='1.6'/><circle class='f' cx='32' cy='31.5' r='1.6'/>`,
+        extra: `<path d='M8 12.9V19.5L16.5 28H27.6' style='stroke-width:2.8'/><path d='M12.4 8.5H22L27 13.5V20' style='stroke-width:2.8'/><circle cx='27' cy='23' r='3'/>`,
+      },
+      {
+        // o resistor, com as listras
+        sil: `<path d='M12 14.5H28Q31 14.5 31 17.5V22.5Q31 25.5 28 25.5H12Q9 25.5 9 22.5V17.5Q9 14.5 12 14.5Z'/>`,
+        det: `<path d='M14.4 14.5V25.5M18.4 14.5V25.5M23 14.5V25.5' style='stroke-width:2.2'/>`,
+        extra: `<path d='M2 20H9M31 20H38'/>`,
+      },
+    ],
+    c: `<circle cx='10' cy='10' r='4.4'/><circle class='f' cx='10' cy='10' r='1.6'/>`,
+  },
+  binario: {
+    sil: `<path d='${pixels(['.#..###', '##..#.#', '.#..#.#', '.#..#.#', '.#..#.#', '###.###'], 4.4)}'/>`,
+    more: [{ sil: `<path d='${pixels(['###..#.', '#.#.##.', '#.#..#.', '#.#..#.', '#.#..#.', '###.###'], 4.4)}'/>` }],
+    c: `<path d='M7.6 5.6L10.4 3V17M7 17H13.6'/>`,
+  },
+  blocos: {
+    ...block(['###', '.#.'], 8.4),
+    more: [block(['#.', '#.', '##'], 8), block(['.##', '##.'], 8.4), block(['##', '##'], 9), block(['####'], 8.2)],
+    c: `<path d='M4 4H16V16H4Z'/><path class='f' d='M7.4 7.4H12.6V12.6H7.4Z'/>`,
   },
 } satisfies Record<string, Motif>;
 

@@ -102,6 +102,24 @@ export function decorArt(input: DecorInput): DecorArt {
     case 'beijo':
       kiss(W, H, k, r, uid, out);
       break;
+    case 'antena':
+      tvAntenna(W, H, k, r, uid, out);
+      break;
+    case 'crt':
+      crtFilter(W, H, k, r, uid, out);
+      break;
+    case 'chuvisco':
+      tvStatic(W, H, k, r, uid, out);
+      break;
+    case 'barras':
+      colorBars(W, H, k, r, uid, out);
+      break;
+    case 'disquete':
+      floppyDisk(W, H, k, r, uid, out);
+      break;
+    case 'erro':
+      errorWindow(W, H, k, r, uid, out);
+      break;
     case 'estrelinhas':
       goldStars(W, H, k, r, uid, out);
       break;
@@ -1565,4 +1583,308 @@ function kiss(W: number, H: number, k: number, r: () => number, uid: string, out
     body += `<g transform='${place(0, 0, 0)}' opacity='${press.toFixed(2)}'${mask}>${mouth}</g>`;
   }
   out.front += `<defs>${inkFilter(`${uid}-batom`, 7 + Math.floor(r() * 90), 0.8 + r() * 0.8)}${defs}</defs><g filter='url(#${uid}-batom)'>${body}</g>`;
+}
+
+// ===================== A TV e o computador (2026-10-02) =====================
+
+// ----- Antena de TV -----
+
+/**
+ * A antena de coelhinho em cima da ficha: a base de plástico sentada na beirada de cima, as duas varetas
+ * de cromo abertas em V passando da ficha, com as bolinhas na ponta, e o fio chato descendo de lado.
+ * Às vezes uma ponta ganhou a bolota de palha de aço, para pegar melhor.
+ */
+function tvAntenna(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const kk = Math.max(0.5, k);
+  const bx = W * (0.68 + r() * 0.18),
+    by = 13 * kk; // o pé da base, já dentro da ficha
+  const bw = (52 + r() * 8) * kk,
+    bh = (22 + r() * 4) * kk;
+  const plastic = ['#26272c', '#3b2f2a', '#5b5f66', '#e9e4d8'][Math.floor(r() * 4)];
+  const light = plastic === '#e9e4d8';
+  const hub: Pt = [bx, by - bh * 0.92];
+  // as varetas: três gomos cada, afinando, abertas para os dois lados (uma às vezes torta)
+  let rods = '',
+    rodShadow = '',
+    tips = '';
+  const spread = 24 + r() * 18;
+  const steel = `url(#${uid}-cromo)`;
+  for (const side of [-1, 1]) {
+    const ang = ((side * (spread + (r() - 0.5) * 12) - 90) * Math.PI) / 180;
+    const len = (80 + r() * 30) * kk;
+    const bent = r() < 0.2;
+    const ux = Math.cos(ang),
+      uy = Math.sin(ang);
+    const widths = [3.6, 2.7, 1.9].map((w) => w * kk);
+    let p: Pt = [hub[0] + ux * 4 * kk, hub[1] + uy * 4 * kk];
+    for (let s = 0; s < 3; s++) {
+      const L = len * [0.36, 0.33, 0.31][s];
+      // a vareta torta dobra no último gomo
+      const a2 = bent && s === 2 ? ang + side * 0.5 : ang;
+      const q: Pt = [p[0] + Math.cos(a2) * L, p[1] + Math.sin(a2) * L];
+      rods += `<path d='M${f1(p[0])} ${f1(p[1])}L${f1(q[0])} ${f1(q[1])}' stroke='#4a4f57' stroke-width='${f1(widths[s] + 1 * kk)}'/><path d='M${f1(p[0])} ${f1(p[1])}L${f1(q[0])} ${f1(q[1])}' stroke='${steel}' stroke-width='${f1(widths[s])}'/>`;
+      // a emenda de um gomo para o outro: um anelzinho
+      if (s < 2) rods += `<circle cx='${f1(q[0])}' cy='${f1(q[1])}' r='${f1(widths[s] * 0.62)}' fill='#d9dde2' stroke='#4a4f57' stroke-width='${f1(0.5 * kk)}'/>`;
+      // a sombra só onde a vareta passa por cima do papel
+      if (p[1] > 0 || q[1] > 0) rodShadow += `<path d='M${f1(p[0])} ${f1(p[1])}L${f1(q[0])} ${f1(q[1])}'/>`;
+      p = q;
+    }
+    if (side === 1 && r() < 0.4) {
+      // a palha de aço: uma bolota amassada, cheia de facetas
+      const R = 7 * kk;
+      let foil = '';
+      for (let i = 0; i < 14; i++) {
+        const a = r() * Math.PI * 2,
+          d = r() * R * 0.75;
+        const cx = p[0] + Math.cos(a) * d,
+          cy = p[1] + Math.sin(a) * d;
+        const pts: Pt[] = [];
+        for (let v = 0; v < 5; v++) {
+          const b = (v / 5) * Math.PI * 2 + r();
+          pts.push([cx + Math.cos(b) * R * (0.25 + r() * 0.35), cy + Math.sin(b) * R * (0.25 + r() * 0.35)]);
+        }
+        foil += `<path d='M${pts.map((q) => `${f1(q[0])} ${f1(q[1])}`).join('L')}Z' fill='${['#f1f3f5', '#c4c9cf', '#9aa1a9', '#e2e5e9', '#7d848c'][Math.floor(r() * 5)]}'/>`;
+      }
+      tips += `<circle cx='${f1(p[0])}' cy='${f1(p[1])}' r='${f1(R)}' fill='#aeb4bb'/>${foil}`;
+    } else tips += `<circle cx='${f1(p[0])}' cy='${f1(p[1])}' r='${f1(2.8 * kk)}' fill='${steel}' stroke='#4a4f57' stroke-width='${f1(0.6 * kk)}'/><circle cx='${f1(p[0] - 0.9 * kk)}' cy='${f1(p[1] - 0.9 * kk)}' r='${f1(0.9 * kk)}' fill='#fff'/>`;
+  }
+  // a base: o domo de plástico, com o botão de sintonia na frente e o brilho de cima
+  const dome = `M${f1(bx - bw / 2)} ${f1(by)}C${f1(bx - bw / 2)} ${f1(by - bh * 1.25)} ${f1(bx + bw / 2)} ${f1(by - bh * 1.25)} ${f1(bx + bw / 2)} ${f1(by)}Z`;
+  const base =
+    `<path d='${dome}' fill='${plastic}'/>` +
+    `<path d='${dome}' fill='url(#${uid}-domo)'/>` +
+    `<rect x='${f1(bx - bw / 2 - 2 * kk)}' y='${f1(by - 2.5 * kk)}' width='${f1(bw + 4 * kk)}' height='${f1(4 * kk)}' rx='${f1(1.5 * kk)}' fill='${light ? '#cfc8b8' : '#18191c'}'/>` +
+    `<circle cx='${f1(bx + bw * 0.18)}' cy='${f1(by - bh * 0.38)}' r='${f1(3.4 * kk)}' fill='${light ? '#bdb5a3' : '#5a5d63'}' stroke='${light ? '#8f8775' : '#101113'}' stroke-width='${f1(0.7 * kk)}'/>` +
+    `<path d='M${f1(bx + bw * 0.18)} ${f1(by - bh * 0.38 - 2.6 * kk)}v${f1(2 * kk)}' stroke='${light ? '#6f6858' : '#c9ccd1'}' stroke-width='${f1(0.8 * kk)}' stroke-linecap='round'/>` +
+    `<circle cx='${f1(hub[0])}' cy='${f1(hub[1] + 2 * kk)}' r='${f1(4.6 * kk)}' fill='${light ? '#d8d1c1' : '#2e3035'}' stroke='${light ? '#8f8775' : '#0e0f11'}' stroke-width='${f1(0.7 * kk)}'/>`;
+  // o fio chato de TV antiga, saindo da base para a direita e caindo pelo lado de fora da ficha
+  const c0: Pt = [bx + bw / 2 - 3 * kk, by - 2 * kk];
+  const c1: Pt = [W + (7 + r() * 8) * kk, by + (40 + r() * 30) * kk];
+  const wire = `M${f1(c0[0])} ${f1(c0[1])}C${f1(c0[0] + 16 * kk)} ${f1(c0[1] + 2 * kk)} ${f1(c1[0])} ${f1(c1[1] - 34 * kk)} ${f1(c1[0])} ${f1(c1[1])}S${f1(c1[0] - 3 * kk)} ${f1(c1[1] + 50 * kk)} ${f1(c1[0] + 4 * kk)} ${f1(c1[1] + 90 * kk)}`;
+  out.front +=
+    `<defs><linearGradient id='${uid}-cromo' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#f7f8fa'/><stop offset='.45' stop-color='#aab0b8'/><stop offset='.7' stop-color='#eef0f3'/><stop offset='1' stop-color='#7d848c'/></linearGradient>` +
+    `<linearGradient id='${uid}-domo' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.32'/><stop offset='.45' stop-color='#fff' stop-opacity='.04'/><stop offset='1' stop-color='#000' stop-opacity='.3'/></linearGradient>` +
+    `<filter id='${uid}-sombra-antena' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(1.4 * kk)}'/></filter></defs>` +
+    `<g fill='none' stroke='#000' stroke-opacity='.28' stroke-width='${f1(2.6 * kk)}' stroke-linecap='round' transform='translate(${f1(2 * kk)} ${f1(3.5 * kk)})' filter='url(#${uid}-sombra-antena)'>${rodShadow}<path d='${wire}'/></g>` +
+    `<path d='${dome}' transform='translate(${f1(1.5 * kk)} ${f1(3 * kk)})' fill='#000' opacity='.35' filter='url(#${uid}-sombra-antena)'/>` +
+    `<g fill='none' stroke-linecap='round'><path d='${wire}' stroke='#6b5232' stroke-width='${f1(3.4 * kk)}'/><path d='${wire}' stroke='#a7834f' stroke-width='${f1(1.6 * kk)}'/><path d='${wire}' stroke='#3f2f1c' stroke-width='${f1(0.5 * kk)}' stroke-dasharray='${f1(3 * kk)} ${f1(2 * kk)}'/></g>` +
+    `<g fill='none' stroke-linecap='round'>${rods}</g>` +
+    base +
+    tips;
+}
+
+// ----- Filtro de TV de tubo -----
+
+/**
+ * A ficha vista numa TV de tubo: as linhas de varredura, a grade de fósforo vermelho, verde e azul, a
+ * tela escurecendo nas beiradas e mais ainda nas quinas, o reflexo do vidro curvo e uma faixa clara
+ * rolando devagar de cima para baixo (parada para quem pediu menos movimento). Por cima de tudo.
+ */
+function crtFilter(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const kk = Math.max(0.5, k);
+  const pitch = (2.6 + r() * 0.8) * kk;
+  const strength = 0.16 + r() * 0.08;
+  const tint = ['#7dff9a', '#ffd27a', '#9ad8ff', null][Math.floor(r() * 4)];
+  const rx = 18 * kk;
+  out.front +=
+    `<defs>` +
+    `<pattern id='${uid}-varre' width='4' height='${f1(pitch)}' patternUnits='userSpaceOnUse'><rect width='4' height='${f1(pitch * 0.45)}' fill='#000' fill-opacity='${strength.toFixed(2)}'/></pattern>` +
+    `<pattern id='${uid}-fosforo' width='${f1(3 * kk)}' height='4' patternUnits='userSpaceOnUse'><rect width='${f1(kk)}' height='4' fill='#ff2a2a'/><rect x='${f1(kk)}' width='${f1(kk)}' height='4' fill='#2aff4a'/><rect x='${f1(2 * kk)}' width='${f1(kk)}' height='4' fill='#2a5bff'/></pattern>` +
+    `<radialGradient id='${uid}-vinheta' cx='.5' cy='.5' r='.72'><stop offset='.55' stop-color='#000' stop-opacity='0'/><stop offset='.85' stop-color='#000' stop-opacity='.28'/><stop offset='1' stop-color='#000' stop-opacity='.62'/></radialGradient>` +
+    `<linearGradient id='${uid}-vidro' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.2'/><stop offset='.35' stop-color='#fff' stop-opacity='.04'/><stop offset='.36' stop-color='#fff' stop-opacity='0'/></linearGradient>` +
+    `<linearGradient id='${uid}-rola' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='.5' stop-color='#fff' stop-opacity='.09'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></linearGradient>` +
+    `<filter id='${uid}-borda' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='${f1(5 * kk)}'/></filter>` +
+    `<clipPath id='${uid}-tela'><rect width='${f1(W)}' height='${f1(H)}' rx='${f1(rx * 0.5)}'/></clipPath>` +
+    `</defs>` +
+    `<g clip-path='url(#${uid}-tela)'>` +
+    (tint ? `<rect width='${f1(W)}' height='${f1(H)}' fill='${tint}' fill-opacity='.07'/>` : '') +
+    `<rect width='${f1(W)}' height='${f1(H)}' fill='url(#${uid}-fosforo)' opacity='.07'/>` +
+    `<rect width='${f1(W)}' height='${f1(H)}' fill='url(#${uid}-varre)'/>` +
+    `<g class='rola' style='--rola:${f1(H + 60 * kk)}px'><rect y='${f1(-50 * kk)}' width='${f1(W)}' height='${f1(44 * kk)}' fill='url(#${uid}-rola)'/></g>` +
+    `<rect width='${f1(W)}' height='${f1(H)}' fill='url(#${uid}-vinheta)'/>` +
+    // a moldura de dentro do tubo: a tela é redonda nas quinas e escura na beirada
+    `<rect x='${f1(-6 * kk)}' y='${f1(-6 * kk)}' width='${f1(W + 12 * kk)}' height='${f1(H + 12 * kk)}' rx='${f1(rx)}' fill='none' stroke='#000' stroke-opacity='.55' stroke-width='${f1(14 * kk)}' filter='url(#${uid}-borda)'/>` +
+    `<path d='M0 0H${f1(W * 0.62)}C${f1(W * 0.42)} ${f1(H * 0.12)} ${f1(W * 0.18)} ${f1(H * 0.3)} 0 ${f1(H * 0.58)}Z' fill='url(#${uid}-vidro)'/>` +
+    `</g>`;
+}
+
+// ----- Chuvisco -----
+
+const CHANNEL = ['SEM SINAL', 'CANAL 3', 'AV 1', 'VÍDEO 2', 'CH 04', 'BUSCANDO…'];
+
+/**
+ * A TV fora do ar por cima da ficha: o chuvisco de pontinhos preto e branco (duas camadas, uma piscando,
+ * para o ruído mexer), uma ou duas faixas onde ele engrossa e o letreiro verde do canal num canto.
+ */
+function tvStatic(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const kk = Math.max(0.5, k);
+  const seed = Math.floor(r() * 1000);
+  /** O ruído: a turbulência fininha, em cinza, puxada para preto e branco. */
+  const noise = (id: string, s: number) =>
+    `<filter id='${uid}-${id}' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='${(0.75 + r() * 0.25).toFixed(2)}' numOctaves='2' seed='${s}'/><feColorMatrix type='matrix' values='1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 1'/><feComponentTransfer><feFuncR type='discrete' tableValues='0 .15 .85 1'/><feFuncG type='discrete' tableValues='0 .15 .85 1'/><feFuncB type='discrete' tableValues='0 .15 .85 1'/></feComponentTransfer></filter>`;
+  const amount = 0.22 + r() * 0.14;
+  let bands = '';
+  const nb = 1 + Math.floor(r() * 2);
+  for (let i = 0; i < nb; i++) {
+    const y = H * (0.1 + r() * 0.8),
+      h = (8 + r() * 26) * kk;
+    bands += `<rect y='${f1(y)}' width='${f1(W)}' height='${f1(h)}' filter='url(#${uid}-ruido-b)' opacity='.55'/><rect y='${f1(y + h * 0.3)}' width='${f1(W)}' height='${f1(Math.max(1, h * 0.12))}' fill='#fff' fill-opacity='.35'/>`;
+  }
+  const label = CHANNEL[Math.floor(r() * CHANNEL.length)];
+  const fs = 11 * kk;
+  const lx = W - 14 * kk,
+    ly = 16 * kk + fs;
+  out.front +=
+    `<defs>${noise('ruido-a', seed)}${noise('ruido-b', seed + 31)}${noise('ruido-c', seed + 57)}</defs>` +
+    `<g opacity='${amount.toFixed(2)}'><rect width='${f1(W)}' height='${f1(H)}' filter='url(#${uid}-ruido-a)'/><g class='pisca' style='animation-duration:.9s'><rect width='${f1(W)}' height='${f1(H)}' filter='url(#${uid}-ruido-c)'/></g></g>` +
+    `<g class='rola' style='--rola:${f1(H * 0.6)}px'>${bands}</g>` +
+    `<g font-family='ui-monospace, Consolas, "Courier New", monospace' font-weight='700' font-size='${f1(fs)}' letter-spacing='${f1(1 * kk)}' text-anchor='end'>` +
+    `<text x='${f1(lx + 1.2 * kk)}' y='${f1(ly + 1.2 * kk)}' fill='#000' fill-opacity='.55'>${label}</text><text x='${f1(lx)}' y='${f1(ly)}' fill='#5dff6e'>${label}</text></g>`;
+}
+
+// ----- Barras de cor -----
+
+/**
+ * Um adesivo das barras de cor da TV fora do ar: as sete barras, a fileira fininha invertida embaixo e a
+ * faixa escura com o branco e o azul, com a beirada branca do corte e o brilho do plástico.
+ */
+function colorBars(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const w = (96 + r() * 18) * k,
+    h = w * 0.66;
+  const [x, y] = cornerAt(W, H, Math.floor(r() * 2), w * 0.55 + 6 * k, h * 0.55 + 8 * k);
+  const rot = (r() - 0.5) * 16;
+  const top = ['#c0c0c0', '#c0c000', '#00c0c0', '#00c000', '#c000c0', '#c00000', '#0000c0'];
+  const mid = ['#0000c0', '#131313', '#c000c0', '#131313', '#00c0c0', '#131313', '#c0c0c0'];
+  const bw = w / 7;
+  let bars = '';
+  top.forEach((c, i) => (bars += `<rect x='${f1(i * bw)}' width='${f1(bw + 0.4)}' height='${f1(h * 0.66)}' fill='${c}'/>`));
+  mid.forEach((c, i) => (bars += `<rect x='${f1(i * bw)}' y='${f1(h * 0.66)}' width='${f1(bw + 0.4)}' height='${f1(h * 0.09)}' fill='${c}'/>`));
+  const low: [number, string][] = [
+    [1.25, '#00214c'],
+    [1.25, '#ffffff'],
+    [1.25, '#32006a'],
+    [1.5, '#131313'],
+    [0.33, '#090909'],
+    [0.34, '#131313'],
+    [0.33, '#1d1d1d'],
+    [0.75, '#131313'],
+  ];
+  let lx = 0;
+  for (const [u, c] of low) {
+    bars += `<rect x='${f1(lx)}' y='${f1(h * 0.75)}' width='${f1(u * bw + 0.4)}' height='${f1(h * 0.25)}' fill='${c}'/>`;
+    lx += u * bw;
+  }
+  const b = 3 * k;
+  out.front +=
+    `<defs><filter id='${uid}-sombra-barras' x='-20%' y='-20%' width='140%' height='150%'><feGaussianBlur stdDeviation='${f1(1.5 * k)}'/></filter>` +
+    `<linearGradient id='${uid}-brilho-barras' x1='0' y1='0' x2='1' y2='1'><stop offset='.1' stop-color='#fff' stop-opacity='.3'/><stop offset='.4' stop-color='#fff' stop-opacity='0'/></linearGradient></defs>` +
+    `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)}) translate(${f1(-w / 2)} ${f1(-h / 2)})'>` +
+    `<rect x='${f1(-b + 1 * k)}' y='${f1(-b + 2 * k)}' width='${f1(w + 2 * b)}' height='${f1(h + 2 * b)}' rx='${f1(2.5 * k)}' fill='#000' opacity='.32' filter='url(#${uid}-sombra-barras)'/>` +
+    `<rect x='${f1(-b)}' y='${f1(-b)}' width='${f1(w + 2 * b)}' height='${f1(h + 2 * b)}' rx='${f1(2.5 * k)}' fill='#f7f5ef'/>` +
+    bars +
+    `<rect width='${f1(w)}' height='${f1(h)}' fill='url(#${uid}-brilho-barras)'/>` +
+    `</g>`;
+}
+
+// ----- Disquete -----
+
+const FLOPPY = ['#26282e', '#2f5fc4', '#c23a33', '#e4ddc9', '#6f45b0', '#2c8a5a', '#f0c330'];
+const FLOPPY_LABEL = ['SAVE 1', 'BACKUP', 'ZERADO!', 'NÃO APAGAR', 'MEUS JOGOS', 'DISCO 2/3', 'FASE 8', 'SAVE FINAL'];
+
+/**
+ * Um disquete de 3½ colado na ficha: o corpo de plástico com a quina cortada, a janela de metal que
+ * corre com a fenda do disco, os furinhos de trava embaixo e a etiqueta escrita à mão.
+ */
+function floppyDisk(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const s = (74 + r() * 12) * k;
+  const [x, y] = cornerAt(W, H, Math.floor(r() * 3), s * 0.55 + 6 * k, s * 0.55 + 6 * k);
+  const rot = (r() - 0.5) * 30;
+  const body = FLOPPY[Math.floor(r() * FLOPPY.length)];
+  const pale = body === '#e4ddc9' || body === '#f0c330';
+  const c = s * 0.07;
+  const shape = `M${f1(c * 0.6)} 0H${f1(s - c)}L${f1(s)} ${f1(c)}V${f1(s - c * 0.6)}Q${f1(s)} ${f1(s)} ${f1(s - c * 0.6)} ${f1(s)}H${f1(c * 0.6)}Q0 ${f1(s)} 0 ${f1(s - c * 0.6)}V${f1(c * 0.6)}Q0 0 ${f1(c * 0.6)} 0Z`;
+  const shx = s * 0.22,
+    shw = s * 0.52,
+    shh = s * 0.34;
+  const label = FLOPPY_LABEL[Math.floor(r() * FLOPPY_LABEL.length)];
+  const stripe = ['#e8453c', '#2f7de0', '#2fae4e', '#f2a93b', '#8a5cf6'][Math.floor(r() * 5)];
+  const ink = r() < 0.6 ? '#2a3fa0' : '#222';
+  out.front +=
+    `<defs><filter id='${uid}-sombra-disco' x='-20%' y='-20%' width='140%' height='150%'><feGaussianBlur stdDeviation='${f1(1.6 * k)}'/></filter>` +
+    `<linearGradient id='${uid}-metal' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#9aa1a9'/><stop offset='.3' stop-color='#e9ecef'/><stop offset='.55' stop-color='#b9bfc6'/><stop offset='1' stop-color='#d7dbe0'/></linearGradient>` +
+    `<linearGradient id='${uid}-plastico' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.18'/><stop offset='.5' stop-color='#fff' stop-opacity='0'/><stop offset='1' stop-color='#000' stop-opacity='.18'/></linearGradient></defs>` +
+    `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)}) translate(${f1(-s / 2)} ${f1(-s / 2)})'>` +
+    `<path d='${shape}' transform='translate(${f1(1.2 * k)} ${f1(2.4 * k)})' fill='#000' opacity='.38' filter='url(#${uid}-sombra-disco)'/>` +
+    `<path d='${shape}' fill='${body}'/><path d='${shape}' fill='url(#${uid}-plastico)'/>` +
+    // o rebaixo onde a janela corre
+    `<rect x='${f1(shx - s * 0.04)}' y='0' width='${f1(shw + s * 0.2)}' height='${f1(shh + s * 0.02)}' fill='#000' fill-opacity='.14'/>` +
+    `<rect x='${f1(shx)}' y='0' width='${f1(shw)}' height='${f1(shh)}' fill='url(#${uid}-metal)'/>` +
+    `<rect x='${f1(shx + shw * 0.62)}' y='${f1(shh * 0.16)}' width='${f1(shw * 0.17)}' height='${f1(shh * 0.66)}' rx='${f1(0.6 * k)}' fill='#3a3d42'/>` +
+    // a etiqueta: a faixa de cor em cima e o nome à mão
+    `<rect x='${f1(s * 0.12)}' y='${f1(s * 0.46)}' width='${f1(s * 0.76)}' height='${f1(s * 0.5)}' rx='${f1(1 * k)}' fill='#fbf8ef'/>` +
+    `<rect x='${f1(s * 0.12)}' y='${f1(s * 0.46)}' width='${f1(s * 0.76)}' height='${f1(s * 0.07)}' fill='${stripe}'/>` +
+    `<path d='M${f1(s * 0.17)} ${f1(s * 0.8)}H${f1(s * 0.83)}M${f1(s * 0.17)} ${f1(s * 0.9)}H${f1(s * 0.83)}' stroke='#9fb6d8' stroke-width='${f1(0.5 * k)}'/>` +
+    `<text x='${f1(s * 0.5)}' y='${f1(s * 0.76)}' text-anchor='middle' font-family='var(--f-hand)' font-weight='700' font-size='${f1(s * 0.13)}' fill='${ink}' transform='rotate(-3 ${f1(s * 0.5)} ${f1(s * 0.72)})'>${label}</text>` +
+    // os furinhos de trava e a setinha de encaixe
+    `<rect x='${f1(s * 0.05)}' y='${f1(s * 0.86)}' width='${f1(s * 0.05)}' height='${f1(s * 0.07)}' fill='${pale ? '#6b6457' : '#0b0c0e'}'/>` +
+    `<rect x='${f1(s * 0.9)}' y='${f1(s * 0.86)}' width='${f1(s * 0.05)}' height='${f1(s * 0.07)}' fill='${pale ? '#6b6457' : '#0b0c0e'}'/>` +
+    `<path d='M${f1(s * 0.05)} ${f1(s * 0.08)}l${f1(s * 0.04)} ${f1(s * 0.04)}l${f1(s * 0.04)} ${f1(-s * 0.04)}' fill='none' stroke='${pale ? '#6b6457' : '#9aa1a9'}' stroke-width='${f1(0.7 * k)}'/>` +
+    `</g>`;
+}
+
+// ----- Janela de erro -----
+
+const ERRORS: readonly (readonly [string, string])[] = [
+  ['Resenha boa demais.', 'O mural não aguentou.'],
+  ['Este jogo travou', 'o seu coração.'],
+  ['Nota acima do', 'permitido pelo sistema.'],
+  ['Não foi possível', 'parar de jogar.'],
+  ['Memória insuficiente', 'para tanta saudade.'],
+  ['Erro 404: tempo livre', 'não encontrado.'],
+  ['Deseja mesmo zerar', 'de novo? (Sim)'],
+];
+
+/**
+ * A janelinha de erro de computador antigo, impressa e colada na ficha: a barra de título azul com o X,
+ * o corpo cinza em relevo, o ícone vermelho, o recado de duas linhas e o botão de OK, com a setinha do
+ * mouse em cima dele.
+ */
+function errorWindow(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const w = (150 + r() * 16) * k,
+    h = w * 0.5;
+  const [x, y] = cornerAt(W, H, Math.floor(r() * 2), w * 0.5 + 8 * k, h * 0.5 + 10 * k);
+  const rot = (r() - 0.5) * 9;
+  const [l1, l2] = ERRORS[Math.floor(r() * ERRORS.length)];
+  const tb = h * 0.2,
+    u = w / 150;
+  const font = `Tahoma, Verdana, "Segoe UI", sans-serif`;
+  const bevel = (bx: number, by: number, bw: number, bh: number, inset = false) =>
+    `<path d='M${f1(bx)} ${f1(by + bh)}V${f1(by)}H${f1(bx + bw)}' fill='none' stroke='${inset ? '#808080' : '#fff'}' stroke-width='${f1(1.2 * u)}'/><path d='M${f1(bx)} ${f1(by + bh)}H${f1(bx + bw)}V${f1(by)}' fill='none' stroke='${inset ? '#fff' : '#404040'}' stroke-width='${f1(1.2 * u)}'/>`;
+  const ok = { x: w * 0.62, y: h * 0.7, w: w * 0.24, h: h * 0.18 };
+  const cur = (cx: number, cy: number, s: number) =>
+    `<path d='M${f1(cx)} ${f1(cy)}v${f1(17 * s)}l${f1(4 * s)} ${f1(-3.8 * s)}l${f1(2.9 * s)} ${f1(6.2 * s)}l${f1(2.8 * s)} ${f1(-1.3 * s)}l${f1(-2.9 * s)} ${f1(-6 * s)}h${f1(5.6 * s)}Z' fill='#fff' stroke='#000' stroke-width='${f1(1 * s)}' stroke-linejoin='round'/>`;
+  out.front +=
+    `<defs><filter id='${uid}-sombra-erro' x='-20%' y='-20%' width='140%' height='150%'><feGaussianBlur stdDeviation='${f1(1.8 * k)}'/></filter>` +
+    `<linearGradient id='${uid}-titulo' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='#0a246a'/><stop offset='1' stop-color='#3a6ea5'/></linearGradient></defs>` +
+    `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)}) translate(${f1(-w / 2)} ${f1(-h / 2)})'>` +
+    `<rect x='${f1(1.5 * k)}' y='${f1(3 * k)}' width='${f1(w)}' height='${f1(h)}' fill='#000' opacity='.4' filter='url(#${uid}-sombra-erro)'/>` +
+    `<rect width='${f1(w)}' height='${f1(h)}' fill='#d4d0c8'/>` +
+    bevel(0.6 * u, 0.6 * u, w - 1.2 * u, h - 1.2 * u) +
+    `<rect x='${f1(3 * u)}' y='${f1(3 * u)}' width='${f1(w - 6 * u)}' height='${f1(tb)}' fill='url(#${uid}-titulo)'/>` +
+    `<text x='${f1(7 * u)}' y='${f1(3 * u + tb * 0.72)}' font-family='${font}' font-weight='700' font-size='${f1(tb * 0.62)}' fill='#fff'>Erro</text>` +
+    // o X de fechar
+    `<rect x='${f1(w - 3 * u - tb * 0.9)}' y='${f1(3 * u + tb * 0.12)}' width='${f1(tb * 0.8)}' height='${f1(tb * 0.76)}' fill='#d4d0c8'/>` +
+    bevel(w - 3 * u - tb * 0.9, 3 * u + tb * 0.12, tb * 0.8, tb * 0.76) +
+    `<path d='M${f1(w - 3 * u - tb * 0.72)} ${f1(3 * u + tb * 0.3)}l${f1(tb * 0.44)} ${f1(tb * 0.4)}m0 ${f1(-tb * 0.4)}l${f1(-tb * 0.44)} ${f1(tb * 0.4)}' stroke='#000' stroke-width='${f1(1.4 * u)}'/>` +
+    // o ícone de erro: o círculo vermelho com o X branco
+    `<circle cx='${f1(w * 0.14)}' cy='${f1(h * 0.5)}' r='${f1(h * 0.15)}' fill='#d81e1e' stroke='#7a0d0d' stroke-width='${f1(0.8 * u)}'/>` +
+    `<path d='M${f1(w * 0.14 - h * 0.065)} ${f1(h * 0.435)}l${f1(h * 0.13)} ${f1(h * 0.13)}m0 ${f1(-h * 0.13)}l${f1(-h * 0.13)} ${f1(h * 0.13)}' stroke='#fff' stroke-width='${f1(2.2 * u)}' stroke-linecap='round'/>` +
+    `<g font-family='${font}' font-size='${f1(h * 0.115)}' fill='#000'><text x='${f1(w * 0.27)}' y='${f1(h * 0.46)}'>${l1}</text><text x='${f1(w * 0.27)}' y='${f1(h * 0.6)}'>${l2}</text></g>` +
+    // o botão de OK, com o pontilhado do foco
+    `<rect x='${f1(ok.x)}' y='${f1(ok.y)}' width='${f1(ok.w)}' height='${f1(ok.h)}' fill='#d4d0c8' stroke='#000' stroke-width='${f1(0.8 * u)}'/>` +
+    bevel(ok.x + 0.8 * u, ok.y + 0.8 * u, ok.w - 1.6 * u, ok.h - 1.6 * u) +
+    `<rect x='${f1(ok.x + 3 * u)}' y='${f1(ok.y + 2.6 * u)}' width='${f1(ok.w - 6 * u)}' height='${f1(ok.h - 5.2 * u)}' fill='none' stroke='#000' stroke-width='${f1(0.5 * u)}' stroke-dasharray='${f1(0.8 * u)} ${f1(0.8 * u)}'/>` +
+    `<text x='${f1(ok.x + ok.w / 2)}' y='${f1(ok.y + ok.h * 0.7)}' text-anchor='middle' font-family='${font}' font-size='${f1(h * 0.11)}' fill='#000'>OK</text>` +
+    cur(ok.x + ok.w * 0.62, ok.y + ok.h * 0.45, 0.85 * u) +
+    `</g>`;
 }

@@ -801,105 +801,153 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
       return g(strings, 1.3, 0.95) + g(flags, 1.3, 0.95);
     }
     case 'gotica': {
-      // o portal de igreja gótica: uma coluna de cada lado (feixe de fustes, capitel e base), e por cima
-      // delas o arco ogival em ponta, de linha dupla, com os ganchinhos de pedra (crochets) por fora;
-      // um pináculo sobre cada coluna, uma rosácea em cada canto de cima e, no rodapé, a arcada de arquinhos
+      // o portal de igreja gótica, em tríptico como as fachadas e os altares: quatro colunas (feixe de
+      // fustes, capitel e base) e, por cima delas, um arco ogival alto no meio e um mais baixo de cada lado,
+      // todos de ponta firme. O do meio tem duas arquivoltas com as aduelas marcadas, os ganchinhos de pedra
+      // (crochets) por fora e a cruz na ponta; os pináculos sobem das colunas, uma rosácea fica em cima de
+      // cada arco do lado e, no rodapé, corre a arcada de arquinhos
       const q = Math.max(0.4, k);
       const wob = 0.8 * k,
         seg = 30 * q;
       const line = (a: Pt, b: Pt) => `<path d='${smooth(handLine(a, b, r, wob, seg))}'/>`;
       const m = (6 + r() * 2) * q; // a beirada de fora das colunas
       const cw = (11 + r() * 3) * q; // a largura da coluna
-      const ys = H * (0.3 + r() * 0.08); // onde o arco nasce (a altura dos capitéis)
-      const ya = (5 + r() * 2) * q; // a ponta do arco
+      const ya = (17 + r() * 3) * q; // a ponta do arco do meio, com lugar para a cruz por cima
       const foot = (14 + r() * 4) * q; // a altura do rodapé
       const band = (6.5 + r() * 1.5) * q; // a espessura do arco
+      const xL = m + cw / 2,
+        xi = W * (0.26 + r() * 0.03); // o meio das colunas de dentro
+      const hc = W / 2 - xi,
+        hs = (xi - xL) / 2;
+      // os arcos nascem baixo o bastante para o do meio subir pontudo (a ficha é deitada)
+      const ys = clamp(ya + 1.35 * hc, H * 0.45, H * 0.7);
+      const ysa = Math.max(ya + 18 * q, ys - 1.45 * hs); // a ponta dos arcos do lado
       let cols = '',
         arch = '',
         orn = '';
-      // as colunas: dois fustes e o filete do meio, o capitel em degraus e a base
-      for (const right of [false, true]) {
-        const x0 = right ? W - m - cw : m,
-          x1 = x0 + cw;
+      /** Uma coluna: dois fustes e o filete do meio, o capitel em degraus com duas folhinhas e a base. */
+      const column = (x0: number, x1: number) => {
         const top = ys + 4 * q,
           bot = H - foot - 4 * q;
-        cols += line([x0, top], [x0, bot]) + line([x1, top], [x1, bot]);
-        cols += `<path class='h' d='M${f1((x0 + x1) / 2)} ${f1(top + 3 * q)}V${f1(bot - 3 * q)}'/>`;
-        // o capitel: um bloco que alarga, com duas folhinhas
-        cols += `<path d='M${f1(x0 - 2 * q)} ${f1(top)}H${f1(x1 + 2 * q)}L${f1(x1 + 3.5 * q)} ${f1(ys)}H${f1(x0 - 3.5 * q)}Z'/>`;
-        cols += `<path class='h' d='M${f1(x0 + 1.5 * q)} ${f1(top)}q${f1(1.5 * q)} ${f1(-3 * q)} ${f1(3.5 * q)} 0M${f1(x1 - 1.5 * q)} ${f1(top)}q${f1(-1.5 * q)} ${f1(-3 * q)} ${f1(-3.5 * q)} 0'/>`;
-        // a base: dois degraus
-        cols += `<path d='M${f1(x0 - 2 * q)} ${f1(bot)}H${f1(x1 + 2 * q)}V${f1(bot + 2.5 * q)}H${f1(x0 - 2 * q)}ZM${f1(x0 - 3.5 * q)} ${f1(bot + 2.5 * q)}H${f1(x1 + 3.5 * q)}V${f1(bot + 4.5 * q)}H${f1(x0 - 3.5 * q)}Z'/>`;
-        // o pináculo: uma torrezinha pontuda em cima do capitel, com crochets e a florzinha na ponta
+        let s = line([x0, top], [x0, bot]) + line([x1, top], [x1, bot]);
+        s += `<path class='h' d='M${f1((x0 + x1) / 2)} ${f1(top + 3 * q)}V${f1(bot - 3 * q)}'/>`;
+        s += `<path d='M${f1(x0 - 2 * q)} ${f1(top)}H${f1(x1 + 2 * q)}L${f1(x1 + 3.5 * q)} ${f1(ys)}H${f1(x0 - 3.5 * q)}Z'/>`;
+        s += `<path class='h' d='M${f1(x0 + 1.5 * q)} ${f1(top)}q${f1(1.5 * q)} ${f1(-3 * q)} ${f1(3.5 * q)} 0M${f1(x1 - 1.5 * q)} ${f1(top)}q${f1(-1.5 * q)} ${f1(-3 * q)} ${f1(-3.5 * q)} 0'/>`;
+        s += `<path d='M${f1(x0 - 2 * q)} ${f1(bot)}H${f1(x1 + 2 * q)}V${f1(bot + 2.5 * q)}H${f1(x0 - 2 * q)}ZM${f1(x0 - 3.5 * q)} ${f1(bot + 2.5 * q)}H${f1(x1 + 3.5 * q)}V${f1(bot + 4.5 * q)}H${f1(x0 - 3.5 * q)}Z'/>`;
+        return s;
+      };
+      /** Um pináculo: a torrezinha pontuda em cima do capitel, com crochets e a florzinha na ponta. */
+      const pinnacle = (x0: number, x1: number, tip: number) => {
         const px = (x0 + x1) / 2,
-          pb = ys - 1,
-          pt = Math.max(ya + 2 * q, ys - Math.min(ys * 0.75, 46 * q));
-        orn += `<path d='M${f1(x0 + 1.5 * q)} ${f1(pb)}L${f1(px)} ${f1(pt)}L${f1(x1 - 1.5 * q)} ${f1(pb)}'/>`;
+          pb = ys - 1;
+        let s = `<path d='M${f1(x0 + 1.5 * q)} ${f1(pb)}L${f1(px)} ${f1(tip)}L${f1(x1 - 1.5 * q)} ${f1(pb)}'/>`;
         for (let i = 1; i < 4; i++) {
           const t = i / 4,
-            yy = pb + (pt - pb) * t,
-            hw = (cw / 2 - 1.5 * q) * (1 - t);
-          orn += `<path class='h' d='M${f1(px - hw)} ${f1(yy)}q${f1(-2.4 * q)} ${f1(-0.4 * q)} ${f1(-2.6 * q)} ${f1(-2.6 * q)}M${f1(px + hw)} ${f1(yy)}q${f1(2.4 * q)} ${f1(-0.4 * q)} ${f1(2.6 * q)} ${f1(-2.6 * q)}'/>`;
+            yy = pb + (tip - pb) * t,
+            hw = ((x1 - x0) / 2 - 1.5 * q) * (1 - t);
+          s += `<path class='h' d='M${f1(px - hw)} ${f1(yy)}q${f1(-2.4 * q)} ${f1(-0.4 * q)} ${f1(-2.6 * q)} ${f1(-2.6 * q)}M${f1(px + hw)} ${f1(yy)}q${f1(2.4 * q)} ${f1(-0.4 * q)} ${f1(2.6 * q)} ${f1(-2.6 * q)}'/>`;
         }
-        orn += `<circle class='f' cx='${f1(px)}' cy='${f1(pt - 1.6 * q)}' r='${f1(1.5 * q)}'/>`;
-      }
-      // o arco ogival: de capitel a capitel, subindo reto, abrindo e fechando em ponta no meio de cima
-      const xL = m + cw / 2,
-        xR = W - m - cw / 2;
-      const half = (x0: number, dir: 1 | -1, inset: number): Pt[] => {
-        const sx = x0 + dir * inset,
-          sy = ys,
-          ex = W / 2,
-          ey = ya + inset;
-        const c1: Pt = [sx, sy - (sy - ey) * 0.85],
-          c2: Pt = [ex - dir * (ex - sx) * 0.42, ey + (sy - ey) * 0.08];
-        const pts: Pt[] = [];
-        for (let i = 0; i <= 24; i++) {
-          const t = i / 24,
-            u = 1 - t;
-          pts.push([
-            u * u * u * sx + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * ex,
-            u * u * u * sy + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * ey,
-          ]);
-        }
-        return pts;
+        return s + `<circle class='f' cx='${f1(px)}' cy='${f1(tip - 1.6 * q)}' r='${f1(1.5 * q)}'/>`;
       };
-      for (const inset of [0, band]) {
-        const lft = half(xL, 1, inset),
-          rgt = half(xR, -1, inset);
-        arch += `<path d='${smooth(lft)}'/><path d='${smooth(rgt)}'/>`;
+      const cwi = cw * 0.75;
+      for (const right of [false, true]) {
+        const x0 = right ? W - m - cw : m;
+        cols += column(x0, x0 + cw);
+        orn += pinnacle(x0, x0 + cw, Math.max(ya + 2 * q, ys - Math.min(ys * 0.75, 46 * q)));
+        const c = right ? W - xi : xi;
+        cols += column(c - cwi / 2, c + cwi / 2);
+        // o de dentro sobe entre o arco do meio e o do lado, até a altura da ponta do lado
+        orn += pinnacle(c - cwi / 2, c + cwi / 2, Math.max(ya + 4 * q, ysa + 4 * q));
       }
-      // os crochets: ganchinhos de folha subindo pelo lado de fora do arco
-      for (const [x0, dir] of [
-        [xL, 1],
-        [xR, -1],
+      /**
+       * Meio arco ogival, do capitel (`sx`) até a ponta (`ex`, `ey`). Alto o bastante, é o arco de dois
+       * centros das igrejas: um arco de círculo só, que sai do capitel em pé e encontra o outro em bico.
+       * Baixo demais para isso, ganha um ombro mais fechado e uma curva mais aberta até a ponta (quatro centros).
+       */
+      const ogive = (sx: number, ex: number, ey: number, dir: 1 | -1): Pt[] => {
+        const h = Math.abs(ex - sx),
+          v = ys - ey;
+        const local: Pt[] = [];
+        if (v >= h) {
+          const R = (h * h + v * v) / (2 * h);
+          const end = Math.acos((h - R) / R);
+          for (let i = 0; i <= 24; i++) {
+            const th = Math.PI + ((end - Math.PI) * i) / 24;
+            local.push([R + R * Math.cos(th), R * Math.sin(th)]);
+          }
+        } else {
+          const al = (10 * Math.PI) / 180,
+            be = (50 * Math.PI) / 180;
+          const a11 = 1 - Math.sin(be),
+            a12 = Math.sin(be) - Math.sin(al),
+            a21 = Math.cos(be),
+            a22 = Math.cos(al) - Math.cos(be);
+          const det = a11 * a22 - a12 * a21;
+          const R1 = (h * a22 - a12 * v) / det,
+            R2 = (a11 * v - a21 * h) / det;
+          if (R1 > 0 && R2 > 0) {
+            const tb = be + Math.PI / 2,
+              ta = al + Math.PI / 2;
+            for (let i = 0; i <= 10; i++) {
+              const th = Math.PI + ((tb - Math.PI) * i) / 10;
+              local.push([R1 + R1 * Math.cos(th), R1 * Math.sin(th)]);
+            }
+            const c2: Pt = [R1 + (R1 - R2) * Math.cos(tb), (R1 - R2) * Math.sin(tb)];
+            for (let i = 1; i <= 14; i++) {
+              const th = tb + ((ta - tb) * i) / 14;
+              local.push([c2[0] + R2 * Math.cos(th), c2[1] + R2 * Math.sin(th)]);
+            }
+          } else for (let i = 0; i <= 24; i++) local.push([h * (1 - Math.cos((i / 24) * (Math.PI / 2))), v * Math.sin((i / 24) * (Math.PI / 2))]);
+        }
+        const pts = local.map(([x, y]): Pt => [sx + dir * x, ys - y]);
+        return resample(pts, Math.max(1, lengths(pts)[pts.length - 1] / 24)).slice(0, 25);
+      };
+      /** Um arco inteiro entre dois capitéis, de ponta em `ey`: as duas metades, de fora e de dentro. */
+      const pointed = (a: number, b: number, ey: number, inset: number) => {
+        const mid = (a + b) / 2;
+        return [ogive(a + inset, mid, ey + inset, 1), ogive(b - inset, mid, ey + inset, -1)];
+      };
+      // o do meio: duas arquivoltas, as aduelas riscadas de uma à outra e os crochets por fora
+      const outer = pointed(xi, W - xi, ya, 0),
+        inner = pointed(xi, W - xi, ya, band);
+      for (const pts of [...outer, ...inner]) arch += `<path d='${smooth(pts)}'/>`;
+      for (const s of [0, 1])
+        for (let i = 3; i < Math.min(outer[s].length, inner[s].length) - 1; i += 3)
+          arch += `<path class='h' d='M${pt(outer[s][i])}L${pt(inner[s][i])}'/>`;
+      for (const [pts, o] of [
+        [outer[0], 1],
+        [outer[1], -1],
       ] as const) {
-        const pts = half(x0, dir, 0);
-        for (let i = 5; i < 22; i += 3) {
+        for (let i = 5; i < pts.length - 2; i += 3) {
           const [x, y] = pts[i],
             [x2, y2] = pts[i + 1];
           const l = Math.hypot(x2 - x, y2 - y) || 1;
           const nx = (y2 - y) / l,
             ny = -(x2 - x) / l;
-          const o = dir === 1 ? 1 : -1;
           orn += `<path class='h' d='M${f1(x)} ${f1(y)}q${f1(nx * o * 4 * q + (x2 - x) / l * 1.5 * q)} ${f1(ny * o * 4 * q + (y2 - y) / l * 1.5 * q)} ${f1(nx * o * 3 * q + (x2 - x) / l * 4 * q)} ${f1(ny * o * 3 * q + (y2 - y) / l * 4 * q)}'/>`;
         }
       }
-      // a ponta do arco: um trevo (o florão), cortado pela beirada se não couber
-      const fx = W / 2,
-        fy = ya;
-      orn += `<circle cx='${f1(fx)}' cy='${f1(fy - 3 * q)}' r='${f1(2.2 * q)}'/><circle cx='${f1(fx - 3 * q)}' cy='${f1(fy - 0.5 * q)}' r='${f1(2 * q)}'/><circle cx='${f1(fx + 3 * q)}' cy='${f1(fy - 0.5 * q)}' r='${f1(2 * q)}'/>`;
-      // as rosáceas nos cantos de cima, entre o arco e a beirada
+      // na ponta do meio, a cruz de pedra sobre um botão
+      const ch = Math.min(ya - 2 * q, 12 * q);
+      orn += `<path d='M${f1(W / 2)} ${f1(ya)}V${f1(ya - ch)}M${f1(W / 2 - ch * 0.3)} ${f1(ya - ch * 0.68)}H${f1(W / 2 + ch * 0.3)}'/>`;
+      orn += `<circle class='f' cx='${f1(W / 2)}' cy='${f1(ya - 0.4 * q)}' r='${f1(1.6 * q)}'/>`;
+      // os dois do lado: mais baixos, de arquivolta fina, com um botão na ponta e a rosácea por cima
       for (const right of [false, true]) {
-        const R = Math.min(ys * 0.32, 13 * q);
-        const rx = right ? W - m - R * 0.9 - 2 * q : m + R * 0.9 + 2 * q,
-          ry = m + R * 0.9 + 1 * q;
-        orn += `<circle cx='${f1(rx)}' cy='${f1(ry)}' r='${f1(R)}'/><circle cx='${f1(rx)}' cy='${f1(ry)}' r='${f1(R * 0.3)}'/>`;
-        for (let i = 0; i < 8; i++) {
-          const a = (i / 8) * Math.PI * 2;
-          orn += `<path class='h' d='M${f1(rx + Math.cos(a) * R * 0.3)} ${f1(ry + Math.sin(a) * R * 0.3)}L${f1(rx + Math.cos(a) * R)} ${f1(ry + Math.sin(a) * R)}'/>`;
-          const b = a + Math.PI / 8;
-          orn += `<circle cx='${f1(rx + Math.cos(b) * R * 0.68)}' cy='${f1(ry + Math.sin(b) * R * 0.68)}' r='${f1(R * 0.2)}' class='h'/>`;
+        const a = right ? W - xi : xL,
+          b = right ? W - xL : xi;
+        for (const pts of [...pointed(a, b, ysa, 0), ...pointed(a, b, ysa, band * 0.6)]) arch += `<path d='${smooth(pts)}'/>`;
+        const cx = (a + b) / 2;
+        orn += `<circle class='f' cx='${f1(cx)}' cy='${f1(ysa - 2 * q)}' r='${f1(1.4 * q)}'/>`;
+        const R = Math.min((ysa - m) * 0.36, hs * 0.72);
+        if (R < 5 * q) continue;
+        const ry = (m + ysa - 4 * q) / 2;
+        orn += `<circle cx='${f1(cx)}' cy='${f1(ry)}' r='${f1(R)}'/><circle cx='${f1(cx)}' cy='${f1(ry)}' r='${f1(R * 0.84)}' class='h'/><circle cx='${f1(cx)}' cy='${f1(ry)}' r='${f1(R * 0.26)}'/>`;
+        const spokes = R > 18 * q ? 12 : 8;
+        for (let i = 0; i < spokes; i++) {
+          const t = (i / spokes) * Math.PI * 2;
+          orn += `<path class='h' d='M${f1(cx + Math.cos(t) * R * 0.26)} ${f1(ry + Math.sin(t) * R * 0.26)}L${f1(cx + Math.cos(t) * R * 0.84)} ${f1(ry + Math.sin(t) * R * 0.84)}'/>`;
+          const u = t + Math.PI / spokes;
+          orn += `<circle cx='${f1(cx + Math.cos(u) * R * 0.6)}' cy='${f1(ry + Math.sin(u) * R * 0.6)}' r='${f1(R * (spokes === 12 ? 0.13 : 0.18))}' class='h'/>`;
         }
       }
       // o rodapé: o friso de cima e de baixo e a arcada de arquinhos pontudos entre as colunas
@@ -1346,6 +1394,372 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
         body += `<g transform='translate(0 ${f1(bottom ? H - flat * 0.34 : flat * 0.34)}) rotate(-90) scale(-1 1)'>${tribalWeave(r, W, flat, q * 0.7, 0)}</g>`;
       // o lápis bem apertado: a trama só lê se o traço for firme; sem o filtro de teia, que apagaria o fio fino
       return g(body.replace(/<path /g, "<path class='f' "), 1, 1.5);
+    }
+    case 'pixelart': {
+      // a moldura de jogo de 8 bits: uma fileira de bloquinhos correndo pelas quatro beiradas (um ou outro
+      // pintado), e nos cantos livres uns sprites de pixel a lápis: corações de vida, moeda, espada, poção, chave
+      const q = Math.max(0.4, k);
+      const m = (5 + r() * 2) * q;
+      const c = (6.5 + r() * 1.5) * q,
+        gap = 1.4 * q;
+      let blocks = '';
+      const run = (x0: number, y0: number, len: number, vertical: boolean) => {
+        const n = Math.max(1, Math.round((len + gap) / (c + gap)));
+        const step = (len - c) / Math.max(1, n - 1);
+        const every = 3 + Math.floor(r() * 3);
+        for (let i = 0; i < n; i++) {
+          const x = vertical ? x0 : x0 + i * step,
+            y = vertical ? y0 + i * step : y0;
+          const jx = (r() - 0.5) * 0.5 * q,
+            jy = (r() - 0.5) * 0.5 * q;
+          blocks += `<rect${i % every === 0 ? " class='f'" : ''} x='${f1(x + jx)}' y='${f1(y + jy)}' width='${f1(c)}' height='${f1(c)}'/>`;
+        }
+      };
+      run(m, m, W - 2 * m, false);
+      run(m, H - m - c, W - 2 * m, false);
+      const inner = H - 2 * m - 2 * (c + gap);
+      if (inner > c) {
+        run(m, m + c + gap, inner, true);
+        run(W - m - c, m + c + gap, inner, true);
+      }
+      // os sprites: cada um um mapa de pixels; o contorno passa só onde o pixel cheio encosta no vazio
+      const SPRITES: Record<string, string[]> = {
+        coracao: ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'],
+        moeda: ['..###..', '.#...#.', '#..#..#', '#..#..#', '#..#..#', '.#...#.', '..###..'],
+        espada: ['......##', '.....###', '....###.', '#..###..', '.####...', '..##....', '.#.#....', '#.......'],
+        pocao: ['..###..', '...#...', '..###..', '.#####.', '#######', '#######', '.#####.'],
+        chave: ['.###.....', '#...#####', '#...#.#.#', '.###.....'],
+        estrela: ['...#...', '..###..', '#######', '.#####.', '..###..', '.##.##.', '##...##'],
+      };
+      const sprite = (rows: string[], x0: number, y0: number, cell: number) => {
+        let fill = '',
+          edge = '';
+        const on = (i: number, j: number) => j >= 0 && j < rows.length && i >= 0 && rows[j][i] === '#';
+        rows.forEach((row, j) =>
+          [...row].forEach((ch, i) => {
+            if (ch !== '#') return;
+            const x = x0 + i * cell,
+              y = y0 + j * cell;
+            fill += `M${f1(x)} ${f1(y)}h${f1(cell)}v${f1(cell)}h${f1(-cell)}Z`;
+            if (!on(i, j - 1)) edge += `M${f1(x)} ${f1(y)}h${f1(cell)}`;
+            if (!on(i, j + 1)) edge += `M${f1(x)} ${f1(y + cell)}h${f1(cell)}`;
+            if (!on(i - 1, j)) edge += `M${f1(x)} ${f1(y)}v${f1(cell)}`;
+            if (!on(i + 1, j)) edge += `M${f1(x + cell)} ${f1(y)}v${f1(cell)}`;
+          }),
+        );
+        return `<path class='f' d='${fill}'/><path d='${edge}'/>`;
+      };
+      const cell = 2.6 * q;
+      const names = Object.keys(SPRITES);
+      const pick = () => names.splice(Math.floor(r() * names.length), 1)[0];
+      let sprites = '';
+      // em cima à direita, a vida: três corações, o último vazio
+      const lives = 3;
+      for (let i = 0; i < lives; i++) {
+        const rows = i === lives - 1 ? SPRITES['coracao'].map((row, j) => (j === 0 || j === 5 ? row : row.replace(/^(\.*#)(#+)(#\.*)$/, (_a, b, mid, e) => b + '.'.repeat(mid.length) + e))) : SPRITES['coracao'];
+        sprites += sprite(rows, W - m - c - 5 * q - (lives - i) * 8.6 * cell / 1, m + c + 5 * q, cell);
+      }
+      names.splice(names.indexOf('coracao'), 1);
+      // embaixo, um em cada canto de dentro
+      const a = SPRITES[pick()],
+        b = SPRITES[pick()];
+      sprites += sprite(a, m + c + 6 * q, H - m - c - 6 * q - a.length * cell, cell);
+      sprites += sprite(b, W - m - c - 6 * q - b[0].length * cell, H - m - c - 6 * q - b.length * cell, cell);
+      return g(blocks, 1.1, 0.9) + g(sprites, 0.9, 1);
+    }
+    case 'janela': {
+      // a ficha virou uma janela de computador antigo: a barra de título com o ícone e os botões de
+      // minimizar, maximizar e fechar, a barra de rolagem do lado, a barra de carregando embaixo e o
+      // cursor (a setinha ou a ampulheta) parado em algum canto
+      const q = Math.max(0.4, k);
+      const wob = 0.7 * k,
+        seg = 34 * q;
+      const line = (a: Pt, b: Pt, cls = '') => `<path${cls ? ` class='${cls}'` : ''} d='${smooth(handLine(a, b, r, wob, seg))}'/>`;
+      const m = (5 + r() * 2) * q;
+      const tb = (15 + r() * 3) * q; // a altura da barra de título
+      const sb = (11 + r() * 2) * q; // a largura da barra de rolagem
+      const st = (12 + r() * 2) * q; // a altura da barra de baixo
+      const x0 = m,
+        y0 = m,
+        x1 = W - m,
+        y1 = H - m;
+      let frame = line([x0, y0], [x1, y0]) + line([x1, y0], [x1, y1]) + line([x1, y1], [x0, y1]) + line([x0, y1], [x0, y0]);
+      frame += line([x0, y0 + tb], [x1, y0 + tb]);
+      // a sombra de relevo dos sistemas antigos: uma segunda linha por dentro, só embaixo e à direita
+      frame += line([x0 + 2 * q, y1 - 2 * q], [x1 - 2 * q, y1 - 2 * q], 'h') + line([x1 - 2 * q, y0 + 2 * q], [x1 - 2 * q, y1 - 2 * q], 'h');
+      let bits = '';
+      // os botões: três quadradinhos à direita, com o traço, o quadrado e o X
+      const bs = tb - 6 * q,
+        by = y0 + 3 * q;
+      for (let i = 0; i < 3; i++) {
+        const bx = x1 - 4 * q - (3 - i) * (bs + 2 * q);
+        bits += `<rect x='${f1(bx)}' y='${f1(by)}' width='${f1(bs)}' height='${f1(bs)}'/>`;
+        const p = bs * 0.28;
+        if (i === 0) bits += `<path d='M${f1(bx + p)} ${f1(by + bs - p)}H${f1(bx + bs - p)}'/>`;
+        else if (i === 1) bits += `<path d='M${f1(bx + p)} ${f1(by + p)}H${f1(bx + bs - p)}V${f1(by + bs - p)}H${f1(bx + p)}Z'/>`;
+        else bits += `<path d='M${f1(bx + p)} ${f1(by + p)}L${f1(bx + bs - p)} ${f1(by + bs - p)}M${f1(bx + bs - p)} ${f1(by + p)}L${f1(bx + p)} ${f1(by + bs - p)}'/>`;
+      }
+      // o ícone e o título rabiscado, depois da foto (que cobre o canto de cima à esquerda)
+      const tx = W * (0.34 + r() * 0.06);
+      bits += `<rect class='f' x='${f1(tx)}' y='${f1(by)}' width='${f1(bs)}' height='${f1(bs)}'/>`;
+      let squig = '';
+      const tl = W * (0.18 + r() * 0.08);
+      for (let x = tx + bs + 4 * q, i = 0; x < tx + bs + 4 * q + tl; x += 3 * q, i++) squig += `${i ? 'L' : 'M'}${f1(x)} ${f1(by + bs / 2 + (i % 2 ? -1.4 : 1.4) * q)}`;
+      bits += `<path class='h' d='${squig}'/>`;
+      // a barra de rolagem: o trilho, as setinhas das pontas e o polegar
+      const sx = x1 - 2 * q - sb,
+        sy0 = y0 + tb,
+        sy1 = y1 - st - 2 * q;
+      bits += line([sx, sy0], [sx, sy1]) + line([sx, sy1], [x1 - 2 * q, sy1]);
+      bits += `<path d='M${f1(sx)} ${f1(sy0 + sb)}H${f1(sx + sb)}M${f1(sx)} ${f1(sy1 - sb)}H${f1(sx + sb)}'/>`;
+      bits += `<path class='f' d='M${f1(sx + sb / 2)} ${f1(sy0 + sb * 0.3)}L${f1(sx + sb * 0.72)} ${f1(sy0 + sb * 0.68)}H${f1(sx + sb * 0.28)}ZM${f1(sx + sb / 2)} ${f1(sy1 - sb * 0.3)}L${f1(sx + sb * 0.72)} ${f1(sy1 - sb * 0.68)}H${f1(sx + sb * 0.28)}Z'/>`;
+      const track = sy1 - sy0 - 2 * sb;
+      if (track > 12 * q) {
+        const th = Math.max(10 * q, track * (0.2 + r() * 0.2)),
+          ty = sy0 + sb + (track - th) * r();
+        bits += `<rect x='${f1(sx + 2 * q)}' y='${f1(ty)}' width='${f1(sb - 4 * q)}' height='${f1(th)}'/><path class='h' d='M${f1(sx + 4 * q)} ${f1(ty + th / 2 - 2 * q)}h${f1(sb - 8 * q)}M${f1(sx + 4 * q)} ${f1(ty + th / 2)}h${f1(sb - 8 * q)}M${f1(sx + 4 * q)} ${f1(ty + th / 2 + 2 * q)}h${f1(sb - 8 * q)}'/>`;
+      }
+      // a barra de baixo: o carregando em gomos, uns cheios
+      const yb = y1 - st - 2 * q;
+      bits += line([x0, yb], [sx, yb], 'h');
+      const segs = Math.max(6, Math.round((W * 0.3) / (7 * q)));
+      const done = Math.floor(segs * (0.25 + r() * 0.6));
+      const gw = 5 * q,
+        gh = st - 6 * q,
+        gx = x0 + 6 * q;
+      bits += `<rect x='${f1(gx - 1.5 * q)}' y='${f1(yb + 1.5 * q)}' width='${f1(segs * (gw + 1.6 * q) + 1.4 * q)}' height='${f1(gh + 3 * q)}'/>`;
+      for (let i = 0; i < done; i++) bits += `<rect class='f' x='${f1(gx + i * (gw + 1.6 * q))}' y='${f1(yb + 3 * q)}' width='${f1(gw)}' height='${f1(gh)}'/>`;
+      // o cursor, num canto de baixo, perto da rolagem
+      const cx = W * (0.62 + r() * 0.18),
+        cy = H * (0.62 + r() * 0.12),
+        cs = 1.15 * q;
+      const arrow = (x: number, y: number) =>
+        `<path class='f' d='M${f1(x)} ${f1(y)}v${f1(17 * cs)}l${f1(4 * cs)} ${f1(-3.6 * cs)}l${f1(2.8 * cs)} ${f1(6 * cs)}l${f1(2.8 * cs)} ${f1(-1.3 * cs)}l${f1(-2.8 * cs)} ${f1(-5.8 * cs)}h${f1(5.6 * cs)}Z'/><path d='M${f1(x)} ${f1(y)}v${f1(17 * cs)}l${f1(4 * cs)} ${f1(-3.6 * cs)}l${f1(2.8 * cs)} ${f1(6 * cs)}l${f1(2.8 * cs)} ${f1(-1.3 * cs)}l${f1(-2.8 * cs)} ${f1(-5.8 * cs)}h${f1(5.6 * cs)}Z'/>`;
+      const hourglass = (x: number, y: number) =>
+        `<path d='M${f1(x)} ${f1(y)}h${f1(12 * cs)}M${f1(x)} ${f1(y + 18 * cs)}h${f1(12 * cs)}M${f1(x + 1.5 * cs)} ${f1(y)}C${f1(x + 1.5 * cs)} ${f1(y + 6 * cs)} ${f1(x + 5 * cs)} ${f1(y + 7 * cs)} ${f1(x + 5 * cs)} ${f1(y + 9 * cs)}C${f1(x + 5 * cs)} ${f1(y + 11 * cs)} ${f1(x + 1.5 * cs)} ${f1(y + 12 * cs)} ${f1(x + 1.5 * cs)} ${f1(y + 18 * cs)}M${f1(x + 10.5 * cs)} ${f1(y)}C${f1(x + 10.5 * cs)} ${f1(y + 6 * cs)} ${f1(x + 7 * cs)} ${f1(y + 7 * cs)} ${f1(x + 7 * cs)} ${f1(y + 9 * cs)}C${f1(x + 7 * cs)} ${f1(y + 11 * cs)} ${f1(x + 10.5 * cs)} ${f1(y + 12 * cs)} ${f1(x + 10.5 * cs)} ${f1(y + 18 * cs)}'/><path class='f' d='M${f1(x + 2.6 * cs)} ${f1(y + 17 * cs)}Q${f1(x + 6 * cs)} ${f1(y + 12 * cs)} ${f1(x + 9.4 * cs)} ${f1(y + 17 * cs)}Z'/>`;
+      bits += r() < 0.65 ? arrow(cx, cy) : hourglass(cx, cy);
+      return g(frame, 1.3, 0.95) + g(bits, 1, 0.95);
+    }
+    case 'circuito': {
+      // a placa de circuito: trilhas de cobre entrando pelas beiradas em feixes, dobrando a 45° e
+      // terminando em ilhas de solda; um chip ou dois nos cantos, com as perninhas ligadas, e furinhos soltos
+      const q = Math.max(0.4, k);
+      const pitch = (5 + r() * 1.5) * q;
+      let traces = '',
+        pads = '';
+      const pad = (x: number, y: number) => {
+        pads += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(2.6 * q)}'/><circle class='f' cx='${f1(x)}' cy='${f1(y)}' r='${f1(1 * q)}'/>`;
+      };
+      /**
+       * Um feixe de `n` trilhas paralelas saindo da beirada no ponto `at` (px ao longo dela), entrando
+       * `inA` px, dobrando a 45° para um lado e correndo junto da beirada. Cada uma acaba numa ilha.
+       */
+      const bundle = (side: 0 | 1 | 2 | 3, at: number, n: number, dir: 1 | -1) => {
+        const inA = (8 + r() * 18) * q,
+          run = (14 + r() * 40) * q;
+        for (let i = 0; i < n; i++) {
+          // na beirada (u ao longo, v para dentro), as de fora dobram mais longe: o feixe fica paralelo
+          const u0 = at + i * pitch * dir,
+            v1 = inA + (n - 1 - i) * pitch * 0.42,
+            u2 = u0 + dir * (v1 * 0.9),
+            v2 = v1 + v1 * 0.9 * 0.6,
+            u3 = u2 + dir * (run - i * pitch * 0.6);
+          const map = (u: number, v: number): Pt => (side === 0 ? [u, v] : side === 1 ? [W - v, u] : side === 2 ? [u, H - v] : [v, u]);
+          const pts = [map(u0, -2), map(u0, v1), map(u2, v2), map(u3, v2)];
+          traces += `<path d='${poly(pts)}'/>`;
+          pad(...pts[3]);
+        }
+      };
+      // os feixes: dois ou três por beirada comprida, um ou dois nas curtas, longe das quinas
+      for (const side of [0, 1, 2, 3] as const) {
+        const len = side % 2 ? H : W;
+        const count = (side % 2 ? 1 : 2) + (r() < 0.5 ? 1 : 0);
+        for (let j = 0; j < count; j++) {
+          const at = len * ((j + 0.5) / count) + (r() - 0.5) * len * 0.14;
+          bundle(side, at, 2 + Math.floor(r() * 3), r() < 0.5 ? 1 : -1);
+        }
+      }
+      // os chips: um no canto de cima à direita e, às vezes, outro embaixo à esquerda
+      let chips = '';
+      const chip = (cx: number, cy: number, pins: number) => {
+        const pw = 3.6 * q,
+          w = pins * pw + 4 * q,
+          h = (13 + r() * 4) * q;
+        const x = cx - w / 2,
+          y = cy - h / 2;
+        chips += `<rect x='${f1(x)}' y='${f1(y)}' width='${f1(w)}' height='${f1(h)}' rx='${f1(1 * q)}'/><circle class='f' cx='${f1(x + 3 * q)}' cy='${f1(y + 3 * q)}' r='${f1(1 * q)}'/>`;
+        chips += `<path class='h' d='M${f1(x + w / 2 - 2 * q)} ${f1(y)}a${f1(2 * q)} ${f1(2 * q)} 0 0 0 ${f1(4 * q)} 0'/>`;
+        let legs = '';
+        for (let i = 0; i < pins; i++) {
+          const px = x + 2 * q + pw * (i + 0.5);
+          legs += `M${f1(px)} ${f1(y)}v${f1(-3.5 * q)}M${f1(px)} ${f1(y + h)}v${f1(3.5 * q)}`;
+          // umas perninhas seguem numa trilha curta até um furinho
+          if (r() < 0.35) {
+            const up = r() < 0.5;
+            const yy = up ? y - 3.5 * q : y + h + 3.5 * q,
+              l = (6 + r() * 10) * q;
+            traces += `<path d='M${f1(px)} ${f1(yy)}v${f1((up ? -1 : 1) * l)}l${f1((r() < 0.5 ? -1 : 1) * 4 * q)} ${f1((up ? -1 : 1) * 4 * q)}'/>`;
+          }
+        }
+        chips += `<path d='${legs}'/>`;
+      };
+      chip(W * (0.78 + r() * 0.08), H * (0.2 + r() * 0.06), 6 + Math.floor(r() * 3));
+      if (r() < 0.6) chip(W * (0.24 + r() * 0.1), H * (0.8 - r() * 0.06), 5 + Math.floor(r() * 3));
+      // os furinhos soltos (as vias)
+      for (let i = 0; i < 10; i++) {
+        const x = W * (0.06 + r() * 0.88),
+          y = H * (0.06 + r() * 0.88);
+        if (Math.abs(x - W / 2) < W * 0.25 && Math.abs(y - H / 2) < H * 0.25) continue;
+        pads += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(1.6 * q)}' class='h'/>`;
+      }
+      return g(traces, 1.4, 0.85) + g(pads + chips, 1, 0.95);
+    }
+    case 'blocos': {
+      // o jogo de encaixar blocos a lápis: as paredes do poço pelos lados, a pilha de peças embaixo
+      // (caídas de verdade, de cima, uma depois da outra) e uma peça caindo, com o risco do movimento
+      const q = Math.max(0.4, k);
+      const m = (5 + r() * 2) * q;
+      const c = (10 + r() * 2) * q;
+      const cols = Math.max(4, Math.floor((W - 2 * m) / c));
+      const x0 = (W - cols * c) / 2;
+      const bottom = H - m;
+      const PIECES = [
+        [[0, 0], [1, 0], [2, 0], [3, 0]],
+        [[0, 0], [1, 0], [0, 1], [1, 1]],
+        [[0, 0], [1, 0], [2, 0], [1, 1]],
+        [[0, 0], [0, 1], [1, 1], [2, 1]],
+        [[2, 0], [0, 1], [1, 1], [2, 1]],
+        [[1, 0], [2, 0], [0, 1], [1, 1]],
+        [[0, 0], [1, 0], [1, 1], [2, 1]],
+      ];
+      const rot = (p: number[][], t: number) => {
+        let s = p;
+        for (let i = 0; i < t; i++) s = s.map(([x, y]) => [-y, x]);
+        const mx = Math.min(...s.map((v) => v[0])),
+          my = Math.min(...s.map((v) => v[1]));
+        return s.map(([x, y]) => [x - mx, y - my]);
+      };
+      // a grade, de baixo para cima: cada casa guarda o número da peça
+      const maxRows = Math.max(2, Math.min(3, Math.floor((H * 0.3) / c)));
+      const grid: number[][] = Array.from({ length: maxRows + 4 }, () => Array(cols).fill(-1));
+      let id = 0;
+      // como quem joga: de umas jogadas sorteadas, a que deixa a pilha mais baixa
+      const tries = Math.round(cols * 1.3);
+      for (let t = 0; t < tries; t++) {
+        let best: { cells: number[][]; cx: number; cy: number; top: number } | null = null;
+        for (let c2 = 0; c2 < 4; c2++) {
+          const shape = rot(PIECES[Math.floor(r() * PIECES.length)], Math.floor(r() * 4));
+          // na peça o y cresce para baixo; na grade, para cima, a partir da fileira de baixo da peça
+          const h = Math.max(...shape.map((v) => v[1])) + 1,
+            wdt = Math.max(...shape.map((v) => v[0])) + 1;
+          const cells = shape.map(([x, y]) => [x, h - 1 - y]);
+          const cx = Math.floor(r() * (cols - wdt + 1));
+          const fits = (cy: number) => cells.every(([x, y]) => cy + y >= 0 && cy + y < grid.length && grid[cy + y][cx + x] < 0);
+          // cai de cima até encostar
+          let cy = grid.length - h;
+          if (!fits(cy)) continue;
+          while (cy > 0 && fits(cy - 1)) cy--;
+          const top = cy + h;
+          if (top > maxRows) continue;
+          if (!best || top < best.top) best = { cells, cx, cy, top };
+        }
+        if (!best) continue;
+        for (const [x, y] of best.cells) grid[best.cy + y][best.cx + x] = id;
+        id++;
+      }
+      // as linhas completas sumiriam: tira uma casa de cada uma, como no jogo de verdade
+      for (let y = 0; y < maxRows; y++) if (grid[y].every((v) => v >= 0)) grid[y][Math.floor(r() * cols)] = -1;
+      let outline = '',
+        seamsD = '',
+        fill = '';
+      const shaded = new Set<number>();
+      for (let i = 0; i < id; i++) if (r() < 0.35) shaded.add(i);
+      const X = (i: number) => x0 + i * c,
+        Y = (j: number) => bottom - j * c;
+      for (let j = 0; j < maxRows; j++)
+        for (let i = 0; i < cols; i++) {
+          const v = grid[j][i];
+          if (v < 0) continue;
+          const same = (a: number, b: number) => b >= 0 && b < maxRows && a >= 0 && a < cols && grid[b][a] === v;
+          const x = X(i),
+            y = Y(j + 1);
+          const side = (ok: boolean, d: string) => (ok ? (seamsD += d) : (outline += d));
+          side(same(i, j + 1), `M${f1(x)} ${f1(y)}h${f1(c)}`);
+          side(same(i, j - 1), `M${f1(x)} ${f1(y + c)}h${f1(c)}`);
+          side(same(i - 1, j), `M${f1(x)} ${f1(y)}v${f1(c)}`);
+          side(same(i + 1, j), `M${f1(x + c)} ${f1(y)}v${f1(c)}`);
+          // o brilho de cada bloquinho: um quadradinho de dentro
+          if (shaded.has(v)) fill += `M${f1(x + 2.2 * q)} ${f1(y + 2.2 * q)}h${f1(c - 4.4 * q)}v${f1(c - 4.4 * q)}h${f1(-c + 4.4 * q)}Z`;
+          else seamsD += `M${f1(x + c * 0.25)} ${f1(y + c * 0.62)}V${f1(y + c * 0.25)}H${f1(x + c * 0.62)}`;
+        }
+      // a peça caindo, no alto do lado direito, com os riscos do movimento por cima
+      const shape = rot(PIECES[Math.floor(r() * PIECES.length)], Math.floor(r() * 4));
+      const fx = x0 + Math.floor(cols * (0.62 + r() * 0.2)) * c,
+        fy = m + (16 + r() * 10) * q;
+      let falling = '';
+      const fset = new Set(shape.map(([x, y]) => `${x},${y}`));
+      for (const [x, y] of shape) {
+        const px = fx + x * c,
+          py = fy + y * c;
+        const has = (a: number, b: number) => fset.has(`${a},${b}`);
+        if (!has(x, y - 1)) falling += `M${f1(px)} ${f1(py)}h${f1(c)}`;
+        if (!has(x, y + 1)) falling += `M${f1(px)} ${f1(py + c)}h${f1(c)}`;
+        if (!has(x - 1, y)) falling += `M${f1(px)} ${f1(py)}v${f1(c)}`;
+        if (!has(x + 1, y)) falling += `M${f1(px + c)} ${f1(py)}v${f1(c)}`;
+      }
+      const tops = shape.filter(([x, y]) => !fset.has(`${x},${y - 1}`));
+      let trail = '';
+      for (const [x, y] of tops) trail += `M${f1(fx + (x + 0.5) * c)} ${f1(fy + y * c - 3 * q)}v${f1(-(6 + r() * 6) * q)}`;
+      // as paredes do poço: pelos lados, de cima a baixo
+      const wallTop = m + 3 * q;
+      const walls = `<path d='M${f1(x0 - 1.5 * q)} ${f1(wallTop)}V${f1(bottom + 1.5 * q)}H${f1(x0 + cols * c + 1.5 * q)}V${f1(wallTop)}'/>`;
+      return g(walls + `<path d='${outline}'/>`, 1.3, 0.95) + g(`<path class='h' d='${seamsD}'/><path class='f' d='${fill}'/>`, 0.9, 0.9) + g(`<path d='${falling}'/><path class='h' d='${trail}' style='stroke-dasharray:${f1(2 * q)} ${f1(2.4 * q)}'/>`, 1.2, 0.95);
+    }
+    case 'codigo': {
+      // código binário escorrendo pelas margens, a lápis: colunas de zeros e uns que caem pelos lados,
+      // uma fileira correndo embaixo e o sinalzinho de código num canto
+      const q = Math.max(0.4, k);
+      const gh = (7 + r() * 1.5) * q,
+        gw = gh * 0.55,
+        lead = gh * 1.45;
+      let ones = '',
+        zeros = '',
+        faint = '';
+      const glyph = (x: number, y: number, bit: boolean, dim: boolean) => {
+        // o zero é um oval de traço; o um, um pau com a bandeirinha e às vezes o pé
+        const d = bit
+          ? `M${f1(x + gw * 0.15)} ${f1(y + gh * 0.25)}L${f1(x + gw * 0.55)} ${f1(y)}V${f1(y + gh)}`
+          : `M${f1(x + gw / 2)} ${f1(y)}C${f1(x + gw * 1.1)} ${f1(y)} ${f1(x + gw * 1.1)} ${f1(y + gh)} ${f1(x + gw / 2)} ${f1(y + gh)}C${f1(x - gw * 0.1)} ${f1(y + gh)} ${f1(x - gw * 0.1)} ${f1(y)} ${f1(x + gw / 2)} ${f1(y)}Z`;
+        if (dim) faint += d;
+        else if (bit) ones += d;
+        else zeros += d;
+      };
+      const m = (6 + r() * 2) * q;
+      // as colunas: duas de cada lado, cada uma começando e acabando num lugar, mais fraca no rabo
+      for (const right of [false, true])
+        for (let c = 0; c < 2; c++) {
+          const x = right ? W - m - gw - c * (gw + 4 * q) : m + c * (gw + 4 * q);
+          const start = m + r() * H * 0.3,
+            end = H - m - gh - r() * H * 0.25;
+          const n = Math.max(1, Math.floor((end - start) / lead));
+          for (let i = 0; i <= n; i++) glyph(x, start + i * lead, r() < 0.5, i < n * 0.3);
+        }
+      // a fileira de baixo, entre as colunas
+      const left = m + 2 * (gw + 4 * q) + 6 * q,
+        right = W - m - 2 * (gw + 4 * q) - 6 * q;
+      const yb = H - m - gh;
+      let x = left;
+      while (x < right - gw) {
+        // de oito em oito, um espacinho (os bytes)
+        for (let i = 0; i < 8 && x < right - gw; i++, x += gw + 2.6 * q) glyph(x, yb, r() < 0.5, false);
+        x += 5 * q;
+      }
+      // o sinal de código em cima à direita, entre as colunas
+      const cx = W - m - 2 * (gw + 4 * q) - 22 * q,
+        cy = m + 8 * q,
+        s = 1.1 * q;
+      const tag = `<path d='M${f1(cx - 6 * s)} ${f1(cy)}l${f1(-6 * s)} ${f1(6 * s)}l${f1(6 * s)} ${f1(6 * s)}M${f1(cx + 6 * s)} ${f1(cy)}l${f1(6 * s)} ${f1(6 * s)}l${f1(-6 * s)} ${f1(6 * s)}M${f1(cx + 2.5 * s)} ${f1(cy - 1 * s)}L${f1(cx - 2.5 * s)} ${f1(cy + 13 * s)}'/>`;
+      return g(`<path d='${ones}'/><path d='${zeros}'/>` + tag, 1.1, 0.95) + g(`<path d='${faint}'/>`, 1, 0.5);
     }
     case 'aula': {
       const keys =['gato', 'estrelinhas', 'velha', 'pauzinhos', 'espiral', 'coracao', 'raio', 'carinha', 'lua', 'flor', 'fantasma', 'setinha', 'caveira', 'teste', 'cogumelo', 'olho', 'nuvem', 'coroa'];
@@ -1815,6 +2229,15 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
       break;
     case 'cybertribal':
       tribalInk(W, H, k, r, out);
+      break;
+    case 'glitch':
+      glitchBands(W, H, k, r, out);
+      break;
+    case 'corrompido':
+      corruptBlocks(W, H, k, r, out);
+      break;
+    case 'desintegrado':
+      pixelDissolve(W, H, k, r, out);
       break;
   }
 }
@@ -3000,8 +3423,8 @@ function sewn(W: number, H: number, k: number, sw: number, step: number, r: () =
 // ----- Colada em pedaços -----
 
 /**
- * Rasgada em muitos pedaços e posta de volta no lugar: três ou quatro rasgos de beirada a beirada,
- * que se cruzam e picam a ficha em seis a onze pedaços. As frestas abrem e fecham, cada pedaço
+ * Rasgada em muitos pedaços e posta de volta no lugar: rasgos de beirada a beirada, só em pé e
+ * deitados, que se cruzam em grade e picam a ficha em quatro a nove pedaços. As frestas abrem e fecham, cada pedaço
  * ficou um tanto fora do lugar na beirada e pega a luz de um jeito: cada rasgo clareia ou escurece
  * um pouco tudo o que fica de um lado dele, e as metades se somam num tom por pedaço.
  */
@@ -3035,14 +3458,24 @@ function glued(W: number, H: number, k: number, sw: number, step: number, r: () 
     for (const c of [0, W, W + H, 2 * W + H, P]) if (Math.abs(q - c) < margin) q = c + (q < c ? -margin : margin);
     return wrap(q);
   };
-  const tears = 3 + (r() < 0.5 ? 1 : 0);
+  // em grade: um ou dois rasgos em pé e um ou dois deitados, de beirada a beirada, sem diagonal
+  const nv = 1 + (r() < 0.6 ? 1 : 0),
+    nh = H > 120 * k && r() < 0.4 ? 2 : 1;
+  const cuts: [number, number][] = [];
+  for (let i = 0; i < nv; i++) {
+    const x = W * ((i + 1) / (nv + 1) + ((r() - 0.5) * 0.14) / nv),
+      x2 = x + (r() - 0.5) * W * 0.05;
+    cuts.push([nudge(x), nudge(W + H + (W - x2))]);
+  }
+  for (let j = 0; j < nh; j++) {
+    const y = H * ((j + 1) / (nh + 1) + ((r() - 0.5) * 0.16) / nh),
+      y2 = y + (r() - 0.5) * H * 0.07;
+    cuts.push([nudge(W + y), nudge(2 * W + H + (H - y2))]);
+  }
   const ends: number[] = [];
   let tone = '',
     lifts = '';
-  for (let t = 0; t < tears; t++) {
-    // a outra ponta cai do outro lado da volta, para o rasgo atravessar a ficha
-    const a = nudge(r() * P);
-    const b = nudge(a + P * (0.33 + r() * 0.34));
+  for (const [a, b] of cuts) {
     ends.push(a, b);
     const A = rimAt(a, 5),
       B = rimAt(b, 5);
@@ -3051,7 +3484,7 @@ function glued(W: number, H: number, k: number, sw: number, step: number, r: () 
       l = Math.hypot(dx, dy) || 1;
     const one: Pt = [(A[0] + B[0]) / 2 - (dy / l) * 50, (A[1] + B[1]) / 2 + (dx / l) * 50];
     const other: Pt = [(A[0] + B[0]) / 2 + (dy / l) * 50, (A[1] + B[1]) / 2 - (dx / l) * 50];
-    const C = rip(sweep(A, B, r, (r() - 0.5) * 30 * k, 8 * k, 14), one, r, 4.5 * k, step);
+    const C = rip(sweep(A, B, r, (r() - 0.5) * 10 * k, 4 * k, 14), one, r, 4.5 * k, step);
     const [E1, E2] = split(C, one, r, 0.5 * k, 3.4 * k);
     out.cut.push(`${poly(E1)}${cont([...E2].reverse())}Z`);
     out.core.push(coreBand(E1, one, r, 0.4 * k, 3.4 * k), coreBand(E2, other, r, 0.4 * k, 3.4 * k));
@@ -3849,6 +4282,195 @@ function tapePulled(W: number, H: number, k: number, sw: number, r: () => number
   if (bits) out.fita += `<g fill='rgb(228 213 170)' fill-opacity='.9'>${bits}</g>`;
   if (tapes)
     out.fita += `<defs><linearGradient id='${uid}-crepe' x1='0' y1='0' x2='1' y2='1'><stop offset='.2' stop-color='#fff' stop-opacity='0'/><stop offset='.45' stop-color='#fff' stop-opacity='.3'/><stop offset='.62' stop-color='#fff' stop-opacity='0'/></linearGradient></defs>${tapes}`;
+}
+
+// ----- Glitch -----
+
+/** As cores do sinal quebrado: magenta, ciano, verde de fósforo, branco e preto. */
+const GLITCH = ['#ff2bd6', '#00e5ff', '#39ff14', '#ffffff', '#101014', '#ffe600'];
+
+/**
+ * O sinal falhou no meio da ficha: faixas deitadas escorregaram para um lado (a beirada de onde a faixa
+ * saiu fica vazia), cada uma tingida de uma cor do RGB, com a franja vermelha e ciano dos canais
+ * separados, riscos de varredura e um borrão de pixels arrastados. O tingido vai por cima de tudo,
+ * até da foto: é a tela que falhou, não o papel.
+ */
+function glitchBands(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.45, k);
+  const n = 4 + Math.floor(r() * 4);
+  let tint = '',
+    fringe = '',
+    smear = '';
+  const bands: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const h = (3 + r() * r() * 22) * kk;
+    const y = clamp(H * (0.05 + r() * 0.9), 2, H - h - 2);
+    bands.push([y, h]);
+    // a faixa escorregou: a beirada de onde ela saiu ficou sem papel
+    const dx = (r() < 0.5 ? -1 : 1) * (4 + r() * 18) * kk;
+    if (r() < 0.75) out.cut.push(dx > 0 ? `M-6 ${f1(y)}H${f1(dx)}V${f1(y + h)}H-6Z` : `M${f1(W + dx)} ${f1(y)}H${f1(W + 6)}V${f1(y + h)}H${f1(W + dx)}Z`);
+    const col = GLITCH[Math.floor(r() * GLITCH.length)];
+    tint += `<rect x='0' y='${f1(y)}' width='${f1(W)}' height='${f1(h)}' fill='${col}' fill-opacity='${(0.14 + r() * 0.2).toFixed(2)}'/>`;
+    // os canais separados: o vermelho em cima, o ciano embaixo, um tiquinho deslocados
+    const fw = Math.max(1, 1.2 * kk);
+    fringe += `<rect x='${f1(Math.max(0, dx))}' y='${f1(y - fw)}' width='${f1(W)}' height='${f1(fw)}' fill='#ff1f3d' fill-opacity='.55'/><rect x='${f1(Math.min(0, dx))}' y='${f1(y + h)}' width='${f1(W)}' height='${f1(fw)}' fill='#00e5ff' fill-opacity='.55'/>`;
+    // os pixels arrastados: tracinhos de cor correndo deitados dentro da faixa
+    if (r() < 0.6) {
+      let x = r() * W * 0.4;
+      while (x < W) {
+        const w = (3 + r() * 30) * kk;
+        const c = GLITCH[Math.floor(r() * GLITCH.length)];
+        smear += `<rect x='${f1(x)}' y='${f1(y + r() * h * 0.5)}' width='${f1(w)}' height='${f1(Math.max(1, h * (0.2 + r() * 0.5)))}' fill='${c}' fill-opacity='${(0.25 + r() * 0.35).toFixed(2)}'/>`;
+        x += w + r() * 40 * kk;
+      }
+    }
+  }
+  // os riscos de varredura: linhas finas e claras atravessando a ficha
+  let scan = '';
+  for (let i = 0; i < 6; i++) {
+    const y = r() * H;
+    scan += `<rect x='${f1(r() * W * 0.3)}' y='${f1(y)}' width='${f1(W * (0.3 + r() * 0.7))}' height='${f1(Math.max(0.6, 0.8 * kk))}' fill='#fff' fill-opacity='${(0.35 + r() * 0.4).toFixed(2)}'/>`;
+  }
+  // um rasgo fino de verdade, de uma beirada até o meio: a imagem partiu
+  if (r() < 0.6) {
+    const y = H * (0.25 + r() * 0.5),
+      from = r() < 0.5,
+      len = W * (0.35 + r() * 0.35);
+    const th = Math.max(1, 1.4 * kk);
+    out.cut.push(from ? `M-6 ${f1(y)}H${f1(len)}V${f1(y + th)}H-6Z` : `M${f1(W - len)} ${f1(y)}H${f1(W + 6)}V${f1(y + th)}H${f1(W - len)}Z`);
+  }
+  out.topo = (out.topo ?? '') + `<g>${tint}</g><g>${smear}</g><g>${fringe}${scan}</g>`;
+}
+
+// ----- Arquivo corrompido -----
+
+/** Os bytes que sobraram: verde e magenta de JPEG quebrado, cinzas e o resto da imagem. */
+const CORRUPT = ['#00ff6a', '#ff00c8', '#7a7a7a', '#2a2a2a', '#c8c8c8', '#00b3ff', '#ffdd00', '#ff3b30', '#6b3fa0', '#1e7a4a'];
+
+/**
+ * O arquivo corrompeu: num canto a imagem sumiu em blocos (a beirada em degraus, como os quadradões do
+ * JPEG estragado), em volta os blocos que sobraram vêm com cor errada e alguns escorrem em listras, e
+ * por cima ficam umas linhas de zeros e uns e o código do erro. Uns blocos soltos sumiram mais longe.
+ */
+function corruptBlocks(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.45, k);
+  const b = 8 * kk;
+  const cols = Math.ceil(W / b),
+    rows = Math.ceil(H / b);
+  // o canto que sumiu: nunca o de cima à esquerda, escondido atrás da foto
+  const corner = Math.floor(r() * 3);
+  const cx = corner === 1 ? 0 : cols,
+    cy = corner === 0 ? 0 : rows;
+  const rx = cols * (0.28 + r() * 0.16),
+    ry = rows * (0.38 + r() * 0.2);
+  let gone = '',
+    junk = '',
+    smear = '';
+  const lost = new Set<string>();
+  for (let j = 0; j < rows; j++)
+    for (let i = 0; i < cols; i++) {
+      // a distância ao canto, medida em degraus (quadrados, não redonda) e tremida
+      const d = Math.max(Math.abs(i + 0.5 - cx) / rx, Math.abs(j + 0.5 - cy) / ry) + (r() - 0.5) * 0.35;
+      const x = i * b,
+        y = j * b;
+      if (d < 0.78 || (d > 1.4 && d < 2.4 && r() < 0.006)) {
+        lost.add(`${i},${j}`);
+        gone += `M${f1(x - (i === 0 ? 6 : 0))} ${f1(y - (j === 0 ? 6 : 0))}H${f1(x + b + (i === cols - 1 ? 6 : 0))}V${f1(y + b + (j === rows - 1 ? 6 : 0))}H${f1(x - (i === 0 ? 6 : 0))}Z`;
+      } else if (d < 1.15 && r() < 0.55) {
+        const c = CORRUPT[Math.floor(r() * CORRUPT.length)];
+        junk += `<rect x='${f1(x)}' y='${f1(y)}' width='${f1(b)}' height='${f1(b)}' fill='${c}' fill-opacity='${(0.45 + r() * 0.45).toFixed(2)}'/>`;
+        // o bloco escorreu: a mesma cor repetida em listras até a beirada do estrago
+        if (r() < 0.18) {
+          const dir = cx === 0 ? -1 : 1;
+          const len = (2 + Math.floor(r() * 6)) * b;
+          const sx = dir > 0 ? x + b : x - len;
+          for (let s = 0; s < len; s += 2 * kk) smear += `<rect x='${f1(sx + s)}' y='${f1(y)}' width='${f1(kk)}' height='${f1(b)}' fill='${c}' fill-opacity='.5'/>`;
+        }
+      }
+    }
+  out.cut.push(gone);
+  // o resto da imagem errada: um bloco ou outro fora do lugar, mais longe
+  for (let t = 0; t < 14; t++) {
+    const i = Math.floor(r() * cols),
+      j = Math.floor(r() * rows);
+    if (lost.has(`${i},${j}`) || (i < cols * 0.3 && j < rows * 0.5)) continue;
+    junk += `<rect x='${f1(i * b)}' y='${f1(j * b)}' width='${f1(b)}' height='${f1(b)}' fill='${CORRUPT[Math.floor(r() * CORRUPT.length)]}' fill-opacity='${(0.35 + r() * 0.4).toFixed(2)}'/>`;
+  }
+  // os zeros e uns, junto do estrago, em fileiras de bytes
+  const fs = 7 * kk;
+  let text = '';
+  const lines = 3 + Math.floor(r() * 3);
+  const tx = corner === 1 ? Math.max(rx * b + 4 * kk, W * 0.06) : W * (0.08 + r() * 0.1);
+  const ty0 = corner === 0 ? Math.min(H - lines * fs * 1.3 - 4, ry * b + 6 * kk) : Math.max(4 * kk, H - ry * b - lines * fs * 1.3 - 10 * kk);
+  for (let l = 0; l < lines; l++) {
+    let s = '';
+    const bytes = 2 + Math.floor(r() * 3);
+    for (let n = 0; n < bytes; n++) {
+      for (let i = 0; i < 8; i++) s += r() < 0.5 ? '0' : '1';
+      s += ' ';
+    }
+    text += `<text x='${f1(tx)}' y='${f1(ty0 + (l + 1) * fs * 1.3)}'>${s.trim()}</text>`;
+  }
+  const code = ['0xC0DE', '0xDEAD', '0x0BAD', '0xFFFF', '0x00F1'][Math.floor(r() * 5)];
+  text += `<text x='${f1(tx)}' y='${f1(ty0 + (lines + 1) * fs * 1.3 + 2 * kk)}' font-weight='700'>ERRO ${code}</text>`;
+  out.frente += `<g>${smear}</g><g>${junk}</g><g fill='#111' fill-opacity='.6' font-family='ui-monospace, Consolas, "Courier New", monospace' font-size='${f1(fs)}' letter-spacing='${f1(0.3 * kk)}'>${text}</g>`;
+}
+
+// ----- Desintegrando em pixels -----
+
+/**
+ * A ficha está sumindo em pixels por uma beirada (a da direita, a de baixo ou a quina entre elas): perto
+ * dela quase não sobra papel, e o estrago rareia para dentro em quadradinhos. Os pedaços que soltaram
+ * saem flutuando para fora, cada vez menores e mais apagados.
+ */
+function pixelDissolve(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.45, k);
+  const b = (5.5 + r() * 1.5) * kk;
+  const way = Math.floor(r() * 3); // 0: direita, 1: embaixo, 2: a quina de baixo à direita
+  const depth = (way === 1 ? H * 0.38 : W * 0.26) * (0.8 + r() * 0.4);
+  const cols = Math.ceil(W / b),
+    rows = Math.ceil(H / b);
+  let gone = '',
+    loose = '';
+  // a distância de cada quadradinho à beirada que some
+  const dist = (x: number, y: number) => (way === 0 ? W - x : way === 1 ? H - y : Math.min(W - x, H - y) * 0.75 + Math.max(0, Math.hypot(W - x, H - y) - Math.min(W - x, H - y)) * 0.25);
+  for (let j = 0; j < rows; j++)
+    for (let i = 0; i < cols; i++) {
+      const x = i * b,
+        y = j * b;
+      const t = 1 - dist(x + b / 2, y + b / 2) / depth;
+      if (t <= 0) continue;
+      const p = Math.pow(t, 0.8) * 1.1;
+      if (r() < p) {
+        gone += `M${f1(x)} ${f1(y)}H${f1(x + b + (i === cols - 1 ? 6 : 0))}V${f1(y + b + (j === rows - 1 ? 6 : 0))}H${f1(x)}Z`;
+        // uns soltaram agorinha: o quadradinho ainda está ali perto, levantando, com sombra
+        if (r() < 0.12 * t) {
+          const s = b * (0.55 + r() * 0.4);
+          const ox = x + (r() - 0.3) * b * 1.5,
+            oy = y - r() * b * 1.5;
+          loose += `<rect x='${f1(ox + 1.2 * kk)}' y='${f1(oy + 2 * kk)}' width='${f1(s)}' height='${f1(s)}' fill='#000' fill-opacity='.22'/><rect x='${f1(ox)}' y='${f1(oy)}' width='${f1(s)}' height='${f1(s)}' style='fill: var(--stock)'/>`;
+        }
+      }
+    }
+  out.cut.push(gone);
+  // os que já saíram: flutuando para fora da ficha, para longe da beirada, apagando
+  const n = 14 + Math.floor(r() * 10);
+  for (let i = 0; i < n; i++) {
+    const far = r();
+    const s = b * (0.9 - far * 0.6);
+    let x: number, y: number;
+    if (way === 0 || (way === 2 && r() < 0.5)) {
+      x = W + 2 * kk + far * 46 * kk + r() * 6 * kk;
+      y = H * (way === 2 ? 0.45 + r() * 0.55 : 0.08 + r() * 0.84) - far * 14 * kk;
+    } else {
+      x = W * (way === 2 ? 0.45 + r() * 0.55 : 0.06 + r() * 0.88) + far * 10 * kk;
+      y = H + 2 * kk + far * 30 * kk + r() * 5 * kk - far * far * 50 * kk;
+      if (y < H + 2 * kk) x = Math.max(x, W + 2 * kk + r() * 10 * kk);
+    }
+    const op = (1 - far * 0.75).toFixed(2);
+    loose += `<g opacity='${op}'><rect x='${f1(x + 1.2 * kk)}' y='${f1(y + 2 * kk)}' width='${f1(s)}' height='${f1(s)}' fill='#000' fill-opacity='.25'/><rect x='${f1(x)}' y='${f1(y)}' width='${f1(s)}' height='${f1(s)}' style='fill: var(--stock)'/></g>`;
+  }
+  out.fita += loose;
 }
 
 /**

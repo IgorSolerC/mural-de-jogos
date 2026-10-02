@@ -93,6 +93,13 @@ export const PATTERNS: readonly Pattern[] = [
   'dados',
   'cartas',
   'xadrez',
+  // computador
+  'computadores',
+  'janelas',
+  'cursores',
+  'circuitos',
+  'binario',
+  'blocos',
   // céu
   'estrelas',
   'planetas',
@@ -162,6 +169,12 @@ export const PATTERN_LABEL: Record<Pattern, string> = {
   musica: 'Música',
   mineracao: 'Mineração',
   carros: 'Carros',
+  computadores: 'Computador antigo',
+  janelas: 'Janelas e erros',
+  cursores: 'Cursores',
+  circuitos: 'Circuitos',
+  binario: 'Binário',
+  blocos: 'Blocos caindo',
 };
 
 /**
@@ -239,12 +252,17 @@ export type Scribble =
   | 'invocacao'
   | 'tesouro'
   | 'olhos'
-  | 'cybertribal';
+  | 'cybertribal'
+  | 'pixelart'
+  | 'janela'
+  | 'circuito'
+  | 'blocos'
+  | 'codigo';
 
 /** Na ordem do estojo: as molduras, os enfeites e, por último, os bagunçados. */
 export const SCRIBBLES: readonly Scribble[] = [
-  'contorno', 'moldura', 'gotica', 'cybertribal', 'arabesco', 'dialogo', 'hud', 'runas', 'farpado', 'renda', 'cupom', 'pelicula', 'regua',
-  'trepadeira', 'bandeirinhas', 'terco', 'invocacao', 'tesouro', 'olhos', 'aula', 'novelo', 'hachura', 'riscado',
+  'contorno', 'moldura', 'gotica', 'cybertribal', 'arabesco', 'dialogo', 'hud', 'pixelart', 'janela', 'circuito', 'runas', 'farpado', 'renda', 'cupom', 'pelicula', 'regua',
+  'trepadeira', 'bandeirinhas', 'terco', 'invocacao', 'tesouro', 'olhos', 'blocos', 'codigo', 'aula', 'novelo', 'hachura', 'riscado',
 ];
 
 export const SCRIBBLE_LABEL: Record<Scribble, string> = {
@@ -271,6 +289,11 @@ export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   tesouro: 'Mapa do tesouro',
   olhos: 'Olhos na margem',
   cybertribal: 'Moldura cybertribal',
+  pixelart: 'Moldura 8 bits',
+  janela: 'Janela do computador',
+  circuito: 'Placa de circuito',
+  blocos: 'Blocos empilhados',
+  codigo: 'Código binário',
 };
 
 /**
@@ -306,9 +329,12 @@ export type Damage =
   | 'furado'
   | 'baleado'
   | 'queimado'
-  | 'descascado';
+  | 'descascado'
+  | 'glitch'
+  | 'corrompido'
+  | 'desintegrado';
 
-/** A ordem dos retalhos no editor: os rasgos e remendos, as dobras, os bichos, o fogo. */
+/** A ordem dos retalhos no editor: os rasgos e remendos, as dobras, os bichos, o fogo e, por último, o que é de computador. */
 export const DAMAGES: readonly Damage[] = [
   'rasgado',
   'rasgao',
@@ -327,6 +353,9 @@ export const DAMAGES: readonly Damage[] = [
   'baleado',
   'queimado',
   'descascado',
+  'glitch',
+  'corrompido',
+  'desintegrado',
 ];
 
 export const DAMAGE_LABEL: Record<Damage, string> = {
@@ -347,6 +376,9 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
   baleado: 'Baleada',
   queimado: 'Queimada',
   descascado: 'Fita arrancada',
+  glitch: 'Glitch',
+  corrompido: 'Arquivo corrompido',
+  desintegrado: 'Desintegrando em pixels',
 };
 
 // ===================== Mancha =====================
@@ -410,11 +442,18 @@ export type Decor =
   | 'neve'
   | 'petalas'
   | 'teia'
-  | 'beijo';
+  | 'beijo'
+  | 'antena'
+  | 'crt'
+  | 'chuvisco'
+  | 'barras'
+  | 'disquete'
+  | 'erro';
 
 /**
  * Na ordem do estojo: o que brilha e a festa; os adesivos e as coisas de jogo; a papelaria (selo,
- * post-it, ingresso, etiqueta, carimbo, medalha, lacre); o que prende e fura; o tempo e os bichos.
+ * post-it, ingresso, etiqueta, carimbo, medalha, lacre); o que prende e fura; o tempo e os bichos;
+ * a TV e o computador (a antena, o tubo, o chuvisco, as barras, o disquete, a janela de erro).
  */
 export const DECORS: readonly Decor[] = [
   'purpurina',
@@ -443,6 +482,12 @@ export const DECORS: readonly Decor[] = [
   'petalas',
   'teia',
   'beijo',
+  'antena',
+  'crt',
+  'chuvisco',
+  'barras',
+  'disquete',
+  'erro',
 ];
 
 export const DECOR_LABEL: Record<Decor, string> = {
@@ -472,6 +517,12 @@ export const DECOR_LABEL: Record<Decor, string> = {
   petalas: 'Pétalas de cerejeira',
   teia: 'Teia de aranha',
   beijo: 'Beijo de batom',
+  antena: 'Antena de TV',
+  crt: 'Filtro de TV de tubo',
+  chuvisco: 'Chuvisco',
+  barras: 'Barras de cor',
+  disquete: 'Disquete',
+  erro: 'Janela de erro',
 };
 
 /** As decorações que furam o papel: a sombra da ficha segue o recorte, como nos estragos. */
@@ -501,6 +552,9 @@ const CUTS: ReadonlySet<Damage | Stain> = new Set<Damage | Stain>([
   'furado',
   'baleado',
   'queimado',
+  'glitch',
+  'corrompido',
+  'desintegrado',
 ]);
 
 // ===================== Guardar =====================

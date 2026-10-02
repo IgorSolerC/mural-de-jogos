@@ -24,6 +24,8 @@ export const FROZEN_PATTERNS: readonly Pattern[] = [
   'cachorros', 'borboletas', 'abelhas', 'peixes', 'dinossauros', 'morcegos', 'aboboras', 'bruxaria', 'olhos', 'cozinha', 'frutas', 'doces', 'pizza', 'cafe',
   'dados', 'cartas', 'xadrez', 'pixel', 'alienigenas', 'chuva', 'folhas', 'cactos', 'medieval', 'piratas', 'ninja', 'tatuagens', 'ferramentas', 'robos', 'musica',
   'mineracao', 'carros',
+  // 2026-10-02, o computador
+  'computadores', 'janelas', 'cursores', 'circuitos', 'binario', 'blocos',
 ];
 // Espirais e Teste de caneta saíram em 2026-09-29, a pedido
 export const FROZEN_SCRIBBLES: readonly Scribble[] = [
@@ -31,6 +33,8 @@ export const FROZEN_SCRIBBLES: readonly Scribble[] = [
   // 2026-09-30, as molduras e os rabiscos de tema
   'gotica', 'arabesco', 'dialogo', 'hud', 'runas', 'farpado', 'terco', 'invocacao', 'tesouro', 'olhos',
   'cybertribal',
+  // 2026-10-02, o computador
+  'pixelart', 'janela', 'circuito', 'blocos', 'codigo',
 ];
 export const FROZEN_DAMAGES: readonly Damage[] = [
   'rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado',
@@ -38,6 +42,8 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
   'costurado', 'colado', 'picotado', 'caderno', 'arranhado', 'garras', 'mordido', 'descascado',
   // 2026-09-29, os tiros
   'baleado',
+  // 2026-10-02, o computador
+  'glitch', 'corrompido', 'desintegrado',
 ];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
 export const FROZEN_STAINS: readonly Stain[] = [
@@ -52,6 +58,8 @@ export const FROZEN_DECORS: readonly Decor[] = [
   // 2026-09-29, a segunda leva
   'confete', 'neon', 'gamer', 'bottons', 'vidas', 'postit', 'ingresso', 'promocao', 'carimbo', 'medalha', 'lacre',
   'grampos', 'alfinete', 'curativo', 'cuidado', 'neve', 'petalas', 'teia', 'beijo',
+  // 2026-10-02, a TV e o computador
+  'antena', 'crt', 'chuvisco', 'barras', 'disquete', 'erro',
 ];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */

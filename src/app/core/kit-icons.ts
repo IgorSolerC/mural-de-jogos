@@ -29,6 +29,13 @@ function beads(cx: number, cy: number, R: number, n: number, r: number, skip: (i
   return out;
 }
 
+/** Um desenho de pixels, cheio: cada `#` vira um quadradinho de `cell` a partir de `x0,y0`. */
+function pix(rows: string[], x0: number, y0: number, cell: number): string {
+  let d = '';
+  rows.forEach((row, j) => [...row].forEach((ch, i) => ch === '#' && (d += `M${r1(x0 + i * cell)} ${r1(y0 + j * cell)}h${cell}v${cell}h-${cell}Z`)));
+  return d;
+}
+
 /** A trama neotribal miúda: dois fios espinhentos trançados e uma membrana furada entre eles. */
 const TRIBAL =
   `<path d='M12 2C20 10 6 18 14 26S22 34 16 38' style='stroke-width:2'/><path d='M28 2C20 10 34 18 26 26S18 34 24 38' style='stroke-width:1.6'/>` +
@@ -38,7 +45,7 @@ const TRIBAL =
 export const SCRIBBLE_ICON: Record<Scribble, string> = {
   contorno: `<path d='M6 7.5H34V32.5H6Z'/><path d='M3.5 9.8L35.8 9.2M36 30.4L4.4 30.8M8.2 35.6L7.8 4.6M32.2 4.2L31.6 35.4' style='stroke-width:1.4'/>`,
   moldura: `<path d='M4 6H36V34H4Z'/><path d='M9 11H31V29H9Z' style='stroke-width:1.6'/><path class='f' d='M9 8.6L11.4 11L9 13.4L6.6 11ZM31 8.6L33.4 11L31 13.4L28.6 11ZM31 26.6L33.4 29L31 31.4L28.6 29ZM9 26.6L11.4 29L9 31.4L6.6 29Z'/>`,
-  gotica: `<path d='M7 36V16C7 9.4 12.4 4.6 20 2.6C27.6 4.6 33 9.4 33 16V36Z'/><path d='M12 36V17.6C12 13 15.4 9.8 20 8.4C24.6 9.8 28 13 28 17.6V36' style='stroke-width:1.6'/><path d='M20 16V30M15.6 20.6H24.4'/><circle class='f' cx='20' cy='14.6' r='1.6'/>`,
+  gotica: `<path d='M12 36V16C12 10.4 15.4 6.2 20 3.6C24.6 6.2 28 10.4 28 16V36'/><path d='M16 36V18.4C16 14.8 17.8 12.2 20 10.8C22.2 12.2 24 14.8 24 18.4V36' style='stroke-width:1.4'/><path d='M3 36V24C3 20.6 5 18.2 7.5 16.6C10 18.2 12 20.6 12 24M28 24C28 20.6 30 18.2 32.5 16.6C35 18.2 37 20.6 37 24V36'/><path d='M20 3.6V-.4M18.4 1.2H21.6' style='stroke-width:1.4'/>`,
   cybertribal: TRIBAL,
   arabesco: `<path d='M4 34C4 22 13 16.6 19.4 20.4C23.8 23 21.4 29.4 16.8 28C13.6 27 14.4 22.8 17.4 23.4'/><path d='M36 6C36 18 27 23.4 20.6 19.6C16.2 17 18.6 10.6 23.2 12C26.4 13 25.6 17.2 22.6 16.6'/><path d='M9 26.4Q7.4 23 9.2 20.6Q11 23.4 9 26.4ZM31 13.6Q32.6 17 30.8 19.4Q29 16.6 31 13.6Z' class='f'/>`,
   dialogo: `<path d='M8 5H32V7H34V9H36V31H34V33H32V35H8V33H6V31H4V9H6V7H8Z'/><path d='M9 10H31V30H9Z' style='stroke-width:1.4'/><path class='f' d='M22 23H30L26 27.4Z'/><path d='M13 15H25M13 19H21' style='stroke-width:1.8'/>`,
@@ -59,6 +66,11 @@ export const SCRIBBLE_ICON: Record<Scribble, string> = {
   novelo: `<path d='M8 22C8 10 31 8 32 18C33 28 12 32 11 22C10 14 27 12 28 20C29 26 16 27 16 21C16 17 23 16 24 20C24.4 22.4 20 23 19.6 21'/><path d='M32 18Q36 24 38 33' style='stroke-width:1.6'/>`,
   hachura: `<path d='M4 16L16 4M4 24L24 4M4 32L32 4M8 36L36 8M16 36L36 16M24 36L36 24'/>`,
   riscado: `<path d='M5 11L35 8L6 17L34 15L7 24L33 22L8 30L31 29'/>`,
+  pixelart: `${[3, 12, 21, 30].map((x) => `<rect x='${x}' y='3' width='6' height='6'/><rect x='${x}' y='31' width='6' height='6'/>`).join('')}<rect x='3' y='17' width='6' height='6'/><rect x='31' y='17' width='6' height='6'/><path class='f' d='${pix(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], 12.3, 13.4, 2.2)}'/>`,
+  janela: `<path d='M4 6H36V34H4Z'/><path d='M4 12.4H36M30.6 12.4V34M30.6 17.4H36' style='stroke-width:1.5'/><path d='M27.4 8.4L30 11M30 8.4L27.4 11M22 9.7H24.6' style='stroke-width:1.4'/><path class='f' d='M14 17V31L17.4 28L19.6 32.6L21.8 31.6L19.6 27H24Z'/>`,
+  circuito: `<path d='M14 14H26V26H14Z'/><path d='M17.4 14V9.6M22.6 14V9.6M17.4 26V30.4M22.6 26V30.4' style='stroke-width:1.5'/><path d='M3 8H9L13.6 12.6M37 32H31L26.4 27.4M3 30H8L12 26' style='stroke-width:1.5'/><circle cx='4' cy='8' r='2.2'/><circle cx='36' cy='32' r='2.2'/><circle cx='4' cy='30' r='2.2'/><circle class='f' cx='16.6' cy='16.6' r='1'/>`,
+  blocos: `<path d='M4 8V36H36V8' style='stroke-width:1.4'/><path d='M6 34V28H12V22H18V34ZM18 34V28H34V34ZM24 28V22H30V28' style='stroke-width:1.6'/><path class='f' d='M20 4H25V9H30V14H20Z'/><path d='M22.5 1V-1M27.5 6V3' style='stroke-width:1.2;stroke-dasharray:1.4 1.4'/>`,
+  codigo: `<path d='M6.4 8.4L9.6 5.4V16.6M6.4 16.6H12.6'/><ellipse cx='25' cy='11' rx='4.4' ry='5.8'/><ellipse cx='12.6' cy='29' rx='4.4' ry='5.8'/><path d='M24 26.4L27.2 23.4V34.6M24 34.6H30.2'/>`,
 };
 
 export const DAMAGE_ICON: Record<Damage, string> = {
@@ -66,7 +78,7 @@ export const DAMAGE_ICON: Record<Damage, string> = {
   rasgao: `<path d='M6 4H18L16 9L19.6 13L16.4 18L20 23L17 28L19 36H6Z'/><path d='M24 4H34V36H25L23.4 31L26 26L22.6 21L25.8 16L22.8 11L25 7Z'/>`,
   remendado: `<path d='M8 4H32V36H8Z'/><path d='M8 22L13 19.4L17 23L22 18.4L26 22L32 18' style='stroke-width:1.6'/><path class='f' d='M15.4 13.4L28.4 17.6L25.6 26.4L12.6 22.2Z' style='opacity:.45'/><path d='M15.4 13.4L28.4 17.6L25.6 26.4L12.6 22.2Z' style='stroke-width:1.5'/>`,
   costurado: `<path d='M8 4H32V36H8Z'/><path d='M8 21L14 18L19 22L25 17.6L32 20.4' style='stroke-width:1.6'/><path d='M12 15.4L15.4 21.4M15.4 15.4L12 21.4M20.4 16.6L23.8 22.6M23.8 16.6L20.4 22.6M28 15L31 21M31 15L28 21' style='stroke-width:1.8'/>`,
-  colado: `<path d='M6 4H19L17 13L21 20L6 22Z'/><path d='M22 4H34V18L24 19.6L20.4 13Z'/><path d='M6 25L22 23L34 21V36H6Z'/>`,
+  colado: `<path d='M5 4H19V18.6H5Z'/><path d='M21.4 4.6H35V18H21.8Z'/><path d='M5.4 20.8H19.2V36H5Z'/><path d='M21.6 20.4H35.4V35.4H21Z'/>`,
   picotado: `<path d='M8 4H32V16L30 18L32 20L30 22L32 24L30 26L32 28L30 30L32 32L30 34L32 36H8Z'/><path d='M12 11H24M12 16H22M12 21H24' style='stroke-width:1.6'/>`,
   caderno: `<path d='M11 4H34V36H11L9 33L11 30L9 27L11 24L9 21L11 18L9 15L11 12L9 9L11 6Z'/>${[9, 16, 23, 30].map((y) => `<circle cx='15' cy='${y}' r='1.6'/>`).join('')}<path d='M20 12H30M20 18H30M20 24H28' style='stroke-width:1.5'/>`,
   orelha: `<path d='M8 4H24L32 12V36H8Z'/><path class='f' d='M24 4V12H32Z' style='opacity:.5'/><path d='M24 4V12H32'/>`,
@@ -78,6 +90,9 @@ export const DAMAGE_ICON: Record<Damage, string> = {
   furado: `<path d='M8 4H32V36H8Z'/><circle cx='20' cy='20' r='6'/><circle class='f' cx='20' cy='20' r='3.6'/><path d='M13 13L15 15M27 27L25 25M27 13L25 15M13 27L15 25' style='stroke-width:1.5'/>`,
   baleado: `<path d='M8 4H32V36H8Z'/><circle class='f' cx='16' cy='15' r='2.8'/><path d='M16 15L11 11M16 15L21.6 13M16 15L14.6 21M16 15L20 19.6' style='stroke-width:1.3'/><circle class='f' cx='24' cy='27' r='2.4'/><path d='M24 27L28.6 24M24 27L19.6 28.4M24 27L25.4 31.8' style='stroke-width:1.3'/>`,
   queimado: `<path d='M8 4H32V22C29 23 30 26 27 27C25 29.4 27 32 24 33.4C21.6 34.4 21.6 36 20 36H8Z'/><path class='f' d='M30 38C26.4 38 24.8 35.4 25.6 32.6C26.4 30.2 28.4 29.4 28.6 26.4C30.8 28.4 31 30.4 31 31.6C32 31 32.4 30 32.4 29C34 30.8 34.4 32.6 34.2 34C33.8 36.4 32.4 38 30 38Z'/>`,
+  glitch: `<path d='M8 4H32V11H8Z'/><path d='M12.6 13.4H36.4V20.4H12.6Z'/><path d='M4.4 22.6H28.4V28H4.4Z'/><path d='M8 30.4H32V36H8Z'/><path class='f' d='M30.6 24H36V26.2H30.6ZM2.4 15.6H8.6V17.6H2.4Z'/>`,
+  corrompido: `<path d='M8 4H32V18H28V22H24V26H20V36H8Z'/><path class='f' d='M28 26H31.4V29.4H28ZM33 21.4H36.4V24.8H33ZM24 31.4H27.4V34.8H24ZM31 32H33.4V34.4H31Z'/><path d='M12 9.6V15M15.6 9.6Q18.6 9.6 18.6 12.3Q18.6 15 15.6 15Q12.6 15 15.6 9.6' style='stroke-width:1.6'/>`,
+  desintegrado: `<path d='M8 4H24V9H21V15H25V21H21V28H24V36H8Z'/><path class='f' d='M27 7H30.4V10.4H27ZM29 15H32.4V18.4H29ZM26.4 24H29.8V27.4H26.4ZM32.6 26.6H35.2V29.2H32.6ZM34 11H36.4V13.4H34ZM28 32H31V35H28Z'/>`,
   descascado: `<path d='M8 4H32V36H8Z'/><path d='M22 2L36 9L32.6 16L18.6 9Z' style='stroke-width:1.6'/><path class='f' d='M24.4 9.6L31.2 13L29.4 16.4L23 13.2Z' style='opacity:.6'/>`,
 };
 
@@ -124,6 +139,12 @@ export const DECOR_ICON: Record<Decor, string> = {
   neve: `<path d='M20 3V37M5.3 11.5L34.7 28.5M5.3 28.5L34.7 11.5'/><path d='M16 6L20 10L24 6M16 34L20 30L24 34M5 16.4L10.4 15L9 9.6M35 23.6L29.6 25L31 30.4M5 23.6L10.4 25L9 30.4M35 16.4L29.6 15L31 9.6' style='stroke-width:1.8'/>`,
   petalas: `${[0, 72, 144, 216, 288].map((a) => `<path d='M20 20C15.6 15 16 8 20 4.6C21 6.6 22.4 6 23.2 5C25.6 9 24.6 15.4 20 20Z' transform='rotate(${a} 20 20)'/>`).join('')}<circle class='f' cx='20' cy='20' r='2'/>`,
   teia: `<path d='M4 4L36 36M4 4L20 38M4 4L38 20M4 4L38 8M4 4L8 38'/><path d='M4 14Q9 10 14 4M4 23Q14 18 23 4M6 32Q21 26 32 5M12 38Q29 30 38 12' style='stroke-width:1.5'/>`,
+  antena: `<path d='M10 35Q10 26.4 20 26.4Q30 26.4 30 35Z'/><path d='M8 35H32'/><path d='M18 26.6L8.4 5M22 26.6L33 6.4' style='stroke-width:2'/><circle class='f' cx='8.4' cy='5' r='2.4'/><circle class='f' cx='33' cy='6.4' r='2.4'/>`,
+  crt: `<path d='M6 7Q20 4.4 34 7Q36.6 20 34 33Q20 35.6 6 33Q3.4 20 6 7Z'/><path d='M8.4 12H31.6M7.4 16H32.6M7 20H33M7.4 24H32.6M8.4 28H31.6' style='stroke-width:1.1;opacity:.65'/><path d='M10 9.6Q14 8.8 18 8.8' style='stroke-width:1.4'/>`,
+  chuvisco: `<path d='M4 8H36V32H4Z'/><path class='f' d='${[[8, 11], [14, 13], [22, 10.6], [29, 12], [11, 17], [18, 18], [26, 16.4], [32, 19], [7, 24], [15, 23], [21, 25.4], [28, 23], [10, 29], [24, 29], [32, 27.6]].map(([x, y]) => `M${x} ${y}h2v2h-2Z`).join('')}'/><path d='M4 20.4H36' style='stroke-width:2.6;opacity:.45'/>`,
+  barras: `<path d='M4 8H36V32H4Z'/><path class='f' d='M8.6 8H13.2V25H8.6ZM17.8 8H22.4V25H17.8ZM27 8H31.6V25H27Z'/><path d='M4 25H36M13 25V32M25 25V32' style='stroke-width:1.4'/>`,
+  disquete: `<path d='M6 4.5H30.5L35.5 9.5V35.5H6Z'/><path d='M12.5 4.5V13.5H27.5V4.5'/><path class='f' d='M22.4 6.4H25.4V11.6H22.4Z'/><path d='M10 19.5H31.5V35.5H10Z' style='stroke-width:1.5'/><path d='M13.6 24.4H27.6M13.6 28.8H23.6' style='stroke-width:1.4'/>`,
+  erro: `<path d='M3 7H37V33H3Z'/><path d='M3 12.6H37'/><circle cx='11.6' cy='20.6' r='4.6'/><path d='M9.8 18.8L13.4 22.4M13.4 18.8L9.8 22.4' style='stroke-width:1.5'/><path d='M19 18.6H31M19 22.6H27' style='stroke-width:1.6'/><path d='M24 26H32V30.4H24Z' style='stroke-width:1.4'/>`,
   beijo: `<path class='f' d='M4 20C8 14 13 11 17 13C18.6 13.8 19.4 14 20 14C20.6 14 21.4 13.8 23 13C27 11 32 14 36 20C32 20.6 26 19.6 20 20.6C14 19.6 8 20.6 4 20Z'/><path class='f' d='M4 21.2C9.6 20.6 14.4 21.8 20 22C25.6 21.8 30.4 20.6 36 21.2C32 27.4 26.4 30 20 30C13.6 30 8 27.4 4 21.2Z' style='opacity:.8'/>`,
 };
 
