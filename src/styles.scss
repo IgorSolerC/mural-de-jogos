@@ -322,6 +322,58 @@ p {
   }
 }
 
+/* quantos filtros ligados na aba Filtrar: o disco de tinta com o número amarelo, o mesmo do adesivo
+   de marcar */
+.plate > .badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  margin: -2px -3px -2px 2px;
+  padding: 1px 5px 0;
+  border-radius: 11px;
+  background: var(--ink);
+  color: var(--hi);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  animation: cola var(--t-physical) var(--ease-physical);
+}
+
+/* A cartela de filtros desce de trás da régua, como folha que acabou de ser presa; sobe rápido ao
+   fechar (animate.enter / animate.leave) */
+app-filter-sheet.desce {
+  animation: cartela-desce var(--t-physical) var(--ease-physical);
+}
+app-filter-sheet.sobe {
+  animation: cartela-sobe 140ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@keyframes cartela-desce {
+  from {
+    opacity: 0;
+    translate: 0 -14px;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(-40px -40px -60px -40px);
+  }
+}
+@keyframes cartela-sobe {
+  to {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+
+/* As listas nativas dos <select> abrem em papel com tinta preta. A parede é color-scheme: dark, e o
+   Windows pintava a lista de cinza com a letra preta herdada da aba, quase ilegível. */
+select option,
+select optgroup {
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
 /* ===== Prateleira: a tira de busca em cima; abas de divisória em pé na régua de alumínio =====
    Nas páginas de fila (Pra depois, Wishlist). `.prateleira-quebra` manda o resto para a régua. */
 .prateleira {

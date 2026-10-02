@@ -9,29 +9,23 @@
   />
   <span class="break" aria-hidden="true"></span>
 
-  <!-- Veredito: abas na tela larga, um seletor só no celular -->
-  <div class="group status-tabs" role="group" aria-label="Mostrar">
-    <button type="button" class="plate" [attr.aria-pressed]="view.verdict() === 'todos'" (click)="setVerdict('todos')">
-      Todos <span class="count">{{ view.verdictCounts().todos }}</span>
-    </button>
-    @for (v of verdictTabs(); track v) {
-      <button type="button" class="plate" [attr.aria-pressed]="view.verdict() === v" (click)="setVerdict(v)">
-        {{ labelOf(v) }} <span class="count">{{ view.verdictCounts()[v] }}</span>
-      </button>
+  <!-- Filtros: uma aba que abre a cartela embaixo da régua -->
+  <button
+    #filterTab
+    type="button"
+    class="plate filtrar"
+    [class.is-active]="open()"
+    [attr.aria-expanded]="open()"
+    aria-controls="cartela-filtros"
+    (click)="toggleOpen($event)"
+  >
+    <lucide-icon [img]="FilterIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    <span>Filtrar</span>
+    @if (view.filterCount()) {
+      <span class="badge" aria-hidden="true">{{ view.filterCount() }}</span>
+      <span class="sr-only">({{ view.filterCount() }} ligados)</span>
     }
-  </div>
-
-  <label class="plate pick status-pick" [class.is-active]="view.verdict() !== 'todos'">
-    <span class="pick-pre">Mostrar</span>
-    <span class="pick-val" aria-hidden="true">{{ verdictText() }} <span class="count">{{ view.verdictCounts()[view.verdict()] }}</span></span>
-    <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-    <select aria-label="Mostrar" [value]="view.verdict()" (change)="setVerdict($any($event.target).value)">
-      <option value="todos" [selected]="view.verdict() === 'todos'">Todos ({{ view.verdictCounts().todos }})</option>
-      @for (v of verdictTabs(); track v) {
-        <option [value]="v" [selected]="view.verdict() === v">{{ labelOf(v) }} ({{ view.verdictCounts()[v] }})</option>
-      }
-    </select>
-  </label>
+  </button>
 
   <div class="group order" role="group" aria-label="Ordenar">
     <label class="plate pick">
@@ -110,3 +104,19 @@
     </button>
   </div>
 </div>
+
+@if (open()) {
+  <app-filter-sheet
+    id="cartela-filtros"
+    class="cartela"
+    animate.enter="desce"
+    animate.leave="sobe"
+    [facets]="view.facets()"
+    [kind]="kind()"
+    [summary]="summary()"
+    (toggle)="toggle($event)"
+    (clearFacet)="clearFacet($event)"
+    (clearAll)="clearAll()"
+    (done)="close()"
+  />
+}

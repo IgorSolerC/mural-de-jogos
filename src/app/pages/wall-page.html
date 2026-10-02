@@ -26,10 +26,12 @@
       <app-pin class="pin" color="#f4f4f0" />
       <h2>Nada no mural com esse filtro</h2>
       <p>
-        @if (view.query().trim()) {
+        @if (view.query().trim() && view.filterCount()) {
+          Nenhuma ficha fala de “{{ view.query().trim() }}” com esses filtros.
+        } @else if (view.query().trim()) {
           Nenhuma ficha fala de “{{ view.query().trim() }}”.
         } @else {
-          Nenhuma ficha com esse veredito ainda.
+          Nenhuma ficha com essa combinação de filtros.
         }
       </p>
       <button type="button" class="btn-ink" (click)="clearFilters()">Mostrar o mural inteiro</button>
@@ -37,10 +39,13 @@
   } @else {
     <h2 class="sr-only">Fichas no mural</h2>
     @if (view.isFiltered()) {
-      <p class="showing" aria-live="polite">
-        Mostrando {{ view.visible().length }} de {{ mural.count() }}
-        <button type="button" class="showing-clear" (click)="clearFilters()">Limpar filtro</button>
-      </p>
+      <div class="showing">
+        <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ mural.count() }}</p>
+        <app-filter-tags [tags]="view.tags()" (remove)="removeTag($event)" />
+        <button type="button" class="showing-clear" (click)="clearFilters()">
+          {{ view.filterCount() + (view.query().trim() ? 1 : 0) > 1 ? 'Limpar tudo' : 'Limpar filtro' }}
+        </button>
+      </div>
     }
     <div class="wall" [class.compact]="view.density() === 'simples'" [class.capas]="view.density() === 'capas'" [class.sem-etiquetas]="!settings.groupLabels()">
       @for (g of view.groups(); track g.key) {

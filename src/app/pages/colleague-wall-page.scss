@@ -90,18 +90,25 @@
   gap: 6px;
 }
 
-/* no celular os vereditos viram um seletor só, como no seu mural */
-.mostrar {
-  display: none;
+/* a aba Filtrar abre a cartela embaixo da régua, como no seu mural */
+.filtrar {
+  padding-inline: 13px 15px;
 }
 
-@media (max-width: 720px) {
-  .prateleira-abas {
-    display: none;
-  }
-  .mostrar {
-    display: inline-flex;
-  }
+.cartela {
+  margin: -24px 4px 40px;
+}
+
+/* embaixo da régua: quantas sobraram, os filtros ligados e limpar */
+.mostrando {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.mostrando-n {
+  margin: 0 4px 0 0;
 }
 
 /* ===== A parede em seções, igual à do seu mural ===== */

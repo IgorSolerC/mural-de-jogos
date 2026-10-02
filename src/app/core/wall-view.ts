@@ -8,13 +8,12 @@ import {
   SCORE_LABEL,
   STATUS_RANK,
   ScoreKey,
-  VERDICTS,
-  Verdict,
   fold,
   parseDay,
   scoreKeys,
   scoreOf,
 } from './review';
+import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status';
 export type Direction = 'desc' | 'asc';
@@ -73,17 +72,15 @@ export interface WallGroup {
   reviews: Review[];
 }
 
-/** Filtro do mural: um veredito, as fichas sem veredito, ou todas. */
-export type VerdictFilter = Verdict | 'sem' | 'todos';
-
-/** Estado do mural aberto: busca, filtro de veredito e ordenação. */
+/** Estado do mural aberto: busca, filtros e ordenação. */
 @Injectable({ providedIn: 'root' })
 export class WallView {
   private readonly mural = inject(Mural);
   private readonly prefs = readPrefs();
 
   readonly query = signal('');
-  readonly verdict = signal<VerdictFilter>('todos');
+  /** Os filtros da cartela. Valem só nesta visita, como a busca. */
+  readonly filter = signal<WallFilter>(NO_FILTER);
   readonly sort = signal<SortKey>(this.prefs.sort);
   /** A nota escolhida para ordenar. Guardada mesmo que o mural aberto não tenha ela (ver `activeScore`). */
   readonly scoreKey = signal<ScoreKey>(this.prefs.scoreKey);
@@ -95,28 +92,23 @@ export class WallView {
   readonly direction = signal<Direction>(this.prefs.direction);
   readonly density = signal<Density>(this.prefs.density);
 
-  readonly verdictCounts = computed(() => {
-    const counts = { todos: 0, sem: 0, ...Object.fromEntries(VERDICTS.map((v) => [v, 0])) } as Record<VerdictFilter, number>;
-    for (const r of this.mural.reviews()) {
-      counts.todos++;
-      counts[r.verdict ?? 'sem']++;
-    }
-    return counts;
+  /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
+  private readonly searched = computed<Review[]>(() => {
+    const needle = fold(this.query().trim());
+    return this.mural.reviews().filter((r) => matchesQuery(r, needle));
   });
 
-  readonly isFiltered = computed(() => this.query().trim() !== '' || this.verdict() !== 'todos');
+  /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
+  readonly facets = computed(() => facetsOf(this.searched(), this.filter(), this.mural.profile()));
+  /** Os filtros ligados, como etiquetas. */
+  readonly tags = computed(() => tagsOf(this.filter(), this.mural.profile()));
+  readonly filterCount = computed(() => filterSize(this.filter()));
+
+  readonly isFiltered = computed(() => this.query().trim() !== '' || this.filterCount() > 0);
 
   readonly visible = computed<Review[]>(() => {
-    const needle = fold(this.query().trim());
-    const verdict = this.verdict();
-    const list = this.mural.reviews().filter(
-      (r) =>
-        (verdict === 'todos' || (r.verdict ?? 'sem') === verdict) &&
-        (!needle ||
-          fold(r.game.name).includes(needle) ||
-          fold(r.text).includes(needle) ||
-          r.bonuses.some((b) => fold(b.label).includes(needle))),
-    );
+    const f = this.filter();
+    const list = this.searched().filter((r) => matchesFilter(r, f));
     return list.sort(comparatorOf(this.order()));
   });
 
@@ -155,22 +147,30 @@ export class WallView {
     this.direction.update((d) => (d === 'desc' ? 'asc' : 'desc'));
   }
 
+  toggle(key: FacetKey, value: string): void {
+    this.filter.update((f) => toggleOption(f, key, value));
+  }
+
+  clearFacet(key: FacetKey): void {
+    this.filter.update((f) => (f[key].length ? { ...f, [key]: [] } : f));
+  }
+
   clearFilters(): void {
     this.query.set('');
-    this.verdict.set('todos');
+    this.filter.set(NO_FILTER);
   }
 
   /** Guarda a busca, o filtro e a ordem, e devolve como voltar a eles (ver ViewTransitions.run). */
   snapshot(): () => void {
     const query = this.query(),
-      verdict = this.verdict(),
+      filter = this.filter(),
       sort = this.sort(),
       scoreKey = this.scoreKey(),
       direction = this.direction(),
       density = this.density();
     return () => {
       this.query.set(query);
-      this.verdict.set(verdict);
+      this.filter.set(filter);
       this.sort.set(sort);
       this.scoreKey.set(scoreKey);
       this.direction.set(direction);

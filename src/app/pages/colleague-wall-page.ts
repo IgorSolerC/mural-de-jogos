@@ -1,13 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, LucideAngularModule, Rows3 } from 'lucide-angular';
+import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
 import { KINDS, Kind, cap, countOf, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Review, VERDICTS, VERDICT_LABEL, fold } from '../core/review';
+import { Review, VERDICT_LABEL, fold } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
-import { Direction, SortKey, VerdictFilter, WallView, groupWall, sortWall } from '../core/wall-view';
+import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from '../core/wall-filter';
+import { Direction, SortKey, WallView, groupWall, sortWall } from '../core/wall-view';
+import { FilterSheet, FilterTags, FilterToggle } from '../ui/filter-sheet';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
 import { SearchStrip } from '../ui/search-strip';
@@ -22,7 +24,7 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'des
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [LucideAngularModule, ReviewCard, ReviewReader, RouterLink, SearchStrip],
+  imports: [FilterSheet, FilterTags, LucideAngularModule, ReviewCard, ReviewReader, RouterLink, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
   styleUrl: './colleague-wall-page.scss',
@@ -34,6 +36,9 @@ export class ColleagueWallPage {
   private readonly vt = inject(ViewTransitions);
   private readonly side = inject(SideBySide);
   private readonly reader = viewChild.required(ReviewReader);
+  private readonly injector = inject(Injector);
+  private readonly filterTab = viewChild<ElementRef<HTMLButtonElement>>('filterTab');
+  private readonly sheet = viewChild(FilterSheet);
 
   protected readonly BackIcon = ArrowLeft;
   protected readonly ChevronIcon = ChevronDown;
@@ -42,6 +47,7 @@ export class ColleagueWallPage {
   protected readonly CoversIcon = Grid3x3;
   protected readonly DescIcon = ArrowDownWideNarrow;
   protected readonly AscIcon = ArrowUpNarrowWide;
+  protected readonly FilterIcon = ListFilter;
   protected readonly verdictLabel = VERDICT_LABEL;
 
   protected readonly colleague = this.colleagues.selected;
@@ -49,7 +55,8 @@ export class ColleagueWallPage {
   protected readonly profile = this.mural.profile;
 
   protected readonly query = signal('');
-  protected readonly verdict = signal<VerdictFilter>('todos');
+  protected readonly filter = signal<WallFilter>(NO_FILTER);
+  protected readonly filtersOpen = signal(false);
   protected readonly sort = signal<SortKey>('data');
   protected readonly direction = signal<Direction>('desc');
   protected readonly simple = computed(() => this.view.density() === 'simples');
@@ -66,29 +73,26 @@ export class ColleagueWallPage {
   /** As fichas do colega no mural aberto. */
   protected readonly reviews = computed(() => (this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind()));
 
-  protected readonly verdicts = computed(() => {
-    const list = this.reviews();
-    const tabs: { value: VerdictFilter; label: string; n: number }[] = [
-      { value: 'todos', label: 'Todos', n: list.length },
-      ...VERDICTS.map((v) => ({ value: v as VerdictFilter, label: VERDICT_LABEL[v], n: list.filter((r) => r.verdict === v).length })),
-      { value: 'sem', label: 'Sem veredito', n: list.filter((r) => !r.verdict).length },
-    ];
-    return tabs.filter((t) => t.value === 'todos' || t.n);
+  /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
+  private readonly searched = computed(() => {
+    const needle = fold(this.query().trim());
+    return this.reviews().filter((r) => matchesQuery(r, needle));
   });
 
-  protected readonly verdictShown = computed(() => this.verdicts().find((t) => t.value === this.verdict())?.label ?? 'Todos');
+  protected readonly facets = computed(() => facetsOf(this.searched(), this.filter(), this.profile()));
+  protected readonly tags = computed(() => tagsOf(this.filter(), this.profile()));
+  protected readonly filterCount = computed(() => filterSize(this.filter()));
 
   protected readonly visible = computed(() => {
-    const needle = fold(this.query().trim());
-    const v = this.verdict();
-    return this.reviews().filter(
-      (r) =>
-        (v === 'todos' || (r.verdict ?? 'sem') === v) &&
-        (!needle ||
-          fold(r.game.name).includes(needle) ||
-          fold(r.text).includes(needle) ||
-          r.bonuses.some((b) => fold(b.label).includes(needle))),
-    );
+    const f = this.filter();
+    return this.searched().filter((r) => matchesFilter(r, f));
+  });
+
+  protected readonly sheetSummary = computed(() => {
+    const total = this.reviews().length;
+    const shown = this.visible().length;
+    const all = countOf(this.profile(), total);
+    return shown === total ? `Mostrando todos os ${all}` : `Mostrando ${shown} de ${all}`;
   });
 
   protected readonly groups = computed(() => {
@@ -124,13 +128,37 @@ export class ColleagueWallPage {
     this.vt.run(() => this.direction.update((d) => (d === 'desc' ? 'asc' : 'desc')));
   }
 
-  protected setVerdict(v: VerdictFilter): void {
-    this.vt.run(() => this.verdict.set(v));
+  protected toggleFilters(e: MouseEvent): void {
+    if (this.filtersOpen()) {
+      this.closeFilters();
+      return;
+    }
+    this.filtersOpen.set(true);
+    if (e.detail === 0) afterNextRender(() => this.sheet()?.focusFirst(), { injector: this.injector });
+  }
+
+  protected closeFilters(): void {
+    const el = document.getElementById('cartela-filtros-colega');
+    const hadFocus = !!el && el.contains(document.activeElement);
+    this.filtersOpen.set(false);
+    if (hadFocus) this.filterTab()?.nativeElement.focus();
+  }
+
+  protected toggleFilter(t: FilterToggle): void {
+    this.vt.run(() => this.filter.update((f) => toggleOption(f, t.key, t.value)));
+  }
+
+  protected clearFacet(key: FacetKey): void {
+    this.vt.run(() => this.filter.update((f) => ({ ...f, [key]: [] })));
+  }
+
+  protected clearAllFilters(): void {
+    this.vt.run(() => this.filter.set(NO_FILTER));
   }
 
   protected clear(): void {
     this.query.set('');
-    this.verdict.set('todos');
+    this.filter.set(NO_FILTER);
   }
 
   protected switchWall(kind: Kind): void {

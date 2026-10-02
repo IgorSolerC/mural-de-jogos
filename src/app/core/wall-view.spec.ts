@@ -87,9 +87,58 @@ describe('WallView', () => {
   });
 
   it('filtra por veredito e conta cada um', () => {
-    view.verdict.set('masterpiece');
+    view.toggle('verdict', 'masterpiece');
     expect(view.visible().map((x) => x.game.name)).toEqual(['Zelda']);
-    expect(view.verdictCounts().sem).toBe(3);
+    const verdicts = view.facets().find((f) => f.key === 'verdict')!;
+    expect(verdicts.options.find((o) => o.value === 'sem')!.n).toBe(3);
     expect(view.isFiltered()).toBeTrue();
+    expect(view.filterCount()).toBe(1);
+  });
+
+  it('no mesmo grupo vale qualquer um; entre grupos, todos juntos', () => {
+    view.setSort('alfabetica');
+    // Médias: Zelda 6,6 · Celeste 6,2 · Hades 5,8 · Alan Wake 4,6
+    view.toggle('grade', '6');
+    view.toggle('grade', '5');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Celeste', 'Hades', 'Zelda']);
+    view.toggle('verdict', 'masterpiece');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Zelda']);
+    // a contagem de um grupo ignora o próprio grupo e respeita os outros
+    const grades = view.facets().find((f) => f.key === 'grade')!;
+    expect(grades.options.find((o) => o.value === '6')!.n).toBe(1);
+    expect(grades.options.find((o) => o.value === '5')!.n).toBe(0);
+    view.clearFacet('verdict');
+    expect(view.visible().length).toBe(3);
+  });
+
+  it('filtra por status, ano e fichas sem texto', () => {
+    view.toggle('status', 'incompleto');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Alan Wake']);
+    view.clearFilters();
+    view.toggle('text', 'sem');
+    expect(view.visible().map((x) => x.game.name)).not.toContain('Hades');
+    expect(view.visible().length).toBe(3);
+    view.clearFilters();
+    view.toggle('year', 'sem');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Celeste']);
+    expect(view.tags().map((t) => t.label)).toEqual(['Sem data']);
+  });
+
+  it('filtra fichas decoradas e lisas', () => {
+    store.reviews.update((list) => [...list, r('deco11', 'Decorada', '2024-05-01', 8, { pattern: 'gatinhos' }), r('deco22', 'Manchada', '2024-05-02', 8, { stain: 'cafe' })]);
+    view.setSort('alfabetica');
+    view.toggle('look', 'com');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Decorada', 'Manchada']);
+    view.toggle('look', 'com');
+    view.toggle('look', 'sem');
+    expect(view.visible().length).toBe(4);
+  });
+
+  it('limpar tira a busca e todos os filtros', () => {
+    view.query.set('hades');
+    view.toggle('status', 'finalizado');
+    view.clearFilters();
+    expect(view.isFiltered()).toBeFalse();
+    expect(view.visible().length).toBe(4);
   });
 });

@@ -2,8 +2,9 @@
   display: block;
 }
 
-/* Duas fileiras: em cima a tira de busca; embaixo, em pé na régua de alumínio, as abas de veredito
-   à esquerda e a ordem e o tipo de ficha empurrados para a direita */
+/* Duas fileiras: em cima a tira de busca; embaixo, em pé na régua de alumínio, a aba Filtrar à
+   esquerda e a ordem, o Marcar e o tipo de ficha empurrados para a direita. A cartela de filtros
+   abre embaixo da régua, presa nela com fita-crepe. */
 .shelf {
   position: relative;
   display: flex;
@@ -74,7 +75,11 @@
     cursor: pointer;
     /* 16px: o iOS não dá zoom ao abrir */
     font-size: 16px;
-    color-scheme: dark;
+    /* a lista que abre é papel com tinta preta: com o esquema escuro da parede, o Windows pintava a
+       lista de cinza e a letra preta da aba sumia nela */
+    color-scheme: light;
+    color: var(--ink);
+    background-color: var(--paper);
   }
 
   &:has(select:focus-visible) {
@@ -102,19 +107,14 @@
   display: inline-flex;
 }
 
-.status-pick {
-  display: none;
+/* ===== Filtrar: a aba que abre a cartela ===== */
+.filtrar {
+  padding-inline: 13px 15px;
 }
 
-/* abas e ordem não cabem na mesma fileira do trilho: as abas viram o seletor Mostrar */
-@media (max-width: 1240px) {
-  .status-tabs {
-    display: none;
-  }
-
-  .status-pick {
-    display: inline-flex;
-  }
+/* ===== A cartela, logo embaixo da régua (a entrada e a saída moram em styles.scss) ===== */
+.cartela {
+  margin: 22px 4px 0;
 }
 
 @media (max-width: 720px) {
@@ -152,15 +152,14 @@
     display: none;
   }
 
-  .status-tabs {
-    display: none;
+  .filtrar {
+    order: 3;
+    flex: none;
+    padding-inline: 11px 13px;
   }
 
-  .status-pick {
-    order: 3;
-    display: inline-flex;
-    flex: 1 1 130px;
-    min-width: 0;
+  .cartela {
+    margin: 20px 0 0;
   }
 
   .order {

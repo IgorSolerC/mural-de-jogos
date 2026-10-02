@@ -43,25 +43,24 @@
       />
       <span class="prateleira-quebra" aria-hidden="true"></span>
 
-      <div class="prateleira-abas" role="group" aria-label="Mostrar">
-        @for (t of verdicts(); track t.value) {
-          <button type="button" class="plate" [attr.aria-pressed]="verdict() === t.value" (click)="setVerdict(t.value)">
-            {{ t.label }} <span class="count">{{ t.n }}</span>
-          </button>
+      <button
+        #filterTab
+        type="button"
+        class="plate filtrar"
+        [class.is-active]="filtersOpen()"
+        [attr.aria-expanded]="filtersOpen()"
+        aria-controls="cartela-filtros-colega"
+        (click)="toggleFilters($event)"
+      >
+        <lucide-icon [img]="FilterIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <span>Filtrar</span>
+        @if (filterCount()) {
+          <span class="badge" aria-hidden="true">{{ filterCount() }}</span>
+          <span class="sr-only">({{ filterCount() }} ligados)</span>
         }
-      </div>
+      </button>
 
       <div class="prateleira-fim">
-        <label class="plate pick mostrar">
-          <span class="pick-pre">Mostrar</span>
-          <span class="pick-val" aria-hidden="true">{{ verdictShown() }}</span>
-          <select aria-label="Mostrar" [value]="verdict()" (change)="setVerdict($any($event.target).value)">
-            @for (t of verdicts(); track t.value) {
-              <option [value]="t.value" [selected]="verdict() === t.value">{{ t.label }} ({{ t.n }})</option>
-            }
-          </select>
-          <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-        </label>
         <div class="ordem">
           <label class="plate pick">
             <span class="pick-pre">Ordenar</span>
@@ -97,15 +96,32 @@
       </div>
     </div>
 
-    @if (query().trim() || verdict() !== 'todos') {
-      <p class="mostrando" aria-live="polite">
-        Mostrando {{ visible().length }} de {{ reviews().length }}
+    @if (filtersOpen()) {
+      <app-filter-sheet
+        id="cartela-filtros-colega"
+        class="cartela"
+        animate.enter="desce"
+        animate.leave="sobe"
+        [facets]="facets()"
+        [kind]="mural.kind()"
+        [summary]="sheetSummary()"
+        (toggle)="toggleFilter($event)"
+        (clearFacet)="clearFacet($event)"
+        (clearAll)="clearAllFilters()"
+        (done)="closeFilters()"
+      />
+    }
+
+    @if (query().trim() || filterCount()) {
+      <div class="mostrando">
+        <p class="mostrando-n" aria-live="polite">Mostrando {{ visible().length }} de {{ reviews().length }}</p>
+        <app-filter-tags [tags]="tags()" (remove)="toggleFilter($event)" />
         <button type="button" class="limpar" (click)="clear()">Limpar filtro</button>
-      </p>
+      </div>
     }
 
     @if (!visible().length) {
-      <p class="nada">Nenhuma ficha de {{ c.name }} com esse filtro.</p>
+      <p class="nada">Nenhuma ficha de {{ c.name }} com esses filtros.</p>
     } @else {
       <h2 class="sr-only">Fichas de {{ c.name }}</h2>
       <div class="wall" [class.compact]="simple()" [class.capas]="capas()">

@@ -6,7 +6,9 @@ import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
+import { FilterTag } from '../core/wall-filter';
 import { WallView } from '../core/wall-view';
+import { FilterTags } from '../ui/filter-sheet';
 import { Pin } from '../ui/pin';
 import { PickTray } from '../ui/pick-tray';
 import { WallToolbar } from '../ui/wall-toolbar';
@@ -15,7 +17,7 @@ import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
 @Component({
   selector: 'app-wall-page',
-  imports: [LucideAngularModule, PickTray, Pin, RouterLink, WallCards, WallToolbar],
+  imports: [FilterTags, LucideAngularModule, PickTray, Pin, RouterLink, WallCards, WallToolbar],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-page.html',
@@ -59,5 +61,9 @@ export class WallPage {
 
   protected clearFilters(): void {
     this.motion.run(() => this.view.clearFilters());
+  }
+
+  protected removeTag(t: FilterTag): void {
+    this.motion.run(() => this.view.toggle(t.key, t.value));
   }
 }
