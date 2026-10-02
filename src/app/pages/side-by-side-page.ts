@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   ArrowDown,
@@ -6,7 +6,7 @@ import {
   ChevronDown,
   LayoutGrid,
   LucideAngularModule,
-  Plus,
+  RotateCcw,
   Rows3,
   SquareCheckBig,
   X,
@@ -37,7 +37,6 @@ import { BonusSticker } from '../ui/bonus';
 import { CoverSleeve } from '../ui/cover-sleeve';
 import { Skulls } from '../ui/difficulty';
 import { PenMark } from '../ui/pen-mark';
-import { Pin } from '../ui/pin';
 import { ReviewCard } from '../ui/review-card';
 import { StatusLabel } from '../ui/status-label';
 import { Toasts } from '../ui/toast';
@@ -67,12 +66,13 @@ interface Row {
 }
 
 /**
- * Lado a lado: só as fichas marcadas, numa fileira sem seções, e embaixo a folha "Nota a nota"
- * com uma coluna por jogo e a melhor nota de cada linha circulada a caneta.
+ * Lado a lado: primeiro a folha "Nota a nota", com uma coluna por jogo e a melhor nota de cada linha
+ * circulada a caneta (é a comparação, então vem no alto); embaixo, as fichas marcadas numa fileira
+ * sem seções. Sem nada marcado a página não existe: volta para o mural, já no modo de marcar.
  */
 @Component({
   selector: 'app-side-by-side-page',
-  imports: [BonusSticker, CoverSleeve, LucideAngularModule, PenMark, Pin, ReviewCard, Skulls, StatusLabel, VerdictStamp],
+  imports: [BonusSticker, CoverSleeve, LucideAngularModule, PenMark, ReviewCard, Skulls, StatusLabel, VerdictStamp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './side-by-side-page.html',
   styleUrl: './side-by-side-page.scss',
@@ -89,7 +89,7 @@ export class SideBySidePage {
   protected readonly ChevronIcon = ChevronDown;
   protected readonly FullIcon = Rows3;
   protected readonly CompactIcon = LayoutGrid;
-  protected readonly PlusIcon = Plus;
+  protected readonly RestartIcon = RotateCcw;
   protected readonly MarkIcon = SquareCheckBig;
   protected readonly RemoveIcon = X;
   protected readonly UpIcon = ArrowUp;
@@ -104,6 +104,15 @@ export class SideBySidePage {
     const s = this.side.sort();
     return s === 'marcada' || s === 'data' || s === 'ano' || scoreKeys(this.mural.kind()).includes(s) ? s : 'marcada';
   });
+
+  constructor() {
+    // Nada marcado neste mural (Recomeçar, a última ficha desmarcada no leitor, outro mural escolhido
+    // ou o endereço aberto direto): o lugar de escolher é o mural, então vai para lá no modo de marcar.
+    effect(() => {
+      if (this.side.count()) return;
+      untracked(() => this.backToWall());
+    });
+  }
   /** As frases da página no gênero do mural: "os jogos", "as séries". */
   protected readonly words = computed(() => {
     const p = this.mural.profile();
@@ -248,9 +257,23 @@ export class SideBySidePage {
     });
   }
 
+  /** Desmarca todas e volta ao mural para escolher outras; o Desfazer traz a seleção e a página de volta. */
   protected clear(): void {
     const before = this.side.clear();
-    this.toasts.show('Lado a lado limpo', { label: 'Desfazer', run: () => this.side.restore(before) });
+    this.toasts.show('Lado a lado limpo', {
+      label: 'Desfazer',
+      run: () => {
+        this.side.restore(before);
+        this.side.picking.set(false);
+        void this.router.navigateByUrl('/lado-a-lado');
+      },
+    });
+  }
+
+  /** Sem nada para comparar: o mural, marcando (ou só o mural, se ele ainda não tem fichas). */
+  private backToWall(): void {
+    const pick = this.mural.count() > 0;
+    void this.router.navigateByUrl('/', { replaceUrl: true }).then(() => this.side.picking.set(pick));
   }
 
   /** Volta ao mural já no modo de marcar. */

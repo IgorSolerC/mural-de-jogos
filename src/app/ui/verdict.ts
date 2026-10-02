@@ -10,64 +10,92 @@ export const VERDICT_ICON: Record<Verdict, LucideIconData> = {
   chato: Annoyed,
 };
 
-/** Carimbo de borracha batido na ficha: moldura dupla, tinta de uma cor por veredito. */
+/**
+ * O veredito sozinho, fora da etiqueta da ficha (no Nota a nota do Lado a lado e do Comparar): o mesmo
+ * canhoto preto da ficha, destacado no picote. Tinta preta, a palavra em papel e o ícone na cor clara
+ * do veredito; o Masterpiece com a palavra e o fio em folha de ouro; o Chato com a borda de fora
+ * arrancada. Antes era um carimbo de borracha colorido, que não se parecia com nada mais do mural.
+ */
 @Component({
   selector: 'app-verdict-stamp',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class]': 'value()', '[class.big]': 'size() === "big"', role: 'img', '[attr.aria-label]': '"Veredito: " + label()' },
+  host: { '[class.big]': 'size() === "big"', role: 'img', '[attr.aria-label]': '"Veredito: " + label()' },
   template: `
-    <lucide-icon [img]="icon()" [size]="size() === 'big' ? 20 : 15" [strokeWidth]="2.6" aria-hidden="true" />
-    <span aria-hidden="true">{{ label() }}</span>
+    <span
+      class="canhoto"
+      [class.gold]="value() === 'masterpiece'"
+      [class.tarja-rasgada]="value() === 'chato'"
+      [class.rasgo-direita]="value() === 'chato'"
+      [style.--v]="'var(--verdict-' + value() + '-lit)'"
+    >
+      <lucide-icon [img]="icon()" [size]="size() === 'big' ? 19 : 15" [strokeWidth]="2.6" aria-hidden="true" />
+      <span class="palavra" aria-hidden="true">{{ label() }}</span>
+    </span>
   `,
   styles: `
     :host {
-      --stamp: var(--verdict-masterpiece);
+      display: inline-flex;
+      /* sombra que segue o rasgo do Chato, colada no papel */
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.16));
+      rotate: -2deg;
+    }
+    .canhoto {
+      position: relative;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 4px 8px 3px;
-      border: 2.5px solid var(--stamp);
-      border-radius: 4px;
-      outline: 1px solid var(--stamp);
-      outline-offset: 2px;
-      background: rgb(246 246 241 / 0.94);
-      color: var(--stamp);
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px 0 11px;
+      border-radius: 3px;
+      background: var(--ink);
+      color: var(--paper);
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.1em;
+      font-size: 0.84rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       line-height: 1;
-      rotate: -9deg;
-      box-shadow: 0 2px 4px rgb(0 0 0 / 0.3);
+      white-space: nowrap;
     }
-    :host(.big) {
-      font-size: 1.05rem;
-      padding: 6px 12px 5px;
-    }
-    /* Masterpiece: selo de folha de ouro, com moldura em ouro escuro */
-    :host(.masterpiece) {
-      --stamp: var(--verdict-masterpiece);
-      background: var(--foil-gold);
-      color: var(--foil-gold-ink);
-      text-shadow: 0 1px 0 rgb(255 255 255 / 0.5);
-    }
-    :host(.recomendo) {
-      --stamp: var(--verdict-recomendo);
-    }
-    :host(.legalzinho) {
-      --stamp: var(--verdict-legalzinho);
-    }
-    :host(.meh) {
-      --stamp: var(--verdict-meh);
-    }
-    :host(.chato) {
-      --stamp: var(--verdict-chato);
+    :host(.big) .canhoto {
+      gap: 8px;
+      height: 42px;
+      padding: 0 16px 0 14px;
+      font-size: 1.02rem;
+      letter-spacing: 0.1em;
     }
     lucide-icon {
       display: inline-flex;
       margin-top: -1px;
+      color: var(--v);
+    }
+    /* Masterpiece: palavra e fio da moldura estampados a quente em folha de ouro */
+    .gold::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border: 1.5px solid #d8ab48;
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    .gold .palavra {
+      background: linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    /* Chato: a borda de fora arrancada (o material vem de .tarja-rasgada, no styles.scss) */
+    .canhoto.tarja-rasgada {
+      --rasgo-w: 11px;
+      background: transparent;
+      color: var(--paper);
+      padding-right: 18px;
+      border-radius: 3px 0 0 3px;
+    }
+    :host(.big) .canhoto.tarja-rasgada {
+      --rasgo-w: 14px;
+      padding-right: 24px;
     }
   `,
 })

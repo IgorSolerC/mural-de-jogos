@@ -1,22 +1,5 @@
-@if (!side.count()) {
-  <section class="vazio cartolina" aria-labelledby="lado-titulo">
-    <app-pin class="pin" color="#e62e2d" />
-    <h1 id="lado-titulo">Nada lado a lado ainda</h1>
-    @if (mural.count()) {
-      <p>No mural, toque em Marcar e escolha {{ words().os }} que você quer comparar, como uma série inteira ou os favoritos de um ano.</p>
-      <button type="button" class="btn-ink" (click)="pickMore()">
-        <lucide-icon [img]="MarkIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
-        Escolher no mural
-      </button>
-    } @else {
-      <p>Primeiro o mural precisa de fichas. Pregue umas resenhas e depois compare {{ words().os }} aqui.</p>
-      <button type="button" class="btn-ink" (click)="desk.newReview()">
-        <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
-        Nova resenha
-      </button>
-    }
-  </section>
-} @else {
+<!-- Sem nada marcado não há página: o efeito em side-by-side-page.ts volta para o mural, já no modo de marcar -->
+@if (side.count()) {
   <header class="cabeca">
     <h1 class="tape-label big" id="lado-titulo">Lado a lado</h1>
     <p class="resumo">{{ summary() }}</p>
@@ -25,66 +8,33 @@
         <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         Marcar mais
       </button>
-      <button type="button" class="btn-quiet" (click)="clear()">
-        <lucide-icon [img]="RemoveIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
-        Limpar
+      <button type="button" class="btn-quiet" (click)="clear()" title="Desmarcar todas e escolher de novo no mural">
+        <lucide-icon [img]="RestartIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+        Recomeçar
       </button>
     </div>
   </header>
 
-  <div class="shelf">
-    <label class="plate pick">
-      <span class="pick-pre">Ordenar</span>
-      <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
-      <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-      <select aria-label="Ordenar por" [value]="sort()" (change)="setSort($any($event.target).value)">
-        @for (o of sortOptions; track o.value) {
-          <option [value]="o.value" [selected]="o.value === sort()">{{ o.label }}</option>
-        }
-        <optgroup label="Nota">
-          @for (o of scoreOptions(); track o.value) {
+  <!-- ordenar só faz sentido com duas ou mais -->
+  @if (side.count() > 1) {
+    <div class="shelf">
+      <label class="plate pick">
+        <span class="pick-pre">Ordenar</span>
+        <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
+        <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+        <select aria-label="Ordenar por" [value]="sort()" (change)="setSort($any($event.target).value)">
+          @for (o of sortOptions; track o.value) {
             <option [value]="o.value" [selected]="o.value === sort()">{{ o.label }}</option>
           }
-        </optgroup>
-      </select>
-    </label>
-
-    <div class="group density" role="group" aria-label="Tipo de ficha">
-      <button
-        type="button"
-        class="plate icon"
-        [attr.aria-pressed]="view.density() !== 'simples'"
-        (click)="setDensity('completa')"
-        aria-label="Fichas completas"
-        title="Fichas completas"
-      >
-        <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="plate icon"
-        [attr.aria-pressed]="view.density() === 'simples'"
-        (click)="setDensity('simples')"
-        aria-label="Fichas simples"
-        title="Fichas simples"
-      >
-        <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-      </button>
+          <optgroup label="Nota">
+            @for (o of scoreOptions(); track o.value) {
+              <option [value]="o.value" [selected]="o.value === sort()">{{ o.label }}</option>
+            }
+          </optgroup>
+        </select>
+      </label>
     </div>
-  </div>
-
-  <h2 class="sr-only">Fichas marcadas</h2>
-  <div class="fichas" [class.compact]="view.density() === 'simples'">
-    @for (r of games(); track r.id) {
-      <app-review-card
-        [attr.data-ficha]="r.id"
-        [review]="r"
-        [highlight]="highlight()"
-        [compact]="view.density() === 'simples'"
-        (opened)="desk.openReview($event)"
-      />
-    }
-  </div>
+  }
 
   @if (side.count() === 1) {
     <p class="falta">
@@ -96,7 +46,15 @@
     <section class="folha" aria-labelledby="quadro-titulo">
       <span class="tape tape-a" aria-hidden="true"></span>
       <span class="tape tape-b" aria-hidden="true"></span>
-      <h2 id="quadro-titulo">Nota a nota</h2>
+      <div class="folha-cabeca">
+        <h2 id="quadro-titulo">Nota a nota</h2>
+        <p class="legenda">
+          <svg class="legenda-circulo" viewBox="0 0 60 50" aria-hidden="true">
+            <path d="M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7" />
+          </svg>
+          circulei a maior nota de cada linha
+        </p>
+      </div>
 
       <div class="rolagem" role="region" aria-labelledby="quadro-titulo" tabindex="0">
         <table>
@@ -237,4 +195,43 @@
       </div>
     </section>
   }
+
+  <section class="fichas-sec" aria-labelledby="fichas-titulo">
+    <div class="fichas-cabeca">
+      <h2 class="tape-label" id="fichas-titulo">{{ side.count() === 1 ? 'A ficha' : 'As fichas' }}</h2>
+      <div class="group density" role="group" aria-label="Tipo de ficha">
+        <button
+          type="button"
+          class="plate icon"
+          [attr.aria-pressed]="view.density() !== 'simples'"
+          (click)="setDensity('completa')"
+          aria-label="Fichas completas"
+          title="Fichas completas"
+        >
+          <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="plate icon"
+          [attr.aria-pressed]="view.density() === 'simples'"
+          (click)="setDensity('simples')"
+          aria-label="Fichas simples"
+          title="Fichas simples"
+        >
+          <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+    <div class="fichas" [class.compact]="view.density() === 'simples'">
+      @for (r of games(); track r.id) {
+        <app-review-card
+          [attr.data-ficha]="r.id"
+          [review]="r"
+          [highlight]="highlight()"
+          [compact]="view.density() === 'simples'"
+          (opened)="desk.openReview($event)"
+        />
+      }
+    </div>
+  </section>
 }
