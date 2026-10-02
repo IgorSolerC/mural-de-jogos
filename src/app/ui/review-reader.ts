@@ -66,7 +66,7 @@ import { StatusLabel } from './status-label';
                   } @else {
                     {{ dayLabel(r.kind, r.status) }} {{ date() }}
                   }
-                  @if (hours(); as h) {
+                  @if (!masked() && hours(); as h) {
                     <span aria-hidden="true"> · </span>{{ h }}
                   }
                 </p>
@@ -80,7 +80,7 @@ import { StatusLabel } from './status-label';
                 @if (!masked() && handAverage(); as avg) {
                   <p class="na-mao">Nota dada na mão · a média daria {{ avg }}</p>
                 }
-                @if (profile().difficulty) {
+                @if (profile().difficulty && !masked()) {
                   <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
                 }
               </div>

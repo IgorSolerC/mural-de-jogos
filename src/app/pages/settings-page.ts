@@ -167,7 +167,7 @@ const DAY = 86_400_000;
               <span class="adesivo" [class.recorte]="!settings.noSpoilers()" [class.colado]="settings.noSpoilers()">Sem spoilers</span>
             </span>
             <span class="op-texto">
-              Toda nota vira “?”, o veredito vira “Segredo”, todo bônus fica meio branco e meio preto, e o texto vira um rabisco do mesmo tamanho, como letreiro de desenho animado.
+              Toda nota vira “?”, o veredito vira “Segredo”, as horas e a dificuldade somem, todo bônus fica meio branco e meio preto, e o texto vira um rabisco do mesmo tamanho, como letreiro de desenho animado.
               Bom para mostrar o mural sem contar nada.
             </span>
           </label>

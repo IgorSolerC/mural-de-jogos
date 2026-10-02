@@ -24,7 +24,7 @@ export type Density = 'completa' | 'simples' | 'capas';
 const KEY = 'mural-de-jogos:vista:v1';
 
 /** Os grupos da cartela de filtros que contam o que a pessoa achou: somem no modo sem spoilers. */
-const SPOILER_FACETS: readonly FacetKey[] = ['verdict', 'grade'];
+const SPOILER_FACETS: readonly FacetKey[] = ['verdict', 'grade', 'difficulty'];
 
 interface ViewPrefs {
   sort: SortKey;
@@ -102,10 +102,12 @@ export class WallView {
    * escondidas: o mural fica por data, e a escolha guardada volta quando o modo desliga.
    */
   readonly shownSort = computed<SortKey>(() => (this.settings.noSpoilers() && this.sort() === 'nota' ? 'data' : this.sort()));
-  /** Os filtros que valem de fato: sem spoilers, filtrar por veredito ou nota também entregaria o que acharam. */
+  /** Os filtros que valem de fato: sem spoilers, filtrar por veredito, nota ou dificuldade entregaria o que está escondido. */
   private readonly activeFilter = computed<WallFilter>(() => {
     const f = this.filter();
-    return this.settings.noSpoilers() && (f.verdict.length || f.grade.length) ? { ...f, verdict: [], grade: [] } : f;
+    return this.settings.noSpoilers() && (f.verdict.length || f.grade.length || f.difficulty.length)
+      ? { ...f, verdict: [], grade: [], difficulty: [] }
+      : f;
   });
 
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */

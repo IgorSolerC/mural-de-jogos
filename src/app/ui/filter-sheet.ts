@@ -29,7 +29,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     <span class="fita fita-l" aria-hidden="true"></span>
     <span class="fita fita-r" aria-hidden="true"></span>
 
-    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty()">
+    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty()" [class.sem-julgamento]="!hasVerdict()">
       @for (f of facets(); track f.key) {
         <fieldset class="grupo" [class]="'grupo g-' + f.key">
           <legend class="cabeca">
@@ -175,6 +175,19 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
         'verdict status text'
         'verdict status look'
         'grade year year';
+    }
+    /* Sem spoilers não há Veredito nem Média: Status puxa a primeira coluna, Resenha e Visual ficam
+       no meio, e o Ano (que tem mais adesivos) ganha a coluna da direita inteira, sem buraco na folha */
+    .grupos.sem-julgamento {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr);
+      grid-template-areas:
+        'status text year'
+        'difficulty look year';
+    }
+    .grupos.sem-julgamento.sem-dificuldade {
+      grid-template-areas:
+        'status text year'
+        'status look year';
     }
     .g-verdict {
       grid-area: verdict;
@@ -426,6 +439,19 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
           'text look'
           'grade year';
       }
+      .grupos.sem-julgamento {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+          'status text'
+          'difficulty look'
+          'year year';
+      }
+      .grupos.sem-julgamento.sem-dificuldade {
+        grid-template-areas:
+          'status text'
+          'status look'
+          'year year';
+      }
     }
 
     @media (max-width: 640px) {
@@ -433,7 +459,9 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
         padding: 22px 16px 0;
       }
       .grupos,
-      .grupos.sem-dificuldade {
+      .grupos.sem-dificuldade,
+      .grupos.sem-julgamento,
+      .grupos.sem-julgamento.sem-dificuldade {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: none;
         gap: 18px;
@@ -477,6 +505,8 @@ export class FilterSheet {
   protected readonly PlainIcon = Square;
 
   protected readonly hasDifficulty = computed(() => this.facets().some((f) => f.key === 'difficulty'));
+  /** Sem spoilers, Veredito e Média saem da cartela (ver WallView.facets). */
+  protected readonly hasVerdict = computed(() => this.facets().some((f) => f.key === 'verdict'));
 
   protected readonly anyChosen = computed(() => this.facets().some((f) => this.chosenIn(f)));
 

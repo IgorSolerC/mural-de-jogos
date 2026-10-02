@@ -117,10 +117,11 @@ function watchDistance(el: HTMLElement): () => void {
           } @else {
             <span>{{ date() }}</span>
           }
-          @if (review().hoursPlayed !== null && !compact()) {
+          <!-- sem spoilers, a linha fica só com a data: as horas e as caveiras também contam o que achou -->
+          @if (review().hoursPlayed !== null && !compact() && !masked()) {
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
           }
-          @if (review().difficulty !== 'nenhuma') {
+          @if (review().difficulty !== 'nenhuma' && !masked()) {
             <span aria-hidden="true"> · </span><app-skulls class="caveiras" [value]="review().difficulty" [size]="compact() ? 13 : 14" [showLabel]="false" [ghosts]="false" />
           }
           @if (compact() && sortedCell(); as c) {
@@ -765,7 +766,7 @@ export class ReviewCard {
     }
     const p = this.profile();
     parts.push(p.status[r.status]);
-    if (r.difficulty !== 'nenhuma' && p.difficulty) parts.push(`${p.difficulty.toLowerCase()} ${DIFFICULTY_LABEL[r.difficulty].toLowerCase()}`);
+    if (r.difficulty !== 'nenhuma' && p.difficulty && !this.masked()) parts.push(`${p.difficulty.toLowerCase()} ${DIFFICULTY_LABEL[r.difficulty].toLowerCase()}`);
     parts.push(
       r.completedAt === null
         ? NO_DAY_LABEL.toLowerCase()
