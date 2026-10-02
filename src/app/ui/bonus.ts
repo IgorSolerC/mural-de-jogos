@@ -72,6 +72,7 @@ import {
   sortBonuses,
 } from '../core/review';
 import { scramble } from '../core/spoiler';
+import { Rabisco } from './rabisco';
 
 const BONUS_ICON: Record<string, LucideIconData> = {
   'trilha-sonora': Music,
@@ -167,7 +168,7 @@ const TILTS = [-1.4, 0.9, -0.5, 1.3, -1, 0.6];
  */
 @Component({
   selector: 'app-bonus-sticker',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, Rabisco],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class]': 'masked() ? "misterio" : bonus().kind',
@@ -178,7 +179,7 @@ const TILTS = [-1.4, 0.9, -0.5, 1.3, -1, 0.6];
   template: `
     <lucide-icon [img]="icon()" [size]="size() === 'mini' ? 12 : 14" [strokeWidth]="2.6" aria-hidden="true" />
     @if (masked()) {
-      <span class="txt" aria-hidden="true">{{ label() }}</span>
+      <span class="txt"><app-rabisco [text]="label()" /></span>
       <span class="sr-only">Bônus escondido</span>
     } @else {
       <span class="txt">{{ bonus().label }}</span>
@@ -234,6 +235,10 @@ const TILTS = [-1.4, 0.9, -0.5, 1.3, -1, 0.6];
     }
     :host(.misterio) > :not(.sr-only) {
       mix-blend-mode: difference;
+    }
+    /* no adesivo o rabisco vai cheio: a "diferença" já o clareia na metade de tinta */
+    :host(.misterio) .txt {
+      --rabisco-forca: 1;
     }
     /* ainda na cartela: o recorte picotado, sem cola e sem sombra */
     :host(.ghost) {

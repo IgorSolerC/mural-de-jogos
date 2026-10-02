@@ -25,6 +25,7 @@ import { BonusSticker } from '../ui/bonus';
 import { JudgeLabel } from '../ui/judge-label';
 import { Bonus } from '../core/review';
 import { scramble } from '../core/spoiler';
+import { Rabisco } from '../ui/rabisco';
 
 const DAY = 86_400_000;
 
@@ -35,7 +36,7 @@ const DAY = 86_400_000;
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel],
+  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
@@ -166,7 +167,7 @@ const DAY = 86_400_000;
               <span class="adesivo" [class.recorte]="!settings.noSpoilers()" [class.colado]="settings.noSpoilers()">Sem spoilers</span>
             </span>
             <span class="op-texto">
-              Toda nota vira “?”, todo bônus fica meio branco e meio preto, e o texto vira letra embaralhada do mesmo tamanho.
+              Toda nota vira “?”, o veredito vira “Segredo”, todo bônus fica meio branco e meio preto, e o texto vira um rabisco do mesmo tamanho, como letreiro de desenho animado.
               Bom para mostrar o mural sem contar nada.
             </span>
           </label>
@@ -180,7 +181,13 @@ const DAY = 86_400_000;
               <li><app-bonus-sticker [bonus]="b" [index]="i" size="mini" [masked]="settings.noSpoilers()" seed="previa" /></li>
             }
           </ul>
-          <p class="p-frase">“{{ settings.noSpoilers() ? sampleLeadMasked : sampleLead }}”</p>
+          <p class="p-frase">
+            @if (settings.noSpoilers()) {
+              “<app-rabisco [text]="sampleLeadMasked" />”
+            } @else {
+              “{{ sampleLead }}”
+            }
+          </p>
         </div>
       </section>
 

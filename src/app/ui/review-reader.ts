@@ -17,6 +17,7 @@ import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { Settings } from '../core/settings';
 import { scramble } from '../core/spoiler';
+import { Rabisco } from './rabisco';
 import { Boletim } from './boletim';
 import { BonusSticker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
@@ -29,7 +30,7 @@ import { StatusLabel } from './status-label';
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, Skulls, StatusLabel],
+  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (close)="review.set(null)">
@@ -107,7 +108,11 @@ import { StatusLabel } from './status-label';
             <app-boletim [review]="r" size="big" [masked]="masked()" />
 
             @if (r.text.trim()) {
-              <div class="text">{{ text() }}</div>
+              @if (masked()) {
+                <div class="text"><app-rabisco [text]="text()" /><span class="sr-only">Texto escondido</span></div>
+              } @else {
+                <div class="text">{{ text() }}</div>
+              }
             } @else {
               <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
             }

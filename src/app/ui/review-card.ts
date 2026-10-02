@@ -23,6 +23,7 @@ import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
+import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
@@ -61,7 +62,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
+  imports: [Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -140,7 +141,11 @@ function watchDistance(el: HTMLElement): () => void {
 
     @if (!compact() && !capas()) {
       @if (lead(); as line) {
-        <p class="lead" data-queima>“{{ line }}”</p>
+        @if (masked()) {
+          <p class="lead" data-queima>“<app-rabisco [text]="line" />”<span class="sr-only">Texto escondido</span></p>
+        } @else {
+          <p class="lead" data-queima>“{{ line }}”</p>
+        }
       }
 
       <!-- Os bônus: adesivos colados na cartolina, os a favor primeiro -->

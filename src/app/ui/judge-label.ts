@@ -11,7 +11,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { LucideAngularModule } from 'lucide-angular';
+import { EyeOff, LucideAngularModule } from 'lucide-angular';
 import { VERDICT_LABEL, Verdict, formatScore } from '../core/review';
 import { BRILHO_PATH } from './brilho';
 import { VERDICT_ICON } from './verdict';
@@ -54,9 +54,10 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       }
     </p>
     @if (masked()) {
-      <!-- sem spoilers: o canhoto preto de sempre, com uma interrogação no lugar do veredito -->
+      <!-- sem spoilers: o canhoto preto de sempre, com "Segredo" no lugar do veredito, do mesmo tamanho -->
       <p class="band misterio" role="img" aria-label="Veredito escondido">
-        <span class="palavra" aria-hidden="true">?</span>
+        <lucide-icon [img]="secretIcon" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" />
+        <span class="palavra" aria-hidden="true">Segredo</span>
       </p>
     } @else if (verdict(); as v) {
       <p
@@ -228,20 +229,9 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       background-clip: text;
       color: transparent;
     }
+    /* o ícone do segredo na cor do papel, sem a cor de nenhum veredito */
     .band.misterio {
-      justify-content: center;
-      min-width: 52px;
-      font-size: 2rem;
-      font-style: italic;
-      letter-spacing: 0;
-    }
-    :host(.compact) .band.misterio {
-      min-width: 40px;
-      font-size: 1.6rem;
-    }
-    :host(.big) .band.misterio {
-      min-width: 64px;
-      font-size: 2.6rem;
+      --v: var(--paper);
     }
     .band lucide-icon {
       display: inline-flex;
@@ -373,7 +363,7 @@ export class JudgeLabel {
   /** Cabe a etiqueta inteira na largura da coluna? Se não, só o ícone. */
   private measure(): void {
     const el = this.host.nativeElement;
-    if (!this.fit() || !this.verdict() || this.masked()) {
+    if (!this.fit() || (!this.verdict() && !this.masked())) {
       this.iconOnly.set(false);
       return;
     }
@@ -408,6 +398,7 @@ export class JudgeLabel {
   protected readonly iconSize = computed(() => (this.iconOnly() ? ICON_ONLY_SIZE : ICON_SIZE)[this.size()]);
   protected readonly verdictLabels = VERDICT_LABEL;
   protected readonly verdictIcons = VERDICT_ICON;
+  protected readonly secretIcon = EyeOff;
   protected readonly brilhos = ['b1', 'b2', 'b3'];
   protected readonly brilhoPath = BRILHO_PATH;
 }
