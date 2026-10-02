@@ -1694,7 +1694,8 @@ function crtFilter(W: number, H: number, k: number, r: () => number, uid: string
     `<linearGradient id='${uid}-vidro' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.2'/><stop offset='.35' stop-color='#fff' stop-opacity='.04'/><stop offset='.36' stop-color='#fff' stop-opacity='0'/></linearGradient>` +
     `<linearGradient id='${uid}-rola' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='.5' stop-color='#fff' stop-opacity='.09'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></linearGradient>` +
     `<filter id='${uid}-borda' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='${f1(5 * kk)}'/></filter>` +
-    `<clipPath id='${uid}-tela'><rect width='${f1(W)}' height='${f1(H)}' rx='${f1(rx * 0.5)}'/></clipPath>` +
+    `<filter id='${uid}-quina' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='${f1(1.6 * kk)}'/></filter>` +
+    `<clipPath id='${uid}-tela'><rect width='${f1(W)}' height='${f1(H)}'/></clipPath>` +
     `</defs>` +
     `<g clip-path='url(#${uid}-tela)'>` +
     (tint ? `<rect width='${f1(W)}' height='${f1(H)}' fill='${tint}' fill-opacity='.07'/>` : '') +
@@ -1704,6 +1705,8 @@ function crtFilter(W: number, H: number, k: number, r: () => number, uid: string
     `<rect width='${f1(W)}' height='${f1(H)}' fill='url(#${uid}-vinheta)'/>` +
     // a moldura de dentro do tubo: a tela é redonda nas quinas e escura na beirada
     `<rect x='${f1(-6 * kk)}' y='${f1(-6 * kk)}' width='${f1(W + 12 * kk)}' height='${f1(H + 12 * kk)}' rx='${f1(rx)}' fill='none' stroke='#000' stroke-opacity='.55' stroke-width='${f1(14 * kk)}' filter='url(#${uid}-borda)'/>` +
+    // as quinas fora da tela redonda: escuras como a moldura do tubo, sem deixar ponta de papel clara
+    `<path fill-rule='evenodd' d='M-2 -2H${f1(W + 2)}V${f1(H + 2)}H-2ZM${f1(rx)} 0H${f1(W - rx)}Q${f1(W)} 0 ${f1(W)} ${f1(rx)}V${f1(H - rx)}Q${f1(W)} ${f1(H)} ${f1(W - rx)} ${f1(H)}H${f1(rx)}Q0 ${f1(H)} 0 ${f1(H - rx)}V${f1(rx)}Q0 0 ${f1(rx)} 0Z' fill='#050506' fill-opacity='.82' filter='url(#${uid}-quina)'/>` +
     `<path d='M0 0H${f1(W * 0.62)}C${f1(W * 0.42)} ${f1(H * 0.12)} ${f1(W * 0.18)} ${f1(H * 0.3)} 0 ${f1(H * 0.58)}Z' fill='url(#${uid}-vidro)'/>` +
     `</g>`;
 }
