@@ -283,7 +283,7 @@ export class PaperDefs {}
         opacity: 0.12;
       }
     }
-    /* a faixa clara que rola pela TV de tubo (e o chuvisco), de cima para baixo */
+    /* a faixa clara que rola pela TV de tubo, de cima para baixo */
     .enfeite ::ng-deep .rola {
       animation: rola 7s linear infinite;
     }

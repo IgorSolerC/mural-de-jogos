@@ -59,7 +59,7 @@ export const FROZEN_DECORS: readonly Decor[] = [
   'confete', 'neon', 'gamer', 'bottons', 'vidas', 'postit', 'ingresso', 'promocao', 'carimbo', 'medalha', 'lacre',
   'grampos', 'alfinete', 'curativo', 'cuidado', 'neve', 'petalas', 'teia', 'beijo',
   // 2026-10-02, a TV e o computador
-  'antena', 'crt', 'chuvisco', 'barras', 'disquete', 'erro',
+  'antena', 'crt', 'barras', 'disquete', 'erro',
 ];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */

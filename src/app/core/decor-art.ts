@@ -108,9 +108,6 @@ export function decorArt(input: DecorInput): DecorArt {
     case 'crt':
       crtFilter(W, H, k, r, uid, out);
       break;
-    case 'chuvisco':
-      tvStatic(W, H, k, r, uid, out);
-      break;
     case 'barras':
       colorBars(W, H, k, r, uid, out);
       break;
@@ -1675,10 +1672,14 @@ function tvAntenna(W: number, H: number, k: number, r: () => number, uid: string
 
 // ----- Filtro de TV de tubo -----
 
+/** O letreiro do canto da TV. */
+const CHANNEL = ['SEM SINAL', 'CANAL 3', 'CANAL 4', 'AV 1', 'VÍDEO 2', 'CH 04', 'BUSCANDO…'];
+
 /**
  * A ficha vista numa TV de tubo: as linhas de varredura, a grade de fósforo vermelho, verde e azul, a
  * tela escurecendo nas beiradas e mais ainda nas quinas, o reflexo do vidro curvo e uma faixa clara
- * rolando devagar de cima para baixo (parada para quem pediu menos movimento). Por cima de tudo.
+ * rolando devagar de cima para baixo (parada para quem pediu menos movimento), com o letreiro verde do
+ * canal num canto. Por cima de tudo.
  */
 function crtFilter(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
   const kk = Math.max(0.5, k);
@@ -1686,6 +1687,10 @@ function crtFilter(W: number, H: number, k: number, r: () => number, uid: string
   const strength = 0.16 + r() * 0.08;
   const tint = ['#7dff9a', '#ffd27a', '#9ad8ff', null][Math.floor(r() * 4)];
   const rx = 18 * kk;
+  const label = CHANNEL[Math.floor(r() * CHANNEL.length)];
+  const fs = 12 * kk;
+  const lx = W - 16 * kk,
+    ly = 14 * kk + fs;
   out.front +=
     `<defs>` +
     `<pattern id='${uid}-varre' width='4' height='${f1(pitch)}' patternUnits='userSpaceOnUse'><rect width='4' height='${f1(pitch * 0.45)}' fill='#000' fill-opacity='${strength.toFixed(2)}'/></pattern>` +
@@ -1708,41 +1713,10 @@ function crtFilter(W: number, H: number, k: number, r: () => number, uid: string
     // as quinas fora da tela redonda: escuras como a moldura do tubo, sem deixar ponta de papel clara
     `<path fill-rule='evenodd' d='M-2 -2H${f1(W + 2)}V${f1(H + 2)}H-2ZM${f1(rx)} 0H${f1(W - rx)}Q${f1(W)} 0 ${f1(W)} ${f1(rx)}V${f1(H - rx)}Q${f1(W)} ${f1(H)} ${f1(W - rx)} ${f1(H)}H${f1(rx)}Q0 ${f1(H)} 0 ${f1(H - rx)}V${f1(rx)}Q0 0 ${f1(rx)} 0Z' fill='#050506' fill-opacity='.82' filter='url(#${uid}-quina)'/>` +
     `<path d='M0 0H${f1(W * 0.62)}C${f1(W * 0.42)} ${f1(H * 0.12)} ${f1(W * 0.18)} ${f1(H * 0.3)} 0 ${f1(H * 0.58)}Z' fill='url(#${uid}-vidro)'/>` +
-    `</g>`;
-}
-
-// ----- Chuvisco -----
-
-const CHANNEL = ['SEM SINAL', 'CANAL 3', 'AV 1', 'VÍDEO 2', 'CH 04', 'BUSCANDO…'];
-
-/**
- * A TV fora do ar por cima da ficha: o chuvisco de pontinhos preto e branco (duas camadas, uma piscando,
- * para o ruído mexer), uma ou duas faixas onde ele engrossa e o letreiro verde do canal num canto.
- */
-function tvStatic(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
-  const kk = Math.max(0.5, k);
-  const seed = Math.floor(r() * 1000);
-  /** O ruído: a turbulência fininha, em cinza, puxada para preto e branco. */
-  const noise = (id: string, s: number) =>
-    `<filter id='${uid}-${id}' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='${(0.75 + r() * 0.25).toFixed(2)}' numOctaves='2' seed='${s}'/><feColorMatrix type='matrix' values='1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 1'/><feComponentTransfer><feFuncR type='discrete' tableValues='0 .15 .85 1'/><feFuncG type='discrete' tableValues='0 .15 .85 1'/><feFuncB type='discrete' tableValues='0 .15 .85 1'/></feComponentTransfer></filter>`;
-  const amount = 0.22 + r() * 0.14;
-  let bands = '';
-  const nb = 1 + Math.floor(r() * 2);
-  for (let i = 0; i < nb; i++) {
-    const y = H * (0.1 + r() * 0.8),
-      h = (8 + r() * 26) * kk;
-    bands += `<rect y='${f1(y)}' width='${f1(W)}' height='${f1(h)}' filter='url(#${uid}-ruido-b)' opacity='.55'/><rect y='${f1(y + h * 0.3)}' width='${f1(W)}' height='${f1(Math.max(1, h * 0.12))}' fill='#fff' fill-opacity='.35'/>`;
-  }
-  const label = CHANNEL[Math.floor(r() * CHANNEL.length)];
-  const fs = 11 * kk;
-  const lx = W - 14 * kk,
-    ly = 16 * kk + fs;
-  out.front +=
-    `<defs>${noise('ruido-a', seed)}${noise('ruido-b', seed + 31)}${noise('ruido-c', seed + 57)}</defs>` +
-    `<g opacity='${amount.toFixed(2)}'><rect width='${f1(W)}' height='${f1(H)}' filter='url(#${uid}-ruido-a)'/><g class='pisca' style='animation-duration:.9s'><rect width='${f1(W)}' height='${f1(H)}' filter='url(#${uid}-ruido-c)'/></g></g>` +
-    `<g class='rola' style='--rola:${f1(H * 0.6)}px'>${bands}</g>` +
+    `</g>` +
+    // o letreiro verde do canal no canto, como o da TV quando troca de canal ou fica sem sinal
     `<g font-family='ui-monospace, Consolas, "Courier New", monospace' font-weight='700' font-size='${f1(fs)}' letter-spacing='${f1(1 * kk)}' text-anchor='end'>` +
-    `<text x='${f1(lx + 1.2 * kk)}' y='${f1(ly + 1.2 * kk)}' fill='#000' fill-opacity='.55'>${label}</text><text x='${f1(lx)}' y='${f1(ly)}' fill='#5dff6e'>${label}</text></g>`;
+    `<text x='${f1(lx + 1.2 * kk)}' y='${f1(ly + 1.4 * kk)}' fill='#000' fill-opacity='.5'>${label}</text><text x='${f1(lx)}' y='${f1(ly)}' fill='#5dff6e' stroke='#06210c' stroke-opacity='.85' stroke-width='${f1(2.4 * kk)}' stroke-linejoin='round' paint-order='stroke'>${label}</text></g>`;
 }
 
 // ----- Barras de cor -----

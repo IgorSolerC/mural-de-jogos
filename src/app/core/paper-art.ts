@@ -3017,16 +3017,21 @@ const SLIME: readonly (readonly [string, string])[] = [
   ['#ff9a1f', '#fff0d6'],
   ['#d8f23a', '#fbffe0'],
 ];
+/** O sangue escorrendo: um vermelho pouco escuro, de brilho mais contido. */
+const SLIME_BLOOD: readonly [string, string] = ['#a3121b', '#ff8f8f'];
 
 /**
  * Gosma escorrendo da beirada de cima, por cima de tudo (até da foto): a faixa grudada no alto e os
  * pingos pendurados, uns compridos com a gota pesada na ponta, tudo numa massa só (os pedaços se
- * fundem como líquido), translúcida, de uma cor só, com o brilho molhado e umas bolhas. Às vezes uns
- * pingos já caíram mais abaixo.
+ * fundem como líquido), quase opaca, de uma cor só, com o brilho molhado e umas bolhas. Às vezes uns
+ * pingos já caíram mais abaixo. Às vezes é sangue: vermelho pouco escuro, sem bolhas.
  */
 function slime(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
   const q = Math.max(0.4, k);
-  const [color, shine] = SLIME[Math.floor(r() * SLIME.length)];
+  // a cor sai do mesmo sorteio de sempre (a forma não muda): numa fatia de cada cor, vira sangue
+  const pick = r() * SLIME.length;
+  const blood = pick - Math.floor(pick) < 1 / 7;
+  const [color, shine] = blood ? SLIME_BLOOD : SLIME[Math.floor(pick)];
   const a = W * (r() * 0.35),
     b = Math.min(W + 6, a + W * (0.45 + r() * 0.5));
   const ph = [r() * 6, r() * 6];
@@ -3129,10 +3134,10 @@ function slime(W: number, H: number, k: number, r: () => number, uid: string, ou
     `<feGaussianBlur in='SourceGraphic' stdDeviation='${blur}' result='b'/>` +
     `<feColorMatrix in='b' type='matrix' values='1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10'/>` +
     `</filter></defs>` +
-    // translúcida por inteiro: a massa, o brilho e as bolhas numa só transparência
-    `<g opacity='.74'><g fill='${color}' filter='url(#${uid}-gosma)'>${goo}</g><g fill='${color}'>${specks}</g>` +
+    // quase opaca, por inteiro: a massa, o brilho e as bolhas numa só transparência (o sangue, mais ainda)
+    `<g opacity='${blood ? '.93' : '.88'}'><g fill='${color}' filter='url(#${uid}-gosma)'>${goo}</g><g fill='${color}'>${specks}</g>` +
     `<g fill='none' stroke='${shine}' stroke-width='${f1(1.3 * q)}' stroke-linecap='round' stroke-opacity='.85'>${gloss}</g>` +
-    `<g fill='none' stroke='${shine}' stroke-width='${f1(0.8 * q)}' stroke-opacity='.8'>${bubbles}</g></g>`;
+    `<g fill='none' stroke='${shine}' stroke-width='${f1(0.8 * q)}' stroke-opacity='.8'>${blood ? '' : bubbles}</g></g>`;
 }
 
 // ----- Lágrimas -----

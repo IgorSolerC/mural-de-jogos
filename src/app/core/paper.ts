@@ -445,7 +445,6 @@ export type Decor =
   | 'beijo'
   | 'antena'
   | 'crt'
-  | 'chuvisco'
   | 'barras'
   | 'disquete'
   | 'erro';
@@ -453,7 +452,7 @@ export type Decor =
 /**
  * Na ordem do estojo: o que brilha e a festa; os adesivos e as coisas de jogo; a papelaria (selo,
  * post-it, ingresso, etiqueta, carimbo, medalha, lacre); o que prende e fura; o tempo e os bichos;
- * a TV e o computador (a antena, o tubo, o chuvisco, as barras, o disquete, a janela de erro).
+ * a TV e o computador (a antena, o tubo, as barras, o disquete, a janela de erro).
  */
 export const DECORS: readonly Decor[] = [
   'purpurina',
@@ -484,7 +483,6 @@ export const DECORS: readonly Decor[] = [
   'beijo',
   'antena',
   'crt',
-  'chuvisco',
   'barras',
   'disquete',
   'erro',
@@ -519,7 +517,6 @@ export const DECOR_LABEL: Record<Decor, string> = {
   beijo: 'Beijo de batom',
   antena: 'Antena de TV',
   crt: 'Filtro de TV de tubo',
-  chuvisco: 'Chuvisco',
   barras: 'Barras de cor',
   disquete: 'Disquete',
   erro: 'Janela de erro',
