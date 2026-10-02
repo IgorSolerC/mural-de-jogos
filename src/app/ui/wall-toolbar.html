@@ -36,11 +36,14 @@
         @for (o of sortOptions; track o.value) {
           <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
         }
-        <optgroup label="Nota">
-          @for (o of scoreOptions(); track o.value) {
-            <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
-          }
-        </optgroup>
+        <!-- sem spoilers, ordenar por nota entregaria o ranking -->
+        @if (!settings.noSpoilers()) {
+          <optgroup label="Nota">
+            @for (o of scoreOptions(); track o.value) {
+              <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
+            }
+          </optgroup>
+        }
       </select>
     </label>
     <button

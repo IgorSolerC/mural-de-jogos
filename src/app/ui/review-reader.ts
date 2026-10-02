@@ -15,6 +15,8 @@ import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
+import { Settings } from '../core/settings';
+import { scramble } from '../core/spoiler';
 import { Boletim } from './boletim';
 import { BonusSticker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
@@ -73,8 +75,8 @@ import { StatusLabel } from './status-label';
               </div>
 
               <div class="judgement">
-                <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" />
-                @if (handAverage(); as avg) {
+                <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" [masked]="masked()" />
+                @if (!masked() && handAverage(); as avg) {
                   <p class="na-mao">Nota dada na mão · a média daria {{ avg }}</p>
                 }
                 @if (profile().difficulty) {
@@ -89,19 +91,23 @@ import { StatusLabel } from './status-label';
                 <ul class="bonus" aria-label="Bônus">
                   @for (b of bonuses(); track b.id; let i = $index) {
                     <li>
-                      <app-bonus-sticker [bonus]="b" [index]="i" />
-                      <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
+                      <app-bonus-sticker [bonus]="b" [index]="i" [masked]="masked()" [seed]="r.id" />
+                      @if (!masked()) {
+                        <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
+                      }
                     </li>
                   }
                 </ul>
-                <p class="sem">{{ withoutBonus() }}</p>
+                @if (!masked()) {
+                  <p class="sem">{{ withoutBonus() }}</p>
+                }
               </div>
             }
 
-            <app-boletim [review]="r" size="big" />
+            <app-boletim [review]="r" size="big" [masked]="masked()" />
 
             @if (r.text.trim()) {
-              <div class="text">{{ r.text }}</div>
+              <div class="text">{{ text() }}</div>
             } @else {
               <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
             }
@@ -145,6 +151,7 @@ export class ReviewReader {
   readonly remove = output<string>();
 
   protected readonly side = inject(SideBySide);
+  private readonly settings = inject(Settings);
   protected readonly CloseIcon = X;
   protected readonly CheckedIcon = SquareCheckBig;
   protected readonly UncheckedIcon = Square;
@@ -181,6 +188,14 @@ export class ReviewReader {
   protected readonly review = signal<Review | null>(null);
   /** Backups de colegas são somente leitura e nunca acionam as ações do mural pessoal. */
   protected readonly owner = signal<string | null>(null);
+  /** Sem spoilers, a leitura do seu mural esconde o mesmo que a ficha. O mural de um colega não. */
+  protected readonly masked = computed(() => this.settings.noSpoilers() && this.owner() === null);
+  /** O texto inteiro, ou embaralhado do mesmo tamanho no modo sem spoilers. */
+  protected readonly text = computed(() => {
+    const r = this.review();
+    if (!r) return '';
+    return this.masked() ? scramble(r.text, r.id) : r.text;
+  });
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
   /** A faixa do cabeçalho é a cartolina da ficha, no papel dela. */
   protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock)));

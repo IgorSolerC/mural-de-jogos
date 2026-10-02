@@ -21,6 +21,10 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
+import { BonusSticker } from '../ui/bonus';
+import { JudgeLabel } from '../ui/judge-label';
+import { Bonus } from '../core/review';
+import { scramble } from '../core/spoiler';
 
 const DAY = 86_400_000;
 
@@ -31,7 +35,7 @@ const DAY = 86_400_000;
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [LucideAngularModule, Pin],
+  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
@@ -145,6 +149,38 @@ const DAY = 86_400_000;
               </div>
             </div>
           }
+        </div>
+
+        <fieldset class="escolha spoilers">
+          <legend class="rotulo">Spoilers</legend>
+          <label class="op">
+            <span class="opcao">
+              <input type="radio" name="spoilers" value="mostrar" [checked]="!settings.noSpoilers()" (change)="settings.noSpoilers.set(false)" />
+              <span class="adesivo" [class.recorte]="settings.noSpoilers()" [class.colado]="!settings.noSpoilers()">Mostrar</span>
+            </span>
+            <span class="op-texto">As fichas mostram o que você achou: notas, veredito, bônus e a frase da resenha.</span>
+          </label>
+          <label class="op">
+            <span class="opcao">
+              <input type="radio" name="spoilers" value="esconder" [checked]="settings.noSpoilers()" (change)="settings.noSpoilers.set(true)" />
+              <span class="adesivo" [class.recorte]="!settings.noSpoilers()" [class.colado]="settings.noSpoilers()">Sem spoilers</span>
+            </span>
+            <span class="op-texto">
+              Toda nota vira “?”, todo bônus fica meio branco e meio preto, e o texto vira letra embaralhada do mesmo tamanho.
+              Bom para mostrar o mural sem contar nada.
+            </span>
+          </label>
+        </fieldset>
+
+        <!-- um canto de ficha, para ver o que some -->
+        <div class="previa-ficha" aria-hidden="true">
+          <app-judge-label class="p-julgamento" [value]="8.7" verdict="recomendo" size="compact" [masked]="settings.noSpoilers()" />
+          <ul class="p-bonus">
+            @for (b of sampleBonuses; track b.id; let i = $index) {
+              <li><app-bonus-sticker [bonus]="b" [index]="i" size="mini" [masked]="settings.noSpoilers()" seed="previa" /></li>
+            }
+          </ul>
+          <p class="p-frase">“{{ settings.noSpoilers() ? sampleLeadMasked : sampleLead }}”</p>
         </div>
       </section>
 
@@ -362,6 +398,14 @@ export class SettingsPage {
     { label: 'Março', stocks: ['rosa', 'azul', 'verde'] },
     { label: 'Fevereiro', stocks: ['amarelo', 'laranja'] },
   ];
+
+  /** A prévia do modo sem spoilers: dois bônus, um de cada lado, e uma frase de resenha. */
+  protected readonly sampleBonuses: Bonus[] = [
+    { id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' },
+    { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
+  ];
+  protected readonly sampleLead = 'Valeu cada hora, mesmo com o final corrido.';
+  protected readonly sampleLeadMasked = scramble(this.sampleLead, 'previa');
 
   protected readonly showKey = signal(false);
   protected readonly showTmdb = signal(false);

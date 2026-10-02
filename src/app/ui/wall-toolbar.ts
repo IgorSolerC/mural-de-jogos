@@ -17,6 +17,7 @@ import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { FacetKey, NO_FILTER } from '../core/wall-filter';
 import { Density, SortKey, WallView } from '../core/wall-view';
+import { Settings } from '../core/settings';
 import { FilterSheet, FilterToggle } from './filter-sheet';
 import { SearchStrip } from './search-strip';
 
@@ -69,8 +70,9 @@ export class WallToolbar {
   protected readonly scoreOptions = computed(() =>
     scoreKeys(this.mural.kind()).map((k) => ({ value: `nota:${k}`, label: SCORE_LABEL[k] })),
   );
+  protected readonly settings = inject(Settings);
   protected readonly sortValue = computed(() =>
-    this.view.sort() === 'nota' ? `nota:${this.view.activeScore()}` : this.view.sort(),
+    this.view.shownSort() === 'nota' ? `nota:${this.view.activeScore()}` : this.view.shownSort(),
   );
 
   protected readonly sortLabel = computed(() => {
@@ -81,7 +83,7 @@ export class WallToolbar {
 
   protected directionLabel(): string {
     const desc = this.view.direction() === 'desc';
-    switch (this.view.sort()) {
+    switch (this.view.shownSort()) {
       case 'data':
         return desc ? 'Mais recentes primeiro' : 'Mais antigas primeiro';
       case 'alfabetica':

@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KindProfile, countOf } from './kinds';
 import { Mural } from './mural';
+import { Settings } from './settings';
 import {
   NO_DAY_LABEL,
   RATED_KEYS,
@@ -21,6 +22,9 @@ export type Direction = 'desc' | 'asc';
 export type Density = 'completa' | 'simples' | 'capas';
 
 const KEY = 'mural-de-jogos:vista:v1';
+
+/** Os grupos da cartela de filtros que contam o que a pessoa achou: somem no modo sem spoilers. */
+const SPOILER_FACETS: readonly FacetKey[] = ['verdict', 'grade'];
 
 interface ViewPrefs {
   sort: SortKey;
@@ -76,6 +80,7 @@ export interface WallGroup {
 @Injectable({ providedIn: 'root' })
 export class WallView {
   private readonly mural = inject(Mural);
+  private readonly settings = inject(Settings);
   private readonly prefs = readPrefs();
 
   readonly query = signal('');
@@ -92,6 +97,17 @@ export class WallView {
   readonly direction = signal<Direction>(this.prefs.direction);
   readonly density = signal<Density>(this.prefs.density);
 
+  /**
+   * A ordem que vale de fato. Sem spoilers, ordenar por nota entregaria o ranking mesmo com as notas
+   * escondidas: o mural fica por data, e a escolha guardada volta quando o modo desliga.
+   */
+  readonly shownSort = computed<SortKey>(() => (this.settings.noSpoilers() && this.sort() === 'nota' ? 'data' : this.sort()));
+  /** Os filtros que valem de fato: sem spoilers, filtrar por veredito ou nota também entregaria o que acharam. */
+  private readonly activeFilter = computed<WallFilter>(() => {
+    const f = this.filter();
+    return this.settings.noSpoilers() && (f.verdict.length || f.grade.length) ? { ...f, verdict: [], grade: [] } : f;
+  });
+
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
   private readonly searched = computed<Review[]>(() => {
     const needle = fold(this.query().trim());
@@ -99,27 +115,30 @@ export class WallView {
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
-  readonly facets = computed(() => facetsOf(this.searched(), this.filter(), this.mural.profile()));
+  readonly facets = computed(() => {
+    const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile());
+    return this.settings.noSpoilers() ? all.filter((f) => !SPOILER_FACETS.includes(f.key)) : all;
+  });
   /** Os filtros ligados, como etiquetas. */
-  readonly tags = computed(() => tagsOf(this.filter(), this.mural.profile()));
-  readonly filterCount = computed(() => filterSize(this.filter()));
+  readonly tags = computed(() => tagsOf(this.activeFilter(), this.mural.profile()));
+  readonly filterCount = computed(() => filterSize(this.activeFilter()));
 
   readonly isFiltered = computed(() => this.query().trim() !== '' || this.filterCount() > 0);
 
   readonly visible = computed<Review[]>(() => {
-    const f = this.filter();
+    const f = this.activeFilter();
     const list = this.searched().filter((r) => matchesFilter(r, f));
     return list.sort(comparatorOf(this.order()));
   });
 
   private readonly order = computed<WallOrder>(() => ({
-    sort: this.sort(),
+    sort: this.shownSort(),
     key: this.activeScore(),
     direction: this.direction(),
     profile: this.mural.profile(),
   }));
 
-  readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order()));
+  readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.settings.noSpoilers()));
 
   constructor() {
     effect(() => {
@@ -198,7 +217,7 @@ export function sortWall(list: readonly Review[], o: WallOrder): Review[] {
  * O mural agrupado pelo que ordena: mês, faixa de nota, letra ou status. A lista já vem ordenada,
  * então cada grupo é só uma sequência de fichas com a mesma chave.
  */
-export function groupWall(sorted: readonly Review[], o: WallOrder): WallGroup[] {
+export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage = false): WallGroup[] {
   const keyOf = groupKeyOf(o);
   const groups: WallGroup[] = [];
   for (const r of sorted) {
@@ -207,7 +226,7 @@ export function groupWall(sorted: readonly Review[], o: WallOrder): WallGroup[] 
     if (last?.key === key) last.reviews.push(r);
     else groups.push({ key, label, summary: '', reviews: [r] });
   }
-  const showAvg = o.sort !== 'nota';
+  const showAvg = o.sort !== 'nota' && !hideAverage;
   for (const g of groups) {
     const n = g.reviews.length;
     const parts = [countOf(o.profile, n)];

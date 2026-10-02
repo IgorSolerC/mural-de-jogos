@@ -34,11 +34,11 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     <p
       class="grade"
       role="img"
-      [attr.aria-label]="'Média ' + grade().text + ' de 10'"
+      [attr.aria-label]="masked() ? 'Média escondida' : 'Média ' + grade().text + ' de 10'"
       [class.metal]="grade().metal"
       [class.tarja-rasgada]="grade().ruim"
       [class.mancha-cafe]="grade().cafe"
-      [class.split]="!!verdict()"
+      [class.split]="!!verdict() || masked()"
     >
       @if (grade().brilho) {
         @for (b of brilhos; track b) {
@@ -53,7 +53,12 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
         <span class="dec" [class.metal-nota]="grade().metal" aria-hidden="true">,{{ grade().dec }}</span>
       }
     </p>
-    @if (verdict(); as v) {
+    @if (masked()) {
+      <!-- sem spoilers: o canhoto preto de sempre, com uma interrogação no lugar do veredito -->
+      <p class="band misterio" role="img" aria-label="Veredito escondido">
+        <span class="palavra" aria-hidden="true">?</span>
+      </p>
+    } @else if (verdict(); as v) {
       <p
         class="band"
         [class.gold]="v === 'masterpiece'"
@@ -223,6 +228,21 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       background-clip: text;
       color: transparent;
     }
+    .band.misterio {
+      justify-content: center;
+      min-width: 52px;
+      font-size: 2rem;
+      font-style: italic;
+      letter-spacing: 0;
+    }
+    :host(.compact) .band.misterio {
+      min-width: 40px;
+      font-size: 1.6rem;
+    }
+    :host(.big) .band.misterio {
+      min-width: 64px;
+      font-size: 2.6rem;
+    }
     .band lucide-icon {
       display: inline-flex;
       margin-top: -1px;
@@ -315,6 +335,8 @@ export class JudgeLabel {
   readonly size = input<'card' | 'compact' | 'big'>('card');
   /** Na ficha do mural: se a palavra do veredito não couber na largura, fica só o ícone. */
   readonly fit = input(false);
+  /** Sem spoilers: "?" na Média e no veredito, sempre do mesmo jeito em todas as fichas. */
+  readonly masked = input(false);
 
   /** A palavra do veredito não cabe: o canhoto mostra só o ícone. */
   protected readonly iconOnly = signal(false);
@@ -329,6 +351,7 @@ export class JudgeLabel {
       this.verdict();
       this.size();
       this.fit();
+      this.masked();
       untracked(() => this.remeasure());
     });
     afterNextRender(() => {
@@ -350,7 +373,7 @@ export class JudgeLabel {
   /** Cabe a etiqueta inteira na largura da coluna? Se não, só o ícone. */
   private measure(): void {
     const el = this.host.nativeElement;
-    if (!this.fit() || !this.verdict()) {
+    if (!this.fit() || !this.verdict() || this.masked()) {
       this.iconOnly.set(false);
       return;
     }
@@ -364,6 +387,7 @@ export class JudgeLabel {
 
   /** "9,4" → inteiro 9 e decimal 4, escritos em tamanhos diferentes, o decimal menor. */
   protected readonly grade = computed(() => {
+    if (this.masked()) return { text: 'escondida', int: '?', dec: '', metal: false, brilho: false, cafe: false, ruim: false };
     const v = this.value();
     const text = formatScore(v);
     const [int, dec = ''] = text.split(',');

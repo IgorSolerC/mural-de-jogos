@@ -384,6 +384,41 @@ a {
   }
 }
 
+/* ===== Spoilers: a segunda escolha da ficha do Mural, com um canto de ficha de prévia ===== */
+.escolha.spoilers {
+  margin-top: 28px;
+}
+
+.previa-ficha {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 16px;
+  margin-top: 18px;
+  padding: 16px 16px 14px;
+  border-radius: 2px;
+  background: var(--stock-amarelo);
+  color: var(--ink);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.3), 0 6px 10px -4px rgb(0 0 0 / 0.45);
+  rotate: -0.6deg;
+}
+
+.p-bonus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.p-frase {
+  grid-column: 1 / -1;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+
 /* ===== Busca e capas ===== */
 .fontes-titulo {
   margin: 20px 0 6px;

@@ -25,6 +25,8 @@ export interface WallCardProps {
   picking: boolean;
   /** A ordem das fichas marcadas para o lado a lado (id → 1, 2, 3…). */
   picked: ReadonlyMap<string, number>;
+  /** Sem spoilers: notas, veredito, bônus e texto escondidos. */
+  masked: boolean;
 }
 
 const NO_PROPS: WallCardProps = {
@@ -35,6 +37,7 @@ const NO_PROPS: WallCardProps = {
   dayOnly: false,
   picking: false,
   picked: new Map(),
+  masked: false,
 };
 
 /**
@@ -135,6 +138,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('dayOnly', p.dayOnly);
     ref.setInput('picking', p.picking);
     ref.setInput('pickedAt', p.picked.get(r.id) ?? null);
+    ref.setInput('masked', p.masked);
   }
 
   private drop(id: string, ref: ComponentRef<ReviewCard>): void {

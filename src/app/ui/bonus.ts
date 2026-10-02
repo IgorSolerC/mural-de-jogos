@@ -5,6 +5,7 @@ import {
   BookCopy,
   BookOpen,
   Brain,
+  BrainCog,
   Bug,
   Camera,
   CameraOff,
@@ -70,6 +71,7 @@ import {
   formatScore,
   sortBonuses,
 } from '../core/review';
+import { scramble } from '../core/spoiler';
 
 const BONUS_ICON: Record<string, LucideIconData> = {
   'trilha-sonora': Music,
@@ -109,7 +111,8 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   'escrita-bonita': Feather,
   reviravolta: Shuffle,
   'mundo-rico': Globe,
-  'me-fez-pensar': Brain,
+  // "Genial" já é o cérebro nos jogos: refletir é o cérebro com a engrenagem girando
+  'me-fez-pensar': BrainCog,
   reler: Repeat,
   rever: Repeat,
   previsivel: Eye,
@@ -159,20 +162,27 @@ const TILTS = [-1.4, 0.9, -0.5, 1.3, -1, 0.6];
  * Adesivo de bônus: etiqueta impressa, pequena, colada torta. A favor é papel com fio de tinta;
  * contra é tinta chapada com letra de papel. Os dois lados se distinguem sem depender de cor.
  * `ghost` é o adesivo ainda na cartela: só o contorno picotado de onde ele sai.
+ * `masked` é o modo sem spoilers: meio papel, meio tinta, com o nome embaralhado — não dá para
+ * saber se é a favor ou contra.
  */
 @Component({
   selector: 'app-bonus-sticker',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '[class]': 'bonus().kind',
+    '[class]': 'masked() ? "misterio" : bonus().kind',
     '[class.ghost]': 'ghost()',
     '[class.mini]': 'size() === "mini"',
     '[style.--st-tilt]': 'tilt() + "deg"',
   },
   template: `
     <lucide-icon [img]="icon()" [size]="size() === 'mini' ? 12 : 14" [strokeWidth]="2.6" aria-hidden="true" />
-    <span class="txt">{{ bonus().label }}</span>
+    @if (masked()) {
+      <span class="txt" aria-hidden="true">{{ label() }}</span>
+      <span class="sr-only">Bônus escondido</span>
+    } @else {
+      <span class="txt">{{ bonus().label }}</span>
+    }
   `,
   styles: `
     :host {
@@ -212,6 +222,19 @@ const TILTS = [-1.4, 0.9, -0.5, 1.3, -1, 0.6];
       color: var(--paper);
       box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.35);
     }
+    /* sem spoilers: metade papel, metade tinta. A letra branca em "diferença" fica escura no papel e
+       clara na tinta, então o nome embaralhado se lê dos dois lados do corte. */
+    :host(.misterio) {
+      isolation: isolate;
+      background: linear-gradient(100deg, var(--paper) 50%, var(--ink) 50%);
+      color: #fff;
+      box-shadow:
+        inset 0 0 0 1.5px rgb(21 21 21 / 0.82),
+        0 1px 1.5px rgb(0 0 0 / 0.33);
+    }
+    :host(.misterio) > :not(.sr-only) {
+      mix-blend-mode: difference;
+    }
     /* ainda na cartela: o recorte picotado, sem cola e sem sombra */
     :host(.ghost) {
       rotate: 0deg;
@@ -245,18 +268,29 @@ export class BonusSticker {
   readonly size = input<'card' | 'mini'>('card');
   /** Posição do adesivo na fileira, para a tortura de cada um; null cola reto. */
   readonly index = input<number | null>(null);
-  protected readonly icon = computed(() => bonusIcon(this.bonus()));
+  /** Sem spoilers: meio a meio, com o nome embaralhado (ver Settings.noSpoilers). */
+  readonly masked = input(false);
+  /** Embaralha diferente em cada ficha: o mesmo bônus não se repete igual pelo mural. */
+  readonly seed = input('');
+  protected readonly icon = computed(() => (this.masked() ? CircleHelp : bonusIcon(this.bonus())));
+  protected readonly label = computed(() =>
+    this.masked() ? scramble(this.bonus().label, `${this.seed()}:${this.bonus().id}`) : this.bonus().label,
+  );
   protected readonly tilt = computed(() => {
     const i = this.index();
     return i === null ? 0 : TILTS[i % TILTS.length];
   });
 }
 
-/** A contagem curta dos bônus: "+2" em papel, "−1" em tinta, como dois adesivinhos. */
+/** A contagem curta dos bônus: "+2" em papel, "−1" em tinta, como dois adesivinhos. Sem spoilers, um só, meio a meio. */
 @Component({
   selector: 'app-bonus-tally',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (masked()) {
+      <span class="t misterio" aria-hidden="true"><span>?{{ bonuses().length }}</span></span>
+      <span class="sr-only">{{ bonuses().length }} bônus</span>
+    } @else {
     @if (tally().favor) {
       <span class="t favor" aria-hidden="true">+{{ tally().favor }}</span>
     }
@@ -264,6 +298,7 @@ export class BonusSticker {
       <span class="t contra" aria-hidden="true">−{{ tally().contra }}</span>
     }
     <span class="sr-only">{{ spoken() }}</span>
+    }
   `,
   styles: `
     :host {
@@ -292,10 +327,21 @@ export class BonusSticker {
       background: var(--ink);
       color: var(--paper);
     }
+    .misterio {
+      isolation: isolate;
+      background: linear-gradient(100deg, var(--paper) 50%, var(--ink) 50%);
+      color: #fff;
+      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.82);
+    }
+    .misterio span {
+      mix-blend-mode: difference;
+    }
   `,
 })
 export class BonusTally {
   readonly bonuses = input.required<readonly Bonus[]>();
+  /** Sem spoilers: só quantos são, sem dizer de que lado. */
+  readonly masked = input(false);
   protected readonly tally = computed(() => bonusTally(this.bonuses()));
   protected readonly spoken = computed(() => spokenTally(this.bonuses()));
 }

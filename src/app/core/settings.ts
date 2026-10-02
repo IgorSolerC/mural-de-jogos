@@ -11,6 +11,8 @@ interface Stored {
   source: CoverSource;
   /** As etiquetas de fita que separam o mural em grupos. Escondidas, as fichas correm juntas (bom para print). */
   groupLabels: boolean;
+  /** Sem spoilers: as fichas do mural escondem notas, veredito, bônus e texto, para mostrar o mural a outros. */
+  noSpoilers: boolean;
 }
 
 function readStored(): Stored {
@@ -21,9 +23,10 @@ function readStored(): Stored {
     // Quem já tinha colado uma chave antes desta opção existir continua na RAWG.
     const source: CoverSource = raw.source === 'wikipedia' || raw.source === 'rawg' ? raw.source : rawgKey ? 'rawg' : 'wikipedia';
     const groupLabels = raw.groupLabels !== false;
-    return { rawgKey, tmdbKey, source, groupLabels };
+    const noSpoilers = raw.noSpoilers === true;
+    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers };
   } catch {
-    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true };
+    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false };
   }
 }
 
@@ -38,6 +41,8 @@ export class Settings {
   /** Com a chave do TMDB, filmes e séries vêm de lá (em português); sem ela, da Wikipedia. */
   readonly hasTmdb = computed(() => this.tmdbKey().trim().length > 0);
   readonly groupLabels = signal(this.stored.groupLabels);
+  /** Notas viram "?", bônus viram adesivos meio a meio e o texto vira embaralhado, do mesmo tamanho. */
+  readonly noSpoilers = signal(this.stored.noSpoilers);
   readonly effectiveSource = computed<CoverSource>(() => (this.source() === 'rawg' && this.hasRawg() ? 'rawg' : 'wikipedia'));
 
   constructor() {
@@ -47,6 +52,7 @@ export class Settings {
         tmdbKey: this.tmdbKey().trim(),
         source: this.source(),
         groupLabels: this.groupLabels(),
+        noSpoilers: this.noSpoilers(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

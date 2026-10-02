@@ -22,6 +22,7 @@ import {
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
+import { scramble } from '../core/spoiler';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
@@ -125,7 +126,7 @@ function watchDistance(el: HTMLElement): () => void {
             <span aria-hidden="true"> · </span><span class="sorted"><span>{{ labels[c.key] }} </span>@if (c.ten) {<span class="selo-dez">{{ c.value }}</span>} @else if (c.ruim) {<span class="fita-rasgada">{{ c.value }}</span>} @else {<span class="nota-valor">{{ c.value }}</span>}<app-pen-mark /></span>
           }
           @if (compact() && bonuses().length) {
-            <app-bonus-tally class="tally" [bonuses]="bonuses()" />
+            <app-bonus-tally class="tally" [bonuses]="bonuses()" [masked]="masked()" />
           }
         </p>
         }
@@ -133,7 +134,7 @@ function watchDistance(el: HTMLElement): () => void {
 
       <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
       @if (!capas()) {
-        <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" />
+        <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" [masked]="masked()" />
       }
     </div>
 
@@ -147,17 +148,19 @@ function watchDistance(el: HTMLElement): () => void {
         <ul class="bonus" data-colado aria-label="Bônus">
           @for (b of shownBonuses().shown; track b.id; let i = $index) {
             <li>
-              <app-bonus-sticker [bonus]="b" [index]="i" />
-              <span class="sr-only">({{ b.kind === 'favor' ? 'a favor' : 'contra' }})</span>
+              <app-bonus-sticker [bonus]="b" [index]="i" [masked]="masked()" [seed]="review().id" />
+              @if (!masked()) {
+                <span class="sr-only">({{ b.kind === 'favor' ? 'a favor' : 'contra' }})</span>
+              }
             </li>
           }
           @if (shownBonuses().hidden.length) {
-            <li class="mais"><span aria-hidden="true">mais</span> <app-bonus-tally [bonuses]="shownBonuses().hidden" /></li>
+            <li class="mais"><span aria-hidden="true">mais</span> <app-bonus-tally [bonuses]="shownBonuses().hidden" [masked]="masked()" /></li>
           }
         </ul>
       }
 
-      <app-boletim class="boletim" data-queima [review]="review()" [highlight]="highlight()" />
+      <app-boletim class="boletim" data-queima [review]="review()" [highlight]="masked() ? null : highlight()" [masked]="masked()" />
     }
 
     <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
@@ -682,6 +685,8 @@ export class ReviewCard {
   readonly preview = input(false);
   /** Ainda sem jogo: o nome no lugar é só um marcador, em tinta rala. */
   readonly empty = input(false);
+  /** Sem spoilers (ver Settings.noSpoilers): notas em "?", bônus meio a meio e o texto embaralhado. */
+  readonly masked = input(false);
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
@@ -700,7 +705,10 @@ export class ReviewCard {
     return formatReviewDate(day, this.dayOnly());
   });
   protected readonly hours = computed(() => formatAmount(this.review().kind, this.review().hoursPlayed));
-  protected readonly lead = computed(() => leadSentence(this.review().text));
+  protected readonly lead = computed(() => {
+    const line = leadSentence(this.review().text);
+    return line && this.masked() ? scramble(line, this.review().id) : line;
+  });
   protected readonly bonuses = computed(() => sortBonuses(this.review().bonuses));
   /**
    * No máximo quatro adesivos na ficha, para ela não virar álbum. Escolhe alternando a favor e
@@ -709,6 +717,8 @@ export class ReviewCard {
   protected readonly shownBonuses = computed(() => {
     const all = this.bonuses();
     if (all.length <= MAX_STICKERS) return { shown: all, hidden: [] as Bonus[] };
+    // sem spoilers todos são iguais: os primeiros quatro bastam, e a escolha não denuncia o lado
+    if (this.masked()) return { shown: all.slice(0, MAX_STICKERS), hidden: all.slice(MAX_STICKERS) };
     const favor = all.filter((b) => b.kind === 'favor');
     const contra = all.filter((b) => b.kind === 'contra');
     const pick = new Set<string>();
@@ -732,7 +742,7 @@ export class ReviewCard {
   /** Na ficha simples, a nota que ordena o mural aparece ao lado da data. */
   protected readonly sortedCell = computed(() => {
     const k = this.highlight();
-    if (!k || k === 'final') return null;
+    if (!k || k === 'final' || this.masked()) return null;
     const c = this.cells().find((x) => x.key === k);
     return c && !c.off ? c : null;
   });
@@ -740,9 +750,14 @@ export class ReviewCard {
   /** O que o leitor de tela diz ao chegar no botão da ficha. */
   protected readonly spoken = computed(() => {
     const r = this.review();
-    const parts = [r.game.name, `média ${formatScore(r.scores.final)}`];
-    if (r.verdict) parts.push(VERDICT_LABEL[r.verdict]);
-    if (r.bonuses.length) parts.push(spokenTally(r.bonuses));
+    const parts = [r.game.name];
+    if (this.masked()) {
+      if (r.bonuses.length) parts.push(`${r.bonuses.length} bônus`);
+    } else {
+      parts.push(`média ${formatScore(r.scores.final)}`);
+      if (r.verdict) parts.push(VERDICT_LABEL[r.verdict]);
+      if (r.bonuses.length) parts.push(spokenTally(r.bonuses));
+    }
     const p = this.profile();
     parts.push(p.status[r.status]);
     if (r.difficulty !== 'nenhuma' && p.difficulty) parts.push(`${p.difficulty.toLowerCase()} ${DIFFICULTY_LABEL[r.difficulty].toLowerCase()}`);

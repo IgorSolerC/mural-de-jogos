@@ -34,16 +34,17 @@ export class WallPage {
 
   protected readonly PlusIcon = Plus;
   protected readonly ghosts = [0, 1, 2];
-  protected readonly highlight = computed(() => (this.view.sort() === 'nota' ? this.view.activeScore() : null));
+  protected readonly highlight = computed(() => (this.view.shownSort() === 'nota' ? this.view.activeScore() : null));
   /** O que todas as fichas da parede recebem igual (ver WallCardPool). */
   private readonly cardProps = computed<WallCardProps>(() => ({
     landingId: this.desk.landingId(),
     highlight: this.highlight(),
     compact: this.view.density() === 'simples',
     capas: this.view.density() === 'capas',
-    dayOnly: this.view.sort() === 'data',
+    dayOnly: this.view.shownSort() === 'data',
     picking: this.side.picking(),
     picked: this.side.order(),
+    masked: this.settings.noSpoilers(),
   }));
 
   constructor() {

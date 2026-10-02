@@ -217,12 +217,16 @@ export class Boletim {
   /** Qual nota está sendo usada na ordenação do mural, riscada a caneta. */
   readonly highlight = input<ScoreKey | null>(null);
   readonly size = input<'card' | 'big'>('card');
+  /** Sem spoilers: toda casa com nota mostra "?", sem selo nem fita. */
+  readonly masked = input(false);
 
   protected readonly cells = computed(() => {
     const r = this.review();
+    const masked = this.masked();
     return ratedKeys(r.kind).map((key) => {
       const weight = weightOf(r.weights, key);
       const v = scoreOf(r.scores, key);
+      if (masked) return { key, weight, off: weight === 'nao-tem', ten: false, ruim: false, value: '?' };
       return { key, weight, off: weight === 'nao-tem', ten: v === 10, ruim: (v ?? 2) < 2, value: formatScore(v) };
     });
   });
