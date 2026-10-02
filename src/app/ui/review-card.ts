@@ -215,7 +215,7 @@ function watchDistance(el: HTMLElement): () => void {
     }
 
     /* Esperando o papel ficar pronto (ver ui/veil.ts): no lugar da ficha, só a marca tracejada na
-       parede e o furo da tachinha, como as vagas do mural vazio. A ficha escondida não é pintada nem
+       parede, como as vagas do mural vazio. A ficha escondida não é pintada nem
        rasterizada, e não recebe clique. */
     :host([data-veu]) .corpo {
       visibility: hidden;
@@ -230,27 +230,20 @@ function watchDistance(el: HTMLElement): () => void {
       box-shadow: none;
       pointer-events: none;
     }
-    :host([data-veu])::before,
-    :host([data-entrando])::before {
+    /* a vaga: a marca tracejada na parede. Some num fade rápido quando a ficha começa a entrar. */
+    :host::before {
       content: '';
       position: absolute;
       inset: 0;
       border: 2px dashed rgb(241 241 236 / 0.16);
       border-radius: 3px;
       pointer-events: none;
+      opacity: 0;
+      transition: opacity 180ms ease-out var(--entrada, 0ms);
     }
-    :host([data-veu])::after,
-    :host([data-entrando])::after {
-      content: '';
-      position: absolute;
-      top: 8px;
-      left: calc(var(--pin-x) - 3px);
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #000;
-      box-shadow: 0 1px 0 rgb(255 255 255 / 0.12);
-      pointer-events: none;
+    :host([data-veu])::before {
+      opacity: 1;
+      transition: none;
     }
 
     /* O papel é a camada de baixo do app-paper-art (é ela que rasga, queima e dobra); a ficha em si

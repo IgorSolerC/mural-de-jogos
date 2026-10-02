@@ -1,8 +1,8 @@
 /**
  * O véu das fichas: a ficha cujo papel ainda não está pronto no tamanho dela não aparece com o
- * desenho velho. No lugar dela fica a vaga, a marca tracejada na parede com o furo da tachinha
- * (`data-veu`, ver review-card.ts), e a ficha entra por cima da marca com um fade quando o papel novo
- * fica pronto (ver a fila do papel em paper-layer.ts).
+ * desenho velho. No lugar dela fica a vaga, a marca tracejada na parede (`data-veu`, ver
+ * review-card.ts), e quando o papel novo fica pronto a ficha entra com um fade enquanto a marca some
+ * (ver a fila do papel em paper-layer.ts).
  *
  * Esconder é `visibility: hidden` no corpo da ficha, não opacidade: a ficha escondida não é pintada
  * (nem rasterizada, o caro dos filtros do papel) e não recebe clique. Entrar é só opacidade (no corpo)
@@ -59,12 +59,17 @@ export function isVeiled(card: Element): boolean {
  */
 export function reveal(card: HTMLElement, onScreen: boolean): void {
   if (!isVeiled(card)) return;
-  card.removeAttribute('data-veu');
-  if (!onScreen || reduced() || typeof card.animate !== 'function') return;
+  if (!onScreen || reduced() || typeof card.animate !== 'function') {
+    card.style.removeProperty('--entrada');
+    card.removeAttribute('data-veu');
+    return;
+  }
   const now = performance.now();
   const delay = Math.min(Math.max(MIN_DELAY, nextAt - now), MAX_DELAY);
   nextAt = now + delay + STAGGER;
-  // a vaga continua marcada por baixo enquanto a ficha entra
+  // a marca tracejada some junto com a entrada da ficha, não antes (ver review-card.ts)
+  card.style.setProperty('--entrada', `${Math.round(delay)}ms`);
+  card.removeAttribute('data-veu');
   card.setAttribute('data-entrando', '');
   const timing: KeyframeAnimationOptions = { duration: DURATION, delay, easing: EASE, fill: 'backwards' };
   const fade = bodyOf(card).animate([{ opacity: FAINT }, { opacity: 1 }], timing);
