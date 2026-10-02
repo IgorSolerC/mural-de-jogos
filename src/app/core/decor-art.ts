@@ -193,7 +193,7 @@ const GLITTER: readonly (readonly string[])[] = [
 
 /**
  * Purpurina fina, de glitter: grãozinhos de todas as cores do pote, alguns virados de lado (escuros)
- * e umas faíscas acendendo, das quais algumas piscam. Ou num montinho num canto, com o resto
+ * e umas faíscas acendendo. Ou num montinho num canto, com o resto
  * escorregando para longe, ou espalhada por igual pela ficha inteira.
  */
 function glitter(W: number, H: number, k: number, r: () => number, out: DecorArt): void {
@@ -1677,9 +1677,8 @@ const CHANNEL = ['SEM SINAL', 'CANAL 3', 'CANAL 4', 'AV 1', 'VÍDEO 2', 'CH 04',
 
 /**
  * A ficha vista numa TV de tubo: as linhas de varredura, a grade de fósforo vermelho, verde e azul, a
- * tela escurecendo nas beiradas e mais ainda nas quinas, o reflexo do vidro curvo e uma faixa clara
- * rolando devagar de cima para baixo (parada para quem pediu menos movimento), com o letreiro verde do
- * canal num canto. Por cima de tudo.
+ * tela escurecendo nas beiradas e mais ainda nas quinas, o reflexo do vidro curvo e o letreiro verde
+ * do canal num canto. Tudo parado, como um adesivo de papel. Por cima de tudo.
  */
 function crtFilter(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
   const kk = Math.max(0.5, k);
@@ -1697,7 +1696,6 @@ function crtFilter(W: number, H: number, k: number, r: () => number, uid: string
     `<pattern id='${uid}-fosforo' width='${f1(3 * kk)}' height='4' patternUnits='userSpaceOnUse'><rect width='${f1(kk)}' height='4' fill='#ff2a2a'/><rect x='${f1(kk)}' width='${f1(kk)}' height='4' fill='#2aff4a'/><rect x='${f1(2 * kk)}' width='${f1(kk)}' height='4' fill='#2a5bff'/></pattern>` +
     `<radialGradient id='${uid}-vinheta' cx='.5' cy='.5' r='.72'><stop offset='.55' stop-color='#000' stop-opacity='0'/><stop offset='.85' stop-color='#000' stop-opacity='.28'/><stop offset='1' stop-color='#000' stop-opacity='.62'/></radialGradient>` +
     `<linearGradient id='${uid}-vidro' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='.2'/><stop offset='.35' stop-color='#fff' stop-opacity='.04'/><stop offset='.36' stop-color='#fff' stop-opacity='0'/></linearGradient>` +
-    `<linearGradient id='${uid}-rola' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#fff' stop-opacity='0'/><stop offset='.5' stop-color='#fff' stop-opacity='.09'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></linearGradient>` +
     `<filter id='${uid}-borda' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='${f1(5 * kk)}'/></filter>` +
     `<filter id='${uid}-quina' x='-5%' y='-5%' width='110%' height='110%'><feGaussianBlur stdDeviation='${f1(1.6 * kk)}'/></filter>` +
     `<clipPath id='${uid}-tela'><rect width='${f1(W)}' height='${f1(H)}'/></clipPath>` +
@@ -1706,7 +1704,6 @@ function crtFilter(W: number, H: number, k: number, r: () => number, uid: string
     (tint ? `<rect width='${f1(W)}' height='${f1(H)}' fill='${tint}' fill-opacity='.07'/>` : '') +
     `<rect width='${f1(W)}' height='${f1(H)}' fill='url(#${uid}-fosforo)' opacity='.07'/>` +
     `<rect width='${f1(W)}' height='${f1(H)}' fill='url(#${uid}-varre)'/>` +
-    `<g class='rola' style='--rola:${f1(H + 60 * kk)}px'><rect y='${f1(-50 * kk)}' width='${f1(W)}' height='${f1(44 * kk)}' fill='url(#${uid}-rola)'/></g>` +
     `<rect width='${f1(W)}' height='${f1(H)}' fill='url(#${uid}-vinheta)'/>` +
     // a moldura de dentro do tubo: a tela é redonda nas quinas e escura na beirada
     `<rect x='${f1(-6 * kk)}' y='${f1(-6 * kk)}' width='${f1(W + 12 * kk)}' height='${f1(H + 12 * kk)}' rx='${f1(rx)}' fill='none' stroke='#000' stroke-opacity='.55' stroke-width='${f1(14 * kk)}' filter='url(#${uid}-borda)'/>` +

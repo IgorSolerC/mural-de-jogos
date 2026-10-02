@@ -4297,8 +4297,8 @@ const GLITCH = ['#ff2bd6', '#00e5ff', '#39ff14', '#ffffff', '#101014', '#ffe600'
 /**
  * O sinal falhou no meio da ficha: faixas deitadas escorregaram para um lado (a beirada de onde a faixa
  * saiu fica vazia), cada uma tingida de uma cor do RGB, com a franja vermelha e ciano dos canais
- * separados, riscos de varredura e um borrão de pixels arrastados. O tingido vai por cima de tudo,
- * até da foto: é a tela que falhou, não o papel.
+ * separados, riscos de varredura e um borrão de pixels arrastados. É a impressão que saiu com
+ * defeito: o tingido fica no papel, por baixo do que está escrito, da foto e dos adesivos.
  */
 function glitchBands(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
   const kk = Math.max(0.45, k);
@@ -4344,7 +4344,8 @@ function glitchBands(W: number, H: number, k: number, r: () => number, out: Pape
     const th = Math.max(1, 1.4 * kk);
     out.cut.push(from ? `M-6 ${f1(y)}H${f1(len)}V${f1(y + th)}H-6Z` : `M${f1(W - len)} ${f1(y)}H${f1(W + 6)}V${f1(y + th)}H${f1(W - len)}Z`);
   }
-  out.topo = (out.topo ?? '') + `<g>${tint}</g><g>${smear}</g><g>${fringe}${scan}</g>`;
+  // impresso no papel: por baixo do que está escrito, da foto e dos adesivos
+  out.clareia += `<g>${tint}</g><g>${smear}</g><g>${fringe}${scan}</g>`;
 }
 
 // ----- Arquivo corrompido -----

@@ -270,37 +270,8 @@ export class PaperDefs {}
     .enfeite.por-baixo {
       z-index: 2;
     }
-    /* as faíscas da purpurina que piscam */
-    .enfeite ::ng-deep .pisca {
-      animation: pisca 2.6s ease-in-out infinite;
-    }
-    @keyframes pisca {
-      0%,
-      100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.12;
-      }
-    }
-    /* a faixa clara que rola pela TV de tubo, de cima para baixo */
-    .enfeite ::ng-deep .rola {
-      animation: rola 7s linear infinite;
-    }
-    @keyframes rola {
-      from {
-        transform: translateY(0);
-      }
-      to {
-        transform: translateY(var(--rola));
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .enfeite ::ng-deep .pisca,
-      .enfeite ::ng-deep .rola {
-        animation: none;
-      }
-    }
+    /* as decorações ficam paradas, como coisa de papel: nada pisca nem rola (as faíscas da purpurina
+       ainda levam a classe pisca, sem animação) */
     .camada ::ng-deep svg {
       position: absolute;
       inset: 0;
