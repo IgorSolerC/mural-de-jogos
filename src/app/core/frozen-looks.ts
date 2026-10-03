@@ -26,6 +26,9 @@ export const FROZEN_PATTERNS: readonly Pattern[] = [
   'mineracao', 'carros',
   // 2026-10-02, o computador
   'computadores', 'janelas', 'cursores', 'circuitos', 'binario', 'blocos',
+  // 2026-10-03, a terceira leva
+  'bolos', 'festa', 'natal', 'casal', 'magias', 'pocoes', 'portais', 'armas', 'foguetes', 'arcoiris', 'praia', 'corujas', 'lanches', 'japonesa',
+  'cemiterio', 'esportes', 'escola', 'carinhas',
 ];
 // Espirais e Teste de caneta saíram em 2026-09-29, a pedido
 export const FROZEN_SCRIBBLES: readonly Scribble[] = [

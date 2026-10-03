@@ -174,6 +174,289 @@ const D20 = (() => {
   return { sil: `<path d='${P(hex)}'/>`, det: `<path d='${P(tri)}${edges}'/>` };
 })();
 
+/** Pontos de um arco de círculo, de `a0` a `a1` graus. */
+function arc(cx: number, cy: number, r: number, a0: number, a1: number, n = 12): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = ((a0 + ((a1 - a0) * i) / n) * Math.PI) / 180;
+    out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return out;
+}
+
+/** O caminho aberto por uma lista de pontos. */
+const line = (pts: Pt[]) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('');
+
+/** A direção (unitária) e a normal de um trecho de linha, no ponto `i`. */
+function frame(pts: Pt[], i: number): { u: Pt; n: Pt } {
+  const a = pts[Math.max(0, i - 1)],
+    b = pts[Math.min(pts.length - 1, i + 1)];
+  const dx = b[0] - a[0],
+    dy = b[1] - a[1],
+    len = Math.hypot(dx, dy) || 1;
+  return { u: [dx / len, dy / len], n: [-dy / len, dx / len] };
+}
+
+/** Uma linha grossa como corpo (a bengala doce, o tronco do coqueiro): a linha `pts` com largura `w`. */
+function tube(pts: Pt[], w: number, w1 = w): string {
+  const left: Pt[] = [],
+    right: Pt[] = [];
+  pts.forEach((p, i) => {
+    const { n } = frame(pts, i);
+    const h = (w + ((w1 - w) * i) / (pts.length - 1)) / 2;
+    left.push([p[0] + n[0] * h, p[1] + n[1] * h]);
+    right.push([p[0] - n[0] * h, p[1] - n[1] * h]);
+  });
+  return P([...left, ...right.reverse()]);
+}
+
+/** Os riscos atravessados ao longo de um `tube` (as listras da bengala, os anéis do tronco), a cada `step`. */
+function tubeMarks(pts: Pt[], w: number, step: number, slant: number, from = step / 2, w1 = w): string {
+  // a linha refeita em pedacinhos iguais, para os riscos saírem espaçados por igual nas curvas
+  const fine: Pt[] = [];
+  for (let i = 0; i < pts.length - 1; i++)
+    for (let k = 0; k < 20; k++) fine.push([pts[i][0] + ((pts[i + 1][0] - pts[i][0]) * k) / 20, pts[i][1] + ((pts[i + 1][1] - pts[i][1]) * k) / 20]);
+  fine.push(pts[pts.length - 1]);
+  let d = '',
+    run = 0,
+    next = from;
+  for (let i = 1; i < fine.length; i++) {
+    run += Math.hypot(fine[i][0] - fine[i - 1][0], fine[i][1] - fine[i - 1][1]);
+    if (run < next) continue;
+    next += step;
+    const { u, n } = frame(fine, i);
+    const h = (w + ((w1 - w) * i) / (fine.length - 1)) / 2 - 0.3;
+    const p = fine[i];
+    d += `M${f1(p[0] + n[0] * h - u[0] * slant)} ${f1(p[1] + n[1] * h - u[1] * slant)}L${f1(p[0] - n[0] * h + u[0] * slant)} ${f1(p[1] - n[1] * h + u[1] * slant)}`;
+  }
+  return d;
+}
+
+/** Uma estrela de pontas arredondadas (a do pinheiro, a estrela-do-mar). */
+function softStar(cx: number, cy: number, R: number, r: number, n: number, rot = -90, k = 0.24): string {
+  const p = spikes(cx, cy, R, r, n, rot);
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const T = p[2 * i],
+      I0 = p[(2 * i - 1 + 2 * n) % (2 * n)],
+      I1 = p[2 * i + 1];
+    const a: Pt = [T[0] + (I0[0] - T[0]) * k, T[1] + (I0[1] - T[1]) * k],
+      b: Pt = [T[0] + (I1[0] - T[0]) * k, T[1] + (I1[1] - T[1]) * k];
+    d += `${i ? 'L' : 'M'}${f1(a[0])} ${f1(a[1])}Q${f1(T[0])} ${f1(T[1])} ${f1(b[0])} ${f1(b[1])}L${f1(I1[0])} ${f1(I1[1])}`;
+  }
+  return d + 'Z';
+}
+
+/** Um brilho de quatro pontas, pintado (o mesmo desenho do SPARKLE), em qualquer lugar e tamanho. */
+function spark(cx: number, cy: number, r: number): string {
+  const k = 0.12 * r;
+  return `<path class='f' d='M${f1(cx)} ${f1(cy - r)}Q${f1(cx + k)} ${f1(cy - k)} ${f1(cx + r)} ${f1(cy)}Q${f1(cx + k)} ${f1(cy + k)} ${f1(cx)} ${f1(cy + r)}Q${f1(cx - k)} ${f1(cy + k)} ${f1(cx - r)} ${f1(cy)}Q${f1(cx - k)} ${f1(cy - k)} ${f1(cx)} ${f1(cy - r)}Z'/>`;
+}
+
+/** As ondinhas da cobertura escorrendo, de `a` até `b`, penduradas para baixo da linha. */
+function scallops(a: Pt, b: Pt, n: number, depth: number): string {
+  const s = Math.hypot(b[0] - a[0], b[1] - a[1]) / n,
+    rot = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
+  let d = `M${f1(a[0])} ${f1(a[1])}`;
+  for (let i = 1; i <= n; i++) d += `A${f1(s / 2)} ${f1(depth)} ${f1(rot)} 0 0 ${f1(a[0] + ((b[0] - a[0]) * i) / n)} ${f1(a[1] + ((b[1] - a[1]) * i) / n)}`;
+  return d;
+}
+
+/**
+ * Uma nuvem de base reta: o contorno dos círculos visto do centro, cortado no `bottom`. Volta também
+ * quem está dentro dela, para o arco-íris sumir atrás.
+ */
+function cloud(cx: number, cy: number, circles: [number, number, number][], bottom: number, n = 72) {
+  const reach = (dx: number, dy: number) => {
+    let t = 0;
+    for (const [x, y, R] of circles) {
+      const px = x - cx,
+        py = y - cy;
+      const b = dx * px + dy * py;
+      const disc = b * b - (px * px + py * py - R * R);
+      if (disc >= 0) t = Math.max(t, b + Math.sqrt(disc));
+    }
+    return dy > 0 ? Math.min(t, (bottom - cy) / dy) : t;
+  };
+  const pts: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const t = reach(Math.cos(a), Math.sin(a));
+    pts.push([cx + Math.cos(a) * t, cy + Math.sin(a) * t]);
+  }
+  const inside = ([x, y]: Pt) => {
+    const dx = x - cx,
+      dy = y - cy,
+      len = Math.hypot(dx, dy);
+    return len < 0.01 || len < reach(dx / len, dy / len) + 0.6;
+  };
+  return { d: P(pts), inside };
+}
+
+/** Uma espiral de fora para dentro, achatada em `rx`×`ry` (o redemoinho do portal). */
+function spiral(cx: number, cy: number, rx: number, ry: number, turns: number, rot = 0, n = 90): string {
+  let d = '';
+  for (let i = 0; i <= n; i++) {
+    const t = i / n,
+      a = rot + t * turns * Math.PI * 2,
+      k = 1 - t * 0.88;
+    d += `${i ? 'L' : 'M'}${f1(cx + rx * k * Math.cos(a))} ${f1(cy + ry * k * Math.sin(a))}`;
+  }
+  return d;
+}
+
+/** Um coração do tamanho que se quer: `HEART` levado para o centro (`cx`, `cy`) e escalado. */
+const heartAt = (cx: number, cy: number, k: number, cls = '') => `<path${cls ? ` class='${cls}'` : ''} d='${HEART}' transform='translate(${f1(cx - 20 * k)} ${f1(cy - 20 * k)}) scale(${k})'/>`;
+
+// ----- o coração flechado: a flecha passa por trás, só aparecem o rabo com as penas e a ponta -----
+const CUPID = (() => {
+  // o contorno do HEART em pontinhos, para saber onde a flecha entra e sai dele
+  const curves: [Pt, Pt, Pt, Pt][] = [
+    [[20, 34], [11.5, 27], [5, 21.8], [5, 14.8]],
+    [[5, 14.8], [5, 9.8], [8.8, 6.5], [12.8, 6.5]],
+    [[12.8, 6.5], [16, 6.5], [18.6, 8.6], [20, 11.6]],
+    [[20, 11.6], [21.4, 8.6], [24, 6.5], [27.2, 6.5]],
+    [[27.2, 6.5], [31.2, 6.5], [35, 9.8], [35, 14.8]],
+    [[35, 14.8], [35, 21.8], [28.5, 27], [20, 34]],
+  ];
+  const poly: Pt[] = [];
+  for (const [a, b, c, d] of curves)
+    for (let i = 0; i < 16; i++) {
+      const t = i / 16,
+        m = 1 - t;
+      poly.push([m * m * m * a[0] + 3 * m * m * t * b[0] + 3 * m * t * t * c[0] + t * t * t * d[0], m * m * m * a[1] + 3 * m * m * t * b[1] + 3 * m * t * t * c[1] + t * t * t * d[1]]);
+    }
+  const inHeart = ([x, y]: Pt) => {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
+      if (poly[i][1] > y !== poly[j][1] > y && x < ((poly[j][0] - poly[i][0]) * (y - poly[i][1])) / (poly[j][1] - poly[i][1]) + poly[i][0]) inside = !inside;
+    return inside;
+  };
+  const T: Pt = [5.4, 33.4],
+    H: Pt = [37, 7.2];
+  const len = Math.hypot(H[0] - T[0], H[1] - T[1]),
+    u: Pt = [(H[0] - T[0]) / len, (H[1] - T[1]) / len],
+    n: Pt = [-u[1], u[0]];
+  const at = (t: number, s = 0): Pt => [T[0] + u[0] * t + n[0] * s, T[1] + u[1] * t + n[1] * s];
+  // onde a flecha some e reaparece, com uma folga do traço do coração
+  const near = (t: number) => [-2, 0, 2].some((s) => inHeart(at(t, s)));
+  let enter = 0,
+    leave = len;
+  while (!near(enter + 0.2)) enter += 0.2;
+  while (!near(leave - 0.2)) leave -= 0.2;
+  const seg = (a: Pt, b: Pt) => `M${f1(a[0])} ${f1(a[1])}L${f1(b[0])} ${f1(b[1])}`;
+  // as penas: três riscos de cada lado, inclinados para trás
+  let feathers = '';
+  for (const t of [1, 3.4, 5.8]) feathers += seg(at(t), at(t - 2.2, 2.4)) + seg(at(t), at(t - 2.2, -2.4));
+  const head = P([H, at(len - 5.6, 2.8), at(len - 4.4), at(len - 5.6, -2.8)]);
+  return {
+    sil: `<path d='${HEART}'/>`,
+    det: `<path d='M10.5 14.5q.6-3.8 4.4-4.2'/>`,
+    extra: `<path d='${seg(at(0), at(enter))}${seg(at(leave), at(len - 4.6))}${feathers}'/><path class='f' d='${head}'/>`,
+  };
+})();
+
+// ----- a bola de futebol: o pentágono do meio e as costuras até a beirada -----
+const SOCCER = (() => {
+  const pent: Pt[] = [],
+    lines: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const a = ((-90 + i * 72) * Math.PI) / 180;
+    pent.push([20 + 5.4 * Math.cos(a), 20 + 5.4 * Math.sin(a)]);
+    const mid: Pt = [20 + 10.5 * Math.cos(a), 20 + 10.5 * Math.sin(a)];
+    lines.push(`M${f1(pent[i][0])} ${f1(pent[i][1])}L${f1(mid[0])} ${f1(mid[1])}`);
+    for (const s of [-1, 1]) {
+      const b = a + (s * 24 * Math.PI) / 180;
+      lines.push(`M${f1(mid[0])} ${f1(mid[1])}L${f1(20 + 15 * Math.cos(b))} ${f1(20 + 15 * Math.sin(b))}`);
+    }
+  }
+  return { sil: `<circle cx='20' cy='20' r='15'/>`, det: `<path class='f' d='${P(pent)}'/><path d='${lines.join('')}'/>` };
+})();
+
+// ----- o portal em anel: as marcas no aro e o redemoinho dentro -----
+const RING_PORTAL = (() => {
+  let marks = '';
+  for (let i = 0; i < 9; i++) {
+    const a = ((-90 + i * 40) * Math.PI) / 180;
+    marks += `M${f1(20 + 12.6 * Math.cos(a))} ${f1(20 + 12.6 * Math.sin(a))}L${f1(20 + 15.4 * Math.cos(a))} ${f1(20 + 15.4 * Math.sin(a))}`;
+  }
+  return { sil: ring(20, 20, 17, 10.5), det: `<path d='${marks}'/>`, extra: `<path d='${spiral(20, 20, 7.6, 7.6, 2.2, 0.6)}'/>` };
+})();
+
+// ----- o portal de pedra: o arco vazado, as juntas das pedras e o redemoinho na passagem -----
+const STONE_PORTAL = (() => {
+  let joints = '';
+  for (const deg of [210, 240, 270, 300, 330]) {
+    const a = (deg * Math.PI) / 180;
+    joints += `M${f1(20 + 8.5 * Math.cos(a))} ${f1(18 + 8.5 * Math.sin(a))}L${f1(20 + 15.5 * Math.cos(a))} ${f1(18 + 15.5 * Math.sin(a))}`;
+  }
+  return {
+    sil: `<path fill-rule='evenodd' d='M4.5 37V18A15.5 15.5 0 0 1 35.5 18V37ZM11.5 37V18A8.5 8.5 0 0 1 28.5 18V37Z'/>`,
+    det: `<path d='${joints}M4.5 25H11.5M28.5 25H35.5M4.5 31.2H11.5M28.5 31.2H35.5'/>`,
+    extra: `<path d='${spiral(20, 26.6, 5, 7, 1.7, 0.4)}'/>`,
+  };
+})();
+
+// ----- o arco-íris saindo das nuvens: três arcos que somem atrás delas -----
+const RAINBOW = (() => {
+  const left = cloud(8.4, 30.4, [[4.6, 31.4, 3.2], [8.6, 28.2, 4.4], [12.6, 30.8, 3.4]], 34);
+  const right = cloud(31.6, 30.4, [[35.4, 31.4, 3.2], [31.4, 28.2, 4.4], [27.4, 30.8, 3.4]], 34);
+  let arcs = '';
+  for (const r of [16.2, 11.8, 7.4]) {
+    const pts = arc(20, 30, r, 180, 360, 48).filter((p) => !left.inside(p) && !right.inside(p));
+    arcs += line(pts);
+  }
+  return { sil: `<path d='${left.d}'/><path d='${right.d}'/>`, extra: `<path d='${arcs}' style='stroke-width:2.9'/>` };
+})();
+
+// ----- o sol de óculos escuros: o disco e os raios soltos -----
+const SUN = (() => {
+  let rays = '';
+  for (let i = 0; i < 8; i++) {
+    const a = ((i * 45 - 90) * Math.PI) / 180,
+      w = 0.2;
+    rays += `<path d='${P([
+      [20 + 12.2 * Math.cos(a - w), 20 + 12.2 * Math.sin(a - w)],
+      [20 + 17.6 * Math.cos(a), 20 + 17.6 * Math.sin(a)],
+      [20 + 12.2 * Math.cos(a + w), 20 + 12.2 * Math.sin(a + w)],
+    ])}'/>`;
+  }
+  return {
+    sil: `<circle cx='20' cy='20' r='9.4'/>${rays}`,
+    det: `<path class='f' d='M12.8 17.4H19V19.6Q19 22 16.3 22Q13.4 22 12.9 19.6ZM21 17.4H27.2L27.1 19.6Q26.6 22 23.7 22Q21 22 21 19.6Z'/><path d='M19 18.2H21M16.8 25Q20 27.2 23.2 25'/>`,
+  };
+})();
+
+// ----- o coqueiro: o tronco curvo com os anéis, as folhas caindo e os cocos -----
+const PALM = (() => {
+  const trunk: Pt[] = [[18.8, 37.2], [17.8, 31], [18, 25], [19.4, 19.2], [21.6, 14]];
+  const frond = `M0 0C4.6 -7 12.4 -7.8 17.8 -1.4C12.4 -3.6 5.8 -2.4 0 0Z`;
+  const at = (t: string) => `<path transform='translate(21.4 12.8) ${t}' d='${frond}'/>`;
+  return {
+    sil: `<path d='${tube(trunk, 4.2, 3)}'/>${at('rotate(10)')}${at('rotate(-36) scale(.92)')}${at('scale(-1 1) rotate(10)')}${at('scale(-1 1) rotate(-36) scale(.92)')}${at('rotate(-84) scale(.62)')}`,
+    det: `<path d='${tubeMarks(trunk, 4.2, 4.4, 0.6, 3.4, 3)}'/>`,
+    extra: `<g class='f'><circle cx='19.4' cy='15.6' r='1.9'/><circle cx='23.4' cy='15.4' r='1.9'/></g><path d='M3.5 37.4Q20 32.6 36.5 37.4'/>`,
+  };
+})();
+
+// ----- as batatas fritas, abertas em leque -----
+const FRIES = (() => {
+  let sticks = '';
+  for (const [x, a, L] of [[12.6, -16, 11], [16.2, -8, 13.4], [20, 0, 14.6], [23.8, 8, 12.8], [27.4, 16, 10.6]] as const) {
+    const r = (a * Math.PI) / 180,
+      ux = Math.sin(r),
+      uy = -Math.cos(r),
+      w = 1.35;
+    const b: Pt = [x, 17.8],
+      t: Pt = [x + ux * L, 17.8 + uy * L];
+    sticks += `<path d='${P([[b[0] - uy * w, b[1] + ux * w], [t[0] - uy * w, t[1] + ux * w], [t[0] + uy * w, t[1] - ux * w], [b[0] + uy * w, b[1] - ux * w]])}'/>`;
+  }
+  return {
+    sil: `${sticks}<path d='M8.6 17H31.4L28.4 34.8Q28.2 36.4 26.6 36.4H13.4Q11.8 36.4 11.6 34.8Z'/>`,
+    det: `<path d='M13 17.6Q20 25 27 17.6'/>`,
+  };
+})();
+
 export const MORE_MOTIFS = {
   // ===== Bichos =====
   cachorros: {
@@ -633,6 +916,348 @@ export const MORE_MOTIFS = {
     ...block(['###', '.#.'], 8.4),
     more: [block(['#.', '#.', '##'], 8), block(['.##', '##.'], 8.4), block(['##', '##'], 9), block(['####'], 8.2)],
     c: `<path d='M4 4H16V16H4Z'/><path class='f' d='M7.4 7.4H12.6V12.6H7.4Z'/>`,
+  },
+  // ===== 2026-10-03, a terceira leva =====
+  bolos: {
+    // o bolo de dois andares, com a cobertura escorrendo e as velinhas acesas
+    sil: `<path d='M6.5 24Q6.5 22.5 8 22.5H32Q33.5 22.5 33.5 24V35H6.5Z'/><path d='M10.5 15.5Q10.5 14 12 14H28Q29.5 14 29.5 15.5V22.5H10.5Z'/>`,
+    det: `<path d='${scallops([6.5, 25.6], [33.5, 25.6], 4, 3)}${scallops([10.5, 17], [29.5, 17], 3, 2.6)}'/>`,
+    extra: `<path d='M14.6 14V9.8M20 14V9.8M25.4 14V9.8M3.4 35.8H36.6'/><path class='f' d='M14.6 3.4Q17.2 6.2 16.3 7.5Q15.7 8.4 14.6 8.4Q13.5 8.4 12.9 7.5Q12 6.2 14.6 3.4ZM20 3.4Q22.6 6.2 21.7 7.5Q21.1 8.4 20 8.4Q18.9 8.4 18.3 7.5Q17.4 6.2 20 3.4ZM25.4 3.4Q28 6.2 27.1 7.5Q26.5 8.4 25.4 8.4Q24.3 8.4 23.7 7.5Q22.8 6.2 25.4 3.4Z'/>`,
+    more: [
+      {
+        // o cupcake: a forminha pregueada, o chantili em três voltas e a cereja
+        sil: `<path d='M10.2 23.2H29.8L27.6 35Q27.4 36.4 26 36.4H14Q12.6 36.4 12.4 35Z'/><path d='M9 22.2Q6.6 22.2 7.2 19.8Q8 16.8 11.2 16.6Q11.2 12.2 15.6 11.6Q16.6 8.2 20 8.2Q23.4 8.2 24.4 11.6Q28.8 12.2 28.8 16.6Q32 16.8 32.8 19.8Q33.4 22.2 31 22.2Z'/><circle cx='20' cy='4.6' r='2.6'/>`,
+        det: `<path d='M15.2 23.8L16.1 35.6M20 23.8V35.6M24.8 23.8L23.9 35.6M11.2 16.6Q20 19 28.8 16.6M15.6 11.6Q20 13 24.4 11.6'/>`,
+        extra: `<path d='M20 2Q20.6 .2 22.6 -.2'/>`,
+      },
+      {
+        // a fatia: a cobertura escorrendo pela beirada, o recheio e a cereja em cima
+        sil: `<path d='M3.5 23L29 11.6L36.5 16.6V30L3.5 35.5Z'/><circle cx='28' cy='9.8' r='2.8'/>`,
+        det: `<path d='${scallops([3.5, 23], [36.5, 16.6], 5, 2.2)}M3.5 29.6L36.5 23.4'/>`,
+        extra: `<path d='M28 7Q28.4 4.2 31.2 3.4'/>`,
+      },
+    ],
+    // a chaminha da vela
+    c: `<path class='f' d='M10 2.5Q15.5 9 14 13.5A4 4 0 0 1 6 13.5Q4.5 9 10 2.5Z'/>`,
+  },
+  festa: {
+    // o balão, com o nó e o barbante
+    sil: `<path d='M20 2.5C12.5 2.5 9 8.5 9 14C9 21 15 26.5 20 28C25 26.5 31 21 31 14C31 8.5 27.5 2.5 20 2.5Z'/><path d='M18.2 28.4H21.8L22.8 30.8H17.2Z'/>`,
+    det: `<path d='M13.4 12q.8-4 4.6-5'/>`,
+    extra: `<path d='M20 30.8Q16.6 33.4 20.4 35.6T19.4 39.4'/>`,
+    more: [
+      {
+        // o chapéu de festa, listrado, com o pompom
+        sil: `<path d='M20 7.2L31 33.4Q31.4 34.6 30 34.6H10Q8.6 34.6 9 33.4Z'/><circle cx='20' cy='4.4' r='3'/>`,
+        det: `<path d='M14.6 19.8L23.6 15.6M11.8 26.8L26.8 21.2M9.6 33.2L29.4 27.4'/>`,
+      },
+      {
+        // o presente, com o laço
+        sil: `<path d='M7.6 15.6H32.4Q33.6 15.6 33.6 16.8V21.6H6.4V16.8Q6.4 15.6 7.6 15.6Z'/><path d='M8.4 22.6H31.6V34.8Q31.6 36 30.4 36H9.6Q8.4 36 8.4 34.8Z'/><path d='M20 15.2C17.6 8.6 10.6 7.8 10.4 11.4Q10.4 14.8 20 15.2ZM20 15.2C22.4 8.6 29.4 7.8 29.6 11.4Q29.6 14.8 20 15.2Z'/>`,
+        det: `<path d='M17.8 15.6V36M22.2 15.6V36'/>`,
+      },
+    ],
+    // o confete
+    c: `<g class='f'><path d='M3 5.4L7.4 3.8L8.4 6.4L4 8Z'/><circle cx='14.4' cy='5.6' r='1.8'/><path d='M9.4 12.4L13 15L11.4 17.2L7.8 14.6Z'/><circle cx='4.6' cy='15' r='1.3'/></g>`,
+  },
+  natal: {
+    // o pinheiro com a estrela e as bolinhas
+    sil: `<path d='M20 9.6L25.8 16.2Q24.6 16.8 23.4 16.6L29.6 23.6Q28 24.4 26.4 24.2L33.4 31.6Q20 34 6.6 31.6L13.6 24.2Q12 24.4 10.4 23.6L16.6 16.6Q15.4 16.8 14.2 16.2Z'/><path d='M17.6 33.4H22.4V37.2H17.6Z'/><path d='${softStar(20, 5.4, 4.6, 2, 5)}'/>`,
+    det: `<circle class='f' cx='20.6' cy='14.6' r='1.5'/><circle class='f' cx='16.6' cy='21.2' r='1.5'/><circle class='f' cx='24.2' cy='21.8' r='1.5'/><circle class='f' cx='13.2' cy='29.2' r='1.5'/><circle class='f' cx='20' cy='27.2' r='1.5'/><circle class='f' cx='26.8' cy='29.4' r='1.5'/>`,
+    more: [
+      (() => {
+        // a bengala doce, listrada até a ponta da curva
+        const cane: Pt[] = [[15, 37], [15, 14], ...arc(21.6, 14, 6.6, 180, 360, 14).slice(1), [28.2, 19.6]];
+        return { sil: `<path d='${tube(cane, 5.6)}'/>`, det: `<path d='${tubeMarks(cane, 5.6, 5.4, 1.8, 3)}'/>` };
+      })(),
+      {
+        // a bola de enfeite, com o zigue-zague e o ganchinho
+        sil: `<circle cx='20' cy='23.6' r='12.4'/><path d='M17 8.2H23Q23.8 8.2 23.8 9V11.8H16.2V9Q16.2 8.2 17 8.2Z'/>`,
+        det: `<path d='M7.8 22.2L11.2 25.6L14.6 22.2L18 25.6L21.4 22.2L24.8 25.6L28.2 22.2L32 25.6M12 18.4q1.4-4 5-5.2'/>`,
+        extra: `<path d='M20 8.2Q19.4 4 22 4.2Q24.2 4.6 23.2 6.8'/>`,
+      },
+      {
+        // o boneco de neve, de cartola e cachecol
+        sil: `<circle cx='20' cy='28.4' r='8.4'/><circle cx='20' cy='14' r='6'/><path d='M13.8 6.4H26.2V8H13.8Z'/><path d='M16.6 1.4H23.4V6.4H16.6Z'/>`,
+        det: `<circle class='f' cx='17.8' cy='13' r='1.1'/><circle class='f' cx='22.2' cy='13' r='1.1'/><path class='f' d='M19.8 14.8L24.2 15.8L19.8 16.8Z'/><circle class='f' cx='20' cy='26' r='1.3'/><circle class='f' cx='20' cy='30.6' r='1.3'/>`,
+        extra: `<path d='M12.2 25L5.2 20M7.6 21.7L5.8 24.2M27.8 25L34.8 20M32.4 21.7L34.2 24.2M14.4 19.8Q20 22.2 25.6 19.8M23.2 21.2L24.4 25.6'/>`,
+      },
+    ],
+    // o floco de neve
+    c: `<path d='M10 2.5V17.5M3.5 6.3L16.5 13.7M3.5 13.7L16.5 6.3'/>`,
+  },
+  casal: {
+    // o coração flechado
+    ...CUPID,
+    more: [
+      {
+        // as alianças entrelaçadas, uma com a pedra brilhando
+        sil: `${ring(14.6, 25.4, 9.2, 6.6)}${ring(25.4, 22.4, 9.2, 6.6)}<path d='M21.8 9.4L23.6 6.6H27.2L29 9.4L25.4 13.2Z'/>`,
+        det: `<path d='M21.8 9.4H29'/>`,
+        extra: spark(33, 5.4, 2.8),
+      },
+      {
+        // a cartinha de amor, fechada com um coração
+        sil: `<path d='M6 10.5H34Q36 10.5 36 12.5V29.5Q36 31.5 34 31.5H6Q4 31.5 4 29.5V12.5Q4 10.5 6 10.5Z'/>`,
+        det: `<path d='M4.8 11.4L20 23L35.2 11.4'/>${heartAt(20, 23, 0.34, 'f')}`,
+      },
+      {
+        // o cadeado do amor, com o buraco da chave em coração
+        sil: `<path d='M10.5 18H29.5Q31.5 18 31.5 20V33Q31.5 35.5 29 35.5H11Q8.5 35.5 8.5 33V20Q8.5 18 10.5 18Z'/>`,
+        det: heartAt(20, 26.6, 0.36, 'f'),
+        extra: `<path d='M13.6 18V12.6A6.4 6.4 0 0 1 26.4 12.6V18' style='stroke-width:3'/>`,
+      },
+    ],
+    c: `<path class='f' d='${HEART}' transform='scale(.5)'/>`,
+  },
+  // ===== Magia =====
+  magias: {
+    // a varinha com a estrela, soltando brilhos
+    sil: `<path d='${tube([[5.2, 35], [21.4, 18.8]], 3.4)}'/><path d='${softStar(26.6, 13, 10, 4.4, 5, -82, 0.2)}'/>`,
+    det: `<path d='M9.4 29.2l2.4 2.4'/>`,
+    extra: `${spark(8.4, 9.4, 4)}${spark(33.6, 29, 3.2)}<circle class='f' cx='14.6' cy='16.4' r='1.1'/>`,
+    more: [
+      {
+        // o livro de feitiços, com a lua, a estrela e a fitinha
+        sil: `<path d='M9 4.5H30Q32 4.5 32 6.5V31.5Q32 33.5 30 33.5H9Q7.6 33.5 7.6 32.1V5.9Q7.6 4.5 9 4.5Z'/>`,
+        det: `<path d='M11.6 4.5V33.5'/><path class='f' transform='translate(9.6 7.2)' d='M13 3C8 4 5 7.5 5 11.5C5 15.5 8.5 18 12.5 18C10 16.4 8.8 14 8.8 11C8.8 7.6 10.4 4.8 13 3Z'/><path class='f' d='${softStar(25.8, 14.4, 3, 1.3, 5)}'/>`,
+        extra: `<path d='M24.6 33.5V38.6L26.4 37L28.2 38.6V33.5'/>`,
+      },
+      {
+        // a bola de cristal no pé, com um brilho dentro
+        sil: `<circle cx='20' cy='17' r='12.2'/><path d='M11.8 26A12.2 12.2 0 0 0 28.2 26L31.4 34.4Q32 36.4 30 36.4H10Q8 36.4 8.6 34.4Z'/>`,
+        det: `<path d='M12.4 14.2Q13.4 9.4 18 7.8M11.8 26A12.2 12.2 0 0 0 28.2 26M9.8 31.6H30.2'/><path class='f' d='M22.2 12.6Q22.8 16.4 26.4 17Q22.8 17.6 22.2 21.4Q21.6 17.6 18 17Q21.6 16.4 22.2 12.6Z'/>`,
+      },
+    ],
+    c: SPARKLE,
+  },
+  pocoes: {
+    // o frasco redondo, borbulhando
+    sil: `<path d='M16.4 2.4H23.6Q24.4 2.4 24.4 3.2V5.8Q24.4 6.6 23.6 6.6H16.4Q15.6 6.6 15.6 5.8V3.2Q15.6 2.4 16.4 2.4Z'/><path d='M17.6 7.6H22.4V13.4Q31.6 16 31.6 25.2Q31.6 36.4 20 36.4Q8.4 36.4 8.4 25.2Q8.4 16 17.6 13.4Z'/>`,
+    det: `<path d='M9.4 23.6Q14.7 26.6 20 23.6T30.6 23.6'/><circle class='f' cx='15.4' cy='30.2' r='1.6'/><circle class='f' cx='22.8' cy='28.6' r='1.1'/><circle class='f' cx='20' cy='32.8' r='.9'/>`,
+    more: [
+      {
+        // o frasco de laboratório, de fundo largo
+        sil: `<path d='M16.4 2.4H23.6Q24.4 2.4 24.4 3.2V5.8Q24.4 6.6 23.6 6.6H16.4Q15.6 6.6 15.6 5.8V3.2Q15.6 2.4 16.4 2.4Z'/><path d='M17.6 7.6H22.4V15.2L31.8 31.6Q33.4 35.8 29 35.8H11Q6.6 35.8 8.2 31.6L17.6 15.2Z'/>`,
+        det: `<path d='M12.1 25Q16 27.6 20 25T27.9 25'/><circle class='f' cx='15.8' cy='30.6' r='1.5'/><circle class='f' cx='22.6' cy='29.4' r='1'/><circle class='f' cx='19.6' cy='32.8' r='.9'/>`,
+        extra: `<circle cx='27.4' cy='10.6' r='1.6'/><circle cx='30.4' cy='5.8' r='1.1'/>`,
+      },
+      {
+        // a poção do amor: o vidro em coração, com o gargalo saindo do meio
+        sil: `<path d='M16.4 2.4H23.6Q24.4 2.4 24.4 3.2V5.8Q24.4 6.6 23.6 6.6H16.4Q15.6 6.6 15.6 5.8V3.2Q15.6 2.4 16.4 2.4Z'/><path d='M17.6 13.8C15.8 11.6 13.2 11 11 11.6C7.4 12.6 5.2 16 5.4 19.8C5.8 26.4 12.4 31.2 20 36.4C27.6 31.2 34.2 26.4 34.6 19.8C34.8 16 32.6 12.6 29 11.6C26.8 11 24.2 11.6 22.4 13.8V7.6H17.6Z'/>`,
+        det: `<path d='M6.2 23.4Q13 26.6 20 23.4T33.8 23.4M9.4 18q.6-3.2 3.6-3.8'/><circle class='f' cx='15.6' cy='29' r='1.5'/><circle class='f' cx='22.6' cy='30.6' r='1'/>`,
+      },
+    ],
+    c: `<circle cx='7.4' cy='12.4' r='3.4'/><circle cx='14' cy='5.6' r='2'/><circle class='f' cx='14.6' cy='15' r='1.3'/>`,
+  },
+  portais: {
+    // o portal oval, com o redemoinho e os brilhos
+    sil: `<ellipse cx='20' cy='20' rx='12.5' ry='17'/>`,
+    det: `<path d='${spiral(20, 20, 9.4, 13.2, 2, 0.4)}'/>`,
+    extra: `${spark(5, 8.6, 3.6)}${spark(35.2, 31.4, 3)}<circle class='f' cx='35.4' cy='8.4' r='1.1'/>`,
+    more: [STONE_PORTAL, RING_PORTAL],
+    c: `<path d='${spiral(10, 10, 7, 7, 1.8, 0)}'/>`,
+  },
+  // ===== Armas =====
+  armas: {
+    // a pistola, de lado: o ferrolho, a empunhadura e o guarda-mato
+    sil: `<path d='M5.9 8H35Q36.4 8 36.4 9.4V15.4H4.5V9.4Q4.5 8 5.9 8Z'/><path d='M6 6.4H8.2V8H6ZM33.2 6.4H35V8H33.2Z'/><path d='M4.5 15.4H24V17.2Q24 18.2 23 18.2H14.6L12.4 34Q12.2 35.6 10.6 35.6H5Q3.2 35.6 3.6 33.8L6.4 18.2Q4.5 17.6 4.5 16Z'/>`,
+    det: `<path d='M8.6 10.4V13M11.8 10.4V13M15 10.4V13'/><circle class='f' cx='9.2' cy='22.4' r='1.1'/>`,
+    extra: `<path d='M14.2 21.2Q14.4 24.6 17.8 24.6H20.4Q23 24.6 23 21.8V18.2M18.8 18.2Q19.2 20.6 17.6 22'/>`,
+    more: [
+      {
+        // as balas em pé
+        sil: `<path d='M7.8 36V20.4Q7.8 13.4 11 9.4Q14.2 13.4 14.2 20.4V36Z'/><path d='M16.8 36V17.4Q16.8 10.4 20 6.4Q23.2 10.4 23.2 17.4V36Z'/><path d='M25.8 36V20.4Q25.8 13.4 29 9.4Q32.2 13.4 32.2 20.4V36Z'/>`,
+        det: `<path d='M7.8 21.6H14.2M16.8 18.6H23.2M25.8 21.6H32.2M7.8 32.8H14.2M16.8 32.8H23.2M25.8 32.8H32.2'/>`,
+      },
+      {
+        // a granada de abacaxi, com a alavanca e o pino
+        sil: `<ellipse cx='18.6' cy='25' rx='10.6' ry='11.6'/><path d='M15.4 10.6H21.8Q22.6 10.6 22.6 11.4V13.8H14.6V11.4Q14.6 10.6 15.4 10.6Z'/>`,
+        det: `<path d='M8.4 21.2H28.8M8.2 28H29M15 14.2Q13 25 15 36.4M22.2 14.2Q24.2 25 22.2 36.4'/>`,
+        extra: `<circle cx='11.2' cy='9.4' r='3.2'/><path d='M22.6 12.2H24.4Q28.6 12.2 29.4 16.6L30.4 22.6' style='stroke-width:2.8'/>`,
+      },
+    ],
+    // a mira
+    c: `<circle cx='10' cy='10' r='5.4'/><path d='M10 1.6V6M10 14V18.4M1.6 10H6M14 10H18.4'/>`,
+  },
+  // ===== Céu =====
+  foguetes: {
+    // o foguete, com as aletas e o fogo saindo
+    sil: `<path d='M20 2.4C26 7.4 28.2 14.4 28 22.4L27.6 29.4H12.4L12 22.4C11.8 14.4 14 7.4 20 2.4Z'/><path d='M12.1 19.6C7.8 21.6 5.6 25.4 5.6 31.4L12.4 28.4ZM27.9 19.6C32.2 21.6 34.4 25.4 34.4 31.4L27.6 28.4Z'/>`,
+    det: `<circle cx='20' cy='15' r='3.6'/><path d='M12.6 23.4H27.4'/>`,
+    extra: `<path d='M15.6 31.4Q16.4 35.8 20 38.6Q23.6 35.8 24.4 31.4M20 31.4V35'/>`,
+    more: [
+      {
+        // o capacete de astronauta
+        sil: `<circle cx='20' cy='18.6' r='14'/><path d='M11.4 29.4H28.6Q30 29.4 30 30.8V35.6H10V30.8Q10 29.4 11.4 29.4Z'/>`,
+        det: `<path d='M9.6 17Q9.6 10.2 20 10.2Q30.4 10.2 30.4 17Q30.4 26.2 20 26.2Q9.6 26.2 9.6 17Z'/><path d='M13.6 16.6q.8-2.8 3.6-3.4M14 32.6h2.6'/>`,
+      },
+      {
+        // o cometa
+        sil: `<path d='${softStar(27.4, 12.6, 8.8, 3.8, 5, -76, 0.18)}'/>`,
+        extra: `<path d='M20.4 19.2L4 35.6M24.4 21.6L13.4 32.6M18 15.4L8.4 25'/>`,
+      },
+    ],
+    c: SPARKLE,
+  },
+  arcoiris: {
+    ...RAINBOW,
+    more: [SUN],
+    c: `<path class='f' d='${cloud(10, 11, [[6, 12.4, 3.4], [10.4, 9.4, 4.2], [14.4, 12.6, 3.2]], 15.4).d}'/>`,
+  },
+  // ===== Natureza =====
+  praia: {
+    ...PALM,
+    more: [
+      {
+        // a concha
+        sil: `<path d='M20 31.6Q11 30.4 6.4 22.6Q3.4 16.4 6.8 11.4Q11 5.2 20 5Q29 5.2 33.2 11.4Q36.6 16.4 33.6 22.6Q29 30.4 20 31.6Z'/><path d='M15.4 30.6H24.6L23 36H17Z'/>`,
+        det: `<path d='M20 30.6V8.4M20 30.6L13 9.4M20 30.6L27 9.4M20 30.6L8.2 14.6M20 30.6L31.8 14.6'/>`,
+      },
+      {
+        // a estrela-do-mar, com as pintinhas
+        sil: `<path d='${softStar(20, 21, 17, 7.6, 5, -88, 0.2)}'/>`,
+        det: `<circle class='f' cx='20' cy='11.4' r='1.1'/><circle class='f' cx='28.4' cy='18.8' r='1.1'/><circle class='f' cx='25.6' cy='28.4' r='1.1'/><circle class='f' cx='14.4' cy='28.4' r='1.1'/><circle class='f' cx='11.6' cy='18.8' r='1.1'/><circle class='f' cx='20' cy='21' r='1.7'/>`,
+      },
+    ],
+    // a ondinha
+    c: `<path d='M2 12.4Q5 7.4 8 12.4T14 12.4T18.4 11.4'/>`,
+  },
+  // ===== Bichos =====
+  corujas: {
+    sil: `<path d='M9 8.6L12.6 12.8Q20 9.2 27.4 12.8L31 8.6Q34.2 16 33.2 23Q32 35.4 20 35.4Q8 35.4 6.8 23Q5.8 16 9 8.6Z'/>`,
+    det: `<circle cx='14.6' cy='19.2' r='4.4'/><circle cx='25.4' cy='19.2' r='4.4'/><circle class='f' cx='15.2' cy='19.2' r='1.9'/><circle class='f' cx='24.8' cy='19.2' r='1.9'/><path class='f' d='M18.4 23H21.6L20 26.4Z'/><path d='M10.2 23.6Q10.2 30.4 14.4 33.2M29.8 23.6Q29.8 30.4 25.6 33.2'/>`,
+    extra: `<path d='M3 36.2H37M16 35.4v1.6M24 35.4v1.6'/>`,
+    // a peninha
+    c: `<path d='M4 16Q5.6 5.6 16 4Q14.4 14.4 4 16Z'/><path d='M3 17L12.4 7.6'/>`,
+  },
+  // ===== Comida =====
+  lanches: {
+    // o hambúrguer em camadas, com gergelim
+    sil: `<path d='M5 18.4Q5 6.4 20 6.4Q35 6.4 35 18.4Z'/><path d='M4 19.6H36L34.4 22.6Q32 20.8 29.6 22.6T24.8 22.6T20 22.6T15.2 22.6T10.4 22.6T5.6 22.6Z'/><path d='M4.4 23.8H35.6Q37.4 23.8 37.4 25.8Q37.4 27.8 35.6 27.8H4.4Q2.6 27.8 2.6 25.8Q2.6 23.8 4.4 23.8Z'/><path d='M5 29.2H35Q35 35 29.6 35H10.4Q5 35 5 29.2Z'/>`,
+    det: `<ellipse class='f' cx='14' cy='12' rx='.75' ry='1.3' transform='rotate(-30 14 12)'/><ellipse class='f' cx='20' cy='10' rx='.75' ry='1.3'/><ellipse class='f' cx='26' cy='12' rx='.75' ry='1.3' transform='rotate(30 26 12)'/><ellipse class='f' cx='17.4' cy='15' rx='.75' ry='1.3' transform='rotate(-20 17.4 15)'/><ellipse class='f' cx='23' cy='15' rx='.75' ry='1.3' transform='rotate(20 23 15)'/>`,
+    more: [
+      FRIES,
+      {
+        // o copo de refri, com o canudo
+        sil: `<path d='M9.4 8.8H30.6Q31.4 8.8 31.4 9.6V12.6H8.6V9.6Q8.6 8.8 9.4 8.8Z'/><path d='M10.4 13.6H29.6L27.6 35Q27.4 36.4 26 36.4H14Q12.6 36.4 12.4 35Z'/>`,
+        det: `<path d='M11.2 22Q15.6 25.4 20 22T28.8 22'/>`,
+        extra: `<path d='M21.6 8.8L24.6 2.4H29.4'/>`,
+      },
+      {
+        // o cachorro-quente, com a mostarda
+        sil: `<g transform='rotate(-16 20 21)'><path d='M5.4 17.6H34.6Q37.6 17.6 37.6 20.6Q37.6 23.6 34.6 23.6H5.4Q2.4 23.6 2.4 20.6Q2.4 17.6 5.4 17.6Z'/><path d='M7.4 24.6H32.6Q32 31.6 26 31.6H14Q8 31.6 7.4 24.6Z'/><path d='M8.4 16.6Q9.4 11.4 14.4 11.4H25.6Q30.6 11.4 31.6 16.6Z'/></g>`,
+        det: `<g transform='rotate(-16 20 21)'><path d='M7.6 20.6Q9.4 18.8 11.2 20.6T14.8 20.6T18.4 20.6T22 20.6T25.6 20.6T29.2 20.6T32.4 20.6'/></g>`,
+      },
+    ],
+    c: DROP,
+  },
+  japonesa: {
+    // o oniguiri, com a alga
+    sil: `<path d='M20 4.6Q23 4.6 25 8.2L34.6 25.8Q37.2 33 30 33H10Q2.8 33 5.4 25.8L15 8.2Q17 4.6 20 4.6Z'/>`,
+    det: `<path class='f' d='M14 23.4H26V33H14Z'/><path d='M12.6 17q1.4-4 4.2-5.4'/>`,
+    more: [
+      {
+        // o sushi: o peixe listrado em cima do arroz
+        sil: `<path d='M4 18.6Q4 12.4 12 11.4Q24 10 33 12.8Q37 14.4 36.6 18Q36 20.8 32 20.8H7Q4 20.8 4 18.6Z'/><path d='M6.6 25.8Q6.6 22.2 10.2 22.2H29.8Q33.4 22.2 33.4 25.8V28Q33.4 32 29.4 32H10.6Q6.6 32 6.6 28Z'/>`,
+        det: `<path d='M14 12.4Q16.2 16 15 20.4M21.6 11.8Q23.8 15.6 22.6 20.4M28.6 12.4Q30.8 16 29.6 20.4'/>`,
+      },
+      {
+        // a tigela de lámen, com os hashis
+        sil: `<path d='M3.4 19H36.6Q36 30 26 33L25 36.2H15L14 33Q4 30 3.4 19Z'/>`,
+        det: `<path d='M7 25.4L10 23L13 25.4L16 23L19 25.4L22 23L25 25.4L28 23L31 25.4L33.4 23.4'/>`,
+        extra: `<path d='M15.4 17.4L28.6 2.4M20.6 17.4L33.4 4.8M9.6 15c-2-2 2-3.6 0-6'/>`,
+      },
+    ],
+    // o narutomaki
+    c: `<circle cx='10' cy='10' r='6.6'/><path d='${spiral(10, 10, 4, 4, 1.5, 0, 40)}'/>`,
+  },
+  // ===== Terror =====
+  cemiterio: {
+    // a lápide com R.I.P. e uma rachadura
+    sil: `<path d='M8 35V14Q8 4 20 4Q32 4 32 14V35Z'/>`,
+    det: `<path d='M12.2 12.6V20.8M12.2 12.6H14.8Q16.8 12.6 16.8 14.7Q16.8 16.8 14.8 16.8H12.2M14.6 16.8L16.8 20.8M20 12.6V20.8M23.4 12.6V20.8M23.4 12.6H26Q28 12.6 28 14.7Q28 16.8 26 16.8H23.4M26.4 24.6l-2.2 2.8 2 1.8-1.8 3'/>`,
+    extra: `<path d='M3 35.6H37M5.6 35.6l-1-3M8.6 35.6l1-2.6M31.4 35.6l-1-3M34.4 35.6l1-2.6'/>`,
+    more: [
+      {
+        // a cruz no montinho de terra
+        sil: `<path d='M17 4H23V11.6H30.6V17.6H23V33H17V17.6H9.4V11.6H17Z'/>`,
+        extra: `<path d='M4.4 36Q20 28.6 35.6 36'/>`,
+      },
+      {
+        // a mão de zumbi saindo da terra, com a cicatriz costurada
+        sil: `<path d='M15.6 37V30L14.6 28L10 22.2Q8.8 20.6 10.2 19.6Q11.6 18.8 12.8 20.2L14.6 22.6V10.6A1.8 1.8 0 0 1 18.2 10.6V19V7.6A1.8 1.8 0 0 1 21.8 7.6V19V9.4A1.8 1.8 0 0 1 25.4 9.4V19.6V13.4A1.6 1.6 0 0 1 28.6 13.4V25.6Q28.6 29.6 26 31V37Z'/>`,
+        det: `<path d='M18.2 19V11.6M21.8 19V9.6M25.4 19.6V11.6M16.8 27.8L26 24.4M19 25.6l1 2.6M22.6 24.4l1 2.6'/>`,
+        extra: `<path d='M3 37.4Q20 31.8 37 37.4'/>`,
+      },
+    ],
+    c: `<path class='f' d='M8.5 3H11.5V7H15V10H11.5V17H8.5V10H5V7H8.5Z'/>`,
+  },
+  // ===== Coisas =====
+  esportes: {
+    ...SOCCER,
+    more: [
+      {
+        // a bola de basquete
+        sil: `<circle cx='20' cy='20' r='15'/>`,
+        det: `<path d='M5 20H35M20 5V35M9.4 9.4Q15.4 20 9.4 30.6M30.6 9.4Q24.6 20 30.6 30.6'/>`,
+      },
+      {
+        // o troféu
+        sil: `<path d='M11 4.6H29V11.6Q29 20.8 20 22.4Q11 20.8 11 11.6Z'/><path d='M18.4 22.4H21.6V28H18.4Z'/><path d='M13 28H27V31.2H13Z'/><path d='M10.6 31.8H29.4V35.8H10.6Z'/>`,
+        det: `<path class='f' d='${softStar(20, 12.6, 4.6, 2, 5)}'/>`,
+        extra: `<path d='M11 7.6H7.4Q5 7.6 5 10.4Q5 16 11.6 16.6M29 7.6H32.6Q35 7.6 35 10.4Q35 16 28.4 16.6'/>`,
+      },
+    ],
+    // o apito
+    c: `<circle cx='8' cy='12' r='4.6'/><path d='M8 7.4H17V11.6H12.2'/>`,
+  },
+  escola: {
+    // o lápis apontado
+    sil: `<g transform='rotate(-42 20 20)'><path d='M4 16H29.6L37.6 20L29.6 24H4Q2.4 24 2.4 22.4V17.6Q2.4 16 4 16Z'/></g>`,
+    det: `<g transform='rotate(-42 20 20)'><path d='M7.4 16V24M10.6 16V24M29.6 16V24M10.6 20H29.6'/><path class='f' d='M34.2 18.3L37.6 20L34.2 21.7Z'/></g>`,
+    more: [
+      {
+        // o caderno aberto
+        sil: `<path d='M3 10Q12 6.4 20 10.4Q28 6.4 37 10V32Q28 28.4 20 32.4Q12 28.4 3 32Z'/>`,
+        det: `<path d='M20 10.4V32.4M7 14.4Q11.4 13 16 14.6M7 19Q11.4 17.6 16 19.2M7 23.6Q11.4 22.2 16 23.8M24 14.6Q28.6 13 33 14.4M24 19.2Q28.6 17.6 33 19'/>`,
+      },
+      {
+        // o aviãozinho de papel
+        sil: `<path d='M3 18.4L37 4.4L28 34L19.6 25Z'/><path d='M19.6 25L24.4 29.6L19.6 34.6Z'/>`,
+        det: `<path d='M37 4.4L19.6 25'/>`,
+      },
+      {
+        // a régua
+        sil: `<g transform='rotate(-36 20 20)'><path d='M1.6 14.6H38.4V25.4H1.6Z'/></g>`,
+        det: `<g transform='rotate(-36 20 20)'><path d='M6 14.6v4.6M10 14.6v2.8M14 14.6v4.6M18 14.6v2.8M22 14.6v4.6M26 14.6v2.8M30 14.6v4.6M34 14.6v2.8'/></g>`,
+      },
+    ],
+    // o clipe
+    c: `<path d='M7 16V5.6Q7 3 9.6 3Q12.2 3 12.2 5.6V14Q12.2 15.8 10.6 15.8Q9 15.8 9 14V7.4'/>`,
+  },
+  carinhas: {
+    // a feliz
+    sil: `<circle cx='20' cy='20' r='15'/>`,
+    det: `<ellipse class='f' cx='14.6' cy='16' rx='1.9' ry='2.7'/><ellipse class='f' cx='25.4' cy='16' rx='1.9' ry='2.7'/><path d='M12.4 23Q20 31.4 27.6 23'/>`,
+    more: [
+      {
+        // a piscadinha, de língua de fora
+        sil: `<circle cx='20' cy='20' r='15'/>`,
+        det: `<ellipse class='f' cx='14.6' cy='16' rx='1.9' ry='2.7'/><path d='M22.6 16.6q2.8-2.4 5.6 0M12.6 23.4Q20 28.6 27.4 23.4M17.6 25.6Q17.8 31.4 20.6 31.4Q23.4 31.4 23.4 25.6'/>`,
+      },
+      {
+        // a apaixonada
+        sil: `<circle cx='20' cy='20' r='15'/>`,
+        det: `${heartAt(14.4, 16, 0.24, 'f')}${heartAt(25.6, 16, 0.24, 'f')}<path d='M12.4 22.4H27.6Q27 30.4 20 30.4Q13 30.4 12.4 22.4Z'/>`,
+      },
+      {
+        // a de olhinho em X
+        sil: `<circle cx='20' cy='20' r='15'/>`,
+        det: `<path d='M12.4 13.4l4.2 4.2M16.6 13.4l-4.2 4.2M23.4 13.4l4.2 4.2M27.6 13.4l-4.2 4.2M12.4 26.2q2.6-2.6 5.2 0t5.2 0t5.2 0'/>`,
+      },
+    ],
+    c: SPARKLE,
   },
 } satisfies Record<string, Motif>;
 

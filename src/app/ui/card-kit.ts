@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
@@ -14,10 +15,12 @@ import {
   PAPERS,
   PAPER_LABEL,
   PATTERNS,
+  PATTERN_GROUPS,
   PATTERN_LABEL,
   Paper,
   Pattern,
   PatternLook,
+  groupOfPattern,
   SCRIBBLES,
   SCRIBBLE_INK_LABEL,
   SCRIBBLE_LABEL,
@@ -55,7 +58,7 @@ interface Option {
  */
 @Component({
   selector: 'app-card-kit',
-  imports: [PaperArtLayer, Pin],
+  imports: [NgTemplateOutlet, PaperArtLayer, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="abas" role="tablist" aria-label="Personalizar a ficha" (keydown)="onTabKey($event)">
@@ -141,19 +144,62 @@ interface Option {
           @if (tab() !== 'papel') {
             <!-- são muitas: um desenho só de cada, sem o retalho de cartolina, para caberem à vista e se
                  lerem de longe; a ficha ao lado mostra como fica -->
-            <div class="carimbos">
-              @for (o of options(); track o.value) {
-                <label class="carimbo" [class.on]="o.value === value()">
-                  <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
-                  @if (iconOf(o); as icon) {
-                    <span class="icone" [innerHTML]="icon"></span>
-                  } @else {
-                    <span class="icone lisa"></span>
-                  }
-                  <span class="nome">{{ o.label }}</span>
-                </label>
+            <ng-template #carimbo let-o>
+              <label class="carimbo" [class.on]="o.value === value()">
+                <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+                @if (iconOf(o); as icon) {
+                  <span class="icone" [innerHTML]="icon"></span>
+                } @else {
+                  <span class="icone lisa"></span>
+                }
+                <span class="nome">{{ o.label }}</span>
+              </label>
+            </ng-template>
+            @if (tab() === 'estampa') {
+              <!-- são muitas: os assuntos em cima, para ir direto ao que se quer; Todas mostra tudo, com o assunto
+                   de cada bloco escrito antes dele. O assunto da estampa escolhida ganha um pontinho -->
+              <div class="assuntos" role="group" aria-label="Assunto das estampas">
+                @for (g of groupChips; track g.id) {
+                  <button
+                    type="button"
+                    class="assunto"
+                    [attr.data-assunto]="g.id"
+                    [class.on]="group() === g.id"
+                    [class.usada]="g.id !== 'todas' && chosenGroup() === g.id"
+                    [attr.aria-pressed]="group() === g.id"
+                    (click)="selectGroup(g.id)"
+                  >
+                    {{ g.label }}
+                  </button>
+                }
+              </div>
+              @if (group() === 'todas') {
+                <div class="carimbos">
+                  <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: plainOption }" />
+                </div>
               }
-            </div>
+              @for (sec of patternSections(); track sec.id) {
+                <section class="bloco" [attr.aria-label]="sec.label">
+                  @if (group() === 'todas') {
+                    <h3 class="giz bloco-titulo">{{ sec.label }}</h3>
+                  }
+                  <div class="carimbos">
+                    @if (group() !== 'todas') {
+                      <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: plainOption }" />
+                    }
+                    @for (o of sec.options; track o.value) {
+                      <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: o }" />
+                    }
+                  </div>
+                </section>
+              }
+            } @else {
+              <div class="carimbos">
+                @for (o of options(); track o.value) {
+                  <ng-container *ngTemplateOutlet="carimbo; context: { $implicit: o }" />
+                }
+              </div>
+            }
           } @else {
           <div class="retalhos" [class.largos]="tab() !== 'papel'">
             @for (o of options(); track o.value) {
@@ -517,6 +563,85 @@ interface Option {
       text-underline-offset: 4px;
     }
 
+    /* ===== Assuntos das estampas: palavras a giz numa grade; o escolhido sublinhado em amarelo ===== */
+    /* uma régua só, grudada no alto do painel: dá para trocar de assunto lá do meio da lista; o que não
+       cabe corre para o lado, e a ponta direita some num degradê para mostrar que tem mais */
+    .assuntos {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      gap: 3px;
+      margin: 0 0 14px;
+      padding: 4px 28px 4px 4px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent);
+      border-radius: 4px;
+      background: rgb(16 14 13 / 0.94);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.06),
+        0 6px 10px -6px rgb(0 0 0 / 0.8);
+    }
+    .assuntos::-webkit-scrollbar {
+      display: none;
+    }
+    .assunto {
+      position: relative;
+      flex: none;
+      min-height: 30px;
+      padding: 5px 8px;
+      border: 0;
+      border-radius: 3px;
+      background: none;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: var(--wall-ink-2);
+      cursor: pointer;
+      transition:
+        color var(--t-ui) var(--ease-ui),
+        background-color var(--t-ui) var(--ease-ui);
+
+      &:hover {
+        color: var(--wall-ink);
+        background: rgb(255 255 255 / 0.05);
+      }
+      &:focus-visible {
+        outline: 3px solid var(--hi);
+        outline-offset: 1px;
+      }
+      &.on {
+        color: var(--wall-ink);
+        background: rgb(255 255 255 / 0.09);
+        text-decoration: underline 2px var(--hi);
+        text-underline-offset: 4px;
+      }
+      /* o assunto da estampa escolhida: o pontinho das abas */
+      &.usada::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        right: 2px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--hi);
+      }
+    }
+    .bloco + .bloco,
+    .carimbos + .bloco {
+      margin-top: 16px;
+    }
+    .bloco-titulo {
+      margin: 0 0 8px;
+      font-size: 0.7rem;
+    }
+
     /* ===== Ajustes da estampa: três réguas de cinco degraus, lado a lado acima dos retalhos ===== */
     .ajustes {
       display: grid;
@@ -595,6 +720,26 @@ export class CardKit {
     const sanitizer = inject(DomSanitizer);
     return Object.fromEntries(PATTERNS.map((p) => [p, sanitizer.bypassSecurityTrustHtml(motifIcon(p))])) as Record<Pattern, SafeHtml>;
   })();
+  /** O assunto das estampas à vista: Todas, ou um só. */
+  protected readonly group = signal<string>('todas');
+  protected readonly groupChips: readonly { id: string; label: string }[] = [{ id: 'todas', label: 'Todas' }, ...PATTERN_GROUPS];
+  /** A Lisa, que fica sempre à vista, em qualquer assunto. */
+  protected readonly plainOption: Option = { value: null, label: 'Lisa' };
+  /** As estampas por assunto: todos os blocos, ou só o escolhido. */
+  protected readonly patternSections = computed(() => {
+    const g = this.group();
+    return PATTERN_GROUPS.filter((x) => g === 'todas' || x.id === g).map((x) => ({
+      id: x.id,
+      label: x.label,
+      options: x.patterns.map((p): Option => ({ value: p, label: PATTERN_LABEL[p], pattern: p })),
+    }));
+  });
+  /** O assunto da estampa que a ficha tem. */
+  protected readonly chosenGroup = computed(() => {
+    const p = this.pattern();
+    return p ? groupOfPattern(p)?.id : undefined;
+  });
+
   /** O desenho de cada rabisco, estrago, mancha e decoração, no mesmo traço das estampas. */
   private readonly kitIcons: Record<string, SafeHtml> = (() => {
     const sanitizer = inject(DomSanitizer);
@@ -710,8 +855,37 @@ export class CardKit {
     this.el.querySelector('.painel')?.scrollTo(0, 0);
   }
 
+  /** Troca o assunto; se a lista já tinha descido, volta para o começo dele, logo abaixo dos assuntos. */
+  protected selectGroup(id: string): void {
+    this.group.set(id);
+    this.showChip(id);
+    const painel = this.el.querySelector<HTMLElement>('.painel'),
+      ajustes = this.el.querySelector<HTMLElement>('.ajustes');
+    if (!painel || !ajustes) return;
+    const past = ajustes.getBoundingClientRect().bottom - painel.getBoundingClientRect().top;
+    if (past < 0) painel.scrollTo(0, painel.scrollTop + past);
+  }
+
+  /** Rola a régua de assuntos até o assunto `id` aparecer inteiro. */
+  private showChip(id: string): void {
+    const strip = this.el.querySelector<HTMLElement>('.assuntos'),
+      chip = strip?.querySelector<HTMLElement>(`[data-assunto='${id}']`);
+    if (!strip || !chip) return;
+    const left = chip.offsetLeft - 4,
+      right = chip.offsetLeft + chip.offsetWidth + 32 - strip.clientWidth;
+    if (strip.scrollLeft > left) strip.scrollTo({ left, behavior: 'smooth' });
+    else if (strip.scrollLeft < right) strip.scrollTo({ left: right, behavior: 'smooth' });
+  }
+
   protected selectTab(tab: Tab): void {
     this.tab.set(tab);
+    // a Estampa abre no assunto da estampa que a ficha já tem; sem estampa, em Todas
+    if (tab === 'estampa') {
+      const g = this.chosenGroup() ?? 'todas';
+      this.group.set(g);
+      // a régua já desenhada: leva o assunto escolhido para dentro da vista
+      setTimeout(() => this.showChip(g));
+    }
     this.el.querySelector('.painel')?.scrollTo(0, 0);
   }
 

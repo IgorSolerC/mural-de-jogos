@@ -63,67 +63,33 @@ export type Pattern =
   | 'aranhas'
   | MorePattern;
 
-/** A ordem no editor: por assunto, para achar mais fácil (bichos, terror, comida, jogo, céu, natureza…). */
-export const PATTERNS: readonly Pattern[] = [
-  // bichos
-  'gatinhos',
-  'cachorros',
-  'aranhas',
-  'borboletas',
-  'abelhas',
-  'peixes',
-  'dinossauros',
-  // terror
-  'caveiras',
-  'fantasmas',
-  'morcegos',
-  'aboboras',
-  'bruxaria',
-  'olhos',
-  // comida
-  'cozinha',
-  'frutas',
-  'doces',
-  'pizza',
-  'cafe',
-  'cogumelos',
-  // jogo
-  'controles',
-  'pixel',
-  'dados',
-  'cartas',
-  'xadrez',
-  // computador
-  'computadores',
-  'janelas',
-  'cursores',
-  'circuitos',
-  'binario',
-  'blocos',
-  // céu
-  'estrelas',
-  'planetas',
-  'alienigenas',
-  'raios',
-  'chuva',
-  // natureza
-  'flores',
-  'folhas',
-  'cactos',
-  // aventura
-  'medieval',
-  'piratas',
-  'ninja',
-  'tatuagens',
-  'mineracao',
-  // coisas
-  'foguinhos',
-  'coracoes',
-  'ferramentas',
-  'carros',
-  'robos',
-  'musica',
+/** Um assunto de estampas, para achar mais fácil no editor (são muitas). */
+export interface PatternGroup {
+  id: string;
+  label: string;
+  patterns: readonly Pattern[];
+}
+
+/** As estampas por assunto, na ordem do editor. */
+export const PATTERN_GROUPS: readonly PatternGroup[] = [
+  { id: 'bichos', label: 'Bichos', patterns: ['gatinhos', 'cachorros', 'corujas', 'aranhas', 'borboletas', 'abelhas', 'peixes', 'dinossauros'] },
+  { id: 'terror', label: 'Terror', patterns: ['caveiras', 'fantasmas', 'morcegos', 'aboboras', 'olhos', 'cemiterio'] },
+  { id: 'magia', label: 'Magia', patterns: ['bruxaria', 'magias', 'pocoes', 'portais'] },
+  { id: 'festas', label: 'Festas', patterns: ['bolos', 'festa', 'natal', 'casal', 'coracoes'] },
+  { id: 'comida', label: 'Comida', patterns: ['cozinha', 'frutas', 'doces', 'pizza', 'cafe', 'cogumelos', 'lanches', 'japonesa'] },
+  { id: 'jogos', label: 'Jogos', patterns: ['controles', 'pixel', 'dados', 'cartas', 'xadrez'] },
+  { id: 'computador', label: 'Computador', patterns: ['computadores', 'janelas', 'cursores', 'circuitos', 'binario', 'blocos'] },
+  { id: 'ceu', label: 'Céu', patterns: ['estrelas', 'planetas', 'alienigenas', 'foguetes', 'raios', 'chuva', 'arcoiris'] },
+  { id: 'natureza', label: 'Natureza', patterns: ['flores', 'folhas', 'cactos', 'praia'] },
+  { id: 'aventura', label: 'Aventura', patterns: ['medieval', 'armas', 'piratas', 'ninja', 'mineracao', 'tatuagens'] },
+  { id: 'coisas', label: 'Coisas', patterns: ['foguinhos', 'ferramentas', 'carros', 'robos', 'musica', 'esportes', 'escola', 'carinhas'] },
 ];
+
+/** Todas as estampas, na ordem dos assuntos. */
+export const PATTERNS: readonly Pattern[] = PATTERN_GROUPS.flatMap((g) => g.patterns);
+
+/** O assunto de uma estampa. */
+export const groupOfPattern = (p: Pattern): PatternGroup | undefined => PATTERN_GROUPS.find((g) => g.patterns.includes(p));
 
 export const PATTERN_LABEL: Record<Pattern, string> = {
   gatinhos: 'Gatinhos',
@@ -175,6 +141,24 @@ export const PATTERN_LABEL: Record<Pattern, string> = {
   circuitos: 'Circuitos',
   binario: 'Binário',
   blocos: 'Blocos caindo',
+  bolos: 'Bolos',
+  festa: 'Festa',
+  natal: 'Natal',
+  casal: 'Casal',
+  magias: 'Magias',
+  pocoes: 'Poções',
+  portais: 'Portais',
+  armas: 'Armas',
+  foguetes: 'Foguetes',
+  arcoiris: 'Arco-íris e sol',
+  praia: 'Praia',
+  corujas: 'Corujas',
+  lanches: 'Lanchonete',
+  japonesa: 'Comida japonesa',
+  cemiterio: 'Cemitério',
+  esportes: 'Esportes',
+  escola: 'Material escolar',
+  carinhas: 'Carinhas',
 };
 
 /**

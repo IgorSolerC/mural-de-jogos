@@ -1,4 +1,4 @@
-import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_LABEL, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
 import { cutMask, lightPattern, motifIcon, paperArt, paperStyle, paperVars, patternTile } from './paper-art';
 import { decorArt } from './decor-art';
 import { sanitizeReview } from './review';
@@ -144,6 +144,10 @@ describe('papel da ficha', () => {
     // a cozinha: a frigideira, a espátula, o batedor e a colher aparecem todos no ladrilho
     const kitchen = decodeURIComponent(patternTile('cozinha').url);
     for (const ref of ['#o', '#s', '#o1', '#s1', '#o2', '#s2', '#o3', '#s3']) expect(kitchen).withContext(ref).toContain(`href='${ref}'`);
+    // os assuntos: cada estampa num só, e nenhum vazio
+    for (const g of PATTERN_GROUPS) expect(g.patterns.length).withContext(g.id).toBeGreaterThan(0);
+    expect(PATTERN_GROUPS.flatMap((g) => g.patterns).length).toBe(PATTERNS.length);
+    for (const p of PATTERNS) expect(groupOfPattern(p)).withContext(p).toBeDefined();
     // as de um desenho só não ganham ids novos
     expect(decodeURIComponent(patternTile('gatinhos').url)).not.toContain("id='o1'");
   });
