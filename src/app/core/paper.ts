@@ -241,12 +241,21 @@ export type Scribble =
   | 'janela'
   | 'circuito'
   | 'blocos'
-  | 'codigo';
+  | 'codigo'
+  | 'ossada'
+  | 'chamas'
+  | 'acao'
+  | 'corrente'
+  | 'celta'
+  | 'apaixonado'
+  | 'partitura'
+  | 'contagem';
 
 /** Na ordem do estojo: as molduras, os enfeites e, por último, os bagunçados. */
 export const SCRIBBLES: readonly Scribble[] = [
-  'contorno', 'moldura', 'gotica', 'cybertribal', 'arabesco', 'dialogo', 'hud', 'pixelart', 'janela', 'circuito', 'runas', 'farpado', 'renda', 'cupom', 'pelicula', 'regua',
-  'trepadeira', 'bandeirinhas', 'terco', 'invocacao', 'tesouro', 'olhos', 'blocos', 'codigo', 'aula', 'novelo', 'hachura', 'riscado',
+  'contorno', 'moldura', 'gotica', 'cybertribal', 'arabesco', 'celta', 'dialogo', 'hud', 'pixelart', 'janela', 'circuito', 'runas', 'farpado', 'corrente', 'ossada',
+  'renda', 'cupom', 'pelicula', 'partitura', 'regua',
+  'trepadeira', 'bandeirinhas', 'terco', 'invocacao', 'tesouro', 'olhos', 'chamas', 'acao', 'blocos', 'codigo', 'contagem', 'aula', 'apaixonado', 'novelo', 'hachura', 'riscado',
 ];
 
 export const SCRIBBLE_LABEL: Record<Scribble, string> = {
@@ -278,6 +287,14 @@ export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   circuito: 'Placa de circuito',
   blocos: 'Blocos empilhados',
   codigo: 'Código binário',
+  ossada: 'Ossada',
+  chamas: 'Chamas',
+  acao: 'Linhas de ação',
+  corrente: 'Corrente',
+  celta: 'Nó celta',
+  apaixonado: 'Apaixonado',
+  partitura: 'Partitura',
+  contagem: 'Contagem na parede',
 };
 
 /**
@@ -316,28 +333,48 @@ export type Damage =
   | 'descascado'
   | 'glitch'
   | 'corrompido'
-  | 'desintegrado';
+  | 'desintegrado'
+  | 'partido'
+  | 'quebracabeca'
+  | 'cantos'
+  | 'desgrampeado'
+  | 'esfarelado'
+  | 'desbotado'
+  | 'laser'
+  | 'raio'
+  | 'acido'
+  | 'carregando';
 
-/** A ordem dos retalhos no editor: os rasgos e remendos, as dobras, os bichos, o fogo e, por último, o que é de computador. */
+/** A ordem dos retalhos no editor: os rasgos e remendos, as dobras e o tempo, os bichos, os furos e o fogo e, por último, o que é de computador. */
 export const DAMAGES: readonly Damage[] = [
   'rasgado',
   'rasgao',
+  'partido',
   'remendado',
   'costurado',
   'colado',
+  'quebracabeca',
   'picotado',
+  'cantos',
   'caderno',
   'orelha',
   'dobrado',
   'amassado',
+  'esfarelado',
+  'desbotado',
   'arranhado',
   'garras',
   'mordido',
   'furado',
+  'desgrampeado',
   'baleado',
+  'laser',
   'queimado',
+  'raio',
+  'acido',
   'descascado',
   'glitch',
+  'carregando',
   'corrompido',
   'desintegrado',
 ];
@@ -363,6 +400,16 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
   glitch: 'Glitch',
   corrompido: 'Arquivo corrompido',
   desintegrado: 'Desintegrando em pixels',
+  partido: 'Partida ao meio',
+  quebracabeca: 'Quebra-cabeça',
+  cantos: 'Cantos cortados',
+  desgrampeado: 'Grampos arrancados',
+  esfarelado: 'Esfarelando',
+  desbotado: 'Desbotada no sol',
+  laser: 'Cortada a laser',
+  raio: 'Raio',
+  acido: 'Ácido',
+  carregando: 'Carregou pela metade',
 };
 
 // ===================== Mancha =====================
@@ -372,10 +419,33 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
  * junto com um estrago (uma ficha rasgada pode ter café). Os desenhos são os mesmos de quando as
  * manchas ficavam entre os estragos: o sorteio guardado dá a mesma mancha.
  */
-export type Stain = 'cafe' | 'molhado' | 'sangue' | 'mofado' | 'tracas' | 'pisado' | 'pegadas' | 'passos' | 'mao' | 'nanquim' | 'gosma' | 'lagrimas' | 'salgadinho' | 'cybertribal';
+export type Stain =
+  | 'cafe'
+  | 'molhado'
+  | 'sangue'
+  | 'mofado'
+  | 'tracas'
+  | 'pisado'
+  | 'pegadas'
+  | 'passos'
+  | 'mao'
+  | 'nanquim'
+  | 'gosma'
+  | 'lagrimas'
+  | 'salgadinho'
+  | 'cybertribal'
+  | 'fuligem'
+  | 'refri'
+  | 'pizza'
+  | 'cera'
+  | 'graxa'
+  | 'lama'
+  | 'pneu';
 
-/** Na ordem do estojo: o que se bebe e o que se chora, o sangue e a tinta, a gosma e a gordura, o mofo e os bichos, e quem passou por cima. */
-export const STAINS: readonly Stain[] = ['cafe', 'molhado', 'lagrimas', 'sangue', 'mao', 'nanquim', 'gosma', 'salgadinho', 'mofado', 'tracas', 'pisado', 'pegadas', 'passos', 'cybertribal'];
+/** Na ordem do estojo: o que se bebe e o que se chora, o sangue, a tinta e a fuligem, a gosma, a cera e a gordura, o mofo e os bichos, e quem passou por cima. */
+export const STAINS: readonly Stain[] = [
+  'cafe', 'refri', 'molhado', 'lagrimas', 'sangue', 'mao', 'nanquim', 'fuligem', 'gosma', 'cera', 'salgadinho', 'pizza', 'graxa', 'mofado', 'tracas', 'lama', 'pisado', 'pneu', 'pegadas', 'passos', 'cybertribal',
+];
 
 export const STAIN_LABEL: Record<Stain, string> = {
   cafe: 'Café',
@@ -392,6 +462,13 @@ export const STAIN_LABEL: Record<Stain, string> = {
   lagrimas: 'Lágrimas',
   salgadinho: 'Dedos de salgadinho',
   cybertribal: 'Cybertribal',
+  fuligem: 'Fuligem',
+  refri: 'Lata de refri',
+  pizza: 'Gordura de pizza',
+  cera: 'Cera de vela',
+  graxa: 'Graxa',
+  lama: 'Lama respingada',
+  pneu: 'Marca de pneu',
 };
 
 // ===================== Decoração =====================
@@ -431,39 +508,69 @@ export type Decor =
   | 'crt'
   | 'barras'
   | 'disquete'
-  | 'erro';
+  | 'erro'
+  | 'cogumelos'
+  | 'cristais'
+  | 'silvertape'
+  | 'rotuladora'
+  | 'prendedor'
+  | 'pregador'
+  | 'parafusos'
+  | 'lapis'
+  | 'cantoneiras'
+  | 'locadora'
+  | 'joias'
+  | 'laco'
+  | 'pena'
+  | 'morcego';
 
 /**
- * Na ordem do estojo: o que brilha e a festa; os adesivos e as coisas de jogo; a papelaria (selo,
- * post-it, ingresso, etiqueta, carimbo, medalha, lacre); o que prende e fura; o tempo e os bichos;
- * a TV e o computador (a antena, o tubo, as barras, o disquete, a janela de erro).
+ * Na ordem do estojo: o que brilha e a festa (as joias, os cristais, o laço); os adesivos e as coisas
+ * de jogo; a papelaria (selo, post-it, rotuladora, lápis, ingresso, locadora, etiqueta, carimbo,
+ * medalha, lacre); o que prende e fura (os prendedores, os parafusos, as cantoneiras, a silver tape);
+ * o tempo e os bichos (os cogumelos, a pena, o morcego); a TV e o computador (a antena, o tubo, as
+ * barras, o disquete, a janela de erro).
  */
 export const DECORS: readonly Decor[] = [
   'purpurina',
   'confete',
   'estrelinhas',
+  'joias',
+  'cristais',
   'neon',
+  'laco',
   'adesivos',
   'gamer',
   'bottons',
   'vidas',
   'selo',
   'postit',
+  'rotuladora',
+  'lapis',
   'ingresso',
+  'locadora',
   'promocao',
   'carimbo',
   'medalha',
   'lacre',
   'clipe',
+  'prendedor',
+  'pregador',
   'grampos',
   'alfinete',
   'argolas',
   'ilhoses',
+  'parafusos',
+  'cantoneiras',
+  'silvertape',
   'curativo',
   'cuidado',
   'neve',
   'petalas',
+  'cogumelos',
+  'pena',
   'teia',
+  'morcego',
   'beijo',
   'antena',
   'crt',
@@ -504,6 +611,20 @@ export const DECOR_LABEL: Record<Decor, string> = {
   barras: 'Barras de cor',
   disquete: 'Disquete',
   erro: 'Janela de erro',
+  cogumelos: 'Cogumelos',
+  cristais: 'Cristais',
+  silvertape: 'Silver tape',
+  rotuladora: 'Rotuladora',
+  prendedor: 'Prendedor de papel',
+  pregador: 'Pregador de roupa',
+  parafusos: 'Parafusos',
+  lapis: 'Lápis',
+  cantoneiras: 'Cantoneiras',
+  locadora: 'Etiqueta de locadora',
+  joias: 'Joias incrustadas',
+  laco: 'Laço de presente',
+  pena: 'Pena',
+  morcego: 'Morcego pendurado',
 };
 
 /** As decorações que furam o papel: a sombra da ficha segue o recorte, como nos estragos. */
@@ -536,6 +657,14 @@ const CUTS: ReadonlySet<Damage | Stain> = new Set<Damage | Stain>([
   'glitch',
   'corrompido',
   'desintegrado',
+  'partido',
+  'quebracabeca',
+  'cantos',
+  'desgrampeado',
+  'esfarelado',
+  'laser',
+  'raio',
+  'acido',
 ]);
 
 // ===================== Guardar =====================

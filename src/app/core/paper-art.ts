@@ -1761,6 +1761,36 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
       const tag = `<path d='M${f1(cx - 6 * s)} ${f1(cy)}l${f1(-6 * s)} ${f1(6 * s)}l${f1(6 * s)} ${f1(6 * s)}M${f1(cx + 6 * s)} ${f1(cy)}l${f1(6 * s)} ${f1(6 * s)}l${f1(-6 * s)} ${f1(6 * s)}M${f1(cx + 2.5 * s)} ${f1(cy - 1 * s)}L${f1(cx - 2.5 * s)} ${f1(cy + 13 * s)}'/>`;
       return g(`<path d='${ones}'/><path d='${zeros}'/>` + tag, 1.1, 0.95) + g(`<path d='${faint}'/>`, 1, 0.5);
     }
+    // 2026-10-03, a quarta leva
+    case 'ossada': {
+      const [bones, skulls] = scribbleBones(W, H, k, r);
+      return g(bones, 1.2, 0.9) + g(skulls, 1.2, 0.95);
+    }
+    case 'chamas': {
+      const [outer, inner] = scribbleFlames(W, H, k, r);
+      return g(outer, 1.4, 0.95) + g(inner, 1.1, 0.8);
+    }
+    case 'acao':
+      // as cunhas são pintadas, e finas: o lápis vai mais carregado para elas lerem
+      return g(scribbleSpeed(W, H, k, r), 1, 1.7);
+    case 'corrente': {
+      const [face, edge] = scribbleChain(W, H, k, r);
+      return g(face, 1.2, 0.95) + g(edge, 1.2, 0.9);
+    }
+    case 'celta': {
+      const [band, rules] = scribbleCeltic(W, H, k, r);
+      return g(band, 1.1, 0.95) + g(rules, 0.9, 0.7);
+    }
+    case 'apaixonado': {
+      const [lines, fills] = scribbleLove(W, H, k, r);
+      return g(lines, 1.3, 0.95) + g(fills, 1, 1);
+    }
+    case 'partitura': {
+      const [staff, notes] = scribbleScore(W, H, k, r);
+      return g(staff, 0.9, 0.85) + g(notes, 1.2, 0.95);
+    }
+    case 'contagem':
+      return g(scribbleTally(W, H, k, r), 1.3, 0.95);
     case 'aula': {
       const keys =['gato', 'estrelinhas', 'velha', 'pauzinhos', 'espiral', 'coracao', 'raio', 'carinha', 'lua', 'flor', 'fantasma', 'setinha', 'caveira', 'teste', 'cogumelo', 'olho', 'nuvem', 'coroa'];
       const cell = 64 * Math.max(0.5, k);
@@ -2238,6 +2268,58 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
       break;
     case 'desintegrado':
       pixelDissolve(W, H, k, r, out);
+      break;
+    // 2026-10-03, a quarta leva
+    case 'partido':
+      splitHalves(W, H, k, sw, step, r, out);
+      break;
+    case 'quebracabeca':
+      jigsaw(W, H, k, sw, r, uid, out);
+      break;
+    case 'cantos':
+      cornerPunch(W, H, k, r, out);
+      break;
+    case 'desgrampeado':
+      staplesPulled(W, H, k, sw, r, out);
+      break;
+    case 'esfarelado':
+      crumbling(W, H, k, sw, r, out);
+      break;
+    case 'desbotado':
+      sunFaded(W, H, k, r, uid, out);
+      break;
+    case 'laser':
+      laserCuts(W, H, k, r, out);
+      break;
+    case 'raio':
+      lightning(W, H, k, r, out);
+      break;
+    case 'acido':
+      acid(W, H, k, r, out);
+      break;
+    case 'carregando':
+      halfLoaded(W, H, k, r, out);
+      break;
+    case 'fuligem':
+      soot(W, H, k, r, uid, out);
+      break;
+    case 'refri':
+      sodaRing(W, H, k, r, out);
+      break;
+    case 'pizza':
+      pizzaGrease(W, H, k, r, out);
+      break;
+    case 'cera':
+      candleWax(W, H, k, r, uid, out);
+      break;
+    case 'graxa':
+      grease(W, H, k, r, uid, out);
+      break;
+    case 'lama':
+      mudSplash(W, H, k, r, out);
+      break;
+    case 'pneu':
+      tireTrack(W, H, k, r, uid, out);
       break;
   }
 }
@@ -4477,6 +4559,1608 @@ function pixelDissolve(W: number, H: number, k: number, r: () => number, out: Pa
     loose += `<g opacity='${op}'><rect x='${f1(x + 1.2 * kk)}' y='${f1(y + 2 * kk)}' width='${f1(s)}' height='${f1(s)}' fill='#000' fill-opacity='.25'/><rect x='${f1(x)}' y='${f1(y)}' width='${f1(s)}' height='${f1(s)}' style='fill: var(--stock)'/></g>`;
   }
   out.fita += loose;
+}
+
+// ===================== A quarta leva (2026-10-03) =====================
+
+/** Os pontos de uma cúbica (sem o primeiro), para juntar a um caminho já começado. */
+function cubicTo(out: Pt[], p0: Pt, c1: Pt, c2: Pt, p1: Pt, n = 8): void {
+  for (let i = 1; i <= n; i++) {
+    const t = i / n,
+      u = 1 - t;
+    out.push([
+      u * u * u * p0[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p1[0],
+      u * u * u * p0[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p1[1],
+    ]);
+  }
+}
+
+/** Um polígono qualquer no sentido contrário (para furar outro no fill-rule nonzero). */
+const reversed = (pts: Pt[]): Pt[] => [...pts].reverse();
+
+/** O contorno de um furo redondo, de borda tremida, com `n` pontos. */
+function ring(cx: number, cy: number, R: number, r: () => number, wob = 0.1, n = 36): Pt[] {
+  const ph = [r() * 6, r() * 6, r() * 6];
+  const pts: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const rad = R * (1 + wob * (Math.sin(a * 2 + ph[0]) * 0.6 + Math.sin(a * 3 + ph[1]) * 0.3 + Math.sin(a * 7 + ph[2]) * 0.15));
+    pts.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad]);
+  }
+  return pts;
+}
+
+/**
+ * A ficha simples (a tira) é bem mais larga que alta, e nela a foto ocupa toda a altura do lado
+ * esquerdo; a completa é quase quadrada, com a foto só no canto de cima.
+ */
+const isStrip = (W: number, H: number) => H / W < 0.55;
+
+/**
+ * Um lugar para uma mancha que não fique escondido: a foto e a nota são coladas por cima do papel e
+ * cobririam o que caiu ali. Na ficha completa, a faixa de baixo (sob a frase) ou a margem da direita;
+ * na simples, a coluna da direita ou a faixa entre o nome e a nota. Uma mancha grande (`big`) vai só
+ * para a faixa de baixo da completa ou para a coluna da direita da tira.
+ */
+function freeSpot(W: number, H: number, r: () => number, big = false): Pt {
+  // o que é grande (um anel de lata, uns dedos arrastados) não cabe na margem estreita nem na faixa fina da tira
+  if (isStrip(W, H)) return big || r() < 0.6 ? [W * (0.8 + r() * 0.14), H * (0.25 + r() * 0.5)] : [W * (0.34 + r() * 0.38), H * (0.42 + r() * 0.14)];
+  return big || r() < 0.65 ? [W * (0.12 + r() * 0.76), H * (0.66 + r() * 0.22)] : [W * (0.86 + r() * 0.08), H * (0.2 + r() * 0.6)];
+}
+
+/** Onde estão a foto e a nota (em frações da ficha): ali nada deve ficar escondido. */
+function underSticker(W: number, H: number, x: number, y: number): boolean {
+  const u = x / W,
+    v = y / H;
+  if (isStrip(W, H)) return u < 0.3 || (u < 0.8 && v > 0.52);
+  return (u < 0.34 && v < 0.6) || (u > 0.32 && u < 0.93 && v > 0.26 && v < 0.56);
+}
+
+// ----- Partida ao meio -----
+
+/**
+ * Rasgou de uma beirada à outra e as duas metades foram pregadas separadas: entre elas fica um vão
+ * que abre de um lado, porque a segunda metade ficou torta (ela é o mesmo rasgo, afastado e girado
+ * em volta da ponta mais estreita). Cada beirada mostra o miolo, e cada metade pega a luz de um jeito.
+ */
+function splitHalves(W: number, H: number, k: number, sw: number, step: number, r: () => number, out: PaperArt): void {
+  const standing = r() < 0.55;
+  let a: Pt, b: Pt, one: Pt, other: Pt;
+  if (standing) {
+    a = [W * (0.45 + r() * 0.2), -10];
+    b = [a[0] + (r() - 0.5) * W * 0.14, H + 10];
+    one = [0, H / 2];
+    other = [W, H / 2];
+  } else {
+    // deitada, passando por baixo da foto
+    a = [-10, H * (0.58 + r() * 0.12)];
+    b = [W + 10, a[1] + (r() - 0.5) * H * 0.1];
+    one = [W / 2, 0];
+    other = [W / 2, H];
+  }
+  const C = rip(sweep(a, b, r, (r() - 0.5) * 26 * k, 10 * k, 16), one, r, 5.5 * k, step);
+  const n = C.length;
+  const dx = C[n - 1][0] - C[0][0],
+    dy = C[n - 1][1] - C[0][1],
+    L = Math.hypot(dx, dy) || 1;
+  // a normal da linha do rasgo, virada para a metade que saiu do lugar
+  let nx = -dy / L,
+    ny = dx / L;
+  if (nx * (other[0] - C[0][0]) + ny * (other[1] - C[0][1]) < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  const g0 = (2.5 + r() * 3) * k,
+    g1 = (14 + r() * 14) * k;
+  const narrowFirst = r() < 0.5;
+  const P = narrowFirst ? C[0] : C[n - 1],
+    Q = narrowFirst ? C[n - 1] : C[0];
+  // o giro que leva a ponta larga `g1 - g0` para longe, em volta da estreita
+  const vx = Q[0] - P[0],
+    vy = Q[1] - P[1];
+  const th = (Math.sign(-vy * nx + vx * ny) || 1) * ((g1 - g0) / L);
+  const ct = Math.cos(th),
+    st = Math.sin(th);
+  const B: Pt[] = C.map(([x, y]) => {
+    const ux = x - P[0],
+      uy = y - P[1];
+    return [P[0] + ux * ct - uy * st + nx * g0, P[1] + ux * st + uy * ct + ny * g0];
+  });
+  out.cut.push(`${poly(C)}${cont(reversed(B))}Z`);
+  out.core.push(coreBand(C, one, r, 0.6 * k, 5 * k), coreBand(B, other, r, 0.6 * k, 5 * k));
+  const far: Pt[] = standing
+    ? [
+        [W + 14, H + 14],
+        [W + 14, -14],
+      ]
+    : [
+        [W + 14, H + 14],
+        [-14, H + 14],
+      ];
+  const light = r() < 0.5;
+  out.relevo +=
+    `<path d='${poly([...B, ...far])}Z' fill='${light ? '#fff' : '#000'}' fill-opacity='${(0.1 + r() * 0.08).toFixed(2)}'/>` +
+    // as beiradas não assentaram rentes na parede: uma pega luz, a outra faz sombra
+    `<g fill='none' stroke-width='${f1(1.1 * sw)}' stroke-linejoin='round'><path d='${poly(C)}' stroke='#fff' stroke-opacity='.5'/><path d='${poly(B)}' stroke='#000' stroke-opacity='.4'/></g>`;
+}
+
+// ----- Quebra-cabeça -----
+
+/**
+ * Uma aresta de quebra-cabeça de `P0` a `P1`, com o pino para o lado `sign` (o desenho clássico: o
+ * pescoço estreito e a cabeça redonda), cada uma um pouco diferente. Os pontos incluem as duas pontas.
+ */
+function knobEdge(P0: Pt, P1: Pt, sign: number, r: () => number): Pt[] {
+  const dx = P1[0] - P0[0],
+    dy = P1[1] - P0[1],
+    L = Math.hypot(dx, dy) || 1;
+  const tx = dx / L,
+    ty = dy / L,
+    nx = -ty * sign,
+    ny = tx * sign;
+  const c = 0.5 + (r() - 0.5) * 0.12,
+    s = 0.86 + r() * 0.22,
+    h = 0.9 + r() * 0.22;
+  const m = (u: number, v: number): Pt => {
+    const uu = c + (u - 0.5) * s,
+      vv = v * s * h;
+    return [P0[0] + tx * uu * L + nx * vv * L, P0[1] + ty * uu * L + ny * vv * L];
+  };
+  const lin = (t: number): Pt => {
+    const w = (r() - 0.5) * 0.03 * L;
+    return [P0[0] + dx * t + nx * w, P0[1] + dy * t + ny * w];
+  };
+  const pts: Pt[] = [P0];
+  cubicTo(pts, P0, lin(0.22), m(0.42, 0.04), m(0.38, -0.06));
+  cubicTo(pts, m(0.38, -0.06), m(0.33, -0.16), m(0.4, -0.27), m(0.5, -0.27));
+  cubicTo(pts, m(0.5, -0.27), m(0.6, -0.27), m(0.67, -0.16), m(0.62, -0.06));
+  cubicTo(pts, m(0.62, -0.06), m(0.58, 0.04), lin(0.78), P1);
+  return pts;
+}
+
+/**
+ * A ficha virou um quebra-cabeça montado: as linhas de corte em volta de cada peça (uma sombra fina e
+ * um fio de luz), cada peça assentada num ângulo próprio, uma peça faltando (aparece a parede) e outra
+ * levantada, fora do lugar, fazendo sombra nas vizinhas. Nunca falta a peça da foto nem a da nota.
+ */
+function jigsaw(W: number, H: number, k: number, sw: number, r: () => number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const size = 70 * q;
+  const cols = Math.max(3, Math.round(W / size)),
+    rows = Math.max(2, Math.round(H / size));
+  const N: Pt[][] = [];
+  for (let i = 0; i <= cols; i++) {
+    N.push([]);
+    for (let j = 0; j <= rows; j++) {
+      const x = i === 0 ? 0 : i === cols ? W : (W * i) / cols + (r() - 0.5) * (W / cols) * 0.14;
+      const y = j === 0 ? 0 : j === rows ? H : (H * j) / rows + (r() - 0.5) * (H / rows) * 0.14;
+      N[i].push([x, y]);
+    }
+  }
+  // as arestas de dentro, cada uma com o pino para um lado
+  const hE: Pt[][][] = [],
+    vE: Pt[][][] = [];
+  for (let j = 1; j < rows; j++) {
+    hE[j] = [];
+    for (let i = 0; i < cols; i++) hE[j][i] = knobEdge(N[i][j], N[i + 1][j], r() < 0.5 ? 1 : -1, r);
+  }
+  for (let i = 1; i < cols; i++) {
+    vE[i] = [];
+    for (let j = 0; j < rows; j++) vE[i][j] = knobEdge(N[i][j], N[i][j + 1], r() < 0.5 ? 1 : -1, r);
+  }
+  // o contorno de uma peça, no sentido do relógio; na beirada da ficha, passando um tanto para fora
+  const out6 = ([x, y]: Pt): Pt => [Math.abs(x) < 1e-6 ? -6 : Math.abs(x - W) < 1e-6 ? W + 6 : x, Math.abs(y) < 1e-6 ? -6 : Math.abs(y - H) < 1e-6 ? H + 6 : y];
+  const piece = (i: number, j: number): Pt[] => {
+    const top = j === 0 ? [N[i][0], N[i + 1][0]] : hE[j][i];
+    const right = i === cols - 1 ? [N[cols][j], N[cols][j + 1]] : vE[i + 1][j];
+    const bottom = j === rows - 1 ? [N[i][rows], N[i + 1][rows]] : hE[j + 1][i];
+    const left = i === 0 ? [N[0][j], N[0][j + 1]] : vE[i][j];
+    return [...top, ...right.slice(1), ...reversed(bottom).slice(1), ...reversed(left).slice(1, -1)].map(out6);
+  };
+  // as peças longe da foto e da nota, que ficam por cima do papel e esconderiam o buraco
+  const free: [number, number][] = [];
+  // a peça inteira, não só o meio dela: o meio e quatro pontos a um terço do caminho até as beiradas
+  const clear = (i: number, j: number) =>
+    [[0, 0], [-0.3, 0], [0.3, 0], [0, -0.3], [0, 0.3]].every(([du, dv]) => !underSticker(W, H, (W * (i + 0.5 + du)) / cols, (H * (j + 0.5 + dv)) / rows));
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (clear(i, j)) free.push([i, j]);
+  if (!free.length) free.push([cols - 1, rows - 1]);
+  const gone = free.splice(Math.floor(r() * free.length), 1)[0];
+  const lifted = free[Math.floor(r() * free.length)];
+  // cada peça assentou de um jeito: um tantinho mais clara ou mais escura
+  let tone = '';
+  for (let i = 0; i < cols; i++)
+    for (let j = 0; j < rows; j++) {
+      const lit = r();
+      if (i === gone[0] && j === gone[1]) continue;
+      tone += `<path d='${poly(piece(i, j))}Z' fill='${lit < 0.5 ? '#fff' : '#000'}' fill-opacity='${(0.02 + r() * 0.06).toFixed(3)}'/>`;
+    }
+  out.cut.push(`${poly(piece(gone[0], gone[1]))}Z`);
+  let seams = '';
+  for (let j = 1; j < rows; j++) for (let i = 0; i < cols; i++) seams += poly(hE[j][i]);
+  for (let i = 1; i < cols; i++) for (let j = 0; j < rows; j++) seams += poly(vE[i][j]);
+  const up = `${poly(piece(lifted[0], lifted[1]))}Z`;
+  const id = `${uid}-peca`;
+  out.relevo += `<g>${tone}</g><path d='${up}' fill='#fff' fill-opacity='.16'/>`;
+  out.frente +=
+    `<defs><mask id='${id}' maskUnits='userSpaceOnUse' x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}'><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}' fill='#fff'/><path d='${up}' fill='#000'/></mask></defs>` +
+    // a peça levantada faz sombra nas vizinhas (só fora dela)
+    `<g mask='url(#${id})'><path d='${up}' transform='translate(${f1(1.8 * q)} ${f1(2.6 * q)})' fill='#000' fill-opacity='.32' filter='url(#papel-borra)'/></g>` +
+    `<g fill='none' stroke-linejoin='round' stroke-linecap='round'>` +
+    `<path d='${seams}' transform='translate(${f1(0.55 * sw)} ${f1(0.65 * sw)})' stroke='#fff' stroke-opacity='.32' stroke-width='${f1(0.85 * sw)}'/>` +
+    `<path d='${seams}' stroke='#000' stroke-opacity='.42' stroke-width='${f1(0.85 * sw)}'/>` +
+    `<path d='${up}' stroke='#fff' stroke-opacity='.55' stroke-width='${f1(0.9 * sw)}'/>` +
+    `</g>`;
+}
+
+// ----- Cantos cortados -----
+
+/**
+ * Os cantos passados no cortador de canto: arredondados, chanfrados, em leque (três ondinhas) ou
+ * côncavos, como os de ingresso. Os quatro, quase sempre; às vezes só um ou dois.
+ */
+function cornerPunch(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.5, k);
+  const style = Math.floor(r() * 4);
+  const R = (style === 0 ? 14 + r() * 8 : style === 1 ? 12 + r() * 6 : style === 2 ? 18 + r() * 6 : 15 + r() * 8) * q;
+  const all = r() < 0.68;
+  const list: Corner[] = all ? ['tl', 'tr', 'br', 'bl'] : (['tr', 'br', 'bl'] as Corner[]).filter(() => r() < 0.6);
+  if (!list.length) list.push((['tr', 'br', 'bl'] as Corner[])[Math.floor(r() * 3)]);
+  const at = (c: Corner, u: number, v: number): Pt => [c === 'tl' || c === 'bl' ? u : W - u, c === 'tl' || c === 'tr' ? v : H - v];
+  for (const c of list) {
+    // a beirada nova, de (R, 0) até (0, R), medida para dentro a partir da quina
+    const pts: Pt[] = [];
+    if (style === 0) for (let i = 0; i <= 14; i++) pts.push([R + Math.cos(-Math.PI / 2 - (i / 14) * (Math.PI / 2)) * R, R + Math.sin(-Math.PI / 2 - (i / 14) * (Math.PI / 2)) * R]);
+    else if (style === 1)
+      pts.push([R, 0], [0, R]);
+    else if (style === 3) for (let i = 0; i <= 14; i++) pts.push([Math.cos((i / 14) * (Math.PI / 2)) * R, Math.sin((i / 14) * (Math.PI / 2)) * R]);
+    else {
+      // o leque: três ondinhas seguindo a curva do canto redondo, cada uma estufando para a quina
+      const arc = (t: number): Pt => [R + Math.cos(-Math.PI / 2 - t * (Math.PI / 2)) * R, R + Math.sin(-Math.PI / 2 - t * (Math.PI / 2)) * R];
+      for (let s = 0; s < 3; s++) {
+        const e0 = arc(s / 3),
+          e1 = arc((s + 1) / 3);
+        const mx = (e0[0] + e1[0]) / 2,
+          my = (e0[1] + e1[1]) / 2;
+        const len = Math.hypot(mx, my) || 1;
+        const depth = Math.hypot(e1[0] - e0[0], e1[1] - e0[1]) * 0.32;
+        for (let i = s ? 1 : 0; i <= 8; i++) {
+          const t = i / 8,
+            bulge = Math.sin(Math.PI * t) * depth;
+          pts.push([e0[0] + (e1[0] - e0[0]) * t - (mx / len) * bulge, e0[1] + (e1[1] - e0[1]) * t - (my / len) * bulge]);
+        }
+      }
+    }
+    const end = pts[pts.length - 1];
+    const shape: Pt[] = [[-6, -6], [pts[0][0], -6], ...pts, [-6, end[1]]];
+    out.cut.push(`${poly(shape.map(([u, v]) => at(c, u, v)))}Z`);
+  }
+}
+
+// ----- Grampos arrancados -----
+
+/**
+ * Os furinhos de grampos que já foram tirados: dois de cada grampo, a cor arrancada em volta de cada
+ * furo, a marca da coroa afundada entre eles, às vezes o furo alargado de puxar e uma ferrugem; num canto ou na beirada, grampeada mais de
+ * uma vez. De vez em quando sobrou uma perninha de arame num furo.
+ */
+function staplesPulled(W: number, H: number, k: number, sw: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const L = (24 + r() * 4) * q;
+  const mode = Math.floor(r() * 3);
+  const sites: { p: Pt; a: number; n: number }[] = [];
+  if (mode === 0) {
+    // num canto (nunca o da foto), na diagonal, grampeada umas vezes no mesmo lugar
+    const c = (['tr', 'br', 'bl'] as Corner[])[Math.floor(r() * 3)];
+    const u = (16 + r() * 5) * q;
+    sites.push({ p: [c === 'bl' ? u : W - u, c === 'tr' ? u : H - u], a: c === 'br' ? -45 : 45, n: 2 + Math.floor(r() * 2) });
+    if (r() < 0.45) {
+      const c2 = (['tr', 'br', 'bl'] as Corner[]).filter((x) => x !== c)[Math.floor(r() * 2)];
+      sites.push({ p: [c2 === 'bl' ? u : W - u, c2 === 'tr' ? u : H - u], a: c2 === 'br' ? -45 : 45, n: 1 });
+    }
+  } else if (mode === 1) {
+    // na beirada de cima, longe da foto
+    for (const u of [0.5 + r() * 0.12, 0.8 + r() * 0.1]) sites.push({ p: [W * u, (8 + r() * 3) * q], a: (r() - 0.5) * 10, n: 1 + Math.floor(r() * 2) });
+  } else {
+    // na beirada da direita
+    for (const u of [0.25 + r() * 0.1, 0.68 + r() * 0.12]) sites.push({ p: [W - (8 + r() * 3) * q, H * u], a: 90 + (r() - 0.5) * 10, n: 1 + Math.floor(r() * 2) });
+  }
+  let dents = '',
+    crush = '',
+    rust = '',
+    wire = '';
+  for (const s of sites)
+    for (let t = 0; t < s.n; t++) {
+      const a = ((s.a + (t ? (r() - 0.5) * 14 : 0)) * Math.PI) / 180;
+      const ca = Math.cos(a),
+        sa = Math.sin(a);
+      const c: Pt = [s.p[0] + (t ? (r() - 0.5) * 6 * q : 0), s.p[1] + (t ? (r() - 0.5) * 6 * q : 0)];
+      const ends: Pt[] = [
+        [c[0] - (ca * L) / 2, c[1] - (sa * L) / 2],
+        [c[0] + (ca * L) / 2, c[1] + (sa * L) / 2],
+      ];
+      for (const [hx, hy] of ends) {
+        // o furo: uma fendinha da largura da perna do grampo; puxado de mau jeito, ele alarga
+        const big = r() < 0.3;
+        const hw = (big ? 2.2 + r() * 1.4 : 1.15) * q,
+          hh = (big ? 1.4 + r() * 0.6 : 0.8) * q;
+        const tilt = big ? (r() - 0.5) * 0.9 : 0;
+        const cx2 = Math.cos(a + tilt),
+          sx2 = Math.sin(a + tilt);
+        const corner = (u: number, v: number): Pt => [hx + cx2 * u - sx2 * v, hy + sx2 * u + cx2 * v];
+        out.cut.push(`${poly([corner(-hw, -hh), corner(hw, -hh), corner(hw, hh), corner(-hw, hh)])}Z`);
+        // a perna do grampo arrancou a cor em volta do furo: aparece o miolo
+        out.core.push(`${poly(ring(hx, hy, (big ? hw + 1.6 : 2.6 + r() * 0.8) * q, r, 0.28, 12))}Z`);
+        crush += `<circle cx='${f1(hx)}' cy='${f1(hy)}' r='${f1(2.4 * q)}'/>`;
+      }
+      // a coroa do grampo afundou o papel entre os dois furos
+      const [A, B] = ends;
+      dents += `M${f1(A[0])} ${f1(A[1])}L${f1(B[0])} ${f1(B[1])}`;
+      if (r() < 0.25) rust += `<path d='M${f1(A[0])} ${f1(A[1])}L${f1(B[0])} ${f1(B[1])}' stroke-width='${f1(3.4 * q)}'/>`;
+      if (!wire && r() < 0.2) {
+        // sobrou uma perninha torta num furo
+        const [hx, hy] = ends[Math.floor(r() * 2)];
+        const la = a + Math.PI / 2 + (r() - 0.5) * 1.2;
+        wire = `<path d='M${f1(hx)} ${f1(hy)}l${f1(Math.cos(la) * 4.6 * q)} ${f1(Math.sin(la) * 4.6 * q)}l${f1(Math.cos(la + 1.1) * 2.4 * q)} ${f1(Math.sin(la + 1.1) * 2.4 * q)}' fill='none' stroke='#8d949c' stroke-width='${f1(1.1 * q)}' stroke-linecap='round'/><path d='M${f1(hx)} ${f1(hy)}l${f1(Math.cos(la) * 4.6 * q)} ${f1(Math.sin(la) * 4.6 * q)}' fill='none' stroke='#eef1f4' stroke-width='${f1(0.4 * q)}' stroke-linecap='round'/>`;
+      }
+    }
+  if (rust) out.fundo += `<g fill='none' stroke='rgb(150 82 30)' stroke-opacity='.26' stroke-linecap='round' filter='url(#papel-borra)'>${rust}</g>`;
+  out.frente +=
+    `<g fill='#000' fill-opacity='.16' filter='url(#papel-borra)'>${crush}</g>` +
+    `<g fill='none' stroke-linecap='round'><path d='${dents}' stroke='#000' stroke-opacity='.22' stroke-width='${f1(1 * q)}'/><path d='${dents}' transform='translate(${f1(0.5 * q)} ${f1(0.7 * q)})' stroke='#fff' stroke-opacity='.35' stroke-width='${f1(0.8 * q)}'/></g>`;
+  if (wire) out.fita += wire;
+}
+
+// ----- Esfarelando -----
+
+/**
+ * Papel velho e quebradiço: a beirada toda esfarela em lasquinhas, com uns bocados maiores que
+ * caíram (mais nas quinas), o miolo aparecendo em cada mordida, o amarelado de velho entrando pela
+ * beirada, rachaduras finas e uns farelos soltos (alguns já caindo da ficha).
+ */
+function crumbling(W: number, H: number, k: number, sw: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const P = 2 * (W + H);
+  // as mordidas grandes: perto das quinas, quase sempre
+  const bites: { at: number; R: number }[] = [];
+  const nb = 2 + Math.floor(r() * 3);
+  for (let i = 0; i < nb; i++) {
+    const corner = [0, W, W + H, 2 * W + H][Math.floor(r() * 4)];
+    const at = r() < 0.7 ? corner + (r() - 0.5) * 60 * q : r() * P;
+    // a volta em torno da ficha: uma mordida logo antes da quina de cima à esquerda fica no fim da volta
+    bites.push({ at: ((at % P) + P) % P, R: (10 + r() * 18) * q });
+  }
+  // as lasquinhas: muitas, rasas
+  for (let i = 0; i < 26; i++) bites.push({ at: r() * P, R: (2.5 + r() * r() * 9) * q });
+  const depth = (p: number): number => {
+    let d = 0;
+    for (const b of bites) {
+      let dp = Math.abs(p - b.at);
+      dp = Math.min(dp, P - dp);
+      if (dp < b.R) d = Math.max(d, Math.sqrt(1 - (dp / b.R) ** 2) * b.R * 0.62);
+    }
+    return d;
+  };
+  const sides: Pt[][] = [[], [], [], []];
+  const stepP = 3 * q;
+  for (let p = 0; p < P; p += stepP) {
+    const d = depth(p) + r() * 1.4 * q;
+    let pt: Pt, side: number;
+    if (p < W) {
+      pt = [p, d];
+      side = 0;
+    } else if (p < W + H) {
+      pt = [W - d, p - W];
+      side = 1;
+    } else if (p < 2 * W + H) {
+      pt = [W - (p - W - H), H - d];
+      side = 2;
+    } else {
+      pt = [d, H - (p - 2 * W - H)];
+      side = 3;
+    }
+    // nas quinas, o ponto não pode sair para fora das duas beiradas
+    pt = [clamp(pt[0], 0, W), clamp(pt[1], 0, H)];
+    sides[side].push(pt);
+  }
+  const inner = sides.flat();
+  out.cut.push(`M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z${poly(inner)}Z`);
+  out.evenodd = true;
+  for (const s of sides) if (s.length > 2) out.core.push(coreBand(s, [W / 2, H / 2], r, 0.3 * q, 2.4 * q));
+  // o amarelado de velho entrando pela beirada
+  out.fundo += `<path d='${poly(inner)}Z' fill='none' stroke='rgb(176 132 66)' stroke-opacity='.5' stroke-width='${f1(34 * q)}' filter='url(#papel-tostado)'/>`;
+  // as rachaduras: finas, entrando da beirada, com um desvio
+  let cracks = '';
+  for (let i = 0; i < 12; i++) {
+    const p0 = inner[Math.floor(r() * inner.length)];
+    const toC = Math.atan2(H / 2 - p0[1], W / 2 - p0[0]) + (r() - 0.5) * 0.9;
+    const l1 = (4 + r() * 9) * q,
+      l2 = (3 + r() * 6) * q;
+    const m: Pt = [p0[0] + Math.cos(toC) * l1, p0[1] + Math.sin(toC) * l1];
+    const t2 = toC + (r() - 0.5) * 1.4;
+    cracks += `M${f1(p0[0])} ${f1(p0[1])}L${f1(m[0])} ${f1(m[1])}L${f1(m[0] + Math.cos(t2) * l2)} ${f1(m[1] + Math.sin(t2) * l2)}`;
+  }
+  out.frente += `<g fill='none' stroke-linecap='round' stroke-linejoin='round'><path d='${cracks}' transform='translate(${f1(0.5 * q)} ${f1(0.5 * q)})' stroke='#fff' stroke-opacity='.4' stroke-width='${f1(0.7 * sw)}'/><path d='${cracks}' stroke='rgb(60 40 20)' stroke-opacity='.45' stroke-width='${f1(0.7 * sw)}'/></g>`;
+  // os farelos: uns ainda na beirada, outros caindo pelo pé da ficha
+  let crumbs = '';
+  for (let i = 0; i < 16; i++) {
+    const fall = r() < 0.45;
+    const base = inner[Math.floor(r() * inner.length)];
+    const x = fall ? W * (0.08 + r() * 0.84) : base[0] + (r() - 0.5) * 6 * q;
+    const y = fall ? H + (2 + r() * 16) * q : base[1] + (r() - 0.5) * 6 * q;
+    const s = (0.8 + r() * 2.2) * q;
+    const pts: Pt[] = [];
+    const nv = 4 + Math.floor(r() * 3);
+    for (let v = 0; v < nv; v++) {
+      const a = (v / nv) * Math.PI * 2 + r() * 0.6;
+      pts.push([x + Math.cos(a) * s * (0.6 + r() * 0.6), y + Math.sin(a) * s * (0.6 + r() * 0.6)]);
+    }
+    crumbs += `<path d='${poly(pts)}Z' transform='translate(${f1(0.6 * q)} ${f1(1 * q)})' fill='#000' fill-opacity='.25'/><path d='${poly(pts)}Z' style='fill: var(--stock)'/>`;
+  }
+  out.fita += crumbs;
+}
+
+// ----- Desbotada no sol -----
+
+/**
+ * Ficou anos no sol: a cor desbotou (mais do lado de onde a luz vinha), menos onde alguma coisa
+ * cobria a ficha (outra ficha num canto, a moldura embaixo, um bilhete colado), que ficou com a cor
+ * de antes, de beirada nítida. Uma linha fina de poeira marca onde a coisa encostava.
+ */
+function sunFaded(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const kind = Math.floor(r() * 3);
+  const covers: Pt[][] = [];
+  const rot = (pts: Pt[], c: Pt, deg: number): Pt[] => {
+    const a = (deg * Math.PI) / 180,
+      ca = Math.cos(a),
+      sa = Math.sin(a);
+    return pts.map(([x, y]) => [c[0] + (x - c[0]) * ca - (y - c[1]) * sa, c[1] + (x - c[0]) * sa + (y - c[1]) * ca]);
+  };
+  if (kind === 0) {
+    // outra ficha por cima de um canto (nunca o da foto)
+    const c = Math.floor(r() * 3);
+    const w = W * (0.32 + r() * 0.2),
+      h = H * (0.36 + r() * 0.22);
+    const x0 = c === 2 ? -W * 0.2 : W - w,
+      y0 = c === 0 ? -H * 0.3 : H - h;
+    const rect: Pt[] = [
+      [x0, y0],
+      [x0 + w + W * 0.2, y0],
+      [x0 + w + W * 0.2, y0 + h + H * 0.3],
+      [x0, y0 + h + H * 0.3],
+    ];
+    covers.push(rot(rect, [c === 2 ? w * 0.6 : W - w * 0.6, c === 0 ? h * 0.6 : H - h * 0.6], (r() - 0.5) * 12));
+  } else if (kind === 1) {
+    // a moldura (ou a prateleira) cobria o pé da ficha
+    const h = H * (0.13 + r() * 0.12);
+    const tilt = (r() - 0.5) * H * 0.05;
+    covers.push([
+      [-10, H - h + tilt],
+      [W + 10, H - h - tilt],
+      [W + 10, H + 10],
+      [-10, H + 10],
+    ]);
+  } else {
+    // um bilhete colado em cima, que alguém tirou depois
+    const w = W * (0.24 + r() * 0.12),
+      h = w * (0.8 + r() * 0.3);
+    const cx = W * (0.62 + r() * 0.2),
+      cy = H * (0.45 + r() * 0.25);
+    covers.push(
+      rot(
+        [
+          [cx - w / 2, cy - h / 2],
+          [cx + w / 2, cy - h / 2],
+          [cx + w / 2, cy + h / 2],
+          [cx - w / 2, cy + h / 2],
+        ],
+        [cx, cy],
+        (r() - 0.5) * 18,
+      ),
+    );
+  }
+  // o lado de onde o sol vinha desbota mais
+  const ang = r() * Math.PI * 2;
+  const gx1 = 0.5 - Math.cos(ang) * 0.5,
+    gy1 = 0.5 - Math.sin(ang) * 0.5;
+  const strong = 0.58 + r() * 0.12,
+    weak = 0.3 + r() * 0.1;
+  const holes = covers.map((c) => `${poly(reversed(c))}Z`).join('');
+  out.clareia +=
+    `<defs><linearGradient id='${uid}-sol' x1='${gx1.toFixed(2)}' y1='${gy1.toFixed(2)}' x2='${(1 - gx1).toFixed(2)}' y2='${(1 - gy1).toFixed(2)}'><stop offset='0' stop-color='rgb(246 240 226)' stop-opacity='${strong.toFixed(2)}'/><stop offset='1' stop-color='rgb(242 236 222)' stop-opacity='${weak.toFixed(2)}'/></linearGradient></defs>` +
+    `<path d='M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z${holes}' fill='url(#${uid}-sol)'/>`;
+  out.fundo += `<g fill='none' stroke='rgb(90 80 66)' stroke-opacity='.16' stroke-width='${f1(1.2 * q)}' filter='url(#papel-borra)'>${covers.map((c) => `<path d='${poly(c)}Z'/>`).join('')}</g>`;
+}
+
+// ----- Cortada a laser -----
+
+/**
+ * Um laser passou pela ficha: um corte reto e fininho, de beirada a beirada ou parando no meio (e ali
+ * ele fez um furinho mais fundo), com a beirada carbonizada, o tostado amarelando o papel em volta e a
+ * fumaça que sujou um lado só. Às vezes dois ou três tiros, quase paralelos.
+ */
+function laserCuts(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const n = r() < 0.5 ? 1 : r() < 0.65 ? 2 : 3;
+  let char = '',
+    heat = '',
+    smoke = '';
+  // a máquina passa os tiros quase paralelos, um ao lado do outro
+  const base = (r() < 0.5 ? 0 : Math.PI / 2) + (r() - 0.5) * 1.6;
+  const gap = (16 + r() * 22) * q;
+  const M0: Pt = [W * (0.45 + r() * 0.35), H * (0.3 + r() * 0.45)];
+  for (let i = 0; i < n; i++) {
+    const ang = base + (r() - 0.5) * 0.1;
+    const off = (i - (n - 1) / 2) * gap + (r() - 0.5) * 4 * q;
+    const M: Pt = [clamp(M0[0] - Math.sin(base) * off, 10, W - 10), clamp(M0[1] + Math.cos(base) * off, 10, H - 10)];
+    const ux = Math.cos(ang),
+      uy = Math.sin(ang);
+    // até as beiradas, para os dois lados
+    const reach = (sx: number, sy: number) => {
+      const tx = sx > 0 ? (W + 8 - M[0]) / sx : sx < 0 ? (-8 - M[0]) / sx : Infinity;
+      const ty = sy > 0 ? (H + 8 - M[1]) / sy : sy < 0 ? (-8 - M[1]) / sy : Infinity;
+      return Math.min(tx, ty);
+    };
+    const tA = reach(-ux, -uy),
+      tB = reach(ux, uy);
+    const stops = r() < 0.4;
+    const A: Pt = [M[0] - ux * tA, M[1] - uy * tA];
+    const B: Pt = stops ? [M[0] + ux * tB * (0.2 + r() * 0.5), M[1] + uy * tB * (0.2 + r() * 0.5)] : [M[0] + ux * tB, M[1] + uy * tB];
+    const w = (1.2 + r() * 1.1) * q;
+    const nx = -uy * (w / 2),
+      ny = ux * (w / 2);
+    let d = `M${f1(A[0] + nx)} ${f1(A[1] + ny)}L${f1(B[0] + nx)} ${f1(B[1] + ny)}`;
+    d += stops ? `A${f1(w / 2)} ${f1(w / 2)} 0 0 1 ${f1(B[0] - nx)} ${f1(B[1] - ny)}` : `L${f1(B[0] - nx)} ${f1(B[1] - ny)}`;
+    d += `L${f1(A[0] - nx)} ${f1(A[1] - ny)}Z`;
+    out.cut.push(d);
+    const line = `M${f1(A[0])} ${f1(A[1])}L${f1(B[0])} ${f1(B[1])}`;
+    char += `<path d='${line}' stroke-width='${f1(w + 2.2 * q)}'/>`;
+    heat += `<path d='${line}' stroke-width='${f1(9 * q)}'/>`;
+    if (stops) {
+      // onde o tiro parou: um furinho mais fundo, de beirada carbonizada
+      out.cut.push(`${poly(ring(B[0], B[1], w * 1.25, r, 0.15, 14))}Z`);
+      char += `<circle cx='${f1(B[0])}' cy='${f1(B[1])}' r='${f1(w * 1.25 + 1.4 * q)}' stroke='none' fill='rgb(34 22 16)' fill-opacity='.9'/>`;
+      heat += `<circle cx='${f1(B[0])}' cy='${f1(B[1])}' r='${f1(6 * q)}' stroke='none' fill='rgb(150 96 44)'/>`;
+    }
+    // a fumaça sujou um lado só do corte, em fiapos
+    const side = r() < 0.5 ? 1 : -1;
+    const len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    for (let s = 0; s < len; s += (5 + r() * 7) * q) {
+      const x = A[0] + ux * s,
+        y = A[1] + uy * s;
+      const off = (3 + r() * 9) * q;
+      smoke += `<ellipse cx='${f1(x - uy * off * side)}' cy='${f1(y + ux * off * side)}' rx='${f1((3 + r() * 6) * q)}' ry='${f1((1.2 + r() * 2.2) * q)}' transform='rotate(${f1((ang * 180) / Math.PI + (r() - 0.5) * 30)} ${f1(x - uy * off * side)} ${f1(y + ux * off * side)})' fill-opacity='${(0.05 + r() * 0.1).toFixed(2)}'/>`;
+    }
+  }
+  out.fundo +=
+    `<g fill='none' stroke='rgb(168 116 58)' stroke-opacity='.42' stroke-linecap='round' filter='url(#papel-borra)'>${heat}</g>` +
+    `<g fill='rgb(70 58 50)' filter='url(#papel-borra)'>${smoke}</g>`;
+  out.frente += `<g fill='none' stroke='rgb(34 22 16)' stroke-opacity='.85' stroke-linecap='round'>${char}</g>`;
+}
+
+// ----- Raio -----
+
+/**
+ * Caiu um raio na ficha: a figura de Lichtenberg queimada no papel, galhos que se dividem e afinam
+ * a partir de onde ele entrou (ali ficou um furinho queimado), com o tostado em volta de cada galho.
+ */
+function lightning(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const E: Pt = [W * (0.48 + r() * 0.36), H * (0.25 + r() * 0.5)];
+  const chunks: { pts: Pt[]; w: number }[] = [];
+  let segs = 0;
+  const grow = (p: Pt, ang: number, w: number, len: number, depth: number) => {
+    let x = p[0],
+      y = p[1],
+      a = ang,
+      walked = 0;
+    let cur: Pt[] = [[x, y]];
+    let cw = w;
+    while (walked < len && segs < 1100) {
+      a = (a + (r() - 0.5) * 1.1) * 0.65 + ang * 0.35;
+      const sl = (3.5 + r() * 4) * q;
+      x += Math.cos(a) * sl;
+      y += Math.sin(a) * sl;
+      walked += sl;
+      segs++;
+      cur.push([x, y]);
+      w *= 0.975;
+      if (cur.length >= 5) {
+        chunks.push({ pts: cur, w: cw });
+        cur = [[x, y]];
+        cw = w;
+      }
+      if (depth < 6 && r() < 0.2 + depth * 0.03) grow([x, y], a + (r() < 0.5 ? -1 : 1) * (0.45 + r() * 0.75), w * (0.55 + r() * 0.2), (len - walked) * (0.35 + r() * 0.45), depth + 1);
+      if (x < -10 || x > W + 10 || y < -10 || y > H + 10) break;
+    }
+    if (cur.length > 1) chunks.push({ pts: cur, w: cw });
+  };
+  const nb = 3 + Math.floor(r() * 3);
+  const a0 = r() * Math.PI * 2;
+  for (let i = 0; i < nb; i++) grow(E, a0 + (i / nb) * Math.PI * 2 + (r() - 0.5) * 0.7, (2.6 + r() * 1.2) * q, (0.32 + r() * 0.38) * Math.max(W, H), 0);
+  let halo = '',
+    core = '';
+  for (const c of chunks) {
+    const d = poly(c.pts);
+    halo += `<path d='${d}' stroke-width='${f1(Math.max(0.6, c.w) * 3.2)}'/>`;
+    core += `<path d='${d}' stroke-width='${f1(Math.max(0.35, c.w))}'/>`;
+  }
+  out.fundo +=
+    `<g fill='none' stroke='rgb(150 98 52)' stroke-opacity='.3' stroke-linecap='round' stroke-linejoin='round' filter='url(#papel-borra)'>${halo}</g>` +
+    `<g fill='none' stroke='rgb(42 26 18)' stroke-opacity='.82' stroke-linecap='round' stroke-linejoin='round'>${core}</g>`;
+  burnHole(E[0], E[1], (7 + r() * 5) * q, k, r, out);
+}
+
+// ----- Ácido -----
+
+/**
+ * Caiu ácido: furos comidos de beirada em bolhinhas, o papel em volta descorado até o miolo, uma faixa
+ * amarelada e marrom onde ele parou de comer, umas bolhas secas e a gota que escorreu para baixo e furou
+ * de novo mais embaixo. Uns furinhos soltos dos respingos.
+ */
+function acid(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const stain: string[] = [],
+    edges: string[] = [];
+  let bubbles = '';
+  const eat = (cx: number, cy: number, R: number) => {
+    // a beirada comida: ondas largas e muitas bolhinhas
+    const n = 80;
+    const ph = [r() * 6, r() * 6, r() * 6];
+    const bub = 9 + Math.floor(r() * 6);
+    const hole: Pt[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const rad = R * (1 + 0.16 * Math.sin(a * 2 + ph[0]) + 0.1 * Math.sin(a * 3 + ph[1]) - 0.09 * Math.abs(Math.sin(a * bub + ph[2])));
+      hole.push([cx + Math.cos(a) * rad, cy + Math.sin(a) * rad * 0.92]);
+    }
+    out.cut.push(`${poly(hole)}Z`);
+    // o descorado: até onde o ácido chegou
+    const bleach = hole.map(([x, y]): Pt => {
+      const dx = x - cx,
+        dy = y - cy;
+      const f = 1 + (0.32 + r() * 0.08) * (R / Math.max(1, Math.hypot(dx, dy)));
+      return [cx + dx * f, cy + dy * f];
+    });
+    out.core.push(`${poly(bleach)}Z${poly(reversed(hole))}Z`);
+    stain.push(`${poly(bleach)}Z${poly(reversed(hole))}Z`);
+    edges.push(`${poly(hole)}Z`);
+    for (let b = 0; b < 7; b++) {
+      const a = r() * Math.PI * 2,
+        d = R * (1.08 + r() * 0.24);
+      bubbles += `<circle cx='${f1(cx + Math.cos(a) * d)}' cy='${f1(cy + Math.sin(a) * d)}' r='${f1((0.6 + r() * 1.2) * q)}'/>`;
+    }
+    return hole;
+  };
+  const cx = W * (0.5 + r() * 0.32),
+    cy = H * (0.28 + r() * 0.3);
+  const R = (15 + r() * 12) * q;
+  const hole = eat(cx, cy, R);
+  if (r() < 0.55) eat(clamp(cx + (r() < 0.5 ? -1 : 1) * R * (2.4 + r()), W * 0.42, W - 14 * q), clamp(cy + (r() - 0.3) * R * 2, 14 * q, H - 30 * q), R * (0.4 + r() * 0.25));
+  // a gota que escorreu: uma trilha descorada para baixo, furando de novo no fim
+  const bottom = hole.reduce((m, p) => (p[1] > m[1] ? p : m), hole[0]);
+  const runL = Math.min(H - bottom[1] - 6 * q, (24 + r() * 40) * q);
+  if (runL > 8 * q) {
+    const pts: Pt[] = [];
+    for (let t = 0; t <= 10; t++) pts.push([bottom[0] + Math.sin(t * 0.9 + r()) * 1.4 * q, bottom[1] - 2 * q + (runL * t) / 10]);
+    const w = pts.map((_, i) => (4.6 - i * 0.28) * q);
+    const { d } = slit(pts, w, r, 0.6 * q);
+    out.core.push(d);
+    stain.push(d);
+    const tip = pts[pts.length - 1];
+    const drop = ring(tip[0], tip[1] + 1.4 * q, (1.6 + r()) * q, r, 0.2, 14);
+    out.cut.push(`${poly(drop)}Z`);
+    edges.push(`${poly(drop)}Z`);
+  }
+  // os respingos: furinhos soltos, cada um com o seu descorado
+  for (let i = 0; i < 5 + Math.floor(r() * 4); i++) {
+    const a = r() * Math.PI * 2,
+      dd = R * (1.6 + r() * 1.6);
+    const x = clamp(cx + Math.cos(a) * dd, 8, W - 8),
+      y = clamp(cy + Math.sin(a) * dd, 8, H - 8);
+    const s = (0.7 + r() * 1.3) * q;
+    const p = ring(x, y, s, r, 0.2, 10);
+    const b = ring(x, y, s * 2.2, r, 0.25, 10);
+    out.cut.push(`${poly(p)}Z`);
+    out.core.push(`${poly(b)}Z${poly(reversed(p))}Z`);
+    stain.push(`${poly(b)}Z${poly(reversed(p))}Z`);
+    edges.push(`${poly(p)}Z`);
+  }
+  // por cima do miolo: o amarelado que o ácido deixa, a beirada marrom e as bolhas secas
+  out.fita +=
+    `<g fill='rgb(196 178 64)' fill-opacity='.42'>${stain.map((d) => `<path d='${d}'/>`).join('')}</g>` +
+    `<g fill='none' stroke='rgb(120 92 30)' stroke-opacity='.75' stroke-width='${f1(1.4 * q)}'>${edges.map((d) => `<path d='${d}'/>`).join('')}</g>` +
+    `<g fill='none' stroke='rgb(150 132 52)' stroke-opacity='.7' stroke-width='${f1(0.6 * q)}'>${bubbles}</g>`;
+}
+
+// ----- Carregou pela metade -----
+
+/**
+ * A ficha é uma imagem que parou de carregar: de uma fileira para baixo só o cinza do arquivo
+ * incompleto (a última fileira parou no meio, em blocos de 8), com os pixels da última linha escorridos
+ * em listras logo abaixo, a grade dos blocos aparecendo de leve e o carregando parado no meio do cinza.
+ * Impresso no papel: por baixo do que está escrito.
+ */
+function halfLoaded(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const kk = Math.max(0.45, k);
+  const b = 8 * kk;
+  const rows = Math.ceil(H / b),
+    cols = Math.ceil(W / b);
+  const stopRow = Math.max(2, Math.floor(rows * (0.42 + r() * 0.24)));
+  const stopCol = Math.floor(cols * (0.15 + r() * 0.7));
+  const y0 = stopRow * b,
+    y1 = y0 + b;
+  const grey = `M-6 ${f1(y1)}H${f1(W + 6)}V${f1(H + 6)}H-6Z M${f1(stopCol * b)} ${f1(y0)}H${f1(W + 6)}V${f1(y1 + 0.5)}H${f1(stopCol * b)}Z`;
+  // os pixels da última linha escorridos: listras finas da cor do papel, umas mais claras, outras mais escuras
+  let streaks = '';
+  for (let x = 0; x < W; x += 2 * kk) {
+    if (r() < 0.45) continue;
+    const top = x >= stopCol * b ? y0 : y1;
+    const len = b * (0.4 + r() * r() * 4);
+    const mix = r() < 0.5 ? `color-mix(in oklab, var(--stock) ${Math.round(60 + r() * 30)}%, #000)` : `color-mix(in oklab, var(--stock) ${Math.round(55 + r() * 35)}%, #fff)`;
+    streaks += `<rect x='${f1(x)}' y='${f1(top)}' width='${f1(2 * kk)}' height='${f1(len)}' style='fill:${mix}' opacity='${(0.55 + r() * 0.4).toFixed(2)}'/>`;
+  }
+  // a grade dos blocos, quase sumida
+  let grid = '';
+  for (let x = 0; x <= W; x += b * 2) grid += `M${f1(x)} ${f1(y1)}V${f1(H)}`;
+  for (let y = y1; y <= H; y += b * 2) grid += `M0 ${f1(y)}H${f1(W)}`;
+  // o carregando parado: a rodinha de pontos ou a barra, no meio do cinza
+  const cx = W * (0.55 + r() * 0.25),
+    cy = Math.min(H - 14 * kk, y1 + (H - y1) * (0.45 + r() * 0.2));
+  let wait = '';
+  if (r() < 0.6) {
+    const R = 9 * kk;
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+      wait += `<circle cx='${f1(cx + Math.cos(a) * R)}' cy='${f1(cy + Math.sin(a) * R)}' r='${f1(1.6 * kk)}' fill='#fff' fill-opacity='${(0.15 + (i / 10) * 0.75).toFixed(2)}'/>`;
+    }
+  } else {
+    const bw = 64 * kk,
+      bh = 7 * kk;
+    const pct = Math.round((stopRow / rows) * 100);
+    wait =
+      `<rect x='${f1(cx - bw / 2)}' y='${f1(cy - bh / 2)}' width='${f1(bw)}' height='${f1(bh)}' rx='${f1(bh / 2)}' fill='none' stroke='#fff' stroke-opacity='.8' stroke-width='${f1(1 * kk)}'/>` +
+      `<rect x='${f1(cx - bw / 2 + 1.6 * kk)}' y='${f1(cy - bh / 2 + 1.6 * kk)}' width='${f1(((bw - 3.2 * kk) * pct) / 100)}' height='${f1(bh - 3.2 * kk)}' rx='${f1((bh - 3.2 * kk) / 2)}' fill='#fff' fill-opacity='.8'/>` +
+      `<text x='${f1(cx)}' y='${f1(cy + bh + 7 * kk)}' text-anchor='middle' fill='#fff' fill-opacity='.85' font-family='ui-monospace, Consolas, "Courier New", monospace' font-size='${f1(7 * kk)}'>${pct}%</text>`;
+  }
+  out.clareia +=
+    `<path d='${grey}' fill='rgb(136 136 136)' fill-opacity='.94'/>` +
+    `<g>${streaks}</g>` +
+    `<path d='${grid}' fill='none' stroke='#000' stroke-opacity='.05' stroke-width='${f1(0.6 * kk)}'/>` +
+    wait;
+}
+
+// ===================== Manchas da quarta leva =====================
+
+// ----- Fuligem -----
+
+/**
+ * Mexeu no carvão e pegou na ficha: dedos arrastados de fuligem, umas digitais, uma nuvem de fumaça
+ * que subiu pela beirada e escureceu o papel, e o pó fininho em volta.
+ */
+function soot(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const ink = 'rgb(34 31 30)';
+  let smears = '',
+    prints = '',
+    dust = '';
+  // a fumaça: de uma beirada (de baixo ou da direita), escura na beirada e sumindo para dentro
+  const fromBottom = r() < 0.6;
+  const fx = fromBottom ? W * (0.4 + r() * 0.45) : W + 10 * q,
+    fy = fromBottom ? H + 10 * q : H * (0.4 + r() * 0.45);
+  const plume = `<defs><radialGradient id='${uid}-fumaca'><stop offset='0' stop-color='${ink}' stop-opacity='.55'/><stop offset='.55' stop-color='${ink}' stop-opacity='.2'/><stop offset='1' stop-color='${ink}' stop-opacity='0'/></radialGradient></defs><ellipse cx='${f1(fx)}' cy='${f1(fy)}' rx='${f1((fromBottom ? 120 : 70) * q)}' ry='${f1((fromBottom ? 70 : 110) * q)}' fill='url(#${uid}-fumaca)' filter='url(#papel-agua)'/>`;
+  // os dedos arrastados: três ou quatro riscos largos, juntos, afinando no fim
+  const drags = 1 + (r() < 0.5 ? 1 : 0);
+  for (let d = 0; d < drags; d++) {
+    const [sx, sy] = freeSpot(W, H, r, true);
+    // deitados, para seguir a faixa livre (na coluna da direita da tira, em pé)
+    const ang = (r() - 0.5) * Math.PI * 0.5 + (r() < 0.5 ? 0 : Math.PI) + (isStrip(W, H) && sx > W * 0.78 ? Math.PI / 2 : 0);
+    const len = (60 + r() * 60) * q;
+    const fingers = 3 + Math.floor(r() * 2);
+    for (let f = 0; f < fingers; f++) {
+      const off = (f - (fingers - 1) / 2) * 11 * q;
+      const ox = -Math.sin(ang) * off,
+        oy = Math.cos(ang) * off;
+      const l = len * (0.75 + r() * 0.3);
+      const ctrl: Pt[] = [0, 0.33, 0.66, 1].map((t) => [sx + ox + Math.cos(ang) * l * t + (r() - 0.5) * 3 * q, sy + oy + Math.sin(ang) * l * t + (r() - 0.5) * 3 * q]);
+      const w0 = (8 + r() * 3) * q;
+      smears += `<path d='${blade(ctrl, (t) => w0 * (1 - Math.pow(t, 2.2) * 0.9))}' fill-opacity='${(0.28 + r() * 0.18).toFixed(2)}'/>`;
+    }
+  }
+  // umas digitais: os dedos que seguraram a ficha
+  for (let i = 0; i < 2 + Math.floor(r() * 3); i++) {
+    const [x, y] = freeSpot(W, H, r);
+    const fw = (17 + r() * 4) * q,
+      fh = fw * 1.3;
+    prints += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1((r() - 0.5) * 120)})'><ellipse rx='${f1(fw / 2)}' ry='${f1(fh / 2)}' fill-opacity='.16' stroke='none'/>${fingerprint(fw, fh, r, 1 * q)}</g>`;
+  }
+  for (let i = 0; i < 160; i++) dust += `<circle cx='${f1(r() * W)}' cy='${f1(r() * H)}' r='${f1((0.25 + Math.pow(r(), 3) * 1.2) * q)}' fill-opacity='${(0.12 + r() * 0.35).toFixed(2)}'/>`;
+  out.fundo +=
+    plume +
+    `<g fill='${ink}' filter='url(#papel-borra)'>${smears}</g>` +
+    `<g filter='url(#papel-lama)' fill='${ink}' stroke='${ink}' stroke-opacity='.55'>${prints}</g>` +
+    `<g fill='${ink}'>${dust}</g>`;
+}
+
+// ----- Lata de refri -----
+
+const SODA: readonly string[] = ['rgb(104 54 24)', 'rgb(104 54 24)', 'rgb(186 112 28)', 'rgb(222 112 24)', 'rgb(116 44 96)', 'rgb(146 150 36)'];
+
+/**
+ * Deixaram a lata em cima: o anel fino do fundo da lata, grudento (falha onde a lata não encostou),
+ * às vezes um segundo anel de quando ela foi mexida, uma poça que secou com a beirada mais escura (o
+ * açúcar), o brilho grudento por cima e umas gotas. De cola, guaraná, laranja, uva ou limão.
+ */
+function sodaRing(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const col = SODA[Math.floor(r() * SODA.length)];
+  const R = (31 + r() * 5) * q;
+  const [cx, cy] = freeSpot(W, H, r, true);
+  const ringAt = (x: number, y: number, op: number) => {
+    const c = 2 * Math.PI * R;
+    const dash: number[] = [];
+    let left = c;
+    while (left > 0) {
+      const on = c * (0.12 + r() * 0.3),
+        off = c * (0.01 + r() * 0.04);
+      dash.push(on, off);
+      left -= on + off;
+    }
+    return (
+      `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R)}' fill='none' stroke='${col}' stroke-opacity='${op.toFixed(2)}' stroke-width='${f1(2.6 * q)}' stroke-dasharray='${dash.map(f1).join(' ')}' transform='rotate(${Math.round(r() * 360)} ${f1(x)} ${f1(y)})'/>` +
+      `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R - 2.2 * q)}' fill='none' stroke='${col}' stroke-opacity='${(op * 0.35).toFixed(2)}' stroke-width='${f1(1.2 * q)}'/>`
+    );
+  };
+  let body = ringAt(cx, cy, 0.55);
+  if (r() < 0.55) {
+    const a = r() * Math.PI * 2,
+      d = R * (0.5 + r() * 0.6);
+    body += ringAt(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0.3);
+  }
+  // a poça: secou com a beirada mais escura
+  const a = r() * Math.PI * 2;
+  const px = cx + Math.cos(a) * R * 1.05,
+    py = cy + Math.sin(a) * R * 1.05;
+  const pr = (9 + r() * 9) * q;
+  const pool = blobPath(px, py, pr, r);
+  body += `<path d='${pool}' fill='${col}' fill-opacity='.14' stroke='${col}' stroke-opacity='.45' stroke-width='${f1(1.3 * q)}'/>`;
+  for (let i = 0; i < 8 + Math.floor(r() * 8); i++) {
+    const aa = r() * Math.PI * 2,
+      dd = R * (1.2 + r() * 1.3);
+    body += `<circle cx='${f1(cx + Math.cos(aa) * dd)}' cy='${f1(cy + Math.sin(aa) * dd)}' r='${f1((0.6 + r() * r() * 2.6) * q)}' fill='${col}' fill-opacity='.4'/>`;
+  }
+  out.fundo += `<g filter='url(#papel-mancha)'>${body}</g>`;
+  // o brilho do açúcar grudado, por cima
+  out.frente += `<path d='${pool}' fill='#fff' fill-opacity='.08'/><path d='M${f1(px - pr * 0.5)} ${f1(py - pr * 0.25)}q${f1(pr * 0.3)} ${f1(-pr * 0.35)} ${f1(pr * 0.75)} ${f1(-pr * 0.2)}' fill='none' stroke='#fff' stroke-opacity='.4' stroke-width='${f1(1.1 * q)}' stroke-linecap='round'/>`;
+}
+
+// ----- Gordura de pizza -----
+
+/**
+ * A fatia de pizza ficou deitada na ficha: a marca de gordura no formato dela (a ponta, os dois lados e
+ * a borda em arco), mais forte onde estavam as rodelas de calabresa, umas gotas de óleo e uma dedada.
+ * O óleo deixa o papel mais escuro e mais saturado, como se desse para ver a parede através: o papel
+ * multiplicado pela própria cor, com um tanto do laranja do óleo.
+ */
+function pizzaGrease(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const Ls = (95 + r() * 30) * q;
+  // a ponta numa beirada da faixa livre e a fatia deitada ao longo dela (na tira, vindo da direita)
+  const strip = isStrip(W, H);
+  const T: Pt = strip ? [W * (0.86 + r() * 0.08), H * (0.3 + r() * 0.4)] : [W * (0.15 + r() * 0.7), H * (0.7 + r() * 0.15)];
+  const ang = (strip || T[0] > W / 2 ? Math.PI : 0) + (r() - 0.5) * (strip ? 0.5 : 0.8);
+  const half = 0.42 + r() * 0.08;
+  const pts: Pt[] = [];
+  // a ponta arredondada e os dois lados até a borda
+  const side = (s: number): Pt => [T[0] + Math.cos(ang + s * half) * Ls, T[1] + Math.sin(ang + s * half) * Ls];
+  pts.push([T[0] + Math.cos(ang) * 3 * q, T[1] + Math.sin(ang) * 3 * q]);
+  for (let i = 1; i <= 6; i++) {
+    const t = i / 6;
+    const p = side(-1);
+    pts.push([T[0] + (p[0] - T[0]) * t + (r() - 0.5) * 2.4 * q, T[1] + (p[1] - T[1]) * t + (r() - 0.5) * 2.4 * q]);
+  }
+  for (let i = 1; i < 10; i++) {
+    const s = -1 + (i / 10) * 2;
+    const R = Ls * (1.05 + Math.sin(Math.PI * (i / 10)) * 0.08);
+    pts.push([T[0] + Math.cos(ang + s * half) * R, T[1] + Math.sin(ang + s * half) * R]);
+  }
+  for (let i = 0; i <= 6; i++) {
+    const t = 1 - i / 6;
+    const p = side(1);
+    pts.push([T[0] + (p[0] - T[0]) * t + (r() - 0.5) * 2.4 * q, T[1] + (p[1] - T[1]) * t + (r() - 0.5) * 2.4 * q]);
+  }
+  const slice = `${smooth([...pts, pts[0]])}Z`;
+  let spots = '';
+  // as rodelas de calabresa: marcas redondas mais fortes dentro da fatia
+  for (let i = 0; i < 3 + Math.floor(r() * 3); i++) {
+    const t = 0.35 + r() * 0.55,
+      s = (r() - 0.5) * 1.4 * half;
+    spots += `<path d='${blobPath(T[0] + Math.cos(ang + s) * Ls * t, T[1] + Math.sin(ang + s) * Ls * t, (6 + r() * 4) * q, r)}'/>`;
+  }
+  let drops = '';
+  for (let i = 0; i < 4 + Math.floor(r() * 5); i++) {
+    const [dx, dy] = freeSpot(W, H, r);
+    drops += `<path d='${blobPath(dx, dy, (1.5 + r() * r() * 7) * q, r)}'/>`;
+  }
+  const [fx, fy] = freeSpot(W, H, r);
+  const fw = (17 + r() * 3) * q;
+  const finger = `<g transform='translate(${f1(fx)} ${f1(fy)}) rotate(${f1((r() - 0.5) * 120)})'><ellipse rx='${f1(fw / 2)}' ry='${f1(fw * 0.65)}'/></g>`;
+  out.fundo +=
+    `<g filter='url(#papel-agua)' style='fill: var(--stock)'><path d='${slice}' opacity='.5'/><g opacity='.4'>${spots}</g><g opacity='.45'>${drops}${finger}</g></g>` +
+    `<g filter='url(#papel-agua)' fill='rgb(236 150 50)'><path d='${slice}' fill-opacity='.2'/><g fill-opacity='.22'>${spots}</g><g fill-opacity='.14'>${drops}</g></g>`;
+}
+
+// ----- Cera de vela -----
+
+const WAX_DRIP: readonly (readonly [string, string, string])[] = [
+  ['#efe5cb', '#fffaf0', '#bcae88'],
+  ['#b51e2a', '#e8545c', '#6a0c14'],
+  ['#1e1b1e', '#5a5560', '#000000'],
+  ['#5c2a7c', '#9561b8', '#2e1242'],
+  ['#f6f3ec', '#ffffff', '#c8c0ae'],
+];
+
+/**
+ * Uma vela pingou na ficha em pé: os pingos caíram perto uns dos outros e escorreram para baixo,
+ * engrossando no fim, e endureceram em relevo (a sombra embaixo, a luz em cima, o brilho da cera). Uns
+ * respingos redondos em volta. Branca, vermelha, preta, roxa ou marfim. Caiu depois da ficha pronta:
+ * fica por cima de tudo, como a gosma, e por isso na margem da direita, longe da foto e da nota.
+ */
+function candleWax(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const [base, light, dark] = WAX_DRIP[Math.floor(r() * WAX_DRIP.length)];
+  // a vela estava à direita: os pingos caem na margem livre, longe da foto e da nota
+  const strip = isStrip(W, H);
+  const sx = W * (strip ? 0.84 + r() * 0.08 : 0.94 + r() * 0.03);
+  // na ficha completa a margem é estreita: o veredito comprido chega até 0,9 da largura
+  const minX = W * (strip ? 0.8 : 0.925);
+  const shapes: string[] = [],
+    lights: string[] = [],
+    specs: string[] = [];
+  const n = 3 + Math.floor(r() * 4);
+  for (let i = 0; i < n; i++) {
+    const x = clamp(sx + (r() - 0.5) * (strip ? 44 : 20) * q, minX, W - 6 * q),
+      y = H * (0.06 + r() * 0.4);
+    const rh = (3.6 + r() * 4.4) * q;
+    const run = r() < 0.3 ? 0 : Math.min(H - y - 8 * q, (14 + r() * 60) * q);
+    // a cabeça do pingo
+    let d = blobPath(x, y, rh, r);
+    if (run > rh) {
+      // a escorrida: afina e engrossa de novo no fim, onde a cera parou
+      const ctrl: Pt[] = [0, 0.33, 0.66, 1].map((t) => [x + Math.sin(t * 3 + i) * 1.6 * q, y + run * t]);
+      d += blade(ctrl, (t) => rh * 2 * (t < 0.15 ? 0.95 - t * 2.5 : 0.58 - t * 0.12), 24);
+      const tip = ctrl[3];
+      d += blobPath(tip[0], tip[1], rh * 0.72, r);
+      lights.push(`M${f1(x - rh * 0.4)} ${f1(y + rh)}L${f1(tip[0] - rh * 0.35)} ${f1(tip[1] - rh * 0.4)}`);
+      specs.push(`<ellipse cx='${f1(tip[0] - rh * 0.25)}' cy='${f1(tip[1] - rh * 0.3)}' rx='${f1(rh * 0.22)}' ry='${f1(rh * 0.15)}'/>`);
+    }
+    shapes.push(d);
+    specs.push(`<ellipse cx='${f1(x - rh * 0.35)}' cy='${f1(y - rh * 0.4)}' rx='${f1(rh * 0.35)}' ry='${f1(rh * 0.22)}' transform='rotate(-30 ${f1(x - rh * 0.35)} ${f1(y - rh * 0.4)})'/>`);
+  }
+  // os respingos
+  for (let i = 0; i < 5 + Math.floor(r() * 6); i++) {
+    const a = r() * Math.PI * 2,
+      dd = (14 + r() * 40) * q;
+    const x = clamp(sx + Math.cos(a) * dd * 0.6, minX, W - 4),
+      y = clamp(H * 0.3 + Math.sin(a) * dd, 4, H - 4);
+    const s = (0.9 + r() * 1.8) * q;
+    shapes.push(blobPath(x, y, s, r));
+    specs.push(`<circle cx='${f1(x - s * 0.3)}' cy='${f1(y - s * 0.3)}' r='${f1(s * 0.3)}'/>`);
+  }
+  const all = shapes.map((d) => `<path d='${d}'/>`).join('');
+  const id = `${uid}-cera`;
+  // caiu na ficha pronta: por cima de tudo, como a gosma
+  out.topo = (out.topo ?? '') +
+    `<defs><linearGradient id='${id}' x1='0' y1='0' x2='.4' y2='1'><stop offset='0' stop-color='${light}'/><stop offset='.45' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></linearGradient></defs>` +
+    `<g transform='translate(${f1(0.9 * q)} ${f1(1.6 * q)})' fill='#000' fill-opacity='.3' filter='url(#papel-borra)'>${all}</g>` +
+    `<g fill='url(#${id})' stroke='${dark}' stroke-opacity='.45' stroke-width='${f1(0.7 * q)}'>${all}</g>` +
+    `<path d='${lights.join('')}' fill='none' stroke='${light}' stroke-opacity='.7' stroke-width='${f1(1.2 * q)}' stroke-linecap='round'/>` +
+    `<g fill='#fff' fill-opacity='.75'>${specs.join('')}</g>`;
+}
+
+// ----- Graxa -----
+
+/**
+ * Mão de mecânico: digitais pretas de graxa (com a aura de óleo que escurece o papel em volta), uma
+ * passada de dedão arrastada e, às vezes, a marca de uma chave de boca que foi apoiada em cima.
+ */
+function grease(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const ink = 'rgb(26 24 22)';
+  let prints = '',
+    halos = '';
+  const n = 2 + Math.floor(r() * 3);
+  for (let i = 0; i < n; i++) {
+    const edge = r() < 0.6;
+    const bottom = r() < 0.5;
+    const spot = freeSpot(W, H, r);
+    // na beirada (o pé ou a da direita), como quem segurou a ficha, ou num lugar livre
+    const x = edge ? (bottom ? W * (0.4 + r() * 0.4) : W - (8 + r() * 14) * q) : spot[0];
+    const y = edge ? (bottom ? H - (10 + r() * 12) * q : H * (0.2 + r() * 0.6)) : spot[1];
+    const fw = (17 + r() * 5) * q,
+      fh = fw * 1.32;
+    const turn = (r() - 0.5) * 160;
+    halos += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(fw * 0.85)}' ry='${f1(fh * 0.8)}' transform='rotate(${f1(turn)} ${f1(x)} ${f1(y)})'/>`;
+    prints += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(turn)})'><ellipse rx='${f1(fw / 2)}' ry='${f1(fh / 2)}' fill-opacity='.3' stroke='none'/>${fingerprint(fw, fh, r, 1.15 * q)}</g>`;
+  }
+  // a passada de dedão: larga, arrastada, com as linhas da pele riscando junto
+  const [sx, sy] = freeSpot(W, H, r, true);
+  const ang = (r() - 0.5) * 1.2 + (r() < 0.5 ? 0 : Math.PI) + (isStrip(W, H) && sx > W * 0.78 ? Math.PI / 2 : 0);
+  const len = (40 + r() * 35) * q;
+  const ctrl: Pt[] = [0, 0.33, 0.66, 1].map((t) => [sx + Math.cos(ang) * len * t + (r() - 0.5) * 3 * q, sy + Math.sin(ang) * len * t + (r() - 0.5) * 3 * q]);
+  const wipe = blade(ctrl, (t) => 16 * q * (1 - Math.pow(t, 1.8) * 0.85));
+  let ridges = '';
+  for (let i = 0; i < 6; i++) {
+    const off = (i - 2.5) * 2.2 * q;
+    const nx = -Math.sin(ang) * off,
+      ny = Math.cos(ang) * off;
+    const l = len * (0.5 + r() * 0.45);
+    ridges += `M${f1(sx + nx)} ${f1(sy + ny)}l${f1(Math.cos(ang) * l)} ${f1(Math.sin(ang) * l)}`;
+  }
+  let wrench = '';
+  if (r() < 0.45) {
+    // a chave de boca apoiada: o cabo, a boca aberta de um lado e o anel do outro
+    const L = (100 + r() * 24) * q,
+      hw = 4.4 * q;
+    // deitada na faixa livre: a de baixo da ficha completa, a do meio da tira
+    const strip = isStrip(W, H);
+    const wx = W * (strip ? 0.52 + r() * 0.16 : 0.4 + r() * 0.3),
+      wy = H * (strip ? 0.47 + r() * 0.06 : 0.7 + r() * 0.12);
+    const wa = (r() - 0.5) * (strip ? 12 : 40);
+    const id = `${uid}-chave`;
+    const jaw = 11 * q,
+      eye = 9 * q;
+    wrench =
+      `<defs><mask id='${id}' maskUnits='userSpaceOnUse' x='${f1(-L)}' y='${f1(-L)}' width='${f1(L * 2)}' height='${f1(L * 2)}'><g fill='#fff'><rect x='${f1(-L / 2 + jaw * 0.6)}' y='${f1(-hw)}' width='${f1(L - jaw * 0.6 - eye * 0.6)}' height='${f1(hw * 2)}' rx='${f1(hw)}'/><circle cx='${f1(-L / 2)}' cy='0' r='${f1(jaw)}'/><circle cx='${f1(L / 2)}' cy='0' r='${f1(eye)}'/></g><g fill='#000'><path d='M${f1(-L / 2 - jaw - 2)} ${f1(-jaw * 0.42)}H${f1(-L / 2 + jaw * 0.12)}V${f1(jaw * 0.42)}H${f1(-L / 2 - jaw - 2)}Z' transform='rotate(-15 ${f1(-L / 2)} 0)'/><path d='${(() => {
+        let d = '';
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          d += `${i ? 'L' : 'M'}${f1(L / 2 + Math.cos(a) * eye * 0.55)} ${f1(Math.sin(a) * eye * 0.55)}`;
+        }
+        return d + 'Z';
+      })()}'/></g></mask></defs>` +
+      `<g transform='translate(${f1(wx)} ${f1(wy)}) rotate(${f1(wa)})'><g filter='url(#papel-poeira)'><rect x='${f1(-L)}' y='${f1(-L)}' width='${f1(L * 2)}' height='${f1(L * 2)}' fill='${ink}' fill-opacity='.62' mask='url(#${id})'/></g></g>`;
+  }
+  out.fundo +=
+    `<g style='fill: var(--stock)' opacity='.38' filter='url(#papel-agua)'>${halos}</g>` +
+    wrench +
+    `<path d='${wipe}' fill='${ink}' fill-opacity='.3' filter='url(#papel-borra)'/>` +
+    `<path d='${ridges}' fill='none' stroke='${ink}' stroke-opacity='.22' stroke-width='${f1(0.8 * q)}'/>` +
+    `<g filter='url(#papel-lama)' fill='${ink}' stroke='${ink}' stroke-opacity='.75'>${prints}</g>`;
+}
+
+// ----- Lama respingada -----
+
+/**
+ * Um carro passou na poça: a lama veio de baixo, cheia no pé da ficha e rareando para cima, as gotas
+ * compridas apontando para longe de onde a água espirrou, umas poças maiores escorrendo de volta.
+ */
+function mudSplash(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const mud = 'rgb(92 66 40)';
+  const sx = W * (0.25 + r() * 0.5),
+    sy = H + (30 + r() * 30) * q;
+  let drops = '',
+    runs = '';
+  // a faixa cheia do pé
+  for (let x = -6; x < W + 6; x += (5 + r() * 6) * q) drops += `<path d='${blobPath(x, H - r() * 6 * q, (4 + r() * 8) * q, r)}' fill-opacity='${(0.5 + r() * 0.3).toFixed(2)}'/>`;
+  const n = 190 + Math.floor(r() * 60);
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (r() + r() - 1) * 1.15;
+    const d = (H + 40 * q) * (0.12 + Math.pow(r(), 1.5) * 0.95);
+    const x = sx + Math.cos(a) * d * (W / H) * 0.9,
+      y = sy + Math.sin(a) * d;
+    if (x < -4 || x > W + 4 || y < -4 || y > H + 4) continue;
+    const near = clamp((y - H * 0.3) / (H * 0.7), 0, 1);
+    const s = (0.6 + r() * (1 + near * 3.4)) * q;
+    const stretch = 1.2 + r() * 1.8 * (1 - near * 0.5);
+    const deg = (a * 180) / Math.PI;
+    drops += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(s * stretch)}' ry='${f1(s)}' transform='rotate(${f1(deg)} ${f1(x)} ${f1(y)})' fill-opacity='${(0.4 + r() * 0.4).toFixed(2)}'/>`;
+    // as maiores escorrem de volta para baixo
+    if (s > 3.2 * q && r() < 0.35) {
+      const l = (6 + r() * 22) * q;
+      runs += `<path d='M${f1(x)} ${f1(y)}q${f1((r() - 0.5) * 2 * q)} ${f1(l / 2)} 0 ${f1(l)}' stroke-width='${f1(s * 0.55)}'/><circle cx='${f1(x)}' cy='${f1(y + l)}' r='${f1(s * 0.42)}'/>`;
+    }
+  }
+  out.fundo += `<g filter='url(#papel-lama)' fill='${mud}'>${drops}<g fill='${mud}' fill-opacity='.55' stroke='${mud}' stroke-opacity='.55' stroke-linecap='round'>${runs}</g></g>`;
+}
+
+// ----- Marca de pneu -----
+
+/**
+ * Passaram por cima da ficha: a marca de um pneu de carro atravessando (os blocos dos ombros, as
+ * divisas do meio, os sulcos sem marca) ou o rastro fino e cravejado de uma bicicleta, em poeira de
+ * borracha que falha onde o pneu pesou menos.
+ */
+function tireTrack(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
+  const q = Math.max(0.4, k);
+  const bike = r() < 0.3;
+  const tw = bike ? (15 + r() * 5) * q : (64 + r() * 22) * q;
+  // atravessando a metade de baixo ou descendo pela direita (na tira, sempre pela direita)
+  const down = r() < 0.5 || isStrip(W, H);
+  // descendo, o pneu de carro passa rente à beirada (um tanto fora da ficha), para não pisar na nota
+  const dx = bike ? 0.84 : 0.88;
+  const A: Pt = down ? [W * (dx + r() * 0.1), -tw] : [-tw, H * (0.62 + r() * 0.22)];
+  const B: Pt = down ? [W * (dx + r() * 0.1), H + tw] : [W + tw, H * (0.6 + r() * 0.26)];
+  const C = sweep(A, B, r, (r() - 0.5) * (down ? 30 : 50) * q, 0, 24);
+  const cum = lengths(C);
+  const total = cum[cum.length - 1];
+  const pitch = bike ? 6.5 * q : 13 * q;
+  let tread = '';
+  const quad = (p: Pt, t: Pt, pts: Pt[]) => poly(pts.map(([u, v]): Pt => [p[0] + t[0] * u - t[1] * v, p[1] + t[1] * u + t[0] * v])) + 'Z';
+  for (let s = pitch / 2, i = 0; s < total; s += pitch, i++) {
+    const p = pointAt(C, cum, s),
+      t = dirAt(C, cum, s, pitch);
+    if (bike) {
+      // os cravos: duas fileiras desencontradas e um no meio
+      const kw = tw * 0.22,
+        kl = pitch * 0.5;
+      for (const v of i % 2 ? [-tw * 0.32, tw * 0.32] : [0]) tread += `<path d='${quad(p, t, [[-kl / 2, v - kw / 2], [kl / 2, v - kw / 2], [kl / 2, v + kw / 2], [-kl / 2, v + kw / 2]])}'/>`;
+      continue;
+    }
+    const half = tw / 2;
+    const bl = pitch * 0.62;
+    // os ombros: blocos retos nas duas beiradas
+    for (const sgn of [-1, 1]) {
+      const v0 = sgn * half,
+        v1 = sgn * half * 0.66;
+      tread += `<path d='${quad(p, t, [[-bl / 2, v0], [bl / 2, v0], [bl / 2 + sgn * 1 * q, v1], [-bl / 2 + sgn * 1 * q, v1]])}'/>`;
+    }
+    // o meio: as divisas inclinadas, uma de cada lado do sulco central
+    for (const sgn of [-1, 1]) {
+      const v0 = sgn * half * 0.58,
+        v1 = sgn * half * 0.1;
+      const sk = pitch * 0.45;
+      tread += `<path d='${quad(p, t, [[-bl * 0.35 + sk, v0], [bl * 0.35 + sk, v0], [bl * 0.35, v1], [-bl * 0.35, v1]])}'/>`;
+    }
+  }
+  const id = `${uid}-pneu`;
+  out.fundo +=
+    `<defs><clipPath id='${id}'><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}'/></clipPath></defs>` +
+    `<g clip-path='url(#${id})'><path d='${poly(C)}' fill='none' stroke='rgb(84 74 64)' stroke-opacity='.1' stroke-width='${f1(tw)}'/>` +
+    `<g filter='url(#papel-poeira)' fill='rgb(38 35 33)' fill-opacity='.72'>${tread}</g></g>`;
+}
+
+// ===================== Rabiscos da quarta leva (2026-10-03) =====================
+
+/** Um osso de desenho (as duas bolotas em cada ponta), deitado, de comprimento `L` e grossura `w`, em volta de 0,0. */
+function bonePath(L: number, w: number): string {
+  const kr = w * 0.36,
+    hw = w * 0.3,
+    xe = L / 2 - kr;
+  const a = xe - kr * 0.9;
+  return (
+    `M${f1(-a)} ${f1(-hw)}L${f1(a)} ${f1(-hw)}` +
+    `A${f1(kr)} ${f1(kr)} 0 1 1 ${f1(xe + kr * 0.44)} 0` +
+    `A${f1(kr)} ${f1(kr)} 0 1 1 ${f1(a)} ${f1(hw)}` +
+    `L${f1(-a)} ${f1(hw)}` +
+    `A${f1(kr)} ${f1(kr)} 0 1 1 ${f1(-xe - kr * 0.44)} 0` +
+    `A${f1(kr)} ${f1(kr)} 0 1 1 ${f1(-a)} ${f1(-hw)}Z`
+  );
+}
+
+/** A ossada: ossos em volta da ficha, deitados ponta com ponta e às vezes cruzados, e caveiras nas quinas. */
+function scribbleBones(W: number, H: number, k: number, r: () => number): [string, string] {
+  const q = Math.max(0.4, k);
+  const m = (11 + r() * 3) * q;
+  const sk = (34 + r() * 6) * q;
+  let bones = '',
+    skulls = '';
+  const c = inset(W, H, m);
+  for (let s = 0; s < 4; s++) {
+    const a = c[s],
+      b = c[(s + 1) % 4];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const ux = (b[0] - a[0]) / len,
+      uy = (b[1] - a[1]) / len;
+    const ang = (Math.atan2(uy, ux) * 180) / Math.PI;
+    const from = sk * 0.62,
+      to = len - sk * 0.62;
+    let t = from;
+    while (t < to - 14 * q) {
+      const L = Math.min(to - t, (26 + r() * 12) * q);
+      if (L < 14 * q) break;
+      const mid = t + L / 2;
+      const x = a[0] + ux * mid,
+        y = a[1] + uy * mid;
+      const w = (8.5 + r() * 2) * q;
+      if (r() < 0.22 && L > 22 * q) {
+        // um par cruzado, em X
+        bones += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(ang + 28)})'><path d='${bonePath(L * 0.95, w)}'/></g><g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(ang - 28)})'><path d='${bonePath(L * 0.95, w)}'/></g>`;
+      } else bones += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(ang + (r() - 0.5) * 10)})'><path d='${bonePath(L, w)}'/></g>`;
+      t += L + (3 + r() * 5) * q;
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = c[i];
+    skulls += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1((r() - 0.5) * 24)}) scale(${(sk / 40).toFixed(3)}) translate(-20 -20)'>${DOODLE_ART['caveira']}</g>`;
+  }
+  return [bones, skulls];
+}
+
+/**
+ * Uma labareda de `a` a `b` (os dois vales em volta dela, já começada em `a`), com a ponta a `h` do pé
+ * `yb` e o gancho virado para o lado `lean`: sobe embarrigando, faz a curva da ponta e desce até o vale.
+ */
+function flameTongue(a: Pt, b: Pt, yb: number, h: number, lean: number): string {
+  const w = b[0] - a[0],
+    mid = (a[0] + b[0]) / 2;
+  const xt = mid + lean * w * 0.55;
+  const yt = yb - h;
+  return (
+    `C${f1(a[0] - w * 0.1)} ${f1(a[1] - h * 0.36)} ${f1(mid - lean * w * 0.35)} ${f1(yb - h * 0.62)} ${f1(mid + lean * w * 0.05)} ${f1(yb - h * 0.8)}` +
+    `C${f1(mid + lean * w * 0.25)} ${f1(yb - h * 0.92)} ${f1(xt - lean * w * 0.1)} ${f1(yt + h * 0.06)} ${f1(xt)} ${f1(yt)}` +
+    `C${f1(xt - lean * w * 0.02)} ${f1(yt + h * 0.3)} ${f1(mid + lean * w * 0.45)} ${f1(yb - h * 0.5)} ${f1(b[0] - w * 0.05)} ${f1(Math.min(b[1], yb - h * 0.25))}` +
+    `C${f1(b[0] + w * 0.02)} ${f1(b[1] - h * 0.08)} ${f1(b[0])} ${f1(b[1] - h * 0.02)} ${f1(b[0])} ${f1(b[1])}`
+  );
+}
+
+/**
+ * As chamas: uma fileira só de labaredas de hot rod subindo do pé da ficha, num traço contínuo de vale
+ * em vale, todas com o gancho da ponta virado para o mesmo lado; dentro de cada uma, a linha da chama de
+ * dentro, e umas fagulhas soltas por cima.
+ */
+function scribbleFlames(W: number, H: number, k: number, r: () => number): [string, string] {
+  const q = Math.max(0.4, k);
+  const lean = r() < 0.5 ? -1 : 1;
+  const top = Math.min(H * 0.5, (95 + r() * 20) * q);
+  const yb = H + 2;
+  let x = -12 * q;
+  let at: Pt = [x, yb];
+  let outer = `M${f1(at[0])} ${f1(at[1])}`,
+    inner = '';
+  while (x < W + 12 * q) {
+    const w = (26 + r() * 20) * q;
+    const h = top * (0.45 + r() * 0.55);
+    // o vale entre uma labareda e a outra fica um pouco acima do pé
+    const next: Pt = [x + w, yb - (5 + r() * 12) * q];
+    outer += flameTongue(at, next, yb, h, lean);
+    // a chama de dentro: menor, saindo do pé, sem encostar na de fora
+    const ia: Pt = [x + w * 0.26, yb],
+      ib: Pt = [x + w * 0.7, yb];
+    inner += `<path d='M${f1(ia[0])} ${f1(ia[1])}${flameTongue(ia, ib, yb, h * 0.5, lean)}'/>`;
+    x += w;
+    at = next;
+  }
+  let sparks = '';
+  for (let i = 0; i < 9; i++) {
+    const sx = r() * W,
+      sy = H - top * (0.9 + r() * 0.5);
+    sparks += r() < 0.5 ? `<circle class='f' cx='${f1(sx)}' cy='${f1(sy)}' r='${f1((0.8 + r() * 1.2) * q)}'/>` : `<path d='M${f1(sx)} ${f1(sy)}l${f1(lean * 2.2 * q)} ${f1(-3.2 * q)}'/>`;
+  }
+  return [`<path d='${outer}'/>`, inner + sparks];
+}
+
+/**
+ * As linhas de ação dos mangás: cunhas finas de lápis vindo das beiradas para o meio, deixando o miolo
+ * limpo (a cena em foco); ou, às vezes, as linhas de velocidade deitadas, vindo de um lado.
+ */
+function scribbleSpeed(W: number, H: number, k: number, r: () => number): string {
+  const q = Math.max(0.4, k);
+  let body = '';
+  const wedge = (a: Pt, b: Pt, w: number) => {
+    const dx = b[0] - a[0],
+      dy = b[1] - a[1],
+      l = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / l) * (w / 2),
+      ny = (dx / l) * (w / 2);
+    return `<path class='f' d='M${f1(a[0] + nx)} ${f1(a[1] + ny)}L${f1(b[0])} ${f1(b[1])}L${f1(a[0] - nx)} ${f1(a[1] - ny)}Z'/>`;
+  };
+  if (r() < 0.72) {
+    const cx = W * (0.45 + r() * 0.12),
+      cy = H * (0.44 + r() * 0.12);
+    const rx = W * (0.3 + r() * 0.06),
+      ry = H * (0.3 + r() * 0.06);
+    const n = Math.round(170 * Math.min(1.3, (W + H) / 720));
+    const far = Math.hypot(W, H);
+    for (let i = 0; i < n; i++) {
+      const a = ((i + r() * 0.9) / n) * Math.PI * 2;
+      const ca = Math.cos(a),
+        sa = Math.sin(a);
+      const f = 1 + r() * r() * 1.1;
+      body += wedge([cx + ca * far, cy + sa * far], [cx + ca * rx * f, cy + sa * ry * f], (1 + r() * r() * 5) * q);
+    }
+  } else {
+    const fromRight = r() < 0.6;
+    const n = Math.round(46 * Math.max(0.6, H / 300));
+    for (let i = 0; i < n; i++) {
+      const y = r() * H;
+      const end = fromRight ? W * (0.25 + r() * 0.6) : W * (0.15 + r() * 0.6);
+      body += fromRight ? wedge([W + 10, y], [end, y + (r() - 0.5) * 2], (0.8 + r() * r() * 4) * q) : wedge([-10, y], [end, y + (r() - 0.5) * 2], (0.8 + r() * r() * 4) * q);
+    }
+  }
+  return body;
+}
+
+/**
+ * A corrente em volta da ficha: os elos de frente (o oval com o furo) e os de lado (a barrinha) se
+ * revezando ao longo das quatro beiradas, e uma argola grande em cada quina, onde as correntes se encontram.
+ */
+function scribbleChain(W: number, H: number, k: number, r: () => number): [string, string] {
+  const q = Math.max(0.4, k);
+  const m = (12 + r() * 3) * q;
+  const LL = (17 + r() * 3) * q,
+    LW = LL * 0.56;
+  const pitch = LL * 0.8;
+  const c = inset(W, H, m);
+  let face = '',
+    edge = '';
+  for (let s = 0; s < 4; s++) {
+    const a = c[s],
+      b = c[(s + 1) % 4];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const ux = (b[0] - a[0]) / len,
+      uy = (b[1] - a[1]) / len;
+    const ang = (Math.atan2(uy, ux) * 180) / Math.PI;
+    const n = Math.max(2, Math.round((len - LW * 2.2) / pitch));
+    const st = (len - LW * 2.2) / n;
+    for (let i = 0; i <= n; i++) {
+      const t = LW * 1.1 + i * st;
+      const x = a[0] + ux * t,
+        y = a[1] + uy * t;
+      const wob = (r() - 0.5) * 6;
+      const g = `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(ang + wob)})'>`;
+      if (i % 2 === 0) {
+        const tt = LW * 0.27;
+        face += `${g}<rect x='${f1(-LL / 2)}' y='${f1(-LW / 2)}' width='${f1(LL)}' height='${f1(LW)}' rx='${f1(LW / 2)}'/><rect x='${f1(-LL / 2 + tt)}' y='${f1(-LW / 2 + tt)}' width='${f1(LL - tt * 2)}' height='${f1(LW - tt * 2)}' rx='${f1(LW / 2 - tt)}'/></g>`;
+      } else {
+        const bw = LW * 0.3;
+        edge += `${g}<rect x='${f1(-LL / 2)}' y='${f1(-bw / 2)}' width='${f1(LL)}' height='${f1(bw)}' rx='${f1(bw / 2)}'/><path class='h' d='M${f1(-LL / 2 + bw)} 0H${f1(LL / 2 - bw)}'/></g>`;
+      }
+    }
+  }
+  for (const [x, y] of c) face += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(LW * 0.95)}'/><circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(LW * 0.62)}'/>`;
+  return [face, edge];
+}
+
+/**
+ * O nó celta: uma trança de duas fitas correndo pelas quatro beiradas, por cima e por baixo uma da
+ * outra a cada cruzamento, entre dois filetes, e uma triquetra (os três laços) em cada quina.
+ */
+function scribbleCeltic(W: number, H: number, k: number, r: () => number): [string, string] {
+  const q = Math.max(0.4, k);
+  const m = (14 + r() * 3) * q;
+  const A = (4.6 + r() * 1.2) * q;
+  const bw = (2.1 + r() * 0.4) * q;
+  const cs = (13 + r() * 3) * q;
+  const c = inset(W, H, m);
+  let band = '',
+    rules = '',
+    knots = '';
+  const ruleOff = A + bw + 3.4 * q;
+  for (let s = 0; s < 4; s++) {
+    const a = c[s],
+      b = c[(s + 1) % 4];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const ux = (b[0] - a[0]) / len,
+      uy = (b[1] - a[1]) / len;
+    const nx = -uy,
+      ny = ux;
+    const t0 = cs * 1.15,
+      t1 = len - cs * 1.15;
+    // a fita: um número inteiro de meias voltas, para começar e terminar no meio
+    const halfs = Math.max(2, Math.round((t1 - t0) / (14 * q)));
+    const per = ((t1 - t0) / halfs) * 2;
+    const P = (t: number, v: number): Pt => [a[0] + ux * t + nx * v, a[1] + uy * t + ny * v];
+    for (const sgn of [1, -1]) {
+      // as duas beiradas da fita, interrompidas onde ela passa por baixo da outra
+      for (const off of [-bw, bw]) {
+        let seg: Pt[] = [];
+        for (let t = t0; t <= t1 + 0.01; t += 1.6 * q) {
+          const phase = ((t - t0) / per) * Math.PI * 2;
+          const y = sgn * A * Math.sin(phase);
+          const dy = sgn * A * Math.cos(phase) * ((Math.PI * 2) / per);
+          const l = Math.hypot(1, dy);
+          const vx = -dy / l,
+            vy = 1 / l;
+          const cross = Math.round((t - t0) / (per / 2));
+          const tc = t0 + (cross * per) / 2;
+          const under = (cross + (sgn > 0 ? 0 : 1)) % 2 === 1;
+          if (under && Math.abs(t - tc) < bw * 2.1 && cross > 0 && cross < halfs) {
+            if (seg.length > 1) band += `<path d='${poly(seg)}'/>`;
+            seg = [];
+            continue;
+          }
+          seg.push(P(t + vx * off * 0, y + vy * off));
+        }
+        if (seg.length > 1) band += `<path d='${poly(seg)}'/>`;
+      }
+    }
+    for (const o of [-ruleOff, ruleOff]) rules += `<path d='${poly([P(t0 - cs * 0.15, o), P(t1 + cs * 0.15, o)])}'/>`;
+  }
+  // a triquetra de cada quina: três laços e o anel que passa por eles
+  for (const [x, y] of c) {
+    const rot = r() * 120;
+    const lobe = `M0 ${f1(-cs)}C${f1(cs * 0.62)} ${f1(-cs * 0.42)} ${f1(cs * 0.5)} ${f1(cs * 0.28)} 0 ${f1(cs * 0.45)}C${f1(-cs * 0.5)} ${f1(cs * 0.28)} ${f1(-cs * 0.62)} ${f1(-cs * 0.42)} 0 ${f1(-cs)}Z`;
+    for (let i = 0; i < 3; i++) knots += `<path d='${lobe}' transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot + i * 120)})'/>`;
+    knots += `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(cs * 0.55)}'/>`;
+  }
+  return [band + knots, rules];
+}
+
+/** Um coração de lápis, centrado em `cx,cy`, de largura `w`. */
+function heartD(cx: number, cy: number, w: number): string {
+  const s = w / 28;
+  const p = (x: number, y: number) => `${f1(cx + (x - 14) * s)} ${f1(cy + (y - 14) * s)}`;
+  return `M${p(14, 26)}C${p(6, 19.6)} ${p(1, 15)} ${p(1, 8.6)}C${p(1, 4.4)} ${p(4.2, 1.6)} ${p(7.6, 1.6)}C${p(10.4, 1.6)} ${p(12.8, 3.4)} ${p(14, 6)}C${p(15.2, 3.4)} ${p(17.6, 1.6)} ${p(20.4, 1.6)}C${p(23.8, 1.6)} ${p(27, 4.4)} ${p(27, 8.6)}C${p(27, 15)} ${p(22, 19.6)} ${p(14, 26)}Z`;
+}
+
+const LETTERS = 'ABCDEFGHIJKLMNOPRSTV';
+
+/**
+ * Apaixonado na aula: um coração grande atravessado pela flecha, com as iniciais "A + B" dentro,
+ * coraçõezinhos pela margem (uns só no contorno, outros pintados), um "S2" e as iniciais de novo num
+ * cantinho.
+ */
+function scribbleLove(W: number, H: number, k: number, r: () => number): [string, string] {
+  const q = Math.max(0.45, k);
+  const a = LETTERS[Math.floor(r() * LETTERS.length)],
+    b = LETTERS[Math.floor(r() * LETTERS.length)];
+  const big = (64 + r() * 18) * q;
+  // o coração grande: num canto da direita
+  const cx = W - big * 0.62 - 6 * q,
+    cy = r() < 0.5 ? big * 0.55 + 4 * q : H - big * 0.5 - 6 * q;
+  let lines = `<path d='${heartD(cx, cy, big)}'/>`;
+  const fa = (-24 - r() * 16) * (Math.PI / 180);
+  const L = big * 0.95;
+  const ax = cx - Math.cos(fa) * L,
+    ay = cy - Math.sin(fa) * L,
+    bx = cx + Math.cos(fa) * L,
+    by = cy + Math.sin(fa) * L;
+  const ang = Math.atan2(by - ay, bx - ax);
+  const head = (x: number, y: number, s: number) => `M${f1(x)} ${f1(y)}l${f1(Math.cos(ang + 2.6) * s)} ${f1(Math.sin(ang + 2.6) * s)}M${f1(x)} ${f1(y)}l${f1(Math.cos(ang - 2.6) * s)} ${f1(Math.sin(ang - 2.6) * s)}`;
+  lines += `<path d='M${f1(ax)} ${f1(ay)}L${f1(cx - Math.cos(ang) * big * 0.38)} ${f1(cy - Math.sin(ang) * big * 0.38)}M${f1(cx + Math.cos(ang) * big * 0.42)} ${f1(cy + Math.sin(ang) * big * 0.42)}L${f1(bx)} ${f1(by)}'/>`;
+  lines += `<path d='${head(bx, by, 7 * q)}'/>`;
+  for (const t of [0, 0.06, 0.12]) {
+    const x = ax + Math.cos(ang) * big * t,
+      y = ay + Math.sin(ang) * big * t;
+    lines += `<path d='M${f1(x)} ${f1(y)}l${f1(Math.cos(ang + 2.4) * 6 * q)} ${f1(Math.sin(ang + 2.4) * 6 * q)}M${f1(x)} ${f1(y)}l${f1(Math.cos(ang - 2.4) * 6 * q)} ${f1(Math.sin(ang - 2.4) * 6 * q)}'/>`;
+  }
+  let fills = `<text class='f' x='${f1(cx)}' y='${f1(cy - big * 0.08)}' text-anchor='middle' dominant-baseline='central' style='font:700 ${f1(big * 0.26)}px var(--f-hand, cursive)'>${a} + ${b}</text>`;
+  // os coraçõezinhos pela margem
+  const n = 9 + Math.floor(r() * 6);
+  for (let i = 0; i < n; i++) {
+    const band = Math.floor(r() * 3);
+    const x = band === 0 ? W * (0.38 + r() * 0.36) : band === 1 ? W - (10 + r() * 14) * q : W * (0.05 + r() * 0.6);
+    const y = band === 0 ? (8 + r() * 14) * q : band === 1 ? H * (0.2 + r() * 0.6) : H - (8 + r() * 14) * q;
+    const s = (8 + r() * 10) * q;
+    const d = `<path d='${heartD(x, y, s)}' transform='rotate(${f1((r() - 0.5) * 40)} ${f1(x)} ${f1(y)})'/>`;
+    if (r() < 0.45) fills += d.replace('<path', "<path class='f'");
+    else lines += d;
+  }
+  const sx = W * (0.08 + r() * 0.3),
+    sy = H - (16 + r() * 10) * q;
+  fills += `<text class='f' x='${f1(sx)}' y='${f1(sy)}' style='font:700 ${f1(15 * q)}px var(--f-hand, cursive)' transform='rotate(${f1((r() - 0.5) * 16)} ${f1(sx)} ${f1(sy)})'>${r() < 0.5 ? 'S2' : `${a} ♥ ${b}`}</text>`;
+  return [lines, fills];
+}
+
+/** A clave de sol, num quadro de 12×32 (a linha do sol em y = 19). */
+const CLEF =
+  'M6.4 19.4C7.6 18.6 7.4 16.8 6 16.6C4 16.4 3.2 18.8 4.4 20.6C6 22.8 9.6 22 10 19C10.4 15.8 7.4 13.6 5.4 15C2.4 17 1.2 20 2.4 23C3.8 26.2 8.6 26.4 10.4 23.2M7.4 2C9.4 4.6 8.8 8.6 5.6 11.6C3.4 13.8 2.2 16.4 2.6 18.8M7.4 2C5.6 2.6 5 5.4 5.6 9.4L7.6 27.6C7.8 30 6.6 31.4 4.8 31.2C3.6 31 3 30 3.4 29';
+
+/**
+ * Uma partitura: a pauta de cinco linhas no alto e no pé, com a clave de sol, o 4/4, as notas (semínimas,
+ * mínimas, colcheias ligadas, pausas), as linhas suplementares e as barras de compasso; a de baixo
+ * termina na barra dupla. E umas notas soltas voando pela margem da direita.
+ */
+function scribbleScore(W: number, H: number, k: number, r: () => number): [string, string] {
+  const q = Math.max(0.4, k);
+  const gap = (4.3 + r() * 0.6) * q;
+  const mx = 8 * q;
+  let staff = '',
+    notes = '',
+    fill = '';
+  const staves = [(10 + r() * 3) * q, H - (10 + r() * 3) * q - gap * 4];
+  staves.forEach((top, si) => {
+    for (let l = 0; l < 5; l++) staff += `<path d='${smooth(handLine([mx, top + l * gap], [W - mx, top + l * gap], r, 0.6 * k, 40 * q))}'/>`;
+    staff += `<path d='M${f1(mx)} ${f1(top)}V${f1(top + gap * 4)}'/>`;
+    // a clave e o compasso
+    const cs = (gap * 4) / 17;
+    notes += `<path d='${CLEF}' transform='translate(${f1(mx + 3 * q)} ${f1(top + gap * 3 - 19 * cs)}) scale(${cs.toFixed(3)})'/>`;
+    fill += `<text class='f' x='${f1(mx + 18 * q)}' y='${f1(top + gap * 1.05)}' text-anchor='middle' dominant-baseline='central' style='font:800 ${f1(gap * 2.1)}px var(--f-label, sans-serif)'>4</text><text class='f' x='${f1(mx + 18 * q)}' y='${f1(top + gap * 3.05)}' text-anchor='middle' dominant-baseline='central' style='font:800 ${f1(gap * 2.1)}px var(--f-label, sans-serif)'>4</text>`;
+    const yOf = (p: number) => top + gap * 4 - (p * gap) / 2;
+    let x = mx + 30 * q;
+    let beats = 0;
+    const end = W - mx - 10 * q;
+    while (x < end) {
+      const kind = r();
+      const p = Math.floor(r() * 11) - 1;
+      const head = (hx: number, hp: number, filled: boolean) => {
+        const hy = yOf(hp);
+        let s = `<ellipse cx='${f1(hx)}' cy='${f1(hy)}' rx='${f1(gap * 0.62)}' ry='${f1(gap * 0.44)}' transform='rotate(-20 ${f1(hx)} ${f1(hy)})'/>`;
+        if (filled) fill += s.replace('<ellipse', "<ellipse class='f'");
+        for (let lp = hp <= -2 ? -2 : 10; hp <= -2 ? lp >= hp : lp <= hp; lp += hp <= -2 ? -2 : 2) s += `<path d='M${f1(hx - gap)} ${f1(yOf(lp))}H${f1(hx + gap)}'/>`;
+        return s;
+      };
+      const up = p < 4;
+      const stem = (hx: number, hp: number) => {
+        const hy = yOf(hp);
+        return up ? `<path d='M${f1(hx + gap * 0.58)} ${f1(hy)}V${f1(hy - gap * 3.3)}'/>` : `<path d='M${f1(hx - gap * 0.58)} ${f1(hy)}V${f1(hy + gap * 3.3)}'/>`;
+      };
+      if (kind < 0.36) {
+        notes += head(x, p, true) + stem(x, p);
+        beats += 1;
+        x += 13 * q;
+      } else if (kind < 0.56) {
+        notes += head(x, p, false) + stem(x, p);
+        beats += 2;
+        x += 19 * q;
+      } else if (kind < 0.82) {
+        // duas colcheias ligadas pela barra
+        const p2 = Math.max(0, Math.min(8, p + Math.floor(r() * 5) - 2));
+        const x2 = x + 11 * q;
+        notes += head(x, p, true) + head(x2, p2, true);
+        const sx1 = x + gap * 0.58,
+          sx2 = x2 + gap * 0.58;
+        const ey1 = Math.min(yOf(p), yOf(p2)) - gap * 3.3;
+        notes += `<path d='M${f1(sx1)} ${f1(yOf(p))}V${f1(ey1)}M${f1(sx2)} ${f1(yOf(p2))}V${f1(ey1 - (p2 - p) * 0.3)}'/>`;
+        fill += `<path class='f' d='M${f1(sx1)} ${f1(ey1)}L${f1(sx2)} ${f1(ey1 - (p2 - p) * 0.3)}V${f1(ey1 - (p2 - p) * 0.3 + gap * 0.55)}L${f1(sx1)} ${f1(ey1 + gap * 0.55)}Z'/>`;
+        beats += 1;
+        x += 24 * q;
+      } else {
+        // a pausa de semínima, em zigue-zague
+        const y = top + gap * 0.6;
+        notes += `<path d='M${f1(x - gap * 0.3)} ${f1(y)}l${f1(gap * 0.7)} ${f1(gap * 0.8)}l${f1(-gap * 0.6)} ${f1(gap * 0.7)}l${f1(gap * 0.6)} ${f1(gap * 0.7)}q${f1(-gap * 1.1)} ${f1(-gap * 0.2)} ${f1(-gap * 0.2)} ${f1(gap * 1)}'/>`;
+        beats += 1;
+        x += 12 * q;
+      }
+      if (beats >= 4 && x < end - 8 * q) {
+        staff += `<path d='M${f1(x - 4 * q)} ${f1(top)}V${f1(top + gap * 4)}'/>`;
+        beats = 0;
+        x += 4 * q;
+      }
+    }
+    if (si === 1) staff += `<path d='M${f1(W - mx - 3 * q)} ${f1(top)}V${f1(top + gap * 4)}'/><path d='M${f1(W - mx)} ${f1(top)}V${f1(top + gap * 4)}' style='stroke-width:${f1(2.6 * q)}px'/>`;
+    else staff += `<path d='M${f1(W - mx)} ${f1(top)}V${f1(top + gap * 4)}'/>`;
+  });
+  // as notas soltas voando
+  for (let i = 0; i < 3; i++) {
+    const x = W * (0.72 + r() * 0.22),
+      y = H * (0.32 + r() * 0.36);
+    const s = (1.1 + r() * 0.5) * gap;
+    fill += `<ellipse class='f' cx='${f1(x)}' cy='${f1(y)}' rx='${f1(s * 0.65)}' ry='${f1(s * 0.46)}' transform='rotate(-20 ${f1(x)} ${f1(y)})'/>`;
+    notes += `<path d='M${f1(x + s * 0.6)} ${f1(y)}V${f1(y - s * 3.4)}q${f1(s * 0.4)} ${f1(s * 1.2)} ${f1(s * 1.3)} ${f1(s * 1.6)}'/>`;
+  }
+  return [staff, notes + fill];
+}
+
+/**
+ * A contagem dos dias na parede: grupos de cinco (quatro risquinhos e o quinto atravessando) pela
+ * margem de cima, pela de baixo e descendo pela da direita, cada risco de um tamanho, cada grupo um
+ * tanto torto; o último ainda incompleto.
+ */
+function scribbleTally(W: number, H: number, k: number, r: () => number): string {
+  const q = Math.max(0.4, k);
+  const h = (14 + r() * 4) * q;
+  const sp = (3.6 + r() * 0.7) * q;
+  const gw = sp * 3 + (8 + r() * 3) * q;
+  let body = '';
+  const group = (x: number, y: number, marks: number, tilt: number) => {
+    let s = `<g transform='rotate(${f1(tilt)} ${f1(x)} ${f1(y)})'>`;
+    for (let i = 0; i < Math.min(4, marks); i++) {
+      const xx = x + i * sp + (r() - 0.5) * 0.8 * q;
+      s += `<path d='M${f1(xx + (r() - 0.5) * 1.2 * q)} ${f1(y - h / 2 + (r() - 0.5) * 2 * q)}L${f1(xx + (r() - 0.5) * 1.2 * q)} ${f1(y + h / 2 + (r() - 0.5) * 2 * q)}'/>`;
+    }
+    if (marks >= 5) s += `<path d='M${f1(x - 3 * q)} ${f1(y + h * 0.22 + (r() - 0.5) * 3 * q)}L${f1(x + sp * 3 + 3 * q)} ${f1(y - h * 0.22 + (r() - 0.5) * 3 * q)}'/>`;
+    return s + '</g>';
+  };
+  const rows: [number, number, number][] = [
+    [W * 0.35, W - 8 * q, 8 * q + h / 2],
+    [8 * q, W - 8 * q, H - 8 * q - h / 2],
+  ];
+  if (H > 200 * q) rows.push([W * 0.42, W - 8 * q, H - 14 * q - h * 1.6]);
+  let total = 0;
+  const lastRow = rows.length - 1;
+  rows.forEach(([x0, x1, y], ri) => {
+    for (let x = x0; x + gw * 0.7 < x1; x += gw) {
+      const isLast = ri === lastRow && x + gw * 1.7 >= x1;
+      body += group(x, y + (r() - 0.5) * 3 * q, isLast ? 2 + Math.floor(r() * 3) : 5, (r() - 0.5) * 8);
+      total++;
+    }
+  });
+  // descendo pela beirada da direita
+  for (let y = 8 * q + h * 2; y < H - 14 * q - h * 2; y += h + 6 * q) body += group(W - 8 * q - sp * 3, y, 5, (r() - 0.5) * 8);
+  return total ? body : body;
 }
 
 /**

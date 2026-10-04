@@ -305,6 +305,36 @@ describe('papel da ficha', () => {
       expect([...ways].sort()).toEqual(['alto-direita', 'deitada', 'em pé', 'pé-direita', 'pé-esquerda']);
     });
 
+    it('a cera de vela caiu na ficha pronta: fica por cima de tudo, como a gosma', () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const art = paperArt({ ...base, stain: 'cera', stainSeed: seed });
+        expect(art.topo?.length ?? 0).withContext(String(seed)).toBeGreaterThan(100);
+        expect(art.frente).withContext(String(seed)).toBe('');
+      }
+    });
+
+    it('no Quebra-cabeça nunca falta a peça da foto nem a da nota', () => {
+      for (const s of [{ W: 420, H: 300 }, { W: 340, H: 150 }])
+        for (let seed = 1; seed <= 60; seed++) {
+          const pts = [...paperArt({ ...base, ...s, damage: 'quebracabeca', seed }).cut[0].matchAll(/[ML](-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+          const u = pts.reduce((a, p) => a + p[0], 0) / pts.length / s.W,
+            v = pts.reduce((a, p) => a + p[1], 0) / pts.length / s.H;
+          const hidden = s.H / s.W < 0.55 ? u < 0.3 || (u < 0.8 && v > 0.52) : (u < 0.34 && v < 0.6) || (u > 0.32 && u < 0.93 && v > 0.26 && v < 0.56);
+          expect(hidden).withContext(`${s.W}x${s.H} ${seed}: ${u.toFixed(2)} ${v.toFixed(2)}`).toBeFalse();
+        }
+    });
+
+    it('a lata de refri deixa o anel onde ele aparece: embaixo da frase, ou na coluna da direita da tira', () => {
+      for (const s of [{ W: 420, H: 300 }, { W: 340, H: 150 }])
+        for (let seed = 1; seed <= 40; seed++) {
+          const m = paperArt({ ...base, ...s, stain: 'refri', stainSeed: seed }).fundo.match(/<circle cx='([\d.]+)' cy='([\d.]+)'/)!;
+          const u = Number(m[1]) / s.W,
+            v = Number(m[2]) / s.H;
+          if (s.H / s.W < 0.55) expect(u).withContext(`tira ${seed}`).toBeGreaterThanOrEqual(0.8);
+          else expect(v).withContext(`completa ${seed}`).toBeGreaterThanOrEqual(0.66);
+        }
+    });
+
     it('cada rabisco desenha algo, atrás do que está escrito', () => {
       for (const s of SCRIBBLES) {
         const art = paperArt({ ...base, scribble: s });

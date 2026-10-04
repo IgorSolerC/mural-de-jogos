@@ -135,6 +135,49 @@ export function decorArt(input: DecorInput): DecorArt {
     case 'ilhoses':
       eyelets(W, H, k, r, out);
       break;
+    // 2026-10-03, a quarta leva
+    case 'cogumelos':
+      mushrooms(W, H, k, r, uid, out);
+      break;
+    case 'cristais':
+      crystals(W, H, k, r, uid, out);
+      break;
+    case 'silvertape':
+      ductTape(W, H, k, r, uid, out);
+      break;
+    case 'rotuladora':
+      labelMaker(W, H, k, r, out);
+      break;
+    case 'prendedor':
+      binderClip(W, H, k, r, uid, out);
+      break;
+    case 'pregador':
+      clothespin(W, H, k, r, uid, out);
+      break;
+    case 'parafusos':
+      screws(W, H, k, r, uid, out);
+      break;
+    case 'lapis':
+      pencil(W, H, k, r, uid, out);
+      break;
+    case 'cantoneiras':
+      cornerGuards(W, H, k, r, uid, out);
+      break;
+    case 'locadora':
+      rentalSticker(W, H, k, r, out);
+      break;
+    case 'joias':
+      jewels(W, H, k, r, uid, out);
+      break;
+    case 'laco':
+      giftBow(W, H, k, r, uid, out);
+      break;
+    case 'pena':
+      feather(W, H, k, r, uid, out);
+      break;
+    case 'morcego':
+      hangingBats(W, H, k, r, uid, out);
+      break;
   }
   return out;
 }
@@ -1861,4 +1904,1100 @@ function errorWindow(W: number, H: number, k: number, r: () => number, uid: stri
     `<text x='${f1(ok.x + ok.w / 2)}' y='${f1(ok.y + ok.h * 0.7)}' text-anchor='middle' font-family='${font}' font-size='${f1(h * 0.11)}' fill='#000'>OK</text>` +
     cur(ok.x + ok.w * 0.62, ok.y + ok.h * 0.45, 0.85 * u) +
     `</g>`;
+}
+
+// ===================== A quarta leva (2026-10-03) =====================
+
+/**
+ * A ficha simples (a tira) é bem mais larga que alta, e nela a foto ocupa toda a altura do lado
+ * esquerdo: nada de enfeite ali, nem no canto de baixo à esquerda.
+ */
+const isStrip = (W: number, H: number) => H / W < 0.55;
+
+/** Uma linha reta de ponto em ponto. */
+function poly(pts: Pt[]): string {
+  return pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('');
+}
+
+/** Continua uma linha já começada: os mesmos pontos, sem o "M" do começo. */
+function cont(pts: Pt[]): string {
+  return pts.map(([x, y]) => `L${f1(x)} ${f1(y)}`).join('');
+}
+
+/** Uma linha suave passando pelos pontos (Catmull-Rom virando Bézier), como a dos rabiscos. */
+function smooth(pts: Pt[]): string {
+  if (pts.length < 2) return '';
+  let d = `M${f1(pts[0][0])} ${f1(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i],
+      p1 = pts[i],
+      p2 = pts[i + 1],
+      p3 = pts[i + 2] ?? p2;
+    const c1: Pt = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2: Pt = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += `C${f1(c1[0])} ${f1(c1[1])} ${f1(c2[0])} ${f1(c2[1])} ${f1(p2[0])} ${f1(p2[1])}`;
+  }
+  return d;
+}
+
+/** Uma sombra macia (borrada) debaixo de um objeto em relevo: o mesmo desenho, preto, deslocado. */
+function softShadow(body: string, uid: string, k: number, dx = 1.6, dy = 3, op = 0.32, blur = 1.6): string {
+  return `<defs><filter id='${uid}-sombra' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(blur * k)}'/></filter></defs><g transform='translate(${f1(dx * k)} ${f1(dy * k)})' opacity='${op}' filter='url(#${uid}-sombra)'>${body}</g>`;
+}
+
+/** Pinta o desenho de preto (para a sombra): troca as cores de preenchimento e de traço. */
+function blackened(body: string): string {
+  return body
+    .replace(/fill='(?!none)[^']*'/g, "fill='#000'")
+    .replace(/stroke='(?!none)[^']*'/g, "stroke='#000'")
+    .replace(/fill='url\([^']*\)'/g, "fill='#000'")
+    .replace(/style='fill:[^']*'/g, "fill='#000'");
+}
+
+// ----- Cogumelos -----
+
+const AMANITA = { cap: ['#e8343a', '#ff7a6e', '#9c121c'], stem: ['#f6efe0', '#fffdf6', '#cdbf9f'], gill: '#efe3c6', warts: true };
+const BROWN = { cap: ['#b0773f', '#dba46a', '#6e4320'], stem: ['#efe4cc', '#fffaf0', '#c6b38c'], gill: '#e6d6b4', warts: false };
+const TINY = { cap: ['#e8dcc4', '#fff8ea', '#a8977a'], stem: ['#f4ecdc', '#ffffff', '#c9bba0'], gill: '#efe4d0', warts: false };
+
+/**
+ * Cogumelos nascendo da beirada da ficha, como num tronco: um punhado de amanitas (o chapéu vermelho de
+ * bolinhas brancas), de cogumelinhos marrons ou de cogumelos miúdos de chapéu de sino, com musgo e capim
+ * no pé; ou orelhas-de-pau (as prateleiras de anéis) saindo da beirada da direita.
+ */
+function mushrooms(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const way = Math.floor(r() * 4);
+  let body = '';
+  if (way === 3) {
+    // as orelhas-de-pau: prateleiras em leque saindo da beirada da direita, umas sobre as outras
+    const bands = [
+      ['#7a4a26', '#a8693a', '#d39a5c', '#f0d2a0'],
+      ['#4e4a48', '#7a6a5c', '#b39a7c', '#efe2c8'],
+      ['#8a3f1c', '#c4672c', '#e89a4a', '#f7e0b0'],
+    ][Math.floor(r() * 3)];
+    const n = 3 + Math.floor(r() * 2);
+    let y = H * (0.42 + r() * 0.12);
+    const shelves: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const w = (24 + r() * 16) * q * (1 - i * 0.12),
+        h = w * (0.55 + r() * 0.15);
+      const cx = W - 2 * q,
+        cy = y;
+      // a prateleira: meio disco para fora da ficha, com os anéis de crescimento
+      let s = '';
+      for (let b = 0; b < bands.length; b++) {
+        const f = 1 - b * 0.22;
+        s += `<path d='M${f1(cx)} ${f1(cy - h * f)}A${f1(w * f)} ${f1(h * f)} 0 0 1 ${f1(cx)} ${f1(cy + h * f * 0.35)}Z' fill='${bands[b]}'/>`;
+      }
+      s += `<path d='M${f1(cx)} ${f1(cy - h)}A${f1(w)} ${f1(h)} 0 0 1 ${f1(cx)} ${f1(cy + h * 0.35)}' fill='none' stroke='#000' stroke-opacity='.25' stroke-width='${f1(0.8 * q)}'/>`;
+      s += `<path d='M${f1(cx + w * 0.15)} ${f1(cy - h * 0.82)}A${f1(w * 0.85)} ${f1(h * 0.85)} 0 0 1 ${f1(cx + w * 0.7)} ${f1(cy - h * 0.25)}' fill='none' stroke='#fff' stroke-opacity='.35' stroke-width='${f1(1 * q)}' stroke-linecap='round'/>`;
+      shelves.push(`<g transform='rotate(${f1((r() - 0.5) * 10)} ${f1(cx)} ${f1(cy)})'>${s}</g>`);
+      y += h * (0.9 + r() * 0.4);
+      if (y > H - 10 * q) break;
+    }
+    body = shelves.reverse().join('');
+    out.front += softShadow(blackened(body), uid, q, 1.2, 2.2, 0.35) + body;
+    return;
+  }
+  const kind = [AMANITA, BROWN, TINY][way];
+  // na tira, o pé da esquerda é a foto: sempre à direita
+  const right = r() < 0.65 || isStrip(W, H);
+  const x0 = right ? W * (0.6 + r() * 0.2) : W * (0.06 + r() * 0.14);
+  const n = way === 2 ? 5 + Math.floor(r() * 4) : 3 + Math.floor(r() * 3);
+  const items: { x: number; h: number; cw: number; lean: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const big = i === 0 ? 1 : 0.5 + r() * 0.5;
+    const cw = (way === 2 ? 11 + r() * 6 : 22 + r() * 14) * q * big;
+    const h = (way === 2 ? 16 + r() * 18 : 18 + r() * 22) * q * big;
+    items.push({ x: x0 + (i - n / 2) * cw * 0.62 + (r() - 0.5) * 6 * q, h, cw, lean: (r() - 0.5) * 0.35 });
+  }
+  // os de trás primeiro: os menores
+  items.sort((a, b) => a.h - b.h);
+  const g = `${uid}-cog`;
+  let defs =
+    `<linearGradient id='${g}-c' x1='0' y1='0' x2='.3' y2='1'><stop offset='0' stop-color='${kind.cap[1]}'/><stop offset='.5' stop-color='${kind.cap[0]}'/><stop offset='1' stop-color='${kind.cap[2]}'/></linearGradient>` +
+    `<linearGradient id='${g}-s' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='${kind.stem[1]}'/><stop offset='.55' stop-color='${kind.stem[0]}'/><stop offset='1' stop-color='${kind.stem[2]}'/></linearGradient>`;
+  for (const it of items) {
+    const bx = it.x,
+      by = H + 1.5 * q;
+    const top: Pt = [bx + it.lean * it.h, by - it.h];
+    const sw0 = it.cw * (way === 2 ? 0.16 : 0.2),
+      sw1 = it.cw * (way === 2 ? 0.11 : 0.15);
+    // o pé, curvo, mais grosso embaixo
+    const stem = `M${f1(bx - sw0)} ${f1(by)}C${f1(bx - sw0)} ${f1(by - it.h * 0.4)} ${f1(top[0] - sw1)} ${f1(top[1] + it.h * 0.3)} ${f1(top[0] - sw1)} ${f1(top[1])}L${f1(top[0] + sw1)} ${f1(top[1])}C${f1(top[0] + sw1)} ${f1(top[1] + it.h * 0.3)} ${f1(bx + sw0)} ${f1(by - it.h * 0.4)} ${f1(bx + sw0)} ${f1(by)}Z`;
+    const ch = it.cw * (way === 2 ? 0.75 : 0.5);
+    const cw = it.cw / 2;
+    const tilt = it.lean * 40;
+    // o chapéu: abobadado (o de sino é mais alto), as lamelas embaixo
+    const cap =
+      way === 2
+        ? `M${f1(-cw)} 0C${f1(-cw)} ${f1(-ch * 0.6)} ${f1(-cw * 0.5)} ${f1(-ch)} 0 ${f1(-ch)}C${f1(cw * 0.5)} ${f1(-ch)} ${f1(cw)} ${f1(-ch * 0.6)} ${f1(cw)} 0Q0 ${f1(ch * 0.12)} ${f1(-cw)} 0Z`
+        : `M${f1(-cw)} ${f1(ch * 0.08)}C${f1(-cw * 1.02)} ${f1(-ch * 0.7)} ${f1(-cw * 0.45)} ${f1(-ch)} 0 ${f1(-ch)}C${f1(cw * 0.45)} ${f1(-ch)} ${f1(cw * 1.02)} ${f1(-ch * 0.7)} ${f1(cw)} ${f1(ch * 0.08)}Q0 ${f1(ch * 0.2)} ${f1(-cw)} ${f1(ch * 0.08)}Z`;
+    const gills = `M${f1(-cw * 0.95)} ${f1(ch * 0.08)}Q0 ${f1(ch * (way === 2 ? 0.24 : 0.42))} ${f1(cw * 0.95)} ${f1(ch * 0.08)}Q0 ${f1(ch * 0.2)} ${f1(-cw * 0.95)} ${f1(ch * 0.08)}Z`;
+    let lam = '';
+    for (let i = -4; i <= 4; i++) lam += `M${f1(i * cw * 0.2)} ${f1(ch * 0.14)}L${f1(i * cw * 0.12)} ${f1(ch * 0.26)}`;
+    let warts = '';
+    if (kind.warts)
+      for (let i = 0; i < 7; i++) {
+        const a = -Math.PI * (0.1 + r() * 0.8),
+          rr = r() * 0.8;
+        const wx = Math.cos(a) * cw * rr,
+          wy = -ch * 0.15 + Math.sin(a) * ch * 0.75 * rr - ch * 0.1;
+        warts += `<ellipse cx='${f1(wx)}' cy='${f1(wy)}' rx='${f1((1.4 + r() * 1.6) * q)}' ry='${f1((1 + r() * 1.1) * q)}' fill='#fbf6ea' stroke='#d8cdb4' stroke-width='${f1(0.4 * q)}'/>`;
+      }
+    const ring = way === 0 ? `<path d='M${f1(top[0] - sw1 * 1.5)} ${f1(top[1] + it.h * 0.22)}q${f1(sw1 * 1.5)} ${f1(3 * q)} ${f1(sw1 * 3)} 0l${f1(-0.6 * q)} ${f1(2.4 * q)}q${f1(-sw1 * 1.2)} ${f1(2 * q)} ${f1(-sw1 * 1.8)} 0Z' fill='${kind.stem[0]}' stroke='${kind.stem[2]}' stroke-width='${f1(0.5 * q)}'/>` : '';
+    body +=
+      `<path d='${stem}' fill='url(#${g}-s)' stroke='${kind.stem[2]}' stroke-width='${f1(0.5 * q)}'/>` +
+      ring +
+      `<g transform='translate(${f1(top[0])} ${f1(top[1])}) rotate(${f1(tilt)})'>` +
+      `<path d='${gills}' fill='${kind.gill}'/><path d='${lam}' stroke='#000' stroke-opacity='.18' stroke-width='${f1(0.45 * q)}'/>` +
+      `<path d='${cap}' fill='url(#${g}-c)' stroke='${kind.cap[2]}' stroke-width='${f1(0.6 * q)}'/>` +
+      warts +
+      `<ellipse cx='${f1(-cw * 0.35)}' cy='${f1(-ch * 0.62)}' rx='${f1(cw * 0.3)}' ry='${f1(ch * 0.14)}' transform='rotate(-25 ${f1(-cw * 0.35)} ${f1(-ch * 0.62)})' fill='#fff' fill-opacity='.4'/>` +
+      `</g>`;
+  }
+  // o musgo e o capim no pé
+  let moss = '';
+  const span = items.reduce((m, it) => Math.max(m, Math.abs(it.x - x0) + it.cw), 0) + 10 * q;
+  for (let x = x0 - span; x < x0 + span; x += (3 + r() * 3) * q) {
+    moss += `<circle cx='${f1(x)}' cy='${f1(H + (r() - 0.3) * 3 * q)}' r='${f1((2 + r() * 3) * q)}' fill='${r() < 0.5 ? '#5f8a3a' : '#43702a'}'/>`;
+    if (r() < 0.4) moss += `<path d='M${f1(x)} ${f1(H)}q${f1((r() - 0.5) * 4 * q)} ${f1(-4 * q)} ${f1((r() - 0.5) * 6 * q)} ${f1(-(6 + r() * 8) * q)}' fill='none' stroke='#6f9a44' stroke-width='${f1(0.9 * q)}' stroke-linecap='round'/>`;
+  }
+  out.front += `<defs>${defs}</defs>` + softShadow(blackened(body), uid, q, 1.6, 2.4, 0.3) + body + moss;
+  defs = '';
+}
+
+// ----- Cristais -----
+
+const GEMS: readonly (readonly [string, string, string, number])[] = [
+  ['#9a62dc', '#e2d0ff', '#4a1f86', 0.94],
+  ['#dfe8ee', '#ffffff', '#93a6b4', 0.82],
+  ['#2fae6e', '#b8f5d0', '#0d5a34', 0.92],
+  ['#d93a52', '#ffb8c4', '#7c0f22', 0.92],
+  ['#4cc6d6', '#d2f7fb', '#16707c', 0.9],
+  ['#efb33a', '#fff0b8', '#94600c', 0.92],
+];
+
+/**
+ * Uma drusa de cristais crescendo de um canto (nunca o da foto) ou do pé da ficha: prismas de seis
+ * faces em leque, cada um com a face da luz, a do meio e a da sombra, a ponta facetada e um fio de
+ * brilho, saindo de uma rocha escura. Ametista, quartzo, esmeralda, rubi, água-marinha ou citrino.
+ */
+function crystals(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark, op] = GEMS[Math.floor(r() * GEMS.length)];
+  const where = Math.floor(r() * 3); // 0: embaixo à direita, 1: em cima à direita, 2: no pé
+  const O: Pt = where === 0 ? [W + 4 * q, H + 4 * q] : where === 1 ? [W + 4 * q, -4 * q] : [W * (0.55 + r() * 0.3), H + 6 * q];
+  // para onde os cristais apontam: para dentro da ficha, abrindo em leque
+  const mid = where === 0 ? -135 : where === 1 ? 135 : -90;
+  const n = 5 + Math.floor(r() * 4);
+  const list: { a: number; L: number; w: number; off: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = mid + (r() - 0.5) * (where === 2 ? 120 : 80);
+    const big = Math.cos(((a - mid) * Math.PI) / 180);
+    list.push({ a, L: (34 + r() * 40) * q * (0.6 + big * 0.55), w: (10 + r() * 9) * q, off: (r() - 0.5) * 12 * q });
+  }
+  // os de trás (mais compridos) primeiro
+  list.sort((x, y) => y.L - x.L);
+  let body = '';
+  for (const c of list) {
+    const w = c.w,
+      L = c.L,
+      tip = w * 0.55;
+    const x1 = -w / 2,
+      x2 = -w / 6,
+      x3 = w / 6,
+      x4 = w / 2;
+    const apex: Pt = [(r() - 0.5) * w * 0.15, -L];
+    const yS = -L + tip,
+      yM = -L + tip * 0.62;
+    const face = (pts: Pt[], fill: string) => `<path d='${poly(pts)}Z' fill='${fill}'/>`;
+    body +=
+      `<g transform='translate(${f1(O[0] + Math.cos(((c.a + 90) * Math.PI) / 180) * c.off)} ${f1(O[1] + Math.sin(((c.a + 90) * Math.PI) / 180) * c.off)}) rotate(${f1(c.a + 90)})' opacity='${op}'>` +
+      face([[x1, 0], [x2, 0], [x2, yM], [x1, yS]], light) +
+      face([[x2, 0], [x3, 0], [x3, yM], [x2, yM]], base) +
+      face([[x3, 0], [x4, 0], [x4, yS], [x3, yM]], dark) +
+      face([[x1, yS], [x2, yM], apex], light) +
+      face([[x2, yM], [x3, yM], apex], mix(light, base, 0.45)) +
+      face([[x3, yM], [x4, yS], apex], mix(base, dark, 0.4)) +
+      `<path d='M${f1(x1)} 0V${f1(yS)}L${f1(apex[0])} ${f1(apex[1])}L${f1(x4)} ${f1(yS)}V0' fill='none' stroke='${dark}' stroke-opacity='.55' stroke-width='${f1(0.6 * q)}'/>` +
+      `<path d='M${f1(x1 + w * 0.08)} ${f1(-L * 0.08)}V${f1(yS + tip * 0.15)}' stroke='#fff' stroke-opacity='.7' stroke-width='${f1(0.8 * q)}' stroke-linecap='round'/>` +
+      `</g>`;
+  }
+  // a rocha da base
+  const rock: Pt[] = [];
+  const R = (20 + r() * 8) * q;
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    rock.push([O[0] + Math.cos(a) * R * (0.8 + r() * 0.4) * (where === 2 ? 1.8 : 1), O[1] + Math.sin(a) * R * (0.6 + r() * 0.3)]);
+  }
+  let grit = '';
+  for (let i = 0; i < 18; i++) grit += `<circle cx='${f1(O[0] + (r() - 0.5) * R * (where === 2 ? 3 : 1.6))}' cy='${f1(O[1] + (r() - 0.5) * R)}' r='${f1((0.5 + r() * 1.4) * q)}' fill='${r() < 0.5 ? '#2a2422' : '#8a7c6c'}'/>`;
+  const rockD = `${smooth([...rock, rock[0]])}Z`;
+  const all = body + `<path d='${rockD}' fill='#4a403a'/>`;
+  // a sombra no papel, depois os cristais, a rocha por cima das bases e uma faísca
+  const glints = [0, 1]
+    .map(() => {
+      const c = list[Math.floor(r() * list.length)];
+      const a = ((c.a + (r() - 0.5) * 6) * Math.PI) / 180;
+      const d = c.L * (0.6 + r() * 0.3);
+      const x = O[0] + Math.cos(a) * d,
+        y = O[1] + Math.sin(a) * d;
+      const s = (3 + r() * 3) * q;
+      return `<path d='M${f1(x)} ${f1(y - s)}Q${f1(x)} ${f1(y)} ${f1(x + s)} ${f1(y)}Q${f1(x)} ${f1(y)} ${f1(x)} ${f1(y + s)}Q${f1(x)} ${f1(y)} ${f1(x - s)} ${f1(y)}Q${f1(x)} ${f1(y)} ${f1(x)} ${f1(y - s)}Z' fill='#fff'/>`;
+    })
+    .join('');
+  out.front +=
+    softShadow(blackened(all), uid, q, 2, 3, 0.3) +
+    body +
+    `<path d='${rockD}' fill='#4a403a'/><path d='${rockD}' fill='none' stroke='#2a2420' stroke-width='${f1(0.8 * q)}'/>` +
+    grit +
+    glints;
+}
+
+// ----- Silver tape -----
+
+const DUCT: readonly (readonly [string, string, string])[] = [
+  ['#a7acb2', '#dfe3e7', '#6f757c'],
+  ['#a7acb2', '#dfe3e7', '#6f757c'],
+  ['#2a2b2e', '#5a5c62', '#141416'],
+  ['#c42a2e', '#ee6a6a', '#7a1216'],
+  ['#5a6a3a', '#8a9a62', '#343e20'],
+];
+
+/**
+ * Pedaços de silver tape prendendo a ficha na parede pelas quinas (nunca a da foto), metade na ficha e
+ * metade na parede: a trama de pano aparecendo, as pontas rasgadas com fiapos, umas
+ * rugas e o degrauzinho onde a fita passa da beirada da ficha.
+ */
+function ductTape(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark] = DUCT[Math.floor(r() * DUCT.length)];
+  const tw = (24 + r() * 5) * q;
+  const pieces: { x: number; y: number; a: number; L: number; edge: boolean }[] = [];
+  // as quinas da direita e, na ficha completa, a de baixo à esquerda (na tira ela é a foto)
+  const corners = isStrip(W, H) ? [0, 1] : [0, 1, 2];
+  const cs = corners.filter(() => r() < 0.6);
+  if (!cs.length) cs.push(corners[Math.floor(r() * corners.length)]);
+  for (const c of cs) {
+    // metade na ficha, metade na parede: a fita atravessa a quina, um tanto para dentro dela
+    const d = (9 + r() * 6) * q;
+    const [x, y] = cornerAt(W, H, c, d, d);
+    pieces.push({ x, y, a: (c === 1 ? -45 : 45) + (r() - 0.5) * 14, L: (62 + r() * 22) * q, edge: true });
+  }
+  const id = `${uid}-trama`;
+  let body =
+    `<defs><pattern id='${id}' width='${f1(2.4 * q)}' height='${f1(2 * q)}' patternUnits='userSpaceOnUse'><rect width='${f1(2.4 * q)}' height='${f1(0.5 * q)}' fill='#000' fill-opacity='.08'/><rect width='${f1(0.45 * q)}' height='${f1(2 * q)}' fill='#fff' fill-opacity='.08'/></pattern>` +
+    `<linearGradient id='${id}-g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${light}'/><stop offset='.35' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></linearGradient></defs>`;
+  pieces.forEach((p, i) => {
+    const hw = tw / 2,
+      hl = p.L / 2;
+    // as pontas rasgadas: dentes miúdos e desiguais
+    const end = (x0: number, dir: 1 | -1) => {
+      const pts: Pt[] = [];
+      const n = Math.round(tw / (2.2 * q));
+      for (let j = 0; j <= n; j++) pts.push([x0 + dir * (r() * 3.4 * q - (j % 2 ? 1.2 * q : 0)), -hw * dir + ((j / n) * tw) * dir]);
+      return pts;
+    };
+    const outline: Pt[] = [[-hl, -hw], [hl, -hw], ...end(hl, 1), [hl, hw], [-hl, hw], ...end(-hl, -1)];
+    const d = `${poly(outline)}Z`;
+    let threads = '';
+    for (const x0 of [-hl, hl])
+      for (let j = 0; j < 4; j++) {
+        const y = (r() - 0.5) * tw * 0.9;
+        threads += `M${f1(x0)} ${f1(y)}l${f1(Math.sign(x0) * (2 + r() * 4) * q)} ${f1((r() - 0.5) * 2 * q)}`;
+      }
+    let wrinkles = '';
+    for (let j = 0; j < 1 + Math.floor(r() * 3); j++) {
+      const x = (r() - 0.5) * p.L * 0.7,
+        lean = (r() - 0.5) * 8 * q;
+      wrinkles += `<path d='M${f1(x)} ${f1(-hw)}Q${f1(x + lean)} 0 ${f1(x + lean * 0.3)} ${f1(hw)}' stroke='#fff' stroke-opacity='.35' stroke-width='${f1(0.9 * q)}' fill='none'/><path d='M${f1(x + 0.9 * q)} ${f1(-hw)}Q${f1(x + lean + 0.9 * q)} 0 ${f1(x + lean * 0.3 + 0.9 * q)} ${f1(hw)}' stroke='#000' stroke-opacity='.18' stroke-width='${f1(0.7 * q)}' fill='none'/>`;
+    }
+    const cid = `${uid}-fita${i}`;
+    // onde a fita passa da beirada da ficha para a parede: um degrauzinho de sombra
+    const step = p.edge
+      ? `<g clip-path='url(#${cid})'><g transform='rotate(${f1(-p.a)}) translate(${f1(-p.x)} ${f1(-p.y)})'><path d='M0 0H${f1(W)}V${f1(H)}H0Z' fill='none' stroke='#000' stroke-opacity='.3' stroke-width='${f1(1.6 * q)}'/></g></g>`
+      : '';
+    body +=
+      `<g transform='translate(${f1(p.x)} ${f1(p.y)}) rotate(${f1(p.a)})'>` +
+      `<defs><clipPath id='${cid}'><path d='${d}'/></clipPath></defs>` +
+      `<path d='${d}' transform='translate(${f1(0.8 * q)} ${f1(1.6 * q)})' fill='#000' fill-opacity='.28'/>` +
+      `<path d='${d}' fill='url(#${id}-g)'/><path d='${d}' fill='url(#${id})'/>` +
+      wrinkles +
+      step +
+      `<path d='${threads}' stroke='${light}' stroke-opacity='.8' stroke-width='${f1(0.45 * q)}' fill='none' stroke-linecap='round'/>` +
+      `<path d='${d}' fill='none' stroke='${dark}' stroke-opacity='.45' stroke-width='${f1(0.5 * q)}'/>` +
+      `</g>`;
+  });
+  out.front += body;
+}
+
+// ----- Rotuladora -----
+
+const DYMO = ['#c8202a', '#1b1b1d', '#1f4fa8', '#1d7a44', '#7a2a8c'];
+const DYMO_WORDS = ['ZERADO', 'FAVORITO', 'NÃO EMPRESTAR', 'MEU!', 'CLÁSSICO', 'JOGAR DE NOVO', 'PLATINADO', 'OBRA-PRIMA', 'NÃO MEXER', 'SAVE 100%', 'TOP 10', 'GUARDAR'];
+
+/**
+ * A etiqueta da rotuladora: a fita de plástico colorida com as letras em relevo, brancas (o plástico
+ * esticado), cada uma um tiquinho fora da linha, as pontas cortadas no cortador (retas ou chanfradas),
+ * o brilho do plástico. Uma só, embaixo do veredito, à direita (na tira, em pé na beirada da direita).
+ */
+function labelMaker(W: number, H: number, k: number, r: () => number, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  {
+    const word = DYMO_WORDS[Math.floor(r() * DYMO_WORDS.length)];
+    const col = DYMO[Math.floor(r() * DYMO.length)];
+    const fs = 9.6 * q,
+      h = 16 * q;
+    const cw = fs * 0.78;
+    const tw = [...word].length * cw;
+    const w = tw + 12 * q;
+    // na ficha completa, logo embaixo do veredito, à direita; na tira, em pé na beirada da direita
+    const strip = isStrip(W, H);
+    const x = strip ? W - h / 2 - (5 + r() * 6) * q : Math.max(w / 2 + 6, W * (0.92 + r() * 0.03) - w / 2);
+    const y = strip ? clamp(H * (0.42 + r() * 0.16), w / 2 + 4, H - w / 2 - 4) : H * (0.525 + r() * 0.025);
+    const a = (strip ? (r() < 0.5 ? -90 : 90) : 0) + (r() - 0.5) * 7;
+    const chamfer = r() < 0.5;
+    const ch = chamfer ? 3 * q : 0;
+    const shape = `M${f1(-w / 2 + ch)} ${f1(-h / 2)}H${f1(w / 2 - ch)}L${f1(w / 2)} ${f1(-h / 2 + ch)}V${f1(h / 2 - ch)}L${f1(w / 2 - ch)} ${f1(h / 2)}H${f1(-w / 2 + ch)}L${f1(-w / 2)} ${f1(h / 2 - ch)}V${f1(-h / 2 + ch)}Z`;
+    let letters = '';
+    [...word].forEach((c, j) => {
+      const cx = -tw / 2 + cw * (j + 0.5);
+      const dy = (r() - 0.5) * 0.9 * q;
+      const t = (dx: number, ddy: number, fill: string, op: number) =>
+        `<text x='${f1(cx + dx)}' y='${f1(dy + ddy)}' text-anchor='middle' dominant-baseline='central' fill='${fill}' fill-opacity='${op}' style='font:700 ${f1(fs)}px var(--f-ui, sans-serif)'>${c === ' ' ? '&#160;' : c}</text>`;
+      letters += t(0.45 * q, 0.6 * q, '#000', 0.4) + t(-0.3 * q, -0.35 * q, '#fff', 0.55) + t(0, 0, '#f4f4f0', 0.92);
+    });
+    out.front +=
+      `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(a)})'>` +
+      `<path d='${shape}' transform='translate(${f1(0.7 * q)} ${f1(1.3 * q)})' fill='#000' fill-opacity='.3'/>` +
+      `<path d='${shape}' fill='${col}'/>` +
+      `<path d='M${f1(-w / 2 + 1.5 * q)} ${f1(-h / 2 + 1.6 * q)}H${f1(w / 2 - 1.5 * q)}' stroke='#fff' stroke-opacity='.3' stroke-width='${f1(1.4 * q)}'/>` +
+      `<path d='M${f1(-w / 2 + 1 * q)} ${f1(h / 2 - 1.1 * q)}H${f1(w / 2 - 1 * q)}' stroke='#000' stroke-opacity='.25' stroke-width='${f1(1 * q)}'/>` +
+      letters +
+      `</g>`;
+  }
+}
+
+// ----- Prendedor de papel -----
+
+const BINDER: readonly (readonly [string, string, string])[] = [
+  ['#1d1d20', '#5c5e66', '#000000'],
+  ['#1d1d20', '#5c5e66', '#000000'],
+  ['#c22a33', '#f07078', '#6e0f16'],
+  ['#2b5fc4', '#8ab4ff', '#14306e'],
+  ['#c9a13a', '#fff0b8', '#7a5a14'],
+];
+
+/**
+ * O prendedor de papel (o binder clip) mordendo a beirada de cima (ou a da direita): a chapa da frente
+ * com o brilho na dobra, as duas alças de arame, uma em pé e a outra deitada sobre a ficha ou as duas
+ * em pé, e a sombra no papel.
+ */
+function binderClip(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark] = BINDER[Math.floor(r() * BINDER.length)];
+  const top = r() < 0.72;
+  const x = top ? W * (0.55 + r() * 0.32) : W;
+  const y = top ? 0 : H * (0.3 + r() * 0.4);
+  const rot = (top ? 0 : 90) + (r() - 0.5) * 12;
+  const bw = (38 + r() * 8) * q,
+    bh = 20 * q;
+  const g = `${uid}-clip`;
+  const plate = `M${f1(-bw / 2)} ${f1(-5 * q)}Q${f1(-bw / 2)} ${f1(-8 * q)} ${f1(-bw / 2 + 3 * q)} ${f1(-8 * q)}H${f1(bw / 2 - 3 * q)}Q${f1(bw / 2)} ${f1(-8 * q)} ${f1(bw / 2)} ${f1(-5 * q)}L${f1(bw / 2 + 1 * q)} ${f1(bh)}H${f1(-bw / 2 - 1 * q)}Z`;
+  const handle = (up: boolean, dx: number) => {
+    const hx = bw / 2 - 3 * q,
+      len = (up ? 24 : 30) * q;
+    const yEnd = up ? -8 * q - len : bh + len - 12 * q;
+    const d = `M${f1(-hx + dx)} ${f1(-6 * q)}V${f1(yEnd + (up ? 6 : -6) * q)}Q${f1(-hx + dx)} ${f1(yEnd)} ${f1(-hx + dx + 6 * q)} ${f1(yEnd)}H${f1(hx + dx - 6 * q)}Q${f1(hx + dx)} ${f1(yEnd)} ${f1(hx + dx)} ${f1(yEnd + (up ? 6 : -6) * q)}V${f1(-6 * q)}`;
+    return `<path d='${d}' stroke='#8d949c' stroke-width='${f1(1.9 * q)}' fill='none'/><path d='${d}' transform='translate(${f1(-0.4 * q)} ${f1(-0.3 * q)})' stroke='#f2f4f6' stroke-width='${f1(0.6 * q)}' fill='none'/>`;
+  };
+  const both = r() < 0.5;
+  const back = handle(true, 0);
+  const front = both ? handle(true, 1.6 * q) : handle(false, 0);
+  const body =
+    `<defs><linearGradient id='${g}' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${light}'/><stop offset='.25' stop-color='${base}'/><stop offset='.85' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></linearGradient></defs>` +
+    back +
+    `<path d='${plate}' fill='url(#${g})'/>` +
+    `<path d='M${f1(-bw / 2 + 2 * q)} ${f1(-5.6 * q)}H${f1(bw / 2 - 2 * q)}' stroke='#fff' stroke-opacity='.45' stroke-width='${f1(1.2 * q)}' stroke-linecap='round'/>` +
+    `<path d='M${f1(-bw / 2 - 1 * q)} ${f1(bh)}H${f1(bw / 2 + 1 * q)}' stroke='#fff' stroke-opacity='.25' stroke-width='${f1(0.8 * q)}'/>` +
+    // as dobras onde as alças encaixam
+    `<circle cx='${f1(-bw / 2 + 3 * q)}' cy='${f1(-6 * q)}' r='${f1(1.6 * q)}' fill='${dark}'/><circle cx='${f1(bw / 2 - 3 * q)}' cy='${f1(-6 * q)}' r='${f1(1.6 * q)}' fill='${dark}'/>` +
+    front;
+  out.front +=
+    `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)})'>` +
+    `<path d='${plate}' transform='translate(${f1(1.4 * q)} ${f1(2.6 * q)})' fill='#000' fill-opacity='.35'/>` +
+    body +
+    `</g>`;
+}
+
+// ----- Pregador de roupa -----
+
+const PIN_WOOD: readonly (readonly [string, string, string, string])[] = [
+  ['#d9b47e', '#f2d7a8', '#a8804a', '#b48a54'],
+  ['#d9b47e', '#f2d7a8', '#a8804a', '#b48a54'],
+  ['#f2a7b8', '#ffd3dd', '#c7778a', '#e094a6'],
+  ['#9fd3e6', '#d6f1fa', '#5f9fb4', '#86c0d4'],
+  ['#f2d36a', '#fff1b0', '#c0a03a', '#dcbc54'],
+  ['#e2453c', '#ff8a80', '#9c1e18', '#c83a32'],
+];
+
+/**
+ * Um pregador de roupa de madeira (ou pintado, ou de plástico) prendendo a beirada de cima, em pé e
+ * meio torto: o veio da madeira, a mola de arame atravessada, o entalhe da boca e a sombra no papel.
+ * Às vezes dois, como num varal.
+ */
+function clothespin(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark, grain] = PIN_WOOD[Math.floor(r() * PIN_WOOD.length)];
+  const two = r() < 0.25;
+  const xs = two ? [W * (0.5 + r() * 0.1), W * (0.82 + r() * 0.1)] : [W * (0.55 + r() * 0.32)];
+  const g = `${uid}-pregador`;
+  let body = `<defs><linearGradient id='${g}' x1='0' y1='0' x2='1' y2='0'><stop offset='0' stop-color='${light}'/><stop offset='.45' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></linearGradient></defs>`;
+  for (const x of xs) {
+    const w = 11 * q,
+      L = (70 + r() * 8) * q;
+    const above = L * 0.6;
+    const a = (r() - 0.5) * 26;
+    // o perfil do pregador: a cabeça arredondada em cima, a boca afinando embaixo, o entalhe
+    const shape = `M${f1(-w / 2)} ${f1(-above + 3 * q)}Q${f1(-w / 2)} ${f1(-above)} ${f1(-w / 2 + 3 * q)} ${f1(-above)}H${f1(w / 2 - 3 * q)}Q${f1(w / 2)} ${f1(-above)} ${f1(w / 2)} ${f1(-above + 3 * q)}V${f1(-above + L * 0.52)}L${f1(w / 2 - 2.4 * q)} ${f1(-above + L * 0.6)}L${f1(w / 2)} ${f1(-above + L * 0.68)}L${f1(w * 0.3)} ${f1(L - above)}H${f1(-w * 0.3)}L${f1(-w / 2)} ${f1(-above + L * 0.68)}V${f1(-above + 3 * q)}Z`;
+    let veins = '';
+    for (let i = 0; i < 4; i++) {
+      const vx = (r() - 0.5) * w * 0.7;
+      veins += `M${f1(vx)} ${f1(-above + 4 * q)}C${f1(vx + (r() - 0.5) * 3 * q)} ${f1(-above + L * 0.3)} ${f1(vx + (r() - 0.5) * 3 * q)} ${f1(-above + L * 0.6)} ${f1(vx * 0.6)} ${f1(L - above - 3 * q)}`;
+    }
+    const sy = -above + L * 0.42;
+    let spring = `<rect x='${f1(-w / 2 - 1.2 * q)}' y='${f1(sy - 3.2 * q)}' width='${f1(w + 2.4 * q)}' height='${f1(6.4 * q)}' rx='${f1(1.6 * q)}' fill='#7a8189'/>`;
+    for (let i = 0; i < 4; i++) spring += `<path d='M${f1(-w / 2 - 1 * q)} ${f1(sy - 2.4 * q + i * 1.6 * q)}H${f1(w / 2 + 1 * q)}' stroke='#e6e9ec' stroke-opacity='.7' stroke-width='${f1(0.5 * q)}'/>`;
+    spring += `<path d='M${f1(w / 2 + 0.6 * q)} ${f1(sy)}q${f1(2.4 * q)} ${f1(-6 * q)} ${f1(-1.2 * q)} ${f1(-14 * q)}' fill='none' stroke='#7a8189' stroke-width='${f1(1.1 * q)}' stroke-linecap='round'/>`;
+    body +=
+      `<g transform='translate(${f1(x)} 0) rotate(${f1(a)})'>` +
+      `<path d='${shape}' transform='translate(${f1(1.6 * q)} ${f1(3 * q)})' fill='#000' fill-opacity='.3'/>` +
+      `<path d='${shape}' fill='url(#${g})'/>` +
+      `<path d='${veins}' fill='none' stroke='${grain}' stroke-opacity='.55' stroke-width='${f1(0.55 * q)}'/>` +
+      `<path d='M0 ${f1(-above + L * 0.5)}V${f1(L - above)}' stroke='${dark}' stroke-opacity='.6' stroke-width='${f1(0.7 * q)}'/>` +
+      spring +
+      `<path d='${shape}' fill='none' stroke='${dark}' stroke-opacity='.5' stroke-width='${f1(0.5 * q)}'/>` +
+      `</g>`;
+  }
+  out.front += body;
+}
+
+// ----- Parafusos -----
+
+const SCREW: readonly (readonly [string, string, string])[] = [
+  ['#9aa1a9', '#f2f4f6', '#555b62'],
+  ['#9aa1a9', '#f2f4f6', '#555b62'],
+  ['#c9a34a', '#fff0b8', '#7a5a14'],
+  ['#2c2d30', '#7a7d84', '#0e0e10'],
+];
+
+/**
+ * A ficha parafusada na parede: um parafuso em cada quina (ou só nas de cima), de fenda, philips ou
+ * sextavado, a cabeça com a luz de cima, o papel afundado em volta com uns vincos.
+ */
+function screws(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark] = SCREW[Math.floor(r() * SCREW.length)];
+  const type = Math.floor(r() * 3);
+  const m = 13 * q;
+  const spots: Pt[] =
+    r() < 0.7
+      ? [
+          [m, m],
+          [W - m, m],
+          [W - m, H - m],
+          [m, H - m],
+        ]
+      : [
+          [m, m],
+          [W - m, m],
+        ];
+  const g = `${uid}-parafuso`;
+  let body = `<defs><radialGradient id='${g}' cx='.35' cy='.3' r='.8'><stop offset='0' stop-color='${light}'/><stop offset='.5' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></radialGradient></defs>`;
+  const R = 6.4 * q;
+  for (const [sx, sy] of spots) {
+    const x = sx + (r() - 0.5) * 2 * q,
+      y = sy + (r() - 0.5) * 2 * q;
+    const a = r() * 180;
+    let creases = '';
+    for (let i = 0; i < 6; i++) {
+      const ca = r() * Math.PI * 2;
+      const l = (3 + r() * 5) * q;
+      const x1 = x + Math.cos(ca) * R * 1.1,
+        y1 = y + Math.sin(ca) * R * 1.1;
+      creases += `M${f1(x1)} ${f1(y1)}l${f1(Math.cos(ca) * l)} ${f1(Math.sin(ca) * l)}`;
+    }
+    let slot: string;
+    const sl = (d: string) => `<g transform='rotate(${f1(a)} ${f1(x)} ${f1(y)})'><path d='${d}' fill='${dark}'/><path d='${d}' transform='translate(${f1(0.4 * q)} ${f1(0.5 * q)})' fill='none' stroke='#fff' stroke-opacity='.4' stroke-width='${f1(0.4 * q)}'/></g>`;
+    if (type === 0) slot = sl(`M${f1(x - R * 0.82)} ${f1(y - R * 0.13)}H${f1(x + R * 0.82)}V${f1(y + R * 0.13)}H${f1(x - R * 0.82)}Z`);
+    else if (type === 1) slot = sl(`M${f1(x - R * 0.7)} ${f1(y - R * 0.12)}H${f1(x - R * 0.12)}V${f1(y - R * 0.7)}H${f1(x + R * 0.12)}V${f1(y - R * 0.12)}H${f1(x + R * 0.7)}V${f1(y + R * 0.12)}H${f1(x + R * 0.12)}V${f1(y + R * 0.7)}H${f1(x - R * 0.12)}V${f1(y + R * 0.12)}H${f1(x - R * 0.7)}Z`);
+    else {
+      let d = '';
+      for (let i = 0; i < 6; i++) {
+        const ha = (i / 6) * Math.PI * 2;
+        d += `${i ? 'L' : 'M'}${f1(x + Math.cos(ha) * R * 0.42)} ${f1(y + Math.sin(ha) * R * 0.42)}`;
+      }
+      slot = sl(d + 'Z');
+    }
+    body +=
+      `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R * 1.5)}' fill='#000' fill-opacity='.12'/>` +
+      `<path d='${creases}' stroke='#000' stroke-opacity='.22' stroke-width='${f1(0.7 * q)}' fill='none'/><path d='${creases}' transform='translate(${f1(0.6 * q)} ${f1(0.6 * q)})' stroke='#fff' stroke-opacity='.3' stroke-width='${f1(0.6 * q)}' fill='none'/>` +
+      `<circle cx='${f1(x + 0.8 * q)}' cy='${f1(y + 1.4 * q)}' r='${f1(R)}' fill='#000' fill-opacity='.35'/>` +
+      `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R)}' fill='url(#${g})'/>` +
+      `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(R - 0.4 * q)}' fill='none' stroke='${dark}' stroke-opacity='.6' stroke-width='${f1(0.6 * q)}'/>` +
+      slot;
+  }
+  out.front += body;
+}
+
+// ----- Lápis -----
+
+const PENCIL: readonly (readonly [string, string, string])[] = [
+  ['#f4c430', '#ffe27a', '#c4920c'],
+  ['#f4c430', '#ffe27a', '#c4920c'],
+  ['#d6332f', '#ff7a6e', '#8e1612'],
+  ['#2b5fc4', '#7aa8ff', '#163a80'],
+  ['#2e8a4e', '#7fd49a', '#175a30'],
+  ['#2a2a2e', '#5c5c66', '#0e0e10'],
+];
+
+/**
+ * Um lápis largado em cima da ficha, atravessado na parte de baixo: o corpo sextavado (três faces, uma
+ * com a luz), o HB gravado, a ponteira de metal com os frisos, a borracha rosa e a ponta apontada (a
+ * madeira com a beira ondulada da tinta e o grafite). A sombra caindo no papel. Às vezes uma borracha
+ * solta com os farelos. Na tira, deitado ao longo do pé.
+ */
+function pencil(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark] = PENCIL[Math.floor(r() * PENCIL.length)];
+  // na tira, deitado ao longo do pé, à direita da foto e por baixo da nota
+  const strip = isStrip(W, H);
+  const L = Math.min(W * (strip ? 0.5 + r() * 0.14 : 0.62 + r() * 0.16), 300 * q);
+  const pw = 10 * q;
+  const cx = strip ? W - L / 2 - (4 + r() * 10) * q : W * (0.48 + r() * 0.2),
+    cy = strip ? H - (5 + r() * 2) * q : H * (0.62 + r() * 0.2);
+  const a = (r() < 0.5 ? 0 : 180) + (r() - 0.5) * (strip ? 3 : 34);
+  const er = 11 * q,
+    fe = 13 * q,
+    cone = 22 * q,
+    body = L - er - fe - cone;
+  const x0 = -L / 2;
+  const xb = x0 + er + fe,
+    xc = xb + body;
+  const hw = pw / 2;
+  let s = '';
+  // a borracha e a ponteira
+  s += `<path d='M${f1(x0 + er)} ${f1(-hw * 0.92)}H${f1(x0 + 3 * q)}Q${f1(x0)} ${f1(-hw * 0.92)} ${f1(x0)} 0Q${f1(x0)} ${f1(hw * 0.92)} ${f1(x0 + 3 * q)} ${f1(hw * 0.92)}H${f1(x0 + er)}Z' fill='#f08a9a'/><path d='M${f1(x0 + 2 * q)} ${f1(-hw * 0.5)}H${f1(x0 + er)}' stroke='#fff' stroke-opacity='.35' stroke-width='${f1(1.4 * q)}'/>`;
+  s += `<rect x='${f1(x0 + er)}' y='${f1(-hw * 1.02)}' width='${f1(fe)}' height='${f1(pw * 1.02)}' fill='#c9ccd0'/><rect x='${f1(x0 + er)}' y='${f1(-hw * 1.02)}' width='${f1(fe)}' height='${f1(pw * 0.3)}' fill='#f4f6f8'/><rect x='${f1(x0 + er)}' y='${f1(hw * 0.4)}' width='${f1(fe)}' height='${f1(pw * 0.32)}' fill='#7a8088'/>`;
+  for (let i = 1; i < 5; i++) s += `<path d='M${f1(x0 + er + (fe * i) / 5)} ${f1(-hw)}V${f1(hw)}' stroke='#5b6068' stroke-opacity='.6' stroke-width='${f1(0.6 * q)}'/>`;
+  // o corpo sextavado: três faces
+  s += `<rect x='${f1(xb)}' y='${f1(-hw)}' width='${f1(body)}' height='${f1(pw * 0.32)}' fill='${light}'/><rect x='${f1(xb)}' y='${f1(-hw + pw * 0.32)}' width='${f1(body)}' height='${f1(pw * 0.38)}' fill='${base}'/><rect x='${f1(xb)}' y='${f1(-hw + pw * 0.7)}' width='${f1(body)}' height='${f1(pw * 0.3)}' fill='${dark}'/>`;
+  s += `<text x='${f1(xb + body * 0.12)}' y='${f1(0.4 * q)}' dominant-baseline='central' fill='${base === '#2a2a2e' ? '#e8c45a' : '#1a1a1a'}' fill-opacity='.75' style='font:700 ${f1(5.2 * q)}px var(--f-label, sans-serif);letter-spacing:.12em'>GRAFITE  Nº 2  HB</text>`;
+  // a ponta: a madeira apontada (com a beira ondulada da tinta) e o grafite
+  let wave = `M${f1(xc)} ${f1(-hw)}`;
+  for (let i = 1; i <= 6; i++) wave += `Q${f1(xc + 3 * q)} ${f1(-hw + (pw * (i - 0.5)) / 6)} ${f1(xc)} ${f1(-hw + (pw * i) / 6)}`;
+  s += `<path d='M${f1(xc)} ${f1(-hw)}L${f1(xc + cone)} 0L${f1(xc)} ${f1(hw)}Z' fill='#e9c99a'/><path d='M${f1(xc)} ${f1(-hw)}L${f1(xc + cone)} 0L${f1(xc + cone * 0.2)} ${f1(-hw * 0.2)}Z' fill='#f6dfba'/>`;
+  s += `<path d='${wave}L${f1(xc - 1 * q)} ${f1(hw)}L${f1(xc - 1 * q)} ${f1(-hw)}Z' fill='${base}'/>`;
+  s += `<path d='M${f1(xc + cone * 0.62)} ${f1(-hw * 0.38)}L${f1(xc + cone)} 0L${f1(xc + cone * 0.62)} ${f1(hw * 0.38)}Z' fill='#3a3a3e'/><path d='M${f1(xc + cone * 0.66)} ${f1(-hw * 0.26)}L${f1(xc + cone * 0.95)} ${f1(-0.3 * q)}' stroke='#9a9aa4' stroke-width='${f1(0.5 * q)}'/>`;
+  const outline = `M${f1(x0)} 0Q${f1(x0)} ${f1(-hw)} ${f1(x0 + 3 * q)} ${f1(-hw)}H${f1(xc)}L${f1(xc + cone)} 0L${f1(xc)} ${f1(hw)}H${f1(x0 + 3 * q)}Q${f1(x0)} ${f1(hw)} ${f1(x0)} 0Z`;
+  let eraser = '';
+  if (r() < 0.4 && !strip) {
+    // a borracha solta e os farelos
+    const ex = clamp(cx + (r() < 0.5 ? -1 : 1) * L * 0.25, 30 * q, W - 30 * q),
+      ey = clamp(cy - (24 + r() * 14) * q, 30 * q, H - 20 * q);
+    const ew = 30 * q,
+      eh = 14 * q;
+    const ea = (r() - 0.5) * 40;
+    eraser = `<g transform='translate(${f1(ex)} ${f1(ey)}) rotate(${f1(ea)})'><rect x='${f1(-ew / 2 + 1.4 * q)}' y='${f1(-eh / 2 + 2.6 * q)}' width='${f1(ew)}' height='${f1(eh)}' rx='${f1(3 * q)}' fill='#000' fill-opacity='.25'/><rect x='${f1(-ew / 2)}' y='${f1(-eh / 2)}' width='${f1(ew)}' height='${f1(eh)}' rx='${f1(3 * q)}' fill='#f6f3ee'/><rect x='${f1(-ew / 2)}' y='${f1(-eh / 2)}' width='${f1(ew * 0.45)}' height='${f1(eh)}' rx='${f1(3 * q)}' fill='#4a8fd8'/><path d='M${f1(-ew / 2 + 2 * q)} ${f1(-eh / 2 + 1.4 * q)}H${f1(ew / 2 - 2 * q)}' stroke='#fff' stroke-opacity='.6' stroke-width='${f1(1 * q)}'/></g>`;
+    for (let i = 0; i < 8; i++) {
+      const fx = ex + (r() - 0.5) * 50 * q,
+        fy = ey + (r() - 0.3) * 26 * q;
+      eraser += `<path d='M${f1(fx)} ${f1(fy)}q${f1(1.5 * q)} ${f1(-1 * q)} ${f1(3 * q)} 0t${f1(2.4 * q)} ${f1(0.6 * q)}' fill='none' stroke='#cfc6c0' stroke-width='${f1(1.3 * q)}' stroke-linecap='round'/>`;
+    }
+  }
+  out.front +=
+    `<g transform='translate(${f1(cx)} ${f1(cy)}) rotate(${f1(a)})'>` +
+    softShadow(`<path d='${outline}' fill='#000'/>`, uid, q, 2.4, 4.4, 0.35, 2) +
+    s +
+    `<path d='${outline}' fill='none' stroke='#000' stroke-opacity='.25' stroke-width='${f1(0.5 * q)}'/>` +
+    `</g>` +
+    eraser;
+}
+
+// ----- Cantoneiras -----
+
+const CORNER_METAL: readonly (readonly [string, string, string])[] = [
+  ['#c49a3c', '#f6e2a0', '#6e5010'],
+  ['#c49a3c', '#f6e2a0', '#6e5010'],
+  ['#aeb4bb', '#f4f6f8', '#5a6068'],
+  ['#3a3634', '#7a726c', '#141210'],
+  ['#b8693a', '#f2b48a', '#5e2c12'],
+];
+
+/**
+ * Cantoneiras de metal trabalhado nas quatro quinas, como nos livros e baús antigos: a chapa de
+ * triângulo com a beirada recortada em curvas, o furo vazado de enfeite (um trevo ou um coração), os
+ * rebites e o chanfro que pega a luz. Nas quinas da foto, menores, para não cobri-la.
+ */
+function cornerGuards(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark] = CORNER_METAL[Math.floor(r() * CORNER_METAL.length)];
+  const style = Math.floor(r() * 3);
+  const g = `${uid}-cant`;
+  let body = `<defs><linearGradient id='${g}' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${light}'/><stop offset='.45' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></linearGradient></defs>`;
+  const S = (36 + r() * 6) * q;
+  const corners: [number, number, number, number][] = [
+    [0, 0, 1, 1],
+    [W, 0, -1, 1],
+    [W, H, -1, -1],
+    [0, H, 1, -1],
+  ];
+  corners.forEach(([cx, cy, sx, sy], i) => {
+    const s = i === 0 || (i === 3 && isStrip(W, H)) ? Math.min(S, 30 * q) : S;
+    // o desenho no quadro da quina de cima à esquerda: x e y para dentro
+    let edge = '';
+    if (style === 0) edge = `L${f1(s)} 0Q${f1(s * 0.72)} ${f1(s * 0.2)} ${f1(s * 0.62)} ${f1(s * 0.38)}Q${f1(s * 0.38)} ${f1(s * 0.38)} ${f1(s * 0.38)} ${f1(s * 0.62)}Q${f1(s * 0.2)} ${f1(s * 0.72)} 0 ${f1(s)}`;
+    else if (style === 1) edge = `L${f1(s)} 0C${f1(s * 0.8)} ${f1(s * 0.3)} ${f1(s * 0.3)} ${f1(s * 0.8)} 0 ${f1(s)}`;
+    else edge = `L${f1(s)} 0L${f1(s * 0.8)} ${f1(s * 0.12)}L${f1(s * 0.66)} ${f1(s * 0.34)}L${f1(s * 0.34)} ${f1(s * 0.66)}L${f1(s * 0.12)} ${f1(s * 0.8)}L0 ${f1(s)}`;
+    // o furo de enfeite: um trevo de três bolinhas ou um coraçãozinho, vazado
+    const hc = s * 0.3;
+    const hole =
+      r() < 0.5
+        ? [0, 1, 2]
+            .map((j) => {
+              const a = -Math.PI / 4 + (j - 1) * 1.15;
+              const hx = hc + Math.cos(a) * s * 0.07,
+                hy = hc + Math.sin(a) * s * 0.07;
+              const rr = s * 0.055;
+              return `M${f1(hx - rr)} ${f1(hy)}a${f1(rr)} ${f1(rr)} 0 1 0 ${f1(rr * 2)} 0a${f1(rr)} ${f1(rr)} 0 1 0 ${f1(-rr * 2)} 0Z`;
+            })
+            .join('')
+        : `M${f1(hc)} ${f1(hc + s * 0.1)}C${f1(hc - s * 0.12)} ${f1(hc)} ${f1(hc - s * 0.1)} ${f1(hc - s * 0.1)} ${f1(hc - s * 0.03)} ${f1(hc - s * 0.08)}Q${f1(hc)} ${f1(hc - s * 0.07)} ${f1(hc)} ${f1(hc - s * 0.04)}Q${f1(hc)} ${f1(hc - s * 0.07)} ${f1(hc + s * 0.03)} ${f1(hc - s * 0.08)}C${f1(hc + s * 0.1)} ${f1(hc - s * 0.1)} ${f1(hc + s * 0.12)} ${f1(hc)} ${f1(hc)} ${f1(hc + s * 0.1)}Z`;
+    const plate = `M-1 -1${edge}Z`;
+    const rivets = [
+      [s * 0.12, s * 0.12],
+      [s * 0.5, s * 0.1],
+      [s * 0.1, s * 0.5],
+    ]
+      .map(([rx, ry]) => `<circle cx='${f1(rx)}' cy='${f1(ry)}' r='${f1(1.6 * q)}' fill='${dark}'/><circle cx='${f1(rx - 0.4 * q)}' cy='${f1(ry - 0.4 * q)}' r='${f1(0.8 * q)}' fill='${light}'/>`)
+      .join('');
+    const t = `translate(${f1(cx)} ${f1(cy)}) scale(${sx} ${sy})`;
+    body +=
+      `<g transform='${t}'>` +
+      `<path d='${plate}${hole}' fill-rule='evenodd' transform='translate(${f1(0.8 * q * sx)} ${f1(1.4 * q * sy)})' fill='#000' fill-opacity='.32'/>` +
+      `<path d='${plate}${hole}' fill-rule='evenodd' fill='url(#${g})'/>` +
+      `<path d='M-1 -1${edge}' fill='none' stroke='${dark}' stroke-opacity='.7' stroke-width='${f1(0.8 * q)}'/>` +
+      `<path d='${hole}' fill='none' stroke='${dark}' stroke-opacity='.8' stroke-width='${f1(0.6 * q)}'/>` +
+      `<path d='M${f1(s * 0.06)} ${f1(s * 0.03)}H${f1(s * 0.8)}' stroke='${light}' stroke-opacity='.7' stroke-width='${f1(0.8 * q)}'/>` +
+      rivets +
+      `</g>`;
+  });
+  out.front += body;
+}
+
+// ----- Etiqueta de locadora -----
+
+const STORE: readonly (readonly [string, string])[] = [
+  ['SUPER GAME LOCADORA', '#d6282e'],
+  ['LOCADORA ESTRELA', '#1f4fa8'],
+  ['PLANETA GAMES', '#6a2bb0'],
+  ['VIDEOCLUBE CENTRAL', '#1d7a44'],
+  ['FLIPERAMA & LOCADORA', '#e0701c'],
+];
+const BADGES: readonly (readonly [string, string, string, string])[] = [
+  ['LANÇA', 'MENTO', '#e8262e', '#ffe14a'],
+  ['48', 'HORAS', '#ffd21f', '#1a1a1a'],
+  ['R$ 3,00', 'O DIA', '#2fae4e', '#ffffff'],
+  ['PROMO', 'FDS', '#1f4fa8', '#ffffff'],
+];
+
+/**
+ * A etiqueta da locadora, de quando o jogo era alugado: o adesivo branco com a faixa colorida e o nome
+ * da loja, o número do cartucho e o "devolver até" escrito à caneta, um selo redondo (lançamento, 48
+ * horas, o preço do dia), às vezes o código de barras; a quina do adesivo um pouco levantada.
+ */
+function rentalSticker(W: number, H: number, k: number, r: () => number, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [store, col] = STORE[Math.floor(r() * STORE.length)];
+  const [b1, b2, bg, fg] = BADGES[Math.floor(r() * BADGES.length)];
+  const w = 96 * q,
+    h = 48 * q;
+  // em cima ela cobriria o nome: só na tira, onde a coluna da direita é livre de alto a baixo
+  const top = r() < 0.4 && isStrip(W, H);
+  const x = W - w / 2 - (10 + r() * 14) * q,
+    y = top ? h / 2 + (10 + r() * 8) * q : H - h / 2 - (12 + r() * 10) * q;
+  const a = (r() - 0.5) * 9;
+  const num = String(100 + Math.floor(r() * 9800)).padStart(4, '0');
+  const day = 1 + Math.floor(r() * 28),
+    mon = 1 + Math.floor(r() * 12);
+  const due = `${String(day).padStart(2, '0')}/${String(mon).padStart(2, '0')}`;
+  const lift = r() < 0.45;
+  let s =
+    `<rect x='${f1(-w / 2 + 1 * q)}' y='${f1(-h / 2 + 1.8 * q)}' width='${f1(w)}' height='${f1(h)}' rx='${f1(2 * q)}' fill='#000' fill-opacity='.28'/>` +
+    `<rect x='${f1(-w / 2)}' y='${f1(-h / 2)}' width='${f1(w)}' height='${f1(h)}' rx='${f1(2 * q)}' fill='#fbfaf5'/>` +
+    `<path d='M${f1(-w / 2 + 2 * q)} ${f1(-h / 2)}H${f1(w / 2 - 2 * q)}Q${f1(w / 2)} ${f1(-h / 2)} ${f1(w / 2)} ${f1(-h / 2 + 2 * q)}V${f1(-h / 2 + 13 * q)}H${f1(-w / 2)}V${f1(-h / 2 + 2 * q)}Q${f1(-w / 2)} ${f1(-h / 2)} ${f1(-w / 2 + 2 * q)} ${f1(-h / 2)}Z' fill='${col}'/>` +
+    `<text x='0' y='${f1(-h / 2 + 6.8 * q)}' text-anchor='middle' dominant-baseline='central' fill='#fff' style='font:800 ${f1(7.4 * q)}px var(--f-label, sans-serif);letter-spacing:.06em' textLength='${f1(w - 10 * q)}' lengthAdjust='spacingAndGlyphs'>${store.replace('&', '&amp;')}</text>` +
+    `<text x='${f1(-w / 2 + 5 * q)}' y='${f1(-h / 2 + 21 * q)}' fill='#333' style='font:700 ${f1(6.4 * q)}px var(--f-label, sans-serif);letter-spacing:.04em'>Nº ${num}</text>` +
+    `<text x='${f1(-w / 2 + 5 * q)}' y='${f1(-h / 2 + 32 * q)}' fill='#333' style='font:700 ${f1(6.2 * q)}px var(--f-label, sans-serif);letter-spacing:.04em'>DEVOLVER ATÉ:</text>` +
+    `<path d='M${f1(-w / 2 + 44 * q)} ${f1(-h / 2 + 33 * q)}H${f1(w / 2 - 6 * q)}' stroke='#999' stroke-width='${f1(0.5 * q)}'/>` +
+    `<text x='${f1(-w / 2 + 50 * q)}' y='${f1(-h / 2 + 30.6 * q)}' fill='#1d3fb0' transform='rotate(-4 ${f1(-w / 2 + 50 * q)} ${f1(-h / 2 + 30.6 * q)})' style='font:700 ${f1(10 * q)}px var(--f-hand, cursive)'>${due}</text>`;
+  if (r() < 0.35) {
+    let bars = '';
+    let bx = -w / 2 + 6 * q;
+    while (bx < -w / 2 + 40 * q) {
+      const bw2 = (0.4 + Math.floor(r() * 3) * 0.45) * q;
+      bars += `<rect x='${f1(bx)}' y='${f1(h / 2 - 11 * q)}' width='${f1(bw2)}' height='${f1(7 * q)}' fill='#222'/>`;
+      bx += bw2 + (0.5 + r()) * q;
+    }
+    s += bars;
+  }
+  // a quina levantada: um triângulo do verso, mais claro, com sombra
+  if (lift)
+    s += `<path d='M${f1(w / 2)} ${f1(h / 2 - 9 * q)}L${f1(w / 2 - 9 * q)} ${f1(h / 2)}L${f1(w / 2)} ${f1(h / 2)}Z' fill='#000' fill-opacity='.18'/><path d='M${f1(w / 2)} ${f1(h / 2 - 9 * q)}L${f1(w / 2 - 9 * q)} ${f1(h / 2)}L${f1(w / 2 - 6.5 * q)} ${f1(h / 2 - 6.5 * q)}Z' fill='#e8e4d8'/>`;
+  // o selo redondo, colado por cima de uma quina
+  const R = 15 * q;
+  const bx = -w / 2 + 2 * q,
+    by = top ? h / 2 - 2 * q : -h / 2 + 4 * q;
+  let badge = '';
+  if (b1 === 'LANÇA') {
+    let d = '';
+    for (let i = 0; i < 24; i++) {
+      const aa = (i / 24) * Math.PI * 2,
+        rr = i % 2 ? R * 0.82 : R * 1.08;
+      d += `${i ? 'L' : 'M'}${f1(bx + Math.cos(aa) * rr)} ${f1(by + Math.sin(aa) * rr)}`;
+    }
+    badge = `<path d='${d}Z' transform='translate(${f1(0.8 * q)} ${f1(1.4 * q)})' fill='#000' fill-opacity='.28'/><path d='${d}Z' fill='${bg}'/>`;
+  } else badge = `<circle cx='${f1(bx + 0.8 * q)}' cy='${f1(by + 1.4 * q)}' r='${f1(R)}' fill='#000' fill-opacity='.28'/><circle cx='${f1(bx)}' cy='${f1(by)}' r='${f1(R)}' fill='${bg}'/><circle cx='${f1(bx)}' cy='${f1(by)}' r='${f1(R - 1.6 * q)}' fill='none' stroke='${fg}' stroke-opacity='.5' stroke-width='${f1(0.5 * q)}'/>`;
+  badge += `<text x='${f1(bx)}' y='${f1(by - 3.2 * q)}' text-anchor='middle' dominant-baseline='central' fill='${fg}' style='font:800 ${f1(b1.length > 4 ? 6.4 * q : 8.6 * q)}px var(--f-label, sans-serif)'>${b1}</text><text x='${f1(bx)}' y='${f1(by + 4.6 * q)}' text-anchor='middle' dominant-baseline='central' fill='${fg}' style='font:800 ${f1(5.6 * q)}px var(--f-label, sans-serif);letter-spacing:.06em'>${b2}</text>`;
+  badge += `<path d='M${f1(bx - R * 0.6)} ${f1(by - R * 0.55)}A${f1(R * 0.8)} ${f1(R * 0.8)} 0 0 1 ${f1(bx + R * 0.3)} ${f1(by - R * 0.78)}' fill='none' stroke='#fff' stroke-opacity='.45' stroke-width='${f1(1 * q)}' stroke-linecap='round'/>`;
+  out.front += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(a)})'>${s}${badge}</g>`;
+}
+
+// ----- Joias incrustadas -----
+
+const JEWEL: readonly (readonly [string, string, string])[] = [
+  ['#d01f3c', '#ff8aa0', '#6e0818'],
+  ['#1d9a5b', '#8ef0b8', '#0a4a28'],
+  ['#2453c8', '#9ab8ff', '#0e2668'],
+  ['#8a4fd0', '#dcc0ff', '#3e1a6e'],
+  ['#f2a81d', '#fff0a8', '#94600c'],
+  ['#dfe9f4', '#ffffff', '#8a9cb0'],
+];
+
+/**
+ * Pedras preciosas cravadas em engastes de metal nas quinas (nunca a da foto) e, às vezes, uma maior no
+ * meio do pé: lapidação brilhante, oval ou esmeralda (os degraus), as facetas claras e escuras, as
+ * garras segurando e a faísca de luz. Com filigrana em volta, de vez em quando.
+ */
+function jewels(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const gold = r() < 0.65;
+  const [mb, ml, md] = gold ? ['#d4a93c', '#fff0b8', '#7a5a14'] : ['#b8bec6', '#ffffff', '#5a6068'];
+  const mixed = r() < 0.35;
+  const one = JEWEL[Math.floor(r() * JEWEL.length)];
+  const cut = Math.floor(r() * 3);
+  const filigree = r() < 0.5;
+  const m = 16 * q;
+  const strip = isStrip(W, H);
+  const spots: { p: Pt; R: number }[] = [
+    { p: [W - m, m], R: 8 * q },
+    { p: [W - m, H - m], R: 8 * q },
+  ];
+  // na tira, a quina de baixo à esquerda é a foto, e o meio do pé fica embaixo da nota
+  if (!strip) spots.push({ p: [m, H - m], R: 8 * q });
+  if (r() < 0.45 && !strip) spots.push({ p: [W / 2 + (r() - 0.5) * W * 0.1, H - m * 0.9], R: 11 * q });
+  let body = '';
+  spots.forEach(({ p: [x, y], R }, i) => {
+    const [gb, gl, gd] = mixed ? JEWEL[(i * 2 + Math.floor(r() * 2)) % JEWEL.length] : one;
+    const rot = r() * 30;
+    let gem = '';
+    if (cut === 2) {
+      // esmeralda: retângulo de quinas cortadas, em degraus
+      const w = R * 1.6,
+        h = R * 1.15;
+      const oct = (s: number) => {
+        const ww = w * s,
+          hh = h * s,
+          c = Math.min(ww, hh) * 0.28;
+        return `M${f1(-ww / 2 + c)} ${f1(-hh / 2)}H${f1(ww / 2 - c)}L${f1(ww / 2)} ${f1(-hh / 2 + c)}V${f1(hh / 2 - c)}L${f1(ww / 2 - c)} ${f1(hh / 2)}H${f1(-ww / 2 + c)}L${f1(-ww / 2)} ${f1(hh / 2 - c)}V${f1(-hh / 2 + c)}Z`;
+      };
+      gem = `<path d='${oct(1)}' fill='${gd}'/><path d='${oct(0.78)}' fill='${gb}'/><path d='${oct(0.56)}' fill='${mix(gb, gl, 0.35)}'/><path d='${oct(0.34)}' fill='${gb}'/><path d='${oct(1)}' fill='none' stroke='${gd}' stroke-width='${f1(0.5 * q)}'/>`;
+    } else {
+      // brilhante (redonda) ou oval: a mesa no meio e as facetas em volta, claras e escuras
+      const ry = cut === 1 ? R * 0.75 : R;
+      const n = 8;
+      let facets = '';
+      for (let j = 0; j < n; j++) {
+        const a0 = (j / n) * Math.PI * 2,
+          a1 = ((j + 1) / n) * Math.PI * 2,
+          am = (a0 + a1) / 2;
+        const o0: Pt = [Math.cos(a0) * R, Math.sin(a0) * ry],
+          o1: Pt = [Math.cos(a1) * R, Math.sin(a1) * ry];
+        const t0: Pt = [Math.cos(a0) * R * 0.52, Math.sin(a0) * ry * 0.52],
+          t1: Pt = [Math.cos(a1) * R * 0.52, Math.sin(a1) * ry * 0.52];
+        const om: Pt = [Math.cos(am) * R * 0.98, Math.sin(am) * ry * 0.98];
+        const lit = Math.cos(am + Math.PI * 0.75);
+        facets += `<path d='${poly([t0, o0, om])}Z' fill='${lit > 0 ? gl : gd}' fill-opacity='${(0.35 + Math.abs(lit) * 0.5).toFixed(2)}'/><path d='${poly([t0, om, t1])}Z' fill='${lit > 0.3 ? gl : gb}' fill-opacity='.55'/><path d='${poly([t1, om, o1])}Z' fill='${lit < -0.3 ? gd : gb}' fill-opacity='.6'/>`;
+      }
+      let table = '';
+      for (let j = 0; j < n; j++) table += `${j ? 'L' : 'M'}${f1(Math.cos((j / n) * Math.PI * 2) * R * 0.52)} ${f1(Math.sin((j / n) * Math.PI * 2) * ry * 0.52)}`;
+      gem = `<ellipse rx='${f1(R)}' ry='${f1(ry)}' fill='${gb}'/>${facets}<path d='${table}Z' fill='${mix(gb, gl, 0.3)}'/><path d='${table}Z' fill='none' stroke='${gd}' stroke-opacity='.5' stroke-width='${f1(0.4 * q)}'/>`;
+    }
+    // o engaste e as garras
+    const bez = R * (cut === 2 ? 1.12 : 1.18);
+    let prongs = '';
+    for (let j = 0; j < (cut === 2 ? 4 : 6); j++) {
+      const a = ((j + 0.5) / (cut === 2 ? 4 : 6)) * Math.PI * 2;
+      const px = Math.cos(a) * R * (cut === 2 ? 0.95 : 0.98),
+        py = Math.sin(a) * R * (cut === 1 ? 0.74 : cut === 2 ? 0.7 : 0.98);
+      prongs += `<circle cx='${f1(px)}' cy='${f1(py)}' r='${f1(1.7 * q)}' fill='${mb}'/><circle cx='${f1(px - 0.4 * q)}' cy='${f1(py - 0.4 * q)}' r='${f1(0.7 * q)}' fill='${ml}'/>`;
+    }
+    const sparkle = (sx: number, sy: number, s: number) => `<path d='M${f1(sx)} ${f1(sy - s)}Q${f1(sx)} ${f1(sy)} ${f1(sx + s)} ${f1(sy)}Q${f1(sx)} ${f1(sy)} ${f1(sx)} ${f1(sy + s)}Q${f1(sx)} ${f1(sy)} ${f1(sx - s)} ${f1(sy)}Q${f1(sx)} ${f1(sy)} ${f1(sx)} ${f1(sy - s)}Z' fill='#fff'/>`;
+    let curls = '';
+    if (filigree) {
+      for (const s of [-1, 1]) curls += `<path d='M${f1(s * bez)} 0c${f1(s * 4 * q)} ${f1(-1 * q)} ${f1(s * 8 * q)} ${f1(-6 * q)} ${f1(s * 6 * q)} ${f1(-9 * q)}c${f1(-s * 1.6 * q)} ${f1(-2 * q)} ${f1(-s * 4 * q)} 0 ${f1(-s * 3 * q)} ${f1(2 * q)}M0 ${f1(bez)}c${f1(-1 * q)} ${f1(4 * q)} ${f1(s * 5 * q)} ${f1(7 * q)} ${f1(s * 8 * q)} ${f1(5 * q)}' fill='none' stroke='${mb}' stroke-width='${f1(1.1 * q)}' stroke-linecap='round'/>`;
+    }
+    body +=
+      `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(rot)})'>` +
+      curls +
+      `<ellipse cx='${f1(0.7 * q)}' cy='${f1(1.4 * q)}' rx='${f1(bez + 1 * q)}' ry='${f1((cut === 1 ? 0.78 : cut === 2 ? 0.78 : 1) * bez + 1 * q)}' fill='#000' fill-opacity='.32'/>` +
+      `<ellipse rx='${f1(bez + 1 * q)}' ry='${f1((cut === 1 ? 0.78 : cut === 2 ? 0.78 : 1) * bez + 1 * q)}' fill='${mb}' stroke='${md}' stroke-width='${f1(0.6 * q)}'/>` +
+      `<ellipse cx='${f1(-0.5 * q)}' cy='${f1(-0.5 * q)}' rx='${f1(bez)}' ry='${f1((cut === 1 ? 0.78 : cut === 2 ? 0.78 : 1) * bez)}' fill='none' stroke='${ml}' stroke-opacity='.6' stroke-width='${f1(0.7 * q)}'/>` +
+      gem +
+      prongs +
+      sparkle(-R * 0.35, -R * 0.35, R * 0.45) +
+      `</g>`;
+  });
+  out.front += body;
+}
+
+// ----- Laço de presente -----
+
+const RIBBON: readonly (readonly [string, string, string])[] = [
+  ['#d42a3a', '#ff7a84', '#7e0c18'],
+  ['#e6b33a', '#fff0b0', '#8a6410'],
+  ['#2f5fd0', '#9ab8ff', '#162e74'],
+  ['#e8609a', '#ffc0da', '#8e2056'],
+  ['#1f8a54', '#8fe0b2', '#0c4a2a'],
+];
+
+/**
+ * A ficha de presente: uma fita de cetim atravessando uma quina (a que passa da beirada some atrás da
+ * ficha), nunca a da foto, e o laço por cima: as duas alças com a dobra escura por
+ * dentro, o nó no meio e as duas pontas caindo, cortadas em V. O brilho do cetim correndo pela fita.
+ */
+function giftBow(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const [base, light, dark] = RIBBON[Math.floor(r() * RIBBON.length)];
+  const rw = (14 + r() * 3) * q;
+  const g = `${uid}-cetim`;
+  const sat = `<defs><linearGradient id='${g}' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${dark}'/><stop offset='.3' stop-color='${base}'/><stop offset='.5' stop-color='${light}'/><stop offset='.7' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></linearGradient><clipPath id='${g}-ficha'><rect width='${f1(W)}' height='${f1(H)}'/></clipPath></defs>`;
+  const band = (x: number, y: number, a: number, L: number) =>
+    `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(a)})'><rect x='${f1(-L / 2)}' y='${f1(-rw / 2 + 1.4 * q)}' width='${f1(L)}' height='${f1(rw)}' fill='#000' fill-opacity='.25'/><rect x='${f1(-L / 2)}' y='${f1(-rw / 2)}' width='${f1(L)}' height='${f1(rw)}' fill='url(#${g})'/></g>`;
+  // uma quina da direita ou, na ficha completa, a de baixo à esquerda (na tira ela é a foto)
+  const c = Math.floor(r() * (isStrip(W, H) ? 2 : 3));
+  const reach = Math.min((52 + r() * 18) * q, Math.min(W, H) * 0.36);
+  const [bx, by] = cornerAt(W, H, c, reach, reach);
+  const ba = (c === 1 ? -45 : 45) + (r() - 0.5) * 10;
+  const bands = band(bx, by, ba, reach * 5);
+  // o laço, por cima, em volta do nó
+  const S = (24 + r() * 6) * q;
+  const loop = (s: 1 | -1) => {
+    const d = `M0 0C${f1(s * S * 0.25)} ${f1(-S * 0.85)} ${f1(s * S * 1.3)} ${f1(-S * 0.85)} ${f1(s * S * 1.15)} ${f1(-S * 0.1)}C${f1(s * S * 1.05)} ${f1(S * 0.35)} ${f1(s * S * 0.45)} ${f1(S * 0.25)} 0 0Z`;
+    const inner = `M${f1(s * S * 0.15)} ${f1(-S * 0.05)}C${f1(s * S * 0.35)} ${f1(-S * 0.5)} ${f1(s * S * 0.95)} ${f1(-S * 0.55)} ${f1(s * S * 0.9)} ${f1(-S * 0.12)}C${f1(s * S * 0.82)} ${f1(S * 0.12)} ${f1(s * S * 0.4)} ${f1(S * 0.08)} ${f1(s * S * 0.15)} ${f1(-S * 0.05)}Z`;
+    return `<path d='${d}' fill='${base}'/><path d='${inner}' fill='${dark}' fill-opacity='.55'/><path d='M${f1(s * S * 0.2)} ${f1(-S * 0.45)}C${f1(s * S * 0.5)} ${f1(-S * 0.78)} ${f1(s * S * 1)} ${f1(-S * 0.72)} ${f1(s * S * 1.1)} ${f1(-S * 0.3)}' fill='none' stroke='${light}' stroke-opacity='.8' stroke-width='${f1(1.4 * q)}' stroke-linecap='round'/><path d='${d}' fill='none' stroke='${dark}' stroke-opacity='.5' stroke-width='${f1(0.6 * q)}'/>`;
+  };
+  const tail = (s: 1 | -1) => {
+    const L = S * (1.1 + r() * 0.3),
+      tw = rw * 0.85;
+    const ang = (s * (28 + r() * 14) * Math.PI) / 180;
+    const ex = Math.sin(ang) * L,
+      ey = Math.cos(ang) * L;
+    const nx = Math.cos(ang) * (tw / 2),
+      ny = -Math.sin(ang) * (tw / 2);
+    const vx = -Math.sin(ang) * tw * 0.45,
+      vy = -Math.cos(ang) * tw * 0.45;
+    const d = `M${f1(-nx)} ${f1(-ny)}L${f1(ex - nx)} ${f1(ey - ny)}L${f1(ex + vx)} ${f1(ey + vy)}L${f1(ex + nx)} ${f1(ey + ny)}L${f1(nx)} ${f1(ny)}Z`;
+    return `<path d='${d}' fill='${base}'/><path d='M0 0L${f1(ex * 0.95)} ${f1(ey * 0.95)}' stroke='${light}' stroke-opacity='.5' stroke-width='${f1(1.2 * q)}'/><path d='${d}' fill='none' stroke='${dark}' stroke-opacity='.45' stroke-width='${f1(0.6 * q)}'/>`;
+  };
+  const knot = `<rect x='${f1(-S * 0.2)}' y='${f1(-S * 0.22)}' width='${f1(S * 0.4)}' height='${f1(S * 0.44)}' rx='${f1(S * 0.1)}' fill='url(#${g})'/><rect x='${f1(-S * 0.2)}' y='${f1(-S * 0.22)}' width='${f1(S * 0.4)}' height='${f1(S * 0.44)}' rx='${f1(S * 0.1)}' fill='none' stroke='${dark}' stroke-opacity='.5' stroke-width='${f1(0.6 * q)}'/>`;
+  const bow = tail(-1) + tail(1) + loop(-1) + loop(1) + knot;
+  out.front +=
+    sat +
+    `<g clip-path='url(#${g}-ficha)'>${bands}</g>` +
+    `<g transform='translate(${f1(bx)} ${f1(by)}) rotate(${f1(ba + (r() - 0.5) * 16)})'>${softShadow(blackened(bow), uid, q, 1.4, 2.6, 0.32)}${bow}</g>`;
+}
+
+// ----- Pena -----
+
+const FEATHER: readonly { vane: [string, string]; barb: string; rachis: string; bars?: string; sheen?: string; tip?: string; eye?: boolean }[] = [
+  { vane: ['#1c1c22', '#2e2e38'], barb: '#4a4a56', rachis: '#d8d8de', sheen: '#2d6a8a' },
+  { vane: ['#f3f1ec', '#ffffff'], barb: '#c8c6c0', rachis: '#f8f8f6' },
+  { vane: ['#8a5a34', '#b07a4a'], barb: '#5e3a1e', rachis: '#efe0c8', bars: '#4a2a14' },
+  { vane: ['#d42a2a', '#ff5a4a'], barb: '#8e1414', rachis: '#ffd0c0', tip: '#2a6ad4' },
+  { vane: ['#3a7a3a', '#6aa84a'], barb: '#9ac85a', rachis: '#e8e0b0', eye: true },
+];
+
+/**
+ * Uma pena caída em cima da ficha, de corvo (o preto com o reflexo azul), de pomba, de gavião (as listras),
+ * de arara (o vermelho com a ponta azul) ou de pavão (o olho na ponta), em pé na beirada da direita ou
+ * deitada embaixo: a haste curva, as duas bandeiras de farpas finas, umas aberturas onde as farpas se
+ * separaram, a penugem no pé e a sombra no papel.
+ */
+function feather(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const f = FEATHER[Math.floor(r() * FEATHER.length)];
+  const L = (100 + r() * 50) * q;
+  // em pé ao longo da beirada da direita, ou deitada embaixo (na tira, só em pé: embaixo é a nota)
+  const standing = r() < 0.5 || isStrip(W, H);
+  // em pé, rente à beirada (um tanto para fora dela), sem encostar na ponta do veredito
+  const cx = standing ? W - (9 + r() * 7) * q : W * (0.45 + r() * 0.3),
+    cy = standing ? H / 2 + (r() - 0.5) * Math.max(0, H - L - 20 * q) : H - (16 + r() * 8) * q;
+  const a = (standing ? -90 + (r() - 0.5) * 24 : (r() - 0.5) * 22) + (r() < 0.3 ? 180 : 0);
+  const bend = (r() - 0.5) * 0.25 * L;
+  // a haste: do pé (0) à ponta (L), curvando
+  const at = (t: number): Pt => [t * L - L / 2, Math.sin(Math.PI * t) * bend];
+  const tan = (t: number): Pt => {
+    const p = at(Math.max(0, t - 0.01)),
+      n = at(Math.min(1, t + 0.01));
+    const l = Math.hypot(n[0] - p[0], n[1] - p[1]) || 1;
+    return [(n[0] - p[0]) / l, (n[1] - p[1]) / l];
+  };
+  const vw = L * (0.13 + r() * 0.03);
+  const width = (t: number, side: number) => (t < 0.18 ? 0 : vw * Math.pow(Math.sin(Math.PI * Math.min(1, (t - 0.18) / 0.84)), 0.7) * (side > 0 ? 1 : 0.72));
+  const edge = (side: number) => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 40; i++) {
+      const t = 0.18 + (i / 40) * 0.82;
+      const p = at(t),
+        [tx, ty] = tan(t);
+      const w = width(t, side);
+      pts.push([p[0] - ty * w * side + tx * w * 0.35, p[1] + tx * w * side + ty * w * 0.35]);
+    }
+    return pts;
+  };
+  const left = edge(1),
+    right = edge(-1);
+  const vaneD = (pts: Pt[]) => `M${f1(at(0.18)[0])} ${f1(at(0.18)[1])}${cont(pts)}L${f1(at(1)[0])} ${f1(at(1)[1])}Z`;
+  const gid = `${uid}-pena`;
+  let barbs = '';
+  for (let i = 0; i < 70; i++) {
+    const t = 0.19 + (i / 70) * 0.8;
+    for (const side of [1, -1]) {
+      const p = at(t),
+        [tx, ty] = tan(t);
+      const w = width(t, side) * (0.92 + r() * 0.12);
+      barbs += `M${f1(p[0])} ${f1(p[1])}l${f1(-ty * w * side + tx * w * 0.38)} ${f1(tx * w * side + ty * w * 0.38)}`;
+    }
+  }
+  // as aberturas: cunhas onde as farpas se separaram
+  let gaps = '';
+  for (let i = 0; i < 2 + Math.floor(r() * 3); i++) {
+    const t = 0.3 + r() * 0.55,
+      side = r() < 0.5 ? 1 : -1;
+    const p = at(t),
+      [tx, ty] = tan(t);
+    const w = width(t, side) * 1.1;
+    const e: Pt = [p[0] - ty * w * side + tx * w * 0.4, p[1] + tx * w * side + ty * w * 0.4];
+    const o = (1.2 + r() * 1.6) * q;
+    gaps += `<path d='M${f1(p[0] + tx * w * 0.08)} ${f1(p[1] + ty * w * 0.08)}L${f1(e[0] - tx * o)} ${f1(e[1] - ty * o)}L${f1(e[0] + tx * o)} ${f1(e[1] + ty * o)}Z'/>`;
+  }
+  // a penugem do pé
+  let down = '';
+  for (let i = 0; i < 18; i++) {
+    const t = 0.05 + r() * 0.16,
+      side = r() < 0.5 ? 1 : -1;
+    const p = at(t),
+      [tx, ty] = tan(t);
+    const l = (5 + r() * 8) * q;
+    down += `M${f1(p[0])} ${f1(p[1])}q${f1(-ty * l * side * 0.6 + (r() - 0.5) * 3 * q)} ${f1(tx * l * side * 0.6 + (r() - 0.5) * 3 * q)} ${f1(-ty * l * side + tx * l * 0.5)} ${f1(tx * l * side + ty * l * 0.5)}`;
+  }
+  const vane = vaneD(left) + vaneD(right);
+  let extra = '';
+  if (f.bars)
+    for (let i = 0; i < 6; i++) {
+      const t = 0.28 + i * 0.12;
+      const p = at(t),
+        [tx, ty] = tan(t);
+      extra += `<path d='M${f1(p[0] - ty * vw)} ${f1(p[1] + tx * vw)}L${f1(p[0] + ty * vw)} ${f1(p[1] - tx * vw)}' stroke='${f.bars}' stroke-opacity='.55' stroke-width='${f1(3.4 * q)}'/>`;
+    }
+  if (f.tip) extra += `<path d='${vane}' fill='url(#${gid}-ponta)'/>`;
+  if (f.sheen) extra += `<path d='${vane}' fill='url(#${gid}-brilho)'/>`;
+  if (f.eye) {
+    const p = at(0.86);
+    extra += `<ellipse cx='${f1(p[0])}' cy='${f1(p[1])}' rx='${f1(vw * 0.95)}' ry='${f1(vw * 0.78)}' fill='#b87a2a'/><ellipse cx='${f1(p[0] - vw * 0.05)}' cy='${f1(p[1])}' rx='${f1(vw * 0.72)}' ry='${f1(vw * 0.6)}' fill='#1a9a8a'/><ellipse cx='${f1(p[0] - vw * 0.1)}' cy='${f1(p[1])}' rx='${f1(vw * 0.45)}' ry='${f1(vw * 0.4)}' fill='#1a3a9a'/><ellipse cx='${f1(p[0] - vw * 0.14)}' cy='${f1(p[1])}' rx='${f1(vw * 0.24)}' ry='${f1(vw * 0.26)}' fill='#141a3a'/>`;
+  }
+  const defs =
+    `<defs><linearGradient id='${gid}' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${f.vane[1]}'/><stop offset='1' stop-color='${f.vane[0]}'/></linearGradient>` +
+    (f.tip ? `<linearGradient id='${gid}-ponta' gradientUnits='userSpaceOnUse' x1='${f1(-L / 2)}' y1='0' x2='${f1(L / 2)}' y2='0'><stop offset='.62' stop-color='${f.tip}' stop-opacity='0'/><stop offset='.85' stop-color='${f.tip}'/></linearGradient>` : '') +
+    (f.sheen ? `<linearGradient id='${gid}-brilho' x1='0' y1='0' x2='1' y2='0'><stop offset='.2' stop-color='${f.sheen}' stop-opacity='0'/><stop offset='.5' stop-color='${f.sheen}' stop-opacity='.55'/><stop offset='.8' stop-color='${f.sheen}' stop-opacity='0'/></linearGradient>` : '') +
+    `<mask id='${gid}-vao' maskUnits='userSpaceOnUse' x='${f1(-L)}' y='${f1(-L)}' width='${f1(L * 2)}' height='${f1(L * 2)}'><rect x='${f1(-L)}' y='${f1(-L)}' width='${f1(L * 2)}' height='${f1(L * 2)}' fill='#fff'/><g fill='#000'>${gaps}</g></mask></defs>`;
+  const rachis = `M${f1(at(0)[0])} ${f1(at(0)[1])}Q${f1(0)} ${f1(bend * 2)} ${f1(at(1)[0])} ${f1(at(1)[1])}`;
+  const shadow = `<path d='${vane}' fill='#000'/>`;
+  out.front +=
+    `<g transform='translate(${f1(cx)} ${f1(cy)}) rotate(${f1(a)})'>` +
+    defs +
+    softShadow(shadow, uid, q, 2, 3.6, 0.3, 2.2) +
+    `<g mask='url(#${gid}-vao)'><path d='${vane}' fill='url(#${gid})'/>${extra}<path d='${barbs}' fill='none' stroke='${f.barb}' stroke-opacity='.4' stroke-width='${f1(0.45 * q)}'/></g>` +
+    `<path d='${down}' fill='none' stroke='${f.vane[1]}' stroke-opacity='.75' stroke-width='${f1(0.7 * q)}' stroke-linecap='round'/>` +
+    `<path d='${rachis}' fill='none' stroke='${f.rachis}' stroke-width='${f1(1.6 * q)}' stroke-linecap='round'/>` +
+    `<path d='${rachis}' fill='none' stroke='#000' stroke-opacity='.18' stroke-width='${f1(0.5 * q)}' transform='translate(0 ${f1(0.7 * q)})'/>` +
+    `</g>`;
+}
+
+// ----- Morcego pendurado -----
+
+/**
+ * Um morcego (às vezes dois) dormindo de cabeça para baixo, pendurado na ponta direita da beirada de
+ * cima pelas garrinhas, longe do nome: enrolado nas asas (as varetas dos dedos marcando a membrana), a cabeça embaixo com as
+ * orelhas pontudas, os olhinhos abertos e os dentinhos. A sombra no papel.
+ */
+function hangingBats(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+  const q = Math.max(0.5, k);
+  const n = r() < 0.6 ? 1 : 2;
+  const fur = ['#2a2226', '#3a2a22', '#24242c'][Math.floor(r() * 3)];
+  const wing = '#3e3238';
+  const eyes = ['#ffd23f', '#ff5a5a', '#f6f1e6'][Math.floor(r() * 3)];
+  let body = '';
+  const xs: number[] = [];
+  // na ponta direita da beirada de cima, longe do nome
+  const first = W - (16 + r() * 22) * q;
+  xs.push(first);
+  if (n === 2) xs.push(first - (30 + r() * 10) * q);
+  for (const x of xs) {
+    const s = (0.85 + r() * 0.35) * q;
+    const bw = 22 * s,
+      bh = 34 * s;
+    const sway = (r() - 0.5) * 10;
+    const y0 = 3 * s;
+    // o casulo das asas: mais largo nos ombros (embaixo, porque ele está de ponta-cabeça)
+    const cocoon = `M${f1(-bw * 0.22)} ${f1(y0)}C${f1(-bw * 0.6)} ${f1(y0 + bh * 0.2)} ${f1(-bw * 0.62)} ${f1(y0 + bh * 0.7)} ${f1(-bw * 0.5)} ${f1(y0 + bh * 0.86)}L${f1(-bw * 0.32)} ${f1(y0 + bh * 0.78)}L${f1(-bw * 0.2)} ${f1(y0 + bh * 0.9)}L${f1(bw * 0.2)} ${f1(y0 + bh * 0.9)}L${f1(bw * 0.32)} ${f1(y0 + bh * 0.78)}L${f1(bw * 0.5)} ${f1(y0 + bh * 0.86)}C${f1(bw * 0.62)} ${f1(y0 + bh * 0.7)} ${f1(bw * 0.6)} ${f1(y0 + bh * 0.2)} ${f1(bw * 0.22)} ${f1(y0)}Z`;
+    const head = `M${f1(-bw * 0.26)} ${f1(y0 + bh * 0.84)}C${f1(-bw * 0.3)} ${f1(y0 + bh * 1.02)} ${f1(-bw * 0.12)} ${f1(y0 + bh * 1.1)} 0 ${f1(y0 + bh * 1.1)}C${f1(bw * 0.12)} ${f1(y0 + bh * 1.1)} ${f1(bw * 0.3)} ${f1(y0 + bh * 1.02)} ${f1(bw * 0.26)} ${f1(y0 + bh * 0.84)}Z`;
+    const ears = `M${f1(-bw * 0.24)} ${f1(y0 + bh * 1)}L${f1(-bw * 0.36)} ${f1(y0 + bh * 1.28)}L${f1(-bw * 0.1)} ${f1(y0 + bh * 1.08)}ZM${f1(bw * 0.24)} ${f1(y0 + bh * 1)}L${f1(bw * 0.36)} ${f1(y0 + bh * 1.28)}L${f1(bw * 0.1)} ${f1(y0 + bh * 1.08)}Z`;
+    const ribs = `M${f1(-bw * 0.08)} ${f1(y0 + bh * 0.1)}Q${f1(-bw * 0.42)} ${f1(y0 + bh * 0.45)} ${f1(-bw * 0.32)} ${f1(y0 + bh * 0.78)}M${f1(bw * 0.08)} ${f1(y0 + bh * 0.1)}Q${f1(bw * 0.42)} ${f1(y0 + bh * 0.45)} ${f1(bw * 0.32)} ${f1(y0 + bh * 0.78)}M0 ${f1(y0 + bh * 0.05)}V${f1(y0 + bh * 0.84)}`;
+    const eyeY = y0 + bh * 0.96;
+    const face =
+      `<circle cx='${f1(-bw * 0.1)}' cy='${f1(eyeY)}' r='${f1(1.9 * s)}' fill='${eyes}'/><circle cx='${f1(bw * 0.1)}' cy='${f1(eyeY)}' r='${f1(1.9 * s)}' fill='${eyes}'/>` +
+      `<circle cx='${f1(-bw * 0.1)}' cy='${f1(eyeY + 0.3 * s)}' r='${f1(0.9 * s)}' fill='#111'/><circle cx='${f1(bw * 0.1)}' cy='${f1(eyeY + 0.3 * s)}' r='${f1(0.9 * s)}' fill='#111'/>` +
+      `<circle cx='${f1(-bw * 0.1 - 0.5 * s)}' cy='${f1(eyeY - 0.6 * s)}' r='${f1(0.5 * s)}' fill='#fff'/><circle cx='${f1(bw * 0.1 - 0.5 * s)}' cy='${f1(eyeY - 0.6 * s)}' r='${f1(0.5 * s)}' fill='#fff'/>` +
+      `<path d='M${f1(-bw * 0.06)} ${f1(eyeY - 2.6 * s)}l${f1(0.8 * s)} ${f1(-1.6 * s)}l${f1(0.8 * s)} ${f1(1.6 * s)}ZM${f1(bw * 0.06 - 1.6 * s)} ${f1(eyeY - 2.6 * s)}l${f1(0.8 * s)} ${f1(-1.6 * s)}l${f1(0.8 * s)} ${f1(1.6 * s)}Z' fill='#fff'/>`;
+    // as garrinhas: passando por cima da beirada
+    const feet = `<path d='M${f1(-bw * 0.14)} ${f1(y0 + 1 * s)}V${f1(-2.4 * s)}q${f1(1.8 * s)} ${f1(-1 * s)} ${f1(2.6 * s)} ${f1(0.6 * s)}M${f1(bw * 0.14)} ${f1(y0 + 1 * s)}V${f1(-2.4 * s)}q${f1(-1.8 * s)} ${f1(-1 * s)} ${f1(-2.6 * s)} ${f1(0.6 * s)}' fill='none' stroke='${fur}' stroke-width='${f1(1.5 * s)}' stroke-linecap='round'/>`;
+    const shape = `<path d='${cocoon}' fill='${wing}'/><path d='${head}' fill='${fur}'/><path d='${ears}' fill='${fur}'/>`;
+    body +=
+      `<g transform='translate(${f1(x)} 0) rotate(${f1(sway)} 0 0)'>` +
+      softShadow(blackened(shape), `${uid}-m${Math.round(x)}`, q, 1.8, 3, 0.35, 1.8) +
+      feet +
+      `<path d='${cocoon}' fill='${wing}'/>` +
+      `<path d='${cocoon}' fill='none' stroke='#000' stroke-opacity='.4' stroke-width='${f1(0.6 * s)}'/>` +
+      `<path d='${ribs}' fill='none' stroke='#5a4a52' stroke-opacity='.8' stroke-width='${f1(0.7 * s)}'/>` +
+      `<path d='M${f1(-bw * 0.4)} ${f1(y0 + bh * 0.3)}Q${f1(-bw * 0.5)} ${f1(y0 + bh * 0.55)} ${f1(-bw * 0.42)} ${f1(y0 + bh * 0.7)}' fill='none' stroke='#fff' stroke-opacity='.15' stroke-width='${f1(1.4 * s)}'/>` +
+      `<path d='${ears}' fill='${fur}'/><path d='${head}' fill='${fur}'/>` +
+      `<path d='M${f1(-bw * 0.2)} ${f1(y0 + bh * 1.04)}L${f1(-bw * 0.28)} ${f1(y0 + bh * 1.2)}M${f1(bw * 0.2)} ${f1(y0 + bh * 1.04)}L${f1(bw * 0.28)} ${f1(y0 + bh * 1.2)}' stroke='#c08080' stroke-opacity='.5' stroke-width='${f1(0.8 * s)}'/>` +
+      face +
+      `</g>`;
+  }
+  out.front += body;
 }

@@ -328,7 +328,8 @@ export class PaperArtLayer {
   /** Muda quando o que está escrito na ficha muda: hora de medir de novo onde cada texto está. */
   readonly content = input<unknown>(null);
 
-  protected readonly burnDamage = computed(() => this.damage() === 'furado' || this.damage() === 'queimado');
+  // o carvão dos queimados (e do furinho do raio) cobre a beirada do recorte, sem vazar para o buraco
+  protected readonly burnDamage = computed(() => this.damage() === 'furado' || this.damage() === 'queimado' || this.damage() === 'raio');
 
   private readonly uid = `pa${++uids}`;
   /**

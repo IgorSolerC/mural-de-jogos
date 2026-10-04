@@ -38,6 +38,8 @@ export const FROZEN_SCRIBBLES: readonly Scribble[] = [
   'cybertribal',
   // 2026-10-02, o computador
   'pixelart', 'janela', 'circuito', 'blocos', 'codigo',
+  // 2026-10-03, a quarta leva
+  'ossada', 'chamas', 'acao', 'corrente', 'celta', 'apaixonado', 'partitura', 'contagem',
 ];
 export const FROZEN_DAMAGES: readonly Damage[] = [
   'rasgado', 'rasgao', 'remendado', 'orelha', 'dobrado', 'amassado', 'furado', 'queimado',
@@ -47,12 +49,16 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
   'baleado',
   // 2026-10-02, o computador
   'glitch', 'corrompido', 'desintegrado',
+  // 2026-10-03, a quarta leva
+  'partido', 'quebracabeca', 'cantos', 'desgrampeado', 'esfarelado', 'desbotado', 'laser', 'raio', 'acido', 'carregando',
 ];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
 export const FROZEN_STAINS: readonly Stain[] = [
   'molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue',
   // 2026-09-30, a terceira leva
   'passos', 'mao', 'nanquim', 'gosma', 'lagrimas', 'salgadinho', 'cybertribal',
+  // 2026-10-03, a quarta leva
+  'fuligem', 'refri', 'pizza', 'cera', 'graxa', 'lama', 'pneu',
 ];
 
 /** As decorações, desde 2026-09-29. */
@@ -63,6 +69,8 @@ export const FROZEN_DECORS: readonly Decor[] = [
   'grampos', 'alfinete', 'curativo', 'cuidado', 'neve', 'petalas', 'teia', 'beijo',
   // 2026-10-02, a TV e o computador
   'antena', 'crt', 'barras', 'disquete', 'erro',
+  // 2026-10-03, a quarta leva
+  'cogumelos', 'cristais', 'silvertape', 'rotuladora', 'prendedor', 'pregador', 'parafusos', 'lapis', 'cantoneiras', 'locadora', 'joias', 'laco', 'pena', 'morcego',
 ];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */
