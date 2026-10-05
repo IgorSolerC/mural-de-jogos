@@ -30,11 +30,11 @@ export const FROZEN_PATTERNS: readonly Pattern[] = [
   'bolos', 'festa', 'natal', 'casal', 'magias', 'pocoes', 'portais', 'armas', 'foguetes', 'arcoiris', 'praia', 'corujas', 'lanches', 'japonesa',
   'cemiterio', 'esportes', 'escola', 'carinhas',
 ];
-// Espirais e Teste de caneta saíram em 2026-09-29, a pedido
+// Espirais e Teste de caneta saíram em 2026-09-29, a pedido; o Terço, em 2026-10-05
 export const FROZEN_SCRIBBLES: readonly Scribble[] = [
   'novelo', 'hachura', 'riscado', 'contorno', 'aula', 'moldura', 'renda', 'cupom', 'pelicula', 'regua', 'trepadeira', 'bandeirinhas',
   // 2026-09-30, as molduras e os rabiscos de tema
-  'gotica', 'arabesco', 'dialogo', 'hud', 'runas', 'farpado', 'terco', 'invocacao', 'tesouro', 'olhos',
+  'gotica', 'arabesco', 'dialogo', 'hud', 'runas', 'farpado', 'invocacao', 'tesouro', 'olhos',
   'cybertribal',
   // 2026-10-02, o computador
   'pixelart', 'janela', 'circuito', 'blocos', 'codigo',
@@ -57,8 +57,8 @@ export const FROZEN_STAINS: readonly Stain[] = [
   'molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue',
   // 2026-09-30, a terceira leva
   'passos', 'mao', 'nanquim', 'gosma', 'lagrimas', 'salgadinho', 'cybertribal',
-  // 2026-10-03, a quarta leva (a Cera de vela saiu em 2026-10-05, a pedido)
-  'fuligem', 'refri', 'pizza', 'graxa', 'lama', 'pneu',
+  // 2026-10-03, a quarta leva (a Cera de vela e a Graxa saíram em 2026-10-05, a pedido)
+  'fuligem', 'refri', 'pizza', 'lama', 'pneu',
 ];
 
 /** As decorações, desde 2026-09-29. */
@@ -67,10 +67,10 @@ export const FROZEN_DECORS: readonly Decor[] = [
   // 2026-09-29, a segunda leva
   'confete', 'neon', 'gamer', 'bottons', 'vidas', 'postit', 'ingresso', 'promocao', 'carimbo', 'medalha', 'lacre',
   'grampos', 'alfinete', 'curativo', 'cuidado', 'neve', 'petalas', 'teia', 'beijo',
-  // 2026-10-02, a TV e o computador
-  'antena', 'crt', 'barras', 'disquete', 'erro',
-  // 2026-10-03, a quarta leva (os Cogumelos e os Cristais saíram em 2026-10-05, a pedido)
-  'silvertape', 'rotuladora', 'prendedor', 'pregador', 'parafusos', 'lapis', 'cantoneiras', 'locadora', 'joias', 'laco', 'pena', 'morcego',
+  // 2026-10-02, a TV e o computador (a Antena de TV saiu em 2026-10-05, a pedido)
+  'crt', 'barras', 'disquete', 'erro',
+  // 2026-10-03, a quarta leva (os Cogumelos, os Cristais e o Morcego pendurado saíram em 2026-10-05, a pedido)
+  'silvertape', 'rotuladora', 'prendedor', 'pregador', 'parafusos', 'lapis', 'cantoneiras', 'locadora', 'joias', 'laco', 'pena',
 ];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */

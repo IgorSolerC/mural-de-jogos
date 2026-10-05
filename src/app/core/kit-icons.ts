@@ -18,17 +18,6 @@ function star(cx: number, cy: number, R: number, r: number, n = 5, rot = -90): s
   return d + 'Z';
 }
 
-/** Contas em volta de um círculo. */
-function beads(cx: number, cy: number, R: number, n: number, r: number, skip: (i: number) => boolean = () => false): string {
-  let out = '';
-  for (let i = 0; i < n; i++) {
-    if (skip(i)) continue;
-    const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-    out += `<circle cx='${r1(cx + Math.cos(a) * R)}' cy='${r1(cy + Math.sin(a) * R)}' r='${r}'/>`;
-  }
-  return out;
-}
-
 /** Um desenho de pixels, cheio: cada `#` vira um quadradinho de `cell` a partir de `x0,y0`. */
 function pix(rows: string[], x0: number, y0: number, cell: number): string {
   let d = '';
@@ -58,7 +47,6 @@ export const SCRIBBLE_ICON: Record<Scribble, string> = {
   regua: `<path d='M4 30L30 4L36 10L10 36Z'/><path d='M9 25L12 28M13 21L15 23M17 17L20 20M21 13L23 15M25 9L28 12' style='stroke-width:1.7'/>`,
   trepadeira: `<path d='M3 37V3H37' style='stroke-width:1.2;opacity:.55'/><path d='M7 37C9.4 31 5.4 27 8 22S10.6 13 9 9C12.6 9.4 15 7 19 7.6S27 8.6 31 6.6' style='stroke-width:2.1'/><path d='M31 6.6C34 5.2 36 7.4 34.8 9.4C34 10.6 32.4 10 32.8 8.8' style='stroke-width:1.5'/><path d='M7.6 23.4C4.6 23 4 20 6 19.4' style='stroke-width:1.4'/><path class='f' transform='translate(8.2 30.4) rotate(58) scale(1)' d='M0 0C-2.6 -.6 -5.4 -2.6 -4.2 -5.4C-3.4 -7 -1.6 -6.8 -1 -6.2C-1.2 -8 0 -9.4 0 -9.4C0 -9.4 1.2 -8 1 -6.2C1.6 -6.8 3.4 -7 4.2 -5.4C5.4 -2.6 2.6 -.6 0 0Z'/><path class='f' transform='translate(7.4 17.2) rotate(-62) scale(0.95)' d='M0 0C-2.6 -.6 -5.4 -2.6 -4.2 -5.4C-3.4 -7 -1.6 -6.8 -1 -6.2C-1.2 -8 0 -9.4 0 -9.4C0 -9.4 1.2 -8 1 -6.2C1.6 -6.8 3.4 -7 4.2 -5.4C5.4 -2.6 2.6 -.6 0 0Z'/><path class='f' transform='translate(14.6 8.2) rotate(-150) scale(0.9)' d='M0 0C-2.6 -.6 -5.4 -2.6 -4.2 -5.4C-3.4 -7 -1.6 -6.8 -1 -6.2C-1.2 -8 0 -9.4 0 -9.4C0 -9.4 1.2 -8 1 -6.2C1.6 -6.8 3.4 -7 4.2 -5.4C5.4 -2.6 2.6 -.6 0 0Z'/><path class='f' transform='translate(24 8.4) rotate(-28) scale(0.95)' d='M0 0C-2.6 -.6 -5.4 -2.6 -4.2 -5.4C-3.4 -7 -1.6 -6.8 -1 -6.2C-1.2 -8 0 -9.4 0 -9.4C0 -9.4 1.2 -8 1 -6.2C1.6 -6.8 3.4 -7 4.2 -5.4C5.4 -2.6 2.6 -.6 0 0Z'/>`,
   bandeirinhas: `<path d='M2 8Q20 18 38 8'/><path class='f' d='M6 10L12 13L8.4 20Z'/><path d='M14.6 13.6L21 14.2L18.4 22Z'/><path class='f' d='M23.6 13.8L30 11.8L29.4 20.2Z'/><path d='M32 10.6L37 8L37.6 16.4Z'/>`,
-  terco: `${beads(22, 15, 11, 16, 1.5, (i) => i === 8)}<path d='M17.6 25.4L14 30' style='stroke-width:1.5'/><path d='M12.6 30V38.4M9 33.4H16.2'/>`,
   invocacao: `<circle cx='20' cy='20' r='16'/><circle cx='20' cy='20' r='12.4' style='stroke-width:1.4'/><path d='M20 7.6L27.3 30L8.2 16.2H31.8L12.7 30Z' style='stroke-width:1.5'/>`,
   tesouro: `<path d='M4 32C10 30 8 22 14 20S24 24 26 18' style='stroke-dasharray:2.8 2.6'/><path d='M27 9L35 17M35 9L27 17' style='stroke-width:3'/><circle cx='8' cy='9' r='4.4' style='stroke-width:1.6'/><path class='f' d='M8 3.2L9.3 9L8 14.8L6.7 9Z'/>`,
   olhos: `<path d='M3 20Q20 4 37 20Q20 36 3 20Z'/><circle cx='20' cy='20' r='6.4'/><circle class='f' cx='20' cy='20' r='3'/><path d='M9 12.4L7 9M15 9.4L14 5.6M25 9.4L26 5.6M31 12.4L33 9' style='stroke-width:1.7'/>`,
@@ -135,7 +123,6 @@ export const STAIN_ICON: Record<Stain, string> = {
   fuligem: `<path class='f' d='M6 9C14 9 26 13 34 21C30 21 22 18 7 14.4Z' style='opacity:.7'/><path class='f' d='M5 18C13 18 24 22 31 29C27 29 20 27 6 23.4Z' style='opacity:.7'/><path class='f' d='M7 27C13 27 21 30 26 35C23 35 18 34 8 32Z' style='opacity:.7'/>${[[33, 8, 1.1], [36, 14, 0.8], [35, 31, 1], [14, 36, 0.8], [27, 5, 0.8]].map(([x, y, r]) => `<circle class='f' cx='${x}' cy='${y}' r='${r}'/>`).join('')}`,
   refri: `<circle cx='17' cy='17' r='12' style='stroke-dasharray:14 2.6 9 2 18 2.4'/><circle cx='17' cy='17' r='9.6' style='stroke-width:1;opacity:.6'/><path class='f' d='M29.6 24.6C32.6 24 35.8 26.4 35.4 29.6C35 33 31.6 34.6 28.6 33.6C25.6 32.6 24.8 29.4 26.4 27C27.2 25.8 28.4 24.8 29.6 24.6Z' style='opacity:.55'/><circle class='f' cx='9' cy='34' r='1.3'/><circle class='f' cx='35' cy='9' r='1'/>`,
   pizza: `<path d='M20 37L5.4 9.6Q20 3 34.6 9.6Z' style='stroke-dasharray:3 2'/><path d='M7.4 12.6Q20 7 32.6 12.6' style='stroke-width:1.4'/><circle class='f' cx='16' cy='17' r='3'/><circle class='f' cx='24.4' cy='19.6' r='2.6'/><circle class='f' cx='19.4' cy='26.6' r='2.4'/><circle class='f' cx='34' cy='30' r='1.4'/>`,
-  graxa: `<path d='M24.4 16.8L9 32.2A3 3 0 0 1 4.8 28L20.2 12.6C18.8 8.4 21.4 3.8 26 3.2L22.6 8.4L25.2 12.4L30 12.2L33.6 7.4C35.4 12 32 16.8 27.4 16.8Z'/><ellipse cx='28.6' cy='29' rx='6' ry='7.6' style='stroke-width:1.4'/><path d='M25.4 31C25.4 26 31.8 26 31.8 31M27.4 31.6C27.4 29.2 29.8 29.2 29.8 31.6' style='stroke-width:1.2'/>`,
   lama: `<path class='f' d='M2 32C6 29.6 9.4 31.6 13 29.4C16.6 31.6 20 29 24 31C27.6 28.8 31.6 31 38 29.4V38H2Z'/>${[[8, 22, 1.8, 3.4, -70], [15, 15, 1.5, 3, -80], [23, 19, 2, 3.6, -95], [30, 12, 1.4, 2.8, -105], [34, 22, 1.7, 3, -115], [19, 7, 1.1, 2.2, -88]].map(([x, y, a, b, r]) => `<ellipse class='f' cx='${x}' cy='${y}' rx='${b}' ry='${a}' transform='rotate(${r} ${x} ${y})'/>`).join('')}`,
   pneu: `<path d='M10 2V38M30 2V38' style='stroke-width:1.5'/><path d='M13 4L20 8.6L27 4M13 12L20 16.6L27 12M13 20L20 24.6L27 20M13 28L20 32.6L27 28M13 36L20 40' style='stroke-width:2.6'/>`,
 };
@@ -166,7 +153,6 @@ export const DECOR_ICON: Record<Decor, string> = {
   neve: `<path d='M20 3V37M5.3 11.5L34.7 28.5M5.3 28.5L34.7 11.5'/><path d='M16 6L20 10L24 6M16 34L20 30L24 34M5 16.4L10.4 15L9 9.6M35 23.6L29.6 25L31 30.4M5 23.6L10.4 25L9 30.4M35 16.4L29.6 15L31 9.6' style='stroke-width:1.8'/>`,
   petalas: `${[0, 72, 144, 216, 288].map((a) => `<path d='M20 20C15.6 15 16 8 20 4.6C21 6.6 22.4 6 23.2 5C25.6 9 24.6 15.4 20 20Z' transform='rotate(${a} 20 20)'/>`).join('')}<circle class='f' cx='20' cy='20' r='2'/>`,
   teia: `<path d='M4 4L36 36M4 4L20 38M4 4L38 20M4 4L38 8M4 4L8 38'/><path d='M4 14Q9 10 14 4M4 23Q14 18 23 4M6 32Q21 26 32 5M12 38Q29 30 38 12' style='stroke-width:1.5'/>`,
-  antena: `<path d='M10 35Q10 26.4 20 26.4Q30 26.4 30 35Z'/><path d='M8 35H32'/><path d='M18 26.6L8.4 5M22 26.6L33 6.4' style='stroke-width:2'/><circle class='f' cx='8.4' cy='5' r='2.4'/><circle class='f' cx='33' cy='6.4' r='2.4'/>`,
   crt: `<path d='M6 7Q20 4.4 34 7Q36.6 20 34 33Q20 35.6 6 33Q3.4 20 6 7Z'/><path d='M8.4 12H31.6M7.4 16H32.6M7 20H33M7.4 24H32.6M8.4 28H31.6' style='stroke-width:1.1;opacity:.65'/><path d='M10 9.6Q14 8.8 18 8.8' style='stroke-width:1.4'/>`,
   barras: `<path d='M4 8H36V32H4Z'/><path class='f' d='M8.6 8H13.2V25H8.6ZM17.8 8H22.4V25H17.8ZM27 8H31.6V25H27Z'/><path d='M4 25H36M13 25V32M25 25V32' style='stroke-width:1.4'/>`,
   disquete: `<path d='M6 4.5H30.5L35.5 9.5V35.5H6Z'/><path d='M12.5 4.5V13.5H27.5V4.5'/><path class='f' d='M22.4 6.4H25.4V11.6H22.4Z'/><path d='M10 19.5H31.5V35.5H10Z' style='stroke-width:1.5'/><path d='M13.6 24.4H27.6M13.6 28.8H23.6' style='stroke-width:1.4'/>`,
@@ -184,7 +170,6 @@ export const DECOR_ICON: Record<Decor, string> = {
   joias: `<path d='M7 15L13.4 6.6H26.6L33 15L20 34.6Z'/><path d='M7 15H33M13.4 6.6L16.6 15L20 34.6L23.4 15L26.6 6.6M20 6.6L16.6 15M20 6.6L23.4 15' style='stroke-width:1.3'/><path class='f' d='M34 3L34.7 5.3L37 6L34.7 6.7L34 9L33.3 6.7L31 6L33.3 5.3Z'/>`,
   laco: `<path d='M20 18C14.6 8 4.4 9.4 5.6 16.6C6.6 22 14 21.4 20 18ZM20 18C25.4 8 35.6 9.4 34.4 16.6C33.4 22 26 21.4 20 18Z'/><path d='M18.4 20.4L12.6 35L16.2 32.4L17.8 36.4L20.6 21M21.6 20.4L27.4 35L23.8 32.4L22.2 36.4L19.4 21'/><path class='f' d='M17.4 15.4H22.6V21H17.4Z'/>`,
   pena: `<path d='M7 37C13 27 21 15.4 33.6 3.4'/><path d='M10.4 31C7.4 20.6 16 9.6 33.6 3.4C31.6 17 23.4 28 12.6 32.8Z'/><path d='M14.6 26.6L10 25.4M18.6 21.4L12.4 18.4M23 15.6L16.8 11.8M18 26.2L22.6 28.2M22.6 20.6L28 21.6M27 14.6L31.6 13.6' style='stroke-width:1.2'/>`,
-  morcego: `<path d='M4 4H36' style='stroke-width:1.4;opacity:.6'/><path d='M17 4V8.6M23 4V8.6' style='stroke-width:1.6'/><path d='M14 8.6H26C28.6 14 28.6 22 25.4 27.4L22.6 25.6L20 28L17.4 25.6L14.6 27.4C11.4 22 11.4 14 14 8.6Z'/><path d='M15.6 26.4C14.4 31.4 25.6 31.4 24.4 26.4'/><path d='M16 29L13.6 34L18.2 31M24 29L26.4 34L21.8 31' style='stroke-width:1.5'/><circle class='f' cx='18.2' cy='28.6' r='1'/><circle class='f' cx='21.8' cy='28.6' r='1'/>`,
 };
 
 /** O ícone inteiro, pronto para o `innerHTML`. */

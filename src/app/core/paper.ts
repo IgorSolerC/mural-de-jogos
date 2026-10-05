@@ -232,7 +232,6 @@ export type Scribble =
   | 'hud'
   | 'runas'
   | 'farpado'
-  | 'terco'
   | 'invocacao'
   | 'tesouro'
   | 'olhos'
@@ -255,7 +254,7 @@ export type Scribble =
 export const SCRIBBLES: readonly Scribble[] = [
   'contorno', 'moldura', 'gotica', 'cybertribal', 'arabesco', 'celta', 'dialogo', 'hud', 'pixelart', 'janela', 'circuito', 'runas', 'farpado', 'corrente', 'ossada',
   'renda', 'cupom', 'pelicula', 'partitura', 'regua',
-  'trepadeira', 'bandeirinhas', 'terco', 'invocacao', 'tesouro', 'olhos', 'chamas', 'acao', 'blocos', 'codigo', 'contagem', 'aula', 'apaixonado', 'novelo', 'hachura', 'riscado',
+  'trepadeira', 'bandeirinhas', 'invocacao', 'tesouro', 'olhos', 'chamas', 'acao', 'blocos', 'codigo', 'contagem', 'aula', 'apaixonado', 'novelo', 'hachura', 'riscado',
 ];
 
 export const SCRIBBLE_LABEL: Record<Scribble, string> = {
@@ -277,7 +276,6 @@ export const SCRIBBLE_LABEL: Record<Scribble, string> = {
   hud: 'Mira de tiro',
   runas: 'Runas',
   farpado: 'Arame farpado',
-  terco: 'Terço',
   invocacao: 'Círculo de invocação',
   tesouro: 'Mapa do tesouro',
   olhos: 'Olhos na margem',
@@ -437,13 +435,12 @@ export type Stain =
   | 'fuligem'
   | 'refri'
   | 'pizza'
-  | 'graxa'
   | 'lama'
   | 'pneu';
 
 /** Na ordem do estojo: o que se bebe e o que se chora, o sangue, a tinta e a fuligem, a gosma e a gordura, o mofo e os bichos, e quem passou por cima. */
 export const STAINS: readonly Stain[] = [
-  'cafe', 'refri', 'molhado', 'lagrimas', 'sangue', 'mao', 'nanquim', 'fuligem', 'gosma', 'salgadinho', 'pizza', 'graxa', 'mofado', 'tracas', 'lama', 'pisado', 'pneu', 'pegadas', 'passos', 'cybertribal',
+  'cafe', 'refri', 'molhado', 'lagrimas', 'sangue', 'mao', 'nanquim', 'fuligem', 'gosma', 'salgadinho', 'pizza', 'mofado', 'tracas', 'lama', 'pisado', 'pneu', 'pegadas', 'passos', 'cybertribal',
 ];
 
 export const STAIN_LABEL: Record<Stain, string> = {
@@ -464,7 +461,6 @@ export const STAIN_LABEL: Record<Stain, string> = {
   fuligem: 'Fuligem',
   refri: 'Lata de refri',
   pizza: 'Gordura de pizza',
-  graxa: 'Graxa',
   lama: 'Lama respingada',
   pneu: 'Marca de pneu',
 };
@@ -502,7 +498,6 @@ export type Decor =
   | 'petalas'
   | 'teia'
   | 'beijo'
-  | 'antena'
   | 'crt'
   | 'barras'
   | 'disquete'
@@ -517,15 +512,14 @@ export type Decor =
   | 'locadora'
   | 'joias'
   | 'laco'
-  | 'pena'
-  | 'morcego';
+  | 'pena';
 
 /**
  * Na ordem do estojo: o que brilha e a festa (as joias, o laço); os adesivos e as coisas
  * de jogo; a papelaria (selo, post-it, rotuladora, lápis, ingresso, locadora, etiqueta, carimbo,
  * medalha, lacre); o que prende e fura (os prendedores, os parafusos, as cantoneiras, a silver tape);
- * o tempo e os bichos (a pena, o morcego); a TV e o computador (a antena, o tubo, as
- * barras, o disquete, a janela de erro).
+ * o tempo e os bichos (a pena); a TV e o computador (o tubo, as barras, o disquete, a janela de
+ * erro).
  */
 export const DECORS: readonly Decor[] = [
   'purpurina',
@@ -564,9 +558,7 @@ export const DECORS: readonly Decor[] = [
   'petalas',
   'pena',
   'teia',
-  'morcego',
   'beijo',
-  'antena',
   'crt',
   'barras',
   'disquete',
@@ -600,7 +592,6 @@ export const DECOR_LABEL: Record<Decor, string> = {
   petalas: 'Pétalas de cerejeira',
   teia: 'Teia de aranha',
   beijo: 'Beijo de batom',
-  antena: 'Antena de TV',
   crt: 'Filtro de TV de tubo',
   barras: 'Barras de cor',
   disquete: 'Disquete',
@@ -616,7 +607,6 @@ export const DECOR_LABEL: Record<Decor, string> = {
   joias: 'Joias incrustadas',
   laco: 'Laço de presente',
   pena: 'Pena',
-  morcego: 'Morcego pendurado',
 };
 
 /** As decorações que furam o papel: a sombra da ficha segue o recorte, como nos estragos. */

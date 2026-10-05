@@ -1209,62 +1209,6 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
       }
       return g(wire, 1.1, 0.9) + g(barbs, 1.2, 0.95);
     }
-    case 'terco': {
-      // um terço largado num canto de baixo: a volta de contas (as grandes de dez em dez), a medalhinha
-      // e a cauda com a cruz
-      const q = Math.max(0.4, k);
-      const right = r() < 0.7;
-      const cx = right ? W * (0.8 + r() * 0.05) : W * (0.2 - r() * 0.05),
-        cy = H * (0.72 + r() * 0.06);
-      const rx = Math.min(W * 0.2, 72 * q),
-        ry = Math.min(H * 0.22, 46 * q);
-      const rot = ((right ? -1 : 1) * (15 + r() * 20) * Math.PI) / 180;
-      const E = (a: number): Pt => {
-        const x = Math.cos(a) * rx,
-          y = Math.sin(a) * ry;
-        return [cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)];
-      };
-      // a medalha fica no ponto da volta mais para o lado de dentro da ficha, um pouco abaixo do meio dela
-      let best = 0,
-        bd = Infinity;
-      for (let i = 0; i < 72; i++) {
-        const p = E((i / 72) * Math.PI * 2),
-          d = (right ? p[0] : -p[0]) - p[1] * 0.35;
-        if (d < bd) {
-          bd = d;
-          best = (i / 72) * Math.PI * 2;
-        }
-      }
-      let thread = '',
-        beads = '';
-      const loop: Pt[] = [];
-      const nb = 54;
-      for (let i = 0; i <= nb; i++) loop.push(E(best + (i / nb) * Math.PI * 2));
-      thread += `<path d='${smooth(loop)}'/>`;
-      for (let i = 1; i < nb; i++) {
-        const [x, y] = loop[i];
-        if (x < -6 || x > W + 6 || y < -6 || y > H + 6) continue;
-        const big = i % 11 === 0;
-        beads += `<circle${big ? '' : " class='f'"} cx='${f1(x)}' cy='${f1(y)}' r='${f1((big ? 3.1 : 1.9) * q)}'/>`;
-      }
-      // a medalha e a cauda, descendo para dentro da ficha
-      const J = loop[0];
-      // a cauda sai para o lado de dentro, caindo um pouco com o peso da cruz
-      const dirA = (right ? Math.PI - 0.5 : 0.5) + (r() - 0.5) * 0.3;
-      const ux = Math.cos(dirA),
-        uy = Math.sin(dirA);
-      const md = 4.2 * q;
-      beads += `<path d='M${f1(J[0])} ${f1(J[1] - md)}L${f1(J[0] + md * 0.8)} ${f1(J[1])}L${f1(J[0])} ${f1(J[1] + md)}L${f1(J[0] - md * 0.8)} ${f1(J[1])}Z'/>`;
-      const tail: Pt[] = [];
-      for (let i = 0; i <= 6; i++) tail.push([J[0] + ux * i * 6.5 * q + Math.sin(i) * 0.6 * q, J[1] + uy * i * 6.5 * q]);
-      thread += `<path d='${smooth(tail)}'/>`;
-      tail.slice(1, 6).forEach(([x, y], i) => (beads += `<circle${i === 0 || i === 4 ? '' : " class='f'"} cx='${f1(x)}' cy='${f1(y)}' r='${f1((i === 0 || i === 4 ? 3.1 : 1.9) * q)}'/>`));
-      const [ex, ey] = tail[6];
-      const cs = 11 * q,
-        ang = (dirA * 180) / Math.PI - 90;
-      const cross = `<g transform='translate(${f1(ex + ux * cs * 0.9)} ${f1(ey + uy * cs * 0.9)}) rotate(${f1(ang)})'><path d='M0 ${f1(-cs)}L0 ${f1(cs * 1.2)}M${f1(-cs * 0.6)} ${f1(-cs * 0.3)}L${f1(cs * 0.6)} ${f1(-cs * 0.3)}'/><path d='M${f1(-cs * 0.12)} ${f1(-cs)}H${f1(cs * 0.12)}V${f1(cs * 1.2)}H${f1(-cs * 0.12)}Z' class='f'/></g>`;
-      return g(thread, 0.8, 0.8) + g(beads, 1.1, 0.95) + g(cross, 1.5, 1);
-    }
     case 'invocacao': {
       // um círculo de invocação num canto (nunca o da foto), metade para fora: dois anéis com runas
       // entre eles, a estrela no meio e as velinhas acesas nas pontas
@@ -2308,9 +2252,6 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
       break;
     case 'pizza':
       pizzaGrease(W, H, k, r, out);
-      break;
-    case 'graxa':
-      grease(W, H, k, r, uid, out);
       break;
     case 'lama':
       mudSplash(W, H, k, r, out);
@@ -5332,6 +5273,67 @@ function halfLoaded(W: number, H: number, k: number, r: () => number, out: Paper
 // ----- Fuligem -----
 
 /**
+ * Um dedo sujo de carvão arrastado no papel: uma faixa de largura quase igual, que começa redonda e
+ * carregada (onde o dedo encostou) e vai clareando até sumir, com as linhas da pele riscando o
+ * comprido e uns fios que acabam antes, falhando no fim, quando a fuligem do dedo acabou.
+ */
+function sootDrag(ctrl: Pt[], w: number, op: number, q: number, r: () => number, id: string): string {
+  const n = 24;
+  const pts = sampleCurve(ctrl, n);
+  const normal = (i: number): Pt => {
+    const a = pts[Math.max(0, i - 1)],
+      b = pts[Math.min(n, i + 1)];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [-(b[1] - a[1]) / len, (b[0] - a[0]) / len];
+  };
+  const along = (u: number, from: number, to: number): Pt[] => {
+    const out: Pt[] = [];
+    for (let i = Math.round(from * n); i <= Math.round(to * n); i++) {
+      const [nx, ny] = normal(i);
+      out.push([pts[i][0] + nx * u, pts[i][1] + ny * u]);
+    }
+    return out;
+  };
+  // o contorno: os dois lados, afinando pouco, e a ponta do dedo redonda no começo
+  const hw = (t: number) => (w / 2) * (1 - 0.32 * Math.pow(t, 1.6));
+  const left: Pt[] = [],
+    right: Pt[] = [];
+  for (let i = 0; i <= n; i++) {
+    const [nx, ny] = normal(i),
+      h = hw(i / n);
+    left.push([pts[i][0] + nx * h, pts[i][1] + ny * h]);
+    right.push([pts[i][0] - nx * h, pts[i][1] - ny * h]);
+  }
+  const a0 = Math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]);
+  const cap: Pt[] = [];
+  for (let s = 1; s < 6; s++) {
+    const a = a0 - Math.PI / 2 - (Math.PI * s) / 6;
+    cap.push([pts[0][0] + Math.cos(a) * hw(0), pts[0][1] + Math.sin(a) * hw(0)]);
+  }
+  const outline = [...left, ...right.reverse(), ...cap];
+  const [x1, y1] = pts[0],
+    [x2, y2] = pts[n];
+  // carregado onde encostou, sumindo no fim
+  const grad =
+    `<linearGradient id='${id}' gradientUnits='userSpaceOnUse' x1='${f1(x1)}' y1='${f1(y1)}' x2='${f1(x2)}' y2='${f1(y2)}'>` +
+    [[0, 1], [0.15, 0.9], [0.5, 0.62], [0.8, 0.3], [1, 0]].map(([o, a]) => `<stop offset='${o}' stop-color='rgb(34 31 30)' stop-opacity='${(op * a).toFixed(3)}'/>`).join('') +
+    `</linearGradient>`;
+  let body = `<path d='${smooth([...outline, outline[0]])}Z' fill='url(#${id})' fill-opacity='.55'/>`;
+  // a ponta do dedo: onde ele apertou antes de arrastar, mais escuro
+  body += `<ellipse cx='${f1(x1 + Math.cos(a0) * hw(0) * 0.25)}' cy='${f1(y1 + Math.sin(a0) * hw(0) * 0.25)}' rx='${f1(hw(0) * 0.9)}' ry='${f1(hw(0) * 0.85)}' transform='rotate(${f1((a0 * 180) / Math.PI)} ${f1(x1 + Math.cos(a0) * hw(0) * 0.25)} ${f1(y1 + Math.sin(a0) * hw(0) * 0.25)})' fill='rgb(34 31 30)' fill-opacity='${(op * 0.25).toFixed(3)}'/>`;
+  // as linhas da pele: fios no comprido, uns mais compridos que outros, alguns falhando
+  let streaks = '';
+  const m = 5 + Math.floor(r() * 3);
+  for (let j = 0; j < m; j++) {
+    const u = ((j + 0.5) / m - 0.5) * w * 0.8 + (r() - 0.5) * w * 0.08;
+    const end = 0.5 + r() * 0.5;
+    const dash = r() < 0.45 ? ` stroke-dasharray='${f1((10 + r() * 16) * q)} ${f1((2 + r() * 4) * q)} ${f1((4 + r() * 8) * q)} ${f1((2 + r() * 5) * q)}'` : '';
+    streaks += `<path d='${smooth(along(u, r() * 0.06, end))}' stroke-width='${f1((0.6 + r() * 0.9) * q)}'${dash}/>`;
+  }
+  return `<defs>${grad}</defs>${body}<g fill='none' stroke='url(#${id})' stroke-linecap='round'>${streaks}</g>`;
+}
+
+/**
  * Mexeu no carvão e pegou na ficha: dedos arrastados de fuligem, umas digitais, uma nuvem de fumaça
  * que subiu pela beirada e escureceu o papel, e o pó fininho em volta.
  */
@@ -5346,7 +5348,7 @@ function soot(W: number, H: number, k: number, r: () => number, uid: string, out
   const fx = fromBottom ? W * (0.4 + r() * 0.45) : W + 10 * q,
     fy = fromBottom ? H + 10 * q : H * (0.4 + r() * 0.45);
   const plume = `<defs><radialGradient id='${uid}-fumaca'><stop offset='0' stop-color='${ink}' stop-opacity='.55'/><stop offset='.55' stop-color='${ink}' stop-opacity='.2'/><stop offset='1' stop-color='${ink}' stop-opacity='0'/></radialGradient></defs><ellipse cx='${f1(fx)}' cy='${f1(fy)}' rx='${f1((fromBottom ? 120 : 70) * q)}' ry='${f1((fromBottom ? 70 : 110) * q)}' fill='url(#${uid}-fumaca)' filter='url(#papel-agua)'/>`;
-  // os dedos arrastados: três ou quatro riscos largos, juntos, afinando no fim
+  // os dedos arrastados: três ou quatro dedos juntos, seguindo a mesma curva da mão
   const drags = 1 + (r() < 0.5 ? 1 : 0);
   for (let d = 0; d < drags; d++) {
     const [sx, sy] = freeSpot(W, H, r, true);
@@ -5354,6 +5356,9 @@ function soot(W: number, H: number, k: number, r: () => number, uid: string, out
     const ang = (r() - 0.5) * Math.PI * 0.5 + (r() < 0.5 ? 0 : Math.PI) + (isStrip(W, H) && sx > W * 0.78 ? Math.PI / 2 : 0);
     const len = (60 + r() * 60) * q;
     const fingers = 3 + Math.floor(r() * 2);
+    // o jeito de cada dedo sai de outro sorteio: as digitais, a fumaça e o pó continuam onde estavam
+    const rd = rng(hash(`fuligem:${f1(sx)}:${f1(sy)}:${d}`));
+    const bend = (rd() - 0.5) * 0.36 * len;
     for (let f = 0; f < fingers; f++) {
       const off = (f - (fingers - 1) / 2) * 11 * q;
       const ox = -Math.sin(ang) * off,
@@ -5361,20 +5366,48 @@ function soot(W: number, H: number, k: number, r: () => number, uid: string, out
       const l = len * (0.75 + r() * 0.3);
       const ctrl: Pt[] = [0, 0.33, 0.66, 1].map((t) => [sx + ox + Math.cos(ang) * l * t + (r() - 0.5) * 3 * q, sy + oy + Math.sin(ang) * l * t + (r() - 0.5) * 3 * q]);
       const w0 = (8 + r() * 3) * q;
-      smears += `<path d='${blade(ctrl, (t) => w0 * (1 - Math.pow(t, 2.2) * 0.9))}' fill-opacity='${(0.28 + r() * 0.18).toFixed(2)}'/>`;
+      const op = 0.28 + r() * 0.18;
+      // a mão faz a curva: os pontos do meio saem para o mesmo lado em todos os dedos
+      const bent: Pt[] = ctrl.map(([x, y], i) => (i === 1 || i === 2 ? [x - Math.sin(ang) * bend, y + Math.cos(ang) * bend] : [x, y]));
+      smears += sootDrag(bent, w0, op, q, rd, `${uid}-fuligem-${d}-${f}`);
     }
   }
-  // umas digitais: os dedos que seguraram a ficha
-  for (let i = 0; i < 2 + Math.floor(r() * 3); i++) {
+  // às vezes uma digital ou duas, dos dedos que seguraram a ficha
+  const nPrints = r() < 0.5 ? 0 : r() < 0.7 ? 1 : 2;
+  for (let i = 0; i < nPrints; i++) {
     const [x, y] = freeSpot(W, H, r);
     const fw = (17 + r() * 4) * q,
       fh = fw * 1.3;
     prints += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1((r() - 0.5) * 120)})'><ellipse rx='${f1(fw / 2)}' ry='${f1(fh / 2)}' fill-opacity='.16' stroke='none'/>${fingerprint(fw, fh, r, 1 * q)}</g>`;
   }
   for (let i = 0; i < 160; i++) dust += `<circle cx='${f1(r() * W)}' cy='${f1(r() * H)}' r='${f1((0.25 + Math.pow(r(), 3) * 1.2) * q)}' fill-opacity='${(0.12 + r() * 0.35).toFixed(2)}'/>`;
+  // as manchas grandes de fumaça: nuvens largas e fraquinhas, esfiapadas, por onde a fuligem passou;
+  // saem de outro sorteio, para não mexer no resto
+  const rs = rng(hash(`fuligem:fumaca:${f1(fx)}:${f1(fy)}`));
+  let smoke = '';
+  const clouds = 1 + Math.floor(rs() * 2) + (rs() < 0.3 ? 1 : 0);
+  for (let i = 0; i < clouds; i++) {
+    const [cx, cy] = freeSpot(W, H, rs, rs() < 0.5);
+    const R = (40 + rs() * 40) * q;
+    // umas bolotas encavaladas, espichadas para o lado em que a fumaça correu
+    const a = rs() * Math.PI;
+    for (let j = 0; j < 4; j++) {
+      const d = (rs() - 0.5) * R * 1.6;
+      smoke += `<path d='${blobPath(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.6, R * (0.45 + rs() * 0.4), rs)}' fill-opacity='${(0.07 + rs() * 0.06).toFixed(2)}'/>`;
+    }
+  }
+  const fumo = `${uid}-fumo`;
+  const wisps =
+    `<defs><filter id='${fumo}' x='-60%' y='-60%' width='220%' height='220%' color-interpolation-filters='sRGB'>` +
+    `<feGaussianBlur stdDeviation='${f1(10 * q)}' result='s'/>` +
+    `<feTurbulence type='fractalNoise' baseFrequency='${(0.014 / q).toFixed(4)} ${(0.034 / q).toFixed(4)}' numOctaves='4' seed='${1 + Math.floor(rs() * 997)}' result='n'/>` +
+    `<feColorMatrix in='n' type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.8 0 0 0 -.2' result='w'/>` +
+    `<feComposite in='s' in2='w' operator='in'/></filter></defs>` +
+    `<g fill='${ink}' filter='url(#${fumo})'>${smoke}</g>`;
   out.fundo +=
     plume +
-    `<g fill='${ink}' filter='url(#papel-borra)'>${smears}</g>` +
+    wisps +
+    `<g filter='url(#papel-agua)'>${smears}</g>` +
     `<g filter='url(#papel-lama)' fill='${ink}' stroke='${ink}' stroke-opacity='.55'>${prints}</g>` +
     `<g fill='${ink}'>${dust}</g>`;
 }
@@ -5485,77 +5518,6 @@ function pizzaGrease(W: number, H: number, k: number, r: () => number, out: Pape
   out.fundo +=
     `<g filter='url(#papel-agua)' style='fill: var(--stock)'><path d='${slice}' opacity='.5'/><g opacity='.4'>${spots}</g><g opacity='.45'>${drops}${finger}</g></g>` +
     `<g filter='url(#papel-agua)' fill='rgb(236 150 50)'><path d='${slice}' fill-opacity='.2'/><g fill-opacity='.22'>${spots}</g><g fill-opacity='.14'>${drops}</g></g>`;
-}
-
-// ----- Graxa -----
-
-/**
- * Mão de mecânico: digitais pretas de graxa (com a aura de óleo que escurece o papel em volta), uma
- * passada de dedão arrastada e, às vezes, a marca de uma chave de boca que foi apoiada em cima.
- */
-function grease(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
-  const q = Math.max(0.4, k);
-  const ink = 'rgb(26 24 22)';
-  let prints = '',
-    halos = '';
-  const n = 2 + Math.floor(r() * 3);
-  for (let i = 0; i < n; i++) {
-    const edge = r() < 0.6;
-    const bottom = r() < 0.5;
-    const spot = freeSpot(W, H, r);
-    // na beirada (o pé ou a da direita), como quem segurou a ficha, ou num lugar livre
-    const x = edge ? (bottom ? W * (0.4 + r() * 0.4) : W - (8 + r() * 14) * q) : spot[0];
-    const y = edge ? (bottom ? H - (10 + r() * 12) * q : H * (0.2 + r() * 0.6)) : spot[1];
-    const fw = (17 + r() * 5) * q,
-      fh = fw * 1.32;
-    const turn = (r() - 0.5) * 160;
-    halos += `<ellipse cx='${f1(x)}' cy='${f1(y)}' rx='${f1(fw * 0.85)}' ry='${f1(fh * 0.8)}' transform='rotate(${f1(turn)} ${f1(x)} ${f1(y)})'/>`;
-    prints += `<g transform='translate(${f1(x)} ${f1(y)}) rotate(${f1(turn)})'><ellipse rx='${f1(fw / 2)}' ry='${f1(fh / 2)}' fill-opacity='.3' stroke='none'/>${fingerprint(fw, fh, r, 1.15 * q)}</g>`;
-  }
-  // a passada de dedão: larga, arrastada, com as linhas da pele riscando junto
-  const [sx, sy] = freeSpot(W, H, r, true);
-  const ang = (r() - 0.5) * 1.2 + (r() < 0.5 ? 0 : Math.PI) + (isStrip(W, H) && sx > W * 0.78 ? Math.PI / 2 : 0);
-  const len = (40 + r() * 35) * q;
-  const ctrl: Pt[] = [0, 0.33, 0.66, 1].map((t) => [sx + Math.cos(ang) * len * t + (r() - 0.5) * 3 * q, sy + Math.sin(ang) * len * t + (r() - 0.5) * 3 * q]);
-  const wipe = blade(ctrl, (t) => 16 * q * (1 - Math.pow(t, 1.8) * 0.85));
-  let ridges = '';
-  for (let i = 0; i < 6; i++) {
-    const off = (i - 2.5) * 2.2 * q;
-    const nx = -Math.sin(ang) * off,
-      ny = Math.cos(ang) * off;
-    const l = len * (0.5 + r() * 0.45);
-    ridges += `M${f1(sx + nx)} ${f1(sy + ny)}l${f1(Math.cos(ang) * l)} ${f1(Math.sin(ang) * l)}`;
-  }
-  let wrench = '';
-  if (r() < 0.45) {
-    // a chave de boca apoiada: o cabo, a boca aberta de um lado e o anel do outro
-    const L = (100 + r() * 24) * q,
-      hw = 4.4 * q;
-    // deitada na faixa livre: a de baixo da ficha completa, a do meio da tira
-    const strip = isStrip(W, H);
-    const wx = W * (strip ? 0.52 + r() * 0.16 : 0.4 + r() * 0.3),
-      wy = H * (strip ? 0.47 + r() * 0.06 : 0.7 + r() * 0.12);
-    const wa = (r() - 0.5) * (strip ? 12 : 40);
-    const id = `${uid}-chave`;
-    const jaw = 11 * q,
-      eye = 9 * q;
-    wrench =
-      `<defs><mask id='${id}' maskUnits='userSpaceOnUse' x='${f1(-L)}' y='${f1(-L)}' width='${f1(L * 2)}' height='${f1(L * 2)}'><g fill='#fff'><rect x='${f1(-L / 2 + jaw * 0.6)}' y='${f1(-hw)}' width='${f1(L - jaw * 0.6 - eye * 0.6)}' height='${f1(hw * 2)}' rx='${f1(hw)}'/><circle cx='${f1(-L / 2)}' cy='0' r='${f1(jaw)}'/><circle cx='${f1(L / 2)}' cy='0' r='${f1(eye)}'/></g><g fill='#000'><path d='M${f1(-L / 2 - jaw - 2)} ${f1(-jaw * 0.42)}H${f1(-L / 2 + jaw * 0.12)}V${f1(jaw * 0.42)}H${f1(-L / 2 - jaw - 2)}Z' transform='rotate(-15 ${f1(-L / 2)} 0)'/><path d='${(() => {
-        let d = '';
-        for (let i = 0; i < 6; i++) {
-          const a = (i / 6) * Math.PI * 2;
-          d += `${i ? 'L' : 'M'}${f1(L / 2 + Math.cos(a) * eye * 0.55)} ${f1(Math.sin(a) * eye * 0.55)}`;
-        }
-        return d + 'Z';
-      })()}'/></g></mask></defs>` +
-      `<g transform='translate(${f1(wx)} ${f1(wy)}) rotate(${f1(wa)})'><g filter='url(#papel-poeira)'><rect x='${f1(-L)}' y='${f1(-L)}' width='${f1(L * 2)}' height='${f1(L * 2)}' fill='${ink}' fill-opacity='.62' mask='url(#${id})'/></g></g>`;
-  }
-  out.fundo +=
-    `<g style='fill: var(--stock)' opacity='.38' filter='url(#papel-agua)'>${halos}</g>` +
-    wrench +
-    `<path d='${wipe}' fill='${ink}' fill-opacity='.3' filter='url(#papel-borra)'/>` +
-    `<path d='${ridges}' fill='none' stroke='${ink}' stroke-opacity='.22' stroke-width='${f1(0.8 * q)}'/>` +
-    `<g filter='url(#papel-lama)' fill='${ink}' stroke='${ink}' stroke-opacity='.75'>${prints}</g>`;
 }
 
 // ----- Lama respingada -----
