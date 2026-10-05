@@ -1,0 +1,819 @@
+<nav class="voltar">
+  <a class="btn-quiet" routerLink="/extras">
+    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    Extras
+  </a>
+</nav>
+
+<header class="topo">
+  <h1 class="tape-label big">Estatísticas</h1>
+  @if (all().length) {
+    <p class="intro">
+      O {{ whose() }} de {{ profile().plural }} em números: {{ intro() }}
+    </p>
+  }
+</header>
+
+@if (!all().length) {
+  <!-- ===== Nada pra contar ===== -->
+  <section class="peca folha solo" aria-labelledby="vazio-titulo">
+    <h2 id="vazio-titulo" class="titulo">Nada pra contar ainda</h2>
+    @if (mine()) {
+      <p class="vazio-txt">
+        Pregue {{ g(profile(), 'uns', 'umas') }} {{ profile().plural }} e esta página se enche de gráfico, recorde e mania sua.
+      </p>
+      <button type="button" class="btn-ink" (click)="desk.newReview()">
+        <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+        Nova resenha
+      </button>
+    } @else {
+      <p class="vazio-txt">{{ player().name }} não tem {{ profile().plural }} no mural. Troque de mural no cartaz ou volte para o seu.</p>
+      <button type="button" class="btn-ink" (click)="players.select('eu')">Ver o meu</button>
+    }
+  </section>
+} @else {
+  <!-- ===== De quem, de quando e as abas, em pé na régua ===== -->
+  <div class="prateleira estat-prateleira">
+    @if (players.all().length > 1) {
+      <div class="grupo">
+        <span class="giz" id="dono-rotulo">Mural de quem</span>
+        <div class="abas-linha" role="group" aria-labelledby="dono-rotulo">
+          @for (p of players.all(); track p.id) {
+            <button type="button" class="plate" [attr.aria-pressed]="player().id === p.id" (click)="players.select(p.id)">
+              {{ p.name }} <span class="count">{{ p.reviews.length }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
+    @if (years().length) {
+      <div class="grupo">
+        <span class="giz" aria-hidden="true">Quando</span>
+        <label class="plate pick">
+          <span class="pick-val" aria-hidden="true">{{ year() ?? 'Todos os anos' }}</span>
+          <select aria-label="Ano de conclusão" [value]="year() ?? ''" (change)="setYear($any($event.target).value)">
+            <option value="" [selected]="year() === null">Todos os anos</option>
+            @for (y of years(); track y) {
+              <option [value]="y" [selected]="year() === y">{{ y }}</option>
+            }
+          </select>
+          <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+        </label>
+      </div>
+    }
+    <span class="prateleira-quebra" aria-hidden="true"></span>
+    <div id="abas" class="abas-linha paginas" role="group" aria-label="Página das estatísticas">
+      @for (a of abas; track a.id; let i = $index) {
+        <button type="button" class="plate" [attr.aria-pressed]="aba() === a.id" (click)="setAba(a.id)">
+          <span class="num-aba" aria-hidden="true">{{ i + 1 }}</span>{{ a.label }}
+        </button>
+      }
+    </div>
+  </div>
+
+  @let st = s();
+  @let p = profile();
+
+  <div class="quadro" [attr.data-aba]="aba()">
+    @switch (aba()) {
+      <!-- =============================== RESUMO =============================== -->
+      @case ('resumo') {
+        <app-numeros class="w12" [items]="kpis()" />
+
+        <div class="pilha w7">
+          <section class="peca pauta" aria-labelledby="perfil-titulo">
+            <h2 id="perfil-titulo" class="titulo">Quem é {{ who() }} no mural</h2>
+            @if (portrait().length) {
+              <ul class="perfil">
+                @for (line of portrait(); track $index) {
+                  <li>{{ line }}</li>
+                }
+              </ul>
+            } @else {
+              <p class="linha-vazia">Com menos de três fichas ainda não dá pra tirar um retrato. Volte depois de pregar mais umas.</p>
+            }
+          </section>
+
+          <section class="peca folha" aria-labelledby="top-titulo">
+            <h2 id="top-titulo" class="titulo">As {{ st.top.length }} melhores</h2>
+            <app-lista-rank [reviews]="st.top" (opened)="open($event)" />
+          </section>
+        </div>
+
+        <section class="peca folha w5" aria-labelledby="recordes-titulo">
+          <h2 id="recordes-titulo" class="titulo">Recordes</h2>
+          <dl class="recordes">
+            @if (st.best; as b) {
+              <div><dt>Maior nota</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: b.review, v: fmt(b.value) }" /></dd></div>
+            }
+            @if (st.worst; as w) {
+              <div><dt>Menor nota</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: w.review, v: fmt(w.value) }" /></dd></div>
+            }
+            @if (st.amount; as a) {
+              <div><dt>{{ p.amount!.most }}</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: a.longest.review, v: amountFmt(a.longest.value) }" /></dd></div>
+              @if (a.n > 1) {
+                <div><dt>{{ p.amount!.decimals ? 'Mais rápido' : 'Mais curto' }}</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: a.shortest.review, v: amountFmt(a.shortest.value) }" /></dd></div>
+              }
+            }
+            @if (st.first; as f) {
+              <div><dt>A primeira da linha do tempo</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: f, v: date(f) }" /></dd></div>
+            }
+            @if (st.last; as l) {
+              <div><dt>A mais recente</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: l, v: date(l) }" /></dd></div>
+            }
+            @if (st.release.oldest; as o) {
+              <div><dt>Lançamento mais antigo</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: o.review, v: o.value }" /></dd></div>
+            }
+            @if (st.text.longest; as t) {
+              <div><dt>Resenha mais comprida</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: t.review, v: plural(t.value, 'palavra', 'palavras') }" /></dd></div>
+            }
+            @if (st.bonuses.most; as m) {
+              <div><dt>Mais bônus colados</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: m.review, v: m.value + ' bônus' }" /></dd></div>
+            }
+          </dl>
+        </section>
+
+        @if (st.bottom.length) {
+          <section class="peca folha w5" aria-labelledby="lanterna-titulo">
+            <h2 id="lanterna-titulo" class="titulo">A lanterninha</h2>
+            <app-lista-rank [reviews]="st.bottom" [top]="false" [total]="st.count" (opened)="open($event)" />
+          </section>
+        }
+
+        @if (queue(); as q) {
+          <section class="peca pauta" [class.w7]="st.bottom.length" [class.w12]="!st.bottom.length" aria-labelledby="fila-titulo">
+            <h2 id="fila-titulo" class="titulo">Na fila</h2>
+            <div class="fila">
+              <p class="fila-item">
+                <span class="grande">{{ q.drafts }}</span>
+                <span>esperando resenha no Pra depois</span>
+                @if (q.oldestDraft; as d) {
+                  <span class="miudo">a mais antiga, {{ d.draft.game.name }}, espera {{ days(d.days) }}</span>
+                }
+              </p>
+              <p class="fila-item">
+                <span class="grande">{{ q.wishes }}</span>
+                <span>na wishlist</span>
+                @if (q.wishes) {
+                  <span class="miudo">{{ q.byRelevance.must }} must · {{ q.byRelevance.comum }} comuns · {{ q.byRelevance.later }} later</span>
+                }
+              </p>
+              <p class="fila-item">
+                <span class="grande">{{ avg(q.pace) }}</span>
+                <span>{{ p.plural }} por mês, no último ano</span>
+                @if (q.monthsToClear; as m) {
+                  <span class="miudo">
+                    nesse ritmo, a wishlist acaba em
+                    {{ m < 24 ? m + (m === 1 ? ' mês' : ' meses') : avg(m / 12) + ' anos' }}
+                    (se nada novo entrar nela)
+                  </span>
+                }
+              </p>
+            </div>
+          </section>
+        }
+      }
+
+      <!-- =============================== NOTAS =============================== -->
+      @case ('notas') {
+        <section class="peca milimetrado w8" aria-labelledby="hist-titulo">
+          <h2 id="hist-titulo" class="titulo">Que nota {{ who() }} costuma dar?</h2>
+          <p class="sub">Quantas Médias caem em cada casa (o 7 junta do 7 ao 7,9).</p>
+          <app-colunas
+            class="tira-rosa"
+            [bars]="st.histogram"
+            [marks]="histMarks()"
+            [class.com-marcas]="histMarks().length"
+            [unit]="p.plural"
+            [height]="200"
+            [showZero]="true"
+            caption="Médias por casa inteira"
+          />
+          <p class="conclusao">
+            @if (st.repeated; as r) {
+              A Média que mais se repete é <strong>{{ fmt(r.value) }}</strong>, em {{ countOf(p, r.n) }}.
+            }
+            {{ st.tens ? plural(st.tens, 'nota 10', 'notas 10') + '.' : 'Nenhum 10 ainda.' }}
+            @if (st.below4) {
+              {{ plural(st.below4, 'nota abaixo de 4', 'notas abaixo de 4') }}.
+            }
+          </p>
+        </section>
+
+        <section class="peca folha w4" aria-labelledby="regua-titulo">
+          <h2 id="regua-titulo" class="titulo">{{ mine() ? 'A sua régua' : 'A régua de ' + player().name }}</h2>
+          <app-regua [finals]="st.finals" [p10]="st.p10" [p25]="st.p25" [median]="st.median" [p75]="st.p75" [p90]="st.p90" [profile]="p" />
+          <dl class="pontilhado">
+            <div><dt>Média</dt><dd>{{ avg(st.average) }}</dd></div>
+            <div><dt>Mediana</dt><dd>{{ avg(st.median) }}</dd></div>
+            <div><dt>Metade do meio</dt><dd>{{ avg(st.p25) }} a {{ avg(st.p75) }}</dd></div>
+            <div><dt>Os 10% de cima</dt><dd>de {{ avg(st.p90) }}</dd></div>
+            <div><dt>Os 10% de baixo</dt><dd>até {{ avg(st.p10) }}</dd></div>
+            <div><dt>Sobe e desce</dt><dd>± {{ avg(st.spread) }}</dd></div>
+          </dl>
+        </section>
+
+        <section class="peca folha w12" aria-labelledby="cats-titulo">
+          <h2 id="cats-titulo" class="titulo">Nota a nota do mural</h2>
+          <app-categorias [categories]="st.categories" (opened)="open($event)" />
+          @if (st.driver; as d) {
+            <p class="conclusao">
+              De todas, <strong>{{ d.label }}</strong> é a nota que mais decide a Média: quando ela sobe, a Média tende a subir junto.
+            </p>
+          }
+        </section>
+
+        <section class="peca milimetrado w6" aria-labelledby="pesos-titulo">
+          <h2 id="pesos-titulo" class="titulo">Quanto cada nota pesa</h2>
+          <p class="sub">O peso escolhido em cada ficha, de Relevante a Não tem.</p>
+          <app-pesos [categories]="st.categories" [count]="st.count" />
+        </section>
+
+        <section class="peca pauta w6" aria-labelledby="mexe-titulo">
+          <h2 id="mexe-titulo" class="titulo">O que mexe na Média</h2>
+          <p class="resposta">
+            <span class="quem">Bônus:</span>
+            @if (st.bonusShift; as b) {
+              em {{ countOf(p, b.n) }} com bônus, eles mexem <strong>{{ shift(b.avg) }}</strong> na Média, em média.
+            } @else {
+              nenhuma ficha com bônus mexendo na conta.
+            }
+          </p>
+          @if (st.bonusShift?.up; as u) {
+            <p class="resposta"><span class="quem">Maior empurrão:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: u.review, v: shift(u.value) }" /></p>
+          }
+          @if (st.bonusShift?.down; as d) {
+            <p class="resposta"><span class="quem">Maior puxão:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: d.review, v: shift(d.value) }" /></p>
+          }
+          <p class="resposta">
+            <span class="quem">Nota na mão:</span>
+            @if (st.overrides.n) {
+              em {{ countOf(p, st.overrides.n) }} a Média foi dada na mão; em média, {{ shift(st.overrides.avg) }} em relação à conta.
+            } @else {
+              {{ mine() ? 'você' : player().name }} sempre deixou a conta fazer a Média.
+            }
+          </p>
+          @if (st.overrides.biggest; as o) {
+            <p class="resposta"><span class="quem">Maior diferença:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: o.review, v: shift(o.value) }" /></p>
+          }
+        </section>
+      }
+
+      <!-- =============================== TEMPO =============================== -->
+      @case ('tempo') {
+        <section class="peca milimetrado w8" aria-labelledby="ano-titulo">
+          <h2 id="ano-titulo" class="titulo">{{ year() === null ? 'Fichas por ano' : 'Mês a mês em ' + year() }}</h2>
+          <p class="sub">Pelo dia em que terminou{{ year() === null ? '' : ' (as que só têm o ano ficam de fora)' }}. Embaixo, a média de cada {{ year() === null ? 'ano' : 'mês' }}.</p>
+          <app-colunas class="tira-verde" [bars]="timeBars()" [unit]="p.plural" [avgRow]="true" [height]="200" [thin]="timeBars().length > 8" [caption]="year() === null ? 'Fichas por ano' : 'Fichas por mês'" />
+          @if (st.precision.sem) {
+            <p class="miudo-papel">{{ plural(st.precision.sem, 'ficha sem data ficou', 'fichas sem data ficaram') }} de fora.</p>
+          }
+        </section>
+
+        <section class="peca folha w4" aria-labelledby="relogio-titulo">
+          <h2 id="relogio-titulo" class="titulo">O relógio do mural</h2>
+          <dl class="pontilhado">
+            @if (st.busiestYear && year() === null) {
+              <div><dt>Ano mais cheio</dt><dd>{{ st.busiestYear.label }} · {{ st.busiestYear.n }}</dd></div>
+            }
+            @if (st.busiestMonth; as m) {
+              <div><dt>Mês mais cheio</dt><dd>{{ monthName(m.month) }} {{ m.year }} · {{ m.n }}</dd></div>
+            }
+            @if (st.perMonth !== null) {
+              <div><dt>Ritmo</dt><dd>{{ avg(st.perMonth) }} por mês</dd></div>
+            }
+            @if (st.monthStreak.best > 1) {
+              <div><dt>Meses seguidos</dt><dd>{{ st.monthStreak.best }}, até {{ st.monthStreak.bestEnd }}</dd></div>
+            }
+            @if (gapText(); as gt) {
+              <div><dt>Maior jejum</dt><dd>{{ gt }}</dd></div>
+            }
+            @if (topWeekday(); as w) {
+              <div><dt>Dia preferido</dt><dd>{{ w }}</dd></div>
+            }
+            <div><dt>Pregadas de memória</dt><dd>{{ st.retro }}</dd></div>
+          </dl>
+          @if (st.longestGap; as gap) {
+            <p class="nota-folha">
+              O jejum foi entre <button type="button" class="nome-link" (click)="open(gap.from)">{{ gap.from.game.name }}</button>
+              ({{ date(gap.from) }}) e <button type="button" class="nome-link" (click)="open(gap.to)">{{ gap.to.game.name }}</button> ({{ date(gap.to) }}).
+            </p>
+          }
+          @if (st.busiestDay; as d) {
+            <p class="nota-folha">
+              Num dia só ({{ date(d.reviews[0]) }}) terminou {{ countOf(p, d.reviews.length) }}:
+              @for (r of d.reviews; track r.id; let last = $last) {
+                <button type="button" class="nome-link" (click)="open(r)">{{ r.game.name }}</button>{{ last ? '.' : ', ' }}
+              }
+            </p>
+          }
+          <p class="precisao">
+            <span class="rotulo-imp">Datas</span>
+            {{ st.precision.dia }} com dia · {{ st.precision.mes }} só o mês · {{ st.precision.ano }} só o ano · {{ st.precision.sem }} sem data
+          </p>
+        </section>
+
+        <section class="peca milimetrado w12" aria-labelledby="cal-titulo">
+          <h2 id="cal-titulo" class="titulo">Folhinha</h2>
+          <p class="sub">Cada quadradinho é um mês: quanto mais escuro, mais {{ p.plural }} terminad{{ p.fem ? 'as' : 'os' }} nele.</p>
+          <app-folhinha [rows]="st.calendar" [max]="st.calendarMax" [profile]="p" />
+        </section>
+
+        <section class="peca milimetrado w4" aria-labelledby="semana-titulo">
+          <h2 id="semana-titulo" class="titulo">Dia da semana</h2>
+          <p class="sub">Em que dia {{ who() }} termina: {{ st.weekdayKnown }} com o dia lembrado.</p>
+          <app-colunas class="tira-amarelo" [bars]="st.weekdays" [unit]="p.plural" [showZero]="true" caption="Fichas por dia da semana" />
+        </section>
+
+        <section class="peca milimetrado w4" aria-labelledby="hora-titulo">
+          <h2 id="hora-titulo" class="titulo">Hora de pregar</h2>
+          <p class="sub">A hora em que cada ficha foi parar no mural.</p>
+          <app-colunas class="tira-lilas" [bars]="hourBars()" [unit]="'fichas'" [every]="6" caption="Fichas pregadas por hora do dia" />
+          <p class="partes">
+            @for (part of st.dayParts; track part.key) {
+              <span><span class="rotulo-imp">{{ part.label }}</span> {{ part.n }}</span>
+            }
+          </p>
+        </section>
+
+        <section class="peca milimetrado w4" aria-labelledby="media-tempo-titulo">
+          <h2 id="media-tempo-titulo" class="titulo">A média com o tempo</h2>
+          <p class="sub">A média de cada {{ year() === null ? 'ano' : 'mês' }}.</p>
+          @if (avgLine().length > 1) {
+            <app-linha [points]="avgLine()" />
+          } @else {
+            <p class="linha-vazia">Um {{ year() === null ? 'ano' : 'mês' }} só ainda: falta outro pra ter linha.</p>
+          }
+          @if (st.drift; as d) {
+            <p class="conclusao">
+              As {{ d.split }} primeiras têm média {{ avg(d.before) }}; as {{ d.split }} mais recentes, {{ avg(d.after) }}.
+              {{ d.after < d.before - 0.2 ? 'A régua apertou com o tempo.' : d.after > d.before + 0.2 ? 'A régua afrouxou com o tempo.' : 'A régua não mudou.' }}
+            </p>
+          }
+        </section>
+      }
+
+      <!-- =============================== HÁBITOS =============================== -->
+      @case ('habitos') {
+        <section class="peca folha w6" aria-labelledby="status-titulo">
+          <h2 id="status-titulo" class="titulo">Termina o que começa?</h2>
+          <p class="destaque"><span class="enorme">{{ st.finishRate ?? '–' }}%</span> <span class="miudo">das fichas chegaram ao fim</span></p>
+          <div class="faixa-status" aria-hidden="true">
+            @for (x of statusStrip(); track x.value) {
+              @if (x.n) {
+                <span [class]="'fs fs-' + x.value" [style.flex-grow]="x.n"></span>
+              }
+            }
+          </div>
+          <table class="tabela">
+            <caption class="sr-only">Fichas por status</caption>
+            <thead>
+              <tr><td></td><th scope="col">Fichas</th><th scope="col">%</th><th scope="col">Média</th></tr>
+            </thead>
+            <tbody>
+              @for (x of st.statuses; track x.value) {
+                <tr>
+                  <th scope="row"><app-status-label [status]="x.value" [kind]="kind()" /></th>
+                  <td>{{ x.n }}</td>
+                  <td>{{ pct(x.n, st.count) }}</td>
+                  <td class="num-caneta">{{ avg(x.avg) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </section>
+
+        @if (st.difficulties; as diffs) {
+          <section class="peca folha w6" aria-labelledby="dif-titulo">
+            <h2 id="dif-titulo" class="titulo">{{ p.difficulty }}</h2>
+            <ul class="barras-h">
+              @for (d of diffs; track d.value) {
+                <li [title]="d.label + ': ' + d.n + (d.avg !== null ? ', média ' + avg(d.avg) : '')">
+                  <span class="bh-rotulo caveiras">
+                    @if (d.value === 'nenhuma') {
+                      <span class="rotulo-imp">Nenhuma</span>
+                    } @else {
+                      <app-skulls [value]="d.value" [size]="14" [showLabel]="false" />
+                    }
+                  </span>
+                  <span class="bh-trilho"><span class="bh-fill tira-cinza" [style.width.%]="width(d.n, maxDifficulty())"></span></span>
+                  <span class="bh-n">{{ d.n }}</span>
+                  <span class="bh-media">{{ d.n ? avg(d.avg) : '' }}</span>
+                </li>
+              }
+            </ul>
+            <p class="miudo-papel">Ao lado de cada barra, a média das fichas dela.</p>
+          </section>
+        }
+
+        @if (st.amount; as a) {
+          <section class="peca milimetrado w6" aria-labelledby="dura-titulo">
+            <h2 id="dura-titulo" class="titulo">{{ p.amount!.decimals ? 'Quanto dura' : 'Quantas páginas' }}</h2>
+            <p class="sub">{{ countOf(p, a.n) }} com {{ p.amount!.row.toLowerCase() }} anotadas. Embaixo, a média de cada faixa.</p>
+            <app-colunas class="tira-laranja" [bars]="a.hist" [unit]="p.plural" [avgRow]="true" [showZero]="true" caption="Fichas por faixa de quantidade" />
+          </section>
+
+          <section class="peca milimetrado w6" aria-labelledby="disp-titulo">
+            <h2 id="disp-titulo" class="titulo">{{ p.amount!.row }} × Média</h2>
+            <p class="sub">Cada bolinha é {{ g(p, 'um', 'uma') }} {{ p.singular }}; as vermelhas têm 9 ou mais. Toque pra abrir.</p>
+            <app-dispersao [points]="a.points" [xLabel]="p.amount!.row" [xFmt]="amountFmt" (opened)="open($event)" />
+            @if (corrAmount()) {
+              <p class="conclusao">{{ corrAmount() }}</p>
+            }
+          </section>
+
+          <section class="peca folha w12" aria-labelledby="qtd-titulo">
+            <h2 id="qtd-titulo" class="titulo">{{ p.amount!.total }}</h2>
+            <dl class="pontilhado colunas-dl">
+              <div><dt>No total</dt><dd>{{ amountFmt(a.total) }}</dd></div>
+              <div><dt>Por {{ p.singular }}</dt><dd>{{ amountFmt(a.avg) }}</dd></div>
+              <div><dt>Mediana</dt><dd>{{ amountFmt(a.median) }}</dd></div>
+            </dl>
+            <dl class="recordes recordes-lado">
+              <div><dt>{{ p.amount!.most }}</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: a.longest.review, v: amountFmt(a.longest.value) }" /></dd></div>
+              @if (a.quickJoy; as q) {
+                <div><dt>Alegria rápida (8+ e {{ p.amount!.decimals ? 'mais curto' : 'mais fino' }})</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: q.review, v: amountFmt(q.value) + ' · ' + fmt(q.review.scores.final) }" /></dd></div>
+              }
+              @if (a.longSlog; as l) {
+                <div><dt>Maratona sofrida (abaixo de 6)</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: l.review, v: amountFmt(l.value) + ' · ' + fmt(l.review.scores.final) }" /></dd></div>
+              }
+            </dl>
+          </section>
+        }
+
+        @if (st.release.n) {
+          <section class="peca milimetrado w6" aria-labelledby="decada-titulo">
+            <h2 id="decada-titulo" class="titulo">De que época</h2>
+            <p class="sub">Pelo ano de lançamento ({{ st.release.n }} de {{ st.count }} têm o ano). Embaixo, a média de cada década.</p>
+            <app-colunas class="tira-azul" [bars]="st.release.byDecade" [unit]="p.plural" [avgRow]="true" [showZero]="true" caption="Fichas por década de lançamento" />
+          </section>
+
+          <section class="peca folha w6" aria-labelledby="lanc-titulo">
+            <h2 id="lanc-titulo" class="titulo">Lançamentos</h2>
+            <dl class="recordes">
+              @if (st.release.oldest; as o) {
+                <div><dt>O mais antigo</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: o.review, v: o.value }" /></dd></div>
+              }
+              @if (st.release.newest; as n) {
+                <div><dt>O mais novo</dt><dd><ng-container *ngTemplateOutlet="ref; context: { $implicit: n.review, v: n.value }" /></dd></div>
+              }
+            </dl>
+            <dl class="pontilhado">
+              @if (st.release.lag !== null) {
+                <div><dt>Atraso médio</dt><dd>{{ avg(st.release.lag) }} anos depois do lançamento</dd></div>
+              }
+              <div><dt>No ano em que saiu</dt><dd>{{ st.release.fresh }}</dd></div>
+              @if (st.release.topYear; as y) {
+                <div><dt>Ano de lançamento campeão</dt><dd>{{ y.year }} · {{ y.n }}</dd></div>
+              }
+            </dl>
+          </section>
+        }
+
+        <section class="peca pauta w12" aria-labelledby="texto-titulo">
+          <h2 id="texto-titulo" class="titulo">O que {{ who() }} escreve</h2>
+          <div class="fila">
+            <p class="fila-item">
+              <span class="grande">{{ pct(st.text.withText, st.count) }}</span>
+              <span>das fichas têm resenha escrita</span>
+              <span class="miudo">{{ st.text.withText }} de {{ st.count }}</span>
+            </p>
+            <p class="fila-item">
+              <span class="grande">{{ int(st.text.words) }}</span>
+              <span>palavras ao todo</span>
+              @if (st.text.words >= 300) {
+                <span class="miudo">dá umas {{ int(st.text.words / 300) }} páginas de livro</span>
+              }
+            </p>
+            <p class="fila-item">
+              <span class="grande">{{ st.text.avgWords === null ? '–' : int(st.text.avgWords) }}</span>
+              <span>palavras por resenha, em média</span>
+            </p>
+          </div>
+          @if (st.text.longest; as l) {
+            <p class="resposta"><span class="quem">A mais comprida:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: l.review, v: plural(l.value, 'palavra', 'palavras') }" /></p>
+          }
+          @if (st.text.shortest; as s2) {
+            <p class="resposta"><span class="quem">A mais curtinha:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: s2.review, v: plural(s2.value, 'palavra', 'palavras') }" /></p>
+          }
+        </section>
+      }
+
+      <!-- =============================== VEREDITOS E BÔNUS =============================== -->
+      @case ('carimbos') {
+        <section class="peca folha w7" aria-labelledby="ver-titulo">
+          <h2 id="ver-titulo" class="titulo">Os carimbos</h2>
+          <table class="tabela vereditos">
+            <caption class="sr-only">Quantas vezes cada veredito foi dado e a média das fichas</caption>
+            <thead>
+              <tr><td></td><th scope="col">Vezes</th><th scope="col">%</th><th scope="col">Média</th><th scope="col">De… a…</th></tr>
+            </thead>
+            <tbody>
+              @for (v of st.verdicts; track v.value) {
+                <tr [class.lider]="topVerdict().value === v.value && v.n > 0">
+                  <th scope="row"><app-verdict-stamp [value]="v.value" /></th>
+                  <td><app-tally [n]="v.n" /></td>
+                  <td>{{ pct(v.n, st.count) }}</td>
+                  <td class="num-caneta">{{ avg(v.avg) }}</td>
+                  <td class="faixa">{{ v.n ? fmt(v.min) + ' – ' + fmt(v.max) : '' }}</td>
+                </tr>
+              }
+              <tr class="sem-carimbo">
+                <th scope="row"><span class="rotulo-imp">Sem veredito</span></th>
+                <td><app-tally [n]="st.noVerdict" /></td>
+                <td>{{ pct(st.noVerdict, st.count) }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="peca pauta w5" aria-labelledby="incoer-titulo">
+          <h2 id="incoer-titulo" class="titulo">Carimbo × nota</h2>
+          <p class="sub-pauta">As fichas em que o carimbo e a Média não combinam muito. Vale conferir?</p>
+          @if (st.incoherent.length) {
+            <ul class="incoer">
+              @for (x of st.incoherent.slice(0, 12); track x.review.id) {
+                <li>
+                  <button type="button" class="nome-link" (click)="open(x.review)">{{ x.review.game.name }}</button>:
+                  <strong>{{ verdictLabel[x.verdict] }}</strong> com <span class="caneta">{{ fmt(x.review.scores.final) }}</span>
+                  <span class="miudo depois">({{ x.why === 'baixa' ? 'nota baixa pro carimbo' : 'nota alta pro carimbo' }})</span>
+                </li>
+              }
+            </ul>
+            @if (st.incoherent.length > 12) {
+              <p class="miudo-papel">e mais {{ st.incoherent.length - 12 }}.</p>
+            }
+          } @else {
+            <p class="linha-vazia">Nada destoa: cada carimbo combina com a nota que veio junto.</p>
+          }
+        </section>
+
+        @for (side of ['favor', 'contra']; track side) {
+          @let lista = side === 'favor' ? st.bonuses.favor : st.bonuses.contra;
+          <section class="peca folha w6" [attr.aria-labelledby]="'bonus-' + side">
+            <h2 [id]="'bonus-' + side" class="titulo">{{ side === 'favor' ? 'O que conquista' : 'O que irrita' }}</h2>
+            <p class="sub-folha">Os bônus {{ side === 'favor' ? 'a favor' : 'contra' }} mais colados{{ lista.length > 10 ? ' (os 10 primeiros de ' + lista.length + ')' : '' }}.</p>
+            @if (lista.length) {
+              <ul class="barras-h bonus-lista">
+                @for (b of lista.slice(0, 10); track b.value; let i = $index) {
+                  <li [title]="b.label + ': ' + b.n + ', média ' + avg(b.avg)">
+                    <span class="bh-rotulo"><app-bonus-sticker [bonus]="st.bonuses.stickers.get(b.value)!" size="mini" [index]="i" /></span>
+                    <span class="bh-trilho"><span class="bh-fill" [class.tira-verde]="side === 'favor'" [class.tira-vermelho]="side === 'contra'" [style.width.%]="width(b.n, maxBonus())"></span></span>
+                    <span class="bh-n">{{ b.n }}</span>
+                    <span class="bh-media">{{ avg(b.avg) }}</span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="linha-vazia">Nenhum bônus {{ side === 'favor' ? 'a favor' : 'contra' }} colado{{ year() ? ' em ' + year() : '' }}.</p>
+            }
+          </section>
+        }
+
+        <section class="peca pauta w12" aria-labelledby="bonus-conta-titulo">
+          <h2 id="bonus-conta-titulo" class="titulo">A conta dos adesivos</h2>
+          <div class="fila">
+            <p class="fila-item">
+              <span class="grande">{{ pct(st.bonuses.withAny, st.count) }}</span>
+              <span>das fichas têm bônus</span>
+              <span class="miudo">{{ avg(st.bonuses.perCard) }} por ficha, em média</span>
+            </p>
+            <p class="fila-item">
+              <span class="grande"><span class="mais">+{{ st.bonuses.favorTotal }}</span> <span class="menos">−{{ st.bonuses.contraTotal }}</span></span>
+              <span>a favor e contra, ao todo</span>
+            </p>
+            <p class="fila-item">
+              <span class="grande">{{ st.bonuses.custom }}</span>
+              <span>{{ st.bonuses.custom === 1 ? 'bônus escrito' : 'bônus escritos' }} à mão</span>
+              <span class="miudo">fora da cartela pronta</span>
+            </p>
+          </div>
+          @if (st.bonuses.inTop; as t) {
+            <p class="conclusao">Nas fichas com 9 ou mais, o adesivo que mais aparece é “{{ t.label }}” ({{ t.n }}×).</p>
+          }
+        </section>
+      }
+
+      <!-- =============================== CARTOLINAS =============================== -->
+      @case ('cartolinas') {
+        <section class="peca milimetrado w7" aria-labelledby="cores-titulo">
+          <h2 id="cores-titulo" class="titulo">As cores de cartolina</h2>
+          <p class="sub">Cada tira é a própria cartolina, do tamanho do uso. Ao lado, a média das fichas nela.</p>
+          <ul class="barras-h cores">
+            @for (c of st.stocks; track c.value) {
+              <li [title]="c.label + ': ' + c.n + ', média ' + avg(c.avg)">
+                <span class="bh-rotulo">{{ c.label }}</span>
+                <span class="bh-trilho">
+                  <span class="bh-fill cor" [attr.data-cor]="c.value" [style.--tira]="'var(--stock-' + c.value + ')'" [style.width.%]="width(c.n, maxStock())"></span>
+                </span>
+                <span class="bh-n">{{ c.n }}</span>
+                <span class="bh-media">{{ avg(c.avg) }}</span>
+              </li>
+            }
+          </ul>
+          @if (st.lucky; as l) {
+            <p class="conclusao">A cartolina da sorte é <strong>{{ l.label.toLowerCase() }}</strong>: as fichas nela têm a maior média ({{ avg(l.avg) }}).</p>
+          }
+        </section>
+
+        <section class="peca folha w5" aria-labelledby="enfeite-titulo">
+          <h2 id="enfeite-titulo" class="titulo">Enfeites</h2>
+          <p class="destaque"><span class="enorme">{{ pct(st.decorated, st.count) }}</span> <span class="miudo">das fichas têm estampa, rabisco, estrago, mancha ou decoração</span></p>
+          <dl class="pontilhado">
+            @for (k of kit(); track k.id) {
+              <div>
+                <dt>{{ k.label }}</dt>
+                <dd>{{ k.items.length ? k.items[0].label + ' · ' + k.items[0].n : '–' }}</dd>
+              </div>
+            }
+          </dl>
+          <p class="miudo-papel">O mais usado de cada um.</p>
+        </section>
+
+        <section class="peca folha w12" aria-labelledby="cartela-titulo">
+          <h2 id="cartela-titulo" class="titulo">A cartela inteira</h2>
+          <div class="cartela-grupos">
+            @for (k of kit(); track k.id) {
+              <div class="cartela-grupo">
+                <h3 class="rotulo-imp">{{ k.label }}</h3>
+                @if (k.items.length) {
+                  <ul class="chips">
+                    @for (it of k.items; track it.value; let i = $index) {
+                      <li class="chip" [style.--t]="(i % 3) - 1">{{ it.label }} <span class="vezes">×{{ it.n }}</span></li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="linha-vazia">{{ k.none }}</p>
+                }
+              </div>
+            }
+          </div>
+        </section>
+
+        @if (st.dressing.length > 1) {
+          <section class="peca folha w6" aria-labelledby="enfeite-nota-titulo">
+            <h2 id="enfeite-nota-titulo" class="titulo">Enfeite × nota</h2>
+            <p class="sub-folha">{{ mine() ? 'Você enfeita' : player().name + ' enfeita' }} mais as que ama? A média de cada jeito de enfeitar.</p>
+            <ul class="barras-h">
+              @for (d of st.dressing; track d.value) {
+                <li [title]="d.label + ': ' + d.n + ', média ' + avg(d.avg)">
+                  <span class="bh-rotulo">{{ d.label }}</span>
+                  <span class="bh-trilho"><span class="bh-fill tira-rosa" [style.width.%]="(d.avg ?? 0) * 10"></span></span>
+                  <span class="bh-n">{{ avg(d.avg) }}</span>
+                  <span class="bh-media">{{ d.n }}</span>
+                </li>
+              }
+            </ul>
+            <p class="miudo-papel">A tira vai de 0 a 10; ao lado, a média e quantas fichas.</p>
+          </section>
+        }
+
+        <section class="peca milimetrado w6" aria-labelledby="capas-titulo">
+          <h2 id="capas-titulo" class="titulo">De onde vieram as capas</h2>
+          <ul class="barras-h">
+            @for (src of st.covers.sources; track src.value) {
+              <li>
+                <span class="bh-rotulo">{{ src.label }}</span>
+                <span class="bh-trilho"><span class="bh-fill tira-lilas" [style.width.%]="width(src.n, maxSource())"></span></span>
+                <span class="bh-n">{{ src.n }}</span>
+                <span class="bh-media"></span>
+              </li>
+            }
+          </ul>
+          <p class="conclusao">
+            {{ st.covers.missing ? countOf(p, st.covers.missing) + ' sem capa.' : 'Todas com capa.' }}
+          </p>
+        </section>
+      }
+
+      <!-- =============================== CURIOSIDADES =============================== -->
+      @case ('curiosidades') {
+        <section class="peca folha w6" aria-labelledby="franq-titulo">
+          <h2 id="franq-titulo" class="titulo">Franquias</h2>
+          <p class="sub-folha">Nomes que se repetem: a mesma série, sequência ou coleção.</p>
+          @if (st.franchises.length) {
+            <ul class="franquias">
+              @for (f of st.franchises.slice(0, 8); track f.name) {
+                <li>
+                  <span class="capas-monte" aria-hidden="true">
+                    @for (r of f.reviews.slice(0, 4); track r.id; let i = $index) {
+                      <app-cover-sleeve class="monte-capa" size="thumb" [game]="r.game" [decorative]="true" [style.--i]="i" />
+                    }
+                  </span>
+                  <span class="franq-nome">{{ f.name }}</span>
+                  <span class="franq-n">{{ f.reviews.length }} · média {{ avg(f.avg) }}</span>
+                  <span class="franq-lista">
+                    @for (r of f.reviews; track r.id; let last = $last) {
+                      <button type="button" class="nome-link" (click)="open(r)">{{ r.game.name }}</button>{{ last ? '' : ', ' }}
+                    }
+                  </span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="linha-vazia">Nenhum nome se repete por aqui: cada {{ p.singular }} é de uma família.</p>
+          }
+        </section>
+
+        <div class="pilha w6">
+          <section class="peca pauta" aria-labelledby="miudezas-titulo">
+            <h2 id="miudezas-titulo" class="titulo">Miudezas</h2>
+            @if (st.longestName; as l) {
+              <p class="resposta"><span class="quem">Nome mais comprido:</span> <button type="button" class="nome-link" (click)="open(l)">{{ l.game.name }}</button> <span class="miudo">({{ l.game.name.length }} letras)</span></p>
+            }
+            @if (st.shortestName; as sh) {
+              <p class="resposta"><span class="quem">Nome mais curto:</span> <button type="button" class="nome-link" (click)="open(sh)">{{ sh.game.name }}</button></p>
+            }
+            @if (st.createdFirst; as c) {
+              <p class="resposta"><span class="quem">A primeira pregada:</span> <button type="button" class="nome-link" (click)="open(c)">{{ c.game.name }}</button> <span class="miudo">em {{ created(c) }}</span></p>
+            }
+            @if (st.repeated; as r) {
+              <p class="resposta"><span class="quem">Nota preferida:</span> {{ fmt(r.value) }}, dada {{ r.n }} vezes</p>
+            }
+            @if (missingLetters().length && missingLetters().length < 26) {
+              <p class="resposta"><span class="quem">Letras que faltam:</span> {{ missingLetters().join(' ') }}</p>
+            }
+            @for (a of st.authors.slice(0, 1); track a.value) {
+              <p class="resposta"><span class="quem">Quem mais aparece:</span> {{ a.label }} ({{ a.n }}, média {{ avg(a.avg) }})</p>
+            }
+          </section>
+
+          @if (extras(); as x) {
+            <section class="peca folha" aria-labelledby="extras-titulo">
+              <h2 id="extras-titulo" class="titulo">Nos Extras</h2>
+              <dl class="pontilhado">
+                @if (x.daily.played) {
+                  <div><dt>Muraldle: acertos</dt><dd>{{ x.daily.won }} de {{ x.daily.played }}</dd></div>
+                  <div><dt>Muraldle: sequência</dt><dd>{{ x.daily.streak }} (recorde {{ x.daily.best }})</dd></div>
+                }
+                @for (r of x.records; track r.key) {
+                  <div><dt>Maior ou menor: {{ r.label }}</dt><dd>{{ r.n }} seguidas</dd></div>
+                }
+              </dl>
+              @if (x.champion; as c) {
+                <p class="resposta"><span class="quem">Campeã do último mata-mata:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: c, v: fmt(c.scores.final) }" /></p>
+              }
+              @if (!x.daily.played && !x.records.length && !x.champion) {
+                <p class="linha-vazia">Nenhuma partida ainda. Os recordes do <a routerLink="/extras/muraldle">Muraldle</a>, do <a routerLink="/extras/maior-ou-menor">Maior ou menor</a> e a campeã do <a routerLink="/extras/mata-mata">Mata-mata</a> aparecem aqui.</p>
+              }
+            </section>
+          }
+
+          @if (st.authors.length > 1) {
+            <section class="peca folha" aria-labelledby="autores-titulo">
+              <h2 id="autores-titulo" class="titulo">Autores de casa</h2>
+              <dl class="pontilhado">
+                @for (a of st.authors.slice(0, 8); track a.value) {
+                  <div><dt>{{ a.label }}</dt><dd>{{ a.n }} · {{ avg(a.avg) }}</dd></div>
+                }
+              </dl>
+            </section>
+          }
+        </div>
+
+        <section class="peca milimetrado w12" aria-labelledby="letras-titulo">
+          <h2 id="letras-titulo" class="titulo">De A a Z</h2>
+          <p class="sub">A letra com que cada nome começa (sem o artigo do começo; # é número).</p>
+          <app-colunas class="tira-amarelo" [bars]="initialBars()" [unit]="p.plural" [height]="150" [thin]="true" caption="Fichas por letra inicial" />
+        </section>
+
+      }
+    }
+  </div>
+
+  <!-- ===== Virar a página ===== -->
+  <nav class="virar" aria-label="Páginas">
+    @if (prev(); as pr) {
+      <button type="button" class="btn-quiet" (click)="setAba(pr.id, true)">
+        <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        {{ pr.label }}
+      </button>
+    } @else {
+      <span></span>
+    }
+    <span class="virar-num">{{ abaIndex() + 1 }} de {{ abas.length }}</span>
+    @if (next(); as nx) {
+      <button type="button" class="btn-ink" (click)="setAba(nx.id, true)">
+        {{ nx.label }}
+        <lucide-icon [img]="NextIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+      </button>
+    } @else {
+      <span></span>
+    }
+  </nav>
+}
+
+<app-review-reader />
+
+<!-- Uma ficha citada num número: capinha, nome e o valor; abre a ficha -->
+<ng-template #ref let-r let-v="v">
+  <button type="button" class="ref" (click)="open(r)">
+    <app-cover-sleeve class="ref-capa" size="thumb" [game]="r.game" [decorative]="true" />
+    <span class="ref-nome">{{ r.game.name }}</span>
+    @if (v !== undefined && v !== null && v !== '') {
+      <span class="ref-v">{{ v }}</span>
+    }
+  </button>
+</ng-template>

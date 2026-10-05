@@ -33,6 +33,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/higher-lower-page').then((m) => m.HigherLowerPage),
   },
   {
+    path: 'extras/estatisticas',
+    title: 'Estatísticas',
+    loadComponent: () => import('./pages/stats-page').then((m) => m.StatsPage),
+  },
+  {
     path: 'extras/muraldle',
     title: 'Muraldle',
     loadComponent: () => import('./pages/muraldle-page').then((m) => m.MuraldlePage),

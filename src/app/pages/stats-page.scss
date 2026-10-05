@@ -1,0 +1,1039 @@
+/*
+ * Estatísticas: um quadro de cortiça de dossiê. Cada número vem num papel do mundo do mural:
+ * - fichas de cartolina com tachinha para os números grandes;
+ * - folha de bloquinho (pé serrilhado) para listas, recordes e tabelas;
+ * - papel milimetrado preso com fita-crepe para os gráficos;
+ * - folha pautada arrancada do caderno (com os furos) para o que é frase.
+ * As tiras dos gráficos são cartolina recortada; o vermelho é só a caneta de corrigir (a média, o
+ * maior número de cada gráfico).
+ */
+:host {
+  display: block;
+  --papel-mm: #fbfcf6;
+  --mm-forte: rgb(46 128 104 / 0.26);
+  --mm-fraco: rgb(46 128 104 / 0.11);
+  --pauta: rgb(64 110 190 / 0.34);
+  --margem: rgb(230 46 45 / 0.45);
+  --fita: rgb(222 205 160 / 0.9);
+}
+
+.voltar {
+  margin: -6px 0 18px;
+  color: var(--wall-ink);
+}
+
+/* ===== Cabeçalho ===== */
+.topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  margin-bottom: 34px;
+}
+
+.intro {
+  max-width: 64ch;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+/* ===== A régua: de quem, quando e as páginas ===== */
+.estat-prateleira {
+  align-items: flex-end;
+  margin-bottom: 52px;
+}
+
+.grupo {
+  display: grid;
+  gap: 6px;
+}
+
+.giz {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+}
+
+.abas-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.num-aba {
+  margin-right: 2px;
+  font-weight: 600;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* o seletor de ano: o <select> nativo, invisível, cobre a aba inteira */
+.pick {
+  padding-right: 34px;
+  cursor: pointer;
+
+  select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 16px;
+    color-scheme: light;
+    color: var(--ink);
+    background-color: var(--paper);
+  }
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+.chev {
+  position: absolute;
+  right: 11px;
+  top: calc(50% - 8px);
+  display: inline-flex;
+}
+
+/* ===== O quadro: doze colunas, cada papel ocupa as suas ===== */
+.quadro {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-flow: row dense;
+  gap: 48px 34px;
+  align-items: start;
+}
+
+.w4 {
+  grid-column: span 4;
+}
+.w5 {
+  grid-column: span 5;
+}
+.w6 {
+  grid-column: span 6;
+}
+.w7 {
+  grid-column: span 7;
+}
+.w8 {
+  grid-column: span 8;
+}
+.w12 {
+  grid-column: 1 / -1;
+}
+/* uma coluna com dois ou três papéis um embaixo do outro, ao lado de um papel comprido */
+.pilha {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  min-width: 0;
+}
+
+/* cada papel entra no quadro como quem acabou de prender: de leve, um depois do outro */
+.quadro > * {
+  animation: prende var(--t-physical) var(--ease-physical) both;
+}
+@for $i from 1 through 6 {
+  .quadro > :nth-child(#{$i}) {
+    animation-delay: #{($i - 1) * 45}ms;
+  }
+}
+@keyframes prende {
+  from {
+    opacity: 0;
+    translate: 0 -10px;
+  }
+}
+
+/* ===== Os papéis ===== */
+.peca {
+  position: relative;
+  min-width: 0;
+  padding: 26px 28px 30px;
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+  rotate: var(--torto, 0deg);
+}
+
+/* tortos, mas sempre do mesmo jeito */
+.peca:nth-child(4n + 1) {
+  --torto: -0.45deg;
+}
+.peca:nth-child(4n + 2) {
+  --torto: 0.6deg;
+}
+.peca:nth-child(4n + 3) {
+  --torto: -0.25deg;
+}
+.peca:nth-child(4n) {
+  --torto: 0.35deg;
+}
+
+.titulo {
+  margin: 0;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.6rem;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.sub,
+.sub-folha,
+.sub-pauta {
+  margin: 6px 0 14px;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.3;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* --- folha de bloquinho: papel de anotação com o pé serrilhado --- */
+.folha {
+  padding-bottom: 34px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.45));
+
+  /* o serrilhado de onde a folha saiu do bloco, desenhado (uma máscara cortaria a sombra) */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -11px;
+    height: 12px;
+    background: conic-gradient(from -45deg at bottom, #0000, var(--paper) 1deg 89deg, #0000 90deg) 0 0 / 14px 12px repeat-x;
+  }
+
+  > .titulo {
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  > .titulo + :not(.sub-folha) {
+    margin-top: 14px;
+  }
+}
+
+/* --- papel milimetrado, preso com dois pedaços de fita --- */
+.milimetrado {
+  background-color: var(--papel-mm);
+  background-image:
+    linear-gradient(var(--mm-forte) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mm-forte) 1px, transparent 1px),
+    linear-gradient(var(--mm-fraco) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mm-fraco) 1px, transparent 1px);
+  background-size:
+    50px 50px,
+    50px 50px,
+    10px 10px,
+    10px 10px;
+  background-position: -1px -1px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    top: -11px;
+    width: 92px;
+    height: 24px;
+    background: var(--paper-grain), var(--fita);
+    clip-path: polygon(0 10%, 5px 50%, 0 90%, 100% 100%, calc(100% - 5px) 48%, 100% 0);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+    pointer-events: none;
+  }
+
+  &::before {
+    left: 9%;
+    rotate: -4deg;
+  }
+
+  &::after {
+    right: 9%;
+    rotate: 3deg;
+  }
+}
+
+/* --- folha pautada arrancada do caderno: margem vermelha e os furos do fichário --- */
+.pauta {
+  --furo: 20px;
+  --linha: 46px;
+  padding-left: calc(var(--linha) + 20px);
+  background:
+    radial-gradient(circle at var(--furo) 50%, var(--wall) 0 6px, rgb(0 0 0 / 0.25) 6.5px, transparent 7.5px) 0 14px / 40px 64px repeat-y,
+    linear-gradient(90deg, transparent var(--linha), var(--margem) var(--linha) calc(var(--linha) + 1.5px), transparent 0),
+    linear-gradient(rgb(251 250 243 / 0.6), rgb(251 250 243 / 0.6)),
+    var(--paper-grain),
+    #fbfaf3;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+
+  > .titulo {
+    padding-bottom: 6px;
+    border-bottom: 1.5px solid var(--pauta);
+  }
+}
+
+.resposta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 40px;
+  margin: 0;
+  padding: 6px 0 4px;
+  border-bottom: 1.5px solid var(--pauta);
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  line-height: 1.35;
+}
+
+.quem {
+  font-weight: 700;
+}
+
+.perfil {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 7px 0 5px;
+    border-bottom: 1.5px solid var(--pauta);
+    font-family: var(--f-hand);
+    font-size: 1.16rem;
+    line-height: 1.4;
+    text-wrap: pretty;
+
+    &::before {
+      content: '— ';
+      color: var(--red);
+    }
+  }
+}
+
+.linha-vazia {
+  margin: 10px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.06rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.conclusao {
+  margin: 16px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+
+  strong {
+    font-weight: 700;
+  }
+}
+
+.miudo,
+.miudo-papel {
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  color: var(--ink-2);
+}
+
+.miudo-papel {
+  margin: 10px 0 0;
+}
+
+.rotulo-imp {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.grande {
+  font-family: var(--f-marker);
+  font-size: 2.1rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.enorme {
+  font-family: var(--f-marker);
+  font-size: 3.6rem;
+  line-height: 0.95;
+  color: var(--red-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.destaque {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 16px 0 12px;
+}
+
+/* ===== Uma ficha citada: capinha, nome e o valor ===== */
+.ref {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+}
+
+.resposta .ref {
+  width: auto;
+  flex: 1 1 220px;
+}
+
+.ref-capa {
+  rotate: -2deg;
+}
+
+.ref-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.04rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.ref-v {
+  font-family: var(--f-marker);
+  font-size: 1.15rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.nome-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-color: var(--red);
+  }
+}
+
+/* ===== Recordes: rótulo impresso e a ficha embaixo ===== */
+.recordes {
+  display: grid;
+  gap: 2px;
+  margin: 14px 0 0;
+
+  > div {
+    padding: 6px 0;
+    border-bottom: 1.5px dashed rgb(21 21 21 / 0.22);
+  }
+
+  dt {
+    padding-left: 6px;
+    font-family: var(--f-label);
+    font-weight: 700;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  dd {
+    margin: 2px 0 0;
+  }
+}
+
+.recordes-lado {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  column-gap: 26px;
+}
+
+/* ===== Linhas pontilhadas: nome ........ número ===== */
+.pontilhado {
+  display: grid;
+  gap: 7px;
+  margin: 16px 0 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  div {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  div::after {
+    content: '';
+    order: 1;
+    flex: 1;
+    min-width: 12px;
+    border-bottom: 2px dotted rgb(21 21 21 / 0.35);
+    translate: 0 -4px;
+  }
+
+  dt {
+    order: 0;
+    min-width: 0;
+  }
+
+  dd {
+    order: 2;
+    margin: 0;
+    text-align: right;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.colunas-dl {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  column-gap: 30px;
+}
+
+.nota-folha {
+  margin: 14px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.4;
+}
+
+.precisao {
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.25);
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  line-height: 1.4;
+
+  .rotulo-imp {
+    margin-right: 6px;
+  }
+}
+
+/* ===== Na fila / números em fileira na folha pautada ===== */
+.fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 6px 30px;
+  margin-top: 6px;
+}
+
+.fila-item {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 0 8px;
+  border-bottom: 1.5px solid var(--pauta);
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.3;
+
+  .mais {
+    color: var(--ink);
+  }
+  .menos {
+    margin-left: 0.3em;
+    color: var(--red-deep);
+  }
+}
+
+/* ===== Barras deitadas: rótulo, trilho, quantas, média ===== */
+.barras-h {
+  display: grid;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(84px, 9rem) minmax(0, 1fr) 2.4rem 2.6rem;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
+    padding: 4px 0;
+    border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+  }
+}
+
+.bonus-lista li {
+  grid-template-columns: minmax(0, 15rem) minmax(40px, 1fr) 2rem 2.6rem;
+}
+
+.bh-rotulo {
+  min-width: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+
+  &.caveiras {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+.bh-trilho {
+  display: block;
+  height: 20px;
+}
+
+.bh-fill {
+  --tira: var(--stock-azul);
+  display: block;
+  height: 100%;
+  background-color: var(--tira);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  border: 1.5px solid var(--ink);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  transform-origin: left;
+  animation: estica 520ms var(--ease-physical) both;
+}
+
+@keyframes estica {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.cores .bh-fill {
+  height: 26px;
+  margin-top: -3px;
+}
+
+.bh-n {
+  font-family: var(--f-marker);
+  font-size: 1.2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bh-media {
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  color: var(--ink-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* as cores das tiras: cartolina, uma cor por gráfico (é o material, não um dado) */
+.tira-rosa {
+  --tira: var(--stock-rosa);
+}
+.tira-amarelo {
+  --tira: var(--stock-amarelo);
+}
+.tira-verde {
+  --tira: var(--stock-verde);
+}
+.tira-azul {
+  --tira: var(--stock-azul);
+}
+.tira-laranja {
+  --tira: var(--stock-laranja);
+}
+.tira-lilas {
+  --tira: var(--stock-lilas);
+}
+.tira-cinza {
+  --tira: var(--stock-cinza);
+}
+.tira-vermelho {
+  --tira: var(--stock-vermelho);
+}
+
+/* ===== Tabelas impressas (status, vereditos) ===== */
+.tabela {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.02rem;
+  font-variant-numeric: tabular-nums;
+
+  thead th {
+    padding: 0 8px 6px;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-align: right;
+  }
+
+  tbody th {
+    padding: 8px 8px 8px 0;
+    text-align: left;
+    font-weight: 800;
+  }
+
+  td {
+    padding: 8px;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.22);
+  }
+
+  .num-caneta {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.25rem;
+  }
+
+  .faixa {
+    font-family: var(--f-hand);
+    font-weight: 400;
+    color: var(--ink-2);
+  }
+
+  /* o veredito mais carimbado leva o círculo de correção na contagem */
+  .lider td:nth-child(2) {
+    color: var(--red-deep);
+  }
+}
+
+.vereditos td:nth-child(2) {
+  text-align: left;
+}
+
+.faixa-status {
+  display: flex;
+  gap: 2px;
+  height: 18px;
+  margin-bottom: 4px;
+  padding: 2px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+}
+
+.fs-platinado {
+  background: linear-gradient(90deg, #f3c9ff, #bfe9ff, #c9f7cf, #fff0b8, #ffd0e6);
+}
+.fs-finalizado {
+  background: #10a64a;
+}
+.fs-incompleto {
+  background: repeating-linear-gradient(45deg, #ff8a1f 0 4px, #151515 4px 8px);
+}
+
+/* ===== Incoerências ===== */
+.incoer {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 7px 0 5px;
+    border-bottom: 1.5px solid var(--pauta);
+    font-family: var(--f-hand);
+    font-size: 1.06rem;
+    line-height: 1.35;
+  }
+}
+
+.caneta {
+  font-family: var(--f-marker);
+  color: var(--red-deep);
+}
+
+.depois {
+  margin-left: 0.35em;
+}
+
+.peca a {
+  color: inherit;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.partes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 12px 0 0;
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+}
+
+/* ===== Cartela inteira de enfeites ===== */
+.cartela-grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px 30px;
+  margin-top: 16px;
+}
+
+.cartela-grupo h3 {
+  margin: 0 0 8px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 4px 9px 3px;
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  background: #fff;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  rotate: calc(var(--t, 0) * 1.4deg);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.2));
+
+  .vezes {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+}
+
+/* ===== Franquias: as capas empilhadas ===== */
+.franquias {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: 14px;
+    padding: 12px 0 10px;
+    border-bottom: 1.5px dashed rgb(21 21 21 / 0.22);
+  }
+}
+
+.capas-monte {
+  grid-row: 1 / span 3;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.monte-capa {
+  width: 40px;
+  flex: none;
+  margin-right: -22px;
+  rotate: calc((var(--i) - 1.5) * 5deg);
+}
+
+.franq-nome {
+  font-family: var(--f-marker);
+  font-size: 1.3rem;
+  line-height: 1.05;
+}
+
+.franq-n {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.franq-lista {
+  margin-top: 4px;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+/* ===== Virar a página ===== */
+.virar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  color: var(--wall-ink);
+}
+
+.virar-num {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+}
+
+/* ===== Sem fichas ===== */
+.solo {
+  max-width: 520px;
+  rotate: -0.8deg;
+
+  .vazio-txt {
+    margin: 16px 0 20px;
+    font-family: var(--f-hand);
+    font-size: 1.2rem;
+    line-height: 1.45;
+    max-width: 40ch;
+  }
+}
+
+/* ===== Telas menores ===== */
+@media (max-width: 1180px) {
+  .w4,
+  .w5 {
+    grid-column: span 6;
+  }
+
+  .w7,
+  .w8 {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  /* uma coluna só: doze colunas com o vão entre elas não cabem num celular */
+  .quadro {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .quadro > * {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .estat-prateleira {
+    margin-bottom: 42px;
+  }
+
+  .paginas {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: calc(100% + 12px);
+    margin-inline: -6px;
+    padding: 6px 6px 0;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+@media (max-width: 560px) {
+  .peca {
+    padding: 22px 16px 26px;
+    --torto: 0deg !important;
+  }
+
+  .pauta {
+    --furo: 15px;
+    --linha: 34px;
+  }
+
+  .titulo {
+    font-size: 1.4rem;
+  }
+
+  .barras-h li {
+    grid-template-columns: minmax(70px, 6.5rem) minmax(0, 1fr) 2rem 2.4rem;
+    gap: 8px;
+  }
+
+  .bonus-lista li {
+    grid-template-columns: minmax(0, 1fr) 2rem 2.4rem;
+
+    .bh-trilho {
+      display: none;
+    }
+  }
+
+  .virar .btn-ink {
+    padding-inline: 14px;
+  }
+
+  .virar-num {
+    display: none;
+  }
+
+  .tabela {
+    font-size: 0.95rem;
+
+    td {
+      padding: 8px 4px;
+    }
+  }
+
+  /* no celular, a faixa de cada veredito sai: a média já conta a história */
+  .vereditos .faixa,
+  .vereditos thead th:last-child {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quadro > *,
+  .bh-fill {
+    animation: none;
+  }
+}

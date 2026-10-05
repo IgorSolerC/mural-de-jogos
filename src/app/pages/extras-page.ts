@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowUpDown, ChartNoAxesColumn, LucideAngularModule, LucideIconData, Puzzle, Swords, Users } from 'lucide-angular';
+import { ArrowUpDown, ChartNoAxesColumn, ChartPie, LucideAngularModule, LucideIconData, Puzzle, Swords, Users } from 'lucide-angular';
 import { Mural } from '../core/mural';
 import { Pin } from '../ui/pin';
 
@@ -23,7 +23,7 @@ interface Shelf {
 
 /**
  * O que mora em Extras, em duas prateleiras: os números do mural (Ranking e Comparar, que já eram
- * abas) e os jogos. Cada jogo novo (os quizzes) entra na segunda e joga com o mural escolhido em
+ * abas, e as Estatísticas) e os jogos. Cada jogo novo (os quizzes) entra na segunda e joga com o mural escolhido em
  * `Players`, o seu ou o de um colega.
  */
 const SHELVES: Shelf[] = [
@@ -48,6 +48,15 @@ const SHELVES: Shelf[] = [
         stock: 'var(--stock-verde)',
         pin: '#ffd23f',
         go: 'Abrir',
+      },
+      {
+        path: '/extras/estatisticas',
+        name: 'Estatísticas',
+        blurb: 'Tudo o que o mural conta sobre você: notas, manias, recordes, a folhinha do ano e muito gráfico de papel.',
+        icon: ChartPie,
+        stock: 'var(--stock-laranja)',
+        pin: '#2f6bff',
+        go: 'Ver',
       },
     ],
   },
