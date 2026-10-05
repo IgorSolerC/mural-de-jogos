@@ -26,6 +26,8 @@ const FROZEN_FILTERS: Record<string, string> = {
   'papel-poeira': '12bc1uz.722',
   'papel-lama': '4n2khj.626',
   'papel-mofo': 'motce7.405',
+  // 2026-09-30, a teia do cybertribal (funde os traços que se cruzam)
+  'papel-teia': 'hvbzy5.300',
 };
 
 describe('os filtros do papel', () => {
