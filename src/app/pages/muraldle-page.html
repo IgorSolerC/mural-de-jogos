@@ -123,7 +123,7 @@
       </button>
     </section>
 
-    <!-- ===== Dicas: uma a cada 5 erros, abertas na ordem ===== -->
+    <!-- ===== Dicas: uma a cada 3 erros, abertas na ordem ===== -->
     <section class="dicas" aria-labelledby="dicas-titulo">
       <div class="dicas-topo">
         <h2 id="dicas-titulo" class="rotulo-parede">Dicas {{ opened() }}/{{ hints.length }}</h2>
@@ -143,18 +143,37 @@
       </div>
 
       @if (opened() > 0 && secret(); as s) {
-        <div class="dicas-mesa" aria-live="polite">
-          <!-- a capa: preto e branco e borrada (1), com cor (3), sem borrão (7) -->
-          <figure class="dica-capa" [class.cinza]="opened() < 3" [class.borrada]="opened() < 7">
-            @if (s.game.coverUrl) {
-              <app-cover-sleeve [game]="s.game" [decorative]="true" />
-            } @else {
-              <p class="sem-capa">Essa ficha não tem capa.</p>
-            }
-            <figcaption class="sr-only">A capa da ficha secreta{{ opened() < 7 ? ', borrada' : '' }}</figcaption>
-          </figure>
+        <div class="dicas-mesa" [class.so-cartolina]="opened() >= 4" aria-live="polite">
+          @if (opened() >= 4) {
+            <!-- da cartolina em diante, a capa e a resenha aparecem dentro dela, nos lugares de sempre -->
+            <div class="dica-cartolina">
+              <span class="bilhete-rotulo">A cartolina</span>
+              <app-review-card
+                [review]="bareSecret()!"
+                [preview]="true"
+                [masked]="true"
+                [bare]="true"
+                [bareCover]="s.game.coverUrl ? coverLook() : null"
+                [bareText]="words().text ? '' + words().text + (words().cut ? '…' : '') : ''"
+              />
+              @if (!s.game.coverUrl) {
+                <p class="nota-parede">Essa ficha não tem capa.</p>
+              }
+              @if (!words().text) {
+                <p class="nota-parede">A resenha não tem texto.</p>
+              }
+            </div>
+          } @else {
+            <!-- a capa: preto e branco e borrada (1), com cor (5), sem borrão (7) -->
+            <figure class="dica-capa" [class.cinza]="opened() < 5" [class.borrada]="opened() < 7">
+              @if (s.game.coverUrl) {
+                <app-cover-sleeve [game]="s.game" [decorative]="true" />
+              } @else {
+                <p class="sem-capa">Essa ficha não tem capa.</p>
+              }
+              <figcaption class="sr-only">A capa da ficha secreta, borrada</figcaption>
+            </figure>
 
-          <div class="dica-texto">
             @if (opened() >= 2) {
               <div class="bilhete">
                 <span class="bilhete-rotulo">A resenha</span>
@@ -165,13 +184,7 @@
                 }
               </div>
             }
-            @if (opened() >= 5) {
-              <div class="dica-cartolina">
-                <span class="bilhete-rotulo">A cartolina</span>
-                <app-review-card [review]="s" [preview]="true" [masked]="true" [bare]="true" />
-              </div>
-            }
-          </div>
+          }
         </div>
       }
     </section>

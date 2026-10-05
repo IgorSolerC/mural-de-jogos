@@ -84,6 +84,7 @@ function watchDistance(el: HTMLElement): () => void {
     '[style.view-transition-name]': 'preview() ? null : "ficha-" + review().id',
     '[class.vazia]': 'empty()',
     '[class.so-cartolina]': 'bare()',
+    '[attr.data-capa]': 'bare() ? bareCover() : null',
     // o papel escolhido (textura) e, quando falta um pedaço, o papel recortado desenhado nas marcas
     '[style]': 'paperVars()',
     '[class.recortada]': 'cut()',
@@ -110,8 +111,11 @@ function watchDistance(el: HTMLElement): () => void {
       </div>
 
       <div class="words">
-        <h4 class="title" data-queima>{{ empty() ? emptyName() : review().game.name }}</h4>
-        @if (!capas()) {
+        <h4 class="title" data-queima>{{ empty() || bare() ? emptyName() : review().game.name }}</h4>
+        @if (bare()) {
+          <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
+          <p class="meta molde" data-queima>{{ bareMeta() }}</p>
+        } @else if (!capas()) {
         <p class="meta" data-queima>
           @if (review().completedAt; as day) {
             <time [attr.datetime]="day">{{ date() }}</time>
@@ -143,7 +147,7 @@ function watchDistance(el: HTMLElement): () => void {
 
     @if (!compact() && !capas()) {
       @if (lead(); as line) {
-        @if (masked()) {
+        @if (masked() && !bare()) {
           <p class="lead" data-queima>“<app-rabisco [text]="line" />”<span class="sr-only">Texto escondido</span></p>
         } @else {
           <p class="lead" data-queima>“{{ line }}”</p>
@@ -185,7 +189,7 @@ function watchDistance(el: HTMLElement): () => void {
         (click)="toggled.emit(review().id)"
       ></button>
     } @else {
-      <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha, sem o que está escrito nela' : spoken()" (click)="opened.emit(review().id)"></button>
+      <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
     }
     </div>
   `,
@@ -233,11 +237,27 @@ function watchDistance(el: HTMLElement): () => void {
     }
     /* Só a cartolina (a dica do Muraldle): o papel, a estampa, o rabisco, o estrago, a mancha e a
        decoração ficam; a capa, o nome, as notas, o texto e os bônus somem sem mudar o tamanho */
-    :host(.so-cartolina) .head,
-    :host(.so-cartolina) .lead,
+    :host(.so-cartolina) .faixa,
     :host(.so-cartolina) .bonus,
     :host(.so-cartolina) .boletim {
       visibility: hidden;
+    }
+    /* a etiqueta de nota e veredito fica, sempre no modo secreto ("?" e "Segredo": a ficha vem com masked) */
+    /* a capa só aparece quando a dica diz como: em preto e branco e borrada, borrada, ou nítida */
+    :host(.so-cartolina:not([data-capa])) .cover {
+      visibility: hidden;
+    }
+    :host(.so-cartolina) .cover .box {
+      overflow: hidden;
+    }
+    :host(.so-cartolina) .cover app-cover-sleeve {
+      transition: filter var(--t-physical) var(--ease-physical);
+    }
+    :host([data-capa='cinza']) .cover app-cover-sleeve {
+      filter: blur(6px) grayscale(1);
+    }
+    :host([data-capa='borrada']) .cover app-cover-sleeve {
+      filter: blur(6px);
     }
     /* As camadas do papel saem de vez (são absolutas: a ficha não muda de tamanho). Só esconder não
        bastava: o Chrome pinta mesmo assim o relevo do papel amassado (um filtro que gera a textura
@@ -371,7 +391,9 @@ function watchDistance(el: HTMLElement): () => void {
       /* a tachinha fura o papel acima do nome, sem encostar nele */
       padding-top: 10px;
     }
-    :host(.vazia) .title {
+    :host(.vazia) .title,
+    :host(.so-cartolina) .title,
+    :host(.so-cartolina) .meta.molde {
       opacity: 0.4;
     }
     .title {
@@ -708,6 +730,10 @@ export class ReviewCard {
   readonly masked = input(false);
   /** Só a cartolina, sem nada escrito: a dica do Muraldle. */
   readonly bare = input(false);
+  /** Só a cartolina: como a capa aparece (null, escondida). */
+  readonly bareCover = input<'cinza' | 'borrada' | 'nitida' | null>(null);
+  /** Só a cartolina: o pedaço da resenha que já pode aparecer, no lugar da frase. */
+  readonly bareText = input('');
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
@@ -719,6 +745,13 @@ export class ReviewCard {
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().stain) || decorCuts(this.review().decor));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() => `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`);
+  /** Só a cartolina: "Data · Horas · Dificuldade", com as partes que o mural tem. */
+  protected readonly bareMeta = computed(() => {
+    const p = this.profile();
+    return ['Data', p.amount ? (p.amount.unit === 'horas' ? 'Horas' : 'Páginas') : null, p.difficulty ? 'Dificuldade' : null]
+      .filter(Boolean)
+      .join(' · ');
+  });
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   protected readonly date = computed(() => {
@@ -727,6 +760,7 @@ export class ReviewCard {
   });
   protected readonly hours = computed(() => formatAmount(this.review().kind, this.review().hoursPlayed));
   protected readonly lead = computed(() => {
+    if (this.bare()) return this.bareText();
     const line = leadSentence(this.review().text);
     return line && this.masked() ? scramble(line, this.review().id) : line;
   });

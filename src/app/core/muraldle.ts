@@ -177,16 +177,16 @@ export function shareText(title: string, rows: readonly Cell[][], won: boolean):
 
 /**
  * As dicas, uma a cada `HINT_EVERY` chutes errados, na ordem: a capa borrada em preto e branco, as
- * 3 primeiras palavras da resenha, a cor na capa (ainda borrada), mais 3 palavras, a cartolina da
- * ficha (só o papel e a decoração), o texto inteiro e a capa sem o borrão.
+ * 3 primeiras palavras da resenha, mais 3 palavras, a cartolina da ficha (só o papel e a decoração),
+ * a cor na capa (ainda borrada), o texto inteiro e a capa sem o borrão.
  */
-export const HINT_EVERY = 5;
+export const HINT_EVERY = 3;
 export const HINTS = [
   'A capa, borrada e em preto e branco',
   'As 3 primeiras palavras da resenha',
-  'A cor da capa (ainda borrada)',
   'Mais 3 palavras da resenha',
   'A cartolina da ficha',
+  'A cor da capa (ainda borrada)',
   'O texto inteiro da resenha',
   'A capa sem o borrão',
 ] as const;
@@ -198,7 +198,7 @@ export function hintsUnlocked(misses: number): number {
 
 /** Quantas palavras da resenha cada dica aberta mostra (Infinity: o texto inteiro). */
 export function wordsShown(opened: number): number {
-  return opened >= 6 ? Infinity : opened >= 4 ? 6 : opened >= 2 ? 3 : 0;
+  return opened >= 6 ? Infinity : opened >= 3 ? 6 : opened >= 2 ? 3 : 0;
 }
 
 /**

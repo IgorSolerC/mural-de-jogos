@@ -263,8 +263,19 @@ app-cover-sleeve.thumb {
   opacity: 0.7;
 }
 
+.dicas-mesa.so-cartolina {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.nota-parede {
+  margin-top: 12px;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1rem;
+}
+
 .dica-cartolina {
-  width: min(100%, 380px);
+  width: min(100%, 420px);
 
   .bilhete-rotulo {
     color: var(--wall-ink);

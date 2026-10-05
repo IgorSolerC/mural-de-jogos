@@ -72,11 +72,13 @@ describe('Muraldle', () => {
     expect(dailySecret(pool, '2026-10-05', 'jogos|eu', avoid)!.id).toBe('rcccc1');
   });
 
-  it('as dicas: uma a cada 5 erros, até 7', () => {
+  it('as dicas: uma a cada 3 erros, até 7', () => {
     expect(HINTS.length).toBe(7);
-    expect([0, 4, 5, 9, 10, 34, 35, 99].map(hintsUnlocked)).toEqual([0, 0, 1, 1, 2, 6, 7, 7]);
-    // a 2ª dica mostra 3 palavras, a 4ª mais 3, a 6ª o texto inteiro
-    expect([0, 1, 2, 3, 4, 5, 6, 7].map(wordsShown)).toEqual([0, 0, 3, 3, 6, 6, Infinity, Infinity]);
+    expect([0, 2, 3, 5, 6, 20, 21, 99].map(hintsUnlocked)).toEqual([0, 0, 1, 1, 2, 6, 7, 7]);
+    // a 2ª dica mostra 3 palavras, a 3ª mais 3, a 6ª o texto inteiro
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map(wordsShown)).toEqual([0, 0, 3, 6, 6, 6, Infinity, Infinity]);
+    expect(HINTS[3]).toBe('A cartolina da ficha');
+    expect(HINTS[4]).toBe('A cor da capa (ainda borrada)');
   });
 
   it('as palavras da resenha, com o nome da secreta tapado', () => {

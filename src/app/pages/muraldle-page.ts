@@ -96,7 +96,7 @@ export class MuraldlePage {
   protected readonly done = computed(() => this.game()?.done ?? null);
 
   // ===== dicas =====
-  /** Quantas dicas os erros já liberaram (uma a cada 5) e quantas a pessoa abriu. */
+  /** Quantas dicas os erros já liberaram (uma a cada 3) e quantas a pessoa abriu. */
   protected readonly unlocked = computed(() => hintsUnlocked(this.misses()));
   protected readonly opened = signal(0);
   /** Quantos erros faltam para a próxima dica. */
@@ -107,6 +107,16 @@ export class MuraldlePage {
     const s = this.secret();
     return s ? revealedWords(s, wordsShown(this.opened())) : { text: '', cut: false };
   });
+
+  /** A secreta para a cartolina da dica: sem o nome (a capa vazia mostraria a inicial). */
+  protected readonly bareSecret = computed(() => {
+    const s = this.secret();
+    return s ? { ...s, game: { ...s.game, name: '' } } : null;
+  });
+  /** Como a capa aparece: preto e branco e borrada até a dica 5, borrada até a 7, depois nítida. */
+  protected readonly coverLook = computed<'cinza' | 'borrada' | 'nitida'>(() =>
+    this.opened() < 5 ? 'cinza' : this.opened() < 7 ? 'borrada' : 'nitida',
+  );
 
   protected openHint(): void {
     if (this.opened() < this.unlocked()) this.opened.update((n) => n + 1);
