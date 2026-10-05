@@ -210,6 +210,7 @@ function watchDistance(el: HTMLElement): () => void {
         rotate var(--t-physical) var(--ease-physical),
         translate var(--t-physical) var(--ease-physical),
         box-shadow var(--t-ui) var(--ease-ui),
+        filter var(--t-ui) var(--ease-ui),
         --luz 600ms var(--ease-physical);
     }
 
@@ -273,17 +274,20 @@ function watchDistance(el: HTMLElement): () => void {
     /* Faltou um pedaço: a sombra segue o recorte em vez de ser uma caixa */
     :host(.recortada) {
       --land-shadow: none;
-      --sombra-papel: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 9px 9px rgb(0 0 0 / 0.42));
+      /* as mesmas três camadas da --shadow-card (beirada, sombra perto e sombra longe), sem o espalhamento que o drop-shadow não tem */
+      --sombra-papel: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.5)) drop-shadow(0 18px 22px rgb(0 0 0 / 0.4));
     }
     :host(.recortada),
     :host(.recortada:hover),
     :host(.recortada:focus-within),
     :host(.recortada:active) {
       box-shadow: none;
+      /* na ficha inteira, e não no papel: o filtro vem antes da máscara, e a máscara do papel cortaria a sombra */
+      filter: var(--sombra-papel);
     }
     :host(.recortada:hover),
     :host(.recortada:focus-within) {
-      --sombra-papel: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 18px 16px rgb(0 0 0 / 0.46));
+      --sombra-papel: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 16px 16px rgb(0 0 0 / 0.5)) drop-shadow(0 32px 32px rgb(0 0 0 / 0.45));
     }
 
     /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede */
