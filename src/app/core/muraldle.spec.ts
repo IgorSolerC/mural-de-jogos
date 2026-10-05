@@ -1,5 +1,5 @@
 import { finishDay, loadStats } from './muraldle-save';
-import { columnsFor, compare, dailySecret, previousDay, sentenceHint, shareText } from './muraldle';
+import { HINTS, columnsFor, compare, dailySecret, hintsUnlocked, previousDay, revealedWords, shareText, wordsShown } from './muraldle';
 import { Review, sanitizeReview } from './review';
 
 function review(id: string, extra: Record<string, unknown> = {}): Review {
@@ -26,8 +26,8 @@ const markOf = (cells: ReturnType<typeof compare>, key: string) => cells.find((c
 
 describe('Muraldle', () => {
   it('as colunas seguem o mural', () => {
-    expect(columnsFor('jogos').map((c) => c.key)).toEqual(['media', 'status', 'veredito', 'dificuldade', 'ano', 'quantidade', 'bonus', 'cartolina']);
-    expect(columnsFor('filmes').map((c) => c.key)).toEqual(['media', 'status', 'veredito', 'ano', 'bonus', 'cartolina']);
+    expect(columnsFor('jogos').map((c) => c.key)).toEqual(['media', 'status', 'veredito', 'dificuldade', 'ano', 'quantidade', 'positivos', 'negativos', 'cartolina']);
+    expect(columnsFor('filmes').map((c) => c.key)).toEqual(['media', 'status', 'veredito', 'ano', 'positivos', 'negativos', 'cartolina']);
     expect(columnsFor('livros').find((c) => c.key === 'quantidade')!.label).toBe('Páginas');
   });
 
@@ -49,16 +49,17 @@ describe('Muraldle', () => {
     expect(markOf(far, 'ano')).toEqual(jasmine.objectContaining({ mark: 'desconhecido', text: 'Sem data' }));
   });
 
-  it('adesivos e cartolina: um em comum ou o mesmo tom é perto', () => {
-    const trilha = { id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' };
-    const bugs = { id: 'bugs', label: 'Muitos bugs', kind: 'contra' };
-    const secret = review('raaaa1', { bonuses: [trilha, bugs], stock: 'azul' });
-    const one = compare(review('rbbbb1', { bonuses: [trilha], stock: 'azul-escuro' }), secret);
-    expect(markOf(one, 'bonus')).toEqual(jasmine.objectContaining({ mark: 'perto', text: '+1' }));
+  it('bônus positivos e negativos contam a quantidade; cartolina no mesmo tom é perto', () => {
+    const bonus = (id: string, kind: string) => ({ id, label: id, kind });
+    const secret = review('raaaa1', { bonuses: [bonus('trilha-sonora', 'favor'), bonus('u-arte', 'favor'), bonus('u-bugs', 'contra')], stock: 'azul' });
+    const one = compare(review('rbbbb1', { bonuses: [bonus('u-arte', 'favor')], stock: 'azul-escuro' }), secret);
+    expect(markOf(one, 'positivos')).toEqual(jasmine.objectContaining({ mark: 'perto', text: '1', arrow: 'up' }));
+    expect(markOf(one, 'negativos')).toEqual(jasmine.objectContaining({ mark: 'perto', text: '0', arrow: 'up' }));
     expect(markOf(one, 'cartolina').mark).toBe('perto');
-    const none = compare(review('rcccc1', { stock: 'rosa' }), secret);
-    expect(markOf(none, 'bonus')).toEqual(jasmine.objectContaining({ mark: 'errado', text: 'Nenhum' }));
-    expect(markOf(none, 'cartolina').mark).toBe('errado');
+    const many = compare(review('rcccc1', { bonuses: [1, 2, 3, 4].map((n) => bonus(`u-b${n}`, 'contra')), stock: 'rosa' }), secret);
+    expect(markOf(many, 'positivos')).toEqual(jasmine.objectContaining({ mark: 'errado', text: '0', arrow: 'up' }));
+    expect(markOf(many, 'negativos')).toEqual(jasmine.objectContaining({ mark: 'errado', text: '4', arrow: 'down' }));
+    expect(markOf(many, 'cartolina').mark).toBe('errado');
   });
 
   it('a ficha do dia é a mesma no mesmo dia, muda com o dia e evita as recentes', () => {
@@ -71,9 +72,19 @@ describe('Muraldle', () => {
     expect(dailySecret(pool, '2026-10-05', 'jogos|eu', avoid)!.id).toBe('rcccc1');
   });
 
-  it('a pista da frase tapa o nome da secreta', () => {
-    const s = review('raaaa1', { game: { name: 'Hades', coverUrl: null, source: 'manual' }, text: 'Hades é o melhor roguelike. Depois explico.' });
-    expect(sentenceHint(s)).toBe('▒▒▒▒ é o melhor roguelike. Depois explico.');
+  it('as dicas: uma a cada 5 erros, até 7', () => {
+    expect(HINTS.length).toBe(7);
+    expect([0, 4, 5, 9, 10, 34, 35, 99].map(hintsUnlocked)).toEqual([0, 0, 1, 1, 2, 6, 7, 7]);
+    // a 2ª dica mostra 3 palavras, a 4ª mais 3, a 6ª o texto inteiro
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map(wordsShown)).toEqual([0, 0, 3, 3, 6, 6, Infinity, Infinity]);
+  });
+
+  it('as palavras da resenha, com o nome da secreta tapado', () => {
+    const s = review('raaaa1', { game: { name: 'Hades', coverUrl: null, source: 'manual' }, text: 'Hades é o melhor roguelike que joguei. Hades vicia.' });
+    expect(revealedWords(s, 3)).toEqual({ text: '▒▒▒▒ é o', cut: true });
+    expect(revealedWords(s, 6)).toEqual({ text: '▒▒▒▒ é o melhor roguelike que', cut: true });
+    expect(revealedWords(s, Infinity)).toEqual({ text: '▒▒▒▒ é o melhor roguelike que joguei. ▒▒▒▒ vicia.', cut: false });
+    expect(revealedWords(review('rbbbb1'), 3).text).toBe('');
   });
 
   it('o texto de compartilhar só tem quadradinhos', () => {
@@ -82,7 +93,7 @@ describe('Muraldle', () => {
     const text = shareText('Muraldle', rows, true);
     expect(text).toContain('Acertei em 2 tentativas');
     expect(text).not.toContain('Jogo');
-    expect(text.split('\n').at(-1)).toBe('🟩🟩🟩🟩🟩🟩🟩🟩');
+    expect(text.split('\n').at(-1)).toBe('🟩🟩🟩🟩🟩🟩🟩🟩🟩');
   });
 
   it('a sequência de dias', () => {

@@ -83,6 +83,7 @@ function watchDistance(el: HTMLElement): () => void {
     // a prévia no editor não disputa o nome com a ficha de verdade que está no mural
     '[style.view-transition-name]': 'preview() ? null : "ficha-" + review().id',
     '[class.vazia]': 'empty()',
+    '[class.so-cartolina]': 'bare()',
     // o papel escolhido (textura) e, quando falta um pedaço, o papel recortado desenhado nas marcas
     '[style]': 'paperVars()',
     '[class.recortada]': 'cut()',
@@ -184,7 +185,7 @@ function watchDistance(el: HTMLElement): () => void {
         (click)="toggled.emit(review().id)"
       ></button>
     } @else {
-      <button type="button" class="hit" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)"></button>
+      <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha, sem o que está escrito nela' : spoken()" (click)="opened.emit(review().id)"></button>
     }
     </div>
   `,
@@ -228,6 +229,14 @@ function watchDistance(el: HTMLElement): () => void {
        parede, como as vagas do mural vazio. A ficha escondida não é pintada nem
        rasterizada, e não recebe clique. */
     :host([data-veu]) .corpo {
+      visibility: hidden;
+    }
+    /* Só a cartolina (a dica do Muraldle): o papel, a estampa, o rabisco, o estrago, a mancha e a
+       decoração ficam; a capa, o nome, as notas, o texto e os bônus somem sem mudar o tamanho */
+    :host(.so-cartolina) .head,
+    :host(.so-cartolina) .lead,
+    :host(.so-cartolina) .bonus,
+    :host(.so-cartolina) .boletim {
       visibility: hidden;
     }
     /* As camadas do papel saem de vez (são absolutas: a ficha não muda de tamanho). Só esconder não
@@ -697,6 +706,8 @@ export class ReviewCard {
   readonly empty = input(false);
   /** Sem spoilers (ver Settings.noSpoilers): notas em "?", bônus meio a meio e o texto embaralhado. */
   readonly masked = input(false);
+  /** Só a cartolina, sem nada escrito: a dica do Muraldle. */
+  readonly bare = input(false);
   readonly opened = output<string>();
   readonly toggled = output<string>();
 

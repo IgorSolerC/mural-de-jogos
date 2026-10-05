@@ -8,7 +8,6 @@ import {
   VERDICT_LABEL,
   formatAmount,
   formatScore,
-  leadSentence,
   localDay,
   shownFinal,
 } from './review';
@@ -18,8 +17,8 @@ import {
  * cada chute (outra ficha do mesmo mural) aparece uma fileira de quadradinhos comparando os dois:
  *
  * - **certo** (verde): igual ao da secreta;
- * - **perto** (amarelo): quase (meio ponto de média, um ano, um nível de dificuldade, um adesivo em
- *   comum, a mesma cor de cartolina noutro tom);
+ * - **perto** (amarelo): quase (meio ponto de média, um ano, um nível de dificuldade, um bônus a
+ *   mais ou a menos, a mesma cor de cartolina noutro tom);
  * - **errado** (vermelho): diferente; nos números, uma seta diz se o da secreta é maior ou menor;
  * - **desconhecido** (cinza): uma das duas fichas não tem o dado (sem data, sem horas).
  *
@@ -29,7 +28,7 @@ import {
 export type Mark = 'certo' | 'perto' | 'errado' | 'desconhecido';
 
 export interface Column {
-  key: 'media' | 'status' | 'veredito' | 'dificuldade' | 'ano' | 'quantidade' | 'bonus' | 'cartolina';
+  key: 'media' | 'status' | 'veredito' | 'dificuldade' | 'ano' | 'quantidade' | 'positivos' | 'negativos' | 'cartolina';
   label: string;
 }
 
@@ -54,7 +53,7 @@ export function columnsFor(kind: Kind): Column[] {
   if (p.difficulty) cols.push({ key: 'dificuldade', label: 'Dificuldade' });
   cols.push({ key: 'ano', label: 'Ano' });
   if (p.amount) cols.push({ key: 'quantidade', label: p.amount.unit === 'horas' ? 'Horas' : 'Páginas' });
-  cols.push({ key: 'bonus', label: 'Adesivos' }, { key: 'cartolina', label: 'Cartolina' });
+  cols.push({ key: 'positivos', label: 'Bônus positivos' }, { key: 'negativos', label: 'Bônus negativos' }, { key: 'cartolina', label: 'Cartolina' });
   return cols;
 }
 
@@ -78,12 +77,9 @@ function hueOf(s: Stock | undefined): string | null {
   return s.replace(/-escuro$/, '');
 }
 
-/** "+2 −1" (a favor e contra), ou "Nenhum". */
-export function bonusTally(r: Review): string {
-  const favor = r.bonuses.filter((b) => b.kind === 'favor').length;
-  const contra = r.bonuses.length - favor;
-  if (!favor && !contra) return 'Nenhum';
-  return [favor ? `+${favor}` : '', contra ? `−${contra}` : ''].filter(Boolean).join(' ');
+/** Quantos bônus a favor (positivos) ou contra (negativos) a ficha tem. */
+function bonusCount(r: Review, kind: 'favor' | 'contra'): number {
+  return r.bonuses.filter((b) => b.kind === kind).length;
 }
 
 /** Compara o chute com a secreta, coluna a coluna. */
@@ -116,12 +112,11 @@ export function compare(guess: Review, secret: Review): Cell[] {
         // perto: até 20% de diferença
         return numeric('quantidade', g, secret.hoursPlayed, (a, b) => Math.abs(a - b) <= Math.max(a, b) * 0.2, text);
       }
-      case 'bonus': {
-        const g = new Set(guess.bonuses.map((b) => b.id));
-        const s = new Set(secret.bonuses.map((b) => b.id));
-        const same = g.size === s.size && [...g].every((id) => s.has(id));
-        const shared = [...g].some((id) => s.has(id));
-        return { key: 'bonus', text: bonusTally(guess), mark: same ? 'certo' : shared ? 'perto' : 'errado', arrow: null };
+      case 'positivos':
+      case 'negativos': {
+        const kind = col.key === 'positivos' ? 'favor' : 'contra';
+        const g = bonusCount(guess, kind);
+        return numeric(col.key, g, bonusCount(secret, kind), (a, b) => Math.abs(a - b) === 1, String(g));
       }
       case 'cartolina': {
         const same = guess.stock === secret.stock;
@@ -181,17 +176,41 @@ export function shareText(title: string, rows: readonly Cell[][], won: boolean):
 }
 
 /**
- * A pista da frase: o começo da resenha da secreta, com o nome dela tapado. Vazio quando a ficha não
- * tem texto.
+ * As dicas, uma a cada `HINT_EVERY` chutes errados, na ordem: a capa borrada em preto e branco, as
+ * 3 primeiras palavras da resenha, a cor na capa (ainda borrada), mais 3 palavras, a cartolina da
+ * ficha (só o papel e a decoração), o texto inteiro e a capa sem o borrão.
  */
-export function sentenceHint(secret: Review): string {
-  const lead = leadSentence(secret.text, 160);
-  if (!lead) return '';
-  const name = secret.game.name.trim();
-  if (!name) return lead;
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return lead.replace(new RegExp(escaped, 'gi'), '▒▒▒▒');
+export const HINT_EVERY = 5;
+export const HINTS = [
+  'A capa, borrada e em preto e branco',
+  'As 3 primeiras palavras da resenha',
+  'A cor da capa (ainda borrada)',
+  'Mais 3 palavras da resenha',
+  'A cartolina da ficha',
+  'O texto inteiro da resenha',
+  'A capa sem o borrão',
+] as const;
+
+/** Quantas dicas os chutes errados já liberaram. */
+export function hintsUnlocked(misses: number): number {
+  return Math.min(HINTS.length, Math.floor(misses / HINT_EVERY));
 }
 
-/** Quantos chutes errados até cada pista abrir. */
-export const HINT_AFTER = { frase: 4, capa: 7 } as const;
+/** Quantas palavras da resenha cada dica aberta mostra (Infinity: o texto inteiro). */
+export function wordsShown(opened: number): number {
+  return opened >= 6 ? Infinity : opened >= 4 ? 6 : opened >= 2 ? 3 : 0;
+}
+
+/**
+ * O texto da secreta com o nome dela tapado, cortado nas `count` primeiras palavras. Vazio quando a
+ * ficha não tem texto.
+ */
+export function revealedWords(secret: Review, count: number): { text: string; cut: boolean } {
+  let flat = secret.text.replace(/\s+/g, ' ').trim();
+  if (!flat || count <= 0) return { text: '', cut: false };
+  const name = secret.game.name.trim();
+  if (name) flat = flat.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '▒▒▒▒');
+  const words = flat.split(' ');
+  if (count >= words.length) return { text: flat, cut: false };
+  return { text: words.slice(0, count).join(' '), cut: true };
+}

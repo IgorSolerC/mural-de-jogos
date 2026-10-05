@@ -120,58 +120,160 @@ app-cover-sleeve.thumb {
   color: var(--wall-ink);
 }
 
-/* ===== Pistas: bilhetes presos, trancados até a hora ===== */
-.pistas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
+/* ===== Dicas: a trilha de 1 a 7 e a mesa com o que já foi revelado ===== */
+.dicas {
+  max-width: 900px;
   margin-top: 30px;
 }
 
-.pista {
+.dicas-topo {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  min-height: 48px;
-  padding: 8px 14px;
-  border: 2px dashed rgb(241 241 236 / 0.3);
-  border-radius: 3px;
+  gap: 10px 16px;
   color: var(--wall-ink);
+}
 
-  &.aberta {
-    border: 0;
-    background: var(--paper);
-    color: var(--ink);
-    rotate: -0.8deg;
-    box-shadow: var(--shadow-card);
-  }
+.rotulo-parede {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
-  .trancada {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+/* sete bolinhas: abertas (amarelas), liberadas (contorno) e trancadas (apagadas) */
+.trilha-dicas {
+  display: flex;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgb(241 241 236 / 0.25);
     font-family: var(--f-label);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    opacity: 0.8;
-  }
+    font-weight: 800;
+    font-size: 0.8rem;
+    color: rgb(241 241 236 / 0.4);
 
-  .frase {
-    max-width: 52ch;
-    font-family: var(--f-hand);
-    font-size: 1.1rem;
-    line-height: 1.3;
-  }
+    &.livre {
+      border-color: var(--hi);
+      color: var(--hi);
+    }
 
-  .btn-quiet {
-    color: inherit;
+    &.aberta {
+      border-color: var(--hi);
+      background: var(--hi);
+      color: var(--ink);
+    }
   }
 }
 
-app-cover-sleeve.capa-borrada {
-  width: 90px;
-  filter: blur(7px) saturate(0.8);
+.ver-dica {
+  min-height: 42px;
+  font-size: 1rem;
+}
+
+.trancada {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.dicas-mesa {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.dica-capa {
+  margin: 0;
+  overflow: hidden;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+  rotate: -2deg;
+
+  app-cover-sleeve {
+    display: block;
+    transition: filter var(--t-physical) var(--ease-physical);
+  }
+
+  &.borrada app-cover-sleeve {
+    filter: blur(9px);
+  }
+
+  &.cinza app-cover-sleeve {
+    filter: blur(9px) grayscale(1);
+  }
+
+  .sem-capa {
+    padding: 18px 12px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-hand);
+    font-size: 1rem;
+  }
+}
+
+.dica-texto {
+  display: grid;
+  gap: 22px;
+  justify-items: start;
+}
+
+.bilhete {
+  max-width: 60ch;
+  padding: 12px 16px 14px;
+  background: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  rotate: 0.6deg;
+  box-shadow: var(--shadow-card);
+
+  p {
+    font-family: var(--f-hand);
+    font-size: 1.15rem;
+    line-height: 1.35;
+  }
+}
+
+.bilhete-rotulo {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.dica-cartolina {
+  width: min(100%, 380px);
+
+  .bilhete-rotulo {
+    color: var(--wall-ink);
+    margin-bottom: 14px;
+  }
+
+  app-review-card {
+    pointer-events: none;
+  }
 }
 
 /* ===== As fileiras ===== */
@@ -197,7 +299,7 @@ app-cover-sleeve.capa-borrada {
     letter-spacing: 0.1em;
     text-transform: uppercase;
     text-align: center;
-    white-space: nowrap;
+    vertical-align: bottom;
     border-bottom: 2px solid rgb(241 241 236 / 0.4);
   }
 
@@ -392,6 +494,11 @@ tbody tr:not(:first-child) .ladrilho {
 @media (max-width: 720px) {
   .resultado {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dicas-mesa {
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 16px;
   }
 
   .quem {

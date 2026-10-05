@@ -5,7 +5,7 @@ import { Desk } from '../core/desk';
 import { countOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { DailyGame, DailyStats, finishDay, loadDaily, loadStats, saveDaily } from '../core/muraldle-save';
-import { Cell, HINT_AFTER, columnsFor, compare, dailySecret, dayKey, sentenceHint, shareText } from '../core/muraldle';
+import { Cell, HINTS, HINT_EVERY, columnsFor, compare, dailySecret, dayKey, hintsUnlocked, revealedWords, shareText, wordsShown } from '../core/muraldle';
 import { Players } from '../core/players';
 import { Review, fold } from '../core/review';
 import { CoverSleeve } from '../ui/cover-sleeve';
@@ -55,7 +55,7 @@ export class MuraldlePage {
   protected readonly ShareIcon = Share2;
   protected readonly AgainIcon = Shuffle;
   protected readonly GiveUpIcon = Flag;
-  protected readonly hintAfter = HINT_AFTER;
+  protected readonly hints = HINTS;
   protected readonly minCards = MIN_CARDS;
 
   protected readonly profile = this.mural.profile;
@@ -95,15 +95,21 @@ export class MuraldlePage {
   protected readonly misses = computed(() => this.rows().filter((r) => !r.hit).length);
   protected readonly done = computed(() => this.game()?.done ?? null);
 
-  // ===== pistas =====
-  protected readonly sentence = computed(() => {
+  // ===== dicas =====
+  /** Quantas dicas os erros já liberaram (uma a cada 5) e quantas a pessoa abriu. */
+  protected readonly unlocked = computed(() => hintsUnlocked(this.misses()));
+  protected readonly opened = signal(0);
+  /** Quantos erros faltam para a próxima dica. */
+  protected readonly nextHintIn = computed(() =>
+    this.unlocked() >= HINTS.length ? null : (this.unlocked() + 1) * HINT_EVERY - this.misses(),
+  );
+  protected readonly words = computed(() => {
     const s = this.secret();
-    return s ? sentenceHint(s) : '';
+    return s ? revealedWords(s, wordsShown(this.opened())) : { text: '', cut: false };
   });
-  protected readonly sentenceOpen = signal(false);
-  protected readonly coverOpen = signal(false);
-  protected hintLeft(after: number): number {
-    return Math.max(0, after - this.misses());
+
+  protected openHint(): void {
+    if (this.opened() < this.unlocked()) this.opened.update((n) => n + 1);
   }
 
   // ===== a busca =====
@@ -202,8 +208,7 @@ export class MuraldlePage {
     const last = this.mode() === 'treino' ? this.game()?.secretId : undefined;
     const options = pool.filter((r) => r.id !== last);
     const secret = options[Math.floor(Math.random() * options.length)];
-    this.sentenceOpen.set(false);
-    this.coverOpen.set(false);
+    this.opened.set(0);
     this.game.set({ secretId: secret.id, guesses: [], done: null });
   }
 
@@ -239,8 +244,7 @@ export class MuraldlePage {
       saved = { day: today, secretId: secret.id, guesses: [], done: null };
       saveDaily(slot, saved);
     }
-    this.sentenceOpen.set(false);
-    this.coverOpen.set(false);
+    this.opened.set(0);
     this.game.set({ secretId: saved.secretId, guesses: saved.guesses, done: saved.done });
   }
 
