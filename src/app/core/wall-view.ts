@@ -13,6 +13,7 @@ import {
   parseDay,
   scoreKeys,
   scoreOf,
+  shownFinal,
 } from './review';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 
@@ -253,7 +254,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       const k = o.key;
       if (k === 'final') {
         return (r) => {
-          const band = Math.min(9, Math.floor(r.scores.final));
+          const band = Math.min(9, Math.floor(shownFinal(r)));
           if (band < 5) return ['b-low', 'Abaixo de 5'];
           return [`b${band}`, band === 9 ? '9 ou mais' : `Na casa do ${band}`];
         };
@@ -299,7 +300,7 @@ function comparatorOf(o: WallOrder): (a: Review, b: Review) => number {
         if (av === null && bv === null) return -byDate(a, b);
         if (av === null) return 1;
         if (bv === null) return -1;
-        return sign * (av - bv) || -(a.scores.final - b.scores.final) || -byDate(a, b);
+        return sign * (av - bv) || -(shownFinal(a) - shownFinal(b)) || -byDate(a, b);
       };
     }
     default:

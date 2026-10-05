@@ -182,6 +182,8 @@ export type Scores = { final: number } & Rated;
 
 /** A nota de uma categoria, ou null (sem nota, ou categoria de outro mural). */
 export function scoreOf(scores: Rated & { final?: number }, k: ScoreKey): number | null {
+  // a final vale como aparece (Ajustes › Nota): é ela que ordena, agrupa e empata
+  if (k === 'final') return scores.final === undefined ? null : shownScore(scores.final);
   return scores[k] ?? null;
 }
 
@@ -453,6 +455,14 @@ export function shownScore(v: number): number {
     default:
       return Math.round(v * 10) / 10;
   }
+}
+
+/**
+ * A nota final da ficha como aparece. É ela que decide grupo ("Na casa do 8"), filtro, ordem, empate
+ * no ranking e quem ganhou no lado a lado: um 7,9 mostrado como 8 fica com os 8. As médias não.
+ */
+export function shownFinal(r: { scores: { final: number } }): number {
+  return shownScore(r.scores.final);
 }
 
 /** 8.4 → "8,4"; 9 → "9" (arredondada pelo ajuste de exibição). */

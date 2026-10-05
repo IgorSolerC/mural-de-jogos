@@ -23,6 +23,7 @@ import {
   WEIGHT_LABEL,
   formatAmount,
   formatScore,
+  shownFinal,
   shownScore,
   formatReviewDate,
   ratedKeys,
@@ -157,7 +158,7 @@ export class SideBySidePage {
       const av = scoreOf(a.scores, s);
       const bv = scoreOf(b.scores, s);
       if (av === null || bv === null) return av === null ? (bv === null ? 0 : 1) : -1;
-      return bv - av || b.scores.final - a.scores.final;
+      return bv - av || shownFinal(b) - shownFinal(a);
     });
   });
 

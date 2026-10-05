@@ -13,6 +13,7 @@ import {
   VERDICT_LABEL,
   formatAmount,
   formatScore,
+  shownFinal,
   shownScore,
   scoreKeys,
   scoreOf,
@@ -82,7 +83,7 @@ export class RankingPage {
       .sort(
         (a, b) =>
           scoreOf(b.scores, k)! - scoreOf(a.scores, k)! ||
-          b.scores.final - a.scores.final ||
+          shownFinal(b) - shownFinal(a) ||
           collator.compare(a.game.name, b.game.name),
       );
     let pos = 0;

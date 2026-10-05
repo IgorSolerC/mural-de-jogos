@@ -15,7 +15,7 @@ import {
   formatAmount,
   formatReviewDate,
   formatScore,
-  shownScore,
+  shownFinal,
   newId,
   ratedKeys,
   scoreOf,
@@ -185,9 +185,9 @@ export class ComparisonPage {
       case 'briga':
         return list.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference) || name(a, b));
       case 'minha':
-        return list.sort((a, b) => b.mine.scores.final - a.mine.scores.final || name(a, b));
+        return list.sort((a, b) => shownFinal(b.mine) - shownFinal(a.mine) || name(a, b));
       case 'colega':
-        return list.sort((a, b) => b.theirs.scores.final - a.theirs.scores.final || name(a, b));
+        return list.sort((a, b) => shownFinal(b.theirs) - shownFinal(a.theirs) || name(a, b));
       default:
         return list.sort(name);
     }
@@ -200,7 +200,7 @@ export class ComparisonPage {
       case 'recente':
         return list.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || byName(a, b));
       default:
-        return list.sort((a, b) => b.scores.final - a.scores.final || byName(a, b));
+        return list.sort((a, b) => shownFinal(b) - shownFinal(a) || byName(a, b));
     }
   }
   protected readonly tips = computed(() => this.sortList(this.collections().onlyTheirs.filter((r) => this.matches(r))));
@@ -434,6 +434,6 @@ export class ComparisonPage {
 
   /** A diferença entre as notas como aparecem (Arredondado ou Inteiros mudam a conta): 9 e 8,5 dão 0,5. */
   protected gap(pair: ReviewPair): number {
-    return Math.round((shownScore(pair.mine.scores.final) - shownScore(pair.theirs.scores.final)) * 10) / 10;
+    return pair.difference;
   }
 }

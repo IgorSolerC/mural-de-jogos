@@ -1,4 +1,4 @@
-import { Review, fold } from './review';
+import { Review, fold, shownFinal } from './review';
 
 export interface ReviewPair {
   key: string;
@@ -112,7 +112,8 @@ export function compareCollections(
     key: `${mine.id}:${theirs.id}`,
     mine,
     theirs,
-    difference: Math.round((mine.scores.final - theirs.scores.final) * 10) / 10,
+    // a diferença das notas como aparecem: 9 e 8,5 dão 0,5
+    difference: Math.round((shownFinal(mine) - shownFinal(theirs)) * 10) / 10,
   }));
   // "Só um tem" é uma dica: na dúvida (um homônimo que não casou), não afirma que o outro não tem.
   const ownTitles = new Set(own.map((r) => `${r.kind}:${titleKey(r)}`));

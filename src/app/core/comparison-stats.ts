@@ -10,6 +10,7 @@ import {
   VERDICTS,
   Verdict,
   fold,
+  shownFinal,
 } from './review';
 import { pinningFor } from './wall-physics';
 
@@ -46,7 +47,7 @@ export interface Portrait {
 }
 
 const byScore = (a: Review, b: Review) =>
-  b.scores.final - a.scores.final ||
+  shownFinal(b) - shownFinal(a) ||
   Date.parse(b.updatedAt) - Date.parse(a.updatedAt) ||
   a.id.localeCompare(b.id);
 
@@ -76,7 +77,7 @@ export function portrait(list: readonly Review[]): Portrait {
       if (!longest || r.hoursPlayed > (longest.hoursPlayed ?? 0)) longest = r;
     }
   }
-  const finals = list.map((r) => r.scores.final).sort((a, b) => a - b);
+  const finals = list.map(shownFinal).sort((a, b) => a - b);
   const topBonus = (kind: BonusKind) =>
     [...bonusCount.values()]
       .filter((t) => t.value.kind === kind)
@@ -150,7 +151,7 @@ export function affinity(pairs: readonly ReviewPair[]): Affinity | null {
     .filter((p) => Math.abs(p.difference) <= 0.5)
     .sort(
       (a, b) =>
-        b.mine.scores.final + b.theirs.scores.final - (a.mine.scores.final + a.theirs.scores.final) ||
+        shownFinal(b.mine) + shownFinal(b.theirs) - (shownFinal(a.mine) + shownFinal(a.theirs)) ||
         byName(a, b),
     );
   return {

@@ -10,6 +10,7 @@ import {
   VERDICT_LABEL,
   Verdict,
   fold,
+  shownFinal,
 } from './review';
 
 /** As faixas da Média, as mesmas das seções do mural ordenado por nota: 9 ou mais, a casa do 8… abaixo de 5. */
@@ -70,7 +71,7 @@ function valueOf(r: Review, k: FacetKey): string {
     case 'status':
       return r.status;
     case 'grade':
-      return gradeBandOf(r.scores.final);
+      return gradeBandOf(shownFinal(r));
     case 'difficulty':
       return r.difficulty;
     case 'year':
