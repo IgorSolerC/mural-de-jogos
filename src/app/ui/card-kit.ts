@@ -158,7 +158,16 @@ interface Option {
             @if (tab() === 'estampa') {
               <!-- são muitas: os assuntos em cima, para ir direto ao que se quer; Todas mostra tudo, com o assunto
                    de cada bloco escrito antes dele. O assunto da estampa escolhida ganha um pontinho -->
-              <div class="assuntos" role="group" aria-label="Assunto das estampas">
+              <!-- com o mouse, a régua também corre clicando e arrastando para o lado -->
+              <div
+                class="assuntos"
+                role="group"
+                aria-label="Assunto das estampas"
+                (pointerdown)="dragStart($event)"
+                (pointermove)="dragMove($event)"
+                (pointerup)="dragEnd($event)"
+                (pointercancel)="dragEnd($event)"
+              >
                 @for (g of groupChips; track g.id) {
                   <button
                     type="button"
@@ -587,6 +596,15 @@ interface Option {
     .assuntos::-webkit-scrollbar {
       display: none;
     }
+    /* arrastando com o mouse: a mãozinha fechada, sem selecionar texto */
+    .assuntos.arrastando {
+      cursor: grabbing;
+      user-select: none;
+
+      .assunto {
+        cursor: grabbing;
+      }
+    }
     .assunto {
       position: relative;
       flex: none;
@@ -864,6 +882,48 @@ export class CardKit {
     if (!painel || !ajustes) return;
     const past = ajustes.getBoundingClientRect().bottom - painel.getBoundingClientRect().top;
     if (past < 0) painel.scrollTo(0, painel.scrollTop + past);
+  }
+
+  /** O arrasto da régua com o mouse: onde começou e se já andou o bastante para não ser um clique. */
+  private drag: { id: number; x: number; left: number; moved: boolean } | null = null;
+
+  protected dragStart(e: PointerEvent): void {
+    // o toque e a caneta já rolam sozinhos; só o mouse, com o botão principal
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const strip = e.currentTarget as HTMLElement;
+    this.drag = { id: e.pointerId, x: e.clientX, left: strip.scrollLeft, moved: false };
+  }
+
+  protected dragMove(e: PointerEvent): void {
+    const d = this.drag;
+    if (!d || e.pointerId !== d.id) return;
+    const strip = e.currentTarget as HTMLElement;
+    const dx = e.clientX - d.x;
+    if (!d.moved) {
+      // uns pixels de folga: um clique meio tremido continua sendo clique
+      if (Math.abs(dx) < 5) return;
+      d.moved = true;
+      strip.setPointerCapture(e.pointerId);
+      strip.classList.add('arrastando');
+    }
+    strip.scrollLeft = d.left - dx;
+  }
+
+  protected dragEnd(e: PointerEvent): void {
+    const d = this.drag;
+    if (!d || e.pointerId !== d.id) return;
+    this.drag = null;
+    if (!d.moved) return;
+    const strip = e.currentTarget as HTMLElement;
+    strip.classList.remove('arrastando');
+    if (strip.hasPointerCapture(e.pointerId)) strip.releasePointerCapture(e.pointerId);
+    // o arrasto não escolhe o assunto onde o mouse foi solto
+    const swallow = (c: Event) => {
+      c.stopPropagation();
+      c.preventDefault();
+    };
+    strip.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => strip.removeEventListener('click', swallow, { capture: true }));
   }
 
   /** Rola a régua de assuntos até o assunto `id` aparecer inteiro. */
