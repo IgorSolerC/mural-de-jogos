@@ -270,16 +270,6 @@
             Guardar só {{ words().o }}
           </button>
         </div>
-      } @else if (confirmingRemove()) {
-        <p class="discard-msg" role="alert">
-          {{ fromDraft() ? 'Tirar da fila' : 'Tirar da wishlist' }} joga fora as notas e o texto que você escreveu.
-        </p>
-        <div class="actions">
-          <button type="button" class="btn-quiet" (click)="confirmingRemove.set(false)">Continuar escrevendo</button>
-          <button type="button" class="btn-ink danger" (click)="fromDraft() ? removeDraft() : removeWish()">
-            {{ fromDraft() ? 'Tirar da fila' : 'Tirar da wishlist' }}
-          </button>
-        </div>
       } @else {
         <p class="missing" aria-live="polite">{{ attempted() ? missingText() : '' }}</p>
         <div class="actions">

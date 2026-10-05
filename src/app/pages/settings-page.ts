@@ -11,6 +11,7 @@ import {
   LucideAngularModule,
   Origami,
   ShieldAlert,
+  Trash2,
   TriangleAlert,
   Tv,
   Upload,
@@ -18,8 +19,10 @@ import {
 } from 'lucide-angular';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { ownerNameOf } from '../core/backup-file';
+import { eraseSave, takeErased } from '../core/erase-save';
 import { ReviewStore } from '../core/review-store';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings } from '../core/settings';
+import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 import { BonusSticker } from '../ui/bonus';
@@ -133,6 +136,19 @@ const DAY = 86_400_000;
           @if (importMsg(); as m) {
             <p class="msg" [class.error]="m.error" role="status">{{ m.text }}</p>
           }
+        </div>
+
+        <div class="bloco apagar" role="group" aria-labelledby="apagar-titulo">
+          <h3 id="apagar-titulo" class="sub">Apagar o save</h3>
+          <p class="hint">
+            Começa do zero: tira deste navegador as resenhas, o pra depois, a wishlist, os backups de colegas e o progresso
+            dos Extras. Seu nome, as chaves e as escolhas desta página ficam. Não tem desfazer: baixe um backup antes se
+            quiser guardar.
+          </p>
+          <button type="button" class="btn-ink danger" (click)="erase()" [disabled]="erasing()">
+            <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+            {{ erasing() ? 'Apagando…' : 'Apagar o save' }}
+          </button>
         </div>
       </section>
 
@@ -430,6 +446,7 @@ export class SettingsPage {
     backupFileName(this.settings.ownerName(), localDay(new Date()), typeof CompressionStream === 'undefined' ? 'json' : 'json.gz'),
   );
   private readonly toasts = inject(Toasts);
+  private readonly confirm = inject(Confirm);
 
   protected readonly DownloadIcon = Download;
   protected readonly UploadIcon = Upload;
@@ -440,6 +457,7 @@ export class SettingsPage {
   protected readonly OkIcon = CircleCheck;
   protected readonly AlertIcon = TriangleAlert;
   protected readonly ShieldIcon = ShieldAlert;
+  protected readonly TrashIcon = Trash2;
   protected readonly GamesIcon = Gamepad2;
   protected readonly BooksIcon = BookOpen;
   protected readonly FilmsIcon = Film;
@@ -464,6 +482,12 @@ export class SettingsPage {
   protected readonly showTmdb = signal(false);
   protected readonly mode = signal<'merge' | 'replace'>('merge');
   protected readonly importMsg = signal<{ text: string; error: boolean } | null>(null);
+  protected readonly erasing = signal(false);
+
+  constructor() {
+    // a página recarregou depois de apagar o save
+    if (takeErased()) this.toasts.show('Save apagado. O mural começou do zero.');
+  }
 
   private readonly wishCount = computed(() => this.store.wishes().length);
   protected readonly hasData = computed(() => this.store.count() > 0 || this.store.draftCount() > 0 || this.wishCount() > 0);
@@ -504,6 +528,21 @@ export class SettingsPage {
     return this.backup.download();
   }
 
+  /** Apagar o save: pergunta, apaga e recarrega, para nada ficar com o save velho na memória. */
+  protected async erase(): Promise<void> {
+    const sure = await this.confirm.ask({
+      text:
+        'Tudo o que o mural guarda neste navegador vai embora: resenhas, pra depois, wishlist, colegas e Extras.' +
+        (this.overdue() ? ' Você não tem um backup recente.' : '') +
+        ' Não dá para desfazer.',
+      confirm: 'Apagar o save',
+    });
+    if (!sure) return;
+    this.erasing.set(true);
+    await eraseSave();
+    location.reload();
+  }
+
   protected async importFile(e: Event): Promise<void> {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
@@ -513,9 +552,11 @@ export class SettingsPage {
     if (
       this.mode() === 'replace' &&
       n > 0 &&
-      !confirm(
-        `Substituir pelo backup? ${n === 1 ? 'A resenha que está aqui sai' : `As ${n} resenhas que estão aqui saem`} e os murais ficam iguais ao arquivo.`,
-      )
+      !(await this.confirm.ask({
+        text: `${n === 1 ? 'A resenha que está aqui sai' : `As ${n} resenhas que estão aqui saem`} e os murais ficam iguais ao arquivo.`,
+        confirm: 'Substituir',
+        icon: null,
+      }))
     ) {
       return;
     }

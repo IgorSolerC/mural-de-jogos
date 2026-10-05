@@ -15,6 +15,7 @@ import { PaperDefs } from './ui/paper-layer';
 import { Pin } from './ui/pin';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
+import { Confirm, ConfirmDialog } from './ui/confirm';
 import { Toast, Toasts } from './ui/toast';
 import { WishAdder } from './ui/wish-adder';
 
@@ -38,7 +39,7 @@ const TABS: Tab[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
+  imports: [ConfirmDialog, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -51,6 +52,7 @@ export class App {
   protected readonly desk = inject(Desk);
   private readonly vt = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
+  private readonly confirm = inject(Confirm);
   private readonly router = inject(Router);
   private readonly side = inject(SideBySide);
   protected readonly backup = inject(Backup);
@@ -181,11 +183,16 @@ export class App {
     this.editor().open(r);
   }
 
-  protected removeReview(id: string): void {
-    this.reader().close();
+  protected async removeReview(id: string): Promise<void> {
     // Pega a ficha antes: o callback da view transition roda depois deste método.
     const r = this.store.get(id);
     if (!r) return;
+    const sure = await this.confirm.ask({
+      text: `“${r.game.name}” sai do mural, com as notas e o texto.`,
+      confirm: 'Remover do mural',
+    });
+    if (!sure || !this.store.get(id)) return;
+    this.reader().close();
     // O leitor devolveu o foco à ficha, que vai sumir: o teclado segue para a vizinha (ou o Desfazer)
     const cards = [...document.querySelectorAll<HTMLElement>('[data-ficha]')];
     const at = cards.findIndex((c) => c.dataset['ficha'] === id);

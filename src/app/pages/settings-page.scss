@@ -606,6 +606,17 @@ a {
   }
 }
 
+/* Apagar o save: o fim da ficha do backup, longe do Baixar */
+.apagar .btn-ink {
+  margin-top: 14px;
+
+  &:disabled {
+    opacity: 0.6;
+    transform: none;
+    cursor: progress;
+  }
+}
+
 /* Seu nome: o campo e a prévia do nome do arquivo */
 .nome-dono {
   .sub label {

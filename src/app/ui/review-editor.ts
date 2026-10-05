@@ -50,6 +50,7 @@ import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
 import { CardKit } from './card-kit';
+import { Confirm } from './confirm';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
@@ -96,6 +97,7 @@ export class ReviewEditor {
   protected readonly store = inject(ReviewStore);
   private readonly mural = inject(Mural);
   private readonly lookup = inject(GameLookup);
+  private readonly confirm = inject(Confirm);
   readonly saved = output<SavedEvent>();
   /** Guardou só o jogo (nome e capa) para resenhar depois. */
   readonly drafted = output<SavedEvent>();
@@ -231,8 +233,6 @@ export class ReviewEditor {
   protected readonly confirmingDiscard = signal(false);
   /** Já tem nota ou texto e a pessoa pediu para guardar só o jogo: confirma antes de perder. */
   protected readonly confirmingDraft = signal(false);
-  /** Tirar da fila (ou da wishlist) com notas e texto já escritos: pergunta antes, o Desfazer não traz a resenha. */
-  protected readonly confirmingRemove = signal(false);
   protected readonly draftError = signal(false);
   protected readonly searchSeed = signal('');
 
@@ -412,7 +412,6 @@ export class ReviewEditor {
     this.attempted.set(false);
     this.confirmingDiscard.set(false);
     this.confirmingDraft.set(false);
-    this.confirmingRemove.set(false);
     this.draftError.set(false);
     this.snapshot = this.serialize();
     const dialog = this.dialog().nativeElement;
@@ -600,30 +599,32 @@ export class ReviewEditor {
     this.confirmingDraft.set(false);
   }
 
-  protected removeWish(): void {
+  protected async removeWish(): Promise<void> {
     const wish = this.fromWish();
     if (!wish) return;
-    if (this.hasReviewContent() && !this.confirmingRemove()) {
-      this.confirmingRemove.set(true);
-      return;
-    }
-    this.confirmingRemove.set(false);
+    const sure = await this.confirm.ask({ text: this.removeText(wish.game.name, 'da wishlist'), confirm: 'Tirar da wishlist' });
+    // o editor pode ter fechado ou trocado de ficha enquanto a pergunta estava aberta
+    if (!sure || this.fromWish() !== wish) return;
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.wishRemoved.emit(wish.id);
   }
 
-  protected removeDraft(): void {
+  protected async removeDraft(): Promise<void> {
     const draft = this.fromDraft();
     if (!draft) return;
-    if (this.hasReviewContent() && !this.confirmingRemove()) {
-      this.confirmingRemove.set(true);
-      return;
-    }
-    this.confirmingRemove.set(false);
+    const sure = await this.confirm.ask({ text: this.removeText(draft.game.name, 'da fila'), confirm: 'Tirar da fila' });
+    if (!sure || this.fromDraft() !== draft) return;
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.draftRemoved.emit(draft.id);
+  }
+
+  /** O "Tem certeza?" de tirar da fila ou da wishlist: com notas e texto já escritos, avisa que eles se perdem (o Desfazer não traz a resenha). */
+  private removeText(name: string, from: 'da fila' | 'da wishlist'): string {
+    return this.hasReviewContent()
+      ? `“${name}” sai ${from}, e as notas e o texto que você escreveu se perdem.`
+      : `“${name}” sai ${from}.`;
   }
 
   /** Esc, X ou Cancelar: se tem coisa escrita, pergunta antes. */
