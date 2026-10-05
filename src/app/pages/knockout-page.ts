@@ -6,8 +6,8 @@ import { countOf, g } from '../core/kinds';
 import { SavedKnockout, loadKnockout, saveKnockout } from '../core/knockout-save';
 import { Mural } from '../core/mural';
 import { ME, Player, Players } from '../core/players';
-import { Review } from '../core/review';
-import { DUEL_OPTIONS, DuelOption, agreement, drawEntrants, entrantsFor, makeBracket, playOut, podium } from '../core/tournament';
+import { Review, formatScore, shownFinal } from '../core/review';
+import { DUEL_OPTIONS, DuelOption, MIN_GAP, agreement, drawEntrants, ensureDraws, entrantsFor, makeBracket, playOut, podium } from '../core/tournament';
 import { PlayerPicker } from '../ui/player-picker';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
@@ -57,7 +57,7 @@ export class KnockoutPage {
 
   protected readonly out = computed(() => {
     const g = this.game();
-    return g ? playOut(g.slots, g.picks) : null;
+    return g ? playOut(g.slots, g.picks, g.draws ?? []) : null;
   });
 
   protected readonly duel = computed(() => {
@@ -119,6 +119,14 @@ export class KnockoutPage {
     return `${picked}, ${n - 1} ${n - 1 === 1 ? 'duelo' : 'duelos'} até ${g(p, 'o campeão', 'a campeã')}.${skip}`;
   });
 
+  /** O duelo da vez tem a distância? (num mural de notas parecidas, às vezes não dá) */
+  protected readonly gap = computed(() => {
+    const d = this.duel();
+    if (!d) return null;
+    const diff = Math.abs(shownFinal(d.a) - shownFinal(d.b));
+    return diff >= MIN_GAP - 1e-9 ? null : formatScore(diff);
+  });
+
   constructor() {
     // o torneio é de cada mural: trocar o mural no cartaz troca o torneio
     effect(() => {
@@ -139,7 +147,7 @@ export class KnockoutPage {
         }
         this.option.set(saved.option);
         this.masked.set(saved.masked);
-        this.game.set(saved);
+        this.game.set(this.withDraws(saved));
       });
     });
     // sem fichas para a opção escolhida, fica com a maior que dá
@@ -161,12 +169,11 @@ export class KnockoutPage {
       who.reviews.map((r) => r.id),
       n,
     );
-    // as fichas viram cabeças de chave pela nota de quem é o mural: as melhores só se cruzam no fim
-    const finals = new Map(who.reviews.map((r) => [r.id, r.scores.final]));
+    // a nota de quem é o mural decide quem passa direto e quem enfrenta quem (2 pontos de distância)
     this.commit({
       owner: who.id,
       option: this.option(),
-      slots: makeBracket(entrants, Math.random, (id) => finals.get(id) ?? 0),
+      slots: makeBracket(entrants, Math.random, this.scoreOf(who.reviews)),
       picks: [],
       masked: this.masked(),
       startedAt: new Date().toISOString(),
@@ -239,8 +246,21 @@ export class KnockoutPage {
   }
 
   private commit(game: SavedKnockout | null): void {
-    this.game.set(game);
-    saveKnockout(this.mural.kind(), game);
+    const full = game && this.withDraws(game);
+    this.game.set(full);
+    saveKnockout(this.mural.kind(), full);
+  }
+
+  /** A nota de cada ficha como aparece, para as distâncias dos duelos. */
+  private scoreOf(reviews: readonly Review[]): (id: string) => number {
+    const finals = new Map(reviews.map((r) => [r.id, shownFinal(r)]));
+    return (id) => finals.get(id) ?? 0;
+  }
+
+  /** Sorteia a rodada que acabou de começar (as fichas que passaram, com distância de nota). */
+  private withDraws(game: SavedKnockout): SavedKnockout {
+    const reviews = this.players.byId(game.owner)?.reviews ?? [];
+    return { ...game, draws: ensureDraws(game.slots, game.picks, game.draws ?? [], this.scoreOf(reviews)) };
   }
 
   /** Depois de cada escolha o foco volta para o placar, que anuncia o duelo novo. */

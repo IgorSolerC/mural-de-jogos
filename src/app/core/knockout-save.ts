@@ -10,6 +10,8 @@ export interface SavedKnockout {
   option: DuelOption;
   slots: Slot[];
   picks: string[];
+  /** O sorteio de cada rodada depois da primeira (ver `ensureDraws`); os torneios antigos não têm. */
+  draws?: (string[] | null)[];
   /** As notas ficam escondidas nos duelos. */
   masked: boolean;
   startedAt: string;
@@ -30,6 +32,9 @@ function readAll(): Partial<Record<Kind, SavedKnockout>> {
         option: DUEL_OPTIONS.includes(v.option) ? v.option : 'todos',
         slots: v.slots,
         picks: v.picks,
+        draws: Array.isArray(v.draws)
+          ? v.draws.map((d: unknown) => (Array.isArray(d) && d.every((x) => typeof x === 'string') ? (d as string[]) : null))
+          : [],
         masked: v.masked !== false,
         startedAt: typeof v.startedAt === 'string' ? v.startedAt : new Date().toISOString(),
       };

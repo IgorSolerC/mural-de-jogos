@@ -2,12 +2,14 @@
  * O mata-mata: fichas sorteadas num chaveamento, duelando de duas em duas até sobrar uma.
  *
  * O chaveamento tem sempre o tamanho de uma potência de 2 (8, 16, 32…). Quando as fichas não
- * enchem a chave, algumas passam direto da primeira rodada (o "bye" dos torneios), sorteadas. Assim
+ * enchem a chave, as de nota mais alta passam direto da primeira rodada (o "bye" dos torneios). Assim
  * N fichas dão sempre N − 1 duelos: 5 duelos são 6 fichas (2 passam direto das quartas), 15 são 16
  * fichas (oitavas, sem ninguém de folga), 30 são 31.
  *
- * O estado é só o chaveamento sorteado e a lista de escolhas, na ordem em que foram feitas: o resto
- * (rodadas, duelo da vez, campeã) sai de `playOut`. Desfazer é tirar a última escolha.
+ * O estado é o chaveamento da primeira rodada, o sorteio de cada rodada seguinte (feito quando a
+ * anterior acaba, para os duelos terem distância de nota; ver `pairUp`) e a lista de escolhas, na
+ * ordem em que foram feitas: o resto (rodadas, duelo da vez, campeã) sai de `playOut`. Desfazer é
+ * tirar a última escolha.
  */
 
 /** As opções de tamanho: quantos duelos, ou todas as fichas do mural. */
@@ -56,6 +58,10 @@ export interface PlayOut {
   /** Quantos já foram decididos. */
   played: number;
   champion: string | null;
+  /** A primeira rodada que começou sem sorteio próprio (ver `ensureDraws`), ou null. */
+  undrawn: number | null;
+  /** As fichas dessa rodada. */
+  undrawnEntrants: string[] | null;
 }
 
 /** O nome da rodada pelo tamanho dela. */
@@ -92,29 +98,84 @@ export function drawEntrants(ids: readonly string[], count: number, rng: () => n
   return shuffle(ids, rng).slice(0, Math.min(count, ids.length));
 }
 
+/** A distância mínima de média entre as duas fichas de um duelo, sempre que der. */
+export const MIN_GAP = 2;
+
 /**
- * A ordem das cabeças de chave numa chave de `size` vagas, como nos torneios de tênis: a 1ª pega a
- * última, a 1ª e a 2ª ficam em metades opostas, as quatro primeiras em quartos diferentes, e assim
- * por diante. Para 8: [1, 8, 4, 5, 2, 7, 3, 6].
+ * Forma os duelos de uma rodada: devolve as fichas numa ordem em que cada par (0-1, 2-3…) é um
+ * duelo. Cada duelo junta fichas com pelo menos `gap` pontos de diferença na nota, para uma ficha
+ * muito boa não cair contra outra parecida. O emparelhamento é sorteado entre os que respeitam a
+ * distância, então a chave muda de uma partida para outra.
+ *
+ * Quando não há jeito de todos os duelos terem essa distância (as notas estão todas perto), fica o
+ * emparelhamento que deixa a maior distância possível no duelo mais apertado: em ordem de nota, a
+ * 1ª pega a do meio, a 2ª a seguinte, e assim por diante.
  */
-export function seedOrder(size: number): number[] {
-  let order = [1, 2];
-  while (order.length < size) {
-    const n = order.length * 2;
-    order = order.flatMap((s) => [s, n + 1 - s]);
+export function pairUp(ids: readonly string[], score: (id: string) => number, rng: () => number = Math.random, gap = MIN_GAP): string[] {
+  if (ids.length % 2) throw new Error('Para formar duelos, o número de fichas precisa ser par.');
+  const eps = 1e-9;
+
+  // em ordem de nota, a 1ª com a do meio: é o emparelhamento com a maior distância no duelo mais
+  // apertado. Se nem ele chega a `gap`, nenhum chega, e é ele que fica.
+  const ranked = shuffle(ids, rng).sort((a, b) => score(b) - score(a));
+  const half = ranked.length / 2;
+  const split = ranked.slice(0, half).map((a, i) => [a, ranked[half + i]]);
+  const worst = Math.min(...split.map(([a, b]) => Math.abs(score(a) - score(b))));
+  if (worst < gap - eps) return shuffle(split, rng).flat();
+
+  // dá: sorteia um emparelhamento com a distância, emparelhando primeiro a ficha com menos parceiras
+  for (let attempt = 0; attempt < 30; attempt++) {
+    // as que faltam, em ordem de nota crescente (para contar parceiras por busca binária)
+    let left = shuffle(ids, rng).sort((a, b) => score(a) - score(b));
+    const out: string[] = [];
+    while (left.length) {
+      const scores = left.map(score);
+      // quantas têm nota <= x (com folga de arredondamento)
+      const atMost = (x: number) => {
+        let lo = 0;
+        let hi = scores.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (scores[mid] <= x + eps) lo = mid + 1;
+          else hi = mid;
+        }
+        return lo;
+      };
+      const options = (i: number) => atMost(scores[i] - gap) + (scores.length - atMost(scores[i] + gap - 2 * eps));
+      // a mais apertada, com empate sorteado
+      let best = -1;
+      let bestCount = Infinity;
+      const start = Math.floor(rng() * left.length);
+      for (let k = 0; k < left.length; k++) {
+        const i = (start + k) % left.length;
+        const c = options(i);
+        if (c < bestCount) {
+          best = i;
+          bestCount = c;
+        }
+      }
+      if (bestCount === 0) break;
+      const a = left[best];
+      const partners = left.filter((b, j) => j !== best && Math.abs(scores[j] - scores[best]) >= gap - eps);
+      const b = partners[Math.floor(rng() * partners.length)];
+      out.push(a, b);
+      left = left.filter((x) => x !== a && x !== b);
+    }
+    if (out.length === ids.length) {
+      const pairs: string[][] = [];
+      for (let i = 0; i < out.length; i += 2) pairs.push([out[i], out[i + 1]]);
+      return shuffle(pairs, rng).flat();
+    }
   }
-  return order.slice(0, size);
+  return shuffle(split, rng).flat();
 }
 
 /**
- * Monta a chave. Cada par de vagas (0-1, 2-3…) é um duelo da primeira rodada; null é a folga.
+ * Monta a primeira rodada. Cada par de vagas (0-1, 2-3…) é um duelo; null é a folga.
  *
- * Com `score`, as fichas viram cabeças de chave pela nota, para uma ficha muito boa não cair cedo
- * contra outra parecida: a de nota mais alta pega a mais baixa na primeira rodada, as duas
- * primeiras só se cruzam na final e as quatro primeiras só na semifinal. Quando as fichas não
- * enchem a chave, as de nota mais alta passam direto para a segunda rodada. Para a chave não sair
- * sempre igual, a ordem é sorteada dentro de cada faixa (a 1ª e a 2ª, da 3ª à 4ª, da 5ª à 8ª…,
- * separando quem tem folga de quem joga), e os empates de nota também.
+ * Com `score`: quando as fichas não enchem a chave (8, 16, 32…), as de nota mais alta passam
+ * direto para a segunda rodada, e os duelos seguem `pairUp` (2 pontos de distância, se der). As
+ * rodadas seguintes são sorteadas quando a anterior acaba (ver `ensureDraws`).
  *
  * Sem `score`, tudo é sorteado.
  */
@@ -122,22 +183,18 @@ export function makeBracket(entrants: readonly string[], rng: () => number = Mat
   if (entrants.length < 2) throw new Error('O mata-mata precisa de pelo menos duas fichas.');
   let size = 2;
   while (size < entrants.length) size *= 2;
+  const byes = size - entrants.length;
 
   if (score) {
     // a ordem pela nota, com os empates sorteados (o sort é estável sobre a ordem embaralhada)
     const ranked = shuffle(entrants, rng).sort((a, b) => score(b) - score(a));
-    // sorteia dentro de cada faixa de cabeças de chave: [1-2], [3-4], [5-8], [9-16]… A faixa é
-    // partida onde acabam as folgas: quem passa direto são exatamente as `byes` de nota mais alta.
-    const byes = size - entrants.length;
-    const cuts = new Set<number>([byes]);
-    for (let b = 2; b < ranked.length; b *= 2) cuts.add(b);
-    const bounds = [0, ...[...cuts].filter((c) => c > 0 && c < ranked.length).sort((a, b) => a - b), ranked.length];
-    const seeds: string[] = [];
-    for (let i = 0; i < bounds.length - 1; i++) seeds.push(...shuffle(ranked.slice(bounds[i], bounds[i + 1]), rng));
-    return seedOrder(size).map((s) => seeds[s - 1] ?? null);
+    const passing = ranked.slice(0, byes);
+    const playing = pairUp(ranked.slice(byes), score, rng);
+    const pairs: Slot[][] = passing.map((id) => [id, null]);
+    for (let i = 0; i < playing.length; i += 2) pairs.push([playing[i], playing[i + 1]]);
+    return shuffle(pairs, rng).flat();
   }
 
-  const byes = size - entrants.length;
   const order = shuffle(entrants, rng);
   const pairs: Slot[][] = [];
   for (let i = 0; i < byes; i++) pairs.push([order[i], null]);
@@ -145,14 +202,45 @@ export function makeBracket(entrants: readonly string[], rng: () => number = Mat
   return shuffle(pairs, rng).flat();
 }
 
+/** As rodadas sorteadas depois da primeira: `draws[r]` é a ordem da rodada r (a 0 é a chave). */
+export type Draws = readonly (readonly string[] | null | undefined)[];
+
+/** A ordem guardada serve para essas fichas? (as mesmas, cada uma uma vez) */
+function fits(draw: readonly string[] | null | undefined, entrants: readonly string[]): draw is readonly string[] {
+  if (!draw || draw.length !== entrants.length) return false;
+  const want = new Set(entrants);
+  return new Set(draw).size === draw.length && draw.every((id) => want.has(id));
+}
+
+/**
+ * Sorteia, com `pairUp`, cada rodada que já pode começar e ainda não tem sorteio (ou tem um que não
+ * serve mais, depois de um Desfazer). Devolve os sorteios, sem os de rodadas que ainda não começaram.
+ */
+export function ensureDraws(
+  slots: readonly Slot[],
+  picks: readonly string[],
+  draws: Draws,
+  score: (id: string) => number,
+  rng: () => number = Math.random,
+): (string[] | null)[] {
+  const out: (string[] | null)[] = draws.map((d) => (d ? [...d] : null));
+  for (;;) {
+    const res = playOut(slots, picks, out);
+    if (res.undrawn === null) return out.slice(0, res.rounds.length);
+    out[res.undrawn] = pairUp(res.undrawnEntrants!, score, rng);
+  }
+}
+
 /** Joga a chave com as escolhas feitas até aqui. Uma escolha que não serve para o duelo da vez para a conta ali. */
-export function playOut(slots: readonly Slot[], picks: readonly string[]): PlayOut {
+export function playOut(slots: readonly Slot[], picks: readonly string[], draws: Draws = []): PlayOut {
   const total = slots.filter((s) => s !== null).length - 1;
   const rounds: Round[] = [];
   let entrants: Slot[] = [...slots];
   let pick = 0;
   let number = 0;
   let current: Duel | null = null;
+  let undrawn: number | null = null;
+  let undrawnEntrants: string[] | null = null;
 
   while (entrants.length >= 2) {
     const matches: Match[] = [];
@@ -180,7 +268,17 @@ export function playOut(slots: readonly Slot[], picks: readonly string[]): PlayO
     }
     rounds.push({ size: entrants.length, name: roundName(entrants.length), matches });
     if (current) break;
-    entrants = next;
+    // a rodada seguinte: na ordem sorteada para ela, se houver uma que sirva
+    const winners = next as string[];
+    const draw = draws[rounds.length];
+    if (fits(draw, winners)) entrants = [...draw];
+    else {
+      if (winners.length >= 2 && undrawn === null) {
+        undrawn = rounds.length;
+        undrawnEntrants = winners;
+      }
+      entrants = winners;
+    }
   }
 
   return {
@@ -189,6 +287,8 @@ export function playOut(slots: readonly Slot[], picks: readonly string[]): PlayO
     total,
     played: pick,
     champion: current === null && entrants.length === 1 ? entrants[0] : null,
+    undrawn,
+    undrawnEntrants,
   };
 }
 

@@ -1,0 +1,417 @@
+@use 'extras-kit';
+
+:host {
+  display: block;
+  --certo: #5fd47a;
+  --perto: var(--hi);
+  --errado: #f06a5c;
+  --desconhecido: #b9b3aa;
+}
+
+.topo {
+  margin-bottom: 26px;
+}
+
+.opcoes {
+  max-width: 720px;
+  padding-top: 8px;
+  rotate: 0.4deg;
+}
+
+.aviso {
+  margin-top: 30px;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+}
+
+/* ===== O chute: uma tira de papel com a busca ===== */
+.chute-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  max-width: 900px;
+  margin-top: 34px;
+}
+
+.busca {
+  position: relative;
+  flex: 1 1 340px;
+
+  input {
+    width: 100%;
+    min-height: 54px;
+    padding: 12px 18px 10px;
+    border: 0;
+    border-radius: 2px;
+    background: var(--paper);
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    color: var(--ink);
+    font-family: var(--f-hand);
+    font-size: 1.25rem;
+    box-shadow: var(--shadow-card);
+    rotate: -0.6deg;
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.5);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--hi);
+      outline-offset: 3px;
+    }
+  }
+}
+
+.sugestoes {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 2px;
+    font-family: var(--f-ui);
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+
+    &.ativa,
+    &:hover {
+      background: var(--hi);
+    }
+  }
+}
+
+app-cover-sleeve.thumb {
+  flex: 0 0 auto;
+  width: 34px;
+}
+
+.sem {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 4px;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1rem;
+}
+
+.tentativas {
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+}
+
+.desistir {
+  color: var(--wall-ink);
+}
+
+/* ===== Pistas: bilhetes presos, trancados até a hora ===== */
+.pistas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.pista {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 2px dashed rgb(241 241 236 / 0.3);
+  border-radius: 3px;
+  color: var(--wall-ink);
+
+  &.aberta {
+    border: 0;
+    background: var(--paper);
+    color: var(--ink);
+    rotate: -0.8deg;
+    box-shadow: var(--shadow-card);
+  }
+
+  .trancada {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--f-label);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+
+  .frase {
+    max-width: 52ch;
+    font-family: var(--f-hand);
+    font-size: 1.1rem;
+    line-height: 1.3;
+  }
+
+  .btn-quiet {
+    color: inherit;
+  }
+}
+
+app-cover-sleeve.capa-borrada {
+  width: 90px;
+  filter: blur(7px) saturate(0.8);
+}
+
+/* ===== As fileiras ===== */
+.tabela-rolagem {
+  max-width: 100%;
+  margin-top: 30px;
+  overflow-x: auto;
+  padding: 4px 4px 12px;
+}
+
+.grade {
+  /* a tabela não encolhe para caber: rola para o lado, com a coluna do nome parada */
+  width: max-content;
+  border-collapse: separate;
+  border-spacing: 6px;
+
+  thead th {
+    padding: 0 4px 4px;
+    color: var(--wall-ink);
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.82rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
+    border-bottom: 2px solid rgb(241 241 236 / 0.4);
+  }
+
+  thead th:first-child {
+    text-align: left;
+  }
+}
+
+.quem {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 200px;
+  min-width: 200px;
+  background: var(--wall);
+  text-align: left;
+}
+
+/* no cabeçalho, a casa de cima da coluna parada também fica */
+.grade thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--wall);
+}
+
+.quem-botao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px 6px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: rgb(241 241 236 / 0.08);
+  color: var(--wall-ink);
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 0.98rem;
+  line-height: 1.15;
+  text-align: left;
+
+  &:hover {
+    background: rgb(241 241 236 / 0.16);
+  }
+}
+
+.acerto .quem-botao {
+  background: var(--certo);
+  color: var(--ink);
+}
+
+/* o quadradinho: um pedaço de cartolina, que vira na hora em que aparece */
+.ladrilho {
+  position: relative;
+  width: 96px;
+  height: 74px;
+  padding: 4px 6px;
+  border-radius: 2px;
+  background-color: var(--cor);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  text-align: center;
+  vertical-align: middle;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 6px 10px -4px rgb(0 0 0 / 0.5);
+  overflow: hidden;
+  animation: vira 420ms var(--ease-physical) both;
+  animation-delay: calc(var(--ordem, 0) * 110ms);
+
+  &.certo {
+    --cor: var(--certo);
+  }
+
+  &.perto {
+    --cor: var(--perto);
+  }
+
+  &.errado {
+    --cor: var(--errado);
+  }
+
+  &.desconhecido {
+    --cor: var(--desconhecido);
+  }
+
+  .seta {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    opacity: 0.18;
+  }
+
+  .valor {
+    position: relative;
+    display: block;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1rem;
+    line-height: 1.05;
+    letter-spacing: 0.02em;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  .amostra {
+    position: relative;
+    display: block;
+    width: 22px;
+    height: 14px;
+    margin: 0 auto 4px;
+    border: 1px solid rgb(0 0 0 / 0.35);
+    border-radius: 1px;
+  }
+}
+
+/* só as fileiras novas viram: as antigas já estavam lá */
+tbody tr:not(:first-child) .ladrilho {
+  animation: none;
+}
+
+@keyframes vira {
+  from {
+    transform: rotateX(90deg);
+    filter: brightness(0.6);
+  }
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1rem;
+
+  .chip {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-left: 8px;
+    border-radius: 2px;
+
+    &.certo {
+      background: var(--certo);
+    }
+
+    &.perto {
+      background: var(--perto);
+    }
+
+    &.errado {
+      background: var(--errado);
+    }
+
+    &.desconhecido {
+      background: var(--desconhecido);
+    }
+  }
+}
+
+/* ===== O fim ===== */
+.resultado {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+  gap: 28px;
+  align-items: center;
+  max-width: 900px;
+  margin-top: 34px;
+  rotate: -0.3deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 14px 16px rgb(0 0 0 / 0.5));
+
+  h2 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 2rem;
+    line-height: 1.1;
+    outline: none;
+  }
+}
+
+.volte {
+  margin-top: 8px;
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  color: var(--caneta-azul);
+}
+
+@media (max-width: 720px) {
+  .resultado {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quem {
+    width: 140px;
+    min-width: 140px;
+  }
+
+  .ladrilho {
+    width: 84px;
+    min-width: 84px;
+    height: 66px;
+
+    .valor {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ladrilho {
+    animation: none;
+  }
+}

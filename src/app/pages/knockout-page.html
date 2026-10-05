@@ -99,6 +99,9 @@
     </div>
 
     <p class="dica">Toque na ficha que passa de fase<span class="teclas"> (ou use ← e →)</span>.</p>
+    @if (!game()!.masked && gap(); as diff) {
+      <p class="dica">Este duelo ficou só com {{ diff }} de diferença: as que sobraram têm notas parecidas demais para os 2 pontos.</p>
+    }
 
     <div class="duelo">
       @for (side of [d.a, d.b]; track side.id; let i = $index) {
@@ -140,8 +143,9 @@
       <h1 id="placar" tabindex="-1">Mata-mata</h1>
     </header>
     <p class="lead">
-      As fichas duelam de duas em duas. A que você escolher passa de fase, até sobrar uma. As de nota mais alta ficam em
-      lados opostos da chave, então só se encontram no fim.
+      As fichas duelam de duas em duas. A que você escolher passa de fase, até sobrar uma. Em cada rodada, os duelos são
+      sorteados entre fichas com pelo menos 2 pontos de diferença na média, para uma muito boa não cair cedo contra outra
+      parecida.
     </p>
 
     <app-player-picker />

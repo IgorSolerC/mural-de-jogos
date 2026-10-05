@@ -1,0 +1,211 @@
+<nav class="voltar">
+  <a class="btn-quiet" routerLink="/extras">
+    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    Extras
+  </a>
+</nav>
+
+<header class="placar-linha topo">
+  <h1 class="tape-label big" id="placar" tabindex="-1">Muraldle</h1>
+  <p class="contagem">
+    @if (mode() === 'dia') {
+      Adivinhe a ficha do dia {{ owner().mine ? 'do seu mural' : 'do mural de ' + owner().name }}.
+    } @else {
+      Treino: quantas fichas quiser, sem contar na sequência.
+    }
+  </p>
+</header>
+
+<section class="regras opcoes" aria-label="Opções">
+  <app-player-picker [min]="minCards" />
+  <fieldset>
+    <legend class="rotulo">Qual ficha?</legend>
+    <div class="plates" role="group" aria-label="Qual ficha">
+      <button type="button" class="plate" [attr.aria-pressed]="mode() === 'dia'" (click)="setMode('dia')">Ficha do dia</button>
+      <button type="button" class="plate" [attr.aria-pressed]="mode() === 'treino'" (click)="setMode('treino')">Treino</button>
+    </div>
+  </fieldset>
+  @if (mode() === 'dia' && stats(); as st) {
+    <p class="resumo">
+      Sequência: {{ st.streak }} {{ st.streak === 1 ? 'dia' : 'dias' }} · melhor {{ st.best }} · acertou {{ st.won }} de {{ st.played }}
+    </p>
+  }
+</section>
+
+@if (waiting()) {
+  <p class="aviso">Abrindo o backup de {{ owner().name }}…</p>
+} @else if (!enough()) {
+  <p class="aviso">
+    O Muraldle precisa de pelo menos {{ minCards }} fichas
+    {{ owner().mine ? 'no seu mural de ' + profile().plural : 'no mural de ' + profile().plural + ' de ' + owner().name }}.
+  </p>
+} @else if (game(); as g) {
+  @if (done(); as d) {
+    <!-- ===== Acabou ===== -->
+    <section class="folha resultado" aria-labelledby="resultado">
+      <div class="res-texto">
+        <h2 id="resultado" tabindex="-1">
+          @if (d === 'acertou') {
+            Acertou em {{ rows().length }} {{ rows().length === 1 ? 'tentativa' : 'tentativas' }}!
+          } @else {
+            Era essa.
+          }
+        </h2>
+        @if (mode() === 'dia') {
+          <p class="volte">A próxima ficha do dia aparece amanhã. Enquanto isso, dá para treinar.</p>
+        }
+        <div class="acoes">
+          <button type="button" class="btn-ink" (click)="share()">
+            <lucide-icon [img]="ShareIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+            Copiar resultado
+          </button>
+          @if (mode() === 'dia') {
+            <button type="button" class="btn-quiet" (click)="setMode('treino')">
+              <lucide-icon [img]="AgainIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              Treinar
+            </button>
+          } @else {
+            <button type="button" class="btn-quiet" (click)="newPractice()">
+              <lucide-icon [img]="AgainIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              Outra ficha
+            </button>
+          }
+        </div>
+      </div>
+      @if (secret(); as s) {
+        <app-review-card class="secreta" [review]="s" [preview]="true" (opened)="open(s)" />
+      }
+    </section>
+  } @else {
+    <!-- ===== O chute ===== -->
+    <section class="chute-linha" aria-label="Chutar">
+      <div class="busca" role="combobox" aria-haspopup="listbox" [attr.aria-expanded]="suggestions().length > 0" aria-owns="muraldle-sugestoes">
+        <label class="sr-only" for="muraldle-busca">{{ pickedPhrase() }}</label>
+        <input
+          #busca
+          id="muraldle-busca"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          [placeholder]="pickedPhrase() + '…'"
+          [value]="query()"
+          (input)="onInput($any($event.target).value)"
+          (keydown)="onKey($event)"
+          aria-autocomplete="list"
+          aria-controls="muraldle-sugestoes"
+          [attr.aria-activedescendant]="suggestions().length ? 'sugestao-' + activeIndex() : null"
+        />
+        @if (suggestions().length) {
+          <ul class="sugestoes" id="muraldle-sugestoes" role="listbox">
+            @for (r of suggestions(); track r.id; let i = $index) {
+              <li
+                [id]="'sugestao-' + i"
+                role="option"
+                [attr.aria-selected]="i === activeIndex()"
+                [class.ativa]="i === activeIndex()"
+                (mousedown)="$event.preventDefault(); guess(r)"
+              >
+                <app-cover-sleeve class="thumb" size="thumb" [game]="r.game" [decorative]="true" />
+                <span>{{ r.game.name }}</span>
+              </li>
+            }
+          </ul>
+        } @else if (query().trim()) {
+          <p class="sem">Nenhuma ficha com esse nome (ou já foi chutada).</p>
+        }
+      </div>
+      <p class="tentativas">
+        {{ rows().length }} {{ rows().length === 1 ? 'tentativa' : 'tentativas' }} · {{ countText() }} no mural
+      </p>
+      <button type="button" class="btn-quiet desistir" (click)="giveUp()" [disabled]="!rows().length">
+        <lucide-icon [img]="GiveUpIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        Desistir
+      </button>
+    </section>
+
+    <!-- ===== Pistas ===== -->
+    <div class="pistas">
+      @if (sentence()) {
+        <div class="pista" [class.aberta]="sentenceOpen()">
+          @if (sentenceOpen()) {
+            <p class="frase">“{{ sentence() }}”</p>
+          } @else if (hintLeft(hintAfter.frase)) {
+            <p class="trancada">
+              <lucide-icon [img]="LockIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+              Pista da frase em {{ hintLeft(hintAfter.frase) }} {{ hintLeft(hintAfter.frase) === 1 ? 'chute' : 'chutes' }}
+            </p>
+          } @else {
+            <button type="button" class="btn-quiet" (click)="sentenceOpen.set(true)">Ver a pista da frase</button>
+          }
+        </div>
+      }
+      @if (secret()?.game?.coverUrl) {
+        <div class="pista" [class.aberta]="coverOpen()">
+          @if (coverOpen()) {
+            <app-cover-sleeve class="capa-borrada" size="thumb" [game]="secret()!.game" [decorative]="true" />
+          } @else if (hintLeft(hintAfter.capa)) {
+            <p class="trancada">
+              <lucide-icon [img]="LockIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+              Pista da capa em {{ hintLeft(hintAfter.capa) }} {{ hintLeft(hintAfter.capa) === 1 ? 'chute' : 'chutes' }}
+            </p>
+          } @else {
+            <button type="button" class="btn-quiet" (click)="coverOpen.set(true)">Ver a capa borrada</button>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ===== As fileiras ===== -->
+  @if (rows().length) {
+    <div class="tabela-rolagem">
+      <table class="grade">
+        <caption class="sr-only">Os chutes, o mais novo primeiro</caption>
+        <thead>
+          <tr>
+            <th scope="col">Ficha</th>
+            @for (c of columns(); track c.key) {
+              <th scope="col">{{ c.label }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.review.id) {
+            <tr [class.acerto]="row.hit">
+              <th scope="row" class="quem">
+                <button type="button" class="quem-botao" (click)="open(row.review)">
+                  <app-cover-sleeve class="thumb" size="thumb" [game]="row.review.game" [decorative]="true" />
+                  <span>{{ row.review.game.name }}</span>
+                </button>
+              </th>
+              @for (cell of row.cells; track cell.key; let i = $index) {
+                <td
+                  class="ladrilho"
+                  [class]="'ladrilho ' + cell.mark"
+                  [style.--ordem]="i"
+                  [attr.aria-label]="cellLabel(cell, columns()[i].label)"
+                >
+                  @if (cell.arrow === 'up') {
+                    <lucide-icon class="seta" [img]="UpIcon" [size]="44" [strokeWidth]="1.6" aria-hidden="true" />
+                  } @else if (cell.arrow === 'down') {
+                    <lucide-icon class="seta" [img]="DownIcon" [size]="44" [strokeWidth]="1.6" aria-hidden="true" />
+                  }
+                  @if (cell.stock) {
+                    <span class="amostra" [style.background]="'var(--stock-' + cell.stock + ')'" aria-hidden="true"></span>
+                  }
+                  <span class="valor" aria-hidden="true">{{ cell.text }}</span>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="legenda">
+      <span class="chip certo"></span> igual <span class="chip perto"></span> perto <span class="chip errado"></span> diferente
+      <span class="chip desconhecido"></span> sem dado · a seta aponta para o lado da secreta
+    </p>
+  }
+}
+
+<app-review-reader />

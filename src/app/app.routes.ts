@@ -32,6 +32,11 @@ export const routes: Routes = [
     title: 'Maior ou menor',
     loadComponent: () => import('./pages/higher-lower-page').then((m) => m.HigherLowerPage),
   },
+  {
+    path: 'extras/muraldle',
+    title: 'Muraldle',
+    loadComponent: () => import('./pages/muraldle-page').then((m) => m.MuraldlePage),
+  },
   { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },
 ];

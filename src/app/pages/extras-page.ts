@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowUpDown, ChartNoAxesColumn, LucideAngularModule, LucideIconData, Swords, Users } from 'lucide-angular';
+import { ArrowUpDown, ChartNoAxesColumn, LucideAngularModule, LucideIconData, Puzzle, Swords, Users } from 'lucide-angular';
 import { Mural } from '../core/mural';
 import { Pin } from '../ui/pin';
 
@@ -71,6 +71,15 @@ const SHELVES: Shelf[] = [
         icon: ArrowUpDown,
         stock: 'var(--stock-rosa)',
         pin: '#2f6bff',
+        go: 'Jogar',
+      },
+      {
+        path: '/extras/muraldle',
+        name: 'Muraldle',
+        blurb: 'Uma ficha secreta por dia. Chute outras fichas e os quadradinhos dizem o que bate: nota, status, ano, cartolina…',
+        icon: Puzzle,
+        stock: 'var(--stock-lilas)',
+        pin: '#1fb65a',
         go: 'Jogar',
       },
     ],
