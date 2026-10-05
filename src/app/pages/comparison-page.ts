@@ -313,7 +313,8 @@ export class ComparisonPage {
       const c = await this.colleagues.add(file, guess || (n ? `Colega ${n + 1}` : 'Colega'));
       this.adding.set(false);
       this.query.set('');
-      this.naming.set(!guess);
+      // só pergunta o nome quando nem o backup nem o nome do arquivo disseram
+      this.naming.set(!guess && !c.ownerName);
       this.toasts.show(`O mural de ${c.name} chegou`);
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Não consegui abrir esse backup. Tente outro arquivo.');

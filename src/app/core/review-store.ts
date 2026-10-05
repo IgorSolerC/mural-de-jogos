@@ -299,13 +299,19 @@ export class ReviewStore {
     this.unmark('wishes', wish.id);
   }
 
-  /** O backup sai em gzip (.json.gz); sem CompressionStream no navegador, sai o JSON puro. */
-  async exportBackup(): Promise<{ blob: Blob; ext: string }> {
+  /**
+   * O backup sai em gzip (.json.gz); sem CompressionStream no navegador, sai o JSON puro. Com o nome
+   * da pessoa, ele vai junto (`owner.name`): quem abrir em Comparar já sabe de quem é.
+   */
+  async exportBackup(ownerName = ''): Promise<{ blob: Blob; ext: string }> {
+    const name = ownerName.trim();
     const payload = {
       app: 'meu-mural',
-      // 2: cada ficha e cada pendente diz o seu mural; os backups 1 são todos de jogos
+      // 2: cada ficha e cada pendente diz o seu mural; os backups 1 são todos de jogos. O `owner`
+      // veio depois sem mudar a versão: quem não conhece o campo simplesmente o ignora.
       version: 2,
       exportedAt: new Date().toISOString(),
+      ...(name ? { owner: { name } } : {}),
       reviews: this.reviews(),
       drafts: this.drafts(),
       wishes: this.wishes(),

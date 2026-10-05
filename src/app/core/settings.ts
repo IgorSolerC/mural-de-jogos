@@ -22,7 +22,12 @@ interface Stored {
   /** Sem spoilers: as fichas do mural escondem notas, veredito, bônus e texto, para mostrar o mural a outros. */
   noSpoilers: boolean;
   scoreDisplay: ScoreDisplay;
+  /** O nome da pessoa: vai no backup (e no nome do arquivo), para quem abrir em Comparar já saber de quem é. */
+  ownerName: string;
 }
+
+/** O nome é curto: cabe numa etiqueta "Olá, eu sou" e no nome do arquivo. */
+export const OWNER_NAME_MAX = 40;
 
 function readStored(): Stored {
   try {
@@ -34,9 +39,10 @@ function readStored(): Stored {
     const groupLabels = raw.groupLabels !== false;
     const noSpoilers = raw.noSpoilers === true;
     const scoreDisplay: ScoreDisplay = SCORE_DISPLAYS.includes(raw.scoreDisplay) ? raw.scoreDisplay : 'livre';
-    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay };
+    const ownerName = typeof raw.ownerName === 'string' ? raw.ownerName.slice(0, OWNER_NAME_MAX) : '';
+    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName };
   } catch {
-    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre' };
+    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '' };
   }
 }
 
@@ -60,6 +66,8 @@ export class Settings {
   /** Notas viram "?", bônus viram adesivos meio a meio e o texto vira embaralhado, do mesmo tamanho. */
   readonly noSpoilers = signal(this.stored.noSpoilers);
   readonly scoreDisplay = scoreDisplay;
+  /** Como a pessoa se chama (vazio: não disse). Ver `OWNER_NAME_MAX`. */
+  readonly ownerName = signal(this.stored.ownerName);
   readonly effectiveSource = computed<CoverSource>(() => (this.source() === 'rawg' && this.hasRawg() ? 'rawg' : 'wikipedia'));
 
   constructor() {
@@ -71,6 +79,7 @@ export class Settings {
         groupLabels: this.groupLabels(),
         noSpoilers: this.noSpoilers(),
         scoreDisplay: this.scoreDisplay(),
+        ownerName: this.ownerName().slice(0, OWNER_NAME_MAX),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { localDay } from './review';
 import { ReviewStore } from './review-store';
+import { Settings } from './settings';
 
 const KEY = 'mural-de-jogos:backup:v1';
 const DAY = 86_400_000;
@@ -27,12 +28,27 @@ function read(): Stored {
 }
 
 /**
+ * O nome do arquivo: "meu-mural-de-igor-2026-10-05.json.gz", ou "meu-mural-2026-10-05.json.gz" sem
+ * nome. O Comparar tira o nome daqui quando o arquivo é de antes do campo (ver `nameFromFile`).
+ */
+export function backupFileName(ownerName: string, day: string, ext: string): string {
+  const slug = ownerName
+    .trim()
+    .toLowerCase()
+    .replace(/[\\/:*?"<>|.,;'`~!@#$%^&()[\]{}=+]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, '-');
+  return `meu-mural-${slug ? `de-${slug}-` : ''}${day}.${ext}`;
+}
+
+/**
  * Cuidar para as resenhas não sumirem: elas moram só neste navegador. Baixa o backup, lembra de
  * baixar de novo quando faz tempo, e pede ao navegador para não apagar os dados sozinho.
  */
 @Injectable({ providedIn: 'root' })
 export class Backup {
   private readonly store = inject(ReviewStore);
+  private readonly settings = inject(Settings);
   private readonly state = signal<Stored>(read());
 
   readonly lastAt = computed(() => this.state().lastAt);
@@ -60,12 +76,12 @@ export class Backup {
   }
 
   async download(): Promise<void> {
-    const { blob, ext } = await this.store.exportBackup();
+    const { blob, ext } = await this.store.exportBackup(this.settings.ownerName());
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     // o dia daqui, não o de Greenwich: depois das 21h o nome já sairia com a data de amanhã
-    a.download = `meu-mural-${localDay(new Date())}.${ext}`;
+    a.download = backupFileName(this.settings.ownerName(), localDay(new Date()), ext);
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     this.save({ lastAt: new Date().toISOString(), snoozeUntil: null });

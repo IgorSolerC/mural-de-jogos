@@ -49,13 +49,14 @@ export class ColleagueStore {
     }
   }
 
+  /** `name` é o palpite (do nome do arquivo, ou "Colega"): o nome que veio dentro do backup vence. */
   async add(file: File, name: string): Promise<Colleague> {
     await this.ready;
     const snapshot = parseBackupSnapshot(await readBackupFile(file));
     const colleague: Colleague = {
       ...snapshot,
       id: newId(),
-      name: name.trim().slice(0, 60) || 'Colega',
+      name: (snapshot.ownerName ?? name).trim().slice(0, 60) || 'Colega',
       fileName: file.name,
       loadedAt: new Date().toISOString(),
     };

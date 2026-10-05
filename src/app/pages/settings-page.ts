@@ -16,14 +16,15 @@ import {
   Upload,
   X,
 } from 'lucide-angular';
-import { BACKUP_EVERY_DAYS, Backup } from '../core/backup';
+import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
+import { ownerNameOf } from '../core/backup-file';
 import { ReviewStore } from '../core/review-store';
-import { ScoreDisplay, Settings } from '../core/settings';
+import { OWNER_NAME_MAX, ScoreDisplay, Settings } from '../core/settings';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 import { BonusSticker } from '../ui/bonus';
 import { JudgeLabel } from '../ui/judge-label';
-import { Bonus } from '../core/review';
+import { Bonus, localDay } from '../core/review';
 import { scramble } from '../core/spoiler';
 import { Rabisco } from '../ui/rabisco';
 
@@ -66,6 +67,27 @@ const DAY = 86_400_000;
             <p class="estado-linha">{{ lastBackup() }}</p>
             <p class="estado-sub">{{ contents() }}</p>
           </div>
+        </div>
+
+        <div class="bloco nome-dono">
+          <h3 class="sub"><label for="dono-nome">Seu nome</label></h3>
+          <p class="hint">
+            Vai dentro do backup e no nome do arquivo. Quem abrir o seu backup em Comparar já vê o seu nome, em vez de
+            "Colega".
+          </p>
+          <div class="key">
+            <input
+              id="dono-nome"
+              type="text"
+              autocomplete="nickname"
+              spellcheck="false"
+              [maxLength]="ownerNameMax"
+              placeholder="Como você quer aparecer"
+              [value]="settings.ownerName()"
+              (input)="settings.ownerName.set($any($event.target).value)"
+            />
+          </div>
+          <p class="hint arquivo">O arquivo sai como <strong>{{ fileNamePreview() }}</strong></p>
         </div>
 
         <button type="button" class="btn-ink baixar" (click)="exportFile()" [disabled]="!hasData()">
@@ -402,6 +424,11 @@ export class SettingsPage {
     { value: 'inteiro', label: 'Inteiros', text: 'Vai para o inteiro mais perto: 8,4 vira 8 e 8,5 vira 9.' },
   ];
   protected readonly backup = inject(Backup);
+  protected readonly ownerNameMax = OWNER_NAME_MAX;
+  /** Como o próximo backup vai se chamar, com o nome digitado. */
+  protected readonly fileNamePreview = computed(() =>
+    backupFileName(this.settings.ownerName(), localDay(new Date()), typeof CompressionStream === 'undefined' ? 'json' : 'json.gz'),
+  );
   private readonly toasts = inject(Toasts);
 
   protected readonly DownloadIcon = Download;
@@ -493,7 +520,17 @@ export class SettingsPage {
       return;
     }
     try {
-      const res = this.store.importJson(await this.store.readBackup(file), this.mode());
+      const text = await this.store.readBackup(file);
+      const res = this.store.importJson(text, this.mode());
+      // o seu próprio backup num navegador novo: o nome volta junto, se ainda não há um aqui
+      if (!this.settings.ownerName().trim()) {
+        try {
+          const owner = ownerNameOf(JSON.parse(text));
+          if (owner) this.settings.ownerName.set(owner);
+        } catch {
+          /* o importJson já disse o que havia de errado */
+        }
+      }
       const parts = [`${res.added} ${res.added === 1 ? 'resenha nova' : 'resenhas novas'}`];
       if (res.updated) parts.push(`${res.updated} atualizada${res.updated === 1 ? '' : 's'}`);
       if (res.skipped) parts.push(`${res.skipped} ignorada${res.skipped === 1 ? '' : 's'}`);

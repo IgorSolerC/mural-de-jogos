@@ -49,6 +49,15 @@ export interface BackupSnapshot {
   reviews: Review[];
   exportedAt: string | null;
   skipped: number;
+  /** O nome que a pessoa salvou em Ajustes antes de baixar (backups antigos não têm). */
+  ownerName: string | null;
+}
+
+/** O nome de quem fez o backup, se ele veio no arquivo. */
+export function ownerNameOf(data: unknown): string | null {
+  const owner = (data as { owner?: { name?: unknown } } | null)?.owner;
+  const name = typeof owner?.name === 'string' ? owner.name.trim().slice(0, 60) : '';
+  return name || null;
 }
 
 /** Só lê e sanitiza: não toca nos dados pessoais nem aplica exclusões ao mural do usuário. */
@@ -105,6 +114,7 @@ export function parseBackupSnapshot(text: string): BackupSnapshot {
   return {
     reviews: [...reviews.values()],
     skipped,
+    ownerName: ownerNameOf(object),
     exportedAt:
       typeof exportedAt === 'string' && Number.isFinite(Date.parse(exportedAt))
         ? exportedAt

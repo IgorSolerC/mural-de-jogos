@@ -605,3 +605,20 @@ a {
     gap: 12px;
   }
 }
+
+/* Seu nome: o campo e a prévia do nome do arquivo */
+.nome-dono {
+  .sub label {
+    cursor: pointer;
+  }
+
+  .key {
+    margin-top: 10px;
+  }
+
+  .arquivo strong {
+    overflow-wrap: anywhere;
+    font-family: var(--f-ui);
+    font-weight: 700;
+  }
+}
