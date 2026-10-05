@@ -1,4 +1,5 @@
 import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
+import { scoreDisplay } from './settings';
 import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
 
 export type { Kind } from './kinds';
@@ -442,9 +443,21 @@ export function formatAmount(kind: Kind, v: number | null, long = false): string
 
 const scoreFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
-/** 8.4 → "8,4"; 9 → "9". */
+/** A nota como aparece, pelo ajuste de exibição: 8.4 → 8,4 (Livre), 8,5 (Arredondado) ou 8 (Inteiros). */
+export function shownScore(v: number): number {
+  switch (scoreDisplay()) {
+    case 'metade':
+      return Math.round(v * 2) / 2;
+    case 'inteiro':
+      return Math.round(v);
+    default:
+      return Math.round(v * 10) / 10;
+  }
+}
+
+/** 8.4 → "8,4"; 9 → "9" (arredondada pelo ajuste de exibição). */
 export function formatScore(v: number | null | undefined): string {
-  return v === null || v === undefined ? '–' : scoreFmt.format(v);
+  return v === null || v === undefined ? '–' : scoreFmt.format(shownScore(v));
 }
 
 /** Quanto os bônus mexeram na média: "+0,4", "−0,3" ou "±0". */

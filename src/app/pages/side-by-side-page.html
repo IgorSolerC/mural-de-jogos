@@ -92,7 +92,7 @@
                   <td>
                     @switch (row.kind) {
                       @case ('final') {
-                        <span class="media" [class.top]="r.scores.final >= 9" [class.ganhou]="won('final', r.id)">
+                        <span class="media" [class.top]="shown(r.scores.final) >= 9" [class.ganhou]="won('final', r.id)">
                           <span aria-hidden="true">
                             {{ grade(r.scores.final).int }}@if (grade(r.scores.final).dec) {<small>,{{ grade(r.scores.final).dec }}</small>}
                           </span>

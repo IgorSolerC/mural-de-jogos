@@ -12,7 +12,7 @@ import {
   untracked,
 } from '@angular/core';
 import { EyeOff, LucideAngularModule } from 'lucide-angular';
-import { VERDICT_LABEL, Verdict, formatScore } from '../core/review';
+import { VERDICT_LABEL, Verdict, formatScore, shownScore } from '../core/review';
 import { BRILHO_PATH } from './brilho';
 import { VERDICT_ICON } from './verdict';
 
@@ -381,7 +381,8 @@ export class JudgeLabel {
     const v = this.value();
     const text = formatScore(v);
     const [int, dec = ''] = text.split(',');
-    const n = v ?? 0;
+    // as faixas seguem a nota que aparece: um 8,8 escrito "9" também é de metal
+    const n = v === null ? 0 : shownScore(v);
     // 9 ou mais é número em metal, e de 8 para cima a etiqueta ganha brilhos; de 4 a 4,9, o papel
     // manchado de café; abaixo de 4 (até 3,9), nota vermelha na etiqueta preta rasgada. As notas das
     // categorias só rasgam abaixo de 2 (Boletim): a Média é mais pesada, e reprova antes.

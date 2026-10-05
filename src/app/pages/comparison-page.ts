@@ -15,6 +15,7 @@ import {
   formatAmount,
   formatReviewDate,
   formatScore,
+  shownScore,
   newId,
   ratedKeys,
   scoreOf,
@@ -426,9 +427,13 @@ export class ComparisonPage {
 
   /** "Sua nota é 3 maior", para quem não vê o bilhete. */
   protected spoken(pair: ReviewPair): string {
-    if (pair.difference === 0) return 'Mesma nota';
-    return pair.difference > 0
-      ? `Sua nota é ${formatScore(pair.difference)} maior`
-      : `A nota de ${this.name()} é ${formatScore(-pair.difference)} maior`;
+    const d = this.gap(pair);
+    if (d === 0) return 'Mesma nota';
+    return d > 0 ? `Sua nota é ${formatScore(d)} maior` : `A nota de ${this.name()} é ${formatScore(-d)} maior`;
+  }
+
+  /** A diferença entre as notas como aparecem (Arredondado ou Inteiros mudam a conta): 9 e 8,5 dão 0,5. */
+  protected gap(pair: ReviewPair): number {
+    return Math.round((shownScore(pair.mine.scores.final) - shownScore(pair.theirs.scores.final)) * 10) / 10;
   }
 }

@@ -18,7 +18,7 @@ import {
 } from 'lucide-angular';
 import { BACKUP_EVERY_DAYS, Backup } from '../core/backup';
 import { ReviewStore } from '../core/review-store';
-import { Settings } from '../core/settings';
+import { ScoreDisplay, Settings } from '../core/settings';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 import { BonusSticker } from '../ui/bonus';
@@ -173,7 +173,20 @@ const DAY = 86_400_000;
           </label>
         </fieldset>
 
-        <!-- um canto de ficha, para ver o que some -->
+        <fieldset class="escolha nota">
+          <legend class="rotulo">Nota</legend>
+          @for (o of scoreDisplays; track o.value) {
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="nota" [value]="o.value" [checked]="settings.scoreDisplay() === o.value" (change)="settings.scoreDisplay.set(o.value)" />
+                <span class="adesivo" [class.recorte]="settings.scoreDisplay() !== o.value" [class.colado]="settings.scoreDisplay() === o.value">{{ o.label }}</span>
+              </span>
+              <span class="op-texto">{{ o.text }}</span>
+            </label>
+          }
+        </fieldset>
+
+        <!-- um canto de ficha, para ver o que some e como a nota aparece -->
         <div class="previa-ficha" aria-hidden="true">
           <app-judge-label class="p-julgamento" [value]="8.7" verdict="recomendo" size="compact" [masked]="settings.noSpoilers()" />
           <ul class="p-bonus">
@@ -382,6 +395,12 @@ const DAY = 86_400_000;
 export class SettingsPage {
   protected readonly store = inject(ReviewStore);
   protected readonly settings = inject(Settings);
+  /** O jeito de mostrar a nota, com um exemplo de cada. */
+  protected readonly scoreDisplays: readonly { value: ScoreDisplay; label: string; text: string }[] = [
+    { value: 'livre', label: 'Livre', text: 'Qualquer nota com até uma casa: 8,4 fica 8,4.' },
+    { value: 'metade', label: 'Arredondado', text: 'Vai para a metade ou o inteiro mais perto: 9,2 vira 9 e 8,4 vira 8,5.' },
+    { value: 'inteiro', label: 'Inteiros', text: 'Vai para o inteiro mais perto: 8,4 vira 8 e 8,5 vira 9.' },
+  ];
   protected readonly backup = inject(Backup);
   private readonly toasts = inject(Toasts);
 

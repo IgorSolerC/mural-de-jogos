@@ -4,6 +4,14 @@ const KEY = 'mural-de-jogos:config:v1';
 
 export type CoverSource = 'wikipedia' | 'rawg';
 
+/**
+ * Como as notas aparecem: Livre (com uma casa, como foram dadas), Arredondado (para a metade ou o
+ * inteiro mais perto: 9,2 → 9; 8,4 → 8,5) ou Inteiros (8,4 → 8; 8,5 → 9). Só a exibição: a nota
+ * guardada, a média e a ordem do mural não mudam.
+ */
+export type ScoreDisplay = 'livre' | 'metade' | 'inteiro';
+export const SCORE_DISPLAYS: readonly ScoreDisplay[] = ['livre', 'metade', 'inteiro'];
+
 interface Stored {
   rawgKey: string;
   /** Chave do TMDB (a "API key" curta ou o "token de leitura" longo): filmes e séries em português. */
@@ -13,6 +21,7 @@ interface Stored {
   groupLabels: boolean;
   /** Sem spoilers: as fichas do mural escondem notas, veredito, bônus e texto, para mostrar o mural a outros. */
   noSpoilers: boolean;
+  scoreDisplay: ScoreDisplay;
 }
 
 function readStored(): Stored {
@@ -24,11 +33,18 @@ function readStored(): Stored {
     const source: CoverSource = raw.source === 'wikipedia' || raw.source === 'rawg' ? raw.source : rawgKey ? 'rawg' : 'wikipedia';
     const groupLabels = raw.groupLabels !== false;
     const noSpoilers = raw.noSpoilers === true;
-    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers };
+    const scoreDisplay: ScoreDisplay = SCORE_DISPLAYS.includes(raw.scoreDisplay) ? raw.scoreDisplay : 'livre';
+    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay };
   } catch {
-    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false };
+    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre' };
   }
 }
+
+/**
+ * O jeito de mostrar as notas, lido já ao carregar: `formatScore` usa em toda parte, mesmo nas telas
+ * que não pedem os Ajustes.
+ */
+export const scoreDisplay = signal<ScoreDisplay>(readStored().scoreDisplay);
 
 @Injectable({ providedIn: 'root' })
 export class Settings {
@@ -43,6 +59,7 @@ export class Settings {
   readonly groupLabels = signal(this.stored.groupLabels);
   /** Notas viram "?", bônus viram adesivos meio a meio e o texto vira embaralhado, do mesmo tamanho. */
   readonly noSpoilers = signal(this.stored.noSpoilers);
+  readonly scoreDisplay = scoreDisplay;
   readonly effectiveSource = computed<CoverSource>(() => (this.source() === 'rawg' && this.hasRawg() ? 'rawg' : 'wikipedia'));
 
   constructor() {
@@ -53,6 +70,7 @@ export class Settings {
         source: this.source(),
         groupLabels: this.groupLabels(),
         noSpoilers: this.noSpoilers(),
+        scoreDisplay: this.scoreDisplay(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

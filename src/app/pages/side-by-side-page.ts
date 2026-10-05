@@ -23,6 +23,7 @@ import {
   WEIGHT_LABEL,
   formatAmount,
   formatScore,
+  shownScore,
   formatReviewDate,
   ratedKeys,
   scoreKeys,
@@ -125,6 +126,7 @@ export class SideBySidePage {
   protected readonly difficultyLabel = DIFFICULTY_LABEL;
   protected readonly weightOf = weightOf;
   protected readonly fmt = formatScore;
+  protected readonly shown = shownScore;
 
   protected readonly sortLabel = computed(
     () => [...SORT_OPTIONS, ...this.scoreOptions()].find((o) => o.value === this.sort())?.label ?? '',

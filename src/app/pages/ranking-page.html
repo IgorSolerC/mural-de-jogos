@@ -31,7 +31,7 @@
               type="button"
               class="row"
               [class.first]="row.pos === 1"
-              [class.hi]="row.score >= 9"
+              [class.hi]="shown(row.score) >= 9"
               (click)="desk.openReview(row.review.id)"
             >
               <span class="pos">{{ ordinal(row.pos) }}</span>

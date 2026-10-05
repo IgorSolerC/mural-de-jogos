@@ -13,6 +13,7 @@ import {
   VERDICT_LABEL,
   formatAmount,
   formatScore,
+  shownScore,
   scoreKeys,
   scoreOf,
 } from '../core/review';
@@ -50,6 +51,7 @@ export class RankingPage {
   protected readonly keys = computed(() => scoreKeys(this.mural.kind()));
   protected readonly labels = SCORE_LABEL;
   protected readonly fmt = formatScore;
+  protected readonly shown = shownScore;
   protected readonly today = printed.format(new Date());
 
   private readonly chosen = signal<ScoreKey>('final');

@@ -168,14 +168,14 @@
                       <app-review-card [review]="pair.mine" [preview]="true" [compact]="simple()" [paired]="paired()" (opened)="openReview(pair.mine, true)" />
                     </div>
                     <div class="meio">
-                      <p class="diferenca" [class.minha]="pair.difference > 0" [class.dela]="pair.difference < 0">
+                      <p class="diferenca" [class.minha]="gap(pair) > 0" [class.dela]="gap(pair) < 0">
                         <span class="sr-only">{{ spoken(pair) }}</span>
-                        @if (pair.difference === 0) {
+                        @if (gap(pair) === 0) {
                           <span class="dif-num" aria-hidden="true">=</span>
                           <span class="dif-txt" aria-hidden="true">mesma nota</span>
                         } @else {
-                          <span class="dif-num" aria-hidden="true">+{{ fmt(abs(pair.difference)) }}</span>
-                          <span class="dif-txt" aria-hidden="true">{{ pair.difference > 0 ? 'pra você' : 'pra ' + c.name }}</span>
+                          <span class="dif-num" aria-hidden="true">+{{ fmt(abs(gap(pair))) }}</span>
+                          <span class="dif-txt" aria-hidden="true">{{ gap(pair) > 0 ? 'pra você' : 'pra ' + c.name }}</span>
                         }
                       </p>
                       <button
