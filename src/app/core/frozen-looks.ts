@@ -57,8 +57,8 @@ export const FROZEN_STAINS: readonly Stain[] = [
   'molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue',
   // 2026-09-30, a terceira leva
   'passos', 'mao', 'nanquim', 'gosma', 'lagrimas', 'salgadinho', 'cybertribal',
-  // 2026-10-03, a quarta leva
-  'fuligem', 'refri', 'pizza', 'cera', 'graxa', 'lama', 'pneu',
+  // 2026-10-03, a quarta leva (a Cera de vela saiu em 2026-10-05, a pedido)
+  'fuligem', 'refri', 'pizza', 'graxa', 'lama', 'pneu',
 ];
 
 /** As decorações, desde 2026-09-29. */
@@ -69,8 +69,8 @@ export const FROZEN_DECORS: readonly Decor[] = [
   'grampos', 'alfinete', 'curativo', 'cuidado', 'neve', 'petalas', 'teia', 'beijo',
   // 2026-10-02, a TV e o computador
   'antena', 'crt', 'barras', 'disquete', 'erro',
-  // 2026-10-03, a quarta leva
-  'cogumelos', 'cristais', 'silvertape', 'rotuladora', 'prendedor', 'pregador', 'parafusos', 'lapis', 'cantoneiras', 'locadora', 'joias', 'laco', 'pena', 'morcego',
+  // 2026-10-03, a quarta leva (os Cogumelos e os Cristais saíram em 2026-10-05, a pedido)
+  'silvertape', 'rotuladora', 'prendedor', 'pregador', 'parafusos', 'lapis', 'cantoneiras', 'locadora', 'joias', 'laco', 'pena', 'morcego',
 ];
 
 /** Sem sorteio (as fichas de antes), e alguns sorteios quaisquer, até o maior. */

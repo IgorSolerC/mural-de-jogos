@@ -305,14 +305,6 @@ describe('papel da ficha', () => {
       expect([...ways].sort()).toEqual(['alto-direita', 'deitada', 'em pé', 'pé-direita', 'pé-esquerda']);
     });
 
-    it('a cera de vela caiu na ficha pronta: fica por cima de tudo, como a gosma', () => {
-      for (let seed = 1; seed <= 20; seed++) {
-        const art = paperArt({ ...base, stain: 'cera', stainSeed: seed });
-        expect(art.topo?.length ?? 0).withContext(String(seed)).toBeGreaterThan(100);
-        expect(art.frente).withContext(String(seed)).toBe('');
-      }
-    });
-
     it('no Quebra-cabeça nunca falta a peça da foto nem a da nota', () => {
       for (const s of [{ W: 420, H: 300 }, { W: 340, H: 150 }])
         for (let seed = 1; seed <= 60; seed++) {

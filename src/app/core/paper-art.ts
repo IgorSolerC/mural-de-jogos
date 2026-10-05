@@ -2309,9 +2309,6 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
     case 'pizza':
       pizzaGrease(W, H, k, r, out);
       break;
-    case 'cera':
-      candleWax(W, H, k, r, uid, out);
-      break;
     case 'graxa':
       grease(W, H, k, r, uid, out);
       break;
@@ -5488,74 +5485,6 @@ function pizzaGrease(W: number, H: number, k: number, r: () => number, out: Pape
   out.fundo +=
     `<g filter='url(#papel-agua)' style='fill: var(--stock)'><path d='${slice}' opacity='.5'/><g opacity='.4'>${spots}</g><g opacity='.45'>${drops}${finger}</g></g>` +
     `<g filter='url(#papel-agua)' fill='rgb(236 150 50)'><path d='${slice}' fill-opacity='.2'/><g fill-opacity='.22'>${spots}</g><g fill-opacity='.14'>${drops}</g></g>`;
-}
-
-// ----- Cera de vela -----
-
-const WAX_DRIP: readonly (readonly [string, string, string])[] = [
-  ['#efe5cb', '#fffaf0', '#bcae88'],
-  ['#b51e2a', '#e8545c', '#6a0c14'],
-  ['#1e1b1e', '#5a5560', '#000000'],
-  ['#5c2a7c', '#9561b8', '#2e1242'],
-  ['#f6f3ec', '#ffffff', '#c8c0ae'],
-];
-
-/**
- * Uma vela pingou na ficha em pé: os pingos caíram perto uns dos outros e escorreram para baixo,
- * engrossando no fim, e endureceram em relevo (a sombra embaixo, a luz em cima, o brilho da cera). Uns
- * respingos redondos em volta. Branca, vermelha, preta, roxa ou marfim. Caiu depois da ficha pronta:
- * fica por cima de tudo, como a gosma, e por isso na margem da direita, longe da foto e da nota.
- */
-function candleWax(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
-  const q = Math.max(0.45, k);
-  const [base, light, dark] = WAX_DRIP[Math.floor(r() * WAX_DRIP.length)];
-  // a vela estava à direita: os pingos caem na margem livre, longe da foto e da nota
-  const strip = isStrip(W, H);
-  const sx = W * (strip ? 0.84 + r() * 0.08 : 0.94 + r() * 0.03);
-  // na ficha completa a margem é estreita: o veredito comprido chega até 0,9 da largura
-  const minX = W * (strip ? 0.8 : 0.925);
-  const shapes: string[] = [],
-    lights: string[] = [],
-    specs: string[] = [];
-  const n = 3 + Math.floor(r() * 4);
-  for (let i = 0; i < n; i++) {
-    const x = clamp(sx + (r() - 0.5) * (strip ? 44 : 20) * q, minX, W - 6 * q),
-      y = H * (0.06 + r() * 0.4);
-    const rh = (3.6 + r() * 4.4) * q;
-    const run = r() < 0.3 ? 0 : Math.min(H - y - 8 * q, (14 + r() * 60) * q);
-    // a cabeça do pingo
-    let d = blobPath(x, y, rh, r);
-    if (run > rh) {
-      // a escorrida: afina e engrossa de novo no fim, onde a cera parou
-      const ctrl: Pt[] = [0, 0.33, 0.66, 1].map((t) => [x + Math.sin(t * 3 + i) * 1.6 * q, y + run * t]);
-      d += blade(ctrl, (t) => rh * 2 * (t < 0.15 ? 0.95 - t * 2.5 : 0.58 - t * 0.12), 24);
-      const tip = ctrl[3];
-      d += blobPath(tip[0], tip[1], rh * 0.72, r);
-      lights.push(`M${f1(x - rh * 0.4)} ${f1(y + rh)}L${f1(tip[0] - rh * 0.35)} ${f1(tip[1] - rh * 0.4)}`);
-      specs.push(`<ellipse cx='${f1(tip[0] - rh * 0.25)}' cy='${f1(tip[1] - rh * 0.3)}' rx='${f1(rh * 0.22)}' ry='${f1(rh * 0.15)}'/>`);
-    }
-    shapes.push(d);
-    specs.push(`<ellipse cx='${f1(x - rh * 0.35)}' cy='${f1(y - rh * 0.4)}' rx='${f1(rh * 0.35)}' ry='${f1(rh * 0.22)}' transform='rotate(-30 ${f1(x - rh * 0.35)} ${f1(y - rh * 0.4)})'/>`);
-  }
-  // os respingos
-  for (let i = 0; i < 5 + Math.floor(r() * 6); i++) {
-    const a = r() * Math.PI * 2,
-      dd = (14 + r() * 40) * q;
-    const x = clamp(sx + Math.cos(a) * dd * 0.6, minX, W - 4),
-      y = clamp(H * 0.3 + Math.sin(a) * dd, 4, H - 4);
-    const s = (0.9 + r() * 1.8) * q;
-    shapes.push(blobPath(x, y, s, r));
-    specs.push(`<circle cx='${f1(x - s * 0.3)}' cy='${f1(y - s * 0.3)}' r='${f1(s * 0.3)}'/>`);
-  }
-  const all = shapes.map((d) => `<path d='${d}'/>`).join('');
-  const id = `${uid}-cera`;
-  // caiu na ficha pronta: por cima de tudo, como a gosma
-  out.topo = (out.topo ?? '') +
-    `<defs><linearGradient id='${id}' x1='0' y1='0' x2='.4' y2='1'><stop offset='0' stop-color='${light}'/><stop offset='.45' stop-color='${base}'/><stop offset='1' stop-color='${dark}'/></linearGradient></defs>` +
-    `<g transform='translate(${f1(0.9 * q)} ${f1(1.6 * q)})' fill='#000' fill-opacity='.3' filter='url(#papel-borra)'>${all}</g>` +
-    `<g fill='url(#${id})' stroke='${dark}' stroke-opacity='.45' stroke-width='${f1(0.7 * q)}'>${all}</g>` +
-    `<path d='${lights.join('')}' fill='none' stroke='${light}' stroke-opacity='.7' stroke-width='${f1(1.2 * q)}' stroke-linecap='round'/>` +
-    `<g fill='#fff' fill-opacity='.75'>${specs.join('')}</g>`;
 }
 
 // ----- Graxa -----

@@ -437,14 +437,13 @@ export type Stain =
   | 'fuligem'
   | 'refri'
   | 'pizza'
-  | 'cera'
   | 'graxa'
   | 'lama'
   | 'pneu';
 
-/** Na ordem do estojo: o que se bebe e o que se chora, o sangue, a tinta e a fuligem, a gosma, a cera e a gordura, o mofo e os bichos, e quem passou por cima. */
+/** Na ordem do estojo: o que se bebe e o que se chora, o sangue, a tinta e a fuligem, a gosma e a gordura, o mofo e os bichos, e quem passou por cima. */
 export const STAINS: readonly Stain[] = [
-  'cafe', 'refri', 'molhado', 'lagrimas', 'sangue', 'mao', 'nanquim', 'fuligem', 'gosma', 'cera', 'salgadinho', 'pizza', 'graxa', 'mofado', 'tracas', 'lama', 'pisado', 'pneu', 'pegadas', 'passos', 'cybertribal',
+  'cafe', 'refri', 'molhado', 'lagrimas', 'sangue', 'mao', 'nanquim', 'fuligem', 'gosma', 'salgadinho', 'pizza', 'graxa', 'mofado', 'tracas', 'lama', 'pisado', 'pneu', 'pegadas', 'passos', 'cybertribal',
 ];
 
 export const STAIN_LABEL: Record<Stain, string> = {
@@ -465,7 +464,6 @@ export const STAIN_LABEL: Record<Stain, string> = {
   fuligem: 'Fuligem',
   refri: 'Lata de refri',
   pizza: 'Gordura de pizza',
-  cera: 'Cera de vela',
   graxa: 'Graxa',
   lama: 'Lama respingada',
   pneu: 'Marca de pneu',
@@ -509,8 +507,6 @@ export type Decor =
   | 'barras'
   | 'disquete'
   | 'erro'
-  | 'cogumelos'
-  | 'cristais'
   | 'silvertape'
   | 'rotuladora'
   | 'prendedor'
@@ -525,10 +521,10 @@ export type Decor =
   | 'morcego';
 
 /**
- * Na ordem do estojo: o que brilha e a festa (as joias, os cristais, o laço); os adesivos e as coisas
+ * Na ordem do estojo: o que brilha e a festa (as joias, o laço); os adesivos e as coisas
  * de jogo; a papelaria (selo, post-it, rotuladora, lápis, ingresso, locadora, etiqueta, carimbo,
  * medalha, lacre); o que prende e fura (os prendedores, os parafusos, as cantoneiras, a silver tape);
- * o tempo e os bichos (os cogumelos, a pena, o morcego); a TV e o computador (a antena, o tubo, as
+ * o tempo e os bichos (a pena, o morcego); a TV e o computador (a antena, o tubo, as
  * barras, o disquete, a janela de erro).
  */
 export const DECORS: readonly Decor[] = [
@@ -536,7 +532,6 @@ export const DECORS: readonly Decor[] = [
   'confete',
   'estrelinhas',
   'joias',
-  'cristais',
   'neon',
   'laco',
   'adesivos',
@@ -567,7 +562,6 @@ export const DECORS: readonly Decor[] = [
   'cuidado',
   'neve',
   'petalas',
-  'cogumelos',
   'pena',
   'teia',
   'morcego',
@@ -611,8 +605,6 @@ export const DECOR_LABEL: Record<Decor, string> = {
   barras: 'Barras de cor',
   disquete: 'Disquete',
   erro: 'Janela de erro',
-  cogumelos: 'Cogumelos',
-  cristais: 'Cristais',
   silvertape: 'Silver tape',
   rotuladora: 'Rotuladora',
   prendedor: 'Prendedor de papel',
