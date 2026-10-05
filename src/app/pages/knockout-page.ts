@@ -8,6 +8,7 @@ import { Mural } from '../core/mural';
 import { ME, Player, Players } from '../core/players';
 import { Review } from '../core/review';
 import { DUEL_OPTIONS, DuelOption, agreement, drawEntrants, entrantsFor, makeBracket, playOut, podium } from '../core/tournament';
+import { PlayerPicker } from '../ui/player-picker';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
 
@@ -18,7 +19,7 @@ import { ReviewReader } from '../ui/review-reader';
  */
 @Component({
   selector: 'app-knockout-page',
-  imports: [LucideAngularModule, ReviewCard, ReviewReader, RouterLink],
+  imports: [LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './knockout-page.html',
   styleUrl: './knockout-page.scss',
@@ -106,7 +107,16 @@ export class KnockoutPage {
     const all = n === who.reviews.length;
     const every = n === 2 ? `${g(p, 'Os dois', 'As duas')} ${p.plural}` : `${g(p, 'Todos os', 'Todas as')} ${countOf(p, n)}`;
     const picked = all ? `${every} ${where}` : `${countOf(p, n)} ${g(p, 'sorteados', 'sorteadas')} ${where}`;
-    return `${picked}, ${n - 1} ${n - 1 === 1 ? 'duelo' : 'duelos'} até ${g(p, 'o campeão', 'a campeã')}.`;
+    let size = 2;
+    while (size < n) size *= 2;
+    const byes = size - n;
+    const skip =
+      byes === 0
+        ? ''
+        : byes === 1
+          ? ` ${g(p, 'O', 'A')} de nota mais alta passa direto da primeira rodada.`
+          : ` ${g(p, 'Os', 'As')} ${byes} de nota mais alta passam direto da primeira rodada.`;
+    return `${picked}, ${n - 1} ${n - 1 === 1 ? 'duelo' : 'duelos'} até ${g(p, 'o campeão', 'a campeã')}.${skip}`;
   });
 
   constructor() {
@@ -143,10 +153,6 @@ export class KnockoutPage {
     });
   }
 
-  protected setOwner(id: string): void {
-    this.players.select(id);
-  }
-
   protected start(): void {
     const who = this.players.selected();
     const n = this.chosenEntrants();
@@ -155,10 +161,12 @@ export class KnockoutPage {
       who.reviews.map((r) => r.id),
       n,
     );
+    // as fichas viram cabeças de chave pela nota de quem é o mural: as melhores só se cruzam no fim
+    const finals = new Map(who.reviews.map((r) => [r.id, r.scores.final]));
     this.commit({
       owner: who.id,
       option: this.option(),
-      slots: makeBracket(entrants),
+      slots: makeBracket(entrants, Math.random, (id) => finals.get(id) ?? 0),
       picks: [],
       masked: this.masked(),
       startedAt: new Date().toISOString(),

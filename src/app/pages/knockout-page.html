@@ -139,21 +139,12 @@
       <lucide-icon class="icone" [img]="SwordsIcon" [size]="30" [strokeWidth]="2.2" aria-hidden="true" />
       <h1 id="placar" tabindex="-1">Mata-mata</h1>
     </header>
-    <p class="lead">As fichas duelam de duas em duas. A que você escolher passa de fase, até sobrar uma.</p>
+    <p class="lead">
+      As fichas duelam de duas em duas. A que você escolher passa de fase, até sobrar uma. As de nota mais alta ficam em
+      lados opostos da chave, então só se encontram no fim.
+    </p>
 
-    <fieldset>
-      <legend class="rotulo">Mural de quem?</legend>
-      <div class="plates" role="group" aria-label="Mural de quem">
-        @for (p of players.all(); track p.id) {
-          <button type="button" class="plate" [attr.aria-pressed]="players.selected().id === p.id" [disabled]="p.reviews.length < 2" (click)="setOwner(p.id)">
-            {{ p.name }} <span class="count">{{ p.reviews.length }}</span>
-          </button>
-        }
-      </div>
-      @if (players.all().length === 1) {
-        <p class="nota">Para jogar com as fichas de um colega, abra o backup dele em <a routerLink="/comparar">Comparar</a>.</p>
-      }
-    </fieldset>
+    <app-player-picker />
 
     @if (players.selected().reviews.length < 2) {
       <p class="vazio">

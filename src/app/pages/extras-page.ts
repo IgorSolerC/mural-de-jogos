@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ChartNoAxesColumn, LucideAngularModule, LucideIconData, Swords, Users } from 'lucide-angular';
+import { ArrowUpDown, ChartNoAxesColumn, LucideAngularModule, LucideIconData, Swords, Users } from 'lucide-angular';
 import { Mural } from '../core/mural';
 import { Pin } from '../ui/pin';
 
@@ -62,6 +62,15 @@ const SHELVES: Shelf[] = [
         icon: Swords,
         stock: 'var(--stock-amarelo)',
         pin: '#e62e2d',
+        go: 'Jogar',
+      },
+      {
+        path: '/extras/maior-ou-menor',
+        name: 'Maior ou menor',
+        blurb: 'Uma ficha com a nota à mostra, a próxima escondida: a dela é maior ou menor? Vale a sequência até errar.',
+        icon: ArrowUpDown,
+        stock: 'var(--stock-rosa)',
+        pin: '#2f6bff',
         go: 'Jogar',
       },
     ],

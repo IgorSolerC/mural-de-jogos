@@ -27,6 +27,11 @@ export const routes: Routes = [
     title: 'Mata-mata',
     loadComponent: () => import('./pages/knockout-page').then((m) => m.KnockoutPage),
   },
+  {
+    path: 'extras/maior-ou-menor',
+    title: 'Maior ou menor',
+    loadComponent: () => import('./pages/higher-lower-page').then((m) => m.HigherLowerPage),
+  },
   { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },
 ];

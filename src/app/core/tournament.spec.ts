@@ -1,4 +1,4 @@
-import { agreement, drawEntrants, entrantsFor, makeBracket, playOut, podium } from './tournament';
+import { agreement, drawEntrants, entrantsFor, makeBracket, playOut, podium, seedOrder } from './tournament';
 
 /** Um sorteio previsível. */
 function seeded(seed: number): () => number {
@@ -87,5 +87,63 @@ describe('mata-mata', () => {
     const got = drawEntrants(ids(50), 16, seeded(5));
     expect(got.length).toBe(16);
     expect(new Set(got).size).toBe(16);
+  });
+
+  describe('cabeças de chave pela nota', () => {
+    /** f000 tem a nota mais alta, f001 a seguinte… */
+    const score = (id: string) => 100 - Number(id.slice(1));
+    const best = (a: string, b: string) => (score(a) >= score(b) ? a : b);
+
+    it('a ordem das cabeças de chave é a dos torneios', () => {
+      expect(seedOrder(2)).toEqual([1, 2]);
+      expect(seedOrder(4)).toEqual([1, 4, 2, 3]);
+      expect(seedOrder(8)).toEqual([1, 8, 4, 5, 2, 7, 3, 6]);
+    });
+
+    for (const n of [4, 6, 16, 31, 40]) {
+      it(`${n} fichas: a de nota alta pega a de nota baixa, e as duas melhores só se cruzam na final`, () => {
+        for (let seed = 1; seed <= 20; seed++) {
+          const slots = makeBracket(ids(n), seeded(seed), score);
+          let size = 2;
+          while (size < n) size *= 2;
+          // primeira rodada: cada duelo tem uma da metade de cima e uma da de baixo
+          for (let i = 0; i < slots.length; i += 2) {
+            const [a, b] = [slots[i], slots[i + 1]];
+            if (a === null || b === null) {
+              // as folgas ficam exatamente com as de nota mais alta
+              expect(100 - score((a ?? b)!)).toBeLessThan(size - n);
+              continue;
+            }
+            const rank = (id: string) => 100 - score(id); // 0 é a melhor
+            expect(Math.min(rank(a), rank(b))).toBeLessThan(size / 2);
+            expect(Math.max(rank(a), rank(b))).toBeGreaterThanOrEqual(size / 2);
+          }
+          // a melhor nota sempre passando: a final é entre as duas melhores, e as quatro melhores fazem as semis
+          const out = playOut(slots, playAll(slots, best));
+          const final = out.rounds.at(-1)!.matches[0];
+          expect([final.a, final.b].sort()).toEqual(['f000', 'f001']);
+          const semi = out.rounds.find((r) => r.size === 4)!.matches.flatMap((m) => [m.a, m.b]).sort();
+          expect(semi).toEqual(['f000', 'f001', 'f002', 'f003']);
+        }
+      });
+    }
+
+    it('quem passa direto são as de nota mais alta, mesmo com a folga no meio de uma faixa', () => {
+      // 6 fichas numa chave de 8: 2 folgas, para a 1ª e a 2ª; 11 fichas numa de 16: 5 folgas
+      for (const [n, byes] of [[6, 2], [11, 5], [21, 11], [40, 24]]) {
+        for (let seed = 1; seed <= 20; seed++) {
+          const slots = makeBracket(ids(n), seeded(seed), score);
+          const passed: string[] = [];
+          for (let i = 0; i < slots.length; i += 2) if (slots[i] === null || slots[i + 1] === null) passed.push((slots[i] ?? slots[i + 1])!);
+          expect(passed.sort()).toEqual(ids(byes));
+        }
+      }
+    });
+
+    it('a chave muda entre um sorteio e outro', () => {
+      const a = makeBracket(ids(16), seeded(1), score).join();
+      const b = makeBracket(ids(16), seeded(2), score).join();
+      expect(a).not.toBe(b);
+    });
   });
 });

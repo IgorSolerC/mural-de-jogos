@@ -1,0 +1,169 @@
+<nav class="voltar">
+  <a class="btn-quiet" routerLink="/extras">
+    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    Extras
+  </a>
+</nav>
+
+@if (phase() === 'regras') {
+  <!-- ===== As regras ===== -->
+  <section class="regras" aria-labelledby="placar">
+    <header class="r-head">
+      <lucide-icon class="icone" [img]="GameIcon" [size]="30" [strokeWidth]="2.2" aria-hidden="true" />
+      <h1 id="placar" tabindex="-1">Maior ou menor</h1>
+    </header>
+    <p class="lead">
+      Uma ficha aparece com o valor à mostra e a próxima vem escondida: o dela é maior ou menor? Cada acerto aumenta a
+      sequência, e o primeiro erro acaba a partida. Empate conta como acerto.
+    </p>
+
+    <app-player-picker [countOf]="countFor" />
+
+    <fieldset>
+      <legend class="rotulo">Comparar pelo quê?</legend>
+      <div class="plates" role="group" aria-label="Comparar pelo quê">
+        @for (m of measures(); track m.key) {
+          <button type="button" class="plate" [attr.aria-pressed]="measure().key === m.key" [disabled]="countMeasure(m) < 2" (click)="chooseMeasure(m)">
+            {{ m.label }}
+          </button>
+        }
+      </div>
+    </fieldset>
+
+    @if (pool().length < 2) {
+      <p class="vazio">
+        @if (players.selected().mine) {
+          Faltam fichas com {{ measure().label.toLowerCase() }} no seu mural de {{ profile().plural }}: o jogo precisa de pelo menos duas.
+        } @else {
+          {{ players.selected().name }} não tem fichas suficientes com {{ measure().label.toLowerCase() }} no mural de {{ profile().plural }}.
+        }
+      </p>
+    } @else {
+      <p class="resumo">
+        {{ pool().length }} {{ pool().length === 1 ? 'ficha' : 'fichas' }}
+        {{ players.selected().mine ? 'do seu mural' : 'do mural de ' + players.selected().name }}, comparando {{ measure().phrase }}.
+        @if (bestHere()) {
+          Seu recorde aqui: {{ bestHere() }} {{ bestHere() === 1 ? 'acerto' : 'acertos' }} seguidos.
+        } @else {
+          Ainda sem recorde aqui.
+        }
+      </p>
+      <button type="button" class="btn-ink comecar" (click)="start()">
+        <lucide-icon [img]="GameIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+        Começar
+      </button>
+    }
+  </section>
+} @else if (round(); as r) {
+  <!-- ===== A mesa ===== -->
+  <section class="jogo-mesa" aria-labelledby="placar">
+    <header class="placar-linha">
+      <h1 class="tape-label big" id="placar" tabindex="-1">
+        @if (phase() === 'fim') {
+          Fim de jogo
+        } @else {
+          {{ streak() }} {{ streak() === 1 ? 'acerto' : 'acertos' }}
+        }
+      </h1>
+      <p class="contagem">
+        {{ active().label }}
+        @if (!owner().mine) {
+          · mural de {{ owner().name }}
+        }
+        @if (record()) {
+          · recorde {{ record() }}
+        }
+      </p>
+    </header>
+
+    <p class="questao">
+      {{ cap(active().phrase) }} de <strong>{{ r.hidden.game.name }}</strong> é maior ou menor que
+      <strong>{{ value(r.shown) }}</strong>?
+    </p>
+
+    <!-- uma mesa nova a cada pergunta, para as fichas entrarem de novo -->
+    @for (k of [r.hidden.id]; track k) {
+    <div class="mesa" [class.revelada]="revealed()">
+      <div class="lado">
+        <app-review-card [review]="r.shown" [preview]="true" [compact]="true" [paired]="true" (opened)="open(r.shown)" />
+        <p class="etiqueta">{{ value(r.shown) }}</p>
+      </div>
+
+      <div class="botoes" role="group" aria-label="Maior ou menor">
+        <button type="button" class="chute maior" [disabled]="revealed() || phase() !== 'jogando'" (click)="guess('maior')" aria-keyshortcuts="ArrowUp">
+          <lucide-icon [img]="UpIcon" [size]="26" [strokeWidth]="2.4" aria-hidden="true" />
+          Maior
+        </button>
+        <button type="button" class="chute menor" [disabled]="revealed() || phase() !== 'jogando'" (click)="guess('menor')" aria-keyshortcuts="ArrowDown">
+          <lucide-icon [img]="DownIcon" [size]="26" [strokeWidth]="2.4" aria-hidden="true" />
+          Menor
+        </button>
+      </div>
+
+      <div class="lado escondida" [class.certo]="right() === true" [class.errado]="right() === false">
+        <app-review-card [review]="r.hidden" [preview]="true" [compact]="true" [paired]="true" [masked]="!revealed()" (opened)="open(r.hidden)" />
+        <p class="etiqueta">
+          @if (revealed()) {
+            {{ value(r.hidden) }}
+          } @else {
+            ?
+          }
+        </p>
+      </div>
+    </div>
+    }
+
+    <p class="veredito-chute" aria-live="polite">
+      @if (right() === true && phase() === 'jogando') {
+        Acertou! {{ value(r.hidden) }} {{ value(r.hidden) === value(r.shown) ? 'empata com' : r.guess === 'maior' ? 'é maior que' : 'é menor que' }} {{ value(r.shown) }}.
+      } @else if (right() === false) {
+        Errou: {{ value(r.hidden) }} é {{ r.guess === 'maior' ? 'menor' : 'maior' }} que {{ value(r.shown) }}.
+      }
+    </p>
+
+    @if (phase() === 'fim') {
+      <div class="folha fim">
+        @if (cleared()) {
+          <p class="placar-final">Você zerou o mural: {{ streak() }} {{ streak() === 1 ? 'acerto' : 'acertos' }} sem errar!</p>
+        } @else {
+          <p class="placar-final">{{ streak() }} {{ streak() === 1 ? 'acerto' : 'acertos' }} seguidos.</p>
+        }
+        @if (newRecord()) {
+          <p class="recorde novo">Recorde novo!</p>
+        } @else if (record()) {
+          <p class="recorde">O recorde continua {{ record() }}.</p>
+        }
+
+        <div class="acoes">
+          <button type="button" class="btn-ink" (click)="again()">
+            <lucide-icon [img]="AgainIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+            Jogar de novo
+          </button>
+          <button type="button" class="btn-quiet" (click)="toRules()">
+            <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            Mudar as regras
+          </button>
+        </div>
+
+        @if (trail().length > 1) {
+          <h2 class="trilha-titulo">A sequência</h2>
+          <ol class="trilha">
+            @for (t of trail(); track $index) {
+              <li><span class="nome">{{ t.name }}</span> <span class="v">{{ t.value }}</span></li>
+            }
+          </ol>
+        }
+      </div>
+    } @else {
+      <p class="dica">Escolha Maior ou Menor<span class="teclas"> (ou use ↑ e ↓)</span>.</p>
+      <div class="controles">
+        <button type="button" class="btn-quiet" (click)="toRules()">
+          <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          Recomeçar
+        </button>
+      </div>
+    }
+  </section>
+}
+
+<app-review-reader />

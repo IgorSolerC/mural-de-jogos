@@ -93,13 +93,50 @@ export function drawEntrants(ids: readonly string[], count: number, rng: () => n
 }
 
 /**
- * Monta a chave: as fichas em ordem sorteada, as folgas espalhadas entre os pares. Cada par de vagas
- * (0-1, 2-3…) é um duelo da primeira rodada.
+ * A ordem das cabeças de chave numa chave de `size` vagas, como nos torneios de tênis: a 1ª pega a
+ * última, a 1ª e a 2ª ficam em metades opostas, as quatro primeiras em quartos diferentes, e assim
+ * por diante. Para 8: [1, 8, 4, 5, 2, 7, 3, 6].
  */
-export function makeBracket(entrants: readonly string[], rng: () => number = Math.random): Slot[] {
+export function seedOrder(size: number): number[] {
+  let order = [1, 2];
+  while (order.length < size) {
+    const n = order.length * 2;
+    order = order.flatMap((s) => [s, n + 1 - s]);
+  }
+  return order.slice(0, size);
+}
+
+/**
+ * Monta a chave. Cada par de vagas (0-1, 2-3…) é um duelo da primeira rodada; null é a folga.
+ *
+ * Com `score`, as fichas viram cabeças de chave pela nota, para uma ficha muito boa não cair cedo
+ * contra outra parecida: a de nota mais alta pega a mais baixa na primeira rodada, as duas
+ * primeiras só se cruzam na final e as quatro primeiras só na semifinal. Quando as fichas não
+ * enchem a chave, as de nota mais alta passam direto para a segunda rodada. Para a chave não sair
+ * sempre igual, a ordem é sorteada dentro de cada faixa (a 1ª e a 2ª, da 3ª à 4ª, da 5ª à 8ª…,
+ * separando quem tem folga de quem joga), e os empates de nota também.
+ *
+ * Sem `score`, tudo é sorteado.
+ */
+export function makeBracket(entrants: readonly string[], rng: () => number = Math.random, score?: (id: string) => number): Slot[] {
   if (entrants.length < 2) throw new Error('O mata-mata precisa de pelo menos duas fichas.');
   let size = 2;
   while (size < entrants.length) size *= 2;
+
+  if (score) {
+    // a ordem pela nota, com os empates sorteados (o sort é estável sobre a ordem embaralhada)
+    const ranked = shuffle(entrants, rng).sort((a, b) => score(b) - score(a));
+    // sorteia dentro de cada faixa de cabeças de chave: [1-2], [3-4], [5-8], [9-16]… A faixa é
+    // partida onde acabam as folgas: quem passa direto são exatamente as `byes` de nota mais alta.
+    const byes = size - entrants.length;
+    const cuts = new Set<number>([byes]);
+    for (let b = 2; b < ranked.length; b *= 2) cuts.add(b);
+    const bounds = [0, ...[...cuts].filter((c) => c > 0 && c < ranked.length).sort((a, b) => a - b), ranked.length];
+    const seeds: string[] = [];
+    for (let i = 0; i < bounds.length - 1; i++) seeds.push(...shuffle(ranked.slice(bounds[i], bounds[i + 1]), rng));
+    return seedOrder(size).map((s) => seeds[s - 1] ?? null);
+  }
+
   const byes = size - entrants.length;
   const order = shuffle(entrants, rng);
   const pairs: Slot[][] = [];

@@ -1,0 +1,278 @@
+@use 'extras-kit';
+
+:host {
+  display: block;
+}
+
+.questao {
+  max-width: 900px;
+  margin-top: 22px;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.4rem;
+  line-height: 1.3;
+
+  strong {
+    color: var(--hi);
+    font-weight: 700;
+  }
+}
+
+/* ===== A mesa: ficha à mostra, os dois botões, ficha escondida ===== */
+.mesa {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  max-width: 900px;
+  margin-top: 26px;
+}
+
+.lado {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  animation: entra var(--t-physical) var(--ease-physical);
+
+  app-review-card {
+    width: 100%;
+    cursor: pointer;
+  }
+}
+
+.escondida {
+  animation-name: entra-direita;
+}
+
+@keyframes entra {
+  from {
+    opacity: 0;
+    translate: -20px 0;
+  }
+}
+
+@keyframes entra-direita {
+  from {
+    opacity: 0;
+    translate: 20px 0;
+    rotate: 3deg;
+  }
+}
+
+/* a etiqueta de preço, com o furinho do barbante */
+.etiqueta {
+  position: relative;
+  min-width: 112px;
+  padding: 10px 22px 8px 34px;
+  background: var(--hi);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font-family: var(--f-didone);
+  font-size: 2.1rem;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  rotate: -3deg;
+  clip-path: polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 0 50%);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.45));
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: calc(50% - 5px);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--wall);
+  }
+}
+
+.escondida .etiqueta {
+  background-color: var(--paper);
+  rotate: 3deg;
+  transition: background-color var(--t-ui) var(--ease-ui);
+}
+
+.escondida.certo .etiqueta {
+  background-color: var(--stock-verde);
+  animation: carimba var(--t-physical) var(--ease-physical);
+}
+
+.escondida.errado .etiqueta {
+  background-color: var(--nota-vermelha);
+  color: #fff;
+  animation: carimba var(--t-physical) var(--ease-physical);
+}
+
+@keyframes carimba {
+  from {
+    scale: 1.35;
+    rotate: -8deg;
+  }
+}
+
+.botoes {
+  display: grid;
+  gap: 12px;
+}
+
+/* os chutes: dois pedaços de cartolina grossos, verde para cima e laranja para baixo */
+.chute {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 132px;
+  min-height: 58px;
+  padding: 10px 18px 8px;
+  border: 0;
+  border-radius: 2px;
+  background-color: var(--stock);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1.3rem;
+  line-height: 1;
+  box-shadow: var(--shadow-card);
+  transition:
+    transform var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui),
+    filter var(--t-ui) var(--ease-ui);
+
+  &.maior {
+    --stock: var(--stock-verde);
+    rotate: -2deg;
+  }
+
+  &.menor {
+    --stock: var(--stock-laranja);
+    rotate: 1.5deg;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    filter: saturate(0.3) brightness(0.8);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 4px;
+  }
+}
+
+.veredito-chute {
+  min-height: 1.6em;
+  margin-top: 18px;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+}
+
+/* ===== O fim ===== */
+.fim {
+  max-width: 640px;
+  margin-top: 20px;
+  rotate: -0.4deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 14px 16px rgb(0 0 0 / 0.5));
+}
+
+.placar-final {
+  font-family: var(--f-marker);
+  font-size: 1.7rem;
+  line-height: 1.15;
+}
+
+.recorde {
+  margin-top: 6px;
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  color: var(--caneta-azul);
+
+  &.novo {
+    display: inline-block;
+    padding: 4px 14px 2px;
+    background: var(--foil-gold);
+    color: var(--foil-gold-ink);
+    font-family: var(--f-marker);
+    rotate: -2deg;
+  }
+}
+
+.trilha-titulo {
+  margin-top: 26px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.4rem;
+}
+
+.trilha {
+  margin: 10px 0 0;
+  padding: 0 0 0 1.6em;
+  font-family: var(--f-ui);
+  font-size: 0.98rem;
+
+  li {
+    padding: 4px 0;
+    border-bottom: 1px dashed rgb(21 21 21 / 0.25);
+  }
+
+  .v {
+    float: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (max-width: 720px) {
+  .questao {
+    font-size: 1.2rem;
+  }
+
+  /* no celular: as duas fichas lado a lado e os botões numa fileira embaixo */
+  .mesa {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px 10px;
+  }
+
+  .botoes {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .escondida {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .chute {
+    min-width: 0;
+  }
+
+  .etiqueta {
+    min-width: 0;
+    padding: 8px 14px 6px 28px;
+    font-size: 1.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lado,
+  .escondida.certo .etiqueta,
+  .escondida.errado .etiqueta {
+    animation: none;
+  }
+}
