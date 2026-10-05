@@ -465,7 +465,7 @@ main {
 }
 
 /* Tela média: as abas descem para uma fileira própria, embaixo do cartaz e do botão
-   (as seis fitas não cabem entre os dois abaixo de uns 1230px) */
+   (as fitas não cabem entre os dois abaixo de uns 1230px) */
 @media (max-width: 1229px) {
   .top {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -576,7 +576,7 @@ main {
   }
 }
 
-/* celular estreito: as seis fitas cabem numa fileira, mais justas */
+/* celular estreito: as cinco fitas cabem numa fileira, mais justas */
 @media (max-width: 400px) {
   .tabs {
     gap: 2px;

@@ -31,8 +31,8 @@ const TABS: Tab[] = [
   { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
   { path: '/fila', label: 'Pra depois' },
   { path: '/wishlist', label: 'Wishlist' },
-  { path: '/ranking', label: 'Ranking' },
-  { path: '/comparar', label: 'Comparar' },
+  // o Ranking e o Comparar moram dentro de Extras: a fita de Extras fica acesa neles também
+  { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
   { path: '/ajustes', label: 'Ajustes', icon: Settings },
 ];
 

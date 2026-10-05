@@ -1,0 +1,196 @@
+<nav class="voltar">
+  <a class="btn-quiet" routerLink="/extras">
+    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    Extras
+  </a>
+</nav>
+
+@if (result(); as res) {
+  <!-- ===== Acabou: o pódio e a chave ===== -->
+  <section class="fim" aria-labelledby="placar">
+    <h1 class="tape-label big" id="placar" tabindex="-1">Mata-mata</h1>
+    @if (!owner()?.mine) {
+      <p class="de-quem">Com o mural de <strong>{{ owner()?.name }}</strong></p>
+    }
+
+    <div class="podio">
+      <figure class="campea">
+        <figcaption class="faixa">
+          <lucide-icon [img]="TrophyIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+          {{ profile().fem ? 'Campeã' : 'Campeão' }}
+        </figcaption>
+        <app-review-card [review]="res.champion" [preview]="true" (opened)="open(res.champion)" />
+      </figure>
+
+      @if (res.runnerUp || res.semifinal.length) {
+        <div class="resto">
+          @if (res.runnerUp; as vice) {
+            <figure class="lugar">
+              <figcaption class="selo">Vice</figcaption>
+              <app-review-card [review]="vice" [preview]="true" [compact]="true" (opened)="open(vice)" />
+            </figure>
+          }
+          @for (r of res.semifinal; track r.id) {
+            <figure class="lugar">
+              <figcaption class="selo">Semifinal</figcaption>
+              <app-review-card [review]="r" [preview]="true" [compact]="true" (opened)="open(r)" />
+            </figure>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="folha">
+      @if (res.agreement.counted) {
+        <p class="acerto">
+          Em <strong>{{ res.agreement.same }} de {{ res.agreement.counted }}</strong>
+          {{ res.agreement.counted === 1 ? 'duelo' : 'duelos' }}
+          @if (owner()?.mine) {
+            você escolheu a ficha com a nota maior.
+          } @else {
+            você escolheu a ficha que {{ owner()?.name }} deu a nota maior.
+          }
+        </p>
+      }
+
+      <div class="acoes">
+        <button type="button" class="btn-ink" (click)="again()">
+          <lucide-icon [img]="AgainIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+          Jogar de novo
+        </button>
+        <button type="button" class="btn-quiet" (click)="rules()">
+          <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          Mudar as regras
+        </button>
+      </div>
+
+      <h2 class="chave-titulo">A chave</h2>
+      <div class="chave">
+        @for (round of res.rounds; track round.name) {
+          <section class="rodada">
+            <h3>{{ round.name }}</h3>
+            <ol>
+              @for (m of round.matches; track $index) {
+                <li><strong>{{ m.winner }}</strong> <span class="x">×</span> <s>{{ m.loser }}</s></li>
+              }
+            </ol>
+          </section>
+        }
+      </div>
+    </div>
+  </section>
+} @else if (duel(); as d) {
+  <!-- ===== Um duelo ===== -->
+  <section class="arena" aria-labelledby="placar">
+    <header class="placar-linha">
+      <h1 class="tape-label big rodada-nome" id="placar" tabindex="-1">
+        {{ d.roundName }}<span class="sr-only">, duelo {{ d.number }} de {{ out()!.total }}</span>
+      </h1>
+      <p class="contagem" aria-hidden="true">
+        Duelo {{ d.number }} de {{ out()!.total }}
+        @if (!owner()?.mine) {
+          · mural de {{ owner()?.name }}
+        }
+      </p>
+    </header>
+
+    <div class="regua" role="progressbar" aria-label="Duelos decididos" [attr.aria-valuenow]="out()!.played" aria-valuemin="0" [attr.aria-valuemax]="out()!.total">
+      <span [style.width.%]="(out()!.played / out()!.total) * 100"></span>
+    </div>
+
+    <p class="dica">Toque na ficha que passa de fase<span class="teclas"> (ou use ← e →)</span>.</p>
+
+    <div class="duelo">
+      @for (side of [d.a, d.b]; track side.id; let i = $index) {
+        <div class="lado" [class.direita]="i === 1">
+          <app-review-card
+            [review]="side"
+            [preview]="true"
+            [compact]="true"
+            [paired]="true"
+            [masked]="game()!.masked"
+            (opened)="pick(side.id)"
+          />
+        </div>
+        @if (i === 0) {
+          <span class="vs" aria-hidden="true">VS</span>
+        }
+      }
+    </div>
+
+    <div class="controles">
+      <button type="button" class="btn-quiet" (click)="undo()" [disabled]="!game()!.picks.length">
+        <lucide-icon [img]="UndoIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        Desfazer
+      </button>
+      <button type="button" class="btn-quiet" (click)="toggleMasked()" [attr.aria-pressed]="!game()!.masked">
+        {{ game()!.masked ? 'Mostrar as notas' : 'Esconder as notas' }}
+      </button>
+      <button type="button" class="btn-quiet" (click)="rules()">
+        <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        Recomeçar
+      </button>
+    </div>
+  </section>
+} @else {
+  <!-- ===== As regras ===== -->
+  <section class="regras" aria-labelledby="placar">
+    <header class="r-head">
+      <lucide-icon class="icone" [img]="SwordsIcon" [size]="30" [strokeWidth]="2.2" aria-hidden="true" />
+      <h1 id="placar" tabindex="-1">Mata-mata</h1>
+    </header>
+    <p class="lead">As fichas duelam de duas em duas. A que você escolher passa de fase, até sobrar uma.</p>
+
+    <fieldset>
+      <legend class="rotulo">Mural de quem?</legend>
+      <div class="plates" role="group" aria-label="Mural de quem">
+        @for (p of players.all(); track p.id) {
+          <button type="button" class="plate" [attr.aria-pressed]="players.selected().id === p.id" [disabled]="p.reviews.length < 2" (click)="setOwner(p.id)">
+            {{ p.name }} <span class="count">{{ p.reviews.length }}</span>
+          </button>
+        }
+      </div>
+      @if (players.all().length === 1) {
+        <p class="nota">Para jogar com as fichas de um colega, abra o backup dele em <a routerLink="/comparar">Comparar</a>.</p>
+      }
+    </fieldset>
+
+    @if (players.selected().reviews.length < 2) {
+      <p class="vazio">
+        @if (players.selected().mine) {
+          O mata-mata precisa de pelo menos duas fichas no seu mural de {{ profile().plural }}.
+        } @else {
+          {{ players.selected().name }} não tem fichas suficientes no mural de {{ profile().plural }}.
+        }
+      </p>
+    } @else {
+      <fieldset>
+        <legend class="rotulo">Quantos duelos?</legend>
+        <div class="plates" role="group" aria-label="Quantos duelos">
+          @for (o of options; track o) {
+            <button type="button" class="plate opcao" [attr.aria-pressed]="option() === o" [disabled]="!entrants(o)" (click)="option.set(o)">
+              {{ optionLabel(o) }}
+            </button>
+          }
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend class="rotulo">As notas nos duelos</legend>
+        <div class="plates" role="group" aria-label="As notas nos duelos">
+          <button type="button" class="plate" [attr.aria-pressed]="masked()" (click)="masked.set(true)">Escondidas</button>
+          <button type="button" class="plate" [attr.aria-pressed]="!masked()" (click)="masked.set(false)">À mostra</button>
+        </div>
+      </fieldset>
+
+      <p class="resumo">{{ summary() }}</p>
+
+      <button type="button" class="btn-ink comecar" (click)="start()">
+        <lucide-icon [img]="SwordsIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+        Começar
+      </button>
+    }
+  </section>
+}
+
+<app-review-reader />

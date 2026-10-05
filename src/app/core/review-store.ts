@@ -1,6 +1,7 @@
-import { Injectable, computed, effect, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS } from './kinds';
 import { readBackupFile } from './backup-file';
+import { DataKey, LocalData } from './local-data';
 import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
@@ -30,6 +31,8 @@ export interface ImportResult {
 
 @Injectable({ providedIn: 'root' })
 export class ReviewStore {
+  /** Onde as listas moram: o IndexedDB, com uma cópia no localStorage (ver `LocalData`). Vem antes de tudo: as listas leem dele. */
+  private readonly data = inject(LocalData);
   readonly reviews = signal<Review[]>(this.read());
   /** As chaves que o navegador se recusou a salvar (cota cheia, modo privado…), até salvarem de novo. */
   private readonly failedKeys = signal<ReadonlySet<string>>(new Set());
@@ -139,21 +142,50 @@ export class ReviewStore {
 
     // Outra aba mexeu no mural: acompanha sem sobrescrever.
     if (typeof window !== 'undefined') {
-      window.addEventListener('storage', (e) => {
-        if (e.key === KEY) {
+      this.data.onExternalChange((key) => {
+        if (key === KEY) {
           this.skipNextWrite = true;
           this.reviews.set(this.read());
-        } else if (e.key === DRAFTS_KEY) {
+        } else if (key === DRAFTS_KEY) {
           this.skipNextDraftWrite = true;
           this.drafts.set(this.readDrafts());
-        } else if (e.key === WISHES_KEY) {
+        } else if (key === WISHES_KEY) {
           this.skipNextWishWrite = true;
           this.wishes.set(this.readWishes());
-        } else if (e.key === DELETED_KEY) {
+        } else if (key === DELETED_KEY) {
           this.skipNextDeletedWrite = true;
           this.deleted.set(this.readDeleted());
         }
       });
+    }
+
+    // Uma versão antiga do site (aberta offline, pelo cache) gravou no localStorage depois da mudança
+    // para o IndexedDB: o que ela deixou entra como um backup juntado, sem perder nada dos dois lados.
+    const foreign = this.data.takeForeign();
+    if (foreign) this.mergeForeign(foreign);
+  }
+
+  private mergeForeign(foreign: Partial<Record<DataKey, string>>): void {
+    const parse = (key: DataKey): unknown => {
+      try {
+        return JSON.parse(foreign[key] ?? 'null');
+      } catch {
+        return null;
+      }
+    };
+    const reviews = parse(KEY);
+    const drafts = parse(DRAFTS_KEY);
+    const wishes = parse(WISHES_KEY);
+    const payload = {
+      reviews: Array.isArray(reviews) ? reviews : [],
+      ...(Array.isArray(drafts) ? { drafts } : {}),
+      ...(Array.isArray(wishes) ? { wishes } : {}),
+      deleted: parse(DELETED_KEY),
+    };
+    try {
+      this.importJson(JSON.stringify(payload), 'merge');
+    } catch {
+      /* nada que sirva: fica o que está no IndexedDB */
     }
   }
 
@@ -437,15 +469,14 @@ export class ReviewStore {
 
   private readDeleted(): Deleted {
     try {
-      return sanitizeDeleted(JSON.parse(localStorage.getItem(DELETED_KEY) ?? 'null'));
+      return sanitizeDeleted(JSON.parse(this.data.getItem(DELETED_KEY) ?? 'null'));
     } catch {
       return { reviews: {}, drafts: {}, wishes: {} };
     }
   }
 
-  private write(key: string, value: unknown): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
+  private write(key: DataKey, value: unknown): void {
+    const saved = () => {
       if (this.failedKeys().has(key)) {
         this.failedKeys.update((set) => {
           const next = new Set(set);
@@ -453,8 +484,17 @@ export class ReviewStore {
           return next;
         });
       }
-    } catch {
+    };
+    const failed = () => {
       if (!this.failedKeys().has(key)) this.failedKeys.update((set) => new Set(set).add(key));
+    };
+    try {
+      // no localStorage grava na hora; no IndexedDB, a gravação termina depois
+      const pending = this.data.setItem(key, JSON.stringify(value));
+      if (pending) pending.then(saved, failed);
+      else saved();
+    } catch {
+      failed();
     }
   }
 
@@ -462,10 +502,10 @@ export class ReviewStore {
    * Lê uma lista guardada. Se o texto não abre (corrompido) ou alguma entrada não serve, o original
    * vai inteiro para `…:corrompido` antes de qualquer gravação, para poder ser recuperado à mão.
    */
-  private readList<T>(key: string, sanitize: (raw: unknown) => T | null): T[] {
+  private readList<T>(key: DataKey, sanitize: (raw: unknown) => T | null): T[] {
     let raw: string | null = null;
     try {
-      raw = localStorage.getItem(key);
+      raw = this.data.getItem(key);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) {

@@ -1,0 +1,442 @@
+:host {
+  display: block;
+}
+
+.voltar {
+  margin: -6px 0 18px;
+  color: var(--wall-ink);
+}
+
+/* ===== As regras: folha de bloquinho de súmula, presa na parede ===== */
+.regras,
+.folha {
+  position: relative;
+  padding: 30px 30px 40px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+  -webkit-mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 12px repeat-x;
+  mask:
+    linear-gradient(#000 0 0) top / 100% calc(100% - 12px) no-repeat,
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 14px 12px repeat-x;
+}
+
+.regras {
+  max-width: 640px;
+  rotate: -0.5deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 14px 16px rgb(0 0 0 / 0.5));
+}
+
+.r-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--ink);
+
+  .icone {
+    display: inline-flex;
+  }
+
+  h1 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 2.6rem;
+    line-height: 1;
+    outline: none;
+  }
+}
+
+.lead {
+  margin-top: 14px;
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+fieldset {
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.rotulo {
+  margin-bottom: 10px;
+  padding: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.plates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+  border-bottom: 3px solid var(--ink);
+}
+
+.plate.opcao {
+  min-width: 64px;
+  justify-content: center;
+}
+
+.nota,
+.vazio {
+  margin-top: 10px;
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.3;
+
+  a {
+    color: inherit;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+}
+
+.vazio {
+  margin-top: 22px;
+  font-size: 1.15rem;
+}
+
+.resumo {
+  margin-top: 24px;
+  font-family: var(--f-hand);
+  font-size: 1.18rem;
+  line-height: 1.35;
+  color: var(--caneta-azul);
+}
+
+.comecar {
+  margin-top: 18px;
+}
+
+/* ===== O duelo ===== */
+.placar-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+
+  h1 {
+    outline: none;
+  }
+}
+
+.contagem {
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+}
+
+/* a régua de progresso: fita métrica amarela, a parte andada em tinta */
+.regua {
+  position: relative;
+  height: 12px;
+  margin: 22px 0 10px;
+  max-width: 900px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(to right, rgb(0 0 0 / 0.45) 0 1px, transparent 1px 10px) bottom / 100% 5px no-repeat,
+    var(--hi);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.5);
+  overflow: hidden;
+
+  span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: rgb(21 21 21 / 0.82);
+    transition: width var(--t-physical) var(--ease-physical);
+  }
+}
+
+.dica {
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  opacity: 0.85;
+}
+
+@media (hover: none) {
+  .teclas {
+    display: none;
+  }
+}
+
+.duelo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  max-width: 900px;
+  margin-top: 28px;
+}
+
+.lado {
+  display: grid;
+  animation: chega var(--t-physical) var(--ease-physical);
+
+  &.direita {
+    animation-name: chega-direita;
+  }
+
+  app-review-card {
+    cursor: pointer;
+    transition:
+      translate var(--t-physical) var(--ease-physical),
+      rotate var(--t-physical) var(--ease-physical);
+
+    &:hover {
+      translate: 0 -4px;
+    }
+  }
+}
+
+@keyframes chega {
+  from {
+    opacity: 0;
+    translate: -24px 0;
+    rotate: -3deg;
+  }
+}
+
+@keyframes chega-direita {
+  from {
+    opacity: 0;
+    translate: 24px 0;
+    rotate: 3deg;
+  }
+}
+
+/* o VS: adesivo redondo vermelho, escrito de pincel */
+.vs {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--f-marker);
+  font-size: 1.5rem;
+  line-height: 1;
+  rotate: -8deg;
+  box-shadow:
+    inset 0 0 0 3px rgb(255 255 255 / 0.85),
+    0 2px 2px rgb(0 0 0 / 0.4),
+    0 8px 14px -4px rgb(0 0 0 / 0.6);
+}
+
+.controles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 26px;
+  color: var(--wall-ink);
+}
+
+/* ===== O fim: pódio e chave ===== */
+.fim h1 {
+  outline: none;
+}
+
+.de-quem {
+  margin-top: 10px;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+}
+
+.podio {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  margin-top: 30px;
+}
+
+figure {
+  position: relative;
+  display: grid;
+  margin: 0;
+}
+
+.campea {
+  padding-top: 26px;
+}
+
+/* a faixa dourada de campeão, colada atravessada no topo da ficha */
+.faixa {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 22px 7px;
+  background: var(--foil-gold);
+  color: var(--foil-gold-ink);
+  font-family: var(--f-marker);
+  font-size: 1.45rem;
+  line-height: 1;
+  white-space: nowrap;
+  translate: -50% 0;
+  rotate: -3deg;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 50%, 100% 100%, 0 100%, 10px 50%);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.4));
+}
+
+.resto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 34px 24px;
+}
+
+.lugar {
+  padding-top: 20px;
+}
+
+.selo {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 14px;
+  padding: 5px 12px 3px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  rotate: 2deg;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+}
+
+.folha {
+  max-width: 900px;
+  margin-top: 48px;
+  rotate: 0.3deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 14px 16px rgb(0 0 0 / 0.5));
+}
+
+.acerto {
+  font-family: var(--f-hand);
+  font-size: 1.25rem;
+  line-height: 1.35;
+  color: var(--caneta-azul);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 18px;
+}
+
+.chave-titulo {
+  margin-top: 30px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.6rem;
+}
+
+.chave {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 18px 28px;
+  margin-top: 14px;
+}
+
+.rodada {
+  h3 {
+    margin-bottom: 6px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    padding: 4px 0;
+    border-bottom: 1px dashed rgb(21 21 21 / 0.25);
+    font-family: var(--f-ui);
+    font-size: 0.95rem;
+    line-height: 1.3;
+  }
+
+  .x {
+    margin: 0 6px;
+    opacity: 0.5;
+  }
+
+  s {
+    opacity: 0.6;
+  }
+}
+
+@media (max-width: 900px) {
+  .podio {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .campea {
+    max-width: 440px;
+  }
+}
+
+@media (max-width: 720px) {
+  .regras,
+  .folha {
+    padding: 24px 18px 34px;
+  }
+
+  .duelo {
+    gap: 8px;
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  /* no celular as duas fichas ficam lado a lado e o VS fica por cima, entre elas */
+  .vs {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    left: 50%;
+    width: 46px;
+    height: 46px;
+    font-size: 1.1rem;
+    translate: -50% -50%;
+    pointer-events: none;
+  }
+
+  .lado.direita {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lado {
+    animation: none;
+  }
+}

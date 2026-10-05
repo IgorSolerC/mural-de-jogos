@@ -21,6 +21,12 @@ export const routes: Routes = [
     title: 'Mural do colega',
     loadComponent: () => import('./pages/colleague-wall-page').then((m) => m.ColleagueWallPage),
   },
+  { path: 'extras', title: 'Extras', loadComponent: () => import('./pages/extras-page').then((m) => m.ExtrasPage) },
+  {
+    path: 'extras/mata-mata',
+    title: 'Mata-mata',
+    loadComponent: () => import('./pages/knockout-page').then((m) => m.KnockoutPage),
+  },
   { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
   { path: '**', redirectTo: '' },
 ];
