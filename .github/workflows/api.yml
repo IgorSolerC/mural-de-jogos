@@ -1,11 +1,9 @@
 name: API (Cloudflare)
 
 # Testa a API em todo push e pull request que mexe em api/, e publica no Cloudflare Workers.
-# Enquanto a nuvem não estiver ligada no site, a branch `nuvem` também publica (o site não chama a
-# API antes disso). Depois do merge na main, tirar `nuvem` da lista de branches.
 on:
   push:
-    branches: [main, nuvem]
+    branches: [main]
     paths: ['api/**', '.github/workflows/api.yml']
   pull_request:
     paths: ['api/**', '.github/workflows/api.yml']
