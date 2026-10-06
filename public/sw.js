@@ -40,6 +40,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   if (url.origin === self.location.origin) {
+    // Uma página avulsa do site (como privacidade.html) não é o mural: passa direto, sem virar a página guardada.
+    if (req.mode === 'navigate' && /\.html$/.test(url.pathname) && !url.pathname.endsWith('/index.html')) return;
     if (req.mode === 'navigate') event.respondWith(page(req));
     else event.respondWith(asset(req, event));
     return;
