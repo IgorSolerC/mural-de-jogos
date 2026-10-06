@@ -98,3 +98,58 @@ describe('leitura independente de backup', () => {
     localStorage.clear();
   });
 });
+
+/**
+ * Um mural de outra pessoa (pelo código, pelo link ou por arquivo) é texto de fora: tudo o que vai
+ * parar no HTML como texto continua texto, e tudo o que entra nos desenhos do papel (que são
+ * montados como SVG) precisa ser um valor conhecido ou um número.
+ */
+describe('mural de fora com conteúdo malicioso', () => {
+  const P = '<img src=x onerror="alert(1)"><script>alert(2)</script>';
+  const evil = {
+    app: 'meu-mural',
+    version: 2,
+    owner: { name: `Ana ${P}` },
+    reviews: [
+      {
+        id: '"><svg onload=alert(3)>',
+        kind: '<y>',
+        game: { name: `Jogo ${P}`, coverUrl: 'javascript:alert(4)', source: '<s>', by: P },
+        scores: { historia: 8, diversao: 9, jogabilidade: 7, visual: 6 },
+        status: '<x>',
+        verdict: '<x>',
+        difficulty: '<x>',
+        stock: '<x>',
+        paper: '<x>',
+        pattern: '<x>',
+        scribble: '"><script>alert(5)</script>',
+        damage: 'queimado',
+        damageSeed: '1);alert(6);//',
+        stain: '<x>',
+        decor: '<svg onload=alert(7)>',
+        revisitOf: '"><x>',
+        text: `Texto ${P}`,
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+    ],
+  };
+
+  it('só deixa passar valores conhecidos para o papel e guarda o resto como texto', () => {
+    const [r] = parseBackupSnapshot(JSON.stringify(evil)).reviews;
+    expect(r.id).toMatch(/^[\w-]{4,64}$/);
+    expect(r.kind).toBe('jogos');
+    expect(r.game.coverUrl).toBeNull();
+    expect(r.game.source).toBe('manual');
+    expect(r.status).toBe('finalizado');
+    expect(r.verdict).toBeNull();
+    expect(r.difficulty).toBe('nenhuma');
+    expect(r.stock).toBeUndefined();
+    for (const key of ['paper', 'pattern', 'scribble', 'stain', 'decor', 'damageSeed', 'revisitOf'] as const) {
+      expect(r[key]).withContext(key).toBeUndefined();
+    }
+    expect(r.damage).toBe('queimado');
+    // o texto continua igual: quem cuida dele é a interpolação do Angular, que nunca vira HTML
+    expect(r.game.name).toBe(`Jogo ${P}`);
+    expect(r.text).toBe(`Texto ${P}`);
+  });
+});

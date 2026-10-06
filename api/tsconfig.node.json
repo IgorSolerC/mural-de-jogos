@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "types": ["node"], "lib": ["ES2022", "DOM"] },
-  "include": ["src/**/*.ts", "test/node.test.ts", "test/config.test.ts", "test/code.test.ts", "test/suite.ts", "vitest.*.config.ts"],
+  "include": ["src/**/*.ts", "test/node.test.ts", "test/config.test.ts", "test/code.test.ts", "test/saude.test.ts", "scripts/**/*.ts", "test/suite.ts", "vitest.*.config.ts"],
   "exclude": ["src/entry/worker.ts", "src/adapters/d1.ts", "vitest.workers.config.ts"]
 }
