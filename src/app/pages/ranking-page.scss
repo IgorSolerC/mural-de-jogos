@@ -2,6 +2,12 @@
   display: block;
 }
 
+/* o caminho de volta para Extras, como nas outras páginas de lá */
+.voltar {
+  margin: -6px 0 18px;
+  color: var(--wall-ink);
+}
+
 /* ===== As abas de categoria no trilho, iguais às do mural ===== */
 .rail {
   position: relative;

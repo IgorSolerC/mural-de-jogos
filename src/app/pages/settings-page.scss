@@ -413,6 +413,13 @@ a {
   list-style: none;
 }
 
+/* no celular os adesivos não cabem ao lado da etiqueta: descem para a linha dela de baixo */
+@media (max-width: 480px) {
+  .p-bonus {
+    grid-column: 1 / -1;
+  }
+}
+
 .p-frase {
   grid-column: 1 / -1;
   font-family: var(--f-hand);

@@ -129,6 +129,13 @@ import { Toasts } from './toast';
         padding: 10px 12px 12px 14px;
         gap: 6px 10px;
       }
+      /* a tira quase encosta na borda: as fitas entram um pouco para não sair da tela */
+      .tape-a {
+        left: -4px;
+      }
+      .tape-b {
+        right: -4px;
+      }
       .acoes {
         flex: 1 1 100%;
         justify-content: flex-start;

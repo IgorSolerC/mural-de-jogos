@@ -43,7 +43,7 @@
         {{ pool().length }} {{ pool().length === 1 ? 'ficha' : 'fichas' }}
         {{ players.selected().mine ? 'do seu mural' : 'do mural de ' + players.selected().name }}, comparando {{ measure().phrase }}.
         @if (bestHere()) {
-          Seu recorde aqui: {{ bestHere() }} {{ bestHere() === 1 ? 'acerto' : 'acertos' }} seguidos.
+          Seu recorde aqui: {{ bestHere() }} {{ bestHere() === 1 ? 'acerto seguido' : 'acertos seguidos' }}.
         } @else {
           Ainda sem recorde aqui.
         }
@@ -126,7 +126,7 @@
         @if (cleared()) {
           <p class="placar-final">Você zerou o mural: {{ streak() }} {{ streak() === 1 ? 'acerto' : 'acertos' }} sem errar!</p>
         } @else {
-          <p class="placar-final">{{ streak() }} {{ streak() === 1 ? 'acerto' : 'acertos' }} seguidos.</p>
+          <p class="placar-final">{{ streak() }} {{ streak() === 1 ? 'acerto seguido' : 'acertos seguidos' }}.</p>
         }
         @if (newRecord()) {
           <p class="recorde novo">Recorde novo!</p>

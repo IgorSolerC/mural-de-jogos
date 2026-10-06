@@ -70,7 +70,7 @@
     <span class="mark-word" aria-hidden="true">Marcar</span>
     @if (side.count()) {
       <span class="count" aria-hidden="true">{{ side.count() }}</span>
-      <span class="sr-only">({{ side.count() }} marcadas)</span>
+      <span class="sr-only">({{ side.count() }} {{ side.count() === 1 ? 'marcada' : 'marcadas' }})</span>
     }
   </button>
 

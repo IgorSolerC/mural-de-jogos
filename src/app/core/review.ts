@@ -470,6 +470,11 @@ export function formatScore(v: number | null | undefined): string {
   return v === null || v === undefined ? '–' : scoreFmt.format(shownScore(v));
 }
 
+/** A nota como foi dada, com uma casa, sem o ajuste de exibição: 8.4 → "8,4". Para os campos que a pessoa edita. */
+export function formatRawScore(v: number): string {
+  return scoreFmt.format(Math.round(v * 10) / 10);
+}
+
 /** Quanto os bônus mexeram na média: "+0,4", "−0,3" ou "±0". */
 export function formatShift(v: number): string {
   // arredonda pelo tamanho, não pelo sinal: −0,25 é "−0,3", como +0,25 é "+0,3"
@@ -645,7 +650,6 @@ export function sanitizeBonuses(raw: unknown, kind: Kind): Bonus[] {
   return [...out.values()];
 }
 
-/** Um campo que só vai para a resenha quando tem valor: as antigas continuam iguais, sem chave vazia. */
 /** A nota final na mão: de 0 a 11, com uma casa; a média automática continua até 10. */
 export function sanitizeOverride(raw: unknown): number | undefined {
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
@@ -666,6 +670,7 @@ function stainFields(r: Record<string, any>): Pick<Review, 'stain' | 'stainSeed'
   };
 }
 
+/** Um campo que só vai para a resenha quando tem valor: as antigas continuam iguais, sem chave vazia. */
 function optional<K extends string, V>(key: K, v: V | undefined): Partial<Record<K, V>> {
   return v === undefined ? {} : ({ [key]: v } as Record<K, V>);
 }

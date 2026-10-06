@@ -1,3 +1,10 @@
+<nav class="voltar">
+  <a class="btn-quiet" routerLink="/extras">
+    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    Extras
+  </a>
+</nav>
+
 <header class="topo">
   <h1 class="tape-label big">Comparar murais</h1>
   @if (!colleagues.loading() && colleague(); as c) {
@@ -254,7 +261,7 @@
                 <p>{{ g(profile(), 'Nenhum', 'Nenhuma') }} {{ profile().singular }} em comum ainda.</p>
                 @if (collections().onlyTheirs.length) {
                   <button type="button" class="btn-quiet" (click)="tab.set('dicas')">
-                    Ver as {{ collections().onlyTheirs.length }} dicas de {{ c.name }}
+                    {{ collections().onlyTheirs.length === 1 ? 'Ver a dica' : 'Ver as ' + collections().onlyTheirs.length + ' dicas' }} de {{ c.name }}
                   </button>
                 }
               </div>

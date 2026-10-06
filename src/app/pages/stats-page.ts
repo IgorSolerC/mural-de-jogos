@@ -196,17 +196,19 @@ export class StatsPage {
         ? total >= 48
           ? `≈ ${int.format(Math.round(total / 24))} dias sem parar`
           : `média de ${formatAmount(this.kind(), Math.round(s.amount.avg * 10) / 10)}`
-        : `≈ ${int.format(Math.round(total / 300))} livros de 300 páginas`;
+        : total >= 450
+          ? `≈ ${int.format(Math.round(total / 300))} livros de 300 páginas`
+          : `média de ${formatAmount(this.kind(), Math.round(s.amount.avg))}`;
       out.push({ label: p.amount.total, value: int.format(total), sub });
     } else {
-      out.push({ label: 'Notas 10', value: int.format(s.tens), sub: s.count ? `${this.pct(s.tens, s.count)} do mural` : '' });
+      out.push({ label: 'Notas 10+', value: int.format(s.tens), sub: s.count ? `${this.pct(s.tens, s.count)} do mural` : '' });
     }
     const nine = s.finals.filter((v) => v >= 9).length;
     out.push({ label: 'Notas 9+', value: int.format(nine), sub: s.count ? `${this.pct(nine, s.count)} do mural` : '' });
     out.push({
       label: 'Palavras',
       value: int.format(s.text.words),
-      sub: s.text.words >= 300 ? `≈ ${int.format(Math.round(s.text.words / 300))} páginas de livro` : `em ${s.text.withText} resenhas`,
+      sub: s.text.words >= 300 ? `≈ ${int.format(Math.round(s.text.words / 300))} páginas de livro` : `em ${s.text.withText} ${s.text.withText === 1 ? 'resenha' : 'resenhas'}`,
     });
     return out.map((k, i) => ({ ...k, stock: KPI_STOCKS[i % 6][0], pin: KPI_STOCKS[i % 6][1] }));
   });
@@ -245,7 +247,7 @@ export class StatsPage {
     const gap = this.s().longestGap;
     if (!gap) return null;
     const months = gap.days >= 60 ? ` (uns ${Math.round(gap.days / 30)} meses)` : '';
-    return `${int.format(gap.days)} dias${months}`;
+    return `${int.format(gap.days)} ${gap.days === 1 ? 'dia' : 'dias'}${months}`;
   });
 
   protected readonly topWeekday = computed(() => {

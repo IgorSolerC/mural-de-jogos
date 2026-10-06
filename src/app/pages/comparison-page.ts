@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
+import { ArrowLeft, LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
 import { ReviewPair, compareCollections, distinctReviews } from '../core/comparison';
 import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
@@ -109,6 +109,7 @@ export class ComparisonPage {
   protected readonly CompactIcon = LayoutGrid;
   protected readonly WishIcon = Heart;
   protected readonly DoneIcon = Check;
+  protected readonly BackIcon = ArrowLeft;
   protected readonly fmt = formatScore;
   protected readonly abs = Math.abs;
   protected readonly labels = SCORE_LABEL;
@@ -330,7 +331,7 @@ export class ComparisonPage {
     this.error.set('');
     try {
       const fresh = await this.colleagues.replace(c.id, file);
-      this.toasts.show(`Backup de ${fresh.name} atualizado: ${fresh.reviews.length} resenhas`);
+      this.toasts.show(`Backup de ${fresh.name} atualizado: ${fresh.reviews.length} ${fresh.reviews.length === 1 ? 'resenha' : 'resenhas'}`);
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Não consegui ler esse backup. O anterior continua aqui.');
     } finally {

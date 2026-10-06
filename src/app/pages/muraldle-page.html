@@ -91,8 +91,10 @@
           [value]="query()"
           (input)="onInput($any($event.target).value)"
           (keydown)="onKey($event)"
+          role="combobox"
           aria-autocomplete="list"
-          aria-controls="muraldle-sugestoes"
+          [attr.aria-expanded]="suggestions().length > 0"
+          [attr.aria-controls]="suggestions().length ? 'muraldle-sugestoes' : null"
           [attr.aria-activedescendant]="suggestions().length ? 'sugestao-' + activeIndex() : null"
         />
         @if (suggestions().length) {
@@ -236,8 +238,11 @@
       </table>
     </div>
     <p class="legenda">
-      <span class="chip certo"></span> igual <span class="chip perto"></span> perto <span class="chip errado"></span> diferente
-      <span class="chip desconhecido"></span> sem dado · a seta aponta para o lado da secreta
+      <span class="item"><span class="chip certo"></span> igual</span>
+      <span class="item"><span class="chip perto"></span> perto</span>
+      <span class="item"><span class="chip errado"></span> diferente</span>
+      <span class="item"><span class="chip desconhecido"></span> sem dado</span>
+      <span>· a seta aponta para o lado da secreta</span>
     </p>
   }
 }

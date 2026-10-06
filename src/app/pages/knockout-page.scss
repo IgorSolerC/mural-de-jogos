@@ -223,11 +223,12 @@ figure {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  /* no celular as duas fichas ficam lado a lado e o VS fica por cima, entre elas */
+  /* no celular as duas fichas ficam lado a lado e o VS fica por cima, entre elas: na altura das
+     capas, que são estreitas e deixam a borda livre (no meio, ele cobria o fim do nome) */
   .vs {
     position: absolute;
     z-index: 4;
-    top: 50%;
+    top: 23%;
     left: 50%;
     width: 46px;
     height: 46px;

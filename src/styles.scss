@@ -156,6 +156,9 @@
 html {
   -webkit-text-size-adjust: 100%;
   scrollbar-color: #4d4843 var(--wall);
+  /* enfeites que passam da borda da ficha (laços, fitas) não abrem rolagem para o lado, nem no
+     Safari do iPhone; clip não vira caixa de rolagem, então o sticky e a rolagem da página seguem iguais */
+  overflow-x: clip;
 }
 
 body {
@@ -167,7 +170,7 @@ body {
   font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* A parede em si: cobre a página inteira, por mais longo que o mural fique */

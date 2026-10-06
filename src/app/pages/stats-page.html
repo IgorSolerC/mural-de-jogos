@@ -95,7 +95,7 @@
           </section>
 
           <section class="peca folha" aria-labelledby="top-titulo">
-            <h2 id="top-titulo" class="titulo">As {{ st.top.length }} melhores</h2>
+            <h2 id="top-titulo" class="titulo">{{ st.top.length === 1 ? "A melhor" : "As " + st.top.length + " melhores" }}</h2>
             <app-lista-rank [reviews]="st.top" (opened)="open($event)" />
           </section>
         </div>
@@ -193,7 +193,7 @@
             @if (st.repeated; as r) {
               A Média que mais se repete é <strong>{{ fmt(r.value) }}</strong>, em {{ countOf(p, r.n) }}.
             }
-            {{ st.tens ? plural(st.tens, 'nota 10', 'notas 10') + '.' : 'Nenhum 10 ainda.' }}
+            {{ st.tens ? plural(st.tens, 'nota 10 ou mais', 'notas 10 ou mais') + '.' : 'Nenhum 10 ainda.' }}
             @if (st.below4) {
               {{ plural(st.below4, 'nota abaixo de 4', 'notas abaixo de 4') }}.
             }
@@ -749,7 +749,7 @@
                   <div><dt>Muraldle: sequência</dt><dd>{{ x.daily.streak }} (recorde {{ x.daily.best }})</dd></div>
                 }
                 @for (r of x.records; track r.key) {
-                  <div><dt>Maior ou menor: {{ r.label }}</dt><dd>{{ r.n }} seguidas</dd></div>
+                  <div><dt>Maior ou menor: {{ r.label }}</dt><dd>{{ r.n }} {{ r.n === 1 ? 'acerto seguido' : 'acertos seguidos' }}</dd></div>
                 }
               </dl>
               @if (x.champion; as c) {

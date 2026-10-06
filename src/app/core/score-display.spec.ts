@@ -1,5 +1,5 @@
 import { NO_FILTER, matchesFilter } from './wall-filter';
-import { formatScore, sanitizeReview, scoreOf, shownFinal } from './review';
+import { formatRawScore, formatScore, sanitizeReview, scoreOf, shownFinal } from './review';
 import { scoreDisplay } from './settings';
 
 describe('o ajuste de como a nota aparece', () => {
@@ -26,5 +26,13 @@ describe('o ajuste de como a nota aparece', () => {
     expect(matchesFilter(r, { ...NO_FILTER, grade: ['7'] })).toBeFalse();
     scoreDisplay.set('livre');
     expect(matchesFilter(r, { ...NO_FILTER, grade: ['7'] })).toBeTrue();
+  });
+
+  it('o campo da nota na mão mostra a nota como foi dada, sem arredondar', () => {
+    scoreDisplay.set('inteiro');
+    expect(formatRawScore(8.5)).toBe('8,5');
+    expect(formatRawScore(11)).toBe('11');
+    scoreDisplay.set('metade');
+    expect(formatRawScore(7.3)).toBe('7,3');
   });
 });

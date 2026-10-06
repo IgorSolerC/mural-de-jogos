@@ -22,6 +22,18 @@ export class Toasts {
     clearTimeout(this.timer);
     this.current.set(null);
   }
+
+  /** Com o mouse em cima ou o foco no Desfazer, o bilhete espera: ninguém perde o botão no meio do caminho. */
+  hold(): void {
+    clearTimeout(this.timer);
+  }
+
+  /** Saiu de cima: ainda dá um tempinho para ler antes de sumir. */
+  release(ms = 3000): void {
+    if (!this.current()) return;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.current.set(null), ms);
+  }
 }
 
 /** Aviso num bilhete de bloquinho, destacado no serrilhado. */
@@ -31,7 +43,14 @@ export class Toasts {
   template: `
     <div class="live" role="status" aria-live="polite">
       @if (toasts.current(); as t) {
-        <div class="bilhete" [attr.data-id]="t.id">
+        <div
+          class="bilhete"
+          [attr.data-id]="t.id"
+          (mouseenter)="toasts.hold()"
+          (mouseleave)="toasts.release()"
+          (focusin)="toasts.hold()"
+          (focusout)="toasts.release()"
+        >
           <p>{{ t.text }}</p>
           @if (t.action; as a) {
             <button type="button" (click)="a.run(); toasts.dismiss()">{{ a.label }}</button>

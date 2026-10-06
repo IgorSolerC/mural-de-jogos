@@ -30,6 +30,7 @@ import {
   computeFinal,
   isDarkStock,
   formatScore,
+  formatRawScore,
   counts,
   formatShift,
   weightOf,
@@ -345,14 +346,15 @@ export class ReviewEditor {
 
   protected readonly missing = computed(() => {
     const m: string[] = [];
+    // na ordem da ficha, de cima para baixo: o primeiro que falta é onde o foco cai
     if (!this.game()) m.push(this.words().o);
+    if (!this.status()) m.push('o status');
+    if (!this.dateValid()) m.push('uma data válida');
+    if (!this.hoursValid()) m.push(this.profile().amount?.missing ?? '');
     const scores = this.missingScores().map((k) => SCORE_LABEL[k]);
     if (scores.length === 1) m.push(`a nota de ${scores[0]}`);
     else if (scores.length > 1) m.push(`as notas de ${scores.slice(0, -1).join(', ')} e ${scores.at(-1)}`);
     else if (this.noneCounts()) m.push('ao menos uma categoria que conte na média');
-    if (!this.status()) m.push('o status');
-    if (!this.dateValid()) m.push('uma data válida');
-    if (!this.hoursValid()) m.push(this.profile().amount?.missing ?? '');
     if (this.overrideOn() && this.overrideValue() === null) m.push('uma nota final de 0 a 11');
     return m;
   });
@@ -386,7 +388,8 @@ export class ReviewEditor {
     this.damageSeed.set(review?.damageSeed ?? null);
     this.stain.set(review?.stain ?? null);
     this.overrideOn.set(review?.finalOverride !== undefined);
-    this.overrideText.set(review?.finalOverride !== undefined ? formatScore(review.finalOverride) : '');
+    // a nota como foi dada: com "Inteiros" em Ajustes, um 8,5 escrito como 9 viraria 9 ao salvar
+    this.overrideText.set(review?.finalOverride !== undefined ? formatRawScore(review.finalOverride) : '');
     this.stainSeed.set(review?.stainSeed ?? null);
     this.decor.set(review?.decor ?? null);
     this.decorSeed.set(review?.decorSeed ?? null);
@@ -493,7 +496,7 @@ export class ReviewEditor {
     const game = this.game();
     const final = this.shown();
     const status = this.status();
-    if (!game || final === null || this.missingScores().length || !status || !this.dateValid() || !this.hoursValid()) {
+    if (!game || final === null || this.missingScores().length || this.noneCounts() || !status || !this.dateValid() || !this.hoursValid()) {
       this.focusFirstMissing();
       return;
     }
@@ -715,13 +718,15 @@ export class ReviewEditor {
   private focusFirstMissing(): void {
     const root = this.dialog().nativeElement;
     setTimeout(() => {
+      // na ordem da ficha: o status e a data vêm antes das notas
       if (!this.game()) this.search()?.focus();
+      else if (!this.status()) root.querySelector<HTMLInputElement>('app-status-picker input')?.focus();
+      else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
+      else if (!this.hoursValid()) root.querySelector<HTMLInputElement>('#editor-horas')?.focus();
       else if (this.missingScores().length)
         root.querySelector<HTMLInputElement>(`[data-nota="${this.missingScores()[0]}"] input`)?.focus();
       else if (this.noneCounts()) root.querySelector<HTMLSelectElement>('.subs select')?.focus();
-      else if (!this.status()) root.querySelector<HTMLInputElement>('app-status-picker input')?.focus();
-      else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
-      else root.querySelector<HTMLInputElement>('#editor-horas')?.focus();
+      else root.querySelector<HTMLInputElement>('#editor-nota-final')?.focus();
     });
   }
 
@@ -738,7 +743,7 @@ export class ReviewEditor {
   /** Abre a nota na mão já com a média escrita, para a pessoa só ajustar; fechar volta à média. */
   protected setOverride(on: boolean): void {
     this.overrideOn.set(on);
-    if (on && !this.overrideText().trim() && this.final() !== null) this.overrideText.set(formatScore(this.final()));
+    if (on && !this.overrideText().trim() && this.final() !== null) this.overrideText.set(formatRawScore(this.final()!));
     if (on) setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-nota-final')?.select());
   }
 

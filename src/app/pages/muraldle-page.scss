@@ -450,8 +450,17 @@ tbody tr:not(:first-child) .ladrilho {
   font-family: var(--f-hand);
   font-size: 1rem;
 
+  /* cada cor com o nome dela: a quebra de linha nunca separa a amostra da palavra */
+  .item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
   .chip {
     display: inline-block;
+    flex: none;
     width: 16px;
     height: 16px;
     margin-left: 8px;

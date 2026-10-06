@@ -4,6 +4,13 @@
  */
 @use './comparison/shelf';
 
+/* o caminho de volta para Extras, como nas outras páginas de lá */
+.voltar {
+  margin: -6px 0 18px;
+  color: var(--wall-ink);
+}
+
+
 :host {
   display: block;
 }

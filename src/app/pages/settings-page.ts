@@ -27,7 +27,7 @@ import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 import { BonusSticker } from '../ui/bonus';
 import { JudgeLabel } from '../ui/judge-label';
-import { Bonus, localDay } from '../core/review';
+import { Bonus, fold, localDay } from '../core/review';
 import { scramble } from '../core/spoiler';
 import { Rabisco } from '../ui/rabisco';
 
@@ -548,35 +548,57 @@ export class SettingsPage {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    const n = this.store.count();
-    if (
-      this.mode() === 'replace' &&
-      n > 0 &&
-      !(await this.confirm.ask({
-        text: `${n === 1 ? 'A resenha que está aqui sai' : `As ${n} resenhas que estão aqui saem`} e os murais ficam iguais ao arquivo.`,
-        confirm: 'Substituir',
-        icon: null,
-      }))
-    ) {
-      return;
-    }
+    const replace = this.mode() === 'replace';
     try {
+      // lê antes de perguntar: um arquivo que não serve não pede confirmação nenhuma
       const text = await this.store.readBackup(file);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = undefined;
+      }
+      // não é backup: o importJson lança a mensagem certa sem mexer em nada
+      if (!Array.isArray(parsed) && !Array.isArray((parsed as { reviews?: unknown } | undefined)?.reviews)) this.store.importJson(text, 'merge');
+      const owner = ownerNameOf(parsed);
+      // o backup de um colega misturaria as fichas dele com as suas: o lugar dele é Comparar
+      const me = this.settings.ownerName().trim();
+      if (
+        owner &&
+        me &&
+        fold(owner) !== fold(me) &&
+        !(await this.confirm.ask({
+          title: `Esse backup é de ${owner}`,
+          text: `As fichas de ${owner} vão ${replace ? 'ficar no lugar das suas' : 'se misturar com as suas'}. Para ver o mural sem misturar, abra o arquivo em Extras › Comparar.`,
+          confirm: replace ? 'Substituir mesmo assim' : 'Juntar mesmo assim',
+          icon: null,
+        }))
+      ) {
+        return;
+      }
+      const n = this.store.count();
+      const lists = this.store.draftCount() + this.wishCount();
+      if (
+        replace &&
+        (n > 0 || lists > 0) &&
+        !(await this.confirm.ask({
+          text: n
+            ? `${n === 1 ? 'A resenha que está aqui sai' : `As ${n} resenhas que estão aqui saem`} e os murais ficam iguais ao arquivo.`
+            : 'O pra depois e a wishlist daqui saem e ficam iguais aos do arquivo.',
+          confirm: 'Substituir',
+          icon: null,
+        }))
+      ) {
+        return;
+      }
       const res = this.store.importJson(text, this.mode());
       // o seu próprio backup num navegador novo: o nome volta junto, se ainda não há um aqui
-      if (!this.settings.ownerName().trim()) {
-        try {
-          const owner = ownerNameOf(JSON.parse(text));
-          if (owner) this.settings.ownerName.set(owner);
-        } catch {
-          /* o importJson já disse o que havia de errado */
-        }
-      }
+      if (!this.settings.ownerName().trim() && owner) this.settings.ownerName.set(owner.slice(0, OWNER_NAME_MAX));
       const parts = [`${res.added} ${res.added === 1 ? 'resenha nova' : 'resenhas novas'}`];
       if (res.updated) parts.push(`${res.updated} atualizada${res.updated === 1 ? '' : 's'}`);
       if (res.skipped) parts.push(`${res.skipped} ignorada${res.skipped === 1 ? '' : 's'}`);
       if (res.removed) parts.push(`${res.removed} ${res.removed === 1 ? 'apagada' : 'apagadas'} como no backup`);
-      if (res.drafts) parts.push(`${res.drafts} ${res.drafts === 1 ? 'jogo' : 'jogos'} pra depois`);
+      if (res.drafts) parts.push(`${res.drafts} pra depois`);
       if (res.wishes) parts.push(`${res.wishes} na wishlist`);
       this.importMsg.set({ text: `Backup restaurado: ${parts.join(', ')}.`, error: false });
       const total = res.added + res.updated;

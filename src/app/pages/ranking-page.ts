@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { LucideAngularModule, Plus } from 'lucide-angular';
+import { RouterLink } from '@angular/router';
+import { ArrowLeft, LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { cap, countOf, g } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -38,7 +39,7 @@ const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximu
  */
 @Component({
   selector: 'app-ranking-page',
-  imports: [BonusSticker, CoverSleeve, LucideAngularModule],
+  imports: [BonusSticker, CoverSleeve, LucideAngularModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ranking-page.html',
   styleUrl: './ranking-page.scss',
@@ -47,6 +48,7 @@ export class RankingPage {
   protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
   private readonly vt = inject(ViewTransitions);
+  protected readonly BackIcon = ArrowLeft;
 
   protected readonly PlusIcon = Plus;
   protected readonly keys = computed(() => scoreKeys(this.mural.kind()));
