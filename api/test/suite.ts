@@ -17,6 +17,7 @@ export const BASE_ENV = {
   ORIGENS: 'https://igorsolerc.github.io,http://localhost:4200',
   COTA_LINHAS_DIA: '1000',
   GOOGLE_CLIENT_ID: 'teste.apps.googleusercontent.com',
+  VER_MURAIS: 'todos',
 };
 
 const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'atividades', 'uso_diario'];
@@ -563,6 +564,54 @@ export function apiSuite(label: string, getDb: () => Db) {
         const res = await call('/v1/status', { headers: { Origin: 'https://igorsolerc.github.io' } });
         expect(res.headers.get('Mural-Agora')).toBe(NOW.toISOString());
         expect(res.headers.get('Access-Control-Expose-Headers')).toContain('Mural-Agora');
+      });
+    });
+
+    describe('mural público pelo código', () => {
+      it('qualquer um abre só o público, pelo código digitado de qualquer jeito; 204 sem mudança', async () => {
+        const { login, push, call } = await setup();
+        const { token, conta } = (await login()).body;
+        await push(token, 0, { privado: '{"privado":true}', publico: '{"reviews":["publica"]}' });
+        const typed = conta.codigo.toLowerCase().replace('-', ' ');
+        const res = await call(`/v1/murais/${encodeURIComponent(typed)}`);
+        expect(res.status).toBe(200);
+        expect(res.headers.get('Mural-Rev')).toBe('1');
+        expect(res.headers.get('Mural-Codigo')).toBe(conta.codigo);
+        expect(await gunzip(await res.arrayBuffer())).toBe('{"reviews":["publica"]}');
+        expect((await call(`/v1/murais/${conta.codigo}?rev=1`)).status).toBe(204);
+      });
+
+      it('código desconhecido, inválido ou sem mural: 404', async () => {
+        const { login, call } = await setup();
+        const { conta } = (await login()).body;
+        for (const code of ['ZZZZ-ZZZZ', 'nada', conta.codigo]) {
+          const res = await call(`/v1/murais/${code}`);
+          expect(res.status).toBe(404);
+          expect(((await res.json()) as any).erro).toBe('mural-nao-encontrado');
+        }
+      });
+
+      it('com VER_MURAIS=logados, só quem tem sessão abre', async () => {
+        const { login, push, db } = await setup();
+        const { token, conta } = (await login()).body;
+        await push(token, 0);
+        const closed = createApp({ db, config: readConfig({ ...BASE_ENV, VER_MURAIS: 'logados' }), now: () => NOW, verifyGoogle: null! });
+        expect((await closed.request(`https://api.teste/v1/murais/${conta.codigo}`)).status).toBe(401);
+        const withSession = await closed.request(`https://api.teste/v1/murais/${conta.codigo}`, { headers: { Authorization: `Bearer ${token}` } });
+        expect(withSession.status).toBe(200);
+      });
+
+      it('trocar o código: o novo abre, o antigo para', async () => {
+        const { login, push, json, call } = await setup();
+        const { token, conta } = (await login()).body;
+        await push(token, 0);
+        const res = await json('POST', '/v1/eu/codigo', undefined, token);
+        const { codigo } = (await res.json()) as { codigo: string };
+        expect(codigo).toMatch(/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
+        expect(codigo).not.toBe(conta.codigo);
+        expect((await call(`/v1/murais/${conta.codigo}`)).status).toBe(404);
+        expect((await call(`/v1/murais/${codigo}`)).status).toBe(200);
+        expect(((await (await json('GET', '/v1/eu', undefined, token)).json()) as any).codigo).toBe(codigo);
       });
     });
   });

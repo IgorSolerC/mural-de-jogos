@@ -23,7 +23,7 @@ export function createApp(deps: Deps): Hono {
       origin: (origin) => (config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base'],
-      exposeHeaders: ['Mural-Rev', 'Mural-Agora'],
+      exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo'],
       // O Chrome limita a 2 horas, o Firefox a 1 dia: menos pré-consultas, menos requisições na cota.
       maxAge: 86_400,
     }),

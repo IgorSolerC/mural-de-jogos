@@ -5,7 +5,7 @@ e o seguir. Roda no Cloudflare Workers com banco D1, no plano gratuito, sem cart
 completo está no documento "Meu Mural na nuvem: plano de implementação".
 
 - Endereço: `https://mural-api.igorsoler.workers.dev`
-- Estado: **fase 3** (sincronização). `GET /v1/status`, login com Google (`POST /v1/auth/google`), sair, `GET/PATCH/DELETE /v1/eu` e o mural: `GET /v1/eu/mural` (`?rev=` igual responde 204) e `PUT /v1/eu/mural` (multipart `privado`, `publico`, `novas`, com `Mural-Rev-Base`; 409 se outro aparelho gravou antes). Fases 4 e 5 (código público e seguir) vêm depois.
+- Estado: **fase 4** (código público). `GET /v1/status`, login com Google (`POST /v1/auth/google`), sair, `GET/PATCH/DELETE /v1/eu` e o mural: `GET /v1/eu/mural` (`?rev=` igual responde 204) e `PUT /v1/eu/mural` (multipart `privado`, `publico`, `novas`, com `Mural-Rev-Base`; 409 se outro aparelho gravou antes). Fase 4: `GET /v1/murais/:codigo` (o mural público pelo código, sem login com `VER_MURAIS=todos`) e `POST /v1/eu/codigo` (trocar o código). A fase 5 (seguir e notificações) vem depois.
 
 ## Como está montada
 
@@ -42,6 +42,7 @@ com os secrets `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
 - `COTA_LINHAS_DIA` (wrangler.toml) limita as gravações por dia UTC a 60% do gratuito; passou, as
   gravações respondem `503 cota-diaria` até a meia-noite UTC (21h em Brasília).
 - `MODO` (wrangler.toml): `ligado`, `so-leitura` ou `desligado`. Qualquer outro valor desliga.
+- `VER_MURAIS` (wrangler.toml): `todos` (qualquer um abre um mural pelo código) ou `logados` (só quem tem conta). Qualquer outro valor vale `logados`.
   Para desligar na hora sem deploy: painel da Cloudflare → Workers & Pages → mural-api → Settings →
   Variables.
 - Nada de KV, R2, Durable Objects ou Queues: só Workers e D1.

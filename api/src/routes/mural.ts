@@ -1,6 +1,7 @@
 import { Context, Hono } from 'hono';
 import { utcDay, write } from '../domain/quota';
 import { authenticate } from '../domain/session';
+import { formatCode, generateCode, normalizeCode } from '../domain/code';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 
@@ -70,8 +71,46 @@ function parseNew(raw: ReturnType<FormData['get']>): NewReview[] {
   return out;
 }
 
+/** O mural de outra pessoa, pelo código: só o público (resenhas e nome). */
+function publicRoutes(app: Hono, deps: Deps): void {
+  app.get('/v1/murais/:codigo', async (c) => {
+    if (deps.config.publicMurals === 'logados') await authenticate(deps, c.req.header('Authorization'));
+    const code = normalizeCode(c.req.param('codigo'));
+    const notFound = () =>
+      new HttpError(404, 'mural-nao-encontrado', 'Não achei mural com esse código. Confira as letras: são 8, como K7QF-M2XA.');
+    if (!code) throw notFound();
+    const head = await deps.db.first<{ usuario_id: string; rev: number }>(
+      'SELECT p.usuario_id, p.rev FROM usuarios u JOIN murais_publicos p ON p.usuario_id = u.id WHERE u.codigo = ?',
+      [code],
+    );
+    if (!head) throw notFound();
+    c.header('Mural-Rev', String(head.rev));
+    c.header('Mural-Codigo', formatCode(code));
+    if (c.req.query('rev') === String(head.rev)) return c.body(null, 204);
+    const row = await deps.db.first<{ dados: unknown }>('SELECT dados FROM murais_publicos WHERE usuario_id = ?', [head.usuario_id]);
+    if (!row) throw notFound();
+    c.header('Content-Type', 'application/gzip');
+    const bytes = toBytes(row.dados);
+    return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
+  });
+
+  // Trocar o código: o antigo para de funcionar; quem segue continua seguindo (seguir guarda o id).
+  app.post('/v1/eu/codigo', async (c) => {
+    const s = await authenticate(deps, c.req.header('Authorization'));
+    for (let i = 0; i < 5; i++) {
+      const code = generateCode();
+      if (await deps.db.first('SELECT 1 AS x FROM usuarios WHERE codigo = ?', [code])) continue;
+      await write(deps, [{ sql: 'UPDATE usuarios SET codigo = ? WHERE id = ?', params: [code, s.userId] }], 3);
+      return c.json({ codigo: formatCode(code) });
+    }
+    throw new HttpError(503, 'codigo-indisponivel', 'Não consegui criar um código agora. Tente de novo.');
+  });
+}
+
 /** O mural da própria conta: GET (baixar) e PUT (enviar). */
 export function muralRoutes(app: Hono, deps: Deps): void {
+  publicRoutes(app, deps);
+
   app.get('/v1/eu/mural', async (c) => {
     const s = await authenticate(deps, c.req.header('Authorization'));
     const head = await deps.db.first<{ rev: number }>('SELECT rev FROM murais WHERE usuario_id = ?', [s.userId]);

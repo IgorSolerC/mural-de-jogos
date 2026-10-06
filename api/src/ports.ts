@@ -40,6 +40,8 @@ export interface Config {
   dailyRowBudget: number;
   /** O Client ID do Google (o `aud` que o login confere). */
   googleClientId: string;
+  /** Quem pode abrir um mural pelo código: qualquer um, ou só quem está logado (se alguém abusar). */
+  publicMurals: 'todos' | 'logados';
 }
 
 export interface Deps {

@@ -14,6 +14,8 @@ MODO = "ligado"
 ORIGENS = "https://igorsolerc.github.io,http://localhost:4200"
 # Cota própria de linhas gravadas por dia UTC: 60% do limite gratuito do D1 (100 mil).
 COTA_LINHAS_DIA = "60000"
+# Quem abre um mural pelo código: todos | logados (qualquer outro valor: logados).
+VER_MURAIS = "todos"
 # Público (vai também no site); é o `aud` que o login confere.
 GOOGLE_CLIENT_ID = "891037362218-0d8ncsj5p4n6pmvqlei60qs7l1oo7f4t.apps.googleusercontent.com"
 

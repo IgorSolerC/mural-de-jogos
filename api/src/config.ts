@@ -19,5 +19,7 @@ export function readConfig(env: Record<string, unknown>): Config {
       .filter(Boolean),
     dailyRowBudget: Number.isSafeInteger(budget) && budget > 0 ? budget : 0,
     googleClientId: text('GOOGLE_CLIENT_ID'),
+    // na dúvida, só logados (o mais fechado)
+    publicMurals: text('VER_MURAIS') === 'todos' ? 'todos' : 'logados',
   };
 }
