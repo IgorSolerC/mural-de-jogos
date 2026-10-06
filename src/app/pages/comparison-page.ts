@@ -100,8 +100,6 @@ export class ComparisonPage {
   protected readonly colleagues = inject(ColleagueStore);
   protected readonly cloud = inject(Cloud);
   private readonly cloudMurals = inject(CloudMurals);
-  /** O código digitado em "Pelo código". */
-  protected readonly code = signal('');
   protected readonly codeBusy = signal(false);
   protected readonly codeError = signal('');
   /** O colega aberto pelo código se atualiza da nuvem ao aparecer aqui (a cada 2 minutos, no máximo). */
@@ -318,15 +316,13 @@ export class ComparisonPage {
   }
 
   // ===== Ações =====
-  /** "Pelo código": traz o mural público da pessoa e já compara. */
-  protected async openCode(e: Event): Promise<void> {
-    e.preventDefault();
-    if (this.codeBusy() || !this.code().trim()) return;
+  /** O código digitado no envelope: traz o mural público da pessoa e já compara. */
+  protected async openCode(value: string): Promise<void> {
+    if (this.codeBusy()) return;
     this.codeBusy.set(true);
     this.codeError.set('');
     try {
-      const c = await this.cloudMurals.open(this.code());
-      this.code.set('');
+      const c = await this.cloudMurals.open(value);
       this.adding.set(false);
       this.query.set('');
       this.naming.set(false);
