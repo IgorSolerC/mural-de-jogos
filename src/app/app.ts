@@ -1,4 +1,5 @@
 import { CloudSync } from './core/cloud-sync';
+import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
@@ -60,6 +61,8 @@ export class App {
   protected readonly backup = inject(Backup);
   /** A sincronização com a nuvem: só age com a nuvem ligada e a pessoa logada (ver core/cloud-sync.ts). */
   private readonly cloudSync = inject(CloudSync);
+  /** O link ?mural=CÓDIGO abre o mural de alguém (ver core/cloud-murals.ts). */
+  private readonly cloudMurals = inject(CloudMurals);
 
   /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
   private readonly path = toSignal(
@@ -86,6 +89,7 @@ export class App {
   private readonly wishAdder = viewChild.required(WishAdder);
 
   constructor() {
+    void this.cloudMurals.openFromLink();
     this.desk.register({
       newReview: () => this.editor().open(),
       openReview: (id) => {

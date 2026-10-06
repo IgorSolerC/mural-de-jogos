@@ -1060,3 +1060,12 @@ The cloud keeps the wall in sync between devices (`core/cloud-sync.ts`). Nothing
 - **Sair.** Asks the same way: "Sair e manter aqui" (ink) or "Sair e tirar daqui" (quiet; only when everything already reached the cloud).
 - **Backup card.** With an account, the lead says the reviews live in this browser and in the account, and "Apagar o save" warns the wall comes back from the cloud.
 
+## Pelo código (sharing pass)
+
+With the cloud on, someone's wall arrives by code or link instead of a backup file, and becomes a colleague in Comparar like any file did (stored in this browser, works offline, refreshed from the cloud at most every 2 minutes when it is on screen). Only the public wall comes: reviews and name.
+
+- **Comparar, arrival.** The ruled notepad note now opens with "Pelo código": one handwritten line on where the code lives (Ajustes › Conta), a field strip on notepad paper with a 2px ink inset outline, the code in marker caps with letter-spacing ("K7QF-M2XA" as placeholder at 35% ink), and the ink button "Abrir o mural" ("Abrindo…" while it works). A wrong or unknown code turns the outline into a 3px dark red and prints the cloud's sentence under it in Barlow 600 dark red. Below, the note keeps its old steps under a second marker title, "Ou pelo backup". The envelope beside it is unchanged.
+- **Link.** `…/?mural=K7QF-M2XA` opens the site, brings the wall, goes straight to "O mural de {nome}" and toasts "O mural de {nome} chegou"; the parameter leaves the address. With the cloud off, it only toasts that the cloud is off.
+- **Ajustes › Conta.** Beside "Copiar", a quiet "Copiar o link" (Link icon). The hint says what the code shows (the reviews; not the queue, the wishlist or the settings) and ends with a text button "Trocar o código", behind the confirm card: the old code and link stop working, whoever already opened keeps their copy, followers keep following.
+- **Your own code** in the field says "Esse é o seu código".
+

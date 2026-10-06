@@ -4,6 +4,7 @@ import {
   Check,
   Cloud as CloudIcon,
   Copy,
+  Link as LinkIconData,
   CircleCheck,
   Download,
   Eye,
@@ -40,6 +41,7 @@ import { CloudAccount, CloudError } from '../core/cloud-account';
 import { CloudSync } from '../core/cloud-sync';
 import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
 import { GoogleButton } from '../ui/google-button';
+import { muralLink } from '../core/cloud-murals';
 
 const DAY = 86_400_000;
 
@@ -125,8 +127,16 @@ function when(ms: number): string {
                   <lucide-icon [img]="CopyIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
                   Copiar
                 </button>
+                <button type="button" class="btn-quiet" (click)="copyLink(acc.codigo)">
+                  <lucide-icon [img]="LinkIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                  Copiar o link
+                </button>
               </div>
-              <p class="hint">Com ele, outras pessoas vão abrir o seu mural e seguir você (chega nas próximas etapas).</p>
+              <p class="hint">
+                Com o código ou o link, qualquer pessoa abre as suas resenhas em Comparar (a fila, a wishlist e os ajustes
+                não vão). Seguir chega na próxima etapa.
+                <button type="button" class="link-btn" (click)="newCode()" [disabled]="accountBusy()">Trocar o código</button>
+              </p>
             </div>
 
             <div class="bloco sair" role="group" aria-label="Sair da conta">
@@ -602,6 +612,7 @@ export class SettingsPage {
   protected readonly AnimesIcon = Origami;
   protected readonly CloudOnIcon = CloudIcon;
   protected readonly CopyIcon = Copy;
+  protected readonly LinkIcon = LinkIconData;
   protected readonly LogOutIcon = LogOut;
   protected readonly RefreshIcon = RefreshCw;
   protected readonly CloudOffIcon = CloudOff;
@@ -748,6 +759,29 @@ export class SettingsPage {
     a.download = `meu-mural-antes-da-nuvem-${copy.at.slice(0, 10)}.json.gz`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
+  protected async copyLink(code: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(muralLink(code));
+      this.toasts.show('Link do mural copiado');
+    } catch {
+      this.toasts.show(`Não deu para copiar. O link é ${muralLink(code)}`);
+    }
+  }
+
+  protected async newCode(): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: 'Trocar o código?',
+      text:
+        'O código e o link de agora param de abrir o seu mural. Quem já abriu fica com a cópia que tinha, e quem segue você continua seguindo.',
+      confirm: 'Trocar o código',
+      icon: null,
+    });
+    let code = '';
+    if (sure && (await this.accountAction(async () => void (code = await this.account.newCode())))) {
+      this.toasts.show(`Código novo: ${code}`);
+    }
   }
 
   protected async signOut(): Promise<void> {

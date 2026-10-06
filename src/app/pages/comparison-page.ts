@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ArrowLeft, LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
+import { Cloud } from '../core/cloud-config';
+import { CloudMurals } from '../core/cloud-murals';
 import { ReviewPair, compareCollections, distinctReviews } from '../core/comparison';
 import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
 import { KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
@@ -96,6 +98,17 @@ const byName = (a: Review, b: Review) => collator.compare(a.game.name, b.game.na
 })
 export class ComparisonPage {
   protected readonly colleagues = inject(ColleagueStore);
+  protected readonly cloud = inject(Cloud);
+  private readonly cloudMurals = inject(CloudMurals);
+  /** O código digitado em "Pelo código". */
+  protected readonly code = signal('');
+  protected readonly codeBusy = signal(false);
+  protected readonly codeError = signal('');
+  /** O colega aberto pelo código se atualiza da nuvem ao aparecer aqui (a cada 2 minutos, no máximo). */
+  private readonly refreshCloud = effect(() => {
+    const c = this.colleagues.selected();
+    untracked(() => void this.cloudMurals.refresh(c));
+  });
   protected readonly mural = inject(Mural);
   private readonly store = inject(ReviewStore);
   private readonly desk = inject(Desk);
@@ -305,6 +318,26 @@ export class ComparisonPage {
   }
 
   // ===== Ações =====
+  /** "Pelo código": traz o mural público da pessoa e já compara. */
+  protected async openCode(e: Event): Promise<void> {
+    e.preventDefault();
+    if (this.codeBusy() || !this.code().trim()) return;
+    this.codeBusy.set(true);
+    this.codeError.set('');
+    try {
+      const c = await this.cloudMurals.open(this.code());
+      this.code.set('');
+      this.adding.set(false);
+      this.query.set('');
+      this.naming.set(false);
+      this.toasts.show(`O mural de ${c.name} chegou`);
+    } catch (err) {
+      this.codeError.set(err instanceof Error ? err.message : 'Não consegui abrir esse mural.');
+    } finally {
+      this.codeBusy.set(false);
+    }
+  }
+
   protected async load(file: File): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);

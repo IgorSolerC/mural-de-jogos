@@ -40,7 +40,39 @@
       />
       <aside class="como" aria-labelledby="como-titulo">
         <span class="como-fita" aria-hidden="true"></span>
-        <h2 id="como-titulo">Como pedir o mural de alguém</h2>
+        @if (cloud.config()) {
+          <h2 id="como-titulo">Pelo código</h2>
+          <p class="como-lead">
+            Peça o código da pessoa (fica em <strong>Ajustes › Conta</strong>, no Meu Mural dela) ou o link do mural.
+          </p>
+          <form class="pelo-codigo" (submit)="openCode($event)">
+            <label class="sr-only" for="codigo-colega">Código do mural</label>
+            <input
+              id="codigo-colega"
+              name="codigo"
+              type="text"
+              inputmode="text"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="11"
+              placeholder="K7QF-M2XA"
+              [value]="code()"
+              (input)="code.set($any($event.target).value); codeError.set('')"
+              [attr.aria-invalid]="!!codeError()"
+              [attr.aria-describedby]="codeError() ? 'codigo-erro' : null"
+            />
+            <button type="submit" class="btn-ink" [disabled]="codeBusy() || !code().trim()">
+              {{ codeBusy() ? 'Abrindo…' : 'Abrir o mural' }}
+            </button>
+          </form>
+          @if (codeError(); as e) {
+            <p id="codigo-erro" class="codigo-erro" role="alert">{{ e }}</p>
+          }
+          <h2 class="como-ou">Ou pelo backup</h2>
+        } @else {
+          <h2 id="como-titulo">Como pedir o mural de alguém</h2>
+        }
         <ol>
           <li>Seu colega abre o Meu Mural dele e vai em <strong>Ajustes</strong>.</li>
           <li>Toca em <strong>Baixar backup</strong>.</li>

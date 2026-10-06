@@ -173,6 +173,14 @@ export class CloudAccount {
     if (account) this.setAccount({ ...account, nome: res.nome });
   }
 
+  /** Sorteia um código novo: o antigo para de abrir o mural. */
+  async newCode(): Promise<string> {
+    const res = await this.request<{ codigo: string }>('/v1/eu/codigo', { method: 'POST' });
+    const account = this.account();
+    if (account) this.setAccount({ ...account, codigo: res.codigo });
+    return res.codigo;
+  }
+
   /** Sai neste navegador. Mesmo sem internet a sessão local vai embora (a da nuvem vence sozinha). */
   async signOut(): Promise<void> {
     try {
