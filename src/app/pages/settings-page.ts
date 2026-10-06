@@ -413,6 +413,44 @@ function when(ms: number): string {
           </label>
         </fieldset>
 
+        @if (cloud.config()) {
+          <fieldset class="escolha amigos-murais">
+            <legend class="rotulo">Novidades dos amigos</legend>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="amigos-murais" value="misturado" [checked]="settings.friendKinds() === 'misturado'" (change)="settings.friendKinds.set('misturado')" />
+                <span class="adesivo" [class.recorte]="settings.friendKinds() !== 'misturado'" [class.colado]="settings.friendKinds() === 'misturado'">Misturado</span>
+              </span>
+              <span class="op-texto">Em Amigos aparece tudo: jogos, livros, filmes, séries e animes, esteja no mural que estiver.</span>
+            </label>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="amigos-murais" value="separado" [checked]="settings.friendKinds() === 'separado'" (change)="settings.friendKinds.set('separado')" />
+                <span class="adesivo" [class.recorte]="settings.friendKinds() !== 'separado'" [class.colado]="settings.friendKinds() === 'separado'">Separado</span>
+              </span>
+              <span class="op-texto">Só o que é do mural aberto no cartaz: no de animes, só animes. O número da aba Amigos também.</span>
+            </label>
+          </fieldset>
+
+          <fieldset class="escolha spoilers-amigos">
+            <legend class="rotulo">Spoilers dos amigos</legend>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="spoilers-amigos" value="mostrar" [checked]="!settings.friendSpoilers()" (change)="settings.friendSpoilers.set(false)" />
+                <span class="adesivo" [class.recorte]="settings.friendSpoilers()" [class.colado]="!settings.friendSpoilers()">Mostrar</span>
+              </span>
+              <span class="op-texto">Em Amigos, as fichas chegam inteiras.</span>
+            </label>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="spoilers-amigos" value="evitar" [checked]="settings.friendSpoilers()" (change)="settings.friendSpoilers.set(true)" />
+                <span class="adesivo" [class.recorte]="!settings.friendSpoilers()" [class.colado]="settings.friendSpoilers()">Evitar</span>
+              </span>
+              <span class="op-texto">O que você ainda não avaliou chega em segredo; o que você já avaliou mostra a nota do amigo.</span>
+            </label>
+          </fieldset>
+        }
+
         <fieldset class="escolha nota">
           <legend class="rotulo">Nota</legend>
           @for (o of scoreDisplays; track o.value) {

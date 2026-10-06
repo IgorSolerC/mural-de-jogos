@@ -33,9 +33,12 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-amigos-e-chaves',
     date: '2026-10-06',
-    title: 'Amigos, chaves e botões que avisam',
+    title: 'Amigos com as fichas de verdade',
     items: [
       'O Correio virou a aba Amigos, com as pessoas que acenam quando chega algo.',
+      'Cada resenha nova de um amigo chega como a ficha dele, igual à do mural. Do lado, quanto ele deu a mais ou a menos que você, ou "Quero jogar" se você ainda não tem. Tocar no nome abre o mural da pessoa.',
+      'Sem spoilers: o que você ainda não avaliou chega em segredo (dá para desligar em Ajustes › Mural).',
+      'Misturado ou separado: as novidades de todos os murais juntas, ou só as do mural aberto no cartaz.',
       'Com a conta, as chaves da RAWG e do TMDB valem em todos os seus aparelhos. Elas nunca vão no arquivo de backup.',
       'Quem ainda tem o mural só no navegador vê, no máximo a cada 2 dias, um convite para entrar com o Google.',
       'Os botões que esperam a nuvem (seguir, sair, apagar, sincronizar, abrir um mural) mostram que estão trabalhando.',

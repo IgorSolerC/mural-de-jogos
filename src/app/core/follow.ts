@@ -3,6 +3,8 @@ import { Cloud } from './cloud-config';
 import { CloudAccount } from './cloud-account';
 import { normalizeCode } from './cloud-murals';
 import { Kind, isKind } from './kinds';
+import { Mural } from './mural';
+import { FriendKinds, Settings } from './settings';
 
 /**
  * Seguir pessoas pelo código e o correio (ver `api/src/routes/follow.ts`).
@@ -95,43 +97,24 @@ export function parsePeople(raw: unknown): People {
   };
 }
 
+/**
+ * O que aparece: tudo (misturado) ou só as resenhas do mural aberto (separado). Quem começou a seguir
+ * aparece sempre: não é de mural nenhum.
+ */
+export function visibleFeed(items: readonly FeedItem[], mode: FriendKinds, kind: Kind): FeedItem[] {
+  return mode === 'misturado' ? [...items] : items.filter((i) => i.tipo === 'seguiu' || i.mural === kind);
+}
+
 /** Quantos contam no número: os de depois do visto, menos os de quem foi silenciado. */
 export function unseenCount(items: readonly FeedItem[], seenAt: string | null): number {
   return items.filter((i) => (!seenAt || i.em > seenAt) && !(i.tipo === 'resenha' && i.silenciado)).length;
 }
-
-/** Um bloco do correio: as resenhas de uma pessoa num dia, ou um "começou a seguir você". */
-export type FeedGroup =
-  | { kind: 'resenhas'; key: string; pessoa: Person; dia: string; em: string; itens: Extract<FeedItem, { tipo: 'resenha' }>[] }
-  | { kind: 'seguiu'; key: string; pessoa: Person; dia: string; em: string; item: Extract<FeedItem, { tipo: 'seguiu' }> };
 
 /** O dia local (AAAA-MM-DD) de um instante. */
 export function localDayOf(isoText: string): string {
   const d = new Date(isoText);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-/** No máximo um bloco por pessoa por dia: o correio não vira uma lista de notificações. */
-export function groupFeed(items: readonly FeedItem[]): FeedGroup[] {
-  const groups: FeedGroup[] = [];
-  const byKey = new Map<string, Extract<FeedGroup, { kind: 'resenhas' }>>();
-  for (const item of [...items].sort((a, b) => b.em.localeCompare(a.em))) {
-    const dia = localDayOf(item.em);
-    if (item.tipo === 'seguiu') {
-      groups.push({ kind: 'seguiu', key: `seguiu:${item.pessoa.codigo}`, pessoa: item.pessoa, dia, em: item.em, item });
-      continue;
-    }
-    const key = `resenhas:${item.pessoa.codigo}:${dia}`;
-    const group = byKey.get(key);
-    if (group) group.itens.push(item);
-    else {
-      const g = { kind: 'resenhas' as const, key, pessoa: item.pessoa, dia, em: item.em, itens: [item] };
-      byKey.set(key, g);
-      groups.push(g);
-    }
-  }
-  return groups;
 }
 
 /** "hoje", "ontem" ou "3 de outubro". */
@@ -166,6 +149,8 @@ function readCache(): Cache | null {
 export class Follow {
   private readonly cloud = inject(Cloud);
   private readonly account = inject(CloudAccount);
+  private readonly settings = inject(Settings);
+  private readonly mural = inject(Mural);
 
   /** A nuvem ligada e alguém logado: só assim existe seguir e correio. */
   readonly available = computed(() => !!this.cloud.config() && this.account.signedIn());
@@ -178,7 +163,9 @@ export class Follow {
   readonly items = signal<FeedItem[]>([]);
   readonly seenAt = signal<string | null>(null);
   readonly people = signal<People | null>(null);
-  readonly unseen = computed(() => unseenCount(this.items(), this.seenAt()));
+  /** O que aparece em Amigos: tudo, ou só o do mural aberto (Ajustes › Mural › Novidades dos amigos). */
+  readonly visible = computed(() => visibleFeed(this.items(), this.settings.friendKinds(), this.mural.kind()));
+  readonly unseen = computed(() => unseenCount(this.visible(), this.seenAt()));
   readonly followingCodes = computed(() => new Set(this.people()?.seguindo.map((p) => p.codigo) ?? []));
   /** A última conferência deu erro (sem rede, nuvem fora): o correio mostra o guardado. */
   readonly offline = signal(false);
@@ -255,7 +242,8 @@ export class Follow {
 
   /** Abriu o correio: tudo o que está aqui conta como visto (neste e nos outros aparelhos). */
   async markSeen(): Promise<void> {
-    const newest = this.items()[0]?.em;
+    // separado: só até o mais novo deste mural (o dos outros murais que chegou depois continua novo)
+    const newest = this.visible()[0]?.em;
     if (!newest || (this.seenAt() && this.seenAt()! >= newest)) return;
     this.seenAt.set(newest);
     this.save();

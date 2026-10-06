@@ -45,15 +45,21 @@
       @if (follow.offline()) {
         <p class="giz" role="status">Sem conexão com a nuvem: mostrando o que já tinha chegado.</p>
       }
-      @if (!groups().length) {
+      @if (onlyKind(); as plural) {
+        <p class="giz">
+          Só {{ plural }}. Para ver os outros murais, troque no cartaz ou
+          <button type="button" class="link-giz" (click)="settings.friendKinds.set('misturado')">misture tudo</button>.
+        </p>
+      }
+      @if (!posts().length) {
         <section class="ficha cartolina vazio" aria-labelledby="vazio-titulo">
           <app-pin class="pin" color="#e62e2d" />
           <h2 id="vazio-titulo">Nada por aqui ainda</h2>
           <p class="lead">
             @if (followingCount()) {
-              Quando quem você segue pregar algo no mural, aparece aqui. Ficam os últimos 30 dias.
+              Quando quem você segue avaliar {{ onlyKind() ? 'algo deste mural' : 'algo' }}, a ficha aparece aqui. Ficam os últimos 30 dias.
             } @else {
-              Siga alguém pelo código e, quando essa pessoa pregar algo no mural, aparece aqui.
+              Siga alguém pelo código e, quando essa pessoa avaliar algo, a ficha aparece aqui.
             }
           </p>
           <button type="button" class="btn-ink" (click)="go('pessoas')">
@@ -62,103 +68,99 @@
           </button>
         </section>
       } @else {
-        <ol class="cartas">
-          @for (gr of groups(); track gr.key; let i = $index) {
-            <li [style.rotate.deg]="tilt(i)">
-              @if (gr.kind === 'seguiu') {
+        <ol class="posts">
+          @for (p of posts(); track p.key; let i = $index) {
+            <li>
+              @if (p.item.tipo === 'seguiu') {
                 <!-- alguém começou a seguir: um bilhete pequeno -->
-                <article class="bilhete-seguiu" [attr.aria-label]="gr.pessoa.nome + ' começou a seguir você'">
-                  @if (isFresh(gr.em)) {
+                <article class="bilhete-seguiu" [style.rotate.deg]="tilt(i)" [attr.aria-label]="p.item.pessoa.nome + ' começou a seguir você'">
+                  @if (isFresh(p.item.em)) {
                     <span class="novo" aria-hidden="true">Novo</span>
                   }
                   <lucide-icon class="bilhete-icone" [img]="FollowIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
                   <p>
-                    <strong>{{ gr.pessoa.nome }}</strong> começou a seguir você
-                    <span class="quando">· {{ when(gr.dia) }}</span>
+                    <strong>{{ p.item.pessoa.nome }}</strong> começou a seguir você
+                    <span class="quando">· {{ when(p.dia) }}</span>
                   </p>
-                  @if (follow.followingCodes().has(gr.pessoa.codigo)) {
+                  @if (follow.followingCodes().has(p.item.pessoa.codigo)) {
                     <span class="mutuo">
                       <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
                       Vocês se seguem
                     </span>
                   } @else {
-                    <button type="button" class="btn-ink btn-small" [disabled]="rowBusy(gr.pessoa.codigo)" [appBusy]="isBusy(gr.pessoa.codigo, 'seguir')" (click)="followBack(gr.pessoa)">
-                      {{ isBusy(gr.pessoa.codigo, 'seguir') ? 'Seguindo…' : 'Seguir de volta' }}
+                    <button type="button" class="btn-ink btn-small" [disabled]="rowBusy(p.item.pessoa.codigo)" [appBusy]="isBusy(p.item.pessoa.codigo, 'seguir')" (click)="followBack(p.item.pessoa)">
+                      {{ isBusy(p.item.pessoa.codigo, 'seguir') ? 'Seguindo…' : 'Seguir de volta' }}
                     </button>
                   }
                 </article>
               } @else {
-                <!-- as resenhas de uma pessoa num dia: um cartão-postal com as fichinhas -->
-                <article class="cartao" [attr.aria-labelledby]="'cartao-' + i">
-                  @if (isFresh(gr.em)) {
-                    <span class="novo" aria-hidden="true">Novo</span>
-                  }
-                  <header class="cartao-cabeca">
-                    <h2 class="cartao-titulo" [id]="'cartao-' + i">
-                      <span class="cartao-nome">{{ gr.pessoa.nome }}</span>
-                      <span class="cartao-fez">pregou {{ countText(gr.itens) }} · {{ when(gr.dia) }}</span>
-                      @if (isFresh(gr.em)) {
+                <!-- uma resenha nova: "Igor avaliou", a ficha dele pregada e, ao lado, o bilhete de vocês dois -->
+                <article class="post" [attr.aria-labelledby]="'post-' + i">
+                  <header class="post-cabeca">
+                    <h2 class="tape-label post-quem" [id]="'post-' + i">
+                      <!-- o nome leva ao mural da pessoa -->
+                      <button
+                        type="button"
+                        class="post-nome"
+                        [disabled]="rowBusy(p.item.pessoa.codigo)"
+                        [appBusy]="isBusy(p.item.pessoa.codigo, 'mural')"
+                        [title]="'Ver o mural de ' + p.item.pessoa.nome"
+                        (click)="openWall(p.item.pessoa)"
+                      >{{ p.item.pessoa.nome }}</button>
+                      {{ p.theirs ? verb(p.theirs) : 'avaliou' }}
+                      @if (isFresh(p.item.em)) {
                         <span class="sr-only">(novo)</span>
                       }
                     </h2>
-                    @if (affinityOf(gr.pessoa.codigo); as af) {
-                      <p class="sintonia" [title]="af.phrase">
-                        <span class="sintonia-n">{{ af.percent }}%</span>
-                        <span class="sintonia-txt">{{ af.phrase }}</span>
-                      </p>
+                    <span class="post-quando">{{ when(p.dia) }}</span>
+                    @if (isFresh(p.item.em)) {
+                      <span class="novo post-novo" aria-hidden="true">Novo</span>
                     }
                   </header>
 
-                  <ul class="miudas">
-                    @for (item of gr.itens; track item.ref) {
-                      @let theirs = reviewOf(gr.pessoa.codigo, item.ref);
-                      <li class="miuda">
-                        <button
-                          type="button"
-                          class="miuda-abre"
-                          [disabled]="!theirs"
-                          (click)="theirs && openReview(theirs, gr.pessoa)"
-                          [attr.aria-label]="theirs ? 'Abrir a resenha de ' + item.titulo : item.titulo + ' (não está mais no mural)'"
-                        >
-                          @if (theirs) {
-                            <app-cover-sleeve class="miuda-capa" [game]="theirs.game" size="thumb" [decorative]="true" />
-                          } @else {
-                            <span class="miuda-capa sem" aria-hidden="true">?</span>
-                          }
-                          <span class="miuda-nome">{{ theirs?.game?.name ?? item.titulo }}</span>
-                        </button>
-                        @if (theirs) {
-                          <app-judge-label class="miuda-nota" [value]="shown(theirs)" size="compact" [masked]="masked()" />
-                        } @else {
-                          <span class="miuda-sumiu">Saiu do mural</span>
-                        }
-                        @if (theirs) {
-                          @if (mineOf(gr.pessoa.codigo, theirs); as mine) {
-                            <p class="miuda-voce">
-                              Você deu <strong>{{ masked() ? '?' : formatScore(shown(mine)) }}</strong>
-                            </p>
-                          } @else if (isWished(theirs)) {
-                            <p class="miuda-voce">
-                              <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
-                              Na wishlist
-                            </p>
-                          } @else {
-                            <button type="button" class="acao-caneta miuda-quero" (click)="wish(theirs)">
-                              <lucide-icon [img]="WishIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
-                              {{ wantLabel(theirs) }}
-                            </button>
-                          }
-                        }
-                      </li>
-                    }
-                  </ul>
+                  @if (p.theirs; as theirs) {
+                    <div class="post-corpo">
+                      <app-review-card
+                        class="post-ficha"
+                        [review]="theirs"
+                        [preview]="true"
+                        [masked]="p.secret"
+                        (opened)="openReview(theirs, p.item.pessoa, p.secret)"
+                      />
 
-                  <footer class="cartao-pe">
-                    <button type="button" class="btn-quiet" [disabled]="rowBusy(gr.pessoa.codigo)" [appBusy]="isBusy(gr.pessoa.codigo, 'mural')" (click)="openWall(gr.pessoa)">
-                      <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                      {{ isBusy(gr.pessoa.codigo, 'mural') ? 'Abrindo o mural…' : 'Ver o mural de ' + gr.pessoa.nome }}
-                    </button>
-                  </footer>
+                      <div class="post-nota">
+                        @if (p.mine; as mine) {
+                          @let d = delta(theirs, mine);
+                          <p class="placar">
+                            @if (d === 0) {
+                              <span class="placar-n igual" aria-hidden="true">=</span>
+                              <span class="placar-txt">A mesma nota que você</span>
+                            } @else {
+                              <span class="placar-txt">{{ p.item.pessoa.nome }} deu</span>
+                              <span class="placar-n" [class.mais]="d > 0">{{ signed(d) }}</span>
+                              <span class="placar-txt">que você</span>
+                            }
+                          </p>
+                          <p class="voce">Você deu <strong>{{ formatScore(shown(mine)) }}</strong></p>
+                        } @else if (isWished(theirs)) {
+                          <p class="voce">
+                            <lucide-icon [img]="CheckIcon" [size]="15" [strokeWidth]="3" aria-hidden="true" />
+                            Na sua wishlist
+                          </p>
+                        } @else {
+                          <button type="button" class="acao-caneta quero" (click)="wish(theirs)">
+                            <lucide-icon [img]="WishIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                            {{ wantLabel(theirs) }}
+                          </button>
+                        }
+                        @if (p.secret) {
+                          <p class="segredo-nota">A nota fica em segredo até você avaliar.</p>
+                        }
+                      </div>
+                    </div>
+                  } @else {
+                    <p class="giz sumiu">“{{ p.item.titulo }}” saiu do mural de {{ p.item.pessoa.nome }}.</p>
+                  }
                 </article>
               }
             </li>
@@ -288,10 +290,31 @@
             </ul>
           }
         }
-        <label class="opcao-numero">
-          <input type="checkbox" [checked]="settings.mailCount()" (change)="settings.mailCount.set($any($event.target).checked)" />
-          Mostrar na aba Amigos, no topo, quantas novidades chegaram
-        </label>
+      </section>
+
+      <section class="ficha cartolina opcoes-ficha" aria-labelledby="opcoes-titulo">
+        <app-pin class="pin" color="#e62e2d" />
+        <h2 id="opcoes-titulo">Opções</h2>
+        <div class="opcoes" role="group" aria-label="Opções de Amigos">
+          <label class="opcao-numero">
+            <input type="checkbox" [checked]="settings.mailCount()" (change)="settings.mailCount.set($any($event.target).checked)" />
+            Mostrar na aba Amigos, no topo, quantas novidades chegaram
+          </label>
+          <label class="opcao-numero">
+            <input type="checkbox" [checked]="settings.friendKinds() === 'separado'" (change)="settings.friendKinds.set($any($event.target).checked ? 'separado' : 'misturado')" />
+            <span>
+              Só as novidades do mural aberto
+              <small>Desligado, aparece tudo misturado: jogos, livros, filmes, séries e animes, esteja onde estiver.</small>
+            </span>
+          </label>
+          <label class="opcao-numero">
+            <input type="checkbox" [checked]="settings.friendSpoilers()" (change)="settings.friendSpoilers.set($any($event.target).checked)" />
+            <span>
+              Evitar spoilers dos amigos
+              <small>O que você ainda não avaliou chega em segredo: sem nota, sem veredito e com o texto embaralhado.</small>
+            </span>
+          </label>
+        </div>
       </section>
     }
   </div>

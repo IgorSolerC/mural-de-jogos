@@ -1,4 +1,4 @@
-import { FeedItem, dayLabel, groupFeed, localDayOf, parseFeed, parsePeople, unseenCount } from './follow';
+import { FeedItem, dayLabel, localDayOf, parseFeed, parsePeople, unseenCount, visibleFeed } from './follow';
 
 const ana = { codigo: 'AAAA-1111', nome: 'Ana' };
 const bia = { codigo: 'BBBB-2222', nome: 'Bia' };
@@ -42,25 +42,6 @@ describe('correio', () => {
     expect(unseenCount(items, '2026-10-06T11:00:00.000Z')).toBe(0);
   });
 
-  it('um cartão por pessoa por dia; quem começou a seguir vem à parte', () => {
-    const d1 = new Date(2026, 9, 6, 15).toISOString();
-    const d1b = new Date(2026, 9, 6, 9).toISOString();
-    const d0 = new Date(2026, 9, 5, 20).toISOString();
-    const groups = groupFeed([
-      resenha('r001', d1b),
-      resenha('r002', d1),
-      resenha('r003', d0),
-      resenha('r004', d1, bia),
-      { tipo: 'seguiu', em: d0, pessoa: bia, euSigo: false },
-    ]);
-    expect(groups.map((g) => (g.kind === 'resenhas' ? `${g.pessoa.nome}:${g.dia}:${g.itens.map((i) => i.ref).join(',')}` : `seguiu:${g.pessoa.nome}`))).toEqual([
-      'Ana:2026-10-06:r002,r001',
-      'Bia:2026-10-06:r004',
-      'Ana:2026-10-05:r003',
-      'seguiu:Bia',
-    ]);
-  });
-
   it('hoje, ontem ou a data', () => {
     const now = new Date(2026, 9, 6, 12);
     expect(dayLabel(localDayOf(now.toISOString()), now)).toBe('hoje');
@@ -80,5 +61,18 @@ describe('correio', () => {
       seguidores: [{ codigo: 'BBBB-2222', nome: 'Bia', desde: '2026-10-06T10:00:00.000Z', euSigo: false }],
     });
     expect(parsePeople(null)).toEqual({ seguindo: [], seguidores: [] });
+  });
+});
+
+describe('misturado ou separado', () => {
+  const jogo = { tipo: 'resenha', em: '2026-10-06T10:00:00.000Z', pessoa: { codigo: 'AAAA-1111', nome: 'Ana' }, ref: 'r001', titulo: 'Hades', mural: 'jogos', silenciado: false } as const;
+  const livro = { ...jogo, ref: 'r002', titulo: 'Duna', mural: 'livros' } as const;
+  const seguiu = { tipo: 'seguiu', em: '2026-10-05T10:00:00.000Z', pessoa: { codigo: 'BBBB-2222', nome: 'Bia' }, euSigo: false } as const;
+
+  it('misturado mostra tudo; separado, só o mural aberto e quem começou a seguir', () => {
+    const items = [jogo, livro, seguiu];
+    expect(visibleFeed(items, 'misturado', 'animes')).toEqual(items);
+    expect(visibleFeed(items, 'separado', 'livros')).toEqual([livro, seguiu]);
+    expect(visibleFeed(items, 'separado', 'animes')).toEqual([seguiu]);
   });
 });

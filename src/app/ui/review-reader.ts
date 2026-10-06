@@ -223,8 +223,10 @@ export class ReviewReader {
   protected readonly review = signal<Review | null>(null);
   /** Backups de colegas são somente leitura e nunca acionam as ações do mural pessoal. */
   protected readonly owner = signal<string | null>(null);
-  /** Sem spoilers, a leitura do seu mural esconde o mesmo que a ficha. O mural de um colega não. */
-  protected readonly masked = computed(() => this.settings.noSpoilers() && this.owner() === null);
+  /** Pedido por quem abriu: a ficha de um amigo que você ainda não avaliou, com "Evitar spoilers dos amigos". */
+  private readonly forceMask = signal(false);
+  /** Sem spoilers, a leitura do seu mural esconde o mesmo que a ficha. O mural de um colega não, a não ser quando pedido. */
+  protected readonly masked = computed(() => this.forceMask() || (this.settings.noSpoilers() && this.owner() === null));
   /** O texto inteiro, ou embaralhado do mesmo tamanho no modo sem spoilers. */
   protected readonly text = computed(() => {
     const r = this.review();
@@ -292,8 +294,12 @@ export class ReviewReader {
     this.go(e.key === 'ArrowLeft' ? -1 : 1);
   }
 
-  /** Abre a ficha. A de um colega (`owner`) pode vir com as outras fichas dele (`pool`), para andar entre as vezes. */
-  open(review: Review, owner: string | null = null, pool: readonly Review[] = []): void {
+  /**
+   * Abre a ficha. A de um colega (`owner`) pode vir com as outras fichas dele (`pool`), para andar
+   * entre as vezes; `masked` esconde notas, bônus e texto, como no modo sem spoilers.
+   */
+  open(review: Review, owner: string | null = null, pool: readonly Review[] = [], masked = false): void {
+    this.forceMask.set(masked);
     this.owner.set(owner);
     this.pool.set(pool);
     this.review.set(review);

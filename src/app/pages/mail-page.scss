@@ -27,6 +27,46 @@
   margin-bottom: 18px;
 }
 
+/* "misture tudo", dentro da linha de giz */
+.link-giz {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--wall-ink);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.opcoes {
+  display: grid;
+  gap: 4px;
+
+  .opcao-numero:first-child {
+    margin-top: 6px;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  small {
+    display: block;
+    margin-top: 2px;
+    font-weight: 400;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--ink-2);
+  }
+}
+
+.opcoes-ficha {
+  --stock: var(--stock-lilas);
+  rotate: 0.5deg;
+}
+
 .abas-correio {
   max-width: 760px;
   margin-bottom: 44px;
@@ -281,12 +321,151 @@
 }
 
 /* ===== O que chegou ===== */
-.cartas {
+.posts {
   display: grid;
-  gap: 34px;
+  gap: 56px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* ===== Uma resenha nova: a etiqueta "Igor avaliou", a ficha dele e o bilhete de vocês dois ===== */
+.post-cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-bottom: 20px;
+}
+
+.post-quem {
+  margin: 0;
+  font-weight: 400;
+}
+
+/* o nome é um link para o mural da pessoa, escrito no mesmo pincel da fita */
+.post-nome {
+  --focus: var(--ink);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-thickness: 3px;
+  }
+}
+
+.post-quando {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.novo.post-novo {
+  position: static;
+  rotate: 4deg;
+}
+
+/* a ficha do amigo com o mesmo tamanho de uma ficha do mural; o bilhete ao lado, pregado mais baixo */
+.post-corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 300px);
+  align-items: start;
+  gap: 18px 30px;
+}
+
+.post-ficha {
+  display: block;
+  width: 100%;
+}
+
+/* o bilhete de vocês dois: papel de bloquinho, serrilhado no pé, escrito à mão */
+.post-nota {
+  --focus: var(--ink);
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 28px;
+  padding: 16px 18px 22px;
+  background: var(--paper);
+  color: var(--ink);
+  rotate: 1.2deg;
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.45));
+}
+
+/* "Igor deu +1,4 que você": o número na caneta azul do amigo, como no Comparar */
+.placar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.placar-txt {
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+
+.placar-n {
+  font-family: var(--f-marker);
+  font-size: 2.3rem;
+  line-height: 1;
+  color: var(--caneta-azul);
+  font-variant-numeric: tabular-nums;
+
+  &.igual {
+    font-size: 1.9rem;
+  }
+}
+
+.voce,
+.segredo-nota {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  strong {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.1rem;
+    letter-spacing: 0;
+    color: var(--ink);
+  }
+}
+
+.segredo-nota {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--f-hand);
+  font-weight: 400;
+  font-size: 1rem;
+}
+
+.quero {
+  font-size: 1rem;
+}
+
+.sumiu {
+  margin: 0;
 }
 
 /* "Fulano começou a seguir você": um bilhete de bloquinho, como o lembrete do mural */
@@ -332,183 +511,6 @@
   color: var(--ink-2);
 }
 
-/* As resenhas de alguém num dia: um cartão-postal de papel branco, com a pauta do lado do selo */
-.cartao {
-  --focus: var(--ink);
-  position: relative;
-  padding: 22px 24px 12px;
-  border-radius: 2px;
-  background-color: #fbf9f2;
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  box-shadow: var(--shadow-card);
-}
-
-.cartao-cabeca {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px 16px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid rgb(214 72 72 / 0.55);
-}
-
-.cartao-titulo {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  font-weight: 400;
-}
-
-.cartao-nome {
-  font-family: var(--f-marker);
-  font-size: 1.6rem;
-  line-height: 1.1;
-  overflow-wrap: anywhere;
-}
-
-.cartao-fez {
-  font-family: var(--f-hand);
-  font-size: 1.12rem;
-  line-height: 1.3;
-}
-
-/* a sintonia com a pessoa: o número em marcador e a frase do caderno do Comparar */
-.sintonia {
-  display: grid;
-  justify-items: end;
-  text-align: right;
-}
-
-.sintonia-n {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-style: italic;
-  font-size: 1.7rem;
-  line-height: 1;
-  color: var(--caneta-azul);
-}
-
-.sintonia-txt {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.miudas {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 18px 16px;
-  margin: 0;
-  padding: 16px 0 6px;
-  list-style: none;
-}
-
-.miuda {
-  display: grid;
-  align-content: start;
-  justify-items: start;
-  gap: 8px;
-  min-width: 0;
-}
-
-.miuda-abre {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 3px;
-
-  &:disabled {
-    cursor: default;
-  }
-
-  &:hover:not(:disabled) .miuda-nome {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-  }
-}
-
-.miuda-capa {
-  width: 96px;
-
-  &.sem {
-    display: grid;
-    place-items: center;
-    height: 128px;
-    border: 2px dashed rgb(21 21 21 / 0.3);
-    font-family: var(--f-marker);
-    font-size: 2rem;
-    color: rgb(21 21 21 / 0.4);
-  }
-}
-
-.miuda-nome {
-  font-family: var(--f-marker);
-  font-size: 1.05rem;
-  line-height: 1.15;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.miuda-nota {
-  transform: rotate(-1.5deg);
-}
-
-.miuda-sumiu,
-.miuda-voce {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.85rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-/* "Você deu 7,8": a sua nota em caneta azul, como o colega no Comparar é azul ao contrário */
-.miuda-voce {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-
-  strong {
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: 1.05rem;
-    letter-spacing: 0;
-    color: var(--ink);
-  }
-}
-
-.miuda-quero {
-  font-size: 0.88rem;
-}
-
-.cartao-pe {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 6px;
-  border-top: 2px dashed rgb(21 21 21 / 0.18);
-  margin-top: 8px;
-
-  .btn-quiet {
-    font-size: 0.9rem;
-  }
-}
-
 /* "Novo": o adesivo de tinta com a letra amarela das Novidades */
 .novo {
   position: absolute;
@@ -533,25 +535,20 @@
     padding: 26px 18px 22px;
   }
 
-  .cartao {
-    padding: 20px 16px 10px;
-  }
-
-  .miudas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .miuda-capa {
-    width: 84px;
-  }
-
-  .sintonia {
-    justify-items: start;
-    text-align: left;
-  }
-
   .pessoa-acoes {
     margin-left: 0;
+  }
+}
+
+/* Telas estreitas: a ficha e, embaixo dela, o bilhete */
+@media (max-width: 760px) {
+  .post-corpo {
+    grid-template-columns: minmax(0, 380px);
+  }
+
+  .post-nota {
+    margin-top: 6px;
+    rotate: 0.6deg;
   }
 }
 

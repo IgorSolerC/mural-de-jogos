@@ -1,20 +1,20 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BellOff, Check, Heart, Inbox, LayoutGrid, LucideAngularModule, UserPlus, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { CLOUD_COLLEAGUE_PREFIX, CloudMurals } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
-import { Affinity, affinity } from '../core/comparison-stats';
-import { FeedItem, Follow, Person, dayLabel, groupFeed } from '../core/follow';
-import { countOf, profileOf } from '../core/kinds';
+import { Follow, Person, dayLabel, localDayOf } from '../core/follow';
+import { profileOf } from '../core/kinds';
 import { Review, fold, formatScore, newId, shownFinal } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
-import { CoverSleeve } from '../ui/cover-sleeve';
-import { JudgeLabel } from '../ui/judge-label';
+import { ReviewCard } from '../ui/review-card';
 import { Pin } from '../ui/pin';
 import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
@@ -22,9 +22,8 @@ import { Busy } from '../ui/busy';
 
 type Tab = 'chegou' | 'pessoas';
 const TABS: readonly Tab[] = ['chegou', 'pessoas'];
+const tabFrom = (v: string | null): Tab => (TABS.includes(v as Tab) ? (v as Tab) : 'chegou');
 const TILTS = [-0.5, 0.4, -0.3, 0.6, -0.4, 0.2];
-/** Afinidade só com obras suficientes em comum: com duas, a porcentagem diz pouco. */
-const MIN_PAIRS = 3;
 
 /**
  * Amigos: o que chegou de quem você segue (as resenhas novas, um cartão por pessoa por dia, e quem
@@ -34,7 +33,7 @@ const MIN_PAIRS = 3;
  */
 @Component({
   selector: 'app-mail-page',
-  imports: [Busy, CoverSleeve, JudgeLabel, LucideAngularModule, Pin, ReviewReader, RouterLink],
+  imports: [Busy, LucideAngularModule, Pin, ReviewCard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mail-page.html',
   styleUrl: './mail-page.scss',
@@ -52,6 +51,7 @@ export class MailPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly reader = viewChild.required(ReviewReader);
+  private readonly muralKind = inject(Mural);
 
   protected readonly InboxIcon = Inbox;
   protected readonly FollowIcon = UserPlus;
@@ -65,10 +65,28 @@ export class MailPage {
     { id: 'chegou', label: 'Chegou', icon: Inbox },
     { id: 'pessoas', label: 'Pessoas', icon: UsersRound },
   ];
-  protected readonly tab = signal<Tab>(TABS.includes(this.route.snapshot.queryParamMap.get('aba') as Tab) ? (this.route.snapshot.queryParamMap.get('aba') as Tab) : 'chegou');
+  protected readonly tab = signal<Tab>(tabFrom(this.route.snapshot.queryParamMap.get('aba')));
+  /** Um link para outra aba (#/amigos?aba=pessoas) com a página já aberta também troca a aba. */
+  private readonly followTabParam = this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(tabFrom(q.get('aba'))));
 
   protected readonly cloudOn = computed(() => !!this.cloud.config());
-  protected readonly groups = computed(() => groupFeed(this.follow.items()));
+  /** Separado: o plural do mural aberto ("animes"), para dizer que só ele aparece. */
+  protected readonly onlyKind = computed(() => (this.settings.friendKinds() === 'separado' ? this.muralKind.profile().plural : null));
+  /**
+   * O que chegou, um por um: cada resenha nova é a ficha do amigo pregada aqui (amigos não pregam
+   * muitas por dia, então nada de agrupar), com a minha ficha da mesma obra, se eu tiver.
+   */
+  protected readonly posts = computed(() =>
+    this.follow.visible().map((item) => {
+      const dia = localDayOf(item.em);
+      if (item.tipo === 'seguiu') return { key: `seguiu:${item.pessoa.codigo}`, item, dia, theirs: null, mine: null, secret: false };
+      const theirs = this.reviewOf(item.pessoa.codigo, item.ref);
+      const mine = theirs ? this.mineOf(item.pessoa.codigo, theirs) : null;
+      // "Evitar spoilers dos amigos": o que eu ainda não avaliei vem em segredo
+      const secret = !!theirs && !mine && this.settings.friendSpoilers();
+      return { key: `resenha:${item.pessoa.codigo}:${item.ref}`, item, dia, theirs, mine, secret };
+    }),
+  );
   protected readonly people = this.follow.people;
   protected readonly followingCount = computed(() => this.people()?.seguindo.length ?? 0);
   protected readonly peopleCount = computed(() => {
@@ -76,7 +94,6 @@ export class MailPage {
     return p ? p.seguindo.length + p.seguidores.length : 0;
   });
   protected readonly peopleError = signal<string | null>(null);
-  protected readonly masked = this.settings.noSpoilers;
 
   /** O "visto até" de quando a página abriu: o adesivo "Novo" fica enquanto ela estiver aberta. */
   private readonly freshSince = signal<string | null | undefined>(undefined);
@@ -101,9 +118,9 @@ export class MailPage {
     return out;
   });
   private readonly myReviews = computed(() => this.store.reviews().filter((r) => !r.revisitOf));
-  /** Por pessoa: as fichas dela pelo id, a minha ficha da mesma obra e a afinidade. */
+  /** Por pessoa: as fichas dela pelo id e a minha ficha da mesma obra. */
   private readonly matches = computed(() => {
-    const out = new Map<string, { byId: Map<string, Review>; mine: Map<string, Review>; affinity: Affinity | null }>();
+    const out = new Map<string, { byId: Map<string, Review>; mine: Map<string, Review> }>();
     const mine = this.myReviews();
     for (const [code, c] of this.walls()) {
       const theirs = c.reviews.filter((r) => !r.revisitOf);
@@ -111,7 +128,6 @@ export class MailPage {
       out.set(code, {
         byId: new Map(c.reviews.map((r) => [r.id, r])),
         mine: new Map(pairs.map((p) => [p.theirs.id, p.mine])),
-        affinity: pairs.length >= MIN_PAIRS ? affinity(pairs) : null,
       });
     }
     return out;
@@ -166,11 +182,19 @@ export class MailPage {
     return since !== undefined && (since === null || em > since);
   }
 
-  /** "3 jogos", ou "3 resenhas" quando são de murais diferentes. */
-  protected countText(items: readonly Extract<FeedItem, { tipo: 'resenha' }>[]): string {
-    const kinds = new Set(items.map((i) => i.mural));
-    if (kinds.size === 1) return countOf(profileOf(items[0].mural), items.length);
-    return `${items.length} resenhas`;
+  /** "avaliou", ou "escreveu uma rejogada" (releitura, reassistida). */
+  protected verb(r: Review): string {
+    return r.revisitOf ? `escreveu uma ${profileOf(r.kind).revisit.one}` : 'avaliou';
+  }
+
+  /** A nota do amigo menos a minha, como aparecem (Arredondado e Inteiros mudam a conta). */
+  protected delta(theirs: Review, mine: Review): number {
+    return Math.round((shownFinal(theirs) - shownFinal(mine)) * 10) / 10;
+  }
+
+  /** "+1,4", "−0,8". */
+  protected signed(d: number): string {
+    return `${d > 0 ? '+' : '−'}${formatScore(Math.abs(d))}`;
   }
 
   protected reviewOf(code: string, ref: string): Review | null {
@@ -181,9 +205,6 @@ export class MailPage {
     return this.matches().get(code)?.mine.get(theirs.id) ?? null;
   }
 
-  protected affinityOf(code: string): Affinity | null {
-    return this.matches().get(code)?.affinity ?? null;
-  }
 
   protected shown(r: Review): number {
     return shownFinal(r);
@@ -206,9 +227,9 @@ export class MailPage {
     this.toasts.show(`${r.game.name} foi pra sua wishlist`, { label: 'Desfazer', run: () => this.store.removeWish(id) });
   }
 
-  protected openReview(r: Review, who: Person): void {
+  protected openReview(r: Review, who: Person, secret = false): void {
     const wall = this.walls().get(who.codigo);
-    this.reader().open(r, wall?.name ?? who.nome, wall?.reviews.filter((x) => x.kind === r.kind) ?? []);
+    this.reader().open(r, wall?.name ?? who.nome, wall?.reviews.filter((x) => x.kind === r.kind) ?? [], secret);
   }
 
   protected async openWall(who: Person): Promise<void> {

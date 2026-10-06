@@ -32,7 +32,16 @@ interface Stored {
    * core/cloud-sync.ts). As chaves nunca vão no arquivo de backup.
    */
   keysAt: string;
+  /** Evitar spoilers dos amigos (ligado por padrão): em Amigos, a ficha de algo que você ainda não avaliou vem em segredo. */
+  friendSpoilers: boolean;
+  /**
+   * As novidades dos amigos: misturadas (de todos os murais, esteja onde estiver) ou separadas (só as
+   * do mural aberto no cartaz). Misturadas por padrão.
+   */
+  friendKinds: FriendKinds;
 }
+
+export type FriendKinds = 'misturado' | 'separado';
 
 /** O nome é curto: cabe numa etiqueta "Olá, eu sou" e no nome do arquivo. */
 export const OWNER_NAME_MAX = 40;
@@ -50,9 +59,12 @@ function readStored(): Stored {
     const ownerName = typeof raw.ownerName === 'string' ? raw.ownerName.slice(0, OWNER_NAME_MAX) : '';
     const mailCount = raw.mailCount !== false;
     const keysAt = typeof raw.keysAt === 'string' && Number.isFinite(Date.parse(raw.keysAt)) ? raw.keysAt : '';
-    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt };
+    // ligado por padrão: o que você ainda não avaliou chega em segredo
+    const friendSpoilers = raw.friendSpoilers !== false;
+    const friendKinds: FriendKinds = raw.friendKinds === 'separado' ? 'separado' : 'misturado';
+    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds };
   } catch {
-    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '', mailCount: true, keysAt: '' };
+    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '', mailCount: true, keysAt: '', friendSpoilers: true, friendKinds: 'misturado' };
   }
 }
 
@@ -82,6 +94,10 @@ export class Settings {
   readonly mailCount = signal(this.stored.mailCount);
   /** Ver `Stored.keysAt`. */
   readonly keysAt = signal(this.stored.keysAt);
+  /** Ver `Stored.friendSpoilers`. */
+  readonly friendSpoilers = signal(this.stored.friendSpoilers);
+  /** Ver `Stored.friendKinds`. */
+  readonly friendKinds = signal<FriendKinds>(this.stored.friendKinds);
   /** A pessoa mudou uma chave (digitou, colou ou apagou): a mudança vale como a mais nova. */
   setKey(which: 'rawg' | 'tmdb', value: string): void {
     (which === 'rawg' ? this.rawgKey : this.tmdbKey).set(value);
@@ -109,6 +125,8 @@ export class Settings {
         ownerName: this.ownerName().slice(0, OWNER_NAME_MAX),
         mailCount: this.mailCount(),
         keysAt: this.keysAt(),
+        friendSpoilers: this.friendSpoilers(),
+        friendKinds: this.friendKinds(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));
