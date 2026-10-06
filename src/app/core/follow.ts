@@ -7,7 +7,7 @@ import { Kind, isKind } from './kinds';
 /**
  * Seguir pessoas pelo código e o correio (ver `api/src/routes/follow.ts`).
  *
- * O correio não é um feed: é um envelopinho no topo, com um número só quando chegou algo. Ele
+ * Não é um feed: é a aba Amigos no topo, com um número só quando chegou algo. Ela
  * confere a nuvem ao abrir o site e depois a cada 15 minutos com a aba à vista; quando não há nada
  * novo, a nuvem responde 204, sem corpo. O que chegou fica guardado neste navegador (o número aparece
  * na hora ao abrir, sem esperar a nuvem).

@@ -86,7 +86,7 @@ export class ColleagueWallPage {
         this.toasts.show(`Você deixou de seguir ${c.name}`, { label: 'Desfazer', run: () => void this.follow.follow(code).catch(() => undefined) });
       } else {
         await this.follow.follow(code);
-        this.toasts.show(`Agora você segue ${c.name}. As resenhas novas chegam no Correio.`);
+        this.toasts.show(`Agora você segue ${c.name}. As resenhas novas aparecem em Amigos.`);
       }
     } catch (err) {
       this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');

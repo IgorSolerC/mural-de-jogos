@@ -24,7 +24,7 @@ interface Stored {
   scoreDisplay: ScoreDisplay;
   /** O nome da pessoa: vai no backup (e no nome do arquivo), para quem abrir em Comparar já saber de quem é. */
   ownerName: string;
-  /** O número no envelope do correio (quantas coisas chegaram). Desligado, o envelope fica quieto. */
+  /** O número na aba Amigos (quantas novidades dos amigos chegaram). Desligado, a aba fica quieta. */
   mailCount: boolean;
 }
 
@@ -71,7 +71,7 @@ export class Settings {
   readonly scoreDisplay = scoreDisplay;
   /** Como a pessoa se chama (vazio: não disse). Ver `OWNER_NAME_MAX`. */
   readonly ownerName = signal(this.stored.ownerName);
-  /** O número no envelope do correio. */
+  /** O número na aba Amigos. */
   readonly mailCount = signal(this.stored.mailCount);
   readonly effectiveSource = computed<CoverSource>(() => (this.source() === 'rawg' && this.hasRawg() ? 'rawg' : 'wikipedia'));
 

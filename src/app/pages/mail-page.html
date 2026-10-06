@@ -1,6 +1,6 @@
 <header class="cabeca">
-  <h1 class="tape-label big">Correio</h1>
-  <p class="resumo">O que chegou de quem você segue</p>
+  <h1 class="tape-label big">Amigos</h1>
+  <p class="resumo">O que os amigos pregaram no mural</p>
 </header>
 
 @if (!follow.available()) {
@@ -17,7 +17,7 @@
   </section>
 } @else {
   <div class="prateleira abas-correio">
-    <div class="prateleira-abas" role="tablist" aria-label="Partes do correio" (keydown)="onTabKey($event)">
+    <div class="prateleira-abas" role="tablist" aria-label="Partes de Amigos" (keydown)="onTabKey($event)">
       @for (t of tabs; track t.id) {
         <button
           type="button"
@@ -51,9 +51,9 @@
           <h2 id="vazio-titulo">Nada por aqui ainda</h2>
           <p class="lead">
             @if (followingCount()) {
-              Quando quem você segue pregar algo no mural, chega aqui. O correio mostra os últimos 30 dias.
+              Quando quem você segue pregar algo no mural, aparece aqui. Ficam os últimos 30 dias.
             } @else {
-              Siga alguém pelo código e, quando essa pessoa pregar algo no mural, chega aqui.
+              Siga alguém pelo código e, quando essa pessoa pregar algo no mural, aparece aqui.
             }
           </p>
           <button type="button" class="btn-ink" (click)="go('pessoas')">
@@ -285,7 +285,7 @@
         }
         <label class="opcao-numero">
           <input type="checkbox" [checked]="settings.mailCount()" (change)="settings.mailCount.set($any($event.target).checked)" />
-          Mostrar no envelope do topo quantas coisas chegaram
+          Mostrar na aba Amigos, no topo, quantas novidades chegaram
         </label>
       </section>
     }

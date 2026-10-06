@@ -33,11 +33,11 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-seguir',
     date: '2026-10-06',
-    title: 'Seguir pelo código e o Correio',
-    notice: 'Agora dá para seguir os amigos pelo código e ver no Correio o que eles pregaram no mural.',
+    title: 'Seguir pelo código e a aba Amigos',
+    notice: 'Agora dá para seguir os amigos pelo código e ver, na aba Amigos, o que eles pregaram no mural.',
     items: [
       'Siga alguém pelo código, ou com o botão "Seguir" no mural da pessoa. Ela recebe um aviso de que você começou a seguir.',
-      'O Correio, o envelope ao lado da engrenagem, mostra as resenhas novas de quem você segue, um cartão por pessoa por dia. O número só aparece quando chega algo.',
+      'A aba Amigos, ao lado da engrenagem, mostra as resenhas novas de quem você segue, um cartão por pessoa por dia. Um número amarelo aparece quando chega algo.',
       'Em cada resenha: a nota que você deu para a mesma obra, ou "Quero" para pôr na sua wishlist. E o quanto vocês combinam.',
       'Silencie quem você quiser (continua seguindo, sem contar no número), deixe de seguir ou tire alguém da lista de quem segue você.',
     ],

@@ -26,7 +26,7 @@ const TILTS = [-0.5, 0.4, -0.3, 0.6, -0.4, 0.2];
 const MIN_PAIRS = 3;
 
 /**
- * O correio: o que chegou de quem você segue (as resenhas novas, um cartão por pessoa por dia, e quem
+ * Amigos: o que chegou de quem você segue (as resenhas novas, um cartão por pessoa por dia, e quem
  * começou a seguir você) e as pessoas (seguir pelo código, silenciar, deixar de seguir, quem segue
  * você). Abrir conta tudo como visto. Os murais de quem aparece aqui só são baixados ao abrir, com a
  * pergunta "mudou?" à nuvem.
@@ -252,7 +252,7 @@ export class MailPage {
 
   protected async removeFollower(p: Person): Promise<void> {
     const sure = await this.confirm.ask({
-      text: `${p.nome} deixa de seguir você e para de ver as suas resenhas no correio. O seu mural continua aberto para quem tem o seu código; para trocar o código, vá em Ajustes › Perfil.`,
+      text: `${p.nome} deixa de seguir você e para de ver as suas resenhas em Amigos. O seu mural continua aberto para quem tem o seu código; para trocar o código, vá em Ajustes › Perfil.`,
       confirm: 'Tirar da lista',
     });
     if (!sure) return;

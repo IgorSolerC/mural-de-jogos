@@ -1,9 +1,9 @@
 import { CloudSync } from './core/cloud-sync';
 import { CloudMurals } from './core/cloud-murals';
-import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { LucideAngularModule, LucideIconData, Mail, Megaphone, NotebookPen, Plus, Scissors, Settings as SettingsIcon, X } from 'lucide-angular';
+import { LucideAngularModule, LucideIconData, Megaphone, NotebookPen, Plus, Scissors, Settings as SettingsIcon, UsersRound, X } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
@@ -32,10 +32,15 @@ interface Tab {
   also?: string[];
   /** Só o desenho na fita (o nome fica para o leitor de tela e a dica): Ajustes é uma ferramenta, não um lugar. */
   icon?: LucideIconData;
+  /** O desenho e o nome (o nome some no celular, onde as fitas são estreitas). */
+  named?: boolean;
 }
 
-/** O correio: um envelope ao lado da engrenagem, só com a conta na nuvem. */
-const MAIL_TAB: Tab = { path: '/correio', label: 'Correio', icon: Mail };
+/**
+ * Amigos: o que quem você segue pregou. É um lugar (como o Mural e a Wishlist), então leva o nome
+ * escrito; o desenho de pessoas diz de quem é, e balança quando chega algo. Só com a conta na nuvem.
+ */
+const FRIENDS_TAB: Tab = { path: '/amigos', label: 'Amigos', icon: UsersRound, named: true };
 
 const TABS: Tab[] = [
   { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
@@ -72,7 +77,7 @@ export class App {
   private readonly cloudMurals = inject(CloudMurals);
   /** As novidades do site e a faixa do topo (ver core/news.ts). */
   protected readonly news = inject(News);
-  /** Seguir e o correio (ver core/follow.ts): o envelope do topo mostra quantas coisas chegaram. */
+  /** Seguir e a aba Amigos (ver core/follow.ts): a fita mostra quantas novidades dos amigos chegaram. */
   private readonly follow = inject(Follow);
   private readonly settings = inject(Settings);
 
@@ -96,8 +101,28 @@ export class App {
   protected readonly CutIcon = Scissors;
   protected readonly NoticeIcon = Megaphone;
   protected readonly CloseIcon = X;
-  /** As abas; o envelope do correio entra antes da engrenagem quando há conta na nuvem. */
-  protected readonly tabs = computed(() => (this.follow.available() ? [...TABS.slice(0, -1), MAIL_TAB, TABS[TABS.length - 1]] : TABS));
+  /** As abas; Amigos entra antes da engrenagem quando há conta na nuvem. */
+  protected readonly tabs = computed(() => (this.follow.available() ? [...TABS.slice(0, -1), FRIENDS_TAB, TABS[TABS.length - 1]] : TABS));
+
+  /**
+   * Chegou algo dos amigos (o número apareceu ou subiu, inclusive ao abrir o site com novidades
+   * guardadas): as pessoas da fita dão uma balançada, uma vez.
+   */
+  protected readonly nudge = signal(false);
+  private lastUnseen: number | null = null;
+  private readonly nudgeOnArrival = effect(() => {
+    const n = this.settings.mailCount() ? this.follow.unseen() : 0;
+    const before = this.lastUnseen;
+    this.lastUnseen = n;
+    if (before === null || n <= before) return;
+    untracked(() => {
+      this.nudge.set(false);
+      requestAnimationFrame(() => {
+        this.nudge.set(true);
+        setTimeout(() => this.nudge.set(false), 1600);
+      });
+    });
+  });
 
   private readonly editor = viewChild.required(ReviewEditor);
   private readonly reader = viewChild.required(ReviewReader);
@@ -141,7 +166,7 @@ export class App {
     if (path === '/') return this.mural.count() || null;
     if (path === '/fila') return this.mural.draftCount() || null;
     if (path === '/wishlist') return this.mural.wishCount() || null;
-    if (path === '/correio') return (this.settings.mailCount() && this.follow.unseen()) || null;
+    if (path === '/amigos') return (this.settings.mailCount() && this.follow.unseen()) || null;
     return null;
   }
 
