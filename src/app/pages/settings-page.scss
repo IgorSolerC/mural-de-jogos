@@ -52,6 +52,19 @@
   .catalog {
     grid-area: catalog;
   }
+
+  /* com a nuvem ligada, a Conta entra no alto da primeira coluna */
+  .boards.com-conta {
+    grid-template-areas:
+      'conta catalog'
+      'backup catalog'
+      'mural catalog';
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .conta {
+    grid-area: conta;
+  }
 }
 
 .ficha {
@@ -79,6 +92,11 @@
 .mural {
   --stock: var(--stock-verde);
   rotate: 0.5deg;
+}
+
+.conta {
+  --stock: var(--stock-rosa);
+  rotate: 0.6deg;
 }
 
 h2 {
@@ -638,5 +656,74 @@ a {
     overflow-wrap: anywhere;
     font-family: var(--f-ui);
     font-weight: 700;
+  }
+}
+
+/* ===== Conta ===== */
+.conta {
+  .estado {
+    margin-top: 6px;
+  }
+
+  .entrar {
+    margin-top: 18px;
+    max-width: 320px;
+  }
+
+  .tip a,
+  .hint a {
+    white-space: nowrap;
+  }
+}
+
+/* o código: grande, a pincel, com espaço entre as letras para ler em voz alta */
+.codigo-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 6px;
+
+  .btn-quiet {
+    margin-left: -6px;
+  }
+}
+
+.codigo-valor {
+  display: inline-block;
+  padding: 6px 14px 4px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1.7rem;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+  rotate: -1deg;
+}
+
+.sair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+
+  .btn-quiet {
+    margin-left: -12px;
+  }
+
+  .btn-quiet + .btn-quiet {
+    margin-left: 0;
+  }
+}
+
+.apagar-conta .btn-ink {
+  margin-top: 14px;
+
+  &:disabled {
+    opacity: 0.6;
+    transform: none;
+    cursor: progress;
   }
 }

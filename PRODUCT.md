@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Angular (user-pinned). Standalone components, signals, SCSS. No backend: runs entirely in the browser and deploys as static files.
+Angular (user-pinned). Standalone components, signals, SCSS. Deploys as static files (GitHub Pages). An optional cloud API lives in `api/` (Hono on Cloudflare Workers with D1, portable to Node + SQLite); without an account the site runs entirely in the browser.
 
 ## Users
 
@@ -20,7 +20,7 @@ A personal review wall ("Meu Mural"). The user finds a game, book, film, series 
 
 ## Positioning
 
-Not a social review site and not a backlog tracker. It is a private wall of pinned index cards, one per title, where the collection itself is the artifact. No accounts, no feeds, no public scores.
+Not a social review site and not a backlog tracker. It is a private wall of pinned index cards, one per title, where the collection itself is the artifact. Accounts are optional (Google sign-in, for keeping the wall in sync and sharing it by code); no feed of strangers, no public scores.
 
 ## Operating Context
 
@@ -76,7 +76,7 @@ No existing reviews, logos, or assets. Cover art comes from the lookup source at
 
 1. The wall is the product. Every review earns its place as a physical-feeling object.
 2. Fast to log. Finding the game and scoring it should feel like jotting on a card, not filling in a form.
-3. Private and portable. Nothing leaves the browser except lookup queries, and the user can always take their data with them.
+3. Private and portable. Without an account, nothing leaves the browser except lookup queries. With one, the wall goes to the user's own cloud copy and nothing else does (no e-mail stored). Either way the user can always take their data with them.
 4. Delight never blocks the task. Tilts, pins, and textures stay out of the way of reading, searching, and sorting.
 
 ## Accessibility & Inclusion

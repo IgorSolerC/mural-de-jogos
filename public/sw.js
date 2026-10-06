@@ -43,6 +43,8 @@ self.addEventListener('fetch', (event) => {
     // Uma página avulsa do site (como privacidade.html) não é o mural: passa direto, sem virar a página guardada.
     if (req.mode === 'navigate' && /\.html$/.test(url.pathname) && !url.pathname.endsWith('/index.html')) return;
     if (req.mode === 'navigate') event.respondWith(page(req));
+    // O interruptor da nuvem (cloud.json): a rede primeiro, para desligar valer na hora.
+    else if (url.pathname.endsWith('/cloud.json')) event.respondWith(fresh(req));
     else event.respondWith(asset(req, event));
     return;
   }
@@ -65,6 +67,18 @@ async function page(req) {
   }
   const cached = await cache.match('./');
   return cached ?? network;
+}
+
+/** Rede primeiro; sem rede, a última cópia guardada. */
+async function fresh(req) {
+  const cache = await caches.open(SHELL);
+  try {
+    const res = await fetch(req, { cache: 'no-cache' });
+    if (res.ok) await cache.put(req, res.clone());
+    return res;
+  } catch {
+    return (await cache.match(req)) ?? Response.error();
+  }
 }
 
 async function asset(req, event) {
