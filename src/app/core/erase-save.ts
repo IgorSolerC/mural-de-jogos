@@ -1,7 +1,8 @@
 /**
  * "Apagar o save", em Ajustes: tira deste navegador tudo o que o mural guarda (resenhas, fila,
  * wishlist, as apagadas, backups de colegas, recordes e partidas dos Extras, a data do último backup),
- * menos os ajustes: o nome, as chaves de busca, as preferências e o login na nuvem ficam.
+ * menos os ajustes: o nome, as chaves de busca, as preferências, o login na nuvem e as novidades já
+ * vistas ficam.
  *
  * Depois a página recarrega: cada parte do app lê o que guardou só ao subir, e assim nenhuma fica com
  * o save velho na memória.
@@ -9,8 +10,8 @@
 
 /** As chaves do localStorage que são do mural. */
 const PREFIXES = ['mural-de-jogos:', 'meu-mural:'];
-/** Os ajustes (ver `core/settings.ts`) e o login na nuvem (ver `core/cloud-account.ts`). */
-const KEEP = new Set(['mural-de-jogos:config:v1', 'meu-mural:nuvem:sessao', 'meu-mural:nuvem:conta']);
+/** Os ajustes (ver `core/settings.ts`), o login na nuvem (ver `core/cloud-account.ts`) e as novidades vistas (ver `core/news.ts`). */
+const KEEP = new Set(['mural-de-jogos:config:v1', 'meu-mural:nuvem:sessao', 'meu-mural:nuvem:conta', 'meu-mural:novidades']);
 /** Os bancos do IndexedDB: as listas (`core/local-data.ts`), os backups de colegas (`core/colleague-store.ts`) e a cópia de antes da nuvem (`core/cloud-before.ts`). */
 const DATABASES = ['meu-mural:dados', 'meu-mural:colegas', 'meu-mural:antes-da-nuvem'];
 /** Na sessão: o save acabou de ser apagado, para Ajustes avisar depois de recarregar. */

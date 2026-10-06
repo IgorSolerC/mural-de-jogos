@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   BookOpen,
   Check,
   Cloud as CloudIcon,
   Copy,
   Link as LinkIconData,
+  Megaphone,
   CircleCheck,
   Download,
   Eye,
@@ -47,6 +48,7 @@ import { CloudSync } from '../core/cloud-sync';
 import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
 import { GoogleButton } from '../ui/google-button';
 import { muralLink } from '../core/cloud-murals';
+import { News } from '../core/news';
 
 const DAY = 86_400_000;
 
@@ -69,12 +71,20 @@ function when(ms: number): string {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco, GoogleButton],
+  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco, GoogleButton, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
       <h1 class="tape-label big">Ajustes</h1>
       <p class="resumo">Vale na hora e fica salvo neste navegador</p>
+      <!-- o que mudou no site: a página de novidades, com quantas ainda não foram vistas -->
+      <a class="btn-quiet novidades" routerLink="/novidades">
+        <lucide-icon [img]="MegaphoneIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+        Novidades
+        @if (news.unseen(); as n) {
+          <span class="novas">{{ n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
+        }
+      </a>
     </header>
 
     <!-- as partes dos ajustes: abas de divisória na régua, uma ficha por vez -->
@@ -671,6 +681,8 @@ export class SettingsPage {
   private readonly toasts = inject(Toasts);
   private readonly confirm = inject(Confirm);
   protected readonly cloud = inject(Cloud);
+  protected readonly news = inject(News);
+  protected readonly MegaphoneIcon = Megaphone;
   protected readonly account = inject(CloudAccount);
   protected readonly sync = inject(CloudSync);
   protected readonly beforeCopy = signal<BeforeCloudCopy | null>(null);

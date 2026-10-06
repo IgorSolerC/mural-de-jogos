@@ -3,12 +3,13 @@ import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { LucideAngularModule, LucideIconData, NotebookPen, Plus, Scissors, Settings } from 'lucide-angular';
+import { LucideAngularModule, LucideIconData, Megaphone, NotebookPen, Plus, Scissors, Settings, X } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { cap, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
+import { News } from './core/news';
 import { ReviewStore } from './core/review-store';
 import { SideBySide } from './core/side-by-side';
 import { ViewTransitions } from './core/view-transitions';
@@ -37,7 +38,8 @@ const TABS: Tab[] = [
   { path: '/wishlist', label: 'Wishlist' },
   // o Ranking e o Comparar moram dentro de Extras: a fita de Extras fica acesa neles também
   { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
-  { path: '/ajustes', label: 'Ajustes', icon: Settings },
+  // as Novidades se abrem por Ajustes (e pela faixa do topo)
+  { path: '/ajustes', label: 'Ajustes', icon: Settings, also: ['/novidades'] },
 ];
 
 @Component({
@@ -63,6 +65,8 @@ export class App {
   private readonly cloudSync = inject(CloudSync);
   /** O link ?mural=CÓDIGO abre o mural de alguém (ver core/cloud-murals.ts). */
   private readonly cloudMurals = inject(CloudMurals);
+  /** As novidades do site e a faixa do topo (ver core/news.ts). */
+  protected readonly news = inject(News);
 
   /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
   private readonly path = toSignal(
@@ -82,6 +86,8 @@ export class App {
   protected readonly PlusIcon = Plus;
   protected readonly NoteIcon = NotebookPen;
   protected readonly CutIcon = Scissors;
+  protected readonly NoticeIcon = Megaphone;
+  protected readonly CloseIcon = X;
   protected readonly tabs = TABS;
 
   private readonly editor = viewChild.required(ReviewEditor);
@@ -251,6 +257,15 @@ export class App {
           : 'Resenha atualizada',
     );
     if (e.isNew) void this.backup.protect();
+  }
+
+  /** Na própria página de novidades a faixa não aparece: abrir a página já conta como visto. */
+  protected readonly onNews = computed(() => this.path().startsWith('/novidades'));
+
+  /** Fecha a faixa; o foco, que estava no X, vai para o conteúdo. */
+  protected closeNotice(key: string): void {
+    this.news.dismiss(key);
+    document.getElementById('conteudo')?.focus({ preventScroll: true });
   }
 
   protected backupDays(days: number): string {

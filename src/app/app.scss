@@ -599,8 +599,10 @@ main {
   }
 }
 
-/* Lembrete de backup: um bilhete de bloquinho preso acima do mural, destacado no serrilhado */
-.lembrete {
+/* Lembrete de backup: um bilhete de bloquinho preso acima do mural, destacado no serrilhado.
+   O aviso do site (novidade ou aviso da nuvem) é o mesmo bilhete, com o megafone e um X. */
+.lembrete,
+.aviso {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -628,4 +630,63 @@ main {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+}
+
+.aviso {
+  --focus: var(--ink);
+  position: relative;
+  padding-right: 58px;
+  rotate: 0.35deg;
+
+  p {
+    flex-basis: 240px;
+  }
+}
+
+.aviso-icone {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.aviso-ver {
+  min-height: 44px;
+  padding: 8px 16px 7px;
+  font-size: 1.05rem;
+  text-decoration: none;
+}
+
+.aviso-fechar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.08);
+  }
+}
+
+/* o aviso logo acima do lembrete: os dois bilhetes ficam um sob o outro */
+.aviso + .lembrete {
+  margin-top: -14px;
+}
+
+@media (max-width: 600px) {
+  .aviso {
+    padding-right: 52px;
+  }
+
+  .aviso-ver {
+    width: 100%;
+  }
 }

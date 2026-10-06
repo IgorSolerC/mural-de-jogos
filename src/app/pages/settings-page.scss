@@ -4,12 +4,34 @@
 
 /* ===== Cabeça da página: a fita com o nome, como Lado a lado e Comparar ===== */
 .cabeca {
+  /* da largura da ficha, para as Novidades ficarem no fim da linha dela */
+  max-width: 760px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 18px;
   margin-bottom: 34px;
   padding-left: 4px;
+}
+
+/* Novidades, no fim da linha da cabeça: discreto na parede, com a contagem num adesivo amarelo */
+.novidades {
+  margin-left: auto;
+  color: var(--wall-ink);
+  text-decoration: none;
+}
+
+.novas {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--hi);
+  color: var(--ink);
+  font-size: 0.85rem;
+  letter-spacing: 0;
 }
 
 .resumo {
