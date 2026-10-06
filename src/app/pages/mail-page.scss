@@ -211,9 +211,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  padding: 12px 0;
+  gap: 8px 14px;
+  padding: 14px 0;
   border-top: 2px dashed rgb(21 21 21 / 0.22);
 
   &:first-child {
@@ -221,16 +220,70 @@
   }
 }
 
-.pessoa-quem {
+/* o crachá de "Olá, eu sou" da comparação, em miniatura: a faixa azul e a inicial a caneta */
+.cracha-mini {
+  flex: none;
   display: grid;
+  place-items: center;
+  width: 42px;
+  height: 44px;
+  padding-top: 8px;
+  border-radius: 5px;
+  background:
+    linear-gradient(to bottom, var(--caneta-azul) 0 9px, transparent 9px),
+    #fdfcf8;
+  color: var(--caneta-azul);
+  font-family: var(--f-marker);
+  font-size: 1.35rem;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 8px -4px rgb(0 0 0 / 0.35);
+  rotate: -3deg;
+}
+
+.pessoa:nth-child(even) .cracha-mini {
+  rotate: 2.5deg;
+}
+
+/* silenciada: o crachá desbota, a pessoa continua na lista */
+.pessoa.quieta .cracha-mini {
+  background:
+    linear-gradient(to bottom, rgb(21 21 21 / 0.35) 0 9px, transparent 9px),
+    #fdfcf8;
+  color: rgb(21 21 21 / 0.45);
+}
+
+.pessoa-quem {
+  flex: 1 1 160px;
+  display: grid;
+  justify-items: start;
   min-width: 0;
 }
 
+/* o nome abre o mural, sublinhado a caneta como no Chegou */
 .pessoa-nome {
+  --focus: var(--ink);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
   font-family: var(--f-marker);
   font-size: 1.3rem;
   line-height: 1.15;
+  text-align: left;
   overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  text-decoration-color: rgb(21 21 21 / 0.35);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-color: currentColor;
+  }
+
+  &:disabled {
+    cursor: progress;
+  }
 }
 
 .pessoa-sub {
@@ -496,8 +549,15 @@
     padding: 26px 18px 22px;
   }
 
+  /* as ações descem para a linha de baixo, alinhadas com o nome (depois do crachá) */
+  .pessoa {
+    row-gap: 6px;
+  }
+
   .pessoa-acoes {
+    flex-basis: 100%;
     margin-left: 0;
+    padding-left: 46px;
   }
 }
 

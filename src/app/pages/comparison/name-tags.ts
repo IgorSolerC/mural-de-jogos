@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LayoutGrid, LucideAngularModule, PenLine, RefreshCw, Trash2, UserPlus } from 'lucide-angular';
+import { Eye, EyeOff, LayoutGrid, LucideAngularModule, PenLine, RefreshCw, Trash2, UserPlus } from 'lucide-angular';
 import { Colleague } from '../../core/colleague-store';
 
 const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -77,6 +77,19 @@ const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 's
           <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
           Ver o mural de {{ colleague().name }}
         </a>
+        <!-- sem spoilers: as notas do colega sobre o que você não avaliou, só enquanto a página estiver aberta -->
+        @if (secrets()) {
+          <button
+            type="button"
+            class="btn-quiet notas"
+            [attr.aria-pressed]="revealed()"
+            (click)="reveal.emit()"
+            [title]="revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
+          >
+            <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            {{ revealed() ? 'Esconder as notas' : secrets() === 1 ? 'Mostrar 1 nota em segredo' : 'Mostrar ' + secrets() + ' notas em segredo' }}
+          </button>
+        }
         <button type="button" class="btn-quiet" [disabled]="busy()" (click)="arquivo.click()">
           <lucide-icon [img]="RefreshIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
           Atualizar backup
@@ -101,8 +114,12 @@ export class NameTags {
   readonly busy = input(false);
   /** Recém-chegado: o crachá já abre pedindo o nome. */
   readonly naming = input(false);
+  /** Quantas notas do colega estão em segredo ("Evitar spoilers"), e se estão à mostra agora. */
+  readonly secrets = input(0);
+  readonly revealed = input(false);
 
   readonly selected = output<string>();
+  readonly reveal = output<void>();
   readonly renamed = output<string>();
   readonly replaced = output<File>();
   readonly added = output<void>();
@@ -113,6 +130,8 @@ export class NameTags {
   protected readonly AddIcon = UserPlus;
   protected readonly TrashIcon = Trash2;
   protected readonly WallIcon = LayoutGrid;
+  protected readonly RevealIcon = Eye;
+  protected readonly HideIcon = EyeOff;
 
   protected readonly editing = linkedSignal(() => this.naming() && !!this.colleague());
   private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');

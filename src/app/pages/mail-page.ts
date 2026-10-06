@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { BellOff, Check, Heart, Inbox, LayoutGrid, LucideAngularModule, UserPlus, UsersRound } from 'lucide-angular';
+import { BellOff, Check, Heart, Inbox, LucideAngularModule, UserPlus, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { CLOUD_COLLEAGUE_PREFIX, CloudMurals } from '../core/cloud-murals';
@@ -59,7 +59,6 @@ export class MailPage {
   protected readonly FollowIcon = UserPlus;
   protected readonly CheckIcon = Check;
   protected readonly WishIcon = Heart;
-  protected readonly WallIcon = LayoutGrid;
   protected readonly MuteIcon = BellOff;
   protected readonly formatScore = formatScore;
 
@@ -233,6 +232,11 @@ export class MailPage {
   protected openReview(r: Review, who: Person, secret = false): void {
     const wall = this.walls().get(who.codigo);
     this.reader().open(r, wall?.name ?? who.nome, wall?.reviews.filter((x) => x.kind === r.kind) ?? [], secret);
+  }
+
+  /** A inicial do crachazinho de cada pessoa na lista. */
+  protected initial(name: string): string {
+    return (name.trim()[0] ?? '?').toLocaleUpperCase('pt-BR');
   }
 
   protected async openWall(who: Person): Promise<void> {

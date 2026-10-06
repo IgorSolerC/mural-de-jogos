@@ -32,12 +32,6 @@
   }
 }
 
-/* na cabeça, a linha dos segredos vai embaixo da placa */
-.cabeca .segredos {
-  flex-basis: 100%;
-  margin-bottom: 0;
-}
-
 /* a placa: um crachá grande, faixa azul impressa e o nome a pincel azul */
 .placa {
   position: relative;
@@ -107,7 +101,8 @@
 }
 
 /* a aba Filtrar abre a cartela embaixo da régua, como no seu mural */
-.filtrar {
+.filtrar,
+.notas {
   padding-inline: 13px 15px;
 }
 

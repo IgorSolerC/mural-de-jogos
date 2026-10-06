@@ -467,8 +467,8 @@ function when(ms: number): string {
               <span class="adesivo" [class.recorte]="!settings.friendSpoilers()" [class.colado]="settings.friendSpoilers()">Evitar spoilers</span>
             </span>
             <span class="op-texto">
-              Em Amigos, no mural de alguém e em Comparar, o que você ainda não avaliou fica em segredo; o que você já avaliou mostra a nota.
-              Cada tela tem um “Mostrar notas” que vale só enquanto ela estiver aberta.
+              Em Amigos, no mural de alguém e em Comparar, o que você ainda não avaliou fica em segredo; o que já avaliou mostra a nota.
+              Dá para revelar na hora, sem mudar aqui.
             </span>
           </label>
         </fieldset>

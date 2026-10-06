@@ -33,22 +33,6 @@
         }
       </button>
     }
-    <!-- "Evitar spoilers de outros murais": mostrar as notas só agora, sem mexer em Ajustes -->
-    @if (canReveal()) {
-      <div class="segredos">
-        <p class="segredos-txt" aria-live="polite">
-          @if (revealed()) {
-            Notas à mostra até você sair daqui
-          } @else {
-            {{ unseenCount() === 1 ? '1 nota em segredo' : unseenCount() + ' notas em segredo' }}: o que você ainda não avaliou
-          }
-        </p>
-        <button type="button" class="plate segredos-btn" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
-          <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          {{ revealed() ? 'Esconder de novo' : 'Mostrar notas' }}
-        </button>
-      </div>
-    }
   </header>
 
   @if (otherWalls().length) {
@@ -94,6 +78,20 @@
           <span class="sr-only">({{ filterCount() }} ligados)</span>
         }
       </button>
+
+      <!-- "Evitar spoilers": as notas do que você não avaliou, à mostra só enquanto a página estiver aberta -->
+      @if (canReveal()) {
+        <button
+          type="button"
+          class="plate notas"
+          [attr.aria-pressed]="revealed()"
+          (click)="toggleReveal()"
+          [title]="revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
+        >
+          <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <span>{{ revealed() ? 'Esconder notas' : 'Mostrar notas' }}</span>
+        </button>
+      }
 
       <div class="prateleira-fim">
         <div class="ordem">

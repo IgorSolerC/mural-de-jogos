@@ -186,7 +186,10 @@ export class ColleagueWallPage {
     // uma ficha por obra: as rejogadas do colega não entram na conta nem na média
     const list = originalsOf(this.reviews());
     if (!list.length) return '';
-    if (this.guarding()) return countOf(this.profile(), list.length);
+    if (this.guarding()) {
+      const n = this.unseenCount();
+      return `${countOf(this.profile(), list.length)} · ${n} em segredo`;
+    }
     const avg = list.reduce((s, r) => s + r.scores.final, 0) / list.length;
     return `${countOf(this.profile(), list.length)} · média ${avgFmt.format(avg)}`;
   });

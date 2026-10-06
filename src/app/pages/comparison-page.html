@@ -13,6 +13,9 @@
       [colleagues]="colleagues.colleagues()"
       [busy]="busy()"
       [naming]="naming()"
+      [secrets]="unseenCount()"
+      [revealed]="revealed()"
+      (reveal)="toggleReveal()"
       (selected)="choose($event)"
       (renamed)="rename($event)"
       (replaced)="replace($event)"
@@ -98,23 +101,6 @@
         </p>
       </section>
     } @else {
-      <!-- "Evitar spoilers de outros murais": mostrar as notas só agora, sem mexer em Ajustes -->
-      @if (unseenCount()) {
-        <div class="segredos">
-          <p class="segredos-txt" aria-live="polite">
-            @if (revealed()) {
-              Notas de {{ c.name }} à mostra até você sair daqui
-            } @else {
-              {{ unseenCount() === 1 ? '1 nota' : unseenCount() + ' notas' }} de {{ c.name }} em segredo: o que você ainda não avaliou
-            }
-          </p>
-          <button type="button" class="plate segredos-btn" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
-            <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-            {{ revealed() ? 'Esconder de novo' : 'Mostrar notas' }}
-          </button>
-        </div>
-      }
-
       <app-caderno
         [you]="you()"
         [them]="them()"

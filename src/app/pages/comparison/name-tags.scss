@@ -217,6 +217,12 @@ input.nome {
   text-decoration: none;
 }
 
+/* as notas em segredo: à mostra, a fita amarela de estado ligado */
+.notas[aria-pressed='true'] {
+  background: var(--hi);
+  color: var(--ink);
+}
+
 @media (max-width: 559px) {
   .crachas {
     gap: 12px 8px;

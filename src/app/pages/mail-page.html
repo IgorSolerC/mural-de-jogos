@@ -214,9 +214,13 @@
           } @else {
             <ul class="pessoas">
               @for (f of p.seguindo; track f.codigo) {
-                <li class="pessoa">
+                <li class="pessoa" [class.quieta]="f.silenciado">
+                  <span class="cracha-mini" aria-hidden="true">{{ initial(f.nome) }}</span>
                   <div class="pessoa-quem">
-                    <span class="pessoa-nome">{{ f.nome }}</span>
+                    <!-- o nome abre o mural da pessoa, como no Chegou -->
+                    <button type="button" class="pessoa-nome" [disabled]="rowBusy(f.codigo)" [appBusy]="isBusy(f.codigo, 'mural')" (click)="openWall(f)" [attr.aria-label]="'Ver o mural de ' + f.nome">
+                      {{ f.nome }}
+                    </button>
                     <span class="pessoa-sub">
                       {{ f.codigo }}
                       @if (f.meSegue) {
@@ -228,10 +232,6 @@
                     </span>
                   </div>
                   <div class="pessoa-acoes">
-                    <button type="button" class="btn-quiet" [disabled]="rowBusy(f.codigo)" [appBusy]="isBusy(f.codigo, 'mural')" (click)="openWall(f)">
-                      <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                      Mural
-                    </button>
                     <button
                       type="button"
                       class="btn-quiet"
@@ -267,8 +267,11 @@
             <ul class="pessoas">
               @for (f of p.seguidores; track f.codigo) {
                 <li class="pessoa">
+                  <span class="cracha-mini" aria-hidden="true">{{ initial(f.nome) }}</span>
                   <div class="pessoa-quem">
-                    <span class="pessoa-nome">{{ f.nome }}</span>
+                    <button type="button" class="pessoa-nome" [disabled]="rowBusy(f.codigo)" [appBusy]="isBusy(f.codigo, 'mural')" (click)="openWall(f)" [attr.aria-label]="'Ver o mural de ' + f.nome">
+                      {{ f.nome }}
+                    </button>
                     <span class="pessoa-sub">{{ f.codigo }}</span>
                   </div>
                   <div class="pessoa-acoes">
