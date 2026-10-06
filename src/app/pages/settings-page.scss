@@ -670,6 +670,18 @@ a {
     max-width: 320px;
   }
 
+  .sync-acoes {
+    margin-top: 10px;
+
+    .btn-quiet {
+      margin-left: -12px;
+    }
+  }
+
+  .copia {
+    margin-top: 10px;
+  }
+
   .tip a,
   .hint a {
     white-space: nowrap;
@@ -726,4 +738,18 @@ a {
     transform: none;
     cursor: progress;
   }
+}
+
+/* "Baixar essa cópia": um link de texto, como o "Tenho um backup" do mural vazio */
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }

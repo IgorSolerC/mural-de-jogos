@@ -1049,3 +1049,14 @@ Ajustes gains a fourth cartolina, **Conta** (rosa, 0.6deg), only while the cloud
 - **Errors** from the cloud arrive already in Portuguese and sit at the foot of the card in the `.msg.error` note.
 - **Privacidade.** `public/privacidade.html` is a standalone page (cream paper on the wall colour, system font), linked from the card and from Google's consent screen. The service worker lets standalone `.html` pages pass straight through, so they never replace the cached wall.
 
+## Sincronização (sync pass)
+
+The cloud keeps the wall in sync between devices (`core/cloud-sync.ts`). Nothing new on the wall itself: everything shows in Ajustes › Conta.
+
+- **Status note.** The Conta card's paper note now carries the sync state in label caps: "Salvo na nuvem às 14:32" (or "em 3 de outubro às 14:32"), "Sincronizando…", "Só neste aparelho por enquanto" (no connection; retries by itself, 30s doubling up to 30min), "Sincronização pausada" (the cloud asked to wait: quota, read-only, off), "Falta uma escolha sua", "Site desatualizado", "A sincronização parou". Trouble states swap Cloud for CloudOff and take the 2px ink outline of the overdue backup note; the cloud's own sentence sits under it in `.msg`. Under it, a quiet "Sincronizar agora" (RefreshCw); in the choice state an ink "Escolher agora", in the outdated state an ink "Recarregar a página".
+- **Clock.** If the device clock is more than 5 minutes off the cloud's, an error note asks to fix the time (an old edit could win a new one).
+- **Cópia de antes da nuvem.** The first time a device merges (or swaps) its wall with the account's, the wall it had is kept whole for 30 days; a hint line says until when, with a text button "Baixar essa cópia".
+- **First time on a device** (the account and this browser both have a wall, or this one belongs to another account): the confirm card in its **neutral tone** (azul header, ink button, no red): "Juntar os murais?" / "Este mural é de outra conta", with "Agora não" (focused, changes nothing), a quiet second answer ("Só o da conta" / "Começar vazia") and the ink "Juntar os dois" / "Levar para a minha conta". `Confirm.choose()` returns 'confirm' | 'secondary' | null; `ask()` is unchanged.
+- **Sair.** Asks the same way: "Sair e manter aqui" (ink) or "Sair e tirar daqui" (quiet; only when everything already reached the cloud).
+- **Backup card.** With an account, the lead says the reviews live in this browser and in the account, and "Apagar o save" warns the wall comes back from the cloud.
+

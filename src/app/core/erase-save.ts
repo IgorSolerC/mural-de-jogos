@@ -11,8 +11,8 @@
 const PREFIXES = ['mural-de-jogos:', 'meu-mural:'];
 /** Os ajustes (ver `core/settings.ts`) e o login na nuvem (ver `core/cloud-account.ts`). */
 const KEEP = new Set(['mural-de-jogos:config:v1', 'meu-mural:nuvem:sessao', 'meu-mural:nuvem:conta']);
-/** Os bancos do IndexedDB: as listas (`core/local-data.ts`) e os backups de colegas (`core/colleague-store.ts`). */
-const DATABASES = ['meu-mural:dados', 'meu-mural:colegas'];
+/** Os bancos do IndexedDB: as listas (`core/local-data.ts`), os backups de colegas (`core/colleague-store.ts`) e a cópia de antes da nuvem (`core/cloud-before.ts`). */
+const DATABASES = ['meu-mural:dados', 'meu-mural:colegas', 'meu-mural:antes-da-nuvem'];
 /** Na sessão: o save acabou de ser apagado, para Ajustes avisar depois de recarregar. */
 const ERASED = 'meu-mural:save-apagado';
 

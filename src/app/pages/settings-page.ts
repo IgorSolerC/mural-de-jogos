@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import {
   BookOpen,
   Check,
@@ -12,6 +12,8 @@ import {
   Gamepad2,
   LogOut,
   LucideAngularModule,
+  RefreshCw,
+  CloudOff,
   Origami,
   ShieldAlert,
   Trash2,
@@ -35,9 +37,20 @@ import { scramble } from '../core/spoiler';
 import { Rabisco } from '../ui/rabisco';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount, CloudError } from '../core/cloud-account';
+import { CloudSync } from '../core/cloud-sync';
+import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
 import { GoogleButton } from '../ui/google-button';
 
 const DAY = 86_400_000;
+
+/** "às 14:32" hoje; "em 3 de outubro às 14:32" antes. */
+function when(ms: number): string {
+  const d = new Date(ms);
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString()
+    ? `às ${time}`
+    : `em ${d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })} às ${time}`;
+}
 
 /**
  * Ajustes: fichas pregadas. Conta (rosa, só com a nuvem ligada), Backup (azul) e Mural (verde) numa
@@ -61,13 +74,48 @@ const DAY = 86_400_000;
           <app-pin class="pin" color="#e62e2d" />
           <h2 id="conta-titulo">Conta</h2>
           @if (account.account(); as acc) {
-            <div class="estado">
-              <lucide-icon class="estado-icone" [img]="CloudOnIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+            <div class="estado" [class.atrasado]="syncTrouble()">
+              <lucide-icon
+                class="estado-icone"
+                [img]="syncTrouble() ? CloudOffIcon : CloudOnIcon"
+                [size]="22"
+                [strokeWidth]="2.4"
+                aria-hidden="true"
+              />
               <div>
-                <p class="estado-linha">Entrou como {{ acc.nome }}</p>
-                <p class="estado-sub">O nome é o "Seu nome" da ficha do Backup: mude lá e ele muda na conta.</p>
+                <p class="estado-linha" role="status">{{ syncLine() }}</p>
+                <p class="estado-sub">
+                  Entrou como {{ acc.nome }}. O nome é o "Seu nome" da ficha do Backup: mude lá e ele muda na conta.
+                </p>
               </div>
             </div>
+            @if (sync.message(); as m) {
+              <p class="msg" [class.error]="sync.status() === 'erro' || sync.status() === 'desatualizado'">{{ m }}</p>
+            }
+            @if (sync.clockWrong()) {
+              <p class="msg error">
+                O relógio deste aparelho está {{ sync.clockSkew() > 0 ? 'atrasado' : 'adiantado' }} em relação à nuvem. Acerte a
+                hora: com o relógio errado, uma edição antiga pode passar por cima de uma nova.
+              </p>
+            }
+            <div class="sync-acoes">
+              @if (sync.status() === 'escolha') {
+                <button type="button" class="btn-ink" (click)="sync.syncNow()">Escolher agora</button>
+              } @else if (sync.status() === 'desatualizado') {
+                <button type="button" class="btn-ink" (click)="reload()">Recarregar a página</button>
+              } @else {
+                <button type="button" class="btn-quiet" (click)="sync.syncNow()" [disabled]="sync.status() === 'sincronizando'">
+                  <lucide-icon [img]="RefreshIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                  Sincronizar agora
+                </button>
+              }
+            </div>
+            @if (beforeCopy(); as copy) {
+              <p class="hint copia">
+                O mural que estava neste navegador antes de entrar na conta está guardado até {{ copyUntil(copy) }}.
+                <button type="button" class="link-btn" (click)="downloadBefore(copy)">Baixar essa cópia</button>
+              </p>
+            }
 
             <div class="bloco codigo" role="group" aria-labelledby="codigo-titulo">
               <h3 id="codigo-titulo" class="sub">Seu código</h3>
@@ -106,10 +154,6 @@ const DAY = 86_400_000;
               Entre com o Google para guardar o mural na nuvem e abrir em qualquer aparelho. Sem conta, tudo continua só
               neste navegador, como sempre.
             </p>
-            <p class="tip">
-              <lucide-icon [img]="CloudOnIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-              <span>A sincronização do mural chega na próxima etapa. Por enquanto, entrar cria a sua conta e o seu código.</span>
-            </p>
             <div class="entrar">
               @if (accountBusy()) {
                 <p class="hint" role="status">Entrando…</p>
@@ -118,7 +162,7 @@ const DAY = 86_400_000;
               }
             </div>
             <p class="hint">
-              A nuvem guarda o número da sua conta Google e o nome que você escolher; nunca o seu e-mail.
+              A nuvem guarda o número da sua conta Google, o nome que você escolher e o seu mural; nunca o seu e-mail.
               <a href="privacidade.html" target="_blank" rel="noopener">Como a privacidade funciona</a>
             </p>
           }
@@ -133,8 +177,13 @@ const DAY = 86_400_000;
         <app-pin class="pin" color="#e62e2d" />
         <h2 id="backup-titulo">Backup</h2>
         <p class="lead">
-          Suas resenhas moram só neste navegador. O backup é um arquivo com todos os murais: resenhas, pra depois e
-          wishlist.
+          @if (account.signedIn() && cloud.config()) {
+            Suas resenhas estão neste navegador e na sua conta. O backup é um arquivo só seu, com todos os murais: resenhas,
+            pra depois e wishlist.
+          } @else {
+            Suas resenhas moram só neste navegador. O backup é um arquivo com todos os murais: resenhas, pra depois e
+            wishlist.
+          }
         </p>
 
         <div class="estado" [class.atrasado]="overdue()">
@@ -223,6 +272,9 @@ const DAY = 86_400_000;
             Começa do zero: tira deste navegador as resenhas, o pra depois, a wishlist, os backups de colegas e o progresso
             dos Extras. Seu nome, as chaves e as escolhas desta página ficam. Não tem desfazer: baixe um backup antes se
             quiser guardar.
+            @if (account.signedIn() && cloud.config()) {
+              Com a conta, o mural da nuvem volta para cá na próxima sincronização; para tirar da nuvem, apague a conta.
+            }
           </p>
           <button type="button" class="btn-ink danger" (click)="erase()" [disabled]="erasing()">
             <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
@@ -528,6 +580,8 @@ export class SettingsPage {
   private readonly confirm = inject(Confirm);
   protected readonly cloud = inject(Cloud);
   protected readonly account = inject(CloudAccount);
+  protected readonly sync = inject(CloudSync);
+  protected readonly beforeCopy = signal<BeforeCloudCopy | null>(null);
   protected readonly accountBusy = signal(false);
   protected readonly accountMsg = signal<string | null>(null);
 
@@ -549,6 +603,8 @@ export class SettingsPage {
   protected readonly CloudOnIcon = CloudIcon;
   protected readonly CopyIcon = Copy;
   protected readonly LogOutIcon = LogOut;
+  protected readonly RefreshIcon = RefreshCw;
+  protected readonly CloudOffIcon = CloudOff;
 
   /** O pedaço de parede da prévia das etiquetas: dois meses, cinco fichas. */
   protected readonly preview = [
@@ -573,6 +629,11 @@ export class SettingsPage {
   constructor() {
     // a página recarregou depois de apagar o save
     if (takeErased()) this.toasts.show('Save apagado. O mural começou do zero.');
+    // a cópia de antes da nuvem nasce na primeira sincronização: confere de novo a cada uma
+    effect(() => {
+      this.sync.lastSyncAt();
+      void readBeforeCloud().then((copy) => this.beforeCopy.set(copy));
+    });
   }
 
   private readonly wishCount = computed(() => this.store.wishes().length);
@@ -646,9 +707,53 @@ export class SettingsPage {
     }
   }
 
+  /** A linha do estado da sincronização, na ficha da Conta. */
+  protected readonly syncLine = computed(() => {
+    const status = this.sync.status();
+    const at = this.sync.lastSyncAt();
+    switch (status) {
+      case 'sincronizando':
+        return 'Sincronizando…';
+      case 'ok':
+        return at ? `Salvo na nuvem ${when(at)}` : 'Salvo na nuvem';
+      case 'sem-rede':
+        return 'Só neste aparelho por enquanto';
+      case 'pausado':
+        return 'Sincronização pausada';
+      case 'escolha':
+        return 'Falta uma escolha sua';
+      case 'desatualizado':
+        return 'Site desatualizado';
+      case 'erro':
+        return 'A sincronização parou';
+      default:
+        return at ? `Salvo na nuvem ${when(at)}` : 'Conectando à nuvem…';
+    }
+  });
+  protected readonly syncTrouble = computed(() => ['sem-rede', 'pausado', 'escolha', 'desatualizado', 'erro'].includes(this.sync.status()));
+
+  protected reload(): void {
+    location.reload();
+  }
+
+  protected copyUntil(copy: BeforeCloudCopy): string {
+    const until = new Date(Date.parse(copy.at) + KEEP_DAYS * DAY);
+    return until.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  }
+
+  protected downloadBefore(copy: BeforeCloudCopy): void {
+    const url = URL.createObjectURL(copy.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meu-mural-antes-da-nuvem-${copy.at.slice(0, 10)}.json.gz`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
   protected async signOut(): Promise<void> {
-    if (await this.accountAction(() => this.account.signOut())) {
-      this.toasts.show('Você saiu da conta. O mural continua neste navegador.');
+    let done = false;
+    if (await this.accountAction(async () => void (done = await this.sync.signOut()))) {
+      if (done) this.toasts.show('Você saiu da conta. O mural continua neste navegador.');
     }
   }
 
@@ -673,6 +778,7 @@ export class SettingsPage {
       confirm: 'Apagar a conta',
     });
     if (sure && (await this.accountAction(() => this.account.deleteAccount()))) {
+      this.sync.forgetAccount();
       this.toasts.show('Conta apagada. O mural continua neste navegador.');
     }
   }

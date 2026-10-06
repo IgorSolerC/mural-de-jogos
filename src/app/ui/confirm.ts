@@ -24,9 +24,20 @@ export interface ConfirmOptions {
   icon?: LucideIconData | null;
 }
 
+export interface ChoiceOptions extends ConfirmOptions {
+  /** A outra resposta possível, ao lado da principal (`choose` devolve 'secondary'). */
+  secondary: string;
+}
+
+/** O que a pessoa respondeu: a principal, a outra, ou nada (Cancelar, Esc, clique fora). */
+export type Choice = 'confirm' | 'secondary' | null;
+
 interface Question extends Required<ConfirmOptions> {
   id: number;
-  resolve: (ok: boolean) => void;
+  secondary: string | null;
+  /** Perigo (apagar: ficha vermelha, botão vermelho) ou neutro (uma escolha: ficha azul, botão de tinta). */
+  tone: 'perigo' | 'neutro';
+  resolve: (choice: Choice) => void;
 }
 
 /**
@@ -40,17 +51,34 @@ export class Confirm {
 
   ask(options: ConfirmOptions): Promise<boolean> {
     // uma pergunta por vez: a que estava aberta vale como não
-    this.current()?.resolve(false);
+    this.current()?.resolve(null);
     return new Promise((resolve) =>
-      this.current.set({ title: 'Tem certeza?', cancel: 'Cancelar', icon: Trash2, ...options, id: ++this.seq, resolve }),
+      this.current.set({
+        title: 'Tem certeza?',
+        cancel: 'Cancelar',
+        icon: Trash2,
+        ...options,
+        secondary: null,
+        tone: 'perigo',
+        id: ++this.seq,
+        resolve: (choice) => resolve(choice === 'confirm'),
+      }),
     );
   }
 
-  answer(ok: boolean): void {
+  /** Uma escolha entre duas respostas, sem nada de perigoso: Cancelar, Esc e o clique fora devolvem null. */
+  choose(options: ChoiceOptions): Promise<Choice> {
+    this.current()?.resolve(null);
+    return new Promise((resolve) =>
+      this.current.set({ title: 'O que fazer?', cancel: 'Agora não', icon: null, ...options, tone: 'neutro', id: ++this.seq, resolve }),
+    );
+  }
+
+  answer(ok: boolean | Choice): void {
     const q = this.current();
     if (!q) return;
     this.current.set(null);
-    q.resolve(ok);
+    q.resolve(ok === true ? 'confirm' : ok === false ? null : ok);
   }
 }
 
@@ -71,7 +99,7 @@ export class Confirm {
       (click)="onBackdrop($event)"
     >
       @if (confirm.current(); as q) {
-        <div class="ficha cartolina" data-cor="vermelho">
+        <div class="ficha cartolina" [attr.data-cor]="q.tone === 'neutro' ? 'azul' : 'vermelho'">
           <app-pin class="pin" color="#f4f4f0" />
           <header class="head">
             <h2 id="confirma-titulo">{{ q.title }}</h2>
@@ -82,7 +110,10 @@ export class Confirm {
           <footer class="foot">
             <div class="actions">
               <button type="button" class="btn-quiet" data-cancelar (click)="confirm.answer(false)">{{ q.cancel }}</button>
-              <button type="button" class="btn-ink danger" (click)="confirm.answer(true)">
+              @if (q.secondary) {
+                <button type="button" class="btn-quiet outra" (click)="confirm.answer('secondary')">{{ q.secondary }}</button>
+              }
+              <button type="button" class="btn-ink" [class.danger]="q.tone === 'perigo'" (click)="confirm.answer(true)">
                 @if (q.icon) {
                   <lucide-icon [img]="q.icon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
                 }

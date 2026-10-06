@@ -10,6 +10,8 @@ export const SESSION_KEY = 'meu-mural:nuvem:sessao';
 export const ACCOUNT_KEY = 'meu-mural:nuvem:conta';
 
 export interface CloudAccountInfo {
+  /** O id interno da conta (não muda nunca, ao contrário do código). Contas de antes dele não têm até o próximo /v1/eu. */
+  id?: string;
   /** `K7QF-M2XA`. */
   codigo: string;
   nome: string;
@@ -74,7 +76,8 @@ function readJson<T>(key: string): T | null {
 
 function readAccount(): CloudAccountInfo | null {
   const raw = readJson<Partial<CloudAccountInfo>>(ACCOUNT_KEY);
-  return raw && typeof raw.codigo === 'string' && typeof raw.nome === 'string' ? { codigo: raw.codigo, nome: raw.nome } : null;
+  if (!raw || typeof raw.codigo !== 'string' || typeof raw.nome !== 'string') return null;
+  return { ...(typeof raw.id === 'string' ? { id: raw.id } : {}), codigo: raw.codigo, nome: raw.nome };
 }
 
 function readToken(): string | null {
@@ -109,13 +112,17 @@ export class CloudAccount {
     });
   }
 
-  /** Chama a API. Uma sessão recusada (401) sai da conta neste navegador. */
-  async request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  /**
+   * Chama a API e devolve a resposta crua (o mural vem em bytes). Erro vira CloudError com a
+   * mensagem da nuvem; uma sessão recusada (401) sai da conta neste navegador.
+   */
+  async requestRaw(path: string, init: { method?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<Response> {
     await this.cloud.ready;
     const config = this.cloud.config();
     if (!config) throw new CloudError('A nuvem não está disponível agora.', 'sem-nuvem', 0);
-    const headers: Record<string, string> = {};
-    if (init.body !== undefined) headers['Content-Type'] = 'application/json';
+    const headers: Record<string, string> = { ...init.headers };
+    const isForm = typeof FormData !== 'undefined' && init.body instanceof FormData;
+    if (init.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
     const token = this.token();
     if (token) headers['Authorization'] = `Bearer ${token}`;
     let res: Response;
@@ -123,17 +130,23 @@ export class CloudAccount {
       res = await fetch(config.api + path, {
         method: init.method ?? 'GET',
         headers,
-        body: init.body === undefined ? undefined : JSON.stringify(init.body),
+        body: init.body === undefined ? undefined : isForm ? (init.body as FormData) : JSON.stringify(init.body),
       });
     } catch {
       throw new CloudError('Sem conexão com a nuvem agora. Tente de novo daqui a pouco.', 'sem-rede', 0);
     }
-    const data = (await res.json().catch(() => null)) as { erro?: string; mensagem?: string } | null;
     if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { erro?: string; mensagem?: string } | null;
       if (res.status === 401 && data?.erro === 'sessao-invalida') this.forget();
       throw new CloudError(data?.mensagem ?? `A nuvem respondeu com um erro (${res.status}).`, data?.erro ?? 'erro', res.status);
     }
-    return data as T;
+    return res;
+  }
+
+  /** Chama a API e lê a resposta JSON. */
+  async request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+    const res = await this.requestRaw(path, init);
+    return (await res.json().catch(() => null)) as T;
   }
 
   /** Entra com o `credential` do botão do Google. A conta nova leva o "Seu nome" daqui. */
@@ -143,7 +156,7 @@ export class CloudAccount {
       method: 'POST',
       body: { credential, ...(name ? { nome: name } : {}), aparelho: deviceLabel(navigator.userAgent) },
     });
-    this.remember(res.token, { codigo: res.conta.codigo, nome: res.conta.nome });
+    this.remember(res.token, { ...(res.conta.id ? { id: res.conta.id } : {}), codigo: res.conta.codigo, nome: res.conta.nome });
     // numa conta que já existia, o nome dela vale aqui também
     this.settings.ownerName.set(res.conta.nome);
     return { nova: res.conta.nova };
@@ -151,7 +164,7 @@ export class CloudAccount {
 
   async refresh(): Promise<void> {
     const me = await this.request<CloudAccountInfo>('/v1/eu');
-    this.setAccount({ codigo: me.codigo, nome: me.nome });
+    this.setAccount({ ...(me.id ? { id: me.id } : {}), codigo: me.codigo, nome: me.nome });
   }
 
   async rename(name: string): Promise<void> {
@@ -200,7 +213,8 @@ export class CloudAccount {
     }
   }
 
-  private forget(): void {
+  /** Esquece a sessão neste navegador (sem avisar a nuvem). */
+  forget(): void {
     this.token.set(null);
     this.account.set(null);
     try {

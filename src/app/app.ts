@@ -1,3 +1,4 @@
+import { CloudSync } from './core/cloud-sync';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
@@ -57,6 +58,8 @@ export class App {
   private readonly router = inject(Router);
   private readonly side = inject(SideBySide);
   protected readonly backup = inject(Backup);
+  /** A sincronização com a nuvem: só age com a nuvem ligada e a pessoa logada (ver core/cloud-sync.ts). */
+  private readonly cloudSync = inject(CloudSync);
 
   /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
   private readonly path = toSignal(
