@@ -1209,3 +1209,52 @@ img.revelada {
     filter: sepia(0.7) brightness(1.15) blur(3px);
   }
 }
+
+/* ===== Esperando uma resposta: um aro de caneta girando no lugar do ícone (ver ui/busy.ts) ===== */
+.carregando {
+  cursor: progress;
+  pointer-events: none;
+
+  > lucide-icon {
+    display: none;
+  }
+
+  &::before {
+    content: '';
+    flex: none;
+    display: inline-block;
+    width: 0.95em;
+    height: 0.95em;
+    border: 2.5px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    vertical-align: -0.12em;
+    animation: girar 700ms linear infinite;
+  }
+
+  /* fora dos botões com espaço próprio entre ícone e texto, o aro pede um respiro */
+  &:not([class*='btn-'])::before {
+    margin-right: 0.4em;
+  }
+
+  /* esperando não é desligado: o botão não desbota */
+  &:disabled {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+@keyframes girar {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* sem movimento: o aro fica parado, inteiro e mais claro, no lugar de girar */
+@media (prefers-reduced-motion: reduce) {
+  .carregando::before {
+    animation: none !important;
+    border-right-color: currentColor;
+    opacity: 0.6;
+  }
+}

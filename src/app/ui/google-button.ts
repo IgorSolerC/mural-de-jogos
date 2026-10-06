@@ -73,7 +73,7 @@ function loadGoogle(): Promise<GoogleIdApi> {
     <div #slot class="slot" [class.pronto]="state() === 'pronto'"></div>
     @switch (state()) {
       @case ('carregando') {
-        <p class="aviso" role="status">Carregando o login do Google…</p>
+        <p class="aviso" role="status"><span class="carregando" aria-hidden="true"></span>Carregando o login do Google…</p>
       }
       @case ('erro') {
         <p class="aviso erro" role="alert">

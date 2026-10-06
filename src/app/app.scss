@@ -676,8 +676,24 @@ main {
   }
 }
 
+/* o convite para entrar: o botão do próprio Google, do tamanho dele */
+.aviso-google {
+  flex: 0 0 auto;
+  width: 250px;
+  max-width: 100%;
+}
+
+.aviso-entrando {
+  flex: 0 0 auto;
+  font-family: var(--f-label);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* o aviso logo acima do lembrete: os dois bilhetes ficam um sob o outro */
-.aviso + .lembrete {
+.aviso + .lembrete,
+.aviso + .aviso {
   margin-top: -14px;
 }
 
@@ -686,12 +702,17 @@ main {
     padding-right: 52px;
   }
 
+  /* no celular o desenho do aviso ficaria sozinho numa linha */
+  .aviso-icone {
+    display: none;
+  }
+
   .aviso-ver {
     width: 100%;
   }
 }
 
-/* O envelope do correio: o número do que chegou num adesivo amarelo (estado), mesmo no celular estreito */
+/* Amigos: o número do que chegou num adesivo amarelo (estado), mesmo no celular estreito */
 .tab .n.novas,
 .tab.on .n.novas {
   display: inline-grid;

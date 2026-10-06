@@ -31,6 +31,17 @@ export interface NewsEntry {
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-06-amigos-e-chaves',
+    date: '2026-10-06',
+    title: 'Amigos, chaves e botões que avisam',
+    items: [
+      'O Correio virou a aba Amigos, com as pessoas que acenam quando chega algo.',
+      'Com a conta, as chaves da RAWG e do TMDB valem em todos os seus aparelhos. Elas nunca vão no arquivo de backup.',
+      'Quem ainda tem o mural só no navegador vê, no máximo a cada 2 dias, um convite para entrar com o Google.',
+      'Os botões que esperam a nuvem (seguir, sair, apagar, sincronizar, abrir um mural) mostram que estão trabalhando.',
+    ],
+  },
+  {
     id: '2026-10-seguir',
     date: '2026-10-06',
     title: 'Seguir pelo código e a aba Amigos',
@@ -158,14 +169,15 @@ export function firstSeen(news: NewsEntry[], hadWall: boolean): string[] {
 }
 
 /**
- * A faixa da vez: o aviso da nuvem, se houver um não visto e no prazo; senão, a novidade mais nova,
- * se ela tiver aviso. Só a mais nova: fechar a faixa nunca faz uma mais velha aparecer no lugar.
+ * A faixa da vez: o aviso da nuvem, se houver um não visto e no prazo; senão, a novidade mais nova
+ * que tem aviso (uma atualização pequena, sem aviso, não esconde a faixa da anterior). Só essa:
+ * fechar a faixa nunca faz uma mais velha aparecer no lugar.
  */
 export function noticeOf(news: NewsEntry[], cloud: CloudNotice | null, seen: ReadonlySet<string>, day: string): Notice | null {
   if (cloud && !seen.has(`nuvem:${cloud.id}`) && (!cloud.until || cloud.until >= day)) {
     return { key: `nuvem:${cloud.id}`, text: cloud.text, news: false };
   }
-  const latest = news[0];
+  const latest = news.find((n) => n.notice);
   if (!latest?.notice || seen.has(latest.id) || (latest.until && latest.until < day)) return null;
   return { key: latest.id, text: latest.notice, news: true };
 }

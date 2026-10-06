@@ -91,7 +91,24 @@
   </aside>
 }
 
-@let backupDue = backup.due();
+<!-- quem tem mural só neste navegador: o convite para entrar com o Google (no máximo a cada 2 dias) -->
+@let invite = loginNudge.visible() && !onSettings();
+@if (invite && cloudConfig(); as cfg) {
+  <aside class="aviso aviso-conta" aria-label="Guardar o mural na nuvem">
+    <lucide-icon class="aviso-icone" [img]="CloudIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+    <p>O seu mural só existe neste navegador. Entre com o Google para guardar na nuvem e abrir em qualquer aparelho.</p>
+    @if (signingIn()) {
+      <p class="aviso-entrando" role="status"><span class="carregando" aria-hidden="true"></span>Entrando…</p>
+    } @else {
+      <app-google-button class="aviso-google" [clientId]="cfg.googleClientId" (credential)="signIn($event)" />
+    }
+    <button type="button" class="aviso-fechar" (click)="loginNudge.close()" aria-label="Fechar o convite" title="Fechar">
+      <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+    </button>
+  </aside>
+}
+
+@let backupDue = invite ? null : backup.due();
 @if (backupDue !== null) {
   <aside class="lembrete" aria-label="Lembrete de backup">
     <p>{{ backupDays(backupDue) }} As resenhas só existem neste navegador.</p>

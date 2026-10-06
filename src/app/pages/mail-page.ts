@@ -18,6 +18,7 @@ import { JudgeLabel } from '../ui/judge-label';
 import { Pin } from '../ui/pin';
 import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
+import { Busy } from '../ui/busy';
 
 type Tab = 'chegou' | 'pessoas';
 const TABS: readonly Tab[] = ['chegou', 'pessoas'];
@@ -33,7 +34,7 @@ const MIN_PAIRS = 3;
  */
 @Component({
   selector: 'app-mail-page',
-  imports: [CoverSleeve, JudgeLabel, LucideAngularModule, Pin, ReviewReader, RouterLink],
+  imports: [Busy, CoverSleeve, JudgeLabel, LucideAngularModule, Pin, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mail-page.html',
   styleUrl: './mail-page.scss',
@@ -82,8 +83,16 @@ export class MailPage {
 
   protected readonly code = signal('');
   protected readonly followError = signal<string | null>(null);
-  /** O código da pessoa (ou 'form') com um pedido em andamento. */
+  /** O pedido em andamento: 'form', ou 'código:ação' (a ação mostra o aro; a linha toda espera). */
   protected readonly busy = signal<string | null>(null);
+
+  protected isBusy(code: string, action: string): boolean {
+    return this.busy() === `${code}:${action}`;
+  }
+
+  protected rowBusy(code: string): boolean {
+    return !!this.busy()?.startsWith(`${code}:`);
+  }
 
   /** Os murais de quem aparece no correio, pelo código. */
   private readonly walls = computed(() => {
@@ -203,13 +212,15 @@ export class MailPage {
   }
 
   protected async openWall(who: Person): Promise<void> {
-    const c = await this.cloudMurals.ensure(who.codigo);
-    if (!c) {
-      this.toasts.show(`Não consegui abrir o mural de ${who.nome} agora.`);
-      return;
-    }
-    this.colleagues.select(CLOUD_COLLEAGUE_PREFIX + who.codigo.replace('-', ''));
-    await this.router.navigate(['/comparar/mural']);
+    await this.run(`${who.codigo}:mural`, async () => {
+      const c = await this.cloudMurals.ensure(who.codigo);
+      if (!c) {
+        this.toasts.show(`Não consegui abrir o mural de ${who.nome} agora.`);
+        return;
+      }
+      this.colleagues.select(CLOUD_COLLEAGUE_PREFIX + who.codigo.replace('-', ''));
+      await this.router.navigate(['/comparar/mural']);
+    });
   }
 
   protected async followCode(e: Event): Promise<void> {
@@ -229,21 +240,21 @@ export class MailPage {
   }
 
   protected async followBack(p: Person): Promise<void> {
-    await this.run(p.codigo, async () => {
+    await this.run(`${p.codigo}:seguir`, async () => {
       await this.follow.follow(p.codigo);
       this.toasts.show(`Agora você segue ${p.nome}`);
     });
   }
 
   protected async toggleMute(p: { codigo: string; nome: string; silenciado: boolean }): Promise<void> {
-    await this.run(p.codigo, async () => {
+    await this.run(`${p.codigo}:silenciar`, async () => {
       await this.follow.mute(p.codigo, !p.silenciado);
       this.toasts.show(p.silenciado ? `${p.nome} volta a contar no envelope` : `${p.nome} não conta mais no envelope`);
     });
   }
 
   protected async unfollow(p: Person): Promise<void> {
-    await this.run(p.codigo, async () => {
+    await this.run(`${p.codigo}:deixar`, async () => {
       await this.follow.unfollow(p.codigo);
       // seguir de novo não manda outro aviso para a pessoa
       this.toasts.show(`Você deixou de seguir ${p.nome}`, { label: 'Desfazer', run: () => void this.follow.follow(p.codigo).catch(() => undefined) });
@@ -256,7 +267,7 @@ export class MailPage {
       confirm: 'Tirar da lista',
     });
     if (!sure) return;
-    await this.run(p.codigo, async () => {
+    await this.run(`${p.codigo}:tirar`, async () => {
       await this.follow.removeFollower(p.codigo);
       this.toasts.show(`${p.nome} não segue mais você`);
     });
@@ -271,9 +282,9 @@ export class MailPage {
     }
   }
 
-  private async run(code: string, job: () => Promise<void>): Promise<void> {
+  private async run(key: string, job: () => Promise<void>): Promise<void> {
     if (this.busy()) return;
-    this.busy.set(code);
+    this.busy.set(key);
     try {
       await job();
     } catch (err) {

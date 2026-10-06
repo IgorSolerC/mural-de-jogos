@@ -82,8 +82,8 @@
                       Vocês se seguem
                     </span>
                   } @else {
-                    <button type="button" class="btn-ink btn-small" [disabled]="busy() === gr.pessoa.codigo" (click)="followBack(gr.pessoa)">
-                      Seguir de volta
+                    <button type="button" class="btn-ink btn-small" [disabled]="rowBusy(gr.pessoa.codigo)" [appBusy]="isBusy(gr.pessoa.codigo, 'seguir')" (click)="followBack(gr.pessoa)">
+                      {{ isBusy(gr.pessoa.codigo, 'seguir') ? 'Seguindo…' : 'Seguir de volta' }}
                     </button>
                   }
                 </article>
@@ -154,9 +154,9 @@
                   </ul>
 
                   <footer class="cartao-pe">
-                    <button type="button" class="btn-quiet" (click)="openWall(gr.pessoa)">
+                    <button type="button" class="btn-quiet" [disabled]="rowBusy(gr.pessoa.codigo)" [appBusy]="isBusy(gr.pessoa.codigo, 'mural')" (click)="openWall(gr.pessoa)">
                       <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                      Ver o mural de {{ gr.pessoa.nome }}
+                      {{ isBusy(gr.pessoa.codigo, 'mural') ? 'Abrindo o mural…' : 'Ver o mural de ' + gr.pessoa.nome }}
                     </button>
                   </footer>
                 </article>
@@ -184,7 +184,7 @@
             [value]="code()"
             (input)="code.set($any($event.target).value); followError.set(null)"
           />
-          <button type="submit" class="btn-ink" [disabled]="busy() === 'form'">
+          <button type="submit" class="btn-ink" [disabled]="busy() === 'form'" [appBusy]="busy() === 'form'">
             {{ busy() === 'form' ? 'Seguindo…' : 'Seguir' }}
           </button>
         </form>
@@ -225,7 +225,7 @@
                     </span>
                   </div>
                   <div class="pessoa-acoes">
-                    <button type="button" class="btn-quiet" (click)="openWall(f)">
+                    <button type="button" class="btn-quiet" [disabled]="rowBusy(f.codigo)" [appBusy]="isBusy(f.codigo, 'mural')" (click)="openWall(f)">
                       <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
                       Mural
                     </button>
@@ -233,15 +233,16 @@
                       type="button"
                       class="btn-quiet"
                       [attr.aria-pressed]="f.silenciado"
-                      [disabled]="busy() === f.codigo"
+                      [disabled]="rowBusy(f.codigo)"
+                      [appBusy]="isBusy(f.codigo, 'silenciar')"
                       (click)="toggleMute(f)"
                       [title]="f.silenciado ? 'As resenhas aparecem, mas não contam no número do envelope' : 'Continuar seguindo sem contar no número do envelope'"
                     >
                       <lucide-icon [img]="MuteIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
                       {{ f.silenciado ? 'Silenciado' : 'Silenciar' }}
                     </button>
-                    <button type="button" class="btn-quiet danger" [disabled]="busy() === f.codigo" (click)="unfollow(f)">
-                      Deixar de seguir
+                    <button type="button" class="btn-quiet danger" [disabled]="rowBusy(f.codigo)" [appBusy]="isBusy(f.codigo, 'deixar')" (click)="unfollow(f)">
+                      {{ isBusy(f.codigo, 'deixar') ? 'Deixando de seguir…' : 'Deixar de seguir' }}
                     </button>
                   </div>
                 </li>
@@ -274,9 +275,13 @@
                         Vocês se seguem
                       </span>
                     } @else {
-                      <button type="button" class="btn-ink btn-small" [disabled]="busy() === f.codigo" (click)="followBack(f)">Seguir de volta</button>
+                      <button type="button" class="btn-ink btn-small" [disabled]="rowBusy(f.codigo)" [appBusy]="isBusy(f.codigo, 'seguir')" (click)="followBack(f)">
+                        {{ isBusy(f.codigo, 'seguir') ? 'Seguindo…' : 'Seguir de volta' }}
+                      </button>
                     }
-                    <button type="button" class="btn-quiet danger" [disabled]="busy() === f.codigo" (click)="removeFollower(f)">Tirar</button>
+                    <button type="button" class="btn-quiet danger" [disabled]="rowBusy(f.codigo)" [appBusy]="isBusy(f.codigo, 'tirar')" (click)="removeFollower(f)">
+                      {{ isBusy(f.codigo, 'tirar') ? 'Tirando…' : 'Tirar' }}
+                    </button>
                   </div>
                 </li>
               }

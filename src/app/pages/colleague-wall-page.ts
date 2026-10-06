@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3
 import { CloudAccount } from '../core/cloud-account';
 import { Follow } from '../core/follow';
 import { Toasts } from '../ui/toast';
+import { Busy } from '../ui/busy';
 import { ColleagueStore } from '../core/colleague-store';
 import { CloudMurals } from '../core/cloud-murals';
 import { KINDS, Kind, cap, countOf, profileOf, revisitCountOf } from '../core/kinds';
@@ -28,7 +29,7 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'des
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [FilterSheet, FilterTags, LucideAngularModule, ReviewCard, ReviewReader, RouterLink, SearchStrip],
+  imports: [Busy, FilterSheet, FilterTags, LucideAngularModule, ReviewCard, ReviewReader, RouterLink, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
   styleUrl: './colleague-wall-page.scss',

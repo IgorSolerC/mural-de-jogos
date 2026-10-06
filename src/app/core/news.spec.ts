@@ -41,8 +41,9 @@ describe('novidades', () => {
       expect(noticeOf(news, null, new Set(['c']), '2026-10-05')).toBeNull();
     });
 
-    it('a mais nova sem aviso não mostra faixa', () => {
-      expect(noticeOf([entry('d', '2026-10-04'), ...news], null, new Set(), '2026-10-05')).toBeNull();
+    it('uma atualização sem aviso não esconde a faixa da anterior', () => {
+      expect(noticeOf([entry('d', '2026-10-04'), ...news], null, new Set(), '2026-10-05')?.key).toBe('c');
+      expect(noticeOf([entry('d', '2026-10-04'), ...news], null, new Set(['c']), '2026-10-05')).toBeNull();
     });
 
     it('respeita o prazo, inclusive o próprio dia', () => {
@@ -103,7 +104,9 @@ describe('novidades', () => {
       const news = make(true);
       expect(news.unseen()).toBe(1);
       expect([...news.unseenIds()]).toEqual([NEWS[0].id]);
-      expect(news.notice()?.key).toBe(NEWS[0].notice ? NEWS[0].id : undefined);
+      // a mais nova pode não ter aviso; a faixa é a da mais nova que tem, se ainda não foi vista
+      const withNotice = NEWS.find((n) => n.notice);
+      expect(news.notice()?.key).toBe(withNotice && withNotice.id === NEWS[0].id ? withNotice.id : undefined);
       news.seeAll();
       expect(news.unseen()).toBe(0);
       expect(news.notice()).toBeNull();

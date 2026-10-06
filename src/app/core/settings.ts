@@ -26,6 +26,12 @@ interface Stored {
   ownerName: string;
   /** O número na aba Amigos (quantas novidades dos amigos chegaram). Desligado, a aba fica quieta. */
   mailCount: boolean;
+  /**
+   * Quando as chaves (RAWG e TMDB) mudaram pela última vez, à mão (ISO; vazio: nunca desde que elas
+   * passaram a sincronizar). Com conta, a mudança mais nova vale em todos os aparelhos (ver
+   * core/cloud-sync.ts). As chaves nunca vão no arquivo de backup.
+   */
+  keysAt: string;
 }
 
 /** O nome é curto: cabe numa etiqueta "Olá, eu sou" e no nome do arquivo. */
@@ -43,9 +49,10 @@ function readStored(): Stored {
     const scoreDisplay: ScoreDisplay = SCORE_DISPLAYS.includes(raw.scoreDisplay) ? raw.scoreDisplay : 'livre';
     const ownerName = typeof raw.ownerName === 'string' ? raw.ownerName.slice(0, OWNER_NAME_MAX) : '';
     const mailCount = raw.mailCount !== false;
-    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount };
+    const keysAt = typeof raw.keysAt === 'string' && Number.isFinite(Date.parse(raw.keysAt)) ? raw.keysAt : '';
+    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt };
   } catch {
-    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '', mailCount: true };
+    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '', mailCount: true, keysAt: '' };
   }
 }
 
@@ -73,6 +80,21 @@ export class Settings {
   readonly ownerName = signal(this.stored.ownerName);
   /** O número na aba Amigos. */
   readonly mailCount = signal(this.stored.mailCount);
+  /** Ver `Stored.keysAt`. */
+  readonly keysAt = signal(this.stored.keysAt);
+  /** A pessoa mudou uma chave (digitou, colou ou apagou): a mudança vale como a mais nova. */
+  setKey(which: 'rawg' | 'tmdb', value: string): void {
+    (which === 'rawg' ? this.rawgKey : this.tmdbKey).set(value);
+    this.keysAt.set(new Date().toISOString());
+  }
+
+  /** As chaves que vieram de outro aparelho (mais novas que as daqui). */
+  applyKeys(keys: { rawg: string; tmdb: string; em: string }): void {
+    this.rawgKey.set(keys.rawg);
+    this.tmdbKey.set(keys.tmdb);
+    this.keysAt.set(keys.em);
+  }
+
   readonly effectiveSource = computed<CoverSource>(() => (this.source() === 'rawg' && this.hasRawg() ? 'rawg' : 'wikipedia'));
 
   constructor() {
@@ -86,6 +108,7 @@ export class Settings {
         scoreDisplay: this.scoreDisplay(),
         ownerName: this.ownerName().slice(0, OWNER_NAME_MAX),
         mailCount: this.mailCount(),
+        keysAt: this.keysAt(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

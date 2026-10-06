@@ -26,12 +26,42 @@ export const STATE_KEY = 'meu-mural:nuvem:sync';
 export const OWNER_KEY = 'meu-mural:nuvem:dono';
 
 /**
- * A versão do formato das fichas. Aumente quando `sanitizeReview`, `sanitizeDraft` ou `sanitizeWish`
- * passarem a guardar um campo novo: um site antigo (aberto pelo cache do modo offline) que receber
- * um mural de versão maior para de sincronizar em vez de jogar fora o campo que não conhece.
- * O teste "versão do formato" em cloud-sync.spec.ts lembra disso.
+ * A versão do formato do mural na nuvem. Aumente quando `sanitizeReview`, `sanitizeDraft` ou
+ * `sanitizeWish` passarem a guardar um campo novo, ou quando o mural da nuvem ganhar um campo: um
+ * site antigo (aberto pelo cache do modo offline) que receber um mural de versão maior para de
+ * sincronizar em vez de jogar fora o que não conhece. O teste "versão do formato" em
+ * cloud-sync.spec.ts lembra disso.
+ *
+ * 2: as chaves de busca (`chaves`) passaram a ir no mural da nuvem.
  */
-export const SYNC_SCHEMA = 1;
+export const SYNC_SCHEMA = 2;
+
+/**
+ * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
+ * arquivo de backup nem no mural que os outros veem. A mudança mais nova vale.
+ */
+export interface SyncedKeys {
+  rawg: string;
+  tmdb: string;
+  em: string;
+}
+
+/** As chaves que vieram da nuvem, ou null se não vieram (ou não servem). */
+export function keysOf(data: Record<string, unknown>): SyncedKeys | null {
+  const raw = data['chaves'] as Record<string, unknown> | undefined;
+  if (!raw || typeof raw !== 'object') return null;
+  const rawg = typeof raw['rawg'] === 'string' ? raw['rawg'].trim().slice(0, 200) : '';
+  const tmdb = typeof raw['tmdb'] === 'string' ? raw['tmdb'].trim().slice(0, 600) : '';
+  const em = typeof raw['em'] === 'string' && Number.isFinite(Date.parse(raw['em'])) ? raw['em'] : null;
+  return em ? { rawg, tmdb, em } : null;
+}
+
+/** Qual chave vale: a mais nova; sem data aqui, vale a da nuvem. */
+export function newerKeys(local: SyncedKeys | null, remote: SyncedKeys | null): 'local' | 'remote' {
+  if (!remote) return 'local';
+  if (!local) return 'remote';
+  return remote.em > local.em ? 'remote' : 'local';
+}
 
 /** O site recusa enviar um mural compactado maior que isso (a nuvem aceita até 1,9 MB). */
 export const MAX_GZ_BYTES = 1_800_000;
@@ -114,13 +144,14 @@ function readState(kv: KeyValueStore): SyncState | null {
 
 const byId = <T extends { id: string }>(list: readonly T[]) => [...list].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-/** A impressão digital do conteúdo do mural (sem a data do backup nem o nome). */
-export async function fingerprint(doc: Pick<BackupPayload, 'reviews' | 'drafts' | 'wishes' | 'deleted'>): Promise<string> {
+/** A impressão digital do conteúdo do mural (sem a data do backup nem o nome), com as chaves se houver. */
+export async function fingerprint(doc: Pick<BackupPayload, 'reviews' | 'drafts' | 'wishes' | 'deleted'>, keys: SyncedKeys | null = null): Promise<string> {
   const text = canonicalJson({
     reviews: byId(doc.reviews ?? []),
     drafts: byId(doc.drafts ?? []),
     wishes: byId(doc.wishes ?? []),
     deleted: doc.deleted ?? { reviews: {}, drafts: {}, wishes: {} },
+    ...(keys ? { chaves: keys } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -192,6 +223,21 @@ export class CloudSync {
       this.store.lastChangeAt();
       if (first) {
         first = false;
+        return;
+      }
+      untracked(() => {
+        if (this.active() && !this.applying && !this.waitingChoice) this.schedule(5_000);
+      });
+    });
+
+    // Mudou uma chave de busca: vai para a nuvem também (só no mural privado).
+    let firstKeys = true;
+    effect(() => {
+      this.settings.rawgKey();
+      this.settings.tmdbKey();
+      this.settings.keysAt();
+      if (firstKeys) {
+        firstKeys = false;
         return;
       }
       untracked(() => {
@@ -289,9 +335,10 @@ export class CloudSync {
       if (remote.kind === 'doc') {
         if (isNewerSchema(remote.data)) throw this.outdated();
         this.merge(remote.text);
+        this.mergeKeys(remote.data);
         state = { ...state, rev: remote.rev };
-        const here = await fingerprint(this.store.snapshot());
-        if (here === (await fingerprint(remote.data as unknown as BackupPayload))) state = { ...state, impressao: here };
+        const here = await fingerprint(this.store.snapshot(), this.localKeys());
+        if (here === (await fingerprint(remote.data as unknown as BackupPayload, keysOf(remote.data)))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
         // a nuvem perdeu o mural (conta recriada, banco restaurado): recomeça do zero, sem apagar nada aqui
@@ -300,11 +347,12 @@ export class CloudSync {
       }
 
       const doc = this.store.snapshot(this.account.account()?.nome ?? '');
-      const here = await fingerprint(doc);
+      const keys = this.localKeys();
+      const here = await fingerprint(doc, keys);
       if (here === state.impressao) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
-        const rev = await this.push(doc, state.rev);
+        const rev = await this.push(doc, state.rev, keys);
         state = { ...state, rev, impressao: here };
         this.writeState(state);
         break;
@@ -355,6 +403,8 @@ export class CloudSync {
       await this.keepCopy();
       this.merge((remote as { text: string }).text);
     }
+    // as chaves: a da nuvem vale se for mais nova (a conferência seguinte é "mudou?", e não traria)
+    if (remote.kind === 'doc') this.mergeKeys(remote.data);
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
     this.writeOwner(accountId);
     this.writeState(base);
@@ -411,6 +461,33 @@ export class CloudSync {
     this.apply(() => this.store.importJson(text, 'merge'));
   }
 
+  /**
+   * As chaves deste aparelho para a nuvem, ou null se não há nenhuma. Chaves de antes de existir a
+   * data ganham a data de agora na primeira vez que sobem.
+   */
+  private localKeys(): SyncedKeys | null {
+    const rawg = this.settings.rawgKey().trim();
+    const tmdb = this.settings.tmdbKey().trim();
+    let em = this.settings.keysAt();
+    if (!em) {
+      if (!rawg && !tmdb) return null;
+      em = new Date().toISOString();
+      untracked(() => this.settings.keysAt.set(em));
+    }
+    return { rawg, tmdb, em };
+  }
+
+  /** As chaves que vieram da nuvem ficam aqui se forem as mais novas. */
+  private mergeKeys(data: Record<string, unknown>): void {
+    const remote = keysOf(data);
+    if (!remote) return;
+    const em = this.settings.keysAt();
+    const local = em ? { rawg: this.settings.rawgKey().trim(), tmdb: this.settings.tmdbKey().trim(), em } : null;
+    if (newerKeys(local, remote) !== 'remote') return;
+    if (local && local.rawg === remote.rawg && local.tmdb === remote.tmdb && local.em === remote.em) return;
+    this.apply(() => this.settings.applyKeys(remote));
+  }
+
   private apply(fn: () => void): void {
     this.applying = true;
     try {
@@ -446,7 +523,7 @@ export class CloudSync {
   }
 
   /** Envia o mural; devolve a rev nova. */
-  private async push(doc: BackupPayload, base: number): Promise<number> {
+  private async push(doc: BackupPayload, base: number, keys: SyncedKeys | null): Promise<number> {
     const now = Date.now();
     this.pushes = this.pushes.filter((t) => now - t < 10 * MINUTE);
     if (this.pushes.length >= MAX_PUSHES_PER_10_MIN) {
@@ -460,7 +537,8 @@ export class CloudSync {
       throw new CloudError('Este navegador não sabe compactar o mural para a nuvem. Atualize o navegador.', 'sem-compressao', 0);
     }
     const name = this.account.account()?.nome ?? '';
-    const privado = await gzip(JSON.stringify({ ...doc, sync: { schema: SYNC_SCHEMA } }));
+    // as chaves só no privado: o público e o arquivo de backup nunca levam
+    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), sync: { schema: SYNC_SCHEMA } }));
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
@@ -595,6 +673,6 @@ export class CloudSync {
     const state = readState(this.kv);
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.store.hasContent();
-    return (await fingerprint(this.store.snapshot())) === state.impressao;
+    return (await fingerprint(this.store.snapshot(), this.localKeys())) === state.impressao;
   }
 }

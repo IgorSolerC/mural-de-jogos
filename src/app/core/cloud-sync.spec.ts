@@ -114,6 +114,7 @@ function review(id: string, name: string, updatedAt = '2026-01-01T00:00:00.000Z'
 
 interface Device {
   store: ReviewStore;
+  settings: Settings;
   sync: CloudSync;
   kv: ReturnType<typeof memoryKv>;
   /** As respostas que a pessoa daria às perguntas, em ordem (null: fechou sem escolher). */
@@ -175,6 +176,7 @@ describe('sincronização com a nuvem', () => {
     const store = injector.get(ReviewStore);
     return {
       store,
+      settings: injector.get(Settings),
       sync: injector.get(CloudSync),
       kv,
       answers,
@@ -192,6 +194,67 @@ describe('sincronização com a nuvem', () => {
     }
     throw new Error('a sincronização não parou de enviar');
   }
+
+  describe('as chaves de busca', () => {
+    /** Cada aparelho com os próprios ajustes (o localStorage do teste é um só). */
+    function fresh(): Device {
+      localStorage.removeItem('mural-de-jogos:config:v1');
+      return device();
+    }
+
+    it('vão para os outros aparelhos pela nuvem, mas nunca no arquivo de backup', async () => {
+      const a = fresh();
+      a.store.add(review('raaaa1', 'Celeste'));
+      a.settings.setKey('rawg', 'chave-rawg-123');
+      await a.sync.syncNow();
+      const cloudDoc = (await cloud.read()) as unknown as { chaves?: { rawg: string; tmdb: string } };
+      expect(cloudDoc.chaves).toEqual(jasmine.objectContaining({ rawg: 'chave-rawg-123', tmdb: '' }));
+      const { blob } = await a.store.exportBackup('Igor');
+      const stream = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+      const backupText = await new Response(stream).text();
+      expect(backupText).not.toContain('chave-rawg-123');
+
+      const b = fresh();
+      await b.sync.syncNow();
+      expect(b.settings.rawgKey()).toBe('chave-rawg-123');
+      expect(await settle(a, b)).toBe(1);
+    });
+
+    it('a mudança mais nova vence, inclusive apagar uma chave', async () => {
+      const a = fresh();
+      a.settings.setKey('rawg', 'rawg-a');
+      a.settings.setKey('tmdb', 'tmdb-a');
+      await a.sync.syncNow();
+      const b = fresh();
+      await b.sync.syncNow();
+      expect(b.settings.tmdbKey()).toBe('tmdb-a');
+
+      await new Promise((r) => setTimeout(r, 5));
+      b.settings.setKey('tmdb', 'tmdb-b');
+      b.settings.setKey('rawg', '');
+      await settle(b, a);
+      expect(a.settings.tmdbKey()).toBe('tmdb-b');
+      expect(a.settings.rawgKey()).toBe('');
+      expect(await settle(a, b)).toBe(1);
+    });
+
+    it('chaves de antes da sincronização (sem data) perdem para as que já estão na nuvem', async () => {
+      const a = fresh();
+      a.settings.setKey('rawg', 'da-nuvem');
+      await a.sync.syncNow();
+      const b = fresh();
+      b.settings.rawgKey.set('antiga-sem-data');
+      await b.sync.syncNow();
+      expect(b.settings.rawgKey()).toBe('da-nuvem');
+    });
+
+    it('sem chave nenhuma, o mural vai sem o campo', async () => {
+      const a = fresh();
+      a.store.add(review('raaaa1', 'Celeste'));
+      await a.sync.syncNow();
+      expect('chaves' in (await cloud.read())).toBeFalse();
+    });
+  });
 
   it('o primeiro aparelho sobe o mural; o segundo, vazio, recebe tudo', async () => {
     const a = device();
@@ -398,10 +461,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar.
    */
-  it('a leitura das fichas é a mesma da versão 1', async () => {
+  it('a leitura das fichas é a mesma da versão 2', async () => {
     const source = [sanitizeReview, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 1, hex: '1da39d89b3ed7ea028ae5fcaa6ea852aed27375d0fce90c47ccb4725d24a1115' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 2, hex: '1da39d89b3ed7ea028ae5fcaa6ea852aed27375d0fce90c47ccb4725d24a1115' });
   });
 });

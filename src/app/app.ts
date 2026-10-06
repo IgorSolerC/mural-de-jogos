@@ -3,13 +3,17 @@ import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { LucideAngularModule, LucideIconData, Megaphone, NotebookPen, Plus, Scissors, Settings as SettingsIcon, UsersRound, X } from 'lucide-angular';
+import { Cloud as CloudIconData, LucideAngularModule, LucideIconData, Megaphone, NotebookPen, Plus, Scissors, Settings as SettingsIcon, UsersRound, X } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { cap, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
 import { News } from './core/news';
+import { LoginNudge } from './core/login-nudge';
+import { Cloud } from './core/cloud-config';
+import { CloudAccount, CloudError } from './core/cloud-account';
+import { GoogleButton } from './ui/google-button';
 import { Follow } from './core/follow';
 import { Settings } from './core/settings';
 import { ReviewStore } from './core/review-store';
@@ -54,7 +58,7 @@ const TABS: Tab[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [ConfirmDialog, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
+  imports: [ConfirmDialog, GoogleButton, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -80,6 +84,10 @@ export class App {
   /** Seguir e a aba Amigos (ver core/follow.ts): a fita mostra quantas novidades dos amigos chegaram. */
   private readonly follow = inject(Follow);
   private readonly settings = inject(Settings);
+  /** O convite para entrar com o Google (ver core/login-nudge.ts). */
+  protected readonly loginNudge = inject(LoginNudge);
+  private readonly account = inject(CloudAccount);
+  protected readonly cloudConfig = inject(Cloud).config;
 
   /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
   private readonly path = toSignal(
@@ -100,6 +108,7 @@ export class App {
   protected readonly NoteIcon = NotebookPen;
   protected readonly CutIcon = Scissors;
   protected readonly NoticeIcon = Megaphone;
+  protected readonly CloudIcon = CloudIconData;
   protected readonly CloseIcon = X;
   /** As abas; Amigos entra antes da engrenagem quando há conta na nuvem. */
   protected readonly tabs = computed(() => (this.follow.available() ? [...TABS.slice(0, -1), FRIENDS_TAB, TABS[TABS.length - 1]] : TABS));
@@ -292,6 +301,25 @@ export class App {
           : 'Resenha atualizada',
     );
     if (e.isNew) void this.backup.protect();
+  }
+
+  /** Em Ajustes o convite para entrar não aparece: o botão do Google já está lá, no Perfil. */
+  protected readonly onSettings = computed(() => this.path().startsWith('/ajustes'));
+
+  /** Entrou pelo convite da faixa: a sincronização começa sozinha (ver core/cloud-sync.ts). */
+  protected readonly signingIn = signal(false);
+
+  protected async signIn(credential: string): Promise<void> {
+    if (this.signingIn()) return;
+    this.signingIn.set(true);
+    try {
+      const { nova } = await this.account.signIn(credential);
+      this.toasts.show(nova ? 'Conta criada. O seu mural vai para a nuvem.' : 'Você entrou na sua conta.');
+    } catch (err) {
+      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para entrar agora. Tente em Ajustes › Perfil.');
+    } finally {
+      this.signingIn.set(false);
+    }
   }
 
   /** Na própria página de novidades a faixa não aparece: abrir a página já conta como visto. */

@@ -42,6 +42,7 @@ import { JudgeLabel } from '../ui/judge-label';
 import { Bonus, fold, localDay } from '../core/review';
 import { scramble } from '../core/spoiler';
 import { Rabisco } from '../ui/rabisco';
+import { Busy } from '../ui/busy';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { CloudSync } from '../core/cloud-sync';
@@ -71,7 +72,7 @@ function when(ms: number): string {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco, GoogleButton, RouterLink],
+  imports: [Busy, LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco, GoogleButton, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
@@ -171,7 +172,7 @@ function when(ms: number): string {
               } @else if (sync.status() === 'desatualizado') {
                 <button type="button" class="btn-ink" (click)="reload()">Recarregar a página</button>
               } @else {
-                <button type="button" class="btn-quiet" (click)="sync.syncNow()" [disabled]="sync.status() === 'sincronizando'">
+                <button type="button" class="btn-quiet" (click)="sync.syncNow()" [disabled]="sync.status() === 'sincronizando'" [appBusy]="sync.status() === 'sincronizando'">
                   <lucide-icon [img]="RefreshIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
                   Sincronizar agora
                 </button>
@@ -199,18 +200,20 @@ function when(ms: number): string {
               </div>
               <p class="hint">
                 Com o código ou o link, qualquer pessoa abre as suas resenhas em Comparar (a fila, a wishlist e os ajustes
-                não vão). Seguir chega na próxima etapa.
-                <button type="button" class="link-btn" (click)="newCode()" [disabled]="accountBusy()">Trocar o código</button>
+                não vão). Com ele, a pessoa também pode seguir você em Amigos.
+                <button type="button" class="link-btn" (click)="newCode()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'codigo'">
+                  {{ accountBusy() === 'codigo' ? 'Trocando o código…' : 'Trocar o código' }}
+                </button>
               </p>
             </div>
 
             <div class="bloco sair" role="group" aria-label="Sair da conta">
-              <button type="button" class="btn-quiet" (click)="signOut()" [disabled]="accountBusy()">
+              <button type="button" class="btn-quiet" (click)="signOut()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'sair'">
                 <lucide-icon [img]="LogOutIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                Sair
+                {{ accountBusy() === 'sair' ? 'Saindo…' : 'Sair' }}
               </button>
-              <button type="button" class="btn-quiet" (click)="signOutEverywhere()" [disabled]="accountBusy()">
-                Sair de todos os aparelhos
+              <button type="button" class="btn-quiet" (click)="signOutEverywhere()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'sair-todos'">
+                {{ accountBusy() === 'sair-todos' ? 'Saindo de todos…' : 'Sair de todos os aparelhos' }}
               </button>
             </div>
 
@@ -219,9 +222,9 @@ function when(ms: number): string {
               <p class="hint">
                 Tira da nuvem a conta, o código e tudo o que estiver guardado lá. O mural deste navegador continua aqui.
               </p>
-              <button type="button" class="btn-ink danger" (click)="deleteAccount(acc.nome, acc.codigo)" [disabled]="accountBusy()">
+              <button type="button" class="btn-ink danger" (click)="deleteAccount(acc.nome, acc.codigo)" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'apagar'">
                 <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                {{ accountBusy() ? 'Apagando…' : 'Apagar a conta' }}
+                {{ accountBusy() === 'apagar' ? 'Apagando…' : 'Apagar a conta' }}
               </button>
             </div>
           } @else {
@@ -230,8 +233,8 @@ function when(ms: number): string {
               neste navegador, como sempre.
             </p>
             <div class="entrar">
-              @if (accountBusy()) {
-                <p class="hint" role="status">Entrando…</p>
+              @if (accountBusy() === 'entrar') {
+                <p class="hint entrando" role="status"><span class="carregando" aria-hidden="true"></span>Entrando…</p>
               } @else {
                 <app-google-button [clientId]="cfg.googleClientId" (credential)="signIn($event)" />
               }
@@ -283,9 +286,9 @@ function when(ms: number): string {
           </div>
         </div>
 
-        <button type="button" class="btn-ink baixar" (click)="exportFile()" [disabled]="!hasData()">
+        <button type="button" class="btn-ink baixar" (click)="exportFile()" [disabled]="!hasData() || exporting()" [appBusy]="exporting()">
           <lucide-icon [img]="DownloadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-          Baixar backup
+          {{ exporting() ? 'Preparando o backup…' : 'Baixar backup' }}
         </button>
         <p class="hint arquivo">
           O arquivo sai como <strong>{{ fileNamePreview() }}</strong> (o nome vem do
@@ -321,10 +324,10 @@ function when(ms: number): string {
               <span class="op-texto">Apaga o que está aqui e deixa os murais iguais ao arquivo.</span>
             </label>
           </fieldset>
-          <label class="file-btn">
+          <label class="file-btn" [appBusy]="importing()">
             <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-            {{ mode() === 'replace' ? 'Escolher arquivo e substituir' : 'Escolher arquivo e juntar' }}
-            <input type="file" accept="application/json,.json,application/gzip,.gz" (change)="importFile($event)" />
+            {{ importing() ? 'Lendo o arquivo…' : mode() === 'replace' ? 'Escolher arquivo e substituir' : 'Escolher arquivo e juntar' }}
+            <input type="file" accept="application/json,.json,application/gzip,.gz" [disabled]="importing()" (change)="importFile($event)" />
           </label>
           <p class="hint">O arquivo .json ou .json.gz baixado aqui, em qualquer navegador.</p>
           @if (importMsg(); as m) {
@@ -342,7 +345,7 @@ function when(ms: number): string {
               Com a conta, o mural da nuvem volta para cá na próxima sincronização; para tirar da nuvem, apague a conta.
             }
           </p>
-          <button type="button" class="btn-ink danger" (click)="erase()" [disabled]="erasing()">
+          <button type="button" class="btn-ink danger" (click)="erase()" [disabled]="erasing()" [appBusy]="erasing()">
             <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
             {{ erasing() ? 'Apagando…' : 'Apagar o save' }}
           </button>
@@ -448,6 +451,9 @@ function when(ms: number): string {
         <app-pin class="pin" color="#f4f4f0" />
         <h2 id="catalogo-titulo">Busca e capas</h2>
         <p class="lead">A busca já funciona sem configurar nada. Duas chaves gratuitas deixam ela melhor.</p>
+        @if (account.signedIn() && cloud.config()) {
+          <p class="hint">Com a conta, as chaves coladas aqui valem em todos os seus aparelhos. Elas nunca vão no arquivo de backup.</p>
+        }
 
         <h3 class="rotulo fontes-titulo" id="fontes-titulo">De onde vem a busca agora</h3>
         <dl class="fontes" aria-labelledby="fontes-titulo">
@@ -516,10 +522,10 @@ function when(ms: number): string {
               spellcheck="false"
               placeholder="Cole sua chave do TMDB"
               [value]="settings.tmdbKey()"
-              (input)="settings.tmdbKey.set($any($event.target).value)"
+              (input)="settings.setKey('tmdb', $any($event.target).value)"
             />
             @if (settings.tmdbKey()) {
-              <button type="button" class="icon-btn" (click)="settings.tmdbKey.set(''); tmdbInput.focus()" aria-label="Apagar a chave do TMDB">
+              <button type="button" class="icon-btn" (click)="settings.setKey('tmdb', ''); tmdbInput.focus()" aria-label="Apagar a chave do TMDB">
                 <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
               </button>
             }
@@ -567,10 +573,10 @@ function when(ms: number): string {
               spellcheck="false"
               placeholder="Cole sua chave da RAWG"
               [value]="settings.rawgKey()"
-              (input)="settings.rawgKey.set($any($event.target).value)"
+              (input)="settings.setKey('rawg', $any($event.target).value)"
             />
             @if (settings.rawgKey()) {
-              <button type="button" class="icon-btn" (click)="settings.rawgKey.set(''); rawgInput.focus()" aria-label="Apagar a chave da RAWG">
+              <button type="button" class="icon-btn" (click)="settings.setKey('rawg', ''); rawgInput.focus()" aria-label="Apagar a chave da RAWG">
                 <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
               </button>
             }
@@ -686,7 +692,10 @@ export class SettingsPage {
   protected readonly account = inject(CloudAccount);
   protected readonly sync = inject(CloudSync);
   protected readonly beforeCopy = signal<BeforeCloudCopy | null>(null);
-  protected readonly accountBusy = signal(false);
+  /** A ação da conta em andamento ('entrar', 'codigo', 'sair', 'sair-todos', 'apagar'): ela mostra o aro, as outras esperam. */
+  protected readonly accountBusy = signal<string | null>(null);
+  protected readonly exporting = signal(false);
+  protected readonly importing = signal(false);
   protected readonly accountMsg = signal<string | null>(null);
 
   protected readonly DownloadIcon = Download;
@@ -783,8 +792,8 @@ export class SettingsPage {
   }
 
   /** Roda uma ação da conta mostrando o erro da nuvem na ficha. */
-  private async accountAction(run: () => Promise<void>): Promise<boolean> {
-    this.accountBusy.set(true);
+  private async accountAction(key: string, run: () => Promise<void>): Promise<boolean> {
+    this.accountBusy.set(key);
     this.accountMsg.set(null);
     try {
       await run();
@@ -793,13 +802,13 @@ export class SettingsPage {
       this.accountMsg.set(err instanceof CloudError ? err.message : 'Algo deu errado. Tente de novo.');
       return false;
     } finally {
-      this.accountBusy.set(false);
+      this.accountBusy.set(null);
     }
   }
 
   protected async signIn(credential: string): Promise<void> {
     let created = false;
-    if (await this.accountAction(async () => void (created = (await this.account.signIn(credential)).nova))) {
+    if (await this.accountAction('entrar', async () => void (created = (await this.account.signIn(credential)).nova))) {
       this.toasts.show(created ? 'Conta criada. O seu código está aqui em Ajustes.' : 'Você entrou na sua conta.');
     }
   }
@@ -874,14 +883,14 @@ export class SettingsPage {
       icon: null,
     });
     let code = '';
-    if (sure && (await this.accountAction(async () => void (code = await this.account.newCode())))) {
+    if (sure && (await this.accountAction('codigo', async () => void (code = await this.account.newCode())))) {
       this.toasts.show(`Código novo: ${code}`);
     }
   }
 
   protected async signOut(): Promise<void> {
     let done = false;
-    if (await this.accountAction(async () => void (done = await this.sync.signOut()))) {
+    if (await this.accountAction('sair', async () => void (done = await this.sync.signOut()))) {
       if (done) this.toasts.show('Você saiu da conta. O mural continua neste navegador.');
     }
   }
@@ -893,7 +902,7 @@ export class SettingsPage {
       confirm: 'Sair de todos',
       icon: null,
     });
-    if (sure && (await this.accountAction(() => this.account.signOutEverywhere()))) {
+    if (sure && (await this.accountAction('sair-todos', () => this.account.signOutEverywhere()))) {
       this.toasts.show('Você saiu de todos os aparelhos.');
     }
   }
@@ -906,14 +915,20 @@ export class SettingsPage {
         'O mural deste navegador continua aqui. Não dá para desfazer.',
       confirm: 'Apagar a conta',
     });
-    if (sure && (await this.accountAction(() => this.account.deleteAccount()))) {
+    if (sure && (await this.accountAction('apagar', () => this.account.deleteAccount()))) {
       this.sync.forgetAccount();
       this.toasts.show('Conta apagada. O mural continua neste navegador.');
     }
   }
 
-  protected exportFile(): Promise<void> {
-    return this.backup.download();
+  protected async exportFile(): Promise<void> {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    try {
+      await this.backup.download();
+    } finally {
+      this.exporting.set(false);
+    }
   }
 
   /** Apagar o save: pergunta, apaga e recarrega, para nada ficar com o save velho na memória. */
@@ -939,7 +954,13 @@ export class SettingsPage {
     const replace = this.mode() === 'replace';
     try {
       // lê antes de perguntar: um arquivo que não serve não pede confirmação nenhuma
-      const text = await this.store.readBackup(file);
+      this.importing.set(true);
+      let text: string;
+      try {
+        text = await this.store.readBackup(file);
+      } finally {
+        this.importing.set(false);
+      }
       let parsed: unknown;
       try {
         parsed = JSON.parse(text);

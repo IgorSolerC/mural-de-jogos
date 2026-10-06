@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import { Busy } from '../../ui/busy';
 import { LucideAngularModule, Upload, X } from 'lucide-angular';
 
 /**
@@ -7,7 +8,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
  */
 @Component({
   selector: 'app-backup-envelope',
-  imports: [LucideAngularModule],
+  imports: [Busy, LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.chegando]': 'over()',
@@ -62,7 +63,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
             [attr.aria-invalid]="!!codeError()"
             [attr.aria-describedby]="codeError() ? codeId + '-erro' : null"
           />
-          <button type="submit" class="btn-ink" [disabled]="codeBusy() || !typed().trim()">
+          <button type="submit" class="btn-ink" [disabled]="codeBusy() || !typed().trim()" [appBusy]="codeBusy()">
             {{ codeBusy() ? 'Abrindo…' : 'Abrir o mural' }}
           </button>
         </form>
@@ -71,7 +72,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
         }
         <div class="acoes ou-arquivo">
           <span class="ou" aria-hidden="true">ou</span>
-          <button type="button" class="btn-arquivo" [disabled]="busy()" (click)="file.click()">
+          <button type="button" class="btn-arquivo" [disabled]="busy()" [appBusy]="busy()" (click)="file.click()">
             <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
             {{ busy() ? 'Abrindo o envelope…' : 'Escolher o backup' }}
           </button>
@@ -91,7 +92,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
           guardadas à parte: nada se mistura com os seus cards.
         </p>
         <div class="acoes">
-          <button type="button" class="btn-ink" [disabled]="busy()" (click)="file.click()" [attr.aria-describedby]="titleId">
+          <button type="button" class="btn-ink" [disabled]="busy()" [appBusy]="busy()" (click)="file.click()" [attr.aria-describedby]="titleId">
             <lucide-icon [img]="UploadIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
             {{ busy() ? 'Abrindo o envelope…' : 'Escolher o backup' }}
           </button>

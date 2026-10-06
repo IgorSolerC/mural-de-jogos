@@ -22,10 +22,15 @@
         [class.seguindo]="following()"
         [attr.aria-pressed]="following()"
         [disabled]="followBusy()"
+        [appBusy]="followBusy()"
         (click)="toggleFollow()"
       >
         <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
-        {{ following() ? 'Seguindo' : 'Seguir ' + c.name }}
+        @if (followBusy()) {
+          {{ following() ? 'Deixando de seguir…' : 'Seguindo…' }}
+        } @else {
+          {{ following() ? 'Seguindo' : 'Seguir ' + c.name }}
+        }
       </button>
     }
   </header>

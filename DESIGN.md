@@ -1099,3 +1099,8 @@ Following someone by code and seeing what they pinned. Not a social feed: a plac
 - **Someone's wall** (opened by code, with an account): beside the name plate, an ink "Seguir {nome}" (UserPlus); following, it becomes the hi-vis yellow "Seguindo" (UserCheck), and tapping it unfollows with Desfazer.
 - **Signed out:** the page shows one azul cartolina, "Siga os amigos pelo código", with a link to Ajustes › Perfil.
 
+## Convite para entrar e botões esperando (polish pass)
+
+- **Convite para entrar:** the same notepad note as the other notices, with the Cloud icon, the sentence in Kalam, Google's own outline sign-in button (250px; "Carregando o login do Google…" with the ring while its script loads) and the 44px X. While signing in, the button gives way to "Entrando…" in label caps with the ring. On phones (600px and down) the notice icons hide, so the text starts the note.
+- **Waiting ring:** `.carregando` (from `[appBusy]`): a 0.95em ring drawn in the button's own ink, 2.5px, with a quarter missing, turning every 700ms, in place of the button's lucide icon (or before the text when there is none; 0.4em gap outside `.btn-*`). The button keeps its colours (not the disabled fade), the cursor turns to progress, and the label usually becomes the gerund ("Seguindo…", "Apagando…"). Reduced motion: a still, closed ring at 60%.
+
