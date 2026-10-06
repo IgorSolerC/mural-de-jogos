@@ -16,7 +16,7 @@
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <header class="head" [style]="headPaper()">
-      <h2 id="editor-titulo">{{ editing() ? 'Editar resenha' : fromDraft() ? 'Terminar resenha' : 'Nova resenha' }}</h2>
+      <h2 id="editor-titulo">{{ title() }}</h2>
       <button type="button" class="icon-btn" (click)="requestClose()" aria-label="Fechar">
         <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
       </button>
@@ -42,7 +42,37 @@
 
         <div class="form">
         <section class="bloco jogo">
-          @if (game(); as g) {
+          @if (revisitRoot() && game(); as g) {
+            <!-- a rejogada é da mesma obra: o item vem da original e não troca -->
+            <p class="pergunta">{{ revisitWord() }} de</p>
+            <div class="tira-jogo">
+              <app-cover-sleeve class="tj-capa" size="thumb" [game]="g" />
+              <div class="tj-txt">
+                <p class="tj-nome">{{ g.name }}</p>
+                @if (g.year || g.by) {
+                  <p class="tj-ano">{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
+                }
+              </div>
+              <lucide-icon class="tj-volta" [img]="RevisitIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+            </div>
+            @if (original()) {
+              <div class="manter" aria-live="polite">
+                @if (keptNotes()) {
+                  <p class="manter-txt">Notas {{ originalWhen() }} copiadas. Mude só o que mudou desta vez.</p>
+                  <button type="button" class="acao-caneta" (click)="keepNotes()">
+                    <lucide-icon [img]="KeepIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Copiar de novo
+                  </button>
+                } @else {
+                  <p class="manter-txt">Mesma opinião {{ originalWhen() }}? Comece com as notas de lá.</p>
+                  <button type="button" class="acao-caneta" (click)="keepNotes()">
+                    <lucide-icon [img]="KeepIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Manter notas
+                  </button>
+                }
+              </div>
+            }
+          } @else if (game(); as g) {
             <p class="pergunta">Qual {{ profile().singular }}?</p>
             <!-- o campo, preenchido: a mesma tira de papel da busca, com o jogo escolhido -->
             <div class="tira-jogo">
@@ -286,7 +316,7 @@
           } @else {
             <button type="button" class="btn-quiet cancelar" (click)="requestClose()">Cancelar</button>
           }
-          @if (!editing()) {
+          @if (!editing() && !revisitRoot()) {
             <button type="button" class="btn-quiet later" (click)="saveForLater()" title="Guarda só o nome e a capa, fora do mural">
               <lucide-icon [img]="LaterIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
               <span class="later-txt">Salvar pra depois</span>

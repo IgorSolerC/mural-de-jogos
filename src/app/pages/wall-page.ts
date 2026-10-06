@@ -45,7 +45,14 @@ export class WallPage {
     picking: this.side.picking(),
     picked: this.side.order(),
     masked: this.settings.noSpoilers(),
+    times: this.times(),
   }));
+  /** As obras com rejogada: a original fica sabendo quantas vezes está no mural. */
+  private readonly times = computed(() => {
+    const out = new Map<string, number>();
+    for (const r of this.mural.wall()) if (r.revisitOf) out.set(r.revisitOf, (out.get(r.revisitOf) ?? 1) + 1);
+    return out;
+  });
 
   constructor() {
     // sair do mural encerra a marcação

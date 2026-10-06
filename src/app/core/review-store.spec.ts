@@ -259,4 +259,45 @@ describe('ReviewStore', () => {
     store.importJson(JSON.stringify({ reviews: [review('raaaa1', 'A', '2024-01-02T00:00:00Z')] }), 'replace');
     expect(store.get('raaaa1')!.stock).toBeDefined();
   });
+
+  describe('rejogadas', () => {
+    beforeEach(() => {
+      store.importJson(
+        JSON.stringify({
+          reviews: [
+            review('raaaa1', 'A', '2024-01-02T00:00:00Z'),
+            review('rvez01', 'A', '2024-03-02T00:00:00Z', { revisitOf: 'raaaa1', completedAt: '2024-03-01' }),
+            review('rbbbb1', 'B', '2024-01-02T00:00:00Z'),
+          ],
+        }),
+        'replace',
+      );
+    });
+
+    it('guarda de qual ficha a rejogada é, e o backup leva junto', async () => {
+      expect(store.get('rvez01')!.revisitOf).toBe('raaaa1');
+      expect(store.get('raaaa1')!.revisitOf).toBeUndefined();
+      const { blob } = await store.exportBackup();
+      const text = await store.readBackup(blob);
+      expect(JSON.parse(text).reviews.find((r: { id: string }) => r.id === 'rvez01').revisitOf).toBe('raaaa1');
+    });
+
+    it('apagar a original leva as rejogadas junto; apagar a rejogada não mexe na original', () => {
+      store.remove('rvez01');
+      expect(store.get('raaaa1')).toBeDefined();
+      expect(store.get('rvez01')).toBeUndefined();
+      store.restore(sanitizeReview(review('rvez01', 'A', '2024-03-02T00:00:00Z', { revisitOf: 'raaaa1' }))!);
+      store.remove('raaaa1');
+      expect(store.get('raaaa1')).toBeUndefined();
+      expect(store.get('rvez01')).toBeUndefined();
+      expect(store.get('rbbbb1')).toBeDefined();
+    });
+
+    it('trocar o item da original troca o das rejogadas', () => {
+      const a = store.get('raaaa1')!;
+      store.update({ ...a, game: { ...a.game, name: 'A remasterizado' }, updatedAt: '2024-05-01T00:00:00.000Z' });
+      expect(store.get('rvez01')!.game.name).toBe('A remasterizado');
+      expect(store.get('rbbbb1')!.game.name).toBe('B');
+    });
+  });
 });

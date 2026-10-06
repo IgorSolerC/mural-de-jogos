@@ -8,9 +8,10 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { LucideAngularModule, PenLine, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
-import { g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDateLong, formatScore, isDarkStock, sortBonuses } from '../core/review';
+import { ChevronLeft, ChevronRight, LucideAngularModule, PenLine, Repeat, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { cap, g, profileOf } from '../core/kinds';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
+import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
@@ -33,7 +34,7 @@ import { StatusLabel } from './status-label';
   imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (close)="review.set(null)">
+    <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (keydown)="onKey($event)" (close)="review.set(null)">
       @if (review(); as r) {
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
@@ -45,6 +46,22 @@ import { StatusLabel } from './status-label';
           </header>
 
           <div class="body" appLuz>
+            <!-- A obra jogada mais de uma vez: as vezes viram páginas, a original e cada rejogada -->
+            @if (times().length > 1) {
+              <nav class="vezes" [attr.aria-label]="'As vezes de ' + r.game.name">
+                <button type="button" class="vez-seta" [disabled]="at() === 0" (click)="go(-1)" [attr.aria-label]="prevLabel()">
+                  <lucide-icon [img]="PrevIcon" [size]="22" [strokeWidth]="2.8" aria-hidden="true" />
+                </button>
+                <p class="vez" aria-live="polite">
+                  <span class="vez-nome">{{ timeLabel(at()) }}</span>
+                  <span class="vez-conta">{{ at() + 1 }} de {{ times().length }}</span>
+                </p>
+                <button type="button" class="vez-seta" [disabled]="at() === times().length - 1" (click)="go(1)" [attr.aria-label]="nextLabel()">
+                  <lucide-icon [img]="NextIcon" [size]="22" [strokeWidth]="2.8" aria-hidden="true" />
+                </button>
+              </nav>
+            }
+
             <!-- A mesma ficha do mural, vista de perto: foto colada, nome, data e a etiqueta do julgamento -->
             <div class="top">
               <div class="cover">
@@ -128,6 +145,12 @@ import { StatusLabel } from './status-label';
               Remover do mural
             </button>
             <div class="actions">
+              <button type="button" class="btn-quiet" (click)="revisit.emit(r.id)">
+                <lucide-icon [img]="RevisitIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                Escrever {{ profile().revisit.one }}
+              </button>
+              <!-- as rejogadas não entram no lado a lado: lá é uma ficha por obra -->
+              @if (!r.revisitOf) {
               <button
                 type="button"
                 class="btn-quiet side"
@@ -138,6 +161,7 @@ import { StatusLabel } from './status-label';
                 <lucide-icon [img]="side.has(r.id) ? CheckedIcon : UncheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
                 Lado a lado
               </button>
+              }
               <button type="button" class="btn-ink" (click)="edit.emit(r.id)">
                 <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
                 Editar
@@ -154,6 +178,8 @@ import { StatusLabel } from './status-label';
 export class ReviewReader {
   readonly edit = output<string>();
   readonly remove = output<string>();
+  /** Pediu para escrever mais uma vez da obra (rejogada, releitura, reassistida). */
+  readonly revisit = output<string>();
 
   protected readonly side = inject(SideBySide);
   private readonly settings = inject(Settings);
@@ -162,6 +188,10 @@ export class ReviewReader {
   protected readonly UncheckedIcon = Square;
   protected readonly EditIcon = PenLine;
   protected readonly TrashIcon = Trash2;
+  protected readonly RevisitIcon = Repeat;
+  protected readonly PrevIcon = ChevronLeft;
+  protected readonly NextIcon = ChevronRight;
+  private readonly store = inject(ReviewStore);
   protected readonly profile = computed(() => profileOf(this.review()?.kind ?? 'jogos'));
   protected readonly hours = computed(() => {
     const r = this.review();
@@ -209,8 +239,63 @@ export class ReviewReader {
     return formatReviewDateLong(r?.completedAt ?? null);
   });
 
-  open(review: Review, owner: string | null = null): void {
+  /** As fichas de um colega, para andar entre as vezes de uma obra no mural dele. */
+  private readonly pool = signal<readonly Review[]>([]);
+  /** Todas as vezes da obra aberta: a original e as rejogadas, na ordem. */
+  protected readonly times = computed(() => {
+    const r = this.review();
+    if (!r) return [];
+    return timesOf(this.owner() === null ? this.store.reviews() : this.pool(), r);
+  });
+  protected readonly at = computed(() => Math.max(0, this.times().findIndex((x) => x.id === this.review()?.id)));
+
+  /** "Original", "Rejogada" ou, com mais de uma, "Rejogada 2". */
+  protected timeLabel(i: number): string {
+    const list = this.times();
+    const x = list[i];
+    if (!x) return '';
+    if (!x.revisitOf) return 'Original';
+    const word = cap(this.profile().revisit.one);
+    const revisits = list.filter((y) => y.revisitOf);
+    return revisits.length > 1 ? `${word} ${revisits.indexOf(x) + 1}` : word;
+  }
+
+  protected readonly prevLabel = computed(() => this.stepLabel(this.at() - 1));
+  protected readonly nextLabel = computed(() => this.stepLabel(this.at() + 1));
+
+  private stepLabel(i: number): string {
+    const x = this.times()[i];
+    if (!x) return '';
+    return x.completedAt ? `${this.timeLabel(i)}, ${formatReviewDate(x.completedAt)}` : this.timeLabel(i);
+  }
+
+  /** Vira a página: a vez anterior ou a seguinte da mesma obra. */
+  protected go(step: number): void {
+    const next = this.times()[this.at() + step];
+    if (!next) return;
+    this.review.set(next);
+    const dialog = this.dialog().nativeElement;
+    dialog.scrollTop = 0;
+    // a seta da ponta some de uso: o foco fica na outra, para seguir virando pelo teclado
+    setTimeout(() => {
+      const arrows = dialog.querySelectorAll<HTMLButtonElement>('.vez-seta');
+      if (document.activeElement instanceof HTMLButtonElement && document.activeElement.disabled) arrows[step < 0 ? 1 : 0]?.focus();
+    });
+  }
+
+  /** As setas do teclado viram a página, fora de um campo de texto. */
+  protected onKey(e: KeyboardEvent): void {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if ((e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
+    if (this.times().length < 2) return;
+    e.preventDefault();
+    this.go(e.key === 'ArrowLeft' ? -1 : 1);
+  }
+
+  /** Abre a ficha. A de um colega (`owner`) pode vir com as outras fichas dele (`pool`), para andar entre as vezes. */
+  open(review: Review, owner: string | null = null, pool: readonly Review[] = []): void {
     this.owner.set(owner);
+    this.pool.set(pool);
     this.review.set(review);
     this.dialog().nativeElement.showModal();
   }

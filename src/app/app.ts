@@ -5,6 +5,7 @@ import { LucideAngularModule, LucideIconData, NotebookPen, Plus, Scissors, Setti
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
+import { cap, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
 import { ReviewStore } from './core/review-store';
 import { SideBySide } from './core/side-by-side';
@@ -183,12 +184,26 @@ export class App {
     this.editor().open(r);
   }
 
+  /** Mais uma vez da obra: a rejogada (releitura, reassistida) nasce em branco, pronta pra ser escrita. */
+  protected writeRevisit(id: string): void {
+    const r = this.store.get(id);
+    if (!r) return;
+    this.reader().close();
+    this.editor().open(undefined, undefined, undefined, r);
+  }
+
   protected async removeReview(id: string): Promise<void> {
     // Pega a ficha antes: o callback da view transition roda depois deste método.
     const r = this.store.get(id);
     if (!r) return;
+    const p = profileOf(r.kind);
+    // a original leva as rejogadas junto; uma rejogada sai sozinha
+    const revisits = this.store.revisitsOf(id);
+    const what = r.revisitOf ? `A ${p.revisit.one} de “${r.game.name}”` : `“${r.game.name}”`;
     const sure = await this.confirm.ask({
-      text: `“${r.game.name}” sai do mural, com as notas e o texto.`,
+      text: revisits.length
+        ? `${what} sai do mural, com as notas e o texto. ${revisits.length === 1 ? `A ${p.revisit.one} dela sai junto.` : `As ${revisitCountOf(p, revisits.length)} dela saem junto.`}`
+        : `${what} sai do mural, com as notas e o texto.`,
       confirm: 'Remover do mural',
     });
     if (!sure || !this.store.get(id)) return;
@@ -197,10 +212,11 @@ export class App {
     const cards = [...document.querySelectorAll<HTMLElement>('[data-ficha]')];
     const at = cards.findIndex((c) => c.dataset['ficha'] === id);
     const neighbour = (cards[at + 1] ?? cards[at - 1])?.dataset['ficha'];
+    const gone = [r, ...this.store.revisitsOf(id)];
     this.vt.run(() => this.store.remove(id));
-    this.toasts.show(`“${r.game.name}” saiu do mural`, {
+    this.toasts.show(`${what} saiu do mural`, {
       label: 'Desfazer',
-      run: () => this.vt.run(() => this.store.restore(r)),
+      run: () => this.vt.run(() => gone.forEach((x) => this.store.restore(x))),
     });
     setTimeout(() => {
       const next =
@@ -211,12 +227,22 @@ export class App {
   }
 
   protected onSaved(e: SavedEvent): void {
-    const name = this.store.get(e.id)?.game.name ?? '';
+    const saved = this.store.get(e.id);
+    const name = saved?.game.name ?? '';
+    const revisit = saved?.revisitOf ? profileOf(saved.kind).revisit.one : null;
     // Ficha nova vai para o mural: se ela ficaria escondida pelo filtro, limpa o filtro.
     if (e.isNew && !this.view.visible().some((r) => r.id === e.id)) this.view.clearFilters();
     if (e.isNew && this.router.url !== '/') this.goLand('/', e.id);
     else this.desk.land(e.id);
-    this.toasts.show(e.isNew ? `“${name}” pregado no mural` : 'Resenha atualizada');
+    this.toasts.show(
+      revisit
+        ? e.isNew
+          ? `${cap(revisit)} de “${name}” pregada no mural`
+          : `${cap(revisit)} atualizada`
+        : e.isNew
+          ? `“${name}” pregado no mural`
+          : 'Resenha atualizada',
+    );
     if (e.isNew) void this.backup.protect();
   }
 

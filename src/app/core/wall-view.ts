@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
-import { KindProfile, countOf } from './kinds';
+import { KindProfile, countOf, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { Settings } from './settings';
 import {
@@ -114,7 +114,8 @@ export class WallView {
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
   private readonly searched = computed<Review[]>(() => {
     const needle = fold(this.query().trim());
-    return this.mural.reviews().filter((r) => matchesQuery(r, needle));
+    // a parede inteira: as fichas e as rejogadas, cada uma no seu lugar
+    return this.mural.wall().filter((r) => matchesQuery(r, needle));
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
@@ -232,7 +233,9 @@ export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage =
   const showAvg = o.sort !== 'nota' && !hideAverage;
   for (const g of groups) {
     const n = g.reviews.length;
-    const parts = [countOf(o.profile, n)];
+    // "3 jogos · 1 rejogada": a rejogada não é mais um jogo no mural
+    const again = g.reviews.filter((r) => r.revisitOf).length;
+    const parts = [...(n > again ? [countOf(o.profile, n - again)] : []), ...(again ? [revisitCountOf(o.profile, again)] : [])];
     if (showAvg && n > 1) parts.push(`média ${avgFmt.format(g.reviews.reduce((s, r) => s + r.scores.final, 0) / n)}`);
     g.summary = parts.join(' · ');
   }

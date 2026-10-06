@@ -69,6 +69,11 @@ export interface KindProfile {
   again: string;
   /** Wishlist: "o que você quer *jogar*". */
   verb: string;
+  /**
+   * A mesma obra outra vez, numa ficha à parte: "rejogada", "releitura", "reassistida". Sempre no
+   * feminino, em minúsculas (ver `cap`).
+   */
+  revisit: { one: string; many: string };
   bonuses: readonly Bonus[];
 }
 
@@ -128,6 +133,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último jogo que você jogou',
     finished: 'Zerou algo e ainda não sabe o que achar?',
     again: 'se jogaria de novo',
+    revisit: { one: 'rejogada', many: 'rejogadas' },
     verb: 'jogar',
     bonuses: [
       f('trilha-sonora', 'Trilha sonora incrível'),
@@ -188,6 +194,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último livro que você leu',
     finished: 'Terminou um livro e ainda não sabe o que achar?',
     again: 'se leria de novo',
+    revisit: { one: 'releitura', many: 'releituras' },
     verb: 'ler',
     bonuses: [
       f('personagens', 'Personagens marcantes'),
@@ -233,6 +240,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último filme que você viu',
     finished: 'Viu um filme e ainda não sabe o que achar?',
     again: 'se veria de novo',
+    revisit: { one: 'reassistida', many: 'reassistidas' },
     verb: 'ver',
     bonuses: [
       f('trilha-sonora', 'Trilha sonora incrível'),
@@ -279,6 +287,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'da última série que você terminou',
     finished: 'Terminou uma série e ainda não sabe o que achar?',
     again: 'se veria de novo',
+    revisit: { one: 'reassistida', many: 'reassistidas' },
     verb: 'ver',
     bonuses: [
       f('trilha-sonora', 'Trilha sonora incrível'),
@@ -322,6 +331,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
     lastOne: 'do último anime que você terminou',
     finished: 'Terminou um anime e ainda não sabe o que achar?',
     again: 'se veria de novo',
+    revisit: { one: 'reassistida', many: 'reassistidas' },
     verb: 'ver',
     bonuses: [
       f('abertura', 'Abertura incrível'),
@@ -364,6 +374,11 @@ export function g(p: KindProfile, masc: string, fem: string): string {
 /** "1 jogo", "3 séries". */
 export function countOf(p: KindProfile, n: number): string {
   return `${n} ${n === 1 ? p.singular : p.plural}`;
+}
+
+/** "1 rejogada", "3 releituras". */
+export function revisitCountOf(p: KindProfile, n: number): string {
+  return `${n} ${n === 1 ? p.revisit.one : p.revisit.many}`;
 }
 
 /** Primeira letra maiúscula: "Séries", "Livro". */

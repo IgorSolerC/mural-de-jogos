@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output } from '@angular/core';
-import { g, profileOf } from '../core/kinds';
+import { LucideAngularModule, Repeat } from 'lucide-angular';
+import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
   DIFFICULTY_LABEL,
@@ -62,7 +63,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -89,6 +90,8 @@ function watchDistance(el: HTMLElement): () => void {
     '[style]': 'paperVars()',
     '[class.recortada]': 'cut()',
     '[class.orelha]': 'review().damage === "orelha"',
+    // marcando pro lado a lado, a rejogada fica de fora (lá é uma ficha por obra)
+    '[class.fora]': 'picking() && !!review().revisitOf',
   },
   template: `
     <!-- tudo o que está na ficha, junto: é o que entra com fade quando o papel fica pronto (ver
@@ -107,6 +110,10 @@ function watchDistance(el: HTMLElement): () => void {
               <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
             }
           </app-cover-sleeve>
+          <!-- só capa e nome: a rejogada se distingue da original pelo selinho de "outra vez" no canto da foto -->
+          @if (capas() && review().revisitOf && !bare()) {
+            <span class="vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="15" [strokeWidth]="3" /></span>
+          }
         </div>
       </div>
 
@@ -117,12 +124,19 @@ function watchDistance(el: HTMLElement): () => void {
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
         } @else if (!capas()) {
         <p class="meta" data-queima>
+          <!-- a rejogada diz o que é antes da data; a original jogada mais vezes diz quantas, depois -->
+          @if (review().revisitOf) {
+            <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" [strokeWidth]="3" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
+          }
           @if (review().completedAt; as day) {
             <time [attr.datetime]="day">{{ date() }}</time>
           } @else {
             <span>{{ date() }}</span>
           }
           <!-- sem spoilers, a linha fica só com a data: as horas e as caveiras também contam o que achou -->
+          @if (!review().revisitOf && times() > 1) {
+            <span aria-hidden="true"> · </span><span class="vez-marca" [title]="timesTitle()"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" [strokeWidth]="3" aria-hidden="true" />{{ times() }}×<span class="sr-only"> ({{ timesTitle() }})</span></span>
+          }
           @if (review().hoursPlayed !== null && !compact() && !masked()) {
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
           }
@@ -175,7 +189,9 @@ function watchDistance(el: HTMLElement): () => void {
     }
 
     <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
-    @if (picking()) {
+    @if (picking() && review().revisitOf) {
+      <!-- a rejogada não vai pro lado a lado: nem marca, nem abre -->
+    } @else if (picking()) {
       <span class="marca" aria-hidden="true">
         @if (pickedAt(); as n) {
           <span class="n">{{ n }}</span>
@@ -522,6 +538,36 @@ function watchDistance(el: HTMLElement): () => void {
       }
     }
 
+    /* ===== Outra vez: a rejogada e a original jogada mais de uma vez ===== */
+    .vez-marca {
+      white-space: nowrap;
+    }
+    .vez-icone {
+      display: inline-block;
+      vertical-align: -2px;
+      margin-right: 3px;
+    }
+    /* só capa e nome: um selinho redondo de tinta no canto da foto */
+    .vez-selo {
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--hi);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+      rotate: -8deg;
+    }
+    :host(.fora) {
+      opacity: 0.45;
+      filter: saturate(0.6);
+    }
+
     .hit {
       position: absolute;
       inset: 0;
@@ -734,10 +780,17 @@ export class ReviewCard {
   readonly bareCover = input<'cinza' | 'borrada' | 'nitida' | null>(null);
   /** Só a cartolina: o pedaço da resenha que já pode aparecer, no lugar da frase. */
   readonly bareText = input('');
+  /** Quantas vezes a obra foi jogada (lida, vista): a original e as rejogadas. Só nas originais. */
+  readonly times = input(1);
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
+  protected readonly AgainIcon = Repeat;
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
+  /** "Rejogada", "Releitura", "Reassistida". */
+  protected readonly revisitWord = computed(() => cap(this.profile().revisit.one));
+  /** "Jogado 3 vezes": a original e as rejogadas dela. */
+  protected readonly timesTitle = computed(() => `${this.times()} vezes no mural: a original e ${revisitCountOf(this.profile(), this.times() - 1)}`);
   protected readonly profile = computed(() => profileOf(this.review().kind));
   /** Cartolina escura: tinta, lápis e estampa claros. */
   protected readonly dark = computed(() => isDarkStock(this.pin().stock));
@@ -821,7 +874,7 @@ export class ReviewCard {
         ? NO_DAY_LABEL.toLowerCase()
         : `${dayLabel(r.kind, r.status).toLowerCase()} ${formatReviewDate(r.completedAt)}`,
     );
-    return `Abrir resenha: ${parts.join(', ')}`;
+    return r.revisitOf ? `Abrir ${p.revisit.one}: ${parts.join(', ')}` : `Abrir resenha: ${parts.join(', ')}`;
   });
 
   protected readonly labels = SCORE_LABEL;

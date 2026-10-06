@@ -11,7 +11,7 @@ import {
   SquareCheckBig,
 } from 'lucide-angular';
 import { Mural } from '../core/mural';
-import { countOf } from '../core/kinds';
+import { countOf, revisitCountOf } from '../core/kinds';
 import { SCORE_LABEL, ScoreKey, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
@@ -59,9 +59,13 @@ export class WallToolbar {
   protected readonly kind = this.mural.kind;
   /** "Mostrando 12 de 40 jogos", no pé da cartela. */
   protected readonly summary = computed(() => {
-    const total = this.mural.count();
+    const total = this.mural.wallCount();
     const shown = this.view.visible().length;
-    const all = countOf(this.mural.profile(), total);
+    // as rejogadas também são fichas na parede: "40 jogos e 3 rejogadas"
+    const again = this.mural.revisitCount();
+    const all = again
+      ? `${countOf(this.mural.profile(), total - again)} e ${revisitCountOf(this.mural.profile(), again)}`
+      : countOf(this.mural.profile(), total);
     return shown === total ? `Mostrando todos os ${all}` : `Mostrando ${shown} de ${all}`;
   });
 

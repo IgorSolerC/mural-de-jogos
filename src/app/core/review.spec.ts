@@ -22,6 +22,8 @@ import {
   LIGHT_STOCKS,
   ROTATION_STOCKS,
   isDarkStock,
+  originalsOf,
+  timesOf,
 } from './review';
 
 const favor = (id: string): Bonus => ({ id, label: id, kind: 'favor' });
@@ -387,5 +389,36 @@ describe('datas e iniciais (caça a bugs)', () => {
     for (const bad of ['7', NaN, null, Infinity]) expect(sanitizeReview({ ...base, finalOverride: bad })!.scores.final).withContext(String(bad)).toBe(avg);
     // zero é nota: a mão pode reprovar
     expect(sanitizeReview({ ...base, finalOverride: 0 })!.scores.final).toBe(0);
+  });
+});
+
+describe('rejogadas', () => {
+  const raw = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    game: { name: 'Hades' },
+    scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 },
+    createdAt: '2024-01-01T12:00:00Z',
+    ...extra,
+  });
+
+  it('guarda o id da original, e só um id válido que não seja o da própria ficha', () => {
+    expect(sanitizeReview(raw('rvez01', { revisitOf: 'roriginal' }))!.revisitOf).toBe('roriginal');
+    expect(sanitizeReview(raw('rvez01', { revisitOf: 'rvez01' }))!.revisitOf).toBeUndefined();
+    expect(sanitizeReview(raw('rvez01', { revisitOf: 'com espaço' }))!.revisitOf).toBeUndefined();
+    expect('revisitOf' in sanitizeReview(raw('roriginal'))!).toBeFalse();
+  });
+
+  it('põe as vezes em ordem: a original, depois as rejogadas pela data (sem data no fim)', () => {
+    const o = sanitizeReview(raw('roriginal', { completedAt: '2020-05-01' }))!;
+    const late = sanitizeReview(raw('rvez0002', { revisitOf: 'roriginal', completedAt: '2025-01-10' }))!;
+    const early = sanitizeReview(raw('rvez0001', { revisitOf: 'roriginal', completedAt: '2023-07' }))!;
+    const undated = sanitizeReview(raw('rvez0003', { revisitOf: 'roriginal', completedAt: null }))!;
+    const other = sanitizeReview(raw('routra01'))!;
+    const list = [late, other, undated, o, early];
+    const ids = ['roriginal', 'rvez0001', 'rvez0002', 'rvez0003'];
+    expect(timesOf(list, o).map((r) => r.id)).toEqual(ids);
+    expect(timesOf(list, late).map((r) => r.id)).toEqual(ids);
+    expect(timesOf(list, other).map((r) => r.id)).toEqual(['routra01']);
+    expect(originalsOf(list).map((r) => r.id)).toEqual(['routra01', 'roriginal']);
   });
 });

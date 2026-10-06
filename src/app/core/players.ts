@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ColleagueStore } from './colleague-store';
 import { Mural } from './mural';
-import { Review } from './review';
+import { Review, originalsOf } from './review';
 
 const KEY = 'mural-de-jogos:extras-dono:v1';
 
@@ -15,7 +15,10 @@ export interface Player {
   /** "Você" ou o nome do colega. */
   name: string;
   mine: boolean;
+  /** As fichas originais, uma por obra: é com elas que os jogos jogam. */
   reviews: Review[];
+  /** As originais e as rejogadas: o que conta no tempo, nas Estatísticas. */
+  sessions: Review[];
 }
 
 function readChosen(): string {
@@ -41,13 +44,11 @@ export class Players {
   readonly all = computed<Player[]>(() => {
     const kind = this.mural.kind();
     return [
-      { id: ME, name: 'Você', mine: true, reviews: this.mural.reviews() },
-      ...this.colleagues.colleagues().map((c) => ({
-        id: c.id,
-        name: c.name,
-        mine: false,
-        reviews: c.reviews.filter((r) => r.kind === kind),
-      })),
+      { id: ME, name: 'Você', mine: true, reviews: this.mural.reviews(), sessions: this.mural.wall() },
+      ...this.colleagues.colleagues().map((c) => {
+        const sessions = c.reviews.filter((r) => r.kind === kind);
+        return { id: c.id, name: c.name, mine: false, reviews: originalsOf(sessions), sessions };
+      }),
     ];
   });
 

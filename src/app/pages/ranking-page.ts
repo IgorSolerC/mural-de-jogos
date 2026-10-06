@@ -70,6 +70,8 @@ export class RankingPage {
   });
   /** "Jogos no mural", "Séries no mural". */
   protected readonly inWall = computed(() => `${cap(this.mural.profile().plural)} no mural`);
+  /** "Rejogadas", "Releituras". */
+  protected readonly revisitsLabel = computed(() => cap(this.mural.profile().revisit.many));
   protected readonly emptyText = computed(() => {
     const p = this.mural.profile();
     return `Nada pra ranquear ainda. Pregue ${g(p, 'uns', 'umas')} ${p.plural} e a lista sai com o seu top.`;
@@ -102,7 +104,8 @@ export class RankingPage {
     const list = this.mural.reviews();
     const kind = this.mural.kind();
     const n = list.length;
-    const hours = list.reduce((s, r) => s + (r.hoursPlayed ?? 0), 0);
+    // o tempo gasto conta todas as vezes: as rejogadas também (o ranking em si é só das originais)
+    const hours = this.mural.wall().reduce((s, r) => s + (r.hoursPlayed ?? 0), 0);
     const byStatus = { incompleto: 0, finalizado: 0, platinado: 0 };
     const byVerdict = new Map<string, number>();
     const byBonus = new Map<string, { bonus: Bonus; n: number }>();

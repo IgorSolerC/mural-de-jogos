@@ -27,6 +27,8 @@ export interface WallCardProps {
   picked: ReadonlyMap<string, number>;
   /** Sem spoilers: notas, veredito, bônus e texto escondidos. */
   masked: boolean;
+  /** Quantas vezes cada obra jogada mais de uma vez está no mural (id da original → vezes). */
+  times: ReadonlyMap<string, number>;
 }
 
 const NO_PROPS: WallCardProps = {
@@ -38,6 +40,7 @@ const NO_PROPS: WallCardProps = {
   picking: false,
   picked: new Map(),
   masked: false,
+  times: new Map(),
 };
 
 /**
@@ -139,6 +142,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('picking', p.picking);
     ref.setInput('pickedAt', p.picked.get(r.id) ?? null);
     ref.setInput('masked', p.masked);
+    ref.setInput('times', p.times.get(r.id) ?? 1);
   }
 
   private drop(id: string, ref: ComponentRef<ReviewCard>): void {

@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KindProfile, isKind, profileOf } from './kinds';
-import { Bonus, Draft, Kind, Review, Wish } from './review';
+import { Bonus, Draft, Kind, Review, Wish, originalsOf } from './review';
 import { ReviewStore } from './review-store';
 
 const KEY = 'mural-de-jogos:mural:v1';
@@ -26,8 +26,17 @@ export class Mural {
   readonly kind = signal<Kind>(readKind());
   readonly profile = computed<KindProfile>(() => profileOf(this.kind()));
 
-  readonly reviews = computed<Review[]>(() => this.store.reviews().filter((r) => r.kind === this.kind()));
+  /** Tudo o que vai na parede deste mural: as fichas e as rejogadas (releituras, reassistidas). */
+  readonly wall = computed<Review[]>(() => this.store.reviews().filter((r) => r.kind === this.kind()));
+  readonly wallCount = computed(() => this.wall().length);
+  /**
+   * As fichas originais, uma por obra: é o que entra no ranking, nos jogos de Extras, nas comparações
+   * e nas contas de nota. As rejogadas ficam só na parede e no tempo (ver `wall`).
+   */
+  readonly reviews = computed<Review[]>(() => originalsOf(this.wall()));
   readonly count = computed(() => this.reviews().length);
+  /** Só as rejogadas deste mural. */
+  readonly revisitCount = computed(() => this.wallCount() - this.count());
   readonly drafts = computed<Draft[]>(() => this.store.drafts().filter((d) => d.kind === this.kind()));
   readonly draftCount = computed(() => this.drafts().length);
   readonly wishes = computed<Wish[]>(() => this.store.wishes().filter((w) => w.kind === this.kind()));
@@ -38,7 +47,7 @@ export class Mural {
   /** Quantas fichas cada mural tem, para o seletor do cartaz. */
   readonly counts = computed(() => {
     const out = { jogos: 0, livros: 0, filmes: 0, series: 0, animes: 0 } as Record<Kind, number>;
-    for (const r of this.store.reviews()) out[r.kind]++;
+    for (const r of this.store.reviews()) if (!r.revisitOf) out[r.kind]++;
     return out;
   });
 

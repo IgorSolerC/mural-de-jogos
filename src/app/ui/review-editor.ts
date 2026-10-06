@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Bookmark, Check, Images, LucideAngularModule, Pin as PinIcon, RefreshCw, Trash2, X } from 'lucide-angular';
+import { Bookmark, Check, CopyCheck, Images, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Trash2, X } from 'lucide-angular';
 import {
   Bonus,
   Difficulty,
@@ -39,11 +39,12 @@ import {
   isYearOnly,
   isYearMonth,
   formatReviewDateLong,
+  formatReviewDate,
   newId,
   todayISO,
 } from '../core/review';
 import { GameLookup, isSteamCover } from '../core/game-lookup';
-import { g, profileOf } from '../core/kinds';
+import { cap, g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
 import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
@@ -114,6 +115,8 @@ export class ReviewEditor {
   protected readonly PinIcon = PinIcon;
   protected readonly CoversIcon = Images;
   protected readonly DoneIcon = Check;
+  protected readonly RevisitIcon = Repeat;
+  protected readonly KeepIcon = CopyCheck;
   protected readonly labels = SCORE_LABEL;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -129,6 +132,30 @@ export class ReviewEditor {
   protected readonly fromDraft = signal<Draft | null>(null);
   /** O desejo da wishlist que virou resenha, se a ficha veio de lá. */
   protected readonly fromWish = signal<Wish | null>(null);
+  /**
+   * Escrevendo (ou editando) uma rejogada: o id da ficha original. O item é o dela, sem trocar; as
+   * notas começam em branco, e "Manter notas" traz as de lá.
+   */
+  protected readonly revisitRoot = signal<string | null>(null);
+  /** A ficha original da rejogada, se ela ainda está no mural. */
+  protected readonly original = computed(() => {
+    const id = this.revisitRoot();
+    return id ? (this.store.get(id) ?? null) : null;
+  });
+  /** "Rejogada", "Releitura", "Reassistida". */
+  protected readonly revisitWord = computed(() => cap(this.profile().revisit.one));
+  /** As notas da original já foram copiadas nesta rejogada (o aviso troca o convite). */
+  protected readonly keptNotes = signal(false);
+  /** O cabeçalho do editor. */
+  protected readonly title = computed(() => {
+    if (this.revisitRoot()) return `${this.editing() ? 'Editar' : 'Nova'} ${this.profile().revisit.one}`;
+    return this.editing() ? 'Editar resenha' : this.fromDraft() ? 'Terminar resenha' : 'Nova resenha';
+  });
+  /** "de 12 mar 2024" (a data da original), para o convite de manter as notas. */
+  protected readonly originalWhen = computed(() => {
+    const o = this.original();
+    return o?.completedAt ? `de ${formatReviewDate(o.completedAt)}` : 'da primeira vez';
+  });
   /** O mural da ficha: o aberto, para uma ficha nova; o dela, para uma que já existe. */
   protected readonly kind = signal<Kind>('jogos');
   protected readonly profile = computed(() => profileOf(this.kind()));
@@ -301,6 +328,7 @@ export class ReviewEditor {
       decorSeed: this.decorSeed() ?? undefined,
       text: this.text(),
       completedAt: this.dateValid() ? this.dateValue() : this.today(),
+      ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
       createdAt: '',
       updatedAt: '',
     };
@@ -368,12 +396,20 @@ export class ReviewEditor {
 
   private snapshot = '';
 
-  open(review?: Review, draft?: Draft, wish?: Wish): void {
-    const kind = review?.kind ?? draft?.kind ?? wish?.kind ?? this.mural.kind();
+  /**
+   * Abre o editor: uma ficha para editar, um pendente ou um desejo para terminar, ou nada (ficha
+   * nova). Com `revisitOf`, uma rejogada nova da ficha original dada.
+   */
+  open(review?: Review, draft?: Draft, wish?: Wish, revisitOf?: Review): void {
+    const kind = review?.kind ?? draft?.kind ?? wish?.kind ?? revisitOf?.kind ?? this.mural.kind();
     this.kind.set(kind);
     this.editing.set(review ?? null);
     this.fromDraft.set(review ? null : (draft ?? null));
     this.fromWish.set(review || draft ? null : (wish ?? null));
+    // a rejogada de uma rejogada é mais uma vez da mesma original
+    const root = review ? (review.revisitOf ?? null) : revisitOf ? (revisitOf.revisitOf ?? revisitOf.id) : null;
+    this.revisitRoot.set(root);
+    this.keptNotes.set(false);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
     this.stock.set(review?.stock ?? this.store.nextStock(kind));
@@ -394,7 +430,7 @@ export class ReviewEditor {
     this.decor.set(review?.decor ?? null);
     this.decorSeed.set(review?.decorSeed ?? null);
     this.kit()?.reset();
-    this.game.set(review?.game ?? draft?.game ?? wish?.game ?? null);
+    this.game.set(review?.game ?? draft?.game ?? wish?.game ?? (root ? (this.store.get(root)?.game ?? revisitOf!.game) : null));
     const { final: _final, ...rated } = review?.scores ?? { final: 0 };
     this.scores.set(rated);
     this.status.set(review?.status ?? null);
@@ -434,7 +470,27 @@ export class ReviewEditor {
     toTop();
     // e de novo depois que o conteúdo da resenha nova desenhar (e o foco ir para a busca)
     requestAnimationFrame(toTop);
-    if (!review && !draft) queueMicrotask(() => this.search()?.focus());
+    if (!review && !draft && !root) queueMicrotask(() => this.search()?.focus());
+  }
+
+  /**
+   * "Manter notas": a rejogada pega as notas da original (as quatro, os pesos, os bônus, a nota na
+   * mão, o veredito, a dificuldade e o status). A data, a quantidade e o texto continuam desta vez.
+   */
+  protected keepNotes(): void {
+    const o = this.original();
+    if (!o) return;
+    const { final: _final, ...rated } = o.scores;
+    this.scores.set({ ...rated });
+    this.weights.set({ ...o.weights });
+    this.bonuses.set([...o.bonuses]);
+    this.bonusPicker()?.reset();
+    this.overrideOn.set(o.finalOverride !== undefined);
+    this.overrideText.set(o.finalOverride !== undefined ? formatRawScore(o.finalOverride) : '');
+    this.verdict.set(o.verdict);
+    this.difficulty.set(this.profile().difficulty ? o.difficulty : 'nenhuma');
+    this.status.set(o.status);
+    this.keptNotes.set(true);
   }
 
   protected pick(game: PickedGame): void {
@@ -530,6 +586,7 @@ export class ReviewEditor {
       ...(this.overrideOn() ? { finalOverride: final } : {}),
       text: this.text().trim(),
       completedAt: this.dateValue(),
+      ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };

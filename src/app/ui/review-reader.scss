@@ -32,6 +32,84 @@ dialog.reader {
   }
 }
 
+/* ===== As vezes da obra: a original e as rejogadas, como páginas =====
+   Uma tira de etiqueta no alto da ficha, com as setas de virar a página nas pontas. */
+.vezes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -12px 0 22px;
+  padding: 4px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.42);
+  box-shadow:
+    inset 0 0 0 1.5px rgb(21 21 21 / 0.16),
+    0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.vez {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.vez-nome {
+  font-family: var(--f-marker);
+  font-size: 1.3rem;
+  line-height: 1.1;
+}
+
+.vez-conta {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.vez-seta {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    opacity var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
+
+  &:disabled {
+    background: transparent;
+    color: var(--ink);
+    opacity: 0.25;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+@media (hover: hover) {
+  .vez-seta:not(:disabled):first-child:hover {
+    translate: -2px 0;
+  }
+  .vez-seta:not(:disabled):last-child:hover {
+    translate: 2px 0;
+  }
+}
+
 /* ===== A ficha do mural, vista de perto =====
    Foto colada à esquerda; à direita o nome e a data, e embaixo a etiqueta do julgamento. */
 .top {
@@ -183,6 +261,14 @@ app-judge-label {
 
   .body {
     padding-top: 20px;
+  }
+
+  .vezes {
+    margin: -8px 0 18px;
+  }
+
+  .vez-nome {
+    font-size: 1.15rem;
   }
 
   .top {

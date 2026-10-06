@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, LucideAngularModule, Plus } from 'l
 import { Desk } from '../core/desk';
 import { getRecord, recordKey } from '../core/game-records';
 import { measuresFor } from '../core/higher-lower';
-import { cap, countOf, g } from '../core/kinds';
+import { cap, countOf, g, revisitCountOf } from '../core/kinds';
 import { loadKnockout } from '../core/knockout-save';
 import { Mural } from '../core/mural';
 import { loadStats } from '../core/muraldle-save';
@@ -122,6 +122,7 @@ export class StatsPage {
   protected readonly cap = cap;
   protected readonly g = g;
   protected readonly countOf = countOf;
+  protected readonly revisitCountOf = revisitCountOf;
   protected readonly fmt = formatScore;
   protected readonly verdictLabel = VERDICT_LABEL;
   protected readonly monthName = monthName;
@@ -148,11 +149,14 @@ export class StatsPage {
   protected readonly player = this.players.selected;
   protected readonly mine = computed(() => this.player().mine);
   protected readonly all = computed(() => this.player().reviews);
-  protected readonly years = computed(() => yearsIn(this.all()));
+  /** As originais e as rejogadas: o que conta no tempo, na quantidade e nas palavras. */
+  private readonly sessions = computed(() => this.player().sessions);
+  protected readonly years = computed(() => yearsIn(this.sessions()));
   private readonly chosenYear = signal<number | null>(null);
   /** O ano escolhido, se o mural aberto tem fichas nele; senão, todos. */
   protected readonly year = computed(() => (this.years().includes(this.chosenYear() ?? -1) ? this.chosenYear() : null));
   protected readonly list = computed(() => inYear(this.all(), this.year()));
+  private readonly sessionList = computed(() => inYear(this.sessions(), this.year()));
 
   protected setYear(v: string): void {
     this.chosenYear.set(v ? Number(v) : null);
@@ -163,7 +167,7 @@ export class StatsPage {
   protected readonly whose = computed(() => (this.mine() ? 'seu mural' : `mural de ${this.player().name}`));
 
   // ===== as contas =====
-  protected readonly s = computed(() => wallStats(this.list(), this.kind()));
+  protected readonly s = computed(() => wallStats(this.list(), this.kind(), this.sessionList()));
   protected readonly portrait = computed(() => portraitLines(this.s(), this.profile(), { you: this.mine(), name: this.player().name }));
   protected readonly queue = computed(() =>
     this.mine() ? queueStats(this.mural.reviews(), this.mural.drafts(), this.mural.wishes()) : null,
@@ -174,7 +178,8 @@ export class StatsPage {
     const p = this.profile();
     const range = this.year() === null && s.first && s.last && s.first !== s.last ? `, terminad${p.fem ? 'as' : 'os'} de ${this.date(s.first)} a ${this.date(s.last)}` : '';
     const when = this.year() ? ` em ${this.year()}` : '';
-    return `${countOf(p, s.count)}${when}${range}.`;
+    const again = s.revisits ? `, mais ${revisitCountOf(p, s.revisits)}` : '';
+    return `${countOf(p, s.count)}${again}${when}${range}.`;
   });
 
   protected readonly kpis = computed<Numero[]>(() => {
@@ -192,7 +197,9 @@ export class StatsPage {
     out.push({ label: 'Até o fim', value: s.finishRate === null ? '–' : `${s.finishRate}%`, sub: `${done} de ${s.count} terminad${p.fem ? 'as' : 'os'}` });
     if (p.amount && s.amount) {
       const total = Math.round(s.amount.total);
-      const sub = p.amount.decimals
+      const sub = s.amount.revisitTotal
+        ? `${formatAmount(this.kind(), Math.round(s.amount.revisitTotal))} em ${p.revisit.many}`
+        : p.amount.decimals
         ? total >= 48
           ? `≈ ${int.format(Math.round(total / 24))} dias sem parar`
           : `média de ${formatAmount(this.kind(), Math.round(s.amount.avg * 10) / 10)}`
@@ -369,6 +376,6 @@ export class StatsPage {
   /** O seu abre na leitura de sempre (com Editar); o do colega, na leitura só de ler, com o nome dele. */
   protected open(r: Review): void {
     if (this.mine()) this.desk.openReview(r.id);
-    else this.reader().open(r, this.player().name);
+    else this.reader().open(r, this.player().name, this.sessions());
   }
 }

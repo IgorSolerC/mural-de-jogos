@@ -223,6 +223,33 @@
   color: var(--ink-2);
 }
 
+/* Na rejogada o item não troca: no lugar do Trocar, a setinha de "outra vez" */
+.tj-volta {
+  flex: none;
+  color: var(--ink-2);
+}
+
+/* "Manter notas": uma linha escrita à mão com a caneta ao lado, logo abaixo da tira */
+.manter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  margin-top: -6px;
+
+  .acao-caneta {
+    margin-left: -8px;
+    font-size: 0.95rem;
+  }
+}
+
+.manter-txt {
+  flex: 1 1 220px;
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
 /* Trocar a capa: uma linha de caneta logo abaixo da tira do jogo */
 .capa-btn {
   justify-self: start;

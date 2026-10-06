@@ -81,6 +81,9 @@
         <div><dt>{{ mural.profile().statusGroup.platinado }}</dt><dd>{{ totals().byStatus.platinado }}</dd></div>
         <div><dt>{{ mural.profile().statusGroup.finalizado }}</dt><dd>{{ totals().byStatus.finalizado }}</dd></div>
         <div><dt>{{ mural.profile().statusGroup.incompleto }}</dt><dd>{{ totals().byStatus.incompleto }}</dd></div>
+        @if (mural.revisitCount()) {
+          <div><dt>{{ revisitsLabel() }}</dt><dd>{{ mural.revisitCount() }}</dd></div>
+        }
         @if (mural.draftCount()) {
           <div><dt>Pra depois</dt><dd>{{ mural.draftCount() }}</dd></div>
         }

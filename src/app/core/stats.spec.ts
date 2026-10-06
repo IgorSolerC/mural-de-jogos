@@ -14,6 +14,26 @@ function review(id: string, name: string, final: number, extra: Record<string, u
 }
 
 describe('estatísticas do mural', () => {
+  it('conta as rejogadas no tempo, na quantidade e nas palavras, mas não nas notas', () => {
+    const a = review('a', 'A', 6, { completedAt: '2023-02-10', hoursPlayed: 10, text: 'uma duas' });
+    const b = review('b', 'B', 8, { completedAt: '2024-03-10', hoursPlayed: 20 });
+    const again = review('c', 'A', 10, { completedAt: '2024-03-20', hoursPlayed: 5, text: 'três', revisitOf: 'ficha-a' });
+    const s = wallStats([a, b], 'jogos', [a, b, again]);
+    expect(s.count).toBe(2);
+    expect(s.revisits).toBe(1);
+    expect(s.average).toBe(7);
+    expect(s.best?.review.id).toBe('ficha-b');
+    expect(s.byYear.map((y) => y.n)).toEqual([1, 2]);
+    expect(s.busiestMonth).toEqual({ year: 2024, month: 3, n: 2 });
+    expect(s.amount!.total).toBe(35);
+    expect(s.amount!.revisitTotal).toBe(5);
+    expect(s.amount!.n).toBe(2);
+    expect(s.text.words).toBe(3);
+    expect(s.last?.id).toBe('ficha-c');
+    // sem as rejogadas, tudo como antes
+    expect(wallStats([a, b], 'jogos').amount!.total).toBe(30);
+  });
+
   it('faz as contas básicas: quantis e correlação', () => {
     expect(quantile([1, 2, 3, 4], 0.5)).toBe(2.5);
     expect(quantile([], 0.5)).toBeNull();

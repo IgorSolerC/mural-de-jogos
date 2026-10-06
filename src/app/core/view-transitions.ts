@@ -25,7 +25,7 @@ export class ViewTransitions {
     const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<unknown> } };
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     // Muitas fichas: trocar direto é mais rápido que animar cada uma.
-    if (!doc.startViewTransition || reduced || this.mural.count() > 160) {
+    if (!doc.startViewTransition || reduced || this.mural.wallCount() > 160) {
       change();
       return;
     }

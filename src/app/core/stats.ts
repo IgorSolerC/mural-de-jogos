@@ -231,7 +231,10 @@ export interface Incoherence {
 
 export interface WallStats {
   kind: Kind;
+  /** As fichas originais, uma por obra. */
   count: number;
+  /** As rejogadas (releituras, reassistidas): contam no tempo, na quantidade e nas palavras. */
+  revisits: number;
   // ----- notas -----
   average: number | null;
   median: number | null;
@@ -286,7 +289,10 @@ export interface WallStats {
   difficulties: Count<Difficulty>[] | null;
   amount: {
     n: number;
+    /** O total de tudo, com as rejogadas (o tempo gasto de verdade). O resto é só das originais. */
     total: number;
+    /** Quanto do total veio das rejogadas. */
+    revisitTotal: number;
     avg: number;
     median: number;
     longest: Pick;
@@ -456,8 +462,13 @@ export function franchisesOf(list: readonly Review[]): Franchise[] {
   return out.sort((a, b) => b.reviews.length - a.reviews.length || b.avg - a.avg || collator.compare(a.name, b.name));
 }
 
-/** Todas as contas de um mural. `list` já vem filtrada (mural e, se for o caso, ano). */
-export function wallStats(list: readonly Review[], kind: Kind): WallStats {
+/**
+ * Todas as contas de um mural. `list` já vem filtrada (mural e, se for o caso, ano) e tem só as fichas
+ * originais, uma por obra: é sobre elas que valem as notas, os vereditos, os bônus e as curiosidades.
+ * `sessions` são as originais e as rejogadas (releituras, reassistidas): o tempo (fichas por mês, por
+ * ano, por dia da semana), a quantidade gasta e as palavras escritas contam todas as vezes.
+ */
+export function wallStats(list: readonly Review[], kind: Kind, sessions: readonly Review[] = list): WallStats {
   const profile = profileOf(kind);
   const n = list.length;
   const finalsRaw = list.map((r) => r.scores.final);
@@ -519,7 +530,7 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
 
   // ----- tempo -----
   const yearMap = new Map<number, Review[]>();
-  for (const r of list) {
+  for (const r of sessions) {
     const y = yearOf(r);
     if (y !== null) yearMap.set(y, [...(yearMap.get(y) ?? []), r]);
   }
@@ -545,7 +556,7 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
   const busiestYear = byYear.length ? [...byYear].sort((a, b) => b.n - a.n || Number(b.key) - Number(a.key))[0] : null;
 
   // meses seguidos com pelo menos uma ficha
-  const monthKeys = new Set(list.filter((r) => monthOf(r) !== null).map((r) => yearOf(r)! * 12 + monthOf(r)! - 1));
+  const monthKeys = new Set(sessions.filter((r) => monthOf(r) !== null).map((r) => yearOf(r)! * 12 + monthOf(r)! - 1));
   const sortedMonths = [...monthKeys].sort((a, b) => a - b);
   let best = 0;
   let bestEnd: number | null = null;
@@ -559,7 +570,7 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
   }
   const monthsSpan = sortedMonths.length ? sortedMonths.at(-1)! - sortedMonths[0] + 1 : 0;
 
-  const dated = list.filter((r) => dayOf(r)).sort((a, b) => dayOf(a)!.getTime() - dayOf(b)!.getTime() || byName(a, b));
+  const dated = sessions.filter((r) => dayOf(r)).sort((a, b) => dayOf(a)!.getTime() - dayOf(b)!.getTime() || byName(a, b));
   let longestGap: WallStats['longestGap'] = null;
   for (let i = 1; i < dated.length; i++) {
     const days = Math.round((dayOf(dated[i])!.getTime() - dayOf(dated[i - 1])!.getTime()) / DAY_MS);
@@ -570,7 +581,7 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
   const weekdays = weekdayCount.map((rs, i) => ({ key: String(i), label: WEEKDAYS[i], n: rs.length, avg: mean(rs.map((r) => r.scores.final)) }));
 
   const hours = Array.from({ length: 24 }, () => 0);
-  for (const r of list) {
+  for (const r of sessions) {
     const d = new Date(r.createdAt);
     if (!Number.isNaN(d.getTime())) hours[d.getHours()]++;
   }
@@ -581,22 +592,24 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
   const busiestDayEntry = [...byDay].sort((a, b) => b[1].length - a[1].length || b[0].localeCompare(a[0]))[0];
 
   // a ordem no tempo: dia, depois mês, depois ano (as sem data ficam de fora)
-  const chrono = list
-    .filter((r) => r.completedAt)
-    .sort((a, b) => a.completedAt!.localeCompare(b.completedAt!) || a.createdAt.localeCompare(b.createdAt));
+  const timeline = (rs: readonly Review[]) =>
+    rs.filter((r) => r.completedAt).sort((a, b) => a.completedAt!.localeCompare(b.completedAt!) || a.createdAt.localeCompare(b.createdAt));
+  const chrono = timeline(sessions);
+  // a régua de nota apertou ou afrouxou: só nas originais, cada obra uma vez
+  const chronoScored = timeline(list);
   let drift: WallStats['drift'] = null;
-  if (chrono.length >= 8) {
-    const half = Math.floor(chrono.length / 2);
+  if (chronoScored.length >= 8) {
+    const half = Math.floor(chronoScored.length / 2);
     drift = {
-      before: mean(chrono.slice(0, half).map((r) => r.scores.final))!,
-      after: mean(chrono.slice(chrono.length - half).map((r) => r.scores.final))!,
+      before: mean(chronoScored.slice(0, half).map((r) => r.scores.final))!,
+      after: mean(chronoScored.slice(chronoScored.length - half).map((r) => r.scores.final))!,
       split: half,
     };
   }
 
   const precision = { dia: 0, mes: 0, ano: 0, sem: 0 };
   let retro = 0;
-  for (const r of list) {
+  for (const r of sessions) {
     const d = r.completedAt;
     if (d === null) precision.sem++;
     else if (isValidDay(d)) precision.dia++;
@@ -634,9 +647,11 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
     });
     const quick = withAmount.filter((r) => shownFinal(r) >= 8).sort((a, b) => a.hoursPlayed! - b.hoursPlayed! || shownFinal(b) - shownFinal(a))[0];
     const slog = withAmount.filter((r) => shownFinal(r) < 6).sort((a, b) => b.hoursPlayed! - a.hoursPlayed! || shownFinal(a) - shownFinal(b))[0];
+    const revisitTotal = sessions.reduce((s, r) => s + (r.revisitOf && r.hoursPlayed ? r.hoursPlayed : 0), 0);
     amount = {
       n: withAmount.length,
-      total: vals.reduce((s, v) => s + v, 0),
+      total: vals.reduce((s, v) => s + v, 0) + revisitTotal,
+      revisitTotal,
       avg: mean(vals)!,
       median: quantile(vals, 0.5)!,
       longest: { review: longR, value: longR.hoursPlayed! },
@@ -672,7 +687,7 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
   const topRel = [...relYears].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0];
 
   // ----- texto -----
-  const texted = list.map((r) => ({ review: r, value: wordsOf(r.text) })).filter((p) => p.value > 0);
+  const texted = sessions.map((r) => ({ review: r, value: wordsOf(r.text) })).filter((p) => p.value > 0);
   const words = texted.reduce((s, p) => s + p.value, 0);
 
   // ----- vereditos -----
@@ -729,6 +744,7 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
   return {
     kind,
     count: n,
+    revisits: sessions.filter((r) => r.revisitOf).length,
     average: mean(finalsRaw),
     median: quantile(finals, 0.5),
     spread: stdev(finalsRaw),
@@ -771,7 +787,7 @@ export function wallStats(list: readonly Review[], kind: Kind): WallStats {
     last: chrono.at(-1) ?? null,
     busiestMonth: busiestMonth && busiestMonth.n > 0 ? busiestMonth : null,
     busiestYear: busiestYear && busiestYear.n > 0 ? busiestYear : null,
-    perMonth: monthsSpan ? list.filter((r) => monthOf(r) !== null).length / monthsSpan : null,
+    perMonth: monthsSpan ? sessions.filter((r) => monthOf(r) !== null).length / monthsSpan : null,
     monthsSpan,
     longestGap,
     monthStreak: {

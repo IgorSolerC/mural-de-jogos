@@ -2,9 +2,9 @@ import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRend
 import { RouterLink } from '@angular/router';
 import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
-import { KINDS, Kind, cap, countOf, profileOf } from '../core/kinds';
+import { KINDS, Kind, cap, countOf, profileOf, revisitCountOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Review, VERDICT_LABEL, fold } from '../core/review';
+import { Review, VERDICT_LABEL, fold, originalsOf } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from '../core/wall-filter';
@@ -91,7 +91,8 @@ export class ColleagueWallPage {
   protected readonly sheetSummary = computed(() => {
     const total = this.reviews().length;
     const shown = this.visible().length;
-    const all = countOf(this.profile(), total);
+    const again = total - originalsOf(this.reviews()).length;
+    const all = again ? `${countOf(this.profile(), total - again)} e ${revisitCountOf(this.profile(), again)}` : countOf(this.profile(), total);
     return shown === total ? `Mostrando todos os ${all}` : `Mostrando ${shown} de ${all}`;
   });
 
@@ -102,7 +103,8 @@ export class ColleagueWallPage {
 
   /** "34 jogos · média 7,1 · 9 platinados". */
   protected readonly summary = computed(() => {
-    const list = this.reviews();
+    // uma ficha por obra: as rejogadas do colega não entram na conta nem na média
+    const list = originalsOf(this.reviews());
     if (!list.length) return '';
     const avg = list.reduce((s, r) => s + r.scores.final, 0) / list.length;
     return `${countOf(this.profile(), list.length)} · média ${avgFmt.format(avg)}`;
@@ -113,7 +115,7 @@ export class ColleagueWallPage {
     const c = this.colleague();
     if (!c) return [];
     return KINDS.filter((k) => k !== this.mural.kind())
-      .map((kind) => ({ kind, label: cap(profileOf(kind).plural), n: c.reviews.filter((r) => r.kind === kind).length }))
+      .map((kind) => ({ kind, label: cap(profileOf(kind).plural), n: c.reviews.filter((r) => r.kind === kind && !r.revisitOf).length }))
       .filter((w) => w.n);
   });
 
@@ -171,6 +173,7 @@ export class ColleagueWallPage {
   }
 
   protected open(review: Review): void {
-    this.reader().open(review, this.name());
+    // com as outras fichas do colega: a leitura anda entre as vezes de uma obra que ele rejogou
+    this.reader().open(review, this.name(), this.reviews());
   }
 }

@@ -211,15 +211,34 @@ export class ReviewStore {
     this.reviews.update((list) => [withStock, ...list]);
   }
 
+  /**
+   * Salva a ficha. Na original, o item (nome, capa, ano) vai junto para as rejogadas dela: é a mesma
+   * obra, e a rejogada não tem como trocar o item sozinha.
+   */
   update(review: Review): void {
-    this.reviews.update((list) => list.map((r) => (r.id === review.id ? review : r)));
+    const before = this.get(review.id);
+    const sameGame = !before || review.revisitOf || JSON.stringify(before.game) === JSON.stringify(review.game);
+    this.reviews.update((list) =>
+      list.map((r) => {
+        if (r.id === review.id) return review;
+        if (!sameGame && r.revisitOf === review.id) return { ...r, game: review.game, updatedAt: review.updatedAt };
+        return r;
+      }),
+    );
   }
 
+  /** As rejogadas (releituras, reassistidas) de uma ficha original. */
+  revisitsOf(id: string): Review[] {
+    return this.reviews().filter((r) => r.revisitOf === id);
+  }
+
+  /** Tira a ficha do mural. A original leva junto as rejogadas dela (o Desfazer traz todas de volta). */
   remove(id: string): Review | undefined {
     const found = this.get(id);
     if (found) {
-      this.reviews.update((list) => list.filter((r) => r.id !== id));
-      this.mark('reviews', id);
+      const gone = new Set([id, ...this.revisitsOf(id).map((r) => r.id)]);
+      this.reviews.update((list) => list.filter((r) => !gone.has(r.id)));
+      for (const g of gone) this.mark('reviews', g);
     }
     return found;
   }

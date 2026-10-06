@@ -265,6 +265,9 @@
           <h2 id="ano-titulo" class="titulo">{{ year() === null ? 'Fichas por ano' : 'Mês a mês em ' + year() }}</h2>
           <p class="sub">Pelo dia em que terminou{{ year() === null ? '' : ' (as que só têm o ano ficam de fora)' }}. Embaixo, a média de cada {{ year() === null ? 'ano' : 'mês' }}.</p>
           <app-colunas class="tira-verde" [bars]="timeBars()" [unit]="p.plural" [avgRow]="true" [height]="200" [thin]="timeBars().length > 8" [caption]="year() === null ? 'Fichas por ano' : 'Fichas por mês'" />
+          @if (st.revisits) {
+            <p class="miudo-papel">Nesta página as {{ p.revisit.many }} contam também, cada uma na data dela ({{ revisitCountOf(p, st.revisits) }}).</p>
+          }
           @if (st.precision.sem) {
             <p class="miudo-papel">{{ plural(st.precision.sem, 'ficha sem data ficou', 'fichas sem data ficaram') }} de fora.</p>
           }
@@ -426,6 +429,9 @@
             <h2 id="qtd-titulo" class="titulo">{{ p.amount!.total }}</h2>
             <dl class="pontilhado colunas-dl">
               <div><dt>No total</dt><dd>{{ amountFmt(a.total) }}</dd></div>
+              @if (a.revisitTotal) {
+                <div><dt>{{ cap(p.revisit.many) }}</dt><dd>{{ amountFmt(a.revisitTotal) }}</dd></div>
+              }
               <div><dt>Por {{ p.singular }}</dt><dd>{{ amountFmt(a.avg) }}</dd></div>
               <div><dt>Mediana</dt><dd>{{ amountFmt(a.median) }}</dd></div>
             </dl>

@@ -259,8 +259,46 @@ export interface Review {
    * `null` é data não definida: algo de tanto tempo atrás que ninguém lembra mais o dia.
    */
   completedAt: string | null;
+  /**
+   * Rejogada, releitura, reassistida: a mesma obra outra vez, numa ficha à parte, com notas, data e
+   * texto próprios. Guarda o id da ficha original. Vai para o mural e conta no tempo (horas, fichas
+   * por mês), mas fica fora do ranking, dos jogos de Extras, das comparações e das contas de nota.
+   */
+  revisitOf?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** É uma rejogada (releitura, reassistida) de outra ficha? */
+export function isRevisit(r: Pick<Review, 'revisitOf'>): boolean {
+  return !!r.revisitOf;
+}
+
+/** Só as fichas originais, uma por obra: o que entra em nota, ranking, jogos e comparações. */
+export function originalsOf<T extends Pick<Review, 'revisitOf'>>(list: readonly T[]): T[] {
+  return list.filter((r) => !r.revisitOf);
+}
+
+/** O id da ficha original de uma ficha (dela mesma, se ela é a original). */
+export function rootOf(r: Pick<Review, 'id' | 'revisitOf'>): string {
+  return r.revisitOf ?? r.id;
+}
+
+/** As rejogadas pela ordem em que aconteceram: pela data (sem data no fim), depois por quando foram pregadas. */
+function revisitOrder(a: Review, b: Review): number {
+  if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? 1 : -1;
+  return (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || a.createdAt.localeCompare(b.createdAt);
+}
+
+/**
+ * Todas as vezes de uma obra, a partir de qualquer uma delas: a ficha original primeiro, depois as
+ * rejogadas na ordem em que aconteceram. Sem a original (apagada em outro aparelho), só as rejogadas.
+ */
+export function timesOf(list: readonly Review[], r: Review): Review[] {
+  const root = rootOf(r);
+  const original = list.find((x) => x.id === root && !x.revisitOf);
+  const revisits = list.filter((x) => x.revisitOf === root).sort(revisitOrder);
+  return original ? [original, ...revisits] : revisits.length ? revisits : [r];
 }
 
 /** Guardado para resenhar depois: só nome e capa, fora do mural. */
@@ -675,6 +713,11 @@ function optional<K extends string, V>(key: K, v: V | undefined): Partial<Record
   return v === undefined ? {} : ({ [key]: v } as Record<K, V>);
 }
 
+/** O id da original numa rejogada: um id válido, que não é o da própria ficha. */
+function sanitizeRevisitOf(v: unknown, own: unknown): string | undefined {
+  return typeof v === 'string' && /^[\w-]{4,64}$/.test(v) && v !== own ? v : undefined;
+}
+
 function sanitizeId(v: unknown): string {
   return typeof v === 'string' && /^[\w-]{4,64}$/.test(v) ? v : newId();
 }
@@ -780,6 +823,7 @@ export function sanitizeReview(raw: unknown): Review | null {
             ? todayISO().slice(0, r['completedAt'].length)
             : r['completedAt']
           : localDay(new Date(createdAt)),
+    ...optional('revisitOf', sanitizeRevisitOf(r['revisitOf'], r['id'])),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };

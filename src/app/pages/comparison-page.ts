@@ -17,6 +17,7 @@ import {
   formatScore,
   shownFinal,
   newId,
+  originalsOf,
   ratedKeys,
   scoreOf,
   sortBonuses,
@@ -134,7 +135,7 @@ export class ComparisonPage {
   protected readonly profile = this.mural.profile;
   private readonly mine = computed(() => distinctReviews(this.mural.reviews()));
   private readonly theirs = computed(() =>
-    distinctReviews((this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind())),
+    distinctReviews(originalsOf((this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind()))),
   );
   protected readonly collections = computed(() => compareCollections(this.mine(), this.theirs()));
   protected readonly you = computed(() => portrait(this.mine()));
@@ -146,7 +147,7 @@ export class ComparisonPage {
   protected readonly otherWalls = computed(() => {
     const c = this.colleague();
     if (!c) return [];
-    const all = compareCollections(distinctReviews(this.store.reviews()), distinctReviews(c.reviews)).pairs;
+    const all = compareCollections(distinctReviews(originalsOf(this.store.reviews())), distinctReviews(originalsOf(c.reviews))).pairs;
     return KINDS.filter((k) => k !== this.mural.kind())
       .map((kind) => ({
         kind,

@@ -1,6 +1,6 @@
 <h1 class="sr-only">Mural</h1>
 
-@if (!mural.count()) {
+@if (!mural.wallCount()) {
   <section class="empty" aria-labelledby="vazio-titulo">
     <div class="empty-card cartolina">
       <app-pin class="pin" color="#e62e2d" />
@@ -40,7 +40,7 @@
     <h2 class="sr-only">Fichas no mural</h2>
     @if (view.isFiltered()) {
       <div class="showing">
-        <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ mural.count() }}</p>
+        <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ mural.wallCount() }}</p>
         <app-filter-tags [tags]="view.tags()" (remove)="removeTag($event)" />
         <button type="button" class="showing-clear" (click)="clearFilters()">
           {{ view.filterCount() + (view.query().trim() ? 1 : 0) > 1 ? 'Limpar tudo' : 'Limpar filtro' }}
