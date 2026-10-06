@@ -1,12 +1,15 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { localDay } from './review';
 import { ReviewStore } from './review-store';
+import { CloudSync } from './cloud-sync';
 import { Settings } from './settings';
 
 const KEY = 'mural-de-jogos:backup:v1';
 const DAY = 86_400_000;
 /** Depois de quantos dias sem backup, com coisa nova no mural, o bilhete aparece. */
 export const BACKUP_EVERY_DAYS = 30;
+/** Sincronizado com a nuvem há menos que isso, o bilhete do backup não aparece. */
+const CLOUD_FRESH_DAYS = 7;
 /** "Depois" cala o bilhete por uma semana. */
 const SNOOZE_DAYS = 7;
 /** Quem nunca baixou um backup ouve falar dele a partir de tantas fichas. */
@@ -42,8 +45,9 @@ export function backupFileName(ownerName: string, day: string, ext: string): str
 }
 
 /**
- * Cuidar para as resenhas não sumirem: elas moram só neste navegador. Baixa o backup, lembra de
- * baixar de novo quando faz tempo, e pede ao navegador para não apagar os dados sozinho.
+ * Cuidar para as resenhas não sumirem: sem conta, elas moram só neste navegador. Baixa o backup,
+ * lembra de baixar de novo quando faz tempo (menos com o mural em dia na nuvem), e pede ao navegador
+ * para não apagar os dados sozinho.
  */
 @Injectable({ providedIn: 'root' })
 export class Backup {
@@ -51,7 +55,17 @@ export class Backup {
   private readonly settings = inject(Settings);
   private readonly state = signal<Stored>(read());
 
+  private readonly sync = inject(CloudSync);
+
   readonly lastAt = computed(() => this.state().lastAt);
+  /**
+   * O mural está guardado na nuvem (sincronizou nos últimos 7 dias): aí o backup é só uma cópia a
+   * mais, e o bilhete não insiste.
+   */
+  readonly inCloud = computed(() => {
+    const at = this.sync.lastSyncAt();
+    return this.sync.active() && at !== null && Date.now() - at < CLOUD_FRESH_DAYS * DAY;
+  });
   /** O navegador prometeu não apagar os dados (null: ainda não se sabe). */
   readonly persisted = signal<boolean | null>(null);
 
@@ -60,6 +74,7 @@ export class Backup {
    * Só aparece se há coisa mudada depois do último backup.
    */
   readonly due = computed<number | null>(() => {
+    if (this.inCloud()) return null;
     const { lastAt, snoozeUntil } = this.state();
     const now = Date.now();
     if (snoozeUntil && Date.parse(snoozeUntil) > now) return null;

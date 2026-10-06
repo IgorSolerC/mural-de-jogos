@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   BookOpen,
   Check,
@@ -11,7 +12,11 @@ import {
   EyeOff,
   Film,
   Gamepad2,
+  HardDriveDownload,
+  LayoutGrid,
   LogOut,
+  Search,
+  UserRound,
   LucideAngularModule,
   RefreshCw,
   CloudOff,
@@ -45,6 +50,9 @@ import { muralLink } from '../core/cloud-murals';
 
 const DAY = 86_400_000;
 
+type Tab = 'perfil' | 'backup' | 'mural' | 'busca';
+const TABS: readonly Tab[] = ['perfil', 'backup', 'mural', 'busca'];
+
 /** "às 14:32" hoje; "em 3 de outubro às 14:32" antes. */
 function when(ms: number): string {
   const d = new Date(ms);
@@ -69,12 +77,61 @@ function when(ms: number): string {
       <p class="resumo">Vale na hora e fica salvo neste navegador</p>
     </header>
 
-    <div class="boards" [class.com-conta]="!!cloud.config()">
-      <!-- ===== Conta (só com a nuvem ligada no cloud.json) ===== -->
-      @if (cloud.config(); as cfg) {
-        <section class="ficha cartolina conta" aria-labelledby="conta-titulo">
+    <!-- as partes dos ajustes: abas de divisória na régua, uma ficha por vez -->
+    <div class="prateleira abas-ajustes">
+      <div class="prateleira-abas" role="tablist" aria-label="Partes dos ajustes" (keydown)="onTabKey($event)">
+        @for (t of tabs; track t.id) {
+          <button
+            type="button"
+            role="tab"
+            class="plate"
+            [id]="'aba-' + t.id"
+            [class.is-active]="tab() === t.id"
+            [attr.aria-selected]="tab() === t.id"
+            [attr.aria-controls]="'painel-' + t.id"
+            [attr.tabindex]="tab() === t.id ? 0 : -1"
+            (click)="go(t.id)"
+          >
+            <lucide-icon [img]="t.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            {{ t.label }}
+            @if (t.id === 'perfil' && syncTrouble() && account.signedIn()) {
+              <span class="badge" aria-label="(precisa de atenção)">!</span>
+            }
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="painel" role="tabpanel" [id]="'painel-' + tab()" [attr.aria-labelledby]="'aba-' + tab()">
+      <!-- ===== Perfil: o seu nome e, com a nuvem ligada, a conta ===== -->
+      @if (tab() === 'perfil') {
+        <section class="ficha cartolina conta" aria-labelledby="perfil-titulo">
           <app-pin class="pin" color="#e62e2d" />
-          <h2 id="conta-titulo">Conta</h2>
+          <h2 id="perfil-titulo">Perfil</h2>
+
+          <div class="nome-dono">
+            <h3 class="sub"><label for="dono-nome">Seu nome</label></h3>
+            <p class="hint">
+              É como você aparece para quem abre o seu mural em Comparar, pelo código ou por um backup seu, e vai no nome
+              do arquivo de backup.
+            </p>
+            <div class="key">
+              <input
+                id="dono-nome"
+                type="text"
+                autocomplete="nickname"
+                spellcheck="false"
+                [maxLength]="ownerNameMax"
+                placeholder="Como você quer aparecer"
+                [value]="settings.ownerName()"
+                (input)="settings.ownerName.set($any($event.target).value)"
+              />
+            </div>
+          </div>
+
+          @if (cloud.config(); as cfg) {
+          <div class="bloco nuvem" role="group" aria-labelledby="conta-titulo">
+          <h3 id="conta-titulo" class="sub">Conta na nuvem</h3>
           @if (account.account(); as acc) {
             <div class="estado" [class.atrasado]="syncTrouble()">
               <lucide-icon
@@ -86,9 +143,7 @@ function when(ms: number): string {
               />
               <div>
                 <p class="estado-linha" role="status">{{ syncLine() }}</p>
-                <p class="estado-sub">
-                  Entrou como {{ acc.nome }}. O nome é o "Seu nome" da ficha do Backup: mude lá e ele muda na conta.
-                </p>
+                <p class="estado-sub">Entrou como {{ acc.nome }}, o "Seu nome" aqui em cima.</p>
               </div>
             </div>
             @if (sync.message(); as m) {
@@ -179,10 +234,13 @@ function when(ms: number): string {
           @if (accountMsg(); as m) {
             <p class="msg error" role="alert">{{ m }}</p>
           }
+          </div>
+          }
         </section>
       }
 
       <!-- ===== Backup ===== -->
+      @if (tab() === 'backup') {
       <section class="ficha cartolina backup" aria-labelledby="backup-titulo">
         <app-pin class="pin" color="#e62e2d" />
         <h2 id="backup-titulo">Backup</h2>
@@ -199,42 +257,30 @@ function when(ms: number): string {
         <div class="estado" [class.atrasado]="overdue()">
           <lucide-icon
             class="estado-icone"
-            [img]="overdue() ? AlertIcon : OkIcon"
+            [img]="backup.inCloud() ? CloudOnIcon : overdue() ? AlertIcon : OkIcon"
             [size]="22"
             [strokeWidth]="2.4"
             aria-hidden="true"
           />
           <div>
-            <p class="estado-linha">{{ lastBackup() }}</p>
-            <p class="estado-sub">{{ contents() }}</p>
+            <p class="estado-linha">{{ backup.inCloud() ? syncLine() : lastBackup() }}</p>
+            <p class="estado-sub">
+              {{ contents() }}
+              @if (backup.inCloud()) {
+                {{ lastBackup() }}.
+              }
+            </p>
           </div>
-        </div>
-
-        <div class="bloco nome-dono">
-          <h3 class="sub"><label for="dono-nome">Seu nome</label></h3>
-          <p class="hint">
-            Vai dentro do backup e no nome do arquivo. Quem abrir o seu backup em Comparar já vê o seu nome, em vez de
-            "Colega".
-          </p>
-          <div class="key">
-            <input
-              id="dono-nome"
-              type="text"
-              autocomplete="nickname"
-              spellcheck="false"
-              [maxLength]="ownerNameMax"
-              placeholder="Como você quer aparecer"
-              [value]="settings.ownerName()"
-              (input)="settings.ownerName.set($any($event.target).value)"
-            />
-          </div>
-          <p class="hint arquivo">O arquivo sai como <strong>{{ fileNamePreview() }}</strong></p>
         </div>
 
         <button type="button" class="btn-ink baixar" (click)="exportFile()" [disabled]="!hasData()">
           <lucide-icon [img]="DownloadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
           Baixar backup
         </button>
+        <p class="hint arquivo">
+          O arquivo sai como <strong>{{ fileNamePreview() }}</strong> (o nome vem do
+          <button type="button" class="link-btn" (click)="go('perfil')">Perfil</button>).
+        </p>
 
         @if (backup.persisted() === false) {
           <p class="tip">
@@ -292,8 +338,10 @@ function when(ms: number): string {
           </button>
         </div>
       </section>
+      }
 
       <!-- ===== Mural ===== -->
+      @if (tab() === 'mural') {
       <section class="ficha cartolina mural" aria-labelledby="mural-titulo">
         <app-pin class="pin" color="#e62e2d" />
         <h2 id="mural-titulo">Mural</h2>
@@ -382,8 +430,10 @@ function when(ms: number): string {
           </p>
         </div>
       </section>
+      }
 
       <!-- ===== Busca e capas ===== -->
+      @if (tab() === 'busca') {
       <section class="ficha cartolina catalog" aria-labelledby="catalogo-titulo">
         <app-pin class="pin" color="#f4f4f0" />
         <h2 id="catalogo-titulo">Busca e capas</h2>
@@ -567,11 +617,43 @@ function when(ms: number): string {
           </fieldset>
         </section>
       </section>
+      }
     </div>
   `,
   styleUrl: './settings-page.scss',
 })
 export class SettingsPage {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  /** As abas, na ordem da régua. A aberta fica no endereço (#/ajustes?aba=backup), para links irem direto. */
+  protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Search }[] = [
+    { id: 'perfil', label: 'Perfil', icon: UserRound },
+    { id: 'backup', label: 'Backup', icon: HardDriveDownload },
+    { id: 'mural', label: 'Mural', icon: LayoutGrid },
+    { id: 'busca', label: 'Busca e capas', icon: Search },
+  ];
+  protected readonly tab = signal<Tab>(this.tabFrom(this.route.snapshot.queryParamMap.get('aba')));
+
+  private tabFrom(value: string | null): Tab {
+    return TABS.includes(value as Tab) ? (value as Tab) : 'perfil';
+  }
+
+  protected go(id: Tab): void {
+    this.tab.set(id);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { aba: id }, replaceUrl: true });
+  }
+
+  /** Setas, Home e End andam entre as abas (o padrão das abas para teclado). */
+  protected onTabKey(e: KeyboardEvent): void {
+    const i = TABS.indexOf(this.tab());
+    const next =
+      e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i - 1 + TABS.length) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    this.go(TABS[next]);
+    queueMicrotask(() => document.getElementById(`aba-${TABS[next]}`)?.focus());
+  }
+
   protected readonly store = inject(ReviewStore);
   protected readonly settings = inject(Settings);
   /** O jeito de mostrar a nota, com um exemplo de cada. */
@@ -658,6 +740,7 @@ export class SettingsPage {
 
   /** Mesmo critério do bilhete em cima do mural: passou do prazo, ou nunca baixou e já tem o que guardar. */
   protected readonly overdue = computed(() => {
+    if (this.backup.inCloud()) return false;
     const d = this.daysSince();
     return this.hasData() && (d === null || d >= BACKUP_EVERY_DAYS);
   });

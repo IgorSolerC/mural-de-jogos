@@ -1069,3 +1069,13 @@ With the cloud on, someone's wall arrives by code or link instead of a backup fi
 - **Ajustes › Conta.** Beside "Copiar", a quiet "Copiar o link" (Link icon). The hint says what the code shows (the reviews; not the queue, the wishlist or the settings) and ends with a text button "Trocar o código", behind the confirm card: the old code and link stop working, whoever already opened keeps their copy, followers keep following.
 - **Your own code** in the field says "Esse é o seu código".
 
+## Ajustes em abas (tabs pass)
+
+Four cards on one wall was too much at once. Ajustes now shows one card at a time under divider tabs on the aluminium ruler (the same `.prateleira` / `.plate` as Pra depois and Wishlist), max 760px wide: **Perfil** (UserRound, rosa), **Backup** (HardDriveDownload, azul), **Mural** (LayoutGrid, verde), **Busca e capas** (Search, lilás). It is a real tab list (`role="tablist"`, `aria-selected`, roving tabindex; ←/→, Home and End move between tabs). The open tab lives in the address (`#/ajustes?aba=backup`), so links go straight to it ("Ajustes › Perfil" from Comparar). Perfil carries an ink badge "!" when the signed-in sync needs attention.
+
+- **Perfil** holds "Seu nome" (how you appear to whoever opens your wall, and the backup file name) and, with the cloud on, "Conta na nuvem" (everything the Conta card had). The name left the Backup card; Backup now says where the file name comes from, with a text button to Perfil.
+- **Backup with the cloud in day** (synced in the last 7 days): the status note shows the Cloud icon and "Salvo na nuvem às …", never the overdue outline; the line under it still says what the file carries and when the last file was downloaded. The wall's backup reminder note does not appear in that state either.
+
+## Comparar pelo código, no envelope (sharing pass, revised)
+
+The kraft envelope stays: it is the arrival, now with the code first. With the cloud on, the letter in its mouth reads "Oi! Meu código é K7QF-M2XA." and the pocket says to type the code or drop a backup; then a 58px field strip on grainy paper (2.5px ink inset, code in 1.7rem marker caps with letter-spacing, -0.4deg) beside the ink "Abrir o mural" (full width on phones). A wrong or unknown code turns the outline dark red and the cloud's sentence arrives in the envelope's own error note. Below, a handwritten "ou" and "Escolher o backup" as a pen-outlined button on the kraft (dropping a file on the envelope still works), then a small line on where the code lives. The ruled note beside it explains the code, the link and the backup in three steps, with a link to Ajustes › Perfil. With the cloud off, the envelope and the note are exactly as before.
