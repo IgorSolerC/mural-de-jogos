@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
 import { readBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
-import { CloudSync, KeyValueStore, OWNER_KEY, STATE_KEY, SYNC_AUTO, SYNC_SCHEMA, SYNC_STORAGE, fingerprint } from './cloud-sync';
+import { CloudSync, KeyValueStore, OWNER_KEY, STATE_KEY, SYNC_AUTO, SYNC_SCHEMA, SYNC_STORAGE, fingerprint, newReviews, publicReviews } from './cloud-sync';
 import { LocalData } from './local-data';
 import { Review, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
@@ -453,6 +453,34 @@ describe('sincronização com a nuvem', () => {
     const novas = JSON.parse((put.args[1] as RequestInit).body instanceof FormData ? (((put.args[1] as RequestInit).body as FormData).get('novas') as string) : '[]');
     expect(novas).toEqual([{ ref: 'rnova01', titulo: 'Nova', mural: 'jogos' }]);
   });
+
+  it('a ficha privada sobe para a nuvem particular, mas não vira aviso', async () => {
+    const a = device();
+    const now = new Date().toISOString();
+    a.store.add({ ...review('rpriv01', 'Segredo', now, now), private: true });
+    const fetchSpy = window.fetch as jasmine.Spy;
+    await a.sync.syncNow();
+    const put = fetchSpy.calls.all().find((c) => (c.args[1] as RequestInit | undefined)?.method === 'PUT')!;
+    expect(JSON.parse(((put.args[1] as RequestInit).body as FormData).get('novas') as string)).toEqual([]);
+    expect((await cloud.read()).reviews.map((r: Review) => [r.id, r.private])).toEqual([['rpriv01', true]]);
+  });
+});
+
+describe('o que os outros veem', () => {
+  const at = (iso: string, extra: Partial<Review> = {}) => ({ ...review(`r${iso.slice(5, 10).replace('-', '')}x`, iso, iso, iso), ...extra });
+  const now = Date.parse('2026-03-10T12:00:00.000Z');
+
+  it('o mural público não leva as fichas privadas', () => {
+    const list = [at('2026-03-09T00:00:00.000Z'), at('2026-03-08T00:00:00.000Z', { private: true })];
+    expect(publicReviews(list).map((r) => r.id)).toEqual([list[0].id]);
+  });
+
+  it('a ficha que era privada vira aviso quando passa a ser vista, mesmo escrita há meses', () => {
+    const old = at('2025-12-01T00:00:00.000Z', { publishedAt: '2026-03-09T00:00:00.000Z' });
+    const hidden = at('2026-03-09T10:00:00.000Z', { private: true });
+    const stale = at('2025-12-02T00:00:00.000Z');
+    expect(newReviews([old, hidden, stale], now).map((n) => n.ref)).toEqual([old.id]);
+  });
 });
 
 describe('versão do formato (SYNC_SCHEMA)', () => {
@@ -461,10 +489,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar.
    */
-  it('a leitura das fichas é a mesma da versão 2', async () => {
+  it('a leitura das fichas é a mesma da versão 3', async () => {
     const source = [sanitizeReview, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 2, hex: '1da39d89b3ed7ea028ae5fcaa6ea852aed27375d0fce90c47ccb4725d24a1115' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 3, hex: 'f39cf3b4a195ca3d194047c8899b0ecd4b4bb470fb340fc5cac9a945fa728a66' });
   });
 });

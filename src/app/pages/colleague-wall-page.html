@@ -33,6 +33,22 @@
         }
       </button>
     }
+    <!-- "Evitar spoilers de outros murais": mostrar as notas só agora, sem mexer em Ajustes -->
+    @if (canReveal()) {
+      <div class="segredos">
+        <p class="segredos-txt" aria-live="polite">
+          @if (revealed()) {
+            Notas à mostra até você sair daqui
+          } @else {
+            {{ unseenCount() === 1 ? '1 nota em segredo' : unseenCount() + ' notas em segredo' }}: o que você ainda não avaliou
+          }
+        </p>
+        <button type="button" class="plate segredos-btn" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
+          <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          {{ revealed() ? 'Esconder de novo' : 'Mostrar notas' }}
+        </button>
+      </div>
+    }
   </header>
 
   @if (otherWalls().length) {
@@ -84,8 +100,8 @@
           <label class="plate pick">
             <span class="pick-pre">Ordenar</span>
             <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
-            <select aria-label="Ordenar o mural" [value]="sort()" (change)="setSort($any($event.target).value)">
-              @for (s of sorts; track s.value) {
+            <select aria-label="Ordenar o mural" [value]="shownSort()" (change)="setSort($any($event.target).value)">
+              @for (s of shownSorts(); track s.value) {
                 <option [value]="s.value">{{ s.label }}</option>
               }
             </select>
@@ -152,7 +168,7 @@
             </header>
             <div class="fichas">
               @for (r of g.reviews; track r.id) {
-                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [capas]="capas()" [dayOnly]="sort() === 'data'" (opened)="open(r)" />
+                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [capas]="capas()" [dayOnly]="shownSort() === 'data'" [masked]="hidden().has(r.id)" (opened)="open(r)" />
               }
             </div>
           </section>

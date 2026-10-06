@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowLeft, LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
+import { ArrowLeft, LucideAngularModule, Check, ChevronDown, Eye, EyeOff, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals } from '../core/cloud-murals';
@@ -28,6 +28,7 @@ import {
 } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
+import { SpoilerShield } from '../core/spoiler-shield';
 import { ViewTransitions } from '../core/view-transitions';
 import { WallView } from '../core/wall-view';
 import { Desk } from '../core/desk';
@@ -124,6 +125,8 @@ export class ComparisonPage {
   protected readonly WishIcon = Heart;
   protected readonly DoneIcon = Check;
   protected readonly BackIcon = ArrowLeft;
+  protected readonly RevealIcon = Eye;
+  protected readonly HideIcon = EyeOff;
   protected readonly fmt = formatScore;
   protected readonly abs = Math.abs;
   protected readonly labels = SCORE_LABEL;
@@ -156,6 +159,24 @@ export class ComparisonPage {
   protected readonly affinity = computed(() => affinity(this.collections().pairs));
   protected readonly nothingHere = computed(() => !this.mine().length && !this.theirs().length);
 
+  // ===== Sem spoilers: as notas do colega sobre o que eu não avaliei ficam em segredo =====
+  private readonly shield = inject(SpoilerShield);
+  /** "Mostrar notas": só para o colega aberto e só enquanto a página estiver aberta. Nada fica guardado. */
+  private readonly revealedFor = signal<string | null>(null);
+  protected readonly revealed = computed(() => !!this.colleague() && this.revealedFor() === this.colleague()!.id);
+  private readonly unseen = computed(() =>
+    this.shield.hiddenIn((this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind())),
+  );
+  protected readonly hidden = computed<ReadonlySet<string>>(() => (this.revealed() ? new Set() : this.unseen()));
+  protected readonly unseenCount = computed(() => this.theirs().filter((r) => this.unseen().has(r.id)).length);
+  /** Com dicas em segredo, ordenar as dicas por nota contaria o segredo: vale "Mais recentes". */
+  protected readonly tipSort = computed<ListSort>(() => (this.hidden().size && this.listSort() === 'nota' ? 'recente' : this.listSort()));
+
+  protected toggleReveal(): void {
+    const id = this.colleague()?.id ?? null;
+    this.vt.run(() => this.revealedFor.set(this.revealed() ? null : id));
+  }
+
   /** Os outros murais onde há o que comparar: "Livros · 3 em comum". */
   protected readonly otherWalls = computed(() => {
     const c = this.colleague();
@@ -181,7 +202,7 @@ export class ComparisonPage {
   protected readonly listSort = signal<ListSort>('nota');
   /** O nome da ordem escolhida, escrito na aba (o select por cima é invisível). */
   protected readonly sortLabel = computed(() => {
-    if (this.tab() !== 'comum') return { nota: 'Maior nota', recente: 'Mais recentes', nome: 'A–Z' }[this.listSort()];
+    if (this.tab() !== 'comum') return { nota: 'Maior nota', recente: 'Mais recentes', nome: 'A–Z' }[this.tab() === 'dicas' ? this.tipSort() : this.listSort()];
     return { briga: 'Maior briga', minha: 'Maior nota sua', colega: `Maior nota de ${this.name()}`, nome: 'A–Z' }[this.pairSort()];
   });
   protected readonly simple = computed(() => this.phone() || this.view.density() === 'simples');
@@ -208,8 +229,8 @@ export class ComparisonPage {
     }
   });
 
-  private sortList(list: Review[]): Review[] {
-    switch (this.listSort()) {
+  private sortList(list: Review[], sort: ListSort): Review[] {
+    switch (sort) {
       case 'nome':
         return list.sort(byName);
       case 'recente':
@@ -218,8 +239,8 @@ export class ComparisonPage {
         return list.sort((a, b) => shownFinal(b) - shownFinal(a) || byName(a, b));
     }
   }
-  protected readonly tips = computed(() => this.sortList(this.collections().onlyTheirs.filter((r) => this.matches(r))));
-  protected readonly myTips = computed(() => this.sortList(this.collections().onlyMine.filter((r) => this.matches(r))));
+  protected readonly tips = computed(() => this.sortList(this.collections().onlyTheirs.filter((r) => this.matches(r)), this.tipSort()));
+  protected readonly myTips = computed(() => this.sortList(this.collections().onlyMine.filter((r) => this.matches(r)), this.listSort()));
 
   /** Quantos aparecem: volta ao começo sempre que a lista muda de assunto. */
   protected readonly limit = linkedSignal({
@@ -424,7 +445,7 @@ export class ComparisonPage {
   protected openReview(review: Review, mine: boolean): void {
     // a minha abre na mesa de sempre (dá para editar); a do colega, só para ler, com o nome dele
     if (mine) this.desk.openReview(review.id);
-    else this.reader().open(review, this.name());
+    else this.reader().open(review, this.name(), [], this.hidden().has(review.id));
   }
 
   /** A maior briga ou a unanimidade: leva para a lista, com o par encontrado pela busca. */

@@ -1,4 +1,4 @@
-import { commonReviews, compareCollections } from './comparison';
+import { commonReviews, compareCollections, unseenOf } from './comparison';
 import { Review, sanitizeReview } from './review';
 
 function review(
@@ -125,5 +125,33 @@ describe('obras em comum', () => {
     expect(pairs.map((p) => p.mine.id)).toEqual(['minha1']);
     expect(onlyMine.map((r) => r.id)).toEqual(['minha2']);
     expect(onlyTheirs.map((r) => r.id)).toEqual(['outra2']);
+  });
+});
+
+describe('o que eu ainda não resenhei (sem spoilers)', () => {
+  it('esconde só as obras que eu não tenho, e as rejogadas delas', () => {
+    const mine = [review('id-m1', 'Hades', { source: 'rawg', sourceId: '1' }), review('id-m2', 'Celeste')];
+    const theirs = [
+      review('id-t1', 'Hades', { source: 'rawg', sourceId: '1' }),
+      review('id-t2', 'celeste'),
+      review('id-t3', 'Tunic'),
+      review('id-t4', 'Tunic', {}, { revisitOf: 'id-t3' }),
+    ];
+    expect([...unseenOf(mine, theirs)].sort()).toEqual(['id-t3', 'id-t4']);
+  });
+
+  it('pelo catálogo, mesmo com o título traduzido; e ids diferentes do mesmo catálogo são outra obra', () => {
+    const mine = [review('id-m1', 'O Senhor dos Anéis', { source: 'openlibrary', sourceId: 'OL1W' }, { kind: 'livros' })];
+    const theirs = [
+      review('id-t1', 'The Lord of the Rings', { source: 'openlibrary', sourceId: 'OL1W' }, { kind: 'livros' }),
+      review('id-t2', 'O Senhor dos Anéis', { source: 'openlibrary', sourceId: 'OL2W' }, { kind: 'livros' }),
+    ];
+    expect([...unseenOf(mine, theirs)]).toEqual(['id-t2']);
+  });
+
+  it('anos diferentes no mesmo título são obras diferentes', () => {
+    const mine = [review('id-m1', 'Duna', { year: '1984' }, { kind: 'filmes' })];
+    const theirs = [review('id-t1', 'Duna', { year: '2021' }, { kind: 'filmes' }), review('id-t2', 'Duna', {}, { kind: 'filmes' })];
+    expect([...unseenOf(mine, theirs)]).toEqual(['id-t1']);
   });
 });

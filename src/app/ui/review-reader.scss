@@ -200,6 +200,22 @@ app-judge-label {
   flex: none;
 }
 
+/* "Revelar a nota", ao lado do canhoto com "Segredo" */
+.revelar {
+  min-height: 42px;
+}
+
+/* a ficha privada: um lembrete escrito à mão, com o cadeado */
+.privada {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
 /* ===== Adesivos de bônus: todos, com a conta sem eles logo abaixo ===== */
 .bonus {
   display: flex;

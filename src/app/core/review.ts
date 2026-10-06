@@ -265,8 +265,23 @@ export interface Review {
    * por mês), mas fica fora do ranking, dos jogos de Extras, das comparações e das contas de nota.
    */
   revisitOf?: string;
+  /**
+   * Privada: fica só com a pessoa. Não vai no mural que os outros veem (pelo código, em Amigos, em
+   * Comparar) nem vira aviso para quem segue. Fica no backup e na nuvem particular dela.
+   */
+  private?: true;
+  /**
+   * Quando uma ficha que era privada passou a ser vista (ISO). Para quem segue, ela é nova a partir
+   * daí, não de quando foi escrita (ver core/cloud-sync.ts). Sem o campo, vale `createdAt`.
+   */
+  publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** A ficha fica só com a pessoa? (ver `Review.private`) */
+export function isPrivate(r: Pick<Review, 'private'>): boolean {
+  return r.private === true;
 }
 
 /** É uma rejogada (releitura, reassistida) de outra ficha? */
@@ -832,6 +847,8 @@ export function sanitizeReview(raw: unknown): Review | null {
             : r['completedAt']
           : localDay(new Date(createdAt)),
     ...optional('revisitOf', sanitizeRevisitOf(r['revisitOf'], r['id'])),
+    ...optional('private', r['private'] === true ? (true as const) : undefined),
+    ...optional('publishedAt', isoOr(r['publishedAt'], '') || undefined),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };

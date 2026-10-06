@@ -280,6 +280,38 @@
             (input)="text.set($any($event.target).value)"
           ></textarea>
         </section>
+
+        <!-- Quem vê: todo mundo (o mural pelo código, Amigos, Comparar) ou só você, até mudar de ideia -->
+        @if (cloud.config()) {
+          <section class="bloco quem-ve">
+            <fieldset>
+              <legend class="pergunta">Quem vê?</legend>
+              <div class="quem-opts">
+                <label class="quem">
+                  <input type="radio" name="editor-quem" [checked]="!isPrivate()" (change)="isPrivate.set(false)" aria-describedby="editor-quem-dica" />
+                  <span class="quem-tag">
+                    <lucide-icon [img]="EveryoneIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Todo mundo
+                  </span>
+                </label>
+                <label class="quem">
+                  <input type="radio" name="editor-quem" [checked]="isPrivate()" (change)="isPrivate.set(true)" aria-describedby="editor-quem-dica" />
+                  <span class="quem-tag">
+                    <lucide-icon [img]="PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Só eu
+                  </span>
+                </label>
+              </div>
+              <p class="quem-dica" id="editor-quem-dica">
+                @if (isPrivate()) {
+                  Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque para Todo mundo.
+                } @else {
+                  Vai para o seu mural, e quem segue você é avisado em Amigos.
+                }
+              </p>
+            </fieldset>
+          </section>
+        }
       </div>
       </div>
     </div>
@@ -324,7 +356,7 @@
           }
           <button type="submit" class="btn-ink">
             <lucide-icon [img]="PinIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
-            {{ editing() ? 'Salvar alterações' : 'Pregar no mural' }}
+            {{ editing() ? 'Salvar alterações' : isPrivate() ? 'Pregar só pra mim' : 'Pregar no mural' }}
           </button>
         </div>
       }

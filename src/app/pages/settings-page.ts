@@ -449,25 +449,29 @@ function when(ms: number): string {
               <span class="op-texto">A aba fica quieta; as novidades continuam lá dentro.</span>
             </label>
           </fieldset>
-
-          <fieldset class="escolha spoilers-amigos">
-            <legend class="rotulo">Spoilers dos amigos</legend>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="spoilers-amigos" value="mostrar" [checked]="!settings.friendSpoilers()" (change)="settings.friendSpoilers.set(false)" />
-                <span class="adesivo" [class.recorte]="settings.friendSpoilers()" [class.colado]="!settings.friendSpoilers()">Mostrar</span>
-              </span>
-              <span class="op-texto">Em Amigos, as fichas chegam inteiras.</span>
-            </label>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="spoilers-amigos" value="evitar" [checked]="settings.friendSpoilers()" (change)="settings.friendSpoilers.set(true)" />
-                <span class="adesivo" [class.recorte]="!settings.friendSpoilers()" [class.colado]="settings.friendSpoilers()">Evitar</span>
-              </span>
-              <span class="op-texto">O que você ainda não avaliou chega em segredo; o que você já avaliou mostra a nota do amigo.</span>
-            </label>
-          </fieldset>
         }
+
+        <!-- vale para a ficha de qualquer outra pessoa: em Amigos, no mural dela e em Comparar -->
+        <fieldset class="escolha spoilers-amigos">
+          <legend class="rotulo">Notas dos outros</legend>
+          <label class="op">
+            <span class="opcao">
+              <input type="radio" name="spoilers-amigos" value="mostrar" [checked]="!settings.friendSpoilers()" (change)="settings.friendSpoilers.set(false)" />
+              <span class="adesivo" [class.recorte]="settings.friendSpoilers()" [class.colado]="!settings.friendSpoilers()">Mostrar</span>
+            </span>
+            <span class="op-texto">As fichas de outras pessoas aparecem inteiras, amigos ou não.</span>
+          </label>
+          <label class="op">
+            <span class="opcao">
+              <input type="radio" name="spoilers-amigos" value="evitar" [checked]="settings.friendSpoilers()" (change)="settings.friendSpoilers.set(true)" />
+              <span class="adesivo" [class.recorte]="!settings.friendSpoilers()" [class.colado]="settings.friendSpoilers()">Evitar spoilers</span>
+            </span>
+            <span class="op-texto">
+              Em Amigos, no mural de alguém e em Comparar, o que você ainda não avaliou fica em segredo; o que você já avaliou mostra a nota.
+              Cada tela tem um “Mostrar notas” que vale só enquanto ela estiver aberta.
+            </span>
+          </label>
+        </fieldset>
 
         <fieldset class="escolha nota">
           <legend class="rotulo">Nota</legend>

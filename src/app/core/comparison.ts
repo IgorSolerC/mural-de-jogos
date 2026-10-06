@@ -140,3 +140,29 @@ export function commonReviews(
 export function distinctReviews(list: readonly Review[]): Review[] {
   return distinctWorks(list);
 }
+
+/**
+ * As fichas de outra pessoa sobre obras que eu ainda não resenhei: é delas que "Evitar spoilers"
+ * esconde a nota. Aqui a dúvida pende para mostrar: basta eu ter uma ficha do mesmo catálogo, ou do
+ * mesmo título compatível (mesmo ano, mesma autoria), para a obra contar como vista. As rejogadas
+ * dela seguem a obra, então caem junto.
+ */
+export function unseenOf(mine: readonly Review[], theirs: readonly Review[]): Set<string> {
+  const catalogs = new Set<string>();
+  const titles = new Map<string, Review[]>();
+  for (const r of mine) {
+    const catalog = catalogKey(r);
+    if (catalog) catalogs.add(catalog);
+    const title = `${r.kind}:${titleKey(r)}`;
+    titles.set(title, [...(titles.get(title) ?? []), r]);
+  }
+  const out = new Set<string>();
+  for (const t of theirs) {
+    const catalog = catalogKey(t);
+    if (catalog && catalogs.has(catalog)) continue;
+    // o mesmo título: vale se for compatível (ids diferentes do mesmo catálogo são outra obra)
+    const same = (titles.get(`${t.kind}:${titleKey(t)}`) ?? []).some((m) => compatible(m, t));
+    if (!same) out.add(t.id);
+  }
+  return out;
+}

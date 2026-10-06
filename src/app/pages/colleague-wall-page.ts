@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3, UserCheck, UserPlus } from 'lucide-angular';
+import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Eye, EyeOff, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3, UserCheck, UserPlus } from 'lucide-angular';
 import { CloudAccount } from '../core/cloud-account';
 import { Follow } from '../core/follow';
 import { Toasts } from '../ui/toast';
@@ -13,7 +13,8 @@ import { Review, VERDICT_LABEL, fold, originalsOf } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from '../core/wall-filter';
-import { Direction, SortKey, WallView, groupWall, sortWall } from '../core/wall-view';
+import { Direction, SPOILER_FACETS, SortKey, WallView, groupWall, sortWall, withoutSpoilerFacets } from '../core/wall-view';
+import { SpoilerShield } from '../core/spoiler-shield';
 import { FilterSheet, FilterTags, FilterToggle } from '../ui/filter-sheet';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
@@ -61,6 +62,8 @@ export class ColleagueWallPage {
   protected readonly FilterIcon = ListFilter;
   protected readonly FollowIcon = UserPlus;
   protected readonly FollowingIcon = UserCheck;
+  protected readonly RevealIcon = Eye;
+  protected readonly HideIcon = EyeOff;
 
   private readonly follow = inject(Follow);
   private readonly account = inject(CloudAccount);
@@ -117,10 +120,33 @@ export class ColleagueWallPage {
     { value: 'alfabetica', label: 'A–Z' },
     { value: 'status', label: 'Status' },
   ];
-  protected readonly sortLabel = computed(() => this.sorts.find((s) => s.value === this.sort())!.label);
+  protected readonly sortLabel = computed(() => this.sorts.find((s) => s.value === this.shownSort())!.label);
 
   /** As fichas do colega no mural aberto. */
   protected readonly reviews = computed(() => (this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind()));
+
+  private readonly shield = inject(SpoilerShield);
+  /**
+   * "Mostrar notas" vale para a pessoa aberta e só enquanto a página estiver aberta: nada fica
+   * guardado, e outra pessoa (ou a volta para cá) abre seguindo Ajustes de novo.
+   */
+  private readonly revealedFor = signal<string | null>(null);
+  protected readonly revealed = computed(() => !!this.colleague() && this.revealedFor() === this.colleague()!.id);
+
+  protected toggleReveal(): void {
+    const id = this.colleague()?.id ?? null;
+    this.vt.run(() => this.revealedFor.set(this.revealed() ? null : id));
+  }
+  /** As fichas sobre o que eu ainda não resenhei, com "Evitar spoilers de outros murais" (ver core/spoiler-shield.ts). */
+  private readonly unseen = computed(() => this.shield.hiddenIn(this.reviews()));
+  protected readonly hidden = computed<ReadonlySet<string>>(() => (this.revealed() ? new Set() : this.unseen()));
+  /** Alguma ficha em segredo: a nota não ordena, não filtra e não entra nas médias, que contariam o segredo. */
+  protected readonly guarding = computed(() => this.hidden().size > 0);
+  /** O botão de mostrar aparece enquanto houver o que esconder (e para esconder de novo). */
+  protected readonly canReveal = computed(() => this.unseen().size > 0);
+  protected readonly unseenCount = computed(() => this.unseen().size);
+  protected readonly shownSort = computed<SortKey>(() => (this.guarding() && this.sort() === 'nota' ? 'data' : this.sort()));
+  protected readonly shownSorts = computed(() => (this.guarding() ? this.sorts.filter((s) => s.value !== 'nota') : this.sorts));
 
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
   private readonly searched = computed(() => {
@@ -128,12 +154,17 @@ export class ColleagueWallPage {
     return this.reviews().filter((r) => matchesQuery(r, needle));
   });
 
-  protected readonly facets = computed(() => facetsOf(this.searched(), this.filter(), this.profile()));
-  protected readonly tags = computed(() => tagsOf(this.filter(), this.profile()));
-  protected readonly filterCount = computed(() => filterSize(this.filter()));
+  /** Os filtros que valem: com fichas em segredo, filtrar por veredito, nota ou dificuldade contaria o segredo. */
+  private readonly activeFilter = computed<WallFilter>(() => (this.guarding() ? withoutSpoilerFacets(this.filter()) : this.filter()));
+  protected readonly facets = computed(() => {
+    const all = facetsOf(this.searched(), this.activeFilter(), this.profile());
+    return this.guarding() ? all.filter((f) => !SPOILER_FACETS.includes(f.key)) : all;
+  });
+  protected readonly tags = computed(() => tagsOf(this.activeFilter(), this.profile()));
+  protected readonly filterCount = computed(() => filterSize(this.activeFilter()));
 
   protected readonly visible = computed(() => {
-    const f = this.filter();
+    const f = this.activeFilter();
     return this.searched().filter((r) => matchesFilter(r, f));
   });
 
@@ -146,15 +177,16 @@ export class ColleagueWallPage {
   });
 
   protected readonly groups = computed(() => {
-    const order = { sort: this.sort(), key: 'final' as const, direction: this.direction(), profile: this.profile() };
-    return groupWall(sortWall(this.visible(), order), order);
+    const order = { sort: this.shownSort(), key: 'final' as const, direction: this.direction(), profile: this.profile() };
+    return groupWall(sortWall(this.visible(), order), order, this.guarding());
   });
 
-  /** "34 jogos · média 7,1 · 9 platinados". */
+  /** "34 jogos · média 7,1". Com fichas em segredo, sem a média. */
   protected readonly summary = computed(() => {
     // uma ficha por obra: as rejogadas do colega não entram na conta nem na média
     const list = originalsOf(this.reviews());
     if (!list.length) return '';
+    if (this.guarding()) return countOf(this.profile(), list.length);
     const avg = list.reduce((s, r) => s + r.scores.final, 0) / list.length;
     return `${countOf(this.profile(), list.length)} · média ${avgFmt.format(avg)}`;
   });
@@ -223,6 +255,6 @@ export class ColleagueWallPage {
 
   protected open(review: Review): void {
     // com as outras fichas do colega: a leitura anda entre as vezes de uma obra que ele rejogou
-    this.reader().open(review, this.name(), this.reviews());
+    this.reader().open(review, this.name(), this.reviews(), this.hidden().has(review.id));
   }
 }

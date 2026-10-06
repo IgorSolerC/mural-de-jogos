@@ -98,6 +98,23 @@
         </p>
       </section>
     } @else {
+      <!-- "Evitar spoilers de outros murais": mostrar as notas só agora, sem mexer em Ajustes -->
+      @if (unseenCount()) {
+        <div class="segredos">
+          <p class="segredos-txt" aria-live="polite">
+            @if (revealed()) {
+              Notas de {{ c.name }} à mostra até você sair daqui
+            } @else {
+              {{ unseenCount() === 1 ? '1 nota' : unseenCount() + ' notas' }} de {{ c.name }} em segredo: o que você ainda não avaliou
+            }
+          </p>
+          <button type="button" class="plate segredos-btn" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
+            <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            {{ revealed() ? 'Esconder de novo' : 'Mostrar notas' }}
+          </button>
+        </div>
+      }
+
       <app-caderno
         [you]="you()"
         [them]="them()"
@@ -105,6 +122,7 @@
         [pairs]="collections().pairs"
         [name]="c.name"
         [profile]="profile()"
+        [hidden]="hidden()"
         (opened)="open($event)"
         (showPair)="focusPair($event)"
       />
@@ -147,8 +165,11 @@
                   <option value="nome">A–Z</option>
                 </select>
               } @else {
-                <select aria-label="Ordenar as dicas" [value]="listSort()" (change)="listSort.set($any($event.target).value)">
-                  <option value="nota">Maior nota</option>
+                <select aria-label="Ordenar as dicas" [value]="tab() === 'dicas' ? tipSort() : listSort()" (change)="listSort.set($any($event.target).value)">
+                  <!-- com dicas em segredo, ordenar por nota contaria o segredo -->
+                  @if (!(tab() === 'dicas' && hidden().size)) {
+                    <option value="nota">Maior nota</option>
+                  }
                   <option value="recente">Mais recentes</option>
                   <option value="nome">A–Z</option>
                 </select>
@@ -290,7 +311,7 @@
               <ul class="soltas" [class.simples]="simple()">
                 @for (r of shownTips(); track r.id) {
                   <li class="solta">
-                    <app-review-card [review]="r" [preview]="true" [compact]="simple()" (opened)="openReview(r, false)" />
+                    <app-review-card [review]="r" [preview]="true" [compact]="simple()" [masked]="hidden().has(r.id)" (opened)="openReview(r, false)" />
                     @if (isWished(r)) {
                       <p class="quero feito">
                         <lucide-icon [img]="DoneIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />

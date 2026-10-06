@@ -32,6 +32,12 @@
   }
 }
 
+/* na cabeça, a linha dos segredos vai embaixo da placa */
+.cabeca .segredos {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+
 /* a placa: um crachá grande, faixa azul impressa e o nome a pincel azul */
 .placa {
   position: relative;

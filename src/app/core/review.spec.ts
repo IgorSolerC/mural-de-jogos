@@ -422,3 +422,15 @@ describe('rejogadas', () => {
     expect(originalsOf(list).map((r) => r.id)).toEqual(['routra01', 'roriginal']);
   });
 });
+
+describe('ficha privada', () => {
+  const base = { id: 'priv-1', game: { name: 'Hades' }, scores: { final: 8 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+
+  it('guarda a marca e quando passou a ser vista; sem a marca, a ficha é pública', () => {
+    expect(sanitizeReview({ ...base, private: true })!.private).toBe(true);
+    expect('private' in sanitizeReview(base)!).toBe(false);
+    expect(sanitizeReview({ ...base, private: 'sim' })!.private).toBeUndefined();
+    expect(sanitizeReview({ ...base, publishedAt: '2026-03-01T10:00:00Z' })!.publishedAt).toBe('2026-03-01T10:00:00.000Z');
+    expect(sanitizeReview({ ...base, publishedAt: 'ontem' })!.publishedAt).toBeUndefined();
+  });
+});

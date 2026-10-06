@@ -32,7 +32,11 @@ interface Stored {
    * core/cloud-sync.ts). As chaves nunca vão no arquivo de backup.
    */
   keysAt: string;
-  /** Evitar spoilers dos amigos (ligado por padrão): em Amigos, a ficha de algo que você ainda não avaliou vem em segredo. */
+  /**
+   * Evitar spoilers de outros murais (ligado por padrão): a ficha de qualquer outra pessoa (amigo ou
+   * não, em Amigos, no mural dela ou em Comparar) sobre algo que você ainda não avaliou vem em segredo.
+   * Cada tela tem um "Mostrar notas" que vale só enquanto ela estiver aberta (ver core/spoiler-shield.ts).
+   */
   friendSpoilers: boolean;
   /**
    * As novidades dos amigos: misturadas (de todos os murais, esteja onde estiver) ou separadas (só as

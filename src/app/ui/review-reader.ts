@@ -8,7 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ChevronLeft, ChevronRight, LucideAngularModule, PenLine, Repeat, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Repeat, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -90,10 +90,23 @@ import { StatusLabel } from './status-label';
                 @if (r.game.year) {
                   <p class="meta year">{{ profile().released }} {{ r.game.year }}</p>
                 }
+                @if (r.private && owner() === null) {
+                  <p class="privada">
+                    <lucide-icon [img]="PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Privada: só você vê. Ninguém foi avisado.
+                  </p>
+                }
               </div>
 
               <div class="judgement">
                 <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" [masked]="masked()" />
+                <!-- a ficha de outra pessoa em segredo: revelar é só desta vez, a próxima abre em segredo de novo -->
+                @if (forceMask()) {
+                  <button type="button" class="btn-quiet revelar" [attr.aria-pressed]="revealed()" (click)="revealed.set(!revealed())">
+                    <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                    {{ revealed() ? 'Esconder a nota' : 'Revelar a nota' }}
+                  </button>
+                }
                 @if (!masked() && handAverage(); as avg) {
                   <p class="na-mao">Nota dada na mão · a média daria {{ avg }}</p>
                 }
@@ -191,6 +204,9 @@ export class ReviewReader {
   protected readonly RevisitIcon = Repeat;
   protected readonly PrevIcon = ChevronLeft;
   protected readonly NextIcon = ChevronRight;
+  protected readonly RevealIcon = Eye;
+  protected readonly HideIcon = EyeOff;
+  protected readonly PrivateIcon = LockKeyhole;
   private readonly store = inject(ReviewStore);
   protected readonly profile = computed(() => profileOf(this.review()?.kind ?? 'jogos'));
   protected readonly hours = computed(() => {
@@ -223,10 +239,14 @@ export class ReviewReader {
   protected readonly review = signal<Review | null>(null);
   /** Backups de colegas são somente leitura e nunca acionam as ações do mural pessoal. */
   protected readonly owner = signal<string | null>(null);
-  /** Pedido por quem abriu: a ficha de um amigo que você ainda não avaliou, com "Evitar spoilers dos amigos". */
-  private readonly forceMask = signal(false);
+  /** Pedido por quem abriu: a ficha de outra pessoa sobre algo que você ainda não avaliou ("Evitar spoilers de outros murais"). */
+  protected readonly forceMask = signal(false);
+  /** "Revelar a nota": só enquanto esta leitura estiver aberta. */
+  protected readonly revealed = signal(false);
   /** Sem spoilers, a leitura do seu mural esconde o mesmo que a ficha. O mural de um colega não, a não ser quando pedido. */
-  protected readonly masked = computed(() => this.forceMask() || (this.settings.noSpoilers() && this.owner() === null));
+  protected readonly masked = computed(
+    () => (this.forceMask() && !this.revealed()) || (this.settings.noSpoilers() && this.owner() === null),
+  );
   /** O texto inteiro, ou embaralhado do mesmo tamanho no modo sem spoilers. */
   protected readonly text = computed(() => {
     const r = this.review();
@@ -300,6 +320,7 @@ export class ReviewReader {
    */
   open(review: Review, owner: string | null = null, pool: readonly Review[] = [], masked = false): void {
     this.forceMask.set(masked);
+    this.revealed.set(false);
     this.owner.set(owner);
     this.pool.set(pool);
     this.review.set(review);

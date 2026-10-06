@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output } from '@angular/core';
-import { LucideAngularModule, Repeat } from 'lucide-angular';
+import { LockKeyhole, LucideAngularModule, Repeat } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -114,6 +114,13 @@ function watchDistance(el: HTMLElement): () => void {
           <!-- só capa e nome: a rejogada se distingue da original pelo selinho de "outra vez" no canto da foto -->
           @if (capas() && review().revisitOf && !bare()) {
             <span class="vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="15" [strokeWidth]="3" /></span>
+          }
+          <!-- privada: o cadeado no canto da foto, só no seu mural (a ficha nunca sai dele) -->
+          @if (review().private && !bare()) {
+            <span class="privada-selo" title="Privada: só você vê">
+              <lucide-icon [img]="PrivateIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
+              <span class="sr-only">Privada: só você vê</span>
+            </span>
           }
         </div>
       </div>
@@ -564,6 +571,28 @@ function watchDistance(el: HTMLElement): () => void {
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
       rotate: -8deg;
     }
+    .privada-selo {
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--hi);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+      rotate: 8deg;
+    }
+    :host(.compact) .privada-selo,
+    :host(.capas) .privada-selo {
+      top: -6px;
+      left: -6px;
+      width: 24px;
+      height: 24px;
+    }
     :host(.fora) {
       opacity: 0.45;
       filter: saturate(0.6);
@@ -787,6 +816,7 @@ export class ReviewCard {
   readonly toggled = output<string>();
 
   protected readonly AgainIcon = Repeat;
+  protected readonly PrivateIcon = LockKeyhole;
   /** O papel da rejogada é desenhado com o id da original (ver artIdOf). */
   protected readonly artId = computed(() => artIdOf(this.review()));
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));

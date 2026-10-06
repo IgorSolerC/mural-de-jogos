@@ -57,6 +57,8 @@ export class Caderno {
   readonly pairs = input.required<readonly ReviewPair[]>();
   readonly name = input.required<string>();
   readonly profile = input.required<KindProfile>();
+  /** As fichas do colega em segredo ("Evitar spoilers de outros murais"): no top, a nota vira "?". */
+  readonly hidden = input<ReadonlySet<string>>(new Set());
 
   readonly opened = output<OpenRequest>();
   /** Levar um par (a maior briga, a unanimidade) para a lista de fichas lado a lado. */
@@ -124,7 +126,8 @@ export class Caderno {
           .map((s) => `${p.statuses[s]} ${this.statusWord(s, p.statuses[s])}`)
           .join(' · '),
         amount: formatAmount(this.profile().kind, p.amount, true),
-        longest: p.longest ? `${p.longest.game.name} (${formatAmount(p.longest.kind, p.longest.hoursPlayed)})` : '',
+        // as horas de uma ficha em segredo também contam o que a pessoa achou (a ficha esconde)
+        longest: p.longest && !(side === 'colega' && this.hidden().has(p.longest.id)) ? `${p.longest.game.name} (${formatAmount(p.longest.kind, p.longest.hoursPlayed)})` : '',
       };
     }),
   );

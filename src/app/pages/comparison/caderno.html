@@ -81,7 +81,12 @@
                     <span class="pos">{{ i + 1 }}º</span>
                     <app-cover-sleeve class="capinha" size="thumb" [game]="r.game" [decorative]="true" />
                     <span class="top-nome">{{ r.game.name }}</span>
-                    <span class="top-nota">{{ fmt(r.scores.final) }}</span>
+                    <!-- sem spoilers: a nota do colega sobre o que você não avaliou fica em segredo -->
+                    @if (x.side === 'colega' && hidden().has(r.id)) {
+                      <span class="top-nota segredo"><span aria-hidden="true">?</span><span class="sr-only">nota em segredo</span></span>
+                    } @else {
+                      <span class="top-nota">{{ fmt(r.scores.final) }}</span>
+                    }
                   </button>
                   @if (partner().get(r); as other) {
                     <span class="outro" [class.colega]="x.side === 'voce'" [class.voce]="x.side !== 'voce'">

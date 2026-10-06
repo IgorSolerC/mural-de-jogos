@@ -31,6 +31,18 @@ export interface NewsEntry {
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-06-privadas-e-segredos',
+    date: '2026-10-06',
+    title: 'Resenhas privadas e notas em segredo',
+    items: [
+      'Ao pregar uma resenha, escolha "Quem vê?": Todo mundo ou Só eu. A privada ganha um cadeado, fica fora do mural que os outros veem e não avisa ninguém. Quando você troca para Todo mundo, quem segue você é avisado.',
+      'Evitar spoilers agora vale para as fichas de qualquer pessoa, amiga ou não: em Amigos, no mural de alguém e em Comparar, o que você ainda não avaliou fica em segredo.',
+      'Abriu uma ficha em segredo? "Revelar a nota" mostra só aquela, só daquela vez.',
+      'No mural de alguém e em Comparar, "Mostrar notas" revela tudo enquanto a tela estiver aberta. Na próxima vez, volta a seguir Ajustes.',
+      'No feed de Amigos, a ficha tem a mesma largura e altura que no mural.',
+    ],
+  },
+  {
     id: '2026-10-06-amigos-e-chaves',
     date: '2026-10-06',
     title: 'Amigos com as fichas de verdade',

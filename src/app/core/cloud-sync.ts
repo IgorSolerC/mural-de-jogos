@@ -3,6 +3,7 @@ import { readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
+import { Review, isPrivate } from './review';
 import { BackupPayload, ReviewStore, canonicalJson } from './review-store';
 import { Settings } from './settings';
 import { Confirm } from '../ui/confirm';
@@ -33,8 +34,9 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  * cloud-sync.spec.ts lembra disso.
  *
  * 2: as chaves de busca (`chaves`) passaram a ir no mural da nuvem.
+ * 3: as fichas privadas (`private`, `publishedAt`). Um site antigo jogaria a marca fora e publicaria a ficha.
  */
-export const SYNC_SCHEMA = 2;
+export const SYNC_SCHEMA = 3;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -65,9 +67,29 @@ export function newerKeys(local: SyncedKeys | null, remote: SyncedKeys | null): 
 
 /** O site recusa enviar um mural compactado maior que isso (a nuvem aceita até 1,9 MB). */
 export const MAX_GZ_BYTES = 1_800_000;
-/** Resenhas criadas há até 7 dias contam como novas para avisar quem segue. */
+/** Resenhas criadas (ou tornadas públicas) há até 7 dias contam como novas para avisar quem segue. */
 const NEW_REVIEW_DAYS = 7;
 const MAX_NEW = 10;
+
+/** O que os outros veem do mural: tudo, menos as fichas privadas. */
+export function publicReviews(reviews: readonly Review[]): Review[] {
+  return reviews.filter((r) => !isPrivate(r));
+}
+
+/**
+ * As fichas que viram aviso para quem segue: as públicas que apareceram nos últimos 7 dias. Uma
+ * ficha que era privada aparece quando deixa de ser (`publishedAt`), não quando foi escrita. A nuvem
+ * só avisa uma vez de cada ficha, então mandar de novo não repete o aviso.
+ */
+export function newReviews(reviews: readonly Review[], now: number): { ref: string; titulo: string; mural: Review['kind'] }[] {
+  const since = now - NEW_REVIEW_DAYS * 24 * 60 * MINUTE;
+  const shownAt = (r: Review) => Date.parse(r.publishedAt ?? r.createdAt);
+  return publicReviews(reviews)
+    .filter((r) => shownAt(r) >= since)
+    .sort((a, b) => shownAt(b) - shownAt(a))
+    .slice(0, MAX_NEW)
+    .map((r) => ({ ref: r.id, titulo: r.game.name, mural: r.kind }));
+}
 /** Válvula de segurança: mais que isso de envios em 10 minutos para tudo (algo está errado). */
 const MAX_PUSHES_PER_10_MIN = 8;
 const MINUTE = 60_000;
@@ -543,14 +565,10 @@ export class CloudSync {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
     const publico = await gzip(
-      JSON.stringify({ app: 'meu-mural', version: 2, exportedAt: doc.exportedAt, ...(name ? { owner: { name } } : {}), reviews: doc.reviews }),
+      // o que os outros veem: sem as fichas privadas
+      JSON.stringify({ app: 'meu-mural', version: 2, exportedAt: doc.exportedAt, ...(name ? { owner: { name } } : {}), reviews: publicReviews(doc.reviews) }),
     );
-    const since = now - NEW_REVIEW_DAYS * 24 * 60 * MINUTE;
-    const novas = doc.reviews
-      .filter((r) => Date.parse(r.createdAt) >= since)
-      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-      .slice(0, MAX_NEW)
-      .map((r) => ({ ref: r.id, titulo: r.game.name, mural: r.kind }));
+    const novas = newReviews(doc.reviews, now);
     const form = new FormData();
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');

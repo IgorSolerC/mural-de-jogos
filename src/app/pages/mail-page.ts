@@ -19,6 +19,7 @@ import { Pin } from '../ui/pin';
 import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
 import { Busy } from '../ui/busy';
+import { SpoilerShield } from '../core/spoiler-shield';
 
 type Tab = 'chegou' | 'pessoas';
 const TABS: readonly Tab[] = ['chegou', 'pessoas'];
@@ -42,6 +43,7 @@ export class MailPage {
   protected readonly follow = inject(Follow);
   protected readonly account = inject(CloudAccount);
   protected readonly settings = inject(Settings);
+  private readonly shield = inject(SpoilerShield);
   private readonly cloud = inject(Cloud);
   private readonly cloudMurals = inject(CloudMurals);
   private readonly colleagues = inject(ColleagueStore);
@@ -82,8 +84,8 @@ export class MailPage {
       if (item.tipo === 'seguiu') return { key: `seguiu:${item.pessoa.codigo}`, item, dia, theirs: null, mine: null, secret: false };
       const theirs = this.reviewOf(item.pessoa.codigo, item.ref);
       const mine = theirs ? this.mineOf(item.pessoa.codigo, theirs) : null;
-      // "Evitar spoilers dos amigos": o que eu ainda não avaliei vem em segredo
-      const secret = !!theirs && !mine && this.settings.friendSpoilers();
+      // "Evitar spoilers de outros murais": o que eu ainda não avaliei vem em segredo
+      const secret = !!theirs && !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id);
       return { key: `resenha:${item.pessoa.codigo}:${item.ref}`, item, dia, theirs, mine, secret };
     }),
   );
@@ -120,7 +122,7 @@ export class MailPage {
   private readonly myReviews = computed(() => this.store.reviews().filter((r) => !r.revisitOf));
   /** Por pessoa: as fichas dela pelo id e a minha ficha da mesma obra. */
   private readonly matches = computed(() => {
-    const out = new Map<string, { byId: Map<string, Review>; mine: Map<string, Review> }>();
+    const out = new Map<string, { byId: Map<string, Review>; mine: Map<string, Review>; hidden: ReadonlySet<string> }>();
     const mine = this.myReviews();
     for (const [code, c] of this.walls()) {
       const theirs = c.reviews.filter((r) => !r.revisitOf);
@@ -128,6 +130,7 @@ export class MailPage {
       out.set(code, {
         byId: new Map(c.reviews.map((r) => [r.id, r])),
         mine: new Map(pairs.map((p) => [p.theirs.id, p.mine])),
+        hidden: this.shield.hiddenIn(c.reviews),
       });
     }
     return out;

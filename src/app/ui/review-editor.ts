@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Bookmark, Check, CopyCheck, Images, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Trash2, X } from 'lucide-angular';
+import { Bookmark, Check, CopyCheck, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Trash2, UsersRound, X } from 'lucide-angular';
 import {
   Bonus,
   Difficulty,
@@ -45,6 +45,7 @@ import {
 } from '../core/review';
 import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { cap, g, profileOf } from '../core/kinds';
+import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { ReviewStore } from '../core/review-store';
 import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
@@ -100,6 +101,8 @@ export class ReviewEditor {
   private readonly mural = inject(Mural);
   private readonly lookup = inject(GameLookup);
   private readonly confirm = inject(Confirm);
+  /** "Quem vê?" só aparece quando o site tem nuvem: sem ela, ninguém vê o mural mesmo. */
+  protected readonly cloud = inject(Cloud);
   readonly saved = output<SavedEvent>();
   /** Guardou só o jogo (nome e capa) para resenhar depois. */
   readonly drafted = output<SavedEvent>();
@@ -117,6 +120,10 @@ export class ReviewEditor {
   protected readonly DoneIcon = Check;
   protected readonly RevisitIcon = Repeat;
   protected readonly KeepIcon = CopyCheck;
+  protected readonly PrivateIcon = LockKeyhole;
+  protected readonly EveryoneIcon = UsersRound;
+  /** "Só eu": a ficha fica fora do mural que os outros veem, e ninguém é avisado (ver Review.private). */
+  protected readonly isPrivate = signal(false);
   protected readonly labels = SCORE_LABEL;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -329,6 +336,7 @@ export class ReviewEditor {
       text: this.text(),
       completedAt: this.dateValid() ? this.dateValue() : this.today(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
+      ...(this.isPrivate() ? { private: true as const } : {}),
       createdAt: '',
       updatedAt: '',
     };
@@ -410,6 +418,7 @@ export class ReviewEditor {
     const root = review ? (review.revisitOf ?? null) : revisitOf ? (revisitOf.revisitOf ?? revisitOf.id) : null;
     this.revisitRoot.set(root);
     this.keptNotes.set(false);
+    this.isPrivate.set(review?.private === true);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
     // a rejogada nova já nasce com a cartolina da original, igualzinha (o papel é desenhado com o id
@@ -590,6 +599,9 @@ export class ReviewEditor {
       text: this.text().trim(),
       completedAt: this.dateValue(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
+      ...(this.isPrivate() ? { private: true as const } : {}),
+      // deixou de ser privada agora: para quem segue, ela é nova a partir de hoje
+      ...(this.isPrivate() ? {} : prev?.private ? { publishedAt: now } : prev?.publishedAt ? { publishedAt: prev.publishedAt } : {}),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
@@ -772,6 +784,7 @@ export class ReviewEditor {
       this.game()?.coverUrl,
       this.difficulty(),
       this.text().trim(),
+      this.isPrivate(),
     ]);
   }
 
