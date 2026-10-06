@@ -24,6 +24,8 @@ interface Stored {
   scoreDisplay: ScoreDisplay;
   /** O nome da pessoa: vai no backup (e no nome do arquivo), para quem abrir em Comparar já saber de quem é. */
   ownerName: string;
+  /** O número no envelope do correio (quantas coisas chegaram). Desligado, o envelope fica quieto. */
+  mailCount: boolean;
 }
 
 /** O nome é curto: cabe numa etiqueta "Olá, eu sou" e no nome do arquivo. */
@@ -40,9 +42,10 @@ function readStored(): Stored {
     const noSpoilers = raw.noSpoilers === true;
     const scoreDisplay: ScoreDisplay = SCORE_DISPLAYS.includes(raw.scoreDisplay) ? raw.scoreDisplay : 'livre';
     const ownerName = typeof raw.ownerName === 'string' ? raw.ownerName.slice(0, OWNER_NAME_MAX) : '';
-    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName };
+    const mailCount = raw.mailCount !== false;
+    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount };
   } catch {
-    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '' };
+    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '', mailCount: true };
   }
 }
 
@@ -68,6 +71,8 @@ export class Settings {
   readonly scoreDisplay = scoreDisplay;
   /** Como a pessoa se chama (vazio: não disse). Ver `OWNER_NAME_MAX`. */
   readonly ownerName = signal(this.stored.ownerName);
+  /** O número no envelope do correio. */
+  readonly mailCount = signal(this.stored.mailCount);
   readonly effectiveSource = computed<CoverSource>(() => (this.source() === 'rawg' && this.hasRawg() ? 'rawg' : 'wikipedia'));
 
   constructor() {
@@ -80,6 +85,7 @@ export class Settings {
         noSpoilers: this.noSpoilers(),
         scoreDisplay: this.scoreDisplay(),
         ownerName: this.ownerName().slice(0, OWNER_NAME_MAX),
+        mailCount: this.mailCount(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

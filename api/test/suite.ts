@@ -430,8 +430,8 @@ export function apiSuite(label: string, getDb: () => Db) {
           { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
           { sql: "INSERT INTO murais_publicos VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
           { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [them] },
-          { sql: "INSERT INTO seguindo VALUES (?, ?, '2026-10-06')", params: [me, them] },
-          { sql: "INSERT INTO seguindo VALUES (?, ?, '2026-10-06')", params: [them, me] },
+          { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [me, them] },
+          { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [them, me] },
           { sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', ?, ?, '2026-10-06')", params: [them, me] },
           { sql: "INSERT INTO atividades (tipo, autor_id, ref, criado_em) VALUES ('resenha', ?, 'r1', '2026-10-06')", params: [me] },
           { sql: "INSERT INTO atividades (tipo, autor_id, ref, criado_em) VALUES ('resenha', ?, 'r2', '2026-10-06')", params: [them] },
@@ -612,6 +612,145 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect((await call(`/v1/murais/${conta.codigo}`)).status).toBe(404);
         expect((await call(`/v1/murais/${codigo}`)).status).toBe(200);
         expect(((await (await json('GET', '/v1/eu', undefined, token)).json()) as any).codigo).toBe(codigo);
+      });
+    });
+
+    describe('seguir e correio', () => {
+      const review = (ref: string, titulo = `Jogo ${ref}`) => ({ ref, titulo, mural: 'jogos' });
+      /** Duas contas: Ana (quem publica) e Bia (quem segue). */
+      async function two(env: Record<string, string> = {}) {
+        const t = await setup(env);
+        const ana = (await t.login({ sub: 'ana', givenName: 'Ana' })).body;
+        const bia = (await t.login({ sub: 'bia', givenName: 'Bia' })).body;
+        const feed = async (token: string, depois?: string) => {
+          const res = await t.json('GET', `/v1/eu/notificacoes${depois ? `?depois=${encodeURIComponent(depois)}` : ''}`, undefined, token);
+          return { status: res.status, body: res.status === 200 ? ((await res.json()) as any) : null };
+        };
+        return { ...t, ana, bia, feed };
+      }
+
+      it('segue pelo código digitado de qualquer jeito e avisa uma vez só', async () => {
+        const { json, ana, bia, db, advance } = await two();
+        const typed = ana.conta.codigo.toLowerCase().replace('-', ' ');
+        const res = await json('POST', '/v1/seguindo', { codigo: typed }, bia.token);
+        expect(res.status).toBe(201);
+        expect(((await res.json()) as any).pessoa).toEqual({ codigo: ana.conta.codigo, nome: 'Ana' });
+        expect((await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token)).status).toBe(200);
+        advance(1000);
+        await json('DELETE', `/v1/seguindo/${ana.conta.codigo}`, undefined, bia.token);
+        advance(1000);
+        expect((await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token)).status).toBe(201);
+        const avisos = await db.all("SELECT 1 FROM atividades WHERE tipo = 'seguiu'");
+        expect(avisos).toHaveLength(1);
+      });
+
+      it('recusa seguir a si mesmo, código desconhecido ou inválido, e sem sessão', async () => {
+        const { json, ana } = await two();
+        expect((await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, ana.token)).status).toBe(400);
+        expect((await json('POST', '/v1/seguindo', { codigo: 'ZZZZ-ZZZZ' }, ana.token)).status).toBe(404);
+        expect((await json('POST', '/v1/seguindo', { codigo: 'oi' }, ana.token)).status).toBe(400);
+        expect((await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo })).status).toBe(401);
+      });
+
+      it('o correio traz as resenhas publicadas depois de começar a seguir, e 204 quando não há nada novo', async () => {
+        const { json, push, ana, bia, feed, advance } = await two();
+        await push(ana.token, 0, { novas: [review('antes1', 'Celeste')] });
+        await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token);
+        advance(1000);
+        await push(ana.token, 1, { novas: [review('depois1', 'Hades'), review('antes1', 'Celeste')] });
+        const first = await feed(bia.token);
+        expect(first.status).toBe(200);
+        expect(first.body.itens).toEqual([
+          { tipo: 'resenha', em: expect.any(String), pessoa: { codigo: ana.conta.codigo, nome: 'Ana' }, ref: 'depois1', titulo: 'Hades', mural: 'jogos', silenciado: false },
+        ]);
+        expect(first.body.naoVistas).toBe(1);
+        expect((await feed(bia.token, first.body.itens[0].em)).status).toBe(204);
+        await push(ana.token, 2, { novas: [review('depois2', 'Hollow Knight')] });
+        const second = await feed(bia.token, first.body.itens[0].em);
+        expect(second.status).toBe(200);
+        expect(second.body.itens.map((i: any) => i.ref)).toEqual(['depois2', 'depois1']);
+        expect(second.body.naoVistas).toBe(2);
+      });
+
+      it('marcar como visto zera o número; silenciar mantém no correio sem contar', async () => {
+        const { json, push, ana, bia, feed, advance } = await two();
+        await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token);
+        advance(1000);
+        await push(ana.token, 0, { novas: [review('res1')] });
+        const { body } = await feed(bia.token);
+        expect(body.naoVistas).toBe(1);
+        const seen = await json('POST', '/v1/eu/notificacoes/vistas', { ate: body.itens[0].em }, bia.token);
+        expect(seen.status).toBe(200);
+        expect((await feed(bia.token)).body.naoVistas).toBe(0);
+        // uma data velha não desfaz o visto; uma futura vira agora
+        await json('POST', '/v1/eu/notificacoes/vistas', { ate: '2020-01-01T00:00:00.000Z' }, bia.token);
+        expect((await feed(bia.token)).body.naoVistas).toBe(0);
+        await push(ana.token, 1, { novas: [review('res2')] });
+        expect((await feed(bia.token)).body.naoVistas).toBe(1);
+        const muted = await json('PATCH', `/v1/seguindo/${ana.conta.codigo}`, { silenciado: true }, bia.token);
+        expect(muted.status).toBe(200);
+        const quiet = (await feed(bia.token)).body;
+        expect(quiet.naoVistas).toBe(0);
+        expect(quiet.itens[0]).toMatchObject({ ref: 'res2', silenciado: true });
+        expect((await json('PATCH', `/v1/seguindo/${bia.conta.codigo}`, { silenciado: true }, ana.token)).status).toBe(404);
+        expect((await json('POST', '/v1/eu/notificacoes/vistas', {}, bia.token)).status).toBe(400);
+      });
+
+      it('quem foi seguido vê o aviso com "seguir de volta"; o aviso some se a pessoa deixar de seguir', async () => {
+        const { json, ana, bia, feed, advance } = await two();
+        await json('POST', '/v1/seguindo', { codigo: bia.conta.codigo }, ana.token);
+        let item = (await feed(bia.token)).body.itens[0];
+        expect(item).toEqual({ tipo: 'seguiu', em: expect.any(String), pessoa: { codigo: ana.conta.codigo, nome: 'Ana' }, euSigo: false });
+        advance(1000);
+        await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token);
+        item = (await feed(bia.token)).body.itens.find((i: any) => i.tipo === 'seguiu');
+        expect(item.euSigo).toBe(true);
+        await json('DELETE', `/v1/seguindo/${bia.conta.codigo}`, undefined, ana.token);
+        expect((await feed(bia.token)).body.itens.filter((i: any) => i.tipo === 'seguiu')).toEqual([]);
+      });
+
+      it('as listas de pessoas, tirar um seguidor e trocar o código sem perder quem segue', async () => {
+        const { json, push, ana, bia } = await two();
+        await push(ana.token, 0);
+        await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token);
+        const listBia = (await (await json('GET', '/v1/eu/pessoas', undefined, bia.token)).json()) as any;
+        expect(listBia.seguindo).toEqual([{ codigo: ana.conta.codigo, nome: 'Ana', desde: expect.any(String), silenciado: false, rev: 1, meSegue: false }]);
+        expect(listBia.seguidores).toEqual([]);
+        const listAna = (await (await json('GET', '/v1/eu/pessoas', undefined, ana.token)).json()) as any;
+        expect(listAna.seguidores).toEqual([{ codigo: bia.conta.codigo, nome: 'Bia', desde: expect.any(String), euSigo: false }]);
+        // Ana troca o código: Bia continua seguindo e vê o código novo
+        const { codigo } = (await (await json('POST', '/v1/eu/codigo', undefined, ana.token)).json()) as any;
+        const again = (await (await json('GET', '/v1/eu/pessoas', undefined, bia.token)).json()) as any;
+        expect(again.seguindo[0].codigo).toBe(codigo);
+        // Ana tira Bia da lista de quem a segue
+        expect((await json('DELETE', `/v1/eu/seguidores/${bia.conta.codigo}`, undefined, ana.token)).status).toBe(200);
+        expect(((await (await json('GET', '/v1/eu/pessoas', undefined, bia.token)).json()) as any).seguindo).toEqual([]);
+      });
+
+      it('no máximo 60 pessoas novas por dia', async () => {
+        const { json, login, ana } = await two({ COTA_LINHAS_DIA: '100000' });
+        const codes: string[] = [];
+        for (let i = 0; i < 61; i++) codes.push((await login({ sub: `p${i}` })).body.conta.codigo);
+        for (let i = 0; i < 60; i++) expect((await json('POST', '/v1/seguindo', { codigo: codes[i] }, ana.token)).status).toBe(201);
+        const res = await json('POST', '/v1/seguindo', { codigo: codes[60] }, ana.token);
+        expect(res.status).toBe(429);
+        expect(((await res.json()) as any).erro).toBe('seguir-devagar');
+      });
+
+      it('apagar a conta tira quem ela segue, quem a segue e os avisos', async () => {
+        const { json, db, ana, bia } = await two();
+        await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token);
+        await json('POST', '/v1/seguindo', { codigo: bia.conta.codigo }, ana.token);
+        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        expect(await db.all('SELECT 1 FROM seguindo')).toEqual([]);
+        expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'seguiu'")).toEqual([]);
+      });
+
+      it('com a nuvem em só leitura, o correio abre e seguir é recusado', async () => {
+        const { json, ana, bia, deps } = await two();
+        (deps.config as { mode: string }).mode = 'so-leitura';
+        expect((await json('GET', '/v1/eu/notificacoes', undefined, bia.token)).status).toBe(200);
+        expect((await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token)).status).toBe(503);
       });
     });
   });

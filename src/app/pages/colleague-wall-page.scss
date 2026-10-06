@@ -22,6 +22,16 @@
   margin-bottom: 36px;
 }
 
+/* Seguir: o botão de pincel na parede, ao lado da placa; seguindo, vira a fita amarela de estado */
+.seguir {
+  align-self: center;
+
+  &.seguindo {
+    background: var(--hi);
+    color: var(--ink);
+  }
+}
+
 /* a placa: um crachá grande, faixa azul impressa e o nome a pincel azul */
 .placa {
   position: relative;

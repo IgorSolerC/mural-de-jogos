@@ -3,13 +3,15 @@ import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, inject, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { LucideAngularModule, LucideIconData, Megaphone, NotebookPen, Plus, Scissors, Settings, X } from 'lucide-angular';
+import { LucideAngularModule, LucideIconData, Mail, Megaphone, NotebookPen, Plus, Scissors, Settings as SettingsIcon, X } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { cap, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
 import { News } from './core/news';
+import { Follow } from './core/follow';
+import { Settings } from './core/settings';
 import { ReviewStore } from './core/review-store';
 import { SideBySide } from './core/side-by-side';
 import { ViewTransitions } from './core/view-transitions';
@@ -32,6 +34,9 @@ interface Tab {
   icon?: LucideIconData;
 }
 
+/** O correio: um envelope ao lado da engrenagem, só com a conta na nuvem. */
+const MAIL_TAB: Tab = { path: '/correio', label: 'Correio', icon: Mail };
+
 const TABS: Tab[] = [
   { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
   { path: '/fila', label: 'Pra depois' },
@@ -39,7 +44,7 @@ const TABS: Tab[] = [
   // o Ranking e o Comparar moram dentro de Extras: a fita de Extras fica acesa neles também
   { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
   // as Novidades se abrem por Ajustes (e pela faixa do topo)
-  { path: '/ajustes', label: 'Ajustes', icon: Settings, also: ['/novidades'] },
+  { path: '/ajustes', label: 'Ajustes', icon: SettingsIcon, also: ['/novidades'] },
 ];
 
 @Component({
@@ -67,6 +72,9 @@ export class App {
   private readonly cloudMurals = inject(CloudMurals);
   /** As novidades do site e a faixa do topo (ver core/news.ts). */
   protected readonly news = inject(News);
+  /** Seguir e o correio (ver core/follow.ts): o envelope do topo mostra quantas coisas chegaram. */
+  private readonly follow = inject(Follow);
+  private readonly settings = inject(Settings);
 
   /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
   private readonly path = toSignal(
@@ -88,7 +96,8 @@ export class App {
   protected readonly CutIcon = Scissors;
   protected readonly NoticeIcon = Megaphone;
   protected readonly CloseIcon = X;
-  protected readonly tabs = TABS;
+  /** As abas; o envelope do correio entra antes da engrenagem quando há conta na nuvem. */
+  protected readonly tabs = computed(() => (this.follow.available() ? [...TABS.slice(0, -1), MAIL_TAB, TABS[TABS.length - 1]] : TABS));
 
   private readonly editor = viewChild.required(ReviewEditor);
   private readonly reader = viewChild.required(ReviewReader);
@@ -132,6 +141,7 @@ export class App {
     if (path === '/') return this.mural.count() || null;
     if (path === '/fila') return this.mural.draftCount() || null;
     if (path === '/wishlist') return this.mural.wishCount() || null;
+    if (path === '/correio') return (this.settings.mailCount() && this.follow.unseen()) || null;
     return null;
   }
 

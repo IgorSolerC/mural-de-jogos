@@ -4,6 +4,7 @@ import { HttpError } from './errors';
 import { offline, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
+import { followRoutes } from './routes/follow';
 import { muralRoutes } from './routes/mural';
 
 /** A versão da API que o /v1/status informa (mude junto com mudanças que o site precise saber). */
@@ -66,6 +67,7 @@ export function createApp(deps: Deps): Hono {
 
   accountRoutes(app, deps);
   muralRoutes(app, deps);
+  followRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API.' }, 404));
 

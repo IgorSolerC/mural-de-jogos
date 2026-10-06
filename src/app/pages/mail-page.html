@@ -1,0 +1,295 @@
+<header class="cabeca">
+  <h1 class="tape-label big">Correio</h1>
+  <p class="resumo">O que chegou de quem você segue</p>
+</header>
+
+@if (!follow.available()) {
+  <!-- sem conta (ou com a nuvem desligada): um bilhete dizendo como começar -->
+  <section class="ficha cartolina sem-conta" aria-labelledby="sem-conta-titulo">
+    <app-pin class="pin" color="#e62e2d" />
+    <h2 id="sem-conta-titulo">Siga os amigos pelo código</h2>
+    @if (cloudOn()) {
+      <p class="lead">Entre com a sua conta em Ajustes › Perfil. Aí é só colar o código de um amigo para ver aqui o que ele pregou no mural.</p>
+      <a class="btn-ink" routerLink="/ajustes" [queryParams]="{ aba: 'perfil' }">Ir para o Perfil</a>
+    } @else {
+      <p class="lead">A nuvem está desligada agora. O seu mural continua salvo neste aparelho.</p>
+    }
+  </section>
+} @else {
+  <div class="prateleira abas-correio">
+    <div class="prateleira-abas" role="tablist" aria-label="Partes do correio" (keydown)="onTabKey($event)">
+      @for (t of tabs; track t.id) {
+        <button
+          type="button"
+          role="tab"
+          class="plate"
+          [id]="'aba-' + t.id"
+          [class.is-active]="tab() === t.id"
+          [attr.aria-selected]="tab() === t.id"
+          [attr.aria-controls]="'painel-' + t.id"
+          [attr.tabindex]="tab() === t.id ? 0 : -1"
+          (click)="go(t.id)"
+        >
+          <lucide-icon [img]="t.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+          {{ t.label }}
+          @if (t.id === 'pessoas' && peopleCount(); as n) {
+            <span class="count">{{ n }}</span>
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="painel" role="tabpanel" [id]="'painel-' + tab()" [attr.aria-labelledby]="'aba-' + tab()">
+    @if (tab() === 'chegou') {
+      @if (follow.offline()) {
+        <p class="giz" role="status">Sem conexão com a nuvem: mostrando o que já tinha chegado.</p>
+      }
+      @if (!groups().length) {
+        <section class="ficha cartolina vazio" aria-labelledby="vazio-titulo">
+          <app-pin class="pin" color="#e62e2d" />
+          <h2 id="vazio-titulo">Nada por aqui ainda</h2>
+          <p class="lead">
+            @if (followingCount()) {
+              Quando quem você segue pregar algo no mural, chega aqui. O correio mostra os últimos 30 dias.
+            } @else {
+              Siga alguém pelo código e, quando essa pessoa pregar algo no mural, chega aqui.
+            }
+          </p>
+          <button type="button" class="btn-ink" (click)="go('pessoas')">
+            <lucide-icon [img]="FollowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+            Seguir alguém
+          </button>
+        </section>
+      } @else {
+        <ol class="cartas">
+          @for (gr of groups(); track gr.key; let i = $index) {
+            <li [style.rotate.deg]="tilt(i)">
+              @if (gr.kind === 'seguiu') {
+                <!-- alguém começou a seguir: um bilhete pequeno -->
+                <article class="bilhete-seguiu" [attr.aria-label]="gr.pessoa.nome + ' começou a seguir você'">
+                  @if (isFresh(gr.em)) {
+                    <span class="novo" aria-hidden="true">Novo</span>
+                  }
+                  <lucide-icon class="bilhete-icone" [img]="FollowIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+                  <p>
+                    <strong>{{ gr.pessoa.nome }}</strong> começou a seguir você
+                    <span class="quando">· {{ when(gr.dia) }}</span>
+                  </p>
+                  @if (follow.followingCodes().has(gr.pessoa.codigo)) {
+                    <span class="mutuo">
+                      <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                      Vocês se seguem
+                    </span>
+                  } @else {
+                    <button type="button" class="btn-ink btn-small" [disabled]="busy() === gr.pessoa.codigo" (click)="followBack(gr.pessoa)">
+                      Seguir de volta
+                    </button>
+                  }
+                </article>
+              } @else {
+                <!-- as resenhas de uma pessoa num dia: um cartão-postal com as fichinhas -->
+                <article class="cartao" [attr.aria-labelledby]="'cartao-' + i">
+                  @if (isFresh(gr.em)) {
+                    <span class="novo" aria-hidden="true">Novo</span>
+                  }
+                  <header class="cartao-cabeca">
+                    <h2 class="cartao-titulo" [id]="'cartao-' + i">
+                      <span class="cartao-nome">{{ gr.pessoa.nome }}</span>
+                      <span class="cartao-fez">pregou {{ countText(gr.itens) }} · {{ when(gr.dia) }}</span>
+                      @if (isFresh(gr.em)) {
+                        <span class="sr-only">(novo)</span>
+                      }
+                    </h2>
+                    @if (affinityOf(gr.pessoa.codigo); as af) {
+                      <p class="sintonia" [title]="af.phrase">
+                        <span class="sintonia-n">{{ af.percent }}%</span>
+                        <span class="sintonia-txt">{{ af.phrase }}</span>
+                      </p>
+                    }
+                  </header>
+
+                  <ul class="miudas">
+                    @for (item of gr.itens; track item.ref) {
+                      @let theirs = reviewOf(gr.pessoa.codigo, item.ref);
+                      <li class="miuda">
+                        <button
+                          type="button"
+                          class="miuda-abre"
+                          [disabled]="!theirs"
+                          (click)="theirs && openReview(theirs, gr.pessoa)"
+                          [attr.aria-label]="theirs ? 'Abrir a resenha de ' + item.titulo : item.titulo + ' (não está mais no mural)'"
+                        >
+                          @if (theirs) {
+                            <app-cover-sleeve class="miuda-capa" [game]="theirs.game" size="thumb" [decorative]="true" />
+                          } @else {
+                            <span class="miuda-capa sem" aria-hidden="true">?</span>
+                          }
+                          <span class="miuda-nome">{{ theirs?.game?.name ?? item.titulo }}</span>
+                        </button>
+                        @if (theirs) {
+                          <app-judge-label class="miuda-nota" [value]="shown(theirs)" size="compact" [masked]="masked()" />
+                        } @else {
+                          <span class="miuda-sumiu">Saiu do mural</span>
+                        }
+                        @if (theirs) {
+                          @if (mineOf(gr.pessoa.codigo, theirs); as mine) {
+                            <p class="miuda-voce">
+                              Você deu <strong>{{ masked() ? '?' : formatScore(shown(mine)) }}</strong>
+                            </p>
+                          } @else if (isWished(theirs)) {
+                            <p class="miuda-voce">
+                              <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+                              Na wishlist
+                            </p>
+                          } @else {
+                            <button type="button" class="acao-caneta miuda-quero" (click)="wish(theirs)">
+                              <lucide-icon [img]="WishIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                              {{ wantLabel(theirs) }}
+                            </button>
+                          }
+                        }
+                      </li>
+                    }
+                  </ul>
+
+                  <footer class="cartao-pe">
+                    <button type="button" class="btn-quiet" (click)="openWall(gr.pessoa)">
+                      <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      Ver o mural de {{ gr.pessoa.nome }}
+                    </button>
+                  </footer>
+                </article>
+              }
+            </li>
+          }
+        </ol>
+      }
+    } @else {
+      <!-- ===== Pessoas: seguir pelo código, quem eu sigo e quem me segue ===== -->
+      <section class="ficha cartolina seguir" aria-labelledby="seguir-titulo">
+        <app-pin class="pin" color="#e62e2d" />
+        <h2 id="seguir-titulo">Seguir alguém</h2>
+        <p class="lead">Cole o código da pessoa (fica em Ajustes › Perfil dela). Ela recebe um aviso de que você começou a seguir.</p>
+        <form class="campo" (submit)="followCode($event)">
+          <label class="sr-only" for="codigo-seguir">Código da pessoa</label>
+          <input
+            id="codigo-seguir"
+            type="text"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            maxlength="12"
+            placeholder="A1B2-C3D4"
+            [value]="code()"
+            (input)="code.set($any($event.target).value); followError.set(null)"
+          />
+          <button type="submit" class="btn-ink" [disabled]="busy() === 'form'">
+            {{ busy() === 'form' ? 'Seguindo…' : 'Seguir' }}
+          </button>
+        </form>
+        @if (followError(); as err) {
+          <p class="msg error" role="alert">{{ err }}</p>
+        }
+        @if (account.account(); as acc) {
+          <p class="hint">
+            O seu código é <strong class="meu-codigo">{{ acc.codigo }}</strong>.
+            <button type="button" class="link" (click)="copyCode(acc.codigo)">Copiar</button>
+          </p>
+        }
+      </section>
+
+      <section class="ficha cartolina lista sigo" aria-labelledby="sigo-titulo">
+        <app-pin class="pin" color="#e62e2d" />
+        <h2 id="sigo-titulo">Quem você segue <span class="n">{{ followingCount() }}</span></h2>
+        @if (peopleError(); as err) {
+          <p class="msg error" role="alert">{{ err }}</p>
+        }
+        @if (people(); as p) {
+          @if (!p.seguindo.length) {
+            <p class="hint">Ninguém ainda. Peça o código de um amigo e cole ali em cima.</p>
+          } @else {
+            <ul class="pessoas">
+              @for (f of p.seguindo; track f.codigo) {
+                <li class="pessoa">
+                  <div class="pessoa-quem">
+                    <span class="pessoa-nome">{{ f.nome }}</span>
+                    <span class="pessoa-sub">
+                      {{ f.codigo }}
+                      @if (f.meSegue) {
+                        · segue você
+                      }
+                      @if (f.silenciado) {
+                        · silenciado
+                      }
+                    </span>
+                  </div>
+                  <div class="pessoa-acoes">
+                    <button type="button" class="btn-quiet" (click)="openWall(f)">
+                      <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      Mural
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-quiet"
+                      [attr.aria-pressed]="f.silenciado"
+                      [disabled]="busy() === f.codigo"
+                      (click)="toggleMute(f)"
+                      [title]="f.silenciado ? 'As resenhas aparecem, mas não contam no número do envelope' : 'Continuar seguindo sem contar no número do envelope'"
+                    >
+                      <lucide-icon [img]="MuteIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      {{ f.silenciado ? 'Silenciado' : 'Silenciar' }}
+                    </button>
+                    <button type="button" class="btn-quiet danger" [disabled]="busy() === f.codigo" (click)="unfollow(f)">
+                      Deixar de seguir
+                    </button>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        } @else if (!peopleError()) {
+          <p class="hint" role="status">Buscando…</p>
+        }
+      </section>
+
+      <section class="ficha cartolina lista seguem" aria-labelledby="seguem-titulo">
+        <app-pin class="pin" color="#e62e2d" />
+        <h2 id="seguem-titulo">Quem segue você <span class="n">{{ people()?.seguidores?.length ?? 0 }}</span></h2>
+        @if (people(); as p) {
+          @if (!p.seguidores.length) {
+            <p class="hint">Ninguém ainda. Mande o seu código ou o link do seu mural (Ajustes › Perfil) para os amigos.</p>
+          } @else {
+            <ul class="pessoas">
+              @for (f of p.seguidores; track f.codigo) {
+                <li class="pessoa">
+                  <div class="pessoa-quem">
+                    <span class="pessoa-nome">{{ f.nome }}</span>
+                    <span class="pessoa-sub">{{ f.codigo }}</span>
+                  </div>
+                  <div class="pessoa-acoes">
+                    @if (follow.followingCodes().has(f.codigo)) {
+                      <span class="mutuo">
+                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                        Vocês se seguem
+                      </span>
+                    } @else {
+                      <button type="button" class="btn-ink btn-small" [disabled]="busy() === f.codigo" (click)="followBack(f)">Seguir de volta</button>
+                    }
+                    <button type="button" class="btn-quiet danger" [disabled]="busy() === f.codigo" (click)="removeFollower(f)">Tirar</button>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        }
+        <label class="opcao-numero">
+          <input type="checkbox" [checked]="settings.mailCount()" (change)="settings.mailCount.set($any($event.target).checked)" />
+          Mostrar no envelope do topo quantas coisas chegaram
+        </label>
+      </section>
+    }
+  </div>
+}
+
+<app-review-reader />

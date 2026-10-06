@@ -90,6 +90,27 @@ export class CloudMurals {
     if (selected && this.colleagues.selected()?.id !== selected) this.colleagues.select(selected);
   }
 
+  /**
+   * O mural de alguém que eu sigo, para o correio: o guardado se foi aberto há pouco; senão pergunta
+   * à nuvem se mudou. Não troca quem está escolhido no Comparar. Sem rede, fica o guardado (ou null).
+   */
+  async ensure(input: string): Promise<Colleague | null> {
+    const code = normalizeCode(input);
+    if (!code) return null;
+    await this.colleagues.ready;
+    const id = CLOUD_COLLEAGUE_PREFIX + code.replace('-', '');
+    const existing = this.colleagues.colleagues().find((c) => c.id === id) ?? null;
+    if (existing && Date.now() - Date.parse(existing.loadedAt) < FRESH_MS) return existing;
+    const selected = this.colleagues.selected()?.id;
+    try {
+      return await this.open(code);
+    } catch {
+      return existing;
+    } finally {
+      if (selected && this.colleagues.selected()?.id !== selected) this.colleagues.select(selected);
+    }
+  }
+
   /** O link ?mural=CÓDIGO: abre o mural da pessoa e vai direto para ele. */
   async openFromLink(): Promise<void> {
     if (typeof location === 'undefined') return;
