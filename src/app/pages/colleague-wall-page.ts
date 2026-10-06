@@ -70,10 +70,12 @@ export class ColleagueWallPage {
     const code = this.colleague()?.codigo;
     return !!code && this.follow.available() && code !== this.account.account()?.codigo;
   });
-  protected readonly following = computed(() => {
+  /** Sigo essa pessoa? null enquanto não se sabe: o botão espera, em vez de oferecer "Seguir" à toa. */
+  protected readonly followState = computed(() => {
     const code = this.colleague()?.codigo;
-    return !!code && this.follow.followingCodes().has(code);
+    return code ? this.follow.isFollowing(code) : null;
   });
+  protected readonly following = computed(() => this.followState() === true);
   protected readonly followBusy = signal(false);
 
   protected async toggleFollow(): Promise<void> {

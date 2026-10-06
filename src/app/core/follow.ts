@@ -134,12 +134,16 @@ interface Cache {
   vistasEm: string | null;
   /** A hora da nuvem na última conferência (para perguntar "algo depois disso?" com o feed vazio). */
   agora: string | null;
+  /** Quem eu sigo e quem me segue, da última vez: a tela já abre certa e a nuvem só confirma. */
+  pessoas?: unknown;
 }
 
 function readCache(): Cache | null {
   try {
     const raw = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null') as Partial<Cache> | null;
-    return raw && typeof raw.conta === 'string' ? { conta: raw.conta, itens: raw.itens, vistasEm: iso(raw.vistasEm), agora: iso(raw.agora) } : null;
+    return raw && typeof raw.conta === 'string'
+      ? { conta: raw.conta, itens: raw.itens, vistasEm: iso(raw.vistasEm), agora: iso(raw.agora), pessoas: raw.pessoas }
+      : null;
   } catch {
     return null;
   }
@@ -167,10 +171,20 @@ export class Follow {
   readonly visible = computed(() => visibleFeed(this.items(), this.settings.friendKinds(), this.mural.kind()));
   readonly unseen = computed(() => unseenCount(this.visible(), this.seenAt()));
   readonly followingCodes = computed(() => new Set(this.people()?.seguindo.map((p) => p.codigo) ?? []));
+
+  /**
+   * Eu sigo essa pessoa? null enquanto não se sabe (primeira abertura neste aparelho, antes da nuvem
+   * responder): a tela mostra "esperando", nunca um "Seguir" que já não vale.
+   */
+  isFollowing(code: string): boolean | null {
+    return this.people() ? this.followingCodes().has(code) : null;
+  }
   /** A última conferência deu erro (sem rede, nuvem fora): o correio mostra o guardado. */
   readonly offline = signal(false);
 
   private serverNow: string | null = null;
+  /** Muda a cada alteração feita aqui: uma lista da nuvem pedida antes dela chega velha e é descartada. */
+  private peopleVersion = 0;
   private checkedAt = 0;
   private checking: Promise<void> | null = null;
 
@@ -189,6 +203,8 @@ export class Follow {
           this.items.set(parseFeed(cache.itens));
           this.seenAt.set(cache.vistasEm);
           this.serverNow = cache.agora;
+          // quem eu sigo já vem do que ficou guardado: os botões abrem certos e a nuvem só confirma
+          if (cache.pessoas !== undefined) this.people.set(parsePeople(cache.pessoas));
         } else this.reset(true);
         void this.check();
         void this.loadPeople().catch(() => undefined);
@@ -255,42 +271,78 @@ export class Follow {
   }
 
   async loadPeople(): Promise<People> {
+    const version = this.peopleVersion;
     const people = parsePeople(await this.account.request<unknown>('/v1/eu/pessoas'));
+    // mudou algo aqui enquanto a resposta vinha: a lista que chegou é de antes, fica a daqui
+    if (version !== this.peopleVersion) return this.people() ?? people;
     this.people.set(people);
+    this.save();
     return people;
   }
 
-  /** Segue pelo código (digitado de qualquer jeito). Devolve a pessoa. */
+  /**
+   * Segue pelo código (digitado de qualquer jeito). Devolve a pessoa. A tela muda assim que a nuvem
+   * confirma; as listas completas se acertam por trás, sem segurar o botão.
+   */
   async follow(input: string): Promise<Person> {
     const code = normalizeCode(input);
     if (!code) throw new Error('Esse código não existe. Confira: ele tem 8 letras e números.');
     if (code === this.account.account()?.codigo) throw new Error('Esse é o seu código. Siga o de outra pessoa.');
-    const res = await this.account.request<{ pessoa?: unknown }>('/v1/seguindo', { method: 'POST', body: { codigo: code } });
+    const res = await this.account.request<{ pessoa?: unknown; desde?: unknown; silenciado?: unknown }>('/v1/seguindo', { method: 'POST', body: { codigo: code } });
     const p = person(res?.pessoa) ?? { codigo: code, nome: 'Alguém' };
-    await this.afterChange();
+    this.changePeople((list) => {
+      if (list.seguindo.some((f) => f.codigo === p.codigo)) return list;
+      const followsMe = list.seguidores.some((f) => f.codigo === p.codigo);
+      return {
+        seguindo: [{ ...p, desde: iso(res?.desde) ?? new Date().toISOString(), silenciado: res?.silenciado === true, rev: null, meSegue: followsMe }, ...list.seguindo],
+        seguidores: list.seguidores.map((f) => (f.codigo === p.codigo ? { ...f, euSigo: true } : f)),
+      };
+    });
+    this.items.update((list) => list.map((i) => (i.tipo === 'seguiu' && i.pessoa.codigo === p.codigo ? { ...i, euSigo: true } : i)));
+    this.save();
+    this.refreshLater();
     return p;
   }
 
   async unfollow(code: string): Promise<void> {
     await this.account.request(`/v1/seguindo/${code}`, { method: 'DELETE' });
-    await this.afterChange();
+    this.changePeople((list) => ({
+      seguindo: list.seguindo.filter((f) => f.codigo !== code),
+      seguidores: list.seguidores.map((f) => (f.codigo === code ? { ...f, euSigo: false } : f)),
+    }));
+    this.items.update((list) => list.map((i) => (i.tipo === 'seguiu' && i.pessoa.codigo === code ? { ...i, euSigo: false } : i)));
+    this.save();
+    this.refreshLater();
   }
 
   async mute(code: string, muted: boolean): Promise<void> {
     await this.account.request(`/v1/seguindo/${code}`, { method: 'PATCH', body: { silenciado: muted } });
     // o número muda na hora, sem esperar a nuvem
+    this.changePeople((list) => ({ ...list, seguindo: list.seguindo.map((f) => (f.codigo === code ? { ...f, silenciado: muted } : f)) }));
     this.items.update((list) => list.map((i) => (i.tipo === 'resenha' && i.pessoa.codigo === code ? { ...i, silenciado: muted } : i)));
     this.save();
-    await this.loadPeople().catch(() => undefined);
   }
 
   async removeFollower(code: string): Promise<void> {
     await this.account.request(`/v1/eu/seguidores/${code}`, { method: 'DELETE' });
-    await this.afterChange();
+    this.changePeople((list) => ({
+      seguindo: list.seguindo.map((f) => (f.codigo === code ? { ...f, meSegue: false } : f)),
+      seguidores: list.seguidores.filter((f) => f.codigo !== code),
+    }));
+    this.save();
+    this.refreshLater();
   }
 
-  private async afterChange(): Promise<void> {
-    await Promise.all([this.loadPeople().catch(() => undefined), this.check(true)]);
+  /** Aplica uma mudança confirmada pela nuvem nas listas daqui (e invalida as que estão a caminho). */
+  private changePeople(fn: (list: People) => People): void {
+    this.peopleVersion++;
+    this.people.update((list) => fn(list ?? { seguindo: [], seguidores: [] }));
+  }
+
+  /** As listas e o correio completos, por trás: a tela já mudou. */
+  private refreshLater(): void {
+    void this.loadPeople().catch(() => undefined);
+    void this.check(true);
   }
 
   private reset(dropCache: boolean): void {
@@ -310,7 +362,7 @@ export class Follow {
   private save(): void {
     const owner = this.owner();
     if (!owner) return;
-    const cache: Cache = { conta: owner, itens: this.items(), vistasEm: this.seenAt(), agora: this.serverNow };
+    const cache: Cache = { conta: owner, itens: this.items(), vistasEm: this.seenAt(), agora: this.serverNow, pessoas: this.people() ?? undefined };
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
     } catch {

@@ -82,7 +82,8 @@
                     <strong>{{ p.item.pessoa.nome }}</strong> começou a seguir você
                     <span class="quando">· {{ when(p.dia) }}</span>
                   </p>
-                  @if (follow.followingCodes().has(p.item.pessoa.codigo)) {
+                  <!-- sem a lista ainda (primeira abertura neste aparelho), vale o que a própria notificação diz -->
+                  @if (follow.isFollowing(p.item.pessoa.codigo) ?? p.item.euSigo) {
                     <span class="mutuo">
                       <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
                       Vocês se seguem
@@ -290,31 +291,6 @@
             </ul>
           }
         }
-      </section>
-
-      <section class="ficha cartolina opcoes-ficha" aria-labelledby="opcoes-titulo">
-        <app-pin class="pin" color="#e62e2d" />
-        <h2 id="opcoes-titulo">Opções</h2>
-        <div class="opcoes" role="group" aria-label="Opções de Amigos">
-          <label class="opcao-numero">
-            <input type="checkbox" [checked]="settings.mailCount()" (change)="settings.mailCount.set($any($event.target).checked)" />
-            Mostrar na aba Amigos, no topo, quantas novidades chegaram
-          </label>
-          <label class="opcao-numero">
-            <input type="checkbox" [checked]="settings.friendKinds() === 'separado'" (change)="settings.friendKinds.set($any($event.target).checked ? 'separado' : 'misturado')" />
-            <span>
-              Só as novidades do mural aberto
-              <small>Desligado, aparece tudo misturado: jogos, livros, filmes, séries e animes, esteja onde estiver.</small>
-            </span>
-          </label>
-          <label class="opcao-numero">
-            <input type="checkbox" [checked]="settings.friendSpoilers()" (change)="settings.friendSpoilers.set($any($event.target).checked)" />
-            <span>
-              Evitar spoilers dos amigos
-              <small>O que você ainda não avaliou chega em segredo: sem nota, sem veredito e com o texto embaralhado.</small>
-            </span>
-          </label>
-        </div>
       </section>
     }
   </div>

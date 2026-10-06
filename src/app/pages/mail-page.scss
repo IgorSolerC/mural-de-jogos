@@ -42,30 +42,6 @@
   cursor: pointer;
 }
 
-.opcoes {
-  display: grid;
-  gap: 4px;
-
-  .opcao-numero:first-child {
-    margin-top: 6px;
-    padding-top: 0;
-    border-top: 0;
-  }
-
-  small {
-    display: block;
-    margin-top: 2px;
-    font-weight: 400;
-    font-size: 0.88rem;
-    line-height: 1.4;
-    color: var(--ink-2);
-  }
-}
-
-.opcoes-ficha {
-  --stock: var(--stock-lilas);
-  rotate: 0.5deg;
-}
 
 .abas-correio {
   max-width: 760px;
@@ -301,23 +277,6 @@
   font-size: 0.88rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.opcao-numero {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 22px;
-  padding-top: 16px;
-  border-top: 2px dashed rgb(21 21 21 / 0.25);
-  font-weight: 600;
-  cursor: pointer;
-
-  input {
-    width: 20px;
-    height: 20px;
-    accent-color: var(--ink);
-  }
 }
 
 /* ===== O que chegou ===== */

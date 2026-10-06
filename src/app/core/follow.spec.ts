@@ -1,4 +1,8 @@
-import { FeedItem, dayLabel, localDayOf, parseFeed, parsePeople, unseenCount, visibleFeed } from './follow';
+import { TestBed } from '@angular/core/testing';
+import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
+import { Cloud } from './cloud-config';
+import { CloudAccount } from './cloud-account';
+import { FeedItem, Follow, dayLabel, localDayOf, parseFeed, parsePeople, unseenCount, visibleFeed } from './follow';
 
 const ana = { codigo: 'AAAA-1111', nome: 'Ana' };
 const bia = { codigo: 'BBBB-2222', nome: 'Bia' };
@@ -74,5 +78,74 @@ describe('misturado ou separado', () => {
     expect(visibleFeed(items, 'misturado', 'animes')).toEqual(items);
     expect(visibleFeed(items, 'separado', 'livros')).toEqual([livro, seguiu]);
     expect(visibleFeed(items, 'separado', 'animes')).toEqual([seguiu]);
+  });
+});
+
+
+describe('quem eu sigo, sem esperar a nuvem', () => {
+  const KEY = 'meu-mural:correio';
+  const ana = { codigo: 'AAAA-1111', nome: 'Ana' };
+  /** Os pedidos da lista de pessoas, na ordem em que saíram (cada um responde quando o teste mandar). */
+  let peopleRequests: ((v: unknown) => void)[];
+  let request: jasmine.Spy;
+
+  function make(): Follow {
+    TestBed.resetTestingModule();
+    peopleRequests = [];
+    request = jasmine.createSpy('request').and.callFake((path: string) => {
+      if (path === '/v1/eu/pessoas') return new Promise((r) => peopleRequests.push(r));
+      if (path === '/v1/seguindo') return Promise.resolve({ pessoa: ana, desde: '2026-10-06T10:00:00.000Z', silenciado: false });
+      return Promise.resolve({});
+    });
+    const signedIn = signal(true);
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
+        {
+          provide: CloudAccount,
+          useValue: {
+            account: signal({ id: 'u-eu', codigo: 'EEEE-0000', nome: 'Eu' }),
+            signedIn: computed(() => signedIn()),
+            request,
+            // o correio: nada novo
+            requestRaw: () => Promise.resolve(new Response(null, { status: 204 })),
+          },
+        },
+      ],
+    });
+    const follow = TestBed.inject(Follow);
+    TestBed.tick();
+    return follow;
+  }
+
+  afterEach(async () => {
+    // o que ficou andando por trás (a conferência do correio) termina antes de limpar
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.resetTestingModule();
+    localStorage.removeItem(KEY);
+  });
+
+  it('ao recarregar, a lista guardada já responde, antes da nuvem', () => {
+    localStorage.setItem(KEY, JSON.stringify({ conta: 'u-eu', itens: [], vistasEm: null, agora: null, pessoas: { seguindo: [{ ...ana, desde: '2026-10-01T00:00:00.000Z' }], seguidores: [] } }));
+    const follow = make();
+    expect(follow.isFollowing('AAAA-1111')).toBeTrue();
+    expect(follow.isFollowing('BBBB-2222')).toBeFalse();
+  });
+
+  it('sem nada guardado, não sabe (nunca diz que não segue antes da hora)', () => {
+    const follow = make();
+    expect(follow.isFollowing('AAAA-1111')).toBeNull();
+  });
+
+  it('seguir muda na hora; uma lista velha que chega depois não desfaz', async () => {
+    const follow = make();
+    await follow.follow('AAAA-1111');
+    expect(follow.isFollowing('AAAA-1111')).toBeTrue();
+    // a lista pedida ao abrir (antes de seguir) chega agora, sem a Ana: é descartada
+    peopleRequests[0]({ seguindo: [], seguidores: [] });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(follow.isFollowing('AAAA-1111')).toBeTrue();
+    expect(JSON.parse(localStorage.getItem(KEY)!).pessoas.seguindo[0].codigo).toBe('AAAA-1111');
   });
 });

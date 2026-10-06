@@ -432,6 +432,24 @@ function when(ms: number): string {
             </label>
           </fieldset>
 
+          <fieldset class="escolha numero-amigos">
+            <legend class="rotulo">Número na aba Amigos</legend>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="numero-amigos" value="mostrar" [checked]="settings.mailCount()" (change)="settings.mailCount.set(true)" />
+                <span class="adesivo" [class.recorte]="!settings.mailCount()" [class.colado]="settings.mailCount()">Mostrar</span>
+              </span>
+              <span class="op-texto">A aba Amigos, no topo, mostra quantas novidades chegaram, e as pessoas acenam quando chega algo.</span>
+            </label>
+            <label class="op">
+              <span class="opcao">
+                <input type="radio" name="numero-amigos" value="esconder" [checked]="!settings.mailCount()" (change)="settings.mailCount.set(false)" />
+                <span class="adesivo" [class.recorte]="settings.mailCount()" [class.colado]="!settings.mailCount()">Esconder</span>
+              </span>
+              <span class="op-texto">A aba fica quieta; as novidades continuam lá dentro.</span>
+            </label>
+          </fieldset>
+
           <fieldset class="escolha spoilers-amigos">
             <legend class="rotulo">Spoilers dos amigos</legend>
             <label class="op">

@@ -21,8 +21,8 @@
         class="btn-ink seguir"
         [class.seguindo]="following()"
         [attr.aria-pressed]="following()"
-        [disabled]="followBusy()"
-        [appBusy]="followBusy()"
+        [disabled]="followBusy() || followState() === null"
+        [appBusy]="followBusy() || followState() === null"
         (click)="toggleFollow()"
       >
         <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
