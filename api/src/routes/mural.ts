@@ -77,7 +77,7 @@ function publicRoutes(app: Hono, deps: Deps): void {
     if (deps.config.publicMurals === 'logados') await authenticate(deps, c.req.header('Authorization'));
     const code = normalizeCode(c.req.param('codigo'));
     const notFound = () =>
-      new HttpError(404, 'mural-nao-encontrado', 'Não achei mural com esse código. Confira as letras: são 8, como K7QF-M2XA.');
+      new HttpError(404, 'mural-nao-encontrado', 'Não achei mural com esse código. Confira as letras: são 8, entre letras e números.');
     if (!code) throw notFound();
     const head = await deps.db.first<{ usuario_id: string; rev: number }>(
       'SELECT p.usuario_id, p.rev FROM usuarios u JOIN murais_publicos p ON p.usuario_id = u.id WHERE u.codigo = ?',

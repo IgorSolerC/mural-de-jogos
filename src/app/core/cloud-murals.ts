@@ -41,7 +41,7 @@ export class CloudMurals {
   /** Abre (ou atualiza) o mural de alguém pelo código e o deixa escolhido no Comparar. */
   async open(input: string): Promise<Colleague> {
     const code = normalizeCode(input);
-    if (!code) throw new Error('Esse código não existe. Ele tem 8 letras e números, como K7QF-M2XA.');
+    if (!code) throw new Error('Esse código não existe. Confira: ele tem 8 letras e números.');
     if (this.account.account()?.codigo === code) throw new Error('Esse é o seu código. Para comparar, abra o de outra pessoa.');
     await this.colleagues.ready;
     const id = CLOUD_COLLEAGUE_PREFIX + code.replace('-', '');

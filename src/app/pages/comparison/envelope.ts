@@ -20,12 +20,14 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
   template: `
     <div class="aba" aria-hidden="true"></div>
     <div class="carta" aria-hidden="true">
-      @if (withCode()) {
-        <p>Oi! Meu código é K7QF-M2XA.</p>
+      @if (withCode() && owner(); as me) {
+        <p class="nome">Olá, {{ me.nome }}!</p>
+        <p>Seu código é <strong>{{ me.codigo }}</strong>.</p>
+        <p>Envie para seus amigos e veja quem tem razão!</p>
       } @else {
         <p>Oi! Segue o meu mural.</p>
+        <p>Bora ver quem tem razão?</p>
       }
-      <p>Bora ver quem tem razão?</p>
     </div>
     <div class="bolso">
       <span class="selo" aria-hidden="true"><span>Meu<br />Mural</span></span>
@@ -54,7 +56,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
             autocomplete="off"
             spellcheck="false"
             maxlength="11"
-            placeholder="K7QF-M2XA"
+            placeholder="A1B2-C3D4"
             [value]="typed()"
             (input)="typed.set($any($event.target).value)"
             [attr.aria-invalid]="!!codeError()"
@@ -119,6 +121,8 @@ export class BackupEnvelope {
   readonly cancel = output<void>();
   /** Com a nuvem ligada: o campo do código vem primeiro, e o arquivo vira a segunda opção. */
   readonly withCode = input(false);
+  /** Quem está logado: a carta do envelope mostra o nome e o código dele, para mandar aos amigos. */
+  readonly owner = input<{ nome: string; codigo: string } | null>(null);
   readonly codeBusy = input(false);
   readonly codeError = input('');
   /** O código digitado, ao tocar em "Abrir o mural". */

@@ -53,8 +53,9 @@
   left: 8%;
   right: 8%;
   bottom: calc(100% - 48px);
-  height: 132px;
-  padding: 16px 22px 0 46px;
+  /* a carta cresce para cima com o texto; os 48px de baixo ficam dentro do bolso */
+  min-height: 132px;
+  padding: 16px 22px 48px 46px;
   background:
     linear-gradient(90deg, transparent 34px, rgb(230 46 45 / 0.45) 34px 35.5px, transparent 0),
     repeating-linear-gradient(transparent 0 25px, rgb(64 110 190 / 0.3) 25px 26.5px, transparent 26.5px 28px),
@@ -71,6 +72,18 @@
 
 .carta p {
   margin: 0;
+}
+
+/* um nome comprido não empurra a carta: corta com reticências */
+.carta .nome {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.carta strong {
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 /* O bolso: o verso do envelope, com as dobras em V e a boca levemente sombreada */
@@ -249,6 +262,7 @@ h2 {
     outline: none;
     rotate: -0.4deg;
 
+    /* o exemplo do campo: um código qualquer, apagado */
     &::placeholder {
       color: rgb(21 21 21 / 0.3);
     }
@@ -318,11 +332,13 @@ h2 {
 
   :host {
     --aba-h: 96px;
+    /* a carta com o código ocupa até quatro linhas no celular: espaço para ela não encostar no título */
+    margin-top: 132px;
     rotate: -0.4deg;
   }
   .carta {
-    height: 110px;
-    padding: 12px 14px 0 38px;
+    min-height: 110px;
+    padding: 12px 14px 40px 38px;
     font-size: 1rem;
     background-position: 0 0, 0 10px, 0 0;
     bottom: calc(100% - 40px);

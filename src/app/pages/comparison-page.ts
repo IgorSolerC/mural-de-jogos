@@ -4,6 +4,7 @@ import { ArrowLeft, LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, 
 import { ColleagueStore } from '../core/colleague-store';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals } from '../core/cloud-murals';
+import { CloudAccount } from '../core/cloud-account';
 import { ReviewPair, compareCollections, distinctReviews } from '../core/comparison';
 import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
 import { KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
@@ -99,6 +100,7 @@ const byName = (a: Review, b: Review) => collator.compare(a.game.name, b.game.na
 export class ComparisonPage {
   protected readonly colleagues = inject(ColleagueStore);
   protected readonly cloud = inject(Cloud);
+  protected readonly account = inject(CloudAccount);
   private readonly cloudMurals = inject(CloudMurals);
   protected readonly codeBusy = signal(false);
   protected readonly codeError = signal('');
