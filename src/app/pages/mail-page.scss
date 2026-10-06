@@ -335,10 +335,11 @@
   rotate: 4deg;
 }
 
-/* a ficha do amigo com o mesmo tamanho de uma ficha do mural; o bilhete ao lado, pregado mais baixo */
+/* a ficha do amigo com a largura exata de uma ficha do mural (--ficha-w), então ela quebra as linhas
+   igual e sai com a mesma altura que ele viu ao pregar; o bilhete ao lado, pregado mais baixo */
 .post-corpo {
   display: grid;
-  grid-template-columns: minmax(0, 340px) minmax(0, 300px);
+  grid-template-columns: var(--ficha-w) minmax(0, 300px);
   align-items: start;
   gap: 18px 30px;
 }
@@ -346,6 +347,7 @@
 .post-ficha {
   display: block;
   width: 100%;
+  max-width: none;
 }
 
 /* o bilhete de vocês dois: papel de bloquinho, serrilhado no pé, escrito à mão */
@@ -502,12 +504,19 @@
 /* Telas estreitas: a ficha e, embaixo dela, o bilhete */
 @media (max-width: 760px) {
   .post-corpo {
-    grid-template-columns: minmax(0, 380px);
+    grid-template-columns: var(--ficha-w);
   }
 
   .post-nota {
     margin-top: 6px;
     rotate: 0.6deg;
+  }
+}
+
+/* no celular a parede vira uma coluna só e a ficha ocupa a largura toda: aqui também */
+@media (max-width: 559px) {
+  .post-corpo {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

@@ -499,7 +499,7 @@ app-caderno {
 
 /* ===== Dicas: as fichas que só um tem ===== */
 .soltas {
-  --card-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
+  --card-w: var(--ficha-w);
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;

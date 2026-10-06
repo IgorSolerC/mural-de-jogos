@@ -641,7 +641,7 @@ textarea {
 @media (min-width: 1024px) {
   /* a prévia tem a largura da ficha no mural (a mesma conta), para o canhoto caber igual */
   dialog.editor {
-    --previa-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
+    --previa-w: var(--ficha-w);
     max-width: min(1180px, calc(100vw - 48px));
   }
 

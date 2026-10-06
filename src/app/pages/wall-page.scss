@@ -57,7 +57,7 @@
    separa os grupos é a etiqueta de fita-crepe em cima de cada um (e o vão maior entre fileiras). */
 .wall {
   /* três fichas por seção enchem a largura da parede */
-  --card-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
+  --card-w: var(--ficha-w);
   --in-col: 34px;
   --in-gap: 44px var(--in-col);
   display: flex;

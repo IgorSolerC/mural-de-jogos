@@ -87,6 +87,10 @@
      1480px é a largura máxima da página e 30px o vão entre fichas. */
   --simples-page: calc(min(100vw - 20px, 1480px) - 2 * var(--gutter));
   --simples-w: clamp(320px, calc((var(--simples-page) - 90px) / 4), 340px);
+  /* Ficha detalhada: três por fileira numa parede cheia. Toda tela que mostra uma ficha detalhada
+     (o mural, o de um amigo, a comparação, o feed de Amigos) usa esta mesma largura, para a ficha
+     sair igualzinha, com as mesmas quebras de linha, em qualquer lugar. */
+  --ficha-w: clamp(330px, calc((100vw - 2 * var(--gutter) - 84px) / 3), 424px);
 
   /* tinta de cada veredito: carimbo em papel (leitura, editor, nota a nota). Na parede o canhoto é
      sempre tinta preta: cada uma destas cores tem a mesma matiz de uma cartolina e brigava com ela. */
