@@ -284,6 +284,14 @@ export function rootOf(r: Pick<Review, 'id' | 'revisitOf'>): string {
   return r.revisitOf ?? r.id;
 }
 
+/**
+ * O id de onde sai o desenho do papel (rabisco, estrago, mancha, decoração). A rejogada desenha com o
+ * da original: com o mesmo estojo e os mesmos sorteios, a cartolina sai idêntica à dela.
+ */
+export function artIdOf(r: Pick<Review, 'id' | 'revisitOf'>): string {
+  return r.revisitOf ?? r.id;
+}
+
 /** As rejogadas pela ordem em que aconteceram: pela data (sem data no fim), depois por quando foram pregadas. */
 function revisitOrder(a: Review, b: Review): number {
   if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? 1 : -1;

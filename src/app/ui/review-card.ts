@@ -19,6 +19,7 @@ import {
   sortBonuses,
   weightOf,
   isDarkStock,
+  artIdOf,
 } from '../core/review';
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
@@ -98,7 +99,7 @@ function watchDistance(el: HTMLElement): () => void {
          ui/veil.ts); a marca tracejada da vaga fica na própria ficha, por baixo -->
     <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
-    <app-paper-art [id]="review().id" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
+    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <div class="head">
@@ -786,6 +787,8 @@ export class ReviewCard {
   readonly toggled = output<string>();
 
   protected readonly AgainIcon = Repeat;
+  /** O papel da rejogada é desenhado com o id da original (ver artIdOf). */
+  protected readonly artId = computed(() => artIdOf(this.review()));
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
   /** "Rejogada", "Releitura", "Reassistida". */
   protected readonly revisitWord = computed(() => cap(this.profile().revisit.one));

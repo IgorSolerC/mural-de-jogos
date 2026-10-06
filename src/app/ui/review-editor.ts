@@ -412,23 +412,26 @@ export class ReviewEditor {
     this.keptNotes.set(false);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
-    this.stock.set(review?.stock ?? this.store.nextStock(kind));
-    this.paper.set(review?.paper ?? 'cartolina');
-    this.pattern.set(review?.pattern ?? null);
-    this.patternLook.set(lookOf(review ?? {}));
-    this.patternSeed.set(review?.patternSeed ?? null);
-    this.scribble.set(review?.scribble ?? null);
-    this.scribbleSeed.set(review?.scribbleSeed ?? null);
-    this.scribbleInk.set(review?.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
-    this.damage.set(review?.damage ?? null);
-    this.damageSeed.set(review?.damageSeed ?? null);
-    this.stain.set(review?.stain ?? null);
+    // a rejogada nova já nasce com a cartolina da original, igualzinha (o papel é desenhado com o id
+    // dela, ver artIdOf); a pessoa muda no estojo se quiser
+    const look = review ?? (root ? (this.store.get(root) ?? revisitOf) : undefined);
+    this.stock.set(look?.stock ?? this.store.nextStock(kind));
+    this.paper.set(look?.paper ?? 'cartolina');
+    this.pattern.set(look?.pattern ?? null);
+    this.patternLook.set(lookOf(look ?? {}));
+    this.patternSeed.set(look?.patternSeed ?? null);
+    this.scribble.set(look?.scribble ?? null);
+    this.scribbleSeed.set(look?.scribbleSeed ?? null);
+    this.scribbleInk.set(look?.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
+    this.damage.set(look?.damage ?? null);
+    this.damageSeed.set(look?.damageSeed ?? null);
+    this.stain.set(look?.stain ?? null);
     this.overrideOn.set(review?.finalOverride !== undefined);
     // a nota como foi dada: com "Inteiros" em Ajustes, um 8,5 escrito como 9 viraria 9 ao salvar
     this.overrideText.set(review?.finalOverride !== undefined ? formatRawScore(review.finalOverride) : '');
-    this.stainSeed.set(review?.stainSeed ?? null);
-    this.decor.set(review?.decor ?? null);
-    this.decorSeed.set(review?.decorSeed ?? null);
+    this.stainSeed.set(look?.stainSeed ?? null);
+    this.decor.set(look?.decor ?? null);
+    this.decorSeed.set(look?.decorSeed ?? null);
     this.kit()?.reset();
     this.game.set(review?.game ?? draft?.game ?? wish?.game ?? (root ? (this.store.get(root)?.game ?? revisitOf!.game) : null));
     const { final: _final, ...rated } = review?.scores ?? { final: 0 };
