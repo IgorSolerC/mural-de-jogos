@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
+import { CloudMurals } from '../core/cloud-murals';
 import { KINDS, Kind, cap, countOf, profileOf, revisitCountOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Review, VERDICT_LABEL, fold, originalsOf } from '../core/review';
@@ -31,6 +32,12 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'des
 })
 export class ColleagueWallPage {
   protected readonly colleagues = inject(ColleagueStore);
+  private readonly cloudMurals = inject(CloudMurals);
+  /** Aberto pelo código: se atualiza da nuvem ao aparecer (a cada 2 minutos, no máximo). */
+  private readonly refreshCloud = effect(() => {
+    const c = this.colleagues.selected();
+    untracked(() => void this.cloudMurals.refresh(c));
+  });
   protected readonly mural = inject(Mural);
   protected readonly view = inject(WallView);
   private readonly vt = inject(ViewTransitions);

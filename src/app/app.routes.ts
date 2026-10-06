@@ -43,5 +43,6 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/muraldle-page').then((m) => m.MuraldlePage),
   },
   { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
+  { path: 'novidades', title: 'Novidades', loadComponent: () => import('./pages/news-page').then((m) => m.NewsPage) },
   { path: '**', redirectTo: '' },
 ];

@@ -17,6 +17,18 @@ export interface Deleted {
   wishes: Record<string, string>;
 }
 
+/** O backup (e o mural da nuvem), versão 2. */
+export interface BackupPayload {
+  app: 'meu-mural';
+  version: 2;
+  exportedAt: string;
+  owner?: { name: string };
+  reviews: Review[];
+  drafts: Draft[];
+  wishes: Wish[];
+  deleted: Deleted;
+}
+
 export interface ImportResult {
   added: number;
   updated: number;
@@ -323,11 +335,22 @@ export class ReviewStore {
    * da pessoa, ele vai junto (`owner.name`): quem abrir em Comparar já sabe de quem é.
    */
   async exportBackup(ownerName = ''): Promise<{ blob: Blob; ext: string }> {
+    const payload = this.snapshot(ownerName);
+    const json = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    if (typeof CompressionStream === 'undefined') return { blob: json, ext: 'json' };
+    const gz = await new Response(json.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+    return { blob: new Blob([gz], { type: 'application/gzip' }), ext: 'json.gz' };
+  }
+
+  /**
+   * O mural inteiro no formato do backup (é também o que vai para a nuvem). 2: cada ficha e cada
+   * pendente diz o seu mural; os backups 1 são todos de jogos. O `owner` veio depois sem mudar a
+   * versão: quem não conhece o campo simplesmente o ignora.
+   */
+  snapshot(ownerName = ''): BackupPayload {
     const name = ownerName.trim();
-    const payload = {
+    return {
       app: 'meu-mural',
-      // 2: cada ficha e cada pendente diz o seu mural; os backups 1 são todos de jogos. O `owner`
-      // veio depois sem mudar a versão: quem não conhece o campo simplesmente o ignora.
       version: 2,
       exportedAt: new Date().toISOString(),
       ...(name ? { owner: { name } } : {}),
@@ -336,10 +359,15 @@ export class ReviewStore {
       wishes: this.wishes(),
       deleted: this.deleted(),
     };
-    const json = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-    if (typeof CompressionStream === 'undefined') return { blob: json, ext: 'json' };
-    const gz = await new Response(json.stream().pipeThrough(new CompressionStream('gzip'))).blob();
-    return { blob: new Blob([gz], { type: 'application/gzip' }), ext: 'json.gz' };
+  }
+
+  /** Tem algo que valha guardar: resenha, pendente, desejo ou alguma exclusão lembrada. */
+  hasContent(): boolean {
+    const d = this.deleted();
+    return (
+      this.reviews().length + this.drafts().length + this.wishes().length > 0 ||
+      Object.keys(d.reviews).length + Object.keys(d.drafts).length + Object.keys(d.wishes).length > 0
+    );
   }
 
   /** Lê o arquivo do backup, gzip ou JSON puro (os backups antigos), e devolve o texto do JSON. */
@@ -411,7 +439,7 @@ export class ReviewStore {
       } else if (!current) {
         byId.set(r.id, r);
         added++;
-      } else if (Date.parse(r.updatedAt) > Date.parse(current.updatedAt)) {
+      } else if (isNewer(r, current)) {
         byId.set(r.id, r);
         updated++;
       } else {
@@ -426,12 +454,22 @@ export class ReviewStore {
     const asDraft = (id: string, updatedAt: string) => gone(ours.drafts[id], updatedAt) || gone(theirs.drafts[id], updatedAt);
 
     // Pendente que já virou resenha (mesmo id, aqui ou no backup), ou que foi tirado da fila, não fica na fila.
-    const kept = this.drafts().filter((d) => !byId.has(d.id) && !gone(theirs.drafts[d.id], d.updatedAt));
+    // O mesmo pendente dos dois lados: fica o mexido por último (a sincronização depende disso).
+    const theirDraft = new Map(incomingDrafts.map((d) => [d.id, d]));
+    let changedDrafts = 0;
+    const kept = this.drafts()
+      .filter((d) => !byId.has(d.id) && !gone(theirs.drafts[d.id], d.updatedAt))
+      .map((d) => {
+        const t = theirDraft.get(d.id);
+        if (!t || !isNewer(t, d)) return d;
+        changedDrafts++;
+        return t;
+      });
     const known = new Set([...byId.keys(), ...kept.map((d) => d.id)]);
     const newDrafts = incomingDrafts.filter(
       (d) => !known.has(d.id) && !asDraft(d.id, d.updatedAt) && !asReview(d.id, d.updatedAt),
     );
-    if (newDrafts.length || kept.length !== this.drafts().length) this.drafts.set([...newDrafts, ...kept]);
+    if (newDrafts.length || changedDrafts || kept.length !== this.drafts().length) this.drafts.set([...newDrafts, ...kept]);
 
     // Desejo que já virou resenha ou pendente (mesmo id, aqui ou no backup), ou que foi tirado da lista, não fica.
     const drafted = new Set([...known, ...newDrafts.map((d) => d.id)]);
@@ -442,7 +480,7 @@ export class ReviewStore {
       .filter((w) => !drafted.has(w.id) && !gone(theirs.wishes[w.id], w.updatedAt))
       .map((w) => {
         const t = theirWish.get(w.id);
-        if (!t || Date.parse(t.updatedAt) <= Date.parse(w.updatedAt)) return w;
+        if (!t || !isNewer(t, w)) return w;
         changedWishes++;
         return t;
       });
@@ -567,6 +605,27 @@ function sanitizeDeleted(raw: unknown): Deleted {
   };
   const d = (raw ?? {}) as Record<string, unknown>;
   return { reviews: pick(d['reviews']), drafts: pick(d['drafts']), wishes: pick(d['wishes']) };
+}
+
+/**
+ * `a` ganha de `b` na junção: mexido depois, ou, no mesmo instante, o de maior texto canônico. O
+ * desempate fixo faz dois aparelhos que juntam um o mural do outro chegarem ao mesmo resultado (sem
+ * ele, cada um ficaria com a sua versão e a sincronização reenviaria para sempre).
+ */
+export function isNewer(a: { updatedAt: string }, b: { updatedAt: string }): boolean {
+  const ta = Date.parse(a.updatedAt);
+  const tb = Date.parse(b.updatedAt);
+  if (ta !== tb) return ta > tb;
+  return canonicalJson(a) > canonicalJson(b);
+}
+
+/** JSON com as chaves em ordem: o mesmo objeto dá sempre o mesmo texto, venha de onde vier. */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)))
+      : v,
+  );
 }
 
 /** O apagamento mais recente de cada id, dos dois lados. */

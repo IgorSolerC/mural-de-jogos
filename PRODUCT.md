@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Angular (user-pinned). Standalone components, signals, SCSS. No backend: runs entirely in the browser and deploys as static files.
+Angular (user-pinned). Standalone components, signals, SCSS. Deploys as static files (GitHub Pages). An optional cloud API lives in `api/` (Hono on Cloudflare Workers with D1, portable to Node + SQLite); without an account the site runs entirely in the browser.
 
 ## Users
 
@@ -20,7 +20,7 @@ A personal review wall ("Meu Mural"). The user finds a game, book, film, series 
 
 ## Positioning
 
-Not a social review site and not a backlog tracker. It is a private wall of pinned index cards, one per title, where the collection itself is the artifact. No accounts, no feeds, no public scores.
+Not a social review site and not a backlog tracker. It is a private wall of pinned index cards, one per title, where the collection itself is the artifact. Accounts are optional (Google sign-in, for keeping the wall in sync and sharing it by code); no feed of strangers, no public scores.
 
 ## Operating Context
 
@@ -61,6 +61,10 @@ Not a social review site and not a backlog tracker. It is a private wall of pinn
 - Reviews can be edited and deleted. Deletions are remembered (and travel in the backup), so merging an older backup never brings a deleted review or pending item back.
 - Must work offline for existing reviews: a service worker (`public/sw.js`, production only) keeps the site and every cover already seen; the site is installable (manifest). Lookup needs a network connection and must fail gracefully without one.
 - Seu nome: Ajustes › Backup has a "Seu nome" field (up to 40 characters, a preference kept in this browser). The backup carries it as `owner.name` (same version 2; older versions ignore the field) and in the file name, "meu-mural-de-igor-2026-10-05.json.gz" (without a name, "meu-mural-2026-10-05.json.gz"), with a preview under the field. Comparar uses it for the colleague's name; restoring one's own backup in a browser with no name fills the field.
+- Cloud (optional): signed in with Google, the wall syncs between devices through `api/` (revision numbers, merge with the backup rules, no lost edits when two devices change it); the first time on a device that already has a wall, the user chooses to merge or keep only the account's, and the previous wall is kept for 30 days. Without an account, nothing changes.
+- Sharing by code: each account has a code (K7QF-M2XA) and a link (`?mural=`); anyone, signed in or not, opens that person's public wall (reviews and name only) in Comparar, alongside walls loaded from backup files. The code can be changed in Ajustes › Conta.
+- Novidades: `#/novidades` lists what changed in each update, newest first (`core/news.ts`, written in the same commit as the change, bundled with the site: no API calls, works offline). It opens from Ajustes ("Novidades", with how many are unseen). An update may carry a one-line notice for a banner above the wall, with "Ver o que mudou" and an X; closing it or opening the page hides it for good (kept in this browser, `meu-mural:novidades`), and it may have an end date. Only the newest update can show a banner. A first visit with an empty wall counts every update as seen; a browser that already had a wall when the page arrived sees only the newest one. An urgent notice can also come from `public/cloud.json` (`aviso`: id, texto, ate), even with the cloud off; it comes first and has no link. "Apagar o save" keeps what was seen.
+- Security: walls from other people (code, link or file) are untrusted. Every review goes through `sanitizeReview` (ids, kinds, statuses, verdicts, paper fields and seeds must be known values or numbers; covers must be https; text is length-capped), gzip is capped while it is unpacked, and text is only ever rendered by Angular interpolation; the only `innerHTML` is the app's own SVG art, built from those checked values. `src/index.html` carries a Content Security Policy: scripts only from the site and Google's sign-in, network only to the site, the cloud API, Google's sign-in and the lookup services (Wikipedia, RAWG, Open Library, Kitsu, AniList, TMDB), images from any https. A new lookup service or a new API address must be added to `connect-src` in the same commit. Critical-CSS inlining is off in production because its `onload` handler would be blocked.
 - Data safety: pinning a card asks the browser for persistent storage; a notepad reminder above the wall asks for a backup when the last one is over 30 days old and something changed since (or, with no backup ever, from 5 cards); "Depois" snoozes it for a week.
 
 ## Brand Commitments
@@ -76,7 +80,7 @@ No existing reviews, logos, or assets. Cover art comes from the lookup source at
 
 1. The wall is the product. Every review earns its place as a physical-feeling object.
 2. Fast to log. Finding the game and scoring it should feel like jotting on a card, not filling in a form.
-3. Private and portable. Nothing leaves the browser except lookup queries, and the user can always take their data with them.
+3. Private and portable. Without an account, nothing leaves the browser except lookup queries. With one, the wall goes to the user's own cloud copy and nothing else does (no e-mail stored). Either way the user can always take their data with them.
 4. Delight never blocks the task. Tilts, pins, and textures stay out of the way of reading, searching, and sorting.
 
 ## Accessibility & Inclusion

@@ -1,14 +1,26 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   BookOpen,
   Check,
+  Cloud as CloudIcon,
+  Copy,
+  Link as LinkIconData,
+  Megaphone,
   CircleCheck,
   Download,
   Eye,
   EyeOff,
   Film,
   Gamepad2,
+  HardDriveDownload,
+  LayoutGrid,
+  LogOut,
+  Search,
+  UserRound,
   LucideAngularModule,
+  RefreshCw,
+  CloudOff,
   Origami,
   ShieldAlert,
   Trash2,
@@ -30,73 +42,255 @@ import { JudgeLabel } from '../ui/judge-label';
 import { Bonus, fold, localDay } from '../core/review';
 import { scramble } from '../core/spoiler';
 import { Rabisco } from '../ui/rabisco';
+import { Cloud } from '../core/cloud-config';
+import { CloudAccount, CloudError } from '../core/cloud-account';
+import { CloudSync } from '../core/cloud-sync';
+import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
+import { GoogleButton } from '../ui/google-button';
+import { muralLink } from '../core/cloud-murals';
+import { News } from '../core/news';
 
 const DAY = 86_400_000;
 
+type Tab = 'perfil' | 'backup' | 'mural' | 'busca';
+const TABS: readonly Tab[] = ['perfil', 'backup', 'mural', 'busca'];
+
+/** "às 14:32" hoje; "em 3 de outubro às 14:32" antes. */
+function when(ms: number): string {
+  const d = new Date(ms);
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString()
+    ? `às ${time}`
+    : `em ${d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })} às ${time}`;
+}
+
 /**
- * Ajustes: três fichas pregadas. Backup (azul) e Mural (verde) numa coluna, Busca e capas (lilás) na
- * outra, para nenhuma deixar um buraco na parede. Toda escolha é o adesivo da cartela, como no editor:
+ * Ajustes: fichas pregadas. Conta (rosa, só com a nuvem ligada), Backup (azul) e Mural (verde) numa
+ * coluna, Busca e capas (lilás) na outra, para nenhuma deixar um buraco na parede. Toda escolha é o adesivo da cartela, como no editor:
  * a não escolhida é o recorte picotado, a escolhida sai colada. Nada aqui tem botão de salvar: vale na hora.
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco],
+  imports: [LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco, GoogleButton, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
       <h1 class="tape-label big">Ajustes</h1>
       <p class="resumo">Vale na hora e fica salvo neste navegador</p>
+      <!-- o que mudou no site: a página de novidades, com quantas ainda não foram vistas -->
+      <a class="btn-quiet novidades" routerLink="/novidades">
+        <lucide-icon [img]="MegaphoneIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+        Novidades
+        @if (news.unseen(); as n) {
+          <span class="novas">{{ n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
+        }
+      </a>
     </header>
 
-    <div class="boards">
+    <!-- as partes dos ajustes: abas de divisória na régua, uma ficha por vez -->
+    <div class="prateleira abas-ajustes">
+      <div class="prateleira-abas" role="tablist" aria-label="Partes dos ajustes" (keydown)="onTabKey($event)">
+        @for (t of tabs; track t.id) {
+          <button
+            type="button"
+            role="tab"
+            class="plate"
+            [id]="'aba-' + t.id"
+            [class.is-active]="tab() === t.id"
+            [attr.aria-selected]="tab() === t.id"
+            [attr.aria-controls]="'painel-' + t.id"
+            [attr.tabindex]="tab() === t.id ? 0 : -1"
+            (click)="go(t.id)"
+          >
+            <lucide-icon [img]="t.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            {{ t.label }}
+            @if (t.id === 'perfil' && syncTrouble() && account.signedIn()) {
+              <span class="badge" aria-label="(precisa de atenção)">!</span>
+            }
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="painel" role="tabpanel" [id]="'painel-' + tab()" [attr.aria-labelledby]="'aba-' + tab()">
+      <!-- ===== Perfil: o seu nome e, com a nuvem ligada, a conta ===== -->
+      @if (tab() === 'perfil') {
+        <section class="ficha cartolina conta" aria-labelledby="perfil-titulo">
+          <app-pin class="pin" color="#e62e2d" />
+          <h2 id="perfil-titulo">Perfil</h2>
+
+          <div class="nome-dono">
+            <h3 class="sub"><label for="dono-nome">Seu nome</label></h3>
+            <p class="hint">
+              É como você aparece para quem abre o seu mural em Comparar, pelo código ou por um backup seu, e vai no nome
+              do arquivo de backup.
+            </p>
+            <div class="key">
+              <input
+                id="dono-nome"
+                type="text"
+                autocomplete="nickname"
+                spellcheck="false"
+                [maxLength]="ownerNameMax"
+                placeholder="Como você quer aparecer"
+                [value]="settings.ownerName()"
+                (input)="settings.ownerName.set($any($event.target).value)"
+              />
+            </div>
+          </div>
+
+          @if (cloud.config(); as cfg) {
+          <div class="bloco nuvem" role="group" aria-labelledby="conta-titulo">
+          <h3 id="conta-titulo" class="sub">Conta na nuvem</h3>
+          @if (account.account(); as acc) {
+            <div class="estado" [class.atrasado]="syncTrouble()">
+              <lucide-icon
+                class="estado-icone"
+                [img]="syncTrouble() ? CloudOffIcon : CloudOnIcon"
+                [size]="22"
+                [strokeWidth]="2.4"
+                aria-hidden="true"
+              />
+              <div>
+                <p class="estado-linha" role="status">{{ syncLine() }}</p>
+                <p class="estado-sub">Entrou como {{ acc.nome }}, o "Seu nome" aqui em cima.</p>
+              </div>
+            </div>
+            @if (sync.message(); as m) {
+              <p class="msg" [class.error]="sync.status() === 'erro' || sync.status() === 'desatualizado'">{{ m }}</p>
+            }
+            @if (sync.clockWrong()) {
+              <p class="msg error">
+                O relógio deste aparelho está {{ sync.clockSkew() > 0 ? 'atrasado' : 'adiantado' }} em relação à nuvem. Acerte a
+                hora: com o relógio errado, uma edição antiga pode passar por cima de uma nova.
+              </p>
+            }
+            <div class="sync-acoes">
+              @if (sync.status() === 'escolha') {
+                <button type="button" class="btn-ink" (click)="sync.syncNow()">Escolher agora</button>
+              } @else if (sync.status() === 'desatualizado') {
+                <button type="button" class="btn-ink" (click)="reload()">Recarregar a página</button>
+              } @else {
+                <button type="button" class="btn-quiet" (click)="sync.syncNow()" [disabled]="sync.status() === 'sincronizando'">
+                  <lucide-icon [img]="RefreshIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                  Sincronizar agora
+                </button>
+              }
+            </div>
+            @if (beforeCopy(); as copy) {
+              <p class="hint copia">
+                O mural que estava neste navegador antes de entrar na conta está guardado até {{ copyUntil(copy) }}.
+                <button type="button" class="link-btn" (click)="downloadBefore(copy)">Baixar essa cópia</button>
+              </p>
+            }
+
+            <div class="bloco codigo" role="group" aria-labelledby="codigo-titulo">
+              <h3 id="codigo-titulo" class="sub">Seu código</h3>
+              <div class="codigo-linha">
+                <span class="codigo-valor" [attr.aria-label]="'Código ' + spelled(acc.codigo)">{{ acc.codigo }}</span>
+                <button type="button" class="btn-quiet" (click)="copyCode(acc.codigo)">
+                  <lucide-icon [img]="CopyIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                  Copiar
+                </button>
+                <button type="button" class="btn-quiet" (click)="copyLink(acc.codigo)">
+                  <lucide-icon [img]="LinkIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                  Copiar o link
+                </button>
+              </div>
+              <p class="hint">
+                Com o código ou o link, qualquer pessoa abre as suas resenhas em Comparar (a fila, a wishlist e os ajustes
+                não vão). Seguir chega na próxima etapa.
+                <button type="button" class="link-btn" (click)="newCode()" [disabled]="accountBusy()">Trocar o código</button>
+              </p>
+            </div>
+
+            <div class="bloco sair" role="group" aria-label="Sair da conta">
+              <button type="button" class="btn-quiet" (click)="signOut()" [disabled]="accountBusy()">
+                <lucide-icon [img]="LogOutIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                Sair
+              </button>
+              <button type="button" class="btn-quiet" (click)="signOutEverywhere()" [disabled]="accountBusy()">
+                Sair de todos os aparelhos
+              </button>
+            </div>
+
+            <div class="bloco apagar-conta" role="group" aria-labelledby="apagar-conta-titulo">
+              <h3 id="apagar-conta-titulo" class="sub">Apagar a conta</h3>
+              <p class="hint">
+                Tira da nuvem a conta, o código e tudo o que estiver guardado lá. O mural deste navegador continua aqui.
+              </p>
+              <button type="button" class="btn-ink danger" (click)="deleteAccount(acc.nome, acc.codigo)" [disabled]="accountBusy()">
+                <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                {{ accountBusy() ? 'Apagando…' : 'Apagar a conta' }}
+              </button>
+            </div>
+          } @else {
+            <p class="lead">
+              Entre com o Google para guardar o mural na nuvem e abrir em qualquer aparelho. Sem conta, tudo continua só
+              neste navegador, como sempre.
+            </p>
+            <div class="entrar">
+              @if (accountBusy()) {
+                <p class="hint" role="status">Entrando…</p>
+              } @else {
+                <app-google-button [clientId]="cfg.googleClientId" (credential)="signIn($event)" />
+              }
+            </div>
+            <p class="hint">
+              A nuvem guarda o número da sua conta Google, o nome que você escolher e o seu mural; nunca o seu e-mail.
+              <a href="privacidade.html" target="_blank" rel="noopener">Como a privacidade funciona</a>
+            </p>
+          }
+          @if (accountMsg(); as m) {
+            <p class="msg error" role="alert">{{ m }}</p>
+          }
+          </div>
+          }
+        </section>
+      }
+
       <!-- ===== Backup ===== -->
+      @if (tab() === 'backup') {
       <section class="ficha cartolina backup" aria-labelledby="backup-titulo">
         <app-pin class="pin" color="#e62e2d" />
         <h2 id="backup-titulo">Backup</h2>
         <p class="lead">
-          Suas resenhas moram só neste navegador. O backup é um arquivo com todos os murais: resenhas, pra depois e
-          wishlist.
+          @if (account.signedIn() && cloud.config()) {
+            Suas resenhas estão neste navegador e na sua conta. O backup é um arquivo só seu, com todos os murais: resenhas,
+            pra depois e wishlist.
+          } @else {
+            Suas resenhas moram só neste navegador. O backup é um arquivo com todos os murais: resenhas, pra depois e
+            wishlist.
+          }
         </p>
 
         <div class="estado" [class.atrasado]="overdue()">
           <lucide-icon
             class="estado-icone"
-            [img]="overdue() ? AlertIcon : OkIcon"
+            [img]="backup.inCloud() ? CloudOnIcon : overdue() ? AlertIcon : OkIcon"
             [size]="22"
             [strokeWidth]="2.4"
             aria-hidden="true"
           />
           <div>
-            <p class="estado-linha">{{ lastBackup() }}</p>
-            <p class="estado-sub">{{ contents() }}</p>
+            <p class="estado-linha">{{ backup.inCloud() ? syncLine() : lastBackup() }}</p>
+            <p class="estado-sub">
+              {{ contents() }}
+              @if (backup.inCloud()) {
+                {{ lastBackup() }}.
+              }
+            </p>
           </div>
-        </div>
-
-        <div class="bloco nome-dono">
-          <h3 class="sub"><label for="dono-nome">Seu nome</label></h3>
-          <p class="hint">
-            Vai dentro do backup e no nome do arquivo. Quem abrir o seu backup em Comparar já vê o seu nome, em vez de
-            "Colega".
-          </p>
-          <div class="key">
-            <input
-              id="dono-nome"
-              type="text"
-              autocomplete="nickname"
-              spellcheck="false"
-              [maxLength]="ownerNameMax"
-              placeholder="Como você quer aparecer"
-              [value]="settings.ownerName()"
-              (input)="settings.ownerName.set($any($event.target).value)"
-            />
-          </div>
-          <p class="hint arquivo">O arquivo sai como <strong>{{ fileNamePreview() }}</strong></p>
         </div>
 
         <button type="button" class="btn-ink baixar" (click)="exportFile()" [disabled]="!hasData()">
           <lucide-icon [img]="DownloadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
           Baixar backup
         </button>
+        <p class="hint arquivo">
+          O arquivo sai como <strong>{{ fileNamePreview() }}</strong> (o nome vem do
+          <button type="button" class="link-btn" (click)="go('perfil')">Perfil</button>).
+        </p>
 
         @if (backup.persisted() === false) {
           <p class="tip">
@@ -144,6 +338,9 @@ const DAY = 86_400_000;
             Começa do zero: tira deste navegador as resenhas, o pra depois, a wishlist, os backups de colegas e o progresso
             dos Extras. Seu nome, as chaves e as escolhas desta página ficam. Não tem desfazer: baixe um backup antes se
             quiser guardar.
+            @if (account.signedIn() && cloud.config()) {
+              Com a conta, o mural da nuvem volta para cá na próxima sincronização; para tirar da nuvem, apague a conta.
+            }
           </p>
           <button type="button" class="btn-ink danger" (click)="erase()" [disabled]="erasing()">
             <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
@@ -151,8 +348,10 @@ const DAY = 86_400_000;
           </button>
         </div>
       </section>
+      }
 
       <!-- ===== Mural ===== -->
+      @if (tab() === 'mural') {
       <section class="ficha cartolina mural" aria-labelledby="mural-titulo">
         <app-pin class="pin" color="#e62e2d" />
         <h2 id="mural-titulo">Mural</h2>
@@ -241,8 +440,10 @@ const DAY = 86_400_000;
           </p>
         </div>
       </section>
+      }
 
       <!-- ===== Busca e capas ===== -->
+      @if (tab() === 'busca') {
       <section class="ficha cartolina catalog" aria-labelledby="catalogo-titulo">
         <app-pin class="pin" color="#f4f4f0" />
         <h2 id="catalogo-titulo">Busca e capas</h2>
@@ -426,11 +627,43 @@ const DAY = 86_400_000;
           </fieldset>
         </section>
       </section>
+      }
     </div>
   `,
   styleUrl: './settings-page.scss',
 })
 export class SettingsPage {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  /** As abas, na ordem da régua. A aberta fica no endereço (#/ajustes?aba=backup), para links irem direto. */
+  protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Search }[] = [
+    { id: 'perfil', label: 'Perfil', icon: UserRound },
+    { id: 'backup', label: 'Backup', icon: HardDriveDownload },
+    { id: 'mural', label: 'Mural', icon: LayoutGrid },
+    { id: 'busca', label: 'Busca e capas', icon: Search },
+  ];
+  protected readonly tab = signal<Tab>(this.tabFrom(this.route.snapshot.queryParamMap.get('aba')));
+
+  private tabFrom(value: string | null): Tab {
+    return TABS.includes(value as Tab) ? (value as Tab) : 'perfil';
+  }
+
+  protected go(id: Tab): void {
+    this.tab.set(id);
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { aba: id }, replaceUrl: true });
+  }
+
+  /** Setas, Home e End andam entre as abas (o padrão das abas para teclado). */
+  protected onTabKey(e: KeyboardEvent): void {
+    const i = TABS.indexOf(this.tab());
+    const next =
+      e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i - 1 + TABS.length) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    this.go(TABS[next]);
+    queueMicrotask(() => document.getElementById(`aba-${TABS[next]}`)?.focus());
+  }
+
   protected readonly store = inject(ReviewStore);
   protected readonly settings = inject(Settings);
   /** O jeito de mostrar a nota, com um exemplo de cada. */
@@ -447,6 +680,14 @@ export class SettingsPage {
   );
   private readonly toasts = inject(Toasts);
   private readonly confirm = inject(Confirm);
+  protected readonly cloud = inject(Cloud);
+  protected readonly news = inject(News);
+  protected readonly MegaphoneIcon = Megaphone;
+  protected readonly account = inject(CloudAccount);
+  protected readonly sync = inject(CloudSync);
+  protected readonly beforeCopy = signal<BeforeCloudCopy | null>(null);
+  protected readonly accountBusy = signal(false);
+  protected readonly accountMsg = signal<string | null>(null);
 
   protected readonly DownloadIcon = Download;
   protected readonly UploadIcon = Upload;
@@ -463,6 +704,12 @@ export class SettingsPage {
   protected readonly FilmsIcon = Film;
   protected readonly SeriesIcon = Tv;
   protected readonly AnimesIcon = Origami;
+  protected readonly CloudOnIcon = CloudIcon;
+  protected readonly CopyIcon = Copy;
+  protected readonly LinkIcon = LinkIconData;
+  protected readonly LogOutIcon = LogOut;
+  protected readonly RefreshIcon = RefreshCw;
+  protected readonly CloudOffIcon = CloudOff;
 
   /** O pedaço de parede da prévia das etiquetas: dois meses, cinco fichas. */
   protected readonly preview = [
@@ -487,6 +734,11 @@ export class SettingsPage {
   constructor() {
     // a página recarregou depois de apagar o save
     if (takeErased()) this.toasts.show('Save apagado. O mural começou do zero.');
+    // a cópia de antes da nuvem nasce na primeira sincronização: confere de novo a cada uma
+    effect(() => {
+      this.sync.lastSyncAt();
+      void readBeforeCloud().then((copy) => this.beforeCopy.set(copy));
+    });
   }
 
   private readonly wishCount = computed(() => this.store.wishes().length);
@@ -500,6 +752,7 @@ export class SettingsPage {
 
   /** Mesmo critério do bilhete em cima do mural: passou do prazo, ou nunca baixou e já tem o que guardar. */
   protected readonly overdue = computed(() => {
+    if (this.backup.inCloud()) return false;
     const d = this.daysSince();
     return this.hasData() && (d === null || d >= BACKUP_EVERY_DAYS);
   });
@@ -523,6 +776,141 @@ export class SettingsPage {
     const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}` : parts[0];
     return `O arquivo leva ${list}.`;
   });
+
+  /** "K7QF-M2XA" soletrado para o leitor de tela: "K 7 Q F, M 2 X A". */
+  protected spelled(code: string): string {
+    return code.split('-').map((part) => part.split('').join(' ')).join(', ');
+  }
+
+  /** Roda uma ação da conta mostrando o erro da nuvem na ficha. */
+  private async accountAction(run: () => Promise<void>): Promise<boolean> {
+    this.accountBusy.set(true);
+    this.accountMsg.set(null);
+    try {
+      await run();
+      return true;
+    } catch (err) {
+      this.accountMsg.set(err instanceof CloudError ? err.message : 'Algo deu errado. Tente de novo.');
+      return false;
+    } finally {
+      this.accountBusy.set(false);
+    }
+  }
+
+  protected async signIn(credential: string): Promise<void> {
+    let created = false;
+    if (await this.accountAction(async () => void (created = (await this.account.signIn(credential)).nova))) {
+      this.toasts.show(created ? 'Conta criada. O seu código está aqui em Ajustes.' : 'Você entrou na sua conta.');
+    }
+  }
+
+  protected async copyCode(code: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(code);
+      this.toasts.show(`Código ${code} copiado`);
+    } catch {
+      this.toasts.show('Não deu para copiar. Selecione o código e copie à mão.');
+    }
+  }
+
+  /** A linha do estado da sincronização, na ficha da Conta. */
+  protected readonly syncLine = computed(() => {
+    const status = this.sync.status();
+    const at = this.sync.lastSyncAt();
+    switch (status) {
+      case 'sincronizando':
+        return 'Sincronizando…';
+      case 'ok':
+        return at ? `Salvo na nuvem ${when(at)}` : 'Salvo na nuvem';
+      case 'sem-rede':
+        return 'Só neste aparelho por enquanto';
+      case 'pausado':
+        return 'Sincronização pausada';
+      case 'escolha':
+        return 'Falta uma escolha sua';
+      case 'desatualizado':
+        return 'Site desatualizado';
+      case 'erro':
+        return 'A sincronização parou';
+      default:
+        return at ? `Salvo na nuvem ${when(at)}` : 'Conectando à nuvem…';
+    }
+  });
+  protected readonly syncTrouble = computed(() => ['sem-rede', 'pausado', 'escolha', 'desatualizado', 'erro'].includes(this.sync.status()));
+
+  protected reload(): void {
+    location.reload();
+  }
+
+  protected copyUntil(copy: BeforeCloudCopy): string {
+    const until = new Date(Date.parse(copy.at) + KEEP_DAYS * DAY);
+    return until.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  }
+
+  protected downloadBefore(copy: BeforeCloudCopy): void {
+    const url = URL.createObjectURL(copy.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meu-mural-antes-da-nuvem-${copy.at.slice(0, 10)}.json.gz`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
+  protected async copyLink(code: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(muralLink(code));
+      this.toasts.show('Link do mural copiado');
+    } catch {
+      this.toasts.show(`Não deu para copiar. O link é ${muralLink(code)}`);
+    }
+  }
+
+  protected async newCode(): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: 'Trocar o código?',
+      text:
+        'O código e o link de agora param de abrir o seu mural. Quem já abriu fica com a cópia que tinha, e quem segue você continua seguindo.',
+      confirm: 'Trocar o código',
+      icon: null,
+    });
+    let code = '';
+    if (sure && (await this.accountAction(async () => void (code = await this.account.newCode())))) {
+      this.toasts.show(`Código novo: ${code}`);
+    }
+  }
+
+  protected async signOut(): Promise<void> {
+    let done = false;
+    if (await this.accountAction(async () => void (done = await this.sync.signOut()))) {
+      if (done) this.toasts.show('Você saiu da conta. O mural continua neste navegador.');
+    }
+  }
+
+  protected async signOutEverywhere(): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: 'Sair de todos os aparelhos?',
+      text: 'Todo aparelho onde você entrou vai precisar entrar de novo. O mural de cada um continua lá.',
+      confirm: 'Sair de todos',
+      icon: null,
+    });
+    if (sure && (await this.accountAction(() => this.account.signOutEverywhere()))) {
+      this.toasts.show('Você saiu de todos os aparelhos.');
+    }
+  }
+
+  protected async deleteAccount(name: string, code: string): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: 'Apagar a conta?',
+      text:
+        `A conta de ${name}, o código ${code} e tudo o que estiver na nuvem vão embora, e quem segue você deixa de seguir. ` +
+        'O mural deste navegador continua aqui. Não dá para desfazer.',
+      confirm: 'Apagar a conta',
+    });
+    if (sure && (await this.accountAction(() => this.account.deleteAccount()))) {
+      this.sync.forgetAccount();
+      this.toasts.show('Conta apagada. O mural continua neste navegador.');
+    }
+  }
 
   protected exportFile(): Promise<void> {
     return this.backup.download();

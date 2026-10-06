@@ -20,8 +20,14 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
   template: `
     <div class="aba" aria-hidden="true"></div>
     <div class="carta" aria-hidden="true">
-      <p>Oi! Segue o meu mural.</p>
-      <p>Bora ver quem tem razão?</p>
+      @if (withCode() && owner(); as me) {
+        <p class="nome">Olá, {{ me.nome }}!</p>
+        <p>Seu código é <strong>{{ me.codigo }}</strong>.</p>
+        <p>Envie para seus amigos e veja quem tem razão!</p>
+      } @else {
+        <p>Oi! Segue o meu mural.</p>
+        <p>Bora ver quem tem razão?</p>
+      }
     </div>
     <div class="bolso">
       <span class="selo" aria-hidden="true"><span>Meu<br />Mural</span></span>
@@ -35,23 +41,69 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
       </span>
 
       <h2 [id]="titleId">{{ again() ? 'Mais um colega?' : 'Chegou o mural de alguém?' }}</h2>
-      <p class="convite">
-        Solte aqui o backup que seu colega mandou, ou escolha o arquivo. As resenhas dele ficam
-        guardadas à parte: nada se mistura com os seus cards.
-      </p>
-      <div class="acoes">
-        <button type="button" class="btn-ink" [disabled]="busy()" (click)="file.click()" [attr.aria-describedby]="titleId">
-          <lucide-icon [img]="UploadIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
-          {{ busy() ? 'Abrindo o envelope…' : 'Escolher o backup' }}
-        </button>
-        @if (again()) {
-          <button type="button" class="btn-quiet" (click)="cancel.emit()">
-            <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-            Deixar pra depois
+      @if (withCode()) {
+        <p class="convite">
+          Digite o código que a pessoa mandou, ou solte aqui o arquivo de backup dela. As resenhas dela ficam guardadas à
+          parte: nada se mistura com os seus cards.
+        </p>
+        <form class="pelo-codigo" (submit)="submitCode($event)">
+          <label class="sr-only" [for]="codeId">Código do mural</label>
+          <input
+            [id]="codeId"
+            name="codigo"
+            type="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="11"
+            placeholder="A1B2-C3D4"
+            [value]="typed()"
+            (input)="typed.set($any($event.target).value)"
+            [attr.aria-invalid]="!!codeError()"
+            [attr.aria-describedby]="codeError() ? codeId + '-erro' : null"
+          />
+          <button type="submit" class="btn-ink" [disabled]="codeBusy() || !typed().trim()">
+            {{ codeBusy() ? 'Abrindo…' : 'Abrir o mural' }}
           </button>
+        </form>
+        @if (codeError()) {
+          <p class="erro" [id]="codeId + '-erro'" role="alert">{{ codeError() }}</p>
         }
-      </div>
-      <p class="miudo">Arquivo .json ou .json.gz baixado em Ajustes do Meu Mural. Fica só neste navegador.</p>
+        <div class="acoes ou-arquivo">
+          <span class="ou" aria-hidden="true">ou</span>
+          <button type="button" class="btn-arquivo" [disabled]="busy()" (click)="file.click()">
+            <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            {{ busy() ? 'Abrindo o envelope…' : 'Escolher o backup' }}
+          </button>
+          @if (again()) {
+            <button type="button" class="btn-quiet" (click)="cancel.emit()">
+              <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              Deixar pra depois
+            </button>
+          }
+        </div>
+        <p class="miudo">
+          O código fica em Ajustes › Perfil, no Meu Mural da pessoa. O arquivo é o .json ou .json.gz baixado em Ajustes.
+        </p>
+      } @else {
+        <p class="convite">
+          Solte aqui o backup que seu colega mandou, ou escolha o arquivo. As resenhas dele ficam
+          guardadas à parte: nada se mistura com os seus cards.
+        </p>
+        <div class="acoes">
+          <button type="button" class="btn-ink" [disabled]="busy()" (click)="file.click()" [attr.aria-describedby]="titleId">
+            <lucide-icon [img]="UploadIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+            {{ busy() ? 'Abrindo o envelope…' : 'Escolher o backup' }}
+          </button>
+          @if (again()) {
+            <button type="button" class="btn-quiet" (click)="cancel.emit()">
+              <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              Deixar pra depois
+            </button>
+          }
+        </div>
+        <p class="miudo">Arquivo .json ou .json.gz baixado em Ajustes do Meu Mural. Fica só neste navegador.</p>
+      }
       @if (error()) {
         <p class="erro" role="alert">{{ error() }}</p>
       }
@@ -67,11 +119,32 @@ export class BackupEnvelope {
   readonly again = input(false);
   readonly file = output<File>();
   readonly cancel = output<void>();
+  /** Com a nuvem ligada: o campo do código vem primeiro, e o arquivo vira a segunda opção. */
+  readonly withCode = input(false);
+  /** Quem está logado: a carta do envelope mostra o nome e o código dele, para mandar aos amigos. */
+  readonly owner = input<{ nome: string; codigo: string } | null>(null);
+  readonly codeBusy = input(false);
+  readonly codeError = input('');
+  /** O código digitado, ao tocar em "Abrir o mural". */
+  readonly code = output<string>();
+  protected readonly typed = signal('');
 
   protected readonly over = signal(false);
   protected readonly UploadIcon = Upload;
   protected readonly CloseIcon = X;
   protected readonly titleId = `envelope-${Math.random().toString(36).slice(2, 8)}`;
+  protected readonly codeId = `${this.titleId}-codigo`;
+
+  protected submitCode(e: Event): void {
+    e.preventDefault();
+    const value = this.typed().trim();
+    if (value && !this.codeBusy()) this.code.emit(value);
+  }
+
+  /** Limpa o campo (depois que o mural chegou). */
+  clearCode(): void {
+    this.typed.set('');
+  }
   protected pick(event: Event): void {
     const el = event.target as HTMLInputElement;
     const f = el.files?.[0];

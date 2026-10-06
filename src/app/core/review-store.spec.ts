@@ -301,3 +301,49 @@ describe('ReviewStore', () => {
     });
   });
 });
+
+describe('ReviewStore: junção para a sincronização', () => {
+  let store: ReviewStore;
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    store = TestBed.inject(ReviewStore);
+  });
+
+  afterEach(() => localStorage.clear());
+
+  const draft = (name: string, updatedAt: string) => ({ id: 'rdddd1', kind: 'jogos', game: { name, coverUrl: null, source: 'manual' }, createdAt: '2024-01-01T00:00:00Z', updatedAt });
+
+  it('o mesmo pendente dos dois lados: fica o mexido por último', () => {
+    store.importJson(JSON.stringify({ reviews: [], drafts: [draft('Antigo', '2024-01-02T00:00:00Z')] }), 'replace');
+    store.importJson(JSON.stringify({ reviews: [], drafts: [draft('Editado lá', '2024-02-01T00:00:00Z')] }), 'merge');
+    expect(store.drafts().map((d) => d.game.name)).toEqual(['Editado lá']);
+    // e um mais velho não desfaz
+    store.importJson(JSON.stringify({ reviews: [], drafts: [draft('Antigo', '2024-01-02T00:00:00Z')] }), 'merge');
+    expect(store.drafts().map((d) => d.game.name)).toEqual(['Editado lá']);
+  });
+
+  it('no mesmo instante, os dois lados escolhem a mesma versão (sem isso a sincronização reenviaria para sempre)', () => {
+    const t = '2024-01-02T00:00:00Z';
+    const a = review('raaaa1', 'Versão A', t);
+    const b = review('raaaa1', 'Versão B', t);
+    store.importJson(JSON.stringify({ reviews: [a] }), 'replace');
+    store.importJson(JSON.stringify({ reviews: [b] }), 'merge');
+    const fromA = store.get('raaaa1')!.game.name;
+    store.importJson(JSON.stringify({ reviews: [b] }), 'replace');
+    store.importJson(JSON.stringify({ reviews: [a] }), 'merge');
+    expect(store.get('raaaa1')!.game.name).toBe(fromA);
+  });
+
+  it('snapshot leva tudo no formato do backup', () => {
+    store.importJson(JSON.stringify({ reviews: [review('raaaa1', 'A', '2024-01-02T00:00:00Z')], drafts: [draft('D', '2024-01-02T00:00:00Z')] }), 'replace');
+    const snap = store.snapshot('Igor');
+    expect(snap.app).toBe('meu-mural');
+    expect(snap.version).toBe(2);
+    expect(snap.owner).toEqual({ name: 'Igor' });
+    expect(snap.reviews.length).toBe(1);
+    expect(snap.drafts.length).toBe(1);
+    expect(store.hasContent()).toBeTrue();
+  });
+});

@@ -70,6 +70,20 @@
   </p>
 }
 
+@let notice = news.notice();
+@if (notice && !onNews()) {
+  <aside class="aviso" aria-label="Aviso do Meu Mural">
+    <lucide-icon class="aviso-icone" [img]="NoticeIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+    <p>{{ notice.text }}</p>
+    @if (notice.news) {
+      <a class="btn-ink aviso-ver" routerLink="/novidades">Ver o que mudou</a>
+    }
+    <button type="button" class="aviso-fechar" (click)="closeNotice(notice.key)" aria-label="Fechar o aviso" title="Fechar">
+      <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+    </button>
+  </aside>
+}
+
 @let backupDue = backup.due();
 @if (backupDue !== null) {
   <aside class="lembrete" aria-label="Lembrete de backup">

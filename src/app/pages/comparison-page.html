@@ -35,21 +35,37 @@
         [busy]="busy()"
         [error]="error()"
         [again]="!!colleague()"
+        [withCode]="!!cloud.config()"
+        [owner]="account.account()"
+        [codeBusy]="codeBusy()"
+        [codeError]="codeError()"
+        (code)="openCode($event)"
         (file)="load($event)"
-        (cancel)="adding.set(false); error.set('')"
+        (cancel)="adding.set(false); error.set(''); codeError.set('')"
       />
       <aside class="como" aria-labelledby="como-titulo">
         <span class="como-fita" aria-hidden="true"></span>
         <h2 id="como-titulo">Como pedir o mural de alguém</h2>
-        <ol>
-          <li>Seu colega abre o Meu Mural dele e vai em <strong>Ajustes</strong>.</li>
-          <li>Toca em <strong>Baixar backup</strong>.</li>
-          <li>Manda o arquivo pra você, do jeito que for.</li>
-          <li>Você solta o arquivo no envelope.</li>
-        </ol>
-        <p>
-          Quer que ele compare também? Mande o seu: <a routerLink="/ajustes">Ajustes → Baixar backup</a>.
-        </p>
+        @if (cloud.config()) {
+          <ol>
+            <li>Peça o <strong>código</strong> ou o <strong>link</strong> do mural: ficam em <strong>Ajustes › Perfil</strong>, no Meu Mural da pessoa.</li>
+            <li>Digite o código no envelope (o link já abre sozinho).</li>
+            <li>Sem conta? Ela toca em <strong>Baixar backup</strong> e manda o arquivo, que você solta no envelope.</li>
+          </ol>
+          <p>
+            Quer que ela compare também? Mande o seu código: <a routerLink="/ajustes" [queryParams]="{ aba: 'perfil' }">Ajustes › Perfil</a>.
+          </p>
+        } @else {
+          <ol>
+            <li>Seu colega abre o Meu Mural dele e vai em <strong>Ajustes</strong>.</li>
+            <li>Toca em <strong>Baixar backup</strong>.</li>
+            <li>Manda o arquivo pra você, do jeito que for.</li>
+            <li>Você solta o arquivo no envelope.</li>
+          </ol>
+          <p>
+            Quer que ele compare também? Mande o seu: <a routerLink="/ajustes" [queryParams]="{ aba: 'backup' }">Ajustes → Baixar backup</a>.
+          </p>
+        }
       </aside>
     </div>
   } @else if (error()) {

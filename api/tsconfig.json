@@ -1,0 +1,19 @@
+{
+  // O núcleo + a entrada da Cloudflare, com os tipos do Workers. O núcleo também é conferido com os
+  // tipos do Node (tsconfig.node.json): se ele usar algo que só existe num dos dois, um deles quebra.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-pool-workers/types"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "test/workers.test.ts", "test/suite.ts"],
+  "exclude": ["src/entry/node.ts", "src/adapters/sqlite-node.ts"]
+}

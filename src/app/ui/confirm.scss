@@ -14,6 +14,11 @@ dialog.confirma {
   rotate: -0.6deg;
 }
 
+/* uma escolha (não um "apagar?"): ficha azul, sem vermelho */
+.ficha[data-cor='azul'] {
+  --stock: var(--stock-azul);
+}
+
 .head {
   margin-bottom: 4px;
 }
@@ -26,4 +31,5 @@ dialog.confirma {
 
 .foot .actions {
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
