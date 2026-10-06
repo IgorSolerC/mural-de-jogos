@@ -2,7 +2,9 @@ import { Db, SqlValue } from '../ports';
 
 /** O banco em cima do D1 da Cloudflare. Junto com `src/entry/worker.ts`, é o único lugar que conhece o D1. */
 export function d1Db(d1: D1Database): Db {
-  const prepare = (sql: string, params: SqlValue[] = []) => d1.prepare(sql).bind(...params);
+  // o D1 guarda BLOB a partir de ArrayBuffer
+  const bind = (v: SqlValue) => (v instanceof Uint8Array ? v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength) : v);
+  const prepare = (sql: string, params: SqlValue[] = []) => d1.prepare(sql).bind(...params.map(bind));
   return {
     async first<T>(sql: string, params?: SqlValue[]) {
       return (await prepare(sql, params).first<T>()) ?? null;

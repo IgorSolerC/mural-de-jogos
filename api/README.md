@@ -5,7 +5,7 @@ e o seguir. Roda no Cloudflare Workers com banco D1, no plano gratuito, sem cart
 completo está no documento "Meu Mural na nuvem: plano de implementação".
 
 - Endereço: `https://mural-api.igorsoler.workers.dev`
-- Estado: **fase 2** (login). `GET /v1/status`, login com Google (`POST /v1/auth/google`), sair, `GET/PATCH/DELETE /v1/eu`. A sincronização do mural vem na fase 3.
+- Estado: **fase 3** (sincronização). `GET /v1/status`, login com Google (`POST /v1/auth/google`), sair, `GET/PATCH/DELETE /v1/eu` e o mural: `GET /v1/eu/mural` (`?rev=` igual responde 204) e `PUT /v1/eu/mural` (multipart `privado`, `publico`, `novas`, com `Mural-Rev-Base`; 409 se outro aparelho gravou antes). Fases 4 e 5 (código público e seguir) vêm depois.
 
 ## Como está montada
 

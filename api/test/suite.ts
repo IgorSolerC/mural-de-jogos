@@ -5,6 +5,7 @@ import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
 import { googleVerifier } from '../src/domain/google';
 import { write } from '../src/domain/quota';
+import { toBytes } from '../src/routes/mural';
 import { Config, Db, Deps } from '../src/ports';
 
 /**
@@ -20,6 +21,16 @@ export const BASE_ENV = {
 
 const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'atividades', 'uso_diario'];
 const NOW = new Date('2026-10-06T15:00:00Z');
+
+export async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+export async function gunzip(bytes: ArrayBuffer): Promise<string> {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).text();
+}
 
 /** No lugar das chaves do Google: um par gerado na hora, e um segundo par para assinaturas falsas. */
 let googleKey: CryptoKey;
@@ -61,7 +72,12 @@ export function apiSuite(label: string, getDb: () => Db) {
     await db.batch(TABLES.map((t) => ({ sql: `DELETE FROM ${t}` })));
     const config: Config = readConfig({ ...BASE_ENV, ...env });
     const keys = createLocalJWKSet({ keys: [publicJwk] });
-    const deps: Deps = { db, config, now: () => now, verifyGoogle: googleVerifier(config.googleClientId, keys) };
+    const clock = { t: now.getTime() };
+    const deps: Deps = { db, config, now: () => new Date(clock.t), verifyGoogle: googleVerifier(config.googleClientId, keys) };
+    /** Passa o tempo (o limite entre envios do mural é de 3 segundos). */
+    const advance = (ms: number) => {
+      clock.t += ms;
+    };
     const app = createApp(deps);
     const call = (path: string, init?: RequestInit) => app.request(`https://api.teste${path}`, init);
     const json = (method: string, path: string, body?: unknown, token?: string) =>
@@ -75,7 +91,21 @@ export function apiSuite(label: string, getDb: () => Db) {
       const res = await json('POST', '/v1/auth/google', { credential: await googleToken(o), ...extra });
       return { res, body: (await res.json()) as any };
     };
-    return { db, deps, app, call, json, login };
+    /** Envia o mural como o site envia: multipart com o privado, o público e as resenhas novas. */
+    const push = async (token: string, base: number | null, docs: { privado?: string; publico?: string; novas?: unknown; raw?: Uint8Array<ArrayBuffer> } = {}) => {
+      const form = new FormData();
+      form.append('privado', new Blob([docs.raw ?? (await gzip(docs.privado ?? '{"reviews":[]}'))], { type: 'application/gzip' }));
+      form.append('publico', new Blob([await gzip(docs.publico ?? '{"reviews":[]}')], { type: 'application/gzip' }));
+      if (docs.novas !== undefined) form.append('novas', JSON.stringify(docs.novas));
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      if (base !== null) headers['Mural-Rev-Base'] = String(base);
+      const res = await call('/v1/eu/mural', { method: 'PUT', headers, body: form });
+      advance(5_000);
+      return { res, body: (await res.json()) as any };
+    };
+    const pull = (token: string, rev?: number) =>
+      call(`/v1/eu/mural${rev === undefined ? '' : `?rev=${rev}`}`, { headers: { Authorization: `Bearer ${token}` } });
+    return { db, deps, app, call, json, login, advance, push, pull };
   }
 
   describe(`API (${label})`, () => {
@@ -150,12 +180,12 @@ export function apiSuite(label: string, getDb: () => Db) {
           headers: {
             Origin: 'http://localhost:4200',
             'Access-Control-Request-Method': 'PUT',
-            'Access-Control-Request-Headers': 'authorization,if-match',
+            'Access-Control-Request-Headers': 'authorization,mural-rev-base',
           },
         });
         expect(res.status).toBe(204);
         expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:4200');
-        expect(res.headers.get('Access-Control-Allow-Headers')?.toLowerCase()).toContain('if-match');
+        expect(res.headers.get('Access-Control-Allow-Headers')?.toLowerCase()).toContain('mural-rev-base');
         expect(res.headers.get('Access-Control-Max-Age')).toBe('86400');
       });
 
@@ -262,6 +292,7 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect(body.conta).toMatchObject({ nome: 'Igor Soler', nova: true });
         expect(body.conta.codigo).toMatch(/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
         expect(body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+        expect(body.conta.id).toMatch(/^[0-9a-f-]{36}$/);
         const user = await db.first<Record<string, unknown>>('SELECT * FROM usuarios');
         expect(user).toMatchObject({ google_sub: '1234567890', nome: 'Igor Soler', codigo: body.conta.codigo.replace('-', '') });
         expect(JSON.stringify(await db.all('SELECT * FROM usuarios'))).not.toContain('example.com');
@@ -343,7 +374,7 @@ export function apiSuite(label: string, getDb: () => Db) {
         const { body } = await login({}, { nome: 'Igor' });
         const me = await json('GET', '/v1/eu', undefined, body.token);
         expect(me.status).toBe(200);
-        expect(await me.json()).toEqual({ codigo: body.conta.codigo, nome: 'Igor', criadoEm: NOW.toISOString(), seguidores: 0, seguindo: 0 });
+        expect(await me.json()).toEqual({ id: body.conta.id, codigo: body.conta.codigo, nome: 'Igor', criadoEm: NOW.toISOString(), seguidores: 0, seguindo: 0 });
         for (const token of [undefined, 'x', 'A'.repeat(43)]) {
           const res = await json('GET', '/v1/eu', undefined, token);
           expect(res.status).toBe(401);
@@ -395,9 +426,9 @@ export function apiSuite(label: string, getDb: () => Db) {
         const me = ids.find((u) => u.google_sub === 'eu')!.id;
         const them = ids.find((u) => u.google_sub === 'outro')!.id;
         await db.batch([
-          { sql: "INSERT INTO murais VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
+          { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
           { sql: "INSERT INTO murais_publicos VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
-          { sql: "INSERT INTO murais VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [them] },
+          { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [them] },
           { sql: "INSERT INTO seguindo VALUES (?, ?, '2026-10-06')", params: [me, them] },
           { sql: "INSERT INTO seguindo VALUES (?, ?, '2026-10-06')", params: [them, me] },
           { sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', ?, ?, '2026-10-06')", params: [them, me] },
@@ -430,6 +461,108 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect((await readOnly.request('https://api.teste/v1/eu', { headers })).status).toBe(200);
         expect((await readOnly.request('https://api.teste/v1/auth/google', { method: 'POST', body: '{}' })).status).toBe(503);
         void app;
+      });
+    });
+
+    describe('mural', () => {
+      const review = (ref: string, titulo = `Jogo ${ref}`) => ({ ref, titulo, mural: 'jogos' });
+
+      it('sem mural ainda: 404 sem-mural', async () => {
+        const { login, pull } = await setup();
+        const { token } = (await login()).body;
+        const res = await pull(token);
+        expect(res.status).toBe(404);
+        expect(((await res.json()) as any).erro).toBe('sem-mural');
+      });
+
+      it('envia (rev 0 → 1), baixa igual, e com a mesma rev responde 204 sem corpo', async () => {
+        const { login, push, pull } = await setup();
+        const { token } = (await login()).body;
+        const sent = await push(token, 0, { privado: '{"reviews":[{"id":"r1"}]}' });
+        expect(sent.res.status).toBe(200);
+        expect(sent.body).toEqual({ rev: 1, novas: 0 });
+        const res = await pull(token);
+        expect(res.status).toBe(200);
+        expect(res.headers.get('Mural-Rev')).toBe('1');
+        expect(res.headers.get('Content-Type')).toBe('application/gzip');
+        expect(await gunzip(await res.arrayBuffer())).toBe('{"reviews":[{"id":"r1"}]}');
+        const same = await pull(token, 1);
+        expect(same.status).toBe(204);
+        expect(same.headers.get('Mural-Rev')).toBe('1');
+        expect(await same.text()).toBe('');
+      });
+
+      it('dois aparelhos: quem envia com a rev velha recebe 409 e nada dele entra', async () => {
+        const { login, push, pull, db } = await setup();
+        const { token } = (await login()).body;
+        await push(token, 0, { privado: '{"v":"A1"}', publico: '{"p":"A1"}' });
+        expect((await push(token, 1, { privado: '{"v":"A2"}', publico: '{"p":"A2"}', novas: [review('rA2x')] })).body.rev).toBe(2);
+        const late = await push(token, 1, { privado: '{"v":"B"}', publico: '{"p":"B"}', novas: [review('rBxx')] });
+        expect(late.res.status).toBe(409);
+        expect(late.body).toMatchObject({ erro: 'conflito', rev: 2 });
+        expect(await gunzip(await (await pull(token)).arrayBuffer())).toBe('{"v":"A2"}');
+        const pub = await db.first<{ rev: number; dados: unknown }>('SELECT rev, dados FROM murais_publicos');
+        expect(pub!.rev).toBe(2);
+        expect(await gunzip(toBytes(pub!.dados).slice().buffer as ArrayBuffer)).toBe('{"p":"A2"}');
+        expect((await db.all<{ ref: string }>('SELECT ref FROM atividades')).map((a) => a.ref)).toEqual(['rA2x']);
+        // o primeiro envio de outro aparelho (rev 0) também não passa por cima
+        expect((await push(token, 0, { privado: '{"v":"C"}' })).res.status).toBe(409);
+      });
+
+      it('resenhas novas viram atividade uma vez só, com título e mural', async () => {
+        const { login, push, db } = await setup();
+        const { token } = (await login()).body;
+        await push(token, 0, { novas: [review('r0001', 'Hollow  Knight\u200b'), { ref: 'x', titulo: 'ruim', mural: 'jogos' }, review('r0001')] });
+        await push(token, 1, { novas: [review('r0001'), review('r0002')] });
+        const rows = await db.all<{ ref: string; resumo: string }>('SELECT ref, resumo FROM atividades ORDER BY ref');
+        expect(rows.map((r) => r.ref)).toEqual(['r0001', 'r0002']);
+        expect(JSON.parse(rows[0]!.resumo)).toEqual({ titulo: 'Hollow Knight', mural: 'jogos' });
+      });
+
+      it('no máximo 10 resenhas novas por envio e 30 por dia', async () => {
+        const { login, push, db } = await setup();
+        const { token } = (await login()).body;
+        const batch = (from: number) => Array.from({ length: 12 }, (_, i) => review(`r${String(from + i).padStart(4, '0')}`));
+        let rev = 0;
+        for (const from of [0, 100, 200, 300]) rev = (await push(token, rev, { novas: batch(from) })).body.rev;
+        expect(await db.first('SELECT COUNT(*) AS n FROM atividades')).toEqual({ n: 30 });
+      });
+
+      it('recusa o que não é gzip, o grande demais e o envio sem rev', async () => {
+        const { login, push } = await setup();
+        const { token } = (await login()).body;
+        const notGzip = await push(token, 0, { raw: new Uint8Array(new TextEncoder().encode('{"reviews":[]} só texto puro aqui')) });
+        expect(notGzip.res.status).toBe(400);
+        const big = new Uint8Array(1_900_001);
+        big[0] = 0x1f;
+        big[1] = 0x8b;
+        const tooBig = await push(token, 0, { raw: big });
+        expect(tooBig.res.status).toBe(413);
+        expect(tooBig.body.erro).toBe('mural-grande-demais');
+        expect((await push(token, null)).res.status).toBe(400);
+      });
+
+      it('dois envios em menos de 3 segundos: o segundo espera (429)', async () => {
+        const { login, push, advance } = await setup();
+        const { token } = (await login()).body;
+        await push(token, 0);
+        advance(-4_000); // volta para 1 segundo depois do primeiro
+        const res = await push(token, 1);
+        expect(res.res.status).toBe(429);
+        expect((await push(token, 1)).res.status).toBe(200);
+      });
+
+      it('sem sessão, nada', async () => {
+        const { call } = await setup();
+        expect((await call('/v1/eu/mural')).status).toBe(401);
+        expect((await call('/v1/eu/mural', { method: 'PUT' })).status).toBe(401);
+      });
+
+      it('responde com a hora da nuvem, exposta ao site', async () => {
+        const { call } = await setup();
+        const res = await call('/v1/status', { headers: { Origin: 'https://igorsolerc.github.io' } });
+        expect(res.headers.get('Mural-Agora')).toBe(NOW.toISOString());
+        expect(res.headers.get('Access-Control-Expose-Headers')).toContain('Mural-Agora');
       });
     });
   });

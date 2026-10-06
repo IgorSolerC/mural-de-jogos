@@ -31,7 +31,7 @@ interface UserRow {
 /** Login, sessões e a própria conta: /v1/auth/* e /v1/eu. */
 export function accountRoutes(app: Hono, deps: Deps): void {
   const session = (c: Context): Promise<Session> => authenticate(deps, c.req.header('Authorization'));
-  const account = (u: Pick<UserRow, 'codigo' | 'nome'>) => ({ codigo: formatCode(u.codigo), nome: u.nome });
+  const account = (u: Pick<UserRow, 'id' | 'codigo' | 'nome'>) => ({ id: u.id, codigo: formatCode(u.codigo), nome: u.nome });
   const findBySub = (sub: string) =>
     deps.db.first<UserRow>('SELECT id, codigo, nome, criado_em FROM usuarios WHERE google_sub = ?', [sub]);
 
@@ -98,7 +98,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/eu', async (c) => {
     const s = await session(c);
     const user = await deps.db.first<UserRow & { seguidores: number; seguindo: number }>(
-      'SELECT codigo, nome, criado_em, ' +
+      'SELECT id, codigo, nome, criado_em, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguido_id = usuarios.id) AS seguidores, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = usuarios.id) AS seguindo ' +
         'FROM usuarios WHERE id = ?',

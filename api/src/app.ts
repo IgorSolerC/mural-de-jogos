@@ -4,6 +4,7 @@ import { HttpError } from './errors';
 import { offline, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
+import { muralRoutes } from './routes/mural';
 
 /** A versão da API que o /v1/status informa (mude junto com mudanças que o site precise saber). */
 export const API_VERSION = 1;
@@ -21,8 +22,8 @@ export function createApp(deps: Deps): Hono {
     cors({
       origin: (origin) => (config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Authorization', 'Content-Type', 'If-Match', 'If-None-Match'],
-      exposeHeaders: ['ETag'],
+      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base'],
+      exposeHeaders: ['Mural-Rev', 'Mural-Agora'],
       // O Chrome limita a 2 horas, o Firefox a 1 dia: menos pré-consultas, menos requisições na cota.
       maxAge: 86_400,
     }),
@@ -31,6 +32,8 @@ export function createApp(deps: Deps): Hono {
   app.use('*', async (c, next) => {
     await next();
     c.header('X-Content-Type-Options', 'nosniff');
+    // o relógio da nuvem: o site compara com o do aparelho (um relógio errado faz edição velha vencer)
+    c.header('Mural-Agora', deps.now().toISOString());
     if (!c.res.headers.has('Cache-Control')) c.header('Cache-Control', 'no-store');
   });
 
@@ -62,6 +65,7 @@ export function createApp(deps: Deps): Hono {
   });
 
   accountRoutes(app, deps);
+  muralRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API.' }, 404));
 
