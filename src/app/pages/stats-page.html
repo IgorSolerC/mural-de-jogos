@@ -10,6 +10,9 @@
   @if (all().length) {
     <p class="intro">
       O {{ whose() }} de {{ profile().plural }} em números: {{ intro() }}
+      @if (players.setAside(); as away) {
+        {{ away.name }} não tem {{ profile().plural }} no mural, então estes são os seus.
+      }
     </p>
   }
 </header>
@@ -39,7 +42,15 @@
         <span class="giz" id="dono-rotulo">Mural de quem</span>
         <div class="abas-linha" role="group" aria-labelledby="dono-rotulo">
           @for (p of players.all(); track p.id) {
-            <button type="button" class="plate" [attr.aria-pressed]="player().id === p.id" (click)="players.select(p.id)">
+            <!-- quem não tem nada neste mural não dá pra escolher (ver Players.selected) -->
+            <button
+              type="button"
+              class="plate"
+              [attr.aria-pressed]="player().id === p.id"
+              [disabled]="!p.mine && !p.sessions.length"
+              [attr.title]="!p.mine && !p.sessions.length ? p.name + ' não tem ' + profile().plural + ' no mural' : null"
+              (click)="players.select(p.id)"
+            >
               {{ p.name }} <span class="count">{{ p.reviews.length }}</span>
             </button>
           }

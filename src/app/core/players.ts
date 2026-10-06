@@ -54,10 +54,21 @@ export class Players {
 
   private readonly chosenId = signal(readChosen());
 
-  /** O escolhido; se o colega saiu de Comparar, volta para o seu. */
+  /**
+   * O escolhido. Se o colega saiu de Comparar, ou não tem nada no mural aberto (resenha jogos, mas
+   * nenhum livro), vale o seu. A escolha fica guardada: de volta ao mural em que o colega tem fichas,
+   * ele volta a ser o escolhido.
+   */
   readonly selected = computed<Player>(() => {
     const list = this.all();
-    return list.find((p) => p.id === this.chosenId()) ?? list[0];
+    const chosen = list.find((p) => p.id === this.chosenId());
+    return chosen && (chosen.mine || chosen.sessions.length) ? chosen : list[0];
+  });
+
+  /** O colega escolhido que ficou de lado porque não tem nada no mural aberto (para avisar). */
+  readonly setAside = computed<Player | null>(() => {
+    const chosen = this.all().find((p) => p.id === this.chosenId());
+    return chosen && !chosen.mine && !chosen.sessions.length ? chosen : null;
   });
 
   select(id: string): void {
