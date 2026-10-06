@@ -3,6 +3,8 @@
  * as suas versões (ver `src/adapters/` e `src/entry/`). Trocar de host é escrever outro adaptador.
  */
 
+import type { VerifyGoogle } from './domain/google';
+
 /** O que pode ir num parâmetro de SQL. */
 export type SqlValue = string | number | null | Uint8Array;
 
@@ -44,4 +46,6 @@ export interface Deps {
   db: Db;
   config: Config;
   now: () => Date;
+  /** Confere o ID token do login do Google (ver `src/domain/google.ts`). */
+  verifyGoogle: VerifyGoogle;
 }

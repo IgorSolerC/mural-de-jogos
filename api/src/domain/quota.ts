@@ -48,11 +48,17 @@ export function offline(): HttpError {
  * Grava `statements` de uma vez, contando `estimatedRows` na cota do dia. Se a cota não comporta,
  * nada é gravado. A própria anotação do uso entra no mesmo lote (e conta uma linha).
  */
-export async function write(deps: Deps, statements: Statement[], estimatedRows: number): Promise<StatementResult[]> {
+export async function write(
+  deps: Deps,
+  statements: Statement[],
+  estimatedRows: number,
+  options: { ignoreBudget?: boolean } = {},
+): Promise<StatementResult[]> {
   assertWritable(deps);
   const cost = Math.max(0, Math.ceil(estimatedRows)) + 1;
   const usage = await usageToday(deps);
-  if (usage.rowsWritten + cost > deps.config.dailyRowBudget) {
+  // `ignoreBudget`: só para apagar a conta, que não pode esperar o dia virar (o uso é anotado do mesmo jeito)
+  if (!options.ignoreBudget && usage.rowsWritten + cost > deps.config.dailyRowBudget) {
     throw new HttpError(
       503,
       'cota-diaria',

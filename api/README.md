@@ -5,7 +5,7 @@ e o seguir. Roda no Cloudflare Workers com banco D1, no plano gratuito, sem cart
 completo está no documento "Meu Mural na nuvem: plano de implementação".
 
 - Endereço: `https://mural-api.igorsoler.workers.dev`
-- Estado: **fase 1** (base). Só existe o `GET /v1/status`; as outras rotas vêm nas próximas fases.
+- Estado: **fase 2** (login). `GET /v1/status`, login com Google (`POST /v1/auth/google`), sair, `GET/PATCH/DELETE /v1/eu`. A sincronização do mural vem na fase 3.
 
 ## Como está montada
 

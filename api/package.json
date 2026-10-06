@@ -13,7 +13,8 @@
     "backup": "wrangler d1 export mural --remote --output=backup-mural.sql"
   },
   "dependencies": {
-    "hono": "^4.13.13"
+    "hono": "^4.13.13",
+    "jose": "^6.2.12"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",
