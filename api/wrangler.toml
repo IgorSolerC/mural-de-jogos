@@ -1,0 +1,28 @@
+# A API do Meu Mural no Cloudflare Workers (plano Free, sem cartão).
+# Endereço: https://mural-api.igorsoler.workers.dev
+name = "mural-api"
+main = "src/entry/worker.ts"
+compatibility_date = "2026-08-01"
+workers_dev = true
+# Sem domínio próprio, sem rotas: só o workers.dev gratuito.
+preview_urls = false
+
+[vars]
+# ligado | so-leitura | desligado. Qualquer outro valor desliga (ver src/config.ts).
+MODO = "ligado"
+# Quem pode chamar a API pelo navegador.
+ORIGENS = "https://igorsolerc.github.io,http://localhost:4200"
+# Cota própria de linhas gravadas por dia UTC: 60% do limite gratuito do D1 (100 mil).
+COTA_LINHAS_DIA = "60000"
+# Público (vai também no site); é o `aud` que o login confere.
+GOOGLE_CLIENT_ID = "891037362218-0d8ncsj5p4n6pmvqlei60qs7l1oo7f4t.apps.googleusercontent.com"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mural"
+database_id = "c2c789d6-f0f3-4f37-b53a-f049aa02a530"
+migrations_dir = "migrations"
+
+# A limpeza diária (src/domain/cleanup.ts), às 06:17 UTC.
+[triggers]
+crons = ["17 6 * * *"]
