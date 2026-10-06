@@ -1,0 +1,38 @@
+name: Saúde da nuvem
+
+# Todo dia confere se a API responde e quanto do plano gratuito da Cloudflare já foi usado
+# (api/scripts/saude.ts). Se a API não responde ou algo passou de 70% do gratuito, a execução falha
+# e o GitHub manda e-mail. O resumo de cada dia fica na página da execução, em Actions.
+#
+# Secrets: CF_ANALYTICS_TOKEN (um token só de leitura, "Account Analytics: Read") e
+# CLOUDFLARE_ACCOUNT_ID (o mesmo do deploy). Sem o token, só a API é conferida.
+# Execuções agendadas só rodam a partir da main.
+on:
+  schedule:
+    # 20h47 em Brasília: perto do fim do dia UTC, quando o uso do dia está quase completo
+    - cron: '47 23 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - name: Confere a API e o uso do plano gratuito
+        run: npx tsx scripts/saude.ts
+        env:
+          CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
