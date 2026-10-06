@@ -14,6 +14,20 @@
     @if (summary()) {
       <p class="giz">{{ summary() }}</p>
     }
+    <!-- aberto pelo código e com conta: seguir a pessoa (as resenhas novas dela chegam no correio) -->
+    @if (canFollow()) {
+      <button
+        type="button"
+        class="btn-ink seguir"
+        [class.seguindo]="following()"
+        [attr.aria-pressed]="following()"
+        [disabled]="followBusy()"
+        (click)="toggleFollow()"
+      >
+        <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+        {{ following() ? 'Seguindo' : 'Seguir ' + c.name }}
+      </button>
+    }
   </header>
 
   @if (otherWalls().length) {

@@ -690,3 +690,29 @@ main {
     width: 100%;
   }
 }
+
+/* O envelope do correio: o número do que chegou num adesivo amarelo (estado), mesmo no celular estreito */
+.tab .n.novas,
+.tab.on .n.novas {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  min-width: 21px;
+  height: 21px;
+  margin-left: -2px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: var(--hi);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  opacity: 1;
+}
+
+.tab.on .n.novas {
+  background: var(--ink);
+  color: var(--hi);
+}
+

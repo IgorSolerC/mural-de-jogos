@@ -1,0 +1,562 @@
+:host {
+  display: block;
+}
+
+/* ===== Cabeça: a fita com o nome, como Ajustes e Novidades ===== */
+.cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-bottom: 34px;
+  padding-left: 4px;
+}
+
+.resumo,
+.giz {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.giz {
+  margin-bottom: 18px;
+}
+
+.abas-correio {
+  max-width: 760px;
+  margin-bottom: 44px;
+
+  .count {
+    margin-left: 2px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
+}
+
+.painel {
+  display: grid;
+  gap: 40px;
+  max-width: 760px;
+}
+
+/* ===== Fichas de cartolina (sem conta, vazio, pessoas), como as de Ajustes ===== */
+.ficha {
+  position: relative;
+  max-width: 760px;
+  padding: 30px 28px 28px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+
+  .pin {
+    top: -10px;
+    left: calc(50% - 13px);
+  }
+
+  h2 {
+    margin-bottom: 10px;
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.7rem;
+    line-height: 1.05;
+  }
+
+  .n {
+    margin-left: 4px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1.1rem;
+    vertical-align: 0.15em;
+    opacity: 0.7;
+  }
+
+  .btn-ink {
+    margin-top: 18px;
+  }
+}
+
+.sem-conta,
+.seguir {
+  --stock: var(--stock-azul);
+  rotate: -0.6deg;
+}
+
+.vazio {
+  --stock: var(--stock-amarelo);
+  rotate: 0.5deg;
+}
+
+.sigo {
+  --stock: var(--stock-verde);
+  rotate: 0.4deg;
+}
+
+.seguem {
+  --stock: var(--stock-rosa);
+  rotate: -0.4deg;
+}
+
+.lead {
+  max-width: 56ch;
+  line-height: 1.5;
+}
+
+.hint {
+  margin-top: 12px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.msg {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 3px;
+  font-weight: 600;
+  line-height: 1.4;
+
+  &.error {
+    background: #fff;
+    color: #6b0000;
+  }
+}
+
+.link {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.meu-codigo {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+/* ===== Seguir: o código numa tira de papel, como o campo do envelope do Comparar ===== */
+.campo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+
+  input {
+    flex: 1 1 220px;
+    min-width: 0;
+    height: 54px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 2px;
+    background: var(--paper);
+    box-shadow: inset 0 0 0 2.5px var(--ink);
+    color: var(--ink);
+    font-family: var(--f-marker);
+    font-size: 1.45rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    outline: none;
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.3);
+    }
+
+    &:focus {
+      box-shadow:
+        inset 0 0 0 3px var(--ink),
+        0 0 0 4px var(--focus);
+    }
+  }
+
+  .btn-ink {
+    margin-top: 0;
+    min-height: 54px;
+  }
+}
+
+/* ===== Listas de pessoas ===== */
+.pessoas {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pessoa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-top: 2px dashed rgb(21 21 21 / 0.22);
+
+  &:first-child {
+    border-top: 0;
+  }
+}
+
+.pessoa-quem {
+  display: grid;
+  min-width: 0;
+}
+
+.pessoa-nome {
+  font-family: var(--f-marker);
+  font-size: 1.3rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.pessoa-sub {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.pessoa-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  margin-left: auto;
+
+  .btn-quiet {
+    min-height: 40px;
+    padding-inline: 10px;
+    font-size: 0.92rem;
+  }
+
+  .btn-quiet[aria-pressed='true'] {
+    background: rgb(21 21 21 / 0.12);
+  }
+}
+
+.btn-ink.btn-small {
+  margin-top: 0;
+  min-height: 40px;
+  padding: 7px 14px 6px;
+  font-size: 1rem;
+}
+
+.mutuo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.opcao-numero {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+  font-weight: 600;
+  cursor: pointer;
+
+  input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--ink);
+  }
+}
+
+/* ===== O que chegou ===== */
+.cartas {
+  display: grid;
+  gap: 34px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* "Fulano começou a seguir você": um bilhete de bloquinho, como o lembrete do mural */
+.bilhete-seguiu {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 18px 18px;
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.45));
+  --focus: var(--ink);
+
+  p {
+    flex: 1 1 240px;
+    font-family: var(--f-hand);
+    font-size: 1.15rem;
+    line-height: 1.35;
+  }
+
+  strong {
+    font-family: var(--f-marker);
+    font-weight: 400;
+  }
+
+  /* aqui o adesivo vai na frente do texto: na quina ele cobriria o "Seguir de volta" */
+  .novo {
+    position: static;
+    order: -1;
+    rotate: -3deg;
+  }
+}
+
+.bilhete-icone {
+  flex: none;
+}
+
+.quando {
+  color: var(--ink-2);
+}
+
+/* As resenhas de alguém num dia: um cartão-postal de papel branco, com a pauta do lado do selo */
+.cartao {
+  --focus: var(--ink);
+  position: relative;
+  padding: 22px 24px 12px;
+  border-radius: 2px;
+  background-color: #fbf9f2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+.cartao-cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgb(214 72 72 / 0.55);
+}
+
+.cartao-titulo {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-weight: 400;
+}
+
+.cartao-nome {
+  font-family: var(--f-marker);
+  font-size: 1.6rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.cartao-fez {
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+/* a sintonia com a pessoa: o número em marcador e a frase do caderno do Comparar */
+.sintonia {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+
+.sintonia-n {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--caneta-azul);
+}
+
+.sintonia-txt {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.miudas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px 16px;
+  margin: 0;
+  padding: 16px 0 6px;
+  list-style: none;
+}
+
+.miuda {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.miuda-abre {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:hover:not(:disabled) .miuda-nome {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+  }
+}
+
+.miuda-capa {
+  width: 96px;
+
+  &.sem {
+    display: grid;
+    place-items: center;
+    height: 128px;
+    border: 2px dashed rgb(21 21 21 / 0.3);
+    font-family: var(--f-marker);
+    font-size: 2rem;
+    color: rgb(21 21 21 / 0.4);
+  }
+}
+
+.miuda-nome {
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.miuda-nota {
+  transform: rotate(-1.5deg);
+}
+
+.miuda-sumiu,
+.miuda-voce {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* "Você deu 7,8": a sua nota em caneta azul, como o colega no Comparar é azul ao contrário */
+.miuda-voce {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  strong {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.05rem;
+    letter-spacing: 0;
+    color: var(--ink);
+  }
+}
+
+.miuda-quero {
+  font-size: 0.88rem;
+}
+
+.cartao-pe {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+  border-top: 2px dashed rgb(21 21 21 / 0.18);
+  margin-top: 8px;
+
+  .btn-quiet {
+    font-size: 0.9rem;
+  }
+}
+
+/* "Novo": o adesivo de tinta com a letra amarela das Novidades */
+.novo {
+  position: absolute;
+  z-index: 2;
+  top: -12px;
+  right: 22px;
+  padding: 6px 11px 5px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  rotate: 5deg;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 8px -3px rgb(0 0 0 / 0.4);
+}
+
+@media (max-width: 600px) {
+  .ficha {
+    padding: 26px 18px 22px;
+  }
+
+  .cartao {
+    padding: 20px 16px 10px;
+  }
+
+  .miudas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .miuda-capa {
+    width: 84px;
+  }
+
+  .sintonia {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .pessoa-acoes {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .bilhete-icone {
+    display: none;
+  }
+}

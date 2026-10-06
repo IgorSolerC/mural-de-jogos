@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3 } from 'lucide-angular';
+import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3, UserCheck, UserPlus } from 'lucide-angular';
+import { CloudAccount } from '../core/cloud-account';
+import { Follow } from '../core/follow';
+import { Toasts } from '../ui/toast';
 import { ColleagueStore } from '../core/colleague-store';
 import { CloudMurals } from '../core/cloud-murals';
 import { KINDS, Kind, cap, countOf, profileOf, revisitCountOf } from '../core/kinds';
@@ -55,6 +58,42 @@ export class ColleagueWallPage {
   protected readonly DescIcon = ArrowDownWideNarrow;
   protected readonly AscIcon = ArrowUpNarrowWide;
   protected readonly FilterIcon = ListFilter;
+  protected readonly FollowIcon = UserPlus;
+  protected readonly FollowingIcon = UserCheck;
+
+  private readonly follow = inject(Follow);
+  private readonly account = inject(CloudAccount);
+  private readonly toasts = inject(Toasts);
+  /** Seguir só faz sentido para um mural aberto pelo código, com conta, e que não é o meu. */
+  protected readonly canFollow = computed(() => {
+    const code = this.colleague()?.codigo;
+    return !!code && this.follow.available() && code !== this.account.account()?.codigo;
+  });
+  protected readonly following = computed(() => {
+    const code = this.colleague()?.codigo;
+    return !!code && this.follow.followingCodes().has(code);
+  });
+  protected readonly followBusy = signal(false);
+
+  protected async toggleFollow(): Promise<void> {
+    const c = this.colleague();
+    if (!c?.codigo || this.followBusy()) return;
+    const code = c.codigo;
+    this.followBusy.set(true);
+    try {
+      if (this.following()) {
+        await this.follow.unfollow(code);
+        this.toasts.show(`Você deixou de seguir ${c.name}`, { label: 'Desfazer', run: () => void this.follow.follow(code).catch(() => undefined) });
+      } else {
+        await this.follow.follow(code);
+        this.toasts.show(`Agora você segue ${c.name}. As resenhas novas chegam no Correio.`);
+      }
+    } catch (err) {
+      this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
+    } finally {
+      this.followBusy.set(false);
+    }
+  }
   protected readonly verdictLabel = VERDICT_LABEL;
 
   protected readonly colleague = this.colleagues.selected;

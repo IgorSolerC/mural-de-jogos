@@ -10,7 +10,7 @@
   </div>
 
   <nav class="tabs" aria-label="Seções">
-    @for (t of tabs; track t.path) {
+    @for (t of tabs(); track t.path) {
       <a
         class="tab"
         [routerLink]="t.path"
@@ -26,7 +26,11 @@
           <span>{{ t.label }}</span>
         }
         @if (tabCount(t.path); as n) {
-          <span class="n">{{ n }}</span>
+          @if (t.path === '/correio') {
+            <span class="n novas">{{ n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
+          } @else {
+            <span class="n">{{ n }}</span>
+          }
         }
       </a>
     }
