@@ -32,6 +32,10 @@ npm run test:ci    # uma rodada, Chrome headless
 Os testes cobrem o núcleo: a média e os bônus, a leitura de fichas e backups antigos, a junção de backups (com as
 fichas apagadas), a ordem e as seções do mural, e a separação entre os murais.
 
+Testes com o nome começando em `BUG:` descrevem um bug conhecido: eles conferem o comportamento certo e passam
+enquanto o bug existir (no site, `itBug` de [src/app/testing/known-bug.spec.ts](src/app/testing/known-bug.spec.ts);
+na API, `it.fails` do vitest). Corrigido o bug, o teste passa a falhar avisando: aí é só trocar por `it`.
+
 ## Publicar
 
 Um push na `main` publica no GitHub Pages ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)).

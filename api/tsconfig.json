@@ -14,6 +14,6 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/workers.test.ts", "test/suite.ts"],
+  "include": ["src/**/*.ts", "test/workers.test.ts", "test/suite.ts", "test/amigos.suite.ts"],
   "exclude": ["src/entry/node.ts", "src/adapters/sqlite-node.ts"]
 }

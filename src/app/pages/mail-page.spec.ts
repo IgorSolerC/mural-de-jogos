@@ -1,0 +1,339 @@
+import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { Cloud } from '../core/cloud-config';
+import { CloudAccount } from '../core/cloud-account';
+import { CloudMurals } from '../core/cloud-murals';
+import { Colleague, ColleagueStore } from '../core/colleague-store';
+import { FeedItem, Follow, People } from '../core/follow';
+import { LocalData } from '../core/local-data';
+import { Review, sanitizeReview } from '../core/review';
+import { ReviewStore } from '../core/review-store';
+import { Settings } from '../core/settings';
+import { Confirm } from '../ui/confirm';
+import { itBug, must } from '../testing/known-bug.spec';
+import { MailPage } from './mail-page';
+
+/**
+ * A aba Amigos (MailPage), sem desenhar a tela: o que ela monta a partir do correio, dos murais dos
+ * amigos e do meu mural (os blocos do Chegou, o estado de cada ficha, a minha nota da mesma obra, o
+ * segredo, a lista única de Pessoas) e a ordem do que ela faz ao abrir. O serviço do correio
+ * (Follow) e os murais da nuvem (CloudMurals) são de mentira. Os BUG: são bugs conhecidos (ver
+ * testing/known-bug.spec.ts).
+ */
+
+class MemoryData {
+  private readonly map = new Map<string, string>();
+  readonly where = 'local';
+  getItem(key: string): string | null {
+    return this.map.get(key) ?? null;
+  }
+  setItem(key: string, value: string): void {
+    this.map.set(key, value);
+  }
+  onExternalChange(): void {
+    /* sem outras abas */
+  }
+  takeForeign(): null {
+    return null;
+  }
+}
+
+const ana = { codigo: 'AAAA-1111', nome: 'Ana' };
+const bia = { codigo: 'BBBB-2222', nome: 'Bia' };
+const cris = { codigo: 'CCCC-3333', nome: 'Cris' };
+
+function review(id: string, name: string, extra: Partial<Review> = {}, final = 8): Review {
+  return sanitizeReview({
+    id,
+    kind: 'jogos',
+    game: { name, coverUrl: null, source: 'manual' },
+    scores: { historia: final, diversao: final, jogabilidade: final, visual: final },
+    status: 'finalizado',
+    difficulty: 'nenhuma',
+    verdict: null,
+    completedAt: '2026-01-01',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...extra,
+  })!;
+}
+
+type Resenha = Extract<FeedItem, { tipo: 'resenha' }>;
+const post = (pessoa: typeof ana, ref: string, em: string, titulo = `Obra ${ref}`): Resenha => ({ tipo: 'resenha', em, pessoa, ref, titulo, mural: 'jogos', silenciado: false });
+const seguiu = (pessoa: typeof ana, em: string): FeedItem => ({ tipo: 'seguiu', em, pessoa, euSigo: false });
+
+/** O mural de um amigo, como fica guardado depois de aberto pela nuvem. */
+const wallOf = (who: typeof ana, reviews: Review[], loadedAt = new Date().toISOString()): Colleague => ({
+  id: `nuvem:${who.codigo.replace('-', '')}`,
+  name: who.nome,
+  fileName: `Código ${who.codigo}`,
+  loadedAt,
+  codigo: who.codigo,
+  rev: 1,
+  reviews,
+} as unknown as Colleague);
+
+interface Page {
+  blocks(): ({ tipo: 'seguiu'; key: string } | { tipo: 'pessoa'; key: string; pessoa: typeof ana; posts: { key: string; estado: string; theirs: Review | null; mine: Review | null; secret: boolean }[] })[];
+  everyone(): { codigo: string; nome: string; sigo: unknown; segue: unknown }[];
+  bond(x: unknown): string;
+  isFresh(em: string): boolean;
+  signed(d: number): string;
+  delta(a: Review, b: Review): number;
+  wish(r: Review): void;
+  isWished(r: Review): boolean;
+  retryWall(code: string): Promise<void>;
+}
+
+describe('Amigos: a página (MailPage)', () => {
+  let items: ReturnType<typeof signal<FeedItem[]>>;
+  let seenAt: ReturnType<typeof signal<string | null>>;
+  let people: ReturnType<typeof signal<People | null>>;
+  let walls: ReturnType<typeof signal<Colleague[]>>;
+  /** O que a nuvem devolve para cada código (null: não veio). */
+  let cloudWalls: Map<string, Colleague | null>;
+  /** A ordem do que a página pede. */
+  let log: string[];
+  let store: ReviewStore;
+  let settings: Settings;
+
+  beforeEach(() => {
+    localStorage.clear();
+    items = signal<FeedItem[]>([]);
+    seenAt = signal<string | null>(null);
+    people = signal<People | null>(null);
+    walls = signal<Colleague[]>([]);
+    cloudWalls = new Map();
+    log = [];
+    const follow = {
+      available: signal(true),
+      items,
+      seenAt,
+      people,
+      visible: computed(() => items()),
+      check: async (full = false) => void log.push(`check(${full})`),
+      loadPeople: async () => {
+        log.push('loadPeople');
+        return people() ?? { seguindo: [], seguidores: [] };
+      },
+      markSeen: async () => void log.push('markSeen'),
+    };
+    const murals = {
+      ensure: async (code: string) => {
+        log.push(`ensure(${code})`);
+        await new Promise((r) => setTimeout(r, 0));
+        const c = cloudWalls.get(code) ?? null;
+        if (c) walls.update((list) => [c, ...list.filter((x) => x.id !== c.id)]);
+        return c ?? walls().find((x) => x.codigo === code) ?? null;
+      },
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        { provide: LocalData, useClass: MemoryData },
+        { provide: Follow, useValue: follow },
+        { provide: CloudMurals, useValue: murals },
+        { provide: ColleagueStore, useValue: { colleagues: walls, select: () => undefined } },
+        { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
+        { provide: CloudAccount, useValue: { account: signal({ id: 'u-eu', codigo: 'EEEE-0000', nome: 'Eu' }), signedIn: signal(true) } },
+        { provide: Confirm, useValue: { ask: async () => true, choose: async () => null } },
+      ],
+    });
+    TestBed.overrideComponent(MailPage, { set: { template: '', imports: [] } });
+    store = TestBed.inject(ReviewStore);
+    settings = TestBed.inject(Settings);
+  });
+
+  afterEach(() => localStorage.clear());
+
+  /** Abre a página e espera ela buscar tudo. */
+  async function open(): Promise<Page> {
+    const fixture = TestBed.createComponent(MailPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+    return fixture.componentInstance as unknown as Page;
+  }
+
+  const settle = async () => {
+    TestBed.tick();
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+
+  const posts = (page: Page) => page.blocks().flatMap((b) => (b.tipo === 'pessoa' ? b.posts : []));
+
+  describe('ao abrir', () => {
+    it('busca o correio inteiro, depois um mural por pessoa (uma vez só), e só então marca como visto', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z'), post(ana, 'rana02', '2026-10-06T09:00:00.000Z'), post(bia, 'rbia01', '2026-10-05T10:00:00.000Z'), seguiu(cris, '2026-10-04T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste'), review('rana02', 'Hades')]));
+      cloudWalls.set(bia.codigo, wallOf(bia, [review('rbia01', 'Hollow Knight')]));
+      await open();
+      expect(log[0]).toBe('check(true)');
+      expect(log.filter((l) => l.startsWith('ensure')).sort()).toEqual([`ensure(${ana.codigo})`, `ensure(${bia.codigo})`]);
+      expect(log.at(-1)).toBe('markSeen');
+      // quem só começou a seguir não tem mural para buscar
+      expect(log).not.toContain(`ensure(${cris.codigo})`);
+    });
+
+    it('o adesivo "Novo" fica nos itens de depois do visto que valia quando a página abriu', async () => {
+      seenAt.set('2026-10-05T12:00:00.000Z');
+      const page = await open();
+      expect(page.isFresh('2026-10-06T10:00:00.000Z')).toBeTrue();
+      expect(page.isFresh('2026-10-05T10:00:00.000Z')).toBeFalse();
+      // o visto muda (markSeen), mas o adesivo continua enquanto a página estiver aberta
+      seenAt.set('2026-10-06T23:00:00.000Z');
+      expect(page.isFresh('2026-10-06T10:00:00.000Z')).toBeTrue();
+    });
+
+    it('nunca visto: tudo é novo', async () => {
+      const page = await open();
+      expect(page.isFresh('2020-01-01T00:00:00.000Z')).toBeTrue();
+    });
+  });
+
+  describe('o Chegou', () => {
+    it('agrupa as resenhas seguidas da mesma pessoa; outra pessoa ou um aviso de seguir abrem outro bloco', async () => {
+      items.set([
+        post(ana, 'rana03', '2026-10-06T10:00:00.000Z'),
+        post(ana, 'rana02', '2026-10-06T09:00:00.000Z'),
+        post(bia, 'rbia01', '2026-10-06T08:00:00.000Z'),
+        seguiu(cris, '2026-10-06T07:00:00.000Z'),
+        post(ana, 'rana01', '2026-10-06T06:00:00.000Z'),
+      ]);
+      const page = await open();
+      const shape = page.blocks().map((b) => (b.tipo === 'seguiu' ? 'seguiu' : `${b.pessoa.nome}×${b.posts.length}`));
+      expect(shape).toEqual(['Ana×2', 'Bia×1', 'seguiu', 'Ana×1']);
+      const keys = page.blocks().map((b) => b.key);
+      expect(new Set(keys).size).toBe(keys.length); // chaves únicas para o @for
+    });
+
+    it('a ficha do amigo aparece com a minha da mesma obra e a diferença das notas', async () => {
+      store.add(review('rme001', 'Celeste', {}, 7));
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z', 'Celeste')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste', {}, 9)]));
+      const page = await open();
+      const [p] = posts(page);
+      expect(p.estado).toBe('ficha');
+      expect(p.theirs!.id).toBe('rana01');
+      expect(p.mine!.id).toBe('rme001');
+      expect(page.delta(p.theirs!, p.mine!)).toBe(2);
+      expect(p.secret).toBeFalse();
+    });
+
+    it('"Evitar spoilers": a nota do que eu não avaliei vem em segredo; desligado, aparece', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      const page = await open();
+      expect(posts(page)[0].secret).toBeTrue();
+      settings.friendSpoilers.set(false);
+      expect(posts(page)[0].secret).toBeFalse();
+    });
+
+    it('o mural não veio: a ficha diz que falhou; "Tentar de novo" busca e mostra', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, null);
+      const page = await open();
+      expect(posts(page)[0].estado).toBe('erro');
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      await page.retryWall(ana.codigo);
+      expect(posts(page)[0].estado).toBe('ficha');
+    });
+
+    it('o mural veio sem a ficha (a pessoa tirou ou deixou privada): "saiu"', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('routra', 'Outra coisa')]));
+      const page = await open();
+      expect(posts(page)[0].estado).toBe('saiu');
+    });
+
+    it('"Quero jogar" põe na wishlist uma vez só', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      const page = await open();
+      const theirs = posts(page)[0].theirs!;
+      expect(page.isWished(theirs)).toBeFalse();
+      page.wish(theirs);
+      page.wish(theirs);
+      expect(store.wishes().map((w) => w.game.name)).toEqual(['Celeste']);
+      expect(page.isWished(theirs)).toBeTrue();
+    });
+
+    it('a diferença com sinal: "+1,4", "−0,8"', async () => {
+      const page = await open();
+      expect(page.signed(1.4)).toBe('+1,4');
+      expect(page.signed(-0.8)).toBe('−0,8');
+    });
+  });
+
+  describe('Pessoas', () => {
+    it('uma linha por pessoa; quem me segue sem eu seguir de volta vem primeiro, depois pelo nome', async () => {
+      people.set({
+        seguindo: [
+          { ...cris, desde: '2026-10-01T00:00:00.000Z', silenciado: false, rev: 1, meSegue: false },
+          { ...ana, desde: '2026-10-01T00:00:00.000Z', silenciado: false, rev: 1, meSegue: true },
+        ],
+        seguidores: [
+          { ...ana, desde: '2026-10-01T00:00:00.000Z', euSigo: true },
+          { ...bia, desde: '2026-10-01T00:00:00.000Z', euSigo: false },
+          { codigo: 'DDDD-4444', nome: 'Ágata', desde: '2026-10-01T00:00:00.000Z', euSigo: false },
+        ],
+      });
+      const page = await open();
+      const list = page.everyone();
+      expect(list.map((x) => x.nome)).toEqual(['Ágata', 'Bia', 'Ana', 'Cris']);
+      expect(list.map((x) => page.bond(x))).toEqual(['Segue você', 'Segue você', 'Vocês se seguem', 'Você segue']);
+    });
+  });
+
+  describe('bugs conhecidos', () => {
+    // A minha ficha da mesma obra vem de `compareCollections`, que casa só as fichas originais (os
+    // dois lados filtram `!revisitOf`). Quando o amigo publica uma rejogada (releitura, reassistida)
+    // de algo que eu já avaliei, o post não acha a minha ficha: diz "Você ainda não avaliou" e
+    // oferece "Quero jogar" para um jogo que já está no meu mural.
+    itBug('na rejogada de um amigo, aparece a minha nota da mesma obra', async () => {
+      store.add(review('rme001', 'Celeste', {}, 7));
+      items.set([post(ana, 'rana02', '2026-10-06T10:00:00.000Z', 'Celeste')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste', {}, 9), review('rana02', 'Celeste', { revisitOf: 'rana01' }, 10)]));
+      const page = await open();
+      const [p] = posts(page);
+      expect(p.estado).toBe('ficha');
+      expect(p.theirs!.revisitOf).toBe('rana01');
+      must(p.mine?.id === 'rme001', 'a página diz "Você ainda não avaliou" para um jogo que está no meu mural');
+    });
+
+    // A página busca os murais só ao abrir. Uma resenha que chega depois (a conferência de 15 em 15
+    // minutos, ou um "visto" em outra aba) de alguém cujo mural já veio cai em "pronto, mas sem a
+    // ficha" e aparece como "Ana tirou essa ficha do mural" — o que não é verdade: o mural guardado é
+    // só de antes da resenha. O mesmo acontece ao abrir: `ensure` devolve o mural guardado há menos
+    // de 2 minutos sem perguntar à nuvem.
+    itBug('uma resenha que chega com a página aberta não aparece como "tirou essa ficha"', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      const page = await open();
+      expect(posts(page)[0].estado).toBe('ficha');
+      // chega uma resenha nova da Ana; o mural dela na nuvem já tem a ficha
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste'), review('rana02', 'Hades')]));
+      log = [];
+      items.update((list) => [post(ana, 'rana02', '2026-10-06T11:00:00.000Z', 'Hades'), ...list]);
+      await settle();
+      const fresh = posts(page).find((p) => p.key.endsWith('rana02'))!;
+      must(fresh.estado !== 'saiu', 'a resenha nova aparece como "Ana tirou essa ficha do mural"');
+      must(log.includes(`ensure(${ana.codigo})`), 'a página não buscou o mural de novo');
+    });
+
+    // Pela mesma razão, a resenha de alguém que não estava no Chegou quando a página abriu fica em
+    // "Buscando a ficha…" para sempre: ninguém busca o mural dessa pessoa.
+    itBug('a resenha de uma pessoa nova no Chegou, com a página aberta, não fica "buscando" para sempre', async () => {
+      const page = await open();
+      cloudWalls.set(bia.codigo, wallOf(bia, [review('rbia01', 'Hollow Knight')]));
+      log = [];
+      items.set([post(bia, 'rbia01', '2026-10-06T11:00:00.000Z', 'Hollow Knight')]);
+      await settle();
+      await new Promise((r) => setTimeout(r, 50));
+      must(log.includes(`ensure(${bia.codigo})`), 'ninguém buscou o mural da Bia');
+      must(posts(page)[0].estado === 'ficha', `a ficha ficou em "${posts(page)[0].estado}"`);
+    });
+  });
+});
