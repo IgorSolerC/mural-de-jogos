@@ -24,7 +24,10 @@ import {
   isDarkStock,
   originalsOf,
   timesOf,
+  BONUS_MAX_LABEL,
+  fold,
 } from './review';
+import { KIND_PROFILES } from './kinds';
 
 const favor = (id: string): Bonus => ({ id, label: id, kind: 'favor' });
 const contra = (id: string): Bonus => ({ id, label: id, kind: 'contra' });
@@ -212,6 +215,30 @@ describe('sanitizeBonuses', () => {
 
   it('não é lista: nenhum bônus', () => {
     expect(sanitizeBonuses('x', 'jogos')).toEqual([]);
+  });
+
+  it('o escrito à mão que ganhou um igual na cartela vira o da cartela, só do mesmo lado', () => {
+    const out = sanitizeBonuses(
+      [
+        { id: customBonusId('genial', 'favor'), label: 'genial', kind: 'favor' },
+        { id: customBonusId('Clássico', 'contra'), label: 'Clássico', kind: 'contra' },
+      ],
+      'livros',
+    );
+    expect(out).toEqual([
+      { id: 'genial', label: 'Genial', kind: 'favor' },
+      { id: customBonusId('Clássico', 'contra'), label: 'Clássico', kind: 'contra' },
+    ]);
+  });
+
+  it('cada cartela tem ids e nomes únicos, que cabem no adesivo', () => {
+    for (const p of Object.values(KIND_PROFILES)) {
+      const ids = p.bonuses.map((b) => b.id);
+      expect(new Set(ids).size).withContext(p.kind).toBe(ids.length);
+      const names = p.bonuses.map((b) => `${b.kind}:${fold(b.label)}`);
+      expect(new Set(names).size).withContext(p.kind).toBe(names.length);
+      for (const b of p.bonuses) expect(b.label.length).withContext(b.label).toBeLessThanOrEqual(BONUS_MAX_LABEL);
+    }
   });
 });
 

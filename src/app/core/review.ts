@@ -140,6 +140,11 @@ const CATALOG_BY_ID = Object.fromEntries(
   Object.values(KIND_PROFILES).map((p) => [p.kind, new Map(p.bonuses.map((b) => [b.id, b]))]),
 ) as Record<Kind, Map<string, Bonus>>;
 
+/** A cartela de cada mural pelo nome e pelo lado ("f:genial"), para achar o escrito à mão que ganhou um igual nela. */
+const CATALOG_BY_LABEL = Object.fromEntries(
+  Object.values(KIND_PROFILES).map((p) => [p.kind, new Map(p.bonuses.map((b) => [`${b.kind}:${fold(b.label)}`, b]))]),
+) as Record<Kind, Map<string, Bonus>>;
+
 /** É um adesivo da cartela pronta deste mural? */
 export function isCatalogBonus(kind: Kind, id: string): boolean {
   return CATALOG_BY_ID[kind].has(id);
@@ -689,7 +694,11 @@ function sanitizeKind(v: unknown): Kind {
   return isKind(v) ? v : 'jogos';
 }
 
-/** Aceita a lista de bônus de um backup: da cartela do mural vale o nome da cartela; os escritos, o nome guardado. */
+/**
+ * Aceita a lista de bônus de um backup: da cartela do mural vale o nome da cartela; os escritos, o nome
+ * guardado. Um escrito à mão com o mesmo nome e o mesmo lado de um que entrou depois na cartela
+ * ("Genial" nos livros) vira o da cartela, para não aparecer duas vezes.
+ */
 export function sanitizeBonuses(raw: unknown, kind: Kind): Bonus[] {
   if (!Array.isArray(raw)) return [];
   const catalog = CATALOG_BY_ID[kind];
@@ -697,13 +706,15 @@ export function sanitizeBonuses(raw: unknown, kind: Kind): Bonus[] {
   for (const item of raw.slice(0, 60)) {
     if (!item || typeof item !== 'object') continue;
     const b = item as Record<string, unknown>;
-    const known = typeof b['id'] === 'string' ? catalog.get(b['id']) : undefined;
+    const label = cleanBonusLabel(str(b['label'], 200));
+    const side = b['kind'];
+    const known =
+      (typeof b['id'] === 'string' ? catalog.get(b['id']) : undefined) ??
+      (label && (side === 'favor' || side === 'contra') ? CATALOG_BY_LABEL[kind].get(`${side}:${fold(label)}`) : undefined);
     if (known) {
       out.set(known.id, { ...known });
       continue;
     }
-    const label = cleanBonusLabel(str(b['label'], 200));
-    const side = b['kind'];
     if (!label || (side !== 'favor' && side !== 'contra')) continue;
     const id = customBonusId(label, side);
     if (!out.has(id)) out.set(id, { id, label, kind: side });

@@ -37,6 +37,8 @@ export const NEWS: NewsEntry[] = [
     items: [
       'Em "Quem vê?", a opção Todo mundo agora se chama Publicar.',
       'Em Amigos, a aba Chegou agora se chama Feed.',
+      'Livros, filmes, séries e animes ganharam os bônus que só os jogos tinham, quando cabem: Genial, Clássico, Me marcou, Melhor do gênero, Caça-níquel, Repetitivo e outros. E alguns só deles, como "Erros de revisão", "Frases pra sublinhar", "Dublagem ruim" e "Propaganda do mangá".',
+      'Um bônus que você escreveu à mão com o mesmo nome de um desses novos passa a ser o da cartela, com o desenho dele.',
     ],
   },
   {

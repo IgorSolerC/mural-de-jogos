@@ -57,6 +57,14 @@ import {
   Sticker,
   Tag,
   Users,
+  Activity,
+  Film,
+  Highlighter,
+  Megaphone,
+  MessagesSquare,
+  MicOff,
+  SpellCheck,
+  Wind,
 } from 'lucide-angular';
 import {
   BONUS_KINDS,
@@ -140,6 +148,20 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   filler: Layers,
   'animacao-ruim': ImageOff,
   fanservice: EyeOff,
+  // os equivalentes dos jogos nos outros murais
+  'leitura-fluida': Wind,
+  frases: Highlighter,
+  'bom-de-conversar': MessagesSquare,
+  revisao: SpellCheck,
+  enchecao: Layers,
+  'caca-niquel': Coins,
+  'ritmo-irregular': Activity,
+  'cenas-de-acao': Swords,
+  'com-amigos': Users,
+  continuidade: Bug,
+  montagem: Film,
+  dublagem: MicOff,
+  propaganda: Megaphone,
 };
 
 /** O desenho do adesivo: o da cartela, ou um sinal de mais / menos para os escritos à mão. */
