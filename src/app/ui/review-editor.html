@@ -271,14 +271,13 @@
         </section>
 
         <section class="bloco texto">
-          <label for="editor-texto" class="pergunta">O que achou?</label>
-          <textarea
-            id="editor-texto"
-            rows="6"
+          <label [for]="texto.areaId" class="pergunta">O que achou?</label>
+          <app-rich-editor
+            #texto
+            label="O que achou?"
             [placeholder]="'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
-            [value]="text()"
-            (input)="text.set($any($event.target).value)"
-          ></textarea>
+            [(value)]="text"
+          />
         </section>
 
         <!-- Publicar (o mural pelo código, Amigos, Comparar) ou manter privado, até mudar de ideia -->

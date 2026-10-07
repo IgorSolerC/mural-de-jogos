@@ -25,6 +25,7 @@ import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
+import { plainText } from '../core/rich-text';
 import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
@@ -859,7 +860,8 @@ export class ReviewCard {
   protected readonly hours = computed(() => formatAmount(this.review().kind, this.review().hoursPlayed));
   protected readonly lead = computed(() => {
     if (this.bare()) return this.bareText();
-    const line = leadSentence(this.review().text);
+    // a frase sai do texto sem as marcas de formatação (negrito, listas, tarefas)
+    const line = leadSentence(plainText(this.review().text));
     return line && this.masked() ? scramble(line, this.review().id) : line;
   });
   protected readonly bonuses = computed(() => sortBonuses(this.review().bonuses));

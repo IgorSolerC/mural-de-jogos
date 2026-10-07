@@ -1,4 +1,5 @@
 import { Kind, profileOf } from './kinds';
+import { plainText } from './rich-text';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
@@ -206,7 +207,8 @@ export function wordsShown(opened: number): number {
  * ficha não tem texto.
  */
 export function revealedWords(secret: Review, count: number): { text: string; cut: boolean } {
-  let flat = secret.text.replace(/\s+/g, ' ').trim();
+  // sem as marcas de formatação: a dica mostra palavras, não asteriscos e caixinhas
+  let flat = plainText(secret.text).replace(/\s+/g, ' ').trim();
   if (!flat || count <= 0) return { text: '', cut: false };
   const name = secret.game.name.trim();
   if (name) flat = flat.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '▒▒▒▒');

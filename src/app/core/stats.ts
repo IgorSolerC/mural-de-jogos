@@ -1,4 +1,5 @@
 import { Kind, KindProfile, profileOf } from './kinds';
+import { plainText } from './rich-text';
 import { DECOR_LABEL, DAMAGE_LABEL, PAPER_LABEL, PATTERN_LABEL, SCRIBBLE_LABEL, STAIN_LABEL } from './paper';
 import {
   Bonus,
@@ -374,7 +375,8 @@ const SOURCE_LABEL: Record<GameSource, string> = {
 
 /** Quantas palavras a resenha tem. */
 export function wordsOf(text: string): number {
-  const t = text.trim();
+  // as marcas de formatação (negrito, listas, tarefas) não são palavras
+  const t = plainText(text).trim();
   return t ? t.split(/\s+/).length : 0;
 }
 

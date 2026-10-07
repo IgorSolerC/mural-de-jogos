@@ -27,11 +27,13 @@ import { JudgeLabel } from './judge-label';
 import { Luz } from './luz';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
+import { RichText } from './rich-text';
+import { plainText, toggleCheck } from '../core/rich-text';
 
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, Skulls, StatusLabel],
+  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (keydown)="onKey($event)" (close)="review.set(null)">
@@ -141,7 +143,8 @@ import { StatusLabel } from './status-label';
               @if (masked()) {
                 <div class="text"><app-rabisco [text]="text()" /><span class="sr-only">Texto escondido</span></div>
               } @else {
-                <div class="text">{{ text() }}</div>
+                <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
+                <div class="text"><app-rich-text [text]="r.text" [checkable]="owner() === null" (toggled)="toggleTask($event)" /></div>
               }
             } @else {
               <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
@@ -247,12 +250,22 @@ export class ReviewReader {
   protected readonly masked = computed(
     () => (this.forceMask() && !this.revealed()) || (this.settings.noSpoilers() && this.owner() === null),
   );
-  /** O texto inteiro, ou embaralhado do mesmo tamanho no modo sem spoilers. */
+  /** O texto embaralhado do mesmo tamanho, sem as marcas de formatação, para o modo sem spoilers. */
   protected readonly text = computed(() => {
     const r = this.review();
-    if (!r) return '';
-    return this.masked() ? scramble(r.text, r.id) : r.text;
+    return r ? scramble(plainText(r.text), r.id) : '';
   });
+
+  /** Marcou uma tarefa do texto na leitura: a ficha (sua) é salva com ela marcada, sem abrir o editor. */
+  protected toggleTask(line: number): void {
+    const r = this.review();
+    if (!r || this.owner() !== null) return;
+    const text = toggleCheck(r.text, line);
+    if (text === r.text) return;
+    const next: Review = { ...r, text, updatedAt: new Date().toISOString() };
+    this.store.update(next);
+    this.review.set(next);
+  }
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
   /** A faixa do cabeçalho é a cartolina da ficha, no papel dela. */
   protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock)));

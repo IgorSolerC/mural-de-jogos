@@ -62,6 +62,7 @@ import { GameSearch } from './game-search';
 import { JudgeLabel } from './judge-label';
 import { Pin } from './pin';
 import { ReviewCard } from './review-card';
+import { RichEditor } from './rich-editor';
 import { ScorePicker } from './score-picker';
 import { StatusPicker } from './status-picker';
 import { VerdictPicker } from './verdict';
@@ -91,6 +92,7 @@ const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'jul
     JudgeLabel,
     Pin,
     ReviewCard,
+    RichEditor,
     ScorePicker,
     StatusPicker,
     VerdictPicker,
@@ -135,6 +137,7 @@ export class ReviewEditor {
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
   private readonly kit = viewChild(CardKit);
+  private readonly writer = viewChild(RichEditor);
 
   protected readonly id = signal(newId());
   protected readonly editing = signal<Review | null>(null);
@@ -474,6 +477,7 @@ export class ReviewEditor {
     this.coverAbort?.abort();
     this.choosingCover.set(false);
     this.text.set(review?.text ?? '');
+    this.writer()?.reset();
     this.searchSeed.set('');
     // a busca que ficou aberta da última vez (talvez de outro mural) volta vazia
     this.search()?.reset();

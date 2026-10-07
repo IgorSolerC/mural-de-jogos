@@ -42,6 +42,8 @@ export const NEWS: NewsEntry[] = [
       'Os selinhos da foto (o cadeado da privada e o da rejogada, só capa e nome) agora ficam um embaixo do outro no canto, como adesivos colados um por cima do outro. Nas cartolinas escuras eles perderam a borda branca.',
       'Ordenando por data, a seção das fichas só com o ano agora se chama só "2026", em vez de "2026, mês não lembrado". Ela vem depois dos meses daquele ano, e quem tem mês sem dia fica no fim da seção do mês.',
       'A original é sempre a vez mais antiga: pregar uma rejogada (releitura, reassistida) com data de antes da original faz dela a original, e as outras viram rejogadas dela. "Não lembro" conta como a mais antiga. As cartolinas continuam iguaizinhas.',
+      'O texto da resenha ganhou formatação: negrito, itálico, listas, listas numeradas e tarefas, pelos botões em cima da folha (ou Ctrl+B e Ctrl+I). "Ver como fica" mostra o resultado, e as tarefas se marcam direto na leitura da ficha.',
+      'Textos longos: "Maximizar" abre a folha na tela inteira, com a letra maior.',
     ],
   },
   {
