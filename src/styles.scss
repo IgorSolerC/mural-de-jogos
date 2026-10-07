@@ -674,13 +674,6 @@ dialog.sheet {
   --ink: #151515;
   --ink-2: rgb(21 21 21 / 0.78);
 }
-/* Os selinhos redondos da foto (o cadeado da privada, o "outra vez") são adesivos de tinta preta:
-   na cartolina escura eles ganham uma borda creme fina para não sumirem no papel. */
-.cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha) :is(.privada-selo, .vez-selo) {
-  box-shadow:
-    0 0 0 1.5px var(--ink-claro-solido),
-    0 1px 3px rgb(0 0 0 / 0.55);
-}
 
 .cartolina {
   --stock: var(--stock-amarelo);

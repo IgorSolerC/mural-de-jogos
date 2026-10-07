@@ -111,15 +111,20 @@ function watchDistance(el: HTMLElement): () => void {
               <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
             }
           </app-cover-sleeve>
-          <!-- só capa e nome: a rejogada se distingue da original pelo selinho de "outra vez" no canto da foto -->
-          @if (capas() && review().revisitOf && !bare()) {
-            <span class="vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="15" [strokeWidth]="3" /></span>
-          }
-          <!-- privada: o cadeado no canto da foto, só no seu mural (a ficha nunca sai dele) -->
-          @if (review().private && !bare()) {
-            <span class="privada-selo" title="Privada: só você vê">
-              <lucide-icon [img]="PrivateIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
-              <span class="sr-only">Privada: só você vê</span>
+          <!-- Os selinhos da foto, colados um embaixo do outro no canto, cada um um pouco por cima do
+               de cima: o cadeado da privada (só no seu mural; a ficha nunca sai dele) e, só capa e
+               nome, o "outra vez" que distingue a rejogada da original. Um selo novo entra no fim. -->
+          @if ((review().private || (capas() && review().revisitOf)) && !bare()) {
+            <span class="selos">
+              @if (review().private) {
+                <span class="selo privada-selo" title="Privada: só você vê">
+                  <lucide-icon [img]="PrivateIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
+                  <span class="sr-only">Privada: só você vê</span>
+                </span>
+              }
+              @if (capas() && review().revisitOf) {
+                <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" [strokeWidth]="3" /></span>
+              }
             </span>
           }
         </div>
@@ -555,27 +560,19 @@ function watchDistance(el: HTMLElement): () => void {
       vertical-align: -2px;
       margin-right: 3px;
     }
-    /* só capa e nome: um selinho redondo de tinta no canto da foto */
-    .vez-selo {
-      position: absolute;
-      top: -7px;
-      right: -7px;
-      z-index: 2;
-      display: grid;
-      place-items: center;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      background: var(--ink);
-      color: var(--hi);
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
-      rotate: -8deg;
-    }
-    .privada-selo {
+    /* Os selinhos redondos de tinta no canto da foto, numa coluna: cada um encosta um pouco no de
+       cima, como adesivos colados um por cima do outro, cada um torto para um lado */
+    .selos {
       position: absolute;
       top: -8px;
       left: -8px;
       z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+    }
+    .selo {
       display: grid;
       place-items: center;
       width: 28px;
@@ -585,13 +582,28 @@ function watchDistance(el: HTMLElement): () => void {
       color: var(--hi);
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
       rotate: 8deg;
+      pointer-events: auto;
     }
-    :host(.compact) .privada-selo,
-    :host(.capas) .privada-selo {
+    .selo + .selo {
+      margin-top: -6px;
+    }
+    .selo:nth-child(even) {
+      rotate: -7deg;
+      translate: 2px 0;
+    }
+    :host(.compact) .selos,
+    :host(.capas) .selos {
       top: -6px;
       left: -6px;
+    }
+    :host(.compact) .selo,
+    :host(.capas) .selo {
       width: 24px;
       height: 24px;
+    }
+    :host(.compact) .selo + .selo,
+    :host(.capas) .selo + .selo {
+      margin-top: -5px;
     }
     :host(.fora) {
       opacity: 0.45;
