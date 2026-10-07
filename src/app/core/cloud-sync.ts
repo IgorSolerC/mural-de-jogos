@@ -90,8 +90,14 @@ export function newReviews(reviews: readonly Review[], now: number): { ref: stri
     .slice(0, MAX_NEW)
     .map((r) => ({ ref: r.id, titulo: r.game.name, mural: r.kind }));
 }
-/** Válvula de segurança: mais que isso de envios em 10 minutos para tudo (algo está errado). */
-const MAX_PUSHES_PER_10_MIN = 8;
+/**
+ * Válvula de segurança contra um laço de envios (algo errado na junção, a nuvem esquecendo o mural):
+ * o mesmo conteúdo enviado 3 vezes em 10 minutos, ou mais de 30 envios. Quem edita de verdade manda
+ * um conteúdo novo a cada vez, uns segundos depois de parar de mexer, e não chega perto disso.
+ */
+const MAX_PUSHES_PER_10_MIN = 30;
+const MAX_SAME_PUSHES_PER_10_MIN = 3;
+const PUSH_WINDOW = 10 * 60_000;
 const MINUTE = 60_000;
 
 export type SyncStatus =
@@ -210,7 +216,8 @@ export class CloudSync {
 
   private timer: ReturnType<typeof setTimeout> | undefined;
   private failures = 0;
-  private pushes: number[] = [];
+  /** Os envios dos últimos 10 minutos: quando e a impressão digital do que foi. */
+  private pushes: { at: number; print: string }[] = [];
   private running = false;
   private rerun = false;
   /** A primeira sincronização deste aparelho espera a pessoa escolher (não pergunta de novo sozinha). */
@@ -374,7 +381,7 @@ export class CloudSync {
       if (here === state.impressao) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
-        const rev = await this.push(doc, state.rev, keys);
+        const rev = await this.push(doc, state.rev, keys, here);
         state = { ...state, rev, impressao: here };
         this.writeState(state);
         break;
@@ -545,12 +552,13 @@ export class CloudSync {
   }
 
   /** Envia o mural; devolve a rev nova. */
-  private async push(doc: BackupPayload, base: number, keys: SyncedKeys | null): Promise<number> {
+  private async push(doc: BackupPayload, base: number, keys: SyncedKeys | null, print: string): Promise<number> {
     const now = Date.now();
-    this.pushes = this.pushes.filter((t) => now - t < 10 * MINUTE);
-    if (this.pushes.length >= MAX_PUSHES_PER_10_MIN) {
+    this.pushes = this.pushes.filter((p) => now - p.at < PUSH_WINDOW);
+    const same = this.pushes.filter((p) => p.print === print).length;
+    if (this.pushes.length >= MAX_PUSHES_PER_10_MIN || same >= MAX_SAME_PUSHES_PER_10_MIN) {
       throw new CloudError(
-        'A sincronização parou para não gastar a nuvem: foram envios demais seguidos. Recarregue a página; se continuar, avise.',
+        'A sincronização deu uma pausa para não gastar a nuvem: foram envios demais seguidos. Ela volta sozinha em alguns minutos; se continuar, avise.',
         'envios-demais',
         0,
       );
@@ -573,7 +581,7 @@ export class CloudSync {
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');
     form.append('novas', JSON.stringify(novas));
-    this.pushes.push(now);
+    this.pushes.push({ at: now, print });
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     this.noteClock(res);
     const body = (await res.json()) as { rev: number };
@@ -625,7 +633,13 @@ export class CloudSync {
     }
     this.status.set('erro');
     this.message.set(e.message);
-    if (e.code !== 'envios-demais' && e.code !== 'mural-grande-demais' && e.code !== 'sem-compressao') {
+    if (e.code === 'envios-demais') {
+      // volta sozinha quando o envio mais antigo sai da janela de 10 minutos
+      const oldest = Math.min(...this.pushes.map((p) => p.at));
+      this.schedule(Math.max(MINUTE, oldest + PUSH_WINDOW - Date.now()));
+      return;
+    }
+    if (e.code !== 'mural-grande-demais' && e.code !== 'sem-compressao') {
       this.failures++;
       this.schedule(Math.min(30 * MINUTE, 30_000 * 2 ** (this.failures - 1)));
     }

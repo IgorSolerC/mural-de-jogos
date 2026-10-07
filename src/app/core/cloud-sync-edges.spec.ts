@@ -416,17 +416,30 @@ describe('sincronização: bordas e bugs conhecidos', () => {
       must(cloud.puts === 1, `juntar dois murais iguais gerou ${cloud.puts - 1} envio a mais`);
     });
 
-    // A válvula "envios demais" (8 em 10 minutos) também pega uso normal: cada mudança sobe uns
-    // segundos depois, então quem avalia 9 jogos em 10 minutos para de sincronizar, com a mensagem
-    // "Recarregue a página; se continuar, avise". E ela não reagenda: só volta na próxima mudança
-    // ou na conferência de 5 em 5 minutos.
-    itBug('nove mudanças em dez minutos, cada uma no seu tempo, não param a sincronização', async () => {
+    it('nove mudanças em dez minutos, cada uma no seu tempo, não param a sincronização', async () => {
       const a = device();
       for (let i = 0; i < 9; i++) {
         a.store.add(review(`rjogo${i}`, `Jogo ${i}`));
         await a.sync.syncNow();
       }
-      must(a.sync.status() === 'ok', `a sincronização parou: "${a.sync.message()}"`);
+      expect(a.sync.status()).toBe('ok');
+      expect(cloud.puts).toBe(9);
+    });
+
+    it('o mesmo mural enviado 3 vezes em 10 minutos (a nuvem esquecendo): pausa, e volta sozinha depois', async () => {
+      const a = device();
+      a.store.add(review('raaaa1', 'Celeste'));
+      for (let i = 0; i < 4; i++) {
+        await a.sync.syncNow();
+        // a nuvem "perde" o mural a cada vez: o aparelho recomeça do zero e manda o mesmo
+        cloud.doc = null;
+        cloud.rev = 0;
+      }
+      expect(cloud.puts).toBe(3);
+      expect(a.sync.status()).toBe('erro');
+      expect(a.sync.message()).toContain('volta sozinha');
+      // ficou agendada uma nova tentativa (e não parada até recarregar)
+      expect((a.sync as unknown as { timer: unknown }).timer).toBeDefined();
     });
   });
 });
