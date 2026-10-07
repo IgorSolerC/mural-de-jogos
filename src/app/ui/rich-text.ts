@@ -44,7 +44,12 @@ import { hasFormatting, parseRich } from '../core/rich-text';
               @for (it of b.items; track it.line) {
                 <li class="linha" [class.feita]="it.done">
                   <label>
-                    <input type="checkbox" [checked]="it.done" [disabled]="!checkable()" (change)="toggled.emit(it.line)" />
+                    @if (checkable()) {
+                      <input type="checkbox" [checked]="it.done" (change)="toggled.emit(it.line)" />
+                    } @else {
+                      <span class="caixa" [class.marcada]="it.done" aria-hidden="true"></span>
+                      <span class="sr-only">{{ it.done ? 'Feito:' : 'A fazer:' }}</span>
+                    }
                     <span class="tarefa">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</span>
                   </label>
                 </li>
@@ -110,7 +115,8 @@ import { hasFormatting, parseRich } from '../core/rich-text';
       align-items: start;
     }
     /* a caixinha desenhada a caneta, sentada na linha da pauta */
-    .tarefas input {
+    .tarefas input,
+    .tarefas .caixa {
       appearance: none;
       width: 0.86em;
       height: 0.86em;
@@ -129,7 +135,8 @@ import { hasFormatting, parseRich } from '../core/rich-text';
       outline-offset: 2px;
     }
     /* feita: o tique vermelho de caneta por cima da caixinha, e o texto riscado a lápis */
-    .tarefas input:checked {
+    .tarefas input:checked,
+    .tarefas .caixa.marcada {
       background:
         no-repeat center / 120% 120%
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");

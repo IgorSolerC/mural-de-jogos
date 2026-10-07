@@ -29,7 +29,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     <span class="fita fita-l" aria-hidden="true"></span>
     <span class="fita fita-r" aria-hidden="true"></span>
 
-    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty()" [class.sem-julgamento]="!hasVerdict()" [class.anotacoes]="hasCategory()">
+    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty() && !hasCategory()" [class.sem-julgamento]="!hasVerdict() && !hasCategory()" [class.anotacoes]="hasCategory()">
       @for (f of facets(); track f.key) {
         <fieldset class="grupo" [class]="'grupo g-' + f.key">
           <legend class="cabeca">

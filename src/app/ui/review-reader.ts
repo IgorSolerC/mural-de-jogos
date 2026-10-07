@@ -101,7 +101,7 @@ import { plainText, toggleCheck } from '../core/rich-text';
                 @if (r.private && owner() === null) {
                   <p class="privada">
                     <lucide-icon [img]="PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                    Privada: só você vê. Ninguém foi avisado.
+                    {{ note() ? 'Privada: só você vê.' : 'Privada: só você vê. Ninguém foi avisado.' }}
                   </p>
                 }
               </div>
@@ -184,7 +184,7 @@ import { plainText, toggleCheck } from '../core/rich-text';
 
           <footer class="foot">
             @if (owner(); as name) {
-              <p>{{ name === 'Você' ? 'Sua resenha' : 'Resenha de ' + name }}</p>
+              <p>{{ name === 'Você' ? (note() ? 'Sua anotação' : 'Sua resenha') : (note() ? 'Anotação de ' : 'Resenha de ') + name }}</p>
               <button type="button" class="btn-ink" (click)="close()">Fechar</button>
             } @else {
             <button type="button" class="btn-quiet danger" (click)="remove.emit(r.id)">

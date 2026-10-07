@@ -238,7 +238,7 @@ type ListKind = 'ul' | 'ol' | 'check';
       transition: box-shadow var(--t-ui) var(--ease-ui);
 
       &::placeholder {
-        color: rgb(21 21 21 / 0.55);
+        color: rgb(21 21 21 / 0.7);
       }
 
       &:focus {

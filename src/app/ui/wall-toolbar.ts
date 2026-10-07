@@ -11,7 +11,7 @@ import {
   SquareCheckBig,
 } from 'lucide-angular';
 import { Mural } from '../core/mural';
-import { countOf, isNotes, revisitCountOf } from '../core/kinds';
+import { countOf, g, isNotes, revisitCountOf } from '../core/kinds';
 import { SCORE_LABEL, ScoreKey, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
@@ -72,7 +72,7 @@ export class WallToolbar {
     const all = again
       ? `${countOf(this.mural.profile(), total - again)} e ${revisitCountOf(this.mural.profile(), again)}`
       : countOf(this.mural.profile(), total);
-    return shown === total ? `Mostrando todos os ${all}` : `Mostrando ${shown} de ${all}`;
+    return shown === total ? `Mostrando ${g(this.mural.profile(), 'todos os', 'todas as')} ${all}` : `Mostrando ${shown} de ${all}`;
   });
 
   /** O mural de anotações: outras ordens, e nada de marcar para o lado a lado. */

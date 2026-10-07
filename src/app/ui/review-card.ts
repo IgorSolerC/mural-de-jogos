@@ -913,6 +913,13 @@ function watchDistance(el: HTMLElement): () => void {
           'judge judge';
         grid-template-rows: auto auto;
       }
+      /* a anotação sem capa continua com uma coluna só */
+      :host(.sem-capa:not(.compact):not(.capas)) .head {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+          'words'
+          'judge';
+      }
       .title {
         font-size: 1.46rem;
       }

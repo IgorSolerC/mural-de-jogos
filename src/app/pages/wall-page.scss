@@ -152,9 +152,11 @@
     width: var(--card-w);
     max-width: none;
   }
-  /* a anotação larga ocupa duas fichas e o vão entre elas (no celular, a coluna é uma só) */
+  /* a anotação larga ocupa duas fichas e o vão entre elas (o das colunas: --in-gap tem os dois);
+     nunca mais larga que a parede */
   app-review-card.nota-larga {
-    width: calc(var(--card-w) * 2 + var(--in-gap));
+    width: calc(var(--card-w) * 2 + var(--in-col));
+    max-width: 100%;
   }
 }
 .wall.capas .fichas app-review-card.nota-larga {
