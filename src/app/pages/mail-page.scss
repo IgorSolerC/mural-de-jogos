@@ -82,12 +82,15 @@
 }
 
 @media (min-width: 1100px) {
+  /* a régua vai de ponta a ponta, como a do Mural: o que chegou fica à esquerda e a coluna do lado
+     encosta na margem direita da página, longe do feed */
   .abas-amigos {
-    max-width: calc(var(--feed-w) + var(--lado-gap) + var(--lado-w));
+    max-width: none;
   }
 
   .painel-chegou {
     grid-template-columns: minmax(0, var(--feed-w)) var(--lado-w);
+    justify-content: space-between;
     column-gap: var(--lado-gap);
     align-items: start;
     max-width: none;
@@ -97,13 +100,33 @@
     position: sticky;
     top: 24px;
     display: grid;
-    gap: 40px;
+    gap: 34px;
+    justify-items: start;
+  }
+
+  .lado .seguir {
+    gap: 18px;
   }
 
   /* com a coluna do lado, o vazio não repete o seguir */
   .vazio-seguir {
     display: none;
   }
+}
+
+/* o botão que abre o bilhete de seguir, em giz sobre a parede */
+.abrir-seguir {
+  margin-left: -4px;
+  color: var(--wall-ink);
+}
+
+.fechar-seguir {
+  justify-self: start;
+  min-height: 36px;
+  margin: 2px 0 0 -10px;
+  padding-block: 4px;
+  font-size: 0.86rem;
+  color: var(--ink-2);
 }
 
 /* ===== Fichas de cartolina (sem conta, vazio, a lista), como as de Ajustes ===== */

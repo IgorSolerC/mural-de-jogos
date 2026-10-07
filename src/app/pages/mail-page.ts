@@ -177,6 +177,8 @@ export class MailPage {
   private readonly freshSince = signal<string | null | undefined>(undefined);
 
   protected readonly code = signal('');
+  /** O bilhete de seguir na coluna do lado: guardado até a pessoa pedir. */
+  protected readonly followOpen = signal(false);
   protected readonly followError = signal<string | null>(null);
   /** O pedido em andamento: 'form', ou 'código:ação' (a ação mostra o aro; a linha toda espera). */
   protected readonly busy = signal<string | null>(null);
@@ -357,6 +359,7 @@ export class MailPage {
     try {
       const p = await this.follow.follow(this.code());
       this.code.set('');
+      this.followOpen.set(false);
       this.toasts.show(`Agora você segue ${p.nome}`);
     } catch (err) {
       this.followError.set(err instanceof Error ? err.message : 'Não consegui seguir agora.');
@@ -377,6 +380,18 @@ export class MailPage {
       await this.follow.mute(p.codigo, !p.silenciado);
       this.toasts.show(p.silenciado ? `${p.nome} volta a contar no número da aba` : `${p.nome} não conta mais no número da aba`);
     });
+  }
+
+  protected openFollow(): void {
+    this.followOpen.set(true);
+    queueMicrotask(() => document.getElementById('codigo-lado')?.focus());
+  }
+
+  /** "Agora não" ou Esc: guarda o bilhete e devolve o foco ao botão que o abriu. */
+  protected closeFollow(): void {
+    this.followOpen.set(false);
+    this.followError.set(null);
+    queueMicrotask(() => document.querySelector<HTMLElement>('.abrir-seguir')?.focus());
   }
 
   protected toggleRow(code: string): void {

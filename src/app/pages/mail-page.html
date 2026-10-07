@@ -367,7 +367,14 @@
       </div>
     }
 
-    <form class="bilhete-seguir" (submit)="followCode($event)" [attr.aria-labelledby]="'seguir-titulo-' + id">
+    <!-- na coluna do lado o bilhete fica guardado: um botão só, que abre o campo quando a pessoa quer seguir alguém -->
+    @if (id === 'lado' && !followOpen()) {
+      <button type="button" class="btn-quiet abrir-seguir" aria-controls="seguir-lado" [attr.aria-expanded]="false" (click)="openFollow()">
+        <lucide-icon [img]="FollowIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        Seguir alguém pelo código
+      </button>
+    } @else {
+    <form class="bilhete-seguir" [id]="'seguir-' + id" (submit)="followCode($event)" (keydown.escape)="id === 'lado' && closeFollow()" [attr.aria-labelledby]="'seguir-titulo-' + id">
       <h3 class="bilhete-titulo" [id]="'seguir-titulo-' + id">Seguir alguém</h3>
       <label class="bilhete-dica" [for]="'codigo-' + id">Cole o código da pessoa. Ela recebe um aviso de que você começou a seguir.</label>
       <div class="campo">
@@ -390,7 +397,11 @@
       @if (followError(); as err) {
         <p class="msg error" role="alert">{{ err }}</p>
       }
+      @if (id === 'lado') {
+        <button type="button" class="btn-quiet fechar-seguir" (click)="closeFollow()">Agora não</button>
+      }
     </form>
+    }
   </div>
 </ng-template>
 
