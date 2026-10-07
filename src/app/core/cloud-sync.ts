@@ -433,7 +433,12 @@ export class CloudSync {
       this.merge((remote as { text: string }).text);
     }
     // as chaves: a da nuvem vale se for mais nova (a conferência seguinte é "mudou?", e não traria)
-    if (remote.kind === 'doc') this.mergeKeys(remote.data);
+    if (remote.kind === 'doc') {
+      this.mergeKeys(remote.data);
+      // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
+      const here = await fingerprint(this.store.snapshot(), this.localKeys());
+      if (here === (await fingerprint(remote.data as unknown as BackupPayload, keysOf(remote.data)))) base.impressao = here;
+    }
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
     this.writeOwner(accountId);
     this.writeState(base);

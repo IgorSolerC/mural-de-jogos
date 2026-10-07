@@ -8,13 +8,11 @@ import { Review, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { Choice, Confirm } from '../ui/confirm';
-import { itBug, must } from '../testing/known-bug.spec';
 
 /**
  * A sincronização com a nuvem, nas bordas: respostas de erro da API (429, 503, 401, 409 em série),
  * a nuvem que perdeu o mural, o mural que veio estragado, o relógio errado, mudanças durante um
- * envio e o que vai (e o que não vai) no mural público. Os BUG: são bugs conhecidos (ver
- * testing/known-bug.spec.ts).
+ * envio e o que vai (e o que não vai) no mural público.
  */
 
 const API = 'https://api.teste';
@@ -386,12 +384,8 @@ describe('sincronização: bordas e bugs conhecidos', () => {
     });
   });
 
-  describe('bugs conhecidos', () => {
-    // O primeiro aparelho sobe o mural (rev 1). O segundo, vazio, baixa tudo... e manda o mesmo mural
-    // de volta (rev 2): `firstSync` devolve o estado com `impressao: ''`, então a conferência seguinte
-    // acha que "tem algo para enviar". Custa uma gravação, sobe a rev e faz todos os outros aparelhos
-    // baixarem o mural inteiro de novo na próxima conferência.
-    itBug('o aparelho vazio que acabou de baixar o mural não o manda de volta', async () => {
+  describe('bugs corrigidos', () => {
+    it('o aparelho vazio que acabou de baixar o mural não o manda de volta', async () => {
       const a = device();
       a.store.add(review('raaaa1', 'Celeste'));
       a.store.add(review('rbbbb1', 'Hades'));
@@ -401,11 +395,16 @@ describe('sincronização: bordas e bugs conhecidos', () => {
       const b = device();
       await b.sync.syncNow();
       expect(b.names()).toEqual(['Celeste', 'Hades']);
-      must(cloud.puts === 1, `o segundo aparelho reenviou o que baixou (${cloud.puts - 1} envio a mais, rev ${cloud.rev})`);
+      expect(cloud.puts).toBe(1);
+      expect(cloud.rev).toBe(1);
+      expect(await b.sync.everythingSent()).toBeTrue();
+      // e o que mudar depois sobe normalmente
+      b.store.add(review('rcccc1', 'Hollow Knight'));
+      await b.sync.syncNow();
+      expect(cloud.puts).toBe(2);
     });
 
-    // A mesma coisa no caminho "o mural daqui já era desta conta": juntar dois murais iguais reenvia.
-    itBug('juntar sem perguntar um mural igual ao da nuvem não gera envio', async () => {
+    it('juntar sem perguntar um mural igual ao da nuvem não gera envio', async () => {
       const a = device();
       a.store.add(review('raaaa1', 'Celeste'));
       await a.sync.syncNow();
@@ -413,7 +412,31 @@ describe('sincronização: bordas e bugs conhecidos', () => {
       b.kv.setItem(OWNER_KEY, ACCOUNT.id); // este navegador já foi desta conta (o estado se perdeu)
       b.store.add(review('raaaa1', 'Celeste'));
       await b.sync.syncNow();
-      must(cloud.puts === 1, `juntar dois murais iguais gerou ${cloud.puts - 1} envio a mais`);
+      expect(cloud.puts).toBe(1);
+    });
+
+    it('juntar um mural diferente ainda envia o resultado da junção', async () => {
+      const a = device();
+      a.store.add(review('raaaa1', 'Celeste'));
+      await a.sync.syncNow();
+      const b = device();
+      b.kv.setItem(OWNER_KEY, ACCOUNT.id);
+      b.store.add(review('rbbbb1', 'Hades'));
+      await b.sync.syncNow();
+      expect(cloud.puts).toBe(2);
+      expect((cloud.lastPrivate!['reviews'] as Review[]).map((r) => r.game.name).sort()).toEqual(['Celeste', 'Hades']);
+    });
+
+    it('baixar num aparelho com uma chave de busca sem data sobe a chave', async () => {
+      const a = device();
+      a.store.add(review('raaaa1', 'Celeste'));
+      await a.sync.syncNow();
+      localStorage.removeItem('mural-de-jogos:config:v1');
+      const b = device();
+      b.settings.rawgKey.set('so-aqui');
+      await b.sync.syncNow();
+      expect(cloud.puts).toBe(2);
+      expect((cloud.lastPrivate!['chaves'] as { rawg: string }).rawg).toBe('so-aqui');
     });
 
     it('nove mudanças em dez minutos, cada uma no seu tempo, não param a sincronização', async () => {
