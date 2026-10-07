@@ -113,12 +113,14 @@ export function followRoutes(app: Hono, deps: Deps): void {
       [s.userId, target.id, new Date(now.getTime() - UNDO_MS).toISOString()],
     );
     const muted = undone?.silenciado ? 1 : 0;
+    // a data de antes: o correio continua com as resenhas que já tinham chegado
+    const since = undone?.criado_em ?? at;
     await write(
       deps,
       [
         {
           sql: 'INSERT OR IGNORE INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) VALUES (?, ?, ?, ?)',
-          params: [s.userId, target.id, at, muted],
+          params: [s.userId, target.id, since, muted],
         },
         { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? AND seguido_id = ?', params: [s.userId, target.id] },
         // o aviso para quem foi seguido: uma vez só por pessoa (o índice único ignora a repetição)
@@ -129,7 +131,7 @@ export function followRoutes(app: Hono, deps: Deps): void {
       ],
       11,
     );
-    return c.json({ pessoa: personOut(target), desde: at, silenciado: !!muted }, 201);
+    return c.json({ pessoa: personOut(target), desde: since, silenciado: !!muted }, 201);
   });
 
   app.delete('/v1/seguindo/:codigo', async (c) => {

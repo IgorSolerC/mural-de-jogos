@@ -307,9 +307,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(await db.all('SELECT 1 FROM seguindo_desfeito')).toEqual([]);
       });
 
-      // BUG: o seguir novo ganha `criado_em` de agora, e o correio só mostra resenhas publicadas depois
-      // de `criado_em`. As resenhas que já estavam em Amigos somem com o Desfazer.
-      it.fails('BUG: Desfazer não apaga do correio as resenhas que já tinham chegado', async () => {
+      it('Desfazer não apaga do correio as resenhas que já tinham chegado', async () => {
         const { follow, unfollow, push, feed, advance, ana, bia } = await two();
         await follow(bia.token, ana.codigo);
         advance(1000);
@@ -319,6 +317,17 @@ export function amigosSuite(label: string, getDb: () => Db) {
         advance(2000);
         await follow(bia.token, ana.codigo);
         expect((await feed(bia.token)).body.itens.map((i: any) => i.ref)).toEqual(['celeste1']);
+      });
+      it('Desfazer devolve a data de antes, e só ela: o que chegou no meio também aparece', async () => {
+        const { follow, unfollow, push, feed, advance, ana, bia } = await two();
+        const first = (await (await follow(bia.token, ana.codigo)).json()) as any;
+        advance(1000);
+        await unfollow(bia.token, ana.codigo);
+        advance(1000);
+        await push(ana.token, 0, { novas: [review('nomeio1', 'No meio')] });
+        const again = (await (await follow(bia.token, ana.codigo)).json()) as any;
+        expect(again.desde).toBe(first.desde);
+        expect((await feed(bia.token)).body.itens.map((i: any) => i.ref)).toEqual(['nomeio1']);
       });
     });
 

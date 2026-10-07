@@ -41,6 +41,7 @@ export const NEWS: NewsEntry[] = [
       'A resenha de alguém que aparece em Amigos com a página já aberta não fica mais em "Buscando a ficha…" para sempre.',
       'Avaliar várias coisas seguidas não para mais a sincronização com "envios demais". Se ela precisar dar uma pausa, volta sozinha, sem recarregar a página.',
       'O "Desfazer" depois de deixar de seguir alguém mantém a pessoa silenciada, se ela estava.',
+      'E as resenhas dela que já estavam em Amigos continuam lá depois do "Desfazer".',
     ],
   },
   {
