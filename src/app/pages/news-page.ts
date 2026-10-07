@@ -1,44 +1,60 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { NewsEntry, News } from '../core/news';
+import { ChevronDown, LucideAngularModule } from 'lucide-angular';
+import { NEWS_KIND_LABEL, NewsEntry, News, VERSION } from '../core/news';
 import { Pin } from '../ui/pin';
 
-/** Inclinações fixas, uma por ficha, para a pilha não parecer impressa. */
-const TILTS = [-0.6, 0.5, -0.3, 0.7, -0.5, 0.3];
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/** Inclinações fixas, uma por ficha, para a pilha não parecer impressa (pequenas: as fichas são baixas). */
+const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
 
 /**
- * Novidades: o que mudou em cada atualização do site, da mais nova para a mais velha, uma ficha
- * pautada por atualização. As que a pessoa ainda não tinha visto ganham o adesivo "novo"; abrir a
- * página conta tudo como visto (e a faixa de novidade do topo vai embora).
+ * Novidades: o que mudou em cada versão do site, da mais nova para a mais velha, uma ficha pautada
+ * por versão, fechada numa linha (a versão, o título e a etiqueta Update ou Bugfix). Os updates vêm
+ * presos com tachinha; os bugfixes, sem tachinha, mais baixos e recuados. As que
+ * a pessoa ainda não tinha visto ganham o adesivo "novo" e já vêm abertas; abrir a página conta tudo
+ * como visto (e a faixa de novidade do topo vai embora).
  */
 @Component({
   selector: 'app-news-page',
-  imports: [Pin],
+  imports: [LucideAngularModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
       <h1 class="tape-label big">Novidades</h1>
-      <p class="resumo">O que mudou em cada atualização</p>
+      <p class="resumo">Versão {{ version }}</p>
     </header>
 
+    <!-- uma ficha por versão, fechada numa linha só ("1.15.0 Mural de anotações"); tocar abre o que
+         mudou. As que a pessoa ainda não tinha visto já vêm abertas. -->
     <ol class="fichas">
       @for (n of entries; track n.id; let i = $index) {
-        <li class="ficha" [style.rotate.deg]="tilt(i)" [attr.aria-labelledby]="'nov-' + n.id">
-          <app-pin class="pin" color="#e62e2d" />
+        <li class="ficha" [class.bugfix]="n.kind === 'bugfix'" [style.rotate.deg]="tilt(i)">
+          @if (n.kind === 'update') {
+            <app-pin class="pin" color="#e62e2d" />
+          }
           @if (fresh.has(n.id)) {
             <span class="novo" aria-hidden="true">Novo</span>
           }
-          <p class="data"><time [attr.datetime]="n.date">{{ when(n) }}</time></p>
-          <h2 [id]="'nov-' + n.id">
-            {{ n.title }}
-            @if (fresh.has(n.id)) {
-              <span class="sr-only">(novo)</span>
-            }
-          </h2>
-          <ul class="itens">
-            @for (item of n.items; track $index) {
-              <li>{{ item }}</li>
-            }
-          </ul>
+          <details [open]="fresh.has(n.id)">
+            <summary>
+              <span class="versao">{{ n.version }}</span>
+              <h2>
+                {{ n.title }}
+                @if (fresh.has(n.id)) {
+                  <span class="sr-only">(novo)</span>
+                }
+              </h2>
+              <span class="etiqueta" [class.bugfix]="n.kind === 'bugfix'">{{ label[n.kind] }}</span>
+              <time class="data" [attr.datetime]="n.date">{{ when(n) }}</time>
+              <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+            </summary>
+            <ul class="itens">
+              @for (item of n.items; track $index) {
+                <li>{{ item }}</li>
+              }
+            </ul>
+          </details>
         </li>
       }
     </ol>
@@ -69,18 +85,17 @@ const TILTS = [-0.6, 0.5, -0.3, 0.7, -0.5, 0.3];
 
     .fichas {
       display: grid;
-      gap: 40px;
+      gap: 26px;
       max-width: 760px;
       margin: 0;
       padding: 0;
       list-style: none;
     }
 
-    /* Ficha pautada de papelaria: branca, o fio vermelho embaixo do título e a pauta azul no resto */
+    /* Ficha pautada de papelaria: branca, o fio vermelho embaixo da linha do título e a pauta azul no resto */
     .ficha {
       --line: 1.85rem;
       position: relative;
-      padding: 26px 30px 20px;
       border-radius: 2px;
       background-color: #fbf9f2;
       background-image: var(--paper-grain);
@@ -94,26 +109,98 @@ const TILTS = [-0.6, 0.5, -0.3, 0.7, -0.5, 0.3];
       }
     }
 
-    .data {
+    /* o bugfix: um papel mais baixo e recuado, para os updates darem o ritmo da pilha */
+    .ficha.bugfix {
+      margin-left: 34px;
+      background-color: #f4f1e8;
+    }
+
+    summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 14px;
+      padding: 20px 26px 16px;
+      cursor: pointer;
+      list-style: none;
+      border-radius: 2px;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+
+      &:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 3px;
+      }
+    }
+
+    .bugfix summary {
+      padding: 14px 22px 12px;
+    }
+
+    .versao {
       font-family: var(--f-label);
       font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    h2 {
+      flex: 1 1 14rem;
+      margin: 0;
+      font-family: var(--f-marker);
+      font-weight: 400;
+      font-size: 1.45rem;
+      line-height: 1.12;
+    }
+
+    .bugfix h2 {
+      font-size: 1.2rem;
+    }
+
+    /* a etiqueta: um carimbo de tinta, azul no update e vermelho no bugfix */
+    .etiqueta {
+      padding: 2px 8px 1px;
+      border: 2px solid currentColor;
+      border-radius: 3px;
+      color: var(--caneta-azul);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      rotate: -3deg;
+
+      &.bugfix {
+        color: var(--red-deep);
+        rotate: 2deg;
+      }
+    }
+
+    .data {
+      font-family: var(--f-label);
+      font-weight: 700;
       font-size: 0.92rem;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       color: var(--ink-2);
     }
 
-    h2 {
-      margin: 2px 0 10px;
-      font-family: var(--f-marker);
-      font-weight: 400;
-      font-size: 1.6rem;
-      line-height: 1.12;
+    .chev {
+      display: inline-flex;
+      color: var(--ink-2);
+      transition: rotate var(--t-ui) var(--ease-ui);
+    }
+
+    details[open] .chev {
+      rotate: 180deg;
     }
 
     .itens {
-      margin: 0;
-      padding: 6px 0 0;
+      margin: 0 26px;
+      padding: 6px 0 14px;
       list-style: none;
       border-top: 2px solid rgb(214 72 72 / 0.55);
       font-family: var(--f-hand);
@@ -139,6 +226,10 @@ const TILTS = [-0.6, 0.5, -0.3, 0.7, -0.5, 0.3];
       }
     }
 
+    .bugfix .itens {
+      margin: 0 22px;
+    }
+
     /* "Novo": um adesivo de tinta com a letra amarela, colado na quina */
     .novo {
       position: absolute;
@@ -159,18 +250,36 @@ const TILTS = [-0.6, 0.5, -0.3, 0.7, -0.5, 0.3];
 
     @media (max-width: 600px) {
       .fichas {
-        gap: 34px;
+        gap: 22px;
       }
 
-      .ficha {
-        padding: 24px 18px 16px;
+      .ficha.bugfix {
+        margin-left: 18px;
       }
 
+      summary,
+      .bugfix summary {
+        padding: 18px 16px 12px;
+      }
+
+      /* no celular o título desce para a linha de baixo, inteiro */
       h2 {
-        font-size: 1.4rem;
+        order: 1;
+        flex-basis: 100%;
+        font-size: 1.3rem;
       }
 
-      .itens {
+      .bugfix h2 {
+        font-size: 1.15rem;
+      }
+
+      .chev {
+        margin-left: auto;
+      }
+
+      .itens,
+      .bugfix .itens {
+        margin: 0 16px;
         font-size: 1.08rem;
       }
     }
@@ -180,6 +289,9 @@ export class NewsPage {
   private readonly news = inject(News);
 
   protected readonly entries = this.news.entries;
+  protected readonly version = VERSION;
+  protected readonly label = NEWS_KIND_LABEL;
+  protected readonly ChevronIcon = ChevronDown;
   /** O que era novo ao abrir a página: o adesivo fica enquanto ela estiver aberta. */
   protected readonly fresh = this.news.unseenIds();
 
@@ -192,7 +304,8 @@ export class NewsPage {
   }
 
   protected when(n: NewsEntry): string {
+    // curta, para caber na linha da versão: "7 out 2026"
     const [y, m, d] = n.date.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `${d} ${MONTHS[m - 1]} ${y}`;
   }
 }

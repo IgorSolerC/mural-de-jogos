@@ -7,9 +7,16 @@ import { ReviewStore } from './review-store';
  * Chegam junto com a versão nova do site, então não gastam nenhuma chamada à API, funcionam offline e
  * sempre falam da versão que a pessoa está usando.
  *
- * Para publicar uma atualização: ponha uma entrada nova no topo de `NEWS`, com um `id` que nunca mais
- * muda. Com `notice`, ela aparece também na faixa do topo do site (com um X para fechar) até a pessoa
- * fechar, abrir a página de novidades ou passar a data de `until`. Sem `notice`, só na página.
+ * Toda atualização publicada ganha uma entrada nova no topo de `NEWS`, com um `id` que nunca mais
+ * muda, e é de um tipo só (nunca as duas coisas na mesma entrada):
+ * - `update`, coisa nova de verdade (um mural, uma função, uma tela): sobe o número do meio
+ *   (1.15.0 → 1.16.0);
+ * - `bugfix`, correções e ajustes pequenos (um nome trocado, um desenho acertado): sobe o último
+ *   (1.15.0 → 1.15.1).
+ * A primeira versão do site é a 1.0.0; o teste confere a conta.
+ *
+ * Com `notice`, a entrada aparece também na faixa do topo do site (com um X para fechar) até a
+ * pessoa fechar, abrir a página de novidades ou passar a data de `until`. Sem `notice`, só na página.
  *
  * Um aviso urgente que não pode esperar uma versão nova (manutenção, a nuvem fora do ar) vai no
  * `public/cloud.json`, no campo `aviso` (ver `parseCloudNotice` em `cloud-config.ts`).
@@ -17,6 +24,10 @@ import { ReviewStore } from './review-store';
 export interface NewsEntry {
   /** Fixo para sempre: é o que fica guardado como visto neste navegador. */
   id: string;
+  /** A versão do site, MAIOR.MENOR.CORREÇÃO (ver acima). */
+  version: string;
+  /** `update`: coisa nova; `bugfix`: correções e ajustes. */
+  kind: NewsKind;
   /** O dia da atualização, AAAA-MM-DD. */
   date: string;
   title: string;
@@ -26,48 +37,104 @@ export interface NewsEntry {
   notice?: string;
   /** Até quando a faixa aparece (AAAA-MM-DD, inclusive). */
   until?: string;
+  /**
+   * O id da entrada de onde esta saiu, quando uma entrada antiga foi separada em update e bugfix:
+   * quem já tinha visto aquela já viu esta.
+   */
+  was?: string;
 }
+
+export type NewsKind = 'update' | 'bugfix';
 
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-07-novidades-com-versao',
+    version: '1.15.1',
+    kind: 'bugfix',
+    date: '2026-10-07',
+    title: 'Correções e ajustes',
+    items: [
+      'As Novidades agora têm número de versão e a etiqueta Update (coisa nova) ou Bugfix (correções). Cada uma fica numa linha só; toque para ver o que mudou.',
+      'As correções que vinham misturadas com as coisas novas ganharam a própria versão.',
+    ],
+  },
+  {
     id: '2026-10-07-mural-de-anotacoes',
+    version: '1.15.0',
+    kind: 'update',
     date: '2026-10-07',
     title: 'Mural de anotações',
     notice: 'Novo: o mural de anotações, para listas, tarefas e ideias. Troque no cartaz.',
     items: [
       'Um sexto mural, de anotações: troque no cartaz ("Meu mural de anotações"). Listas de compras, tarefas, receitas, ideias, cada uma numa cartolina.',
       'A anotação tem título, uma capa se quiser (um link de imagem), o texto com negrito, listas e tarefas, e categorias no lugar dos bônus.',
-      'As tarefas se marcam direto na leitura. No mural, as categorias filtram e ordenam as anotações.',
+      'As tarefas se marcam direto na ficha do mural ou na leitura, sem abrir o editor. E a anotação pode ser só o título.',
+      'No mural, as categorias filtram e ordenam as anotações. A primeira categoria é a principal (a seção dela, ordenando por categoria): no editor, toque em outra para trocar.',
       'Ela nasce privada; publicada, aparece no seu mural para quem abrir, mas não vira aviso para quem segue você.',
       'A ficha pode ser Larga (duas colunas) ou Alta (mostra mais do texto).',
-      'As tarefas se marcam direto na ficha do mural, sem abrir a anotação. E a anotação pode ser só o título.',
-      'A primeira categoria é a principal (a seção dela, ordenando por categoria): no editor, toque em outra para trocar.',
+    ],
+  },
+  {
+    id: '2026-10-07-reacoes',
+    version: '1.14.0',
+    kind: 'update',
+    date: '2026-10-07',
+    title: 'Reações',
+    was: '2026-10-07-ajustes-pelo-mural',
+    items: [
+      'Reações, como as do WhatsApp: nas fichas de quem você segue, "Reagir" (no Feed e na leitura) abre ❤️ 🔥 😂 😮 😢 🤔 👎.',
+      'No fim da fileira, o "+" abre todos os outros emojis, por gaveta ou pela busca ("gato", "pipoca").',
+      'Quem vê o mural vê as reações num remendo de feltro costurado na ficha; tocando nele, quem reagiu com o quê.',
+      'Quando alguém reage às suas fichas, chega um aviso no Feed.',
+    ],
+  },
+  {
+    id: '2026-10-07-texto-formatado',
+    version: '1.13.0',
+    kind: 'update',
+    date: '2026-10-07',
+    title: 'Texto formatado nas resenhas',
+    was: '2026-10-07-ajustes-pelo-mural',
+    items: [
+      'O texto da resenha ganhou formatação: negrito, itálico, listas, listas numeradas e tarefas, pelos botões em cima da folha (ou Ctrl+B e Ctrl+I).',
+      '"Ver como fica" mostra o resultado, e as tarefas se marcam direto na leitura da ficha.',
+      'Textos longos: "Maximizar" abre a folha na tela inteira, com a letra maior.',
     ],
   },
   {
     id: '2026-10-07-ajustes-pelo-mural',
+    version: '1.12.1',
+    kind: 'bugfix',
     date: '2026-10-07',
-    title: 'Ajustes pelo mural',
+    title: 'Correções e ajustes',
     items: [
       'Na hora de pregar, "Quem vê?" agora pergunta "Publicar ou manter privado?", com as opções Publicar e Privado (eram Todo mundo e Só eu).',
       'Em Amigos, a aba Chegou agora se chama Feed.',
-      'Livros, filmes, séries e animes ganharam os bônus que só os jogos tinham, quando cabem: Genial, Clássico, Me marcou, Melhor do gênero, Caça-níquel, Repetitivo e outros. E alguns só deles, como "Erros de revisão", "Frases pra sublinhar", "Dublagem ruim" e "Propaganda do mangá".',
-      'Um bônus que você escreveu à mão com o mesmo nome de um desses novos passa a ser o da cartela, com o desenho dele.',
-      'Os selinhos da foto (o cadeado da privada e o da rejogada, só capa e nome) agora ficam um embaixo do outro no canto, como adesivos colados um por cima do outro. Nas cartolinas escuras eles perderam a borda branca.',
+      'Os selinhos da foto (o cadeado da privada e o da rejogada) ficam um embaixo do outro no canto, em vez de um em cima do outro. Nas cartolinas escuras eles perderam a borda branca.',
       'Ordenando por data, a seção das fichas só com o ano agora se chama só "2026", em vez de "2026, mês não lembrado". Ela vem depois dos meses daquele ano, e quem tem mês sem dia fica no fim da seção do mês.',
-      'A original é sempre a vez mais antiga: pregar uma rejogada (releitura, reassistida) com data de antes da original faz dela a original, e as outras viram rejogadas dela. "Não lembro" conta como a mais antiga. As cartolinas continuam iguaizinhas.',
-      'O texto da resenha ganhou formatação: negrito, itálico, listas, listas numeradas e tarefas, pelos botões em cima da folha (ou Ctrl+B e Ctrl+I). "Ver como fica" mostra o resultado, e as tarefas se marcam direto na leitura da ficha.',
-      'Textos longos: "Maximizar" abre a folha na tela inteira, com a letra maior.',
-      'Reações, como as do WhatsApp: nas fichas de quem você segue, "Reagir" (no Feed e na leitura) abre ❤️ 🔥 😂 😮 😢 🤔 👎. Quem vê o mural vê as reações num balãozinho na ficha; tocando nele, quem reagiu com o quê. Quando alguém reage às suas, chega um aviso no Feed.',
-      'No fim da fileira de reações, o "+" abre todos os outros emojis, por gaveta ou pela busca ("gato", "pipoca").',
-      'O balãozinho das reações virou um remendo de feltro costurado na ficha.',
+      'A original é sempre a vez mais antiga: pregar uma rejogada (releitura, reassistida) com data de antes da original faz dela a original. "Não lembro" conta como a mais antiga. As cartolinas continuam iguaizinhas.',
+    ],
+  },
+  {
+    id: '2026-10-07-bonus-novos',
+    version: '1.12.0',
+    kind: 'update',
+    date: '2026-10-07',
+    title: 'Mais bônus para livros, filmes, séries e animes',
+    was: '2026-10-07-ajustes-pelo-mural',
+    items: [
+      'Livros, filmes, séries e animes ganharam os bônus que só os jogos tinham, quando cabem: Genial, Clássico, Me marcou, Melhor do gênero, Caça-níquel, Repetitivo e outros.',
+      'E alguns só deles, como "Erros de revisão", "Frases pra sublinhar", "Dublagem ruim" e "Propaganda do mangá".',
+      'Um bônus que você escreveu à mão com o mesmo nome de um desses novos passa a ser o da cartela, com o desenho dele.',
     ],
   },
   {
     id: '2026-10-06-consertos-amigos-nuvem',
+    version: '1.11.2',
+    kind: 'bugfix',
     date: '2026-10-06',
-    title: 'Consertos em Amigos e na nuvem',
+    title: 'Correções de bugs',
     items: [
       'O nome trocado em um aparelho não volta mais ao antigo quando outro aparelho abre o site.',
       'Em Amigos, a rejogada (ou releitura, ou reassistida) de algo que você já avaliou mostra a sua nota, em vez de "Você ainda não avaliou".',
@@ -82,19 +149,42 @@ export const NEWS: NewsEntry[] = [
     ],
   },
   {
-    id: '2026-10-06-amigos-de-cara-nova',
+    id: '2026-10-06-amigos-de-cara-nova-correcoes',
+    version: '1.11.1',
+    kind: 'bugfix',
     date: '2026-10-06',
-    title: 'Amigos de cara nova',
+    title: 'Correções de bugs',
+    was: '2026-10-06-amigos-de-cara-nova',
     items: [
       'Enquanto o mural de um amigo chega, a resenha mostra uma ficha em branco com o nome da obra, em vez de dizer que ela saiu do mural. Se não der para buscar, aparece "Tentar de novo".',
-      'O bilhete com "+1,4 que você" agora fica preso na ficha com um pedaço de fita, e resenhas seguidas da mesma pessoa ficam sob uma fita só.',
-      'Na tela grande, ao lado do que chegou: o seu crachá com o código (e o link para copiar), o bilhete para seguir alguém e quem você segue.',
-      'Pessoas virou uma lista só: cada pessoa aparece uma vez, com "Vocês se seguem", "Você segue" ou "Segue você". Silenciar, deixar de seguir e remover seguidor ficam no "⋯" de cada um.',
       'O cadeado das resenhas privadas fica sempre escuro, também nas cartolinas escuras.',
     ],
   },
   {
+    id: '2026-10-06-amigos-de-cara-nova',
+    version: '1.11.0',
+    kind: 'update',
+    date: '2026-10-06',
+    title: 'Amigos de cara nova',
+    items: [
+      'O bilhete com "+1,4 que você" agora fica preso na ficha com um pedaço de fita, e resenhas seguidas da mesma pessoa ficam sob uma fita só.',
+      'Na tela grande, ao lado do que chegou: o seu crachá com o código (e o link para copiar), o bilhete para seguir alguém e quem você segue.',
+      'Pessoas virou uma lista só: cada pessoa aparece uma vez, com "Vocês se seguem", "Você segue" ou "Segue você". Silenciar, deixar de seguir e remover seguidor ficam no "⋯" de cada um.',
+    ],
+  },
+  {
+    id: '2026-10-06-privadas-e-segredos-correcoes',
+    version: '1.10.1',
+    kind: 'bugfix',
+    date: '2026-10-06',
+    title: 'Correções de bugs',
+    was: '2026-10-06-privadas-e-segredos',
+    items: ['No feed de Amigos, a ficha tem a mesma largura e altura que no mural.'],
+  },
+  {
     id: '2026-10-06-privadas-e-segredos',
+    version: '1.10.0',
+    kind: 'update',
     date: '2026-10-06',
     title: 'Resenhas privadas e notas em segredo',
     items: [
@@ -102,11 +192,12 @@ export const NEWS: NewsEntry[] = [
       'Evitar spoilers agora vale para as fichas de qualquer pessoa, amiga ou não: em Amigos, no mural de alguém e em Comparar, o que você ainda não avaliou fica em segredo.',
       'Abriu uma ficha em segredo? "Revelar a nota" mostra só aquela, só daquela vez.',
       'No mural de alguém e em Comparar, "Mostrar notas" revela tudo enquanto a tela estiver aberta. Na próxima vez, volta a seguir Ajustes.',
-      'No feed de Amigos, a ficha tem a mesma largura e altura que no mural.',
     ],
   },
   {
     id: '2026-10-06-amigos-e-chaves',
+    version: '1.9.0',
+    kind: 'update',
     date: '2026-10-06',
     title: 'Amigos com as fichas de verdade',
     items: [
@@ -121,6 +212,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-seguir',
+    version: '1.8.0',
+    kind: 'update',
     date: '2026-10-06',
     title: 'Seguir pelo código e a aba Amigos',
     notice: 'Agora dá para seguir os amigos pelo código e ver, na aba Amigos, o que eles pregaram no mural.',
@@ -133,6 +226,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-beta',
+    version: '1.7.0',
+    kind: 'update',
     date: '2026-10-06',
     title: 'O Meu Mural entrou em beta',
     notice: 'O Meu Mural entrou em beta: agora dá para entrar com o Google e ter o mesmo mural em todos os aparelhos.',
@@ -147,6 +242,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-06-rejogadas',
+    version: '1.6.0',
+    kind: 'update',
     date: '2026-10-06',
     title: 'Rejogadas, releituras e reassistidas',
     items: [
@@ -156,7 +253,18 @@ export const NEWS: NewsEntry[] = [
     ],
   },
   {
+    id: '2026-10-05-extras-correcoes',
+    version: '1.5.1',
+    kind: 'bugfix',
+    date: '2026-10-05',
+    title: 'Correções de bugs',
+    was: '2026-10-05-extras',
+    items: ['O mural passou a caber muito mais resenhas.', 'E muitos outros bugs foram corrigidos.'],
+  },
+  {
     id: '2026-10-05-extras',
+    version: '1.5.0',
+    kind: 'update',
     date: '2026-10-05',
     title: 'Extras e estatísticas',
     items: [
@@ -165,11 +273,12 @@ export const NEWS: NewsEntry[] = [
       'Escolha como a nota aparece: livre, arredondada ou só inteiros.',
       'O seu nome vai no backup, e quem compara com você vê o seu nome.',
       '"Apagar o save", em Ajustes, para começar do zero (ele pergunta antes).',
-      'O mural passou a caber muito mais resenhas, e muitos bugs foram corrigidos.',
     ],
   },
   {
     id: '2026-10-04-spoilers',
+    version: '1.4.0',
+    kind: 'update',
     date: '2026-10-04',
     title: 'Sem spoilers, filtros e um estojo maior',
     items: [
@@ -181,6 +290,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-09-30-comparar',
+    version: '1.3.0',
+    kind: 'update',
     date: '2026-09-30',
     title: 'Comparar murais',
     items: [
@@ -192,6 +303,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-09-29-papel',
+    version: '1.2.0',
+    kind: 'update',
     date: '2026-09-29',
     title: 'Fichas do seu jeito, Wishlist e Pra depois',
     items: [
@@ -202,6 +315,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-09-28-murais',
+    version: '1.1.0',
+    kind: 'update',
     date: '2026-09-28',
     title: 'Cinco murais e o site offline',
     items: [
@@ -213,11 +328,30 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-09-27-no-ar',
+    version: '1.0.0',
+    kind: 'update',
     date: '2026-09-27',
     title: 'O mural foi para o ar',
     items: ['A primeira versão: o mural de jogos, o Pra depois, o Ranking, o Lado a lado e os Ajustes.'],
   },
 ];
+
+/** A versão do site, a da novidade mais nova. */
+export const VERSION = NEWS[0].version;
+
+/** O nome da etiqueta de cada tipo. */
+export const NEWS_KIND_LABEL: Record<NewsKind, string> = { update: 'Update', bugfix: 'Bugfix' };
+
+/** A versão que vem depois de `prev`, num update ou num bugfix (ver o comentário de `NewsEntry`). */
+export function nextVersion(prev: string, kind: NewsKind): string {
+  const [major, minor, patch] = prev.split('.').map(Number);
+  return kind === 'update' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
+}
+
+/** Já foi vista: ela mesma, ou a entrada antiga de onde ela saiu. */
+export function isSeen(n: NewsEntry, seen: ReadonlySet<string>): boolean {
+  return seen.has(n.id) || (n.was !== undefined && seen.has(n.was));
+}
 
 /** O que a faixa do topo mostra. */
 export interface Notice {
@@ -256,7 +390,7 @@ export function noticeOf(news: NewsEntry[], cloud: CloudNotice | null, seen: Rea
     return { key: `nuvem:${cloud.id}`, text: cloud.text, news: false };
   }
   const latest = news.find((n) => n.notice);
-  if (!latest?.notice || seen.has(latest.id) || (latest.until && latest.until < day)) return null;
+  if (!latest?.notice || isSeen(latest, seen) || (latest.until && latest.until < day)) return null;
   return { key: latest.id, text: latest.notice, news: true };
 }
 
@@ -285,7 +419,7 @@ export class News {
   /** A faixa do topo, ou null. */
   readonly notice = computed(() => noticeOf(this.entries, this.cloud.notice(), this.seen(), this.day));
   /** Quantas novidades esta pessoa ainda não viu. */
-  readonly unseen = computed(() => this.entries.filter((n) => !this.seen().has(n.id)).length);
+  readonly unseen = computed(() => this.entries.filter((n) => !isSeen(n, this.seen())).length);
 
   constructor() {
     // fechar a faixa numa aba fecha nas outras
@@ -300,7 +434,7 @@ export class News {
 
   /** As novidades que esta pessoa ainda não tinha visto. */
   unseenIds(): Set<string> {
-    return new Set(this.entries.filter((n) => !this.seen().has(n.id)).map((n) => n.id));
+    return new Set(this.entries.filter((n) => !isSeen(n, this.seen())).map((n) => n.id));
   }
 
   /** Fecha a faixa: ela não volta. */
