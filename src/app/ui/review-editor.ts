@@ -104,7 +104,7 @@ export class ReviewEditor {
   private readonly mural = inject(Mural);
   private readonly lookup = inject(GameLookup);
   private readonly confirm = inject(Confirm);
-  /** "Quem vê?" só aparece quando o site tem nuvem: sem ela, ninguém vê o mural mesmo. */
+  /** "Publicar ou manter privado?" só aparece quando o site tem nuvem: sem ela, ninguém vê o mural mesmo. */
   protected readonly cloud = inject(Cloud);
   readonly saved = output<SavedEvent>();
   /** Guardou só o jogo (nome e capa) para resenhar depois. */
@@ -125,7 +125,7 @@ export class ReviewEditor {
   protected readonly KeepIcon = CopyCheck;
   protected readonly PrivateIcon = LockKeyhole;
   protected readonly EveryoneIcon = UsersRound;
-  /** "Só eu": a ficha fica fora do mural que os outros veem, e ninguém é avisado (ver Review.private). */
+  /** "Privado": a ficha fica fora do mural que os outros veem, e ninguém é avisado (ver Review.private). */
   protected readonly isPrivate = signal(false);
   protected readonly labels = SCORE_LABEL;
 
