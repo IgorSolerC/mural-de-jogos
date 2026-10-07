@@ -8,7 +8,7 @@ import { CloudAccount } from '../core/cloud-account';
 import { CLOUD_COLLEAGUE_PREFIX, CloudMurals, muralLink } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
-import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, localDayOf } from '../core/follow';
+import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, isUnseen, localDayOf } from '../core/follow';
 import { profileOf } from '../core/kinds';
 import { Review, fold, formatScore, newId, rootOf, shownFinal } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -180,8 +180,8 @@ export class MailPage {
   /** A primeira busca dos murais terminou: daí em diante, resenha nova busca o mural sozinha. */
   private opened = false;
 
-  /** O "visto até" de quando a página abriu: o adesivo "Novo" fica enquanto ela estiver aberta. */
-  private readonly freshSince = signal<string | null | undefined>(undefined);
+  /** O visto de quando a página abriu: o adesivo "Novo" fica enquanto ela estiver aberta. */
+  private readonly freshSince = signal<{ at: string | null; keys: ReadonlySet<string> } | undefined>(undefined);
 
   protected readonly code = signal('');
   /** O bilhete de seguir na coluna do lado: guardado até a pessoa pedir. */
@@ -239,7 +239,7 @@ export class MailPage {
 
   private async open(): Promise<void> {
     await this.follow.check(true);
-    this.freshSince.set(this.follow.seenAt());
+    this.freshSince.set({ at: this.follow.seenAt(), keys: this.follow.seenKeys() });
     void this.follow.loadPeople().then(
       () => this.peopleError.set(null),
       (e) => this.peopleError.set(e instanceof Error ? e.message : 'Não consegui buscar as pessoas.'),
@@ -325,9 +325,9 @@ export class MailPage {
     return dayLabel(day);
   }
 
-  protected isFresh(em: string): boolean {
+  protected isFresh(item: FeedItem): boolean {
     const since = this.freshSince();
-    return since !== undefined && (since === null || em > since);
+    return since !== undefined && isUnseen(item, since.at, since.keys);
   }
 
   /** "avaliou", ou "escreveu uma rejogada" (releitura, reassistida). */

@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Avaliar várias coisas seguidas não para mais a sincronização com "envios demais". Se ela precisar dar uma pausa, volta sozinha, sem recarregar a página.',
       'O "Desfazer" depois de deixar de seguir alguém mantém a pessoa silenciada, se ela estava.',
       'E as resenhas dela que já estavam em Amigos continuam lá depois do "Desfazer".',
+      'Com "Novidades dos amigos: separado", abrir Amigos num mural não dá mais como vistas as novidades dos outros murais.',
     ],
   },
   {

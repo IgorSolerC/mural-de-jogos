@@ -290,25 +290,82 @@ describe('Amigos: o serviço (Follow)', () => {
   });
 
   describe('bugs conhecidos', () => {
-    // Com "Novidades dos amigos: separado", Amigos mostra só o mural aberto, mas o "visto" é uma data
-    // só. Abrir Amigos em livros marca como visto tudo até a resenha de livro mais nova, inclusive uma
-    // de jogos mais antiga que nunca apareceu na tela. Ela some do número sem ter sido vista.
-    itBug('separado: abrir Amigos num mural não dá como vista a novidade de outro mural', async () => {
-      const h = make({
-        cache: {
-          conta: 'u-eu',
-          itens: [resenha('rlivro', '2026-10-05T10:00:00.000Z', { mural: 'livros' }), resenha('rjogo1', '2026-10-04T10:00:00.000Z', { mural: 'jogos' })],
-          vistasEm: null,
-          agora: null,
-        },
+    describe('separado: o visto de um mural não engole o dos outros', () => {
+      const livro = resenha('rlivro', '2026-10-05T10:00:00.000Z', { mural: 'livros' });
+      const jogo = resenha('rjogo1', '2026-10-04T10:00:00.000Z', { mural: 'jogos' });
+      const cache = { conta: 'u-eu', itens: [livro, jogo], vistasEm: null, agora: null };
+
+      it('abrir Amigos em livros não dá como vista a novidade de jogos, mais antiga, que nunca apareceu', async () => {
+        const h = make({ cache });
+        h.settings.friendKinds.set('separado');
+        h.mural.kind.set('livros');
+        await start();
+        expect(h.follow.unseen()).toBe(1); // só o livro aparece
+        await h.follow.markSeen();
+        expect(h.follow.unseen()).toBe(0);
+        // a de jogos é a mais velha: o visto da nuvem (uma data só) não pode andar; o livro fica visto aqui
+        const vistas = () => h.calls.filter((c) => c.path === '/v1/eu/notificacoes/vistas').map((c) => c.body);
+        expect(vistas()).toEqual([]);
+        h.mural.kind.set('jogos');
+        expect(h.follow.unseen()).toBe(1);
+        // abrindo em jogos, agora sim tudo fica visto, e a data anda até o mais novo
+        await h.follow.markSeen();
+        expect(h.follow.unseen()).toBe(0);
+        expect(h.follow.seenAt()).toBe('2026-10-05T10:00:00.000Z');
+        expect(h.follow.seenKeys().size).toBe(0);
+        expect(vistas()).toEqual([{ ate: '2026-10-05T10:00:00.000Z' }]);
+        h.mural.kind.set('livros');
+        expect(h.follow.unseen()).toBe(0);
       });
-      h.settings.friendKinds.set('separado');
-      h.mural.kind.set('livros');
-      await start();
-      expect(h.follow.unseen()).toBe(1); // só o livro aparece
-      await h.follow.markSeen();
-      h.mural.kind.set('jogos');
-      must(h.follow.unseen() === 1, `a resenha de jogos, nunca mostrada, saiu do número (agora ${h.follow.unseen()})`);
+
+      it('com um visto de antes, a data anda até a última mostrada antes da novidade de outro mural', async () => {
+        const cedo = resenha('rcedo1', '2026-10-03T18:00:00.000Z', { mural: 'livros' });
+        const novo = resenha('rlivr2', '2026-10-06T10:00:00.000Z', { mural: 'livros' });
+        const h = make({ cache: { conta: 'u-eu', itens: [novo, livro, jogo, cedo], vistasEm: '2026-10-03T12:00:00.000Z', agora: null } });
+        h.settings.friendKinds.set('separado');
+        h.mural.kind.set('livros');
+        await start();
+        expect(h.follow.unseen()).toBe(3);
+        await h.follow.markSeen();
+        expect(h.follow.seenAt()).toBe('2026-10-03T18:00:00.000Z');
+        expect(h.calls.find((c) => c.path === '/v1/eu/notificacoes/vistas')!.body).toEqual({ ate: '2026-10-03T18:00:00.000Z' });
+        expect(h.follow.unseen()).toBe(0);
+        h.mural.kind.set('jogos');
+        expect(h.follow.unseen()).toBe(1);
+      });
+
+      it('o visto à parte fica guardado: recarregar não traz o livro de volta como novo', async () => {
+        const h = make({ cache });
+        h.settings.friendKinds.set('separado');
+        h.mural.kind.set('livros');
+        await start();
+        await h.follow.markSeen();
+        const saved = JSON.parse(localStorage.getItem(CACHE_KEY)!);
+        const again = make({ cache: saved });
+        again.settings.friendKinds.set('separado');
+        again.mural.kind.set('livros');
+        await start();
+        expect(again.follow.unseen()).toBe(0);
+        again.mural.kind.set('jogos');
+        expect(again.follow.unseen()).toBe(1);
+      });
+
+      it('misturado: o visto vai direto até o mais novo, como antes', async () => {
+        const h = make({ cache });
+        await start();
+        await h.follow.markSeen();
+        expect(h.follow.seenAt()).toBe('2026-10-05T10:00:00.000Z');
+        expect(h.follow.unseen()).toBe(0);
+      });
+
+      it('a conferência completa não volta o visto para trás quando o aviso à nuvem não chegou', async () => {
+        const h = make({ cache });
+        await start();
+        await h.follow.markSeen();
+        h.feedReplies.push(feedResponse([livro, jogo], null)); // a nuvem não soube do visto
+        await h.follow.check(true);
+        expect(h.follow.unseen()).toBe(0);
+      });
     });
 
     // `loadPeople` guarda a versão das listas para descartar uma resposta velha, mas trocar de conta

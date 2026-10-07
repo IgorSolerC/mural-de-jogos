@@ -76,7 +76,7 @@ interface Page {
   blocks(): ({ tipo: 'seguiu'; key: string } | { tipo: 'pessoa'; key: string; pessoa: typeof ana; posts: { key: string; estado: string; theirs: Review | null; mine: Review | null; secret: boolean }[] })[];
   everyone(): { codigo: string; nome: string; sigo: unknown; segue: unknown }[];
   bond(x: unknown): string;
-  isFresh(em: string): boolean;
+  isFresh(item: FeedItem): boolean;
   signed(d: number): string;
   delta(a: Review, b: Review): number;
   wish(r: Review): void;
@@ -111,6 +111,7 @@ describe('Amigos: a página (MailPage)', () => {
       available: signal(true),
       items,
       seenAt,
+      seenKeys: signal<ReadonlySet<string>>(new Set()),
       people,
       visible: computed(() => items()),
       check: async (full = false) => void log.push(`check(${full})`),
@@ -184,16 +185,17 @@ describe('Amigos: a página (MailPage)', () => {
     it('o adesivo "Novo" fica nos itens de depois do visto que valia quando a página abriu', async () => {
       seenAt.set('2026-10-05T12:00:00.000Z');
       const page = await open();
-      expect(page.isFresh('2026-10-06T10:00:00.000Z')).toBeTrue();
-      expect(page.isFresh('2026-10-05T10:00:00.000Z')).toBeFalse();
+      const novo = post(ana, 'rana02', '2026-10-06T10:00:00.000Z');
+      expect(page.isFresh(novo)).toBeTrue();
+      expect(page.isFresh(post(ana, 'rana01', '2026-10-05T10:00:00.000Z'))).toBeFalse();
       // o visto muda (markSeen), mas o adesivo continua enquanto a página estiver aberta
       seenAt.set('2026-10-06T23:00:00.000Z');
-      expect(page.isFresh('2026-10-06T10:00:00.000Z')).toBeTrue();
+      expect(page.isFresh(novo)).toBeTrue();
     });
 
     it('nunca visto: tudo é novo', async () => {
       const page = await open();
-      expect(page.isFresh('2020-01-01T00:00:00.000Z')).toBeTrue();
+      expect(page.isFresh(post(ana, 'rana01', '2020-01-01T00:00:00.000Z'))).toBeTrue();
     });
   });
 

@@ -78,13 +78,13 @@
                 @if (b.tipo === 'seguiu') {
                   <!-- alguém começou a seguir: um bilhete de bloquinho -->
                   <article class="bilhete-seguiu" [style.rotate.deg]="tilt(i)" [attr.aria-label]="b.item.pessoa.nome + ' começou a seguir você, ' + when(b.dia)">
-                    @if (isFresh(b.item.em)) {
+                    @if (isFresh(b.item)) {
                       <span class="novo" aria-hidden="true">Novo</span>
                     }
                     <span class="cracha-mini" aria-hidden="true">{{ initial(b.item.pessoa.nome) }}</span>
                     <div class="seguiu-txt">
                       <p><strong>{{ b.item.pessoa.nome }}</strong> começou a seguir você</p>
-                      <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item.em)) {<span class="sr-only"> (novo)</span>}</span>
+                      <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
                     </div>
                     <!-- sem a lista ainda (primeira abertura neste aparelho), vale o que a própria notificação diz -->
                     @if (follow.isFollowing(b.item.pessoa.codigo) ?? b.item.euSigo) {
@@ -118,10 +118,10 @@
 
                     @for (p of b.posts; track p.key; let j = $index) {
                       <article class="post" [class.post-par]="j % 2 === 1" [attr.aria-labelledby]="'post-' + i + '-' + j">
-                        <h3 class="sr-only" [id]="'post-' + i + '-' + j">{{ p.item.titulo }}, {{ when(p.dia) }}@if (isFresh(p.item.em)) { (novo)}</h3>
+                        <h3 class="sr-only" [id]="'post-' + i + '-' + j">{{ p.item.titulo }}, {{ when(p.dia) }}@if (isFresh(p.item)) { (novo)}</h3>
 
                         <div class="post-ficha">
-                          @if (isFresh(p.item.em)) {
+                          @if (isFresh(p.item)) {
                             <span class="novo" aria-hidden="true">Novo</span>
                           }
                           @if (p.theirs; as theirs) {

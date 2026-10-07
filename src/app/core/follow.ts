@@ -105,9 +105,50 @@ export function visibleFeed(items: readonly FeedItem[], mode: FriendKinds, kind:
   return mode === 'misturado' ? [...items] : items.filter((i) => i.tipo === 'seguiu' || i.mural === kind);
 }
 
-/** Quantos contam no número: os de depois do visto, menos os de quem foi silenciado. */
-export function unseenCount(items: readonly FeedItem[], seenAt: string | null): number {
-  return items.filter((i) => (!seenAt || i.em > seenAt) && !(i.tipo === 'resenha' && i.silenciado)).length;
+/** Um item do correio, para lembrar que foi visto (ver `Follow.seenKeys`). */
+export function feedKey(i: FeedItem): string {
+  return `${i.tipo}:${i.pessoa.codigo}:${i.tipo === 'resenha' ? i.ref : ''}:${i.em}`;
+}
+
+/** Ainda não visto: depois do visto, e não marcado à parte neste aparelho. */
+export function isUnseen(i: FeedItem, seenAt: string | null, seenKeys: ReadonlySet<string> = new Set()): boolean {
+  return (!seenAt || i.em > seenAt) && !seenKeys.has(feedKey(i));
+}
+
+/** Quantos contam no número: os ainda não vistos, menos os de quem foi silenciado. */
+export function unseenCount(items: readonly FeedItem[], seenAt: string | null, seenKeys: ReadonlySet<string> = new Set()): number {
+  return items.filter((i) => isUnseen(i, seenAt, seenKeys) && !(i.tipo === 'resenha' && i.silenciado)).length;
+}
+
+/**
+ * O que marcar como visto ao mostrar `shown` (no separado, só o mural aberto). O visto da nuvem é uma
+ * data só: ela anda, da mais velha para a mais nova, enquanto tudo estiver visto (de antes ou agora), e
+ * para antes do primeiro não visto que ficou de fora (de outro mural). Os mostrados de depois dessa data
+ * ficam vistos à parte (`keys`). null: não há nada novo na tela.
+ */
+export function seenUntil(
+  all: readonly FeedItem[],
+  shown: readonly FeedItem[],
+  seenAt: string | null,
+  seenKeys: ReadonlySet<string>,
+): { until: string | null; keys: string[] } | null {
+  const fresh = shown.filter((i) => isUnseen(i, seenAt, seenKeys));
+  if (!fresh.length) return null;
+  const shownKeys = new Set(shown.map(feedKey));
+  let until = seenAt;
+  const later = all.filter((i) => !seenAt || i.em > seenAt).sort((a, b) => a.em.localeCompare(b.em));
+  for (const i of later) {
+    const key = feedKey(i);
+    if (shownKeys.has(key) || seenKeys.has(key)) {
+      until = i.em;
+      continue;
+    }
+    // o primeiro que ficou de fora: a data para antes dele (mesmo se outro tiver o mesmo instante)
+    if (until !== null && until >= i.em) until = new Date(Date.parse(i.em) - 1).toISOString();
+    break;
+  }
+  if (until !== null && seenAt !== null && until < seenAt) until = seenAt;
+  return { until, keys: fresh.filter((i) => until === null || i.em > until).map(feedKey) };
 }
 
 /** O dia local (AAAA-MM-DD) de um instante. */
@@ -132,6 +173,8 @@ interface Cache {
   conta: string;
   itens: unknown;
   vistasEm: string | null;
+  /** Os itens vistos depois de `vistasEm` (no separado, ver `seenUntil`). */
+  vistos?: unknown;
   /** A hora da nuvem na última conferência (para perguntar "algo depois disso?" com o feed vazio). */
   agora: string | null;
   /** Quem eu sigo e quem me segue, da última vez: a tela já abre certa e a nuvem só confirma. */
@@ -142,7 +185,7 @@ function readCache(): Cache | null {
   try {
     const raw = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null') as Partial<Cache> | null;
     return raw && typeof raw.conta === 'string'
-      ? { conta: raw.conta, itens: raw.itens, vistasEm: iso(raw.vistasEm), agora: iso(raw.agora), pessoas: raw.pessoas }
+      ? { conta: raw.conta, itens: raw.itens, vistasEm: iso(raw.vistasEm), vistos: raw.vistos, agora: iso(raw.agora), pessoas: raw.pessoas }
       : null;
   } catch {
     return null;
@@ -166,10 +209,15 @@ export class Follow {
 
   readonly items = signal<FeedItem[]>([]);
   readonly seenAt = signal<string | null>(null);
+  /**
+   * Itens vistos aqui depois de `seenAt`: no separado, o visto não pode passar de uma novidade de
+   * outro mural que ainda não apareceu, então o que foi mostrado além dela fica marcado um a um.
+   */
+  readonly seenKeys = signal<ReadonlySet<string>>(new Set());
   readonly people = signal<People | null>(null);
   /** O que aparece em Amigos: tudo, ou só o do mural aberto (Ajustes › Mural › Novidades dos amigos). */
   readonly visible = computed(() => visibleFeed(this.items(), this.settings.friendKinds(), this.mural.kind()));
-  readonly unseen = computed(() => unseenCount(this.visible(), this.seenAt()));
+  readonly unseen = computed(() => unseenCount(this.visible(), this.seenAt(), this.seenKeys()));
   readonly followingCodes = computed(() => new Set(this.people()?.seguindo.map((p) => p.codigo) ?? []));
 
   /**
@@ -202,6 +250,7 @@ export class Follow {
         if (cache?.conta === owner) {
           this.items.set(parseFeed(cache.itens));
           this.seenAt.set(cache.vistasEm);
+          this.seenKeys.set(new Set(Array.isArray(cache.vistos) ? cache.vistos.filter((k): k is string => typeof k === 'string') : []));
           this.serverNow = cache.agora;
           // quem eu sigo já vem do que ficou guardado: os botões abrem certos e a nuvem só confirma
           if (cache.pessoas !== undefined) this.people.set(parsePeople(cache.pessoas));
@@ -249,25 +298,41 @@ export class Follow {
       }
       const body = (await res.json()) as { itens?: unknown; vistasEm?: unknown };
       this.items.set(parseFeed(body.itens));
-      this.seenAt.set(iso(body.vistasEm));
+      // o visto da nuvem nunca volta atrás do daqui (o pedido de visto pode não ter chegado lá)
+      const cloudSeen = iso(body.vistasEm);
+      const local = this.seenAt();
+      const seen = local && (!cloudSeen || local > cloudSeen) ? local : cloudSeen;
+      this.seenAt.set(seen);
+      this.seenKeys.update((keys) => this.pruneKeys(keys, seen));
       this.save();
     } catch {
       this.offline.set(true);
     }
   }
 
-  /** Abriu o correio: tudo o que está aqui conta como visto (neste e nos outros aparelhos). */
+  /**
+   * Abriu o correio: o que está na tela conta como visto (neste e nos outros aparelhos). No separado,
+   * só o do mural aberto: uma novidade de outro mural que ainda não apareceu continua nova.
+   */
   async markSeen(): Promise<void> {
-    // separado: só até o mais novo deste mural (o dos outros murais que chegou depois continua novo)
-    const newest = this.visible()[0]?.em;
-    if (!newest || (this.seenAt() && this.seenAt()! >= newest)) return;
-    this.seenAt.set(newest);
+    const before = this.seenAt();
+    const step = seenUntil(this.items(), this.visible(), before, this.seenKeys());
+    if (!step) return;
+    this.seenAt.set(step.until);
+    this.seenKeys.update((keys) => this.pruneKeys(new Set([...keys, ...step.keys]), step.until));
     this.save();
+    if (step.until === null || (before && before >= step.until)) return;
     try {
-      await this.account.request('/v1/eu/notificacoes/vistas', { method: 'POST', body: { ate: newest } });
+      await this.account.request('/v1/eu/notificacoes/vistas', { method: 'POST', body: { ate: step.until } });
     } catch {
       /* fica visto aqui; o outro aparelho vê o número até a próxima vez */
     }
+  }
+
+  /** Só os vistos à parte que ainda estão depois do visto e no correio. */
+  private pruneKeys(keys: ReadonlySet<string>, seenAt: string | null): ReadonlySet<string> {
+    const live = new Set(this.items().filter((i) => !seenAt || i.em > seenAt).map(feedKey));
+    return new Set([...keys].filter((k) => live.has(k)));
   }
 
   async loadPeople(): Promise<People> {
@@ -348,6 +413,7 @@ export class Follow {
   private reset(dropCache: boolean): void {
     this.items.set([]);
     this.seenAt.set(null);
+    this.seenKeys.set(new Set());
     this.people.set(null);
     this.serverNow = null;
     if (dropCache) {
@@ -362,7 +428,14 @@ export class Follow {
   private save(): void {
     const owner = this.owner();
     if (!owner) return;
-    const cache: Cache = { conta: owner, itens: this.items(), vistasEm: this.seenAt(), agora: this.serverNow, pessoas: this.people() ?? undefined };
+    const cache: Cache = {
+      conta: owner,
+      itens: this.items(),
+      vistasEm: this.seenAt(),
+      vistos: [...this.seenKeys()],
+      agora: this.serverNow,
+      pessoas: this.people() ?? undefined,
+    };
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
     } catch {
