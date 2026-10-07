@@ -5,12 +5,11 @@ import { CloudAccount, CloudAccountInfo, CloudError } from './cloud-account';
 import { FeedItem, Follow, People } from './follow';
 import { Mural } from './mural';
 import { Settings } from './settings';
-import { itBug, must } from '../testing/known-bug.spec';
 
 /**
  * O serviço da aba Amigos (`Follow`): o correio guardado por conta, a conferência "algo novo?", o
  * visto, silenciar, seguir e deixar de seguir, e as listas de pessoas. A nuvem é de mentira e cada
- * pedido fica anotado. Os BUG: são bugs conhecidos (ver testing/known-bug.spec.ts).
+ * pedido fica anotado.
  */
 
 const CACHE_KEY = 'meu-mural:correio';
@@ -289,7 +288,7 @@ describe('Amigos: o serviço (Follow)', () => {
     });
   });
 
-  describe('bugs conhecidos', () => {
+  describe('bugs corrigidos', () => {
     describe('separado: o visto de um mural não engole o dos outros', () => {
       const livro = resenha('rlivro', '2026-10-05T10:00:00.000Z', { mural: 'livros' });
       const jogo = resenha('rjogo1', '2026-10-04T10:00:00.000Z', { mural: 'jogos' });
@@ -368,10 +367,7 @@ describe('Amigos: o serviço (Follow)', () => {
       });
     });
 
-    // `loadPeople` guarda a versão das listas para descartar uma resposta velha, mas trocar de conta
-    // (`reset`) não muda essa versão. A lista pedida pela conta anterior, chegando depois da troca,
-    // vira a lista da conta nova (e vai para o cache dela).
-    itBug('trocar de conta com a lista de pessoas a caminho não mostra a lista da conta anterior', async () => {
+    it('trocar de conta com a lista de pessoas a caminho não mostra a lista da conta anterior', async () => {
       const h = make({ peopleManual: true });
       await start();
       expect(h.peopleRequests.length).toBe(1); // o pedido da conta "Eu"
@@ -383,9 +379,17 @@ describe('Amigos: o serviço (Follow)', () => {
       h.peopleRequests[0].resolve({ seguindo: [{ ...ana, desde: '2026-10-01T00:00:00.000Z' }], seguidores: [] });
       h.peopleRequests[1].reject(new CloudError('Sem conexão', 'sem-rede', 0));
       await flush();
+      expect(h.follow.isFollowing(ana.codigo)).toBeNull(); // não sabe ainda (e não diz que segue)
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null');
-      must(h.follow.isFollowing(ana.codigo) !== true, 'a conta "Outra" aparece seguindo a Ana, que é de quem a conta "Eu" segue');
-      must(!(cached?.conta === 'u-outra' && cached?.pessoas?.seguindo?.length), 'a lista de "Eu" foi guardada no cache de "Outra"');
+      expect(cached?.pessoas?.seguindo ?? []).toEqual([]);
+    });
+
+    it('sem troca de conta, a lista que chega vale', async () => {
+      const h = make({ peopleManual: true });
+      await start();
+      h.peopleRequests[0].resolve({ seguindo: [{ ...ana, desde: '2026-10-01T00:00:00.000Z' }], seguidores: [] });
+      await flush();
+      expect(h.follow.isFollowing(ana.codigo)).toBeTrue();
     });
   });
 });

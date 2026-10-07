@@ -337,7 +337,10 @@ export class Follow {
 
   async loadPeople(): Promise<People> {
     const version = this.peopleVersion;
+    const owner = this.owner();
     const people = parsePeople(await this.account.request<unknown>('/v1/eu/pessoas'));
+    // trocou de conta enquanto a resposta vinha: a lista é da outra conta, e não entra aqui
+    if (owner !== this.owner()) return this.people() ?? { seguindo: [], seguidores: [] };
     // mudou algo aqui enquanto a resposta vinha: a lista que chegou é de antes, fica a daqui
     if (version !== this.peopleVersion) return this.people() ?? people;
     this.people.set(people);
@@ -411,6 +414,8 @@ export class Follow {
   }
 
   private reset(dropCache: boolean): void {
+    // uma lista de pessoas pedida antes de trocar de conta chega velha
+    this.peopleVersion++;
     this.items.set([]);
     this.seenAt.set(null);
     this.seenKeys.set(new Set());
