@@ -1,0 +1,88 @@
+name: Backup da nuvem
+
+# Todo dia, uma cópia do banco inteiro da nuvem (o D1) fica guardada fora da Cloudflare: num artefato
+# desta execução, em Actions, por 30 dias. A Cloudflare só volta o banco até 7 dias no plano gratuito;
+# esta cópia cobre o resto, e também o caso de algo acontecer com a conta da Cloudflare.
+#
+# O repositório é público, e qualquer pessoa com conta no GitHub baixa artefatos de um repositório
+# público. Por isso o backup sai compactado e TRANCADO com uma senha (AES-256): sem o secret
+# BACKUP_SENHA a execução falha antes de exportar, e nunca sobe um arquivo aberto.
+#
+# Secrets: BACKUP_SENHA (guarde também fora do GitHub: sem ela o backup não abre), e os do deploy,
+# CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID. Como abrir e restaurar: api/README.md, "Backup diário".
+# Execuções agendadas só rodam a partir da main. Se falhar, o GitHub manda e-mail.
+on:
+  schedule:
+    # 06:31 UTC (03h31 em Brasília): depois da limpeza diária (06:17 UTC) e fora do horário de uso.
+    # A exportação trava o banco enquanto roda; com o tamanho dele, são segundos.
+    - cron: '31 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-nuvem
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: api
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+    steps:
+      - name: Confere a senha antes de tudo
+        run: |
+          if [ -z "$BACKUP_SENHA" ]; then
+            echo "::error::Falta o secret BACKUP_SENHA (Settings › Secrets and variables › Actions). Sem ele o backup não é feito, para nunca subir o banco aberto."
+            exit 1
+          fi
+          if [ "${#BACKUP_SENHA}" -lt 16 ]; then
+            echo "::error::A BACKUP_SENHA precisa ter pelo menos 16 caracteres."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - name: Exporta o banco
+        run: npx wrangler d1 export mural --remote --output=backup-mural.sql
+      - name: Confere o que veio
+        run: bash scripts/backup.sh conferir backup-mural.sql
+      - name: Compacta e tranca
+        run: |
+          DIA=$(date -u +%F)
+          bash scripts/backup.sh trancar backup-mural.sql "backup-mural-$DIA.sql.gz.enc"
+          rm -f backup-mural.sql
+          echo "ARQUIVO=backup-mural-$DIA.sql.gz.enc" >> "$GITHUB_ENV"
+          echo "DIA=$DIA" >> "$GITHUB_ENV"
+      - name: Confere que abre com a senha (e que o que abre é o banco inteiro)
+        run: |
+          bash scripts/backup.sh abrir "$ARQUIVO" > volta.sql
+          bash scripts/backup.sh conferir volta.sql
+          rm -f volta.sql
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-mural-${{ env.DIA }}
+          path: api/${{ env.ARQUIVO }}
+          retention-days: 30
+          if-no-files-found: error
+          # já está compactado (e trancado): compactar de novo não ganha nada
+          compression-level: 0
+      - name: Resumo
+        run: |
+          {
+            echo "### Backup de $DIA"
+            echo ""
+            echo "Arquivo trancado: \`$ARQUIVO\` ($(du -h "$ARQUIVO" | cut -f1)), guardado por 30 dias nos artefatos desta execução."
+            echo "Para abrir: \`bash api/scripts/backup.sh abrir $ARQUIVO > mural.sql\` (com a BACKUP_SENHA no ambiente)."
+          } >> "$GITHUB_STEP_SUMMARY"

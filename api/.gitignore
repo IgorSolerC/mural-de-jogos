@@ -4,3 +4,6 @@ node_modules/
 *.sqlite
 *.sqlite-*
 backup-*.sql
+# os backups trancados e o que sai deles (ver scripts/backup.sh)
+*.sql.gz.enc
+volta.sql

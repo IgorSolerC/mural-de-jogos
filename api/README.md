@@ -60,6 +60,38 @@ O token é só de leitura: Cloudflare → My Profile → API Tokens → Create T
 permissão **Account → Account Analytics → Read** e a sua conta em Account Resources. Ele vai no
 GitHub como o secret `CF_ANALYTICS_TOKEN`; o `CLOUDFLARE_ACCOUNT_ID` é o mesmo do deploy.
 
+## Backup diário
+
+`.github/workflows/backup.yml` roda todo dia às 03h31 de Brasília (06:31 UTC, depois da limpeza) e
+quando quiser (Actions → Backup da nuvem → Run workflow): exporta o banco inteiro do D1, confere que
+vieram todas as tabelas, compacta, **tranca com senha** (AES-256) e guarda o arquivo nos artefatos da
+execução por 30 dias. A Cloudflare só volta o banco até 7 dias no plano gratuito (Time Travel); este
+backup cobre o resto e fica fora da Cloudflare. Se falhar, o GitHub manda e-mail.
+
+Custo: nenhum que importe. A exportação lê cada linha uma vez (o gratuito do D1 dá 5 milhões de
+leituras por dia), o Actions não cobra minutos em repositório público, e o banco fica travado só
+os segundos da exportação.
+
+A senha é obrigatória porque o repositório é público: qualquer pessoa com conta no GitHub baixa os
+artefatos dele. Sem ela, a execução falha antes de exportar.
+
+1. Gere uma senha longa (pelo menos 16 caracteres; um gerenciador de senhas serve) e guarde-a
+   **também fora do GitHub**: sem ela, nenhum backup abre.
+2. GitHub → Settings → Secrets and variables → Actions → New repository secret: `BACKUP_SENHA`.
+   O token é o mesmo do deploy (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`).
+
+Para abrir um backup (no Git Bash, no Windows), baixe o artefato da execução, descompacte o `.zip` e:
+
+```bash
+export BACKUP_SENHA='a senha'
+bash scripts/backup.sh abrir backup-mural-2026-10-07.sql.gz.enc > backup-mural.sql
+```
+
+Daí, para restaurar: num banco novo, como em "Sair da Cloudflare" abaixo (`sqlite3 mural.sqlite <
+backup-mural.sql`); ou de volta no D1, `npx wrangler d1 execute mural --remote --file=backup-mural.sql`
+num banco vazio (o arquivo cria as tabelas). Para um estrago dos últimos 7 dias, o Time Travel da
+Cloudflare é mais simples: `npx wrangler d1 time-travel restore mural --timestamp=...`.
+
 ## Sair da Cloudflare
 
 1. `npm run backup` (ou `wrangler d1 export mural --remote --output=mural.sql`).
