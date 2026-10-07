@@ -5,13 +5,15 @@ import { normalizeCode } from './cloud-murals';
 import { Follow } from './follow';
 import { Kind } from './kinds';
 import { Toasts } from '../ui/toast';
+import { isEmoji } from './emoji';
 
 /**
  * Reações às resenhas dos outros, como as do WhatsApp (ver `api/src/routes/reactions.ts`): uma por
  * pessoa por resenha, que dá para trocar ou tirar. Só reage quem segue o dono; todo mundo que vê o
  * mural vê as reações de cada ficha, e tocando nelas, quem reagiu com o quê.
  */
-export type ReactionId = 'amei' | 'fogo' | 'rindo' | 'uau' | 'chorei' | 'hmm' | 'nao-curti';
+/** Uma das sete da fileira ('amei', 'fogo'…) ou qualquer emoji escolhido no "+" (o próprio emoji). */
+export type ReactionId = string;
 
 export interface ReactionKind {
   id: ReactionId;
@@ -33,12 +35,18 @@ export const REACTIONS: readonly ReactionKind[] = [
 
 const BY_ID = new Map(REACTIONS.map((r) => [r.id, r]));
 
+/** A reação pelo id: uma das sete, ou o emoji escolhido no "+" (que é o próprio nome). */
 export function reactionOf(id: ReactionId): ReactionKind {
-  return BY_ID.get(id)!;
+  return BY_ID.get(id) ?? { id, emoji: id, label: id };
+}
+
+/** Uma das sete da fileira? */
+export function isQuickReaction(id: ReactionId): boolean {
+  return BY_ID.has(id);
 }
 
 export function isReaction(v: unknown): v is ReactionId {
-  return typeof v === 'string' && BY_ID.has(v as ReactionId);
+  return typeof v === 'string' && (BY_ID.has(v) || isEmoji(v));
 }
 
 /** Uma pessoa que reagiu. */
@@ -58,13 +66,17 @@ export interface ReactionTarget {
   mural: Kind;
 }
 
-/** Quantas de cada, da mais dada para a menos (empate: a ordem do seletor). */
+/** Quantas de cada, da mais dada para a menos (empate: a ordem do seletor, depois as do "+"). */
 export function tally(list: readonly Reaction[]): { kind: ReactionKind; n: number }[] {
   const n = new Map<ReactionId, number>();
   for (const r of list) n.set(r.reacao, (n.get(r.reacao) ?? 0) + 1);
-  return REACTIONS.filter((k) => n.has(k.id))
-    .map((kind) => ({ kind, n: n.get(kind.id)! }))
-    .sort((a, b) => b.n - a.n);
+  const rank = (id: ReactionId) => {
+    const i = REACTIONS.findIndex((k) => k.id === id);
+    return i === -1 ? REACTIONS.length : i;
+  };
+  return [...n.keys()]
+    .sort((a, b) => n.get(b)! - n.get(a)! || rank(a) - rank(b))
+    .map((id) => ({ kind: reactionOf(id), n: n.get(id)! }));
 }
 
 /** "2 Amei e 1 Fogo". */

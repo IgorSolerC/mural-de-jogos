@@ -706,6 +706,13 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await json('PUT', `/v1/murais/${ana.codigo}/reacoes/r-hades`, { reacao: 'fogo' })).status).toBe(401);
       });
 
+      it('além das sete, vale qualquer emoji sozinho (o "+"); texto ou dois emojis, não', async () => {
+        const { react, list, ana, bia } = await reacting();
+        for (const ok of ['🦄', '🏳️‍🌈', '👍🏽', '🇧🇷', '❤️‍🔥']) expect((await react(bia.token, ana.codigo, 'r-hades', ok)).status, ok).toBeLessThan(300);
+        expect((await list(ana.codigo)).body.reacoes['r-hades'][0].reacao).toBe('❤️‍🔥');
+        for (const bad of ['ab', '🦄🦄', '🦄a', '1', ' ', 'x'.repeat(40)]) expect((await react(bia.token, ana.codigo, 'r-hades', bad)).status, bad).toBe(400);
+      });
+
       it('com os murais só para quem entrou, a lista também pede a conta', async () => {
         const { list, ana, bia } = await reacting({ VER_MURAIS: 'logados' });
         expect((await list(ana.codigo)).status).toBe(401);

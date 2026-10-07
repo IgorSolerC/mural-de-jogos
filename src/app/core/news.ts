@@ -58,6 +58,8 @@ export const NEWS: NewsEntry[] = [
       'O texto da resenha ganhou formatação: negrito, itálico, listas, listas numeradas e tarefas, pelos botões em cima da folha (ou Ctrl+B e Ctrl+I). "Ver como fica" mostra o resultado, e as tarefas se marcam direto na leitura da ficha.',
       'Textos longos: "Maximizar" abre a folha na tela inteira, com a letra maior.',
       'Reações, como as do WhatsApp: nas fichas de quem você segue, "Reagir" (no Feed e na leitura) abre ❤️ 🔥 😂 😮 😢 🤔 👎. Quem vê o mural vê as reações num balãozinho na ficha; tocando nele, quem reagiu com o quê. Quando alguém reage às suas, chega um aviso no Feed.',
+      'No fim da fileira de reações, o "+" abre todos os outros emojis, por gaveta ou pela busca ("gato", "pipoca").',
+      'O balãozinho das reações virou um remendo de feltro costurado na ficha.',
     ],
   },
   {

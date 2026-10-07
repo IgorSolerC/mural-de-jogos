@@ -7,6 +7,7 @@ import { Kind, isKind } from './kinds';
 import { Mural } from './mural';
 import { FriendKinds, Settings } from './settings';
 import type { ReactionId } from './reactions';
+import { isEmoji } from './emoji';
 
 const REACTION_IDS: readonly string[] = ['amei', 'fogo', 'rindo', 'uau', 'chorei', 'hmm', 'nao-curti'];
 
@@ -80,7 +81,7 @@ export function parseFeed(raw: unknown): FeedItem[] {
       if (!ref || !titulo) continue;
       const base = { em, pessoa, ref, titulo, mural: isKind(r['mural']) ? r['mural'] : 'jogos', silenciado: r['silenciado'] === true } as const;
       if (r['tipo'] === 'resenha') out.push({ tipo: 'resenha', ...base });
-      else if (typeof r['reacao'] === 'string' && REACTION_IDS.includes(r['reacao'])) out.push({ tipo: 'reagiu', ...base, reacao: r['reacao'] as ReactionId });
+      else if (typeof r['reacao'] === 'string' && (REACTION_IDS.includes(r['reacao']) || isEmoji(r['reacao']))) out.push({ tipo: 'reagiu', ...base, reacao: r['reacao'] as ReactionId });
     }
   }
   return out.sort((a, b) => b.em.localeCompare(a.em));

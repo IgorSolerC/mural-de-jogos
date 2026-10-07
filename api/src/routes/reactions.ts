@@ -5,6 +5,7 @@ import { formatCode, normalizeCode } from '../domain/code';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson } from './account';
+import { isEmoji } from '../domain/emoji';
 
 /**
  * Reações às resenhas, como as do WhatsApp: uma por pessoa por resenha (trocar substitui, dá para
@@ -12,7 +13,7 @@ import { readJson } from './account';
  * recebe um aviso no correio (atividade 'reagiu'); trocar de reação avisa de novo, tirar apaga o aviso.
  */
 
-/** As reações que existem. O site tem a mesma lista (core/reactions.ts). */
+/** As sete da fileira do site (core/reactions.ts); fora elas, vale qualquer emoji sozinho (o "+"). */
 export const REACTIONS = ['amei', 'fogo', 'rindo', 'uau', 'chorei', 'hmm', 'nao-curti'] as const;
 /** Quantas reações (novas ou trocadas) uma conta dá em 24 horas. */
 export const MAX_REACTIONS_PER_DAY = 300;
@@ -65,7 +66,7 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
     const ref = refParam(c);
     const body = await readJson(c);
     const reaction = body['reacao'];
-    if (typeof reaction !== 'string' || !(REACTIONS as readonly string[]).includes(reaction)) {
+    if (typeof reaction !== 'string' || !((REACTIONS as readonly string[]).includes(reaction) || isEmoji(reaction))) {
       throw new HttpError(400, 'reacao-invalida', 'Essa reação não existe.');
     }
     if (who.id === s.userId) throw new HttpError(400, 'reagir-a-si', 'Essa resenha é sua.');

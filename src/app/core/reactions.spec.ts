@@ -5,6 +5,10 @@ import { CloudAccount, CloudAccountInfo, CloudError } from './cloud-account';
 import { FeedItem, Follow, People, parseFeed } from './follow';
 import { Reaction, Reactions, parseReactions, spokenReactions, tally } from './reactions';
 import { Toasts } from '../ui/toast';
+import { EMOJI_DRAWERS, searchEmoji } from './emoji-catalog';
+import { isEmoji } from './emoji';
+import { fold } from './review';
+import { isReaction, reactionOf } from './reactions';
 
 /** As reações: o que vem da nuvem, as contas do balão e o reagir (que muda na hora e volta se a nuvem recusar). */
 
@@ -53,6 +57,26 @@ describe('reações', () => {
       { tipo: 'reagiu', ...base },
     ]);
     expect(items).toEqual([{ tipo: 'reagiu', ...base, mural: 'jogos', reacao: 'fogo' } as FeedItem]);
+  });
+
+  it('o "+": todo emoji da gaveta é um emoji só (a API aceita), sem repetir; a busca acha pelo nome sem acento', () => {
+    const all = EMOJI_DRAWERS.flatMap((d) => d.list.map((x) => x.e));
+    for (const e of all) expect(isEmoji(e)).withContext(e).toBeTrue();
+    expect(new Set(all).size).toBe(all.length);
+    expect(searchEmoji('coração', fold).map((x) => x.e)).toContain('❤️');
+    expect(searchEmoji('pipo', fold).map((x) => x.e)).toEqual(['🍿']);
+    expect(searchEmoji('   ', fold)).toEqual([]);
+    for (const bad of ['ab', '🦄🦄', '🦄a', '1', '']) expect(isEmoji(bad)).withContext(bad).toBeFalse();
+  });
+
+  it('uma reação do "+" é o próprio emoji, e vale como reação', () => {
+    expect(isReaction('🦄')).toBeTrue();
+    expect(isReaction('raiva')).toBeFalse();
+    expect(reactionOf('🦄')).toEqual({ id: '🦄', emoji: '🦄', label: '🦄' });
+    expect(tally([r('A', '🦄'), r('B', 'fogo'), r('C', '🦄')]).map((t) => [t.kind.emoji, t.n])).toEqual([
+      ['🦄', 2],
+      ['🔥', 1],
+    ]);
   });
 
   describe('o serviço', () => {

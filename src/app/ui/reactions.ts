@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injectable, computed, effect, inject, input, signal, viewChild } from '@angular/core';
-import { LucideAngularModule, SmilePlus, X } from 'lucide-angular';
-import { REACTIONS, Reaction, ReactionId, ReactionTarget, Reactions, reactionOf, spokenReactions, tally } from '../core/reactions';
+import { ChangeDetectionStrategy, Component, ElementRef, Injectable, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { LucideAngularModule, Plus, SmilePlus, X } from 'lucide-angular';
+import { REACTIONS, Reaction, ReactionId, ReactionTarget, Reactions, isQuickReaction, reactionOf, spokenReactions, tally } from '../core/reactions';
+import { EMOJI_DRAWERS, EmojiEntry, searchEmoji } from '../core/emoji-catalog';
+import { fold } from '../core/review';
 import { dayLabel, localDayOf } from '../core/follow';
 
 /**
@@ -26,7 +28,7 @@ export class ReactionSheet {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (list().length) {
-      <button type="button" class="balao" [attr.aria-label]="'Reações: ' + spoken() + '. Ver quem reagiu'" [title]="spoken()" (click)="open($event)">
+      <button type="button" class="balao" [style.--torto.deg]="tilt()" [attr.aria-label]="'Reações: ' + spoken() + '. Ver quem reagiu'" [title]="spoken()" (click)="open($event)">
         <span class="emojis" aria-hidden="true">
           @for (t of top(); track t.kind.id) {
             <span class="emoji">{{ t.kind.emoji }}</span>
@@ -42,31 +44,45 @@ export class ReactionSheet {
     :host {
       display: contents;
     }
+    /* Um remendo de pano costurado na quina da ficha: feltro creme com a fibra do papel, a linha de
+       costura tracejada por dentro, e torto do seu jeito em cada ficha */
     .balao {
       display: inline-flex;
       align-items: center;
       gap: 3px;
-      height: 28px;
-      padding: 0 8px 0 5px;
+      height: 30px;
+      padding: 0 10px 0 7px;
       border: 0;
-      border-radius: 14px;
-      background: #fbf9f3;
+      border-radius: 15px;
+      background-color: var(--remendo);
+      /* a trama do feltro: um pontilhado leve na cor da linha */
+      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
+      background-size: 4px 4px;
       color: #151515;
+      outline: 1.5px dashed var(--linha);
+      outline-offset: -4px;
       box-shadow:
-        0 0 0 1px rgb(21 21 21 / 0.12),
-        0 1px 2px rgb(0 0 0 / 0.3),
-        0 4px 8px -4px rgb(0 0 0 / 0.4);
+        0 1px 1px rgb(0 0 0 / 0.35),
+        0 3px 6px -3px rgb(0 0 0 / 0.45);
+      rotate: var(--torto, -3deg);
       cursor: pointer;
       transition:
         translate var(--t-ui) var(--ease-ui),
-        box-shadow var(--t-ui) var(--ease-ui);
+        rotate var(--t-ui) var(--ease-ui);
+    }
+    :host {
+      --remendo: #f8f0dc;
+      --linha: rgb(122 74 38 / 0.6);
     }
     .balao:hover {
       translate: 0 -1px;
+      rotate: calc(var(--torto, -3deg) * 0.4);
     }
+    /* o foco não pode usar o contorno (é a costura): um anel amarelo em volta do remendo */
     .balao:focus-visible {
-      outline: 3px solid var(--hi, #ffd84d);
-      outline-offset: 2px;
+      box-shadow:
+        0 0 0 3px var(--hi, #ffd84d),
+        0 3px 6px -3px rgb(0 0 0 / 0.45);
     }
     .emojis {
       display: inline-flex;
@@ -79,11 +95,12 @@ export class ReactionSheet {
     .emoji + .emoji {
       margin-left: -2px;
     }
+    /* o número escrito a pincel, como o resto da ficha */
     .n {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86rem;
-      font-variant-numeric: tabular-nums;
+      font-family: var(--f-marker);
+      font-size: 0.95rem;
+      line-height: 1;
+      translate: 0 1px;
     }
   `,
 })
@@ -94,6 +111,12 @@ export class ReactionBubble {
   protected readonly list = computed(() => this.reactions.of(this.target().code, this.target().ref));
   protected readonly top = computed(() => tally(this.list()).slice(0, 3));
   protected readonly spoken = computed(() => spokenReactions(this.list()));
+  /** Costurado meio torto, sempre do mesmo jeito na mesma ficha (de −5 a +4 graus). */
+  protected readonly tilt = computed(() => {
+    let h = 0;
+    for (const c of this.target().ref) h = (h * 31 + c.charCodeAt(0)) | 0;
+    return (Math.abs(h) % 10) - 5;
+  });
 
   protected open(e: MouseEvent): void {
     // o balão fica por cima da ficha: o toque é dele, não abre a ficha
@@ -103,12 +126,170 @@ export class ReactionBubble {
 }
 
 /**
+ * O "+" das reações: as gavetas de emojis (caras, gestos, corações…) e a busca pelo nome, para reagir
+ * com um que não está na fileira.
+ */
+@Component({
+  selector: 'app-emoji-panel',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <input
+      #search
+      class="busca"
+      type="search"
+      autocomplete="off"
+      placeholder="Procurar: gato, festa, pipoca…"
+      aria-label="Procurar emoji pelo nome"
+      [value]="query()"
+      (input)="query.set($any($event.target).value)"
+    />
+    @if (!query().trim()) {
+      <div class="gavetas" role="tablist" aria-label="Gavetas de emoji">
+        @for (d of drawers; track d.id) {
+          <button type="button" role="tab" class="gaveta" [attr.aria-selected]="drawer() === d.id" [attr.aria-label]="d.label" [title]="d.label" (click)="drawer.set(d.id)">
+            {{ d.icon }}
+          </button>
+        }
+      </div>
+    }
+    <div class="grade" role="group" [attr.aria-label]="query().trim() ? 'Emojis encontrados' : drawerLabel()">
+      @for (item of shown(); track item.e) {
+        <button type="button" class="emoji" [class.escolhido]="item.e === current()" [attr.aria-pressed]="item.e === current()" [attr.aria-label]="nameOf(item)" [title]="nameOf(item)" (click)="picked.emit(item.e)">
+          {{ item.e }}
+        </button>
+      } @empty {
+        <p class="nada">Nenhum emoji com “{{ query().trim() }}”.</p>
+      }
+    </div>
+  `,
+  styles: `
+    :host {
+      display: grid;
+      gap: 8px;
+      width: min(316px, calc(100vw - 40px));
+    }
+    .busca {
+      width: 100%;
+      height: 38px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 19px;
+      background: #fffdf7;
+      color: #151515;
+      font-family: var(--f-hand);
+      font-size: 1.02rem;
+      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.35);
+      outline: none;
+    }
+    .busca:focus {
+      box-shadow: inset 0 0 0 2.5px #151515;
+    }
+    .gavetas {
+      display: flex;
+      justify-content: space-between;
+      gap: 2px;
+      padding-bottom: 6px;
+      border-bottom: 1.5px dashed rgb(122 74 38 / 0.45);
+    }
+    .gaveta {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 34px;
+      padding: 0;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      font-size: 19px;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0.6;
+      filter: grayscale(0.6);
+      transition:
+        opacity 120ms ease-out,
+        filter 120ms ease-out;
+    }
+    .gaveta[aria-selected='true'] {
+      opacity: 1;
+      filter: none;
+      background: rgb(21 21 21 / 0.1);
+    }
+    .gaveta:hover {
+      opacity: 1;
+      filter: none;
+    }
+    .gaveta:focus-visible,
+    .emoji:focus-visible {
+      outline: 2.5px solid #151515;
+      outline-offset: -2px;
+    }
+    .grade {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+      gap: 2px;
+      max-height: 196px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .emoji {
+      display: grid;
+      place-items: center;
+      height: 38px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      font-size: 23px;
+      line-height: 1;
+      cursor: pointer;
+      transition: scale 120ms ease-out;
+    }
+    .emoji:hover {
+      scale: 1.2;
+    }
+    .emoji.escolhido {
+      background: rgb(21 21 21 / 0.12);
+    }
+    .nada {
+      grid-column: 1 / -1;
+      margin: 6px 2px;
+      font-family: var(--f-hand);
+      font-size: 1rem;
+      color: rgb(21 21 21 / 0.7);
+    }
+  `,
+})
+export class EmojiPanel {
+  /** A reação que você já deu, para vir marcada. */
+  readonly current = input<ReactionId | null>(null);
+  readonly picked = output<string>();
+  protected readonly drawers = EMOJI_DRAWERS;
+  protected readonly drawer = signal(EMOJI_DRAWERS[0].id);
+  protected readonly query = signal('');
+  private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
+  protected readonly drawerLabel = computed(() => EMOJI_DRAWERS.find((d) => d.id === this.drawer())!.label);
+  protected readonly shown = computed<readonly EmojiEntry[]>(() =>
+    this.query().trim() ? searchEmoji(this.query(), fold) : EMOJI_DRAWERS.find((d) => d.id === this.drawer())!.list,
+  );
+
+  constructor() {
+    afterNextRender(() => this.search().nativeElement.focus());
+  }
+
+  /** O nome do emoji para quem não o vê: a primeira palavra da busca. */
+  protected nameOf(item: EmojiEntry): string {
+    const first = item.k.split(' ')[0];
+    return first.charAt(0).toUpperCase() + first.slice(1);
+  }
+}
+
+/**
  * Reagir: o botão abre a fileira dos sete emojis por cima dele (como segurar a mensagem no WhatsApp).
  * O escolhido vale; o mesmo de novo tira. Com uma reação dada, o botão mostra ela.
  */
 @Component({
   selector: 'app-reaction-picker',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, EmojiPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button
@@ -128,7 +309,12 @@ export class ReactionBubble {
         <span aria-hidden="true">Reagir</span>
       }
     </button>
-    @if (open()) {
+    @if (open() && more()) {
+      <!-- o "+": todos os emojis, numa folha de feltro que sai do mesmo lugar -->
+      <div class="fileira painel" role="dialog" aria-label="Escolha qualquer emoji" (keydown.escape)="more.set(false)">
+        <app-emoji-panel [current]="mine()" (picked)="pick($event)" />
+      </div>
+    } @else if (open()) {
       <div class="fileira" role="group" aria-label="Escolha uma reação" (keydown.escape)="close(true)">
         @for (k of kinds; track k.id; let i = $index) {
           <button
@@ -142,6 +328,13 @@ export class ReactionBubble {
             (click)="pick(k.id)"
           >{{ k.emoji }}</button>
         }
+        <!-- a sua, se veio do "+" -->
+        @if (mine() && !quick(mine()!)) {
+          <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mine() + '. Tirar'" (click)="pick(mine()!)">{{ mine() }}</button>
+        }
+        <button type="button" class="opcao mais" aria-label="Outro emoji" title="Outro emoji" [style.--i]="kinds.length" (click)="more.set(true)">
+          <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
       </div>
     }
   `,
@@ -158,7 +351,7 @@ export class ReactionBubble {
       font-size: 1.05rem;
       text-decoration: none;
     }
-    /* a fileira: uma tira de papel com os emojis, saindo de cima do botão */
+    /* a fileira: o mesmo feltro costurado do remendo, saindo de cima do botão */
     .fileira {
       position: absolute;
       bottom: calc(100% + 6px);
@@ -166,14 +359,30 @@ export class ReactionBubble {
       z-index: 20;
       display: flex;
       gap: 2px;
-      padding: 5px 6px;
-      border-radius: 24px;
-      background: #fbf9f3;
+      padding: 7px 8px;
+      border-radius: 28px;
+      background-color: #f8f0dc;
+      /* a trama do feltro: um pontilhado leve na cor da linha */
+      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
+      background-size: 4px 4px;
+      outline: 1.5px dashed rgb(122 74 38 / 0.6);
+      outline-offset: -5px;
       box-shadow:
-        0 0 0 1px rgb(21 21 21 / 0.12),
-        0 2px 4px rgb(0 0 0 / 0.3),
+        0 1px 2px rgb(0 0 0 / 0.35),
         0 10px 20px -6px rgb(0 0 0 / 0.45);
+      rotate: -1.2deg;
       animation: sobe 160ms var(--ease-physical, ease-out);
+    }
+    /* o painel do "+": a mesma folha de feltro, maior */
+    .fileira.painel {
+      padding: 12px;
+      border-radius: 18px;
+      outline-offset: -6px;
+      rotate: 0deg;
+    }
+    .opcao.mais {
+      color: #151515;
+      background: rgb(21 21 21 / 0.07);
     }
     @keyframes sobe {
       from {
@@ -238,7 +447,11 @@ export class ReactionPicker {
   private readonly reactions = inject(Reactions);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
+  protected readonly MoreIcon = Plus;
   protected readonly open = signal(false);
+  /** O painel do "+" aberto, no lugar da fileira. */
+  protected readonly more = signal(false);
+  protected readonly quick = isQuickReaction;
   protected readonly mine = computed(() => this.reactions.mineOn(this.target().code, this.target().ref));
   protected readonly mineKind = computed(() => (this.mine() ? reactionOf(this.mine()!) : null));
 
@@ -255,6 +468,7 @@ export class ReactionPicker {
 
   protected close(refocus = false): void {
     this.open.set(false);
+    this.more.set(false);
     if (refocus) this.trigger().nativeElement.focus();
   }
 
@@ -266,7 +480,7 @@ export class ReactionPicker {
 /** A folha de quem reagiu, aberta pelo balão: abas por reação e a lista, como no WhatsApp. */
 @Component({
   selector: 'app-reaction-sheet',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, EmojiPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reacoes" aria-labelledby="reacoes-titulo" (close)="sheet.target.set(null)" (click)="onBackdrop($event)">
@@ -284,7 +498,18 @@ export class ReactionPicker {
               @for (k of kinds; track k.id) {
                 <button type="button" class="opcao" [class.escolhida]="mine() === k.id" [attr.aria-pressed]="mine() === k.id" [attr.aria-label]="k.label" [title]="k.label" (click)="pick(k.id)">{{ k.emoji }}</button>
               }
+              @if (mine() && !quick(mine()!)) {
+                <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mine() + '. Tirar'" (click)="pick(mine()!)">{{ mine() }}</button>
+              }
+              <button type="button" class="opcao mais" [attr.aria-expanded]="more()" aria-label="Outro emoji" title="Outro emoji" (click)="more.set(!more())">
+                <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+              </button>
             </div>
+            @if (more()) {
+              <div class="mais-painel">
+                <app-emoji-panel [current]="mine()" (picked)="pick($event); more.set(false)" />
+              </div>
+            }
           }
 
           @if (list().length) {
@@ -368,16 +593,38 @@ export class ReactionPicker {
     .fechar:hover {
       background: rgb(21 21 21 / 0.08);
     }
-    /* a sua reação: a fileira dos emojis, a escolhida com o fundo de lápis */
+    /* a sua reação: a fileira de feltro costurado, a escolhida com o fundo de lápis */
     .sua {
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
       gap: 2px;
       margin: 0 0 14px;
-      padding: 6px;
-      border-radius: 26px;
-      background: #fbf9f3;
-      box-shadow: 0 0 0 1px rgb(21 21 21 / 0.12), 0 1px 3px rgb(0 0 0 / 0.2);
+      padding: 7px 8px;
+      border-radius: 28px;
+      background-color: #f8f0dc;
+      /* a trama do feltro: um pontilhado leve na cor da linha */
+      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
+      background-size: 4px 4px;
+      outline: 1.5px dashed rgb(122 74 38 / 0.6);
+      outline-offset: -5px;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    }
+    .opcao.mais {
+      color: var(--ink);
+      background: rgb(21 21 21 / 0.07);
+    }
+    .mais-painel {
+      display: flex;
+      justify-content: center;
+      margin: -6px 0 14px;
+      padding: 12px;
+      border-radius: 18px;
+      background-color: #f8f0dc;
+      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
+      background-size: 4px 4px;
+      outline: 1.5px dashed rgb(122 74 38 / 0.6);
+      outline-offset: -6px;
     }
     .opcao {
       display: grid;
@@ -517,7 +764,11 @@ export class ReactionSheetView {
   private readonly reactions = inject(Reactions);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   protected readonly CloseIcon = X;
+  protected readonly MoreIcon = Plus;
   protected readonly kinds = REACTIONS;
+  protected readonly quick = isQuickReaction;
+  /** O painel do "+" aberto embaixo da fileira. */
+  protected readonly more = signal(false);
   /** A aba escolhida: todas (null) ou só uma reação. */
   protected readonly tab = signal<ReactionId | null>(null);
   protected readonly me = this.reactions.myCode;
@@ -551,6 +802,7 @@ export class ReactionSheetView {
       const el = this.dialog().nativeElement;
       if (t && !el.open) {
         this.tab.set(null);
+        this.more.set(false);
         el.showModal();
         void this.reactions.load(t.code);
       }
