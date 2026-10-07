@@ -6,6 +6,9 @@ import { ColleagueStore } from './colleague-store';
 import { Kind, isKind } from './kinds';
 import { Mural } from './mural';
 import { FriendKinds, Settings } from './settings';
+import type { ReactionId } from './reactions';
+
+const REACTION_IDS: readonly string[] = ['amei', 'fogo', 'rindo', 'uau', 'chorei', 'hmm', 'nao-curti'];
 
 /**
  * Seguir pessoas pelo código e o correio (ver `api/src/routes/follow.ts`).
@@ -43,7 +46,9 @@ export interface People {
 
 export type FeedItem =
   | { tipo: 'seguiu'; em: string; pessoa: Person; euSigo: boolean }
-  | { tipo: 'resenha'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean };
+  | { tipo: 'resenha'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean }
+  /** Alguém reagiu à minha resenha `ref` (ver core/reactions.ts). */
+  | { tipo: 'reagiu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; reacao: ReactionId };
 
 /** Ver de novo a cada 15 minutos, com a aba à vista. */
 export const CHECK_EVERY_MS = 15 * 60_000;
@@ -69,11 +74,13 @@ export function parseFeed(raw: unknown): FeedItem[] {
     const pessoa = person(r?.['pessoa']);
     if (!em || !pessoa) continue;
     if (r['tipo'] === 'seguiu') out.push({ tipo: 'seguiu', em, pessoa, euSigo: r['euSigo'] === true });
-    else if (r['tipo'] === 'resenha') {
+    else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu') {
       const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
       const titulo = text(r['titulo'], 120);
       if (!ref || !titulo) continue;
-      out.push({ tipo: 'resenha', em, pessoa, ref, titulo, mural: isKind(r['mural']) ? r['mural'] : 'jogos', silenciado: r['silenciado'] === true });
+      const base = { em, pessoa, ref, titulo, mural: isKind(r['mural']) ? r['mural'] : 'jogos', silenciado: r['silenciado'] === true } as const;
+      if (r['tipo'] === 'resenha') out.push({ tipo: 'resenha', ...base });
+      else if (typeof r['reacao'] === 'string' && REACTION_IDS.includes(r['reacao'])) out.push({ tipo: 'reagiu', ...base, reacao: r['reacao'] as ReactionId });
     }
   }
   return out.sort((a, b) => b.em.localeCompare(a.em));
@@ -113,7 +120,7 @@ export function visibleFeed(items: readonly FeedItem[], mode: FriendKinds, kind:
 
 /** Um item do correio, para lembrar que foi visto (ver `Follow.seenKeys`). */
 export function feedKey(i: FeedItem): string {
-  return `${i.tipo}:${i.pessoa.codigo}:${i.tipo === 'resenha' ? i.ref : ''}:${i.em}`;
+  return `${i.tipo}:${i.pessoa.codigo}:${i.tipo === 'seguiu' ? '' : i.ref}:${i.em}`;
 }
 
 /** Ainda não visto: depois do visto, e não marcado à parte neste aparelho. */
@@ -123,7 +130,7 @@ export function isUnseen(i: FeedItem, seenAt: string | null, seenKeys: ReadonlyS
 
 /** Quantos contam no número: os ainda não vistos, menos os de quem foi silenciado. */
 export function unseenCount(items: readonly FeedItem[], seenAt: string | null, seenKeys: ReadonlySet<string> = new Set()): number {
-  return items.filter((i) => isUnseen(i, seenAt, seenKeys) && !(i.tipo === 'resenha' && i.silenciado)).length;
+  return items.filter((i) => isUnseen(i, seenAt, seenKeys) && !(i.tipo !== 'seguiu' && i.silenciado)).length;
 }
 
 /**
@@ -396,7 +403,7 @@ export class Follow {
     await this.account.request(`/v1/seguindo/${code}`, { method: 'PATCH', body: { silenciado: muted } });
     // o número muda na hora, sem esperar a nuvem
     this.changePeople((list) => ({ ...list, seguindo: list.seguindo.map((f) => (f.codigo === code ? { ...f, silenciado: muted } : f)) }));
-    this.items.update((list) => list.map((i) => (i.tipo === 'resenha' && i.pessoa.codigo === code ? { ...i, silenciado: muted } : i)));
+    this.items.update((list) => list.map((i) => (i.tipo !== 'seguiu' && i.pessoa.codigo === code ? { ...i, silenciado: muted } : i)));
     this.save();
   }
 

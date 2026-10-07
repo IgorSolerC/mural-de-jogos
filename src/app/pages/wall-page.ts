@@ -12,6 +12,7 @@ import { FilterTags } from '../ui/filter-sheet';
 import { Pin } from '../ui/pin';
 import { PickTray } from '../ui/pick-tray';
 import { WallToolbar } from '../ui/wall-toolbar';
+import { Reactions } from '../core/reactions';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
@@ -31,6 +32,7 @@ export class WallPage {
   protected readonly side = inject(SideBySide);
   private readonly motion = inject(WallMotion);
   private readonly pool = inject(WallCardPool);
+  private readonly reactions = inject(Reactions);
 
   protected readonly PlusIcon = Plus;
   protected readonly ghosts = [0, 1, 2];
@@ -46,6 +48,7 @@ export class WallPage {
     picked: this.side.order(),
     masked: this.settings.noSpoilers(),
     times: this.times(),
+    reactCode: this.reactions.myCode(),
   }));
   /** As obras com rejogada: a original fica sabendo quantas vezes está no mural. */
   private readonly times = computed(() => {

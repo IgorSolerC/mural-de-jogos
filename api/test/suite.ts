@@ -20,7 +20,7 @@ export const BASE_ENV = {
   VER_MURAIS: 'todos',
 };
 
-const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'uso_diario'];
+const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'uso_diario'];
 const NOW = new Date('2026-10-06T15:00:00Z');
 
 export async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {

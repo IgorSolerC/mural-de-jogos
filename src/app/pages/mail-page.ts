@@ -21,6 +21,9 @@ import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
 import { Busy } from '../ui/busy';
 import { SpoilerShield } from '../core/spoiler-shield';
+import { Desk } from '../core/desk';
+import { ReactionId, ReactionTarget, Reactions, reactionOf } from '../core/reactions';
+import { ReactionPicker } from '../ui/reactions';
 
 /** A aba Feed guarda o id 'chegou' (o nome de antes): o endereço e o que já está guardado não mudam. */
 type Tab = 'chegou' | 'pessoas';
@@ -35,13 +38,27 @@ interface Post {
   theirs: Review | null;
   mine: Review | null;
   secret: boolean;
+  /** A ficha do amigo como alvo das reações. */
+  target: ReactionTarget;
   /** ficha: a ficha está aqui; buscando: o mural ainda vem; saiu: o mural veio e ela não está; erro: não veio. */
   estado: 'ficha' | 'buscando' | 'saiu' | 'erro';
 }
 
-/** O Feed em blocos: um bilhete de quem começou a seguir, ou as resenhas seguidas de uma pessoa. */
+/** Quem reagiu às minhas fichas: as reações seguidas à mesma ficha viram um bilhete só. */
+interface Reacted {
+  key: string;
+  /** A mais nova, que dá o dia e o "Novo". */
+  item: Extract<FeedItem, { tipo: 'reagiu' }>;
+  ref: string;
+  titulo: string;
+  dia: string;
+  who: { pessoa: Person; reacao: ReactionId }[];
+}
+
+/** O Feed em blocos: um bilhete de quem começou a seguir, de quem reagiu, ou as resenhas seguidas de uma pessoa. */
 type Block =
   | { tipo: 'seguiu'; key: string; item: Extract<FeedItem, { tipo: 'seguiu' }>; dia: string }
+  | ({ tipo: 'reagiu' } & Reacted)
   | { tipo: 'pessoa'; key: string; pessoa: Person; posts: Post[] };
 
 /** Uma pessoa na lista única de Pessoas: quem eu sigo e quem me segue, juntos. */
@@ -65,7 +82,7 @@ const TILTS = [-0.5, 0.4, -0.3, 0.6, -0.4, 0.2];
  */
 @Component({
   selector: 'app-mail-page',
-  imports: [Busy, LucideAngularModule, NgTemplateOutlet, Pin, ReviewCard, ReviewReader, RouterLink],
+  imports: [Busy, LucideAngularModule, NgTemplateOutlet, Pin, ReactionPicker, ReviewCard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mail-page.html',
   styleUrl: './mail-page.scss',
@@ -85,6 +102,8 @@ export class MailPage {
   private readonly route = inject(ActivatedRoute);
   private readonly reader = viewChild.required(ReviewReader);
   private readonly muralKind = inject(Mural);
+  private readonly desk = inject(Desk);
+  protected readonly reactions = inject(Reactions);
 
   protected readonly InboxIcon = Inbox;
   protected readonly FollowIcon = UserPlus;
@@ -124,6 +143,16 @@ export class MailPage {
         out.push({ tipo: 'seguiu', key: `seguiu:${item.pessoa.codigo}`, item, dia });
         continue;
       }
+      if (item.tipo === 'reagiu') {
+        const last = out[out.length - 1];
+        if (last?.tipo === 'reagiu' && last.ref === item.ref) {
+          // a mesma pessoa aparece uma vez só, com a reação mais nova
+          if (!last.who.some((w) => w.pessoa.codigo === item.pessoa.codigo)) last.who.push({ pessoa: item.pessoa, reacao: item.reacao });
+        } else {
+          out.push({ tipo: 'reagiu', key: `reagiu:${item.ref}:${item.em}`, item, ref: item.ref, titulo: item.titulo, dia, who: [{ pessoa: item.pessoa, reacao: item.reacao }] });
+        }
+        continue;
+      }
       const post = this.postOf(item, dia);
       const last = out[out.length - 1];
       if (last?.tipo === 'pessoa' && last.pessoa.codigo === item.pessoa.codigo) last.posts.push(post);
@@ -134,6 +163,7 @@ export class MailPage {
 
   private postOf(item: Extract<FeedItem, { tipo: 'resenha' }>, dia: string): Post {
     const key = `resenha:${item.pessoa.codigo}:${item.ref}`;
+    const target: ReactionTarget = { code: item.pessoa.codigo, ref: item.ref, titulo: item.titulo, mural: item.mural };
     const theirs = this.reviewOf(item.pessoa.codigo, item.ref);
     if (!theirs) {
       // sem a ficha: o mural ainda vem, não veio, ou veio sem ela — e só "saiu" se o mural que veio é
@@ -141,12 +171,12 @@ export class MailPage {
       const wall = this.wallState().get(item.pessoa.codigo);
       const checked = this.checked.has(`${item.pessoa.codigo}:${item.ref}`);
       const estado = wall === 'erro' ? 'erro' : wall === 'pronto' && checked ? 'saiu' : 'buscando';
-      return { key, item, dia, theirs: null, mine: null, secret: false, estado };
+      return { key, item, dia, theirs: null, mine: null, secret: false, target, estado };
     }
     const mine = this.mineOf(item.pessoa.codigo, theirs);
     // "Notas dos outros: Evitar spoilers": o que eu ainda não avaliei vem em segredo
     const secret = !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id);
-    return { key, item, dia, theirs, mine, secret, estado: 'ficha' };
+    return { key, item, dia, theirs, mine, secret, target, estado: 'ficha' };
   }
 
   protected readonly people = this.follow.people;
@@ -228,6 +258,11 @@ export class MailPage {
     effect(() => {
       if (!this.follow.available()) return;
       untracked(() => void this.open());
+    });
+    // as reações das fichas de quem aparece aqui (todo mundo vê; quem segue também reage)
+    effect(() => {
+      const codes = new Set(this.blocks().flatMap((b) => (b.tipo === 'pessoa' ? [b.pessoa.codigo] : [])));
+      untracked(() => codes.forEach((code) => void this.reactions.load(code)));
     });
     // chegou resenha com a página aberta: o mural guardado da pessoa é de antes dela, busca de novo
     effect(() => {
@@ -331,6 +366,34 @@ export class MailPage {
     return since !== undefined && isUnseen(item, since.at, since.keys);
   }
 
+  /** "Bia", "Bia e Caio", "Bia, Caio e mais 2". */
+  protected reactedNames(b: Reacted): string {
+    const names = b.who.map((w) => w.pessoa.nome);
+    if (names.length <= 2) return names.join(' e ');
+    return `${names.slice(0, 2).join(', ')} e mais ${names.length - 2}`;
+  }
+
+  /** As reações do bilhete, sem repetir. */
+  protected reactedEmojis(b: Reacted): string[] {
+    return [...new Set(b.who.map((w) => reactionOf(w.reacao).emoji))];
+  }
+
+  /** O que o leitor de tela diz do bilhete: "Bia reagiu com Fogo à sua ficha de Hades". */
+  protected reactedSpoken(b: Reacted): string {
+    const how = [...new Set(b.who.map((w) => reactionOf(w.reacao).label))].join(', ');
+    return `${this.reactedNames(b)} ${b.who.length > 1 ? 'reagiram' : 'reagiu'} com ${how} à sua ficha de ${b.titulo}`;
+  }
+
+  /** A minha ficha que recebeu a reação, se ela ainda está no mural. */
+  protected reactedReview(b: Reacted): Review | null {
+    return this.store.get(b.ref) ?? null;
+  }
+
+  /** Abre a minha ficha que recebeu a reação, no leitor de sempre (com as reações embaixo). */
+  protected openMine(r: Review): void {
+    this.desk.openReview(r.id);
+  }
+
   /** "avaliou", ou "escreveu uma rejogada" (releitura, reassistida). */
   protected verb(r: Review): string {
     return r.revisitOf ? `escreveu uma ${profileOf(r.kind).revisit.one}` : 'avaliou';
@@ -386,7 +449,7 @@ export class MailPage {
 
   protected openReview(r: Review, who: Person, secret = false): void {
     const wall = this.walls().get(who.codigo);
-    this.reader().open(r, wall?.name ?? who.nome, wall?.reviews.filter((x) => x.kind === r.kind) ?? [], secret);
+    this.reader().open(r, wall?.name ?? who.nome, wall?.reviews.filter((x) => x.kind === r.kind) ?? [], secret, who.codigo);
   }
 
   /** A inicial do crachazinho de cada pessoa na lista. */

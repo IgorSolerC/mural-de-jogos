@@ -35,7 +35,7 @@ interface Person {
 }
 
 interface FeedRow {
-  tipo: 'seguiu' | 'resenha';
+  tipo: 'seguiu' | 'resenha' | 'reagiu';
   criado_em: string;
   ref: string | null;
   resumo: string | null;
@@ -62,11 +62,12 @@ async function pairKey(followerId: string, followedId: string): Promise<string> 
   return btoa(String.fromCharCode(...new Uint8Array(digest).slice(0, 12))).replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-function summary(raw: string | null): { titulo: string; mural: string } | null {
+function summary(raw: string | null): { titulo: string; mural: string; reacao?: string } | null {
   if (!raw) return null;
   try {
     const data = JSON.parse(raw) as Record<string, unknown>;
-    return typeof data['titulo'] === 'string' && typeof data['mural'] === 'string' ? { titulo: data['titulo'], mural: data['mural'] } : null;
+    if (typeof data['titulo'] !== 'string' || typeof data['mural'] !== 'string') return null;
+    return { titulo: data['titulo'], mural: data['mural'], ...(typeof data['reacao'] === 'string' ? { reacao: data['reacao'] } : {}) };
   } catch {
     return null;
   }
@@ -221,8 +222,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
     const now = deps.now();
     const floor = new Date(now.getTime() - FEED_DAYS * DAY).toISOString();
     const after = isoParam(c.req.query('depois'));
-    // as duas fontes: quem começou a me seguir (e ainda segue) e as resenhas de quem eu sigo,
-    // publicadas depois que comecei a seguir
+    // as três fontes: quem começou a me seguir (e ainda segue), as resenhas de quem eu sigo,
+    // publicadas depois que comecei a seguir, e quem reagiu às minhas (silenciado se eu silenciei a pessoa)
     const feed = (since: string, limit: number) =>
       deps.db.all<FeedRow>(
         "SELECT 'seguiu' AS tipo, a.criado_em AS criado_em, NULL AS ref, NULL AS resumo, u.codigo, u.nome, 0 AS silenciado, " +
@@ -234,8 +235,14 @@ export function followRoutes(app: Hono, deps: Deps): void {
           "SELECT 'resenha' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, s.silenciado, 1 AS eu_sigo " +
           'FROM seguindo s JOIN atividades a ON a.autor_id = s.seguido_id ' +
           "JOIN usuarios u ON u.id = a.autor_id WHERE s.seguidor_id = ? AND a.tipo = 'resenha' AND a.criado_em > s.criado_em AND a.criado_em > ? " +
+          'UNION ALL ' +
+          "SELECT 'reagiu' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(m.silenciado, 0) AS silenciado, " +
+          'CASE WHEN m.seguidor_id IS NULL THEN 0 ELSE 1 END AS eu_sigo ' +
+          'FROM atividades a JOIN usuarios u ON u.id = a.autor_id ' +
+          'LEFT JOIN seguindo m ON m.seguidor_id = a.alvo_id AND m.seguido_id = a.autor_id ' +
+          "WHERE a.tipo = 'reagiu' AND a.alvo_id = ? AND a.criado_em > ? " +
           'ORDER BY criado_em DESC LIMIT ?',
-        [s.userId, s.userId, since, s.userId, since, limit],
+        [s.userId, s.userId, since, s.userId, since, s.userId, since, limit],
       );
     if (after) {
       const fresh = await feed(after > floor ? after : floor, 1);
@@ -252,7 +259,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
         const base = { tipo: r.tipo, em: r.criado_em, pessoa: personOut(r) };
         if (r.tipo === 'seguiu') return { ...base, euSigo: !!r.eu_sigo };
         const sum = summary(r.resumo);
-        return { ...base, ref: r.ref, titulo: sum?.titulo ?? '', mural: sum?.mural ?? 'jogos', silenciado: !!r.silenciado };
+        const review = { ...base, ref: r.ref, titulo: sum?.titulo ?? '', mural: sum?.mural ?? 'jogos', silenciado: !!r.silenciado };
+        return r.tipo === 'reagiu' ? { ...review, reacao: sum?.reacao ?? 'amei' } : review;
       }),
       vistasEm: seenAt,
       naoVistas: rows.filter((r) => r.criado_em > seenAt && !r.silenciado).length,

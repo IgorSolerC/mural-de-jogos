@@ -17,6 +17,7 @@ import { GoogleButton } from './ui/google-button';
 import { Follow } from './core/follow';
 import { Settings } from './core/settings';
 import { ReviewStore } from './core/review-store';
+import { ReactionSheetView } from './ui/reactions';
 import { SideBySide } from './core/side-by-side';
 import { ViewTransitions } from './core/view-transitions';
 import { WallView } from './core/wall-view';
@@ -58,7 +59,7 @@ const TABS: Tab[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [ConfirmDialog, GoogleButton, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
+  imports: [ConfirmDialog, GoogleButton, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',

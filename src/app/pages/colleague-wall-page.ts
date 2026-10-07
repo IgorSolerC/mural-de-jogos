@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Eye, EyeOff, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3, UserCheck, UserPlus } from 'lucide-angular';
 import { CloudAccount } from '../core/cloud-account';
 import { Follow } from '../core/follow';
+import { Reactions } from '../core/reactions';
 import { Toasts } from '../ui/toast';
 import { Busy } from '../ui/busy';
 import { ColleagueStore } from '../core/colleague-store';
@@ -104,6 +105,13 @@ export class ColleagueWallPage {
 
   protected readonly colleague = this.colleagues.selected;
   protected readonly name = computed(() => this.colleague()?.name ?? 'Colega');
+  /** O código na nuvem do colega aberto pelo código (as fichas mostram as reações); null num backup. */
+  protected readonly code = computed(() => this.colleague()?.codigo ?? null);
+  private readonly reactions = inject(Reactions);
+  private readonly loadReactions = effect(() => {
+    const code = this.code();
+    if (code) untracked(() => void this.reactions.load(code));
+  });
   protected readonly profile = this.mural.profile;
 
   protected readonly query = signal('');
@@ -258,6 +266,6 @@ export class ColleagueWallPage {
 
   protected open(review: Review): void {
     // com as outras fichas do colega: a leitura anda entre as vezes de uma obra que ele rejogou
-    this.reader().open(review, this.name(), this.reviews(), this.hidden().has(review.id));
+    this.reader().open(review, this.name(), this.reviews(), this.hidden().has(review.id), this.code());
   }
 }

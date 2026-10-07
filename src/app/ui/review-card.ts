@@ -37,6 +37,8 @@ import { PenMark } from './pen-mark';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
+import { ReactionBubble } from './reactions';
+import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
@@ -65,7 +67,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -220,6 +222,10 @@ function watchDistance(el: HTMLElement): () => void {
       ></button>
     } @else {
       <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
+    }
+    <!-- as reações de quem segue o dono, num balãozinho colado na quina de baixo (só quando há alguma) -->
+    @if (reactTarget(); as t) {
+      <div class="reacoes"><app-reaction-bubble [target]="t" /></div>
     }
     </div>
   `,
@@ -611,6 +617,18 @@ function watchDistance(el: HTMLElement): () => void {
       filter: saturate(0.6);
     }
 
+    /* o balão das reações: preso na quina de baixo, metade para fora da ficha, por cima de tudo */
+    .reacoes {
+      position: absolute;
+      right: 14px;
+      bottom: -13px;
+      z-index: 6;
+    }
+    :host(.capas) .reacoes {
+      right: 6px;
+      bottom: -11px;
+    }
+
     .hit {
       position: absolute;
       inset: 0;
@@ -825,8 +843,17 @@ export class ReviewCard {
   readonly bareText = input('');
   /** Quantas vezes a obra foi jogada (lida, vista): a original e as rejogadas. Só nas originais. */
   readonly times = input(1);
+  /** O código do dono do mural, para mostrar as reações da ficha (ver core/reactions.ts); null, sem reações. */
+  readonly reactCode = input<string | null>(null);
   readonly opened = output<string>();
   readonly toggled = output<string>();
+
+  /** A ficha como alvo das reações: o mural de quem e qual ficha. */
+  protected readonly reactTarget = computed<ReactionTarget | null>(() => {
+    const code = this.reactCode();
+    const r = this.review();
+    return code && !this.bare() ? { code, ref: r.id, titulo: r.game.name, mural: r.kind } : null;
+  });
 
   protected readonly AgainIcon = Repeat;
   protected readonly PrivateIcon = LockKeyhole;

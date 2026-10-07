@@ -5,6 +5,7 @@ import { readConfig } from '../src/config';
 import { googleVerifier } from '../src/domain/google';
 import { cleanup } from '../src/domain/cleanup';
 import { FEED_DAYS, FEED_LIMIT, MAX_FOLLOWING, MAX_FOLLOWS_PER_DAY, UNDO_MS } from '../src/routes/follow';
+import { MAX_REACTIONS_PER_DAY } from '../src/routes/reactions';
 import { Config, Db, Deps } from '../src/ports';
 
 /**
@@ -25,7 +26,7 @@ const ENV = {
   GOOGLE_CLIENT_ID: 'teste.apps.googleusercontent.com',
   VER_MURAIS: 'todos',
 };
-const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'uso_diario'];
+const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'uso_diario'];
 const NOW = new Date('2026-10-06T15:00:00Z');
 const DAY = 86_400_000;
 
@@ -624,6 +625,124 @@ export function amigosSuite(label: string, getDb: () => Db) {
         await push(ana.token, 0, { privado: '{"segredo":"chave-rawg"}', publico: '{"reviews":[]}' });
         const pub = await call(`/v1/murais/${ana.codigo}`);
         expect(await gunzip(await pub.arrayBuffer())).not.toContain('chave-rawg');
+      });
+    });
+
+    describe('reações', () => {
+      /** Bia segue Ana e reage à resenha r-hades dela. */
+      async function reacting(env: Record<string, string> = {}) {
+        const t = await two(env);
+        await t.follow(t.bia.token, t.ana.codigo);
+        const react = (token: string, codigo: string, ref: string, reacao: unknown, titulo = 'Hades') =>
+          t.json('PUT', `/v1/murais/${codigo}/reacoes/${ref}`, { reacao, titulo, mural: 'jogos' }, token);
+        const unreact = (token: string, codigo: string, ref: string) => t.json('DELETE', `/v1/murais/${codigo}/reacoes/${ref}`, undefined, token);
+        const list = async (codigo: string, token?: string) => {
+          const res = await t.json('GET', `/v1/murais/${codigo}/reacoes`, undefined, token);
+          return { status: res.status, body: res.status === 200 ? ((await res.json()) as any) : null };
+        };
+        return { ...t, react, unreact, list };
+      }
+
+      it('quem segue reage; todo mundo vê, com o nome de quem reagiu', async () => {
+        const { react, list, ana, bia } = await reacting();
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'fogo')).status).toBe(201);
+        const { status, body } = await list(ana.codigo);
+        expect(status).toBe(200);
+        expect(body.reacoes).toEqual({ 'r-hades': [{ codigo: bia.codigo, nome: 'Bia', reacao: 'fogo', em: NOW.toISOString() }] });
+      });
+
+      it('o dono recebe o aviso no correio, e ele conta como não visto', async () => {
+        const { react, feed, advance, ana, bia } = await reacting();
+        // um minuto depois de a conta da Ana nascer (o visto começa ali)
+        advance(60_000);
+        await react(bia.token, ana.codigo, 'r-hades', 'uau');
+        const { body } = await feed(ana.token);
+        const item = body.itens.find((i: any) => i.tipo === 'reagiu');
+        expect(item).toEqual({
+          tipo: 'reagiu',
+          em: new Date(NOW.getTime() + 60_000).toISOString(),
+          pessoa: { codigo: bia.codigo, nome: 'Bia' },
+          ref: 'r-hades',
+          titulo: 'Hades',
+          mural: 'jogos',
+          silenciado: false,
+          reacao: 'uau',
+        });
+        expect(body.naoVistas).toBe(1);
+        // e só o dono: quem reagiu não vê o próprio aviso
+        expect((await feed(bia.token)).body.itens.some((i: any) => i.tipo === 'reagiu')).toBe(false);
+      });
+
+      it('trocar de reação substitui a de antes (e o aviso); a mesma de novo não muda nada', async () => {
+        const { react, list, feed, advance, ana, bia } = await reacting();
+        await react(bia.token, ana.codigo, 'r-hades', 'fogo');
+        advance(60_000);
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'amei')).status).toBe(200);
+        const later = new Date(NOW.getTime() + 60_000).toISOString();
+        expect((await list(ana.codigo)).body.reacoes['r-hades']).toEqual([{ codigo: bia.codigo, nome: 'Bia', reacao: 'amei', em: later }]);
+        advance(60_000);
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'amei')).status).toBe(200);
+        expect((await list(ana.codigo)).body.reacoes['r-hades'][0].em).toBe(later);
+        const avisos = (await feed(ana.token)).body.itens.filter((i: any) => i.tipo === 'reagiu');
+        expect(avisos.map((i: any) => i.reacao)).toEqual(['amei']);
+      });
+
+      it('tirar a reação tira o aviso também', async () => {
+        const { react, unreact, list, feed, ana, bia } = await reacting();
+        await react(bia.token, ana.codigo, 'r-hades', 'rindo');
+        expect((await unreact(bia.token, ana.codigo, 'r-hades')).status).toBe(200);
+        expect((await list(ana.codigo)).body.reacoes).toEqual({});
+        expect((await feed(ana.token)).body.itens.some((i: any) => i.tipo === 'reagiu')).toBe(false);
+      });
+
+      it('recusa: sem seguir (403), a própria resenha, reação ou resenha inventada (400), código de ninguém (404), sem entrar (401)', async () => {
+        const { react, json, ana, bia } = await reacting();
+        expect((await react(ana.token, bia.codigo, 'r-celeste', 'fogo')).status).toBe(403);
+        expect((await react(ana.token, ana.codigo, 'r-hades', 'fogo')).status).toBe(400);
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'raiva')).status).toBe(400);
+        expect((await react(bia.token, ana.codigo, 'r-hades', 7)).status).toBe(400);
+        expect((await react(bia.token, ana.codigo, 'com espaço', 'fogo')).status).toBe(400);
+        expect((await react(bia.token, 'ZZZZ-ZZZZ', 'r-hades', 'fogo')).status).toBe(404);
+        expect((await json('PUT', `/v1/murais/${ana.codigo}/reacoes/r-hades`, { reacao: 'fogo' })).status).toBe(401);
+      });
+
+      it('com os murais só para quem entrou, a lista também pede a conta', async () => {
+        const { list, ana, bia } = await reacting({ VER_MURAIS: 'logados' });
+        expect((await list(ana.codigo)).status).toBe(401);
+        expect((await list(ana.codigo, bia.token)).status).toBe(200);
+      });
+
+      it('o dono que silenciou quem reagiu recebe o aviso sem contar', async () => {
+        const { react, follow, mute, feed, advance, ana, bia } = await reacting();
+        await follow(ana.token, bia.codigo);
+        await mute(ana.token, bia.codigo, true);
+        advance(60_000);
+        await react(bia.token, ana.codigo, 'r-hades', 'chorei');
+        const { body } = await feed(ana.token);
+        expect(body.itens.find((i: any) => i.tipo === 'reagiu').silenciado).toBe(true);
+        expect(body.naoVistas).toBe(0);
+      });
+
+      it(`no máximo ${MAX_REACTIONS_PER_DAY} reações por dia (429 reagir-devagar)`, async () => {
+        const { db, react, ana, bia } = await reacting();
+        await db.batch(
+          Array.from({ length: MAX_REACTIONS_PER_DAY }, (_, i) => ({
+            sql: 'INSERT INTO reacoes (dono_id, ref, autor_id, reacao, criado_em) VALUES (?, ?, ?, ?, ?)',
+            params: [ana.id, `r-velha-${i}`, bia.id, 'fogo', new Date(NOW.getTime() - 60_000).toISOString()],
+          })),
+        );
+        const res = await react(bia.token, ana.codigo, 'r-hades', 'fogo');
+        expect(res.status).toBe(429);
+        expect(((await res.json()) as any).erro).toBe('reagir-devagar');
+      });
+
+      it('apagar a conta leva as reações dela e as que ela recebeu', async () => {
+        const { react, list, json, db, ana, bia } = await reacting();
+        await react(bia.token, ana.codigo, 'r-hades', 'fogo');
+        expect((await json('DELETE', '/v1/eu', undefined, bia.token)).status).toBe(200);
+        expect((await list(ana.codigo)).body.reacoes).toEqual({});
+        const left = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes', []);
+        expect(left?.n).toBe(0);
       });
     });
   });

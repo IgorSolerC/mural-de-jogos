@@ -259,6 +259,13 @@ app-judge-label {
   background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)) 0 6px;
 }
 
+.reagir-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
 .no-text {
   font-style: italic;
   color: var(--ink-2);

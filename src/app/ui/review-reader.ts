@@ -28,12 +28,14 @@ import { Luz } from './luz';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 import { RichText } from './rich-text';
+import { ReactionBubble, ReactionPicker } from './reactions';
+import { ReactionTarget, Reactions } from '../core/reactions';
 import { plainText, toggleCheck } from '../core/rich-text';
 
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, RichText, Skulls, StatusLabel],
+  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (keydown)="onKey($event)" (close)="review.set(null)">
@@ -149,6 +151,18 @@ import { plainText, toggleCheck } from '../core/rich-text';
             } @else {
               <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
             }
+
+            <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir -->
+            @if (reactTarget(); as t) {
+              @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length) {
+                <div class="reagir-linha">
+                  @if (reactions.canReact(t.code)) {
+                    <app-reaction-picker [target]="t" />
+                  }
+                  <app-reaction-bubble [target]="t" />
+                </div>
+              }
+            }
           </div>
 
           <footer class="foot">
@@ -242,6 +256,15 @@ export class ReviewReader {
   protected readonly review = signal<Review | null>(null);
   /** Backups de colegas são somente leitura e nunca acionam as ações do mural pessoal. */
   protected readonly owner = signal<string | null>(null);
+  /** O código na nuvem do dono da ficha de outra pessoa (para as reações); null num backup. */
+  private readonly ownerCode = signal<string | null>(null);
+  protected readonly reactions = inject(Reactions);
+  /** A ficha aberta como alvo das reações: a de quem tem código, ou a sua com a conta aberta. */
+  protected readonly reactTarget = computed<ReactionTarget | null>(() => {
+    const r = this.review();
+    const code = this.owner() === null ? this.reactions.myCode() : this.ownerCode();
+    return r && code ? { code, ref: r.id, titulo: r.game.name, mural: r.kind } : null;
+  });
   /** Pedido por quem abriu: a ficha de outra pessoa sobre algo que você ainda não avaliou ("Evitar spoilers de outros murais"). */
   protected readonly forceMask = signal(false);
   /** "Revelar a nota": só enquanto esta leitura estiver aberta. */
@@ -331,7 +354,9 @@ export class ReviewReader {
    * Abre a ficha. A de um colega (`owner`) pode vir com as outras fichas dele (`pool`), para andar
    * entre as vezes; `masked` esconde notas, bônus e texto, como no modo sem spoilers.
    */
-  open(review: Review, owner: string | null = null, pool: readonly Review[] = [], masked = false): void {
+  open(review: Review, owner: string | null = null, pool: readonly Review[] = [], masked = false, code: string | null = null): void {
+    this.ownerCode.set(owner === null ? null : code);
+    if (code && owner !== null) void this.reactions.load(code);
     this.forceMask.set(masked);
     this.revealed.set(false);
     this.owner.set(owner);

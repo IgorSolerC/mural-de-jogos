@@ -101,6 +101,25 @@
                       </button>
                     }
                   </article>
+                } @else if (b.tipo === 'reagiu') {
+                  <!-- alguém reagiu à sua ficha: outro bilhete de bloquinho, com as reações no lugar do crachá -->
+                  <article class="bilhete-seguiu bilhete-reagiu" [style.rotate.deg]="tilt(i)" [attr.aria-label]="reactedSpoken(b) + ', ' + when(b.dia)">
+                    @if (isFresh(b.item)) {
+                      <span class="novo" aria-hidden="true">Novo</span>
+                    }
+                    <span class="reagiu-emojis" aria-hidden="true">
+                      @for (e of reactedEmojis(b); track e) {
+                        <span>{{ e }}</span>
+                      }
+                    </span>
+                    <div class="seguiu-txt">
+                      <p><strong>{{ reactedNames(b) }}</strong> {{ b.who.length > 1 ? 'reagiram' : 'reagiu' }} à sua ficha de <em class="obra">{{ b.titulo }}</em></p>
+                      <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
+                    </div>
+                    @if (reactedReview(b); as mine) {
+                      <button type="button" class="acao-caneta" (click)="openMine(mine)">Ver a ficha</button>
+                    }
+                  </article>
                 } @else {
                   <!-- as resenhas seguidas de uma pessoa: a fita com o nome e, embaixo, cada ficha com o bilhete de vocês dois -->
                   <section class="bloco" [attr.aria-labelledby]="'bloco-' + i">
@@ -129,6 +148,7 @@
                               [review]="theirs"
                               [preview]="true"
                               [masked]="p.secret"
+                              [reactCode]="p.item.pessoa.codigo"
                               (opened)="openReview(theirs, p.item.pessoa, p.secret)"
                             />
                           } @else {
@@ -193,6 +213,12 @@
                                   {{ wantLabel(theirs) }}
                                 </button>
                               }
+                            }
+                            <!-- reagir, como segurar a mensagem no WhatsApp: a fileira de emojis sai do botão -->
+                            @if (reactions.canReact(p.item.pessoa.codigo)) {
+                              <div class="nota-reagir">
+                                <app-reaction-picker [target]="p.target" />
+                              </div>
                             }
                           </div>
                         }

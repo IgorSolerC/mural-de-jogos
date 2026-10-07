@@ -123,8 +123,9 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       'SELECT (SELECT COUNT(*) FROM sessoes WHERE usuario_id = ?) + ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?) + ' +
         '(SELECT COUNT(*) FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?) + ' +
-        '(SELECT COUNT(*) FROM atividades WHERE autor_id = ? OR alvo_id = ?) AS n',
-      [id, id, id, id, id, id, id],
+        '(SELECT COUNT(*) FROM atividades WHERE autor_id = ? OR alvo_id = ?) + ' +
+        '(SELECT COUNT(*) FROM reacoes WHERE autor_id = ? OR dono_id = ?) AS n',
+      [id, id, id, id, id, id, id, id, id],
     );
     await write(
       deps,
@@ -135,6 +136,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         { sql: 'DELETE FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
         { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
         { sql: 'DELETE FROM atividades WHERE autor_id = ? OR alvo_id = ?', params: [id, id] },
+        { sql: 'DELETE FROM reacoes WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
         { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },
       ],
       3 * ((counts?.n ?? 0) + 3),

@@ -384,4 +384,26 @@ describe('Amigos: a página (MailPage)', () => {
       expect(posts(page).filter((p) => p.key.includes('rcri')).map((p) => p.estado)).toEqual(['ficha', 'ficha']);
     });
   });
+
+  describe('reações às minhas fichas', () => {
+    const reagiu = (pessoa: typeof ana, ref: string, em: string, reacao: 'fogo' | 'amei'): FeedItem => ({ tipo: 'reagiu', em, pessoa, ref, titulo: `Obra ${ref}`, mural: 'jogos', silenciado: false, reacao });
+
+    it('reações seguidas à mesma ficha viram um bilhete só, cada pessoa uma vez; outra ficha, outro bilhete', async () => {
+      items.set([
+        reagiu(ana, 'rminha1', '2026-10-06T10:00:00.000Z', 'fogo'),
+        reagiu(bia, 'rminha1', '2026-10-06T09:00:00.000Z', 'amei'),
+        reagiu(cris, 'rminha1', '2026-10-06T08:00:00.000Z', 'fogo'),
+        reagiu(ana, 'rminha2', '2026-10-05T10:00:00.000Z', 'amei'),
+      ]);
+      const page = (await open()) as any;
+      const blocks = page.blocks().filter((b: any) => b.tipo === 'reagiu');
+      expect(blocks.length).toBe(2);
+      expect(blocks[0].who.map((w: any) => w.pessoa.nome)).toEqual(['Ana', 'Bia', 'Cris']);
+      expect(page.reactedNames(blocks[0])).toBe('Ana, Bia e mais 1');
+      expect(page.reactedEmojis(blocks[0])).toEqual(['🔥', '❤️']);
+      expect(page.reactedSpoken(blocks[1])).toBe('Ana reagiu com Amei à sua ficha de Obra rminha2');
+      // quem só reagiu não tem mural para buscar
+      expect(log.some((l) => l.startsWith('ensure'))).toBeFalse();
+    });
+  });
 });

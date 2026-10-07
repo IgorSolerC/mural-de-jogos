@@ -166,7 +166,7 @@
             </header>
             <div class="fichas">
               @for (r of g.reviews; track r.id) {
-                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [capas]="capas()" [dayOnly]="shownSort() === 'data'" [masked]="hidden().has(r.id)" (opened)="open(r)" />
+                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [capas]="capas()" [dayOnly]="shownSort() === 'data'" [masked]="hidden().has(r.id)" [reactCode]="code()" (opened)="open(r)" />
               }
             </div>
           </section>

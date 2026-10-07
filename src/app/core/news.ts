@@ -44,6 +44,7 @@ export const NEWS: NewsEntry[] = [
       'A original é sempre a vez mais antiga: pregar uma rejogada (releitura, reassistida) com data de antes da original faz dela a original, e as outras viram rejogadas dela. "Não lembro" conta como a mais antiga. As cartolinas continuam iguaizinhas.',
       'O texto da resenha ganhou formatação: negrito, itálico, listas, listas numeradas e tarefas, pelos botões em cima da folha (ou Ctrl+B e Ctrl+I). "Ver como fica" mostra o resultado, e as tarefas se marcam direto na leitura da ficha.',
       'Textos longos: "Maximizar" abre a folha na tela inteira, com a letra maior.',
+      'Reações, como as do WhatsApp: nas fichas de quem você segue, "Reagir" (no Feed e na leitura) abre ❤️ 🔥 😂 😮 😢 🤔 👎. Quem vê o mural vê as reações num balãozinho na ficha; tocando nele, quem reagiu com o quê. Quando alguém reage às suas, chega um aviso no Feed.',
     ],
   },
   {
