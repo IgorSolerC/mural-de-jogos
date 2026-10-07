@@ -406,11 +406,12 @@ describe('sincronização: bordas e bugs conhecidos', () => {
 
     it('juntar sem perguntar um mural igual ao da nuvem não gera envio', async () => {
       const a = device();
-      a.store.add(review('raaaa1', 'Celeste'));
+      // com a cor dada: sem ela, cada aparelho sorteia uma cartolina e os murais não são iguais
+      a.store.add(review('raaaa1', 'Celeste', { stock: 'azul' }));
       await a.sync.syncNow();
       const b = device();
       b.kv.setItem(OWNER_KEY, ACCOUNT.id); // este navegador já foi desta conta (o estado se perdeu)
-      b.store.add(review('raaaa1', 'Celeste'));
+      b.store.add(review('raaaa1', 'Celeste', { stock: 'azul' }));
       await b.sync.syncNow();
       expect(cloud.puts).toBe(1);
     });
