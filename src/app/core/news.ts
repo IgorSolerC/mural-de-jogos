@@ -31,6 +31,18 @@ export interface NewsEntry {
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-06-amigos-de-cara-nova',
+    date: '2026-10-06',
+    title: 'Amigos de cara nova',
+    items: [
+      'Enquanto o mural de um amigo chega, a resenha mostra uma ficha em branco com o nome da obra, em vez de dizer que ela saiu do mural. Se não der para buscar, aparece "Tentar de novo".',
+      'O bilhete com "+1,4 que você" agora fica preso na ficha com um pedaço de fita, e resenhas seguidas da mesma pessoa ficam sob uma fita só.',
+      'Na tela grande, ao lado do que chegou: o seu crachá com o código (e o link para copiar), o bilhete para seguir alguém e quem você segue.',
+      'Pessoas virou uma lista só: cada pessoa aparece uma vez, com "Vocês se seguem", "Você segue" ou "Segue você". Silenciar, deixar de seguir e remover seguidor ficam no "⋯" de cada um.',
+      'O cadeado das resenhas privadas fica sempre escuro, também nas cartolinas escuras.',
+    ],
+  },
+  {
     id: '2026-10-06-privadas-e-segredos',
     date: '2026-10-06',
     title: 'Resenhas privadas e notas em segredo',

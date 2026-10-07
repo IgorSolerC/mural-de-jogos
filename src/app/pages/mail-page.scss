@@ -1,5 +1,10 @@
 :host {
   display: block;
+  /* a largura do que chegou: a ficha do mural e o bilhete preso nela (14px por cima da ficha) */
+  --nota-w: 300px;
+  --feed-w: calc(var(--ficha-w) + var(--nota-w) - 14px);
+  --lado-w: 320px;
+  --lado-gap: clamp(40px, 4vw, 64px);
 }
 
 /* ===== Cabeça: a fita com o nome, como Ajustes e Novidades ===== */
@@ -12,6 +17,7 @@
   padding-left: 4px;
 }
 
+/* texto em giz direto na parede */
 .resumo,
 .giz {
   font-family: var(--f-label);
@@ -24,7 +30,9 @@
 }
 
 .giz {
-  margin-bottom: 18px;
+  max-width: 62ch;
+  margin-bottom: 26px;
+  line-height: 1.4;
 }
 
 /* "misture tudo", dentro da linha de giz */
@@ -42,8 +50,8 @@
   cursor: pointer;
 }
 
-
-.abas-correio {
+/* a régua: do tamanho da página aberta (com a coluna do lado, em telas largas, ela vai até o fim dela) */
+.abas-amigos {
   max-width: 760px;
   margin-bottom: 44px;
 
@@ -60,7 +68,45 @@
   max-width: 760px;
 }
 
-/* ===== Fichas de cartolina (sem conta, vazio, pessoas), como as de Ajustes ===== */
+/* ===== Chegou: o que chegou e, em telas largas, a coluna do lado ===== */
+.painel-chegou {
+  max-width: var(--feed-w);
+}
+
+.feed {
+  min-width: 0;
+}
+
+.lado {
+  display: none;
+}
+
+@media (min-width: 1100px) {
+  .abas-amigos {
+    max-width: calc(var(--feed-w) + var(--lado-gap) + var(--lado-w));
+  }
+
+  .painel-chegou {
+    grid-template-columns: minmax(0, var(--feed-w)) var(--lado-w);
+    column-gap: var(--lado-gap);
+    align-items: start;
+    max-width: none;
+  }
+
+  .lado {
+    position: sticky;
+    top: 24px;
+    display: grid;
+    gap: 40px;
+  }
+
+  /* com a coluna do lado, o vazio não repete o seguir */
+  .vazio-seguir {
+    display: none;
+  }
+}
+
+/* ===== Fichas de cartolina (sem conta, vazio, a lista), como as de Ajustes ===== */
 .ficha {
   position: relative;
   max-width: 760px;
@@ -90,13 +136,12 @@
     opacity: 0.7;
   }
 
-  .btn-ink {
+  > .btn-ink {
     margin-top: 18px;
   }
 }
 
-.sem-conta,
-.seguir {
+.sem-conta {
   --stock: var(--stock-azul);
   rotate: -0.6deg;
 }
@@ -106,14 +151,13 @@
   rotate: 0.5deg;
 }
 
-.sigo {
-  --stock: var(--stock-verde);
-  rotate: 0.4deg;
+.vazio-seguir {
+  margin-top: 26px;
 }
 
-.seguem {
-  --stock: var(--stock-rosa);
-  rotate: -0.4deg;
+.lista {
+  --stock: var(--stock-verde);
+  rotate: 0.4deg;
 }
 
 .lead {
@@ -128,6 +172,7 @@
   color: var(--ink-2);
 }
 
+/* a frase de erro da nuvem num papel branco, com a tinta escura de erro */
 .msg {
   margin-top: 12px;
   padding: 8px 12px;
@@ -136,91 +181,335 @@
   line-height: 1.4;
 
   &.error {
-    background: #fff;
-    color: #6b0000;
-  }
-}
-
-.link {
-  padding: 0 2px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.meu-codigo {
-  font-family: var(--f-marker);
-  font-weight: 400;
-  letter-spacing: 0.08em;
-}
-
-/* ===== Seguir: o código numa tira de papel, como o campo do envelope do Comparar ===== */
-.campo {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
-
-  input {
-    flex: 1 1 220px;
-    min-width: 0;
-    height: 54px;
-    padding: 0 16px;
-    border: 0;
-    border-radius: 2px;
     background: var(--paper);
-    box-shadow: inset 0 0 0 2.5px var(--ink);
-    color: var(--ink);
-    font-family: var(--f-marker);
-    font-size: 1.45rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    outline: none;
-
-    &::placeholder {
-      color: rgb(21 21 21 / 0.3);
-    }
-
-    &:focus {
-      box-shadow:
-        inset 0 0 0 3px var(--ink),
-        0 0 0 4px var(--focus);
-    }
-  }
-
-  .btn-ink {
-    margin-top: 0;
-    min-height: 54px;
+    color: var(--error-ink, #6b0000);
   }
 }
 
-/* ===== Listas de pessoas ===== */
-.pessoas {
-  margin: 8px 0 0;
+/* ===== O que chegou ===== */
+.blocos {
+  display: grid;
+  gap: 64px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.pessoa {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
-  padding: 14px 0;
-  border-top: 2px dashed rgb(21 21 21 / 0.22);
+/* as resenhas seguidas de uma pessoa: a fita com o nome e as fichas, uma embaixo da outra */
+.bloco {
+  display: grid;
+  gap: 40px;
+}
 
-  &:first-child {
-    border-top: 0;
+.quem {
+  margin: 0 0 -14px 2px;
+  font-size: 1.35rem;
+}
+
+/* o nome é um link para o mural da pessoa, escrito no mesmo pincel da fita */
+.quem-nome {
+  --focus: var(--ink);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-thickness: 3px;
   }
 }
 
-/* o crachá de "Olá, eu sou" da comparação, em miniatura: a faixa azul e a inicial a caneta */
+/* uma resenha: a ficha do amigo, com a largura exata de uma ficha do mural (--ficha-w, então ela
+   quebra as linhas igual e sai com a mesma altura que ele viu ao pregar), e o bilhete de vocês dois
+   preso na quina dela com um pedaço de fita */
+.post {
+  display: grid;
+  grid-template-columns: var(--ficha-w) minmax(0, var(--nota-w));
+  align-items: start;
+}
+
+.post-ficha {
+  position: relative;
+  z-index: 0;
+  min-width: 0;
+
+  app-review-card {
+    display: block;
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* o bilhete: papel de bloquinho, serrilhado no pé, escrito à mão, por cima da borda da ficha */
+.nota {
+  --focus: var(--ink);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin: 30px 0 0 -14px;
+  padding: 22px 22px 16px;
+  background: var(--paper);
+  color: var(--ink);
+  rotate: 1.6deg;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.45));
+
+  /* o pé serrilhado, onde a folha saiu do bloco: um ::after em papel, para a sombra não ser cortada */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 10px;
+    background: var(--paper);
+    -webkit-mask: conic-gradient(from -45deg at bottom, #000 90deg, #0000 0) 50% / 12px 100%;
+    mask: conic-gradient(from -45deg at bottom, #000 90deg, #0000 0) 50% / 12px 100%;
+  }
+}
+
+.post-par .nota {
+  rotate: -1.3deg;
+}
+
+/* o pedaço de fita que prende o bilhete na ficha */
+.nota-fita {
+  position: absolute;
+  top: -11px;
+  left: -26px;
+  width: 78px;
+  height: 22px;
+  background: rgb(222 205 160 / 0.86);
+  rotate: -34deg;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+}
+
+.dia {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* "Marina deu +1,4 que você": o número na caneta azul do amigo, como no Comparar */
+.placar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin-top: 2px;
+}
+
+.placar-txt {
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.placar-n {
+  font-family: var(--f-marker);
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--caneta-azul);
+  font-variant-numeric: tabular-nums;
+
+  &.igual {
+    font-size: 2.1rem;
+  }
+}
+
+.voce {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  strong {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.2rem;
+    letter-spacing: 0;
+    color: var(--ink);
+  }
+}
+
+.segredo-nota {
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+.quero {
+  margin-top: 2px;
+  font-size: 1.05rem;
+}
+
+/* "Novo": o adesivo de tinta com a letra amarela das Novidades, sempre na quina de cima à direita */
+.novo {
+  position: absolute;
+  z-index: 3;
+  top: -14px;
+  right: 22px;
+  padding: 6px 11px 5px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  rotate: 5deg;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 8px -3px rgb(0 0 0 / 0.4);
+  pointer-events: none;
+}
+
+/* ===== Sem a ficha: uma cartolina em branco com o nome da obra ===== */
+.ficha-espera {
+  --stock: var(--stock-cinza);
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 12px;
+  width: 100%;
+  min-height: 176px;
+  padding: 34px 22px 24px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+  rotate: -0.6deg;
+
+  .btn-small {
+    margin-top: 4px;
+  }
+}
+
+/* o furo da tachinha, no meio do alto */
+.furo {
+  position: absolute;
+  top: 12px;
+  left: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(21 21 21 / 0.55);
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.5), 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.espera-titulo {
+  font-family: var(--f-marker);
+  font-size: 1.5rem;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.espera-txt {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+/* saiu do mural: só o lugar onde a ficha estava, tracejado na parede, escrito a giz */
+.ficha-espera.saiu {
+  min-height: 0;
+  background: none;
+  box-shadow: none;
+  outline: 2px dashed rgb(243 239 230 / 0.32);
+  outline-offset: -2px;
+  color: var(--wall-ink-2);
+  rotate: 0deg;
+
+  .furo {
+    background: rgb(0 0 0 / 0.6);
+    box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.6);
+  }
+
+  .espera-titulo {
+    color: var(--wall-ink);
+  }
+}
+
+/* ===== "Fulano começou a seguir você": um bilhete de bloquinho com o crachá da pessoa ===== */
+.bilhete-seguiu {
+  --focus: var(--ink);
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  max-width: var(--feed-w);
+  padding: 20px 20px 16px;
+  background: var(--paper);
+  color: var(--ink);
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.45));
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 10px;
+    background: var(--paper);
+    -webkit-mask: conic-gradient(from -45deg at bottom, #000 90deg, #0000 0) 50% / 12px 100%;
+    mask: conic-gradient(from -45deg at bottom, #000 90deg, #0000 0) 50% / 12px 100%;
+  }
+
+  .seguiu-txt {
+    flex: 1 1 220px;
+    display: grid;
+    gap: 6px;
+  }
+
+  p {
+    font-family: var(--f-hand);
+    font-size: 1.2rem;
+    line-height: 1.3;
+  }
+
+  strong {
+    font-family: var(--f-marker);
+    font-weight: 400;
+  }
+}
+
+.mutuo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.btn-ink.btn-small {
+  min-height: 44px;
+  padding: 8px 16px 7px;
+  font-size: 1.02rem;
+}
+
+/* ===== O crachá "Olá, eu sou" em miniatura: a faixa azul e a inicial a caneta ===== */
 .cracha-mini {
   flex: none;
   display: grid;
@@ -240,6 +529,303 @@
   rotate: -3deg;
 }
 
+/* ===== O seu crachá e o bilhete de seguir (coluna do lado, Pessoas e o vazio) ===== */
+.seguir {
+  display: grid;
+  gap: 30px;
+  justify-items: start;
+}
+
+/* em Pessoas, lado a lado quando cabe */
+@media (min-width: 640px) {
+  .seguir-largo {
+    grid-template-columns: 260px minmax(0, 1fr);
+    align-items: start;
+    gap: 28px;
+  }
+}
+
+/* o crachá adesivo, como os do Comparar: faixa preta (é você), o nome a pincel e o código */
+.meu-cracha {
+  --focus: var(--ink);
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  max-width: 300px;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    linear-gradient(to top, var(--ink) 0 9px, transparent 9px),
+    #fdfcf8;
+  color: var(--ink);
+  color-scheme: light;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  rotate: -2deg;
+
+  /* o brilho do vinil */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.42) 46%, transparent 56%);
+    pointer-events: none;
+  }
+
+  .faixa {
+    justify-self: stretch;
+    padding: 7px 10px 5px;
+    background: var(--ink);
+    color: #fdfcf8;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.86rem;
+    letter-spacing: 0.18em;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+}
+
+.meu-nome {
+  max-width: 100%;
+  padding: 12px 16px 0;
+  overflow: hidden;
+  font-family: var(--f-marker);
+  font-size: 2rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meu-codigo-linha {
+  margin-top: 2px;
+}
+
+.meu-codigo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.16em;
+  color: var(--ink-2);
+}
+
+.meu-copiar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 2px;
+  padding: 4px 8px 16px;
+
+  .btn-quiet {
+    min-height: 40px;
+    padding-inline: 9px;
+    font-size: 0.86rem;
+  }
+}
+
+/* o bilhete de seguir: folha de bloquinho com o código numa tira de papel */
+.bilhete-seguir {
+  --focus: var(--ink);
+  position: relative;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  padding: 18px 18px 14px;
+  background: var(--paper);
+  color: var(--ink);
+  rotate: 0.8deg;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.45));
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 10px;
+    background: var(--paper);
+    -webkit-mask: conic-gradient(from -45deg at bottom, #000 90deg, #0000 0) 50% / 12px 100%;
+    mask: conic-gradient(from -45deg at bottom, #000 90deg, #0000 0) 50% / 12px 100%;
+  }
+}
+
+.bilhete-titulo {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.4rem;
+  line-height: 1.05;
+}
+
+.bilhete-dica {
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.campo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+
+  input {
+    flex: 1 1 150px;
+    min-width: 0;
+    height: 50px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 2px;
+    background: #fff;
+    box-shadow: inset 0 0 0 2.5px var(--ink);
+    color: var(--ink);
+    caret-color: var(--red);
+    font-family: var(--f-marker);
+    font-size: 1.3rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    outline: none;
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.3);
+    }
+
+    &:focus {
+      box-shadow:
+        inset 0 0 0 3px var(--ink),
+        0 0 0 4px var(--hi);
+    }
+
+    &[aria-invalid='true'] {
+      box-shadow: inset 0 0 0 3px var(--error-ink, #6b0000);
+    }
+  }
+
+  .btn-ink {
+    min-height: 50px;
+  }
+}
+
+.bilhete-seguir .msg.error {
+  margin-top: 4px;
+  padding: 0;
+}
+
+/* ===== Coluna do lado: quem você segue, em crachás ===== */
+.lado-pessoas {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+
+.lado-fita {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+
+  .n {
+    margin-left: 4px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.95rem;
+    opacity: 0.7;
+  }
+}
+
+.lado-lista {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0 0 0 4px;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  li:nth-child(even) .cracha-mini {
+    rotate: 2.5deg;
+  }
+
+  .cracha-mini {
+    width: 36px;
+    height: 38px;
+    padding-top: 7px;
+    font-size: 1.15rem;
+    background:
+      linear-gradient(to bottom, var(--caneta-azul) 0 8px, transparent 8px),
+      #fdfcf8;
+  }
+
+  .pessoa-nome {
+    --focus: var(--hi);
+    min-width: 0;
+    color: var(--wall-ink);
+    font-size: 1.2rem;
+    text-decoration-color: rgb(243 239 230 / 0.4);
+  }
+
+  .quieta .cracha-mini {
+    background:
+      linear-gradient(to bottom, rgb(21 21 21 / 0.35) 0 8px, transparent 8px),
+      #fdfcf8;
+    color: rgb(21 21 21 / 0.45);
+  }
+
+  .quieta .pessoa-nome {
+    color: var(--wall-ink-2);
+  }
+}
+
+.lado-mudo {
+  flex: none;
+  display: inline-flex;
+  color: var(--wall-ink-2);
+}
+
+.lado-giz {
+  max-width: 34ch;
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.3;
+  color: var(--wall-ink-2);
+}
+
+.lado-gerenciar {
+  margin-left: -10px;
+  color: var(--wall-ink);
+}
+
+/* ===== Pessoas: a lista única ===== */
+.pessoas-topo {
+  margin-bottom: 8px;
+}
+
+.pessoas {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pessoa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px 0;
+  border-top: 2px dashed rgb(21 21 21 / 0.22);
+
+  &:first-child {
+    border-top: 0;
+  }
+}
+
 .pessoa:nth-child(even) .cracha-mini {
   rotate: 2.5deg;
 }
@@ -256,10 +842,11 @@
   flex: 1 1 160px;
   display: grid;
   justify-items: start;
+  gap: 5px;
   min-width: 0;
 }
 
-/* o nome abre o mural, sublinhado a caneta como no Chegou */
+/* o nome abre o mural, sublinhado a caneta */
 .pessoa-nome {
   --focus: var(--ink);
   padding: 0;
@@ -280,268 +867,144 @@
   &:hover {
     text-decoration-color: currentColor;
   }
-
-  &:disabled {
-    cursor: progress;
-  }
 }
 
-.pessoa-sub {
+/* a relação: "Vocês se seguem" é um adesivo de papel; as outras, impressas na cartolina */
+.lacos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.laco {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   letter-spacing: 0.08em;
+  line-height: 1;
   text-transform: uppercase;
-  color: var(--ink-2);
+  color: var(--ink);
+
+  &.mutuo-laco {
+    padding: 4px 7px 3px;
+    border-radius: 2px;
+    background: var(--paper);
+    rotate: -1.5deg;
+    box-shadow: 0 1px 1px rgb(0 0 0 / 0.25), 0 3px 5px -3px rgb(0 0 0 / 0.35);
+  }
+
+  &.mudo {
+    color: var(--ink-2);
+  }
 }
 
 .pessoa-acoes {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 4px;
+  justify-content: flex-end;
+  gap: 6px;
   margin-left: auto;
+}
+
+/* "⋯": abre a tira de opções da pessoa */
+.opcoes {
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+
+  &.aberto {
+    background: rgb(21 21 21 / 0.14);
+  }
+}
+
+/* as opções: uma tira de bloquinho que desce da linha, com a tinta vermelha no papel branco */
+.gaveta {
+  --focus: var(--ink);
+  flex-basis: 100%;
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 4px 56px;
+  padding: 8px 10px 10px;
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  rotate: -0.3deg;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25), 0 8px 14px -8px rgb(0 0 0 / 0.45);
+  animation: gaveta-desce var(--t-physical) var(--ease-physical);
+}
+
+@keyframes gaveta-desce {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+
+.gaveta-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
 
   .btn-quiet {
-    min-height: 40px;
+    min-height: 44px;
     padding-inline: 10px;
-    font-size: 0.92rem;
-  }
-
-  .btn-quiet[aria-pressed='true'] {
-    background: rgb(21 21 21 / 0.12);
+    font-size: 0.94rem;
   }
 }
 
-.btn-ink.btn-small {
-  margin-top: 0;
-  min-height: 40px;
-  padding: 7px 14px 6px;
-  font-size: 1rem;
-}
-
-.mutuo {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.88rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-/* ===== O que chegou ===== */
-.posts {
-  display: grid;
-  gap: 56px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* ===== Uma resenha nova: a etiqueta "Igor avaliou", a ficha dele e o bilhete de vocês dois ===== */
-.post-cabeca {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 14px;
-  margin-bottom: 20px;
-}
-
-.post-quem {
-  margin: 0;
-  font-weight: 400;
-}
-
-/* o nome é um link para o mural da pessoa, escrito no mesmo pincel da fita */
-.post-nome {
-  --focus: var(--ink);
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration-thickness: 3px;
-  }
-}
-
-.post-quando {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.92rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
-}
-
-.novo.post-novo {
-  position: static;
-  rotate: 4deg;
-}
-
-/* a ficha do amigo com a largura exata de uma ficha do mural (--ficha-w), então ela quebra as linhas
-   igual e sai com a mesma altura que ele viu ao pregar; o bilhete ao lado, pregado mais baixo */
-.post-corpo {
-  display: grid;
-  grid-template-columns: var(--ficha-w) minmax(0, 300px);
-  align-items: start;
-  gap: 18px 30px;
-}
-
-.post-ficha {
-  display: block;
-  width: 100%;
-  max-width: none;
-}
-
-/* o bilhete de vocês dois: papel de bloquinho, serrilhado no pé, escrito à mão */
-.post-nota {
-  --focus: var(--ink);
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-  margin-top: 28px;
-  padding: 16px 18px 22px;
-  background: var(--paper);
-  color: var(--ink);
-  rotate: 1.2deg;
-  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
-  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
-  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.45));
-}
-
-/* "Igor deu +1,4 que você": o número na caneta azul do amigo, como no Comparar */
-.placar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 8px;
-}
-
-.placar-txt {
+.gaveta-dica {
+  flex: 1 1 200px;
+  padding-left: 10px;
   font-family: var(--f-hand);
-  font-size: 1.15rem;
+  font-size: 1rem;
   line-height: 1.25;
-}
-
-.placar-n {
-  font-family: var(--f-marker);
-  font-size: 2.3rem;
-  line-height: 1;
-  color: var(--caneta-azul);
-  font-variant-numeric: tabular-nums;
-
-  &.igual {
-    font-size: 1.9rem;
-  }
-}
-
-.voce,
-.segredo-nota {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.88rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-
-  strong {
-    font-family: var(--f-marker);
-    font-weight: 400;
-    font-size: 1.1rem;
-    letter-spacing: 0;
-    color: var(--ink);
-  }
-}
-
-.segredo-nota {
-  text-transform: none;
-  letter-spacing: 0;
-  font-family: var(--f-hand);
-  font-weight: 400;
-  font-size: 1rem;
-}
-
-.quero {
-  font-size: 1rem;
-}
-
-.sumiu {
-  margin: 0;
-}
-
-/* "Fulano começou a seguir você": um bilhete de bloquinho, como o lembrete do mural */
-.bilhete-seguiu {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  padding: 14px 18px 18px;
-  background: var(--paper);
-  color: var(--ink);
-  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
-  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
-  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.45));
-  --focus: var(--ink);
-
-  p {
-    flex: 1 1 240px;
-    font-family: var(--f-hand);
-    font-size: 1.15rem;
-    line-height: 1.35;
-  }
-
-  strong {
-    font-family: var(--f-marker);
-    font-weight: 400;
-  }
-
-  /* aqui o adesivo vai na frente do texto: na quina ele cobriria o "Seguir de volta" */
-  .novo {
-    position: static;
-    order: -1;
-    rotate: -3deg;
-  }
-}
-
-.bilhete-icone {
-  flex: none;
-}
-
-.quando {
   color: var(--ink-2);
 }
 
-/* "Novo": o adesivo de tinta com a letra amarela das Novidades */
-.novo {
-  position: absolute;
-  z-index: 2;
-  top: -12px;
-  right: 22px;
-  padding: 6px 11px 5px;
-  border-radius: 2px;
-  background: var(--ink);
-  color: var(--hi);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  rotate: 5deg;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 8px -3px rgb(0 0 0 / 0.4);
+/* ===== Telas estreitas ===== */
+@media (max-width: 760px) {
+  /* a ficha e, embaixo dela, o bilhete preso na beirada de baixo */
+  .post {
+    grid-template-columns: var(--ficha-w);
+  }
+
+  .nota {
+    justify-self: end;
+    width: min(var(--nota-w), 88%);
+    margin: 10px 10px 0 0;
+    rotate: 1deg;
+  }
+
+  .post-par .nota {
+    rotate: -1deg;
+  }
+
+  /* o bilhete fica logo embaixo da ficha (sem cobrir as notas dela) e a fita faz a ponte */
+  .nota-fita {
+    top: -20px;
+    left: 26px;
+    height: 26px;
+    rotate: -5deg;
+  }
+}
+
+/* no celular a parede vira uma coluna só e a ficha ocupa a largura toda: aqui também */
+@media (max-width: 559px) {
+  .post {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ficha-espera {
+    width: 100%;
+  }
 }
 
 @media (max-width: 600px) {
@@ -549,39 +1012,22 @@
     padding: 26px 18px 22px;
   }
 
-  /* as ações descem para a linha de baixo, alinhadas com o nome (depois do crachá) */
-  .pessoa {
-    row-gap: 6px;
-  }
-
-  .pessoa-acoes {
-    flex-basis: 100%;
+  .gaveta {
     margin-left: 0;
-    padding-left: 46px;
+  }
+
+  .gaveta-dica {
+    flex-basis: 100%;
+    padding: 0 10px 6px;
+  }
+
+  .meu-cracha {
+    max-width: 280px;
   }
 }
 
-/* Telas estreitas: a ficha e, embaixo dela, o bilhete */
-@media (max-width: 760px) {
-  .post-corpo {
-    grid-template-columns: var(--ficha-w);
-  }
-
-  .post-nota {
-    margin-top: 6px;
-    rotate: 0.6deg;
-  }
-}
-
-/* no celular a parede vira uma coluna só e a ficha ocupa a largura toda: aqui também */
-@media (max-width: 559px) {
-  .post-corpo {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 420px) {
-  .bilhete-icone {
-    display: none;
+@media (prefers-reduced-motion: reduce) {
+  .gaveta {
+    animation: none;
   }
 }

@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { BellOff, Check, Heart, Inbox, LucideAngularModule, UserPlus, UsersRound } from 'lucide-angular';
+import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Heart, Inbox, Link, LucideAngularModule, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
-import { CLOUD_COLLEAGUE_PREFIX, CloudMurals } from '../core/cloud-murals';
+import { CLOUD_COLLEAGUE_PREFIX, CloudMurals, muralLink } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
-import { Follow, Person, dayLabel, localDayOf } from '../core/follow';
+import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, localDayOf } from '../core/follow';
 import { profileOf } from '../core/kinds';
 import { Review, fold, formatScore, newId, shownFinal } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -22,6 +23,35 @@ import { Busy } from '../ui/busy';
 import { SpoilerShield } from '../core/spoiler-shield';
 
 type Tab = 'chegou' | 'pessoas';
+/** O mural de alguém, para o Chegou: ainda vindo, aqui, ou a nuvem não respondeu. */
+type WallState = 'buscando' | 'pronto' | 'erro';
+
+/** Uma resenha que chegou: a ficha do amigo (quando o mural dele já está aqui) e a minha da mesma obra. */
+interface Post {
+  key: string;
+  item: Extract<FeedItem, { tipo: 'resenha' }>;
+  dia: string;
+  theirs: Review | null;
+  mine: Review | null;
+  secret: boolean;
+  /** ficha: a ficha está aqui; buscando: o mural ainda vem; saiu: o mural veio e ela não está; erro: não veio. */
+  estado: 'ficha' | 'buscando' | 'saiu' | 'erro';
+}
+
+/** O Chegou em blocos: um bilhete de quem começou a seguir, ou as resenhas seguidas de uma pessoa. */
+type Block =
+  | { tipo: 'seguiu'; key: string; item: Extract<FeedItem, { tipo: 'seguiu' }>; dia: string }
+  | { tipo: 'pessoa'; key: string; pessoa: Person; posts: Post[] };
+
+/** Uma pessoa na lista única de Pessoas: quem eu sigo e quem me segue, juntos. */
+interface Someone {
+  codigo: string;
+  nome: string;
+  /** Eu sigo (com o silenciado), ou null. */
+  sigo: FollowedPerson | null;
+  /** Ela me segue, ou null. */
+  segue: Follower | null;
+}
 const TABS: readonly Tab[] = ['chegou', 'pessoas'];
 const tabFrom = (v: string | null): Tab => (TABS.includes(v as Tab) ? (v as Tab) : 'chegou');
 const TILTS = [-0.5, 0.4, -0.3, 0.6, -0.4, 0.2];
@@ -34,7 +64,7 @@ const TILTS = [-0.5, 0.4, -0.3, 0.6, -0.4, 0.2];
  */
 @Component({
   selector: 'app-mail-page',
-  imports: [Busy, LucideAngularModule, Pin, ReviewCard, ReviewReader, RouterLink],
+  imports: [Busy, LucideAngularModule, NgTemplateOutlet, Pin, ReviewCard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mail-page.html',
   styleUrl: './mail-page.scss',
@@ -60,6 +90,14 @@ export class MailPage {
   protected readonly CheckIcon = Check;
   protected readonly WishIcon = Heart;
   protected readonly MuteIcon = BellOff;
+  protected readonly UnmuteIcon = Bell;
+  protected readonly MoreIcon = Ellipsis;
+  protected readonly CopyIcon = Copy;
+  protected readonly LinkIcon = Link;
+  protected readonly RetryIcon = RefreshCw;
+  protected readonly UnfollowIcon = UserMinus;
+  protected readonly RemoveIcon = UserX;
+  protected readonly GoIcon = ArrowRight;
   protected readonly formatScore = formatScore;
 
   protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Inbox }[] = [
@@ -74,26 +112,65 @@ export class MailPage {
   /** Separado: o plural do mural aberto ("animes"), para dizer que só ele aparece. */
   protected readonly onlyKind = computed(() => (this.settings.friendKinds() === 'separado' ? this.muralKind.profile().plural : null));
   /**
-   * O que chegou, um por um: cada resenha nova é a ficha do amigo pregada aqui (amigos não pregam
-   * muitas por dia, então nada de agrupar), com a minha ficha da mesma obra, se eu tiver.
+   * O que chegou, um por um: cada resenha nova é a ficha do amigo pregada aqui, com a minha ficha da
+   * mesma obra, se eu tiver. Resenhas seguidas da mesma pessoa ficam sob uma fita só.
    */
-  protected readonly posts = computed(() =>
-    this.follow.visible().map((item) => {
+  protected readonly blocks = computed<Block[]>(() => {
+    const out: Block[] = [];
+    for (const item of this.follow.visible()) {
       const dia = localDayOf(item.em);
-      if (item.tipo === 'seguiu') return { key: `seguiu:${item.pessoa.codigo}`, item, dia, theirs: null, mine: null, secret: false };
-      const theirs = this.reviewOf(item.pessoa.codigo, item.ref);
-      const mine = theirs ? this.mineOf(item.pessoa.codigo, theirs) : null;
-      // "Evitar spoilers de outros murais": o que eu ainda não avaliei vem em segredo
-      const secret = !!theirs && !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id);
-      return { key: `resenha:${item.pessoa.codigo}:${item.ref}`, item, dia, theirs, mine, secret };
-    }),
-  );
+      if (item.tipo === 'seguiu') {
+        out.push({ tipo: 'seguiu', key: `seguiu:${item.pessoa.codigo}`, item, dia });
+        continue;
+      }
+      const post = this.postOf(item, dia);
+      const last = out[out.length - 1];
+      if (last?.tipo === 'pessoa' && last.pessoa.codigo === item.pessoa.codigo) last.posts.push(post);
+      else out.push({ tipo: 'pessoa', key: `pessoa:${item.pessoa.codigo}:${item.ref}`, pessoa: item.pessoa, posts: [post] });
+    }
+    return out;
+  });
+
+  private postOf(item: Extract<FeedItem, { tipo: 'resenha' }>, dia: string): Post {
+    const key = `resenha:${item.pessoa.codigo}:${item.ref}`;
+    const theirs = this.reviewOf(item.pessoa.codigo, item.ref);
+    if (!theirs) {
+      // sem a ficha: o mural ainda vem, não veio, ou veio sem ela (só aí ela "saiu")
+      const wall = this.wallState().get(item.pessoa.codigo);
+      const estado = wall === 'erro' ? 'erro' : wall === 'pronto' ? 'saiu' : 'buscando';
+      return { key, item, dia, theirs: null, mine: null, secret: false, estado };
+    }
+    const mine = this.mineOf(item.pessoa.codigo, theirs);
+    // "Notas dos outros: Evitar spoilers": o que eu ainda não avaliei vem em segredo
+    const secret = !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id);
+    return { key, item, dia, theirs, mine, secret, estado: 'ficha' };
+  }
+
   protected readonly people = this.follow.people;
   protected readonly followingCount = computed(() => this.people()?.seguindo.length ?? 0);
-  protected readonly peopleCount = computed(() => {
+  /**
+   * Pessoas, numa lista só: cada pessoa uma vez, com a relação ("Vocês se seguem", "Você segue",
+   * "Segue você"). Quem segue você sem você seguir de volta vem primeiro (tem o que fazer); depois
+   * pelo nome.
+   */
+  protected readonly everyone = computed<Someone[]>(() => {
     const p = this.people();
-    return p ? p.seguindo.length + p.seguidores.length : 0;
+    if (!p) return [];
+    const byCode = new Map<string, Someone>();
+    for (const f of p.seguindo) byCode.set(f.codigo, { codigo: f.codigo, nome: f.nome, sigo: f, segue: null });
+    for (const f of p.seguidores) {
+      const known = byCode.get(f.codigo);
+      if (known) known.segue = f;
+      else byCode.set(f.codigo, { codigo: f.codigo, nome: f.nome, sigo: null, segue: f });
+    }
+    const pending = (x: Someone) => (x.segue && !x.sigo ? 0 : 1);
+    return [...byCode.values()].sort((a, b) => pending(a) - pending(b) || a.nome.localeCompare(b.nome, 'pt-BR'));
   });
+  protected readonly peopleCount = computed(() => this.everyone().length);
+  /** A pessoa com as opções abertas na lista (uma por vez). */
+  protected readonly openRow = signal<string | null>(null);
+  /** O estado do mural de cada pessoa que tem resenha no Chegou. */
+  protected readonly wallState = signal<ReadonlyMap<string, WallState>>(new Map());
   protected readonly peopleError = signal<string | null>(null);
 
   /** O "visto até" de quando a página abriu: o adesivo "Novo" fica enquanto ela estiver aberta. */
@@ -112,7 +189,7 @@ export class MailPage {
     return !!this.busy()?.startsWith(`${code}:`);
   }
 
-  /** Os murais de quem aparece no correio, pelo código. */
+  /** Os murais de quem aparece em Amigos, pelo código. */
   private readonly walls = computed(() => {
     const out = new Map<string, Colleague>();
     for (const c of this.colleagues.colleagues()) if (c.codigo) out.set(c.codigo, c);
@@ -151,10 +228,31 @@ export class MailPage {
       () => this.peopleError.set(null),
       (e) => this.peopleError.set(e instanceof Error ? e.message : 'Não consegui buscar as pessoas.'),
     );
-    // os murais de quem tem resenha no correio (no máximo 12 pessoas por vez)
-    const codes = [...new Set(this.follow.items().filter((i) => i.tipo === 'resenha').map((i) => i.pessoa.codigo))].slice(0, 12);
-    await Promise.all(codes.map((c) => this.cloudMurals.ensure(c)));
+    // os murais de quem tem resenha no Chegou, quatro pedidos por vez (cada um pergunta "mudou?")
+    const codes = [...new Set(this.follow.items().filter((i) => i.tipo === 'resenha').map((i) => i.pessoa.codigo))];
+    for (const c of codes) if (!this.wallState().has(c)) this.setWall(c, 'buscando');
+    const queue = [...codes];
+    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
+      for (let c = queue.shift(); c; c = queue.shift()) await this.fetchWall(c);
+    }));
     await this.follow.markSeen();
+  }
+
+  /** Busca (ou confere) o mural de alguém e guarda se veio: sem ele, o post diz que está buscando ou que falhou. */
+  private async fetchWall(code: string): Promise<void> {
+    this.setWall(code, 'buscando');
+    const c = await this.cloudMurals.ensure(code);
+    this.setWall(code, c ? 'pronto' : 'erro');
+  }
+
+  private setWall(code: string, state: WallState): void {
+    this.wallState.update((m) => new Map(m).set(code, state));
+  }
+
+  /** "Tentar de novo" num post cujo mural não veio. */
+  protected async retryWall(code: string): Promise<void> {
+    if (this.wallState().get(code) === 'buscando') return;
+    await this.fetchWall(code);
   }
 
   protected go(id: Tab): void {
@@ -277,8 +375,23 @@ export class MailPage {
   protected async toggleMute(p: { codigo: string; nome: string; silenciado: boolean }): Promise<void> {
     await this.run(`${p.codigo}:silenciar`, async () => {
       await this.follow.mute(p.codigo, !p.silenciado);
-      this.toasts.show(p.silenciado ? `${p.nome} volta a contar no envelope` : `${p.nome} não conta mais no envelope`);
+      this.toasts.show(p.silenciado ? `${p.nome} volta a contar no número da aba` : `${p.nome} não conta mais no número da aba`);
     });
+  }
+
+  protected toggleRow(code: string): void {
+    this.openRow.update((c) => (c === code ? null : code));
+  }
+
+  /** Esc dentro das opções: fecha e devolve o foco ao "⋯" da pessoa. */
+  protected closeRow(code: string): void {
+    this.openRow.set(null);
+    queueMicrotask(() => document.getElementById(`opcoes-btn-${code}`)?.focus());
+  }
+
+  /** "Vocês se seguem", "Você segue" ou "Segue você". */
+  protected bond(x: Someone): string {
+    return x.sigo && x.segue ? 'Vocês se seguem' : x.sigo ? 'Você segue' : 'Segue você';
   }
 
   protected async unfollow(p: Person): Promise<void> {
@@ -292,13 +405,22 @@ export class MailPage {
   protected async removeFollower(p: Person): Promise<void> {
     const sure = await this.confirm.ask({
       text: `${p.nome} deixa de seguir você e para de ver as suas resenhas em Amigos. O seu mural continua aberto para quem tem o seu código; para trocar o código, vá em Ajustes › Perfil.`,
-      confirm: 'Tirar da lista',
+      confirm: 'Remover seguidor',
     });
     if (!sure) return;
     await this.run(`${p.codigo}:tirar`, async () => {
       await this.follow.removeFollower(p.codigo);
       this.toasts.show(`${p.nome} não segue mais você`);
     });
+  }
+
+  protected async copyLink(code: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(muralLink(code));
+      this.toasts.show('Link do seu mural copiado');
+    } catch {
+      this.toasts.show(`O link é ${muralLink(code)}`);
+    }
   }
 
   protected async copyCode(code: string): Promise<void> {

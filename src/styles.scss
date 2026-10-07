@@ -670,9 +670,16 @@ dialog.sheet {
 /* O que foi colado por cima usa tinta preta como material de fundo, mesmo na cartolina escura.
    Cada adesivo define a própria cor do texto: vermelho na nota baixa, claro no bônus contra etc. */
 .cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha)
-  :is(app-judge-label, app-cover-sleeve, app-bonus-sticker, app-bonus-tally, .selo-dez, .fita-rasgada, .marca) {
+  :is(app-judge-label, app-cover-sleeve, app-bonus-sticker, app-bonus-tally, .selo-dez, .fita-rasgada, .marca, .privada-selo, .vez-selo) {
   --ink: #151515;
   --ink-2: rgb(21 21 21 / 0.78);
+}
+/* Os selinhos redondos da foto (o cadeado da privada, o "outra vez") são adesivos de tinta preta:
+   na cartolina escura eles ganham uma borda creme fina para não sumirem no papel. */
+.cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha) :is(.privada-selo, .vez-selo) {
+  box-shadow:
+    0 0 0 1.5px var(--ink-claro-solido),
+    0 1px 3px rgb(0 0 0 / 0.55);
 }
 
 .cartolina {
