@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RichEditor } from './rich-editor';
+import { sanitizeReview } from '../core/review';
 
 describe('a régua de formatação do texto', () => {
   let fixture: ComponentFixture<RichEditor>;
@@ -91,5 +92,73 @@ describe('a régua de formatação do texto', () => {
     const box = fixture.nativeElement.querySelector('.previa input[type=checkbox]') as HTMLInputElement;
     box.click();
     expect(value()).toBe('- [x] leite');
+  });
+
+  describe('o link para outra anotação', () => {
+    const notes = [
+      sanitizeReview({ id: 'n1', kind: 'anotacoes', game: { name: 'Comprar um console' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!,
+      sanitizeReview({ id: 'n2', kind: 'anotacoes', game: { name: 'Lista do mercado' }, createdAt: '2026-02-01T00:00:00.000Z', updatedAt: '2026-02-01T00:00:00.000Z' })!,
+    ];
+    const options = () => Array.from(fixture.nativeElement.querySelectorAll('.elo-op') as NodeListOf<HTMLElement>).map((o) => o.textContent!.replace(/\s+/g, ' ').trim());
+
+    function typeAt(marked: string): void {
+      write(marked);
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+      fixture.detectChanges();
+    }
+
+    it('sem `notes` (a resenha), nada de link na régua', () => {
+      expect(button('Link para outra anotação')).toBeNull();
+    });
+
+    it('"[[" na folha abre a lista, filtra pelo que vem depois, e Enter põe o link', () => {
+      fixture.componentRef.setInput('notes', notes);
+      fixture.detectChanges();
+      typeAt('1. Arrumar o carro\n2. [[cons|');
+      expect(options().length).toBe(2);
+      expect(options()[0]).toContain('Comprar um console');
+      expect(options()[1]).toContain('Link para “cons”');
+      key('Enter');
+      fixture.detectChanges();
+      expect(value()).toBe('1. Arrumar o carro\n2. [[Comprar um console]]');
+      expect(fixture.nativeElement.querySelector('.elos')).toBeNull();
+    });
+
+    it('Esc fecha só a lista (e ela não volta no mesmo "[["); um título novo vira link mesmo sem anotação', () => {
+      fixture.componentRef.setInput('notes', notes);
+      fixture.detectChanges();
+      typeAt('[[Vender a TV|');
+      expect(options().length).toBe(1);
+      expect(options()[0]).toContain('Link para “Vender a TV”');
+      const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      area.dispatchEvent(esc);
+      fixture.detectChanges();
+      expect(esc.defaultPrevented).toBeTrue();
+      expect(fixture.nativeElement.querySelector('.elos')).toBeNull();
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.elos')).toBeNull();
+      // apagou o "[[": o próximo abre a lista de novo
+      typeAt('Vender a TV|');
+      typeAt('[[Lista|]]');
+      key('ArrowDown');
+      key('ArrowUp');
+      key('Tab');
+      expect(value()).toBe('[[Lista do mercado]]');
+    });
+
+    it('pela régua: a busca já vem com o trecho selecionado, e a escolha troca o trecho pelo link', async () => {
+      fixture.componentRef.setInput('notes', notes);
+      fixture.detectChanges();
+      write('ver |mercado| amanhã');
+      button('Link para outra anotação').click();
+      fixture.detectChanges();
+      const search = fixture.nativeElement.querySelector('.elos-campo') as HTMLInputElement;
+      expect(search.value).toBe('mercado');
+      expect(options()[0]).toContain('Lista do mercado');
+      search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+      expect(value()).toBe('ver [[Lista do mercado]] amanhã');
+    });
   });
 });

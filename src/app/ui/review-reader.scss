@@ -340,3 +340,18 @@ app-judge-label {
     margin-top: 20px;
   }
 }
+
+/* o caminho de volta pelos links das anotações, no alto da folha */
+.voltar-elo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 0 0 14px;
+}
+.voltar-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

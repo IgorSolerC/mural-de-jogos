@@ -161,10 +161,11 @@ export class App {
     void this.cloudMurals.openFromLink();
     this.desk.register({
       newReview: () => this.editor().open(),
-      openReview: (id) => {
+      openReview: (id, fromId) => {
         const r = this.store.get(id);
-        if (r) this.reader().open(r);
+        if (r) this.reader().open(r, null, [], false, null, (fromId && this.store.get(fromId)) || null);
       },
+      newNote: (title) => this.newNote(title),
       openDraft: (id) => {
         const d = this.store.getDraft(id);
         if (d) this.editor().open(undefined, d);
@@ -254,6 +255,12 @@ export class App {
     );
   }
 
+  /** O link para uma anotação que ainda não existe: o editor abre com o título já escrito. */
+  protected newNote(title: string): void {
+    this.reader().close();
+    this.editor().openNote(title);
+  }
+
   protected editReview(id: string): void {
     const r = this.store.get(id);
     if (!r) return;
@@ -326,7 +333,9 @@ export class App {
       return;
     }
     if (saved && isNotes(saved.kind)) {
-      this.toasts.show(e.isNew ? `“${name}” pregada no mural` : 'Anotação atualizada');
+      // trocou o título: os links das outras anotações foram junto
+      const links = e.relinked ? ` (e os links para ela em ${e.relinked === 1 ? 'outra anotação' : `${e.relinked} anotações`})` : '';
+      this.toasts.show(e.isNew ? `“${name}” pregada no mural` : `Anotação atualizada${links}`);
       if (e.isNew) void this.backup.protect();
       return;
     }

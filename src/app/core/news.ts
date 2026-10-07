@@ -49,6 +49,20 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-07-links-entre-anotacoes',
+    version: '1.16.0',
+    kind: 'update',
+    date: '2026-10-07',
+    title: 'Links entre anotações',
+    items: [
+      'No texto de uma anotação, escreva o título de outra entre colchetes duplos, como [[Comprar um console]], e ele vira um link de caneta azul. Tocando nele, a outra anotação abre, direto da ficha do mural ou da leitura.',
+      'Escrevendo [[ na folha, aparece a lista das suas anotações para escolher (setas e Enter, ou toque). Também dá pelo botão de link na régua.',
+      'Na anotação aberta por um link, "Voltar" leva de volta à anterior.',
+      'Um link para uma anotação que ainda não existe fica tracejado: tocando nele, a anotação nova já abre com o título.',
+      'Trocou o título de uma anotação? Os links para ela nas outras anotações mudam junto.',
+    ],
+  },
+  {
     id: '2026-10-07-novidades-com-versao',
     version: '1.15.1',
     kind: 'bugfix',

@@ -666,6 +666,15 @@ app-rich-editor.anotacao {
   box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--focus);
 }
 
+/* outra anotação com o mesmo título: um lembrete, não um erro */
+.gemea {
+  margin-top: 6px;
+  max-width: 60ch;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
 .quem-dica {
   margin-top: 12px;
   max-width: 52ch;

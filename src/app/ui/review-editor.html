@@ -59,6 +59,9 @@
             </div>
             @if (attempted() && !noteTitle().trim()) {
               <p class="field-error">Dê um título para a anotação.</p>
+            } @else if (titleTwin(); as twin) {
+              <!-- dois títulos iguais: o link abre a mais antiga (ver core/note-links.ts) -->
+              <p class="hint gemea">Já existe uma anotação “{{ twin.game.name }}”. Os links para esse título continuam abrindo aquela, que é mais antiga.</p>
             }
             @if (choosingCover()) {
               <fieldset class="escolher-capa">
@@ -396,6 +399,7 @@
           [class.anotacao]="notes()"
           [label]="notes() ? 'Anotação' : 'O que achou?'"
           [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o título)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
+          [notes]="otherNotes()"
           [(value)]="text"
         />
       </section>

@@ -43,6 +43,8 @@ import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
+import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
+import { Desk } from '../core/desk';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -219,7 +221,7 @@ function watchDistance(el: HTMLElement): () => void {
       @if (review().text.trim()) {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <div class="nota-texto" [class.marcavel]="checkable()" data-queima appCorta>
-          <app-rich-text [text]="review().text" [checkable]="checkable()" (toggled)="toggleTask($event)" />
+          <app-rich-text [text]="review().text" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
     } @else if (!compact() && !capas()) {
@@ -729,7 +731,8 @@ function watchDistance(el: HTMLElement): () => void {
       z-index: 5;
       pointer-events: none;
     }
-    .nota-texto.marcavel ::ng-deep input[type='checkbox'] {
+    .nota-texto.marcavel ::ng-deep input[type='checkbox'],
+    .nota-texto.marcavel ::ng-deep .elo[tabindex] {
       pointer-events: auto;
     }
     :host(.nota-larga) {
@@ -985,6 +988,22 @@ export class ReviewCard {
     const text = toggleCheck(r.text, line);
     if (text !== r.text) this.store.update({ ...r, text, updatedAt: new Date().toISOString() });
   }
+
+  private readonly desk = inject(Desk);
+  /**
+   * Os links do texto da anotação. No seu mural (`checkable`), tocar abre a outra anotação na
+   * leitura, com esta no "Voltar", e o link para uma que não existe a cria; nos outros, só aparecem.
+   */
+  protected readonly noteLinks = computed<NoteLinks>(() => {
+    if (!this.checkable()) return {};
+    const notes = notesOf(this.store.reviews());
+    const from = this.review().id;
+    return {
+      resolve: (title) => resolveNote(notes, title),
+      open: (n) => this.desk.openReview(n.id, from),
+      create: (title) => this.desk.newNote(title),
+    };
+  });
 
   /** É uma anotação (mural de anotações): sem nota nem veredito; as categorias e o texto. */
   protected readonly note = computed(() => isNote(this.review()));

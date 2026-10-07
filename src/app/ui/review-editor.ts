@@ -51,6 +51,7 @@ import { cap, g, isNotes, profileOf } from '../core/kinds';
 import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
+import { notesOf, relinkAfterRename, sameTitle } from '../core/note-links';
 import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
@@ -74,6 +75,8 @@ export interface SavedEvent {
   isNew: boolean;
   /** Salvar trocou a original da obra (uma rejogada mais antiga que ela virou a original). */
   swap?: OriginalSwap | null;
+  /** A anotação mudou de título: em quantas outras os links para ela foram atualizados. */
+  relinked?: number;
 }
 
 /** O ano mais antigo aceito na data (o mesmo limite da validação dos backups). */
@@ -349,6 +352,30 @@ export class ReviewEditor {
   /** `artFrom` só vai para a ficha quando não é o de sempre. */
   private artFields(): Pick<Review, 'artFrom'> {
     return this.artId() !== (this.revisitRoot() ?? this.id()) ? { artFrom: this.artId() } : {};
+  }
+
+  /** As outras anotações, para os links "[[Título]]" do texto (ver core/note-links.ts). */
+  protected readonly otherNotes = computed(() => (this.notes() ? notesOf(this.store.reviews()).filter((n) => n.id !== this.id()) : null));
+
+  /**
+   * Outra anotação, mais antiga, com o mesmo título: os links para esse título abrem aquela (o
+   * editor avisa embaixo do título).
+   */
+  protected readonly titleTwin = computed(() => {
+    const list = this.otherNotes();
+    if (!list) return null;
+    const twin = sameTitle(list, this.noteTitle(), this.id());
+    const mine = this.editing()?.createdAt;
+    return twin && (!mine || twin.createdAt <= mine) ? twin : null;
+  });
+
+  /** Uma anotação nova já com o título: o link para uma anotação que ainda não existia. */
+  openNote(title: string): void {
+    this.open();
+    this.setNoteTitle(title);
+    // fechar sem mexer em nada não pergunta se quer descartar
+    this.snapshot = this.serialize();
+    queueMicrotask(() => this.writer()?.focus());
   }
 
   protected setNoteTitle(name: string): void {
@@ -728,11 +755,14 @@ export class ReviewEditor {
     // tira os campos vazios (undefined) que a prévia leva
     const clean = Object.fromEntries(Object.entries(note).filter(([, v]) => v !== undefined)) as unknown as Review;
     if (!this.isPrivate()) delete (clean as Partial<Review>).private;
+    // mudou o título: os links das outras anotações que abriam esta passam para o título novo
+    const relinked = prev ? relinkAfterRename(notesOf(this.store.reviews()), prev, name, now) : [];
     if (prev) this.store.update(clean);
     else this.store.add(clean);
+    for (const n of relinked) this.store.update(n);
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
-    this.saved.emit({ id: clean.id, isNew: !prev });
+    this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}) });
   }
 
   /** Guarda só o nome e a capa, fora do mural, para terminar a resenha depois. */

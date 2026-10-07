@@ -8,7 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Repeat, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Repeat, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -31,6 +31,7 @@ import { RichText } from './rich-text';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { plainText, toggleCheck } from '../core/rich-text';
+import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
 
 
 @Component({
@@ -50,6 +51,13 @@ import { plainText, toggleCheck } from '../core/rich-text';
           </header>
 
           <div class="body" appLuz>
+            <!-- veio por um link de outra anotação: o caminho de volta -->
+            @if (trail().at(-1); as from) {
+              <button type="button" class="btn-quiet voltar-elo" (click)="back()">
+                <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="voltar-txt">Voltar para “{{ from.game.name }}”</span>
+              </button>
+            }
             <!-- A obra jogada mais de uma vez: as vezes viram páginas, a original e cada rejogada -->
             @if (times().length > 1) {
               <nav class="vezes" [attr.aria-label]="'As vezes de ' + r.game.name">
@@ -163,7 +171,7 @@ import { plainText, toggleCheck } from '../core/rich-text';
                 <div class="text"><app-rabisco [text]="text()" /><span class="sr-only">Texto escondido</span></div>
               } @else {
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
-                <div class="text"><app-rich-text [text]="r.text" [checkable]="owner() === null" (toggled)="toggleTask($event)" /></div>
+                <div class="text"><app-rich-text [text]="r.text" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -230,6 +238,8 @@ export class ReviewReader {
   readonly remove = output<string>();
   /** Pediu para escrever mais uma vez da obra (rejogada, releitura, reassistida). */
   readonly revisit = output<string>();
+  /** Tocou num link para uma anotação que não existe: criar uma com esse título. */
+  readonly createNote = output<string>();
 
   protected readonly side = inject(SideBySide);
   private readonly settings = inject(Settings);
@@ -244,6 +254,7 @@ export class ReviewReader {
   protected readonly RevealIcon = Eye;
   protected readonly HideIcon = EyeOff;
   protected readonly PrivateIcon = LockKeyhole;
+  protected readonly BackIcon = ArrowLeft;
   private readonly store = inject(ReviewStore);
   protected readonly profile = computed(() => profileOf(this.review()?.kind ?? 'jogos'));
   protected readonly hours = computed(() => {
@@ -311,6 +322,52 @@ export class ReviewReader {
     this.store.update(next);
     this.review.set(next);
   }
+  /**
+   * As anotações por onde se chegou até aqui, pelos links (a última é a de "Voltar"). Abrir a
+   * leitura de novo começa do zero.
+   */
+  protected readonly trail = signal<readonly Review[]>([]);
+
+  /** As anotações que os links do texto podem abrir: as suas, ou as que a pessoa publicou. */
+  private readonly linkable = computed(() => notesOf(this.owner() === null ? this.store.reviews() : this.pool()));
+
+  /** Os links da anotação aberta: abrem aqui mesmo; no seu mural, o que não existe se cria. */
+  protected readonly noteLinks = computed<NoteLinks | null>(() => {
+    if (!this.note()) return null;
+    const notes = this.linkable();
+    const mine = this.owner() === null;
+    return {
+      resolve: (title) => resolveNote(notes, title),
+      open: (n) => this.follow(n),
+      ...(mine ? { create: (title: string) => this.createNote.emit(title) } : {}),
+    };
+  });
+
+  /** Segue um link: a anotação de agora vira o "Voltar". */
+  private follow(n: Review): void {
+    const r = this.review();
+    if (!r || n.id === r.id) return;
+    this.trail.update((t) => [...t, r]);
+    this.show(n);
+  }
+
+  /** Volta pelo caminho dos links, para a anotação como ela está agora. */
+  protected back(): void {
+    const t = this.trail();
+    const prev = t.at(-1);
+    if (!prev) return;
+    this.trail.set(t.slice(0, -1));
+    this.show((this.owner() === null ? this.store.get(prev.id) : null) ?? prev);
+  }
+
+  /** Troca a anotação da leitura, do alto, com o foco no título (ou no "Voltar"). */
+  private show(n: Review): void {
+    this.review.set(n);
+    const dialog = this.dialog().nativeElement;
+    dialog.scrollTop = 0;
+    setTimeout(() => dialog.querySelector<HTMLElement>('.voltar-elo')?.focus() ?? dialog.querySelector<HTMLElement>('.icon-btn')?.focus());
+  }
+
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
   /** A faixa do cabeçalho é a cartolina da ficha, no papel dela. */
   protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock)));
@@ -376,7 +433,9 @@ export class ReviewReader {
    * Abre a ficha. A de um colega (`owner`) pode vir com as outras fichas dele (`pool`), para andar
    * entre as vezes; `masked` esconde notas, bônus e texto, como no modo sem spoilers.
    */
-  open(review: Review, owner: string | null = null, pool: readonly Review[] = [], masked = false, code: string | null = null): void {
+  open(review: Review, owner: string | null = null, pool: readonly Review[] = [], masked = false, code: string | null = null, from: Review | null = null): void {
+    // tocou num link na ficha do mural: a anotação de onde veio é o "Voltar"
+    this.trail.set(from ? [from] : []);
     this.ownerCode.set(owner === null ? null : code);
     if (code && owner !== null) void this.reactions.load(code);
     this.forceMask.set(masked);

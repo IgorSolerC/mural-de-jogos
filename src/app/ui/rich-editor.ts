@@ -1,7 +1,9 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, inject, input, model, signal, viewChild } from '@angular/core';
-import { Bold, Eye, Italic, List, ListChecks, ListOrdered, LucideAngularModule, Maximize2, Minimize2, PenLine } from 'lucide-angular';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
+import { Bold, Eye, Italic, Link2, List, ListChecks, ListOrdered, LucideAngularModule, Maximize2, Minimize2, PenLine, Plus } from 'lucide-angular';
 import { lineKind, toggleCheck } from '../core/rich-text';
+import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
+import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
 
 type ListKind = 'ul' | 'ol' | 'check';
@@ -13,6 +15,10 @@ type ListKind = 'ul' | 'ol' | 'check';
  * próprio texto; atalhos: Ctrl+B, Ctrl+I, e Enter continua a lista (num item vazio, termina).
  *
  * As mudanças passam por `insertText`, então o Ctrl+Z do navegador desfaz cada uma.
+ *
+ * Com `notes` (o editor da anotação), a régua ganha "Link para outra anotação": escreve
+ * "[[Título]]" no texto (ver core/note-links.ts). Escrever "[[" direto na folha abre a mesma lista,
+ * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha.
  */
 @Component({
   selector: 'app-rich-editor',
@@ -37,6 +43,21 @@ type ListKind = 'ul' | 'ol' | 'check';
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Tarefas (checklist)" aria-label="Tarefas" (pointerdown)="$event.preventDefault()" (click)="list(area, 'check')">
           <lucide-icon [img]="ChecksIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
+        @if (notes()) {
+          <span class="fio" aria-hidden="true"></span>
+          <button
+            type="button"
+            class="ferramenta"
+            [disabled]="seeing()"
+            title="Link para outra anotação (ou escreva [[)"
+            aria-label="Link para outra anotação"
+            [attr.aria-expanded]="linking()?.big === big && !linking()?.auto"
+            (pointerdown)="$event.preventDefault()"
+            (click)="startLink(area, big)"
+          >
+            <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          </button>
+        }
         <!-- as marcas ficam no texto: "Ver como fica" mostra a folha formatada (e marca as tarefas) -->
         <button type="button" class="acao-caneta ver" [attr.aria-pressed]="seeing()" (click)="see(!seeing(), big)">
           <lucide-icon [img]="seeing() ? WriteIcon : SeeIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
@@ -57,7 +78,7 @@ type ListKind = 'ul' | 'ol' | 'check';
       @if (seeing()) {
         <div class="previa" [class.grande]="big" tabindex="0" [attr.aria-label]="'Como fica: ' + label()">
           @if (value().trim()) {
-            <app-rich-text [text]="value()" [checkable]="true" (toggled)="value.set(toggle(value(), $event))" />
+            <app-rich-text [text]="value()" [checkable]="true" [links]="previewLinks()" (toggled)="value.set(toggle(value(), $event))" />
           } @else {
             <p class="vazio">Nada escrito ainda.</p>
           }
@@ -71,9 +92,78 @@ type ListKind = 'ul' | 'ol' | 'check';
         [placeholder]="placeholder()"
         [attr.aria-label]="big ? label() : null"
         [value]="value()"
-        (input)="value.set(area.value)"
+        [attr.aria-autocomplete]="notes() ? 'list' : null"
+        [attr.aria-expanded]="notes() ? linking()?.auto === true && linking()?.big === big : null"
+        [attr.aria-controls]="notes() ? areaId + '-elos' : null"
+        [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big ? areaId + '-elo-' + active() : null"
+        (input)="value.set(area.value); watchLink(area, big)"
+        (click)="watchLink(area, big)"
+        (keyup)="onKeyUp($event, area, big)"
         (keydown)="onKey($event, area)"
+        (blur)="onAreaBlur()"
       ></textarea>
+      <!-- a lista das anotações para o link: embaixo da folha, sem cobrir o que se escreve -->
+      @if (linking(); as k) {
+        @if (k.big === big) {
+          <div class="elos" [class.grande]="big">
+            @if (!k.auto) {
+              <label class="elos-busca">
+                <span class="sr-only">Procurar anotação</span>
+                <input
+                  type="search"
+                  class="elos-campo"
+                  placeholder="Procurar anotação pelo título"
+                  autocomplete="off"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded="true"
+                  [attr.aria-controls]="areaId + '-elos'"
+                  [attr.aria-activedescendant]="areaId + '-elo-' + active()"
+                  [value]="k.query"
+                  (input)="setQuery($any($event.target).value)"
+                  (keydown)="onListKey($event)"
+                />
+              </label>
+            } @else {
+              <p class="elos-dica" aria-hidden="true">Link para…</p>
+            }
+            <ul class="elos-lista" role="listbox" [id]="areaId + '-elos'" aria-label="Anotações">
+              @for (n of linkOptions(); track n.id; let i = $index) {
+                <li
+                  role="option"
+                  class="elo-op"
+                  [id]="areaId + '-elo-' + i"
+                  [class.ativa]="active() === i"
+                  [attr.aria-selected]="active() === i"
+                  (pointerdown)="$event.preventDefault()"
+                  (click)="pick(n.game.name)"
+                >
+                  <span class="elo-nome">{{ n.game.name }}</span>
+                  <span class="elo-meta">{{ metaOf(n) }}</span>
+                </li>
+              }
+              @if (newLink(); as t) {
+                <li
+                  role="option"
+                  class="elo-op nova"
+                  [id]="areaId + '-elo-' + linkOptions().length"
+                  [class.ativa]="active() === linkOptions().length"
+                  [attr.aria-selected]="active() === linkOptions().length"
+                  (pointerdown)="$event.preventDefault()"
+                  (click)="pick(t)"
+                >
+                  <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                  <span class="elo-nome">Link para “{{ t }}”</span>
+                  <span class="elo-meta">a anotação ainda não existe: toque no link depois para criar</span>
+                </li>
+              }
+              @if (!linkOptions().length && !newLink()) {
+                <li class="elos-vazio" role="presentation">{{ notes()!.length ? 'Nenhuma anotação com esse título.' : 'Você ainda não tem outras anotações. Escreva um título para criar o link.' }}</li>
+              }
+            </ul>
+          </div>
+        }
+      }
     </ng-template>
 
     <ng-container *ngTemplateOutlet="campo; context: { big: false }" />
@@ -207,6 +297,119 @@ type ListKind = 'ul' | 'ol' | 'check';
       display: none;
     }
 
+    /* ===== A lista do link: uma tira de fichário presa embaixo da folha ===== */
+    .elos {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 2px;
+      background: #fbf9f2;
+      box-shadow:
+        inset 0 0 0 2px var(--ink),
+        0 6px 14px -6px rgb(0 0 0 / 0.45);
+    }
+    .elos.grande {
+      flex: 0 0 auto;
+      max-height: 40%;
+      overflow-y: auto;
+    }
+    .elos-busca {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .elos-campo {
+      width: 100%;
+      padding: 7px 10px;
+      border: 0;
+      border-bottom: 2px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--f-hand);
+      font-size: 1.1rem;
+      outline: none;
+
+      &::placeholder {
+        color: rgb(21 21 21 / 0.66);
+      }
+      &:focus-visible {
+        border-bottom-width: 3px;
+      }
+    }
+    .elos-dica {
+      margin: 0 0 4px 6px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+    }
+    .elos-lista {
+      max-height: 15rem;
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+      list-style: none;
+    }
+    .elo-op {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: baseline;
+      gap: 2px 12px;
+      padding: 7px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .elo-op:hover {
+      background: rgb(21 21 21 / 0.06);
+    }
+    /* a escolhida: o marca-texto amarelo, o mesmo do link na leitura */
+    .elo-op.ativa {
+      background: rgb(255 218 66 / 0.55);
+    }
+    .elo-nome {
+      overflow: hidden;
+      font-family: var(--f-hand);
+      font-size: 1.12rem;
+      color: var(--caneta-azul);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .elo-meta {
+      font-family: var(--f-label);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+      white-space: nowrap;
+    }
+    .elo-op.nova {
+      grid-template-columns: auto minmax(0, 1fr);
+      color: var(--ink);
+
+      .elo-nome {
+        color: var(--ink);
+      }
+      .elo-meta {
+        grid-column: 2;
+        white-space: normal;
+        text-transform: none;
+        letter-spacing: 0;
+        font-family: var(--f-ui);
+        font-weight: 500;
+      }
+    }
+    .elos-vazio {
+      padding: 6px 10px;
+      font-style: italic;
+      color: rgb(21 21 21 / 0.66);
+    }
+    @media (max-width: 559px) {
+      .elo-op {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
     /* ===== A folha pautada (a mesma de antes da régua) ===== */
     textarea {
       --line: 1.75rem;
@@ -327,6 +530,64 @@ export class RichEditor {
   readonly label = input('');
   /** O id do campo pequeno, para o rótulo de fora apontar para ele. */
   readonly areaId = 'texto-' + ++uid;
+  /** As outras anotações, para os links "[[Título]]"; null, sem links (a resenha). */
+  readonly notes = input<readonly Review[] | null>(null);
+
+  protected readonly LinkIcon = Link2;
+  protected readonly PlusIcon = Plus;
+
+  /**
+   * A lista do link aberta: pela régua (`auto` falso, com a própria busca) ou por "[[" escrito na
+   * folha (`auto`, a busca é o que vem depois dos colchetes). `start` e `end` são o trecho do texto
+   * que o link vai ocupar; `big`, em qual das folhas (a pequena ou a da tela inteira).
+   */
+  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string } | null>(null);
+  /** A opção escolhida da lista (pelas setas). */
+  protected readonly active = signal(0);
+  /** Onde "[[" foi fechado com Esc: a lista não volta a abrir sozinha ali. */
+  private dismissedAt = -1;
+
+  /** As anotações da lista: uma por título (a que o link abre), as que começam com a busca primeiro. */
+  protected readonly linkOptions = computed(() => {
+    const k = this.linking();
+    const notes = this.notes();
+    if (!k || !notes) return [];
+    const q = linkKey(k.query);
+    const seen = new Set<string>();
+    const out: Review[] = [];
+    for (const n of notes) {
+      const key = linkKey(n.game.name);
+      // um título com colchetes não cabe num link
+      if (seen.has(key) || /[[\]]/.test(n.game.name) || (q && !key.includes(q))) continue;
+      seen.add(key);
+      out.push(resolveNote(notes, n.game.name) ?? n);
+    }
+    const starts = (n: Review) => (linkKey(n.game.name).startsWith(q) ? 1 : 0);
+    return out.sort((a, b) => starts(b) - starts(a) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 8);
+  });
+
+  /** O que foi escrito e ainda não é título de nenhuma anotação: dá para criar o link mesmo assim. */
+  protected readonly newLink = computed(() => {
+    const k = this.linking();
+    const t = k?.query.trim().replace(/\s+/g, ' ') ?? '';
+    if (!t || /[[\]]/.test(t)) return null;
+    const key = linkKey(t);
+    return (this.notes() ?? []).some((n) => linkKey(n.game.name) === key) ? null : t;
+  });
+
+  private readonly optionCount = computed(() => this.linkOptions().length + (this.newLink() ? 1 : 0));
+
+  /** Os links em "Ver como fica": mostram se a anotação existe, mas não abrem nada. */
+  protected readonly previewLinks = computed<NoteLinks | null>(() => {
+    const notes = this.notes();
+    return notes ? { resolve: (title) => resolveNote(notes, title) } : null;
+  });
+
+  protected metaOf(n: Review): string {
+    const cat = n.bonuses[0]?.label;
+    const when = n.completedAt ? formatReviewDate(n.completedAt) : '';
+    return [cat, when].filter(Boolean).join(' · ');
+  }
 
   protected readonly BoldIcon = Bold;
   protected readonly ItalicIcon = Italic;
@@ -363,6 +624,113 @@ export class RichEditor {
   /** Volta a escrever (o editor abre outra ficha). */
   reset(): void {
     this.seeing.set(false);
+    this.linking.set(null);
+    this.dismissedAt = -1;
+  }
+
+  /** "Link para outra anotação" na régua: a busca abre, com o trecho selecionado já escrito nela. */
+  protected startLink(area: HTMLTextAreaElement, big: boolean): void {
+    if (this.linking() && !this.linking()!.auto) {
+      this.closeLink(area);
+      return;
+    }
+    const [start, end] = [area.selectionStart, area.selectionEnd];
+    const query = area.value.slice(start, end).split('\n')[0].trim();
+    this.linking.set({ auto: false, big, start, end, query });
+    this.active.set(0);
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLInputElement>('.elos-campo')?.focus());
+  }
+
+  protected setQuery(q: string): void {
+    const k = this.linking();
+    if (!k) return;
+    this.linking.set({ ...k, query: q });
+    this.active.set(0);
+  }
+
+  /** Escreveu na folha: com "[[" aberto antes do cursor (sem fechar), a lista abre e filtra. */
+  protected watchLink(area: HTMLTextAreaElement, big: boolean): void {
+    if (!this.notes()) return;
+    const k = this.linking();
+    if (k && !k.auto) return;
+    const at = area.selectionStart;
+    if (at !== area.selectionEnd) return this.linking.set(null);
+    const m = /\[\[([^[\]\n]{0,80})$/.exec(area.value.slice(0, at));
+    if (!m || m.index === this.dismissedAt) {
+      // o "[[" fechado com Esc saiu de antes do cursor: o próximo abre a lista de novo
+      if (!m) this.dismissedAt = -1;
+      if (k) this.linking.set(null);
+      return;
+    }
+    if (!k || k.start !== m.index) this.active.set(0);
+    this.linking.set({ auto: true, big, start: m.index, end: at, query: m[1] });
+  }
+
+  protected onKeyUp(e: KeyboardEvent, area: HTMLTextAreaElement, big: boolean): void {
+    // o cursor andou (setas, Home, End): o "[[" pode ter ficado para trás
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) this.watchLink(area, big);
+  }
+
+  protected onAreaBlur(): void {
+    // saiu da folha (sem ser para a lista, que não pega o foco): a lista automática fecha
+    if (this.linking()?.auto) this.linking.set(null);
+  }
+
+  /** Setas, Enter, Tab e Esc na lista (pela folha, com "[[", ou pela busca da régua). Devolve se usou a tecla. */
+  protected onListKey(e: KeyboardEvent): boolean {
+    const k = this.linking();
+    if (!k) return false;
+    const n = this.optionCount();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (n) this.active.set((this.active() + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
+      return true;
+    }
+    if ((e.key === 'Enter' || (e.key === 'Tab' && k.auto)) && n) {
+      e.preventDefault();
+      const opts = this.linkOptions();
+      const i = Math.min(this.active(), n - 1);
+      this.pick(i < opts.length ? opts[i].game.name : this.newLink()!);
+      return true;
+    }
+    if (e.key === 'Enter' && !k.auto) {
+      e.preventDefault();
+      return true;
+    }
+    if (e.key === 'Escape') {
+      // só a lista fecha, não o editor inteiro
+      e.preventDefault();
+      e.stopPropagation();
+      if (k.auto) this.dismissedAt = k.start;
+      this.closeLink();
+      return true;
+    }
+    return false;
+  }
+
+  /** Põe o link "[[título]]" no lugar do trecho (e de um "]]" que já estava logo depois). */
+  protected pick(title: string): void {
+    const k = this.linking();
+    const area = this.areaOf(k?.big ?? false);
+    if (!k || !area) return;
+    const text = area.value;
+    const end = k.auto && text.slice(k.end, k.end + 2) === ']]' ? k.end + 2 : k.end;
+    const link = `[[${title}]]`;
+    this.linking.set(null);
+    this.replace(area, k.start, end, link, k.start + link.length, k.start + link.length);
+  }
+
+  private closeLink(area = this.areaOf(this.linking()?.big ?? false)): void {
+    const k = this.linking();
+    this.linking.set(null);
+    if (k && !k.auto && area) {
+      area.focus();
+      area.setSelectionRange(k.start, k.end);
+    }
+  }
+
+  private areaOf(big: boolean): HTMLTextAreaElement | null {
+    return this.host.nativeElement.querySelector<HTMLTextAreaElement>(big ? `#${this.areaId}-grande` : `#${this.areaId}`);
   }
 
   protected grow(area: HTMLTextAreaElement): void {
@@ -392,6 +760,7 @@ export class RichEditor {
   }
 
   protected onKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    if (this.linking()?.auto && this.onListKey(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && !e.altKey && (e.key === 'b' || e.key === 'B')) {
       e.preventDefault();

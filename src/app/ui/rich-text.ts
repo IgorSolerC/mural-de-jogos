@@ -1,6 +1,8 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { hasFormatting, parseRich } from '../core/rich-text';
+import { NoteLinks } from '../core/note-links';
+import { Review } from '../core/review';
 
 /**
  * O texto da ficha na leitura, com a formatação do editor (ver core/rich-text.ts): negrito, itálico,
@@ -8,6 +10,10 @@ import { hasFormatting, parseRich } from '../core/rich-text';
  * texto sai como sempre saiu, um bloco só; com marcas, linha a linha, cada uma numa linha da pauta.
  *
  * O pai dá a letra, o tamanho e a altura da linha (`--line`); as tarefas só marcam com `checkable`.
+ *
+ * Os links "[[título]]" só valem com `links` (nas anotações, ver core/note-links.ts): a caneta azul
+ * sublinhada, que abre a outra anotação; tracejado, o que aponta para uma anotação que não existe.
+ * Sem `links` (as resenhas), os colchetes ficam como foram escritos.
  */
 @Component({
   selector: 'app-rich-text',
@@ -59,7 +65,9 @@ import { hasFormatting, parseRich } from '../core/rich-text';
         }
       }
     }
-    <ng-template #span let-s>@if (s.bold && s.italic) {<strong><em>{{ s.text }}</em></strong>} @else if (s.bold) {<strong>{{ s.text }}</strong>} @else if (s.italic) {<em>{{ s.text }}</em>} @else {{{ s.text }}}</ng-template>
+    <ng-template #span let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.bold && s.italic) {<strong><em>{{ s.text }}</em></strong>} @else if (s.bold) {<strong>{{ s.text }}</strong>} @else if (s.italic) {<em>{{ s.text }}</em>} @else {{{ s.text }}}</ng-template>
+    <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
+    <ng-template #elo let-s>@let l = links(); @if (!l) {{{ '[[' + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else {@let note = l.resolve(s.text); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" role="link" tabindex="0" [attr.aria-label]="'Abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + s.text" [title]="'Ainda não tem uma anotação ' + s.text + '. Toque para criar.'" (click)="make($event, s.text)" (keydown.enter)="make($event, s.text)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" title="Essa anotação não existe">{{ s.text }}</span>}}</ng-template>
   `,
   imports: [NgTemplateOutlet],
   styles: `
@@ -145,6 +153,52 @@ import { hasFormatting, parseRich } from '../core/rich-text';
       text-decoration: line-through 2px rgb(21 21 21 / 0.45);
       opacity: 0.7;
     }
+    /* o link: caneta azul sublinhada; passando por cima, o marca-texto amarelo */
+    .elo {
+      color: var(--caneta-azul, #1f3fb0);
+      text-decoration: underline 2px;
+      text-underline-offset: 0.16em;
+      text-decoration-skip-ink: none;
+      border-radius: 2px;
+      box-decoration-break: clone;
+    }
+    .elo[tabindex] {
+      cursor: pointer;
+    }
+    .elo[tabindex]:hover {
+      background: rgb(255 218 66 / 0.5);
+    }
+    .elo:focus-visible {
+      outline: 3px solid var(--ink, #151515);
+      outline-offset: 1px;
+    }
+    .elo.negrito {
+      font-weight: 700;
+    }
+    .elo.italico {
+      font-style: italic;
+    }
+    /* a anotação não existe (ainda): tracejado, mais apagado */
+    .elo.quebrado {
+      color: inherit;
+      text-decoration-style: dashed;
+      text-decoration-color: rgb(21 21 21 / 0.55);
+      opacity: 0.8;
+    }
+    /* nas cartolinas escuras a caneta azul some: a letra fica clara, sublinhada de amarelo */
+    :host-context(.cartolina[data-cor$='-escuro']) .elo,
+    :host-context(.cartolina[data-cor='preto']) .elo {
+      color: inherit;
+      text-decoration-color: var(--hi, #ffda42);
+    }
+    :host-context(.cartolina[data-cor$='-escuro']) .elo.quebrado,
+    :host-context(.cartolina[data-cor='preto']) .elo.quebrado {
+      text-decoration-color: rgb(243 236 224 / 0.55);
+    }
+    :host-context(.cartolina[data-cor$='-escuro']) .elo[tabindex]:hover,
+    :host-context(.cartolina[data-cor='preto']) .elo[tabindex]:hover {
+      background: rgb(255 218 66 / 0.25);
+    }
     :host-context(.cartolina[data-cor$='-escuro']) .feita .tarefa,
     :host-context(.cartolina[data-cor='preto']) .feita .tarefa {
       text-decoration-color: rgb(243 236 224 / 0.5);
@@ -157,8 +211,23 @@ export class RichText {
   readonly checkable = input(false);
   /** Marcou ou desmarcou a tarefa da linha dada. */
   readonly toggled = output<number>();
+  /** Os links para outras anotações; null, os colchetes ficam no texto (as resenhas). */
+  readonly links = input<NoteLinks | null>(null);
 
   protected readonly formatted = computed(() => hasFormatting(this.text()));
   protected readonly blocks = computed(() => parseRich(this.text()));
+
+  /** Tocou num link: só ele age (a ficha embaixo, a caixinha da tarefa, nada mais). */
+  protected go(e: Event, note: Review): void {
+    e.preventDefault();
+    e.stopPropagation();
+    this.links()?.open?.(note);
+  }
+
+  protected make(e: Event, title: string): void {
+    e.preventDefault();
+    e.stopPropagation();
+    this.links()?.create?.(title);
+  }
 }
 

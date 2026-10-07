@@ -129,7 +129,7 @@
   (draftRemoved)="removeDraft($event)"
   (wishRemoved)="removeWish($event)"
 />
-<app-review-reader (edit)="editReview($event)" (remove)="removeReview($event)" (revisit)="writeRevisit($event)" />
+<app-review-reader (edit)="editReview($event)" (remove)="removeReview($event)" (revisit)="writeRevisit($event)" (createNote)="newNote($event)" />
 <app-wish-adder
   (wished)="onWished($event)"
   (seen)="seeWish($event)"
