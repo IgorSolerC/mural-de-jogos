@@ -95,6 +95,8 @@ describe('Amigos: a página (MailPage)', () => {
   let cloudWalls: Map<string, Colleague | null>;
   /** A ordem do que a página pede. */
   let log: string[];
+  /** As fichas que a página disse precisar em cada busca (`código:ref,ref`). */
+  let needs: string[];
   let store: ReviewStore;
   let settings: Settings;
 
@@ -106,6 +108,7 @@ describe('Amigos: a página (MailPage)', () => {
     walls = signal<Colleague[]>([]);
     cloudWalls = new Map();
     log = [];
+    needs = [];
     const follow = {
       available: signal(true),
       items,
@@ -120,10 +123,13 @@ describe('Amigos: a página (MailPage)', () => {
       markSeen: async () => void log.push('markSeen'),
     };
     const murals = {
-      ensure: async (code: string) => {
+      ensure: async (code: string, need: readonly string[] = []) => {
         log.push(`ensure(${code})`);
+        needs.push(`${code}:${need.join(',')}`);
         await new Promise((r) => setTimeout(r, 0));
-        const c = cloudWalls.get(code) ?? null;
+        // da nuvem: chega agora; sem ela (null), fica o que já estava guardado
+        const hit = cloudWalls.get(code);
+        const c = hit ? { ...hit, loadedAt: new Date().toISOString() } : null;
         if (c) walls.update((list) => [c, ...list.filter((x) => x.id !== c.id)]);
         return c ?? walls().find((x) => x.codigo === code) ?? null;
       },
@@ -316,12 +322,7 @@ describe('Amigos: a página (MailPage)', () => {
       expect(posts(page)[0].mine).toBeNull();
     });
 
-    // A página busca os murais só ao abrir. Uma resenha que chega depois (a conferência de 15 em 15
-    // minutos, ou um "visto" em outra aba) de alguém cujo mural já veio cai em "pronto, mas sem a
-    // ficha" e aparece como "Ana tirou essa ficha do mural" — o que não é verdade: o mural guardado é
-    // só de antes da resenha. O mesmo acontece ao abrir: `ensure` devolve o mural guardado há menos
-    // de 2 minutos sem perguntar à nuvem.
-    itBug('uma resenha que chega com a página aberta não aparece como "tirou essa ficha"', async () => {
+    it('uma resenha que chega com a página aberta busca o mural de novo, em vez de dizer "tirou essa ficha"', async () => {
       items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
       cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
       const page = await open();
@@ -331,9 +332,32 @@ describe('Amigos: a página (MailPage)', () => {
       log = [];
       items.update((list) => [post(ana, 'rana02', '2026-10-06T11:00:00.000Z', 'Hades'), ...list]);
       await settle();
-      const fresh = posts(page).find((p) => p.key.endsWith('rana02'))!;
-      must(fresh.estado !== 'saiu', 'a resenha nova aparece como "Ana tirou essa ficha do mural"');
-      must(log.includes(`ensure(${ana.codigo})`), 'a página não buscou o mural de novo');
+      expect(log).toEqual([`ensure(${ana.codigo})`]);
+      // a página diz quais fichas precisa: o guardado de 2 minutos não serve se faltar alguma
+      expect(needs.at(-1)).toBe(`${ana.codigo}:rana02,rana01`);
+      expect(posts(page).find((p) => p.key.endsWith('rana02'))!.estado).toBe('ficha');
+    });
+
+    it('buscou de novo e a ficha não está no mural de agora: aí sim "saiu", sem buscar sem parar', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      const page = await open();
+      log = [];
+      items.update((list) => [post(ana, 'rana02', '2026-10-06T11:00:00.000Z', 'Hades'), ...list]);
+      await settle();
+      expect(posts(page).find((p) => p.key.endsWith('rana02'))!.estado).toBe('saiu');
+      items.update((list) => [...list]); // outra conferência do correio, sem nada novo
+      await settle();
+      expect(log).toEqual([`ensure(${ana.codigo})`]);
+    });
+
+    it('sem rede só vem o mural guardado, de antes da resenha: "Tentar de novo", não "saiu"', async () => {
+      walls.set([wallOf(ana, [review('rana01', 'Celeste')], '2026-10-06T09:00:00.000Z')]);
+      items.set([post(ana, 'rana02', '2026-10-06T11:00:00.000Z', 'Hades'), post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      const page = await open(); // cloudWalls vazio: a nuvem não responde
+      const [nova, velha] = posts(page);
+      expect(nova.estado).toBe('erro');
+      expect(velha.estado).toBe('ficha');
     });
 
     // Pela mesma razão, a resenha de alguém que não estava no Chegou quando a página abriu fica em

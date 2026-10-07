@@ -103,6 +103,17 @@ describe('murais dos amigos pela nuvem: bordas e bugs conhecidos', () => {
     expect(fresh!.reviews.map((r) => r.game.name).sort()).toEqual(['Celeste', 'Hades']);
   });
 
+  it('ensure com fichas que o guardado não tem: pergunta à nuvem mesmo dentro dos 2 minutos', async () => {
+    await murals.ensure(MARINA);
+    published.set(MARINA, { rev: 4, doc: muralOf('Marina', review('rmar01', 'Celeste'), review('rmar02', 'Hades')) });
+    calls = [];
+    expect((await murals.ensure(MARINA, ['rmar01']))!.rev).toBe(3); // tem: usa o guardado
+    expect(calls).toEqual([]);
+    const fresh = await murals.ensure(MARINA, ['rmar02', 'rmar01']);
+    expect(calls).toEqual([`/v1/murais/${MARINA}?rev=3`]);
+    expect(fresh!.reviews.map((r) => r.id).sort()).toEqual(['rmar01', 'rmar02']);
+  });
+
   it('ensure não troca quem está escolhido no Comparar', async () => {
     const file = new File([await gz(muralOf('Colega do arquivo', review('rarq01', 'Hollow Knight')))], 'colega.json.gz');
     const fromFile = await colleagues.add(file, 'Colega');

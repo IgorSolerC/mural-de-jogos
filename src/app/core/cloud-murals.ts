@@ -92,15 +92,18 @@ export class CloudMurals {
 
   /**
    * O mural de alguém que eu sigo, para o correio: o guardado se foi aberto há pouco; senão pergunta
-   * à nuvem se mudou. Não troca quem está escolhido no Comparar. Sem rede, fica o guardado (ou null).
+   * à nuvem se mudou. `need`: as fichas que o correio anunciou; se o guardado não tem alguma, ele é de
+   * antes delas e a nuvem é consultada mesmo dentro dos 2 minutos. Não troca quem está escolhido no
+   * Comparar. Sem rede, fica o guardado (ou null).
    */
-  async ensure(input: string): Promise<Colleague | null> {
+  async ensure(input: string, need: readonly string[] = []): Promise<Colleague | null> {
     const code = normalizeCode(input);
     if (!code) return null;
     await this.colleagues.ready;
     const id = CLOUD_COLLEAGUE_PREFIX + code.replace('-', '');
     const existing = this.colleagues.colleagues().find((c) => c.id === id) ?? null;
-    if (existing && Date.now() - Date.parse(existing.loadedAt) < FRESH_MS) return existing;
+    const hasAll = (c: Colleague) => need.every((ref) => c.reviews.some((r) => r.id === ref));
+    if (existing && Date.now() - Date.parse(existing.loadedAt) < FRESH_MS && hasAll(existing)) return existing;
     const selected = this.colleagues.selected()?.id;
     try {
       return await this.open(code);

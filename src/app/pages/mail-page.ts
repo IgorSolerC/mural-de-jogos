@@ -135,9 +135,11 @@ export class MailPage {
     const key = `resenha:${item.pessoa.codigo}:${item.ref}`;
     const theirs = this.reviewOf(item.pessoa.codigo, item.ref);
     if (!theirs) {
-      // sem a ficha: o mural ainda vem, não veio, ou veio sem ela (só aí ela "saiu")
+      // sem a ficha: o mural ainda vem, não veio, ou veio sem ela — e só "saiu" se o mural que veio é
+      // de depois da resenha (a nuvem foi consultada com ela na lista); senão, ele ainda vai ser buscado
       const wall = this.wallState().get(item.pessoa.codigo);
-      const estado = wall === 'erro' ? 'erro' : wall === 'pronto' ? 'saiu' : 'buscando';
+      const checked = this.checked.has(`${item.pessoa.codigo}:${item.ref}`);
+      const estado = wall === 'erro' ? 'erro' : wall === 'pronto' && checked ? 'saiu' : 'buscando';
       return { key, item, dia, theirs: null, mine: null, secret: false, estado };
     }
     const mine = this.mineOf(item.pessoa.codigo, theirs);
@@ -172,6 +174,11 @@ export class MailPage {
   /** O estado do mural de cada pessoa que tem resenha no Chegou. */
   protected readonly wallState = signal<ReadonlyMap<string, WallState>>(new Map());
   protected readonly peopleError = signal<string | null>(null);
+
+  /** As resenhas (`código:ref`) já procuradas num mural pedido à nuvem depois que elas chegaram. */
+  private readonly checked = new Set<string>();
+  /** A primeira busca dos murais terminou: daí em diante, resenha nova busca o mural sozinha. */
+  private opened = false;
 
   /** O "visto até" de quando a página abriu: o adesivo "Novo" fica enquanto ela estiver aberta. */
   private readonly freshSince = signal<string | null | undefined>(undefined);
@@ -221,6 +228,13 @@ export class MailPage {
       if (!this.follow.available()) return;
       untracked(() => void this.open());
     });
+    // chegou resenha com a página aberta: o mural guardado da pessoa é de antes dela, busca de novo
+    effect(() => {
+      this.follow.items();
+      untracked(() => {
+        if (this.opened) void this.fetchWalls(false);
+      });
+    });
   }
 
   private async open(): Promise<void> {
@@ -230,21 +244,52 @@ export class MailPage {
       () => this.peopleError.set(null),
       (e) => this.peopleError.set(e instanceof Error ? e.message : 'Não consegui buscar as pessoas.'),
     );
-    // os murais de quem tem resenha no Chegou, quatro pedidos por vez (cada um pergunta "mudou?")
-    const codes = [...new Set(this.follow.items().filter((i) => i.tipo === 'resenha').map((i) => i.pessoa.codigo))];
-    for (const c of codes) if (!this.wallState().has(c)) this.setWall(c, 'buscando');
-    const queue = [...codes];
-    await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
-      for (let c = queue.shift(); c; c = queue.shift()) await this.fetchWall(c);
-    }));
+    await this.fetchWalls(true);
+    this.opened = true;
     await this.follow.markSeen();
   }
 
+  /** As resenhas do Chegou de cada pessoa, pelo código. */
+  private refsByPerson(): Map<string, string[]> {
+    const out = new Map<string, string[]>();
+    for (const i of this.follow.items()) if (i.tipo === 'resenha') out.set(i.pessoa.codigo, [...(out.get(i.pessoa.codigo) ?? []), i.ref]);
+    return out;
+  }
+
+  /**
+   * Busca os murais de quem tem resenha no Chegou, quatro pedidos por vez (cada um pergunta "mudou?").
+   * `all`: de todo mundo (ao abrir). Senão, só os murais que já vieram mas não têm uma resenha que
+   * chegou depois. Os que estão vindo ou falharam (esses têm "Tentar de novo") ficam como estão.
+   */
+  private async fetchWalls(all: boolean): Promise<void> {
+    const todo: [string, string[]][] = [];
+    for (const [code, refs] of this.refsByPerson()) {
+      const state = this.wallState().get(code);
+      if (all) {
+        todo.push([code, refs]);
+        continue;
+      }
+      if (state !== 'pronto') continue;
+      if (refs.some((ref) => !this.reviewOf(code, ref) && !this.checked.has(`${code}:${ref}`))) todo.push([code, refs]);
+    }
+    for (const [c] of todo) this.setWall(c, 'buscando');
+    await Promise.all(Array.from({ length: Math.min(4, todo.length) }, async () => {
+      for (let next = todo.shift(); next; next = todo.shift()) await this.fetchWall(next[0], next[1]);
+    }));
+  }
+
   /** Busca (ou confere) o mural de alguém e guarda se veio: sem ele, o post diz que está buscando ou que falhou. */
-  private async fetchWall(code: string): Promise<void> {
+  private async fetchWall(code: string, refs: readonly string[] = this.refsByPerson().get(code) ?? []): Promise<void> {
     this.setWall(code, 'buscando');
-    const c = await this.cloudMurals.ensure(code);
-    this.setWall(code, c ? 'pronto' : 'erro');
+    const started = Date.now();
+    const c = await this.cloudMurals.ensure(code, refs);
+    // veio da nuvem agora (e não o guardado de antes, que é o que volta sem rede)
+    const fresh = !!c && Date.parse(c.loadedAt) >= started;
+    // o mural novo é de depois destas resenhas: a que não estiver nele, saiu mesmo
+    if (fresh) for (const ref of refs) this.checked.add(`${code}:${ref}`);
+    const missing = !!c && refs.some((ref) => !c.reviews.some((r) => r.id === ref));
+    // só o guardado, e sem alguma resenha: não dá para dizer que saiu, então "Tentar de novo"
+    this.setWall(code, !c || (!fresh && missing) ? 'erro' : 'pronto');
   }
 
   private setWall(code: string, state: WallState): void {

@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
     items: [
       'O nome trocado em um aparelho não volta mais ao antigo quando outro aparelho abre o site.',
       'Em Amigos, a rejogada (ou releitura, ou reassistida) de algo que você já avaliou mostra a sua nota, em vez de "Você ainda não avaliou".',
+      'Em Amigos, uma resenha que chega com a página aberta busca o mural do amigo de novo, em vez de dizer que ele tirou a ficha do mural. Sem conexão, aparece "Tentar de novo".',
     ],
   },
   {
