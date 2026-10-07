@@ -122,8 +122,9 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     const counts = await deps.db.first<{ n: number }>(
       'SELECT (SELECT COUNT(*) FROM sessoes WHERE usuario_id = ?) + ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?) + ' +
+        '(SELECT COUNT(*) FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?) + ' +
         '(SELECT COUNT(*) FROM atividades WHERE autor_id = ? OR alvo_id = ?) AS n',
-      [id, id, id, id, id],
+      [id, id, id, id, id, id, id],
     );
     await write(
       deps,
@@ -132,6 +133,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         { sql: 'DELETE FROM murais WHERE usuario_id = ?', params: [id] },
         { sql: 'DELETE FROM murais_publicos WHERE usuario_id = ?', params: [id] },
         { sql: 'DELETE FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
+        { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
         { sql: 'DELETE FROM atividades WHERE autor_id = ? OR alvo_id = ?', params: [id, id] },
         { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },
       ],

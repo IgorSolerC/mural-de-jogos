@@ -20,6 +20,8 @@ import { readJson } from './account';
 export const MAX_FOLLOWING = 300;
 /** Quantas pessoas uma conta começa a seguir por dia UTC (cada uma avisa alguém). */
 export const MAX_FOLLOWS_PER_DAY = 60;
+/** Seguir de volta até 10 minutos depois de deixar de seguir (o "Desfazer") devolve o seguir de antes. */
+export const UNDO_MS = 10 * 60_000;
 /** O correio mostra os últimos 30 dias, até 60 itens. */
 export const FEED_DAYS = 30;
 export const FEED_LIMIT = 60;
@@ -105,28 +107,48 @@ export function followRoutes(app: Hono, deps: Deps): void {
       throw new HttpError(429, 'seguir-devagar', 'Você começou a seguir muita gente hoje. Tente de novo amanhã.');
     }
     const at = now.toISOString();
+    // deixou de seguir há pouco (o "Desfazer"): volta como era
+    const undone = await deps.db.first<{ criado_em: string; silenciado: number }>(
+      'SELECT criado_em, silenciado FROM seguindo_desfeito WHERE seguidor_id = ? AND seguido_id = ? AND desfeito_em >= ?',
+      [s.userId, target.id, new Date(now.getTime() - UNDO_MS).toISOString()],
+    );
+    const muted = undone?.silenciado ? 1 : 0;
     await write(
       deps,
       [
         {
-          sql: 'INSERT OR IGNORE INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) VALUES (?, ?, ?, 0)',
-          params: [s.userId, target.id, at],
+          sql: 'INSERT OR IGNORE INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) VALUES (?, ?, ?, ?)',
+          params: [s.userId, target.id, at, muted],
         },
+        { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? AND seguido_id = ?', params: [s.userId, target.id] },
         // o aviso para quem foi seguido: uma vez só por pessoa (o índice único ignora a repetição)
         {
           sql: "INSERT OR IGNORE INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', ?, ?, ?)",
           params: [s.userId, target.id, at],
         },
       ],
-      9,
+      11,
     );
-    return c.json({ pessoa: personOut(target), desde: at, silenciado: false }, 201);
+    return c.json({ pessoa: personOut(target), desde: at, silenciado: !!muted }, 201);
   });
 
   app.delete('/v1/seguindo/:codigo', async (c) => {
     const s = await session(c);
     const target = await byCode(c.req.param('codigo'));
-    await write(deps, [{ sql: 'DELETE FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', params: [s.userId, target.id] }], 3);
+    await write(
+      deps,
+      [
+        // guarda o seguir de antes para o "Desfazer" (ver UNDO_MS)
+        {
+          sql:
+            'INSERT OR REPLACE INTO seguindo_desfeito (seguidor_id, seguido_id, criado_em, silenciado, desfeito_em) ' +
+            'SELECT seguidor_id, seguido_id, criado_em, silenciado, ? FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?',
+          params: [deps.now().toISOString(), s.userId, target.id],
+        },
+        { sql: 'DELETE FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', params: [s.userId, target.id] },
+      ],
+      6,
+    );
     return c.json({ ok: true });
   });
 

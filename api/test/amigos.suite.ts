@@ -3,7 +3,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { googleVerifier } from '../src/domain/google';
-import { FEED_DAYS, FEED_LIMIT, MAX_FOLLOWING, MAX_FOLLOWS_PER_DAY } from '../src/routes/follow';
+import { cleanup } from '../src/domain/cleanup';
+import { FEED_DAYS, FEED_LIMIT, MAX_FOLLOWING, MAX_FOLLOWS_PER_DAY, UNDO_MS } from '../src/routes/follow';
 import { Config, Db, Deps } from '../src/ports';
 
 /**
@@ -24,7 +25,7 @@ const ENV = {
   GOOGLE_CLIENT_ID: 'teste.apps.googleusercontent.com',
   VER_MURAIS: 'todos',
 };
-const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'atividades', 'uso_diario'];
+const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'uso_diario'];
 const NOW = new Date('2026-10-06T15:00:00Z');
 const DAY = 86_400_000;
 
@@ -261,9 +262,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await people(ana.token)).seguindo.map((p: any) => p.codigo)).toEqual([bia.codigo]);
       });
 
-      // BUG: "Desfazer" depois de "Deixar de seguir" chama POST /v1/seguindo, que cria um seguir novo
-      // com silenciado = 0. Quem estava silenciado volta a contar no número da aba.
-      it.fails('BUG: Desfazer (deixar de seguir e seguir de volta) mantém o silenciado', async () => {
+      it('Desfazer (deixar de seguir e seguir de volta) mantém o silenciado', async () => {
         const { follow, unfollow, mute, people, advance, ana, bia } = await two();
         await follow(bia.token, ana.codigo);
         await mute(bia.token, ana.codigo, true);
@@ -273,6 +272,39 @@ export function amigosSuite(label: string, getDb: () => Db) {
         const res = await follow(bia.token, ana.codigo);
         expect(((await res.json()) as any).silenciado).toBe(true);
         expect((await people(bia.token)).seguindo[0].silenciado).toBe(true);
+      });
+
+      it('seguir de volta depois de 10 minutos é um seguir novo: sem o silenciado de antes', async () => {
+        const { follow, unfollow, mute, advance, ana, bia } = await two();
+        await follow(bia.token, ana.codigo);
+        await mute(bia.token, ana.codigo, true);
+        await unfollow(bia.token, ana.codigo);
+        advance(UNDO_MS + 1000);
+        expect(((await (await follow(bia.token, ana.codigo)).json()) as any).silenciado).toBe(false);
+      });
+
+      it('quem foi tirado da lista de seguidores não tem "Desfazer": segue de novo do zero', async () => {
+        const { db, json, follow, mute, ana, bia } = await two();
+        await follow(bia.token, ana.codigo);
+        await mute(bia.token, ana.codigo, true);
+        await json('DELETE', `/v1/eu/seguidores/${bia.codigo}`, undefined, ana.token);
+        expect(await db.all('SELECT 1 FROM seguindo_desfeito')).toEqual([]);
+        expect(((await (await follow(bia.token, ana.codigo)).json()) as any).silenciado).toBe(false);
+      });
+
+      it('o seguir desfeito some na limpeza do dia seguinte e quando a conta é apagada', async () => {
+        const { db, deps, json, follow, unfollow, advance, login, ana, bia } = await two();
+        await follow(bia.token, ana.codigo);
+        await unfollow(bia.token, ana.codigo);
+        expect(await db.all('SELECT 1 FROM seguindo_desfeito')).toHaveLength(1);
+        advance(DAY + 1000);
+        await cleanup(deps);
+        expect(await db.all('SELECT 1 FROM seguindo_desfeito')).toEqual([]);
+        const cris = await login('cris', 'Cris');
+        await follow(cris.token, ana.codigo);
+        await unfollow(cris.token, ana.codigo);
+        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        expect(await db.all('SELECT 1 FROM seguindo_desfeito')).toEqual([]);
       });
 
       // BUG: o seguir novo ganha `criado_em` de agora, e o correio só mostra resenhas publicadas depois
