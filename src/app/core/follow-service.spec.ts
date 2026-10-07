@@ -402,7 +402,9 @@ describe('Amigos: o serviço (Follow)', () => {
       await colleagues.restore(wall);
       await start();
       h.peopleRequests[0].resolve({ seguindo: [{ codigo: 'AAAB-1111', nome: 'Ana', chave: 'chave-da-ana', desde }], seguidores: [] });
-      for (let i = 0; i < 5; i++) await flush();
+      // a troca passa pelo IndexedDB (gravar o novo, apagar o antigo): espera, com prazo
+      const moved = () => colleagues.colleagues().some((c) => c.codigo === 'AAAB-1111');
+      for (const until = Date.now() + 3000; !moved() && Date.now() < until; ) await new Promise((r) => setTimeout(r, 20));
       expect(colleagues.colleagues().map((c) => [c.id, c.codigo, c.rev])).toEqual([[cloudColleagueId('AAAB-1111'), 'AAAB-1111', 7]]);
     });
 
