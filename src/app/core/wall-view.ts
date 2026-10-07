@@ -274,7 +274,9 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
     default:
       return (r) => {
         if (r.completedAt === null) return ['sem-data', NO_DAY_LABEL];
-        if (r.completedAt.length === 4) return [r.completedAt, `${r.completedAt}, mês não lembrado`];
+        // só o ano: a seção é o ano, depois dos meses dele (é a data menos precisa, a mais antiga do ano);
+        // mês sem dia fica na seção do mês, depois dos dias (pela mesma regra, ver comparatorOf)
+        if (r.completedAt.length === 4) return [r.completedAt, r.completedAt];
         const month = r.completedAt.slice(0, 7);
         const label = monthFmt.format(parseDay(month + '-01'));
         return [month, label.charAt(0).toUpperCase() + label.slice(1)];
@@ -310,6 +312,8 @@ function comparatorOf(o: WallOrder): (a: Review, b: Review) => number {
       };
     }
     default:
+      // 'AAAA' < 'AAAA-MM' < 'AAAA-MM-DD' na comparação de texto: o ano sozinho conta como mais antigo
+      // que os meses dele, e o mês sem dia como mais antigo que os dias dele
       return (a, b) => {
         // Sem data vai sempre para o fim, em qualquer direção.
         if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? 1 : -1;

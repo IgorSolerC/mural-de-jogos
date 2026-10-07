@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Livros, filmes, séries e animes ganharam os bônus que só os jogos tinham, quando cabem: Genial, Clássico, Me marcou, Melhor do gênero, Caça-níquel, Repetitivo e outros. E alguns só deles, como "Erros de revisão", "Frases pra sublinhar", "Dublagem ruim" e "Propaganda do mangá".',
       'Um bônus que você escreveu à mão com o mesmo nome de um desses novos passa a ser o da cartela, com o desenho dele.',
       'Os selinhos da foto (o cadeado da privada e o da rejogada, só capa e nome) agora ficam um embaixo do outro no canto, como adesivos colados um por cima do outro. Nas cartolinas escuras eles perderam a borda branca.',
+      'Ordenando por data, a seção das fichas só com o ano agora se chama só "2026", em vez de "2026, mês não lembrado". Ela vem depois dos meses daquele ano, e quem tem mês sem dia fica no fim da seção do mês.',
     ],
   },
   {

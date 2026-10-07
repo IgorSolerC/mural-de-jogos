@@ -53,10 +53,24 @@ describe('WallView', () => {
   it('ano sem dia fica em sua própria seção e ordena sem presumir janeiro', () => {
     store.reviews.update((list) => [...list, r('year11', 'Ano lembrado', '2024', 8)]);
     view.setSort('data');
-    expect(view.groups().map((g) => g.label)).toEqual(['Março de 2024', 'Janeiro de 2024', '2024, mês não lembrado', 'Data não definida']);
+    expect(view.groups().map((g) => g.label)).toEqual(['Março de 2024', 'Janeiro de 2024', '2024', 'Data não definida']);
     view.toggleDirection();
     expect(view.visible()[0].game.name).toBe('Ano lembrado');
     expect(view.visible().at(-1)!.completedAt).toBeNull();
+  });
+
+  it('mês sem dia fica na seção do mês, como mais antigo que os dias dele; o ano sozinho, depois dos meses', () => {
+    store.reviews.update((list) => [
+      ...list,
+      r('rmes001', 'Só o mês', '2024-03', 8),
+      r('rano001', 'Só o ano', '2024', 8),
+      r('rant001', 'Ano antes', '2023-12-31', 8),
+    ]);
+    view.setSort('data');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Zelda', 'Alan Wake', 'Só o mês', 'Hades', 'Só o ano', 'Ano antes', 'Celeste']);
+    expect(view.groups().map((g) => g.label)).toEqual(['Março de 2024', 'Janeiro de 2024', '2024', 'Dezembro de 2023', 'Data não definida']);
+    view.toggleDirection();
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Ano antes', 'Só o ano', 'Hades', 'Só o mês', 'Alan Wake', 'Zelda', 'Celeste']);
   });
 
   it('por nota: maiores primeiro, em faixas', () => {
