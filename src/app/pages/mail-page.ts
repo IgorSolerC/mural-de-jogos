@@ -22,8 +22,9 @@ import { Toasts } from '../ui/toast';
 import { Busy } from '../ui/busy';
 import { SpoilerShield } from '../core/spoiler-shield';
 
+/** A aba Feed guarda o id 'chegou' (o nome de antes): o endereço e o que já está guardado não mudam. */
 type Tab = 'chegou' | 'pessoas';
-/** O mural de alguém, para o Chegou: ainda vindo, aqui, ou a nuvem não respondeu. */
+/** O mural de alguém, para o Feed: ainda vindo, aqui, ou a nuvem não respondeu. */
 type WallState = 'buscando' | 'pronto' | 'erro';
 
 /** Uma resenha que chegou: a ficha do amigo (quando o mural dele já está aqui) e a minha da mesma obra. */
@@ -38,7 +39,7 @@ interface Post {
   estado: 'ficha' | 'buscando' | 'saiu' | 'erro';
 }
 
-/** O Chegou em blocos: um bilhete de quem começou a seguir, ou as resenhas seguidas de uma pessoa. */
+/** O Feed em blocos: um bilhete de quem começou a seguir, ou as resenhas seguidas de uma pessoa. */
 type Block =
   | { tipo: 'seguiu'; key: string; item: Extract<FeedItem, { tipo: 'seguiu' }>; dia: string }
   | { tipo: 'pessoa'; key: string; pessoa: Person; posts: Post[] };
@@ -101,7 +102,7 @@ export class MailPage {
   protected readonly formatScore = formatScore;
 
   protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Inbox }[] = [
-    { id: 'chegou', label: 'Chegou', icon: Inbox },
+    { id: 'chegou', label: 'Feed', icon: Inbox },
     { id: 'pessoas', label: 'Pessoas', icon: UsersRound },
   ];
   protected readonly tab = signal<Tab>(tabFrom(this.route.snapshot.queryParamMap.get('aba')));
@@ -171,7 +172,7 @@ export class MailPage {
   protected readonly peopleCount = computed(() => this.everyone().length);
   /** A pessoa com as opções abertas na lista (uma por vez). */
   protected readonly openRow = signal<string | null>(null);
-  /** O estado do mural de cada pessoa que tem resenha no Chegou. */
+  /** O estado do mural de cada pessoa que tem resenha no Feed. */
   protected readonly wallState = signal<ReadonlyMap<string, WallState>>(new Map());
   protected readonly peopleError = signal<string | null>(null);
 
@@ -249,7 +250,7 @@ export class MailPage {
     await this.follow.markSeen();
   }
 
-  /** As resenhas do Chegou de cada pessoa, pelo código. */
+  /** As resenhas do Feed de cada pessoa, pelo código. */
   private refsByPerson(): Map<string, string[]> {
     const out = new Map<string, string[]>();
     for (const i of this.follow.items()) if (i.tipo === 'resenha') out.set(i.pessoa.codigo, [...(out.get(i.pessoa.codigo) ?? []), i.ref]);
@@ -257,8 +258,8 @@ export class MailPage {
   }
 
   /**
-   * Busca os murais de quem tem resenha no Chegou, quatro pedidos por vez (cada um pergunta "mudou?").
-   * `all`: de todo mundo (ao abrir). Senão, os de quem apareceu no Chegou depois e os que já vieram
+   * Busca os murais de quem tem resenha no Feed, quatro pedidos por vez (cada um pergunta "mudou?").
+   * `all`: de todo mundo (ao abrir). Senão, os de quem apareceu no Feed depois e os que já vieram
    * mas não têm uma resenha que chegou depois. Os que estão vindo ou falharam (esses têm "Tentar de
    * novo") ficam como estão.
    */

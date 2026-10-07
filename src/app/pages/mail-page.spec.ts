@@ -15,7 +15,7 @@ import { MailPage } from './mail-page';
 
 /**
  * A aba Amigos (MailPage), sem desenhar a tela: o que ela monta a partir do correio, dos murais dos
- * amigos e do meu mural (os blocos do Chegou, o estado de cada ficha, a minha nota da mesma obra, o
+ * amigos e do meu mural (os blocos do Feed, o estado de cada ficha, a minha nota da mesma obra, o
  * segredo, a lista única de Pessoas) e a ordem do que ela faz ao abrir. O serviço do correio
  * (Follow) e os murais da nuvem (CloudMurals) são de mentira.
  */
@@ -199,7 +199,7 @@ describe('Amigos: a página (MailPage)', () => {
     });
   });
 
-  describe('o Chegou', () => {
+  describe('o Feed', () => {
     it('agrupa as resenhas seguidas da mesma pessoa; outra pessoa ou um aviso de seguir abrem outro bloco', async () => {
       items.set([
         post(ana, 'rana03', '2026-10-06T10:00:00.000Z'),
@@ -360,7 +360,7 @@ describe('Amigos: a página (MailPage)', () => {
       expect(velha.estado).toBe('ficha');
     });
 
-    it('a resenha de uma pessoa nova no Chegou, com a página aberta, busca o mural dela', async () => {
+    it('a resenha de uma pessoa nova no Feed, com a página aberta, busca o mural dela', async () => {
       const page = await open();
       cloudWalls.set(bia.codigo, wallOf(bia, [review('rbia01', 'Hollow Knight')]));
       log = [];

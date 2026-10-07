@@ -262,7 +262,7 @@
                 <li class="pessoa" [class.quieta]="x.sigo?.silenciado">
                   <span class="cracha-mini" aria-hidden="true">{{ initial(x.nome) }}</span>
                   <div class="pessoa-quem">
-                    <!-- o nome abre o mural da pessoa, como no Chegou -->
+                    <!-- o nome abre o mural da pessoa, como no Feed -->
                     <button type="button" class="pessoa-nome" [appBusy]="isBusy(x.codigo, 'mural')" (click)="openWall(x)" [attr.aria-label]="'Ver o mural de ' + x.nome">
                       {{ x.nome }}
                     </button>

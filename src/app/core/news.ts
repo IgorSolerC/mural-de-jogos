@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
     title: 'Ajustes pelo mural',
     items: [
       'Em "Quem vê?", a opção Todo mundo agora se chama Publicar.',
+      'Em Amigos, a aba Chegou agora se chama Feed.',
     ],
   },
   {
