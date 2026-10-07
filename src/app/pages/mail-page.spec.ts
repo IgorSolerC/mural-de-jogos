@@ -288,11 +288,7 @@ describe('Amigos: a página (MailPage)', () => {
   });
 
   describe('bugs conhecidos', () => {
-    // A minha ficha da mesma obra vem de `compareCollections`, que casa só as fichas originais (os
-    // dois lados filtram `!revisitOf`). Quando o amigo publica uma rejogada (releitura, reassistida)
-    // de algo que eu já avaliei, o post não acha a minha ficha: diz "Você ainda não avaliou" e
-    // oferece "Quero jogar" para um jogo que já está no meu mural.
-    itBug('na rejogada de um amigo, aparece a minha nota da mesma obra', async () => {
+    it('na rejogada de um amigo, aparece a minha nota da mesma obra', async () => {
       store.add(review('rme001', 'Celeste', {}, 7));
       items.set([post(ana, 'rana02', '2026-10-06T10:00:00.000Z', 'Celeste')]);
       cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste', {}, 9), review('rana02', 'Celeste', { revisitOf: 'rana01' }, 10)]));
@@ -300,7 +296,24 @@ describe('Amigos: a página (MailPage)', () => {
       const [p] = posts(page);
       expect(p.estado).toBe('ficha');
       expect(p.theirs!.revisitOf).toBe('rana01');
-      must(p.mine?.id === 'rme001', 'a página diz "Você ainda não avaliou" para um jogo que está no meu mural');
+      expect(p.mine?.id).toBe('rme001');
+      expect(p.secret).toBeFalse();
+    });
+
+    it('rejogada cuja original ficou privada (fora do mural público): casa pela própria obra', async () => {
+      store.add(review('rme001', 'Celeste', {}, 7));
+      items.set([post(ana, 'rana02', '2026-10-06T10:00:00.000Z', 'Celeste')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana02', 'Celeste', { revisitOf: 'rana01' }, 10)]));
+      const page = await open();
+      expect(posts(page)[0].mine?.id).toBe('rme001');
+    });
+
+    it('rejogada de algo que eu não avaliei: continua sem a minha nota', async () => {
+      store.add(review('rme001', 'Hades', {}, 7));
+      items.set([post(ana, 'rana02', '2026-10-06T10:00:00.000Z', 'Celeste')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste', {}, 9), review('rana02', 'Celeste', { revisitOf: 'rana01' }, 10)]));
+      const page = await open();
+      expect(posts(page)[0].mine).toBeNull();
     });
 
     // A página busca os murais só ao abrir. Uma resenha que chega depois (a conferência de 15 em 15

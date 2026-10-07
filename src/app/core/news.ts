@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
     title: 'Consertos em Amigos e na nuvem',
     items: [
       'O nome trocado em um aparelho não volta mais ao antigo quando outro aparelho abre o site.',
+      'Em Amigos, a rejogada (ou releitura, ou reassistida) de algo que você já avaliou mostra a sua nota, em vez de "Você ainda não avaliou".',
     ],
   },
   {

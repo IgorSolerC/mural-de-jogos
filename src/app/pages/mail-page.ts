@@ -10,7 +10,7 @@ import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
 import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, localDayOf } from '../core/follow';
 import { profileOf } from '../core/kinds';
-import { Review, fold, formatScore, newId, shownFinal } from '../core/review';
+import { Review, fold, formatScore, newId, rootOf, shownFinal } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
@@ -303,8 +303,16 @@ export class MailPage {
     return this.matches().get(code)?.byId.get(ref) ?? null;
   }
 
+  /**
+   * A minha ficha da mesma obra. A comparação casa só as fichas originais, então uma rejogada (releitura,
+   * reassistida) do amigo procura pela original dela; se a original não está no mural público (ficou
+   * privada), a rejogada é casada como se fosse a obra.
+   */
   protected mineOf(code: string, theirs: Review): Review | null {
-    return this.matches().get(code)?.mine.get(theirs.id) ?? null;
+    const found = this.matches().get(code)?.mine.get(rootOf(theirs));
+    if (found || !theirs.revisitOf) return found ?? null;
+    const { revisitOf: _, ...asWork } = theirs;
+    return compareCollections(this.myReviews(), [asWork]).pairs[0]?.mine ?? null;
   }
 
 
