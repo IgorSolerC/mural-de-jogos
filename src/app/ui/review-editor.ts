@@ -9,13 +9,15 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Bookmark, Check, CopyCheck, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Trash2, UsersRound, X } from 'lucide-angular';
+import { Bookmark, Check, CopyCheck, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RectangleHorizontal, RectangleVertical, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   Bonus,
   Difficulty,
   Draft,
   Kind,
   PickedGame,
+  NoteSize,
   Rated,
   RatedKey,
   Review,
@@ -45,7 +47,7 @@ import {
   todayISO,
 } from '../core/review';
 import { GameLookup, isSteamCover } from '../core/game-lookup';
-import { cap, g, profileOf } from '../core/kinds';
+import { cap, g, isNotes, profileOf } from '../core/kinds';
 import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
@@ -83,6 +85,7 @@ const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'jul
   selector: 'app-review-editor',
   imports: [
     LucideAngularModule,
+    NgTemplateOutlet,
     BonusPicker,
     CardKit,
     CoverPicker,
@@ -162,6 +165,7 @@ export class ReviewEditor {
   /** O cabeçalho do editor. */
   protected readonly title = computed(() => {
     if (this.revisitRoot()) return `${this.editing() ? 'Editar' : 'Nova'} ${this.profile().revisit.one}`;
+    if (this.notes()) return this.editing() ? 'Editar anotação' : 'Nova anotação';
     return this.editing() ? 'Editar resenha' : this.fromDraft() ? 'Terminar resenha' : 'Nova resenha';
   });
   /** "de 12 mar 2024" (a data da original), para o convite de manter as notas. */
@@ -171,6 +175,19 @@ export class ReviewEditor {
   });
   /** O mural da ficha: o aberto, para uma ficha nova; o dela, para uma que já existe. */
   protected readonly kind = signal<Kind>('jogos');
+  /** Uma anotação, não uma resenha: título escrito, capa opcional, categorias, sem notas (ver `isNotes`). */
+  protected readonly notes = computed(() => isNotes(this.kind()));
+  /** O título da anotação, como está sendo escrito (vai no `game.name`). */
+  protected readonly noteTitle = computed(() => this.game()?.name ?? '');
+  /** A anotação como "item", para a escolha da capa (só link colado ou sem capa: não há catálogo). */
+  protected readonly noteGame = computed<PickedGame>(() => this.game() ?? { name: '', coverUrl: null, source: 'manual' });
+  /** O tamanho da anotação no mural; null, o de sempre. */
+  protected readonly noteSize = signal<NoteSize | null>(null);
+  protected readonly noteSizes: readonly { value: NoteSize | null; label: string; icon: typeof Square }[] = [
+    { value: null, label: 'Normal', icon: Square },
+    { value: 'larga', label: 'Larga', icon: RectangleHorizontal },
+    { value: 'alta', label: 'Alta', icon: RectangleVertical },
+  ];
   protected readonly profile = computed(() => profileOf(this.kind()));
   /** As quatro notas do mural, na ordem do boletim. */
   protected readonly categories = computed<RatedKey[]>(() => this.profile().categories.map((c) => c.key));
@@ -320,9 +337,18 @@ export class ReviewEditor {
     return this.artId() !== (this.revisitRoot() ?? this.id()) ? { artFrom: this.artId() } : {};
   }
 
+  protected setNoteTitle(name: string): void {
+    this.game.set({ name, coverUrl: this.game()?.coverUrl ?? null, source: 'manual' });
+  }
+
+  protected setNoteCover(coverUrl: string | null): void {
+    this.game.set({ name: this.noteTitle(), coverUrl, source: 'manual' });
+  }
+
   /** A ficha como ela vai para o mural, montada com o que já foi preenchido. */
   protected readonly preview = computed<Review>(() => {
     return {
+      ...(this.notes() && this.noteSize() ? { noteSize: this.noteSize()! } : {}),
       id: this.id(),
       kind: this.kind(),
       // sem jogo, a capa mostra um ponto de interrogação e o nome fica só marcado (ReviewCard.empty)
@@ -399,6 +425,12 @@ export class ReviewEditor {
 
   protected readonly missing = computed(() => {
     const m: string[] = [];
+    if (this.notes()) {
+      if (!this.noteTitle().trim()) m.push('o título');
+      if (!this.dateValid()) m.push('uma data válida');
+      if (!this.text().trim()) m.push('a anotação');
+      return m;
+    }
     // na ordem da ficha, de cima para baixo: o primeiro que falta é onde o foco cai
     if (!this.game()) m.push(this.words().o);
     if (!this.status()) m.push('o status');
@@ -416,7 +448,8 @@ export class ReviewEditor {
     const m = this.missing();
     if (!m.length) return '';
     const list = m.length > 1 ? `${m.slice(0, -1).join(', ')} e ${m.at(-1)}` : m[0];
-    return `Falta escolher ${list}.`;
+    // na anotação nada se escolhe: se escreve
+    return this.notes() ? `Falta ${list}.` : `Falta escolher ${list}.`;
   });
 
   private snapshot = '';
@@ -435,7 +468,9 @@ export class ReviewEditor {
     const root = review ? (review.revisitOf ?? null) : revisitOf ? (revisitOf.revisitOf ?? revisitOf.id) : null;
     this.revisitRoot.set(root);
     this.keptNotes.set(false);
-    this.isPrivate.set(review?.private === true);
+    // a anotação nasce privada; a resenha, publicada
+    this.isPrivate.set(review ? review.private === true : isNotes(kind));
+    this.noteSize.set(review?.noteSize ?? null);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
     // a rejogada nova desenha como a original desenha hoje (que pode ser com o id de antes)
@@ -503,7 +538,11 @@ export class ReviewEditor {
     toTop();
     // e de novo depois que o conteúdo da resenha nova desenhar (e o foco ir para a busca)
     requestAnimationFrame(toTop);
-    if (!review && !draft && !root) queueMicrotask(() => this.search()?.focus());
+    if (!review && !draft && !root) {
+      queueMicrotask(() =>
+        isNotes(kind) ? this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-titulo-nota')?.focus() : this.search()?.focus(),
+      );
+    }
   }
 
   /**
@@ -582,6 +621,10 @@ export class ReviewEditor {
   protected save(e: Event): void {
     e.preventDefault();
     this.attempted.set(true);
+    if (this.notes()) {
+      this.saveNote();
+      return;
+    }
     const game = this.game();
     const final = this.shown();
     const status = this.status();
@@ -635,6 +678,46 @@ export class ReviewEditor {
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
     this.saved.emit({ id: review.id, isNew: !prev, swap });
+  }
+
+  /** Prega a anotação: título e texto são obrigatórios; sem notas, status, veredito nem dificuldade. */
+  private saveNote(): void {
+    const name = this.noteTitle().trim();
+    if (!name || !this.text().trim() || !this.dateValid()) {
+      this.focusFirstMissing();
+      return;
+    }
+    const now = new Date().toISOString();
+    const prev = this.editing();
+    const look = this.preview();
+    const note: Review = {
+      ...look,
+      game: { name, coverUrl: this.game()?.coverUrl ?? null, source: 'manual' },
+      scores: { final: 0 },
+      status: 'finalizado',
+      difficulty: 'nenhuma',
+      verdict: null,
+      weights: {},
+      bonuses: this.bonuses().map((b) => ({ ...b, kind: 'favor' as const })),
+      hoursPlayed: null,
+      // o de sempre não vai para o armazenamento, como na resenha
+      paper: this.paper() !== 'cartolina' ? this.paper() : undefined,
+      scribbleInk: this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? this.scribbleInk() : undefined,
+      text: this.text().trim(),
+      completedAt: this.dateValue(),
+      ...(this.isPrivate() ? { private: true as const } : {}),
+      ...(this.isPrivate() ? {} : prev?.private ? { publishedAt: now } : prev?.publishedAt ? { publishedAt: prev.publishedAt } : {}),
+      createdAt: prev?.createdAt ?? now,
+      updatedAt: now,
+    };
+    // tira os campos vazios (undefined) que a prévia leva
+    const clean = Object.fromEntries(Object.entries(note).filter(([, v]) => v !== undefined)) as unknown as Review;
+    if (!this.isPrivate()) delete (clean as Partial<Review>).private;
+    if (prev) this.store.update(clean);
+    else this.store.add(clean);
+    this.snapshot = this.serialize();
+    this.dialog().nativeElement.close();
+    this.saved.emit({ id: clean.id, isNew: !prev });
   }
 
   /** Guarda só o nome e a capa, fora do mural, para terminar a resenha depois. */
@@ -806,11 +889,20 @@ export class ReviewEditor {
       this.difficulty(),
       this.text().trim(),
       this.isPrivate(),
+      this.noteSize(),
     ]);
   }
 
   private focusFirstMissing(): void {
     const root = this.dialog().nativeElement;
+    if (this.notes()) {
+      setTimeout(() => {
+        if (!this.noteTitle().trim()) root.querySelector<HTMLInputElement>('#editor-titulo-nota')?.focus();
+        else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
+        else this.writer()?.focus();
+      });
+      return;
+    }
     setTimeout(() => {
       // na ordem da ficha: o status e a data vêm antes das notas
       if (!this.game()) this.search()?.focus();

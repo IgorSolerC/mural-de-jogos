@@ -1133,3 +1133,10 @@ The user found Amigos "simplista, um pouco confusa e feia". The critique (23/40)
 - **Sheet**: a 420px cream dialog, "Reações" in Permanent Marker with the title in Kalam under it; the row "Sua reação" when you can react; tabs as ink pills (Todas N, then one per emoji); people as rows with the mini "Olá, eu sou" badge (yours in black ink), name in Kalam bold, day in label caps, emoji at 24px on the right.
 - **Feed note**: the follow note's paper slip, with the emojis in a 44px pill where the badge is, "Bia e Ana reagiram à sua ficha de *Hades*" (the title underlined in pencil) and "Ver a ficha".
 
+## Anotações (notes wall, 2026-10-07)
+
+- **Same cartolina, different head.** A note is the review card without the judgement: no score label, boletim, status band or skulls. The categories (the bonus stickers, favor side only) take the judge area beside the cover; without a cover the head is one column (title, date, categories). Under the head, the note's beginning in Kalam at 1.04rem on a 1.4rem line, rendered by `app-rich-text` (lists, checkboxes), clamped to 8 lines (18 on Alta) and faded over the last line only when it overflows (`appCorta`).
+- **Sizes.** Larga spans two card widths plus the gap on the wall (one column on phones, normal width on Capas); Alta only shows more text.
+- **Editor.** The notes branch replaces search, scores, status and verdict with: Título (a handwritten 1.3rem input on the ink-outlined strip), "Pôr uma capa (opcional)" (the cover picker with only link/none), Categorias (bonus picker in categories mode: one side, "Pôr categoria", "Escrever outra"), the date strip, Anotação (the rich editor) and "Tamanho da ficha" (the same cut-out tags as Publicar/Privado: Normal, Larga, Alta). The header says "Nova anotação"; missing fields read "Falta o título e a anotação."
+- **Filter.** The sheet's notes layout: Categoria in a wide first column, Visual and Ano beside it.
+

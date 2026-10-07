@@ -152,6 +152,13 @@
     width: var(--card-w);
     max-width: none;
   }
+  /* a anotação larga ocupa duas fichas e o vão entre elas (no celular, a coluna é uma só) */
+  app-review-card.nota-larga {
+    width: calc(var(--card-w) * 2 + var(--in-gap));
+  }
+}
+.wall.capas .fichas app-review-card.nota-larga {
+  width: var(--card-w);
 }
 
 /* ===== Mural vazio ===== */

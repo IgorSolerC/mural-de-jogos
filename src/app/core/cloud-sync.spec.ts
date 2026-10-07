@@ -489,10 +489,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar.
    */
-  it('a leitura das fichas é a mesma da versão 4', async () => {
+  it('a leitura das fichas é a mesma da versão 5', async () => {
     const source = [sanitizeReview, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 4, hex: '0139080498ae6e44dad12f517198bc1bf1a46987913e97774ba806e9b628db41' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 5, hex: '1830dfd272ccac22863566e031f154f6b15cb278f3081c4f4c263c2afb8cd385' });
   });
 });

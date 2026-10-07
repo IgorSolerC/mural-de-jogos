@@ -11,7 +11,7 @@ import {
   SquareCheckBig,
 } from 'lucide-angular';
 import { Mural } from '../core/mural';
-import { countOf, revisitCountOf } from '../core/kinds';
+import { countOf, isNotes, revisitCountOf } from '../core/kinds';
 import { SCORE_LABEL, ScoreKey, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
@@ -26,6 +26,12 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'data', label: 'Data' },
   { value: 'alfabetica', label: 'Nome' },
   { value: 'status', label: 'Status' },
+];
+/** No mural de anotações: sem status nem notas, e com as categorias. */
+const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'data', label: 'Data' },
+  { value: 'alfabetica', label: 'Título' },
+  { value: 'categoria', label: 'Categoria' },
 ];
 
 @Component({
@@ -69,7 +75,9 @@ export class WallToolbar {
     return shown === total ? `Mostrando todos os ${all}` : `Mostrando ${shown} de ${all}`;
   });
 
-  protected readonly sortOptions = SORT_OPTIONS;
+  /** O mural de anotações: outras ordens, e nada de marcar para o lado a lado. */
+  protected readonly notes = computed(() => isNotes(this.mural.kind()));
+  protected readonly sortOptions = computed(() => (this.notes() ? NOTE_SORT_OPTIONS : SORT_OPTIONS));
   /** A Média e as quatro notas do mural aberto. */
   protected readonly scoreOptions = computed(() =>
     scoreKeys(this.mural.kind()).map((k) => ({ value: `nota:${k}`, label: SCORE_LABEL[k] })),
@@ -81,7 +89,7 @@ export class WallToolbar {
 
   protected readonly sortLabel = computed(() => {
     const v = this.sortValue();
-    const opt = [...SORT_OPTIONS, ...this.scoreOptions()].find((o) => o.value === v);
+    const opt = [...this.sortOptions(), ...this.scoreOptions()].find((o) => o.value === v);
     return opt?.label ?? 'Data';
   });
 
@@ -92,6 +100,8 @@ export class WallToolbar {
         return desc ? 'Mais recentes primeiro' : 'Mais antigas primeiro';
       case 'alfabetica':
         return desc ? 'De Z a A' : 'De A a Z';
+      case 'categoria':
+        return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
       case 'status': {
         const groups = this.mural.profile().statusGroup;
         return `${desc ? groups.platinado : groups.incompleto} primeiro`;

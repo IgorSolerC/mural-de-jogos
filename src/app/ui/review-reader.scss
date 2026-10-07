@@ -259,6 +259,23 @@ app-judge-label {
   background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)) 0 6px;
 }
 
+/* anotação: as categorias no lugar da etiqueta; sem capa, o título ocupa a largura */
+.top.sem-capa {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'words'
+    'judgement';
+}
+.categorias {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 7px 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .reagir-linha {
   display: flex;
   flex-wrap: wrap;

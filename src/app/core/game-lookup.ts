@@ -31,7 +31,7 @@ function bookEditionRank(e: any): number {
 }
 
 /** Onde cada mural procura na Wikipedia (sem chave): páginas com a caixa de informações daquele tipo. */
-const WIKI_TEMPLATE: Record<Exclude<Kind, 'livros'>, string> = {
+const WIKI_TEMPLATE: Record<Exclude<Kind, 'livros' | 'anotacoes'>, string> = {
   jogos: 'Infobox video game',
   filmes: 'Infobox film',
   series: 'Infobox television',
@@ -212,6 +212,9 @@ export class GameLookup {
       throw new LookupError('Sem internet agora.', 'offline');
     }
     switch (kind) {
+      // anotação não tem catálogo: o título é o que a pessoa escrever
+      case 'anotacoes':
+        return [];
       case 'livros':
         return this.searchOpenLibrary(query, signal);
       case 'animes':

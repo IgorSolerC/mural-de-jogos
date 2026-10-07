@@ -8,13 +8,13 @@ import { Toasts } from '../ui/toast';
 import { Busy } from '../ui/busy';
 import { ColleagueStore } from '../core/colleague-store';
 import { CloudMurals } from '../core/cloud-murals';
-import { KINDS, Kind, cap, countOf, profileOf, revisitCountOf } from '../core/kinds';
+import { KINDS, Kind, cap, countOf, isNotes, profileOf, revisitCountOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Review, VERDICT_LABEL, fold, originalsOf } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from '../core/wall-filter';
-import { Direction, SPOILER_FACETS, SortKey, WallView, groupWall, sortWall, withoutSpoilerFacets } from '../core/wall-view';
+import { Direction, SPOILER_FACETS, SortKey, WallView, groupWall, sortFor, sortWall, withoutSpoilerFacets } from '../core/wall-view';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { FilterSheet, FilterTags, FilterToggle } from '../ui/filter-sheet';
 import { ReviewCard } from '../ui/review-card';
@@ -22,7 +22,7 @@ import { ReviewReader } from '../ui/review-reader';
 import { SearchStrip } from '../ui/search-strip';
 
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'desc', alfabetica: 'asc', status: 'desc' };
+const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'desc', alfabetica: 'asc', status: 'desc', categoria: 'asc' };
 
 /**
  * O mural do colega, só dele: as fichas do backup aberto na comparação, pregadas em seções como no
@@ -128,7 +128,13 @@ export class ColleagueWallPage {
     { value: 'alfabetica', label: 'A–Z' },
     { value: 'status', label: 'Status' },
   ];
-  protected readonly sortLabel = computed(() => this.sorts.find((s) => s.value === this.shownSort())!.label);
+  /** No mural de anotações: título e categoria, sem nota nem status. */
+  private readonly noteSorts: readonly { value: SortKey; label: string }[] = [
+    { value: 'data', label: 'Data' },
+    { value: 'alfabetica', label: 'Título' },
+    { value: 'categoria', label: 'Categoria' },
+  ];
+  protected readonly sortLabel = computed(() => [...this.sorts, ...this.noteSorts].find((s) => s.value === this.shownSort())!.label);
 
   /** As fichas do colega no mural aberto. */
   protected readonly reviews = computed(() => (this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind()));
@@ -153,8 +159,13 @@ export class ColleagueWallPage {
   /** O botão de mostrar aparece enquanto houver o que esconder (e para esconder de novo). */
   protected readonly canReveal = computed(() => this.unseen().size > 0);
   protected readonly unseenCount = computed(() => this.unseen().size);
-  protected readonly shownSort = computed<SortKey>(() => (this.guarding() && this.sort() === 'nota' ? 'data' : this.sort()));
-  protected readonly shownSorts = computed(() => (this.guarding() ? this.sorts.filter((s) => s.value !== 'nota') : this.sorts));
+  protected readonly shownSort = computed<SortKey>(() => {
+    const sort = sortFor(this.sort(), this.profile());
+    return this.guarding() && sort === 'nota' ? 'data' : sort;
+  });
+  protected readonly shownSorts = computed(() =>
+    isNotes(this.profile().kind) ? this.noteSorts : this.guarding() ? this.sorts.filter((s) => s.value !== 'nota') : this.sorts,
+  );
 
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
   private readonly searched = computed(() => {

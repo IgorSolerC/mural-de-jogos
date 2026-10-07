@@ -28,6 +28,8 @@ export const DATA_KEYS = [
   'mural-de-jogos:pendentes:v1',
   'mural-de-jogos:desejos:v1',
   'mural-de-jogos:apagadas:v1',
+  // as anotações, à parte das resenhas: um site antigo nunca as lê (nem as joga fora)
+  'mural-de-jogos:anotacoes:v1',
 ] as const;
 export type DataKey = (typeof DATA_KEYS)[number];
 

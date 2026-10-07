@@ -1,4 +1,4 @@
-import { KIND_PROFILES, Kind, isKind, profileOf } from './kinds';
+import { KIND_PROFILES, Kind, isKind, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
 import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
 
@@ -277,6 +277,11 @@ export interface Review {
    */
   artFrom?: string;
   /**
+   * Só nas anotações: a ficha mais larga (duas colunas) ou mais alta (mais texto à mostra). Sem o
+   * campo, o tamanho de sempre.
+   */
+  noteSize?: NoteSize;
+  /**
    * Privada: fica só com a pessoa. Não vai no mural que os outros veem (pelo código, em Amigos, em
    * Comparar) nem vira aviso para quem segue. Fica no backup e na nuvem particular dela.
    */
@@ -288,6 +293,15 @@ export interface Review {
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** O tamanho de uma anotação no mural (ver `Review.noteSize`). */
+export type NoteSize = 'larga' | 'alta';
+export const NOTE_SIZES: readonly NoteSize[] = ['larga', 'alta'];
+
+/** É uma anotação (do mural de anotações), não uma resenha? */
+export function isNote(r: Pick<Review, 'kind'>): boolean {
+  return isNotes(r.kind);
 }
 
 /** A ficha fica só com a pessoa? (ver `Review.private`) */
@@ -836,6 +850,7 @@ export function sanitizeReview(raw: unknown): Review | null {
   const game = sanitizeGame(r['game']);
   if (!game) return null;
   const kind = sanitizeKind(r['kind']);
+  if (isNotes(kind)) return sanitizeNote(r, game);
   const profile = profileOf(kind);
   const s = (r['scores'] ?? {}) as Record<string, any>;
   const rawWeights = (r['weights'] ?? {}) as Record<string, unknown>;
@@ -912,6 +927,49 @@ export function sanitizeReview(raw: unknown): Review | null {
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };
+}
+
+/**
+ * Uma anotação: título (o `game.name`), capa opcional, texto, categorias (os adesivos, sempre do lado
+ * "a favor") e a cartolina. Sem notas: guardada sem `scores` (um site antigo que a visse a jogaria
+ * fora, nunca a leria como um jogo nota 0); aqui a Média fica 0, sem uso.
+ */
+function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
+  const now = new Date().toISOString();
+  const createdAt = isoOr(r['createdAt'], now);
+  const categories = sanitizeBonuses(
+    Array.isArray(r['bonuses']) ? r['bonuses'].map((b: unknown) => (b && typeof b === 'object' ? { ...(b as object), kind: 'favor' } : b)) : [],
+    'anotacoes',
+  );
+  const base = sanitizeReview({ ...r, kind: 'jogos', bonuses: [], scores: { final: 0 }, revisitOf: undefined, artFrom: undefined, finalOverride: undefined })!;
+  const {
+    finalOverride: _o,
+    revisitOf: _r,
+    artFrom: _a,
+    ...look
+  } = base;
+  return {
+    ...look,
+    id: base.id,
+    kind: 'anotacoes',
+    game: { ...game, source: 'manual', sourceId: undefined, year: undefined, by: undefined },
+    scores: { final: 0 },
+    status: 'finalizado',
+    difficulty: 'nenhuma',
+    verdict: null,
+    weights: {},
+    bonuses: categories,
+    hoursPlayed: null,
+    ...(NOTE_SIZES.includes(r['noteSize']) ? { noteSize: r['noteSize'] as NoteSize } : {}),
+    createdAt,
+    updatedAt: isoOr(r['updatedAt'], createdAt),
+  };
+}
+
+/** A anotação como vai para o armazenamento e o backup: sem as notas, que ela não tem. */
+export function storedNote(r: Review): Omit<Review, 'scores'> & { scores?: never } {
+  const { scores: _s, ...rest } = r;
+  return rest;
 }
 
 /** Normaliza texto para busca: sem acento, minúsculo. */

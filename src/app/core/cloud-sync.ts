@@ -37,8 +37,9 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  * 3: as fichas privadas (`private`, `publishedAt`). Um site antigo jogaria a marca fora e publicaria a ficha.
  * 4: de onde sai o desenho do papel (`artFrom`), depois que uma rejogada mais antiga vira a original.
  *    Um site antigo jogaria o campo fora e redesenharia as cartolinas da obra.
+ * 5: as anotações (`notas`, ao lado de `reviews`). Um site antigo enviaria o mural sem elas.
  */
-export const SYNC_SCHEMA = 4;
+export const SYNC_SCHEMA = 5;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -76,6 +77,11 @@ const MAX_NEW = 10;
 /** O que os outros veem do mural: tudo, menos as fichas privadas. */
 export function publicReviews(reviews: readonly Review[]): Review[] {
   return reviews.filter((r) => !isPrivate(r));
+}
+
+/** As anotações que os outros veem: só as publicadas (a anotação nasce privada). */
+export function publicNotes(notes: unknown): unknown[] {
+  return Array.isArray(notes) ? notes.filter((n) => (n as { private?: unknown } | null)?.private !== true) : [];
 }
 
 /**
@@ -175,9 +181,12 @@ function readState(kv: KeyValueStore): SyncState | null {
 const byId = <T extends { id: string }>(list: readonly T[]) => [...list].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
 /** A impressão digital do conteúdo do mural (sem a data do backup nem o nome), com as chaves se houver. */
-export async function fingerprint(doc: Pick<BackupPayload, 'reviews' | 'drafts' | 'wishes' | 'deleted'>, keys: SyncedKeys | null = null): Promise<string> {
+export async function fingerprint(doc: Pick<BackupPayload, 'reviews' | 'notas' | 'drafts' | 'wishes' | 'deleted'>, keys: SyncedKeys | null = null): Promise<string> {
+  const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const text = canonicalJson({
     reviews: byId(doc.reviews ?? []),
+    // só com anotações: o mural de antes delas continua com a mesma impressão
+    ...(notes.length ? { notas: byId(notes) } : {}),
     drafts: byId(doc.drafts ?? []),
     wishes: byId(doc.wishes ?? []),
     deleted: doc.deleted ?? { reviews: {}, drafts: {}, wishes: {} },
@@ -474,8 +483,9 @@ export class CloudSync {
 
   private describe(doc: BackupPayload): string {
     const n = doc.reviews.length;
+    const notes = Array.isArray(doc.notas) ? doc.notas.length : 0;
     const extra = doc.drafts.length + doc.wishes.length;
-    const reviews = `${n} ${n === 1 ? 'resenha' : 'resenhas'}`;
+    const reviews = `${n} ${n === 1 ? 'resenha' : 'resenhas'}${notes ? `, ${notes} ${notes === 1 ? 'anotação' : 'anotações'}` : ''}`;
     return extra ? `${reviews} e mais ${extra} na fila e na wishlist` : reviews;
   }
 
@@ -483,7 +493,7 @@ export class CloudSync {
     const len = (k: string) => (Array.isArray(data[k]) ? (data[k] as unknown[]).length : 0);
     const deleted = (data['deleted'] ?? {}) as Record<string, Record<string, unknown> | undefined>;
     const tombs = ['reviews', 'drafts', 'wishes'].reduce((n, k) => n + Object.keys(deleted[k] ?? {}).length, 0);
-    return len('reviews') + len('drafts') + len('wishes') + tombs > 0;
+    return len('reviews') + len('notas') + len('drafts') + len('wishes') + tombs > 0;
   }
 
   /** A cópia de antes da nuvem (ver cloud-before.ts). */
@@ -581,7 +591,14 @@ export class CloudSync {
     }
     const publico = await gzip(
       // o que os outros veem: sem as fichas privadas
-      JSON.stringify({ app: 'meu-mural', version: 2, exportedAt: doc.exportedAt, ...(name ? { owner: { name } } : {}), reviews: publicReviews(doc.reviews) }),
+      JSON.stringify({
+        app: 'meu-mural',
+        version: 2,
+        exportedAt: doc.exportedAt,
+        ...(name ? { owner: { name } } : {}),
+        reviews: publicReviews(doc.reviews),
+        notas: publicNotes(doc.notas),
+      }),
     );
     const novas = newReviews(doc.reviews, now);
     const form = new FormData();

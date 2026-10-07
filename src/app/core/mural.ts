@@ -46,7 +46,7 @@ export class Mural {
 
   /** Quantas fichas cada mural tem, para o seletor do cartaz. */
   readonly counts = computed(() => {
-    const out = { jogos: 0, livros: 0, filmes: 0, series: 0, animes: 0 } as Record<Kind, number>;
+    const out = { jogos: 0, livros: 0, filmes: 0, series: 0, animes: 0, anotacoes: 0 } as Record<Kind, number>;
     for (const r of this.store.reviews()) if (!r.revisitOf) out[r.kind]++;
     return out;
   });

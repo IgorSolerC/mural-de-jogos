@@ -31,6 +31,19 @@ export interface NewsEntry {
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-07-mural-de-anotacoes',
+    date: '2026-10-07',
+    title: 'Mural de anotações',
+    notice: 'Novo: o mural de anotações, para listas, tarefas e ideias. Troque no cartaz.',
+    items: [
+      'Um sexto mural, de anotações: troque no cartaz ("Meu mural de anotações"). Listas de compras, tarefas, receitas, ideias, cada uma numa cartolina.',
+      'A anotação tem título, uma capa se quiser (um link de imagem), o texto com negrito, listas e tarefas, e categorias no lugar dos bônus.',
+      'As tarefas se marcam direto na leitura. No mural, as categorias filtram e ordenam as anotações.',
+      'Ela nasce privada; publicada, aparece no seu mural para quem abrir, mas não vira aviso para quem segue você.',
+      'A ficha pode ser Larga (duas colunas) ou Alta (mostra mais do texto).',
+    ],
+  },
+  {
     id: '2026-10-07-ajustes-pelo-mural',
     date: '2026-10-07',
     title: 'Ajustes pelo mural',

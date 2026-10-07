@@ -65,6 +65,15 @@ import {
   MicOff,
   SpellCheck,
   Wind,
+  BellRing,
+  Briefcase,
+  ChefHat,
+  GraduationCap,
+  ListTodo,
+  NotebookPen,
+  Plane,
+  ShoppingCart,
+  Target,
 } from 'lucide-angular';
 import {
   BONUS_KINDS,
@@ -162,6 +171,17 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   montagem: Film,
   dublagem: MicOff,
   propaganda: Megaphone,
+  // as categorias prontas das anotações
+  compras: ShoppingCart,
+  'a-fazer': ListTodo,
+  ideias: Lightbulb,
+  lembretes: BellRing,
+  estudos: GraduationCap,
+  trabalho: Briefcase,
+  receitas: ChefHat,
+  metas: Target,
+  viagem: Plane,
+  diario: NotebookPen,
 };
 
 /** O desenho do adesivo: o da cartela, ou um sinal de mais / menos para os escritos à mão. */
@@ -387,8 +407,8 @@ let uid = 0;
   host: { role: 'group', '[attr.aria-labelledby]': 'uid + "-t"' },
   template: `
     <div class="top">
-      <p class="label" [id]="uid + '-t'">Bônus</p>
-      @if (value().length) {
+      <p class="label" [id]="uid + '-t'">{{ categories() ? 'Categorias' : 'Bônus' }}</p>
+      @if (value().length && !categories()) {
         <app-bonus-tally [bonuses]="value()" />
       }
       <!-- com a cartela aberta a estrela sai de vista: a média viaja junto, aqui no alto -->
@@ -408,17 +428,20 @@ let uid = 0;
         (click)="setOpen(!open())"
       >
         <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-        {{ open() ? 'Fechar cartela' : value().length ? 'Mexer nos bônus' : 'Colar bônus' }}
+        {{ open() ? 'Fechar cartela' : categories() ? (value().length ? 'Mexer nas categorias' : 'Pôr categoria') : value().length ? 'Mexer nos bônus' : 'Colar bônus' }}
       </button>
     </div>
 
     @if (open()) {
       <div class="cartela" [id]="uid + '-cartela'">
-        @for (k of kinds; track k) {
+        @for (k of sides(); track k) {
           <div class="lado" role="group" [attr.aria-labelledby]="uid + '-' + k">
-            <p class="lado-label" [id]="uid + '-' + k">
-              <span>{{ kindLabels[k] }}</span>
-              <span class="lado-conta">até {{ k === 'favor' ? '+0,25' : '−0,25' }} cada</span>
+            <!-- categoria não tem lado: o rótulo fica só para o leitor de tela -->
+            <p class="lado-label" [class.sr-only]="categories()" [id]="uid + '-' + k">
+              <span>{{ categories() ? 'Categorias' : kindLabels[k] }}</span>
+              @if (!categories()) {
+                <span class="lado-conta">até {{ k === 'favor' ? '+0,25' : '−0,25' }} cada</span>
+              }
             </p>
             <div class="slots">
               @for (b of options()[k]; track b.id) {
@@ -441,8 +464,8 @@ let uid = 0;
                   autocomplete="off"
                   enterkeyhint="done"
                   [maxLength]="maxLabel"
-                  placeholder="Nome do bônus"
-                  [attr.aria-label]="'Novo bônus ' + kindLabels[k].toLowerCase() + '. Enter cola na ficha.'"
+                  [placeholder]="categories() ? 'Nome da categoria' : 'Nome do bônus'"
+                  [attr.aria-label]="categories() ? 'Nova categoria. Enter cola na ficha.' : 'Novo bônus ' + kindLabels[k].toLowerCase() + '. Enter cola na ficha.'"
                   (keydown)="onKey($event, k)"
                   (blur)="commit(k, $any($event.target))"
                 />
@@ -451,11 +474,11 @@ let uid = 0;
                   type="button"
                   class="slot write-btn"
                   [attr.data-write]="k"
-                  [attr.aria-label]="'Escrever outro bônus ' + kindLabels[k].toLowerCase()"
+                  [attr.aria-label]="categories() ? 'Escrever outra categoria' : 'Escrever outro bônus ' + kindLabels[k].toLowerCase()"
                   (click)="startWriting(k)"
                 >
                   <lucide-icon [img]="PlusIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-                  Escrever outro
+                  {{ categories() ? 'Escrever outra' : 'Escrever outro' }}
                 </button>
               }
             </div>
@@ -463,14 +486,18 @@ let uid = 0;
         }
       </div>
     } @else if (value().length) {
-      <ul class="colados" aria-label="Bônus colados na ficha">
+      <ul class="colados" [attr.aria-label]="categories() ? 'Categorias coladas na ficha' : 'Bônus colados na ficha'">
         @for (b of sorted(); track b.id; let i = $index) {
           <li>
             <app-bonus-sticker [bonus]="b" [index]="i" />
-            <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
+            @if (!categories()) {
+              <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
+            }
           </li>
         }
       </ul>
+    } @else if (categories()) {
+      <p class="hint">{{ examples() }} Uma anotação pode ter várias; o mural filtra e ordena por elas.</p>
     } @else {
       <p class="hint">{{ examples() }} Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo um quarto de ponto.</p>
     }
@@ -720,6 +747,9 @@ export class BonusPicker {
   /** A média com os bônus e quanto eles mexeram, para a cartela aberta mostrar ao vivo. */
   readonly final = input<number | null>(null);
   readonly shift = input('');
+  /** No mural de anotações os adesivos são categorias: um lado só, sem conta de média. */
+  readonly categories = input(false);
+  protected readonly sides = computed<readonly BonusKind[]>(() => (this.categories() ? ['favor'] : BONUS_KINDS));
   protected readonly fmt = formatScore;
 
   protected readonly StickerIcon = Sticker;
@@ -754,6 +784,10 @@ export class BonusPicker {
 
   /** "Trilha sonora incrível, muitos bugs…": o primeiro de cada lado da cartela. */
   protected readonly examples = computed(() => {
+    if (this.categories()) {
+      const [a, b] = this.catalog();
+      return a && b ? `${a.label}, ${b.label.charAt(0).toLowerCase()}${b.label.slice(1)}…` : '';
+    }
     const favor = this.catalog().find((b) => b.kind === 'favor')?.label ?? '';
     const contra = this.catalog().find((b) => b.kind === 'contra')?.label ?? '';
     return `${favor}, ${contra.charAt(0).toLowerCase()}${contra.slice(1)}…`;

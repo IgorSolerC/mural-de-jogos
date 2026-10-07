@@ -7,7 +7,7 @@ import { Cloud as CloudIconData, LucideAngularModule, LucideIconData, Megaphone,
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
-import { cap, profileOf, revisitCountOf } from './core/kinds';
+import { cap, isNotes, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
 import { News } from './core/news';
 import { LoginNudge } from './core/login-nudge';
@@ -46,6 +46,11 @@ interface Tab {
  * escrito; o desenho de pessoas diz de quem é, e balança quando chega algo. Só com a conta na nuvem.
  */
 const FRIENDS_TAB: Tab = { path: '/amigos', label: 'Amigos', icon: UsersRound, named: true };
+
+/** As abas que não existem no mural de anotações (e para onde ele não deixa ficar). */
+const NOT_FOR_NOTES = ['/fila', '/wishlist', '/extras'];
+/** As páginas que só fazem sentido com notas: no mural de anotações, voltam para o mural. */
+const NOTES_AWAY = [...NOT_FOR_NOTES, '/ranking', '/comparar', '/lado-a-lado'];
 
 const TABS: Tab[] = [
   { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
@@ -112,7 +117,13 @@ export class App {
   protected readonly CloudIcon = CloudIconData;
   protected readonly CloseIcon = X;
   /** As abas; Amigos entra antes da engrenagem quando há conta na nuvem. */
-  protected readonly tabs = computed(() => (this.follow.available() ? [...TABS.slice(0, -1), FRIENDS_TAB, TABS[TABS.length - 1]] : TABS));
+  protected readonly tabs = computed(() => {
+    // no mural de anotações não há fila, wishlist nem os extras (que são de notas)
+    const base = this.notes() ? TABS.filter((t) => !NOT_FOR_NOTES.includes(t.path)) : TABS;
+    return this.follow.available() ? [...base.slice(0, -1), FRIENDS_TAB, base[base.length - 1]] : base;
+  });
+  /** O mural aberto é o de anotações. */
+  protected readonly notes = computed(() => isNotes(this.mural.kind()));
 
   /**
    * Chegou algo dos amigos (o número apareceu ou subiu, inclusive ao abrir o site com novidades
@@ -139,6 +150,14 @@ export class App {
   private readonly wishAdder = viewChild.required(WishAdder);
 
   constructor() {
+    // trocou para o mural de anotações numa página que ele não tem (a fila, um jogo de Extras, o
+    // ranking, o lado a lado): volta para o mural
+    effect(() => {
+      const p = this.path();
+      if (this.notes() && NOTES_AWAY.some((x) => p === x || p.startsWith(x + '/')) && p !== '/comparar/mural') {
+        untracked(() => void this.router.navigate(['/']));
+      }
+    });
     void this.cloudMurals.openFromLink();
     this.desk.register({
       newReview: () => this.editor().open(),
@@ -261,7 +280,9 @@ export class App {
     const sure = await this.confirm.ask({
       text: revisits.length
         ? `${what} sai do mural, com as notas e o texto. ${revisits.length === 1 ? `A ${p.revisit.one} dela sai junto.` : `As ${revisitCountOf(p, revisits.length)} dela saem junto.`}`
-        : `${what} sai do mural, com as notas e o texto.`,
+        : isNotes(r.kind)
+          ? `${what} sai do mural, com o texto.`
+          : `${what} sai do mural, com as notas e o texto.`,
       confirm: 'Remover do mural',
     });
     if (!sure || !this.store.get(id)) return;
@@ -301,6 +322,11 @@ export class App {
           ? `${cap(p.revisit.one)} mais antiga que a original: agora ela é a original de “${name}”`
           : `“${name}”: a ${p.revisit.one} mais antiga virou a original`,
       );
+      if (e.isNew) void this.backup.protect();
+      return;
+    }
+    if (saved && isNotes(saved.kind)) {
+      this.toasts.show(e.isNew ? `“${name}” pregada no mural` : 'Anotação atualizada');
       if (e.isNew) void this.backup.protect();
       return;
     }
@@ -372,7 +398,7 @@ export class App {
       search.select();
     } else if (e.key === 'n' || e.key === 'N') {
       e.preventDefault();
-      const list = this.onList();
+      const list = this.notes() ? null : this.onList();
       if (list === 'fila') this.desk.newDraft();
       else if (list === 'wishlist') this.desk.newWish();
       else this.newReview();

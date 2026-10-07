@@ -12,6 +12,7 @@ import { FilterTags } from '../ui/filter-sheet';
 import { Pin } from '../ui/pin';
 import { PickTray } from '../ui/pick-tray';
 import { WallToolbar } from '../ui/wall-toolbar';
+import { isNotes } from '../core/kinds';
 import { Reactions } from '../core/reactions';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 
@@ -35,6 +36,8 @@ export class WallPage {
   private readonly reactions = inject(Reactions);
 
   protected readonly PlusIcon = Plus;
+  /** O mural de anotações: o vazio fala de anotação, não de resenha. */
+  protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];
   protected readonly highlight = computed(() => (this.view.shownSort() === 'nota' ? this.view.activeScore() : null));
   /** O que todas as fichas da parede recebem igual (ver WallCardPool). */

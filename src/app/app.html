@@ -62,9 +62,9 @@
     }
     @default {
       <span class="stack">
-        <button type="button" class="btn-cartolina" (click)="newReview()" aria-keyshortcuts="n" aria-label="Nova resenha">
+        <button type="button" class="btn-cartolina" (click)="newReview()" aria-keyshortcuts="n" [attr.aria-label]="notes() ? 'Nova anotação' : 'Nova resenha'">
           <lucide-icon [img]="PlusIcon" [size]="22" [strokeWidth]="3" aria-hidden="true" />
-          Nova<span class="long">&nbsp;resenha</span>
+          Nova<span class="long">&nbsp;{{ notes() ? 'anotação' : 'resenha' }}</span>
         </button>
       </span>
     }

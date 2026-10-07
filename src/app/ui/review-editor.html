@@ -28,7 +28,7 @@
         <div class="previa-slot" #previewSlot>
           <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
             <div class="previa" inert>
-              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [empty]="!game()" />
+              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [empty]="notes() ? !noteTitle().trim() : !game()" />
             </div>
           </div>
         </div>
@@ -41,6 +41,55 @@
         </div>
 
         <div class="form">
+        @if (notes()) {
+          <!-- A anotação: título escrito à mão (sem catálogo), capa só se quiser, as categorias e a data -->
+          <section class="bloco jogo">
+            <label class="pergunta" for="editor-titulo-nota">Título</label>
+            <div class="tira tira-titulo" [class.errada]="attempted() && !noteTitle().trim()">
+              <input
+                id="editor-titulo-nota"
+                type="text"
+                autocomplete="off"
+                maxlength="200"
+                placeholder="Lista do mercado, ideias pro fim de semana…"
+                [value]="noteTitle()"
+                [attr.aria-invalid]="attempted() && !noteTitle().trim()"
+                (input)="setNoteTitle($any($event.target).value)"
+              />
+            </div>
+            @if (attempted() && !noteTitle().trim()) {
+              <p class="field-error">Dê um título para a anotação.</p>
+            }
+            @if (choosingCover()) {
+              <fieldset class="escolher-capa">
+                <legend class="rotulo">Qual capa?</legend>
+                <app-cover-picker group="editor-capa" [game]="noteGame()" [kind]="kind()" (changed)="setNoteCover($event.coverUrl)">
+                  <button type="button" class="acao-caneta pronto" (click)="closeCovers()">
+                    <lucide-icon [img]="DoneIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                    Pronto
+                  </button>
+                </app-cover-picker>
+              </fieldset>
+            } @else {
+              <button type="button" class="acao-caneta capa-btn" (click)="openCovers($event)">
+                <lucide-icon [img]="CoversIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                {{ game()?.coverUrl ? 'Trocar a capa' : 'Pôr uma capa (opcional)' }}
+              </button>
+            }
+          </section>
+
+          <section class="bloco">
+            <div class="campo bonus">
+              <app-bonus-picker [categories]="true" [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" />
+            </div>
+          </section>
+
+          <section class="bloco como">
+            <div class="campos-linha">
+              <ng-container [ngTemplateOutlet]="dataCampo" />
+            </div>
+          </section>
+        } @else {
         <section class="bloco jogo">
           @if (revisitRoot() && game(); as g) {
             <!-- a rejogada é da mesma obra: o item vem da original e não troca -->
@@ -124,59 +173,7 @@
             }
           </div>
           <div class="campos-linha">
-            <div class="campo campo-data" role="group" aria-labelledby="editor-data-rotulo" aria-describedby="editor-data-leitura">
-              <span class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</span>
-              <div class="data-atalhos">
-                <button type="button" class="data-atalho" [disabled]="isToday()" (click)="setToday()">Hoje</button>
-                <button type="button" class="data-atalho" [disabled]="dateUnknown()" (click)="clearDate()">Não lembro</button>
-              </div>
-              <!-- dia, mês e ano numa tira só, como um formulário impresso: cada parte pode ficar em branco -->
-              <div class="tira tira-data" [class.vazia]="dateUnknown()" [class.errada]="attempted() && !dateValid()">
-                <label class="parte parte-dia">
-                  <span class="parte-rotulo">Dia</span>
-                  <input
-                    id="editor-data"
-                    type="text"
-                    inputmode="numeric"
-                    maxlength="2"
-                    autocomplete="off"
-                    placeholder="–"
-                    [value]="dateDay()"
-                    [attr.aria-invalid]="attempted() && !dateValid()"
-                    (input)="typeDate($any($event.target), 'day')"
-                  />
-                </label>
-                <span class="barra" aria-hidden="true">/</span>
-                <label class="parte parte-mes">
-                  <span class="parte-rotulo">Mês</span>
-                  <select id="editor-data-mes" [value]="dateMonth()" (change)="dateMonth.set($any($event.target).value)">
-                    <option value="" [selected]="!dateMonth()">–</option>
-                    @for (m of months; track m; let i = $index) {
-                      <option [value]="(i + 1 < 10 ? '0' : '') + (i + 1)" [selected]="+dateMonth() === i + 1">{{ m }}</option>
-                    }
-                  </select>
-                </label>
-                <span class="barra" aria-hidden="true">/</span>
-                <label class="parte parte-ano">
-                  <span class="parte-rotulo">Ano</span>
-                  <input
-                    type="text"
-                    inputmode="numeric"
-                    maxlength="4"
-                    autocomplete="off"
-                    placeholder="–"
-                    [value]="dateYear()"
-                    [attr.aria-invalid]="attempted() && !dateValid()"
-                    (input)="typeDate($any($event.target), 'year')"
-                    (keydown.arrowup)="$event.preventDefault(); stepYear(1)"
-                    (keydown.arrowdown)="$event.preventDefault(); stepYear(-1)"
-                  />
-                </label>
-              </div>
-              <p class="data-leitura" id="editor-data-leitura" [class.problema]="dateProblem()" [class.erro]="attempted() && dateProblem()" aria-live="polite">
-                {{ dateProblem() || dateReading() }}
-              </p>
-            </div>
+            <ng-container [ngTemplateOutlet]="dataCampo" />
             @if (profile().amount; as a) {
             <div class="campo campo-horas">
               <label for="editor-horas" class="rotulo">{{ a.label }}</label>
@@ -269,16 +266,40 @@
         <section class="bloco">
           <app-verdict-picker [(value)]="verdict" />
         </section>
+        }
 
         <section class="bloco texto">
-          <label [for]="texto.areaId" class="pergunta">O que achou?</label>
+          <label [for]="texto.areaId" class="pergunta">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
           <app-rich-editor
             #texto
-            label="O que achou?"
-            [placeholder]="'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
+            [label]="notes() ? 'Anotação' : 'O que achou?'"
+            [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias…' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
             [(value)]="text"
           />
+          @if (notes() && attempted() && !text().trim()) {
+            <p class="field-error">Escreva a anotação.</p>
+          }
         </section>
+
+        @if (notes()) {
+          <!-- o tamanho da ficha no mural: mais larga, ou mais alta para mostrar mais do texto -->
+          <section class="bloco quem-ve">
+            <fieldset>
+              <legend class="pergunta">Tamanho da ficha</legend>
+              <div class="quem-opts">
+                @for (o of noteSizes; track o.value) {
+                  <label class="quem">
+                    <input type="radio" name="editor-tamanho" [checked]="noteSize() === o.value" (change)="noteSize.set(o.value)" />
+                    <span class="quem-tag">
+                      <lucide-icon [img]="o.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                      {{ o.label }}
+                    </span>
+                  </label>
+                }
+              </div>
+            </fieldset>
+          </section>
+        }
 
         <!-- Publicar (o mural pelo código, Amigos, Comparar) ou manter privado, até mudar de ideia -->
         @if (cloud.config()) {
@@ -304,6 +325,8 @@
               <p class="quem-dica" id="editor-quem-dica">
                 @if (isPrivate()) {
                   Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque para Publicar.
+                } @else if (notes()) {
+                  Vai para o seu mural de anotações: quem abrir o seu mural vê. Anotação não vira aviso para quem segue você.
                 } @else {
                   Vai para o seu mural, e quem segue você é avisado em Amigos.
                 }
@@ -347,7 +370,7 @@
           } @else {
             <button type="button" class="btn-quiet cancelar" (click)="requestClose()">Cancelar</button>
           }
-          @if (!editing() && !revisitRoot()) {
+          @if (!editing() && !revisitRoot() && !notes()) {
             <button type="button" class="btn-quiet later" (click)="saveForLater()" title="Guarda só o nome e a capa, fora do mural">
               <lucide-icon [img]="LaterIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
               <span class="later-txt">Salvar pra depois</span>
@@ -360,5 +383,61 @@
         </div>
       }
     </footer>
+    <!-- a data em três partes: a mesma na resenha e na anotação -->
+    <ng-template #dataCampo>
+            <div class="campo campo-data" role="group" aria-labelledby="editor-data-rotulo" aria-describedby="editor-data-leitura">
+              <span class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</span>
+              <div class="data-atalhos">
+                <button type="button" class="data-atalho" [disabled]="isToday()" (click)="setToday()">Hoje</button>
+                <button type="button" class="data-atalho" [disabled]="dateUnknown()" (click)="clearDate()">Não lembro</button>
+              </div>
+              <!-- dia, mês e ano numa tira só, como um formulário impresso: cada parte pode ficar em branco -->
+              <div class="tira tira-data" [class.vazia]="dateUnknown()" [class.errada]="attempted() && !dateValid()">
+                <label class="parte parte-dia">
+                  <span class="parte-rotulo">Dia</span>
+                  <input
+                    id="editor-data"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="2"
+                    autocomplete="off"
+                    placeholder="–"
+                    [value]="dateDay()"
+                    [attr.aria-invalid]="attempted() && !dateValid()"
+                    (input)="typeDate($any($event.target), 'day')"
+                  />
+                </label>
+                <span class="barra" aria-hidden="true">/</span>
+                <label class="parte parte-mes">
+                  <span class="parte-rotulo">Mês</span>
+                  <select id="editor-data-mes" [value]="dateMonth()" (change)="dateMonth.set($any($event.target).value)">
+                    <option value="" [selected]="!dateMonth()">–</option>
+                    @for (m of months; track m; let i = $index) {
+                      <option [value]="(i + 1 < 10 ? '0' : '') + (i + 1)" [selected]="+dateMonth() === i + 1">{{ m }}</option>
+                    }
+                  </select>
+                </label>
+                <span class="barra" aria-hidden="true">/</span>
+                <label class="parte parte-ano">
+                  <span class="parte-rotulo">Ano</span>
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="4"
+                    autocomplete="off"
+                    placeholder="–"
+                    [value]="dateYear()"
+                    [attr.aria-invalid]="attempted() && !dateValid()"
+                    (input)="typeDate($any($event.target), 'year')"
+                    (keydown.arrowup)="$event.preventDefault(); stepYear(1)"
+                    (keydown.arrowdown)="$event.preventDefault(); stepYear(-1)"
+                  />
+                </label>
+              </div>
+              <p class="data-leitura" id="editor-data-leitura" [class.problema]="dateProblem()" [class.erro]="attempted() && dateProblem()" aria-live="polite">
+                {{ dateProblem() || dateReading() }}
+              </p>
+            </div>
+    </ng-template>
   </form>
 </dialog>

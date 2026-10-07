@@ -2,13 +2,18 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS } from './kinds';
 import { readBackupFile } from './backup-file';
 import { DataKey, LocalData } from './local-data';
-import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, storedNote } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
 const WISHES_KEY = 'mural-de-jogos:desejos:v1';
 /** Quando cada resenha e cada pendente foi apagado: sem isso, juntar um backup antigo traria tudo de volta. */
 const DELETED_KEY = 'mural-de-jogos:apagadas:v1';
+/**
+ * As anotações moram à parte (na memória, junto com as resenhas): um site antigo, aberto pelo cache,
+ * lê e regrava a lista de resenhas sem conhecer anotação, e a jogaria fora.
+ */
+const NOTES_KEY = 'mural-de-jogos:anotacoes:v1';
 
 /** id → quando foi apagado (ISO). */
 export interface Deleted {
@@ -24,6 +29,8 @@ export interface BackupPayload {
   exportedAt: string;
   owner?: { name: string };
   reviews: Review[];
+  /** As anotações, sem notas (ver `storedNote`). Fora de `reviews` para um site antigo nem vê-las. */
+  notas?: unknown[];
   drafts: Draft[];
   wishes: Wish[];
   deleted: Deleted;
@@ -104,6 +111,11 @@ export class ReviewStore {
     return Object.fromEntries(KINDS.map((k) => [k, sorted(seen[k])])) as Record<Kind, Bonus[]>;
   });
 
+  /** O que foi gravado por último em cada parte (ver o efeito das resenhas). */
+  private written: { reviews: readonly Review[]; notes: readonly Review[] } = {
+    reviews: this.reviews().filter((r) => !isNote(r)),
+    notes: this.reviews().filter(isNote),
+  };
   private skipNextWrite = false;
   private skipNextDraftWrite = false;
   private skipNextWishWrite = false;
@@ -128,7 +140,12 @@ export class ReviewStore {
         return;
       }
       if (list === this.loaded.reviews) return;
-      this.write(KEY, list);
+      // cada parte só é regravada quando mudou: pregar uma resenha não regrava as anotações
+      const reviews = list.filter((r) => !isNote(r));
+      const notes = list.filter(isNote);
+      if (!sameItems(reviews, this.written.reviews)) this.write(KEY, reviews);
+      if (!sameItems(notes, this.written.notes)) this.write(NOTES_KEY, notes.map(storedNote));
+      this.written = { reviews, notes };
     });
     effect(() => {
       const list = this.drafts();
@@ -161,7 +178,7 @@ export class ReviewStore {
     // Outra aba mexeu no mural: acompanha sem sobrescrever.
     if (typeof window !== 'undefined') {
       this.data.onExternalChange((key) => {
-        if (key === KEY) {
+        if (key === KEY || key === NOTES_KEY) {
           this.skipNextWrite = true;
           this.reviews.set(this.read());
         } else if (key === DRAFTS_KEY) {
@@ -378,7 +395,8 @@ export class ReviewStore {
       version: 2,
       exportedAt: new Date().toISOString(),
       ...(name ? { owner: { name } } : {}),
-      reviews: this.reviews(),
+      reviews: this.reviews().filter((r) => !isNote(r)),
+      notas: this.reviews().filter(isNote).map(storedNote),
       drafts: this.drafts(),
       wishes: this.wishes(),
       deleted: this.deleted(),
@@ -417,9 +435,11 @@ export class ReviewStore {
     // Nem a wishlist: backups de antes dela deixam a de agora como está.
     const rawWishes = Array.isArray((data as any)?.wishes) ? ((data as any).wishes as unknown[]) : null;
     const incomingWishes = (rawWishes ?? []).map(sanitizeWish).filter((w): w is Wish => w !== null);
+    // As anotações vêm à parte; um backup de antes delas (ou de um site antigo) não tem o campo.
+    const rawNotes = Array.isArray((data as any)?.notas) ? ((data as any).notas as unknown[]) : null;
     const incoming: Review[] = [];
     let skipped = 0;
-    for (const raw of rawList) {
+    for (const raw of [...rawList, ...(rawNotes ?? [])]) {
       const r = sanitizeReview(raw);
       if (r) incoming.push(r);
       else skipped++;
@@ -427,7 +447,8 @@ export class ReviewStore {
     const theirs = sanitizeDeleted((data as any)?.deleted);
 
     if (mode === 'replace') {
-      this.reviews.set(withStocks(incoming));
+      // sem o campo, as anotações daqui ficam como estão (o backup não sabia delas)
+      this.reviews.set(withStocks(rawNotes ? incoming : [...incoming, ...this.reviews().filter(isNote)]));
       if (rawDrafts) this.drafts.set(incomingDrafts);
       if (rawWishes) this.wishes.set(incomingWishes);
       this.deleted.set(theirs);
@@ -543,7 +564,7 @@ export class ReviewStore {
   }
 
   private read(): Review[] {
-    return withStocks(this.readList(KEY, sanitizeReview));
+    return withStocks([...this.readList(KEY, sanitizeReview), ...this.readList(NOTES_KEY, sanitizeReview)]);
   }
 
   private readDrafts(): Draft[] {
@@ -616,6 +637,11 @@ export class ReviewStore {
       /* sem espaço: não há o que fazer */
     }
   }
+}
+
+/** As duas listas têm as mesmas fichas, na mesma ordem (as mesmas referências)? */
+function sameItems(a: readonly Review[], b: readonly Review[]): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
 function sanitizeDeleted(raw: unknown): Deleted {

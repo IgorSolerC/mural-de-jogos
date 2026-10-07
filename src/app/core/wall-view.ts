@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
-import { KindProfile, countOf, revisitCountOf } from './kinds';
+import { KindProfile, countOf, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { Settings } from './settings';
 import {
@@ -17,7 +17,8 @@ import {
 } from './review';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 
-export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status';
+/** `categoria` só no mural de anotações; `nota` e `status`, só nos de resenhas. */
+export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria';
 export type Direction = 'desc' | 'asc';
 /** Completa (tudo), simples (a tira com a nota) ou capas (só a foto e o nome, para ver o máximo de fichas). */
 export type Density = 'completa' | 'simples' | 'capas';
@@ -44,7 +45,14 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
   nota: 'desc',
   alfabetica: 'asc',
   status: 'desc',
+  categoria: 'asc',
 };
+
+/** A ordem que o mural aberto tem de fato: cada mural só ordena pelo que ele tem. */
+export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
+  if (isNotes(profile.kind)) return sort === 'nota' || sort === 'status' ? 'data' : sort;
+  return sort === 'categoria' ? 'data' : sort;
+}
 
 function readPrefs(): ViewPrefs {
   const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa' };
@@ -52,7 +60,7 @@ function readPrefs(): ViewPrefs {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
     return {
-      sort: ['data', 'nota', 'alfabetica', 'status'].includes(raw.sort) ? raw.sort : fallback.sort,
+      sort: ['data', 'nota', 'alfabetica', 'status', 'categoria'].includes(raw.sort) ? raw.sort : fallback.sort,
       scoreKey: raw.scoreKey === 'final' || (RATED_KEYS as readonly string[]).includes(raw.scoreKey)
         ? raw.scoreKey
         : fallback.scoreKey,
@@ -107,7 +115,10 @@ export class WallView {
    * A ordem que vale de fato. Sem spoilers, ordenar por nota entregaria o ranking mesmo com as notas
    * escondidas: o mural fica por data, e a escolha guardada volta quando o modo desliga.
    */
-  readonly shownSort = computed<SortKey>(() => (this.settings.noSpoilers() && this.sort() === 'nota' ? 'data' : this.sort()));
+  readonly shownSort = computed<SortKey>(() => {
+    const sort = sortFor(this.sort(), this.mural.profile());
+    return this.settings.noSpoilers() && sort === 'nota' ? 'data' : sort;
+  });
   /** Os filtros que valem de fato: sem spoilers, filtrar por veredito, nota ou dificuldade entregaria o que está escondido. */
   private readonly activeFilter = computed<WallFilter>(() => {
     const f = this.filter();
@@ -233,7 +244,8 @@ export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage =
     if (last?.key === key) last.reviews.push(r);
     else groups.push({ key, label, summary: '', reviews: [r] });
   }
-  const showAvg = o.sort !== 'nota' && !hideAverage;
+  // anotação não tem nota: a seção diz só quantas são
+  const showAvg = o.sort !== 'nota' && !hideAverage && !isNotes(o.profile.kind);
   for (const g of groups) {
     const n = g.reviews.length;
     // "3 jogos · 1 rejogada": a rejogada não é mais um jogo no mural
@@ -245,8 +257,18 @@ export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage =
   return groups;
 }
 
+/** A categoria que agrupa a anotação: a primeira que foi colada nela, ou nenhuma. */
+function firstCategory(r: Review): string | null {
+  return r.bonuses[0]?.label ?? null;
+}
+
 function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
   switch (o.sort) {
+    case 'categoria':
+      return (r) => {
+        const c = firstCategory(r);
+        return c === null ? ['sem-categoria', 'Sem categoria'] : [`c:${fold(c)}`, c];
+      };
     case 'alfabetica':
       return (r) => {
         const c = letterOf(r.game.name);
@@ -291,6 +313,14 @@ function comparatorOf(o: WallOrder): (a: Review, b: Review) => number {
   const byDate = (a: Review, b: Review) =>
     (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt);
   switch (o.sort) {
+    case 'categoria':
+      // pela primeira categoria (sem categoria sempre no fim), e dentro dela as mais recentes primeiro
+      return (a, b) => {
+        const ca = firstCategory(a);
+        const cb = firstCategory(b);
+        if ((ca === null) !== (cb === null)) return ca === null ? 1 : -1;
+        return (ca !== null && cb !== null ? sign * collator.compare(ca, cb) : 0) || -byDate(a, b);
+      };
     case 'alfabetica':
       // a seção manda primeiro (o "#" antes do A), senão o Ø, o Ł ou um nome em japonês, que o
       // collator põe no meio do alfabeto, abririam outra seção "#" no meio das letras

@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Repeat, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
+import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
@@ -67,14 +67,16 @@ import { plainText, toggleCheck } from '../core/rich-text';
             }
 
             <!-- A mesma ficha do mural, vista de perto: foto colada, nome, data e a etiqueta do julgamento -->
-            <div class="top">
+            <div class="top" [class.anotacao]="note()" [class.sem-capa]="note() && !r.game.coverUrl">
+              @if (!note() || r.game.coverUrl) {
               <div class="cover">
                 <app-cover-sleeve [game]="r.game" size="big">
-                  @if (r.status !== 'finalizado') {
+                  @if (r.status !== 'finalizado' && !note()) {
                     <app-status-label class="faixa" [status]="r.status" [kind]="r.kind" [band]="true" />
                   }
                 </app-cover-sleeve>
               </div>
+              }
 
               <div class="words">
                 <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
@@ -84,6 +86,8 @@ import { plainText, toggleCheck } from '../core/rich-text';
                 <p class="meta">
                   @if (r.completedAt === null) {
                     {{ noDay }}
+                  } @else if (note()) {
+                    {{ date() }}
                   } @else {
                     {{ dayLabel(r.kind, r.status) }} {{ date() }}
                   }
@@ -102,6 +106,16 @@ import { plainText, toggleCheck } from '../core/rich-text';
                 }
               </div>
 
+              @if (note()) {
+                <!-- as categorias da anotação, no lugar da nota -->
+                @if (r.bonuses.length) {
+                  <ul class="judgement categorias" aria-label="Categorias">
+                    @for (b of r.bonuses; track b.id; let i = $index) {
+                      <li><app-bonus-sticker [bonus]="b" [index]="i" [seed]="r.id" /></li>
+                    }
+                  </ul>
+                }
+              } @else {
               <div class="judgement">
                 <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" [masked]="masked()" />
                 <!-- a ficha de outra pessoa em segredo: revelar é só desta vez, a próxima abre em segredo de novo -->
@@ -118,10 +132,11 @@ import { plainText, toggleCheck } from '../core/rich-text';
                   <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
                 }
               </div>
+              }
             </div>
 
             <!-- Os bônus: os mesmos adesivos da ficha, todos, com a conta sem eles logo abaixo -->
-            @if (bonuses().length) {
+            @if (bonuses().length && !note()) {
               <div class="bonus-block">
                 <ul class="bonus" aria-label="Bônus">
                   @for (b of bonuses(); track b.id; let i = $index) {
@@ -139,7 +154,9 @@ import { plainText, toggleCheck } from '../core/rich-text';
               </div>
             }
 
-            <app-boletim [review]="r" size="big" [masked]="masked()" />
+            @if (!note()) {
+              <app-boletim [review]="r" size="big" [masked]="masked()" />
+            }
 
             @if (r.text.trim()) {
               @if (masked()) {
@@ -149,7 +166,7 @@ import { plainText, toggleCheck } from '../core/rich-text';
                 <div class="text"><app-rich-text [text]="r.text" [checkable]="owner() === null" (toggled)="toggleTask($event)" /></div>
               }
             } @else {
-              <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
+              <p class="no-text">{{ note() ? 'Anotação em branco.' : owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
             }
 
             <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir -->
@@ -175,12 +192,14 @@ import { plainText, toggleCheck } from '../core/rich-text';
               Remover do mural
             </button>
             <div class="actions">
+              @if (!note()) {
               <button type="button" class="btn-quiet" (click)="revisit.emit(r.id)">
                 <lucide-icon [img]="RevisitIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
                 Escrever {{ profile().revisit.one }}
               </button>
-              <!-- as rejogadas não entram no lado a lado: lá é uma ficha por obra -->
-              @if (!r.revisitOf) {
+              }
+              <!-- as rejogadas não entram no lado a lado: lá é uma ficha por obra (e anotação não se compara) -->
+              @if (!r.revisitOf && !note()) {
               <button
                 type="button"
                 class="btn-quiet side"
@@ -271,8 +290,10 @@ export class ReviewReader {
   protected readonly revealed = signal(false);
   /** Sem spoilers, a leitura do seu mural esconde o mesmo que a ficha. O mural de um colega não, a não ser quando pedido. */
   protected readonly masked = computed(
-    () => (this.forceMask() && !this.revealed()) || (this.settings.noSpoilers() && this.owner() === null),
+    () => !this.note() && ((this.forceMask() && !this.revealed()) || (this.settings.noSpoilers() && this.owner() === null)),
   );
+  /** Uma anotação: sem nota, veredito, rejogada nem lado a lado; as categorias e o texto. */
+  protected readonly note = computed(() => !!this.review() && isNote(this.review()!));
   /** O texto embaralhado do mesmo tamanho, sem as marcas de formatação, para o modo sem spoilers. */
   protected readonly text = computed(() => {
     const r = this.review();

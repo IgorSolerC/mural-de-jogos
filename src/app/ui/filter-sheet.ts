@@ -29,7 +29,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     <span class="fita fita-l" aria-hidden="true"></span>
     <span class="fita fita-r" aria-hidden="true"></span>
 
-    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty()" [class.sem-julgamento]="!hasVerdict()">
+    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty()" [class.sem-julgamento]="!hasVerdict()" [class.anotacoes]="hasCategory()">
       @for (f of facets(); track f.key) {
         <fieldset class="grupo" [class]="'grupo g-' + f.key">
           <legend class="cabeca">
@@ -209,6 +209,14 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     }
     .g-year {
       grid-area: year;
+    }
+    /* Anotações: Categoria (a que importa, com mais adesivos) na coluna larga; Visual e Ano ao lado */
+    .grupos.anotacoes {
+      grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-areas: 'category look year';
+    }
+    .g-category {
+      grid-area: category;
     }
 
     .grupo {
@@ -452,6 +460,12 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
           'status look'
           'year year';
       }
+      .grupos.anotacoes {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas:
+          'category category'
+          'look year';
+      }
     }
 
     @media (max-width: 640px) {
@@ -461,7 +475,8 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
       .grupos,
       .grupos.sem-dificuldade,
       .grupos.sem-julgamento,
-      .grupos.sem-julgamento.sem-dificuldade {
+      .grupos.sem-julgamento.sem-dificuldade,
+      .grupos.anotacoes {
         grid-template-columns: minmax(0, 1fr);
         grid-template-areas: none;
         gap: 18px;
@@ -507,6 +522,8 @@ export class FilterSheet {
   protected readonly hasDifficulty = computed(() => this.facets().some((f) => f.key === 'difficulty'));
   /** Sem spoilers, Veredito e Média saem da cartela (ver WallView.facets). */
   protected readonly hasVerdict = computed(() => this.facets().some((f) => f.key === 'verdict'));
+  /** O mural de anotações: a cartela é das categorias. */
+  protected readonly hasCategory = computed(() => this.facets().some((f) => f.key === 'category'));
 
   protected readonly anyChosen = computed(() => this.facets().some((f) => this.chosenIn(f)));
 

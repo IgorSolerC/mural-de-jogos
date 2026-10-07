@@ -1,4 +1,4 @@
-import { KindProfile } from './kinds';
+import { KindProfile, isNotes } from './kinds';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
@@ -37,14 +37,30 @@ export interface WallFilter {
   text: readonly TextFilter[];
   /** Ficha com alguma decoração (estampa, rabisco, mancha, estrago ou enfeite por cima) ou lisa. */
   look: readonly LookFilter[];
+  /** Só nas anotações: o nome de uma categoria, ou 'sem' para as sem categoria. */
+  category: readonly string[];
 }
 
 export type FacetKey = keyof WallFilter;
 
 /** A ordem dos grupos na cartela e das etiquetas embaixo da régua. */
-export const FACET_KEYS: readonly FacetKey[] = ['verdict', 'status', 'text', 'look', 'grade', 'difficulty', 'year'];
+export const FACET_KEYS: readonly FacetKey[] = ['category', 'verdict', 'status', 'text', 'look', 'grade', 'difficulty', 'year'];
 
-export const NO_FILTER: WallFilter = { verdict: [], status: [], grade: [], difficulty: [], year: [], text: [], look: [] };
+/** Os grupos de cada mural: as anotações não têm nota, veredito, status nem dificuldade; as resenhas, categoria. */
+// (o texto é obrigatório na anotação: o grupo Resenha, com e sem texto, não serve)
+const NOTE_FACETS: readonly FacetKey[] = ['category', 'look', 'year'];
+
+export function facetKeysOf(profile: KindProfile): readonly FacetKey[] {
+  if (isNotes(profile.kind)) return NOTE_FACETS;
+  return FACET_KEYS.filter((k) => k !== 'category' && (k !== 'difficulty' || profile.difficulty !== null));
+}
+
+export const NO_FILTER: WallFilter = { verdict: [], status: [], grade: [], difficulty: [], year: [], text: [], look: [], category: [] };
+
+/** As categorias de uma anotação (os nomes dos adesivos), ou 'sem'. */
+export function categoriesOf(r: Review): string[] {
+  return r.bonuses.length ? r.bonuses.map((b) => b.label) : ['sem'];
+}
 
 export function gradeBandOf(final: number): GradeBand {
   const b = Math.floor(final);
@@ -64,7 +80,12 @@ export function isDecorated(r: Review): boolean {
   return !!(r.pattern || r.scribble || r.stain || r.damage || r.decor);
 }
 
-function valueOf(r: Review, k: FacetKey): string {
+/** Os valores da ficha num grupo: um só em todos, menos as categorias (várias por anotação). */
+function valuesOf(r: Review, k: FacetKey): string[] {
+  return k === 'category' ? categoriesOf(r) : [valueOf(r, k)];
+}
+
+function valueOf(r: Review, k: Exclude<FacetKey, 'category'>): string {
   switch (k) {
     case 'verdict':
       return r.verdict ?? 'sem';
@@ -88,7 +109,7 @@ export function matchesFilter(r: Review, f: WallFilter, skip?: FacetKey): boolea
   for (const k of FACET_KEYS) {
     if (k === skip) continue;
     const chosen = f[k] as readonly string[];
-    if (chosen.length && !chosen.includes(valueOf(r, k))) return false;
+    if (chosen.length && !valuesOf(r, k).some((v) => chosen.includes(v))) return false;
   }
   return true;
 }
@@ -137,6 +158,7 @@ export const FACET_TITLE: Record<FacetKey, string> = {
   grade: 'Média',
   difficulty: 'Dificuldade',
   year: 'Ano',
+  category: 'Categoria',
 };
 
 const GRADE_LABEL: Record<GradeBand, string> = {
@@ -167,6 +189,8 @@ export function optionLabel(k: FacetKey, value: string, profile: KindProfile): s
       return value === 'com' ? 'Com texto' : 'Sem texto';
     case 'look':
       return value === 'com' ? 'Com decoração' : 'Sem decoração';
+    case 'category':
+      return value === 'sem' ? 'Sem categoria' : value;
   }
 }
 
@@ -193,6 +217,10 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
   const years = [...new Set(list.map(yearOf))].sort((a, b) => (a === 'sem' ? 1 : b === 'sem' ? -1 : b.localeCompare(a)));
   for (const y of f.year) if (!years.includes(y)) years.push(y);
   const anyNoVerdict = list.some((r) => !r.verdict) || f.verdict.includes('sem');
+  // as categorias que o mural tem, de A a Z, e "Sem categoria" no fim
+  const cats = [...new Set([...list.flatMap(categoriesOf), ...f.category])].sort((a, b) =>
+    a === 'sem' ? 1 : b === 'sem' ? -1 : a.localeCompare(b, 'pt-BR'),
+  );
 
   const values: Record<FacetKey, readonly string[]> = {
     verdict: anyNoVerdict ? [...VERDICTS, 'sem'] : VERDICTS,
@@ -202,17 +230,16 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
     grade: GRADE_BANDS,
     difficulty: DIFFICULTIES,
     year: years,
+    category: cats,
   };
 
-  const keys = FACET_KEYS.filter((k) => k !== 'difficulty' || profile.difficulty !== null);
-  return keys
-    .filter((k) => k !== 'year' || years.length > 0)
+  return facetKeysOf(profile)
+    .filter((k) => (k !== 'year' || years.length > 0) && (k !== 'category' || cats.length > 0))
     .map((key) => {
       const counts = new Map<string, number>();
       for (const r of list) {
         if (!matchesFilter(r, f, key)) continue;
-        const v = valueOf(r, key);
-        counts.set(v, (counts.get(v) ?? 0) + 1);
+        for (const v of valuesOf(r, key)) counts.set(v, (counts.get(v) ?? 0) + 1);
       }
       const chosen = f[key] as readonly string[];
       return {

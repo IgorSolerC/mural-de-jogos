@@ -4,9 +4,23 @@ import type { Bonus, RatedKey, Status } from './review';
  * Os murais. Cada um é uma parede à parte: as fichas, o Pra depois, o ranking, o lado a lado e os
  * bônus escritos de um mural nunca aparecem no outro. O valor guardado ('jogos') não muda nunca.
  */
-export type Kind = 'jogos' | 'livros' | 'filmes' | 'series' | 'animes';
+export type Kind = 'jogos' | 'livros' | 'filmes' | 'series' | 'animes' | 'anotacoes';
 
-export const KINDS: readonly Kind[] = ['jogos', 'livros', 'filmes', 'series', 'animes'];
+export const KINDS: readonly Kind[] = ['jogos', 'livros', 'filmes', 'series', 'animes', 'anotacoes'];
+
+/**
+ * O mural de anotações não é de resenhas: sem notas, veredito, status, dificuldade nem rejogadas; os
+ * adesivos são categorias. Guarda as fichas à parte (ver `ReviewStore`, `notas` no backup), para um
+ * site antigo, que não conhece anotações, nunca jogar nenhuma fora.
+ */
+export const NOTES: Kind = 'anotacoes';
+
+export function isNotes(kind: Kind): boolean {
+  return kind === NOTES;
+}
+
+/** Os murais de resenhas, com nota: os que entram em comparações, rankings, jogos e estatísticas. */
+export const SCORED_KINDS: readonly Kind[] = KINDS.filter((k) => !isNotes(k));
 
 /**
  * Uma das quatro notas do mural, e quanto ela pesa na média: a do centro da experiência pesa 2
@@ -445,6 +459,39 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
       c('estressante', 'Estressante'),
       c('simplista', 'Simplista'),
       c('dublagem', 'Dublagem ruim'),
+    ],
+  },
+  anotacoes: {
+    kind: 'anotacoes',
+    plural: 'anotações',
+    singular: 'anotação',
+    fem: true,
+    // sem notas: nada de média, boletim nem categoria de nota
+    categories: [],
+    status: { incompleto: 'Anotação', finalizado: 'Anotação', platinado: 'Anotação' },
+    statusGroup: { incompleto: 'Anotações', finalizado: 'Anotações', platinado: 'Anotações' },
+    day: { incompleto: 'Data', feito: 'Data' },
+    amount: null,
+    difficulty: null,
+    released: '',
+    placeholder: 'Título da anotação',
+    lastOne: 'da sua primeira anotação',
+    finished: '',
+    again: '',
+    revisit: { one: 'cópia', many: 'cópias' },
+    verb: 'anotar',
+    // as categorias prontas; as que a pessoa escrever entram depois, como os bônus escritos
+    bonuses: [
+      f('compras', 'Lista de compras'),
+      f('a-fazer', 'A fazer'),
+      f('ideias', 'Ideias'),
+      f('lembretes', 'Lembretes'),
+      f('estudos', 'Estudos'),
+      f('trabalho', 'Trabalho'),
+      f('receitas', 'Receitas'),
+      f('metas', 'Metas'),
+      f('viagem', 'Viagem'),
+      f('diario', 'Diário'),
     ],
   },
 };

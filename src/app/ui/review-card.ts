@@ -20,6 +20,7 @@ import {
   weightOf,
   isDarkStock,
   artIdOf,
+  isNote,
 } from '../core/review';
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
@@ -38,6 +39,8 @@ import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 import { ReactionBubble } from './reactions';
+import { RichText } from './rich-text';
+import { Corta } from './clamp';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -67,7 +70,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -96,6 +99,11 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.orelha]': 'review().damage === "orelha"',
     // marcando pro lado a lado, a rejogada fica de fora (lá é uma ficha por obra)
     '[class.fora]': 'picking() && !!review().revisitOf',
+    // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra; larga ou alta
+    '[class.nota]': 'note()',
+    '[class.sem-capa]': 'note() && !review().game.coverUrl && !capas()',
+    '[class.nota-larga]': 'note() && review().noteSize === "larga"',
+    '[class.nota-alta]': 'note() && review().noteSize === "alta"',
   },
   template: `
     <!-- tudo o que está na ficha, junto: é o que entra com fade quando o papel fica pronto (ver
@@ -106,11 +114,12 @@ function watchDistance(el: HTMLElement): () => void {
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <div class="head">
+      @if (!note() || review().game.coverUrl || capas()) {
       <div class="cover" data-colado>
         <div class="box">
           <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
             <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
-            @if (review().status !== 'finalizado' && !capas()) {
+            @if (review().status !== 'finalizado' && !capas() && !note()) {
               <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
             }
           </app-cover-sleeve>
@@ -132,12 +141,29 @@ function watchDistance(el: HTMLElement): () => void {
           }
         </div>
       </div>
+      } @else if (review().private && !bare()) {
+        <!-- anotação sem capa: o cadeado fica no canto da ficha -->
+        <span class="selos selos-ficha">
+          <span class="selo privada-selo" title="Privada: só você vê">
+            <lucide-icon [img]="PrivateIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+            <span class="sr-only">Privada: só você vê</span>
+          </span>
+        </span>
+      }
 
       <div class="words">
         <h4 class="title" data-queima>{{ empty() || bare() ? emptyName() : review().game.name }}</h4>
         @if (bare()) {
           <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
+        } @else if (!capas() && note()) {
+          <p class="meta" data-queima>
+            @if (review().completedAt; as day) {
+              <time [attr.datetime]="day">{{ date() }}</time>
+            } @else {
+              <span>{{ date() }}</span>
+            }
+          </p>
         } @else if (!capas()) {
         <p class="meta" data-queima>
           <!-- a rejogada diz o que é antes da data; a original jogada mais vezes diz quantas, depois -->
@@ -170,12 +196,29 @@ function watchDistance(el: HTMLElement): () => void {
       </div>
 
       <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
-      @if (!capas()) {
+      @if (note()) {
+        <!-- as categorias, no lugar da etiqueta da nota: o espaço ao lado da foto é delas -->
+        @if (!capas() && review().bonuses.length) {
+          <ul class="judge categorias" data-colado aria-label="Categorias">
+            @for (b of shownCategories().shown; track b.id; let i = $index) {
+              <li><app-bonus-sticker [bonus]="b" [index]="i" [seed]="review().id" /></li>
+            }
+            @if (shownCategories().hidden) {
+              <li class="mais">+{{ shownCategories().hidden }}</li>
+            }
+          </ul>
+        }
+      } @else if (!capas()) {
         <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" [masked]="masked()" />
       }
     </div>
 
-    @if (!compact() && !capas()) {
+    @if (note() && !compact() && !capas()) {
+      @if (review().text.trim()) {
+        <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
+        <div class="nota-texto" data-queima appCorta><app-rich-text [text]="review().text" /></div>
+      }
+    } @else if (!compact() && !capas()) {
       @if (lead(); as line) {
         @if (masked() && !bare()) {
           <p class="lead" data-queima>“<app-rabisco [text]="line" />”<span class="sr-only">Texto escondido</span></p>
@@ -617,6 +660,69 @@ function watchDistance(el: HTMLElement): () => void {
       filter: saturate(0.6);
     }
 
+    /* ===== Anotação: as categorias no lugar da etiqueta, e o texto à mostra ===== */
+    .categorias {
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 6px 5px;
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .categorias li {
+      display: flex;
+      max-width: 100%;
+    }
+    .categorias .mais {
+      align-items: center;
+      padding-left: 2px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+    }
+    :host(.compact) .categorias {
+      margin-top: 6px;
+      align-self: end;
+    }
+    /* sem capa: o título e as categorias ocupam a ficha toda */
+    :host(.sem-capa) .head {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'words' 'judge';
+    }
+    :host(.compact.sem-capa) .head {
+      min-height: 0;
+    }
+    .selos-ficha {
+      top: -6px;
+      left: -6px;
+    }
+    /* o texto da anotação na letra de quem escreveu; o que não cabe some num esmaecido */
+    .nota-texto {
+      --line: 1.4rem;
+      --linhas: 8;
+      position: relative;
+      margin-top: 14px;
+      max-height: calc(var(--line) * var(--linhas));
+      overflow: hidden;
+      font-family: var(--f-hand);
+      font-size: 1.04rem;
+      line-height: var(--line);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    /* só o texto que passou da ficha esmaece no fim (ver ui/clamp.ts) */
+    .nota-texto[data-corta] {
+      -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--line) * 1.2), transparent);
+      mask-image: linear-gradient(to bottom, #000 calc(100% - var(--line) * 1.2), transparent);
+    }
+    :host(.nota-alta) .nota-texto {
+      --linhas: 18;
+    }
+    :host(.nota-larga) {
+      max-width: none;
+    }
+
     /* o balão das reações: preso na quina de baixo, metade para fora da ficha, por cima de tudo */
     .reacoes {
       position: absolute;
@@ -848,6 +954,15 @@ export class ReviewCard {
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
+  /** É uma anotação (mural de anotações): sem nota nem veredito; as categorias e o texto. */
+  protected readonly note = computed(() => isNote(this.review()));
+  /** As categorias que cabem ao lado da foto (até 4 na Completa, 2 na Simples); o resto vira "+N". */
+  protected readonly shownCategories = computed(() => {
+    const all = this.review().bonuses;
+    const max = this.compact() ? 2 : 4;
+    return { shown: all.slice(0, max), hidden: Math.max(0, all.length - max) };
+  });
+
   /** A ficha como alvo das reações: o mural de quem e qual ficha. */
   protected readonly reactTarget = computed<ReactionTarget | null>(() => {
     const code = this.reactCode();
@@ -870,7 +985,9 @@ export class ReviewCard {
   protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark()));
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().stain) || decorCuts(this.review().decor));
   /** "Nome do jogo", "Nome da série". */
-  protected readonly emptyName = computed(() => `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`);
+  protected readonly emptyName = computed(() =>
+    this.note() ? 'Título da anotação' : `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`,
+  );
   /** Só a cartolina: "Data · Horas · Dificuldade", com as partes que o mural tem. */
   protected readonly bareMeta = computed(() => {
     const p = this.profile();
@@ -932,6 +1049,11 @@ export class ReviewCard {
   /** O que o leitor de tela diz ao chegar no botão da ficha. */
   protected readonly spoken = computed(() => {
     const r = this.review();
+    if (isNote(r)) {
+      const cats = r.bonuses.map((b) => b.label).join(', ');
+      const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
+      return `Abrir anotação: ${[r.game.name, cats, when, r.private ? 'privada' : ''].filter(Boolean).join(', ')}`;
+    }
     const parts = [r.game.name];
     if (this.masked()) {
       if (r.bonuses.length) parts.push(`${r.bonuses.length} bônus`);

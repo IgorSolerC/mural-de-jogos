@@ -84,11 +84,13 @@ export function parseBackupSnapshot(text: string): BackupSnapshot {
       'Esse backup é de uma versão mais nova. Atualize o Meu Mural antes de abrir.',
     );
   }
-  const list = Array.isArray(data) ? data : object?.['reviews'];
-  if (!Array.isArray(list))
+  const found = Array.isArray(data) ? data : object?.['reviews'];
+  if (!Array.isArray(found))
     throw new Error(
       'Não achei resenhas nesse arquivo. Escolha um backup do Meu Mural.',
     );
+  // as anotações publicadas vêm à parte (ver ReviewStore.snapshot)
+  const list = Array.isArray(object?.['notas']) ? [...found, ...(object['notas'] as unknown[])] : found;
   const deleted = object?.['deleted'] as
     | { reviews?: Record<string, unknown> }
     | undefined;

@@ -7,7 +7,7 @@ import { CloudMurals } from '../core/cloud-murals';
 import { CloudAccount } from '../core/cloud-account';
 import { ReviewPair, compareCollections, distinctReviews } from '../core/comparison';
 import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
-import { KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
+import { KINDS, SCORED_KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
 import { mediaSignal } from '../core/media';
 import { Mural } from '../core/mural';
 import {
@@ -180,7 +180,8 @@ export class ComparisonPage {
     const c = this.colleague();
     if (!c) return [];
     const all = compareCollections(distinctReviews(originalsOf(this.store.reviews())), distinctReviews(originalsOf(c.reviews))).pairs;
-    return KINDS.filter((k) => k !== this.mural.kind())
+    // anotação não tem nota para comparar
+    return SCORED_KINDS.filter((k) => k !== this.mural.kind())
       .map((kind) => ({
         kind,
         label: cap(profileOf(kind).plural),
