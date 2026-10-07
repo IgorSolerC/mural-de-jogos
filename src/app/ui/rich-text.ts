@@ -84,7 +84,8 @@ import { hasFormatting, parseRich } from '../core/rich-text';
       position: relative;
       padding-left: 1.35em;
     }
-    .lista:not(.tarefas) > li::before {
+    /* só na lista comum: a numerada tem o número no lugar, e a de tarefas, a caixinha */
+    .lista:not(.tarefas, .numerada) > li::before {
       content: '•';
       position: absolute;
       left: 0.3em;
@@ -96,6 +97,7 @@ import { hasFormatting, parseRich } from '../core/rich-text';
     }
     .numerada > li::before {
       content: counter(item) '.';
+      position: absolute;
       left: 0;
       font-variant-numeric: tabular-nums;
     }
