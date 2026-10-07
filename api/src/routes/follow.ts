@@ -86,15 +86,22 @@ export function followRoutes(app: Hono, deps: Deps): void {
     if (existing) return c.json({ pessoa: personOut(target), desde: existing.criado_em, silenciado: !!existing.silenciado });
 
     const now = deps.now();
-    const counts = await deps.db.first<{ total: number; hoje: number }>(
+    const today = `${utcDay(now)}T00:00:00.000Z`;
+    // O limite do dia conta as pessoas DISTINTAS que comecei a seguir hoje, mesmo as que já deixei de
+    // seguir (o aviso delas já foi): senão, seguir e deixar de seguir abriria vaga sem fim. Seguir de
+    // novo quem já recebeu o aviso (o "Desfazer") não avisa ninguém, então não gasta o limite.
+    const counts = await deps.db.first<{ total: number; hoje: number; avisada: number }>(
       'SELECT (SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ?) AS total, ' +
-        '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ? AND criado_em >= ?) AS hoje',
-      [s.userId, s.userId, `${utcDay(now)}T00:00:00.000Z`],
+        '(SELECT COUNT(*) FROM (' +
+        "SELECT alvo_id FROM atividades WHERE tipo = 'seguiu' AND autor_id = ? AND criado_em >= ? " +
+        'UNION SELECT seguido_id FROM seguindo WHERE seguidor_id = ? AND criado_em >= ?)) AS hoje, ' +
+        "(SELECT COUNT(*) FROM atividades WHERE tipo = 'seguiu' AND autor_id = ? AND alvo_id = ?) AS avisada",
+      [s.userId, s.userId, today, s.userId, today, s.userId, target.id],
     );
     if ((counts?.total ?? 0) >= MAX_FOLLOWING) {
       throw new HttpError(429, 'seguindo-demais', `Você já segue ${MAX_FOLLOWING} pessoas, o máximo. Deixe de seguir alguém antes.`);
     }
-    if ((counts?.hoje ?? 0) >= MAX_FOLLOWS_PER_DAY) {
+    if (!counts?.avisada && (counts?.hoje ?? 0) >= MAX_FOLLOWS_PER_DAY) {
       throw new HttpError(429, 'seguir-devagar', 'Você começou a seguir muita gente hoje. Tente de novo amanhã.');
     }
     const at = now.toISOString();

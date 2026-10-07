@@ -164,9 +164,9 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(((await again.json()) as any).desde).toBe(first.desde);
       });
 
-      // BUG: o limite de 60 por dia conta só quem ainda é seguido. Seguir 60, deixar de seguir os 60 e
-      // seguir mais 60 pessoas novas passa — e cada pessoa nova recebe um aviso "começou a seguir você".
-      it.fails('BUG: deixar de seguir não devolve vaga no limite de pessoas novas do dia', async () => {
+      // Antes contava só quem ainda era seguido: seguir 60, deixar de seguir e seguir mais 60 passava,
+      // e cada pessoa nova recebia um aviso.
+      it('deixar de seguir não devolve vaga no limite de pessoas novas do dia', async () => {
         const { db, follow, unfollow, login, ana, bia } = await two();
         const at = NOW.toISOString();
         await db.batch(
@@ -184,6 +184,33 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(res.status).toBe(429);
         // e Cris não deveria ter recebido aviso
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'seguiu' AND alvo_id = ?", [cris.id])).toEqual([]);
+      });
+      it('no limite do dia, seguir de volta quem acabei de deixar de seguir (o Desfazer) ainda passa', async () => {
+        const { db, follow, unfollow, ana, bia } = await two();
+        await db.batch(
+          Array.from({ length: MAX_FOLLOWS_PER_DAY - 1 }, (_, i) => ({
+            sql: 'INSERT INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) VALUES (?, ?, ?, 0)',
+            params: [bia.id, `fantasma-${i}`, NOW.toISOString()],
+          })),
+        );
+        expect((await follow(bia.token, ana.codigo)).status).toBe(201); // a 60ª
+        await unfollow(bia.token, ana.codigo);
+        expect((await follow(bia.token, ana.codigo)).status).toBe(201); // não avisa de novo: não conta
+        expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'seguiu' AND alvo_id = ?", [ana.id])).toHaveLength(1);
+      });
+
+      it('o limite do dia recomeça no dia UTC seguinte, mesmo com os avisos de ontem', async () => {
+        const { db, follow, login, advance, ana, bia } = await two();
+        await db.batch(
+          Array.from({ length: MAX_FOLLOWS_PER_DAY }, (_, i) => ({
+            sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', ?, ?, ?)",
+            params: [bia.id, `fantasma-${i}`, NOW.toISOString()],
+          })),
+        );
+        expect((await follow(bia.token, ana.codigo)).status).toBe(429);
+        advance(DAY);
+        const cris = await login('cris', 'Cris');
+        expect((await follow(bia.token, cris.codigo)).status).toBe(201);
       });
     });
 
