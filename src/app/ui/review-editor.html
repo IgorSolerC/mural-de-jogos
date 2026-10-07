@@ -78,16 +78,28 @@
             }
           </section>
 
+          <!-- o texto é o principal da anotação: logo depois do título -->
+          <ng-container [ngTemplateOutlet]="textoCampo" />
+
           <section class="bloco">
             <div class="campo bonus">
               <app-bonus-picker [categories]="true" [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" />
             </div>
           </section>
 
+          <!-- a data numa linha só ("Hoje"); a tira de dia, mês e ano só para quem quiser mudar -->
           <section class="bloco como">
-            <div class="campos-linha">
-              <ng-container [ngTemplateOutlet]="dataCampo" />
-            </div>
+            @if (noteDateOpen() || (attempted() && !dateValid())) {
+              <div class="campos-linha">
+                <ng-container [ngTemplateOutlet]="dataCampo" />
+              </div>
+            } @else {
+              <p class="data-curta">
+                <span class="rotulo">Data</span>
+                <span class="data-curta-txt">{{ noteDateText() }}</span>
+                <button type="button" class="acao-caneta" (click)="openNoteDate()">Mudar</button>
+              </p>
+            }
           </section>
         } @else {
         <section class="bloco jogo">
@@ -268,18 +280,10 @@
         </section>
         }
 
-        <section class="bloco texto">
-          <label [for]="texto.areaId" class="pergunta">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
-          <app-rich-editor
-            #texto
-            [label]="notes() ? 'Anotação' : 'O que achou?'"
-            [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias…' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
-            [(value)]="text"
-          />
-          @if (notes() && attempted() && !text().trim()) {
-            <p class="field-error">Escreva a anotação.</p>
-          }
-        </section>
+        <!-- na resenha, o texto vem depois do julgamento; na anotação, logo depois do título (ver acima) -->
+        @if (!notes()) {
+          <ng-container [ngTemplateOutlet]="textoCampo" />
+        }
 
         @if (notes()) {
           <!-- o tamanho da ficha no mural: mais larga, ou mais alta para mostrar mais do texto -->
@@ -383,6 +387,20 @@
         </div>
       }
     </footer>
+    <!-- o texto: "O que achou?" na resenha, "Anotação" (opcional) na anotação -->
+    <ng-template #textoCampo>
+      <section class="bloco texto">
+        <label [for]="texto.areaId" class="pergunta">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
+        <app-rich-editor
+          #texto
+          [class.anotacao]="notes()"
+          [label]="notes() ? 'Anotação' : 'O que achou?'"
+          [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o título)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
+          [(value)]="text"
+        />
+      </section>
+    </ng-template>
+
     <!-- a data em três partes: a mesma na resenha e na anotação -->
     <ng-template #dataCampo>
             <div class="campo campo-data" role="group" aria-labelledby="editor-data-rotulo" aria-describedby="editor-data-leitura">

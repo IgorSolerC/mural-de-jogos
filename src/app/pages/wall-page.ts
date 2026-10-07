@@ -52,6 +52,8 @@ export class WallPage {
     masked: this.settings.noSpoilers(),
     times: this.times(),
     reactCode: this.reactions.myCode(),
+    // marcando para o lado a lado, o toque na ficha é para marcar
+    checkable: !this.side.picking(),
   }));
   /** As obras com rejogada: a original fica sabendo quantas vezes está no mural. */
   private readonly times = computed(() => {

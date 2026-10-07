@@ -31,6 +31,8 @@ export interface WallCardProps {
   times: ReadonlyMap<string, number>;
   /** O meu código na nuvem, para as fichas mostrarem as reações que receberam (null: sem conta). */
   reactCode: string | null;
+  /** As tarefas das anotações se marcam na ficha (o seu mural). */
+  checkable: boolean;
 }
 
 const NO_PROPS: WallCardProps = {
@@ -44,6 +46,7 @@ const NO_PROPS: WallCardProps = {
   masked: false,
   times: new Map(),
   reactCode: null,
+  checkable: false,
 };
 
 /**
@@ -147,6 +150,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('masked', p.masked);
     ref.setInput('times', p.times.get(r.id) ?? 1);
     ref.setInput('reactCode', p.reactCode);
+    ref.setInput('checkable', p.checkable);
   }
 
   private drop(id: string, ref: ComponentRef<ReviewCard>): void {

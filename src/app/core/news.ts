@@ -41,6 +41,8 @@ export const NEWS: NewsEntry[] = [
       'As tarefas se marcam direto na leitura. No mural, as categorias filtram e ordenam as anotações.',
       'Ela nasce privada; publicada, aparece no seu mural para quem abrir, mas não vira aviso para quem segue você.',
       'A ficha pode ser Larga (duas colunas) ou Alta (mostra mais do texto).',
+      'As tarefas se marcam direto na ficha do mural, sem abrir a anotação. E a anotação pode ser só o título.',
+      'A primeira categoria é a principal (a seção dela, ordenando por categoria): no editor, toque em outra para trocar.',
     ],
   },
   {

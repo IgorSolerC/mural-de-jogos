@@ -568,6 +568,27 @@ input[type='date'] {
   gap: 12px;
 }
 
+/* a data da anotação fechada: o rótulo, a data e o Mudar numa linha */
+.data-curta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0;
+
+  .rotulo {
+    margin: 0;
+  }
+}
+.data-curta-txt {
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+}
+/* na anotação o texto é o principal: a folha começa mais alta */
+app-rich-editor.anotacao {
+  --linhas: 9;
+}
+
 .field-error {
   margin-top: 6px;
   font-weight: 600;

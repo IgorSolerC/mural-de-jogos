@@ -486,16 +486,37 @@ let uid = 0;
         }
       </div>
     } @else if (value().length) {
-      <ul class="colados" [attr.aria-label]="categories() ? 'Categorias coladas na ficha' : 'Bônus colados na ficha'">
+      @if (categories()) {
+        <!-- a primeira é a principal (a seção dela no mural ordenado por categoria); tocar noutra troca -->
+        <ul class="colados" aria-label="Categorias coladas na ficha">
+          @for (b of value(); track b.id; let i = $index) {
+            <li>
+              @if (i === 0) {
+                <app-bonus-sticker [bonus]="b" [index]="i" />
+                @if (value().length > 1) {
+                  <span class="principal">principal</span>
+                }
+              } @else {
+                <button type="button" class="tornar" [title]="'Tornar ' + b.label + ' a principal'" [attr.aria-label]="b.label + ': tornar a principal'" (click)="makeFirst(b)">
+                  <app-bonus-sticker [bonus]="b" [index]="i" />
+                </button>
+              }
+            </li>
+          }
+        </ul>
+        @if (value().length > 1) {
+          <p class="hint">A primeira é a principal: é a seção dela quando o mural se ordena por categoria. Toque em outra para trocar.</p>
+        }
+      } @else {
+      <ul class="colados" aria-label="Bônus colados na ficha">
         @for (b of sorted(); track b.id; let i = $index) {
           <li>
             <app-bonus-sticker [bonus]="b" [index]="i" />
-            @if (!categories()) {
-              <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
-            }
+            <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
           </li>
         }
       </ul>
+      }
     } @else if (categories()) {
       <p class="hint">{{ examples() }} Uma anotação pode ter várias; o mural filtra e ordena por elas.</p>
     } @else {
@@ -578,7 +599,30 @@ let uid = 0;
     }
     .colados li {
       display: flex;
+      align-items: center;
       max-width: 100%;
+    }
+    /* a categoria principal leva um rótulo a lápis; as outras são botões para virar a principal */
+    .principal {
+      margin-left: 6px;
+      font-family: var(--f-hand);
+      font-size: 0.95rem;
+      color: var(--ink-2);
+    }
+    .tornar {
+      display: flex;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    .tornar:hover {
+      translate: 0 -1px;
+    }
+    .tornar:focus-visible {
+      outline: 2.5px solid var(--ink);
+      outline-offset: 2px;
     }
     .hint {
       margin-top: 2px;
@@ -803,6 +847,11 @@ export class BonusPicker {
   protected setOpen(open: boolean): void {
     this.open.set(open);
     if (!open) this.writing.set(null);
+  }
+
+  /** Categorias: a escolhida vai para o começo (a principal). */
+  protected makeFirst(b: Bonus): void {
+    this.value.update((list) => [b, ...list.filter((x) => x.id !== b.id)]);
   }
 
   protected toggle(b: Bonus): void {

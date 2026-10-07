@@ -41,6 +41,8 @@ import { StatusLabel } from './status-label';
 import { ReactionBubble } from './reactions';
 import { RichText } from './rich-text';
 import { Corta } from './clamp';
+import { ReviewStore } from '../core/review-store';
+import { toggleCheck } from '../core/rich-text';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -216,7 +218,9 @@ function watchDistance(el: HTMLElement): () => void {
     @if (note() && !compact() && !capas()) {
       @if (review().text.trim()) {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
-        <div class="nota-texto" data-queima appCorta><app-rich-text [text]="review().text" /></div>
+        <div class="nota-texto" [class.marcavel]="checkable()" data-queima appCorta>
+          <app-rich-text [text]="review().text" [checkable]="checkable()" (toggled)="toggleTask($event)" />
+        </div>
       }
     } @else if (!compact() && !capas()) {
       @if (lead(); as line) {
@@ -719,6 +723,15 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.nota-alta) .nota-texto {
       --linhas: 18;
     }
+    /* com tarefas marcáveis: o texto fica por cima do botão da ficha, mas só as caixinhas pegam o
+       toque; o resto do texto deixa o toque passar e abre a leitura como sempre */
+    .nota-texto.marcavel {
+      z-index: 5;
+      pointer-events: none;
+    }
+    .nota-texto.marcavel ::ng-deep input[type='checkbox'] {
+      pointer-events: auto;
+    }
     :host(.nota-larga) {
       max-width: none;
     }
@@ -956,10 +969,22 @@ export class ReviewCard {
   readonly bareText = input('');
   /** Quantas vezes a obra foi jogada (lida, vista): a original e as rejogadas. Só nas originais. */
   readonly times = input(1);
+  /** As tarefas da anotação se marcam na própria ficha (só no seu mural; nos outros, só se veem). */
+  readonly checkable = input(false);
   /** O código do dono do mural, para mostrar as reações da ficha (ver core/reactions.ts); null, sem reações. */
   readonly reactCode = input<string | null>(null);
   readonly opened = output<string>();
   readonly toggled = output<string>();
+
+  private readonly store = inject(ReviewStore);
+
+  /** Marcou uma tarefa na ficha do mural: a anotação é salva com ela marcada, sem abrir nada. */
+  protected toggleTask(line: number): void {
+    const r = this.store.get(this.review().id);
+    if (!r || !this.checkable()) return;
+    const text = toggleCheck(r.text, line);
+    if (text !== r.text) this.store.update({ ...r, text, updatedAt: new Date().toISOString() });
+  }
 
   /** É uma anotação (mural de anotações): sem nota nem veredito; as categorias e o texto. */
   protected readonly note = computed(() => isNote(this.review()));

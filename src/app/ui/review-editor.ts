@@ -181,6 +181,20 @@ export class ReviewEditor {
   protected readonly noteTitle = computed(() => this.game()?.name ?? '');
   /** A anotação como "item", para a escolha da capa (só link colado ou sem capa: não há catálogo). */
   protected readonly noteGame = computed<PickedGame>(() => this.game() ?? { name: '', coverUrl: null, source: 'manual' });
+  /** A tira da data aberta na anotação (fechada, é uma linha: "Data: hoje · Mudar"). */
+  protected readonly noteDateOpen = signal(false);
+  /** A data da anotação, em uma palavra ou por extenso. */
+  protected readonly noteDateText = computed(() => {
+    const v = this.dateValue();
+    if (v === null) return 'Sem data';
+    return this.isToday() ? 'Hoje' : formatReviewDateLong(v);
+  });
+
+  protected openNoteDate(): void {
+    this.noteDateOpen.set(true);
+    setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-data')?.focus());
+  }
+
   /** O tamanho da anotação no mural; null, o de sempre. */
   protected readonly noteSize = signal<NoteSize | null>(null);
   protected readonly noteSizes: readonly { value: NoteSize | null; label: string; icon: typeof Square }[] = [
@@ -426,9 +440,9 @@ export class ReviewEditor {
   protected readonly missing = computed(() => {
     const m: string[] = [];
     if (this.notes()) {
+      // o texto é opcional: um lembrete pode ser só o título
       if (!this.noteTitle().trim()) m.push('o título');
       if (!this.dateValid()) m.push('uma data válida');
-      if (!this.text().trim()) m.push('a anotação');
       return m;
     }
     // na ordem da ficha, de cima para baixo: o primeiro que falta é onde o foco cai
@@ -471,6 +485,7 @@ export class ReviewEditor {
     // a anotação nasce privada; a resenha, publicada
     this.isPrivate.set(review ? review.private === true : isNotes(kind));
     this.noteSize.set(review?.noteSize ?? null);
+    this.noteDateOpen.set(false);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
     // a rejogada nova desenha como a original desenha hoje (que pode ser com o id de antes)
@@ -683,7 +698,7 @@ export class ReviewEditor {
   /** Prega a anotação: título e texto são obrigatórios; sem notas, status, veredito nem dificuldade. */
   private saveNote(): void {
     const name = this.noteTitle().trim();
-    if (!name || !this.text().trim() || !this.dateValid()) {
+    if (!name || !this.dateValid()) {
       this.focusFirstMissing();
       return;
     }
@@ -898,8 +913,7 @@ export class ReviewEditor {
     if (this.notes()) {
       setTimeout(() => {
         if (!this.noteTitle().trim()) root.querySelector<HTMLInputElement>('#editor-titulo-nota')?.focus();
-        else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
-        else this.writer()?.focus();
+        else root.querySelector<HTMLInputElement>('#editor-data')?.focus();
       });
       return;
     }

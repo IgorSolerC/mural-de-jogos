@@ -165,8 +165,9 @@ import { plainText, toggleCheck } from '../core/rich-text';
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
                 <div class="text"><app-rich-text [text]="r.text" [checkable]="owner() === null" (toggled)="toggleTask($event)" /></div>
               }
-            } @else {
-              <p class="no-text">{{ note() ? 'Anotação em branco.' : owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
+            } @else if (!note()) {
+              <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
+              <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
             }
 
             <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir -->
