@@ -129,8 +129,10 @@ export function muralRoutes(app: Hono, deps: Deps): void {
 
   app.put('/v1/eu/mural', async (c: Context) => {
     const s = await authenticate(deps, c.req.header('Authorization'));
-    const base = Number(c.req.header('Mural-Rev-Base'));
-    if (!Number.isSafeInteger(base) || base < 0) throw new HttpError(400, 'sem-rev', 'Faltou dizer em qual versão do mural o envio se baseia.');
+    // só dígitos: um cabeçalho vazio (Number('') é 0) não pode passar como "primeiro envio"
+    const rawBase = c.req.header('Mural-Rev-Base')?.trim() ?? '';
+    const base = /^\d{1,16}$/.test(rawBase) ? Number(rawBase) : NaN;
+    if (!Number.isSafeInteger(base)) throw new HttpError(400, 'sem-rev', 'Faltou dizer em qual versão do mural o envio se baseia.');
     const length = Number(c.req.header('Content-Length') ?? 0);
     if (length > 2 * MAX_MURAL_BYTES + 64_000) {
       throw new HttpError(413, 'mural-grande-demais', 'O mural ficou grande demais para a nuvem.');

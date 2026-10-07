@@ -14,8 +14,8 @@ import { Config, Db, Deps } from '../src/ports';
  *
  * Como em `suite.ts`, roda nos dois bancos (D1 simulado e SQLite do Node).
  *
- * `it.fails` marca um BUG CONHECIDO: o teste descreve o comportamento certo e hoje falha. Quando o
- * bug for corrigido, o vitest acusa ("esperava falhar e passou"): aí é só trocar `it.fails` por `it`.
+ * Um bug novo achado aqui entra como `it.fails` (ver o README): o teste descreve o comportamento certo
+ * e falha enquanto o bug existir; corrigido, o vitest acusa e é só trocar por `it`.
  */
 
 const ENV = {
@@ -489,13 +489,15 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await push(token, null)).status).toBe(400);
       });
 
-      // BUG: Number('') e Number(' ') valem 0, então um cabeçalho vazio passa como "primeiro envio"
-      // (rev 0). Hoje não estraga nada (com mural já gravado vira 409), mas o envio sem base deveria
-      // ser recusado como o sem cabeçalho.
-      it.fails('BUG: Mural-Rev-Base vazio é recusado como o ausente (hoje vira rev 0)', async () => {
+      // Antes, Number('') e Number(' ') valiam 0 e o cabeçalho vazio passava como "primeiro envio".
+      it('Mural-Rev-Base vazio ou fora do formato é recusado como o ausente', async () => {
         const { login, push } = await setup();
         const { token } = await login('ana');
-        for (const base of ['', ' ']) expect((await push(token, base)).status).toBe(400);
+        for (const base of ['', ' ', '+1', '0x1', '1e3']) {
+          expect((await push(token, base)).status, `base ${JSON.stringify(base)}`).toBe(400);
+        }
+        // com espaço em volta, o número vale
+        expect((await push(token, ' 0 ')).status).toBe(200);
       });
 
       it('sem a parte "publico": 400, e nada é gravado', async () => {
