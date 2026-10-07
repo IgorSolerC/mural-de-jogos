@@ -258,14 +258,15 @@ export class MailPage {
 
   /**
    * Busca os murais de quem tem resenha no Chegou, quatro pedidos por vez (cada um pergunta "mudou?").
-   * `all`: de todo mundo (ao abrir). Senão, só os murais que já vieram mas não têm uma resenha que
-   * chegou depois. Os que estão vindo ou falharam (esses têm "Tentar de novo") ficam como estão.
+   * `all`: de todo mundo (ao abrir). Senão, os de quem apareceu no Chegou depois e os que já vieram
+   * mas não têm uma resenha que chegou depois. Os que estão vindo ou falharam (esses têm "Tentar de
+   * novo") ficam como estão.
    */
   private async fetchWalls(all: boolean): Promise<void> {
     const todo: [string, string[]][] = [];
     for (const [code, refs] of this.refsByPerson()) {
       const state = this.wallState().get(code);
-      if (all) {
+      if (all || state === undefined) {
         todo.push([code, refs]);
         continue;
       }

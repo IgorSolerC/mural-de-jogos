@@ -11,15 +11,13 @@ import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
-import { itBug, must } from '../testing/known-bug.spec';
 import { MailPage } from './mail-page';
 
 /**
  * A aba Amigos (MailPage), sem desenhar a tela: o que ela monta a partir do correio, dos murais dos
  * amigos e do meu mural (os blocos do Chegou, o estado de cada ficha, a minha nota da mesma obra, o
  * segredo, a lista única de Pessoas) e a ordem do que ela faz ao abrir. O serviço do correio
- * (Follow) e os murais da nuvem (CloudMurals) são de mentira. Os BUG: são bugs conhecidos (ver
- * testing/known-bug.spec.ts).
+ * (Follow) e os murais da nuvem (CloudMurals) são de mentira.
  */
 
 class MemoryData {
@@ -293,7 +291,7 @@ describe('Amigos: a página (MailPage)', () => {
     });
   });
 
-  describe('bugs conhecidos', () => {
+  describe('bugs corrigidos', () => {
     it('na rejogada de um amigo, aparece a minha nota da mesma obra', async () => {
       store.add(review('rme001', 'Celeste', {}, 7));
       items.set([post(ana, 'rana02', '2026-10-06T10:00:00.000Z', 'Celeste')]);
@@ -360,17 +358,28 @@ describe('Amigos: a página (MailPage)', () => {
       expect(velha.estado).toBe('ficha');
     });
 
-    // Pela mesma razão, a resenha de alguém que não estava no Chegou quando a página abriu fica em
-    // "Buscando a ficha…" para sempre: ninguém busca o mural dessa pessoa.
-    itBug('a resenha de uma pessoa nova no Chegou, com a página aberta, não fica "buscando" para sempre', async () => {
+    it('a resenha de uma pessoa nova no Chegou, com a página aberta, busca o mural dela', async () => {
       const page = await open();
       cloudWalls.set(bia.codigo, wallOf(bia, [review('rbia01', 'Hollow Knight')]));
       log = [];
       items.set([post(bia, 'rbia01', '2026-10-06T11:00:00.000Z', 'Hollow Knight')]);
       await settle();
-      await new Promise((r) => setTimeout(r, 50));
-      must(log.includes(`ensure(${bia.codigo})`), 'ninguém buscou o mural da Bia');
-      must(posts(page)[0].estado === 'ficha', `a ficha ficou em "${posts(page)[0].estado}"`);
+      expect(log).toEqual([`ensure(${bia.codigo})`]);
+      expect(posts(page)[0].estado).toBe('ficha');
+    });
+
+    it('com o mural de alguém ainda vindo, uma resenha nova dela não dispara outro pedido', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      const page = await open();
+      log = [];
+      cloudWalls.set(cris.codigo, wallOf(cris, [review('rcri01', 'Hades'), review('rcri02', 'Celeste')]));
+      items.update((list) => [post(cris, 'rcri01', '2026-10-06T11:00:00.000Z'), ...list]);
+      TestBed.tick(); // a busca do mural da Cris começa
+      items.update((list) => [post(cris, 'rcri02', '2026-10-06T11:30:00.000Z'), ...list]); // antes da primeira busca voltar
+      await settle();
+      expect(log.filter((l) => l === `ensure(${cris.codigo})`).length).toBe(1);
+      expect(posts(page).filter((p) => p.key.includes('rcri')).map((p) => p.estado)).toEqual(['ficha', 'ficha']);
     });
   });
 });
