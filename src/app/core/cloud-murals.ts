@@ -25,6 +25,16 @@ export function normalizeCode(input: string): string | null {
   return /^[0-9A-HJKMNP-TV-Z]{8}$/.test(code) ? `${code.slice(0, 4)}-${code.slice(4)}` : null;
 }
 
+/** O id do colega aberto pela nuvem com esse código (`K7QF-M2XA`). */
+export function cloudColleagueId(code: string): string {
+  return CLOUD_COLLEAGUE_PREFIX + code.replace('-', '');
+}
+
+/** O mesmo mural guardado, agora com o código novo da pessoa (a versão do mural continua a mesma). */
+export function recodedColleague(c: Colleague, code: string): Colleague {
+  return { ...c, id: cloudColleagueId(code), codigo: code, fileName: `Código ${code}` };
+}
+
 /** O link que abre o mural de quem tem esse código. */
 export function muralLink(code: string, base: string = location.origin + location.pathname): string {
   return `${base}?mural=${code}`;
@@ -44,7 +54,7 @@ export class CloudMurals {
     if (!code) throw new Error('Esse código não existe. Confira: ele tem 8 letras e números.');
     if (this.account.account()?.codigo === code) throw new Error('Esse é o seu código. Para comparar, abra o de outra pessoa.');
     await this.colleagues.ready;
-    const id = CLOUD_COLLEAGUE_PREFIX + code.replace('-', '');
+    const id = cloudColleagueId(code);
     const existing = this.colleagues.colleagues().find((c) => c.id === id);
     let res: Response;
     try {
@@ -100,7 +110,7 @@ export class CloudMurals {
     const code = normalizeCode(input);
     if (!code) return null;
     await this.colleagues.ready;
-    const id = CLOUD_COLLEAGUE_PREFIX + code.replace('-', '');
+    const id = cloudColleagueId(code);
     const existing = this.colleagues.colleagues().find((c) => c.id === id) ?? null;
     const hasAll = (c: Colleague) => need.every((ref) => c.reviews.some((r) => r.id === ref));
     if (existing && Date.now() - Date.parse(existing.loadedAt) < FRESH_MS && hasAll(existing)) return existing;

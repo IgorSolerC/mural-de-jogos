@@ -52,6 +52,16 @@ function isoParam(value: unknown): string | null {
   return Number.isFinite(t) && /^\d{4}-\d{2}-\d{2}T/.test(value) ? new Date(t).toISOString() : null;
 }
 
+/**
+ * A chave de quem eu sigo: a mesma enquanto eu seguir a pessoa, mesmo se ela trocar o código. Feita do
+ * par (eu, ela), então não diz nada a quem não segue e não liga a pessoa entre seguidores diferentes.
+ * O site usa para levar o mural guardado da pessoa para o código novo, sem duplicar.
+ */
+async function pairKey(followerId: string, followedId: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`seguindo:${followerId}:${followedId}`));
+  return btoa(String.fromCharCode(...new Uint8Array(digest).slice(0, 12))).replace(/\+/g, '-').replace(/\//g, '_');
+}
+
 function summary(raw: string | null): { titulo: string; mural: string } | null {
   if (!raw) return null;
   try {
@@ -179,8 +189,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
   /** As duas listas numa chamada só: quem eu sigo e quem me segue. */
   app.get('/v1/eu/pessoas', async (c) => {
     const s = await session(c);
-    const following = await deps.db.all<{ codigo: string; nome: string; criado_em: string; silenciado: number; rev: number | null; me_segue: number }>(
-      'SELECT u.codigo, u.nome, s.criado_em, s.silenciado, p.rev, ' +
+    const following = await deps.db.all<{ id: string; codigo: string; nome: string; criado_em: string; silenciado: number; rev: number | null; me_segue: number }>(
+      'SELECT u.id, u.codigo, u.nome, s.criado_em, s.silenciado, p.rev, ' +
         '(SELECT COUNT(*) FROM seguindo r WHERE r.seguidor_id = u.id AND r.seguido_id = ?) AS me_segue ' +
         'FROM seguindo s JOIN usuarios u ON u.id = s.seguido_id LEFT JOIN murais_publicos p ON p.usuario_id = u.id ' +
         'WHERE s.seguidor_id = ? ORDER BY s.criado_em DESC LIMIT ?',
@@ -192,8 +202,16 @@ export function followRoutes(app: Hono, deps: Deps): void {
         'FROM seguindo s JOIN usuarios u ON u.id = s.seguidor_id WHERE s.seguido_id = ? ORDER BY s.criado_em DESC LIMIT 1000',
       [s.userId, s.userId],
     );
+    const keys = await Promise.all(following.map((p) => pairKey(s.userId, p.id)));
     return c.json({
-      seguindo: following.map((p) => ({ ...personOut(p), desde: p.criado_em, silenciado: !!p.silenciado, rev: p.rev ?? null, meSegue: !!p.me_segue })),
+      seguindo: following.map((p, i) => ({
+        ...personOut(p),
+        chave: keys[i],
+        desde: p.criado_em,
+        silenciado: !!p.silenciado,
+        rev: p.rev ?? null,
+        meSegue: !!p.me_segue,
+      })),
       seguidores: followers.map((p) => ({ ...personOut(p), desde: p.criado_em, euSigo: !!p.eu_sigo })),
     });
   });

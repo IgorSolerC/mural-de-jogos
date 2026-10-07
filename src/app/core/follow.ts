@@ -1,7 +1,8 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Cloud } from './cloud-config';
 import { CloudAccount } from './cloud-account';
-import { normalizeCode } from './cloud-murals';
+import { cloudColleagueId, normalizeCode, recodedColleague } from './cloud-murals';
+import { ColleagueStore } from './colleague-store';
 import { Kind, isKind } from './kinds';
 import { Mural } from './mural';
 import { FriendKinds, Settings } from './settings';
@@ -20,6 +21,8 @@ export interface Person {
 }
 
 export interface FollowedPerson extends Person {
+  /** A mesma enquanto eu seguir a pessoa, mesmo se ela trocar o código (ver `api/src/routes/follow.ts`). */
+  chave?: string;
   desde: string;
   /** Continua no correio, mas não conta no número do envelope. */
   silenciado: boolean;
@@ -84,7 +87,10 @@ export function parsePeople(raw: unknown): People {
       .map((x) => {
         const p = person(x);
         const o = x as Record<string, unknown>;
-        return p ? { ...p, desde: iso(o['desde']) ?? '', silenciado: o['silenciado'] === true, rev: typeof o['rev'] === 'number' ? o['rev'] : null, meSegue: o['meSegue'] === true } : null;
+        const chave = typeof o['chave'] === 'string' && /^[\w-]{1,64}$/.test(o['chave']) ? { chave: o['chave'] } : {};
+        return p
+          ? { ...p, ...chave, desde: iso(o['desde']) ?? '', silenciado: o['silenciado'] === true, rev: typeof o['rev'] === 'number' ? o['rev'] : null, meSegue: o['meSegue'] === true }
+          : null;
       })
       .filter((x): x is FollowedPerson => x !== null),
     seguidores: list(r['seguidores'])
@@ -198,6 +204,7 @@ export class Follow {
   private readonly account = inject(CloudAccount);
   private readonly settings = inject(Settings);
   private readonly mural = inject(Mural);
+  private readonly colleagues = inject(ColleagueStore);
 
   /** A nuvem ligada e alguém logado: só assim existe seguir e correio. */
   readonly available = computed(() => !!this.cloud.config() && this.account.signedIn());
@@ -343,7 +350,9 @@ export class Follow {
     if (owner !== this.owner()) return this.people() ?? { seguindo: [], seguidores: [] };
     // mudou algo aqui enquanto a resposta vinha: a lista que chegou é de antes, fica a daqui
     if (version !== this.peopleVersion) return this.people() ?? people;
+    const before = this.people();
     this.people.set(people);
+    if (before) void this.followCodeChanges(before, people);
     this.save();
     return people;
   }
@@ -399,6 +408,21 @@ export class Follow {
     }));
     this.save();
     this.refreshLater();
+  }
+
+  /**
+   * Quem eu sigo trocou o código (a mesma chave, outro código): o mural dela guardado aqui passa para o
+   * código novo, em vez de o Comparar ficar com dois — o do código antigo nunca mais se atualizaria.
+   */
+  private async followCodeChanges(before: People, after: People): Promise<void> {
+    const old = new Map(before.seguindo.filter((p) => p.chave).map((p) => [p.chave!, p.codigo]));
+    await this.colleagues.ready;
+    for (const p of after.seguindo) {
+      const was = p.chave ? old.get(p.chave) : undefined;
+      if (!was || was === p.codigo) continue;
+      const saved = this.colleagues.colleagues().find((c) => c.id === cloudColleagueId(was));
+      if (saved) await this.colleagues.move(saved.id, recodedColleague(saved, p.codigo)).catch(() => undefined);
+    }
   }
 
   /** Aplica uma mudança confirmada pela nuvem nas listas daqui (e invalida as que estão a caminho). */

@@ -44,6 +44,7 @@ export const NEWS: NewsEntry[] = [
       'E as resenhas dela que já estavam em Amigos continuam lá depois do "Desfazer".',
       'Com "Novidades dos amigos: separado", abrir Amigos num mural não dá mais como vistas as novidades dos outros murais.',
       'Trocar de conta neste navegador não mostra mais, por um instante, quem a conta anterior segue.',
+      'Quando alguém que você segue troca o código, o mural da pessoa em Comparar passa para o código novo, em vez de aparecer duas vezes.',
     ],
   },
   {

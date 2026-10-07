@@ -102,6 +102,24 @@ export class ColleagueStore {
     this.colleagues.update((list) => list.filter((c) => c.id !== id));
   }
 
+  /**
+   * Troca o id de um colega guardado (a pessoa trocou o código): grava o novo e apaga o antigo, no
+   * mesmo lugar da lista e com a escolha do Comparar indo junto. Se o novo já existe, só sai o antigo.
+   */
+  async move(oldId: string, next: Colleague): Promise<void> {
+    const list = this.colleagues();
+    if (!list.some((c) => c.id === oldId)) return;
+    const wasChosen = this.selected()?.id === oldId;
+    const already = list.some((c) => c.id === next.id);
+    if (!already) await this.put(next);
+    const db = await this.open();
+    await this.transaction(db, (store) => store.delete(oldId));
+    this.colleagues.update((now) =>
+      already ? now.filter((c) => c.id !== oldId) : now.map((c) => (c.id === oldId ? next : c)),
+    );
+    if (wasChosen) this.select(next.id);
+  }
+
   async restore(colleague: Colleague): Promise<void> {
     await this.put(colleague);
     this.colleagues.update((list) => [

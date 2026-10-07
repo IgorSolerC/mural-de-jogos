@@ -245,6 +245,21 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await unfollow(bia.token, novo)).status).toBe(200);
       });
 
+      it('a chave de quem eu sigo continua a mesma quando a pessoa troca o código, e é só minha', async () => {
+        const { json, body, follow, people, login, ana, bia } = await two();
+        const cris = await login('cris', 'Cris');
+        await follow(bia.token, ana.codigo);
+        await follow(cris.token, ana.codigo);
+        const before = (await people(bia.token)).seguindo[0];
+        expect(before.chave).toMatch(/^[\w-]{16}$/);
+        await body(json('POST', '/v1/eu/codigo', undefined, ana.token));
+        const after = (await people(bia.token)).seguindo[0];
+        expect(after.codigo).not.toBe(before.codigo);
+        expect(after.chave).toBe(before.chave);
+        // outra pessoa que segue a Ana vê outra chave (não dá para ligar as listas)
+        expect((await people(cris.token)).seguindo[0].chave).not.toBe(before.chave);
+      });
+
       it('quem foi tirado da lista de seguidores pode seguir de novo, sem aviso novo', async () => {
         const { db, json, follow, advance, ana, bia } = await two();
         await follow(bia.token, ana.codigo);

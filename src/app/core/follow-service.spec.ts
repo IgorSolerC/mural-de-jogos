@@ -4,6 +4,8 @@ import { Cloud } from './cloud-config';
 import { CloudAccount, CloudAccountInfo, CloudError } from './cloud-account';
 import { FeedItem, Follow, People } from './follow';
 import { Mural } from './mural';
+import { Colleague, ColleagueStore } from './colleague-store';
+import { cloudColleagueId } from './cloud-murals';
 import { Settings } from './settings';
 
 /**
@@ -382,6 +384,26 @@ describe('Amigos: o serviço (Follow)', () => {
       expect(h.follow.isFollowing(ana.codigo)).toBeNull(); // não sabe ainda (e não diz que segue)
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null');
       expect(cached?.pessoas?.seguindo ?? []).toEqual([]);
+    });
+
+    it('quem eu sigo trocou o código: o mural dela guardado aqui passa para o código novo', async () => {
+      await new Promise<void>((resolve) => {
+        const r = indexedDB.deleteDatabase('meu-mural:colegas');
+        r.onsuccess = r.onerror = r.onblocked = () => resolve();
+      });
+      const desde = '2026-10-01T00:00:00.000Z';
+      const h = make({
+        peopleManual: true,
+        cache: { conta: 'u-eu', itens: [], vistasEm: null, agora: null, pessoas: { seguindo: [{ ...ana, chave: 'chave-da-ana', desde }], seguidores: [] } },
+      });
+      const colleagues = TestBed.inject(ColleagueStore);
+      await colleagues.ready;
+      const wall = { id: cloudColleagueId(ana.codigo), name: 'Ana', fileName: `Código ${ana.codigo}`, loadedAt: desde, codigo: ana.codigo, rev: 7, reviews: [] } as unknown as Colleague;
+      await colleagues.restore(wall);
+      await start();
+      h.peopleRequests[0].resolve({ seguindo: [{ codigo: 'AAAB-1111', nome: 'Ana', chave: 'chave-da-ana', desde }], seguidores: [] });
+      for (let i = 0; i < 5; i++) await flush();
+      expect(colleagues.colleagues().map((c) => [c.id, c.codigo, c.rev])).toEqual([[cloudColleagueId('AAAB-1111'), 'AAAB-1111', 7]]);
     });
 
     it('sem troca de conta, a lista que chega vale', async () => {

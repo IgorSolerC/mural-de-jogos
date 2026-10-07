@@ -714,7 +714,7 @@ export function apiSuite(label: string, getDb: () => Db) {
         await push(ana.token, 0);
         await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token);
         const listBia = (await (await json('GET', '/v1/eu/pessoas', undefined, bia.token)).json()) as any;
-        expect(listBia.seguindo).toEqual([{ codigo: ana.conta.codigo, nome: 'Ana', desde: expect.any(String), silenciado: false, rev: 1, meSegue: false }]);
+        expect(listBia.seguindo).toEqual([{ codigo: ana.conta.codigo, nome: 'Ana', chave: expect.any(String), desde: expect.any(String), silenciado: false, rev: 1, meSegue: false }]);
         expect(listBia.seguidores).toEqual([]);
         const listAna = (await (await json('GET', '/v1/eu/pessoas', undefined, ana.token)).json()) as any;
         expect(listAna.seguidores).toEqual([{ codigo: bia.conta.codigo, nome: 'Bia', desde: expect.any(String), euSigo: false }]);

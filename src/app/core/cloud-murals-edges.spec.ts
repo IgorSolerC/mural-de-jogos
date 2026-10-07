@@ -2,14 +2,12 @@ import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Cloud } from './cloud-config';
-import { CLOUD_COLLEAGUE_PREFIX, CloudMurals } from './cloud-murals';
+import { CLOUD_COLLEAGUE_PREFIX, CloudMurals, recodedColleague } from './cloud-murals';
 import { Colleague, ColleagueStore } from './colleague-store';
-import { itBug, must } from '../testing/known-bug.spec';
 
 /**
  * Os murais dos amigos pela nuvem, nas bordas: o guardado de 2 minutos, a escolha do Comparar que
- * não pode mudar por trás, sem rede, o nome que a pessoa trocou e o código trocado. Os BUG: são
- * bugs conhecidos (ver testing/known-bug.spec.ts).
+ * não pode mudar por trás, sem rede, o nome que a pessoa trocou e o código trocado.
  */
 
 @Component({ template: '' })
@@ -169,17 +167,31 @@ describe('murais dos amigos pela nuvem: bordas e bugs conhecidos', () => {
     await expectAsync(murals.open(MARINA)).toBeRejectedWithError('Não achei mural com esse código.');
   });
 
-  // O colega aberto pela nuvem tem o id `nuvem:` + código. Quando a pessoa troca o código (Ajustes ›
-  // Perfil), a lista de quem eu sigo passa a trazer o novo, e o mural dela é aberto de novo com outro
-  // id: o Comparar fica com duas "Marina", e a do código antigo nunca mais se atualiza (o código
-  // antigo responde 404).
-  itBug('quando a pessoa troca o código, o Comparar não fica com o mural dela duplicado', async () => {
-    await murals.ensure(MARINA);
+  it('a pessoa trocou o código: o mural guardado passa para o novo, sem duplicar, e o "mudou?" continua valendo', async () => {
+    const file = new File([await gz(muralOf('Colega do arquivo', review('rarq01', 'Hollow Knight')))], 'colega.json.gz');
+    await colleagues.add(file, 'Colega');
+    const saved = await murals.ensure(MARINA);
+    colleagues.select(saved!.id);
     const NEW = 'P9RT-4VWX';
     published.set(NEW, published.get(MARINA)!);
     published.delete(MARINA);
+    // o que a lista de quem eu sigo faz quando acusa o código novo (ver Follow.followCodeChanges)
+    await colleagues.move(saved!.id, recodedColleague(saved!, NEW));
+    expect(colleagues.colleagues().filter((c) => c.name === 'Marina').map((c) => c.codigo)).toEqual([NEW]);
+    expect(colleagues.selected()!.codigo).toBe(NEW); // a escolha do Comparar foi junto
+    await age(NEW, 3 * 60_000);
+    calls = [];
     await murals.ensure(NEW);
-    const marinas = colleagues.colleagues().filter((c) => c.name === 'Marina');
-    must(marinas.length === 1, `o Comparar ficou com ${marinas.length} murais da Marina: ${marinas.map((c) => c.fileName).join(', ')}`);
+    expect(calls).toEqual([`/v1/murais/${NEW}?rev=3`]); // 204: o guardado vale
+    expect(colleagues.colleagues().length).toBe(2);
+  });
+
+  it('se o mural do código novo já estava aqui, sai só o do código antigo', async () => {
+    const NEW = 'P9RT-4VWX';
+    published.set(NEW, { rev: 3, doc: muralOf('Marina', review('rmar01', 'Celeste')) });
+    const old = await murals.ensure(MARINA);
+    await murals.ensure(NEW);
+    await colleagues.move(old!.id, recodedColleague(old!, NEW));
+    expect(colleagues.colleagues().map((c) => c.codigo)).toEqual([NEW]);
   });
 });
