@@ -31,6 +31,14 @@ export interface NewsEntry {
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-07-ajustes-pelo-mural',
+    date: '2026-10-07',
+    title: 'Ajustes pelo mural',
+    items: [
+      'Em "Quem vê?", a opção Todo mundo agora se chama Publicar.',
+    ],
+  },
+  {
     id: '2026-10-06-consertos-amigos-nuvem',
     date: '2026-10-06',
     title: 'Consertos em Amigos e na nuvem',

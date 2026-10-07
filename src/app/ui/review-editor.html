@@ -281,7 +281,7 @@
           ></textarea>
         </section>
 
-        <!-- Quem vê: todo mundo (o mural pelo código, Amigos, Comparar) ou só você, até mudar de ideia -->
+        <!-- Quem vê: Publicar (o mural pelo código, Amigos, Comparar) ou Só eu, até mudar de ideia -->
         @if (cloud.config()) {
           <section class="bloco quem-ve">
             <fieldset>
@@ -291,7 +291,7 @@
                   <input type="radio" name="editor-quem" [checked]="!isPrivate()" (change)="isPrivate.set(false)" aria-describedby="editor-quem-dica" />
                   <span class="quem-tag">
                     <lucide-icon [img]="EveryoneIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                    Todo mundo
+                    Publicar
                   </span>
                 </label>
                 <label class="quem">
@@ -304,7 +304,7 @@
               </div>
               <p class="quem-dica" id="editor-quem-dica">
                 @if (isPrivate()) {
-                  Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque para Todo mundo.
+                  Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque para Publicar.
                 } @else {
                   Vai para o seu mural, e quem segue você é avisado em Amigos.
                 }
