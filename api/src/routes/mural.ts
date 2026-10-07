@@ -60,6 +60,8 @@ function parseNew(raw: ReturnType<FormData['get']>): NewReview[] {
   const out: NewReview[] = [];
   const seen = new Set<string>();
   for (const item of data.slice(0, MAX_NEW_PER_PUSH)) {
+    // um item que não é objeto (null, número, texto) só é ignorado
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
     const r = item as Record<string, unknown>;
     const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
     const titulo = cleanTitle(r['titulo']);

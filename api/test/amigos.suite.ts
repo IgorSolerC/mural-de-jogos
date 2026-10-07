@@ -535,12 +535,10 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await db.all<{ ref: string }>('SELECT ref FROM atividades')).map((a) => a.ref)).toEqual(['valida01']);
       });
 
-      // BUG: parseNew lê `item['ref']` sem conferir se o item é um objeto. Um `null` na lista vira
-      // TypeError e o envio inteiro responde 500 (o site mostra erro e fica tentando de novo).
-      it.fails('BUG: um null dentro de "novas" é ignorado, sem derrubar o envio com 500', async () => {
+      it('um null (ou lista) dentro de "novas" é ignorado, sem derrubar o envio com 500', async () => {
         const { login, push } = await setup();
         const { token } = await login('ana');
-        const r = await push(token, 0, { novas: [null, review('valida01')] });
+        const r = await push(token, 0, { novas: [null, [review('lista01')], review('valida01')] });
         expect(r.status).toBe(200);
         expect(r.body.novas).toBe(1);
       });
