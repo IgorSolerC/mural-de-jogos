@@ -271,6 +271,12 @@ export interface Review {
    */
   revisitOf?: string;
   /**
+   * De onde sai o desenho do papel, quando não é mais o id de sempre (ver `artIdOf`). Só existe
+   * depois que uma rejogada mais antiga virou a original (`settleOriginal`): cada ficha da obra
+   * continua desenhada com o id de antes, e nenhuma cartolina muda por isso.
+   */
+  artFrom?: string;
+  /**
    * Privada: fica só com a pessoa. Não vai no mural que os outros veem (pelo código, em Amigos, em
    * Comparar) nem vira aviso para quem segue. Fica no backup e na nuvem particular dela.
    */
@@ -306,16 +312,53 @@ export function rootOf(r: Pick<Review, 'id' | 'revisitOf'>): string {
 
 /**
  * O id de onde sai o desenho do papel (rabisco, estrago, mancha, decoração). A rejogada desenha com o
- * da original: com o mesmo estojo e os mesmos sorteios, a cartolina sai idêntica à dela.
+ * da original: com o mesmo estojo e os mesmos sorteios, a cartolina sai idêntica à dela. Depois que a
+ * original troca, cada ficha guarda o id de antes em `artFrom`.
  */
-export function artIdOf(r: Pick<Review, 'id' | 'revisitOf'>): string {
-  return r.revisitOf ?? r.id;
+export function artIdOf(r: Pick<Review, 'id' | 'revisitOf' | 'artFrom'>): string {
+  return r.artFrom ?? r.revisitOf ?? r.id;
 }
 
-/** As rejogadas pela ordem em que aconteceram: pela data (sem data no fim), depois por quando foram pregadas. */
+/**
+ * Qual vez da obra aconteceu antes, só pela data. "Não lembro" conta como a mais antiga; o ano
+ * sozinho vem antes dos meses dele e o mês sem dia antes dos dias ('2024' < '2024-03' < '2024-03-10').
+ */
+function dateOrder(a: Pick<Review, 'completedAt'>, b: Pick<Review, 'completedAt'>): number {
+  if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? -1 : 1;
+  return (a.completedAt ?? '').localeCompare(b.completedAt ?? '');
+}
+
+/** As rejogadas pela ordem em que aconteceram: pela data (sem data primeiro), depois por quando foram pregadas. */
 function revisitOrder(a: Review, b: Review): number {
-  if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? 1 : -1;
-  return (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || a.createdAt.localeCompare(b.createdAt);
+  return dateOrder(a, b) || a.createdAt.localeCompare(b.createdAt);
+}
+
+/**
+ * A original é sempre a vez mais antiga da obra. Se uma rejogada é de antes da original (uma data
+ * menor, ou "não lembro" numa original com data), ela vira a original e as outras viram rejogadas
+ * dela. Na mesma data, a original continua. Os ids não mudam, só quem aponta para quem; o desenho do
+ * papel de cada uma continua o mesmo (`artFrom`). Devolve as fichas que mudaram (nenhuma, se nada muda).
+ */
+export function settleOriginal(list: readonly Review[], anyId: string, now: string): Review[] {
+  const r = list.find((x) => x.id === anyId);
+  if (!r) return [];
+  const root = rootOf(r);
+  const original = list.find((x) => x.id === root && !x.revisitOf);
+  if (!original) return [];
+  const revisits = list.filter((x) => x.revisitOf === root);
+  const older = revisits.filter((x) => dateOrder(x, original) < 0).sort(revisitOrder)[0];
+  if (!older) return [];
+  return [original, ...revisits].map((x) => {
+    const art = artIdOf(x);
+    const { revisitOf: _was, artFrom: _art, ...rest } = x;
+    const revisitOf = x.id === older.id ? undefined : older.id;
+    return {
+      ...rest,
+      ...(revisitOf ? { revisitOf } : {}),
+      ...(art !== (revisitOf ?? x.id) ? { artFrom: art } : {}),
+      updatedAt: now,
+    };
+  });
 }
 
 /**
@@ -752,6 +795,11 @@ function sanitizeRevisitOf(v: unknown, own: unknown): string | undefined {
   return typeof v === 'string' && /^[\w-]{4,64}$/.test(v) && v !== own ? v : undefined;
 }
 
+/** De onde sai o desenho do papel: um id válido (o da própria ficha também vale). */
+function sanitizeArtFrom(v: unknown): string | undefined {
+  return typeof v === 'string' && /^[\w-]{4,64}$/.test(v) ? v : undefined;
+}
+
 function sanitizeId(v: unknown): string {
   return typeof v === 'string' && /^[\w-]{4,64}$/.test(v) ? v : newId();
 }
@@ -858,6 +906,7 @@ export function sanitizeReview(raw: unknown): Review | null {
             : r['completedAt']
           : localDay(new Date(createdAt)),
     ...optional('revisitOf', sanitizeRevisitOf(r['revisitOf'], r['id'])),
+    ...optional('artFrom', sanitizeArtFrom(r['artFrom'])),
     ...optional('private', r['private'] === true ? (true as const) : undefined),
     ...optional('publishedAt', isoOr(r['publishedAt'], '') || undefined),
     createdAt,

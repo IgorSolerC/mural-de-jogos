@@ -37,7 +37,7 @@
       <div class="editor-content">
         <div class="kit-panel parede">
           <!-- o estojo: a cor da cartolina, o papel e as marcas; a ficha acima muda na hora -->
-          <app-card-kit class="estojo scrollable" [id]="revisitRoot() ?? id()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stain)]="stain" [(stainSeed)]="stainSeed" [(decor)]="decor" [(decorSeed)]="decorSeed" />
+          <app-card-kit class="estojo scrollable" [id]="artId()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stain)]="stain" [(stainSeed)]="stainSeed" [(decor)]="decor" [(decorSeed)]="decorSeed" />
         </div>
 
         <div class="form">

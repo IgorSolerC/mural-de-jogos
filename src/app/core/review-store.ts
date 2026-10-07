@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS } from './kinds';
 import { readBackupFile } from './backup-file';
 import { DataKey, LocalData } from './local-data';
-import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -27,6 +27,12 @@ export interface BackupPayload {
   drafts: Draft[];
   wishes: Wish[];
   deleted: Deleted;
+}
+
+/** A original de uma obra trocou: `from` era a original e virou rejogada de `to`. */
+export interface OriginalSwap {
+  from: string;
+  to: string;
 }
 
 export interface ImportResult {
@@ -218,16 +224,33 @@ export class ReviewStore {
     return this.reviews().find((r) => r.id === id);
   }
 
-  add(review: Review): void {
+  /** Prega a ficha. Devolve a troca de original, se a ficha nova é uma rejogada mais antiga que ela (ver `settle`). */
+  add(review: Review): OriginalSwap | null {
     const withStock = review.stock ? review : { ...review, stock: this.nextStock(review.kind) };
     this.reviews.update((list) => [withStock, ...list]);
+    return this.settle(review.id);
+  }
+
+  /**
+   * A original de uma obra é sempre a vez mais antiga: se a ficha salva deixou uma rejogada mais
+   * antiga que a original (ou a original mais nova que uma rejogada), a mais antiga vira a original
+   * (ver settleOriginal). Devolve quem era e quem passou a ser a original.
+   */
+  private settle(id: string): OriginalSwap | null {
+    const changed = settleOriginal(this.reviews(), id, new Date().toISOString());
+    if (!changed.length) return null;
+    const byId = new Map(changed.map((r) => [r.id, r]));
+    const from = changed.find((r) => r.revisitOf && !this.get(r.id)?.revisitOf);
+    const to = changed.find((r) => !r.revisitOf);
+    this.reviews.update((list) => list.map((r) => byId.get(r.id) ?? r));
+    return from && to ? { from: from.id, to: to.id } : null;
   }
 
   /**
    * Salva a ficha. Na original, o item (nome, capa, ano) vai junto para as rejogadas dela: é a mesma
    * obra, e a rejogada não tem como trocar o item sozinha.
    */
-  update(review: Review): void {
+  update(review: Review): OriginalSwap | null {
     const before = this.get(review.id);
     const sameGame = !before || review.revisitOf || JSON.stringify(before.game) === JSON.stringify(review.game);
     this.reviews.update((list) =>
@@ -237,6 +260,7 @@ export class ReviewStore {
         return r;
       }),
     );
+    return this.settle(review.id);
   }
 
   /** As rejogadas (releituras, reassistidas) de uma ficha original. */

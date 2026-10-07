@@ -106,6 +106,15 @@ export class SideBySide {
     this.ids.update((all) => ({ ...all, [before.kind]: before.ids }));
   }
 
+  /** A original da obra trocou (ver ReviewStore.settle): quem estava marcada dá o lugar à nova original, na mesma posição. */
+  swap(from: string, to: string): void {
+    this.ids.update((all) => {
+      const next = { ...all };
+      for (const k of KINDS) if (next[k].includes(from)) next[k] = [...new Set(next[k].map((id) => (id === from ? to : id)))];
+      return next;
+    });
+  }
+
   private set(list: string[]): void {
     const k = this.mural.kind();
     this.ids.update((all) => ({ ...all, [k]: list }));

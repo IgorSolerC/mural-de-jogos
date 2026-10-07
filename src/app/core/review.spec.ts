@@ -24,6 +24,9 @@ import {
   isDarkStock,
   originalsOf,
   timesOf,
+  artIdOf,
+  settleOriginal,
+  Review,
   BONUS_MAX_LABEL,
   fold,
 } from './review';
@@ -435,18 +438,73 @@ describe('rejogadas', () => {
     expect('revisitOf' in sanitizeReview(raw('roriginal'))!).toBeFalse();
   });
 
-  it('põe as vezes em ordem: a original, depois as rejogadas pela data (sem data no fim)', () => {
+  it('põe as vezes em ordem: a original, depois as rejogadas pela data ("não lembro" conta como a mais antiga)', () => {
     const o = sanitizeReview(raw('roriginal', { completedAt: '2020-05-01' }))!;
     const late = sanitizeReview(raw('rvez0002', { revisitOf: 'roriginal', completedAt: '2025-01-10' }))!;
     const early = sanitizeReview(raw('rvez0001', { revisitOf: 'roriginal', completedAt: '2023-07' }))!;
     const undated = sanitizeReview(raw('rvez0003', { revisitOf: 'roriginal', completedAt: null }))!;
     const other = sanitizeReview(raw('routra01'))!;
     const list = [late, other, undated, o, early];
-    const ids = ['roriginal', 'rvez0001', 'rvez0002', 'rvez0003'];
+    const ids = ['roriginal', 'rvez0003', 'rvez0001', 'rvez0002'];
     expect(timesOf(list, o).map((r) => r.id)).toEqual(ids);
     expect(timesOf(list, late).map((r) => r.id)).toEqual(ids);
     expect(timesOf(list, other).map((r) => r.id)).toEqual(['routra01']);
     expect(originalsOf(list).map((r) => r.id)).toEqual(['routra01', 'roriginal']);
+  });
+
+  describe('a vez mais antiga é a original', () => {
+    const now = '2026-10-07T12:00:00.000Z';
+    const at = (id: string, completedAt: string | null, extra: Record<string, unknown> = {}) =>
+      sanitizeReview(raw(id, { completedAt, updatedAt: '2024-01-01T12:00:00Z', ...extra }))!;
+    const apply = (list: Review[], changed: Review[]) => list.map((r) => changed.find((c) => c.id === r.id) ?? r);
+
+    it('a rejogada de antes da original vira a original; as outras passam a ser rejogadas dela', () => {
+      const list = [at('roriginal', '2022-05-01'), at('rvez0001', '2019-03', { revisitOf: 'roriginal' }), at('rvez0002', '2024', { revisitOf: 'roriginal' })];
+      const before = new Map(list.map((r) => [r.id, artIdOf(r)]));
+      const changed = settleOriginal(list, 'rvez0001', now);
+      expect(changed.map((r) => [r.id, r.revisitOf ?? null])).toEqual([
+        ['roriginal', 'rvez0001'],
+        ['rvez0001', null],
+        ['rvez0002', 'rvez0001'],
+      ]);
+      // o papel de cada uma continua desenhado com o mesmo id de antes
+      for (const r of changed) expect(artIdOf(r)).withContext(r.id).toBe(before.get(r.id)!);
+      // e o campo só existe quando não é o de sempre
+      expect(changed.find((r) => r.id === 'rvez0002')!.artFrom).toBe('roriginal');
+      for (const r of changed) expect(r.updatedAt).toBe(now);
+      const after = apply(list, changed);
+      expect(timesOf(after, after[0]).map((r) => r.id)).toEqual(['rvez0001', 'roriginal', 'rvez0002']);
+    });
+
+    it('"não lembro" é mais antigo que qualquer data; o ano sozinho, mais antigo que os meses dele', () => {
+      expect(settleOriginal([at('ro0001', '2020-01-01'), at('rv0001', null, { revisitOf: 'ro0001' })], 'rv0001', now).find((r) => !r.revisitOf)?.id).toBe('rv0001');
+      expect(settleOriginal([at('ro0001', '2020-05'), at('rv0001', '2020', { revisitOf: 'ro0001' })], 'rv0001', now).find((r) => !r.revisitOf)?.id).toBe('rv0001');
+      expect(settleOriginal([at('ro0001', '2020-05-10'), at('rv0001', '2020-05', { revisitOf: 'ro0001' })], 'rv0001', now).find((r) => !r.revisitOf)?.id).toBe('rv0001');
+    });
+
+    it('na mesma data (ou depois), a original continua', () => {
+      expect(settleOriginal([at('ro0001', '2020-05-10'), at('rv0001', '2020-05-10', { revisitOf: 'ro0001' })], 'rv0001', now)).toEqual([]);
+      expect(settleOriginal([at('ro0001', null), at('rv0001', null, { revisitOf: 'ro0001' })], 'rv0001', now)).toEqual([]);
+      expect(settleOriginal([at('ro0001', '2020'), at('rv0001', '2021-01-01', { revisitOf: 'ro0001' })], 'ro0001', now)).toEqual([]);
+    });
+
+    it('a original que passou a ser mais nova que uma rejogada também troca, e trocar de novo devolve tudo como era', () => {
+      const list = [at('ro0001', '2025-01-01'), at('rv0001', '2023-01-01', { revisitOf: 'ro0001' })];
+      const once = apply(list, settleOriginal(list, 'ro0001', now));
+      expect(once.find((r) => r.id === 'ro0001')!.revisitOf).toBe('rv0001');
+      // a nova original volta a ser a mais nova: a de antes volta a ser a original, sem `artFrom`
+      const edited = once.map((r) => (r.id === 'rv0001' ? { ...r, completedAt: '2026-01-01' } : r));
+      const twice = apply(edited, settleOriginal(edited, 'rv0001', now));
+      expect(twice.find((r) => r.id === 'ro0001')!.revisitOf).toBeUndefined();
+      expect(twice.find((r) => r.id === 'rv0001')!.revisitOf).toBe('ro0001');
+      for (const r of twice) expect('artFrom' in r).withContext(r.id).toBeFalse();
+    });
+
+    it('guarda de onde sai o desenho no backup, só com um id válido', () => {
+      expect(sanitizeReview(raw('rvez01', { artFrom: 'roriginal' }))!.artFrom).toBe('roriginal');
+      expect(sanitizeReview(raw('rvez01', { artFrom: '<x>' }))!.artFrom).toBeUndefined();
+      expect('artFrom' in sanitizeReview(raw('rvez01'))!).toBeFalse();
+    });
   });
 });
 

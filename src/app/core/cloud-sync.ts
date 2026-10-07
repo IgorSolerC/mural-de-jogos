@@ -35,8 +35,10 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  *
  * 2: as chaves de busca (`chaves`) passaram a ir no mural da nuvem.
  * 3: as fichas privadas (`private`, `publishedAt`). Um site antigo jogaria a marca fora e publicaria a ficha.
+ * 4: de onde sai o desenho do papel (`artFrom`), depois que uma rejogada mais antiga vira a original.
+ *    Um site antigo jogaria o campo fora e redesenharia as cartolinas da obra.
  */
-export const SYNC_SCHEMA = 3;
+export const SYNC_SCHEMA = 4;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no

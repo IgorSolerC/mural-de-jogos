@@ -299,6 +299,17 @@ describe('ReviewStore', () => {
       expect(store.get('rvez01')!.game.name).toBe('A remasterizado');
       expect(store.get('rbbbb1')!.game.name).toBe('B');
     });
+
+    it('pregar uma rejogada de antes da original troca a original, e diz quem trocou', () => {
+      const swap = store.add(sanitizeReview(review('rvez02', 'A', '2024-04-01T00:00:00Z', { revisitOf: 'raaaa1', completedAt: '2023-06' }))!);
+      expect(swap).toEqual({ from: 'raaaa1', to: 'rvez02' });
+      expect(store.get('rvez02')!.revisitOf).toBeUndefined();
+      expect(store.get('raaaa1')!.revisitOf).toBe('rvez02');
+      expect(store.get('rvez01')!.revisitOf).toBe('rvez02');
+      // uma rejogada depois da original não troca nada
+      expect(store.add(sanitizeReview(review('rvez03', 'A', '2024-04-02T00:00:00Z', { revisitOf: 'rvez02', completedAt: '2025-01-01' }))!)).toBeNull();
+      expect(store.get('rvez03')!.revisitOf).toBe('rvez02');
+    });
   });
 });
 

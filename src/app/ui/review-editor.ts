@@ -29,6 +29,7 @@ import {
   Wish,
   computeFinal,
   isDarkStock,
+  artIdOf,
   formatScore,
   formatRawScore,
   counts,
@@ -47,7 +48,7 @@ import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { cap, g, profileOf } from '../core/kinds';
 import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
-import { ReviewStore } from '../core/review-store';
+import { OriginalSwap, ReviewStore } from '../core/review-store';
 import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
@@ -68,6 +69,8 @@ import { VerdictPicker } from './verdict';
 export interface SavedEvent {
   id: string;
   isNew: boolean;
+  /** Salvar trocou a original da obra (uma rejogada mais antiga que ela virou a original). */
+  swap?: OriginalSwap | null;
 }
 
 /** O ano mais antigo aceito na data (o mesmo limite da validação dos backups). */
@@ -304,6 +307,16 @@ export class ReviewEditor {
   protected readonly previewRowHeight = signal(500);
   private previewObserver: ResizeObserver | null = null;
 
+  /**
+   * De onde sai o desenho do papel desta ficha (ver artIdOf): o da própria ficha, o da original numa
+   * rejogada, ou o que ficou guardado depois que a original trocou.
+   */
+  protected readonly artId = signal('');
+  /** `artFrom` só vai para a ficha quando não é o de sempre. */
+  private artFields(): Pick<Review, 'artFrom'> {
+    return this.artId() !== (this.revisitRoot() ?? this.id()) ? { artFrom: this.artId() } : {};
+  }
+
   /** A ficha como ela vai para o mural, montada com o que já foi preenchido. */
   protected readonly preview = computed<Review>(() => {
     return {
@@ -336,6 +349,7 @@ export class ReviewEditor {
       text: this.text(),
       completedAt: this.dateValid() ? this.dateValue() : this.today(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
+      ...this.artFields(),
       ...(this.isPrivate() ? { private: true as const } : {}),
       createdAt: '',
       updatedAt: '',
@@ -421,6 +435,9 @@ export class ReviewEditor {
     this.isPrivate.set(review?.private === true);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
+    // a rejogada nova desenha como a original desenha hoje (que pode ser com o id de antes)
+    const rootReview = root ? (this.store.get(root) ?? null) : null;
+    this.artId.set(review ? artIdOf(review) : root ? (rootReview ? artIdOf(rootReview) : root) : this.id());
     // a rejogada nova já nasce com a cartolina da original, igualzinha (o papel é desenhado com o id
     // dela, ver artIdOf); a pessoa muda no estojo se quiser
     const look = review ?? (root ? (this.store.get(root) ?? revisitOf) : undefined);
@@ -599,21 +616,21 @@ export class ReviewEditor {
       text: this.text().trim(),
       completedAt: this.dateValue(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
+      ...this.artFields(),
       ...(this.isPrivate() ? { private: true as const } : {}),
       // deixou de ser privada agora: para quem segue, ela é nova a partir de hoje
       ...(this.isPrivate() ? {} : prev?.private ? { publishedAt: now } : prev?.publishedAt ? { publishedAt: prev.publishedAt } : {}),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
-    if (prev) this.store.update(review);
-    else this.store.add(review);
+    const swap = prev ? this.store.update(review) : this.store.add(review);
     const draft = this.fromDraft();
     if (draft) this.store.removeDraft(draft.id, false);
     const wish = this.fromWish();
     if (wish) this.store.removeWish(wish.id, false);
     this.snapshot = this.serialize();
     this.dialog().nativeElement.close();
-    this.saved.emit({ id: review.id, isNew: !prev });
+    this.saved.emit({ id: review.id, isNew: !prev, swap });
   }
 
   /** Guarda só o nome e a capa, fora do mural, para terminar a resenha depois. */

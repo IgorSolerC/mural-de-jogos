@@ -291,6 +291,18 @@ export class App {
     if (e.isNew && !this.view.visible().some((r) => r.id === e.id)) this.view.clearFilters();
     if (e.isNew && this.router.url !== '/') this.goLand('/', e.id);
     else this.desk.land(e.id);
+    // a vez mais antiga é sempre a original: a marcada para o lado a lado passa a ser a nova original
+    if (e.swap && saved) {
+      this.side.swap(e.swap.from, e.swap.to);
+      const p = profileOf(saved.kind);
+      this.toasts.show(
+        e.swap.to === e.id
+          ? `${cap(p.revisit.one)} mais antiga que a original: agora ela é a original de “${name}”`
+          : `“${name}”: a ${p.revisit.one} mais antiga virou a original`,
+      );
+      if (e.isNew) void this.backup.protect();
+      return;
+    }
     this.toasts.show(
       revisit
         ? e.isNew
