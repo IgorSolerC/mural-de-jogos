@@ -437,10 +437,11 @@ describe('o nome público entre aparelhos', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => localStorage.clear());
 
-  function setup(storedName: string, cloudName: string) {
+  /** `storedName`: o da conta guardada aqui; `cloudName`: o da nuvem; `localName`: o "Seu nome" de Ajustes. */
+  function setup(storedName: string, cloudName: string, localName = storedName) {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ ...ACCOUNT, nome: storedName }));
-    localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ ownerName: storedName }));
+    localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ ownerName: localName }));
     const patches: string[] = [];
     spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = new URL(String(url)).pathname;
@@ -479,17 +480,34 @@ describe('o nome público entre aparelhos', () => {
     expect(account.account()!.nome).toBe('Igor Soler');
   });
 
-  // Ao abrir, `refresh()` traz o nome da nuvem para a conta, mas não para o "Seu nome" de Ajustes. O
-  // efeito que acompanha o "Seu nome" vê os dois diferentes e manda o nome velho de volta: a troca
-  // feita no outro aparelho é desfeita pelo primeiro aparelho que abrir depois.
-  itBug('o nome trocado em outro aparelho não é desfeito quando este abre', async () => {
+  it('o nome trocado em outro aparelho vale aqui ao abrir, sem ser desfeito', async () => {
     const { settings, account, patches } = setup('Igor', 'Igor Soler');
     await wait(50);
     TestBed.tick();
-    expect(account.account()!.nome).toBe('Igor Soler'); // a conta já veio com o nome novo
+    expect(account.account()!.nome).toBe('Igor Soler');
+    expect(settings.ownerName()).toBe('Igor Soler');
     await wait(1700);
     TestBed.tick();
-    must(patches.length === 0, `este aparelho mandou o nome velho para a nuvem: PATCH ${JSON.stringify(patches)}`);
-    must(settings.ownerName() === 'Igor Soler', `o "Seu nome" ficou "${settings.ownerName()}"`);
+    expect(patches).toEqual([]);
+  }, 5000);
+
+  it('um nome trocado aqui sem rede (ainda não enviado) não é trocado pelo da nuvem: ele sobe', async () => {
+    const { settings, account, patches } = setup('Igor', 'Igor', 'Igor S.');
+    await wait(50);
+    TestBed.tick();
+    expect(settings.ownerName()).toBe('Igor S.');
+    await wait(1700);
+    TestBed.tick();
+    expect(patches).toEqual(['Igor S.']);
+    expect(account.account()!.nome).toBe('Igor S.');
+  }, 5000);
+
+  it('os dois mudaram (aqui sem rede e lá): o daqui, mais recente para quem está usando, sobe', async () => {
+    const { settings, patches } = setup('Igor', 'Igor Soler', 'Igor S.');
+    await wait(50);
+    TestBed.tick();
+    expect(settings.ownerName()).toBe('Igor S.');
+    await wait(1700);
+    expect(patches).toEqual(['Igor S.']);
   }, 5000);
 });

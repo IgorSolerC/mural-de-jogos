@@ -164,7 +164,14 @@ export class CloudAccount {
 
   async refresh(): Promise<void> {
     const me = await this.request<CloudAccountInfo>('/v1/eu');
+    const before = this.account()?.nome;
     this.setAccount({ ...(me.id ? { id: me.id } : {}), codigo: me.codigo, nome: me.nome });
+    // O nome mudou na nuvem (em outro aparelho) e aqui ninguém mexeu desde a última vez: o "Seu nome"
+    // passa a ser o novo. Sem isso, o efeito que acompanha o "Seu nome" mandaria o velho de volta.
+    // Um nome trocado aqui e ainda não enviado (sem rede) continua valendo e sobe.
+    if (before !== undefined && me.nome !== before && cleanName(this.settings.ownerName()) === before) {
+      this.settings.ownerName.set(me.nome);
+    }
   }
 
   async rename(name: string): Promise<void> {

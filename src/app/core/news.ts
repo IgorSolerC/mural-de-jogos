@@ -31,6 +31,14 @@ export interface NewsEntry {
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-06-consertos-amigos-nuvem',
+    date: '2026-10-06',
+    title: 'Consertos em Amigos e na nuvem',
+    items: [
+      'O nome trocado em um aparelho não volta mais ao antigo quando outro aparelho abre o site.',
+    ],
+  },
+  {
     id: '2026-10-06-amigos-de-cara-nova',
     date: '2026-10-06',
     title: 'Amigos de cara nova',
