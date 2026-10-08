@@ -148,6 +148,18 @@ describe('WallView', () => {
     expect(view.visible().length).toBe(4);
   });
 
+  it('soma as tarefas das fichas à mostra, seguindo a busca', () => {
+    expect(view.tasks()).toEqual({ done: 0, todo: 0, total: 0 });
+    store.reviews.update((list) => [
+      ...list,
+      r('rtask1', 'Hollow Knight', '2024-02-01', 8, { text: '- [x] chefe 1\n- [ ] chefe 2\n- [ ] chefe 3' }),
+      r('rtask2', 'Ori', '2024-02-02', 8, { text: 'zerar:\n- [x] tudo' }),
+    ]);
+    expect(view.tasks()).toEqual({ done: 2, todo: 2, total: 4 });
+    view.query.set('ori');
+    expect(view.tasks()).toEqual({ done: 1, todo: 0, total: 1 });
+  });
+
   it('limpar tira a busca e todos os filtros', () => {
     view.query.set('hades');
     view.toggle('status', 'finalizado');

@@ -32,6 +32,42 @@
   margin: 0 4px 0 0;
 }
 
+/* as tarefas das fichas à mostra: feitas, a régua de quanto já foi, e as que faltam. Fica na ponta
+   direita da linha (embaixo de tudo, quando a linha quebra) */
+.tarefas {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 auto;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.tarefas-icone {
+  display: inline-flex;
+}
+
+.tarefas-barra {
+  position: relative;
+  width: 72px;
+  height: 8px;
+  border-radius: 1px;
+  outline: 1.5px solid currentColor;
+  outline-offset: -1.5px;
+  overflow: hidden;
+
+  span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--wall-ink);
+    transition: width var(--t-ui) var(--ease-ui);
+  }
+}
+
+.tarefas.todas {
+  color: #8fe3ad;
+}
+
 .showing-clear {
   min-height: 36px;
   padding: 4px 8px;

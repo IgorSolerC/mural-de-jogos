@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, Plus } from 'lucide-angular';
+import { ListChecks, LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
@@ -37,6 +37,7 @@ export class WallPage {
   private readonly reactions = inject(Reactions);
 
   protected readonly PlusIcon = Plus;
+  protected readonly TasksIcon = ListChecks;
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];

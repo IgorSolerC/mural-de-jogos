@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-tarefas-somadas',
+    version: '1.19.0',
+    kind: 'funcionalidade',
+    date: '2026-10-08',
+    title: 'As tarefas do mural somadas',
+    items: [
+      'Embaixo da régua do mural, as tarefas (as caixinhas dos checklists) das fichas à mostra, somadas: quantas feitas, quantas para fazer e uma reguinha de quanto já foi.',
+      'A conta segue a busca, os filtros e o "Mostrar finalizadas", e muda na hora a cada check.',
+    ],
+  },
+  {
     id: '2026-10-08-setas',
     version: '1.18.11',
     kind: 'melhoria',

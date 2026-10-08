@@ -64,13 +64,31 @@
     </section>
   } @else {
     <h2 class="sr-only">Fichas no mural</h2>
-    @if (view.isFiltered()) {
+    @if (view.isFiltered() || view.tasks().total) {
       <div class="showing">
-        <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ view.pool().length }}</p>
-        <app-filter-tags [tags]="view.tags()" (remove)="removeTag($event)" />
-        <button type="button" class="showing-clear" (click)="clearFilters()">
-          {{ view.filterCount() + (view.query().trim() ? 1 : 0) > 1 ? 'Limpar tudo' : 'Limpar filtro' }}
-        </button>
+        @if (view.isFiltered()) {
+          <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ view.pool().length }}</p>
+          <app-filter-tags [tags]="view.tags()" (remove)="removeTag($event)" />
+          <button type="button" class="showing-clear" (click)="clearFilters()">
+            {{ view.filterCount() + (view.query().trim() ? 1 : 0) > 1 ? 'Limpar tudo' : 'Limpar filtro' }}
+          </button>
+        }
+        <!-- as tarefas das fichas à mostra, somadas: mudam com a busca, os filtros e cada check -->
+        @if (view.tasks(); as t) {
+          @if (t.total) {
+            <p class="tarefas" [class.todas]="!t.todo">
+              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              @if (!t.todo) {
+                <span>{{ t.total === 1 ? 'A tarefa está feita' : 'As ' + t.total + ' tarefas estão feitas' }}</span>
+              } @else {
+                <span aria-hidden="true">{{ t.done }} {{ t.done === 1 ? 'feita' : 'feitas' }}</span>
+                <span class="tarefas-barra" aria-hidden="true"><span [style.width.%]="(t.done / t.total) * 100"></span></span>
+                <span aria-hidden="true">{{ t.todo }} para fazer</span>
+                <span class="sr-only">Tarefas no mural: {{ t.done }} de {{ t.total }} feitas, {{ t.todo }} para fazer</span>
+              }
+            </p>
+          }
+        }
       </div>
     }
     <div class="wall" [class.compact]="view.density() === 'simples'" [class.capas]="view.density() === 'capas'" [class.sem-etiquetas]="!settings.groupLabels()">

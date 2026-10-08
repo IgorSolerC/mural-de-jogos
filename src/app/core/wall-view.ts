@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KindProfile, countOf, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
+import { checkCount } from './rich-text';
 import { Settings } from './settings';
 import {
   NO_DAY_LABEL,
@@ -199,6 +200,21 @@ export class WallView {
     const f = this.activeFilter();
     const list = this.searched().filter((r) => matchesFilter(r, f));
     return list.sort(comparatorOf(this.order()));
+  });
+
+  /**
+   * As tarefas (checklists) das fichas à mostra, somadas: quantas feitas e quantas para fazer. Segue a
+   * busca, os filtros e o "Mostrar finalizadas", porque conta só o que está no mural agora.
+   */
+  readonly tasks = computed(() => {
+    let done = 0;
+    let total = 0;
+    for (const r of this.visible()) {
+      const c = checkCount(r.text);
+      done += c.done;
+      total += c.total;
+    }
+    return { done, todo: total - done, total };
   });
 
   private readonly order = computed<WallOrder>(() => ({
