@@ -16,12 +16,13 @@ import { isNotes } from '../core/kinds';
 import { Reactions } from '../core/reactions';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 import { DoneStamp } from '../ui/done-stamp';
+import { NoteIndex } from '../ui/note-index';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
 @Component({
   selector: 'app-wall-page',
-  imports: [DoneStamp, FilterTags, LucideAngularModule, PickTray, Pin, RouterLink, WallCards, WallToolbar],
+  imports: [DoneStamp, FilterTags, LucideAngularModule, NoteIndex, PickTray, Pin, RouterLink, WallCards, WallToolbar],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-page.html',
@@ -97,6 +98,17 @@ export class WallPage {
     if (this.view.activeTab() === NO_CATEGORY_TAB) return 'sem categoria';
     return tab ? `de ${tab}` : 'do mural';
   });
+
+  /** A lista (o índice do caderno), só no mural de anotações. */
+  protected readonly lista = computed(() => this.notes() && this.view.density() === 'lista');
+
+  /**
+   * O id da seção a partir da chave dela (que pode ter espaço, acento, ":"): continua o mesmo quando a
+   * seção muda de lugar, para a etiqueta deslizar junto (ver WallMotion).
+   */
+  protected idOf(key: string): string {
+    return key.replace(/[^a-zA-Z0-9_-]/g, (c) => `_${c.codePointAt(0)!.toString(16)}`);
+  }
 
   /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. */
   protected toggleGroup(key: string): void {

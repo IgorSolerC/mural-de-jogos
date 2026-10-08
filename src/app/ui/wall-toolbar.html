@@ -3,7 +3,7 @@
   <app-note-tabs class="cadernos" />
 }
 
-<div class="shelf">
+<div class="shelf" [class.notas]="notes()">
   <app-search-strip
     class="search"
     inputId="busca-mural"
@@ -130,6 +130,19 @@
     >
       <lucide-icon [img]="CoversIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
     </button>
+    <!-- só no mural de anotações: uma linha por anotação, o índice do caderno -->
+    @if (notes()) {
+      <button
+        type="button"
+        class="plate icon"
+        [attr.aria-pressed]="view.density() === 'lista'"
+        (click)="setDensity('lista')"
+        aria-label="Lista"
+        title="Lista"
+      >
+        <lucide-icon [img]="ListIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+      </button>
+    }
   </div>
 </div>
 

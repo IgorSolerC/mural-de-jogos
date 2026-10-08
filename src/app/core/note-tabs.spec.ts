@@ -169,6 +169,14 @@ describe('WallView com abas', () => {
     expect(view.density()).toBe('completa');
   });
 
+  it('a lista é só das anotações: nos murais de resenhas, o tipo de ficha não muda', () => {
+    view.setDensity('lista');
+    expect(view.density()).toBe('lista');
+    TestBed.inject(Mural).kind.set('jogos');
+    view.setDensity('lista');
+    expect(view.density()).toBe('completa');
+  });
+
   it('a vista de antes das abas (noteSort, noteDirection) vira a de Tudo', () => {
     localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ noteSort: 'categoria', noteDirection: 'asc', density: 'simples' }));
     TestBed.resetTestingModule();

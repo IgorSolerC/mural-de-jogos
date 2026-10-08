@@ -50,6 +50,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-lista-anotacoes',
+    version: '1.20.3',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Anotações em lista',
+    items: [
+      'Novo tipo de ficha nas anotações, a Lista: cada seção vira uma folha de caderno pautada, e cada anotação, uma linha com a cor da cartolina, o título, as tags, as tarefas e a data. Bom para as dailys: dezenas cabem numa tela.',
+      'Como a ordem, a Lista é escolhida por aba: o Trabalho em lista e o Diário em fichas completas, por exemplo.',
+      'No celular, a busca das anotações fica numa linha só dela, e os tipos de ficha vão para o lado do Ordenar.',
+    ],
+  },
+  {
     id: '2026-10-08-secoes-fecham',
     version: '1.20.2',
     kind: 'melhoria',

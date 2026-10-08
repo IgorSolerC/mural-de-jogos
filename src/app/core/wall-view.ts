@@ -29,8 +29,11 @@ import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, m
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'tag' | 'prioridade';
 const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'tag', 'prioridade'];
 export type Direction = 'desc' | 'asc';
-/** Completa (tudo), simples (a tira com a nota) ou capas (só a foto e o nome, para ver o máximo de fichas). */
-export type Density = 'completa' | 'simples' | 'capas';
+/**
+ * Completa (tudo), simples (a tira com a nota), capas (só a foto e o nome, para ver o máximo de
+ * fichas) ou lista (só no mural de anotações: uma linha por anotação, ver NoteIndex).
+ */
+export type Density = 'completa' | 'simples' | 'capas' | 'lista';
 
 const KEY = 'mural-de-jogos:vista:v1';
 
@@ -42,7 +45,9 @@ export function withoutSpoilerFacets(f: WallFilter): WallFilter {
   return f.verdict.length || f.grade.length || f.difficulty.length ? { ...f, verdict: [], grade: [], difficulty: [] } : f;
 }
 
-const DENSITIES: readonly Density[] = ['completa', 'simples', 'capas'];
+const DENSITIES: readonly Density[] = ['completa', 'simples', 'capas', 'lista'];
+/** Os tipos de ficha dos murais de resenhas (a lista é só das anotações). */
+const REVIEW_DENSITIES: readonly Density[] = ['completa', 'simples', 'capas'];
 
 /** Como uma aba do mural de anotações está: a ordem, a direção e o tipo de ficha dela. */
 export interface NoteView {
@@ -107,7 +112,7 @@ function readPrefs(): ViewPrefs {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
-    const density: Density = DENSITIES.includes(raw.density) ? raw.density : 'completa';
+    const density: Density = REVIEW_DENSITIES.includes(raw.density) ? raw.density : 'completa';
     // antes das abas, a ordem do mural de anotações era uma só (noteSort, noteDirection), e o tipo de
     // ficha, o mesmo de todos os murais: viram a vista de Tudo
     const all: NoteView = {
@@ -433,7 +438,7 @@ export class WallView {
   setDensity(density: Density): void {
     if (isNotes(this.mural.kind())) {
       if (this.noteView().density !== density) this.patchNoteView({ density });
-    } else {
+    } else if (REVIEW_DENSITIES.includes(density)) {
       this.reviewDensity.set(density);
     }
   }

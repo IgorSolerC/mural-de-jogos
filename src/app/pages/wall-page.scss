@@ -143,6 +143,17 @@
   rotate: -0.6deg;
 }
 
+/* ===== A lista (anotações): cada seção é uma folha pautada de ponta a ponta ===== */
+.wall.lista {
+  gap: 40px;
+
+  .grupo {
+    flex: 1 1 100%;
+    max-width: 1040px;
+    gap: 16px;
+  }
+}
+
 /* ===== A seção que fecha (anotações): a etiqueta de fita é o botão ===== */
 .tape-label.dobravel {
   padding: 0;

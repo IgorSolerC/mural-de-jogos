@@ -214,4 +214,17 @@
   .break {
     display: none;
   }
+
+  /* nas anotações (quatro tipos de ficha, com a Lista), a busca fica com a fileira dela, e os tipos de
+     ficha vão para o lado do Ordenar */
+  .shelf.notas {
+    .search {
+      flex-basis: 100%;
+    }
+
+    .density {
+      order: 5;
+      margin-bottom: 0;
+    }
+  }
 }

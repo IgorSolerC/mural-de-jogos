@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Grid3x3,
   LayoutGrid,
+  List,
   ListFilter,
   LucideAngularModule,
   Rows3,
@@ -57,6 +58,7 @@ export class WallToolbar {
   protected readonly FullIcon = Rows3;
   protected readonly CompactIcon = LayoutGrid;
   protected readonly CoversIcon = Grid3x3;
+  protected readonly ListIcon = List;
   protected readonly ChevronIcon = ChevronDown;
   protected readonly MarkIcon = SquareCheckBig;
   protected readonly FilterIcon = ListFilter;

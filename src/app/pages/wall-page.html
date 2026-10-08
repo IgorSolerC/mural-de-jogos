@@ -101,16 +101,22 @@
         }
       </div>
     }
-    <div class="wall" [class.compact]="view.density() === 'simples'" [class.capas]="view.density() === 'capas'" [class.sem-etiquetas]="!settings.groupLabels()">
-      @for (g of view.groups(); track g.key; let i = $index) {
+    <div
+      class="wall"
+      [class.compact]="view.density() === 'simples'"
+      [class.capas]="view.density() === 'capas'"
+      [class.lista]="lista()"
+      [class.sem-etiquetas]="!settings.groupLabels()"
+    >
+      @for (g of view.groups(); track g.key) {
         <!-- nas anotações, a etiqueta da seção fecha e abre a seção (fechada, uma linha só, com uma
              espiada nos títulos); sem etiquetas, nada fecha -->
         @let shut = foldable() && view.isCollapsed(g.key);
-        <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + i">
+        <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
           <header class="grupo-head">
-            <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + i" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">
+            <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + idOf(g.key)" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">
               @if (foldable()) {
-                <button type="button" class="dobra" [attr.aria-expanded]="!shut" [attr.aria-controls]="shut ? null : 'fichas-' + i" (click)="toggleGroup(g.key)">
+                <button type="button" class="dobra" [attr.aria-expanded]="!shut" [attr.aria-controls]="shut ? null : 'fichas-' + idOf(g.key)" (click)="toggleGroup(g.key)">
                   {{ g.label }}
                   <lucide-icon class="dobra-seta" [img]="ChevronIcon" [size]="18" [strokeWidth]="3" aria-hidden="true" />
                 </button>
@@ -122,8 +128,10 @@
           </header>
           @if (shut) {
             <p class="espiada">{{ peek(g) }}</p>
+          } @else if (lista()) {
+            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" (opened)="desk.openReview($event)" />
           } @else {
-            <div class="fichas" [id]="'fichas-' + i" [appFichas]="g.reviews"></div>
+            <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews"></div>
           }
         </section>
       }
