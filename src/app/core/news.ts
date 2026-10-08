@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-orelha-sobe',
+    version: '1.20.11',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'A orelha da categoria sobe',
+    items: [
+      'A orelha da categoria, nas fichas de anotação, fica um pouco mais alta, mais solta da cartolina.',
+      'Com o mouse em cima da ficha, a orelha sobe mais um pouco, como a divisória puxada para achar a matéria.',
+    ],
+  },
+  {
     id: '2026-10-08-elastico-estala',
     version: '1.20.10',
     kind: 'correcao',

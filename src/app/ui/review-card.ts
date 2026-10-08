@@ -772,14 +772,14 @@ function watchDistance(el: HTMLElement): () => void {
        é do Finalizar e do Fixar. */
     .aba-cat {
       position: absolute;
-      top: -25px;
+      top: -29px;
       left: 14px;
       z-index: -4;
       display: inline-flex;
       align-items: center;
       gap: 5px;
       max-width: calc(var(--pin-x) - 14px - 26px);
-      height: 40px;
+      height: 44px;
       padding: 5px 11px 12px 9px;
       border-radius: 8px 8px 0 0;
       background-color: #f3e5bb;
@@ -791,6 +791,15 @@ function watchDistance(el: HTMLElement): () => void {
         0 -1px 0 rgb(255 255 255 / 0.35) inset,
         0 2px 6px rgb(0 0 0 / 0.45);
       pointer-events: none;
+      transition: translate var(--t-ui) var(--ease-ui);
+    }
+    /* com o mouse na ficha, a orelha sobe mais um pouco, como a divisória puxada para achar a matéria */
+    :host(:hover) .aba-cat,
+    :host(:focus-within) .aba-cat {
+      translate: 0 -6px;
+    }
+    :host(:active) .aba-cat {
+      translate: 0 0;
     }
     /* com os selos no canto, a orelha começa depois deles */
     .aba-cat.com-selo {
@@ -812,12 +821,17 @@ function watchDistance(el: HTMLElement): () => void {
       line-height: 1.2;
     }
     :host(.compact) .aba-cat {
-      top: -21px;
-      height: 35px;
+      top: -24px;
+      height: 38px;
       padding: 4px 9px 10px 8px;
     }
     :host(.compact) .aba-cat-nome {
       font-size: 0.84rem;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .aba-cat {
+        transition: none;
+      }
     }
 
     /* ===== Anotação: as tags no lugar da etiqueta, e o texto à mostra ===== */
