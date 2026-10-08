@@ -81,10 +81,15 @@ export interface TagEntry {
 /**
  * As tags à mão no editor: as fixas primeiro (na ordem em que foram fixadas), depois as mais usadas
  * nas anotações (e, no empate, de A a Z). Cada tag aparece uma vez, com a grafia mais usada.
+ *
+ * Com `category` (null: sem categoria), as usadas são só as das anotações daquela categoria: a
+ * "Bugfix" do Trabalho não é sugerida na Lista de compras. As fixas valem para todas.
  */
-export function tagLibrary(notes: readonly Review[], pinned: readonly string[]): TagEntry[] {
+export function tagLibrary(notes: readonly Review[], pinned: readonly string[], category?: string | null): TagEntry[] {
   const used = new Map<string, { label: string; n: number }>();
+  const same = (n: Review) => category === undefined || fold(categoryOf(n) ?? '') === fold(category ?? '');
   for (const n of notes) {
+    if (!same(n)) continue;
     for (const t of tagsOfNote(n)) {
       const k = fold(t);
       const e = used.get(k);

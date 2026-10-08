@@ -50,6 +50,30 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-correcoes-link-tabela',
+    version: '1.19.3',
+    kind: 'correcao',
+    date: '2026-10-08',
+    title: 'Correções de bugs',
+    items: [
+      'No link para outra anotação pela régua, as letras escritas na busca não entravam no campo.',
+      'A tabela no texto da ficha não ganha mais uma barra de rolar de pé no mural.',
+      'Com todos os emojis abertos para reagir, passar o mouse num emoji da beirada não abre mais uma barra de rolar de lado.',
+    ],
+  },
+  {
+    id: '2026-10-08-link-anotacao-tags',
+    version: '1.19.2',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Link para anotação, tags e selinhos',
+    items: [
+      'O link para outra anotação, pela régua, ficou como o link para um endereço: o texto, a anotação (procure pelo título e escolha na lista) e o botão "Pôr o link".',
+      'As tags sugeridas no editor são as já usadas na mesma categoria: a "Bugfix" do Trabalho não aparece na Lista de compras. As tags fixas continuam em todas.',
+      'Os selinhos da ficha (publicada, visível, privada) são sempre pretos e sem sombra, também nas cartolinas escuras.',
+    ],
+  },
+  {
     id: '2026-10-08-visivel',
     version: '1.19.1',
     kind: 'melhoria',

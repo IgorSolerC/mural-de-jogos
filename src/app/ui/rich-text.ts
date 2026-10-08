@@ -229,6 +229,9 @@ import { Review } from '../core/review';
     .tabela-rolo {
       max-width: 100%;
       overflow-x: auto;
+      /* só de lado: com overflow-x auto o de cima vira auto também, e a meia linha da borda
+         bastava para a tabela ganhar uma barra de rolar de pé */
+      overflow-y: hidden;
     }
     .tabela {
       /* do tamanho do que tem dentro (até a largura toda): numa ficha larga, três colunas curtas

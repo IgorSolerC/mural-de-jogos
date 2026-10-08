@@ -228,7 +228,11 @@ export class ReactionBubble {
       grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
       gap: 2px;
       max-height: 196px;
-      overflow-y: auto;
+      /* rola só de pé: o emoji crescido do hover na beirada passava da grade e abria uma barra de
+         lado; a folguinha deixa ele crescer sem ser cortado */
+      padding: 4px;
+      margin: -4px;
+      overflow: hidden auto;
       overscroll-behavior: contain;
     }
     .emoji {

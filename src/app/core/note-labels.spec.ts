@@ -50,6 +50,20 @@ describe('categoria e tags das anotações', () => {
     ]);
   });
 
+  it('as tags usadas são sugeridas só na mesma categoria; as fixas, em todas', () => {
+    const notes = [
+      note('n1', { category: 'Trabalho', tags: ['Bugfix'] }),
+      note('n2', { category: 'trabalho', tags: ['Deploy'] }),
+      note('n3', { category: 'Estudos', tags: ['Prova'] }),
+      note('n4', { tags: ['Solta'] }),
+    ];
+    const labels = (c: string | null) => tagLibrary(notes, ['UI'], c).map((t) => t.label);
+    expect(labels('Trabalho')).toEqual(['UI', 'Bugfix', 'Deploy']);
+    expect(labels('Estudos')).toEqual(['UI', 'Prova']);
+    expect(labels(null)).toEqual(['UI', 'Solta']);
+    expect(labels('Lista de compras')).toEqual(['UI']);
+  });
+
   describe('as tags fixas', () => {
     beforeEach(() => {
       localStorage.clear();

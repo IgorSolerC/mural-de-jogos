@@ -371,8 +371,8 @@ export class ReviewEditor {
   private readonly settings = inject(Settings);
   /** A cartela de categorias: a pronta e as escritas nas outras anotações. */
   protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes()));
-  /** As tags à mão: as fixas e as das outras anotações. */
-  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags()));
+  /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
+  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.noteCategory()));
 
   /** No celular a prévia é a ficha simples, que cabe no alto da tela sem empurrar o formulário. */
   protected readonly phone = signal(false);

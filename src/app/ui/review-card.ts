@@ -722,9 +722,10 @@ function watchDistance(el: HTMLElement): () => void {
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: var(--ink);
+      /* tinta preta de verdade, sem contorno, em qualquer cartolina: na escura a tinta da ficha é
+         clara e o selo virava um disco cinza */
+      background: #151515;
       color: var(--hi);
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
       rotate: 8deg;
       pointer-events: auto;
     }
@@ -810,6 +811,11 @@ function watchDistance(el: HTMLElement): () => void {
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {
       display: block;
+    }
+    /* na ficha a tabela não rola: o que passa da largura some na beirada, como o resto do texto
+       (a leitura é que rola de lado) */
+    .nota-texto ::ng-deep .tabela-rolo {
+      overflow: clip;
     }
     /* só o texto que passou da ficha esmaece no fim (ver ui/clamp.ts) */
     .nota-texto[data-corta] {
@@ -1003,8 +1009,7 @@ function watchDistance(el: HTMLElement): () => void {
     /* o selo da anotação publicada e o da ficha só visível: o mesmo selinho de tinta, com o desenho de pessoas ou o olho */
     .publica-selo,
     .visivel-selo {
-      background: var(--ink);
-      color: var(--paper);
+      color: #f7f4ec;
     }
 
     /* ===== Só capa e nome, na anotação sem capa: o título é a ficha ===== */

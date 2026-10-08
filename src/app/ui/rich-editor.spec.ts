@@ -280,19 +280,53 @@ describe('a régua de formatação do texto', () => {
       expect(value()).toBe('[[Lista do mercado]]');
     });
 
-    it('pela régua: a busca já vem com o trecho selecionado, e a escolha troca o trecho pelo link', async () => {
+    it('pela régua: a busca já vem com o trecho selecionado; Enter escolhe a anotação e, de novo, põe o link', async () => {
       fixture.componentRef.setInput('notes', notes);
       fixture.detectChanges();
       write('ver |mercado| amanhã');
       button('Link para outra anotação').click();
       fixture.detectChanges();
       const search = fixture.nativeElement.querySelector('.elos-campo') as HTMLInputElement;
+      const put = () => Array.from(fixture.nativeElement.querySelectorAll('.elo-painel button') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.includes('Pôr o link'))!;
       expect(search.value).toBe('mercado');
       expect(options()[0]).toContain('Lista do mercado');
+      expect(put().disabled).toBeTrue();
+      search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+      // escolhida: o título vai para a busca, a lista fecha e o botão acende
+      expect(search.value).toBe('Lista do mercado');
+      expect(fixture.nativeElement.querySelector('.elo-painel .elos-lista')).toBeNull();
+      expect(put().disabled).toBeFalse();
+      expect(value()).toBe('ver mercado amanhã');
       search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
       fixture.detectChanges();
       // o trecho selecionado fica como o texto do link; o link abre a anotação escolhida
       expect(value()).toBe('ver [[Lista do mercado|mercado]] amanhã');
+      expect(fixture.nativeElement.querySelector('.elo-painel')).toBeNull();
+    });
+
+    it('pela régua: as letras escritas na busca entram (a tecla não é cancelada) e um título novo vira link pelo botão', () => {
+      fixture.componentRef.setInput('notes', notes);
+      fixture.detectChanges();
+      write('ver |');
+      button('Link para outra anotação').click();
+      fixture.detectChanges();
+      const search = fixture.nativeElement.querySelector('.elos-campo') as HTMLInputElement;
+      const letter = new KeyboardEvent('keydown', { key: 'V', bubbles: true, cancelable: true });
+      search.dispatchEvent(letter);
+      expect(letter.defaultPrevented).toBeFalse();
+      search.value = 'Vender a TV';
+      search.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(options()[0]).toContain('Link para “Vender a TV”');
+      (fixture.nativeElement.querySelector('.elo-op.nova') as HTMLElement).click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.elo-escolhida')?.textContent).toContain('Ainda não existe');
+      Array.from(fixture.nativeElement.querySelectorAll('.elo-painel button') as NodeListOf<HTMLButtonElement>)
+        .find((b) => b.textContent!.includes('Pôr o link'))!
+        .click();
+      fixture.detectChanges();
+      expect(value()).toBe('ver [[Vender a TV]]');
     });
   });
 });

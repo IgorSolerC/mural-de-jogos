@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import {
   Bold,
+  Check,
   CircleHelp,
   Code,
   Ellipsis,
@@ -314,86 +315,106 @@ const NOTE_LINK_ICON: LucideIconData = [
           </dl>
         </div>
       }
-      <!-- a lista das anotações para o link: embaixo da folha, sem cobrir o que se escreve -->
+      <!-- o link para outra anotação, embaixo da folha, sem cobrir o que se escreve: por "[[" na
+           folha, só a lista (a busca é o que se escreve depois dos colchetes); pela régua, o painel
+           do mesmo jeito do link para um endereço (o texto, a anotação e "Pôr o link") -->
       @if (linking(); as k) {
         @if (k.big === big) {
-          <div class="elos" [class.grande]="big">
-            @if (!k.auto) {
+          @if (k.auto) {
+            <div class="elos" [class.grande]="big">
+              <p class="elos-dica" aria-hidden="true">Link para…</p>
+              <ng-container *ngTemplateOutlet="eloLista" />
+            </div>
+          } @else {
+            <div class="painel elo-painel" role="group" aria-label="Link para outra anotação" (keydown.escape)="closeLinkKey($event)">
               <div class="painel-topo">
                 <p class="painel-titulo">Link para outra anotação</p>
                 <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeLink(area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
               </div>
-              <!-- primeiro a anotação (a busca); depois, se quiser, o texto que aparece no lugar do título -->
-              <label class="elos-busca">
-                <span class="sr-only">Procurar anotação</span>
-                <input
-                  type="search"
-                  class="elos-campo"
-                  placeholder="Procurar anotação pelo título"
-                  autocomplete="off"
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-expanded="true"
-                  [attr.aria-controls]="areaId + '-elos'"
-                  [attr.aria-activedescendant]="optionCount() ? areaId + '-elo-' + active() : null"
-                  [value]="k.query"
-                  (input)="setQuery($any($event.target).value)"
-                  (keydown)="onListKey($event)"
-                />
+              <label class="painel-campo">
+                <span>Texto</span>
+                <input type="text" autocomplete="off" placeholder="O que aparece (ou deixe o título)" [value]="k.label ?? ''" (input)="setLinkLabel($any($event.target).value)" (keydown.enter)="$event.preventDefault(); putLink()" />
               </label>
-            } @else {
-              <p class="elos-dica" aria-hidden="true">Link para…</p>
-            }
-            <ul class="elos-lista" role="listbox" [id]="areaId + '-elos'" aria-label="Anotações">
-              @for (n of linkOptions(); track n.id; let i = $index) {
-                <li
-                  role="option"
-                  class="elo-op"
-                  [id]="areaId + '-elo-' + i"
-                  [class.ativa]="active() === i"
-                  [attr.aria-selected]="active() === i"
-                  (pointerdown)="$event.preventDefault()"
-                  (click)="pick(n.game.name)"
-                >
-                  <span class="elo-nome">{{ n.game.name }}</span>
-                  <span class="elo-meta">{{ metaOf(n) }}</span>
-                </li>
-              }
-              @if (newLink(); as t) {
-                <li
-                  role="option"
-                  class="elo-op nova"
-                  [id]="areaId + '-elo-' + linkOptions().length"
-                  [class.ativa]="active() === linkOptions().length"
-                  [attr.aria-selected]="active() === linkOptions().length"
-                  (pointerdown)="$event.preventDefault()"
-                  (click)="pick(t)"
-                >
-                  <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-                  <span class="elo-nome">Link para “{{ t }}”</span>
-                  <span class="elo-meta">a anotação ainda não existe: abra o link depois para criar</span>
-                </li>
-              }
-              @if (!linkOptions().length && !newLink()) {
-                <li class="elos-vazio" role="presentation">{{ notes()!.length ? 'Nenhuma anotação com esse título.' : 'Você ainda não tem outras anotações. Escreva um título para criar o link.' }}</li>
-              }
-            </ul>
-            @if (!k.auto) {
-              <label class="painel-campo elos-texto">
-                <span>Texto <small>(opcional)</small></span>
-                <input
-                  type="text"
-                  autocomplete="off"
-                  placeholder="o título já serve"
-                  [value]="k.label ?? ''"
-                  (input)="setLinkLabel($any($event.target).value)"
-                  (keydown)="onListKey($event)"
-                />
-              </label>
-            }
-          </div>
+              <div class="painel-campo">
+                <label [for]="areaId + '-elo-busca'">Anotação</label>
+                <div class="elo-busca">
+                  <input
+                    type="text"
+                    class="elos-campo"
+                    [id]="areaId + '-elo-busca'"
+                    placeholder="Procure pelo título"
+                    autocomplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    [attr.aria-expanded]="!k.chosen"
+                    [attr.aria-controls]="areaId + '-elos'"
+                    [attr.aria-activedescendant]="!k.chosen && optionCount() ? areaId + '-elo-' + active() : null"
+                    [value]="k.query"
+                    (input)="setQuery($any($event.target).value)"
+                    (keydown)="onSearchKey($event)"
+                  />
+                  @if (k.chosen) {
+                    <!-- escolhida: a lista fecha e fica o que o link vai abrir (escrever ou ↓ reabre) -->
+                    <p class="elo-escolhida" aria-live="polite">
+                      @if (chosenNote(); as n) {
+                        <lucide-icon [img]="ChosenIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+                        <span>{{ metaOf(n) || 'Sua anotação' }}</span>
+                      } @else {
+                        <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+                        <span>Ainda não existe: abra o link depois para criar</span>
+                      }
+                    </p>
+                  } @else {
+                    <ng-container *ngTemplateOutlet="eloLista" />
+                  }
+                </div>
+              </div>
+              <div class="painel-acoes">
+                <button type="button" class="acao-caneta" (click)="closeLink(area)">Cancelar</button>
+                <button type="button" class="painel-ok" [disabled]="!k.chosen" (click)="putLink()">Pôr o link</button>
+              </div>
+            </div>
+          }
         }
       }
+    </ng-template>
+
+    <!-- as anotações da lista (a de "[[" e a do painel): tocar numa põe o link ("[[") ou a escolhe (painel) -->
+    <ng-template #eloLista>
+      <ul class="elos-lista" role="listbox" [id]="areaId + '-elos'" aria-label="Anotações">
+        @for (n of linkOptions(); track n.id; let i = $index) {
+          <li
+            role="option"
+            class="elo-op"
+            [id]="areaId + '-elo-' + i"
+            [class.ativa]="active() === i"
+            [attr.aria-selected]="active() === i"
+            (pointerdown)="$event.preventDefault()"
+            (click)="take(n.game.name)"
+          >
+            <span class="elo-nome">{{ n.game.name }}</span>
+            <span class="elo-meta">{{ metaOf(n) }}</span>
+          </li>
+        }
+        @if (newLink(); as t) {
+          <li
+            role="option"
+            class="elo-op nova"
+            [id]="areaId + '-elo-' + linkOptions().length"
+            [class.ativa]="active() === linkOptions().length"
+            [attr.aria-selected]="active() === linkOptions().length"
+            (pointerdown)="$event.preventDefault()"
+            (click)="take(t)"
+          >
+            <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+            <span class="elo-nome">Link para “{{ t }}”</span>
+            <span class="elo-meta">a anotação ainda não existe: abra o link depois para criar</span>
+          </li>
+        }
+        @if (!linkOptions().length && !newLink()) {
+          <li class="elos-vazio" role="presentation">{{ notes()!.length ? 'Nenhuma anotação com esse título.' : 'Você ainda não tem outras anotações. Escreva um título para criar o link.' }}</li>
+        }
+      </ul>
     </ng-template>
 
     <ng-container *ngTemplateOutlet="campo; context: { big: false }" />
@@ -726,9 +747,6 @@ const NOTE_LINK_ICON: LucideIconData = [
       text-transform: none;
       color: var(--ink-2);
     }
-    .elos-texto {
-      margin: 8px 0 0;
-    }
     .painel-acoes {
       display: flex;
       justify-content: flex-end;
@@ -987,9 +1005,32 @@ const NOTE_LINK_ICON: LucideIconData = [
       max-height: 40%;
       overflow-y: auto;
     }
-    .elos-busca {
-      display: block;
-      margin-bottom: 6px;
+    /* ===== O painel do link para outra anotação: os campos do link para um endereço, com a
+       lista das anotações logo embaixo da busca ===== */
+    .elo-busca {
+      min-width: 0;
+      /* a lista e a escolhida, na letra delas (o rótulo do campo é que vai em caixa alta) */
+      font-family: var(--f-ui);
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .elo-busca .elos-lista {
+      max-height: 12.5rem;
+      margin-top: 6px;
+    }
+    /* a escolhida: o que o link vai abrir, num tique de caneta embaixo do título */
+    .elo-escolhida {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 6px 0 0 4px;
+      font-size: 0.9rem;
+      color: var(--ink-2);
+    }
+    .elo-escolhida lucide-icon {
+      flex: none;
+      color: var(--ink);
     }
     .elos-campo {
       width: 100%;
@@ -1351,9 +1392,10 @@ export class RichEditor {
   /**
    * A lista do link aberta: pela régua (`auto` falso, com a própria busca) ou por "[[" escrito na
    * folha (`auto`, a busca é o que vem depois dos colchetes). `start` e `end` são o trecho do texto
-   * que o link vai ocupar; `big`, em qual das folhas (a pequena ou a da tela inteira).
+   * que o link vai ocupar; `big`, em qual das folhas (a pequena ou a da tela inteira). No painel da
+   * régua, `chosen` é o título escolhido na lista (null: a lista está aberta, nada escolhido).
    */
-  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string; label?: string } | null>(null);
+  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string; label?: string; chosen?: string | null } | null>(null);
   /** A opção escolhida da lista (pelas setas). */
   protected readonly active = signal(0);
   /** Onde "[[" foi fechado com Esc: a lista não volta a abrir sozinha ali. */
@@ -1388,6 +1430,13 @@ export class RichEditor {
   });
 
   protected readonly optionCount = computed(() => this.linkOptions().length + (this.newLink() ? 1 : 0));
+
+  /** A anotação que o link escolhido no painel abre (null: ainda não existe, o link a cria depois). */
+  protected readonly chosenNote = computed(() => {
+    const t = this.linking()?.chosen;
+    return t ? resolveNote(this.notes() ?? [], t) : null;
+  });
+  protected readonly ChosenIcon = Check;
 
   /** Os links em "Ver como fica": mostram se a anotação existe, mas não abrem nada. */
   protected readonly previewLinks = computed<NoteLinks | null>(() => {
@@ -1460,10 +1509,18 @@ export class RichEditor {
     this.guide.set(null);
     const [start, end] = [area.selectionStart, area.selectionEnd];
     const query = area.value.slice(start, end).split('\n')[0].trim();
-    // o trecho selecionado é o texto que aparece; a busca começa por ele, e a anotação é a que for escolhida
-    this.linking.set({ auto: false, big, start, end, query, label: query });
+    // o trecho selecionado é o texto que aparece; a busca começa por ele (o título de uma anotação já
+    // vem escolhido), e a anotação é a que for escolhida
+    const same = query ? resolveNote(this.notes() ?? [], query) : null;
+    this.linking.set({ auto: false, big, start, end, query: same?.game.name ?? query, label: query, chosen: same?.game.name ?? null });
     this.active.set(0);
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLInputElement>('.elos-campo')?.focus());
+    // a busca vem marcada: escrever troca o trecho que veio nela
+    setTimeout(() => {
+      const search = this.panelInput(big, '.elos-campo');
+      search?.focus();
+      search?.select();
+    });
+    this.showPanel('.elo-painel');
   }
 
   protected setLinkLabel(label: string): void {
@@ -1474,8 +1531,62 @@ export class RichEditor {
   protected setQuery(q: string): void {
     const k = this.linking();
     if (!k) return;
-    this.linking.set({ ...k, query: q });
+    // escrever de novo desfaz a escolha: a lista volta
+    this.linking.set({ ...k, query: q, chosen: null });
     this.active.set(0);
+  }
+
+  /** Tocou numa anotação da lista: pela "[[", o link entra; no painel, ela fica escolhida. */
+  protected take(title: string): void {
+    if (this.linking()?.auto) this.pick(title);
+    else this.choose(title);
+  }
+
+  /** No painel: a anotação escolhida vai para o campo e a lista fecha (falta só "Pôr o link"). */
+  private choose(title: string): void {
+    const k = this.linking();
+    if (k) this.linking.set({ ...k, query: title, chosen: title });
+  }
+
+  /** "Pôr o link" no painel; sem anotação escolhida, o foco volta para a busca. */
+  protected putLink(): void {
+    const k = this.linking();
+    if (!k) return;
+    if (k.chosen) this.pick(k.chosen);
+    else this.panelInput(k.big, '.elos-campo')?.focus();
+  }
+
+  /**
+   * As teclas da busca do painel: as setas andam na lista (com uma escolhida, reabrem a lista),
+   * Enter escolhe a anotação apontada e, com ela escolhida, põe o link. As letras seguem para o campo
+   * (o handler não devolve nada: um `false` devolvido faria o Angular cancelar a tecla).
+   */
+  protected onSearchKey(e: KeyboardEvent): void {
+    const k = this.linking();
+    if (!k || k.auto) return;
+    const n = this.optionCount();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (k.chosen) {
+        this.linking.set({ ...k, chosen: null });
+        this.active.set(0);
+      } else if (n) this.active.set((this.active() + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (k.chosen) this.putLink();
+      else if (n) {
+        const opts = this.linkOptions();
+        const i = Math.min(this.active(), n - 1);
+        this.choose(i < opts.length ? opts[i].game.name : this.newLink()!);
+      }
+    }
+  }
+
+  /** Esc no painel fecha só ele (não o editor) e devolve o foco ao trecho. */
+  protected closeLinkKey(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
+    this.closeLink();
   }
 
   /** Escreveu na folha: com "[[" aberto antes do cursor (sem fechar), a lista abre e filtra. */
@@ -1512,7 +1623,7 @@ export class RichEditor {
     if (this.linking()?.auto) this.linking.set(null);
   }
 
-  /** Setas, Enter, Tab e Esc na lista (pela folha, com "[[", ou pela busca da régua). Devolve se usou a tecla. */
+  /** Setas, Enter, Tab e Esc na lista da "[[" (pela folha). Devolve se usou a tecla. */
   protected onListKey(e: KeyboardEvent): boolean {
     const k = this.linking();
     if (!k) return false;
@@ -1527,10 +1638,6 @@ export class RichEditor {
       const opts = this.linkOptions();
       const i = Math.min(this.active(), n - 1);
       this.pick(i < opts.length ? opts[i].game.name : this.newLink()!);
-      return true;
-    }
-    if (e.key === 'Enter' && !k.auto) {
-      e.preventDefault();
       return true;
     }
     if (e.key === 'Escape') {
@@ -1551,7 +1658,7 @@ export class RichEditor {
     if (!k || !area) return;
     const text = area.value;
     const end = k.auto && text.slice(k.end, k.end + 2) === ']]' ? k.end + 2 : k.end;
-    // pela régua, com um texto diferente do título: "[[Título|texto]]" (o link abre a anotação e mostra o texto)
+    // pelo painel, com um texto diferente do título: "[[Título|texto]]" (o link abre a anotação e mostra o texto)
     const label = (k.label ?? '').replace(/[[\]|]/g, '').replace(/\s+/g, ' ').trim();
     const link = !k.auto && label && linkKey(label) !== linkKey(title) ? `[[${title}|${label}]]` : `[[${title}]]`;
     this.linking.set(null);
