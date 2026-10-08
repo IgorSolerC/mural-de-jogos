@@ -49,6 +49,19 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-07-anotacoes-fixadas',
+    version: '1.18.0',
+    kind: 'update',
+    date: '2026-10-07',
+    title: 'Anotações fixadas e sub-notas',
+    items: [
+      'O alfinete no canto de cada anotação a fixa no topo do mural, numa seção Fixadas que fica em cima em qualquer ordem. Também dá para fixar na leitura e no editor.',
+      'Nova ordem Prioridade, a de sempre no mural de anotações: as fixadas, depois as comuns e, no fim, as sub-notas, cada seção das mais recentes para as mais antigas.',
+      'A anotação criada por um link de dentro de outra já nasce sub-nota: ela faz parte daquela. No editor, "Lugar no mural" troca entre Fixada, Comum e Sub-nota.',
+      'O mural de anotações agora guarda a ordem dele, separada da ordem dos outros murais.',
+    ],
+  },
+  {
     id: '2026-10-07-anotacoes-finalizadas',
     version: '1.17.0',
     kind: 'update',

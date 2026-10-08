@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Bookmark, Check, CopyCheck, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RectangleHorizontal, RectangleVertical, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
+import { Bookmark, Check, CopyCheck, CornerDownRight, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RectangleHorizontal, RectangleVertical, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   Bonus,
@@ -17,6 +17,7 @@ import {
   Draft,
   Kind,
   PickedGame,
+  NoteRank,
   NoteSize,
   Rated,
   RatedKey,
@@ -205,6 +206,13 @@ export class ReviewEditor {
     { value: 'larga', label: 'Larga', icon: RectangleHorizontal },
     { value: 'alta', label: 'Alta', icon: RectangleVertical },
   ];
+  /** O lugar da anotação no mural: fixada no topo, comum (null) ou sub-nota, no fim. */
+  protected readonly noteRank = signal<NoteRank | null>(null);
+  protected readonly noteRanks: readonly { value: NoteRank | null; label: string; icon: typeof Square }[] = [
+    { value: 'fixada', label: 'Fixada', icon: PinIcon },
+    { value: null, label: 'Comum', icon: Square },
+    { value: 'sub', label: 'Sub-nota', icon: CornerDownRight },
+  ];
   protected readonly profile = computed(() => profileOf(this.kind()));
   /** As quatro notas do mural, na ordem do boletim. */
   protected readonly categories = computed<RatedKey[]>(() => this.profile().categories.map((c) => c.key));
@@ -369,10 +377,14 @@ export class ReviewEditor {
     return twin && (!mine || twin.createdAt <= mine) ? twin : null;
   });
 
-  /** Uma anotação nova já com o título: o link para uma anotação que ainda não existia. */
+  /**
+   * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce
+   * sub-nota (ela faz parte da anotação de onde veio); dá para trocar no editor.
+   */
   openNote(title: string): void {
     this.open();
     this.setNoteTitle(title);
+    this.noteRank.set('sub');
     // fechar sem mexer em nada não pergunta se quer descartar
     this.snapshot = this.serialize();
     queueMicrotask(() => this.writer()?.focus());
@@ -390,6 +402,7 @@ export class ReviewEditor {
   protected readonly preview = computed<Review>(() => {
     return {
       ...(this.notes() && this.noteSize() ? { noteSize: this.noteSize()! } : {}),
+      ...(this.notes() && this.noteRank() ? { noteRank: this.noteRank()! } : {}),
       id: this.id(),
       kind: this.kind(),
       // sem jogo, a capa mostra um ponto de interrogação e o nome fica só marcado (ReviewCard.empty)
@@ -512,6 +525,7 @@ export class ReviewEditor {
     // a anotação nasce privada; a resenha, publicada
     this.isPrivate.set(review ? review.private === true : isNotes(kind));
     this.noteSize.set(review?.noteSize ?? null);
+    this.noteRank.set(review?.noteRank ?? null);
     this.noteDateOpen.set(false);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
@@ -937,6 +951,7 @@ export class ReviewEditor {
       this.text().trim(),
       this.isPrivate(),
       this.noteSize(),
+      this.noteRank(),
     ]);
   }
 

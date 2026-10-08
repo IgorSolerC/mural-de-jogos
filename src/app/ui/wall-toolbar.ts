@@ -30,6 +30,7 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
 ];
 /** No mural de anotações: sem status nem notas, e com as categorias. */
 const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'prioridade', label: 'Prioridade' },
   { value: 'data', label: 'Data' },
   { value: 'alfabetica', label: 'Título' },
   { value: 'categoria', label: 'Categoria' },
@@ -105,6 +106,8 @@ export class WallToolbar {
         return desc ? 'De Z a A' : 'De A a Z';
       case 'categoria':
         return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
+      case 'prioridade':
+        return desc ? 'Fixadas, comuns e sub-notas; as mais recentes primeiro' : 'Fixadas, comuns e sub-notas; as mais antigas primeiro';
       case 'status': {
         const groups = this.mural.profile().statusGroup;
         return `${desc ? groups.platinado : groups.incompleto} primeiro`;

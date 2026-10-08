@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
-import { LockKeyhole, LucideAngularModule, Repeat } from 'lucide-angular';
+import { LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -46,6 +46,7 @@ import { toggleCheck } from '../core/rich-text';
 import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
 import { Desk } from '../core/desk';
 import { NoteDone } from '../core/note-done';
+import { NotePin } from '../core/note-pin';
 import { WallMotion } from '../core/wall-motion';
 import { WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
@@ -114,6 +115,7 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.nota-alta]': 'note() && review().noteSize === "alta"',
     // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
     '[class.com-check]': 'canFinish()',
+    '[class.fixada]': 'note() && review().noteRank === "fixada"',
     '[class.carimbando]': 'stamping()',
   },
   template: `
@@ -177,6 +179,10 @@ function watchDistance(el: HTMLElement): () => void {
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
         } @else if (!capas() && note()) {
           <p class="meta" data-queima>
+            <!-- a sub-nota diz o que é antes da data, como a rejogada -->
+            @if (review().noteRank === 'sub') {
+              <span class="sub-marca">Sub-nota</span><span aria-hidden="true"> · </span>
+            }
             @if (review().completedAt; as day) {
               <time [attr.datetime]="day">{{ date() }}</time>
             } @else {
@@ -286,6 +292,20 @@ function watchDistance(el: HTMLElement): () => void {
       ></button>
     } @else {
       <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
+    }
+    <!-- o alfinete que fixa a anotação no topo do mural, ao lado do check -->
+    @if (canFinish()) {
+      <button
+        type="button"
+        class="fixar"
+        [class.marcado]="review().noteRank === 'fixada'"
+        [attr.aria-pressed]="review().noteRank === 'fixada'"
+        [attr.aria-label]="'Fixada no topo: ' + review().game.name"
+        [title]="review().noteRank === 'fixada' ? 'Desafixar' : 'Fixar no topo do mural'"
+        (click)="togglePin()"
+      >
+        <lucide-icon [img]="PinIcon" [size]="capas() ? 15 : 18" [strokeWidth]="2.4" aria-hidden="true" />
+      </button>
     }
     <!-- o check da anotação inteira: no seu mural, a caixinha no canto de cima -->
     @if (canFinish()) {
@@ -821,18 +841,88 @@ function watchDistance(el: HTMLElement): () => void {
         scale: 0.7;
       }
     }
-    /* o título não passa por baixo da caixinha */
-    :host(.com-check) .words {
-      padding-right: 26px;
+    /* o título não passa por baixo do alfinete e da caixinha (só a primeira linha encosta neles) */
+    :host(.com-check) .words > :first-child {
+      margin-right: 52px;
     }
-    :host(.com-check.sem-capa) .words {
-      padding-right: 34px;
+    :host(.com-check.sem-capa) .words > :first-child {
+      margin-right: 60px;
     }
     :host(.capas) .feito {
       top: 6px;
       right: 6px;
       width: 22px;
       height: 22px;
+    }
+
+    /* ===== O alfinete de fixar no topo: de leve, como o check; fixada, cravado e vermelho ===== */
+    .fixar {
+      position: absolute;
+      top: 9px;
+      right: 44px;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: currentColor;
+      opacity: 0.55;
+      rotate: 18deg;
+      cursor: pointer;
+      transition:
+        opacity var(--t-ui) var(--ease-ui),
+        rotate var(--t-physical) var(--ease-physical),
+        scale var(--t-ui) var(--ease-ui);
+    }
+    .fixar::before {
+      content: '';
+      position: absolute;
+      inset: -6px;
+    }
+    :host(:hover) .fixar,
+    .fixar:focus-visible {
+      opacity: 1;
+    }
+    .fixar:hover {
+      scale: 1.1;
+    }
+    .fixar:focus-visible {
+      outline: 3px solid var(--hi);
+      outline-offset: 1px;
+    }
+    .fixar.marcado {
+      opacity: 1;
+      rotate: 38deg;
+      color: #c4302b;
+      filter: drop-shadow(1px 2px 1px rgb(0 0 0 / 0.35));
+      animation: crava 320ms var(--ease-physical);
+    }
+    .fixar.marcado ::ng-deep svg {
+      fill: currentColor;
+      fill-opacity: 0.85;
+    }
+    :host([data-cor$='escuro']) .fixar.marcado,
+    :host([data-cor='preto']) .fixar.marcado {
+      color: #ff8f80;
+    }
+    @keyframes crava {
+      from {
+        scale: 1.5;
+        translate: 4px -6px;
+      }
+    }
+    :host(.capas) .fixar {
+      top: 5px;
+      right: 32px;
+      width: 22px;
+      height: 22px;
+    }
+    .sub-marca {
+      opacity: 0.7;
     }
 
     /* o título e o carimbo lado a lado; sem espaço, o carimbo desce para a linha de baixo */
@@ -1136,6 +1226,12 @@ export class ReviewCard {
   /** Acabou de ganhar o check: o carimbo bate, e daqui a pouco a ficha sai do mural. */
   protected readonly stamping = computed(() => this.note() && !this.preview() && this.view.stamping().has(this.review().id));
 
+  private readonly notePin = inject(NotePin);
+  protected readonly PinIcon = PinGlyph;
+  protected togglePin(): void {
+    if (this.canFinish()) this.notePin.set(this.review().id, this.review().noteRank !== 'fixada');
+  }
+
   protected finish(): void {
     if (this.canFinish()) this.noteDone.set(this.review().id, !this.review().doneAt);
   }
@@ -1290,7 +1386,8 @@ export class ReviewCard {
     if (isNote(r)) {
       const cats = r.bonuses.map((b) => b.label).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
-      return `Abrir anotação: ${[r.game.name, cats, when, r.private ? 'privada' : ''].filter(Boolean).join(', ')}`;
+      const rank = r.noteRank === 'fixada' ? 'fixada' : r.noteRank === 'sub' ? 'sub-nota' : '';
+      return `Abrir anotação: ${[r.game.name, rank, cats, when, r.private ? 'privada' : ''].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];
     if (this.masked()) {

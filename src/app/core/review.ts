@@ -282,6 +282,11 @@ export interface Review {
    */
   noteSize?: NoteSize;
   /**
+   * Só nas anotações: o lugar dela no mural. Fixada fica sempre no topo; sub-nota (a que nasceu de um
+   * link dentro de outra anotação) vale menos e vai para o fim. Sem o campo, uma anotação comum.
+   */
+  noteRank?: NoteRank;
+  /**
    * Só nas anotações: quando foi finalizada (ISO), com o check da ficha ou da leitura. A finalizada
    * sai do mural, a não ser com "Mostrar finalizadas", e leva o carimbo com esse dia.
    */
@@ -303,6 +308,26 @@ export interface Review {
 /** O tamanho de uma anotação no mural (ver `Review.noteSize`). */
 export type NoteSize = 'larga' | 'alta';
 export const NOTE_SIZES: readonly NoteSize[] = ['larga', 'alta'];
+
+/** O lugar de uma anotação no mural (ver `Review.noteRank`); a comum não tem o campo. */
+export type NoteRank = 'fixada' | 'sub';
+export const NOTE_RANKS: readonly NoteRank[] = ['fixada', 'sub'];
+
+/** A ordem dos lugares: fixadas, comuns, sub-notas. */
+export function rankOrder(r: Pick<Review, 'noteRank'>): number {
+  return r.noteRank === 'fixada' ? 0 : r.noteRank === 'sub' ? 2 : 1;
+}
+
+/** A anotação fixada no topo do mural? */
+export function isPinnedNote(r: Pick<Review, 'noteRank'>): boolean {
+  return r.noteRank === 'fixada';
+}
+
+/** A anotação num outro lugar do mural (null: comum). */
+export function withRank(r: Review, rank: NoteRank | null, now: string): Review {
+  const { noteRank: _was, ...rest } = r;
+  return { ...rest, ...(rank ? { noteRank: rank } : {}), updatedAt: now };
+}
 
 /** É uma anotação (do mural de anotações), não uma resenha? */
 export function isNote(r: Pick<Review, 'kind'>): boolean {
@@ -977,6 +1002,7 @@ function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     bonuses: categories,
     hoursPlayed: null,
     ...(NOTE_SIZES.includes(r['noteSize']) ? { noteSize: r['noteSize'] as NoteSize } : {}),
+    ...(NOTE_RANKS.includes(r['noteRank']) ? { noteRank: r['noteRank'] as NoteRank } : {}),
     ...optional('doneAt', isoOr(r['doneAt'], '') || undefined),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),

@@ -8,7 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Repeat, RotateCcw, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -33,6 +33,7 @@ import { ReactionTarget, Reactions } from '../core/reactions';
 import { plainText, toggleCheck } from '../core/rich-text';
 import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
 import { NoteDone } from '../core/note-done';
+import { NotePin } from '../core/note-pin';
 import { DoneStamp } from './done-stamp';
 
 
@@ -105,6 +106,11 @@ import { DoneStamp } from './done-stamp';
                   @if (r.completedAt === null) {
                     {{ noDay }}
                   } @else if (note()) {
+                    @if (r.noteRank === 'fixada') {
+                      Fixada<span aria-hidden="true"> · </span>
+                    } @else if (r.noteRank === 'sub') {
+                      Sub-nota<span aria-hidden="true"> · </span>
+                    }
                     {{ date() }}
                   } @else {
                     {{ dayLabel(r.kind, r.status) }} {{ date() }}
@@ -232,6 +238,11 @@ import { DoneStamp } from './done-stamp';
               }
               <!-- o check da anotação inteira: finaliza (e ela sai do mural com o carimbo) ou abre de novo -->
               @if (note()) {
+                <!-- fixar no topo do mural -->
+                <button type="button" class="btn-quiet" [attr.aria-pressed]="r.noteRank === 'fixada'" (click)="togglePin()">
+                  <lucide-icon [img]="r.noteRank === 'fixada' ? UnpinIcon : PinIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                  {{ r.noteRank === 'fixada' ? 'Desafixar' : 'Fixar' }}
+                </button>
                 <button type="button" class="btn-quiet" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
                   <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
                   {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
@@ -273,6 +284,8 @@ export class ReviewReader {
   protected readonly PrivateIcon = LockKeyhole;
   protected readonly BackIcon = ArrowLeft;
   protected readonly ReopenIcon = RotateCcw;
+  protected readonly PinIcon = PinGlyph;
+  protected readonly UnpinIcon = PinOff;
   private readonly store = inject(ReviewStore);
   protected readonly profile = computed(() => profileOf(this.review()?.kind ?? 'jogos'));
   protected readonly hours = computed(() => {
@@ -341,6 +354,14 @@ export class ReviewReader {
     this.review.set(next);
   }
   private readonly noteDone = inject(NoteDone);
+  private readonly notePin = inject(NotePin);
+  /** Fixa (ou desafixa) a sua anotação no topo do mural; a leitura continua aberta. */
+  protected togglePin(): void {
+    const r = this.review();
+    if (!r || this.owner() !== null || !this.note()) return;
+    this.notePin.set(r.id, r.noteRank !== 'fixada');
+    this.review.set(this.store.get(r.id) ?? r);
+  }
   /**
    * O check da sua anotação inteira. Finalizar fecha a leitura: a ficha ganha o carimbo no mural e sai
    * dele (ver ReviewCard). Abrir de novo fica aqui, com a anotação sem o carimbo.

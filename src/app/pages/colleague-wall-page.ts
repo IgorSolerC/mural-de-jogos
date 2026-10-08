@@ -22,7 +22,7 @@ import { ReviewReader } from '../ui/review-reader';
 import { SearchStrip } from '../ui/search-strip';
 
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'desc', alfabetica: 'asc', status: 'desc', categoria: 'asc' };
+const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'desc', alfabetica: 'asc', status: 'desc', categoria: 'asc', prioridade: 'desc' };
 
 /**
  * O mural do colega, só dele: as fichas do backup aberto na comparação, pregadas em seções como no
@@ -118,7 +118,8 @@ export class ColleagueWallPage {
   protected readonly query = signal('');
   protected readonly filter = signal<WallFilter>(NO_FILTER);
   protected readonly filtersOpen = signal(false);
-  protected readonly sort = signal<SortKey>('data');
+  /** A ordem escolhida aqui; sem escolha, a de sempre do mural (Prioridade nas anotações, Data nos outros). */
+  protected readonly sort = signal<SortKey | null>(null);
   protected readonly direction = signal<Direction>('desc');
   protected readonly simple = computed(() => this.view.density() === 'simples');
   protected readonly capas = computed(() => this.view.density() === 'capas');
@@ -131,6 +132,7 @@ export class ColleagueWallPage {
   ];
   /** No mural de anotações: título e categoria, sem nota nem status. */
   private readonly noteSorts: readonly { value: SortKey; label: string }[] = [
+    { value: 'prioridade', label: 'Prioridade' },
     { value: 'data', label: 'Data' },
     { value: 'alfabetica', label: 'Título' },
     { value: 'categoria', label: 'Categoria' },
@@ -161,7 +163,7 @@ export class ColleagueWallPage {
   protected readonly canReveal = computed(() => this.unseen().size > 0);
   protected readonly unseenCount = computed(() => this.unseen().size);
   protected readonly shownSort = computed<SortKey>(() => {
-    const sort = sortFor(this.sort(), this.profile());
+    const sort = sortFor(this.sort() ?? (isNotes(this.profile().kind) ? 'prioridade' : 'data'), this.profile());
     return this.guarding() && sort === 'nota' ? 'data' : sort;
   });
   protected readonly shownSorts = computed(() =>

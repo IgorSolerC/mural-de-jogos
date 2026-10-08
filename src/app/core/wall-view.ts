@@ -11,6 +11,8 @@ import {
   ScoreKey,
   fold,
   isDone,
+  isPinnedNote,
+  rankOrder,
   parseDay,
   scoreKeys,
   scoreOf,
@@ -18,8 +20,12 @@ import {
 } from './review';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 
-/** `categoria` só no mural de anotações; `nota` e `status`, só nos de resenhas. */
-export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria';
+/**
+ * `categoria` e `prioridade` (fixadas, comuns, sub-notas) só no mural de anotações; `nota` e
+ * `status`, só nos de resenhas.
+ */
+export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'prioridade';
+const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'prioridade'];
 export type Direction = 'desc' | 'asc';
 /** Completa (tudo), simples (a tira com a nota) ou capas (só a foto e o nome, para ver o máximo de fichas). */
 export type Density = 'completa' | 'simples' | 'capas';
@@ -36,8 +42,12 @@ export function withoutSpoilerFacets(f: WallFilter): WallFilter {
 
 interface ViewPrefs {
   sort: SortKey;
+  /** O mural de anotações tem a ordem dele (a de sempre é Prioridade). */
+  noteSort: SortKey;
   scoreKey: ScoreKey;
   direction: Direction;
+  /** A direção da ordem do mural de anotações. */
+  noteDirection: Direction;
   density: Density;
   /** O mural de anotações mostra as finalizadas também. */
   showDone: boolean;
@@ -49,25 +59,28 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
   alfabetica: 'asc',
   status: 'desc',
   categoria: 'asc',
+  prioridade: 'desc',
 };
 
 /** A ordem que o mural aberto tem de fato: cada mural só ordena pelo que ele tem. */
 export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
   if (isNotes(profile.kind)) return sort === 'nota' || sort === 'status' ? 'data' : sort;
-  return sort === 'categoria' ? 'data' : sort;
+  return sort === 'categoria' || sort === 'prioridade' ? 'data' : sort;
 }
 
 function readPrefs(): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', showDone: false };
+  const fallback: ViewPrefs = { sort: 'data', noteSort: 'prioridade', scoreKey: 'final', direction: 'desc', noteDirection: 'desc', density: 'completa', showDone: false };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
     return {
-      sort: ['data', 'nota', 'alfabetica', 'status', 'categoria'].includes(raw.sort) ? raw.sort : fallback.sort,
+      sort: SORT_KEYS.includes(raw.sort) ? raw.sort : fallback.sort,
+      noteSort: SORT_KEYS.includes(raw.noteSort) ? raw.noteSort : fallback.noteSort,
       scoreKey: raw.scoreKey === 'final' || (RATED_KEYS as readonly string[]).includes(raw.scoreKey)
         ? raw.scoreKey
         : fallback.scoreKey,
       direction: raw.direction === 'asc' ? 'asc' : 'desc',
+      noteDirection: raw.noteDirection === 'asc' ? 'asc' : 'desc',
       density: raw.density === 'simples' || raw.density === 'capas' ? raw.density : 'completa',
       showDone: raw.showDone === true,
     };
@@ -104,7 +117,12 @@ export class WallView {
   readonly query = signal('');
   /** Os filtros da cartela. Valem só nesta visita, como a busca. */
   readonly filter = signal<WallFilter>(NO_FILTER);
+  /** A ordem escolhida nos murais de resenhas (o de anotações tem a dele, `noteSort`). */
   readonly sort = signal<SortKey>(this.prefs.sort);
+  /** A ordem escolhida no mural de anotações; a de sempre é Prioridade (fixadas, comuns, sub-notas). */
+  readonly noteSort = signal<SortKey>(this.prefs.noteSort);
+  /** A ordem escolhida para o mural aberto. */
+  private readonly chosenSort = computed(() => (isNotes(this.mural.kind()) ? this.noteSort() : this.sort()));
   /** A nota escolhida para ordenar. Guardada mesmo que o mural aberto não tenha ela (ver `activeScore`). */
   readonly scoreKey = signal<ScoreKey>(this.prefs.scoreKey);
   /** A nota que ordena de fato: a escolhida, se o mural aberto tem ela; senão, a Média. */
@@ -112,7 +130,12 @@ export class WallView {
     const k = this.scoreKey();
     return scoreKeys(this.mural.kind()).includes(k) ? k : 'final';
   });
-  readonly direction = signal<Direction>(this.prefs.direction);
+  /** A direção da ordem nos murais de resenhas e no de anotações, cada uma com a sua ordem. */
+  readonly reviewDirection = signal<Direction>(this.prefs.direction);
+  readonly noteDirection = signal<Direction>(this.prefs.noteDirection);
+  private readonly chosenDirection = computed(() => (isNotes(this.mural.kind()) ? this.noteDirection : this.reviewDirection));
+  /** A direção da ordem do mural aberto. */
+  readonly direction = computed<Direction>(() => this.chosenDirection()());
   readonly density = signal<Density>(this.prefs.density);
   /** "Mostrar finalizadas": as anotações com check continuam no mural. Fica guardado, como a ordem. */
   readonly showDone = signal(this.prefs.showDone);
@@ -138,7 +161,7 @@ export class WallView {
    * escondidas: o mural fica por data, e a escolha guardada volta quando o modo desliga.
    */
   readonly shownSort = computed<SortKey>(() => {
-    const sort = sortFor(this.sort(), this.mural.profile());
+    const sort = sortFor(this.chosenSort(), this.mural.profile());
     return this.settings.noSpoilers() && sort === 'nota' ? 'data' : sort;
   });
   /** Os filtros que valem de fato: sem spoilers, filtrar por veredito, nota ou dificuldade entregaria o que está escondido. */
@@ -184,8 +207,10 @@ export class WallView {
     effect(() => {
       const prefs: ViewPrefs = {
         sort: this.sort(),
+        noteSort: this.noteSort(),
         scoreKey: this.scoreKey(),
-        direction: this.direction(),
+        direction: this.reviewDirection(),
+        noteDirection: this.noteDirection(),
         density: this.density(),
         showDone: this.showDone(),
       };
@@ -213,13 +238,14 @@ export class WallView {
   }
 
   setSort(sort: SortKey): void {
-    if (this.sort() === sort) return;
-    this.sort.set(sort);
-    this.direction.set(DEFAULT_DIRECTION[sort]);
+    const chosen = isNotes(this.mural.kind()) ? this.noteSort : this.sort;
+    if (chosen() === sort) return;
+    chosen.set(sort);
+    this.chosenDirection().set(DEFAULT_DIRECTION[sort]);
   }
 
   toggleDirection(): void {
-    this.direction.update((d) => (d === 'desc' ? 'asc' : 'desc'));
+    this.chosenDirection().update((d) => (d === 'desc' ? 'asc' : 'desc'));
   }
 
   toggle(key: FacetKey, value: string): void {
@@ -240,15 +266,19 @@ export class WallView {
     const query = this.query(),
       filter = this.filter(),
       sort = this.sort(),
+      noteSort = this.noteSort(),
       scoreKey = this.scoreKey(),
-      direction = this.direction(),
+      direction = this.reviewDirection(),
+      noteDirection = this.noteDirection(),
       density = this.density();
     return () => {
       this.query.set(query);
       this.filter.set(filter);
       this.sort.set(sort);
+      this.noteSort.set(noteSort);
       this.scoreKey.set(scoreKey);
-      this.direction.set(direction);
+      this.reviewDirection.set(direction);
+      this.noteDirection.set(noteDirection);
       this.density.set(density);
     };
   }
@@ -274,7 +304,11 @@ export function sortWall(list: readonly Review[], o: WallOrder): Review[] {
  * então cada grupo é só uma sequência de fichas com a mesma chave.
  */
 export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage = false): WallGroup[] {
-  const keyOf = groupKeyOf(o);
+  const sectionOf = groupKeyOf(o);
+  // no mural de anotações, as fixadas são sempre a primeira seção, em qualquer ordem
+  const keyOf: (r: Review) => [string, string] = isNotes(o.profile.kind)
+    ? (r) => (isPinnedNote(r) ? PINNED_GROUP : sectionOf(r))
+    : sectionOf;
   const groups: WallGroup[] = [];
   for (const r of sorted) {
     const [key, label] = keyOf(r);
@@ -295,6 +329,10 @@ export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage =
   return groups;
 }
 
+const PINNED_GROUP: [string, string] = ['fixadas', 'Fixadas'];
+/** As seções da Prioridade: as fixadas, as comuns e as sub-notas. */
+const RANK_GROUPS: [string, string][] = [PINNED_GROUP, ['comuns', 'Anotações'], ['sub-notas', 'Sub-notas']];
+
 /** A categoria que agrupa a anotação: a primeira que foi colada nela, ou nenhuma. */
 function firstCategory(r: Review): string | null {
   return r.bonuses[0]?.label ?? null;
@@ -302,6 +340,8 @@ function firstCategory(r: Review): string | null {
 
 function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
   switch (o.sort) {
+    case 'prioridade':
+      return (r) => RANK_GROUPS[rankOrder(r)];
     case 'categoria':
       return (r) => {
         const c = firstCategory(r);
@@ -345,12 +385,26 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
 }
 
 function comparatorOf(o: WallOrder): (a: Review, b: Review) => number {
+  const inner = orderOf(o);
+  if (!isNotes(o.profile.kind)) return inner;
+  // as fixadas vêm sempre primeiro; na Prioridade, as sub-notas vêm por último
+  const rank = o.sort === 'prioridade' ? rankOrder : (r: Review) => (isPinnedNote(r) ? 0 : 1);
+  return (a, b) => rank(a) - rank(b) || inner(a, b);
+}
+
+function orderOf(o: WallOrder): (a: Review, b: Review) => number {
   const sign = o.direction === 'desc' ? -1 : 1;
   // Data de conclusão primeiro; no mesmo dia, a ficha criada por último vem antes. Sem data conta
   // como a mais antiga, então fica no fim quando a data só desempata.
   const byDate = (a: Review, b: Review) =>
     (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt);
   switch (o.sort) {
+    case 'prioridade':
+      // dentro de cada lugar, pela data: as mais recentes primeiro
+      return (a, b) => {
+        if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? 1 : -1;
+        return sign * byDate(a, b);
+      };
     case 'categoria':
       // pela primeira categoria (sem categoria sempre no fim), e dentro dela as mais recentes primeiro
       return (a, b) => {
