@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-orelha-categoria',
+    version: '1.20.5',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'A categoria na orelha da ficha',
+    items: [
+      'Na ficha da anotação, a categoria virou uma orelha de divisória de papel manilha, colada atrás da cartolina e saindo pela beirada de cima, com o desenho e o nome a pincel: a mesma divisória das abas do mural. Dá para ver de longe de que aba cada anotação é.',
+      'Com a categoria lá em cima, a fileira ao lado da foto fica só com as tags de papel kraft, e cabem mais: até 4 na ficha completa e 2 na simples.',
+    ],
+  },
+  {
     id: '2026-10-08-atalhos-tags',
     version: '1.20.4',
     kind: 'melhoria',

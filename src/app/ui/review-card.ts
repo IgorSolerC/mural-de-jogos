@@ -29,7 +29,7 @@ import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
 import { checkCount, hasInteractive, plainText } from '../core/rich-text';
 import { Rabisco } from './rabisco';
-import { BonusSticker, BonusTally, spokenTally } from './bonus';
+import { BonusSticker, BonusTally, bonusIcon, spokenTally } from './bonus';
 import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
 import { JudgeLabel } from './judge-label';
@@ -128,6 +128,15 @@ function watchDistance(el: HTMLElement): () => void {
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
     <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
     <app-pin class="pin" [color]="pin().pinColor" />
+    <!-- a categoria da anotação: a orelha de divisória de papel manilha, colada atrás da cartolina e
+         saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
+         para o leitor de tela) -->
+    @if (note() && !capas() && noteLabels().category; as c) {
+      <span class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" aria-hidden="true">
+        <lucide-icon class="aba-cat-icone" [img]="catIcon()!" [size]="compact() ? 12 : 13" [strokeWidth]="2.6" />
+        <span class="aba-cat-nome">{{ c.label }}</span>
+      </span>
+    }
 
     <div class="head">
       @if (!note() || review().game.coverUrl) {
@@ -253,8 +262,9 @@ function watchDistance(el: HTMLElement): () => void {
              nota: o espaço ao lado da foto é delas -->
         @if (!capas() && (noteLabels().category || noteLabels().tags.length)) {
           <ul class="judge categorias" data-colado aria-label="Categoria e tags">
+            <!-- a categoria está na orelha de cima; aqui, só para o leitor de tela -->
             @if (noteLabels().category; as c) {
-              <li class="categoria"><app-bonus-sticker [bonus]="c" [index]="0" [seed]="review().id" /><span class="sr-only"> (categoria)</span></li>
+              <li class="sr-only">{{ c.label }} (categoria)</li>
             }
             @for (t of noteLabels().tags; track t; let i = $index) {
               <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() ? 'mini' : 'card'" /><span class="sr-only"> (tag)</span></li>
@@ -755,7 +765,60 @@ function watchDistance(el: HTMLElement): () => void {
       filter: saturate(0.6);
     }
 
-    /* ===== Anotação: as categorias no lugar da etiqueta, e o texto à mostra ===== */
+    /* ===== Anotação: a categoria na orelha de divisória =====
+       Papel manilha colado atrás da cartolina (fica por baixo do papel), saindo pela beirada de cima
+       entre o canto e a tachinha, com o nome a pincel atômico: a mesma divisória das abas do mural. A
+       direita da beirada é do Finalizar e do Fixar. */
+    .aba-cat {
+      position: absolute;
+      top: -19px;
+      left: 14px;
+      z-index: -1;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: calc(var(--pin-x) - 14px - 26px);
+      height: 32px;
+      padding: 3px 11px 12px 9px;
+      border-radius: 8px 8px 0 0;
+      background-color: #f3e5bb;
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      color: var(--ink);
+      box-shadow:
+        0 -1px 0 rgb(255 255 255 / 0.35) inset,
+        0 2px 6px rgb(0 0 0 / 0.45);
+      pointer-events: none;
+    }
+    /* com os selos no canto, a orelha começa depois deles */
+    .aba-cat.com-selo {
+      left: 30px;
+      max-width: calc(var(--pin-x) - 30px - 26px);
+    }
+    .aba-cat-icone {
+      flex: none;
+      display: inline-flex;
+      opacity: 0.8;
+    }
+    .aba-cat-nome {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-family: var(--f-marker);
+      font-size: 0.94rem;
+      line-height: 1.2;
+    }
+    :host(.compact) .aba-cat {
+      top: -17px;
+      height: 28px;
+      padding: 2px 9px 10px 8px;
+    }
+    :host(.compact) .aba-cat-nome {
+      font-size: 0.84rem;
+    }
+
+    /* ===== Anotação: as tags no lugar da etiqueta, e o texto à mostra ===== */
     .categorias {
       display: flex;
       flex-wrap: wrap;
@@ -1453,13 +1516,19 @@ export class ReviewCard {
 
   /** É uma anotação (mural de anotações): sem nota nem veredito; as categorias e o texto. */
   protected readonly note = computed(() => isNote(this.review()));
-  /** As categorias que cabem ao lado da foto (até 4 na Completa, 2 na Simples); o resto vira "+N". */
-  /** A categoria e as tags que cabem ao lado da foto (até 3 tags na Completa, 1 na Simples); o resto vira "+N". */
+  /** A categoria (na orelha) e as tags que cabem ao lado da foto (até 4 na Completa, 2 na Simples); o resto vira "+N". */
   protected readonly noteLabels = computed(() => {
     const r = this.review();
     const tags = r.tags ?? [];
-    const max = this.compact() ? 1 : 3;
+    // a categoria saiu para a orelha: a fileira é toda das tags
+    const max = this.compact() ? 2 : 4;
     return { category: r.category ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
+  });
+
+  /** O desenho da categoria na orelha (a da cartela, ou a pasta da escrita à mão). */
+  protected readonly catIcon = computed(() => {
+    const c = this.noteLabels().category;
+    return c ? bonusIcon(c) : null;
   });
 
   /** A ficha como alvo das reações: o mural de quem e qual ficha. */
