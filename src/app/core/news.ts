@@ -50,6 +50,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-vista-por-aba',
+    version: '1.20.1',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Cada aba com a sua vista',
+    items: [
+      'Cada aba das anotações lembra a sua ordem e o seu tipo de ficha: o Trabalho pode ficar em fichas simples por data, e o Diário em fichas completas. A aba que você ainda não arrumou começa como a Tudo.',
+      'Nova ordem "Tag" nas anotações: as seções são a primeira tag de cada anotação, de A a Z, com as sem tag no fim.',
+      'Numa aba de categoria, a ordem "Categoria" sai do Ordenar (ali ela não separaria nada).',
+    ],
+  },
+  {
     id: '2026-10-08-abas-anotacoes',
     version: '1.20.0',
     kind: 'funcionalidade',

@@ -248,7 +248,7 @@ export class SideBySidePage {
 
   protected setDensity(d: Density): void {
     if (this.view.density() === d) return;
-    this.vt.run(() => this.view.density.set(d));
+    this.vt.run(() => this.view.setDensity(d));
   }
 
   protected remove(r: Review): void {

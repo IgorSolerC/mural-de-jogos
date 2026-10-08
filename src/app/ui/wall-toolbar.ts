@@ -21,7 +21,7 @@ import { Density, SortKey, WallView, directionLabelOf } from '../core/wall-view'
 import { Settings } from '../core/settings';
 import { FilterSheet, FilterToggle } from './filter-sheet';
 import { NoteTabsBar } from './note-tabs-bar';
-import { NO_CATEGORY_TAB } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
 
 /** Ordenar é um controle só: data, nome, status ou uma das notas. */
@@ -36,6 +36,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'data', label: 'Data' },
   { value: 'alfabetica', label: 'Título' },
   { value: 'categoria', label: 'Categoria' },
+  { value: 'tag', label: 'Tag' },
 ];
 
 @Component({
@@ -89,7 +90,10 @@ export class WallToolbar {
     if (this.view.activeTab() === NO_CATEGORY_TAB) return 'Procurar nas sem categoria';
     return tab ? `Procurar em ${tab}` : 'Procurar no mural';
   });
-  protected readonly sortOptions = computed(() => (this.notes() ? NOTE_SORT_OPTIONS : SORT_OPTIONS));
+  /** Numa aba de categoria, ordenar por categoria não separa nada: a opção sai. */
+  protected readonly sortOptions = computed(() =>
+    !this.notes() ? SORT_OPTIONS : this.view.activeTab() === ALL_TAB ? NOTE_SORT_OPTIONS : NOTE_SORT_OPTIONS.filter((o) => o.value !== 'categoria'),
+  );
   /** A Média e as quatro notas do mural aberto. */
   protected readonly scoreOptions = computed(() =>
     scoreKeys(this.mural.kind()).map((k) => ({ value: `nota:${k}`, label: SCORE_LABEL[k] })),
@@ -153,7 +157,7 @@ export class WallToolbar {
   protected setDensity(d: Density): void {
     // (com uma troca esperando, voltar ao tipo de agora também conta: a troca esperando é desfeita)
     if (this.view.density() === d && !this.motion.swapping) return;
-    this.motion.swap(() => this.view.density.set(d));
+    this.motion.swap(() => this.view.setDensity(d));
   }
 
   /** "Mostrar finalizadas": as anotações com check voltam (ou saem) do mural, deslizando. */

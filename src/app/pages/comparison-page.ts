@@ -476,7 +476,7 @@ export class ComparisonPage {
   }
 
   protected setDensity(simple: boolean): void {
-    this.view.density.set(simple ? 'simples' : 'completa');
+    this.view.setDensity(simple ? 'simples' : 'completa');
   }
 
   /** "Sua nota é 3 maior", para quem não vê o bilhete. */

@@ -146,6 +146,56 @@ describe('WallView com abas', () => {
     expect(view.newNoteCategory()).toBeNull();
   });
 
+  it('cada aba lembra a sua ordem, direção e tipo de ficha; a nova começa como Tudo', () => {
+    view.setSort('data');
+    view.setNoteTab(key('Trabalho'));
+    expect(view.shownSort()).toBe('data');
+    view.setSort('alfabetica');
+    view.setDensity('simples');
+    view.setNoteTab(key('Estudos'));
+    expect(view.shownSort()).toBe('data');
+    expect(view.density()).toBe('completa');
+    view.setNoteTab(key('Trabalho'));
+    expect(view.shownSort()).toBe('alfabetica');
+    expect(view.direction()).toBe('asc');
+    expect(view.density()).toBe('simples');
+    view.setNoteTab(ALL_TAB);
+    expect(view.shownSort()).toBe('data');
+  });
+
+  it('o tipo de ficha das anotações não muda o dos murais de resenhas', () => {
+    view.setDensity('capas');
+    TestBed.inject(Mural).kind.set('jogos');
+    expect(view.density()).toBe('completa');
+  });
+
+  it('a vista de antes das abas (noteSort, noteDirection) vira a de Tudo', () => {
+    localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ noteSort: 'categoria', noteDirection: 'asc', density: 'simples' }));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.inject(Mural).kind.set('anotacoes');
+    TestBed.inject(ReviewStore).reviews.set(sea());
+    const fresh = TestBed.inject(WallView);
+    expect(fresh.shownSort()).toBe('categoria');
+    expect(fresh.direction()).toBe('asc');
+    expect(fresh.density()).toBe('simples');
+  });
+
+  it('numa aba de categoria, ordenar por categoria vira Prioridade', () => {
+    view.setSort('categoria');
+    expect(view.shownSort()).toBe('categoria');
+    // a aba Estudos começa com a vista de Tudo (por categoria), que ali vira Prioridade
+    view.setNoteTab(key('Estudos'));
+    expect(view.shownSort()).toBe('prioridade');
+  });
+
+  it('por tag: seções pela primeira tag, de A a Z, e Sem tag no fim', () => {
+    store.reviews.update((list) => [...list, note('Exercícios', 'Estudos')]);
+    view.setNoteTab(key('Estudos'));
+    view.setSort('tag');
+    expect(view.groups().map((g) => g.label)).toEqual(['#DDD', '#Rust', '#SQL', 'Sem tag']);
+  });
+
   it('a anotação nova de outra categoria abre a aba dela', () => {
     view.setNoteTab(key('Trabalho'));
     const nova = note('Bolo', 'Receitas');

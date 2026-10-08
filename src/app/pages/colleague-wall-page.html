@@ -131,13 +131,13 @@
           </button>
         </div>
         <div class="densidade" role="group" aria-label="Tipo de ficha">
-          <button type="button" class="plate icon" [attr.aria-pressed]="view.density() === 'completa'" (click)="view.density.set('completa')" aria-label="Fichas completas" title="Fichas completas">
+          <button type="button" class="plate icon" [attr.aria-pressed]="view.density() === 'completa'" (click)="view.setDensity('completa')" aria-label="Fichas completas" title="Fichas completas">
             <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
-          <button type="button" class="plate icon" [attr.aria-pressed]="simple()" (click)="view.density.set('simples')" aria-label="Fichas simples" title="Fichas simples">
+          <button type="button" class="plate icon" [attr.aria-pressed]="simple()" (click)="view.setDensity('simples')" aria-label="Fichas simples" title="Fichas simples">
             <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
-          <button type="button" class="plate icon" [attr.aria-pressed]="capas()" (click)="view.density.set('capas')" aria-label="Só capa e nome" title="Só capa e nome">
+          <button type="button" class="plate icon" [attr.aria-pressed]="capas()" (click)="view.setDensity('capas')" aria-label="Só capa e nome" title="Só capa e nome">
             <lucide-icon [img]="CoversIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
         </div>

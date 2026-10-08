@@ -23,11 +23,11 @@ import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 
 /**
- * `categoria` e `prioridade` (fixadas, comuns, sub-notas) só no mural de anotações; `nota` e
- * `status`, só nos de resenhas.
+ * `categoria`, `tag` (pela primeira tag) e `prioridade` (fixadas, comuns, sub-notas) só no mural de
+ * anotações; `nota` e `status`, só nos de resenhas.
  */
-export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'prioridade';
-const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'prioridade'];
+export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'tag' | 'prioridade';
+const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'tag', 'prioridade'];
 export type Direction = 'desc' | 'asc';
 /** Completa (tudo), simples (a tira com a nota) ou capas (só a foto e o nome, para ver o máximo de fichas). */
 export type Density = 'completa' | 'simples' | 'capas';
@@ -42,15 +42,29 @@ export function withoutSpoilerFacets(f: WallFilter): WallFilter {
   return f.verdict.length || f.grade.length || f.difficulty.length ? { ...f, verdict: [], grade: [], difficulty: [] } : f;
 }
 
-interface ViewPrefs {
+const DENSITIES: readonly Density[] = ['completa', 'simples', 'capas'];
+
+/** Como uma aba do mural de anotações está: a ordem, a direção e o tipo de ficha dela. */
+export interface NoteView {
   sort: SortKey;
-  /** O mural de anotações tem a ordem dele (a de sempre é Prioridade). */
-  noteSort: SortKey;
+  direction: Direction;
+  density: Density;
+}
+
+/** A vista de sempre do mural de anotações: Prioridade, as mais recentes primeiro, fichas completas. */
+const NOTE_VIEW: NoteView = { sort: 'prioridade', direction: 'desc', density: 'completa' };
+
+interface ViewPrefs {
+  /** A ordem, a direção e o tipo de ficha dos murais de resenhas. */
+  sort: SortKey;
   scoreKey: ScoreKey;
   direction: Direction;
-  /** A direção da ordem do mural de anotações. */
-  noteDirection: Direction;
   density: Density;
+  /**
+   * Cada aba do mural de anotações com a sua vista (a chave é a da aba; "" é Tudo). A aba que ainda
+   * não tem a dela começa como a de Tudo.
+   */
+  noteViews: Record<string, NoteView>;
   /** O mural de anotações mostra as finalizadas também. */
   showDone: boolean;
   /** A aba aberta no mural de anotações (ver core/note-tabs.ts); vazia, "Tudo". */
@@ -63,29 +77,55 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
   alfabetica: 'asc',
   status: 'desc',
   categoria: 'asc',
+  tag: 'asc',
   prioridade: 'desc',
 };
 
 /** A ordem que o mural aberto tem de fato: cada mural só ordena pelo que ele tem. */
 export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
   if (isNotes(profile.kind)) return sort === 'nota' || sort === 'status' ? 'data' : sort;
-  return sort === 'categoria' || sort === 'prioridade' ? 'data' : sort;
+  return sort === 'categoria' || sort === 'tag' || sort === 'prioridade' ? 'data' : sort;
+}
+
+function readNoteView(raw: unknown, base: NoteView): NoteView | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const v = raw as Record<string, unknown>;
+  return {
+    sort: SORT_KEYS.includes(v['sort'] as SortKey) ? (v['sort'] as SortKey) : base.sort,
+    direction: v['direction'] === 'asc' ? 'asc' : v['direction'] === 'desc' ? 'desc' : base.direction,
+    density: DENSITIES.includes(v['density'] as Density) ? (v['density'] as Density) : base.density,
+  };
 }
 
 function readPrefs(): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', noteSort: 'prioridade', scoreKey: 'final', direction: 'desc', noteDirection: 'desc', density: 'completa', showDone: false, noteTab: ALL_TAB };
+  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, noteTab: ALL_TAB };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
+    const density: Density = DENSITIES.includes(raw.density) ? raw.density : 'completa';
+    // antes das abas, a ordem do mural de anotações era uma só (noteSort, noteDirection), e o tipo de
+    // ficha, o mesmo de todos os murais: viram a vista de Tudo
+    const all: NoteView = {
+      sort: SORT_KEYS.includes(raw.noteSort) ? raw.noteSort : NOTE_VIEW.sort,
+      direction: raw.noteDirection === 'asc' ? 'asc' : 'desc',
+      density,
+    };
+    const noteViews: Record<string, NoteView> = {};
+    if (raw.noteViews && typeof raw.noteViews === 'object') {
+      for (const [k, v] of Object.entries(raw.noteViews).slice(0, 200)) {
+        const view = readNoteView(v, all);
+        if (view) noteViews[k.slice(0, 80)] = view;
+      }
+    }
+    noteViews[ALL_TAB] ??= all;
     return {
       sort: SORT_KEYS.includes(raw.sort) ? raw.sort : fallback.sort,
-      noteSort: SORT_KEYS.includes(raw.noteSort) ? raw.noteSort : fallback.noteSort,
       scoreKey: raw.scoreKey === 'final' || (RATED_KEYS as readonly string[]).includes(raw.scoreKey)
         ? raw.scoreKey
         : fallback.scoreKey,
       direction: raw.direction === 'asc' ? 'asc' : 'desc',
-      noteDirection: raw.noteDirection === 'asc' ? 'asc' : 'desc',
-      density: raw.density === 'simples' || raw.density === 'capas' ? raw.density : 'completa',
+      density,
+      noteViews,
       showDone: raw.showDone === true,
       noteTab: typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
     };
@@ -122,12 +162,13 @@ export class WallView {
   readonly query = signal('');
   /** Os filtros da cartela. Valem só nesta visita, como a busca. */
   readonly filter = signal<WallFilter>(NO_FILTER);
-  /** A ordem escolhida nos murais de resenhas (o de anotações tem a dele, `noteSort`). */
+  /** A ordem escolhida nos murais de resenhas (o de anotações tem uma por aba, `noteViews`). */
   readonly sort = signal<SortKey>(this.prefs.sort);
-  /** A ordem escolhida no mural de anotações; a de sempre é Prioridade (fixadas, comuns, sub-notas). */
-  readonly noteSort = signal<SortKey>(this.prefs.noteSort);
-  /** A ordem escolhida para o mural aberto. */
-  private readonly chosenSort = computed(() => (isNotes(this.mural.kind()) ? this.noteSort() : this.sort()));
+  /**
+   * A vista de cada aba do mural de anotações: a ordem (a de sempre é Prioridade: fixadas, comuns,
+   * sub-notas), a direção e o tipo de ficha. A chave é a da aba; "" é Tudo.
+   */
+  readonly noteViews = signal<Readonly<Record<string, NoteView>>>(this.prefs.noteViews);
   /** A nota escolhida para ordenar. Guardada mesmo que o mural aberto não tenha ela (ver `activeScore`). */
   readonly scoreKey = signal<ScoreKey>(this.prefs.scoreKey);
   /** A nota que ordena de fato: a escolhida, se o mural aberto tem ela; senão, a Média. */
@@ -135,13 +176,9 @@ export class WallView {
     const k = this.scoreKey();
     return scoreKeys(this.mural.kind()).includes(k) ? k : 'final';
   });
-  /** A direção da ordem nos murais de resenhas e no de anotações, cada uma com a sua ordem. */
+  /** A direção da ordem e o tipo de ficha nos murais de resenhas. */
   readonly reviewDirection = signal<Direction>(this.prefs.direction);
-  readonly noteDirection = signal<Direction>(this.prefs.noteDirection);
-  private readonly chosenDirection = computed(() => (isNotes(this.mural.kind()) ? this.noteDirection : this.reviewDirection));
-  /** A direção da ordem do mural aberto. */
-  readonly direction = computed<Direction>(() => this.chosenDirection()());
-  readonly density = signal<Density>(this.prefs.density);
+  readonly reviewDensity = signal<Density>(this.prefs.density);
   /** "Mostrar finalizadas": as anotações com check continuam no mural. Fica guardado, como a ordem. */
   readonly showDone = signal(this.prefs.showDone);
   /**
@@ -176,6 +213,18 @@ export class WallView {
     if (!tabs || k === ALL_TAB) return null;
     return [...tabs.main, ...tabs.more].find((t) => t.key === k)?.label ?? null;
   });
+  /** A vista da aba aberta: a dela, ou a de Tudo, se ela ainda não tem uma. */
+  readonly noteView = computed<NoteView>(() => {
+    const views = this.noteViews();
+    return views[this.activeTab()] ?? views[ALL_TAB] ?? NOTE_VIEW;
+  });
+  /** A ordem escolhida para o mural aberto (no de anotações, a da aba). */
+  private readonly chosenSort = computed(() => (isNotes(this.mural.kind()) ? this.noteView().sort : this.sort()));
+  /** A direção da ordem do mural aberto. */
+  readonly direction = computed<Direction>(() => (isNotes(this.mural.kind()) ? this.noteView().direction : this.reviewDirection()));
+  /** O tipo de ficha do mural aberto (no de anotações, o da aba). Muda com `setDensity`. */
+  readonly density = computed<Density>(() => (isNotes(this.mural.kind()) ? this.noteView().density : this.reviewDensity()));
+
   private inTab(r: Review): boolean {
     const k = this.activeTab();
     return k === ALL_TAB || noteTabKey(r) === k;
@@ -195,6 +244,8 @@ export class WallView {
    */
   readonly shownSort = computed<SortKey>(() => {
     const sort = sortFor(this.chosenSort(), this.mural.profile());
+    // numa aba de categoria, ordenar por categoria daria uma seção só: vale a Prioridade
+    if (sort === 'categoria' && this.activeTab() !== ALL_TAB) return 'prioridade';
     return this.settings.noSpoilers() && sort === 'nota' ? 'data' : sort;
   });
   /** Os filtros que valem de fato: sem spoilers, filtrar por veredito, nota ou dificuldade entregaria o que está escondido. */
@@ -271,11 +322,10 @@ export class WallView {
     effect(() => {
       const prefs: ViewPrefs = {
         sort: this.sort(),
-        noteSort: this.noteSort(),
         scoreKey: this.scoreKey(),
         direction: this.reviewDirection(),
-        noteDirection: this.noteDirection(),
-        density: this.density(),
+        density: this.reviewDensity(),
+        noteViews: this.noteViews(),
         showDone: this.showDone(),
         noteTab: this.noteTab(),
       };
@@ -326,15 +376,37 @@ export class WallView {
     return this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
+  /** Muda a vista da aba aberta do mural de anotações (só ela: as outras abas ficam como estão). */
+  private patchNoteView(patch: Partial<NoteView>): void {
+    const key = this.activeTab();
+    const next = { ...this.noteView(), ...patch };
+    this.noteViews.update((views) => ({ ...views, [key]: next }));
+  }
+
   setSort(sort: SortKey): void {
-    const chosen = isNotes(this.mural.kind()) ? this.noteSort : this.sort;
-    if (chosen() === sort) return;
-    chosen.set(sort);
-    this.chosenDirection().set(DEFAULT_DIRECTION[sort]);
+    if (isNotes(this.mural.kind())) {
+      if (this.noteView().sort === sort) return;
+      this.patchNoteView({ sort, direction: DEFAULT_DIRECTION[sort] });
+      return;
+    }
+    if (this.sort() === sort) return;
+    this.sort.set(sort);
+    this.reviewDirection.set(DEFAULT_DIRECTION[sort]);
   }
 
   toggleDirection(): void {
-    this.chosenDirection().update((d) => (d === 'desc' ? 'asc' : 'desc'));
+    const flip = (d: Direction): Direction => (d === 'desc' ? 'asc' : 'desc');
+    if (isNotes(this.mural.kind())) this.patchNoteView({ direction: flip(this.noteView().direction) });
+    else this.reviewDirection.update(flip);
+  }
+
+  /** O tipo de ficha do mural aberto (no de anotações, só o da aba aberta). */
+  setDensity(density: Density): void {
+    if (isNotes(this.mural.kind())) {
+      if (this.noteView().density !== density) this.patchNoteView({ density });
+    } else {
+      this.reviewDensity.set(density);
+    }
   }
 
   toggle(key: FacetKey, value: string): void {
@@ -355,21 +427,19 @@ export class WallView {
     const query = this.query(),
       filter = this.filter(),
       sort = this.sort(),
-      noteSort = this.noteSort(),
       scoreKey = this.scoreKey(),
       direction = this.reviewDirection(),
-      noteDirection = this.noteDirection(),
-      density = this.density(),
+      density = this.reviewDensity(),
+      noteViews = this.noteViews(),
       noteTab = this.noteTab();
     return () => {
       this.query.set(query);
       this.filter.set(filter);
       this.sort.set(sort);
-      this.noteSort.set(noteSort);
       this.scoreKey.set(scoreKey);
       this.reviewDirection.set(direction);
-      this.noteDirection.set(noteDirection);
-      this.density.set(density);
+      this.reviewDensity.set(density);
+      this.noteViews.set(noteViews);
       this.noteTab.set(noteTab);
     };
   }
@@ -386,6 +456,8 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
       return desc ? 'De Z a A' : 'De A a Z';
     case 'categoria':
       return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
+    case 'tag':
+      return desc ? 'Tags de Z a A' : 'Tags de A a Z';
     case 'prioridade':
       return desc ? 'Fixadas, comuns e sub-notas; as mais recentes primeiro' : 'Fixadas, comuns e sub-notas; as mais antigas primeiro';
     case 'status':
@@ -448,6 +520,11 @@ function firstCategory(r: Review): string | null {
   return r.category ?? null;
 }
 
+/** A primeira tag da anotação (a seção dela ordenando por tag), ou nenhuma. */
+function firstTag(r: Review): string | null {
+  return r.tags?.[0] ?? null;
+}
+
 function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
   switch (o.sort) {
     case 'prioridade':
@@ -456,6 +533,11 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       return (r) => {
         const c = firstCategory(r);
         return c === null ? ['sem-categoria', 'Sem categoria'] : [`c:${fold(c)}`, c];
+      };
+    case 'tag':
+      return (r) => {
+        const t = firstTag(r);
+        return t === null ? ['sem-tag', 'Sem tag'] : [`t:${fold(t)}`, `#${t}`];
       };
     case 'alfabetica':
       return (r) => {
@@ -522,6 +604,14 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
         const cb = firstCategory(b);
         if ((ca === null) !== (cb === null)) return ca === null ? 1 : -1;
         return (ca !== null && cb !== null ? sign * collator.compare(ca, cb) : 0) || -byDate(a, b);
+      };
+    case 'tag':
+      // pela primeira tag (sem tag sempre no fim), e dentro dela as mais recentes primeiro
+      return (a, b) => {
+        const ta = firstTag(a);
+        const tb = firstTag(b);
+        if ((ta === null) !== (tb === null)) return ta === null ? 1 : -1;
+        return (ta !== null && tb !== null ? sign * collator.compare(ta, tb) : 0) || -byDate(a, b);
       };
     case 'alfabetica':
       // a seção manda primeiro (o "#" antes do A), senão o Ø, o Ł ou um nome em japonês, que o

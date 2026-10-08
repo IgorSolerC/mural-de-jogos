@@ -22,7 +22,7 @@ import { ReviewReader } from '../ui/review-reader';
 import { SearchStrip } from '../ui/search-strip';
 
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'desc', alfabetica: 'asc', status: 'desc', categoria: 'asc', prioridade: 'desc' };
+const DEFAULT_DIRECTION: Record<SortKey, Direction> = { data: 'desc', nota: 'desc', alfabetica: 'asc', status: 'desc', categoria: 'asc', tag: 'asc', prioridade: 'desc' };
 
 /**
  * O mural do colega, só dele: as fichas do backup aberto na comparação, pregadas em seções como no
@@ -136,6 +136,7 @@ export class ColleagueWallPage {
     { value: 'data', label: 'Data' },
     { value: 'alfabetica', label: 'Título' },
     { value: 'categoria', label: 'Categoria' },
+    { value: 'tag', label: 'Tag' },
   ];
   protected readonly sortLabel = computed(() => this.shownSorts().find((s) => s.value === this.shownSort())?.label ?? 'Data');
   /** O que a seta da ordem diz ("Mais recentes primeiro", "De A a Z"…), como no seu mural. */
