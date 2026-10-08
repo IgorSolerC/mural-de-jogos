@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-correcao-filtro-aba',
+    version: '1.20.7',
+    kind: 'correcao',
+    date: '2026-10-08',
+    title: 'Correção de bug',
+    items: [
+      'O Filtrar, aberto numa aba de categoria das anotações, ficava desarrumado: as tags iam para um canto e sobrava um buraco no meio da cartela.',
+    ],
+  },
+  {
     id: '2026-10-08-acabamento-abas',
     version: '1.20.6',
     kind: 'melhoria',

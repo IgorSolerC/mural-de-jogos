@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output } from '@angular/core';
 import { Ban, CircleSlash2, LucideAngularModule, LucideIconData, PenLine, PenOff, Sparkles, Square, X } from 'lucide-angular';
 import { Kind, Status, Verdict } from '../core/review';
+import { isNotes } from '../core/kinds';
 import { Facet, FacetKey, FilterTag, GRADE_SHORT, GradeBand } from '../core/wall-filter';
 import { Skulls } from './difficulty';
 import { BonusSticker } from './bonus';
@@ -32,7 +33,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     <span class="fita fita-l" aria-hidden="true"></span>
     <span class="fita fita-r" aria-hidden="true"></span>
 
-    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty() && !hasCategory()" [class.sem-julgamento]="!hasVerdict() && !hasCategory()" [class.anotacoes]="hasCategory()" [class.sem-tags]="hasCategory() && !hasTag()">
+    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty() && !notesKind()" [class.sem-julgamento]="!hasVerdict() && !notesKind()" [class.anotacoes]="notesKind()">
       @for (f of facets(); track f.key) {
         <fieldset class="grupo" [class]="'grupo g-' + f.key">
           <legend class="cabeca">
@@ -229,24 +230,20 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     .g-year {
       grid-area: year;
     }
-    /* Anotações: Categoria e Tags (as que importam, com mais opções) em cima, lado a lado; Visual e
-       Ano embaixo */
+    /* Anotações: os grupos correm lado a lado e quebram a linha sozinhos, porque cada aba tem os seus
+       (numa aba de categoria não há o grupo Categoria; Visual e Ano só aparecem quando separam
+       alguma coisa). Categoria e Tags, que têm mais opções, ganham mais largura. */
     .grupos.anotacoes {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      grid-template-areas:
-        'category tag'
-        'look year';
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
     }
-    .g-category {
-      grid-area: category;
+    .grupos.anotacoes .grupo {
+      flex: 1 1 200px;
+      grid-area: auto;
     }
-    .g-tag {
-      grid-area: tag;
-    }
-    .grupos.anotacoes.sem-tags {
-      grid-template-areas:
-        'category category'
-        'look year';
+    .grupos.anotacoes :is(.g-category, .g-tag) {
+      flex: 3 1 340px;
     }
     /* o adesivo da categoria e a etiqueta da tag, nas medidas dos outros adesivos */
     .rotulo-nota {
@@ -502,13 +499,6 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
           'status look'
           'year year';
       }
-      .grupos.anotacoes {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-areas:
-          'category category'
-          'tag tag'
-          'look year';
-      }
     }
 
     @media (max-width: 640px) {
@@ -565,11 +555,12 @@ export class FilterSheet {
   protected readonly hasDifficulty = computed(() => this.facets().some((f) => f.key === 'difficulty'));
   /** Sem spoilers, Veredito e Média saem da cartela (ver WallView.facets). */
   protected readonly hasVerdict = computed(() => this.facets().some((f) => f.key === 'verdict'));
-  /** O mural de anotações: a cartela é das categorias. */
-  protected readonly hasCategory = computed(() => this.facets().some((f) => f.key === 'category'));
+  /**
+   * O mural de anotações: a cartela é das categorias e das tags. Vem do mural, não dos grupos: numa
+   * aba de categoria o grupo Categoria não existe, e a cartela caía na disposição das resenhas.
+   */
+  protected readonly notesKind = computed(() => isNotes(this.kind()));
   protected readonly sticker = categoryBonus;
-  /** Sem nenhuma tag no mural, o grupo de tags não aparece: a categoria fica com a fileira toda. */
-  protected readonly hasTag = computed(() => this.facets().some((f) => f.key === 'tag'));
 
   protected readonly anyChosen = computed(() => this.facets().some((f) => this.chosenIn(f)));
 
