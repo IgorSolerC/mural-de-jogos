@@ -18,7 +18,7 @@ export interface Span {
 
 /** "[[título]]": sem colchetes nem quebra de linha dentro, e com algo além de espaços. */
 export const LINK = /\[\[([^[\]\n]*[^[\]\s][^[\]\n]*)\]\]/g;
-const HAS_LINK = new RegExp(LINK.source);
+export const HAS_LINK = new RegExp(LINK.source);
 /** Cada link vira um caractere de uso privado enquanto as marcas são lidas (o título não ganha ênfase). */
 const SLOT = 0xe000;
 
@@ -64,9 +64,14 @@ export function lineKind(line: string): LineKind {
  * um negrito ("**veja [[Compras]]**"), mas o título dele fica como foi escrito.
  */
 export function parseInline(text: string): Span[] {
-  const titles: string[] = [];
-  const slotted = text.replace(LINK, (_, title: string) => String.fromCharCode(SLOT + titles.push(title.trim()) - 1));
+  const titles = [...text.matchAll(LINK)].map((m) => m[1].trim());
   if (!titles.length) return parseMarks(text);
+  // cada link vira um caractere de uso privado, de uma faixa que não aparece no texto (um emoji
+  // antigo de celular japonês, por exemplo, mora nessa área)
+  let base = SLOT;
+  while ([...text].some((ch) => ch.charCodeAt(0) >= base && ch.charCodeAt(0) < base + titles.length)) base += titles.length;
+  let at = 0;
+  const slotted = text.replace(LINK, () => String.fromCharCode(base + at++));
   const out: Span[] = [];
   for (const s of parseMarks(slotted)) {
     let plain = '';
@@ -75,7 +80,7 @@ export function parseInline(text: string): Span[] {
       plain = '';
     };
     for (const ch of s.text) {
-      const i = ch.charCodeAt(0) - SLOT;
+      const i = ch.charCodeAt(0) - base;
       if (i >= 0 && i < titles.length) {
         flush();
         out.push({ ...s, text: titles[i], link: true });
@@ -151,7 +156,8 @@ export function plainText(text: string): string {
 
 /** Marca ou desmarca a tarefa da linha `line`. Devolve o texto igual se a linha não é tarefa. */
 export function toggleCheck(text: string, line: number): string {
-  const lines = text.split('\n');
+  // as linhas contadas como a leitura conta (ver parseRich): um texto de fora pode vir com \r
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
   const l = lines[line];
   if (l === undefined || !CHECK.test(l)) return text;
   lines[line] = l.replace(/\[([ xX])\]/, (_, c: string) => (c === ' ' ? '[x]' : '[ ]'));
@@ -162,7 +168,7 @@ export function toggleCheck(text: string, line: number): string {
 export function checkCount(text: string): { done: number; total: number } {
   let done = 0;
   let total = 0;
-  for (const l of text.split('\n')) {
+  for (const l of text.replace(/\r\n?/g, '\n').split('\n')) {
     const k = lineKind(l);
     if (k.kind !== 'check') continue;
     total++;

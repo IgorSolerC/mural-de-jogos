@@ -237,6 +237,9 @@ export class ReviewStore {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  /** Só as anotações: as fichas (e a leitura) acham os links nelas sem filtrar a lista inteira cada uma. */
+  readonly notes = computed(() => this.reviews().filter(isNote));
+
   get(id: string): Review | undefined {
     return this.reviews().find((r) => r.id === id);
   }

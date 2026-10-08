@@ -3,6 +3,7 @@
   class="sheet editor"
   aria-labelledby="editor-titulo"
   (cancel)="requestClose($event)"
+  (close)="closed.emit()"
   (pointerdown)="onPointerDown($event)"
   (click)="onBackdrop($event)"
 >
@@ -54,14 +55,21 @@
                 placeholder="Lista do mercado, ideias pro fim de semana…"
                 [value]="noteTitle()"
                 [attr.aria-invalid]="attempted() && !noteTitle().trim()"
+                [attr.aria-describedby]="(attempted() && !noteTitle().trim()) || bracketTitle() || titleTwin() ? 'editor-titulo-dica' : null"
                 (input)="setNoteTitle($any($event.target).value)"
               />
             </div>
             @if (attempted() && !noteTitle().trim()) {
-              <p class="field-error">Dê um título para a anotação.</p>
-            } @else if (titleTwin(); as twin) {
+              <p class="field-error" id="editor-titulo-dica">Dê um título para a anotação.</p>
+            } @else if (bracketTitle()) {
+              <p class="hint gemea" id="editor-titulo-dica">Com colchetes no título, um link [[…]] não consegue apontar para esta anotação.</p>
+            } @else if (titleTwin(); as t) {
               <!-- dois títulos iguais: o link abre a mais antiga (ver core/note-links.ts) -->
-              <p class="hint gemea">Já existe uma anotação “{{ twin.game.name }}”. Os links para esse título continuam abrindo aquela, que é mais antiga.</p>
+              @if (t.mine) {
+                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”, mais nova que esta. Os links para esse título vão abrir esta, que é a mais antiga.</p>
+              } @else {
+                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”. Os links para esse título continuam abrindo aquela, que é mais antiga.</p>
+              }
             }
             @if (choosingCover()) {
               <fieldset class="escolher-capa">

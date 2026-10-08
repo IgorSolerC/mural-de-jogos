@@ -282,6 +282,15 @@
   }
 }
 
+/* "Tudo finalizado": pregar uma nova ou ver as que já foram */
+.acoes-vazio {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px 18px;
+}
+
 @media (max-width: 720px) {
   .toolbar {
     margin-bottom: 34px;

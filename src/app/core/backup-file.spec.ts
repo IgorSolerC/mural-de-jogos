@@ -23,6 +23,18 @@ describe('leitura independente de backup', () => {
       expect(snapshot.reviews[0].scores.final).toBe(11);
     }
   });
+  it('o backup de outra pessoa não mostra o que ela deixou privado (resenhas e anotações)', () => {
+    const snapshot = parseBackupSnapshot(
+      JSON.stringify({
+        reviews: [entry, { ...entry, id: 'review2', private: true }],
+        notas: [
+          { id: 'nota0001', kind: 'anotacoes', game: { name: 'Pública' }, updatedAt: '2024-01-01T00:00:00Z' },
+          { id: 'nota0002', kind: 'anotacoes', game: { name: 'Diário' }, private: true, updatedAt: '2024-01-01T00:00:00Z' },
+        ],
+      }),
+    );
+    expect(snapshot.reviews.map((r) => r.id).sort()).toEqual(['nota0001', 'review1']);
+  });
   it('ignora registros inválidos, pendentes e exclusões anteriores à avaliação mais recente', () => {
     const snapshot = parseBackupSnapshot(
       JSON.stringify({

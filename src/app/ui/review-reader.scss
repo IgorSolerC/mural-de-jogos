@@ -144,6 +144,8 @@ dialog.reader {
 }
 
 .title {
+  /* recebe o foco ao trocar de anotação pelos links (para o leitor de tela), sem moldura */
+  outline: none;
   font-family: var(--f-marker);
   font-weight: 400;
   font-size: 2.3rem;

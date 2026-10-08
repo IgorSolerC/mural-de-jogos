@@ -88,12 +88,35 @@ describe('o lugar da anotação no mural', () => {
       pin.set('ncomum001', true);
       expect(store.get('ncomum001')!.noteRank).toBe('fixada');
       expect(view.groups()[0].reviews.map((r) => r.id)).toContain('ncomum001');
+      pin.set('ncomum001', false);
+      // a comum desafixada volta a ser comum
+      expect(store.get('ncomum001')!.noteRank).toBeUndefined();
       pin.set('nsub00001', true);
+      expect(store.get('nsub00001')!.pinnedSub).toBeTrue();
       pin.set('nsub00001', false);
-      // desafixada, vira comum
-      expect(store.get('nsub00001')!.noteRank).toBeUndefined();
+      // a sub-nota desafixada volta a ser sub-nota
+      expect(store.get('nsub00001')!.noteRank).toBe('sub');
+      expect(store.get('nsub00001')!.pinnedSub).toBeUndefined();
       TestBed.inject(Toasts).current()!.action!.run();
       expect(store.get('nsub00001')!.noteRank).toBe('fixada');
+      expect(store.get('nsub00001')!.pinnedSub).toBeTrue();
+    });
+
+    it('fixada, a data vai inteira (a seção Fixadas não tem a etiqueta do mês); a contagem do mural não conta as finalizadas', () => {
+      const mural = TestBed.inject(Mural);
+      mural.kind.set('anotacoes');
+      store.reviews.update((l) => [...l, note('nfeita001', 'Feita', '2026-10-02', { doneAt: '2026-10-03T00:00:00.000Z' })]);
+      expect(mural.count()).toBe(6);
+      expect(mural.openCount()).toBe(5);
+      expect(mural.counts().anotacoes).toBe(5);
+    });
+
+    it('ordenando por categoria com o filtro de uma categoria, a anotação fica na escolhida', () => {
+      TestBed.inject(Mural).kind.set('anotacoes');
+      store.reviews.set([note('ncat00001', 'Duas', '2026-10-01', { bonuses: [{ label: 'Alfa', kind: 'favor' }, { label: 'Beta', kind: 'favor' }] })]);
+      view.setSort('categoria');
+      view.toggle('category', 'Beta');
+      expect(view.groups().map((g) => g.label)).toEqual(['Beta']);
     });
   });
 });

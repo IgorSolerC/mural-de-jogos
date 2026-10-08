@@ -17,7 +17,7 @@ import { SCORE_LABEL, ScoreKey, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { FacetKey, NO_FILTER } from '../core/wall-filter';
-import { Density, SortKey, WallView } from '../core/wall-view';
+import { Density, SortKey, WallView, directionLabelOf } from '../core/wall-view';
 import { Settings } from '../core/settings';
 import { FilterSheet, FilterToggle } from './filter-sheet';
 import { SearchStrip } from './search-strip';
@@ -98,23 +98,7 @@ export class WallToolbar {
   });
 
   protected directionLabel(): string {
-    const desc = this.view.direction() === 'desc';
-    switch (this.view.shownSort()) {
-      case 'data':
-        return desc ? 'Mais recentes primeiro' : 'Mais antigas primeiro';
-      case 'alfabetica':
-        return desc ? 'De Z a A' : 'De A a Z';
-      case 'categoria':
-        return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
-      case 'prioridade':
-        return desc ? 'Fixadas, comuns e sub-notas; as mais recentes primeiro' : 'Fixadas, comuns e sub-notas; as mais antigas primeiro';
-      case 'status': {
-        const groups = this.mural.profile().statusGroup;
-        return `${desc ? groups.platinado : groups.incompleto} primeiro`;
-      }
-      default:
-        return desc ? 'Maiores notas primeiro' : 'Menores notas primeiro';
-    }
+    return directionLabelOf(this.view.shownSort(), this.view.direction(), this.mural.profile());
   }
 
   protected toggleOpen(e: MouseEvent): void {

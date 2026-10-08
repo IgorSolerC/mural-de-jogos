@@ -67,7 +67,7 @@ import { Review } from '../core/review';
     }
     <ng-template #span let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.bold && s.italic) {<strong><em>{{ s.text }}</em></strong>} @else if (s.bold) {<strong>{{ s.text }}</strong>} @else if (s.italic) {<em>{{ s.text }}</em>} @else {{{ s.text }}}</ng-template>
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
-    <ng-template #elo let-s>@let l = links(); @if (!l) {{{ '[[' + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else {@let note = l.resolve(s.text); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" role="link" tabindex="0" [attr.aria-label]="'Abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + s.text" [title]="'Ainda não tem uma anotação ' + s.text + '. Toque para criar.'" (click)="make($event, s.text)" (keydown.enter)="make($event, s.text)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" title="Essa anotação não existe">{{ s.text }}</span>}}</ng-template>
+    <ng-template #elo let-s>@let l = links(); @if (!l) {{{ '[[' + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else {@let note = l.resolve(s.text); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" role="link" tabindex="0" [attr.aria-label]="'Abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + s.text" [title]="'Ainda não tem uma anotação ' + s.text + '. Toque para criar.'" (click)="make($event, s.text)" (keydown.enter)="make($event, s.text)" (keydown.space)="make($event, s.text)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" title="Essa anotação não existe">{{ s.text }}</span>}}</ng-template>
   `,
   imports: [NgTemplateOutlet],
   styles: `
@@ -139,7 +139,8 @@ import { Review } from '../core/review';
       cursor: default;
     }
     .tarefas input:focus-visible {
-      outline: 3px solid var(--hi, #ffd84d);
+      /* na cor da tinta: o amarelo sumia na cartolina amarela */
+      outline: 3px solid currentColor;
       outline-offset: 2px;
     }
     /* feita: o tique vermelho de caneta por cima da caixinha, e o texto riscado a lápis */

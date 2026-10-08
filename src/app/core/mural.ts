@@ -35,6 +35,8 @@ export class Mural {
    */
   readonly reviews = computed<Review[]>(() => originalsOf(this.wall()));
   readonly count = computed(() => this.reviews().length);
+  /** Quantas fichas o mural tem à mostra: sem as anotações finalizadas, que saem dele. */
+  readonly openCount = computed(() => this.reviews().filter((r) => !r.doneAt).length);
   /** Só as rejogadas deste mural. */
   readonly revisitCount = computed(() => this.wallCount() - this.count());
   readonly drafts = computed<Draft[]>(() => this.store.drafts().filter((d) => d.kind === this.kind()));
@@ -47,7 +49,8 @@ export class Mural {
   /** Quantas fichas cada mural tem, para o seletor do cartaz. */
   readonly counts = computed(() => {
     const out = { jogos: 0, livros: 0, filmes: 0, series: 0, animes: 0, anotacoes: 0 } as Record<Kind, number>;
-    for (const r of this.store.reviews()) if (!r.revisitOf) out[r.kind]++;
+    // a anotação finalizada saiu do mural (ver WallView.showDone): o número é o das que estão nele
+    for (const r of this.store.reviews()) if (!r.revisitOf && !r.doneAt) out[r.kind]++;
     return out;
   });
 

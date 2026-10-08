@@ -29,17 +29,17 @@
 
   <!-- Só no mural de anotações, ao lado do Filtrar (onde fica o Mostrar notas no mural de um colega):
        as finalizadas, com check, à mostra ou não -->
-  @if (notes() && view.doneCount()) {
+  @if (notes() && (view.doneCount() || view.showDone())) {
     <button
       type="button"
       class="plate finalizadas"
-      [class.is-active]="view.showDone()"
-      [attr.aria-label]="(view.showDone() ? 'Esconder' : 'Mostrar') + ' finalizadas (' + view.doneCount() + ')'"
+      [attr.aria-pressed]="view.showDone()"
+      [attr.aria-label]="'Mostrar finalizadas (' + view.doneCount() + ')'"
       (click)="toggleDone()"
       [title]="view.showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
     >
       <lucide-icon [img]="DoneIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-      <span class="finalizadas-txt">{{ view.showDone() ? 'Esconder finalizadas' : 'Mostrar finalizadas' }}</span>
+      <span class="finalizadas-txt">Mostrar finalizadas</span>
       <span class="count" aria-hidden="true">{{ view.doneCount() }}</span>
     </button>
   }

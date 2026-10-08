@@ -31,7 +31,13 @@
       <app-pin class="pin" color="#f4f4f0" />
       <h2>Tudo finalizado</h2>
       <p>{{ view.hiddenDone() === 1 ? 'A anotação do mural está finalizada.' : 'As ' + view.hiddenDone() + ' anotações do mural estão finalizadas.' }} Pregue uma nova ou veja as que já foram.</p>
-      <button type="button" class="btn-ink" (click)="showDone()">Mostrar finalizadas</button>
+      <div class="acoes-vazio">
+        <button type="button" class="btn-ink" (click)="desk.newReview()">
+          <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+          Nova anotação
+        </button>
+        <button type="button" class="btn-quiet" (click)="showDone()">Mostrar finalizadas</button>
+      </div>
     </section>
   } @else if (!view.visible().length) {
     <section class="no-results cartolina" aria-live="polite">
@@ -39,13 +45,18 @@
       <h2>Nada no mural com esse filtro</h2>
       <p>
         @if (view.query().trim() && view.filterCount()) {
-          Nenhuma ficha fala de “{{ view.query().trim() }}” com esses filtros.
+          Nenhuma {{ word() }} fala de “{{ view.query().trim() }}” com esses filtros.
         } @else if (view.query().trim()) {
-          Nenhuma ficha fala de “{{ view.query().trim() }}”.
+          Nenhuma {{ word() }} fala de “{{ view.query().trim() }}”.
         } @else {
-          Nenhuma ficha com essa combinação de filtros.
+          Nenhuma {{ word() }} com essa combinação de filtros.
         }
       </p>
+      <!-- a busca acharia anotações finalizadas, que estão fora do mural -->
+      @if (view.doneMatches(); as n) {
+        <p>{{ n === 1 ? 'Uma anotação finalizada fala disso.' : n + ' anotações finalizadas falam disso.' }}</p>
+        <button type="button" class="btn-quiet" (click)="showDone()">Mostrar finalizadas</button>
+      }
       <button type="button" class="btn-ink" (click)="clearFilters()">Mostrar o mural inteiro</button>
     </section>
   } @else {

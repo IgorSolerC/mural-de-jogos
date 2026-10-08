@@ -286,6 +286,8 @@ export interface Review {
    * link dentro de outra anotação) vale menos e vai para o fim. Sem o campo, uma anotação comum.
    */
   noteRank?: NoteRank;
+  /** Fixada que era sub-nota: desafixada, volta a ser sub-nota (sem o campo, volta a ser comum). */
+  pinnedSub?: true;
   /**
    * Só nas anotações: quando foi finalizada (ISO), com o check da ficha ou da leitura. A finalizada
    * sai do mural, a não ser com "Mostrar finalizadas", e leva o carimbo com esse dia.
@@ -325,8 +327,17 @@ export function isPinnedNote(r: Pick<Review, 'noteRank'>): boolean {
 
 /** A anotação num outro lugar do mural (null: comum). */
 export function withRank(r: Review, rank: NoteRank | null, now: string): Review {
-  const { noteRank: _was, ...rest } = r;
+  const { noteRank: _was, pinnedSub: _sub, ...rest } = r;
   return { ...rest, ...(rank ? { noteRank: rank } : {}), updatedAt: now };
+}
+
+/** Fixar (lembrando se era sub-nota) ou desafixar (voltando a ser sub-nota, se era). */
+export function withPin(r: Review, pinned: boolean, now: string): Review {
+  if (pinned) {
+    const next = withRank(r, 'fixada', now);
+    return r.noteRank === 'sub' ? { ...next, pinnedSub: true } : next;
+  }
+  return withRank(r, r.pinnedSub ? 'sub' : null, now);
 }
 
 /** É uma anotação (do mural de anotações), não uma resenha? */
@@ -975,7 +986,7 @@ export function sanitizeReview(raw: unknown): Review | null {
  * "a favor") e a cartolina. Sem notas: guardada sem `scores` (um site antigo que a visse a jogaria
  * fora, nunca a leria como um jogo nota 0); aqui a Média fica 0, sem uso.
  */
-function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
+export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
   const now = new Date().toISOString();
   const createdAt = isoOr(r['createdAt'], now);
   const categories = sanitizeBonuses(
@@ -1003,6 +1014,7 @@ function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     hoursPlayed: null,
     ...(NOTE_SIZES.includes(r['noteSize']) ? { noteSize: r['noteSize'] as NoteSize } : {}),
     ...(NOTE_RANKS.includes(r['noteRank']) ? { noteRank: r['noteRank'] as NoteRank } : {}),
+    ...(r['noteRank'] === 'fixada' && r['pinnedSub'] === true ? { pinnedSub: true as const } : {}),
     ...optional('doneAt', isoOr(r['doneAt'], '') || undefined),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),

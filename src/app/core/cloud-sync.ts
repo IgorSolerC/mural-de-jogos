@@ -27,7 +27,7 @@ export const STATE_KEY = 'meu-mural:nuvem:sync';
 export const OWNER_KEY = 'meu-mural:nuvem:dono';
 
 /**
- * A versão do formato do mural na nuvem. Aumente quando `sanitizeReview`, `sanitizeDraft` ou
+ * A versão do formato do mural na nuvem. Aumente quando `sanitizeReview`, `sanitizeNote`, `sanitizeDraft` ou
  * `sanitizeWish` passarem a guardar um campo novo, ou quando o mural da nuvem ganhar um campo: um
  * site antigo (aberto pelo cache do modo offline) que receber um mural de versão maior para de
  * sincronizar em vez de jogar fora o que não conhece. O teste "versão do formato" em
@@ -38,8 +38,10 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  * 4: de onde sai o desenho do papel (`artFrom`), depois que uma rejogada mais antiga vira a original.
  *    Um site antigo jogaria o campo fora e redesenharia as cartolinas da obra.
  * 5: as anotações (`notas`, ao lado de `reviews`). Um site antigo enviaria o mural sem elas.
+ * 6: a anotação finalizada (`doneAt`) e o lugar dela no mural (`noteRank`). Um site antigo jogaria
+ *    os dois fora, e a anotação voltaria a ser aberta e comum em todo aparelho.
  */
-export const SYNC_SCHEMA = 5;
+export const SYNC_SCHEMA = 6;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no

@@ -39,6 +39,8 @@ export class WallPage {
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];
+  /** "ficha" nos murais de resenhas, "anotação" no de anotações. */
+  protected readonly word = computed(() => (this.notes() ? 'anotação' : 'ficha'));
   protected readonly highlight = computed(() => (this.view.shownSort() === 'nota' ? this.view.activeScore() : null));
   /** O que todas as fichas da parede recebem igual (ver WallCardPool). */
   private readonly cardProps = computed<WallCardProps>(() => ({

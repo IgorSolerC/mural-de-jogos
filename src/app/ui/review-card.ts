@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
-import { LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat } from 'lucide-angular';
+import { CheckCheck, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -26,7 +26,7 @@ import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
-import { plainText } from '../core/rich-text';
+import { HAS_LINK, checkCount, plainText } from '../core/rich-text';
 import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
@@ -43,13 +43,13 @@ import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
-import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
+import { NoteLinks, resolveNote } from '../core/note-links';
 import { Desk } from '../core/desk';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { WallMotion } from '../core/wall-motion';
 import { WallView } from '../core/wall-view';
-import { DoneStamp } from './done-stamp';
+import { DoneStamp, doneDayLong } from './done-stamp';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -139,7 +139,7 @@ function watchDistance(el: HTMLElement): () => void {
           <!-- Os selinhos da foto, colados um embaixo do outro no canto, cada um um pouco por cima do
                de cima: o cadeado da privada (só no seu mural; a ficha nunca sai dele) e, só capa e
                nome, o "outra vez" que distingue a rejogada da original. Um selo novo entra no fim. -->
-          @if ((review().private || (capas() && review().revisitOf)) && !bare()) {
+          @if ((review().private || (capas() && (review().revisitOf || doneAt()))) && !bare()) {
             <span class="selos">
               @if (review().private) {
                 <span class="selo privada-selo" title="Privada: só você vê">
@@ -149,6 +149,10 @@ function watchDistance(el: HTMLElement): () => void {
               }
               @if (capas() && review().revisitOf) {
                 <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" [strokeWidth]="3" /></span>
+              }
+              <!-- só capa e nome: no lugar do carimbo, um selinho de feito -->
+              @if (capas() && doneAt()) {
+                <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" /></span>
               }
             </span>
           }
@@ -165,7 +169,7 @@ function watchDistance(el: HTMLElement): () => void {
       }
 
       <div class="words">
-        @if (doneAt(); as at) {
+        @if (!capas() && doneAt(); as at) {
           <!-- finalizada: o carimbo datador ao lado do título -->
           <div class="titulo-feito">
             <h4 class="title" data-queima>{{ review().game.name }}</h4>
@@ -238,11 +242,58 @@ function watchDistance(el: HTMLElement): () => void {
       }
     </div>
 
+    <!-- antes do texto: no teclado, primeiro a ficha e os botões dela, depois as tarefas e os links -->
+    <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
+    @if (picking() && review().revisitOf) {
+      <!-- a rejogada não vai pro lado a lado: nem marca, nem abre -->
+    } @else if (picking()) {
+      <span class="marca" aria-hidden="true">
+        @if (pickedAt(); as n) {
+          <span class="n">{{ n }}</span>
+        }
+      </span>
+      <button
+        type="button"
+        class="hit"
+        [attr.aria-label]="'Marcar pra ver lado a lado: ' + review().game.name"
+        [attr.aria-pressed]="pickedAt() !== null"
+        (click)="toggled.emit(review().id)"
+      ></button>
+    } @else {
+      <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
+    }
+    <!-- o alfinete que fixa a anotação no topo do mural, ao lado do check -->
+    @if (canFinish()) {
+      <button
+        type="button"
+        class="fixar"
+        [class.marcado]="review().noteRank === 'fixada'"
+        [attr.aria-pressed]="review().noteRank === 'fixada'"
+        [attr.aria-label]="'Fixar no topo: ' + review().game.name"
+        [title]="review().noteRank === 'fixada' ? 'Desafixar' : 'Fixar no topo do mural'"
+        (click)="togglePin($event)"
+      >
+        <lucide-icon [img]="PinIcon" [size]="capas() ? 15 : 18" [strokeWidth]="2.4" aria-hidden="true" />
+      </button>
+    }
+    <!-- o check da anotação inteira: no seu mural, a caixinha no canto de cima -->
+    @if (canFinish()) {
+      <button
+        type="button"
+        class="feito"
+        [class.marcado]="!!review().doneAt"
+        [attr.aria-pressed]="!!review().doneAt"
+        [attr.aria-label]="'Finalizar: ' + review().game.name"
+        [title]="review().doneAt ? 'Abrir de novo' : 'Finalizar a anotação'"
+        (click)="finish()"
+      ></button>
+    }
     @if (note() && !compact() && !capas()) {
       @if (review().text.trim()) {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
-        <div class="nota-texto" [class.marcavel]="checkable()" data-queima appCorta>
-          <app-rich-text [text]="review().text" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
+        <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
+        <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
+          <app-rich-text data-queima [text]="review().text" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
     } @else if (!compact() && !capas()) {
@@ -274,51 +325,6 @@ function watchDistance(el: HTMLElement): () => void {
       <app-boletim class="boletim" data-queima [review]="review()" [highlight]="masked() ? null : highlight()" [masked]="masked()" />
     }
 
-    <!-- Marcando para o lado a lado: o adesivo redondo no canto diz se a ficha vai e em que ordem -->
-    @if (picking() && review().revisitOf) {
-      <!-- a rejogada não vai pro lado a lado: nem marca, nem abre -->
-    } @else if (picking()) {
-      <span class="marca" aria-hidden="true">
-        @if (pickedAt(); as n) {
-          <span class="n">{{ n }}</span>
-        }
-      </span>
-      <button
-        type="button"
-        class="hit"
-        [attr.aria-label]="'Marcar pra ver lado a lado: ' + review().game.name"
-        [attr.aria-pressed]="pickedAt() !== null"
-        (click)="toggled.emit(review().id)"
-      ></button>
-    } @else {
-      <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
-    }
-    <!-- o alfinete que fixa a anotação no topo do mural, ao lado do check -->
-    @if (canFinish()) {
-      <button
-        type="button"
-        class="fixar"
-        [class.marcado]="review().noteRank === 'fixada'"
-        [attr.aria-pressed]="review().noteRank === 'fixada'"
-        [attr.aria-label]="'Fixada no topo: ' + review().game.name"
-        [title]="review().noteRank === 'fixada' ? 'Desafixar' : 'Fixar no topo do mural'"
-        (click)="togglePin()"
-      >
-        <lucide-icon [img]="PinIcon" [size]="capas() ? 15 : 18" [strokeWidth]="2.4" aria-hidden="true" />
-      </button>
-    }
-    <!-- o check da anotação inteira: no seu mural, a caixinha no canto de cima -->
-    @if (canFinish()) {
-      <button
-        type="button"
-        class="feito"
-        [class.marcado]="!!review().doneAt"
-        [attr.aria-pressed]="!!review().doneAt"
-        [attr.aria-label]="'Finalizada: ' + review().game.name"
-        [title]="review().doneAt ? 'Abrir de novo' : 'Finalizar a anotação'"
-        (click)="finish()"
-      ></button>
-    }
     <!-- as reações de quem segue o dono, num balãozinho colado na quina de baixo (só quando há alguma) -->
     @if (reactTarget(); as t) {
       <div class="reacoes"><app-reaction-bubble [target]="t" /></div>
@@ -757,12 +763,18 @@ function watchDistance(el: HTMLElement): () => void {
       position: relative;
       margin-top: 14px;
       max-height: calc(var(--line) * var(--linhas));
-      overflow: hidden;
+      /* clip, e não hidden: com hidden a caixa rola quando o Tab chega numa tarefa lá embaixo, e as
+         primeiras linhas somem da ficha */
+      overflow: clip;
       font-family: var(--f-hand);
       font-size: 1.04rem;
       line-height: var(--line);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+    }
+    /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
+    .nota-texto app-rich-text {
+      display: block;
     }
     /* só o texto que passou da ficha esmaece no fim (ver ui/clamp.ts) */
     .nota-texto[data-corta] {
@@ -772,8 +784,8 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.nota-alta) .nota-texto {
       --linhas: 18;
     }
-    /* com tarefas marcáveis: o texto fica por cima do botão da ficha, mas só as caixinhas pegam o
-       toque; o resto do texto deixa o toque passar e abre a leitura como sempre */
+    /* com tarefas ou links: o texto fica por cima do botão da ficha, mas só as caixinhas e os links
+       pegam o toque; o resto do texto deixa o toque passar e abre a leitura como sempre */
     .nota-texto.marcavel {
       z-index: 5;
       pointer-events: none;
@@ -804,34 +816,51 @@ function watchDistance(el: HTMLElement): () => void {
       transition:
         opacity var(--t-ui) var(--ease-ui),
         scale var(--t-ui) var(--ease-ui);
+      --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      --lapis: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23151515' stroke-opacity='.3' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
-    /* o toque pega uma área maior que a caixinha */
+    /* na cartolina escura: o check na caneta clara, como o carimbo e o alfinete */
+    :host([data-cor$='escuro']) .feito,
+    :host([data-cor='preto']) .feito {
+      --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23ff8f80' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      --lapis: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23f1f1ec' stroke-opacity='.4' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    /* o toque pega uma área maior que a caixinha (do lado do alfinete, só até o meio do vão) */
     .feito::before {
       content: '';
       position: absolute;
-      inset: -9px;
+      inset: -9px -9px -9px -3px;
     }
     :host(:hover) .feito,
     .feito:focus-visible {
       opacity: 1;
     }
-    .feito:hover {
-      scale: 1.08;
-    }
-    .feito:focus-visible {
-      outline: 3px solid var(--hi);
+    /* o foco na cor da tinta da cartolina: o amarelo sumia na cartolina amarela */
+    .feito:focus-visible,
+    .fixar:focus-visible {
+      outline: 3px solid currentColor;
       outline-offset: 3px;
     }
-    /* o mouse em cima de uma vazia: o check a lápis, de leve, onde ele vai */
     @media (hover: hover) {
+      .feito:hover {
+        scale: 1.08;
+      }
+      /* o mouse em cima de uma vazia: o check a lápis, de leve, onde ele vai */
       .feito:not(.marcado):hover {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23151515' stroke-opacity='.3' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-image: var(--lapis);
+      }
+    }
+    /* sem mouse, os botões não esperam o mouse passar para aparecer */
+    @media (hover: none) {
+      .feito,
+      .fixar {
+        opacity: 0.8;
       }
     }
     /* o check de caneta vermelha das tarefas */
     .feito.marcado {
       opacity: 1;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-image: var(--check);
     }
     :host(.carimbando) .feito.marcado {
       animation: risca 260ms ease-out both;
@@ -845,14 +874,11 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.com-check) .words > :first-child {
       margin-right: 52px;
     }
+    :host(.com-check.compact) .words > :first-child {
+      margin-right: 58px;
+    }
     :host(.com-check.sem-capa) .words > :first-child {
       margin-right: 60px;
-    }
-    :host(.capas) .feito {
-      top: 6px;
-      right: 6px;
-      width: 22px;
-      height: 22px;
     }
 
     /* ===== O alfinete de fixar no topo: de leve, como o check; fixada, cravado e vermelho ===== */
@@ -878,21 +904,20 @@ function watchDistance(el: HTMLElement): () => void {
         rotate var(--t-physical) var(--ease-physical),
         scale var(--t-ui) var(--ease-ui);
     }
+    /* a área de toque, sem passar do meio do vão até a caixinha */
     .fixar::before {
       content: '';
       position: absolute;
-      inset: -6px;
+      inset: -6px -2px -6px -6px;
     }
     :host(:hover) .fixar,
     .fixar:focus-visible {
       opacity: 1;
     }
-    .fixar:hover {
-      scale: 1.1;
-    }
-    .fixar:focus-visible {
-      outline: 3px solid var(--hi);
-      outline-offset: 1px;
+    @media (hover: hover) {
+      .fixar:hover {
+        scale: 1.1;
+      }
     }
     .fixar.marcado {
       opacity: 1;
@@ -915,12 +940,6 @@ function watchDistance(el: HTMLElement): () => void {
         translate: 4px -6px;
       }
     }
-    :host(.capas) .fixar {
-      top: 5px;
-      right: 32px;
-      width: 22px;
-      height: 22px;
-    }
     .sub-marca {
       opacity: 0.7;
     }
@@ -940,12 +959,8 @@ function watchDistance(el: HTMLElement): () => void {
     .titulo-feito app-done-stamp {
       margin: 2px 0 0 2px;
     }
-    :host(.compact) .titulo-feito app-done-stamp,
-    :host(.capas) .titulo-feito app-done-stamp {
+    :host(.compact) .titulo-feito app-done-stamp {
       --fs: 0.62rem;
-    }
-    :host(.capas) .titulo-feito {
-      justify-content: center;
     }
     /* o carimbo bateu: a ficha sente o tranco na tachinha (na ficha, não no corpo: um corpo com
        transformação passaria a medir as camadas do papel) */
@@ -1221,19 +1236,45 @@ export class ReviewCard {
 
   /** Quando a anotação foi finalizada (o carimbo), ou null. */
   protected readonly doneAt = computed(() => (this.note() && !this.bare() ? (this.review().doneAt ?? null) : null));
-  /** O check da anotação inteira: só no seu mural. */
-  protected readonly canFinish = computed(() => this.note() && this.checkable() && !this.preview());
+  /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
+  protected readonly canFinish = computed(() => this.note() && this.checkable() && !this.preview() && !this.capas());
+  protected readonly DoneIcon = CheckCheck;
+  /**
+   * O texto tem o que tocar (tarefas, links)? Só então ele sobe por cima do botão da ficha; sem nada
+   * para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
+   */
+  protected readonly interactive = computed(() => {
+    const t = this.review().text;
+    return this.checkable() && (checkCount(t).total > 0 || HAS_LINK.test(t));
+  });
   /** Acabou de ganhar o check: o carimbo bate, e daqui a pouco a ficha sai do mural. */
   protected readonly stamping = computed(() => this.note() && !this.preview() && this.view.stamping().has(this.review().id));
 
   private readonly notePin = inject(NotePin);
   protected readonly PinIcon = PinGlyph;
-  protected togglePin(): void {
-    if (this.canFinish()) this.notePin.set(this.review().id, this.review().noteRank !== 'fixada');
+  protected togglePin(e: Event): void {
+    if (!this.canFinish()) return;
+    const btn = e.currentTarget as HTMLElement;
+    const focused = document.activeElement === btn;
+    this.notePin.set(this.review().id, this.review().noteRank !== 'fixada');
+    // a ficha mudou de seção (o elemento foi tirado e posto de novo): o foco volta para o alfinete
+    if (focused && document.activeElement !== btn) btn.focus({ preventScroll: false });
   }
 
   protected finish(): void {
-    if (this.canFinish()) this.noteDone.set(this.review().id, !this.review().doneAt);
+    // o carimbo ainda batendo: o segundo clique (um duplo clique) não desfaz o que acabou de fazer
+    if (!this.canFinish() || this.stamping()) return;
+    this.noteDone.set(this.review().id, !this.review().doneAt);
+  }
+
+  /** A ficha sai do mural; o foco que estava nela passa para a vizinha (senão cairia no nada). */
+  private leave(el: HTMLElement, id: string): void {
+    const had = el.contains(document.activeElement);
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-ficha]'));
+    const at = cards.indexOf(el);
+    const next = had ? (cards[at + 1] ?? cards[at - 1]) : undefined;
+    this.motion.run(() => this.view.release(id));
+    next?.querySelector<HTMLElement>('.hit')?.focus();
   }
 
   /** Cada carimbo que bate; o de antes (desfeito e refeito no meio) não leva a ficha. */
@@ -1252,7 +1293,8 @@ export class ReviewCard {
       () => {
         if (!still()) return;
         if (this.view.showDone() || reduced || typeof el.animate !== 'function') {
-          this.motion.run(() => this.view.release(id));
+          if (this.view.showDone()) this.motion.run(() => this.view.release(id));
+          else this.leave(el, id);
           return;
         }
         const out = el.animate(
@@ -1264,7 +1306,7 @@ export class ReviewCard {
         );
         out.finished.then(
           () => {
-            if (still()) this.motion.run(() => this.view.release(id));
+            if (still()) this.leave(el, id);
             out.cancel();
           },
           () => {},
@@ -1279,7 +1321,7 @@ export class ReviewCard {
    */
   protected readonly noteLinks = computed<NoteLinks>(() => {
     if (!this.checkable()) return {};
-    const notes = notesOf(this.store.reviews());
+    const notes = this.store.notes();
     const from = this.review().id;
     return {
       resolve: (title) => resolveNote(notes, title),
@@ -1332,8 +1374,9 @@ export class ReviewCard {
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   protected readonly date = computed(() => {
-    const day = this.review().completedAt;
-    return formatReviewDate(day, this.dayOnly());
+    const r = this.review();
+    // a fixada fica na seção Fixadas, sem a etiqueta do mês: a data vai inteira
+    return formatReviewDate(r.completedAt, this.dayOnly() && r.noteRank !== 'fixada');
   });
   protected readonly hours = computed(() => formatAmount(this.review().kind, this.review().hoursPlayed));
   protected readonly lead = computed(() => {
@@ -1387,7 +1430,8 @@ export class ReviewCard {
       const cats = r.bonuses.map((b) => b.label).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixada' : r.noteRank === 'sub' ? 'sub-nota' : '';
-      return `Abrir anotação: ${[r.game.name, rank, cats, when, r.private ? 'privada' : ''].filter(Boolean).join(', ')}`;
+      const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
+      return `Abrir anotação: ${[r.game.name, rank, done, cats, when, r.private ? 'privada' : ''].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];
     if (this.masked()) {

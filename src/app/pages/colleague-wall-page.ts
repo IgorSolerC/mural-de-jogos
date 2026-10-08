@@ -8,13 +8,13 @@ import { Toasts } from '../ui/toast';
 import { Busy } from '../ui/busy';
 import { ColleagueStore } from '../core/colleague-store';
 import { CloudMurals } from '../core/cloud-murals';
-import { KINDS, Kind, cap, countOf, isNotes, profileOf, revisitCountOf } from '../core/kinds';
+import { KINDS, Kind, SCORED_KINDS, cap, countOf, g, isNotes, profileOf, revisitCountOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Review, VERDICT_LABEL, fold, isDone, originalsOf } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from '../core/wall-filter';
-import { Direction, SPOILER_FACETS, SortKey, WallView, groupWall, sortFor, sortWall, withoutSpoilerFacets } from '../core/wall-view';
+import { Direction, SPOILER_FACETS, SortKey, WallView, directionLabelOf, groupWall, sortFor, sortWall, withoutSpoilerFacets } from '../core/wall-view';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { FilterSheet, FilterTags, FilterToggle } from '../ui/filter-sheet';
 import { ReviewCard } from '../ui/review-card';
@@ -137,7 +137,9 @@ export class ColleagueWallPage {
     { value: 'alfabetica', label: 'Título' },
     { value: 'categoria', label: 'Categoria' },
   ];
-  protected readonly sortLabel = computed(() => [...this.sorts, ...this.noteSorts].find((s) => s.value === this.shownSort())!.label);
+  protected readonly sortLabel = computed(() => this.shownSorts().find((s) => s.value === this.shownSort())?.label ?? 'Data');
+  /** O que a seta da ordem diz ("Mais recentes primeiro", "De A a Z"…), como no seu mural. */
+  protected readonly directionLabel = computed(() => directionLabelOf(this.shownSort(), this.direction(), this.profile()));
 
   /** As fichas do colega no mural aberto. */
   protected readonly reviews = computed(() => (this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind()));
@@ -178,6 +180,17 @@ export class ColleagueWallPage {
     this.vt.run(() => this.showDone.update((v) => !v));
   }
   /** O mural sem as finalizadas escondidas: o "todo" do mural, para contar e para o vazio. */
+  /** Trocou de mural no cartaz: a busca, os filtros e a ordem daqui eram do outro mural. */
+  private readonly resetOnKind = effect(() => {
+    this.mural.kind();
+    untracked(() => {
+      this.clear();
+      this.sort.set(null);
+      this.direction.set('desc');
+      this.showDone.set(false);
+    });
+  });
+  protected readonly isNotesWall = computed(() => isNotes(this.profile().kind));
   protected readonly pool = computed(() => (this.showDone() ? this.reviews() : this.reviews().filter((r) => !isDone(r))));
 
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
@@ -205,11 +218,11 @@ export class ColleagueWallPage {
     const shown = this.visible().length;
     const again = total - originalsOf(this.pool()).length;
     const all = again ? `${countOf(this.profile(), total - again)} e ${revisitCountOf(this.profile(), again)}` : countOf(this.profile(), total);
-    return shown === total ? `Mostrando todos os ${all}` : `Mostrando ${shown} de ${all}`;
+    return shown === total ? `Mostrando ${g(this.profile(), 'todos os', 'todas as')} ${all}` : `Mostrando ${shown} de ${all}`;
   });
 
   protected readonly groups = computed(() => {
-    const order = { sort: this.shownSort(), key: 'final' as const, direction: this.direction(), profile: this.profile() };
+    const order = { sort: this.shownSort(), key: 'final' as const, direction: this.direction(), profile: this.profile(), categories: this.activeFilter().category };
     return groupWall(sortWall(this.visible(), order), order, this.guarding());
   });
 
@@ -218,6 +231,11 @@ export class ColleagueWallPage {
     // uma ficha por obra: as rejogadas do colega não entram na conta nem na média
     const list = originalsOf(this.reviews());
     if (!list.length) return '';
+    // anotação não tem nota: só quantas estão no mural (e quantas já foram finalizadas)
+    if (isNotes(this.profile().kind)) {
+      const done = this.doneCount();
+      return `${countOf(this.profile(), list.length - done)}${done ? ` · ${done} ${done === 1 ? 'finalizada' : 'finalizadas'}` : ''}`;
+    }
     if (this.guarding()) {
       const n = this.unseenCount();
       return `${countOf(this.profile(), list.length)} · ${n} em segredo`;
@@ -231,7 +249,8 @@ export class ColleagueWallPage {
     const c = this.colleague();
     if (!c) return [];
     return KINDS.filter((k) => k !== this.mural.kind())
-      .map((kind) => ({ kind, label: cap(profileOf(kind).plural), n: c.reviews.filter((r) => r.kind === kind && !r.revisitOf).length }))
+      // as anotações finalizadas não estão no mural
+      .map((kind) => ({ kind, label: cap(profileOf(kind).plural), n: c.reviews.filter((r) => r.kind === kind && !r.revisitOf && !r.doneAt).length }))
       .filter((w) => w.n);
   });
 
@@ -286,6 +305,16 @@ export class ColleagueWallPage {
       this.clear();
       this.mural.kind.set(kind);
     });
+  }
+
+  /**
+   * Voltar à comparação: Comparar não tem mural de anotações. Vendo as anotações da pessoa, o
+   * cartaz troca antes para um mural com notas (um que ela tenha), senão a volta caía no seu mural.
+   */
+  protected backToCompare(): void {
+    if (!isNotes(this.mural.kind())) return;
+    const c = this.colleague();
+    this.mural.kind.set(SCORED_KINDS.find((k) => c?.reviews.some((r) => r.kind === k)) ?? 'jogos');
   }
 
   protected open(review: Review): void {

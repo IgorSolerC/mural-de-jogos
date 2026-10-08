@@ -52,7 +52,7 @@ import { cap, g, isNotes, profileOf } from '../core/kinds';
 import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
-import { notesOf, relinkAfterRename, sameTitle } from '../core/note-links';
+import { linkKey, linkableTitle, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
 import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
@@ -116,6 +116,8 @@ export class ReviewEditor {
   /** "Publicar ou manter privado?" só aparece quando o site tem nuvem: sem ela, ninguém vê o mural mesmo. */
   protected readonly cloud = inject(Cloud);
   readonly saved = output<SavedEvent>();
+  /** O editor fechou (salvando ou não). */
+  readonly closed = output<void>();
   /** Guardou só o jogo (nome e capa) para resenhar depois. */
   readonly drafted = output<SavedEvent>();
   /** Pediu para tirar o pendente da fila. */
@@ -366,28 +368,38 @@ export class ReviewEditor {
   protected readonly otherNotes = computed(() => (this.notes() ? notesOf(this.store.reviews()).filter((n) => n.id !== this.id()) : null));
 
   /**
-   * Outra anotação, mais antiga, com o mesmo título: os links para esse título abrem aquela (o
-   * editor avisa embaixo do título).
+   * Outra anotação com o mesmo título: os links para esse título abrem a mais antiga das duas (o
+   * editor avisa embaixo do título, dos dois jeitos). `mine`: os links passam a abrir esta.
    */
-  protected readonly titleTwin = computed(() => {
+  protected readonly titleTwin = computed<{ twin: Review; mine: boolean } | null>(() => {
     const list = this.otherNotes();
     if (!list) return null;
-    const twin = sameTitle(list, this.noteTitle(), this.id());
-    const mine = this.editing()?.createdAt;
-    return twin && (!mine || twin.createdAt <= mine) ? twin : null;
+    const title = this.noteTitle();
+    const twin = resolveNote(list, title);
+    if (!twin) return null;
+    // a nova ainda não tem data de criação: ela é a mais nova de todas
+    const me = { ...this.preview(), createdAt: this.editing()?.createdAt ?? '9999' };
+    return { twin, mine: resolveNote([...list, me], title)?.id === me.id };
   });
+  /** Um título com colchetes não cabe num link ("[[Compras [casa]]]" não seria lido como link). */
+  protected readonly bracketTitle = computed(() => this.notes() && !!this.noteTitle().trim() && !linkableTitle(this.noteTitle()));
+  /** O título do link que criou esta anotação (ver `openNote`): trocar o título leva o link junto. */
+  private linkTitle: string | null = null;
 
   /**
    * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce
    * sub-nota (ela faz parte da anotação de onde veio); dá para trocar no editor.
    */
   openNote(title: string): void {
-    this.open();
+    // sempre no mural de anotações, de onde quer que venha o link
+    this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.setNoteTitle(title);
     this.noteRank.set('sub');
+    this.linkTitle = title;
     // fechar sem mexer em nada não pergunta se quer descartar
     this.snapshot = this.serialize();
-    queueMicrotask(() => this.writer()?.focus());
+    // depois de desenhar: no primeiro uso, a folha da anotação ainda não existe neste instante
+    setTimeout(() => this.writer()?.focus());
   }
 
   protected setNoteTitle(name: string): void {
@@ -512,8 +524,9 @@ export class ReviewEditor {
    * Abre o editor: uma ficha para editar, um pendente ou um desejo para terminar, ou nada (ficha
    * nova). Com `revisitOf`, uma rejogada nova da ficha original dada.
    */
-  open(review?: Review, draft?: Draft, wish?: Wish, revisitOf?: Review): void {
-    const kind = review?.kind ?? draft?.kind ?? wish?.kind ?? revisitOf?.kind ?? this.mural.kind();
+  open(review?: Review, draft?: Draft, wish?: Wish, revisitOf?: Review, as?: Kind): void {
+    const kind = review?.kind ?? draft?.kind ?? wish?.kind ?? revisitOf?.kind ?? as ?? this.mural.kind();
+    this.linkTitle = null;
     this.kind.set(kind);
     this.editing.set(review ?? null);
     this.fromDraft.set(review ? null : (draft ?? null));
@@ -595,7 +608,8 @@ export class ReviewEditor {
     // e de novo depois que o conteúdo da resenha nova desenhar (e o foco ir para a busca)
     requestAnimationFrame(toTop);
     if (!review && !draft && !root) {
-      queueMicrotask(() =>
+      // depois de desenhar: trocando de mural, o campo do título ainda não existe neste instante
+      setTimeout(() =>
         isNotes(kind) ? this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-titulo-nota')?.focus() : this.search()?.focus(),
       );
     }
@@ -736,7 +750,7 @@ export class ReviewEditor {
     this.saved.emit({ id: review.id, isNew: !prev, swap });
   }
 
-  /** Prega a anotação: título e texto são obrigatórios; sem notas, status, veredito nem dificuldade. */
+  /** Prega a anotação: só o título é obrigatório; sem notas, status, veredito nem dificuldade. */
   private saveNote(): void {
     const name = this.noteTitle().trim();
     if (!name || !this.dateValid()) {
@@ -765,6 +779,8 @@ export class ReviewEditor {
       ...(this.isPrivate() ? {} : prev?.private ? { publishedAt: now } : prev?.publishedAt ? { publishedAt: prev.publishedAt } : {}),
       // editar não desfaz o check: a finalizada continua finalizada, no mesmo dia
       ...(prev?.doneAt ? { doneAt: prev.doneAt } : {}),
+      // continua fixada: desafixada, ainda volta a ser sub-nota
+      ...(prev?.pinnedSub && this.noteRank() === 'fixada' ? { pinnedSub: true as const } : {}),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
@@ -772,7 +788,15 @@ export class ReviewEditor {
     const clean = Object.fromEntries(Object.entries(note).filter(([, v]) => v !== undefined)) as unknown as Review;
     if (!this.isPrivate()) delete (clean as Partial<Review>).private;
     // mudou o título: os links das outras anotações que abriam esta passam para o título novo
-    const relinked = prev ? relinkAfterRename(notesOf(this.store.reviews()), prev, name, now) : [];
+    const notes = notesOf(this.store.reviews());
+    // nova, criada por um link e com outro título: o link de onde veio passa para o título novo
+    // (se nenhuma outra anotação já atende por aquele título)
+    const born = !prev && this.linkTitle && linkKey(this.linkTitle) !== linkKey(name) ? { ...clean, game: { ...clean.game, name: this.linkTitle } } : null;
+    const relinked = prev
+      ? relinkAfterRename(notes, prev, name, now)
+      : born
+        ? relinkAfterRename([...notes, born], born, name, now)
+        : [];
     if (prev) this.store.update(clean);
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);

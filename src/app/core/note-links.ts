@@ -49,14 +49,24 @@ export function renameLinks(text: string, from: string, to: string): string {
   return text.replace(LINK, (all, title: string) => (linkKey(title) === key ? `[[${to.trim()}]]` : all));
 }
 
+/** Um título que um link consegue escrever: "[[Compras [casa]]]" não seria lido como link. */
+export function linkableTitle(title: string): boolean {
+  return !!linkKey(title) && !/[[\]]/.test(title);
+}
+
 /**
  * A anotação `before` vai ganhar o título `title`: as outras anotações com links que a abriam
  * passam a apontar para o título novo. Só quando era ela que o link abria (com dois títulos
- * iguais, renomear a mais nova não mexe nos links da mais antiga). Devolve só as que mudaram.
+ * iguais, renomear a mais nova não mexe nos links da mais antiga) e quando o link novo também vai
+ * abrir ela: com o título de uma anotação mais antiga, o link levaria para aquela, e os links
+ * ficam como estavam. Um título com colchetes não cabe num link: nada muda. Devolve só as que
+ * mudaram.
  */
 export function relinkAfterRename(notes: readonly Review[], before: Review, title: string, now: string): Review[] {
   const from = before.game.name;
-  if (linkKey(from) === linkKey(title) || resolveNote(notes, from)?.id !== before.id) return [];
+  if (linkKey(from) === linkKey(title) || !linkableTitle(title) || resolveNote(notes, from)?.id !== before.id) return [];
+  const renamed = notes.map((n) => (n.id === before.id ? { ...n, game: { ...n.game, name: title } } : n));
+  if (resolveNote(renamed, title)?.id !== before.id) return [];
   const out: Review[] = [];
   for (const n of notes) {
     if (n.id === before.id) continue;

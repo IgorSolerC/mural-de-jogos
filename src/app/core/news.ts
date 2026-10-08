@@ -49,6 +49,26 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-07-anotacoes-correcoes',
+    version: '1.18.1',
+    kind: 'bugfix',
+    date: '2026-10-07',
+    title: 'Correções nas anotações',
+    items: [
+      'O check e o alfinete das anotações passam pela nuvem sem se perder, mesmo com uma versão antiga do site aberta em outro aparelho (ela para de sincronizar até ser recarregada).',
+      'Abrindo o backup de alguém em Comparar, as resenhas e anotações privadas dessa pessoa não aparecem mais.',
+      'Renomear uma anotação com o título de outra mais antiga (ou com colchetes) não desvia mais os links das outras anotações; o editor avisa dos dois jeitos.',
+      'A anotação criada por um link e renomeada antes de salvar leva o link junto. E, vindo da leitura, a leitura volta para a anotação de onde o link saiu.',
+      'Desafixar uma sub-nota a devolve para as sub-notas. Abrir de novo uma finalizada tem Desfazer, que devolve o dia em que ela tinha sido finalizada.',
+      'Finalizar na leitura, vindo por um link, volta para a anotação anterior; com "Mostrar finalizadas" ligado, o carimbo bate ali mesmo.',
+      'Na ordem por Data, as fixadas mostram a data inteira. Ordenando por categoria com o filtro de uma categoria, cada anotação fica na escolhida.',
+      'A busca avisa quando só anotações finalizadas falam do que foi procurado. O número do Mural não conta as finalizadas. "Tudo finalizado" ganhou o botão de nova anotação.',
+      'Na ficha "só capa e nome", o alfinete e a caixinha saem (eram pequenos demais), e a finalizada ganha um selinho.',
+      'O foco do teclado aparece em toda cartolina, não se perde ao finalizar ou fixar, e o texto da ficha não rola mais ao chegar numa tarefa lá embaixo.',
+      'No mural de alguém: anotação não tem nota, então sem "média 0,0", "em segredo" nem "Mostrar notas". "Voltar à comparação" volta mesmo. Trocar de mural limpa a busca e os filtros.',
+    ],
+  },
+  {
     id: '2026-10-07-anotacoes-fixadas',
     version: '1.18.0',
     kind: 'update',

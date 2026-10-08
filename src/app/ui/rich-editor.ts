@@ -95,8 +95,9 @@ type ListKind = 'ul' | 'ol' | 'check';
         [attr.aria-autocomplete]="notes() ? 'list' : null"
         [attr.aria-expanded]="notes() ? linking()?.auto === true && linking()?.big === big : null"
         [attr.aria-controls]="notes() ? areaId + '-elos' : null"
-        [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big ? areaId + '-elo-' + active() : null"
+        [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big && optionCount() ? areaId + '-elo-' + active() : null"
         (input)="value.set(area.value); watchLink(area, big)"
+        (focus)="onAreaFocus()"
         (click)="watchLink(area, big)"
         (keyup)="onKeyUp($event, area, big)"
         (keydown)="onKey($event, area)"
@@ -118,7 +119,7 @@ type ListKind = 'ul' | 'ol' | 'check';
                   aria-autocomplete="list"
                   aria-expanded="true"
                   [attr.aria-controls]="areaId + '-elos'"
-                  [attr.aria-activedescendant]="areaId + '-elo-' + active()"
+                  [attr.aria-activedescendant]="optionCount() ? areaId + '-elo-' + active() : null"
                   [value]="k.query"
                   (input)="setQuery($any($event.target).value)"
                   (keydown)="onListKey($event)"
@@ -154,7 +155,7 @@ type ListKind = 'ul' | 'ol' | 'check';
                 >
                   <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
                   <span class="elo-nome">Link para “{{ t }}”</span>
-                  <span class="elo-meta">a anotação ainda não existe: toque no link depois para criar</span>
+                  <span class="elo-meta">a anotação ainda não existe: abra o link depois para criar</span>
                 </li>
               }
               @if (!linkOptions().length && !newLink()) {
@@ -575,7 +576,7 @@ export class RichEditor {
     return (this.notes() ?? []).some((n) => linkKey(n.game.name) === key) ? null : t;
   });
 
-  private readonly optionCount = computed(() => this.linkOptions().length + (this.newLink() ? 1 : 0));
+  protected readonly optionCount = computed(() => this.linkOptions().length + (this.newLink() ? 1 : 0));
 
   /** Os links em "Ver como fica": mostram se a anotação existe, mas não abrem nada. */
   protected readonly previewLinks = computed<NoteLinks | null>(() => {
@@ -671,6 +672,11 @@ export class RichEditor {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) this.watchLink(area, big);
   }
 
+  /** Voltou para a folha com a busca da régua aberta: a busca fecha (Esc na folha seria o do editor). */
+  protected onAreaFocus(): void {
+    if (this.linking() && !this.linking()!.auto) this.linking.set(null);
+  }
+
   protected onAreaBlur(): void {
     // saiu da folha (sem ser para a lista, que não pega o foco): a lista automática fecha
     if (this.linking()?.auto) this.linking.set(null);
@@ -760,7 +766,8 @@ export class RichEditor {
   }
 
   protected onKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
-    if (this.linking()?.auto && this.onListKey(e)) return;
+    // com a lista aberta, as setas, o Enter e o Esc são dela (o Esc fecha só a lista, não o editor)
+    if (this.linking() && (this.linking()!.auto || e.key === 'Escape') && this.onListKey(e)) return;
     const mod = e.ctrlKey || e.metaKey;
     if (mod && !e.altKey && (e.key === 'b' || e.key === 'B')) {
       e.preventDefault();

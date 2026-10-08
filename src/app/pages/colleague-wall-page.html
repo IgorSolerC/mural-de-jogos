@@ -1,4 +1,4 @@
-<a class="voltar btn-quiet" routerLink="/comparar">
+<a class="voltar btn-quiet" routerLink="/comparar" (click)="backToCompare()">
   <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
   Voltar à comparação
 </a>
@@ -97,12 +97,12 @@
         <button
           type="button"
           class="plate notas"
-          [class.is-active]="showDone()"
+          [attr.aria-pressed]="showDone()"
           (click)="toggleDone()"
           [title]="showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
         >
           <lucide-icon [img]="DoneIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          <span>{{ showDone() ? 'Esconder finalizadas' : 'Mostrar finalizadas' }}</span>
+          <span>Mostrar finalizadas</span>
           <span class="count" aria-hidden="true">{{ doneCount() }}</span>
           <span class="sr-only">({{ doneCount() }})</span>
         </button>
@@ -124,8 +124,8 @@
             type="button"
             class="plate icon"
             (click)="toggleDirection()"
-            [attr.aria-label]="direction() === 'desc' ? 'Ordem decrescente; inverter' : 'Ordem crescente; inverter'"
-            [title]="direction() === 'desc' ? 'Decrescente' : 'Crescente'"
+            [attr.aria-label]="directionLabel() + '. Inverter ordem'"
+            [title]="directionLabel()"
           >
             <lucide-icon [img]="direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
@@ -160,7 +160,7 @@
       />
     }
 
-    @if (query().trim() || filterCount()) {
+    @if ((query().trim() || filterCount()) && pool().length) {
       <div class="mostrando">
         <p class="mostrando-n" aria-live="polite">Mostrando {{ visible().length }} de {{ pool().length }}</p>
         <app-filter-tags [tags]="tags()" (remove)="toggleFilter($event)" />
@@ -171,7 +171,7 @@
     @if (!pool().length) {
       <p class="nada">Todas as anotações de {{ c.name }} estão finalizadas. <button type="button" class="limpar" (click)="toggleDone()">Mostrar finalizadas</button></p>
     } @else if (!visible().length) {
-      <p class="nada">Nenhuma ficha de {{ c.name }} com esses filtros.</p>
+      <p class="nada">Nenhuma {{ isNotesWall() ? 'anotação' : 'ficha' }} de {{ c.name }} com esses filtros.</p>
     } @else {
       <h2 class="sr-only">Fichas de {{ c.name }}</h2>
       <div class="wall" [class.compact]="simple()" [class.capas]="capas()">

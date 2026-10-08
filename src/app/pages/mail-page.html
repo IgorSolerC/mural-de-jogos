@@ -113,7 +113,7 @@
                       }
                     </span>
                     <div class="seguiu-txt">
-                      <p><strong>{{ reactedNames(b) }}</strong> {{ b.who.length > 1 ? 'reagiram' : 'reagiu' }} à sua ficha de <em class="obra">{{ b.titulo }}</em></p>
+                      <p><strong>{{ reactedNames(b) }}</strong> {{ b.who.length > 1 ? 'reagiram' : 'reagiu' }} {{ reactedWhat(b) }} <em class="obra">{{ b.titulo }}</em></p>
                       <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
                     </div>
                     @if (reactedReview(b); as mine) {

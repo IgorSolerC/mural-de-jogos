@@ -34,6 +34,7 @@ import { plainText, toggleCheck } from '../core/rich-text';
 import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
+import { WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
 
 
@@ -93,24 +94,25 @@ import { DoneStamp } from './done-stamp';
                 @if (note() && r.doneAt) {
                   <!-- finalizada: o carimbo datador ao lado do título, como na ficha -->
                   <div class="titulo-feito">
-                    <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
-                    <app-done-stamp size="big" [at]="r.doneAt" />
+                    <h2 id="leitura-titulo" class="title" tabindex="-1">{{ r.game.name }}</h2>
+                    <app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" />
                   </div>
                 } @else {
-                  <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
+                  <h2 id="leitura-titulo" class="title" tabindex="-1">{{ r.game.name }}</h2>
                 }
                 @if (r.game.by) {
                   <p class="meta by">de {{ r.game.by }}</p>
                 }
                 <p class="meta">
+                  <!-- o lugar da anotação no mural vem antes da data, com ou sem data -->
+                  @if (note() && r.noteRank === 'fixada') {
+                    Fixada<span aria-hidden="true"> · </span>
+                  } @else if (note() && r.noteRank === 'sub') {
+                    Sub-nota<span aria-hidden="true"> · </span>
+                  }
                   @if (r.completedAt === null) {
                     {{ noDay }}
                   } @else if (note()) {
-                    @if (r.noteRank === 'fixada') {
-                      Fixada<span aria-hidden="true"> · </span>
-                    } @else if (r.noteRank === 'sub') {
-                      Sub-nota<span aria-hidden="true"> · </span>
-                    }
                     {{ date() }}
                   } @else {
                     {{ dayLabel(r.kind, r.status) }} {{ date() }}
@@ -214,7 +216,8 @@ import { DoneStamp } from './done-stamp';
             } @else {
             <button type="button" class="btn-quiet danger" (click)="remove.emit(r.id)">
               <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-              Remover do mural
+              <!-- a anotação finalizada também sai do mural; apagar é outra coisa -->
+              {{ note() ? 'Apagar anotação' : 'Remover do mural' }}
             </button>
             <div class="actions">
               @if (!note()) {
@@ -267,7 +270,7 @@ export class ReviewReader {
   /** Pediu para escrever mais uma vez da obra (rejogada, releitura, reassistida). */
   readonly revisit = output<string>();
   /** Tocou num link para uma anotação que não existe: criar uma com esse título. */
-  readonly createNote = output<string>();
+  readonly createNote = output<{ title: string; from: string }>();
 
   protected readonly side = inject(SideBySide);
   private readonly settings = inject(Settings);
@@ -345,7 +348,8 @@ export class ReviewReader {
 
   /** Marcou uma tarefa do texto na leitura: a ficha (sua) é salva com ela marcada, sem abrir o editor. */
   protected toggleTask(line: number): void {
-    const r = this.review();
+    // a anotação como está agora (a nuvem pode ter trazido uma versão mais nova com a leitura aberta)
+    const r = this.review() && (this.store.get(this.review()!.id) ?? this.review());
     if (!r || this.owner() !== null) return;
     const text = toggleCheck(r.text, line);
     if (text === r.text) return;
@@ -359,7 +363,8 @@ export class ReviewReader {
   protected togglePin(): void {
     const r = this.review();
     if (!r || this.owner() !== null || !this.note()) return;
-    this.notePin.set(r.id, r.noteRank !== 'fixada');
+    // o bilhete com Desfazer ficaria por baixo da leitura: o próprio botão desfaz
+    this.notePin.set(r.id, r.noteRank !== 'fixada', { quiet: true });
     this.review.set(this.store.get(r.id) ?? r);
   }
   /**
@@ -370,10 +375,20 @@ export class ReviewReader {
     const r = this.review();
     if (!r || this.owner() !== null || !this.note()) return;
     const done = !r.doneAt;
-    this.noteDone.set(r.id, done);
-    if (done) this.close();
-    else this.review.set(this.store.get(r.id) ?? r);
+    // mostrando as finalizadas, ela fica no mural: o carimbo bate aqui mesmo, e a leitura continua
+    const stay = !done || this.view.showDone();
+    // veio por um link: volta para a anotação de antes (o bilhete com Desfazer ficaria por baixo da leitura)
+    const backTo = !stay && this.trail().length > 0;
+    this.noteDone.set(r.id, done, { quiet: stay || backTo });
+    if (stay) {
+      this.review.set(this.store.get(r.id) ?? r);
+      this.stampedNow.set(done);
+    } else if (backTo) this.back();
+    else this.close();
   }
+  /** Acabou de finalizar com a leitura aberta: o carimbo bate. */
+  protected readonly stampedNow = signal(false);
+  private readonly view = inject(WallView);
   /**
    * As anotações por onde se chegou até aqui, pelos links (a última é a de "Voltar"). Abrir a
    * leitura de novo começa do zero.
@@ -391,7 +406,8 @@ export class ReviewReader {
     return {
       resolve: (title) => resolveNote(notes, title),
       open: (n) => this.follow(n),
-      ...(mine ? { create: (title: string) => this.createNote.emit(title) } : {}),
+      // a anotação aberta é de onde o link veio: depois de criar a nova, a leitura volta para ela
+      ...(mine ? { create: (title: string) => this.createNote.emit({ title, from: this.review()!.id }) } : {}),
     };
   });
 
@@ -415,9 +431,11 @@ export class ReviewReader {
   /** Troca a anotação da leitura, do alto, com o foco no título (ou no "Voltar"). */
   private show(n: Review): void {
     this.review.set(n);
+    this.stampedNow.set(false);
     const dialog = this.dialog().nativeElement;
     dialog.scrollTop = 0;
-    setTimeout(() => dialog.querySelector<HTMLElement>('.voltar-elo')?.focus() ?? dialog.querySelector<HTMLElement>('.icon-btn')?.focus());
+    // o foco no título: o leitor de tela anuncia a anotação que abriu
+    setTimeout(() => dialog.querySelector<HTMLElement>('#leitura-titulo')?.focus());
   }
 
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
@@ -495,6 +513,7 @@ export class ReviewReader {
     this.owner.set(owner);
     this.pool.set(pool);
     this.review.set(review);
+    this.stampedNow.set(false);
     this.dialog().nativeElement.showModal();
   }
 

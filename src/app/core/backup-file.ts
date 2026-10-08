@@ -102,6 +102,8 @@ export function parseBackupSnapshot(text: string): BackupSnapshot {
       skipped++;
       continue;
     }
+    // o backup de alguém aberto aqui é o mural dela visto por outra pessoa: o que é privado fica com ela
+    if (r.private) continue;
     const removedAt = deleted?.reviews?.[r.id];
     if (
       typeof removedAt === 'string' &&

@@ -1,6 +1,6 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { unseenOf } from './comparison';
-import { Review } from './review';
+import { Review, isNote } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 
@@ -23,7 +23,9 @@ export class SpoilerShield {
 
   /** Os ids das fichas de `theirs` que ficam em segredo (vazio com a opção desligada). Use dentro de um computed. */
   hiddenIn(theirs: readonly Review[]): ReadonlySet<string> {
-    if (!this.on() || !theirs.length) return NONE;
-    return unseenOf(this.mine(), theirs);
+    // a anotação não tem nota: nada a esconder
+    const scored = theirs.filter((r) => !isNote(r));
+    if (!this.on() || !scored.length) return NONE;
+    return unseenOf(this.mine(), scored);
   }
 }

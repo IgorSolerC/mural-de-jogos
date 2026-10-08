@@ -193,7 +193,7 @@ export class App {
   }
 
   protected tabCount(path: string): number | null {
-    if (path === '/') return this.mural.count() || null;
+    if (path === '/') return this.mural.openCount() || null;
     if (path === '/fila') return this.mural.draftCount() || null;
     if (path === '/wishlist') return this.mural.wishCount() || null;
     if (path === '/amigos') return (this.settings.mailCount() && this.follow.unseen()) || null;
@@ -255,10 +255,23 @@ export class App {
     );
   }
 
-  /** O link para uma anotação que ainda não existe: o editor abre com o título já escrito. */
-  protected newNote(title: string): void {
+  /** A anotação que estava aberta na leitura quando um link criou outra: a leitura volta para ela. */
+  private returnTo: string | null = null;
+
+  /**
+   * O link para uma anotação que ainda não existe: o editor abre com o título já escrito. Veio da
+   * leitura (`from`)? Salvando ou não, a leitura volta para a anotação de onde o link saiu.
+   */
+  protected newNote(title: string, from: string | null = null): void {
     this.reader().close();
+    this.returnTo = from;
     this.editor().openNote(title);
+  }
+
+  protected onEditorClosed(): void {
+    const back = this.returnTo && this.store.get(this.returnTo);
+    this.returnTo = null;
+    if (back) this.reader().open(back);
   }
 
   protected editReview(id: string): void {

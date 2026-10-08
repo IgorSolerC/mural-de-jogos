@@ -177,6 +177,13 @@ export class WallView {
     return this.pool().filter((r) => matchesQuery(r, needle));
   });
 
+  /** Quantas anotações finalizadas, escondidas, a busca acharia (para o mural dizer que elas existem). */
+  readonly doneMatches = computed(() => {
+    const needle = fold(this.query().trim());
+    if (!needle || this.showDone()) return 0;
+    return this.mural.wall().filter((r) => isDone(r) && !this.stamping().has(r.id) && matchesQuery(r, needle)).length;
+  });
+
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
   readonly facets = computed(() => {
     const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile());
@@ -199,6 +206,7 @@ export class WallView {
     key: this.activeScore(),
     direction: this.direction(),
     profile: this.mural.profile(),
+    categories: this.activeFilter().category,
   }));
 
   readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.settings.noSpoilers()));
@@ -285,6 +293,25 @@ export class WallView {
 }
 
 
+/** O que a seta da ordem diz, no seu mural e no de um colega. */
+export function directionLabelOf(sort: SortKey, direction: Direction, profile: KindProfile): string {
+  const desc = direction === 'desc';
+  switch (sort) {
+    case 'data':
+      return desc ? 'Mais recentes primeiro' : 'Mais antigas primeiro';
+    case 'alfabetica':
+      return desc ? 'De Z a A' : 'De A a Z';
+    case 'categoria':
+      return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
+    case 'prioridade':
+      return desc ? 'Fixadas, comuns e sub-notas; as mais recentes primeiro' : 'Fixadas, comuns e sub-notas; as mais antigas primeiro';
+    case 'status':
+      return `${desc ? profile.statusGroup.platinado : profile.statusGroup.incompleto} primeiro`;
+    default:
+      return desc ? 'Maiores notas primeiro' : 'Menores notas primeiro';
+  }
+}
+
 /** Como o mural está ordenado: serve ao seu mural e ao mural de um colega. */
 export interface WallOrder {
   sort: SortKey;
@@ -292,6 +319,8 @@ export interface WallOrder {
   key: ScoreKey;
   direction: Direction;
   profile: KindProfile;
+  /** As categorias do filtro (só nas anotações): ordenando por categoria, cada uma fica numa delas. */
+  categories?: readonly string[];
 }
 
 /** As fichas na ordem pedida. */
@@ -334,8 +363,9 @@ const PINNED_GROUP: [string, string] = ['fixadas', 'Fixadas'];
 const RANK_GROUPS: [string, string][] = [PINNED_GROUP, ['comuns', 'Anotações'], ['sub-notas', 'Sub-notas']];
 
 /** A categoria que agrupa a anotação: a primeira que foi colada nela, ou nenhuma. */
-function firstCategory(r: Review): string | null {
-  return r.bonuses[0]?.label ?? null;
+function firstCategory(r: Review, chosen: readonly string[] = []): string | null {
+  // filtrando por categoria, a anotação fica na primeira das escolhidas que ela tem
+  return (chosen.length ? r.bonuses.find((b) => chosen.includes(b.label)) : undefined)?.label ?? r.bonuses[0]?.label ?? null;
 }
 
 function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
@@ -344,7 +374,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       return (r) => RANK_GROUPS[rankOrder(r)];
     case 'categoria':
       return (r) => {
-        const c = firstCategory(r);
+        const c = firstCategory(r, o.categories);
         return c === null ? ['sem-categoria', 'Sem categoria'] : [`c:${fold(c)}`, c];
       };
     case 'alfabetica':
@@ -408,8 +438,8 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
     case 'categoria':
       // pela primeira categoria (sem categoria sempre no fim), e dentro dela as mais recentes primeiro
       return (a, b) => {
-        const ca = firstCategory(a);
-        const cb = firstCategory(b);
+        const ca = firstCategory(a, o.categories);
+        const cb = firstCategory(b, o.categories);
         if ((ca === null) !== (cb === null)) return ca === null ? 1 : -1;
         return (ca !== null && cb !== null ? sign * collator.compare(ca, cb) : 0) || -byDate(a, b);
       };

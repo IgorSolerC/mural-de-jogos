@@ -1,6 +1,6 @@
 import { Review, sanitizeReview } from './review';
-import { linkKey, linksIn, relinkAfterRename, renameLinks, resolveNote, sameTitle } from './note-links';
-import { hasFormatting, parseInline, plainText } from './rich-text';
+import { linkKey, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, sameTitle } from './note-links';
+import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
 
@@ -47,5 +47,23 @@ describe('links entre anotações', () => {
     // a gêmea mais nova muda de nome: os links continuam na mais antiga
     const twin = note('n4', 'Console', '', '2026-06-01T00:00:00.000Z');
     expect(relinkAfterRename([target, list, twin], twin, 'Console 2', now)).toEqual([]);
+  });
+
+  it('o título novo de outra anotação, mais antiga, ou com colchetes: os links ficam como estavam', () => {
+    const now = '2026-10-08T00:00:00.000Z';
+    const compras = note('n1', 'Compras', '', '2026-01-01T00:00:00.000Z');
+    const mercado = note('n2', 'Mercado', '', '2026-05-01T00:00:00.000Z');
+    const list = note('n3', 'Lista', 'ver [[Mercado]]');
+    // o link "[[Compras]]" abriria a Compras, mais antiga: o de Mercado não vira ele
+    expect(relinkAfterRename([compras, mercado, list], mercado, 'Compras', now)).toEqual([]);
+    // "[[Compras [casa]]]" não seria um link
+    expect(relinkAfterRename([compras, mercado, list], mercado, 'Mercado [casa]', now)).toEqual([]);
+    expect(linkableTitle('Mercado [casa]')).toBeFalse();
+    expect(linkableTitle('Mercado')).toBeTrue();
+  });
+
+  it('um caractere de uso privado no texto não vira link; a tarefa marca com \\r\\n no texto', () => {
+    expect(parseInline(' e [[Compras]]')).toEqual([{ text: ' e ' }, { text: 'Compras', link: true }]);
+    expect(toggleCheck('- [ ] leite\r\n- [ ] ovos', 1)).toBe('- [ ] leite\n- [x] ovos');
   });
 });

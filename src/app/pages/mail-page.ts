@@ -378,10 +378,15 @@ export class MailPage {
     return [...new Set(b.who.map((w) => reactionOf(w.reacao).emoji))];
   }
 
+  /** "à sua ficha de Hades", ou "à sua anotação Compras". */
+  protected reactedWhat(b: Reacted): string {
+    return b.item.mural === 'anotacoes' ? 'à sua anotação' : 'à sua ficha de';
+  }
+
   /** O que o leitor de tela diz do bilhete: "Bia reagiu com Fogo à sua ficha de Hades". */
   protected reactedSpoken(b: Reacted): string {
     const how = [...new Set(b.who.map((w) => reactionOf(w.reacao).label))].join(', ');
-    return `${this.reactedNames(b)} ${b.who.length > 1 ? 'reagiram' : 'reagiu'} com ${how} à sua ficha de ${b.titulo}`;
+    return `${this.reactedNames(b)} ${b.who.length > 1 ? 'reagiram' : 'reagiu'} com ${how} ${this.reactedWhat(b)} ${b.titulo}`;
   }
 
   /** A minha ficha que recebeu a reação, se ela ainda está no mural. */
