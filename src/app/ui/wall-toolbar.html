@@ -1,9 +1,118 @@
-<!-- só no mural de anotações: as divisórias por categoria, em cima de tudo -->
 @if (notes()) {
+  <!-- O mural de anotações é uma pasta: as divisórias por categoria em cima e, emendado nelas, o
+       corpo de papel manilha com tudo o que mexe no mural. Na primeira linha, a busca (uma etiqueta
+       colada) e os controles impressos em tinta (o ligado ganha o traço de marca-texto); depois da
+       linha picotada, as tags da aba e as tarefas. -->
   <app-note-tabs class="cadernos" />
-}
 
-<div class="shelf" [class.notas]="notes()">
+  <div class="pasta">
+    <div class="pasta-linha">
+      <app-search-strip
+        class="pasta-busca"
+        inputId="busca-mural"
+        [glued]="true"
+        [label]="searchLabel()"
+        [placeholder]="searchLabel() + '…'"
+        [value]="view.query()"
+        (valueChange)="view.query.set($event)"
+      />
+
+      <div class="pasta-acoes">
+        <button
+          #filterTab
+          type="button"
+          class="tinta"
+          [class.is-active]="open()"
+          [attr.aria-expanded]="open()"
+          aria-controls="cartela-filtros"
+          (click)="toggleOpen($event)"
+        >
+          <lucide-icon [img]="FilterIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <span>Filtrar</span>
+          @if (view.filterCount()) {
+            <span class="selo-n" aria-hidden="true">{{ view.filterCount() }}</span>
+            <span class="sr-only">({{ view.filterCount() }} ligados)</span>
+          }
+        </button>
+        @if (view.doneCount() || view.showDone()) {
+          <button
+            type="button"
+            class="tinta"
+            [attr.aria-pressed]="view.showDone()"
+            [attr.aria-label]="'Mostrar finalizadas (' + view.doneCount() + ')'"
+            (click)="toggleDone()"
+            [title]="view.showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
+          >
+            <lucide-icon [img]="DoneIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <span class="finalizadas-txt" aria-hidden="true">Finalizadas</span>
+            <span class="finalizadas-curto" aria-hidden="true">Feitas</span>
+            <span class="tinta-n" aria-hidden="true">{{ view.doneCount() }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="pasta-vista">
+        <div class="pasta-ordem" role="group" aria-label="Ordenar">
+          <label class="tinta campo">
+            <span class="campo-pre">Ordenar</span>
+            <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
+            <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+            <select aria-label="Ordenar por" [value]="sortValue()" (change)="setSortValue($any($event.target).value)">
+              @for (o of sortOptions(); track o.value) {
+                <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
+              }
+            </select>
+          </label>
+          <button
+            type="button"
+            class="tinta so-icone"
+            (click)="flip()"
+            [attr.aria-label]="directionLabel() + '. Inverter ordem'"
+            [title]="directionLabel()"
+          >
+            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
+          </button>
+        </div>
+
+        <div class="pasta-tipos" role="group" aria-label="Tipo de ficha">
+          @for (d of noteDensities; track d.value) {
+            <button
+              type="button"
+              class="tinta so-icone"
+              [attr.aria-pressed]="view.density() === d.value"
+              (click)="setDensity(d.value)"
+              [attr.aria-label]="d.label"
+              [title]="d.label"
+            >
+              <lucide-icon [img]="d.icon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- depois do picote: as tags da aba (um toque filtra) e as tarefas das anotações à mostra -->
+    <div class="pasta-linha pasta-baixo">
+      <app-tag-shortcuts class="pasta-tags" />
+      @if (view.tasks(); as t) {
+        @if (t.total) {
+          <p class="tarefas" [class.todas]="!t.todo">
+            <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            @if (!t.todo) {
+              <span>{{ t.total === 1 ? 'A tarefa está feita' : 'As ' + t.total + ' tarefas estão feitas' }}</span>
+            } @else {
+              <span aria-hidden="true">{{ t.done }} {{ t.done === 1 ? 'feita' : 'feitas' }}</span>
+              <span class="tarefas-barra" aria-hidden="true"><span [style.width.%]="(t.done / t.total) * 100"></span></span>
+              <span aria-hidden="true">{{ t.todo }} para fazer</span>
+              <span class="sr-only">Tarefas no mural: {{ t.done }} de {{ t.total }} feitas, {{ t.todo }} para fazer</span>
+            }
+          </p>
+        }
+      }
+    </div>
+  </div>
+} @else {
+<div class="shelf">
   <app-search-strip
     class="search"
     inputId="busca-mural"
@@ -32,24 +141,6 @@
     }
   </button>
 
-  <!-- Só no mural de anotações, ao lado do Filtrar (onde fica o Mostrar notas no mural de um colega):
-       as finalizadas, com check, à mostra ou não -->
-  @if (notes() && (view.doneCount() || view.showDone())) {
-    <button
-      type="button"
-      class="plate finalizadas"
-      [attr.aria-pressed]="view.showDone()"
-      [attr.aria-label]="'Mostrar finalizadas (' + view.doneCount() + ')'"
-      (click)="toggleDone()"
-      [title]="view.showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
-    >
-      <lucide-icon [img]="DoneIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-      <span class="finalizadas-txt">Mostrar finalizadas</span>
-      <span class="finalizadas-curto" aria-hidden="true">Feitas</span>
-      <span class="count" aria-hidden="true">{{ view.doneCount() }}</span>
-    </button>
-  }
-
   <div class="group order" role="group" aria-label="Ordenar">
     <label class="plate pick">
       <span class="pick-pre">Ordenar</span>
@@ -60,7 +151,7 @@
           <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
         }
         <!-- sem spoilers, ordenar por nota entregaria o ranking -->
-        @if (!settings.noSpoilers() && !notes()) {
+        @if (!settings.noSpoilers()) {
           <optgroup label="Nota">
             @for (o of scoreOptions(); track o.value) {
               <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
@@ -80,8 +171,7 @@
     </button>
   </div>
 
-  <!-- Marcar fichas para ver lado a lado (anotação não se compara) -->
-  @if (!notes()) {
+  <!-- Marcar fichas para ver lado a lado -->
   <button
     type="button"
     class="plate mark"
@@ -97,7 +187,6 @@
       <span class="sr-only">({{ side.count() }} {{ side.count() === 1 ? 'marcada' : 'marcadas' }})</span>
     }
   </button>
-  }
 
   <div class="group density" role="group" aria-label="Tipo de ficha">
     <button
@@ -130,21 +219,9 @@
     >
       <lucide-icon [img]="CoversIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
     </button>
-    <!-- só no mural de anotações: uma linha por anotação, o índice do caderno -->
-    @if (notes()) {
-      <button
-        type="button"
-        class="plate icon"
-        [attr.aria-pressed]="view.density() === 'lista'"
-        (click)="setDensity('lista')"
-        aria-label="Lista"
-        title="Lista"
-      >
-        <lucide-icon [img]="ListIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-      </button>
-    }
   </div>
 </div>
+}
 
 @if (open()) {
   <app-filter-sheet

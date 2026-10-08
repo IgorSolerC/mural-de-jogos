@@ -7,6 +7,7 @@ import {
   Grid3x3,
   LayoutGrid,
   List,
+  ListChecks,
   ListFilter,
   LucideAngularModule,
   Rows3,
@@ -22,6 +23,7 @@ import { Density, SortKey, WallView, directionLabelOf } from '../core/wall-view'
 import { Settings } from '../core/settings';
 import { FilterSheet, FilterToggle } from './filter-sheet';
 import { NoteTabsBar } from './note-tabs-bar';
+import { TagShortcuts } from './tag-shortcuts';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
 
@@ -42,7 +44,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, LucideAngularModule, NoteTabsBar, SearchStrip],
+  imports: [FilterSheet, LucideAngularModule, NoteTabsBar, SearchStrip, TagShortcuts],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -59,6 +61,14 @@ export class WallToolbar {
   protected readonly CompactIcon = LayoutGrid;
   protected readonly CoversIcon = Grid3x3;
   protected readonly ListIcon = List;
+  protected readonly TasksIcon = ListChecks;
+  /** Os tipos de ficha da pasta das anotações (com a Lista, que só elas têm). */
+  protected readonly noteDensities: readonly { value: Density; label: string; icon: typeof List }[] = [
+    { value: 'completa', label: 'Fichas completas', icon: Rows3 },
+    { value: 'simples', label: 'Fichas simples', icon: LayoutGrid },
+    { value: 'capas', label: 'Só capa e nome', icon: Grid3x3 },
+    { value: 'lista', label: 'Lista', icon: List },
+  ];
   protected readonly ChevronIcon = ChevronDown;
   protected readonly MarkIcon = SquareCheckBig;
   protected readonly FilterIcon = ListFilter;

@@ -9,10 +9,12 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
   selector: 'app-search-strip',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { role: 'search' },
+  host: { role: 'search', '[class.colada]': 'glued()' },
   template: `
-    <span class="tape tape-l" aria-hidden="true"></span>
-    <span class="tape tape-r" aria-hidden="true"></span>
+    @if (!glued()) {
+      <span class="tape tape-l" aria-hidden="true"></span>
+      <span class="tape tape-r" aria-hidden="true"></span>
+    }
     <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
     <label [for]="inputId()" class="sr-only">{{ label() }}</label>
     <input
@@ -54,6 +56,25 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
       box-shadow:
         0 0 0 3px var(--focus),
         var(--shadow-card);
+    }
+
+    /* colada: a etiqueta de papel branco colada reta na pasta das anotações, sem fita; o foco é a
+       tinta preta (o amarelo sumiria no manilha) */
+    :host(.colada) {
+      min-height: 44px;
+      rotate: 0deg;
+      border-radius: 3px;
+      box-shadow:
+        inset 0 0 0 1px rgb(21 21 21 / 0.14),
+        0 1px 2px rgb(60 40 10 / 0.28);
+    }
+    :host(.colada:focus-within) {
+      box-shadow:
+        inset 0 0 0 1px rgb(21 21 21 / 0.14),
+        0 0 0 2.5px var(--ink);
+    }
+    :host(.colada) input {
+      height: 42px;
     }
 
     input {
@@ -136,6 +157,8 @@ export class SearchStrip {
   readonly label = input.required<string>();
   readonly placeholder = input.required<string>();
   readonly inputId = input.required<string>();
+  /** Colada reta, sem fita (na pasta das anotações). */
+  readonly glued = input(false);
 
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
 

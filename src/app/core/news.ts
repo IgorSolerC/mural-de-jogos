@@ -50,6 +50,20 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-pasta-anotacoes',
+    version: '1.20.8',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'A pasta das anotações e as seções em maço',
+    items: [
+      'A régua do mural de anotações virou uma pasta: as divisórias em cima e, emendado nelas, o papel manilha com a busca, o Filtrar, as Finalizadas, a ordem e o tipo de ficha. O que está ligado ganha um traço de marca-texto.',
+      'As tags da aba e as tarefas ficam dentro da pasta, logo abaixo dos controles. No celular, as tags correm numa linha só, de lado.',
+      'Cada categoria tem a sua cor, numa etiquetinha na janela da divisória (como nas pastas suspensas), e é sempre a mesma: na aba, na ficha e na Lista.',
+      'Na ficha, a orelha da categoria fica atrás da cartolina, saindo pela beirada de cima, como a divisória de matéria do caderno.',
+      'Fechar uma seção vale agora em todos os murais. Fechada, ela vira um maço de fichas preso com elástico, nas cores das cartolinas, no lugar da lista de títulos.',
+    ],
+  },
+  {
     id: '2026-10-08-correcao-filtro-aba',
     version: '1.20.7',
     kind: 'correcao',

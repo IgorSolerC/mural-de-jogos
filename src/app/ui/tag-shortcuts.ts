@@ -8,9 +8,9 @@ import { NoteTag } from './note-tag';
 const MAX_SHORTCUTS = 10;
 
 /**
- * As tags da aba aberta, embaixo da régua do mural de anotações: um toque filtra por elas, sem abrir
- * a cartela. A desligada é o contorno tracejado de uma etiqueta em branco; a ligada é a etiqueta de
- * papel kraft amarrada (como na cartela e na ficha). As mais usadas na aba vêm primeiro. Só nas abas
+ * As tags da aba aberta, na pasta do mural de anotações (depois do picote): um toque filtra por elas,
+ * sem abrir a cartela. A desligada é o contorno tracejado de uma etiqueta em branco; a ligada é a
+ * etiqueta de papel kraft amarrada (como na cartela e na ficha). As mais usadas na aba vêm primeiro. Só nas abas
  * de categoria (em Tudo, as tags de todos os assuntos juntas só fariam barulho).
  */
 @Component({
@@ -61,18 +61,12 @@ const MAX_SHORTCUTS = 10;
       cursor: pointer;
 
       &:hover {
-        background: rgb(255 255 255 / 0.08);
+        background: rgb(21 21 21 / 0.07);
       }
       &:focus-visible {
-        outline: 3px solid var(--focus);
+        outline: 2.5px solid var(--ink);
         outline-offset: 1px;
       }
-    }
-
-    /* na parede escura, a etiqueta em branco é tracejada em giz */
-    .atalho app-note-tag.ghost {
-      color: var(--wall-ink);
-      outline-color: rgb(243 239 230 / 0.5);
     }
 
     .n,
@@ -81,13 +75,24 @@ const MAX_SHORTCUTS = 10;
       font-weight: 700;
       font-size: 0.88rem;
       letter-spacing: 0.06em;
-      color: var(--wall-ink-2);
+      color: rgb(21 21 21 / 0.72);
       font-variant-numeric: tabular-nums;
     }
 
     .mais {
       padding-left: 6px;
       text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* no celular, uma linha só, que corre de lado dentro da pasta */
+    @media (max-width: 720px) {
+      .atalhos {
+        flex-wrap: nowrap;
+      }
+      li {
+        flex: none;
+      }
     }
   `,
 })

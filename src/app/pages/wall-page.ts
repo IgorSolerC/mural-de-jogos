@@ -8,6 +8,7 @@ import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { FilterTag } from '../core/wall-filter';
 import { WallGroup, WallView } from '../core/wall-view';
+import { pinningFor } from '../core/wall-physics';
 import { FilterTags } from '../ui/filter-sheet';
 import { Pin } from '../ui/pin';
 import { PickTray } from '../ui/pick-tray';
@@ -17,13 +18,12 @@ import { Reactions } from '../core/reactions';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
-import { TagShortcuts } from '../ui/tag-shortcuts';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
 @Component({
   selector: 'app-wall-page',
-  imports: [DoneStamp, FilterTags, LucideAngularModule, NoteIndex, PickTray, Pin, RouterLink, TagShortcuts, WallCards, WallToolbar],
+  imports: [DoneStamp, FilterTags, LucideAngularModule, NoteIndex, PickTray, Pin, RouterLink, WallCards, WallToolbar],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-page.html',
@@ -42,8 +42,8 @@ export class WallPage {
   protected readonly PlusIcon = Plus;
   protected readonly TasksIcon = ListChecks;
   protected readonly ChevronIcon = ChevronDown;
-  /** As seções fecham só no mural de anotações, e só com as etiquetas à mostra (sem elas, não haveria como abrir). */
-  protected readonly foldable = computed(() => this.notes() && this.settings.groupLabels());
+  /** As seções fecham em todo mural, com as etiquetas à mostra (sem elas, não haveria como abrir). */
+  protected readonly foldable = computed(() => this.settings.groupLabels());
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];
@@ -116,10 +116,12 @@ export class WallPage {
     this.motion.run(() => this.view.toggleCollapsed(key));
   }
 
-  /** A espiada da seção fechada: os títulos das primeiras anotações. */
-  protected peek(g: WallGroup): string {
-    const names = g.reviews.slice(0, 12).map((r) => r.game.name);
-    return names.join(' · ') + (g.reviews.length > names.length ? ' …' : '');
+  /** O maço da seção fechada: as cores das cartolinas das primeiras fichas (até quatro, a de cima por último). */
+  protected bundle(g: WallGroup): string[] {
+    return g.reviews
+      .slice(0, 4)
+      .map((r) => `var(--stock-${pinningFor(r.id, r.stock).stock})`)
+      .reverse();
   }
 
   /** A busca sai da aba e procura no mural inteiro. */

@@ -30,12 +30,21 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
             [title]="x.label"
             (click)="choose(x.key)"
           >
-            <span class="nome">{{ x.label }}</span><span class="n">{{ x.n }}</span>
+            @if (x.color) {
+              <span class="etiqueta" [style.--etiqueta]="x.color"><span class="nome">{{ x.label }}</span></span>
+            } @else {
+              <span class="nome">{{ x.label }}</span>
+            }
+            <span class="n">{{ x.n }}</span>
           </button>
         }
         @if (t.more.length) {
           <label class="aba mais" [class.on]="moreOn()">
-            <span class="nome">{{ moreOn() ? activeLabel() : 'Mais' }}</span>
+            @if (moreOn()) {
+              <span class="etiqueta" [style.--etiqueta]="moreColor()"><span class="nome">{{ activeLabel() }}</span></span>
+            } @else {
+              <span class="nome">Mais</span>
+            }
             @if (moreOn()) {
               <span class="n">{{ moreCount() }}</span>
             }
@@ -71,7 +80,6 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
       background-color: var(--manilha);
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
-      box-shadow: 0 5px 9px -4px rgb(0 0 0 / 0.55);
     }
 
     .abas {
@@ -160,6 +168,24 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
       opacity: 0.85;
     }
 
+    /* A etiquetinha de papel colorido na janela de plástico da divisória: o brilho do plástico por
+       cima, a sombra fina da borda da janela em volta */
+    .etiqueta {
+      display: inline-flex;
+      min-width: 0;
+      padding: 2px 7px 1px;
+      border-radius: 3px;
+      background:
+        linear-gradient(to bottom, rgb(255 255 255 / 0.45), rgb(255 255 255 / 0) 55%),
+        var(--etiqueta);
+      box-shadow:
+        inset 0 0 0 1px rgb(21 21 21 / 0.16),
+        0 1px 0 rgb(255 255 255 / 0.5);
+    }
+    .aba:not(.on) .etiqueta {
+      filter: saturate(0.8);
+    }
+
     /* "Sem categoria" escrito a lápis, não a pincel: não é uma categoria */
     .sem .nome {
       font-family: var(--f-hand);
@@ -227,6 +253,7 @@ export class NoteTabsBar {
   protected readonly activeLabel = this.view.activeTabLabel;
   /** A aba aberta é uma das do "Mais": ele mostra o nome dela, como aba aberta. */
   protected readonly moreOn = computed(() => !!this.tabs()?.more.some((x) => x.key === this.active()));
+  protected readonly moreColor = computed(() => this.tabs()?.more.find((x) => x.key === this.active())?.color ?? null);
   protected readonly moreCount = computed(() => this.tabs()?.more.find((x) => x.key === this.active())?.n ?? 0);
 
   constructor() {

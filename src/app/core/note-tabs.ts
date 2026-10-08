@@ -26,6 +26,8 @@ export interface NoteTab {
   label: string;
   /** Quantas anotações da aba estão à mostra (as finalizadas escondidas não contam). */
   n: number;
+  /** A cor da etiquetinha da categoria (null: Sem categoria). */
+  color: string | null;
 }
 
 export interface NoteTabs {
@@ -38,6 +40,23 @@ export interface NoteTabs {
 }
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+
+/**
+ * As cores das etiquetinhas de papel que vão dentro da janela de plástico da divisória, como nas
+ * pastas suspensas e nas matérias do caderno: claras, para a tinta preta, e diferentes das
+ * cartolinas neon das fichas.
+ */
+const LABEL_COLORS = ['#ffd95e', '#ffa9c0', '#9ad7ff', '#a6e8a0', '#ffbe7d', '#d2b5ff', '#8ee6d6', '#ff9a8b'] as const;
+
+/**
+ * A cor da categoria: sai do nome (sem acento nem caixa), então é sempre a mesma, na aba do mural, na
+ * orelha da ficha e na lista, e não muda quando outra categoria aparece.
+ */
+export function categoryColor(label: string): string {
+  let h = 2166136261;
+  for (const ch of fold(label.trim())) h = Math.imul(h ^ ch.codePointAt(0)!, 16777619);
+  return LABEL_COLORS[(h >>> 0) % LABEL_COLORS.length];
+}
 
 /** A aba de uma anotação. O "c:" na frente: uma categoria chamada "Sem" não cai na aba das sem categoria. */
 export function noteTabKey(r: Pick<Review, 'category'>): string {
@@ -65,12 +84,12 @@ export function noteTabsOf(notes: readonly Review[], shown: (r: Review) => boole
   let none: NoteTab | null = null;
   for (const [key, b] of buckets) {
     if (key === NO_CATEGORY_TAB) {
-      none = { key, label: 'Sem categoria', n: b.n };
+      none = { key, label: 'Sem categoria', n: b.n, color: null };
       continue;
     }
     // a grafia mais usada (no empate, a primeira que apareceu)
     const label = [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0];
-    (b.total >= OWN_TAB_MIN ? main : more).push({ key, label, n: b.n });
+    (b.total >= OWN_TAB_MIN ? main : more).push({ key, label, n: b.n, color: categoryColor(label) });
   }
   const byLabel = (a: NoteTab, b: NoteTab) => collator.compare(a.label, b.label);
   main.sort(byLabel);

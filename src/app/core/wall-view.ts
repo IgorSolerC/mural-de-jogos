@@ -74,7 +74,7 @@ interface ViewPrefs {
   showDone: boolean;
   /** A aba aberta no mural de anotações (ver core/note-tabs.ts); vazia, "Tudo". */
   noteTab: string;
-  /** As seções fechadas do mural de anotações: "aba::seção" (ver `WallView.collapsed`). */
+  /** As seções fechadas: "aba::seção" nas anotações, "k:mural::seção" nos outros (ver `WallView.collapsed`). */
   collapsed: string[];
 }
 
@@ -241,20 +241,26 @@ export class WallView {
     return k === ALL_TAB || noteTabKey(r) === k;
   }
   /**
-   * As seções fechadas do mural de anotações, cada uma como "aba::seção" (a chave da seção, ver
-   * `groupWall`): cada aba fecha as suas, e a Fixadas fechada continua fechada em qualquer ordem.
-   * Fica guardado, como a aba.
+   * As seções fechadas (o maço preso com elástico), cada uma com a chave da seção (ver `groupWall`):
+   * nas anotações, por aba ("aba::seção"), e a Fixadas fechada continua fechada em qualquer ordem;
+   * nos outros murais, por mural ("k:jogos::2026-09"). Fica guardado, como a aba.
    */
   readonly collapsed = signal<ReadonlySet<string>>(new Set(this.prefs.collapsed));
 
-  /** A seção está fechada? Só no mural de anotações. */
-  isCollapsed(groupKey: string): boolean {
-    return isNotes(this.mural.kind()) && this.collapsed().has(`${this.activeTab()}::${groupKey}`);
+  /** De onde é a seção: a aba aberta nas anotações, o mural nos outros. */
+  private collapseKey(groupKey: string): string {
+    const kind = this.mural.kind();
+    return `${isNotes(kind) ? this.activeTab() : `k:${kind}`}::${groupKey}`;
   }
 
-  /** Fecha ou abre uma seção do mural de anotações, na aba aberta. */
+  /** A seção está fechada? */
+  isCollapsed(groupKey: string): boolean {
+    return this.collapsed().has(this.collapseKey(groupKey));
+  }
+
+  /** Fecha ou abre uma seção do mural aberto (nas anotações, da aba aberta). */
   toggleCollapsed(groupKey: string): void {
-    const k = `${this.activeTab()}::${groupKey}`;
+    const k = this.collapseKey(groupKey);
     this.collapsed.update((set) => {
       const next = new Set(set);
       if (!next.delete(k)) next.add(k);

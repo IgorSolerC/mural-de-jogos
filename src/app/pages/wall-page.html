@@ -24,10 +24,6 @@
   </section>
 } @else {
   <app-wall-toolbar class="toolbar" />
-  @if (notes()) {
-    <!-- as tags da aba aberta, um toque filtra (só nas abas de categoria) -->
-    <app-tag-shortcuts class="atalhos" />
-  }
 
   @if (!view.pool().length) {
     <!-- todas as anotações têm check: o mural não está vazio, só em dia (e leva o carimbo) -->
@@ -74,7 +70,8 @@
     </section>
   } @else {
     <h2 class="sr-only">Fichas no mural</h2>
-    @if (view.isFiltered() || view.tasks().total) {
+    <!-- nas anotações, as tarefas moram na pasta, junto da busca -->
+    @if (view.isFiltered() || (!notes() && view.tasks().total)) {
       <div class="showing">
         @if (view.isFiltered()) {
           <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ view.pool().length }}</p>
@@ -89,7 +86,7 @@
         }
         <!-- as tarefas das fichas à mostra, somadas: mudam com a busca, os filtros e cada check -->
         @if (view.tasks(); as t) {
-          @if (t.total) {
+          @if (t.total && !notes()) {
             <p class="tarefas" [class.todas]="!t.todo">
               <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
               @if (!t.todo) {
@@ -113,8 +110,8 @@
       [class.sem-etiquetas]="!settings.groupLabels()"
     >
       @for (g of view.groups(); track g.key) {
-        <!-- nas anotações, a etiqueta da seção fecha e abre a seção (fechada, uma linha só, com uma
-             espiada nos títulos); sem etiquetas, nada fecha -->
+        <!-- a etiqueta da seção fecha e abre a seção: fechada, as fichas viram um maço preso com
+             elástico, numa linha só; sem etiquetas, nada fecha -->
         @let shut = foldable() && view.isCollapsed(g.key);
         <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
           <header class="grupo-head">
@@ -128,14 +125,25 @@
                 {{ g.label }}
               }
             </h3>
+            @if (shut) {
+              <!-- o maço: as primeiras fichas da seção, nas cores das cartolinas, presas com elástico
+                   (decorativo: o botão da etiqueta é que abre; o toque no maço abre também) -->
+              <span class="maco" aria-hidden="true" (click)="toggleGroup(g.key)">
+                @for (c of bundle(g); track $index) {
+                  <span class="maco-ficha" [style.--cor]="c"></span>
+                }
+                <span class="elastico"></span>
+              </span>
+            }
             <p class="grupo-sum">{{ g.summary }}</p>
           </header>
-          @if (shut) {
-            <p class="espiada">{{ peek(g) }}</p>
-          } @else if (lista()) {
-            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [showCategory]="!view.activeTabLabel()" (opened)="desk.openReview($event)" />
-          } @else {
-            <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews"></div>
+          <!-- fechada, a seção é só a etiqueta com o maço -->
+          @if (!shut) {
+            @if (lista()) {
+              <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [showCategory]="!view.activeTabLabel()" (opened)="desk.openReview($event)" />
+            } @else {
+              <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews"></div>
+            }
           }
         </section>
       }

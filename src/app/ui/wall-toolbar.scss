@@ -43,10 +43,6 @@
   height: 0;
 }
 
-.cadernos {
-  margin-bottom: 26px;
-}
-
 .group {
   display: flex;
   flex-wrap: wrap;
@@ -62,12 +58,7 @@
   padding-inline: 11px;
 }
 
-.finalizadas-curto {
-  display: none;
-}
-
-.mark,
-.finalizadas {
+.mark {
   padding-inline: 13px 15px;
 }
 
@@ -161,23 +152,6 @@
     display: none;
   }
 
-  /* as finalizadas: só o ícone e a contagem, ao lado do Filtrar */
-  .finalizadas {
-    order: 3;
-    flex: none;
-    gap: 4px;
-    padding-inline: 11px;
-  }
-
-  .finalizadas-txt {
-    display: none;
-  }
-
-  /* no celular, a palavra curta: o ícone sozinho não dizia o que era */
-  .finalizadas-curto {
-    display: inline;
-  }
-
   .filtrar {
     order: 3;
     flex: none;
@@ -214,17 +188,293 @@
   .break {
     display: none;
   }
+}
 
-  /* nas anotações (quatro tipos de ficha, com a Lista), a busca fica com a fileira dela, e os tipos de
-     ficha vão para o lado do Ordenar */
-  .shelf.notas {
-    .search {
-      flex-basis: 100%;
-    }
+/* ===== A pasta do mural de anotações =====
+   As divisórias em cima e, emendado nelas pela borda da pasta, o corpo de papel manilha com a busca e
+   os controles. Nada de régua de alumínio: tudo é papel e tinta. */
+.pasta {
+  --manilha: #f3e5bb;
+  position: relative;
+  padding: 14px 16px 12px;
+  border-radius: 0 0 6px 6px;
+  background-color: var(--manilha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow:
+    0 10px 18px -8px rgb(0 0 0 / 0.65),
+    0 2px 3px rgb(0 0 0 / 0.3);
+}
 
-    .density {
-      order: 5;
-      margin-bottom: 0;
+/* sem divisórias (tudo numa categoria só), a pasta fecha os cantos de cima também */
+.cadernos:empty + .pasta {
+  border-radius: 6px;
+}
+
+.pasta-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.pasta-busca {
+  flex: 1 1 260px;
+  max-width: 400px;
+}
+
+.pasta-acoes,
+.pasta-ordem,
+.pasta-tipos {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pasta-vista {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-left: auto;
+}
+
+/* os tipos de ficha, juntos, num quadrinho impresso */
+.pasta-tipos {
+  padding: 2px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.2);
+}
+
+/* ===== Os controles impressos em tinta; o ligado ganha o traço de marca-texto ===== */
+.tinta {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible,
+  &:has(select:focus-visible) {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  /* o traço de marca-texto: amarelo, um pouco torto e com as pontas irregulares */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 4px 2px;
+    z-index: -1;
+    border-radius: 3px 8px 4px 9px;
+    background: var(--hi);
+    rotate: -1.2deg;
+    opacity: 0;
+    scale: 0.6 1;
+    transform-origin: left center;
+    transition:
+      opacity var(--t-ui) var(--ease-ui),
+      scale var(--t-ui) var(--ease-ui);
+  }
+
+  &[aria-pressed='true'],
+  &.is-active {
+    &::before {
+      opacity: 1;
+      scale: 1 1;
     }
+    &:hover {
+      background: none;
+    }
+  }
+}
+
+.so-icone {
+  padding-inline: 9px;
+}
+
+.tinta-n {
+  font-weight: 600;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+/* quantos filtros ligados: o disco de tinta com o número amarelo, o mesmo do adesivo de marcar */
+.selo-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  margin: -2px -3px -2px 2px;
+  padding: 1px 5px 0;
+  border-radius: 11px;
+  background: var(--ink);
+  color: var(--hi);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ordenar: o campo impresso "Ordenar: Data", com o <select> nativo, invisível, por cima */
+.campo {
+  padding-right: 30px;
+
+  select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 16px;
+    color-scheme: light;
+    color: var(--ink);
+    background-color: var(--paper);
+  }
+}
+
+.campo-pre {
+  font-weight: 600;
+  opacity: 0.72;
+}
+
+.campo-val {
+  text-decoration: underline dotted 2px rgb(21 21 21 / 0.45);
+  text-underline-offset: 4px;
+}
+
+.campo-chev {
+  position: absolute;
+  right: 9px;
+  top: calc(50% - 7.5px);
+  display: inline-flex;
+}
+
+.finalizadas-curto {
+  display: none;
+}
+
+/* ===== Depois do picote: as tags da aba e as tarefas ===== */
+.pasta-baixo {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 2px dashed rgb(21 21 21 / 0.16);
+
+  /* sem tags nem tarefas, o picote não aparece */
+  &:not(:has(.atalhos, .tarefas)) {
+    display: none;
+  }
+}
+
+.pasta-tags {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tarefas {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 auto;
+  min-height: 36px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tarefas-icone {
+  display: inline-flex;
+}
+
+.tarefas-barra {
+  position: relative;
+  width: 72px;
+  height: 8px;
+  border-radius: 1px;
+  outline: 1.5px solid currentColor;
+  outline-offset: -1.5px;
+  overflow: hidden;
+
+  span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--ink);
+    transition: width var(--t-ui) var(--ease-ui);
+  }
+}
+
+.tarefas.todas {
+  color: #1f7a3c;
+}
+
+@media (max-width: 720px) {
+  .pasta {
+    padding: 12px 10px 10px;
+  }
+
+  .pasta-busca {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .pasta-vista {
+    margin-left: 0;
+  }
+
+  .finalizadas-txt {
+    display: none;
+  }
+
+  .finalizadas-curto {
+    display: inline;
+  }
+
+  .campo-pre {
+    display: none;
+  }
+
+  .tarefas {
+    margin-left: 0;
+  }
+
+  /* no celular, as tags da aba numa linha só, que corre de lado (quebrando, a pasta ficava alta) */
+  .pasta-tags {
+    flex-basis: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -10px;
+    padding-inline: 10px;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tinta::before {
+    transition: none;
   }
 }

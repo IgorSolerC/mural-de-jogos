@@ -204,7 +204,7 @@ describe('WallView com abas', () => {
     expect(view.groups().map((g) => g.label)).toEqual(['#DDD', '#Rust', '#SQL', 'Sem tag']);
   });
 
-  it('a seção fechada é da aba, fica guardada e não vale nos murais de resenhas', () => {
+  it('a seção fechada é da aba, fica guardada, e cada mural de resenhas fecha as suas', () => {
     view.toggleCollapsed('fixadas');
     expect(view.isCollapsed('fixadas')).toBeTrue();
     view.setNoteTab(key('Trabalho'));
@@ -212,11 +212,15 @@ describe('WallView com abas', () => {
     view.setNoteTab(ALL_TAB);
     TestBed.tick();
     expect(JSON.parse(localStorage.getItem('mural-de-jogos:vista:v1')!).collapsed).toEqual(['::fixadas']);
-    TestBed.inject(Mural).kind.set('jogos');
-    expect(view.isCollapsed('fixadas')).toBeFalse();
-    TestBed.inject(Mural).kind.set('anotacoes');
-    view.toggleCollapsed('fixadas');
-    expect(view.isCollapsed('fixadas')).toBeFalse();
+    const mural = TestBed.inject(Mural);
+    mural.kind.set('jogos');
+    expect(view.isCollapsed('2026-10')).toBeFalse();
+    view.toggleCollapsed('2026-10');
+    expect(view.isCollapsed('2026-10')).toBeTrue();
+    mural.kind.set('livros');
+    expect(view.isCollapsed('2026-10')).toBeFalse();
+    mural.kind.set('anotacoes');
+    expect(view.isCollapsed('fixadas')).toBeTrue();
   });
 
   it('a anotação nova de outra categoria abre a aba dela', () => {
