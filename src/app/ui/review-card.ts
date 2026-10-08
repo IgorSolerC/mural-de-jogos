@@ -784,7 +784,8 @@ function watchDistance(el: HTMLElement): () => void {
       background-color: #f3e5bb;
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
-      color: var(--ink);
+      /* a tinta preta fixa: na cartolina escura, a tinta da ficha clareia e sumia no manilha */
+      color: #151515;
       box-shadow:
         0 -1px 0 rgb(255 255 255 / 0.35) inset,
         0 2px 6px rgb(0 0 0 / 0.45);

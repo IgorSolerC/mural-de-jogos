@@ -133,7 +133,7 @@
           @if (shut) {
             <p class="espiada">{{ peek(g) }}</p>
           } @else if (lista()) {
-            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" (opened)="desk.openReview($event)" />
+            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [showCategory]="!view.activeTabLabel()" (opened)="desk.openReview($event)" />
           } @else {
             <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews"></div>
           }

@@ -8,6 +8,8 @@ import { pinningFor } from '../core/wall-physics';
 interface Row {
   id: string;
   title: string;
+  /** A categoria (só em Tudo: numa aba, ela já está dita). */
+  category: string | null;
   /** A cor da cartolina da anotação, numa tirinha na margem: a mesma ficha, de longe. */
   stock: string;
   date: string;
@@ -42,6 +44,9 @@ interface Row {
             @if (r.done) {
               <lucide-icon class="marca" [img]="CheckIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
               <span class="sr-only">, finalizada</span>
+            }
+            @if (r.category) {
+              <span class="cat">{{ r.category }}</span>
             }
             @if (r.tags.length) {
               <span class="tags">
@@ -151,6 +156,22 @@ interface Row {
       opacity: 0.7;
     }
 
+    /* a categoria: a orelha de manilha da ficha, deitada na linha */
+    .cat {
+      flex: none;
+      max-width: 14ch;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      padding: 2px 8px 1px;
+      border-radius: 5px 5px 0 0;
+      border-bottom: 1.5px solid rgb(21 21 21 / 0.25);
+      background-color: #efdcaa;
+      font-family: var(--f-marker);
+      font-size: 0.78rem;
+      line-height: 1.3;
+    }
+
     .tags {
       display: flex;
       gap: 8px;
@@ -202,7 +223,8 @@ interface Row {
         width: 14px;
         margin-right: calc(var(--margem) - 14px - 2px);
       }
-      .tags {
+      .tags,
+      .cat {
         display: none;
       }
       .hit {
@@ -213,6 +235,8 @@ interface Row {
 })
 export class NoteIndex {
   readonly reviews = input.required<readonly Review[]>();
+  /** Mostrar a categoria de cada linha (em Tudo; numa aba de categoria, seria a mesma em todas). */
+  readonly showCategory = input(false);
   readonly opened = output<string>();
 
   protected readonly PinIcon = Pin;
@@ -224,6 +248,7 @@ export class NoteIndex {
       return {
         id: r.id,
         title: r.game.name,
+        category: this.showCategory() ? (r.category ?? null) : null,
         stock: `var(--stock-${pinningFor(r.id, r.stock).stock})`,
         date: shortDay(r.completedAt),
         tags: r.tags ?? [],

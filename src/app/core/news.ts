@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-acabamento-abas',
+    version: '1.20.6',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Acabamento das abas e da lista',
+    items: [
+      'Na Lista, em Tudo, cada linha diz a categoria da anotação, na mesma orelha de papel manilha da ficha.',
+      'O nome comprido de uma categoria termina em reticências na aba (o nome inteiro aparece ao parar o mouse em cima).',
+    ],
+  },
+  {
     id: '2026-10-08-orelha-categoria',
     version: '1.20.5',
     kind: 'melhoria',

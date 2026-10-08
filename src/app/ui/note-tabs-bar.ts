@@ -27,6 +27,7 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
             [class.on]="active() === x.key"
             [class.sem]="x.key === NONE"
             [attr.aria-pressed]="active() === x.key"
+            [title]="x.label"
             (click)="choose(x.key)"
           >
             <span class="nome">{{ x.label }}</span><span class="n">{{ x.n }}</span>
@@ -134,6 +135,9 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
     }
 
     .nome {
+      max-width: 16ch;
+      overflow: hidden;
+      text-overflow: ellipsis;
       font-family: var(--f-marker);
       font-size: 1.08rem;
       line-height: 1.1;
@@ -150,6 +154,10 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
       letter-spacing: 0.04em;
       opacity: 0.62;
       font-variant-numeric: tabular-nums;
+    }
+    /* na aba de trás, mais escura, o número precisa de mais tinta para continuar legível */
+    .aba:not(.on) .n {
+      opacity: 0.85;
     }
 
     /* "Sem categoria" escrito a lápis, não a pincel: não é uma categoria */
