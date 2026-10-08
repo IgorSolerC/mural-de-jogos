@@ -49,6 +49,20 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-07-anotacoes-finalizadas',
+    version: '1.17.0',
+    kind: 'update',
+    date: '2026-10-07',
+    title: 'Anotações finalizadas',
+    items: [
+      'Cada anotação ganhou uma caixinha de check no canto da ficha. Marcou, a anotação inteira está feita: leva um carimbo de FINALIZADO com o dia ao lado do título e, uns segundos depois, sai do mural.',
+      'O dia em que ela foi finalizada fica guardado no carimbo.',
+      '"Mostrar finalizadas", ao lado do Filtrar, traz de volta as que já foram (e o mural lembra da escolha). Desmarcar o check abre a anotação de novo.',
+      'Na leitura da anotação, o mesmo check: "Finalizar" ou "Abrir de novo".',
+      'No mural de outra pessoa, as anotações finalizadas também ficam guardadas, com o mesmo "Mostrar finalizadas".',
+    ],
+  },
+  {
     id: '2026-10-07-links-entre-anotacoes',
     version: '1.16.0',
     kind: 'update',

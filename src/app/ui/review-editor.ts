@@ -749,6 +749,8 @@ export class ReviewEditor {
       completedAt: this.dateValue(),
       ...(this.isPrivate() ? { private: true as const } : {}),
       ...(this.isPrivate() ? {} : prev?.private ? { publishedAt: now } : prev?.publishedAt ? { publishedAt: prev.publishedAt } : {}),
+      // editar não desfaz o check: a finalizada continua finalizada, no mesmo dia
+      ...(prev?.doneAt ? { doneAt: prev.doneAt } : {}),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };

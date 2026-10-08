@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, comput
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
+  CheckCheck,
   ChevronDown,
   Grid3x3,
   LayoutGrid,
@@ -55,6 +56,7 @@ export class WallToolbar {
   protected readonly ChevronIcon = ChevronDown;
   protected readonly MarkIcon = SquareCheckBig;
   protected readonly FilterIcon = ListFilter;
+  protected readonly DoneIcon = CheckCheck;
 
   private readonly injector = inject(Injector);
   private readonly filterTab = viewChild.required<ElementRef<HTMLButtonElement>>('filterTab');
@@ -65,7 +67,8 @@ export class WallToolbar {
   protected readonly kind = this.mural.kind;
   /** "Mostrando 12 de 40 jogos", no pé da cartela. */
   protected readonly summary = computed(() => {
-    const total = this.mural.wallCount();
+    // as anotações finalizadas escondidas não contam: estão fora do mural, não filtradas
+    const total = this.view.pool().length;
     const shown = this.view.visible().length;
     // as rejogadas também são fichas na parede: "40 jogos e 3 rejogadas"
     const again = this.mural.revisitCount();
@@ -156,6 +159,11 @@ export class WallToolbar {
     // (com uma troca esperando, voltar ao tipo de agora também conta: a troca esperando é desfeita)
     if (this.view.density() === d && !this.motion.swapping) return;
     this.motion.swap(() => this.view.density.set(d));
+  }
+
+  /** "Mostrar finalizadas": as anotações com check voltam (ou saem) do mural, deslizando. */
+  protected toggleDone(): void {
+    this.motion.run(() => this.view.showDone.update((v) => !v));
   }
 
   protected flip(): void {

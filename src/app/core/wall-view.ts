@@ -10,6 +10,7 @@ import {
   STATUS_RANK,
   ScoreKey,
   fold,
+  isDone,
   parseDay,
   scoreKeys,
   scoreOf,
@@ -38,6 +39,8 @@ interface ViewPrefs {
   scoreKey: ScoreKey;
   direction: Direction;
   density: Density;
+  /** O mural de anotações mostra as finalizadas também. */
+  showDone: boolean;
 }
 
 const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
@@ -55,7 +58,7 @@ export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
 }
 
 function readPrefs(): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa' };
+  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', showDone: false };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
@@ -66,6 +69,7 @@ function readPrefs(): ViewPrefs {
         : fallback.scoreKey,
       direction: raw.direction === 'asc' ? 'asc' : 'desc',
       density: raw.density === 'simples' || raw.density === 'capas' ? raw.density : 'completa',
+      showDone: raw.showDone === true,
     };
   } catch {
     return fallback;
@@ -110,6 +114,24 @@ export class WallView {
   });
   readonly direction = signal<Direction>(this.prefs.direction);
   readonly density = signal<Density>(this.prefs.density);
+  /** "Mostrar finalizadas": as anotações com check continuam no mural. Fica guardado, como a ordem. */
+  readonly showDone = signal(this.prefs.showDone);
+  /**
+   * As anotações que acabaram de ganhar o check: ficam no mural o tempo do carimbo e depois saem
+   * (ver ReviewCard). Com "Mostrar finalizadas", ficam de vez.
+   */
+  readonly stamping = signal<ReadonlySet<string>>(new Set());
+
+  /** A anotação entra no mural agora? A finalizada, só mostrando as finalizadas ou durante o carimbo. */
+  private shows(r: Review): boolean {
+    return !isDone(r) || this.showDone() || this.stamping().has(r.id);
+  }
+  /** O mural sem as finalizadas escondidas: é o "todo" do mural, para contar e para o vazio. */
+  readonly pool = computed<Review[]>(() => this.mural.wall().filter((r) => this.shows(r)));
+  /** Quantas anotações finalizadas o mural tem (à mostra ou não). */
+  readonly doneCount = computed(() => this.mural.wall().filter(isDone).length);
+  /** As finalizadas que estão fora do mural agora. */
+  readonly hiddenDone = computed(() => this.mural.wallCount() - this.pool().length);
 
   /**
    * A ordem que vale de fato. Sem spoilers, ordenar por nota entregaria o ranking mesmo com as notas
@@ -128,8 +150,8 @@ export class WallView {
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
   private readonly searched = computed<Review[]>(() => {
     const needle = fold(this.query().trim());
-    // a parede inteira: as fichas e as rejogadas, cada uma no seu lugar
-    return this.mural.wall().filter((r) => matchesQuery(r, needle));
+    // a parede inteira: as fichas e as rejogadas, cada uma no seu lugar (as anotações finalizadas, só à mostra)
+    return this.pool().filter((r) => matchesQuery(r, needle));
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
@@ -165,12 +187,28 @@ export class WallView {
         scoreKey: this.scoreKey(),
         direction: this.direction(),
         density: this.density(),
+        showDone: this.showDone(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(prefs));
       } catch {
         /* preferências valem só nesta sessão */
       }
+    });
+  }
+
+  /** A anotação acabou de ganhar o check: fica no mural enquanto o carimbo bate. */
+  stamp(id: string): void {
+    this.stamping.update((s) => new Set(s).add(id));
+  }
+
+  /** O carimbo terminou (ou o check saiu): a anotação segue a regra do mural de novo. */
+  release(id: string): void {
+    this.stamping.update((s) => {
+      if (!s.has(id)) return s;
+      const next = new Set(s);
+      next.delete(id);
+      return next;
     });
   }
 

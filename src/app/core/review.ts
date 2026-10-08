@@ -282,6 +282,11 @@ export interface Review {
    */
   noteSize?: NoteSize;
   /**
+   * Só nas anotações: quando foi finalizada (ISO), com o check da ficha ou da leitura. A finalizada
+   * sai do mural, a não ser com "Mostrar finalizadas", e leva o carimbo com esse dia.
+   */
+  doneAt?: string;
+  /**
    * Privada: fica só com a pessoa. Não vai no mural que os outros veem (pelo código, em Amigos, em
    * Comparar) nem vira aviso para quem segue. Fica no backup e na nuvem particular dela.
    */
@@ -302,6 +307,17 @@ export const NOTE_SIZES: readonly NoteSize[] = ['larga', 'alta'];
 /** É uma anotação (do mural de anotações), não uma resenha? */
 export function isNote(r: Pick<Review, 'kind'>): boolean {
   return isNotes(r.kind);
+}
+
+/** A anotação foi finalizada? (ver `Review.doneAt`) */
+export function isDone(r: Pick<Review, 'doneAt'>): boolean {
+  return !!r.doneAt;
+}
+
+/** A anotação com o check (finalizada agora) ou sem ele (aberta de novo). */
+export function withDone(r: Review, done: boolean, now: string): Review {
+  const { doneAt: _was, ...rest } = r;
+  return { ...rest, ...(done ? { doneAt: now } : {}), updatedAt: now };
 }
 
 /** A ficha fica só com a pessoa? (ver `Review.private`) */
@@ -961,6 +977,7 @@ function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     bonuses: categories,
     hoursPlayed: null,
     ...(NOTE_SIZES.includes(r['noteSize']) ? { noteSize: r['noteSize'] as NoteSize } : {}),
+    ...optional('doneAt', isoOr(r['doneAt'], '') || undefined),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };

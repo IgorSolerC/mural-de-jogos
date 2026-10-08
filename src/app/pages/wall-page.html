@@ -25,7 +25,15 @@
 } @else {
   <app-wall-toolbar class="toolbar" />
 
-  @if (!view.visible().length) {
+  @if (!view.pool().length) {
+    <!-- todas as anotações têm check: o mural não está vazio, só em dia -->
+    <section class="no-results cartolina" aria-live="polite">
+      <app-pin class="pin" color="#f4f4f0" />
+      <h2>Tudo finalizado</h2>
+      <p>{{ view.hiddenDone() === 1 ? 'A anotação do mural está finalizada.' : 'As ' + view.hiddenDone() + ' anotações do mural estão finalizadas.' }} Pregue uma nova ou veja as que já foram.</p>
+      <button type="button" class="btn-ink" (click)="showDone()">Mostrar finalizadas</button>
+    </section>
+  } @else if (!view.visible().length) {
     <section class="no-results cartolina" aria-live="polite">
       <app-pin class="pin" color="#f4f4f0" />
       <h2>Nada no mural com esse filtro</h2>
@@ -44,7 +52,7 @@
     <h2 class="sr-only">Fichas no mural</h2>
     @if (view.isFiltered()) {
       <div class="showing">
-        <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ mural.wallCount() }}</p>
+        <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ view.pool().length }}</p>
         <app-filter-tags [tags]="view.tags()" (remove)="removeTag($event)" />
         <button type="button" class="showing-clear" (click)="clearFilters()">
           {{ view.filterCount() + (view.query().trim() ? 1 : 0) > 1 ? 'Limpar tudo' : 'Limpar filtro' }}

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
 import { LockKeyhole, LucideAngularModule, Repeat } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
@@ -45,6 +45,10 @@ import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
 import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
 import { Desk } from '../core/desk';
+import { NoteDone } from '../core/note-done';
+import { WallMotion } from '../core/wall-motion';
+import { WallView } from '../core/wall-view';
+import { DoneStamp } from './done-stamp';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -74,7 +78,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta, DoneStamp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -108,6 +112,9 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.sem-capa]': 'note() && !review().game.coverUrl && !capas()',
     '[class.nota-larga]': 'note() && review().noteSize === "larga"',
     '[class.nota-alta]': 'note() && review().noteSize === "alta"',
+    // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
+    '[class.com-check]': 'canFinish()',
+    '[class.carimbando]': 'stamping()',
   },
   template: `
     <!-- tudo o que está na ficha, junto: é o que entra com fade quando o papel fica pronto (ver
@@ -156,7 +163,15 @@ function watchDistance(el: HTMLElement): () => void {
       }
 
       <div class="words">
+        @if (doneAt(); as at) {
+          <!-- finalizada: o carimbo datador ao lado do título -->
+          <div class="titulo-feito">
+            <h4 class="title" data-queima>{{ review().game.name }}</h4>
+            <app-done-stamp data-queima [at]="at" [dark]="dark()" [hit]="stamping()" />
+          </div>
+        } @else {
         <h4 class="title" data-queima>{{ empty() || bare() ? emptyName() : review().game.name }}</h4>
+        }
         @if (bare()) {
           <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
@@ -271,6 +286,18 @@ function watchDistance(el: HTMLElement): () => void {
       ></button>
     } @else {
       <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
+    }
+    <!-- o check da anotação inteira: no seu mural, a caixinha no canto de cima -->
+    @if (canFinish()) {
+      <button
+        type="button"
+        class="feito"
+        [class.marcado]="!!review().doneAt"
+        [attr.aria-pressed]="!!review().doneAt"
+        [attr.aria-label]="'Finalizada: ' + review().game.name"
+        [title]="review().doneAt ? 'Abrir de novo' : 'Finalizar a anotação'"
+        (click)="finish()"
+      ></button>
     }
     <!-- as reações de quem segue o dono, num balãozinho colado na quina de baixo (só quando há alguma) -->
     @if (reactTarget(); as t) {
@@ -739,6 +766,114 @@ function watchDistance(el: HTMLElement): () => void {
       max-width: none;
     }
 
+    /* ===== O check da anotação inteira: a caixinha de tarefa, maior, no canto da ficha ===== */
+    .feito {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 5;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: 2.5px solid currentColor;
+      border-radius: 3px 4px 3px 5px;
+      rotate: 4deg;
+      background: transparent no-repeat center / 118% 118%;
+      opacity: 0.55;
+      cursor: pointer;
+      transition:
+        opacity var(--t-ui) var(--ease-ui),
+        scale var(--t-ui) var(--ease-ui);
+    }
+    /* o toque pega uma área maior que a caixinha */
+    .feito::before {
+      content: '';
+      position: absolute;
+      inset: -9px;
+    }
+    :host(:hover) .feito,
+    .feito:focus-visible {
+      opacity: 1;
+    }
+    .feito:hover {
+      scale: 1.08;
+    }
+    .feito:focus-visible {
+      outline: 3px solid var(--hi);
+      outline-offset: 3px;
+    }
+    /* o mouse em cima de uma vazia: o check a lápis, de leve, onde ele vai */
+    @media (hover: hover) {
+      .feito:not(.marcado):hover {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23151515' stroke-opacity='.3' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      }
+    }
+    /* o check de caneta vermelha das tarefas */
+    .feito.marcado {
+      opacity: 1;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    :host(.carimbando) .feito.marcado {
+      animation: risca 260ms ease-out both;
+    }
+    @keyframes risca {
+      from {
+        scale: 0.7;
+      }
+    }
+    /* o título não passa por baixo da caixinha */
+    :host(.com-check) .words {
+      padding-right: 26px;
+    }
+    :host(.com-check.sem-capa) .words {
+      padding-right: 34px;
+    }
+    :host(.capas) .feito {
+      top: 6px;
+      right: 6px;
+      width: 22px;
+      height: 22px;
+    }
+
+    /* o título e o carimbo lado a lado; sem espaço, o carimbo desce para a linha de baixo */
+    .titulo-feito {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 12px;
+      max-width: 100%;
+    }
+    .titulo-feito .title {
+      flex: 0 1 auto;
+      min-width: min(9rem, 100%);
+    }
+    .titulo-feito app-done-stamp {
+      margin: 2px 0 0 2px;
+    }
+    :host(.compact) .titulo-feito app-done-stamp,
+    :host(.capas) .titulo-feito app-done-stamp {
+      --fs: 0.62rem;
+    }
+    :host(.capas) .titulo-feito {
+      justify-content: center;
+    }
+    /* o carimbo bateu: a ficha sente o tranco na tachinha (na ficha, não no corpo: um corpo com
+       transformação passaria a medir as camadas do papel) */
+    :host(.carimbando) {
+      animation: tranco 420ms 240ms var(--ease-physical);
+    }
+    @keyframes tranco {
+      30% {
+        translate: 0 3px;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host(.carimbando),
+      :host(.carimbando) .feito.marcado {
+        animation: none;
+      }
+    }
+
     /* o balão das reações: preso na quina de baixo, metade para fora da ficha, por cima de tudo */
     .reacoes {
       position: absolute;
@@ -990,6 +1125,58 @@ export class ReviewCard {
   }
 
   private readonly desk = inject(Desk);
+  private readonly noteDone = inject(NoteDone);
+  private readonly view = inject(WallView);
+  private readonly motion = inject(WallMotion);
+
+  /** Quando a anotação foi finalizada (o carimbo), ou null. */
+  protected readonly doneAt = computed(() => (this.note() && !this.bare() ? (this.review().doneAt ?? null) : null));
+  /** O check da anotação inteira: só no seu mural. */
+  protected readonly canFinish = computed(() => this.note() && this.checkable() && !this.preview());
+  /** Acabou de ganhar o check: o carimbo bate, e daqui a pouco a ficha sai do mural. */
+  protected readonly stamping = computed(() => this.note() && !this.preview() && this.view.stamping().has(this.review().id));
+
+  protected finish(): void {
+    if (this.canFinish()) this.noteDone.set(this.review().id, !this.review().doneAt);
+  }
+
+  /** Cada carimbo que bate; o de antes (desfeito e refeito no meio) não leva a ficha. */
+  private stampRun = 0;
+
+  /**
+   * O carimbo bateu: a ficha fica um instante para ver, some e sai do mural, e as vizinhas deslizam
+   * para o lugar. Com "Mostrar finalizadas", ela fica, com o carimbo.
+   */
+  private leaveAfterStamp(el: HTMLElement): void {
+    const run = ++this.stampRun;
+    const id = this.review().id;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const still = () => run === this.stampRun && this.view.stamping().has(id);
+    setTimeout(
+      () => {
+        if (!still()) return;
+        if (this.view.showDone() || reduced || typeof el.animate !== 'function') {
+          this.motion.run(() => this.view.release(id));
+          return;
+        }
+        const out = el.animate(
+          [
+            { opacity: 1, scale: 1 },
+            { opacity: 0, scale: 0.94, translate: '0 14px' },
+          ],
+          { duration: 340, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' },
+        );
+        out.finished.then(
+          () => {
+            if (still()) this.motion.run(() => this.view.release(id));
+            out.cancel();
+          },
+          () => {},
+        );
+      },
+      reduced ? 1600 : 2100,
+    );
+  }
   /**
    * Os links do texto da anotação. No seu mural (`checkable`), tocar abre a outra anotação na
    * leitura, com esta no "Voltar", e o link para uma que não existe a cria; nos outros, só aparecem.
@@ -1128,6 +1315,10 @@ export class ReviewCard {
 
   constructor() {
     const el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    effect(() => {
+      if (this.stamping()) untracked(() => this.leaveAfterStamp(el));
+      else this.stampRun++;
+    });
     let unwatch = () => {};
     afterNextRender(() => (unwatch = watchDistance(el)));
     inject(DestroyRef).onDestroy(() => unwatch());

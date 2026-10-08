@@ -154,6 +154,18 @@ dialog.reader {
   padding-bottom: 0.06em;
 }
 
+/* a anotação finalizada: o título e o carimbo lado a lado; sem espaço, o carimbo desce */
+.titulo-feito {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+
+  app-done-stamp {
+    margin-top: 4px;
+  }
+}
+
 .meta {
   margin-top: 10px;
   font-family: var(--f-label);

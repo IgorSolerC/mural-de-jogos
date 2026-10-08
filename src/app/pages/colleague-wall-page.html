@@ -92,6 +92,21 @@
           <span>{{ revealed() ? 'Esconder notas' : 'Mostrar notas' }}</span>
         </button>
       }
+      <!-- no mural de anotações, no mesmo lugar: as finalizadas (com check), à mostra só enquanto a página estiver aberta -->
+      @if (doneCount()) {
+        <button
+          type="button"
+          class="plate notas"
+          [class.is-active]="showDone()"
+          (click)="toggleDone()"
+          [title]="showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
+        >
+          <lucide-icon [img]="DoneIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <span>{{ showDone() ? 'Esconder finalizadas' : 'Mostrar finalizadas' }}</span>
+          <span class="count" aria-hidden="true">{{ doneCount() }}</span>
+          <span class="sr-only">({{ doneCount() }})</span>
+        </button>
+      }
 
       <div class="prateleira-fim">
         <div class="ordem">
@@ -147,13 +162,15 @@
 
     @if (query().trim() || filterCount()) {
       <div class="mostrando">
-        <p class="mostrando-n" aria-live="polite">Mostrando {{ visible().length }} de {{ reviews().length }}</p>
+        <p class="mostrando-n" aria-live="polite">Mostrando {{ visible().length }} de {{ pool().length }}</p>
         <app-filter-tags [tags]="tags()" (remove)="toggleFilter($event)" />
         <button type="button" class="limpar" (click)="clear()">Limpar filtro</button>
       </div>
     }
 
-    @if (!visible().length) {
+    @if (!pool().length) {
+      <p class="nada">Todas as anotações de {{ c.name }} estão finalizadas. <button type="button" class="limpar" (click)="toggleDone()">Mostrar finalizadas</button></p>
+    } @else if (!visible().length) {
       <p class="nada">Nenhuma ficha de {{ c.name }} com esses filtros.</p>
     } @else {
       <h2 class="sr-only">Fichas de {{ c.name }}</h2>

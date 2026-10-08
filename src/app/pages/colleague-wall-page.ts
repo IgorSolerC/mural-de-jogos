@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Eye, EyeOff, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3, UserCheck, UserPlus } from 'lucide-angular';
+import { ArrowLeft, ArrowDownWideNarrow, ArrowUpNarrowWide, CheckCheck, ChevronDown, Eye, EyeOff, Grid3x3, LayoutGrid, ListFilter, LucideAngularModule, Rows3, UserCheck, UserPlus } from 'lucide-angular';
 import { CloudAccount } from '../core/cloud-account';
 import { Follow } from '../core/follow';
 import { Reactions } from '../core/reactions';
@@ -10,7 +10,7 @@ import { ColleagueStore } from '../core/colleague-store';
 import { CloudMurals } from '../core/cloud-murals';
 import { KINDS, Kind, cap, countOf, isNotes, profileOf, revisitCountOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Review, VERDICT_LABEL, fold, originalsOf } from '../core/review';
+import { Review, VERDICT_LABEL, fold, isDone, originalsOf } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from '../core/wall-filter';
@@ -65,6 +65,7 @@ export class ColleagueWallPage {
   protected readonly FollowingIcon = UserCheck;
   protected readonly RevealIcon = Eye;
   protected readonly HideIcon = EyeOff;
+  protected readonly DoneIcon = CheckCheck;
 
   private readonly follow = inject(Follow);
   private readonly account = inject(CloudAccount);
@@ -167,10 +168,20 @@ export class ColleagueWallPage {
     isNotes(this.profile().kind) ? this.noteSorts : this.guarding() ? this.sorts.filter((s) => s.value !== 'nota') : this.sorts,
   );
 
+  /** As anotações finalizadas (com check) da pessoa: fora do mural, a não ser com "Mostrar finalizadas". */
+  protected readonly doneCount = computed(() => this.reviews().filter(isDone).length);
+  /** "Mostrar finalizadas": só enquanto esta página estiver aberta, como o "Mostrar notas". */
+  protected readonly showDone = signal(false);
+  protected toggleDone(): void {
+    this.vt.run(() => this.showDone.update((v) => !v));
+  }
+  /** O mural sem as finalizadas escondidas: o "todo" do mural, para contar e para o vazio. */
+  protected readonly pool = computed(() => (this.showDone() ? this.reviews() : this.reviews().filter((r) => !isDone(r))));
+
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
   private readonly searched = computed(() => {
     const needle = fold(this.query().trim());
-    return this.reviews().filter((r) => matchesQuery(r, needle));
+    return this.pool().filter((r) => matchesQuery(r, needle));
   });
 
   /** Os filtros que valem: com fichas em segredo, filtrar por veredito, nota ou dificuldade contaria o segredo. */
@@ -188,9 +199,9 @@ export class ColleagueWallPage {
   });
 
   protected readonly sheetSummary = computed(() => {
-    const total = this.reviews().length;
+    const total = this.pool().length;
     const shown = this.visible().length;
-    const again = total - originalsOf(this.reviews()).length;
+    const again = total - originalsOf(this.pool()).length;
     const all = again ? `${countOf(this.profile(), total - again)} e ${revisitCountOf(this.profile(), again)}` : countOf(this.profile(), total);
     return shown === total ? `Mostrando todos os ${all}` : `Mostrando ${shown} de ${all}`;
   });

@@ -79,6 +79,10 @@ export class WallPage {
     this.motion.run(() => this.view.clearFilters());
   }
 
+  protected showDone(): void {
+    this.motion.run(() => this.view.showDone.set(true));
+  }
+
   protected removeTag(t: FilterTag): void {
     this.motion.run(() => this.view.toggle(t.key, t.value));
   }

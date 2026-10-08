@@ -8,7 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Repeat, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Repeat, RotateCcw, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -32,11 +32,13 @@ import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { plainText, toggleCheck } from '../core/rich-text';
 import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
+import { NoteDone } from '../core/note-done';
+import { DoneStamp } from './done-stamp';
 
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (keydown)="onKey($event)" (close)="review.set(null)">
@@ -87,7 +89,15 @@ import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
               }
 
               <div class="words">
-                <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
+                @if (note() && r.doneAt) {
+                  <!-- finalizada: o carimbo datador ao lado do título, como na ficha -->
+                  <div class="titulo-feito">
+                    <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
+                    <app-done-stamp size="big" [at]="r.doneAt" />
+                  </div>
+                } @else {
+                  <h2 id="leitura-titulo" class="title">{{ r.game.name }}</h2>
+                }
                 @if (r.game.by) {
                   <p class="meta by">de {{ r.game.by }}</p>
                 }
@@ -220,6 +230,13 @@ import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
                 Lado a lado
               </button>
               }
+              <!-- o check da anotação inteira: finaliza (e ela sai do mural com o carimbo) ou abre de novo -->
+              @if (note()) {
+                <button type="button" class="btn-quiet" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
+                  <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                  {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
+                </button>
+              }
               <button type="button" class="btn-ink" (click)="edit.emit(r.id)">
                 <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
                 Editar
@@ -255,6 +272,7 @@ export class ReviewReader {
   protected readonly HideIcon = EyeOff;
   protected readonly PrivateIcon = LockKeyhole;
   protected readonly BackIcon = ArrowLeft;
+  protected readonly ReopenIcon = RotateCcw;
   private readonly store = inject(ReviewStore);
   protected readonly profile = computed(() => profileOf(this.review()?.kind ?? 'jogos'));
   protected readonly hours = computed(() => {
@@ -321,6 +339,19 @@ export class ReviewReader {
     const next: Review = { ...r, text, updatedAt: new Date().toISOString() };
     this.store.update(next);
     this.review.set(next);
+  }
+  private readonly noteDone = inject(NoteDone);
+  /**
+   * O check da sua anotação inteira. Finalizar fecha a leitura: a ficha ganha o carimbo no mural e sai
+   * dele (ver ReviewCard). Abrir de novo fica aqui, com a anotação sem o carimbo.
+   */
+  protected finish(): void {
+    const r = this.review();
+    if (!r || this.owner() !== null || !this.note()) return;
+    const done = !r.doneAt;
+    this.noteDone.set(r.id, done);
+    if (done) this.close();
+    else this.review.set(this.store.get(r.id) ?? r);
   }
   /**
    * As anotações por onde se chegou até aqui, pelos links (a última é a de "Voltar"). Abrir a

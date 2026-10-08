@@ -58,7 +58,8 @@
   padding-inline: 11px;
 }
 
-.mark {
+.mark,
+.finalizadas {
   padding-inline: 13px 15px;
 }
 
@@ -149,6 +150,18 @@
   }
 
   .mark-word {
+    display: none;
+  }
+
+  /* as finalizadas: só o ícone e a contagem, ao lado do Filtrar */
+  .finalizadas {
+    order: 3;
+    flex: none;
+    gap: 4px;
+    padding-inline: 11px;
+  }
+
+  .finalizadas-txt {
     display: none;
   }
 
