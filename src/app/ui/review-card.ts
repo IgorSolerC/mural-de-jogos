@@ -26,7 +26,7 @@ import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
-import { HAS_LINK, checkCount, plainText } from '../core/rich-text';
+import { hasInteractive, plainText } from '../core/rich-text';
 import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
@@ -796,7 +796,8 @@ function watchDistance(el: HTMLElement): () => void {
       pointer-events: none;
     }
     .nota-texto.marcavel ::ng-deep input[type='checkbox'],
-    .nota-texto.marcavel ::ng-deep .elo[tabindex] {
+    .nota-texto.marcavel ::ng-deep .elo[tabindex],
+    .nota-texto.marcavel ::ng-deep a.url {
       pointer-events: auto;
     }
     :host(.nota-larga) {
@@ -1259,7 +1260,8 @@ export class ReviewCard {
    */
   protected readonly interactive = computed(() => {
     const t = this.review().text;
-    return this.checkable() && (checkCount(t).total > 0 || HAS_LINK.test(t));
+    // os links para fora abrem em qualquer mural; as tarefas e os links entre anotações, só no seu
+    return hasInteractive(t) && (this.checkable() || /https?:\/\/|mailto:/.test(t));
   });
   /** Acabou de ganhar o check: o carimbo bate, e daqui a pouco a ficha sai do mural. */
   protected readonly stamping = computed(() => this.note() && !this.preview() && this.view.stamping().has(this.review().id));

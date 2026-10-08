@@ -94,6 +94,105 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('- [x] leite');
   });
 
+  describe('as marcas novas', () => {
+    it('riscado e marca-texto em volta da seleção (pela régua e pelos atalhos); de novo, tira', () => {
+      write('um |caro| item');
+      button('Riscado').click();
+      expect(value()).toBe('um ~~caro~~ item');
+      button('Riscado').click();
+      expect(value()).toBe('um caro item');
+      key('h', { ctrlKey: true, shiftKey: true });
+      expect(value()).toBe('um ==caro== item');
+    });
+
+    it('título: cada toque, um nível menor, até voltar a texto; citação liga e desliga', () => {
+      write('Compras|');
+      button('Título').click();
+      expect(value()).toBe('# Compras');
+      button('Título').click();
+      expect(value()).toBe('## Compras');
+      button('Título').click();
+      button('Título').click();
+      expect(value()).toBe('Compras');
+      write('|um\ndois|');
+      button('Citação').click();
+      expect(value()).toBe('> um\n> dois');
+      area.setSelectionRange(0, value().length);
+      button('Citação').click();
+      expect(value()).toBe('um\ndois');
+    });
+
+    it('código: na palavra, as crases (Ctrl+E); numa linha vazia, o bloco', () => {
+      write('rode |npm test| já');
+      key('e', { ctrlKey: true });
+      expect(value()).toBe('rode `npm test` já');
+      write('|');
+      button('Código').click();
+      expect(value()).toBe('```\n\n```');
+    });
+
+    it('a tabela pela grade; Tab anda nas células e cria a linha nova; Enter numa linha vazia termina', () => {
+      write('|');
+      button('Tabela').click();
+      fixture.detectChanges();
+      const squares = fixture.nativeElement.querySelectorAll('.quadrado') as NodeListOf<HTMLButtonElement>;
+      // 3 colunas, 1 linha: o terceiro quadrado da primeira fileira
+      squares[2].click();
+      fixture.detectChanges();
+      expect(value()).toBe('| Coluna 1 | Coluna 2 | Coluna 3 |\n| --- | --- | --- |\n|   |   |   |');
+      expect(value().slice(area.selectionStart, area.selectionEnd)).toBe('Coluna 1');
+      key('Tab');
+      expect(value().slice(area.selectionStart, area.selectionEnd)).toBe('Coluna 2');
+      key('Tab');
+      key('Tab');
+      // pulou a linha de traços: a primeira célula da linha de baixo
+      const line = value().split('\n')[2];
+      expect(value().lastIndexOf('\n') < area.selectionStart).toBeTrue();
+      expect(line.startsWith('|')).toBeTrue();
+      key('Tab');
+      key('Tab');
+      key('Tab');
+      // depois da última célula: uma linha nova
+      expect(value().split('\n').length).toBe(4);
+      area.setSelectionRange(value().length, value().length);
+      key('Enter');
+      // a linha nova estava vazia: Enter a apaga, e a tabela acaba ali (a linha fica para o texto)
+      expect(value().split('\n').length).toBe(4);
+      expect(value().endsWith('|\n')).toBeTrue();
+    });
+
+    it('o link para um endereço: o painel com o texto selecionado (Ctrl+K), "site.com" vira https; colar um endereço sobre um texto faz o link', async () => {
+      write('veja |o site| hoje');
+      key('k', { ctrlKey: true });
+      fixture.detectChanges();
+      const [texto, endereco] = Array.from(fixture.nativeElement.querySelectorAll('.url-painel input') as NodeListOf<HTMLInputElement>);
+      expect(texto.value).toBe('o site');
+      endereco.value = 'ex.com/a';
+      endereco.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      const ok = fixture.nativeElement.querySelector('.painel-ok') as HTMLButtonElement;
+      expect(ok.disabled).withContext('o botão do painel').toBeFalse();
+      ok.click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.url-painel')).withContext('o painel fechou').toBeNull();
+      expect(value()).toBe('veja [o site](https://ex.com/a) hoje');
+      write('leia |isto| agora');
+      const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: new DataTransfer() });
+      paste.clipboardData!.setData('text/plain', 'https://ex.com/b');
+      area.dispatchEvent(paste);
+      expect(value()).toBe('leia [isto](https://ex.com/b) agora');
+    });
+
+    it('o guia das marcas abre e fecha pelo "?"', () => {
+      button('Guia das marcas').click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.guia')?.textContent).toContain('Link para um endereço');
+      button('Guia das marcas').click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.guia')).toBeNull();
+    });
+  });
+
   describe('o link para outra anotação', () => {
     const notes = [
       sanitizeReview({ id: 'n1', kind: 'anotacoes', game: { name: 'Comprar um console' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!,

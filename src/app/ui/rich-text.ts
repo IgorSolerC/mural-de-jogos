@@ -45,6 +45,45 @@ import { Review } from '../core/review';
               }
             </ol>
           }
+          @case ('h') {
+            <!-- o título: um dos níveis abaixo do título da ficha (4, 5, 6) -->
+            <div [class]="'linha titulo t' + b.level" role="heading" [attr.aria-level]="3 + b.level">@for (s of b.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
+          }
+          @case ('quote') {
+            <blockquote class="citacao">
+              @for (l of b.lines; track $index) {
+                <div class="linha">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
+              }
+            </blockquote>
+          }
+          @case ('hr') {
+            <div class="linha divisoria" role="separator"></div>
+          }
+          @case ('code') {
+            <pre class="codigo"><code>{{ b.text }}</code></pre>
+          }
+          @case ('table') {
+            <div class="tabela-rolo">
+              <table class="tabela">
+                <thead>
+                  <tr>
+                    @for (c of b.head; track $index; let i = $index) {
+                      <th scope="col" [style.text-align]="b.align[i]">@for (s of c; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of b.rows; track $index) {
+                    <tr>
+                      @for (c of r; track $index; let i = $index) {
+                        <td [style.text-align]="b.align[i]">@for (s of c; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
           @case ('check') {
             <ul class="lista tarefas">
               @for (it of b.items; track it.line) {
@@ -65,7 +104,7 @@ import { Review } from '../core/review';
         }
       }
     }
-    <ng-template #span let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.bold && s.italic) {<strong><em>{{ s.text }}</em></strong>} @else if (s.bold) {<strong>{{ s.text }}</strong>} @else if (s.italic) {<em>{{ s.text }}</em>} @else {{{ s.text }}}</ng-template>
+    <ng-template #span let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
     <ng-template #elo let-s>@let l = links(); @if (!l) {{{ '[[' + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else {@let note = l.resolve(s.text); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" role="link" tabindex="0" [attr.aria-label]="'Abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + s.text" [title]="'Ainda não tem uma anotação ' + s.text + '. Toque para criar.'" (click)="make($event, s.text)" (keydown.enter)="make($event, s.text)" (keydown.space)="make($event, s.text)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" title="Essa anotação não existe">{{ s.text }}</span>}}</ng-template>
   `,
@@ -81,12 +120,140 @@ import { Review } from '../core/review';
       min-height: var(--line, 1.5em);
       white-space: pre-wrap;
     }
-    strong {
+    /* ===== As ênfases ===== */
+    .negrito {
       font-weight: 700;
     }
-    em {
+    .italico {
       font-style: italic;
     }
+    /* riscado a lápis, por cima da letra */
+    .riscado {
+      text-decoration: line-through 2px;
+      text-decoration-color: color-mix(in srgb, currentColor 62%, transparent);
+    }
+    /* o marca-texto: a faixa na metade de baixo da letra, cada linha com a sua */
+    .marca {
+      --marca-cor: rgb(255 218 66 / 0.62);
+      background: linear-gradient(transparent 42%, var(--marca-cor) 42%, var(--marca-cor) 92%, transparent 92%);
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+      padding: 0 0.08em;
+    }
+    :host-context(app-review-card[data-cor='amarelo']) .marca {
+      --marca-cor: rgb(255 112 168 / 0.45);
+    }
+    :host-context(app-review-card[data-cor$='-escuro']) .marca,
+    :host-context(app-review-card[data-cor='preto']) .marca {
+      --marca-cor: rgb(255 218 66 / 0.32);
+    }
+    /* o código: letra de máquina de escrever, num retalho de papel mais escuro */
+    .cod,
+    .codigo {
+      font-family: 'Courier New', ui-monospace, Consolas, monospace;
+      font-weight: 600;
+    }
+    .cod {
+      padding: 0 0.28em;
+      border-radius: 2px;
+      background: color-mix(in srgb, currentColor 11%, transparent);
+      font-size: 0.92em;
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+    }
+    .codigo {
+      margin: 0;
+      padding: 0 0.6em;
+      border-radius: 2px;
+      background: color-mix(in srgb, currentColor 9%, transparent);
+      box-shadow: inset 2px 0 0 color-mix(in srgb, currentColor 30%, transparent);
+      font-size: 0.88em;
+      line-height: var(--line, 1.5em);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    /* ===== Os títulos: a letra grossa de pincel; o terceiro, de carimbo ===== */
+    .titulo {
+      font-family: var(--f-marker);
+      font-weight: 400;
+      line-height: var(--line, 1.5em);
+      overflow-wrap: anywhere;
+    }
+    .t1 {
+      font-size: 1.32em;
+    }
+    .t2 {
+      font-size: 1.12em;
+    }
+    .t3 {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ===== A citação: recuada, inclinada, com o fio de tinta do lado ===== */
+    .citacao {
+      margin: 0;
+      padding-left: 0.8em;
+      border-left: 3px solid color-mix(in srgb, currentColor 42%, transparent);
+      font-style: italic;
+    }
+
+    /* ===== A divisória: um risco ondulado à mão, no meio da linha da pauta ===== */
+    .divisoria {
+      background: currentColor;
+      opacity: 0.5;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 38 7.6 58 5S96 3.2 118 5.6 160 7 198 4.6' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 10px no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 38 7.6 58 5S96 3.2 118 5.6 160 7 198 4.6' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 10px no-repeat;
+    }
+
+    /* ===== A tabela: riscada a caneta, o cabeçalho em letra de carimbo ===== */
+    .tabela-rolo {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .tabela {
+      width: 100%;
+      border-collapse: collapse;
+      /* as colunas dividem a largura: a tabela cabe na ficha, e o texto quebra dentro da célula */
+      table-layout: fixed;
+      font-size: 0.94em;
+      line-height: var(--line, 1.5em);
+    }
+    .tabela th,
+    .tabela td {
+      /* a borda entra na conta da linha: cada fileira da tabela ocupa uma linha da pauta */
+      line-height: calc(var(--line, 1.5em) - 1.5px);
+      padding: 0 0.45em;
+      border: 1.5px solid color-mix(in srgb, currentColor 48%, transparent);
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+    .tabela th {
+      background: color-mix(in srgb, currentColor 8%, transparent);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86em;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* o link para fora: a mesma caneta, com a setinha de quem sai daqui */
+    .url::after {
+      content: '↗';
+      display: inline-block;
+      margin-left: 0.12em;
+      font-size: 0.72em;
+      font-style: normal;
+      vertical-align: 0.35em;
+      line-height: 1;
+    }
+
     .lista {
       margin: 0;
       padding: 0;
@@ -170,11 +337,14 @@ import { Review } from '../core/review';
       -webkit-box-decoration-break: clone;
       box-decoration-break: clone;
     }
-    .elo[tabindex] {
+    .elo[tabindex],
+    .url {
       cursor: pointer;
     }
     .elo[tabindex]:hover,
-    .elo[tabindex]:focus-visible {
+    .elo[tabindex]:focus-visible,
+    .url:hover,
+    .url:focus-visible {
       --elo-fundo: var(--elo-marca);
     }
     .elo:focus-visible {

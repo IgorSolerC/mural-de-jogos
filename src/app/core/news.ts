@@ -49,6 +49,21 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-markdown',
+    version: '1.21.0',
+    kind: 'update',
+    date: '2026-10-08',
+    title: 'Mais formatação no texto',
+    items: [
+      'Títulos (# , ## e ###), citações (>), a divisória (---), tabelas e blocos de código entram no texto das anotações e das resenhas.',
+      'Na linha: ~~riscado~~, ==marca-texto== e `código`. E links para qualquer endereço: [texto](https://…), ou o endereço solto, que já vira link (abre em outra aba).',
+      'A régua do editor ganhou os botões de tudo isso. O link pede o texto e o endereço (Ctrl+K); colar um endereço com um texto selecionado já faz o link.',
+      'A tabela se escolhe numa grade, como no Docs. Dentro dela, Tab anda entre as células e Enter no fim de uma linha cria a próxima.',
+      'O "?" da régua abre o guia com todas as marcas. Atalhos: Ctrl+E (código), Ctrl+Shift+X (riscado), Ctrl+Shift+H (marca-texto).',
+      'No celular, a régua fica numa fileira só, que rola de lado.',
+    ],
+  },
+  {
     id: '2026-10-08-categorias-e-tags',
     version: '1.20.0',
     kind: 'update',

@@ -1,7 +1,29 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
-import { Bold, Eye, Italic, Link2, List, ListChecks, ListOrdered, LucideAngularModule, Maximize2, Minimize2, PenLine, Plus } from 'lucide-angular';
-import { lineKind, toggleCheck } from '../core/rich-text';
+import {
+  Bold,
+  CircleHelp,
+  Code,
+  Eye,
+  Heading,
+  Highlighter,
+  Italic,
+  Link,
+  List,
+  ListChecks,
+  ListOrdered,
+  LucideAngularModule,
+  Maximize2,
+  Minimize2,
+  Minus,
+  PenLine,
+  Plus,
+  StickyNote,
+  Strikethrough,
+  Table,
+  TextQuote,
+} from 'lucide-angular';
+import { isTableSep, lineKind, tableCells, toggleCheck } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
@@ -9,10 +31,19 @@ import { RichText } from './rich-text';
 type ListKind = 'ul' | 'ol' | 'check';
 
 /**
- * O campo do texto da ficha: a folha pautada de sempre, com uma régua de formatação em cima
- * (negrito, itálico, lista, lista numerada, tarefas) e "Maximizar", que abre a mesma folha na tela
- * inteira para os textos longos. O que a régua faz são as marcas de core/rich-text.ts, escritas no
- * próprio texto; atalhos: Ctrl+B, Ctrl+I, e Enter continua a lista (num item vazio, termina).
+ * O campo do texto da ficha: a folha pautada de sempre, com uma régua de formatação em cima e
+ * "Maximizar", que abre a mesma folha na tela inteira para os textos longos. O que a régua faz são
+ * as marcas de core/rich-text.ts, escritas no próprio texto:
+ *
+ * - negrito, itálico, riscado e marca-texto em volta da seleção (de novo, tira);
+ * - título (cada toque, um nível menor, até voltar a texto), citação, listas e tarefas nas linhas;
+ * - link para um endereço (um painelzinho com o texto e o endereço; colar um endereço com texto
+ *   selecionado já faz o link), tabela (escolhida numa grade; Tab anda entre as células, Enter no
+ *   fim de uma linha cria a próxima), código e a divisória;
+ * - "?" abre o guia de todas as marcas.
+ *
+ * Atalhos: Ctrl+B, Ctrl+I, Ctrl+K (link), Ctrl+E (código), Ctrl+Shift+X (riscado), Ctrl+Shift+H
+ * (marca-texto); Enter continua a lista (num item vazio, termina).
  *
  * As mudanças passam por `insertText`, então o Ctrl+Z do navegador desfaz cada uma.
  *
@@ -27,13 +58,26 @@ type ListKind = 'ul' | 'ol' | 'check';
   template: `
     <ng-template #campo let-big="big">
       <div class="regua" role="toolbar" aria-label="Formatação do texto" [attr.aria-controls]="big ? areaId + '-grande' : areaId">
+        <div class="ferramentas">
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Negrito (Ctrl+B)" aria-label="Negrito" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '**')">
           <lucide-icon [img]="BoldIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
         </button>
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Itálico (Ctrl+I)" aria-label="Itálico" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '*')">
           <lucide-icon [img]="ItalicIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '~~')">
+          <lucide-icon [img]="StrikeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '==')">
+          <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
         <span class="fio" aria-hidden="true"></span>
+        <button type="button" class="ferramenta titulo-btn" [disabled]="seeing()" title="Título (de novo: um nível menor)" aria-label="Título" (pointerdown)="$event.preventDefault()" (click)="heading(area)">
+          <lucide-icon [img]="HeadingIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Citação" aria-label="Citação" (pointerdown)="$event.preventDefault()" (click)="quote(area)">
+          <lucide-icon [img]="QuoteIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+        </button>
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Lista" aria-label="Lista" (pointerdown)="$event.preventDefault()" (click)="list(area, 'ul')">
           <lucide-icon [img]="ListIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
@@ -43,8 +87,20 @@ type ListKind = 'ul' | 'ol' | 'check';
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Tarefas (checklist)" aria-label="Tarefas" (pointerdown)="$event.preventDefault()" (click)="list(area, 'check')">
           <lucide-icon [img]="ChecksIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
+        <span class="fio" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="ferramenta"
+          [disabled]="seeing()"
+          title="Link para um endereço (Ctrl+K)"
+          aria-label="Link para um endereço"
+          [attr.aria-expanded]="urlLink()?.big === big"
+          (pointerdown)="$event.preventDefault()"
+          (click)="startUrl(area, big)"
+        >
+          <lucide-icon [img]="UrlIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
         @if (notes()) {
-          <span class="fio" aria-hidden="true"></span>
           <button
             type="button"
             class="ferramenta"
@@ -58,6 +114,36 @@ type ListKind = 'ul' | 'ol' | 'check';
             <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
           </button>
         }
+        <button
+          type="button"
+          class="ferramenta"
+          [disabled]="seeing()"
+          title="Tabela"
+          aria-label="Tabela"
+          [attr.aria-expanded]="tablePick()?.big === big"
+          (pointerdown)="$event.preventDefault()"
+          (click)="startTable(area, big)"
+        >
+          <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Código (Ctrl+E)" aria-label="Código" (pointerdown)="$event.preventDefault()" (click)="code(area)">
+          <lucide-icon [img]="CodeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Divisória" aria-label="Divisória" (pointerdown)="$event.preventDefault()" (click)="rule(area)">
+          <lucide-icon [img]="RuleIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="ferramenta"
+          title="Guia das marcas"
+          aria-label="Guia das marcas"
+          [attr.aria-expanded]="guide() === big"
+          [attr.aria-controls]="areaId + '-guia'"
+          (click)="guide.set(guide() === big ? null : big)"
+        >
+          <lucide-icon [img]="HelpIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        </div>
         <!-- as marcas ficam no texto: "Ver como fica" mostra a folha formatada (e marca as tarefas) -->
         <button type="button" class="acao-caneta ver" [attr.aria-pressed]="seeing()" (click)="see(!seeing(), big)">
           <lucide-icon [img]="seeing() ? WriteIcon : SeeIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
@@ -100,9 +186,81 @@ type ListKind = 'ul' | 'ol' | 'check';
         (focus)="onAreaFocus()"
         (click)="watchLink(area, big)"
         (keyup)="onKeyUp($event, area, big)"
-        (keydown)="onKey($event, area)"
+        (keydown)="onKey($event, area, big)"
+        (paste)="onPaste($event, area)"
         (blur)="onAreaBlur()"
       ></textarea>
+      <!-- o link para um endereço: o texto e o endereço, embaixo da folha -->
+      @if (urlLink(); as u) {
+        @if (u.big === big) {
+          <div class="painel url-painel" role="group" aria-label="Link para um endereço" (keydown.escape)="closeUrl($event, area)">
+            <p class="painel-titulo">Link para um endereço</p>
+            <label class="painel-campo">
+              <span>Texto</span>
+              <input type="text" autocomplete="off" placeholder="O que aparece (ou deixe o endereço)" (keydown.enter)="$event.preventDefault(); putUrl(area)" [value]="u.text" (input)="urlLink.set({ big: u.big, start: u.start, end: u.end, url: u.url, text: $any($event.target).value })" />
+            </label>
+            <label class="painel-campo">
+              <span>Endereço</span>
+              <input
+                class="url-campo"
+                type="url"
+                inputmode="url"
+                autocomplete="off"
+                placeholder="https://…"
+                (keydown.enter)="$event.preventDefault(); putUrl(area)"
+                [value]="u.url"
+                (input)="urlLink.set({ big: u.big, start: u.start, end: u.end, text: u.text, url: $any($event.target).value })"
+              />
+            </label>
+            <div class="painel-acoes">
+              <button type="button" class="acao-caneta" (click)="closeUrl(null, area)">Cancelar</button>
+              <button type="button" class="painel-ok" [disabled]="!urlOk()" (click)="putUrl(area)">Pôr o link</button>
+            </div>
+          </div>
+        }
+      }
+      <!-- a tabela: escolhida numa grade, como numa folha quadriculada -->
+      @if (tablePick(); as t) {
+        @if (t.big === big) {
+          <div class="painel tabela-painel" (keydown.escape)="closeTable($event, area)">
+            <p class="painel-titulo" aria-live="polite">Tabela {{ t.cols }} × {{ t.rows }}</p>
+            <div class="grade" role="grid" aria-label="Tamanho da tabela: colunas por linhas" (keydown)="onGridKey($event, area)">
+              @for (r of gridRows; track r) {
+                <div class="grade-linha" role="row">
+                  @for (c of gridCols; track c) {
+                    <button
+                      type="button"
+                      role="gridcell"
+                      class="quadrado"
+                      [class.dentro]="c <= t.cols && r <= t.rows"
+                      [attr.aria-label]="c + ' colunas e ' + r + ' linhas'"
+                      [attr.tabindex]="c === t.cols && r === t.rows ? 0 : -1"
+                      (pointerenter)="tablePick.set({ big: t.big, cols: c, rows: r })"
+                      (focus)="tablePick.set({ big: t.big, cols: c, rows: r })"
+                      (click)="putTable(area, c, r)"
+                    ></button>
+                  }
+                </div>
+              }
+            </div>
+            <p class="painel-dica">Na tabela, Tab anda entre as células e Enter no fim de uma linha cria a próxima.</p>
+          </div>
+        }
+      }
+      <!-- o guia: todas as marcas, com o jeito de escrever cada uma -->
+      @if (guide() === big) {
+        <div class="painel guia" [id]="areaId + '-guia'" role="region" aria-label="Guia das marcas" (keydown.escape)="closeGuide($event, area)">
+          <p class="painel-titulo">Como escrever</p>
+          <dl class="guia-lista">
+            @for (g of guideItems; track g.mark) {
+              <div class="guia-item">
+                <dt><code>{{ g.mark }}</code></dt>
+                <dd>{{ g.what }}</dd>
+              </div>
+            }
+          </dl>
+        </div>
+      }
       <!-- a lista das anotações para o link: embaixo da folha, sem cobrir o que se escreve -->
       @if (linking(); as k) {
         @if (k.big === big) {
@@ -184,12 +342,21 @@ type ListKind = 'ul' | 'ol' | 'check';
       display: block;
     }
 
-    /* ===== A régua: os botões de formatação numa tira só, encostada no alto da folha ===== */
+    /* ===== A régua: os botões de formatação encostados no alto da folha; quebram em duas
+       fileiras quando não cabem, e as ações (ver, maximizar) ficam sempre na ponta ===== */
     .regua {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 2px;
+      margin-bottom: 6px;
+    }
+    .ferramentas {
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 2px;
-      margin-bottom: 6px;
+      min-width: 0;
     }
     .ferramenta {
       display: grid;
@@ -217,7 +384,7 @@ type ListKind = 'ul' | 'ol' | 'check';
     .fio {
       width: 2px;
       height: 20px;
-      margin: 0 5px;
+      margin: 0 4px;
       border-radius: 1px;
       background: rgb(21 21 21 / 0.25);
     }
@@ -245,7 +412,32 @@ type ListKind = 'ul' | 'ol' | 'check';
         white-space: nowrap;
       }
       .ferramenta {
-        width: 34px;
+        flex: none;
+        width: 36px;
+        height: 38px;
+      }
+      /* no celular, uma fileira só: as ferramentas rolam de lado (o esmaecido na ponta avisa que tem
+         mais), e ver e maximizar ficam fixos na ponta */
+      .regua {
+        flex-wrap: nowrap;
+      }
+      .ferramentas {
+        flex: 1 1 0;
+        flex-wrap: nowrap;
+        /* a fileira não empurra a coluna do editor: a largura dela vem da coluna, e o resto rola */
+        contain: inline-size;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+        padding-right: 22px;
+      }
+      .ferramentas::-webkit-scrollbar {
+        display: none;
+      }
+      .fio {
+        flex: none;
       }
       .tamanho {
         margin-left: 4px;
@@ -296,6 +488,161 @@ type ListKind = 'ul' | 'ol' | 'check';
     }
     textarea[hidden] {
       display: none;
+    }
+
+    /* ===== Os painéis da régua (link, tabela, guia): uma tira de fichário embaixo da folha ===== */
+    .painel {
+      margin-top: 8px;
+      padding: 10px 12px 12px;
+      border-radius: 2px;
+      background: #fbf9f2;
+      box-shadow:
+        inset 0 0 0 2px var(--ink),
+        0 6px 14px -6px rgb(0 0 0 / 0.45);
+      animation: painel-desce var(--t-physical) var(--ease-physical);
+    }
+    @keyframes painel-desce {
+      from {
+        opacity: 0;
+        translate: 0 -6px;
+      }
+    }
+    .painel-titulo {
+      margin: 0 0 8px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.82rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+    }
+    .painel-dica {
+      margin: 8px 0 0;
+      font-size: 0.86rem;
+      color: var(--ink-2);
+    }
+    .painel-campo {
+      display: grid;
+      grid-template-columns: 6.5em minmax(0, 1fr);
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .painel-campo input {
+      width: 100%;
+      padding: 6px 4px;
+      border: 0;
+      border-bottom: 2px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--f-hand);
+      font-size: 1.1rem;
+      letter-spacing: 0;
+      text-transform: none;
+      outline: none;
+    }
+    .painel-campo input:focus-visible {
+      border-bottom-width: 3px;
+    }
+    .painel-campo input::placeholder {
+      color: rgb(21 21 21 / 0.5);
+    }
+    .painel-acoes {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 14px;
+      margin-top: 8px;
+    }
+    .painel-ok {
+      min-height: 38px;
+      padding: 6px 14px;
+      border: 0;
+      border-radius: 2px;
+      background: var(--ink);
+      color: var(--hi);
+      font-family: var(--f-marker);
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .painel-ok:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .painel-ok:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
+    }
+    @media (max-width: 559px) {
+      .painel-campo {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+      }
+    }
+    /* a grade da tabela: papel quadriculado, os quadrados escolhidos em marca-texto */
+    .grade {
+      display: inline-grid;
+      gap: 3px;
+    }
+    .grade-linha {
+      display: flex;
+      gap: 3px;
+    }
+    .quadrado {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: 1.5px solid rgb(21 21 21 / 0.35);
+      border-radius: 2px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .quadrado.dentro {
+      border-color: var(--ink);
+      background: rgb(255 218 66 / 0.75);
+    }
+    .quadrado:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 1px;
+    }
+    @media (pointer: coarse) {
+      .quadrado {
+        width: 32px;
+        height: 32px;
+      }
+    }
+    /* o guia: as marcas na letra de máquina, o que fazem ao lado */
+    .guia-lista {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+      gap: 4px 18px;
+      margin: 0;
+    }
+    .guia-item {
+      display: grid;
+      grid-template-columns: minmax(7.5rem, auto) minmax(0, 1fr);
+      align-items: baseline;
+      gap: 10px;
+      min-height: 30px;
+    }
+    .guia-item dt code {
+      padding: 1px 5px;
+      border-radius: 2px;
+      background: rgb(21 21 21 / 0.07);
+      font-family: 'Courier New', ui-monospace, monospace;
+      font-weight: 700;
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+    .guia-item dd {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--ink-2);
     }
 
     /* ===== A lista do link: uma tira de fichário presa embaixo da folha ===== */
@@ -371,7 +718,7 @@ type ListKind = 'ul' | 'ol' | 'check';
       overflow: hidden;
       font-family: var(--f-hand);
       font-size: 1.12rem;
-      color: var(--caneta-azul);
+      color: var(--ink);
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -534,8 +881,46 @@ export class RichEditor {
   /** As outras anotações, para os links "[[Título]]"; null, sem links (a resenha). */
   readonly notes = input<readonly Review[] | null>(null);
 
-  protected readonly LinkIcon = Link2;
+  protected readonly LinkIcon = StickyNote;
+  protected readonly UrlIcon = Link;
   protected readonly PlusIcon = Plus;
+  protected readonly StrikeIcon = Strikethrough;
+  protected readonly MarkIcon = Highlighter;
+  protected readonly HeadingIcon = Heading;
+  protected readonly QuoteIcon = TextQuote;
+  protected readonly TableIcon = Table;
+  protected readonly CodeIcon = Code;
+  protected readonly RuleIcon = Minus;
+  protected readonly HelpIcon = CircleHelp;
+
+  /** O painel do link para um endereço: o trecho que ele vai ocupar, o texto e o endereço. */
+  protected readonly urlLink = signal<{ big: boolean; start: number; end: number; text: string; url: string } | null>(null);
+  /** O endereço do painel serve (com "https://" se faltou). */
+  protected readonly urlOk = computed(() => !!normalizeUrl(this.urlLink()?.url ?? ''));
+  /** A grade da tabela aberta, com o tamanho apontado. */
+  protected readonly tablePick = signal<{ big: boolean; cols: number; rows: number } | null>(null);
+  protected readonly gridCols = [1, 2, 3, 4, 5, 6];
+  protected readonly gridRows = [1, 2, 3, 4, 5, 6];
+  /** O guia das marcas aberto (em qual das folhas), ou null. */
+  protected readonly guide = signal<boolean | null>(null);
+  protected readonly guideItems: readonly { mark: string; what: string }[] = [
+    { mark: '**negrito**', what: 'Negrito (Ctrl+B)' },
+    { mark: '*itálico*', what: 'Itálico (Ctrl+I)' },
+    { mark: '~~riscado~~', what: 'Riscado' },
+    { mark: '==marca==', what: 'Marca-texto' },
+    { mark: '# Título', what: 'Título (## e ### menores)' },
+    { mark: '> citação', what: 'Citação' },
+    { mark: '- item', what: 'Lista' },
+    { mark: '1. item', what: 'Lista numerada' },
+    { mark: '- [ ] tarefa', what: 'Tarefa ([x] feita)' },
+    { mark: '[texto](https://…)', what: 'Link para um endereço (Ctrl+K)' },
+    { mark: '[[Título]]', what: 'Link para outra anotação' },
+    { mark: '`código`', what: 'Código (Ctrl+E)' },
+    { mark: '```', what: 'Bloco de código (abre e fecha)' },
+    { mark: '| a | b |', what: 'Tabela (2ª linha: | --- | --- |)' },
+    { mark: '---', what: 'Divisória' },
+    { mark: '\\*', what: 'A marca como ela é, sem formatar' },
+  ];
 
   /**
    * A lista do link aberta: pela régua (`auto` falso, com a própria busca) ou por "[[" escrito na
@@ -765,19 +1150,309 @@ export class RichEditor {
     el.setSelectionRange(...this.caret);
   }
 
-  protected onKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+  protected onKey(e: KeyboardEvent, area: HTMLTextAreaElement, big = false): void {
     // com a lista aberta, as setas, o Enter e o Esc são dela (o Esc fecha só a lista, não o editor)
     if (this.linking() && (this.linking()!.auto || e.key === 'Escape') && this.onListKey(e)) return;
-    const mod = e.ctrlKey || e.metaKey;
-    if (mod && !e.altKey && (e.key === 'b' || e.key === 'B')) {
+    const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+    const key = e.key.toLowerCase();
+    if (mod && !e.shiftKey && key === 'b') {
       e.preventDefault();
       this.wrap(area, '**');
-    } else if (mod && !e.altKey && (e.key === 'i' || e.key === 'I')) {
+    } else if (mod && !e.shiftKey && key === 'i') {
       e.preventDefault();
       this.wrap(area, '*');
+    } else if (mod && !e.shiftKey && key === 'k') {
+      e.preventDefault();
+      this.startUrl(area, big);
+    } else if (mod && !e.shiftKey && key === 'e') {
+      e.preventDefault();
+      this.code(area);
+    } else if (mod && e.shiftKey && key === 'x') {
+      e.preventDefault();
+      this.wrap(area, '~~');
+    } else if (mod && e.shiftKey && key === 'h') {
+      e.preventDefault();
+      this.wrap(area, '==');
+    } else if (e.key === 'Tab' && !mod && !e.altKey && this.tableLine(area)) {
+      this.tableTab(e, area);
     } else if (e.key === 'Enter' && !e.shiftKey && !mod && !e.isComposing) {
-      this.continueList(e, area);
+      if (this.tableLine(area)) this.tableEnter(e, area);
+      else this.continueList(e, area);
     }
+  }
+
+  // ===== Título, citação, código e divisória =====
+
+  /** A linha do cursor (ou as da seleção): onde começa, onde termina e o texto. */
+  private linesAt(area: HTMLTextAreaElement): { from: number; to: number; lines: string[] } {
+    const text = area.value;
+    const from = text.lastIndexOf('\n', area.selectionStart - 1) + 1;
+    const endAt = text.indexOf('\n', Math.max(area.selectionEnd - (area.selectionEnd > area.selectionStart && text[area.selectionEnd - 1] === '\n' ? 1 : 0), area.selectionStart));
+    const to = endAt === -1 ? text.length : endAt;
+    return { from, to, lines: text.slice(from, to).split('\n') };
+  }
+
+  /** Título na linha: texto → "# " → "## " → "### " → texto de novo. */
+  protected heading(area: HTMLTextAreaElement): void {
+    const { from, to, lines } = this.linesAt(area);
+    const line = lines[0];
+    const m = /^(#{1,3})\s+/.exec(line);
+    const level = m ? m[1].length : 0;
+    const rest = m ? line.slice(m[0].length) : line.replace(/^\s+/, '');
+    const next = level >= 3 ? rest : '#'.repeat(level + 1) + ' ' + rest;
+    const end = from + lines[0].length;
+    this.replace(area, from, end, next, from + next.length, from + next.length);
+    void to;
+  }
+
+  /** Citação nas linhas: cada uma ganha "> "; se todas já têm, tira. */
+  protected quote(area: HTMLTextAreaElement): void {
+    const { from, to, lines } = this.linesAt(area);
+    const all = lines.every((l) => /^\s*>/.test(l) || !l.trim());
+    const next = lines.map((l) => (all ? l.replace(/^(\s*)>\s?/, '$1') : !l.trim() && lines.length > 1 ? l : '> ' + l)).join('\n');
+    const single = area.selectionStart === area.selectionEnd && lines.length === 1;
+    this.replace(area, from, to, next, single ? from + next.length : from, from + next.length);
+  }
+
+  /** Código: na seleção de uma linha, entre crases; em várias linhas (ou numa linha vazia), o bloco entre "```". */
+  protected code(area: HTMLTextAreaElement): void {
+    const text = area.value;
+    const sel = text.slice(area.selectionStart, area.selectionEnd);
+    const { from, to, lines } = this.linesAt(area);
+    if (sel.includes('\n') || (!sel && !lines[0].trim())) {
+      const body = sel || '';
+      const before = from > 0 && text[from - 1] !== '\n' ? '\n' : '';
+      const block = `${before}\`\`\`\n${body}\n\`\`\``;
+      const start = sel ? area.selectionStart : from;
+      const end = sel ? area.selectionEnd : to;
+      const caret = start + before.length + 4;
+      this.replace(area, start, end, block, caret, caret + body.length);
+      return;
+    }
+    this.wrap(area, '`');
+  }
+
+  /** A divisória numa linha só dela, depois da linha do cursor. */
+  protected rule(area: HTMLTextAreaElement): void {
+    const text = area.value;
+    const { to } = this.linesAt(area);
+    const line = text.slice(text.lastIndexOf('\n', to - 1) + 1, to);
+    const piece = (line.trim() ? '\n' : '') + '---\n';
+    this.replace(area, to, to, piece, to + piece.length, to + piece.length);
+  }
+
+  // ===== O link para um endereço =====
+
+  /** Abre o painel do link com o trecho selecionado (um endereço selecionado já vai no campo dele). */
+  protected startUrl(area: HTMLTextAreaElement, big: boolean): void {
+    this.linking.set(null);
+    this.tablePick.set(null);
+    const sel = area.value.slice(area.selectionStart, area.selectionEnd);
+    const isUrl = !!normalizeUrl(sel.trim()) && /^(https?:\/\/|www\.|mailto:)/i.test(sel.trim());
+    this.urlLink.set({ big, start: area.selectionStart, end: area.selectionEnd, text: isUrl ? '' : sel.replace(/\s+/g, ' ').trim(), url: isUrl ? sel.trim() : '' });
+    setTimeout(() => this.panelInput(big, isUrl || !sel ? '.url-campo' : 'input')?.focus());
+  }
+
+  /** Põe "[texto](endereço)" no lugar do trecho (sem texto, o endereço sozinho). */
+  protected putUrl(area: HTMLTextAreaElement): void {
+    const u = this.urlLink();
+    const href = normalizeUrl(u?.url ?? '');
+    if (!u || !href) return;
+    const label = u.text.replace(/[[\]]/g, '').trim();
+    const piece = label ? `[${label}](${href})` : href;
+    this.urlLink.set(null);
+    this.replace(area, u.start, u.end, piece, u.start + piece.length, u.start + piece.length);
+  }
+
+  protected closeUrl(e: Event | null, area: HTMLTextAreaElement): void {
+    // Esc fecha só o painel, não o editor
+    e?.preventDefault();
+    e?.stopPropagation();
+    const u = this.urlLink();
+    this.urlLink.set(null);
+    if (u) {
+      area.focus();
+      area.setSelectionRange(u.start, u.end);
+    }
+  }
+
+  /** Colou um endereço com um texto selecionado: o texto vira o link. */
+  protected onPaste(e: ClipboardEvent, area: HTMLTextAreaElement): void {
+    const pasted = e.clipboardData?.getData('text/plain')?.trim() ?? '';
+    const sel = area.value.slice(area.selectionStart, area.selectionEnd);
+    if (!sel.trim() || sel.includes('\n') || !/^(https?:\/\/|mailto:)\S+$/i.test(pasted)) return;
+    e.preventDefault();
+    const piece = `[${sel.trim().replace(/[[\]]/g, '')}](${pasted})`;
+    const start = area.selectionStart;
+    this.replace(area, start, area.selectionEnd, piece, start + piece.length, start + piece.length);
+  }
+
+  private panelInput(big: boolean, selector: string): HTMLInputElement | null {
+    const panels = this.host.nativeElement.querySelectorAll<HTMLElement>('.painel');
+    for (const p of Array.from(panels)) {
+      const inBig = !!p.closest('.tela-cheia');
+      if (inBig === big) return p.querySelector<HTMLInputElement>(selector);
+    }
+    return null;
+  }
+
+  // ===== A tabela =====
+
+  protected startTable(area: HTMLTextAreaElement, big: boolean): void {
+    this.linking.set(null);
+    this.urlLink.set(null);
+    if (this.tablePick()?.big === big) {
+      this.tablePick.set(null);
+      return;
+    }
+    this.tablePick.set({ big, cols: 2, rows: 2 });
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());
+    void area;
+  }
+
+  /** Setas andam na grade, Enter (ou espaço) põe a tabela do tamanho apontado. */
+  protected onGridKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    const t = this.tablePick();
+    if (!t) return;
+    const move: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] };
+    const d = move[e.key];
+    if (!d) return;
+    e.preventDefault();
+    const cols = Math.min(6, Math.max(1, t.cols + d[0]));
+    const rows = Math.min(6, Math.max(1, t.rows + d[1]));
+    this.tablePick.set({ ...t, cols, rows });
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());
+    void area;
+  }
+
+  protected closeTable(e: Event, area: HTMLTextAreaElement): void {
+    e.preventDefault();
+    e.stopPropagation();
+    this.tablePick.set(null);
+    area.focus();
+  }
+
+  protected closeGuide(e: Event, area: HTMLTextAreaElement): void {
+    e.preventDefault();
+    e.stopPropagation();
+    this.guide.set(null);
+    area.focus();
+  }
+
+  /**
+   * Põe a tabela (colunas × linhas, sem contar o cabeçalho) numa linha só dela, com o cabeçalho
+   * "Coluna 1, Coluna 2…" e o primeiro nome já selecionado para ser trocado.
+   */
+  protected putTable(area: HTMLTextAreaElement, cols: number, rows: number): void {
+    this.tablePick.set(null);
+    const text = area.value;
+    const at = area.selectionEnd;
+    const lineStart = text.lastIndexOf('\n', at - 1) + 1;
+    const lineEndAt = text.indexOf('\n', at);
+    const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+    const onEmpty = !text.slice(lineStart, lineEnd).trim();
+    const pos = onEmpty ? lineStart : lineEnd;
+    const head = '| ' + Array.from({ length: cols }, (_, i) => `Coluna ${i + 1}`).join(' | ') + ' |';
+    const sep = '|' + ' --- |'.repeat(cols);
+    const row = '|' + '   |'.repeat(cols);
+    const before = onEmpty ? '' : '\n';
+    const piece = before + [head, sep, ...Array.from({ length: rows }, () => row)].join('\n') + (onEmpty ? '' : '\n');
+    const first = pos + before.length + 2;
+    this.replace(area, pos, onEmpty ? lineEnd : pos, piece, first, first + 'Coluna 1'.length);
+  }
+
+  /** A linha do cursor é uma linha de tabela ("| … |")? */
+  private tableLine(area: HTMLTextAreaElement): boolean {
+    if (area.selectionStart !== area.selectionEnd && area.value.slice(area.selectionStart, area.selectionEnd).includes('\n')) return false;
+    const { lines } = this.linesAt(area);
+    const t = lines[0].trim();
+    return t.length > 1 && t.startsWith('|') && t.endsWith('|');
+  }
+
+  /** As células da linha: onde começa e termina o conteúdo de cada uma (sem os espaços). */
+  private cellsOf(line: string, offset: number): { start: number; end: number }[] {
+    const bars: number[] = [];
+    for (let i = 0; i < line.length; i++) if (line[i] === '|' && line[i - 1] !== '\\') bars.push(i);
+    const out: { start: number; end: number }[] = [];
+    for (let b = 0; b < bars.length - 1; b++) {
+      let s = bars[b] + 1;
+      let e = bars[b + 1];
+      while (s < e && line[s] === ' ') s++;
+      while (e > s && line[e - 1] === ' ') e--;
+      // a célula vazia: o cursor fica no meio dos espaços
+      if (s === e) s = e = Math.min(bars[b] + 2, bars[b + 1]);
+      out.push({ start: offset + s, end: offset + e });
+    }
+    return out;
+  }
+
+  /** Tab vai para a próxima célula (Shift+Tab, a anterior), passando de linha; depois da última, cria uma linha. */
+  private tableTab(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    e.preventDefault();
+    const text = area.value;
+    const caret = area.selectionStart;
+    const { from } = this.linesAt(area);
+    const lineEndAt = text.indexOf('\n', from);
+    const line = text.slice(from, lineEndAt === -1 ? text.length : lineEndAt);
+    const cells = this.cellsOf(line, from);
+    const i = cells.findIndex((c, k) => caret <= c.end || k === cells.length - 1);
+    const go = (c: { start: number; end: number }) => area.setSelectionRange(c.start, c.end);
+    if (e.shiftKey) {
+      if (i > 0) return go(cells[i - 1]);
+      // a primeira célula: a última da linha de cima (se ela é da tabela e não é a de traços)
+      const prevEnd = from - 1;
+      if (prevEnd < 0) return;
+      const prevFrom = text.lastIndexOf('\n', prevEnd - 1) + 1;
+      let prev = text.slice(prevFrom, prevEnd);
+      let pFrom = prevFrom;
+      if (isTableSep(prev)) {
+        const pp = text.lastIndexOf('\n', prevFrom - 2) + 1;
+        prev = text.slice(pp, prevFrom - 1);
+        pFrom = pp;
+      }
+      if (!prev.trim().startsWith('|')) return;
+      const pc = this.cellsOf(prev, pFrom);
+      if (pc.length) go(pc[pc.length - 1]);
+      return;
+    }
+    if (i < cells.length - 1) return go(cells[i + 1]);
+    // a última célula: a primeira da linha de baixo (pulando a de traços), ou uma linha nova
+    let nextFrom = (lineEndAt === -1 ? text.length : lineEndAt) + 1;
+    let next = lineEndAt === -1 ? '' : text.slice(nextFrom, (text.indexOf('\n', nextFrom) + 1 || text.length + 1) - 1);
+    if (isTableSep(next)) {
+      nextFrom += next.length + 1;
+      const nEnd = text.indexOf('\n', nextFrom);
+      next = text.slice(nextFrom, nEnd === -1 ? text.length : nEnd);
+    }
+    if (next.trim().startsWith('|')) {
+      const nc = this.cellsOf(next, nextFrom);
+      if (nc.length) go(nc[0]);
+      return;
+    }
+    this.addRow(area, from, line);
+  }
+
+  /** Enter no fim de uma linha da tabela cria a próxima; numa linha toda vazia, a tabela acaba ali. */
+  private tableEnter(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    const text = area.value;
+    const { from } = this.linesAt(area);
+    const lineEndAt = text.indexOf('\n', from);
+    const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+    if (area.selectionStart !== lineEnd) return;
+    const line = text.slice(from, lineEnd);
+    e.preventDefault();
+    if (tableCells(line).every((c) => !c)) {
+      this.replace(area, from, lineEnd, '', from, from);
+      return;
+    }
+    this.addRow(area, from, line);
+  }
+
+  private addRow(area: HTMLTextAreaElement, from: number, line: string): void {
+    const n = Math.max(1, tableCells(line).length);
+    const row = '\n|' + '   |'.repeat(n);
+    const end = from + line.length;
+    this.replace(area, end, end, row, end + 3, end + 3);
   }
 
   /**
@@ -872,6 +1547,16 @@ export class RichEditor {
 }
 
 let uid = 0;
+
+/** O endereço do link, se serve: com "https://" quando faltou ("site.com"); null se não parece endereço. */
+export function normalizeUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!t || /\s/.test(t)) return null;
+  if (/^(https?:\/\/|mailto:)\S+$/i.test(t)) return t;
+  // "www.site.com" ou "site.com/x": vira https
+  if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(t)) return 'https://' + t;
+  return null;
+}
 
 function prefixOf(kind: ListKind, n: number): string {
   return kind === 'ul' ? '- ' : kind === 'check' ? '- [ ] ' : `${n}. `;
