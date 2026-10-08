@@ -36,11 +36,13 @@ import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
+import { NoteTag } from './note-tag';
+import { categoryBonus } from '../core/note-labels';
 
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (keydown)="onKey($event)" (close)="review.set(null)">
@@ -129,11 +131,14 @@ import { DoneStamp } from './done-stamp';
               </div>
 
               @if (note()) {
-                <!-- as categorias da anotação, no lugar da nota -->
-                @if (r.bonuses.length) {
-                  <ul class="judgement categorias" aria-label="Categorias">
-                    @for (b of r.bonuses; track b.id; let i = $index) {
-                      <li><app-bonus-sticker [bonus]="b" [index]="i" [seed]="r.id" /></li>
+                <!-- a categoria e as tags da anotação, no lugar da nota -->
+                @if (r.category || r.tags?.length) {
+                  <ul class="judgement categorias" aria-label="Categoria e tags">
+                    @if (r.category) {
+                      <li><app-bonus-sticker [bonus]="categorySticker(r.category)" [index]="0" [seed]="r.id" /><span class="sr-only"> (categoria)</span></li>
+                    }
+                    @for (t of r.tags ?? []; track t; let i = $index) {
+                      <li><app-note-tag [label]="t" [index]="i + 1" /><span class="sr-only"> (tag)</span></li>
                     }
                   </ul>
                 }
@@ -283,6 +288,7 @@ export class ReviewReader {
   protected readonly PrivateIcon = LockKeyhole;
   protected readonly BackIcon = ArrowLeft;
   protected readonly ReopenIcon = RotateCcw;
+  protected readonly categorySticker = categoryBonus;
   protected readonly PinIcon = PinGlyph;
   protected readonly UnpinIcon = PinOff;
   private readonly store = inject(ReviewStore);

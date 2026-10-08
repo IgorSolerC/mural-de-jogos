@@ -165,7 +165,8 @@ export class App {
         const r = this.store.get(id);
         if (r) this.reader().open(r, null, [], false, null, (fromId && this.store.get(fromId)) || null);
       },
-      newNote: (title) => this.newNote(title),
+      // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
+      newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
       openDraft: (id) => {
         const d = this.store.getDraft(id);
         if (d) this.editor().open(undefined, d);
@@ -259,13 +260,14 @@ export class App {
   private returnTo: string | null = null;
 
   /**
-   * O link para uma anotação que ainda não existe: o editor abre com o título já escrito. Veio da
-   * leitura (`from`)? Salvando ou não, a leitura volta para a anotação de onde o link saiu.
+   * O link para uma anotação que ainda não existe: o editor abre com o título já escrito e a
+   * categoria da anotação de onde o link saiu (`from`). Veio da leitura (`back`)? Salvando ou não, a
+   * leitura volta para aquela anotação.
    */
-  protected newNote(title: string, from: string | null = null): void {
+  protected newNote(title: string, from: string | null = null, back = true): void {
     this.reader().close();
-    this.returnTo = from;
-    this.editor().openNote(title);
+    this.returnTo = back ? from : null;
+    this.editor().openNote(title, (from && this.store.get(from)) || null);
   }
 
   protected onEditorClosed(): void {

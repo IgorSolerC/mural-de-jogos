@@ -206,7 +206,6 @@ export class WallView {
     key: this.activeScore(),
     direction: this.direction(),
     profile: this.mural.profile(),
-    categories: this.activeFilter().category,
   }));
 
   readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.settings.noSpoilers()));
@@ -319,8 +318,6 @@ export interface WallOrder {
   key: ScoreKey;
   direction: Direction;
   profile: KindProfile;
-  /** As categorias do filtro (só nas anotações): ordenando por categoria, cada uma fica numa delas. */
-  categories?: readonly string[];
 }
 
 /** As fichas na ordem pedida. */
@@ -362,10 +359,9 @@ const PINNED_GROUP: [string, string] = ['fixadas', 'Fixadas'];
 /** As seções da Prioridade: as fixadas, as comuns e as sub-notas. */
 const RANK_GROUPS: [string, string][] = [PINNED_GROUP, ['comuns', 'Anotações'], ['sub-notas', 'Sub-notas']];
 
-/** A categoria que agrupa a anotação: a primeira que foi colada nela, ou nenhuma. */
-function firstCategory(r: Review, chosen: readonly string[] = []): string | null {
-  // filtrando por categoria, a anotação fica na primeira das escolhidas que ela tem
-  return (chosen.length ? r.bonuses.find((b) => chosen.includes(b.label)) : undefined)?.label ?? r.bonuses[0]?.label ?? null;
+/** A categoria da anotação (a seção dela ordenando por categoria), ou nenhuma. */
+function firstCategory(r: Review): string | null {
+  return r.category ?? null;
 }
 
 function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
@@ -374,7 +370,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       return (r) => RANK_GROUPS[rankOrder(r)];
     case 'categoria':
       return (r) => {
-        const c = firstCategory(r, o.categories);
+        const c = firstCategory(r);
         return c === null ? ['sem-categoria', 'Sem categoria'] : [`c:${fold(c)}`, c];
       };
     case 'alfabetica':
@@ -438,8 +434,8 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
     case 'categoria':
       // pela primeira categoria (sem categoria sempre no fim), e dentro dela as mais recentes primeiro
       return (a, b) => {
-        const ca = firstCategory(a, o.categories);
-        const cb = firstCategory(b, o.categories);
+        const ca = firstCategory(a);
+        const cb = firstCategory(b);
         if ((ca === null) !== (cb === null)) return ca === null ? 1 : -1;
         return (ca !== null && cb !== null ? sign * collator.compare(ca, cb) : 0) || -byDate(a, b);
       };

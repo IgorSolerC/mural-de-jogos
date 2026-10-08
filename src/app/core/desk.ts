@@ -5,7 +5,8 @@ export interface DeskHandlers {
   /** Com `fromId`, veio pelo link de outra anotação: ela vira o "Voltar" da leitura. */
   openReview(id: string, fromId?: string): void;
   /** Uma anotação nova já com o título (o link para uma que ainda não existe). */
-  newNote(title: string): void;
+  /** O link para uma anotação que não existe: criar, com o título (e a categoria da anotação `fromId`). */
+  newNote(title: string, fromId?: string): void;
   openDraft(id: string): void;
   /** Recortar um item novo para a wishlist. */
   newWish(): void;
@@ -39,8 +40,8 @@ export class Desk {
     this.handlers?.openReview(id, fromId);
   }
 
-  newNote(title: string): void {
-    this.handlers?.newNote(title);
+  newNote(title: string, fromId?: string): void {
+    this.handlers?.newNote(title, fromId);
   }
 
   openDraft(id: string): void {

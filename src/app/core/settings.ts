@@ -1,4 +1,6 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
+import { fold } from './review';
+import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 
 const KEY = 'mural-de-jogos:config:v1';
 
@@ -43,6 +45,13 @@ interface Stored {
    * do mural aberto no cartaz). Misturadas por padrão.
    */
   friendKinds: FriendKinds;
+  /**
+   * As tags fixas das anotações: sempre à mão no editor, mesmo sem nenhuma anotação usando (ver
+   * core/note-labels.ts). Com conta, a lista mudada por último vale em todos os aparelhos.
+   */
+  pinnedTags: string[];
+  /** Quando as tags fixas mudaram pela última vez (ISO; vazio: nunca). */
+  pinnedTagsAt: string;
 }
 
 export type FriendKinds = 'misturado' | 'separado';
@@ -66,9 +75,11 @@ function readStored(): Stored {
     // ligado por padrão: o que você ainda não avaliou chega em segredo
     const friendSpoilers = raw.friendSpoilers !== false;
     const friendKinds: FriendKinds = raw.friendKinds === 'separado' ? 'separado' : 'misturado';
-    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds };
+    const pinnedTags = sanitizeTags(raw.pinnedTags, MAX_PINNED_TAGS);
+    const pinnedTagsAt = typeof raw.pinnedTagsAt === 'string' && Number.isFinite(Date.parse(raw.pinnedTagsAt)) ? raw.pinnedTagsAt : '';
+    return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt };
   } catch {
-    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '', mailCount: true, keysAt: '', friendSpoilers: true, friendKinds: 'misturado' };
+    return { rawgKey: '', tmdbKey: '', source: 'wikipedia', groupLabels: true, noSpoilers: false, scoreDisplay: 'livre', ownerName: '', mailCount: true, keysAt: '', friendSpoilers: true, friendKinds: 'misturado', pinnedTags: [], pinnedTagsAt: '' };
   }
 }
 
@@ -102,6 +113,29 @@ export class Settings {
   readonly friendSpoilers = signal(this.stored.friendSpoilers);
   /** Ver `Stored.friendKinds`. */
   readonly friendKinds = signal<FriendKinds>(this.stored.friendKinds);
+  /** Ver `Stored.pinnedTags`. */
+  readonly pinnedTags = signal<readonly string[]>(this.stored.pinnedTags);
+  /** Ver `Stored.pinnedTagsAt`. */
+  readonly pinnedTagsAt = signal(this.stored.pinnedTagsAt);
+
+  /** A tag é fixa? (sem ligar para caixa nem acento) */
+  isPinnedTag(tag: string): boolean {
+    return this.pinnedTags().some((t) => fold(t) === fold(tag));
+  }
+
+  /** Fixa (no fim da lista) ou solta uma tag; a mudança vale como a mais nova. */
+  togglePinnedTag(tag: string): void {
+    const pinned = this.isPinnedTag(tag);
+    this.pinnedTags.set(pinned ? this.pinnedTags().filter((t) => fold(t) !== fold(tag)) : sanitizeTags([...this.pinnedTags(), tag], MAX_PINNED_TAGS));
+    this.pinnedTagsAt.set(new Date().toISOString());
+  }
+
+  /** As tags fixas que vieram de outro aparelho (mudadas depois das daqui). */
+  applyPinnedTags(tags: readonly string[], at: string): void {
+    this.pinnedTags.set(sanitizeTags(tags, MAX_PINNED_TAGS));
+    this.pinnedTagsAt.set(at);
+  }
+
   /** A pessoa mudou uma chave (digitou, colou ou apagou): a mudança vale como a mais nova. */
   setKey(which: 'rawg' | 'tmdb', value: string): void {
     (which === 'rawg' ? this.rawgKey : this.tmdbKey).set(value);
@@ -131,6 +165,8 @@ export class Settings {
         keysAt: this.keysAt(),
         friendSpoilers: this.friendSpoilers(),
         friendKinds: this.friendKinds(),
+        pinnedTags: [...this.pinnedTags()],
+        pinnedTagsAt: this.pinnedTagsAt(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

@@ -111,12 +111,19 @@ describe('o lugar da anotação no mural', () => {
       expect(mural.counts().anotacoes).toBe(5);
     });
 
-    it('ordenando por categoria com o filtro de uma categoria, a anotação fica na escolhida', () => {
+    it('a busca acha pela categoria e pelas tags; com "#", só pelas tags', () => {
       TestBed.inject(Mural).kind.set('anotacoes');
-      store.reviews.set([note('ncat00001', 'Duas', '2026-10-01', { bonuses: [{ label: 'Alfa', kind: 'favor' }, { label: 'Beta', kind: 'favor' }] })]);
-      view.setSort('categoria');
-      view.toggle('category', 'Beta');
-      expect(view.groups().map((g) => g.label)).toEqual(['Beta']);
+      store.reviews.set([
+        note('nbusca001', 'Ajustes do site', '2026-10-01', { category: 'Trabalho', tags: ['Bugfix'] }),
+        note('nbusca002', 'Bugfix na cozinha', '2026-10-01', { category: 'Casa' }),
+      ]);
+      const found = (q: string) => {
+        view.query.set(q);
+        return view.visible().map((r) => r.game.name).sort();
+      };
+      expect(found('trabalho')).toEqual(['Ajustes do site']);
+      expect(found('bugfix')).toEqual(['Ajustes do site', 'Bugfix na cozinha']);
+      expect(found('#bugfix')).toEqual(['Ajustes do site']);
     });
   });
 });

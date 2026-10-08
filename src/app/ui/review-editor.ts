@@ -57,6 +57,9 @@ import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, Patt
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
+import { NoteLabelsPicker } from './note-labels-picker';
+import { categoryLibrary, tagLibrary } from '../core/note-labels';
+import { Settings } from '../core/settings';
 import { CardKit } from './card-kit';
 import { Confirm } from './confirm';
 import { CoverPicker } from './cover-picker';
@@ -91,6 +94,7 @@ const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'jul
     LucideAngularModule,
     NgTemplateOutlet,
     BonusPicker,
+    NoteLabelsPicker,
     CardKit,
     CoverPicker,
     CoverSleeve,
@@ -145,6 +149,7 @@ export class ReviewEditor {
   private readonly previewFrame = viewChild.required<ElementRef<HTMLDivElement>>('previewFrame');
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
+  private readonly labelsPicker = viewChild(NoteLabelsPicker);
   private readonly kit = viewChild(CardKit);
   private readonly writer = viewChild(RichEditor);
 
@@ -347,6 +352,14 @@ export class ReviewEditor {
   protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), isDarkStock(this.stock())));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
+  /** A categoria e as tags da anotação (ver core/note-labels.ts). */
+  protected readonly noteCategory = signal<string | null>(null);
+  protected readonly noteTags = signal<string[]>([]);
+  private readonly settings = inject(Settings);
+  /** A cartela de categorias: a pronta e as escritas nas outras anotações. */
+  protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes()));
+  /** As tags à mão: as fixas e as das outras anotações. */
+  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags()));
 
   /** No celular a prévia é a ficha simples, que cabe no alto da tela sem empurrar o formulário. */
   protected readonly phone = signal(false);
@@ -390,11 +403,13 @@ export class ReviewEditor {
    * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce
    * sub-nota (ela faz parte da anotação de onde veio); dá para trocar no editor.
    */
-  openNote(title: string): void {
+  openNote(title: string, from: Review | null = null): void {
     // sempre no mural de anotações, de onde quer que venha o link
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.setNoteTitle(title);
     this.noteRank.set('sub');
+    // faz parte da anotação de onde veio: o mesmo assunto
+    this.noteCategory.set(from?.category ?? null);
     this.linkTitle = title;
     // fechar sem mexer em nada não pergunta se quer descartar
     this.snapshot = this.serialize();
@@ -415,6 +430,8 @@ export class ReviewEditor {
     return {
       ...(this.notes() && this.noteSize() ? { noteSize: this.noteSize()! } : {}),
       ...(this.notes() && this.noteRank() ? { noteRank: this.noteRank()! } : {}),
+      ...(this.notes() && this.noteCategory() ? { category: this.noteCategory()! } : {}),
+      ...(this.notes() && this.noteTags().length ? { tags: [...this.noteTags()] } : {}),
       id: this.id(),
       kind: this.kind(),
       // sem jogo, a capa mostra um ponto de interrogação e o nome fica só marcado (ReviewCard.empty)
@@ -577,6 +594,9 @@ export class ReviewEditor {
     this.weights.set({ ...(review?.weights ?? {}) });
     this.bonuses.set([...(review?.bonuses ?? [])]);
     this.bonusPicker()?.reset();
+    this.noteCategory.set(review?.category ?? null);
+    this.noteTags.set([...(review?.tags ?? [])]);
+    this.labelsPicker()?.reset();
     this.hours.set(review?.hoursPlayed === null || review?.hoursPlayed === undefined ? '' : String(review.hoursPlayed).replace('.', ','));
     this.coverAbort?.abort();
     this.choosingCover.set(false);
@@ -768,7 +788,8 @@ export class ReviewEditor {
       difficulty: 'nenhuma',
       verdict: null,
       weights: {},
-      bonuses: this.bonuses().map((b) => ({ ...b, kind: 'favor' as const })),
+      // a categoria e as tags vêm da prévia; os adesivos das anotações de antes viraram elas
+      bonuses: [],
       hoursPlayed: null,
       // o de sempre não vai para o armazenamento, como na resenha
       paper: this.paper() !== 'cartolina' ? this.paper() : undefined,
@@ -969,6 +990,8 @@ export class ReviewEditor {
       this.dateValue(),
       this.weights(),
       this.bonuses().map((b) => b.id),
+      this.noteCategory(),
+      this.noteTags(),
       this.hours().trim(),
       this.game()?.coverUrl,
       this.difficulty(),

@@ -1,5 +1,6 @@
 import { KIND_PROFILES, Kind, isKind, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
+import { cleanCategory, sanitizeTags } from './note-labels';
 import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
 
 export type { Kind } from './kinds';
@@ -286,6 +287,13 @@ export interface Review {
    * link dentro de outra anotação) vale menos e vai para o fim. Sem o campo, uma anotação comum.
    */
   noteRank?: NoteRank;
+  /**
+   * Só nas anotações: o assunto dela, um só (Lista de compras, Estudos, Trabalho). Ordena e agrupa o
+   * mural. Sem o campo, sem categoria. Ver core/note-labels.ts.
+   */
+  category?: string;
+  /** Só nas anotações: as tags, escritas à mão ("Bugfix", "Feature"). Sem o campo, nenhuma. */
+  tags?: string[];
   /** Fixada que era sub-nota: desafixada, volta a ser sub-nota (sem o campo, volta a ser comum). */
   pinnedSub?: true;
   /**
@@ -989,10 +997,17 @@ export function sanitizeReview(raw: unknown): Review | null {
 export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
   const now = new Date().toISOString();
   const createdAt = isoOr(r['createdAt'], now);
-  const categories = sanitizeBonuses(
-    Array.isArray(r['bonuses']) ? r['bonuses'].map((b: unknown) => (b && typeof b === 'object' ? { ...(b as object), kind: 'favor' } : b)) : [],
-    'anotacoes',
-  );
+  // as anotações de antes guardavam várias categorias nos adesivos: a primeira vira a categoria, as
+  // outras viram tags (uma anotação já no formato novo não é mexida)
+  const legacy =
+    'category' in r || 'tags' in r
+      ? []
+      : sanitizeBonuses(
+          Array.isArray(r['bonuses']) ? r['bonuses'].map((b: unknown) => (b && typeof b === 'object' ? { ...(b as object), kind: 'favor' } : b)) : [],
+          'anotacoes',
+        ).map((b) => b.label);
+  const category = cleanCategory(typeof r['category'] === 'string' ? r['category'] : (legacy[0] ?? ''));
+  const tags = sanitizeTags('tags' in r ? r['tags'] : legacy.slice(1));
   const base = sanitizeReview({ ...r, kind: 'jogos', bonuses: [], scores: { final: 0 }, revisitOf: undefined, artFrom: undefined, finalOverride: undefined })!;
   const {
     finalOverride: _o,
@@ -1010,7 +1025,9 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     difficulty: 'nenhuma',
     verdict: null,
     weights: {},
-    bonuses: categories,
+    bonuses: [],
+    ...(category ? { category } : {}),
+    ...(tags.length ? { tags } : {}),
     hoursPlayed: null,
     ...(NOTE_SIZES.includes(r['noteSize']) ? { noteSize: r['noteSize'] as NoteSize } : {}),
     ...(NOTE_RANKS.includes(r['noteRank']) ? { noteRank: r['noteRank'] as NoteRank } : {}),

@@ -49,7 +49,7 @@ const game = (id: string, name: string): Review =>
   sanitizeReview({ id, game: { name }, scores: { historia: 8, diversao: 8, jogabilidade: 8, visual: 8 }, createdAt: '2026-01-01T00:00:00.000Z' })!;
 
 describe('anotações', () => {
-  it('não precisam de nota; as categorias são sempre do lado a favor; nada de rejogada', () => {
+  it('não precisam de nota; os adesivos de antes viram a categoria (o primeiro) e as tags (os outros); nada de rejogada', () => {
     const n = sanitizeReview({
       id: 'nota0001',
       kind: 'anotacoes',
@@ -63,10 +63,9 @@ describe('anotações', () => {
     expect(n.kind).toBe('anotacoes');
     expect(n.verdict).toBeNull();
     expect(n.revisitOf).toBeUndefined();
-    expect(n.bonuses.map((b) => [b.label, b.kind])).toEqual([
-      ['Lista de compras', 'favor'],
-      ['Casa', 'favor'],
-    ]);
+    expect(n.bonuses).toEqual([]);
+    expect(n.category).toBe('Lista de compras');
+    expect(n.tags).toEqual(['Casa']);
     expect(n.game).toEqual({ name: 'Mercado', coverUrl: 'https://x.test/capa.jpg', source: 'manual', sourceId: undefined, year: undefined, by: undefined });
     expect(n.noteSize).toBe('alta');
     expect(sanitizeReview({ id: 'nota0002', kind: 'anotacoes', game: { name: 'x' }, noteSize: 'gigante' })!.noteSize).toBeUndefined();
@@ -115,7 +114,7 @@ describe('anotações', () => {
       store.importJson(JSON.stringify({ reviews: [], notas: [], deleted: {} }), 'replace');
       expect(store.reviews().length).toBe(0);
       store.importJson(JSON.stringify(snap), 'merge');
-      expect(store.reviews().filter(isNote).map((r) => r.bonuses[0].label)).toEqual(['Compras']);
+      expect(store.reviews().filter(isNote).map((r) => r.category)).toEqual(['Compras']);
     });
 
     it('trocar pelo backup de antes das anotações (sem o campo) não apaga as anotações daqui', () => {
@@ -144,23 +143,38 @@ describe('anotações', () => {
     expect(snap.reviews.map((r) => r.id).sort()).toEqual(['nota0001', 'rjogo001']);
   });
 
-  it('o filtro de categoria: qualquer uma das escolhidas; "Sem categoria" à parte', () => {
-    const list = [note('n0000001', 'A', ['Compras', 'Casa']), note('n0000002', 'B', ['Casa']), note('n0000003', 'C')];
+  it('os filtros de categoria (uma por anotação) e de tags (qualquer uma das escolhidas); "Sem" à parte', () => {
+    const list = [
+      note('n0000001', 'A', [], { category: 'Trabalho', tags: ['Bugfix', 'UI'] }),
+      note('n0000002', 'B', [], { category: 'Trabalho', tags: ['Feature'] }),
+      note('n0000003', 'C', [], { category: 'Casa' }),
+      note('n0000004', 'D'),
+    ];
     const profile = KIND_PROFILES.anotacoes;
     const facets = facetsOf(list, NO_FILTER, profile);
-    expect(facets.map((f) => f.key)).toEqual(['category', 'look', 'year']);
+    expect(facets.map((f) => f.key)).toEqual(['category', 'tag', 'look', 'year']);
     expect(facets[0].options.map((o) => [o.label, o.n])).toEqual([
-      ['Casa', 2],
-      ['Compras', 1],
+      ['Casa', 1],
+      ['Trabalho', 2],
       ['Sem categoria', 1],
     ]);
-    const only = (category: string[]) => list.filter((r) => matchesFilter(r, { ...NO_FILTER, category })).map((r) => r.game.name);
-    expect(only(['Compras'])).toEqual(['A']);
-    expect(only(['Casa', 'sem'])).toEqual(['A', 'B', 'C']);
+    expect(facets[1].options.map((o) => [o.label, o.n])).toEqual([
+      ['Bugfix', 1],
+      ['Feature', 1],
+      ['UI', 1],
+      ['Sem tag', 2],
+    ]);
+    const only = (f: Partial<typeof NO_FILTER>) => list.filter((r) => matchesFilter(r, { ...NO_FILTER, ...f })).map((r) => r.game.name);
+    expect(only({ category: ['Trabalho'] })).toEqual(['A', 'B']);
+    expect(only({ category: ['Casa', 'sem'] })).toEqual(['C', 'D']);
+    expect(only({ category: ['Trabalho'], tag: ['Bugfix', 'Feature'] })).toEqual(['A', 'B']);
+    expect(only({ category: ['Trabalho'], tag: ['UI'] })).toEqual(['A']);
+    // sem nenhuma tag no mural, o grupo de tags não aparece
+    expect(facetsOf([list[2], list[3]], NO_FILTER, profile).map((f) => f.key)).toEqual(['category', 'look', 'year']);
   });
 
-  it('ordenar por categoria agrupa pela primeira categoria de cada uma, sem categoria no fim', () => {
-    const list = [note('n0000001', 'A', ['Viagem']), note('n0000002', 'B'), note('n0000003', 'C', ['Compras', 'Viagem'])];
+  it('ordenar por categoria agrupa pela categoria de cada uma, sem categoria no fim', () => {
+    const list = [note('n0000001', 'A', [], { category: 'Viagem' }), note('n0000002', 'B'), note('n0000003', 'C', [], { category: 'Compras', tags: ['Viagem'] })];
     const order = { sort: 'categoria' as const, key: 'final' as const, direction: 'asc' as const, profile: KIND_PROFILES.anotacoes };
     const groups = groupWall(sortWall(list, order), order);
     expect(groups.map((g) => [g.label, g.summary])).toEqual([

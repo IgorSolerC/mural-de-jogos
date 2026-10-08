@@ -585,7 +585,7 @@ export class RichEditor {
   });
 
   protected metaOf(n: Review): string {
-    const cat = n.bonuses[0]?.label;
+    const cat = n.category;
     const when = n.completedAt ? formatReviewDate(n.completedAt) : '';
     return [cat, when].filter(Boolean).join(' · ');
   }

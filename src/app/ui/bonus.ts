@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   Feather,
+  FolderOpen,
   Globe,
   ImageOff,
   Languages,
@@ -184,8 +185,10 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   diario: NotebookPen,
 };
 
-/** O desenho do adesivo: o da cartela, ou um sinal de mais / menos para os escritos à mão. */
+/** O desenho do adesivo: o da cartela, ou um sinal de mais / menos para os escritos à mão (a pasta, na categoria). */
 export function bonusIcon(b: Bonus): LucideIconData {
+  // a categoria de anotação escrita à mão: uma pasta (ver core/note-labels.ts)
+  if (b.id.startsWith('cat-')) return FolderOpen;
   return BONUS_ICON[b.id] ?? (b.kind === 'favor' ? Plus : Minus);
 }
 

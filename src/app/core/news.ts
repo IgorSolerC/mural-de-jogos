@@ -49,6 +49,21 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-categorias-e-tags',
+    version: '1.20.0',
+    kind: 'update',
+    date: '2026-10-08',
+    title: 'Categorias e tags nas anotações',
+    items: [
+      'Cada anotação agora tem uma categoria, uma só: o assunto dela (Trabalho, Estudos, Lista de compras…). Da cartela pronta ou escrita à mão.',
+      'E tags, quantas quiser (até 12): informam, como Bugfix, Feature, Urgente. Escreva e aperte Enter (ou vírgula); o editor sugere as que você já usa.',
+      'O alfinete numa tag a deixa fixa: ela fica sempre à mão no editor, em toda anotação, mesmo sem nenhuma usando. As fixas vão junto para os outros aparelhos.',
+      'Filtrar agora tem os dois grupos: Categoria e Tags. A busca também acha pela categoria e pelas tags; "#bugfix" procura só nas tags.',
+      'As anotações de antes tinham várias categorias: a primeira virou a categoria, e as outras viraram tags.',
+      'A anotação criada por um link já nasce com a categoria da anotação de onde veio.',
+    ],
+  },
+  {
     id: '2026-10-08-caneta-e-carimbo',
     version: '1.19.0',
     kind: 'update',

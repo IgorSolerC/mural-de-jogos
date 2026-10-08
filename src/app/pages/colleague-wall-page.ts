@@ -222,7 +222,7 @@ export class ColleagueWallPage {
   });
 
   protected readonly groups = computed(() => {
-    const order = { sort: this.shownSort(), key: 'final' as const, direction: this.direction(), profile: this.profile(), categories: this.activeFilter().category };
+    const order = { sort: this.shownSort(), key: 'final' as const, direction: this.direction(), profile: this.profile() };
     return groupWall(sortWall(this.visible(), order), order, this.guarding());
   });
 

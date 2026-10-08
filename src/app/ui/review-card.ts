@@ -50,6 +50,8 @@ import { NotePin } from '../core/note-pin';
 import { WallMotion } from '../core/wall-motion';
 import { WallView } from '../core/wall-view';
 import { DoneStamp, doneDayLong } from './done-stamp';
+import { NoteTag } from './note-tag';
+import { categoryBonus } from '../core/note-labels';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -79,7 +81,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta, DoneStamp],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta, DoneStamp, NoteTag],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -219,14 +221,18 @@ function watchDistance(el: HTMLElement): () => void {
 
       <!-- O julgamento: etiqueta dupla, a Média no papel e o veredito na faixa preta -->
       @if (note()) {
-        <!-- as categorias, no lugar da etiqueta da nota: o espaço ao lado da foto é delas -->
-        @if (!capas() && review().bonuses.length) {
-          <ul class="judge categorias" data-colado aria-label="Categorias">
-            @for (b of shownCategories().shown; track b.id; let i = $index) {
-              <li><app-bonus-sticker [bonus]="b" [index]="i" [seed]="review().id" /></li>
+        <!-- a categoria (o adesivo) e as tags (as etiquetas de papel pardo), no lugar da etiqueta da
+             nota: o espaço ao lado da foto é delas -->
+        @if (!capas() && (noteLabels().category || noteLabels().tags.length)) {
+          <ul class="judge categorias" data-colado aria-label="Categoria e tags">
+            @if (noteLabels().category; as c) {
+              <li class="categoria"><app-bonus-sticker [bonus]="c" [index]="0" [seed]="review().id" /><span class="sr-only"> (categoria)</span></li>
             }
-            @if (shownCategories().hidden) {
-              <li class="mais">+{{ shownCategories().hidden }}</li>
+            @for (t of noteLabels().tags; track t; let i = $index) {
+              <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() ? 'mini' : 'card'" /><span class="sr-only"> (tag)</span></li>
+            }
+            @if (noteLabels().hidden) {
+              <li class="mais">+{{ noteLabels().hidden }}</li>
             }
           </ul>
         }
@@ -1334,17 +1340,19 @@ export class ReviewCard {
     return {
       resolve: (title) => resolveNote(notes, title),
       open: (n) => this.desk.openReview(n.id, from),
-      create: (title) => this.desk.newNote(title),
+      create: (title) => this.desk.newNote(title, from),
     };
   });
 
   /** É uma anotação (mural de anotações): sem nota nem veredito; as categorias e o texto. */
   protected readonly note = computed(() => isNote(this.review()));
   /** As categorias que cabem ao lado da foto (até 4 na Completa, 2 na Simples); o resto vira "+N". */
-  protected readonly shownCategories = computed(() => {
-    const all = this.review().bonuses;
-    const max = this.compact() ? 2 : 4;
-    return { shown: all.slice(0, max), hidden: Math.max(0, all.length - max) };
+  /** A categoria e as tags que cabem ao lado da foto (até 3 tags na Completa, 1 na Simples); o resto vira "+N". */
+  protected readonly noteLabels = computed(() => {
+    const r = this.review();
+    const tags = r.tags ?? [];
+    const max = this.compact() ? 1 : 3;
+    return { category: r.category ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
   });
 
   /** A ficha como alvo das reações: o mural de quem e qual ficha. */
@@ -1435,7 +1443,7 @@ export class ReviewCard {
   protected readonly spoken = computed(() => {
     const r = this.review();
     if (isNote(r)) {
-      const cats = r.bonuses.map((b) => b.label).join(', ');
+      const cats = [r.category ? `categoria ${r.category}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixada' : r.noteRank === 'sub' ? 'sub-nota' : '';
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';

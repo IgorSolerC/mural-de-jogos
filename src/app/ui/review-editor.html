@@ -92,10 +92,9 @@
           <!-- o texto é o principal da anotação: logo depois do título -->
           <ng-container [ngTemplateOutlet]="textoCampo" />
 
+          <!-- a categoria (uma, o assunto) e as tags (várias, informam) -->
           <section class="bloco">
-            <div class="campo bonus">
-              <app-bonus-picker [categories]="true" [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" />
-            </div>
+            <app-note-labels-picker [(category)]="noteCategory" [(tags)]="noteTags" [categories]="categoryLib()" [library]="tagLib()" />
           </section>
 
           <!-- a data numa linha só ("Hoje"); a tira de dia, mês e ano só para quem quiser mudar -->

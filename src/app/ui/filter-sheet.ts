@@ -3,6 +3,9 @@ import { Ban, CircleSlash2, LucideAngularModule, LucideIconData, PenLine, PenOff
 import { Kind, Status, Verdict } from '../core/review';
 import { Facet, FacetKey, FilterTag, GRADE_SHORT, GradeBand } from '../core/wall-filter';
 import { Skulls } from './difficulty';
+import { BonusSticker } from './bonus';
+import { NoteTag } from './note-tag';
+import { categoryBonus } from '../core/note-labels';
 import { StatusLabel, statusIcon } from './status-label';
 import { VERDICT_ICON } from './verdict';
 
@@ -22,14 +25,14 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
  */
 @Component({
   selector: 'app-filter-sheet',
-  imports: [LucideAngularModule, Skulls, StatusLabel],
+  imports: [LucideAngularModule, BonusSticker, NoteTag, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { role: 'region', 'aria-label': 'Filtros', '(keydown.escape)': 'onEscape($event)' },
   template: `
     <span class="fita fita-l" aria-hidden="true"></span>
     <span class="fita fita-r" aria-hidden="true"></span>
 
-    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty() && !hasCategory()" [class.sem-julgamento]="!hasVerdict() && !hasCategory()" [class.anotacoes]="hasCategory()">
+    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty() && !hasCategory()" [class.sem-julgamento]="!hasVerdict() && !hasCategory()" [class.anotacoes]="hasCategory()" [class.sem-tags]="hasCategory() && !hasTag()">
       @for (f of facets(); track f.key) {
         <fieldset class="grupo" [class]="'grupo g-' + f.key">
           <legend class="cabeca">
@@ -100,6 +103,22 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
                       <lucide-icon [img]="o.value === 'com' ? DecoratedIcon : PlainIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
                       <span>{{ o.label }}</span>
                     </span>
+                  }
+                  @case ('category') {
+                    <!-- a categoria: o adesivo da anotação, picotado na folha ou colado -->
+                    @if (o.value === 'sem') {
+                      <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">{{ o.label }}</span>
+                    } @else {
+                      <app-bonus-sticker class="rotulo-nota" [class.colado-nota]="o.on" [bonus]="sticker(o.value)" [ghost]="!o.on" [index]="o.on ? i : null" />
+                    }
+                  }
+                  @case ('tag') {
+                    <!-- a tag: a etiqueta de papel pardo, em branco na folha ou amarrada -->
+                    @if (o.value === 'sem') {
+                      <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">{{ o.label }}</span>
+                    } @else {
+                      <app-note-tag class="rotulo-nota" [class.colado-nota]="o.on" [label]="o.label" [ghost]="!o.on" [index]="o.on ? i : null" />
+                    }
                   }
                   @default {
                     <span class="adesivo tinta ano" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
@@ -210,13 +229,36 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     .g-year {
       grid-area: year;
     }
-    /* Anotações: Categoria (a que importa, com mais adesivos) na coluna larga; Visual e Ano ao lado */
+    /* Anotações: Categoria e Tags (as que importam, com mais opções) em cima, lado a lado; Visual e
+       Ano embaixo */
     .grupos.anotacoes {
-      grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr);
-      grid-template-areas: 'category look year';
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas:
+        'category tag'
+        'look year';
     }
     .g-category {
       grid-area: category;
+    }
+    .g-tag {
+      grid-area: tag;
+    }
+    .grupos.anotacoes.sem-tags {
+      grid-template-areas:
+        'category category'
+        'look year';
+    }
+    /* o adesivo da categoria e a etiqueta da tag, nas medidas dos outros adesivos */
+    .rotulo-nota {
+      min-height: 30px;
+    }
+    .rotulo-nota.colado-nota {
+      scale: 1.04;
+    }
+    app-bonus-sticker.colado-nota {
+      box-shadow:
+        inset 0 0 0 2px var(--ink),
+        0 2px 3px rgb(0 0 0 / 0.3);
     }
 
     .grupo {
@@ -464,6 +506,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-template-areas:
           'category category'
+          'tag tag'
           'look year';
       }
     }
@@ -524,6 +567,9 @@ export class FilterSheet {
   protected readonly hasVerdict = computed(() => this.facets().some((f) => f.key === 'verdict'));
   /** O mural de anotações: a cartela é das categorias. */
   protected readonly hasCategory = computed(() => this.facets().some((f) => f.key === 'category'));
+  protected readonly sticker = categoryBonus;
+  /** Sem nenhuma tag no mural, o grupo de tags não aparece: a categoria fica com a fileira toda. */
+  protected readonly hasTag = computed(() => this.facets().some((f) => f.key === 'tag'));
 
   protected readonly anyChosen = computed(() => this.facets().some((f) => this.chosenIn(f)));
 
