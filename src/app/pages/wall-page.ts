@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ChevronDown, ListChecks, LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
@@ -113,8 +113,19 @@ export class WallPage {
 
   /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. */
   protected toggleGroup(key: string): void {
+    const closing = !this.view.isCollapsed(key);
     this.motion.run(() => this.view.toggleCollapsed(key));
+    // fechou agora: o elástico estala no maço (o que já vem fechado ao abrir o mural fica parado)
+    if (closing) {
+      clearTimeout(this.snapTimer);
+      this.snapping.set(key);
+      this.snapTimer = setTimeout(() => this.snapping.set(null), 900);
+    }
   }
+
+  /** A seção que acabou de fechar: o elástico dela estala (ver `.estalando` no wall-page.scss). */
+  protected readonly snapping = signal<string | null>(null);
+  private snapTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
    * O maço da seção fechada: as primeiras fichas (até quatro), nas cores das cartolinas, a de cima por

@@ -197,6 +197,9 @@
   flex-basis: 100%;
 }
 
+/* (as partes do elástico levam o prefixo "elastico-": a classe global .brilho, dos brilhos da
+   média alta, pisca sem parar e pegava o reflexo do elástico) */
+
 /* O maço: as fichas empilhadas, a de cima reta e as de baixo mostrando a beirada, presas por um
    elástico amarelo de duas voltas (desenhado em SVG, justo na pilha). Pequeno, como coisa guardada. */
 .maco {
@@ -219,30 +222,111 @@
   stroke-linecap: round;
 }
 
+/* O elástico estica a partir do meio dele (o desenho do SVG, não a caixa da página) */
+.elastico,
+.maco-ficha {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Com o mouse ou o foco na etiqueta ou no maço, o elástico estica um pouco, como quem puxa para
+     soltar; sai, ele volta para o lugar. */
+  .elastico {
+    transition: scale 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .grupo.fechada:has(.dobra:hover, .dobra:focus-visible, .maco:hover) .elastico {
+    scale: 1.32 1.04;
+  }
+
+  /* Acabou de fechar: o elástico chega esticado, estala na pilha passando um pouco do ponto, volta
+     e assenta; as fichas se ajeitam com o aperto e o reflexo da borracha acende uma vez. */
+  .estalando .elastico {
+    animation: elastico-estala 620ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+
+  .estalando .maco-ficha {
+    animation: maco-aperta 520ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+
+  .estalando .elastico-brilho {
+    animation: elastico-reflexo 700ms ease-out both;
+  }
+}
+
+@keyframes elastico-estala {
+  0% {
+    scale: 1.9 1.12;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  45% {
+    scale: 0.82 0.98;
+  }
+  68% {
+    scale: 1.1 1.01;
+  }
+  84% {
+    scale: 0.96 1;
+  }
+  100% {
+    scale: 1 1;
+  }
+}
+
+@keyframes maco-aperta {
+  0% {
+    scale: 1.05;
+  }
+  45% {
+    scale: 0.97;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+@keyframes elastico-reflexo {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+    stroke: #fff;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
 /* a sombra fina que o elástico faz na ficha, logo ao lado dos fios */
-.elastico .sombra {
+.elastico-sombra {
   stroke: rgb(0 0 0 / 0.32);
   stroke-width: 2.4;
 }
 
 /* onde o elástico dobra para trás da pilha, nas beiradas */
-.elastico .volta {
+.elastico-volta {
   stroke: #b8860b;
   stroke-width: 1.6;
 }
 
 /* a borda da borracha, um pouco mais escura: o elástico não some na cartolina amarela */
-.elastico .contorno {
+.elastico-contorno {
   stroke: #8a5d05;
   stroke-width: 2.5;
 }
 
-.elastico .fio {
+.elastico-fio {
   stroke: #f5c638;
   stroke-width: 1.7;
 }
 
-.elastico .brilho {
+.elastico-brilho {
   stroke: rgb(255 244 190 / 0.85);
   stroke-width: 0.6;
 }

@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-elastico-estala',
+    version: '1.20.10',
+    kind: 'correcao',
+    date: '2026-10-08',
+    title: 'Correção de bug',
+    items: [
+      'O reflexo do elástico do maço piscava sem parar. Agora o elástico fica parado; ao fechar uma seção, ele estala uma vez na pilha, e com o mouse em cima estica um pouco.',
+    ],
+  },
+  {
     id: '2026-10-08-pasta-refinada',
     version: '1.20.9',
     kind: 'melhoria',
