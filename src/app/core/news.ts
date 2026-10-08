@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-anotacoes-do-colega',
+    version: '1.23.2',
+    kind: 'correcao',
+    date: '2026-10-08',
+    title: 'Correção de bug',
+    items: [
+      'O mural de quem você segue, aberto antes das anotações existirem, continuava sem as anotações públicas da pessoa até ela mexer no mural. Agora ele é baixado de novo.',
+    ],
+  },
+  {
     id: '2026-10-08-acabamento-colagem',
     version: '1.23.1',
     kind: 'melhoria',

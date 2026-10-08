@@ -97,6 +97,21 @@ describe('murais pela nuvem (código e link)', () => {
     expect(colleagues.colleagues().length).toBe(1);
   });
 
+  it('o guardado por um site de antes das anotações é baixado de novo, mesmo sem o mural mudar', async () => {
+    const note = { ...review('nmar01', 'Lista de compras'), kind: 'anotacoes', text: 'pão' };
+    published.set('K7QF-M2XA', { rev: 3, doc: { app: 'meu-mural', version: 2, owner: { name: 'Marina' }, reviews: [review('rmar01', 'Celeste')], notas: [note] } });
+    const fresh = await murals.open('K7QF-M2XA');
+    expect(fresh.reviews.map((r) => r.kind)).toEqual(['jogos', 'anotacoes']);
+    // o site velho jogou `notas` fora e não marcou o leitor
+    const { leitor: _, ...old } = fresh;
+    await colleagues.restore({ ...old, reviews: fresh.reviews.filter((r) => r.kind === 'jogos') });
+    const c = await murals.open('K7QF-M2XA');
+    expect(calls.at(-1)).toBe('/v1/murais/K7QF-M2XA');
+    expect(c.reviews.map((r) => r.kind)).toEqual(['jogos', 'anotacoes']);
+    await murals.open('K7QF-M2XA');
+    expect(calls.at(-1)).toBe('/v1/murais/K7QF-M2XA?rev=3');
+  });
+
   it('o nome que a pessoa deu aqui fica quando o mural se atualiza', async () => {
     const c = await murals.open('K7QF-M2XA');
     await colleagues.rename(c.id, 'Má');

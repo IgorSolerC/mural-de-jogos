@@ -24,6 +24,8 @@ export interface Colleague extends BackupSnapshot {
   /** Aberto pela nuvem (ver `cloud-murals.ts`): o código da pessoa e a versão do mural que veio. */
   codigo?: string;
   rev?: number;
+  /** Com que `MURAL_READER` ele foi lido (sem: por um site de antes das anotações). */
+  leitor?: number;
 }
 
 /** Coleções recebidas ficam em um banco separado; nunca entram no backup ou nas resenhas próprias. */
