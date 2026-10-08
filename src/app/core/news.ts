@@ -50,6 +50,20 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-pasta-refinada',
+    version: '1.20.9',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Abas, tags e maço das anotações',
+    items: [
+      'Toda categoria ganha a sua aba em pé, enquanto couber na largura e até oito abas contando Tudo; só as que sobram, as com menos anotações, vão para o "Mais".',
+      'As abas de trás ficam atrás da pasta, com o pé escondido pela borda; só a aberta vem para a frente.',
+      'As categorias voltam a ser só papel manilha e tinta, sem cores.',
+      'O Filtrar saiu das anotações: as abas já separam as categorias, e as tags ficam na pasta também em Tudo (as mais usadas primeiro; o "+N" mostra as outras). O "Mostrando" e o "Limpar" ficam na pasta, ao lado das tarefas.',
+      'O maço da seção fechada ganhou um elástico amarelo de verdade, de duas voltas, apertando a pilha.',
+    ],
+  },
+  {
     id: '2026-10-08-pasta-anotacoes',
     version: '1.20.8',
     kind: 'melhoria',

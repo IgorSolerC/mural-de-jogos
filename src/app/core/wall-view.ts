@@ -222,7 +222,7 @@ export class WallView {
     const tabs = this.noteTabs();
     const k = this.activeTab();
     if (!tabs || k === ALL_TAB) return null;
-    return [...tabs.main, ...tabs.more].find((t) => t.key === k)?.label ?? null;
+    return tabs.tabs.find((t) => t.key === k)?.label ?? null;
   });
   /** A vista da aba aberta: a dela, ou a de Tudo, se ela ainda não tem uma. */
   readonly noteView = computed<NoteView>(() => {

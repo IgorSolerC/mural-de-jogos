@@ -1,17 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { WallMotion } from '../core/wall-motion';
 import { WallView } from '../core/wall-view';
-import { ALL_TAB } from '../core/note-tabs';
 import { NoteTag } from './note-tag';
 
-/** Quantas tags à mão embaixo da régua; as outras ficam no Filtrar. */
+/** Quantas tags ficam à mão; as outras aparecem no "+N". */
 const MAX_SHORTCUTS = 10;
 
 /**
- * As tags da aba aberta, na pasta do mural de anotações (depois do picote): um toque filtra por elas,
- * sem abrir a cartela. A desligada é o contorno tracejado de uma etiqueta em branco; a ligada é a
- * etiqueta de papel kraft amarrada (como na cartela e na ficha). As mais usadas na aba vêm primeiro. Só nas abas
- * de categoria (em Tudo, as tags de todos os assuntos juntas só fariam barulho).
+ * As tags da aba aberta (em Tudo, as do mural inteiro), na pasta do mural de anotações, depois do
+ * picote: é o filtro das anotações, que não têm cartela. Um toque liga ou desliga a tag (ligadas
+ * várias, vale qualquer uma delas). A desligada é o contorno tracejado de uma etiqueta em branco; a
+ * ligada é a etiqueta de papel kraft amarrada, como na ficha. As mais usadas vêm primeiro; com mais de
+ * dez, o "+N" mostra as outras.
  */
 @Component({
   selector: 'app-tag-shortcuts',
@@ -19,7 +19,7 @@ const MAX_SHORTCUTS = 10;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (shortcuts(); as s) {
-      <ul class="atalhos" aria-label="Filtrar pelas tags desta aba">
+      <ul class="atalhos" aria-label="Filtrar pelas tags">
         @for (t of s.tags; track t.value; let i = $index) {
           <li>
             <button type="button" class="atalho" [attr.aria-pressed]="t.on" (click)="toggle(t.value)">
@@ -28,8 +28,15 @@ const MAX_SHORTCUTS = 10;
             </button>
           </li>
         }
-        @if (s.more) {
-          <li class="mais">+{{ s.more }} no Filtrar</li>
+        @if (s.more || all()) {
+          <li>
+            <button type="button" class="mais" [attr.aria-expanded]="all()" (click)="all.set(!all())">
+              {{ all() ? 'Menos' : '+' + s.more }}
+              @if (!all()) {
+                <span class="sr-only">{{ s.more === 1 ? 'tag' : 'tags' }}</span>
+              }
+            </button>
+          </li>
         }
       </ul>
     }
@@ -80,9 +87,25 @@ const MAX_SHORTCUTS = 10;
     }
 
     .mais {
-      padding-left: 6px;
+      min-height: 36px;
+      padding: 4px 8px;
+      border: 0;
+      border-radius: 4px;
+      background: none;
+      color: var(--ink);
       text-transform: uppercase;
+      text-decoration: underline 2px var(--ink);
+      text-underline-offset: 4px;
       white-space: nowrap;
+      cursor: pointer;
+
+      &:hover {
+        background: rgb(21 21 21 / 0.07);
+      }
+      &:focus-visible {
+        outline: 2.5px solid var(--ink);
+        outline-offset: 1px;
+      }
     }
 
     /* no celular, uma linha só, que corre de lado dentro da pasta */
@@ -100,8 +123,10 @@ export class TagShortcuts {
   private readonly view = inject(WallView);
   private readonly motion = inject(WallMotion);
 
+  /** Mostrando todas as tags (o "+N" aberto). */
+  protected readonly all = signal(false);
+
   protected readonly shortcuts = computed(() => {
-    if (this.view.activeTab() === ALL_TAB) return null;
     const facet = this.view.facets().find((f) => f.key === 'tag');
     if (!facet) return null;
     // quantas anotações da aba (à mostra) usam cada tag: a ordem dos atalhos
@@ -112,7 +137,7 @@ export class TagShortcuts {
       .sort((a, b) => (uses.get(b.value) ?? 0) - (uses.get(a.value) ?? 0) || a.label.localeCompare(b.label, 'pt-BR'));
     if (!options.length) return null;
     // as ligadas ficam sempre à mão, mesmo fora das mais usadas
-    const shown = options.filter((o, i) => i < MAX_SHORTCUTS || o.on);
+    const shown = this.all() ? options : options.filter((o, i) => i < MAX_SHORTCUTS || o.on);
     return { tags: shown, more: options.length - shown.length };
   });
 

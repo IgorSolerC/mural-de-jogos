@@ -1,14 +1,18 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, signal } from '@angular/core';
 import { ChevronDown, LucideAngularModule } from 'lucide-angular';
 import { WallMotion } from '../core/wall-motion';
 import { WallView } from '../core/wall-view';
-import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
+
+/** O vão entre duas abas (o `gap` da fileira). */
+const GAP = 3;
 
 /**
  * As abas do mural de anotações (ver core/note-tabs.ts): divisórias de pasta de papel manilha, em
- * cima da régua. A aberta fica na frente, clara, emendada na borda da pasta; as outras ficam atrás,
- * mais escuras. As categorias pequenas ficam no "Mais" (um <select> invisível sobre a aba, como o
- * Ordenar). No celular, a fileira corre de lado e a aba aberta vem para a vista.
+ * cima da pasta. A aberta fica na frente, clara, emendada na borda da pasta; as outras ficam atrás,
+ * mais escuras. Toda categoria fica em pé enquanto couber na largura (e até oito abas, contando
+ * Tudo); as que sobram, as com menos anotações, vão para o "Mais" (um <select> invisível sobre a aba,
+ * como o Ordenar). Para saber o que cabe, uma fileira escondida mede cada aba de verdade.
  */
 @Component({
   selector: 'app-note-tabs',
@@ -20,7 +24,7 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
         <button type="button" class="aba" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
           <span class="nome">Tudo</span><span class="n">{{ t.all }}</span>
         </button>
-        @for (x of t.main; track x.key) {
+        @for (x of layout().shown; track x.key) {
           <button
             type="button"
             class="aba"
@@ -30,39 +34,42 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
             [title]="x.label"
             (click)="choose(x.key)"
           >
-            @if (x.color) {
-              <span class="etiqueta" [style.--etiqueta]="x.color"><span class="nome">{{ x.label }}</span></span>
-            } @else {
-              <span class="nome">{{ x.label }}</span>
-            }
-            <span class="n">{{ x.n }}</span>
+            <span class="nome">{{ x.label }}</span><span class="n">{{ x.n }}</span>
           </button>
         }
-        @if (t.more.length) {
+        @if (layout().more.length) {
           <label class="aba mais" [class.on]="moreOn()">
-            @if (moreOn()) {
-              <span class="etiqueta" [style.--etiqueta]="moreColor()"><span class="nome">{{ activeLabel() }}</span></span>
-            } @else {
-              <span class="nome">Mais</span>
-            }
+            <span class="nome">{{ moreOn() ? activeLabel() : 'Mais' }}</span>
             @if (moreOn()) {
               <span class="n">{{ moreCount() }}</span>
             }
             <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
             <select aria-label="Mais categorias" (change)="choose($any($event.target).value)">
               <option value="" disabled [selected]="!moreOn()">Mais categorias</option>
-              @for (x of t.more; track x.key) {
+              @for (x of layout().more; track x.key) {
                 <option [value]="x.key" [selected]="active() === x.key">{{ x.label }} ({{ x.n }})</option>
               }
             </select>
           </label>
         }
       </div>
+
+      <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé -->
+      <div class="abas medida" aria-hidden="true">
+        <span class="aba" data-k="tudo"><span class="nome">Tudo</span><span class="n">{{ t.all }}</span></span>
+        @for (x of t.tabs; track x.key) {
+          <span class="aba" [class.sem]="x.key === NONE" [attr.data-k]="x.key"><span class="nome">{{ x.label }}</span><span class="n">{{ x.n }}</span></span>
+        }
+        <span class="aba mais" data-k="mais"><span class="nome">Mais</span></span>
+      </div>
     }
   `,
   styles: `
+    /* As camadas: as abas de trás (0) ficam atrás da borda da pasta (1), que passa por cima do pé
+       delas; só a aberta (2) vem para a frente, emendada na borda. */
     :host {
       position: relative;
+      isolation: isolate;
       display: block;
       /* a borda da pasta: a aba aberta emenda nela */
       --manilha: #f3e5bb;
@@ -75,43 +82,48 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
       left: 0;
       right: 0;
       bottom: 0;
+      z-index: 1;
       height: var(--borda);
       border-radius: 1px;
       background-color: var(--manilha);
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
+      /* a sombra fina que a borda da pasta faz no pé das abas de trás */
+      box-shadow: 0 -2px 3px -1px rgb(0 0 0 / 0.35);
     }
 
     .abas {
       position: relative;
-      z-index: 1;
       display: flex;
       align-items: flex-end;
       gap: 3px;
       padding: 6px 12px 0;
-      overflow-x: auto;
-      scrollbar-width: none;
-      &::-webkit-scrollbar {
-        display: none;
-      }
+    }
+
+    /* a régua de medir: no lugar, sem ocupar espaço nem aparecer */
+    .medida {
+      position: absolute;
+      inset: 0 auto auto 0;
+      visibility: hidden;
+      pointer-events: none;
     }
 
     .aba {
       position: relative;
+      z-index: 0;
       flex: none;
       display: inline-flex;
       align-items: baseline;
       gap: 7px;
       min-height: 40px;
-      margin-bottom: var(--borda);
-      padding: 10px 16px 7px;
+      /* a de trás desce até o fundo: o pé dela fica escondido atrás da borda da pasta */
+      padding: 10px 14px calc(7px + var(--borda));
       border: 0;
       border-radius: 10px 10px 0 0;
       background-color: var(--manilha-atras);
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
       color: var(--ink);
-      box-shadow: inset 0 -5px 6px -5px rgb(0 0 0 / 0.35);
       cursor: pointer;
       white-space: nowrap;
       translate: 0 3px;
@@ -132,10 +144,8 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 
       /* a aberta: na frente, clara, emendada na borda da pasta */
       &.on {
-        z-index: 1;
-        margin-bottom: 0;
+        z-index: 2;
         padding-top: 13px;
-        padding-bottom: calc(7px + var(--borda));
         background-color: var(--manilha);
         box-shadow: none;
         translate: 0 0;
@@ -150,7 +160,6 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
       font-size: 1.08rem;
       line-height: 1.1;
     }
-
     .aba:not(.on) .nome {
       opacity: 0.82;
     }
@@ -159,6 +168,8 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
       font-family: var(--f-label);
       font-weight: 700;
       font-size: 0.92rem;
+      /* a mesma altura de linha do nome: com o número, a aba ficava mais alta que o "Mais" */
+      line-height: 1.1;
       letter-spacing: 0.04em;
       opacity: 0.62;
       font-variant-numeric: tabular-nums;
@@ -166,24 +177,6 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
     /* na aba de trás, mais escura, o número precisa de mais tinta para continuar legível */
     .aba:not(.on) .n {
       opacity: 0.85;
-    }
-
-    /* A etiquetinha de papel colorido na janela de plástico da divisória: o brilho do plástico por
-       cima, a sombra fina da borda da janela em volta */
-    .etiqueta {
-      display: inline-flex;
-      min-width: 0;
-      padding: 2px 7px 1px;
-      border-radius: 3px;
-      background:
-        linear-gradient(to bottom, rgb(255 255 255 / 0.45), rgb(255 255 255 / 0) 55%),
-        var(--etiqueta);
-      box-shadow:
-        inset 0 0 0 1px rgb(21 21 21 / 0.16),
-        0 1px 0 rgb(255 255 255 / 0.5);
-    }
-    .aba:not(.on) .etiqueta {
-      filter: saturate(0.8);
     }
 
     /* "Sem categoria" escrito a lápis, não a pincel: não é uma categoria */
@@ -196,14 +189,12 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
     .mais {
       padding-right: 32px;
 
+      /* no meio da parte que aparece (o pé fica atrás da borda da pasta) */
       .chev {
         position: absolute;
         right: 11px;
-        top: calc(50% - 6px);
-        display: inline-flex;
-      }
-      &.on .chev {
         top: calc(50% - 6px - var(--borda) / 2);
+        display: inline-flex;
       }
 
       select {
@@ -224,7 +215,10 @@ import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
         padding-inline: 6px;
       }
       .aba {
-        padding-inline: 13px;
+        padding-inline: 11px;
+      }
+      .mais {
+        padding-right: 30px;
       }
     }
 
@@ -247,27 +241,62 @@ export class NoteTabsBar {
   /** As abas, só quando há o que separar. */
   protected readonly tabs = computed(() => {
     const t = this.view.noteTabs();
-    return t && (t.main.length || t.more.length) ? t : null;
+    return t && t.tabs.length ? t : null;
   });
   protected readonly active = this.view.activeTab;
   protected readonly activeLabel = this.view.activeTabLabel;
+
+  /** A largura de cada aba, medida na régua escondida ("tudo", "mais" e a chave de cada categoria). */
+  private readonly widths = signal<ReadonlyMap<string, number>>(new Map());
+  /** A largura que a fileira tem para as abas. */
+  private readonly room = signal(0);
+
+  /** Quais ficam em pé e quais vão para o "Mais". Sem medida ainda, todas em pé (até o limite). */
+  protected readonly layout = computed<{ shown: NoteTab[]; more: NoteTab[] }>(() => {
+    const t = this.tabs();
+    if (!t) return { shown: [], more: [] };
+    const w = this.widths();
+    const room = this.room();
+    if (!room || !w.size) return splitTabs(t.tabs, this.active());
+    const fits = (shown: readonly NoteTab[], more: boolean) => {
+      let used = w.get('tudo') ?? 0;
+      for (const x of shown) used += GAP + (w.get(x.key) ?? 0);
+      if (more) used += GAP + (w.get('mais') ?? 0);
+      return used <= room;
+    };
+    return splitTabs(t.tabs, this.active(), fits);
+  });
+
   /** A aba aberta é uma das do "Mais": ele mostra o nome dela, como aba aberta. */
-  protected readonly moreOn = computed(() => !!this.tabs()?.more.some((x) => x.key === this.active()));
-  protected readonly moreColor = computed(() => this.tabs()?.more.find((x) => x.key === this.active())?.color ?? null);
-  protected readonly moreCount = computed(() => this.tabs()?.more.find((x) => x.key === this.active())?.n ?? 0);
+  protected readonly moreOn = computed(() => this.layout().more.some((x) => x.key === this.active()));
+  protected readonly moreCount = computed(() => this.layout().more.find((x) => x.key === this.active())?.n ?? 0);
 
   constructor() {
-    // no celular a fileira corre de lado: a aba aberta vem para a vista
+    // a largura da fileira muda com a janela
+    const ro = new ResizeObserver(() => this.measureRoom());
+    ro.observe(this.host);
+    inject(DestroyRef).onDestroy(() => ro.disconnect());
+
+    // cada vez que as abas mudam (nome, número), a régua escondida mede de novo
     afterRenderEffect(() => {
-      this.active();
-      const on = this.host.querySelector<HTMLElement>('.aba.on');
-      const row = on?.parentElement;
-      if (!on || !row || row.scrollWidth <= row.clientWidth) return;
-      const left = on.offsetLeft;
-      if (left < row.scrollLeft || left + on.offsetWidth > row.scrollLeft + row.clientWidth) {
-        row.scrollTo({ left: left - 24, behavior: 'instant' });
+      this.tabs();
+      const next = new Map<string, number>();
+      for (const el of Array.from(this.host.querySelectorAll<HTMLElement>('.medida [data-k]'))) {
+        next.set(el.dataset['k']!, el.offsetWidth);
       }
+      const now = this.widths();
+      if (next.size !== now.size || [...next].some(([k, v]) => now.get(k) !== v)) this.widths.set(next);
+      this.measureRoom();
     });
+  }
+
+  /** O espaço da fileira para as abas: a largura dela, sem o recuo dos lados. */
+  private measureRoom(): void {
+    const row = this.host.querySelector<HTMLElement>('.abas:not(.medida)');
+    if (!row) return;
+    const cs = getComputedStyle(row);
+    const room = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    if (Math.abs(room - this.room()) > 0.5) this.room.set(room);
   }
 
   protected choose(key: string): void {

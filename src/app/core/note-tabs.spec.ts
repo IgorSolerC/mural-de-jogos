@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Mural } from './mural';
-import { ALL_TAB, NO_CATEGORY_TAB, noteTabKey, noteTabsOf } from './note-tabs';
+import { ALL_TAB, MAX_TABS, NO_CATEGORY_TAB, NoteTab, noteTabKey, noteTabsOf, splitTabs } from './note-tabs';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { WallView } from './wall-view';
@@ -40,31 +40,57 @@ function sea(): Review[] {
 }
 
 describe('as abas do mural de anotações', () => {
-  it('as categorias com 3 ou mais têm aba, de A a Z; Sem categoria no fim; as pequenas no Mais', () => {
+  it('toda categoria tem aba, de A a Z, e Sem categoria no fim', () => {
     const tabs = noteTabsOf(sea());
-    expect(tabs.main.map((t) => t.label)).toEqual(['Estudos', 'Trabalho', 'Sem categoria']);
-    expect(tabs.more.map((t) => t.label)).toEqual(['Receitas', 'Viagem']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Estudos', 'Receitas', 'Trabalho', 'Viagem', 'Sem categoria']);
     expect(tabs.all).toBe(12);
+  });
+
+  it('cabendo, todas ficam em pé; o Mais só existe quando sobra aba', () => {
+    const { tabs } = noteTabsOf(sea());
+    const split = splitTabs(tabs, ALL_TAB);
+    expect(split.shown.length).toBe(5);
+    expect(split.more).toEqual([]);
+  });
+
+  it('mais de oito abas (contando Tudo): as com menos anotações vão para o Mais, e as em pé continuam de A a Z', () => {
+    const tabs: NoteTab[] = 'ABCDEFGHIJ'.split('').map((c, i) => ({ key: `c:${c}`, label: c, n: i + 1, total: i + 1 }));
+    const split = splitTabs(tabs, ALL_TAB);
+    expect(split.shown.length).toBe(MAX_TABS - 1);
+    expect(split.shown.map((t) => t.label)).toEqual(['D', 'E', 'F', 'G', 'H', 'I', 'J']);
+    expect(split.more.map((t) => t.label)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('a aba aberta fica sempre em pé, mesmo pequena', () => {
+    const tabs: NoteTab[] = 'ABCDEFGHIJ'.split('').map((c, i) => ({ key: `c:${c}`, label: c, n: i + 1, total: i + 1 }));
+    expect(splitTabs(tabs, 'c:A').shown.map((t) => t.label)).toContain('A');
+  });
+
+  it('sem largura para todas, as que não cabem vão para o Mais', () => {
+    const { tabs } = noteTabsOf(sea());
+    // cabem só duas além de Tudo (e do Mais)
+    const split = splitTabs(tabs, ALL_TAB, (shown) => shown.length <= 2);
+    expect(split.shown.map((t) => t.label)).toEqual(['Estudos', 'Trabalho']);
+    expect(split.more.map((t) => t.label)).toEqual(['Receitas', 'Viagem', 'Sem categoria']);
   });
 
   it('a finalizada conta para a aba existir, mas não no número dela quando está escondida', () => {
     const list = sea();
     const tabs = noteTabsOf(list, (r) => !r.doneAt);
-    const work = tabs.main.find((t) => t.label === 'Trabalho')!;
+    const work = tabs.tabs.find((t) => t.label === 'Trabalho')!;
     expect(work.n).toBe(3);
     expect(tabs.all).toBe(11);
   });
 
   it('tudo numa categoria só: nada a separar, sem abas', () => {
     const tabs = noteTabsOf([note('A', 'Trabalho'), note('B', 'Trabalho'), note('C', 'Trabalho')]);
-    expect(tabs.main).toEqual([]);
-    expect(tabs.more).toEqual([]);
+    expect(tabs.tabs).toEqual([]);
   });
 
   it('a categoria vale sem ligar para acento e caixa, com a grafia mais usada', () => {
     expect(noteTabKey({ category: 'Diário' })).toBe(noteTabKey({ category: 'diario' }));
     const tabs = noteTabsOf([note('A', 'Diário'), note('B', 'Diário'), note('C', 'diario'), note('D', null)]);
-    expect(tabs.main.map((t) => t.label)).toEqual(['Diário', 'Sem categoria']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Diário', 'Sem categoria']);
   });
 
   it('uma categoria chamada "Sem" não cai na aba das sem categoria', () => {

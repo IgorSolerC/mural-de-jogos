@@ -4,15 +4,12 @@ import { Review, isDone, isPinnedNote } from '../core/review';
 import { checkCount } from '../core/rich-text';
 import { notebookDate } from '../core/notebook';
 import { pinningFor } from '../core/wall-physics';
-import { categoryColor } from '../core/note-tabs';
 
 interface Row {
   id: string;
   title: string;
   /** A categoria (só em Tudo: numa aba, ela já está dita). */
   category: string | null;
-  /** A cor da etiquetinha da categoria (a mesma da aba do mural e da orelha da ficha). */
-  color: string | null;
   /** A cor da cartolina da anotação, numa tirinha na margem: a mesma ficha, de longe. */
   stock: string;
   date: string;
@@ -49,7 +46,7 @@ interface Row {
               <span class="sr-only">, finalizada</span>
             }
             @if (r.category) {
-              <span class="cat" [style.--etiqueta]="r.color">{{ r.category }}</span>
+              <span class="cat">{{ r.category }}</span>
             }
             @if (r.tags.length) {
               <span class="tags">
@@ -159,7 +156,7 @@ interface Row {
       opacity: 0.7;
     }
 
-    /* a categoria: a etiquetinha colorida da orelha da ficha, deitada na linha */
+    /* a categoria: a orelha de manilha da ficha, deitada na linha */
     .cat {
       flex: none;
       max-width: 14ch;
@@ -167,11 +164,9 @@ interface Row {
       white-space: nowrap;
       text-overflow: ellipsis;
       padding: 2px 8px 1px;
-      border-radius: 3px;
-      background:
-        linear-gradient(to bottom, rgb(255 255 255 / 0.45), rgb(255 255 255 / 0) 55%),
-        var(--etiqueta);
-      box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.16);
+      border-radius: 5px 5px 0 0;
+      border-bottom: 1.5px solid rgb(21 21 21 / 0.25);
+      background-color: #efdcaa;
       font-family: var(--f-marker);
       font-size: 0.78rem;
       line-height: 1.3;
@@ -254,7 +249,6 @@ export class NoteIndex {
         id: r.id,
         title: r.game.name,
         category: this.showCategory() ? (r.category ?? null) : null,
-        color: r.category ? categoryColor(r.category) : null,
         stock: `var(--stock-${pinningFor(r.id, r.stock).stock})`,
         date: shortDay(r.completedAt),
         tags: r.tags ?? [],

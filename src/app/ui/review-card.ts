@@ -53,7 +53,6 @@ import { WallView } from '../core/wall-view';
 import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
-import { categoryColor } from '../core/note-tabs';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -134,10 +133,8 @@ function watchDistance(el: HTMLElement): () => void {
          para o leitor de tela) -->
     @if (note() && !capas() && noteLabels().category; as c) {
       <span class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" aria-hidden="true">
-        <span class="aba-cat-etiqueta" [style.--etiqueta]="catColor()">
-          <lucide-icon class="aba-cat-icone" [img]="catIcon()!" [size]="compact() ? 12 : 13" [strokeWidth]="2.6" />
-          <span class="aba-cat-nome">{{ c.label }}</span>
-        </span>
+        <lucide-icon class="aba-cat-icone" [img]="catIcon()!" [size]="compact() ? 12 : 13" [strokeWidth]="2.6" />
+        <span class="aba-cat-nome">{{ c.label }}</span>
       </span>
     }
 
@@ -771,8 +768,8 @@ function watchDistance(el: HTMLElement): () => void {
     /* ===== Anotação: a categoria na orelha de divisória =====
        Papel manilha colado atrás da cartolina, como a divisória de matéria do caderno: o papel da ficha
        (camadas -3 e -2) cobre o pé da orelha, que só aparece saindo pela beirada de cima, entre o canto
-       e a tachinha. Na janela dela, a etiquetinha da cor da categoria (a mesma da aba do mural). A
-       direita da beirada é do Finalizar e do Fixar. */
+       e a tachinha, com o desenho e o nome a pincel atômico, como as abas do mural. A direita da beirada
+       é do Finalizar e do Fixar. */
     .aba-cat {
       position: absolute;
       top: -25px;
@@ -783,7 +780,7 @@ function watchDistance(el: HTMLElement): () => void {
       gap: 5px;
       max-width: calc(var(--pin-x) - 14px - 26px);
       height: 40px;
-      padding: 5px 6px 12px;
+      padding: 5px 11px 12px 9px;
       border-radius: 8px 8px 0 0;
       background-color: #f3e5bb;
       background-image: var(--paper-grain);
@@ -799,18 +796,6 @@ function watchDistance(el: HTMLElement): () => void {
     .aba-cat.com-selo {
       left: 30px;
       max-width: calc(var(--pin-x) - 30px - 26px);
-    }
-    .aba-cat-etiqueta {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      min-width: 0;
-      padding: 1px 6px 0 5px;
-      border-radius: 3px;
-      background:
-        linear-gradient(to bottom, rgb(255 255 255 / 0.45), rgb(255 255 255 / 0) 55%),
-        var(--etiqueta);
-      box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.16);
     }
     .aba-cat-icone {
       flex: none;
@@ -829,7 +814,7 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.compact) .aba-cat {
       top: -21px;
       height: 35px;
-      padding: 4px 5px 10px;
+      padding: 4px 9px 10px 8px;
     }
     :host(.compact) .aba-cat-nome {
       font-size: 0.84rem;
@@ -1540,12 +1525,6 @@ export class ReviewCard {
     // a categoria saiu para a orelha: a fileira é toda das tags
     const max = this.compact() ? 2 : 4;
     return { category: r.category ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
-  });
-
-  /** A cor da etiquetinha da categoria na orelha (a mesma da aba do mural). */
-  protected readonly catColor = computed(() => {
-    const c = this.review().category;
-    return c ? categoryColor(c) : null;
   });
 
   /** O desenho da categoria na orelha (a da cartela, ou a pasta da escrita à mão). */

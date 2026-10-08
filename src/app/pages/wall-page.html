@@ -70,8 +70,8 @@
     </section>
   } @else {
     <h2 class="sr-only">Fichas no mural</h2>
-    <!-- nas anotações, as tarefas moram na pasta, junto da busca -->
-    @if (view.isFiltered() || (!notes() && view.tasks().total)) {
+    <!-- nas anotações, o que a busca achou e as tarefas moram na pasta, junto da busca -->
+    @if (!notes() && (view.isFiltered() || view.tasks().total)) {
       <div class="showing">
         @if (view.isFiltered()) {
           <p class="showing-count" aria-live="polite">Mostrando {{ view.visible().length }} de {{ view.pool().length }}</p>
@@ -79,14 +79,10 @@
           <button type="button" class="showing-clear" (click)="clearFilters()">
             {{ view.filterCount() + (view.query().trim() ? 1 : 0) > 1 ? 'Limpar tudo' : 'Limpar filtro' }}
           </button>
-          <!-- a busca acha mais em outras abas: um toque procura em todas -->
-          @if (view.elsewhere(); as n) {
-            <button type="button" class="showing-clear" (click)="searchAll()">+{{ n }} em outras abas</button>
-          }
         }
         <!-- as tarefas das fichas à mostra, somadas: mudam com a busca, os filtros e cada check -->
         @if (view.tasks(); as t) {
-          @if (t.total && !notes()) {
+          @if (t.total) {
             <p class="tarefas" [class.todas]="!t.todo">
               <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
               @if (!t.todo) {
@@ -128,12 +124,20 @@
             @if (shut) {
               <!-- o maço: as primeiras fichas da seção, nas cores das cartolinas, presas com elástico
                    (decorativo: o botão da etiqueta é que abre; o toque no maço abre também) -->
-              <span class="maco" aria-hidden="true" (click)="toggleGroup(g.key)">
+              <svg class="maco" viewBox="0 0 64 46" aria-hidden="true" (click)="toggleGroup(g.key)">
                 @for (c of bundle(g); track $index) {
-                  <span class="maco-ficha" [style.--cor]="c"></span>
+                  <rect class="maco-ficha" x="8" y="6" width="48" height="32" rx="1.5" [style.fill]="c.color" [attr.transform]="c.transform" />
                 }
-                <span class="elastico"></span>
-              </span>
+                <!-- o elástico amarelo, com duas voltas: dois fios quase paralelos, que apertam a pilha e
+                     dobram para trás nas beiradas de cima e de baixo -->
+                <g class="elastico">
+                  <path class="sombra" d="M26.4 7 Q27.4 23 28.2 40 M31.2 7 Q31.6 23 32.6 40" />
+                  <path class="volta" d="M23.6 7.2 Q26.2 4.4 29 6.6 M28.6 6.8 Q31.4 4.4 34.2 7.2 M23.8 38.6 Q26.4 41.6 29.2 39.4 M28.8 39.6 Q31.8 41.6 34.6 38.6" />
+                  <path class="contorno" d="M25.6 6 Q26.6 22.6 27.4 39.2 M30.4 6 Q30.8 22.6 31.8 39.2" />
+                  <path class="fio" d="M25.6 6 Q26.6 22.6 27.4 39.2 M30.4 6 Q30.8 22.6 31.8 39.2" />
+                  <path class="brilho" d="M25.9 9 Q26.6 20 27.1 31 M30.7 9 Q31 20 31.5 31" />
+                </g>
+              </svg>
             }
             <p class="grupo-sum">{{ g.summary }}</p>
           </header>

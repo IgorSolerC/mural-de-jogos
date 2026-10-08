@@ -195,6 +195,7 @@
    os controles. Nada de régua de alumínio: tudo é papel e tinta. */
 .pasta {
   --manilha: #f3e5bb;
+  --picote: rgb(21 21 21 / 0.18);
   position: relative;
   padding: 14px 16px 12px;
   border-radius: 0 0 6px 6px;
@@ -207,44 +208,38 @@
     0 2px 3px rgb(0 0 0 / 0.3);
 }
 
-/* sem divisórias (tudo numa categoria só), a pasta fecha os cantos de cima também */
-.cadernos:empty + .pasta {
-  border-radius: 6px;
-}
-
 .pasta-linha {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 14px;
+  gap: 10px 18px;
 }
 
 .pasta-busca {
   flex: 1 1 260px;
-  max-width: 400px;
+  max-width: 420px;
 }
 
-.pasta-acoes,
-.pasta-ordem,
-.pasta-tipos {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.pasta-vista {
+/* os controles, empurrados para a direita, em grupos separados por um picote vertical */
+.pasta-controles {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 14px;
+  justify-content: flex-end;
+  gap: 8px 0;
   margin-left: auto;
 }
 
-/* os tipos de ficha, juntos, num quadrinho impresso */
-.pasta-tipos {
-  padding: 2px;
-  border-radius: 6px;
-  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.2);
+.pasta-grupo {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  & + & {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 2px dashed var(--picote);
+  }
 }
 
 /* ===== Os controles impressos em tinta; o ligado ganha o traço de marca-texto ===== */
@@ -296,8 +291,7 @@
       scale var(--t-ui) var(--ease-ui);
   }
 
-  &[aria-pressed='true'],
-  &.is-active {
+  &[aria-pressed='true'] {
     &::before {
       opacity: 1;
       scale: 1 1;
@@ -315,22 +309,6 @@
 .tinta-n {
   font-weight: 600;
   opacity: 0.75;
-  font-variant-numeric: tabular-nums;
-}
-
-/* quantos filtros ligados: o disco de tinta com o número amarelo, o mesmo do adesivo de marcar */
-.selo-n {
-  display: inline-grid;
-  place-items: center;
-  min-width: 21px;
-  height: 21px;
-  margin: -2px -3px -2px 2px;
-  padding: 1px 5px 0;
-  border-radius: 11px;
-  background: var(--ink);
-  color: var(--hi);
-  font-size: 0.82rem;
-  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
 }
 
@@ -372,28 +350,38 @@
   display: none;
 }
 
-/* ===== Depois do picote: as tags da aba e as tarefas ===== */
+/* ===== Depois do picote: as tags, o que a busca achou e as tarefas ===== */
 .pasta-baixo {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 2px dashed rgb(21 21 21 / 0.16);
+  border-top: 2px dashed var(--picote);
 
-  /* sem tags nem tarefas, o picote não aparece */
-  &:not(:has(.atalhos, .tarefas)) {
+  /* sem tags, busca nem tarefas, o picote não aparece */
+  &:not(:has(.atalhos, .achados, .tarefas)) {
     display: none;
   }
 }
 
 .pasta-tags {
-  flex: 1 1 auto;
+  flex: 1 1 320px;
   min-width: 0;
 }
 
+.pasta-estado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 18px;
+  margin-left: auto;
+}
+
+.achados,
 .tarefas {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 0 auto;
+  margin: 0;
   min-height: 36px;
   font-family: var(--f-label);
   font-weight: 700;
@@ -402,6 +390,35 @@
   text-transform: uppercase;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.achados {
+  gap: 4px;
+}
+
+/* os links impressos: "Limpar", "+2 em outras abas" */
+.tinta-link {
+  min-height: 36px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: underline 2px var(--ink);
+  text-underline-offset: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
 }
 
 .tarefas-icone {
@@ -439,8 +456,17 @@
     max-width: none;
   }
 
-  .pasta-vista {
+  /* no celular, os grupos começam na esquerda e o picote vertical sai (a fileira quebra) */
+  .pasta-controles {
+    justify-content: flex-start;
     margin-left: 0;
+    gap: 6px 10px;
+  }
+
+  .pasta-grupo + .pasta-grupo {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
   }
 
   .finalizadas-txt {
@@ -455,11 +481,12 @@
     display: none;
   }
 
-  .tarefas {
+  .pasta-estado {
+    justify-content: flex-start;
     margin-left: 0;
   }
 
-  /* no celular, as tags da aba numa linha só, que corre de lado (quebrando, a pasta ficava alta) */
+  /* no celular, as tags numa linha só, que corre de lado (quebrando, a pasta ficava alta) */
   .pasta-tags {
     flex-basis: 100%;
     overflow-x: auto;

@@ -116,12 +116,17 @@ export class WallPage {
     this.motion.run(() => this.view.toggleCollapsed(key));
   }
 
-  /** O maço da seção fechada: as cores das cartolinas das primeiras fichas (até quatro, a de cima por último). */
-  protected bundle(g: WallGroup): string[] {
-    return g.reviews
-      .slice(0, 4)
-      .map((r) => `var(--stock-${pinningFor(r.id, r.stock).stock})`)
-      .reverse();
+  /**
+   * O maço da seção fechada: as primeiras fichas (até quatro), nas cores das cartolinas, a de cima por
+   * último e reta; as de baixo, um pouco tortas, mostram só a beirada.
+   */
+  protected bundle(g: WallGroup): { color: string; transform: string | null }[] {
+    const tilts = ['rotate(-8 32 22) translate(-2 2)', 'rotate(6 32 22) translate(2 1)', 'rotate(-3 32 22) translate(-1 0)'];
+    const cards = g.reviews.slice(0, 4).reverse();
+    return cards.map((r, i) => ({
+      color: `var(--stock-${pinningFor(r.id, r.stock).stock})`,
+      transform: i === cards.length - 1 ? null : tilts[(tilts.length - (cards.length - 1) + i) % tilts.length],
+    }));
   }
 
   /** A busca sai da aba e procura no mural inteiro. */

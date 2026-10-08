@@ -197,71 +197,54 @@
   flex-basis: 100%;
 }
 
-/* O maço: as fichas empilhadas, cada uma um pouco torta, presas por um elástico de borracha
-   vermelho que dá a volta no meio. Pequeno, como coisa guardada. */
+/* O maço: as fichas empilhadas, a de cima reta e as de baixo mostrando a beirada, presas por um
+   elástico amarelo de duas voltas (desenhado em SVG, justo na pilha). Pequeno, como coisa guardada. */
 .maco {
-  position: relative;
   flex: none;
-  width: 58px;
-  height: 40px;
-  margin: 0 2px 0 4px;
+  width: 72px;
+  height: 52px;
+  margin: 0 -2px 0 -4px;
+  overflow: visible;
   cursor: pointer;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.55));
 }
 
 .maco-ficha {
-  position: absolute;
-  left: 6px;
-  top: 7px;
-  width: 44px;
-  height: 28px;
-  border-radius: 2px;
-  background-color: var(--cor);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
-
-  &:nth-child(1) {
-    rotate: -9deg;
-    translate: -3px 2px;
-  }
-  &:nth-child(2) {
-    rotate: 6deg;
-    translate: 3px 1px;
-  }
-  &:nth-child(3) {
-    rotate: -3deg;
-    translate: -1px -1px;
-  }
-  &:nth-child(4) {
-    rotate: 2deg;
-  }
+  stroke: rgb(0 0 0 / 0.22);
+  stroke-width: 0.6;
 }
 
-/* o elástico: a faixa de borracha, mais escura nas bordas, um pouco torta, passando por cima */
-.elastico {
-  position: absolute;
-  left: 22px;
-  top: -1px;
-  width: 9px;
-  height: 42px;
-  border-radius: 4px;
-  background: linear-gradient(to right, #7c1d19, #d8382f 30%, #f0675b 52%, #c53228 75%, #7c1d19);
-  box-shadow:
-    0 2px 3px rgb(0 0 0 / 0.55),
-    0 0 0 0.5px rgb(0 0 0 / 0.35);
-  rotate: 12deg;
+.elastico path {
+  fill: none;
+  stroke-linecap: round;
 }
 
-.maco:hover {
-  .maco-ficha:nth-child(1) {
-    rotate: -12deg;
-  }
+/* a sombra fina que o elástico faz na ficha, logo ao lado dos fios */
+.elastico .sombra {
+  stroke: rgb(0 0 0 / 0.32);
+  stroke-width: 2.4;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .maco-ficha {
-    transition: rotate var(--t-ui) var(--ease-ui);
-  }
+/* onde o elástico dobra para trás da pilha, nas beiradas */
+.elastico .volta {
+  stroke: #b8860b;
+  stroke-width: 1.6;
+}
+
+/* a borda da borracha, um pouco mais escura: o elástico não some na cartolina amarela */
+.elastico .contorno {
+  stroke: #8a5d05;
+  stroke-width: 2.5;
+}
+
+.elastico .fio {
+  stroke: #f5c638;
+  stroke-width: 1.7;
+}
+
+.elastico .brilho {
+  stroke: rgb(255 244 190 / 0.85);
+  stroke-width: 0.6;
 }
 
 .grupo-sum {

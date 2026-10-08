@@ -75,7 +75,8 @@ export class WallToolbar {
   protected readonly DoneIcon = CheckCheck;
 
   private readonly injector = inject(Injector);
-  private readonly filterTab = viewChild.required<ElementRef<HTMLButtonElement>>('filterTab');
+  /** A aba Filtrar (só nos murais de resenhas: as anotações não têm cartela). */
+  private readonly filterTab = viewChild<ElementRef<HTMLButtonElement>>('filterTab');
   private readonly sheet = viewChild(FilterSheet);
 
   /** A cartela de filtros aberta embaixo da régua. */
@@ -140,7 +141,7 @@ export class WallToolbar {
     const sheetEl = document.getElementById('cartela-filtros');
     const hadFocus = !!sheetEl && sheetEl.contains(document.activeElement);
     this.open.set(false);
-    if (hadFocus) this.filterTab().nativeElement.focus();
+    if (hadFocus) this.filterTab()?.nativeElement.focus();
   }
 
   protected toggle(t: FilterToggle): void {
@@ -175,6 +176,16 @@ export class WallToolbar {
   /** "Mostrar finalizadas": as anotações com check voltam (ou saem) do mural, deslizando. */
   protected toggleDone(): void {
     this.motion.run(() => this.view.showDone.update((v) => !v));
+  }
+
+  /** Tira a busca e as tags ligadas (nas anotações, o "Limpar" da pasta). */
+  protected clearFilters(): void {
+    this.motion.run(() => this.view.clearFilters());
+  }
+
+  /** A busca sai da aba e procura no mural inteiro. */
+  protected searchAll(): void {
+    this.motion.run(() => this.view.setNoteTab(ALL_TAB));
   }
 
   protected flip(): void {
