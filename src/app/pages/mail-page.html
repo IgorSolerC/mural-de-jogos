@@ -132,7 +132,7 @@
                         [title]="'Ver o mural de ' + b.pessoa.nome"
                         (click)="openWall(b.pessoa)"
                       >{{ b.pessoa.nome }}</button>
-                      {{ b.posts.length === 1 && b.posts[0].theirs ? verb(b.posts[0].theirs) : 'avaliou' }}
+                      {{ blockVerb(b.posts) }}
                     </h2>
 
                     @for (p of b.posts; track p.key; let j = $index) {
@@ -183,7 +183,9 @@
                           <div class="nota" [class.nota-segredo]="p.secret">
                             <span class="nota-fita" aria-hidden="true"></span>
                             <p class="dia">{{ when(p.dia) }}</p>
-                            @if (p.mine; as mine) {
+                            @if (isNotePost(p)) {
+                              <!-- a anotação não tem nota: só o dia e as reações -->
+                            } @else if (p.mine; as mine) {
                               @let d = delta(theirs, mine);
                               <p class="placar">
                                 @if (d === 0) {

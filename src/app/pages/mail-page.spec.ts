@@ -79,6 +79,8 @@ interface Page {
   isFresh(item: FeedItem): boolean;
   signed(d: number): string;
   delta(a: Review, b: Review): number;
+  isNotePost(p: unknown): boolean;
+  blockVerb(posts: unknown[]): string;
   wish(r: Review): void;
   isWished(r: Review): boolean;
   retryWall(code: string): Promise<void>;
@@ -226,6 +228,20 @@ describe('Amigos: a página (MailPage)', () => {
       expect(p.mine!.id).toBe('rme001');
       expect(page.delta(p.theirs!, p.mine!)).toBe(2);
       expect(p.secret).toBeFalse();
+    });
+
+    it('a anotação publicada aparece como anotação: sem placar, sem segredo, "publicou uma anotação"', async () => {
+      store.add({ ...review('nme001', 'Compras'), kind: 'anotacoes' });
+      items.set([{ ...post(ana, 'nana01', '2026-10-06T10:00:00.000Z', 'Compras'), mural: 'anotacoes' }]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [{ ...review('nana01', 'Compras'), kind: 'anotacoes' }]));
+      const page = await open();
+      const [p] = posts(page);
+      expect(p.estado).toBe('ficha');
+      expect(p.theirs!.id).toBe('nana01');
+      expect(p.mine).toBeNull();
+      expect(p.secret).toBeFalse();
+      expect(page.isNotePost(p)).toBeTrue();
+      expect(page.blockVerb([p])).toBe('publicou uma anotação');
     });
 
     it('"Evitar spoilers": a nota do que eu não avaliei vem em segredo; desligado, aparece', async () => {

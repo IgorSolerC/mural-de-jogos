@@ -94,7 +94,7 @@ export function newerKeys(local: SyncedKeys | null, remote: SyncedKeys | null): 
 
 /** O site recusa enviar um mural compactado maior que isso (a nuvem aceita até 1,9 MB). */
 export const MAX_GZ_BYTES = 1_800_000;
-/** Resenhas criadas (ou tornadas públicas) há até 7 dias contam como novas para avisar quem segue. */
+/** Resenhas e anotações criadas (ou tornadas públicas) há até 7 dias contam como novas para avisar quem segue. */
 const NEW_REVIEW_DAYS = 7;
 const MAX_NEW = 10;
 
@@ -122,6 +122,15 @@ export function newReviews(reviews: readonly Review[], now: number): { ref: stri
     .slice(0, MAX_NEW)
     .map((r) => ({ ref: r.id, titulo: r.game.name, mural: r.kind }));
 }
+/** As anotações do envio (`notas`, guardadas à parte), como fichas para `newReviews`. */
+function notesOf(notes: unknown): Review[] {
+  if (!Array.isArray(notes)) return [];
+  return notes.filter((n): n is Review => {
+    const r = n as Partial<Review> | null;
+    return typeof r?.id === 'string' && typeof r.game?.name === 'string' && typeof r.createdAt === 'string';
+  });
+}
+
 /**
  * Válvula de segurança contra um laço de envios (algo errado na junção, a nuvem esquecendo o mural):
  * o mesmo conteúdo enviado 3 vezes em 10 minutos, ou mais de 30 envios. Quem edita de verdade manda
@@ -647,7 +656,8 @@ export class CloudSync {
         notas: publicNotes(doc.notas),
       }),
     );
-    const novas = newReviews(doc.reviews, now);
+    // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha
+    const novas = newReviews([...doc.reviews, ...notesOf(doc.notas)], now);
     const form = new FormData();
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');

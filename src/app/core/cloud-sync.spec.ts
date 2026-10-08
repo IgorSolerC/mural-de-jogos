@@ -454,6 +454,19 @@ describe('sincronização com a nuvem', () => {
     expect(novas).toEqual([{ ref: 'rnova01', titulo: 'Nova', mural: 'jogos' }]);
   });
 
+  it('a anotação vira aviso ao deixar de ser privada, mesmo escrita há meses; a privada não', async () => {
+    const a = device();
+    const now = new Date().toISOString();
+    const old = '2025-12-01T00:00:00.000Z';
+    a.store.add({ ...review('nota0001', 'Compras', now, old), kind: 'anotacoes', publishedAt: now });
+    a.store.add({ ...review('nota0002', 'Diário', now, now), kind: 'anotacoes', private: true });
+    a.store.add({ ...review('nota0003', 'Velha', old, old), kind: 'anotacoes' });
+    const fetchSpy = window.fetch as jasmine.Spy;
+    await a.sync.syncNow();
+    const put = fetchSpy.calls.all().find((c) => (c.args[1] as RequestInit | undefined)?.method === 'PUT')!;
+    expect(JSON.parse(((put.args[1] as RequestInit).body as FormData).get('novas') as string)).toEqual([{ ref: 'nota0001', titulo: 'Compras', mural: 'anotacoes' }]);
+  });
+
   it('a ficha privada sobe para a nuvem particular, mas não vira aviso', async () => {
     const a = device();
     const now = new Date().toISOString();

@@ -10,7 +10,7 @@ import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
 import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, isUnseen, localDayOf } from '../core/follow';
 import { profileOf } from '../core/kinds';
-import { Review, fold, formatScore, newId, rootOf, shownFinal } from '../core/review';
+import { Review, fold, formatScore, isNote, newId, rootOf, shownFinal } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
@@ -173,6 +173,8 @@ export class MailPage {
       const estado = wall === 'erro' ? 'erro' : wall === 'pronto' && checked ? 'saiu' : 'buscando';
       return { key, item, dia, theirs: null, mine: null, secret: false, target, estado };
     }
+    // a anotação não tem nota: nada a comparar nem a esconder
+    if (isNote(theirs)) return { key, item, dia, theirs, mine: null, secret: false, target, estado: 'ficha' };
     const mine = this.mineOf(item.pessoa.codigo, theirs);
     // "Notas dos outros: Evitar spoilers": o que eu ainda não avaliei vem em segredo
     const secret = !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id);
@@ -399,9 +401,22 @@ export class MailPage {
     this.desk.openReview(r.id);
   }
 
-  /** "avaliou", ou "escreveu uma rejogada" (releitura, reassistida). */
+  /** "avaliou", "escreveu uma rejogada" (releitura, reassistida), ou "publicou uma anotação". */
   protected verb(r: Review): string {
+    if (isNote(r)) return 'publicou uma anotação';
     return r.revisitOf ? `escreveu uma ${profileOf(r.kind).revisit.one}` : 'avaliou';
+  }
+
+  /** O que vai na fita da pessoa: o verbo da ficha, quando é uma só; senão, pelo que chegou. */
+  protected blockVerb(posts: readonly Post[]): string {
+    if (posts.length === 1 && posts[0].theirs) return this.verb(posts[0].theirs);
+    const notes = posts.filter((p) => this.isNotePost(p)).length;
+    return notes === posts.length ? 'publicou anotações' : notes ? 'publicou' : 'avaliou';
+  }
+
+  /** O post é de uma anotação (sem nota, sem placar, sem wishlist)? */
+  protected isNotePost(p: Post): boolean {
+    return p.item.mural === 'anotacoes';
   }
 
   /** A nota do amigo menos a minha, como aparecem (Arredondado e Inteiros mudam a conta). */

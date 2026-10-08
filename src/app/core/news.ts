@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-anotacao-no-feed',
+    version: '1.18.10',
+    kind: 'correcao',
+    date: '2026-10-08',
+    title: 'Correções de bugs',
+    items: [
+      'A anotação publicada aparece no Feed de quem segue você, como a resenha: ao nascer pública ou na primeira vez que deixa de ser privada. No Feed ela vem como anotação, sem nota para comparar nem wishlist.',
+    ],
+  },
+  {
     id: '2026-10-08-opacidade-da-estampa',
     version: '1.18.9',
     kind: 'melhoria',
