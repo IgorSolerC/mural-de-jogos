@@ -43,8 +43,10 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  *    os dois fora, e a anotação voltaria a ser aberta e comum em todo aparelho.
  * 7: a categoria e as tags da anotação (`category`, `tags`, no lugar dos adesivos) e as tags fixas
  *    (`tagsFixas`, só no mural privado). Um site antigo leria a anotação sem categoria nem tags.
+ * 8: a força da tinta da estampa (`patternInk`). Um site antigo jogaria o campo fora, e a estampa
+ *    voltaria à tinta de sempre.
  */
-export const SYNC_SCHEMA = 7;
+export const SYNC_SCHEMA = 8;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no

@@ -6,6 +6,7 @@ import {
   DAMAGE_LABEL,
   DECORS,
   DECOR_LABEL,
+  DEFAULT_PATTERN_INK,
   Damage,
   Decor,
   LOOK_KEYS,
@@ -16,6 +17,7 @@ import {
   PAPER_LABEL,
   PATTERNS,
   PATTERN_GROUPS,
+  PATTERN_INK_LABEL,
   PATTERN_LABEL,
   Paper,
   Pattern,
@@ -121,6 +123,20 @@ interface Option {
                   />
                 </label>
               }
+              <!-- a força da tinta, como a do lápis do rabisco -->
+              <label class="ajuste">
+                <span class="giz">Opacidade <b>{{ patternInkSteps[patternInk()] }}</b></span>
+                <input
+                  type="range"
+                  min="0"
+                  [max]="patternInkSteps.length - 1"
+                  step="1"
+                  [disabled]="!pattern()"
+                  [value]="patternInk()"
+                  [attr.aria-valuetext]="patternInkSteps[patternInk()]"
+                  (input)="setPatternInk(+$any($event.target).value)"
+                />
+              </label>
             </div>
           }
           <!-- a força do lápis do rabisco, logo à vista; sem rabisco fica apagada, como os ajustes da estampa -->
@@ -660,10 +676,10 @@ interface Option {
       font-size: 0.7rem;
     }
 
-    /* ===== Ajustes da estampa: três réguas de cinco degraus, lado a lado acima dos retalhos ===== */
+    /* ===== Ajustes da estampa: quatro réguas, lado a lado acima dos retalhos ===== */
     .ajustes {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 14px;
       margin: 0 0 16px;
       padding-bottom: 14px;
@@ -672,6 +688,12 @@ interface Option {
     }
     .ajustes.um {
       grid-template-columns: minmax(0, 1fr);
+    }
+    /* no celular, quatro lado a lado ficam curtas demais para os degraus: duas e duas */
+    @media (max-width: 520px) {
+      .ajustes:not(.um) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
     .ajustes.apagados {
       opacity: 0.4;
@@ -829,6 +851,9 @@ export class CardKit {
   protected readonly lookLabels = LOOK_LABEL;
   protected readonly lookSteps = LOOK_STEP_LABEL;
   protected readonly inkSteps = SCRIBBLE_INK_LABEL;
+  protected readonly patternInkSteps = PATTERN_INK_LABEL;
+  /** A força da tinta da estampa; sem ela no ajuste, a Normal. */
+  protected readonly patternInk = computed(() => this.patternLook().ink ?? DEFAULT_PATTERN_INK);
 
   /** O papel e a estampa da ficha, para as amostras de cor. */
   protected readonly current = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed()));
@@ -992,6 +1017,11 @@ export class CardKit {
 
   protected setLook(k: LookKey, step: number): void {
     this.patternLook.update((cur) => ({ ...cur, [k]: step }));
+  }
+
+  /** A Normal sai do ajuste: a estampa volta a ser exatamente a de antes. */
+  protected setPatternInk(step: number): void {
+    this.patternLook.update(({ ink: _, ...rest }) => (step === DEFAULT_PATTERN_INK ? rest : { ...rest, ink: step }));
   }
 
   /** Setas trocam de aba, como um tablist. */

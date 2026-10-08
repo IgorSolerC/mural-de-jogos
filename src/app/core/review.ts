@@ -1,7 +1,7 @@
 import { KIND_PROFILES, Kind, isKind, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
 import { cleanCategory, sanitizeTags } from './note-labels';
-import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
+import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
 
 export type { Kind } from './kinds';
 
@@ -239,6 +239,8 @@ export interface Review {
   patternSpacing?: number;
   patternSize?: number;
   patternJitter?: number;
+  /** A força da tinta da estampa (um degrau de PATTERN_INK); sem o campo, o Normal. */
+  patternInk?: number;
   /** O sorteio da estampa (cada clique nela desloca e bagunça de outro jeito); sem ele, centrada. */
   patternSeed?: number;
   /** O rabisco a lápis que toma a ficha inteira, atrás do que está escrito; sem o campo, nenhum. */
@@ -961,6 +963,7 @@ export function sanitizeReview(raw: unknown): Review | null {
     ...optional('patternSpacing', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternSpacing'], 'spacing') : undefined),
     ...optional('patternSize', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternSize'], 'size') : undefined),
     ...optional('patternJitter', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternJitter'], 'jitter') : undefined),
+    ...optional('patternInk', sanitizePattern(r['pattern']) ? sanitizePatternInk(r['patternInk']) : undefined),
     ...optional('patternSeed', sanitizePattern(r['pattern']) ? sanitizeSeed(r['patternSeed']) : undefined),
     ...optional('scribble', sanitizeScribble(r['scribble'])),
     ...optional('scribbleSeed', sanitizeScribble(r['scribble']) ? sanitizeSeed(r['scribbleSeed']) : undefined),

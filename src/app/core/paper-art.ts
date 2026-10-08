@@ -4,7 +4,7 @@
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
 import { MORE_MOTIFS, Motif, MotifDrawing } from './pattern-motifs';
-import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, f1, hash, rng, svgUrl, textureOf } from './paper';
+import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, f1, hash, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -169,7 +169,11 @@ const TINTA = 0.13;
  */
 export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?: number): Tile {
   const key = `${p}:${look.spacing}:${look.size}:${look.jitter}${seed ? `:${seed}` : ''}`;
-  const hit = tiles.get(key);
+  // a força da tinta só muda a opacidade: fora do Normal entra no cache, mas não no sorteio (`key`),
+  // e o desenho fica no mesmo lugar
+  const strength = look.ink !== undefined && look.ink !== DEFAULT_PATTERN_INK ? (PATTERN_INK[look.ink] ?? 1) : 1;
+  const cacheKey = strength === 1 ? key : `${key}:tinta${look.ink}`;
+  const hit = tiles.get(cacheKey);
   if (hit) return hit;
   const m = MOTIFS[p];
   const z = SIZE[look.size] ?? 1,
@@ -235,9 +239,9 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
     `<style>.l *{fill:none;stroke:#000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.l .f,.l .f *{fill:#000;stroke:none}.s *{fill:#000}.m *{fill:none;stroke:#000;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}.m .f{fill:#000;stroke:none}.c *{fill:none;stroke:#000;stroke-width:2.2;stroke-linecap:round}.c .f,.c .f *{fill:#000;stroke:none}</style>` +
     `<defs>${first.mask}` +
     `${first.groups}<g id='c' class='c'>${m.c}</g>${others}</defs>` +
-    `<g opacity='${TINTA}'>${body}</g>`;
+    `<g opacity='${strength === 1 ? TINTA : Math.min(1, Math.round(TINTA * strength * 1000) / 1000)}'>${body}</g>`;
   const tile = { url: svgUrl(side, side, svg), side };
-  tiles.set(key, tile);
+  tiles.set(cacheKey, tile);
   return tile;
 }
 

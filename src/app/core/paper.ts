@@ -170,9 +170,12 @@ export interface PatternLook {
   spacing: number;
   size: number;
   jitter: number;
+  /** A força da tinta (um degrau de PATTERN_INK); sem ela, o Normal, a tinta de sempre. */
+  ink?: number;
 }
 
-export type LookKey = keyof PatternLook;
+/** Os ajustes de desenho da estampa (a força da tinta tem o seu próprio controle). */
+export type LookKey = 'spacing' | 'size' | 'jitter';
 
 export const LOOK_KEYS: readonly LookKey[] = ['spacing', 'size', 'jitter'];
 
@@ -202,13 +205,27 @@ export function sanitizeLookStep(raw: unknown, key: LookKey): number | undefined
   return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < LOOK_STEPS[key] && raw !== DEFAULT_LOOK[key] ? (raw as number) : undefined;
 }
 
-/** Os ajustes de uma ficha, com o de sempre no lugar do que ela não tem. */
-export function lookOf(r: { patternSpacing?: number; patternSize?: number; patternJitter?: number }): PatternLook {
+/** Os ajustes de uma ficha, com o de sempre no lugar do que ela não tem (a tinta Normal nem entra). */
+export function lookOf(r: { patternSpacing?: number; patternSize?: number; patternJitter?: number; patternInk?: number }): PatternLook {
   return {
     spacing: r.patternSpacing ?? DEFAULT_LOOK.spacing,
     size: r.patternSize ?? DEFAULT_LOOK.size,
     jitter: r.patternJitter ?? DEFAULT_LOOK.jitter,
+    ...(r.patternInk !== undefined && r.patternInk !== DEFAULT_PATTERN_INK ? { ink: r.patternInk } : {}),
   };
+}
+
+/**
+ * A força da tinta da estampa, em degraus, como a do lápis do rabisco: multiplica a tinta de sempre.
+ * O Normal (o de sempre) não é guardado, e a ficha que já existia continua igualzinha.
+ */
+export const PATTERN_INK: readonly number[] = [0.25, 0.45, 0.7, 1, 1.5, 2, 2.75];
+export const PATTERN_INK_LABEL: readonly string[] = ['Quase sumida', 'Bem clarinha', 'Clarinha', 'Normal', 'Mais escura', 'Escura', 'Carregada'];
+export const DEFAULT_PATTERN_INK = 3;
+
+/** O degrau guardado com a ficha; o Normal não vai para o armazenamento. */
+export function sanitizePatternInk(raw: unknown): number | undefined {
+  return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < PATTERN_INK.length && raw !== DEFAULT_PATTERN_INK ? (raw as number) : undefined;
 }
 
 // ===================== Rabisco =====================

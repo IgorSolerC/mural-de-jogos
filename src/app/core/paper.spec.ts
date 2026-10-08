@@ -1,4 +1,4 @@
-import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizeScribble, sanitizeSeed } from './paper';
+import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed } from './paper';
 import { cutMask, lightPattern, motifIcon, paperArt, paperStyle, paperVars, patternTile } from './paper-art';
 import { decorArt } from './decor-art';
 import { sanitizeReview } from './review';
@@ -87,6 +87,20 @@ describe('papel da ficha', () => {
     expect('scribbleInk' in sanitizeReview({ ...base, scribble: 'novelo', scribbleInk: DEFAULT_SCRIBBLE_INK })!).toBeFalse();
     expect('scribbleInk' in sanitizeReview({ ...base, scribbleInk: 6 })!).toBeFalse();
     for (const bad of [-1, 7, 1.5, '3', null]) expect('scribbleInk' in sanitizeReview({ ...base, scribble: 'novelo', scribbleInk: bad })!).withContext(String(bad)).toBeFalse();
+  });
+
+  it('a força da tinta da estampa vai com a ficha, só fora da Normal e só quando há estampa', () => {
+    const base = { game: { name: 'Hades', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, visual: 8 } };
+    const r = sanitizeReview({ ...base, pattern: 'gatinhos', patternInk: 0 })!;
+    expect(r.patternInk).toBe(0);
+    expect(lookOf(r)).toEqual({ ...DEFAULT_LOOK, ink: 0 });
+    const normal = sanitizeReview({ ...base, pattern: 'gatinhos', patternInk: DEFAULT_PATTERN_INK })!;
+    expect('patternInk' in normal).toBeFalse();
+    // a ficha de antes (sem o campo) e a Normal leem o mesmo ajuste de sempre, sem a tinta
+    expect(lookOf(normal)).toEqual(DEFAULT_LOOK);
+    expect(lookOf({ patternInk: DEFAULT_PATTERN_INK })).toEqual(DEFAULT_LOOK);
+    expect('patternInk' in sanitizeReview({ ...base, patternInk: 0 })!).toBeFalse();
+    for (const bad of [-1, 7, 1.5, '3', null]) expect(sanitizePatternInk(bad)).withContext(String(bad)).toBeUndefined();
   });
 
   it('os ajustes da estampa vão com a ficha; o de sempre e os sem estampa não', () => {
@@ -260,6 +274,24 @@ describe('papel da ficha', () => {
         // três ou quatro rasgos de beirada a beirada, e os trechos de beirada fora do lugar
         expect(art.cut.length).withContext(String(seed)).toBeGreaterThanOrEqual(3);
         expect(art.fita).withContext(String(seed)).toBe('');
+      }
+    });
+
+    it('a força da tinta clareia e escurece a estampa sem mexer no desenho; a Normal é a de sempre', () => {
+      for (const seed of [undefined, 5]) {
+        const normal = patternTile('gatinhos', DEFAULT_LOOK, seed);
+        expect(patternTile('gatinhos', { ...DEFAULT_LOOK, ink: DEFAULT_PATTERN_INK }, seed)).toEqual(normal);
+        // a tinta é o último grupo, o dos desenhos
+        const alpha = (t: { url: string }) => Number([...decodeURIComponent(t.url).matchAll(/<g opacity='([\d.]+)'>/g)].pop()![1]);
+        const light = patternTile('gatinhos', { ...DEFAULT_LOOK, ink: 0 }, seed);
+        const dark = patternTile('gatinhos', { ...DEFAULT_LOOK, ink: 6 }, seed);
+        expect(alpha(light)).toBeLessThan(alpha(normal));
+        expect(alpha(dark)).toBeGreaterThan(alpha(normal));
+        expect(alpha(dark)).toBeLessThanOrEqual(1);
+        // o mesmo desenho, no mesmo lugar: só a opacidade muda
+        const body = (t: { url: string }) => decodeURIComponent(t.url).replace(/<g opacity='[\d.]+'>(?!.*<g opacity=)/, '');
+        expect(body(dark)).toBe(body(normal));
+        expect(dark.side).toBe(normal.side);
       }
     });
 

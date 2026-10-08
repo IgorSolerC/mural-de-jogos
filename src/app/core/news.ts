@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-opacidade-da-estampa',
+    version: '1.18.9',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Opacidade da estampa',
+    items: [
+      'A estampa ganhou a régua de Opacidade, como a do rabisco: de quase sumida a carregada, em qualquer ficha. Muda só a força da tinta; os desenhos ficam no mesmo lugar.',
+      'As fichas que já existiam continuam iguaizinhas: a estampa delas fica na Opacidade Normal até alguém mexer.',
+    ],
+  },
+  {
     id: '2026-10-08-mais-em-menu',
     version: '1.18.8',
     kind: 'melhoria',

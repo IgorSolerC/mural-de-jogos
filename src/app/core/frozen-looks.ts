@@ -130,6 +130,10 @@ export function frozenPrints(): Record<string, string> {
   for (const pattern of FROZEN_PATTERNS)
     for (const { key, look } of looks())
       for (const seed of PATTERN_SEEDS) out[`pattern:${pattern}:${key}:${seed ?? '-'}`] = print(patternTile(pattern, look, seed));
+  // a força da tinta (fora da Normal, que é a própria estampa acima)
+  for (const pattern of FROZEN_PATTERNS)
+    for (const ink of [0, 1, 2, 4, 5, 6])
+      for (const seed of [undefined, 5]) out[`pattern:${pattern}:ink${ink}:${seed ?? '-'}`] = print(patternTile(pattern, { ...DEFAULT_LOOK, ink }, seed));
   for (const paper of FROZEN_PAPERS) {
     out[`paper:${paper}`] = print({ texture: textureOf(paper), style: paperStyle(paper, undefined) });
     out[`paper:${paper}:estampa`] = print(paperStyle(paper, 'gatinhos', { spacing: 2, size: 5, jitter: 3 }, 77));

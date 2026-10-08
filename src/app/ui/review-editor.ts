@@ -53,7 +53,7 @@ import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
 import { linkKey, linkableTitle, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
-import { DEFAULT_LOOK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
@@ -1025,12 +1025,13 @@ export class ReviewEditor {
   }
 
   /** Os ajustes da estampa como vão para a ficha: o de sempre não vai. */
-  private lookFields(): Pick<Review, 'patternSpacing' | 'patternSize' | 'patternJitter'> {
+  private lookFields(): Pick<Review, 'patternSpacing' | 'patternSize' | 'patternJitter' | 'patternInk'> {
     const l = this.patternLook();
     return {
       ...(l.spacing !== DEFAULT_LOOK.spacing ? { patternSpacing: l.spacing } : {}),
       ...(l.size !== DEFAULT_LOOK.size ? { patternSize: l.size } : {}),
       ...(l.jitter !== DEFAULT_LOOK.jitter ? { patternJitter: l.jitter } : {}),
+      ...(l.ink !== undefined && l.ink !== DEFAULT_PATTERN_INK ? { patternInk: l.ink } : {}),
     };
   }
 
