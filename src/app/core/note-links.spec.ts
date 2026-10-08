@@ -89,8 +89,10 @@ describe('links entre anotações', () => {
     const notes = [bug, daily, reuniao, solta];
     expect(backlinksOf(bug, notes).map((n) => n.game.name)).toEqual(['Reunião', 'Daily']);
     expect(backlinksOf(solta, notes)).toEqual([]);
-    expect(backlinkLine(daily, bug, notes)).toBe('o bug do login hoje');
-    expect(backlinkLine(reuniao, bug, notes)).toBe('Pauta: Corrigir bug e Outra');
+    expect(backlinkLine(daily, bug, notes)).toEqual({ before: '', link: 'o bug do login', after: ' hoje' });
+    expect(backlinkLine(reuniao, bug, notes)).toEqual({ before: 'Pauta: ', link: 'Corrigir bug', after: ' e Outra' });
+    const longa = note('nlonga001', 'Longa', 'Um começo bem comprido que fala de muitas coisas antes de chegar no [[Corrigir bug]] afinal.');
+    expect(backlinkLine(longa, bug, [...notes, longa])).toEqual({ before: '…de muitas coisas antes de chegar no ', link: 'Corrigir bug', after: ' afinal.' });
     expect(backlinkLine(solta, bug, notes)).toBeNull();
   });
 

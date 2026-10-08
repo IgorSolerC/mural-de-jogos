@@ -394,8 +394,9 @@
    deixariam um buraco embaixo de cada ficha curta), as fichas correm em colunas, e a seguinte cai
    embaixo da coluna mais curta, como as folhas do Pra depois. A grade tem linhas de 4px e cada ficha
    ocupa as da altura dela mais o vão (medidos em `appFichasMosaico`, que também dá a cada ficha um
-   vão e um desvio para o lado um pouco diferentes, dentro do vão entre as colunas). A grade preenche
-   os buracos (`dense`): a ficha curta sobe para o vão que a anotação larga deixou. */
+   vão e um desvio para o lado um pouco diferentes, dentro do vão entre as colunas). Todas têm a
+   mesma largura (a anotação larga também, como na Simples): sem ficha de duas colunas, a colagem não
+   deixa buraco, e a ordem na tela (e a do Tab) é a da ordem escolhida. */
 .wall.inteira {
   --col-w: var(--card-w);
 
@@ -411,7 +412,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, var(--col-w));
     grid-auto-rows: 4px;
-    grid-auto-flow: row dense;
+    grid-auto-flow: row;
     gap: 0 var(--in-col);
   }
   /* a última ficha de cada coluna também leva o vão de baixo: a seção devolve o vão menor */
@@ -426,8 +427,8 @@
     margin-left: var(--desvio, 0px);
   }
   app-review-card.nota-larga {
-    grid-column: span 2;
-    width: calc(var(--card-w) * 2 + var(--in-col));
+    grid-column: auto;
+    width: var(--card-w);
   }
 }
 

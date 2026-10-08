@@ -104,19 +104,24 @@ export function backlinksOf(note: Review, notes: readonly Review[]): Review[] {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }
 
+/** Até quantas letras antes do link o trecho mostra (o começo de uma linha comprida vira "…"). */
+const BEFORE_MAX = 40;
+
 /**
- * A linha do texto de `from` onde está o link para `note`, para mostrar onde ela é citada: sem a
- * marca da lista ou da tarefa, e o link escrito como aparece ("[[Título|texto]]" vira "texto").
- * Null se nenhuma linha tem o link.
+ * A linha do texto de `from` onde está o link para `note`, para mostrar onde ela é citada, em três
+ * pedaços: o que vem antes, o link (escrito como aparece: "[[Título|texto]]" vira "texto") e o que
+ * vem depois. Sem a marca da lista ou da tarefa; os outros links da linha viram o texto deles, e um
+ * começo comprido fica só com as últimas palavras antes do link. Null se nenhuma linha tem o link.
  */
-export function backlinkLine(from: Review, note: Review, notes: readonly Review[]): string | null {
-  for (const line of from.text.split('\n')) {
-    const hit = [...line.matchAll(LINK)].some((m) => resolveNote(notes, splitLink(m[1]).title)?.id === note.id);
+export function backlinkLine(from: Review, note: Review, notes: readonly Review[]): { before: string; link: string; after: string } | null {
+  const plain = (s: string) => s.replace(LINK, (_all, inner: string) => splitLink(inner).label);
+  for (const raw of from.text.replace(/\r\n?/g, '\n').split('\n')) {
+    const line = raw.replace(/^\s*(?:[-*•]\s+(?:\[[ xX]\]\s*)?|\d{1,4}[.)]\s+|#{1,3}\s+|>\s?)/, '');
+    const hit = [...line.matchAll(LINK)].find((m) => resolveNote(notes, splitLink(m[1]).title)?.id === note.id);
     if (!hit) continue;
-    return line
-      .replace(/^\s*(?:[-*•]\s+(?:\[[ xX]\]\s*)?|\d{1,4}[.)]\s+|#{1,3}\s+|>\s?)/, '')
-      .replace(LINK, (_all, inner: string) => splitLink(inner).label)
-      .trim();
+    let before = plain(line.slice(0, hit.index)).trimStart();
+    if (before.length > BEFORE_MAX) before = '…' + before.slice(-BEFORE_MAX).replace(/^\S*\s/, '');
+    return { before, link: splitLink(hit[1]).label, after: plain(line.slice(hit.index + hit[0].length)).trimEnd() };
   }
   return null;
 }

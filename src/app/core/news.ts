@@ -50,6 +50,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-acabamento-colagem',
+    version: '1.23.1',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Acabamento da colagem e das sub-notas',
+    items: [
+      'Nas fichas inteiras, a anotação larga fica da largura das outras: a colagem não deixa mais buraco, segue a ordem escolhida e não passa da tela em janelas estreitas.',
+      'A marca da sub-nota sempre diz em quantas anotações ela é citada.',
+      'Na lista de onde a sub-nota é citada, cada linha mostra o trecho em até duas linhas, com o link sublinhado à caneta como na ficha, e a cor da anotação num marcador de página, como na Lista.',
+    ],
+  },
+  {
     id: '2026-10-08-fichas-inteiras',
     version: '1.23.0',
     kind: 'funcionalidade',

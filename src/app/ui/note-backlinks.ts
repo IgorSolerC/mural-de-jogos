@@ -44,20 +44,17 @@ export class NoteBacklinks {
         <div class="ficha cartolina" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
           <app-pin class="pin" color="#f4f4f0" />
           <header class="head">
-            <div class="titulos">
-              <p class="sobre">
-                <lucide-icon [img]="SubIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-                Sub-nota
-              </p>
-              <h2 id="citada-titulo">{{ n.game.name }}</h2>
-            </div>
+            <h2 id="citada-titulo">{{ n.game.name }}</h2>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="backlinks.close()">
               <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
             </button>
           </header>
           <div class="body">
             @if (rows().length) {
-              <p class="conta">{{ rows().length === 1 ? 'Citada em 1 anotação' : 'Citada em ' + rows().length + ' anotações' }}</p>
+              <p class="conta">
+                <lucide-icon [img]="SubIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                {{ rows().length === 1 ? 'Sub-nota desta anotação' : 'Sub-nota citada nestas ' + rows().length + ' anotações' }}
+              </p>
               <ul class="lista">
                 @for (r of rows(); track r.id) {
                   <li>
@@ -74,8 +71,8 @@ export class NoteBacklinks {
                             <span class="cat">{{ r.category }}</span>
                           }
                         </span>
-                        @if (r.line) {
-                          <span class="trecho">“{{ r.line }}”</span>
+                        @if (r.line; as l) {
+                          <span class="trecho">{{ l.before }}<span class="elo">{{ l.link }}</span>{{ l.after }}</span>
                         }
                       </span>
                       <span class="data">{{ r.date }}</span>
@@ -110,22 +107,8 @@ export class NoteBacklinks {
     .head {
       align-items: center;
     }
-    .titulos {
-      min-width: 0;
-    }
-    .sobre {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      margin: 0 0 2px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.78rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      opacity: 0.78;
-    }
     .head h2 {
+      min-width: 0;
       overflow-wrap: anywhere;
     }
 
@@ -133,6 +116,9 @@ export class NoteBacklinks {
       gap: 10px;
     }
     .conta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-family: var(--f-label);
       font-weight: 800;
       font-size: 0.82rem;
@@ -174,11 +160,13 @@ export class NoteBacklinks {
         outline-offset: -3px;
       }
     }
-    /* a tirinha da cor da cartolina, como na Lista */
+    /* a tirinha da cor da cartolina, o marcador de página saindo da margem, como na Lista */
     .cor {
       flex: none;
-      align-self: stretch;
-      width: 8px;
+      align-self: flex-start;
+      width: 22px;
+      height: 14px;
+      margin-top: 5px;
       border-radius: 0 2px 2px 0;
       background: var(--cor);
       box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18);
@@ -234,14 +222,24 @@ export class NoteBacklinks {
       line-height: 1.3;
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
     }
+    /* a linha onde ela é citada, em até duas linhas, com o link riscado à caneta como na ficha */
     .trecho {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
       overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+      overflow-wrap: anywhere;
       font-family: var(--f-hand);
       font-size: 0.98rem;
       line-height: 1.3;
-      opacity: 0.75;
+      color: var(--ink-2);
+    }
+    .elo {
+      color: var(--ink);
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%23c4302b' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") no-repeat left 0 bottom 0.1em / 100% 0.34em;
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
     }
     .data {
       flex: none;

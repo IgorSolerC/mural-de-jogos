@@ -338,7 +338,7 @@ function watchDistance(el: HTMLElement): () => void {
             (click)="backlinks.open(review().id)"
           >
             <lucide-icon [img]="SubIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-            @if (s.count > 1) {
+            @if (s.count) {
               <span class="sub-n" aria-hidden="true">{{ s.count }}</span>
             }
           </button>

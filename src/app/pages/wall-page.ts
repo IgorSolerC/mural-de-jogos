@@ -106,9 +106,9 @@ export class WallPage {
   /** As fichas inteiras: o texto todo, encaixadas em colagem (ver `appFichasMosaico`). */
   protected readonly inteira = computed(() => this.view.density() === 'inteira');
 
-  /** Quantas colunas a seção pediria em colagem: a anotação larga conta por duas. */
+  /** Quantas colunas a seção pediria em colagem: uma por ficha (lá, a larga é uma ficha como as outras). */
   protected columnsOf(g: WallGroup): number {
-    return g.reviews.reduce((n, r) => n + (r.noteSize === 'larga' ? 2 : 1), 0);
+    return g.reviews.length;
   }
 
   /**
