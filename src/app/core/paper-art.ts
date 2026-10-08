@@ -4946,7 +4946,9 @@ function crumbling(W: number, H: number, k: number, sw: number, r: () => number,
 /**
  * Ficou anos no sol: a cor desbotou (mais do lado de onde a luz vinha), menos onde alguma coisa
  * cobria a ficha (outra ficha num canto, a moldura embaixo, um bilhete colado), que ficou com a cor
- * de antes, de beirada nítida. Uma linha fina de poeira marca onde a coisa encostava.
+ * de antes, de beirada nítida. Uma linha fina de poeira marca onde a coisa encostava. Metade das
+ * vezes nada cobria a ficha e ela desbotou inteira (o sorteio vem depois de todos os outros, para a
+ * que tem a marca continuar igual).
  */
 function sunFaded(W: number, H: number, k: number, r: () => number, uid: string, out: PaperArt): void {
   const q = Math.max(0.45, k);
@@ -5007,11 +5009,13 @@ function sunFaded(W: number, H: number, k: number, r: () => number, uid: string,
     gy1 = 0.5 - Math.sin(ang) * 0.5;
   const strong = 0.58 + r() * 0.12,
     weak = 0.3 + r() * 0.1;
+  if (r() < 0.5) covers.length = 0;
   const holes = covers.map((c) => `${poly(reversed(c))}Z`).join('');
   out.clareia +=
     `<defs><linearGradient id='${uid}-sol' x1='${gx1.toFixed(2)}' y1='${gy1.toFixed(2)}' x2='${(1 - gx1).toFixed(2)}' y2='${(1 - gy1).toFixed(2)}'><stop offset='0' stop-color='rgb(246 240 226)' stop-opacity='${strong.toFixed(2)}'/><stop offset='1' stop-color='rgb(242 236 222)' stop-opacity='${weak.toFixed(2)}'/></linearGradient></defs>` +
     `<path d='M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z${holes}' fill='url(#${uid}-sol)'/>`;
-  out.fundo += `<g fill='none' stroke='rgb(90 80 66)' stroke-opacity='.16' stroke-width='${f1(1.2 * q)}' filter='url(#papel-borra)'>${covers.map((c) => `<path d='${poly(c)}Z'/>`).join('')}</g>`;
+  if (covers.length)
+    out.fundo += `<g fill='none' stroke='rgb(90 80 66)' stroke-opacity='.16' stroke-width='${f1(1.2 * q)}' filter='url(#papel-borra)'>${covers.map((c) => `<path d='${poly(c)}Z'/>`).join('')}</g>`;
 }
 
 // ----- Cortada a laser -----

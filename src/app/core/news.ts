@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-sol-inteiro',
+    version: '1.20.12',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Desbotada no sol, inteira',
+    items: [
+      'Metade das fichas com o estrago "Desbotada no sol" agora desbotam inteiras, sem a marca do que cobria um pedaço da cartolina. A outra metade continua igual.',
+    ],
+  },
+  {
     id: '2026-10-08-orelha-sobe',
     version: '1.20.11',
     kind: 'melhoria',
