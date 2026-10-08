@@ -95,11 +95,29 @@ describe('a régua de formatação do texto', () => {
   });
 
   describe('as marcas novas', () => {
-    it('riscado e marca-texto em volta da seleção (pela régua e pelos atalhos); de novo, tira', () => {
+    /** Abre o "Mais" e toca na marca pelo nome. */
+    function more(name: string): void {
+      (fixture.nativeElement.querySelector('.ferramenta.mais') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const op = Array.from(fixture.nativeElement.querySelectorAll('.mais-op, .mais-pe button') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.includes(name))!;
+      op.click();
+      fixture.detectChanges();
+    }
+
+    it('a régua: só o de toda hora; o resto mora no "Mais", com nome e atalho', () => {
+      const labels = Array.from(fixture.nativeElement.querySelectorAll('.regua .ferramenta') as NodeListOf<HTMLElement>).map((b) => b.getAttribute('aria-label') ?? b.textContent!.trim());
+      expect(labels).toEqual(['Negrito', 'Itálico', 'Título', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço', 'Tabela', 'Mais']);
+      (fixture.nativeElement.querySelector('.ferramenta.mais') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.mais-painel')!.textContent).toContain('Ctrl+Shift+X');
+    });
+
+    it('riscado e marca-texto em volta da seleção (pelo "Mais" e pelos atalhos); de novo, tira', () => {
       write('um |caro| item');
-      button('Riscado').click();
+      more('Riscado');
       expect(value()).toBe('um ~~caro~~ item');
-      button('Riscado').click();
+      expect(fixture.nativeElement.querySelector('.mais-painel')).toBeNull();
+      more('Riscado');
       expect(value()).toBe('um caro item');
       key('h', { ctrlKey: true, shiftKey: true });
       expect(value()).toBe('um ==caro== item');
@@ -115,10 +133,10 @@ describe('a régua de formatação do texto', () => {
       button('Título').click();
       expect(value()).toBe('Compras');
       write('|um\ndois|');
-      button('Citação').click();
+      more('Citação');
       expect(value()).toBe('> um\n> dois');
       area.setSelectionRange(0, value().length);
-      button('Citação').click();
+      more('Citação');
       expect(value()).toBe('um\ndois');
     });
 
@@ -127,7 +145,7 @@ describe('a régua de formatação do texto', () => {
       key('e', { ctrlKey: true });
       expect(value()).toBe('rode `npm test` já');
       write('|');
-      button('Código').click();
+      more('Código');
       expect(value()).toBe('```\n\n```');
     });
 
@@ -183,13 +201,29 @@ describe('a régua de formatação do texto', () => {
       expect(value()).toBe('leia [isto](https://ex.com/b) agora');
     });
 
-    it('o guia das marcas abre e fecha pelo "?"', () => {
-      button('Guia das marcas').click();
-      fixture.detectChanges();
+    it('o guia das marcas abre pelo "Mais" e fecha com Esc (só ele, não o editor)', () => {
+      more('Guia');
       expect(fixture.nativeElement.querySelector('.guia')?.textContent).toContain('Link para um endereço');
-      button('Guia das marcas').click();
+      const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      fixture.nativeElement.querySelector('.guia').dispatchEvent(esc);
       fixture.detectChanges();
+      expect(esc.defaultPrevented).toBeTrue();
       expect(fixture.nativeElement.querySelector('.guia')).toBeNull();
+    });
+
+    it('outra ficha (reset): os painéis da régua que ficaram abertos fecham', () => {
+      write('veja |isto|');
+      key('k', { ctrlKey: true });
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.url-painel')).not.toBeNull();
+      fixture.componentInstance.reset();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.url-painel')).toBeNull();
+      (fixture.nativeElement.querySelector('.ferramenta.mais') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      fixture.componentInstance.reset();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.mais-painel')).toBeNull();
     });
   });
 
@@ -257,7 +291,8 @@ describe('a régua de formatação do texto', () => {
       expect(options()[0]).toContain('Lista do mercado');
       search.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
       fixture.detectChanges();
-      expect(value()).toBe('ver [[Lista do mercado]] amanhã');
+      // o trecho selecionado fica como o texto do link; o link abre a anotação escolhida
+      expect(value()).toBe('ver [[Lista do mercado|mercado]] amanhã');
     });
   });
 });

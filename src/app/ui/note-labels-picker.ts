@@ -26,10 +26,19 @@ let uid = 0;
     <div class="grupo" role="group" [attr.aria-labelledby]="id + '-cat'">
       <div class="top">
         <p class="pergunta" [id]="id + '-cat'">Categoria</p>
-        <button type="button" class="toggle" [attr.aria-expanded]="open()" [attr.aria-controls]="id + '-cartela'" (click)="setOpen(!open())">
-          <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-          {{ open() ? 'Fechar cartela' : category() ? 'Trocar' : 'Escolher' }}
-        </button>
+        <!-- as ações da categoria, à direita do título: o mesmo risco de pincel das outras ações do editor -->
+        <div class="acoes">
+          @if (category() && !open()) {
+            <button type="button" class="toggle" (click)="category.set(null)" [attr.aria-label]="'Tirar a categoria ' + category()">
+              <lucide-icon [img]="RemoveIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              Tirar
+            </button>
+          }
+          <button type="button" class="toggle" [attr.aria-expanded]="open()" [attr.aria-controls]="id + '-cartela'" (click)="setOpen(!open())">
+            <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            {{ open() ? 'Fechar cartela' : category() ? 'Trocar' : 'Escolher' }}
+          </button>
+        </div>
       </div>
       @if (open()) {
         <div class="cartela" [id]="id + '-cartela'">
@@ -63,9 +72,6 @@ let uid = 0;
       } @else if (category(); as c) {
         <div class="colada">
           <app-bonus-sticker [bonus]="sticker(c)" [index]="0" />
-          <button type="button" class="tirar" (click)="category.set(null)" [attr.aria-label]="'Tirar a categoria ' + c">
-            <lucide-icon [img]="RemoveIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-          </button>
         </div>
       } @else {
         <p class="hint">O assunto da anotação, um só: {{ examples() }} O mural agrupa e filtra por ela.</p>
@@ -203,11 +209,16 @@ let uid = 0;
       color: var(--ink-2);
       font-variant-numeric: tabular-nums;
     }
+    .acoes {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 0 -8px 0 auto;
+    }
     .toggle {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      margin: 0 -8px 0 auto;
       min-height: 40px;
       padding: 6px 8px;
       border: 0;
@@ -233,35 +244,13 @@ let uid = 0;
       color: var(--ink-2);
     }
 
-    /* a categoria colada, com o x para tirar (o mesmo botão redondo e leve das tags) */
+    /* a categoria colada (tirar e trocar ficam no alto, à direita do título) */
     .colada {
       display: flex;
       align-items: center;
       gap: 4px;
       margin-top: 4px;
     }
-    .tirar {
-      display: inline-grid;
-      place-items: center;
-      width: 30px;
-      height: 30px;
-      padding: 0;
-      border: 0;
-      border-radius: 50%;
-      background: transparent;
-      color: var(--ink-2);
-      cursor: pointer;
-      transition: background-color var(--t-ui) var(--ease-ui);
-    }
-    .tirar:hover {
-      background: rgb(21 21 21 / 0.07);
-      color: var(--ink);
-    }
-    .tirar:focus-visible {
-      outline: 2.5px solid var(--ink);
-      outline-offset: 0;
-    }
-
     /* A cartela: uma folha de adesivos mais branca que a ficha (a mesma dos bônus) */
     .cartela {
       margin-top: 8px;

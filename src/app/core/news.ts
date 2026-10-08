@@ -49,6 +49,32 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-links-com-texto',
+    version: '1.23.0',
+    kind: 'update',
+    date: '2026-10-08',
+    title: 'Links com o seu texto e a régua arrumada',
+    items: [
+      'O link para outra anotação pode mostrar o texto que você quiser: [[Lista do mercado|o mercado]] abre a "Lista do mercado" e aparece como "o mercado". Pela régua, o trecho selecionado já vira o texto, e você só escolhe a anotação.',
+      'Trocou o título da anotação? Os links para ela mudam junto e continuam com o texto que você escolheu.',
+      'A régua do texto ficou com o que se usa toda hora (negrito, itálico, título, tarefas, listas, links e tabela). Riscado, marca-texto, código, citação, divisória e o guia moram em "Mais", com o nome e o atalho de cada um.',
+      'Todo painel da régua tem o X para fechar, e no celular os botões ficaram maiores e o "Mais" fica sempre à vista.',
+    ],
+  },
+  {
+    id: '2026-10-08-correcoes-links-e-paineis',
+    version: '1.22.1',
+    kind: 'bugfix',
+    date: '2026-10-08',
+    title: 'Correções de bugs',
+    items: [
+      'O marca-texto do link (ao passar o mouse) cobre a palavra inteira, e o risco de caneta ficou logo embaixo da letra.',
+      'Um painel da régua (o link para um endereço, a tabela…) não fica mais aberto ao fechar uma anotação e abrir outra.',
+      'O botão de tirar a categoria agora é o "Tirar" de caneta, ao lado do "Trocar".',
+      'Nas Novidades, cada item tem uma linha em branco antes do próximo.',
+    ],
+  },
+  {
     id: '2026-10-08-anotacoes-repaginadas',
     version: '1.22.0',
     kind: 'update',

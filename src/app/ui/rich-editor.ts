@@ -4,6 +4,7 @@ import {
   Bold,
   CircleHelp,
   Code,
+  Ellipsis,
   Eye,
   Heading,
   Highlighter,
@@ -21,7 +22,8 @@ import {
   StickyNote,
   Strikethrough,
   Table,
-  TextQuote,
+  Quote,
+  X,
 } from 'lucide-angular';
 import { isTableSep, lineKind, tableCells, toggleCheck } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
@@ -59,20 +61,18 @@ type ListKind = 'ul' | 'ol' | 'check';
     <ng-template #campo let-big="big">
       <div class="regua" role="toolbar" aria-label="Formatação do texto" [attr.aria-controls]="big ? areaId + '-grande' : areaId">
         <div class="ferramentas">
+        <!-- Na régua, só o que se usa toda hora, em três grupos (escrever, listar, ligar); o resto mora
+             em "Mais", com o nome e o atalho de cada marca -->
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Negrito (Ctrl+B)" aria-label="Negrito" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '**')">
           <lucide-icon [img]="BoldIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
         </button>
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Itálico (Ctrl+I)" aria-label="Itálico" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '*')">
           <lucide-icon [img]="ItalicIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '~~')">
-          <lucide-icon [img]="StrikeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '==')">
-          <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Título (de novo: um nível menor)" aria-label="Título" (pointerdown)="$event.preventDefault()" (click)="heading(area)">
+          <lucide-icon [img]="HeadingIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
         <span class="fio" aria-hidden="true"></span>
-        <!-- as listas logo depois das ênfases: as tarefas, as mais usadas nas anotações, primeiro -->
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Tarefas (checklist)" aria-label="Tarefas" (pointerdown)="$event.preventDefault()" (click)="list(area, 'check')">
           <lucide-icon [img]="ChecksIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
@@ -81,13 +81,6 @@ type ListKind = 'ul' | 'ol' | 'check';
         </button>
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Lista numerada" aria-label="Lista numerada" (pointerdown)="$event.preventDefault()" (click)="list(area, 'ol')">
           <lucide-icon [img]="OrderedIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
-        </button>
-        <span class="fio" aria-hidden="true"></span>
-        <button type="button" class="ferramenta titulo-btn" [disabled]="seeing()" title="Título (de novo: um nível menor)" aria-label="Título" (pointerdown)="$event.preventDefault()" (click)="heading(area)">
-          <lucide-icon [img]="HeadingIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Citação" aria-label="Citação" (pointerdown)="$event.preventDefault()" (click)="quote(area)">
-          <lucide-icon [img]="QuoteIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
         <span class="fio" aria-hidden="true"></span>
         <button
@@ -113,7 +106,7 @@ type ListKind = 'ul' | 'ol' | 'check';
             (pointerdown)="$event.preventDefault()"
             (click)="startLink(area, big)"
           >
-            <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <span class="ic-dupla" aria-hidden="true"><lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" /><lucide-icon class="ic-selo" [img]="UrlIcon" [size]="11" [strokeWidth]="3" /></span>
           </button>
         }
         <button
@@ -128,37 +121,34 @@ type ListKind = 'ul' | 'ol' | 'check';
         >
           <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Código (Ctrl+E)" aria-label="Código" (pointerdown)="$event.preventDefault()" (click)="code(area)">
-          <lucide-icon [img]="CodeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Divisória" aria-label="Divisória" (pointerdown)="$event.preventDefault()" (click)="rule(area)">
-          <lucide-icon [img]="RuleIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
-        </button>
+        </div>
+        <!-- "Mais": as outras marcas, com nome e atalho, num painel embaixo da régua -->
         <button
           type="button"
-          class="ferramenta"
-          title="Guia das marcas"
-          aria-label="Guia das marcas"
-          [attr.aria-expanded]="guide() === big"
-          [attr.aria-controls]="areaId + '-guia'"
-          (click)="guide.set(guide() === big ? null : big)"
+          class="ferramenta mais"
+          [disabled]="seeing()"
+          title="Mais marcas: riscado, marca-texto, código, citação, divisória e o guia"
+          [attr.aria-expanded]="moreOpen() === big"
+          [attr.aria-controls]="areaId + '-mais'"
+          (pointerdown)="$event.preventDefault()"
+          (click)="toggleMore(big)"
         >
-          <lucide-icon [img]="HelpIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="MoreIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <span class="mais-txt">Mais</span>
         </button>
-        </div>
         <!-- as marcas ficam no texto: "Ver como fica" mostra a folha formatada (e marca as tarefas) -->
-        <button type="button" class="acao-caneta ver" [attr.aria-pressed]="seeing()" (click)="see(!seeing(), big)">
-          <lucide-icon [img]="seeing() ? WriteIcon : SeeIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+        <button type="button" class="acao-caneta ver" [attr.aria-pressed]="seeing()" [attr.aria-label]="seeing() ? 'Escrever' : 'Ver como fica'" [title]="seeing() ? 'Escrever' : 'Ver como fica'" (click)="see(!seeing(), big)">
+          <lucide-icon [img]="seeing() ? WriteIcon : SeeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           <span class="acao-txt">{{ seeing() ? 'Escrever' : 'Ver como fica' }}</span>
         </button>
         @if (big) {
-          <button type="button" class="acao-caneta tamanho" (click)="shrink()">
-            <lucide-icon [img]="ShrinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+          <button type="button" class="acao-caneta tamanho" (click)="shrink()" aria-label="Diminuir" title="Diminuir">
+            <lucide-icon [img]="ShrinkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
             <span class="acao-txt">Diminuir</span>
           </button>
         } @else {
-          <button type="button" class="acao-caneta tamanho" (click)="grow(area)" aria-haspopup="dialog" aria-label="Maximizar">
-            <lucide-icon [img]="GrowIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+          <button type="button" class="acao-caneta tamanho" (click)="grow(area)" aria-haspopup="dialog" aria-label="Maximizar" title="Maximizar">
+            <lucide-icon [img]="GrowIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
             <span class="acao-txt">Maximizar</span>
           </button>
         }
@@ -192,11 +182,63 @@ type ListKind = 'ul' | 'ol' | 'check';
         (paste)="onPaste($event, area)"
         (blur)="onAreaBlur()"
       ></textarea>
+      <!-- Mais marcas: cada uma com o desenho, o nome e o atalho; tocar põe a marca e fecha -->
+      @if (moreOpen() === big) {
+        <div class="painel mais-painel" [id]="areaId + '-mais'" role="group" aria-label="Mais marcas" (keydown.escape)="closeMore($event, area)">
+          <div class="painel-topo">
+            <p class="painel-titulo">Mais marcas</p>
+            <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeMore(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+          </div>
+          <div class="mais-grupos">
+            <div class="mais-grupo">
+              <p class="painel-titulo">No texto</p>
+              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'strike')">
+                <lucide-icon [img]="StrikeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome"><s>Riscado</s></span>
+                <kbd class="atalho">Ctrl+Shift+X</kbd>
+              </button>
+              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'mark')">
+                <lucide-icon [img]="MarkIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome"><mark>Marca-texto</mark></span>
+                <kbd class="atalho">Ctrl+Shift+H</kbd>
+              </button>
+              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'code')">
+                <lucide-icon [img]="CodeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome"><code>Código</code></span>
+                <kbd class="atalho">Ctrl+E</kbd>
+              </button>
+            </div>
+            <div class="mais-grupo">
+              <p class="painel-titulo">Em bloco</p>
+              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'quote')">
+                <lucide-icon [img]="QuoteIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                <span class="mais-nome">Citação</span>
+                <kbd class="jeito">&gt; no começo</kbd>
+              </button>
+              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'rule')">
+                <lucide-icon [img]="RuleIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+                <span class="mais-nome">Divisória</span>
+                <kbd class="jeito">---</kbd>
+              </button>
+            </div>
+          </div>
+          <!-- o guia não é uma marca: fica no pé do painel -->
+          <div class="mais-pe">
+            <button type="button" class="acao-caneta" (click)="moreDo(area, 'guide')">
+              <lucide-icon [img]="HelpIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+              Guia de todas as marcas
+            </button>
+          </div>
+        </div>
+      }
       <!-- o link para um endereço: o texto e o endereço, embaixo da folha -->
       @if (urlLink(); as u) {
         @if (u.big === big) {
           <div class="painel url-painel" role="group" aria-label="Link para um endereço" (keydown.escape)="closeUrl($event, area)">
-            <p class="painel-titulo">Link para um endereço</p>
+            <div class="painel-topo">
+              <p class="painel-titulo">Link para um endereço</p>
+              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeUrl(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+            </div>
             <label class="painel-campo">
               <span>Texto</span>
               <input type="text" autocomplete="off" placeholder="O que aparece (ou deixe o endereço)" (keydown.enter)="$event.preventDefault(); putUrl(area)" [value]="u.text" (input)="urlLink.set({ big: u.big, start: u.start, end: u.end, url: u.url, text: $any($event.target).value })" />
@@ -225,7 +267,10 @@ type ListKind = 'ul' | 'ol' | 'check';
       @if (tablePick(); as t) {
         @if (t.big === big) {
           <div class="painel tabela-painel" (keydown.escape)="closeTable($event, area)">
-            <p class="painel-titulo" aria-live="polite">Tabela {{ t.cols }} × {{ t.rows }}</p>
+            <div class="painel-topo">
+              <p class="painel-titulo" aria-live="polite">Tabela {{ t.cols }} × {{ t.rows }}</p>
+              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeTable(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+            </div>
             <div class="grade" role="grid" aria-label="Tamanho da tabela: colunas por linhas" (keydown)="onGridKey($event, area)">
               @for (r of gridRows; track r) {
                 <div class="grade-linha" role="row">
@@ -252,7 +297,10 @@ type ListKind = 'ul' | 'ol' | 'check';
       <!-- o guia: todas as marcas, com o jeito de escrever cada uma -->
       @if (guide() === big) {
         <div class="painel guia" [id]="areaId + '-guia'" role="region" aria-label="Guia das marcas" (keydown.escape)="closeGuide($event, area)">
-          <p class="painel-titulo">Como escrever</p>
+          <div class="painel-topo">
+            <p class="painel-titulo">Como escrever</p>
+            <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeGuide(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+          </div>
           <dl class="guia-lista">
             @for (g of guideItems; track g.mark) {
               <div class="guia-item">
@@ -268,6 +316,11 @@ type ListKind = 'ul' | 'ol' | 'check';
         @if (k.big === big) {
           <div class="elos" [class.grande]="big">
             @if (!k.auto) {
+              <div class="painel-topo">
+                <p class="painel-titulo">Link para outra anotação</p>
+                <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeLink(area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+              </div>
+              <!-- primeiro a anotação (a busca); depois, se quiser, o texto que aparece no lugar do título -->
               <label class="elos-busca">
                 <span class="sr-only">Procurar anotação</span>
                 <input
@@ -322,6 +375,19 @@ type ListKind = 'ul' | 'ol' | 'check';
                 <li class="elos-vazio" role="presentation">{{ notes()!.length ? 'Nenhuma anotação com esse título.' : 'Você ainda não tem outras anotações. Escreva um título para criar o link.' }}</li>
               }
             </ul>
+            @if (!k.auto) {
+              <label class="painel-campo elos-texto">
+                <span>Texto <small>(opcional)</small></span>
+                <input
+                  type="text"
+                  autocomplete="off"
+                  placeholder="o título já serve"
+                  [value]="k.label ?? ''"
+                  (input)="setLinkLabel($any($event.target).value)"
+                  (keydown)="onListKey($event)"
+                />
+              </label>
+            }
           </div>
         }
       }
@@ -342,28 +408,79 @@ type ListKind = 'ul' | 'ol' | 'check';
   styles: `
     :host {
       display: block;
+      container: folha / inline-size;
     }
 
     /* ===== A régua: os botões de formatação encostados no alto da folha; quebram em duas
        fileiras quando não cabem, e as ações (ver, maximizar) ficam sempre na ponta ===== */
     .regua {
       display: flex;
-      flex-wrap: wrap;
+      /* uma linha só: o "Mais" e as ações da folha ficam sempre na ponta; quem se ajeita no espaço que
+         sobra (quebrando em duas fileiras, se precisar) são as ferramentas */
+      flex-wrap: nowrap;
       align-items: center;
       gap: 4px 2px;
       margin-bottom: 6px;
     }
     .ferramentas {
       display: flex;
+      flex: 1 1 auto;
       flex-wrap: wrap;
       align-items: center;
       gap: 2px;
       min-width: 0;
     }
+    .regua .ver,
+    .regua .tamanho {
+      flex: none;
+    }
+    /* sem lugar para os nomes, "Ver como fica" e "Maximizar" ficam só no desenho (o nome vai para o
+       leitor de tela e para a dica): a régua cabe numa linha, sem um botão sozinho embaixo */
+    /* sem lugar, "Maximizar" fica só no desenho primeiro; "Ver como fica" (a ação principal da folha)
+       só perde o nome quando a régua é bem estreita */
+    @container folha (max-width: 720px) {
+      .tamanho .acao-txt {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+    }
+    @container folha (max-width: 560px) {
+      .ver .acao-txt {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+    }
+    .ferramenta.mais {
+      flex: none;
+      margin-left: 4px;
+    }
+    /* a régua inteira cabe: as ações da folha não passam da borda */
+    .regua .tamanho {
+      margin-right: 0;
+    }
+    /* dedo não é cursor: no toque, todo botão da régua com 44px */
+    @media (pointer: coarse) {
+      .ferramenta,
+      .regua .acao-caneta {
+        min-width: 44px;
+        height: 44px;
+      }
+      .ferramentas {
+        gap: 4px;
+      }
+    }
     .ferramenta {
       display: grid;
       place-items: center;
-      width: 38px;
+      width: 34px;
       height: 36px;
       padding: 0;
       border: 0;
@@ -431,9 +548,9 @@ type ListKind = 'ul' | 'ol' | 'check';
         overflow-x: auto;
         overscroll-behavior-x: contain;
         scrollbar-width: none;
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-        padding-right: 22px;
+        /* o esmaecido corta o próximo botão pela metade: dá para ver que a fileira continua */
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
       }
       .ferramentas::-webkit-scrollbar {
         display: none;
@@ -509,6 +626,44 @@ type ListKind = 'ul' | 'ol' | 'check';
         translate: 0 -6px;
       }
     }
+    /* o alto de todo painel: o nome à esquerda, o fechar à direita (no toque não tem Esc) */
+    .painel-topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: -2px -4px 6px 0;
+    }
+    .painel-topo .painel-titulo {
+      margin: 0;
+    }
+    .painel-fechar {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background-color var(--t-ui) var(--ease-ui);
+    }
+    .painel-fechar:hover {
+      background: rgb(21 21 21 / 0.07);
+    }
+    .painel-fechar:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: -2px;
+    }
+    @media (pointer: coarse) {
+      .painel-fechar {
+        width: 44px;
+        height: 44px;
+      }
+    }
     .painel-titulo {
       margin: 0 0 8px;
       font-family: var(--f-label);
@@ -548,11 +703,25 @@ type ListKind = 'ul' | 'ol' | 'check';
       text-transform: none;
       outline: none;
     }
-    .painel-campo input:focus-visible {
-      border-bottom-width: 3px;
+    /* o campo com o foco: a moldura de caneta em volta, não só o risco mais grosso */
+    .painel-campo input:focus-visible,
+    .elos-campo:focus-visible {
+      outline: 2.5px solid var(--ink);
+      outline-offset: 3px;
+      border-radius: 2px;
     }
     .painel-campo input::placeholder {
-      color: rgb(21 21 21 / 0.5);
+      /* 4,5:1 no papel do painel */
+      color: rgb(21 21 21 / 0.64);
+    }
+    .painel-campo small {
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--ink-2);
+    }
+    .elos-texto {
+      margin: 8px 0 0;
     }
     .painel-acoes {
       display: flex;
@@ -562,7 +731,7 @@ type ListKind = 'ul' | 'ol' | 'check';
       margin-top: 8px;
     }
     .painel-ok {
-      min-height: 38px;
+      min-height: 44px;
       padding: 6px 14px;
       border: 0;
       border-radius: 2px;
@@ -618,6 +787,120 @@ type ListKind = 'ul' | 'ol' | 'check';
         height: 32px;
       }
     }
+    /* "Mais": o único botão da régua com nome, para dizer que tem mais coisa ali */
+    .ferramenta.mais {
+      display: inline-flex;
+      gap: 4px;
+      width: auto;
+      padding: 0 9px 0 7px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .ferramenta.mais[aria-expanded='true'] {
+      background: rgb(21 21 21 / 0.1);
+    }
+    /* o pé do "Mais": o guia, separado das marcas por um risco tracejado */
+    .mais-pe {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 2px dashed rgb(21 21 21 / 0.2);
+    }
+    /* o desenho do link de anotação: a folhinha com um elo de corrente no canto */
+    .ic-dupla {
+      position: relative;
+      display: inline-grid;
+    }
+    .ic-dupla .ic-selo {
+      position: absolute;
+      right: -5px;
+      bottom: -4px;
+      padding: 1px;
+      border-radius: 50%;
+      background: var(--paper);
+    }
+    /* o jeito de escrever ("---", "> no começo") é texto da folha: a letra de máquina, como no guia */
+    .mais-op .jeito {
+      padding: 1px 5px;
+      border-radius: 2px;
+      background: rgb(21 21 21 / 0.07);
+      font-family: 'Courier New', ui-monospace, monospace;
+      font-weight: 700;
+      font-size: 0.86rem;
+      letter-spacing: 0;
+      color: var(--ink);
+    }
+    /* o painel do "Mais": dois grupos lado a lado, cada marca uma linha com desenho, nome e atalho */
+    .mais-grupos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      gap: 6px 20px;
+    }
+    .mais-grupo {
+      display: grid;
+      align-content: start;
+      gap: 2px;
+    }
+    .mais-grupo .painel-titulo {
+      margin-bottom: 4px;
+    }
+    .mais-op {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      padding: 4px 8px;
+      border: 0;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+    }
+    .mais-op:hover {
+      background: rgb(21 21 21 / 0.06);
+    }
+    .mais-op:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: -1px;
+    }
+    .mais-nome {
+      font-family: var(--f-hand);
+      font-size: 1.08rem;
+    }
+    .mais-nome s {
+      text-decoration-thickness: 2px;
+    }
+    .mais-nome mark {
+      background: linear-gradient(transparent 4%, rgb(255 218 66 / 0.62) 4%, rgb(255 218 66 / 0.62) 96%, transparent 96%);
+      color: inherit;
+    }
+    .mais-nome code {
+      padding: 0 4px;
+      border-radius: 2px;
+      background: rgb(21 21 21 / 0.08);
+      font-family: 'Courier New', ui-monospace, monospace;
+      font-weight: 700;
+      font-size: 0.92em;
+    }
+    .mais-op kbd {
+      font-family: var(--f-label);
+      font-weight: 700;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      color: var(--ink-2);
+      white-space: nowrap;
+    }
+    /* no toque não tem atalho de teclado: fica só o jeito de escrever, quando tem */
+    @media (pointer: coarse) {
+      .mais-op .atalho {
+        display: none;
+      }
+    }
+
     /* o guia: as marcas na letra de máquina, o que fazem ao lado */
     .guia-lista {
       display: grid;
@@ -889,7 +1172,8 @@ export class RichEditor {
   protected readonly StrikeIcon = Strikethrough;
   protected readonly MarkIcon = Highlighter;
   protected readonly HeadingIcon = Heading;
-  protected readonly QuoteIcon = TextQuote;
+  protected readonly QuoteIcon = Quote;
+  protected readonly CloseIcon = X;
   protected readonly TableIcon = Table;
   protected readonly CodeIcon = Code;
   protected readonly RuleIcon = Minus;
@@ -903,6 +1187,52 @@ export class RichEditor {
   protected readonly tablePick = signal<{ big: boolean; cols: number; rows: number } | null>(null);
   protected readonly gridCols = [1, 2, 3, 4, 5, 6];
   protected readonly gridRows = [1, 2, 3, 4, 5, 6];
+  /** O painel "Mais" aberto (em qual das folhas), ou null. */
+  protected readonly moreOpen = signal<boolean | null>(null);
+  protected readonly MoreIcon = Ellipsis;
+
+  /** O painel que acabou de abrir entra na tela (no celular, a régua pode já ter saído dela). */
+  private showPanel(selector: string): void {
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  }
+
+  /** Abre ou fecha "Mais" (e fecha os outros painéis da régua). */
+  protected toggleMore(big: boolean): void {
+    const open = this.moreOpen() === big;
+    this.linking.set(null);
+    this.urlLink.set(null);
+    this.tablePick.set(null);
+    this.guide.set(null);
+    this.moreOpen.set(open ? null : big);
+    if (!open) {
+      setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.mais-op')?.focus({ preventScroll: true }));
+      this.showPanel('.mais-painel');
+    }
+  }
+
+  /** Uma marca do "Mais": põe no texto e fecha o painel (o guia abre no lugar dele). */
+  protected moreDo(area: HTMLTextAreaElement, what: 'strike' | 'mark' | 'code' | 'quote' | 'rule' | 'guide'): void {
+    const big = this.moreOpen();
+    this.moreOpen.set(null);
+    if (what === 'guide') {
+      this.guide.set(big ?? false);
+      this.showPanel('.guia');
+      return;
+    }
+    if (what === 'strike') this.wrap(area, '~~');
+    else if (what === 'mark') this.wrap(area, '==');
+    else if (what === 'code') this.code(area);
+    else if (what === 'quote') this.quote(area);
+    else this.rule(area);
+  }
+
+  protected closeMore(e: Event | null, area: HTMLTextAreaElement): void {
+    e?.preventDefault();
+    e?.stopPropagation();
+    this.moreOpen.set(null);
+    area.focus();
+  }
+
   /** O guia das marcas aberto (em qual das folhas), ou null. */
   protected readonly guide = signal<boolean | null>(null);
   protected readonly guideItems: readonly { mark: string; what: string }[] = [
@@ -917,6 +1247,7 @@ export class RichEditor {
     { mark: '- [ ] tarefa', what: 'Tarefa ([x] feita)' },
     { mark: '[texto](https://…)', what: 'Link para um endereço (Ctrl+K)' },
     { mark: '[[Título]]', what: 'Link para outra anotação' },
+    { mark: '[[Título|texto]]', what: 'O link abre a anotação e mostra o texto' },
     { mark: '`código`', what: 'Código (Ctrl+E)' },
     { mark: '```', what: 'Bloco de código (abre e fecha)' },
     { mark: '| a | b |', what: 'Tabela (2ª linha: | --- | --- |)' },
@@ -929,7 +1260,7 @@ export class RichEditor {
    * folha (`auto`, a busca é o que vem depois dos colchetes). `start` e `end` são o trecho do texto
    * que o link vai ocupar; `big`, em qual das folhas (a pequena ou a da tela inteira).
    */
-  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string } | null>(null);
+  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string; label?: string } | null>(null);
   /** A opção escolhida da lista (pelas setas). */
   protected readonly active = signal(0);
   /** Onde "[[" foi fechado com Esc: a lista não volta a abrir sozinha ali. */
@@ -1014,6 +1345,14 @@ export class RichEditor {
     this.seeing.set(false);
     this.linking.set(null);
     this.dismissedAt = -1;
+    // os painéis da régua (link, tabela, mais marcas, guia) eram da ficha de antes: fecham
+    this.urlLink.set(null);
+    this.tablePick.set(null);
+    this.guide.set(null);
+    this.moreOpen.set(null);
+    // e a folha na tela inteira, se tinha ficado aberta
+    const big = this.dialog().nativeElement;
+    if (big.open) big.close();
   }
 
   /** "Link para outra anotação" na régua: a busca abre, com o trecho selecionado já escrito nela. */
@@ -1022,11 +1361,21 @@ export class RichEditor {
       this.closeLink(area);
       return;
     }
+    this.urlLink.set(null);
+    this.tablePick.set(null);
+    this.moreOpen.set(null);
+    this.guide.set(null);
     const [start, end] = [area.selectionStart, area.selectionEnd];
     const query = area.value.slice(start, end).split('\n')[0].trim();
-    this.linking.set({ auto: false, big, start, end, query });
+    // o trecho selecionado é o texto que aparece; a busca começa por ele, e a anotação é a que for escolhida
+    this.linking.set({ auto: false, big, start, end, query, label: query });
     this.active.set(0);
     setTimeout(() => this.host.nativeElement.querySelector<HTMLInputElement>('.elos-campo')?.focus());
+  }
+
+  protected setLinkLabel(label: string): void {
+    const k = this.linking();
+    if (k) this.linking.set({ ...k, label });
   }
 
   protected setQuery(q: string): void {
@@ -1043,7 +1392,8 @@ export class RichEditor {
     if (k && !k.auto) return;
     const at = area.selectionStart;
     if (at !== area.selectionEnd) return this.linking.set(null);
-    const m = /\[\[([^[\]\n]{0,80})$/.exec(area.value.slice(0, at));
+    // depois de um "|" é o texto do link, escrito à mão: a lista não abre
+    const m = /\[\[([^[\]\n|]{0,80})$/.exec(area.value.slice(0, at));
     if (!m || m.index === this.dismissedAt) {
       // o "[[" fechado com Esc saiu de antes do cursor: o próximo abre a lista de novo
       if (!m) this.dismissedAt = -1;
@@ -1108,12 +1458,14 @@ export class RichEditor {
     if (!k || !area) return;
     const text = area.value;
     const end = k.auto && text.slice(k.end, k.end + 2) === ']]' ? k.end + 2 : k.end;
-    const link = `[[${title}]]`;
+    // pela régua, com um texto diferente do título: "[[Título|texto]]" (o link abre a anotação e mostra o texto)
+    const label = (k.label ?? '').replace(/[[\]|]/g, '').replace(/\s+/g, ' ').trim();
+    const link = !k.auto && label && linkKey(label) !== linkKey(title) ? `[[${title}|${label}]]` : `[[${title}]]`;
     this.linking.set(null);
     this.replace(area, k.start, end, link, k.start + link.length, k.start + link.length);
   }
 
-  private closeLink(area = this.areaOf(this.linking()?.big ?? false)): void {
+  protected closeLink(area = this.areaOf(this.linking()?.big ?? false)): void {
     const k = this.linking();
     this.linking.set(null);
     if (k && !k.auto && area) {
@@ -1249,10 +1601,13 @@ export class RichEditor {
   protected startUrl(area: HTMLTextAreaElement, big: boolean): void {
     this.linking.set(null);
     this.tablePick.set(null);
+    this.moreOpen.set(null);
+    this.guide.set(null);
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
     const isUrl = !!normalizeUrl(sel.trim()) && /^(https?:\/\/|www\.|mailto:)/i.test(sel.trim());
     this.urlLink.set({ big, start: area.selectionStart, end: area.selectionEnd, text: isUrl ? '' : sel.replace(/\s+/g, ' ').trim(), url: isUrl ? sel.trim() : '' });
     setTimeout(() => this.panelInput(big, isUrl || !sel ? '.url-campo' : 'input')?.focus());
+    this.showPanel('.url-painel');
   }
 
   /** Põe "[texto](endereço)" no lugar do trecho (sem texto, o endereço sozinho). */
@@ -1303,11 +1658,14 @@ export class RichEditor {
   protected startTable(area: HTMLTextAreaElement, big: boolean): void {
     this.linking.set(null);
     this.urlLink.set(null);
+    this.moreOpen.set(null);
+    this.guide.set(null);
     if (this.tablePick()?.big === big) {
       this.tablePick.set(null);
       return;
     }
     this.tablePick.set({ big, cols: 2, rows: 2 });
+    this.showPanel('.tabela-painel');
     setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());
     void area;
   }
@@ -1327,16 +1685,16 @@ export class RichEditor {
     void area;
   }
 
-  protected closeTable(e: Event, area: HTMLTextAreaElement): void {
-    e.preventDefault();
-    e.stopPropagation();
+  protected closeTable(e: Event | null, area: HTMLTextAreaElement): void {
+    e?.preventDefault();
+    e?.stopPropagation();
     this.tablePick.set(null);
     area.focus();
   }
 
-  protected closeGuide(e: Event, area: HTMLTextAreaElement): void {
-    e.preventDefault();
-    e.stopPropagation();
+  protected closeGuide(e: Event | null, area: HTMLTextAreaElement): void {
+    e?.preventDefault();
+    e?.stopPropagation();
     this.guide.set(null);
     area.focus();
   }

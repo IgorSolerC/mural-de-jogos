@@ -24,8 +24,10 @@ export interface Span {
   mark?: true;
   /** `código`: o texto como foi escrito, sem marcas. */
   code?: true;
-  /** Um link "[[título]]": `text` é o título, sem os colchetes. */
+  /** Um link "[[título]]" (ou "[[título|texto]]"): `text` é o que aparece, sem os colchetes. */
   link?: true;
+  /** No "[[título|texto]]": o título da anotação que o link abre (sem o campo, é o próprio `text`). */
+  ref?: string;
   /** Um link para fora (https:, mailto:): o endereço; `text` é o que aparece. */
   href?: string;
 }
@@ -98,7 +100,16 @@ export function lineKind(line: string): LineKind {
 /** Os pedaços lidos inteiros, antes das ênfases: a marca escapada, o código, o link de anotação, o link para fora e o endereço solto. */
 const ATOMS = /\\([\\`*_~=[\]|#>-])|`([^`\n]+)`|\[\[([^[\]\n]*[^[\]\s][^[\]\n]*)\]\]|\[([^[\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)|(https?:\/\/[^\s<>()[\]]*[^\s<>()[\].,;:!?'"’”])/g;
 
-type Atom = { kind: 'lit'; text: string } | { kind: 'code'; text: string } | { kind: 'note'; title: string } | { kind: 'url'; text: string; href: string };
+type Atom = { kind: 'lit'; text: string } | { kind: 'code'; text: string } | { kind: 'note'; title: string; label: string } | { kind: 'url'; text: string; href: string };
+
+/** "Título|texto" → o título da anotação e o que aparece (sem "|", os dois são o título). */
+export function splitLink(inner: string): { title: string; label: string } {
+  const bar = inner.indexOf('|');
+  if (bar === -1) return { title: inner.trim(), label: inner.trim() };
+  const title = inner.slice(0, bar).trim();
+  const label = inner.slice(bar + 1).trim();
+  return { title, label: label || title };
+}
 
 type Marks = Omit<Span, 'text'>;
 
@@ -113,7 +124,7 @@ export function parseInline(text: string): Span[] {
   for (const m of text.matchAll(ATOMS)) {
     if (m[1] !== undefined) atoms.push({ kind: 'lit', text: m[1] });
     else if (m[2] !== undefined) atoms.push({ kind: 'code', text: m[2] });
-    else if (m[3] !== undefined) atoms.push({ kind: 'note', title: m[3].trim() });
+    else if (m[3] !== undefined) atoms.push({ kind: 'note', ...splitLink(m[3]) });
     else if (m[4] !== undefined) atoms.push({ kind: 'url', text: m[4], href: m[5] });
     else atoms.push({ kind: 'url', text: m[6], href: m[6] });
   }
@@ -146,7 +157,7 @@ export function parseInline(text: string): Span[] {
       } else {
         flush();
         if (a.kind === 'code') out.push({ ...pick(marks, 'bold', 'italic', 'strike', 'mark'), text: a.text, code: true });
-        else if (a.kind === 'note') out.push({ ...marks, text: a.title, link: true });
+        else if (a.kind === 'note') out.push({ ...marks, text: a.label, link: true, ...(a.label !== a.title ? { ref: a.title } : {}) });
         else out.push({ ...marks, text: a.text, href: a.href });
       }
     }

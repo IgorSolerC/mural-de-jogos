@@ -217,6 +217,10 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
         position: relative;
         padding-left: 1.2em;
       }
+      /* uma linha da pauta em branco entre um item e outro: cada mudança respira (e a letra continua na pauta) */
+      li + li {
+        margin-top: var(--line);
+      }
 
       /* o tracinho da lista, a caneta */
       li::before {

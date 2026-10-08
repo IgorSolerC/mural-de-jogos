@@ -1,5 +1,5 @@
 import { Review, fold, isNote } from './review';
-import { LINK } from './rich-text';
+import { LINK, splitLink } from './rich-text';
 
 /**
  * Os links entre anotações: "[[Comprar um console]]" no texto de uma anotação aponta para a
@@ -21,9 +21,9 @@ export function linkKey(title: string): string {
   return fold(title).trim().replace(/\s+/g, ' ');
 }
 
-/** Os títulos dos links do texto, como foram escritos. */
+/** Os títulos dos links do texto, como foram escritos ("[[Título|texto]]" conta o título). */
 export function linksIn(text: string): string[] {
-  return [...text.matchAll(LINK)].map((m) => m[1].trim());
+  return [...text.matchAll(LINK)].map((m) => splitLink(m[1]).title).filter(Boolean);
 }
 
 /** As anotações de uma lista de fichas. */
@@ -43,15 +43,20 @@ export function resolveNote(notes: readonly Review[], title: string): Review | n
   return best;
 }
 
-/** Troca, no texto, os links para `from` por links para `to` (o resto fica como estava). */
+/** Troca, no texto, os links para `from` por links para `to`; o texto escolhido de cada um fica (o resto, como estava). */
 export function renameLinks(text: string, from: string, to: string): string {
   const key = linkKey(from);
-  return text.replace(LINK, (all, title: string) => (linkKey(title) === key ? `[[${to.trim()}]]` : all));
+  return text.replace(LINK, (all, inner: string) => {
+    const bar = inner.indexOf('|');
+    const title = bar === -1 ? inner : inner.slice(0, bar);
+    if (linkKey(title) !== key) return all;
+    return bar === -1 ? `[[${to.trim()}]]` : `[[${to.trim()}${inner.slice(bar)}]]`;
+  });
 }
 
-/** Um título que um link consegue escrever: "[[Compras [casa]]]" não seria lido como link. */
+/** Um título que um link consegue escrever: "[[Compras [casa]]]" não seria lido como link (e "|" separa o texto). */
 export function linkableTitle(title: string): boolean {
-  return !!linkKey(title) && !/[[\]]/.test(title);
+  return !!linkKey(title) && !/[[\]|]/.test(title);
 }
 
 /**

@@ -22,6 +22,20 @@ describe('links entre anotações', () => {
     expect(linksIn('[[ A ]] e [[B]]')).toEqual(['A', 'B']);
   });
 
+  it('"[[Título|texto]]": o link abre a anotação do título e mostra o texto; renomear leva o título e deixa o texto', () => {
+    expect(parseInline('veja [[Comprar um console|o console]]!')).toEqual([
+      { text: 'veja ' },
+      { text: 'o console', link: true, ref: 'Comprar um console' },
+      { text: '!' },
+    ]);
+    // sem texto depois da barra, vale o título
+    expect(parseInline('[[Compras|]]')).toEqual([{ text: 'Compras', link: true }]);
+    expect(linksIn('[[Compras|a lista]] e [[Casa]]')).toEqual(['Compras', 'Casa']);
+    expect(renameLinks('[[compras|a lista]] e [[Compras]]', 'Compras', 'Mercado')).toBe('[[Mercado|a lista]] e [[Mercado]]');
+    expect(plainText('ver [[Compras|a lista]]')).toBe('ver a lista');
+    expect(linkableTitle('Casa | praia')).toBeFalse();
+  });
+
   it('o título vale sem maiúsculas, acentos e espaços a mais; com dois iguais, abre o mais antigo', () => {
     expect(linkKey('  Lista  de Mercado ')).toBe(linkKey('lista de mercado'));
     expect(linkKey('Ação')).toBe('acao');
