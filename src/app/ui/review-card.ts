@@ -117,6 +117,7 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.com-check]': 'canFinish()',
     '[class.fixada]': 'note() && review().noteRank === "fixada"',
     '[class.carimbando]': 'stamping()',
+    '[class.feita]': '!capas() && !!doneAt()',
   },
   template: `
     <!-- tudo o que está na ficha, junto: é o que entra com fade quando o papel fica pronto (ver
@@ -169,15 +170,7 @@ function watchDistance(el: HTMLElement): () => void {
       }
 
       <div class="words">
-        @if (!capas() && doneAt(); as at) {
-          <!-- finalizada: o carimbo datador ao lado do título -->
-          <div class="titulo-feito">
-            <h4 class="title" data-queima>{{ review().game.name }}</h4>
-            <app-done-stamp data-queima [at]="at" [dark]="dark()" [hit]="stamping()" />
-          </div>
-        } @else {
         <h4 class="title" data-queima>{{ empty() || bare() ? emptyName() : review().game.name }}</h4>
-        }
         @if (bare()) {
           <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
@@ -325,6 +318,12 @@ function watchDistance(el: HTMLElement): () => void {
       <app-boletim class="boletim" data-queima [review]="review()" [highlight]="masked() ? null : highlight()" [masked]="masked()" />
     }
 
+    <!-- finalizada: o carimbo redondo batido no canto da ficha, por cima do papel (some com o estrago) -->
+    @if (!capas() && doneAt(); as at) {
+      <span class="carimbo" [class.clara]="dark()" data-queima>
+        <app-done-stamp [at]="at" [size]="compact() ? 'compact' : 'card'" [dark]="dark()" [hit]="stamping()" />
+      </span>
+    }
     <!-- as reações de quem segue o dono, num balãozinho colado na quina de baixo (só quando há alguma) -->
     @if (reactTarget(); as t) {
       <div class="reacoes"><app-reaction-bubble [target]="t" /></div>
@@ -944,23 +943,32 @@ function watchDistance(el: HTMLElement): () => void {
       opacity: 0.7;
     }
 
-    /* o título e o carimbo lado a lado; sem espaço, o carimbo desce para a linha de baixo */
-    .titulo-feito {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 4px 12px;
-      max-width: 100%;
+    /* O carimbo da finalizada: batido no canto de baixo, por cima do que está escrito (a tinta
+       escurece o papel e a letra continua lendo-se por baixo). Não pega toque: a ficha abre. */
+    .carimbo {
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      z-index: 3;
+      mix-blend-mode: multiply;
+      pointer-events: none;
     }
-    .titulo-feito .title {
-      flex: 0 1 auto;
-      min-width: min(9rem, 100%);
+    .carimbo.clara {
+      mix-blend-mode: normal;
     }
-    .titulo-feito app-done-stamp {
-      margin: 2px 0 0 2px;
+    /* a finalizada curta (só o título) cresce o bastante para o carimbo caber embaixo dos botões */
+    :host(.feita:not(.compact)) {
+      min-height: 150px;
     }
-    :host(.compact) .titulo-feito app-done-stamp {
-      --fs: 0.62rem;
+    /* na ficha simples (uma tira baixa), ao lado dos botões, no meio da altura */
+    :host(.compact) .carimbo {
+      right: 84px;
+      bottom: auto;
+      top: 50%;
+      translate: 0 -50%;
+    }
+    :host(.compact:not(.com-check)) .carimbo {
+      right: 14px;
     }
     /* o carimbo bateu: a ficha sente o tranco na tachinha (na ficha, não no corpo: um corpo com
        transformação passaria a medir as camadas do papel) */

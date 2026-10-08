@@ -53,10 +53,11 @@ export const NEWS: NewsEntry[] = [
     version: '1.19.0',
     kind: 'update',
     date: '2026-10-08',
-    title: 'Links à caneta',
+    title: 'Links à caneta e o carimbo novo',
     items: [
       'Os links entre anotações saíram do azul: o texto fica na sua letra, sublinhado à mão com caneta vermelha (amarela nas cartolinas vermelhas, vermelho-claro nas escuras). Passando o mouse, o marca-texto.',
       'O link para uma anotação que ainda não existe fica sublinhado a lápis, tracejado.',
+      'O carimbo da anotação finalizada é novo: um selo redondo de borracha em tinta verde, com FINALIZADA em volta, o check no meio e o dia numa faixa, batido no canto da ficha (e no canto da leitura).',
     ],
   },
   {

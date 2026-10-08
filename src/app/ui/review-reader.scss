@@ -156,15 +156,30 @@ dialog.reader {
   padding-bottom: 0.06em;
 }
 
-/* a anotação finalizada: o título e o carimbo lado a lado; sem espaço, o carimbo desce */
-.titulo-feito {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 18px;
+/* a anotação finalizada: o carimbo redondo batido no canto de cima, e o título não passa por baixo dele */
+.top.feita {
+  position: relative;
 
-  app-done-stamp {
-    margin-top: 4px;
+  .title {
+    padding-right: 118px;
+  }
+}
+
+.carimbo {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+@media (max-width: 559px) {
+  .top.feita .title {
+    padding-right: 84px;
+  }
+
+  .carimbo app-done-stamp {
+    --tam: 92px;
   }
 }
 

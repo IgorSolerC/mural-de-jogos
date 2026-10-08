@@ -79,7 +79,11 @@ import { DoneStamp } from './done-stamp';
             }
 
             <!-- A mesma ficha do mural, vista de perto: foto colada, nome, data e a etiqueta do julgamento -->
-            <div class="top" [class.anotacao]="note()" [class.sem-capa]="note() && !r.game.coverUrl">
+            <div class="top" [class.anotacao]="note()" [class.sem-capa]="note() && !r.game.coverUrl" [class.feita]="note() && !!r.doneAt">
+              <!-- finalizada: o carimbo redondo batido no canto, como na ficha -->
+              @if (note() && r.doneAt) {
+                <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
+              }
               @if (!note() || r.game.coverUrl) {
               <div class="cover">
                 <app-cover-sleeve [game]="r.game" size="big">
@@ -91,15 +95,7 @@ import { DoneStamp } from './done-stamp';
               }
 
               <div class="words">
-                @if (note() && r.doneAt) {
-                  <!-- finalizada: o carimbo datador ao lado do título, como na ficha -->
-                  <div class="titulo-feito">
-                    <h2 id="leitura-titulo" class="title" tabindex="-1">{{ r.game.name }}</h2>
-                    <app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" />
-                  </div>
-                } @else {
-                  <h2 id="leitura-titulo" class="title" tabindex="-1">{{ r.game.name }}</h2>
-                }
+                <h2 id="leitura-titulo" class="title" tabindex="-1">{{ r.game.name }}</h2>
                 @if (r.game.by) {
                   <p class="meta by">de {{ r.game.by }}</p>
                 }
