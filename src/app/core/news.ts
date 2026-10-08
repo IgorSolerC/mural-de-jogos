@@ -8,11 +8,12 @@ import { ReviewStore } from './review-store';
  * sempre falam da versão que a pessoa está usando.
  *
  * Toda atualização publicada ganha uma entrada nova no topo de `NEWS`, com um `id` que nunca mais
- * muda, e é de um tipo só (nunca as duas coisas na mesma entrada):
- * - `update`, coisa nova de verdade (um mural, uma função, uma tela): sobe o número do meio
+ * muda, e é de um tipo só (nunca dois tipos na mesma entrada):
+ * - `funcionalidade`, coisa nova de verdade (um mural, uma função, uma tela): sobe o número do meio
  *   (1.15.0 → 1.16.0);
- * - `bugfix`, correções e ajustes pequenos (um nome trocado, um desenho acertado): sobe o último
- *   (1.15.0 → 1.15.1).
+ * - `melhoria`, o que já existia ficou melhor (um nome trocado, um desenho acertado, uma tela
+ *   arrumada): sobe o último (1.15.0 → 1.15.1);
+ * - `correcao`, um bug consertado: sobe o último também.
  * A primeira versão do site é a 1.0.0; o teste confere a conta.
  *
  * Com `notice`, a entrada aparece também na faixa do topo do site (com um X para fechar) até a
@@ -26,7 +27,7 @@ export interface NewsEntry {
   id: string;
   /** A versão do site, MAIOR.MENOR.CORREÇÃO (ver acima). */
   version: string;
-  /** `update`: coisa nova; `bugfix`: correções e ajustes. */
+  /** `funcionalidade`: coisa nova; `melhoria`: o que já existia, melhor; `correcao`: bug consertado. */
   kind: NewsKind;
   /** O dia da atualização, AAAA-MM-DD. */
   date: string;
@@ -38,20 +39,31 @@ export interface NewsEntry {
   /** Até quando a faixa aparece (AAAA-MM-DD, inclusive). */
   until?: string;
   /**
-   * O id da entrada de onde esta saiu, quando uma entrada antiga foi separada em update e bugfix:
+   * O id da entrada de onde esta saiu, quando uma entrada antiga foi separada em duas:
    * quem já tinha visto aquela já viu esta.
    */
   was?: string;
 }
 
-export type NewsKind = 'update' | 'bugfix';
+export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-novidades-em-tres',
+    version: '1.23.1',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Novidades separadas em três',
+    items: [
+      'Cada versão das Novidades agora é Funcionalidade (coisa nova, presa com tachinha), Melhorias (o que já existia ficou melhor, com o carimbo verde) ou Correções (bug consertado, com o carimbo vermelho), em vez de Update e Bugfix.',
+      'Só as funcionalidades sobem o número do meio da versão; melhorias e correções sobem o último.',
+    ],
+  },
+  {
     id: '2026-10-08-links-com-texto',
     version: '1.23.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-08',
     title: 'Links com o seu texto e a régua arrumada',
     items: [
@@ -64,7 +76,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-08-correcoes-links-e-paineis',
     version: '1.22.1',
-    kind: 'bugfix',
+    kind: 'correcao',
     date: '2026-10-08',
     title: 'Correções de bugs',
     items: [
@@ -77,7 +89,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-08-anotacoes-repaginadas',
     version: '1.22.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-08',
     title: 'O mural de anotações repaginado',
     items: [
@@ -95,7 +107,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-08-markdown',
     version: '1.21.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-08',
     title: 'Mais formatação no texto',
     items: [
@@ -110,7 +122,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-08-categorias-e-tags',
     version: '1.20.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-08',
     title: 'Categorias e tags nas anotações',
     items: [
@@ -125,7 +137,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-08-caneta-e-carimbo',
     version: '1.19.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-08',
     title: 'Links à caneta e o carimbo novo',
     items: [
@@ -137,7 +149,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-anotacoes-correcoes',
     version: '1.18.1',
-    kind: 'bugfix',
+    kind: 'correcao',
     date: '2026-10-07',
     title: 'Correções nas anotações',
     items: [
@@ -157,7 +169,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-anotacoes-fixadas',
     version: '1.18.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Anotações fixadas e sub-notas',
     items: [
@@ -170,7 +182,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-anotacoes-finalizadas',
     version: '1.17.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Anotações finalizadas',
     items: [
@@ -184,7 +196,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-links-entre-anotacoes',
     version: '1.16.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Links entre anotações',
     items: [
@@ -198,7 +210,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-novidades-com-versao',
     version: '1.15.1',
-    kind: 'bugfix',
+    kind: 'melhoria',
     date: '2026-10-07',
     title: 'Correções e ajustes',
     items: [
@@ -209,7 +221,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-mural-de-anotacoes',
     version: '1.15.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Mural de anotações',
     notice: 'Novo: o mural de anotações, para listas, tarefas e ideias. Troque no cartaz.',
@@ -225,7 +237,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-reacoes',
     version: '1.14.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Reações',
     was: '2026-10-07-ajustes-pelo-mural',
@@ -239,7 +251,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-texto-formatado',
     version: '1.13.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Texto formatado nas resenhas',
     was: '2026-10-07-ajustes-pelo-mural',
@@ -252,7 +264,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-ajustes-pelo-mural',
     version: '1.12.1',
-    kind: 'bugfix',
+    kind: 'melhoria',
     date: '2026-10-07',
     title: 'Correções e ajustes',
     items: [
@@ -266,7 +278,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-07-bonus-novos',
     version: '1.12.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Mais bônus para livros, filmes, séries e animes',
     was: '2026-10-07-ajustes-pelo-mural',
@@ -279,7 +291,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-consertos-amigos-nuvem',
     version: '1.11.2',
-    kind: 'bugfix',
+    kind: 'correcao',
     date: '2026-10-06',
     title: 'Correções de bugs',
     items: [
@@ -298,7 +310,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-amigos-de-cara-nova-correcoes',
     version: '1.11.1',
-    kind: 'bugfix',
+    kind: 'correcao',
     date: '2026-10-06',
     title: 'Correções de bugs',
     was: '2026-10-06-amigos-de-cara-nova',
@@ -310,7 +322,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-amigos-de-cara-nova',
     version: '1.11.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-06',
     title: 'Amigos de cara nova',
     items: [
@@ -322,7 +334,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-privadas-e-segredos-correcoes',
     version: '1.10.1',
-    kind: 'bugfix',
+    kind: 'correcao',
     date: '2026-10-06',
     title: 'Correções de bugs',
     was: '2026-10-06-privadas-e-segredos',
@@ -331,7 +343,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-privadas-e-segredos',
     version: '1.10.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-06',
     title: 'Resenhas privadas e notas em segredo',
     items: [
@@ -344,7 +356,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-amigos-e-chaves',
     version: '1.9.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-06',
     title: 'Amigos com as fichas de verdade',
     items: [
@@ -360,7 +372,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-seguir',
     version: '1.8.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-06',
     title: 'Seguir pelo código e a aba Amigos',
     notice: 'Agora dá para seguir os amigos pelo código e ver, na aba Amigos, o que eles pregaram no mural.',
@@ -374,7 +386,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-beta',
     version: '1.7.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-06',
     title: 'O Meu Mural entrou em beta',
     notice: 'O Meu Mural entrou em beta: agora dá para entrar com o Google e ter o mesmo mural em todos os aparelhos.',
@@ -390,7 +402,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-06-rejogadas',
     version: '1.6.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-06',
     title: 'Rejogadas, releituras e reassistidas',
     items: [
@@ -402,7 +414,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-05-extras-correcoes',
     version: '1.5.1',
-    kind: 'bugfix',
+    kind: 'correcao',
     date: '2026-10-05',
     title: 'Correções de bugs',
     was: '2026-10-05-extras',
@@ -411,7 +423,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-05-extras',
     version: '1.5.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-05',
     title: 'Extras e estatísticas',
     items: [
@@ -425,7 +437,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-04-spoilers',
     version: '1.4.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-10-04',
     title: 'Sem spoilers, filtros e um estojo maior',
     items: [
@@ -438,7 +450,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-09-30-comparar',
     version: '1.3.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-09-30',
     title: 'Comparar murais',
     items: [
@@ -451,7 +463,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-09-29-papel',
     version: '1.2.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-09-29',
     title: 'Fichas do seu jeito, Wishlist e Pra depois',
     items: [
@@ -463,7 +475,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-09-28-murais',
     version: '1.1.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-09-28',
     title: 'Cinco murais e o site offline',
     items: [
@@ -476,7 +488,7 @@ export const NEWS: NewsEntry[] = [
   {
     id: '2026-09-27-no-ar',
     version: '1.0.0',
-    kind: 'update',
+    kind: 'funcionalidade',
     date: '2026-09-27',
     title: 'O mural foi para o ar',
     items: ['A primeira versão: o mural de jogos, o Pra depois, o Ranking, o Lado a lado e os Ajustes.'],
@@ -487,12 +499,12 @@ export const NEWS: NewsEntry[] = [
 export const VERSION = NEWS[0].version;
 
 /** O nome da etiqueta de cada tipo. */
-export const NEWS_KIND_LABEL: Record<NewsKind, string> = { update: 'Update', bugfix: 'Bugfix' };
+export const NEWS_KIND_LABEL: Record<NewsKind, string> = { funcionalidade: 'Funcionalidade', melhoria: 'Melhorias', correcao: 'Correções' };
 
 /** A versão que vem depois de `prev`, num update ou num bugfix (ver o comentário de `NewsEntry`). */
 export function nextVersion(prev: string, kind: NewsKind): string {
   const [major, minor, patch] = prev.split('.').map(Number);
-  return kind === 'update' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
+  return kind === 'funcionalidade' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
 }
 
 /** Já foi vista: ela mesma, ou a entrada antiga de onde ela saiu. */

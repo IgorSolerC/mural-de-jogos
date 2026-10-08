@@ -10,8 +10,9 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
 
 /**
  * Novidades: o que mudou em cada versão do site, da mais nova para a mais velha, uma ficha pautada
- * por versão, fechada numa linha (a versão, o título e a etiqueta Update ou Bugfix). Os updates vêm
- * presos com tachinha; os bugfixes, sem tachinha, mais baixos e recuados. As que
+ * por versão, fechada numa linha (a versão, o título e a etiqueta Funcionalidade, Melhorias ou
+ * Correções). As funcionalidades vêm presas com tachinha; melhorias e correções, sem tachinha, mais
+ * baixas e recuadas. As que
  * a pessoa ainda não tinha visto ganham o adesivo "novo" e já vêm abertas; abrir a página conta tudo
  * como visto (e a faixa de novidade do topo vai embora).
  */
@@ -29,8 +30,8 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
          mudou. As que a pessoa ainda não tinha visto já vêm abertas. -->
     <ol class="fichas">
       @for (n of entries; track n.id; let i = $index) {
-        <li class="ficha" [class.bugfix]="n.kind === 'bugfix'" [style.rotate.deg]="tilt(i)">
-          @if (n.kind === 'update') {
+        <li class="ficha" [class.menor]="n.kind !== 'funcionalidade'" [style.rotate.deg]="tilt(i)">
+          @if (n.kind === 'funcionalidade') {
             <app-pin class="pin" color="#e62e2d" />
           }
           @if (fresh.has(n.id)) {
@@ -45,7 +46,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
                   <span class="sr-only">(novo)</span>
                 }
               </h2>
-              <span class="etiqueta" [class.bugfix]="n.kind === 'bugfix'">{{ label[n.kind] }}</span>
+              <span class="etiqueta" [attr.data-tipo]="n.kind">{{ label[n.kind] }}</span>
               <time class="data" [attr.datetime]="n.date">{{ when(n) }}</time>
               <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
             </summary>
@@ -109,8 +110,8 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       }
     }
 
-    /* o bugfix: um papel mais baixo e recuado, para os updates darem o ritmo da pilha */
-    .ficha.bugfix {
+    /* melhorias e correções: um papel mais baixo e recuado, para as funcionalidades darem o ritmo da pilha */
+    .ficha.menor {
       margin-left: 34px;
       background-color: #f4f1e8;
     }
@@ -135,7 +136,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       }
     }
 
-    .bugfix summary {
+    .menor summary {
       padding: 14px 22px 12px;
     }
 
@@ -156,11 +157,11 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       line-height: 1.12;
     }
 
-    .bugfix h2 {
+    .menor h2 {
       font-size: 1.2rem;
     }
 
-    /* a etiqueta: um carimbo de tinta, azul no update e vermelho no bugfix */
+    /* a etiqueta: um carimbo de tinta, azul na funcionalidade, verde na melhoria e vermelho na correção */
     .etiqueta {
       padding: 2px 8px 1px;
       border: 2px solid currentColor;
@@ -173,7 +174,11 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       text-transform: uppercase;
       rotate: -3deg;
 
-      &.bugfix {
+      &[data-tipo='melhoria'] {
+        color: #1f7a45;
+        rotate: 2deg;
+      }
+      &[data-tipo='correcao'] {
         color: var(--red-deep);
         rotate: 2deg;
       }
@@ -230,7 +235,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       }
     }
 
-    .bugfix .itens {
+    .menor .itens {
       margin: 0 22px;
     }
 
@@ -257,12 +262,12 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
         gap: 22px;
       }
 
-      .ficha.bugfix {
+      .ficha.menor {
         margin-left: 18px;
       }
 
       summary,
-      .bugfix summary {
+      .menor summary {
         padding: 18px 16px 12px;
       }
 
@@ -273,7 +278,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
         font-size: 1.3rem;
       }
 
-      .bugfix h2 {
+      .menor h2 {
         font-size: 1.15rem;
       }
 
@@ -282,7 +287,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       }
 
       .itens,
-      .bugfix .itens {
+      .menor .itens {
         margin: 0 16px;
         font-size: 1.08rem;
       }

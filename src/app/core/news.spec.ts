@@ -4,7 +4,7 @@ import { Cloud, CloudNotice } from './cloud-config';
 import { NEWS, News, NewsEntry, VERSION, firstSeen, isSeen, nextVersion, noticeOf, readSeen, today } from './news';
 import { ReviewStore } from './review-store';
 
-const entry = (id: string, date: string, extra: Partial<NewsEntry> = {}): NewsEntry => ({ id, version: '1.0.0', kind: 'update', date, title: id, items: ['x'], ...extra });
+const entry = (id: string, date: string, extra: Partial<NewsEntry> = {}): NewsEntry => ({ id, version: '1.0.0', kind: 'funcionalidade', date, title: id, items: ['x'], ...extra });
 
 describe('novidades', () => {
   it('a lista vem da mais nova para a mais velha, com ids únicos e datas válidas', () => {
@@ -19,22 +19,23 @@ describe('novidades', () => {
     expect([...dates].sort().reverse()).toEqual(dates);
   });
 
-  it('as versões: a primeira é a 1.0.0; um update sobe o do meio, um bugfix sobe o último', () => {
+  it('as versões: a primeira é a 1.0.0; uma funcionalidade sobe o do meio; melhorias e correções, o último', () => {
     const oldest = [...NEWS].reverse();
     expect(oldest[0].version).toBe('1.0.0');
-    expect(oldest[0].kind).toBe('update');
+    expect(oldest[0].kind).toBe('funcionalidade');
     for (let i = 1; i < oldest.length; i++) {
       expect(oldest[i].version).withContext(oldest[i].id).toBe(nextVersion(oldest[i - 1].version, oldest[i].kind));
     }
     expect(VERSION).toBe(NEWS[0].version);
-    expect(nextVersion('1.9.3', 'update')).toBe('1.10.0');
-    expect(nextVersion('1.9.3', 'bugfix')).toBe('1.9.4');
+    expect(nextVersion('1.9.3', 'funcionalidade')).toBe('1.10.0');
+    expect(nextVersion('1.9.3', 'melhoria')).toBe('1.9.4');
+    expect(nextVersion('1.9.3', 'correcao')).toBe('1.9.4');
   });
 
   it('a entrada separada de uma antiga já conta como vista para quem viu a antiga', () => {
     const ids = new Set(NEWS.map((n) => n.id));
     for (const n of NEWS) if (n.was) expect(ids.has(n.was)).withContext(n.id).toBeTrue();
-    const split = entry('b-correcoes', '2026-10-02', { kind: 'bugfix', was: 'b' });
+    const split = entry('b-correcoes', '2026-10-02', { kind: 'correcao', was: 'b' });
     expect(isSeen(split, new Set(['b']))).toBeTrue();
     expect(isSeen(split, new Set(['a']))).toBeFalse();
     expect(isSeen(split, new Set(['b-correcoes']))).toBeTrue();
