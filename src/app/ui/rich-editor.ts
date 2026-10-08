@@ -14,12 +14,12 @@ import {
   ListChecks,
   ListOrdered,
   LucideAngularModule,
+  LucideIconData,
   Maximize2,
   Minimize2,
   Minus,
   PenLine,
   Plus,
-  StickyNote,
   Strikethrough,
   Table,
   Quote,
@@ -53,6 +53,18 @@ type ListKind = 'ul' | 'ol' | 'check';
  * "[[Título]]" no texto (ver core/note-links.ts). Escrever "[[" direto na folha abre a mesma lista,
  * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha.
  */
+/**
+ * O link para outra anotação: a folhinha (com a dobra no canto) e o elo de corrente dentro dela. Um
+ * desenho só, no traço dos outros da régua; o link para um endereço é o elo sozinho.
+ */
+const NOTE_LINK_ICON: LucideIconData = [
+  ['path', { d: 'M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z', key: 'folha' }],
+  ['path', { d: 'M15 3v5a1 1 0 0 0 1 1h5', key: 'dobra' }],
+  ['path', { d: 'M10 15.5H8.5a2.5 2.5 0 0 1 0-5H10', key: 'elo-esq' }],
+  ['path', { d: 'M14 10.5h1.5a2.5 2.5 0 0 1 0 5H14', key: 'elo-dir' }],
+  ['path', { d: 'M10 13h4', key: 'elo-meio' }],
+];
+
 @Component({
   selector: 'app-rich-editor',
   imports: [LucideAngularModule, NgTemplateOutlet, RichText],
@@ -106,7 +118,7 @@ type ListKind = 'ul' | 'ol' | 'check';
             (pointerdown)="$event.preventDefault()"
             (click)="startLink(area, big)"
           >
-            <span class="ic-dupla" aria-hidden="true"><lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" /><lucide-icon class="ic-selo" [img]="UrlIcon" [size]="11" [strokeWidth]="3" /></span>
+            <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
           </button>
         }
         <button
@@ -122,20 +134,60 @@ type ListKind = 'ul' | 'ol' | 'check';
           <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
         </div>
-        <!-- "Mais": as outras marcas, com nome e atalho, num painel embaixo da régua -->
-        <button
-          type="button"
-          class="ferramenta mais"
-          [disabled]="seeing()"
-          title="Mais marcas: riscado, marca-texto, código, citação, divisória e o guia"
-          [attr.aria-expanded]="moreOpen() === big"
-          [attr.aria-controls]="areaId + '-mais'"
-          (pointerdown)="$event.preventDefault()"
-          (click)="toggleMore(big)"
-        >
-          <lucide-icon [img]="MoreIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          <span class="mais-txt">Mais</span>
-        </button>
+        <!-- "Mais": as outras marcas num menu que abre colado no botão, por cima da folha (não empurra
+             nada): cada marca com o desenho, o nome escrito do jeito que ela fica e o atalho -->
+        <span class="mais-ancora" (focusout)="onMoreFocusOut($event)">
+          <button
+            type="button"
+            class="ferramenta mais"
+            [disabled]="seeing()"
+            title="Mais marcas: riscado, marca-texto, código, citação, divisória e o guia"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="moreOpen() === big"
+            [attr.aria-controls]="moreOpen() === big ? areaId + '-mais' : null"
+            (pointerdown)="$event.preventDefault()"
+            (click)="toggleMore(big, $event, area)"
+            (keydown.arrowdown)="$event.preventDefault(); openMore(big, true)"
+          >
+            <lucide-icon [img]="MoreIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <span class="mais-txt">Mais</span>
+          </button>
+          @if (moreOpen() === big) {
+            <div class="mais-menu" role="menu" tabindex="-1" [id]="areaId + '-mais'" aria-label="Mais marcas" (keydown)="onMoreKey($event, area)">
+              <button type="button" role="menuitem" tabindex="-1" class="mais-op" aria-keyshortcuts="Control+Shift+X" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'strike')">
+                <lucide-icon [img]="StrikeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome"><s>Riscado</s></span>
+                <kbd class="atalho" aria-hidden="true">Ctrl+Shift+X</kbd>
+              </button>
+              <button type="button" role="menuitem" tabindex="-1" class="mais-op" aria-keyshortcuts="Control+Shift+H" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'mark')">
+                <lucide-icon [img]="MarkIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome"><mark>Marca-texto</mark></span>
+                <kbd class="atalho" aria-hidden="true">Ctrl+Shift+H</kbd>
+              </button>
+              <button type="button" role="menuitem" tabindex="-1" class="mais-op" aria-keyshortcuts="Control+E" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'code')">
+                <lucide-icon [img]="CodeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome"><code>Código</code></span>
+                <kbd class="atalho" aria-hidden="true">Ctrl+E</kbd>
+              </button>
+              <span class="mais-fio" role="separator"></span>
+              <button type="button" role="menuitem" tabindex="-1" class="mais-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'quote')">
+                <lucide-icon [img]="QuoteIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                <span class="mais-nome">Citação</span>
+                <kbd class="jeito">&gt; no começo</kbd>
+              </button>
+              <button type="button" role="menuitem" tabindex="-1" class="mais-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'rule')">
+                <lucide-icon [img]="RuleIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+                <span class="mais-nome">Divisória</span>
+                <kbd class="jeito">---</kbd>
+              </button>
+              <span class="mais-fio" role="separator"></span>
+              <button type="button" role="menuitem" tabindex="-1" class="mais-op guia-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'guide')">
+                <lucide-icon [img]="HelpIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome">Guia de todas as marcas</span>
+              </button>
+            </div>
+          }
+        </span>
         <!-- as marcas ficam no texto: "Ver como fica" mostra a folha formatada (e marca as tarefas) -->
         <button type="button" class="acao-caneta ver" [attr.aria-pressed]="seeing()" [attr.aria-label]="seeing() ? 'Escrever' : 'Ver como fica'" [title]="seeing() ? 'Escrever' : 'Ver como fica'" (click)="see(!seeing(), big)">
           <lucide-icon [img]="seeing() ? WriteIcon : SeeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
@@ -182,55 +234,6 @@ type ListKind = 'ul' | 'ol' | 'check';
         (paste)="onPaste($event, area)"
         (blur)="onAreaBlur()"
       ></textarea>
-      <!-- Mais marcas: cada uma com o desenho, o nome e o atalho; tocar põe a marca e fecha -->
-      @if (moreOpen() === big) {
-        <div class="painel mais-painel" [id]="areaId + '-mais'" role="group" aria-label="Mais marcas" (keydown.escape)="closeMore($event, area)">
-          <div class="painel-topo">
-            <p class="painel-titulo">Mais marcas</p>
-            <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeMore(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
-          </div>
-          <div class="mais-grupos">
-            <div class="mais-grupo">
-              <p class="painel-titulo">No texto</p>
-              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'strike')">
-                <lucide-icon [img]="StrikeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome"><s>Riscado</s></span>
-                <kbd class="atalho">Ctrl+Shift+X</kbd>
-              </button>
-              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'mark')">
-                <lucide-icon [img]="MarkIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome"><mark>Marca-texto</mark></span>
-                <kbd class="atalho">Ctrl+Shift+H</kbd>
-              </button>
-              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'code')">
-                <lucide-icon [img]="CodeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome"><code>Código</code></span>
-                <kbd class="atalho">Ctrl+E</kbd>
-              </button>
-            </div>
-            <div class="mais-grupo">
-              <p class="painel-titulo">Em bloco</p>
-              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'quote')">
-                <lucide-icon [img]="QuoteIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                <span class="mais-nome">Citação</span>
-                <kbd class="jeito">&gt; no começo</kbd>
-              </button>
-              <button type="button" class="mais-op" (pointerdown)="$event.preventDefault()" (click)="moreDo(area, 'rule')">
-                <lucide-icon [img]="RuleIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
-                <span class="mais-nome">Divisória</span>
-                <kbd class="jeito">---</kbd>
-              </button>
-            </div>
-          </div>
-          <!-- o guia não é uma marca: fica no pé do painel -->
-          <div class="mais-pe">
-            <button type="button" class="acao-caneta" (click)="moreDo(area, 'guide')">
-              <lucide-icon [img]="HelpIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-              Guia de todas as marcas
-            </button>
-          </div>
-        </div>
-      }
       <!-- o link para um endereço: o texto e o endereço, embaixo da folha -->
       @if (urlLink(); as u) {
         @if (u.big === big) {
@@ -458,7 +461,10 @@ type ListKind = 'ul' | 'ol' | 'check';
         white-space: nowrap;
       }
     }
-    .ferramenta.mais {
+    /* o "Mais" e o menu dele: o menu se ancora no botão */
+    .mais-ancora {
+      position: relative;
+      display: inline-flex;
       flex: none;
       margin-left: 4px;
     }
@@ -802,25 +808,6 @@ type ListKind = 'ul' | 'ol' | 'check';
     .ferramenta.mais[aria-expanded='true'] {
       background: rgb(21 21 21 / 0.1);
     }
-    /* o pé do "Mais": o guia, separado das marcas por um risco tracejado */
-    .mais-pe {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 2px dashed rgb(21 21 21 / 0.2);
-    }
-    /* o desenho do link de anotação: a folhinha com um elo de corrente no canto */
-    .ic-dupla {
-      position: relative;
-      display: inline-grid;
-    }
-    .ic-dupla .ic-selo {
-      position: absolute;
-      right: -5px;
-      bottom: -4px;
-      padding: 1px;
-      border-radius: 50%;
-      background: var(--paper);
-    }
     /* o jeito de escrever ("---", "> no começo") é texto da folha: a letra de máquina, como no guia */
     .mais-op .jeito {
       padding: 1px 5px;
@@ -832,27 +819,68 @@ type ListKind = 'ul' | 'ol' | 'check';
       letter-spacing: 0;
       color: var(--ink);
     }
-    /* o painel do "Mais": dois grupos lado a lado, cada marca uma linha com desenho, nome e atalho */
-    .mais-grupos {
+    /* o menu do "Mais": um cartão de papel que cai do botão, por cima da folha; as marcas da linha,
+       as de bloco e o guia separados por um risco tracejado */
+    .mais-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 30;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-      gap: 6px 20px;
+      width: max-content;
+      min-width: 16rem;
+      max-width: calc(100vw - 32px);
+      padding: 6px;
+      border-radius: 3px;
+      background: #fbf9f2;
+      box-shadow:
+        inset 0 0 0 2px var(--ink),
+        0 2px 4px rgb(0 0 0 / 0.16),
+        0 14px 28px -12px rgb(0 0 0 / 0.55);
+      transform-origin: top right;
+      animation: menu-cai var(--t-ui) var(--ease-ui);
     }
-    .mais-grupo {
-      display: grid;
-      align-content: start;
-      gap: 2px;
+    .mais-menu:focus {
+      outline: none;
     }
-    .mais-grupo .painel-titulo {
-      margin-bottom: 4px;
+    /* folha estreita: o menu se alinha às bordas da régua (não corre o risco de sair da folha) */
+    @container folha (max-width: 560px) {
+      .regua {
+        position: relative;
+      }
+      .mais-ancora {
+        position: static;
+      }
+      .mais-menu {
+        left: 0;
+        right: 0;
+        width: auto;
+        min-width: 0;
+      }
+    }
+    @keyframes menu-cai {
+      from {
+        opacity: 0;
+        translate: 0 -4px;
+        scale: 0.98;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mais-menu {
+        animation: none;
+      }
+    }
+    .mais-fio {
+      margin: 4px 8px;
+      border-top: 2px dashed rgb(21 21 21 / 0.18);
     }
     .mais-op {
       display: grid;
       grid-template-columns: 22px minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
-      min-height: 40px;
-      padding: 4px 8px;
+      min-height: 36px;
+      padding: 2px 10px 2px 8px;
       border: 0;
       border-radius: 3px;
       background: transparent;
@@ -860,8 +888,16 @@ type ListKind = 'ul' | 'ol' | 'check';
       text-align: left;
       cursor: pointer;
     }
-    .mais-op:hover {
-      background: rgb(21 21 21 / 0.06);
+    .mais-op:hover,
+    .mais-op:focus-visible {
+      background: rgb(21 21 21 / 0.07);
+    }
+    .guia-op .mais-nome {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.84rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
     .mais-op:focus-visible {
       outline: 3px solid var(--ink);
@@ -898,6 +934,12 @@ type ListKind = 'ul' | 'ol' | 'check';
     @media (pointer: coarse) {
       .mais-op .atalho {
         display: none;
+      }
+      .mais-op {
+        min-height: 44px;
+      }
+      .mais-op:focus-visible {
+        outline-width: 2px;
       }
     }
 
@@ -1166,7 +1208,7 @@ export class RichEditor {
   /** As outras anotações, para os links "[[Título]]"; null, sem links (a resenha). */
   readonly notes = input<readonly Review[] | null>(null);
 
-  protected readonly LinkIcon = StickyNote;
+  protected readonly LinkIcon = NOTE_LINK_ICON;
   protected readonly UrlIcon = Link;
   protected readonly PlusIcon = Plus;
   protected readonly StrikeIcon = Strikethrough;
@@ -1197,17 +1239,66 @@ export class RichEditor {
   }
 
   /** Abre ou fecha "Mais" (e fecha os outros painéis da régua). */
-  protected toggleMore(big: boolean): void {
-    const open = this.moreOpen() === big;
+  protected toggleMore(big: boolean, e: MouseEvent, area: HTMLTextAreaElement): void {
+    // fechar pelo próprio botão: o foco volta para o texto (o menu, com o foco, sai da tela)
+    if (this.moreOpen() === big) this.closeMore(null, area);
+    // pelo teclado (Enter, espaço: um clique sem ponteiro), o foco já vai para a primeira marca
+    else this.openMore(big, e.detail === 0);
+  }
+  /** O menu foi aberto pelo teclado: o Esc volta para o botão "Mais" (o lugar de quem estava na régua). */
+  private moreByKeyboard = false;
+
+  /**
+   * Abre o menu do "Mais". Pelo teclado, o foco vai para a primeira marca; pelo mouse, fica no menu
+   * (sem marcar nenhuma de cara), e as setas, Esc e Tab já valem.
+   */
+  protected openMore(big: boolean, first: boolean): void {
+    this.moreByKeyboard = first;
     this.linking.set(null);
     this.urlLink.set(null);
     this.tablePick.set(null);
     this.guide.set(null);
-    this.moreOpen.set(open ? null : big);
-    if (!open) {
-      setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.mais-op')?.focus({ preventScroll: true }));
-      this.showPanel('.mais-painel');
+    this.moreOpen.set(big);
+    setTimeout(() => {
+      const target = first ? this.moreItems()[0] : this.host.nativeElement.querySelector<HTMLElement>('.mais-menu');
+      target?.focus({ preventScroll: true });
+    });
+  }
+
+  private moreItems(): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.mais-menu .mais-op'));
+  }
+
+  /** No menu: setas, Home e End andam pelas marcas; Esc fecha e volta para o texto; Tab sai e fecha. */
+  protected onMoreKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    const items = this.moreItems();
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const go = (i: number) => {
+      e.preventDefault();
+      items[(i + items.length) % items.length]?.focus();
+    };
+    // com o foco no menu (aberto pelo mouse), a seta para baixo vai para a primeira e a para cima, a última
+    if (e.key === 'ArrowDown') go(at + 1);
+    else if (e.key === 'ArrowUp') go(at < 0 ? items.length - 1 : at - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(items.length - 1);
+    else if (e.key === 'Escape') {
+      if (!this.moreByKeyboard) return this.closeMore(e, area);
+      e.preventDefault();
+      e.stopPropagation();
+      const big = this.moreOpen();
+      this.moreOpen.set(null);
+      const menus = this.host.nativeElement.querySelectorAll<HTMLElement>('.ferramenta.mais');
+      // a régua da folha grande (no diálogo) é a segunda
+      menus[big ? menus.length - 1 : 0]?.focus();
     }
+    else if (e.key === 'Tab') this.moreOpen.set(null);
+  }
+
+  /** O foco saiu do "Mais" (um toque fora, outro campo): o menu fecha. */
+  protected onMoreFocusOut(e: FocusEvent): void {
+    const to = e.relatedTarget as Node | null;
+    if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.moreOpen.set(null);
   }
 
   /** Uma marca do "Mais": põe no texto e fecha o painel (o guia abre no lugar dele). */

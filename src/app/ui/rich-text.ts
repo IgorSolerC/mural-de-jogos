@@ -132,13 +132,15 @@ import { Review } from '../core/review';
       text-decoration: line-through 2px;
       text-decoration-color: color-mix(in srgb, currentColor 62%, transparent);
     }
-    /* o marca-texto: a faixa na metade de baixo da letra, cada linha com a sua */
+    /* o marca-texto: passado na palavra inteira, de cima a baixo, cada linha com a sua; a folga em
+       cima e embaixo cobre a letra à mão, que passa da caixa da fonte */
     .marca {
       --marca-cor: rgb(255 218 66 / 0.62);
-      background: linear-gradient(transparent 42%, var(--marca-cor) 42%, var(--marca-cor) 92%, transparent 92%);
+      background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat;
       -webkit-box-decoration-break: clone;
       box-decoration-break: clone;
-      padding: 0 0.08em;
+      padding: 0.1em 0.1em 0.06em;
+      border-radius: 2px;
     }
     :host-context(app-review-card[data-cor='amarelo']) .marca {
       --marca-cor: rgb(255 112 168 / 0.45);

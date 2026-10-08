@@ -50,6 +50,27 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-mais-em-menu',
+    version: '1.18.8',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'O "Mais" num menu, e outros acabamentos',
+    items: [
+      'O "Mais" da régua abre um menu colado no botão, por cima da folha, em vez de um painel lá embaixo: riscado, marca-texto e código; citação e divisória; e o guia. As setas andam pelo menu, Esc fecha, e tocar fora também.',
+      'O botão de link para outra anotação ganhou um desenho só: a folhinha com o elo de corrente dentro.',
+      'As etiquetas de Finalizar e de fixar são pretas em toda cartolina, clara ou escura.',
+      'As tags de papel pardo ganharam uma sombra leve, de papel solto na cartolina, e não se misturam mais com o fundo.',
+    ],
+  },
+  {
+    id: '2026-10-08-marca-texto-inteiro',
+    version: '1.18.7',
+    kind: 'correcao',
+    date: '2026-10-08',
+    title: 'Correções de bugs',
+    items: ['O marca-texto (==assim==) pinta a palavra inteira, de cima a baixo, em vez de ficar cortado no meio da letra.'],
+  },
+  {
     id: '2026-10-08-finalizar-e-fixar',
     version: '1.18.6',
     kind: 'melhoria',

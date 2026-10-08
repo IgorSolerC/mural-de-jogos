@@ -99,7 +99,7 @@ describe('a régua de formatação do texto', () => {
     function more(name: string): void {
       (fixture.nativeElement.querySelector('.ferramenta.mais') as HTMLButtonElement).click();
       fixture.detectChanges();
-      const op = Array.from(fixture.nativeElement.querySelectorAll('.mais-op, .mais-pe button') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.includes(name))!;
+      const op = Array.from(fixture.nativeElement.querySelectorAll('.mais-op') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.includes(name))!;
       op.click();
       fixture.detectChanges();
     }
@@ -109,14 +109,14 @@ describe('a régua de formatação do texto', () => {
       expect(labels).toEqual(['Negrito', 'Itálico', 'Título', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço', 'Tabela', 'Mais']);
       (fixture.nativeElement.querySelector('.ferramenta.mais') as HTMLButtonElement).click();
       fixture.detectChanges();
-      expect(fixture.nativeElement.querySelector('.mais-painel')!.textContent).toContain('Ctrl+Shift+X');
+      expect(fixture.nativeElement.querySelector('.mais-menu')!.textContent).toContain('Ctrl+Shift+X');
     });
 
     it('riscado e marca-texto em volta da seleção (pelo "Mais" e pelos atalhos); de novo, tira', () => {
       write('um |caro| item');
       more('Riscado');
       expect(value()).toBe('um ~~caro~~ item');
-      expect(fixture.nativeElement.querySelector('.mais-painel')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.mais-menu')).toBeNull();
       more('Riscado');
       expect(value()).toBe('um caro item');
       key('h', { ctrlKey: true, shiftKey: true });
@@ -223,7 +223,7 @@ describe('a régua de formatação do texto', () => {
       fixture.detectChanges();
       fixture.componentInstance.reset();
       fixture.detectChanges();
-      expect(fixture.nativeElement.querySelector('.mais-painel')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.mais-menu')).toBeNull();
     });
   });
 

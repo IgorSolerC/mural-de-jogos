@@ -824,7 +824,8 @@ function watchDistance(el: HTMLElement): () => void {
     /* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====
        Ficam metade para fora da ficha (como o balão das reações embaixo), então não cobrem o título.
        Aparecem com o mouse em cima da ficha ou com o foco do teclado nelas; a fixada mantém o
-       alfinete vermelho à vista, que é o estado dela. No toque, sem mouse, ficam sempre. */
+       alfinete vermelho à vista, que é o estado dela. No toque, sem mouse, ficam sempre. Pretas em
+       toda cartolina, clara ou escura (metade delas fica na parede). */
     .acoes {
       --etiqueta: #151515;
       --etiqueta-tinta: #f1f1ec;
@@ -837,14 +838,6 @@ function watchDistance(el: HTMLElement): () => void {
       display: flex;
       gap: 4px;
       rotate: -1.5deg;
-    }
-    /* na cartolina escura a etiqueta de tinta sumiria: vira de papel, com a letra de tinta */
-    :host([data-cor$='escuro']) .acoes,
-    :host([data-cor='preto']) .acoes {
-      --etiqueta: #fbf9f2;
-      --etiqueta-tinta: #151515;
-      --etiqueta-verde: #1f7a45;
-      --etiqueta-vermelho: #c4302b;
     }
     .fixar,
     .feito {
@@ -905,11 +898,14 @@ function watchDistance(el: HTMLElement): () => void {
       translate: 0 0;
       pointer-events: auto;
     }
-    /* o foco na cor da etiqueta, com folga: aparece em qualquer cartolina e na parede */
+    /* o foco na tinta da etiqueta, com folga e o halo claro: aparece na cartolina clara e na escura */
     .fixar:focus-visible,
     .feito:focus-visible {
       outline: 2.5px solid var(--etiqueta);
       outline-offset: 2px;
+      box-shadow:
+        0 0 0 6px rgb(241 241 236 / 0.85),
+        0 1px 2px rgb(0 0 0 / 0.4);
     }
     @media (hover: hover) {
       .fixar:hover,

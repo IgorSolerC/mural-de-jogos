@@ -17,7 +17,7 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
     '[class.ghost]': 'ghost()',
     '[style.--tag-tilt]': 'tilt() + "deg"',
   },
-  template: `<span class="furo" aria-hidden="true"></span><span class="txt">{{ label() }}</span>`,
+  template: `<span class="papel" aria-hidden="true"></span><span class="furo" aria-hidden="true"></span><span class="txt">{{ label() }}</span>`,
   styles: `
     :host {
       --kraft: #d8bd8c;
@@ -29,10 +29,6 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
       max-width: 100%;
       min-height: 22px;
       padding: 3px 9px 2px 15px;
-      background:
-        /* as fibras do papel pardo */
-        repeating-linear-gradient(97deg, rgb(255 255 255 / 0.07) 0 2px, transparent 2px 5px),
-        var(--kraft);
       color: var(--kraft-ink);
       font-family: var(--f-label);
       font-weight: 800;
@@ -40,10 +36,22 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
       letter-spacing: 0.04em;
       line-height: 1;
       white-space: nowrap;
-      /* a ponta cortada em bico, onde fica o furo do barbante */
-      clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%);
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.28));
+      /* a sombra do papel solto na cartolina, no formato da etiqueta (fica no anfitrião: o recorte em
+         bico, no papel, cortaria a sombra junto) */
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.22));
       rotate: var(--tag-tilt, 0deg);
+      isolation: isolate;
+    }
+    /* o papel pardo, com a ponta cortada em bico onde fica o furo do barbante */
+    .papel {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        /* as fibras do papel pardo */
+        repeating-linear-gradient(97deg, rgb(255 255 255 / 0.07) 0 2px, transparent 2px 5px),
+        var(--kraft);
+      clip-path: polygon(9px 0, 100% 0, 100% 100%, 9px 100%, 0 50%);
     }
     /* o furinho com o ilhós */
     .furo {
@@ -72,15 +80,14 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
     }
     /* ainda não amarrada: o contorno tracejado de uma etiqueta em branco */
     :host(.ghost) {
-      background: transparent;
       color: rgb(21 21 21 / 0.74);
       filter: none;
       rotate: 0deg;
-      clip-path: none;
       outline: 1.5px dashed rgb(21 21 21 / 0.42);
       outline-offset: -1.5px;
       padding-left: 9px;
     }
+    :host(.ghost) .papel,
     :host(.ghost) .furo {
       display: none;
     }
