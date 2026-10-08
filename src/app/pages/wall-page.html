@@ -24,6 +24,10 @@
   </section>
 } @else {
   <app-wall-toolbar class="toolbar" />
+  @if (notes()) {
+    <!-- as tags da aba aberta, um toque filtra (só nas abas de categoria) -->
+    <app-tag-shortcuts class="atalhos" />
+  }
 
   @if (!view.pool().length) {
     <!-- todas as anotações têm check: o mural não está vazio, só em dia (e leva o carimbo) -->

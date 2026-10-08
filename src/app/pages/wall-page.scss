@@ -13,6 +13,20 @@
   margin-bottom: 44px;
 }
 
+/* as tags da aba, logo embaixo da régua (vazio, o componente não ocupa nada) */
+.atalhos {
+  margin: -30px 0 26px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+/* com as tags embaixo da régua, a linha do "Mostrando" não sobe mais para junto dela */
+.atalhos:not(:empty) ~ .showing {
+  margin-top: 0;
+}
+
 /* embaixo da régua: quantas sobraram, os filtros ligados como adesivos de papel, e limpar */
 .showing {
   display: flex;

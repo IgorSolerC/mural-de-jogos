@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-atalhos-tags',
+    version: '1.20.4',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Tags da aba à mão',
+    items: [
+      'Numa aba de categoria, as tags daquela categoria ficam embaixo da régua, as mais usadas primeiro: um toque filtra por elas, sem abrir o Filtrar. A ligada vira a etiqueta de papel kraft amarrada; outro toque desliga.',
+      'Com tags demais, as dez mais usadas ficam à mão e as outras continuam no Filtrar.',
+    ],
+  },
+  {
     id: '2026-10-08-lista-anotacoes',
     version: '1.20.3',
     kind: 'melhoria',

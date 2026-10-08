@@ -17,12 +17,13 @@ import { Reactions } from '../core/reactions';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
+import { TagShortcuts } from '../ui/tag-shortcuts';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
 @Component({
   selector: 'app-wall-page',
-  imports: [DoneStamp, FilterTags, LucideAngularModule, NoteIndex, PickTray, Pin, RouterLink, WallCards, WallToolbar],
+  imports: [DoneStamp, FilterTags, LucideAngularModule, NoteIndex, PickTray, Pin, RouterLink, TagShortcuts, WallCards, WallToolbar],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-page.html',
