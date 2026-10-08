@@ -369,6 +369,8 @@ export class ReviewReader {
     const next: Review = { ...r, text, updatedAt: new Date().toISOString() };
     this.store.update(next);
     this.review.set(next);
+    // a tarefa com link para outra anotação: oferece finalizar aquela também (o bilhete ficaria por baixo da leitura)
+    if (this.note()) void this.noteDone.offerLinked(r.id, text, line, { quiet: true });
   }
   private readonly noteDone = inject(NoteDone);
   private readonly notePin = inject(NotePin);

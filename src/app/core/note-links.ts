@@ -1,5 +1,5 @@
 import { Review, fold, isNote } from './review';
-import { LINK, splitLink } from './rich-text';
+import { LINK, lineKind, splitLink } from './rich-text';
 
 /**
  * Os links entre anotações: "[[Comprar um console]]" no texto de uma anotação aponta para a
@@ -119,6 +119,23 @@ export function backlinkLine(from: Review, note: Review, notes: readonly Review[
       .trim();
   }
   return null;
+}
+
+/**
+ * As anotações ligadas numa tarefa que acabou de ser marcada: os links da linha `line` de `text`,
+ * se ela é uma tarefa feita, que abrem uma anotação ainda não finalizada (sem repetir, e nunca a
+ * própria `selfId`). É o que a ficha oferece finalizar junto.
+ */
+export function linkedOnCheckedTask(text: string, line: number, notes: readonly Review[], selfId: string): Review[] {
+  const l = text.replace(/\r\n?/g, '\n').split('\n')[line];
+  const k = l === undefined ? null : lineKind(l);
+  if (k?.kind !== 'check' || !k.done) return [];
+  const out: Review[] = [];
+  for (const title of linksIn(k.rest)) {
+    const n = resolveNote(notes, title);
+    if (n && n.id !== selfId && !n.doneAt && !out.includes(n)) out.push(n);
+  }
+  return out;
 }
 
 /** Outra anotação, que não a `id`, já tem esse título? */

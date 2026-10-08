@@ -22,6 +22,8 @@ export interface ConfirmOptions {
   cancel?: string;
   /** O ícone do botão que confirma; null tira. */
   icon?: LucideIconData | null;
+  /** Perigo (o de sempre: ficha vermelha, botão vermelho) ou neutro (uma pergunta sem perigo: ficha azul, botão de tinta). */
+  tone?: 'perigo' | 'neutro';
 }
 
 export interface ChoiceOptions extends ConfirmOptions {
@@ -59,7 +61,7 @@ export class Confirm {
         icon: Trash2,
         ...options,
         secondary: null,
-        tone: 'perigo',
+        tone: options.tone ?? 'perigo',
         id: ++this.seq,
         resolve: (choice) => resolve(choice === 'confirm'),
       }),

@@ -1,5 +1,5 @@
 import { Review, sanitizeReview } from './review';
-import { backlinkLine, backlinksOf, linkKey, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, sameTitle } from './note-links';
+import { backlinkLine, backlinksOf, linkKey, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, sameTitle } from './note-links';
 import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
@@ -92,5 +92,20 @@ describe('links entre anotações', () => {
     expect(backlinkLine(daily, bug, notes)).toBe('o bug do login hoje');
     expect(backlinkLine(reuniao, bug, notes)).toBe('Pauta: Corrigir bug e Outra');
     expect(backlinkLine(solta, bug, notes)).toBeNull();
+  });
+
+  it('a tarefa marcada com links oferece as anotações abertas que ela abre (sem repetir, sem a própria, sem as finalizadas)', () => {
+    const bug = note('nbug00001', 'Corrigir bug');
+    const testes = note('ntest0001', 'Testes');
+    const feita = { ...note('nfeita001', 'Feita'), doneAt: '2026-10-05T10:00:00.000Z' };
+    const daily = note('ndaily001', 'Daily');
+    const notes = [bug, testes, feita, daily];
+    const text = 'Hoje:\r\n- [x] [[Corrigir bug]] e [[corrigir bug|de novo]] e [[Testes]]\n- [ ] [[Testes]]\n- [x] [[Feita]] [[Daily]] [[Nenhuma]]\n[[Testes]]';
+    expect(linkedOnCheckedTask(text, 1, notes, daily.id).map((n) => n.game.name)).toEqual(['Corrigir bug', 'Testes']);
+    // desmarcada, finalizada, a própria, um link que não abre nada, fora de uma tarefa
+    expect(linkedOnCheckedTask(text, 2, notes, daily.id)).toEqual([]);
+    expect(linkedOnCheckedTask(text, 3, notes, daily.id)).toEqual([]);
+    expect(linkedOnCheckedTask(text, 4, notes, daily.id)).toEqual([]);
+    expect(linkedOnCheckedTask(text, 9, notes, daily.id)).toEqual([]);
   });
 });

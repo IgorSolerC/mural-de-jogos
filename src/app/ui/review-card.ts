@@ -1469,7 +1469,10 @@ export class ReviewCard {
     const r = this.store.get(this.review().id);
     if (!r || !this.checkable()) return;
     const text = toggleCheck(r.text, line);
-    if (text !== r.text) this.store.update({ ...r, text, updatedAt: new Date().toISOString() });
+    if (text === r.text) return;
+    this.store.update({ ...r, text, updatedAt: new Date().toISOString() });
+    // a tarefa com link para outra anotação: oferece finalizar aquela também
+    void this.noteDone.offerLinked(r.id, text, line);
   }
 
   private readonly desk = inject(Desk);

@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-tarefa-finaliza-ligada',
+    version: '1.22.0',
+    kind: 'funcionalidade',
+    date: '2026-10-08',
+    title: 'A tarefa que finaliza a anotação',
+    items: [
+      'Marcou uma tarefa com link para outra anotação (como "- [ ] [[Corrigir o login]]")? O mural pergunta se você quer finalizar a anotação do link também. Com vários links na mesma tarefa, finaliza todas de uma vez, e o bilhete tem Desfazer.',
+    ],
+  },
+  {
     id: '2026-10-08-sub-nota-citada',
     version: '1.21.0',
     kind: 'funcionalidade',
