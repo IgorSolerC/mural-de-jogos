@@ -154,24 +154,32 @@ import { Review } from '../core/review';
       text-decoration: line-through 2px rgb(21 21 21 / 0.45);
       opacity: 0.7;
     }
-    /* o link: caneta azul sublinhada; passando por cima, o marca-texto amarelo */
+    /* O link: a letra de sempre, sublinhada à mão com a caneta vermelha (cada linha com o seu
+       risco, levemente torto); passando por cima, o marca-texto. A cor do risco e do marca-texto
+       segue a cartolina da ficha (ver as variações logo abaixo). */
     .elo {
-      color: var(--caneta-azul, #1f3fb0);
-      text-decoration: underline 2px;
-      text-underline-offset: 0.16em;
-      text-decoration-skip-ink: none;
-      border-radius: 2px;
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%23c4302b' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-marca: rgb(255 218 66 / 0.55);
+      color: inherit;
+      text-decoration: none;
+      border-radius: 1px;
+      padding-bottom: 0.1em;
+      background:
+        var(--elo-traco) no-repeat left bottom / 100% 0.42em,
+        linear-gradient(transparent 50%, var(--elo-fundo, transparent) 50%, var(--elo-fundo, transparent) 94%, transparent 94%) no-repeat;
+      -webkit-box-decoration-break: clone;
       box-decoration-break: clone;
     }
     .elo[tabindex] {
       cursor: pointer;
     }
-    .elo[tabindex]:hover {
-      background: rgb(255 218 66 / 0.5);
+    .elo[tabindex]:hover,
+    .elo[tabindex]:focus-visible {
+      --elo-fundo: var(--elo-marca);
     }
     .elo:focus-visible {
-      outline: 3px solid var(--ink, #151515);
-      outline-offset: 1px;
+      outline: 2px solid currentColor;
+      outline-offset: 2px;
     }
     .elo.negrito {
       font-weight: 700;
@@ -179,26 +187,30 @@ import { Review } from '../core/review';
     .elo.italico {
       font-style: italic;
     }
-    /* a anotação não existe (ainda): tracejado, mais apagado */
+    /* a anotação não existe (ainda): o risco tracejado, a lápis, e a letra mais apagada */
     .elo.quebrado {
-      color: inherit;
-      text-decoration-style: dashed;
-      text-decoration-color: rgb(21 21 21 / 0.55);
-      opacity: 0.8;
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23151515' stroke-opacity='.55' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      opacity: 0.85;
     }
-    /* nas cartolinas escuras a caneta azul some: a letra fica clara, sublinhada de amarelo */
-    :host-context(.cartolina[data-cor$='-escuro']) .elo,
-    :host-context(.cartolina[data-cor='preto']) .elo {
-      color: inherit;
-      text-decoration-color: var(--hi, #ffda42);
+    /* na cartolina amarela o marca-texto amarelo some: o rosa */
+    :host-context(app-review-card[data-cor='amarelo']) .elo {
+      --elo-marca: rgb(255 112 168 / 0.42);
     }
-    :host-context(.cartolina[data-cor$='-escuro']) .elo.quebrado,
-    :host-context(.cartolina[data-cor='preto']) .elo.quebrado {
-      text-decoration-color: rgb(243 236 224 / 0.55);
+    /* na cartolina vermelha a caneta vermelha some: o risco amarelo */
+    :host-context(app-review-card[data-cor='vermelho']) .elo,
+    :host-context(app-review-card[data-cor='vermelho-escuro']) .elo {
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%23ffd84d' stroke-width='2.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-marca: rgb(255 216 77 / 0.35);
     }
-    :host-context(.cartolina[data-cor$='-escuro']) .elo[tabindex]:hover,
-    :host-context(.cartolina[data-cor='preto']) .elo[tabindex]:hover {
-      background: rgb(255 218 66 / 0.25);
+    /* nas outras escuras: a caneta vermelha clara, que aparece no escuro */
+    :host-context(app-review-card[data-cor$='-escuro']:not([data-cor='vermelho-escuro'])) .elo,
+    :host-context(app-review-card[data-cor='preto']) .elo {
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%23ff8f80' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-marca: rgb(255 218 66 / 0.28);
+    }
+    :host-context(app-review-card[data-cor$='-escuro']) .elo.quebrado,
+    :host-context(app-review-card[data-cor='preto']) .elo.quebrado {
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23f3ece0' stroke-opacity='.6' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
     }
     :host-context(.cartolina[data-cor$='-escuro']) .feita .tarefa,
     :host-context(.cartolina[data-cor='preto']) .feita .tarefa {

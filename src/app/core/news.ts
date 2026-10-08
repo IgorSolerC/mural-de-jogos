@@ -49,6 +49,17 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-caneta-e-carimbo',
+    version: '1.19.0',
+    kind: 'update',
+    date: '2026-10-08',
+    title: 'Links à caneta',
+    items: [
+      'Os links entre anotações saíram do azul: o texto fica na sua letra, sublinhado à mão com caneta vermelha (amarela nas cartolinas vermelhas, vermelho-claro nas escuras). Passando o mouse, o marca-texto.',
+      'O link para uma anotação que ainda não existe fica sublinhado a lápis, tracejado.',
+    ],
+  },
+  {
     id: '2026-10-07-anotacoes-correcoes',
     version: '1.18.1',
     kind: 'bugfix',
