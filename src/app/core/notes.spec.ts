@@ -152,7 +152,10 @@ describe('anotações', () => {
     ];
     const profile = KIND_PROFILES.anotacoes;
     const facets = facetsOf(list, NO_FILTER, profile);
-    expect(facets.map((f) => f.key)).toEqual(['category', 'tag', 'look', 'year']);
+    // Visual e Ano com uma opção só (todas lisas, todas do mesmo ano) não separam nada: ficam de fora
+    expect(facets.map((f) => f.key)).toEqual(['category', 'tag']);
+    const twoYears = [...list, note('n0000005', 'E', [], { completedAt: '2025-03-01' })];
+    expect(facetsOf(twoYears, NO_FILTER, profile).map((f) => f.key)).toEqual(['category', 'tag', 'year']);
     expect(facets[0].options.map((o) => [o.label, o.n])).toEqual([
       ['Casa', 1],
       ['Trabalho', 2],
@@ -170,7 +173,7 @@ describe('anotações', () => {
     expect(only({ category: ['Trabalho'], tag: ['Bugfix', 'Feature'] })).toEqual(['A', 'B']);
     expect(only({ category: ['Trabalho'], tag: ['UI'] })).toEqual(['A']);
     // sem nenhuma tag no mural, o grupo de tags não aparece
-    expect(facetsOf([list[2], list[3]], NO_FILTER, profile).map((f) => f.key)).toEqual(['category', 'look', 'year']);
+    expect(facetsOf([list[2], list[3]], NO_FILTER, profile).map((f) => f.key)).toEqual(['category']);
   });
 
   it('ordenar por categoria agrupa pela categoria de cada uma, sem categoria no fim', () => {

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
-import { ChevronUp, LucideAngularModule, Pin, PinOff, Plus, Sticker, X } from 'lucide-angular';
+import { ChevronUp, LucideAngularModule, Plus, Star, StarOff, Sticker, X } from 'lucide-angular';
 import { Bonus, fold } from '../core/review';
 import { LABEL_MAX, MAX_TAGS, TagEntry, categoryBonus, cleanCategory, cleanTag } from '../core/note-labels';
 import { Settings } from '../core/settings';
@@ -25,7 +25,7 @@ let uid = 0;
     <!-- ===== Categoria ===== -->
     <div class="grupo" role="group" [attr.aria-labelledby]="id + '-cat'">
       <div class="top">
-        <p class="label" [id]="id + '-cat'">Categoria</p>
+        <p class="pergunta" [id]="id + '-cat'">Categoria</p>
         <button type="button" class="toggle" [attr.aria-expanded]="open()" [attr.aria-controls]="id + '-cartela'" (click)="setOpen(!open())">
           <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
           {{ open() ? 'Fechar cartela' : category() ? 'Trocar' : 'Escolher' }}
@@ -75,7 +75,7 @@ let uid = 0;
     <!-- ===== Tags ===== -->
     <div class="grupo" role="group" [attr.aria-labelledby]="id + '-tags'">
       <div class="top">
-        <p class="label" [id]="id + '-tags'">Tags</p>
+        <p class="pergunta" [id]="id + '-tags'">Tags</p>
         <span class="conta" aria-hidden="true">{{ tags().length }}/{{ maxTags }}</span>
       </div>
       <div class="amarradas" (click)="focusInput($event)">
@@ -88,10 +88,10 @@ let uid = 0;
               [class.fixa]="settings.isPinnedTag(t)"
               [attr.aria-pressed]="settings.isPinnedTag(t)"
               [attr.aria-label]="'Tag fixa: ' + t"
-              [title]="settings.isPinnedTag(t) ? 'Fixa: fica sempre à mão. Toque para soltar.' : 'Fixar: deixar sempre à mão nas anotações'"
+              [title]="settings.isPinnedTag(t) ? 'Tag fixa: fica sempre à mão. Toque para soltar.' : 'Fixar a tag: deixar sempre à mão nas anotações'"
               (click)="settings.togglePinnedTag(t)"
             >
-              <lucide-icon [img]="PinIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="StarIcon" [size]="14" [strokeWidth]="2.4" aria-hidden="true" />
             </button>
             <button type="button" class="mini-btn" [attr.aria-label]="'Tirar a tag ' + t" (click)="remove(t)">
               <lucide-icon [img]="RemoveIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
@@ -135,7 +135,7 @@ let uid = 0;
               <app-note-tag [label]="s.label" size="mini" />
               <span class="sug-meta">
                 @if (s.pinned) {
-                  <lucide-icon [img]="PinIcon" [size]="12" [strokeWidth]="2.6" aria-hidden="true" /> fixa
+                  <lucide-icon class="estrela" [img]="StarIcon" [size]="12" [strokeWidth]="2.6" aria-hidden="true" /> fixa
                 }
                 @if (s.n) {
                   {{ s.pinned ? ' · ' : '' }}{{ s.n === 1 ? 'em 1 anotação' : 'em ' + s.n + ' anotações' }}
@@ -162,7 +162,7 @@ let uid = 0;
       <!-- as fixas que ainda não estão nesta anotação: a um toque -->
       @if (pinnedLeft().length) {
         <div class="fixas">
-          <span class="fixas-label"><lucide-icon [img]="PinIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" /> Fixas</span>
+          <span class="fixas-label"><lucide-icon class="estrela" [img]="StarIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" /> Fixas</span>
           @for (t of pinnedLeft(); track t) {
             <span class="fixa-op">
               <button type="button" class="slot" [attr.aria-label]="'Pôr a tag ' + t" (click)="add(t)" [disabled]="tags().length >= maxTags">
@@ -175,7 +175,7 @@ let uid = 0;
           }
         </div>
       } @else if (!tags().length) {
-        <p class="hint">Tags informam: Bugfix, Feature, Urgente… Várias por anotação. O alfinete deixa uma tag sempre à mão.</p>
+        <p class="hint">Várias por anotação, para dizer mais sobre ela. A estrela numa tag a deixa sempre à mão aqui.</p>
       }
     </div>
   `,
@@ -191,12 +191,9 @@ let uid = 0;
       gap: 6px 10px;
       min-height: 40px;
     }
-    .label {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    /* o título de cada parte: a mesma pergunta a pincel dos outros blocos do editor */
+    .top .pergunta {
+      margin: 0;
     }
     .conta {
       font-family: var(--f-label);
@@ -236,12 +233,33 @@ let uid = 0;
       color: var(--ink-2);
     }
 
-    /* a categoria colada, com o x para tirar */
+    /* a categoria colada, com o x para tirar (o mesmo botão redondo e leve das tags) */
     .colada {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       margin-top: 4px;
+    }
+    .tirar {
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink-2);
+      cursor: pointer;
+      transition: background-color var(--t-ui) var(--ease-ui);
+    }
+    .tirar:hover {
+      background: rgb(21 21 21 / 0.07);
+      color: var(--ink);
+    }
+    .tirar:focus-visible {
+      outline: 2.5px solid var(--ink);
+      outline-offset: 0;
     }
 
     /* A cartela: uma folha de adesivos mais branca que a ficha (a mesma dos bônus) */
@@ -395,9 +413,13 @@ let uid = 0;
     .mini-btn lucide-icon {
       display: inline-flex;
     }
-    /* a tag fixa: o alfinete cravado, vermelho */
-    .fixar.fixa {
-      color: #c4302b;
+    /* a tag fixa: a estrela cheia, em dourado de adesivo (o alfinete é de fixar a anotação) */
+    .fixar.fixa,
+    .estrela {
+      color: #a8740a;
+    }
+    .estrela ::ng-deep svg {
+      fill: currentColor;
     }
     .fixar.fixa ::ng-deep svg {
       fill: currentColor;
@@ -419,7 +441,7 @@ let uid = 0;
       outline: none;
     }
     .campo::placeholder {
-      color: rgb(21 21 21 / 0.45);
+      color: rgb(21 21 21 / 0.64);
       font-weight: 600;
     }
 
@@ -526,8 +548,8 @@ export class NoteLabelsPicker {
   protected readonly CloseIcon = ChevronUp;
   protected readonly PlusIcon = Plus;
   protected readonly RemoveIcon = X;
-  protected readonly PinIcon = Pin;
-  protected readonly UnpinIcon = PinOff;
+  protected readonly StarIcon = Star;
+  protected readonly UnpinIcon = StarOff;
 
   protected readonly open = signal(false);
   protected readonly writing = signal(false);

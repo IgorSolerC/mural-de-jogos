@@ -1,6 +1,7 @@
 <dialog
   #dialog
   class="sheet editor"
+  [class.notas]="notes()"
   aria-labelledby="editor-titulo"
   (cancel)="requestClose($event)"
   (close)="closed.emit()"
@@ -335,9 +336,9 @@
                 @if (noteRank() === 'fixada') {
                   Fica sempre no topo do mural, em qualquer ordem.
                 } @else if (noteRank() === 'sub') {
-                  Faz parte de outra anotação: na ordem Prioridade, vai para o fim do mural.
+                  Parte de outra anotação: fica no fim do mural, com as outras sub-notas.
                 } @else {
-                  Na ordem Prioridade, vem depois das fixadas e antes das sub-notas.
+                  Fica no meio do mural: depois das fixadas, antes das sub-notas.
                 }
               </p>
             </fieldset>

@@ -193,7 +193,9 @@
   width: calc(var(--card-w) * 2 + var(--in-col));
   max-width: 100%;
 }
-.wall.capas .fichas app-review-card.nota-larga {
+/* na ficha simples e na de só capa, a larga é uma ficha como as outras (a tira larga ficava vazia) */
+.wall.capas .fichas app-review-card.nota-larga,
+.wall.compact .fichas app-review-card.nota-larga {
   width: var(--card-w);
 }
 

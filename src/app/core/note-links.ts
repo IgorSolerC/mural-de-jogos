@@ -76,6 +76,19 @@ export function relinkAfterRename(notes: readonly Review[], before: Review, titl
   return out;
 }
 
+/**
+ * A anotação de que `note` é parte: a que tem um link que abre ela (a mais antiga, se forem várias).
+ * É de onde a sub-nota nasceu, ou para onde ela foi ligada depois. Null se nenhuma aponta para ela.
+ */
+export function parentNoteOf(note: Review, notes: readonly Review[]): Review | null {
+  let best: Review | null = null;
+  for (const n of notes) {
+    if (n.id === note.id || (best && n.createdAt >= best.createdAt)) continue;
+    if (linksIn(n.text).some((t) => resolveNote(notes, t)?.id === note.id)) best = n;
+  }
+  return best;
+}
+
 /** Outra anotação, que não a `id`, já tem esse título? */
 export function sameTitle(notes: readonly Review[], title: string, id: string): Review | null {
   const key = linkKey(title);

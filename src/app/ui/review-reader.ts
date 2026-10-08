@@ -31,7 +31,7 @@ import { RichText } from './rich-text';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { plainText, toggleCheck } from '../core/rich-text';
-import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
+import { NoteLinks, notesOf, parentNoteOf, resolveNote } from '../core/note-links';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { WallView } from '../core/wall-view';
@@ -106,7 +106,12 @@ import { categoryBonus } from '../core/note-labels';
                   @if (note() && r.noteRank === 'fixada') {
                     Fixada<span aria-hidden="true"> · </span>
                   } @else if (note() && r.noteRank === 'sub') {
-                    Sub-nota<span aria-hidden="true"> · </span>
+                    <!-- a sub-nota diz de qual anotação é parte, e abre ela -->
+                    @if (parent(); as p) {
+                      Parte de <button type="button" class="parte-de" (click)="openParent(p)">{{ p.game.name }}</button><span aria-hidden="true"> · </span>
+                    } @else {
+                      Sub-nota<span aria-hidden="true"> · </span>
+                    }
                   }
                   @if (r.completedAt === null) {
                     {{ noDay }}
@@ -412,6 +417,17 @@ export class ReviewReader {
       ...(mine ? { create: (title: string) => this.createNote.emit({ title, from: this.review()!.id }) } : {}),
     };
   });
+
+  /** A anotação de que a sub-nota aberta é parte (a que tem o link para ela). */
+  protected readonly parent = computed(() => {
+    const r = this.review();
+    return r && this.note() && r.noteRank === 'sub' ? parentNoteOf(r, this.linkable()) : null;
+  });
+
+  /** Abre a anotação de que esta é parte, com o "Voltar" para esta. */
+  protected openParent(p: Review): void {
+    this.follow(p);
+  }
 
   /** Segue um link: a anotação de agora vira o "Voltar". */
   private follow(n: Review): void {

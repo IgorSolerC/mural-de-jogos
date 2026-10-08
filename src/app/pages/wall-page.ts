@@ -15,11 +15,12 @@ import { WallToolbar } from '../ui/wall-toolbar';
 import { isNotes } from '../core/kinds';
 import { Reactions } from '../core/reactions';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
+import { DoneStamp } from '../ui/done-stamp';
 
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
 @Component({
   selector: 'app-wall-page',
-  imports: [FilterTags, LucideAngularModule, PickTray, Pin, RouterLink, WallCards, WallToolbar],
+  imports: [DoneStamp, FilterTags, LucideAngularModule, PickTray, Pin, RouterLink, WallCards, WallToolbar],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-page.html',
@@ -39,6 +40,10 @@ export class WallPage {
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];
+  /** O dia da última anotação finalizada: o carimbo do "Tudo finalizado". */
+  protected readonly lastDone = computed(() =>
+    this.mural.wall().reduce<string | null>((max, r) => (r.doneAt && (!max || r.doneAt > max) ? r.doneAt : max), null),
+  );
   /** "ficha" nos murais de resenhas, "anotação" no de anotações. */
   protected readonly word = computed(() => (this.notes() ? 'anotação' : 'ficha'));
   protected readonly highlight = computed(() => (this.view.shownSort() === 'nota' ? this.view.activeScore() : null));

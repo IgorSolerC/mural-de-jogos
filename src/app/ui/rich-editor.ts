@@ -72,11 +72,9 @@ type ListKind = 'ul' | 'ol' | 'check';
           <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
         <span class="fio" aria-hidden="true"></span>
-        <button type="button" class="ferramenta titulo-btn" [disabled]="seeing()" title="Título (de novo: um nível menor)" aria-label="Título" (pointerdown)="$event.preventDefault()" (click)="heading(area)">
-          <lucide-icon [img]="HeadingIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Citação" aria-label="Citação" (pointerdown)="$event.preventDefault()" (click)="quote(area)">
-          <lucide-icon [img]="QuoteIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+        <!-- as listas logo depois das ênfases: as tarefas, as mais usadas nas anotações, primeiro -->
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Tarefas (checklist)" aria-label="Tarefas" (pointerdown)="$event.preventDefault()" (click)="list(area, 'check')">
+          <lucide-icon [img]="ChecksIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Lista" aria-label="Lista" (pointerdown)="$event.preventDefault()" (click)="list(area, 'ul')">
           <lucide-icon [img]="ListIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
@@ -84,8 +82,12 @@ type ListKind = 'ul' | 'ol' | 'check';
         <button type="button" class="ferramenta" [disabled]="seeing()" title="Lista numerada" aria-label="Lista numerada" (pointerdown)="$event.preventDefault()" (click)="list(area, 'ol')">
           <lucide-icon [img]="OrderedIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Tarefas (checklist)" aria-label="Tarefas" (pointerdown)="$event.preventDefault()" (click)="list(area, 'check')">
-          <lucide-icon [img]="ChecksIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+        <span class="fio" aria-hidden="true"></span>
+        <button type="button" class="ferramenta titulo-btn" [disabled]="seeing()" title="Título (de novo: um nível menor)" aria-label="Título" (pointerdown)="$event.preventDefault()" (click)="heading(area)">
+          <lucide-icon [img]="HeadingIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        <button type="button" class="ferramenta" [disabled]="seeing()" title="Citação" aria-label="Citação" (pointerdown)="$event.preventDefault()" (click)="quote(area)">
+          <lucide-icon [img]="QuoteIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
         <span class="fio" aria-hidden="true"></span>
         <button

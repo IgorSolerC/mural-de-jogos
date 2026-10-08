@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
-import { CheckCheck, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat } from 'lucide-angular';
+import { CheckCheck, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, UsersRound } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -26,7 +26,7 @@ import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
-import { hasInteractive, plainText } from '../core/rich-text';
+import { checkCount, hasInteractive, plainText } from '../core/rich-text';
 import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { Boletim } from './boletim';
@@ -43,7 +43,7 @@ import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
-import { NoteLinks, resolveNote } from '../core/note-links';
+import { NoteLinks, parentNoteOf, resolveNote } from '../core/note-links';
 import { Desk } from '../core/desk';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
@@ -112,7 +112,7 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.fora]': 'picking() && !!review().revisitOf',
     // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra; larga ou alta
     '[class.nota]': 'note()',
-    '[class.sem-capa]': 'note() && !review().game.coverUrl && !capas()',
+    '[class.sem-capa]': 'note() && !review().game.coverUrl',
     '[class.nota-larga]': 'note() && review().noteSize === "larga"',
     '[class.nota-alta]': 'note() && review().noteSize === "alta"',
     // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
@@ -130,7 +130,7 @@ function watchDistance(el: HTMLElement): () => void {
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <div class="head">
-      @if (!note() || review().game.coverUrl || capas()) {
+      @if (!note() || review().game.coverUrl) {
       <div class="cover" data-colado>
         <div class="box">
           <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
@@ -142,12 +142,18 @@ function watchDistance(el: HTMLElement): () => void {
           <!-- Os selinhos da foto, colados um embaixo do outro no canto, cada um um pouco por cima do
                de cima: o cadeado da privada (só no seu mural; a ficha nunca sai dele) e, só capa e
                nome, o "outra vez" que distingue a rejogada da original. Um selo novo entra no fim. -->
-          @if ((review().private || (capas() && (review().revisitOf || doneAt()))) && !bare()) {
+          @if ((lockBadge() || publicBadge() || (capas() && (review().revisitOf || doneAt()))) && !bare()) {
             <span class="selos">
-              @if (review().private) {
+              @if (lockBadge()) {
                 <span class="selo privada-selo" title="Privada: só você vê">
                   <lucide-icon [img]="PrivateIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
                   <span class="sr-only">Privada: só você vê</span>
+                </span>
+              }
+              @if (publicBadge()) {
+                <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
+                  <lucide-icon [img]="PublicIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
+                  <span class="sr-only">Publicada: quem abre o seu mural vê</span>
                 </span>
               }
               @if (capas() && review().revisitOf) {
@@ -161,13 +167,19 @@ function watchDistance(el: HTMLElement): () => void {
           }
         </div>
       </div>
-      } @else if (review().private && !bare()) {
-        <!-- anotação sem capa: o cadeado fica no canto da ficha -->
+      } @else if ((publicBadge() || (capas() && doneAt())) && !bare()) {
+        <!-- anotação sem capa: os selinhos ficam no canto da ficha. A anotação nasce privada: o
+             cadeado em todas não diria nada, então quem ganha selo é a publicada -->
         <span class="selos selos-ficha">
-          <span class="selo privada-selo" title="Privada: só você vê">
-            <lucide-icon [img]="PrivateIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
-            <span class="sr-only">Privada: só você vê</span>
-          </span>
+          @if (publicBadge()) {
+            <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
+              <lucide-icon [img]="PublicIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+              <span class="sr-only">Publicada: quem abre o seu mural vê</span>
+            </span>
+          }
+          @if (capas() && doneAt()) {
+            <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" /></span>
+          }
         </span>
       }
 
@@ -178,14 +190,18 @@ function watchDistance(el: HTMLElement): () => void {
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
         } @else if (!capas() && note()) {
           <p class="meta" data-queima>
-            <!-- a sub-nota diz o que é antes da data, como a rejogada -->
+            <!-- a sub-nota diz de qual anotação ela é parte (a que tem o link para ela), antes da data -->
             @if (review().noteRank === 'sub') {
-              <span class="sub-marca">Sub-nota</span><span aria-hidden="true"> · </span>
+              <span class="sub-marca">{{ parent() ? 'Parte de ' + parent()!.game.name : 'Sub-nota' }}</span><span aria-hidden="true"> · </span>
             }
             @if (review().completedAt; as day) {
               <time [attr.datetime]="day">{{ date() }}</time>
             } @else {
               <span>{{ date() }}</span>
+            }
+            <!-- as tarefas: quantas já foram feitas -->
+            @if (tasks(); as t) {
+              <span aria-hidden="true"> · </span><span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
           </p>
         } @else if (!capas()) {
@@ -949,6 +965,45 @@ function watchDistance(el: HTMLElement): () => void {
     .sub-marca {
       opacity: 0.7;
     }
+    /* as tarefas da anotação: o desenho do checklist e a conta; todas feitas, o verde do carimbo */
+    .tarefas-conta {
+      white-space: nowrap;
+    }
+    .tarefas-icone {
+      display: inline-block;
+      vertical-align: -2px;
+      margin-right: 3px;
+    }
+    .tarefas-conta.todas {
+      color: #1f7a45;
+    }
+    :host([data-cor$='escuro']) .tarefas-conta.todas,
+    :host([data-cor='preto']) .tarefas-conta.todas {
+      color: #8fe3ad;
+    }
+    /* o selo da anotação publicada: o mesmo selinho de tinta, com o desenho de pessoas */
+    .publica-selo {
+      background: var(--ink);
+      color: var(--paper);
+    }
+
+    /* ===== Só capa e nome, na anotação sem capa: o título é a ficha ===== */
+    :host(.capas.sem-capa) .head {
+      grid-template-areas: 'words';
+      /* a altura de uma ficha com capa (a foto 4:5 e o nome embaixo), para a fileira não desencontrar */
+      aspect-ratio: 4 / 5.6;
+      align-content: center;
+    }
+    :host(.capas.sem-capa) .words {
+      padding: 0 4px;
+    }
+    :host(.capas.sem-capa) .title {
+      min-height: 0;
+      font-size: 1.12rem;
+      line-height: 1.12;
+      text-wrap: balance;
+      -webkit-line-clamp: 5;
+    }
 
     /* O carimbo da finalizada: batido no canto de baixo, por cima do que está escrito (a tinta
        escurece o papel e a letra continua lendo-se por baixo). Não pega toque: a ficha abre. */
@@ -967,15 +1022,19 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.feita:not(.compact)) {
       min-height: 150px;
     }
-    /* na ficha simples (uma tira baixa), ao lado dos botões, no meio da altura */
+    /* na ficha simples (uma tira baixa), ao lado dos botões, no pé da tira; o título não passa por baixo */
     :host(.compact) .carimbo {
       right: 84px;
-      bottom: auto;
-      top: 50%;
-      translate: 0 -50%;
+      bottom: 6px;
     }
     :host(.compact:not(.com-check)) .carimbo {
-      right: 14px;
+      right: 12px;
+    }
+    :host(.compact.feita.com-check) .words > :first-child {
+      margin-right: 148px;
+    }
+    :host(.compact.feita:not(.com-check)) .words > :first-child {
+      margin-right: 72px;
     }
     /* o carimbo bateu: a ficha sente o tranco na tachinha (na ficha, não no corpo: um corpo com
        transformação passaria a medir as camadas do papel) */
@@ -1251,6 +1310,28 @@ export class ReviewCard {
 
   /** Quando a anotação foi finalizada (o carimbo), ou null. */
   protected readonly doneAt = computed(() => (this.note() && !this.bare() ? (this.review().doneAt ?? null) : null));
+  /** O cadeado das resenhas privadas (a anotação nasce privada: nela, quem ganha selo é a publicada). */
+  protected readonly lockBadge = computed(() => !this.note() && !!this.review().private);
+  /** A anotação publicada, no seu mural: quem abre o seu mural vê. */
+  protected readonly publicBadge = computed(() => this.note() && !this.review().private && this.checkable());
+  protected readonly PublicIcon = UsersRound;
+  protected readonly TasksIcon = ListChecks;
+  /** As tarefas do texto da anotação: quantas feitas de quantas (null: sem tarefas). */
+  protected readonly tasks = computed(() => {
+    if (!this.note()) return null;
+    const c = checkCount(this.review().text);
+    return c.total ? c : null;
+  });
+  /**
+   * A anotação de que a sub-nota é parte: a que tem o link para ela (a mais antiga, se forem várias).
+   * Só no seu mural (nos outros, a ficha não conhece as outras anotações).
+   */
+  protected readonly parent = computed<Review | null>(() => {
+    const r = this.review();
+    if (!this.note() || r.noteRank !== 'sub' || !this.checkable()) return null;
+    return parentNoteOf(r, this.store.notes());
+  });
+
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
   protected readonly canFinish = computed(() => this.note() && this.checkable() && !this.preview() && !this.capas());
   protected readonly DoneIcon = CheckCheck;
@@ -1449,7 +1530,9 @@ export class ReviewCard {
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixada' : r.noteRank === 'sub' ? 'sub-nota' : '';
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
-      return `Abrir anotação: ${[r.game.name, rank, done, cats, when, r.private ? 'privada' : ''].filter(Boolean).join(', ')}`;
+      const tasks = this.tasks();
+      const todo = tasks ? `${tasks.done} de ${tasks.total} tarefas feitas` : '';
+      return `Abrir anotação: ${[r.game.name, rank, done, cats, todo, when, r.private ? '' : 'publicada'].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];
     if (this.masked()) {

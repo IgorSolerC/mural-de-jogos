@@ -260,6 +260,8 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
   return facetKeysOf(profile)
     // sem nenhuma tag no mural, o grupo de tags só diria "Sem tag": fica de fora
     .filter((k) => (k !== 'year' || years.length > 0) && (k !== 'category' || cats.length > 0) && (k !== 'tag' || tags.some((t) => t !== 'sem')))
+    // nas anotações, o visual e o ano só aparecem quando separam alguma coisa (com uma opção só, não filtram nada)
+    .filter((k) => !isNotes(profile.kind) || (k !== 'look' && k !== 'year') || f[k].length > 0 || new Set(list.map((r) => valuesOf(r, k)[0])).size > 1)
     .map((key) => {
       const counts = new Map<string, number>();
       for (const r of list) {

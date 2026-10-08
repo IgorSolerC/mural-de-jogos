@@ -69,7 +69,8 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
       caret-color: var(--red);
     }
     input::placeholder {
-      color: rgb(21 21 21 / 0.58);
+      /* 4,5:1 no papel da tira */
+      color: rgb(21 21 21 / 0.66);
     }
     input::-webkit-search-cancel-button {
       display: none;

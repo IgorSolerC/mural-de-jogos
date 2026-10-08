@@ -65,7 +65,7 @@ let seq = 0;
       opacity: 0.9;
     }
     :host([data-size='compact']) {
-      --tam: 66px;
+      --tam: 58px;
     }
     :host([data-size='big']) {
       --tam: 124px;

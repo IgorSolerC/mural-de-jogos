@@ -159,7 +159,9 @@
     max-width: 100%;
   }
 }
-.wall.capas .fichas app-review-card.nota-larga {
+/* na ficha simples e na de só capa, a larga é uma ficha como as outras (a tira larga ficava vazia) */
+.wall.capas .fichas app-review-card.nota-larga,
+.wall.compact .fichas app-review-card.nota-larga {
   width: var(--card-w);
 }
 
@@ -280,6 +282,18 @@
     font-size: 1.15rem;
     overflow-wrap: anywhere;
   }
+}
+
+/* "Tudo finalizado": o cartão leva o carimbo verde no canto, batido por cima do papel */
+.tudo-feito {
+  --stock: var(--stock-verde);
+}
+.carimbo-geral {
+  position: absolute;
+  top: -18px;
+  right: -14px;
+  mix-blend-mode: multiply;
+  pointer-events: none;
 }
 
 /* "Tudo finalizado": pregar uma nova ou ver as que já foram */

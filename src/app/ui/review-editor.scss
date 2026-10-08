@@ -726,6 +726,34 @@ app-rich-editor.anotacao {
   }
 }
 
+/* A anotação no celular e no tablet: o que se escreve vem antes da cartolina (o estojo desce para o
+   fim), e a ficha de prévia encolhe para a faixa do título enquanto se escreve, para sobrar folha */
+@media (max-width: 1023px) {
+  dialog.editor.notas .editor-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  dialog.editor.notas .form {
+    order: -1;
+  }
+
+  dialog.editor.notas .bancada {
+    transition: max-height var(--t-physical) var(--ease-physical);
+    max-height: 60vh;
+  }
+
+  dialog.editor.notas:has(.form textarea:focus, .form input:focus) .bancada {
+    max-height: 64px;
+  }
+}
+
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
+  dialog.editor.notas .bancada {
+    transition: none;
+  }
+}
+
 /* Tela larga: prévia fixa à esquerda, opções e formulário com rolagens próprias */
 @media (min-width: 1024px) {
   /* a prévia tem a largura da ficha no mural (a mesma conta), para o canhoto caber igual */

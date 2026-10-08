@@ -49,6 +49,24 @@ export type NewsKind = 'update' | 'bugfix';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-anotacoes-repaginadas',
+    version: '1.22.0',
+    kind: 'update',
+    date: '2026-10-08',
+    title: 'O mural de anotações repaginado',
+    items: [
+      'A ficha mostra quantas tarefas já foram feitas (3/7), e fica verde quando todas estão.',
+      'A sub-nota diz de qual anotação faz parte ("Parte de Sprint 42"); na leitura, o nome abre a anotação.',
+      'A anotação nasce privada, então o cadeado saiu de todas: agora só a publicada ganha um selinho.',
+      'Na ficha "só capa e nome", a anotação sem capa vira só o título, grande, na cartolina (sem a moldura vazia).',
+      'Na ficha simples, o carimbo de finalizada não cobre mais o título; a ficha larga ocupa uma vaga como as outras.',
+      'No editor, Categoria e Tags ganharam o mesmo título a pincel dos outros blocos; a tag fixa agora é uma estrela (o alfinete é de fixar a anotação).',
+      'No celular, o editor da anotação começa pelo título e pelo texto (a cartolina vem depois), e a ficha de prévia encolhe enquanto você escreve.',
+      'Na régua, as tarefas vêm logo depois das ênfases. A citação ganhou um risco a lápis, e o link para fora, uma setinha desenhada.',
+      'O filtro esconde os grupos que não separam nada, e "Tudo finalizado" ganhou o carimbo verde.',
+    ],
+  },
+  {
     id: '2026-10-08-markdown',
     version: '1.21.0',
     kind: 'update',

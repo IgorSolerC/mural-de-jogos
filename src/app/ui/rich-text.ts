@@ -196,10 +196,23 @@ import { Review } from '../core/review';
 
     /* ===== A citação: recuada, inclinada, com o fio de tinta do lado ===== */
     .citacao {
+      position: relative;
       margin: 0;
-      padding-left: 0.8em;
-      border-left: 3px solid color-mix(in srgb, currentColor 42%, transparent);
+      padding-left: 0.95em;
       font-style: italic;
+    }
+    /* o risco a lápis do lado da citação, ondulado como a divisória (não uma barra reta) */
+    .citacao::before {
+      content: '';
+      position: absolute;
+      left: 0.12em;
+      top: 0.3em;
+      bottom: 0.3em;
+      width: 7px;
+      background: currentColor;
+      opacity: 0.45;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 100' preserveAspectRatio='none'%3E%3Cpath d='M5.5 2C3.4 18 7.4 34 4.8 52S3.6 82 5.6 98' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 100' preserveAspectRatio='none'%3E%3Cpath d='M5.5 2C3.4 18 7.4 34 4.8 52S3.6 82 5.6 98' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
     }
 
     /* ===== A divisória: um risco ondulado à mão, no meio da linha da pauta ===== */
@@ -216,10 +229,12 @@ import { Review } from '../core/review';
       overflow-x: auto;
     }
     .tabela {
-      width: 100%;
+      /* do tamanho do que tem dentro (até a largura toda): numa ficha larga, três colunas curtas
+         não se esticam de ponta a ponta; o texto longo quebra dentro da célula */
+      width: auto;
+      min-width: min(100%, 16em);
+      max-width: 100%;
       border-collapse: collapse;
-      /* as colunas dividem a largura: a tabela cabe na ficha, e o texto quebra dentro da célula */
-      table-layout: fixed;
       font-size: 0.94em;
       line-height: var(--line, 1.5em);
     }
@@ -233,6 +248,7 @@ import { Review } from '../core/review';
       vertical-align: top;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
+      min-width: 3em;
     }
     .tabela th {
       background: color-mix(in srgb, currentColor 8%, transparent);
@@ -244,14 +260,17 @@ import { Review } from '../core/review';
     }
 
     /* o link para fora: a mesma caneta, com a setinha de quem sai daqui */
+    /* a seta de quem sai daqui: o desenho da família de ícones do site (lucide), no traço da letra */
     .url::after {
-      content: '↗';
+      content: '';
       display: inline-block;
-      margin-left: 0.12em;
-      font-size: 0.72em;
-      font-style: normal;
-      vertical-align: 0.35em;
-      line-height: 1;
+      width: 0.62em;
+      height: 0.62em;
+      margin-left: 0.14em;
+      vertical-align: 0.32em;
+      background: currentColor;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
     }
 
     .lista {

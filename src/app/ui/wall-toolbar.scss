@@ -58,6 +58,10 @@
   padding-inline: 11px;
 }
 
+.finalizadas-curto {
+  display: none;
+}
+
 .mark,
 .finalizadas {
   padding-inline: 13px 15px;
@@ -163,6 +167,11 @@
 
   .finalizadas-txt {
     display: none;
+  }
+
+  /* no celular, a palavra curta: o ícone sozinho não dizia o que era */
+  .finalizadas-curto {
+    display: inline;
   }
 
   .filtrar {
