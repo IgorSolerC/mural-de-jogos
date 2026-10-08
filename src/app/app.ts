@@ -160,7 +160,7 @@ export class App {
     });
     void this.cloudMurals.openFromLink();
     this.desk.register({
-      newReview: () => this.editor().open(),
+      newReview: () => this.newReview(),
       openReview: (id, fromId) => {
         const r = this.store.get(id);
         if (r) this.reader().open(r, null, [], false, null, (fromId && this.store.get(fromId)) || null);
@@ -201,8 +201,11 @@ export class App {
     return null;
   }
 
+  /** Nova ficha; no mural de anotações, dentro de uma aba de categoria, já com a categoria dela. */
   protected newReview(): void {
-    this.editor().open();
+    const category = this.notes() ? this.view.newNoteCategory() : null;
+    if (category) this.editor().openInCategory(category);
+    else this.editor().open();
   }
 
   protected removeDraft(id: string): void {
@@ -331,8 +334,9 @@ export class App {
     const saved = this.store.get(e.id);
     const name = saved?.game.name ?? '';
     const revisit = saved?.revisitOf ? profileOf(saved.kind).revisit.one : null;
-    // Ficha nova vai para o mural: se ela ficaria escondida pelo filtro, limpa o filtro.
-    if (e.isNew && !this.view.visible().some((r) => r.id === e.id)) this.view.clearFilters();
+    // Ficha nova vai para o mural: se ela ficaria escondida pela aba ou pelo filtro, abre a aba dela
+    // ou limpa o filtro.
+    if (e.isNew && saved && !this.view.visible().some((r) => r.id === e.id)) this.view.reveal(saved);
     if (e.isNew && this.router.url !== '/') this.goLand('/', e.id);
     else this.desk.land(e.id);
     // a vez mais antiga é sempre a original: a marcada para o lado a lado passa a ser a nova original

@@ -1,9 +1,14 @@
+<!-- só no mural de anotações: as divisórias por categoria, em cima de tudo -->
+@if (notes()) {
+  <app-note-tabs class="cadernos" />
+}
+
 <div class="shelf">
   <app-search-strip
     class="search"
     inputId="busca-mural"
-    label="Procurar no mural"
-    placeholder="Procurar no mural…"
+    [label]="searchLabel()"
+    [placeholder]="searchLabel() + '…'"
     [value]="view.query()"
     (valueChange)="view.query.set($event)"
   />

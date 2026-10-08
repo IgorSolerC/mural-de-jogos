@@ -50,6 +50,20 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-abas-anotacoes',
+    version: '1.20.0',
+    kind: 'funcionalidade',
+    date: '2026-10-08',
+    title: 'Abas por categoria nas anotações',
+    items: [
+      'O mural de anotações ganhou abas, como divisórias de pasta: Tudo, uma aba para cada categoria (de A a Z) e Sem categoria. As categorias com menos de 3 anotações ficam no "Mais".',
+      'O mural abre na última aba usada, sem precisar filtrar de novo.',
+      'Cada aba mostra só as anotações dela, com as fixadas dela no topo. A busca procura na aba aberta e avisa quando outras abas falam do mesmo assunto.',
+      'A anotação nova escrita dentro de uma aba já vem com a categoria dela.',
+      'Na aba de uma categoria, o Filtrar mostra só as tags daquela categoria.',
+    ],
+  },
+  {
     id: '2026-10-08-correcoes-link-tabela',
     version: '1.19.3',
     kind: 'correcao',

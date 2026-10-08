@@ -20,6 +20,8 @@ import { FacetKey, NO_FILTER } from '../core/wall-filter';
 import { Density, SortKey, WallView, directionLabelOf } from '../core/wall-view';
 import { Settings } from '../core/settings';
 import { FilterSheet, FilterToggle } from './filter-sheet';
+import { NoteTabsBar } from './note-tabs-bar';
+import { NO_CATEGORY_TAB } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
 
 /** Ordenar é um controle só: data, nome, status ou uma das notas. */
@@ -38,7 +40,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, LucideAngularModule, SearchStrip],
+  imports: [FilterSheet, LucideAngularModule, NoteTabsBar, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -81,6 +83,12 @@ export class WallToolbar {
 
   /** O mural de anotações: outras ordens, e nada de marcar para o lado a lado. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
+  /** "Procurar no mural", ou "Procurar em Trabalho" com uma aba aberta. */
+  protected readonly searchLabel = computed(() => {
+    const tab = this.view.activeTabLabel();
+    if (this.view.activeTab() === NO_CATEGORY_TAB) return 'Procurar nas sem categoria';
+    return tab ? `Procurar em ${tab}` : 'Procurar no mural';
+  });
   protected readonly sortOptions = computed(() => (this.notes() ? NOTE_SORT_OPTIONS : SORT_OPTIONS));
   /** A Média e as quatro notas do mural aberto. */
   protected readonly scoreOptions = computed(() =>

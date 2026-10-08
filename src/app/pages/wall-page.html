@@ -33,7 +33,7 @@
         <span class="carimbo-geral"><app-done-stamp [at]="at" [hit]="true" /></span>
       }
       <h2>Tudo finalizado</h2>
-      <p>{{ view.hiddenDone() === 1 ? 'A anotação do mural está finalizada.' : 'As ' + view.hiddenDone() + ' anotações do mural estão finalizadas.' }} Pregue uma nova ou veja as que já foram.</p>
+      <p>{{ view.hiddenDone() === 1 ? 'A anotação ' + where() + ' está finalizada.' : 'As ' + view.hiddenDone() + ' anotações ' + where() + ' estão finalizadas.' }} Pregue uma nova ou veja as que já foram.</p>
       <div class="acoes-vazio">
         <button type="button" class="btn-ink" (click)="desk.newReview()">
           <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
@@ -45,7 +45,7 @@
   } @else if (!view.visible().length) {
     <section class="no-results cartolina" aria-live="polite">
       <app-pin class="pin" color="#f4f4f0" />
-      <h2>Nada no mural com esse filtro</h2>
+      <h2>{{ view.activeTabLabel() ? 'Nada nesta aba com esse filtro' : 'Nada no mural com esse filtro' }}</h2>
       <p>
         @if (view.query().trim() && view.filterCount()) {
           Nenhuma {{ word() }} fala de “{{ view.query().trim() }}” com esses filtros.
@@ -60,7 +60,13 @@
         <p>{{ n === 1 ? 'Uma anotação finalizada fala disso.' : n + ' anotações finalizadas falam disso.' }}</p>
         <button type="button" class="btn-quiet" (click)="showDone()">Mostrar finalizadas</button>
       }
-      <button type="button" class="btn-ink" (click)="clearFilters()">Mostrar o mural inteiro</button>
+      <!-- a busca acharia anotações de outras abas -->
+      @if (view.elsewhere(); as n) {
+        <p>{{ n === 1 ? 'Uma anotação de outra aba fala disso.' : n + ' anotações de outras abas falam disso.' }}</p>
+        <button type="button" class="btn-ink" (click)="searchAll()">Procurar em todas</button>
+      } @else {
+        <button type="button" class="btn-ink" (click)="clearFilters()">{{ view.activeTabLabel() ? 'Mostrar a aba inteira' : 'Mostrar o mural inteiro' }}</button>
+      }
     </section>
   } @else {
     <h2 class="sr-only">Fichas no mural</h2>
@@ -72,6 +78,10 @@
           <button type="button" class="showing-clear" (click)="clearFilters()">
             {{ view.filterCount() + (view.query().trim() ? 1 : 0) > 1 ? 'Limpar tudo' : 'Limpar filtro' }}
           </button>
+          <!-- a busca acha mais em outras abas: um toque procura em todas -->
+          @if (view.elsewhere(); as n) {
+            <button type="button" class="showing-clear" (click)="searchAll()">+{{ n }} em outras abas</button>
+          }
         }
         <!-- as tarefas das fichas à mostra, somadas: mudam com a busca, os filtros e cada check -->
         @if (view.tasks(); as t) {

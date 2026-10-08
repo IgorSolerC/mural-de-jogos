@@ -416,6 +416,16 @@ export class ReviewEditor {
    * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce
    * sub-nota (ela faz parte da anotação de onde veio); dá para trocar no editor.
    */
+  /**
+   * Uma anotação nova escrita dentro de uma aba do mural: já vem com a categoria da aba. Fechar sem
+   * mexer em nada não pergunta se quer descartar.
+   */
+  openInCategory(category: string): void {
+    this.open(undefined, undefined, undefined, undefined, 'anotacoes');
+    this.noteCategory.set(category);
+    this.snapshot = this.serialize();
+  }
+
   openNote(title: string, from: Review | null = null): void {
     // sempre no mural de anotações, de onde quer que venha o link
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');

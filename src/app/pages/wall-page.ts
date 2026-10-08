@@ -16,6 +16,7 @@ import { isNotes } from '../core/kinds';
 import { Reactions } from '../core/reactions';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 import { DoneStamp } from '../ui/done-stamp';
+import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
 @Component({
@@ -85,6 +86,18 @@ export class WallPage {
 
   protected clearFilters(): void {
     this.motion.run(() => this.view.clearFilters());
+  }
+
+  /** "do mural", ou "de Trabalho" com uma aba aberta. */
+  protected readonly where = computed(() => {
+    const tab = this.view.activeTabLabel();
+    if (this.view.activeTab() === NO_CATEGORY_TAB) return 'sem categoria';
+    return tab ? `de ${tab}` : 'do mural';
+  });
+
+  /** A busca sai da aba e procura no mural inteiro. */
+  protected searchAll(): void {
+    this.motion.run(() => this.view.setNoteTab(ALL_TAB));
   }
 
   protected showDone(): void {

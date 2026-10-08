@@ -19,6 +19,7 @@ import {
   scoreOf,
   shownFinal,
 } from './review';
+import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
 import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 
 /**
@@ -52,6 +53,8 @@ interface ViewPrefs {
   density: Density;
   /** O mural de anotações mostra as finalizadas também. */
   showDone: boolean;
+  /** A aba aberta no mural de anotações (ver core/note-tabs.ts); vazia, "Tudo". */
+  noteTab: string;
 }
 
 const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
@@ -70,7 +73,7 @@ export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
 }
 
 function readPrefs(): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', noteSort: 'prioridade', scoreKey: 'final', direction: 'desc', noteDirection: 'desc', density: 'completa', showDone: false };
+  const fallback: ViewPrefs = { sort: 'data', noteSort: 'prioridade', scoreKey: 'final', direction: 'desc', noteDirection: 'desc', density: 'completa', showDone: false, noteTab: ALL_TAB };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
@@ -84,6 +87,7 @@ function readPrefs(): ViewPrefs {
       noteDirection: raw.noteDirection === 'asc' ? 'asc' : 'desc',
       density: raw.density === 'simples' || raw.density === 'capas' ? raw.density : 'completa',
       showDone: raw.showDone === true,
+      noteTab: typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
     };
   } catch {
     return fallback;
@@ -150,12 +154,40 @@ export class WallView {
   private shows(r: Review): boolean {
     return !isDone(r) || this.showDone() || this.stamping().has(r.id);
   }
-  /** O mural sem as finalizadas escondidas: é o "todo" do mural, para contar e para o vazio. */
-  readonly pool = computed<Review[]>(() => this.mural.wall().filter((r) => this.shows(r)));
-  /** Quantas anotações finalizadas o mural tem (à mostra ou não). */
-  readonly doneCount = computed(() => this.mural.wall().filter(isDone).length);
+  /**
+   * A aba escolhida no mural de anotações (ver core/note-tabs.ts). Fica guardada: o mural abre na
+   * última aba usada. Vazia, "Tudo".
+   */
+  readonly noteTab = signal<string>(this.prefs.noteTab);
+  /** As abas do mural de anotações (null nos de resenhas; sem nenhuma aba, nada a separar). */
+  readonly noteTabs = computed<NoteTabs | null>(() =>
+    isNotes(this.mural.kind()) ? noteTabsOf(this.mural.wall(), (r) => this.shows(r)) : null,
+  );
+  /** A aba que vale de fato: a escolhida, se ela ainda existe; senão, "Tudo". */
+  readonly activeTab = computed<string>(() => {
+    const tabs = this.noteTabs();
+    const k = this.noteTab();
+    return tabs && hasTab(tabs, k) ? k : ALL_TAB;
+  });
+  /** O nome da aba aberta (null em "Tudo"). */
+  readonly activeTabLabel = computed<string | null>(() => {
+    const tabs = this.noteTabs();
+    const k = this.activeTab();
+    if (!tabs || k === ALL_TAB) return null;
+    return [...tabs.main, ...tabs.more].find((t) => t.key === k)?.label ?? null;
+  });
+  private inTab(r: Review): boolean {
+    const k = this.activeTab();
+    return k === ALL_TAB || noteTabKey(r) === k;
+  }
+  /** O mural da aba aberta (nos de resenhas e em "Tudo", o mural inteiro), finalizadas também. */
+  readonly tabbed = computed<Review[]>(() => (this.activeTab() === ALL_TAB ? this.mural.wall() : this.mural.wall().filter((r) => this.inTab(r))));
+  /** O mural sem as finalizadas escondidas: é o "todo" do mural (da aba), para contar e para o vazio. */
+  readonly pool = computed<Review[]>(() => this.tabbed().filter((r) => this.shows(r)));
+  /** Quantas anotações finalizadas a aba tem (à mostra ou não). */
+  readonly doneCount = computed(() => this.tabbed().filter(isDone).length);
   /** As finalizadas que estão fora do mural agora. */
-  readonly hiddenDone = computed(() => this.mural.wallCount() - this.pool().length);
+  readonly hiddenDone = computed(() => this.tabbed().length - this.pool().length);
 
   /**
    * A ordem que vale de fato. Sem spoilers, ordenar por nota entregaria o ranking mesmo com as notas
@@ -182,13 +214,22 @@ export class WallView {
   readonly doneMatches = computed(() => {
     const needle = fold(this.query().trim());
     if (!needle || this.showDone()) return 0;
-    return this.mural.wall().filter((r) => isDone(r) && !this.stamping().has(r.id) && matchesQuery(r, needle)).length;
+    return this.tabbed().filter((r) => isDone(r) && !this.stamping().has(r.id) && matchesQuery(r, needle)).length;
+  });
+
+  /** Quantas anotações à mostra, nas outras abas, a busca acharia (para oferecer procurar em todas). */
+  readonly elsewhere = computed(() => {
+    const needle = fold(this.query().trim());
+    if (!needle || this.activeTab() === ALL_TAB) return 0;
+    return this.mural.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle)).length;
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
   readonly facets = computed(() => {
     const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile());
-    return this.settings.noSpoilers() ? all.filter((f) => !SPOILER_FACETS.includes(f.key)) : all;
+    // numa aba de categoria, o grupo Categoria só teria ela mesma
+    const inTab = this.activeTab() === ALL_TAB ? all : all.filter((f) => f.key !== 'category');
+    return this.settings.noSpoilers() ? inTab.filter((f) => !SPOILER_FACETS.includes(f.key)) : inTab;
   });
   /** Os filtros ligados, como etiquetas. */
   readonly tags = computed(() => tagsOf(this.activeFilter(), this.mural.profile()));
@@ -236,6 +277,7 @@ export class WallView {
         noteDirection: this.noteDirection(),
         density: this.density(),
         showDone: this.showDone(),
+        noteTab: this.noteTab(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(prefs));
@@ -258,6 +300,30 @@ export class WallView {
       next.delete(id);
       return next;
     });
+  }
+
+  /**
+   * Abre uma aba do mural de anotações. Os filtros da cartela eram da aba de antes (as tags dela) e
+   * saem; a busca fica, e passa a procurar na aba nova.
+   */
+  setNoteTab(key: string): void {
+    if (this.noteTab() === key && this.activeTab() === key) return;
+    this.noteTab.set(key);
+    this.filter.set(NO_FILTER);
+  }
+
+  /**
+   * Uma ficha nova que ficaria escondida: no mural de anotações, abre a aba dela (se a aba de agora
+   * a esconde); se ainda assim ficaria fora, limpa a busca e os filtros.
+   */
+  reveal(r: Review): void {
+    if (isNotes(this.mural.kind()) && !this.inTab(r)) this.setNoteTab(noteTabKey(r));
+    if (!this.visible().some((x) => x.id === r.id)) this.clearFilters();
+  }
+
+  /** A categoria de uma anotação nova escrita agora: a da aba aberta (null em "Tudo" e em "Sem categoria"). */
+  newNoteCategory(): string | null {
+    return this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
   setSort(sort: SortKey): void {
@@ -293,7 +359,8 @@ export class WallView {
       scoreKey = this.scoreKey(),
       direction = this.reviewDirection(),
       noteDirection = this.noteDirection(),
-      density = this.density();
+      density = this.density(),
+      noteTab = this.noteTab();
     return () => {
       this.query.set(query);
       this.filter.set(filter);
@@ -303,6 +370,7 @@ export class WallView {
       this.reviewDirection.set(direction);
       this.noteDirection.set(noteDirection);
       this.density.set(density);
+      this.noteTab.set(noteTab);
     };
   }
 }
