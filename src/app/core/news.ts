@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-fixadas-na-ordem',
+    version: '1.20.14',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'As fixadas seguem a ordem',
+    items: [
+      'Nas anotações, ordenando por Data, Título, Categoria ou Tag, as fixadas seguem a ordem, no meio das outras. Só a Prioridade as deixa sempre no topo.',
+      'Quem preferir as fixadas no topo em qualquer ordem liga o alfinete ao lado da ordem, na pasta (ele aparece quando a aba tem alguma fixada, fora da Prioridade).',
+    ],
+  },
+  {
     id: '2026-10-08-correcao-aba-marrom',
     version: '1.20.13',
     kind: 'correcao',

@@ -57,6 +57,19 @@
           >
             <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
           </button>
+          <!-- fora da Prioridade, as fixadas vão para o meio das outras, a não ser que a pessoa as queira no topo -->
+          @if (showPinnedFirst()) {
+            <button
+              type="button"
+              class="tinta so-icone"
+              [attr.aria-pressed]="view.pinnedFirst()"
+              aria-label="Fixadas no topo"
+              [title]="view.pinnedFirst() ? 'As fixadas ficam no topo, numa seção só delas' : 'As fixadas seguem a ordem, no meio das outras'"
+              (click)="togglePinnedFirst()"
+            >
+              <lucide-icon [img]="PinIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+          }
         </div>
 
         <div class="pasta-grupo" role="group" aria-label="Tipo de ficha">

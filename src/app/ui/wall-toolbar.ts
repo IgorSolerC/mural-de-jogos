@@ -10,12 +10,13 @@ import {
   ListChecks,
   ListFilter,
   LucideAngularModule,
+  Pin,
   Rows3,
   SquareCheckBig,
 } from 'lucide-angular';
 import { Mural } from '../core/mural';
 import { countOf, g, isNotes, revisitCountOf } from '../core/kinds';
-import { SCORE_LABEL, ScoreKey, scoreKeys } from '../core/review';
+import { SCORE_LABEL, ScoreKey, isPinnedNote, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { FacetKey, NO_FILTER } from '../core/wall-filter';
@@ -73,6 +74,7 @@ export class WallToolbar {
   protected readonly MarkIcon = SquareCheckBig;
   protected readonly FilterIcon = ListFilter;
   protected readonly DoneIcon = CheckCheck;
+  protected readonly PinIcon = Pin;
 
   private readonly injector = inject(Injector);
   /** A aba Filtrar (só nos murais de resenhas: as anotações não têm cartela). */
@@ -121,6 +123,18 @@ export class WallToolbar {
     const opt = [...this.sortOptions(), ...this.scoreOptions()].find((o) => o.value === v);
     return opt?.label ?? 'Data';
   });
+
+  /**
+   * O alfinete ao lado da ordem: fora da Prioridade, as fixadas ficam no topo ou no meio das outras.
+   * Só aparece quando a aba tem alguma fixada (na Prioridade, elas estão sempre no topo).
+   */
+  protected readonly showPinnedFirst = computed(
+    () => this.notes() && this.view.shownSort() !== 'prioridade' && this.view.pool().some(isPinnedNote),
+  );
+
+  protected togglePinnedFirst(): void {
+    this.motion.run(() => this.view.pinnedFirst.update((v) => !v));
+  }
 
   protected directionLabel(): string {
     return directionLabelOf(this.view.shownSort(), this.view.direction(), this.mural.profile());

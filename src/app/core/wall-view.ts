@@ -72,6 +72,11 @@ interface ViewPrefs {
   noteViews: Record<string, NoteView>;
   /** O mural de anotações mostra as finalizadas também. */
   showDone: boolean;
+  /**
+   * No mural de anotações, as fixadas ficam no topo também nas outras ordens (Data, Título, Categoria,
+   * Tag). Sem isso, só a Prioridade separa as fixadas; as outras ordens as tratam como as outras.
+   */
+  pinnedFirst: boolean;
   /** A aba aberta no mural de anotações (ver core/note-tabs.ts); vazia, "Tudo". */
   noteTab: string;
   /** As seções fechadas: "aba::seção" nas anotações, "k:mural::seção" nos outros (ver `WallView.collapsed`). */
@@ -108,7 +113,7 @@ function readNoteView(raw: unknown, base: NoteView): NoteView | null {
 }
 
 function readPrefs(): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, noteTab: ALL_TAB, collapsed: [] };
+  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, pinnedFirst: false, noteTab: ALL_TAB, collapsed: [] };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
@@ -137,6 +142,7 @@ function readPrefs(): ViewPrefs {
       density,
       noteViews,
       showDone: raw.showDone === true,
+      pinnedFirst: raw.pinnedFirst === true,
       noteTab: typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
       collapsed: Array.isArray(raw.collapsed) ? raw.collapsed.filter((k: unknown) => typeof k === 'string').slice(-MAX_COLLAPSED) : [],
     };
@@ -192,6 +198,8 @@ export class WallView {
   readonly reviewDensity = signal<Density>(this.prefs.density);
   /** "Mostrar finalizadas": as anotações com check continuam no mural. Fica guardado, como a ordem. */
   readonly showDone = signal(this.prefs.showDone);
+  /** As fixadas no topo também fora da Prioridade (ver `ViewPrefs.pinnedFirst`). Fica guardado. */
+  readonly pinnedFirst = signal(this.prefs.pinnedFirst);
   /**
    * As anotações que acabaram de ganhar o check: ficam no mural o tempo do carimbo e depois saem
    * (ver ReviewCard). Com "Mostrar finalizadas", ficam de vez.
@@ -353,6 +361,7 @@ export class WallView {
     key: this.activeScore(),
     direction: this.direction(),
     profile: this.mural.profile(),
+    pinnedFirst: this.pinnedFirst(),
   }));
 
   readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.settings.noSpoilers()));
@@ -366,6 +375,7 @@ export class WallView {
         density: this.reviewDensity(),
         noteViews: this.noteViews(),
         showDone: this.showDone(),
+        pinnedFirst: this.pinnedFirst(),
         noteTab: this.noteTab(),
         collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED),
       };
@@ -514,6 +524,13 @@ export interface WallOrder {
   key: ScoreKey;
   direction: Direction;
   profile: KindProfile;
+  /** Nas anotações, as fixadas no topo também fora da Prioridade (na Prioridade, sempre). */
+  pinnedFirst?: boolean;
+}
+
+/** As fixadas vêm na frente, numa seção só delas? Na Prioridade sempre; nas outras ordens, só se a pessoa quis. */
+function pinsFirst(o: WallOrder): boolean {
+  return isNotes(o.profile.kind) && (o.sort === 'prioridade' || !!o.pinnedFirst);
 }
 
 /** As fichas na ordem pedida. */
@@ -527,8 +544,8 @@ export function sortWall(list: readonly Review[], o: WallOrder): Review[] {
  */
 export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage = false): WallGroup[] {
   const sectionOf = groupKeyOf(o);
-  // no mural de anotações, as fixadas são sempre a primeira seção, em qualquer ordem
-  const keyOf: (r: Review) => [string, string] = isNotes(o.profile.kind)
+  // no mural de anotações, as fixadas são a primeira seção (fora da Prioridade, só se a pessoa quis)
+  const keyOf: (r: Review) => [string, string] = pinsFirst(o)
     ? (r) => (isPinnedNote(r) ? PINNED_GROUP : sectionOf(r))
     : sectionOf;
   const groups: WallGroup[] = [];
@@ -618,8 +635,8 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
 
 function comparatorOf(o: WallOrder): (a: Review, b: Review) => number {
   const inner = orderOf(o);
-  if (!isNotes(o.profile.kind)) return inner;
-  // as fixadas vêm sempre primeiro; na Prioridade, as sub-notas vêm por último
+  if (!pinsFirst(o)) return inner;
+  // as fixadas vêm primeiro; na Prioridade, as sub-notas vêm por último
   const rank = o.sort === 'prioridade' ? rankOrder : (r: Review) => (isPinnedNote(r) ? 0 : 1);
   return (a, b) => rank(a) - rank(b) || inner(a, b);
 }

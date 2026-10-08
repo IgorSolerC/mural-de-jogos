@@ -46,8 +46,21 @@ describe('o lugar da anotação no mural', () => {
     ]);
   });
 
-  it('em qualquer outra ordem, as fixadas continuam numa seção no topo', () => {
+  it('nas outras ordens, as fixadas seguem a ordem, no meio das outras', () => {
     const order = { sort: 'alfabetica' as const, key: 'final' as const, direction: 'asc' as const, profile };
+    const groups = groupWall(sortWall(list, order), order);
+    expect(groups.map((g) => g.label)).toEqual(['A', 'C', 'D', 'I', 'V']);
+    expect(names(sortWall(list, { ...order, sort: 'data', direction: 'desc' }))).toEqual([
+      'Viagem',
+      'Detalhes do console',
+      'Ideias',
+      'A fazeres',
+      'Compras',
+    ]);
+  });
+
+  it('com "Fixadas no topo", as fixadas ficam numa seção no topo em qualquer ordem', () => {
+    const order = { sort: 'alfabetica' as const, key: 'final' as const, direction: 'asc' as const, profile, pinnedFirst: true };
     const groups = groupWall(sortWall(list, order), order);
     expect(groups[0].label).toBe('Fixadas');
     expect(names(groups[0].reviews)).toEqual(['A fazeres', 'Compras']);
