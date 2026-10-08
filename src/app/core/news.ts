@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-secoes-fecham',
+    version: '1.20.2',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Seções das anotações que fecham',
+    items: [
+      'No mural de anotações, um toque na etiqueta de uma seção (Fixadas, um mês, uma categoria, uma tag) fecha a seção: ela vira uma linha só, com os títulos das anotações. Outro toque abre.',
+      'A seção fechada continua fechada na próxima visita, e cada aba fecha as suas.',
+    ],
+  },
+  {
     id: '2026-10-08-vista-por-aba',
     version: '1.20.1',
     kind: 'melhoria',

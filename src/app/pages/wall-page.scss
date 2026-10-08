@@ -143,6 +143,61 @@
   rotate: -0.6deg;
 }
 
+/* ===== A seção que fecha (anotações): a etiqueta de fita é o botão ===== */
+.tape-label.dobravel {
+  padding: 0;
+}
+
+.dobra {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 7px 14px 5px 18px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+
+  /* a fita corta o contorno de foco (clip-path): o foco pinta a fita de amarelo */
+  &:focus-visible {
+    outline: none;
+    background: var(--hi);
+  }
+}
+
+.dobra-seta {
+  display: inline-flex;
+  opacity: 0.55;
+  transition: rotate var(--t-ui) var(--ease-ui);
+
+  .dobra:hover & {
+    opacity: 1;
+  }
+  .fechada & {
+    rotate: -90deg;
+  }
+}
+
+/* fechada, a seção é uma linha só, de ponta a ponta, com a espiada nos títulos embaixo */
+.grupo.fechada {
+  flex-basis: 100%;
+  gap: 8px;
+}
+
+.espiada {
+  margin: 0;
+  padding-left: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  color: var(--wall-ink-2);
+}
+
 .grupo-sum {
   font-family: var(--f-label);
   font-weight: 800;

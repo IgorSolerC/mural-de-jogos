@@ -196,6 +196,21 @@ describe('WallView com abas', () => {
     expect(view.groups().map((g) => g.label)).toEqual(['#DDD', '#Rust', '#SQL', 'Sem tag']);
   });
 
+  it('a seção fechada é da aba, fica guardada e não vale nos murais de resenhas', () => {
+    view.toggleCollapsed('fixadas');
+    expect(view.isCollapsed('fixadas')).toBeTrue();
+    view.setNoteTab(key('Trabalho'));
+    expect(view.isCollapsed('fixadas')).toBeFalse();
+    view.setNoteTab(ALL_TAB);
+    TestBed.tick();
+    expect(JSON.parse(localStorage.getItem('mural-de-jogos:vista:v1')!).collapsed).toEqual(['::fixadas']);
+    TestBed.inject(Mural).kind.set('jogos');
+    expect(view.isCollapsed('fixadas')).toBeFalse();
+    TestBed.inject(Mural).kind.set('anotacoes');
+    view.toggleCollapsed('fixadas');
+    expect(view.isCollapsed('fixadas')).toBeFalse();
+  });
+
   it('a anotação nova de outra categoria abre a aba dela', () => {
     view.setNoteTab(key('Trabalho'));
     const nova = note('Bolo', 'Receitas');

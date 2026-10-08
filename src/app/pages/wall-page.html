@@ -102,13 +102,29 @@
       </div>
     }
     <div class="wall" [class.compact]="view.density() === 'simples'" [class.capas]="view.density() === 'capas'" [class.sem-etiquetas]="!settings.groupLabels()">
-      @for (g of view.groups(); track g.key) {
-        <section class="grupo" [attr.aria-labelledby]="'grupo-' + g.key">
+      @for (g of view.groups(); track g.key; let i = $index) {
+        <!-- nas anotações, a etiqueta da seção fecha e abre a seção (fechada, uma linha só, com uma
+             espiada nos títulos); sem etiquetas, nada fecha -->
+        @let shut = foldable() && view.isCollapsed(g.key);
+        <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + i">
           <header class="grupo-head">
-            <h3 class="tape-label" [id]="'grupo-' + g.key" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">{{ g.label }}</h3>
+            <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + i" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">
+              @if (foldable()) {
+                <button type="button" class="dobra" [attr.aria-expanded]="!shut" [attr.aria-controls]="shut ? null : 'fichas-' + i" (click)="toggleGroup(g.key)">
+                  {{ g.label }}
+                  <lucide-icon class="dobra-seta" [img]="ChevronIcon" [size]="18" [strokeWidth]="3" aria-hidden="true" />
+                </button>
+              } @else {
+                {{ g.label }}
+              }
+            </h3>
             <p class="grupo-sum">{{ g.summary }}</p>
           </header>
-          <div class="fichas" [appFichas]="g.reviews"></div>
+          @if (shut) {
+            <p class="espiada">{{ peek(g) }}</p>
+          } @else {
+            <div class="fichas" [id]="'fichas-' + i" [appFichas]="g.reviews"></div>
+          }
         </section>
       }
     </div>

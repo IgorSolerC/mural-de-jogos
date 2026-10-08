@@ -69,7 +69,12 @@ interface ViewPrefs {
   showDone: boolean;
   /** A aba aberta no mural de anotações (ver core/note-tabs.ts); vazia, "Tudo". */
   noteTab: string;
+  /** As seções fechadas do mural de anotações: "aba::seção" (ver `WallView.collapsed`). */
+  collapsed: string[];
 }
+
+/** Quantas seções fechadas ficam guardadas (as mais antigas saem primeiro). */
+const MAX_COLLAPSED = 300;
 
 const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
   data: 'desc',
@@ -98,7 +103,7 @@ function readNoteView(raw: unknown, base: NoteView): NoteView | null {
 }
 
 function readPrefs(): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, noteTab: ALL_TAB };
+  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, noteTab: ALL_TAB, collapsed: [] };
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (!raw) return fallback;
@@ -128,6 +133,7 @@ function readPrefs(): ViewPrefs {
       noteViews,
       showDone: raw.showDone === true,
       noteTab: typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
+      collapsed: Array.isArray(raw.collapsed) ? raw.collapsed.filter((k: unknown) => typeof k === 'string').slice(-MAX_COLLAPSED) : [],
     };
   } catch {
     return fallback;
@@ -229,6 +235,28 @@ export class WallView {
     const k = this.activeTab();
     return k === ALL_TAB || noteTabKey(r) === k;
   }
+  /**
+   * As seções fechadas do mural de anotações, cada uma como "aba::seção" (a chave da seção, ver
+   * `groupWall`): cada aba fecha as suas, e a Fixadas fechada continua fechada em qualquer ordem.
+   * Fica guardado, como a aba.
+   */
+  readonly collapsed = signal<ReadonlySet<string>>(new Set(this.prefs.collapsed));
+
+  /** A seção está fechada? Só no mural de anotações. */
+  isCollapsed(groupKey: string): boolean {
+    return isNotes(this.mural.kind()) && this.collapsed().has(`${this.activeTab()}::${groupKey}`);
+  }
+
+  /** Fecha ou abre uma seção do mural de anotações, na aba aberta. */
+  toggleCollapsed(groupKey: string): void {
+    const k = `${this.activeTab()}::${groupKey}`;
+    this.collapsed.update((set) => {
+      const next = new Set(set);
+      if (!next.delete(k)) next.add(k);
+      return next;
+    });
+  }
+
   /** O mural da aba aberta (nos de resenhas e em "Tudo", o mural inteiro), finalizadas também. */
   readonly tabbed = computed<Review[]>(() => (this.activeTab() === ALL_TAB ? this.mural.wall() : this.mural.wall().filter((r) => this.inTab(r))));
   /** O mural sem as finalizadas escondidas: é o "todo" do mural (da aba), para contar e para o vazio. */
@@ -328,6 +356,7 @@ export class WallView {
         noteViews: this.noteViews(),
         showDone: this.showDone(),
         noteTab: this.noteTab(),
+        collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(prefs));

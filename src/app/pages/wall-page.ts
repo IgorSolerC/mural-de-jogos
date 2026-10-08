@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ListChecks, LucideAngularModule, Plus } from 'lucide-angular';
+import { ChevronDown, ListChecks, LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { FilterTag } from '../core/wall-filter';
-import { WallView } from '../core/wall-view';
+import { WallGroup, WallView } from '../core/wall-view';
 import { FilterTags } from '../ui/filter-sheet';
 import { Pin } from '../ui/pin';
 import { PickTray } from '../ui/pick-tray';
@@ -39,6 +39,9 @@ export class WallPage {
 
   protected readonly PlusIcon = Plus;
   protected readonly TasksIcon = ListChecks;
+  protected readonly ChevronIcon = ChevronDown;
+  /** As seções fecham só no mural de anotações, e só com as etiquetas à mostra (sem elas, não haveria como abrir). */
+  protected readonly foldable = computed(() => this.notes() && this.settings.groupLabels());
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];
@@ -94,6 +97,17 @@ export class WallPage {
     if (this.view.activeTab() === NO_CATEGORY_TAB) return 'sem categoria';
     return tab ? `de ${tab}` : 'do mural';
   });
+
+  /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. */
+  protected toggleGroup(key: string): void {
+    this.motion.run(() => this.view.toggleCollapsed(key));
+  }
+
+  /** A espiada da seção fechada: os títulos das primeiras anotações. */
+  protected peek(g: WallGroup): string {
+    const names = g.reviews.slice(0, 12).map((r) => r.game.name);
+    return names.join(' · ') + (g.reviews.length > names.length ? ' …' : '');
+  }
 
   /** A busca sai da aba e procura no mural inteiro. */
   protected searchAll(): void {
