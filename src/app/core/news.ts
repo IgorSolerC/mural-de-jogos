@@ -50,6 +50,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-finalizar-e-fixar',
+    version: '1.18.6',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Finalizar e fixar, à vista na hora certa',
+    items: [
+      'A caixinha apagada do canto da anotação virou a etiqueta "Finalizar", com o check verde do carimbo; ao lado, o alfinete de fixar. As duas ficam presas na beirada de cima da ficha, sem cobrir o título.',
+      'Elas aparecem quando o mouse passa pela anotação (ou o teclado chega nelas); a fixada mantém o alfinete vermelho sempre à vista. No celular, ficam sempre, só com o desenho, do tamanho do dedo.',
+      'Na anotação finalizada, a etiqueta vira "Reabrir".',
+    ],
+  },
+  {
     id: '2026-10-08-versoes-recontadas',
     version: '1.18.5',
     kind: 'melhoria',

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
-import { CheckCheck, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, UsersRound } from 'lucide-angular';
+import { Check, CheckCheck, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -116,7 +116,6 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.nota-larga]': 'note() && review().noteSize === "larga"',
     '[class.nota-alta]': 'note() && review().noteSize === "alta"',
     // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
-    '[class.com-check]': 'canFinish()',
     '[class.fixada]': 'note() && review().noteRank === "fixada"',
     '[class.carimbando]': 'stamping()',
     '[class.feita]': '!capas() && !!doneAt()',
@@ -277,31 +276,33 @@ function watchDistance(el: HTMLElement): () => void {
     } @else {
       <button type="button" class="hit" [attr.aria-label]="bare() ? 'A cartolina da ficha secreta' : spoken()" (click)="opened.emit(review().id)"></button>
     }
-    <!-- o alfinete que fixa a anotação no topo do mural, ao lado do check -->
+    <!-- o alfinete e o check da anotação: duas etiquetas de tinta presas na beirada de cima, que
+         aparecem com o mouse em cima da ficha (ou o foco do teclado); no toque, ficam sempre -->
     @if (canFinish()) {
-      <button
-        type="button"
-        class="fixar"
-        [class.marcado]="review().noteRank === 'fixada'"
-        [attr.aria-pressed]="review().noteRank === 'fixada'"
-        [attr.aria-label]="'Fixar no topo: ' + review().game.name"
-        [title]="review().noteRank === 'fixada' ? 'Desafixar' : 'Fixar no topo do mural'"
-        (click)="togglePin($event)"
-      >
-        <lucide-icon [img]="PinIcon" [size]="capas() ? 15 : 18" [strokeWidth]="2.4" aria-hidden="true" />
-      </button>
-    }
-    <!-- o check da anotação inteira: no seu mural, a caixinha no canto de cima -->
-    @if (canFinish()) {
-      <button
-        type="button"
-        class="feito"
-        [class.marcado]="!!review().doneAt"
-        [attr.aria-pressed]="!!review().doneAt"
-        [attr.aria-label]="'Finalizar: ' + review().game.name"
-        [title]="review().doneAt ? 'Abrir de novo' : 'Finalizar a anotação'"
-        (click)="finish()"
-      ></button>
+      <div class="acoes">
+        <button
+          type="button"
+          class="feito"
+          [class.marcado]="!!review().doneAt"
+          [attr.aria-label]="(review().doneAt ? 'Reabrir: ' : 'Finalizar: ') + review().game.name"
+          [title]="review().doneAt ? 'Abrir a anotação de novo' : 'Finalizar a anotação (bate o carimbo)'"
+          (click)="finish()"
+        >
+          <lucide-icon [img]="review().doneAt ? ReopenIcon : FinishIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+          <span class="acao-nome" aria-hidden="true">{{ review().doneAt ? 'Reabrir' : 'Finalizar' }}</span>
+        </button>
+        <button
+          type="button"
+          class="fixar"
+          [class.marcado]="review().noteRank === 'fixada'"
+          [attr.aria-pressed]="review().noteRank === 'fixada'"
+          [attr.aria-label]="'Fixar no topo: ' + review().game.name"
+          [title]="review().noteRank === 'fixada' ? 'Desafixar' : 'Fixar no topo do mural'"
+          (click)="togglePin($event)"
+        >
+          <lucide-icon [img]="PinIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+        </button>
+      </div>
     }
     @if (note() && !compact() && !capas()) {
       @if (review().text.trim()) {
@@ -820,146 +821,155 @@ function watchDistance(el: HTMLElement): () => void {
       max-width: none;
     }
 
-    /* ===== O check da anotação inteira: a caixinha de tarefa, maior, no canto da ficha ===== */
-    .feito {
+    /* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====
+       Ficam metade para fora da ficha (como o balão das reações embaixo), então não cobrem o título.
+       Aparecem com o mouse em cima da ficha ou com o foco do teclado nelas; a fixada mantém o
+       alfinete vermelho à vista, que é o estado dela. No toque, sem mouse, ficam sempre. */
+    .acoes {
+      --etiqueta: #151515;
+      --etiqueta-tinta: #f1f1ec;
+      --etiqueta-verde: #8fe3ad;
+      --etiqueta-vermelho: #ff8f80;
       position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 5;
-      width: 26px;
-      height: 26px;
+      top: -15px;
+      right: 12px;
+      z-index: 6;
+      display: flex;
+      gap: 4px;
+      rotate: -1.5deg;
+    }
+    /* na cartolina escura a etiqueta de tinta sumiria: vira de papel, com a letra de tinta */
+    :host([data-cor$='escuro']) .acoes,
+    :host([data-cor='preto']) .acoes {
+      --etiqueta: #fbf9f2;
+      --etiqueta-tinta: #151515;
+      --etiqueta-verde: #1f7a45;
+      --etiqueta-vermelho: #c4302b;
+    }
+    .fixar,
+    .feito {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      height: 30px;
       padding: 0;
-      border: 2.5px solid currentColor;
-      border-radius: 3px 4px 3px 5px;
-      rotate: 4deg;
-      background: transparent no-repeat center / 118% 118%;
-      opacity: 0.55;
+      border: 0;
+      border-radius: 3px;
+      background: var(--etiqueta);
+      color: var(--etiqueta-tinta);
+      box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.4),
+        0 4px 8px -3px rgb(0 0 0 / 0.4);
       cursor: pointer;
+      opacity: 0;
+      translate: 0 5px;
+      pointer-events: none;
       transition:
         opacity var(--t-ui) var(--ease-ui),
+        translate var(--t-ui) var(--ease-ui),
         scale var(--t-ui) var(--ease-ui);
-      --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      --lapis: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23151515' stroke-opacity='.3' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
-    /* na cartolina escura: o check na caneta clara, como o carimbo e o alfinete */
-    :host([data-cor$='escuro']) .feito,
-    :host([data-cor='preto']) .feito {
-      --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23ff8f80' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      --lapis: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23f1f1ec' stroke-opacity='.4' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    .fixar {
+      width: 30px;
     }
-    /* o toque pega uma área maior que a caixinha (do lado do alfinete, só até o meio do vão) */
+    .feito {
+      padding: 0 10px 0 8px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    /* o check na tinta verde do carimbo que ele bate */
+    .feito lucide-icon {
+      display: inline-flex;
+      color: var(--etiqueta-verde);
+    }
+    .feito.marcado lucide-icon {
+      color: inherit;
+    }
+    /* a área de toque passa da etiqueta, mas só até o meio do vão entre as duas (o alfinete fica no
+       canto, então a fixada, sem o mouse, mostra só ele, no lugar de sempre) */
+    .fixar::before,
     .feito::before {
       content: '';
       position: absolute;
-      inset: -9px -9px -9px -3px;
+      inset: -7px -2px -7px -2px;
     }
-    :host(:hover) .feito,
-    .feito:focus-visible {
-      opacity: 1;
-    }
-    /* o foco na cor da tinta da cartolina: o amarelo sumia na cartolina amarela */
-    .feito:focus-visible,
-    .fixar:focus-visible {
-      outline: 3px solid currentColor;
-      outline-offset: 3px;
-    }
-    @media (hover: hover) {
-      .feito:hover {
-        scale: 1.08;
-      }
-      /* o mouse em cima de uma vazia: o check a lápis, de leve, onde ele vai */
-      .feito:not(.marcado):hover {
-        background-image: var(--lapis);
-      }
-    }
-    /* sem mouse, os botões não esperam o mouse passar para aparecer */
-    @media (hover: none) {
-      .feito,
-      .fixar {
-        opacity: 0.8;
-      }
-    }
-    /* o check de caneta vermelha das tarefas */
-    .feito.marcado {
-      opacity: 1;
-      background-image: var(--check);
-    }
-    :host(.carimbando) .feito.marcado {
-      animation: risca 260ms ease-out both;
-    }
-    @keyframes risca {
-      from {
-        scale: 0.7;
-      }
-    }
-    /* o título não passa por baixo do alfinete e da caixinha (só a primeira linha encosta neles) */
-    :host(.com-check) .words > :first-child {
-      margin-right: 52px;
-    }
-    :host(.com-check.compact) .words > :first-child {
-      margin-right: 58px;
-    }
-    :host(.com-check.sem-capa) .words > :first-child {
-      margin-right: 60px;
-    }
-
-    /* ===== O alfinete de fixar no topo: de leve, como o check; fixada, cravado e vermelho ===== */
-    .fixar {
-      position: absolute;
-      top: 9px;
-      right: 44px;
-      z-index: 5;
-      display: grid;
-      place-items: center;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border: 0;
-      border-radius: 50%;
-      background: transparent;
-      color: currentColor;
-      opacity: 0.55;
-      rotate: 18deg;
-      cursor: pointer;
-      transition:
-        opacity var(--t-ui) var(--ease-ui),
-        rotate var(--t-physical) var(--ease-physical),
-        scale var(--t-ui) var(--ease-ui);
-    }
-    /* a área de toque, sem passar do meio do vão até a caixinha */
-    .fixar::before {
-      content: '';
-      position: absolute;
-      inset: -6px -2px -6px -6px;
-    }
-    :host(:hover) .fixar,
-    .fixar:focus-visible {
-      opacity: 1;
-    }
-    @media (hover: hover) {
-      .fixar:hover {
-        scale: 1.1;
-      }
-    }
+    :host(:hover) :is(.fixar, .feito),
+    .acoes:focus-within :is(.fixar, .feito),
     .fixar.marcado {
       opacity: 1;
-      rotate: 38deg;
-      color: #c4302b;
-      filter: drop-shadow(1px 2px 1px rgb(0 0 0 / 0.35));
+      translate: 0 0;
+      pointer-events: auto;
+    }
+    /* o foco na cor da etiqueta, com folga: aparece em qualquer cartolina e na parede */
+    .fixar:focus-visible,
+    .feito:focus-visible {
+      outline: 2.5px solid var(--etiqueta);
+      outline-offset: 2px;
+    }
+    @media (hover: hover) {
+      .fixar:hover,
+      .feito:hover {
+        scale: 1.06;
+      }
+      .fixar:not(.marcado):hover {
+        color: var(--etiqueta-vermelho);
+      }
+    }
+    /* fixada: o alfinete cravado, vermelho e cheio */
+    .fixar.marcado {
+      color: var(--etiqueta-vermelho);
       animation: crava 320ms var(--ease-physical);
+    }
+    .fixar lucide-icon {
+      display: inline-flex;
+      rotate: 18deg;
+      transition: rotate var(--t-physical) var(--ease-physical);
+    }
+    .fixar.marcado lucide-icon {
+      rotate: 38deg;
     }
     .fixar.marcado ::ng-deep svg {
       fill: currentColor;
       fill-opacity: 0.85;
     }
-    :host([data-cor$='escuro']) .fixar.marcado,
-    :host([data-cor='preto']) .fixar.marcado {
-      color: #ff8f80;
-    }
     @keyframes crava {
       from {
-        scale: 1.5;
-        translate: 4px -6px;
+        scale: 1.3;
+        translate: 3px -5px;
+      }
+    }
+    /* o carimbo batendo: as etiquetas saem da frente, a vez é dele */
+    :host(.carimbando) :is(.fixar, .feito) {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* sem mouse, as etiquetas não esperam o mouse passar: ficam, só com o desenho (o nome vai para o
+       leitor de tela e para a dica), um pouco maiores para o dedo */
+    @media (hover: none) {
+      .fixar,
+      .feito {
+        opacity: 1;
+        translate: 0 0;
+        pointer-events: auto;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+      }
+      .acoes {
+        top: -17px;
+        gap: 6px;
+      }
+      .acao-nome {
+        display: none;
+      }
+      .fixar::before,
+      .feito::before {
+        inset: -5px -3px;
       }
     }
     .sub-marca {
@@ -1018,22 +1028,16 @@ function watchDistance(el: HTMLElement): () => void {
     .carimbo.clara {
       mix-blend-mode: normal;
     }
-    /* a finalizada curta (só o título) cresce o bastante para o carimbo caber embaixo dos botões */
+    /* a finalizada curta (só o título) cresce o bastante para o carimbo caber embaixo do título */
     :host(.feita:not(.compact)) {
       min-height: 150px;
     }
-    /* na ficha simples (uma tira baixa), ao lado dos botões, no pé da tira; o título não passa por baixo */
+    /* na ficha simples (uma tira baixa), no canto do pé da tira; o título não passa por baixo */
     :host(.compact) .carimbo {
-      right: 84px;
+      right: 12px;
       bottom: 6px;
     }
-    :host(.compact:not(.com-check)) .carimbo {
-      right: 12px;
-    }
-    :host(.compact.feita.com-check) .words > :first-child {
-      margin-right: 148px;
-    }
-    :host(.compact.feita:not(.com-check)) .words > :first-child {
+    :host(.compact.feita) .words > :first-child {
       margin-right: 72px;
     }
     /* o carimbo bateu: a ficha sente o tranco na tachinha (na ficha, não no corpo: um corpo com
@@ -1048,7 +1052,7 @@ function watchDistance(el: HTMLElement): () => void {
     }
     @media (prefers-reduced-motion: reduce) {
       :host(.carimbando),
-      :host(.carimbando) .feito.marcado {
+      .fixar.marcado {
         animation: none;
       }
     }
@@ -1349,6 +1353,8 @@ export class ReviewCard {
 
   private readonly notePin = inject(NotePin);
   protected readonly PinIcon = PinGlyph;
+  protected readonly FinishIcon = Check;
+  protected readonly ReopenIcon = Undo2;
   protected togglePin(e: Event): void {
     if (!this.canFinish()) return;
     const btn = e.currentTarget as HTMLElement;
