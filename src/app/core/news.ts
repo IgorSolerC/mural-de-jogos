@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-correcao-aba-marrom',
+    version: '1.20.13',
+    kind: 'correcao',
+    date: '2026-10-08',
+    title: 'Correção de bug',
+    items: [
+      'Ao escolher uma categoria nas anotações, a aba aparecia marrom por cima da borda da pasta por um instante antes de clarear.',
+    ],
+  },
+  {
     id: '2026-10-08-sol-inteiro',
     version: '1.20.12',
     kind: 'melhoria',

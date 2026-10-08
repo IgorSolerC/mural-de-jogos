@@ -149,6 +149,9 @@ const GAP = 3;
         background-color: var(--manilha);
         box-shadow: none;
         translate: 0 0;
+        /* a cor muda na hora: ela já vem para a frente da borda da pasta, e o marrom de trás
+           escorrendo para o claro aparecia por cima da borda por alguns quadros */
+        transition: translate var(--t-ui) var(--ease-ui);
       }
     }
 
