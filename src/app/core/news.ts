@@ -50,8 +50,19 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-versoes-recontadas',
+    version: '1.18.5',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'As versões recontadas',
+    items: [
+      'Algumas atualizações antigas eram melhorias do que já existia, não coisa nova: os links à caneta e o carimbo novo, o mural de anotações repaginado, os links com o seu texto e a régua arrumada, os bônus novos para livros, filmes, séries e animes, e Amigos de cara nova. Agora estão em Melhorias.',
+      'Como só as funcionalidades sobem o número do meio, a conta das versões foi refeita: a de agora é a 1.18.5 (era a 1.23.1). Nada mudou no site além do número.',
+    ],
+  },
+  {
     id: '2026-10-08-novidades-em-tres',
-    version: '1.23.1',
+    version: '1.18.4',
     kind: 'melhoria',
     date: '2026-10-08',
     title: 'Novidades separadas em três',
@@ -62,8 +73,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-08-links-com-texto',
-    version: '1.23.0',
-    kind: 'funcionalidade',
+    version: '1.18.3',
+    kind: 'melhoria',
     date: '2026-10-08',
     title: 'Links com o seu texto e a régua arrumada',
     items: [
@@ -75,7 +86,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-08-correcoes-links-e-paineis',
-    version: '1.22.1',
+    version: '1.18.2',
     kind: 'correcao',
     date: '2026-10-08',
     title: 'Correções de bugs',
@@ -88,8 +99,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-08-anotacoes-repaginadas',
-    version: '1.22.0',
-    kind: 'funcionalidade',
+    version: '1.18.1',
+    kind: 'melhoria',
     date: '2026-10-08',
     title: 'O mural de anotações repaginado',
     items: [
@@ -106,7 +117,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-08-markdown',
-    version: '1.21.0',
+    version: '1.18.0',
     kind: 'funcionalidade',
     date: '2026-10-08',
     title: 'Mais formatação no texto',
@@ -121,7 +132,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-08-categorias-e-tags',
-    version: '1.20.0',
+    version: '1.17.0',
     kind: 'funcionalidade',
     date: '2026-10-08',
     title: 'Categorias e tags nas anotações',
@@ -136,8 +147,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-08-caneta-e-carimbo',
-    version: '1.19.0',
-    kind: 'funcionalidade',
+    version: '1.16.2',
+    kind: 'melhoria',
     date: '2026-10-08',
     title: 'Links à caneta e o carimbo novo',
     items: [
@@ -148,7 +159,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-anotacoes-correcoes',
-    version: '1.18.1',
+    version: '1.16.1',
     kind: 'correcao',
     date: '2026-10-07',
     title: 'Correções nas anotações',
@@ -168,7 +179,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-anotacoes-fixadas',
-    version: '1.18.0',
+    version: '1.16.0',
     kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Anotações fixadas e sub-notas',
@@ -181,7 +192,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-anotacoes-finalizadas',
-    version: '1.17.0',
+    version: '1.15.0',
     kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Anotações finalizadas',
@@ -195,7 +206,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-links-entre-anotacoes',
-    version: '1.16.0',
+    version: '1.14.0',
     kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Links entre anotações',
@@ -209,7 +220,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-novidades-com-versao',
-    version: '1.15.1',
+    version: '1.13.1',
     kind: 'melhoria',
     date: '2026-10-07',
     title: 'Correções e ajustes',
@@ -220,7 +231,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-mural-de-anotacoes',
-    version: '1.15.0',
+    version: '1.13.0',
     kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Mural de anotações',
@@ -236,7 +247,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-reacoes',
-    version: '1.14.0',
+    version: '1.12.0',
     kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Reações',
@@ -250,7 +261,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-texto-formatado',
-    version: '1.13.0',
+    version: '1.11.0',
     kind: 'funcionalidade',
     date: '2026-10-07',
     title: 'Texto formatado nas resenhas',
@@ -263,7 +274,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-ajustes-pelo-mural',
-    version: '1.12.1',
+    version: '1.10.6',
     kind: 'melhoria',
     date: '2026-10-07',
     title: 'Correções e ajustes',
@@ -277,8 +288,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-07-bonus-novos',
-    version: '1.12.0',
-    kind: 'funcionalidade',
+    version: '1.10.5',
+    kind: 'melhoria',
     date: '2026-10-07',
     title: 'Mais bônus para livros, filmes, séries e animes',
     was: '2026-10-07-ajustes-pelo-mural',
@@ -290,7 +301,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-06-consertos-amigos-nuvem',
-    version: '1.11.2',
+    version: '1.10.4',
     kind: 'correcao',
     date: '2026-10-06',
     title: 'Correções de bugs',
@@ -309,7 +320,7 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-06-amigos-de-cara-nova-correcoes',
-    version: '1.11.1',
+    version: '1.10.3',
     kind: 'correcao',
     date: '2026-10-06',
     title: 'Correções de bugs',
@@ -321,8 +332,8 @@ export const NEWS: NewsEntry[] = [
   },
   {
     id: '2026-10-06-amigos-de-cara-nova',
-    version: '1.11.0',
-    kind: 'funcionalidade',
+    version: '1.10.2',
+    kind: 'melhoria',
     date: '2026-10-06',
     title: 'Amigos de cara nova',
     items: [
