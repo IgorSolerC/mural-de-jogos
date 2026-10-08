@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
-import { Check, CheckCheck, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
+import { Check, CheckCheck, Eye, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -21,6 +21,7 @@ import {
   isDarkStock,
   artIdOf,
   isNote,
+  audienceOf,
 } from '../core/review';
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
@@ -141,7 +142,7 @@ function watchDistance(el: HTMLElement): () => void {
           <!-- Os selinhos da foto, colados um embaixo do outro no canto, cada um um pouco por cima do
                de cima: o cadeado da privada (só no seu mural; a ficha nunca sai dele) e, só capa e
                nome, o "outra vez" que distingue a rejogada da original. Um selo novo entra no fim. -->
-          @if ((lockBadge() || publicBadge() || (capas() && (review().revisitOf || doneAt()))) && !bare()) {
+          @if ((lockBadge() || publicBadge() || visibleBadge() || (capas() && (review().revisitOf || doneAt()))) && !bare()) {
             <span class="selos">
               @if (lockBadge()) {
                 <span class="selo privada-selo" title="Privada: só você vê">
@@ -155,6 +156,12 @@ function watchDistance(el: HTMLElement): () => void {
                   <span class="sr-only">Publicada: quem abre o seu mural vê</span>
                 </span>
               }
+              @if (visibleBadge()) {
+                <span class="selo visivel-selo" title="Visível: está no seu mural, sem aviso no Feed">
+                  <lucide-icon [img]="VisibleIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
+                  <span class="sr-only">Visível: está no seu mural, sem aviso no Feed</span>
+                </span>
+              }
               @if (capas() && review().revisitOf) {
                 <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" [strokeWidth]="3" /></span>
               }
@@ -166,7 +173,7 @@ function watchDistance(el: HTMLElement): () => void {
           }
         </div>
       </div>
-      } @else if ((publicBadge() || (capas() && doneAt())) && !bare()) {
+      } @else if ((publicBadge() || visibleBadge() || (capas() && doneAt())) && !bare()) {
         <!-- anotação sem capa: os selinhos ficam no canto da ficha. A anotação nasce privada: o
              cadeado em todas não diria nada, então quem ganha selo é a publicada -->
         <span class="selos selos-ficha">
@@ -174,6 +181,12 @@ function watchDistance(el: HTMLElement): () => void {
             <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
               <lucide-icon [img]="PublicIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
               <span class="sr-only">Publicada: quem abre o seu mural vê</span>
+            </span>
+          }
+          @if (visibleBadge()) {
+            <span class="selo visivel-selo" title="Visível: está no seu mural, sem aviso no Feed">
+              <lucide-icon [img]="VisibleIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+              <span class="sr-only">Visível: está no seu mural, sem aviso no Feed</span>
             </span>
           }
           @if (capas() && doneAt()) {
@@ -987,8 +1000,9 @@ function watchDistance(el: HTMLElement): () => void {
     :host([data-cor='preto']) .tarefas-conta.todas {
       color: #8fe3ad;
     }
-    /* o selo da anotação publicada: o mesmo selinho de tinta, com o desenho de pessoas */
-    .publica-selo {
+    /* o selo da anotação publicada e o da ficha só visível: o mesmo selinho de tinta, com o desenho de pessoas ou o olho */
+    .publica-selo,
+    .visivel-selo {
       background: var(--ink);
       color: var(--paper);
     }
@@ -1312,9 +1326,12 @@ export class ReviewCard {
   protected readonly doneAt = computed(() => (this.note() && !this.bare() ? (this.review().doneAt ?? null) : null));
   /** O cadeado das resenhas privadas (a anotação nasce privada: nela, quem ganha selo é a publicada). */
   protected readonly lockBadge = computed(() => !this.note() && !!this.review().private);
-  /** A anotação publicada, no seu mural: quem abre o seu mural vê. */
-  protected readonly publicBadge = computed(() => this.note() && !this.review().private && this.checkable());
+  /** A anotação publicada, no seu mural: quem abre o seu mural vê, e ela foi para o Feed. */
+  protected readonly publicBadge = computed(() => this.note() && audienceOf(this.review()) === 'publicar' && this.checkable());
+  /** A ficha só visível, no seu mural: está no mural que os outros veem, mas não foi para o Feed. */
+  protected readonly visibleBadge = computed(() => audienceOf(this.review()) === 'visivel' && this.checkable());
   protected readonly PublicIcon = UsersRound;
+  protected readonly VisibleIcon = Eye;
   protected readonly TasksIcon = ListChecks;
   /** As tarefas do texto da anotação: quantas feitas de quantas (null: sem tarefas). */
   protected readonly tasks = computed(() => {
@@ -1534,7 +1551,7 @@ export class ReviewCard {
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
       const tasks = this.tasks();
       const todo = tasks ? `${tasks.done} de ${tasks.total} tarefas feitas` : '';
-      return `Abrir anotação: ${[r.game.name, rank, done, cats, todo, when, r.private ? '' : 'publicada'].filter(Boolean).join(', ')}`;
+      return `Abrir anotação: ${[r.game.name, rank, done, cats, todo, when, { publicar: 'publicada', visivel: 'visível', privada: '' }[audienceOf(r)]].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];
     if (this.masked()) {

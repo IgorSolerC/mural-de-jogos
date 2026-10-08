@@ -494,6 +494,13 @@ describe('o que os outros veem', () => {
     const stale = at('2025-12-02T00:00:00.000Z');
     expect(newReviews([old, hidden, stale], now).map((n) => n.ref)).toEqual([old.id]);
   });
+
+  it('a só visível vai para o mural público, mas não vira aviso', () => {
+    const quiet = at('2026-03-09T10:00:00.000Z', { quiet: true });
+    const loud = at('2026-03-08T10:00:00.000Z');
+    expect(publicReviews([quiet, loud]).map((r) => r.id)).toEqual([quiet.id, loud.id]);
+    expect(newReviews([quiet, loud], now).map((n) => n.ref)).toEqual([loud.id]);
+  });
 });
 
 describe('versão do formato (SYNC_SCHEMA)', () => {
@@ -502,10 +509,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar.
    */
-  it('a leitura das fichas é a mesma da versão 8', async () => {
+  it('a leitura das fichas é a mesma da versão 9', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 8, hex: '3961842d7f6a9a152b5235a7d21645897e2bf6a9d4599ace273d4324da8bfe01' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 9, hex: 'd7a45f8698921ab0d792d7860fe8527788b434b42b61640ca781a814461f9e1d' });
   });
 });

@@ -45,8 +45,9 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  *    (`tagsFixas`, só no mural privado). Um site antigo leria a anotação sem categoria nem tags.
  * 8: a força da tinta da estampa (`patternInk`). Um site antigo jogaria o campo fora, e a estampa
  *    voltaria à tinta de sempre.
+ * 9: a ficha visível sem publicar (`quiet`). Um site antigo jogaria a marca fora e avisaria quem segue.
  */
-export const SYNC_SCHEMA = 8;
+export const SYNC_SCHEMA = 9;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -109,15 +110,16 @@ export function publicNotes(notes: unknown): unknown[] {
 }
 
 /**
- * As fichas que viram aviso para quem segue: as públicas que apareceram nos últimos 7 dias. Uma
- * ficha que era privada aparece quando deixa de ser (`publishedAt`), não quando foi escrita. A nuvem
- * só avisa uma vez de cada ficha, então mandar de novo não repete o aviso.
+ * As fichas que viram aviso para quem segue: as publicadas que apareceram nos últimos 7 dias (a só
+ * visível fica no mural, mas não avisa). Uma ficha que era privada ou só visível aparece quando
+ * passa a ser publicada (`publishedAt`), não quando foi escrita. A nuvem só avisa uma vez de cada
+ * ficha, então mandar de novo não repete o aviso.
  */
 export function newReviews(reviews: readonly Review[], now: number): { ref: string; titulo: string; mural: Review['kind'] }[] {
   const since = now - NEW_REVIEW_DAYS * 24 * 60 * MINUTE;
   const shownAt = (r: Review) => Date.parse(r.publishedAt ?? r.createdAt);
   return publicReviews(reviews)
-    .filter((r) => shownAt(r) >= since)
+    .filter((r) => !r.quiet && shownAt(r) >= since)
     .sort((a, b) => shownAt(b) - shownAt(a))
     .slice(0, MAX_NEW)
     .map((r) => ({ ref: r.id, titulo: r.game.name, mural: r.kind }));

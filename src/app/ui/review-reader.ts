@@ -130,7 +130,12 @@ import { categoryBonus } from '../core/note-labels';
                 @if (r.private && owner() === null) {
                   <p class="privada">
                     <lucide-icon [img]="PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                    {{ note() ? 'Privada: só você vê.' : 'Privada: só você vê. Ninguém foi avisado.' }}
+                    Privada: só você vê. Ninguém foi avisado.
+                  </p>
+                } @else if (r.quiet && owner() === null) {
+                  <p class="privada">
+                    <lucide-icon [img]="VisibleIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Visível: está no seu mural, mas não foi para o Feed.
                   </p>
                 }
               </div>
@@ -291,6 +296,7 @@ export class ReviewReader {
   protected readonly RevealIcon = Eye;
   protected readonly HideIcon = EyeOff;
   protected readonly PrivateIcon = LockKeyhole;
+  protected readonly VisibleIcon = Eye;
   protected readonly BackIcon = ArrowLeft;
   protected readonly ReopenIcon = RotateCcw;
   protected readonly categorySticker = categoryBonus;

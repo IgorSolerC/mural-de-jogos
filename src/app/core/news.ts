@@ -50,6 +50,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-visivel',
+    version: '1.19.1',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Publicar, Visível ou Privado',
+    items: [
+      'Na hora de pregar, entre Publicar e Privado agora tem Visível: a ficha fica no seu mural, e quem abrir o seu mural vê, mas ela não aparece no Feed de quem segue você.',
+      'Publicar continua sendo o de sempre nas resenhas, e Privado nas anotações. A ficha Visível que depois é publicada aparece no Feed a partir desse dia.',
+      'No seu mural, a ficha Visível leva um selinho com um olho.',
+    ],
+  },
+  {
     id: '2026-10-08-tarefas-somadas',
     version: '1.19.0',
     kind: 'funcionalidade',

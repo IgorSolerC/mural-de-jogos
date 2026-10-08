@@ -345,34 +345,34 @@
           </section>
         }
 
-        <!-- Publicar (o mural pelo código, Amigos, Comparar) ou manter privado, até mudar de ideia -->
+        <!-- Publicar (o mural pelo código, Amigos, Comparar e o Feed), deixar só visível (o mural, sem
+             aviso no Feed) ou manter privado, até mudar de ideia -->
         @if (cloud.config()) {
           <section class="bloco quem-ve">
             <fieldset>
-              <legend class="pergunta">Publicar ou manter privado?</legend>
+              <legend class="pergunta">Publicar, deixar visível ou manter privado?</legend>
               <div class="quem-opts">
-                <label class="quem">
-                  <input type="radio" name="editor-quem" [checked]="!isPrivate()" (change)="isPrivate.set(false)" aria-describedby="editor-quem-dica" />
-                  <span class="quem-tag">
-                    <lucide-icon [img]="EveryoneIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                    Publicar
-                  </span>
-                </label>
-                <label class="quem">
-                  <input type="radio" name="editor-quem" [checked]="isPrivate()" (change)="isPrivate.set(true)" aria-describedby="editor-quem-dica" />
-                  <span class="quem-tag">
-                    <lucide-icon [img]="PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                    Privado
-                  </span>
-                </label>
+                @for (o of audiences; track o.value) {
+                  <label class="quem">
+                    <input type="radio" name="editor-quem" [checked]="audience() === o.value" (change)="audience.set(o.value)" aria-describedby="editor-quem-dica" />
+                    <span class="quem-tag">
+                      <lucide-icon [img]="o.value === 'publicar' ? EveryoneIcon : o.value === 'visivel' ? VisibleIcon : PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                      {{ o.label }}
+                    </span>
+                  </label>
+                }
               </div>
               <p class="quem-dica" id="editor-quem-dica">
-                @if (isPrivate()) {
-                  Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque para Publicar.
-                } @else if (notes()) {
-                  Vai para o seu mural de anotações: quem abrir o seu mural vê. Anotação não vira aviso para quem segue você.
-                } @else {
-                  Vai para o seu mural, e quem segue você é avisado em Amigos.
+                @switch (audience()) {
+                  @case ('privada') {
+                    Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque.
+                  }
+                  @case ('visivel') {
+                    Fica no seu mural, e quem abrir o seu mural vê. Mas não aparece no Feed de quem segue você.
+                  }
+                  @default {
+                    {{ notes() ? 'Vai para o seu mural de anotações e aparece no Feed de quem segue você.' : 'Vai para o seu mural e aparece no Feed de quem segue você.' }}
+                  }
                 }
               </p>
             </fieldset>

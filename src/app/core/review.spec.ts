@@ -1,5 +1,7 @@
 import {
   BONUS_MAX_SHIFT,
+  audienceFields,
+  audienceOf,
   Bonus,
   computeBase,
   computeFinal,
@@ -517,5 +519,27 @@ describe('ficha privada', () => {
     expect(sanitizeReview({ ...base, private: 'sim' })!.private).toBeUndefined();
     expect(sanitizeReview({ ...base, publishedAt: '2026-03-01T10:00:00Z' })!.publishedAt).toBe('2026-03-01T10:00:00.000Z');
     expect(sanitizeReview({ ...base, publishedAt: 'ontem' })!.publishedAt).toBeUndefined();
+  });
+  it('a só visível guarda a marca, que não vale junto da privada', () => {
+    expect(sanitizeReview({ ...base, quiet: true })!.quiet).toBe(true);
+    expect('quiet' in sanitizeReview(base)!).toBe(false);
+    expect('quiet' in sanitizeReview({ ...base, quiet: true, private: true })!).toBe(false);
+    expect(sanitizeReview({ ...base, kind: 'anotacoes', quiet: true })!.quiet).toBe(true);
+    expect([audienceOf({}), audienceOf({ private: true }), audienceOf({ quiet: true })]).toEqual(['publicar', 'privada', 'visivel']);
+  });
+
+  it('quem vê, ao gravar: a que passa a ser publicada é nova a partir de hoje', () => {
+    const now = '2026-03-10T00:00:00.000Z';
+    const before = '2026-02-01T00:00:00.000Z';
+    expect(audienceFields('privada', { publishedAt: before }, now)).toEqual({ private: true });
+    expect(audienceFields('visivel', null, now)).toEqual({ quiet: true });
+    expect(audienceFields('publicar', null, now)).toEqual({});
+    // era privada ou só visível: publicada agora
+    expect(audienceFields('publicar', { private: true }, now)).toEqual({ publishedAt: now });
+    expect(audienceFields('publicar', { quiet: true, publishedAt: before }, now)).toEqual({ publishedAt: now });
+    // já era vista: guarda o dia de antes
+    expect(audienceFields('publicar', { publishedAt: before }, now)).toEqual({ publishedAt: before });
+    expect(audienceFields('visivel', { publishedAt: before }, now)).toEqual({ quiet: true, publishedAt: before });
+    expect(audienceFields('visivel', { private: true, publishedAt: before }, now)).toEqual({ quiet: true });
   });
 });

@@ -309,7 +309,12 @@ export interface Review {
    */
   private?: true;
   /**
-   * Quando uma ficha que era privada passou a ser vista (ISO). Para quem segue, ela é nova a partir
+   * Visível, sem publicar: fica no mural que os outros veem, mas não vira aviso no Feed de quem segue.
+   * Nunca junto de `private`. Sem os dois, a ficha é publicada (vai para o mural e para o Feed).
+   */
+  quiet?: true;
+  /**
+   * Quando uma ficha que era privada (ou só visível) passou a ser publicada (ISO). Para quem segue, ela é nova a partir
    * daí, não de quando foi escrita (ver core/cloud-sync.ts). Sem o campo, vale `createdAt`.
    */
   publishedAt?: string;
@@ -369,6 +374,27 @@ export function withDone(r: Review, done: boolean, now: string): Review {
 /** A ficha fica só com a pessoa? (ver `Review.private`) */
 export function isPrivate(r: Pick<Review, 'private'>): boolean {
   return r.private === true;
+}
+
+/**
+ * Quem vê a ficha: publicada (o mural e o Feed de quem segue), visível (só o mural, sem aviso) ou
+ * privada (só a pessoa). Ver `Review.private` e `Review.quiet`.
+ */
+export type Audience = 'publicar' | 'visivel' | 'privada';
+
+export function audienceOf(r: Pick<Review, 'private' | 'quiet'>): Audience {
+  return r.private ? 'privada' : r.quiet ? 'visivel' : 'publicar';
+}
+
+/**
+ * Os campos de quem vê, para gravar a ficha. A que passa a ser publicada agora (era privada ou só
+ * visível) leva `publishedAt`: para quem segue, ela é nova a partir de hoje. A que já era vista
+ * guarda o dia de antes.
+ */
+export function audienceFields(a: Audience, prev: Pick<Review, 'private' | 'quiet' | 'publishedAt'> | null, now: string): Pick<Review, 'private' | 'quiet' | 'publishedAt'> {
+  if (a === 'privada') return { private: true };
+  const published = a === 'publicar' && prev && audienceOf(prev) !== 'publicar' ? now : prev && !prev.private ? prev.publishedAt : undefined;
+  return { ...(a === 'visivel' ? { quiet: true as const } : {}), ...(published ? { publishedAt: published } : {}) };
 }
 
 /** É uma rejogada (releitura, reassistida) de outra ficha? */
@@ -986,6 +1012,7 @@ export function sanitizeReview(raw: unknown): Review | null {
     ...optional('revisitOf', sanitizeRevisitOf(r['revisitOf'], r['id'])),
     ...optional('artFrom', sanitizeArtFrom(r['artFrom'])),
     ...optional('private', r['private'] === true ? (true as const) : undefined),
+    ...optional('quiet', r['quiet'] === true && r['private'] !== true ? (true as const) : undefined),
     ...optional('publishedAt', isoOr(r['publishedAt'], '') || undefined),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),

@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Bookmark, Check, CopyCheck, CornerDownRight, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RectangleHorizontal, RectangleVertical, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
+import { Bookmark, Check, CopyCheck, CornerDownRight, Eye, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RectangleHorizontal, RectangleVertical, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   Bonus,
@@ -46,6 +46,9 @@ import {
   formatReviewDate,
   newId,
   todayISO,
+  Audience,
+  audienceFields,
+  audienceOf,
 } from '../core/review';
 import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { cap, g, isNotes, profileOf } from '../core/kinds';
@@ -140,8 +143,18 @@ export class ReviewEditor {
   protected readonly KeepIcon = CopyCheck;
   protected readonly PrivateIcon = LockKeyhole;
   protected readonly EveryoneIcon = UsersRound;
-  /** "Privado": a ficha fica fora do mural que os outros veem, e ninguém é avisado (ver Review.private). */
-  protected readonly isPrivate = signal(false);
+  protected readonly VisibleIcon = Eye;
+  /**
+   * Quem vê: Publicar (o mural e o Feed de quem segue), Visível (só o mural, sem aviso) ou Privado
+   * (fora do mural que os outros veem, e ninguém é avisado). Ver Review.private e Review.quiet.
+   */
+  protected readonly audience = signal<Audience>('publicar');
+  protected readonly isPrivate = computed(() => this.audience() === 'privada');
+  protected readonly audiences: readonly { value: Audience; label: string }[] = [
+    { value: 'publicar', label: 'Publicar' },
+    { value: 'visivel', label: 'Visível' },
+    { value: 'privada', label: 'Privado' },
+  ];
   protected readonly labels = SCORE_LABEL;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -462,7 +475,7 @@ export class ReviewEditor {
       completedAt: this.dateValid() ? this.dateValue() : this.today(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
       ...this.artFields(),
-      ...(this.isPrivate() ? { private: true as const } : {}),
+      ...(this.isPrivate() ? { private: true as const } : this.audience() === 'visivel' ? { quiet: true as const } : {}),
       createdAt: '',
       updatedAt: '',
     };
@@ -553,7 +566,7 @@ export class ReviewEditor {
     this.revisitRoot.set(root);
     this.keptNotes.set(false);
     // a anotação nasce privada; a resenha, publicada
-    this.isPrivate.set(review ? review.private === true : isNotes(kind));
+    this.audience.set(review ? audienceOf(review) : isNotes(kind) ? 'privada' : 'publicar');
     this.noteSize.set(review?.noteSize ?? null);
     this.noteRank.set(review?.noteRank ?? null);
     this.noteDateOpen.set(false);
@@ -754,9 +767,8 @@ export class ReviewEditor {
       completedAt: this.dateValue(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
       ...this.artFields(),
-      ...(this.isPrivate() ? { private: true as const } : {}),
-      // deixou de ser privada agora: para quem segue, ela é nova a partir de hoje
-      ...(this.isPrivate() ? {} : prev?.private ? { publishedAt: now } : prev?.publishedAt ? { publishedAt: prev.publishedAt } : {}),
+      // passou a ser publicada agora: para quem segue, ela é nova a partir de hoje
+      ...audienceFields(this.audience(), prev, now),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
@@ -796,8 +808,7 @@ export class ReviewEditor {
       scribbleInk: this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? this.scribbleInk() : undefined,
       text: this.text().trim(),
       completedAt: this.dateValue(),
-      ...(this.isPrivate() ? { private: true as const } : {}),
-      ...(this.isPrivate() ? {} : prev?.private ? { publishedAt: now } : prev?.publishedAt ? { publishedAt: prev.publishedAt } : {}),
+      ...audienceFields(this.audience(), prev, now),
       // editar não desfaz o check: a finalizada continua finalizada, no mesmo dia
       ...(prev?.doneAt ? { doneAt: prev.doneAt } : {}),
       // continua fixada: desafixada, ainda volta a ser sub-nota
@@ -807,7 +818,10 @@ export class ReviewEditor {
     };
     // tira os campos vazios (undefined) que a prévia leva
     const clean = Object.fromEntries(Object.entries(note).filter(([, v]) => v !== undefined)) as unknown as Review;
-    if (!this.isPrivate()) delete (clean as Partial<Review>).private;
+    // a prévia leva a marca de quem vê; fica só a que vale
+    const seen = audienceFields(this.audience(), prev, now);
+    if (!seen.private) delete (clean as Partial<Review>).private;
+    if (!seen.quiet) delete (clean as Partial<Review>).quiet;
     // mudou o título: os links das outras anotações que abriam esta passam para o título novo
     const notes = notesOf(this.store.reviews());
     // nova, criada por um link e com outro título: o link de onde veio passa para o título novo
@@ -996,7 +1010,7 @@ export class ReviewEditor {
       this.game()?.coverUrl,
       this.difficulty(),
       this.text().trim(),
-      this.isPrivate(),
+      this.audience(),
       this.noteSize(),
       this.noteRank(),
     ]);
