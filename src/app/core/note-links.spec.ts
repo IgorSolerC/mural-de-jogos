@@ -1,5 +1,5 @@
 import { Review, sanitizeReview } from './review';
-import { linkKey, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, sameTitle } from './note-links';
+import { backlinkLine, backlinksOf, linkKey, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, sameTitle } from './note-links';
 import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
@@ -79,5 +79,18 @@ describe('links entre anotações', () => {
   it('um caractere de uso privado no texto não vira link; a tarefa marca com \\r\\n no texto', () => {
     expect(parseInline(' e [[Compras]]')).toEqual([{ text: ' e ' }, { text: 'Compras', link: true }]);
     expect(toggleCheck('- [ ] leite\r\n- [ ] ovos', 1)).toBe('- [ ] leite\n- [x] ovos');
+  });
+
+  it('as anotações que apontam para uma, das mais antigas para as mais novas, e a linha onde cada uma a cita', () => {
+    const bug = note('nbug00001', 'Corrigir bug', '', '2026-10-03T10:00:00.000Z');
+    const daily = note('ndaily001', 'Daily', 'Revisar.\n- [ ] [[corrigir  BUG|o bug do login]] hoje', '2026-10-02T10:00:00.000Z');
+    const reuniao = note('nreun0001', 'Reunião', '1. Pauta: [[Corrigir bug]] e [[Outra]]', '2026-10-01T10:00:00.000Z');
+    const solta = note('nsolta001', 'Solta', 'Nada aqui.');
+    const notes = [bug, daily, reuniao, solta];
+    expect(backlinksOf(bug, notes).map((n) => n.game.name)).toEqual(['Reunião', 'Daily']);
+    expect(backlinksOf(solta, notes)).toEqual([]);
+    expect(backlinkLine(daily, bug, notes)).toBe('o bug do login hoje');
+    expect(backlinkLine(reuniao, bug, notes)).toBe('Pauta: Corrigir bug e Outra');
+    expect(backlinkLine(solta, bug, notes)).toBeNull();
   });
 });

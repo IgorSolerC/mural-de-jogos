@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-sub-nota-citada',
+    version: '1.21.0',
+    kind: 'funcionalidade',
+    date: '2026-10-08',
+    title: 'De onde vem a sub-nota',
+    items: [
+      'A sub-nota ganhou uma marca na beirada de cima da ficha, uma setinha de item de dentro, sempre à mostra (como o alfinete da fixada). Com mais de uma anotação apontando para ela, a marca diz quantas.',
+      'Tocar na marca abre a lista das anotações que apontam para a sub-nota, com a linha onde cada uma a cita; tocar numa delas abre aquela anotação.',
+    ],
+  },
+  {
     id: '2026-10-08-fixadas-na-ordem',
     version: '1.20.14',
     kind: 'melhoria',

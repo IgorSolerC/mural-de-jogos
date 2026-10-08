@@ -27,6 +27,7 @@ import { Pin } from './ui/pin';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
 import { Confirm, ConfirmDialog } from './ui/confirm';
+import { NoteBacklinksDialog } from './ui/note-backlinks';
 import { Toast, Toasts } from './ui/toast';
 import { WishAdder } from './ui/wish-adder';
 
@@ -64,7 +65,7 @@ const TABS: Tab[] = [
 
 @Component({
   selector: 'app-root',
-  imports: [ConfirmDialog, GoogleButton, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
+  imports: [ConfirmDialog, GoogleButton, NoteBacklinksDialog, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',

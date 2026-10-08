@@ -262,7 +262,7 @@ export class NoteIndex {
 }
 
 /** A data da linha, curta como no caderno: 07/10 (o ano só quando não é este), 10/26 só com o mês, 2025 só com o ano. */
-function shortDay(day: string | null): string {
+export function shortDay(day: string | null): string {
   if (!day) return '';
   if (day.length === 10) return notebookDate(`${day}T12:00:00`);
   if (day.length === 7) return `${day.slice(5, 7)}/${day.slice(2, 4)}`;

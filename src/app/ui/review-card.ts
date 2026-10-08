@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
-import { Check, CheckCheck, Eye, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
+import { Check, CheckCheck, CornerDownRight, Eye, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -44,7 +44,8 @@ import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
-import { NoteLinks, parentNoteOf, resolveNote } from '../core/note-links';
+import { NoteLinks, backlinksOf, parentNoteOf, resolveNote } from '../core/note-links';
+import { NoteBacklinks } from './note-backlinks';
 import { Desk } from '../core/desk';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
@@ -325,6 +326,22 @@ function watchDistance(el: HTMLElement): () => void {
         >
           <lucide-icon [img]="PinIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
         </button>
+        <!-- a sub-nota: a seta de item de dentro, sempre à mostra (como o alfinete da fixada); abre
+             a lista das anotações que apontam para ela -->
+        @if (subMark(); as s) {
+          <button
+            type="button"
+            class="sub-ind"
+            [attr.aria-label]="'Sub-nota: ver ' + (s.count === 1 ? 'a anotação que aponta' : 'as ' + s.count + ' anotações que apontam') + ' para ' + review().game.name"
+            [title]="s.count === 1 ? 'Sub-nota: ver de onde ela é parte' : 'Sub-nota: citada em ' + s.count + ' anotações'"
+            (click)="backlinks.open(review().id)"
+          >
+            <lucide-icon [img]="SubIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+            @if (s.count > 1) {
+              <span class="sub-n" aria-hidden="true">{{ s.count }}</span>
+            }
+          </button>
+        }
       </div>
     }
     @if (note() && !compact() && !capas()) {
@@ -965,6 +982,56 @@ function watchDistance(el: HTMLElement): () => void {
     .fixar {
       width: 30px;
     }
+    /* a sub-nota: sempre à mostra, como o alfinete da fixada (é o estado dela) */
+    .sub-ind {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-width: 30px;
+      height: 30px;
+      padding: 0 7px;
+      border: 0;
+      border-radius: 3px;
+      background: var(--etiqueta);
+      color: var(--etiqueta-tinta);
+      box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.4),
+        0 4px 8px -3px rgb(0 0 0 / 0.4);
+      cursor: pointer;
+      transition: scale var(--t-ui) var(--ease-ui);
+    }
+    .sub-ind::before {
+      content: '';
+      position: absolute;
+      inset: -7px -2px;
+    }
+    .sub-ind lucide-icon {
+      display: inline-flex;
+    }
+    .sub-n {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .sub-ind:focus-visible {
+      outline: 2.5px solid var(--etiqueta);
+      outline-offset: 2px;
+      box-shadow:
+        0 0 0 6px rgb(241 241 236 / 0.85),
+        0 1px 2px rgb(0 0 0 / 0.4);
+    }
+    @media (hover: hover) {
+      .sub-ind:hover {
+        scale: 1.06;
+      }
+    }
+    :host(.carimbando) .sub-ind {
+      opacity: 0;
+      pointer-events: none;
+    }
     .feito {
       padding: 0 10px 0 8px;
       font-family: var(--f-label);
@@ -1057,6 +1124,10 @@ function watchDistance(el: HTMLElement): () => void {
       .acoes {
         top: -17px;
         gap: 6px;
+      }
+      .sub-ind {
+        min-width: 34px;
+        height: 34px;
       }
       .acao-nome {
         display: none;
@@ -1431,6 +1502,18 @@ export class ReviewCard {
     const r = this.review();
     if (!this.note() || r.noteRank !== 'sub' || !this.checkable()) return null;
     return parentNoteOf(r, this.store.notes());
+  });
+
+  protected readonly backlinks = inject(NoteBacklinks);
+  protected readonly SubIcon = CornerDownRight;
+  /**
+   * O indicador de sub-nota (também na fixada que era sub-nota), com quantas anotações apontam para
+   * ela. Só onde a ficha tem as etiquetas de cima (no seu mural).
+   */
+  protected readonly subMark = computed(() => {
+    const r = this.review();
+    if (!this.canFinish() || (r.noteRank !== 'sub' && !r.pinnedSub)) return null;
+    return { count: backlinksOf(r, this.store.notes()).length };
   });
 
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */

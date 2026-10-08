@@ -94,6 +94,33 @@ export function parentNoteOf(note: Review, notes: readonly Review[]): Review | n
   return best;
 }
 
+/**
+ * As anotações que apontam para `note`: as que têm no texto um link que abre ela, das mais antigas
+ * para as mais novas (a primeira é a de que a sub-nota é parte, ver `parentNoteOf`).
+ */
+export function backlinksOf(note: Review, notes: readonly Review[]): Review[] {
+  return notes
+    .filter((n) => n.id !== note.id && linksIn(n.text).some((t) => resolveNote(notes, t)?.id === note.id))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
+
+/**
+ * A linha do texto de `from` onde está o link para `note`, para mostrar onde ela é citada: sem a
+ * marca da lista ou da tarefa, e o link escrito como aparece ("[[Título|texto]]" vira "texto").
+ * Null se nenhuma linha tem o link.
+ */
+export function backlinkLine(from: Review, note: Review, notes: readonly Review[]): string | null {
+  for (const line of from.text.split('\n')) {
+    const hit = [...line.matchAll(LINK)].some((m) => resolveNote(notes, splitLink(m[1]).title)?.id === note.id);
+    if (!hit) continue;
+    return line
+      .replace(/^\s*(?:[-*•]\s+(?:\[[ xX]\]\s*)?|\d{1,4}[.)]\s+|#{1,3}\s+|>\s?)/, '')
+      .replace(LINK, (_all, inner: string) => splitLink(inner).label)
+      .trim();
+  }
+  return null;
+}
+
 /** Outra anotação, que não a `id`, já tem esse título? */
 export function sameTitle(notes: readonly Review[], title: string, id: string): Review | null {
   const key = linkKey(title);
