@@ -60,6 +60,7 @@ export class WallPage {
     highlight: this.highlight(),
     compact: this.view.density() === 'simples',
     capas: this.view.density() === 'capas',
+    full: this.inteira(),
     dayOnly: this.view.shownSort() === 'data',
     picking: this.side.picking(),
     picked: this.side.order(),
@@ -102,6 +103,13 @@ export class WallPage {
 
   /** A lista (o índice do caderno), só no mural de anotações. */
   protected readonly lista = computed(() => this.notes() && this.view.density() === 'lista');
+  /** As fichas inteiras: o texto todo, encaixadas em colagem (ver `appFichasMosaico`). */
+  protected readonly inteira = computed(() => this.view.density() === 'inteira');
+
+  /** Quantas colunas a seção pediria em colagem: a anotação larga conta por duas. */
+  protected columnsOf(g: WallGroup): number {
+    return g.reviews.reduce((n, r) => n + (r.noteSize === 'larga' ? 2 : 1), 0);
+  }
 
   /**
    * O id da seção a partir da chave dela (que pode ter espaço, acento, ":"): continua o mesmo quando a

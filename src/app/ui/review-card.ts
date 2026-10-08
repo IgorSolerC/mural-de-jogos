@@ -92,6 +92,7 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.is-landing]': 'landing()',
     '[class.compact]': 'compact()',
     '[class.capas]': 'capas()',
+    '[class.inteira]': 'full()',
     '[class.paired]': 'paired()',
     '[class.picking]': 'picking()',
     '[class.picked]': 'pickedAt() !== null',
@@ -353,7 +354,14 @@ function watchDistance(el: HTMLElement): () => void {
         </div>
       }
     } @else if (!compact() && !capas()) {
-      @if (lead(); as line) {
+      @if (full() && !bare() && review().text.trim()) {
+        <!-- a ficha inteira: o texto todo, formatado, na letra de quem escreveu -->
+        @if (masked()) {
+          <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
+        } @else {
+          <div class="texto-inteiro" data-queima><app-rich-text [text]="review().text" /></div>
+        }
+      } @else if (lead(); as line) {
         @if (masked() && !bare()) {
           <p class="lead" data-queima>“<app-rabisco [text]="line" />”<span class="sr-only">Texto escondido</span></p>
         } @else {
@@ -921,6 +929,26 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.nota-alta) .nota-texto {
       --linhas: 18;
     }
+    /* a ficha inteira: o texto todo, sem corte nem esmaecido no fim */
+    :host(.inteira) .nota-texto {
+      max-height: none;
+    }
+    :host(.inteira) .nota-texto[data-corta] {
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+    /* a resenha inteira: o texto todo no lugar da primeira frase, na mesma letra da anotação */
+    .texto-inteiro {
+      margin-top: 14px;
+      font-family: var(--f-hand);
+      font-size: 1.04rem;
+      line-height: 1.4rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .texto-inteiro app-rich-text {
+      display: block;
+    }
     /* com tarefas ou links: o texto fica por cima do botão da ficha, mas só as caixinhas e os links
        pegam o toque; o resto do texto deixa o toque passar e abre a leitura como sempre */
     .nota-texto.marcavel {
@@ -1433,6 +1461,8 @@ export class ReviewCard {
   readonly compact = input(false);
   /** Só a foto e o nome: a ficha mais enxuta, para caber o máximo no mural. */
   readonly capas = input(false);
+  /** A ficha inteira (o tipo "Fichas inteiras"): a completa com o texto todo, sem cortar. */
+  readonly full = input(false);
   /** Duas fichas em colunas no celular, mantendo a orientação da comparação. */
   readonly paired = input(false);
   /** A seção já diz o mês e o ano: a ficha mostra só o dia. */
@@ -1679,6 +1709,8 @@ export class ReviewCard {
     const line = leadSentence(plainText(this.review().text));
     return line && this.masked() ? scramble(line, this.review().id) : line;
   });
+  /** Sem spoilers, o texto todo da ficha inteira vira rabisco do mesmo tamanho. */
+  protected readonly fullMasked = computed(() => scramble(plainText(this.review().text), this.review().id));
   protected readonly bonuses = computed(() => sortBonuses(this.review().bonuses));
   /**
    * No máximo quatro adesivos na ficha, para ela não virar álbum. Escolhe alternando a favor e

@@ -389,6 +389,48 @@
   width: var(--card-w);
 }
 
+/* ===== As fichas inteiras, em colagem =====
+   O texto todo na ficha, então cada uma tem uma altura bem diferente: em vez de fileiras (que
+   deixariam um buraco embaixo de cada ficha curta), as fichas correm em colunas, e a seguinte cai
+   embaixo da coluna mais curta, como as folhas do Pra depois. A grade tem linhas de 4px e cada ficha
+   ocupa as da altura dela mais o vão (medidos em `appFichasMosaico`, que também dá a cada ficha um
+   vão e um desvio para o lado um pouco diferentes, dentro do vão entre as colunas). A grade preenche
+   os buracos (`dense`): a ficha curta sobe para o vão que a anotação larga deixou. */
+.wall.inteira {
+  --col-w: var(--card-w);
+
+  /* a seção pede as colunas das fichas dela e encolhe até a largura da parede (aí quebra a linha);
+     seções curtas continuam correndo lado a lado */
+  .grupo {
+    flex: 0 1 calc(var(--n, 1) * var(--col-w) + (var(--n, 1) - 1) * var(--in-col));
+  }
+
+  /* a grade é a da seção; sem etiquetas, a parede inteira é uma colagem só */
+  &:not(.sem-etiquetas) .fichas,
+  &.sem-etiquetas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--col-w));
+    grid-auto-rows: 4px;
+    grid-auto-flow: row dense;
+    gap: 0 var(--in-col);
+  }
+  /* a última ficha de cada coluna também leva o vão de baixo: a seção devolve o vão menor */
+  &:not(.sem-etiquetas) .fichas {
+    margin-bottom: -34px;
+  }
+
+  app-review-card {
+    grid-row-end: span var(--linhas, 60);
+    width: var(--card-w);
+    max-width: none;
+    margin-left: var(--desvio, 0px);
+  }
+  app-review-card.nota-larga {
+    grid-column: span 2;
+    width: calc(var(--card-w) * 2 + var(--in-col));
+  }
+}
+
 /* ===== Mural vazio ===== */
 .empty {
   display: grid;
@@ -563,6 +605,27 @@
     app-review-card {
       width: 100%;
     }
+  }
+
+  /* as fichas inteiras no celular: uma coluna só, uma embaixo da outra, sem o desvio */
+  .wall.inteira .grupo {
+    flex: none;
+  }
+
+  .wall.inteira:not(.sem-etiquetas) .fichas,
+  .wall.inteira.sem-etiquetas {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+    gap: 34px;
+    margin-bottom: 0;
+  }
+
+  .wall.inteira app-review-card,
+  .wall.inteira app-review-card.nota-larga {
+    grid-row-end: auto;
+    grid-column: auto;
+    width: 100%;
+    margin-left: 0;
   }
 
   /* só capa e nome: três por fileira no celular */

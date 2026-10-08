@@ -1,6 +1,7 @@
 import {
   ApplicationRef,
   ComponentRef,
+  DestroyRef,
   Directive,
   ElementRef,
   EnvironmentInjector,
@@ -21,6 +22,8 @@ export interface WallCardProps {
   highlight: ScoreKey | null;
   compact: boolean;
   capas: boolean;
+  /** As fichas inteiras: o texto todo, encaixadas em colagem. */
+  full: boolean;
   dayOnly: boolean;
   picking: boolean;
   /** A ordem das fichas marcadas para o lado a lado (id → 1, 2, 3…). */
@@ -40,6 +43,7 @@ const NO_PROPS: WallCardProps = {
   highlight: null,
   compact: false,
   capas: false,
+  full: false,
   dayOnly: false,
   picking: false,
   picked: new Map(),
@@ -144,6 +148,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('highlight', p.highlight);
     ref.setInput('compact', p.compact);
     ref.setInput('capas', p.capas);
+    ref.setInput('full', p.full);
     ref.setInput('dayOnly', p.dayOnly);
     ref.setInput('picking', p.picking);
     ref.setInput('pickedAt', p.picked.get(r.id) ?? null);
@@ -162,18 +167,55 @@ export class WallCardPool implements OnDestroy {
   }
 }
 
+/** A altura de uma linha da grade da colagem: cada ficha ocupa quantas couberem na altura dela. */
+const MOSAIC_ROW = 4;
+
+/** Um número de 0 a 1 tirado do id, sempre o mesmo para a mesma ficha. */
+function wobble(id: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+/**
+ * Na colagem (as fichas inteiras), cada ficha ocupa na grade as linhas da altura dela, mais o vão de
+ * baixo: a ficha seguinte cai embaixo da mais curta, sem buraco na parede. O vão e o desvio para o
+ * lado variam um pouco de ficha para ficha (sempre os mesmos para a mesma ficha), como pregadas à mão.
+ */
+function fitMosaic(el: HTMLElement): void {
+  const id = el.dataset['ficha'] ?? '';
+  const gap = 34 + Math.round(wobble(id, 1) * 26);
+  const top = parseFloat(getComputedStyle(el).marginTop) || 0;
+  el.style.setProperty('--linhas', String(Math.ceil((el.offsetHeight + top + gap) / MOSAIC_ROW)));
+  el.style.setProperty('--desvio', `${Math.round((wobble(id, 2) - 0.5) * 16)}px`);
+}
+
 /** As fichas de uma seção do mural (ver WallCardPool). */
 @Directive({ selector: '[appFichas]' })
 export class WallCards {
   readonly reviews = input.required<readonly Review[]>({ alias: 'appFichas' });
+  /** As fichas inteiras, em colagem: mede cada ficha para ela ocupar as linhas da altura dela. */
+  readonly mosaic = input(false, { alias: 'appFichasMosaico' });
 
   constructor() {
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const pool = inject(WallCardPool);
+    // a ficha muda de altura sozinha (a capa chegando, as fontes, uma tarefa marcada): mede de novo
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver((entries) => entries.forEach((e) => fitMosaic(e.target as HTMLElement)));
+    inject(DestroyRef).onDestroy(() => ro?.disconnect());
     effect(() => {
       const reviews = this.reviews();
       const props = pool.props();
-      untracked(() => pool.place(host, reviews, props));
+      const mosaic = this.mosaic();
+      untracked(() => {
+        pool.place(host, reviews, props);
+        ro?.disconnect();
+        if (!mosaic) return;
+        for (const el of Array.from(host.children) as HTMLElement[]) {
+          fitMosaic(el);
+          ro?.observe(el);
+        }
+      });
     });
   }
 }

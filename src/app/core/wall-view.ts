@@ -30,10 +30,11 @@ export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 
 const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'tag', 'prioridade'];
 export type Direction = 'desc' | 'asc';
 /**
- * Completa (tudo), simples (a tira com a nota), capas (só a foto e o nome, para ver o máximo de
- * fichas) ou lista (só no mural de anotações: uma linha por anotação, ver NoteIndex).
+ * Completa (tudo), inteira (a completa com o texto todo, as fichas encaixadas em colagem), simples
+ * (a tira com a nota), capas (só a foto e o nome, para ver o máximo de fichas) ou lista (só no mural
+ * de anotações: uma linha por anotação, ver NoteIndex).
  */
-export type Density = 'completa' | 'simples' | 'capas' | 'lista';
+export type Density = 'completa' | 'inteira' | 'simples' | 'capas' | 'lista';
 
 const KEY = 'mural-de-jogos:vista:v1';
 
@@ -45,9 +46,9 @@ export function withoutSpoilerFacets(f: WallFilter): WallFilter {
   return f.verdict.length || f.grade.length || f.difficulty.length ? { ...f, verdict: [], grade: [], difficulty: [] } : f;
 }
 
-const DENSITIES: readonly Density[] = ['completa', 'simples', 'capas', 'lista'];
+const DENSITIES: readonly Density[] = ['completa', 'inteira', 'simples', 'capas', 'lista'];
 /** Os tipos de ficha dos murais de resenhas (a lista é só das anotações). */
-const REVIEW_DENSITIES: readonly Density[] = ['completa', 'simples', 'capas'];
+const REVIEW_DENSITIES: readonly Density[] = ['completa', 'inteira', 'simples', 'capas'];
 
 /** Como uma aba do mural de anotações está: a ordem, a direção e o tipo de ficha dela. */
 export interface NoteView {

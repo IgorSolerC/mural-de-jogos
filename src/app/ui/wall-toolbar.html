@@ -211,6 +211,16 @@
     <button
       type="button"
       class="plate icon"
+      [attr.aria-pressed]="view.density() === 'inteira'"
+      (click)="setDensity('inteira')"
+      aria-label="Fichas inteiras: o texto todo, em colagem"
+      title="Fichas inteiras: o texto todo, em colagem"
+    >
+      <lucide-icon [img]="WholeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="plate icon"
       [attr.aria-pressed]="view.density() === 'simples'"
       (click)="setDensity('simples')"
       aria-label="Fichas simples"

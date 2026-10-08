@@ -102,6 +102,7 @@
       class="wall"
       [class.compact]="view.density() === 'simples'"
       [class.capas]="view.density() === 'capas'"
+      [class.inteira]="inteira()"
       [class.lista]="lista()"
       [class.sem-etiquetas]="!settings.groupLabels()"
     >
@@ -109,7 +110,7 @@
         <!-- a etiqueta da seção fecha e abre a seção: fechada, as fichas viram um maço preso com
              elástico, numa linha só; sem etiquetas, nada fecha -->
         @let shut = foldable() && view.isCollapsed(g.key);
-        <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
+        <section class="grupo" [class.fechada]="shut" [style.--n]="inteira() ? columnsOf(g) : null" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
           <header class="grupo-head">
             <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + idOf(g.key)" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">
               @if (foldable()) {
@@ -146,7 +147,7 @@
             @if (lista()) {
               <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [showCategory]="!view.activeTabLabel()" (opened)="desk.openReview($event)" />
             } @else {
-              <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews"></div>
+              <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews" [appFichasMosaico]="inteira()"></div>
             }
           }
         </section>

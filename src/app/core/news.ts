@@ -50,6 +50,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-fichas-inteiras',
+    version: '1.23.0',
+    kind: 'funcionalidade',
+    date: '2026-10-08',
+    title: 'Fichas inteiras, em colagem',
+    items: [
+      'Um tipo de ficha novo, em todos os murais: Fichas inteiras. Cada ficha mostra o texto todo (a resenha inteira, não só a primeira frase; a anotação sem cortar no fim).',
+      'Como cada ficha fica de um tamanho, elas se encaixam em colunas, como as folhas do Pra depois: a seguinte cai embaixo da mais curta, sem buraco na parede, cada uma um pouco fora do prumo.',
+      'No celular, as fichas inteiras ficam uma embaixo da outra.',
+    ],
+  },
+  {
     id: '2026-10-08-tarefa-finaliza-ligada',
     version: '1.22.0',
     kind: 'funcionalidade',

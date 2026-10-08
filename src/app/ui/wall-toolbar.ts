@@ -5,6 +5,7 @@ import {
   CheckCheck,
   ChevronDown,
   Grid3x3,
+  LayoutDashboard,
   LayoutGrid,
   List,
   ListChecks,
@@ -59,6 +60,7 @@ export class WallToolbar {
   protected readonly DescIcon = ArrowDownWideNarrow;
   protected readonly AscIcon = ArrowUpNarrowWide;
   protected readonly FullIcon = Rows3;
+  protected readonly WholeIcon = LayoutDashboard;
   protected readonly CompactIcon = LayoutGrid;
   protected readonly CoversIcon = Grid3x3;
   protected readonly ListIcon = List;
@@ -66,6 +68,7 @@ export class WallToolbar {
   /** Os tipos de ficha da pasta das anotações (com a Lista, que só elas têm). */
   protected readonly noteDensities: readonly { value: Density; label: string; icon: typeof List }[] = [
     { value: 'completa', label: 'Fichas completas', icon: Rows3 },
+    { value: 'inteira', label: 'Fichas inteiras: o texto todo, em colagem', icon: LayoutDashboard },
     { value: 'simples', label: 'Fichas simples', icon: LayoutGrid },
     { value: 'capas', label: 'Só capa e nome', icon: Grid3x3 },
     { value: 'lista', label: 'Lista', icon: List },
