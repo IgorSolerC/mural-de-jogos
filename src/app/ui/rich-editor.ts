@@ -1343,6 +1343,8 @@ export class RichEditor {
     { mark: '```', what: 'Bloco de código (abre e fecha)' },
     { mark: '| a | b |', what: 'Tabela (2ª linha: | --- | --- |)' },
     { mark: '---', what: 'Divisória' },
+    { mark: '-> <- <-> =>', what: 'Setas: → ← ↔ ⇒ (--> e <-- compridas)' },
+    { mark: '!= >= <= ~= +-', what: 'Símbolos: ≠ ≥ ≤ ≈ ±' },
     { mark: '\\*', what: 'A marca como ela é, sem formatar' },
   ];
 

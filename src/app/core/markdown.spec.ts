@@ -62,4 +62,21 @@ describe('o markdown do texto', () => {
     expect(plainText('# Título\n> citação **forte**\n| a | b |\n| - - | --- |\n---\n[site](https://x.y) e `cod`')).toBe('Título\ncitação forte\n| a | b |\n| - - | --- |\nsite e cod');
     expect(plainText('| A | B |\n| --- | --- |\n| 1 | 2 |')).toBe('A · B\n1 · 2');
   });
+
+  it('os sinais viram setas e símbolos, menos no código, nos links e com a barra', () => {
+    const line = (t: string) => parseInline(t).map((s) => s.text).join('');
+    expect(line('a -> b <- c <-> d => e <=> f')).toBe('a → b ← c ↔ d ⇒ e ⇔ f');
+    expect(line('x --> y <-- z ==> w <== v')).toBe('x ⟶ y ⟵ z ⟹ w ⟸ v');
+    expect(line('1 != 2, 3 >= 2, 1 <= 2, 3 ~= 3, 5 +- 1')).toBe('1 ≠ 2, 3 ≥ 2, 1 ≤ 2, 3 ≈ 3, 5 ± 1');
+    // no código, no link e escapado, como foi escrito; dentro das ênfases, vira
+    expect(parseInline('`a -> b`')).toEqual([{ text: 'a -> b', code: true }]);
+    expect(parseInline('[[A -> B]]')).toEqual([{ text: 'A -> B', link: true }]);
+    expect(line('-\\> e <\\- e !\\=')).toBe('-> e <- e !=');
+    expect(parseInline('**a -> b**')).toEqual([{ text: 'a → b', bold: true }]);
+    expect(parseInline('==a -> b== != c')).toEqual([{ text: 'a → b', mark: true }, { text: ' ≠ c' }]);
+    // o texto com seta passa a ser formatado (sem isso, a leitura mostraria o texto cru)
+    expect(hasFormatting('ir -> voltar')).toBeTrue();
+    expect(hasFormatting('ir -\\> voltar')).toBeFalse();
+    expect(plainText('- ir -> voltar')).toBe('ir → voltar');
+  });
 });

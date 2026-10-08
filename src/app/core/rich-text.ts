@@ -5,6 +5,9 @@
  *   [texto](https://endereço), endereços soltos (https://…) e, nas anotações, links para outras
  *   anotações ("[[Título]]", ver core/note-links.ts). Uma barra antes de uma marca a escreve como é
  *   ("\*" é um asterisco).
+ * - Os símbolos escritos com sinais: "->" →, "<-" ←, "<->" ↔, "-->" ⟶, "<--" ⟵, "=>" ⇒, "<=>" ⇔,
+ *   "==>" ⟹, "<==" ⟸, "!=" ≠, ">=" ≥, "<=" ≤, "~=" ≈ e "+-" ±. Fora do código e dos links; com a
+ *   barra antes do último sinal ("-\>"), ficam como são.
  * - Em blocos: títulos ("# ", "## ", "### "), listas ("- item", "1. item"), checklists ("- [ ] tarefa",
  *   "- [x] feita"), citações ("> "), a divisória ("---"), tabelas (as linhas com "|", a segunda só de
  *   traços) e blocos de código (entre "```").
@@ -111,6 +114,31 @@ export function splitLink(inner: string): { title: string; label: string } {
   return { title, label: label || title };
 }
 
+/** Os sinais que viram símbolo, do mais comprido para o mais curto ("<=>" antes de "<="). */
+const SYMBOLS: Record<string, string> = {
+  '<=>': '⇔',
+  '<->': '↔',
+  '-->': '⟶',
+  '<--': '⟵',
+  '==>': '⟹',
+  '<==': '⟸',
+  '=>': '⇒',
+  '->': '→',
+  '<-': '←',
+  '!=': '≠',
+  '>=': '≥',
+  '<=': '≤',
+  '~=': '≈',
+  '+-': '±',
+};
+const SYMBOL = /<=>|<->|-->|<--|==>|<==|=>|->|<-|!=|>=|<=|~=|\+-/g;
+const HAS_SYMBOL = new RegExp(SYMBOL.source);
+
+/** Os sinais viram símbolos (o código e os links já viraram um caractere só, e ficam como são). */
+function typeset(text: string): string {
+  return text.replace(SYMBOL, (m) => SYMBOLS[m]);
+}
+
 type Marks = Omit<Span, 'text'>;
 
 /**
@@ -128,7 +156,7 @@ export function parseInline(text: string): Span[] {
     else if (m[4] !== undefined) atoms.push({ kind: 'url', text: m[4], href: m[5] });
     else atoms.push({ kind: 'url', text: m[6], href: m[6] });
   }
-  if (!atoms.length) return parseMarks(text);
+  if (!atoms.length) return parseMarks(typeset(text));
   // cada pedaço vira um caractere de uso privado, de uma faixa que não aparece no texto (um emoji
   // antigo de celular japonês, por exemplo, mora nessa área)
   let base = SLOT;
@@ -141,7 +169,7 @@ export function parseInline(text: string): Span[] {
     if (last && sameMarks(last, s) && !s.link && !s.href && !s.code && !last.link && !last.href && !last.code) last.text += s.text;
     else out.push(s);
   };
-  for (const s of parseMarks(slotted)) {
+  for (const s of parseMarks(typeset(slotted))) {
     const { text: t, ...marks } = s;
     let plain = '';
     const flush = () => {
@@ -291,9 +319,9 @@ export function parseRich(text: string): Block[] {
   return blocks;
 }
 
-/** O texto tem alguma formatação (ou link)? Sem ela, a leitura fica como sempre foi (texto corrido). */
+/** O texto tem alguma formatação (ou link, ou símbolo)? Sem ela, a leitura fica como sempre foi (texto corrido). */
 export function hasFormatting(text: string): boolean {
-  return parseRich(text).some((b) => b.kind !== 'p' || b.lines.some((l) => l.some((s) => s.link || s.href || s.code || FLAGS.some((f) => s[f]))));
+  return HAS_SYMBOL.test(text) || parseRich(text).some((b) => b.kind !== 'p' || b.lines.some((l) => l.some((s) => s.link || s.href || s.code || FLAGS.some((f) => s[f]))));
 }
 
 /** O texto tem o que tocar: tarefas, links para outras anotações ou para fora. */

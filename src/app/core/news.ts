@@ -50,6 +50,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-08-setas',
+    version: '1.18.11',
+    kind: 'melhoria',
+    date: '2026-10-08',
+    title: 'Setas e símbolos no texto',
+    items: [
+      'No texto das fichas, -> vira →, <- vira ←, <-> vira ↔ e => vira ⇒. Também --> e <-- (setas compridas), <=> (⇔), != (≠), >= (≥), <= (≤), ~= (≈) e +- (±).',
+      'No código e nos links, o que foi escrito fica como está. Para escrever a seta crua, uma barra antes do último sinal: -\\>.',
+      'O guia das marcas (o "?" da régua) mostra as setas e os símbolos.',
+    ],
+  },
+  {
     id: '2026-10-08-anotacao-no-feed',
     version: '1.18.10',
     kind: 'correcao',
