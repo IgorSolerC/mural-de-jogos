@@ -40,9 +40,9 @@ function sea(): Review[] {
 }
 
 describe('as abas do mural de anotações', () => {
-  it('toda categoria tem aba, de A a Z, e Sem categoria no fim', () => {
+  it('toda categoria tem aba, das com mais anotações para as com menos, e Sem categoria no fim', () => {
     const tabs = noteTabsOf(sea());
-    expect(tabs.tabs.map((t) => t.label)).toEqual(['Estudos', 'Receitas', 'Trabalho', 'Viagem', 'Sem categoria']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Trabalho', 'Estudos', 'Viagem', 'Receitas', 'Sem categoria']);
     expect(tabs.all).toBe(12);
   });
 
@@ -53,7 +53,7 @@ describe('as abas do mural de anotações', () => {
     expect(split.more).toEqual([]);
   });
 
-  it('mais de oito abas (contando Tudo): as com menos anotações vão para o Mais, e as em pé continuam de A a Z', () => {
+  it('mais de oito abas (contando Tudo): as com menos anotações vão para o Mais, e as em pé continuam na ordem', () => {
     const tabs: NoteTab[] = 'ABCDEFGHIJ'.split('').map((c, i) => ({ key: `c:${c}`, label: c, n: i + 1, total: i + 1 }));
     const split = splitTabs(tabs, ALL_TAB);
     expect(split.shown.length).toBe(MAX_TABS - 1);
@@ -70,8 +70,8 @@ describe('as abas do mural de anotações', () => {
     const { tabs } = noteTabsOf(sea());
     // cabem só duas além de Tudo (e do Mais)
     const split = splitTabs(tabs, ALL_TAB, (shown) => shown.length <= 2);
-    expect(split.shown.map((t) => t.label)).toEqual(['Estudos', 'Trabalho']);
-    expect(split.more.map((t) => t.label)).toEqual(['Receitas', 'Viagem', 'Sem categoria']);
+    expect(split.shown.map((t) => t.label)).toEqual(['Trabalho', 'Estudos']);
+    expect(split.more.map((t) => t.label)).toEqual(['Viagem', 'Receitas', 'Sem categoria']);
   });
 
   it('a finalizada conta para a aba existir, mas não no número dela quando está escondida', () => {
@@ -91,6 +91,12 @@ describe('as abas do mural de anotações', () => {
     expect(noteTabKey({ category: 'Diário' })).toBe(noteTabKey({ category: 'diario' }));
     const tabs = noteTabsOf([note('A', 'Diário'), note('B', 'Diário'), note('C', 'diario'), note('D', null)]);
     expect(tabs.tabs.map((t) => t.label)).toEqual(['Diário', 'Sem categoria']);
+  });
+
+  it('no empate, de A a Z; a finalizada conta, então finalizar não muda a aba de lugar', () => {
+    const list = [note('A', 'Viagem'), note('B', 'Compras'), note('C', 'Viagem', { doneAt: '2026-10-02T10:00:00.000Z' }), note('D', 'Compras')];
+    expect(noteTabsOf(list, (r) => !r.doneAt).tabs.map((t) => t.label)).toEqual(['Compras', 'Viagem']);
+    expect(noteTabsOf([...list, note('E', 'Viagem')]).tabs.map((t) => t.label)).toEqual(['Viagem', 'Compras']);
   });
 
   it('uma categoria chamada "Sem" não cai na aba das sem categoria', () => {

@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-abas-por-quantidade',
+    version: '1.23.4',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Abas das anotações por tamanho',
+    items: [
+      'As abas das categorias ficam na ordem de quantas anotações cada uma tem: a maior primeiro (no empate, de A a Z). Sem categoria continua no fim.',
+      'As finalizadas contam também, então finalizar uma anotação não tira a aba do lugar.',
+    ],
+  },
+  {
     id: '2026-10-09-bonus-acessibilidade',
     version: '1.23.3',
     kind: 'melhoria',

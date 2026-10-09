@@ -5,8 +5,9 @@ import { Review, fold } from './review';
  * por anotação, então ela já é a pasta: a aba só mostra as anotações dela (as fixadas também, no
  * topo da aba), e "Tudo" mostra o mural inteiro, como antes.
  *
- * - Toda categoria tem a sua aba, de A a Z (a ordem não muda sozinha, para a mão aprender onde cada
- *   uma está); as sem categoria ganham a aba "Sem categoria", depois das outras.
+ * - Toda categoria tem a sua aba, da que tem mais anotações para a que tem menos (no empate, de A a
+ *   Z); as sem categoria ganham a aba "Sem categoria", depois das outras. A conta é a de `total`, com
+ *   as finalizadas: finalizar uma anotação não muda a aba de lugar.
  * - Cabem no máximo `MAX_TABS` abas em pé, contando Tudo, e só as que couberem na largura: as que
  *   sobram (as com menos anotações) vão para o "Mais" (ver `splitTabs` e NoteTabsBar).
  * - O número da aba é o de anotações à mostra; `total` conta as finalizadas também (é por ele que a
@@ -32,7 +33,7 @@ export interface NoteTab {
 }
 
 export interface NoteTabs {
-  /** As abas das categorias, de A a Z, e "Sem categoria" no fim (vazio: nada a separar). */
+  /** As abas das categorias, das maiores para as menores, e "Sem categoria" no fim (vazio: nada a separar). */
   tabs: NoteTab[];
   /** Quantas anotações à mostra no mural inteiro (o número de "Tudo"). */
   all: number;
@@ -72,7 +73,7 @@ export function noteTabsOf(notes: readonly Review[], shown: (r: Review) => boole
     const label = [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0];
     tabs.push({ key, label, n: b.n, total: b.total });
   }
-  tabs.sort((a, b) => collator.compare(a.label, b.label));
+  tabs.sort((a, b) => b.total - a.total || collator.compare(a.label, b.label));
   if (none) tabs.push(none);
   return { tabs, all };
 }
@@ -85,10 +86,10 @@ export function hasTab(tabs: NoteTabs, key: string): boolean {
 /**
  * Quais abas ficam em pé e quais vão para o "Mais". `fits(n)`: cabem n abas de categoria em pé (as n
  * escolhidas), além de Tudo e, se sobrar alguma, do "Mais". Ficam as com mais anotações (e a aberta,
- * sempre), no máximo `MAX_TABS` contando Tudo; em pé, continuam de A a Z.
+ * sempre), no máximo `MAX_TABS` contando Tudo; em pé, continuam na ordem de `noteTabsOf`.
  */
 export function splitTabs(tabs: readonly NoteTab[], active: string, fits: (shown: readonly NoteTab[], more: boolean) => boolean = () => true): { shown: NoteTab[]; more: NoteTab[] } {
-  // a ordem de quem fica: a aberta primeiro, depois as maiores (no empate, a de A a Z)
+  // a ordem de quem fica: a aberta primeiro, depois as maiores (no empate, a que vem antes)
   const byWeight = [...tabs].sort((a, b) => (b.key === active ? 1 : 0) - (a.key === active ? 1 : 0) || b.total - a.total || tabs.indexOf(a) - tabs.indexOf(b));
   let keep = Math.min(tabs.length, MAX_TABS - 1);
   const pick = (k: number) => new Set(byWeight.slice(0, k).map((t) => t.key));
