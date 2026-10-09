@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-marca-texto-fino',
+    version: '1.23.5',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Marca-texto mais fino',
+    items: [
+      'O marca-texto (==assim==) ficou mais baixo: pega a altura das letras e para por ali, sem cobrir a linha de cima nem a de baixo. Num trecho de várias linhas, cada linha tem a sua passada, com um respiro entre elas.',
+    ],
+  },
+  {
     id: '2026-10-09-abas-por-quantidade',
     version: '1.23.4',
     kind: 'melhoria',

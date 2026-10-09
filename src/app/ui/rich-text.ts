@@ -132,14 +132,16 @@ import { Review } from '../core/review';
       text-decoration: line-through 2px;
       text-decoration-color: color-mix(in srgb, currentColor 62%, transparent);
     }
-    /* o marca-texto: passado na palavra inteira, de cima a baixo, cada linha com a sua; a folga em
-       cima e embaixo cobre a letra à mão, que passa da caixa da fonte */
+    /* o marca-texto: uma passada da ponta chanfrada, cada linha com a sua, na altura das letras
+       baixas e um pouco acima, sem descer nas pernas do g e do p. A faixa tem altura própria (em em),
+       e não a da caixa da fonte: a da letra à mão é bem mais alta que a linha e cobria a de cima e a
+       de baixo, e as faixas de duas linhas seguidas se encostavam */
     .marca {
       --marca-cor: rgb(255 218 66 / 0.62);
-      background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat;
+      background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat 0 52% / 100% 0.7em;
       -webkit-box-decoration-break: clone;
       box-decoration-break: clone;
-      padding: 0.1em 0.1em 0.06em;
+      padding: 0 0.1em;
       border-radius: 2px;
     }
     :host-context(app-review-card[data-cor='amarelo']) .marca {
