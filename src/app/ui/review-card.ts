@@ -113,11 +113,9 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.orelha]': 'review().damage === "orelha"',
     // marcando pro lado a lado, a rejogada fica de fora (lá é uma ficha por obra)
     '[class.fora]': 'picking() && !!review().revisitOf',
-    // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra; larga ou alta
+    // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra
     '[class.nota]': 'note()',
     '[class.sem-capa]': 'note() && !review().game.coverUrl',
-    '[class.nota-larga]': 'note() && review().noteSize === "larga"',
-    '[class.nota-alta]': 'note() && review().noteSize === "alta"',
     // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
     '[class.fixada]': 'note() && review().noteRank === "fixada"',
     '[class.carimbando]': 'stamping()',
@@ -928,9 +926,6 @@ function watchDistance(el: HTMLElement): () => void {
       -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--line) * 1.2), transparent);
       mask-image: linear-gradient(to bottom, #000 calc(100% - var(--line) * 1.2), transparent);
     }
-    :host(.nota-alta) .nota-texto {
-      --linhas: 18;
-    }
     /* a ficha inteira: o texto todo, sem corte nem esmaecido no fim */
     :host(.inteira) .nota-texto {
       max-height: none;
@@ -961,9 +956,6 @@ function watchDistance(el: HTMLElement): () => void {
     .nota-texto.marcavel ::ng-deep .elo[tabindex],
     .nota-texto.marcavel ::ng-deep a.url {
       pointer-events: auto;
-    }
-    :host(.nota-larga) {
-      max-width: none;
     }
 
     /* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====

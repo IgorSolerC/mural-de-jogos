@@ -46,6 +46,9 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  * 8: a força da tinta da estampa (`patternInk`). Um site antigo jogaria o campo fora, e a estampa
  *    voltaria à tinta de sempre.
  * 9: a ficha visível sem publicar (`quiet`). Um site antigo jogaria a marca fora e avisaria quem segue.
+ *
+ * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
+ * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
 export const SYNC_SCHEMA = 9;
 

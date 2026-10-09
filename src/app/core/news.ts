@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-sem-tamanho-da-ficha',
+    version: '1.23.9',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Um tamanho só para as anotações',
+    items: [
+      'Saiu o Tamanho da ficha (Normal, Larga, Alta) do editor das anotações: toda anotação fica do tamanho de sempre no mural, e as que eram largas ou altas voltam a ele.',
+      'Para ler o texto todo direto na parede, use o tipo de ficha Fichas inteiras.',
+    ],
+  },
+  {
     id: '2026-10-09-trocar-mural-leva-ao-mural',
     version: '1.23.8',
     kind: 'melhoria',

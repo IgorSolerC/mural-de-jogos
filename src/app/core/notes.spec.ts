@@ -58,6 +58,7 @@ describe('anotações', () => {
       bonuses: [{ id: 'compras', label: 'x', kind: 'contra' }, { label: 'Casa', kind: 'contra' }],
       verdict: 'masterpiece',
       revisitOf: 'outra001',
+      // o tamanho da ficha (larga, alta) saiu: a anotação antiga que o tinha volta ao de sempre
       noteSize: 'alta',
     })!;
     expect(n.kind).toBe('anotacoes');
@@ -67,8 +68,7 @@ describe('anotações', () => {
     expect(n.category).toBe('Lista de compras');
     expect(n.tags).toEqual(['Casa']);
     expect(n.game).toEqual({ name: 'Mercado', coverUrl: 'https://x.test/capa.jpg', source: 'manual', sourceId: undefined, year: undefined, by: undefined });
-    expect(n.noteSize).toBe('alta');
-    expect(sanitizeReview({ id: 'nota0002', kind: 'anotacoes', game: { name: 'x' }, noteSize: 'gigante' })!.noteSize).toBeUndefined();
+    expect('noteSize' in n).toBeFalse();
   });
 
   it('vão para o armazenamento sem notas: um site antigo que as visse as jogaria fora, sem virar um jogo nota 0', () => {

@@ -376,17 +376,6 @@
     width: var(--card-w);
     max-width: none;
   }
-  /* a anotação larga ocupa duas fichas e o vão entre elas (o das colunas: --in-gap tem os dois);
-     nunca mais larga que a parede */
-  app-review-card.nota-larga {
-    width: calc(var(--card-w) * 2 + var(--in-col));
-    max-width: 100%;
-  }
-}
-/* na ficha simples e na de só capa, a larga é uma ficha como as outras (a tira larga ficava vazia) */
-.wall.capas .fichas app-review-card.nota-larga,
-.wall.compact .fichas app-review-card.nota-larga {
-  width: var(--card-w);
 }
 
 /* ===== As fichas inteiras, em colagem =====
@@ -395,8 +384,8 @@
    embaixo da coluna mais curta, como as folhas do Pra depois. A grade tem linhas de 4px e cada ficha
    ocupa as da altura dela mais o vão (medidos em `appFichasMosaico`, que também dá a cada ficha um
    vão e um desvio para o lado um pouco diferentes, dentro do vão entre as colunas). Todas têm a
-   mesma largura (a anotação larga também, como na Simples): sem ficha de duas colunas, a colagem não
-   deixa buraco, e a ordem na tela (e a do Tab) é a da ordem escolhida. */
+   mesma largura: sem ficha de duas colunas, a colagem não deixa buraco, e a ordem na tela (e a do
+   Tab) é a da ordem escolhida. */
 .wall.inteira {
   --col-w: var(--card-w);
 
@@ -425,10 +414,6 @@
     width: var(--card-w);
     max-width: none;
     margin-left: var(--desvio, 0px);
-  }
-  app-review-card.nota-larga {
-    grid-column: auto;
-    width: var(--card-w);
   }
 }
 
@@ -621,8 +606,7 @@
     margin-bottom: 0;
   }
 
-  .wall.inteira app-review-card,
-  .wall.inteira app-review-card.nota-larga {
+  .wall.inteira app-review-card {
     grid-row-end: auto;
     grid-column: auto;
     width: 100%;

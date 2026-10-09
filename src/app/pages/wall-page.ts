@@ -106,7 +106,7 @@ export class WallPage {
   /** As fichas inteiras: o texto todo, encaixadas em colagem (ver `appFichasMosaico`). */
   protected readonly inteira = computed(() => this.view.density() === 'inteira');
 
-  /** Quantas colunas a seção pediria em colagem: uma por ficha (lá, a larga é uma ficha como as outras). */
+  /** Quantas colunas a seção pediria em colagem: uma por ficha. */
   protected columnsOf(g: WallGroup): number {
     return g.reviews.length;
   }

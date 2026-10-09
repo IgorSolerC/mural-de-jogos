@@ -188,16 +188,6 @@
   width: var(--card-w);
   max-width: none;
 }
-/* a anotação larga, como no seu mural: duas fichas e o vão entre elas */
-.fichas app-review-card.nota-larga {
-  width: calc(var(--card-w) * 2 + var(--in-col));
-  max-width: 100%;
-}
-/* na ficha simples e na de só capa, a larga é uma ficha como as outras (a tira larga ficava vazia) */
-.wall.capas .fichas app-review-card.nota-larga,
-.wall.compact .fichas app-review-card.nota-larga {
-  width: var(--card-w);
-}
 
 @media (max-width: 699px) {
   .densidade {

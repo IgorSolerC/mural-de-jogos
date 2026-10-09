@@ -280,11 +280,6 @@ export interface Review {
    */
   artFrom?: string;
   /**
-   * Só nas anotações: a ficha mais larga (duas colunas) ou mais alta (mais texto à mostra). Sem o
-   * campo, o tamanho de sempre.
-   */
-  noteSize?: NoteSize;
-  /**
    * Só nas anotações: o lugar dela no mural. Fixada fica sempre no topo; sub-nota (a que nasceu de um
    * link dentro de outra anotação) vale menos e vai para o fim. Sem o campo, uma anotação comum.
    */
@@ -321,10 +316,6 @@ export interface Review {
   createdAt: string;
   updatedAt: string;
 }
-
-/** O tamanho de uma anotação no mural (ver `Review.noteSize`). */
-export type NoteSize = 'larga' | 'alta';
-export const NOTE_SIZES: readonly NoteSize[] = ['larga', 'alta'];
 
 /** O lugar de uma anotação no mural (ver `Review.noteRank`); a comum não tem o campo. */
 export type NoteRank = 'fixada' | 'sub';
@@ -1059,7 +1050,6 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     ...(category ? { category } : {}),
     ...(tags.length ? { tags } : {}),
     hoursPlayed: null,
-    ...(NOTE_SIZES.includes(r['noteSize']) ? { noteSize: r['noteSize'] as NoteSize } : {}),
     ...(NOTE_RANKS.includes(r['noteRank']) ? { noteRank: r['noteRank'] as NoteRank } : {}),
     ...(r['noteRank'] === 'fixada' && r['pinnedSub'] === true ? { pinnedSub: true as const } : {}),
     ...optional('doneAt', isoOr(r['doneAt'], '') || undefined),

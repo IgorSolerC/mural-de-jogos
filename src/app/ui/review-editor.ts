@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Bookmark, Check, CopyCheck, CornerDownRight, Eye, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RectangleHorizontal, RectangleVertical, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
+import { Bookmark, Check, CopyCheck, CornerDownRight, Eye, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   Bonus,
@@ -18,7 +18,6 @@ import {
   Kind,
   PickedGame,
   NoteRank,
-  NoteSize,
   Rated,
   RatedKey,
   Review,
@@ -219,13 +218,6 @@ export class ReviewEditor {
     setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-data')?.focus());
   }
 
-  /** O tamanho da anotação no mural; null, o de sempre. */
-  protected readonly noteSize = signal<NoteSize | null>(null);
-  protected readonly noteSizes: readonly { value: NoteSize | null; label: string; icon: typeof Square }[] = [
-    { value: null, label: 'Normal', icon: Square },
-    { value: 'larga', label: 'Larga', icon: RectangleHorizontal },
-    { value: 'alta', label: 'Alta', icon: RectangleVertical },
-  ];
   /** O lugar da anotação no mural: fixada no topo, comum (null) ou sub-nota, no fim. */
   protected readonly noteRank = signal<NoteRank | null>(null);
   protected readonly noteRanks: readonly { value: NoteRank | null; label: string; icon: typeof Square }[] = [
@@ -451,7 +443,6 @@ export class ReviewEditor {
   /** A ficha como ela vai para o mural, montada com o que já foi preenchido. */
   protected readonly preview = computed<Review>(() => {
     return {
-      ...(this.notes() && this.noteSize() ? { noteSize: this.noteSize()! } : {}),
       ...(this.notes() && this.noteRank() ? { noteRank: this.noteRank()! } : {}),
       ...(this.notes() && this.noteCategory() ? { category: this.noteCategory()! } : {}),
       ...(this.notes() && this.noteTags().length ? { tags: [...this.noteTags()] } : {}),
@@ -577,7 +568,6 @@ export class ReviewEditor {
     this.keptNotes.set(false);
     // a anotação nasce privada; a resenha, publicada
     this.audience.set(review ? audienceOf(review) : isNotes(kind) ? 'privada' : 'publicar');
-    this.noteSize.set(review?.noteSize ?? null);
     this.noteRank.set(review?.noteRank ?? null);
     this.noteDateOpen.set(false);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
@@ -1021,7 +1011,6 @@ export class ReviewEditor {
       this.difficulty(),
       this.text().trim(),
       this.audience(),
-      this.noteSize(),
       this.noteRank(),
     ]);
   }

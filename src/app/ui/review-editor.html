@@ -297,26 +297,6 @@
         }
 
         @if (notes()) {
-          <!-- o tamanho da ficha no mural: mais larga, ou mais alta para mostrar mais do texto -->
-          <section class="bloco quem-ve">
-            <fieldset>
-              <legend class="pergunta">Tamanho da ficha</legend>
-              <div class="quem-opts">
-                @for (o of noteSizes; track o.value) {
-                  <label class="quem">
-                    <input type="radio" name="editor-tamanho" [checked]="noteSize() === o.value" (change)="noteSize.set(o.value)" />
-                    <span class="quem-tag">
-                      <lucide-icon [img]="o.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                      {{ o.label }}
-                    </span>
-                  </label>
-                }
-              </div>
-            </fieldset>
-          </section>
-        }
-
-        @if (notes()) {
           <!-- o lugar no mural: fixada no topo, comum, ou sub-nota (parte de outra anotação), no fim -->
           <section class="bloco quem-ve">
             <fieldset>

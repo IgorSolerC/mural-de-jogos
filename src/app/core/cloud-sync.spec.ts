@@ -507,12 +507,12 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
   /**
    * Se este teste falhar, o formato das fichas mudou: aumente SYNC_SCHEMA em cloud-sync.ts e atualize
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
-   * sincronizar.
+   * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
   it('a leitura das fichas é a mesma da versão 9', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 9, hex: 'd7a45f8698921ab0d792d7860fe8527788b434b42b61640ca781a814461f9e1d' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 9, hex: 'd39b84e6bb6a8fce65475fcbd1cc9b5d45aab15938968e5c5b9f451e61d68f9e' });
   });
 });
