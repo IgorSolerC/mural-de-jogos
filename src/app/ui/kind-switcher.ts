@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { BookOpen, ChevronDown, Film, Gamepad2, LucideAngularModule, LucideIconData, Origami, StickyNote, Tv } from 'lucide-angular';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
+import { FriendKinds, Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { WallView } from '../core/wall-view';
@@ -18,8 +20,18 @@ const KIND_ICON: Record<Kind, LucideIconData> = {
 let uid = 0;
 
 /**
+ * As páginas que não mudam com o mural escolhido: os Ajustes, as Novidades e Amigos com as novidades
+ * misturadas (de todos os murais). Trocar de mural nelas não mudaria nada na tela, então a troca
+ * leva ao mural escolhido. `path`: o caminho, sem query nem fragmento.
+ */
+export function sameForEveryMural(path: string, friendKinds: FriendKinds): boolean {
+  return path === '/ajustes' || path === '/novidades' || (path === '/amigos' && friendKinds === 'misturado');
+}
+
+/**
  * A palavra do cartaz: "Meu mural de *jogos*". Tocar nela abre um bloquinho com os outros murais;
- * escolher um troca a parede inteira (fichas, fila, ranking e lado a lado), na mesma página.
+ * escolher um troca a parede inteira (fichas, fila, ranking e lado a lado), na mesma página. Numa
+ * página que é a mesma em todos os murais (ver `sameForEveryMural`), vai para o mural escolhido.
  */
 @Component({
   selector: 'app-kind-switcher',
@@ -195,6 +207,8 @@ export class KindSwitcher {
   private readonly view = inject(WallView);
   private readonly side = inject(SideBySide);
   private readonly vt = inject(ViewTransitions);
+  private readonly router = inject(Router);
+  private readonly settings = inject(Settings);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
 
@@ -220,6 +234,13 @@ export class KindSwitcher {
   protected choose(kind: Kind): void {
     this.close(true);
     if (kind === this.mural.kind()) return;
+    if (sameForEveryMural(this.router.url.split(/[?#]/)[0], this.settings.friendKinds())) {
+      this.side.picking.set(false);
+      this.view.clearFilters();
+      this.mural.kind.set(kind);
+      void this.router.navigateByUrl('/');
+      return;
+    }
     this.vt.run(
       () => {
         this.side.picking.set(false);

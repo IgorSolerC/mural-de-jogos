@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-trocar-mural-leva-ao-mural',
+    version: '1.23.8',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Trocar de mural leva ao mural',
+    items: [
+      'Trocar de mural nos Ajustes, nas Novidades ou em Amigos (com as novidades de todos os murais misturadas) agora leva você direto ao mural escolhido. Antes, a tela continuava a mesma e parecia que nada tinha acontecido.',
+      'Nas páginas que mudam com o mural (Pra depois, Wishlist, Extras, Amigos separado por mural), a troca continua na mesma página.',
+    ],
+  },
+  {
     id: '2026-10-09-correcao-enter-no-item',
     version: '1.23.7',
     kind: 'correcao',
