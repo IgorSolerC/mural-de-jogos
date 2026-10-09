@@ -516,20 +516,22 @@ function watchDistance(el: HTMLElement): () => void {
     }
     :host(.recortada),
     :host(.recortada:hover),
-    :host(.recortada:focus-within),
+    :host(.recortada:has(:focus-visible)),
     :host(.recortada:active) {
       box-shadow: none;
       /* na ficha inteira, e não no papel: o filtro vem antes da máscara, e a máscara do papel cortaria a sombra */
       filter: var(--sombra-papel);
     }
     :host(.recortada:hover),
-    :host(.recortada:focus-within) {
+    :host(.recortada:has(:focus-visible)) {
       --sombra-papel: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 16px 16px rgb(0 0 0 / 0.5)) drop-shadow(0 32px 32px rgb(0 0 0 / 0.45));
     }
 
-    /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede */
+    /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede. Pelo teclado também, com
+       o foco que aparece (:focus-visible), e não com qualquer foco: o clique deixa o foco na ficha (e a
+       leitura, ao fechar, devolve o foco a ela), e a ficha ficava levantada com o mouse já longe */
     :host(:hover),
-    :host(:focus-within) {
+    :host(:has(:focus-visible)) {
       rotate: calc(var(--tilt) * 0.35deg);
       translate: 0 -3px;
       box-shadow: var(--shadow-lift);
@@ -820,7 +822,7 @@ function watchDistance(el: HTMLElement): () => void {
     }
     /* com o mouse na ficha, a orelha sobe mais um pouco, como a divisória puxada para achar a matéria */
     :host(:hover) .aba-cat,
-    :host(:focus-within) .aba-cat {
+    :host(:has(:focus-visible)) .aba-cat {
       translate: 0 -6px;
     }
     :host(:active) .aba-cat {
@@ -1085,7 +1087,7 @@ function watchDistance(el: HTMLElement): () => void {
       inset: -7px -2px -7px -2px;
     }
     :host(:hover) :is(.fixar, .feito),
-    .acoes:focus-within :is(.fixar, .feito),
+    .acoes:has(:focus-visible) :is(.fixar, .feito),
     .fixar.marcado {
       opacity: 1;
       translate: 0 0;

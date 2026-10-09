@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-correcao-ficha-levantada',
+    version: '1.23.6',
+    kind: 'correcao',
+    date: '2026-10-09',
+    title: 'Correção de bug',
+    items: [
+      'Depois de abrir uma ficha e fechar a leitura, a ficha continuava levantada da parede, como se o mouse estivesse em cima dela, até você clicar em outro lugar. Agora ela volta para o lugar (pelo teclado, continua levantada, junto com a marca do foco).',
+    ],
+  },
+  {
     id: '2026-10-09-marca-texto-fino',
     version: '1.23.5',
     kind: 'melhoria',
