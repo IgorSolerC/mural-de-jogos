@@ -104,15 +104,15 @@
       [class.capas]="view.density() === 'capas'"
       [class.inteira]="inteira()"
       [class.lista]="lista()"
-      [class.sem-etiquetas]="!settings.groupLabels()"
+      [class.sem-etiquetas]="!labels()"
     >
       @for (g of view.groups(); track g.key) {
         <!-- a etiqueta da seção fecha e abre a seção: fechada, as fichas viram um maço preso com
              elástico, numa linha só; sem etiquetas, nada fecha -->
         @let shut = foldable() && view.isCollapsed(g.key);
-        <section class="grupo" [class.fechada]="shut" [style.--n]="inteira() ? columnsOf(g) : null" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
+        <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
           <header class="grupo-head">
-            <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + idOf(g.key)" [style.view-transition-name]="settings.groupLabels() ? 'grupo-' + g.key : null">
+            <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + idOf(g.key)" [style.view-transition-name]="labels() ? 'grupo-' + g.key : null">
               @if (foldable()) {
                 <button type="button" class="dobra" [attr.aria-expanded]="!shut" [attr.aria-controls]="shut ? null : 'fichas-' + idOf(g.key)" (click)="toggleGroup(g.key)">
                   {{ g.label }}

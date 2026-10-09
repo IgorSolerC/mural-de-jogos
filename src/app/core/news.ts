@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-colagem-sem-etiquetas',
+    version: '1.23.11',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Colagem sem etiquetas',
+    items: [
+      'Nas fichas inteiras, as etiquetas das seções (Fixadas, Outubro de 2026 e as outras) não aparecem mais: a parede inteira é uma colagem só, na ordem escolhida.',
+    ],
+  },
+  {
     id: '2026-10-09-colagem-sem-encostar',
     version: '1.23.10',
     kind: 'melhoria',

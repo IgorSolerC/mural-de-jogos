@@ -385,29 +385,14 @@
    ocupa as da altura dela mais o vão (medidos em `appFichasMosaico`, que também dá a cada ficha um
    vão e um desvio para o lado um pouco diferentes, dentro do vão entre as colunas). Todas têm a
    mesma largura: sem ficha de duas colunas, a colagem não deixa buraco, e a ordem na tela (e a do
-   Tab) é a da ordem escolhida. */
+   Tab) é a da ordem escolhida. Sem as etiquetas das seções (sempre, aqui: ver `labels` em
+   wall-page.ts), a parede inteira é uma colagem só. */
 .wall.inteira {
-  --col-w: var(--card-w);
-
-  /* a seção pede as colunas das fichas dela e encolhe até a largura da parede (aí quebra a linha);
-     seções curtas continuam correndo lado a lado */
-  .grupo {
-    flex: 0 1 calc(var(--n, 1) * var(--col-w) + (var(--n, 1) - 1) * var(--in-col));
-  }
-
-  /* a grade é a da seção; sem etiquetas, a parede inteira é uma colagem só */
-  &:not(.sem-etiquetas) .fichas,
-  &.sem-etiquetas {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, var(--col-w));
-    grid-auto-rows: 4px;
-    grid-auto-flow: row;
-    gap: 0 var(--in-col);
-  }
-  /* a última ficha de cada coluna também leva o vão de baixo: a seção devolve o vão menor */
-  &:not(.sem-etiquetas) .fichas {
-    margin-bottom: -34px;
-  }
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--card-w));
+  grid-auto-rows: 4px;
+  grid-auto-flow: row;
+  gap: 0 var(--in-col);
 
   app-review-card {
     grid-row-end: span var(--linhas, 60);
@@ -594,16 +579,10 @@
   }
 
   /* as fichas inteiras no celular: uma coluna só, uma embaixo da outra, sem o desvio */
-  .wall.inteira .grupo {
-    flex: none;
-  }
-
-  .wall.inteira:not(.sem-etiquetas) .fichas,
-  .wall.inteira.sem-etiquetas {
+  .wall.inteira {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-rows: auto;
     gap: 34px;
-    margin-bottom: 0;
   }
 
   .wall.inteira app-review-card {

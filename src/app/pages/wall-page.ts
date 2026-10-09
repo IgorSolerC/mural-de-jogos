@@ -42,8 +42,13 @@ export class WallPage {
   protected readonly PlusIcon = Plus;
   protected readonly TasksIcon = ListChecks;
   protected readonly ChevronIcon = ChevronDown;
+  /**
+   * As etiquetas das seções (Fixadas, Outubro de 2026…) à mostra: com a opção dos Ajustes, e nunca nas
+   * fichas inteiras, onde a parede é uma colagem só (as etiquetas ficam só para os leitores de tela).
+   */
+  protected readonly labels = computed(() => this.settings.groupLabels() && !this.inteira());
   /** As seções fecham em todo mural, com as etiquetas à mostra (sem elas, não haveria como abrir). */
-  protected readonly foldable = computed(() => this.settings.groupLabels());
+  protected readonly foldable = computed(() => this.labels());
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];
@@ -105,11 +110,6 @@ export class WallPage {
   protected readonly lista = computed(() => this.notes() && this.view.density() === 'lista');
   /** As fichas inteiras: o texto todo, encaixadas em colagem (ver `appFichasMosaico`). */
   protected readonly inteira = computed(() => this.view.density() === 'inteira');
-
-  /** Quantas colunas a seção pediria em colagem: uma por ficha. */
-  protected columnsOf(g: WallGroup): number {
-    return g.reviews.length;
-  }
 
   /**
    * O id da seção a partir da chave dela (que pode ter espaço, acento, ":"): continua o mesmo quando a
