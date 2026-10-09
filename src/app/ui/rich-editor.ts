@@ -2086,6 +2086,19 @@ export class RichEditor {
       this.replace(area, from, from + line.length, '', from, from);
       return;
     }
+    const marker = line.length - k.rest.length;
+    if (at - from <= marker) {
+      // no começo do item (antes do texto, até no meio do marcador): um item vazio entra em cima e
+      // este desce inteiro, com o seu marcador, como num editor de texto. Antes, o marcador novo
+      // entrava no cursor, na frente do que já estava lá ("- [ ] - [ ] item").
+      // o de cima no mesmo jeito deste ("*", "1)"), a tarefa por fazer; o numerado desce com o número seguinte
+      const mark = line.slice(0, marker);
+      const above = k.kind === 'check' ? mark.replace(/\[[xX]\]/, '[ ]') : mark;
+      const own = k.kind === 'ol' ? mark.replace(/\d+/, String(k.n + 1)) : mark;
+      const caret = from + above.length + 1 + own.length;
+      this.replace(area, from, from + marker, `${above}\n${own}`, caret, caret);
+      return;
+    }
     const prefix = indent + prefixOf(k.kind, k.kind === 'ol' ? k.n + 1 : 1);
     this.replace(area, at, at, '\n' + prefix, at + 1 + prefix.length, at + 1 + prefix.length);
   }

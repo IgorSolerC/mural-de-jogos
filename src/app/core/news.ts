@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-correcao-enter-no-item',
+    version: '1.23.7',
+    kind: 'correcao',
+    date: '2026-10-09',
+    title: 'Correção de bug',
+    items: [
+      'Enter com o cursor no começo de uma tarefa, de um item de lista ou de um item numerado dobrava o marcador (ficava "- [ ] - [ ] tarefa"). Agora um item vazio entra em cima e o item desce inteiro, como num editor de texto.',
+    ],
+  },
+  {
     id: '2026-10-09-correcao-ficha-levantada',
     version: '1.23.6',
     kind: 'correcao',

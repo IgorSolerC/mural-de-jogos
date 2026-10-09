@@ -76,6 +76,27 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('3. três\n4. ');
   });
 
+  it('Enter no começo de um item: um item vazio entra em cima, e este desce com o seu marcador (sem dobrar)', () => {
+    write('- [ ] leite\n|- [x] ovos');
+    key('Enter');
+    expect(value()).toBe('- [ ] leite\n- [ ] \n- [x] ovos');
+    expect(area.selectionStart).toBe('- [ ] leite\n- [ ] \n- [x] '.length);
+    write('  * |pão');
+    key('Enter');
+    expect(value()).toBe('  * \n  * pão');
+    // no meio do marcador também
+    write('- [|x] café');
+    key('Enter');
+    expect(value()).toBe('- [ ] \n- [x] café');
+    write('|3) três\n4) quatro');
+    key('Enter');
+    expect(value()).toBe('3) \n4) três\n4) quatro');
+    // no meio do texto, continua partindo o item em dois
+    write('- le|ite');
+    key('Enter');
+    expect(value()).toBe('- le\n- ite');
+  });
+
   it('Enter fora de lista é um Enter comum', () => {
     write('texto|');
     const e = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
