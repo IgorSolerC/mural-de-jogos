@@ -169,6 +169,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
       f('pausar-pintura', 'Se pausar vira pintura'),
       f('worldbuilding', 'Worldbuilding marcante'),
       f('classico', 'Clássico'),
+      f('acessibilidade', 'Boa acessibilidade'),
       c('bugs', 'Muitos bugs'),
       c('mal-otimizado', 'Mal otimizado'),
       c('loadings', 'Loadings longos'),

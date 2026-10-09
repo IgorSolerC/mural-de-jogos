@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-bonus-acessibilidade',
+    version: '1.23.3',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Bônus de acessibilidade',
+    items: [
+      'A cartela de bônus dos jogos ganhou o adesivo Boa acessibilidade, para o jogo com legendas, modos para daltônicos, controles ajustáveis e outras opções que deixam mais gente jogar.',
+    ],
+  },
+  {
     id: '2026-10-08-anotacoes-do-colega',
     version: '1.23.2',
     kind: 'correcao',

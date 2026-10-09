@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import {
+  Accessibility,
   Annoyed,
   Bookmark,
   BookCopy,
@@ -110,6 +111,7 @@ const BONUS_ICON: Record<string, LucideIconData> = {
   'pausar-pintura': Palette,
   worldbuilding: Earth,
   classico: Landmark,
+  acessibilidade: Accessibility,
   bugs: Bug,
   'mal-otimizado': Cpu,
   loadings: Hourglass,
