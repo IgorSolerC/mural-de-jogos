@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-colagem-sem-encostar',
+    version: '1.23.10',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Colagem sem fichas encostando',
+    items: [
+      'Nas fichas inteiras, as fichas curtas continuam tortinhas como sempre, e quanto mais comprida a ficha, mais reta ela fica: as muito compridas ficam retas. Assim o pé de uma ficha comprida não invade mais a vizinha.',
+      'Cada ficha agora gira só dentro do seu espaço na parede, então duas fichas nunca se encostam.',
+    ],
+  },
+  {
     id: '2026-10-09-sem-tamanho-da-ficha',
     version: '1.23.9',
     kind: 'melhoria',

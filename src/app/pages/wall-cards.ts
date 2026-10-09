@@ -14,6 +14,7 @@ import {
   untracked,
 } from '@angular/core';
 import { Review, ScoreKey } from '../core/review';
+import { pinningFor } from '../core/wall-physics';
 import { ReviewCard } from '../ui/review-card';
 
 /** O que todas as fichas do mural recebem igual; o resto é a própria resenha. */
@@ -169,6 +170,10 @@ export class WallCardPool implements OnDestroy {
 
 /** A altura de uma linha da grade da colagem: cada ficha ocupa quantas couberem na altura dela. */
 const MOSAIC_ROW = 4;
+/** Na colagem, até esta altura a ficha fica torta como as outras do mural; daí endireita aos poucos. */
+const TILT_FULL = 380;
+/** Desta altura para cima, a ficha da colagem fica reta. */
+const TILT_NONE = 960;
 
 /** Um número de 0 a 1 tirado do id, sempre o mesmo para a mesma ficha. */
 function wobble(id: string, salt: number): number {
@@ -178,16 +183,43 @@ function wobble(id: string, salt: number): number {
 }
 
 /**
+ * Quanto da inclinação de sempre (`tilt`, em graus, sem o sinal) fica na ficha da colagem, de 0 a 1.
+ * A ficha gira em volta da tachinha, 12px abaixo da beirada de cima, então o pé dela anda para o lado
+ * (altura − 12) × seno do ângulo: numa ficha comprida, um grau já leva o pé para cima da vizinha. As
+ * curtas ficam tortas como sempre; da `TILT_FULL` à `TILT_NONE`, endireitam aos poucos; e nenhuma gira
+ * a ponto de o pé passar de `room` (o espaço até o meio do vão, do lado para onde o pé vai), menos 1px
+ * do canto de cima, que também anda um tico. Em cima e embaixo, o vão (34px ou mais) já cobre o canto
+ * que sobe e o que desce, até na ficha mais larga.
+ */
+export function keptTilt(height: number, tilt: number, room: number): number {
+  if (tilt <= 0) return 1;
+  const bySize = Math.min(1, Math.max(0, (TILT_NONE - height) / (TILT_NONE - TILT_FULL)));
+  const fits = (Math.asin(Math.min(1, Math.max(0, room - 1) / Math.max(1, height - 12))) * 180) / Math.PI;
+  // arredondado para baixo: o arredondamento nunca devolve o pedaço que encostaria
+  return Math.floor((Math.min(tilt * bySize, fits) / tilt) * 100) / 100;
+}
+
+/**
  * Na colagem (as fichas inteiras), cada ficha ocupa na grade as linhas da altura dela, mais o vão de
  * baixo: a ficha seguinte cai embaixo da mais curta, sem buraco na parede. O vão e o desvio para o
  * lado variam um pouco de ficha para ficha (sempre os mesmos para a mesma ficha), como pregadas à mão.
+ * O desvio vai para o lado de onde o pé da ficha foge (torta para a direita, o pé vai para a
+ * esquerda, e a ficha anda para a direita), e sobra mais vão para ela continuar torta; a inclinação
+ * que fica é a de `keptTilt` (`--inclina`): cada ficha só gira dentro da sua faixa da parede (a
+ * coluna e metade do vão de cada lado), então duas fichas nunca se encostam.
  */
 function fitMosaic(el: HTMLElement): void {
   const id = el.dataset['ficha'] ?? '';
   const gap = 34 + Math.round(wobble(id, 1) * 26);
-  const top = parseFloat(getComputedStyle(el).marginTop) || 0;
-  el.style.setProperty('--linhas', String(Math.ceil((el.offsetHeight + top + gap) / MOSAIC_ROW)));
-  el.style.setProperty('--desvio', `${Math.round((wobble(id, 2) - 0.5) * 16)}px`);
+  const css = getComputedStyle(el);
+  const top = parseFloat(css.marginTop) || 0;
+  const height = el.offsetHeight;
+  el.style.setProperty('--linhas', String(Math.ceil((height + top + gap) / MOSAIC_ROW)));
+  const tilt = pinningFor(id).tilt;
+  const shift = Math.sign(tilt) * Math.round(wobble(id, 2) * 8);
+  el.style.setProperty('--desvio', `${shift}px`);
+  const half = (parseFloat(css.getPropertyValue('--in-col')) || 34) / 2;
+  el.style.setProperty('--inclina', String(keptTilt(height, Math.abs(tilt), half + Math.abs(shift))));
 }
 
 /** As fichas de uma seção do mural (ver WallCardPool). */
@@ -210,7 +242,11 @@ export class WallCards {
       untracked(() => {
         pool.place(host, reviews, props);
         ro?.disconnect();
-        if (!mosaic) return;
+        if (!mosaic) {
+          // fora da colagem, a inclinação de sempre
+          for (const el of Array.from(host.children) as HTMLElement[]) el.style.removeProperty('--inclina');
+          return;
+        }
         for (const el of Array.from(host.children) as HTMLElement[]) {
           fitMosaic(el);
           ro?.observe(el);

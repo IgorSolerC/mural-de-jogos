@@ -415,7 +415,8 @@ function watchDistance(el: HTMLElement): () => void {
       padding: var(--pad) var(--pad) 14px;
       border-radius: 2px;
       box-shadow: var(--shadow-card);
-      rotate: calc(var(--tilt) * 1deg);
+      /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts) */
+      rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
       transform-origin: var(--pin-x) 12px;
       transition:
         rotate var(--t-physical) var(--ease-physical),
@@ -530,7 +531,7 @@ function watchDistance(el: HTMLElement): () => void {
        leitura, ao fechar, devolve o foco a ela), e a ficha ficava levantada com o mouse já longe */
     :host(:hover),
     :host(:has(:focus-visible)) {
-      rotate: calc(var(--tilt) * 0.35deg);
+      rotate: calc(var(--tilt) * var(--inclina, 1) * 0.35deg);
       translate: 0 -3px;
       box-shadow: var(--shadow-lift);
       --shine: 100%;
@@ -1411,7 +1412,7 @@ function watchDistance(el: HTMLElement): () => void {
       :host {
         --cover-w: 104px;
         max-width: none;
-        rotate: calc(var(--tilt) * 0.5deg);
+        rotate: calc(var(--tilt) * var(--inclina, 1) * 0.5deg);
         margin-top: calc(var(--drop-y) * 0.4);
       }
       :host(.compact:not(.paired)) {
