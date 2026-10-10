@@ -25,6 +25,7 @@ export class VisitView extends WallState {
 
   readonly colleague = this.colleagues.selected;
   readonly owner = computed(() => this.colleague()?.name ?? 'Colega');
+  readonly categoryLooks = computed(() => this.colleague()?.categoryLooks ?? {});
   /** O código na nuvem da pessoa (as fichas mostram as reações); null num backup. */
   readonly code = computed(() => this.colleague()?.codigo ?? null);
   readonly wall = computed<Review[]>(() => (this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind()));

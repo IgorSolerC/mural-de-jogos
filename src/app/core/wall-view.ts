@@ -1,3 +1,4 @@
+import type { CategoryLooks } from './category-looks';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
 import { KindProfile, countOf, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
@@ -196,6 +197,8 @@ export abstract class WallState {
   abstract readonly guarding: Signal<boolean>;
   /** De quem é o mural: null, o seu; senão, o nome da pessoa (a régua e a parede falam dela). */
   abstract readonly owner: Signal<string | null>;
+  /** O ícone e a cor das categorias das anotações do dono do mural (ver core/category-looks.ts). */
+  abstract readonly categoryLooks: Signal<CategoryLooks>;
   /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
   readonly profile = computed(() => this.mural.profile());
   /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
@@ -521,6 +524,7 @@ export class WallView extends WallState {
   readonly wall = this.mural.wall;
   readonly guarding = computed(() => this.settings.noSpoilers());
   readonly owner = signal<string | null>(null).asReadonly();
+  readonly categoryLooks = this.settings.categoryLooks.asReadonly();
 
   constructor() {
     super({ key: KEY, whole: true });

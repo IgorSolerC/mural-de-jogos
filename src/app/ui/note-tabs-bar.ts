@@ -3,8 +3,7 @@ import { ChevronDown, LucideAngularModule } from 'lucide-angular';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
-import { CategoryLook, categoryColorHex } from '../core/category-looks';
-import { Settings } from '../core/settings';
+import { CategoryLook, categoryColorHex, lookKey } from '../core/category-looks';
 import { CategoryLabel } from './category-label';
 
 /** O vão entre duas abas (o `gap` da fileira). */
@@ -273,8 +272,6 @@ export class NoteTabsBar {
   private readonly motion = inject(WallMotion);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  private readonly settings = inject(Settings);
-
   protected readonly ChevronIcon = ChevronDown;
   protected readonly ALL = ALL_TAB;
   protected readonly NONE = NO_CATEGORY_TAB;
@@ -310,9 +307,9 @@ export class NoteTabsBar {
     return splitTabs(t.tabs, this.active(), fits);
   });
 
-  /** O desenho e a cor da categoria: os escolhidos, só no seu mural (no de alguém, o de sempre). */
+  /** O desenho e a cor da categoria: os que o dono do mural escolheu (sem escolha, o de sempre). */
   protected lookOf(x: NoteTab): CategoryLook {
-    return this.view.owner() === null ? this.settings.categoryLook(x.label) : {};
+    return this.view.categoryLooks()[lookKey(x.label)] ?? {};
   }
   protected colorOf(x: NoteTab): string | null {
     return categoryColorHex(this.lookOf(x).color);

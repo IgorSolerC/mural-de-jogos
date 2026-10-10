@@ -1,3 +1,4 @@
+import { CategoryLooks, sanitizeCategoryLooks } from './category-looks';
 import { Review, sanitizeReview } from './review';
 
 /** Limita também o conteúdo descompactado, antes de tentar interpretar o JSON. */
@@ -60,6 +61,11 @@ export interface BackupSnapshot {
   skipped: number;
   /** O nome que a pessoa salvou em Ajustes antes de baixar (backups antigos não têm). */
   ownerName: string | null;
+  /**
+   * O ícone e a cor das categorias das anotações da pessoa (`categorias`, no mural público). Sem
+   * nada (um colega guardado antes disso, ou um backup baixado), as categorias ficam do jeito de sempre.
+   */
+  categoryLooks?: CategoryLooks;
 }
 
 /** O nome de quem fez o backup, se ele veio no arquivo. */
@@ -136,6 +142,7 @@ export function parseBackupSnapshot(text: string): BackupSnapshot {
     reviews: [...reviews.values()],
     skipped,
     ownerName: ownerNameOf(object),
+    categoryLooks: sanitizeCategoryLooks(object?.['categorias']),
     exportedAt:
       typeof exportedAt === 'string' && Number.isFinite(Date.parse(exportedAt))
         ? exportedAt

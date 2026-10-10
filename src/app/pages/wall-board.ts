@@ -11,7 +11,7 @@ import { Pin } from '../ui/pin';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
-export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable' | 'own'>;
+export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable' | 'looks'>;
 
 /**
  * A parede de um mural: as seções com as etiquetas que fecham (o maço preso com elástico), as fichas

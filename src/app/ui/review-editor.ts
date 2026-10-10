@@ -369,6 +369,8 @@ export class ReviewEditor {
   protected readonly noteCategory = signal<string | null>(null);
   protected readonly noteTags = signal<string[]>([]);
   private readonly settings = inject(Settings);
+  /** O ícone e a cor das suas categorias, na orelha da prévia. */
+  protected readonly categoryLooks = this.settings.categoryLooks;
   /** A cartela de categorias: a pronta e as escritas nas outras anotações. */
   protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes()));
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */

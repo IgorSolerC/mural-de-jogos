@@ -55,8 +55,7 @@ import { WallView } from '../core/wall-view';
 import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
-import { Settings } from '../core/settings';
-import { categoryColorHex } from '../core/category-looks';
+import { CategoryLook, CategoryLooks, categoryColorHex, lookKey } from '../core/category-looks';
 import type { ReactionTarget } from '../core/reactions';
 import { parseWidgetLine, readAudio } from '../core/widgets';
 
@@ -1507,8 +1506,8 @@ export class ReviewCard {
   readonly checkable = input(false);
   /** O código do dono do mural, para mostrar as reações da ficha (ver core/reactions.ts); null, sem reações. */
   readonly reactCode = input<string | null>(null);
-  /** A ficha é sua (o seu mural, o editor): a orelha leva o desenho e a cor que você escolheu para a categoria. */
-  readonly own = input(false);
+  /** O ícone e a cor das categorias do dono da ficha (os seus, no seu mural; os da pessoa, no dela). */
+  readonly looks = input<CategoryLooks>({});
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
@@ -1529,7 +1528,6 @@ export class ReviewCard {
   private readonly noteDone = inject(NoteDone);
   private readonly view = inject(WallView);
   private readonly motion = inject(WallMotion);
-  private readonly settings = inject(Settings);
 
   /** Quando a anotação foi finalizada (o carimbo), ou null. */
   protected readonly doneAt = computed(() => (this.note() && !this.bare() ? (this.review().doneAt ?? null) : null));
@@ -1690,10 +1688,10 @@ export class ReviewCard {
     return { category: r.category ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
   });
 
-  /** O desenho e a cor da categoria na orelha: os escolhidos, só nas suas fichas (nas dos outros, o de sempre). */
-  protected readonly catLook = computed(() => {
+  /** O desenho e a cor da categoria na orelha: os que o dono escolheu (sem escolha, o de sempre). */
+  protected readonly catLook = computed<CategoryLook>(() => {
     const c = this.review().category;
-    return c && this.own() ? this.settings.categoryLook(c) : {};
+    return (c && this.looks()[lookKey(c)]) || {};
   });
   protected readonly catColor = computed(() => categoryColorHex(this.catLook().color));
 

@@ -1,7 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MAX_CATEGORY_LOOKS, lookKey, sanitizeCategoryLooks } from './category-looks';
-import { categoryLooksOf, fingerprint } from './cloud-sync';
+import { categoryLooksOf, fingerprint, publicCategoryLooks } from './cloud-sync';
+import { parseBackupSnapshot } from './backup-file';
 import { SETTINGS_KEY, Settings } from './settings';
 
 describe('o ícone e a cor das categorias', () => {
@@ -42,5 +43,15 @@ describe('o ícone e a cor das categorias', () => {
     expect(await fingerprint(doc, null, null, looks)).not.toBe(await fingerprint(doc));
     expect(categoryLooksOf({ categorias: { mapa: { Trabalho: { color: 'azul', icon: '?' } }, em: looks.em } })).toEqual(looks);
     expect(categoryLooksOf({ categorias: { mapa: {} } })).toBeNull();
+  });
+
+  it('o mural público leva só os das categorias das anotações publicadas, e o mural de alguém os lê', () => {
+    const looks = { trabalho: { color: 'azul' as const }, segredo: { icon: 'coroa' as const } };
+    const notas = [{ id: 'n1', category: 'Trabalho' }, { id: 'n2' }];
+    expect(publicCategoryLooks(looks, notas)).toEqual({ trabalho: { color: 'azul' } });
+    const note = { id: 'nt000001', kind: 'anotacoes', game: { name: 'Daily' }, text: 'x', category: 'Trabalho', createdAt: '2026-10-01T10:00:00.000Z', updatedAt: '2026-10-01T10:00:00.000Z' };
+    const publico = JSON.stringify({ app: 'meu-mural', version: 2, reviews: [], notas: [note], categorias: { Trabalho: { color: 'azul', icon: '?' } } });
+    expect(parseBackupSnapshot(publico).categoryLooks).toEqual({ trabalho: { color: 'azul' } });
+    expect(parseBackupSnapshot(JSON.stringify({ app: 'meu-mural', version: 2, reviews: [] })).categoryLooks).toEqual({});
   });
 });

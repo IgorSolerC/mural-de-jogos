@@ -41,7 +41,7 @@ export class WallPage {
     reactCode: this.reactions.myCode(),
     // marcando para o lado a lado, o toque na ficha é para marcar
     checkable: !this.side.picking(),
-    own: true,
+    looks: this.settings.categoryLooks(),
   }));
 
   constructor() {

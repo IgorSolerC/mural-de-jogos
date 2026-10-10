@@ -5,7 +5,7 @@ import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
 import { Review, isPrivate } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
-import { CategoryLooks, sanitizeCategoryLooks } from './category-looks';
+import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
 import { BackupPayload, ReviewStore, canonicalJson } from './review-store';
 import { Settings } from './settings';
 import { Confirm } from '../ui/confirm';
@@ -107,6 +107,15 @@ export function categoryLooksOf(data: Record<string, unknown>): SyncedLooks | nu
   if (!raw || typeof raw !== 'object') return null;
   const em = typeof raw['em'] === 'string' && Number.isFinite(Date.parse(raw['em'])) ? raw['em'] : null;
   return em ? { mapa: sanitizeCategoryLooks(raw['mapa']), em } : null;
+}
+
+/**
+ * O ícone e a cor que vão no mural público: só os das categorias das anotações publicadas (o nome
+ * de uma categoria usada só nas privadas fica com a pessoa).
+ */
+export function publicCategoryLooks(looks: CategoryLooks, notes: readonly unknown[]): CategoryLooks {
+  const used = new Set(notes.map((n) => (n as { category?: unknown } | null)?.category).filter((c): c is string => typeof c === 'string').map(lookKey));
+  return Object.fromEntries(Object.entries(looks).filter(([k]) => used.has(k)));
 }
 
 /** Qual chave vale: a mais nova; sem data aqui, vale a da nuvem. */
@@ -255,7 +264,9 @@ export async function fingerprint(
     deleted: doc.deleted ?? { reviews: {}, drafts: {}, wishes: {} },
     ...(keys ? { chaves: keys } : {}),
     ...(tags ? { tagsFixas: tags } : {}),
-    ...(looks ? { categorias: looks } : {}),
+    // `publico`: desde a 1.28.5 os jeitos vão também no mural público; a impressão nova faz quem já
+    // tinha escolhido algum enviar o mural uma vez, para os outros passarem a vê-los
+    ...(looks ? { categorias: { ...looks, publico: 2 } } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -686,6 +697,7 @@ export class CloudSync {
         ...(name ? { owner: { name } } : {}),
         reviews: publicReviews(doc.reviews),
         notas: publicNotes(doc.notas),
+        ...(looks ? { categorias: publicCategoryLooks(looks.mapa, publicNotes(doc.notas)) } : {}),
       }),
     );
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha

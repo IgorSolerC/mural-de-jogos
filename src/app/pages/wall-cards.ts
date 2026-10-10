@@ -1,3 +1,4 @@
+import type { CategoryLooks } from '../core/category-looks';
 import {
   ApplicationRef,
   ComponentRef,
@@ -39,8 +40,8 @@ export interface WallCardProps {
   reactCode: string | null;
   /** As tarefas das anotações se marcam na ficha (o seu mural). */
   checkable: boolean;
-  /** O seu mural: as orelhas levam o desenho e a cor que você escolheu para cada categoria. */
-  own: boolean;
+  /** O ícone e a cor das categorias do dono do mural, nas orelhas. */
+  looks: CategoryLooks;
 }
 
 const NO_PROPS: WallCardProps = {
@@ -57,7 +58,7 @@ const NO_PROPS: WallCardProps = {
   times: new Map(),
   reactCode: null,
   checkable: false,
-  own: false,
+  looks: {},
 };
 
 /**
@@ -163,7 +164,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('times', p.times.get(r.id) ?? 1);
     ref.setInput('reactCode', p.reactCode);
     ref.setInput('checkable', p.checkable);
-    ref.setInput('own', p.own);
+    ref.setInput('looks', p.looks);
   }
 
   private drop(id: string, ref: ComponentRef<ReviewCard>): void {

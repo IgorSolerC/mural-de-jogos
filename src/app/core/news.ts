@@ -51,6 +51,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-cor-das-categorias-no-mural-de-alguem',
+    version: '1.28.5',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'O ícone e a cor das categorias também no mural de alguém',
+    items: [
+      'Quem abre o seu mural de anotações vê as categorias com o ícone e a cor que você escolheu, na orelha das fichas e nas abas.',
+      'Só vão as categorias das anotações publicadas: o nome de uma categoria que você usa só nas privadas não aparece para ninguém.',
+      'Os amigos veem as cores depois que este aparelho sincronizar uma vez com a versão nova (isso acontece sozinho).',
+    ],
+  },
+  {
     id: '2026-10-10-orelha-de-papel-unico',
     version: '1.28.4',
     kind: 'melhoria',
