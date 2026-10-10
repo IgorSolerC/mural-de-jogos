@@ -51,6 +51,14 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-ficha-com-faixa-mais-alta',
+    version: '1.27.4',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A fita e o vinil grandes na ficha de sempre',
+    items: ['A anotação com uma fita cassete ou um vinil mostra mais linhas no mural: eles aparecem quase do tamanho da leitura, e o texto em volta continua à vista. Com o player simples, a ficha fica como era.'],
+  },
+  {
     id: '2026-10-10-faixa-maior-na-ficha',
     version: '1.27.3',
     kind: 'melhoria',

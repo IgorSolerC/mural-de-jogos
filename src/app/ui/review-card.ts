@@ -55,6 +55,7 @@ import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
 import type { ReactionTarget } from '../core/reactions';
+import { parseWidgetLine, readAudio } from '../core/widgets';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
@@ -347,7 +348,7 @@ function watchDistance(el: HTMLElement): () => void {
       @if (review().text.trim()) {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
-        <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
+        <div class="nota-texto" [class.marcavel]="interactive()" [class.com-faixa]="hasTrack()" appCorta>
           <app-rich-text data-queima [text]="review().text" [fold]="true" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
@@ -918,9 +919,13 @@ function watchDistance(el: HTMLElement): () => void {
       overflow-wrap: anywhere;
       /* a imagem e o vídeo colados no texto cabem na ficha, com a faixa da polaroide e uma linha de folga */
       --midia-max: calc(var(--line) * (var(--linhas) - 3.2));
-      /* a faixa de áudio (a fita, o vinil) não tem legenda embaixo: cabe na ficha com uma linha de texto
-         em cima (a altura dela sobe até a linha seguinte da pauta) */
-      --faixa-max: calc(var(--line) * (var(--linhas) - 2));
+    }
+    /* com uma faixa de áudio, a ficha mostra mais linhas: a fita e o vinil ficam quase do tamanho da
+       leitura (nove linhas), e ainda sobram linhas para o texto em volta. A foto colada fica como era. */
+    .nota-texto.com-faixa {
+      --linhas: 14;
+      --faixa-max: calc(var(--line) * 9);
+      --midia-max: calc(var(--line) * 4.8);
     }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {
@@ -1559,6 +1564,18 @@ export class ReviewCard {
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
   protected readonly canFinish = computed(() => this.note() && this.checkable() && !this.preview() && !this.capas());
   protected readonly DoneIcon = CheckCheck;
+  /**
+   * Tem uma fita cassete ou um vinil? A ficha mostra mais linhas, para eles caberem num tamanho de
+   * tocar (o simples é uma tira baixa: cabe como está).
+   */
+  protected readonly hasTrack = computed(() =>
+    this.review()
+      .text.split('\n')
+      .some((l) => {
+        const w = parseWidgetLine(l);
+        return w?.name === 'audio' && readAudio(w.args).look !== 'simples';
+      }),
+  );
   /**
    * O texto tem o que tocar (tarefas, links)? Só então ele sobe por cima do botão da ficha; sem nada
    * para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
