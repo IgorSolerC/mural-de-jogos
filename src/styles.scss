@@ -111,7 +111,7 @@
   --verdict-legalzinho-lit: #8ab8ff;
   --verdict-meh-lit: #e8b86a;
   --verdict-chato-lit: #c9a6ff;
-  /* Papel: fibra procedural (trocar por textures/cartolina.png quando existir) */
+  /* Papel: fibra procedural (a foto da fibra entra por cima quando carrega: body.has-paper-texture) */
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   /* a fibra que a cartolina usa: a procedural até a foto carregar (body.has-paper-texture) */
   --grao-img: var(--paper-grain);
@@ -179,7 +179,6 @@ body {
 
 /* A parede em si: cobre a página inteira, por mais longo que o mural fique */
 body {
-  background-color: var(--wall);
   background-image:
     /* luz das lâmpadas fluorescentes caindo de cima */
     radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
@@ -303,13 +302,12 @@ p {
     font-variant-numeric: tabular-nums;
   }
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled, [aria-pressed='true'], .is-active) {
     --tab: var(--tab-plastic-hover);
     translate: 0 -2px;
   }
 
   &[aria-pressed='true'],
-  &[aria-checked='true'],
   &.is-active {
     --tab: var(--hi);
     --tab-ink: var(--ink);
@@ -381,8 +379,8 @@ select optgroup {
   color: var(--ink);
 }
 
-/* ===== Prateleira: a tira de busca em cima; abas de divisória em pé na régua de alumínio =====
-   Nas abas de Amigos e dos Ajustes. `.prateleira-quebra` manda o resto para a régua. */
+/* ===== Prateleira: abas de divisória em pé na régua de alumínio =====
+   Nas abas de Amigos, dos Ajustes e das Estatísticas. `.prateleira-quebra` manda o resto para a régua. */
 .prateleira {
   position: relative;
   display: flex;
@@ -407,20 +405,6 @@ select optgroup {
       0 6px 10px -3px rgb(0 0 0 / 0.6);
   }
 
-  .prateleira-busca {
-    flex: 0 1 440px;
-    margin-bottom: 2px;
-  }
-
-  .prateleira-giz {
-    align-self: center;
-    max-width: 52ch;
-    font-family: var(--f-hand);
-    font-size: 1.1rem;
-    line-height: 1.3;
-    color: var(--wall-ink-2);
-  }
-
   .prateleira-quebra {
     flex-basis: 100%;
     height: 0;
@@ -432,19 +416,9 @@ select optgroup {
     gap: 6px;
   }
 
-  @media (max-width: 720px) {
-    .prateleira-giz {
-      display: none;
-    }
-  }
-
   @media (max-width: 559px) {
     gap: 14px 10px;
     padding: 0 6px;
-
-    .prateleira-busca {
-      flex: 1 1 100%;
-    }
 
     .plate {
       padding-inline: 11px;
@@ -994,11 +968,11 @@ select optgroup {
     transform var(--t-physical) var(--ease-physical),
     background-color var(--t-ui) var(--ease-ui);
 
-  &:hover {
+  &:hover:not(:disabled) {
     transform: translateY(-2px) rotate(-1deg);
   }
 
-  &:active {
+  &:active:not(:disabled) {
     transform: translateY(1px);
   }
 
@@ -1191,7 +1165,6 @@ dialog.sheet {
    contorno. Tudo por trás da tinta: o número continua lendo em preto. */
 .mancha-cafe {
   --mancha-cafe: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'%3E%3Cfilter id='t' x='-20%25' y='-20%25' width='140%25' height='140%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.1' numOctaves='2' seed='11'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='3.5' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cg filter='url%28%23t%29' fill='%23EDDEC2'%3E%3Ccircle cx='15' cy='14' r='12'/%3E%3Ccircle cx='75' cy='47' r='10'/%3E%3Ccircle cx='91' cy='10' r='6.5'/%3E%3Ccircle cx='44' cy='55' r='4.5'/%3E%3Ccircle cx='57' cy='7' r='3'/%3E%3Ccircle cx='30' cy='44' r='2.6'/%3E%3Ccircle cx='8' cy='52' r='3.4'/%3E%3C/g%3E%3C/svg%3E");
-  background: var(--mancha-cafe) center / cover no-repeat, var(--paper);
 }
 
 /* ===== Média de 8 para cima: brilhos =====

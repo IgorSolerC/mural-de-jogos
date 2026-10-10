@@ -67,6 +67,8 @@ export const NEWS: NewsEntry[] = [
       'Nas Estatísticas, um ano só com rejogadas mostra "–" na conta das que chegaram ao fim (era "–%"); no Ranking, a ficha mais longa nunca é uma de 0 horas.',
       'O aviso de Ajustes, o seu código e a busca do Muraldle são lidos direito pelo leitor de tela.',
       'Se o backup não puder ser montado, um bilhete avisa (antes nada acontecia).',
+      'Passar o mouse na aba escolhida (em Ajustes, Amigos, Estatísticas, Ranking e nos jogos) não tira mais o amarelo dela.',
+      'Um botão de tinta desligado (esperando outra coisa terminar) não sobe nem gira com o mouse em cima.',
     ],
   },
   {
