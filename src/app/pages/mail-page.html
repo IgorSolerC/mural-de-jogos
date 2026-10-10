@@ -397,7 +397,7 @@
 
     <!-- na coluna do lado o bilhete fica guardado: um botão só, que abre o campo quando a pessoa quer seguir alguém -->
     @if (id === 'lado' && !followOpen()) {
-      <button type="button" class="btn-quiet abrir-seguir" aria-controls="seguir-lado" [attr.aria-expanded]="false" (click)="openFollow()">
+      <button type="button" class="btn-quiet abrir-seguir" [attr.aria-expanded]="false" (click)="openFollow()">
         <lucide-icon [img]="FollowIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         Seguir alguém pelo código
       </button>

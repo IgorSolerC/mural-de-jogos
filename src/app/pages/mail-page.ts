@@ -1,11 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { focusAfterRender } from '../ui/focus';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Heart, Inbox, Link, LucideAngularModule, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
-import { CLOUD_COLLEAGUE_PREFIX, CloudMurals, muralLink } from '../core/cloud-murals';
+import { CloudMurals, cloudColleagueId, muralLink } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
 import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, isUnseen, localDayOf } from '../core/follow';
@@ -485,7 +486,7 @@ export class MailPage {
         this.toasts.show(`Não consegui abrir o mural de ${who.nome} agora.`);
         return;
       }
-      this.colleagues.select(CLOUD_COLLEAGUE_PREFIX + who.codigo.replace('-', ''));
+      this.colleagues.select(cloudColleagueId(who.codigo));
       await this.router.navigate(['/comparar/mural']);
     });
   }
@@ -523,14 +524,15 @@ export class MailPage {
 
   protected openFollow(): void {
     this.followOpen.set(true);
-    queueMicrotask(() => document.getElementById('codigo-lado')?.focus());
+    focusAfterRender(this.injector, () => document.getElementById('codigo-lado'));
   }
+  private readonly injector = inject(Injector);
 
   /** "Agora não" ou Esc: guarda o bilhete e devolve o foco ao botão que o abriu. */
   protected closeFollow(): void {
     this.followOpen.set(false);
     this.followError.set(null);
-    queueMicrotask(() => document.querySelector<HTMLElement>('.abrir-seguir')?.focus());
+    focusAfterRender(this.injector, () => document.querySelector<HTMLElement>('.abrir-seguir'));
   }
 
   protected toggleRow(code: string): void {
@@ -540,7 +542,7 @@ export class MailPage {
   /** Esc dentro das opções: fecha e devolve o foco ao "⋯" da pessoa. */
   protected closeRow(code: string): void {
     this.openRow.set(null);
-    queueMicrotask(() => document.getElementById(`opcoes-btn-${code}`)?.focus());
+    focusAfterRender(this.injector, () => document.getElementById(`opcoes-btn-${code}`));
   }
 
   /** "Vocês se seguem", "Você segue" ou "Segue você". */

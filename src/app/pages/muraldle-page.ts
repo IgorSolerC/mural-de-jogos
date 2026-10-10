@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { focusAfterRender } from '../ui/focus';
 import { RouterLink } from '@angular/router';
-import { ArrowBigDown, ArrowBigUp, ArrowLeft, Flag, Lock, LucideAngularModule, Puzzle, Share2, Shuffle } from 'lucide-angular';
+import { ArrowBigDown, ArrowBigUp, ArrowLeft, Flag, Lock, LucideAngularModule, Share2, Shuffle } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { countOf } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -48,7 +49,6 @@ export class MuraldlePage {
   private readonly input = viewChild<ElementRef<HTMLInputElement>>('busca');
 
   protected readonly BackIcon = ArrowLeft;
-  protected readonly GameIcon = Puzzle;
   protected readonly UpIcon = ArrowBigUp;
   protected readonly DownIcon = ArrowBigDown;
   protected readonly LockIcon = Lock;
@@ -202,7 +202,7 @@ export class MuraldlePage {
     this.query.set('');
     this.activeIndex.set(0);
     if (hit) this.close(true);
-    else queueMicrotask(() => this.input()?.nativeElement.focus());
+    else focusAfterRender(this.injector, () => this.input()?.nativeElement);
   }
 
   protected giveUp(): void {
@@ -254,7 +254,7 @@ export class MuraldlePage {
       saved = { day: today, secretId: secret.id, guesses: [], done: null };
       saveDaily(slot, saved);
     }
-    this.opened.set(0);
+    if (this.game()?.secretId !== saved.secretId) this.opened.set(0);
     this.game.set({ secretId: saved.secretId, guesses: saved.guesses, done: saved.done });
   }
 
@@ -269,6 +269,7 @@ export class MuraldlePage {
   /** Fecha o jogo do dia nas contas (o treino não conta). */
   private close(won: boolean): void {
     if (this.mode() === 'dia') this.stats.set(finishDay(this.slot(), this.today(), this.game()!.secretId, won));
-    queueMicrotask(() => document.getElementById('resultado')?.focus({ preventScroll: false }));
+    focusAfterRender(this.injector, () => document.getElementById('resultado'), { preventScroll: false });
   }
+  private readonly injector = inject(Injector);
 }

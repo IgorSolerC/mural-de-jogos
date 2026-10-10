@@ -73,7 +73,7 @@
 
 @if (store.saveError(); as err) {
   <p class="save-error" role="alert">
-    {{ err }} <a routerLink="/ajustes">Baixar backup</a>
+    {{ err }} <a routerLink="/ajustes" [queryParams]="{ aba: 'backup' }">Baixar backup</a>
   </p>
 }
 

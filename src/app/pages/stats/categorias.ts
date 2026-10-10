@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { Review, formatScore } from '../../core/review';
 import { CategoryStat, strength } from '../../core/stats';
+import { formatAvg } from '../../core/review';
 
-const one = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * Nota a nota do mural: uma coluna por categoria, com a média grande a pincel, uma régua de 0 a 10
@@ -195,9 +195,7 @@ export class Categorias {
 
   protected readonly fmt = formatScore;
 
-  protected avg(v: number | null): string {
-    return v === null ? '–' : one.format(v);
-  }
+  protected readonly avg = formatAvg;
 
   protected corrText(c: CategoryStat): string {
     switch (strength(c.corr)) {

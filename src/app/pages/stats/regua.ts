@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { KindProfile } from '../../core/kinds';
 import { formatScore } from '../../core/review';
+import { formatAvg } from '../../core/review';
 
-const one = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * A escala de quem dá as notas numa régua de escola: o bigode a tinta dos 10% aos 90%, a metade do
@@ -222,9 +222,7 @@ export class Regua {
   protected readonly scale = computed(() => (this.finals().some((v) => v > 10) ? 11 : 10));
   protected readonly ticks = computed(() => Array.from({ length: this.scale() + 1 }, (_, i) => i));
 
-  protected avg(v: number | null): string {
-    return v === null ? '–' : one.format(v);
-  }
+  protected readonly avg = formatAvg;
 
   protected pos(v: number | null): number {
     return v === null ? 0 : (v / this.scale()) * 100;

@@ -51,6 +51,25 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-paginas',
+    version: '1.26.6',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'Consertos nas páginas e nos jogos',
+    items: [
+      '"Baixar backup" (no aviso de erro ao salvar) e "Tenho um backup" (no mural vazio) abrem Ajustes direto na aba do Backup, também com Ajustes já aberto.',
+      'Nas seções por categoria, tag ou nota de uma categoria, as etiquetas deslizam junto com as fichas, como nas outras ordens.',
+      'No Comparar, o círculo de "maior" na nota final segue a nota como aparece: com Inteiros, 8,4 e 8,2 são os dois 8, sem vencedor.',
+      'No Comparar, "Mostrar mais" não volta para o começo quando o mural do colega se atualiza da nuvem.',
+      'No Muraldle do dia, as dicas abertas não se fecham quando uma ficha é editada no meio do jogo.',
+      'No Mata-mata, no Maior ou menor e no Muraldle, o foco vai para o placar e para o resultado (antes ele caía no vazio ao começar e ao terminar).',
+      'Em Amigos, abrir e fechar o "Seguir pelo código" deixa o foco no lugar certo.',
+      'Nas Estatísticas, um ano só com rejogadas mostra "–" na conta das que chegaram ao fim (era "–%"); no Ranking, a ficha mais longa nunca é uma de 0 horas.',
+      'O aviso de Ajustes, o seu código e a busca do Muraldle são lidos direito pelo leitor de tela.',
+      'Se o backup não puder ser montado, um bilhete avisa (antes nada acontecia).',
+    ],
+  },
+  {
     id: '2026-10-10-folhas-e-campos',
     version: '1.26.5',
     kind: 'correcao',

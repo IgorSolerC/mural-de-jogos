@@ -15,7 +15,7 @@
           <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
           {{ notes() ? 'Pregar a primeira anotação' : 'Pregar a primeira resenha' }}
         </button>
-        <a class="link" routerLink="/ajustes">Tenho um backup</a>
+        <a class="link" routerLink="/ajustes" [queryParams]="{ aba: 'backup' }">Tenho um backup</a>
       </div>
     </div>
     @for (g of ghosts; track g) {

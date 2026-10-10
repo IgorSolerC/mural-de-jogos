@@ -43,6 +43,7 @@ import { ReviewCard } from '../ui/review-card';
 import { StatusLabel } from '../ui/status-label';
 import { Toasts } from '../ui/toast';
 import { VerdictStamp } from '../ui/verdict';
+import { ONE_DECIMAL as avgFmt } from '../core/review';
 
 const SORT_OPTIONS: { value: SideSort; label: string }[] = [
   { value: 'marcada', label: 'Como marquei' },
@@ -51,7 +52,6 @@ const SORT_OPTIONS: { value: SideSort; label: string }[] = [
 ];
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
-const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** As linhas do quadro: as notas primeiro, os fatos da ficha depois. */
 type RowKind = 'final' | 'score' | 'bonus' | 'verdict' | 'hours' | 'status' | 'difficulty' | 'date' | 'year';

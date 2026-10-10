@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { focusAfterRender } from '../ui/focus';
 import { RouterLink } from '@angular/router';
 import { ArrowBigDown, ArrowBigUp, ArrowLeft, ArrowUpDown, LucideAngularModule, RotateCcw, Shuffle } from 'lucide-angular';
 import { Desk } from '../core/desk';
@@ -219,6 +220,7 @@ export class HigherLowerPage {
   }
 
   private focusBoard(): void {
-    queueMicrotask(() => document.getElementById('placar')?.focus({ preventScroll: true }));
+    focusAfterRender(this.injector, () => document.getElementById('placar'), { preventScroll: true });
   }
+  private readonly injector = inject(Injector);
 }

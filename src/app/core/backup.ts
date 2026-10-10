@@ -3,6 +3,7 @@ import { localDay } from './review';
 import { ReviewStore } from './review-store';
 import { CloudSync } from './cloud-sync';
 import { Settings } from './settings';
+import { Toasts } from '../ui/toast';
 
 const KEY = 'mural-de-jogos:backup:v1';
 const DAY = 86_400_000;
@@ -53,6 +54,7 @@ export function backupFileName(ownerName: string, day: string, ext: string): str
 export class Backup {
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(Settings);
+  private readonly toasts = inject(Toasts);
   private readonly state = signal<Stored>(read());
 
   private readonly sync = inject(CloudSync);
@@ -91,7 +93,15 @@ export class Backup {
   }
 
   async download(): Promise<void> {
-    const { blob, ext } = await this.store.exportBackup(this.settings.ownerName());
+    let file: { blob: Blob; ext: string };
+    try {
+      file = await this.store.exportBackup(this.settings.ownerName());
+    } catch {
+      // montar o arquivo falhou (o navegador sem memória, a compactação quebrou): avisa, em vez de nada acontecer
+      this.toasts.show('Não consegui montar o backup agora. Tente de novo.');
+      return;
+    }
+    const { blob, ext } = file;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

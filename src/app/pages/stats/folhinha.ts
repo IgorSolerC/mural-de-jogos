@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { KindProfile, cap, countOf } from '../../core/kinds';
 import { MonthCell, YearRow, monthLong, monthName } from '../../core/stats';
+import { ONE_DECIMAL as one } from '../../core/review';
 
-const one = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * A folhinha: uma tabela de verdade, um ano por linha e um mês por coluna, cada quadradinho pintado

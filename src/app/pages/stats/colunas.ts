@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ONE_DECIMAL as one } from '../../core/review';
 
 export interface Coluna {
   key: string;
@@ -17,7 +18,6 @@ export interface Marca {
   side?: 'esq' | 'dir';
 }
 
-const one = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * Gráfico de colunas no papel milimetrado: cada coluna é uma tira de cartolina recortada e colada em

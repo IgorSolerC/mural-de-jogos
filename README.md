@@ -1,13 +1,17 @@
 # Meu Mural
 
-Um mural pessoal de resenhas: jogos, livros, filmes, séries e animes, cada um na sua parede. Cada resenha é uma
-cartolina pregada torta com tachinha, com capa, notas, veredito e a primeira frase do que você escreveu.
+Um mural pessoal de resenhas: jogos, livros, filmes, séries e animes, cada um na sua parede, e um mural de
+anotações. Cada resenha é uma cartolina pregada torta com tachinha, com capa, notas, veredito e a primeira frase do
+que você escreveu.
 
-Tudo fica no navegador (localStorage). Não há servidor nem conta; o backup é um arquivo `.json.gz` baixado em Ajustes.
+Tudo fica no navegador (IndexedDB, com uma cópia no localStorage; ver
+[src/app/core/local-data.ts](src/app/core/local-data.ts)); o backup é um arquivo `.json.gz` baixado em Ajustes. A
+conta é opcional: entrando com o Google, o mural vai para a nuvem e abre em qualquer aparelho, e dá para seguir
+amigos, ver o mural deles pelo código e reagir às resenhas. A API da nuvem mora em [api/](api/README.md).
 
-- **Murais:** toque na palavra do cartaz ("Meu mural de *jogos*") para trocar de mural. Cada mural tem as suas
-  quatro notas, os seus três status, a sua cartela de bônus, a sua fila, o seu ranking e o seu lado a lado.
-  Os perfis ficam em [src/app/core/kinds.ts](src/app/core/kinds.ts).
+- **Murais:** toque na palavra do cartaz ("Meu mural de *jogos*") para trocar de mural. Cada mural de resenhas tem as
+  suas quatro notas, os seus três status, a sua cartela de bônus, a sua fila, o seu ranking e o seu lado a lado; o de
+  anotações não tem nota. Os perfis ficam em [src/app/core/kinds.ts](src/app/core/kinds.ts).
 - **Busca:** livros na Open Library (edição em português); animes no Kitsu (AniList de reserva); filmes e séries no
   TMDB, com uma chave gratuita colada em Ajustes, ou na Wikipedia sem ela; jogos na Wikipedia ou na RAWG (com chave).
 - **Offline:** em produção, um service worker ([public/sw.js](public/sw.js)) guarda o site e as capas já vistas.
@@ -30,7 +34,10 @@ npm run test:ci    # uma rodada, Chrome headless
 ```
 
 Os testes cobrem o núcleo: a média e os bônus, a leitura de fichas e backups antigos, a junção de backups (com as
-fichas apagadas), a ordem e as seções do mural, e a separação entre os murais.
+fichas apagadas), a ordem e as seções do mural, a separação entre os murais, a sincronização com a nuvem, as
+anotações e os componentes principais. A aparência sorteada (estampas, rabiscos, estragos, papéis, recortes) é
+congelada por impressões digitais: [src/app/core/frozen-looks.spec.ts](src/app/core/frozen-looks.spec.ts). A API tem
+os testes dela em `api/` (`npm test`, nos dois bancos).
 
 Testes com o nome começando em `BUG:` descrevem um bug conhecido: eles conferem o comportamento certo e passam
 enquanto o bug existir (no site, `itBug` de [src/app/testing/known-bug.spec.ts](src/app/testing/known-bug.spec.ts);
@@ -38,7 +45,8 @@ na API, `it.fails` do vitest). Corrigido o bug, o teste passa a falhar avisando:
 
 ## Publicar
 
-Um push na `main` publica no GitHub Pages ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)).
+Um push na `main` publica no GitHub Pages ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)). Um push
+que mexe em `api/` também testa e publica a API no Cloudflare ([.github/workflows/api.yml](.github/workflows/api.yml)).
 
 ### Novidades
 

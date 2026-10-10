@@ -15,7 +15,6 @@ import { Review, VERDICT_LABEL, formatAmount, formatReviewDate, formatScore, tod
 import {
   WEEKDAYS_LONG,
   inYear,
-  monthLong,
   monthName,
   portraitLines,
   queueStats,
@@ -40,6 +39,7 @@ import { ListaRank } from './stats/lista-rank';
 import { Numero, Numeros } from './stats/numeros';
 import { Pesos } from './stats/pesos';
 import { Regua } from './stats/regua';
+import { ONE_DECIMAL as one, formatAvg } from '../core/review';
 
 export type Aba = 'resumo' | 'notas' | 'tempo' | 'habitos' | 'carimbos' | 'cartolinas' | 'curiosidades';
 
@@ -54,7 +54,6 @@ const ABAS: readonly { id: Aba; label: string }[] = [
   { id: 'curiosidades', label: 'Curiosidades' },
 ];
 
-const one = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const int = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 const signed = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'exceptZero' });
 
@@ -126,8 +125,6 @@ export class StatsPage {
   protected readonly fmt = formatScore;
   protected readonly verdictLabel = VERDICT_LABEL;
   protected readonly monthName = monthName;
-  protected readonly monthLong = monthLong;
-  protected readonly months = Array.from({ length: 12 }, (_, i) => i + 1);
 
   // ===== a página aberta, guardada no endereço (?aba=notas): o Voltar do navegador volta a página =====
   private readonly query = toSignal(this.route.queryParamMap, { initialValue: this.route.snapshot.queryParamMap });
@@ -333,9 +330,7 @@ export class StatsPage {
   });
 
   // ===== formatos =====
-  protected avg(v: number | null | undefined): string {
-    return v === null || v === undefined ? '–' : one.format(v);
-  }
+  protected readonly avg = formatAvg;
 
   protected int(v: number): string {
     return int.format(v);

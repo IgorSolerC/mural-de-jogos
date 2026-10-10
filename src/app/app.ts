@@ -132,6 +132,7 @@ export class App {
    */
   protected readonly nudge = signal(false);
   private lastUnseen: number | null = null;
+  private nudgeTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly nudgeOnArrival = effect(() => {
     const n = this.settings.mailCount() ? this.follow.unseen() : 0;
     const before = this.lastUnseen;
@@ -141,7 +142,8 @@ export class App {
       this.nudge.set(false);
       requestAnimationFrame(() => {
         this.nudge.set(true);
-        setTimeout(() => this.nudge.set(false), 1600);
+        clearTimeout(this.nudgeTimer);
+        this.nudgeTimer = setTimeout(() => this.nudge.set(false), 1600);
       });
     });
   });

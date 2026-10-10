@@ -142,10 +142,6 @@ export class BackupEnvelope {
     if (value && !this.codeBusy()) this.code.emit(value);
   }
 
-  /** Limpa o campo (depois que o mural chegou). */
-  clearCode(): void {
-    this.typed.set('');
-  }
   protected pick(event: Event): void {
     const el = event.target as HTMLInputElement;
     const f = el.files?.[0];

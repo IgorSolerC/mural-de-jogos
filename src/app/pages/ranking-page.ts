@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 import { ArrowLeft, LucideAngularModule, Plus } from 'lucide-angular';
 import { Desk } from '../core/desk';
-import { cap, countOf, g } from '../core/kinds';
+import { cap, g } from '../core/kinds';
 import { Mural } from '../core/mural';
 import {
   Bonus,
@@ -22,6 +22,7 @@ import {
 import { ViewTransitions } from '../core/view-transitions';
 import { BonusSticker } from '../ui/bonus';
 import { CoverSleeve } from '../ui/cover-sleeve';
+import { ONE_DECIMAL as avgFmt } from '../core/review';
 
 interface Row {
   review: Review;
@@ -31,7 +32,6 @@ interface Row {
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 const printed = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * O ranking numa folha de bloquinho destacada: uma lista por nota e, ao lado, o balanço do mural.
@@ -76,7 +76,6 @@ export class RankingPage {
     const p = this.mural.profile();
     return `Nada pra ranquear ainda. Pregue ${g(p, 'uns', 'umas')} ${p.plural} e a lista sai com o seu top.`;
   });
-  protected readonly countOf = countOf;
 
   /** Empate divide a posição (1º, 2º, 2º, 4º); no empate, a média decide a ordem. */
   protected readonly rows = computed<Row[]>(() => {
@@ -118,7 +117,7 @@ export class RankingPage {
         if (hit) hit.n++;
         else byBonus.set(b.id, { bonus: b, n: 1 });
       }
-      if (r.hoursPlayed !== null && (!longest || r.hoursPlayed > (longest.hoursPlayed ?? 0))) longest = r;
+      if (r.hoursPlayed && (!longest || r.hoursPlayed > (longest.hoursPlayed ?? 0))) longest = r;
     }
     // no empate, todos os empatados ("Masterpiece e Chato · 3"), não só o que vem primeiro na lista
     const topN = Math.max(0, ...byVerdict.values());

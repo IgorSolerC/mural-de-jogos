@@ -18,8 +18,8 @@ import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { WallAccess, WallBoard } from './wall-board';
+import { ONE_DECIMAL as avgFmt } from '../core/review';
 
-const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const NO_PICKS: ReadonlyMap<string, number> = new Map();
 
 /**

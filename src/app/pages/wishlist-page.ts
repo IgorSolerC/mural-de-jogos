@@ -462,9 +462,9 @@ export class WishlistPage {
     const rank = (w: Wish) => RELEVANCE_RANK[relevanceOf(w)];
     return [...found].sort((a, b) => rank(a) - rank(b) || within(a, b));
   });
-  /** Quantas colunas cabem: recortes de pelo menos 172px, com 34px entre eles (duas no celular). */
   private readonly drawBtn = viewChild<ElementRef<HTMLButtonElement>>('drawBtn');
   private readonly startBtn = viewChild<ElementRef<HTMLButtonElement>>('startBtn');
+  /** Quantas colunas cabem: recortes de pelo menos 172px, com 34px entre eles (duas no celular). */
   protected readonly cols = signal(6);
   protected readonly columns = computed(() => collage(this.visible(), this.cols()));
   protected readonly winner = computed<Wish | null>(() => this.visible().find((w) => w.id === this.drawn()) ?? null);

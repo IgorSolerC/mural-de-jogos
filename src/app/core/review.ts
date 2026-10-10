@@ -663,6 +663,14 @@ export function shownFinal(r: { scores: { final: number } }): number {
 }
 
 /** 8.4 → "8,4"; 9 → "9" (arredondada pelo ajuste de exibição). */
+/** Uma casa decimal, no jeito daqui ("8,5"): as médias das estatísticas, das comparações e do mural. */
+export const ONE_DECIMAL = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** Uma média com uma casa, ou "–" quando não há (nenhuma nota para fazer a conta). */
+export function formatAvg(v: number | null | undefined): string {
+  return v === null || v === undefined ? '–' : ONE_DECIMAL.format(v);
+}
+
 export function formatScore(v: number | null | undefined): string {
   return v === null || v === undefined ? '–' : scoreFmt.format(shownScore(v));
 }

@@ -371,7 +371,7 @@
       @case ('habitos') {
         <section class="peca folha w6" aria-labelledby="status-titulo">
           <h2 id="status-titulo" class="titulo">Termina o que começa?</h2>
-          <p class="destaque"><span class="enorme">{{ st.finishRate ?? '–' }}%</span> <span class="miudo">das fichas chegaram ao fim</span></p>
+          <p class="destaque"><span class="enorme">{{ st.finishRate === null ? '–' : st.finishRate + '%' }}</span> <span class="miudo">das fichas chegaram ao fim</span></p>
           <div class="faixa-status" aria-hidden="true">
             @for (x of statusStrip(); track x.value) {
               @if (x.n) {

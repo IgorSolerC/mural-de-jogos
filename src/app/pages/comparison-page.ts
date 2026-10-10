@@ -7,7 +7,7 @@ import { CloudMurals } from '../core/cloud-murals';
 import { CloudAccount } from '../core/cloud-account';
 import { ReviewPair, compareCollections, distinctReviews } from '../core/comparison';
 import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
-import { KINDS, SCORED_KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
+import { SCORED_KINDS, Kind, cap, g, profileOf } from '../core/kinds';
 import { mediaSignal } from '../core/media';
 import { Mural } from '../core/mural';
 import {
@@ -127,8 +127,6 @@ export class ComparisonPage {
   protected readonly BackIcon = ArrowLeft;
   protected readonly fmt = formatScore;
   protected readonly abs = Math.abs;
-  protected readonly labels = SCORE_LABEL;
-  protected readonly countOf = countOf;
   protected readonly g = g;
   protected readonly cap = cap;
   protected readonly PAGE = PAGE;
@@ -262,8 +260,9 @@ export class ComparisonPage {
   protected readonly myTips = computed(() => this.sortList(this.collections().onlyMine.filter((r) => this.matches(r)), this.listSort()));
 
   /** Quantos aparecem: volta ao começo sempre que a lista muda de assunto. */
+  private readonly colleagueId = computed(() => this.colleague()?.id);
   protected readonly limit = linkedSignal({
-    source: () => [this.tab(), this.q(), this.pairSort(), this.listSort(), this.colleague()?.id, this.mural.kind()],
+    source: () => [this.tab(), this.q(), this.pairSort(), this.listSort(), this.colleagueId(), this.mural.kind()],
     computation: () => PAGE,
   });
   protected readonly shownPairs = computed(() => this.pairs().slice(0, this.limit()));
@@ -319,7 +318,7 @@ export class ComparisonPage {
     });
     const weight = (w: string) => (w === 'nao-tem' ? 'não tem' : w === 'relevante' ? 'relevante' : w === 'pouco' ? 'pouco importa' : '');
     const rows: NoteRow[] = [
-      score('final', 'Nota final', a.scores.final, b.scores.final, a.finalOverride !== undefined ? 'na mão' : '', b.finalOverride !== undefined ? 'na mão' : ''),
+      score('final', 'Nota final', shownFinal(a), shownFinal(b), a.finalOverride !== undefined ? 'na mão' : '', b.finalOverride !== undefined ? 'na mão' : ''),
     ];
     if (a.verdict || b.verdict) rows.push(fact('verdict', 'Veredito', a.verdict === b.verdict));
     for (const k of ratedKeys(a.kind)) {

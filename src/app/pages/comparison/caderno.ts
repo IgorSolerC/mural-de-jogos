@@ -8,6 +8,7 @@ import { BonusSticker } from '../../ui/bonus';
 import { CoverSleeve } from '../../ui/cover-sleeve';
 import { VERDICT_ICON } from '../../ui/verdict';
 import { Tally } from './tally';
+import { ONE_DECIMAL as avgFmt, formatAvg } from '../../core/review';
 
 export type Side = 'voce' | 'colega';
 
@@ -21,7 +22,6 @@ interface Dot {
   bottom: number;
 }
 
-const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** As bolinhas de uma pessoa na régua de notas: empilhadas de meio em meio ponto. */
 function dots(finals: readonly number[], top: number): Dot[] {
@@ -65,7 +65,7 @@ export class Caderno {
   readonly showPair = output<ReviewPair>();
 
   protected readonly fmt = formatScore;
-  protected readonly avg = (v: number | null) => (v === null ? '–' : avgFmt.format(v));
+  protected readonly avg = formatAvg;
   protected readonly stockLabel = STOCK_LABEL;
   protected readonly verdictLabel = VERDICT_LABEL;
   protected readonly verdictIcon = VERDICT_ICON;

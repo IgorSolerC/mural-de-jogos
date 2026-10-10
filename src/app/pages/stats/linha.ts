@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ONE_DECIMAL as one } from '../../core/review';
 
 export interface PontoLinha {
   key: string;
@@ -7,7 +8,6 @@ export interface PontoLinha {
   n: number;
 }
 
-const one = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * Uma linha a caneta ligando um ponto por período (a média de cada ano). A escala de baixo fica justa

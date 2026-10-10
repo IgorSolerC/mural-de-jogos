@@ -64,7 +64,7 @@
       @let shut = foldable() && view.isCollapsed(g.key);
       <section class="grupo" [class.fechada]="shut" [attr.aria-labelledby]="'grupo-' + idOf(g.key)">
         <header class="grupo-head">
-          <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + idOf(g.key)" [style.view-transition-name]="labels() ? 'grupo-' + g.key : null">
+          <h3 class="tape-label" [class.dobravel]="foldable()" [id]="'grupo-' + idOf(g.key)" [style.view-transition-name]="labels() ? 'grupo-' + idOf(g.key) : null">
             @if (foldable()) {
               <button type="button" class="dobra" [attr.aria-expanded]="!shut" [attr.aria-controls]="shut ? null : 'fichas-' + idOf(g.key)" (click)="toggleGroup(g.key)">
                 {{ g.label }}

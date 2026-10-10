@@ -38,6 +38,7 @@ import {
 } from './review';
 import { pinningFor } from './wall-physics';
 import { isDecorated } from './wall-filter';
+import { ONE_DECIMAL as one } from './review';
 
 /**
  * As Estatísticas do mural: tudo o que dá para tirar das fichas de um mural (o seu ou o de um colega),
@@ -937,7 +938,6 @@ export function queueStats(reviews: readonly Review[], drafts: readonly Draft[],
 
 // ======================= o perfil em frases =======================
 
-const one = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * O retrato em frases, tirado só dos números: "Você é exigente…", "Dá as maiores notas para Visual…".

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   BookOpen,
   Check,
@@ -66,8 +67,7 @@ function when(ms: number): string {
 }
 
 /**
- * Ajustes: fichas pregadas. Conta (rosa, só com a nuvem ligada), Backup (azul) e Mural (verde) numa
- * coluna, Busca e capas (lilás) na outra, para nenhuma deixar um buraco na parede. Toda escolha é o adesivo da cartela, como no editor:
+ * Ajustes: fichas pregadas, uma por aba (Perfil, Backup, Mural, Busca e capas). Toda escolha é o adesivo da cartela, como no editor:
  * a não escolhida é o recorte picotado, a escolhida sai colada. Nada aqui tem botão de salvar: vale na hora.
  */
 @Component({
@@ -106,7 +106,7 @@ function when(ms: number): string {
             <lucide-icon [img]="t.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
             {{ t.label }}
             @if (t.id === 'perfil' && syncTrouble() && account.signedIn()) {
-              <span class="badge" aria-label="(precisa de atenção)">!</span>
+              <span class="badge" aria-hidden="true">!</span><span class="sr-only"> (precisa de atenção)</span>
             }
           </button>
         }
@@ -188,7 +188,7 @@ function when(ms: number): string {
             <div class="bloco codigo" role="group" aria-labelledby="codigo-titulo">
               <h3 id="codigo-titulo" class="sub">Seu código</h3>
               <div class="codigo-linha">
-                <span class="codigo-valor" [attr.aria-label]="'Código ' + spelled(acc.codigo)">{{ acc.codigo }}</span>
+                <span class="codigo-valor" aria-hidden="true">{{ acc.codigo }}</span><span class="sr-only">Código {{ spelled(acc.codigo) }}</span>
                 <button type="button" class="btn-quiet" (click)="copyCode(acc.codigo)">
                   <lucide-icon [img]="CopyIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
                   Copiar
@@ -709,6 +709,8 @@ export class SettingsPage {
     { id: 'busca', label: 'Busca e capas', icon: Search },
   ];
   protected readonly tab = signal<Tab>(this.tabFrom(this.route.snapshot.queryParamMap.get('aba')));
+  /** Um link para outra aba (o "Baixar backup" do aviso) com a página já aberta também troca a aba. */
+  private readonly followTabParam = this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(this.tabFrom(q.get('aba'))));
 
   private tabFrom(value: string | null): Tab {
     return TABS.includes(value as Tab) ? (value as Tab) : 'perfil';

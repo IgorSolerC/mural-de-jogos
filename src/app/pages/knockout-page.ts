@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { focusAfterRender } from '../ui/focus';
 import { RouterLink } from '@angular/router';
 import { ArrowLeft, LucideAngularModule, RotateCcw, Shuffle, Swords, Trophy, Undo2 } from 'lucide-angular';
 import { Desk } from '../core/desk';
@@ -73,7 +74,10 @@ export class KnockoutPage {
     const p = out && podium(out);
     if (!out || !p) return null;
     const get = (id: string | null) => (id ? this.byId().get(id) ?? null : null);
-    const score = (id: string) => this.byId().get(id)?.scores.final;
+    const score = (id: string) => {
+      const r = this.byId().get(id);
+      return r && shownFinal(r);
+    };
     return {
       champion: get(p.champion)!,
       runnerUp: get(p.runnerUp),
@@ -265,6 +269,7 @@ export class KnockoutPage {
 
   /** Depois de cada escolha o foco volta para o placar, que anuncia o duelo novo. */
   private focusArena(): void {
-    queueMicrotask(() => document.getElementById('placar')?.focus({ preventScroll: true }));
+    focusAfterRender(this.injector, () => document.getElementById('placar'), { preventScroll: true });
   }
+  private readonly injector = inject(Injector);
 }

@@ -632,20 +632,10 @@ a {
   }
 }
 
-/* Seu nome: o campo e a prévia do nome do arquivo */
+/* Seu nome: o campo */
 .nome-dono {
   .sub label {
     cursor: pointer;
-  }
-
-  .key {
-    margin-top: 10px;
-  }
-
-  .arquivo strong {
-    overflow-wrap: anywhere;
-    font-family: var(--f-ui);
-    font-weight: 700;
   }
 }
 
@@ -676,7 +666,6 @@ a {
     margin-top: 10px;
   }
 
-  .tip a,
   .hint a {
     white-space: nowrap;
   }

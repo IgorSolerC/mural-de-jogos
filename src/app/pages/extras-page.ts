@@ -96,7 +96,7 @@ const SHELVES: Shelf[] = [
 ];
 
 /**
- * Extras: o Ranking, o Comparar e os jogos feitos com as fichas do mural (o seu ou o de um colega
+ * Extras: o Ranking, o Comparar, as Estatísticas e os jogos feitos com as fichas do mural (o seu ou o de um colega
  * carregado em Comparar). Cada um é uma ficha pregada no quadro.
  */
 @Component({

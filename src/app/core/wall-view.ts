@@ -22,6 +22,7 @@ import {
 } from './review';
 import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
+import { ONE_DECIMAL as avgFmt } from './review';
 
 /**
  * `categoria`, `tag` (pela primeira tag) e `prioridade` (fixadas, comuns, sub-notas) só no mural de
@@ -160,7 +161,6 @@ const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true
 
 /** A letra da seção na ordem alfabética: A a Z sem acento, e "#" para número, símbolo e outras escritas. */
 const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
-const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** Uma seção do mural: fichas vizinhas na ordem atual que dividem a mesma etiqueta. */
 export interface WallGroup {

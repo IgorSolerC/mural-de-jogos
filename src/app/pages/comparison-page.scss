@@ -562,9 +562,6 @@ app-caderno {
 
 /* ===== Celular: as duas fichas em duas colunas, o bilhete em cima delas ===== */
 @media (max-width: 699px) {
-  .densidade {
-    display: none;
-  }
   .lados,
   .par {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

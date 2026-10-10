@@ -303,7 +303,7 @@
    vão e um desvio para o lado um pouco diferentes, dentro do vão entre as colunas). Todas têm a
    mesma largura: sem ficha de duas colunas, a colagem não deixa buraco, e a ordem na tela (e a do
    Tab) é a da ordem escolhida. Sem as etiquetas das seções (sempre, aqui: ver `labels` em
-   wall-page.ts), a parede inteira é uma colagem só. */
+   wall-board.ts), a parede inteira é uma colagem só. */
 .wall.inteira {
   display: grid;
   grid-template-columns: repeat(auto-fill, var(--card-w));

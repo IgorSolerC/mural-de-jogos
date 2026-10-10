@@ -160,7 +160,7 @@ main {
     --tilt: 1.6;
   }
 
-  /* Ajustes: um pedacinho de fita só com a engrenagem */
+  /* a fita com desenho (a engrenagem de Ajustes, o envelope de Amigos) */
   &:has(.tab-icon) {
     align-self: stretch;
     align-items: center;
@@ -472,10 +472,6 @@ main {
     row-gap: 22px;
   }
 
-  .cartaz {
-    justify-self: start;
-  }
-
   .tabs {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -576,7 +572,7 @@ main {
   }
 }
 
-/* celular estreito: as cinco fitas cabem numa fileira, mais justas */
+/* celular estreito: as fitas cabem numa fileira, mais justas */
 @media (max-width: 400px) {
   .tabs {
     gap: 2px;

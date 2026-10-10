@@ -133,7 +133,7 @@ export class NameTags {
   protected readonly RevealIcon = Eye;
   protected readonly HideIcon = EyeOff;
 
-  protected readonly editing = linkedSignal(() => this.naming() && !!this.colleague());
+  protected readonly editing = linkedSignal(() => this.naming());
   private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');
 
   protected readonly others = computed(() => this.colleagues().filter((c) => c.id !== this.colleague().id));
