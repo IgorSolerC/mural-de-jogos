@@ -10,12 +10,15 @@
  *   barra antes do último sinal ("-\>"), ficam como são.
  * - Em blocos: títulos ("# ", "## ", "### "), listas ("- item", "1. item"), checklists ("- [ ] tarefa",
  *   "- [x] feita"), citações ("> "), a divisória ("---"), tabelas (as linhas com "|", a segunda só de
- *   traços) e blocos de código (entre "```").
+ *   traços), blocos de código (entre "```") e os widgets das anotações ("{{contador: 19/11/2026 |
+ *   Lançamento}}", numa linha só dele; ver core/widgets.ts).
  *
  * O texto continua sendo uma string: as resenhas antigas não mudam, o backup e a nuvem não mudam, e
  * um site antigo mostra as marcas cruas. Nunca vira HTML: quem desenha é o próprio Angular, a partir
  * destes blocos (ver ui/rich-text.ts).
  */
+
+import { parseWidgetLine, widgetDef } from './widgets';
 
 /** Um pedaço de texto corrido, com as marcas que valem para ele. */
 export interface Span {
@@ -67,6 +70,8 @@ export type Block =
   | { kind: 'quote'; lines: Span[][] }
   | { kind: 'hr' }
   | { kind: 'code'; text: string }
+  /** Um widget (ver core/widgets.ts): o nome do registro e os parâmetros como foram escritos. */
+  | { kind: 'widget'; name: string; args: string[] }
   | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][] };
 
 const CHECK = /^\s*[-*•]\s+\[([ xX])\]\s?(.*)$/;
@@ -275,6 +280,11 @@ export function parseRich(text: string): Block[] {
       blocks.push({ kind: 'code', text: body.join('\n') });
       continue;
     }
+    const w = parseWidgetLine(line);
+    if (w) {
+      blocks.push({ kind: 'widget', ...w });
+      continue;
+    }
     if (startsTable(lines, i)) {
       const head = tableCells(line);
       const align = tableCells(lines[i + 1]).map(alignOf);
@@ -352,6 +362,11 @@ export function plainText(text: string): string {
       case 'table':
         out.push([b.head, ...b.rows].map((r) => r.map(join).filter(Boolean).join(' · ')).join('\n'));
         break;
+      case 'widget': {
+        const t = widgetDef(b.name)?.plain(b.args);
+        if (t) out.push(t);
+        break;
+      }
       case 'hr':
         break;
       default:

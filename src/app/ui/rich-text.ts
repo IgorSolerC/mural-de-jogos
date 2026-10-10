@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, outp
 import { foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
 import { Review } from '../core/review';
+import { NoteWidget } from './note-widget';
 
 /**
  * O texto da ficha na leitura, com a formatação do editor (ver core/rich-text.ts): negrito, itálico,
@@ -14,6 +15,8 @@ import { Review } from '../core/review';
  * Os links "[[título]]" só valem com `links` (nas anotações, ver core/note-links.ts): a caneta azul
  * sublinhada, que abre a outra anotação; tracejado, o que aponta para uma anotação que não existe.
  * Sem `links` (as resenhas), os colchetes ficam como foram escritos.
+ *
+ * Os widgets ("{{contador: …}}", ver core/widgets.ts) viram a peça deles, numa linha só.
  */
 @Component({
   selector: 'app-rich-text',
@@ -61,6 +64,9 @@ import { Review } from '../core/review';
           }
           @case ('code') {
             <pre class="codigo"><code>{{ b.text }}</code></pre>
+          }
+          @case ('widget') {
+            <app-note-widget class="widget" [name]="b.name" [args]="b.args" />
           }
           @case ('table') {
             <div class="tabela-rolo">
@@ -115,7 +121,7 @@ import { Review } from '../core/review';
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
     <ng-template #elo let-s>@let l = links(); @let title = s.ref ?? s.text; @if (!l) {{{ '[[' + (s.ref ? s.ref + '|' : '') + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [title]="s.ref ?? null">{{ s.text }}</span>} @else {@let note = l.resolve(title); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" role="link" tabindex="0" [attr.aria-label]="(s.ref ? s.text + ': ' : '') + 'abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + title" [title]="'Ainda não tem uma anotação ' + title + '. Toque para criar.'" (click)="make($event, title)" (keydown.enter)="make($event, title)" (keydown.space)="make($event, title)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" title="Essa anotação não existe">{{ s.text }}</span>}}</ng-template>
   `,
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, NoteWidget],
   styles: `
     :host {
       display: block;

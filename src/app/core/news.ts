@@ -50,6 +50,20 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-widgets-contador',
+    version: '1.25.0',
+    kind: 'funcionalidade',
+    date: '2026-10-09',
+    title: 'Widgets nas anotações: o contador',
+    items: [
+      'As anotações ganham widgets, peças vivas que você põe em qualquer lugar do texto. O primeiro é o contador: conta o tempo que falta até um dia e uma hora.',
+      'Ele é um bloquinho de calendário de destacar, colado na anotação com fita crepe: "Faltam 40 dias" na folha e, ao lado, para quê, o dia e as horas, os minutos e os segundos andando. Quando o número muda, a folha é arrancada e cai.',
+      'Chegou o dia: a folha vira a daquele dia, com o carimbo "Chegou!" e há quanto tempo foi. Com "Todo ano" (aniversário, Natal), ele diz "É hoje!" e no dia seguinte volta a contar para o ano que vem.',
+      'No editor da anotação, o botão "Widget" da régua abre os campos (para quê, dia, hora, todo ano) com o contador já andando embaixo. Com o cursor na linha de um contador, o mesmo botão abre para trocar.',
+      'Ele fica escrito no texto, numa linha só dele: {{contador: 19/11/2026 18:00 | Lançamento}}. Dá para escrever à mão também; sem o ano, conta todo ano.',
+    ],
+  },
+  {
     id: '2026-10-09-pasta-em-todo-lugar',
     version: '1.24.5',
     kind: 'melhoria',

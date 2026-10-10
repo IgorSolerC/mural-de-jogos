@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import {
+  Blocks,
   Bold,
   Check,
   CircleHelp,
@@ -30,6 +31,8 @@ import { isTableSep, lineKind, tableCells, toggleCheck } from '../core/rich-text
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
+import { NoteWidget } from './note-widget';
+import { WIDGETS, WidgetDef, WidgetValues, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
 
 type ListKind = 'ul' | 'ol' | 'check';
 
@@ -53,6 +56,10 @@ type ListKind = 'ul' | 'ol' | 'check';
  * Com `notes` (o editor da anotação), a régua ganha "Link para outra anotação": escreve
  * "[[Título]]" no texto (ver core/note-links.ts). Escrever "[[" direto na folha abre a mesma lista,
  * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha.
+ *
+ * E ganha "Widget": um painel com os campos do widget (o contador: para quê, o dia, a hora, todo
+ * ano) e ele mesmo, vivo, embaixo; "Pôr" escreve a marca ("{{contador: …}}") numa linha só dela.
+ * Com o cursor na linha de um widget, o painel abre com o que está escrito e troca a linha.
  */
 /**
  * O link para outra anotação: a folhinha (com a dobra no canto) e o elo de corrente dentro dela. Um
@@ -68,7 +75,7 @@ const NOTE_LINK_ICON: LucideIconData = [
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [LucideAngularModule, NgTemplateOutlet, RichText],
+  imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ng-template #campo let-big="big">
@@ -134,6 +141,20 @@ const NOTE_LINK_ICON: LucideIconData = [
         >
           <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
+        @if (notes()) {
+          <button
+            type="button"
+            class="ferramenta"
+            [disabled]="seeing()"
+            title="Widget: contador até uma data"
+            aria-label="Widget"
+            [attr.aria-expanded]="widgetPick()?.big === big"
+            (pointerdown)="$event.preventDefault()"
+            (click)="startWidget(area, big)"
+          >
+            <lucide-icon [img]="WidgetIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+          </button>
+        }
         </div>
         <!-- "Mais": as outras marcas num menu que abre colado no botão, por cima da folha (não empurra
              nada): cada marca com o desenho, o nome escrito do jeito que ela fica e o atalho -->
@@ -295,6 +316,69 @@ const NOTE_LINK_ICON: LucideIconData = [
               }
             </div>
             <p class="painel-dica">Na tabela, Tab anda entre as células e Enter no fim de uma linha cria a próxima.</p>
+          </div>
+        }
+      }
+      <!-- o widget: os campos dele e ele mesmo, vivo, como vai ficar na anotação -->
+      @if (widgetPick(); as w) {
+        @if (w.big === big) {
+          @let def = widgetOf(w.name);
+          <div class="painel widget-painel" role="group" [attr.aria-label]="(w.swap ? 'Trocar o widget: ' : 'Widget: ') + def.label" (keydown.escape)="closeWidget($event, area)">
+            <div class="painel-topo">
+              <p class="painel-titulo">{{ w.swap ? 'Trocar o ' + def.label.toLowerCase() : 'Widget · ' + def.label }}</p>
+              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeWidget(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+            </div>
+            @if (widgets.length > 1 && !w.swap) {
+              <div class="widget-tipos" role="radiogroup" aria-label="Qual widget">
+                @for (d of widgets; track d.name) {
+                  <button type="button" role="radio" class="widget-tipo" [attr.aria-checked]="d.name === w.name" (click)="pickWidget(d)">{{ d.label }}</button>
+                }
+              </div>
+            }
+            <p class="widget-sobre">{{ def.about }}</p>
+            @for (f of def.fields; track f.key) {
+              @if (f.kind === 'toggle') {
+                <label class="widget-caixa">
+                  <input type="checkbox" [attr.data-campo]="f.key" [checked]="!!w.values[f.key]" (change)="setWidgetValue(f.key, $any($event.target).checked ? '1' : '')" (keydown.enter)="$event.preventDefault(); putWidget(area)" />
+                  <span class="widget-caixa-nome">{{ f.label }}</span>
+                  @if (f.hint) {
+                    <small>{{ f.hint }}</small>
+                  }
+                </label>
+              } @else {
+                <label class="painel-campo">
+                  <span>{{ f.label }}</span>
+                  <span class="widget-campo">
+                    <input
+                      [class]="'widget-' + f.kind"
+                      [type]="f.kind"
+                      autocomplete="off"
+                      [attr.maxlength]="f.max ?? null"
+                      [attr.placeholder]="f.placeholder ?? null"
+                      [attr.data-campo]="f.key"
+                      [value]="w.values[f.key] ?? ''"
+                      (input)="setWidgetValue(f.key, $any($event.target).value)"
+                      (keydown.enter)="$event.preventDefault(); putWidget(area)"
+                    />
+                    @if (f.hint) {
+                      <small>{{ f.hint }}</small>
+                    }
+                  </span>
+                </label>
+              }
+            }
+            <!-- como vai ficar: o widget de verdade, andando, num pedaço da folha pautada -->
+            <div class="widget-previa">
+              @if (widgetArgs(); as args) {
+                <app-note-widget [name]="w.name" [args]="args" />
+              } @else {
+                <p class="widget-previa-vazia">Escolha o dia para ver o {{ def.label.toLowerCase() }} andando.</p>
+              }
+            </div>
+            <div class="painel-acoes">
+              <button type="button" class="acao-caneta" (click)="closeWidget(null, area)">Cancelar</button>
+              <button type="button" class="painel-ok" [disabled]="!widgetArgs()" (click)="putWidget(area)">{{ w.swap ? def.swap : def.put }}</button>
+            </div>
           </div>
         }
       }
@@ -811,6 +895,144 @@ const NOTE_LINK_ICON: LucideIconData = [
         height: 32px;
       }
     }
+    /* ===== O painel do widget: os campos impressos à esquerda, como os do link, e o widget vivo
+       embaixo, num pedaço da folha pautada ===== */
+    .widget-sobre {
+      margin: -2px 0 10px;
+      font-size: 0.9rem;
+      color: var(--ink-2);
+    }
+    .widget-campo {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+    .painel-campo .widget-date,
+    .painel-campo .widget-time {
+      max-width: 13rem;
+      min-height: 38px;
+      color-scheme: light;
+      font-variant-numeric: tabular-nums;
+      cursor: text;
+    }
+    .painel-campo .widget-time {
+      max-width: 9rem;
+    }
+    /* o ícone do calendário e do relógio do navegador, na tinta da folha */
+    .painel-campo input::-webkit-calendar-picker-indicator {
+      opacity: 0.75;
+      cursor: pointer;
+    }
+    .widget-tipos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .widget-tipo {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1.5px dashed rgb(21 21 21 / 0.42);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .widget-tipo[aria-checked='true'] {
+      border: 1.5px solid var(--ink);
+      background: var(--ink);
+      color: var(--hi);
+    }
+    /* "Todo ano": a caixinha de tarefa, na coluna dos campos, com o nome impresso no lugar do rótulo */
+    .widget-caixa {
+      display: grid;
+      grid-template-columns: 6.5em 1.4em minmax(0, 1fr);
+      align-items: center;
+      gap: 4px 8px;
+      min-height: 40px;
+      margin-bottom: 4px;
+      cursor: pointer;
+    }
+    .widget-caixa-nome {
+      grid-column: 1;
+      grid-row: 1;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .widget-caixa input {
+      grid-column: 2;
+      grid-row: 1;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      margin: 0;
+      border: 2px solid var(--ink);
+      border-radius: 2px 3px 2px 4px;
+      rotate: -3deg;
+      background: transparent;
+      cursor: pointer;
+    }
+    .widget-caixa input:checked {
+      background: no-repeat center / 120% 120%
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    .widget-caixa input:focus-visible {
+      outline: 2.5px solid var(--ink);
+      outline-offset: 3px;
+    }
+    .widget-caixa small {
+      grid-column: 3;
+      grid-row: 1;
+      font-size: 0.86rem;
+      line-height: 1.3;
+      color: var(--ink-2);
+    }
+    @media (max-width: 559px) {
+      .widget-caixa {
+        grid-template-columns: 1.4em minmax(0, 1fr);
+      }
+      .widget-caixa input {
+        grid-column: 1;
+      }
+      .widget-caixa-nome {
+        grid-column: 2;
+      }
+      .widget-caixa small {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
+    }
+    .widget-previa {
+      --line: 1.75rem;
+      margin-top: 10px;
+      padding: 0 12px;
+      border-radius: 2px;
+      background:
+        repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)),
+        rgb(255 255 255 / 0.55);
+      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.3);
+      color: var(--ink);
+      font-family: var(--f-hand);
+      font-size: 1.14rem;
+      line-height: var(--line);
+    }
+    .widget-previa-vazia {
+      display: flex;
+      align-items: center;
+      min-height: calc(var(--line) * 4);
+      margin: 0;
+      font-style: italic;
+      color: rgb(21 21 21 / 0.64);
+    }
+
     /* "Mais": o único botão da régua com nome, para dizer que tem mais coisa ali */
     .ferramenta.mais {
       display: inline-flex;
@@ -1299,6 +1521,7 @@ export class RichEditor {
     this.urlLink.set(null);
     this.tablePick.set(null);
     this.guide.set(null);
+    this.widgetPick.set(null);
     this.moreOpen.set(big);
     setTimeout(() => {
       const target = first ? this.moreItems()[0] : this.host.nativeElement.querySelector<HTMLElement>('.mais-menu');
@@ -1384,6 +1607,7 @@ export class RichEditor {
     { mark: '```', what: 'Bloco de código (abre e fecha)' },
     { mark: '| a | b |', what: 'Tabela (2ª linha: | --- | --- |)' },
     { mark: '---', what: 'Divisória' },
+    { mark: '{{contador: 19/11/2026 18:00 | Nome}}', what: 'Contador até o dia, numa linha só dele (sem o ano: todo ano)' },
     { mark: '-> <- <-> =>', what: 'Setas: → ← ↔ ⇒ (--> e <-- compridas)' },
     { mark: '!= >= <= ~= +-', what: 'Símbolos: ≠ ≥ ≤ ≈ ±' },
     { mark: '\\*', what: 'A marca como ela é, sem formatar' },
@@ -1492,6 +1716,7 @@ export class RichEditor {
     this.tablePick.set(null);
     this.guide.set(null);
     this.moreOpen.set(null);
+    this.widgetPick.set(null);
     // e a folha na tela inteira, se tinha ficado aberta
     const big = this.dialog().nativeElement;
     if (big.open) big.close();
@@ -1507,6 +1732,7 @@ export class RichEditor {
     this.tablePick.set(null);
     this.moreOpen.set(null);
     this.guide.set(null);
+    this.widgetPick.set(null);
     const [start, end] = [area.selectionStart, area.selectionEnd];
     const query = area.value.slice(start, end).split('\n')[0].trim();
     // o trecho selecionado é o texto que aparece; a busca começa por ele (o título de uma anotação já
@@ -1803,6 +2029,7 @@ export class RichEditor {
     this.tablePick.set(null);
     this.moreOpen.set(null);
     this.guide.set(null);
+    this.widgetPick.set(null);
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
     const isUrl = !!normalizeUrl(sel.trim()) && /^(https?:\/\/|www\.|mailto:)/i.test(sel.trim());
     this.urlLink.set({ big, start: area.selectionStart, end: area.selectionEnd, text: isUrl ? '' : sel.replace(/\s+/g, ' ').trim(), url: isUrl ? sel.trim() : '' });
@@ -1853,6 +2080,100 @@ export class RichEditor {
     return null;
   }
 
+  // ===== Os widgets =====
+
+  protected readonly widgets = WIDGETS;
+  protected readonly WidgetIcon = Blocks;
+  /**
+   * O painel do widget aberto: em qual folha, qual widget, os valores dos campos e o trecho que ele
+   * vai ocupar (`swap`: a linha de um widget que já estava lá, que ele troca).
+   */
+  protected readonly widgetPick = signal<{ big: boolean; name: string; values: WidgetValues; start: number; end: number; swap: boolean } | null>(null);
+  /** Os parâmetros do widget do painel; null, falta o que ele precisa (o dia do contador). */
+  protected readonly widgetArgs = computed(() => {
+    const w = this.widgetPick();
+    return w ? this.widgetOf(w.name).write(w.values) : null;
+  });
+
+  protected widgetOf(name: string): WidgetDef {
+    return widgetDef(name) ?? WIDGETS[0];
+  }
+
+  /** "Widget" na régua: com o cursor num widget, ele abre para trocar; senão, um novo (o primeiro da lista). */
+  protected startWidget(area: HTMLTextAreaElement, big: boolean): void {
+    this.linking.set(null);
+    this.urlLink.set(null);
+    this.tablePick.set(null);
+    this.moreOpen.set(null);
+    this.guide.set(null);
+    if (this.widgetPick()?.big === big) {
+      this.widgetPick.set(null);
+      return;
+    }
+    const { from, lines } = this.linesAt(area);
+    const here = lines.length === 1 ? parseWidgetLine(lines[0]) : null;
+    if (here) {
+      const def = this.widgetOf(here.name);
+      this.widgetPick.set({ big, name: def.name, values: def.read(here.args), start: from, end: from + lines[0].length, swap: true });
+    } else {
+      this.widgetPick.set({ big, name: WIDGETS[0].name, values: {}, start: area.selectionStart, end: area.selectionEnd, swap: false });
+    }
+    this.showPanel('.widget-painel');
+    setTimeout(() => this.panelInput(big, 'input')?.focus());
+  }
+
+  protected pickWidget(def: WidgetDef): void {
+    const w = this.widgetPick();
+    if (w) this.widgetPick.set({ ...w, name: def.name, values: {} });
+  }
+
+  protected setWidgetValue(key: string, value: string): void {
+    const w = this.widgetPick();
+    if (w) this.widgetPick.set({ ...w, values: { ...w.values, [key]: value } });
+  }
+
+  /**
+   * Põe o widget numa linha só dele: no lugar da linha que ele troca, numa linha vazia onde está o
+   * cursor, ou numa linha nova logo depois da do cursor. Sem o que ele precisa, o foco vai para o
+   * primeiro campo de data vazio.
+   */
+  protected putWidget(area: HTMLTextAreaElement): void {
+    const w = this.widgetPick();
+    if (!w) return;
+    const args = this.widgetArgs();
+    if (!args) {
+      const def = this.widgetOf(w.name);
+      const missing = def.fields.find((f) => f.kind === 'date' && !w.values[f.key]) ?? def.fields[0];
+      this.panelInput(w.big, `[data-campo="${missing.key}"]`)?.focus();
+      return;
+    }
+    const line = widgetLine(w.name, args);
+    this.widgetPick.set(null);
+    if (w.swap) {
+      this.replace(area, w.start, w.end, line, w.start + line.length, w.start + line.length);
+      return;
+    }
+    const text = area.value;
+    const lineStart = text.lastIndexOf('\n', w.start - 1) + 1;
+    const lineEndAt = text.indexOf('\n', w.end);
+    const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+    if (!text.slice(lineStart, lineEnd).trim()) {
+      this.replace(area, lineStart, lineEnd, line, lineStart + line.length, lineStart + line.length);
+      return;
+    }
+    const piece = '\n' + line;
+    this.replace(area, lineEnd, lineEnd, piece, lineEnd + piece.length, lineEnd + piece.length);
+  }
+
+  protected closeWidget(e: Event | null, area: HTMLTextAreaElement): void {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const w = this.widgetPick();
+    this.widgetPick.set(null);
+    area.focus();
+    if (w) area.setSelectionRange(w.start, w.end);
+  }
+
   // ===== A tabela =====
 
   protected startTable(area: HTMLTextAreaElement, big: boolean): void {
@@ -1860,6 +2181,7 @@ export class RichEditor {
     this.urlLink.set(null);
     this.moreOpen.set(null);
     this.guide.set(null);
+    this.widgetPick.set(null);
     if (this.tablePick()?.big === big) {
       this.tablePick.set(null);
       return;
