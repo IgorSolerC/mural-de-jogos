@@ -243,8 +243,11 @@ export function apiSuite(label: string, getDb: () => Db) {
           { sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', 'a', 'c', '2026-09-01T00:00:00Z')" },
           { sql: "INSERT INTO uso_diario VALUES ('2026-08-01', 5, 1)" },
           { sql: "INSERT INTO uso_diario VALUES ('2026-10-01', 5, 1)" },
+          { sql: "INSERT INTO freios VALUES ('u', 'reagir', '2026-10-04T00:00:00Z')" },
+          { sql: "INSERT INTO freios VALUES ('u', 'entrar', '2026-10-06T10:00:00Z')" },
         ]);
         await cleanup(deps);
+        expect(await db.all('SELECT acao FROM freios')).toEqual([{ acao: 'entrar' }]);
         expect(await db.all('SELECT hash FROM sessoes')).toEqual([{ hash: 'nova' }]);
         expect(await db.all('SELECT alvo_id FROM atividades')).toEqual([{ alvo_id: 'c' }]);
         expect(await db.all('SELECT dia FROM uso_diario')).toEqual([{ dia: '2026-10-01' }]);
@@ -338,13 +341,25 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect(body.erro).toBe('muitos-logins');
       });
 
+      it('sair não devolve a vaga no limite de logins do dia', async () => {
+        const { login, json } = await setup();
+        for (let i = 0; i < 10; i++) {
+          const { res, body } = await login();
+          expect(res.status).toBe(200);
+          expect((await json('POST', '/v1/auth/sair', undefined, body.token)).status).toBe(200);
+        }
+        const { res, body } = await login();
+        expect(res.status).toBe(429);
+        expect(body.erro).toBe('muitos-logins');
+      });
+
       it('guarda no máximo 10 sessões por conta, tirando a usada há mais tempo', async () => {
         const { db, json, login } = await setup();
         const first = (await login()).body.token as string;
-        // a primeira é a usada há mais tempo; criada_em antiga só para não esbarrar no freio de logins
+        // a primeira é a usada há mais tempo; os freios antigos só para não esbarrar no limite de logins
         await db.batch([{ sql: "UPDATE sessoes SET usada_em = '2026-01-01T00:00:00Z'" }]);
         for (let i = 0; i < 10; i++) {
-          await db.batch([{ sql: "UPDATE sessoes SET criada_em = '2026-01-01T00:00:00Z'" }]);
+          await db.batch([{ sql: "UPDATE freios SET criado_em = '2026-01-01T00:00:00Z'" }]);
           await login();
         }
         expect(await db.all('SELECT * FROM sessoes')).toHaveLength(10);

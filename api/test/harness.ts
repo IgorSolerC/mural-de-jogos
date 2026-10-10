@@ -11,7 +11,7 @@ export const BASE_ENV = {
 };
 
 /** Todas as tabelas das migrações: cada teste começa com elas vazias. */
-export const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'uso_diario'];
+export const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'freios', 'uso_diario'];
 export const NOW = new Date('2026-10-06T15:00:00Z');
 
 export async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {

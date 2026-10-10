@@ -712,9 +712,9 @@ export function amigosSuite(label: string, getDb: () => Db) {
       it(`no máximo ${MAX_REACTIONS_PER_DAY} reações por dia (429 reagir-devagar)`, async () => {
         const { db, react, ana, bia } = await reacting();
         await db.batch(
-          Array.from({ length: MAX_REACTIONS_PER_DAY }, (_, i) => ({
-            sql: 'INSERT INTO reacoes (dono_id, ref, autor_id, reacao, criado_em) VALUES (?, ?, ?, ?, ?)',
-            params: [ana.id, `r-velha-${i}`, bia.id, 'fogo', new Date(NOW.getTime() - 60_000).toISOString()],
+          Array.from({ length: MAX_REACTIONS_PER_DAY }, () => ({
+            sql: "INSERT INTO freios (usuario_id, acao, criado_em) VALUES (?, 'reagir', ?)",
+            params: [bia.id, new Date(NOW.getTime() - 60_000).toISOString()],
           })),
         );
         const res = await react(bia.token, ana.codigo, 'r-hades', 'fogo');
@@ -722,11 +722,31 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(((await res.json()) as any).erro).toBe('reagir-devagar');
       });
 
+      // Antes contava só as reações que existiam: trocar ou tirar e reagir de novo abria a vaga sem fim,
+      // e cada reação nova avisava o dono outra vez.
+      it('trocar ou tirar a reação não devolve a vaga do dia', async () => {
+        const { db, react, unreact, ana, bia } = await reacting();
+        await db.batch(
+          Array.from({ length: MAX_REACTIONS_PER_DAY - 2 }, () => ({
+            sql: "INSERT INTO freios (usuario_id, acao, criado_em) VALUES (?, 'reagir', ?)",
+            params: [bia.id, new Date(NOW.getTime() - 60_000).toISOString()],
+          })),
+        );
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'fogo')).status).toBe(201);
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'amei')).status).toBe(200);
+        // repetir a mesma reação não gasta nada
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'amei')).status).toBe(200);
+        expect((await unreact(bia.token, ana.codigo, 'r-hades')).status).toBe(200);
+        expect((await react(bia.token, ana.codigo, 'r-hades', 'fogo')).status).toBe(429);
+      });
+
       it('apagar a conta leva as reações que ela deu', async () => {
         const { react, list, json, db, ana, bia } = await reacting();
         await react(bia.token, ana.codigo, 'r-hades', 'fogo');
         expect((await json('DELETE', '/v1/eu', undefined, bia.token)).status).toBe(200);
         expect((await list(ana.codigo)).body.reacoes).toEqual({});
+        // e os freios dela (as reações dadas no dia)
+        expect(await db.all('SELECT 1 FROM freios WHERE usuario_id = ?', [bia.id])).toEqual([]);
         const left = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes', []);
         expect(left?.n).toBe(0);
       });

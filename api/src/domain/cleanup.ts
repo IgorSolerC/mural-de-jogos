@@ -3,7 +3,7 @@ import { DAY_MS, utcDay } from './quota';
 
 /**
  * A limpeza diária: sessões vencidas, atividades com mais de 90 dias, o uso de mais de 30 dias
- * atrás e os seguir desfeitos há mais de um dia (o "Desfazer" vale por 10 minutos). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
+ * atrás, os freios e os seguir desfeitos de mais de um dia (o "Desfazer" vale por 10 minutos). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
  */
 export async function cleanup(deps: Deps): Promise<void> {
   if (deps.config.mode !== 'ligado') return;
@@ -14,5 +14,6 @@ export async function cleanup(deps: Deps): Promise<void> {
     { sql: 'DELETE FROM atividades WHERE criado_em < ?', params: [new Date(now.getTime() - 90 * DAY_MS).toISOString()] },
     { sql: 'DELETE FROM uso_diario WHERE dia < ?', params: [utcDay(new Date(now.getTime() - 30 * DAY_MS))] },
     { sql: 'DELETE FROM seguindo_desfeito WHERE desfeito_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
+    { sql: 'DELETE FROM freios WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
   ]);
 }

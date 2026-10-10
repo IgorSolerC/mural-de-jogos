@@ -1,5 +1,6 @@
 import { Context, Hono } from 'hono';
-import { DAY_MS, write } from '../domain/quota';
+import { brakeStatement, usedToday } from '../domain/brake';
+import { write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { HttpError } from '../errors';
@@ -16,8 +17,8 @@ import { isEmoji } from '../domain/emoji';
 /** As sete da fileira do site (core/reactions.ts); fora elas, vale qualquer emoji sozinho (o "+"). */
 const REACTIONS = ['amei', 'fogo', 'rindo', 'uau', 'chorei', 'hmm', 'nao-curti'] as const;
 /**
- * Quantas reações uma conta tem, das dadas nas últimas 24 horas. Conta as que existem agora: trocar
- * a reação de uma resenha continua sendo uma, e tirar abre a vaga de novo.
+ * Quantas reações uma conta dá em 24 horas, contando as trocadas e as tiradas depois (cada uma avisa
+ * o dono): ver `domain/brake.ts`.
  */
 export const MAX_REACTIONS_PER_DAY = 300;
 /** Quantas reações o mural de alguém devolve, as mais novas. */
@@ -70,11 +71,7 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
     const now = deps.now();
     const before = await deps.db.first<{ reacao: string }>('SELECT reacao FROM reacoes WHERE dono_id = ? AND ref = ? AND autor_id = ?', [who.id, ref, s.userId]);
     if (before?.reacao === reaction) return c.json({ reacao: reaction });
-    const today = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes WHERE autor_id = ? AND criado_em >= ?', [
-      s.userId,
-      new Date(now.getTime() - DAY_MS).toISOString(),
-    ]);
-    if ((today?.n ?? 0) >= MAX_REACTIONS_PER_DAY) throw new HttpError(429, 'reagir-devagar', 'Você reagiu a muita coisa hoje. Tente de novo amanhã.');
+    if ((await usedToday(deps, s.userId, 'reagir', now)) >= MAX_REACTIONS_PER_DAY) throw new HttpError(429, 'reagir-devagar', 'Você reagiu a muita coisa hoje. Tente de novo amanhã.');
     const mural = typeof body['mural'] === 'string' && MURAL_RE.test(body['mural']) ? body['mural'] : 'jogos';
     const resumo = JSON.stringify({ titulo: cleanTitle(body['titulo']), mural, reacao: reaction });
     const at = now.toISOString();
@@ -91,8 +88,9 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
           sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('reagiu', ?, ?, ?, ?, ?)",
           params: [s.userId, who.id, ref, resumo, at],
         },
+        brakeStatement(s.userId, 'reagir', now),
       ],
-      12,
+      14,
     );
     return c.json({ reacao: reaction }, before ? 200 : 201);
   });

@@ -1,5 +1,6 @@
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
+import { brakeStatement } from './brake';
 import { base64url, sha256 } from './bytes';
 import { DAY_MS, write } from './quota';
 /** Uma sessão vale 90 dias, renovados enquanto a pessoa usa. */
@@ -22,10 +23,14 @@ export async function hashToken(token: string): Promise<string> {
   return Array.from(await sha256(token), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** As gravações que criam uma sessão (e tiram as mais antigas além de MAX_SESSIONS). */
+/**
+ * As gravações que criam uma sessão (e tiram as mais antigas além de MAX_SESSIONS), com o freio do
+ * login: cada entrada conta no limite do dia, mesmo depois de sair (ver `domain/brake.ts`).
+ */
 export function sessionStatements(hash: string, userId: string, device: string | null, now: Date): Statement[] {
   const at = now.toISOString();
   return [
+    brakeStatement(userId, 'entrar', now),
     {
       sql: 'INSERT INTO sessoes (hash, usuario_id, criada_em, usada_em, expira_em, aparelho) VALUES (?, ?, ?, ?, ?, ?)',
       params: [hash, userId, at, at, new Date(now.getTime() + SESSION_DAYS * DAY_MS).toISOString(), device],

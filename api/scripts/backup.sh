@@ -9,7 +9,7 @@
 # Trancado com AES-256 (openssl, chave derivada da senha por PBKDF2 com 600 mil voltas).
 set -euo pipefail
 
-TABELAS=(usuarios sessoes murais murais_publicos seguindo seguindo_desfeito atividades reacoes uso_diario)
+TABELAS=(usuarios sessoes murais murais_publicos seguindo seguindo_desfeito atividades reacoes freios uso_diario)
 
 senha() {
   if [ -z "${BACKUP_SENHA:-}" ]; then

@@ -1,7 +1,8 @@
 import { Context, Hono } from 'hono';
 import { formatCode, generateCode } from '../domain/code';
 import { cleanName } from '../domain/name';
-import { DAY_MS, write } from '../domain/quota';
+import { usedToday } from '../domain/brake';
+import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
@@ -35,15 +36,12 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     let user = await findBySub(google.sub);
     let created = false;
     if (user) {
-      // freio: no máximo MAX_SESSIONS logins por conta em 24 horas (cada um grava algumas linhas)
-      const recent = await deps.db.first<{ n: number }>(
-        'SELECT COUNT(*) AS n FROM sessoes WHERE usuario_id = ? AND criada_em > ?',
-        [user.id, new Date(now.getTime() - DAY_MS).toISOString()],
-      );
-      if ((recent?.n ?? 0) >= MAX_SESSIONS) {
+      // freio: no máximo MAX_SESSIONS logins por conta em 24 horas (cada um grava algumas linhas); sair
+      // não devolve a vaga
+      if ((await usedToday(deps, user.id, 'entrar', now)) >= MAX_SESSIONS) {
         throw new HttpError(429, 'muitos-logins', 'Muitos logins nesta conta hoje. Tente de novo amanhã.');
       }
-      await write(deps, sessionStatements(hash, user.id, device, now), 6);
+      await write(deps, sessionStatements(hash, user.id, device, now), 8);
     } else {
       const name = cleanName(body['nome']) ?? cleanName(google.givenName) ?? 'Sem nome';
       const id = crypto.randomUUID();
@@ -56,14 +54,14 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         ...sessionStatements(hash, id, device, now),
       ];
       try {
-        await write(deps, statements, 10);
+        await write(deps, statements, 12);
         user = { id, codigo: code, nome: name, criado_em: now.toISOString() };
         created = true;
       } catch (error) {
         // dois primeiros logins ao mesmo tempo: o outro criou a conta; entra nela
         user = await findBySub(google.sub);
         if (!user || error instanceof HttpError) throw error;
-        await write(deps, sessionStatements(hash, user.id, device, now), 6);
+        await write(deps, sessionStatements(hash, user.id, device, now), 8);
       }
     }
     return c.json({ token, conta: { ...account(user), nova: created } });
@@ -118,8 +116,9 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?) + ' +
         '(SELECT COUNT(*) FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?) + ' +
         '(SELECT COUNT(*) FROM atividades WHERE autor_id = ? OR alvo_id = ?) + ' +
-        '(SELECT COUNT(*) FROM reacoes WHERE autor_id = ? OR dono_id = ?) AS n',
-      [id, id, id, id, id, id, id, id, id],
+        '(SELECT COUNT(*) FROM reacoes WHERE autor_id = ? OR dono_id = ?) + ' +
+        '(SELECT COUNT(*) FROM freios WHERE usuario_id = ?) AS n',
+      [id, id, id, id, id, id, id, id, id, id],
     );
     await write(
       deps,
@@ -131,6 +130,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
         { sql: 'DELETE FROM atividades WHERE autor_id = ? OR alvo_id = ?', params: [id, id] },
         { sql: 'DELETE FROM reacoes WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
+        { sql: 'DELETE FROM freios WHERE usuario_id = ?', params: [id] },
         { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },
       ],
       3 * ((counts?.n ?? 0) + 3),
