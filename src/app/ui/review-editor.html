@@ -4,7 +4,7 @@
   [class.notas]="notes()"
   aria-labelledby="editor-titulo"
   (cancel)="requestClose($event)"
-  (close)="closed.emit()"
+  (close)="onClose()"
   (backdropClose)="requestClose()"
 >
   <form

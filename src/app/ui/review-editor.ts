@@ -780,7 +780,7 @@ export class ReviewEditor {
     const wish = this.fromWish();
     if (wish) this.store.removeWish(wish.id, false);
     this.snapshot = this.serialize();
-    this.dialog().nativeElement.close();
+    this.shut();
     this.saved.emit({ id: review.id, isNew: !prev, swap });
   }
 
@@ -838,7 +838,7 @@ export class ReviewEditor {
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);
     this.snapshot = this.serialize();
-    this.dialog().nativeElement.close();
+    this.shut();
     this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}) });
   }
 
@@ -861,7 +861,7 @@ export class ReviewEditor {
     const wish = this.fromWish();
     if (wish) this.store.removeWish(wish.id, false);
     this.snapshot = this.serialize();
-    this.dialog().nativeElement.close();
+    this.shut();
     this.drafted.emit({ id: this.id(), isNew: !prev });
   }
 
@@ -907,7 +907,7 @@ export class ReviewEditor {
     // o editor pode ter fechado ou trocado de ficha enquanto a pergunta estava aberta
     if (!sure || this.fromWish() !== wish) return;
     this.snapshot = this.serialize();
-    this.dialog().nativeElement.close();
+    this.shut();
     this.wishRemoved.emit(wish.id);
   }
 
@@ -917,7 +917,7 @@ export class ReviewEditor {
     const sure = await this.confirm.ask({ text: this.removeText(draft.game.name, 'da fila'), confirm: 'Tirar da fila' });
     if (!sure || this.fromDraft() !== draft) return;
     this.snapshot = this.serialize();
-    this.dialog().nativeElement.close();
+    this.shut();
     this.draftRemoved.emit(draft.id);
   }
 
@@ -928,20 +928,40 @@ export class ReviewEditor {
       : `“${name}” sai ${from}.`;
   }
 
-  /** Esc, X ou Cancelar: se tem coisa escrita, pergunta antes. */
+  /**
+   * Esc, X, Cancelar ou o clique no fundo: se tem coisa escrita, pergunta antes. Com a pergunta na
+   * tela, só o botão Descartar joga o texto fora: Esc de novo é "voltar a escrever", e o X, o Cancelar
+   * e o fundo não fazem nada (a pergunta continua lá).
+   */
   protected requestClose(e?: Event): void {
-    if (this.isDirty() && !this.confirmingDiscard()) {
+    if (this.isDirty()) {
       e?.preventDefault();
+      if (!this.confirmingDiscard()) this.confirmingDiscard.set(true);
+      else if (e?.type === 'cancel') this.keepWriting();
+      return;
+    }
+    if (e?.type !== 'cancel') this.shut();
+  }
+
+  /** Fecha de propósito (salvou, descartou, apagou, mandou para a fila…). */
+  private shut(): void {
+    this.closing = true;
+    this.dialog().nativeElement.close();
+  }
+  private closing = false;
+
+  /**
+   * A folha fechou. O Chrome fecha mesmo com o Esc cancelado, num segundo Esc seguido (sem clique
+   * no meio): com o texto ainda por salvar, ela abre de novo, com a pergunta de descartar.
+   */
+  protected onClose(): void {
+    if (!this.closing && this.isDirty()) {
+      this.dialog().nativeElement.showModal();
       this.confirmingDiscard.set(true);
       return;
     }
-    // Esc de novo com a pergunta na tela é "voltar", não "descartar": só o botão Descartar joga fora
-    if (e?.type === 'cancel' && this.isDirty()) {
-      e.preventDefault();
-      this.keepWriting();
-      return;
-    }
-    if (e?.type !== 'cancel') this.dialog().nativeElement.close();
+    this.closing = false;
+    this.closed.emit();
   }
 
   protected keepWriting(): void {
@@ -950,7 +970,7 @@ export class ReviewEditor {
 
   protected discard(): void {
     this.snapshot = this.serialize();
-    this.dialog().nativeElement.close();
+    this.shut();
   }
 
 

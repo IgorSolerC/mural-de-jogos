@@ -113,12 +113,22 @@ function valueOf(r: Review, k: Exclude<FacetKey, 'tag'>): string {
   }
 }
 
+/**
+ * A chave de comparação de um valor: as categorias e as tags valem sem acento nem caixa ("Diário" e
+ * "diario" são a mesma), como nas abas e nas seções; o resto, como está.
+ */
+function keyOf(k: FacetKey, value: string): string {
+  return k === 'category' || k === 'tag' ? fold(value) : value;
+}
+
 /** A ficha passa nos filtros? Com `skip`, ignora um grupo (para contar as opções dele). */
 export function matchesFilter(r: Review, f: WallFilter, skip?: FacetKey): boolean {
   for (const k of FACET_KEYS) {
     if (k === skip) continue;
     const chosen = f[k] as readonly string[];
-    if (chosen.length && !valuesOf(r, k).some((v) => chosen.includes(v))) return false;
+    if (!chosen.length) continue;
+    const keys = new Set(chosen.map((c) => keyOf(k, c)));
+    if (!valuesOf(r, k).some((v) => keys.has(keyOf(k, v)))) return false;
   }
   return true;
 }
@@ -150,7 +160,27 @@ export function filterSize(f: WallFilter): number {
 /** Liga ou desliga uma opção de um grupo. */
 export function toggleOption(f: WallFilter, k: FacetKey, value: string): WallFilter {
   const list = f[k] as readonly string[];
-  return { ...f, [k]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value] };
+  const key = keyOf(k, value);
+  const on = list.some((v) => keyOf(k, v) === key);
+  return { ...f, [k]: on ? list.filter((v) => keyOf(k, v) !== key) : [...list, value] };
+}
+
+/**
+ * Os valores de categoria ou de tag do mural, um por grafia sem acento nem caixa, escritos do jeito
+ * mais usado (no empate, o que aparece primeiro), e os ligados que o mural não tem mais.
+ */
+function spellingsOf(values: readonly string[], chosen: readonly string[]): string[] {
+  const byKey = new Map<string, Map<string, number>>();
+  for (const v of values) {
+    const k = fold(v);
+    const uses = byKey.get(k) ?? new Map<string, number>();
+    uses.set(v, (uses.get(v) ?? 0) + 1);
+    byKey.set(k, uses);
+  }
+  // o sort é estável: no empate, fica a grafia que apareceu primeiro
+  const out = [...byKey.values()].map((uses) => [...uses].sort((a, b) => b[1] - a[1])[0][0]);
+  for (const c of chosen) if (!byKey.has(fold(c))) out.push(c);
+  return out;
 }
 
 export interface FacetOption {
@@ -242,8 +272,8 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
   const anyNoVerdict = list.some((r) => !r.verdict) || f.verdict.includes('sem');
   // as categorias e as tags que o mural tem, de A a Z, e "Sem categoria" / "Sem tag" no fim
   const bySem = (a: string, b: string) => (a === 'sem' ? 1 : b === 'sem' ? -1 : a.localeCompare(b, 'pt-BR'));
-  const cats = [...new Set([...list.map(categoryValueOf), ...f.category])].sort(bySem);
-  const tags = [...new Set([...list.flatMap(tagValuesOf), ...f.tag])].sort(bySem);
+  const cats = spellingsOf(list.map(categoryValueOf), f.category).sort(bySem);
+  const tags = spellingsOf(list.flatMap(tagValuesOf), f.tag).sort(bySem);
 
   const values: Record<FacetKey, readonly string[]> = {
     verdict: anyNoVerdict ? [...VERDICTS, 'sem'] : VERDICTS,
@@ -266,17 +296,18 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
       const counts = new Map<string, number>();
       for (const r of list) {
         if (!matchesFilter(r, f, key)) continue;
-        for (const v of valuesOf(r, key)) counts.set(v, (counts.get(v) ?? 0) + 1);
+        // uma anotação com "Bug" e "bug" conta uma vez
+        for (const v of new Set(valuesOf(r, key).map((x) => keyOf(key, x)))) counts.set(v, (counts.get(v) ?? 0) + 1);
       }
-      const chosen = f[key] as readonly string[];
+      const chosen = new Set((f[key] as readonly string[]).map((c) => keyOf(key, c)));
       return {
         key,
         title: FACET_TITLE[key],
         options: values[key].map((value) => ({
           value,
           label: optionLabel(key, value, profile),
-          n: counts.get(value) ?? 0,
-          on: chosen.includes(value),
+          n: counts.get(keyOf(key, value)) ?? 0,
+          on: chosen.has(keyOf(key, value)),
         })),
       };
     });

@@ -25,24 +25,25 @@
 <body>
 <main>
   <h1>Privacidade</h1>
-  <p class="data">Meu Mural · última atualização: 6 de outubro de 2026</p>
+  <p class="data">Meu Mural · última atualização: 10 de outubro de 2026</p>
 
   <div class="resumo">
     <p><strong>Sem conta, nada sai do seu aparelho.</strong> Com uma conta (entrando com o Google), o seu mural fica guardado na nuvem para você abrir em qualquer aparelho, e quem tiver o seu código pode ver as suas resenhas.</p>
-    <p>Não há anúncios, rastreamento nem venda de dados. A entrada com conta está chegando ao site; esta página já descreve como ela funciona.</p>
+    <p>Não há anúncios, rastreamento nem venda de dados.</p>
   </div>
 
   <h2>Sem conta</h2>
-  <p>As resenhas, a fila, a wishlist e os ajustes ficam guardados só no navegador deste aparelho. O backup é um arquivo que você mesmo baixa e guarda.</p>
+  <p>As resenhas, as anotações, a fila, a wishlist e os ajustes ficam guardados só no navegador deste aparelho. O backup é um arquivo que você mesmo baixa e guarda.</p>
   <p>Quando você busca um item, o seu navegador pergunta direto aos catálogos (Wikipedia, Open Library, TMDB, RAWG, Kitsu e AniList). Eles recebem o que foi buscado e o endereço de internet do aparelho, e seguem as políticas de privacidade deles.</p>
 
   <h2>Com conta: o que guardamos</h2>
   <ul>
     <li>O número que identifica a sua conta Google. <strong>Não guardamos o seu e-mail, a sua foto nem senha nenhuma.</strong></li>
     <li>O nome público que você escolher e o seu código de usuário.</li>
-    <li>O seu mural: resenhas, fila, wishlist e itens apagados.</li>
+    <li>O seu mural: resenhas, anotações, fila, wishlist, itens apagados e as tags fixas das anotações.</li>
     <li>As chaves da RAWG e do TMDB, se você colou alguma em Ajustes, para valerem nos seus outros aparelhos. Elas não vão no arquivo de backup nem no mural que os outros veem.</li>
     <li>Quem você segue e quem segue você.</li>
+    <li>As reações que você deu às resenhas de quem você segue, e as que você recebeu, com a data.</li>
     <li>As notificações dos últimos 90 dias.</li>
     <li>Os aparelhos conectados, com a data do último uso. A chave de cada sessão é guardada só de forma cifrada (hash).</li>
   </ul>
@@ -50,17 +51,19 @@
 
   <h2>Quem vê o quê</h2>
   <ul>
-    <li><strong>Quem tiver o seu código ou o link do seu mural</strong> vê as suas resenhas e o seu nome público. O código não aparece em nenhuma lista ou busca.</li>
-    <li>A fila, a wishlist e as chaves só você vê.</li>
+    <li><strong>Quem tiver o seu código ou o link do seu mural</strong> vê as suas resenhas, as anotações que você publicar e o seu nome público. O código não aparece em nenhuma lista ou busca.</li>
+    <li>A resenha marcada como <strong>privada</strong> não vai para o mural que os outros veem. A anotação nasce privada: só aparece para os outros se você publicar.</li>
+    <li>A fila, a wishlist, as tags fixas e as chaves só você vê.</li>
+    <li>As <strong>reações</strong> de uma resenha aparecem para quem vê o seu mural, com o nome de quem reagiu. Só quem segue você pode reagir, e você recebe um aviso de cada reação.</li>
     <li>Quando alguém passa a seguir você, você recebe um aviso com o nome dessa pessoa.</li>
-    <li>Quando você publica uma resenha nova, quem segue você recebe um aviso com o título e o mural (sem nota e sem texto).</li>
+    <li>Quando você publica uma resenha nova, quem segue você recebe um aviso com o título e o mural (sem nota e sem texto). A resenha marcada como "visível, sem publicar" fica no mural, mas não gera aviso.</li>
   </ul>
 
   <h2>Onde os dados ficam</h2>
-  <p>Na Cloudflare (Workers e banco D1), cujos servidores podem ficar fora do Brasil. A entrada usa o login do Google (Google Identity Services): o Google fica sabendo que você entrou no Meu Mural, conforme a política de privacidade dele.</p>
+  <p>Na Cloudflare (Workers e banco D1), cujos servidores podem ficar fora do Brasil. Uma cópia diária do banco, trancada com senha (AES-256), fica guardada por 30 dias no GitHub, para recuperar o serviço se algo der errado. A entrada usa o login do Google (Google Identity Services): o Google fica sabendo que você entrou no Meu Mural, conforme a política de privacidade dele.</p>
 
   <h2>Por quanto tempo</h2>
-  <p>Até você apagar a conta. Em Ajustes, <strong>Apagar conta</strong> remove na hora a conta, o mural, quem você segue, quem segue você e as notificações. As cópias de recuperação do banco guardam o estado anterior por até 7 dias e depois somem. Sessões sem uso por 90 dias são encerradas.</p>
+  <p>Até você apagar a conta. Em Ajustes, <strong>Apagar conta</strong> remove na hora a conta, o mural, quem você segue, quem segue você, as reações (as que você deu e as que recebeu) e as notificações. As cópias de recuperação guardam o estado anterior por até 30 dias (as da Cloudflare, 7 dias; a cópia diária trancada, 30) e depois somem. Sessões sem uso por 90 dias são encerradas.</p>
 
   <h2>Seus direitos</h2>
   <p>Pela Lei Geral de Proteção de Dados (LGPD), você pode saber o que é guardado (esta página), ter uma cópia (o backup em Ajustes), corrigir (editando no próprio mural) e apagar tudo (Apagar conta).</p>

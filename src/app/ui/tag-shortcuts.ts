@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { fold } from '../core/review';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { NoteTag } from './note-tag';
@@ -131,10 +132,11 @@ export class TagShortcuts {
     if (!facet) return null;
     // quantas anotações da aba (à mostra) usam cada tag: a ordem dos atalhos
     const uses = new Map<string, number>();
-    for (const r of this.view.pool()) for (const t of r.tags ?? []) uses.set(t, (uses.get(t) ?? 0) + 1);
+    for (const r of this.view.pool()) for (const t of r.tags ?? []) uses.set(fold(t), (uses.get(fold(t)) ?? 0) + 1);
+    const used = (value: string) => uses.get(fold(value)) ?? 0;
     const options = facet.options
       .filter((o) => o.value !== 'sem')
-      .sort((a, b) => (uses.get(b.value) ?? 0) - (uses.get(a.value) ?? 0) || a.label.localeCompare(b.label, 'pt-BR'));
+      .sort((a, b) => used(b.value) - used(a.value) || a.label.localeCompare(b.label, 'pt-BR'));
     if (!options.length) return null;
     // as ligadas ficam sempre à mão, mesmo fora das mais usadas
     const shown = this.all() ? options : options.filter((o, i) => i < MAX_SHORTCUTS || o.on);

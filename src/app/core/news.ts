@@ -51,6 +51,30 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-tags-sem-acento',
+    version: '1.26.8',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'Tags e categorias sem diferença de acento nos filtros',
+    items: [
+      'No filtro das anotações, "Diário" e "diario" são a mesma categoria, e "Bug" e "bug" a mesma tag: uma opção só, escrita do jeito mais usado, que mostra as anotações das duas grafias.',
+      'O site guardado para abrir sem internet joga fora os arquivos de versões antigas que ninguém pede há mais de 30 dias (os da versão atual ficam sempre).',
+      'A página de privacidade conta das reações, das anotações e das resenhas privadas, e da cópia diária do banco.',
+    ],
+  },
+  {
+    id: '2026-10-10-foto-e-descartar',
+    version: '1.26.7',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'A foto colada e o descartar do editor',
+    items: [
+      'O brilho da foto colada numa anotação cobre a foto inteira, como o plástico de uma foto revelada: antes era um quadradinho que piscava no canto de cima.',
+      'Enquanto a foto colada carrega, fica só o papel em branco, sem o aro girando dos botões.',
+      'Com a pergunta de descartar na tela, só o botão Descartar joga o texto fora: o X, o Cancelar e o clique fora não fecham mais o editor, e um segundo Esc volta a escrever.',
+    ],
+  },
+  {
     id: '2026-10-10-paginas',
     version: '1.26.6',
     kind: 'correcao',

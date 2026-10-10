@@ -21,7 +21,7 @@ import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
   template: `
     @let m = media();
     <figure class="colagem" [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
-      <span class="foto" data-colado [class.video]="kind() === 'video'" [class.quebrada]="broken()" [class.carregando]="kind() === 'imagem' && !loaded() && !broken()">
+      <span class="foto" data-colado [class.video]="kind() === 'video'" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()">
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
@@ -32,7 +32,7 @@ import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
           </span>
         } @else if (kind() === 'imagem') {
           <img [src]="m.url" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="loaded.set(true)" (error)="failed.set(true)" />
-          <span class="brilho" aria-hidden="true"></span>
+          <span class="reflexo" aria-hidden="true"></span>
         } @else if (video(); as v) {
           @if (v.kind === 'file') {
             <video class="tocavel" [src]="v.url" controls preload="metadata" playsinline [attr.aria-label]="m.caption || 'Vídeo'" (error)="failed.set(true)"></video>
@@ -51,7 +51,7 @@ import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
             } @else {
               <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="FilmIcon" [size]="34" [strokeWidth]="1.8" /></span>
             }
-            <span class="brilho" aria-hidden="true"></span>
+            <span class="reflexo" aria-hidden="true"></span>
             <!-- o adesivo redondo de tocar, colado no meio da foto -->
             <button type="button" class="tocar tocavel" [attr.aria-label]="'Tocar o vídeo' + (m.caption ? ': ' + m.caption : '')" (click)="play($event)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 5.6c0-.9 1-1.5 1.8-1l9 6.4c.7.5.7 1.5 0 2l-9 6.4c-.8.5-1.8 0-1.8-1z" /></svg>
@@ -108,8 +108,10 @@ import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
       padding: 0;
       background: transparent;
     }
-    /* o vídeo não tem tamanho próprio antes de tocar: a figura ocupa a linha, e a foto, o que cabe */
-    .colagem.e-video {
+    /* o vídeo não tem tamanho próprio antes de tocar (nem a foto antes de carregar): a figura ocupa a
+       linha, e a foto, o que cabe */
+    .colagem.e-video,
+    .colagem:has(> .revelando) {
       width: auto;
     }
     .tocando .foto {
@@ -131,13 +133,14 @@ import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
       max-height: var(--midia-max, 22em);
       object-fit: contain;
     }
-    /* carregando: o papel da foto ainda em branco, do tamanho de uma foto comum */
-    .carregando {
+    /* revelando (carregando): o papel da foto ainda em branco, do tamanho de uma foto comum. Não é
+       .carregando: essa é a global do botão esperando (o aro girando) */
+    .revelando {
       width: min(100%, 14em);
       aspect-ratio: 4 / 3;
       background: #efe9dc;
     }
-    .carregando img {
+    .revelando img {
       opacity: 0;
     }
     /* o vídeo: sempre 16:9, do tamanho que cabe (o papel da foto manda na largura) */
@@ -159,8 +162,9 @@ import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
       place-items: center;
       color: rgb(243 236 224 / 0.45);
     }
-    /* o brilho do papel fotográfico, de cima, como o do plástico das capas */
-    .brilho {
+    /* o brilho do papel fotográfico, de cima, como o do plástico das capas. Não é .brilho: essa é a
+       global das faíscas da nota alta (um quadradinho de 15px que pisca) */
+    .reflexo {
       grid-area: 1 / 1;
       pointer-events: none;
       border-radius: 1px;

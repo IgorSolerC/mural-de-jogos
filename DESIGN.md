@@ -595,7 +595,7 @@ The slots are wired; the app tries to load each file after the first render and 
 | File | Body class | What it replaces | Fallback |
 |---|---|---|---|
 | `parede-eucatex.png` | `has-wall-texture` | wall holes and fibre (560px tile) | two radial-gradient hole layers at a 26px pitch (dark hole plus a lit lower rim) and a 300px fractal-noise fibre SVG at 5% |
-| `cartolina-fibra.png` (derived from `cartolina.png`) | `has-paper-texture` | grain on `.cartolina` and cartolina buttons (420px tile, soft-light) | `--paper-grain`, a 220px fractal-noise SVG multiplied over the stock colour |
+| `cartolina-fibra.png` (derived from a cartolina photo, no longer shipped) | `has-paper-texture` | grain on `.cartolina` and cartolina buttons (420px tile, soft-light) | `--paper-grain`, a 220px fractal-noise SVG multiplied over the stock colour |
 | `tachinhas.png` | `has-pins` | the CSS pin (192×32 sprite, 6 × 32px in pin palette order) | the layered radial-gradient base, head and specular dot |
 | `holografico.png` | `has-holo` | Platinado foil via `--holo-foil` (180px tile) | a 62deg diffraction-line pattern over a pastel spectrum gradient |
 | `fita-crepe.png` | `has-tape` | the search-strip tape pieces | flat `rgb(222 205 160 / 0.82)` with a 1px drop shadow |
@@ -635,7 +635,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 
 ## Material calibration (polish pass)
 
-- **Paper grain.** The shipping grain is `textures/cartolina-fibra.png`, derived from `cartolina.png` and re-centred on 50% grey, blended with `soft-light` at 420px. It adds fibre without shifting a stock's hue. Multiply with the raw light-grey photo muddied every stock (yellow read olive) and is not used.
+- **Paper grain.** The shipping grain is `textures/cartolina-fibra.png`, derived from a cartolina photo (the original `cartolina.png` was removed: nothing loaded it) and re-centred on 50% grey, blended with `soft-light` at 420px. It adds fibre without shifting a stock's hue. Multiply with the raw light-grey photo muddied every stock (yellow read olive) and is not used.
 - **Wall.** The photographic eucatex (`parede-eucatex.png`, 560px tile) sits under a flat coat of `rgb(24 24 27 / 0.46)` and the fluorescent falloff at 13%. The coat keeps the holes visible but stops them competing with cards and tabs.
 - **Native controls on paper.** Every `.cartolina` sets `color-scheme: light`, so radios, the date picker and scrollbars render light on paper while the wall stays dark.
 - **Foil.** Platinado carries a 40% milky varnish between the shine and the holographic photo, so the word stays readable on the glitter.
