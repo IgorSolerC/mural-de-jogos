@@ -6,7 +6,7 @@ import { GluedMedia } from './glued-media';
 /**
  * Um widget do texto (ver core/widgets.ts), desenhado pelo componente dele. Cada widget novo ganha
  * um `@case` aqui e um componente seu, que recebe os parâmetros como foram escritos. Um widget
- * grande (o áudio) vem num `@defer`, para não pesar no carregamento do site.
+ * grande (o áudio, a foto colada) vem num `@defer`, para não pesar no carregamento do site.
  */
 @Component({
   selector: 'app-note-widget',
@@ -17,11 +17,20 @@ import { GluedMedia } from './glued-media';
       @case ('contador') {
         <app-countdown [args]="args()" />
       }
+      <!-- a foto colada também vem à parte (ela carrega a imagem depois, de qualquer jeito) -->
       @case ('imagem') {
-        <app-glued-media kind="imagem" [args]="args()" />
+        @defer (on immediate) {
+          <app-glued-media kind="imagem" [args]="args()" />
+        } @placeholder {
+          <div class="esperando-foto"></div>
+        }
       }
       @case ('video') {
-        <app-glued-media kind="video" [args]="args()" />
+        @defer (on immediate) {
+          <app-glued-media kind="video" [args]="args()" />
+        } @placeholder {
+          <div class="esperando-foto"></div>
+        }
       }
       @case ('audio') {
         <!-- a fita, o vinil e o player vêm num pedaço à parte do site, carregado só quando aparece uma faixa -->
@@ -40,6 +49,10 @@ import { GluedMedia } from './glued-media';
     /* o lugar da faixa enquanto ela chega: a altura de uma tira, para o texto não pular tanto */
     .esperando-faixa {
       min-height: calc(var(--line, 1.5em) * 3);
+    }
+    /* e o da foto: a altura de uma foto pequena */
+    .esperando-foto {
+      min-height: calc(var(--line, 1.5em) * 5);
     }
   `,
 })

@@ -116,6 +116,15 @@ export function backlinksOf(note: Review, notes: readonly Review[]): Review[] {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }
 
+/**
+ * O que a sub-nota diz de onde é parte, pelas anotações que apontam para ela (`backlinksOf`): o
+ * nome da única ("Parte de Sprint 42"), quantas são ("Parte de 2 notas") ou, sem nenhuma, "Sub-nota".
+ */
+export function partOfLabel(from: readonly Review[]): string {
+  if (from.length > 1) return `Parte de ${from.length} notas`;
+  return from.length ? `Parte de ${from[0].game.name}` : 'Sub-nota';
+}
+
 /** Até quantas letras antes do link o trecho mostra (o começo de uma linha comprida vira "…"). */
 const BEFORE_MAX = 40;
 

@@ -32,7 +32,7 @@ import {
   Quote,
   X,
 } from 'lucide-angular';
-import { isTableSep, lineKind, tableCells, toggleCheck } from '../core/rich-text';
+import { isTableSep, lineKind, linkAt, tableCells, toggleCheck } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
@@ -66,6 +66,9 @@ type ListKind = 'ul' | 'ol' | 'check';
  * os campos dele (o contador: para quê, o dia, a hora, todo ano) e ele mesmo, vivo, embaixo. "Pôr"
  * escreve a marca ("{{contador: …}}") numa linha só dela. Com o cursor na linha de um widget, o
  * painel abre com o que está escrito e troca a linha.
+ *
+ * Um clique na linha de um widget já abre o painel dele assim; num link (de anotação ou de
+ * endereço), o painel do link, com o que está escrito, para trocar.
  */
 /**
  * O link para outra anotação: a folhinha (com a dobra no canto) e o elo de corrente dentro dela. Um
@@ -289,7 +292,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big && optionCount() ? areaId + '-elo-' + active() : null"
         (input)="value.set(area.value); watchLink(area, big)"
         (focus)="onAreaFocus()"
-        (click)="watchLink(area, big)"
+        (click)="watchLink(area, big); onAreaClick($event, area, big)"
         (keyup)="onKeyUp($event, area, big)"
         (keydown)="onKey($event, area, big)"
         (paste)="onPaste($event, area)"
@@ -311,7 +314,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             </div>
             <label class="painel-campo">
               <span>Texto</span>
-              <input type="text" autocomplete="off" placeholder="O que aparece (ou deixe o endereço)" (keydown.enter)="$event.preventDefault(); putUrl(area)" [value]="u.text" (input)="urlLink.set({ big: u.big, start: u.start, end: u.end, url: u.url, text: $any($event.target).value })" />
+              <input type="text" autocomplete="off" placeholder="O que aparece (ou deixe o endereço)" (keydown.enter)="$event.preventDefault(); putUrl(area)" [value]="u.text" (input)="setUrl('text', $any($event.target).value)" />
             </label>
             <label class="painel-campo">
               <span>Endereço</span>
@@ -323,12 +326,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                 placeholder="https://…"
                 (keydown.enter)="$event.preventDefault(); putUrl(area)"
                 [value]="u.url"
-                (input)="urlLink.set({ big: u.big, start: u.start, end: u.end, text: u.text, url: $any($event.target).value })"
+                (input)="setUrl('url', $any($event.target).value)"
               />
             </label>
             <div class="painel-acoes">
               <button type="button" class="acao-caneta" (click)="closeUrl(null, area)">Cancelar</button>
-              <button type="button" class="painel-ok" [disabled]="!urlOk()" (click)="putUrl(area)">Pôr o link</button>
+              <button type="button" class="painel-ok" [disabled]="!urlOk()" (click)="putUrl(area)">{{ u.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
             </div>
           </div>
         }
@@ -370,7 +373,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           @let def = widgetOf(w.name);
           <div class="painel widget-painel" role="group" [attr.aria-label]="(w.swap ? 'Trocar o widget: ' : 'Widget: ') + def.label" (keydown.escape)="closeWidget($event, area)">
             <div class="painel-topo">
-              <p class="painel-titulo">{{ w.swap ? 'Trocar o ' + def.label.toLowerCase() : 'Widget · ' + def.label }}</p>
+              <p class="painel-titulo">{{ w.swap ? def.swap : 'Widget · ' + def.label }}</p>
               <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeWidget(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
             </div>
             @if (widgets.length > 1 && !w.swap) {
@@ -514,7 +517,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               </div>
               <div class="painel-acoes">
                 <button type="button" class="acao-caneta" (click)="closeLink(area)">Cancelar</button>
-                <button type="button" class="painel-ok" [disabled]="!k.chosen" (click)="putLink()">Pôr o link</button>
+                <button type="button" class="painel-ok" [disabled]="!k.chosen" (click)="putLink()">{{ k.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
               </div>
             </div>
           }
@@ -1646,8 +1649,11 @@ export class RichEditor {
   protected readonly RuleIcon = Minus;
   protected readonly HelpIcon = CircleHelp;
 
-  /** O painel do link para um endereço: o trecho que ele vai ocupar, o texto e o endereço. */
-  protected readonly urlLink = signal<{ big: boolean; start: number; end: number; text: string; url: string } | null>(null);
+  /**
+   * O painel do link para um endereço: o trecho que ele vai ocupar, o texto e o endereço (`swap`: o
+   * link que já estava lá, que ele troca).
+   */
+  protected readonly urlLink = signal<{ big: boolean; start: number; end: number; text: string; url: string; swap?: boolean } | null>(null);
   /** O endereço do painel serve (com "https://" se faltou). */
   protected readonly urlOk = computed(() => !!normalizeUrl(this.urlLink()?.url ?? ''));
   /** A grade da tabela aberta, com o tamanho apontado. */
@@ -1679,12 +1685,7 @@ export class RichEditor {
    */
   protected openMore(big: boolean, first: boolean): void {
     this.moreByKeyboard = first;
-    this.linking.set(null);
-    this.urlLink.set(null);
-    this.tablePick.set(null);
-    this.guide.set(null);
-    this.widgetPick.set(null);
-    this.widgetsOpen.set(null);
+    this.closePanels();
     this.moreOpen.set(big);
     setTimeout(() => {
       const target = first ? this.moreItems()[0] : this.host.nativeElement.querySelector<HTMLElement>('.mais-menu');
@@ -1784,7 +1785,7 @@ export class RichEditor {
    * que o link vai ocupar; `big`, em qual das folhas (a pequena ou a da tela inteira). No painel da
    * régua, `chosen` é o título escolhido na lista (null: a lista está aberta, nada escolhido).
    */
-  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string; label?: string; chosen?: string | null } | null>(null);
+  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string; label?: string; chosen?: string | null; swap?: boolean } | null>(null);
   /** A opção escolhida da lista (pelas setas). */
   protected readonly active = signal(0);
   /** Onde "[[" foi fechado com Esc: a lista não volta a abrir sozinha ali. */
@@ -1877,12 +1878,7 @@ export class RichEditor {
     this.linking.set(null);
     this.dismissedAt = -1;
     // os painéis da régua (link, tabela, mais marcas, guia) eram da ficha de antes: fecham
-    this.urlLink.set(null);
-    this.tablePick.set(null);
-    this.guide.set(null);
-    this.moreOpen.set(null);
-    this.widgetsOpen.set(null);
-    this.widgetPick.set(null);
+    this.closePanels();
     // e a folha na tela inteira, se tinha ficado aberta
     const big = this.dialog().nativeElement;
     if (big.open) big.close();
@@ -1894,12 +1890,7 @@ export class RichEditor {
       this.closeLink(area);
       return;
     }
-    this.urlLink.set(null);
-    this.tablePick.set(null);
-    this.moreOpen.set(null);
-    this.widgetsOpen.set(null);
-    this.guide.set(null);
-    this.widgetPick.set(null);
+    this.closePanels();
     const [start, end] = [area.selectionStart, area.selectionEnd];
     const query = area.value.slice(start, end).split('\n')[0].trim();
     // o trecho selecionado é o texto que aparece; a busca começa por ele (o título de uma anotação já
@@ -2192,17 +2183,63 @@ export class RichEditor {
 
   /** Abre o painel do link com o trecho selecionado (um endereço selecionado já vai no campo dele). */
   protected startUrl(area: HTMLTextAreaElement, big: boolean): void {
-    this.linking.set(null);
-    this.tablePick.set(null);
-    this.moreOpen.set(null);
-    this.widgetsOpen.set(null);
-    this.guide.set(null);
-    this.widgetPick.set(null);
+    this.closePanels();
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
     const isUrl = !!normalizeUrl(sel.trim()) && /^(https?:\/\/|www\.|mailto:)/i.test(sel.trim());
     this.urlLink.set({ big, start: area.selectionStart, end: area.selectionEnd, text: isUrl ? '' : sel.replace(/\s+/g, ' ').trim(), url: isUrl ? sel.trim() : '' });
     setTimeout(() => this.panelInput(big, isUrl || !sel ? '.url-campo' : 'input')?.focus());
     this.showPanel('.url-painel');
+  }
+
+  /**
+   * Um clique na folha (um só: dois escolhem a palavra) na linha de um widget abre o painel dele com
+   * o que está escrito, para trocar; num link, o painel do link, com o texto e para onde ele vai.
+   */
+  protected onAreaClick(e: MouseEvent, area: HTMLTextAreaElement, big: boolean): void {
+    if (e.detail !== 1 || area.selectionStart !== area.selectionEnd) return;
+    const text = area.value;
+    const at = area.selectionStart;
+    const from = text.lastIndexOf('\n', at - 1) + 1;
+    const endAt = text.indexOf('\n', at);
+    const line = text.slice(from, endAt === -1 ? text.length : endAt);
+    // os widgets são das anotações (o menu "Widgets" só existe nelas)
+    const w = this.notes() ? parseWidgetLine(line) : null;
+    const def = w && widgetDef(w.name);
+    if (def) return this.startWidget(area, big, def);
+    const link = linkAt(line, at - from);
+    if (!link) return;
+    const [start, end] = [from + link.start, from + link.end];
+    if (link.kind === 'url') {
+      this.closePanels();
+      this.urlLink.set({ big, start, end, text: link.text, url: link.href, swap: true });
+      setTimeout(() => this.panelInput(big, '.url-campo')?.focus());
+      this.showPanel('.url-painel');
+    } else if (this.notes()) {
+      this.closePanels();
+      const title = resolveNote(this.notes() ?? [], link.title)?.game.name ?? link.title;
+      // o texto só vem quando é outro ("[[Título|texto]]"): trocar a anotação não leva o título de antes
+      const label = linkKey(link.label) === linkKey(link.title) ? '' : link.label;
+      this.linking.set({ auto: false, big, start, end, query: title, label, chosen: title, swap: true });
+      this.active.set(0);
+      setTimeout(() => this.panelInput(big, '.elos-campo')?.focus());
+      this.showPanel('.elo-painel');
+    }
+  }
+
+  /** Fecha os painéis e menus da régua (antes de abrir outro). */
+  private closePanels(): void {
+    this.linking.set(null);
+    this.urlLink.set(null);
+    this.tablePick.set(null);
+    this.moreOpen.set(null);
+    this.widgetsOpen.set(null);
+    this.guide.set(null);
+    this.widgetPick.set(null);
+  }
+
+  protected setUrl(field: 'text' | 'url', value: string): void {
+    const u = this.urlLink();
+    if (u) this.urlLink.set({ ...u, [field]: value });
   }
 
   /** Põe "[texto](endereço)" no lugar do trecho (sem texto, o endereço sozinho). */
@@ -2368,11 +2405,7 @@ export class RichEditor {
    * está escrito, para trocar; senão, um novo.
    */
   private startWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
-    this.linking.set(null);
-    this.urlLink.set(null);
-    this.tablePick.set(null);
-    this.moreOpen.set(null);
-    this.guide.set(null);
+    this.closePanels();
     const { from, lines } = this.linesAt(area);
     const here = lines.length === 1 ? parseWidgetLine(lines[0]) : null;
     if (here && here.name === def.name) {
@@ -2439,16 +2472,10 @@ export class RichEditor {
   // ===== A tabela =====
 
   protected startTable(big: boolean): void {
-    this.linking.set(null);
-    this.urlLink.set(null);
-    this.moreOpen.set(null);
-    this.widgetsOpen.set(null);
-    this.guide.set(null);
-    this.widgetPick.set(null);
-    if (this.tablePick()?.big === big) {
-      this.tablePick.set(null);
-      return;
-    }
+    // a grade aberta nesta folha: o botão fecha
+    const open = this.tablePick()?.big === big;
+    this.closePanels();
+    if (open) return;
     this.tablePick.set({ big, cols: 2, rows: 2 });
     this.showPanel('.tabela-painel');
     setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());

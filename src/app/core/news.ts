@@ -51,6 +51,57 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-legenda-numa-etiqueta',
+    version: '1.28.11',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A legenda da foto colada numa etiqueta',
+    items: ['Na imagem e no vídeo colados com a moldura de foto ou de recorte, a legenda agora vem numa etiqueta de papel branco colada no pé da foto, em vez de escrita direto na cartolina. Na polaroide, ela continua na faixa branca de baixo.'],
+  },
+  {
+    id: '2026-10-10-clicar-no-widget-ou-no-link',
+    version: '1.28.10',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'Um clique no widget ou no link abre o painel dele',
+    items: [
+      'No editor da anotação, clicar na linha de um widget (contador, imagem, vídeo, áudio) abre o painel dele com o que está escrito, para trocar.',
+      'Clicar num link, para outra anotação ou para um endereço, abre o painel do link, com o texto e para onde ele vai, e "Trocar o link".',
+    ],
+  },
+  {
+    id: '2026-10-10-revelar-spoilers-no-feed',
+    version: '1.28.9',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: '"Revelar spoilers" no Feed',
+    items: ['No Feed, a ficha em segredo (o que você ainda não avaliou) ganhou o botão "Revelar spoilers", no lugar do aviso de que a nota fica em segredo. Ele mostra só aquela ficha, enquanto a página estiver aberta.'],
+  },
+  {
+    id: '2026-10-10-parte-de-varias-notas',
+    version: '1.28.8',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A sub-nota citada em várias anotações',
+    items: ['A sub-nota que mais de uma anotação cita diz quantas são ("Parte de 2 notas"), na ficha e na leitura. Na leitura, tocar no número abre a lista delas.'],
+  },
+  {
+    id: '2026-10-10-anotacao-sem-data-em-branco',
+    version: '1.28.7',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A anotação sem data fica em branco',
+    items: ['Na ficha da anotação sem data, o lugar da data fica vazio, em vez de "Sem data".'],
+  },
+  {
+    id: '2026-10-10-ficha-com-faixa-do-mesmo-tamanho',
+    version: '1.28.6',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A anotação com fita ou vinil do mesmo tamanho das outras',
+    items: ['A anotação com uma fita cassete ou um vinil volta a ter o mesmo tamanho máximo das outras fichas no mural. A faixa cabe nela, um pouco menor que na leitura.'],
+  },
+  {
     id: '2026-10-10-cor-das-categorias-no-mural-de-alguem',
     version: '1.28.5',
     kind: 'melhoria',

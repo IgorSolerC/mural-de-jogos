@@ -3,7 +3,7 @@ import { focusAfterRender } from '../ui/focus';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Heart, Inbox, Link, LucideAngularModule, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
+import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Eye, Heart, Inbox, Link, LucideAngularModule, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals, cloudColleagueId, muralLink } from '../core/cloud-murals';
@@ -111,6 +111,7 @@ export class MailPage {
   protected readonly FollowIcon = UserPlus;
   protected readonly CheckIcon = Check;
   protected readonly WishIcon = Heart;
+  protected readonly RevealIcon = Eye;
   protected readonly MuteIcon = BellOff;
   protected readonly UnmuteIcon = Bell;
   protected readonly MoreIcon = Ellipsis;
@@ -163,6 +164,13 @@ export class MailPage {
     return out;
   });
 
+  /** As fichas em segredo reveladas com "Revelar spoilers" (a chave do post), só enquanto a página estiver aberta. */
+  private readonly revealed = signal<ReadonlySet<string>>(new Set());
+
+  protected reveal(p: Post): void {
+    this.revealed.update((s) => new Set(s).add(p.key));
+  }
+
   private postOf(item: Extract<FeedItem, { tipo: 'resenha' }>, dia: string): Post {
     const key = `resenha:${item.pessoa.codigo}:${item.ref}`;
     const target: ReactionTarget = { code: item.pessoa.codigo, ref: item.ref, titulo: item.titulo, mural: item.mural };
@@ -178,8 +186,8 @@ export class MailPage {
     // a anotação não tem nota: nada a comparar nem a esconder
     if (isNote(theirs)) return { key, item, dia, theirs, mine: null, secret: false, target, estado: 'ficha' };
     const mine = this.mineOf(item.pessoa.codigo, theirs);
-    // "Notas dos outros: Evitar spoilers": o que eu ainda não avaliei vem em segredo
-    const secret = !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id);
+    // "Notas dos outros: Evitar spoilers": o que eu ainda não avaliei vem em segredo, até ser revelado
+    const secret = !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id) && !this.revealed().has(key);
     return { key, item, dia, theirs, mine, secret, target, estado: 'ficha' };
   }
 

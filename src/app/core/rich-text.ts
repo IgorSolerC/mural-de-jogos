@@ -110,6 +110,29 @@ const ATOMS = /\\([\\`*_~=[\]|#>-])|`([^`\n]+)`|\[\[([^[\]\n]*[^[\]\s][^[\]\n]*)
 
 type Atom = { kind: 'lit'; text: string } | { kind: 'code'; text: string } | { kind: 'note'; title: string; label: string } | { kind: 'url'; text: string; href: string };
 
+/** Um link escrito na linha: onde começa e termina (`end` exclusivo) e o que ele é. */
+export type LinkAt =
+  | { kind: 'note'; start: number; end: number; title: string; label: string }
+  | { kind: 'url'; start: number; end: number; text: string; href: string };
+
+/**
+ * O link da linha em que a posição `at` cai (de dentro dele ou colada nas beiradas): o
+ * "[[título|texto]]", o "[texto](endereço)" ou o endereço solto. Os de dentro de um `código` ou
+ * escapados não contam, como na leitura. Null se ali não tem link.
+ */
+export function linkAt(line: string, at: number): LinkAt | null {
+  for (const m of line.matchAll(ATOMS)) {
+    const start = m.index;
+    const end = start + m[0].length;
+    if (at < start) return null;
+    if (at > end || m[1] !== undefined || m[2] !== undefined) continue;
+    if (m[3] !== undefined) return { kind: 'note', start, end, ...splitLink(m[3]) };
+    if (m[4] !== undefined) return { kind: 'url', start, end, text: m[4], href: m[5] };
+    return { kind: 'url', start, end, text: '', href: m[6] };
+  }
+  return null;
+}
+
 /** "Título|texto" → o título da anotação e o que aparece (sem "|", os dois são o título). */
 export function splitLink(inner: string): { title: string; label: string } {
   const bar = inner.indexOf('|');

@@ -13,8 +13,11 @@ import { Pin } from './pin';
 @Injectable({ providedIn: 'root' })
 export class NoteBacklinks {
   readonly current = signal<string | null>(null);
+  /** Aberta de uma leitura: a anotação escolhida abre nela (com o "Voltar"); sem isso, na leitura do mural. */
+  pick: ((id: string) => void) | null = null;
 
-  open(id: string): void {
+  open(id: string, pick: ((id: string) => void) | null = null): void {
+    this.pick = pick;
     this.current.set(id);
   }
 
@@ -318,8 +321,12 @@ export class NoteBacklinksDialog {
   }
 
   protected openNote(id: string): void {
+    const pick = this.backlinks.pick;
+    // fecha já (e o foco volta para quem abriu a lista) antes de a leitura trocar de anotação
+    this.dialog().nativeElement.close();
     this.backlinks.close();
-    this.desk.openReview(id);
+    if (pick) pick(id);
+    else this.desk.openReview(id);
   }
 
 }

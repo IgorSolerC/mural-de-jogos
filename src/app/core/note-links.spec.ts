@@ -1,5 +1,5 @@
 import { Review, sanitizeReview } from './review';
-import { backlinkLine, backlinksOf, linkKey, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
+import { backlinkLine, backlinksOf, linkKey, partOfLabel, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
 import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
@@ -92,6 +92,15 @@ describe('links entre anotações', () => {
     const longa = note('nlonga001', 'Longa', 'Um começo bem comprido que fala de muitas coisas antes de chegar no [[Corrigir bug]] afinal.');
     expect(backlinkLine(longa, bug, [...notes, longa])).toEqual({ before: '…de muitas coisas antes de chegar no ', link: 'Corrigir bug', after: ' afinal.' });
     expect(backlinkLine(solta, bug, notes)).toBeNull();
+  });
+
+  it('a sub-nota diz o nome da anotação de que é parte, ou quantas são', () => {
+    const bug = note('nbug00001', 'Corrigir bug', '');
+    const daily = note('ndaily001', 'Daily', '[[Corrigir bug]]', '2026-10-02T10:00:00.000Z');
+    const reuniao = note('nreun0001', 'Reunião', '[[Corrigir bug]]', '2026-10-01T10:00:00.000Z');
+    expect(partOfLabel(backlinksOf(bug, [bug, daily]))).toBe('Parte de Daily');
+    expect(partOfLabel(backlinksOf(bug, [bug, daily, reuniao]))).toBe('Parte de 2 notas');
+    expect(partOfLabel([])).toBe('Sub-nota');
   });
 
   it('a tarefa marcada com links oferece as anotações abertas que ela abre (sem repetir, sem a própria, sem as finalizadas)', () => {

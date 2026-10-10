@@ -45,7 +45,7 @@ import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
-import { NoteLinks, backlinksOf, parentNoteOf, resolveNote } from '../core/note-links';
+import { NoteLinks, backlinksOf, partOfLabel, resolveNote } from '../core/note-links';
 import { NoteBacklinks } from './note-backlinks';
 import { Desk } from '../core/desk';
 import { NoteDone } from '../core/note-done';
@@ -57,7 +57,6 @@ import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
 import { CategoryLook, CategoryLooks, categoryColorHex, lookKey } from '../core/category-looks';
 import type { ReactionTarget } from '../core/reactions';
-import { parseWidgetLine, readAudio } from '../core/widgets';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
@@ -212,19 +211,24 @@ function watchDistance(el: HTMLElement): () => void {
           <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
         } @else if (!capas() && note()) {
-          <p class="meta" data-queima>
+          <p class="meta meta-nota" data-queima>
             <!-- a sub-nota diz de qual anotação ela é parte (a que tem o link para ela), antes da data -->
             @if (review().noteRank === 'sub') {
-              <span class="sub-marca">{{ parent() ? 'Parte de ' + parent()!.game.name : 'Sub-nota' }}</span><span aria-hidden="true"> · </span>
+              <span class="sub-marca">{{ partOf() }}</span>
             }
+            <!-- sem data, o lugar dela fica vazio (a linha continua, do mesmo tamanho) -->
             @if (review().completedAt; as day) {
+              @if (review().noteRank === 'sub') {
+                <span aria-hidden="true"> · </span>
+              }
               <time [attr.datetime]="day">{{ date() }}</time>
-            } @else {
-              <span>{{ date() }}</span>
             }
             <!-- as tarefas: quantas já foram feitas -->
             @if (tasks(); as t) {
-              <span aria-hidden="true"> · </span><span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
+              @if (review().noteRank === 'sub' || review().completedAt) {
+                <span aria-hidden="true"> · </span>
+              }
+              <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
           </p>
         } @else if (!capas()) {
@@ -349,7 +353,7 @@ function watchDistance(el: HTMLElement): () => void {
       @if (review().text.trim()) {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
-        <div class="nota-texto" [class.marcavel]="interactive()" [class.com-faixa]="hasTrack()" appCorta>
+        <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
           <app-rich-text data-queima [text]="review().text" [fold]="true" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
@@ -634,6 +638,10 @@ function watchDistance(el: HTMLElement): () => void {
       letter-spacing: 0.04em;
       text-transform: uppercase;
       font-variant-numeric: tabular-nums;
+    }
+    /* a anotação sem data e sem mais nada na linha: o lugar da data fica, vazio */
+    .meta-nota {
+      min-height: 1lh;
     }
 
     /* as caveiras da dificuldade, na mesma linha da data, sentadas na linha do texto */
@@ -924,13 +932,10 @@ function watchDistance(el: HTMLElement): () => void {
       overflow-wrap: anywhere;
       /* a imagem e o vídeo colados no texto cabem na ficha, com a faixa da polaroide e uma linha de folga */
       --midia-max: calc(var(--line) * (var(--linhas) - 3.2));
-    }
-    /* com uma faixa de áudio, a ficha mostra mais linhas: a fita e o vinil ficam quase do tamanho da
-       leitura (nove linhas), e ainda sobram linhas para o texto em volta. A foto colada fica como era. */
-    .nota-texto.com-faixa {
-      --linhas: 14;
-      --faixa-max: calc(var(--line) * 9);
-      --midia-max: calc(var(--line) * 4.8);
+      /* a faixa de áudio (a fita, o vinil) não tem legenda embaixo: cabe na ficha com uma linha de texto
+         em cima (a altura dela sobe até a linha seguinte da pauta). A ficha não cresce por causa dela:
+         todas as anotações têm o mesmo tamanho máximo */
+      --faixa-max: calc(var(--line) * (var(--linhas) - 2));
     }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {
@@ -1547,13 +1552,14 @@ export class ReviewCard {
     return c.total ? c : null;
   });
   /**
-   * A anotação de que a sub-nota é parte: a que tem o link para ela (a mais antiga, se forem várias).
-   * Só no seu mural (nos outros, a ficha não conhece as outras anotações).
+   * De qual anotação a sub-nota é parte: a que tem o link para ela ("Parte de Sprint 42") ou, com
+   * várias apontando para ela, quantas ("Parte de 2 notas"). Só no seu mural (nos outros, a ficha não
+   * conhece as outras anotações): lá, e sem nenhuma, "Sub-nota".
    */
-  protected readonly parent = computed<Review | null>(() => {
+  protected readonly partOf = computed(() => {
     const r = this.review();
-    if (!this.note() || r.noteRank !== 'sub' || !this.checkable()) return null;
-    return parentNoteOf(r, this.store.notes());
+    if (!this.note() || r.noteRank !== 'sub' || !this.checkable()) return 'Sub-nota';
+    return partOfLabel(backlinksOf(r, this.store.notes()));
   });
 
   protected readonly backlinks = inject(NoteBacklinks);
@@ -1571,18 +1577,6 @@ export class ReviewCard {
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
   protected readonly canFinish = computed(() => this.note() && this.checkable() && !this.preview() && !this.capas());
   protected readonly DoneIcon = CheckCheck;
-  /**
-   * Tem uma fita cassete ou um vinil? A ficha mostra mais linhas, para eles caberem num tamanho de
-   * tocar (o simples é uma tira baixa: cabe como está).
-   */
-  protected readonly hasTrack = computed(() =>
-    this.review()
-      .text.split('\n')
-      .some((l) => {
-        const w = parseWidgetLine(l);
-        return w?.name === 'audio' && readAudio(w.args).look !== 'simples';
-      }),
-  );
   /**
    * O texto tem o que tocar (tarefas, links)? Só então ele sobe por cima do botão da ficha; sem nada
    * para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.

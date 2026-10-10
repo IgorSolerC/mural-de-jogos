@@ -1,4 +1,4 @@
-import { Block, checkCount, doneLines, foldDone, foldedCount, hasFormatting, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
+import { Block, checkCount, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -135,5 +135,16 @@ describe('texto com formatação', () => {
     expect([...doneLines(t)]).toEqual([4]);
     // as marcas de dentro do código ficam como estão na chave (lá não há o que marcar)
     expect(uncheckedKey(t)).toBe('```\n- [ ] exemplo\n- [x] outro\n```\n- [ ] de verdade\n- [ ] por fazer');
+  });
+
+  it('o link onde o cursor está: o de anotação, o de endereço e o endereço solto; no código, não', () => {
+    const line = 'Veja [[Compras|a lista]] e [site](https://a.com/x) ou https://b.com. `[[Não]]`';
+    expect(linkAt(line, 0)).toBeNull();
+    expect(linkAt(line, 5)).toEqual({ kind: 'note', start: 5, end: 24, title: 'Compras', label: 'a lista' });
+    expect(linkAt(line, 24)).toEqual({ kind: 'note', start: 5, end: 24, title: 'Compras', label: 'a lista' });
+    expect(linkAt(line, 30)).toEqual({ kind: 'url', start: 27, end: 50, text: 'site', href: 'https://a.com/x' });
+    expect(linkAt(line, 57)).toEqual({ kind: 'url', start: 54, end: 67, text: '', href: 'https://b.com' });
+    expect(linkAt(line, 68)).toBeNull();
+    expect(linkAt(line, line.length - 3)).toBeNull();
   });
 });

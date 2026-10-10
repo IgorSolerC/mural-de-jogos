@@ -200,7 +200,11 @@
                               <p class="voce">Você deu <strong>{{ formatScore(shown(mine)) }}</strong></p>
                             } @else {
                               @if (p.secret) {
-                                <p class="segredo-nota">A nota fica em segredo até você avaliar.</p>
+                                <!-- em segredo: revelar mostra a nota e o texto só desta ficha, só desta vez -->
+                                <button type="button" class="acao-caneta revelar" [attr.aria-label]="'Revelar spoilers: ' + theirs.game.name" (click)="reveal(p)">
+                                  <lucide-icon [img]="RevealIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                                  Revelar spoilers
+                                </button>
                               } @else {
                                 <p class="segredo-nota">Você ainda não avaliou.</p>
                               }

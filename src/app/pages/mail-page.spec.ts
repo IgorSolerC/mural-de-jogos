@@ -84,6 +84,7 @@ interface Page {
   wish(r: Review): void;
   isWished(r: Review): boolean;
   retryWall(code: string): Promise<void>;
+  reveal(p: unknown): void;
 }
 
 describe('Amigos: a página (MailPage)', () => {
@@ -251,6 +252,15 @@ describe('Amigos: a página (MailPage)', () => {
       expect(posts(page)[0].secret).toBeTrue();
       settings.friendSpoilers.set(false);
       expect(posts(page)[0].secret).toBeFalse();
+    });
+
+    it('"Revelar spoilers" mostra só aquela ficha', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z'), post(ana, 'rana02', '2026-10-05T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste'), review('rana02', 'Hades')]));
+      const page = await open();
+      expect(posts(page).map((p) => p.secret)).toEqual([true, true]);
+      page.reveal(posts(page)[0]);
+      expect(posts(page).map((p) => p.secret)).toEqual([false, true]);
     });
 
     it('o mural não veio: a ficha diz que falhou; "Tentar de novo" busca e mostra', async () => {

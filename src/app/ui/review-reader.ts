@@ -33,7 +33,8 @@ import { RichText } from './rich-text';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { foldDone, foldedCount, parseRich, plainText, snapshotDone, toggleCheck } from '../core/rich-text';
-import { NoteLinks, notesOf, parentNoteOf, resolveNote } from '../core/note-links';
+import { NoteLinks, backlinksOf, notesOf, resolveNote } from '../core/note-links';
+import { NoteBacklinks } from './note-backlinks';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { WallView } from '../core/wall-view';
@@ -109,9 +110,15 @@ import { categoryBonus } from '../core/note-labels';
                   @if (note() && r.noteRank === 'fixada') {
                     Fixada<span aria-hidden="true"> · </span>
                   } @else if (note() && r.noteRank === 'sub') {
-                    <!-- a sub-nota diz de qual anotação é parte, e abre ela -->
-                    @if (parent(); as p) {
-                      Parte de <button type="button" class="parte-de" (click)="openParent(p)">{{ p.game.name }}</button><span aria-hidden="true"> · </span>
+                    <!-- a sub-nota diz de qual anotação é parte, e abre ela; com várias, quantas são, e
+                         no seu mural o número abre a lista delas -->
+                    @let ps = parents();
+                    @if (ps.length === 1) {
+                      Parte de <button type="button" class="parte-de" (click)="openParent(ps[0])">{{ ps[0].game.name }}</button><span aria-hidden="true"> · </span>
+                    } @else if (ps.length && owner() === null) {
+                      Parte de <button type="button" class="parte-de" aria-haspopup="dialog" (click)="openParents(r)">{{ ps.length }} notas</button><span aria-hidden="true"> · </span>
+                    } @else if (ps.length) {
+                      Parte de {{ ps.length }} notas<span aria-hidden="true"> · </span>
                     } @else {
                       Sub-nota<span aria-hidden="true"> · </span>
                     }
@@ -465,11 +472,20 @@ export class ReviewReader {
     };
   });
 
-  /** A anotação de que a sub-nota aberta é parte (a que tem o link para ela). */
-  protected readonly parent = computed(() => {
+  /** As anotações de que a sub-nota aberta é parte (as que têm o link para ela), das mais antigas para as mais novas. */
+  protected readonly parents = computed(() => {
     const r = this.review();
-    return r && this.note() && r.noteRank === 'sub' ? parentNoteOf(r, this.linkable()) : null;
+    return r && this.note() && r.noteRank === 'sub' ? backlinksOf(r, this.linkable()) : [];
   });
+  protected readonly backlinks = inject(NoteBacklinks);
+
+  /** A lista das anotações de que esta é parte; a escolhida abre aqui, com o "Voltar" para esta. */
+  protected openParents(r: Review): void {
+    this.backlinks.open(r.id, (id) => {
+      const n = this.parents().find((p) => p.id === id);
+      if (n) this.follow(n);
+    });
+  }
 
   /** Abre a anotação de que esta é parte, com o "Voltar" para esta. */
   protected openParent(p: Review): void {

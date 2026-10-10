@@ -7,7 +7,8 @@ import { snapToLines } from './line-snap';
 /**
  * Os widgets IMAGEM e VÍDEO (ver core/widgets.ts): uma foto revelada colada na cartolina, levemente
  * torta (o giro vem do link, então é sempre o mesmo), com o brilho do papel fotográfico. A moldura é
- * a borda branca da foto, a polaroide (a legenda escrita na faixa de baixo) ou o recorte rente.
+ * a borda branca da foto, a polaroide (a legenda escrita na faixa de baixo) ou o recorte rente; nas
+ * duas sem faixa, a legenda vai numa etiqueta de papel colada no pé da foto.
  *
  * O vídeo é a foto da capa dele com um adesivo redondo de "tocar": o player (YouTube sem cookies,
  * Vimeo) só carrega quando a pessoa toca, e a foto se endireita para assistir. Um arquivo de vídeo
@@ -64,7 +65,8 @@ import { snapToLines } from './line-snap';
         }
       </span>
       @if (m.frame !== 'polaroid' && m.caption) {
-        <figcaption class="legenda">{{ m.caption }}</figcaption>
+        <!-- sem a faixa da polaroide, a legenda vai numa etiqueta de papel colada no pé da foto -->
+        <figcaption class="etiqueta-lugar"><span class="etiqueta" data-colado><span class="etiqueta-papel" aria-hidden="true"></span>{{ m.caption }}</span></figcaption>
       }
     </figure>
   `,
@@ -209,7 +211,7 @@ import { snapToLines } from './line-snap';
       outline-offset: 4px;
     }
 
-    /* ===== As legendas: na faixa da polaroide (a caneta de quem revelou) ou embaixo, na cartolina ===== */
+    /* ===== As legendas: na faixa da polaroide (a caneta de quem revelou) ou numa etiqueta ===== */
     .legenda-polaroide {
       display: flex;
       align-items: center;
@@ -227,16 +229,45 @@ import { snapToLines } from './line-snap';
       text-align: center;
       overflow-wrap: anywhere;
     }
-    .legenda {
-      max-width: 100%;
+    /* a etiqueta: um pedaço de papel branco recortado e colado meio por cima do pé da foto, torto
+       para o outro lado. O lugar dela tem a largura da foto (a legenda não alarga a foto); ela, a do
+       que está escrito, e pode passar da foto estreita (em pé) para o lado, até quebrar a linha */
+    .etiqueta-lugar {
+      position: relative;
+      z-index: 1;
       width: 0;
       min-width: 100%;
-      margin-top: 0.35em;
-      padding-left: 0.2em;
+      margin-top: -0.7em;
+      padding: 0 0.5em 0 0.8em;
+      box-sizing: border-box;
+    }
+    .etiqueta {
+      position: relative;
+      display: inline-block;
+      width: max-content;
+      max-width: max(100%, 12em);
+      padding: 0.28em 0.6em 0.22em;
+      box-sizing: border-box;
+      color: #151515;
       font-family: var(--f-hand);
-      font-size: 0.92em;
+      font-size: 0.9em;
       line-height: 1.25;
       overflow-wrap: anywhere;
+      rotate: calc(var(--giro, -1deg) * -1.4);
+      isolation: isolate;
+      /* a sombra fica aqui, e o corte no papel: o corte cortaria a sombra junto */
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 2px 3px rgb(0 0 0 / 0.16));
+    }
+    .etiqueta-papel {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        /* a fibra do papel, quase nada */
+        repeating-linear-gradient(94deg, rgb(0 0 0 / 0.018) 0 1px, transparent 1px 4px),
+        #fbfaf6;
+      /* o corte de tesoura: as quinas não saem retas */
+      clip-path: polygon(0.6% 3%, 99% 0, 100% 96%, 1.2% 100%);
     }
 
     /* ===== Não abriu: o lugar da foto, tracejado ===== */
