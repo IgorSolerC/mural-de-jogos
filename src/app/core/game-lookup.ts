@@ -142,6 +142,11 @@ export function sameTitle(a: string, b: string): boolean {
   return ka === kb;
 }
 
+/** A mesma obra: o mesmo título e, se os dois têm ano, o mesmo ano. */
+export function sameGame(a: PickedGame, b: PickedGame): boolean {
+  return sameTitle(a.name, b.name) && (!a.year || !b.year || a.year === b.year);
+}
+
 /**
  * O ano de uma página da Wikipedia: o do título ("God of War (2018 video game)", "jogo eletrônico de
  * 2018"), que é o que separa os jogos de mesmo nome, ou então o da descrição ("2016 video game").
@@ -299,7 +304,7 @@ export class GameLookup {
   ): Promise<CoverChoices> {
     const tasks: { from: string; run: Promise<CoverChoice[]> }[] = [];
     const add = (from: string, run: Promise<CoverChoice[]>) => tasks.push({ from, run });
-    const same = (h: PickedGame) => sameTitle(h.name, game.name) && (!game.year || !h.year || h.year === game.year);
+    const same = (h: PickedGame) => sameGame(h, game);
     const alike = (hits: PickedGame[]) =>
       hits.filter(same).map((h) => ({ ...game, coverUrl: h.coverUrl, source: h.source, sourceId: h.sourceId, from: coverFrom(h) }));
     switch (kind) {

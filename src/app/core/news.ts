@@ -51,6 +51,26 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-folhas-e-campos',
+    version: '1.26.5',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'Consertos no editor, nas folhas e nos menus',
+    items: [
+      'A imagem colada numa anotação aparece quando o link é corrigido: antes, um pedaço do link que não abria deixava "A imagem não abriu" mesmo com o link certo.',
+      'Citação numa linha vazia põe o "> " em vez de apagar a quebra de linha de antes.',
+      'Selecionar um nome na folha de reações e soltar fora dela não fecha mais a folha.',
+      'Esc no painel de todos os emojis volta para a fileira com o foco no "+".',
+      'Uma pergunta nova no lugar de outra começa com o foco no Cancelar, como a primeira.',
+      'Uma vírgula sozinha no campo de tags não fica mais escrita lá.',
+      'A lista de sub-notas abre com o foco na primeira delas.',
+      'Na wishlist, depois de trocar a vontade de um recorte, o foco volta para o adesivo dele.',
+      'A cartela de filtros fecha ao trocar de mural (ela voltava aberta ao voltar para o mural de antes).',
+      'No Safari e no iPhone, tocar num mural do seletor do cartaz troca de mural (o menu fechava antes).',
+      'As abas das anotações medem o tamanho de novo quando a fonte delas chega, na primeira visita.',
+    ],
+  },
+  {
     id: '2026-10-10-sincronizacao-e-backups',
     version: '1.26.4',
     kind: 'correcao',

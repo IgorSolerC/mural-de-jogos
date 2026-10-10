@@ -188,11 +188,11 @@ export class GameSearch {
   }
 
   /** Volta ao campo vazio (o diálogo reabriu): sem o texto, a lista e a busca da vez anterior. */
-  reset(value = ''): void {
+  reset(): void {
     clearTimeout(this.timer);
     this.abort?.abort();
     this.enterPending = false;
-    this.query.set(value);
+    this.query.set('');
     this.hits.set([]);
     this.hitsFor.set('');
     this.loading.set(false);
@@ -200,7 +200,6 @@ export class GameSearch {
     this.error.set(null);
     this.open.set(false);
     this.active.set(-1);
-    if (value) this.schedule(value, 0);
   }
 
   protected optionId(i: number): string {

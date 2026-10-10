@@ -35,7 +35,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
 
     <div class="grupos" [class.sem-dificuldade]="!hasDifficulty() && !notesKind()" [class.sem-julgamento]="!hasVerdict() && !notesKind()" [class.anotacoes]="notesKind()">
       @for (f of facets(); track f.key) {
-        <fieldset class="grupo" [class]="'grupo g-' + f.key">
+        <fieldset class="grupo" [class]="'g-' + f.key">
           <legend class="cabeca">
             <span class="rotulo">{{ f.title }}</span>
             @if (chosenIn(f)) {

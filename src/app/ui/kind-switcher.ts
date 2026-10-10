@@ -59,14 +59,14 @@ export function sameForEveryMural(path: string, friendKinds: FriendKinds): boole
 
     @if (open()) {
       <div class="bloco" role="menu" [id]="menuId" aria-label="Murais" (keydown)="onMenuKey($event)">
-        @for (o of options(); track o.kind; let i = $index) {
+        @for (o of options(); track o.kind) {
           <button
             type="button"
             role="menuitemradio"
             class="item"
             [attr.aria-checked]="o.on"
-            [attr.data-i]="i"
             tabindex="-1"
+            (mousedown)="$event.preventDefault()"
             (click)="choose(o.kind)"
           >
             <lucide-icon class="ico" [img]="o.icon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
@@ -234,19 +234,18 @@ export class KindSwitcher {
   protected choose(kind: Kind): void {
     this.close(true);
     if (kind === this.mural.kind()) return;
-    if (sameForEveryMural(this.router.url.split(/[?#]/)[0], this.settings.friendKinds())) {
+    const swap = () => {
       this.side.picking.set(false);
       this.view.clearFilters();
       this.mural.kind.set(kind);
+    };
+    if (sameForEveryMural(this.router.url.split(/[?#]/)[0], this.settings.friendKinds())) {
+      swap();
       void this.router.navigateByUrl('/');
       return;
     }
     this.vt.run(
-      () => {
-        this.side.picking.set(false);
-        this.view.clearFilters();
-        this.mural.kind.set(kind);
-      },
+      swap,
       () => {
         const picking = this.side.picking(),
           kind = this.mural.kind(),

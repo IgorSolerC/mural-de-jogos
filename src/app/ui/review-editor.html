@@ -5,8 +5,7 @@
   aria-labelledby="editor-titulo"
   (cancel)="requestClose($event)"
   (close)="closed.emit()"
-  (pointerdown)="onPointerDown($event)"
-  (click)="onBackdrop($event)"
+  (backdropClose)="requestClose()"
 >
   <form
     class="ficha cartolina"
@@ -239,7 +238,6 @@
               <app-score-picker
                 [attr.data-nota]="k"
                 [label]="labels[k]"
-                [required]="true"
                 [value]="scoreOf(k)"
                 (valueChange)="setScore(k, $event)"
                 [weight]="weightOf(weights(), k)"

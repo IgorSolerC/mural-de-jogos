@@ -9,6 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { BackdropClose } from './backdrop-close';
 import { Bookmark, Check, CopyCheck, CornerDownRight, Eye, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -93,6 +94,7 @@ const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'jul
 @Component({
   selector: 'app-review-editor',
   imports: [
+    BackdropClose,
     LucideAngularModule,
     NgTemplateOutlet,
     BonusPicker,
@@ -405,10 +407,6 @@ export class ReviewEditor {
   private linkTitle: string | null = null;
 
   /**
-   * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce
-   * sub-nota (ela faz parte da anotação de onde veio); dá para trocar no editor.
-   */
-  /**
    * Uma anotação nova escrita dentro de uma aba do mural: já vem com a categoria da aba. Fechar sem
    * mexer em nada não pergunta se quer descartar.
    */
@@ -418,6 +416,10 @@ export class ReviewEditor {
     this.snapshot = this.serialize();
   }
 
+  /**
+   * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce
+   * sub-nota (ela faz parte da anotação de onde veio); dá para trocar no editor.
+   */
   openNote(title: string, from: Review | null = null): void {
     // sempre no mural de anotações, de onde quer que venha o link
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
@@ -577,7 +579,7 @@ export class ReviewEditor {
     this.artId.set(review ? artIdOf(review) : root ? (rootReview ? artIdOf(rootReview) : root) : this.id());
     // a rejogada nova já nasce com a cartolina da original, igualzinha (o papel é desenhado com o id
     // dela, ver artIdOf); a pessoa muda no estojo se quiser
-    const look = review ?? (root ? (this.store.get(root) ?? revisitOf) : undefined);
+    const look = review ?? (root ? (rootReview ?? revisitOf) : undefined);
     this.stock.set(look?.stock ?? this.store.nextStock(kind));
     this.paper.set(look?.paper ?? 'cartolina');
     this.pattern.set(look?.pattern ?? null);
@@ -589,14 +591,14 @@ export class ReviewEditor {
     this.damage.set(look?.damage ?? null);
     this.damageSeed.set(look?.damageSeed ?? null);
     this.stain.set(look?.stain ?? null);
-    this.overrideOn.set(review?.finalOverride !== undefined);
-    // a nota como foi dada: com "Inteiros" em Ajustes, um 8,5 escrito como 9 viraria 9 ao salvar
-    this.overrideText.set(review?.finalOverride !== undefined ? formatRawScore(review.finalOverride) : '');
     this.stainSeed.set(look?.stainSeed ?? null);
     this.decor.set(look?.decor ?? null);
     this.decorSeed.set(look?.decorSeed ?? null);
+    this.overrideOn.set(review?.finalOverride !== undefined);
+    // a nota como foi dada: com "Inteiros" em Ajustes, um 8,5 escrito como 9 viraria 9 ao salvar
+    this.overrideText.set(review?.finalOverride !== undefined ? formatRawScore(review.finalOverride) : '');
     this.kit()?.reset();
-    this.game.set(review?.game ?? draft?.game ?? wish?.game ?? (root ? (this.store.get(root)?.game ?? revisitOf!.game) : null));
+    this.game.set(review?.game ?? draft?.game ?? wish?.game ?? (root ? (rootReview?.game ?? revisitOf!.game) : null));
     const { final: _final, ...rated } = review?.scores ?? { final: 0 };
     this.scores.set(rated);
     this.status.set(review?.status ?? null);
@@ -951,17 +953,6 @@ export class ReviewEditor {
     this.dialog().nativeElement.close();
   }
 
-  /** O clique começou fora do cartão? Selecionar texto e soltar fora dele não fecha. */
-  private downOnBackdrop = false;
-
-  // sem devolver nada: um handler que devolve false ganha preventDefault do Angular, e o campo clicado não recebe o foco
-  protected onPointerDown(e: PointerEvent): void {
-    this.downOnBackdrop = e.target === e.currentTarget;
-  }
-
-  protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.requestClose();
-  }
 
   /** Algo além do jogo foi preenchido (e seria perdido num pendente)? */
   private hasReviewContent(): boolean {

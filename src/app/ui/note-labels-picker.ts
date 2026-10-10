@@ -115,12 +115,12 @@ let uid = 0;
             aria-autocomplete="list"
             [attr.aria-expanded]="showList()"
             [attr.aria-controls]="id + '-sug'"
-            [attr.aria-activedescendant]="showList() && suggestions().length ? id + '-sug-' + active() : null"
+            [attr.aria-activedescendant]="showList() && optionCount() ? id + '-sug-' + active() : null"
             [attr.aria-labelledby]="id + '-tags'"
             [maxLength]="max"
             [placeholder]="tags().length ? 'Mais uma tag…' : 'Bugfix, Feature, Urgente…'"
             [value]="query()"
-            (input)="onInput($any($event.target).value)"
+            (input)="onInput($any($event.target))"
             (keydown)="onKey($event)"
             (focus)="focused.set(true)"
             (blur)="onBlur()"
@@ -557,7 +557,8 @@ export class NoteLabelsPicker {
   /** A cartela: a pronta, as escritas no mural e as escritas aqui (e a escolhida, se for nova). */
   protected readonly options = computed<Bonus[]>(() => {
     const all = new Map<string, Bonus>();
-    const extra = [...this.written(), ...(this.category() ? [this.category()!] : [])].map(categoryBonus);
+    const category = this.category();
+    const extra = [...this.written(), ...(category ? [category] : [])].map(categoryBonus);
     for (const b of [...this.categories(), ...extra]) if (!all.has(fold(b.label))) all.set(fold(b.label), b);
     return [...all.values()];
   });
@@ -600,7 +601,7 @@ export class NoteLabelsPicker {
     return this.settings.pinnedTags().filter((t) => !have.has(fold(t)));
   });
 
-  private readonly optionCount = computed(() => this.suggestions().length + (this.newTag() ? 1 : 0));
+  protected readonly optionCount = computed(() => this.suggestions().length + (this.newTag() ? 1 : 0));
 
   /** Outra anotação: esquece o que foi escrito na anterior. */
   reset(): void {
@@ -654,12 +655,14 @@ export class NoteLabelsPicker {
     this.open.set(false);
   }
 
-  protected onInput(v: string): void {
+  protected onInput(field: HTMLInputElement): void {
+    let v = field.value;
     // a vírgula amarra o que veio antes dela (colar "bug, ui" amarra as duas)
     if (v.includes(',')) {
       const parts = v.split(',');
       for (const p of parts.slice(0, -1)) this.add(p, false);
       v = parts.at(-1)!;
+      field.value = v;
     }
     this.query.set(v);
     this.active.set(0);
@@ -672,7 +675,7 @@ export class NoteLabelsPicker {
       this.active.set((this.active() + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
     } else if (e.key === 'Enter' || (e.key === 'Tab' && this.query().trim())) {
       // Enter amarra (a sugestão marcada, ou o que está escrito), sem mandar a anotação
-      if (e.key === 'Enter' || this.query().trim()) e.preventDefault();
+      e.preventDefault();
       const sug = this.showList() ? this.suggestions()[this.active()] : undefined;
       this.add(sug?.label ?? this.query());
     } else if (e.key === 'Backspace' && !this.query() && this.tags().length) {

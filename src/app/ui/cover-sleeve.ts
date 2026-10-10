@@ -70,9 +70,6 @@ import { PickedGame, initialOf } from '../core/review';
     :host(.thumb) {
       padding: 2px;
     }
-    :host(.thumb) .frame {
-      aspect-ratio: 4 / 5;
-    }
     img.escondida {
       opacity: 0;
     }

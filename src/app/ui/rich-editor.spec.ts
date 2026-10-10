@@ -161,6 +161,12 @@ describe('a régua de formatação do texto', () => {
       expect(value()).toBe('um\ndois');
     });
 
+    it('citação numa linha vazia põe o "> " (não apaga a quebra de linha de antes)', () => {
+      write('abc\n|');
+      more('Citação');
+      expect(value()).toBe('abc\n> ');
+    });
+
     it('código: na palavra, as crases (Ctrl+E); numa linha vazia, o bloco', () => {
       write('rode |npm test| já');
       key('e', { ctrlKey: true });

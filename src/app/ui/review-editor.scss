@@ -76,11 +76,6 @@
   padding-top: 10px;
 }
 
-/* o estojo da ficha (cor, papel, marcas), logo abaixo dela */
-.estojo {
-  margin-top: 0;
-}
-
 /* ===== O formulário ===== */
 .form {
   min-width: 0;
@@ -509,23 +504,6 @@
 
   &.erro {
     color: var(--error-ink);
-  }
-}
-
-/* o seletor nativo do navegador continua disponível */
-input[type='date'] {
-  padding: 0 12px;
-  border: 0;
-  color-scheme: light;
-  font-family: var(--f-ui);
-  font-weight: 600;
-  font-size: 1.02rem;
-  font-variant-numeric: tabular-nums;
-  outline: none;
-
-  &::-webkit-calendar-picker-indicator {
-    cursor: pointer;
-    opacity: 0.8;
   }
 }
 

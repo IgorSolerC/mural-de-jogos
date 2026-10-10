@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injectable, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { BackdropClose } from './backdrop-close';
 import { LucideAngularModule, Plus, SmilePlus, X } from 'lucide-angular';
 import { Reaction, ReactionTarget, Reactions, spokenReactions, tally } from '../core/reactions';
 import { REACTIONS, ReactionId, isQuickReaction, reactionOf } from '../core/reaction-kinds';
@@ -316,7 +317,7 @@ export class EmojiPanel {
     </button>
     @if (open() && more()) {
       <!-- o "+": todos os emojis, numa folha de feltro que sai do mesmo lugar -->
-      <div class="fileira painel" role="dialog" aria-label="Escolha qualquer emoji" (keydown.escape)="more.set(false)">
+      <div class="fileira painel" role="dialog" aria-label="Escolha qualquer emoji" (keydown.escape)="fewerEmojis()">
         <app-emoji-panel [current]="mine()" (picked)="pick($event)" />
       </div>
     } @else if (open()) {
@@ -466,6 +467,12 @@ export class ReactionPicker {
     if (this.open()) setTimeout(() => (this.host.nativeElement.querySelector<HTMLElement>('.opcao.escolhida') ?? this.host.nativeElement.querySelector<HTMLElement>('.opcao'))?.focus());
   }
 
+  /** Esc no painel de todos os emojis: volta para a fileira, com o foco no "+" de onde ele abriu. */
+  protected fewerEmojis(): void {
+    this.more.set(false);
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.opcao.mais')?.focus());
+  }
+
   protected pick(id: ReactionId): void {
     void this.reactions.react(this.target(), this.mine() === id ? null : id);
     this.close(true);
@@ -485,10 +492,10 @@ export class ReactionPicker {
 /** A folha de quem reagiu, aberta pelo balão: abas por reação e a lista, como no WhatsApp. */
 @Component({
   selector: 'app-reaction-sheet',
-  imports: [LucideAngularModule, EmojiPanel],
+  imports: [BackdropClose, LucideAngularModule, EmojiPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet reacoes" aria-labelledby="reacoes-titulo" (close)="sheet.target.set(null)" (click)="onBackdrop($event)">
+    <dialog #dialog class="sheet reacoes" aria-labelledby="reacoes-titulo" (close)="sheet.target.set(null)" (backdropClose)="close()">
       @if (sheet.target(); as t) {
         <div class="folha">
           <header class="topo">
@@ -826,10 +833,6 @@ export class ReactionSheetView {
 
   protected close(): void {
     this.dialog().nativeElement.close();
-  }
-
-  protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement) this.close();
   }
 
   protected emoji(id: ReactionId): string {

@@ -871,7 +871,7 @@ export class CardKit {
   };
 
   protected readonly options = computed(() => (this.tab() === 'cor' ? [] : this.all[this.tab() as Exclude<Tab, 'cor'>]));
-  protected readonly tabLabel = computed(() => ({ cor: 'Cor', papel: 'Papel', estampa: 'Estampa', rabisco: 'Rabisco', estrago: 'Estrago', mancha: 'Mancha', decoracao: 'Decoração' })[this.tab()]);
+  protected readonly tabLabel = computed(() => this.tabs.find((t) => t.id === this.tab())!.label);
   protected readonly value = computed<string | null>(() => {
     switch (this.tab()) {
       case 'papel':

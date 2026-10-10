@@ -253,6 +253,8 @@ export class NoteTabsBar {
   private readonly widths = signal<ReadonlyMap<string, number>>(new Map());
   /** A largura que a fileira tem para as abas. */
   private readonly room = signal(0);
+  /** Quantas vezes as fontes terminaram de carregar (ver o construtor). */
+  private readonly fontsLoaded = signal(0);
 
   /** Quais ficam em pé e quais vão para o "Mais". Sem medida ainda, todas em pé (até o limite). */
   protected readonly layout = computed<{ shown: NoteTab[]; more: NoteTab[] }>(() => {
@@ -280,9 +282,19 @@ export class NoteTabsBar {
     ro.observe(this.host);
     inject(DestroyRef).onDestroy(() => ro.disconnect());
 
+    // a fonte das abas chegou (na primeira visita, depois das abas desenhadas): mede de novo
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+    if (fonts) {
+      const loaded = () => this.fontsLoaded.update((n) => n + 1);
+      void fonts.ready.then(loaded);
+      fonts.addEventListener('loadingdone', loaded);
+      inject(DestroyRef).onDestroy(() => fonts.removeEventListener('loadingdone', loaded));
+    }
+
     // cada vez que as abas mudam (nome, número), a régua escondida mede de novo
     afterRenderEffect(() => {
       this.tabs();
+      this.fontsLoaded();
       const next = new Map<string, number>();
       for (const el of Array.from(this.host.querySelectorAll<HTMLElement>('.medida [data-k]'))) {
         next.set(el.dataset['k']!, el.offsetWidth);

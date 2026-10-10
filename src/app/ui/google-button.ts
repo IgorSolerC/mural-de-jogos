@@ -117,9 +117,13 @@ export class GoogleButton {
   private readonly slot = viewChild.required<ElementRef<HTMLElement>>('slot');
   private readonly mine = (credential: string) => this.credential.emit(credential);
 
+  /** Saiu da tela (o script do Google pode chegar depois). */
+  private destroyed = false;
+
   constructor() {
     afterNextRender(() => void this.render());
     inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
       if (listener === this.mine) listener = null;
     });
   }
@@ -128,6 +132,7 @@ export class GoogleButton {
     this.state.set('carregando');
     try {
       const api = await loadGoogle();
+      if (this.destroyed) return;
       listener = this.mine;
       if (initializedFor !== this.clientId()) {
         api.initialize({

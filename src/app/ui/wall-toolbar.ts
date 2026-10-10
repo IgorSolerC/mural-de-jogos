@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, Injector, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, Injector, linkedSignal, viewChild } from '@angular/core';
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -82,7 +82,7 @@ export class WallToolbar {
   private readonly sheet = viewChild(FilterSheet);
 
   /** A cartela de filtros aberta embaixo da régua. */
-  protected readonly open = signal(false);
+  protected readonly open = linkedSignal({ source: this.mural.kind, computation: () => false });
   protected readonly kind = this.mural.kind;
   /** "Mostrando 12 de 40 jogos", no pé da cartela. */
   protected readonly summary = computed(() => {

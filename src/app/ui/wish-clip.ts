@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule, Sticker } from 'lucide-angular';
 import { CUTOUT_STYLES, placeFor, stickerFor, titleFor } from '../core/clipping';
 import { RELEVANCES, Relevance, Wish, initialOf, relevanceLabel, relevanceOf } from '../core/review';
@@ -22,7 +22,6 @@ import { RelevanceSticker } from './relevance-sticker';
     '[class.is-landing]': 'landing()',
     '[class.is-preview]': 'preview()',
     '[class.com-menu]': 'menu()',
-    '(document:pointerdown)': 'onOutside($event)',
     '[style.--tilt]': 'tilt()',
     '[style.--rasgo]': 'tear().paper',
     '[style.--rasgo-foto]': 'tear().photo',
@@ -964,13 +963,28 @@ export class WishClip {
 
   protected pick(r: Relevance): void {
     this.menu.set(false);
-    if (r !== this.rel()) this.relevance.emit(r);
-    else this.host.nativeElement.querySelector<HTMLElement>('.adesivo-btn')?.focus();
+    const button = () => this.host.nativeElement.querySelector<HTMLElement>('.adesivo-btn');
+    if (r === this.rel()) {
+      button()?.focus();
+      return;
+    }
+    this.relevance.emit(r);
+    // a wishlist muda de ordem e o recorte muda de lugar (e perde o foco): o foco volta para o adesivo
+    setTimeout(() => button()?.focus());
   }
 
-  /** Clicou fora do recorte com o menu aberto: fecha, sem roubar o foco de onde a pessoa clicou. */
-  protected onOutside(e: PointerEvent): void {
-    if (this.menu() && !this.host.nativeElement.contains(e.target as Node)) this.menu.set(false);
+  constructor() {
+    // Clicou fora do recorte com o menu aberto: fecha, sem roubar o foco de onde a pessoa clicou. Só
+    // com o menu aberto: cada recorte da wishlist ouvindo todo clique da página fazia o Angular
+    // conferir todos eles a cada toque.
+    effect((onCleanup) => {
+      if (!this.menu()) return;
+      const outside = (e: PointerEvent) => {
+        if (!this.host.nativeElement.contains(e.target as Node)) this.menu.set(false);
+      };
+      document.addEventListener('pointerdown', outside);
+      onCleanup(() => document.removeEventListener('pointerdown', outside));
+    });
   }
 
   /** Um id de SVG só deste recorte (a prévia e o mural podem estar na tela juntos). */

@@ -9,6 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { BackdropClose } from './backdrop-close';
 import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
@@ -43,10 +44,10 @@ import { categoryBonus } from '../core/note-labels';
 
 @Component({
   selector: 'app-review-reader',
-  imports: [LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)" (keydown)="onKey($event)" (close)="review.set(null)">
+    <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="review.set(null)">
       @if (review(); as r) {
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
@@ -82,7 +83,7 @@ import { categoryBonus } from '../core/note-labels';
             }
 
             <!-- A mesma ficha do mural, vista de perto: foto colada, nome, data e a etiqueta do julgamento -->
-            <div class="top" [class.anotacao]="note()" [class.sem-capa]="note() && !r.game.coverUrl" [class.feita]="note() && !!r.doneAt">
+            <div class="top" [class.sem-capa]="note() && !r.game.coverUrl" [class.feita]="note() && !!r.doneAt">
               <!-- finalizada: o carimbo redondo batido no canto, como na ficha -->
               @if (note() && r.doneAt) {
                 <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
@@ -589,15 +590,4 @@ export class ReviewReader {
     this.dialog().nativeElement.close();
   }
 
-  /** O clique começou fora do cartão? Selecionar texto e soltar fora dele não fecha. */
-  private downOnBackdrop = false;
-
-  // sem devolver nada: um handler que devolve false ganha preventDefault do Angular, e o campo clicado não recebe o foco
-  protected onPointerDown(e: PointerEvent): void {
-    this.downOnBackdrop = e.target === e.currentTarget;
-  }
-
-  protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.close();
-  }
 }

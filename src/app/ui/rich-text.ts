@@ -279,7 +279,6 @@ import { NoteWidget } from './note-widget';
       text-transform: uppercase;
     }
 
-    /* o link para fora: a mesma caneta, com a setinha de quem sai daqui */
     /* a seta de quem sai daqui: o desenho da família de ícones do site (lucide), no traço da letra */
     .url::after {
       content: '';
@@ -340,9 +339,6 @@ import { NoteWidget } from './note-widget';
       rotate: -3deg;
       background: transparent;
       cursor: pointer;
-    }
-    .tarefas input:disabled {
-      cursor: default;
     }
     .tarefas input:focus-visible {
       /* na cor da tinta: o amarelo sumia na cartolina amarela */

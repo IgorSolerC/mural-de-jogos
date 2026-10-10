@@ -56,7 +56,7 @@ export class HornedSkull {
   readonly strokeWidth = input(2.4);
 }
 
-/** Caveirinhas desenhadas a caneta: de 0 (Nenhuma) a 5 (Infernal, vermelhas e com chifres). */
+/** Caveirinhas desenhadas a caneta: de 0 (Nenhuma) a 5 (Infernal, roxas e com chifres). */
 @Component({
   selector: 'app-skulls',
   imports: [LucideAngularModule, HornedSkull],
@@ -265,7 +265,7 @@ let uid = 0;
       opacity: 0.75;
     }
     /* Os chifres só aparecem no Infernal. Passando o mouse, a prévia é de caveiras lisas, até
-       chegar na quinta: aí a fileira inteira fica vermelha e ganha chifres. */
+       chegar na quinta: aí a fileira inteira fica roxa e ganha chifres. */
     .chifre,
     .caveiras.horned:not(:hover) .cav.on .liso,
     .caveiras:has(.cav:last-child:hover) .liso {

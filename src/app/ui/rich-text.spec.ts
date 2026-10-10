@@ -5,11 +5,16 @@ import { NoteLinks } from '../core/note-links';
 import { Review, sanitizeReview } from '../core/review';
 
 describe('o texto formatado na leitura', () => {
-  async function render(text: string, links: NoteLinks | null = null): Promise<HTMLElement> {
+  /** As tarefas marcadas na última renderização (com `checkable`, elas se marcam). */
+  let toggled: number[] = [];
+  async function render(text: string, links: NoteLinks | null = null, checkable = false): Promise<HTMLElement> {
     TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
     const fixture = TestBed.createComponent(RichText);
     fixture.componentRef.setInput('text', text);
     fixture.componentRef.setInput('links', links);
+    fixture.componentRef.setInput('checkable', checkable);
+    toggled = [];
+    fixture.componentInstance.toggled.subscribe((line) => toggled.push(line));
     document.body.appendChild(fixture.nativeElement);
     await fixture.whenStable();
     return fixture.nativeElement;
@@ -72,13 +77,15 @@ describe('o texto formatado na leitura', () => {
     it('abre a anotação; o que não existe, cria; tocar no link não marca a tarefa', async () => {
       const opened: Review[] = [];
       const created: string[] = [];
-      const el = await render('- [ ] [[comprar um console]]\n- [[Vender a TV]]', { resolve, open: (n) => opened.push(n), create: (t) => created.push(t) });
+      const el = await render('- [ ] [[comprar um console]]\n- [[Vender a TV]]', { resolve, open: (n) => opened.push(n), create: (t) => created.push(t) }, true);
       const [ok, broken] = Array.from(el.querySelectorAll<HTMLElement>('.elo'));
       expect(ok.textContent).toBe('comprar um console');
       expect(ok.getAttribute('role')).toBe('link');
       ok.click();
       expect(opened.map((n) => n.id)).toEqual(['n1']);
-      expect(el.querySelector('.caixa.marcada')).toBeNull();
+      // a tarefa tem caixinha de marcar, e o toque no link não chega nela
+      expect(el.querySelector('.tarefas input[type="checkbox"]')).not.toBeNull();
+      expect(toggled).toEqual([]);
       expect(broken.classList).toContain('quebrado');
       broken.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
       expect(created).toEqual(['Vender a TV']);

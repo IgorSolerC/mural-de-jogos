@@ -7,7 +7,7 @@ let uid = 0;
 @Component({
   selector: 'app-score-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.big]': 'big()', '[class.off]': 'weight() === "nao-tem"' },
+  host: { '[class.off]': 'weight() === "nao-tem"' },
   template: `
     <fieldset>
       <legend>
@@ -23,11 +23,6 @@ let uid = 0;
               <option [value]="opt" [selected]="opt === w">{{ opt === 'normal' ? 'Peso normal' : weightLabels[opt] }}</option>
             }
           </select>
-        }
-        @if (!required() && value() !== null) {
-          <button type="button" class="clear" (click)="value.set(null)">limpar</button>
-        } @else if (!required()) {
-          <span class="optional">opcional</span>
         }
       </legend>
       <div class="nums" [attr.hidden]="weight() === 'nao-tem' ? '' : null">
@@ -73,13 +68,6 @@ let uid = 0;
     }
     .label {
       margin: 0;
-    }
-    :host(.big) .label {
-      font-family: var(--f-marker);
-      font-weight: 400;
-      font-size: 1.25rem;
-      letter-spacing: 0;
-      text-transform: none;
     }
     /* Peso da categoria: no normal, só um lembrete impresso à direita do nome, que não disputa com
        as notas. Mexeu no peso, ele vira etiqueta colada, como toda escolha da ficha em branco. */
@@ -130,20 +118,6 @@ let uid = 0;
       opacity: 0.55;
       text-decoration: line-through 2px;
     }
-    .optional,
-    .clear {
-      font-family: var(--f-ui);
-      font-size: 0.84rem;
-      color: var(--ink-2);
-    }
-    .clear {
-      border: 0;
-      padding: 2px 4px;
-      background: none;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      border-radius: 3px;
-    }
     .nums {
       display: grid;
       grid-template-columns: repeat(11, minmax(0, 1fr));
@@ -168,12 +142,6 @@ let uid = 0;
     }
     .num:hover {
       color: var(--ink);
-    }
-    :host(.big) .num {
-      height: 50px;
-      font-size: 1.55rem;
-    }
-    .num:hover {
       background: rgb(21 21 21 / 0.06);
     }
     .num:has(input:focus-visible) {
@@ -219,17 +187,11 @@ let uid = 0;
         height: 36px;
         font-size: 1.05rem;
       }
-      :host(.big) .num {
-        height: 44px;
-        font-size: 1.3rem;
-      }
     }
   `,
 })
 export class ScorePicker {
   readonly label = input.required<string>();
-  readonly required = input(false);
-  readonly big = input(false);
   /** Peso da categoria na média; null esconde o seletor. */
   readonly weight = input<Weight | null>(null);
   readonly weightChange = output<Weight>();

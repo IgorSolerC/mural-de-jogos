@@ -1,4 +1,4 @@
-<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" aria-labelledby="desejo-titulo" (pointerdown)="onPointerDown($event)" (click)="onBackdrop($event)">
+<dialog #dialog class="sheet recortar" [class.modo-fila]="mode() === 'draft'" aria-labelledby="desejo-titulo" (backdropClose)="close()">
   <form class="folha" (submit)="save($event)" novalidate>
     <!-- a faixa vermelha do catálogo, impressa em retícula (no Pra depois, a capa azul do caderno) -->
     <header class="masthead">
@@ -56,7 +56,7 @@
           } @else {
             <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />
             @if (attempted()) {
-              <p class="field-error">Escolha {{ words().um }} da lista ou use o nome sem capa.</p>
+              <p class="field-error" role="alert">Escolha {{ words().um }} da lista ou use o nome sem capa.</p>
             }
           }
         </section>

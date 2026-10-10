@@ -412,8 +412,8 @@ let uid = 0;
   host: { role: 'group', '[attr.aria-labelledby]': 'uid + "-t"' },
   template: `
     <div class="top">
-      <p class="label" [id]="uid + '-t'">{{ categories() ? 'Categorias' : 'Bônus' }}</p>
-      @if (value().length && !categories()) {
+      <p class="label" [id]="uid + '-t'">Bônus</p>
+      @if (value().length) {
         <app-bonus-tally [bonuses]="value()" />
       }
       <!-- com a cartela aberta a estrela sai de vista: a média viaja junto, aqui no alto -->
@@ -433,20 +433,17 @@ let uid = 0;
         (click)="setOpen(!open())"
       >
         <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-        {{ open() ? 'Fechar cartela' : categories() ? (value().length ? 'Mexer nas categorias' : 'Pôr categoria') : value().length ? 'Mexer nos bônus' : 'Colar bônus' }}
+        {{ open() ? 'Fechar cartela' : value().length ? 'Mexer nos bônus' : 'Colar bônus' }}
       </button>
     </div>
 
     @if (open()) {
       <div class="cartela" [id]="uid + '-cartela'">
-        @for (k of sides(); track k) {
+        @for (k of kinds; track k) {
           <div class="lado" role="group" [attr.aria-labelledby]="uid + '-' + k">
-            <!-- categoria não tem lado: o rótulo fica só para o leitor de tela -->
-            <p class="lado-label" [class.sr-only]="categories()" [id]="uid + '-' + k">
-              <span>{{ categories() ? 'Categorias' : kindLabels[k] }}</span>
-              @if (!categories()) {
-                <span class="lado-conta">até {{ k === 'favor' ? '+0,25' : '−0,25' }} cada</span>
-              }
+            <p class="lado-label" [id]="uid + '-' + k">
+              <span>{{ kindLabels[k] }}</span>
+              <span class="lado-conta">até {{ k === 'favor' ? '+0,25' : '−0,25' }} cada</span>
             </p>
             <div class="slots">
               @for (b of options()[k]; track b.id) {
@@ -469,8 +466,8 @@ let uid = 0;
                   autocomplete="off"
                   enterkeyhint="done"
                   [maxLength]="maxLabel"
-                  [placeholder]="categories() ? 'Nome da categoria' : 'Nome do bônus'"
-                  [attr.aria-label]="categories() ? 'Nova categoria. Enter cola na ficha.' : 'Novo bônus ' + kindLabels[k].toLowerCase() + '. Enter cola na ficha.'"
+                  placeholder="Nome do bônus"
+                  [attr.aria-label]="'Novo bônus ' + kindLabels[k].toLowerCase() + '. Enter cola na ficha.'"
                   (keydown)="onKey($event, k)"
                   (blur)="commit(k, $any($event.target))"
                 />
@@ -479,11 +476,11 @@ let uid = 0;
                   type="button"
                   class="slot write-btn"
                   [attr.data-write]="k"
-                  [attr.aria-label]="categories() ? 'Escrever outra categoria' : 'Escrever outro bônus ' + kindLabels[k].toLowerCase()"
+                  [attr.aria-label]="'Escrever outro bônus ' + kindLabels[k].toLowerCase()"
                   (click)="startWriting(k)"
                 >
                   <lucide-icon [img]="PlusIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-                  {{ categories() ? 'Escrever outra' : 'Escrever outro' }}
+                  Escrever outro
                 </button>
               }
             </div>
@@ -491,28 +488,6 @@ let uid = 0;
         }
       </div>
     } @else if (value().length) {
-      @if (categories()) {
-        <!-- a primeira é a principal (a seção dela no mural ordenado por categoria); tocar noutra troca -->
-        <ul class="colados" aria-label="Categorias coladas na ficha">
-          @for (b of value(); track b.id; let i = $index) {
-            <li>
-              @if (i === 0) {
-                <app-bonus-sticker [bonus]="b" [index]="i" />
-                @if (value().length > 1) {
-                  <span class="principal">principal</span>
-                }
-              } @else {
-                <button type="button" class="tornar" [title]="'Tornar ' + b.label + ' a principal'" [attr.aria-label]="b.label + ': tornar a principal'" (click)="makeFirst(b)">
-                  <app-bonus-sticker [bonus]="b" [index]="i" />
-                </button>
-              }
-            </li>
-          }
-        </ul>
-        @if (value().length > 1) {
-          <p class="hint">A primeira é a principal: é a seção dela quando o mural se ordena por categoria. Toque em outra para trocar.</p>
-        }
-      } @else {
       <ul class="colados" aria-label="Bônus colados na ficha">
         @for (b of sorted(); track b.id; let i = $index) {
           <li>
@@ -521,9 +496,6 @@ let uid = 0;
           </li>
         }
       </ul>
-      }
-    } @else if (categories()) {
-      <p class="hint">{{ examples() }} Uma anotação pode ter várias; o mural filtra e ordena por elas.</p>
     } @else {
       <p class="hint">{{ examples() }} Cada um mexe na média como uma nota a mais (10 a favor, 0 contra), no máximo um quarto de ponto.</p>
     }
@@ -546,7 +518,6 @@ let uid = 0;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    /* o mesmo risco de pincel dos outros atalhos da ficha ("Trocar jogo", "Usar hoje") */
     /* a média ao vivo, impressa como a conta ao lado da estrela */
     .ao-vivo {
       font-family: var(--f-label);
@@ -570,6 +541,7 @@ let uid = 0;
       font-size: 0.92rem;
       letter-spacing: 0.01em;
     }
+    /* o mesmo risco de pincel dos outros atalhos da ficha ("Trocar jogo", "Usar hoje") */
     .toggle {
       display: inline-flex;
       align-items: center;
@@ -606,28 +578,6 @@ let uid = 0;
       display: flex;
       align-items: center;
       max-width: 100%;
-    }
-    /* a categoria principal leva um rótulo a lápis; as outras são botões para virar a principal */
-    .principal {
-      margin-left: 6px;
-      font-family: var(--f-hand);
-      font-size: 0.95rem;
-      color: var(--ink-2);
-    }
-    .tornar {
-      display: flex;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      cursor: pointer;
-      border-radius: 3px;
-    }
-    .tornar:hover {
-      translate: 0 -1px;
-    }
-    .tornar:focus-visible {
-      outline: 2.5px solid var(--ink);
-      outline-offset: 2px;
     }
     .hint {
       margin-top: 2px;
@@ -796,9 +746,6 @@ export class BonusPicker {
   /** A média com os bônus e quanto eles mexeram, para a cartela aberta mostrar ao vivo. */
   readonly final = input<number | null>(null);
   readonly shift = input('');
-  /** No mural de anotações os adesivos são categorias: um lado só, sem conta de média. */
-  readonly categories = input(false);
-  protected readonly sides = computed<readonly BonusKind[]>(() => (this.categories() ? ['favor'] : BONUS_KINDS));
   protected readonly fmt = formatScore;
 
   protected readonly StickerIcon = Sticker;
@@ -833,10 +780,6 @@ export class BonusPicker {
 
   /** "Trilha sonora incrível, muitos bugs…": o primeiro de cada lado da cartela. */
   protected readonly examples = computed(() => {
-    if (this.categories()) {
-      const [a, b] = this.catalog();
-      return a && b ? `${a.label}, ${b.label.charAt(0).toLowerCase()}${b.label.slice(1)}…` : '';
-    }
     const favor = this.catalog().find((b) => b.kind === 'favor')?.label ?? '';
     const contra = this.catalog().find((b) => b.kind === 'contra')?.label ?? '';
     return `${favor}, ${contra.charAt(0).toLowerCase()}${contra.slice(1)}…`;
@@ -852,11 +795,6 @@ export class BonusPicker {
   protected setOpen(open: boolean): void {
     this.open.set(open);
     if (!open) this.writing.set(null);
-  }
-
-  /** Categorias: a escolhida vai para o começo (a principal). */
-  protected makeFirst(b: Bonus): void {
-    this.value.update((list) => [b, ...list.filter((x) => x.id !== b.id)]);
   }
 
   protected toggle(b: Bonus): void {

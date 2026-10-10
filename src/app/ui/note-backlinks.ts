@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injectable, afterRenderEffect, computed, inject, signal, viewChild } from '@angular/core';
+import { BackdropClose } from './backdrop-close';
 import { Check, CornerDownRight, LucideAngularModule, X } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { backlinkLine, backlinksOf } from '../core/note-links';
@@ -29,7 +30,7 @@ export class NoteBacklinks {
  */
 @Component({
   selector: 'app-note-backlinks',
-  imports: [LucideAngularModule, Pin],
+  imports: [BackdropClose, LucideAngularModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -37,8 +38,7 @@ export class NoteBacklinks {
       class="sheet citada"
       aria-labelledby="citada-titulo"
       (close)="backlinks.close()"
-      (pointerdown)="onPointerDown($event)"
-      (click)="onBackdrop($event)"
+      (backdropClose)="backlinks.close()"
     >
       @if (note(); as n) {
         <div class="ficha cartolina" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
@@ -204,7 +204,7 @@ export class NoteBacklinks {
       align-self: center;
       color: #1c7a43;
     }
-    /* a categoria na orelha de manilha deitada, como na Lista */
+    /* a categoria na orelha de manilha deitada (parecida com a da Lista, não igual) */
     .cat {
       flex: none;
       max-width: 14ch;
@@ -310,7 +310,7 @@ export class NoteBacklinksDialog {
       const el = this.dialog().nativeElement;
       if (open && !el.open) {
         el.showModal();
-        el.querySelector<HTMLElement>('.linha, .icon-btn')?.focus();
+        (el.querySelector<HTMLElement>('.linha') ?? el.querySelector<HTMLElement>('.icon-btn'))?.focus();
       } else if (!open && el.open) {
         el.close();
       }
@@ -322,14 +322,4 @@ export class NoteBacklinksDialog {
     this.desk.openReview(id);
   }
 
-  /** O clique começou fora da ficha? Arrastar de dentro para fora não fecha. */
-  private downOnBackdrop = false;
-
-  protected onPointerDown(e: PointerEvent): void {
-    this.downOnBackdrop = e.target === e.currentTarget;
-  }
-
-  protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.backlinks.close();
-  }
 }

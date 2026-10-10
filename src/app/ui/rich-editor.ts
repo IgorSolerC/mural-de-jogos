@@ -149,7 +149,7 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
           aria-label="Tabela"
           [attr.aria-expanded]="tablePick()?.big === big"
           (pointerdown)="$event.preventDefault()"
-          (click)="startTable(area, big)"
+          (click)="startTable(big)"
         >
           <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
@@ -329,7 +329,7 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
               <p class="painel-titulo" aria-live="polite">Tabela {{ t.cols }} × {{ t.rows }}</p>
               <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeTable(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
             </div>
-            <div class="grade" role="grid" aria-label="Tamanho da tabela: colunas por linhas" (keydown)="onGridKey($event, area)">
+            <div class="grade" role="grid" aria-label="Tamanho da tabela: colunas por linhas" (keydown)="onGridKey($event)">
               @for (r of gridRows; track r) {
                 <div class="grade-linha" role="row">
                   @for (c of gridCols; track c) {
@@ -566,12 +566,12 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
       container: folha / inline-size;
     }
 
-    /* ===== A régua: os botões de formatação encostados no alto da folha; quebram em duas
-       fileiras quando não cabem, e as ações (ver, maximizar) ficam sempre na ponta ===== */
+    /* ===== A régua: os botões de formatação encostados no alto da folha, numa linha só; as ações
+       (ver, maximizar) ficam sempre na ponta ===== */
     .regua {
       display: flex;
       /* uma linha só: o "Mais" e as ações da folha ficam sempre na ponta; quem se ajeita no espaço que
-         sobra (quebrando em duas fileiras, se precisar) são as ferramentas */
+         sobra são as ferramentas (abaixo de 600px, elas rolam de lado) */
       flex-wrap: nowrap;
       align-items: center;
       gap: 4px 2px;
@@ -589,9 +589,7 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
     .regua .tamanho {
       flex: none;
     }
-    /* sem lugar para os nomes, "Ver como fica" e "Maximizar" ficam só no desenho (o nome vai para o
-       leitor de tela e para a dica): a régua cabe numa linha, sem um botão sozinho embaixo */
-    /* sem lugar, "Maximizar" fica só no desenho primeiro; "Ver como fica" (a ação principal da folha)
+    /* sem lugar, "Maximizar" fica só no desenho primeiro (o nome vai para o leitor de tela e para a dica); "Ver como fica" (a ação principal da folha)
        só perde o nome quando a régua é bem estreita */
     @container folha (max-width: 720px) {
       .tamanho .acao-txt {
@@ -2106,7 +2104,7 @@ export class RichEditor {
 
   /** Título na linha: texto → "# " → "## " → "### " → texto de novo. */
   protected heading(area: HTMLTextAreaElement): void {
-    const { from, to, lines } = this.linesAt(area);
+    const { from, lines } = this.linesAt(area);
     const line = lines[0];
     const m = /^(#{1,3})\s+/.exec(line);
     const level = m ? m[1].length : 0;
@@ -2114,13 +2112,13 @@ export class RichEditor {
     const next = level >= 3 ? rest : '#'.repeat(level + 1) + ' ' + rest;
     const end = from + lines[0].length;
     this.replace(area, from, end, next, from + next.length, from + next.length);
-    void to;
   }
 
   /** Citação nas linhas: cada uma ganha "> "; se todas já têm, tira. */
   protected quote(area: HTMLTextAreaElement): void {
     const { from, to, lines } = this.linesAt(area);
-    const all = lines.every((l) => /^\s*>/.test(l) || !l.trim());
+    // todas já com "> " (as vazias não contam; só vazias, não: aí é para pôr)
+    const all = lines.some((l) => /^\s*>/.test(l)) && lines.every((l) => /^\s*>/.test(l) || !l.trim());
     const next = lines.map((l) => (all ? l.replace(/^(\s*)>\s?/, '$1') : !l.trim() && lines.length > 1 ? l : '> ' + l)).join('\n');
     const single = area.selectionStart === area.selectionEnd && lines.length === 1;
     this.replace(area, from, to, next, single ? from + next.length : from, from + next.length);
@@ -2403,7 +2401,7 @@ export class RichEditor {
 
   // ===== A tabela =====
 
-  protected startTable(area: HTMLTextAreaElement, big: boolean): void {
+  protected startTable(big: boolean): void {
     this.linking.set(null);
     this.urlLink.set(null);
     this.moreOpen.set(null);
@@ -2417,11 +2415,10 @@ export class RichEditor {
     this.tablePick.set({ big, cols: 2, rows: 2 });
     this.showPanel('.tabela-painel');
     setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());
-    void area;
   }
 
   /** Setas andam na grade, Enter (ou espaço) põe a tabela do tamanho apontado. */
-  protected onGridKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+  protected onGridKey(e: KeyboardEvent): void {
     const t = this.tablePick();
     if (!t) return;
     const move: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] };
@@ -2432,7 +2429,6 @@ export class RichEditor {
     const rows = Math.min(6, Math.max(1, t.rows + d[1]));
     this.tablePick.set({ ...t, cols, rows });
     setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());
-    void area;
   }
 
   protected closeTable(e: Event | null, area: HTMLTextAreaElement): void {
@@ -2597,11 +2593,7 @@ export class RichEditor {
    * todas já são desse tipo, voltam a ser texto. A numerada conta 1, 2, 3 a partir da primeira.
    */
   protected list(area: HTMLTextAreaElement, kind: ListKind): void {
-    const text = area.value;
-    const from = text.lastIndexOf('\n', area.selectionStart - 1) + 1;
-    const endAt = text.indexOf('\n', Math.max(area.selectionEnd - (area.selectionEnd > area.selectionStart && text[area.selectionEnd - 1] === '\n' ? 1 : 0), area.selectionStart));
-    const to = endAt === -1 ? text.length : endAt;
-    const lines = text.slice(from, to).split('\n');
+    const { from, to, lines } = this.linesAt(area);
     const all = lines.every((l) => lineKind(l).kind === kind);
     let n = 0;
     const next = lines.map((l) => {
@@ -2659,6 +2651,11 @@ export class RichEditor {
    */
   private replace(area: HTMLTextAreaElement, start: number, end: number, text: string, selStart: number, selEnd: number): void {
     area.focus();
+    // nada a trocar: o "delete" num cursor sem seleção apagaria a letra de antes, como o Backspace
+    if (!text && start === end) {
+      area.setSelectionRange(selStart, selEnd);
+      return;
+    }
     area.setSelectionRange(start, end);
     const ok = text ? document.execCommand('insertText', false, text) : document.execCommand('delete', false);
     if (!ok) {

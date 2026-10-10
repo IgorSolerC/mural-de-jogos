@@ -45,7 +45,6 @@ export class Toasts {
       @if (toasts.current(); as t) {
         <div
           class="bilhete"
-          [attr.data-id]="t.id"
           (mouseenter)="toasts.hold()"
           (mouseleave)="toasts.release()"
           (focusin)="toasts.hold()"
@@ -53,7 +52,7 @@ export class Toasts {
         >
           <p>{{ t.text }}</p>
           @if (t.action; as a) {
-            <button type="button" (click)="a.run(); toasts.dismiss()">{{ a.label }}</button>
+            <button type="button" (click)="toasts.dismiss(); a.run()">{{ a.label }}</button>
           }
         </div>
       }

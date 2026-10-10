@@ -34,7 +34,7 @@ const BURST = (() => {
         <span class="borda"></span>
         <span class="miolo">
           <span class="txt">
-            <!-- o espaço não ocupa lugar na grade, mas o leitor de tela lê "MUST PLAY", não "MUSTPLAY" -->
+            <!-- o espaço não ocupa lugar na grade; num texto copiado, sai "MUST PLAY", não "MUSTPLAY" (o leitor de tela lê o rótulo de quem usa) -->
             <small>{{ words()[0] }}</small>{{ ' ' }}<b [class.longa]="words()[1].length > 4">{{ words()[1] }}!</b>
           </span>
         </span>

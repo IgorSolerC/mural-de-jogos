@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
+import { BackdropClose } from './backdrop-close';
 import { LucideAngularModule, NotebookPen, RefreshCw, Scissors, Shuffle, X } from 'lucide-angular';
-import { sameTitle } from '../core/game-lookup';
+import { sameGame } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Draft, Kind, PickedGame, RELEVANCES, Relevance, Wish, formatScore, newId, relevanceLabel } from '../core/review';
@@ -22,7 +23,7 @@ export type AdderMode = 'wish' | 'draft';
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [CoverPicker, CoverSleeve, DraftCard, GameSearch, LucideAngularModule, RelevanceSticker, WishClip],
+  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, GameSearch, LucideAngularModule, RelevanceSticker, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
@@ -72,19 +73,19 @@ export class WishAdder {
     const gm = this.game();
     if (!gm) return null;
     const list: (Wish | Draft)[] = this.mode() === 'draft' ? this.mural.drafts() : this.mural.wishes();
-    return list.find((w) => sameYearTitle(w.game, gm)) ?? null;
+    return list.find((w) => sameGame(w.game, gm)) ?? null;
   });
   /** Guardando no Pra depois algo que estava na wishlist: sai de lá, como no "Salvar pra depois". */
   protected readonly alsoWished = computed<Wish | null>(() => {
     const gm = this.game();
     if (!gm || this.mode() !== 'draft') return null;
-    return this.mural.wishes().find((w) => sameYearTitle(w.game, gm)) ?? null;
+    return this.mural.wishes().find((w) => sameGame(w.game, gm)) ?? null;
   });
   /** Já tem resenha no mural: vale lembrar (quem quer rejogar adiciona assim mesmo). */
   protected readonly reviewed = computed(() => {
     const gm = this.game();
     if (!gm) return null;
-    return this.mural.reviews().find((r) => sameYearTitle(r.game, gm)) ?? null;
+    return this.mural.reviews().find((r) => sameGame(r.game, gm)) ?? null;
   });
   protected readonly fmt = formatScore;
 
@@ -132,17 +133,6 @@ export class WishAdder {
     this.dialog().nativeElement.close();
   }
 
-  /** O clique começou fora da folha? Selecionar texto e soltar fora dela não fecha. */
-  private downOnBackdrop = false;
-
-  // sem devolver nada: um handler que devolve false ganha preventDefault do Angular, e o campo clicado não recebe o foco
-  protected onPointerDown(e: PointerEvent): void {
-    this.downOnBackdrop = e.target === e.currentTarget;
-  }
-
-  protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.close();
-  }
 
   protected pick(game: PickedGame): void {
     this.game.set(game);
@@ -192,6 +182,3 @@ export class WishAdder {
   }
 }
 
-function sameYearTitle(a: PickedGame, b: PickedGame): boolean {
-  return sameTitle(a.name, b.name) && (!a.year || !b.year || a.year === b.year);
-}

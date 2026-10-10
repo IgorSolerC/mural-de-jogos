@@ -8,6 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { BackdropClose } from './backdrop-close';
 import { LucideAngularModule, LucideIconData, Trash2 } from 'lucide-angular';
 import { Pin } from './pin';
 
@@ -37,8 +38,6 @@ export type Choice = 'confirm' | 'secondary' | null;
 interface Question extends Required<ConfirmOptions> {
   id: number;
   secondary: string | null;
-  /** Perigo (apagar: ficha vermelha, botão vermelho) ou neutro (uma escolha: ficha azul, botão de tinta). */
-  tone: 'perigo' | 'neutro';
   resolve: (choice: Choice) => void;
 }
 
@@ -87,7 +86,7 @@ export class Confirm {
 /** A fichinha da pergunta, pregada por cima de tudo (inclusive do editor e da leitura). */
 @Component({
   selector: 'app-confirm',
-  imports: [LucideAngularModule, Pin],
+  imports: [BackdropClose, LucideAngularModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -97,8 +96,7 @@ export class Confirm {
       aria-labelledby="confirma-titulo"
       aria-describedby="confirma-texto"
       (close)="confirm.answer(false)"
-      (pointerdown)="onPointerDown($event)"
-      (click)="onBackdrop($event)"
+      (backdropClose)="confirm.answer(false)"
     >
       @if (confirm.current(); as q) {
         <div class="ficha cartolina" [attr.data-cor]="q.tone === 'neutro' ? 'azul' : 'vermelho'">
@@ -134,27 +132,16 @@ export class ConfirmDialog {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   constructor() {
-    // abre depois de desenhar a pergunta, para o foco cair no Cancelar (apagar nunca é o padrão)
+    // abre depois de desenhar a pergunta, para o foco cair no Cancelar (apagar nunca é o padrão); uma
+    // pergunta nova com a folha ainda aberta também começa no Cancelar
+    let focused: number | null = null;
     afterRenderEffect(() => {
       const q = this.confirm.current();
       const el = this.dialog().nativeElement;
-      if (q && !el.open) {
-        el.showModal();
-        el.querySelector<HTMLElement>('[data-cancelar]')?.focus();
-      } else if (!q && el.open) {
-        el.close();
-      }
+      if (q && !el.open) el.showModal();
+      else if (!q && el.open) el.close();
+      if (q && q.id !== focused) el.querySelector<HTMLElement>('[data-cancelar]')?.focus();
+      focused = q?.id ?? null;
     });
-  }
-
-  /** O clique começou fora da ficha? Arrastar de dentro para fora não fecha. */
-  private downOnBackdrop = false;
-
-  protected onPointerDown(e: PointerEvent): void {
-    this.downOnBackdrop = e.target === e.currentTarget;
-  }
-
-  protected onBackdrop(e: MouseEvent): void {
-    if (e.target === this.dialog().nativeElement && this.downOnBackdrop) this.confirm.answer(false);
   }
 }

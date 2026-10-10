@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, linkedSignal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Film, ImageOff, LucideAngularModule } from 'lucide-angular';
 import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
@@ -280,9 +280,12 @@ export class GluedMedia {
 
   protected readonly media = computed(() => readMedia(this.args()));
   protected readonly video = computed(() => (this.kind() === 'video' ? parseVideo(this.media().url) : null));
-  protected readonly loaded = signal(false);
-  protected readonly failed = signal(false);
-  protected readonly playing = signal(false);
+  // de cada link: trocar o link (digitando, ou consertando um erro) começa de novo, sem o "não abriu"
+  // do link de antes nem o vídeo dele tocando
+  private readonly url = computed(() => this.media().url);
+  protected readonly loaded = linkedSignal({ source: this.url, computation: () => false });
+  protected readonly failed = linkedSignal({ source: this.url, computation: () => false });
+  protected readonly playing = linkedSignal({ source: this.url, computation: () => false });
 
   /** O que não deixa a foto aparecer (sem link, link sem https, vídeo que não toca aqui, não abriu). */
   protected readonly broken = computed(() => {

@@ -14,8 +14,7 @@
         [glued]="true"
         [label]="searchLabel()"
         [placeholder]="searchLabel() + '…'"
-        [value]="view.query()"
-        (valueChange)="view.query.set($event)"
+        [(value)]="view.query"
       />
 
       <div class="pasta-controles">
@@ -132,8 +131,7 @@
         [glued]="true"
         [label]="searchLabel()"
         [placeholder]="searchLabel() + '…'"
-        [value]="view.query()"
-        (valueChange)="view.query.set($event)"
+        [(value)]="view.query"
       />
 
       <div class="pasta-controles">
