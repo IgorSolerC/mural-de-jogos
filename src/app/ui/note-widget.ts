@@ -5,7 +5,8 @@ import { GluedMedia } from './glued-media';
 
 /**
  * Um widget do texto (ver core/widgets.ts), desenhado pelo componente dele. Cada widget novo ganha
- * um `@case` aqui e um componente seu, que recebe os parâmetros como foram escritos.
+ * um `@case` aqui e um componente seu, que recebe os parâmetros como foram escritos. Um widget
+ * grande (o áudio) vem num `@defer`, para não pesar no carregamento do site.
  */
 @Component({
   selector: 'app-note-widget',
@@ -23,13 +24,22 @@ import { GluedMedia } from './glued-media';
         <app-glued-media kind="video" [args]="args()" />
       }
       @case ('audio') {
-        <app-audio-track [args]="args()" />
+        <!-- a fita, o vinil e o player vêm num pedaço à parte do site, carregado só quando aparece uma faixa -->
+        @defer (on immediate) {
+          <app-audio-track [args]="args()" />
+        } @placeholder {
+          <div class="esperando-faixa"></div>
+        }
       }
     }
   `,
   styles: `
     :host {
       display: block;
+    }
+    /* o lugar da faixa enquanto ela chega: a altura de uma tira, para o texto não pular tanto */
+    .esperando-faixa {
+      min-height: calc(var(--line, 1.5em) * 3);
     }
   `,
 })
