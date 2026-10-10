@@ -51,6 +51,19 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-texto-da-resenha-como-o-da-anotacao',
+    version: '1.28.18',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'O texto das resenhas com tudo o que a anotação tem',
+    items: [
+      'Nas resenhas de jogos, livros, filmes, séries e animes, a régua do texto agora tem os Widgets (contador, imagem, vídeo e áudio) e o link para uma anotação, como na anotação. Um clique na linha do widget abre o painel dele para trocar.',
+      'O link de uma resenha abre a anotação na leitura; no seu mural, um link para uma anotação que ainda não existe cria ela. Trocou o título da anotação? O link da resenha muda junto.',
+      'Na leitura da resenha, as tarefas feitas viram a conta "N tarefas feitas", com "Mostrar as feitas", e marcar uma tarefa com link oferece finalizar a anotação dela, como na anotação.',
+      'Na ficha inteira, o texto da resenha também tem os links e as tarefas que se marcam.',
+    ],
+  },
+  {
     id: '2026-10-10-recuo-em-todo-paragrafo',
     version: '1.28.17',
     kind: 'melhoria',

@@ -50,6 +50,7 @@ import {
   audienceFields,
   audienceOf,
   TEXT_MAX,
+  isNote,
 } from '../core/review';
 import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { cap, g, isNotes, profileOf } from '../core/kinds';
@@ -392,8 +393,13 @@ export class ReviewEditor {
     return this.artId() !== (this.revisitRoot() ?? this.id()) ? { artFrom: this.artId() } : {};
   }
 
-  /** As outras anotações, para os links "[[Título]]" do texto (ver core/note-links.ts). */
-  protected readonly otherNotes = computed(() => (this.notes() ? notesOf(this.store.reviews()).filter((n) => n.id !== this.id()) : null));
+  /** As outras anotações, para o aviso de título repetido (só na anotação). */
+  protected readonly otherNotes = computed(() => (this.notes() ? this.linkNotes() : null));
+  /**
+   * As anotações que os links "[[Título]]" do texto podem abrir (ver core/note-links.ts): na anotação,
+   * as outras; na resenha, todas (uma resenha também aponta para as suas anotações).
+   */
+  protected readonly linkNotes = computed(() => notesOf(this.store.reviews()).filter((n) => n.id !== this.id()));
 
   /**
    * Outra anotação com o mesmo título: os links para esse título abrem a mais antiga das duas (o
@@ -432,9 +438,11 @@ export class ReviewEditor {
     // sempre no mural de anotações, de onde quer que venha o link
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.setNoteTitle(title);
-    this.noteRank.set('sub');
-    // faz parte da anotação de onde veio: o mesmo assunto
-    this.noteCategory.set(from?.category ?? null);
+    // veio de outra anotação: é parte dela (sub-nota) e tem o mesmo assunto. De uma resenha, é uma
+    // anotação comum (sub-nota é a que está dentro de outra anotação)
+    const fromNote = !!from && isNote(from);
+    this.noteRank.set(fromNote ? 'sub' : null);
+    this.noteCategory.set(fromNote ? (from.category ?? null) : null);
     this.linkTitle = title;
     // fechar sem mexer em nada não pergunta se quer descartar
     this.snapshot = this.serialize();
@@ -832,15 +840,16 @@ export class ReviewEditor {
     const seen = audienceFields(this.audience(), prev, now);
     if (!seen.private) delete (clean as Partial<Review>).private;
     if (!seen.quiet) delete (clean as Partial<Review>).quiet;
-    // mudou o título: os links das outras anotações que abriam esta passam para o título novo
+    // mudou o título: os links das outras anotações (e das resenhas) que abriam esta passam para o título novo
     const notes = notesOf(this.store.reviews());
+    const others = this.store.reviews().filter((r) => !isNote(r));
     // nova, criada por um link e com outro título: o link de onde veio passa para o título novo
     // (se nenhuma outra anotação já atende por aquele título)
     const born = !prev && this.linkTitle && linkKey(this.linkTitle) !== linkKey(name) ? { ...clean, game: { ...clean.game, name: this.linkTitle } } : null;
     const relinked = prev
-      ? relinkAfterRename(notes, prev, name, now)
+      ? relinkAfterRename(notes, prev, name, now, others)
       : born
-        ? relinkAfterRename([...notes, born], born, name, now)
+        ? relinkAfterRename([...notes, born], born, name, now, others)
         : [];
     if (prev) this.store.update(clean);
     else this.store.add(clean);

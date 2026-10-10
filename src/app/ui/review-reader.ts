@@ -209,7 +209,7 @@ import { categoryBonus } from '../core/note-labels';
               @if (masked()) {
                 <div class="text"><app-rabisco [text]="text()" /><span class="sr-only">Texto escondido</span></div>
               } @else {
-                <!-- as tarefas feitas viram uma conta, como no mural; aqui dá para ver a anotação como ela é -->
+                <!-- as tarefas feitas viram uma conta, como no mural; aqui dá para ver o texto como ele é -->
                 @if (foldable(); as n) {
                   <div class="feitas-linha">
                     <button type="button" class="btn-quiet feitas-btn" [attr.aria-pressed]="showDone()" (click)="showDone.set(!showDone())">
@@ -219,7 +219,7 @@ import { categoryBonus } from '../core/note-labels';
                   </div>
                 }
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
-                <div class="text"><app-rich-text [text]="r.text" [fold]="note() && !showDone()" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <div class="text"><app-rich-text [text]="r.text" [fold]="!showDone()" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -391,7 +391,7 @@ export class ReviewReader {
   protected readonly note = computed(() => !!this.review() && isNote(this.review()!));
   /** As tarefas feitas quando a anotação abriu: as que o texto esconde (o mesmo retrato dele, ver RichText). */
   private readonly doneThen = linkedSignal({ source: () => this.review()?.text ?? '', computation: snapshotDone });
-  protected readonly foldable = computed(() => (this.note() ? foldedCount(foldDone(parseRich(this.review()!.text), this.doneThen().lines)) : 0));
+  protected readonly foldable = computed(() => (this.review() ? foldedCount(foldDone(parseRich(this.review()!.text), this.doneThen().lines)) : 0));
   /** A anotação aberta. Num `computed`: marcar uma tarefa troca a `review` (salva), mas não a anotação. */
   private readonly reviewId = computed(() => this.review()?.id);
   /**
@@ -416,7 +416,7 @@ export class ReviewReader {
     this.store.update(next);
     this.review.set(next);
     // a tarefa com link para outra anotação: oferece finalizar aquela também (o bilhete ficaria por baixo da leitura)
-    if (this.note()) void this.noteDone.offerLinked(r.id, text, line, { quiet: true });
+    void this.noteDone.offerLinked(r.id, text, line, { quiet: true });
   }
   private readonly noteDone = inject(NoteDone);
   private readonly notePin = inject(NotePin);
@@ -459,9 +459,9 @@ export class ReviewReader {
   /** As anotações que os links do texto podem abrir: as suas, ou as que a pessoa publicou. */
   private readonly linkable = computed(() => notesOf(this.owner() === null ? this.store.reviews() : this.pool()));
 
-  /** Os links da anotação aberta: abrem aqui mesmo; no seu mural, o que não existe se cria. */
+  /** Os links da ficha aberta (anotação ou resenha) para anotações: abrem aqui mesmo; no seu mural, o que não existe se cria. */
   protected readonly noteLinks = computed<NoteLinks | null>(() => {
-    if (!this.note()) return null;
+    if (!this.review()) return null;
     const notes = this.linkable();
     const mine = this.owner() === null;
     return {

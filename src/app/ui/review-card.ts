@@ -364,7 +364,7 @@ function watchDistance(el: HTMLElement): () => void {
         @if (masked()) {
           <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
         } @else {
-          <div class="texto-inteiro" data-queima><app-rich-text [text]="review().text" /></div>
+          <div class="texto-inteiro" data-queima><app-rich-text [text]="review().text" [fold]="true" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
         }
       } @else if (lead(); as line) {
         @if (masked() && !bare()) {

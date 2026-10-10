@@ -61,6 +61,16 @@ describe('links entre anotações', () => {
     expect(relinkAfterRename([target, list, twin], twin, 'Console 2', now)).toEqual([]);
   });
 
+  it('a anotação muda de título: o link numa resenha (de jogo, livro…) muda junto, e a resenha nunca é o alvo', () => {
+    const now = '2026-10-08T00:00:00.000Z';
+    const dicas = note('n1', 'Dicas do Hades', '', '2026-01-01T00:00:00.000Z');
+    const review = { ...note('r1', 'Hades', 'Ver as [[Dicas do Hades]].\n- [ ] [[Dicas do Hades|o resto]]'), kind: 'jogos' } as Review;
+    // uma resenha com o mesmo nome do título novo não rouba o link (só anotações são alvo)
+    const homonym = { ...note('r2', 'Dicas', ''), kind: 'jogos' } as Review;
+    const changed = relinkAfterRename([dicas], dicas, 'Dicas', now, [review, homonym]);
+    expect(changed.map((n) => [n.id, n.text])).toEqual([['r1', 'Ver as [[Dicas]].\n- [ ] [[Dicas|o resto]]']]);
+  });
+
   it('o título novo de outra anotação, mais antiga, ou com colchetes: os links ficam como estavam', () => {
     const now = '2026-10-08T00:00:00.000Z';
     const compras = note('n1', 'Compras', '', '2026-01-01T00:00:00.000Z');

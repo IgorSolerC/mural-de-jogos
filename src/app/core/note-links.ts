@@ -78,13 +78,14 @@ export function linkableTitle(title: string): boolean {
  * ficam como estavam. Um título com colchetes não cabe num link: nada muda. Devolve só as que
  * mudaram.
  */
-export function relinkAfterRename(notes: readonly Review[], before: Review, title: string, now: string): Review[] {
+export function relinkAfterRename(notes: readonly Review[], before: Review, title: string, now: string, others: readonly Review[] = []): Review[] {
   const from = before.game.name;
   if (linkKey(from) === linkKey(title) || !linkableTitle(title) || resolveNote(notes, from)?.id !== before.id) return [];
   const renamed = notes.map((n) => (n.id === before.id ? { ...n, game: { ...n.game, name: title } } : n));
   if (resolveNote(renamed, title)?.id !== before.id) return [];
   const out: Review[] = [];
-  for (const n of notes) {
+  // as outras anotações e as resenhas (`others`), que também apontam para anotações
+  for (const n of [...notes, ...others]) {
     if (n.id === before.id) continue;
     const text = renameLinks(n.text, from, title);
     if (text !== n.text) out.push({ ...n, text, updatedAt: now });

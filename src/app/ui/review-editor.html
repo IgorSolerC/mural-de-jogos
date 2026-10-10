@@ -414,7 +414,8 @@
           [class.anotacao]="notes()"
           [label]="notes() ? 'Anotação' : 'O que achou?'"
           [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o título)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
-          [notes]="otherNotes()"
+          [notes]="linkNotes()"
+          [onCard]="notes()"
           [max]="textMax"
           [(value)]="text"
         />

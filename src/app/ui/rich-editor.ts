@@ -161,41 +161,39 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
         </div>
-        <!-- "Widgets" (nas anotações): fixo ao lado do "Mais", abre o menu com todos os widgets; cada
-             um abre o painel dele -->
-        @if (notes()) {
-          <span class="mais-ancora widgets-ancora" (focusout)="onWidgetsFocusOut($event)">
-            <button
-              type="button"
-              class="ferramenta widgets"
-              [disabled]="seeing()"
-              title="Widgets: contador e outros"
-              aria-label="Widgets"
-              aria-haspopup="menu"
-              [attr.aria-expanded]="widgetsOpen() === big"
-              [attr.aria-controls]="widgetsOpen() === big ? areaId + '-widgets' : null"
-              (pointerdown)="$event.preventDefault()"
-              (click)="toggleWidgets(big, $event, area)"
-              (keydown.arrowdown)="$event.preventDefault(); openWidgets(big, true)"
-            >
-              <lucide-icon [img]="WidgetIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
-              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
-            </button>
-            @if (widgetsOpen() === big) {
-              <div class="mais-menu widgets-menu" role="menu" tabindex="-1" [id]="areaId + '-widgets'" aria-label="Widgets" (keydown)="onWidgetsKey($event, area)">
-                @for (d of widgets; track d.name) {
-                  <button type="button" role="menuitem" tabindex="-1" class="mais-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, d)">
-                    <lucide-icon [img]="iconOf(d.name)" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                    <span class="widget-op-texto">
-                      <span class="mais-nome">{{ d.label }}</span>
-                      <span class="widget-op-sobre">{{ d.about }}</span>
-                    </span>
-                  </button>
-                }
-              </div>
-            }
-          </span>
-        }
+        <!-- "Widgets": fixo ao lado do "Mais", abre o menu com todos os widgets; cada um abre o painel
+             dele -->
+        <span class="mais-ancora widgets-ancora" (focusout)="onWidgetsFocusOut($event)">
+          <button
+            type="button"
+            class="ferramenta widgets"
+            [disabled]="seeing()"
+            title="Widgets: contador e outros"
+            aria-label="Widgets"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="widgetsOpen() === big"
+            [attr.aria-controls]="widgetsOpen() === big ? areaId + '-widgets' : null"
+            (pointerdown)="$event.preventDefault()"
+            (click)="toggleWidgets(big, $event, area)"
+            (keydown.arrowdown)="$event.preventDefault(); openWidgets(big, true)"
+          >
+            <lucide-icon [img]="WidgetIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+          </button>
+          @if (widgetsOpen() === big) {
+            <div class="mais-menu widgets-menu" role="menu" tabindex="-1" [id]="areaId + '-widgets'" aria-label="Widgets" (keydown)="onWidgetsKey($event, area)">
+              @for (d of widgets; track d.name) {
+                <button type="button" role="menuitem" tabindex="-1" class="mais-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, d)">
+                  <lucide-icon [img]="iconOf(d.name)" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                  <span class="widget-op-texto">
+                    <span class="mais-nome">{{ d.label }}</span>
+                    <span class="widget-op-sobre">{{ d.about }}</span>
+                  </span>
+                </button>
+              }
+            </div>
+          }
+        </span>
         <!-- "Mais": as outras marcas num menu que abre colado no botão, por cima da folha (não empurra
              nada): cada marca com o desenho, o nome escrito do jeito que ela fica e o atalho -->
         <span class="mais-ancora" (focusout)="onMoreFocusOut($event)">
@@ -463,14 +461,16 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                  aberta (a folha pautada da leitura) -->
             <div class="widget-previa-topo">
               <span class="widget-previa-nome" [id]="areaId + '-previa'">Como fica</span>
-              <span class="widget-vistas" role="radiogroup" [attr.aria-labelledby]="areaId + '-previa'">
-                @for (v of previewViews; track v.value) {
-                  @let on = widgetView() === v.value;
-                  <button type="button" role="radio" class="widget-vista" [attr.aria-checked]="on" [attr.tabindex]="on ? 0 : -1" (click)="widgetView.set(v.value)" (keydown)="onViewKey($event)">{{ v.label }}</button>
-                }
-              </span>
+              @if (onCard()) {
+                <span class="widget-vistas" role="radiogroup" [attr.aria-labelledby]="areaId + '-previa'">
+                  @for (v of previewViews; track v.value) {
+                    @let on = widgetView() === v.value;
+                    <button type="button" role="radio" class="widget-vista" [attr.aria-checked]="on" [attr.tabindex]="on ? 0 : -1" (click)="widgetView.set(v.value)" (keydown)="onViewKey($event)">{{ v.label }}</button>
+                  }
+                </span>
+              }
             </div>
-            <div class="widget-previa" [class.na-ficha]="widgetView() === 'ficha'" [class.faixa-ao-lado]="widgetView() === 'ficha'" [attr.data-widget-teto]="widgetView() === 'ficha' ? '' : null">
+            <div class="widget-previa" [class.na-ficha]="cardPreview()" [class.faixa-ao-lado]="cardPreview()" [attr.data-widget-teto]="cardPreview() ? '' : null">
               @if (widgetArgs(); as args) {
                 <app-note-widget [name]="w.name" [args]="args" [size]="widgetSize()" />
               } @else {
@@ -1800,8 +1800,13 @@ export class RichEditor {
   readonly label = input('');
   /** O id do campo pequeno, para o rótulo de fora apontar para ele. */
   readonly areaId = 'texto-' + ++uid;
-  /** As outras anotações, para os links "[[Título]]"; null, sem links (a resenha). */
+  /** As anotações que os links "[[Título]]" podem abrir; null, sem links. */
   readonly notes = input<readonly Review[] | null>(null);
+  /**
+   * O texto aparece na ficha do mural (a anotação): a prévia do widget mostra "Na ficha" e "Aberta".
+   * Na resenha, a ficha do mural mostra só o começo do texto, e a prévia é a da leitura.
+   */
+  readonly onCard = input(true);
 
   protected readonly LinkIcon = NOTE_LINK_ICON;
   protected readonly UrlIcon = Link;
@@ -2370,8 +2375,7 @@ export class RichEditor {
     const from = text.lastIndexOf('\n', at - 1) + 1;
     const endAt = text.indexOf('\n', at);
     const line = text.slice(from, endAt === -1 ? text.length : endAt);
-    // os widgets são das anotações (o menu "Widgets" só existe nelas)
-    const w = this.notes() ? parseWidgetLine(line) : null;
+    const w = parseWidgetLine(line);
     const def = w && widgetDef(w.name);
     if (def) return this.startWidget(area, big, def);
     const link = linkAt(line, at - from);
@@ -2548,6 +2552,8 @@ export class RichEditor {
     { value: 'aberta', label: 'Aberta' },
   ] as const;
   protected readonly widgetView = signal<'ficha' | 'aberta'>('ficha');
+  /** A prévia na ficha do mural: só onde o texto aparece nela (a anotação). */
+  protected readonly cardPreview = computed(() => this.onCard() && this.widgetView() === 'ficha');
 
   protected onViewKey(e: KeyboardEvent): void {
     if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) return;

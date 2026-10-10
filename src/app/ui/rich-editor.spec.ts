@@ -144,9 +144,9 @@ describe('a régua de formatação do texto', () => {
       fixture.detectChanges();
     }
 
-    it('a régua: só o de toda hora; o resto mora no "Mais", com nome e atalho', () => {
+    it('a régua: só o de toda hora e os Widgets (em toda ficha); o resto mora no "Mais", com nome e atalho', () => {
       const labels = Array.from(fixture.nativeElement.querySelectorAll('.regua .ferramenta') as NodeListOf<HTMLElement>).map((b) => b.getAttribute('aria-label') ?? b.textContent!.trim());
-      expect(labels).toEqual(['Negrito', 'Itálico', 'Título', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço', 'Tabela', 'Mais']);
+      expect(labels).toEqual(['Negrito', 'Itálico', 'Título', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço', 'Tabela', 'Widgets', 'Mais']);
       (fixture.nativeElement.querySelector('.ferramenta.mais') as HTMLButtonElement).click();
       fixture.detectChanges();
       expect(fixture.nativeElement.querySelector('.mais-menu')!.textContent).toContain('Ctrl+Shift+X');
