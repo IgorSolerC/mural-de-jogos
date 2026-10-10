@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-10-10T03:11:12.899Z",
         "reason": "Claude: src é binding Angular [src] com o link escrito pela pessoa (widget imagem/vídeo); o detector lê só o template estático"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/ui/audio-track.ts"
+        ],
+        "createdAt": "2026-10-10T15:15:20.432Z",
+        "reason": "Claude: the vinyl sleeve <img> has a bound [src] (YouTube thumbnail), not an empty or placeholder src"
       }
     ]
   }

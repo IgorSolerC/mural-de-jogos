@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, linkedSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Film, ImageOff, LucideAngularModule } from 'lucide-angular';
 import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
+import { snapToLines } from './line-snap';
 
 /**
  * Os widgets IMAGEM e VÍDEO (ver core/widgets.ts): uma foto revelada colada na cartolina, levemente
@@ -329,31 +330,7 @@ export class GluedMedia {
 
   constructor() {
     // a altura inteira, em linhas da pauta: o texto de baixo continua em cima das linhas azuis
-    const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-    const destroy = inject(DestroyRef);
-    afterNextRender(() => {
-      const fig = host.querySelector<HTMLElement>('.colagem');
-      if (!fig || typeof ResizeObserver === 'undefined') return;
-      let frame = 0;
-      const fit = () => {
-        frame = 0;
-        const cs = getComputedStyle(host);
-        const line = parseFloat(cs.lineHeight);
-        if (!line) return;
-        const total = fig.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-        const h = `${Math.ceil(total / line - 0.01) * line}px`;
-        if (host.style.minHeight !== h) host.style.minHeight = h;
-      };
-      // no quadro seguinte, e não dentro do aviso do observador (mudar a altura ali faz um laço)
-      const ro = new ResizeObserver(() => {
-        if (!frame) frame = requestAnimationFrame(fit);
-      });
-      ro.observe(fig);
-      destroy.onDestroy(() => {
-        ro.disconnect();
-        cancelAnimationFrame(frame);
-      });
-    });
+    snapToLines('.colagem');
   }
 
   protected play(e: Event): void {

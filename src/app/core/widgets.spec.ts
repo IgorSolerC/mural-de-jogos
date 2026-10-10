@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { Frame, httpsUrl, parseVideo, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
+import { Frame, httpsUrl, parseAudio, parseVideo, readAudio, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -140,6 +140,32 @@ describe('widgets das anotações', () => {
       expect(vid.problem!({ url: 'https://site.com/pagina' })).toContain('YouTube');
       expect(vid.problem!({ url: '' })).toBeNull();
       expect(widgetLine('video', vid.write({ url: 'https://youtu.be/dQw4w9WgXcQ', caption: 'Clipe' })!)).toBe('{{video: https://youtu.be/dQw4w9WgXcQ | Clipe}}');
+    });
+  });
+  describe('o áudio', () => {
+    it('os sons que tocam: arquivo de som ou de vídeo, YouTube e Vimeo', () => {
+      expect(parseAudio('https://site.com/musica.MP3?dl=1')).toEqual({ kind: 'file', url: 'https://site.com/musica.MP3?dl=1' });
+      expect(parseAudio('https://site.com/clip.mp4')).toEqual({ kind: 'file', url: 'https://site.com/clip.mp4' });
+      expect(parseAudio('https://youtu.be/dQw4w9WgXcQ?t=42')).toEqual({ kind: 'youtube', id: 'dQw4w9WgXcQ', start: 42 });
+      expect(parseAudio('https://vimeo.com/76979871')).toEqual({ kind: 'vimeo', id: '76979871', hash: null });
+      for (const bad of ['http://site.com/a.mp3', 'https://site.com/pagina', 'https://open.spotify.com/track/abc']) {
+        expect(parseAudio(bad)).withContext(bad).toBeNull();
+      }
+    });
+
+    it('os parâmetros em qualquer ordem; o jeito só quando não é a fita', () => {
+      expect(parseWidgetLine('{{Música: vinil | https://youtu.be/dQw4w9WgXcQ | Never Gonna}}')).toEqual({ name: 'audio', args: ['vinil', 'https://youtu.be/dQw4w9WgXcQ', 'Never Gonna'] });
+      expect(readAudio(['vinil', 'https://x.com/a.mp3', 'Lado B'])).toEqual({ url: 'https://x.com/a.mp3', look: 'vinil', title: 'Lado B' });
+      expect(readAudio(['https://x.com/a.mp3'])).toEqual({ url: 'https://x.com/a.mp3', look: 'fita', title: '' });
+      const au = widgetDef('som')!;
+      expect(au.write({ url: 'https://x.com/a.mp3', title: ' Lado B ', look: 'fita' })).toEqual(['https://x.com/a.mp3', 'Lado B']);
+      expect(au.write({ url: 'https://x.com/a.mp3', look: 'simples' })).toEqual(['https://x.com/a.mp3', 'simples']);
+      expect(au.write({ url: 'https://site.com/pagina' })).toBeNull();
+      // o nome que é uma das palavras volta como nome
+      expect(readAudio(au.write({ url: 'https://x.com/a.mp3', title: 'Disco', look: 'fita' })!)).toEqual({ url: 'https://x.com/a.mp3', look: 'fita', title: 'Disco' });
+      expect(au.problem!({ url: 'https://site.com/pagina' })).toContain('YouTube');
+      expect(au.problem!({ url: 'http://x.com/a.mp3' })).toContain('https://');
+      expect(plainText('{{audio: https://x.com/a.mp3 | Lado B}}')).toBe('Lado B');
     });
   });
 });

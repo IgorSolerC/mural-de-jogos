@@ -399,8 +399,99 @@ const VIDEO: WidgetDef = {
   },
 };
 
+// ===== O áudio: uma faixa para tocar ali mesmo (de um arquivo de som ou do som de um vídeo) =====
+
+/** O jeito da faixa: a fita cassete, o player simples (tocar e a barra) ou o vinil saindo da capa. */
+export type AudioLook = 'fita' | 'simples' | 'vinil';
+export const AUDIO_LOOKS: readonly { value: AudioLook; label: string }[] = [
+  { value: 'fita', label: 'Fita cassete' },
+  { value: 'simples', label: 'Simples' },
+  { value: 'vinil', label: 'Vinil' },
+];
+/** Os nomes que valem para cada jeito, escritos à mão (sem acento, em minúsculas). */
+const LOOK_WORDS: Record<string, AudioLook> = {
+  fita: 'fita',
+  cassete: 'fita',
+  cassette: 'fita',
+  k7: 'fita',
+  'fita cassete': 'fita',
+  simples: 'simples',
+  player: 'simples',
+  vinil: 'vinil',
+  vinyl: 'vinil',
+  disco: 'vinil',
+  lp: 'vinil',
+};
+function lookWord(a: string): AudioLook | null {
+  const k = key(a);
+  return Object.hasOwn(LOOK_WORDS, k) ? LOOK_WORDS[k] : null;
+}
+
+/** De onde o som vem: um arquivo (de som ou de vídeo, que o navegador toca direto) ou o player do YouTube ou do Vimeo. */
+export type AudioSource = Exclude<VideoSource, { kind: 'file' }> | { kind: 'file'; url: string };
+
+const AUDIO_FILE = /\.(mp3|m4a|aac|oga|ogg|opus|wav|flac|weba|mp4|m4v|webm|mov)$/i;
+
+/** O som de um link (null: não é um som que o site saiba tocar). */
+export function parseAudio(raw: string): AudioSource | null {
+  const href = httpsUrl(raw);
+  if (!href) return null;
+  if (AUDIO_FILE.test(new URL(href).pathname)) return { kind: 'file', url: href };
+  const v = parseVideo(href);
+  return v && v.kind !== 'file' ? v : null;
+}
+
+/** Os parâmetros da faixa em qualquer ordem: o link, o jeito (uma das palavras) e o nome da faixa. */
+export function readAudio(args: readonly string[]): { url: string; look: AudioLook; title: string } {
+  let url = '';
+  let look: AudioLook | null = null;
+  let title = '';
+  for (const a of args) {
+    const l = lookWord(a);
+    if (!url && LINKY.test(a)) url = a;
+    else if (!look && l) look = l;
+    else if (!title && a) title = a;
+  }
+  return { url, look: look ?? 'fita', title };
+}
+
+const AUDIO: WidgetDef = {
+  name: 'audio',
+  aliases: ['som', 'musica', 'faixa', 'track'],
+  label: 'Áudio',
+  about: 'Uma faixa de som de um link (ou o som de um vídeo), para tocar ali mesmo.',
+  put: 'Pôr a faixa',
+  swap: 'Trocar a faixa',
+  fields: [
+    { key: 'url', label: 'Link', kind: 'url', placeholder: 'Um .mp3, YouTube, Vimeo ou um .mp4', required: true },
+    { key: 'title', label: 'Nome', kind: 'text', placeholder: 'Opcional: a música, o episódio…', max: 80 },
+    { key: 'look', label: 'Jeito', kind: 'choice', options: AUDIO_LOOKS },
+  ],
+  read(args) {
+    const { url, look, title } = readAudio(args);
+    return { url, title, look };
+  },
+  // como a foto colada: o jeito de sempre (a fita) não se escreve, a não ser que o nome seja uma das palavras
+  write(v) {
+    const url = (v['url'] ?? '').trim();
+    if (!parseAudio(url)) return null;
+    const title = (v['title'] ?? '').trim();
+    if (lookWord(title)) return [url, v['look'] || 'fita', title];
+    const look = v['look'] && v['look'] !== 'fita' ? v['look'] : '';
+    return [url, title, look].filter(Boolean);
+  },
+  plain: (args) => readAudio(args).title,
+  problem(v) {
+    const url = (v['url'] ?? '').trim();
+    if (!url || parseAudio(url)) return null;
+    return httpsUrl(url)
+      ? 'Esse link não é de um som que dê para tocar aqui: use um arquivo de áudio (.mp3, .ogg, .wav…), um vídeo do YouTube ou do Vimeo, ou um .mp4.'
+      : 'O link precisa começar com https://';
+  },
+};
+
 /** Todos os widgets, na ordem da régua. */
-export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO];
+export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO];
 
 /** O widget por um dos nomes dele (com ou sem acento, maiúsculas). */
 export function widgetDef(name: string): WidgetDef | null {

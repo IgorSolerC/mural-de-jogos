@@ -51,6 +51,28 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-campos-do-widget-sem-moldura',
+    version: '1.27.1',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'Os campos do painel de widget sem a moldura',
+    items: ['No painel de widget, o campo onde você está escrevendo não ganha mais a moldura preta em volta: só o risco de baixo fica mais grosso.'],
+  },
+  {
+    id: '2026-10-10-widget-audio',
+    version: '1.27.0',
+    kind: 'funcionalidade',
+    date: '2026-10-10',
+    title: 'Áudio nas anotações',
+    items: [
+      'Widget novo no menu "Widgets" do editor da anotação: Áudio. Você cola o link de um arquivo de som (.mp3, .ogg, .wav…), de um vídeo do YouTube ou do Vimeo, ou de um .mp4, e ele toca ali mesmo (de um vídeo, só o som).',
+      'Três jeitos. Fita cassete: o nome escrito na etiqueta, os carretéis girando e a fita passando de um lado para o outro pela janela; embaixo, as teclas do toca-fitas (voltar, tocar, avançar) e o contador. Dá para arrastar na janela para andar na fita.',
+      'Simples: uma tira de papel com o botão de tocar, o nome, a barra de arrastar e o tempo.',
+      'Vinil: a capa é a foto do vídeo (sem foto, um envelope pardo com o nome escrito a pincel) e o disco sai pela metade, com o botão de tocar no meio. Tocando, ele gira e sai mais um pouco da capa.',
+      'Só uma faixa toca por vez: dar o play numa para a outra. Dá para tocar até na ficha do mural. Escrito à mão: {{audio: https://… | nome | vinil}}.',
+    ],
+  },
+  {
     id: '2026-10-10-contador-de-caracteres',
     version: '1.26.10',
     kind: 'melhoria',

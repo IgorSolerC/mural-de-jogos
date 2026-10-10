@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { AudioTrack } from './audio-track';
 import { Countdown } from './countdown';
 import { GluedMedia } from './glued-media';
 
@@ -8,7 +9,7 @@ import { GluedMedia } from './glued-media';
  */
 @Component({
   selector: 'app-note-widget',
-  imports: [Countdown, GluedMedia],
+  imports: [AudioTrack, Countdown, GluedMedia],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @switch (name()) {
@@ -20,6 +21,9 @@ import { GluedMedia } from './glued-media';
       }
       @case ('video') {
         <app-glued-media kind="video" [args]="args()" />
+      }
+      @case ('audio') {
+        <app-audio-track [args]="args()" />
       }
     }
   `,

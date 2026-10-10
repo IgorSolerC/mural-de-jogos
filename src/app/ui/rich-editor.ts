@@ -12,6 +12,7 @@ import {
   Heading,
   Highlighter,
   Hourglass,
+  CassetteTape,
   Clapperboard,
   Image,
   Italic,
@@ -83,6 +84,7 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
   contador: Hourglass,
   imagem: Image,
   video: Clapperboard,
+  audio: CassetteTape,
 };
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
@@ -1025,6 +1027,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       display: grid;
       gap: 3px;
       min-width: 0;
+    }
+    /* o campo com o foco: sem a moldura em volta, só o risco de baixo mais grosso (a altura não muda) */
+    .widget-painel .painel-campo input:focus-visible {
+      outline: none;
+      padding-bottom: 4.5px;
+      border-bottom-width: 3.5px;
     }
     .painel-campo .widget-date,
     .painel-campo .widget-time {
