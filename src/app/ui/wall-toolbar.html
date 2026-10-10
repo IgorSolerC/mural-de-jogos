@@ -121,142 +121,157 @@
     </div>
   </div>
 } @else {
-<div class="shelf" [class.alheio]="!mine()">
-  <app-search-strip
-    class="search"
-    inputId="busca-mural"
-    [label]="searchLabel()"
-    [placeholder]="searchLabel() + '…'"
-    [value]="view.query()"
-    (valueChange)="view.query.set($event)"
-  />
-  <span class="break" aria-hidden="true"></span>
+  <!-- Nos murais de resenhas, a mesma pasta, solta (sem divisórias em cima): a busca e os controles
+       em tinta; Filtrar abre a cartela embaixo da pasta. Depois da linha picotada, os filtros ligados
+       (cada um com o seu X), o que a busca achou e as tarefas. -->
+  <div class="pasta solta">
+    <div class="pasta-linha">
+      <app-search-strip
+        class="pasta-busca"
+        inputId="busca-mural"
+        [glued]="true"
+        [label]="searchLabel()"
+        [placeholder]="searchLabel() + '…'"
+        [value]="view.query()"
+        (valueChange)="view.query.set($event)"
+      />
 
-  <!-- Filtros: uma aba que abre a cartela embaixo da régua -->
-  <button
-    #filterTab
-    type="button"
-    class="plate filtrar"
-    [class.is-active]="open()"
-    [attr.aria-expanded]="open()"
-    aria-controls="cartela-filtros"
-    (click)="toggleOpen($event)"
-  >
-    <lucide-icon [img]="FilterIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-    <span>Filtrar</span>
-    @if (view.filterCount()) {
-      <span class="badge" aria-hidden="true">{{ view.filterCount() }}</span>
-      <span class="sr-only">({{ view.filterCount() }} ligados)</span>
-    }
-  </button>
-
-  <!-- no mural de alguém, com "Evitar spoilers de outros murais": as notas do que você ainda não
-       avaliou, à mostra só enquanto a página estiver aberta -->
-  @if (view.canReveal()) {
-    <button
-      type="button"
-      class="plate notas"
-      [attr.aria-pressed]="view.revealed()"
-      (click)="view.toggleReveal()"
-      [title]="view.revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
-    >
-      <lucide-icon [img]="view.revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-      <span>{{ view.revealed() ? 'Esconder notas' : 'Mostrar notas' }}</span>
-    </button>
-  }
-
-  <div class="group order" role="group" aria-label="Ordenar">
-    <label class="plate pick">
-      <span class="pick-pre">Ordenar</span>
-      <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
-      <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-      <select aria-label="Ordenar por" [value]="sortValue()" (change)="setSortValue($any($event.target).value)">
-        @for (o of sortOptions(); track o.value) {
-          <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
-        }
-        <!-- com notas em segredo, ordenar por nota entregaria o ranking -->
-        @if (!view.guarding()) {
-          <optgroup label="Nota">
-            @for (o of scoreOptions(); track o.value) {
-              <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
+      <div class="pasta-controles">
+        <div class="pasta-grupo">
+          <!-- Filtrar abre a cartela embaixo da pasta -->
+          <button
+            #filterTab
+            type="button"
+            class="tinta"
+            [attr.aria-expanded]="open()"
+            aria-controls="cartela-filtros"
+            (click)="toggleOpen($event)"
+          >
+            <lucide-icon [img]="FilterIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <span>Filtrar</span>
+            @if (view.filterCount()) {
+              <span class="tinta-n" aria-hidden="true">{{ view.filterCount() }}</span>
+              <span class="sr-only">({{ view.filterCount() }} ligados)</span>
             }
-          </optgroup>
+          </button>
+
+          <!-- no mural de alguém, com "Evitar spoilers de outros murais": as notas do que você ainda
+               não avaliou, à mostra só enquanto a página estiver aberta -->
+          @if (view.canReveal()) {
+            <button
+              type="button"
+              class="tinta"
+              [attr.aria-pressed]="view.revealed()"
+              (click)="view.toggleReveal()"
+              [title]="view.revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
+            >
+              <lucide-icon [img]="RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <span>Mostrar notas</span>
+            </button>
+          }
+        </div>
+
+        <div class="pasta-grupo" role="group" aria-label="Ordenar">
+          <label class="tinta campo">
+            <span class="campo-pre">Ordenar</span>
+            <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
+            <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+            <select aria-label="Ordenar por" [value]="sortValue()" (change)="setSortValue($any($event.target).value)">
+              @for (o of sortOptions(); track o.value) {
+                <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
+              }
+              <!-- com notas em segredo, ordenar por nota entregaria o ranking -->
+              @if (!view.guarding()) {
+                <optgroup label="Nota">
+                  @for (o of scoreOptions(); track o.value) {
+                    <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
+                  }
+                </optgroup>
+              }
+            </select>
+          </label>
+          <button
+            type="button"
+            class="tinta so-icone"
+            (click)="flip()"
+            [attr.aria-label]="directionLabel() + '. Inverter ordem'"
+            [title]="directionLabel()"
+          >
+            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
+          </button>
+        </div>
+
+        <!-- Marcar fichas para ver lado a lado (as suas: o lado a lado é do seu mural) -->
+        @if (mine()) {
+          <div class="pasta-grupo">
+            <button
+              type="button"
+              class="tinta"
+              [attr.aria-pressed]="side.picking()"
+              (click)="side.picking.set(!side.picking())"
+              aria-label="Marcar fichas pra ver lado a lado"
+              title="Marcar fichas pra ver lado a lado"
+            >
+              <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <span class="marcar-txt" aria-hidden="true">Marcar</span>
+              @if (side.count()) {
+                <span class="tinta-n" aria-hidden="true">{{ side.count() }}</span>
+                <span class="sr-only">({{ side.count() }} {{ side.count() === 1 ? 'marcada' : 'marcadas' }})</span>
+              }
+            </button>
+          </div>
         }
-      </select>
-    </label>
-    <button
-      type="button"
-      class="plate icon"
-      (click)="flip()"
-      [attr.aria-label]="directionLabel() + '. Inverter ordem'"
-      [title]="directionLabel()"
-    >
-      <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
-    </button>
-  </div>
 
-  <!-- Marcar fichas para ver lado a lado (as suas: o lado a lado é do seu mural) -->
-  @if (mine()) {
-    <button
-      type="button"
-      class="plate mark"
-      [attr.aria-pressed]="side.picking()"
-      (click)="side.picking.set(!side.picking())"
-      aria-label="Marcar fichas pra ver lado a lado"
-      title="Marcar fichas pra ver lado a lado"
-    >
-      <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-      <span class="mark-word" aria-hidden="true">Marcar</span>
-      @if (side.count()) {
-        <span class="count" aria-hidden="true">{{ side.count() }}</span>
-        <span class="sr-only">({{ side.count() }} {{ side.count() === 1 ? 'marcada' : 'marcadas' }})</span>
+        <div class="pasta-grupo" role="group" aria-label="Tipo de ficha">
+          @for (d of reviewDensities; track d.value) {
+            <button
+              type="button"
+              class="tinta so-icone"
+              [attr.aria-pressed]="view.density() === d.value"
+              (click)="setDensity(d.value)"
+              [attr.aria-label]="d.label"
+              [title]="d.label"
+            >
+              <lucide-icon [img]="d.icon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="pasta-linha pasta-baixo">
+      @if (view.tags().length) {
+        <div class="pasta-filtros">
+          <app-filter-tags [tags]="view.tags()" (remove)="removeTag($event)" />
+        </div>
       }
-    </button>
-  }
-
-  <div class="group density" role="group" aria-label="Tipo de ficha">
-    <button
-      type="button"
-      class="plate icon"
-      [attr.aria-pressed]="view.density() === 'completa'"
-      (click)="setDensity('completa')"
-      aria-label="Fichas completas"
-      title="Fichas completas"
-    >
-      <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-    </button>
-    <button
-      type="button"
-      class="plate icon"
-      [attr.aria-pressed]="view.density() === 'inteira'"
-      (click)="setDensity('inteira')"
-      aria-label="Fichas inteiras: o texto todo, em colagem"
-      title="Fichas inteiras: o texto todo, em colagem"
-    >
-      <lucide-icon [img]="WholeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-    </button>
-    <button
-      type="button"
-      class="plate icon"
-      [attr.aria-pressed]="view.density() === 'simples'"
-      (click)="setDensity('simples')"
-      aria-label="Fichas simples"
-      title="Fichas simples"
-    >
-      <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-    </button>
-    <button
-      type="button"
-      class="plate icon"
-      [attr.aria-pressed]="view.density() === 'capas'"
-      (click)="setDensity('capas')"
-      aria-label="Só capa e nome"
-      title="Só capa e nome"
-    >
-      <lucide-icon [img]="CoversIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-    </button>
+      <div class="pasta-estado">
+        <!-- o que a busca e os filtros acharam, e como desfazer -->
+        @if (view.isFiltered()) {
+          <p class="achados" aria-live="polite">
+            <span>Mostrando {{ view.visible().length }} de {{ view.pool().length }}</span>
+            <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
+          </p>
+        }
+        <!-- as tarefas das fichas à mostra, somadas: mudam com a busca, os filtros e cada check -->
+        @if (view.tasks(); as t) {
+          @if (t.total) {
+            <p class="tarefas" [class.todas]="!t.todo">
+              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              @if (!t.todo) {
+                <span>{{ t.total === 1 ? 'A tarefa está feita' : 'As ' + t.total + ' tarefas estão feitas' }}</span>
+              } @else {
+                <span aria-hidden="true">{{ t.done }} {{ t.done === 1 ? 'feita' : 'feitas' }}</span>
+                <span class="tarefas-barra" aria-hidden="true"><span [style.width.%]="(t.done / t.total) * 100"></span></span>
+                <span aria-hidden="true">{{ t.todo }} para fazer</span>
+                <span class="sr-only">Tarefas no mural: {{ t.done }} de {{ t.total }} feitas, {{ t.todo }} para fazer</span>
+              }
+            </p>
+          }
+        }
+      </div>
+    </div>
   </div>
-</div>
 }
 
 <!-- a cartela é dos murais de resenhas: nas anotações, as abas e as tags fazem esse papel -->

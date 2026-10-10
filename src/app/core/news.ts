@@ -50,6 +50,19 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-pasta-em-todo-lugar',
+    version: '1.24.5',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'A busca e os filtros na pasta, em todo lugar',
+    items: [
+      'A busca, a ordem e os filtros dos murais de resenhas, do Pra depois, da Wishlist e das fichas do Comparar agora moram na mesma pasta de papel manilha das anotações: a busca numa etiqueta colada, os controles impressos em tinta, separados por um picote, e o ligado com o traço de marca-texto.',
+      'Depois da linha picotada ficam os filtros ligados (cada um com o seu X), o "Mostrando 3 de 12" com o Limpar e as tarefas; no Pra depois e na Wishlist, o recado de como usar a página.',
+      'Ordenar é sempre o mesmo campo, "Ordenar: Mais novos", inclusive no Pra depois e na Wishlist. Filtrar continua abrindo a cartela, logo embaixo da pasta.',
+      'No Comparar, "Em comum", "Dicas de…" e "Suas dicas" viram as divisórias em cima da pasta, como as categorias das anotações.',
+    ],
+  },
+  {
     id: '2026-10-09-voltar-a-amigos',
     version: '1.24.4',
     kind: 'correcao',

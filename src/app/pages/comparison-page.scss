@@ -124,9 +124,13 @@ app-caderno {
   margin-bottom: 88px;
 }
 
-/* ===== As fichas: a prateleira e as abas ===== */
+/* ===== As fichas: a pasta com as divisórias (os estilos moram em styles.scss) ===== */
 .fichas {
   scroll-margin-top: 20px;
+}
+
+.fichas .pasta {
+  margin-bottom: 44px;
 }
 
 .fichas > h2 {
@@ -610,9 +614,6 @@ app-caderno {
 }
 
 @media (max-width: 559px) {
-  .prateleira-fim {
-    margin-left: 0;
-  }
   .soltas,
   .soltas.simples {
     --card-w: 100%;

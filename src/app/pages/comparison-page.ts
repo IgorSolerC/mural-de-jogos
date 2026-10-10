@@ -272,6 +272,11 @@ export class ComparisonPage {
   protected readonly total = computed(() =>
     this.tab() === 'comum' ? this.pairs().length : this.tab() === 'dicas' ? this.tips().length : this.myTips().length,
   );
+  /** Quantas a aba tem, sem a busca: o "de 12" do "Mostrando 3 de 12". */
+  protected readonly tabTotal = computed(() => {
+    const c = this.collections();
+    return this.tab() === 'comum' ? c.pairs.length : this.tab() === 'dicas' ? c.onlyTheirs.length : c.onlyMine.length;
+  });
   protected readonly shown = computed(() =>
     this.tab() === 'comum' ? this.shownPairs().length : this.tab() === 'dicas' ? this.shownTips().length : this.shownMine().length,
   );

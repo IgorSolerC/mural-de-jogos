@@ -2,394 +2,34 @@
   display: block;
 }
 
-/* Duas fileiras: em cima a tira de busca; embaixo, em pé na régua de alumínio, a aba Filtrar à
-   esquerda e a ordem, o Marcar e o tipo de ficha empurrados para a direita. A cartela de filtros
-   abre embaixo da régua, presa nela com fita-crepe. */
-.shelf {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px 22px;
-  padding: 0 12px;
+/* A pasta (a busca, os controles em tinta e a linha picotada) mora em styles.scss: é a mesma do Pra
+   depois, da Wishlist e das fichas do Comparar. Aqui fica só o que é do mural. */
 
-  /* a régua de alumínio onde as abas de divisória ficam em pé */
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -8px;
-    height: 8px;
-    border-radius: 1px;
-    background: #76726b;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.28),
-      inset 0 -2px 0 rgb(0 0 0 / 0.3),
-      0 6px 10px -3px rgb(0 0 0 / 0.6);
-  }
-}
-
-/* a tira de busca fica sozinha na fileira de cima, colada na parede logo acima do trilho */
-.search {
-  flex: 1 1 100%;
-  max-width: 440px;
-  margin-bottom: 2px;
-}
-
-/* quebra de fileira: tudo que vem depois fica em pé no trilho */
-.break {
-  flex-basis: 100%;
-  height: 0;
-}
-
-.group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* Ordenar e tipo de ficha ficam na ponta direita do trilho */
-.order {
-  margin-left: auto;
-}
-
-.icon {
-  padding-inline: 11px;
-}
-
-.mark {
-  padding-inline: 13px 15px;
-}
-
-/* ===== Seletor em forma de aba: o <select> nativo, invisível, cobre a aba inteira ===== */
-.pick {
-  padding-right: 34px;
-  cursor: pointer;
-
-  select {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    opacity: 0;
-    cursor: pointer;
-    /* 16px: o iOS não dá zoom ao abrir */
-    font-size: 16px;
-    /* a lista que abre é papel com tinta preta: com o esquema escuro da parede, o Windows pintava a
-       lista de cinza e a letra preta da aba sumia nela */
-    color-scheme: light;
-    color: var(--ink);
-    background-color: var(--paper);
-  }
-
-  &:has(select:focus-visible) {
-    outline: 3px solid var(--focus);
-    outline-offset: 3px;
-    border-radius: 2px;
-  }
-}
-
-.pick-pre {
-  font-weight: 600;
-  opacity: 0.6;
-}
-
-.pick-val {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.chev {
-  position: absolute;
-  right: 11px;
-  top: calc(50% - 8px);
-  display: inline-flex;
-}
-
-/* ===== Filtrar: a aba que abre a cartela ===== */
-/* "Mostrar notas" (o mural de alguém) fica ao lado de Filtrar */
-.filtrar,
-.notas {
-  padding-inline: 13px 15px;
-}
-
-/* ===== A cartela, logo embaixo da régua (a entrada e a saída moram em styles.scss) ===== */
+/* ===== A cartela, logo embaixo da pasta (a entrada e a saída moram em styles.scss) ===== */
 .cartela {
   margin: 22px 4px 0;
-}
-
-@media (max-width: 720px) {
-  .shelf {
-    gap: 12px 8px;
-    padding: 0 6px;
-  }
-
-  .search {
-    order: 1;
-    flex: 1 1 calc(100% - 214px);
-    /* a tira encolhe para dividir a fileira com Marcar e o tipo de ficha */
-    min-width: 0;
-    max-width: none;
-    margin-bottom: 4px;
-  }
-
-  .density {
-    order: 2;
-    flex: none;
-    flex-wrap: nowrap;
-    margin-bottom: 4px;
-  }
-
-  /* no celular, Marcar é só o ícone (e a contagem), ao lado do tipo de ficha */
-  .mark {
-    order: 2;
-    flex: none;
-    gap: 4px;
-    margin-bottom: 4px;
-    padding-inline: 11px;
-  }
-
-  .mark-word {
-    display: none;
-  }
-
-  .filtrar,
-  .notas {
-    order: 3;
-    flex: none;
-    padding-inline: 11px 13px;
-  }
-
-  /* no mural de alguém não há Marcar: a busca fica com a fileira de cima inteira, o tipo de ficha e
-     Filtrar descem juntos, e "Mostrar notas" vai para a fileira da ordem */
-  .alheio .search {
-    flex-basis: 100%;
-  }
-
-  .notas {
-    order: 4;
-  }
-
-  .cartela {
-    margin: 20px 0 0;
-  }
-
-  .order {
-    order: 4;
-    flex: 1 1 150px;
-    flex-wrap: nowrap;
-    min-width: 0;
-    margin-left: 0;
-    margin-bottom: 0;
-
-    .pick {
-      flex: 1;
-      min-width: 0;
-    }
-  }
-
-  .pick-pre {
-    display: none;
-  }
-
-  .pick-val {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .break {
-    display: none;
-  }
-}
-
-/* ===== A pasta do mural de anotações =====
-   As divisórias em cima e, emendado nelas pela borda da pasta, o corpo de papel manilha com a busca e
-   os controles. Nada de régua de alumínio: tudo é papel e tinta. */
-.pasta {
-  --manilha: #f3e5bb;
-  --picote: rgb(21 21 21 / 0.18);
-  position: relative;
-  padding: 14px 16px 12px;
-  border-radius: 0 0 6px 6px;
-  background-color: var(--manilha);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  box-shadow:
-    0 10px 18px -8px rgb(0 0 0 / 0.65),
-    0 2px 3px rgb(0 0 0 / 0.3);
-}
-
-.pasta-linha {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
-}
-
-.pasta-busca {
-  flex: 1 1 260px;
-  max-width: 420px;
-}
-
-/* os controles, empurrados para a direita, em grupos separados por um picote vertical */
-.pasta-controles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px 0;
-  margin-left: auto;
-}
-
-.pasta-grupo {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  & + & {
-    margin-left: 12px;
-    padding-left: 12px;
-    border-left: 2px dashed var(--picote);
-  }
-}
-
-/* ===== Os controles impressos em tinta; o ligado ganha o traço de marca-texto ===== */
-.tinta {
-  position: relative;
-  isolation: isolate;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--ink);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.98rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:hover {
-    background: rgb(21 21 21 / 0.07);
-  }
-
-  &:focus-visible,
-  &:has(select:focus-visible) {
-    outline: 2.5px solid var(--ink);
-    outline-offset: 1px;
-  }
-
-  /* o traço de marca-texto: amarelo, um pouco torto e com as pontas irregulares */
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 4px 2px;
-    z-index: -1;
-    border-radius: 3px 8px 4px 9px;
-    background: var(--hi);
-    rotate: -1.2deg;
-    opacity: 0;
-    scale: 0.6 1;
-    transform-origin: left center;
-    transition:
-      opacity var(--t-ui) var(--ease-ui),
-      scale var(--t-ui) var(--ease-ui);
-  }
-
-  &[aria-pressed='true'] {
-    &::before {
-      opacity: 1;
-      scale: 1 1;
-    }
-    &:hover {
-      background: none;
-    }
-  }
-}
-
-.so-icone {
-  padding-inline: 9px;
-}
-
-.tinta-n {
-  font-weight: 600;
-  opacity: 0.75;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Ordenar: o campo impresso "Ordenar: Data", com o <select> nativo, invisível, por cima */
-.campo {
-  padding-right: 30px;
-
-  select {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    opacity: 0;
-    cursor: pointer;
-    font-size: 16px;
-    color-scheme: light;
-    color: var(--ink);
-    background-color: var(--paper);
-  }
-}
-
-.campo-pre {
-  font-weight: 600;
-  opacity: 0.72;
-}
-
-.campo-val {
-  text-decoration: underline dotted 2px rgb(21 21 21 / 0.45);
-  text-underline-offset: 4px;
-}
-
-.campo-chev {
-  position: absolute;
-  right: 9px;
-  top: calc(50% - 7.5px);
-  display: inline-flex;
 }
 
 .finalizadas-curto {
   display: none;
 }
 
-/* ===== Depois do picote: as tags, o que a busca achou e as tarefas ===== */
-.pasta-baixo {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 2px dashed var(--picote);
-
-  /* sem tags, busca nem tarefas, o picote não aparece */
-  &:not(:has(.atalhos, .achados, .tarefas)) {
-    display: none;
-  }
-}
-
+/* ===== Depois do picote: as tags (ou os filtros ligados), o que a busca achou e as tarefas ===== */
 .pasta-tags {
   flex: 1 1 320px;
   min-width: 0;
 }
 
-.pasta-estado {
+/* os filtros ligados da cartela, adesivos de papel colados na pasta, cada um com o seu X */
+.pasta-filtros {
+  flex: 1 1 320px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 4px 18px;
-  margin-left: auto;
+  gap: 8px 10px;
+  min-width: 0;
 }
 
-.achados,
 .tarefas {
   display: inline-flex;
   align-items: center;
@@ -403,35 +43,6 @@
   text-transform: uppercase;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-
-.achados {
-  gap: 4px;
-}
-
-/* os links impressos: "Limpar", "+2 em outras abas" */
-.tinta-link {
-  min-height: 36px;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  text-decoration: underline 2px var(--ink);
-  text-underline-offset: 4px;
-  cursor: pointer;
-
-  &:hover {
-    background: rgb(21 21 21 / 0.07);
-  }
-
-  &:focus-visible {
-    outline: 2.5px solid var(--ink);
-    outline-offset: 1px;
-  }
 }
 
 .tarefas-icone {
@@ -460,26 +71,8 @@
 }
 
 @media (max-width: 720px) {
-  .pasta {
-    padding: 12px 10px 10px;
-  }
-
-  .pasta-busca {
-    flex-basis: 100%;
-    max-width: none;
-  }
-
-  /* no celular, os grupos começam na esquerda e o picote vertical sai (a fileira quebra) */
-  .pasta-controles {
-    justify-content: flex-start;
-    margin-left: 0;
-    gap: 6px 10px;
-  }
-
-  .pasta-grupo + .pasta-grupo {
-    margin-left: 0;
-    padding-left: 0;
-    border-left: 0;
+  .cartela {
+    margin: 20px 0 0;
   }
 
   .finalizadas-txt {
@@ -490,13 +83,9 @@
     display: inline;
   }
 
-  .campo-pre {
+  /* no celular, Marcar é só o ícone (e a contagem) */
+  .marcar-txt {
     display: none;
-  }
-
-  .pasta-estado {
-    justify-content: flex-start;
-    margin-left: 0;
   }
 
   /* no celular, as tags numa linha só, que corre de lado (quebrando, a pasta ficava alta) */
@@ -511,10 +100,8 @@
       display: none;
     }
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .tinta::before {
-    transition: none;
+  .pasta-filtros {
+    flex-basis: 100%;
   }
 }

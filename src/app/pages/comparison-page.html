@@ -116,70 +116,80 @@
       <section id="fichas" class="fichas" aria-labelledby="fichas-titulo">
         <h2 id="fichas-titulo" class="tape-label">As fichas</h2>
 
-        <div class="prateleira">
-          <app-search-strip
-            class="prateleira-busca"
-            inputId="busca-comparar"
-            label="Procurar nas fichas"
-            placeholder="Procurar uma obra…"
-            [value]="query()"
-            (valueChange)="query.set($event)"
-          />
-          <span class="prateleira-quebra" aria-hidden="true"></span>
-
-          <div class="prateleira-abas" role="group" aria-label="Mostrar">
-            <button type="button" class="plate" [attr.aria-pressed]="tab() === 'comum'" (click)="tab.set('comum')">
-              Em comum <span class="count">{{ collections().pairs.length }}</span>
-            </button>
-            <button type="button" class="plate" [attr.aria-pressed]="tab() === 'dicas'" (click)="tab.set('dicas')">
-              <span class="aba-nome">Dicas de {{ c.name }}</span> <span class="count">{{ collections().onlyTheirs.length }}</span>
-            </button>
-            <button type="button" class="plate" [attr.aria-pressed]="tab() === 'minhas'" (click)="tab.set('minhas')">
-              Suas dicas <span class="count">{{ collections().onlyMine.length }}</span>
-            </button>
-          </div>
-
-          <div class="prateleira-fim">
-            <label class="plate pick">
-              <span class="pick-pre">Ordenar</span>
-              <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
-              @if (tab() === 'comum') {
-                <select aria-label="Ordenar as obras em comum" [value]="pairSort()" (change)="pairSort.set($any($event.target).value)">
-                  <option value="briga">Maior briga</option>
-                  <option value="minha">Maior nota sua</option>
-                  <option value="colega">Maior nota de {{ c.name }}</option>
-                  <option value="nome">A–Z</option>
-                </select>
-              } @else {
-                <select aria-label="Ordenar as dicas" [value]="tab() === 'dicas' ? tipSort() : listSort()" (change)="listSort.set($any($event.target).value)">
-                  <!-- com dicas em segredo, ordenar por nota contaria o segredo -->
-                  @if (!(tab() === 'dicas' && hidden().size)) {
-                    <option value="nota">Maior nota</option>
-                  }
-                  <option value="recente">Mais recentes</option>
-                  <option value="nome">A–Z</option>
-                </select>
-              }
-              <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-            </label>
-
-            <div class="densidade" role="group" aria-label="Tipo de ficha">
-              <button type="button" class="plate icon" [attr.aria-pressed]="!simple()" (click)="setDensity(false)" aria-label="Fichas completas" title="Fichas completas">
-                <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-              </button>
-              <button type="button" class="plate icon" [attr.aria-pressed]="simple()" (click)="setDensity(true)" aria-label="Fichas simples" title="Fichas simples">
-                <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
+        <!-- a pasta, como a das anotações: as divisórias em cima trocam a lista; no corpo, a busca e
+             os controles em tinta e, depois do picote, o que a busca achou -->
+        <div class="divisorias" role="group" aria-label="Mostrar">
+          <button type="button" class="divisoria" [attr.aria-pressed]="tab() === 'comum'" (click)="tab.set('comum')">
+            <span class="divisoria-nome">Em comum</span><span class="divisoria-n">{{ collections().pairs.length }}</span>
+          </button>
+          <button type="button" class="divisoria encolhe" [attr.aria-pressed]="tab() === 'dicas'" (click)="tab.set('dicas')" [title]="'Dicas de ' + c.name">
+            <span class="divisoria-nome"><span class="divisoria-longo">Dicas de</span><span class="divisoria-curto">De</span> {{ c.name }}</span><span class="divisoria-n">{{ collections().onlyTheirs.length }}</span>
+          </button>
+          <button type="button" class="divisoria" [attr.aria-pressed]="tab() === 'minhas'" (click)="tab.set('minhas')">
+            <span class="divisoria-nome">Suas dicas</span><span class="divisoria-n">{{ collections().onlyMine.length }}</span>
+          </button>
         </div>
 
-        @if (query().trim()) {
-          <p class="mostrando" aria-live="polite">
-            {{ total() }} {{ total() === 1 ? 'resultado' : 'resultados' }} para “{{ query().trim() }}”
-            <button type="button" class="limpar" (click)="query.set('')">Limpar busca</button>
-          </p>
-        }
+        <div class="pasta">
+          <div class="pasta-linha">
+            <app-search-strip
+              class="pasta-busca"
+              inputId="busca-comparar"
+              [glued]="true"
+              label="Procurar nas fichas"
+              placeholder="Procurar uma obra…"
+              [value]="query()"
+              (valueChange)="query.set($event)"
+            />
+
+            <div class="pasta-controles">
+              <div class="pasta-grupo" role="group" aria-label="Ordenar">
+                <label class="tinta campo">
+                  <span class="campo-pre">Ordenar</span>
+                  <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
+                  <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+                  @if (tab() === 'comum') {
+                    <select aria-label="Ordenar as obras em comum" [value]="pairSort()" (change)="pairSort.set($any($event.target).value)">
+                      <option value="briga">Maior briga</option>
+                      <option value="minha">Maior nota sua</option>
+                      <option value="colega">Maior nota de {{ c.name }}</option>
+                      <option value="nome">A–Z</option>
+                    </select>
+                  } @else {
+                    <select aria-label="Ordenar as dicas" [value]="tab() === 'dicas' ? tipSort() : listSort()" (change)="listSort.set($any($event.target).value)">
+                      <!-- com dicas em segredo, ordenar por nota contaria o segredo -->
+                      @if (!(tab() === 'dicas' && hidden().size)) {
+                        <option value="nota">Maior nota</option>
+                      }
+                      <option value="recente">Mais recentes</option>
+                      <option value="nome">A–Z</option>
+                    </select>
+                  }
+                </label>
+              </div>
+
+              <div class="pasta-grupo" role="group" aria-label="Tipo de ficha">
+                <button type="button" class="tinta so-icone" [attr.aria-pressed]="!simple()" (click)="setDensity(false)" aria-label="Fichas completas" title="Fichas completas">
+                  <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                </button>
+                <button type="button" class="tinta so-icone" [attr.aria-pressed]="simple()" (click)="setDensity(true)" aria-label="Fichas simples" title="Fichas simples">
+                  <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pasta-linha pasta-baixo">
+            @if (query().trim()) {
+              <div class="pasta-estado">
+                <p class="achados" aria-live="polite">
+                  <span>Mostrando {{ total() }} de {{ tabTotal() }}</span>
+                  <button type="button" class="tinta-link" (click)="query.set('')">Limpar</button>
+                </p>
+              </div>
+            }
+          </div>
+        </div>
 
         @switch (tab()) {
           @case ('comum') {

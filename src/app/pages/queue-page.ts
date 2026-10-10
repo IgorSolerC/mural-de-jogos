@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal } from '@angular/core';
-import { LucideAngularModule, NotebookPen } from 'lucide-angular';
+import { ChevronDown, LucideAngularModule, NotebookPen } from 'lucide-angular';
 import { collage } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
@@ -11,6 +11,11 @@ import { DraftCard } from '../ui/draft-card';
 import { SearchStrip } from '../ui/search-strip';
 
 type Order = 'recentes' | 'antigos' | 'az';
+const ORDERS: readonly { value: Order; label: string }[] = [
+  { value: 'recentes', label: 'Mais novos' },
+  { value: 'antigos', label: 'Mais antigos' },
+  { value: 'az', label: 'A–Z' },
+];
 
 /**
  * Pra depois: o que foi guardado só com nome e capa, no mural aberto, esperando a opinião. Cada um é
@@ -39,36 +44,52 @@ type Order = 'recentes' | 'antigos' | 'az';
     </header>
 
     @if (mural.draftCount()) {
-      <div class="prateleira">
-        <app-search-strip
-          class="prateleira-busca"
-          inputId="busca-fila"
-          label="Procurar na fila"
-          placeholder="Procurar na fila…"
-          [value]="query()"
-          (valueChange)="query.set($event)"
-        />
-        <p class="prateleira-giz">
-          Toque numa folha para terminar a resenha.
-          @if (anyAged()) {
-            As mais amarelas estão esperando há mais tempo.
-          }
-        </p>
-        <span class="prateleira-quebra" aria-hidden="true"></span>
+      <!-- a pasta, como no mural: a busca, a ordem em tinta e, depois do picote, o que a busca achou -->
+      <div class="pasta solta">
+        <div class="pasta-linha">
+          <app-search-strip
+            class="pasta-busca"
+            inputId="busca-fila"
+            [glued]="true"
+            label="Procurar na fila"
+            placeholder="Procurar na fila…"
+            [value]="query()"
+            (valueChange)="query.set($event)"
+          />
 
-        <div class="prateleira-abas" role="group" aria-label="Ordenar">
-          <button type="button" class="plate" [attr.aria-pressed]="order() === 'recentes'" (click)="sort('recentes')">Mais novos</button>
-          <button type="button" class="plate" [attr.aria-pressed]="order() === 'antigos'" (click)="sort('antigos')">Mais antigos</button>
-          <button type="button" class="plate" [attr.aria-pressed]="order() === 'az'" (click)="sort('az')" aria-label="De A a Z">A–Z</button>
+          <div class="pasta-controles">
+            <div class="pasta-grupo" role="group" aria-label="Ordenar">
+              <label class="tinta campo">
+                <span class="campo-pre">Ordenar</span>
+                <span class="campo-val" aria-hidden="true">{{ orderLabel() }}</span>
+                <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+                <select aria-label="Ordenar por" (change)="sort($any($event.target).value)">
+                  @for (o of orders; track o.value) {
+                    <option [value]="o.value" [selected]="o.value === order()">{{ o.label }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="pasta-linha pasta-baixo">
+          <p class="pasta-nota">
+            Toque numa folha para terminar a resenha.
+            @if (anyAged()) {
+              As mais amarelas estão esperando há mais tempo.
+            }
+          </p>
+          @if (query().trim()) {
+            <div class="pasta-estado">
+              <p class="achados" aria-live="polite">
+                <span>Mostrando {{ visible().length }} de {{ mural.draftCount() }}</span>
+                <button type="button" class="tinta-link" (click)="query.set('')">Limpar</button>
+              </p>
+            </div>
+          }
         </div>
       </div>
-
-      @if (query().trim()) {
-        <p class="showing" aria-live="polite">
-          Mostrando {{ visible().length }} de {{ mural.draftCount() }}
-          <button type="button" class="showing-clear" (click)="query.set('')">Limpar busca</button>
-        </p>
-      }
 
       @if (!visible().length) {
         <p class="none">{{ g(mural.profile(), 'Nenhum', 'Nenhuma') }} {{ mural.profile().singular }} da fila tem “{{ query().trim() }}” no nome.</p>
@@ -174,33 +195,8 @@ type Order = 'recentes' | 'antigos' | 'az';
       line-height: 1.1;
     }
 
-    .showing {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 4px 12px;
-      margin: -28px 0 22px;
-      font-family: var(--f-label);
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--wall-ink-2);
-      font-variant-numeric: tabular-nums;
-    }
-    .showing-clear {
-      min-height: 36px;
-      padding: 4px 8px;
-      border: 0;
-      border-radius: 4px;
-      background: none;
-      color: var(--wall-ink);
-      font: inherit;
-      letter-spacing: inherit;
-      text-decoration: underline 2px var(--hi);
-      text-underline-offset: 4px;
-    }
-    .showing-clear:hover {
-      background: rgb(255 255 255 / 0.08);
+    .pasta {
+      margin-bottom: 44px;
     }
     .none {
       font-family: var(--f-hand);
@@ -291,10 +287,13 @@ export class QueuePage {
   protected readonly countOf = countOf;
   protected readonly g = g;
   protected readonly NoteIcon = NotebookPen;
+  protected readonly ChevronIcon = ChevronDown;
+  protected readonly orders = ORDERS;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');
   protected readonly order = signal<Order>('recentes');
+  protected readonly orderLabel = computed(() => ORDERS.find((o) => o.value === this.order())!.label);
   protected readonly visible = computed(() => {
     const needle = fold(this.query().trim());
     const list = this.mural.drafts();

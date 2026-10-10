@@ -1,13 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
-import { ChevronDown, ListChecks, LucideAngularModule, Plus } from 'lucide-angular';
+import { ChevronDown, LucideAngularModule, Plus } from 'lucide-angular';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { Settings } from '../core/settings';
-import { FilterTag } from '../core/wall-filter';
 import { WallMotion } from '../core/wall-motion';
 import { pinningFor } from '../core/wall-physics';
 import { WallGroup, WallState } from '../core/wall-view';
 import { DoneStamp } from '../ui/done-stamp';
-import { FilterTags } from '../ui/filter-sheet';
 import { NoteIndex } from '../ui/note-index';
 import { Pin } from '../ui/pin';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
@@ -16,15 +14,15 @@ import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable'>;
 
 /**
- * A parede de um mural: o que a busca e os filtros acharam, as seções com as etiquetas que fecham
- * (o maço preso com elástico), as fichas (completas, inteiras em colagem, simples, só capa, ou a
- * lista das anotações) e os cartões de quando nada aparece. Lê a vista que a página fornece
+ * A parede de um mural: as seções com as etiquetas que fecham (o maço preso com elástico), as fichas
+ * (completas, inteiras em colagem, simples, só capa, ou a lista das anotações) e os cartões de
+ * quando nada aparece; quantas a busca e os filtros acharam fica na pasta (WallToolbar). Lê a vista que a página fornece
  * (`WallState`): o seu mural e o de outra pessoa são a mesma parede, só muda `access` (o que o dono
  * pode fazer nas fichas) e o texto, que fala da pessoa quando o mural é dela.
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [DoneStamp, FilterTags, LucideAngularModule, NoteIndex, Pin, WallCards],
+  imports: [DoneStamp, LucideAngularModule, NoteIndex, Pin, WallCards],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-board.html',
@@ -45,7 +43,6 @@ export class WallBoard {
   readonly create = output<void>();
 
   protected readonly PlusIcon = Plus;
-  protected readonly TasksIcon = ListChecks;
   protected readonly ChevronIcon = ChevronDown;
 
   /** De quem é o mural: null, o seu. */
@@ -148,9 +145,5 @@ export class WallBoard {
 
   protected showDone(): void {
     this.motion.run(() => this.view.showDone.set(true));
-  }
-
-  protected removeTag(t: FilterTag): void {
-    this.motion.run(() => this.view.toggle(t.key, t.value));
   }
 }

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { Dices, LucideAngularModule, Scissors, X } from 'lucide-angular';
+import { ChevronDown, Dices, LucideAngularModule, Scissors, X } from 'lucide-angular';
 import { CUTOUT_STYLES, collage } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
@@ -12,6 +12,11 @@ import { SearchStrip } from '../ui/search-strip';
 import { WishClip } from '../ui/wish-clip';
 
 type Order = 'recentes' | 'antigos' | 'az';
+const ORDERS: readonly { value: Order; label: string }[] = [
+  { value: 'recentes', label: 'Mais novos' },
+  { value: 'antigos', label: 'Mais antigos' },
+  { value: 'az', label: 'A–Z' },
+];
 
 /**
  * O título da página, letra por letra, cada uma recortada de uma revista (índice em
@@ -69,34 +74,60 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
     </header>
 
     @if (mural.wishCount()) {
-      <div class="prateleira">
-        <app-search-strip
-          class="prateleira-busca"
-          inputId="busca-desejos"
-          label="Procurar na wishlist"
-          placeholder="Procurar na wishlist…"
-          [value]="query()"
-          (valueChange)="query.set($event)"
-        />
-        <p class="prateleira-giz">Toque num recorte para começar a resenha.</p>
-        <span class="prateleira-quebra" aria-hidden="true"></span>
+      <!-- a pasta, como no mural: a busca, a ordem e o sorteio em tinta e, depois do picote, o que a
+           busca achou -->
+      <div class="pasta solta">
+        <div class="pasta-linha">
+          <app-search-strip
+            class="pasta-busca"
+            inputId="busca-desejos"
+            [glued]="true"
+            label="Procurar na wishlist"
+            placeholder="Procurar na wishlist…"
+            [value]="query()"
+            (valueChange)="query.set($event)"
+          />
 
-        <div class="prateleira-abas" role="group" aria-label="Ordenar">
-          <button type="button" class="plate" [attr.aria-pressed]="order() === 'recentes'" (click)="sort('recentes')">Mais novos</button>
-          <button type="button" class="plate" [attr.aria-pressed]="order() === 'antigos'" (click)="sort('antigos')">Mais antigos</button>
-          <button type="button" class="plate" [attr.aria-pressed]="order() === 'az'" (click)="sort('az')" aria-label="De A a Z">A–Z</button>
+          <div class="pasta-controles">
+            <div class="pasta-grupo" role="group" aria-label="Ordenar">
+              <label class="tinta campo">
+                <span class="campo-pre">Ordenar</span>
+                <span class="campo-val" aria-hidden="true">{{ orderLabel() }}</span>
+                <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+                <select aria-label="Ordenar por" (change)="sort($any($event.target).value)">
+                  @for (o of orders; track o.value) {
+                    <option [value]="o.value" [selected]="o.value === order()">{{ o.label }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+
+            <div class="pasta-grupo">
+              <button #drawBtn type="button" class="tinta" [disabled]="visible().length < 2" (click)="draw()">
+                <lucide-icon [img]="DiceIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                Sortear
+              </button>
+            </div>
+          </div>
         </div>
 
-        <button #drawBtn type="button" class="plate sortear" [disabled]="visible().length < 2" (click)="draw()">
-          <lucide-icon [img]="DiceIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-          Sortear
-        </button>
+        <div class="pasta-linha pasta-baixo">
+          <p class="pasta-nota">Toque num recorte para começar a resenha.</p>
+          @if (query().trim()) {
+            <div class="pasta-estado">
+              <p class="achados" aria-live="polite">
+                <span>Mostrando {{ visible().length }} de {{ mural.wishCount() }}</span>
+                <button type="button" class="tinta-link" (click)="query.set('')">Limpar</button>
+              </p>
+            </div>
+          }
+        </div>
       </div>
       <p class="sr-only" aria-live="polite">{{ winner() ? 'Sorteado: ' + winner()!.game.name : '' }}</p>
 
       @if (winner(); as w) {
         <!-- o resultado do sorteio: um bilhete arrancado do bloco, preso embaixo da tela; logo depois da
-           prateleira, para o teclado chegar nele sem passar por todos os recortes -->
+           pasta, para o teclado chegar nele sem passar por todos os recortes -->
         <aside class="sorteio" aria-labelledby="sorteio-titulo">
           <p class="sorteio-titulo" id="sorteio-titulo">
             Que tal {{ mural.profile().verb }} <strong>{{ w.game.name }}</strong>?
@@ -112,13 +143,6 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
             <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" />
           </button>
         </aside>
-      }
-
-      @if (query().trim()) {
-        <p class="showing" aria-live="polite">
-          Mostrando {{ visible().length }} de {{ mural.wishCount() }}
-          <button type="button" class="showing-clear" (click)="query.set('')">Limpar busca</button>
-        </p>
       }
 
       @if (!visible().length) {
@@ -230,39 +254,10 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
       font-variant-numeric: tabular-nums;
     }
 
-    .sortear {
-      margin-left: auto;
-      padding-inline: 13px 16px;
+    .pasta {
+      margin-bottom: 44px;
     }
 
-    .showing {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 4px 12px;
-      margin: -28px 0 22px;
-      font-family: var(--f-label);
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--wall-ink-2);
-      font-variant-numeric: tabular-nums;
-    }
-    .showing-clear {
-      min-height: 36px;
-      padding: 4px 8px;
-      border: 0;
-      border-radius: 4px;
-      background: none;
-      color: var(--wall-ink);
-      font: inherit;
-      letter-spacing: inherit;
-      text-decoration: underline 2px var(--hi);
-      text-underline-offset: 4px;
-    }
-    .showing-clear:hover {
-      background: rgb(255 255 255 / 0.08);
-    }
     .none {
       font-family: var(--f-hand);
       font-size: 1.2rem;
@@ -436,6 +431,8 @@ export class WishlistPage {
   protected readonly g = g;
   protected readonly CutIcon = Scissors;
   protected readonly DiceIcon = Dices;
+  protected readonly ChevronIcon = ChevronDown;
+  protected readonly orders = ORDERS;
   protected readonly CloseIcon = X;
   protected readonly masthead = MASTHEAD;
   protected readonly styles = CUTOUT_STYLES;
@@ -443,6 +440,7 @@ export class WishlistPage {
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');
   protected readonly order = signal<Order>('recentes');
+  protected readonly orderLabel = computed(() => ORDERS.find((o) => o.value === this.order())!.label);
   /** O id sorteado; o bilhete some quando ele sai da lista. */
   protected readonly drawn = signal<string | null>(null);
 

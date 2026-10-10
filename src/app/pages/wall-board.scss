@@ -2,78 +2,6 @@
   display: block;
 }
 
-/* embaixo da régua: quantas sobraram, os filtros ligados como adesivos de papel, e limpar */
-.showing {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-  margin: -26px 0 22px;
-  font-family: var(--f-label);
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.showing-count {
-  margin: 0 4px 0 0;
-}
-
-/* as tarefas das fichas à mostra: feitas, a régua de quanto já foi, e as que faltam. Fica na ponta
-   direita da linha (embaixo de tudo, quando a linha quebra) */
-.tarefas {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 0 auto;
-  min-height: 36px;
-  white-space: nowrap;
-}
-
-.tarefas-icone {
-  display: inline-flex;
-}
-
-.tarefas-barra {
-  position: relative;
-  width: 72px;
-  height: 8px;
-  border-radius: 1px;
-  outline: 1.5px solid currentColor;
-  outline-offset: -1.5px;
-  overflow: hidden;
-
-  span {
-    position: absolute;
-    inset: 0 auto 0 0;
-    background: var(--wall-ink);
-    transition: width var(--t-ui) var(--ease-ui);
-  }
-}
-
-.tarefas.todas {
-  color: #8fe3ad;
-}
-
-.showing-clear {
-  min-height: 36px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--wall-ink);
-  font: inherit;
-  letter-spacing: inherit;
-  text-decoration: underline 2px var(--hi);
-  text-underline-offset: 4px;
-
-  &:hover {
-    background: rgb(255 255 255 / 0.08);
-  }
-}
-
 /* ===== A parede em seções =====
    Cada seção é um grupo de fichas pregadas juntas sob uma etiqueta de fita-crepe. As seções correm
    lado a lado pela parede: um mês com um jogo só não desperdiça uma fileira inteira. Entre uma
@@ -442,12 +370,6 @@
   justify-content: center;
   align-items: center;
   gap: 10px 18px;
-}
-
-@media (max-width: 720px) {
-  .showing {
-    margin-top: -18px;
-  }
 }
 
 @media (max-width: 559px) {

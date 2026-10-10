@@ -5,7 +5,6 @@ import {
   CheckCheck,
   ChevronDown,
   Eye,
-  EyeOff,
   Grid3x3,
   LayoutDashboard,
   LayoutGrid,
@@ -22,9 +21,9 @@ import { countOf, g, isNotes, revisitCountOf } from '../core/kinds';
 import { SCORE_LABEL, ScoreKey, isPinnedNote, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
-import { FacetKey, NO_FILTER } from '../core/wall-filter';
+import { FacetKey, FilterTag, NO_FILTER } from '../core/wall-filter';
 import { Density, SortKey, WallState, directionLabelOf } from '../core/wall-view';
-import { FilterSheet, FilterToggle } from './filter-sheet';
+import { FilterSheet, FilterTags, FilterToggle } from './filter-sheet';
 import { NoteTabsBar } from './note-tabs-bar';
 import { TagShortcuts } from './tag-shortcuts';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
@@ -47,7 +46,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, LucideAngularModule, NoteTabsBar, SearchStrip, TagShortcuts],
+  imports: [FilterSheet, FilterTags, LucideAngularModule, NoteTabsBar, SearchStrip, TagShortcuts],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -60,30 +59,25 @@ export class WallToolbar {
 
   protected readonly DescIcon = ArrowDownWideNarrow;
   protected readonly AscIcon = ArrowUpNarrowWide;
-  protected readonly FullIcon = Rows3;
-  protected readonly WholeIcon = LayoutDashboard;
-  protected readonly CompactIcon = LayoutGrid;
-  protected readonly CoversIcon = Grid3x3;
-  protected readonly ListIcon = List;
   protected readonly TasksIcon = ListChecks;
-  /** Os tipos de ficha da pasta das anotações (com a Lista, que só elas têm). */
-  protected readonly noteDensities: readonly { value: Density; label: string; icon: typeof List }[] = [
+  /** Os tipos de ficha dos murais de resenhas. */
+  protected readonly reviewDensities: readonly { value: Density; label: string; icon: typeof List }[] = [
     { value: 'completa', label: 'Fichas completas', icon: Rows3 },
     { value: 'inteira', label: 'Fichas inteiras: o texto todo, em colagem', icon: LayoutDashboard },
     { value: 'simples', label: 'Fichas simples', icon: LayoutGrid },
     { value: 'capas', label: 'Só capa e nome', icon: Grid3x3 },
-    { value: 'lista', label: 'Lista', icon: List },
   ];
+  /** Os das anotações: os mesmos e a Lista, que só elas têm. */
+  protected readonly noteDensities = [...this.reviewDensities, { value: 'lista' as Density, label: 'Lista', icon: List }];
   protected readonly ChevronIcon = ChevronDown;
   protected readonly MarkIcon = SquareCheckBig;
   protected readonly FilterIcon = ListFilter;
   protected readonly DoneIcon = CheckCheck;
   protected readonly PinIcon = Pin;
   protected readonly RevealIcon = Eye;
-  protected readonly HideIcon = EyeOff;
 
   private readonly injector = inject(Injector);
-  /** A aba Filtrar (só nos murais de resenhas: as anotações não têm cartela). */
+  /** O Filtrar da pasta (só nos murais de resenhas: as anotações não têm cartela). */
   private readonly filterTab = viewChild<ElementRef<HTMLButtonElement>>('filterTab');
   private readonly sheet = viewChild(FilterSheet);
 
@@ -158,7 +152,7 @@ export class WallToolbar {
     if (e.detail === 0) afterNextRender(() => this.sheet()?.focusFirst(), { injector: this.injector });
   }
 
-  /** Fecha a cartela; se o foco estava nela, volta para a aba Filtrar. */
+  /** Fecha a cartela; se o foco estava nela, volta para o Filtrar. */
   protected close(): void {
     const sheetEl = document.getElementById('cartela-filtros');
     const hadFocus = !!sheetEl && sheetEl.contains(document.activeElement);
@@ -200,9 +194,14 @@ export class WallToolbar {
     this.motion.run(() => this.view.showDone.update((v) => !v));
   }
 
-  /** Tira a busca e as tags ligadas (nas anotações, o "Limpar" da pasta). */
+  /** Tira a busca e os filtros ligados (o "Limpar" da pasta). */
   protected clearFilters(): void {
     this.motion.run(() => this.view.clearFilters());
+  }
+
+  /** Tira um filtro ligado, pelo X do adesivo na pasta. */
+  protected removeTag(t: FilterTag): void {
+    this.motion.run(() => this.view.toggle(t.key, t.value));
   }
 
   /** A busca sai da aba e procura no mural inteiro. */
