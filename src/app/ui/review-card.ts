@@ -855,6 +855,7 @@ function watchDistance(el: HTMLElement): () => void {
     /* com cor, a borda colorida corre por dentro da orelha inteira (ver .orelha-cor em styles.scss)
        e o pé dela fica atrás da cartolina: a orelha sobe um pouco, para o nome caber no meio dela */
     .aba-cat.orelha-cor {
+      background-color: #fffcf2;
       top: -32px;
       height: 47px;
       padding: 9px 13px 19px 11px;

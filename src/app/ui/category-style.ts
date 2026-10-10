@@ -125,6 +125,7 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
     }
     .orelha.orelha-cor {
       padding: 9px 13px 6px 11px;
+      background-color: #fffcf2;
     }
     .hint {
       margin: 0;
@@ -181,11 +182,13 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
       content: '';
       width: 26px;
       height: 18px;
-      border: 2.5px solid var(--c);
+      border: 3px solid var(--c);
       border-bottom: 0;
       border-radius: 6px 6px 0 0;
       background: #fffcf2;
-      box-shadow: 0 0 0 2.5px #f3e5bb;
+      box-shadow:
+        0 0 0 2.5px #fffcf2,
+        0 0 0 3.5px rgb(21 21 21 / 0.18);
     }
     .sem-cor::before {
       border: 1.5px dashed rgb(21 21 21 / 0.45);

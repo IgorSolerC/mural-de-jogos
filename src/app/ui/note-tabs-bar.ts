@@ -190,10 +190,17 @@ const GAP = 3;
       opacity: 0.82;
     }
 
-    /* com cor, a borda colorida corre por dentro da aba (ver .orelha-cor em styles.scss); o pé
-       some atrás da borda da pasta. Na aba de trás, o papel de dentro escurece como o manilha. */
-    .aba.orelha-cor:not(.on)::before {
-      background-color: #d6c8a3;
+    /* com cor, a borda colorida corre por dentro da aba (ver .orelha-cor em styles.scss), num papel
+       claro dos dois lados dela; o pé some atrás da borda da pasta. A de trás escurece um pouco. */
+    .aba.orelha-cor {
+      background-color: #fffcf2;
+
+      &:not(.on) {
+        background-color: #d9cdab;
+      }
+      &:hover:not(.on) {
+        background-color: #e6dcbf;
+      }
     }
 
     .n {

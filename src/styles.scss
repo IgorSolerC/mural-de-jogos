@@ -1316,20 +1316,18 @@ dialog.sheet {
   color: var(--ink);
 }
 /* A categoria das anotações com cor (ver core/category-looks.ts): a borda colorida fina corre por
-   dentro da orelha inteira, a 3px da beirada, num papel mais claro, e desce até o pé, que fica
-   escondido atrás da cartolina (a orelha da ficha) ou da borda da pasta (as abas). Quem usa forma
-   um contexto de empilhamento, para a moldura ficar entre o fundo e o nome. */
+   dentro da orelha inteira, a 3px da beirada, e desce até o pé, que fica escondido atrás da
+   cartolina (a orelha da ficha) ou da borda da pasta (as abas). O papel é um só, dos dois lados da
+   borda: quem usa pinta o fundo (o papel claro) e forma um contexto de empilhamento,
+   para a moldura ficar entre o fundo e o nome. */
 .orelha-cor::before {
   content: '';
   position: absolute;
   inset: 3px 3px 0;
   z-index: -1;
-  border: 2px solid var(--cat-cor);
+  border: 3px solid var(--cat-cor);
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  background-color: #fffcf2;
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
   pointer-events: none;
 }
 .rotulo {

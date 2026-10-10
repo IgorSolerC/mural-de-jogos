@@ -51,6 +51,14 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-orelha-de-papel-unico',
+    version: '1.28.4',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A orelha colorida num papel só',
+    items: ['Na categoria com cor, o papel por fora da borda colorida agora é o mesmo de dentro, e a borda ficou um pouco mais grossa.'],
+  },
+  {
     id: '2026-10-10-site-em-branco-com-cor-de-categoria',
     version: '1.28.3',
     kind: 'correcao',
