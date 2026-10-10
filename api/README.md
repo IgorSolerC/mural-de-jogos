@@ -10,7 +10,7 @@ completo está no documento "Meu Mural na nuvem: plano de implementação".
 ## Como está montada
 
 O núcleo (`src/app.ts`, `src/domain/`) é TypeScript comum com [Hono](https://hono.dev) e não sabe que
-está na Cloudflare. Só dois arquivos sabem:
+está na Cloudflare. Só dois arquivos sabem; outros dois fazem o mesmo papel num Node comum:
 
 | Arquivo | Papel |
 | --- | --- |
@@ -19,7 +19,7 @@ está na Cloudflare. Só dois arquivos sabem:
 | `src/entry/node.ts` | a mesma API num Node comum |
 | `src/adapters/sqlite-node.ts` | o banco em cima do SQLite embutido no Node |
 
-A suíte de testes (`test/suite.ts`) roda duas vezes: no simulador do D1 e no SQLite do Node.
+As suítes de testes (`test/suite.ts` e `test/amigos.suite.ts`) rodam duas vezes: no simulador do D1 e no SQLite do Node.
 
 ## Comandos
 
@@ -42,9 +42,9 @@ com os secrets `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
 - `COTA_LINHAS_DIA` (wrangler.toml) limita as gravações por dia UTC a 60% do gratuito; passou, as
   gravações respondem `503 cota-diaria` até a meia-noite UTC (21h em Brasília).
 - `MODO` (wrangler.toml): `ligado`, `so-leitura` ou `desligado`. Qualquer outro valor desliga.
-- `VER_MURAIS` (wrangler.toml): `todos` (qualquer um abre um mural pelo código) ou `logados` (só quem tem conta). Qualquer outro valor vale `logados`.
   Para desligar na hora sem deploy: painel da Cloudflare → Workers & Pages → mural-api → Settings →
   Variables.
+- `VER_MURAIS` (wrangler.toml): `todos` (qualquer um abre um mural pelo código) ou `logados` (só quem tem conta). Qualquer outro valor vale `logados`.
 - Nada de KV, R2, Durable Objects ou Queues: só Workers e D1.
 
 ## Checagem diária

@@ -178,7 +178,7 @@ async function readStatus(api: string): Promise<{ status: Status | null; error: 
     } catch (e) {
       last = e instanceof Error ? e.message : String(e);
     }
-    await new Promise((r) => setTimeout(r, 5_000));
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 5_000));
   }
   return { status: null, error: last };
 }

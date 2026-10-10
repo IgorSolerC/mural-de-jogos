@@ -15,11 +15,7 @@ export function d1Db(d1: D1Database): Db {
     async batch(statements) {
       if (statements.length === 0) return [];
       const results = await d1.batch(statements.map((s) => prepare(s.sql, s.params)));
-      return results.map((r) => ({
-        changes: r.meta.changes ?? 0,
-        rowsRead: r.meta.rows_read ?? 0,
-        rowsWritten: r.meta.rows_written ?? 0,
-      }));
+      return results.map((r) => ({ changes: r.meta.changes ?? 0 }));
     },
   };
 }

@@ -16,9 +16,6 @@ export interface Statement {
 export interface StatementResult {
   /** Linhas mudadas pela consulta. */
   changes: number;
-  /** Quanto o banco diz que leu e gravou (o D1 conta assim; no SQLite comum, uma estimativa). */
-  rowsRead: number;
-  rowsWritten: number;
 }
 
 /** O banco, do jeito mínimo: só SQL comum do SQLite. */

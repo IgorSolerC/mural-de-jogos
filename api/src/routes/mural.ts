@@ -1,15 +1,16 @@
 import { Context, Hono } from 'hono';
-import { utcDay, write } from '../domain/quota';
-import { authenticate } from '../domain/session';
-import { formatCode, generateCode, normalizeCode } from '../domain/code';
+import { utcDayStart, write } from '../domain/quota';
+import { formatCode, normalizeCode } from '../domain/code';
+import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
+import { sessionOf } from './http';
 
 /** Teto de cada mural compactado. O D1 aceita 2 MB por linha; o site recusa antes, em 1,8 MB. */
-export const MAX_MURAL_BYTES = 1_900_000;
+const MAX_MURAL_BYTES = 1_900_000;
 /** Resenhas novas aceitas por envio e por dia, para notificar quem segue. */
-export const MAX_NEW_PER_PUSH = 10;
-export const MAX_NEW_PER_DAY = 30;
+const MAX_NEW_PER_PUSH = 10;
+const MAX_NEW_PER_DAY = 30;
 /** Intervalo mínimo entre duas gravações do mesmo mural. */
 const MIN_INTERVAL_MS = 3_000;
 
@@ -17,13 +18,6 @@ interface NewReview {
   ref: string;
   titulo: string;
   mural: string;
-}
-
-/** O título da resenha no aviso: sem invisíveis, espaços juntos, até 120 caracteres. */
-function cleanTitle(input: unknown): string | null {
-  if (typeof input !== 'string') return null;
-  const title = Array.from(input.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ').trim()).slice(0, 120).join('').trim();
-  return title || null;
 }
 
 /** Bytes de um BLOB, venha como vier do banco (o D1 e o SQLite devolvem tipos diferentes). */
@@ -35,6 +29,13 @@ export function toBytes(value: unknown): Uint8Array {
 }
 
 const isGzip = (b: Uint8Array) => b.length >= 18 && b[0] === 0x1f && b[1] === 0x8b;
+
+/** A resposta com o mural compactado, como veio do banco. */
+function gzipBody(c: Context, dados: unknown): Response {
+  c.header('Content-Type', 'application/gzip');
+  const bytes = toBytes(dados);
+  return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
+}
 
 async function gzipPart(form: FormData, name: string): Promise<Uint8Array> {
   const part = form.get(name);
@@ -63,9 +64,9 @@ function parseNew(raw: ReturnType<FormData['get']>): NewReview[] {
     // um item que não é objeto (null, número, texto) só é ignorado
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
     const r = item as Record<string, unknown>;
-    const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
+    const ref = typeof r['ref'] === 'string' && REF_RE.test(r['ref']) ? r['ref'] : null;
     const titulo = cleanTitle(r['titulo']);
-    const mural = typeof r['mural'] === 'string' && /^[a-z]{2,20}$/.test(r['mural']) ? r['mural'] : null;
+    const mural = typeof r['mural'] === 'string' && MURAL_RE.test(r['mural']) ? r['mural'] : null;
     if (!ref || !titulo || !mural || seen.has(ref)) continue;
     seen.add(ref);
     out.push({ ref, titulo, mural });
@@ -76,7 +77,7 @@ function parseNew(raw: ReturnType<FormData['get']>): NewReview[] {
 /** O mural de outra pessoa, pelo código: só o público (resenhas e nome). */
 function publicRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/murais/:codigo', async (c) => {
-    if (deps.config.publicMurals === 'logados') await authenticate(deps, c.req.header('Authorization'));
+    if (deps.config.publicMurals === 'logados') await sessionOf(deps, c);
     const code = normalizeCode(c.req.param('codigo'));
     const notFound = () =>
       new HttpError(404, 'mural-nao-encontrado', 'Não achei mural com esse código. Confira as letras: são 8, entre letras e números.');
@@ -89,23 +90,13 @@ function publicRoutes(app: Hono, deps: Deps): void {
     c.header('Mural-Rev', String(head.rev));
     c.header('Mural-Codigo', formatCode(code));
     if (c.req.query('rev') === String(head.rev)) return c.body(null, 204);
-    const row = await deps.db.first<{ dados: unknown }>('SELECT dados FROM murais_publicos WHERE usuario_id = ?', [head.usuario_id]);
+    // a rev de novo, junto com os dados: um envio entre as duas leituras não pode sair com a rev de antes
+    const row = await deps.db.first<{ rev: number; dados: unknown }>('SELECT rev, dados FROM murais_publicos WHERE usuario_id = ?', [
+      head.usuario_id,
+    ]);
     if (!row) throw notFound();
-    c.header('Content-Type', 'application/gzip');
-    const bytes = toBytes(row.dados);
-    return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
-  });
-
-  // Trocar o código: o antigo para de funcionar; quem segue continua seguindo (seguir guarda o id).
-  app.post('/v1/eu/codigo', async (c) => {
-    const s = await authenticate(deps, c.req.header('Authorization'));
-    for (let i = 0; i < 5; i++) {
-      const code = generateCode();
-      if (await deps.db.first('SELECT 1 AS x FROM usuarios WHERE codigo = ?', [code])) continue;
-      await write(deps, [{ sql: 'UPDATE usuarios SET codigo = ? WHERE id = ?', params: [code, s.userId] }], 3);
-      return c.json({ codigo: formatCode(code) });
-    }
-    throw new HttpError(503, 'codigo-indisponivel', 'Não consegui criar um código agora. Tente de novo.');
+    c.header('Mural-Rev', String(row.rev));
+    return gzipBody(c, row.dados);
   });
 }
 
@@ -114,7 +105,7 @@ export function muralRoutes(app: Hono, deps: Deps): void {
   publicRoutes(app, deps);
 
   app.get('/v1/eu/mural', async (c) => {
-    const s = await authenticate(deps, c.req.header('Authorization'));
+    const s = await sessionOf(deps, c);
     const head = await deps.db.first<{ rev: number }>('SELECT rev FROM murais WHERE usuario_id = ?', [s.userId]);
     if (!head) throw new HttpError(404, 'sem-mural', 'Ainda não há mural na nuvem.');
     c.header('Mural-Rev', String(head.rev));
@@ -122,13 +113,11 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const row = await deps.db.first<{ rev: number; dados: unknown }>('SELECT rev, dados FROM murais WHERE usuario_id = ?', [s.userId]);
     if (!row) throw new HttpError(404, 'sem-mural', 'Ainda não há mural na nuvem.');
     c.header('Mural-Rev', String(row.rev));
-    c.header('Content-Type', 'application/gzip');
-    const bytes = toBytes(row.dados);
-    return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
+    return gzipBody(c, row.dados);
   });
 
   app.put('/v1/eu/mural', async (c: Context) => {
-    const s = await authenticate(deps, c.req.header('Authorization'));
+    const s = await sessionOf(deps, c);
     // só dígitos: um cabeçalho vazio (Number('') é 0) não pode passar como "primeiro envio"
     const rawBase = c.req.header('Mural-Rev-Base')?.trim() ?? '';
     const base = /^\d{1,16}$/.test(rawBase) ? Number(rawBase) : NaN;
@@ -163,7 +152,7 @@ export function muralRoutes(app: Hono, deps: Deps): void {
       );
       const today = await deps.db.first<{ n: number }>(
         "SELECT COUNT(*) AS n FROM atividades WHERE tipo = 'resenha' AND autor_id = ? AND criado_em >= ?",
-        [s.userId, `${utcDay(now)}T00:00:00.000Z`],
+        [s.userId, utcDayStart(now)],
       );
       const room = Math.max(0, MAX_NEW_PER_DAY - (today?.n ?? 0));
       const knownRefs = new Set(known.map((k) => k.ref));

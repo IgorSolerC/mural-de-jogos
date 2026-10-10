@@ -7,6 +7,7 @@ import { cleanup } from '../src/domain/cleanup';
 import { FEED_DAYS, FEED_LIMIT, MAX_FOLLOWING, MAX_FOLLOWS_PER_DAY, UNDO_MS } from '../src/routes/follow';
 import { MAX_REACTIONS_PER_DAY } from '../src/routes/reactions';
 import { Config, Db, Deps } from '../src/ports';
+import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller } from './harness';
 
 /**
  * Seguir, o correio (aba Amigos) e a gravação do mural, com mais detalhe que `suite.ts`: limites,
@@ -15,30 +16,13 @@ import { Config, Db, Deps } from '../src/ports';
  *
  * Como em `suite.ts`, roda nos dois bancos (D1 simulado e SQLite do Node).
  *
- * Um bug novo achado aqui entra como `it.fails` (ver o README): o teste descreve o comportamento certo
+ * Um bug novo achado aqui entra como `it.fails` (ver o README da raiz, "Testes"): o teste descreve o comportamento certo
  * e falha enquanto o bug existir; corrigido, o vitest acusa e é só trocar por `it`.
  */
 
-const ENV = {
-  MODO: 'ligado',
-  ORIGENS: 'https://igorsolerc.github.io',
-  COTA_LINHAS_DIA: '100000',
-  GOOGLE_CLIENT_ID: 'teste.apps.googleusercontent.com',
-  VER_MURAIS: 'todos',
-};
-const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'uso_diario'];
-const NOW = new Date('2026-10-06T15:00:00Z');
+/** Com cota de sobra: aqui os limites testados são os de cada conta, não o do dia. */
+const ENV = { ...BASE_ENV, ORIGENS: 'https://igorsolerc.github.io', COTA_LINHAS_DIA: '100000' };
 const DAY = 86_400_000;
-
-async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {
-  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-async function gunzip(bytes: ArrayBuffer): Promise<string> {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Response(stream).text();
-}
 
 const review = (ref: string, titulo = `Jogo ${ref}`, mural = 'jogos') => ({ ref, titulo, mural });
 
@@ -66,12 +50,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
     const advance = (ms: number) => void (clock.t += ms);
     const app = createApp(deps);
     const call = (path: string, init?: RequestInit) => app.request(`https://api.teste${path}`, init);
-    const json = (method: string, path: string, body?: unknown, token?: string) =>
-      call(path, {
-        method,
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
+    const json = jsonCaller(call);
     const body = async (res: Response | Promise<Response>) => (await (await res).json()) as any;
 
     /** Entra (cria a conta na primeira vez) e devolve o token e a conta. */
@@ -743,13 +722,22 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(((await res.json()) as any).erro).toBe('reagir-devagar');
       });
 
-      it('apagar a conta leva as reações dela e as que ela recebeu', async () => {
+      it('apagar a conta leva as reações que ela deu', async () => {
         const { react, list, json, db, ana, bia } = await reacting();
         await react(bia.token, ana.codigo, 'r-hades', 'fogo');
         expect((await json('DELETE', '/v1/eu', undefined, bia.token)).status).toBe(200);
         expect((await list(ana.codigo)).body.reacoes).toEqual({});
         const left = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes', []);
         expect(left?.n).toBe(0);
+      });
+
+      it('apagar a conta leva as reações que ela recebeu (e os avisos delas)', async () => {
+        const { react, json, db, ana, bia } = await reacting();
+        await react(bia.token, ana.codigo, 'r-hades', 'fogo');
+        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        const left = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes', []);
+        expect(left?.n).toBe(0);
+        expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'reagiu'")).toEqual([]);
       });
     });
   });

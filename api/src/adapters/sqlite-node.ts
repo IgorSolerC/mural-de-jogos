@@ -19,11 +19,7 @@ export function sqliteDb(db: DatabaseSync): Db {
     async batch(statements) {
       db.exec('BEGIN');
       try {
-        const results = statements.map((s) => {
-          const r = run(s.sql).run(...(s.params ?? []));
-          const changes = Number(r.changes);
-          return { changes, rowsRead: 0, rowsWritten: changes };
-        });
+        const results = statements.map((s) => ({ changes: Number(run(s.sql).run(...(s.params ?? [])).changes) }));
         db.exec('COMMIT');
         return results;
       } catch (error) {

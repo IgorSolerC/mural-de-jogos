@@ -1,10 +1,10 @@
 import { Context, Hono } from 'hono';
-import { utcDay, write } from '../domain/quota';
-import { Session, authenticate } from '../domain/session';
+import { DAY_MS, utcDayStart, write } from '../domain/quota';
+import { base64url, sha256 } from '../domain/bytes';
 import { formatCode, normalizeCode } from '../domain/code';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
-import { readJson } from './account';
+import { readJson, sessionOf } from './http';
 
 /**
  * Seguir e o correio. Seguir é de mão única e sem aprovação: guarda o id de quem segue e de quem é
@@ -25,8 +25,8 @@ export const UNDO_MS = 10 * 60_000;
 /** O correio mostra os últimos 30 dias, até 60 itens. */
 export const FEED_DAYS = 30;
 export const FEED_LIMIT = 60;
-
-const DAY = 86_400_000;
+/** Quantos seguidores a lista de pessoas devolve, os mais novos. */
+const MAX_FOLLOWERS_LISTED = 1000;
 
 interface Person {
   id: string;
@@ -58,8 +58,7 @@ function isoParam(value: unknown): string | null {
  * O site usa para levar o mural guardado da pessoa para o código novo, sem duplicar.
  */
 async function pairKey(followerId: string, followedId: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`seguindo:${followerId}:${followedId}`));
-  return btoa(String.fromCharCode(...new Uint8Array(digest).slice(0, 12))).replace(/\+/g, '-').replace(/\//g, '_');
+  return base64url((await sha256(`seguindo:${followerId}:${followedId}`)).slice(0, 12));
 }
 
 function summary(raw: string | null): { titulo: string; mural: string; reacao?: string } | null {
@@ -74,7 +73,7 @@ function summary(raw: string | null): { titulo: string; mural: string; reacao?: 
 }
 
 export function followRoutes(app: Hono, deps: Deps): void {
-  const session = (c: Context): Promise<Session> => authenticate(deps, c.req.header('Authorization'));
+  const session = (c: Context) => sessionOf(deps, c);
 
   /** A pessoa pelo código, ou 404. */
   async function byCode(input: unknown): Promise<Person> {
@@ -99,7 +98,7 @@ export function followRoutes(app: Hono, deps: Deps): void {
     if (existing) return c.json({ pessoa: personOut(target), desde: existing.criado_em, silenciado: !!existing.silenciado });
 
     const now = deps.now();
-    const today = `${utcDay(now)}T00:00:00.000Z`;
+    const today = utcDayStart(now);
     // O limite do dia conta as pessoas DISTINTAS que comecei a seguir hoje, mesmo as que já deixei de
     // seguir (o aviso delas já foi): senão, seguir e deixar de seguir abriria vaga sem fim. Seguir de
     // novo quem já recebeu o aviso (o "Desfazer") não avisa ninguém, então não gasta o limite.
@@ -200,8 +199,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
     const followers = await deps.db.all<{ codigo: string; nome: string; criado_em: string; eu_sigo: number }>(
       'SELECT u.codigo, u.nome, s.criado_em, ' +
         '(SELECT COUNT(*) FROM seguindo r WHERE r.seguidor_id = ? AND r.seguido_id = u.id) AS eu_sigo ' +
-        'FROM seguindo s JOIN usuarios u ON u.id = s.seguidor_id WHERE s.seguido_id = ? ORDER BY s.criado_em DESC LIMIT 1000',
-      [s.userId, s.userId],
+        'FROM seguindo s JOIN usuarios u ON u.id = s.seguidor_id WHERE s.seguido_id = ? ORDER BY s.criado_em DESC LIMIT ?',
+      [s.userId, s.userId, MAX_FOLLOWERS_LISTED],
     );
     const keys = await Promise.all(following.map((p) => pairKey(s.userId, p.id)));
     return c.json({
@@ -220,7 +219,7 @@ export function followRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/eu/notificacoes', async (c) => {
     const s = await session(c);
     const now = deps.now();
-    const floor = new Date(now.getTime() - FEED_DAYS * DAY).toISOString();
+    const floor = new Date(now.getTime() - FEED_DAYS * DAY_MS).toISOString();
     const after = isoParam(c.req.query('depois'));
     // as três fontes: quem começou a me seguir (e ainda segue), as resenhas de quem eu sigo,
     // publicadas depois que comecei a seguir, e quem reagiu às minhas (silenciado se eu silenciei a pessoa)

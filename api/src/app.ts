@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { HttpError } from './errors';
-import { offline, usageToday } from './domain/quota';
+import { offline, readOnly, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
 import { followRoutes } from './routes/follow';
@@ -9,7 +9,7 @@ import { muralRoutes } from './routes/mural';
 import { reactionRoutes } from './routes/reactions';
 
 /** A versão da API que o /v1/status informa (mude junto com mudanças que o site precise saber). */
-export const API_VERSION = 1;
+const API_VERSION = 1;
 
 /**
  * A API inteira, montada a partir das dependências prontas. Só usa `Request`/`Response` padrão da
@@ -43,9 +43,7 @@ export function createApp(deps: Deps): Hono {
   app.use('*', async (c, next) => {
     const isStatus = c.req.method === 'GET' && c.req.path === '/v1/status';
     if (config.mode === 'desligado' && !isStatus) throw offline();
-    if (config.mode === 'so-leitura' && !['GET', 'HEAD'].includes(c.req.method)) {
-      throw new HttpError(503, 'nuvem-so-leitura', 'A nuvem está só para leitura agora. O seu mural continua salvo neste aparelho.');
-    }
+    if (config.mode === 'so-leitura' && !['GET', 'HEAD'].includes(c.req.method)) throw readOnly();
     await next();
   });
 

@@ -6,13 +6,18 @@ import { cleanup } from '../domain/cleanup';
 import { GOOGLE_CERTS_URL, googleVerifier } from '../domain/google';
 import { Deps } from '../ports';
 
-/** A entrada na Cloudflare: o único arquivo, junto com `adapters/d1.ts`, que conhece o Worker. */
+/*
+ * A entrada na Cloudflare: o único arquivo, junto com `adapters/d1.ts`, que conhece o Worker.
+ */
+
+/** As variáveis do wrangler.toml (ver `config.ts`) e o banco. */
 interface Env {
   DB: D1Database;
   MODO?: string;
   ORIGENS?: string;
   COTA_LINHAS_DIA?: string;
   GOOGLE_CLIENT_ID?: string;
+  VER_MURAIS?: string;
 }
 
 /** Fora do `fetch`: as chaves do Google ficam guardadas enquanto o Worker está de pé. */

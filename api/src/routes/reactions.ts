@@ -1,10 +1,10 @@
 import { Context, Hono } from 'hono';
-import { write } from '../domain/quota';
-import { Session, authenticate } from '../domain/session';
+import { DAY_MS, write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
+import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
-import { readJson } from './account';
+import { readJson, sessionOf } from './http';
 import { isEmoji } from '../domain/emoji';
 
 /**
@@ -14,22 +14,17 @@ import { isEmoji } from '../domain/emoji';
  */
 
 /** As sete da fileira do site (core/reactions.ts); fora elas, vale qualquer emoji sozinho (o "+"). */
-export const REACTIONS = ['amei', 'fogo', 'rindo', 'uau', 'chorei', 'hmm', 'nao-curti'] as const;
-/** Quantas reações (novas ou trocadas) uma conta dá em 24 horas. */
+const REACTIONS = ['amei', 'fogo', 'rindo', 'uau', 'chorei', 'hmm', 'nao-curti'] as const;
+/**
+ * Quantas reações uma conta tem, das dadas nas últimas 24 horas. Conta as que existem agora: trocar
+ * a reação de uma resenha continua sendo uma, e tirar abre a vaga de novo.
+ */
 export const MAX_REACTIONS_PER_DAY = 300;
 /** Quantas reações o mural de alguém devolve, as mais novas. */
-export const MAX_REACTIONS_LISTED = 3000;
-
-const DAY = 86_400_000;
-
-/** O título da resenha no aviso: sem invisíveis, espaços juntos, até 120 caracteres. */
-function cleanTitle(input: unknown): string {
-  if (typeof input !== 'string') return '';
-  return Array.from(input.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ').trim()).slice(0, 120).join('').trim();
-}
+const MAX_REACTIONS_LISTED = 3000;
 
 export function reactionRoutes(app: Hono, deps: Deps): void {
-  const session = (c: Context): Promise<Session> => authenticate(deps, c.req.header('Authorization'));
+  const session = (c: Context) => sessionOf(deps, c);
 
   /** O dono da resenha pelo código, ou 404. */
   async function owner(input: string): Promise<{ id: string; codigo: string }> {
@@ -41,7 +36,7 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
 
   function refParam(c: Context): string {
     const ref = c.req.param('ref') ?? '';
-    if (!/^[\w-]{4,64}$/.test(ref)) throw new HttpError(400, 'resenha-invalida', 'Essa resenha não existe.');
+    if (!REF_RE.test(ref)) throw new HttpError(400, 'resenha-invalida', 'Essa resenha não existe.');
     return ref;
   }
 
@@ -77,10 +72,10 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
     if (before?.reacao === reaction) return c.json({ reacao: reaction });
     const today = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes WHERE autor_id = ? AND criado_em >= ?', [
       s.userId,
-      new Date(now.getTime() - DAY).toISOString(),
+      new Date(now.getTime() - DAY_MS).toISOString(),
     ]);
     if ((today?.n ?? 0) >= MAX_REACTIONS_PER_DAY) throw new HttpError(429, 'reagir-devagar', 'Você reagiu a muita coisa hoje. Tente de novo amanhã.');
-    const mural = typeof body['mural'] === 'string' && /^[a-z]{2,20}$/.test(body['mural']) ? body['mural'] : 'jogos';
+    const mural = typeof body['mural'] === 'string' && MURAL_RE.test(body['mural']) ? body['mural'] : 'jogos';
     const resumo = JSON.stringify({ titulo: cleanTitle(body['titulo']), mural, reacao: reaction });
     const at = now.toISOString();
     await write(

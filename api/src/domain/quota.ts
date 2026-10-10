@@ -17,6 +17,14 @@ export function utcDay(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** O começo do dia UTC de `date`, em ISO (`2026-10-06T00:00:00.000Z`). */
+export function utcDayStart(date: Date): string {
+  return `${utcDay(date)}T00:00:00.000Z`;
+}
+
+/** Um dia, em milissegundos. */
+export const DAY_MS = 86_400_000;
+
 export interface Usage {
   day: string;
   rowsWritten: number;
@@ -35,13 +43,15 @@ export async function usageToday(deps: Deps): Promise<Usage> {
 /** Recusa se a nuvem não está aceitando gravações agora. */
 export function assertWritable(deps: Deps): void {
   if (deps.config.mode === 'desligado') throw offline();
-  if (deps.config.mode === 'so-leitura') {
-    throw new HttpError(503, 'nuvem-so-leitura', 'A nuvem está só para leitura agora. O seu mural continua salvo neste aparelho.');
-  }
+  if (deps.config.mode === 'so-leitura') throw readOnly();
 }
 
 export function offline(): HttpError {
   return new HttpError(503, 'nuvem-desligada', 'A nuvem está desligada agora. O seu mural continua salvo neste aparelho.');
+}
+
+export function readOnly(): HttpError {
+  return new HttpError(503, 'nuvem-so-leitura', 'A nuvem está só para leitura agora. O seu mural continua salvo neste aparelho.');
 }
 
 /**

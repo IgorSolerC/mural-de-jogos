@@ -1,25 +1,11 @@
 import { Context, Hono } from 'hono';
 import { formatCode, generateCode } from '../domain/code';
 import { cleanName } from '../domain/name';
-import { write } from '../domain/quota';
-import { MAX_SESSIONS, Session, authenticate, hashToken, newToken, sessionStatements } from '../domain/session';
+import { DAY_MS, write } from '../domain/quota';
+import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
-
-const DAY = 86_400_000;
-
-/** Lê o corpo JSON com limite de tamanho; um corpo que não é objeto vira `{}`. */
-export async function readJson(c: Context, maxBytes = 16_384): Promise<Record<string, unknown>> {
-  const text = await c.req.text();
-  if (text.length > maxBytes) throw new HttpError(413, 'grande-demais', 'O pedido é grande demais.');
-  if (!text) return {};
-  try {
-    const data: unknown = JSON.parse(text);
-    return data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
-  } catch {
-    throw new HttpError(400, 'json-invalido', 'O pedido não é um JSON válido.');
-  }
-}
+import { readJson, sessionOf } from './http';
 
 interface UserRow {
   id: string;
@@ -28,9 +14,9 @@ interface UserRow {
   criado_em: string;
 }
 
-/** Login, sessões e a própria conta: /v1/auth/* e /v1/eu. */
+/** Login, sessões e a própria conta: /v1/auth/*, /v1/eu e /v1/eu/codigo. */
 export function accountRoutes(app: Hono, deps: Deps): void {
-  const session = (c: Context): Promise<Session> => authenticate(deps, c.req.header('Authorization'));
+  const session = (c: Context) => sessionOf(deps, c);
   const account = (u: Pick<UserRow, 'id' | 'codigo' | 'nome'>) => ({ id: u.id, codigo: formatCode(u.codigo), nome: u.nome });
   const findBySub = (sub: string) =>
     deps.db.first<UserRow>('SELECT id, codigo, nome, criado_em FROM usuarios WHERE google_sub = ?', [sub]);
@@ -52,7 +38,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       // freio: no máximo MAX_SESSIONS logins por conta em 24 horas (cada um grava algumas linhas)
       const recent = await deps.db.first<{ n: number }>(
         'SELECT COUNT(*) AS n FROM sessoes WHERE usuario_id = ? AND criada_em > ?',
-        [user.id, new Date(now.getTime() - DAY).toISOString()],
+        [user.id, new Date(now.getTime() - DAY_MS).toISOString()],
       );
       if ((recent?.n ?? 0) >= MAX_SESSIONS) {
         throw new HttpError(429, 'muitos-logins', 'Muitos logins nesta conta hoje. Tente de novo amanhã.');
@@ -104,7 +90,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         'FROM usuarios WHERE id = ?',
       [s.userId],
     );
-    if (!user) throw new HttpError(401, 'sessao-invalida', 'Sua sessão acabou. Entre de novo para usar a nuvem.');
+    if (!user) throw invalidSession();
     return c.json({ ...account(user), criadoEm: user.criado_em, seguidores: user.seguidores, seguindo: user.seguindo });
   });
 
@@ -114,6 +100,14 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     if (!name) throw new HttpError(400, 'nome-invalido', 'Escreva um nome de 1 a 40 caracteres.');
     await write(deps, [{ sql: 'UPDATE usuarios SET nome = ? WHERE id = ?', params: [name, s.userId] }], 2);
     return c.json({ nome: name });
+  });
+
+  // Trocar o código: o antigo para de funcionar; quem segue continua seguindo (seguir guarda o id).
+  app.post('/v1/eu/codigo', async (c) => {
+    const s = await session(c);
+    const code = await freeCode(deps);
+    await write(deps, [{ sql: 'UPDATE usuarios SET codigo = ? WHERE id = ?', params: [code, s.userId] }], 3);
+    return c.json({ codigo: formatCode(code) });
   });
 
   app.delete('/v1/eu', async (c) => {

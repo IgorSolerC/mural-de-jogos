@@ -33,7 +33,8 @@ jobs:
 
   publicar:
     needs: testes
-    if: github.event_name != 'pull_request'
+    # só a main publica (rodar à mão em outro ramo só testa)
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # Nunca dois deploys ao mesmo tempo (e nunca cancelar um no meio das migrações).
     concurrency:

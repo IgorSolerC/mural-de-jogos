@@ -7,38 +7,19 @@ import { googleVerifier } from '../src/domain/google';
 import { write } from '../src/domain/quota';
 import { toBytes } from '../src/routes/mural';
 import { Config, Db, Deps } from '../src/ports';
+import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller, noGoogle } from './harness';
 
 /**
  * A mesma suíte roda em dois bancos: o D1 (simulado pelo Miniflare, `workers.test.ts`) e o SQLite do
  * Node (`node.test.ts`). Se algo só funcionar num deles, a outra rodada quebra.
  */
-export const BASE_ENV = {
-  MODO: 'ligado',
-  ORIGENS: 'https://igorsolerc.github.io,http://localhost:4200',
-  COTA_LINHAS_DIA: '1000',
-  GOOGLE_CLIENT_ID: 'teste.apps.googleusercontent.com',
-  VER_MURAIS: 'todos',
-};
-
-const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'uso_diario'];
-const NOW = new Date('2026-10-06T15:00:00Z');
-
-export async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {
-  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-export async function gunzip(bytes: ArrayBuffer): Promise<string> {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Response(stream).text();
-}
 
 /** No lugar das chaves do Google: um par gerado na hora, e um segundo par para assinaturas falsas. */
 let googleKey: CryptoKey;
 let otherKey: CryptoKey;
 let publicJwk: JWK;
 
-export interface TokenOptions {
+interface TokenOptions {
   sub?: string;
   aud?: string;
   iss?: string;
@@ -49,7 +30,7 @@ export interface TokenOptions {
 }
 
 /** Um ID token como o que o botão do Google entrega. */
-export async function googleToken(o: TokenOptions = {}): Promise<string> {
+async function googleToken(o: TokenOptions = {}): Promise<string> {
   const jwt = new SignJWT({ ...(o.givenName ? { given_name: o.givenName } : {}), email: 'nao-deve-ser-guardado@example.com' })
     .setProtectedHeader({ alg: 'RS256', kid: 'teste' })
     .setSubject(o.sub ?? '1234567890')
@@ -81,12 +62,7 @@ export function apiSuite(label: string, getDb: () => Db) {
     };
     const app = createApp(deps);
     const call = (path: string, init?: RequestInit) => app.request(`https://api.teste${path}`, init);
-    const json = (method: string, path: string, body?: unknown, token?: string) =>
-      call(path, {
-        method,
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
+    const json = jsonCaller(call);
     /** Entra com um token do Google e devolve a resposta já lida. */
     const login = async (o: TokenOptions = {}, extra: Record<string, unknown> = {}) => {
       const res = await json('POST', '/v1/auth/google', { credential: await googleToken(o), ...extra });
@@ -131,6 +107,13 @@ export function apiSuite(label: string, getDb: () => Db) {
       });
       expect(res.headers.get('Cache-Control')).toBe('no-store');
       expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    });
+
+    it('responde com a hora da nuvem, exposta ao site', async () => {
+      const { call } = await setup();
+      const res = await call('/v1/status', { headers: { Origin: 'https://igorsolerc.github.io' } });
+      expect(res.headers.get('Mural-Agora')).toBe(NOW.toISOString());
+      expect(res.headers.get('Access-Control-Expose-Headers')).toContain('Mural-Agora');
     });
 
     it('endereço desconhecido responde 404 no formato de erro', async () => {
@@ -223,8 +206,8 @@ export function apiSuite(label: string, getDb: () => Db) {
       it('a cota recomeça no dia UTC seguinte', async () => {
         const { db } = await setup({ COTA_LINHAS_DIA: '10' });
         const config = readConfig({ ...BASE_ENV, COTA_LINHAS_DIA: '10' });
-        await write({ db, config, now: () => new Date('2026-10-06T23:59:00Z'), verifyGoogle: null! }, [insert('AAAA1111')], 8);
-        await write({ db, config, now: () => new Date('2026-10-07T00:01:00Z'), verifyGoogle: null! }, [insert('BBBB2222')], 8);
+        await write({ db, config, now: () => new Date('2026-10-06T23:59:00Z'), verifyGoogle: noGoogle }, [insert('AAAA1111')], 8);
+        await write({ db, config, now: () => new Date('2026-10-07T00:01:00Z'), verifyGoogle: noGoogle }, [insert('BBBB2222')], 8);
         expect(await db.all('SELECT dia FROM uso_diario ORDER BY dia')).toEqual([{ dia: '2026-10-06' }, { dia: '2026-10-07' }]);
       });
 
@@ -356,13 +339,13 @@ export function apiSuite(label: string, getDb: () => Db) {
       });
 
       it('guarda no máximo 10 sessões por conta, tirando a usada há mais tempo', async () => {
-        const { db, json } = await setup();
-        const first = await setupLogin(json)();
+        const { db, json, login } = await setup();
+        const first = (await login()).body.token as string;
         // a primeira é a usada há mais tempo; criada_em antiga só para não esbarrar no freio de logins
         await db.batch([{ sql: "UPDATE sessoes SET usada_em = '2026-01-01T00:00:00Z'" }]);
         for (let i = 0; i < 10; i++) {
           await db.batch([{ sql: "UPDATE sessoes SET criada_em = '2026-01-01T00:00:00Z'" }]);
-          await setupLogin(json)();
+          await login();
         }
         expect(await db.all('SELECT * FROM sessoes')).toHaveLength(10);
         expect((await json('GET', '/v1/eu', undefined, first)).status).toBe(401);
@@ -455,13 +438,12 @@ export function apiSuite(label: string, getDb: () => Db) {
       });
 
       it('com a nuvem em só leitura, o GET /v1/eu funciona e o login é recusado', async () => {
-        const { login, db, app } = await setup();
+        const { login, db } = await setup();
         const { token } = (await login()).body;
-        const readOnly = createApp({ db, config: readConfig({ ...BASE_ENV, MODO: 'so-leitura' }), now: () => NOW, verifyGoogle: null! });
+        const readOnly = createApp({ db, config: readConfig({ ...BASE_ENV, MODO: 'so-leitura' }), now: () => NOW, verifyGoogle: noGoogle });
         const headers = { Authorization: `Bearer ${token}` };
         expect((await readOnly.request('https://api.teste/v1/eu', { headers })).status).toBe(200);
         expect((await readOnly.request('https://api.teste/v1/auth/google', { method: 'POST', body: '{}' })).status).toBe(503);
-        void app;
       });
     });
 
@@ -558,13 +540,6 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect((await call('/v1/eu/mural')).status).toBe(401);
         expect((await call('/v1/eu/mural', { method: 'PUT' })).status).toBe(401);
       });
-
-      it('responde com a hora da nuvem, exposta ao site', async () => {
-        const { call } = await setup();
-        const res = await call('/v1/status', { headers: { Origin: 'https://igorsolerc.github.io' } });
-        expect(res.headers.get('Mural-Agora')).toBe(NOW.toISOString());
-        expect(res.headers.get('Access-Control-Expose-Headers')).toContain('Mural-Agora');
-      });
     });
 
     describe('mural público pelo código', () => {
@@ -595,7 +570,7 @@ export function apiSuite(label: string, getDb: () => Db) {
         const { login, push, db } = await setup();
         const { token, conta } = (await login()).body;
         await push(token, 0);
-        const closed = createApp({ db, config: readConfig({ ...BASE_ENV, VER_MURAIS: 'logados' }), now: () => NOW, verifyGoogle: null! });
+        const closed = createApp({ db, config: readConfig({ ...BASE_ENV, VER_MURAIS: 'logados' }), now: () => NOW, verifyGoogle: noGoogle });
         expect((await closed.request(`https://api.teste/v1/murais/${conta.codigo}`)).status).toBe(401);
         const withSession = await closed.request(`https://api.teste/v1/murais/${conta.codigo}`, { headers: { Authorization: `Bearer ${token}` } });
         expect(withSession.status).toBe(200);
@@ -747,19 +722,12 @@ export function apiSuite(label: string, getDb: () => Db) {
       });
 
       it('com a nuvem em só leitura, o correio abre e seguir é recusado', async () => {
-        const { json, ana, bia, deps } = await two();
-        (deps.config as { mode: string }).mode = 'so-leitura';
+        const { db, ana, bia } = await two();
+        const readOnly = createApp({ db, config: readConfig({ ...BASE_ENV, MODO: 'so-leitura' }), now: () => NOW, verifyGoogle: noGoogle });
+        const json = jsonCaller((path, init) => readOnly.request(`https://api.teste${path}`, init));
         expect((await json('GET', '/v1/eu/notificacoes', undefined, bia.token)).status).toBe(200);
         expect((await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token)).status).toBe(503);
       });
     });
   });
-}
-
-/** Um login direto pela rota, devolvendo só o token (para os testes de muitas sessões). */
-function setupLogin(json: (m: string, p: string, b?: unknown, t?: string) => Response | Promise<Response>) {
-  return async () => {
-    const res = await json('POST', '/v1/auth/google', { credential: await googleToken() });
-    return ((await res.json()) as { token: string }).token;
-  };
 }

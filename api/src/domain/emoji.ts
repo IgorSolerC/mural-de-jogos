@@ -7,11 +7,11 @@ const FLAG = /^\p{Regional_Indicator}{2}$/u;
 const KEYCAP = /^[0-9#*]\uFE0F?\u20E3$/u;
 /** O que pode aparecer dentro de um emoji composto, além dos desenhos. */
 const GLUE = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Emoji_Component}|\uFE0F|\u200D|\u20E3|[\u{E0020}-\u{E007F}])+$/u;
+const GRAPHEMES = new Intl.Segmenter('pt-BR', { granularity: 'grapheme' });
 
 export function isEmoji(v: unknown): v is string {
   if (typeof v !== 'string' || !v || v.length > 32) return false;
-  const Seg = (Intl as unknown as { Segmenter?: new (l: string, o: object) => { segment(t: string): Iterable<unknown> } }).Segmenter;
-  if (Seg && [...new Seg('pt-BR', { granularity: 'grapheme' }).segment(v)].length !== 1) return false;
+  if ([...GRAPHEMES.segment(v)].length !== 1) return false;
   if (FLAG.test(v) || KEYCAP.test(v)) return true;
   return PICTO.test(v) && GLUE.test(v) && !/[\p{L}\p{N}]/u.test(v.replace(/[0-9#*]\uFE0F?\u20E3/gu, ''));
 }
