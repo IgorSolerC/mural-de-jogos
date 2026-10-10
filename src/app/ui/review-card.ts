@@ -115,8 +115,9 @@ function watchDistance(el: HTMLElement): () => void {
     '[class.orelha]': 'review().damage === "orelha"',
     // marcando pro lado a lado, a rejogada fica de fora (lá é uma ficha por obra)
     '[class.fora]': 'picking() && !!review().revisitOf',
-    // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra
-    '[class.nota]': 'note()',
+    // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra. Um nome só da
+    // ficha: as páginas que a usam têm `.nota` delas (o bilhete do Feed pintava a anotação de papel)
+    '[class.ficha-anotacao]': 'note()',
     '[class.sem-capa]': 'note() && !review().game.coverUrl',
     // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
     '[class.fixada]': 'note() && review().noteRank === "fixada"',

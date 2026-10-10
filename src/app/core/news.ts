@@ -51,6 +51,24 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-anotacao-sem-papel-atras-no-feed',
+    version: '1.28.15',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'A anotação no Feed sem papel branco atrás',
+    items: [
+      'No Feed, a anotação publicada vinha montada num papel branco serrilhado, que aparecia pelos rasgos e furos da cartolina. Agora ela fica na parede como as outras fichas, e pelos estragos se vê o fundo do site.',
+    ],
+  },
+  {
+    id: '2026-10-10-carregou-pela-metade-sem-carregando',
+    version: '1.28.14',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: '"Carregou pela metade" sem o carregando',
+    items: ['O estrago "Carregou pela metade" não tem mais a rodinha nem a barra de carregando no meio do cinza: fica só a tinta da imagem que parou de carregar.'],
+  },
+  {
     id: '2026-10-10-tamanho-dos-widgets',
     version: '1.28.13',
     kind: 'melhoria',

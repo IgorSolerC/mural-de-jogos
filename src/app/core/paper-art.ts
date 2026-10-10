@@ -5170,8 +5170,8 @@ function acid(W: number, H: number, k: number, r: () => number, out: PaperArt): 
 /**
  * A ficha é uma imagem que parou de carregar: de uma fileira para baixo só o cinza do arquivo
  * incompleto (a última fileira parou no meio, em blocos de 8), com os pixels da última linha escorridos
- * em listras logo abaixo, a grade dos blocos aparecendo de leve e o carregando parado no meio do cinza.
- * Impresso no papel: por baixo do que está escrito.
+ * em listras logo abaixo e a grade dos blocos aparecendo de leve. Impresso no papel: por baixo do que
+ * está escrito.
  */
 function halfLoaded(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
   const kk = Math.max(0.45, k);
@@ -5196,30 +5196,10 @@ function halfLoaded(W: number, H: number, k: number, r: () => number, out: Paper
   let grid = '';
   for (let x = 0; x <= W; x += b * 2) grid += `M${f1(x)} ${f1(y1)}V${f1(H)}`;
   for (let y = y1; y <= H; y += b * 2) grid += `M0 ${f1(y)}H${f1(W)}`;
-  // o carregando parado: a rodinha de pontos ou a barra, no meio do cinza
-  const cx = W * (0.55 + r() * 0.25),
-    cy = Math.min(H - 14 * kk, y1 + (H - y1) * (0.45 + r() * 0.2));
-  let wait = '';
-  if (r() < 0.6) {
-    const R = 9 * kk;
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
-      wait += `<circle cx='${f1(cx + Math.cos(a) * R)}' cy='${f1(cy + Math.sin(a) * R)}' r='${f1(1.6 * kk)}' fill='#fff' fill-opacity='${(0.15 + (i / 10) * 0.75).toFixed(2)}'/>`;
-    }
-  } else {
-    const bw = 64 * kk,
-      bh = 7 * kk;
-    const pct = Math.round((stopRow / rows) * 100);
-    wait =
-      `<rect x='${f1(cx - bw / 2)}' y='${f1(cy - bh / 2)}' width='${f1(bw)}' height='${f1(bh)}' rx='${f1(bh / 2)}' fill='none' stroke='#fff' stroke-opacity='.8' stroke-width='${f1(1 * kk)}'/>` +
-      `<rect x='${f1(cx - bw / 2 + 1.6 * kk)}' y='${f1(cy - bh / 2 + 1.6 * kk)}' width='${f1(((bw - 3.2 * kk) * pct) / 100)}' height='${f1(bh - 3.2 * kk)}' rx='${f1((bh - 3.2 * kk) / 2)}' fill='#fff' fill-opacity='.8'/>` +
-      `<text x='${f1(cx)}' y='${f1(cy + bh + 7 * kk)}' text-anchor='middle' fill='#fff' fill-opacity='.85' font-family='ui-monospace, Consolas, "Courier New", monospace' font-size='${f1(7 * kk)}'>${pct}%</text>`;
-  }
   out.clareia +=
     `<path d='${grey}' fill='rgb(136 136 136)' fill-opacity='.94'/>` +
     `<g>${streaks}</g>` +
-    `<path d='${grid}' fill='none' stroke='#000' stroke-opacity='.05' stroke-width='${f1(0.6 * kk)}'/>` +
-    wait;
+    `<path d='${grid}' fill='none' stroke='#000' stroke-opacity='.05' stroke-width='${f1(0.6 * kk)}'/>`;
 }
 
 // ===================== Manchas da quarta leva =====================
