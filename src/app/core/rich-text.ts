@@ -429,15 +429,53 @@ export function foldedCount(blocks: readonly Block[]): number {
   return blocks.reduce((n, b) => n + (b.kind === 'check' ? (b.folded ?? 0) : 0), 0);
 }
 
+type CheckBlock = Extract<Block, { kind: 'check' }>;
+
+/** Só linhas em branco (ou de espaços). */
+function isBlank(b: Block | undefined): boolean {
+  return b?.kind === 'p' && b.lines.every((l) => l.every((s) => !s.text.trim()));
+}
+
 /**
  * Cada sequência de tarefas sem as feitas de `hide` (as que continuam feitas): elas viram uma
- * conta só, no fim da sequência (`folded`). A sequência toda feita fica só com a conta.
+ * conta só, no fim da sequência (`folded`). Listas separadas só por linhas em branco são a mesma
+ * sequência (só um texto entre elas separa as contas). Uma lista que fica sem nenhuma tarefa sai
+ * com a linha em branco de antes dela; a sequência toda feita fica só com a conta.
  */
 export function foldDone(blocks: readonly Block[], hide: ReadonlySet<number>): Block[] {
-  return blocks.map((b) => {
-    if (b.kind !== 'check') return b;
-    const items = b.items.filter((it) => !(it.done && hide.has(it.line)));
-    const folded = b.items.length - items.length;
-    return folded ? { kind: 'check', items, folded } : b;
-  });
+  const out: Block[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.kind !== 'check') {
+      out.push(b);
+      continue;
+    }
+    // a sequência: esta lista e as que vêm depois de linhas em branco
+    const lists: CheckBlock[] = [b];
+    const gaps: Block[] = [];
+    while (isBlank(blocks[i + 1]) && blocks[i + 2]?.kind === 'check') {
+      gaps.push(blocks[i + 1]);
+      lists.push(blocks[i + 2] as CheckBlock);
+      i += 2;
+    }
+    let folded = 0;
+    const kept: Block[] = [];
+    let last: CheckBlock | null = null;
+    for (let n = 0; n < lists.length; n++) {
+      const items = lists[n].items.filter((it) => !(it.done && hide.has(it.line)));
+      folded += lists[n].items.length - items.length;
+      if (!items.length) continue;
+      if (last) kept.push(gaps[n - 1]);
+      last = { kind: 'check', items };
+      kept.push(last);
+    }
+    if (!folded) {
+      out.push(lists[0], ...lists.slice(1).flatMap((l, n) => [gaps[n], l]));
+      continue;
+    }
+    if (last) last.folded = folded;
+    else kept.push({ kind: 'check', items: [], folded });
+    out.push(...kept);
+  }
+  return out;
 }

@@ -86,6 +86,20 @@ describe('texto com formatação', () => {
       expect([first.items.map((it) => it.line), first.folded]).toEqual([[1, 2, 3], 1]);
     });
 
+    it('listas separadas só por linhas em branco são uma sequência só, com uma conta', () => {
+      const s = '- [x] a\n\n- [ ] b\n\n- [x] c\n\n\n- [ ] d\n- [x] e\n\nTexto\n- [x] f';
+      const blocks = foldDone(parseRich(s), doneLines(s));
+      const shape = blocks.map((b) => (b.kind === 'check' ? [b.items.map((it) => it.spans[0].text), b.folded] : b.kind === 'p' ? b.lines.length : b.kind));
+      // a "a" e a "c" saem com a linha em branco de antes; a conta vai no fim da última lista
+      expect(shape).toEqual([[['b'], undefined], 2, [['d'], 3], 2, [[], 1]]);
+      // tudo feito: só a conta
+      const all = '- [x] a\n\n- [x] b\n\n- [x] c';
+      expect(foldDone(parseRich(all), doneLines(all))).toEqual([{ kind: 'check', items: [], folded: 3 }]);
+      // nada a esconder: os blocos como eram
+      const none = '- [ ] a\n\n- [ ] b';
+      expect(foldDone(parseRich(none), new Set())).toEqual(parseRich(none));
+    });
+
     it('sem nada para esconder, o bloco fica como era', () => {
       const blocks = parseRich('- [ ] a\n- [x] b');
       expect(foldDone(blocks, new Set())).toEqual(blocks);

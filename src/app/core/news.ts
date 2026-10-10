@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-tarefas-feitas-com-espacos',
+    version: '1.24.1',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Uma conta só nas listas com espaços',
+    items: [
+      'Tarefas separadas por linhas em branco agora são uma lista só para a conta das feitas: em vez de uma linha "1 tarefa feita" para cada uma, sai uma só no fim ("31 tarefas feitas"). Só um texto entre as listas separa as contas.',
+    ],
+  },
+  {
     id: '2026-10-09-tarefas-feitas-recolhidas',
     version: '1.24.0',
     kind: 'funcionalidade',
