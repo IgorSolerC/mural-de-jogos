@@ -324,7 +324,9 @@ export class BonusSticker {
   readonly masked = input(false);
   /** Embaralha diferente em cada ficha: o mesmo bônus não se repete igual pelo mural. */
   readonly seed = input('');
-  protected readonly icon = computed(() => (this.masked() ? CircleHelp : bonusIcon(this.bonus())));
+  /** Outro desenho no lugar do da cartela (a categoria de anotação com desenho escolhido). */
+  readonly glyph = input<LucideIconData | null>(null);
+  protected readonly icon = computed(() => (this.masked() ? CircleHelp : (this.glyph() ?? bonusIcon(this.bonus()))));
   protected readonly label = computed(() =>
     this.masked() ? scramble(this.bonus().label, `${this.seed()}:${this.bonus().id}`) : this.bonus().label,
   );

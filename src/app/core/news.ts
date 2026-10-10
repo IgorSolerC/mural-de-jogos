@@ -51,6 +51,30 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-icone-e-cor-das-categorias',
+    version: '1.28.0',
+    kind: 'funcionalidade',
+    date: '2026-10-10',
+    title: 'Ícone e cor para as categorias',
+    items: [
+      'No editor da anotação, "Ícone e cor" ao lado da categoria escolhe o desenho dela e a cor da etiqueta. Vale para todas as anotações daquela categoria.',
+      'Com cor, o desenho e o nome ficam numa etiqueta de borda colorida fina dentro da orelha da ficha e da aba em cima da busca. Sem cor, tudo fica como era.',
+      'As abas das categorias agora mostram o desenho de cada uma.',
+      'Com conta, o ícone e a cor valem em todos os seus aparelhos. Quem abre o seu mural vê as categorias do jeito de sempre.',
+    ],
+  },
+  {
+    id: '2026-10-10-cartela-de-categorias-menor',
+    version: '1.27.5',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A cartela de categorias mais curta',
+    items: [
+      'Nas anotações, a cartela de categorias vem só com Trabalho e Estudos. As outras você escreve à mão, e cada uma fica na cartela depois de usada.',
+      'Quem já usa Receitas, Diário ou outra da cartela de antes continua com ela, com o mesmo desenho.',
+    ],
+  },
+  {
     id: '2026-10-10-ficha-com-faixa-mais-alta',
     version: '1.27.4',
     kind: 'melhoria',

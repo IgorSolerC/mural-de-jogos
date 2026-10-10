@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, LucideIconData, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -39,6 +39,7 @@ import { NotePin } from '../core/note-pin';
 import { WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
 import { NoteTag } from './note-tag';
+import { categoryIcon } from './category-label';
 import { categoryBonus } from '../core/note-labels';
 
 
@@ -147,7 +148,7 @@ import { categoryBonus } from '../core/note-labels';
                 @if (r.category || r.tags?.length) {
                   <ul class="judgement categorias" aria-label="Categoria e tags">
                     @if (r.category) {
-                      <li><app-bonus-sticker [bonus]="categorySticker(r.category)" [index]="0" [seed]="r.id" /><span class="sr-only"> (categoria)</span></li>
+                      <li><app-bonus-sticker [bonus]="categorySticker(r.category)" [glyph]="categoryGlyph(r.category)" [index]="0" [seed]="r.id" /><span class="sr-only"> (categoria)</span></li>
                     }
                     @for (t of r.tags ?? []; track t; let i = $index) {
                       <li><app-note-tag [label]="t" [index]="i + 1" /><span class="sr-only"> (tag)</span></li>
@@ -313,6 +314,11 @@ export class ReviewReader {
   protected readonly BackIcon = ArrowLeft;
   protected readonly ReopenIcon = RotateCcw;
   protected readonly categorySticker = categoryBonus;
+  /** O desenho escolhido para a categoria, só nas suas anotações (ver core/category-looks.ts). */
+  protected categoryGlyph(category: string): LucideIconData | null {
+    const look = this.owner() === null ? this.settings.categoryLook(category) : {};
+    return look.icon ? categoryIcon(category, look) : null;
+  }
   protected readonly PinIcon = PinGlyph;
   protected readonly UnpinIcon = PinOff;
   private readonly store = inject(ReviewStore);

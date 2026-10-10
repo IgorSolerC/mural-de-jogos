@@ -29,7 +29,7 @@
         <div class="previa-slot" #previewSlot>
           <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
             <div class="previa" inert>
-              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [empty]="notes() ? !noteTitle().trim() : !game()" />
+              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [own]="true" [empty]="notes() ? !noteTitle().trim() : !game()" />
             </div>
           </div>
         </div>

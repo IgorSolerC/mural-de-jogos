@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
+import { CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
 const KEY = SETTINGS_KEY;
@@ -53,6 +54,13 @@ interface Stored {
   pinnedTags: string[];
   /** Quando as tags fixas mudaram pela última vez (ISO; vazio: nunca). */
   pinnedTagsAt: string;
+  /**
+   * O desenho e a cor de cada categoria das anotações (ver core/category-looks.ts). Com conta, os
+   * mudados por último valem em todos os aparelhos, como as tags fixas.
+   */
+  categoryLooks: CategoryLooks;
+  /** Quando os jeitos das categorias mudaram pela última vez (ISO; vazio: nunca). */
+  categoryLooksAt: string;
 }
 
 export type FriendKinds = 'misturado' | 'separado';
@@ -86,7 +94,9 @@ function readStored(): Stored {
   const friendKinds: FriendKinds = raw.friendKinds === 'separado' ? 'separado' : 'misturado';
   const pinnedTags = sanitizeTags(raw.pinnedTags, MAX_PINNED_TAGS);
   const pinnedTagsAt = typeof raw.pinnedTagsAt === 'string' && Number.isFinite(Date.parse(raw.pinnedTagsAt)) ? raw.pinnedTagsAt : '';
-  return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt };
+  const categoryLooks = sanitizeCategoryLooks(raw.categoryLooks);
+  const categoryLooksAt = typeof raw.categoryLooksAt === 'string' && Number.isFinite(Date.parse(raw.categoryLooksAt)) ? raw.categoryLooksAt : '';
+  return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt };
 }
 
 /**
@@ -123,6 +133,10 @@ export class Settings {
   readonly pinnedTags = signal<readonly string[]>(this.stored.pinnedTags);
   /** Ver `Stored.pinnedTagsAt`. */
   readonly pinnedTagsAt = signal(this.stored.pinnedTagsAt);
+  /** Ver `Stored.categoryLooks`. */
+  readonly categoryLooks = signal<CategoryLooks>(this.stored.categoryLooks);
+  /** Ver `Stored.categoryLooksAt`. */
+  readonly categoryLooksAt = signal(this.stored.categoryLooksAt);
 
   /** A tag é fixa? (sem ligar para caixa nem acento) */
   isPinnedTag(tag: string): boolean {
@@ -140,6 +154,25 @@ export class Settings {
   applyPinnedTags(tags: readonly string[], at: string): void {
     this.pinnedTags.set(sanitizeTags(tags, MAX_PINNED_TAGS));
     this.pinnedTagsAt.set(at);
+  }
+
+  /** O jeito escolhido para a categoria (vazio: o de sempre). */
+  categoryLook(category: string): CategoryLook {
+    return this.categoryLooks()[lookKey(category)] ?? {};
+  }
+
+  /** Troca o desenho e a cor da categoria (sem nenhum dos dois, ela volta ao de sempre); vale como a mais nova. */
+  setCategoryLook(category: string, look: CategoryLook): void {
+    const key = lookKey(category);
+    const { [key]: _, ...rest } = this.categoryLooks();
+    this.categoryLooks.set(sanitizeCategoryLooks(look.icon || look.color ? { ...rest, [key]: look } : rest));
+    this.categoryLooksAt.set(new Date().toISOString());
+  }
+
+  /** Os jeitos que vieram de outro aparelho (mudados depois dos daqui). */
+  applyCategoryLooks(looks: CategoryLooks, at: string): void {
+    this.categoryLooks.set(sanitizeCategoryLooks(looks));
+    this.categoryLooksAt.set(at);
   }
 
   /** A pessoa mudou uma chave (digitou, colou ou apagou): a mudança vale como a mais nova. */
@@ -173,6 +206,8 @@ export class Settings {
         friendKinds: this.friendKinds(),
         pinnedTags: [...this.pinnedTags()],
         pinnedTagsAt: this.pinnedTagsAt(),
+        categoryLooks: this.categoryLooks(),
+        categoryLooksAt: this.categoryLooksAt(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

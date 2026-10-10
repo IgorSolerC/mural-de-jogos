@@ -85,6 +85,7 @@ export class ColleagueWallPage {
     secret: this.visit.hidden(),
     reactCode: this.visit.code(),
     checkable: false,
+    own: false,
   }));
 
   /** "34 jogos · média 7,1". Com fichas em segredo, quantas; nas anotações, quantas já foram finalizadas. */

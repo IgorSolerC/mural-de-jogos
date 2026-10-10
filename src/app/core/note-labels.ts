@@ -45,10 +45,16 @@ export function sanitizeTags(raw: unknown, max = MAX_TAGS): string[] {
   return [...out.values()];
 }
 
-/** As categorias prontas do mural de anotações (a cartela), com os desenhos delas. */
+/**
+ * As categorias conhecidas do mural de anotações, com os desenhos delas. Só as de `DEFAULT_CATEGORIES`
+ * vêm na cartela; as outras eram da cartela de antes e guardam o desenho de sempre em quem já usa.
+ */
 export function categoryPresets(): readonly Bonus[] {
   return profileOf('anotacoes').bonuses;
 }
+
+/** As categorias que vêm na cartela de quem ainda não escreveu nenhuma. */
+export const DEFAULT_CATEGORIES: readonly string[] = ['trabalho', 'estudos'];
 
 /**
  * A categoria como adesivo: a da cartela (com o desenho dela), ou a escrita à mão, com o desenho de
@@ -106,9 +112,9 @@ export function tagLibrary(notes: readonly Review[], pinned: readonly string[], 
   return [...fixed, ...rest];
 }
 
-/** As categorias à mão no editor: a cartela pronta e, depois, as escritas à mão nas anotações (de A a Z). */
+/** As categorias à mão no editor: a cartela pronta e, depois, as usadas nas anotações (de A a Z). */
 export function categoryLibrary(notes: readonly Review[]): Bonus[] {
-  const presets = categoryPresets();
+  const presets = DEFAULT_CATEGORIES.map((id) => categoryPresets().find((b) => b.id === id)!);
   const known = new Set(presets.map((b) => fold(b.label)));
   const custom = new Map<string, string>();
   for (const n of notes) {

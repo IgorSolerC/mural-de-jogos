@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
-import { ChevronUp, LucideAngularModule, Plus, Star, StarOff, Sticker, X } from 'lucide-angular';
+import { ChevronUp, LucideAngularModule, LucideIconData, Palette, Plus, Star, StarOff, Sticker, X } from 'lucide-angular';
 import { Bonus, fold } from '../core/review';
 import { LABEL_MAX, MAX_TAGS, TagEntry, categoryBonus, cleanCategory, cleanTag } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { BonusSticker } from './bonus';
+import { CATEGORY_ICON } from './category-label';
+import { CategoryStyle } from './category-style';
 import { NoteTag } from './note-tag';
 
 let uid = 0;
@@ -19,7 +21,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-note-labels-picker',
-  imports: [LucideAngularModule, BonusSticker, NoteTag],
+  imports: [LucideAngularModule, BonusSticker, NoteTag, CategoryStyle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- ===== Categoria ===== -->
@@ -29,6 +31,10 @@ let uid = 0;
         <!-- as ações da categoria, à direita do título: o mesmo risco de pincel das outras ações do editor -->
         <div class="acoes">
           @if (category() && !open()) {
+            <button type="button" class="toggle" [attr.aria-expanded]="styling()" [attr.aria-controls]="id + '-jeito'" (click)="styling.set(!styling())">
+              <lucide-icon [img]="styling() ? CloseIcon : PaletteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              Ícone e cor
+            </button>
             <button type="button" class="toggle" (click)="category.set(null)" [attr.aria-label]="'Tirar a categoria ' + category()">
               <lucide-icon [img]="RemoveIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
               Tirar
@@ -45,7 +51,7 @@ let uid = 0;
           <div class="slots">
             @for (b of options(); track b.id) {
               <button type="button" class="slot" [attr.aria-pressed]="isChosen(b)" (click)="pick(b)">
-                <app-bonus-sticker [bonus]="b" [ghost]="!isChosen(b)" [index]="isChosen(b) ? 0 : null" />
+                <app-bonus-sticker [bonus]="b" [glyph]="glyphOf(b.label)" [ghost]="!isChosen(b)" [index]="isChosen(b) ? 0 : null" />
               </button>
             }
             @if (writing()) {
@@ -71,8 +77,14 @@ let uid = 0;
         </div>
       } @else if (category(); as c) {
         <div class="colada">
-          <app-bonus-sticker [bonus]="sticker(c)" [index]="0" />
+          <app-bonus-sticker [bonus]="sticker(c)" [glyph]="glyphOf(c)" [index]="0" />
         </div>
+        <!-- o ícone e a cor da categoria: valem para todas as anotações dela, na orelha e na aba -->
+        @if (styling()) {
+          @defer (on immediate) {
+            <app-category-style [id]="id + '-jeito'" [category]="c" />
+          }
+        }
       } @else {
         <p class="hint">O assunto da anotação, um só: {{ examples() }} O mural agrupa e filtra por ela.</p>
       }
@@ -539,6 +551,10 @@ export class NoteLabelsPicker {
   protected readonly RemoveIcon = X;
   protected readonly StarIcon = Star;
   protected readonly UnpinIcon = StarOff;
+  protected readonly PaletteIcon = Palette;
+
+  /** A folha do ícone e da cor, aberta. */
+  protected readonly styling = signal(false);
 
   protected readonly open = signal(false);
   protected readonly writing = signal(false);
@@ -564,8 +580,8 @@ export class NoteLabelsPicker {
   });
 
   protected readonly examples = computed(() => {
-    const [a, b, c] = this.categories();
-    return a && b && c ? `${a.label}, ${b.label}, ${c.label}…` : '';
+    const [a, b] = this.categories();
+    return a && b ? `${a.label}, ${b.label}…` : '';
   });
 
   protected isChosen(b: Bonus): boolean {
@@ -603,8 +619,15 @@ export class NoteLabelsPicker {
 
   protected readonly optionCount = computed(() => this.suggestions().length + (this.newTag() ? 1 : 0));
 
+  /** O ícone escolhido para a categoria na cartela (o de sempre: null, e o adesivo usa o dele). */
+  protected glyphOf(category: string): LucideIconData | null {
+    const look = this.settings.categoryLook(category);
+    return look.icon ? CATEGORY_ICON[look.icon] : null;
+  }
+
   /** Outra anotação: esquece o que foi escrito na anterior. */
   reset(): void {
+    this.styling.set(false);
     this.written.set([]);
     this.writing.set(false);
     this.open.set(false);
@@ -614,6 +637,7 @@ export class NoteLabelsPicker {
 
   protected setOpen(open: boolean): void {
     this.open.set(open);
+    if (open) this.styling.set(false);
     if (!open) this.writing.set(false);
   }
 
@@ -621,6 +645,7 @@ export class NoteLabelsPicker {
   protected pick(b: Bonus): void {
     this.category.set(this.isChosen(b) ? null : b.label);
     this.open.set(false);
+    this.styling.set(false);
   }
 
   protected startWriting(): void {

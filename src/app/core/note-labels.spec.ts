@@ -40,6 +40,17 @@ describe('categoria e tags das anotações', () => {
     expect(lib.filter((b) => b.label === 'Trabalho').length).toBe(1);
   });
 
+  it('a cartela vem só com Trabalho e Estudos; as da cartela de antes, já usadas, guardam o desenho', () => {
+    expect(categoryLibrary([]).map((b) => b.label)).toEqual(['Trabalho', 'Estudos']);
+    const lib = categoryLibrary([note('n1', { category: 'Receitas' }), note('n2', { category: 'Diário' })]);
+    expect(lib.map((b) => [b.id, b.label])).toEqual([
+      ['trabalho', 'Trabalho'],
+      ['estudos', 'Estudos'],
+      ['diario', 'Diário'],
+      ['receitas', 'Receitas'],
+    ]);
+  });
+
   it('as tags à mão: as fixas primeiro (mesmo sem uso), depois as mais usadas', () => {
     const notes = [note('n1', { tags: ['UI', 'Bugfix'] }), note('n2', { tags: ['bugfix'] }), note('n3', { tags: ['Docs'] })];
     expect(tagLibrary(notes, ['Feature', 'UI']).map((t) => [t.label, t.n, t.pinned])).toEqual([

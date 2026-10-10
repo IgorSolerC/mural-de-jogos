@@ -29,7 +29,8 @@ import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
 import { checkCount, hasInteractive, plainText } from '../core/rich-text';
 import { Rabisco } from './rabisco';
-import { BonusSticker, BonusTally, bonusIcon, spokenTally } from './bonus';
+import { BonusSticker, BonusTally, spokenTally } from './bonus';
+import { CategoryLabel } from './category-label';
 import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
 import { JudgeLabel } from './judge-label';
@@ -54,6 +55,7 @@ import { WallView } from '../core/wall-view';
 import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
+import { Settings } from '../core/settings';
 import type { ReactionTarget } from '../core/reactions';
 import { parseWidgetLine, readAudio } from '../core/widgets';
 
@@ -84,7 +86,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta, DoneStamp, NoteTag],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -133,9 +135,8 @@ function watchDistance(el: HTMLElement): () => void {
          saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
          para o leitor de tela) -->
     @if (note() && !capas() && noteLabels().category; as c) {
-      <span #abaCat class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" aria-hidden="true">
-        <lucide-icon class="aba-cat-icone" [img]="catIcon()!" [size]="compact() ? 12 : 13" [strokeWidth]="2.6" />
-        <span class="aba-cat-nome">{{ c.label }}</span>
+      <span #abaCat class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" [class.com-cor]="!!catLook().color" aria-hidden="true">
+        <app-cat-label [label]="c.label" [look]="catLook()" [iconSize]="compact() ? 12 : 13" />
       </span>
     }
 
@@ -837,16 +838,7 @@ function watchDistance(el: HTMLElement): () => void {
       left: 30px;
       max-width: calc(100% - 30px - 60px);
     }
-    .aba-cat-icone {
-      flex: none;
-      display: inline-flex;
-      opacity: 0.8;
-    }
-    .aba-cat-nome {
-      min-width: 0;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
+    .aba-cat app-cat-label {
       font-family: var(--f-marker);
       font-size: 0.94rem;
       line-height: 1.2;
@@ -856,8 +848,20 @@ function watchDistance(el: HTMLElement): () => void {
       height: 38px;
       padding: 4px 9px 10px 8px;
     }
-    :host(.compact) .aba-cat-nome {
+    :host(.compact) .aba-cat app-cat-label {
       font-size: 0.84rem;
+    }
+    /* com cor, o nome vai numa etiqueta de borda colorida, solta da beirada: a orelha sobe um pouco e
+       aperta o recuo, para a etiqueta ficar a uns 4px da beirada em cima, dos lados e da cartolina */
+    .aba-cat.com-cor {
+      top: -33px;
+      height: 48px;
+      padding: 4px 5px 19px;
+    }
+    :host(.compact) .aba-cat.com-cor {
+      top: -29px;
+      height: 43px;
+      padding: 4px 5px 17px;
     }
     @media (prefers-reduced-motion: reduce) {
       .aba-cat {
@@ -1501,6 +1505,8 @@ export class ReviewCard {
   readonly checkable = input(false);
   /** O código do dono do mural, para mostrar as reações da ficha (ver core/reactions.ts); null, sem reações. */
   readonly reactCode = input<string | null>(null);
+  /** A ficha é sua (o seu mural, o editor): a orelha leva o desenho e a cor que você escolheu para a categoria. */
+  readonly own = input(false);
   readonly opened = output<string>();
   readonly toggled = output<string>();
 
@@ -1521,6 +1527,7 @@ export class ReviewCard {
   private readonly noteDone = inject(NoteDone);
   private readonly view = inject(WallView);
   private readonly motion = inject(WallMotion);
+  private readonly settings = inject(Settings);
 
   /** Quando a anotação foi finalizada (o carimbo), ou null. */
   protected readonly doneAt = computed(() => (this.note() && !this.bare() ? (this.review().doneAt ?? null) : null));
@@ -1681,10 +1688,10 @@ export class ReviewCard {
     return { category: r.category ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
   });
 
-  /** O desenho da categoria na orelha (a da cartela, ou a pasta da escrita à mão). */
-  protected readonly catIcon = computed(() => {
-    const c = this.noteLabels().category;
-    return c ? bonusIcon(c) : null;
+  /** O desenho e a cor da categoria na orelha: os escolhidos, só nas suas fichas (nas dos outros, o de sempre). */
+  protected readonly catLook = computed(() => {
+    const c = this.review().category;
+    return c && this.own() ? this.settings.categoryLook(c) : {};
   });
 
   /** A ficha como alvo das reações: o mural de quem e qual ficha. */
