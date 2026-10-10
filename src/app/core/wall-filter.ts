@@ -180,7 +180,7 @@ export const FACET_TITLE: Record<FacetKey, string> = {
   tag: 'Tags',
 };
 
-const GRADE_LABEL: Record<GradeBand, string> = {
+export const GRADE_LABEL: Record<GradeBand, string> = {
   '9': '9 ou mais',
   '8': 'Na casa do 8',
   '7': 'Na casa do 7',

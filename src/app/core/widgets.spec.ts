@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { httpsUrl, parseVideo, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
+import { Frame, httpsUrl, parseVideo, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -127,6 +127,12 @@ describe('widgets das anotações', () => {
       expect(img.write({ url: 'https://x.com/a.jpg', caption: ' Praia ', frame: 'polaroid' })).toEqual(['https://x.com/a.jpg', 'Praia', 'polaroid']);
       expect(img.write({ url: 'https://x.com/a.jpg', frame: 'foto' })).toEqual(['https://x.com/a.jpg']);
       expect(img.write({ url: 'http://x.com/a.jpg' })).toBeNull();
+      // a legenda que é o nome de uma moldura volta como legenda, e a moldura escolhida também
+      for (const [caption, frame] of [['Recorte', 'polaroid'], ['Foto', 'foto'], ['Polaroide', 'recorte']]) {
+        expect(readMedia(img.write({ url: 'https://x.com/a.jpg', caption, frame })!)).withContext(caption).toEqual({ url: 'https://x.com/a.jpg', frame: frame as Frame, caption });
+      }
+      // só as palavras da lista são moldura
+      expect(readMedia(['https://x.com/a.jpg', 'Constructor'])).toEqual({ url: 'https://x.com/a.jpg', frame: 'foto', caption: 'Constructor' });
       expect(img.problem!({ url: 'http://x.com/a.jpg' })).toContain('https://');
       expect(img.read(['https://x.com/a.jpg', 'recorte'])).toEqual({ url: 'https://x.com/a.jpg', caption: '', frame: 'recorte' });
       const vid = widgetDef('vídeo')!;

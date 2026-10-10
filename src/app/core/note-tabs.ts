@@ -85,7 +85,7 @@ export function hasTab(tabs: NoteTabs, key: string): boolean {
  */
 export function splitTabs(tabs: readonly NoteTab[], active: string, fits: (shown: readonly NoteTab[], more: boolean) => boolean = () => true): { shown: NoteTab[]; more: NoteTab[] } {
   // a ordem de quem fica: a aberta primeiro, depois as maiores (no empate, a que vem antes)
-  const byWeight = [...tabs].sort((a, b) => (b.key === active ? 1 : 0) - (a.key === active ? 1 : 0) || b.n - a.n || b.total - a.total || tabs.indexOf(a) - tabs.indexOf(b));
+  const byWeight = [...tabs].sort((a, b) => (b.key === active ? 1 : 0) - (a.key === active ? 1 : 0) || b.n - a.n || b.total - a.total);
   let keep = Math.min(tabs.length, MAX_TABS - 1);
   const pick = (k: number) => new Set(byWeight.slice(0, k).map((t) => t.key));
   while (keep > 0 && !fits(tabs.filter((t) => pick(keep).has(t.key)), keep < tabs.length)) keep--;

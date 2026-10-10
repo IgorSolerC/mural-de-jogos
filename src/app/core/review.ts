@@ -388,11 +388,6 @@ export function audienceFields(a: Audience, prev: Pick<Review, 'private' | 'quie
   return { ...(a === 'visivel' ? { quiet: true as const } : {}), ...(published ? { publishedAt: published } : {}) };
 }
 
-/** É uma rejogada (releitura, reassistida) de outra ficha? */
-export function isRevisit(r: Pick<Review, 'revisitOf'>): boolean {
-  return !!r.revisitOf;
-}
-
 /** Só as fichas originais, uma por obra: o que entra em nota, ranking, jogos e comparações. */
 export function originalsOf<T extends Pick<Review, 'revisitOf'>>(list: readonly T[]): T[] {
   return list.filter((r) => !r.revisitOf);
@@ -749,7 +744,7 @@ const reviewMonthOnlyFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
 const longDayFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 const longMonthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
-/** "15 mar 2024", "mar 2024" ou "2024"; com `dayOnly` (o mês já está na seção), "15 mar" ou "mar". */
+/** "15 de mar de 2024", "mar de 2024" ou "2024"; com `dayOnly` (o mês já está na seção), "15 de mar" ou "mar". */
 export function formatReviewDate(date: string | null, dayOnly = false): string {
   if (date === null) return 'Sem data';
   if (isYearOnly(date)) return date;
@@ -765,12 +760,14 @@ export function formatReviewDateLong(date: string | null): string {
   return longDayFmt.format(parseDay(date));
 }
 
+const GRAPHEMES = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter('pt-BR', { granularity: 'grapheme' }) : null;
+
 /** A primeira letra do nome, maiúscula, para o "sem capa": um grafema inteiro (emoji e acento juntos). */
 export function initialOf(name: string): string {
   const t = name.trim();
   if (!t) return '?';
-  const Seg = (Intl as any).Segmenter;
-  const first: string = Seg ? new Seg('pt-BR', { granularity: 'grapheme' }).segment(t)[Symbol.iterator]().next().value.segment : [...t][0];
+  // sem Intl.Segmenter (navegador antigo), o primeiro caractere
+  const first = GRAPHEMES ? [...GRAPHEMES.segment(t)][0].segment : [...t][0];
   return first.toUpperCase();
 }
 
@@ -1067,4 +1064,10 @@ export function storedNote(r: Review): Omit<Review, 'scores'> & { scores?: never
 /** Normaliza texto para busca: sem acento, minúsculo. */
 export function fold(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/** A letra da seção de um nome, de A a Z ("#" para o resto: número, outra escrita). */
+export function letterOf(name: string): string {
+  const c = fold(name.trim()).charAt(0).toUpperCase();
+  return /[A-Z]/.test(c) ? c : '#';
 }

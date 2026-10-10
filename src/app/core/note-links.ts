@@ -1,5 +1,5 @@
 import { Review, fold, isNote } from './review';
-import { LINK, lineKind, splitLink } from './rich-text';
+import { LINK, lineKind, linesOf, noteLinksOf, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
 
 /**
  * Os links entre anotações: "[[Comprar um console]]" no texto de uma anotação aponta para a
@@ -21,9 +21,15 @@ export function linkKey(title: string): string {
   return fold(title).trim().replace(/\s+/g, ' ');
 }
 
-/** Os títulos dos links do texto, como foram escritos ("[[Título|texto]]" conta o título). */
+/**
+ * Os títulos dos links do texto, como foram escritos ("[[Título|texto]]" conta o título). Só os que a
+ * leitura mostra como link: os de dentro de um código ou escapados ("\[[x]]") são texto.
+ */
 export function linksIn(text: string): string[] {
-  return [...text.matchAll(LINK)].map((m) => splitLink(m[1]).title).filter(Boolean);
+  return proseLines(text)
+    .flatMap(({ line }) => noteLinksOf(line))
+    .map((l) => splitLink(l.inner).title)
+    .filter(Boolean);
 }
 
 /** As anotações de uma lista de fichas. */
@@ -46,12 +52,17 @@ export function resolveNote(notes: readonly Review[], title: string): Review | n
 /** Troca, no texto, os links para `from` por links para `to`; o texto escolhido de cada um fica (o resto, como estava). */
 export function renameLinks(text: string, from: string, to: string): string {
   const key = linkKey(from);
-  return text.replace(LINK, (all, inner: string) => {
+  const rename = (inner: string, all: string) => {
     const bar = inner.indexOf('|');
     const title = bar === -1 ? inner : inner.slice(0, bar);
     if (linkKey(title) !== key) return all;
     return bar === -1 ? `[[${to.trim()}]]` : `[[${to.trim()}${inner.slice(bar)}]]`;
-  });
+  };
+  // só os links que a leitura mostra (ver `linksIn`): o código e os escapados ficam como estão
+  const prose = new Set(proseLines(text).map((l) => l.at));
+  const lines = linesOf(text);
+  const out = lines.map((line, i) => (prose.has(i) ? replaceNoteLinks(line, rename) : line)).join('\n');
+  return out === lines.join('\n') ? text : out;
 }
 
 /** Um título que um link consegue escrever: "[[Compras [casa]]]" não seria lido como link (e "|" separa o texto). */
@@ -88,7 +99,8 @@ export function relinkAfterRename(notes: readonly Review[], before: Review, titl
 export function parentNoteOf(note: Review, notes: readonly Review[]): Review | null {
   let best: Review | null = null;
   for (const n of notes) {
-    if (n.id === note.id || (best && n.createdAt >= best.createdAt)) continue;
+    // no mesmo instante, a de menor id (a mesma ordem de `backlinksOf`)
+    if (n.id === note.id || (best && (n.createdAt > best.createdAt || (n.createdAt === best.createdAt && n.id > best.id)))) continue;
     if (linksIn(n.text).some((t) => resolveNote(notes, t)?.id === note.id)) best = n;
   }
   return best;
@@ -115,13 +127,13 @@ const BEFORE_MAX = 40;
  */
 export function backlinkLine(from: Review, note: Review, notes: readonly Review[]): { before: string; link: string; after: string } | null {
   const plain = (s: string) => s.replace(LINK, (_all, inner: string) => splitLink(inner).label);
-  for (const raw of from.text.replace(/\r\n?/g, '\n').split('\n')) {
+  for (const { line: raw } of proseLines(from.text)) {
     const line = raw.replace(/^\s*(?:[-*•]\s+(?:\[[ xX]\]\s*)?|\d{1,4}[.)]\s+|#{1,3}\s+|>\s?)/, '');
-    const hit = [...line.matchAll(LINK)].find((m) => resolveNote(notes, splitLink(m[1]).title)?.id === note.id);
+    const hit = noteLinksOf(line).find((l) => resolveNote(notes, splitLink(l.inner).title)?.id === note.id);
     if (!hit) continue;
-    let before = plain(line.slice(0, hit.index)).trimStart();
+    let before = plain(line.slice(0, hit.at)).trimStart();
     if (before.length > BEFORE_MAX) before = '…' + before.slice(-BEFORE_MAX).replace(/^\S*\s/, '');
-    return { before, link: splitLink(hit[1]).label, after: plain(line.slice(hit.index + hit[0].length)).trimEnd() };
+    return { before, link: splitLink(hit.inner).label, after: plain(line.slice(hit.at + hit.length)).trimEnd() };
   }
   return null;
 }
@@ -132,22 +144,16 @@ export function backlinkLine(from: Review, note: Review, notes: readonly Review[
  * própria `selfId`). É o que a ficha oferece finalizar junto.
  */
 export function linkedOnCheckedTask(text: string, line: number, notes: readonly Review[], selfId: string): Review[] {
-  const l = text.replace(/\r\n?/g, '\n').split('\n')[line];
-  const k = l === undefined ? null : lineKind(l);
-  if (k?.kind !== 'check' || !k.done) return [];
+  // uma tarefa feita (a de dentro de um bloco de código não é tarefa)
+  if (!tasksOf(text).get(line)) return [];
+  const k = lineKind(linesOf(text)[line]);
+  if (k.kind !== 'check') return [];
   const out: Review[] = [];
   for (const title of linksIn(k.rest)) {
     const n = resolveNote(notes, title);
     if (n && n.id !== selfId && !n.doneAt && !out.includes(n)) out.push(n);
   }
   return out;
-}
-
-/** Outra anotação, que não a `id`, já tem esse título? */
-export function sameTitle(notes: readonly Review[], title: string, id: string): Review | null {
-  const key = linkKey(title);
-  if (!key) return null;
-  return notes.find((n) => n.id !== id && linkKey(n.game.name) === key) ?? null;
 }
 
 /**

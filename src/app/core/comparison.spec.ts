@@ -1,4 +1,4 @@
-import { commonReviews, compareCollections, unseenOf } from './comparison';
+import { compareCollections, unseenOf } from './comparison';
 import { Review, sanitizeReview } from './review';
 
 function review(
@@ -31,11 +31,11 @@ describe('obras em comum', () => {
       { source: 'openlibrary', sourceId: 'OL82565W' },
       { kind: 'livros' },
     );
-    const [pair] = commonReviews([mine], [theirs]);
+    const [pair] = compareCollections([mine], [theirs]).pairs;
     expect(pair.mine).toBe(mine);
     expect(pair.theirs).toBe(theirs);
     expect(pair.difference).toBe(3);
-    expect(commonReviews([mine], [review('minha1', 'Outra obra')])).toEqual([]);
+    expect(compareCollections([mine], [review('minha1', 'Outra obra')]).pairs).toEqual([]);
   });
 
   it('combina nomes sem acentos e pontuação, inclusive catálogo versus cadastro manual', () => {
@@ -44,25 +44,25 @@ describe('obras em comum', () => {
       sourceId: '123',
     });
     const theirs = review('outra1', 'pokemon emerald');
-    expect(commonReviews([mine], [theirs]).length).toBe(1);
+    expect(compareCollections([mine], [theirs]).pairs.length).toBe(1);
   });
 
   it('não confunde remakes, adaptações nem IDs diferentes no mesmo catálogo', () => {
     const original = review('minha1', 'God of War', { year: '2005' });
     expect(
-      commonReviews([original], [review('outra1', 'God of War (2018)')]),
+      compareCollections([original], [review('outra1', 'God of War (2018)')]).pairs,
     ).toEqual([]);
     expect(
-      commonReviews(
+      compareCollections(
         [review('minha1', 'Duna', {}, { kind: 'livros' })],
         [review('outra1', 'Duna', {}, { kind: 'filmes' })],
-      ),
+      ).pairs,
     ).toEqual([]);
     expect(
-      commonReviews(
+      compareCollections(
         [review('minha1', 'Hades', { source: 'rawg', sourceId: '1' })],
         [review('outra1', 'Hades', { source: 'rawg', sourceId: '2' })],
-      ),
+      ).pairs,
     ).toEqual([]);
   });
 
@@ -74,7 +74,7 @@ describe('obras em comum', () => {
       { kind: 'livros' },
     );
     expect(
-      commonReviews(
+      compareCollections(
         [mine],
         [
           review(
@@ -84,13 +84,13 @@ describe('obras em comum', () => {
             { kind: 'livros' },
           ),
         ],
-      ).length,
+      ).pairs.length,
     ).toBe(1);
     expect(
-      commonReviews(
+      compareCollections(
         [mine],
         [review('outra2', 'Duna', { by: 'Outro autor' }, { kind: 'livros' })],
-      ),
+      ).pairs,
     ).toEqual([]);
   });
 
@@ -99,8 +99,8 @@ describe('obras em comum', () => {
       review('original1', 'God of War', { year: '2005' }),
       review('remake1', 'God of War', { year: '2018' }),
     ];
-    expect(commonReviews(two, [review('outra1', 'God of War')])).toEqual([]);
-    expect(commonReviews([review('minha1', 'God of War')], two)).toEqual([]);
+    expect(compareCollections(two, [review('outra1', 'God of War')]).pairs).toEqual([]);
+    expect(compareCollections([review('minha1', 'God of War')], two).pairs).toEqual([]);
   });
 
   it('escolhe a resenha mais recente da mesma obra e prioriza o catálogo', () => {
@@ -110,10 +110,10 @@ describe('obras em comum', () => {
       updatedAt: '2025-01-01T00:00:00Z',
     });
     const theirs = review('other1', 'Hades', game);
-    const pairs = commonReviews(
+    const pairs = compareCollections(
       [review('manual1', 'Hades'), old, recent],
       [theirs],
-    );
+    ).pairs;
     expect(pairs.length).toBe(1);
     expect(pairs[0].mine.id).toBe(recent.id);
   });

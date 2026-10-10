@@ -269,7 +269,7 @@ function startsTable(lines: readonly string[], i: number): boolean {
 /** O texto em blocos: o texto corrido (linha a linha), as listas seguidas, os títulos, as citações, as tabelas… */
 export function parseRich(text: string): Block[] {
   const blocks: Block[] = [];
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const lines = linesOf(text);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const last = blocks.at(-1);
@@ -378,25 +378,64 @@ export function plainText(text: string): string {
 
 /** Marca ou desmarca a tarefa da linha `line`. Devolve o texto igual se a linha não é tarefa. */
 export function toggleCheck(text: string, line: number): string {
-  // as linhas contadas como a leitura conta (ver parseRich): um texto de fora pode vir com \r
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const lines = linesOf(text);
   const l = lines[line];
   if (l === undefined || !CHECK.test(l)) return text;
   lines[line] = l.replace(/\[([ xX])\]/, (_, c: string) => (c === ' ' ? '[x]' : '[ ]'));
   return lines.join('\n');
 }
 
+/** As linhas do texto, contadas como a leitura conta (um texto de fora pode vir com \r). */
+export function linesOf(text: string): string[] {
+  return text.replace(/\r\n?/g, '\n').split('\n');
+}
+
+/**
+ * As linhas fora dos blocos de código, com o número de cada uma: as que a leitura lê como texto (ver
+ * `parseRich`). Dentro de um bloco, nem tarefa nem link valem.
+ */
+export function proseLines(text: string): { line: string; at: number }[] {
+  const out: { line: string; at: number }[] = [];
+  const lines = linesOf(text);
+  for (let i = 0; i < lines.length; i++) {
+    if (FENCE.test(lines[i])) {
+      while (++i < lines.length && !FENCE.test(lines[i]));
+      continue;
+    }
+    out.push({ line: lines[i], at: i });
+  }
+  return out;
+}
+
+/** As tarefas do texto, pelo número da linha: feita ou não (as de dentro de um bloco de código não contam). */
+export function tasksOf(text: string): Map<number, boolean> {
+  const out = new Map<number, boolean>();
+  for (const { line, at } of proseLines(text)) {
+    const k = lineKind(line);
+    if (k.kind === 'check') out.set(at, k.done);
+  }
+  return out;
+}
+
+/**
+ * Os links de anotação de uma linha como a leitura os lê: fora do `código` e sem os escapados
+ * ("\[[x]]"). `inner` é o que está entre os colchetes; `at` e `length`, onde o link está na linha.
+ */
+export function noteLinksOf(line: string): { inner: string; at: number; length: number }[] {
+  const out: { inner: string; at: number; length: number }[] = [];
+  for (const m of line.matchAll(ATOMS)) if (m[3] !== undefined) out.push({ inner: m[3], at: m.index, length: m[0].length });
+  return out;
+}
+
+/** A linha com cada link de anotação trocado por `swap(inner)` (o resto, o código e os escapados ficam). */
+export function replaceNoteLinks(line: string, swap: (inner: string, all: string) => string): string {
+  return line.replace(ATOMS, (all: string, ...groups: (string | undefined)[]) => (groups[2] !== undefined ? swap(groups[2], all) : all));
+}
+
 /** Quantas tarefas o texto tem e quantas estão feitas. */
 export function checkCount(text: string): { done: number; total: number } {
-  let done = 0;
-  let total = 0;
-  for (const l of text.replace(/\r\n?/g, '\n').split('\n')) {
-    const k = lineKind(l);
-    if (k.kind !== 'check') continue;
-    total++;
-    if (k.done) done++;
-  }
-  return { done, total };
+  const tasks = [...tasksOf(text).values()];
+  return { done: tasks.filter(Boolean).length, total: tasks.length };
 }
 
 /**
@@ -404,23 +443,14 @@ export function checkCount(text: string): { done: number; total: number } {
  * ficha aparece: só as feitas de então se escondem (ver `foldDone`).
  */
 export function doneLines(text: string): Set<number> {
-  const out = new Set<number>();
-  text
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .forEach((l, i) => {
-      const k = lineKind(l);
-      if (k.kind === 'check' && k.done) out.add(i);
-    });
-  return out;
+  return new Set([...tasksOf(text)].filter(([, done]) => done).map(([line]) => line));
 }
 
 /** O texto com todas as tarefas por fazer: dois textos com a mesma chave só diferem nas marcas. */
 export function uncheckedKey(text: string): string {
-  return text
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((l) => (lineKind(l).kind === 'check' ? l.replace(/\[[xX]\]/, '[ ]') : l))
+  const tasks = tasksOf(text);
+  return linesOf(text)
+    .map((l, i) => (tasks.has(i) ? l.replace(/\[[xX]\]/, '[ ]') : l))
     .join('\n');
 }
 

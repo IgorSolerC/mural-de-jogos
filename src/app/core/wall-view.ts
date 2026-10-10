@@ -13,6 +13,7 @@ import {
   fold,
   isDone,
   isPinnedNote,
+  letterOf,
   rankOrder,
   parseDay,
   scoreKeys,
@@ -20,7 +21,7 @@ import {
   shownFinal,
 } from './review';
 import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
-import { FacetKey, NO_FILTER, WallFilter, facetsOf, filterSize, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
+import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 
 /**
  * `categoria`, `tag` (pela primeira tag) e `prioridade` (fixadas, comuns, sub-notas) só no mural de
@@ -158,10 +159,6 @@ function readPrefs(key: string, whole: boolean): ViewPrefs {
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
 /** A letra da seção na ordem alfabética: A a Z sem acento, e "#" para número, símbolo e outras escritas. */
-function letterOf(name: string): string {
-  const c = fold(name.trim()).charAt(0).toUpperCase();
-  return /[A-Z]/.test(c) ? c : '#';
-}
 const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const avgFmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -369,8 +366,10 @@ export abstract class WallState {
 
   readonly visible = computed<Review[]>(() => {
     const f = this.activeFilter();
-    const list = this.searched().filter((r) => matchesFilter(r, f));
-    return list.sort(comparatorOf(this.order()));
+    return sortWall(
+      this.searched().filter((r) => matchesFilter(r, f)),
+      this.order(),
+    );
   });
 
   /**
@@ -678,9 +677,8 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       const k = o.key;
       if (k === 'final') {
         return (r) => {
-          const band = Math.min(9, Math.floor(shownFinal(r)));
-          if (band < 5) return ['b-low', 'Abaixo de 5'];
-          return [`b${band}`, band === 9 ? '9 ou mais' : `Na casa do ${band}`];
+          const band = gradeBandOf(shownFinal(r));
+          return [band === 'baixo' ? 'b-low' : `b${band}`, GRADE_LABEL[band]];
         };
       }
       const name = SCORE_LABEL[k];
@@ -716,29 +714,19 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
   // como a mais antiga, então fica no fim quando a data só desempata.
   const byDate = (a: Review, b: Review) =>
     (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt);
+  // pelo rótulo (sem rótulo sempre no fim), e dentro dele as mais recentes primeiro
+  const byLabel = (labelOf: (r: Review) => string | null) => (a: Review, b: Review) => {
+    const la = labelOf(a);
+    const lb = labelOf(b);
+    if ((la === null) !== (lb === null)) return la === null ? 1 : -1;
+    return (la !== null && lb !== null ? sign * collator.compare(la, lb) : 0) || -byDate(a, b);
+  };
   switch (o.sort) {
-    case 'prioridade':
-      // dentro de cada lugar, pela data: as mais recentes primeiro
-      return (a, b) => {
-        if ((a.completedAt === null) !== (b.completedAt === null)) return a.completedAt === null ? 1 : -1;
-        return sign * byDate(a, b);
-      };
     case 'categoria':
-      // pela primeira categoria (sem categoria sempre no fim), e dentro dela as mais recentes primeiro
-      return (a, b) => {
-        const ca = firstCategory(a);
-        const cb = firstCategory(b);
-        if ((ca === null) !== (cb === null)) return ca === null ? 1 : -1;
-        return (ca !== null && cb !== null ? sign * collator.compare(ca, cb) : 0) || -byDate(a, b);
-      };
+      return byLabel(firstCategory);
     case 'tag':
-      // pela primeira tag (sem tag sempre no fim), e dentro dela as mais recentes primeiro
-      return (a, b) => {
-        const ta = firstTag(a);
-        const tb = firstTag(b);
-        if ((ta === null) !== (tb === null)) return ta === null ? 1 : -1;
-        return (ta !== null && tb !== null ? sign * collator.compare(ta, tb) : 0) || -byDate(a, b);
-      };
+      // pela primeira tag
+      return byLabel(firstTag);
     case 'alfabetica':
       // a seção manda primeiro (o "#" antes do A), senão o Ø, o Ł ou um nome em japonês, que o
       // collator põe no meio do alfabeto, abririam outra seção "#" no meio das letras
@@ -759,6 +747,8 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
         return sign * (av - bv) || -(shownFinal(a) - shownFinal(b)) || -byDate(a, b);
       };
     }
+    // na prioridade, dentro de cada lugar, também pela data
+    case 'prioridade':
     default:
       // 'AAAA' < 'AAAA-MM' < 'AAAA-MM-DD' na comparação de texto: o ano sozinho conta como mais antigo
       // que os meses dele, e o mês sem dia como mais antigo que os dias dele

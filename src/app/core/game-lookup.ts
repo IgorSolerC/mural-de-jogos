@@ -73,7 +73,6 @@ function rawgResize(url: string): string {
   return url.replace('/media/games/', '/media/resize/640/-/games/').replace('/media/screenshots/', '/media/resize/640/-/screenshots/');
 }
 
-/** Nem todo jogo da Steam tem a arte vertical: confere se a imagem existe antes de usar. */
 /** Quanto um catálogo tem para responder antes da busca desistir dele. */
 const LOOKUP_DEADLINE_MS = 9000;
 
@@ -101,6 +100,7 @@ function lookupFailure(e: unknown, signal: AbortSignal): unknown {
   return new LookupError('Não consegui falar com o catálogo.', 'offline');
 }
 
+/** Nem todo jogo da Steam tem a arte vertical: confere se a imagem existe antes de usar. */
 export function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -142,7 +142,6 @@ export function sameTitle(a: string, b: string): boolean {
   return ka === kb;
 }
 
-/** Tira "(video game)", "(2010 film)", "(TV series)", "(anime)" etc. do título da Wikipedia. */
 /**
  * O ano de uma página da Wikipedia: o do título ("God of War (2018 video game)", "jogo eletrônico de
  * 2018"), que é o que separa os jogos de mesmo nome, ou então o da descrição ("2016 video game").
@@ -158,6 +157,7 @@ export interface CoverChoices {
   notes: string[];
 }
 
+/** Tira "(video game)", "(2010 film)", "(TV series)", "(anime)" etc. do título da Wikipedia. */
 function cleanWikiTitle(title: string): string {
   return title.replace(/\s*\([^)]*\b(game|film|series|miniseries|TV|anime|manga)\b[^)]*\)\s*$/i, '').trim();
 }

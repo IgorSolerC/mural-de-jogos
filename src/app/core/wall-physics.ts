@@ -1,18 +1,10 @@
 /** Cada ficha tem um jeito próprio de estar pregada: inclinação, cor e posição do pin.
  *  Derivado do id, então é aleatório mas estável entre visitas. */
 
+import { hash } from './paper';
 import { ROTATION_STOCKS, Stock } from './review';
 
 export const PINS = ['#e62e2d', '#ffd23f', '#2f6bff', '#1fb65a', '#f4f4f0', '#ff7a1a'] as const;
-
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
 
 /** splitmix32: um número bem misturado por (semente, n). */
 function rand(seed: number, n: number): number {

@@ -1,4 +1,4 @@
-import { commonReviews } from './comparison';
+import { compareCollections } from './comparison';
 import { affinity, favouriteVerdict, finishRate, nameFromFile, portrait } from './comparison-stats';
 import { Review, sanitizeReview } from './review';
 
@@ -40,10 +40,10 @@ describe('caderno de perguntas', () => {
   });
 
   it('mede a sintonia pela distância média das notas em comum', () => {
-    const pairs = commonReviews(
+    const pairs = compareCollections(
       [review('minha1', 'Hades', 10), review('minha2', 'Celeste', 8), review('minha3', 'Inside', 6)],
       [review('outra1', 'Hades', 6), review('outra2', 'Celeste', 8), review('outra3', 'Inside', 6.5)],
-    );
+    ).pairs;
     const a = affinity(pairs)!;
     expect(a.distance).toBeCloseTo(1.5, 5);
     expect(a.percent).toBe(70);

@@ -268,6 +268,11 @@ export const FRAMES: readonly { value: Frame; label: string }[] = [
 ];
 /** Os nomes que valem para cada moldura, escritos à mão (sem acento, em minúsculas). */
 const FRAME_WORDS: Record<string, Frame> = { foto: 'foto', polaroid: 'polaroid', polaroide: 'polaroid', recorte: 'recorte', recortada: 'recorte' };
+/** A moldura que uma palavra nomeia, ou null (só as palavras da lista: "constructor" não é moldura). */
+function frameWord(a: string): Frame | null {
+  const k = key(a);
+  return Object.hasOwn(FRAME_WORDS, k) ? FRAME_WORDS[k] : null;
+}
 
 /** Um link com cara de link (o "https://" é conferido por quem usa). */
 const LINKY = /^[a-z][a-z0-9+.-]*:\/\/\S+$/i;
@@ -289,7 +294,7 @@ export function readMedia(args: readonly string[]): { url: string; frame: Frame;
   let frame: Frame | null = null;
   let caption = '';
   for (const a of args) {
-    const f = FRAME_WORDS[key(a)];
+    const f = frameWord(a);
     if (!url && LINKY.test(a)) url = a;
     else if (!frame && f) frame = f;
     else if (!caption && a) caption = a;
@@ -340,11 +345,16 @@ const MEDIA_FIELDS = (link: WidgetField): readonly WidgetField[] => [
   { key: 'frame', label: 'Moldura', kind: 'choice', options: FRAMES },
 ];
 
-/** Os campos da foto colada viram os parâmetros: o link, a legenda e a moldura (a foto, que é a de sempre, não se escreve). */
+/**
+ * Os campos da foto colada viram os parâmetros: o link, a legenda e a moldura (a foto, que é a de
+ * sempre, não se escreve). Uma legenda que é o nome de uma moldura ("Recorte") vai depois da
+ * moldura, escrita mesmo quando é a foto: a primeira palavra de moldura é a moldura.
+ */
 function writeMedia(v: WidgetValues, ok: (url: string) => boolean): string[] | null {
   const url = (v['url'] ?? '').trim();
   if (!ok(url)) return null;
   const caption = (v['caption'] ?? '').trim();
+  if (frameWord(caption)) return [url, v['frame'] || 'foto', caption];
   const frame = v['frame'] && v['frame'] !== 'foto' ? v['frame'] : '';
   return [url, caption, frame].filter(Boolean);
 }

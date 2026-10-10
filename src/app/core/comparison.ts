@@ -43,8 +43,11 @@ function latestFirst(list: readonly Review[]): Review[] {
   );
 }
 
-/** Uma avaliação por obra, a mais recente. Nunca compara adaptações entre murais. */
-function distinctWorks(list: readonly Review[]): Review[] {
+/**
+ * Uma avaliação por obra, a mais recente: a mesma regra da comparação, para contar e ranquear sem
+ * repetir. Nunca compara adaptações entre murais.
+ */
+export function distinctReviews(list: readonly Review[]): Review[] {
   const keys = new Set<string>();
   return latestFirst(list).filter((r) => {
     const key =
@@ -70,8 +73,8 @@ export function compareCollections(
   mine: readonly Review[],
   theirs: readonly Review[],
 ): Collections {
-  const own = distinctWorks(mine);
-  const other = distinctWorks(theirs);
+  const own = distinctReviews(mine);
+  const other = distinctReviews(theirs);
   const byCatalog = new Map<string, Review>();
   const byTitle = new Map<string, Review[]>();
   for (const r of other) {
@@ -127,18 +130,6 @@ export function compareCollections(
       (r) => !used.has(r) && !ownTitles.has(`${r.kind}:${titleKey(r)}`),
     ),
   };
-}
-
-export function commonReviews(
-  mine: readonly Review[],
-  theirs: readonly Review[],
-): ReviewPair[] {
-  return compareCollections(mine, theirs).pairs;
-}
-
-/** Uma ficha por obra: a mesma regra da comparação, para contar e ranquear sem repetir. */
-export function distinctReviews(list: readonly Review[]): Review[] {
-  return distinctWorks(list);
 }
 
 /**

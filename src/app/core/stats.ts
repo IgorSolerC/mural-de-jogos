@@ -27,6 +27,7 @@ import {
   isCatalogBonus,
   isValidDay,
   isYearMonth,
+  letterOf,
   parseDay,
   ratedKeys,
   relevanceOf,
@@ -36,6 +37,7 @@ import {
   weightOf,
 } from './review';
 import { pinningFor } from './wall-physics';
+import { isDecorated } from './wall-filter';
 
 /**
  * As Estatísticas do mural: tudo o que dá para tirar das fichas de um mural (o seu ou o de um colega),
@@ -51,7 +53,7 @@ import { pinningFor } from './wall-physics';
 // ======================= peças =======================
 
 /** Uma ficha com o número que a pôs ali (a maior nota, as horas, as palavras). */
-export interface Pick {
+export interface Standout {
   review: Review;
   value: number;
 }
@@ -191,8 +193,8 @@ export interface CategoryStat {
   n: number;
   avg: number | null;
   median: number | null;
-  max: Pick | null;
-  min: Pick | null;
+  max: Standout | null;
+  min: Standout | null;
   /** Quantos 10 (como aparece). */
   tens: number;
   /** Quantas vezes cada peso foi escolhido. */
@@ -246,8 +248,8 @@ export interface WallStats {
   p90: number | null;
   /** As Médias como aparecem, da menor para a maior. */
   finals: number[];
-  best: Pick | null;
-  worst: Pick | null;
+  best: Standout | null;
+  worst: Standout | null;
   top: Review[];
   bottom: Review[];
   /** De 0 a 10 (e 11, se alguém deu 11 na mão): a Média de cada ficha, pela casa inteira. */
@@ -259,8 +261,8 @@ export interface WallStats {
   categories: CategoryStat[];
   /** A categoria que puxa mais a Média (a de maior correlação). */
   driver: CategoryStat | null;
-  bonusShift: { n: number; avg: number; up: Pick | null; down: Pick | null } | null;
-  overrides: { n: number; avg: number; biggest: Pick | null };
+  bonusShift: { n: number; avg: number; up: Standout | null; down: Standout | null } | null;
+  overrides: { n: number; avg: number; biggest: Standout | null };
   // ----- tempo -----
   byYear: Bar[];
   calendar: YearRow[];
@@ -296,21 +298,21 @@ export interface WallStats {
     revisitTotal: number;
     avg: number;
     median: number;
-    longest: Pick;
-    shortest: Pick;
+    longest: Standout;
+    shortest: Standout;
     hist: Bar[];
     corr: number | null;
     /** Nota por hora: a ficha 8+ mais curta. */
-    quickJoy: Pick | null;
+    quickJoy: Standout | null;
     /** A mais longa abaixo de 6. */
-    longSlog: Pick | null;
+    longSlog: Standout | null;
     points: { review: Review; x: number; y: number }[];
   } | null;
   release: {
     n: number;
     byDecade: Bar[];
-    oldest: Pick | null;
-    newest: Pick | null;
+    oldest: Standout | null;
+    newest: Standout | null;
     /** Quantos anos depois do lançamento, em média, a ficha foi terminada. */
     lag: number | null;
     /** Terminadas no próprio ano de lançamento. */
@@ -321,8 +323,8 @@ export interface WallStats {
     withText: number;
     words: number;
     avgWords: number | null;
-    longest: Pick | null;
-    shortest: Pick | null;
+    longest: Standout | null;
+    shortest: Standout | null;
   };
   // ----- vereditos e bônus -----
   verdicts: (Count<Verdict> & { min: number | null; max: number | null })[];
@@ -336,7 +338,7 @@ export interface WallStats {
     favorTotal: number;
     contraTotal: number;
     perCard: number | null;
-    most: Pick | null;
+    most: Standout | null;
     custom: number;
     /** O bônus a favor que mais aparece nas fichas 9+. */
     inTop: Count<string> | null;
@@ -519,8 +521,8 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
   const driver = [...categories].filter((c) => c.corr !== null).sort((a, b) => b.corr! - a.corr!)[0] ?? null;
 
   // ----- bônus mexendo na média, e a nota na mão -----
-  const shifts: Pick[] = [];
-  const overrides: Pick[] = [];
+  const shifts: Standout[] = [];
+  const overrides: Standout[] = [];
   for (const r of list) {
     const base = computeBase(r);
     if (base === null) continue;
@@ -554,7 +556,7 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
   let busiestMonth: WallStats['busiestMonth'] = null;
   for (const row of calendar)
     for (const m of row.months)
-      if (m.n > (busiestMonth?.n ?? 0) || (m.n === busiestMonth?.n && m.n > 0 && row.year > busiestMonth.year)) busiestMonth = { year: row.year, month: m.month, n: m.n };
+      if (m.n > (busiestMonth?.n ?? 0)) busiestMonth = { year: row.year, month: m.month, n: m.n };
   const busiestYear = byYear.length ? [...byYear].sort((a, b) => b.n - a.n || Number(b.key) - Number(a.key))[0] : null;
 
   // meses seguidos com pelo menos uma ficha
@@ -741,7 +743,6 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
   // ----- cartolinas e papelaria -----
   const stocks = tally(list, (r) => pinningFor(r.id, r.stock).stock, (s) => STOCK_LABEL[s]);
   const lucky = [...stocks].filter((s) => s.n >= 2).sort((a, b) => b.avg! - a.avg! || b.n - a.n)[0] ?? null;
-  const decoratedOf = (r: Review) => !!(r.pattern || r.scribble || r.damage || r.stain || r.decor);
 
   return {
     kind,
@@ -844,10 +845,10 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
     damages: tally(list, (r) => r.damage ?? null, (p) => DAMAGE_LABEL[p as keyof typeof DAMAGE_LABEL]),
     stains: tally(list, (r) => r.stain ?? null, (p) => STAIN_LABEL[p as keyof typeof STAIN_LABEL]),
     decors: tally(list, (r) => r.decor ?? null, (p) => DECOR_LABEL[p as keyof typeof DECOR_LABEL]),
-    decorated: list.filter(decoratedOf).length,
+    decorated: list.filter(isDecorated).length,
     dressing: (
       [
-        ['lisa', 'Lisas', (r: Review) => !decoratedOf(r) && (!r.paper || r.paper === 'cartolina')],
+        ['lisa', 'Lisas', (r: Review) => !isDecorated(r) && (!r.paper || r.paper === 'cartolina')],
         ['papel', 'Papel especial', (r: Review) => !!r.paper && r.paper !== 'cartolina'],
         ['estampa', 'Com estampa', (r: Review) => !!r.pattern],
         ['rabisco', 'Com rabisco', (r: Review) => !!r.scribble],
@@ -891,8 +892,7 @@ function tallyBonus(list: readonly Review[], stickers: Map<string, Bonus>): Coun
 function initialsOf(list: readonly Review[]): { letter: string; n: number }[] {
   const map = new Map<string, number>();
   for (const r of list) {
-    const c = fold(r.game.name.replace(/^(the|o|a|os|as)\s+/i, '').trim()).charAt(0).toUpperCase();
-    const k = /[A-Z]/.test(c) ? c : '#';
+    const k = letterOf(r.game.name.replace(/^(the|o|a|os|as)\s+/i, ''));
     map.set(k, (map.get(k) ?? 0) + 1);
   }
   return ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((letter) => ({ letter, n: map.get(letter) ?? 0 }));

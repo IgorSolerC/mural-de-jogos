@@ -1,5 +1,5 @@
 import { Review, sanitizeReview } from './review';
-import { backlinkLine, backlinksOf, linkKey, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote, sameTitle } from './note-links';
+import { backlinkLine, backlinksOf, linkKey, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
 import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
@@ -44,8 +44,6 @@ describe('links entre anotações', () => {
     expect(resolveNote([novo, old], 'Comprar um console')?.id).toBe('n1');
     expect(resolveNote([novo, old], 'Outra')).toBeNull();
     expect(resolveNote([novo, old], '   ')).toBeNull();
-    expect(sameTitle([novo, old], 'Comprar um console', 'n2')?.id).toBe('n1');
-    expect(sameTitle([old], 'Comprar um console', 'n1')).toBeNull();
   });
 
   it('trocar o título leva junto os links que abriam a anotação, e só esses', () => {
@@ -109,5 +107,13 @@ describe('links entre anotações', () => {
     expect(linkedOnCheckedTask(text, 3, notes, daily.id)).toEqual([]);
     expect(linkedOnCheckedTask(text, 4, notes, daily.id)).toEqual([]);
     expect(linkedOnCheckedTask(text, 9, notes, daily.id)).toEqual([]);
+  });
+
+  it('o link dentro de um código ou escapado é só texto: não conta, não cita e não muda de nome', () => {
+    const text = 'use `[[Foo]]` e \\[[Foo]] e [[Foo]]\n```\n[[Foo]]\n```';
+    expect(linksIn(text)).toEqual(['Foo']);
+    expect(renameLinks(text, 'Foo', 'Bar')).toBe('use `[[Foo]]` e \\[[Foo]] e [[Bar]]\n```\n[[Foo]]\n```');
+    expect(linksIn('```\n- [x] [[Foo]]\n```')).toEqual([]);
+    expect(renameLinks('nada aqui', 'Foo', 'Bar')).toBe('nada aqui');
   });
 });

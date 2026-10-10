@@ -55,7 +55,7 @@ export const NEWS: NewsEntry[] = [
     version: '1.26.4',
     kind: 'correcao',
     date: '2026-10-10',
-    title: 'Consertos na sincronização e nos backups',
+    title: 'Consertos na sincronização, nos backups e nas anotações',
     items: [
       'Ao entrar na nuvem com um mural de outra conta neste navegador, "Começar vazia" agora começa vazia mesmo: as anotações da outra conta não vêm mais junto.',
       'Com o mural aberto em duas abas, editar uma resenha logo depois de a outra aba mexer não desfaz mais uma anotação editada lá.',
@@ -64,6 +64,9 @@ export const NEWS: NewsEntry[] = [
       'Abrir Amigos logo ao entrar no site traz também o "visto" feito em outro aparelho.',
       'Restaurar um backup de outro aplicativo, ou de uma versão mais nova do Meu Mural, avisa antes de qualquer pergunta e não mexe em nada.',
       'Ao finalizar as anotações ligadas numa tarefa, o Desfazer reabre só as que foram finalizadas ali, não as que já estavam finalizadas.',
+      'Uma tarefa escrita dentro de um bloco de código não entra mais na conta das tarefas da anotação.',
+      'Um [[link]] dentro de um código (ou escapado com uma barra invertida antes) é só texto: não liga as anotações, não aparece como citação e não muda quando a outra anotação troca de nome.',
+      'Na imagem e no vídeo, uma legenda que é o nome de uma moldura ("Recorte", "Foto") continua sendo a legenda, e a moldura escolhida não se perde.',
     ],
   },
   {

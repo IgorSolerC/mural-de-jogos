@@ -129,4 +129,11 @@ describe('texto com formatação', () => {
       expect(uncheckedKey('veja [x] aqui')).toBe('veja [x] aqui');
     });
   });
+  it('a tarefa escrita dentro de um bloco de código não conta: lá ela é só código', () => {
+    const t = '```\n- [ ] exemplo\n- [x] outro\n```\n- [x] de verdade\n- [ ] por fazer';
+    expect(checkCount(t)).toEqual({ done: 1, total: 2 });
+    expect([...doneLines(t)]).toEqual([4]);
+    // as marcas de dentro do código ficam como estão na chave (lá não há o que marcar)
+    expect(uncheckedKey(t)).toBe('```\n- [ ] exemplo\n- [x] outro\n```\n- [ ] de verdade\n- [ ] por fazer');
+  });
 });

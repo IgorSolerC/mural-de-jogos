@@ -181,8 +181,3 @@ export function nameFromFile(fileName: string): string {
   if (!name || name.length > 30) return '';
   return name.replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
 }
-
-/** Obras de um mural. Sem mural, todas. */
-export function inKind<T extends { kind: Kind }>(list: readonly T[], kind: Kind | null): T[] {
-  return kind ? list.filter((r) => r.kind === kind) : [...list];
-}
