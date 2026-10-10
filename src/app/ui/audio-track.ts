@@ -885,6 +885,33 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       gap: 0.1em;
       margin-top: 0.4em;
     }
+    /* Na ficha do mural (que é baixa e larga), com lugar: o tempo e a barra vão para o lado do disco,
+       em pé, e o vinil fica com a altura toda da faixa. A ficha não cresce; o vinil, sim. Na leitura e
+       nas fichas inteiras, fica como sempre (a barra embaixo) */
+    @container (min-width: 18em) {
+      :host-context(.faixa-ao-lado) .jeito-vinil {
+        --s: min(10em, var(--faixa-max, 22em), calc((100cqw - 7.4em) / 1.72));
+        display: flex;
+        align-items: flex-end;
+        gap: 0.9em;
+        width: auto;
+      }
+      :host-context(.faixa-ao-lado) .jeito-vinil .vitrola {
+        flex: none;
+      }
+      :host-context(.faixa-ao-lado) .jeito-vinil .pe {
+        flex: none;
+        width: 6.5em;
+        margin: 0 0 0.3em;
+      }
+      :host-context(.faixa-ao-lado) .jeito-vinil .trilho {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35em;
+      }
+      :host-context(.faixa-ao-lado) .jeito-vinil .tempo {
+        order: -1;
+      }
+    }
 
     .aviso {
       margin: 0.3em 0 0;

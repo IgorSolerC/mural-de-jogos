@@ -51,6 +51,14 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-vinil-maior-na-ficha',
+    version: '1.28.12',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'O vinil maior na ficha',
+    items: ['Na ficha do mural, o tempo e a barra do vinil ficam ao lado do disco, e o vinil usa a altura toda: fica cerca de um quarto maior, sem a ficha crescer. Na leitura, continua como era.'],
+  },
+  {
     id: '2026-10-10-legenda-numa-etiqueta',
     version: '1.28.11',
     kind: 'melhoria',
