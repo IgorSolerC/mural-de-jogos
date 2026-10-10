@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-menu-widgets',
+    version: '1.25.1',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'Os widgets num menu, sem quebrar a régua',
+    items: [
+      'No editor da anotação, o botão "Widgets" fica ao lado do "Mais" e abre um menu com todos os widgets (por enquanto, o Contador, com o que ele faz). A régua de formatação não quebra mais em duas linhas.',
+      'Com pouco espaço, "Ver como fica" mostra só o olho, e as ferramentas rolam de lado em vez de pular para a linha de baixo.',
+    ],
+  },
+  {
     id: '2026-10-09-widgets-contador',
     version: '1.25.0',
     kind: 'funcionalidade',

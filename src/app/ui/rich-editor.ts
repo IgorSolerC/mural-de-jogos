@@ -4,12 +4,14 @@ import {
   Blocks,
   Bold,
   Check,
+  ChevronDown,
   CircleHelp,
   Code,
   Ellipsis,
   Eye,
   Heading,
   Highlighter,
+  Hourglass,
   Italic,
   Link,
   List,
@@ -57,9 +59,10 @@ type ListKind = 'ul' | 'ol' | 'check';
  * "[[Título]]" no texto (ver core/note-links.ts). Escrever "[[" direto na folha abre a mesma lista,
  * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha.
  *
- * E ganha "Widget": um painel com os campos do widget (o contador: para quê, o dia, a hora, todo
- * ano) e ele mesmo, vivo, embaixo; "Pôr" escreve a marca ("{{contador: …}}") numa linha só dela.
- * Com o cursor na linha de um widget, o painel abre com o que está escrito e troca a linha.
+ * E ganha "Widgets", ao lado do "Mais": um menu com todos os widgets; cada um abre um painel com
+ * os campos dele (o contador: para quê, o dia, a hora, todo ano) e ele mesmo, vivo, embaixo. "Pôr"
+ * escreve a marca ("{{contador: …}}") numa linha só dela. Com o cursor na linha de um widget, o
+ * painel abre com o que está escrito e troca a linha.
  */
 /**
  * O link para outra anotação: a folhinha (com a dobra no canto) e o elo de corrente dentro dela. Um
@@ -72,6 +75,11 @@ const NOTE_LINK_ICON: LucideIconData = [
   ['path', { d: 'M14 10.5h1.5a2.5 2.5 0 0 1 0 5H14', key: 'elo-dir' }],
   ['path', { d: 'M10 13h4', key: 'elo-meio' }],
 ];
+
+/** O desenho de cada widget no menu "Widgets" (ver core/widgets.ts). */
+const WIDGET_ICONS: Record<string, LucideIconData> = {
+  contador: Hourglass,
+};
 
 @Component({
   selector: 'app-rich-editor',
@@ -141,21 +149,42 @@ const NOTE_LINK_ICON: LucideIconData = [
         >
           <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
-        @if (notes()) {
-          <button
-            type="button"
-            class="ferramenta"
-            [disabled]="seeing()"
-            title="Widget: contador até uma data"
-            aria-label="Widget"
-            [attr.aria-expanded]="widgetPick()?.big === big"
-            (pointerdown)="$event.preventDefault()"
-            (click)="startWidget(area, big)"
-          >
-            <lucide-icon [img]="WidgetIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
-          </button>
-        }
         </div>
+        <!-- "Widgets" (nas anotações): fixo ao lado do "Mais", abre o menu com todos os widgets; cada
+             um abre o painel dele -->
+        @if (notes()) {
+          <span class="mais-ancora widgets-ancora" (focusout)="onWidgetsFocusOut($event)">
+            <button
+              type="button"
+              class="ferramenta widgets"
+              [disabled]="seeing()"
+              title="Widgets: contador e outros"
+              aria-label="Widgets"
+              aria-haspopup="menu"
+              [attr.aria-expanded]="widgetsOpen() === big"
+              [attr.aria-controls]="widgetsOpen() === big ? areaId + '-widgets' : null"
+              (pointerdown)="$event.preventDefault()"
+              (click)="toggleWidgets(big, $event, area)"
+              (keydown.arrowdown)="$event.preventDefault(); openWidgets(big, true)"
+            >
+              <lucide-icon [img]="WidgetIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+            </button>
+            @if (widgetsOpen() === big) {
+              <div class="mais-menu widgets-menu" role="menu" tabindex="-1" [id]="areaId + '-widgets'" aria-label="Widgets" (keydown)="onWidgetsKey($event, area)">
+                @for (d of widgets; track d.name) {
+                  <button type="button" role="menuitem" tabindex="-1" class="mais-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, d)">
+                    <lucide-icon [img]="iconOf(d.name)" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                    <span class="widget-op-texto">
+                      <span class="mais-nome">{{ d.label }}</span>
+                      <span class="widget-op-sobre">{{ d.about }}</span>
+                    </span>
+                  </button>
+                }
+              </div>
+            }
+          </span>
+        }
         <!-- "Mais": as outras marcas num menu que abre colado no botão, por cima da folha (não empurra
              nada): cada marca com o desenho, o nome escrito do jeito que ela fica e o atalho -->
         <span class="mais-ancora" (focusout)="onMoreFocusOut($event)">
@@ -556,7 +585,7 @@ const NOTE_LINK_ICON: LucideIconData = [
         white-space: nowrap;
       }
     }
-    @container folha (max-width: 560px) {
+    @container folha (max-width: 680px) {
       .ver .acao-txt {
         position: absolute;
         width: 1px;
@@ -564,6 +593,27 @@ const NOTE_LINK_ICON: LucideIconData = [
         overflow: hidden;
         clip-path: inset(50%);
         white-space: nowrap;
+      }
+    }
+    /* apertada mesmo sem os nomes, a régua não quebra em duas: as ferramentas rolam de lado, com o
+       esmaecido na ponta (como no celular), e o "Widgets", o "Mais" e as ações ficam fixos */
+    @container folha (max-width: 600px) {
+      .ferramentas {
+        flex: 1 1 0;
+        flex-wrap: nowrap;
+        contain: inline-size;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+      }
+      .ferramentas::-webkit-scrollbar {
+        display: none;
+      }
+      .ferramentas > .ferramenta,
+      .ferramentas > .fio {
+        flex: none;
       }
     }
     /* o "Mais" e o menu dele: o menu se ancora no botão */
@@ -895,6 +945,49 @@ const NOTE_LINK_ICON: LucideIconData = [
         height: 32px;
       }
     }
+    /* "Widgets": o desenho e a setinha de quem abre um menu, colado no "Mais" */
+    .ferramenta.widgets {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      width: auto;
+      padding: 0 5px 0 7px;
+    }
+    .ferramenta.widgets .seta {
+      opacity: 0.7;
+      transition: rotate var(--t-ui) var(--ease-ui);
+    }
+    .ferramenta.widgets[aria-expanded='true'] {
+      background: rgb(21 21 21 / 0.1);
+    }
+    .ferramenta.widgets[aria-expanded='true'] .seta {
+      rotate: 180deg;
+    }
+    .widgets-ancora + .mais-ancora {
+      margin-left: 0;
+    }
+    .widgets-menu {
+      min-width: 17rem;
+    }
+    /* cada widget: o desenho, o nome à mão e, embaixo, o que ele faz */
+    .widget-op {
+      grid-template-columns: 22px minmax(0, 1fr);
+      align-items: start;
+      padding-block: 7px;
+    }
+    .widget-op lucide-icon {
+      margin-top: 3px;
+    }
+    .widget-op-texto {
+      display: grid;
+      gap: 1px;
+    }
+    .widget-op-sobre {
+      font-size: 0.84rem;
+      line-height: 1.3;
+      color: var(--ink-2);
+    }
+
     /* ===== O painel do widget: os campos impressos à esquerda, como os do link, e o widget vivo
        embaixo, num pedaço da folha pautada ===== */
     .widget-sobre {
@@ -1522,6 +1615,7 @@ export class RichEditor {
     this.tablePick.set(null);
     this.guide.set(null);
     this.widgetPick.set(null);
+    this.widgetsOpen.set(null);
     this.moreOpen.set(big);
     setTimeout(() => {
       const target = first ? this.moreItems()[0] : this.host.nativeElement.querySelector<HTMLElement>('.mais-menu');
@@ -1716,6 +1810,7 @@ export class RichEditor {
     this.tablePick.set(null);
     this.guide.set(null);
     this.moreOpen.set(null);
+    this.widgetsOpen.set(null);
     this.widgetPick.set(null);
     // e a folha na tela inteira, se tinha ficado aberta
     const big = this.dialog().nativeElement;
@@ -1731,6 +1826,7 @@ export class RichEditor {
     this.urlLink.set(null);
     this.tablePick.set(null);
     this.moreOpen.set(null);
+    this.widgetsOpen.set(null);
     this.guide.set(null);
     this.widgetPick.set(null);
     const [start, end] = [area.selectionStart, area.selectionEnd];
@@ -2028,6 +2124,7 @@ export class RichEditor {
     this.linking.set(null);
     this.tablePick.set(null);
     this.moreOpen.set(null);
+    this.widgetsOpen.set(null);
     this.guide.set(null);
     this.widgetPick.set(null);
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
@@ -2084,6 +2181,82 @@ export class RichEditor {
 
   protected readonly widgets = WIDGETS;
   protected readonly WidgetIcon = Blocks;
+  protected readonly ChevronIcon = ChevronDown;
+  /** O desenho de cada widget no menu. */
+  protected iconOf(name: string): LucideIconData {
+    return WIDGET_ICONS[name] ?? Blocks;
+  }
+
+  /** O menu "Widgets" aberto (em qual das folhas), ou null. */
+  protected readonly widgetsOpen = signal<boolean | null>(null);
+  /** O menu foi aberto pelo teclado: o Esc volta para o botão. */
+  private widgetsByKeyboard = false;
+
+  protected toggleWidgets(big: boolean, e: MouseEvent, area: HTMLTextAreaElement): void {
+    if (this.widgetsOpen() === big) this.closeWidgets(null, area);
+    else this.openWidgets(big, e.detail === 0);
+  }
+
+  /** Abre o menu (e fecha os painéis da régua); pelo teclado, o foco vai para o primeiro widget. */
+  protected openWidgets(big: boolean, first: boolean): void {
+    this.widgetsByKeyboard = first;
+    this.linking.set(null);
+    this.urlLink.set(null);
+    this.tablePick.set(null);
+    this.guide.set(null);
+    this.moreOpen.set(null);
+    this.widgetsOpen.set(big);
+    setTimeout(() => {
+      const items = this.menuItems('.widgets-menu');
+      (first ? items[0] : this.host.nativeElement.querySelector<HTMLElement>('.widgets-menu'))?.focus({ preventScroll: true });
+    });
+  }
+
+  private menuItems(menu: string): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>(`${menu} .mais-op`));
+  }
+
+  /** No menu: setas, Home e End andam; Esc fecha (pelo teclado, volta para o botão); Tab sai e fecha. */
+  protected onWidgetsKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    const items = this.menuItems('.widgets-menu');
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const go = (i: number) => {
+      e.preventDefault();
+      items[(i + items.length) % items.length]?.focus();
+    };
+    if (e.key === 'ArrowDown') go(at + 1);
+    else if (e.key === 'ArrowUp') go(at < 0 ? items.length - 1 : at - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(items.length - 1);
+    else if (e.key === 'Escape') {
+      if (!this.widgetsByKeyboard) return this.closeWidgets(e, area);
+      e.preventDefault();
+      e.stopPropagation();
+      const big = this.widgetsOpen();
+      this.widgetsOpen.set(null);
+      const buttons = this.host.nativeElement.querySelectorAll<HTMLElement>('.ferramenta.widgets');
+      buttons[big ? buttons.length - 1 : 0]?.focus();
+    } else if (e.key === 'Tab') this.widgetsOpen.set(null);
+  }
+
+  protected onWidgetsFocusOut(e: FocusEvent): void {
+    const to = e.relatedTarget as Node | null;
+    if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.widgetsOpen.set(null);
+  }
+
+  protected closeWidgets(e: Event | null, area: HTMLTextAreaElement): void {
+    e?.preventDefault();
+    e?.stopPropagation();
+    this.widgetsOpen.set(null);
+    area.focus();
+  }
+
+  /** Escolheu um widget no menu: o painel dele abre. */
+  protected chooseWidget(area: HTMLTextAreaElement, def: WidgetDef): void {
+    const big = this.widgetsOpen() ?? false;
+    this.widgetsOpen.set(null);
+    this.startWidget(area, big, def);
+  }
   /**
    * O painel do widget aberto: em qual folha, qual widget, os valores dos campos e o trecho que ele
    * vai ocupar (`swap`: a linha de um widget que já estava lá, que ele troca).
@@ -2099,24 +2272,22 @@ export class RichEditor {
     return widgetDef(name) ?? WIDGETS[0];
   }
 
-  /** "Widget" na régua: com o cursor num widget, ele abre para trocar; senão, um novo (o primeiro da lista). */
-  protected startWidget(area: HTMLTextAreaElement, big: boolean): void {
+  /**
+   * O painel do widget escolhido: com o cursor na linha de um widget desse tipo, ele abre com o que
+   * está escrito, para trocar; senão, um novo.
+   */
+  private startWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
     this.linking.set(null);
     this.urlLink.set(null);
     this.tablePick.set(null);
     this.moreOpen.set(null);
     this.guide.set(null);
-    if (this.widgetPick()?.big === big) {
-      this.widgetPick.set(null);
-      return;
-    }
     const { from, lines } = this.linesAt(area);
     const here = lines.length === 1 ? parseWidgetLine(lines[0]) : null;
-    if (here) {
-      const def = this.widgetOf(here.name);
+    if (here && here.name === def.name) {
       this.widgetPick.set({ big, name: def.name, values: def.read(here.args), start: from, end: from + lines[0].length, swap: true });
     } else {
-      this.widgetPick.set({ big, name: WIDGETS[0].name, values: {}, start: area.selectionStart, end: area.selectionEnd, swap: false });
+      this.widgetPick.set({ big, name: def.name, values: {}, start: area.selectionStart, end: area.selectionEnd, swap: false });
     }
     this.showPanel('.widget-painel');
     setTimeout(() => this.panelInput(big, 'input')?.focus());
@@ -2180,6 +2351,7 @@ export class RichEditor {
     this.linking.set(null);
     this.urlLink.set(null);
     this.moreOpen.set(null);
+    this.widgetsOpen.set(null);
     this.guide.set(null);
     this.widgetPick.set(null);
     if (this.tablePick()?.big === big) {
