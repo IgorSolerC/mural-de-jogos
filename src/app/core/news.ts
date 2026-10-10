@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-orelha-inteira',
+    version: '1.26.1',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A categoria inteira na orelha da ficha',
+    items: [
+      'O nome da categoria na orelha da anotação não é mais cortado com "…" por causa da tachinha: quando o nome é comprido, a tachinha fura a cartolina logo depois da orelha.',
+    ],
+  },
+  {
     id: '2026-10-10-widgets-imagem-video',
     version: '1.26.0',
     kind: 'funcionalidade',

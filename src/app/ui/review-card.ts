@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
 import { Check, CheckCheck, CornerDownRight, Eye, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
@@ -132,7 +132,7 @@ function watchDistance(el: HTMLElement): () => void {
          saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
          para o leitor de tela) -->
     @if (note() && !capas() && noteLabels().category; as c) {
-      <span class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" aria-hidden="true">
+      <span #abaCat class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" aria-hidden="true">
         <lucide-icon class="aba-cat-icone" [img]="catIcon()!" [size]="compact() ? 12 : 13" [strokeWidth]="2.6" />
         <span class="aba-cat-nome">{{ c.label }}</span>
       </span>
@@ -405,6 +405,9 @@ function watchDistance(el: HTMLElement): () => void {
       view-transition-class: ficha;
       --pad: 16px;
       --cover-w: 112px;
+      /* onde a tachinha fura: o --pin-x da ficha, ou logo depois da orelha da categoria, se o nome
+         dela for até lá (--aba-fim: onde a orelha acaba, medido no construtor) */
+      --tachinha: max(var(--pin-x), calc(var(--aba-fim, 0px) + 17px));
       position: relative;
       display: flex;
       flex-direction: column;
@@ -417,7 +420,7 @@ function watchDistance(el: HTMLElement): () => void {
       box-shadow: var(--shadow-card);
       /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts) */
       rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
-      transform-origin: var(--pin-x) 12px;
+      transform-origin: var(--tachinha) 12px;
       transition:
         rotate var(--t-physical) var(--ease-physical),
         translate var(--t-physical) var(--ease-physical),
@@ -560,7 +563,7 @@ function watchDistance(el: HTMLElement): () => void {
     /* a tachinha segura tudo, até a decoração (4) que passa por cima da foto */
     .pin {
       top: -9px;
-      left: calc(var(--pin-x) - 13px);
+      left: calc(var(--tachinha) - 13px);
       z-index: 5;
       pointer-events: none;
     }
@@ -794,8 +797,9 @@ function watchDistance(el: HTMLElement): () => void {
     /* ===== Anotação: a categoria na orelha de divisória =====
        Papel manilha colado atrás da cartolina, como a divisória de matéria do caderno: o papel da ficha
        (camadas -3 e -2) cobre o pé da orelha, que só aparece saindo pela beirada de cima, entre o canto
-       e a tachinha, com o desenho e o nome a pincel atômico, como as abas do mural. A direita da beirada
-       é do Finalizar e do Fixar. */
+       e a tachinha, com o desenho e o nome a pincel atômico, como as abas do mural. O nome vai inteiro:
+       com um nome comprido, a tachinha é que vai para depois da orelha (ver --aba-fim). Só não passa
+       do canto da direita, que é do Finalizar e do Fixar. */
     .aba-cat {
       position: absolute;
       top: -29px;
@@ -804,7 +808,7 @@ function watchDistance(el: HTMLElement): () => void {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      max-width: calc(var(--pin-x) - 14px - 26px);
+      max-width: calc(100% - 14px - 60px);
       height: 44px;
       padding: 5px 11px 12px 9px;
       border-radius: 8px 8px 0 0;
@@ -830,7 +834,7 @@ function watchDistance(el: HTMLElement): () => void {
     /* com os selos no canto, a orelha começa depois deles */
     .aba-cat.com-selo {
       left: 30px;
-      max-width: calc(var(--pin-x) - 30px - 26px);
+      max-width: calc(100% - 30px - 60px);
     }
     .aba-cat-icone {
       flex: none;
@@ -1693,6 +1697,8 @@ export class ReviewCard {
       .filter(Boolean)
       .join(' · ');
   });
+  /** A orelha da categoria (a tachinha vai para depois dela). */
+  private readonly abaCat = viewChild<ElementRef<HTMLElement>>('abaCat');
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
   protected readonly date = computed(() => {
@@ -1789,5 +1795,21 @@ export class ReviewCard {
     let unwatch = () => {};
     afterNextRender(() => (unwatch = watchDistance(el)));
     inject(DestroyRef).onDestroy(() => unwatch());
+    // a orelha da categoria com o nome inteiro: a tachinha fura a ficha depois dela (ver --tachinha)
+    effect((onCleanup) => {
+      const aba = this.abaCat()?.nativeElement;
+      // os selos no canto empurram a orelha para a direita
+      this.publicBadge();
+      this.visibleBadge();
+      if (!aba) {
+        el.style.removeProperty('--aba-fim');
+        return;
+      }
+      const measure = () => el.style.setProperty('--aba-fim', `${aba.offsetLeft + aba.offsetWidth}px`);
+      const ro = new ResizeObserver(measure);
+      ro.observe(aba);
+      measure();
+      onCleanup(() => ro.disconnect());
+    });
   }
 }
