@@ -56,6 +56,7 @@ import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
 import { Settings } from '../core/settings';
+import { categoryColorHex } from '../core/category-looks';
 import type { ReactionTarget } from '../core/reactions';
 import { parseWidgetLine, readAudio } from '../core/widgets';
 
@@ -135,7 +136,7 @@ function watchDistance(el: HTMLElement): () => void {
          saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
          para o leitor de tela) -->
     @if (note() && !capas() && noteLabels().category; as c) {
-      <span #abaCat class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" [class.com-cor]="!!catLook().color" aria-hidden="true">
+      <span #abaCat class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
         <app-cat-label [label]="c.label" [look]="catLook()" [iconSize]="compact() ? 12 : 13" />
       </span>
     }
@@ -851,17 +852,17 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.compact) .aba-cat app-cat-label {
       font-size: 0.84rem;
     }
-    /* com cor, o nome vai numa etiqueta de borda colorida, solta da beirada: a orelha sobe um pouco e
-       aperta o recuo, para a etiqueta ficar a uns 4px da beirada em cima, dos lados e da cartolina */
-    .aba-cat.com-cor {
-      top: -33px;
-      height: 48px;
-      padding: 4px 5px 19px;
+    /* com cor, a borda colorida corre por dentro da orelha inteira (ver .orelha-cor em styles.scss)
+       e o pé dela fica atrás da cartolina: a orelha sobe um pouco, para o nome caber no meio dela */
+    .aba-cat.orelha-cor {
+      top: -32px;
+      height: 47px;
+      padding: 9px 13px 19px 11px;
     }
-    :host(.compact) .aba-cat.com-cor {
-      top: -29px;
-      height: 43px;
-      padding: 4px 5px 17px;
+    :host(.compact) .aba-cat.orelha-cor {
+      top: -27px;
+      height: 41px;
+      padding: 8px 11px 17px 10px;
     }
     @media (prefers-reduced-motion: reduce) {
       .aba-cat {
@@ -1693,6 +1694,7 @@ export class ReviewCard {
     const c = this.review().category;
     return c && this.own() ? this.settings.categoryLook(c) : {};
   });
+  protected readonly catColor = computed(() => categoryColorHex(this.catLook().color));
 
   /** A ficha como alvo das reações: o mural de quem e qual ficha. */
   protected readonly reactTarget = computed<ReactionTarget | null>(() => {

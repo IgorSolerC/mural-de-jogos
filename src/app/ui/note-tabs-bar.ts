@@ -3,7 +3,7 @@ import { ChevronDown, LucideAngularModule } from 'lucide-angular';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
-import { CategoryLook } from '../core/category-looks';
+import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Settings } from '../core/settings';
 import { CategoryLabel } from './category-label';
 
@@ -33,7 +33,8 @@ const GAP = 3;
             class="aba"
             [class.on]="active() === x.key"
             [class.sem]="x.key === NONE"
-            [class.com-cor]="!!lookOf(x).color"
+            [class.orelha-cor]="!!colorOf(x)"
+            [style.--cat-cor]="colorOf(x)"
             [attr.aria-pressed]="active() === x.key"
             [title]="x.label"
             (click)="choose(x.key)"
@@ -41,7 +42,7 @@ const GAP = 3;
             @if (x.key === NONE) {
               <span class="nome">{{ x.label }}</span>
             } @else {
-              <app-cat-label class="rotulo" [label]="x.label" [look]="lookOf(x)" [iconSize]="15" />
+              <app-cat-label class="rotulo-cat" [label]="x.label" [look]="lookOf(x)" [iconSize]="15" />
             }
             <span class="n">{{ x.n }}</span>
           </button>
@@ -67,11 +68,11 @@ const GAP = 3;
       <div class="abas medida" aria-hidden="true">
         <span class="aba" data-k="tudo"><span class="nome">Tudo</span><span class="n">{{ t.all }}</span></span>
         @for (x of t.tabs; track x.key) {
-          <span class="aba" [class.sem]="x.key === NONE" [class.com-cor]="!!lookOf(x).color" [attr.data-k]="x.key">
+          <span class="aba" [class.sem]="x.key === NONE" [attr.data-k]="x.key">
             @if (x.key === NONE) {
               <span class="nome">{{ x.label }}</span>
             } @else {
-              <app-cat-label class="rotulo" [label]="x.label" [look]="lookOf(x)" [iconSize]="15" />
+              <app-cat-label class="rotulo-cat" [label]="x.label" [look]="lookOf(x)" [iconSize]="15" />
             }
             <span class="n">{{ x.n }}</span>
           </span>
@@ -172,7 +173,7 @@ const GAP = 3;
     }
 
     .nome,
-    .rotulo {
+    .rotulo-cat {
       max-width: 16ch;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -181,21 +182,18 @@ const GAP = 3;
       line-height: 1.1;
     }
     /* o desenho da categoria vem antes do nome: o nome continua com os seus 16 caracteres */
-    .rotulo {
+    .rotulo-cat {
       max-width: calc(16ch + 20px);
       overflow: visible;
     }
-    .aba:not(.on) :is(.nome, .rotulo) {
+    .aba:not(.on) :is(.nome, .rotulo-cat) {
       opacity: 0.82;
     }
 
-    /* com cor, o desenho e o nome vão numa etiqueta de borda colorida, solta da beirada da aba */
-    .aba.com-cor {
-      padding: 6px 10px calc(5px + var(--borda)) 6px;
-
-      &.on {
-        padding-top: 9px;
-      }
+    /* com cor, a borda colorida corre por dentro da aba (ver .orelha-cor em styles.scss); o pé
+       some atrás da borda da pasta. Na aba de trás, o papel de dentro escurece como o manilha. */
+    .aba.orelha-cor:not(.on)::before {
+      background-color: #d6c8a3;
     }
 
     .n {
@@ -308,6 +306,9 @@ export class NoteTabsBar {
   /** O desenho e a cor da categoria: os escolhidos, só no seu mural (no de alguém, o de sempre). */
   protected lookOf(x: NoteTab): CategoryLook {
     return this.view.owner() === null ? this.settings.categoryLook(x.label) : {};
+  }
+  protected colorOf(x: NoteTab): string | null {
+    return categoryColorHex(this.lookOf(x).color);
   }
 
   /** A aba aberta é uma das do "Mais": ele mostra o nome dela, como aba aberta. */

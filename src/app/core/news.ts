@@ -51,6 +51,22 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-letra-das-abas-de-categoria',
+    version: '1.28.2',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'A letra das abas de categoria de volta ao tamanho',
+    items: ['Desde a 1.28.0, o nome das categorias nas abas em cima da busca aparecia em letras maiores e mais grossas. Ele voltou à letra de antes, igual à da aba Tudo.'],
+  },
+  {
+    id: '2026-10-10-borda-pela-orelha-inteira',
+    version: '1.28.1',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A cor da categoria pela orelha inteira',
+    items: ['A borda colorida da categoria agora corre por dentro da orelha inteira, rente à beirada, e o pé dela fica escondido atrás da ficha (ou da pasta, nas abas). Antes era uma etiqueta fechada no meio da orelha.'],
+  },
+  {
     id: '2026-10-10-icone-e-cor-das-categorias',
     version: '1.28.0',
     kind: 'funcionalidade',

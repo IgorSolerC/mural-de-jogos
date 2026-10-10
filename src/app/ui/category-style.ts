@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
-import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryColorId, CategoryIconId, CategoryLook } from '../core/category-looks';
+import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryColorId, CategoryIconId, CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Settings } from '../core/settings';
 import { CATEGORY_ICON, CategoryLabel, categoryIcon } from './category-label';
 
@@ -55,7 +55,7 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
   host: { '[attr.id]': 'id()' },
   template: `
     <div class="previa" aria-hidden="true">
-      <span class="orelha" [class.com-cor]="!!look().color"><app-cat-label [label]="category()" [look]="look()" /></span>
+      <span class="orelha" [class.orelha-cor]="!!color()" [style.--cat-cor]="color()"><app-cat-label [label]="category()" [look]="look()" /></span>
     </div>
     <p class="hint">Vale para todas as anotações de {{ category() }}: na orelha da ficha e na aba do mural.</p>
     <p class="sub" [id]="id() + '-icones'">Ícone</p>
@@ -119,8 +119,12 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
       font-size: 0.94rem;
       line-height: 1.2;
     }
-    .orelha.com-cor {
-      padding: 4px 5px;
+    .orelha {
+      position: relative;
+      isolation: isolate;
+    }
+    .orelha.orelha-cor {
+      padding: 9px 13px 6px 11px;
     }
     .hint {
       margin: 0;
@@ -172,14 +176,16 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
     .op lucide-icon {
       display: inline-flex;
     }
-    /* a cor: a etiqueta em miniatura, a borda colorida num papel claro */
+    /* a cor: a orelha em miniatura, a borda colorida por dentro do manilha */
     .cor::before {
       content: '';
-      width: 24px;
-      height: 16px;
-      border: 3px solid var(--c);
-      border-radius: 4px;
+      width: 26px;
+      height: 18px;
+      border: 2.5px solid var(--c);
+      border-bottom: 0;
+      border-radius: 6px 6px 0 0;
       background: #fffcf2;
+      box-shadow: 0 0 0 2.5px #f3e5bb;
     }
     .sem-cor::before {
       border: 1.5px dashed rgb(21 21 21 / 0.45);
@@ -225,6 +231,7 @@ export class CategoryStyle {
 
   /** O ícone e a cor escolhidos para a categoria. */
   protected readonly look = computed<CategoryLook>(() => this.settings.categoryLook(this.category()));
+  protected readonly color = computed(() => categoryColorHex(this.look().color));
   /** O ícone que a categoria mostra agora: o escolhido, ou o de sempre. */
   protected readonly iconId = computed(() => {
     const now = categoryIcon(this.category(), this.look());

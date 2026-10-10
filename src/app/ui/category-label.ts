@@ -38,7 +38,7 @@ import {
   Users,
   Zap,
 } from 'lucide-angular';
-import { CategoryIconId, CategoryLook, categoryColorHex } from '../core/category-looks';
+import { CategoryIconId, CategoryLook } from '../core/category-looks';
 import { categoryBonus } from '../core/note-labels';
 import { bonusIcon } from './bonus';
 
@@ -87,18 +87,13 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
 }
 
 /**
- * O desenho e o nome da categoria, como na orelha da ficha e na aba da pasta. Com cor, os dois vão
- * numa etiqueta de borda colorida fina, solta da beirada da orelha (a etiqueta de fichário). A letra
- * e o tamanho vêm de quem usa (herdados).
+ * O desenho e o nome da categoria, como na orelha da ficha e na aba da pasta. A letra e o tamanho
+ * vêm de quem usa (herdados); a borda da cor é da orelha (ver .orelha-cor em styles.scss).
  */
 @Component({
   selector: 'app-cat-label',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    '[class.com-cor]': '!!color()',
-    '[style.--cat-cor]': 'color()',
-  },
   template: `<lucide-icon class="icone" [img]="icon()" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" /><span class="nome">{{ label() }}</span>`,
   styles: `
     :host {
@@ -121,19 +116,6 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    /* a etiqueta: papel claro com a borda de tinta fina, um pouco para dentro da orelha */
-    :host(.com-cor) {
-      padding: 1px 7px 1px 6px;
-      border: 2px solid var(--cat-cor);
-      border-radius: 6px;
-      background-color: #fffcf2;
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      box-shadow: 0 1px 1px rgb(0 0 0 / 0.12);
-    }
-    :host(.com-cor) .icone {
-      opacity: 1;
-    }
   `,
 })
 export class CategoryLabel {
@@ -142,5 +124,4 @@ export class CategoryLabel {
   readonly iconSize = input(13);
 
   protected readonly icon = computed(() => categoryIcon(this.label(), this.look()));
-  protected readonly color = computed(() => categoryColorHex(this.look().color));
 }
