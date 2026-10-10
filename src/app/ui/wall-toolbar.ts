@@ -4,6 +4,8 @@ import {
   ArrowUpNarrowWide,
   CheckCheck,
   ChevronDown,
+  Eye,
+  EyeOff,
   Grid3x3,
   LayoutDashboard,
   LayoutGrid,
@@ -21,8 +23,7 @@ import { SCORE_LABEL, ScoreKey, isPinnedNote, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { FacetKey, NO_FILTER } from '../core/wall-filter';
-import { Density, SortKey, WallView, directionLabelOf } from '../core/wall-view';
-import { Settings } from '../core/settings';
+import { Density, SortKey, WallState, directionLabelOf } from '../core/wall-view';
 import { FilterSheet, FilterToggle } from './filter-sheet';
 import { NoteTabsBar } from './note-tabs-bar';
 import { TagShortcuts } from './tag-shortcuts';
@@ -52,7 +53,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   styleUrl: './wall-toolbar.scss',
 })
 export class WallToolbar {
-  protected readonly view = inject(WallView);
+  protected readonly view = inject(WallState);
   private readonly mural = inject(Mural);
   protected readonly side = inject(SideBySide);
   private readonly motion = inject(WallMotion);
@@ -78,6 +79,8 @@ export class WallToolbar {
   protected readonly FilterIcon = ListFilter;
   protected readonly DoneIcon = CheckCheck;
   protected readonly PinIcon = Pin;
+  protected readonly RevealIcon = Eye;
+  protected readonly HideIcon = EyeOff;
 
   private readonly injector = inject(Injector);
   /** A aba Filtrar (só nos murais de resenhas: as anotações não têm cartela). */
@@ -93,7 +96,7 @@ export class WallToolbar {
     const total = this.view.pool().length;
     const shown = this.view.visible().length;
     // as rejogadas também são fichas na parede: "40 jogos e 3 rejogadas"
-    const again = this.mural.revisitCount();
+    const again = this.view.pool().filter((r) => r.revisitOf).length;
     const all = again
       ? `${countOf(this.mural.profile(), total - again)} e ${revisitCountOf(this.mural.profile(), again)}`
       : countOf(this.mural.profile(), total);
@@ -102,11 +105,14 @@ export class WallToolbar {
 
   /** O mural de anotações: outras ordens, e nada de marcar para o lado a lado. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
-  /** "Procurar no mural", ou "Procurar em Trabalho" com uma aba aberta. */
+  /** O seu mural: só nele as fichas se marcam para o lado a lado. */
+  protected readonly mine = computed(() => this.view.owner() === null);
+  /** "Procurar no mural" (no de alguém, "Procurar no mural de Marina"), ou "Procurar em Trabalho" com uma aba aberta. */
   protected readonly searchLabel = computed(() => {
     const tab = this.view.activeTabLabel();
     if (this.view.activeTab() === NO_CATEGORY_TAB) return 'Procurar nas sem categoria';
-    return tab ? `Procurar em ${tab}` : 'Procurar no mural';
+    if (tab) return `Procurar em ${tab}`;
+    return this.mine() ? 'Procurar no mural' : `Procurar no mural de ${this.view.owner()}`;
   });
   /** Numa aba de categoria, ordenar por categoria não separa nada: a opção sai. */
   protected readonly sortOptions = computed(() =>
@@ -116,7 +122,6 @@ export class WallToolbar {
   protected readonly scoreOptions = computed(() =>
     scoreKeys(this.mural.kind()).map((k) => ({ value: `nota:${k}`, label: SCORE_LABEL[k] })),
   );
-  protected readonly settings = inject(Settings);
   protected readonly sortValue = computed(() =>
     this.view.shownSort() === 'nota' ? `nota:${this.view.activeScore()}` : this.view.shownSort(),
   );

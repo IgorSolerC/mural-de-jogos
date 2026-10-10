@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, signal } from '@angular/core';
 import { ChevronDown, LucideAngularModule } from 'lucide-angular';
 import { WallMotion } from '../core/wall-motion';
-import { WallView } from '../core/wall-view';
+import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
 
 /** O vão entre duas abas (o `gap` da fileira). */
@@ -233,7 +233,7 @@ const GAP = 3;
   `,
 })
 export class NoteTabsBar {
-  private readonly view = inject(WallView);
+  private readonly view = inject(WallState);
   private readonly motion = inject(WallMotion);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 

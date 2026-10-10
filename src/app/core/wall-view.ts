@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
 import { KindProfile, countOf, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { checkCount } from './rich-text';
@@ -37,6 +37,8 @@ export type Direction = 'desc' | 'asc';
 export type Density = 'completa' | 'inteira' | 'simples' | 'capas' | 'lista';
 
 const KEY = 'mural-de-jogos:vista:v1';
+/** A vista dos murais dos outros: a ordem e o tipo de ficha de quem visita, separados dos do seu mural. */
+export const VISIT_KEY = 'mural-de-jogos:vista-visita:v1';
 
 /** Os grupos da cartela de filtros que contam o que a pessoa achou: somem no modo sem spoilers. */
 export const SPOILER_FACETS: readonly FacetKey[] = ['verdict', 'grade', 'difficulty'];
@@ -113,10 +115,11 @@ function readNoteView(raw: unknown, base: NoteView): NoteView | null {
   };
 }
 
-function readPrefs(): ViewPrefs {
+/** Com `whole` falso (a visita), a aba, as seções fechadas e as finalizadas à mostra começam do zero. */
+function readPrefs(key: string, whole: boolean): ViewPrefs {
   const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, pinnedFirst: false, noteTab: ALL_TAB, collapsed: [] };
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? 'null');
+    const raw = JSON.parse(localStorage.getItem(key) ?? 'null');
     if (!raw) return fallback;
     const density: Density = REVIEW_DENSITIES.includes(raw.density) ? raw.density : 'completa';
     // antes das abas, a ordem do mural de anotações era uma só (noteSort, noteDirection), e o tipo de
@@ -142,10 +145,10 @@ function readPrefs(): ViewPrefs {
       direction: raw.direction === 'asc' ? 'asc' : 'desc',
       density,
       noteViews,
-      showDone: raw.showDone === true,
+      showDone: whole && raw.showDone === true,
       pinnedFirst: raw.pinnedFirst === true,
-      noteTab: typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
-      collapsed: Array.isArray(raw.collapsed) ? raw.collapsed.filter((k: unknown) => typeof k === 'string').slice(-MAX_COLLAPSED) : [],
+      noteTab: whole && typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
+      collapsed: whole && Array.isArray(raw.collapsed) ? raw.collapsed.filter((k: unknown) => typeof k === 'string').slice(-MAX_COLLAPSED) : [],
     };
   } catch {
     return fallback;
@@ -170,37 +173,65 @@ export interface WallGroup {
   reviews: Review[];
 }
 
-/** Estado do mural aberto: busca, filtros e ordenação. */
-@Injectable({ providedIn: 'root' })
-export class WallView {
-  private readonly mural = inject(Mural);
-  private readonly settings = inject(Settings);
-  private readonly prefs = readPrefs();
+/** Onde a vista de um mural fica guardada neste navegador. */
+interface WallMemory {
+  key: string;
+  /** Tudo (o seu mural) ou só a ordem e o tipo de ficha (os murais dos outros, ver `VISIT_KEY`). */
+  whole: boolean;
+}
+
+/**
+ * A vista de um mural: busca, filtros, abas, ordem, tipo de ficha e seções fechadas, sobre as fichas
+ * de `wall`. É a mesma para o seu mural (`WallView`) e para o de outra pessoa (`VisitView`): a régua,
+ * as abas, as tags e a parede (WallToolbar, NoteTabsBar, TagShortcuts, WallBoard) leem a que a página
+ * fornece, então quem visita vê e mexe no mural como o dono. Sem nada fornecido, é a do seu mural.
+ */
+@Injectable({ providedIn: 'root', useExisting: forwardRef(() => WallView) })
+export abstract class WallState {
+  protected readonly mural = inject(Mural);
+
+  /** As fichas do mural: as originais e as rejogadas (e as anotações finalizadas). */
+  abstract readonly wall: Signal<Review[]>;
+  /**
+   * Alguma nota em segredo (sem spoilers no seu mural; "Evitar spoilers de outros murais" no de
+   * alguém): a nota não ordena, não filtra e não entra nas médias, que contariam o segredo.
+   */
+  abstract readonly guarding: Signal<boolean>;
+  /** De quem é o mural: null, o seu; senão, o nome da pessoa (a régua e a parede falam dela). */
+  abstract readonly owner: Signal<string | null>;
+  /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
+  readonly profile = computed(() => this.mural.profile());
+  /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
+  readonly notes = computed(() => isNotes(this.mural.kind()));
+  /** O "Mostrar notas" da régua: só no mural de alguém, enquanto houver nota em segredo (ver VisitView). */
+  readonly canReveal: Signal<boolean> = signal(false);
+  readonly revealed: Signal<boolean> = signal(false);
+  toggleReveal(): void {}
 
   readonly query = signal('');
   /** Os filtros da cartela. Valem só nesta visita, como a busca. */
   readonly filter = signal<WallFilter>(NO_FILTER);
   /** A ordem escolhida nos murais de resenhas (o de anotações tem uma por aba, `noteViews`). */
-  readonly sort = signal<SortKey>(this.prefs.sort);
+  readonly sort: WritableSignal<SortKey>;
   /**
    * A vista de cada aba do mural de anotações: a ordem (a de sempre é Prioridade: fixadas, comuns,
    * sub-notas), a direção e o tipo de ficha. A chave é a da aba; "" é Tudo.
    */
-  readonly noteViews = signal<Readonly<Record<string, NoteView>>>(this.prefs.noteViews);
+  readonly noteViews: WritableSignal<Readonly<Record<string, NoteView>>>;
   /** A nota escolhida para ordenar. Guardada mesmo que o mural aberto não tenha ela (ver `activeScore`). */
-  readonly scoreKey = signal<ScoreKey>(this.prefs.scoreKey);
+  readonly scoreKey: WritableSignal<ScoreKey>;
   /** A nota que ordena de fato: a escolhida, se o mural aberto tem ela; senão, a Média. */
   readonly activeScore = computed<ScoreKey>(() => {
     const k = this.scoreKey();
     return scoreKeys(this.mural.kind()).includes(k) ? k : 'final';
   });
   /** A direção da ordem e o tipo de ficha nos murais de resenhas. */
-  readonly reviewDirection = signal<Direction>(this.prefs.direction);
-  readonly reviewDensity = signal<Density>(this.prefs.density);
+  readonly reviewDirection: WritableSignal<Direction>;
+  readonly reviewDensity: WritableSignal<Density>;
   /** "Mostrar finalizadas": as anotações com check continuam no mural. Fica guardado, como a ordem. */
-  readonly showDone = signal(this.prefs.showDone);
+  readonly showDone: WritableSignal<boolean>;
   /** As fixadas no topo também fora da Prioridade (ver `ViewPrefs.pinnedFirst`). Fica guardado. */
-  readonly pinnedFirst = signal(this.prefs.pinnedFirst);
+  readonly pinnedFirst: WritableSignal<boolean>;
   /**
    * As anotações que acabaram de ganhar o check: ficam no mural o tempo do carimbo e depois saem
    * (ver ReviewCard). Com "Mostrar finalizadas", ficam de vez.
@@ -215,10 +246,10 @@ export class WallView {
    * A aba escolhida no mural de anotações (ver core/note-tabs.ts). Fica guardada: o mural abre na
    * última aba usada. Vazia, "Tudo".
    */
-  readonly noteTab = signal<string>(this.prefs.noteTab);
+  readonly noteTab: WritableSignal<string>;
   /** As abas do mural de anotações (null nos de resenhas; sem nenhuma aba, nada a separar). */
   readonly noteTabs = computed<NoteTabs | null>(() =>
-    isNotes(this.mural.kind()) ? noteTabsOf(this.mural.wall(), (r) => this.shows(r)) : null,
+    isNotes(this.mural.kind()) ? noteTabsOf(this.wall(), (r) => this.shows(r)) : null,
   );
   /** A aba que vale de fato: a escolhida, se ela ainda existe; senão, "Tudo". */
   readonly activeTab = computed<string>(() => {
@@ -245,7 +276,7 @@ export class WallView {
   /** O tipo de ficha do mural aberto (no de anotações, o da aba). Muda com `setDensity`. */
   readonly density = computed<Density>(() => (isNotes(this.mural.kind()) ? this.noteView().density : this.reviewDensity()));
 
-  private inTab(r: Review): boolean {
+  protected inTab(r: Review): boolean {
     const k = this.activeTab();
     return k === ALL_TAB || noteTabKey(r) === k;
   }
@@ -254,7 +285,7 @@ export class WallView {
    * nas anotações, por aba ("aba::seção"), e a Fixadas fechada continua fechada em qualquer ordem;
    * nos outros murais, por mural ("k:jogos::2026-09"). Fica guardado, como a aba.
    */
-  readonly collapsed = signal<ReadonlySet<string>>(new Set(this.prefs.collapsed));
+  readonly collapsed: WritableSignal<ReadonlySet<string>>;
 
   /** De onde é a seção: a aba aberta nas anotações, o mural nos outros. */
   private collapseKey(groupKey: string): string {
@@ -278,7 +309,7 @@ export class WallView {
   }
 
   /** O mural da aba aberta (nos de resenhas e em "Tudo", o mural inteiro), finalizadas também. */
-  readonly tabbed = computed<Review[]>(() => (this.activeTab() === ALL_TAB ? this.mural.wall() : this.mural.wall().filter((r) => this.inTab(r))));
+  readonly tabbed = computed<Review[]>(() => (this.activeTab() === ALL_TAB ? this.wall() : this.wall().filter((r) => this.inTab(r))));
   /** O mural sem as finalizadas escondidas: é o "todo" do mural (da aba), para contar e para o vazio. */
   readonly pool = computed<Review[]>(() => this.tabbed().filter((r) => this.shows(r)));
   /** Quantas anotações finalizadas a aba tem (à mostra ou não). */
@@ -294,12 +325,12 @@ export class WallView {
     const sort = sortFor(this.chosenSort(), this.mural.profile());
     // numa aba de categoria, ordenar por categoria daria uma seção só: vale a Prioridade
     if (sort === 'categoria' && this.activeTab() !== ALL_TAB) return 'prioridade';
-    return this.settings.noSpoilers() && sort === 'nota' ? 'data' : sort;
+    return this.guarding() && sort === 'nota' ? 'data' : sort;
   });
   /** Os filtros que valem de fato: sem spoilers, filtrar por veredito, nota ou dificuldade entregaria o que está escondido. */
   private readonly activeFilter = computed<WallFilter>(() => {
     const f = this.filter();
-    return this.settings.noSpoilers() ? withoutSpoilerFacets(f) : f;
+    return this.guarding() ? withoutSpoilerFacets(f) : f;
   });
 
   /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
@@ -320,7 +351,7 @@ export class WallView {
   readonly elsewhere = computed(() => {
     const needle = fold(this.query().trim());
     if (!needle || this.activeTab() === ALL_TAB) return 0;
-    return this.mural.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle)).length;
+    return this.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle)).length;
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
@@ -328,7 +359,7 @@ export class WallView {
     const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile());
     // numa aba de categoria, o grupo Categoria só teria ela mesma
     const inTab = this.activeTab() === ALL_TAB ? all : all.filter((f) => f.key !== 'category');
-    return this.settings.noSpoilers() ? inTab.filter((f) => !SPOILER_FACETS.includes(f.key)) : inTab;
+    return this.guarding() ? inTab.filter((f) => !SPOILER_FACETS.includes(f.key)) : inTab;
   });
   /** Os filtros ligados, como etiquetas. */
   readonly tags = computed(() => tagsOf(this.activeFilter(), this.mural.profile()));
@@ -365,23 +396,39 @@ export class WallView {
     pinnedFirst: this.pinnedFirst(),
   }));
 
-  readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.settings.noSpoilers()));
+  readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.guarding()));
 
-  constructor() {
+  /** As obras com rejogada: a original fica sabendo quantas vezes está no mural (id da original → vezes). */
+  readonly times = computed(() => {
+    const out = new Map<string, number>();
+    for (const r of this.wall()) if (r.revisitOf) out.set(r.revisitOf, (out.get(r.revisitOf) ?? 1) + 1);
+    return out;
+  });
+
+  constructor(memory: WallMemory) {
+    const prefs = readPrefs(memory.key, memory.whole);
+    this.sort = signal(prefs.sort);
+    this.noteViews = signal(prefs.noteViews);
+    this.scoreKey = signal(prefs.scoreKey);
+    this.reviewDirection = signal(prefs.direction);
+    this.reviewDensity = signal(prefs.density);
+    this.showDone = signal(prefs.showDone);
+    this.pinnedFirst = signal(prefs.pinnedFirst);
+    this.noteTab = signal(prefs.noteTab);
+    this.collapsed = signal(new Set(prefs.collapsed));
+    // na visita, só a ordem e o tipo de ficha ficam guardados: a aba, as seções e as finalizadas são de cada mural
     effect(() => {
-      const prefs: ViewPrefs = {
+      const kept: Partial<ViewPrefs> = {
         sort: this.sort(),
         scoreKey: this.scoreKey(),
         direction: this.reviewDirection(),
         density: this.reviewDensity(),
         noteViews: this.noteViews(),
-        showDone: this.showDone(),
         pinnedFirst: this.pinnedFirst(),
-        noteTab: this.noteTab(),
-        collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED),
+        ...(memory.whole ? { showDone: this.showDone(), noteTab: this.noteTab(), collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED) } : {}),
       };
       try {
-        localStorage.setItem(KEY, JSON.stringify(prefs));
+        localStorage.setItem(memory.key, JSON.stringify(kept));
       } catch {
         /* preferências valem só nesta sessão */
       }
@@ -411,20 +458,6 @@ export class WallView {
     if (this.noteTab() === key && this.activeTab() === key) return;
     this.noteTab.set(key);
     this.filter.set(NO_FILTER);
-  }
-
-  /**
-   * Uma ficha nova que ficaria escondida: no mural de anotações, abre a aba dela (se a aba de agora
-   * a esconde); se ainda assim ficaria fora, limpa a busca e os filtros.
-   */
-  reveal(r: Review): void {
-    if (isNotes(this.mural.kind()) && !this.inTab(r)) this.setNoteTab(noteTabKey(r));
-    if (!this.visible().some((x) => x.id === r.id)) this.clearFilters();
-  }
-
-  /** A categoria de uma anotação nova escrita agora: a da aba aberta (null em "Tudo" e em "Sem categoria"). */
-  newNoteCategory(): string | null {
-    return this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
   /** Muda a vista da aba aberta do mural de anotações (só ela: as outras abas ficam como estão). */
@@ -471,6 +504,41 @@ export class WallView {
   clearFilters(): void {
     this.query.set('');
     this.filter.set(NO_FILTER);
+  }
+
+  /** Volta ao começo: sem busca nem filtros, em "Tudo", com as seções abertas e as finalizadas fora. */
+  protected reset(): void {
+    this.clearFilters();
+    this.noteTab.set(ALL_TAB);
+    this.collapsed.set(new Set());
+    this.showDone.set(false);
+  }
+}
+
+/** A vista do seu mural: fica toda guardada, e as notas se escondem com "Sem spoilers" (Ajustes). */
+@Injectable({ providedIn: 'root' })
+export class WallView extends WallState {
+  private readonly settings = inject(Settings);
+  readonly wall = this.mural.wall;
+  readonly guarding = computed(() => this.settings.noSpoilers());
+  readonly owner = signal<string | null>(null).asReadonly();
+
+  constructor() {
+    super({ key: KEY, whole: true });
+  }
+
+  /**
+   * Uma ficha nova que ficaria escondida: no mural de anotações, abre a aba dela (se a aba de agora
+   * a esconde); se ainda assim ficaria fora, limpa a busca e os filtros.
+   */
+  reveal(r: Review): void {
+    if (isNotes(this.mural.kind()) && !this.inTab(r)) this.setNoteTab(noteTabKey(r));
+    if (!this.visible().some((x) => x.id === r.id)) this.clearFilters();
+  }
+
+  /** A categoria de uma anotação nova escrita agora: a da aba aberta (null em "Tudo" e em "Sem categoria"). */
+  newNoteCategory(): string | null {
+    return this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
   /** Guarda a busca, o filtro e a ordem, e devolve como voltar a eles (ver ViewTransitions.run). */

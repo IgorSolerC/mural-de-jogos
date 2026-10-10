@@ -6,8 +6,8 @@ import { isVeiled, veil } from '../ui/veil';
 const MARGIN = 240;
 /** O sumiço das fichas antes de trocar o tipo de ficha. */
 const FADE_OUT = 130;
-const WALL = 'app-wall-page [data-ficha]';
-const HEADS = 'app-wall-page .grupo-head, app-wall-page .showing';
+const WALL = 'app-wall-board [data-ficha]';
+const HEADS = 'app-wall-board .grupo-head, app-wall-board .showing';
 
 type Box = { top: number; left: number; bottom: number; right: number };
 
@@ -128,7 +128,7 @@ interface Place {
 /** As fichas e as etiquetas das seções do mural, onde estão agora. */
 function places(): Map<string, Place> {
   const out = new Map<string, Place>();
-  for (const el of Array.from(document.querySelectorAll<HTMLElement>('app-wall-page [data-ficha], app-wall-page .grupo-head .tape-label'))) {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>('app-wall-board [data-ficha], app-wall-board .grupo-head .tape-label'))) {
     const key = el.dataset['ficha'] ? `f:${el.dataset['ficha']}` : `g:${el.id}`;
     const r = el.getBoundingClientRect();
     if (!r.width && !r.height) continue;

@@ -121,7 +121,7 @@
     </div>
   </div>
 } @else {
-<div class="shelf">
+<div class="shelf" [class.alheio]="!mine()">
   <app-search-strip
     class="search"
     inputId="busca-mural"
@@ -150,6 +150,21 @@
     }
   </button>
 
+  <!-- no mural de alguém, com "Evitar spoilers de outros murais": as notas do que você ainda não
+       avaliou, à mostra só enquanto a página estiver aberta -->
+  @if (view.canReveal()) {
+    <button
+      type="button"
+      class="plate notas"
+      [attr.aria-pressed]="view.revealed()"
+      (click)="view.toggleReveal()"
+      [title]="view.revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
+    >
+      <lucide-icon [img]="view.revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+      <span>{{ view.revealed() ? 'Esconder notas' : 'Mostrar notas' }}</span>
+    </button>
+  }
+
   <div class="group order" role="group" aria-label="Ordenar">
     <label class="plate pick">
       <span class="pick-pre">Ordenar</span>
@@ -159,8 +174,8 @@
         @for (o of sortOptions(); track o.value) {
           <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
         }
-        <!-- sem spoilers, ordenar por nota entregaria o ranking -->
-        @if (!settings.noSpoilers()) {
+        <!-- com notas em segredo, ordenar por nota entregaria o ranking -->
+        @if (!view.guarding()) {
           <optgroup label="Nota">
             @for (o of scoreOptions(); track o.value) {
               <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
@@ -180,22 +195,24 @@
     </button>
   </div>
 
-  <!-- Marcar fichas para ver lado a lado -->
-  <button
-    type="button"
-    class="plate mark"
-    [attr.aria-pressed]="side.picking()"
-    (click)="side.picking.set(!side.picking())"
-    aria-label="Marcar fichas pra ver lado a lado"
-    title="Marcar fichas pra ver lado a lado"
-  >
-    <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-    <span class="mark-word" aria-hidden="true">Marcar</span>
-    @if (side.count()) {
-      <span class="count" aria-hidden="true">{{ side.count() }}</span>
-      <span class="sr-only">({{ side.count() }} {{ side.count() === 1 ? 'marcada' : 'marcadas' }})</span>
-    }
-  </button>
+  <!-- Marcar fichas para ver lado a lado (as suas: o lado a lado é do seu mural) -->
+  @if (mine()) {
+    <button
+      type="button"
+      class="plate mark"
+      [attr.aria-pressed]="side.picking()"
+      (click)="side.picking.set(!side.picking())"
+      aria-label="Marcar fichas pra ver lado a lado"
+      title="Marcar fichas pra ver lado a lado"
+    >
+      <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+      <span class="mark-word" aria-hidden="true">Marcar</span>
+      @if (side.count()) {
+        <span class="count" aria-hidden="true">{{ side.count() }}</span>
+        <span class="sr-only">({{ side.count() }} {{ side.count() === 1 ? 'marcada' : 'marcadas' }})</span>
+      }
+    </button>
+  }
 
   <div class="group density" role="group" aria-label="Tipo de ficha">
     <button

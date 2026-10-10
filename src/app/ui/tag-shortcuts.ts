@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { WallMotion } from '../core/wall-motion';
-import { WallView } from '../core/wall-view';
+import { WallState } from '../core/wall-view';
 import { NoteTag } from './note-tag';
 
 /** Quantas tags ficam à mão; as outras aparecem no "+N". */
@@ -120,7 +120,7 @@ const MAX_SHORTCUTS = 10;
   `,
 })
 export class TagShortcuts {
-  private readonly view = inject(WallView);
+  private readonly view = inject(WallState);
   private readonly motion = inject(WallMotion);
 
   /** Mostrando todas as tags (o "+N" aberto). */

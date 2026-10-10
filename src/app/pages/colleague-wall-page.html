@@ -1,6 +1,6 @@
-<a class="voltar btn-quiet" routerLink="/comparar" (click)="backToCompare()">
+<a class="voltar btn-quiet" [routerLink]="back.link" (click)="goBack()">
   <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-  Voltar à comparação
+  {{ back.label }}
 </a>
 
 @if (colleagues.loading()) {
@@ -11,9 +11,19 @@
       <span class="placa-faixa">O mural de</span>
       <span class="placa-nome">{{ c.name }}</span>
     </h1>
-    @if (summary()) {
-      <p class="giz">{{ summary() }}</p>
-    }
+    <div class="cabeca-info">
+      @if (summary()) {
+        <p class="giz">{{ summary() }}</p>
+      }
+      @if (otherWalls().length) {
+        <nav class="murais" [attr.aria-label]="'Outros murais de ' + c.name">
+          <span class="murais-giz">Outros murais:</span>
+          @for (w of otherWalls(); track w.kind) {
+            <button type="button" class="plate" (click)="switchWall(w.kind)">{{ w.label }} <span class="count">{{ w.n }}</span></button>
+          }
+        </nav>
+      }
+    </div>
     <!-- aberto pelo código e com conta: seguir a pessoa (as resenhas novas aparecem em Amigos) -->
     @if (canFollow()) {
       <button
@@ -35,169 +45,24 @@
     }
   </header>
 
-  @if (otherWalls().length) {
-    <nav class="murais" [attr.aria-label]="'Outros murais de ' + c.name">
-      <span class="murais-giz">Outros murais:</span>
-      @for (w of otherWalls(); track w.kind) {
-        <button type="button" class="plate" (click)="switchWall(w.kind)">{{ w.label }} <span class="count">{{ w.n }}</span></button>
-      }
-    </nav>
-  }
-
-  @if (!reviews().length) {
+  @if (!visit.wall().length) {
     <section class="vazio cartolina" aria-labelledby="vazio-titulo">
       <span class="fita-vazio" aria-hidden="true"></span>
       <h2 id="vazio-titulo">{{ c.name }} não tem {{ profile().plural }} no mural</h2>
-      <p>O backup só tem resenhas de outros murais. Troque de mural no cartaz{{ otherWalls().length ? ' ou toque num dos murais acima' : '' }}.</p>
+      <p>As fichas de {{ c.name }} estão em outros murais. Troque de mural no cartaz{{ otherWalls().length ? ' ou toque num dos murais acima' : '' }}.</p>
     </section>
   } @else {
-    <div class="prateleira">
-      <app-search-strip
-        class="prateleira-busca"
-        inputId="busca-colega"
-        [label]="'Procurar no mural de ' + c.name"
-        placeholder="Procurar neste mural…"
-        [value]="query()"
-        (valueChange)="query.set($event)"
-      />
-      <span class="prateleira-quebra" aria-hidden="true"></span>
-
-      <button
-        #filterTab
-        type="button"
-        class="plate filtrar"
-        [class.is-active]="filtersOpen()"
-        [attr.aria-expanded]="filtersOpen()"
-        aria-controls="cartela-filtros-colega"
-        (click)="toggleFilters($event)"
-      >
-        <lucide-icon [img]="FilterIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        <span>Filtrar</span>
-        @if (filterCount()) {
-          <span class="badge" aria-hidden="true">{{ filterCount() }}</span>
-          <span class="sr-only">({{ filterCount() }} ligados)</span>
-        }
-      </button>
-
-      <!-- "Evitar spoilers": as notas do que você não avaliou, à mostra só enquanto a página estiver aberta -->
-      @if (canReveal()) {
-        <button
-          type="button"
-          class="plate notas"
-          [attr.aria-pressed]="revealed()"
-          (click)="toggleReveal()"
-          [title]="revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
-        >
-          <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          <span>{{ revealed() ? 'Esconder notas' : 'Mostrar notas' }}</span>
-        </button>
-      }
-      <!-- no mural de anotações, no mesmo lugar: as finalizadas (com check), à mostra só enquanto a página estiver aberta -->
-      @if (doneCount()) {
-        <button
-          type="button"
-          class="plate notas"
-          [attr.aria-pressed]="showDone()"
-          (click)="toggleDone()"
-          [title]="showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
-        >
-          <lucide-icon [img]="DoneIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          <span>Mostrar finalizadas</span>
-          <span class="count" aria-hidden="true">{{ doneCount() }}</span>
-          <span class="sr-only">({{ doneCount() }})</span>
-        </button>
-      }
-
-      <div class="prateleira-fim">
-        <div class="ordem">
-          <label class="plate pick">
-            <span class="pick-pre">Ordenar</span>
-            <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
-            <select aria-label="Ordenar o mural" [value]="shownSort()" (change)="setSort($any($event.target).value)">
-              @for (s of shownSorts(); track s.value) {
-                <option [value]="s.value">{{ s.label }}</option>
-              }
-            </select>
-            <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-          </label>
-          <button
-            type="button"
-            class="plate icon"
-            (click)="toggleDirection()"
-            [attr.aria-label]="directionLabel() + '. Inverter ordem'"
-            [title]="directionLabel()"
-          >
-            <lucide-icon [img]="direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          </button>
-        </div>
-        <div class="densidade" role="group" aria-label="Tipo de ficha">
-          <button type="button" class="plate icon" [attr.aria-pressed]="view.density() === 'completa'" (click)="view.setDensity('completa')" aria-label="Fichas completas" title="Fichas completas">
-            <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          </button>
-          <button type="button" class="plate icon" [attr.aria-pressed]="simple()" (click)="view.setDensity('simples')" aria-label="Fichas simples" title="Fichas simples">
-            <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          </button>
-          <button type="button" class="plate icon" [attr.aria-pressed]="capas()" (click)="view.setDensity('capas')" aria-label="Só capa e nome" title="Só capa e nome">
-            <lucide-icon [img]="CoversIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </div>
-
-    @if (filtersOpen()) {
-      <app-filter-sheet
-        id="cartela-filtros-colega"
-        class="cartela"
-        animate.enter="desce"
-        animate.leave="sobe"
-        [facets]="facets()"
-        [kind]="mural.kind()"
-        [summary]="sheetSummary()"
-        (toggle)="toggleFilter($event)"
-        (clearFacet)="clearFacet($event)"
-        (clearAll)="clearAllFilters()"
-        (done)="closeFilters()"
-      />
-    }
-
-    @if ((query().trim() || filterCount()) && pool().length) {
-      <div class="mostrando">
-        <p class="mostrando-n" aria-live="polite">Mostrando {{ visible().length }} de {{ pool().length }}</p>
-        <app-filter-tags [tags]="tags()" (remove)="toggleFilter($event)" />
-        <button type="button" class="limpar" (click)="clear()">Limpar filtro</button>
-      </div>
-    }
-
-    @if (!pool().length) {
-      <p class="nada">Todas as anotações de {{ c.name }} estão finalizadas. <button type="button" class="limpar" (click)="toggleDone()">Mostrar finalizadas</button></p>
-    } @else if (!visible().length) {
-      <p class="nada">Nenhuma {{ isNotesWall() ? 'anotação' : 'ficha' }} de {{ c.name }} com esses filtros.</p>
-    } @else {
-      <h2 class="sr-only">Fichas de {{ c.name }}</h2>
-      <div class="wall" [class.compact]="simple()" [class.capas]="capas()">
-        @for (g of groups(); track g.key) {
-          <section class="grupo" [attr.aria-labelledby]="'grupo-' + g.key">
-            <header class="grupo-head">
-              <h3 class="tape-label" [id]="'grupo-' + g.key">{{ g.label }}</h3>
-              <p class="grupo-sum">{{ g.summary }}</p>
-            </header>
-            <div class="fichas">
-              @for (r of g.reviews; track r.id) {
-                <app-review-card [review]="r" [preview]="true" [compact]="simple()" [capas]="capas()" [dayOnly]="shownSort() === 'data'" [masked]="hidden().has(r.id)" [reactCode]="code()" (opened)="open(r)" />
-              }
-            </div>
-          </section>
-        }
-      </div>
-    }
+    <!-- a mesma régua e a mesma parede do seu mural, sobre as fichas da pessoa -->
+    <app-wall-toolbar class="toolbar" />
+    <app-wall-board [access]="access()" (opened)="open($event)" />
   }
 } @else {
   <section class="vazio cartolina" aria-labelledby="vazio-titulo">
     <span class="fita-vazio" aria-hidden="true"></span>
-    <h2 id="vazio-titulo">Nenhum colega aberto</h2>
-    <p>Abra o backup de alguém em Comparar e o mural dele aparece aqui.</p>
+    <h2 id="vazio-titulo">Nenhum mural aberto</h2>
+    <p>Abra o mural de alguém em Amigos, ou o backup de alguém em Comparar, e ele aparece aqui.</p>
     <a class="btn-ink" routerLink="/comparar">Ir para Comparar</a>
   </section>
 }
 
-<app-review-reader (revealedChange)="revealOne($event)" />
+<app-review-reader (revealedChange)="visit.revealOne($event)" />

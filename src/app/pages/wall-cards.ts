@@ -31,6 +31,8 @@ export interface WallCardProps {
   picked: ReadonlyMap<string, number>;
   /** Sem spoilers: notas, veredito, bônus e texto escondidos. */
   masked: boolean;
+  /** As fichas em segredo uma a uma (o mural de alguém, com "Evitar spoilers de outros murais"). */
+  secret: ReadonlySet<string>;
   /** Quantas vezes cada obra jogada mais de uma vez está no mural (id da original → vezes). */
   times: ReadonlyMap<string, number>;
   /** O meu código na nuvem, para as fichas mostrarem as reações que receberam (null: sem conta). */
@@ -49,6 +51,7 @@ const NO_PROPS: WallCardProps = {
   picking: false,
   picked: new Map(),
   masked: false,
+  secret: new Set(),
   times: new Map(),
   reactCode: null,
   checkable: false,
@@ -98,7 +101,7 @@ export class WallCardPool implements OnDestroy {
   private preloadCovers(): void {
     if (this.preload) return;
     const step = () => {
-      const lazy = Array.from(document.querySelectorAll<HTMLImageElement>('app-wall-page [data-ficha] img[loading="lazy"]'));
+      const lazy = Array.from(document.querySelectorAll<HTMLImageElement>('app-wall-board [data-ficha] img[loading="lazy"]'));
       for (const img of lazy.slice(0, 2)) img.loading = 'eager';
       this.preload = lazy.length > 2 ? setTimeout(step, 250) : undefined;
     };
@@ -153,7 +156,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('dayOnly', p.dayOnly);
     ref.setInput('picking', p.picking);
     ref.setInput('pickedAt', p.picked.get(r.id) ?? null);
-    ref.setInput('masked', p.masked);
+    ref.setInput('masked', p.masked || p.secret.has(r.id));
     ref.setInput('times', p.times.get(r.id) ?? 1);
     ref.setInput('reactCode', p.reactCode);
     ref.setInput('checkable', p.checkable);

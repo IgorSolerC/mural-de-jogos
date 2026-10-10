@@ -1,6 +1,7 @@
 /*
- * O mural do colega: a mesma parede em seções do seu mural, com as fichas dele, e no alto a placa
- * com o nome dele na faixa azul (a cor do colega em toda a comparação).
+ * O mural de outra pessoa: no alto a placa com o nome dela na faixa azul (a cor do colega em toda a
+ * comparação), o resumo, os outros murais e o seguir. Embaixo, a régua e a parede são as do seu mural
+ * (WallToolbar e WallBoard).
  */
 @use './comparison/shelf';
 
@@ -95,132 +96,33 @@
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
-.ordem {
-  display: flex;
-  gap: 6px;
-}
-
-/* a aba Filtrar abre a cartela embaixo da régua, como no seu mural */
-.filtrar,
-.notas {
-  padding-inline: 13px 15px;
-}
-
-.cartela {
-  margin: -24px 4px 40px;
-}
-
-/* embaixo da régua: quantas sobraram, os filtros ligados e limpar */
-.mostrando {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-}
-
-.mostrando-n {
-  margin: 0 4px 0 0;
-}
-
-/* ===== A parede em seções, igual à do seu mural ===== */
-.wall {
-  --card-w: var(--ficha-w);
-  --in-col: 34px;
-  --in-gap: 44px var(--in-col);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 64px var(--in-col);
-}
-
-.wall.compact {
-  --card-w: var(--simples-w);
-  --in-col: 30px;
-  --in-gap: 34px var(--in-col);
-}
-
-.wall.capas {
-  --card-w: clamp(116px, calc((var(--simples-page) - 7 * 22px) / 8), 156px);
-  --in-col: 22px;
-  --in-gap: 26px var(--in-col);
-}
-
-.grupo {
-  flex: 0 1 auto;
-  min-width: 0;
+/* o resumo e os outros murais da pessoa, ao lado da placa */
+.cabeca-info {
   display: grid;
-  gap: 26px;
+  gap: 10px;
+  min-width: 0;
+
+  .murais {
+    margin-bottom: 0;
+  }
 }
 
-.grupo-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 14px;
-  padding-left: 4px;
-  width: 0;
-  min-width: 100%;
+/* a régua do mural, como no seu: a cartela de filtros abre por cima das fichas */
+.toolbar {
+  position: relative;
+  z-index: 5;
+  margin-bottom: 44px;
 }
 
-.grupo:nth-child(even) .tape-label {
-  rotate: 1.2deg;
-}
-
-.grupo-sum {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.92rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
-}
-
-.fichas {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--in-gap);
-}
-
-.fichas app-review-card {
-  width: var(--card-w);
-  max-width: none;
-}
-
-@media (max-width: 699px) {
-  .densidade {
-    display: none;
+@media (max-width: 720px) {
+  .toolbar {
+    margin-bottom: 34px;
   }
 }
 
 @media (max-width: 559px) {
-  .prateleira-fim {
-    margin-left: 0;
-  }
   .placa {
     min-width: 0;
     width: 100%;
-  }
-  .wall {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 48px;
-  }
-  .grupo {
-    gap: 20px;
-  }
-  .fichas {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 34px;
-  }
-  .fichas app-review-card {
-    width: 100%;
-  }
-  .wall.capas .fichas {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 22px 12px;
   }
 }

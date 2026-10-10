@@ -108,7 +108,9 @@
 }
 
 /* ===== Filtrar: a aba que abre a cartela ===== */
-.filtrar {
+/* "Mostrar notas" (o mural de alguém) fica ao lado de Filtrar */
+.filtrar,
+.notas {
   padding-inline: 13px 15px;
 }
 
@@ -152,10 +154,21 @@
     display: none;
   }
 
-  .filtrar {
+  .filtrar,
+  .notas {
     order: 3;
     flex: none;
     padding-inline: 11px 13px;
+  }
+
+  /* no mural de alguém não há Marcar: a busca fica com a fileira de cima inteira, o tipo de ficha e
+     Filtrar descem juntos, e "Mostrar notas" vai para a fileira da ordem */
+  .alheio .search {
+    flex-basis: 100%;
+  }
+
+  .notas {
+    order: 4;
   }
 
   .cartela {

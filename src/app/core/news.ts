@@ -50,6 +50,30 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-voltar-a-amigos',
+    version: '1.24.4',
+    kind: 'correcao',
+    date: '2026-10-09',
+    title: 'A volta certa do mural de alguém',
+    items: [
+      'Quem abre o mural de alguém em Amigos agora tem "Voltar a Amigos" no alto, em vez de "Voltar à comparação", que levava para Comparar.',
+    ],
+  },
+  {
+    id: '2026-10-09-mural-de-alguem-igual-ao-seu',
+    version: '1.24.3',
+    kind: 'melhoria',
+    date: '2026-10-09',
+    title: 'O mural de alguém igual ao seu',
+    items: [
+      'O mural de outra pessoa agora tem a mesma régua e a mesma parede do seu: as fichas inteiras em colagem, a ordem por cada nota (História, Diversão…), as seções que fecham no maço com elástico e a conta das tarefas.',
+      'No mural de anotações de alguém, a pasta é a mesma do seu: as abas por categoria, os atalhos das tags, a lista, as fixadas no topo e o "Mostrando N de M" com "+N em outras abas".',
+      'A ordem e o tipo de ficha que você escolhe nos murais dos outros ficam guardados à parte: mudar lá não mexe mais no seu mural. A aba, a busca e as seções fechadas começam do zero a cada pessoa.',
+      'Os cartões de quando nada aparece ("Tudo finalizado", "Nada no mural de Marina com esse filtro") são os mesmos do seu mural, falando da pessoa.',
+      'No celular, a busca do mural de alguém ocupa a fileira inteira, e o "Mostrar notas" fica ao lado da ordem.',
+    ],
+  },
+  {
     id: '2026-10-09-revelar-a-nota-fica',
     version: '1.24.2',
     kind: 'correcao',
