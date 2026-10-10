@@ -348,7 +348,7 @@ function watchDistance(el: HTMLElement): () => void {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
         <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
-          <app-rich-text data-queima [text]="review().text" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
+          <app-rich-text data-queima [text]="review().text" [fold]="true" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
     } @else if (!compact() && !capas()) {

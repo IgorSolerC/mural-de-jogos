@@ -50,6 +50,19 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-tarefas-feitas-recolhidas',
+    version: '1.24.0',
+    kind: 'funcionalidade',
+    date: '2026-10-09',
+    title: 'Tarefas feitas recolhidas',
+    items: [
+      'Nas anotações do mural, as tarefas já feitas saem da ficha e viram uma linha só no fim de cada lista, com o tique vermelho: "3 tarefas feitas". Uma anotação comprida não fica mais ocupando a parede com o que já foi resolvido.',
+      'Cada lista de tarefas tem a sua conta: um texto entre duas listas separa as duas.',
+      'A tarefa que você marca agora continua à vista, riscada, até a página recarregar (ou até você editar a anotação). Assim ela não some debaixo do dedo.',
+      'Na anotação aberta, as feitas também ficam recolhidas, e o "Mostrar as tarefas feitas", em cima do texto, mostra a anotação como ela é.',
+    ],
+  },
+  {
     id: '2026-10-09-colagem-sem-etiquetas',
     version: '1.23.11',
     kind: 'melhoria',

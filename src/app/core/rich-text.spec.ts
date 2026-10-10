@@ -1,4 +1,4 @@
-import { checkCount, hasFormatting, parseInline, parseRich, plainText, toggleCheck } from './rich-text';
+import { Block, checkCount, doneLines, foldDone, foldedCount, hasFormatting, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -61,5 +61,49 @@ describe('texto com formatação', () => {
     expect(toggleCheck(t, 0)).toBe(t);
     expect(toggleCheck(t, 9)).toBe(t);
     expect(checkCount(t)).toEqual({ done: 1, total: 2 });
+  });
+
+  describe('as tarefas feitas viram uma conta', () => {
+    const isCheck = (b: Block): b is Extract<Block, { kind: 'check' }> => b.kind === 'check';
+    const t = 'Exercícios 1\n- [x] um\n- [ ] dois\n- [ ] três\n- [X] quatro\nExercícios 2\n- [x] cinco\n- [x] seis\n- comum';
+
+    it('cada sequência fica com as por fazer e a sua conta no fim; a toda feita, só com a conta', () => {
+      const blocks = foldDone(parseRich(t), doneLines(t));
+      const checks = blocks.filter(isCheck);
+      expect(checks.map((b) => [b.items.map((it) => it.spans[0].text), b.folded])).toEqual([
+        [['dois', 'três'], 2],
+        [[], 2],
+      ]);
+      expect(blocks.map((b) => b.kind)).toEqual(['p', 'check', 'p', 'check', 'ul']);
+    });
+
+    it('só as feitas do retrato, e só se continuam feitas', () => {
+      const then = doneLines(t);
+      expect([...then]).toEqual([1, 4, 6, 7]);
+      // a "dois" foi marcada agora e a "um" desmarcada: as duas ficam à vista
+      const now = toggleCheck(toggleCheck(t, 2), 1);
+      const [first] = foldDone(parseRich(now), then).filter(isCheck);
+      expect([first.items.map((it) => it.line), first.folded]).toEqual([[1, 2, 3], 1]);
+    });
+
+    it('sem nada para esconder, o bloco fica como era', () => {
+      const blocks = parseRich('- [ ] a\n- [x] b');
+      expect(foldDone(blocks, new Set())).toEqual(blocks);
+    });
+
+    it('o retrato fica o mesmo quando só as marcas mudam', () => {
+      const then = snapshotDone(t);
+      expect(snapshotDone(toggleCheck(t, 2), { value: then })).toBe(then);
+      expect(snapshotDone(t + '!', { value: then })).not.toBe(then);
+      expect(foldedCount(foldDone(parseRich(t), then.lines))).toBe(4);
+    });
+
+    it('a chave muda com o texto, não com as marcas', () => {
+      expect(uncheckedKey(toggleCheck(t, 2))).toBe(uncheckedKey(t));
+      expect(uncheckedKey('- [x] a\r\n- [ ] b')).toBe('- [ ] a\n- [ ] b');
+      expect(uncheckedKey(t + '!')).not.toBe(uncheckedKey(t));
+      // "[x]" fora de uma tarefa é texto
+      expect(uncheckedKey('veja [x] aqui')).toBe('veja [x] aqui');
+    });
   });
 });

@@ -4,6 +4,7 @@ import {
   ElementRef,
   computed,
   inject,
+  linkedSignal,
   output,
   signal,
   viewChild,
@@ -30,7 +31,7 @@ import { StatusLabel } from './status-label';
 import { RichText } from './rich-text';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
-import { plainText, toggleCheck } from '../core/rich-text';
+import { foldDone, foldedCount, parseRich, plainText, snapshotDone, toggleCheck } from '../core/rich-text';
 import { NoteLinks, notesOf, parentNoteOf, resolveNote } from '../core/note-links';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
@@ -199,8 +200,17 @@ import { categoryBonus } from '../core/note-labels';
               @if (masked()) {
                 <div class="text"><app-rabisco [text]="text()" /><span class="sr-only">Texto escondido</span></div>
               } @else {
+                <!-- as tarefas feitas viram uma conta, como no mural; aqui dá para ver a anotação como ela é -->
+                @if (foldable(); as n) {
+                  <div class="feitas-linha">
+                    <button type="button" class="btn-quiet feitas-btn" [attr.aria-pressed]="showDone()" (click)="showDone.set(!showDone())">
+                      <lucide-icon [img]="showDone() ? HideIcon : RevealIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                      {{ showDone() ? 'Esconder as feitas' : n === 1 ? 'Mostrar a tarefa feita' : 'Mostrar as ' + n + ' tarefas feitas' }}
+                    </button>
+                  </div>
+                }
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
-                <div class="text"><app-rich-text [text]="r.text" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <div class="text"><app-rich-text [text]="r.text" [fold]="note() && !showDone()" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -353,6 +363,11 @@ export class ReviewReader {
   );
   /** Uma anotação: sem nota, veredito, rejogada nem lado a lado; as categorias e o texto. */
   protected readonly note = computed(() => !!this.review() && isNote(this.review()!));
+  /** As tarefas feitas quando a anotação abriu: as que o texto esconde (o mesmo retrato dele, ver RichText). */
+  private readonly doneThen = linkedSignal({ source: () => this.review()?.text ?? '', computation: snapshotDone });
+  protected readonly foldable = computed(() => (this.note() ? foldedCount(foldDone(parseRich(this.review()!.text), this.doneThen().lines)) : 0));
+  /** Mostrando as tarefas feitas: só até trocar de anotação (cada uma abre com elas escondidas). */
+  protected readonly showDone = linkedSignal({ source: () => this.review()?.id, computation: () => false });
   /** O texto embaralhado do mesmo tamanho, sem as marcas de formatação, para o modo sem spoilers. */
   protected readonly text = computed(() => {
     const r = this.review();
@@ -539,6 +554,7 @@ export class ReviewReader {
     this.owner.set(owner);
     this.pool.set(pool);
     this.review.set(review);
+    this.showDone.set(false);
     this.stampedNow.set(false);
     this.dialog().nativeElement.showModal();
   }

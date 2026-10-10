@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { hasFormatting, parseRich } from '../core/rich-text';
+import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, output } from '@angular/core';
+import { foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
 import { Review } from '../core/review';
 
@@ -97,6 +97,13 @@ import { Review } from '../core/review';
                     }
                     <span class="tarefa">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</span>
                   </label>
+                </li>
+              }
+              <!-- as feitas escondidas: uma linha só, no fim da sequência, com o tique delas -->
+              @if (b.folded; as n) {
+                <li class="linha resumo">
+                  <span class="tique" aria-hidden="true"></span>
+                  <span class="resumo-nome">{{ n === 1 ? '1 tarefa feita' : n + ' tarefas feitas' }}<span class="sr-only">{{ n === 1 ? ' (escondida)' : ' (escondidas)' }}</span></span>
                 </li>
               }
             </ul>
@@ -343,6 +350,27 @@ import { Review } from '../core/review';
         no-repeat center / 120% 120%
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     }
+    /* as feitas escondidas: o tique vermelho solto (sem caixinha, que ali não há o que marcar) e a
+       conta a lápis, miúda e apagada, para não parecer mais uma tarefa */
+    .tarefas > .resumo {
+      display: grid;
+      grid-template-columns: 1.35em minmax(0, 1fr);
+      align-items: start;
+    }
+    .resumo .tique {
+      width: 0.86em;
+      height: 0.86em;
+      margin: calc((var(--line, 1.5em) - 0.86em) / 2 + 0.06em) 0 0;
+      rotate: -3deg;
+      background:
+        no-repeat center / 120% 120%
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    .resumo-nome {
+      font-size: 0.86em;
+      font-style: italic;
+      opacity: 0.68;
+    }
     .feita .tarefa {
       text-decoration: line-through 2px rgb(21 21 21 / 0.45);
       opacity: 0.7;
@@ -424,8 +452,19 @@ export class RichText {
   /** Os links para outras anotações; null, os colchetes ficam no texto (as resenhas). */
   readonly links = input<NoteLinks | null>(null);
 
+  /**
+   * As tarefas feitas viram uma conta no fim de cada sequência (as anotações, no mural e na leitura).
+   * Só as que estavam feitas quando a ficha apareceu: a que você marca agora continua à vista até a
+   * página recarregar ou o texto mudar de verdade (não só as marcas).
+   */
+  readonly fold = input(false);
+
   protected readonly formatted = computed(() => hasFormatting(this.text()));
-  protected readonly blocks = computed(() => parseRich(this.text()));
+  private readonly doneThen = linkedSignal({ source: this.text, computation: snapshotDone });
+  protected readonly blocks = computed(() => {
+    const blocks = parseRich(this.text());
+    return this.fold() ? foldDone(blocks, this.doneThen().lines) : blocks;
+  });
 
   /** Tocou num link: só ele age (a ficha embaixo, a caixinha da tarefa, nada mais). */
   protected go(e: Event, note: Review): void {

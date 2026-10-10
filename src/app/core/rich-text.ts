@@ -62,7 +62,7 @@ export type Block =
   | { kind: 'p'; lines: Span[][] }
   | { kind: 'ul'; items: ListItem[] }
   | { kind: 'ol'; items: ListItem[]; start: number }
-  | { kind: 'check'; items: ListItem[] }
+  | { kind: 'check'; items: ListItem[]; folded?: number }
   | { kind: 'h'; level: 1 | 2 | 3; spans: Span[] }
   | { kind: 'quote'; lines: Span[][] }
   | { kind: 'hr' }
@@ -382,4 +382,62 @@ export function checkCount(text: string): { done: number; total: number } {
     if (k.done) done++;
   }
   return { done, total };
+}
+
+/**
+ * As linhas das tarefas feitas. Junto com `uncheckedKey`, é o retrato que a parede tira quando a
+ * ficha aparece: só as feitas de então se escondem (ver `foldDone`).
+ */
+export function doneLines(text: string): Set<number> {
+  const out = new Set<number>();
+  text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .forEach((l, i) => {
+      const k = lineKind(l);
+      if (k.kind === 'check' && k.done) out.add(i);
+    });
+  return out;
+}
+
+/** O texto com todas as tarefas por fazer: dois textos com a mesma chave só diferem nas marcas. */
+export function uncheckedKey(text: string): string {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((l) => (lineKind(l).kind === 'check' ? l.replace(/\[[xX]\]/, '[ ]') : l))
+    .join('\n');
+}
+
+/** O retrato das tarefas feitas de um texto (ver `snapshotDone`). */
+export interface DoneSnapshot {
+  key: string;
+  lines: ReadonlySet<number>;
+}
+
+/**
+ * O retrato das feitas, para um `linkedSignal` do texto: refeito só quando o texto muda além das
+ * marcas (outra anotação, uma edição). Marcar ou desmarcar uma tarefa guarda o retrato de antes.
+ */
+export function snapshotDone(text: string, prev?: { value: DoneSnapshot }): DoneSnapshot {
+  const key = uncheckedKey(text);
+  return prev?.value.key === key ? prev.value : { key, lines: doneLines(text) };
+}
+
+/** Quantas tarefas `foldDone` esconde. */
+export function foldedCount(blocks: readonly Block[]): number {
+  return blocks.reduce((n, b) => n + (b.kind === 'check' ? (b.folded ?? 0) : 0), 0);
+}
+
+/**
+ * Cada sequência de tarefas sem as feitas de `hide` (as que continuam feitas): elas viram uma
+ * conta só, no fim da sequência (`folded`). A sequência toda feita fica só com a conta.
+ */
+export function foldDone(blocks: readonly Block[], hide: ReadonlySet<number>): Block[] {
+  return blocks.map((b) => {
+    if (b.kind !== 'check') return b;
+    const items = b.items.filter((it) => !(it.done && hide.has(it.line)));
+    const folded = b.items.length - items.length;
+    return folded ? { kind: 'check', items, folded } : b;
+  });
 }

@@ -296,6 +296,24 @@ app-judge-label {
   text-underline-offset: 5px;
 }
 
+/* "Mostrar as tarefas feitas": miúdo, no canto de cima do texto, que a anotação é o que importa;
+   colado nele (o vão de 24px do corpo é entre as partes da ficha, e o botão é parte do texto) */
+.feitas-linha {
+  display: flex;
+  justify-content: flex-end;
+  max-width: 68ch;
+  margin: 0 0 -20px;
+}
+.feitas-btn {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 0.86rem;
+}
+.feitas-btn[aria-pressed='true'] {
+  text-decoration: underline 2.5px var(--red);
+  text-underline-offset: 5px;
+}
+
 .text {
   --line: 1.85rem;
   padding: 6px 8px;

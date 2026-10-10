@@ -33,6 +33,38 @@ describe('o texto formatado na leitura', () => {
     expect(el.textContent).toContain('Linha um\n\nLinha dois');
   });
 
+  it('as feitas de quando a ficha apareceu viram a conta; a marcada agora fica até o texto mudar de verdade', async () => {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    const set = async (text: string) => {
+      fixture.componentRef.setInput('text', text);
+      await fixture.whenStable();
+    };
+    const el: HTMLElement = fixture.nativeElement;
+    const shown = () => Array.from(el.querySelectorAll('.tarefa')).map((t) => t.textContent);
+    const counts = () => Array.from(el.querySelectorAll('.resumo-nome')).map((t) => t.textContent);
+    fixture.componentRef.setInput('fold', true);
+    document.body.appendChild(el);
+    await set('Lista 1\n- [x] um\n- [ ] dois\n- [x] três\nLista 2\n- [x] quatro');
+    expect(shown()).toEqual(['dois']);
+    expect(counts()).toEqual(['2 tarefas feitas (escondidas)', '1 tarefa feita (escondida)']);
+
+    // marcou a "dois" e desmarcou a "três": as duas à vista
+    await set('Lista 1\n- [x] um\n- [x] dois\n- [ ] três\nLista 2\n- [x] quatro');
+    expect(shown()).toEqual(['dois', 'três']);
+    expect(counts()).toEqual(['1 tarefa feita (escondida)', '1 tarefa feita (escondida)']);
+
+    // o texto mudou de verdade (uma edição): o retrato é refeito
+    await set('Lista 1\n- [x] um\n- [x] dois\n- [ ] três!\nLista 2\n- [x] quatro');
+    expect(shown()).toEqual(['três!']);
+
+    // sem a dobra, a anotação como ela é
+    fixture.componentRef.setInput('fold', false);
+    await fixture.whenStable();
+    expect(shown()).toEqual(['um', 'dois', 'três!', 'quatro']);
+    expect(counts()).toEqual([]);
+  });
+
   describe('os links para outras anotações', () => {
     const console: Review = { ...sanitizeReview({ kind: 'anotacoes', game: { name: 'Comprar um console' }, createdAt: '2026-01-01T00:00:00.000Z' })!, id: 'n1' };
     const resolve = (t: string) => (t.toLowerCase() === 'comprar um console' ? console : null);
