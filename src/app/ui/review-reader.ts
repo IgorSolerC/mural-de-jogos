@@ -378,8 +378,13 @@ export class ReviewReader {
   /** As tarefas feitas quando a anotação abriu: as que o texto esconde (o mesmo retrato dele, ver RichText). */
   private readonly doneThen = linkedSignal({ source: () => this.review()?.text ?? '', computation: snapshotDone });
   protected readonly foldable = computed(() => (this.note() ? foldedCount(foldDone(parseRich(this.review()!.text), this.doneThen().lines)) : 0));
-  /** Mostrando as tarefas feitas: só até trocar de anotação (cada uma abre com elas escondidas). */
-  protected readonly showDone = linkedSignal({ source: () => this.review()?.id, computation: () => false });
+  /** A anotação aberta. Num `computed`: marcar uma tarefa troca a `review` (salva), mas não a anotação. */
+  private readonly reviewId = computed(() => this.review()?.id);
+  /**
+   * Mostrando as tarefas feitas: só até trocar de anotação (cada uma abre com elas escondidas).
+   * Marcar e desmarcar não mexem nele: a fonte é o id, e não a `review`, que o linkedSignal refaria.
+   */
+  protected readonly showDone = linkedSignal({ source: this.reviewId, computation: () => false });
   /** O texto embaralhado do mesmo tamanho, sem as marcas de formatação, para o modo sem spoilers. */
   protected readonly text = computed(() => {
     const r = this.review();

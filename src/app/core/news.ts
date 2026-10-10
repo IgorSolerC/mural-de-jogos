@@ -50,6 +50,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-feitas-na-leitura',
+    version: '1.26.2',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'As tarefas feitas na anotação aberta',
+    items: [
+      'Com "Mostrar as tarefas feitas" ligado na anotação aberta, marcar ou desmarcar uma tarefa voltava a esconder as feitas. Agora a escolha fica como estava até você abrir outra anotação.',
+      'As feitas só se recolhem quando a anotação abre: a tarefa que você marca agora continua à vista, e a que você desmarcou e marcou de novo também, até abrir a anotação de novo.',
+    ],
+  },
+  {
     id: '2026-10-10-orelha-inteira',
     version: '1.26.1',
     kind: 'melhoria',

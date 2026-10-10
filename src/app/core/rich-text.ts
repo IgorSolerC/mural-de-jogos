@@ -432,11 +432,16 @@ export interface DoneSnapshot {
 
 /**
  * O retrato das feitas, para um `linkedSignal` do texto: refeito só quando o texto muda além das
- * marcas (outra anotação, uma edição). Marcar ou desmarcar uma tarefa guarda o retrato de antes.
+ * marcas (outra anotação, uma edição). Marcar uma tarefa guarda o retrato de antes (a marcada agora
+ * continua à vista); desmarcar tira a tarefa do retrato, então marcada de novo ela também continua
+ * à vista, até o retrato ser refeito.
  */
 export function snapshotDone(text: string, prev?: { value: DoneSnapshot }): DoneSnapshot {
   const key = uncheckedKey(text);
-  return prev?.value.key === key ? prev.value : { key, lines: doneLines(text) };
+  if (prev?.value.key !== key) return { key, lines: doneLines(text) };
+  const done = doneLines(text);
+  const lines = [...prev.value.lines].filter((i) => done.has(i));
+  return lines.length === prev.value.lines.size ? prev.value : { key, lines: new Set(lines) };
 }
 
 /** Quantas tarefas `foldDone` esconde. */

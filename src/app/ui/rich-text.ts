@@ -469,7 +469,9 @@ export class RichText {
   private readonly doneThen = linkedSignal({ source: this.text, computation: snapshotDone });
   protected readonly blocks = computed(() => {
     const blocks = parseRich(this.text());
-    return this.fold() ? foldDone(blocks, this.doneThen().lines) : blocks;
+    // lido sempre, mesmo sem recolher: o retrato precisa ver cada marca (a desmarcada sai dele)
+    const hide = this.doneThen().lines;
+    return this.fold() ? foldDone(blocks, hide) : blocks;
   });
 
   /** Tocou num link: só ele age (a ficha embaixo, a caixinha da tarefa, nada mais). */

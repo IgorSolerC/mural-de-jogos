@@ -112,6 +112,15 @@ describe('texto com formatação', () => {
       expect(foldedCount(foldDone(parseRich(t), then.lines))).toBe(4);
     });
 
+    it('a desmarcada sai do retrato: marcada de novo, continua à vista', () => {
+      const then = snapshotDone(t);
+      const off = snapshotDone(toggleCheck(t, 1), { value: then });
+      expect([...off.lines]).toEqual([4, 6, 7]);
+      const back = snapshotDone(t, { value: off });
+      expect(back).toBe(off);
+      expect(foldedCount(foldDone(parseRich(t), back.lines))).toBe(3);
+    });
+
     it('a chave muda com o texto, não com as marcas', () => {
       expect(uncheckedKey(toggleCheck(t, 2))).toBe(uncheckedKey(t));
       expect(uncheckedKey('- [x] a\r\n- [ ] b')).toBe('- [ ] a\n- [ ] b');
