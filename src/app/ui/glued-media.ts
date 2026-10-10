@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Film, ImageOff, LucideAngularModule } from 'lucide-angular';
-import { WidgetSize, httpsUrl, parseVideo, readMedia } from '../core/widgets';
+import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
 import { snapToLines } from './line-snap';
 
 /**
@@ -16,16 +16,15 @@ import { snapToLines } from './line-snap';
  *
  * A foto é colada (`data-colado`): o estrago da ficha come o papel e a letra, nunca ela.
  *
- * O tamanho: a média é a de sempre (a foto do tamanho que ela tem, até o máximo da ficha). A pequena
- * e a grande têm o tamanho medido pela proporção da foto, qualquer que seja o tamanho do arquivo: a
- * pequena, seis décimos da média, sem passar de seis décimos da linha; a grande, a largura toda, até
- * uma vez e meia a altura da média (na ficha do mural, até o fim da ficha).
+ * O tamanho (ver note-widget.ts): a peça inteira (a borda, a faixa da polaroide, a etiqueta) tem a
+ * altura do tamanho, `--widget-alto`, e a foto fica com o que sobra dela, na proporção da foto,
+ * qualquer que seja o tamanho do arquivo; mais larga que a linha, ela encolhe até caber. O vídeo é
+ * 16:9 do mesmo jeito.
  */
 @Component({
   selector: 'app-glued-media',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.tam-pequeno]': "size() === 'pequeno'", '[class.tam-grande]': "size() === 'grande'" },
   template: `
     @let m = media();
     <figure class="colagem" [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
@@ -83,13 +82,34 @@ import { snapToLines } from './line-snap';
       padding: 0.45em 0 0.6em;
       box-sizing: border-box;
       white-space: normal;
+      container-type: inline-size;
     }
+    /* a altura da foto: a do tamanho, menos o respiro de cima e de baixo, a borda e a legenda
+       (--reserva). --pad: a borda da foto dos dois lados, que entra na largura (a foto é border-box) */
     .colagem {
+      --pad: 0.68em;
+      --reserva: 1.8em;
+      --alto-foto: max(1em, calc(var(--widget-alto, 22em) - var(--reserva)));
       display: grid;
       justify-items: start;
       width: fit-content;
       max-width: 100%;
       margin: 0;
+    }
+    /* a faixa de baixo da polaroide acompanha a foto (no mini, mais fina; nunca menor que a legenda) */
+    .colagem.moldura-polaroid {
+      --pad: 1.1em;
+      --reserva: calc(1.75em + clamp(1.2em, calc(var(--widget-alto, 22em) * 0.16), 2.2em) * var(--letra-tam, 1));
+    }
+    .colagem.moldura-recorte {
+      --pad: 0em;
+      --reserva: 1.1em;
+    }
+    .colagem:has(> .etiqueta-lugar) {
+      --reserva: 2.7em;
+    }
+    .colagem.moldura-recorte:has(> .etiqueta-lugar) {
+      --reserva: 2em;
     }
 
     /* ===== A foto: o papel fotográfico colado, torto, com a sombra rente de quem está colado ===== */
@@ -137,24 +157,27 @@ import { snapToLines } from './line-snap';
       border-radius: 1px;
     }
     img {
-      width: auto;
+      width: 100%;
       height: auto;
-      max-height: var(--midia-max, 22em);
       object-fit: contain;
     }
-    /* revelando (carregando): o papel da foto ainda em branco, do tamanho de uma foto comum. Não é
+    /* a foto carregada: a largura que a proporção dela pede para a altura do tamanho, até a da linha */
+    .foto:not(.video, .revelando, .quebrada) {
+      width: min(100cqw, calc(var(--alto-foto) * var(--prop, 1.333) + var(--pad)));
+    }
+    /* revelando (carregando): o papel da foto ainda em branco, 4:3, da altura do tamanho. Não é
        .carregando: essa é a global do botão esperando (o aro girando) */
     .revelando {
-      width: min(100%, 14em);
+      width: min(100cqw, calc(var(--alto-foto) * 4 / 3 + var(--pad)));
       aspect-ratio: 4 / 3;
       background: #efe9dc;
     }
     .revelando img {
       opacity: 0;
     }
-    /* o vídeo: sempre 16:9, do tamanho que cabe (o papel da foto manda na largura) */
+    /* o vídeo: sempre 16:9, da altura do tamanho (o papel da foto manda na largura) */
     .foto.video {
-      width: min(100%, 28.7em, calc(var(--midia-max, 22em) * 16 / 9 + 0.7em));
+      width: min(100cqw, calc(var(--alto-foto) * 16 / 9 + var(--pad)));
     }
     .video img.capa,
     .video video,
@@ -182,12 +205,14 @@ import { snapToLines } from './line-snap';
 
     /* ===== O adesivo de tocar: uma etiqueta redonda vermelha, com a borda branca do corte ===== */
     .tocar {
+      /* do tamanho do vídeo: no mini, não cobre a foto toda */
+      --d: min(3.1em, calc(var(--alto-foto) * 0.5));
       grid-area: 1 / 1;
       place-self: center;
       display: grid;
       place-items: center;
-      width: 3.1em;
-      height: 3.1em;
+      width: var(--d);
+      height: var(--d);
       padding: 0;
       border: 0;
       border-radius: 50%;
@@ -201,9 +226,9 @@ import { snapToLines } from './line-snap';
       transition: scale var(--t-ui) var(--ease-ui);
     }
     .tocar svg {
-      width: 1.45em;
-      height: 1.45em;
-      margin-left: 0.14em;
+      width: calc(var(--d) * 0.47);
+      height: calc(var(--d) * 0.47);
+      margin-left: calc(var(--d) * 0.045);
       fill: currentColor;
     }
     .tocar:hover {
@@ -222,7 +247,7 @@ import { snapToLines } from './line-snap';
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 2.3em;
+      min-height: clamp(1.25em, calc(var(--widget-alto, 22em) * 0.16), 2.3em);
       max-width: 100%;
       width: 0;
       min-width: 100%;
@@ -230,10 +255,18 @@ import { snapToLines } from './line-snap';
       box-sizing: border-box;
       color: #151515;
       font-family: var(--f-hand);
-      font-size: 0.95em;
+      font-size: calc(0.95em * var(--letra-tam, 1));
       line-height: 1.15;
       text-align: center;
       overflow-wrap: anywhere;
+    }
+    /* no mini, a polaroide é estreita demais para a legenda quebrar: uma linha, com reticências */
+    :host-context(.tam-mini) .legenda-polaroide {
+      display: block;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      align-content: center;
     }
     /* a etiqueta: um pedaço de papel branco recortado e colado meio por cima do pé da foto, torto
        para o outro lado. O lugar dela tem a largura da foto (a legenda não alarga a foto); ela, a do
@@ -256,7 +289,7 @@ import { snapToLines } from './line-snap';
       box-sizing: border-box;
       color: #151515;
       font-family: var(--f-hand);
-      font-size: 0.9em;
+      font-size: calc(0.9em * var(--letra-tam, 1));
       line-height: 1.25;
       overflow-wrap: anywhere;
       rotate: calc(var(--giro, -1deg) * -1.4);
@@ -309,78 +342,12 @@ import { snapToLines } from './line-snap';
         transition: none;
       }
     }
-
-    /* ===== O tamanho pequeno e o grande (o médio é o de cima) =====
-       --m-alto: a altura máxima da média, na letra de sempre (a pequena está na letra dela, --tam; a
-       grande, na de sempre). --pad: a borda da foto dos dois lados, que entra na largura (a foto é
-       border-box) */
-    :host(.tam-pequeno),
-    :host(.tam-grande) {
-      container-type: inline-size;
-      --pad: 0.68em;
-    }
-    :host(.tam-pequeno) {
-      --m-alto: var(--midia-max, calc(22em / var(--tam, 1)));
-    }
-    :host(.tam-grande) {
-      --m-alto: var(--midia-max, 22em);
-    }
-    :host(.tam-pequeno) .moldura-polaroid,
-    :host(.tam-grande) .moldura-polaroid {
-      --pad: 1.1em;
-    }
-    :host(.tam-pequeno) .moldura-recorte,
-    :host(.tam-grande) .moldura-recorte {
-      --pad: 0em;
-    }
-    /* (na figura, e não no host: uma variável que usa outra é resolvida onde é declarada) */
-    :host(.tam-pequeno) .colagem {
-      --alto: calc(var(--m-alto) * 0.6);
-      --largo: 60cqw;
-    }
-    /* a grande: uma vez e meia a média, e na ficha do mural, até o fim da ficha (sobra o respiro, a
-       borda e a legenda), mas nunca menor que a média */
-    :host(.tam-grande) .colagem {
-      --reserva: 1.8em;
-      --alto: max(var(--m-alto), min(calc(var(--m-alto) * 1.5), calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px) - var(--reserva))));
-      --largo: 100cqw;
-    }
-    :host(.tam-grande) .colagem.moldura-polaroid {
-      --reserva: 3.9em;
-    }
-    :host(.tam-grande) .colagem:has(> .etiqueta-lugar) {
-      --reserva: 2.7em;
-    }
-    /* a foto carregada: a largura que a proporção dela pede para a altura do tamanho, até a da linha */
-    :host(.tam-pequeno) .foto:not(.video, .revelando, .quebrada),
-    :host(.tam-grande) .foto:not(.video, .revelando, .quebrada) {
-      width: min(var(--largo), calc(var(--alto) * var(--prop, 1.333) + var(--pad)));
-    }
-    :host(.tam-pequeno) .foto:not(.video) img,
-    :host(.tam-grande) .foto:not(.video) img {
-      width: 100%;
-      max-height: none;
-    }
-    :host(.tam-pequeno) .revelando {
-      width: min(60cqw, 14em);
-    }
-    :host(.tam-grande) .revelando {
-      width: min(100cqw, 24em);
-    }
-    /* o vídeo, 16:9 */
-    :host(.tam-pequeno) .foto.video {
-      width: min(var(--largo), calc(28.7em * 0.6 / var(--tam, 1)), calc(var(--alto) * 16 / 9 + 0.7em));
-    }
-    :host(.tam-grande) .foto.video {
-      width: min(var(--largo), calc(var(--alto) * 16 / 9 + 0.7em));
-    }
   `,
 })
 export class GluedMedia {
   readonly kind = input.required<'imagem' | 'video'>();
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
-  readonly size = input<WidgetSize>('medio');
 
   protected readonly BrokenIcon = ImageOff;
   protected readonly FilmIcon = Film;
@@ -395,7 +362,7 @@ export class GluedMedia {
   protected readonly loaded = linkedSignal({ source: this.url, computation: () => false });
   protected readonly failed = linkedSignal({ source: this.url, computation: () => false });
   protected readonly playing = linkedSignal({ source: this.url, computation: () => false });
-  /** A largura sobre a altura da foto, quando ela chega (a pequena e a grande medem por ela). */
+  /** A largura sobre a altura da foto, quando ela chega (a largura da foto sai dela). */
   protected readonly ratio = linkedSignal<string, number | null>({ source: this.url, computation: () => null });
 
   /** O que não deixa a foto aparecer (sem link, link sem https, vídeo que não toca aqui, não abriu). */

@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, inject, input } from '@angular/core';
-import { WidgetSize } from '../core/widgets';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, ElementRef, afterNextRender, inject, input } from '@angular/core';
+import { WIDGET_LINES, WidgetSize } from '../core/widgets';
 import { AudioTrack } from './audio-track';
 import { Countdown } from './countdown';
 import { GluedMedia } from './glued-media';
@@ -9,18 +9,27 @@ import { GluedMedia } from './glued-media';
  * um `@case` aqui e um componente seu, que recebe os parâmetros como foram escritos. Cada widget
  * vem num `@defer`, para não pesar no carregamento do site.
  *
- * O tamanho (pequeno, médio, grande) vale em toda parte onde o texto aparece: a peça inteira cresce
- * ou encolhe junto (a letra, a borda, os botões), a partir do médio, que é o de sempre. A foto
- * colada e a faixa também mudam o quanto ocupam da ficha (ver os componentes delas): `--tam` é a
- * escala da letra, e `--widget-teto` (da ficha do mural, ver review-card.ts) é a altura da caixa do
- * texto, que corta o que passa dela. Numa caixa assim (marcada com `data-widget-teto`), o widget mede
- * quanto texto vem antes dele (`--widget-acima`): o grande vai até o fim da ficha, e não além.
+ * O tamanho (mini, pequeno, médio, grande) é o mesmo para todos e vale em toda parte onde o texto
+ * aparece: uma altura em linhas da pauta (`WIDGET_LINES`), a `--widget-alto` (registrada em
+ * styles.scss, em px). Cada peça cresce até ela: a foto e o vídeo, o bloquinho do contador, a fita,
+ * o disco, a tira. O que é letra de apoio (a legenda, o lado do contador) cresce pouco
+ * (`--letra-tam`), para não virar letreiro. Uma peça mais larga que a linha encolhe até caber.
+ *
+ * Numa caixa que corta o texto (a ficha do mural, marcada com `data-widget-teto`, que dá a altura
+ * dela em `--widget-teto`), o widget mede quanto texto vem antes dele (`--widget-acima`) e não passa
+ * do fim da caixa, mas nunca fica menor que o mini.
  */
 @Component({
   selector: 'app-note-widget',
   imports: [AudioTrack, Countdown, GluedMedia],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.tam-pequeno]': "size() === 'pequeno'", '[class.tam-grande]': "size() === 'grande'" },
+  host: {
+    '[class.tam-mini]': "size() === 'mini'",
+    '[class.tam-pequeno]': "size() === 'pequeno'",
+    '[class.tam-medio]': "size() === 'medio'",
+    '[class.tam-grande]': "size() === 'grande'",
+    '[style.--widget-linhas]': 'lines()',
+  },
   template: `
     @switch (name()) {
       <!-- o contador também vem à parte (o espaço dele fica guardado, da altura dele) -->
@@ -28,22 +37,22 @@ import { GluedMedia } from './glued-media';
         @defer (on immediate) {
           <app-countdown [args]="args()" />
         } @placeholder {
-          <div class="esperando-contador"></div>
+          <div class="esperando"></div>
         }
       }
       <!-- a foto colada também vem à parte (ela carrega a imagem depois, de qualquer jeito) -->
       @case ('imagem') {
         @defer (on immediate) {
-          <app-glued-media kind="imagem" [args]="args()" [size]="size()" />
+          <app-glued-media kind="imagem" [args]="args()" />
         } @placeholder {
-          <div class="esperando-foto"></div>
+          <div class="esperando"></div>
         }
       }
       @case ('video') {
         @defer (on immediate) {
-          <app-glued-media kind="video" [args]="args()" [size]="size()" />
+          <app-glued-media kind="video" [args]="args()" />
         } @placeholder {
-          <div class="esperando-foto"></div>
+          <div class="esperando"></div>
         }
       }
       @case ('audio') {
@@ -51,7 +60,7 @@ import { GluedMedia } from './glued-media';
         @defer (on immediate) {
           <app-audio-track [args]="args()" />
         } @placeholder {
-          <div class="esperando-faixa"></div>
+          <div class="esperando"></div>
         }
       }
     }
@@ -59,52 +68,38 @@ import { GluedMedia } from './glued-media';
   styles: `
     :host {
       display: block;
-    }
-    /* a escala da peça (o médio fica como sempre foi, sem nada disto): --tam é a da letra; --tam-faixa,
-       a da altura da faixa de áudio, que na pequena encolhe mais que a letra (a letra miúda demais não
-       se lê) */
-    :host(.tam-pequeno) {
-      --tam: 0.8;
-      --tam-faixa: 0.65;
-    }
-    :host(.tam-grande) {
-      --tam: 1.35;
-      --tam-faixa: 1.35;
-    }
-    /* a pequena encolhe inteira; na grande, a foto colada fica com a borda e a legenda de sempre (só a
-       foto cresce, ver glued-media.ts), e o contador e a faixa crescem inteiros */
-    :host(.tam-pequeno) > *,
-    :host(.tam-grande) > :is(app-countdown, .esperando-contador) {
-      font-size: calc(var(--tam) * 1em);
-    }
-    /* a faixa grande cresce inteira, menos na ficha do mural (--faixa-grande-letra: 1): ali a média já
-       ocupa a ficha, e a letra maior só tomaria o lugar do disco e da fita */
-    :host(.tam-grande) > :is(app-audio-track, .esperando-faixa) {
-      font-size: calc(var(--faixa-grande-letra, var(--tam)) * 1em);
-    }
-    /* a altura da faixa de áudio na ficha do mural, até o fim da ficha (sobra o respiro de cima e de
-       baixo da faixa); a grande nunca menor que a média. O 22em é o da leitura, na letra de sempre */
-    :host(.tam-pequeno) {
-      --faixa-cap: min(calc(var(--faixa-max, calc(22em / var(--tam))) * var(--tam-faixa)), calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px) - 1.05em));
-    }
-    :host(.tam-grande) {
-      --faixa-cap: max(
-        var(--faixa-max, 0px),
-        min(calc(var(--faixa-max, calc(22em / var(--tam))) * var(--tam-faixa)), calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px) - 1.05em))
+      /* a altura do tamanho; na caixa que corta, até o fim dela, em linhas inteiras (mas nunca menor
+         que o mini) */
+      --widget-alto: max(
+        calc(var(--line, 1.5em) * 3),
+        min(calc(var(--line, 1.5em) * var(--widget-linhas, 7)), calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px)))
       );
+      --letra-tam: 1;
     }
-    /* o lugar da faixa enquanto ela chega: a altura de uma tira, para o texto não pular tanto */
-    .esperando-faixa {
-      min-height: calc(var(--line, 1.5em) * 3);
+    /* (com round(): num navegador sem ele, a variável registrada com var() dentro viraria 0px) */
+    @supports (width: round(down, 5px, 2px)) {
+      :host {
+        --widget-alto: max(
+          calc(var(--line, 1.5em) * 3),
+          min(
+            calc(var(--line, 1.5em) * var(--widget-linhas, 7)),
+            round(down, calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px) + 1px), var(--line, 1.5em))
+          )
+        );
+      }
     }
-    /* o do contador: a altura dele (ver countdown.ts) */
-    .esperando-contador {
-      min-height: calc(var(--line, 1.5em) * 4);
-      min-height: round(up, 5.7em, var(--line, 1.5em));
+    :host(.tam-mini) {
+      --letra-tam: 0.9;
     }
-    /* e o da foto: a altura de uma foto pequena */
-    .esperando-foto {
-      min-height: calc(var(--line, 1.5em) * 5);
+    :host(.tam-pequeno) {
+      --letra-tam: 0.95;
+    }
+    :host(.tam-grande) {
+      --letra-tam: 1.15;
+    }
+    /* o lugar da peça enquanto ela chega: a altura dela, para o texto não pular */
+    .esperando {
+      min-height: var(--widget-alto);
     }
   `,
 })
@@ -113,6 +108,7 @@ export class NoteWidget {
   readonly name = input.required<string>();
   readonly args = input.required<readonly string[]>();
   readonly size = input<WidgetSize>('medio');
+  protected readonly lines = computed(() => WIDGET_LINES[this.size()] ?? WIDGET_LINES.medio);
 
   constructor() {
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;

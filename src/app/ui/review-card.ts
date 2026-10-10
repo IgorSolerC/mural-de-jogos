@@ -354,7 +354,7 @@ function watchDistance(el: HTMLElement): () => void {
       @if (review().text.trim()) {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
-        <div class="nota-texto" [class.marcavel]="interactive()" [class.faixa-ao-lado]="!full()" data-widget-teto appCorta>
+        <div class="nota-texto" [class.marcavel]="interactive()" data-widget-teto appCorta>
           <app-rich-text data-queima [text]="review().text" [fold]="true" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
@@ -931,16 +931,9 @@ function watchDistance(el: HTMLElement): () => void {
       line-height: var(--line);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      /* a imagem e o vídeo colados no texto cabem na ficha, com a faixa da polaroide e uma linha de folga */
-      --midia-max: calc(var(--line) * (var(--linhas) - 3.2));
-      /* a faixa de áudio (a fita, o vinil) não tem legenda embaixo: cabe na ficha com uma linha de texto
-         em cima (a altura dela sobe até a linha seguinte da pauta). A ficha não cresce por causa dela:
-         todas as anotações têm o mesmo tamanho máximo */
-      --faixa-max: calc(var(--line) * (var(--linhas) - 2));
-      /* o widget grande vai até o fim da ficha, e não mais; a faixa grande, na letra de sempre (ver
-         ui/note-widget.ts) */
+      /* o widget não passa do fim da ficha: ele encolhe até caber no que sobra dela (ver
+         ui/note-widget.ts). A ficha não cresce por causa dele */
       --widget-teto: calc(var(--line) * var(--linhas));
-      --faixa-grande-letra: 1;
     }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {
@@ -959,10 +952,8 @@ function watchDistance(el: HTMLElement): () => void {
     /* a ficha inteira: o texto todo, sem corte nem esmaecido no fim */
     :host(.inteira) .nota-texto {
       max-height: none;
-      /* sem corte, a faixa fica do tamanho que tem na leitura, e o widget grande não tem teto */
-      --faixa-max: 22em;
+      /* sem corte, o widget não tem teto */
       --widget-teto: initial;
-      --faixa-grande-letra: initial;
     }
     :host(.inteira) .nota-texto[data-corta] {
       -webkit-mask-image: none;

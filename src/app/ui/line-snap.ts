@@ -18,7 +18,9 @@ export function snapToLines(selector: string): void {
       const line = parseFloat(cs.lineHeight);
       if (!line) return;
       const total = piece.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      const h = `${Math.ceil(total / line - 0.01) * line}px`;
+      // a folga de um pixel: a peça medida da altura do tamanho dá uns décimos a mais nas contas, e
+      // não pode subir uma linha inteira por isso
+      const h = `${Math.ceil((total - 1) / line) * line}px`;
       if (host.style.minHeight !== h) host.style.minHeight = h;
     };
     // no quadro seguinte, e não dentro do aviso do observador (mudar a altura ali faz um laço)

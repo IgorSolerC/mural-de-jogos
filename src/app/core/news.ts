@@ -51,6 +51,20 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-quatro-tamanhos-iguais-para-todo-widget',
+    version: '1.28.19',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'Quatro tamanhos, iguais para todo widget',
+    items: [
+      'Os widgets agora têm quatro tamanhos: Mini, Pequeno, Médio e Grande. O Mini é novo, menor que o Pequeno de antes.',
+      'O mesmo tamanho ocupa o mesmo espaço em qualquer widget: um vinil pequeno fica da altura de uma imagem ou de um contador pequenos. O Mini ocupa três linhas do texto, o Pequeno cinco, o Médio sete e o Grande dez; o que é mais largo que a linha encolhe até caber.',
+      'A imagem e o vídeo Grandes não ficam mais imensos, e o contador Médio cresceu para o tamanho dos outros. Os widgets que você já pôs mudam de tamanho junto (o Médio continua sendo o de quando não se escolhe).',
+      'Na ficha do mural, nenhum widget passa do fim da ficha: ele encolhe até caber no que sobra dela, nunca menor que o Mini.',
+      'No vinil, a barra e o tempo vão para o lado do disco sempre que cabem, para o disco ficar do tamanho escolhido.',
+    ],
+  },
+  {
     id: '2026-10-10-texto-da-resenha-como-o-da-anotacao',
     version: '1.28.18',
     kind: 'melhoria',

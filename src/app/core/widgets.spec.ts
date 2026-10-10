@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { Frame, httpsUrl, parseAudio, parseVideo, readAudio, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
+import { Frame, WIDGET_LINES, WIDGET_SIZES, httpsUrl, parseAudio, parseVideo, readAudio, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -35,6 +35,14 @@ describe('widgets das anotações', () => {
     // o tamanho não é título nem legenda para o que lê palavras
     expect(plainText('{{contador: 19/11/2026 | Embarque | grande}}')).toBe('Embarque');
     expect(parseRich('{{video: https://youtu.be/dQw4w9WgXcQ | pequeno}}')[0]).toEqual({ kind: 'widget', name: 'video', args: ['https://youtu.be/dQw4w9WgXcQ'], size: 'pequeno' });
+  });
+
+  it('quatro tamanhos, o mini o menor; cada um, uma altura em linhas que cresce de um para o outro', () => {
+    expect(WIDGET_SIZES.map((s) => s.value)).toEqual(['mini', 'pequeno', 'medio', 'grande']);
+    for (const w of ['mini', 'Mínimo', 'minúscula']) expect(parseWidgetLine(`{{imagem: https://x.com/a.jpg | ${w}}}`)!.size).withContext(w).toBe('mini');
+    expect(widgetLine('audio', ['https://x.com/a.mp3'], 'mini')).toBe('{{audio: https://x.com/a.mp3 | mini}}');
+    const lines = WIDGET_SIZES.map((s) => WIDGET_LINES[s.value]);
+    expect(lines.every((n, i) => i === 0 || n > lines[i - 1])).toBeTrue();
   });
 
   it('no texto, o widget é um bloco só dele; para o que lê palavras, fica o título', () => {

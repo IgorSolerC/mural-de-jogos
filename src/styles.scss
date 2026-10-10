@@ -150,6 +150,13 @@
   inherits: true;
   initial-value: 0;
 }
+/* a altura do widget do texto (ver ui/note-widget.ts): calculada uma vez, na letra do texto, e
+   herdada já em px pelas peças, que mudam a própria letra por dentro */
+@property --widget-alto {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
 
 *,
 *::before,

@@ -375,16 +375,22 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       white-space: nowrap;
     }
 
-    /* ===== O SIMPLES: uma tira de papel colada reta, o botão de tinta, o nome, a barra e o tempo ===== */
+    /* ===== O SIMPLES: uma tira de papel colada reta, o botão de tinta, o nome, a barra e o tempo =====
+       A tira tem a altura do tamanho (ver note-widget.ts), e o botão cresce com ela; o nome e o tempo,
+       pouco (--letra-tam) */
     .jeito-simples {
-      width: min(100%, 25em);
+      --d: max(2.2em, min(calc((var(--widget-alto, 3.4em) - 1.05em) * 0.6), 40cqw));
+      display: grid;
+      width: min(100%, calc(var(--d) + 16em));
+      min-height: calc(var(--widget-alto, 3.4em) - 1.05em);
     }
     .tira {
+      font-size: calc(1em * var(--letra-tam, 1));
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       align-items: center;
       gap: 0.75em;
-      padding: 0.5em 0.85em 0.45em 0.55em;
+      padding: 0.38em 0.85em 0.36em 0.55em;
       border-radius: 2px;
       background: #fbfaf6;
       color: #151515;
@@ -395,8 +401,8 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     .tocar-tira {
       display: grid;
       place-items: center;
-      width: 2.4em;
-      height: 2.4em;
+      width: var(--d);
+      height: var(--d);
       padding: 0;
       border: 0;
       border-radius: 50%;
@@ -407,8 +413,8 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       transition: scale var(--t-ui) var(--ease-ui);
     }
     .tocar-tira svg {
-      width: 1.2em;
-      height: 1.2em;
+      width: calc(var(--d) * 0.5);
+      height: calc(var(--d) * 0.5);
       fill: currentColor;
     }
     .tocar-tira:hover {
@@ -440,10 +446,12 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
 
     /* ===== A FITA CASSETE: o desenho da fita (tamanho em em de --w), as teclas e o contador ===== */
     .jeito-fita {
-      /* a largura da fita: o que cabe na linha, e na ficha do mural, o que cabe na altura (--faixa-max,
-         ver review-card.ts; no tamanho pequeno e no grande, --faixa-cap, ver note-widget.ts) */
-      /* (a fita mais as teclas têm 0,78 da largura de altura) */
-      --w: min(100cqw, 17em, calc(var(--faixa-cap, var(--faixa-max, 22em)) * 1.25));
+      /* a largura da fita: a que dá a altura do tamanho (ver note-widget.ts), até a da linha. A fita
+         mais as teclas têm 0,8 da largura de altura; a fita sozinha, 0,64 (com folga, para
+         não passar da linha por um pixel). As teclas não ficam
+         menores que 0,42 da letra (o último termo: a fita pequena deixa o lugar delas) */
+      --w: min(100cqw, calc((var(--widget-alto, 22em) - 1.05em) / 0.81), calc((var(--widget-alto, 22em) - 1.05em - 1.25em) / 0.645));
+      container: fita / inline-size;
       width: var(--w);
       rotate: var(--giro);
     }
@@ -594,8 +602,8 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     }
     /* o toca-fitas: três teclas de metal, a de tocar fica afundada tocando, e o contador */
     .deck {
-      /* as teclas e o contador crescem e encolhem junto com a fita */
-      font-size: calc(var(--w) / 17);
+      /* as teclas e o contador crescem e encolhem junto com a fita, até um mínimo para o dedo */
+      font-size: max(calc(var(--w) / 17), 0.42em);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -669,6 +677,22 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
+    /* a fita estreita (as teclas no mínimo): só as teclas; o tempo continua na barra de arrastar, para
+       o leitor de tela */
+    @container fita (width < 7.2em) {
+      .contagem {
+        display: none;
+      }
+      .deck {
+        justify-content: center;
+      }
+    }
+    /* e a mais estreita ainda (o mini na ficha do mural): só a tecla de tocar */
+    @container fita (width < 4.6em) {
+      .tecla:not(.tecla-tocar) {
+        display: none;
+      }
+    }
     .contagem small {
       font-size: 1em;
       color: rgb(243 239 230 / 0.6);
@@ -676,9 +700,9 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
 
     /* ===== O VINIL: a capa e o disco saindo pela metade (tamanho em em de --s, a capa = 10em) ===== */
     .jeito-vinil {
-      /* o lado da capa: o que cabe na linha (o disco sai 6,6 capas de dez para fora), e na ficha do
-         mural, o que cabe na altura (sobra a linha da barra) */
-      --s: min(10em, calc(100cqw / 1.72), calc(var(--faixa-cap, var(--faixa-max, 22em)) - 2.1em));
+      /* o lado da capa: a altura do tamanho (ver note-widget.ts) menos a linha da barra, até o que cabe
+         na linha (o disco sai 7,2 capas de dez para fora) */
+      --s: min(calc(100cqw / 1.72), calc(var(--widget-alto, 22em) - 1.05em - 2.1em));
       width: calc(var(--s) * 1.72);
     }
     .vitrola {
@@ -885,31 +909,35 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       gap: 0.1em;
       margin-top: 0.4em;
     }
-    /* Na ficha do mural (que é baixa e larga), com lugar: o tempo e a barra vão para o lado do disco,
-       em pé, e o vinil fica com a altura toda da faixa. A ficha não cresce; o vinil, sim. Na leitura e
-       nas fichas inteiras, fica como sempre (a barra embaixo) */
-    @container (min-width: 18em) {
-      :host-context(.faixa-ao-lado) .jeito-vinil {
-        --s: min(10em, var(--faixa-cap, var(--faixa-max, 22em)), calc((100cqw - 7.4em) / 1.72));
-        display: flex;
-        align-items: flex-end;
-        gap: 0.9em;
-        width: auto;
-      }
-      :host-context(.faixa-ao-lado) .jeito-vinil .vitrola {
-        flex: none;
-      }
-      :host-context(.faixa-ao-lado) .jeito-vinil .pe {
-        flex: none;
-        width: 6.5em;
-        margin: 0 0 0.3em;
-      }
-      :host-context(.faixa-ao-lado) .jeito-vinil .trilho {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 0.35em;
-      }
-      :host-context(.faixa-ao-lado) .jeito-vinil .tempo {
-        order: -1;
+    /* Com lugar na linha: o tempo e a barra vão para o lado do disco, em pé, e o vinil fica com a
+       altura toda do tamanho (como a foto e a fita do mesmo tamanho). O lugar que faz o disco ao lado
+       ficar maior que com a barra embaixo depende do tamanho (ao lado, ele precisa de 1,72 vezes a
+       altura, mais os 7,4em da coluna da barra). O grande fica com o lugar do médio: na ficha do mural
+       ele tem a altura do médio, e a barra embaixo o deixaria menor que ele */
+    @each $tam, $min in (mini: 9.7em, pequeno: 14.9em, medio: 20em, grande: 20em) {
+      @container (min-width: #{$min}) {
+        :host-context(.tam-#{$tam}) .jeito-vinil {
+          --s: min(calc(var(--widget-alto, 22em) - 1.05em), calc((100cqw - 7.4em) / 1.72));
+          display: flex;
+          align-items: flex-end;
+          gap: 0.9em;
+          width: auto;
+        }
+        :host-context(.tam-#{$tam}) .jeito-vinil .vitrola {
+          flex: none;
+        }
+        :host-context(.tam-#{$tam}) .jeito-vinil .pe {
+          flex: none;
+          width: 6.5em;
+          margin: 0 0 0.3em;
+        }
+        :host-context(.tam-#{$tam}) .jeito-vinil .trilho {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0.35em;
+        }
+        :host-context(.tam-#{$tam}) .jeito-vinil .tempo {
+          order: -1;
+        }
       }
     }
 

@@ -448,7 +448,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                       <svg class="tamanho-desenho" viewBox="0 0 36 28" aria-hidden="true">
                         <rect class="tamanho-ficha" x="1" y="1" width="34" height="26" rx="2.5" />
                         <line class="tamanho-linha" x1="5.5" y1="6.5" x2="30.5" y2="6.5" />
-                        <rect class="tamanho-peca" x="5.5" y="10.5" [attr.width]="o.value === 'pequeno' ? 7 : o.value === 'medio' ? 14 : 25" [attr.height]="o.value === 'pequeno' ? 5 : o.value === 'medio' ? 9 : 13" rx="1" />
+                        <rect class="tamanho-peca" x="5.5" y="10.5" [attr.width]="sizeArt[o.value].w" [attr.height]="sizeArt[o.value].h" rx="1" />
                       </svg>
                       <span>{{ o.label }}</span>
                     </button>
@@ -470,7 +470,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                 </span>
               }
             </div>
-            <div class="widget-previa" [class.na-ficha]="cardPreview()" [class.faixa-ao-lado]="cardPreview()" [attr.data-widget-teto]="cardPreview() ? '' : null">
+            <div class="widget-previa" [class.na-ficha]="cardPreview()" [attr.data-widget-teto]="cardPreview() ? '' : null">
               @if (widgetArgs(); as args) {
                 <app-note-widget [name]="w.name" [args]="args" [size]="widgetSize()" />
               } @else {
@@ -1223,10 +1223,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     .widget-previa.na-ficha {
       --line: 1.4rem;
       --linhas: 8;
-      --midia-max: calc(var(--line) * (var(--linhas) - 3.2));
-      --faixa-max: calc(var(--line) * (var(--linhas) - 2));
       --widget-teto: calc(var(--line) * var(--linhas));
-      --faixa-grande-letra: 1;
       box-sizing: content-box;
       width: min(100% - 24px, 17.5rem);
       height: calc(var(--line) * var(--linhas));
@@ -1283,7 +1280,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       margin-top: 6px;
     }
 
-    /* ===== O tamanho: três botões com o desenho de uma ficha e quanto o widget ocupa dela ===== */
+    /* ===== O tamanho: quatro botões com o desenho de uma ficha e quanto o widget ocupa dela ===== */
     .widget-tamanho-lado {
       display: grid;
       gap: 4px;
@@ -1946,7 +1943,7 @@ export class RichEditor {
     { mark: '{{contador: 19/11/2026 18:00 | Nome}}', what: 'Contador até o dia, numa linha só dele (sem o ano: todo ano)' },
     { mark: '{{imagem: https://… | legenda}}', what: 'Imagem colada como foto (polaroid ou recorte no fim: outra moldura)' },
     { mark: '{{video: https://youtu.be/… | legenda}}', what: 'Vídeo do YouTube, do Vimeo ou um .mp4, que toca ali' },
-    { mark: '{{… | pequeno}} {{… | grande}}', what: 'O tamanho do widget (sem ele, o médio)' },
+    { mark: '{{… | mini}} {{… | pequeno}} {{… | grande}}', what: 'O tamanho do widget, o mesmo para todos (sem ele, o médio)' },
     { mark: '-> <- <-> =>', what: 'Setas: → ← ↔ ⇒ (--> e <-- compridas)' },
     { mark: '!= >= <= ~= +-', what: 'Símbolos: ≠ ≥ ≤ ≈ ±' },
     { mark: '\\*', what: 'A marca como ela é, sem formatar' },
@@ -2544,6 +2541,13 @@ export class RichEditor {
   protected readonly widgetPick = signal<{ big: boolean; name: string; values: WidgetValues; start: number; end: number; swap: boolean } | null>(null);
   /** Os tamanhos, de todo widget (o valor fica em `values.size`). */
   protected readonly sizes = WIDGET_SIZES;
+  /** O desenho de cada tamanho: a peça na ficha, da altura das linhas dele (3, 5, 7, 10), larga como um vídeo. */
+  protected readonly sizeArt: Record<WidgetSize, { w: number; h: number }> = {
+    mini: { w: 7, h: 4 },
+    pequeno: { w: 12, h: 6.5 },
+    medio: { w: 17, h: 9.5 },
+    grande: { w: 25, h: 13.5 },
+  };
   protected readonly widgetSize = computed<WidgetSize>(() => (this.widgetPick()?.values['size'] as WidgetSize | undefined) || 'medio');
   protected readonly sizeHint = computed(() => WIDGET_SIZES.find((o) => o.value === this.widgetSize())?.hint ?? '');
   /** Onde a prévia mostra o widget: na ficha do mural (do tamanho dela) ou aberta (a leitura). */

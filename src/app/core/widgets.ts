@@ -78,15 +78,27 @@ function escapeArg(v: string): string {
 
 // ===== O tamanho, que vale para todo widget =====
 
-/** O tamanho do widget: o médio é o de sempre (e não se escreve). */
-export type WidgetSize = 'pequeno' | 'medio' | 'grande';
+/**
+ * O tamanho do widget, o mesmo para todos: cada tamanho é uma altura em linhas da pauta, e toda peça
+ * (a foto, o vídeo, o bloquinho do contador, a fita, o disco, a tira) cresce até ela. Um vinil
+ * pequeno ocupa o mesmo que uma imagem ou um contador pequenos. O médio é o de quando não se escreve.
+ */
+export type WidgetSize = 'mini' | 'pequeno' | 'medio' | 'grande';
 export const WIDGET_SIZES: readonly { value: WidgetSize; label: string; hint: string }[] = [
-  { value: 'pequeno', label: 'Pequeno', hint: 'Discreto: ocupa pouco da ficha.' },
-  { value: 'medio', label: 'Médio', hint: 'O tamanho de sempre.' },
-  { value: 'grande', label: 'Grande', hint: 'O maior que cabe na ficha (aberta, bem maior).' },
+  { value: 'mini', label: 'Mini', hint: 'Ocupa três linhas do texto.' },
+  { value: 'pequeno', label: 'Pequeno', hint: 'Ocupa cinco linhas do texto.' },
+  { value: 'medio', label: 'Médio', hint: 'Ocupa sete linhas do texto (o de quando não se escolhe).' },
+  { value: 'grande', label: 'Grande', hint: 'Ocupa dez linhas do texto; na ficha do mural, até o fim dela.' },
 ];
+/** Quantas linhas da pauta cada tamanho ocupa (ver ui/note-widget.ts). */
+export const WIDGET_LINES: Readonly<Record<WidgetSize, number>> = { mini: 3, pequeno: 5, medio: 7, grande: 10 };
 /** Os nomes que valem para cada tamanho, escritos à mão (sem acento, em minúsculas). */
 const SIZE_WORDS: Record<string, WidgetSize> = {
+  mini: 'mini',
+  minimo: 'mini',
+  minima: 'mini',
+  minusculo: 'mini',
+  minuscula: 'mini',
   pequeno: 'pequeno',
   pequena: 'pequeno',
   medio: 'medio',

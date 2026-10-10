@@ -97,9 +97,10 @@ const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
   `,
   styles: `
     :host {
-      /* a peça ocupa linhas inteiras da pauta: o texto de baixo continua em cima das linhas azuis */
-      min-height: calc(var(--line, 1.5em) * 4);
-      min-height: round(up, 5.7em, var(--line, 1.5em));
+      /* a peça tem a altura do tamanho (ver note-widget.ts), em linhas inteiras da pauta: o texto de
+         baixo continua em cima das linhas azuis */
+      min-height: var(--widget-alto, calc(var(--line, 1.5em) * 4));
+      container-type: inline-size;
       display: flex;
       align-items: center;
       white-space: normal;
@@ -112,8 +113,12 @@ const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
       max-width: 100%;
     }
 
-    /* ===== O bloquinho: papelão vermelho em cima, as folhas embaixo, preso com fita crepe ===== */
+    /* ===== O bloquinho: papelão vermelho em cima, as folhas embaixo, preso com fita crepe =====
+       Tudo dentro dele mede em em: com as margens, ele tem 5,35em de alto, e a letra dele é a que
+       faz essa altura dar a do tamanho */
     .bloco {
+      /* (numa linha estreita, até 45% dela: o lado escrito precisa de lugar) */
+      font-size: min(calc(var(--widget-alto, 5.35em) / 5.35), calc(100cqw * 0.45 / 4.4));
       position: relative;
       isolation: isolate;
       flex: none;
@@ -290,11 +295,13 @@ const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
     }
 
     /* ===== Ao lado, na tinta da ficha: para quê, o dia e o resto ===== */
+    /* (a letra de apoio cresce pouco com o tamanho, ver note-widget.ts) */
     .lado {
       display: grid;
       align-content: center;
       gap: 0.12em;
       min-width: 0;
+      font-size: calc(1em * var(--letra-tam, 1));
     }
     .nome {
       display: -webkit-box;
