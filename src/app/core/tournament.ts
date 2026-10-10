@@ -156,7 +156,7 @@ export function pairUp(ids: readonly string[], score: (id: string) => number, rn
       }
       if (bestCount === 0) break;
       const a = left[best];
-      const partners = left.filter((b, j) => j !== best && Math.abs(scores[j] - scores[best]) >= gap - eps);
+      const partners = left.filter((_, j) => j !== best && Math.abs(scores[j] - scores[best]) >= gap - eps);
       const b = partners[Math.floor(rng() * partners.length)];
       out.push(a, b);
       left = left.filter((x) => x !== a && x !== b);

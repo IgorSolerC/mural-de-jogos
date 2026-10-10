@@ -1621,10 +1621,9 @@ body.has-paper-texture .btn-cartolina {
   }
 }
 
-/* Ficha longe da tela: o que pisca sem parar (os brilhos da nota, a purpurina, a capa carregando)
-   espera ela chegar perto. Ninguém vê, e cada piscada fazia o navegador redesenhar a página. */
+/* Ficha longe da tela: o que pisca sem parar (os brilhos da nota, a capa carregando) espera ela
+   chegar perto. Ninguém vê, e cada piscada fazia o navegador redesenhar a página. */
 [data-longe] .brilho,
-[data-longe] .camada.enfeite .pisca,
 [data-longe] .carregando-capa .roda,
 [data-longe] .carregando-capa::before {
   animation-play-state: paused;

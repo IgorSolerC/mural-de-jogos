@@ -1,5 +1,4 @@
 import { ReviewPair } from './comparison';
-import { Kind } from './kinds';
 import {
   Bonus,
   BonusKind,

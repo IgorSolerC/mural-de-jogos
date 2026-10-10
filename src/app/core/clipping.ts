@@ -83,7 +83,6 @@ export function titleFor(id: string, name: string, tear: Tear): TitleLook {
   let kind: TitleKind = kr < 0.3 ? 'tira' : kr < 0.52 ? 'manchete' : kr < 0.72 ? 'tarja' : 'resgate';
   if (kind === 'resgate' && !fitsRansom) kind = 'manchete';
 
-  // o alto do recorte: nunca por cima do canto dobrado nem da cabeça da matéria
   const foldAt = tear.fold?.corner ?? -1;
   // o alto do recorte: nunca por cima de uma quina dobrada lá em cima nem da cabeça da matéria
   const canTop = foldAt !== 0 && foldAt !== 1 && tear.page !== 'cabeca' && (kind === 'tarja' || kind === 'manchete');
@@ -93,7 +92,6 @@ export function titleFor(id: string, name: string, tear: Tear): TitleLook {
   let side: TitleLook['side'] = kind === 'tira' || kind === 'resgate' || r() < 0.55 ? 'esq' : 'dir';
   if (place === 'pe' && foldAt === 3) side = 'dir';
   else if (place === 'pe' && foldAt === 2 && kind !== 'tira' && kind !== 'resgate') side = 'esq';
-  else if (place === 'topo' && foldAt === 0) side = 'dir';
   const inset = Math.round(kind === 'resgate' ? 2 + r() * 8 : 4 + r() * 12);
   const tilt = Math.round((r() - 0.5) * (kind === 'tarja' ? 5 : 6) * 10) / 10;
 

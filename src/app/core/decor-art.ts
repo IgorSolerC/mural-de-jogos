@@ -1,17 +1,17 @@
 /**
  * As decorações da ficha: coisas de fora coladas, pregadas ou jogadas por cima dela (purpurina,
- * adesivos, um selo, um clipe, argolas, moedas, neve…). Ficam por cima de tudo, até da foto, como quem
+ * adesivos, um selo, um clipe, argolas, neve…). Ficam por cima de tudo, até da foto, como quem
  * enfeitou a ficha depois de pronta; o que foi jogado nela antes (a purpurina, o confete) fica por baixo
  * da foto, da nota e dos adesivos de bônus. As argolas, os ilhoses e o alfinete furam o papel.
  * Tudo sai em SVG, em px da ficha, a partir do id e do sorteio: a mesma ficha enfeita sempre igual.
  * Fica fora de `paperArt` de propósito: os desenhos de lá estão congelados.
  */
-import { Decor, f1, hash, rng } from './paper';
+import { Decor, clamp, cont, f1, hash, isStrip, poly, rng } from './paper';
 
 type Pt = [number, number];
 
 export interface DecorArt {
-  /** Os furos no papel (as argolas, os ilhoses): entram na máscara, como os do estrago. */
+  /** Os furos no papel (as argolas, os ilhoses, o alfinete): entram na máscara, como os do estrago. */
   cut: string[];
   /** O desenho, por cima de tudo. */
   front: string;
@@ -64,10 +64,10 @@ export function decorArt(input: DecorInput): DecorArt {
       postIt(W, H, k, r, uid, out);
       break;
     case 'ingresso':
-      ticket(W, H, k, r, uid, out);
+      ticket(W, H, k, r, out);
       break;
     case 'promocao':
-      saleTag(W, H, k, r, uid, out);
+      saleTag(W, k, r, out);
       break;
     case 'carimbo':
       rubberStamp(W, H, k, r, uid, out);
@@ -143,7 +143,7 @@ export function decorArt(input: DecorInput): DecorArt {
       binderClip(W, H, k, r, uid, out);
       break;
     case 'pregador':
-      clothespin(W, H, k, r, uid, out);
+      clothespin(W, k, r, uid, out);
       break;
     case 'parafusos':
       screws(W, H, k, r, uid, out);
@@ -158,7 +158,7 @@ export function decorArt(input: DecorInput): DecorArt {
       rentalSticker(W, H, k, r, out);
       break;
     case 'joias':
-      jewels(W, H, k, r, uid, out);
+      jewels(W, H, k, r, out);
       break;
     case 'laco':
       giftBow(W, H, k, r, uid, out);
@@ -172,7 +172,6 @@ export function decorArt(input: DecorInput): DecorArt {
 
 // ===================== Miudezas =====================
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** A cor entre `a` e `b` (hex de seis dígitos), `t` de 0 a 1. */
 function mix(a: string, b: string, t: number): string {
@@ -244,7 +243,7 @@ function glitter(W: number, H: number, k: number, r: () => number, out: DecorArt
     }
     const op = lit > 0.85 ? 1 : 0.7 + lit * 0.3;
     bits += `<rect x='${f1(x - s / 2)}' y='${f1(y - s / 2)}' width='${f1(s)}' height='${f1(s)}' transform='rotate(${Math.round(r() * 90)} ${f1(x)} ${f1(y)})' fill='${col}' fill-opacity='${op.toFixed(2)}'/>`;
-    // a faísca: uma estrelinha de quatro pontas com um halo; umas piscam (a camada anima a classe)
+    // a faísca: uma estrelinha de quatro pontas com um halo (a classe pisca ficou do desenho aprovado; nada a anima)
     if (lit > 0.95) {
       const L = (1.8 + r() * 2.6) * kk;
       const glint = `<circle cx='${f1(x)}' cy='${f1(y)}' r='${f1(L * 0.55)}' fill-opacity='.35'/><path d='M${f1(x)} ${f1(y - L)}Q${f1(x)} ${f1(y)} ${f1(x + L)} ${f1(y)}Q${f1(x)} ${f1(y)} ${f1(x)} ${f1(y + L)}Q${f1(x)} ${f1(y)} ${f1(x - L)} ${f1(y)}Q${f1(x)} ${f1(y)} ${f1(x)} ${f1(y - L)}Z'/>`;
@@ -793,7 +792,7 @@ function postIt(W: number, H: number, k: number, r: () => number, uid: string, o
   const col = POSTIT[Math.floor(r() * POSTIT.length)];
   const ink = r() < 0.6 ? '#2a4fa8' : '#2b2b2e';
   const rot = (r() - 0.5) * 18;
-  // a letra: corcoviñas miúdas, com o vão das palavras, três ou quatro linhas, a última mais curta
+  // a letra: corcovinhas miúdas, com o vão das palavras, três ou quatro linhas, a última mais curta
   let lines = '';
   const nl = 3 + Math.floor(r() * 2);
   for (let l = 0; l < nl; l++) {
@@ -827,7 +826,7 @@ function postIt(W: number, H: number, k: number, r: () => number, uid: string, o
 const TICKET = ['#e8453c', '#f2a93b', '#2f9e8f', '#6c5ce7', '#d6336c'];
 
 /** Um ingresso de cinema: os furinhos do picote, o número, e às vezes o canhoto já rasgado na porta. */
-function ticket(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+function ticket(W: number, H: number, k: number, r: () => number, out: DecorArt): void {
   const w = 112 * k,
     h = 46 * k,
     n = 6.5 * k;
@@ -870,7 +869,7 @@ const TAG: readonly (readonly [string, string])[] = [
 const TAG_TEXT = ['-75%', '-50%', '-90%', '-33%', 'R$ 9,99', 'GRÁTIS'];
 
 /** A etiqueta de preço de promoção, pendurada num barbante que dá a volta na beirada de cima. */
-function saleTag(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+function saleTag(W: number, k: number, r: () => number, out: DecorArt): void {
   const w = 72 * k,
     h = 34 * k,
     tip = 13 * k;
@@ -1814,18 +1813,6 @@ function errorWindow(W: number, H: number, k: number, r: () => number, uid: stri
  * A ficha simples (a tira) é bem mais larga que alta, e nela a foto ocupa toda a altura do lado
  * esquerdo: nada de enfeite ali, nem no canto de baixo à esquerda.
  */
-const isStrip = (W: number, H: number) => H / W < 0.55;
-
-/** Uma linha reta de ponto em ponto. */
-function poly(pts: Pt[]): string {
-  return pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('');
-}
-
-/** Continua uma linha já começada: os mesmos pontos, sem o "M" do começo. */
-function cont(pts: Pt[]): string {
-  return pts.map(([x, y]) => `L${f1(x)} ${f1(y)}`).join('');
-}
-
 /** Uma sombra macia (borrada) debaixo de um objeto em relevo: o mesmo desenho, preto, deslocado. */
 function softShadow(body: string, uid: string, k: number, dx = 1.6, dy = 3, op = 0.32, blur = 1.6): string {
   return `<defs><filter id='${uid}-sombra' x='-30%' y='-30%' width='160%' height='160%'><feGaussianBlur stdDeviation='${f1(blur * k)}'/></filter></defs><g transform='translate(${f1(dx * k)} ${f1(dy * k)})' opacity='${op}' filter='url(#${uid}-sombra)'>${body}</g>`;
@@ -2032,7 +2019,7 @@ const PIN_WOOD: readonly (readonly [string, string, string, string])[] = [
  * meio torto: o veio da madeira, a mola de arame atravessada, o entalhe da boca e a sombra no papel.
  * Às vezes dois, como num varal.
  */
-function clothespin(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+function clothespin(W: number, k: number, r: () => number, uid: string, out: DecorArt): void {
   const q = Math.max(0.5, k);
   const [base, light, dark, grain] = PIN_WOOD[Math.floor(r() * PIN_WOOD.length)];
   const two = r() < 0.25;
@@ -2375,7 +2362,7 @@ const JEWEL: readonly (readonly [string, string, string])[] = [
  * meio do pé: lapidação brilhante, oval ou esmeralda (os degraus), as facetas claras e escuras, as
  * garras segurando e a faísca de luz. Com filigrana em volta, de vez em quando.
  */
-function jewels(W: number, H: number, k: number, r: () => number, uid: string, out: DecorArt): void {
+function jewels(W: number, H: number, k: number, r: () => number, out: DecorArt): void {
   const q = Math.max(0.5, k);
   const gold = r() < 0.65;
   const [mb, ml, md] = gold ? ['#d4a93c', '#fff0b8', '#7a5a14'] : ['#b8bec6', '#ffffff', '#5a6068'];

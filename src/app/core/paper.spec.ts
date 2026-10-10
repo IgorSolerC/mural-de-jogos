@@ -384,7 +384,7 @@ describe('papel da ficha', () => {
       }
     });
 
-    it('só as argolas e os ilhoses furam o papel', () => {
+    it('só as argolas, os ilhoses e o alfinete furam o papel', () => {
       for (const decor of DECORS) {
         const holes = decorArt({ ...base, decor }).cut.length;
         expect(holes > 0).withContext(decor).toBe(decorCuts(decor));

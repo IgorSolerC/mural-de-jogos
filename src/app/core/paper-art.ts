@@ -4,7 +4,7 @@
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
 import { MORE_MOTIFS, Motif, MotifDrawing } from './pattern-motifs';
-import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, f1, hash, rng, svgUrl, textureOf } from './paper';
+import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, clamp, cont, f1, hash, isStrip, poly, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -36,19 +36,9 @@ const COIL = curve(140, (i) => {
   const t = (i / 140) * Math.PI * 2 * 6.5;
   return [3 + (i / 140) * 31 - 3.2 * Math.sin(t), 16 + (i / 140) * 6 - 6 * Math.cos(t)];
 });
-const SCRIBBLE = curve(160, (i) => {
-  const t = (i / 160) * Math.PI * 2 * 7.3;
-  const R = 5.5 + 2.2 * Math.sin(i * 0.23);
-  return [
-    20 + 11 * Math.sin((i / 160) * Math.PI * 2 * 1.5) + R * Math.cos(t),
-    20 + 3.5 * Math.sin((i / 160) * Math.PI * 2 * 2.2) + R * 0.8 * Math.sin(t),
-  ];
-});
-
 /** Os desenhinhos a lápis do Tédio na aula, num quadro de 40×40. `f` é miolo pintado, `h` é hachura leve. */
-export const DOODLE_ART: Record<string, string> = {
+const DOODLE_ART: Record<string, string> = {
   gato: `<path d='M12 14 L12.6 6.5 L17 10.6 Q20 9.8 23 10.6 L27.4 6.5 L28 14 Q29 20.5 20 21 Q11 20.5 12 14 Z'/><path d='M15.3 15.2q1.2-1.3 2.4 0M22.3 15.2q1.2-1.3 2.4 0'/><path d='M19.3 17.1h1.4l-.7.8z' class='f'/><path d='M20 17.9q-.9 1.3-2 .6M20 17.9q.9 1.3 2 .6'/><path d='M11.5 16.4l-5-1M11.6 18l-4.8 1.2M28.5 16.4l5-1M28.4 18l4.8 1.2'/><path d='M14.2 20.4Q9.5 29 13 35.2H27Q30.5 29 25.8 20.4'/><path d='M17.2 35.2v-3.8M22.8 35.2v-3.8'/><path d='M27 34.6Q35.5 35 34.6 27.6Q34 24 31.2 25.2'/>`,
-  fogo: `<path d='M20 4.5C22.4 11 29.5 14 29.5 23C29.5 30.4 25 35.5 20 35.5C15 35.5 10.5 31.4 10.5 25.2C10.5 20.4 13.6 18.2 14.8 13.8C16 17.8 17 19 18.4 20.2C17.8 14.4 18.6 9.8 20 4.5Z'/><path d='M20 33.6C17 33.6 15.6 31.4 15.6 29C15.6 26 18.2 24.6 18.6 21C20.4 23.4 20.8 25.6 21.2 27C22.2 26.2 22.6 25 22.6 24C24 25.8 24.4 27.4 24.4 29C24.4 31.6 22.8 33.6 20 33.6Z'/>`,
   caveira: `<path d='M20 5.5C12.2 5.5 8 11 8 17.2C8 21.4 10 23.8 12.6 24.8V28.6H27.4V24.8C30 23.8 32 21.4 32 17.2C32 11 27.8 5.5 20 5.5Z'/><circle cx='15.2' cy='16.8' r='3' class='f'/><circle cx='24.8' cy='16.8' r='3' class='f'/><path d='M20 20.4l-1.5 2.9h3z' class='f'/><path d='M16.6 28.6v-3M20 28.6v-3M23.4 28.6v-3'/><path d='M7.5 31l25 5.6M7.5 36.6l25-5.6'/><circle cx='6.6' cy='30.4' r='1.3'/><circle cx='6.6' cy='37.2' r='1.3'/><circle cx='33.4' cy='30.4' r='1.3'/><circle cx='33.4' cy='37.2' r='1.3'/>`,
   coracao: `<path d='M20 34C12 27.4 6 22.4 6 15.6C6 11 9.4 8 13 8C16 8 18.6 10 20 13C21.4 10 24 8 27 8C30.6 8 34 11 34 15.6C34 22.4 28 27.4 20 34Z'/><path d='M10.6 14.6q.6-3.2 3.8-3.4'/><path d='M22 30l7-7M19 29l10.6-10.6M17.6 26l13.6-13.6M18.8 21.4l8.4-8.4' class='h'/>`,
   fantasma: `<path d='M11 33.5V17.2C11 10.6 15 6 20 6C25 6 29 10.6 29 17.2V33.5L26 30.8L23 33.5L20 30.8L17 33.5L14 30.8Z'/><ellipse cx='16.6' cy='17' rx='1.5' ry='2.2' class='f'/><ellipse cx='23.4' cy='17' rx='1.5' ry='2.2' class='f'/><ellipse cx='20' cy='23' rx='1.6' ry='1.9'/><path d='M11 22.4q-4 1.2-5.2-2M29 22.4q4 1.2 5.2-2'/>`,
@@ -58,14 +48,10 @@ export const DOODLE_ART: Record<string, string> = {
   cogumelo: `<path d='M6 21.2C6 12.2 13 6 20 6C27 6 34 12.2 34 21.2C29 22.8 11 22.8 6 21.2Z'/><path d='M15 22.2C14.4 28 14 32 15.2 35.4H24.8C26 32 25.6 28 25 22.2'/><circle cx='13.8' cy='14.6' r='2.2' class='f'/><circle cx='21.6' cy='10.8' r='2.5' class='f'/><circle cx='27.8' cy='16' r='1.7' class='f'/><path d='M17.6 28.4q1 1 2 0M21 28.4q1 1 2 0'/>`,
   coroa: `<path d='M7 28.6L8.6 11.8L14.8 19.6L20 7.4L25.2 19.6L31.4 11.8L33 28.6Z'/><path d='M7 28.6H33V33.4H7Z'/><circle cx='8.6' cy='10.4' r='1.5' class='f'/><circle cx='20' cy='5.9' r='1.5' class='f'/><circle cx='31.4' cy='10.4' r='1.5' class='f'/><path d='M20 29.4l1.7 1.6-1.7 1.6-1.7-1.6z' class='f'/>`,
   carinha: `<circle cx='20' cy='20' r='13.5'/><path d='M15.8 15.4v3.2M24.2 15.4v3.2'/><path d='M13.4 23Q20 30.6 26.6 23'/><path d='M10.4 22.4q1.2.8 2.4 0M27.2 22.4q1.2.8 2.4 0' class='h'/>`,
-  aranha: `<path d='M20 0V13.2'/><circle cx='20' cy='15.4' r='2.6'/><ellipse cx='20' cy='23' rx='5' ry='5.8' class='f'/><path d='M15.4 20.4L9.4 16L6.4 19M15.2 22.6L8.2 21.6L5.4 25.6M15.6 25L9.4 27.6L7.6 32M17 27.4L12.4 31.8L11.6 36M24.6 20.4L30.6 16L33.6 19M24.8 22.6L31.8 21.6L34.6 25.6M24.4 25L30.6 27.6L32.4 32M23 27.4L27.6 31.8L28.4 36'/>`,
   nuvem: `<path d='M10.4 22.4C6.2 22.4 4.8 16.4 9.4 15.2C9 10 15 8 18 11.6C20 7 28 7 29.2 13C34.2 13.2 35.4 21.4 30.2 22.4Z'/><path d='M12.4 26.6l-1.6 4M18.4 26.6l-1.6 4M24.4 26.6l-1.6 4M15.4 32l-1.6 4M21.4 32l-1.6 4M27.4 32l-1.6 4'/>`,
-  cacto: `<path d='M17 28V12.4C17 8.2 23 8.2 23 12.4V28'/><path d='M17 22.4H13.2Q11 22.4 11 20.2V15.4Q11 13.6 12.6 13.6Q14.2 13.6 14.2 15.4V19.2H17'/><path d='M23 19.6H26V13.2Q26 11.4 27.6 11.4Q29.2 11.4 29.2 13.2V18.6Q29.2 21.8 26.2 21.8H23'/><path d='M11.8 28H28.2L26.4 36.2H13.6Z'/><path d='M19.4 13.4l-1 .4M20.8 17l1-.4M19.2 21.6l-1 .4M20.8 25l1-.4'/>`,
-  planeta: `<circle cx='20' cy='20' r='8'/><g transform='rotate(-18 20 20)'><path d='M5 20A15 4.6 0 0 0 35 20'/><path d='M35 20A15 4.6 0 0 0 28.1 16.1M11.9 16.1A15 4.6 0 0 0 5 20'/></g><path d='M16 17.4q1.4-2.2 3.8-2.6' class='h'/><circle cx='7' cy='8' r='.7' class='f'/><circle cx='33' cy='32' r='.7' class='f'/><path d='M32 6v3.6M30.2 7.8h3.6'/>`,
   olho: `<path d='M4.5 20.4Q20 6.4 35.5 20.4Q20 34.4 4.5 20.4Z'/><circle cx='20' cy='20.4' r='5.6'/><circle cx='20' cy='20.4' r='2.4' class='f'/><path d='M11.6 13.4l-1.6-3.2M20 11.2V7.4M28.4 13.4l1.6-3.2'/>`,
   espiral: `<path d='${SPIRAL}'/>`,
   teste: `<path d='${COIL}'/>`,
-  rabisco: `<path d='${SCRIBBLE}'/>`,
   velha: `<path d='M15.2 5.6V34.6M24.8 5.4V34.4M5.6 15.2H34.6M5.4 24.8H34.4'/><path d='M7.6 7.6l4.8 4.8M12.4 7.6l-4.8 4.8M17.6 17.6l4.8 4.8M22.4 17.6l-4.8 4.8M27.6 27.6l4.8 4.8M32.4 27.6l-4.8 4.8'/><circle cx='30' cy='10' r='2.8'/><circle cx='10' cy='20' r='2.8'/><path d='M5 5.4L35 34.8'/>`,
   pauzinhos: `<path d='M6.4 10.4v18.2M10.4 9.8v18.6M14.4 10.2v18.2M18.4 9.8v18.6M3.4 24.2L21.6 13.4M27 10.4v18M31 10.8v17.8'/>`,
   estrelinhas: `<path d='${starPath(14, 16, 8.5, 3.6, -84)}'/><path d='${starPath(29, 9, 4.8, 2, -96)}'/><path d='${starPath(28, 29, 5.6, 2.4, -80)}'/>`,
@@ -269,7 +255,7 @@ export interface PaperArt {
   fundo: string;
   /** Pigmento com cor própria (sangue) e o que clareia o papel, atrás do que está escrito. */
   clareia: string;
-  /** Relevo do papel (amassado, dobras): cinza em soft-light por cima de tudo, a tinta entorta junto. */
+  /** Relevo do papel (amassado, dobras): cinza em overlay por cima de tudo, a tinta entorta junto. */
   relevo: string;
   /** Por cima do que está escrito: a orelha, o queimado. Recortado junto com o papel. */
   frente: string;
@@ -364,15 +350,6 @@ function smooth(pts: Pt[]): string {
     d += `C${f1(c1[0])} ${f1(c1[1])} ${f1(c2[0])} ${f1(c2[1])} ${f1(p2[0])} ${f1(p2[1])}`;
   }
   return d;
-}
-
-function poly(pts: Pt[]): string {
-  return pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('');
-}
-
-/** Continua uma linha já começada: os mesmos pontos, sem o "M" do começo. */
-function cont(pts: Pt[]): string {
-  return pts.map(([x, y]) => `L${f1(x)} ${f1(y)}`).join('');
 }
 
 /** Uma reta à mão, de `a` a `b`: a mesma linha, tremendo um tiquinho a cada `seg` (as pontas ficam). */
@@ -1021,7 +998,7 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
         for (const t of [0.35, 0.62]) {
           const p = pts[Math.round(t * 10)];
           const side = t < 0.5 ? 1 : -1;
-          const ang = (Math.atan2(uy, ux) * 180) / Math.PI + side * 40 + (side > 0 ? 180 : 0) * 0;
+          const ang = (Math.atan2(uy, ux) * 180) / Math.PI + side * 40;
           const Lf = R0 * 0.9;
           leaves += `<g transform='translate(${f1(p[0])} ${f1(p[1])}) rotate(${f1(ang + (side > 0 ? -90 : 90) * (ux * ny - uy * nx > 0 ? 1 : -1) * 0.5)})'><path d='M0 0Q${f1(Lf * 0.5)} ${f1(-Lf * 0.38)} ${f1(Lf)} 0Q${f1(Lf * 0.5)} ${f1(Lf * 0.38)} 0 0Z'/></g>`;
         }
@@ -1050,22 +1027,6 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
       const q = Math.max(0.4, k);
       const px = (3.2 + r() * 0.8) * q;
       const m = (5 + r() * 2) * q;
-      const box = (mm: number, steps: number) => {
-        const s = px * steps;
-        const pts: Pt[] = [];
-        const corner = (x: number, y: number, sx: number, sy: number) => {
-          // da beirada de cima para a do lado, em degraus
-          for (let i = 0; i <= steps; i++) {
-            pts.push([x + sx * (s - i * px), y + sy * i * px]);
-            if (i < steps) pts.push([x + sx * (s - (i + 1) * px), y + sy * i * px]);
-          }
-        };
-        corner(mm, mm, 1, 1);
-        corner(W - mm, mm, -1, 1);
-        const cA = pts.length;
-        void cA;
-        return pts;
-      };
       // desenha um retângulo de quinas em degrau, lado a lado
       const stepped = (mm: number, steps: number) => {
         const s = px * steps;
@@ -1083,7 +1044,6 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
         for (let i = 0; i < steps; i++) d += `L${f1(L + i * px)} ${f1(T + s - (i + 1) * px)}L${f1(L + (i + 1) * px)} ${f1(T + s - (i + 1) * px)}`;
         return `<path d='${d}Z'/>`;
       };
-      void box;
       const outer = stepped(m, 2),
         inner = stepped(m + px * 1.8, 1);
       // a setinha de "continua": um triângulo de pixels no canto de baixo à direita
@@ -1405,7 +1365,7 @@ function scribbleArt(s: Scribble, W: number, H: number, k: number, sw: number, r
       const lives = 3;
       for (let i = 0; i < lives; i++) {
         const rows = i === lives - 1 ? SPRITES['coracao'].map((row, j) => (j === 0 || j === 5 ? row : row.replace(/^(\.*#)(#+)(#\.*)$/, (_a, b, mid, e) => b + '.'.repeat(mid.length) + e))) : SPRITES['coracao'];
-        sprites += sprite(rows, W - m - c - 5 * q - (lives - i) * 8.6 * cell / 1, m + c + 5 * q, cell);
+        sprites += sprite(rows, W - m - c - 5 * q - (lives - i) * 8.6 * cell, m + c + 5 * q, cell);
       }
       names.splice(names.indexOf('coracao'), 1);
       // embaixo, um em cada canto de dentro
@@ -2228,7 +2188,7 @@ function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: numbe
       cornerPunch(W, H, k, r, out);
       break;
     case 'desgrampeado':
-      staplesPulled(W, H, k, sw, r, out);
+      staplesPulled(W, H, k, r, out);
       break;
     case 'esfarelado':
       crumbling(W, H, k, sw, r, out);
@@ -2498,7 +2458,7 @@ function waterBlobPath(cx: number, cy: number, rx: number, ry: number, r: () => 
 
 /**
  * O papel amassado e desamassado, como na foto: facetas grandes, cada uma virada para um lado (um
- * cinza em volta de 50%, que no soft-light clareia ou escurece a cartolina e a tinta), e os vincos
+ * cinza em volta de 50%, que no overlay clareia ou escurece a cartolina e a tinta), e os vincos
  * marcando as arestas, uma linha clara e uma escura lado a lado.
  */
 function crumple(W: number, H: number, k: number, r: () => number): string {
@@ -2800,17 +2760,6 @@ function tinyFootsteps(W: number, H: number, k: number, r: () => number, out: Pa
 }
 
 // ----- Mão de sangue -----
-
-/** Uma falange: uma cápsula de `a` a `b`, com largura `w`. */
-function capsule(a: Pt, b: Pt, w: number): string {
-  const dx = b[0] - a[0],
-    dy = b[1] - a[1],
-    len = Math.hypot(dx, dy) || 1;
-  const nx = (-dy / len) * (w / 2),
-    ny = (dx / len) * (w / 2);
-  const R = f1(w / 2);
-  return `<path d='M${f1(a[0] + nx)} ${f1(a[1] + ny)}L${f1(b[0] + nx)} ${f1(b[1] + ny)}A${R} ${R} 0 0 0 ${f1(b[0] - nx)} ${f1(b[1] - ny)}L${f1(a[0] - nx)} ${f1(a[1] - ny)}A${R} ${R} 0 0 0 ${f1(a[0] + nx)} ${f1(a[1] + ny)}Z'/>`;
-}
 
 /** Uma almofada da mão: um oval torto, de borda irregular, virado `rot` graus. */
 function pad(c: Pt, rx: number, ry: number, rot: number, r: () => number, wob = 1): string {
@@ -3263,7 +3212,6 @@ function snackFingers(W: number, H: number, k: number, r: () => number, out: Pap
 
 // ===================== Os estragos de costura, cola, tesoura e bicho =====================
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const pt = (q: Pt) => `${f1(q[0])} ${f1(q[1])}`;
 
 /** O comprimento acumulado de um caminho, ponto a ponto. */
@@ -4536,8 +4484,6 @@ function ring(cx: number, cy: number, R: number, r: () => number, wob = 0.1, n =
  * A ficha simples (a tira) é bem mais larga que alta, e nela a foto ocupa toda a altura do lado
  * esquerdo; a completa é quase quadrada, com a foto só no canto de cima.
  */
-const isStrip = (W: number, H: number) => H / W < 0.55;
-
 /**
  * Um lugar para uma mancha que não fique escondido: a foto e a nota são coladas por cima do papel e
  * cobririam o que caiu ali. Na ficha completa, a faixa de baixo (sob a frase) ou a margem da direita;
@@ -4785,7 +4731,7 @@ function cornerPunch(W: number, H: number, k: number, r: () => number, out: Pape
  * furo, a marca da coroa afundada entre eles, às vezes o furo alargado de puxar e uma ferrugem; num canto ou na beirada, grampeada mais de
  * uma vez. De vez em quando sobrou uma perninha de arame num furo.
  */
-function staplesPulled(W: number, H: number, k: number, sw: number, r: () => number, out: PaperArt): void {
+function staplesPulled(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
   const q = Math.max(0.45, k);
   const L = (24 + r() * 4) * q;
   const mode = Math.floor(r() * 3);
@@ -5850,8 +5796,7 @@ function scribbleCeltic(W: number, H: number, k: number, r: () => number): [stri
           const y = sgn * A * Math.sin(phase);
           const dy = sgn * A * Math.cos(phase) * ((Math.PI * 2) / per);
           const l = Math.hypot(1, dy);
-          const vx = -dy / l,
-            vy = 1 / l;
+          const vy = 1 / l;
           const cross = Math.round((t - t0) / (per / 2));
           const tc = t0 + (cross * per) / 2;
           const under = (cross + (sgn > 0 ? 0 : 1)) % 2 === 1;
@@ -5860,7 +5805,7 @@ function scribbleCeltic(W: number, H: number, k: number, r: () => number): [stri
             seg = [];
             continue;
           }
-          seg.push(P(t + vx * off * 0, y + vy * off));
+          seg.push(P(t, y + vy * off));
         }
         if (seg.length > 1) band += `<path d='${poly(seg)}'/>`;
       }
@@ -6048,18 +5993,16 @@ function scribbleTally(W: number, H: number, k: number, r: () => number): string
     [8 * q, W - 8 * q, H - 8 * q - h / 2],
   ];
   if (H > 200 * q) rows.push([W * 0.42, W - 8 * q, H - 14 * q - h * 1.6]);
-  let total = 0;
   const lastRow = rows.length - 1;
   rows.forEach(([x0, x1, y], ri) => {
     for (let x = x0; x + gw * 0.7 < x1; x += gw) {
       const isLast = ri === lastRow && x + gw * 1.7 >= x1;
       body += group(x, y + (r() - 0.5) * 3 * q, isLast ? 2 + Math.floor(r() * 3) : 5, (r() - 0.5) * 8);
-      total++;
     }
   });
   // descendo pela beirada da direita
   for (let y = 8 * q + h * 2; y < H - 14 * q - h * 2; y += h + 6 * q) body += group(W - 8 * q - sp * 3, y, 5, (r() - 0.5) * 8);
-  return total ? body : body;
+  return body;
 }
 
 /**

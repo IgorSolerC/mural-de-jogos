@@ -9,7 +9,6 @@ import { PaperDefs } from './paper-layer';
  */
 const FROZEN_FILTERS: Record<string, string> = {
   'papel-lapis': '10esj0q.628',
-  'papel-fibra': '1juguik.303',
   'papel-mancha': '1pfmatb.302',
   'papel-agua': 'i2jm2l.782',
   'papel-borra': 'y0w0i6.131',

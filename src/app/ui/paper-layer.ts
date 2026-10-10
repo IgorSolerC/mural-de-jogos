@@ -16,7 +16,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Damage, Decor, Scribble, Stain } from '../core/paper';
 import { decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
-import { isVeiled, reveal, veil } from './veil';
+import { isVeiled, reducedMotion, reveal, veil } from './veil';
 
 let uids = 0;
 
@@ -37,11 +37,6 @@ let uids = 0;
         <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="3" result="g" />
         <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.2 1.45" result="ga" />
         <feComposite in="d" in2="ga" operator="in" />
-      </filter>
-      <!-- a fibra branca da cartolina onde ela rasgou -->
-      <filter id="papel-fibra" x="-20%" y="-20%" width="140%" height="140%">
-        <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="11" result="n" />
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
       </filter>
       <!-- beirada de mancha que secou: nada é redondo de verdade -->
       <filter id="papel-mancha" x="-10%" y="-10%" width="120%" height="120%">
@@ -484,7 +479,7 @@ export class PaperArtLayer {
     // baixo do velho com um fade (ver drawAt). Arrastando a borda da janela, a ficha muda de tamanho
     // a cada quadro: fica com o desenho esticado até a janela parar, em vez de piscar.
     const big = !s || Math.abs(W - s.W) > s.W * BIG_CHANGE || Math.abs(H - s.H) > s.H * BIG_CHANGE;
-    if (this.veils && this.needsArt() && s && big && !windowResizing()) veil(card);
+    if (this.veils && this.needsArt() && s && big && !settling()) veil(card);
     enqueue(this);
   }
 
@@ -717,22 +712,13 @@ if (typeof window !== 'undefined') {
   addEventListener('scroll', () => waiting.size && kick(), { passive: true, capture: true });
 }
 
-/** A janela está sendo redimensionada: as fichas mudam de tamanho a cada quadro. */
-function reducedMotion(): boolean {
-  return matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-function windowResizing(): boolean {
-  return performance.now() - resizedAt < 250;
-}
-
 /**
- * Vale esperar: a janela ainda está mudando de tamanho. (Esperar as fontes chegarem travava a fila
- * inteira enquanto qualquer fonte estivesse carregando; se o texto muda de lugar quando ela chega, o
- * ResizeObserver avisa e a ficha é redesenhada.)
+ * Vale esperar: a janela ainda está mudando de tamanho, e as fichas mudam de tamanho a cada quadro.
+ * (Esperar as fontes chegarem travava a fila inteira enquanto qualquer fonte estivesse carregando; se
+ * o texto muda de lugar quando ela chega, o ResizeObserver avisa e a ficha é redesenhada.)
  */
 function settling(): boolean {
-  return windowResizing();
+  return performance.now() - resizedAt < 250;
 }
 
 function onFrame(): void {

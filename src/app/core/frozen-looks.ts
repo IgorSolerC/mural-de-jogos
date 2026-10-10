@@ -1,8 +1,7 @@
 /**
  * A aparência congelada: uma impressão digital de tudo o que é desenhado por sorteio (as estampas,
  * os rabiscos, os estragos, as manchas, as decorações, os papéis; os recortes da wishlist e as folhas
- * do Pra depois), para
- * vários sorteios, ids e tamanhos. `frozen-looks.spec.ts` compara com `frozen-looks.data.ts`: o que
+ * do Pra depois), para vários sorteios, ids e tamanhos. `frozen-looks.spec.ts` compara com `frozen-looks.data.ts`: o que
  * já foi aprovado nunca muda por tabela quando se mexe em outra coisa.
  *
  * Mudar de propósito UM desenho: rode `node scripts/freeze-looks.mjs <prefixo>` (por exemplo

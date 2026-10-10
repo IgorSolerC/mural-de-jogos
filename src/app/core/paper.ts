@@ -878,6 +878,24 @@ export function f1(n: number): string {
   return (Math.round(n * 10) / 10).toString();
 }
 
+/** Um ponto [x, y] dos desenhos (em px da ficha). */
+type Pt = [number, number];
+
+/** Uma linha reta de ponto em ponto (um caminho SVG que começa com "M"). */
+export function poly(pts: Pt[]): string {
+  return pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('');
+}
+
+/** Continua uma linha já começada: os mesmos pontos, sem o "M" do começo. */
+export function cont(pts: Pt[]): string {
+  return pts.map(([x, y]) => `L${f1(x)} ${f1(y)}`).join('');
+}
+
+/** A ficha simples (a tira deitada), não a completa. */
+export const isStrip = (W: number, H: number) => H / W < 0.55;
+
+export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
 export function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {

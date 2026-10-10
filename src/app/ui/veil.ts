@@ -28,7 +28,8 @@ const FAINT = 0.02;
 const entering = new WeakMap<Element, Animation[]>();
 let nextAt = 0;
 
-function reduced(): boolean {
+/** Quem pediu menos movimento no sistema. */
+export function reducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
@@ -59,7 +60,7 @@ export function isVeiled(card: Element): boolean {
  */
 export function reveal(card: HTMLElement, onScreen: boolean): void {
   if (!isVeiled(card)) return;
-  if (!onScreen || reduced() || typeof card.animate !== 'function') {
+  if (!onScreen || reducedMotion() || typeof card.animate !== 'function') {
     card.style.removeProperty('--entrada');
     card.removeAttribute('data-veu');
     return;
