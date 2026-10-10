@@ -18,7 +18,7 @@
  * destes blocos (ver ui/rich-text.ts).
  */
 
-import { parseWidgetLine, widgetDef } from './widgets';
+import { WidgetSize, parseWidgetLine, widgetDef } from './widgets';
 
 /** Um pedaço de texto corrido, com as marcas que valem para ele. */
 export interface Span {
@@ -70,8 +70,8 @@ export type Block =
   | { kind: 'quote'; lines: Span[][] }
   | { kind: 'hr' }
   | { kind: 'code'; text: string }
-  /** Um widget (ver core/widgets.ts): o nome do registro e os parâmetros como foram escritos. */
-  | { kind: 'widget'; name: string; args: string[] }
+  /** Um widget (ver core/widgets.ts): o nome do registro, os parâmetros como foram escritos e o tamanho. */
+  | { kind: 'widget'; name: string; args: string[]; size: WidgetSize }
   | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][] };
 
 const CHECK = /^\s*[-*•]\s+\[([ xX])\]\s?(.*)$/;

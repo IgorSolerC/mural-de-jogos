@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Film, ImageOff, LucideAngularModule } from 'lucide-angular';
-import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
+import { WidgetSize, httpsUrl, parseVideo, readMedia } from '../core/widgets';
 import { snapToLines } from './line-snap';
 
 /**
@@ -15,15 +15,21 @@ import { snapToLines } from './line-snap';
  * direto (.mp4) já vem com os controles do navegador.
  *
  * A foto é colada (`data-colado`): o estrago da ficha come o papel e a letra, nunca ela.
+ *
+ * O tamanho: a média é a de sempre (a foto do tamanho que ela tem, até o máximo da ficha). A pequena
+ * e a grande têm o tamanho medido pela proporção da foto, qualquer que seja o tamanho do arquivo: a
+ * pequena, seis décimos da média, sem passar de seis décimos da linha; a grande, a largura toda, até
+ * uma vez e meia a altura da média (na ficha do mural, até o fim da ficha).
  */
 @Component({
   selector: 'app-glued-media',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.tam-pequeno]': "size() === 'pequeno'", '[class.tam-grande]': "size() === 'grande'" },
   template: `
     @let m = media();
     <figure class="colagem" [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
-      <span class="foto" data-colado [class.video]="kind() === 'video'" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()">
+      <span class="foto" data-colado [class.video]="kind() === 'video'" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
@@ -33,7 +39,7 @@ import { snapToLines } from './line-snap';
             }
           </span>
         } @else if (kind() === 'imagem') {
-          <img [src]="m.url" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="loaded.set(true)" (error)="failed.set(true)" />
+          <img [src]="m.url" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
           <span class="reflexo" aria-hidden="true"></span>
         } @else if (video(); as v) {
           @if (v.kind === 'file') {
@@ -303,12 +309,78 @@ import { snapToLines } from './line-snap';
         transition: none;
       }
     }
+
+    /* ===== O tamanho pequeno e o grande (o médio é o de cima) =====
+       --m-alto: a altura máxima da média, na letra de sempre (a pequena está na letra dela, --tam; a
+       grande, na de sempre). --pad: a borda da foto dos dois lados, que entra na largura (a foto é
+       border-box) */
+    :host(.tam-pequeno),
+    :host(.tam-grande) {
+      container-type: inline-size;
+      --pad: 0.68em;
+    }
+    :host(.tam-pequeno) {
+      --m-alto: var(--midia-max, calc(22em / var(--tam, 1)));
+    }
+    :host(.tam-grande) {
+      --m-alto: var(--midia-max, 22em);
+    }
+    :host(.tam-pequeno) .moldura-polaroid,
+    :host(.tam-grande) .moldura-polaroid {
+      --pad: 1.1em;
+    }
+    :host(.tam-pequeno) .moldura-recorte,
+    :host(.tam-grande) .moldura-recorte {
+      --pad: 0em;
+    }
+    /* (na figura, e não no host: uma variável que usa outra é resolvida onde é declarada) */
+    :host(.tam-pequeno) .colagem {
+      --alto: calc(var(--m-alto) * 0.6);
+      --largo: 60cqw;
+    }
+    /* a grande: uma vez e meia a média, e na ficha do mural, até o fim da ficha (sobra o respiro, a
+       borda e a legenda), mas nunca menor que a média */
+    :host(.tam-grande) .colagem {
+      --reserva: 1.8em;
+      --alto: max(var(--m-alto), min(calc(var(--m-alto) * 1.5), calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px) - var(--reserva))));
+      --largo: 100cqw;
+    }
+    :host(.tam-grande) .colagem.moldura-polaroid {
+      --reserva: 3.9em;
+    }
+    :host(.tam-grande) .colagem:has(> .etiqueta-lugar) {
+      --reserva: 2.7em;
+    }
+    /* a foto carregada: a largura que a proporção dela pede para a altura do tamanho, até a da linha */
+    :host(.tam-pequeno) .foto:not(.video, .revelando, .quebrada),
+    :host(.tam-grande) .foto:not(.video, .revelando, .quebrada) {
+      width: min(var(--largo), calc(var(--alto) * var(--prop, 1.333) + var(--pad)));
+    }
+    :host(.tam-pequeno) .foto:not(.video) img,
+    :host(.tam-grande) .foto:not(.video) img {
+      width: 100%;
+      max-height: none;
+    }
+    :host(.tam-pequeno) .revelando {
+      width: min(60cqw, 14em);
+    }
+    :host(.tam-grande) .revelando {
+      width: min(100cqw, 24em);
+    }
+    /* o vídeo, 16:9 */
+    :host(.tam-pequeno) .foto.video {
+      width: min(var(--largo), calc(28.7em * 0.6 / var(--tam, 1)), calc(var(--alto) * 16 / 9 + 0.7em));
+    }
+    :host(.tam-grande) .foto.video {
+      width: min(var(--largo), calc(var(--alto) * 16 / 9 + 0.7em));
+    }
   `,
 })
 export class GluedMedia {
   readonly kind = input.required<'imagem' | 'video'>();
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
+  readonly size = input<WidgetSize>('medio');
 
   protected readonly BrokenIcon = ImageOff;
   protected readonly FilmIcon = Film;
@@ -323,6 +395,8 @@ export class GluedMedia {
   protected readonly loaded = linkedSignal({ source: this.url, computation: () => false });
   protected readonly failed = linkedSignal({ source: this.url, computation: () => false });
   protected readonly playing = linkedSignal({ source: this.url, computation: () => false });
+  /** A largura sobre a altura da foto, quando ela chega (a pequena e a grande medem por ela). */
+  protected readonly ratio = linkedSignal<string, number | null>({ source: this.url, computation: () => null });
 
   /** O que não deixa a foto aparecer (sem link, link sem https, vídeo que não toca aqui, não abriu). */
   protected readonly broken = computed(() => {
@@ -363,6 +437,12 @@ export class GluedMedia {
   constructor() {
     // a altura inteira, em linhas da pauta: o texto de baixo continua em cima das linhas azuis
     snapToLines('.colagem');
+  }
+
+  protected onLoad(e: Event): void {
+    const img = e.target as HTMLImageElement;
+    if (img.naturalWidth && img.naturalHeight) this.ratio.set(img.naturalWidth / img.naturalHeight);
+    this.loaded.set(true);
   }
 
   protected play(e: Event): void {

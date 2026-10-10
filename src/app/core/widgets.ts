@@ -76,18 +76,56 @@ function escapeArg(v: string): string {
     .trim();
 }
 
-/** A linha é um widget conhecido? O nome (o do registro) e os parâmetros. */
-export function parseWidgetLine(line: string): { name: string; args: string[] } | null {
+// ===== O tamanho, que vale para todo widget =====
+
+/** O tamanho do widget: o médio é o de sempre (e não se escreve). */
+export type WidgetSize = 'pequeno' | 'medio' | 'grande';
+export const WIDGET_SIZES: readonly { value: WidgetSize; label: string; hint: string }[] = [
+  { value: 'pequeno', label: 'Pequeno', hint: 'Discreto: ocupa pouco da ficha.' },
+  { value: 'medio', label: 'Médio', hint: 'O tamanho de sempre.' },
+  { value: 'grande', label: 'Grande', hint: 'O maior que cabe na ficha (aberta, bem maior).' },
+];
+/** Os nomes que valem para cada tamanho, escritos à mão (sem acento, em minúsculas). */
+const SIZE_WORDS: Record<string, WidgetSize> = {
+  pequeno: 'pequeno',
+  pequena: 'pequeno',
+  medio: 'medio',
+  media: 'medio',
+  grande: 'grande',
+};
+function sizeWord(a: string): WidgetSize | null {
+  const k = key(a);
+  return Object.hasOwn(SIZE_WORDS, k) ? SIZE_WORDS[k] : null;
+}
+
+/**
+ * A linha é um widget conhecido? O nome (o do registro), os parâmetros e o tamanho. O tamanho é a
+ * primeira palavra de tamanho entre os parâmetros, em qualquer lugar ("grande"), e sai deles: cada
+ * widget lê só os dele.
+ */
+export function parseWidgetLine(line: string): { name: string; args: string[]; size: WidgetSize } | null {
   const m = LINE.exec(line);
   if (!m) return null;
   const def = widgetDef(m[1]);
-  return def ? { name: def.name, args: splitArgs(m[2] ?? '') } : null;
+  if (!def) return null;
+  const args = splitArgs(m[2] ?? '');
+  const at = args.findIndex((a) => sizeWord(a));
+  const size = at === -1 ? 'medio' : sizeWord(args[at])!;
+  if (at !== -1) args.splice(at, 1);
+  return { name: def.name, args, size };
 }
 
-/** A marca inteira de um widget, para pôr no texto. */
-export function widgetLine(name: string, args: readonly string[]): string {
+/**
+ * A marca inteira de um widget, para pôr no texto. O tamanho vai no fim ("| grande"); o médio, que é
+ * o de sempre, não se escreve, a não ser que um parâmetro seja uma palavra de tamanho (um contador
+ * chamado "Grande"): aí ele vai antes dela, porque a primeira palavra de tamanho é o tamanho.
+ */
+export function widgetLine(name: string, args: readonly string[], size: WidgetSize = 'medio'): string {
   const parts = args.map(escapeArg);
   while (parts.length && !parts.at(-1)) parts.pop();
+  const clash = parts.findIndex((a) => sizeWord(a));
+  if (clash !== -1) parts.splice(clash, 0, size);
+  else if (size !== 'medio') parts.push(size);
   return parts.length ? `{{${name}: ${parts.join(' | ')}}}` : `{{${name}}}`;
 }
 

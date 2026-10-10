@@ -3,9 +3,9 @@ import { Frame, httpsUrl, parseAudio, parseVideo, readAudio, parseWhen, parseWid
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
-    expect(parseWidgetLine('{{contador: 19/11/2026 18:00 | GTA VI}}')).toEqual({ name: 'contador', args: ['19/11/2026 18:00', 'GTA VI'] });
-    expect(parseWidgetLine('  {{ Contagem :25/12}}  ')).toEqual({ name: 'contador', args: ['25/12'] });
-    expect(parseWidgetLine('{{contador}}')).toEqual({ name: 'contador', args: [] });
+    expect(parseWidgetLine('{{contador: 19/11/2026 18:00 | GTA VI}}')).toEqual({ name: 'contador', args: ['19/11/2026 18:00', 'GTA VI'], size: 'medio' });
+    expect(parseWidgetLine('  {{ Contagem :25/12}}  ')).toEqual({ name: 'contador', args: ['25/12'], size: 'medio' });
+    expect(parseWidgetLine('{{contador}}')).toEqual({ name: 'contador', args: [], size: 'medio' });
     // um nome que o site não conhece, ou a marca no meio do texto, fica como texto
     expect(parseWidgetLine('{{relogio: 10:00}}')).toBeNull();
     expect(parseWidgetLine('faltam {{contador: 19/11/2026}} dias')).toBeNull();
@@ -20,10 +20,27 @@ describe('widgets das anotações', () => {
     expect(parseWidgetLine(widgetLine('contador', ['19/11/2026', 'Tom | Jerry']))!.args).toEqual(['19/11/2026', 'Tom | Jerry']);
   });
 
+  it('o tamanho: a primeira palavra de tamanho, em qualquer lugar, sai dos parâmetros; o médio não se escreve', () => {
+    expect(parseWidgetLine('{{contador: 19/11/2026 | GTA VI | grande}}')).toEqual({ name: 'contador', args: ['19/11/2026', 'GTA VI'], size: 'grande' });
+    expect(parseWidgetLine('{{imagem: Pequena | https://x.com/a.jpg}}')).toEqual({ name: 'imagem', args: ['https://x.com/a.jpg'], size: 'pequeno' });
+    expect(parseWidgetLine('{{audio: https://x.com/a.mp3 | Médio}}')).toEqual({ name: 'audio', args: ['https://x.com/a.mp3'], size: 'medio' });
+    expect(widgetLine('contador', ['19/11/2026', 'GTA VI'], 'grande')).toBe('{{contador: 19/11/2026 | GTA VI | grande}}');
+    expect(widgetLine('contador', ['19/11/2026', 'GTA VI'], 'medio')).toBe('{{contador: 19/11/2026 | GTA VI}}');
+    expect(widgetLine('contador', [], 'pequeno')).toBe('{{contador: pequeno}}');
+    // um título que é uma palavra de tamanho: o tamanho vai antes dele, até o médio
+    const big = widgetLine('contador', ['19/11/2026', 'Grande'], 'medio');
+    expect(big).toBe('{{contador: 19/11/2026 | medio | Grande}}');
+    expect(parseWidgetLine(big)).toEqual({ name: 'contador', args: ['19/11/2026', 'Grande'], size: 'medio' });
+    expect(parseWidgetLine(widgetLine('imagem', ['https://x.com/a.jpg', 'Pequeno'], 'grande'))).toEqual({ name: 'imagem', args: ['https://x.com/a.jpg', 'Pequeno'], size: 'grande' });
+    // o tamanho não é título nem legenda para o que lê palavras
+    expect(plainText('{{contador: 19/11/2026 | Embarque | grande}}')).toBe('Embarque');
+    expect(parseRich('{{video: https://youtu.be/dQw4w9WgXcQ | pequeno}}')[0]).toEqual({ kind: 'widget', name: 'video', args: ['https://youtu.be/dQw4w9WgXcQ'], size: 'pequeno' });
+  });
+
   it('no texto, o widget é um bloco só dele; para o que lê palavras, fica o título', () => {
     const text = 'Viagem\n{{contador: 19/11/2026 | Embarque}}\n- [ ] mala';
     expect(parseRich(text).map((b) => b.kind)).toEqual(['p', 'widget', 'check']);
-    expect(parseRich(text)[1]).toEqual({ kind: 'widget', name: 'contador', args: ['19/11/2026', 'Embarque'] });
+    expect(parseRich(text)[1]).toEqual({ kind: 'widget', name: 'contador', args: ['19/11/2026', 'Embarque'], size: 'medio' });
     expect(hasFormatting('{{contador: 19/11/2026}}')).toBeTrue();
     expect(plainText(text)).toBe('Viagem\nEmbarque\nmala');
   });
@@ -98,7 +115,7 @@ describe('widgets das anotações', () => {
       expect(readMedia(['https://x.com/a.jpg', 'Praia', 'polaroide'])).toEqual({ url: 'https://x.com/a.jpg', frame: 'polaroid', caption: 'Praia' });
       expect(readMedia(['Recorte', 'https://x.com/a.jpg'])).toEqual({ url: 'https://x.com/a.jpg', frame: 'recorte', caption: '' });
       expect(readMedia(['só legenda'])).toEqual({ url: '', frame: 'foto', caption: 'só legenda' });
-      expect(parseWidgetLine('{{Foto: https://x.com/a.jpg | Praia}}')).toEqual({ name: 'imagem', args: ['https://x.com/a.jpg', 'Praia'] });
+      expect(parseWidgetLine('{{Foto: https://x.com/a.jpg | Praia}}')).toEqual({ name: 'imagem', args: ['https://x.com/a.jpg', 'Praia'], size: 'medio' });
       expect(plainText('{{imagem: https://x.com/a.jpg | Praia}}')).toBe('Praia');
     });
 
@@ -154,7 +171,7 @@ describe('widgets das anotações', () => {
     });
 
     it('os parâmetros em qualquer ordem; o jeito só quando não é a fita', () => {
-      expect(parseWidgetLine('{{Música: vinil | https://youtu.be/dQw4w9WgXcQ | Never Gonna}}')).toEqual({ name: 'audio', args: ['vinil', 'https://youtu.be/dQw4w9WgXcQ', 'Never Gonna'] });
+      expect(parseWidgetLine('{{Música: vinil | https://youtu.be/dQw4w9WgXcQ | Never Gonna}}')).toEqual({ name: 'audio', args: ['vinil', 'https://youtu.be/dQw4w9WgXcQ', 'Never Gonna'], size: 'medio' });
       expect(readAudio(['vinil', 'https://x.com/a.mp3', 'Lado B'])).toEqual({ url: 'https://x.com/a.mp3', look: 'vinil', title: 'Lado B' });
       expect(readAudio(['https://x.com/a.mp3'])).toEqual({ url: 'https://x.com/a.mp3', look: 'fita', title: '' });
       const au = widgetDef('som')!;

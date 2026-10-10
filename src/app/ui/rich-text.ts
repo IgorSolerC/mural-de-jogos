@@ -66,7 +66,7 @@ import { NoteWidget } from './note-widget';
             <pre class="codigo"><code>{{ b.text }}</code></pre>
           }
           @case ('widget') {
-            <app-note-widget class="widget" [name]="b.name" [args]="b.args" />
+            <app-note-widget class="widget" [name]="b.name" [args]="b.args" [size]="b.size" />
           }
           @case ('table') {
             <div class="tabela-rolo">

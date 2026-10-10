@@ -51,6 +51,19 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-tamanho-dos-widgets',
+    version: '1.28.13',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'O tamanho dos widgets',
+    items: [
+      'No painel de cada widget (contador, imagem, vídeo e áudio) dá para escolher o tamanho: Pequeno, Médio ou Grande. Cada botão tem o desenho de quanto o widget ocupa da ficha, e o Médio é o de sempre.',
+      'O tamanho vale em todo lugar onde a anotação aparece: na ficha do mural, nas fichas inteiras, na leitura, no Feed e no mural de alguém. Na ficha do mural, o Grande vai até o fim da ficha, sem a ficha crescer.',
+      'A prévia do painel mostra o widget do tamanho escolhido de dois jeitos: na ficha do mural e aberta.',
+      'Escrevendo à mão, é só pôr o tamanho no fim da marca: {{contador: 19/11/2026 | GTA VI | grande}}.',
+    ],
+  },
+  {
     id: '2026-10-10-vinil-maior-na-ficha',
     version: '1.28.12',
     kind: 'melhoria',

@@ -441,9 +441,9 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     /* ===== A FITA CASSETE: o desenho da fita (tamanho em em de --w), as teclas e o contador ===== */
     .jeito-fita {
       /* a largura da fita: o que cabe na linha, e na ficha do mural, o que cabe na altura (--faixa-max,
-         ver review-card.ts) */
+         ver review-card.ts; no tamanho pequeno e no grande, --faixa-cap, ver note-widget.ts) */
       /* (a fita mais as teclas têm 0,78 da largura de altura) */
-      --w: min(100cqw, 17em, calc(var(--faixa-max, 22em) * 1.25));
+      --w: min(100cqw, 17em, calc(var(--faixa-cap, var(--faixa-max, 22em)) * 1.25));
       width: var(--w);
       rotate: var(--giro);
     }
@@ -678,7 +678,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     .jeito-vinil {
       /* o lado da capa: o que cabe na linha (o disco sai 6,6 capas de dez para fora), e na ficha do
          mural, o que cabe na altura (sobra a linha da barra) */
-      --s: min(10em, calc(100cqw / 1.72), calc(var(--faixa-max, 22em) - 2.1em));
+      --s: min(10em, calc(100cqw / 1.72), calc(var(--faixa-cap, var(--faixa-max, 22em)) - 2.1em));
       width: calc(var(--s) * 1.72);
     }
     .vitrola {
@@ -890,7 +890,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
        nas fichas inteiras, fica como sempre (a barra embaixo) */
     @container (min-width: 18em) {
       :host-context(.faixa-ao-lado) .jeito-vinil {
-        --s: min(10em, var(--faixa-max, 22em), calc((100cqw - 7.4em) / 1.72));
+        --s: min(10em, var(--faixa-cap, var(--faixa-max, 22em)), calc((100cqw - 7.4em) / 1.72));
         display: flex;
         align-items: flex-end;
         gap: 0.9em;

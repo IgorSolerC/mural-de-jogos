@@ -37,7 +37,7 @@ import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
 import { NoteWidget } from './note-widget';
-import { WIDGETS, WidgetDef, WidgetValues, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
+import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetSize, WidgetValues, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
 
 type ListKind = 'ul' | 'ol' | 'check';
 
@@ -429,10 +429,50 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             @if (widgetProblem(); as pr) {
               <p class="widget-problema" role="alert">{{ pr }}</p>
             }
-            <!-- como vai ficar: o widget de verdade, andando, num pedaço da folha pautada -->
-            <div class="widget-previa">
+            <!-- o tamanho, de todo widget: cada um com o desenho de quanto ele ocupa da ficha -->
+            <div class="painel-campo widget-tamanho-campo">
+              <span [id]="areaId + '-tamanho'">Tamanho</span>
+              <span class="widget-tamanho-lado">
+                <span class="widget-tamanhos" role="radiogroup" [attr.aria-labelledby]="areaId + '-tamanho'" [attr.aria-describedby]="areaId + '-tamanho-dica'">
+                  @for (o of sizes; track o.value; let first = $first) {
+                    @let on = widgetSize() === o.value;
+                    <button
+                      type="button"
+                      role="radio"
+                      class="widget-tamanho"
+                      [attr.aria-checked]="on"
+                      [attr.tabindex]="on ? 0 : -1"
+                      [attr.data-campo]="first ? 'size' : null"
+                      (click)="setWidgetValue('size', o.value)"
+                      (keydown)="onChoiceKey($event, 'size', sizes)"
+                      (keydown.enter)="$event.preventDefault(); putWidget(area)"
+                    >
+                      <svg class="tamanho-desenho" viewBox="0 0 36 28" aria-hidden="true">
+                        <rect class="tamanho-ficha" x="1" y="1" width="34" height="26" rx="2.5" />
+                        <line class="tamanho-linha" x1="5.5" y1="6.5" x2="30.5" y2="6.5" />
+                        <rect class="tamanho-peca" x="5.5" y="10.5" [attr.width]="o.value === 'pequeno' ? 7 : o.value === 'medio' ? 14 : 25" [attr.height]="o.value === 'pequeno' ? 5 : o.value === 'medio' ? 9 : 13" rx="1" />
+                      </svg>
+                      <span>{{ o.label }}</span>
+                    </button>
+                  }
+                </span>
+                <small [id]="areaId + '-tamanho-dica'">{{ sizeHint() }}</small>
+              </span>
+            </div>
+            <!-- como vai ficar: o widget de verdade, andando, do tamanho escolhido, na ficha do mural ou
+                 aberta (a folha pautada da leitura) -->
+            <div class="widget-previa-topo">
+              <span class="widget-previa-nome" [id]="areaId + '-previa'">Como fica</span>
+              <span class="widget-vistas" role="radiogroup" [attr.aria-labelledby]="areaId + '-previa'">
+                @for (v of previewViews; track v.value) {
+                  @let on = widgetView() === v.value;
+                  <button type="button" role="radio" class="widget-vista" [attr.aria-checked]="on" [attr.tabindex]="on ? 0 : -1" (click)="widgetView.set(v.value)" (keydown)="onViewKey($event)">{{ v.label }}</button>
+                }
+              </span>
+            </div>
+            <div class="widget-previa" [class.na-ficha]="widgetView() === 'ficha'" [class.faixa-ao-lado]="widgetView() === 'ficha'" [attr.data-widget-teto]="widgetView() === 'ficha' ? '' : null">
               @if (widgetArgs(); as args) {
-                <app-note-widget [name]="w.name" [args]="args" />
+                <app-note-widget [name]="w.name" [args]="args" [size]="widgetSize()" />
               } @else {
                 <p class="widget-previa-vazia">{{ def.name === 'contador' ? 'Escolha o dia para ver o contador andando.' : 'Cole o link para ver como fica.' }}</p>
               }
@@ -1178,6 +1218,133 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       font-style: italic;
       color: rgb(21 21 21 / 0.64);
     }
+    /* na ficha: o pedaço do texto da ficha do mural, da largura e da altura dela, com o mesmo corte
+       (as medidas são as de .nota-texto, em review-card.ts) */
+    .widget-previa.na-ficha {
+      --line: 1.4rem;
+      --linhas: 8;
+      --midia-max: calc(var(--line) * (var(--linhas) - 3.2));
+      --faixa-max: calc(var(--line) * (var(--linhas) - 2));
+      --widget-teto: calc(var(--line) * var(--linhas));
+      --faixa-grande-letra: 1;
+      box-sizing: content-box;
+      width: min(100% - 24px, 17.5rem);
+      height: calc(var(--line) * var(--linhas));
+      overflow: clip;
+      font-size: 1.04rem;
+    }
+    .widget-previa.na-ficha .widget-previa-vazia {
+      min-height: 100%;
+    }
+    /* "Como fica": o nome e, do lado, onde (na ficha, aberta) */
+    .widget-previa-topo {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px 10px;
+      margin-top: 12px;
+    }
+    .widget-previa-nome {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .widget-vistas {
+      display: inline-flex;
+      gap: 2px;
+      padding: 2px;
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.3);
+    }
+    .widget-vista {
+      min-height: 30px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--f-ui);
+      font-weight: 600;
+      font-size: 0.84rem;
+      cursor: pointer;
+    }
+    .widget-vista[aria-checked='true'] {
+      background: var(--ink);
+      color: var(--hi);
+    }
+    .widget-vista:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
+    }
+    .widget-previa-topo + .widget-previa {
+      margin-top: 6px;
+    }
+
+    /* ===== O tamanho: três botões com o desenho de uma ficha e quanto o widget ocupa dela ===== */
+    .widget-tamanho-lado {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .widget-tamanho-lado small {
+      font-size: 0.86rem;
+      line-height: 1.3;
+      color: var(--ink-2);
+    }
+    .widget-tamanhos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      letter-spacing: normal;
+    }
+    .widget-tamanho {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 12px 0 8px;
+      border: 1.5px dashed rgb(21 21 21 / 0.42);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .widget-tamanho[aria-checked='true'] {
+      border: 1.5px solid var(--ink);
+      background: var(--ink);
+      color: var(--hi);
+    }
+    .widget-tamanho:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
+    }
+    .tamanho-desenho {
+      flex: none;
+      width: 32px;
+      height: 25px;
+    }
+    .tamanho-ficha {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+    }
+    .tamanho-linha {
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      opacity: 0.45;
+    }
+    .tamanho-peca {
+      fill: currentColor;
+    }
 
     /* "Mais": o único botão da régua com nome, para dizer que tem mais coisa ali */
     .ferramenta.mais {
@@ -1774,6 +1941,7 @@ export class RichEditor {
     { mark: '{{contador: 19/11/2026 18:00 | Nome}}', what: 'Contador até o dia, numa linha só dele (sem o ano: todo ano)' },
     { mark: '{{imagem: https://… | legenda}}', what: 'Imagem colada como foto (polaroid ou recorte no fim: outra moldura)' },
     { mark: '{{video: https://youtu.be/… | legenda}}', what: 'Vídeo do YouTube, do Vimeo ou um .mp4, que toca ali' },
+    { mark: '{{… | pequeno}} {{… | grande}}', what: 'O tamanho do widget (sem ele, o médio)' },
     { mark: '-> <- <-> =>', what: 'Setas: → ← ↔ ⇒ (--> e <-- compridas)' },
     { mark: '!= >= <= ~= +-', what: 'Símbolos: ≠ ≥ ≤ ≈ ±' },
     { mark: '\\*', what: 'A marca como ela é, sem formatar' },
@@ -2370,6 +2538,25 @@ export class RichEditor {
    * vai ocupar (`swap`: a linha de um widget que já estava lá, que ele troca).
    */
   protected readonly widgetPick = signal<{ big: boolean; name: string; values: WidgetValues; start: number; end: number; swap: boolean } | null>(null);
+  /** Os tamanhos, de todo widget (o valor fica em `values.size`). */
+  protected readonly sizes = WIDGET_SIZES;
+  protected readonly widgetSize = computed<WidgetSize>(() => (this.widgetPick()?.values['size'] as WidgetSize | undefined) || 'medio');
+  protected readonly sizeHint = computed(() => WIDGET_SIZES.find((o) => o.value === this.widgetSize())?.hint ?? '');
+  /** Onde a prévia mostra o widget: na ficha do mural (do tamanho dela) ou aberta (a leitura). */
+  protected readonly previewViews = [
+    { value: 'ficha', label: 'Na ficha' },
+    { value: 'aberta', label: 'Aberta' },
+  ] as const;
+  protected readonly widgetView = signal<'ficha' | 'aberta'>('ficha');
+
+  protected onViewKey(e: KeyboardEvent): void {
+    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) return;
+    e.preventDefault();
+    this.widgetView.update((v) => (v === 'ficha' ? 'aberta' : 'ficha'));
+    const group = (e.currentTarget as HTMLElement).parentElement;
+    setTimeout(() => group?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
+  }
+
   /** Os parâmetros do widget do painel; null, falta o que ele precisa (o dia do contador). */
   protected readonly widgetArgs = computed(() => {
     const w = this.widgetPick();
@@ -2409,9 +2596,9 @@ export class RichEditor {
     const { from, lines } = this.linesAt(area);
     const here = lines.length === 1 ? parseWidgetLine(lines[0]) : null;
     if (here && here.name === def.name) {
-      this.widgetPick.set({ big, name: def.name, values: def.read(here.args), start: from, end: from + lines[0].length, swap: true });
+      this.widgetPick.set({ big, name: def.name, values: { ...def.read(here.args), size: here.size }, start: from, end: from + lines[0].length, swap: true });
     } else {
-      this.widgetPick.set({ big, name: def.name, values: {}, start: area.selectionStart, end: area.selectionEnd, swap: false });
+      this.widgetPick.set({ big, name: def.name, values: { size: 'medio' }, start: area.selectionStart, end: area.selectionEnd, swap: false });
     }
     this.showPanel('.widget-painel');
     setTimeout(() => this.panelInput(big, 'input')?.focus());
@@ -2419,7 +2606,8 @@ export class RichEditor {
 
   protected pickWidget(def: WidgetDef): void {
     const w = this.widgetPick();
-    if (w) this.widgetPick.set({ ...w, name: def.name, values: {} });
+    // o tamanho fica: ele vale para todo widget
+    if (w) this.widgetPick.set({ ...w, name: def.name, values: { size: w.values['size'] ?? 'medio' } });
   }
 
   protected setWidgetValue(key: string, value: string): void {
@@ -2442,7 +2630,7 @@ export class RichEditor {
       this.panelInput(w.big, `[data-campo="${missing.key}"]`)?.focus();
       return;
     }
-    const line = widgetLine(w.name, args);
+    const line = widgetLine(w.name, args, this.widgetSize());
     this.widgetPick.set(null);
     if (w.swap) {
       this.replace(area, w.start, w.end, line, w.start + line.length, w.start + line.length);
