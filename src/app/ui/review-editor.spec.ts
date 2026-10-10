@@ -58,4 +58,23 @@ describe('o editor com texto por salvar', () => {
     expect(closed).toBe(0);
     expect(question()?.textContent).toContain('Descartar');
   });
+
+  it('o texto acima do limite (vindo de um atalho) não salva e diz quanto tirar', async () => {
+    type Saving = { save(e: Event): void };
+    const save = () => (fixture.componentInstance as unknown as Saving).save(new Event('submit'));
+    // uma anotação com título: só o texto longo impede de salvar
+    fixture.componentInstance.openNote('Uma anotação');
+    inside().text.set('x'.repeat(20_010));
+    await fixture.whenStable();
+    save();
+    await fixture.whenStable();
+    expect(dialog.open).toBeTrue();
+    expect(closed).toBe(0);
+    expect(fixture.nativeElement.querySelector('.bloco.texto .field-error')?.textContent).toContain('Tire 10 para salvar');
+    // no limite, salva
+    inside().text.set('x'.repeat(20_000));
+    await fixture.whenStable();
+    await closing(() => save());
+    expect(closed).toBe(1);
+  });
 });

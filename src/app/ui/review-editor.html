@@ -415,8 +415,12 @@
           [label]="notes() ? 'Anotação' : 'O que achou?'"
           [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o título)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
           [notes]="otherNotes()"
+          [max]="textMax"
           [(value)]="text"
         />
+        @if (attempted() && textTooLong()) {
+          <p class="field-error" role="alert">O texto passou de {{ textMaxShown }} caracteres. Tire {{ textExcess() }} para salvar.</p>
+        }
       </section>
     </ng-template>
 

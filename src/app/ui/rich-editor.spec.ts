@@ -115,6 +115,25 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('- [x] leite');
   });
 
+  it('com um máximo, o contador embaixo da folha e o campo que não passa dele', async () => {
+    fixture.componentRef.setInput('max', 20000);
+    write('abc|');
+    await fixture.whenStable();
+    const counter = () => fixture.nativeElement.querySelector('.contagem') as HTMLElement;
+    expect(counter().textContent!.trim()).toBe('3 / 20.000 caracteres');
+    expect(area.getAttribute('maxlength')).toBe('20000');
+    expect(area.getAttribute('aria-describedby')).toBe(counter().id);
+    fixture.componentInstance.value.set('x'.repeat(18500));
+    await fixture.whenStable();
+    expect(counter().classList).toContain('perto');
+    expect(counter().textContent!.trim()).toBe('18.500 / 20.000 caracteres');
+  });
+
+  it('sem máximo, nem contador nem limite', () => {
+    expect(fixture.nativeElement.querySelector('.contagem')).toBeNull();
+    expect(area.hasAttribute('maxlength')).toBeFalse();
+  });
+
   describe('as marcas novas', () => {
     /** Abre o "Mais" e toca na marca pelo nome. */
     function more(name: string): void {

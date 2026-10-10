@@ -85,6 +85,8 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
   video: Clapperboard,
 };
 
+const COUNT_FMT = new Intl.NumberFormat('pt-BR');
+
 @Component({
   selector: 'app-rich-editor',
   imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget],
@@ -277,6 +279,8 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
         [placeholder]="placeholder()"
         [attr.aria-label]="big ? label() : null"
         [value]="value()"
+        [attr.maxlength]="max()"
+        [attr.aria-describedby]="max() ? areaId + '-conta' + (big ? '-grande' : '') : null"
         [attr.aria-autocomplete]="notes() ? 'list' : null"
         [attr.aria-expanded]="notes() ? linking()?.auto === true && linking()?.big === big : null"
         [attr.aria-controls]="notes() ? areaId + '-elos' : null"
@@ -289,6 +293,12 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
         (paste)="onPaste($event, area)"
         (blur)="onAreaBlur()"
       ></textarea>
+      @if (max(); as m) {
+        <!-- quanto já foi escrito, perto do limite em tinta, passou (por um atalho) em vermelho -->
+        <p class="contagem" [id]="areaId + '-conta' + (big ? '-grande' : '')" [class.perto]="value().length > m * 0.9" [class.passou]="value().length > m">
+          {{ counted(value().length) }} / {{ counted(m) }} caracteres
+        </p>
+      }
       <!-- o link para um endereço: o texto e o endereço, embaixo da folha -->
       @if (urlLink(); as u) {
         @if (u.big === big) {
@@ -1555,6 +1565,22 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
       font-size: 1.6rem;
       line-height: 1.05;
     }
+    .contagem {
+      flex: none;
+      margin: 4px 2px 0;
+      text-align: right;
+      font-family: var(--f-ui);
+      font-size: 0.8rem;
+      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+    .contagem.perto {
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .contagem.passou {
+      color: #6b0000;
+    }
     textarea.grande {
       --line: 2rem;
       flex: 1 1 auto;
@@ -1588,6 +1614,9 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
 })
 export class RichEditor {
   readonly value = model('');
+  /** O máximo de caracteres (com o contador embaixo da folha); sem ele, nem limite nem contador. */
+  readonly max = input<number | null>(null);
+  protected readonly counted = (n: number) => COUNT_FMT.format(n);
   readonly placeholder = input('');
   /** O nome do campo: o título da tela inteira ("O que achou?"). */
   readonly label = input('');

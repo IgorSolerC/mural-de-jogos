@@ -110,8 +110,10 @@
   }
 }
 
+/* No celular, um fantasma só: o primeiro. (Não nth-of-type: o cartão do mural vazio também é um div e
+   contava como o primeiro, e os três sumiam.) */
 @media (max-width: 559px) {
-  .ghost:nth-of-type(n + 2) {
+  .ghost ~ .ghost {
     display: none;
   }
 }

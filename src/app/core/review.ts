@@ -803,7 +803,10 @@ function clampScore(v: unknown): number | null {
   return Math.min(10, Math.max(0, n));
 }
 
-function str(v: unknown, max = 20000): string {
+/** O texto de uma ficha vai até aqui (o editor conta e não deixa passar; um texto maior é cortado ao ler). */
+export const TEXT_MAX = 20_000;
+
+function str(v: unknown, max = TEXT_MAX): string {
   return typeof v === 'string' ? v.slice(0, max) : '';
 }
 

@@ -49,6 +49,7 @@ import {
   Audience,
   audienceFields,
   audienceOf,
+  TEXT_MAX,
 } from '../core/review';
 import { GameLookup, isSteamCover } from '../core/game-lookup';
 import { cap, g, isNotes, profileOf } from '../core/kinds';
@@ -327,6 +328,11 @@ export class ReviewEditor {
   protected readonly difficulty = signal<Difficulty>('nenhuma');
   protected readonly text = signal('');
   protected readonly attempted = signal(false);
+  /** O texto passou do limite (o campo não deixa, mas um widget ou um atalho pode passar): não salva. */
+  protected readonly textMax = TEXT_MAX;
+  protected readonly textMaxShown = TEXT_MAX.toLocaleString('pt-BR');
+  protected readonly textTooLong = computed(() => this.text().trim().length > TEXT_MAX);
+  protected readonly textExcess = computed(() => (this.text().trim().length - TEXT_MAX).toLocaleString('pt-BR'));
   protected readonly confirmingDiscard = signal(false);
   /** Já tem nota ou texto e a pessoa pediu para guardar só o jogo: confirma antes de perder. */
   protected readonly confirmingDraft = signal(false);
@@ -733,7 +739,7 @@ export class ReviewEditor {
     const game = this.game();
     const final = this.shown();
     const status = this.status();
-    if (!game || final === null || this.missingScores().length || this.noneCounts() || !status || !this.dateValid() || !this.hoursValid()) {
+    if (!game || final === null || this.missingScores().length || this.noneCounts() || !status || !this.dateValid() || !this.hoursValid() || this.textTooLong()) {
       this.focusFirstMissing();
       return;
     }
@@ -787,7 +793,7 @@ export class ReviewEditor {
   /** Prega a anotação: só o título é obrigatório; sem notas, status, veredito nem dificuldade. */
   private saveNote(): void {
     const name = this.noteTitle().trim();
-    if (!name || !this.dateValid()) {
+    if (!name || !this.dateValid() || this.textTooLong()) {
       this.focusFirstMissing();
       return;
     }
@@ -1031,7 +1037,8 @@ export class ReviewEditor {
     if (this.notes()) {
       setTimeout(() => {
         if (!this.noteTitle().trim()) root.querySelector<HTMLInputElement>('#editor-titulo-nota')?.focus();
-        else root.querySelector<HTMLInputElement>('#editor-data')?.focus();
+        else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
+        else root.querySelector<HTMLTextAreaElement>('app-rich-editor textarea:not(.grande)')?.focus();
       });
       return;
     }
@@ -1044,6 +1051,7 @@ export class ReviewEditor {
       else if (this.missingScores().length)
         root.querySelector<HTMLInputElement>(`[data-nota="${this.missingScores()[0]}"] input`)?.focus();
       else if (this.noneCounts()) root.querySelector<HTMLSelectElement>('.subs select')?.focus();
+      else if (this.textTooLong()) root.querySelector<HTMLTextAreaElement>('app-rich-editor textarea:not(.grande)')?.focus();
       else root.querySelector<HTMLInputElement>('#editor-nota-final')?.focus();
     });
   }

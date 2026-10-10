@@ -51,6 +51,29 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-contador-de-caracteres',
+    version: '1.26.10',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'O contador de caracteres do texto',
+    items: [
+      'Embaixo da folha do texto (na resenha e na anotação), um contador mostra quantos caracteres já foram escritos, de 20.000. Perto do fim ele fica em negrito.',
+      'O campo não deixa passar de 20.000: o que for escrito ou colado além disso não entra. Antes, o texto maior aparecia inteiro, mas era cortado ao recarregar a página.',
+    ],
+  },
+  {
+    id: '2026-10-10-limites-e-fantasma',
+    version: '1.26.9',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'Os limites do dia na nuvem e o mural vazio no celular',
+    items: [
+      'O limite de 300 reações por dia conta cada reação dada: trocar ou tirar a reação e reagir de novo não abre mais vaga (e não enche o correio de quem recebe).',
+      'O limite de 10 entradas por dia numa conta conta cada entrada: sair e entrar de novo não abre mais vaga.',
+      'No celular, o mural vazio mostra a primeira ficha tracejada (o lugar da primeira resenha); antes as três sumiam.',
+    ],
+  },
+  {
     id: '2026-10-10-tags-sem-acento',
     version: '1.26.8',
     kind: 'melhoria',
