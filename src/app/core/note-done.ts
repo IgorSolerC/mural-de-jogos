@@ -41,7 +41,13 @@ export class NoteDone {
       return;
     }
     this.view.stamp(id);
-    this.fallbacks.set(id, setTimeout(() => this.view.release(id), FALLBACK_RELEASE));
+    this.fallbacks.set(
+      id,
+      setTimeout(() => {
+        this.fallbacks.delete(id);
+        this.view.release(id);
+      }, FALLBACK_RELEASE),
+    );
     if (opts.quiet) return;
     const where = this.view.showDone() ? '' : ' Ela fica em Mostrar finalizadas.';
     this.toasts.show(`“${r.game.name}” finalizada.${where}`, { label: 'Desfazer', run: () => this.undo(id) });
@@ -70,9 +76,13 @@ export class NoteDone {
       tone: 'neutro',
     });
     if (!yes) return;
-    // a pergunta demorou: só as que continuam abertas
-    for (const n of linked) if (!isDone(this.store.get(n.id) ?? n)) this.set(n.id, true, linked.length > 1 ? { quiet: true } : opts);
-    if (linked.length > 1 && !opts.quiet) this.toasts.show(`${linked.length} anotações finalizadas.`, { label: 'Desfazer', run: () => linked.forEach((n) => this.undo(n.id)) });
+    // a pergunta demorou: só as que continuam abertas (e o Desfazer só reabre essas)
+    const open = linked.filter((n) => !isDone(this.store.get(n.id) ?? n));
+    for (const n of open) this.set(n.id, true, linked.length > 1 ? { quiet: true } : opts);
+    if (linked.length > 1 && open.length && !opts.quiet) {
+      const text = open.length === 1 ? `“${open[0].game.name}” finalizada.` : `${open.length} anotações finalizadas.`;
+      this.toasts.show(text, { label: 'Desfazer', run: () => open.forEach((n) => this.undo(n.id)) });
+    }
   }
 
   /** Desfazer o check: a anotação volta sem ele, para o lugar dela no mural. */

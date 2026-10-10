@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { Cloud, CloudNotice } from './cloud-config';
-import { NEWS, News, NewsEntry, VERSION, firstSeen, isSeen, nextVersion, noticeOf, readSeen, today } from './news';
+import { NEWS, News, NewsEntry, VERSION, firstSeen, isSeen, nextVersion, noticeOf, readSeen, seenToSave, today } from './news';
 import { ReviewStore } from './review-store';
 
 const entry = (id: string, date: string, extra: Partial<NewsEntry> = {}): NewsEntry => ({ id, version: '1.0.0', kind: 'funcionalidade', date, title: id, items: ['x'], ...extra });
@@ -144,5 +144,14 @@ describe('novidades', () => {
       expect(make(false, { id: 'manutencao', text: 'Manutenção' }).notice()).toBeNull();
       expect(make(false, { id: 'manutencao-2', text: 'De novo' }).notice()?.key).toBe('nuvem:manutencao-2');
     });
+  });
+  it('a lista de vistas guarda todas as novidades vistas; só os avisos da nuvem têm limite', () => {
+    const cloud = Array.from({ length: 250 }, (_, i) => `nuvem:aviso-${i}`);
+    // as novidades vistas primeiro, como na primeira visita; depois muitos avisos da nuvem
+    const saved = seenToSave(new Set([...NEWS.map((n) => n.id), ...cloud]), NEWS);
+    for (const n of NEWS) expect(saved).withContext(n.id).toContain(n.id);
+    expect(saved.filter((k) => k.startsWith('nuvem:')).length).toBe(200);
+    expect(saved).toContain('nuvem:aviso-249');
+    expect(saved).not.toContain('nuvem:aviso-0');
   });
 });

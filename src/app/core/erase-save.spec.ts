@@ -13,6 +13,9 @@ describe('saveKeys', () => {
         'mural-de-jogos:config:v1',
         'mural-de-jogos:muraldle:v1',
         'meu-mural:colega-aberto',
+        'meu-mural:nuvem:sessao',
+        'meu-mural:nuvem:conta',
+        'meu-mural:novidades',
         'outro-site:coisa',
       ]),
     );

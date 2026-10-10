@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS } from './kinds';
-import { readBackupFile } from './backup-file';
+import { backupLists, gzip } from './backup-file';
 import { DataKey, LocalData } from './local-data';
 import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, storedNote } from './review';
 
@@ -116,10 +116,8 @@ export class ReviewStore {
     reviews: this.reviews().filter((r) => !isNote(r)),
     notes: this.reviews().filter(isNote),
   };
-  private skipNextWrite = false;
-  private skipNextDraftWrite = false;
-  private skipNextWishWrite = false;
-  private skipNextDeletedWrite = false;
+  /** As listas que acabaram de vir de outra aba: a próxima passada do efeito delas não grava. */
+  private readonly skipNext = new Set<DataKey>();
   /**
    * As listas como foram lidas ao abrir. Enquanto nada mudou, não há o que gravar, e gravar ali
    * apagaria um texto corrompido (ou uma entrada que não abriu) antes de alguém poder salvá-lo.
@@ -135,60 +133,38 @@ export class ReviewStore {
   constructor() {
     effect(() => {
       const list = this.reviews();
-      if (this.skipNextWrite) {
-        this.skipNextWrite = false;
-        return;
-      }
-      if (list === this.loaded.reviews) return;
       // cada parte só é regravada quando mudou: pregar uma resenha não regrava as anotações
       const reviews = list.filter((r) => !isNote(r));
       const notes = list.filter(isNote);
+      // vindo de outra aba, o que está gravado já é isto: anota sem gravar (senão a próxima mudança
+      // daqui regravaria a outra parte também, por cima do que a outra aba pode ter gravado depois)
+      if (this.skipNext.delete(KEY)) {
+        this.written = { reviews, notes };
+        return;
+      }
+      if (list === this.loaded.reviews) return;
       if (!sameItems(reviews, this.written.reviews)) this.write(KEY, reviews);
       if (!sameItems(notes, this.written.notes)) this.write(NOTES_KEY, notes.map(storedNote));
       this.written = { reviews, notes };
     });
-    effect(() => {
-      const list = this.drafts();
-      if (this.skipNextDraftWrite) {
-        this.skipNextDraftWrite = false;
-        return;
-      }
-      if (list === this.loaded.drafts) return;
-      this.write(DRAFTS_KEY, list);
-    });
-    effect(() => {
-      const list = this.wishes();
-      if (this.skipNextWishWrite) {
-        this.skipNextWishWrite = false;
-        return;
-      }
-      if (list === this.loaded.wishes) return;
-      this.write(WISHES_KEY, list);
-    });
-    effect(() => {
-      const d = this.deleted();
-      if (this.skipNextDeletedWrite) {
-        this.skipNextDeletedWrite = false;
-        return;
-      }
-      if (d === this.loaded.deleted) return;
-      this.write(DELETED_KEY, d);
-    });
+    this.persist(this.drafts, DRAFTS_KEY, this.loaded.drafts);
+    this.persist(this.wishes, WISHES_KEY, this.loaded.wishes);
+    this.persist(this.deleted, DELETED_KEY, this.loaded.deleted);
 
     // Outra aba mexeu no mural: acompanha sem sobrescrever.
     if (typeof window !== 'undefined') {
       this.data.onExternalChange((key) => {
         if (key === KEY || key === NOTES_KEY) {
-          this.skipNextWrite = true;
+          this.skipNext.add(KEY);
           this.reviews.set(this.read());
         } else if (key === DRAFTS_KEY) {
-          this.skipNextDraftWrite = true;
+          this.skipNext.add(DRAFTS_KEY);
           this.drafts.set(this.readDrafts());
         } else if (key === WISHES_KEY) {
-          this.skipNextWishWrite = true;
+          this.skipNext.add(WISHES_KEY);
           this.wishes.set(this.readWishes());
         } else if (key === DELETED_KEY) {
-          this.skipNextDeletedWrite = true;
+          this.skipNext.add(DELETED_KEY);
           this.deleted.set(this.readDeleted());
         }
       });
@@ -379,11 +355,9 @@ export class ReviewStore {
    * da pessoa, ele vai junto (`owner.name`): quem abrir em Comparar já sabe de quem é.
    */
   async exportBackup(ownerName = ''): Promise<{ blob: Blob; ext: string }> {
-    const payload = this.snapshot(ownerName);
-    const json = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-    if (typeof CompressionStream === 'undefined') return { blob: json, ext: 'json' };
-    const gz = await new Response(json.stream().pipeThrough(new CompressionStream('gzip'))).blob();
-    return { blob: new Blob([gz], { type: 'application/gzip' }), ext: 'json.gz' };
+    const text = JSON.stringify(this.snapshot(ownerName));
+    if (typeof CompressionStream === 'undefined') return { blob: new Blob([text], { type: 'application/json' }), ext: 'json' };
+    return { blob: new Blob([await gzip(text)], { type: 'application/gzip' }), ext: 'json.gz' };
   }
 
   /**
@@ -415,31 +389,17 @@ export class ReviewStore {
     );
   }
 
-  /** Lê o arquivo do backup, gzip ou JSON puro (os backups antigos), e devolve o texto do JSON. */
-  async readBackup(file: Blob): Promise<string> {
-    return readBackupFile(file);
-  }
-
   /** Lança Error com mensagem pronta para o usuário quando o arquivo não serve. */
   importJson(text: string, mode: 'merge' | 'replace'): ImportResult {
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error('Esse arquivo não é um JSON válido. Escolha o backup baixado pelo Meu Mural.');
-    }
-    const rawList = Array.isArray(data) ? data : (data as any)?.reviews;
-    if (!Array.isArray(rawList)) {
-      throw new Error('Não achei resenhas nesse arquivo. Escolha o backup baixado pelo Meu Mural.');
-    }
+    // as anotações vêm à parte; um backup de antes delas (ou de um site antigo) não tem o campo
+    const { object, reviews: rawList, notes: rawNotes } = backupLists(text);
+    const listOf = (field: string) => (Array.isArray(object?.[field]) ? (object[field] as unknown[]) : null);
     // Backups antigos não têm pendentes: nesse caso a fila atual fica como está.
-    const rawDrafts = Array.isArray((data as any)?.drafts) ? ((data as any).drafts as unknown[]) : null;
+    const rawDrafts = listOf('drafts');
     const incomingDrafts = (rawDrafts ?? []).map(sanitizeDraft).filter((d): d is Draft => d !== null);
     // Nem a wishlist: backups de antes dela deixam a de agora como está.
-    const rawWishes = Array.isArray((data as any)?.wishes) ? ((data as any).wishes as unknown[]) : null;
+    const rawWishes = listOf('wishes');
     const incomingWishes = (rawWishes ?? []).map(sanitizeWish).filter((w): w is Wish => w !== null);
-    // As anotações vêm à parte; um backup de antes delas (ou de um site antigo) não tem o campo.
-    const rawNotes = Array.isArray((data as any)?.notas) ? ((data as any).notas as unknown[]) : null;
     const incoming: Review[] = [];
     let skipped = 0;
     for (const raw of [...rawList, ...(rawNotes ?? [])]) {
@@ -447,7 +407,7 @@ export class ReviewStore {
       if (r) incoming.push(r);
       else skipped++;
     }
-    const theirs = sanitizeDeleted((data as any)?.deleted);
+    const theirs = sanitizeDeleted(object?.['deleted']);
 
     if (mode === 'replace') {
       // sem o campo, as anotações daqui ficam como estão (o backup não sabia delas)
@@ -584,6 +544,16 @@ export class ReviewStore {
     } catch {
       return { reviews: {}, drafts: {}, wishes: {} };
     }
+  }
+
+  /** Grava `key` a cada mudança da lista, menos a que veio de outra aba e a lista como foi lida ao abrir. */
+  private persist<T>(list: () => T, key: DataKey, loaded: T): void {
+    effect(() => {
+      const value = list();
+      if (this.skipNext.delete(key)) return;
+      if (value === loaded) return;
+      this.write(key, value);
+    });
   }
 
   private write(key: DataKey, value: unknown): void {

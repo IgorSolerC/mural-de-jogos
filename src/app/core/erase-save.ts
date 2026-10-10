@@ -1,3 +1,10 @@
+import { BEFORE_CLOUD_DB } from './cloud-before';
+import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
+import { COLLEAGUES_DB } from './colleague-store';
+import { DATA_DB } from './local-data';
+import { NEWS_SEEN_KEY } from './news';
+import { SETTINGS_KEY } from './settings';
+
 /**
  * "Apagar o save", em Ajustes: tira deste navegador tudo o que o mural guarda (resenhas, fila,
  * wishlist, as apagadas, backups de colegas, recordes e partidas dos Extras, a data do último backup),
@@ -10,10 +17,10 @@
 
 /** As chaves do localStorage que são do mural. */
 const PREFIXES = ['mural-de-jogos:', 'meu-mural:'];
-/** Os ajustes (ver `core/settings.ts`), o login na nuvem (ver `core/cloud-account.ts`) e as novidades vistas (ver `core/news.ts`). */
-const KEEP = new Set(['mural-de-jogos:config:v1', 'meu-mural:nuvem:sessao', 'meu-mural:nuvem:conta', 'meu-mural:novidades']);
-/** Os bancos do IndexedDB: as listas (`core/local-data.ts`), os backups de colegas (`core/colleague-store.ts`) e a cópia de antes da nuvem (`core/cloud-before.ts`). */
-const DATABASES = ['meu-mural:dados', 'meu-mural:colegas', 'meu-mural:antes-da-nuvem'];
+/** Os ajustes, o login na nuvem e as novidades vistas. */
+const KEEP = new Set([SETTINGS_KEY, SESSION_KEY, ACCOUNT_KEY, NEWS_SEEN_KEY]);
+/** Os bancos do IndexedDB: as listas, os backups de colegas e a cópia de antes da nuvem. */
+const DATABASES = [DATA_DB, COLLEAGUES_DB, BEFORE_CLOUD_DB];
 /** Na sessão: o save acabou de ser apagado, para Ajustes avisar depois de recarregar. */
 const ERASED = 'meu-mural:save-apagado';
 

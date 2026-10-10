@@ -8,7 +8,7 @@ import { Toasts } from '../ui/toast';
 import { EMOJI_DRAWERS, searchEmoji } from './emoji-catalog';
 import { isEmoji } from './emoji';
 import { fold } from './review';
-import { isReaction, reactionOf } from './reactions';
+import { isReaction, reactionOf } from './reaction-kinds';
 
 /** As reações: o que vem da nuvem, as contas do balão e o reagir (que muda na hora e volta se a nuvem recusar). */
 

@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
+import { readBackupFile } from './backup-file';
 
 function review(id: string, name: string, updatedAt: string, extra: Record<string, unknown> = {}) {
   return {
@@ -58,6 +59,13 @@ describe('ReviewStore', () => {
     expect(() => store.importJson('{"x":1}', 'merge')).toThrowError(/Não achei resenhas/);
   });
 
+  it('recusa o backup de outro aplicativo e o de uma versão mais nova, sem mexer em nada', () => {
+    const one = [review('raaaa1', 'A', '2024-01-02T00:00:00Z')];
+    expect(() => store.importJson(JSON.stringify({ app: 'outro', reviews: one }), 'replace')).toThrowError(/outro aplicativo/);
+    expect(() => store.importJson(JSON.stringify({ app: 'meu-mural', version: 3, reviews: one }), 'replace')).toThrowError(/versão mais nova/);
+    expect(store.count()).toBe(0);
+  });
+
   it('substituir troca o mural inteiro', () => {
     store.add(sanitizeReview(review('rzzzz1', 'Z', '2024-01-02T00:00:00Z'))!);
     store.importJson(JSON.stringify({ reviews: [review('raaaa1', 'A', '2024-01-02T00:00:00Z')] }), 'replace');
@@ -112,7 +120,7 @@ describe('ReviewStore', () => {
       const r = store.remove('raaaa1')!;
       store.restore(r);
       const { blob } = await store.exportBackup();
-      const data = JSON.parse(await store.readBackup(blob));
+      const data = JSON.parse(await readBackupFile(blob));
       expect(data.deleted.reviews['raaaa1']).toBeUndefined();
     });
 
@@ -137,7 +145,7 @@ describe('ReviewStore', () => {
     it('vai e volta no backup, e o backup sem wishlist deixa a de agora como está', async () => {
       store.saveWish(wish('rwwww1', 'Hades II'));
       const { blob } = await store.exportBackup();
-      const text = await store.readBackup(blob);
+      const text = await readBackupFile(blob);
       localStorage.clear();
       store.importJson(JSON.stringify({ reviews: [] }), 'replace');
       expect(store.wishes().map((w) => w.id)).toEqual(['rwwww1']);
@@ -278,7 +286,7 @@ describe('ReviewStore', () => {
       expect(store.get('rvez01')!.revisitOf).toBe('raaaa1');
       expect(store.get('raaaa1')!.revisitOf).toBeUndefined();
       const { blob } = await store.exportBackup();
-      const text = await store.readBackup(blob);
+      const text = await readBackupFile(blob);
       expect(JSON.parse(text).reviews.find((r: { id: string }) => r.id === 'rvez01').revisitOf).toBe('raaaa1');
     });
 
@@ -356,5 +364,21 @@ describe('ReviewStore: junção para a sincronização', () => {
     expect(snap.reviews.length).toBe(1);
     expect(snap.drafts.length).toBe(1);
     expect(store.hasContent()).toBeTrue();
+  });
+  it('depois de uma mudança de outra aba, editar uma resenha não regrava as anotações por cima das de lá', () => {
+    const t = '2024-01-02T00:00:00Z';
+    store.importJson(JSON.stringify({ reviews: [review('raaaa1', 'A', t)], notas: [review('nnnnn1', 'Nota', t, { kind: 'anotacoes' })] }), 'replace');
+    TestBed.tick();
+    const NOTES = 'mural-de-jogos:anotacoes:v1';
+    // a outra aba regrava as resenhas (iguais) e avisa
+    localStorage.setItem('mural-de-jogos:resenhas:v1', localStorage.getItem('mural-de-jogos:resenhas:v1')!);
+    window.dispatchEvent(new StorageEvent('storage', { key: 'mural-de-jogos:resenhas:v1' }));
+    TestBed.tick();
+    // e logo grava uma anotação editada, antes de o aviso dela chegar aqui
+    const theirs = localStorage.getItem(NOTES)!.replace('"Nota"', '"Nota editada lá"');
+    localStorage.setItem(NOTES, theirs);
+    store.update({ ...store.get('raaaa1')!, game: { ...store.get('raaaa1')!.game, name: 'A editada aqui' }, updatedAt: '2024-02-01T00:00:00Z' });
+    TestBed.tick();
+    expect(localStorage.getItem(NOTES)).toBe(theirs);
   });
 });

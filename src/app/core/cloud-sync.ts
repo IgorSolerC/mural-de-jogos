@@ -1,5 +1,5 @@
 import { DestroyRef, Injectable, InjectionToken, computed, effect, inject, signal, untracked } from '@angular/core';
-import { readBackupFile } from './backup-file';
+import { gzip, readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
@@ -98,6 +98,7 @@ export function newerKeys(local: SyncedKeys | null, remote: SyncedKeys | null): 
 
 /** O site recusa enviar um mural compactado maior que isso (a nuvem aceita até 1,9 MB). */
 export const MAX_GZ_BYTES = 1_800_000;
+const MINUTE = 60_000;
 /** Resenhas e anotações criadas (ou tornadas públicas) há até 7 dias contam como novas para avisar quem segue. */
 const NEW_REVIEW_DAYS = 7;
 const MAX_NEW = 10;
@@ -144,7 +145,6 @@ function notesOf(notes: unknown): Review[] {
 const MAX_PUSHES_PER_10_MIN = 30;
 const MAX_SAME_PUSHES_PER_10_MIN = 3;
 const PUSH_WINDOW = 10 * 60_000;
-const MINUTE = 60_000;
 
 export type SyncStatus =
   | 'fora' // sem conta ou nuvem desligada
@@ -239,11 +239,6 @@ export async function fingerprint(
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function gzip(text: string): Promise<Blob> {
-  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Response(stream).blob();
-}
-
 /** O mural na nuvem é de uma versão do formato mais nova do que este site sabe ler? */
 export function isNewerSchema(data: Record<string, unknown>): boolean {
   const schema = (data['sync'] as { schema?: unknown } | undefined)?.schema;
@@ -272,7 +267,8 @@ export class CloudSync {
   private failures = 0;
   /** Os envios dos últimos 10 minutos: quando e a impressão digital do que foi. */
   private pushes: { at: number; print: string }[] = [];
-  private running = false;
+  /** A rodada em andamento (null: nenhuma). */
+  private current: Promise<void> | null = null;
   private rerun = false;
   /** A primeira sincronização deste aparelho espera a pessoa escolher (não pergunta de novo sozinha). */
   private waitingChoice = false;
@@ -281,8 +277,9 @@ export class CloudSync {
   private lastAttempt = 0;
 
   constructor() {
-    if (!inject(SYNC_AUTO)) return;
     const destroy = inject(DestroyRef);
+    destroy.onDestroy(() => clearTimeout(this.timer));
+    if (!inject(SYNC_AUTO)) return;
     // Entrou (ou a nuvem ligou): sincroniza já. Saiu: para.
     effect(() => {
       if (this.active()) {
@@ -297,31 +294,20 @@ export class CloudSync {
       }
     });
 
-    // Mudou algo no mural: envia uns segundos depois da última mudança.
+    // Mudou algo no mural, uma chave de busca ou as tags fixas (estas só vão no mural privado): envia
+    // uns segundos depois da última mudança.
     let first = true;
     effect(() => {
       this.store.reviews();
       this.store.drafts();
       this.store.wishes();
       this.store.lastChangeAt();
-      if (first) {
-        first = false;
-        return;
-      }
-      untracked(() => {
-        if (this.active() && !this.applying && !this.waitingChoice) this.schedule(5_000);
-      });
-    });
-
-    // Mudou uma chave de busca ou as tags fixas: vai para a nuvem também (só no mural privado).
-    let firstKeys = true;
-    effect(() => {
       this.settings.rawgKey();
       this.settings.tmdbKey();
       this.settings.keysAt();
       this.settings.pinnedTagsAt();
-      if (firstKeys) {
-        firstKeys = false;
+      if (first) {
+        first = false;
         return;
       }
       untracked(() => {
@@ -343,7 +329,6 @@ export class CloudSync {
         document.removeEventListener('visibilitychange', onVisible);
         window.removeEventListener('online', onOnline);
         clearInterval(every);
-        clearTimeout(this.timer);
       });
     }
   }
@@ -352,6 +337,8 @@ export class CloudSync {
   async syncNow(): Promise<void> {
     this.waitingChoice = false;
     clearTimeout(this.timer);
+    // uma rodada no meio: espera ela e roda outra (quem chama quer o que mudou até agora já enviado)
+    while (this.current) await this.current.catch(() => undefined);
     await this.run();
   }
 
@@ -362,15 +349,15 @@ export class CloudSync {
   }
 
   private async run(): Promise<void> {
-    if (this.running) {
+    if (this.current) {
       this.rerun = true;
       return;
     }
-    this.running = true;
     try {
-      await this.withLock(() => this.syncOnce());
+      this.current = this.withLock(() => this.syncOnce());
+      await this.current;
     } finally {
-      this.running = false;
+      this.current = null;
       if (this.rerun) {
         this.rerun = false;
         this.schedule(1_000);
@@ -479,7 +466,8 @@ export class CloudSync {
       }
       await this.keepCopy();
       if (choice === 'conta') {
-        const text = remote.kind === 'doc' ? remote.text : JSON.stringify({ reviews: [], drafts: [], wishes: [], deleted: {} });
+        // vazia de tudo, anotações também (sem `notas`, o "substituir" guardaria as daqui)
+        const text = remote.kind === 'doc' ? remote.text : JSON.stringify({ reviews: [], notas: [], drafts: [], wishes: [], deleted: {} });
         this.apply(() => this.store.importJson(text, 'replace'));
       } else if (remote.kind === 'doc') {
         this.merge(remote.text);
@@ -577,7 +565,6 @@ export class CloudSync {
     const em = this.settings.keysAt();
     const local = em ? { rawg: this.settings.rawgKey().trim(), tmdb: this.settings.tmdbKey().trim(), em } : null;
     if (newerKeys(local, remote) !== 'remote') return;
-    if (local && local.rawg === remote.rawg && local.tmdb === remote.tmdb && local.em === remote.em) return;
     this.apply(() => this.settings.applyKeys(remote));
   }
 

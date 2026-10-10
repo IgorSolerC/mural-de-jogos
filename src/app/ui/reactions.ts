@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injectable, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { LucideAngularModule, Plus, SmilePlus, X } from 'lucide-angular';
-import { REACTIONS, Reaction, ReactionId, ReactionTarget, Reactions, isQuickReaction, reactionOf, spokenReactions, tally } from '../core/reactions';
+import { Reaction, ReactionTarget, Reactions, spokenReactions, tally } from '../core/reactions';
+import { REACTIONS, ReactionId, isQuickReaction, reactionOf } from '../core/reaction-kinds';
 import { EMOJI_DRAWERS, EmojiEntry, searchEmoji } from '../core/emoji-catalog';
 import { fold } from '../core/review';
 import { dayLabel, localDayOf } from '../core/follow';

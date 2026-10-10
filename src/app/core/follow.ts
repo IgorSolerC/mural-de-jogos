@@ -6,10 +6,8 @@ import { ColleagueStore } from './colleague-store';
 import { Kind, isKind } from './kinds';
 import { Mural } from './mural';
 import { FriendKinds, Settings } from './settings';
-import type { ReactionId } from './reactions';
-import { isEmoji } from './emoji';
-
-const REACTION_IDS: readonly string[] = ['amei', 'fogo', 'rindo', 'uau', 'chorei', 'hmm', 'nao-curti'];
+import { ReactionId, isReaction } from './reaction-kinds';
+import { localDay } from './review';
 
 /**
  * Seguir pessoas pelo código e o correio (ver `api/src/routes/follow.ts`).
@@ -81,7 +79,7 @@ export function parseFeed(raw: unknown): FeedItem[] {
       if (!ref || !titulo) continue;
       const base = { em, pessoa, ref, titulo, mural: isKind(r['mural']) ? r['mural'] : 'jogos', silenciado: r['silenciado'] === true } as const;
       if (r['tipo'] === 'resenha') out.push({ tipo: 'resenha', ...base });
-      else if (typeof r['reacao'] === 'string' && (REACTION_IDS.includes(r['reacao']) || isEmoji(r['reacao']))) out.push({ tipo: 'reagiu', ...base, reacao: r['reacao'] as ReactionId });
+      else if (isReaction(r['reacao'])) out.push({ tipo: 'reagiu', ...base, reacao: r['reacao'] });
     }
   }
   return out.sort((a, b) => b.em.localeCompare(a.em));
@@ -167,9 +165,7 @@ export function seenUntil(
 
 /** O dia local (AAAA-MM-DD) de um instante. */
 export function localDayOf(isoText: string): string {
-  const d = new Date(isoText);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return localDay(new Date(isoText));
 }
 
 /** "hoje", "ontem" ou "3 de outubro". */
@@ -250,6 +246,8 @@ export class Follow {
   private peopleVersion = 0;
   private checkedAt = 0;
   private checking: Promise<void> | null = null;
+  /** A conferência em andamento é a completa (`check(true)`)? */
+  private checkingFull = false;
 
   constructor() {
     // trocar de conta (ou sair) troca o correio inteiro
@@ -293,7 +291,11 @@ export class Follow {
    */
   check(full = false): Promise<void> {
     if (!this.available()) return Promise.resolve();
-    if (this.checking) return this.checking;
+    if (this.checking) {
+      // a do meio é só "chegou algo?": a completa vem depois dela, senão o visto de outro aparelho não chega
+      return full && !this.checkingFull ? this.checking.then(() => this.check(true)) : this.checking;
+    }
+    this.checkingFull = full;
     this.checking = this.doCheck(full).finally(() => (this.checking = null));
     return this.checking;
   }

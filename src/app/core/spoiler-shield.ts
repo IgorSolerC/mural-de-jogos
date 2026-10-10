@@ -19,13 +19,12 @@ export class SpoilerShield {
 
   /** Ligado em Ajustes. */
   readonly on = computed(() => this.settings.friendSpoilers());
-  private readonly mine = computed(() => this.store.reviews());
 
   /** Os ids das fichas de `theirs` que ficam em segredo (vazio com a opção desligada). Use dentro de um computed. */
   hiddenIn(theirs: readonly Review[]): ReadonlySet<string> {
     // a anotação não tem nota: nada a esconder
     const scored = theirs.filter((r) => !isNote(r));
     if (!this.on() || !scored.length) return NONE;
-    return unseenOf(this.mine(), scored);
+    return unseenOf(this.store.reviews(), scored);
   }
 }

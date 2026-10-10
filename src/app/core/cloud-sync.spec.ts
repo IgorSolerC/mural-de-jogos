@@ -310,6 +310,16 @@ describe('sincronização com a nuvem', () => {
     expect(b.names()).toEqual(['Hades II']);
   });
 
+  it('sincronizar agora com uma rodada no meio espera ela e envia o que mudou depois', async () => {
+    const a = device();
+    a.store.add(review('rjogo1', 'Hades'));
+    const first = a.sync.syncNow();
+    a.store.add(review('rjogo2', 'Celeste'));
+    await a.sync.syncNow();
+    expect((await cloud.read()).reviews.map((r) => r.game.name).sort()).toEqual(['Celeste', 'Hades']);
+    await first;
+  });
+
   it('o pra depois editado num aparelho chega no outro', async () => {
     const a = device();
     a.store.saveDraft(sanitizeDraft({ id: 'rdddd1', kind: 'jogos', game: { name: 'Silksong' }, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' })!);
@@ -413,6 +423,7 @@ describe('sincronização com a nuvem', () => {
       const a = device();
       a.kv.setItem(OWNER_KEY, 'outra-conta');
       a.store.add(review('rlocal1', 'Da outra pessoa'));
+      a.store.add({ ...review('nlocal1', 'Anotação da outra pessoa'), kind: 'anotacoes' });
       a.answers.push('secondary'); // começar vazia
       await a.sync.syncNow();
       expect(a.asked).toEqual(['Este mural é de outra conta']);

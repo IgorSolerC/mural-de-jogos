@@ -42,9 +42,11 @@ export class ViewTransitions {
       if (hide) this.unname(hide);
     });
     const mine = this.offstage;
-    transition.finished.finally(() => {
-      if (this.offstage === mine) this.giveNamesBack();
-    });
+    transition.finished
+      .catch(() => undefined)
+      .then(() => {
+        if (this.offstage === mine) this.giveNamesBack();
+      });
   }
 
   /** Os nomes das fichas que nem antes, nem depois, nem no caminho passam pela tela. */

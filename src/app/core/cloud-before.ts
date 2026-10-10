@@ -68,4 +68,4 @@ export async function readBeforeCloud(now = new Date()): Promise<BeforeCloudCopy
   }
 }
 
-export const BEFORE_CLOUD_DB = DB_NAME;
+export { DB_NAME as BEFORE_CLOUD_DB };

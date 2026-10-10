@@ -87,7 +87,7 @@ export class Backup {
   });
 
   constructor() {
-    void navigator.storage?.persisted?.().then((p) => this.persisted.set(p));
+    void navigator.storage?.persisted?.().then((p) => this.persisted.set(p), () => undefined);
   }
 
   async download(): Promise<void> {

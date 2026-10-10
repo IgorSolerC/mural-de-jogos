@@ -9,6 +9,7 @@
  *   As do Kitsu não aceitam CORS: aparecem normalmente, mas não ficam guardadas.
  * - As buscas de catálogo passam direto: sem rede, a busca já avisa e oferece seguir sem capa.
  */
+/** O mesmo nome está em src/main.ts, que guarda os arquivos da primeira visita. */
 const SHELL = 'mural-site-v1';
 const COVERS = 'mural-capas-v1';
 const MAX_COVERS = 3000;
@@ -55,9 +56,11 @@ self.addEventListener('fetch', (event) => {
 async function page(req) {
   const cache = await caches.open(SHELL);
   const network = fetch(req).then((res) => {
-    if (res.ok) cache.put('./', res.clone());
+    if (res.ok) cache.put('./', res.clone()).catch(() => undefined);
     return res;
   });
+  // se o prazo vencer e a rede falhar depois, ninguém mais espera por ela
+  network.catch(() => undefined);
   const timeout = new Promise((resolve) => setTimeout(resolve, 4000));
   try {
     const res = await Promise.race([network, timeout]);
@@ -85,7 +88,7 @@ async function asset(req, event) {
   const cache = await caches.open(SHELL);
   const cached = await cache.match(req);
   const network = fetch(req).then((res) => {
-    if (res.ok) cache.put(req, res.clone());
+    if (res.ok) cache.put(req, res.clone()).catch(() => undefined);
     return res;
   });
   if (cached) {
@@ -112,7 +115,7 @@ async function cover(req) {
     const res = await fetch(req.url, { mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' });
     if (res.ok) {
       await cache.put(req.url, res.clone());
-      trim(cache);
+      trim(cache).catch(() => undefined);
     }
     return res;
   } catch {

@@ -33,7 +33,7 @@ export const DATA_KEYS = [
 ] as const;
 export type DataKey = (typeof DATA_KEYS)[number];
 
-const DB_NAME = 'meu-mural:dados';
+export const DATA_DB = 'meu-mural:dados';
 const STORE = 'chaves';
 /** No IndexedDB: quando o localStorage foi copiado para cá. */
 const MIGRATED = 'migrado';
@@ -53,6 +53,8 @@ export class LocalData {
   /** O que uma versão antiga deixou no localStorage depois da migração, para juntar. */
   private foreign: Partial<Record<DataKey, string>> | null = null;
   private readonly listeners: ((key: DataKey) => void)[] = [];
+  /** Quantas gravações daqui cada chave já teve (ver `reload`). */
+  private readonly writes = new Map<DataKey, number>();
 
   /** Onde os dados estão agora (para Ajustes e para os testes). */
   get where(): Mode {
@@ -127,6 +129,7 @@ export class LocalData {
       localStorage.setItem(key, value);
       return;
     }
+    this.writes.set(key, (this.writes.get(key) ?? 0) + 1);
     this.cache.set(key, value);
     this.mirror(key, value);
     return writeMany(this.db!, [[key, value]]).then(() => this.channel?.postMessage(key));
@@ -155,8 +158,11 @@ export class LocalData {
 
   private async reload(key: DataKey): Promise<void> {
     if (!this.db || !(DATA_KEYS as readonly string[]).includes(key)) return;
+    const writes = this.writes.get(key);
     try {
       const value = (await readAll(this.db)).get(key);
+      // esta aba gravou enquanto lia: o que leu é de antes, e a gravação daqui é a mais nova
+      if (this.writes.get(key) !== writes) return;
       this.cache.set(key, typeof value === 'string' ? value : null);
       this.emit(key);
     } catch {
@@ -222,7 +228,7 @@ function safeGet(key: string): string | null {
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DATA_DB, 1);
     request.onupgradeneeded = () => request.result.createObjectStore(STORE);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -262,7 +268,7 @@ function writeMany(db: IDBDatabase, entries: [string, string][]): Promise<void> 
 /** Só para os testes: apaga o banco. */
 export function deleteDataDb(): Promise<void> {
   return new Promise((resolve) => {
-    const r = indexedDB.deleteDatabase(DB_NAME);
+    const r = indexedDB.deleteDatabase(DATA_DB);
     r.onsuccess = r.onerror = r.onblocked = () => resolve();
   });
 }

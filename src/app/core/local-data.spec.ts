@@ -48,6 +48,17 @@ describe('LocalData (IndexedDB)', () => {
     await deleteDataDb();
   });
 
+  it('o aviso de outra aba, lido antes de uma gravação daqui, não volta o valor para trás', async () => {
+    const { data } = await boot();
+    await data.setItem(KEY, '["v1"]');
+    // o aviso chega e a leitura começa; antes dela terminar, esta aba grava de novo
+    const reading = (data as unknown as { reload(k: string): Promise<void> }).reload(KEY);
+    const writing = data.setItem(KEY, '["v2"]');
+    await reading;
+    await writing;
+    expect(data.getItem(KEY)).toBe('["v2"]');
+  });
+
   it('a primeira abertura copia o localStorage e não apaga nada dele', async () => {
     const saved = JSON.stringify([review('raaaa1', 'Hades', '2024-01-02T00:00:00.000Z')]);
     localStorage.setItem(KEY, saved);

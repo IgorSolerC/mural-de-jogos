@@ -22,7 +22,8 @@ import { Toasts } from '../ui/toast';
 import { Busy } from '../ui/busy';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { Desk } from '../core/desk';
-import { ReactionId, ReactionTarget, Reactions, reactionOf } from '../core/reactions';
+import { ReactionTarget, Reactions } from '../core/reactions';
+import { ReactionId, reactionOf } from '../core/reaction-kinds';
 import { ReactionPicker } from '../ui/reactions';
 
 /** A aba Feed guarda o id 'chegou' (o nome de antes): o endereço e o que já está guardado não mudam. */

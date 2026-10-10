@@ -168,6 +168,19 @@ describe('Amigos: o serviço (Follow)', () => {
       expect(h.follow.unseen()).toBe(0);
     });
 
+    it('check(true) com uma conferência curta no meio não é engolido: pede tudo depois dela', async () => {
+      const h = make({ cache: { conta: 'u-eu', itens: [resenha('r0001', '2026-10-05T10:00:00.000Z')], vistasEm: null, agora: null } });
+      await start();
+      const before = h.feedCalls.length;
+      const short = h.follow.check();
+      h.feedReplies.push(feedResponse([resenha('r0001', '2026-10-05T10:00:00.000Z')], '2026-10-05T10:00:00.000Z'));
+      await h.follow.check(true);
+      await short;
+      expect(h.feedCalls.length).toBe(before + 2);
+      expect(h.feedCalls.at(-1)).toBe('/v1/eu/notificacoes');
+      expect(h.follow.unseen()).toBe(0);
+    });
+
     it('duas conferências ao mesmo tempo viram um pedido só', async () => {
       const h = make({ cache: { conta: 'u-eu', itens: [], vistasEm: null, agora: null } });
       await start();

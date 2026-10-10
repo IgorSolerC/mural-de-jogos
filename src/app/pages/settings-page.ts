@@ -30,7 +30,7 @@ import {
   X,
 } from 'lucide-angular';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
-import { ownerNameOf } from '../core/backup-file';
+import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
 import { eraseSave, takeErased } from '../core/erase-save';
 import { ReviewStore } from '../core/review-store';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings } from '../core/settings';
@@ -1017,19 +1017,12 @@ export class SettingsPage {
       this.importing.set(true);
       let text: string;
       try {
-        text = await this.store.readBackup(file);
+        text = await readBackupFile(file);
       } finally {
         this.importing.set(false);
       }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = undefined;
-      }
-      // não é backup: o importJson lança a mensagem certa sem mexer em nada
-      if (!Array.isArray(parsed) && !Array.isArray((parsed as { reviews?: unknown } | undefined)?.reviews)) this.store.importJson(text, 'merge');
-      const owner = ownerNameOf(parsed);
+      // não serve (não é backup, é de outro app ou de uma versão mais nova): avisa antes de perguntar qualquer coisa
+      const owner = ownerNameOf(backupLists(text).data);
       // o backup de um colega misturaria as fichas dele com as suas: o lugar dele é Comparar
       const me = this.settings.ownerName().trim();
       if (

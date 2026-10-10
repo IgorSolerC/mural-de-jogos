@@ -156,8 +156,8 @@ describe('sincronização: bordas e bugs conhecidos', () => {
   });
 
   afterEach(() => {
-    // as novas tentativas que a sincronização agendou não podem rodar depois do teste
-    for (const d of devices.splice(0)) clearTimeout((d.sync as unknown as { timer: ReturnType<typeof setTimeout> }).timer);
+    // destruir o injector cancela as novas tentativas que a sincronização agendou
+    devices.splice(0);
     for (const i of injectors.splice(0)) i.destroy();
     localStorage.clear();
   });

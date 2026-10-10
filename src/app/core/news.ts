@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Cloud, CloudNotice } from './cloud-config';
 import { ReviewStore } from './review-store';
+import { localDay } from './review';
 
 /**
  * As novidades do site: o que mudou em cada atualização, escrito aqui, no mesmo commit da mudança.
@@ -49,6 +50,22 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
+  {
+    id: '2026-10-10-sincronizacao-e-backups',
+    version: '1.26.4',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'Consertos na sincronização e nos backups',
+    items: [
+      'Ao entrar na nuvem com um mural de outra conta neste navegador, "Começar vazia" agora começa vazia mesmo: as anotações da outra conta não vêm mais junto.',
+      'Com o mural aberto em duas abas, editar uma resenha logo depois de a outra aba mexer não desfaz mais uma anotação editada lá.',
+      'Um aviso de outra aba que chegava no meio de uma gravação podia voltar o mural para trás na memória. Não volta mais.',
+      '"Sincronizar agora" e "Sair e tirar daqui" esperam o envio que já estava em andamento, em vez de avisar que ainda tem coisa só aqui.',
+      'Abrir Amigos logo ao entrar no site traz também o "visto" feito em outro aparelho.',
+      'Restaurar um backup de outro aplicativo, ou de uma versão mais nova do Meu Mural, avisa antes de qualquer pergunta e não mexe em nada.',
+      'Ao finalizar as anotações ligadas numa tarefa, o Desfazer reabre só as que foram finalizadas ali, não as que já estavam finalizadas.',
+    ],
+  },
   {
     id: '2026-10-10-abas-por-quantidade',
     version: '1.26.3',
@@ -1107,14 +1124,24 @@ export interface Notice {
   news: boolean;
 }
 
-const KEY = 'meu-mural:novidades';
-/** Um limite para a lista de vistos não crescer para sempre (os ids da nuvem não estão em NEWS). */
+export const NEWS_SEEN_KEY = 'meu-mural:novidades';
+const KEY = NEWS_SEEN_KEY;
+/** Um limite para os avisos da nuvem vistos não crescerem para sempre (eles não estão em NEWS). */
 const MAX_SEEN = 200;
 
 /** Hoje, AAAA-MM-DD, no fuso de quem usa. */
 export function today(now = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  return localDay(now);
+}
+
+/**
+ * O que vai para a lista de vistas: as novidades vistas, todas (cortar uma faria ela voltar como
+ * nova), e os avisos da nuvem só até `MAX_SEEN`, os mais recentes.
+ */
+export function seenToSave(seen: ReadonlySet<string>, news: readonly NewsEntry[]): string[] {
+  const known = new Set(news.flatMap((n) => (n.was ? [n.id, n.was] : [n.id])));
+  const list = [...seen];
+  return [...list.filter((k) => known.has(k)), ...list.filter((k) => !known.has(k)).slice(-MAX_SEEN)];
 }
 
 /**
@@ -1222,7 +1249,7 @@ export class News {
 
   private save(seen: ReadonlySet<string>): void {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ vistas: [...seen].slice(-MAX_SEEN) }));
+      localStorage.setItem(KEY, JSON.stringify({ vistas: seenToSave(seen, this.entries) }));
     } catch {
       /* cota cheia ou sem localStorage: só esta aba lembra */
     }

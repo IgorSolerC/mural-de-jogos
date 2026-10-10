@@ -6,6 +6,7 @@ import { Mural } from './mural';
 import { WallView } from './wall-view';
 import { NoteDone } from './note-done';
 import { Toasts } from '../ui/toast';
+import { Confirm } from '../ui/confirm';
 
 /** O check da anotação inteira: o dia fica guardado, e a finalizada sai do mural. */
 
@@ -88,5 +89,28 @@ describe('anotação finalizada', () => {
       expect(isDone(store.get('naberta1')!)).toBeFalse();
       expect(shown()).toEqual(['A fazeres']);
     });
+  });
+  it('finalizar as ligadas pela tarefa: o Desfazer só reabre as que esta pergunta finalizou', async () => {
+    localStorage.clear();
+    let done!: NoteDone;
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        // enquanto a pergunta está aberta, "Mercado" é finalizada por outro caminho
+        { provide: Confirm, useValue: { ask: async () => (done.set('nmerca01', true, { quiet: true }), true) } },
+      ],
+    });
+    const store = TestBed.inject(ReviewStore);
+    done = TestBed.inject(NoteDone);
+    const text = '- [x] [[A fazeres]] e [[Mercado]] e [[Estudos]]';
+    store.reviews.set([note('norige01', 'Origem', { text }), note('naberta1', 'A fazeres'), note('nmerca01', 'Mercado'), note('nestud01', 'Estudos')]);
+    await done.offerLinked('norige01', text, 0);
+    const toast = TestBed.inject(Toasts).current()!;
+    expect(toast.text).toBe('2 anotações finalizadas.');
+    toast.action!.run();
+    expect(isDone(store.get('naberta1')!)).toBeFalse();
+    expect(isDone(store.get('nestud01')!)).toBeFalse();
+    expect(isDone(store.get('nmerca01')!)).toBeTrue();
+    localStorage.clear();
   });
 });

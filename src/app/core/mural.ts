@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
-import { KindProfile, isKind, profileOf } from './kinds';
+import { KINDS, KindProfile, isKind, profileOf } from './kinds';
 import { Bonus, Draft, Kind, Review, Wish, originalsOf } from './review';
 import { ReviewStore } from './review-store';
 
@@ -48,7 +48,7 @@ export class Mural {
 
   /** Quantas fichas cada mural tem, para o seletor do cartaz. */
   readonly counts = computed(() => {
-    const out = { jogos: 0, livros: 0, filmes: 0, series: 0, animes: 0, anotacoes: 0 } as Record<Kind, number>;
+    const out = Object.fromEntries(KINDS.map((k) => [k, 0])) as Record<Kind, number>;
     // a anotação finalizada saiu do mural (ver WallView.showDone): o número é o das que estão nele
     for (const r of this.store.reviews()) if (!r.revisitOf && !r.doneAt) out[r.kind]++;
     return out;

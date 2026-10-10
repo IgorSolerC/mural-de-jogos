@@ -6,6 +6,9 @@ import {
 } from './backup-file';
 import { newId, sanitizeReview } from './review';
 
+/** O banco do IndexedDB com os backups de colegas. */
+export const COLLEAGUES_DB = 'meu-mural:colegas';
+
 const CHOSEN_KEY = 'meu-mural:colega-aberto';
 
 function readChosen(): string | null {
@@ -134,7 +137,7 @@ export class ColleagueStore {
   private open(): Promise<IDBDatabase> {
     if (!this.database) {
       this.database = new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open('meu-mural:colegas', 1);
+        const request = indexedDB.open(COLLEAGUES_DB, 1);
         request.onupgradeneeded = () =>
           request.result.createObjectStore('colegas', { keyPath: 'id' });
         request.onsuccess = () => {

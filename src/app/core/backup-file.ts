@@ -2,11 +2,20 @@ import { Review, sanitizeReview } from './review';
 
 /** Limita também o conteúdo descompactado, antes de tentar interpretar o JSON. */
 const MAX_BYTES = 32 * 1024 * 1024;
-const TOO_LARGE =
-  'Esse backup é grande demais (limite de 32 MB). Escolha um arquivo menor.';
+class TooLarge extends Error {
+  constructor() {
+    super('Esse backup é grande demais (limite de 32 MB). Escolha um arquivo menor.');
+  }
+}
+
+/** O texto compactado em gzip (o navegador precisa de CompressionStream). */
+export async function gzip(text: string): Promise<Blob> {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+  return new Response(stream).blob();
+}
 
 export async function readBackupFile(file: Blob): Promise<string> {
-  if (file.size > MAX_BYTES) throw new Error(TOO_LARGE);
+  if (file.size > MAX_BYTES) throw new TooLarge();
   const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
   const gzip = head[0] === 0x1f && head[1] === 0x8b;
   if (gzip && typeof DecompressionStream === 'undefined') {
@@ -29,14 +38,14 @@ export async function readBackupFile(file: Blob): Promise<string> {
       bytes += value.byteLength;
       if (bytes > MAX_BYTES) {
         await reader.cancel();
-        throw new Error(TOO_LARGE);
+        throw new TooLarge();
       }
       parts.push(decoder.decode(value, { stream: true }));
     }
     parts.push(decoder.decode());
     return parts.join('');
   } catch (error) {
-    if (error instanceof Error && error.message === TOO_LARGE) throw error;
+    if (error instanceof TooLarge) throw error;
     throw new Error(
       'Não consegui ler esse arquivo. Escolha o backup .json ou .json.gz baixado pelo Meu Mural.',
     );
@@ -60,37 +69,45 @@ export function ownerNameOf(data: unknown): string | null {
   return name || null;
 }
 
-/** Só lê e sanitiza: não toca nos dados pessoais nem aplica exclusões ao mural do usuário. */
-export function parseBackupSnapshot(text: string): BackupSnapshot {
+/** As listas de um backup, ainda cruas (ver `backupLists`). */
+export interface BackupLists {
+  /** O arquivo inteiro, já lido do JSON. */
+  data: unknown;
+  /** O mesmo, se é um objeto (os backups de antes eram só a lista de resenhas). */
+  object: Record<string, unknown> | null;
+  reviews: unknown[];
+  /** As anotações, que vêm à parte (ver ReviewStore.snapshot); null num backup de antes delas. */
+  notes: unknown[] | null;
+}
+
+/**
+ * Lê o JSON de um backup e confere se ele serve: é do Meu Mural, de uma versão que este site sabe
+ * ler, e tem as resenhas. Se não serve, lança o porquê, terminando com `hint` (o que escolher).
+ */
+export function backupLists(text: string, hint = 'Escolha o backup baixado pelo Meu Mural.'): BackupLists {
   let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error(
-      'Esse arquivo não é um JSON válido. Escolha um backup do Meu Mural.',
-    );
+    throw new Error(`Esse arquivo não é um JSON válido. ${hint}`);
   }
-  const object =
-    data && typeof data === 'object' && !Array.isArray(data)
-      ? (data as Record<string, unknown>)
-      : null;
+  const object = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
   if (object?.['app'] !== undefined && object['app'] !== 'meu-mural') {
-    throw new Error(
-      'Esse arquivo é de outro aplicativo. Escolha um backup do Meu Mural.',
-    );
+    throw new Error(`Esse arquivo é de outro aplicativo. ${hint}`);
   }
   if (typeof object?.['version'] === 'number' && object['version'] > 2) {
-    throw new Error(
-      'Esse backup é de uma versão mais nova. Atualize o Meu Mural antes de abrir.',
-    );
+    throw new Error('Esse backup é de uma versão mais nova. Atualize o Meu Mural antes de abrir.');
   }
-  const found = Array.isArray(data) ? data : object?.['reviews'];
-  if (!Array.isArray(found))
-    throw new Error(
-      'Não achei resenhas nesse arquivo. Escolha um backup do Meu Mural.',
-    );
-  // as anotações publicadas vêm à parte (ver ReviewStore.snapshot)
-  const list = Array.isArray(object?.['notas']) ? [...found, ...(object['notas'] as unknown[])] : found;
+  const reviews = Array.isArray(data) ? data : object?.['reviews'];
+  if (!Array.isArray(reviews)) throw new Error(`Não achei resenhas nesse arquivo. ${hint}`);
+  const notes = object?.['notas'];
+  return { data, object, reviews, notes: Array.isArray(notes) ? notes : null };
+}
+
+/** Só lê e sanitiza: não toca nos dados pessoais nem aplica exclusões ao mural do usuário. */
+export function parseBackupSnapshot(text: string): BackupSnapshot {
+  const { object, reviews: found, notes } = backupLists(text, 'Escolha um backup do Meu Mural.');
+  const list = notes ? [...found, ...notes] : found;
   const deleted = object?.['deleted'] as
     | { reviews?: Record<string, unknown> }
     | undefined;

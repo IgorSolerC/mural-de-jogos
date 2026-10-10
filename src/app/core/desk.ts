@@ -4,7 +4,6 @@ export interface DeskHandlers {
   newReview(): void;
   /** Com `fromId`, veio pelo link de outra anotação: ela vira o "Voltar" da leitura. */
   openReview(id: string, fromId?: string): void;
-  /** Uma anotação nova já com o título (o link para uma que ainda não existe). */
   /** O link para uma anotação que não existe: criar, com o título (e a categoria da anotação `fromId`). */
   newNote(title: string, fromId?: string): void;
   openDraft(id: string): void;
