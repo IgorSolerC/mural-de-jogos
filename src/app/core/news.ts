@@ -51,6 +51,14 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-site-em-branco-com-cor-de-categoria',
+    version: '1.28.3',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'O site em branco depois de dar cor a uma categoria',
+    items: ['Quem tinha escolhido um ícone ou uma cor para uma categoria das anotações via o site abrir só com o fundo, sem nada. Ele volta a abrir, com as escolhas guardadas.'],
+  },
+  {
     id: '2026-10-10-letra-das-abas-de-categoria',
     version: '1.28.2',
     kind: 'correcao',

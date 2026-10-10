@@ -102,8 +102,13 @@ function readStored(): Stored {
 /**
  * O jeito de mostrar as notas, lido já ao carregar: `formatScore` usa em toda parte, mesmo nas telas
  * que não pedem os Ajustes.
+ *
+ * Só ele, e não `readStored()`: isto roda quando o módulo carrega, e review.ts (que importa daqui)
+ * pode estar no meio de um ciclo de imports (review → settings → category-looks → review). Ler tudo
+ * aqui chamava `sanitizeCategoryLooks` antes de `CATEGORY_ICONS` existir, e o site abria em branco
+ * para quem tinha uma categoria com ícone ou cor (1.28.3).
  */
-export const scoreDisplay = signal<ScoreDisplay>(readStored().scoreDisplay);
+export const scoreDisplay = signal<ScoreDisplay>(SCORE_DISPLAYS.includes(readRaw().scoreDisplay) ? readRaw().scoreDisplay : 'livre');
 
 @Injectable({ providedIn: 'root' })
 export class Settings {
