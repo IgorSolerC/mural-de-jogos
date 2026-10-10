@@ -51,6 +51,25 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-faixa-maior-na-ficha',
+    version: '1.27.3',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'A faixa de áudio maior na ficha',
+    items: [
+      'Nas fichas inteiras, a fita cassete e o vinil aparecem do tamanho que têm na leitura.',
+      'Na ficha de sempre, eles ficaram maiores e ainda cabem inteiros com uma linha de texto em cima.',
+    ],
+  },
+  {
+    id: '2026-10-10-player-nao-recarrega',
+    version: '1.27.2',
+    kind: 'correcao',
+    date: '2026-10-10',
+    title: 'O som que parava e voltava enquanto você escrevia',
+    items: ['Com uma faixa do YouTube ou do Vimeo tocando (ou um vídeo), mexer no nome ou na legenda recarregava o player a cada letra: o som parava e voltava. Agora ele só recarrega quando o link muda.'],
+  },
+  {
     id: '2026-10-10-campos-do-widget-sem-moldura',
     version: '1.27.1',
     kind: 'melhoria',

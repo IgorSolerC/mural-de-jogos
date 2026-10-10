@@ -918,6 +918,9 @@ function watchDistance(el: HTMLElement): () => void {
       overflow-wrap: anywhere;
       /* a imagem e o vídeo colados no texto cabem na ficha, com a faixa da polaroide e uma linha de folga */
       --midia-max: calc(var(--line) * (var(--linhas) - 3.2));
+      /* a faixa de áudio (a fita, o vinil) não tem legenda embaixo: cabe na ficha com uma linha de texto
+         em cima (a altura dela sobe até a linha seguinte da pauta) */
+      --faixa-max: calc(var(--line) * (var(--linhas) - 2));
     }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {
@@ -936,6 +939,8 @@ function watchDistance(el: HTMLElement): () => void {
     /* a ficha inteira: o texto todo, sem corte nem esmaecido no fim */
     :host(.inteira) .nota-texto {
       max-height: none;
+      /* sem corte, a faixa fica do tamanho que tem na leitura */
+      --faixa-max: 22em;
     }
     :host(.inteira) .nota-texto[data-corta] {
       -webkit-mask-image: none;

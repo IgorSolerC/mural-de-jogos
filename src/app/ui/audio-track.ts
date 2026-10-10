@@ -440,9 +440,10 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
 
     /* ===== A FITA CASSETE: o desenho da fita (tamanho em em de --w), as teclas e o contador ===== */
     .jeito-fita {
-      /* a largura da fita: o que cabe na linha, e na ficha do mural, o que cabe na altura */
+      /* a largura da fita: o que cabe na linha, e na ficha do mural, o que cabe na altura (--faixa-max,
+         ver review-card.ts) */
       /* (a fita mais as teclas têm 0,78 da largura de altura) */
-      --w: min(100cqw, 17em, calc(var(--midia-max, 22em) * 1.25));
+      --w: min(100cqw, 17em, calc(var(--faixa-max, 22em) * 1.25));
       width: var(--w);
       rotate: var(--giro);
     }
@@ -677,7 +678,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     .jeito-vinil {
       /* o lado da capa: o que cabe na linha (o disco sai 6,6 capas de dez para fora), e na ficha do
          mural, o que cabe na altura (sobra a linha da barra) */
-      --s: min(10em, calc(100cqw / 1.72), calc(var(--midia-max, 22em) - 2.1em));
+      --s: min(10em, calc(100cqw / 1.72), calc(var(--faixa-max, 22em) - 2.1em));
       width: calc(var(--s) * 1.72);
     }
     .vitrola {
@@ -969,9 +970,10 @@ export class AudioTrack {
   private readonly id = ++uid;
 
   protected readonly info = computed(() => readAudio(this.args()));
-  protected readonly source = computed(() => parseAudio(this.info().url));
   // de cada link: trocar o link começa de novo, parado, sem o erro nem o tempo do de antes
   private readonly url = computed(() => this.info().url);
+  /** Do link, e só dele: mexer no nome não remonta o player (o de fora recarregaria e tocaria de novo). */
+  protected readonly source = computed(() => parseAudio(this.url()));
   /** O player de fora já foi chamado (no primeiro toque). */
   private readonly started = linkedSignal({ source: this.url, computation: () => false });
   protected readonly playing = linkedSignal({ source: this.url, computation: () => false });

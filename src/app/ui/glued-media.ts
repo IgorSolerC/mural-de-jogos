@@ -284,10 +284,11 @@ export class GluedMedia {
   private readonly sanitizer = inject(DomSanitizer);
 
   protected readonly media = computed(() => readMedia(this.args()));
-  protected readonly video = computed(() => (this.kind() === 'video' ? parseVideo(this.media().url) : null));
   // de cada link: trocar o link (digitando, ou consertando um erro) começa de novo, sem o "não abriu"
   // do link de antes nem o vídeo dele tocando
   private readonly url = computed(() => this.media().url);
+  /** Do link, e só dele: mexer na legenda não remonta o player (ele recarregaria e começaria de novo). */
+  protected readonly video = computed(() => (this.kind() === 'video' ? parseVideo(this.url()) : null));
   protected readonly loaded = linkedSignal({ source: this.url, computation: () => false });
   protected readonly failed = linkedSignal({ source: this.url, computation: () => false });
   protected readonly playing = linkedSignal({ source: this.url, computation: () => false });
