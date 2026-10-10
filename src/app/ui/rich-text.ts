@@ -377,11 +377,12 @@ import { NoteWidget } from './note-widget';
       text-decoration: line-through 2px rgb(21 21 21 / 0.45);
       opacity: 0.7;
     }
-    /* O link: a letra de sempre, sublinhada à mão com a caneta vermelha (cada linha com o seu
-       risco, levemente torto); passando por cima, o marca-texto. A cor do risco e do marca-texto
-       segue a cartolina da ficha (ver as variações logo abaixo). */
+    /* O link: a letra de sempre, sublinhada à mão com a caneta azul (cada linha com o seu risco,
+       levemente torto): azul-marinho nas cartolinas claras e no papel, azul-céu nas escuras. Passando
+       por cima, o marca-texto. A cor segue a cartolina da ficha do mural (ver as variações logo
+       abaixo); a leitura é de papel creme, com a caneta azul-marinho. */
     .elo {
-      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%23c4302b' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%231d3577' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
       --elo-marca: rgb(255 218 66 / 0.55);
       color: inherit;
       text-decoration: none;
@@ -423,16 +424,10 @@ import { NoteWidget } from './note-widget';
     :host-context(app-review-card[data-cor='amarelo']) .elo {
       --elo-marca: rgb(255 112 168 / 0.42);
     }
-    /* na cartolina vermelha a caneta vermelha some: o risco amarelo */
-    :host-context(app-review-card[data-cor='vermelho']) .elo,
-    :host-context(app-review-card[data-cor='vermelho-escuro']) .elo {
-      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%23ffd84d' stroke-width='2.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-      --elo-marca: rgb(255 216 77 / 0.35);
-    }
-    /* nas outras escuras: a caneta vermelha clara, que aparece no escuro */
-    :host-context(app-review-card[data-cor$='-escuro']:not([data-cor='vermelho-escuro'])) .elo,
+    /* nas escuras: a caneta azul-céu, que aparece no escuro, e o marca-texto mais fraco */
+    :host-context(app-review-card[data-cor$='-escuro']) .elo,
     :host-context(app-review-card[data-cor='preto']) .elo {
-      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%23ff8f80' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%238fd3ff' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
       --elo-marca: rgb(255 218 66 / 0.28);
     }
     :host-context(app-review-card[data-cor$='-escuro']) .elo.quebrado,

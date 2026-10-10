@@ -51,6 +51,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-links-sublinhados-de-azul',
+    version: '1.28.16',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'Os links sublinhados de azul',
+    items: [
+      'Os links do texto (para um endereço ou para outra anotação) agora são sublinhados à mão com caneta azul, no lugar da vermelha: azul-marinho nas cartolinas claras e na leitura, azul-céu nas cartolinas escuras.',
+    ],
+  },
+  {
     id: '2026-10-10-anotacao-sem-papel-atras-no-feed',
     version: '1.28.15',
     kind: 'correcao',
