@@ -156,9 +156,9 @@ import { categoryBonus } from '../core/note-labels';
               } @else {
               <div class="judgement">
                 <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" [masked]="masked()" />
-                <!-- a ficha de outra pessoa em segredo: revelar é só desta vez, a próxima abre em segredo de novo -->
+                <!-- a ficha de outra pessoa em segredo: revelada aqui, fica revelada no mural de quem abriu (ver revealedChange) -->
                 @if (forceMask()) {
-                  <button type="button" class="btn-quiet revelar" [attr.aria-pressed]="revealed()" (click)="revealed.set(!revealed())">
+                  <button type="button" class="btn-quiet revelar" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
                     <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
                     {{ revealed() ? 'Esconder a nota' : 'Revelar a nota' }}
                   </button>
@@ -292,6 +292,8 @@ export class ReviewReader {
   readonly revisit = output<string>();
   /** Tocou num link para uma anotação que não existe: criar uma com esse título. */
   readonly createNote = output<{ title: string; from: string }>();
+  /** "Revelar a nota" (ou "Esconder a nota") na ficha em segredo: as vezes da obra, para o mural de quem abriu seguir. */
+  readonly revealedChange = output<{ ids: string[]; revealed: boolean }>();
 
   protected readonly side = inject(SideBySide);
   private readonly settings = inject(Settings);
@@ -355,8 +357,18 @@ export class ReviewReader {
   });
   /** Pedido por quem abriu: a ficha de outra pessoa sobre algo que você ainda não avaliou ("Evitar spoilers de outros murais"). */
   protected readonly forceMask = signal(false);
-  /** "Revelar a nota": só enquanto esta leitura estiver aberta. */
+  /** "Revelar a nota": a ficha em segredo à mostra (quem abriu guarda, ver `revealedChange`). */
   protected readonly revealed = signal(false);
+
+  protected toggleReveal(): void {
+    const r = this.review();
+    if (!r) return;
+    const revealed = !this.revealed();
+    this.revealed.set(revealed);
+    // as setas andam entre as vezes da obra com a nota à mostra: todas ficam reveladas
+    const ids = this.times().map((x) => x.id);
+    this.revealedChange.emit({ ids: ids.length ? ids : [r.id], revealed });
+  }
   /** Sem spoilers, a leitura do seu mural esconde o mesmo que a ficha. O mural de um colega não, a não ser quando pedido. */
   protected readonly masked = computed(
     () => !this.note() && ((this.forceMask() && !this.revealed()) || (this.settings.noSpoilers() && this.owner() === null)),
@@ -542,15 +554,24 @@ export class ReviewReader {
 
   /**
    * Abre a ficha. A de um colega (`owner`) pode vir com as outras fichas dele (`pool`), para andar
-   * entre as vezes; `masked` esconde notas, bônus e texto, como no modo sem spoilers.
+   * entre as vezes; `masked` esconde notas, bônus e texto, como no modo sem spoilers, e `revealed` é
+   * a ficha em segredo que já foi revelada (abre à mostra, com "Esconder a nota").
    */
-  open(review: Review, owner: string | null = null, pool: readonly Review[] = [], masked = false, code: string | null = null, from: Review | null = null): void {
+  open(
+    review: Review,
+    owner: string | null = null,
+    pool: readonly Review[] = [],
+    masked = false,
+    code: string | null = null,
+    from: Review | null = null,
+    revealed = false,
+  ): void {
     // tocou num link na ficha do mural: a anotação de onde veio é o "Voltar"
     this.trail.set(from ? [from] : []);
     this.ownerCode.set(owner === null ? null : code);
     if (code && owner !== null) void this.reactions.load(code);
     this.forceMask.set(masked);
-    this.revealed.set(false);
+    this.revealed.set(masked && revealed);
     this.owner.set(owner);
     this.pool.set(pool);
     this.review.set(review);

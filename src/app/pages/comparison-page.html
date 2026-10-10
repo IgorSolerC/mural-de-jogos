@@ -356,7 +356,7 @@
   }
 }
 
-<app-review-reader />
+<app-review-reader (revealedChange)="revealOne($event)" />
 
 <!-- Um fato da ficha numa célula do Nota a nota: o mesmo desenho do Lado a lado, em tamanho de bloquinho -->
 <ng-template #fato let-r let-row="row">

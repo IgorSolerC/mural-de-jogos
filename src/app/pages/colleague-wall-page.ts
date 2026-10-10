@@ -155,16 +155,38 @@ export class ColleagueWallPage {
 
   protected toggleReveal(): void {
     const id = this.colleague()?.id ?? null;
-    this.vt.run(() => this.revealedFor.set(this.revealed() ? null : id));
+    // esconder as notas esconde também as reveladas uma a uma
+    this.vt.run(() => {
+      this.revealedFor.set(this.revealed() ? null : id);
+      this.single.set({ of: null, ids: new Set() });
+    });
+  }
+  /**
+   * "Revelar a nota" na leitura: aquela ficha fica à mostra no mural, da mesma pessoa e só enquanto a
+   * página estiver aberta, como "Mostrar notas".
+   */
+  private readonly single = signal<{ of: string | null; ids: ReadonlySet<string> }>({ of: null, ids: new Set() });
+  private readonly singles = computed<ReadonlySet<string>>(() => {
+    const s = this.single();
+    return !!this.colleague() && s.of === this.colleague()!.id ? s.ids : new Set();
+  });
+  protected revealOne(e: { ids: string[]; revealed: boolean }): void {
+    const ids = new Set(this.singles());
+    for (const id of e.ids) e.revealed ? ids.add(id) : ids.delete(id);
+    this.single.set({ of: this.colleague()?.id ?? null, ids });
   }
   /** As fichas sobre o que eu ainda não resenhei, com "Evitar spoilers de outros murais" (ver core/spoiler-shield.ts). */
   private readonly unseen = computed(() => this.shield.hiddenIn(this.reviews()));
-  protected readonly hidden = computed<ReadonlySet<string>>(() => (this.revealed() ? new Set() : this.unseen()));
+  protected readonly hidden = computed<ReadonlySet<string>>(() => {
+    if (this.revealed()) return new Set();
+    const singles = this.singles();
+    return singles.size ? new Set([...this.unseen()].filter((id) => !singles.has(id))) : this.unseen();
+  });
   /** Alguma ficha em segredo: a nota não ordena, não filtra e não entra nas médias, que contariam o segredo. */
   protected readonly guarding = computed(() => this.hidden().size > 0);
   /** O botão de mostrar aparece enquanto houver o que esconder (e para esconder de novo). */
-  protected readonly canReveal = computed(() => this.unseen().size > 0);
-  protected readonly unseenCount = computed(() => this.unseen().size);
+  protected readonly canReveal = computed(() => this.revealed() || this.hidden().size > 0);
+  protected readonly unseenCount = computed(() => this.hidden().size);
   protected readonly shownSort = computed<SortKey>(() => {
     const sort = sortFor(this.sort() ?? (isNotes(this.profile().kind) ? 'prioridade' : 'data'), this.profile());
     return this.guarding() && sort === 'nota' ? 'data' : sort;
@@ -320,6 +342,8 @@ export class ColleagueWallPage {
 
   protected open(review: Review): void {
     // com as outras fichas do colega: a leitura anda entre as vezes de uma obra que ele rejogou
-    this.reader().open(review, this.name(), this.reviews(), this.hidden().has(review.id), this.code());
+    // a revelada uma a uma abre à mostra, com "Esconder a nota"
+    const secret = !this.revealed() && this.unseen().has(review.id);
+    this.reader().open(review, this.name(), this.reviews(), secret, this.code(), null, this.singles().has(review.id));
   }
 }

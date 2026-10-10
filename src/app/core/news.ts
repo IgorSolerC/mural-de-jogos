@@ -50,6 +50,16 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-09-revelar-a-nota-fica',
+    version: '1.24.2',
+    kind: 'correcao',
+    date: '2026-10-09',
+    title: 'A nota revelada continua revelada',
+    items: [
+      'No mural de alguém e em Comparar, a ficha em segredo revelada com "Revelar a nota" agora continua à mostra no mural depois de fechar a leitura, enquanto a página estiver aberta. "Esconder a nota" (ou "Esconder notas") volta com ela para o segredo.',
+    ],
+  },
+  {
     id: '2026-10-09-tarefas-feitas-com-espacos',
     version: '1.24.1',
     kind: 'melhoria',

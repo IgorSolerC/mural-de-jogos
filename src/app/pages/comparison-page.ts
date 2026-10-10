@@ -165,14 +165,34 @@ export class ComparisonPage {
   private readonly unseen = computed(() =>
     this.shield.hiddenIn((this.colleague()?.reviews ?? []).filter((r) => r.kind === this.mural.kind())),
   );
-  protected readonly hidden = computed<ReadonlySet<string>>(() => (this.revealed() ? new Set() : this.unseen()));
-  protected readonly unseenCount = computed(() => this.theirs().filter((r) => this.unseen().has(r.id)).length);
+  /** "Revelar a nota" na leitura: aquela ficha fica à mostra, do mesmo colega e só enquanto a página estiver aberta. */
+  private readonly single = signal<{ of: string | null; ids: ReadonlySet<string> }>({ of: null, ids: new Set() });
+  private readonly singles = computed<ReadonlySet<string>>(() => {
+    const s = this.single();
+    return !!this.colleague() && s.of === this.colleague()!.id ? s.ids : new Set();
+  });
+  protected revealOne(e: { ids: string[]; revealed: boolean }): void {
+    const ids = new Set(this.singles());
+    for (const id of e.ids) e.revealed ? ids.add(id) : ids.delete(id);
+    this.single.set({ of: this.colleague()?.id ?? null, ids });
+  }
+  protected readonly hidden = computed<ReadonlySet<string>>(() => {
+    if (this.revealed()) return new Set();
+    const singles = this.singles();
+    return singles.size ? new Set([...this.unseen()].filter((id) => !singles.has(id))) : this.unseen();
+  });
+  /** As que ainda estão em segredo, fora as reveladas uma a uma (com "Mostrar notas", todas: o botão fica para esconder). */
+  protected readonly unseenCount = computed(() => this.theirs().filter((r) => this.unseen().has(r.id) && !this.singles().has(r.id)).length);
   /** Com dicas em segredo, ordenar as dicas por nota contaria o segredo: vale "Mais recentes". */
   protected readonly tipSort = computed<ListSort>(() => (this.hidden().size && this.listSort() === 'nota' ? 'recente' : this.listSort()));
 
   protected toggleReveal(): void {
     const id = this.colleague()?.id ?? null;
-    this.vt.run(() => this.revealedFor.set(this.revealed() ? null : id));
+    // esconder as notas esconde também as reveladas uma a uma
+    this.vt.run(() => {
+      this.revealedFor.set(this.revealed() ? null : id);
+      this.single.set({ of: null, ids: new Set() });
+    });
   }
 
   /** Os outros murais onde há o que comparar: "Livros · 3 em comum". */
@@ -444,7 +464,8 @@ export class ComparisonPage {
   protected openReview(review: Review, mine: boolean): void {
     // a minha abre na mesa de sempre (dá para editar); a do colega, só para ler, com o nome dele
     if (mine) this.desk.openReview(review.id);
-    else this.reader().open(review, this.name(), [], this.hidden().has(review.id));
+    // a revelada uma a uma abre à mostra, com "Esconder a nota"
+    else this.reader().open(review, this.name(), [], !this.revealed() && this.unseen().has(review.id), null, null, this.singles().has(review.id));
   }
 
   /** A maior briga ou a unanimidade: leva para a lista, com o par encontrado pela busca. */
