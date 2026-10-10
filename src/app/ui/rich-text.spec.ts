@@ -32,10 +32,21 @@ describe('o texto formatado na leitura', () => {
     expect(el.querySelector('ol')!.getAttribute('start')).toBe('3');
   });
 
-  it('texto sem marca nenhuma sai como sempre, um bloco só', async () => {
-    const el = await render('Linha um\n\nLinha dois');
-    expect(el.querySelector('.linha')).toBeNull();
-    expect(el.textContent).toContain('Linha um\n\nLinha dois');
+  it('texto sem marca nenhuma sai como foi escrito, cada linha um parágrafo com o recuo, sem espaço sobrando', async () => {
+    const el = await render('Linha um\n\n  Linha dois: 2 * 3 = 6');
+    const lines = Array.from(el.querySelectorAll('.linha'));
+    expect(lines.map((l) => l.textContent)).toEqual(['Linha um', '', '  Linha dois: 2 * 3 = 6']);
+    expect(lines.every((l) => l.classList.contains('paragrafo'))).toBeTrue();
+    expect(parseFloat(getComputedStyle(lines[0]).textIndent)).toBeGreaterThan(0);
+  });
+
+  it('cada linha de texto corrido começa um parágrafo com recuo; a lista e o título não', async () => {
+    const el = await render('# Título\nPrimeira **linha**\nSegunda linha\n- item');
+    const indent = (sel: string) => parseFloat(getComputedStyle(el.querySelector(sel)!).textIndent);
+    expect(Array.from(el.querySelectorAll('.paragrafo')).map((l) => l.textContent)).toEqual(['Primeira linha', 'Segunda linha']);
+    expect(indent('.paragrafo')).toBeGreaterThan(0);
+    expect(indent('.titulo')).toBe(0);
+    expect(indent('ul.lista li')).toBe(0);
   });
 
   it('as feitas de quando a ficha apareceu viram a conta; a marcada agora fica até o texto mudar de verdade', async () => {

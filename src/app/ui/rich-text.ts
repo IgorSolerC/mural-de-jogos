@@ -8,7 +8,9 @@ import { NoteWidget } from './note-widget';
 /**
  * O texto da ficha na leitura, com a formatação do editor (ver core/rich-text.ts): negrito, itálico,
  * listas e checklists. Quem desenha é o Angular, nunca HTML vindo do texto. Sem nenhuma marca, o
- * texto sai como sempre saiu, um bloco só; com marcas, linha a linha, cada uma numa linha da pauta.
+ * texto sai como foi escrito, sem ler marca nenhuma; com marcas, formatado. Dos dois jeitos, linha a
+ * linha, cada uma numa linha da pauta, e cada linha de texto corrido é um parágrafo, com o recuo da
+ * primeira linha (como se escreve à mão).
  *
  * O pai dá a letra, o tamanho e a altura da linha (`--line`); as tarefas só marcam com `checkable`.
  *
@@ -21,17 +23,20 @@ import { NoteWidget } from './note-widget';
 @Component({
   selector: 'app-rich-text',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // formatado, cada linha guarda os próprios espaços: os do molde entre os blocos não contam
-  host: { '[class.formatado]': 'formatted()' },
+  // cada linha guarda os próprios espaços: os do molde entre os blocos não contam
+  host: { class: 'formatado' },
   template: `
     @if (!formatted()) {
-      {{ text() }}
+      <!-- sem marcas: as linhas como foram escritas (nada vira link, lista nem negrito) -->
+      @for (l of plainLines(); track $index) {
+        <div class="linha paragrafo">{{ l }}</div>
+      }
     } @else {
       @for (b of blocks(); track $index) {
         @switch (b.kind) {
           @case ('p') {
             @for (l of b.lines; track $index) {
-              <div class="linha">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
+              <div class="linha paragrafo">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
             }
           }
           @case ('ul') {
@@ -55,7 +60,7 @@ import { NoteWidget } from './note-widget';
           @case ('quote') {
             <blockquote class="citacao">
               @for (l of b.lines; track $index) {
-                <div class="linha">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
+                <div class="linha paragrafo">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
               }
             </blockquote>
           }
@@ -132,6 +137,11 @@ import { NoteWidget } from './note-widget';
     .linha {
       min-height: var(--line, 1.5em);
       white-space: pre-wrap;
+    }
+    /* cada linha de texto corrido começa um parágrafo: a primeira linha dele entra um pouco, como
+       quem escreve à mão (a lista, o título, a tabela e o widget não) */
+    .paragrafo {
+      text-indent: 1em;
     }
     /* ===== As ênfases ===== */
     .negrito {
@@ -457,6 +467,7 @@ export class RichText {
   readonly fold = input(false);
 
   protected readonly formatted = computed(() => hasFormatting(this.text()));
+  protected readonly plainLines = computed(() => this.text().split(/\r?\n/));
   private readonly doneThen = linkedSignal({ source: this.text, computation: snapshotDone });
   protected readonly blocks = computed(() => {
     const blocks = parseRich(this.text());

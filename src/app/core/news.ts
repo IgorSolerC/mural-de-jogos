@@ -51,6 +51,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-recuo-em-todo-paragrafo',
+    version: '1.28.17',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'O recuo em todo parágrafo',
+    items: [
+      'Cada linha nova de texto corrido começa um parágrafo com o recuo da primeira linha, como se escreve à mão, e não só a primeira linha do texto. Vale nas anotações e nas resenhas, na ficha do mural e na leitura.',
+      'Listas, tarefas, títulos, tabelas e widgets continuam alinhados na margem, sem recuo.',
+    ],
+  },
+  {
     id: '2026-10-10-links-sublinhados-de-azul',
     version: '1.28.16',
     kind: 'melhoria',
