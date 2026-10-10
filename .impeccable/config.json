@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/ui/glued-media.ts"
+        ],
+        "createdAt": "2026-10-10T03:11:12.899Z",
+        "reason": "Claude: src é binding Angular [src] com o link escrito pela pessoa (widget imagem/vídeo); o detector lê só o template estático"
+      }
+    ]
+  }
+}

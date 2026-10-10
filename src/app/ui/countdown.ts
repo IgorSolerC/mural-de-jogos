@@ -37,7 +37,7 @@ const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
   template: `
     @if (state(); as s) {
       <div class="contador" [class.chegou]="s.r.past" role="timer" [attr.aria-label]="spoken()">
-        <div class="bloco" aria-hidden="true">
+        <div class="bloco" data-colado aria-hidden="true">
           <span class="fita"></span>
           <span class="papelao">{{ s.r.past ? s.month : s.big.n === 1 ? 'Falta' : 'Faltam' }}</span>
           <span class="folhas">

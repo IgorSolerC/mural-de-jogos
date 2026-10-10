@@ -12,6 +12,8 @@ import {
   Heading,
   Highlighter,
   Hourglass,
+  Clapperboard,
+  Image,
   Italic,
   Link,
   List,
@@ -79,6 +81,8 @@ const NOTE_LINK_ICON: LucideIconData = [
 /** O desenho de cada widget no menu "Widgets" (ver core/widgets.ts). */
 const WIDGET_ICONS: Record<string, LucideIconData> = {
   contador: Hourglass,
+  imagem: Image,
+  video: Clapperboard,
 };
 
 @Component({
@@ -374,6 +378,16 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
                     <small>{{ f.hint }}</small>
                   }
                 </label>
+              } @else if (f.kind === 'choice') {
+                <div class="painel-campo" role="radiogroup" [attr.aria-label]="f.label">
+                  <span>{{ f.label }}</span>
+                  <span class="widget-escolhas">
+                    @for (o of f.options ?? []; track o.value; let first = $first) {
+                      @let on = (w.values[f.key] || (f.options ?? [])[0]?.value) === o.value;
+                      <button type="button" role="radio" class="widget-tipo" [attr.aria-checked]="on" [attr.tabindex]="on ? 0 : -1" [attr.data-campo]="first ? f.key : null" (click)="setWidgetValue(f.key, o.value)" (keydown)="onChoiceKey($event, f.key, f.options ?? [])">{{ o.label }}</button>
+                    }
+                  </span>
+                </div>
               } @else {
                 <label class="painel-campo">
                   <span>{{ f.label }}</span>
@@ -381,6 +395,7 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
                     <input
                       [class]="'widget-' + f.kind"
                       [type]="f.kind"
+                      [attr.inputmode]="f.kind === 'url' ? 'url' : null"
                       autocomplete="off"
                       [attr.maxlength]="f.max ?? null"
                       [attr.placeholder]="f.placeholder ?? null"
@@ -396,12 +411,15 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
                 </label>
               }
             }
+            @if (widgetProblem(); as pr) {
+              <p class="widget-problema" role="alert">{{ pr }}</p>
+            }
             <!-- como vai ficar: o widget de verdade, andando, num pedaço da folha pautada -->
             <div class="widget-previa">
               @if (widgetArgs(); as args) {
                 <app-note-widget [name]="w.name" [args]="args" />
               } @else {
-                <p class="widget-previa-vazia">Escolha o dia para ver o {{ def.label.toLowerCase() }} andando.</p>
+                <p class="widget-previa-vazia">{{ def.name === 'contador' ? 'Escolha o dia para ver o contador andando.' : 'Cole o link para ver como fica.' }}</p>
               }
             </div>
             <div class="painel-acoes">
@@ -1015,6 +1033,22 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
     .painel-campo input::-webkit-calendar-picker-indicator {
       opacity: 0.75;
       cursor: pointer;
+    }
+    .widget-escolhas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      letter-spacing: normal;
+    }
+    .widget-problema {
+      margin: 2px 0 4px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--error-ink, #6b0000);
+    }
+    .widget-tipo:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
     }
     .widget-tipos {
       display: flex;
@@ -1702,6 +1736,8 @@ export class RichEditor {
     { mark: '| a | b |', what: 'Tabela (2ª linha: | --- | --- |)' },
     { mark: '---', what: 'Divisória' },
     { mark: '{{contador: 19/11/2026 18:00 | Nome}}', what: 'Contador até o dia, numa linha só dele (sem o ano: todo ano)' },
+    { mark: '{{imagem: https://… | legenda}}', what: 'Imagem colada como foto (polaroid ou recorte no fim: outra moldura)' },
+    { mark: '{{video: https://youtu.be/… | legenda}}', what: 'Vídeo do YouTube, do Vimeo ou um .mp4, que toca ali' },
     { mark: '-> <- <-> =>', what: 'Setas: → ← ↔ ⇒ (--> e <-- compridas)' },
     { mark: '!= >= <= ~= +-', what: 'Símbolos: ≠ ≥ ≤ ≈ ±' },
     { mark: '\\*', what: 'A marca como ela é, sem formatar' },
@@ -2268,6 +2304,26 @@ export class RichEditor {
     return w ? this.widgetOf(w.name).write(w.values) : null;
   });
 
+  /** O que está errado no que já foi escrito no painel (um link que não serve). */
+  protected readonly widgetProblem = computed(() => {
+    const w = this.widgetPick();
+    return w ? (this.widgetOf(w.name).problem?.(w.values) ?? null) : null;
+  });
+
+  /** Nas escolhas (a moldura): as setas trocam, como num grupo de rádios. */
+  protected onChoiceKey(e: KeyboardEvent, key: string, options: readonly { value: string }[]): void {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const w = this.widgetPick();
+    if (!w) return;
+    const at = Math.max(0, options.findIndex((o) => o.value === (w.values[key] || options[0]?.value)));
+    const next = options[(at + step + options.length) % options.length];
+    this.setWidgetValue(key, next.value);
+    const group = (e.currentTarget as HTMLElement).parentElement;
+    setTimeout(() => group?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
+  }
+
   protected widgetOf(name: string): WidgetDef {
     return widgetDef(name) ?? WIDGETS[0];
   }
@@ -2314,7 +2370,7 @@ export class RichEditor {
     const args = this.widgetArgs();
     if (!args) {
       const def = this.widgetOf(w.name);
-      const missing = def.fields.find((f) => f.kind === 'date' && !w.values[f.key]) ?? def.fields[0];
+      const missing = def.fields.find((f) => f.required && !w.values[f.key]?.trim()) ?? def.fields.find((f) => f.required) ?? def.fields[0];
       this.panelInput(w.big, `[data-campo="${missing.key}"]`)?.focus();
       return;
     }

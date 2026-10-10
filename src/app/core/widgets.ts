@@ -16,8 +16,12 @@
 export interface WidgetField {
   key: string;
   label: string;
-  kind: 'text' | 'date' | 'time' | 'toggle';
+  kind: 'text' | 'url' | 'date' | 'time' | 'toggle' | 'choice';
   placeholder?: string;
+  /** Sem ele, o widget não sai (o editor leva o foco para o primeiro que falta). */
+  required?: true;
+  /** As escolhas de `choice` (a primeira é a de quando nada foi escolhido). */
+  options?: readonly { value: string; label: string }[];
   /** Uma linha miúda embaixo do campo (ou ao lado da caixinha). */
   hint?: string;
   /** Até quantas letras (os textos). */
@@ -45,6 +49,8 @@ export interface WidgetDef {
   write(values: WidgetValues): string[] | null;
   /** O texto do widget para o que lê palavras (a busca, a contagem de palavras). */
   plain(args: readonly string[]): string;
+  /** O que está errado nos campos já preenchidos (um link que não serve), para o editor dizer. */
+  problem?(values: WidgetValues): string | null;
 }
 
 /** Uma linha que é só um widget: "{{nome: a | b}}" (ou "{{nome}}"). */
@@ -214,7 +220,7 @@ const COUNTDOWN: WidgetDef = {
   swap: 'Trocar o contador',
   fields: [
     { key: 'title', label: 'Para quê', kind: 'text', placeholder: 'Lançamento, aniversário, viagem…', max: 80 },
-    { key: 'date', label: 'Dia', kind: 'date' },
+    { key: 'date', label: 'Dia', kind: 'date', required: true },
     { key: 'time', label: 'Hora', kind: 'time', hint: 'Sem hora, conta até a meia-noite.' },
     { key: 'yearly', label: 'Todo ano', kind: 'toggle', hint: 'Aniversário, Natal: no dia seguinte, volta a contar para o próximo ano.' },
   ],
@@ -251,8 +257,140 @@ const COUNTDOWN: WidgetDef = {
   },
 };
 
+// ===== A imagem e o vídeo: uma foto colada na cartolina =====
+
+/** O jeito da foto colada: com a borda branca da foto revelada, polaroide ou recortada rente. */
+export type Frame = 'foto' | 'polaroid' | 'recorte';
+export const FRAMES: readonly { value: Frame; label: string }[] = [
+  { value: 'foto', label: 'Foto' },
+  { value: 'polaroid', label: 'Polaroide' },
+  { value: 'recorte', label: 'Recorte' },
+];
+/** Os nomes que valem para cada moldura, escritos à mão (sem acento, em minúsculas). */
+const FRAME_WORDS: Record<string, Frame> = { foto: 'foto', polaroid: 'polaroid', polaroide: 'polaroid', recorte: 'recorte', recortada: 'recorte' };
+
+/** Um link com cara de link (o "https://" é conferido por quem usa). */
+const LINKY = /^[a-z][a-z0-9+.-]*:\/\/\S+$/i;
+
+/** Só https: a imagem e o vídeo vêm de qualquer lugar da internet, mas nunca de um endereço sem cadeado. */
+export function httpsUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!/^https:\/\/[^\s/]+\.[^\s/]+(\/\S*)?$/i.test(t)) return null;
+  try {
+    return new URL(t).href;
+  } catch {
+    return null;
+  }
+}
+
+/** Os parâmetros da foto colada em qualquer ordem: o link, a moldura (uma das palavras) e a legenda. */
+export function readMedia(args: readonly string[]): { url: string; frame: Frame; caption: string } {
+  let url = '';
+  let frame: Frame | null = null;
+  let caption = '';
+  for (const a of args) {
+    const f = FRAME_WORDS[key(a)];
+    if (!url && LINKY.test(a)) url = a;
+    else if (!frame && f) frame = f;
+    else if (!caption && a) caption = a;
+  }
+  return { url, frame: frame ?? 'foto', caption };
+}
+
+/** De onde o vídeo toca: YouTube e Vimeo pelo player deles, ou um arquivo de vídeo direto. */
+export type VideoSource = { kind: 'youtube'; id: string; start: number } | { kind: 'vimeo'; id: string; hash: string | null } | { kind: 'file'; url: string };
+
+/** "90", "1m30s", "1h2m3s" → segundos. */
+function seconds(raw: string | null): number {
+  if (!raw) return 0;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(raw);
+  return m ? Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0) : 0;
+}
+
+/** O vídeo de um link (null: não é um vídeo que o site saiba tocar). */
+export function parseVideo(raw: string): VideoSource | null {
+  const href = httpsUrl(raw);
+  if (!href) return null;
+  const u = new URL(href);
+  const host = u.hostname.replace(/^(www|m|music)\./, '');
+  const path = u.pathname.split('/').filter(Boolean);
+  const start = seconds(u.searchParams.get('t') ?? u.searchParams.get('start'));
+  const yt = (id: string | null | undefined) => (id && /^[\w-]{11}$/.test(id) ? { kind: 'youtube' as const, id, start } : null);
+  if (host === 'youtu.be') return yt(path[0]);
+  if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    if (path[0] === 'watch') return yt(u.searchParams.get('v'));
+    if (['shorts', 'embed', 'live', 'v'].includes(path[0])) return yt(path[1]);
+    return null;
+  }
+  if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+    const at = path[0] === 'video' ? 1 : 0;
+    const id = path[at];
+    if (!id || !/^\d{4,12}$/.test(id)) return null;
+    const hash = path[at + 1] && /^[\da-f]{6,20}$/i.test(path[at + 1]) ? path[at + 1] : u.searchParams.get('h');
+    return { kind: 'vimeo', id, hash: hash && /^[\da-f]{6,20}$/i.test(hash) ? hash : null };
+  }
+  if (/\.(mp4|m4v|webm|ogv|ogg)$/i.test(u.pathname)) return { kind: 'file', url: href };
+  return null;
+}
+
+const MEDIA_FIELDS = (link: WidgetField): readonly WidgetField[] => [
+  link,
+  { key: 'caption', label: 'Legenda', kind: 'text', placeholder: 'Opcional', max: 120 },
+  { key: 'frame', label: 'Moldura', kind: 'choice', options: FRAMES },
+];
+
+/** Os campos da foto colada viram os parâmetros: o link, a legenda e a moldura (a foto, que é a de sempre, não se escreve). */
+function writeMedia(v: WidgetValues, ok: (url: string) => boolean): string[] | null {
+  const url = (v['url'] ?? '').trim();
+  if (!ok(url)) return null;
+  const caption = (v['caption'] ?? '').trim();
+  const frame = v['frame'] && v['frame'] !== 'foto' ? v['frame'] : '';
+  return [url, caption, frame].filter(Boolean);
+}
+
+function readMediaValues(args: readonly string[]): WidgetValues {
+  const { url, frame, caption } = readMedia(args);
+  return { url, caption, frame };
+}
+
+const IMAGE: WidgetDef = {
+  name: 'imagem',
+  aliases: ['foto', 'image', 'img'],
+  label: 'Imagem',
+  about: 'Uma imagem de um link, colada como foto.',
+  put: 'Colar a imagem',
+  swap: 'Trocar a imagem',
+  fields: MEDIA_FIELDS({ key: 'url', label: 'Link', kind: 'url', placeholder: 'https://…/foto.jpg', required: true }),
+  read: readMediaValues,
+  write: (v) => writeMedia(v, (url) => !!httpsUrl(url)),
+  plain: (args) => readMedia(args).caption,
+  problem(v) {
+    const url = (v['url'] ?? '').trim();
+    return url && !httpsUrl(url) ? 'O link precisa começar com https://' : null;
+  },
+};
+
+const VIDEO: WidgetDef = {
+  name: 'video',
+  aliases: ['filme', 'youtube'],
+  label: 'Vídeo',
+  about: 'Um vídeo do YouTube, do Vimeo ou um arquivo .mp4, que toca ali mesmo.',
+  put: 'Colar o vídeo',
+  swap: 'Trocar o vídeo',
+  fields: MEDIA_FIELDS({ key: 'url', label: 'Link', kind: 'url', placeholder: 'YouTube, Vimeo ou um .mp4', required: true }),
+  read: readMediaValues,
+  write: (v) => writeMedia(v, (url) => !!parseVideo(url)),
+  plain: (args) => readMedia(args).caption,
+  problem(v) {
+    const url = (v['url'] ?? '').trim();
+    if (!url || parseVideo(url)) return null;
+    return httpsUrl(url) ? 'Esse link não é de um vídeo que dê para tocar aqui: use um do YouTube, do Vimeo ou um arquivo .mp4.' : 'O link precisa começar com https://';
+  },
+};
+
 /** Todos os widgets, na ordem da régua. */
-export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN];
+export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO];
 
 /** O widget por um dos nomes dele (com ou sem acento, maiúsculas). */
 export function widgetDef(name: string): WidgetDef | null {

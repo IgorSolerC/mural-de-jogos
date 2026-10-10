@@ -50,6 +50,20 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-widgets-imagem-video',
+    version: '1.26.0',
+    kind: 'funcionalidade',
+    date: '2026-10-10',
+    title: 'Imagem e vídeo nas anotações',
+    items: [
+      'Dois widgets novos no menu "Widgets" do editor da anotação: Imagem e Vídeo. Você cola o link e eles aparecem como uma foto revelada colada na cartolina, meio torta, com o brilho do papel fotográfico.',
+      'A moldura pode ser a borda branca da foto, uma polaroide (a legenda vai escrita na faixa de baixo) ou um recorte rente. A legenda é opcional.',
+      'O vídeo toca ali mesmo: YouTube, Vimeo ou um arquivo .mp4. A foto mostra a capa com um adesivo redondo de tocar; o player só carrega quando você toca, e a foto se endireita para assistir. Dá para tocar até na ficha do mural.',
+      'No painel, o widget aparece como vai ficar, e um link que não serve diz o porquê. Escrito à mão: {{imagem: https://… | legenda | polaroid}} e {{video: https://youtu.be/… | legenda}}.',
+      'O estrago da ficha nunca come a foto colada, nem o bloquinho do contador.',
+    ],
+  },
+  {
     id: '2026-10-09-menu-widgets',
     version: '1.25.1',
     kind: 'melhoria',

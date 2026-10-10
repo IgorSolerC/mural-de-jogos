@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { parseWhen, parseWidgetLine, readCountdown, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
+import { httpsUrl, parseVideo, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -90,6 +90,50 @@ describe('widgets das anotações', () => {
       expect(def.read(['19/11/2026 18:00', 'GTA VI'])).toEqual({ title: 'GTA VI', date: '2026-11-19', time: '18:00', yearly: '' });
       expect(def.read(['GTA VI'])).toEqual({ title: 'GTA VI', date: '', time: '', yearly: '' });
       expect(def.read(['25/12'])['yearly']).toBe('1');
+    });
+  });
+
+  describe('a imagem e o vídeo', () => {
+    it('os parâmetros em qualquer ordem: o link, a moldura e a legenda', () => {
+      expect(readMedia(['https://x.com/a.jpg', 'Praia', 'polaroide'])).toEqual({ url: 'https://x.com/a.jpg', frame: 'polaroid', caption: 'Praia' });
+      expect(readMedia(['Recorte', 'https://x.com/a.jpg'])).toEqual({ url: 'https://x.com/a.jpg', frame: 'recorte', caption: '' });
+      expect(readMedia(['só legenda'])).toEqual({ url: '', frame: 'foto', caption: 'só legenda' });
+      expect(parseWidgetLine('{{Foto: https://x.com/a.jpg | Praia}}')).toEqual({ name: 'imagem', args: ['https://x.com/a.jpg', 'Praia'] });
+      expect(plainText('{{imagem: https://x.com/a.jpg | Praia}}')).toBe('Praia');
+    });
+
+    it('só https', () => {
+      expect(httpsUrl('https://x.com/a.jpg')).toBe('https://x.com/a.jpg');
+      for (const bad of ['http://x.com/a.jpg', 'javascript:alert(1)', 'https://', 'https://semponto/a.jpg', 'x.com/a.jpg', 'https://x.com/a b.jpg']) {
+        expect(httpsUrl(bad)).withContext(bad).toBeNull();
+      }
+    });
+
+    it('os vídeos que tocam: YouTube (com o tempo), Vimeo e arquivo', () => {
+      expect(parseVideo('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m30s')).toEqual({ kind: 'youtube', id: 'dQw4w9WgXcQ', start: 90 });
+      expect(parseVideo('https://youtu.be/dQw4w9WgXcQ?t=42')).toEqual({ kind: 'youtube', id: 'dQw4w9WgXcQ', start: 42 });
+      expect(parseVideo('https://m.youtube.com/shorts/dQw4w9WgXcQ')).toEqual({ kind: 'youtube', id: 'dQw4w9WgXcQ', start: 0 });
+      expect(parseVideo('https://vimeo.com/76979871')).toEqual({ kind: 'vimeo', id: '76979871', hash: null });
+      expect(parseVideo('https://vimeo.com/76979871/abc123def0')).toEqual({ kind: 'vimeo', id: '76979871', hash: 'abc123def0' });
+      expect(parseVideo('https://player.vimeo.com/video/76979871')).toEqual({ kind: 'vimeo', id: '76979871', hash: null });
+      expect(parseVideo('https://site.com/clip.MP4?x=1')).toEqual({ kind: 'file', url: 'https://site.com/clip.MP4?x=1' });
+      for (const bad of ['https://www.youtube.com/watch?v=curto', 'https://youtube.com/@canal', 'https://vimeo.com/canal', 'https://site.com/pagina', 'http://youtu.be/dQw4w9WgXcQ']) {
+        expect(parseVideo(bad)).withContext(bad).toBeNull();
+      }
+    });
+
+    it('o formulário: o link conferido, a moldura só quando não é a de sempre', () => {
+      const img = widgetDef('imagem')!;
+      expect(img.write({ url: 'https://x.com/a.jpg', caption: ' Praia ', frame: 'polaroid' })).toEqual(['https://x.com/a.jpg', 'Praia', 'polaroid']);
+      expect(img.write({ url: 'https://x.com/a.jpg', frame: 'foto' })).toEqual(['https://x.com/a.jpg']);
+      expect(img.write({ url: 'http://x.com/a.jpg' })).toBeNull();
+      expect(img.problem!({ url: 'http://x.com/a.jpg' })).toContain('https://');
+      expect(img.read(['https://x.com/a.jpg', 'recorte'])).toEqual({ url: 'https://x.com/a.jpg', caption: '', frame: 'recorte' });
+      const vid = widgetDef('vídeo')!;
+      expect(vid.write({ url: 'https://site.com/pagina' })).toBeNull();
+      expect(vid.problem!({ url: 'https://site.com/pagina' })).toContain('YouTube');
+      expect(vid.problem!({ url: '' })).toBeNull();
+      expect(widgetLine('video', vid.write({ url: 'https://youtu.be/dQw4w9WgXcQ', caption: 'Clipe' })!)).toBe('{{video: https://youtu.be/dQw4w9WgXcQ | Clipe}}');
     });
   });
 });

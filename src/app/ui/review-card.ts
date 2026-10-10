@@ -912,6 +912,8 @@ function watchDistance(el: HTMLElement): () => void {
       line-height: var(--line);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+      /* a imagem e o vídeo colados no texto cabem na ficha, com a faixa da polaroide e uma linha de folga */
+      --midia-max: calc(var(--line) * (var(--linhas) - 3.2));
     }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {
@@ -955,7 +957,8 @@ function watchDistance(el: HTMLElement): () => void {
     }
     .nota-texto.marcavel ::ng-deep input[type='checkbox'],
     .nota-texto.marcavel ::ng-deep .elo[tabindex],
-    .nota-texto.marcavel ::ng-deep a.url {
+    .nota-texto.marcavel ::ng-deep a.url,
+    .nota-texto.marcavel ::ng-deep .tocavel {
       pointer-events: auto;
     }
 
