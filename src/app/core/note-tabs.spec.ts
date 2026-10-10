@@ -40,9 +40,12 @@ function sea(): Review[] {
 }
 
 describe('as abas do mural de anotações', () => {
-  it('toda categoria tem aba, das com mais anotações para as com menos, e Sem categoria no fim', () => {
+  it('toda categoria tem aba, das com mais anotações para as com menos, Sem categoria também', () => {
     const tabs = noteTabsOf(sea());
-    expect(tabs.tabs.map((t) => t.label)).toEqual(['Trabalho', 'Estudos', 'Viagem', 'Receitas', 'Sem categoria']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Trabalho', 'Estudos', 'Viagem', 'Sem categoria', 'Receitas']);
+    // com mais anotações que as categorias, Sem categoria vem antes delas
+    const loose = noteTabsOf([...sea(), note('Avulsa', null), note('Outra', null), note('Mais uma', null)]);
+    expect(loose.tabs.map((t) => t.label)).toEqual(['Sem categoria', 'Trabalho', 'Estudos', 'Viagem', 'Receitas']);
     expect(tabs.all).toBe(12);
   });
 
@@ -71,7 +74,7 @@ describe('as abas do mural de anotações', () => {
     // cabem só duas além de Tudo (e do Mais)
     const split = splitTabs(tabs, ALL_TAB, (shown) => shown.length <= 2);
     expect(split.shown.map((t) => t.label)).toEqual(['Trabalho', 'Estudos']);
-    expect(split.more.map((t) => t.label)).toEqual(['Viagem', 'Receitas', 'Sem categoria']);
+    expect(split.more.map((t) => t.label)).toEqual(['Viagem', 'Sem categoria', 'Receitas']);
   });
 
   it('a finalizada conta para a aba existir, mas não no número dela quando está escondida', () => {
@@ -93,10 +96,14 @@ describe('as abas do mural de anotações', () => {
     expect(tabs.tabs.map((t) => t.label)).toEqual(['Diário', 'Sem categoria']);
   });
 
-  it('no empate, de A a Z; a finalizada conta, então finalizar não muda a aba de lugar', () => {
-    const list = [note('A', 'Viagem'), note('B', 'Compras'), note('C', 'Viagem', { doneAt: '2026-10-02T10:00:00.000Z' }), note('D', 'Compras')];
-    expect(noteTabsOf(list, (r) => !r.doneAt).tabs.map((t) => t.label)).toEqual(['Compras', 'Viagem']);
-    expect(noteTabsOf([...list, note('E', 'Viagem')]).tabs.map((t) => t.label)).toEqual(['Viagem', 'Compras']);
+  it('a ordem é a do número à mostra; no empate, a com mais finalizadas escondidas, depois de A a Z', () => {
+    const done = { doneAt: '2026-10-02T10:00:00.000Z' };
+    const list = [note('A', 'Viagem'), note('B', 'Compras'), note('C', 'Viagem', done), note('D', 'Compras'), note('E', 'Viagem')];
+    // Viagem tem 3 (uma finalizada), Compras 2: escondendo as finalizadas, ficam 2 a 2
+    expect(noteTabsOf(list).tabs.map((t) => t.label)).toEqual(['Viagem', 'Compras']);
+    expect(noteTabsOf(list, (r) => !r.doneAt).tabs.map((t) => t.label)).toEqual(['Viagem', 'Compras']);
+    expect(noteTabsOf([...list, note('F', 'Compras')], (r) => !r.doneAt).tabs.map((t) => t.label)).toEqual(['Compras', 'Viagem']);
+    expect(noteTabsOf([note('A', 'Viagem'), note('B', 'Compras')]).tabs.map((t) => t.label)).toEqual(['Compras', 'Viagem']);
   });
 
   it('uma categoria chamada "Sem" não cai na aba das sem categoria', () => {
