@@ -745,3 +745,17 @@ a {
     margin-top: 10px;
   }
 }
+
+/* o caminho para a página do perfil, logo abaixo do nome */
+.perfil-link {
+  .hint {
+    max-width: 52ch;
+    margin-bottom: 14px;
+  }
+
+  /* um link com cara de botão de tinta: a regra dos links (cor herdada, sublinhado) não vale aqui */
+  .btn-ink {
+    color: var(--hi);
+    text-decoration: none;
+  }
+}

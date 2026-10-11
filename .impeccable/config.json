@@ -20,6 +20,15 @@
         ],
         "createdAt": "2026-10-10T15:15:20.432Z",
         "reason": "Claude: the vinyl sleeve <img> has a bound [src] (YouTube thumbnail), not an empty or placeholder src"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/ui/profile-hero.html"
+        ],
+        "createdAt": "2026-10-11T01:05:15.191Z",
+        "reason": "Claude: the img src is an Angular [src] binding to the user's https link, not an empty src"
       }
     ]
   }

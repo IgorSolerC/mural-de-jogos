@@ -140,6 +140,17 @@ function when(ms: number): string {
             </div>
           </div>
 
+          <div class="bloco perfil-link" role="group" aria-labelledby="perfil-pagina-titulo">
+            <h3 id="perfil-pagina-titulo" class="sub">Sua página</h3>
+            <p class="hint">
+              A foto (um emoji), a descrição, o fundo e as seções com as fichas que você escolher. É o que quem toca no seu nome vê.
+            </p>
+            <a class="btn-ink" routerLink="/perfil/editar">
+              <lucide-icon [img]="UserIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              Editar o perfil
+            </a>
+          </div>
+
           @if (cloud.config(); as cfg) {
           <div class="bloco nuvem" role="group" aria-labelledby="conta-titulo">
           <h3 id="conta-titulo" class="sub">Conta na nuvem</h3>
@@ -777,6 +788,7 @@ export class SettingsPage {
   protected readonly AnimesIcon = Origami;
   protected readonly CloudOnIcon = CloudIcon;
   protected readonly CopyIcon = Copy;
+  protected readonly UserIcon = UserRound;
   protected readonly LinkIcon = LinkIconData;
   protected readonly LogOutIcon = LogOut;
   protected readonly RefreshIcon = RefreshCw;

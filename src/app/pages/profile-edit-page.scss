@@ -1,0 +1,1020 @@
+@use '../ui/profile-materials' as materials;
+
+:host {
+  display: block;
+}
+
+/* ===== Cabeça: a fita com o nome da página, como os Ajustes ===== */
+.cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-bottom: 30px;
+  padding-left: 4px;
+}
+
+.resumo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.voltar {
+  margin-left: auto;
+  color: var(--wall-ink);
+  text-decoration: none;
+}
+
+/* ===== Sem conta: um bilhete de bloquinho dizendo que só você vê ===== */
+.bilhete {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 0 34px;
+  padding: 16px 20px 20px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  rotate: -0.4deg;
+  filter: drop-shadow(0 8px 12px rgb(0 0 0 / 0.5));
+  /* o pé picotado do bloquinho */
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+
+  p {
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.45;
+  }
+
+  a {
+    color: inherit;
+    font-weight: 700;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+}
+
+.bilhete-icone {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* ===== A mesa: as fichas à esquerda, a prévia presa à direita ===== */
+.mesa {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
+}
+
+.fichas {
+  display: grid;
+  gap: 48px;
+  min-width: 0;
+}
+
+.previa {
+  position: sticky;
+  top: 20px;
+  min-width: 0;
+}
+
+.previa-rotulo {
+  margin-bottom: 14px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+@media (max-width: 1179px) {
+  .mesa {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 48px;
+  }
+  .fichas {
+    max-width: 720px;
+  }
+  .previa {
+    position: static;
+  }
+}
+
+/* ===== As fichas de cartolina, uma por parte ===== */
+.ficha {
+  position: relative;
+  padding: 30px 28px 28px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+
+  .pin {
+    top: -10px;
+    left: calc(50% - 13px);
+  }
+}
+
+.voce {
+  --stock: var(--stock-rosa);
+  rotate: -0.5deg;
+}
+
+.fundo-ficha {
+  --stock: var(--stock-azul);
+  rotate: 0.6deg;
+}
+
+.murais-ficha {
+  --stock: var(--stock-verde);
+  rotate: -0.4deg;
+}
+
+.secoes-ficha {
+  --stock: var(--stock-amarelo);
+  rotate: 0.3deg;
+}
+
+h2 {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.8rem;
+  line-height: 1.05;
+  margin-bottom: 10px;
+}
+
+.lead {
+  max-width: 56ch;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.rotulo b {
+  margin-left: 6px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.conta {
+  margin-left: 6px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  float: left;
+  width: 100%;
+}
+
+/* a grade depois da legenda (que flutua) começa embaixo dela: sem isso, a grade se espreme ao lado */
+fieldset > :not(legend) {
+  clear: both;
+}
+
+.campo,
+.cores,
+.grupo {
+  margin-top: 24px;
+}
+
+/* a tira de papel do campo, com o contorno de tinta (o mesmo das chaves nos Ajustes) */
+.tira {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 0 12px 0 14px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink);
+
+  &:focus-within {
+    box-shadow:
+      inset 0 0 0 3px var(--ink),
+      0 0 0 4px rgb(21 21 21 / 0.16);
+  }
+
+  &.erro {
+    box-shadow: inset 0 0 0 3px var(--error-ink, #6b0000);
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 48px;
+    border: 0;
+    background: transparent;
+    outline: none;
+    color: var(--ink);
+    caret-color: var(--red);
+    font-family: var(--f-ui);
+    font-size: 1rem;
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.55);
+    }
+  }
+}
+
+.em-uso {
+  flex: none;
+  padding: 4px 8px 3px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  rotate: -2deg;
+}
+
+.msg-erro {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 3px;
+  background: #fff;
+  color: #6b0000;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+/* ===== Você ===== */
+.foto-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 22px;
+}
+
+.foto-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 10px 6px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover .mini-polaroid {
+    rotate: -1deg;
+    translate: 0 -2px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .acao-caneta {
+    margin: 0;
+    pointer-events: none;
+  }
+}
+
+/* a polaroid pequena, com o emoji na cor escolhida */
+.mini-polaroid {
+  display: block;
+  padding: 6px 6px 18px;
+  border-radius: 1px;
+  background: #fbfaf5;
+  rotate: -4deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 8px 12px -6px rgb(0 0 0 / 0.55);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical);
+}
+
+.mini-foto {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  box-shadow: inset 0 0 14px rgb(0 0 0 / 0.2);
+}
+
+.mini-emoji {
+  font-size: 40px;
+  line-height: 1;
+  rotate: -4deg;
+}
+
+.foto-hint {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+/* o painel de emojis, num pedaço de papel aberto embaixo da foto */
+.painel-emoji {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 2px;
+  background-color: #fffdf6;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  rotate: -0.6deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 10px 16px -8px rgb(0 0 0 / 0.5);
+  animation: abre var(--t-physical) var(--ease-physical);
+}
+
+@keyframes abre {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+
+/* as amostras de cartolina: a escolhida, pregada com uma tachinha (como no editor) */
+.amostras {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cor {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 44px;
+  border-radius: 3px;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  &:has(input:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+.amostra {
+  width: 100%;
+  max-width: 36px;
+  aspect-ratio: 36 / 28;
+  border-radius: 2px;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 5px 8px -3px rgb(0 0 0 / 0.55);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical);
+}
+
+.cor:hover .amostra {
+  translate: 0 -2px;
+}
+
+.cor.on .amostra {
+  rotate: -7deg;
+  translate: 0 -3px;
+}
+
+.cor-pin {
+  top: 2px;
+  left: calc(50% - 13px);
+  scale: 0.6;
+  animation: pino 420ms var(--ease-physical);
+}
+
+@keyframes pino {
+  from {
+    scale: 1.1;
+    opacity: 0;
+  }
+}
+
+.sobre app-rich-editor {
+  display: block;
+}
+
+/* os assuntos: fitas Dymo na mesma tira do campo */
+.assuntos-tira {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px var(--ink);
+
+  &:focus-within {
+    box-shadow:
+      inset 0 0 0 3px var(--ink),
+      0 0 0 4px rgb(21 21 21 / 0.16);
+  }
+
+  input {
+    flex: 1 1 140px;
+    min-width: 0;
+    height: 34px;
+    border: 0;
+    background: transparent;
+    outline: none;
+    color: var(--ink);
+    caret-color: var(--red);
+    font-family: var(--f-ui);
+    font-size: 1rem;
+
+    &::placeholder {
+      color: rgb(21 21 21 / 0.55);
+    }
+  }
+}
+
+.dymo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 5px 4px 4px 10px;
+  border-radius: 2px;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04) 46%, transparent 52%, rgb(0 0 0 / 0.18)),
+    #121212;
+  color: #ebe5d8;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 0.32),
+    0 1px 1px rgb(0 0 0 / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 1px 1px rgb(0 0 0 / 0.45);
+  rotate: -1deg;
+
+  &:nth-child(even) {
+    rotate: 1deg;
+  }
+}
+
+.dymo-x {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 0.16);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--hi);
+  }
+}
+
+/* ===== Fundo: retalhos dos materiais e as cartolinas ===== */
+.materiais {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px 12px;
+}
+
+.material {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 6px 4px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  &:has(input:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  &:hover .retalho {
+    translate: 0 -2px;
+  }
+
+  &.on .retalho {
+    rotate: -5deg;
+    translate: 0 -3px;
+  }
+}
+
+/* o retalho: um quadradinho do mesmo material do quadro */
+.retalho {
+  width: 100%;
+  max-width: 82px;
+  aspect-ratio: 4 / 3;
+  border-radius: 2px;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 6px 9px -4px rgb(0 0 0 / 0.55);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical);
+
+  @include materials.fundos;
+}
+
+.material-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* ===== Murais ===== */
+.murais-lista {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mural-linha {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 2px dashed rgb(21 21 21 / 0.22);
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  &.vazio {
+    .mural-icone,
+    .mural-nome {
+      opacity: 0.45;
+    }
+  }
+}
+
+.mural-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.mural-icone {
+  flex: none;
+  display: inline-flex;
+}
+
+.mural-nomes {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.mural-nome {
+  font-family: var(--f-marker);
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.mural-conta {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.84rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.par {
+  display: flex;
+  gap: 8px;
+}
+
+/* Mostrar / Esconder: o adesivo colado e o recorte picotado, como as escolhas dos Ajustes */
+.adesivo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 7.4em;
+  min-height: 38px;
+  padding: 7px 10px 6px;
+  border: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  &.colado {
+    border-radius: 2px;
+    background: var(--paper);
+    color: var(--ink);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.2));
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.pasta-texto {
+  width: 100%;
+  min-height: 3.6rem;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.62);
+  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.4);
+  color: var(--ink);
+  caret-color: var(--red);
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+
+  &:focus {
+    box-shadow:
+      inset 0 0 0 2.5px var(--ink),
+      0 0 0 4px rgb(21 21 21 / 0.14);
+  }
+}
+
+/* ===== Seções ===== */
+.secao {
+  display: grid;
+  gap: 14px;
+  padding: 22px 0 24px;
+  border-top: 2px dashed rgb(21 21 21 / 0.28);
+}
+
+.secao-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* o nome da seção se escreve na própria fita crepe, como vai ficar no perfil */
+.titulo-fita {
+  flex: 1 1 260px;
+  min-width: 0;
+  min-height: 46px;
+  padding: 8px 18px 6px;
+  border: 0;
+  background-color: rgb(222 205 160 / 0.94);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  caret-color: var(--red);
+  font-family: var(--f-marker);
+  font-size: 1.3rem;
+  line-height: 1.1;
+  rotate: -0.8deg;
+  clip-path: polygon(0 6%, 6px 28%, 1px 50%, 7px 74%, 0 96%, 100% 100%, calc(100% - 5px) 72%, 100% 48%, calc(100% - 7px) 24%, 100% 2%);
+  outline: none;
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.45);
+  }
+
+  &:focus {
+    background-color: rgb(232 216 172);
+    box-shadow: inset 0 -3px 0 var(--ink);
+  }
+}
+
+.secao-acoes,
+.item-acoes {
+  display: flex;
+  gap: 2px;
+}
+
+.icone-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -1px;
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  &.perigo {
+    color: var(--red-deep);
+  }
+}
+
+/* a linha à mão embaixo do nome: escrita direto na cartolina, numa pauta */
+.nota-linha {
+  width: 100%;
+  min-height: 40px;
+  padding: 4px 4px 2px;
+  border: 0;
+  border-bottom: 1.5px solid rgb(21 21 21 / 0.4);
+  background: transparent;
+  color: var(--ink);
+  caret-color: var(--red);
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  outline: none;
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.52);
+  }
+
+  &:focus {
+    border-bottom: 3px solid var(--ink);
+  }
+}
+
+.escolha-linha {
+  .hint {
+    margin-top: 6px;
+  }
+}
+
+.adesivos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adesivo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 6.6em;
+  min-height: 36px;
+  padding: 7px 10px 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+
+  &.colado {
+    --cola: -2deg;
+    border-radius: 2px;
+    background: var(--paper);
+    color: var(--ink);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.2));
+  }
+}
+
+.opcao:nth-child(even) .adesivo.colado {
+  --cola: 1.6deg;
+}
+
+.itens {
+  display: grid;
+  gap: 10px;
+}
+
+.itens-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  .rotulo {
+    margin: 0;
+  }
+}
+
+.escolher {
+  min-height: 44px;
+  padding: 8px 16px 7px;
+  font-size: 1.05rem;
+}
+
+/* as fichas escolhidas: uma tira de papel por ficha, na ordem do perfil */
+.itens-lista {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: item;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 22px 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 6px 6px 6px 10px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.62);
+  counter-increment: item;
+
+  &::before {
+    content: counter(item);
+    font-family: var(--f-marker);
+    font-size: 1rem;
+    color: var(--ink-2);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.escondido {
+    background: rgb(255 255 255 / 0.3);
+
+    .item-capa,
+    .item-nome {
+      opacity: 0.5;
+    }
+  }
+}
+
+.item-capa {
+  width: 40px;
+
+  &.apagada {
+    height: 50px;
+    border-radius: 2px;
+    outline: 1.5px dashed rgb(21 21 21 / 0.4);
+    outline-offset: -1.5px;
+  }
+}
+
+.item-texto {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.item-nome {
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.item-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.mais {
+  justify-self: start;
+  margin: 0;
+}
+
+.vazio-secao {
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.nova-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  padding-top: 22px;
+  border-top: 2px dashed rgb(21 21 21 / 0.28);
+}
+
+/* a cartolina nova, branca sobre a amarela, para não sumir no fundo */
+.nova-secao {
+  --stock: var(--paper);
+}
+
+/* ===== Celular ===== */
+@media (max-width: 560px) {
+  .ficha {
+    padding: 26px 16px 22px;
+    rotate: 0deg;
+  }
+
+  .amostras {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .materiais {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .item {
+    grid-template-columns: 14px 34px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding-left: 8px;
+
+    .icone-btn {
+      width: 34px;
+      height: 34px;
+    }
+  }
+
+  .item-capa {
+    width: 34px;
+  }
+
+  .titulo-fita {
+    font-size: 1.12rem;
+  }
+
+  .voltar {
+    margin-left: 0;
+  }
+}

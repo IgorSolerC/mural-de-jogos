@@ -1,0 +1,558 @@
+@use 'profile-materials' as materials;
+
+/* O quadro de cima do perfil. Tudo mede pela largura do próprio quadro (cqw), para a prévia estreita
+   das Configurações e o perfil na tela inteira serem o mesmo desenho. */
+:host {
+  display: block;
+  container-type: inline-size;
+  --fita: rgb(222 205 160 / 0.88);
+}
+
+/* ===== A moldura: pinus cru, com o veio da madeira, presa por quatro parafusos ===== */
+.moldura {
+  position: relative;
+  padding: clamp(12px, 1.7cqw, 20px);
+  border-radius: 3px;
+  background-color: #b98953;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 22%, transparent 78%, rgb(0 0 0 / 0.2)),
+    repeating-linear-gradient(91deg, rgb(255 240 210 / 0.07) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(89.4deg, rgb(92 52 20 / 0.13) 0 1px, transparent 1px 13px),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, normal, multiply;
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    inset 0 -2px 0 rgb(0 0 0 / 0.25),
+    inset 0 0 0 1px rgb(70 38 12 / 0.35);
+}
+
+.parafuso {
+  position: absolute;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fbf8f1, #b7b0a5 52%, #6a645b);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.5),
+    inset 0 -1px 1px rgb(0 0 0 / 0.25);
+
+  /* a fenda da chave de fenda, cada parafuso apertado num ângulo */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 1.5px;
+    right: 1.5px;
+    top: 5px;
+    height: 2px;
+    border-radius: 1px;
+    background: rgb(50 44 38 / 0.75);
+    rotate: var(--fenda, 30deg);
+  }
+
+  --canto: calc(clamp(12px, 1.7cqw, 20px) / 2 - 6px);
+  &.p1 {
+    top: var(--canto);
+    left: var(--canto);
+    --fenda: 28deg;
+  }
+  &.p2 {
+    top: var(--canto);
+    right: var(--canto);
+    --fenda: -52deg;
+  }
+  &.p3 {
+    bottom: var(--canto);
+    left: var(--canto);
+    --fenda: 78deg;
+  }
+  &.p4 {
+    bottom: var(--canto);
+    right: var(--canto);
+    --fenda: 10deg;
+  }
+}
+
+/* ===== O fundo escolhido, dentro da moldura ===== */
+.fundo {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(22px, 3.6cqw, 48px) clamp(18px, 3.4cqw, 46px) clamp(16px, 2.4cqw, 26px);
+  border-radius: 1px;
+  box-shadow:
+    inset 0 3px 9px rgb(0 0 0 / 0.45),
+    inset 0 0 0 1px rgb(0 0 0 / 0.3);
+
+  /* a sombra da moldura cai sobre o fundo, por cima de tudo o que é desenho dele */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    box-shadow:
+      inset 0 3px 9px rgb(0 0 0 / 0.42),
+      inset 0 0 0 1px rgb(0 0 0 / 0.28);
+  }
+}
+
+.fundo {
+  @include materials.fundos;
+}
+
+/* Uma imagem por link: colada no fundo, debaixo do plástico de encapar */
+.fundo-foto {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.plastico {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 30%, rgb(255 255 255 / 0.2) 36%, transparent 44%, transparent 64%, rgb(255 255 255 / 0.1) 68%, transparent 74%),
+    rgb(255 255 255 / 0.08);
+}
+
+/* ===== O que vai pregado no fundo ===== */
+.conteudo,
+.pe {
+  position: relative;
+  z-index: 1;
+}
+
+/* Os papéis colados no fundo têm a tinta deles: numa cartolina escura, a tinta clara dela não passa
+   para a polaroid, a folha e as fichinhas (que são papel claro). */
+.polaroid,
+.folha,
+.numero {
+  --ink: #151515;
+  --ink-2: rgb(21 21 21 / 0.78);
+}
+
+.conteudo {
+  display: grid;
+  grid-template-columns: minmax(0, 31%) minmax(0, 1fr);
+  gap: clamp(22px, 4.2cqw, 56px);
+  align-items: start;
+}
+
+@container (max-width: 600px) {
+  .conteudo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .polaroid {
+    justify-self: center;
+    width: min(240px, 74%);
+  }
+}
+
+/* ===== A polaroid ===== */
+.polaroid {
+  position: relative;
+  container-type: inline-size;
+  margin: 8px 0 0;
+  padding: 6.5% 6.5% 0;
+  border-radius: 2px;
+  background-color: #fbfaf5;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  rotate: -3deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 12px 20px -8px rgb(0 0 0 / 0.6),
+    0 26px 40px -22px rgb(0 0 0 / 0.55);
+}
+
+.foto {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 1px;
+  /* a foto revelada: um pouco escura nas beiradas, como toda polaroid */
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 0.14),
+    inset 0 0 34px rgb(0 0 0 / 0.22);
+}
+
+.emoji {
+  font-size: 50cqw;
+  line-height: 1;
+  rotate: -4deg;
+  filter: drop-shadow(0 6px 7px rgb(0 0 0 / 0.28));
+  user-select: none;
+}
+
+.brilho-foto {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(118deg, transparent 36%, rgb(255 255 255 / 0.22) 43%, transparent 52%);
+}
+
+figcaption {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 9% 3% 10%;
+  text-align: center;
+}
+
+.nome {
+  font-family: var(--f-marker);
+  font-size: clamp(1.15rem, 11cqw, 1.95rem);
+  line-height: 1.05;
+  color: var(--ink);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.linha {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* masking tape: os pedaços que prendem a polaroid e a folha */
+.fita {
+  position: absolute;
+  z-index: 2;
+  height: 22px;
+  background-color: var(--fita);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  clip-path: polygon(0 8%, 4px 32%, 0 58%, 3px 92%, 100% 100%, calc(100% - 4px) 70%, 100% 40%, calc(100% - 3px) 4%);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+
+  &.f1 {
+    top: -10px;
+    left: -9%;
+    width: 38%;
+    rotate: -34deg;
+  }
+  &.f2 {
+    top: -8px;
+    right: -9%;
+    width: 36%;
+    rotate: 30deg;
+  }
+  &.f3 {
+    top: -12px;
+    left: calc(50% - 58px);
+    width: 116px;
+    rotate: -2.5deg;
+  }
+}
+
+/* ===== A folha "Sobre mim" ===== */
+.lado {
+  display: grid;
+  gap: clamp(22px, 3.4cqw, 34px);
+  min-width: 0;
+}
+
+.folha {
+  position: relative;
+  padding: clamp(24px, 3.6cqw, 36px) clamp(18px, 3.4cqw, 38px) clamp(18px, 2.8cqw, 28px);
+  border-radius: 2px;
+  background-color: #fbfcf5;
+  background-image:
+    linear-gradient(rgb(60 140 90 / 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(60 140 90 / 0.15) 1px, transparent 1px),
+    linear-gradient(rgb(60 140 90 / 0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(60 140 90 / 0.28) 1px, transparent 1px),
+    var(--paper-grain);
+  background-size: 12px 12px, 12px 12px, 60px 60px, 60px 60px, auto;
+  background-blend-mode: normal, normal, normal, normal, multiply;
+  color: var(--ink);
+  rotate: 0.6deg;
+  box-shadow: var(--shadow-card);
+}
+
+/* o título em letras recortadas de papéis diferentes, cada uma colada torta */
+.recortes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  margin: 0 0 16px;
+  font-weight: 400;
+}
+
+.letra {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5em;
+  height: 1.75em;
+  padding: 0 0.22em;
+  font-size: clamp(1.05rem, 3cqw, 1.45rem);
+  line-height: 1;
+  rotate: var(--tilt);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  clip-path: polygon(3% 5%, 97% 0, 100% 94%, 1% 100%);
+
+  &:nth-child(even) {
+    clip-path: polygon(0 0, 100% 6%, 96% 100%, 4% 95%);
+  }
+
+  &[data-letra='marker'] {
+    font-family: var(--f-marker);
+  }
+  &[data-letra='label'] {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: clamp(1.15rem, 3.3cqw, 1.6rem);
+    text-transform: uppercase;
+  }
+
+  &[data-papel='tinta'] {
+    background: #151515;
+    color: #f7f4ec;
+  }
+  &[data-papel='creme'] {
+    background: #f1e7cc;
+    color: #151515;
+  }
+  &[data-papel='amarelo'] {
+    background: var(--stock-amarelo);
+    color: #151515;
+  }
+  &[data-papel='kraft'] {
+    background: #c49b6b;
+    color: #151515;
+  }
+  &[data-papel='vermelho'] {
+    background: #c9302a;
+    color: #fff;
+  }
+  &[data-papel='azul'] {
+    background: #1f4fc4;
+    color: #fff;
+  }
+}
+
+.espaco {
+  width: 0.45em;
+}
+
+.sobre {
+  display: block;
+  max-width: 62ch;
+  font-family: var(--f-hand);
+  font-size: 1.14rem;
+  line-height: 1.7;
+  --line: 1.7em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+
+  &.vazio {
+    margin: 0;
+    color: var(--ink-2);
+  }
+}
+
+.etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.assuntos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* fita Dymo: as letras em relevo no plástico preto (o código, no azul) */
+.dymo {
+  --tape: #121212;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 6px 11px 5px;
+  border-radius: 2px;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04) 46%, transparent 52%, rgb(0 0 0 / 0.18)),
+    var(--tape);
+  color: #ebe5d8;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 0.32),
+    0 1px 1px rgb(0 0 0 / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 1px 1px rgb(0 0 0 / 0.45),
+    0 4px 7px -3px rgb(0 0 0 / 0.5);
+  rotate: -1deg;
+
+  &:nth-child(even) {
+    rotate: 1.2deg;
+  }
+  &:nth-child(3n) {
+    rotate: -0.4deg;
+  }
+
+  &.codigo {
+    --tape: #1d3f9e;
+    letter-spacing: 0.18em;
+    rotate: 1.5deg;
+  }
+}
+
+/* ===== As fichinhas dos números ===== */
+.numeros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 2.2cqw, 22px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container (max-width: 760px) {
+  .numeros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.numero {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding: 15px 14px 11px;
+  border-radius: 2px;
+  border-top: 5px solid var(--faixa);
+  background-color: #fbf9f2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  rotate: -1.2deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 9px 14px -7px rgb(0 0 0 / 0.55);
+
+  &:nth-child(2) {
+    rotate: 0.9deg;
+  }
+  &:nth-child(3) {
+    rotate: -0.5deg;
+  }
+  &:nth-child(4) {
+    rotate: 1.3deg;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: calc(50% - 22px);
+    width: 44px;
+    height: 16px;
+    background-color: var(--fita);
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    rotate: -4deg;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
+  }
+
+  &[data-faixa='rosa'] {
+    --faixa: var(--stock-rosa);
+  }
+  &[data-faixa='azul'] {
+    --faixa: var(--stock-azul);
+  }
+  &[data-faixa='amarelo'] {
+    --faixa: var(--stock-amarelo);
+  }
+  &[data-faixa='verde'] {
+    --faixa: var(--stock-verde);
+  }
+}
+
+.numero-rotulo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.numero-valor {
+  font-family: var(--f-marker);
+  font-size: 2rem;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+
+  &.miudo {
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+}
+
+.numero-nota {
+  font-family: var(--f-hand);
+  font-size: 0.88rem;
+  line-height: 1.2;
+  color: var(--ink-2);
+}
+
+/* ===== O pé do quadro: quando mudou, e as ações ===== */
+.pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: clamp(20px, 3.2cqw, 34px);
+
+  &:not(:has(.atualizado)):not(:has(.acoes > *)) {
+    display: none;
+  }
+}
+
+.atualizado {
+  rotate: -1.5deg;
+}
+
+.ponto {
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--hi);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}

@@ -6,6 +6,8 @@ import { CloudAccount, CloudError } from './cloud-account';
 import { Review, isPrivate } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
+import { Profile, publicProfile, sanitizeProfile } from './profile';
+import { ProfileStore } from './profile-store';
 import { BackupPayload, ReviewStore, canonicalJson } from './review-store';
 import { Settings } from './settings';
 import { Confirm } from '../ui/confirm';
@@ -49,11 +51,13 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  * 9: a ficha visível sem publicar (`quiet`). Um site antigo jogaria a marca fora e avisaria quem segue.
  * 10: o desenho e a cor das categorias das anotações (`categorias`, só no mural privado). Um site
  *     antigo enviaria o mural sem eles, e os outros aparelhos voltariam ao jeito de sempre.
+ * 11: o perfil (`perfil`). Um site antigo enviaria o mural sem ele, e o perfil sumiria para quem
+ *     visita até outro aparelho enviar de novo.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 10;
+export const SYNC_SCHEMA = 11;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -107,6 +111,34 @@ export function categoryLooksOf(data: Record<string, unknown>): SyncedLooks | nu
   if (!raw || typeof raw !== 'object') return null;
   const em = typeof raw['em'] === 'string' && Number.isFinite(Date.parse(raw['em'])) ? raw['em'] : null;
   return em ? { mapa: sanitizeCategoryLooks(raw['mapa']), em } : null;
+}
+
+/**
+ * O perfil e quando mudou (ver core/profile-store.ts). Vai no mural privado da nuvem, como os jeitos
+ * das categorias (o mudado por último vale), e no público só com as fichas públicas.
+ */
+export interface SyncedProfile {
+  dados: Profile;
+  em: string;
+}
+
+/** O perfil que veio da nuvem, ou null se não veio (ou não serve). */
+export function profileOf(data: Record<string, unknown>): SyncedProfile | null {
+  const raw = data['perfil'] as Record<string, unknown> | undefined;
+  if (!raw || typeof raw !== 'object') return null;
+  const em = typeof raw['em'] === 'string' && Number.isFinite(Date.parse(raw['em'])) ? raw['em'] : null;
+  const dados = sanitizeProfile(raw['dados']);
+  return em && dados ? { dados, em } : null;
+}
+
+/** Os ids de tudo o que os outros veem (as resenhas públicas e as anotações publicadas). */
+export function publicIds(reviews: readonly Review[], notes: readonly unknown[]): Set<string> {
+  const ids = new Set(reviews.map((r) => r.id));
+  for (const n of notes) {
+    const id = (n as { id?: unknown } | null)?.id;
+    if (typeof id === 'string') ids.add(id);
+  }
+  return ids;
 }
 
 /**
@@ -253,6 +285,7 @@ export async function fingerprint(
   keys: SyncedKeys | null = null,
   tags: SyncedTags | null = null,
   looks: SyncedLooks | null = null,
+  profile: SyncedProfile | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const text = canonicalJson({
@@ -267,6 +300,7 @@ export async function fingerprint(
     // `publico`: desde a 1.28.5 os jeitos vão também no mural público; a impressão nova faz quem já
     // tinha escolhido algum enviar o mural uma vez, para os outros passarem a vê-los
     ...(looks ? { categorias: { ...looks, publico: 2 } } : {}),
+    ...(profile ? { perfil: profile } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -284,6 +318,7 @@ export class CloudSync {
   private readonly account = inject(CloudAccount);
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(Settings);
+  private readonly profiles = inject(ProfileStore);
   private readonly confirm = inject(Confirm);
   private readonly kv = inject(SYNC_STORAGE);
 
@@ -327,8 +362,8 @@ export class CloudSync {
       }
     });
 
-    // Mudou algo no mural, uma chave de busca, as tags fixas ou o jeito das categorias (estes só vão
-    // no mural privado): envia uns segundos depois da última mudança.
+    // Mudou algo no mural, uma chave de busca, as tags fixas, o jeito das categorias ou o perfil:
+    // envia uns segundos depois da última mudança.
     let first = true;
     effect(() => {
       this.store.reviews();
@@ -340,6 +375,7 @@ export class CloudSync {
       this.settings.keysAt();
       this.settings.pinnedTagsAt();
       this.settings.categoryLooksAt();
+      this.profiles.changedAt();
       if (first) {
         first = false;
         return;
@@ -443,9 +479,10 @@ export class CloudSync {
         this.mergeKeys(remote.data);
         this.mergeTags(remote.data);
         this.mergeLooks(remote.data);
+        this.mergeProfile(remote.data);
         state = { ...state, rev: remote.rev };
-        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks());
-        if (here === (await fingerprint(remote.data as unknown as BackupPayload, keysOf(remote.data), pinnedTagsOf(remote.data), categoryLooksOf(remote.data)))) state = { ...state, impressao: here };
+        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile());
+        if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
         // a nuvem perdeu o mural (conta recriada, banco restaurado): recomeça do zero, sem apagar nada aqui
@@ -457,11 +494,12 @@ export class CloudSync {
       const keys = this.localKeys();
       const tags = this.localTags();
       const looks = this.localLooks();
-      const here = await fingerprint(doc, keys, tags, looks);
+      const profile = this.localProfile();
+      const here = await fingerprint(doc, keys, tags, looks, profile);
       if (here === state.impressao) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
-        const rev = await this.push(doc, state.rev, keys, tags, looks, here);
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, here);
         state = { ...state, rev, impressao: here };
         this.writeState(state);
         break;
@@ -518,9 +556,10 @@ export class CloudSync {
       this.mergeKeys(remote.data);
       this.mergeTags(remote.data);
       this.mergeLooks(remote.data);
+      this.mergeProfile(remote.data);
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
-      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks());
-      if (here === (await fingerprint(remote.data as unknown as BackupPayload, keysOf(remote.data), pinnedTagsOf(remote.data), categoryLooksOf(remote.data)))) base.impressao = here;
+      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile());
+      if (here === (await this.remotePrint(remote.data))) base.impressao = here;
     }
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
     this.writeOwner(accountId);
@@ -633,6 +672,25 @@ export class CloudSync {
     this.apply(() => this.settings.applyCategoryLooks(remote.mapa, remote.em));
   }
 
+  /** O perfil deste aparelho para a nuvem, ou null se nunca mudou aqui. */
+  private localProfile(): SyncedProfile | null {
+    const em = this.profiles.changedAt();
+    return em ? { dados: this.profiles.profile(), em } : null;
+  }
+
+  /** O perfil que veio da nuvem fica aqui se for o mudado por último. */
+  private mergeProfile(data: Record<string, unknown>): void {
+    const remote = profileOf(data);
+    const em = this.profiles.changedAt();
+    if (!remote || (em && remote.em <= em)) return;
+    this.apply(() => this.profiles.apply(remote.dados, remote.em));
+  }
+
+  /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
+  private remotePrint(data: Record<string, unknown>): Promise<string> {
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data));
+  }
+
   private apply(fn: () => void): void {
     this.applying = true;
     try {
@@ -668,7 +726,15 @@ export class CloudSync {
   }
 
   /** Envia o mural; devolve a rev nova. */
-  private async push(doc: BackupPayload, base: number, keys: SyncedKeys | null, tags: SyncedTags | null, looks: SyncedLooks | null, print: string): Promise<number> {
+  private async push(
+    doc: BackupPayload,
+    base: number,
+    keys: SyncedKeys | null,
+    tags: SyncedTags | null,
+    looks: SyncedLooks | null,
+    profile: SyncedProfile | null,
+    print: string,
+  ): Promise<number> {
     const now = Date.now();
     this.pushes = this.pushes.filter((p) => now - p.at < PUSH_WINDOW);
     const same = this.pushes.filter((p) => p.print === print).length;
@@ -684,20 +750,23 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), sync: { schema: SYNC_SCHEMA } }));
+    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), sync: { schema: SYNC_SCHEMA } }));
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
+    const reviews = publicReviews(doc.reviews);
+    const notas = publicNotes(doc.notas);
     const publico = await gzip(
-      // o que os outros veem: sem as fichas privadas
+      // o que os outros veem: sem as fichas privadas (nem o id delas nas seções do perfil)
       JSON.stringify({
         app: 'meu-mural',
         version: 2,
         exportedAt: doc.exportedAt,
         ...(name ? { owner: { name } } : {}),
-        reviews: publicReviews(doc.reviews),
-        notas: publicNotes(doc.notas),
-        ...(looks ? { categorias: publicCategoryLooks(looks.mapa, publicNotes(doc.notas)) } : {}),
+        reviews,
+        notas,
+        ...(looks ? { categorias: publicCategoryLooks(looks.mapa, notas) } : {}),
+        ...(profile ? { perfil: publicProfile(profile.dados, publicIds(reviews, notas)) } : {}),
       }),
     );
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha

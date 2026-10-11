@@ -8,7 +8,7 @@ import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { WallView } from '../core/wall-view';
 
-const KIND_ICON: Record<Kind, LucideIconData> = {
+export const KIND_ICON: Record<Kind, LucideIconData> = {
   jogos: Gamepad2,
   livros: BookOpen,
   filmes: Film,
@@ -20,12 +20,12 @@ const KIND_ICON: Record<Kind, LucideIconData> = {
 let uid = 0;
 
 /**
- * As páginas que não mudam com o mural escolhido: os Ajustes, as Novidades e Amigos com as novidades
+ * As páginas que não mudam com o mural escolhido: os Ajustes, as Novidades, o seu perfil e Amigos com as novidades
  * misturadas (de todos os murais). Trocar de mural nelas não mudaria nada na tela, então a troca
  * leva ao mural escolhido. `path`: o caminho, sem query nem fragmento.
  */
 export function sameForEveryMural(path: string, friendKinds: FriendKinds): boolean {
-  return path === '/ajustes' || path === '/novidades' || (path === '/amigos' && friendKinds === 'misturado');
+  return path === '/ajustes' || path === '/novidades' || path === '/perfil/editar' || (path === '/amigos' && friendKinds === 'misturado');
 }
 
 /**

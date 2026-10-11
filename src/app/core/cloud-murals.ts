@@ -17,10 +17,10 @@ const FRESH_MS = 2 * 60_000;
 /**
  * O jeito de ler o mural de alguém (`parseBackupSnapshot`). Sobe quando a leitura passa a entender
  * algo novo no mural (2: as anotações, em `notas`; 3: o ícone e a cor das categorias, em
- * `categorias`): o guardado por um site mais velho não serve para o "mudou?" (204), senão ficaria sem
+ * `categorias`; 4: o perfil, em `perfil`): o guardado por um site mais velho não serve para o "mudou?" (204), senão ficaria sem
  * o que aquele site jogou fora até a pessoa mexer no mural.
  */
-export const MURAL_READER = 3;
+export const MURAL_READER = 4;
 
 /** O código como a pessoa digitou → `K7QF-M2XA` (O vira 0; I e L viram 1), ou null se não é um código. */
 export function normalizeCode(input: string): string | null {

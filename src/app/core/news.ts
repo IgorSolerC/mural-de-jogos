@@ -51,6 +51,20 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-configuracoes-do-perfil',
+    version: '1.29.0',
+    kind: 'funcionalidade',
+    date: '2026-10-10',
+    title: 'Monte o seu perfil',
+    items: [
+      'Em Ajustes › Perfil, “Editar o perfil” abre a sua página: a foto é um emoji numa polaroid da cor que você escolher, com o seu nome, uma linha embaixo dele e uma descrição com a formatação das resenhas.',
+      'Assuntos viram fitas Dymo na folha “Sobre mim”, e o quadro de cima pode ser de cortiça, kraft, quadriculado, caderno pautado, papelão, eucatex, de uma cartolina ou de uma imagem sua (um link https).',
+      'Cada mural com fichas à mostra vira uma pasta, com um texto seu; dá para esconder qualquer uma.',
+      'Seções com o nome que você quiser (“Jogos que tocaram meu coração”) juntam fichas de qualquer mural, na ordem que você escolher, como Completa, Inteira, Simples, Capas ou Lista, na parede ou num quadro de cortiça.',
+      'Tudo vale na hora, com a prévia do quadro ao lado. Com conta, o perfil vai junto com o seu mural, e quem visita só vê as fichas públicas. A página do perfil para quem visita chega na próxima atualização.',
+    ],
+  },
+  {
     id: '2026-10-10-quatro-tamanhos-iguais-para-todo-widget',
     version: '1.28.19',
     kind: 'melhoria',

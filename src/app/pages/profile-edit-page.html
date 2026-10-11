@@ -1,0 +1,438 @@
+<header class="cabeca">
+  <h1 class="tape-label big">Seu perfil</h1>
+  <p class="resumo">Vale na hora{{ shared() ? ' e vai junto com a sua conta' : '' }}</p>
+  <a class="btn-quiet voltar" routerLink="/ajustes" [queryParams]="{ aba: 'perfil' }">
+    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+    Ajustes
+  </a>
+</header>
+
+@if (!shared()) {
+  <aside class="bilhete" role="note">
+    <lucide-icon class="bilhete-icone" [img]="LockIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+    <p>
+      @if (cloud.config()) {
+        Por enquanto, só você vê o seu perfil. Entre com o Google em
+        <a routerLink="/ajustes" [queryParams]="{ aba: 'perfil' }">Ajustes › Perfil</a> e ele vai junto com o seu mural para quem
+        abrir o seu nome.
+      } @else {
+        Por enquanto, só você vê o seu perfil: a nuvem está desligada neste site.
+      }
+    </p>
+  </aside>
+}
+
+<div class="mesa">
+  <div class="fichas">
+    <!-- ===== Você: a foto, o nome, a linha, a descrição e os assuntos ===== -->
+    <section class="ficha cartolina voce" aria-labelledby="voce-titulo">
+      <app-pin class="pin" color="#f4f4f0" />
+      <h2 id="voce-titulo">Você</h2>
+
+      <div class="foto-linha">
+        <button
+          type="button"
+          class="foto-btn"
+          [attr.aria-expanded]="emojiOpen()"
+          aria-controls="painel-emoji"
+          (click)="emojiOpen.set(!emojiOpen())"
+        >
+          <span class="mini-polaroid" aria-hidden="true">
+            <span class="mini-foto cartolina" [attr.data-cor]="profile().photo" [style.--stock]="'var(--stock-' + profile().photo + ')'">
+              <span class="mini-emoji">{{ profile().emoji }}</span>
+            </span>
+          </span>
+          <span class="acao-caneta">
+            <lucide-icon [img]="EmojiIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+            {{ emojiOpen() ? 'Fechar os emojis' : 'Trocar o emoji' }}
+          </span>
+        </button>
+        <p class="hint foto-hint">A sua foto é um emoji, revelado numa polaroid da cor que você escolher.</p>
+      </div>
+
+      @if (emojiOpen()) {
+        <div id="painel-emoji" class="painel-emoji" (keydown.escape)="emojiOpen.set(false)">
+          <app-emoji-panel [current]="profile().emoji" (picked)="setEmoji($event)" />
+        </div>
+      }
+
+      <fieldset class="cores">
+        <legend class="rotulo">Cor da foto <b>{{ stockLabels[profile().photo] }}</b></legend>
+        <div class="amostras">
+          @for (s of lightStocks; track s) {
+            <label class="cor" [class.on]="profile().photo === s">
+              <input type="radio" name="foto-cor" [value]="s" [checked]="profile().photo === s" [attr.aria-label]="stockLabels[s]" (change)="setPhoto(s)" />
+              <span class="amostra cartolina" [attr.data-cor]="s" [style.--stock]="'var(--stock-' + s + ')'"></span>
+              @if (profile().photo === s) {
+                <app-pin class="cor-pin" color="#e62e2d" />
+              }
+            </label>
+          }
+          @for (s of darkStocks; track s) {
+            <label class="cor" [class.on]="profile().photo === s">
+              <input type="radio" name="foto-cor" [value]="s" [checked]="profile().photo === s" [attr.aria-label]="stockLabels[s]" (change)="setPhoto(s)" />
+              <span class="amostra cartolina" [attr.data-cor]="s" [style.--stock]="'var(--stock-' + s + ')'"></span>
+              @if (profile().photo === s) {
+                <app-pin class="cor-pin" color="#f4f4f0" />
+              }
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <div class="campo">
+        <label class="rotulo" for="perfil-nome">Nome</label>
+        <div class="tira">
+          <input
+            id="perfil-nome"
+            type="text"
+            autocomplete="nickname"
+            spellcheck="false"
+            [maxLength]="nameMax"
+            placeholder="Como você quer aparecer"
+            [value]="settings.ownerName()"
+            (input)="settings.ownerName.set($any($event.target).value)"
+          />
+        </div>
+        <p class="hint">É o mesmo “Seu nome” dos Ajustes: vale também no backup e no Comparar.</p>
+      </div>
+
+      <div class="campo">
+        <label class="rotulo" for="perfil-linha">Linha embaixo do nome</label>
+        <div class="tira">
+          <input
+            id="perfil-linha"
+            type="text"
+            autocomplete="off"
+            [maxLength]="limits.tagline"
+            placeholder="Curadora de metroidvanias · São Paulo"
+            [value]="profile().tagline"
+            (input)="setTagline($any($event.target).value)"
+          />
+        </div>
+      </div>
+
+      <div class="campo sobre">
+        <label class="rotulo" [for]="sobre.areaId">Sobre mim</label>
+        <app-rich-editor
+          #sobre
+          label="Sobre mim"
+          placeholder="Quem é você, do que gosta, o que procura num jogo, num livro, num filme…"
+          [onCard]="false"
+          [max]="limits.about"
+          [value]="profile().about"
+          (valueChange)="setAbout($event)"
+        />
+      </div>
+
+      <div class="campo">
+        <label class="rotulo" for="perfil-assunto">
+          Assuntos <span class="conta">{{ profile().topics.length }} de {{ limits.topics }}</span>
+        </label>
+        <div class="assuntos-tira">
+          @for (t of profile().topics; track t) {
+            <span class="dymo">
+              {{ t }}
+              <button type="button" class="dymo-x" [attr.aria-label]="'Tirar o assunto ' + t" (click)="removeTopic(t)">
+                <lucide-icon [img]="XIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+              </button>
+            </span>
+          }
+          <input
+            id="perfil-assunto"
+            type="text"
+            autocomplete="off"
+            [maxLength]="limits.topic"
+            [disabled]="topicsFull()"
+            [placeholder]="topicsFull() ? 'Chegou aos 12' : profile().topics.length ? 'Mais um…' : 'jogos de terror, poesia, stop-motion…'"
+            [value]="topicDraft()"
+            (input)="topicDraft.set($any($event.target).value)"
+            (keydown)="onTopicKey($event)"
+            (blur)="addTopic()"
+          />
+        </div>
+        <p class="hint">Enter (ou vírgula) prega o assunto. Ele vira uma fita Dymo na folha “Sobre mim”.</p>
+      </div>
+    </section>
+
+    <!-- ===== O fundo do quadro: papelaria, cartolina ou uma imagem ===== -->
+    <section class="ficha cartolina fundo-ficha" aria-labelledby="fundo-titulo">
+      <app-pin class="pin" color="#e62e2d" />
+      <h2 id="fundo-titulo">Fundo do quadro</h2>
+      <p class="lead">O que fica atrás da sua foto, dentro da moldura. O que está escrito continua no papel, então qualquer fundo lê bem.</p>
+
+      <fieldset class="grupo">
+        <legend class="rotulo">Papelaria</legend>
+        <div class="materiais">
+          @for (m of materials; track m.id) {
+            <label class="material" [class.on]="isMaterial(m.id)">
+              <input type="radio" name="fundo" [checked]="isMaterial(m.id)" (change)="setBackground({ kind: 'material', material: m.id })" />
+              <span class="retalho" [attr.data-fundo]="m.id" aria-hidden="true"></span>
+              <span class="material-nome">{{ m.label }}</span>
+              @if (isMaterial(m.id)) {
+                <app-pin class="cor-pin" color="#e62e2d" />
+              }
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="grupo">
+        <legend class="rotulo">Cartolina</legend>
+        <div class="amostras">
+          @for (s of lightStocks; track s) {
+            <label class="cor" [class.on]="isStockBackground(s)">
+              <input type="radio" name="fundo" [attr.aria-label]="'Cartolina ' + stockLabels[s]" [checked]="isStockBackground(s)" (change)="setBackground({ kind: 'cartolina', stock: s })" />
+              <span class="amostra cartolina" [attr.data-cor]="s" [style.--stock]="'var(--stock-' + s + ')'"></span>
+              @if (isStockBackground(s)) {
+                <app-pin class="cor-pin" color="#e62e2d" />
+              }
+            </label>
+          }
+          @for (s of darkStocks; track s) {
+            <label class="cor" [class.on]="isStockBackground(s)">
+              <input type="radio" name="fundo" [attr.aria-label]="'Cartolina ' + stockLabels[s]" [checked]="isStockBackground(s)" (change)="setBackground({ kind: 'cartolina', stock: s })" />
+              <span class="amostra cartolina" [attr.data-cor]="s" [style.--stock]="'var(--stock-' + s + ')'"></span>
+              @if (isStockBackground(s)) {
+                <app-pin class="cor-pin" color="#f4f4f0" />
+              }
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <div class="campo">
+        <label class="rotulo" for="fundo-link">Uma imagem sua</label>
+        <div class="tira" [class.erro]="linkError()">
+          <input
+            id="fundo-link"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="https://…"
+            [attr.aria-invalid]="linkError() ? true : null"
+            [attr.aria-describedby]="linkError() ? 'fundo-link-erro' : 'fundo-link-dica'"
+            [value]="linkDraft()"
+            (input)="onLink($any($event.target).value)"
+          />
+          @if (background().kind === 'link' && !linkError()) {
+            <span class="em-uso">No quadro</span>
+          }
+        </div>
+        @if (linkError(); as e) {
+          <p id="fundo-link-erro" class="msg-erro" role="alert">
+            <lucide-icon [img]="BrokenIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+            {{ e }}
+          </p>
+        } @else {
+          <p id="fundo-link-dica" class="hint">Cole o link direto de uma imagem. Ela fica debaixo de um plástico de encapar. Apagar o link volta para a cortiça.</p>
+        }
+      </div>
+    </section>
+
+    <!-- ===== Os murais: cada um vira uma pasta no perfil ===== -->
+    <section class="ficha cartolina murais-ficha" aria-labelledby="murais-titulo">
+      <app-pin class="pin" color="#e62e2d" />
+      <h2 id="murais-titulo">Seus murais</h2>
+      <p class="lead">Cada mural com alguma ficha à mostra vira uma pasta no perfil, que abre o mural inteiro.</p>
+
+      <ul class="murais-lista">
+        @for (w of walls(); track w.kind) {
+          <li class="mural-linha" [class.vazio]="!w.count" [class.escondido]="w.hidden && w.count">
+            <div class="mural-topo">
+              <lucide-icon class="mural-icone" [img]="w.icon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
+              <div class="mural-nomes">
+                <span class="mural-nome">{{ w.title }}</span>
+                <span class="mural-conta">{{ w.countText }}{{ w.count && w.hidden ? ' · a pasta não aparece' : '' }}</span>
+              </div>
+              @if (w.count) {
+                <div class="par" role="group" [attr.aria-label]="'A pasta do ' + w.title">
+                  <button type="button" class="adesivo-btn" [class.colado]="!w.hidden" [class.recorte]="w.hidden" [attr.aria-pressed]="!w.hidden" (click)="setWallHidden(w.kind, false)">
+                    <lucide-icon [img]="ShowIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" /> Mostrar
+                  </button>
+                  <button type="button" class="adesivo-btn" [class.colado]="w.hidden" [class.recorte]="!w.hidden" [attr.aria-pressed]="w.hidden" (click)="setWallHidden(w.kind, true)">
+                    <lucide-icon [img]="HideIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" /> Esconder
+                  </button>
+                </div>
+              }
+            </div>
+            @if (w.count && !w.hidden) {
+              <label class="sr-only" [for]="'pasta-' + w.kind">O que tem na pasta do {{ w.title }}</label>
+              <textarea
+                class="pasta-texto"
+                rows="2"
+                [id]="'pasta-' + w.kind"
+                [maxLength]="limits.wallText"
+                placeholder="O que tem nessa pasta (opcional): “Atmosfera, trilha sonora, metroidvanias…”"
+                [value]="w.text"
+                (input)="setWallText(w.kind, $any($event.target).value)"
+              ></textarea>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+
+    <!-- ===== As seções: fichas escolhidas, com um nome seu ===== -->
+    <section class="ficha cartolina secoes-ficha" aria-labelledby="secoes-titulo">
+      <app-pin class="pin" color="#e62e2d" />
+      <h2 id="secoes-titulo">Seções</h2>
+      <p class="lead">
+        Junte fichas de qualquer mural com um nome seu, como “Jogos que tocaram meu coração”. Quem visita só vê as fichas públicas.
+      </p>
+
+      @for (s of profile().sections; track s.id; let i = $index, first = $first, last = $last) {
+        <article class="secao" [attr.aria-label]="'Seção ' + (i + 1) + (s.title ? ': ' + s.title : '')">
+          <div class="secao-topo">
+            <label class="sr-only" [for]="'secao-titulo-' + s.id">Nome da seção {{ i + 1 }}</label>
+            <input
+              class="titulo-fita"
+              type="text"
+              autocomplete="off"
+              [id]="'secao-titulo-' + s.id"
+              [maxLength]="limits.title"
+              placeholder="Nome da seção"
+              [value]="s.title"
+              (input)="setTitle(s.id, $any($event.target).value)"
+            />
+            <div class="secao-acoes">
+              <button type="button" class="icone-btn" [disabled]="first" aria-label="Subir a seção" title="Subir" (click)="moveSection(s.id, -1)">
+                <lucide-icon [img]="UpIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+              </button>
+              <button type="button" class="icone-btn" [disabled]="last" aria-label="Descer a seção" title="Descer" (click)="moveSection(s.id, 1)">
+                <lucide-icon [img]="DownIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+              </button>
+              <button type="button" class="icone-btn perigo" aria-label="Tirar a seção" title="Tirar a seção" (click)="removeSection(s)">
+                <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+
+          <label class="sr-only" [for]="'secao-nota-' + s.id">Linha embaixo do nome da seção</label>
+          <input
+            class="nota-linha"
+            type="text"
+            autocomplete="off"
+            [id]="'secao-nota-' + s.id"
+            [maxLength]="limits.note"
+            placeholder="Uma linha à mão (opcional)"
+            [value]="s.note"
+            (input)="setNote(s.id, $any($event.target).value)"
+          />
+
+          <fieldset class="escolha-linha">
+            <legend class="rotulo">Como mostrar</legend>
+            <div class="adesivos">
+              @for (d of densities; track d.id) {
+                <label class="opcao">
+                  <input type="radio" [name]="'dens-' + s.id" [checked]="s.density === d.id" (change)="setDensity(s.id, d.id)" />
+                  <span class="adesivo" [class.colado]="s.density === d.id" [class.recorte]="s.density !== d.id">{{ d.label }}</span>
+                </label>
+              }
+            </div>
+            <p class="hint">{{ densityHint(s.density) }}</p>
+          </fieldset>
+
+          <fieldset class="escolha-linha">
+            <legend class="rotulo">Onde fica</legend>
+            <div class="adesivos">
+              @for (f of frames; track f.id) {
+                <label class="opcao">
+                  <input type="radio" [name]="'quadro-' + s.id" [checked]="s.frame === f.id" (change)="setFrame(s.id, f.id)" />
+                  <span class="adesivo" [class.colado]="s.frame === f.id" [class.recorte]="s.frame !== f.id">{{ f.label }}</span>
+                </label>
+              }
+            </div>
+          </fieldset>
+
+          <div class="itens">
+            <div class="itens-topo">
+              <span class="rotulo">
+                Fichas
+                <span class="conta">
+                  {{ visibleCount(s) }} à mostra@if (s.items.length > visibleCount(s)) {<span> · {{ s.items.length - visibleCount(s) }} {{ s.items.length - visibleCount(s) === 1 ? 'escondida' : 'escondidas' }}</span>}
+                </span>
+              </span>
+              <button type="button" class="btn-ink escolher" (click)="picking.set(s.id)">
+                <lucide-icon [img]="PickIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                Escolher fichas
+              </button>
+            </div>
+
+            @if (s.items.length) {
+              <ol class="itens-lista">
+                @for (id of unfolded().has(s.id) ? s.items : s.items.slice(0, folded); track id; let j = $index, firstItem = $first) {
+                  @let it = itemOf(id);
+                  <li class="item" [class.escondido]="it.hidden">
+                    @if (it.card; as c) {
+                      <app-cover-sleeve class="item-capa" size="thumb" [game]="c.game" [decorative]="true" />
+                      <span class="item-texto">
+                        <span class="item-nome">{{ c.game.name }}</span>
+                        <span class="item-meta">
+                          {{ it.kind }}
+                          @if (it.hidden) {
+                            · <lucide-icon [img]="LockIcon" [size]="12" [strokeWidth]="2.6" aria-hidden="true" /> privada: não aparece
+                          }
+                        </span>
+                      </span>
+                    } @else {
+                      <span class="item-capa apagada" aria-hidden="true"></span>
+                      <span class="item-texto">
+                        <span class="item-nome">Ficha apagada</span>
+                        <span class="item-meta">não existe mais no mural</span>
+                      </span>
+                    }
+                    <span class="item-acoes">
+                      <button type="button" class="icone-btn" [disabled]="firstItem" [attr.aria-label]="'Subir ' + (it.card?.game?.name ?? 'a ficha')" (click)="moveItem(s, j, -1)">
+                        <lucide-icon [img]="UpIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                      </button>
+                      <button type="button" class="icone-btn" [disabled]="j === s.items.length - 1" [attr.aria-label]="'Descer ' + (it.card?.game?.name ?? 'a ficha')" (click)="moveItem(s, j, 1)">
+                        <lucide-icon [img]="DownIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                      </button>
+                      <button type="button" class="icone-btn" [attr.aria-label]="'Tirar ' + (it.card?.game?.name ?? 'a ficha') + ' da seção'" (click)="removeItem(s, id)">
+                        <lucide-icon [img]="XIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                      </button>
+                    </span>
+                  </li>
+                }
+              </ol>
+              @if (!unfolded().has(s.id) && s.items.length > folded) {
+                <button type="button" class="acao-caneta mais" (click)="unfold(s.id)">Mostrar as {{ s.items.length }}</button>
+              }
+            } @else {
+              <p class="vazio-secao">Nenhuma ficha ainda. Toque em “Escolher fichas”.</p>
+            }
+          </div>
+        </article>
+      } @empty {
+        <p class="vazio-secao">Nenhuma seção. O perfil mostra só o quadro de cima e os seus murais.</p>
+      }
+
+      <div class="nova-linha">
+        <button type="button" class="btn-cartolina nova-secao" [disabled]="sectionsFull()" (click)="addSection()">
+          <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+          Nova seção
+        </button>
+        @if (sectionsFull()) {
+          <p class="hint">Chegou ao máximo de {{ limits.sections }} seções.</p>
+        }
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== O quadro de cima, ao vivo ===== -->
+  <aside class="previa" aria-label="Prévia do topo do perfil">
+    <p class="previa-rotulo">Assim fica o topo do seu perfil</p>
+    <app-profile-hero [profile]="profile()" [name]="name()" [code]="account.account()?.codigo ?? null" [stats]="stats()" [updated]="updated()" />
+  </aside>
+</div>
+
+<app-profile-picker
+  [open]="picking() !== null"
+  (openChange)="!$event && picking.set(null)"
+  [sectionTitle]="pickingSection()?.title ?? ''"
+  [cards]="cards()"
+  [chosen]="pickingSection()?.items ?? []"
+  (chosenChange)="setItems(picking()!, $event)"
+/>

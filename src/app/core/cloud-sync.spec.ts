@@ -8,6 +8,8 @@ import { LocalData } from './local-data';
 import { Review, sanitizeDraft, sanitizeNote, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
+import { ProfileStore } from './profile-store';
+import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
 
 const API = 'https://api.teste';
@@ -49,6 +51,8 @@ function memoryKv(): KeyValueStore & { map: Map<string, string> } {
 class FakeCloud {
   rev = 0;
   doc: Uint8Array | null = null;
+  /** O mural público do último envio (o que os outros veem). */
+  pub: Uint8Array | null = null;
   offline = false;
   puts = 0;
   gets = 0;
@@ -72,6 +76,7 @@ class FakeCloud {
       if (base !== this.rev) return json({ erro: 'conflito', mensagem: 'Outro aparelho gravou antes.', rev: this.rev }, 409);
       const form = init.body as FormData;
       this.doc = new Uint8Array(await (form.get('privado') as Blob).arrayBuffer());
+      this.pub = new Uint8Array(await (form.get('publico') as Blob).arrayBuffer());
       this.rev++;
       this.puts++;
       return json({ rev: this.rev, novas: 0 });
@@ -82,6 +87,12 @@ class FakeCloud {
   /** O mural da nuvem, aberto. */
   async read(): Promise<{ reviews: Review[]; sync?: { schema: number } }> {
     const stream = new Blob([this.doc!.slice()]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(stream).text());
+  }
+
+  /** O mural público do último envio, aberto. */
+  async readPublic(): Promise<Record<string, unknown>> {
+    const stream = new Blob([this.pub!.slice()]).stream().pipeThrough(new DecompressionStream('gzip'));
     return JSON.parse(await new Response(stream).text());
   }
 
@@ -115,6 +126,7 @@ function review(id: string, name: string, updatedAt = '2026-01-01T00:00:00.000Z'
 interface Device {
   store: ReviewStore;
   settings: Settings;
+  profiles: ProfileStore;
   sync: CloudSync;
   kv: ReturnType<typeof memoryKv>;
   /** As respostas que a pessoa daria às perguntas, em ordem (null: fechou sem escolher). */
@@ -163,6 +175,7 @@ describe('sincronização com a nuvem', () => {
         { provide: LocalData, useClass: MemoryData },
         ReviewStore,
         Settings,
+        ProfileStore,
         CloudAccount,
         CloudSync,
         { provide: SYNC_STORAGE, useValue: kv },
@@ -177,6 +190,7 @@ describe('sincronização com a nuvem', () => {
     return {
       store,
       settings: injector.get(Settings),
+      profiles: injector.get(ProfileStore),
       sync: injector.get(CloudSync),
       kv,
       answers,
@@ -194,6 +208,45 @@ describe('sincronização com a nuvem', () => {
     }
     throw new Error('a sincronização não parou de enviar');
   }
+
+  describe('o perfil', () => {
+    it('vai para a nuvem, e o mudado por último vale no outro aparelho', async () => {
+      const a = device();
+      a.profiles.update((p) => ({ ...p, emoji: '🦊', tagline: 'Curadora' }));
+      await a.sync.syncNow();
+      localStorage.removeItem('meu-mural:perfil:v1');
+      const b = device();
+      expect(b.profiles.profile().emoji).toBe(defaultProfile().emoji);
+      await b.sync.syncNow();
+      expect(b.profiles.profile().emoji).toBe('🦊');
+      expect(b.profiles.profile().tagline).toBe('Curadora');
+      // o mais novo vence, dos dois lados
+      b.profiles.update((p) => ({ ...p, tagline: 'Leitora' }));
+      await settle(b, a);
+      expect(a.profiles.profile().tagline).toBe('Leitora');
+    });
+
+    it('no mural público, as seções só levam as fichas que os outros veem', async () => {
+      const a = device();
+      a.store.add(review('rpub0001', 'Hades'));
+      a.store.add({ ...review('rpriv001', 'Segredo'), private: true });
+      a.profiles.update((p) => ({ ...p, sections: [{ ...p.sections[0], items: ['rpriv001', 'rpub0001', 'rsumiu01'] }] }));
+      await a.sync.syncNow();
+      const pub = await cloud.readPublic();
+      const perfil = pub['perfil'] as { sections: { items: string[] }[] };
+      expect(perfil.sections[0].items).toEqual(['rpub0001']);
+      // no privado, a escolha fica inteira
+      const priv = (await cloud.read()) as unknown as { perfil: { dados: { sections: { items: string[] }[] } } };
+      expect(priv.perfil.dados.sections[0].items).toEqual(['rpriv001', 'rpub0001', 'rsumiu01']);
+    });
+
+    it('sem mexer no perfil, nada dele vai para a nuvem', async () => {
+      const a = device();
+      a.store.add(review('rpub0002', 'Celeste'));
+      await a.sync.syncNow();
+      expect((await cloud.readPublic())['perfil']).toBeUndefined();
+    });
+  });
 
   describe('as chaves de busca', () => {
     /** Cada aparelho com os próprios ajustes (o localStorage do teste é um só). */
@@ -520,10 +573,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
-  it('a leitura das fichas é a mesma da versão 10', async () => {
+  it('a leitura das fichas é a mesma da versão 11', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 10, hex: 'd39b84e6bb6a8fce65475fcbd1cc9b5d45aab15938968e5c5b9f451e61d68f9e' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 11, hex: 'd39b84e6bb6a8fce65475fcbd1cc9b5d45aab15938968e5c5b9f451e61d68f9e' });
   });
 });

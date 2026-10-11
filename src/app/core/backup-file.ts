@@ -1,4 +1,5 @@
 import { CategoryLooks, sanitizeCategoryLooks } from './category-looks';
+import { Profile, sanitizeProfile } from './profile';
 import { Review, sanitizeReview } from './review';
 
 /** Limita também o conteúdo descompactado, antes de tentar interpretar o JSON. */
@@ -66,6 +67,8 @@ export interface BackupSnapshot {
    * nada (um colega guardado antes disso, ou um backup baixado), as categorias ficam do jeito de sempre.
    */
   categoryLooks?: CategoryLooks;
+  /** O perfil da pessoa (`perfil`, só no mural público da nuvem); null sem perfil, ou num backup. */
+  profile?: Profile | null;
 }
 
 /** O nome de quem fez o backup, se ele veio no arquivo. */
@@ -143,6 +146,7 @@ export function parseBackupSnapshot(text: string): BackupSnapshot {
     skipped,
     ownerName: ownerNameOf(object),
     categoryLooks: sanitizeCategoryLooks(object?.['categorias']),
+    profile: sanitizeProfile(object?.['perfil']),
     exportedAt:
       typeof exportedAt === 'string' && Number.isFinite(Date.parse(exportedAt))
         ? exportedAt

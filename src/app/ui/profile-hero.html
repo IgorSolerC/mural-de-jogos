@@ -1,0 +1,90 @@
+<div class="moldura">
+  <span class="parafuso p1" aria-hidden="true"></span>
+  <span class="parafuso p2" aria-hidden="true"></span>
+  <span class="parafuso p3" aria-hidden="true"></span>
+  <span class="parafuso p4" aria-hidden="true"></span>
+
+  <div
+    class="fundo"
+    [attr.data-fundo]="material()"
+    [class.cartolina]="background().kind === 'cartolina'"
+    [attr.data-cor]="background().kind === 'cartolina' ? $any(background()).stock : null"
+    [style.--stock]="background().kind === 'cartolina' ? 'var(--stock-' + $any(background()).stock + ')' : null"
+  >
+    @if (background().kind === 'link') {
+      <img class="fundo-foto" [src]="$any(background()).url" alt="" referrerpolicy="no-referrer" decoding="async" (error)="failed.set($any(background()).url)" />
+      <span class="plastico" aria-hidden="true"></span>
+    }
+
+    <div class="conteudo">
+      <!-- a polaroid: o emoji fotografado na cartolina escolhida, o nome escrito embaixo -->
+      <figure class="polaroid">
+        <span class="fita f1" aria-hidden="true"></span>
+        <span class="fita f2" aria-hidden="true"></span>
+        <div class="foto cartolina" [attr.data-cor]="profile().photo" [style.--stock]="'var(--stock-' + profile().photo + ')'">
+          <span class="emoji" role="img" [attr.aria-label]="'Foto de ' + name()">{{ profile().emoji }}</span>
+          <span class="brilho-foto" aria-hidden="true"></span>
+        </div>
+        <figcaption>
+          <span class="nome" role="heading" aria-level="1">{{ name() }}</span>
+          @if (profile().tagline) {
+            <span class="linha">{{ profile().tagline }}</span>
+          }
+        </figcaption>
+      </figure>
+
+      <div class="lado">
+        <!-- a folha quadriculada, presa com fita: o título em letras recortadas, a descrição à mão -->
+        <article class="folha" aria-label="Sobre mim">
+          <span class="fita f3" aria-hidden="true"></span>
+          <h2 class="recortes" aria-hidden="true">
+            @for (c of cuts; track $index) {
+              @if (c.paper) {
+                <span class="letra" [attr.data-papel]="c.paper" [attr.data-letra]="c.font" [style.--tilt.deg]="c.tilt">{{ c.ch }}</span>
+              } @else {
+                <span class="espaco"></span>
+              }
+            }
+          </h2>
+          @if (profile().about) {
+            <app-rich-text class="sobre" [text]="profile().about" />
+          } @else {
+            <p class="sobre vazio">Ainda sem descrição.</p>
+          }
+          @if (profile().topics.length || code()) {
+            <div class="etiquetas">
+              @if (profile().topics.length) {
+                <ul class="assuntos" aria-label="Assuntos">
+                  @for (t of profile().topics; track t) {
+                    <li class="dymo">{{ t }}</li>
+                  }
+                </ul>
+              }
+              @if (code(); as c) {
+                <span class="dymo codigo" [attr.aria-label]="'Código ' + c">{{ c }}</span>
+              }
+            </div>
+          }
+        </article>
+
+        <!-- as fichinhas dos números, cada uma presa por um pedaço de fita -->
+        <ul class="numeros" aria-label="Números">
+          @for (n of numbers(); track n.label) {
+            <li class="numero" [attr.data-faixa]="n.band">
+              <span class="numero-rotulo">{{ n.label }}</span>
+              <span class="numero-valor" [class.miudo]="n.small">{{ n.value }}</span>
+              <span class="numero-nota">{{ n.note }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+
+    <div class="pe">
+      @if (updated()) {
+        <span class="dymo atualizado"><span class="ponto" aria-hidden="true"></span>{{ updated() }}</span>
+      }
+      <div class="acoes"><ng-content select="[acoes]" /></div>
+    </div>
+  </div>
+</div>

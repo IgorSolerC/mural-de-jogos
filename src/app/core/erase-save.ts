@@ -3,13 +3,14 @@ import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { COLLEAGUES_DB } from './colleague-store';
 import { DATA_DB } from './local-data';
 import { NEWS_SEEN_KEY } from './news';
+import { PROFILE_KEY } from './profile-store';
 import { SETTINGS_KEY } from './settings';
 
 /**
  * "Apagar o save", em Ajustes: tira deste navegador tudo o que o mural guarda (resenhas, fila,
  * wishlist, as apagadas, backups de colegas, recordes e partidas dos Extras, a data do último backup),
- * menos os ajustes: o nome, as chaves de busca, as preferências, o login na nuvem e as novidades já
- * vistas ficam.
+ * menos os ajustes: o nome, o perfil, as chaves de busca, as preferências, o login na nuvem e as
+ * novidades já vistas ficam.
  *
  * Depois a página recarrega: cada parte do app lê o que guardou só ao subir, e assim nenhuma fica com
  * o save velho na memória.
@@ -17,8 +18,8 @@ import { SETTINGS_KEY } from './settings';
 
 /** As chaves do localStorage que são do mural. */
 const PREFIXES = ['mural-de-jogos:', 'meu-mural:'];
-/** Os ajustes, o login na nuvem e as novidades vistas. */
-const KEEP = new Set([SETTINGS_KEY, SESSION_KEY, ACCOUNT_KEY, NEWS_SEEN_KEY]);
+/** Os ajustes, o perfil, o login na nuvem e as novidades vistas. */
+const KEEP = new Set([SETTINGS_KEY, PROFILE_KEY, SESSION_KEY, ACCOUNT_KEY, NEWS_SEEN_KEY]);
 /** Os bancos do IndexedDB: as listas, os backups de colegas e a cópia de antes da nuvem. */
 const DATABASES = [DATA_DB, COLLEAGUES_DB, BEFORE_CLOUD_DB];
 /** Na sessão: o save acabou de ser apagado, para Ajustes avisar depois de recarregar. */

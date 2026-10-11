@@ -59,8 +59,8 @@ const TABS: Tab[] = [
   { path: '/wishlist', label: 'Wishlist' },
   // o Ranking e o Comparar moram dentro de Extras: a fita de Extras fica acesa neles também
   { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
-  // as Novidades se abrem por Ajustes (e pela faixa do topo)
-  { path: '/ajustes', label: 'Ajustes', icon: SettingsIcon, also: ['/novidades'] },
+  // as Novidades e as Configurações do perfil se abrem por Ajustes (e pela faixa do topo)
+  { path: '/ajustes', label: 'Ajustes', icon: SettingsIcon, also: ['/novidades', '/perfil/editar'] },
 ];
 
 @Component({

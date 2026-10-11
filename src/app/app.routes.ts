@@ -42,6 +42,11 @@ export const routes: Routes = [
     title: 'Muraldle',
     loadComponent: () => import('./pages/muraldle-page').then((m) => m.MuraldlePage),
   },
+  {
+    path: 'perfil/editar',
+    title: 'Seu perfil',
+    loadComponent: () => import('./pages/profile-edit-page').then((m) => m.ProfileEditPage),
+  },
   { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
   { path: 'amigos', title: 'Amigos', loadComponent: () => import('./pages/mail-page').then((m) => m.MailPage) },
   // o primeiro nome da aba
