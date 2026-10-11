@@ -14,7 +14,7 @@ import { Mural } from '../core/mural';
 import { Profile, ProfileSection, defaultProfile, profileStats, updatedLabel } from '../core/profile';
 import { ProfileStore } from '../core/profile-store';
 import { Reactions } from '../core/reactions';
-import { Review, formatScore, isDone, isNote, isPrivate } from '../core/review';
+import { Review, formatScore, isDone, isNote, isPrivate, scoreOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { SpoilerShield } from '../core/spoiler-shield';
@@ -158,17 +158,26 @@ export class ProfilePage {
   protected readonly looks = computed(() => (this.own() ? this.settings.categoryLooks() : (this.colleague()?.categoryLooks ?? {})));
   protected readonly reactCode = computed(() => this.code());
 
+  /** A sorte desta visita: cada F5 embaralha as capas das pastas, mas elas não pulam enquanto a página está aberta. */
+  private readonly luck = Math.random().toString(36);
+
+  /** A posição sorteada de uma ficha nesta visita (um hash do id com a sorte). */
+  private shuffled(id: string): number {
+    let h = 2166136261;
+    for (const ch of this.luck + id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+    return h >>> 0;
+  }
+
   /** As pastas: um mural por pasta, só os que têm fichas à mostra e que a pessoa não escondeu. */
   protected readonly walls = computed(() => {
     const p = this.profile();
     return KINDS.map((kind) => {
       // uma ficha por obra, e as anotações finalizadas fora (o mural também não mostra)
       const list = this.cards().filter((r) => r.kind === kind && !r.revisitOf && !isDone(r));
-      // as seis mais novas (com capa primeiro; a pasta mostra quantas couberem); sem capa, entra a
-      // capa listrada com a inicial
-      const covers = [...list]
-        .sort((a, b) => Number(!!b.game.coverUrl) - Number(!!a.game.coverUrl) || b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 6);
+      // dez capas sorteadas a cada visita (a pasta mostra quantas couberem): primeiro as com capa e
+      // nota acima de 7, depois as com capa, e por último as sem capa (a listrada com a inicial)
+      const tier = (r: Review) => (r.game.coverUrl ? 0 : 2) + (!isNote(r) && (scoreOf(r.scores, 'final') ?? 0) > 7 ? 0 : 1);
+      const covers = [...list].sort((a, b) => tier(a) - tier(b) || this.shuffled(a.id) - this.shuffled(b.id)).slice(0, 10);
       return {
         kind,
         icon: KIND_ICON[kind],

@@ -51,12 +51,11 @@
 
       <!-- ===== As pastas: um mural por pasta ===== -->
       <section class="bloco murais" aria-labelledby="murais-titulo">
-        <!-- o título baixinho, a giz, numa linha com o risco (não gasta uma fita inteira) -->
-        <header class="murais-cabeca">
-          <h2 id="murais-titulo" class="giz">{{ own() ? 'Os seus murais' : 'Os murais de ' + name() }}</h2>
+        <header class="cabeca">
+          <h2 id="murais-titulo" class="tape-label">{{ own() ? 'Os seus murais' : 'Os murais de ' + name() }}</h2>
           <span class="risco" aria-hidden="true"></span>
           @if (own()) {
-            <a class="giz arrumar" routerLink="/perfil/editar">
+            <a class="giz arrumar" routerLink="/perfil/editar" aria-label="Arrumar os murais em Editar o perfil">
               <lucide-icon [img]="EditIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
               Arrumar
             </a>
@@ -75,7 +74,7 @@
                   <span class="costas" aria-hidden="true"></span>
                   <span class="boca" aria-hidden="true">
                     @for (c of w.covers; track c.id; let j = $index) {
-                      <app-cover-sleeve class="espia" [attr.data-n]="j" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true" />
+                      <app-cover-sleeve class="espia" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true" />
                     }
                   </span>
                   <span class="frente" aria-hidden="true">
@@ -96,10 +95,17 @@
       <!-- ===== As seções que a pessoa montou ===== -->
       @for (s of sections(); track s.id) {
         <section class="bloco secao" [class.no-quadro]="s.frame === 'quadro'" [attr.aria-label]="s.title || 'Seção sem nome'">
-          <header class="secao-cabeca">
-            <h2 class="tape-label big">{{ s.title || 'Seção sem nome' }}</h2>
+          <header class="cabeca">
+            <h2 class="tape-label">{{ s.title || 'Seção sem nome' }}</h2>
             @if (s.note) {
               <p class="secao-nota">{{ s.note }}</p>
+            }
+            <span class="risco" aria-hidden="true"></span>
+            @if (own()) {
+              <a class="giz arrumar" routerLink="/perfil/editar" [attr.aria-label]="'Arrumar a seção ' + (s.title || 'sem nome') + ' em Editar o perfil'">
+                <lucide-icon [img]="EditIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                Arrumar
+              </a>
             }
           </header>
 

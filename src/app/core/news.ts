@@ -51,6 +51,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-perfil-na-largura-toda',
+    version: '1.31.5',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'O perfil enche a tela toda',
+    items: [
+      'As seções do perfil esticam para encher a largura: as fichas se repartem em colunas iguais, o quadro de cortiça vai de uma beirada à outra e a lista corre em colunas na folha.',
+      'As capas das pastas vão de uma ponta à outra da boca, encavaladas o quanto precisar, e mudam a cada visita: primeiro as de nota acima de 7.',
+      'Todo título do perfil é uma fita-crepe pequena numa linha só, com a sua frase ao lado e um risco até o “Arrumar”.',
+    ],
+  },
+  {
     id: '2026-10-11-pastas-do-perfil-maiores',
     version: '1.31.4',
     kind: 'melhoria',

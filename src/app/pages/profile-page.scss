@@ -1,4 +1,5 @@
 @use '../ui/profile-materials' as materials;
+@use 'sass:list';
 
 :host {
   display: block;
@@ -24,52 +25,64 @@
 }
 
 .bloco {
-  margin-top: 72px;
-
-  > .tape-label,
-  > .secao-cabeca {
-    margin-bottom: 30px;
-  }
+  margin-top: 56px;
+  /* o que tem dentro (as pastas, as fichas) se arruma pela largura do bloco */
+  container: bloco / inline-size;
 }
 
 .vazio {
   max-width: 60ch;
 }
 
-/* ===== Os murais: o título baixinho a giz, com um risco até a beirada (como os títulos de seção das
-   redes: uma linha fina, não uma faixa), e o "Arrumar" do dono na ponta ===== */
-.murais {
-  margin-top: 56px;
-  /* as pastas se arrumam pela largura do bloco */
-  container: murais / inline-size;
-}
-
-.murais-cabeca {
+/* ===== O cabeçalho de cada parte (os murais e as seções), como o das redes: o título numa linha
+   só com a ação na ponta. O título é uma fita-crepe pequena, a linha da pessoa vai a giz ao lado,
+   e um risco tracejado leva até o "Arrumar" (só no seu) ===== */
+.cabeca {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px 16px;
+  margin-bottom: 24px;
 
-  h2 {
+  .tape-label {
+    flex: 0 1 auto;
+    min-width: 0;
     margin: 0;
-    font-size: 0.95rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 6px 16px 4px;
+    font-size: 1.24rem;
+    overflow-wrap: anywhere;
   }
+}
+
+.murais .cabeca {
+  margin-bottom: 0;
 }
 
 .murais .vazio {
   margin-top: 20px;
 }
 
+/* a linha da pessoa, escrita a giz na parede ao lado da fita */
+.secao-nota {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 56ch;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.25;
+  color: var(--wall-ink);
+  rotate: -1deg;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
 .risco {
-  flex: 1;
-  min-width: 24px;
-  border-top: 2px dashed rgb(243 239 230 / 0.2);
+  flex: 1 1 40px;
+  min-width: 40px;
+  border-top: 2px dashed rgb(243 239 230 / 0.22);
 }
 
 .arrumar {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 6px;
   min-height: 32px;
@@ -91,6 +104,20 @@
   }
 }
 
+/* estreito: a linha da pessoa desce para baixo da fita, e o risco some */
+@container bloco (max-width: 559px) {
+  .cabeca {
+    flex-wrap: wrap;
+  }
+  .secao-nota {
+    order: 5;
+    flex-basis: 100%;
+  }
+  .risco {
+    visibility: hidden;
+  }
+}
+
 /* ===== As pastas dos murais: pasta de manilha deitada e larga, três por linha. A divisória colorida
    do mural sai de trás (como as abas das anotações), as capas mais novas enchem a boca da pasta, e
    a frente leva o número, a caneta na tinta do mural, e o texto da pessoa ===== */
@@ -104,13 +131,13 @@
   list-style: none;
 }
 
-@container murais (min-width: 560px) {
+@container bloco (min-width: 560px) {
   .pastas {
     --cols: 2;
   }
 }
 
-@container murais (min-width: 900px) {
+@container bloco (min-width: 900px) {
   .pastas {
     --cols: 3;
     gap: 62px 28px;
@@ -118,7 +145,7 @@
 }
 
 /* quatro murais cabem numa fileira só quando sobra largura (e não fica um sozinho embaixo) */
-@container murais (min-width: 1160px) {
+@container bloco (min-width: 1160px) {
   .pastas[data-n='4'] {
     --cols: 4;
   }
@@ -140,9 +167,10 @@
 .pasta-mural {
   /* a tinta do mural: a cor, puxada para o escuro, para ler bem no manilha */
   --tinta: color-mix(in oklab, var(--cor) 82%, #151515);
-  /* as capas, da esquerda para a direita: cada uma anda --passo (e encavala um pouco na anterior) */
+  /* as capas: --vistas aparecem, as que existem (--capas) até as que cabem (--n, ver os @container) */
   --capa-w: 70px;
-  --passo: 56px;
+  --n: 3;
+  --vistas: min(var(--capas), var(--n));
 
   position: relative;
   display: flex;
@@ -229,7 +257,7 @@
   }
 }
 
-/* as capas das fichas mais novas, enfiadas na boca da pasta, da esquerda para a direita
+/* as capas sorteadas, enfiadas na boca da pasta de uma beirada à outra
    (nomes próprios: .capas é a ficha no tipo Capas) */
 .boca {
   position: absolute;
@@ -241,64 +269,42 @@
 }
 
 .espia {
+  /* espalhadas pela boca inteira: a primeira encosta na beirada esquerda e a última na direita,
+     encavaladas o quanto precisar; com poucas capas, um vão pequeno entre elas */
+  --passo: min(calc((100% - var(--capa-w)) / max(var(--vistas) - 1, 1)), calc(var(--capa-w) + 14px));
+
   position: absolute;
   top: 0;
   left: calc(var(--j) * var(--passo));
   width: var(--capa-w);
   transition: translate var(--t-physical) var(--ease-physical);
+  transition-delay: calc(var(--j) * 25ms);
 
-  /* tortas, como fichas enfiadas às pressas */
-  &[data-n='0'] {
-    top: 4px;
-    rotate: -4deg;
-  }
-  &[data-n='1'] {
-    top: -1px;
-    rotate: 2deg;
-    transition-delay: 25ms;
-  }
-  &[data-n='2'] {
-    top: 3px;
-    rotate: -2deg;
-    transition-delay: 50ms;
-  }
-  &[data-n='3'] {
-    top: -2px;
-    rotate: 4deg;
-    transition-delay: 75ms;
-  }
-  &[data-n='4'] {
-    top: 2px;
-    rotate: -3deg;
-    transition-delay: 100ms;
-  }
-  &[data-n='5'] {
-    top: 0;
-    rotate: 3deg;
-    transition-delay: 125ms;
-  }
-}
-
-/* quantas capas cabem: as que não cabem saem do fim (as mais velhas) */
-@container pasta (max-width: 399px) {
-  .espia[data-n='5'] {
+  /* as que não cabem (--n) ficam de fora; os @container abaixo põem mais conforme a largura */
+  &:nth-child(n + 4) {
     display: none;
   }
 }
 
-@container pasta (max-width: 339px) {
-  .espia[data-n='4'] {
-    display: none;
+/* tortas, como fichas enfiadas às pressas */
+$tortas: (4px -4deg) (-1px 2deg) (3px -2deg) (-2px 4deg) (2px -3deg) (0 3deg) (4px -1deg) (-2px 5deg) (1px -4deg) (-1px 2deg);
+@for $i from 1 through list.length($tortas) {
+  .espia:nth-child(#{$i}) {
+    top: list.nth(list.nth($tortas, $i), 1);
+    rotate: list.nth(list.nth($tortas, $i), 2);
   }
 }
 
-@container pasta (max-width: 289px) {
-  .pasta-mural {
-    --capa-w: 64px;
-    --passo: 50px;
-  }
-  .espia[data-n='3'] {
-    display: none;
+/* quantas capas cabem: uma a mais a cada 62px, para o passo entre elas ficar entre ~42 e 62px */
+$cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
+@each $largura, $n in $cabem {
+  @container pasta (min-width: #{$largura}) {
+    .pasta-mural {
+      --n: #{$n};
+    }
+    .espia:nth-child(#{$n}) {
+      display: block;
+    }
   }
 }
 
@@ -344,32 +350,12 @@
 }
 
 /* ===== As seções ===== */
-.secao-cabeca {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 22px;
-}
-
-/* a linha da pessoa, escrita a giz na parede ao lado da fita */
-.secao-nota {
-  font-family: var(--f-hand);
-  font-size: 1.22rem;
-  line-height: 1.3;
-  color: var(--wall-ink);
-  rotate: -1deg;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
-}
-
 .suporte {
   position: relative;
 }
 
-/* num quadro: a moldura de pinus, os parafusos e a cortiça por dentro; o quadro abraça as fichas */
+/* num quadro: a moldura de pinus, os parafusos e a cortiça por dentro, na largura toda */
 .no-quadro .suporte {
-  width: fit-content;
-  min-width: min(100%, 440px);
-  max-width: 100%;
   padding: 16px;
   border-radius: 3px;
   background-color: #b98953;
@@ -438,56 +424,46 @@
   }
 }
 
-/* as fichas, no tipo escolhido, com os mesmos vãos e larguras do mural */
+/* as fichas, no tipo escolhido, em colunas que esticam para encher a largura toda (como as pastas):
+   quantas couberem com a largura mínima do tipo, e a sobra repartida entre elas */
 .fichas {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  --min: 330px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--min), 100%), 1fr));
+  align-items: start;
   gap: 44px 34px;
 
+  /* a ficha tem teto de 440px no mural; aqui ela vai até a beirada da coluna */
   app-review-card {
-    width: var(--ficha-w);
-    max-width: 100%;
+    min-width: 0;
+    max-width: none;
   }
 
   &[data-tipo='simples'] {
+    --min: 320px;
     gap: 34px 30px;
-
-    app-review-card {
-      width: var(--simples-w);
-    }
   }
 
   &[data-tipo='capas'] {
+    --min: clamp(116px, calc((var(--simples-page) - 7 * 22px) / 8), 156px);
     gap: 26px 22px;
-
-    app-review-card {
-      width: clamp(116px, calc((var(--simples-page) - 7 * 22px) / 8), 156px);
-    }
   }
-}
-
-/* no quadro, a cortiça já é a parede: as fichas cabem dentro dele */
-.no-quadro .fichas app-review-card {
-  max-width: 100%;
 }
 
 /* a lista: os nomes numa folha de caderno pautada, presa com fita */
 .lista-folha {
   position: relative;
-  max-width: 640px;
   margin: 0;
   padding: 26px 26px 22px 64px;
+  /* a folha toma a largura toda, e os nomes correm em colunas (cada uma com a sua margem) */
+  columns: 300px;
+  column-gap: 82px;
   border-radius: 2px;
   background-color: #fbfaf3;
-  /* a margem vermelha; a pauta azul é a linha de baixo de cada nome (ver li), então todo nome
-     fica em cima da sua linha, qualquer que seja a altura dele */
-  background-image:
-    linear-gradient(90deg, transparent 46px, rgb(214 60 50 / 0.55) 46px 48px, transparent 48px),
-    var(--paper-grain);
-  background-blend-mode: normal, multiply;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
   color: var(--ink);
-  rotate: -0.5deg;
+  rotate: -0.25deg;
   box-shadow: var(--shadow-card);
   counter-reset: linha;
   list-style: none;
@@ -506,10 +482,23 @@
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
   }
 
+  /* a pauta azul é a linha de baixo de cada nome, e a margem vermelha vai ao lado de cada um: todo
+     nome fica em cima da sua linha, qualquer que seja a altura dele e a coluna em que caiu */
   li {
     counter-increment: linha;
     position: relative;
+    break-inside: avoid;
     border-bottom: 1.5px solid rgb(70 110 190 / 0.32);
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: -1.5px;
+      left: -18px;
+      width: 2px;
+      background: rgb(214 60 50 / 0.55);
+    }
 
     /* o número fica no canto, antes da margem vermelha */
     &::before {
@@ -719,23 +708,15 @@
 /* ===== Celular: uma ficha por linha, como no mural ===== */
 @media (max-width: 559px) {
   .bloco {
-    margin-top: 56px;
+    margin-top: 44px;
   }
 
   .fichas {
     gap: 34px;
 
-    app-review-card,
-    &[data-tipo='simples'] app-review-card {
-      width: 100%;
-    }
-
     &[data-tipo='capas'] {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 22px 12px;
-
-      app-review-card {
-        width: calc((100% - 24px) / 3);
-      }
     }
   }
 
