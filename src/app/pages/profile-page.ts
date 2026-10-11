@@ -164,16 +164,18 @@ export class ProfilePage {
     return KINDS.map((kind) => {
       // uma ficha por obra, e as anotações finalizadas fora (o mural também não mostra)
       const list = this.cards().filter((r) => r.kind === kind && !r.revisitOf && !isDone(r));
-      // as três mais novas (com capa primeiro); sem capa, entra a capa listrada com a inicial
+      // as seis mais novas (com capa primeiro; a pasta mostra quantas couberem); sem capa, entra a
+      // capa listrada com a inicial
       const covers = [...list]
         .sort((a, b) => Number(!!b.game.coverUrl) - Number(!!a.game.coverUrl) || b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 3);
+        .slice(0, 6);
       return {
         kind,
         icon: KIND_ICON[kind],
         color: WALL_COLOR[kind],
         title: `Mural de ${profileOf(kind).plural}`,
         short: profileOf(kind).plural,
+        /** Para quem lê a tela: "68 jogos" (na pasta, só o número; a orelha já diz o mural). */
         count: countOf(profileOf(kind), list.length),
         n: list.length,
         covers,

@@ -50,10 +50,20 @@
       }
 
       <!-- ===== As pastas: um mural por pasta ===== -->
-      <section class="bloco" aria-labelledby="murais-titulo">
-        <h2 id="murais-titulo" class="tape-label big">{{ own() ? 'Os seus murais' : 'Os murais de ' + name() }}</h2>
+      <section class="bloco murais" aria-labelledby="murais-titulo">
+        <!-- o título baixinho, a giz, numa linha com o risco (não gasta uma fita inteira) -->
+        <header class="murais-cabeca">
+          <h2 id="murais-titulo" class="giz">{{ own() ? 'Os seus murais' : 'Os murais de ' + name() }}</h2>
+          <span class="risco" aria-hidden="true"></span>
+          @if (own()) {
+            <a class="giz arrumar" routerLink="/perfil/editar">
+              <lucide-icon [img]="EditIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+              Arrumar
+            </a>
+          }
+        </header>
         @if (walls().length) {
-          <ul class="pastas">
+          <ul class="pastas" [attr.data-n]="walls().length">
             @for (w of walls(); track w.kind; let i = $index) {
               <li class="pasta-item" [style.--i]="i">
                 <button type="button" class="pasta-mural" [style.--cor]="w.color" [style.--capas]="w.covers.length" (click)="openWall(w.kind)" [attr.aria-label]="'Abrir o ' + w.title + ' de ' + name() + ', ' + w.count">
@@ -63,13 +73,13 @@
                     {{ w.short }}
                   </span>
                   <span class="costas" aria-hidden="true"></span>
-                  <span class="conta" aria-hidden="true">{{ w.count }}</span>
                   <span class="boca" aria-hidden="true">
                     @for (c of w.covers; track c.id; let j = $index) {
                       <app-cover-sleeve class="espia" [attr.data-n]="j" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true" />
                     }
                   </span>
                   <span class="frente" aria-hidden="true">
+                    <span class="conta">{{ w.n }}</span>
                     @if (w.text) {
                       <span class="pasta-texto">{{ w.text }}</span>
                     }

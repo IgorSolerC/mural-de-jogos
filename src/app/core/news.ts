@@ -51,6 +51,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-pastas-do-perfil-maiores',
+    version: '1.31.4',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'As pastas do perfil, maiores e com mais capas',
+    items: [
+      'As pastas dos murais ficaram largas, três por linha no computador (duas no tablet, uma no celular), e cada uma mostra até seis capas das fichas mais novas.',
+      'Na frente da pasta vai o número, grande e a caneta na cor do mural, ao lado do texto que você escreveu. O nome do mural fica só na orelha, sem repetir.',
+      '“Os seus murais” virou uma linha fina a giz, e no seu perfil ganhou um “Arrumar” que leva para Editar o perfil.',
+    ],
+  },
+  {
     id: '2026-10-11-pastas-do-perfil-menores',
     version: '1.31.3',
     kind: 'melhoria',
