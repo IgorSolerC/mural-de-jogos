@@ -422,3 +422,25 @@ app-judge-label {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* "Resenha de Bia": o nome é um link para o perfil dela */
+.dono-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-thickness: 3px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}

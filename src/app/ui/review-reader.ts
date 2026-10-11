@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -241,7 +242,17 @@ import { categoryBonus } from '../core/note-labels';
 
           <footer class="foot">
             @if (owner(); as name) {
-              <p>{{ name === 'Você' ? (note() ? 'Sua anotação' : 'Sua resenha') : (note() ? 'Anotação de ' : 'Resenha de ') + name }}</p>
+              @if (name === 'Você') {
+                <p>{{ note() ? 'Sua anotação' : 'Sua resenha' }}</p>
+              } @else if (ownerCode(); as code) {
+                <!-- o nome leva ao perfil de quem escreveu -->
+                <p>
+                  {{ note() ? 'Anotação de' : 'Resenha de' }}
+                  <button type="button" class="dono-link" [attr.aria-label]="'Ver o perfil de ' + name" (click)="openOwner(code)">{{ name }}</button>
+                </p>
+              } @else {
+                <p>{{ (note() ? 'Anotação de ' : 'Resenha de ') + name }}</p>
+              }
               <button type="button" class="btn-ink" (click)="close()">Fechar</button>
             } @else {
             <button type="button" class="btn-quiet danger" (click)="remove.emit(r.id)">
@@ -361,7 +372,14 @@ export class ReviewReader {
   /** Backups de colegas são somente leitura e nunca acionam as ações do mural pessoal. */
   protected readonly owner = signal<string | null>(null);
   /** O código na nuvem do dono da ficha de outra pessoa (para as reações); null num backup. */
-  private readonly ownerCode = signal<string | null>(null);
+  protected readonly ownerCode = signal<string | null>(null);
+  private readonly router = inject(Router);
+
+  /** O perfil de quem escreveu a ficha: a leitura fecha e a página da pessoa abre. */
+  protected openOwner(code: string): void {
+    this.close();
+    void this.router.navigate(['/perfil', code]);
+  }
   protected readonly reactions = inject(Reactions);
   /** A ficha aberta como alvo das reações: a de quem tem código, ou a sua com a conta aberta. */
   protected readonly reactTarget = computed<ReactionTarget | null>(() => {

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injectable, computed, effect, inject, input, signal, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { BackdropClose } from './backdrop-close';
 import { LucideAngularModule, Plus, SmilePlus, X } from 'lucide-angular';
 import { Reaction, ReactionTarget, Reactions, spokenReactions, tally } from '../core/reactions';
@@ -392,7 +393,12 @@ export class ReactionPicker {
                 <li class="pessoa" [class.eu]="r.codigo === me()">
                   <span class="cracha-mini" aria-hidden="true">{{ initial(r.nome) }}</span>
                   <span class="quem">
-                    <span class="nome">{{ r.codigo === me() ? 'Você' : r.nome }}</span>
+                    @if (r.codigo === me()) {
+                      <span class="nome">Você</span>
+                    } @else {
+                      <!-- o nome leva ao perfil de quem reagiu -->
+                      <button type="button" class="nome nome-link" [attr.aria-label]="'Ver o perfil de ' + r.nome" (click)="openProfile(r.codigo)">{{ r.nome }}</button>
+                    }
                     <span class="quando">{{ when(r.em) }}</span>
                   </span>
                   @if (r.codigo === me() && canReact()) {
@@ -611,6 +617,25 @@ export class ReactionPicker {
       font-size: 1.12rem;
       overflow-wrap: anywhere;
     }
+    .nome-link {
+      justify-self: start;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      text-align: left;
+      text-decoration: underline 1.5px;
+      text-underline-offset: 3px;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration-thickness: 2.5px;
+      }
+      &:focus-visible {
+        outline: 3px solid var(--ink);
+        outline-offset: 2px;
+      }
+    }
     .quando {
       font-family: var(--f-label);
       font-weight: 700;
@@ -636,6 +661,7 @@ export class ReactionPicker {
 export class ReactionSheetView {
   protected readonly sheet = inject(ReactionSheet);
   private readonly reactions = inject(Reactions);
+  private readonly router = inject(Router);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   protected readonly CloseIcon = X;
   protected readonly MoreIcon = Plus;
@@ -691,6 +717,12 @@ export class ReactionSheetView {
   protected pick(id: ReactionId): void {
     const t = this.sheet.target();
     if (t) void this.reactions.react(t, this.mine() === id ? null : id);
+  }
+
+  /** O perfil de quem reagiu: a folha fecha e a página dele abre. */
+  protected openProfile(code: string): void {
+    this.close();
+    void this.router.navigate(['/perfil', code]);
   }
 
   protected close(): void {

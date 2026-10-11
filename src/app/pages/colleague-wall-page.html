@@ -9,7 +9,12 @@
   <header class="cabeca">
     <h1 class="placa">
       <span class="placa-faixa">O mural de</span>
-      <span class="placa-nome">{{ c.name }}</span>
+      @if (c.codigo) {
+        <!-- veio pelo código: o nome leva ao perfil da pessoa -->
+        <a class="placa-nome placa-link" [routerLink]="['/perfil', c.codigo]" [attr.aria-label]="c.name + ': ver o perfil'">{{ c.name }}</a>
+      } @else {
+        <span class="placa-nome">{{ c.name }}</span>
+      }
     </h1>
     <div class="cabeca-info">
       @if (summary()) {

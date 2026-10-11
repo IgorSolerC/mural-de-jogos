@@ -229,8 +229,10 @@
   font-size: 1.35rem;
 }
 
-/* o nome é um link para o mural da pessoa, escrito no mesmo pincel da fita */
-.quem-nome {
+/* o nome é um link para o perfil da pessoa, escrito no mesmo pincel da fita (e no bilhete de quem
+   começou a seguir, na mesma tinta do texto) */
+.quem-nome,
+.nome-link {
   --focus: var(--ink);
   padding: 0;
   border: 0;

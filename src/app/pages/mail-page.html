@@ -83,7 +83,7 @@
                     }
                     <span class="cracha-mini" aria-hidden="true">{{ initial(b.item.pessoa.nome) }}</span>
                     <div class="seguiu-txt">
-                      <p><strong>{{ b.item.pessoa.nome }}</strong> começou a seguir você</p>
+                      <p><strong><button type="button" class="nome-link" [attr.aria-label]="'Ver o perfil de ' + b.item.pessoa.nome" (click)="openProfile(b.item.pessoa)">{{ b.item.pessoa.nome }}</button></strong> começou a seguir você</p>
                       <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
                     </div>
                     <!-- sem a lista ainda (primeira abertura neste aparelho), vale o que a própria notificação diz -->
@@ -124,13 +124,12 @@
                   <!-- as resenhas seguidas de uma pessoa: a fita com o nome e, embaixo, cada ficha com o bilhete de vocês dois -->
                   <section class="bloco" [attr.aria-labelledby]="'bloco-' + i">
                     <h2 class="tape-label quem" [id]="'bloco-' + i" [style.rotate.deg]="tilt(i) * 2 - 1.2">
-                      <!-- o nome leva ao mural da pessoa -->
+                      <!-- o nome leva ao perfil da pessoa -->
                       <button
                         type="button"
                         class="quem-nome"
-                        [appBusy]="isBusy(b.pessoa.codigo, 'mural')"
-                        [title]="'Ver o mural de ' + b.pessoa.nome"
-                        (click)="openWall(b.pessoa)"
+                        [title]="'Ver o perfil de ' + b.pessoa.nome"
+                        (click)="openProfile(b.pessoa)"
                       >{{ b.pessoa.nome }}</button>
                       {{ blockVerb(b.posts) }}
                     </h2>
@@ -251,7 +250,7 @@
                 @for (f of p.seguindo; track f.codigo) {
                   <li [class.quieta]="f.silenciado">
                     <span class="cracha-mini" aria-hidden="true">{{ initial(f.nome) }}</span>
-                    <button type="button" class="pessoa-nome" [appBusy]="isBusy(f.codigo, 'mural')" (click)="openWall(f)" [attr.aria-label]="'Ver o mural de ' + f.nome">
+                    <button type="button" class="pessoa-nome" (click)="openProfile(f)" [attr.aria-label]="'Ver o perfil de ' + f.nome">
                       {{ f.nome }}
                     </button>
                     @if (f.silenciado) {
@@ -294,8 +293,8 @@
                 <li class="pessoa" [class.quieta]="x.sigo?.silenciado">
                   <span class="cracha-mini" aria-hidden="true">{{ initial(x.nome) }}</span>
                   <div class="pessoa-quem">
-                    <!-- o nome abre o mural da pessoa, como no Feed -->
-                    <button type="button" class="pessoa-nome" [appBusy]="isBusy(x.codigo, 'mural')" (click)="openWall(x)" [attr.aria-label]="'Ver o mural de ' + x.nome">
+                    <!-- o nome abre o perfil da pessoa, como no Feed -->
+                    <button type="button" class="pessoa-nome" (click)="openProfile(x)" [attr.aria-label]="'Ver o perfil de ' + x.nome">
                       {{ x.nome }}
                     </button>
                     <span class="lacos">

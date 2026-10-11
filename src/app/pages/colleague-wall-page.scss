@@ -72,7 +72,24 @@
   text-align: center;
 }
 
+/* o nome da pessoa (pelo código, um link para o perfil dela, sublinhado como os outros nomes) */
+.placa-link {
+  color: inherit;
+  text-decoration: underline 3px;
+  text-underline-offset: 8px;
+
+  &:hover {
+    text-decoration-thickness: 4px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -6px;
+  }
+}
+
 .placa-nome {
+  display: block;
   overflow: hidden;
   padding: 12px 28px 8px;
   font-family: var(--f-marker);

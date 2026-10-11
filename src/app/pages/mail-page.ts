@@ -6,7 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Eye, Heart, Inbox, Link, LucideAngularModule, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
-import { CloudMurals, cloudColleagueId, muralLink } from '../core/cloud-murals';
+import { CloudMurals, muralLink } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
 import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, isUnseen, localDayOf } from '../core/follow';
@@ -487,16 +487,9 @@ export class MailPage {
     return (name.trim()[0] ?? '?').toLocaleUpperCase('pt-BR');
   }
 
-  protected async openWall(who: Person): Promise<void> {
-    await this.run(`${who.codigo}:mural`, async () => {
-      const c = await this.cloudMurals.ensure(who.codigo);
-      if (!c) {
-        this.toasts.show(`Não consegui abrir o mural de ${who.nome} agora.`);
-        return;
-      }
-      this.colleagues.select(cloudColleagueId(who.codigo));
-      await this.router.navigate(['/comparar/mural']);
-    });
+  /** O nome de alguém leva ao perfil da pessoa (de lá, cada pasta abre um mural dela). */
+  protected openProfile(who: Pick<Person, 'codigo'>): void {
+    void this.router.navigate(['/perfil', who.codigo]);
   }
 
   protected async followCode(e: Event): Promise<void> {

@@ -51,6 +51,17 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-nomes-levam-ao-perfil',
+    version: '1.30.2',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'O nome de alguém abre o perfil',
+    items: [
+      'Em Amigos, o nome na fita do Feed, em quem você segue e na lista de Pessoas abre o perfil da pessoa, e não mais o mural. Do perfil, cada pasta abre o mural dela.',
+      'O nome também abre o perfil no bilhete de quem começou a seguir você, na folha de quem reagiu, em “Resenha de…” no rodapé da ficha aberta e na placa “O mural de…”.',
+    ],
+  },
+  {
     id: '2026-10-10-perfil-mais-quieto',
     version: '1.30.1',
     kind: 'melhoria',
