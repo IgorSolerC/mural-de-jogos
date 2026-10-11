@@ -71,6 +71,8 @@ export const NEWS: NewsEntry[] = [
       'As partes de “Seu perfil” agora são fichas pautadas de papel claro, no lugar das cartolinas coloridas: a cor fica na prévia do quadro e nas amostras.',
       'A fita “Mural atualizado há…” foi para baixo da polaroid, e o quadro não gasta mais uma faixa só com ela.',
       'O topo de “Seu perfil” volta para o seu perfil, e a fita com o seu emoji fica acesa enquanto você o edita.',
+      'No celular e em telas médias, a prévia do quadro vem logo depois do Fundo do quadro, perto da foto e do fundo que ela mostra, e não mais no fim da página.',
+      'A linha embaixo do nome e a fita da data não passam mais da polaroid quando o quadro é estreito, e os murais sem nada à mostra ficaram mais legíveis.',
     ],
   },
   {

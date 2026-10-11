@@ -98,16 +98,37 @@
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
+/* Sem espaço para a prévia ao lado, ela entra logo depois do Fundo do quadro, perto da foto e do
+   fundo que ela mostra (e não no fim da página) */
 @media (max-width: 1179px) {
   .mesa {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 48px;
   }
   .fichas {
+    display: contents;
+  }
+  .ficha,
+  .previa {
+    width: 100%;
     max-width: 720px;
   }
+  .voce {
+    order: 1;
+  }
+  .fundo-ficha {
+    order: 2;
+  }
   .previa {
+    order: 3;
     position: static;
+  }
+  .murais-ficha {
+    order: 4;
+  }
+  .secoes-ficha {
+    order: 5;
   }
 }
 
@@ -611,10 +632,11 @@ fieldset > :not(legend) {
     padding-top: 0;
   }
 
+  /* sem nada à mostra: o nome na tinta mais fraca, que ainda lê bem no papel */
   &.vazio {
     .mural-icone,
     .mural-nome {
-      opacity: 0.45;
+      color: var(--ink-2);
     }
   }
 }

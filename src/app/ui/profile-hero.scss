@@ -146,7 +146,7 @@
 
 .conteudo {
   display: grid;
-  grid-template-columns: clamp(170px, 31%, 300px) minmax(0, 1fr);
+  grid-template-columns: clamp(190px, 31%, 300px) minmax(0, 1fr);
   gap: clamp(22px, 4.2cqw, 56px);
   align-items: start;
 }
@@ -236,10 +236,12 @@ figcaption {
 }
 
 .linha {
+  max-width: 100%;
+  text-wrap: balance;
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.78rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   line-height: 1.25;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -462,12 +464,12 @@ figcaption {
   position: relative;
   display: grid;
   gap: 3px;
-  padding: 15px 14px 11px;
+  padding: 20px 14px 11px;
   border-radius: 2px;
-  border-top: 5px solid var(--faixa);
+  /* a faixa de cor é impressa na ficha, como nas fichas pautadas coloridas da papelaria */
   background-color: #fbf9f2;
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
+  background-image: linear-gradient(var(--faixa) 0 5px, transparent 5px), var(--paper-grain);
+  background-blend-mode: normal, multiply;
   color: var(--ink);
   rotate: -1.2deg;
   box-shadow:
@@ -546,6 +548,14 @@ figcaption {
   rotate: -1.5deg;
 }
 
+/* A fita Dymo é uma tira só, sempre numa linha. No quadro médio a coluna da foto é estreita: a
+   letra diminui com o quadro até caber nela, em vez de quebrar ou passar para cima das fichinhas. */
+@container (min-width: 601px) and (max-width: 999px) {
+  .atualizado {
+    font-size: clamp(0.64rem, 1.18cqw, 0.82rem);
+    letter-spacing: 0.06em;
+  }
+}
 @container (max-width: 600px) {
   .atualizado {
     letter-spacing: 0.07em;
