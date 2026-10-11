@@ -37,6 +37,7 @@ export const SECTION_DENSITIES = [
   { id: 'inteira', label: 'Inteira', hint: 'A ficha completa com o texto todo.' },
   { id: 'simples', label: 'Simples', hint: 'Capa, nome, data e a nota.' },
   { id: 'capas', label: 'Capas', hint: 'Só a capa e o nome.' },
+  { id: 'polaroid', label: 'Polaroid', hint: 'Cada uma numa polaroid presa com fita: a capa, o nome à mão e a nota.' },
   { id: 'lista', label: 'Lista', hint: 'Só os nomes, um embaixo do outro.' },
 ] as const;
 export type SectionDensity = (typeof SECTION_DENSITIES)[number]['id'];

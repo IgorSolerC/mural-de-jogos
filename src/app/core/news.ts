@@ -51,6 +51,19 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-seguindo-seguidores',
+    version: '1.33.0',
+    kind: 'funcionalidade',
+    date: '2026-10-11',
+    title: 'Seguindo, Seguidores e as seções em polaroid',
+    items: [
+      'No perfil, embaixo do nome, quantos a pessoa segue e quantos a seguem. Tocando no número, abre a lista: cada pessoa num mini-mural com o fundo do perfil dela, a polaroid, a linha dela e quantas fichas tem, e o botão Seguir ali mesmo.',
+      'Em Ajustes › Amigos, escolha se quem visita vê as suas listas ou só os números.',
+      'As seções do perfil ganharam o tipo Polaroid: cada ficha numa polaroid presa com fita, com a capa, o nome à mão e a nota.',
+      'A fileira de amigos que ficava no perfil saiu: agora eles estão no Seguindo e no Seguidores.',
+    ],
+  },
+  {
     id: '2026-10-11-amigos-no-perfil',
     version: '1.32.0',
     kind: 'funcionalidade',

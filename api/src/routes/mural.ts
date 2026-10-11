@@ -1,7 +1,7 @@
 import { Context, Hono } from 'hono';
 import { utcDayStart, write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
-import { parsePhoto } from '../domain/photo';
+import { cleanCard, parseCard, parsePhoto } from '../domain/photo';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
@@ -136,8 +136,11 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const privateDoc = await gzipPart(form, 'privado');
     const publicDoc = await gzipPart(form, 'publico');
     const candidates = parseNew(form.get('novas'));
-    // a foto do perfil (para a lista de amigos): opcional, e uma que não serve só não muda a de antes
-    const photo = parsePhoto(form.get('foto'));
+    // o cartão da pessoa nas listas de Seguindo e Seguidores (a foto vem dentro dele; os sites de antes
+    // mandavam só a foto): opcionais, e o que não serve só não muda o de antes
+    const card = parseCard(form.get('cartao'));
+    const cardData = card ? cleanCard(JSON.parse(card)) : null;
+    const photo = cardData ? JSON.stringify({ emoji: cardData.emoji, cor: cardData.cor }) : parsePhoto(form.get('foto'));
 
     const now = deps.now();
     const at = now.toISOString();
@@ -196,8 +199,8 @@ export function muralRoutes(app: Hono, deps: Deps): void {
         }),
       ),
       {
-        sql: `UPDATE usuarios SET ultima_gravacao_em = ?, foto = COALESCE(?, foto) WHERE id = ? AND EXISTS (${ours})`,
-        params: [at, photo, s.userId, s.userId, mark],
+        sql: `UPDATE usuarios SET ultima_gravacao_em = ?, foto = COALESCE(?, foto), cartao = COALESCE(?, cartao) WHERE id = ? AND EXISTS (${ours})`,
+        params: [at, photo, card, s.userId, s.userId, mark],
       },
     ];
     const [result] = await write(deps, statements, 6 + 4 * fresh.length);

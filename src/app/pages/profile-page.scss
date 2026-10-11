@@ -350,234 +350,6 @@ $cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
   color: var(--ink-2);
 }
 
-/* ===== Os amigos: polaroids pequenas presas na parede com um pedaço de fita, numa fileira só (as
-   que cabem); "Ver todos" abre o resto. Embaixo de cada uma, a giz: seguir, ou que você já segue ===== */
-.amigos .vazio {
-  margin-top: 4px;
-}
-
-/* o "Ver todos" é um botão: a giz, sem a caixa do navegador */
-.ver-todos {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-
-/* estreito: o "Ver todos" fica na ponta da linha da fita, e a linha da pessoa desce */
-@container bloco (max-width: 559px) {
-  .amigos .risco {
-    display: none;
-  }
-  .amigos .ver-todos {
-    margin-left: auto;
-  }
-}
-
-.amigos-lista {
-  --cols: 2;
-  display: grid;
-  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-  gap: 34px 20px;
-  margin: 0;
-  padding: 10px 0 0;
-  list-style: none;
-}
-
-/* fechado, só a primeira fileira */
-.amigos:not(.abertos) .amigo:nth-child(n + 3) {
-  display: none;
-}
-
-/* quantas cabem: uma a mais a cada 116px (a polaroid tem pelo menos 96px); até dez. Quando todas
-   cabem, o "Ver todos" não tem o que abrir e some */
-$amigos-cabem: (328px: 3, 444px: 4, 560px: 5, 676px: 6, 792px: 7, 908px: 8, 1024px: 9, 1140px: 10);
-@each $largura, $n in $amigos-cabem {
-  @container bloco (min-width: #{$largura}) {
-    .amigos-lista {
-      --cols: #{$n};
-    }
-    .amigos:not(.abertos) .amigo:nth-child(#{$n}) {
-      display: grid;
-    }
-    .amigos[data-n='#{$n}'] .ver-todos {
-      display: none;
-    }
-  }
-}
-.amigos:is([data-n='1'], [data-n='2']) .ver-todos {
-  display: none;
-}
-
-.amigo {
-  --tilt: -2deg;
-  display: grid;
-  align-content: start;
-  justify-items: center;
-  gap: 12px;
-  min-width: 0;
-
-  &:nth-child(4n + 2) {
-    --tilt: 1.6deg;
-  }
-  &:nth-child(4n + 3) {
-    --tilt: -0.8deg;
-  }
-  &:nth-child(4n) {
-    --tilt: 2.4deg;
-  }
-}
-
-/* a polaroid pequena: a mesma do quadro de cima, em miniatura, com a foto e o nome à mão */
-.mini-polaroid {
-  --ink: #151515;
-  position: relative;
-  display: grid;
-  width: 100%;
-  max-width: 132px;
-  padding: 8px 8px 0;
-  border-radius: 2px;
-  background-color: #fbfaf5;
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  text-decoration: none;
-  rotate: var(--tilt);
-  /* a foto e o nome se medem pela polaroid */
-  container-type: inline-size;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.3),
-    0 8px 14px -6px rgb(0 0 0 / 0.6),
-    0 18px 26px -16px rgb(0 0 0 / 0.5);
-  transition:
-    translate var(--t-physical) var(--ease-physical),
-    rotate var(--t-physical) var(--ease-physical);
-
-  &:hover {
-    translate: 0 -3px;
-    rotate: calc(var(--tilt) * 0.4);
-  }
-
-  &:active {
-    translate: 0 0;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 5px;
-  }
-}
-
-/* o pedaço de fita-crepe que prende a polaroid na parede */
-.mini-fita {
-  position: absolute;
-  z-index: 2;
-  top: -9px;
-  left: 28%;
-  width: 44%;
-  height: 17px;
-  background-color: rgb(222 205 160 / 0.88);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  clip-path: polygon(0 8%, 3px 32%, 0 58%, 2px 92%, 100% 100%, calc(100% - 3px) 70%, 100% 40%, calc(100% - 2px) 4%);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
-  rotate: calc(var(--tilt) * -1.5);
-}
-
-.mini-foto {
-  position: relative;
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  overflow: hidden;
-  border-radius: 1px;
-  box-shadow:
-    inset 0 0 0 1px rgb(0 0 0 / 0.14),
-    inset 0 0 18px rgb(0 0 0 / 0.22);
-}
-
-.mini-emoji {
-  font-size: 50cqw;
-  line-height: 1;
-  rotate: -4deg;
-  filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.26));
-  user-select: none;
-}
-
-/* sem foto ainda: a inicial a caneta na cartolina */
-.mini-inicial {
-  font-family: var(--f-marker);
-  font-size: 46cqw;
-  line-height: 1;
-  color: var(--ink);
-  rotate: -4deg;
-}
-
-.mini-nome {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  /* sempre o lugar de duas linhas: as polaroids da fileira ficam do mesmo tamanho (a margem, e não o
-     recheio, para a terceira linha cortada não espiar embaixo) */
-  min-height: 2.2em;
-  margin: 8px 2px 10px;
-  font-family: var(--f-marker);
-  font-size: clamp(0.92rem, 13.5cqw, 1.12rem);
-  line-height: 1.1;
-  text-align: center;
-  text-wrap: balance;
-  overflow-wrap: anywhere;
-}
-
-/* seguir: a giz, com o contorno (é o que dá para clicar); o "você segue", só o risco de visto */
-.amigo-seguir,
-.amigo-marca {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-height: 36px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
-
-  /* esperando, o aro de caneta toma o lugar do ícone (ver .carregando em styles.scss) */
-  &:not(.carregando) > lucide-icon {
-    display: inline-flex;
-    flex: none;
-  }
-}
-
-.amigo-seguir {
-  padding: 0 12px 0 9px;
-  border: 2px solid rgb(243 239 230 / 0.42);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--wall-ink);
-  cursor: pointer;
-  transition:
-    background-color var(--t-ui) var(--ease-ui),
-    border-color var(--t-ui) var(--ease-ui);
-
-  &:hover:not(:disabled) {
-    border-color: var(--wall-ink);
-    background: rgb(243 239 230 / 0.1);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 2px;
-  }
-}
-
-.amigo-marca {
-  color: var(--wall-ink-2);
-}
-
 /* ===== As seções ===== */
 .suporte {
   position: relative;
@@ -824,6 +596,69 @@ $amigos-cabem: (328px: 3, 444px: 4, 560px: 5, 676px: 6, 792px: 7, 908px: 8, 1024
   background: rgb(251 249 242 / 0.9);
 }
 
+/* ===== O tipo Polaroid: cada ficha numa polaroid em pé, a capa na foto, presa com fita ===== */
+.polaroids {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+  gap: 40px 26px;
+  margin: 0;
+  padding: 12px 0 0;
+  list-style: none;
+
+  li {
+    --t: -2deg;
+    display: grid;
+    justify-items: center;
+    min-width: 0;
+
+    &:nth-child(4n + 2) {
+      --t: 1.6deg;
+    }
+    &:nth-child(4n + 3) {
+      --t: -0.8deg;
+    }
+    &:nth-child(4n) {
+      --t: 2.4deg;
+    }
+  }
+}
+
+.polaroid-item {
+  --tilt: var(--t);
+  width: 100%;
+  max-width: 200px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+
+  &:hover {
+    --tilt: calc(var(--t) * 0.4);
+    --ergue: -4px;
+  }
+
+  &:active {
+    --ergue: 0px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 6px;
+  }
+}
+
+/* no quadro de cortiça, a mesma polaroid, presa no meio dele */
+.no-quadro .polaroids {
+  padding-top: 4px;
+}
+
+@container bloco (max-width: 559px) {
+  .polaroids {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 32px 16px;
+  }
+}
+
 /* ===== O pé: quem fez ===== */
 .pe {
   display: flex;
@@ -961,8 +796,7 @@ $amigos-cabem: (328px: 3, 444px: 4, 560px: 5, 676px: 6, 792px: 7, 908px: 8, 1024
 @media (prefers-reduced-motion: reduce) {
   .pasta-mural,
   .orelha,
-  .espia,
-  .mini-polaroid {
+  .espia {
     transition: none;
   }
 }

@@ -385,6 +385,40 @@
               <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'numero' }" /></div>
             }
             </div>
+
+            @if (account.signedIn()) {
+              <fieldset class="linha larga" (mouseenter)="peek('pessoas')" (focusin)="peek('pessoas')">
+                <legend class="linha-titulo">Quem você segue e quem te segue</legend>
+                <p class="linha-desc">Aparece no seu perfil, embaixo do nome. Com as listas, quem visita vê quem são e já pode seguir; com só os números, vê quantos.</p>
+                <div class="segmentos dois">
+                  <label class="segmento">
+                    <input
+                      type="radio"
+                      name="pessoas"
+                      value="listas"
+                      [checked]="peoplePrivacy.privacy() === 'listas'"
+                      [disabled]="peoplePrivacy.privacy() === null || privacyBusy()"
+                      (change)="setPeoplePrivacy('listas')"
+                    />
+                    <span class="seg-nome">As listas</span>
+                  </label>
+                  <label class="segmento">
+                    <input
+                      type="radio"
+                      name="pessoas"
+                      value="numeros"
+                      [checked]="peoplePrivacy.privacy() === 'numeros'"
+                      [disabled]="peoplePrivacy.privacy() === null || privacyBusy()"
+                      (change)="setPeoplePrivacy('numeros')"
+                    />
+                    <span class="seg-nome">Só os números</span>
+                  </label>
+                </div>
+                @if (peeking() === 'pessoas') {
+                  <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'pessoas' }" /></div>
+                }
+              </fieldset>
+            }
           }
         </div>
       }
@@ -695,6 +729,18 @@
           }
         </span>
         <p class="pv-legenda">{{ settings.mailCount() ? 'O botão Amigos conta o que chegou.' : 'O botão fica quieto.' }}</p>
+      </div>
+    }
+    @case ('pessoas') {
+      <div class="pv pv-pessoas">
+        <span class="pv-gente" [class.abre]="peoplePrivacy.privacy() !== 'numeros'">
+          <span class="pv-gente-item"><b>12</b> seguindo</span>
+          <span>·</span>
+          <span class="pv-gente-item"><b>8</b> seguidores</span>
+        </span>
+        <p class="pv-legenda">
+          {{ peoplePrivacy.privacy() === 'numeros' ? 'Quem visita vê só quantos são. Você continua vendo as suas listas.' : 'Quem visita toca no número e vê quem são, cada um no seu mini-mural.' }}
+        </p>
       </div>
     }
   }

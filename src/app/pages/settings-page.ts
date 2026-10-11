@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { PeoplePrivacy, ProfilePeople } from '../core/profile-people';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -164,6 +165,9 @@ export class SettingsPage {
   private readonly lookup = inject(GameLookup);
   private readonly siteKeys = inject(SiteKeys);
   protected readonly account = inject(CloudAccount);
+  /** Quem você segue e quem te segue, no seu perfil: as listas ou só os números (fica na nuvem). */
+  protected readonly peoplePrivacy = inject(ProfilePeople);
+  protected readonly privacyBusy = signal(false);
   protected readonly sync = inject(CloudSync);
   protected readonly beforeCopy = signal<BeforeCloudCopy | null>(null);
   /** A ação da conta em andamento ('entrar', 'codigo', 'sair', 'sair-todos', 'apagar'): ela mostra o aro, as outras esperam. */
@@ -254,6 +258,22 @@ export class SettingsPage {
       this.sync.lastSyncAt();
       void readBeforeCloud().then((copy) => this.beforeCopy.set(copy));
     });
+    // a escolha de quem você segue e quem te segue fica na nuvem: vem dela ao entrar na conta
+    effect(() => {
+      if (this.account.signedIn() && this.cloud.config()) untracked(() => void this.peoplePrivacy.loadPrivacy());
+    });
+  }
+
+  protected async setPeoplePrivacy(value: PeoplePrivacy): Promise<void> {
+    if (this.privacyBusy() || this.peoplePrivacy.privacy() === value) return;
+    this.privacyBusy.set(true);
+    try {
+      await this.peoplePrivacy.setPrivacy(value);
+    } catch (err) {
+      this.toasts.show(err instanceof Error ? err.message : 'Não deu para mudar agora. Tente de novo.');
+    } finally {
+      this.privacyBusy.set(false);
+    }
   }
 
   private readonly wishCount = computed(() => this.store.wishes().length);

@@ -215,6 +215,55 @@ figcaption {
   overflow-wrap: anywhere;
 }
 
+/* quantos segue e quantos a seguem, a caneta embaixo do nome: o número em cima e a palavra embaixo,
+   lado a lado (cabem na polaroid estreita sem quebrar); o que abre a lista ganha o marca-texto */
+.gente {
+  display: flex;
+  justify-content: center;
+  gap: 2px clamp(6px, 4cqw, 16px);
+  margin-top: 4px;
+}
+
+.gente-item {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 3px 8px 4px;
+  font-family: var(--f-hand);
+  font-size: clamp(0.88rem, 6cqw, 1.04rem);
+  line-height: 1.1;
+  color: var(--ink-2);
+
+  b {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.3em;
+    line-height: 1;
+    color: var(--ink);
+  }
+}
+
+.gente-palavra {
+  white-space: nowrap;
+}
+
+button.gente-item {
+  min-height: 44px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+
+  &:hover .gente-palavra {
+    background: linear-gradient(transparent 50%, rgb(255 218 66 / 0.8) 50% 94%, transparent 94%);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
 /* masking tape: os pedaços que prendem a polaroid e a folha */
 .fita {
   position: absolute;

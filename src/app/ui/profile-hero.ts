@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { Profile, ProfileStats } from '../core/profile';
 import { STOCK_LABEL } from '../core/review';
 import { RichText } from './rich-text';
@@ -38,6 +38,20 @@ export class ProfileHero {
   readonly stats = input.required<ProfileStats>();
   /** "Atualizado há 3 horas" (vazio: nada). */
   readonly updated = input('');
+  /**
+   * Quantos a pessoa segue e quantos a seguem, embaixo do nome (null: nada, como na prévia das
+   * Configurações). `open`: dá para abrir as listas (`peopleOpened`).
+   */
+  readonly people = input<{ seguindo: number; seguidores: number; open: boolean } | null>(null);
+  readonly peopleOpened = output<'seguindo' | 'seguidores'>();
+
+  protected readonly tabs = ['seguindo', 'seguidores'] as const;
+  protected peopleWord(tab: 'seguindo' | 'seguidores', n: number): string {
+    return tab === 'seguindo' ? 'seguindo' : n === 1 ? 'seguidor' : 'seguidores';
+  }
+  protected peopleLabel(tab: 'seguindo' | 'seguidores', n: number): string {
+    return tab === 'seguindo' ? `Segue ${n} ${n === 1 ? 'pessoa' : 'pessoas'}` : `${n} ${n === 1 ? 'seguidor' : 'seguidores'}`;
+  }
 
   protected readonly cuts = LETTERS.map((ch, i) => ({ ch, ...CUTS[i] }));
   protected readonly photoLabel = computed(() => STOCK_LABEL[this.profile().photo]);

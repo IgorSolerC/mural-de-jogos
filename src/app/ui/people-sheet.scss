@@ -1,0 +1,339 @@
+@use 'sheet';
+@use 'profile-materials' as materials;
+
+:host {
+  display: contents;
+}
+
+dialog.gente {
+  max-width: min(800px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+  rotate: -0.3deg;
+}
+
+/* ===== A faixa de cima, na cartolina da polaroid da pessoa: o nome e as duas abas ===== */
+.head {
+  align-items: flex-start;
+  margin-bottom: 0;
+  padding-bottom: 14px;
+}
+
+.head-texto {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+
+  h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+.abas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* a aba: um recorte de papel; a aberta fica colada, clara e torta */
+.aba {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-height: 40px;
+  padding: 8px 14px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical);
+
+  b {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.25rem;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  &:hover:not([aria-selected='true']) {
+    background: color-mix(in srgb, currentColor 18%, transparent);
+  }
+
+  &[aria-selected='true'] {
+    --ink: #151515;
+    background-color: #fbfaf5;
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    color: #151515;
+    rotate: -1.5deg;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.3),
+      0 5px 9px -5px rgb(0 0 0 / 0.5);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.body {
+  padding-top: 26px;
+}
+
+.vazio {
+  padding: 28px 4px 34px;
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.esperando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Os mini-murais: o quadro de cima do perfil de cada um, em miniatura ===== */
+.murais {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+  gap: 24px 20px;
+  margin: 0;
+  padding: 0 0 6px;
+  list-style: none;
+}
+
+.mini-mural {
+  --tilt-quadro: -0.5deg;
+  position: relative;
+  padding: 7px;
+  rotate: var(--tilt-quadro);
+  @include materials.moldura-pinus;
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  &:nth-child(2n) {
+    --tilt-quadro: 0.6deg;
+  }
+  &:nth-child(3n) {
+    --tilt-quadro: -0.2deg;
+  }
+
+  &:hover {
+    translate: 0 -2px;
+
+    .mm-polaroid {
+      --ergue: -3px;
+      --tilt: -1deg;
+    }
+  }
+
+  /* o foco do link vale para o quadro inteiro (o link cobre o quadro) */
+  &:has(.mm-link:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+}
+
+.mm-fundo {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  min-height: 158px;
+  overflow: hidden;
+  padding: 18px 14px 14px 16px;
+  border-radius: 1px;
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.42),
+    inset 0 0 0 1px rgb(0 0 0 / 0.28);
+  @include materials.fundos;
+}
+
+/* uma imagem por link: colada no fundo, debaixo do plástico de encapar */
+.mm-foto-fundo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mm-plastico {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 30%, rgb(255 255 255 / 0.2) 36%, transparent 44%),
+    rgb(255 255 255 / 0.06);
+}
+
+/* o link cobre o quadro inteiro; só o Seguir fica por cima dele */
+.mm-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+}
+
+.mm-polaroid {
+  --tilt: -3deg;
+}
+
+.mm-lado {
+  display: grid;
+  align-content: space-between;
+  justify-items: start;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+}
+
+/* o bilhete: um pedaço de papel preso com fita, com a linha da pessoa e os números a caneta */
+.bilhete {
+  --ink: #151515;
+  position: relative;
+  display: grid;
+  gap: 4px;
+  max-width: 100%;
+  margin: 6px 0 0;
+  padding: 12px 12px 10px;
+  border-radius: 1px;
+  background-color: #fffdf6;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  rotate: 1.4deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.28),
+    0 6px 10px -6px rgb(0 0 0 / 0.55);
+}
+
+.bilhete-fita {
+  position: absolute;
+  top: -8px;
+  left: calc(50% - 26px);
+  width: 52px;
+  height: 15px;
+  background-color: rgb(222 205 160 / 0.88);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  clip-path: polygon(0 8%, 3px 32%, 0 58%, 2px 92%, 100% 100%, calc(100% - 3px) 70%, 100% 40%, calc(100% - 2px) 4%);
+  rotate: -3deg;
+}
+
+.b-linha {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.78);
+  overflow-wrap: anywhere;
+}
+
+.b-numeros {
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.2;
+}
+
+.b-segue {
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  line-height: 1.2;
+  color: var(--caneta-azul, #1d3f9e);
+}
+
+/* o Seguir, por cima do link do quadro */
+.mm-seguir {
+  position: relative;
+  z-index: 2;
+  justify-self: end;
+  min-height: 40px;
+  padding: 8px 14px 7px 11px;
+  font-size: 1rem;
+  gap: 6px;
+}
+
+/* já segue, ou é você: a fita Dymo, como as do quadro de cima */
+.dymo {
+  position: relative;
+  z-index: 2;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 6px 11px 5px;
+  border-radius: 2px;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04) 46%, transparent 52%, rgb(0 0 0 / 0.18)),
+    #121212;
+  color: #ebe5d8;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 0.32),
+    0 1px 1px rgb(0 0 0 / 0.7);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 1px 1px rgb(0 0 0 / 0.45),
+    0 4px 7px -3px rgb(0 0 0 / 0.5);
+  rotate: -1.5deg;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .head {
+    padding: 22px 16px 12px;
+  }
+  .body {
+    padding: 22px 14px 18px;
+  }
+  .mm-fundo {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px 12px 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-mural,
+  .aba {
+    transition: none;
+  }
+}

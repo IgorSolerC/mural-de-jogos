@@ -9,7 +9,16 @@
   }
   @default {
     @if (own() || colleague()) {
-      <app-profile-hero class="topo" [profile]="profile()" [name]="name()" [code]="code()" [stats]="stats()" [updated]="updated()">
+      <app-profile-hero
+        class="topo"
+        [profile]="profile()"
+        [name]="name()"
+        [code]="code()"
+        [stats]="stats()"
+        [updated]="updated()"
+        [people]="peopleCounts()"
+        (peopleOpened)="openPeople($event)"
+      >
         <div acoes class="acoes">
           @if (own()) {
             @if (code()) {
@@ -92,77 +101,6 @@
         }
       </section>
 
-      <!-- ===== Os amigos: as polaroids pequenas de quem a pessoa segue e a segue de volta. Uma fileira
-           só (as que cabem); "Ver todos" abre o resto. A foto leva ao perfil, e embaixo dá para seguir ===== -->
-      @if (friends(); as fs) {
-        @if (fs.length || own()) {
-          <section
-            class="bloco amigos"
-            [class.abertos]="allFriends()"
-            [attr.data-n]="fs.length > 10 ? 11 : fs.length"
-            aria-labelledby="amigos-titulo"
-          >
-            <header class="cabeca">
-              <h2 id="amigos-titulo" class="tape-label">{{ own() ? 'Os seus amigos' : 'Amigos de ' + name() }}</h2>
-              @if (friendsNote()) {
-                <p class="secao-nota">{{ friendsNote() }}</p>
-              }
-              <span class="risco" aria-hidden="true"></span>
-              @if (fs.length > 1) {
-                <button type="button" class="giz arrumar ver-todos" aria-controls="amigos-lista" [attr.aria-expanded]="allFriends()" (click)="allFriends.set(!allFriends())">
-                  {{ allFriends() ? 'Ver menos' : 'Ver todos · ' + fs.length }}
-                </button>
-              }
-            </header>
-            @if (fs.length) {
-              <ul id="amigos-lista" class="amigos-lista">
-                @for (f of fs; track f.codigo) {
-                  <li class="amigo">
-                    <a class="mini-polaroid" [routerLink]="['/perfil', f.codigo]" [attr.aria-label]="'Ver o perfil de ' + f.nome">
-                      <span class="mini-fita" aria-hidden="true"></span>
-                      <span class="mini-foto cartolina" [attr.data-cor]="friendStock(f)" [style.--stock]="'var(--stock-' + friendStock(f) + ')'" aria-hidden="true">
-                        @if (f.foto) {
-                          <span class="mini-emoji">{{ f.foto.emoji }}</span>
-                        } @else {
-                          <span class="mini-inicial">{{ initial(f.nome) }}</span>
-                        }
-                      </span>
-                      <span class="mini-nome">{{ f.nome }}</span>
-                    </a>
-                    @switch (friendState(f)) {
-                      @case ('seguir') {
-                        <button
-                          type="button"
-                          class="amigo-seguir"
-                          [disabled]="friendBusyFor(f.codigo)"
-                          [appBusy]="friendBusyFor(f.codigo)"
-                          [attr.aria-label]="'Seguir ' + f.nome"
-                          (click)="followFriend(f)"
-                        >
-                          <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
-                          {{ friendBusyFor(f.codigo) ? 'Seguindo…' : 'Seguir' }}
-                        </button>
-                      }
-                      @case ('segue') {
-                        <span class="amigo-marca">
-                          <lucide-icon [img]="CheckIcon" [size]="15" [strokeWidth]="3" aria-hidden="true" />
-                          Você segue
-                        </span>
-                      }
-                      @case ('voce') {
-                        <span class="amigo-marca">É você</span>
-                      }
-                    }
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="giz vazio">Quando alguém que você segue te seguir de volta, aparece aqui. Os amigos dos seus amigos ficam a um clique.</p>
-            }
-          </section>
-        }
-      }
-
       <!-- ===== As seções que a pessoa montou ===== -->
       @for (s of sections(); track s.id) {
         <section class="bloco secao" [class.no-quadro]="s.frame === 'quadro'" [attr.aria-label]="s.title || 'Seção sem nome'">
@@ -207,6 +145,17 @@
                   </li>
                 }
               </ol>
+            } @else if (s.density === 'polaroid') {
+              <!-- as polaroids: a capa na foto, o nome à mão e a nota a caneta, presas com fita -->
+              <ul class="polaroids">
+                @for (r of s.cards; track r.id) {
+                  <li>
+                    <button type="button" class="polaroid-item" [attr.aria-label]="r.game.name + (score(r) && !hidden().has(r.id) ? ', nota ' + score(r) : '')" (click)="open(r)">
+                      <app-mini-polaroid shape="retrato" [image]="r.game.coverUrl" [stock]="stockOf(r)" [caption]="r.game.name" [extra]="hidden().has(r.id) ? '?' : score(r)" />
+                    </button>
+                  </li>
+                }
+              </ul>
             } @else {
               <div class="fichas" [attr.data-tipo]="s.density">
                 @for (r of s.cards; track r.id) {
@@ -227,6 +176,10 @@
             </div>
           </div>
         </section>
+      }
+
+      @if (code(); as c) {
+        <app-people-sheet [code]="c" [name]="name()" [stock]="profile().photo" [own]="own()" />
       }
 
       <footer class="pe">

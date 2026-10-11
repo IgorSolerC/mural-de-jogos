@@ -2,7 +2,7 @@ import { Context, Hono } from 'hono';
 import { DAY_MS, utcDayStart, write } from '../domain/quota';
 import { base64url, sha256 } from '../domain/bytes';
 import { formatCode, normalizeCode } from '../domain/code';
-import { photoOut } from '../domain/photo';
+import { cardOut } from '../domain/photo';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -15,6 +15,10 @@ import { readJson, sessionOf } from './http';
  * O correio não grava nada por pessoa: as atividades são uma linha por acontecimento (ver
  * `routes/mural.ts`), e cada um lê as suas juntando com quem segue. Conferir se há algo novo
  * (`?depois=`) responde 204, sem corpo, quando não há.
+ *
+ * O perfil de cada um mostra quantos ela segue e quantos a seguem (`GET /v1/murais/:codigo/pessoas`)
+ * e, se ela deixar (`pessoas_visiveis`), quem são: para dar para seguir os amigos dos amigos sem
+ * passar código de mão em mão.
  */
 
 /** Quantas pessoas uma conta segue, no máximo. */
@@ -188,28 +192,42 @@ export function followRoutes(app: Hono, deps: Deps): void {
   });
 
   /**
-   * Os amigos de alguém, no perfil dele: quem ele segue e o segue de volta, e que tem mural público
-   * (senão o perfil da pessoa nem abre). Os mais novos primeiro (de quando o segundo seguiu), com a
-   * foto do perfil quando já veio. Aberto a quem pode abrir o mural da pessoa (`VER_MURAIS`).
+   * Seguindo e Seguidores no perfil de alguém: os números sempre; com `?listas=1`, quem são (os mais
+   * novos primeiro, até `MAX_FOLLOWING` de cada), se a pessoa deixa ver ou se é ela mesma pedindo. Só
+   * conta e lista quem tem mural público (o perfil de quem não tem nem abre). Cada um vem com o cartão
+   * (a foto, o fundo do perfil e os números), quando já veio. Aberto a quem pode abrir o mural
+   * (`VER_MURAIS`); a sessão, se vier, só diz se é a própria pessoa.
    */
-  app.get('/v1/murais/:codigo/amigos', async (c) => {
-    if (deps.config.publicMurals === 'logados') await session(c);
+  app.get('/v1/murais/:codigo/pessoas', async (c) => {
+    const mustSignIn = deps.config.publicMurals === 'logados';
+    const viewer = mustSignIn ? await session(c) : c.req.header('Authorization') ? await session(c).catch(() => null) : null;
     const code = normalizeCode(c.req.param('codigo'));
-    const owner = code ? await deps.db.first<{ id: string }>('SELECT id FROM usuarios WHERE codigo = ?', [code]) : null;
+    const owner = code
+      ? await deps.db.first<{ id: string; visiveis: number; seguindo: number; seguidores: number }>(
+          'SELECT u.id, u.pessoas_visiveis AS visiveis, ' +
+            '(SELECT COUNT(*) FROM seguindo s JOIN murais_publicos p ON p.usuario_id = s.seguido_id WHERE s.seguidor_id = u.id) AS seguindo, ' +
+            '(SELECT COUNT(*) FROM seguindo s JOIN murais_publicos p ON p.usuario_id = s.seguidor_id WHERE s.seguido_id = u.id) AS seguidores ' +
+            'FROM usuarios u WHERE u.codigo = ?',
+          [code],
+        )
+      : null;
     if (!owner) throw new HttpError(404, 'pessoa-nao-encontrada', 'Não achei ninguém com esse código.');
-    const rows = await deps.db.all<{ codigo: string; nome: string; foto: string | null }>(
-      'SELECT u.codigo, u.nome, u.foto FROM seguindo a ' +
-        'JOIN seguindo b ON b.seguidor_id = a.seguido_id AND b.seguido_id = a.seguidor_id ' +
-        'JOIN usuarios u ON u.id = a.seguido_id JOIN murais_publicos p ON p.usuario_id = u.id ' +
-        'WHERE a.seguidor_id = ? ORDER BY MAX(a.criado_em, b.criado_em) DESC, u.nome LIMIT ?',
-      [owner.id, MAX_FOLLOWING],
-    );
-    return c.json({
-      amigos: rows.map((r) => {
-        const foto = photoOut(r.foto);
-        return { ...personOut(r), ...(foto ? { foto } : {}) };
-      }),
-    });
+    const out = { seguindo: owner.seguindo, seguidores: owner.seguidores, listasVisiveis: !!owner.visiveis };
+    if (c.req.query('listas') !== '1' || !(owner.visiveis || viewer?.userId === owner.id)) return c.json(out);
+    type Row = { codigo: string; nome: string; foto: string | null; cartao: string | null };
+    const list = (them: 'seguido_id' | 'seguidor_id', me: 'seguidor_id' | 'seguido_id') =>
+      deps.db.all<Row>(
+        `SELECT u.codigo, u.nome, u.foto, u.cartao FROM seguindo s JOIN usuarios u ON u.id = s.${them} ` +
+          `JOIN murais_publicos p ON p.usuario_id = u.id WHERE s.${me} = ? ORDER BY s.criado_em DESC LIMIT ?`,
+        [owner.id, MAX_FOLLOWING],
+      );
+    const following = await list('seguido_id', 'seguidor_id');
+    const followers = await list('seguidor_id', 'seguido_id');
+    const person = (r: Row) => {
+      const cartao = cardOut(r.cartao, r.foto);
+      return { ...personOut(r), ...(cartao ? { cartao } : {}) };
+    };
+    return c.json({ ...out, listas: { seguindo: following.map(person), seguidores: followers.map(person) } });
   });
 
   /** As duas listas numa chamada só: quem eu sigo e quem me segue. */

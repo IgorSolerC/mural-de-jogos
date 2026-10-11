@@ -32,6 +32,20 @@
           @if (profile().tagline) {
             <span class="linha">{{ profile().tagline }}</span>
           }
+          <!-- quantos ela segue e quantos a seguem, a caneta; dá para abrir as listas se ela deixa -->
+          @if (people(); as p) {
+            <span class="gente">
+              @for (t of tabs; track t) {
+                @if (p.open) {
+                  <button type="button" class="gente-item" [attr.aria-label]="peopleLabel(t, p[t]) + ': ver quem são'" (click)="peopleOpened.emit(t)">
+                    <b>{{ p[t] }}</b> <span class="gente-palavra">{{ peopleWord(t, p[t]) }}</span>
+                  </button>
+                } @else {
+                  <span class="gente-item"><b>{{ p[t] }}</b> <span class="gente-palavra">{{ peopleWord(t, p[t]) }}</span></span>
+                }
+              }
+            </span>
+          }
         </figcaption>
       </figure>
       @if (updated()) {

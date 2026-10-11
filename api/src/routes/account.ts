@@ -81,23 +81,44 @@ export function accountRoutes(app: Hono, deps: Deps): void {
 
   app.get('/v1/eu', async (c) => {
     const s = await session(c);
-    const user = await deps.db.first<UserRow & { seguidores: number; seguindo: number }>(
-      'SELECT id, codigo, nome, criado_em, ' +
+    const user = await deps.db.first<UserRow & { seguidores: number; seguindo: number; pessoas_visiveis: number }>(
+      'SELECT id, codigo, nome, criado_em, pessoas_visiveis, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguido_id = usuarios.id) AS seguidores, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = usuarios.id) AS seguindo ' +
         'FROM usuarios WHERE id = ?',
       [s.userId],
     );
     if (!user) throw invalidSession();
-    return c.json({ ...account(user), criadoEm: user.criado_em, seguidores: user.seguidores, seguindo: user.seguindo });
+    return c.json({
+      ...account(user),
+      criadoEm: user.criado_em,
+      seguidores: user.seguidores,
+      seguindo: user.seguindo,
+      pessoas: user.pessoas_visiveis ? 'listas' : 'numeros',
+    });
   });
 
   app.patch('/v1/eu', async (c) => {
     const s = await session(c);
-    const name = cleanName((await readJson(c))['nome']);
+    const body = await readJson(c);
+    // o nome e/ou o que os outros veem de quem eu sigo e de quem me segue: as listas, ou só os números
+    const people = body['pessoas'];
+    if (people !== undefined && people !== 'listas' && people !== 'numeros') {
+      throw new HttpError(400, 'pessoas-invalido', 'Escolha entre mostrar as listas ou só os números.');
+    }
+    const visible = people === undefined ? null : people === 'listas' ? 1 : 0;
+    if (body['nome'] === undefined && visible !== null) {
+      await write(deps, [{ sql: 'UPDATE usuarios SET pessoas_visiveis = ? WHERE id = ?', params: [visible, s.userId] }], 2);
+      return c.json({ pessoas: people });
+    }
+    const name = cleanName(body['nome']);
     if (!name) throw new HttpError(400, 'nome-invalido', 'Escreva um nome de 1 a 40 caracteres.');
-    await write(deps, [{ sql: 'UPDATE usuarios SET nome = ? WHERE id = ?', params: [name, s.userId] }], 2);
-    return c.json({ nome: name });
+    await write(
+      deps,
+      [{ sql: 'UPDATE usuarios SET nome = ?, pessoas_visiveis = COALESCE(?, pessoas_visiveis) WHERE id = ?', params: [name, visible, s.userId] }],
+      2,
+    );
+    return c.json({ nome: name, ...(visible !== null ? { pessoas: people } : {}) });
   });
 
   // Trocar o código: o antigo para de funcionar; quem segue continua seguindo (seguir guarda o id).

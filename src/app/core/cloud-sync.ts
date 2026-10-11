@@ -6,7 +6,7 @@ import { CloudAccount, CloudError } from './cloud-account';
 import { Review, isPrivate } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
-import { Profile, publicProfile, sanitizeProfile } from './profile';
+import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
 import { BackupPayload, ReviewStore, canonicalJson } from './review-store';
 import { Settings } from './settings';
@@ -775,8 +775,18 @@ export class CloudSync {
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');
     form.append('novas', JSON.stringify(novas));
-    // a foto do perfil, para a lista de amigos no perfil dos outros mostrar a carinha (o resto do perfil a nuvem não abre)
-    if (profile) form.append('foto', JSON.stringify({ emoji: profile.dados.emoji, cor: profile.dados.photo }));
+    // o cartão da pessoa no Seguindo/Seguidores dos outros: a foto, o fundo, a linha e os números (a
+    // nuvem não abre o mural público). Sem perfil mexido, o padrão, que é o que o perfil mostra
+    const shown = profile?.dados ?? defaultProfile();
+    const cartao = {
+      emoji: shown.emoji,
+      cor: shown.photo,
+      fundo: shown.background,
+      linha: shown.tagline,
+      fichas: reviews.length + notas.length,
+      murais: new Set([...reviews.map((r) => r.kind), ...(notas.length ? ['anotacoes'] : [])]).size,
+    };
+    form.append('cartao', JSON.stringify(cartao));
     this.pushes.push({ at: now, print });
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     this.noteClock(res);

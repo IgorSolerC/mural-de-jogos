@@ -2,26 +2,29 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
-import { Check, Copy, LucideAngularModule, PenLine, Plus, RefreshCw, UserCheck, UserPlus } from 'lucide-angular';
+import { Copy, LucideAngularModule, PenLine, RefreshCw, UserCheck, UserPlus } from 'lucide-angular';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals, cloudColleagueId, normalizeCode } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { Desk } from '../core/desk';
 import { Follow } from '../core/follow';
-import { Friend, Friends, initialStock, orderFriends } from '../core/friends';
+import { PeopleTab, ProfilePeople } from '../core/profile-people';
 import { KINDS, Kind, countOf, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Profile, ProfileSection, defaultProfile, profileStats, updatedLabel } from '../core/profile';
 import { ProfileStore } from '../core/profile-store';
 import { Reactions } from '../core/reactions';
-import { Review, formatScore, isDone, isNote, isPrivate, scoreOf } from '../core/review';
+import { Review, Stock, formatScore, isDone, isNote, isPrivate, scoreOf } from '../core/review';
+import { pinningFor } from '../core/wall-physics';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { Busy } from '../ui/busy';
 import { CoverSleeve } from '../ui/cover-sleeve';
 import { KIND_ICON } from '../ui/kind-switcher';
+import { MiniPolaroid } from '../ui/mini-polaroid';
+import { PeopleSheet } from '../ui/people-sheet';
 import { Pin } from '../ui/pin';
 import { ProfileHero } from '../ui/profile-hero';
 import { ReviewCard } from '../ui/review-card';
@@ -61,7 +64,7 @@ type Who =
  */
 @Component({
   selector: 'app-profile-page',
-  imports: [Busy, CoverSleeve, LucideAngularModule, Pin, ProfileHero, ReviewCard, ReviewReader, RouterLink],
+  imports: [Busy, CoverSleeve, LucideAngularModule, MiniPolaroid, PeopleSheet, Pin, ProfileHero, ReviewCard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.scss',
@@ -82,7 +85,8 @@ export class ProfilePage {
   private readonly follow = inject(Follow);
   private readonly toasts = inject(Toasts);
   private readonly reactions = inject(Reactions);
-  private readonly friendsOf = inject(Friends);
+  private readonly peopleOf = inject(ProfilePeople);
+  private readonly peopleSheet = viewChild(PeopleSheet);
   private readonly reader = viewChild.required(ReviewReader);
 
   protected readonly EditIcon = PenLine;
@@ -90,8 +94,6 @@ export class ProfilePage {
   protected readonly RetryIcon = RefreshCw;
   protected readonly FollowIcon = UserPlus;
   protected readonly FollowingIcon = UserCheck;
-  protected readonly PlusIcon = Plus;
-  protected readonly CheckIcon = Check;
 
   private readonly param = toSignal(this.route.paramMap.pipe(map((p) => p.get('codigo'))), { initialValue: null });
 
@@ -230,6 +232,8 @@ export class ProfilePage {
         await this.follow.follow(who.code);
         this.toasts.show(`Agora você segue ${name}. As resenhas novas aparecem em Amigos.`);
       }
+      // o número de seguidores dela mudou
+      void this.peopleOf.load(who.code, false, true);
     } catch (err) {
       this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
     } finally {
@@ -250,79 +254,25 @@ export class ProfilePage {
     }
   }
 
-  // ===== Os amigos: quem a pessoa segue e a segue de volta =====
-  /** Pede os amigos de quem está aberto (o seu também: é como os outros veem). */
-  private readonly loadFriends = effect(() => {
+  // ===== Seguindo e Seguidores: os números na polaroid, e as listas numa ficha por cima =====
+  /** Pede os números de quem está aberto (o seu também). */
+  private readonly loadPeople = effect(() => {
     const code = this.code();
     const on = !!this.cloud.config();
     untracked(() => {
-      this.allFriends.set(false);
-      if (code && on) void this.friendsOf.load(code);
+      this.peopleSheet()?.close();
+      if (code && on) void this.peopleOf.load(code);
     });
   });
-  /** Já se sabe quem eu sigo (depois disso, só muda de false para true uma vez). */
-  private readonly peopleKnown = computed(() => this.follow.people() !== null);
-  /**
-   * A lista na ordem do perfil (undefined: ainda não veio, e a parte não aparece). A ordem é tirada
-   * quando a lista chega: seguir alguém daqui não faz a polaroid pular para o fim da fila.
-   */
-  protected readonly friends = computed<readonly Friend[] | undefined>(() => {
+  /** Os números embaixo do nome; abrem as listas se a pessoa deixa (as suas, sempre). */
+  protected readonly peopleCounts = computed(() => {
     const code = this.code();
-    const list = code ? this.friendsOf.of(code) : undefined;
-    if (!list || this.own()) return list;
-    const known = this.peopleKnown();
-    return untracked(() => orderFriends(list, known ? this.follow.followingCodes() : null, this.account.account()?.codigo ?? null));
+    const data = code ? this.peopleOf.of(code) : undefined;
+    return data ? { seguindo: data.seguindo, seguidores: data.seguidores, open: this.own() || data.listasVisiveis } : null;
   });
-  /** No perfil de outra pessoa: quantos dos amigos dela eu já sigo. */
-  protected readonly friendsNote = computed(() => {
-    const list = this.friends();
-    if (!list?.length) return '';
-    if (this.own()) return 'quem você segue e te segue de volta';
-    const n = list.filter((f) => this.follow.isFollowing(f.codigo) === true).length;
-    return n ? `você já segue ${n}` : '';
-  });
-  /** Todos à mostra; fechado, só a primeira fileira (as que cabem, ver o CSS). */
-  protected readonly allFriends = signal(false);
-  private readonly friendBusy = signal<ReadonlySet<string>>(new Set());
 
-  /** O que vai embaixo da foto: seguir (só no perfil dos outros, com conta), já segue, ou "você". */
-  protected friendState(f: Friend): 'voce' | 'segue' | 'seguir' | null {
-    if (this.own() || !this.follow.available()) return null;
-    if (f.codigo === this.account.account()?.codigo) return 'voce';
-    const state = this.follow.isFollowing(f.codigo);
-    return state === null ? null : state ? 'segue' : 'seguir';
-  }
-
-  protected friendBusyFor(code: string): boolean {
-    return this.friendBusy().has(code);
-  }
-
-  protected friendStock(f: Friend): string {
-    return f.foto?.cor ?? initialStock(f.codigo);
-  }
-
-  protected initial(name: string): string {
-    return [...name.trim()][0]?.toUpperCase() ?? '?';
-  }
-
-  protected async followFriend(f: Friend): Promise<void> {
-    if (this.friendBusyFor(f.codigo)) return;
-    this.friendBusy.update((s) => new Set(s).add(f.codigo));
-    try {
-      await this.follow.follow(f.codigo);
-      this.toasts.show(`Agora você segue ${f.nome}. As resenhas novas aparecem em Amigos.`, {
-        label: 'Desfazer',
-        run: () => void this.follow.unfollow(f.codigo).catch(() => undefined),
-      });
-    } catch (err) {
-      this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
-    } finally {
-      this.friendBusy.update((s) => {
-        const next = new Set(s);
-        next.delete(f.codigo);
-        return next;
-      });
-    }
+  protected openPeople(tab: PeopleTab): void {
+    void this.peopleSheet()?.open(tab);
   }
 
   // ===== Abrir =====
@@ -348,6 +298,11 @@ export class ProfilePage {
 
   protected score(r: Review): string {
     return isNote(r) ? '' : formatScore(r.scores.final);
+  }
+
+  /** A cartolina da ficha (a mesma do mural): o fundo da polaroid sem capa. */
+  protected stockOf(r: Review): Stock {
+    return pinningFor(r.id, r.stock).stock;
   }
 
   protected kindLabel(r: Review): string {
