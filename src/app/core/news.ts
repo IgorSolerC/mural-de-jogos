@@ -51,6 +51,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-pastas-do-perfil-menores',
+    version: '1.31.3',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'As pastas do perfil, mais baixas e com cor',
+    items: [
+      'Cada mural do perfil virou uma pasta deitada, com menos da metade da altura: as capas espiam pela boca, ao lado, e o nome, a contagem e o texto ficam juntos na frente.',
+      'Cada mural tem a sua cor: a orelha é uma divisória de papel claro com a borda colorida, como as abas das anotações, e o carimbo da contagem sai na mesma tinta.',
+      'Saiu o “Abrir o mural”: a pasta inteira continua abrindo o mural.',
+    ],
+  },
+  {
     id: '2026-10-11-ajustes-previas-e-padrao',
     version: '1.31.2',
     kind: 'melhoria',

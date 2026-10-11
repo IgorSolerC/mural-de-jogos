@@ -36,11 +36,12 @@
   max-width: 60ch;
 }
 
-/* ===== As pastas dos murais: pasta de papel manilha, com as capas aparecendo pela boca ===== */
+/* ===== As pastas dos murais: pasta de manilha deitada e baixa, com a divisória colorida do mural
+   saindo de trás (como as abas das anotações) e as capas espiando pela boca ao lado ===== */
 .pastas {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 46px 34px;
+  gap: 40px 28px;
   margin: 0;
   padding: 26px 0 0;
   list-style: none;
@@ -58,6 +59,9 @@
 }
 
 .pasta-mural {
+  /* a tinta do mural: a cor, puxada para o escuro, para o carimbo ler bem no manilha */
+  --tinta: color-mix(in oklab, var(--cor) 82%, #151515);
+
   position: relative;
   display: block;
   width: 100%;
@@ -68,7 +72,7 @@
   text-align: left;
   cursor: pointer;
   rotate: var(--tilt);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.4));
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 10px 12px rgb(0 0 0 / 0.38));
   transition:
     translate var(--t-physical) var(--ease-physical),
     rotate var(--t-physical) var(--ease-physical);
@@ -78,10 +82,10 @@
     rotate: calc(var(--tilt) * 0.35);
 
     .espia {
-      translate: 0 -10px;
+      translate: 0 -8px;
     }
-    .abrir {
-      text-decoration-thickness: 3px;
+    .orelha {
+      translate: 0 -3px;
     }
   }
 
@@ -95,7 +99,7 @@
   }
 }
 
-/* as costas da pasta, mais escuras, com a orelha onde se escreve o mural */
+/* as costas da pasta, mais escuras: a boca de onde saem as capas */
 .costas {
   position: absolute;
   inset: 0;
@@ -105,72 +109,84 @@
   background-blend-mode: multiply;
 }
 
+/* a divisória: papel claro com a borda do mural por dentro (ver .orelha-cor em styles.scss),
+   enfiada atrás da pasta; só a orelha sai pela beirada de cima */
 .orelha {
   position: absolute;
-  top: -28px;
-  left: 14px;
+  top: -27px;
+  left: 12px;
+  isolation: isolate;
   display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 16px;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  height: 27px + 6px;
+  padding: 8px 13px 0 11px;
   border-radius: 7px 7px 0 0;
-  background: inherit;
-  background-color: #dcc58c;
+  background-color: #fffcf2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
+  line-height: 1.1;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--ink);
+  --cat-cor: var(--cor);
+  transition: translate var(--t-physical) var(--ease-physical);
 
   lucide-icon {
     display: inline-flex;
+    flex: none;
+    color: var(--tinta);
   }
 }
 
-/* as capas das fichas mais novas, saindo da boca da pasta (nomes próprios: .capas é a ficha no tipo Capas) */
+/* as capas das fichas mais novas, espiando pela boca, à direita
+   (nomes próprios: .capas é a ficha no tipo Capas) */
 .boca {
   position: absolute;
-  top: 12px;
-  left: 0;
-  right: 0;
-  height: 110px;
+  top: -12px;
+  right: 12px;
+  width: 136px;
+  height: 60px;
   pointer-events: none;
 }
 
 .espia {
   position: absolute;
   top: 0;
-  width: 66px;
+  width: 46px;
   transition: translate var(--t-physical) var(--ease-physical);
 
   &[data-n='0'] {
-    left: 16%;
-    rotate: -9deg;
+    right: 76px;
+    top: 4px;
+    rotate: -8deg;
   }
   &[data-n='1'] {
-    left: 40%;
-    top: -6px;
+    right: 40px;
+    top: -2px;
     rotate: 3deg;
     transition-delay: 30ms;
   }
   &[data-n='2'] {
-    left: 63%;
-    rotate: 11deg;
+    right: 4px;
+    top: 5px;
+    rotate: 10deg;
     transition-delay: 60ms;
   }
 }
 
-/* a frente da pasta, por cima das capas: o nome, o carimbo da contagem e o texto da pessoa */
+/* a frente da pasta, por cima das capas e do pé da divisória: o nome com o carimbo, e o texto */
 .frente {
   position: relative;
   display: grid;
-  justify-items: start;
-  gap: 8px;
-  min-height: 176px;
-  margin-top: 74px;
-  padding: 18px 20px 16px;
+  gap: 4px;
+  margin-top: 30px;
+  padding: 11px 14px 12px 16px;
   border-radius: 2px 2px 3px 3px;
   background-color: #f3e5bb;
   background-image: linear-gradient(rgb(255 255 255 / 0.18), transparent 30%), var(--paper-grain);
@@ -178,51 +194,43 @@
   box-shadow: 0 -3px 5px -2px rgb(0 0 0 / 0.28);
 }
 
-.pasta-titulo {
-  font-family: var(--f-marker);
-  font-size: 1.4rem;
-  line-height: 1.05;
+.pasta-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
 }
 
-/* a contagem num carimbo de borracha vermelho */
+.pasta-titulo {
+  font-family: var(--f-marker);
+  font-size: 1.16rem;
+  line-height: 1.1;
+}
+
+/* a contagem num carimbo de borracha, na tinta do mural */
 .carimbo {
-  padding: 3px 8px 2px;
-  border: 2px solid rgb(184 29 28 / 0.85);
+  padding: 2px 6px 1px;
+  border: 2px solid color-mix(in srgb, var(--tinta) 88%, transparent);
   border-radius: 3px;
-  color: rgb(184 29 28 / 0.92);
+  color: var(--tinta);
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  white-space: nowrap;
   rotate: -3deg;
 }
 
 .pasta-texto {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   font-family: var(--f-hand);
-  font-size: 1.02rem;
-  line-height: 1.35;
+  font-size: 0.98rem;
+  line-height: 1.3;
   color: var(--ink-2);
-}
-
-.abrir {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: auto;
-  padding-top: 6px;
-  font-family: var(--f-marker);
-  font-size: 1rem;
-  text-decoration: underline 2px;
-  text-underline-offset: 5px;
-
-  lucide-icon {
-    display: inline-flex;
-  }
 }
 
 /* ===== As seções ===== */
@@ -632,6 +640,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pasta-mural,
+  .orelha,
   .espia {
     transition: none;
   }

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
-import { ArrowRight, Copy, LucideAngularModule, PenLine, RefreshCw, UserCheck, UserPlus } from 'lucide-angular';
+import { Copy, LucideAngularModule, PenLine, RefreshCw, UserCheck, UserPlus } from 'lucide-angular';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals, cloudColleagueId, normalizeCode } from '../core/cloud-murals';
@@ -33,7 +33,17 @@ export function profileLink(code: string, base: string = location.origin + locat
 }
 
 /** O perfil de quem ainda não montou o seu: o padrão, sem a seção vazia. */
-const BLANK: Profile = { ...defaultProfile(), sections: [] };
+/** A cor de cada mural na borda da divisória e no carimbo da pasta (da cartela das categorias). */
+const WALL_COLOR: Record<Kind, string> = {
+  jogos: '#d63a2f',
+  livros: '#5e9c1c',
+  filmes: '#8c58d8',
+  series: '#2d8bd6',
+  animes: '#e2579f',
+  anotacoes: '#e46f0c',
+};
+
+const BLANK: Profile ={ ...defaultProfile(), sections: [] };
 
 /** Quem é o dono do perfil aberto, e em que pé está. */
 type Who =
@@ -73,7 +83,6 @@ export class ProfilePage {
   private readonly reactions = inject(Reactions);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly OpenIcon = ArrowRight;
   protected readonly EditIcon = PenLine;
   protected readonly CopyIcon = Copy;
   protected readonly RetryIcon = RefreshCw;
@@ -162,6 +171,7 @@ export class ProfilePage {
       return {
         kind,
         icon: KIND_ICON[kind],
+        color: WALL_COLOR[kind],
         title: `Mural de ${profileOf(kind).plural}`,
         short: profileOf(kind).plural,
         count: countOf(profileOf(kind), list.length),
