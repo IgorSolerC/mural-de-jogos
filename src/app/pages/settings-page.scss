@@ -1,17 +1,30 @@
+@use '../ui/profile-materials' as materials;
+
+/* Os Ajustes medem pela largura da própria página (container), não da janela. */
 :host {
   display: block;
+  container: ajustes / inline-size;
 }
 
 /* ===== Cabeça da página: a fita com o nome, como Lado a lado e Comparar ===== */
 .cabeca {
-  /* da largura da ficha, para as Novidades ficarem no fim da linha dela */
-  max-width: 760px;
+  max-width: 1040px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 18px;
-  margin-bottom: 34px;
+  margin-bottom: 30px;
   padding-left: 4px;
+}
+
+.resumo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
 /* Novidades, no fim da linha da cabeça: discreto na parede, com a contagem num adesivo amarelo */
@@ -34,31 +47,161 @@
   letter-spacing: 0;
 }
 
-.resumo {
+/* ===== O quadro: moldura de pinus com quatro parafusos, papelão dentro ===== */
+.moldura {
+  --folga: 18px;
+  position: relative;
+  max-width: 1040px;
+  padding: var(--folga);
+  @include materials.moldura-pinus;
+}
+
+.parafuso {
+  @include materials.parafuso;
+  --canto: calc(var(--folga) / 2 - 6px);
+
+  &.p1 {
+    top: var(--canto);
+    left: var(--canto);
+    --fenda: 28deg;
+  }
+  &.p2 {
+    top: var(--canto);
+    right: var(--canto);
+    --fenda: -52deg;
+  }
+  &.p3 {
+    bottom: var(--canto);
+    left: var(--canto);
+    --fenda: 78deg;
+  }
+  &.p4 {
+    bottom: var(--canto);
+    right: var(--canto);
+    --fenda: 10deg;
+  }
+}
+
+/* o papelão da caixa aberta (o mesmo fundo do perfil), afundado na moldura */
+.papelao {
+  @include materials.papelao;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 30px;
+  padding: 34px 32px 36px 26px;
+  border-radius: 1px;
+  box-shadow:
+    inset 0 3px 9px rgb(0 0 0 / 0.45),
+    inset 0 0 0 1px rgb(0 0 0 / 0.3);
+}
+
+/* ===== O índice: uma etiqueta de papel por parte, a aberta em amarelo ===== */
+.indice {
+  position: sticky;
+  top: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.etiqueta {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 11px;
+  row-gap: 3px;
+  min-height: 58px;
+  padding: 10px 14px 10px 12px;
+  border: 0;
+  border-radius: 2px;
+  background-color: #fbf9f2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  text-align: left;
+  rotate: var(--giro, 0deg);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 6px 10px -4px rgb(0 0 0 / 0.5);
+  cursor: pointer;
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    translate: 0 -2px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+
+  /* a parte aberta: papel amarelo, reta, um passo na direção da folha */
+  &.aberta {
+    background-color: var(--hi);
+    rotate: 0deg;
+    translate: 10px 0;
+  }
+}
+
+.etiqueta-icone {
+  grid-row: 1 / span 2;
+  display: inline-flex;
+}
+
+.etiqueta-nome {
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.1em;
+  font-size: 1.06rem;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
   text-transform: uppercase;
-  color: var(--wall-ink-2);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
-/* ===== Abas na régua e uma ficha por vez ===== */
-.abas-ajustes {
-  max-width: 760px;
-  margin-bottom: 44px;
+.etiqueta-dica {
+  font-size: 0.84rem;
+  line-height: 1.25;
+  color: var(--ink-2);
 }
 
-.painel {
-  max-width: 760px;
+/* precisa de atenção: o disco de tinta com o "!" amarelo, no canto da etiqueta */
+.alerta {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  line-height: 1;
+  rotate: 8deg;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
-.ficha {
+/* ===== A folha: papel de ficha creme, reta, com o fio vermelho embaixo do título ===== */
+.folha {
+  --pad: 36px;
+  --focus: var(--ink);
   position: relative;
-  padding: 30px 28px 28px;
+  min-width: 0;
+  padding: 34px var(--pad) 32px;
   border-radius: 2px;
+  background-color: #fbf9f2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
   box-shadow: var(--shadow-card);
+  container: folha / inline-size;
 
   .pin {
     top: -10px;
@@ -66,504 +209,356 @@
   }
 }
 
-.backup {
-  --stock: var(--stock-azul);
-  rotate: -0.8deg;
-}
-
-.catalog {
-  --stock: var(--stock-lilas);
-  rotate: 0.7deg;
-}
-
-.mural {
-  --stock: var(--stock-verde);
-  rotate: 0.5deg;
-}
-
-.conta {
-  --stock: var(--stock-rosa);
-  rotate: 0.6deg;
-}
-
 h2 {
+  margin: 0 calc(-1 * var(--pad)) 0;
+  padding: 0 var(--pad) 12px;
+  border-bottom: 2px solid rgb(206 58 48 / 0.6);
   font-family: var(--f-marker);
   font-weight: 400;
-  font-size: 1.8rem;
+  font-size: 2rem;
   line-height: 1.05;
-  margin-bottom: 10px;
-}
-
-/* o subtítulo de um bloco dentro da ficha, a pincel */
-.sub {
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 1.3rem;
-  line-height: 1.1;
 }
 
 .lead {
-  max-width: 56ch;
+  max-width: 62ch;
+  margin-top: 14px;
   line-height: 1.5;
 }
 
 a {
   color: inherit;
   font-weight: 600;
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
 }
 
-/* bloco novo dentro da ficha: separado por uma linha tracejada a caneta */
-.bloco,
-.chave {
+/* ===== Grupos e linhas: o nome do ajuste, o que ele faz, e o controle à direita ===== */
+.grupo {
   margin-top: 26px;
-  padding-top: 20px;
-  border-top: 2px dashed rgb(21 21 21 / 0.25);
 }
 
-/* ===== Backup ===== */
-
-/* o estado do backup: um bilhete de papel colado na ficha */
-.estado {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 18px;
-  padding: 12px 14px;
-  border-radius: 2px;
-  background: rgb(255 255 255 / 0.5);
-
-  .estado-icone {
-    display: inline-flex;
-    flex: none;
-    margin-top: 1px;
-  }
-
-  &.atrasado {
-    background: var(--paper);
-    box-shadow: inset 0 0 0 2px var(--ink);
-  }
+/* sem título, o grupo começa direto na primeira linha */
+.grupo > .linha:first-child {
+  padding-top: 4px;
 }
 
-.estado-linha {
+.grupo-titulo {
+  padding-bottom: 7px;
+  border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 1.05rem;
-  letter-spacing: 0.04em;
+  font-size: 0.84rem;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
   text-transform: uppercase;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.estado-sub {
-  margin-top: 3px;
-  font-size: 0.95rem;
-  line-height: 1.4;
   color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
 }
 
-.baixar {
-  margin-top: 14px;
+.linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 28px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px 0;
+  border: 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
 
-  &:disabled {
-    opacity: 0.5;
-    transform: none;
-    cursor: not-allowed;
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  /* o controle largo (um campo, o código) ganha uma coluna própria */
+  &.larga {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
   }
 }
 
-.tip {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  max-width: 56ch;
-  margin-top: 16px;
-  font-size: 0.92rem;
+/* com seletor, tudo empilha: o nome, o que ele faz, e o seletor embaixo */
+fieldset.linha {
+  display: block;
+
+  legend {
+    float: left;
+    width: 100%;
+    padding: 0;
+  }
+
+  > :not(legend) {
+    clear: both;
+  }
+}
+
+.linha-titulo {
+  display: block;
+  margin: 0;
+  font-family: var(--f-ui);
+  font-weight: 700;
+  font-size: 1.06rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+label.linha-titulo {
+  cursor: pointer;
+}
+
+.linha-desc {
+  max-width: 62ch;
+  margin-top: 3px;
+  font-size: 0.94rem;
   line-height: 1.45;
   color: var(--ink-2);
-
-  lucide-icon {
-    display: inline-flex;
-    flex: none;
-    margin-top: 1px;
-    color: var(--ink);
-  }
 }
 
-.bloco .sub {
-  margin-bottom: 14px;
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.file-btn {
+/* ===== Botões de papel: a ação secundária dentro da folha ===== */
+.btn-papel {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 50px;
-  margin-top: 18px;
-  padding: 10px 18px;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 14px 7px;
+  border: 0;
   border-radius: 3px;
-  box-shadow: inset 0 0 0 2.5px var(--ink);
-  font-family: var(--f-marker);
-  font-size: 1.1rem;
-  line-height: 1.1;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.94rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    translate var(--t-physical) var(--ease-physical);
 
-  &:hover {
-    background: rgb(255 255 255 / 0.3);
+  &:hover:not(:disabled) {
+    background: #f1ece0;
+    translate: 0 -1px;
   }
 
+  &:active:not(:disabled) {
+    translate: 0 1px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible,
   &:has(input:focus-visible) {
     outline: 3px solid var(--ink);
     outline-offset: 2px;
   }
 
-  input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-  }
-}
-
-.hint {
-  margin-top: 8px;
-  font-size: 0.88rem;
-  line-height: 1.4;
-  color: var(--ink-2);
-}
-
-.msg {
-  margin-top: 12px;
-  padding: 8px 12px;
-  border-radius: 3px;
-  background: rgb(255 255 255 / 0.5);
-  font-weight: 600;
-  line-height: 1.4;
-
-  &.error {
-    background: #fff;
-    color: #6b0000;
-  }
-}
-
-/* ===== Escolhas: o adesivo da cartela, como no editor ===== */
-.escolha {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
-  display: grid;
-  gap: 10px;
-
-  legend {
-    float: left;
-    width: 100%;
-    margin-bottom: 4px;
-  }
-}
-
-/* uma linha por opção: o adesivo, e do lado o que ele faz */
-.op {
-  display: grid;
-  grid-template-columns: 8.4em minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  cursor: pointer;
-
-  .opcao {
-    width: 100%;
-  }
-
-  &.off {
-    cursor: not-allowed;
-
-    .opcao {
-      cursor: not-allowed;
-    }
-
-    .adesivo {
-      opacity: 0.5;
-    }
-  }
-
-  &:not(.off):hover .recorte {
-    background: rgb(21 21 21 / 0.06);
-    color: var(--ink);
-    outline-color: rgb(21 21 21 / 0.62);
-  }
-}
-
-/* o recorte e o colado têm a mesma medida, para nada pular quando ele é colado */
-.adesivo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 38px;
-  padding: 7px 10px 6px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.9rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  line-height: 1;
-
-  &.colado {
-    --cola: -2deg;
-    border-radius: 2px;
-    background: var(--paper);
-    color: var(--ink);
-    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.2));
-  }
-}
-
-.op:nth-of-type(2) .adesivo.colado {
-  --cola: 1.6deg;
-}
-
-.op-texto {
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-
-/* ===== Mural: um pedaço da parede para ver o que a escolha faz ===== */
-.previa {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 14px 18px;
-  min-height: 92px;
-  margin-top: 20px;
-  padding: 14px 16px 16px;
-  border-radius: 2px;
-  box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.55);
-
-  /* sem as fitas, os grupos encostam no mesmo vão de uma ficha para a outra */
-  &.junta {
-    column-gap: 10px;
-  }
-}
-
-.p-grupo {
-  display: grid;
-  justify-items: start;
-  gap: 8px;
-}
-
-.p-fita {
-  padding: 3px 9px 2px;
-  background: rgb(222 205 160 / 0.94);
-  color: var(--ink);
-  font-family: var(--f-marker);
-  font-size: 0.8rem;
-  line-height: 1.1;
-  rotate: -1.5deg;
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35));
-}
-
-.p-fichas {
-  display: flex;
-  gap: 10px;
-}
-
-.p-ficha {
-  width: 38px;
-  height: 26px;
-  border-radius: 1px;
-  background: var(--stock);
-  box-shadow: 0 1px 1px rgb(0 0 0 / 0.35), 0 4px 6px -2px rgb(0 0 0 / 0.55);
-  rotate: -2deg;
-
-  &:nth-child(2n) {
-    rotate: 1.8deg;
-    translate: 0 2px;
-  }
-
-  &:nth-child(3n) {
-    rotate: -0.8deg;
-    translate: 0 -1px;
-  }
-}
-
-/* ===== Spoilers: a segunda escolha da ficha do Mural, com um canto de ficha de prévia ===== */
-.escolha.spoilers,
-.escolha.spoilers-amigos,
-.escolha.amigos-murais,
-.escolha.numero-amigos,
-.escolha.nota {
-  margin-top: 28px;
-}
-
-.previa-ficha {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 12px 16px;
-  margin-top: 18px;
-  padding: 16px 16px 14px;
-  border-radius: 2px;
-  background: var(--stock-amarelo);
-  color: var(--ink);
-  box-shadow: 0 1px 1px rgb(0 0 0 / 0.3), 0 6px 10px -4px rgb(0 0 0 / 0.45);
-  rotate: -0.6deg;
-}
-
-.p-bonus {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* no celular os adesivos não cabem ao lado da etiqueta: descem para a linha dela de baixo */
-@media (max-width: 480px) {
-  .p-bonus {
-    grid-column: 1 / -1;
-  }
-}
-
-.p-frase {
-  grid-column: 1 / -1;
-  font-family: var(--f-hand);
-  font-size: 1.02rem;
-  line-height: 1.35;
-}
-
-/* ===== Busca e capas ===== */
-.fontes-titulo {
-  margin: 20px 0 6px;
-}
-
-/* a tabelinha impressa: cada mural e de onde ele busca agora */
-.fontes {
-  margin: 0;
-  border-top: 1.5px solid rgb(21 21 21 / 0.55);
-
-  > div {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 2px 16px;
-    padding: 8px 0 7px;
-    border-bottom: 1.5px dashed rgb(21 21 21 / 0.28);
-  }
-
-  dt {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-weight: 600;
-
-    lucide-icon {
-      display: inline-flex;
-      align-self: center;
-    }
-
-    lucide-icon + lucide-icon {
-      margin-left: -3px;
-    }
-  }
-
-  dd {
-    margin: 0;
-    font-family: var(--f-label);
-    font-weight: 800;
-    font-size: 0.98rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .via {
-    font-weight: 600;
-    color: var(--ink-2);
-  }
-}
-
-.chave-topo {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 12px;
-}
-
-/* o estado da chave: um selinho de papel, sem cor para dizer o que já diz em palavra */
-.selo {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px 3px;
-  border-radius: 2px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  line-height: 1;
-  color: rgb(21 21 21 / 0.74);
-  outline: 1.5px dashed rgb(21 21 21 / 0.42);
-  outline-offset: -1.5px;
-
-  &.ok {
-    outline: 0;
-    background: var(--paper);
-    color: var(--ink);
-    rotate: -2deg;
-    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
-  }
-
   lucide-icon {
     display: inline-flex;
   }
-}
 
-.ganho {
-  margin-top: 6px;
-  font-weight: 600;
-  line-height: 1.45;
-}
+  /* a que conclui (escolher, recarregar): tinta com letra amarela, como o botão de pincel */
+  &.forte {
+    background: var(--ink);
+    color: var(--hi);
+  }
 
-.passos {
-  margin: 10px 0 14px;
-  padding-left: 1.4em;
-  display: grid;
-  gap: 3px;
-  line-height: 1.45;
+  /* só a palavra, sem contorno (Ver o perfil) */
+  &.quieto {
+    background: transparent;
+    box-shadow: none;
+    text-decoration: underline 2px;
+    text-underline-offset: 4px;
+  }
 
-  li::marker {
-    font-family: var(--f-label);
-    font-weight: 800;
+  /* o que não tem volta: tinta vermelha */
+  &.perigo {
+    color: var(--red-deep);
+    box-shadow: inset 0 0 0 2px var(--red-deep);
+
+    &:hover:not(:disabled) {
+      background: #fbe9e6;
+    }
   }
 }
 
-.credit {
-  margin-top: 8px;
-  font-size: 0.84rem;
-  line-height: 1.4;
-  color: var(--ink-2);
+/* "Restaurar de um arquivo": o rótulo é o botão, o campo de arquivo fica por cima, invisível */
+.arquivo input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
-.key {
+/* ===== O interruptor: trilho de tinta e bolinha amarela quando ligado ===== */
+.interruptor {
+  position: relative;
+  flex: none;
+  width: 58px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  /* o alvo do dedo passa dos 44px */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -7px -4px;
+  }
+
+  &:hover .bolinha {
+    scale: 1.08;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+
+  &[aria-checked='true'] {
+    background: var(--ink);
+
+    .bolinha {
+      translate: 26px 0;
+      background: var(--hi);
+    }
+  }
+}
+
+.bolinha {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    background-color var(--t-ui) var(--ease-ui),
+    scale var(--t-ui) var(--ease-ui);
+}
+
+/* ===== O seletor: uma tira com as opções, a escolhida em tinta ===== */
+.segmentos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 480px;
+  margin-top: 14px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--ink);
+  overflow: hidden;
+
+  &.dois {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.segmento {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: 52px;
+  padding: 8px 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  & + & {
+    box-shadow: inset 2px 0 0 var(--ink);
+  }
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  &:hover:not(:has(input:checked)) {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:has(input:checked) {
+    background: var(--ink);
+    color: var(--paper);
+
+    .seg-num {
+      color: var(--hi);
+    }
+  }
+
+  &:has(input:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: -6px;
+    outline-color: var(--hi);
+  }
+
+  &:not(:has(input:checked)):has(input:focus-visible) {
+    outline-color: var(--ink);
+  }
+}
+
+.seg-num {
+  font-family: var(--f-marker);
+  font-size: 1.4rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.seg-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+/* sem o número em cima, o nome é o que se lê */
+.segmentos.dois .seg-nome {
+  font-size: 0.92rem;
+}
+
+/* ===== Campos: a tira branca com o contorno de tinta (o mesmo das Configurações do perfil) ===== */
+.campo {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 4px 0 14px;
+  min-width: 0;
   min-height: 50px;
-  background: var(--paper);
+  padding: 0 4px 0 14px;
   border-radius: 2px;
+  background: #fff;
   box-shadow: inset 0 0 0 2px var(--ink);
 
   &:focus-within {
     box-shadow:
       inset 0 0 0 3px var(--ink),
-      0 0 0 4px var(--focus);
+      0 0 0 4px rgb(21 21 21 / 0.16);
   }
 
   input {
@@ -574,16 +569,17 @@ a {
     background: transparent;
     outline: none;
     color: var(--ink);
+    caret-color: var(--red);
     font-family: var(--f-ui);
     font-size: 1rem;
 
     &::placeholder {
-      color: rgb(21 21 21 / 0.6);
+      color: rgb(21 21 21 / 0.55);
     }
   }
 }
 
-.icon-btn {
+.icone-btn {
   flex: none;
   display: grid;
   place-items: center;
@@ -593,169 +589,422 @@ a {
   border-radius: 50%;
   background: transparent;
   color: var(--ink);
+  cursor: pointer;
   transition: background-color var(--t-ui) var(--ease-ui);
 
   &:hover {
-    background: rgb(21 21 21 / 0.12);
+    background: rgb(21 21 21 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -2px;
   }
 }
 
-.fonte {
-  margin-top: 22px;
-}
+/* ===== Estado: a nuvem, o último backup ===== */
+.estado {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
 
-@media (max-width: 560px) {
-  .ficha {
-    padding: 28px 18px 22px;
-    rotate: -0.4deg;
+  /* no Backup é um cartão branco no alto da folha */
+  &.cartao {
+    margin-top: 2px;
+    padding: 14px 16px;
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.22);
   }
 
-  .catalog,
-  .mural {
-    rotate: 0.5deg;
-  }
-
-  .op {
-    grid-template-columns: 7.4em minmax(0, 1fr);
-    gap: 12px;
-  }
-}
-
-/* Apagar o save: o fim da ficha do backup, longe do Baixar */
-.apagar .btn-ink {
-  margin-top: 14px;
-
-  &:disabled {
-    opacity: 0.6;
-    transform: none;
-    cursor: progress;
+  /* atrasado ou com problema: o contorno de tinta cheio */
+  &.problema.cartao {
+    box-shadow: inset 0 0 0 2px var(--ink);
   }
 }
 
-/* Seu nome: o campo */
-.nome-dono {
-  .sub label {
-    cursor: pointer;
-  }
+.estado-icone {
+  display: inline-flex;
+  flex: none;
+  margin-top: 1px;
+}
+
+.estado-linha {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.04rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===== Conta ===== */
-.conta {
-  .estado {
-    margin-top: 6px;
-  }
-
-  .nuvem > .sub {
-    margin-bottom: 4px;
-  }
-
-  .entrar {
-    margin-top: 18px;
-    max-width: 320px;
-  }
-
-  .sync-acoes {
-    margin-top: 10px;
-
-    .btn-quiet {
-      margin-left: -12px;
-    }
-  }
-
-  .copia {
-    margin-top: 10px;
-  }
-
-  .hint a {
-    white-space: nowrap;
-  }
-}
-
-/* o código: grande, a pincel, com espaço entre as letras para ler em voz alta */
 .codigo-linha {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
-  margin-top: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 8px;
 
-  .btn-quiet {
-    margin-left: -6px;
+  .codigo-valor {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 
+/* o código: a pincel, com espaço entre as letras para ler em voz alta */
 .codigo-valor {
   display: inline-block;
-  padding: 6px 14px 4px;
+  padding: 7px 12px 5px;
   border-radius: 2px;
-  background: var(--paper);
+  background: #fff;
   box-shadow: inset 0 0 0 2px var(--ink);
   font-family: var(--f-marker);
-  font-size: 1.7rem;
+  font-size: 1.45rem;
   line-height: 1.1;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   user-select: all;
   rotate: -1deg;
 }
 
-.sair {
+.entrar {
+  padding-top: 16px;
+}
+
+.entrar-texto {
+  margin-top: 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.entrar-botao {
+  max-width: 320px;
+  margin-top: 16px;
+}
+
+.entrando {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===== Backup ===== */
+.acoes-backup {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  align-items: center;
+  gap: 12px 14px;
+  margin-top: 18px;
 
-  .btn-quiet {
-    margin-left: -12px;
-  }
-
-  .btn-quiet + .btn-quiet {
-    margin-left: 0;
-  }
-}
-
-.apagar-conta .btn-ink {
-  margin-top: 14px;
-
-  &:disabled {
-    opacity: 0.6;
+  .btn-ink:disabled {
+    opacity: 0.5;
     transform: none;
-    cursor: progress;
+    cursor: not-allowed;
+  }
+
+  .btn-papel {
+    min-height: 50px;
   }
 }
 
-/* "Baixar essa cópia": um link de texto, como o "Tenho um backup" do mural vazio */
-.link-btn {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-  cursor: pointer;
+.nota-rodape {
+  max-width: 64ch;
+  margin-top: 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+
+  strong {
+    font-weight: 700;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
 }
 
-/* Perfil: o "Seu nome" logo abaixo do título da ficha */
-.conta .nome-dono {
+.dica {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 62ch;
   margin-top: 16px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--ink-2);
 
-  .key {
-    margin-top: 10px;
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+    margin-top: 1px;
+    color: var(--ink);
   }
 }
 
-/* o caminho para a página do perfil, logo abaixo do nome */
-.perfil-link {
-  .hint {
-    max-width: 52ch;
-    margin-bottom: 14px;
+.grupo > .dica + .linha,
+.grupo > .nota-rodape + .linha,
+.grupo > .msg + .linha {
+  margin-top: 10px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.msg {
+  margin: 4px 0 12px;
+  padding: 9px 12px;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.22);
+  font-weight: 600;
+  line-height: 1.4;
+
+  &.erro {
+    color: var(--error-ink, #6b0000);
+    box-shadow: inset 0 0 0 2px var(--error-ink, #6b0000);
+  }
+}
+
+/* ===== Cuidado: o que não tem volta, junto, no pé da folha ===== */
+.cuidado {
+  margin-top: 38px;
+
+  .grupo-titulo {
+    color: var(--red-deep);
+    border-bottom-color: rgb(184 29 28 / 0.4);
+  }
+}
+
+/* ===== Busca ===== */
+.fontes {
+  margin: 0;
+
+  > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2px 16px;
+    padding: 12px 0 11px;
+    border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+
+    &:last-child {
+      border-bottom: 0;
+    }
   }
 
-  /* um link com cara de botão de tinta: a regra dos links (cor herdada, sublinhado) não vale aqui */
-  .btn-ink {
-    color: var(--hi);
-    text-decoration: none;
+  dt {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+
+    lucide-icon {
+      display: inline-flex;
+      align-self: center;
+    }
+
+    lucide-icon + lucide-icon {
+      margin-left: -4px;
+    }
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+  }
+}
+
+.fonte-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fonte-via {
+  margin-left: 6px;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+
+/* As próprias chaves: uma gaveta fechada, que abre com o resumo */
+.chaves {
+  margin-top: 30px;
+
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 54px;
+    padding: 12px 16px;
+    border-radius: 3px;
+    background: #fff;
+    box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.28);
+    list-style: none;
+    cursor: pointer;
+    transition: box-shadow var(--t-ui) var(--ease-ui);
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    /* a setinha, desenhada com duas bordas */
+    &::after {
+      content: '';
+      flex: none;
+      width: 9px;
+      height: 9px;
+      margin: 0 4px 4px 0;
+      border-right: 2.5px solid var(--ink);
+      border-bottom: 2.5px solid var(--ink);
+      rotate: 45deg;
+      transition: rotate var(--t-ui) var(--ease-ui), margin var(--t-ui) var(--ease-ui);
+    }
+
+    &:hover {
+      box-shadow: inset 0 0 0 2px var(--ink);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
+    }
+  }
+
+  &[open] summary::after {
+    rotate: -135deg;
+    margin: 4px 4px 0 0;
+  }
+}
+
+.resumo-titulo {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1.04rem;
+}
+
+.resumo-estado {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.chaves-intro {
+  margin-top: 14px;
+}
+
+.ganho {
+  font-weight: 500;
+  color: var(--ink-2);
+
+  &::before {
+    content: '· ';
+  }
+}
+
+.creditos {
+  margin-top: 28px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* ===== Folha estreita: cada linha empilha (o interruptor fica ao lado do nome) ===== */
+@container folha (max-width: 560px) {
+  .linha,
+  .linha.larga {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .linha:has(> .interruptor) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 16px;
+  }
+
+  .acoes {
+    justify-content: flex-start;
+  }
+
+  .fontes dd {
+    text-align: left;
+  }
+}
+
+/* ===== Página estreita: o índice deita em cima da folha ===== */
+@container ajustes (max-width: 760px) {
+  .moldura {
+    --folga: 11px;
+  }
+
+  .papelao {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 16px 10px 14px;
+  }
+
+  .indice {
+    position: static;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .etiqueta {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    row-gap: 5px;
+    min-height: 60px;
+    padding: 9px 2px 8px;
+    text-align: center;
+    rotate: calc(var(--giro, 0deg) * 0.6);
+
+    &.aberta {
+      rotate: 0deg;
+      translate: 0 5px;
+    }
+  }
+
+  .etiqueta-icone {
+    grid-row: auto;
+  }
+
+  .etiqueta-nome {
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+  }
+
+  .etiqueta-dica {
+    display: none;
+  }
+
+  .alerta {
+    top: -7px;
+    right: -5px;
+    width: 19px;
+    height: 19px;
+    font-size: 0.76rem;
+  }
+
+  .folha {
+    --pad: 18px;
+    padding-top: 28px;
+    padding-bottom: 24px;
+  }
+
+  h2 {
+    font-size: 1.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .etiqueta,
+  .bolinha,
+  .btn-papel,
+  .chaves summary::after {
+    transition: none;
   }
 }

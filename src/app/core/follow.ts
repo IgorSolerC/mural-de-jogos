@@ -226,7 +226,7 @@ export class Follow {
    */
   readonly seenKeys = signal<ReadonlySet<string>>(new Set());
   readonly people = signal<People | null>(null);
-  /** O que aparece em Amigos: tudo, ou só o do mural aberto (Ajustes › Mural › Novidades dos amigos). */
+  /** O que aparece em Amigos: tudo, ou só o do mural aberto (Ajustes › Amigos › Novidades em Amigos). */
   readonly visible = computed(() => visibleFeed(this.items(), this.settings.friendKinds(), this.mural.kind()));
   readonly unseen = computed(() => unseenCount(this.visible(), this.seenAt(), this.seenKeys()));
   readonly followingCodes = computed(() => new Set(this.people()?.seguindo.map((p) => p.codigo) ?? []));

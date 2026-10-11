@@ -1,17 +1,27 @@
 import { Injectable, inject } from '@angular/core';
 import { Kind, PickedGame, fold } from './review';
 import { CoverSource, Settings } from './settings';
+import { SiteCatalog, SiteKeys } from './site-keys';
 
 export class LookupError extends Error {
   constructor(
     message: string,
-    readonly kind: 'offline' | 'rawg-key' | 'tmdb-key' | 'server',
+    readonly kind: 'offline' | 'rawg-key' | 'tmdb-key' | 'site-key' | 'server',
   ) {
     super(message);
   }
 }
 
 const WIKI = 'https://en.wikipedia.org/w/api.php';
+
+/**
+ * Como chegar à RAWG ou ao TMDB: com a chave da pessoa (colada em Ajustes), direto ao catálogo; sem
+ * ela, pela busca do site (a chave fica na nuvem, ver core/site-keys.ts).
+ */
+type Via = { own: string } | { site: string };
+
+/** Quanto a primeira busca de uma visita espera a nuvem dizer se tem as chaves do site. */
+const SITE_KEYS_WAIT_MS = 1_500;
 
 /** Grupos de ISBN do Brasil (CBL): 85 e 65, nas versões de 13 e de 10 dígitos. */
 const BRAZILIAN_BOOK_FILTER = 'language:por isbn:(97885* OR 97865* OR 85* OR 65*)';
@@ -182,6 +192,7 @@ function wikiQuery(q: string, template: string): string {
 @Injectable({ providedIn: 'root' })
 export class GameLookup {
   private readonly settings = inject(Settings);
+  private readonly siteKeys = inject(SiteKeys);
   /** O que a busca da RAWG já contou: o jogo está na Steam? (id da RAWG → sim/não) */
   private readonly onSteam = new Map<string, boolean>();
 
@@ -194,28 +205,58 @@ export class GameLookup {
         return 'Kitsu';
       case 'filmes':
       case 'series':
-        return this.settings.hasTmdb() ? 'TMDB' : 'Wikipedia';
+        return this.tmdbVia() ? 'TMDB' : 'Wikipedia';
       default:
-        return this.settings.effectiveSource() === 'rawg' ? 'RAWG' : 'Wikipedia';
+        return this.rawgVia() ? 'RAWG' : 'Wikipedia';
     }
+  }
+
+  /** De onde vêm jogos e capas de jogos agora: a RAWG (com a chave da pessoa ou a do site) ou a Wikipedia. */
+  gamesSource(): { name: 'RAWG' | 'Wikipedia'; own: boolean } {
+    const via = this.rawgVia();
+    return via ? { name: 'RAWG', own: 'own' in via } : { name: 'Wikipedia', own: false };
+  }
+
+  /** De onde vêm filmes e séries agora: o TMDB (com a chave da pessoa ou a do site) ou a Wikipedia. */
+  filmsSource(): { name: 'TMDB' | 'Wikipedia'; own: boolean } {
+    const via = this.tmdbVia();
+    return via ? { name: 'TMDB', own: 'own' in via } : { name: 'Wikipedia', own: false };
+  }
+
+  private rawgVia(): Via | null {
+    const own = this.settings.rawgKey().trim();
+    if (own) return { own };
+    const site = this.siteKeys.base('rawg');
+    return site ? { site } : null;
+  }
+
+  private tmdbVia(): Via | null {
+    const own = this.settings.tmdbKey().trim();
+    if (own) return { own };
+    const site = this.siteKeys.base('tmdb');
+    return site ? { site } : null;
+  }
+
+  /** Sem a chave da pessoa, espera (pouco) a nuvem dizer se tem a do site; depois da primeira vez, não espera. */
+  private async siteKeysKnown(): Promise<void> {
+    if (this.settings.rawgKey().trim() && this.settings.tmdbKey().trim()) return;
+    await Promise.race([this.siteKeys.ready, new Promise((r) => setTimeout(r, SITE_KEYS_WAIT_MS))]);
   }
 
   /**
    * Procura no catálogo do mural. Livros: Open Library, preferindo a edição brasileira. Animes: Kitsu (com o
    * nome em português quando há), e o AniList se o Kitsu não responder. Filmes e séries: o TMDB, em
-   * português, quando há chave; senão a Wikipedia. Jogos: Wikipedia ou RAWG.
+   * português, quando há chave (a da pessoa ou a do site); senão a Wikipedia. Jogos: a RAWG do mesmo
+   * jeito, ou a Wikipedia (`source` força a Wikipedia). Se a chave do site para de servir no meio
+   * (cota, recusada), a busca volta para a Wikipedia sem erro.
    */
-  async search(
-    q: string,
-    signal: AbortSignal,
-    kind: Kind,
-    source: CoverSource = this.settings.effectiveSource(),
-  ): Promise<PickedGame[]> {
+  async search(q: string, signal: AbortSignal, kind: Kind, source: CoverSource = 'rawg'): Promise<PickedGame[]> {
     const query = q.trim();
     if (query.length < 2) return [];
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       throw new LookupError('Sem internet agora.', 'offline');
     }
+    if (kind === 'jogos' || kind === 'filmes' || kind === 'series') await this.siteKeysKnown();
     switch (kind) {
       // anotação não tem catálogo: o título é o que a pessoa escrever
       case 'anotacoes':
@@ -231,15 +272,25 @@ export class GameLookup {
         }
       case 'filmes':
       case 'series': {
-        const tmdb = this.settings.tmdbKey().trim();
-        if (tmdb) return this.searchTmdb(query, tmdb, kind === 'filmes' ? 'movie' : 'tv', signal);
+        const via = this.tmdbVia();
+        if (via) return this.orWikipedia(this.searchTmdb(query, via, kind === 'filmes' ? 'movie' : 'tv', signal), query, signal, kind);
         return this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
       }
       default: {
-        const key = this.settings.rawgKey().trim();
-        if (source === 'rawg' && key) return this.searchRawg(query, key, signal);
+        const via = this.rawgVia();
+        if (source === 'rawg' && via) return this.orWikipedia(this.searchRawg(query, via, signal), query, signal, 'jogos');
         return this.searchWikipedia(query, signal, WIKI_TEMPLATE.jogos);
       }
+    }
+  }
+
+  /** A busca pela chave do site que parou de servir vira a da Wikipedia (e a chave do site sai até recarregar). */
+  private async orWikipedia(run: Promise<PickedGame[]>, query: string, signal: AbortSignal, kind: 'jogos' | 'filmes' | 'series'): Promise<PickedGame[]> {
+    try {
+      return await run;
+    } catch (e) {
+      if (!(e instanceof LookupError) || e.kind !== 'site-key') throw e;
+      return this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
     }
   }
 
@@ -262,16 +313,11 @@ export class GameLookup {
    * vertical oficial de lá; senão devolve o jogo como veio.
    */
   async withSteamCover(game: PickedGame, signal: AbortSignal): Promise<PickedGame> {
-    const key = this.settings.rawgKey().trim();
-    if (game.source !== 'rawg' || !game.sourceId || !key || isSteamCover(game.coverUrl)) return game;
+    const via = this.rawgVia();
+    if (game.source !== 'rawg' || !game.sourceId || !via || isSteamCover(game.coverUrl)) return game;
     if (this.onSteam.get(game.sourceId) === false) return game;
     try {
-      const params = new URLSearchParams({ key });
-      const data = await this.fetchJson(
-        `https://api.rawg.io/api/games/${encodeURIComponent(game.sourceId)}/stores?${params}`,
-        signal,
-        true,
-      );
+      const data = await this.rawgJson(via, `games/${encodeURIComponent(game.sourceId)}/stores`, new URLSearchParams(), signal);
       const urls: string[] = (data?.results ?? []).map((r: any) => String(r?.url ?? ''));
       const appId = urls.map((u) => u.match(/store\.steampowered\.com\/app\/(\d+)/)?.[1]).find(Boolean);
       if (!appId) {
@@ -307,18 +353,19 @@ export class GameLookup {
     const same = (h: PickedGame) => sameGame(h, game);
     const alike = (hits: PickedGame[]) =>
       hits.filter(same).map((h) => ({ ...game, coverUrl: h.coverUrl, source: h.source, sourceId: h.sourceId, from: coverFrom(h) }));
+    if (kind === 'jogos' || kind === 'filmes' || kind === 'series') await this.siteKeysKnown();
     switch (kind) {
       case 'jogos': {
         add('Wikipedia', this.wikiCovers(game, signal, 'en', WIKI_TEMPLATE.jogos));
         add('Wikipedia', this.wikiCovers(game, signal, 'pt', 'Info/Jogo eletrônico'));
-        const key = this.settings.rawgKey().trim();
-        if (key) add('RAWG', this.rawgChoices(game, key, signal));
+        const via = this.rawgVia();
+        if (via) add('RAWG', this.rawgChoices(game, via, signal));
         break;
       }
       case 'filmes':
       case 'series': {
-        const key = this.settings.tmdbKey().trim();
-        if (key && game.source === 'tmdb' && game.sourceId) add('TMDB', this.tmdbPosters(game, key, signal).then((l) => l.map((g) => ({ ...g, from: 'TMDB' }))));
+        const via = this.tmdbVia();
+        if (via && game.source === 'tmdb' && game.sourceId) add('TMDB', this.tmdbPosters(game, via, signal).then((l) => l.map((g) => ({ ...g, from: 'TMDB' }))));
         else add('Wikipedia', this.wikiCovers(game, signal, 'en', WIKI_TEMPLATE[kind]));
         add('Wikipedia', this.wikiCovers(game, signal, 'pt', null));
         break;
@@ -423,10 +470,10 @@ export class GameLookup {
    * a arte extra e algumas telas. O jogo certo é o de mesmo nome mais perto no ano (a RAWG e a
    * Wikipedia às vezes discordam, por causa do acesso antecipado: Hades é 2018 numa e 2020 na outra).
    */
-  private async rawgChoices(game: PickedGame, key: string, signal: AbortSignal): Promise<CoverChoice[]> {
+  private async rawgChoices(game: PickedGame, via: Via, signal: AbortSignal): Promise<CoverChoice[]> {
     const { base, year: named } = splitYear(game.name);
     const itemYear = game.year ?? named;
-    const raw = await this.rawgResults(base, key, signal);
+    const raw = await this.rawgResults(base, via, signal);
     const year = (g: any) => (typeof g?.released === 'string' ? g.released.slice(0, 4) : undefined);
     const own = (g: any) => game.source === 'rawg' && String(g.id) === game.sourceId;
     // quantos anos longe do item (sem ano de um lado, meio ano: nem perto nem longe)
@@ -449,7 +496,7 @@ export class GameLookup {
       // do jogo mais parecido, também a arte extra e as telas
       const extra: string[] = [];
       try {
-        const detail = await this.fetchJson(`https://api.rawg.io/api/games/${encodeURIComponent(id)}?${new URLSearchParams({ key })}`, signal, true);
+        const detail = await this.rawgJson(via, `games/${encodeURIComponent(id)}`, new URLSearchParams(), signal);
         if (typeof detail?.background_image_additional === 'string') extra.push(detail.background_image_additional);
       } catch (e) {
         if ((e as Error).name === 'AbortError') throw e;
@@ -462,9 +509,9 @@ export class GameLookup {
   }
 
   /** Os pôsteres do título no TMDB: português, inglês e sem texto, os mais votados primeiro. */
-  private async tmdbPosters(game: PickedGame, key: string, signal: AbortSignal): Promise<PickedGame[]> {
+  private async tmdbPosters(game: PickedGame, via: Via, signal: AbortSignal): Promise<PickedGame[]> {
     const params = new URLSearchParams({ include_image_language: 'pt,en,null' });
-    const data = await this.tmdbJson(`${game.sourceId}/images`, params, key, signal);
+    const data = await this.tmdbJson(`${game.sourceId}/images`, params, via, signal);
     const order: Record<string, number> = { pt: 0, en: 1 };
     const posters: any[] = Array.isArray(data?.posters) ? data.posters : [];
     return posters
@@ -692,12 +739,12 @@ export class GameLookup {
   }
 
   /**
-   * Filmes e séries: o TMDB, com a chave da pessoa. Nome e pôster em português (`pt-BR`), na ordem
-   * de relevância de lá. Aceita a "API key" (vai na URL) ou o "token de leitura" (vai no cabeçalho).
+   * Filmes e séries: o TMDB, com a chave da pessoa ou a do site. Nome e pôster em português (`pt-BR`),
+   * na ordem de relevância de lá.
    */
-  private async searchTmdb(q: string, key: string, type: 'movie' | 'tv', signal: AbortSignal): Promise<PickedGame[]> {
+  private async searchTmdb(q: string, via: Via, type: 'movie' | 'tv', signal: AbortSignal): Promise<PickedGame[]> {
     const params = new URLSearchParams({ query: q, language: 'pt-BR', include_adult: 'false', page: '1' });
-    const data = await this.tmdbJson(`search/${type}`, params, key, signal);
+    const data = await this.tmdbJson(`search/${type}`, params, via, signal);
     const results: any[] = data?.results ?? [];
     return results
       .map((r) => {
@@ -715,8 +762,13 @@ export class GameLookup {
       .slice(0, 8);
   }
 
-  /** Uma chamada ao TMDB. Aceita a "API key" (vai na URL) ou o "token de leitura" (vai no cabeçalho). */
-  private async tmdbJson(path: string, params: URLSearchParams, key: string, signal: AbortSignal): Promise<any> {
+  /**
+   * Uma chamada ao TMDB. Com a chave da pessoa, direto: a "API key" vai na URL, o "token de leitura"
+   * no cabeçalho. Com a do site, pela nuvem, que põe a chave.
+   */
+  private async tmdbJson(path: string, params: URLSearchParams, via: Via, signal: AbortSignal): Promise<any> {
+    if ('site' in via) return this.fetchJson(`${via.site}/${path}?${params}`, signal, 'tmdb');
+    const key = via.own;
     const token = key.startsWith('eyJ');
     if (!token) params.set('api_key', key);
     let res: Response;
@@ -738,10 +790,17 @@ export class GameLookup {
     }
   }
 
+  /** Uma chamada à RAWG: com a chave da pessoa, direto; com a do site, pela nuvem. */
+  private rawgJson(via: Via, path: string, params: URLSearchParams, signal: AbortSignal): Promise<any> {
+    if ('site' in via) return this.fetchJson(`${via.site}/${path}?${params}`, signal, 'rawg');
+    params.set('key', via.own);
+    return this.fetchJson(`https://api.rawg.io/api/${path}?${params}`, signal, 'rawg-own');
+  }
+
   /** A busca da RAWG como ela vem (com as telas e as lojas), e o que ela diz de quem está na Steam. */
-  private async rawgResults(q: string, key: string, signal: AbortSignal): Promise<any[]> {
-    const params = new URLSearchParams({ key, search: q, page_size: '8', search_precise: 'true' });
-    const data = await this.fetchJson(`https://api.rawg.io/api/games?${params}`, signal, true);
+  private async rawgResults(q: string, via: Via, signal: AbortSignal): Promise<any[]> {
+    const params = new URLSearchParams({ search: q, page_size: '8', search_precise: 'true' });
+    const data = await this.rawgJson(via, 'games', params, signal);
     const results: any[] = Array.isArray(data?.results) ? data.results : [];
     for (const g of results) {
       if (g?.id && Array.isArray(g.stores)) this.onSteam.set(String(g.id), g.stores.some((s: any) => s?.store?.slug === 'steam'));
@@ -749,8 +808,8 @@ export class GameLookup {
     return results;
   }
 
-  private async searchRawg(q: string, key: string, signal: AbortSignal): Promise<PickedGame[]> {
-    const results = await this.rawgResults(q, key, signal);
+  private async searchRawg(q: string, via: Via, signal: AbortSignal): Promise<PickedGame[]> {
+    const results = await this.rawgResults(q, via, signal);
     return results
       .filter((g) => g?.name)
       .map((g) => ({
@@ -763,7 +822,12 @@ export class GameLookup {
       }));
   }
 
-  private async fetchJson(url: string, signal: AbortSignal, rawg = false): Promise<any> {
+  /**
+   * Um GET que devolve JSON. `catalog`: a RAWG com a chave da pessoa ('rawg-own': chave recusada vira
+   * aviso para conferir em Ajustes), ou a busca do site ('rawg', 'tmdb': a chave do site que parou de
+   * servir sai até recarregar, e quem chamou volta para a Wikipedia).
+   */
+  private async fetchJson(url: string, signal: AbortSignal, catalog?: 'rawg-own' | SiteCatalog): Promise<any> {
     let res: Response;
     const deadline = withDeadline(signal);
     try {
@@ -771,8 +835,12 @@ export class GameLookup {
     } catch (e) {
       throw lookupFailure(e, signal);
     }
-    if (rawg && (res.status === 401 || res.status === 403)) {
+    if (catalog === 'rawg-own' && (res.status === 401 || res.status === 403)) {
       throw new LookupError('A chave da RAWG foi recusada. Confira em Ajustes.', 'rawg-key');
+    }
+    if ((catalog === 'rawg' || catalog === 'tmdb') && (res.status === 503 || res.status === 403)) {
+      this.siteKeys.drop(catalog);
+      throw new LookupError('A busca do site não está respondendo agora.', 'site-key');
     }
     if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
     try {

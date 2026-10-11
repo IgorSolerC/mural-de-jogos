@@ -41,10 +41,21 @@ export interface Config {
   publicMurals: 'todos' | 'logados';
 }
 
+/** As chaves do site nos catálogos (secrets do Worker). Vazia: aquele catálogo fica sem a chave do site. */
+export interface CatalogKeys {
+  tmdb: string;
+  rawg: string;
+}
+
 export interface Deps {
   db: Db;
   config: Config;
   now: () => Date;
   /** Confere o ID token do login do Google (ver `src/domain/google.ts`). */
   verifyGoogle: VerifyGoogle;
+  /**
+   * A busca com as chaves do site (ver `src/routes/catalog.ts`). Sem isto, os catálogos respondem que
+   * estão sem chave. `fetch` só muda nos testes.
+   */
+  catalog?: { keys: CatalogKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
 }

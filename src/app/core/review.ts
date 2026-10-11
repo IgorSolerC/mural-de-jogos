@@ -188,7 +188,7 @@ export type Scores = { final: number } & Rated;
 
 /** A nota de uma categoria, ou null (sem nota, ou categoria de outro mural). */
 export function scoreOf(scores: Rated & { final?: number }, k: ScoreKey): number | null {
-  // a final vale como aparece (Ajustes › Nota): é ela que ordena, agrupa e empata
+  // a final vale como aparece (Ajustes › Mural › Notas): é ela que ordena, agrupa e empata
   if (k === 'final') return scores.final === undefined ? null : shownScore(scores.final);
   return scores[k] ?? null;
 }

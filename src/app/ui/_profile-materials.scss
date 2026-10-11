@@ -1,3 +1,13 @@
+/* Papelão: a caixa aberta, com as ondas da alma aparecendo de leve (o fundo do perfil e o dos Ajustes) */
+@mixin papelao {
+  background-color: #b48553;
+  background-image:
+    repeating-linear-gradient(90deg, rgb(255 230 190 / 0.1) 0 3px, rgb(80 46 16 / 0.12) 3px 5px, transparent 5px 11px),
+    radial-gradient(ellipse at 40% 10%, rgb(255 236 200 / 0.14), transparent 60%),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, multiply;
+}
+
 /* Os fundos de papelaria do perfil (ver PROFILE_MATERIALS em core/profile.ts): o quadro de cima e as
    amostras da cartela nas Configurações usam o mesmo desenho. Quem inclui escolhe pelo data-fundo. */
 @mixin fundos {
@@ -43,12 +53,7 @@
 
   /* Papelão: a caixa aberta, com as ondas da alma aparecendo de leve */
   &[data-fundo='papelao'] {
-    background-color: #b48553;
-    background-image:
-      repeating-linear-gradient(90deg, rgb(255 230 190 / 0.1) 0 3px, rgb(80 46 16 / 0.12) 3px 5px, transparent 5px 11px),
-      radial-gradient(ellipse at 40% 10%, rgb(255 236 200 / 0.14), transparent 60%),
-      var(--paper-grain);
-    background-blend-mode: normal, normal, multiply;
+    @include papelao;
   }
 
   /* Eucatex cru: a placa marrom furada, antes da tinta grafite da parede */
@@ -61,5 +66,49 @@
     background-size: 26px 26px, 26px 26px, auto;
     background-position: 13px 13px, 13px 13px, 0 0;
     background-blend-mode: normal, normal, multiply;
+  }
+}
+
+/* A moldura de pinus cru, com o veio da madeira: o quadro do perfil e o dos Ajustes. Quem inclui
+   escolhe a folga (padding). */
+@mixin moldura-pinus {
+  border-radius: 3px;
+  background-color: #b98953;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 22%, transparent 78%, rgb(0 0 0 / 0.2)),
+    repeating-linear-gradient(91deg, rgb(255 240 210 / 0.07) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(89.4deg, rgb(92 52 20 / 0.13) 0 1px, transparent 1px 13px),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, normal, multiply;
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    inset 0 -2px 0 rgb(0 0 0 / 0.25),
+    inset 0 0 0 1px rgb(70 38 12 / 0.35);
+}
+
+/* Um parafuso de cabeça de 12px, com a fenda no ângulo de --fenda. Quem inclui põe no canto. */
+@mixin parafuso {
+  position: absolute;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fbf8f1, #b7b0a5 52%, #6a645b);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.5),
+    inset 0 -1px 1px rgb(0 0 0 / 0.25);
+
+  /* a fenda da chave de fenda, cada parafuso apertado num ângulo */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 1.5px;
+    right: 1.5px;
+    top: 5px;
+    height: 2px;
+    border-radius: 1px;
+    background: rgb(50 44 38 / 0.75);
+    rotate: var(--fenda, 30deg);
   }
 }

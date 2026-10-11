@@ -51,6 +51,35 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-busca-com-as-chaves-do-site',
+    version: '1.31.0',
+    kind: 'funcionalidade',
+    date: '2026-10-11',
+    title: 'Busca boa sem chave nenhuma',
+    items: [
+      'Filmes e séries vêm do TMDB, com o nome e o pôster em português, e jogos da RAWG, com a capa da Steam, sem ninguém precisar criar uma chave: a busca usa as chaves do próprio site, guardadas na nuvem.',
+      'Se a busca do site chegar ao limite, ela volta sozinha para a Wikipedia, sem erro.',
+      'Quem já colou a própria chave continua usando a sua, que passa na frente da do site.',
+      'A escolha entre Wikipedia e RAWG para os jogos saiu: com chave, a busca usa a RAWG; as capas da Wikipedia continuam na escolha de capa.',
+    ],
+  },
+  {
+    id: '2026-10-11-ajustes-no-quadro',
+    version: '1.30.6',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'Ajustes, arrumados',
+    items: [
+      'Os Ajustes viraram um quadro de madeira com fundo de papelão: à esquerda (no celular, em cima), uma etiqueta por parte, dizendo o que tem nela; ao lado, uma folha clara, fácil de ler.',
+      'Cinco partes em vez de quatro: Conta (nome, perfil e nuvem), Mural, Amigos (que saiu de dentro do Mural), Backup e Busca.',
+      'Cada ajuste é uma linha com o nome, o que ele faz e o controle do lado. O que era Mostrar/Esconder virou um interruptor, e as notas se escolhem pelo exemplo: 8,4, 8,5 ou 8.',
+      'O que não tem volta (sair de todos os aparelhos, apagar a conta, apagar o save) ficou junto, no pé da folha, em “Cuidado”.',
+      'Restaurar um backup: primeiro você escolhe o arquivo, depois decide se junta ou substitui.',
+      'As chaves de busca foram para uma gaveta, “Usar as suas próprias chaves”, que só abre quando é preciso.',
+      'A etiqueta do Backup ganha um “!” quando está na hora de baixar outro.',
+    ],
+  },
+  {
     id: '2026-10-11-topo-varal-e-bottons',
     version: '1.30.5',
     kind: 'melhoria',

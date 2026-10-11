@@ -9,8 +9,8 @@
     <app-pin class="pin" color="#e62e2d" />
     <h2 id="sem-conta-titulo">Siga os amigos pelo código</h2>
     @if (cloudOn()) {
-      <p class="lead">Entre com a sua conta em Ajustes › Perfil. Aí é só colar o código de um amigo para ver aqui o que ele pregou no mural.</p>
-      <a class="btn-ink" routerLink="/ajustes" [queryParams]="{ aba: 'perfil' }">Ir para o Perfil</a>
+      <p class="lead">Entre com a sua conta em Ajustes › Conta. Aí é só colar o código de um amigo para ver aqui o que ele pregou no mural.</p>
+      <a class="btn-ink" routerLink="/ajustes" [queryParams]="{ aba: 'conta' }">Ir para a Conta</a>
     } @else {
       <p class="lead">A nuvem está desligada agora. O seu mural continua salvo neste aparelho.</p>
     }

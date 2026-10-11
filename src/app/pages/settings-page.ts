@@ -3,7 +3,6 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   BookOpen,
-  Check,
   Cloud as CloudIcon,
   Copy,
   Link as LinkIconData,
@@ -17,8 +16,11 @@ import {
   HardDriveDownload,
   LayoutGrid,
   LogOut,
+  LucideIconData,
+  Pencil,
   Search,
   UserRound,
+  UsersRound,
   LucideAngularModule,
   RefreshCw,
   CloudOff,
@@ -38,11 +40,7 @@ import { OWNER_NAME_MAX, ScoreDisplay, Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
-import { BonusSticker } from '../ui/bonus';
-import { JudgeLabel } from '../ui/judge-label';
-import { Bonus, fold, localDay } from '../core/review';
-import { scramble } from '../core/spoiler';
-import { Rabisco } from '../ui/rabisco';
+import { fold, localDay } from '../core/review';
 import { Busy } from '../ui/busy';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount, CloudError } from '../core/cloud-account';
@@ -51,11 +49,13 @@ import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-befor
 import { GoogleButton } from '../ui/google-button';
 import { muralLink } from '../core/cloud-murals';
 import { News } from '../core/news';
+import { GameLookup } from '../core/game-lookup';
+import { SiteKeys } from '../core/site-keys';
 
 const DAY = 86_400_000;
 
-type Tab = 'perfil' | 'backup' | 'mural' | 'busca';
-const TABS: readonly Tab[] = ['perfil', 'backup', 'mural', 'busca'];
+type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'busca';
+const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'busca'];
 
 /** "às 14:32" hoje; "em 3 de outubro às 14:32" antes. */
 function when(ms: number): string {
@@ -67,664 +67,40 @@ function when(ms: number): string {
 }
 
 /**
- * Ajustes: fichas pregadas, uma por aba (Perfil, Backup, Mural, Busca e capas). Toda escolha é o adesivo da cartela, como no editor:
- * a não escolhida é o recorte picotado, a escolhida sai colada. Nada aqui tem botão de salvar: vale na hora.
+ * Ajustes: um quadro de pinus com parafusos e papelão dentro. À esquerda (no celular, em cima), uma
+ * etiqueta de papel por parte (Conta, Mural, Amigos, Backup, Busca), com uma linha do que tem nela; ao
+ * lado, a folha creme da parte aberta. Cada ajuste é uma linha: o nome, o que ele faz e o controle
+ * (interruptor, seletor ou botão). O que não tem volta fica junto, no pé da folha, em "Cuidado".
+ * Nada aqui tem botão de salvar: vale na hora.
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, LucideAngularModule, Pin, BonusSticker, JudgeLabel, Rabisco, GoogleButton, RouterLink],
+  imports: [Busy, LucideAngularModule, Pin, GoogleButton, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <header class="cabeca">
-      <h1 class="tape-label big">Ajustes</h1>
-      <p class="resumo">Vale na hora e fica salvo neste navegador</p>
-      <!-- o que mudou no site: a página de novidades, com quantas ainda não foram vistas -->
-      <a class="btn-quiet novidades" routerLink="/novidades">
-        <lucide-icon [img]="MegaphoneIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-        Novidades
-        @if (news.unseen(); as n) {
-          <span class="novas">{{ n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
-        }
-      </a>
-    </header>
-
-    <!-- as partes dos ajustes: abas de divisória na régua, uma ficha por vez -->
-    <div class="prateleira abas-ajustes">
-      <div class="prateleira-abas" role="tablist" aria-label="Partes dos ajustes" (keydown)="onTabKey($event)">
-        @for (t of tabs; track t.id) {
-          <button
-            type="button"
-            role="tab"
-            class="plate"
-            [id]="'aba-' + t.id"
-            [class.is-active]="tab() === t.id"
-            [attr.aria-selected]="tab() === t.id"
-            [attr.aria-controls]="'painel-' + t.id"
-            [attr.tabindex]="tab() === t.id ? 0 : -1"
-            (click)="go(t.id)"
-          >
-            <lucide-icon [img]="t.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-            {{ t.label }}
-            @if (t.id === 'perfil' && syncTrouble() && account.signedIn()) {
-              <span class="badge" aria-hidden="true">!</span><span class="sr-only"> (precisa de atenção)</span>
-            }
-          </button>
-        }
-      </div>
-    </div>
-
-    <div class="painel" role="tabpanel" [id]="'painel-' + tab()" [attr.aria-labelledby]="'aba-' + tab()">
-      <!-- ===== Perfil: o seu nome e, com a nuvem ligada, a conta ===== -->
-      @if (tab() === 'perfil') {
-        <section class="ficha cartolina conta" aria-labelledby="perfil-titulo">
-          <app-pin class="pin" color="#e62e2d" />
-          <h2 id="perfil-titulo">Perfil</h2>
-
-          <div class="nome-dono">
-            <h3 class="sub"><label for="dono-nome">Seu nome</label></h3>
-            <p class="hint">
-              É como você aparece para quem abre o seu mural em Comparar, pelo código ou por um backup seu, e vai no nome
-              do arquivo de backup.
-            </p>
-            <div class="key">
-              <input
-                id="dono-nome"
-                type="text"
-                autocomplete="nickname"
-                spellcheck="false"
-                [maxLength]="ownerNameMax"
-                placeholder="Como você quer aparecer"
-                [value]="settings.ownerName()"
-                (input)="settings.ownerName.set($any($event.target).value)"
-              />
-            </div>
-          </div>
-
-          <div class="bloco perfil-link" role="group" aria-labelledby="perfil-pagina-titulo">
-            <h3 id="perfil-pagina-titulo" class="sub">Sua página</h3>
-            <p class="hint">
-              A foto (um emoji), a descrição, o fundo e as seções com as fichas que você escolher. É o que quem toca no seu nome vê.
-            </p>
-            <a class="btn-ink" routerLink="/perfil/editar">
-              <lucide-icon [img]="UserIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-              Editar o perfil
-            </a>
-          </div>
-
-          @if (cloud.config(); as cfg) {
-          <div class="bloco nuvem" role="group" aria-labelledby="conta-titulo">
-          <h3 id="conta-titulo" class="sub">Conta na nuvem</h3>
-          @if (account.account(); as acc) {
-            <div class="estado" [class.atrasado]="syncTrouble()">
-              <lucide-icon
-                class="estado-icone"
-                [img]="syncTrouble() ? CloudOffIcon : CloudOnIcon"
-                [size]="22"
-                [strokeWidth]="2.4"
-                aria-hidden="true"
-              />
-              <div>
-                <p class="estado-linha" role="status">{{ syncLine() }}</p>
-                <p class="estado-sub">Entrou como {{ acc.nome }}, o "Seu nome" aqui em cima.</p>
-              </div>
-            </div>
-            @if (sync.message(); as m) {
-              <p class="msg" [class.error]="sync.status() === 'erro' || sync.status() === 'desatualizado'">{{ m }}</p>
-            }
-            @if (sync.clockWrong()) {
-              <p class="msg error">
-                O relógio deste aparelho está {{ sync.clockSkew() > 0 ? 'atrasado' : 'adiantado' }} em relação à nuvem. Acerte a
-                hora: com o relógio errado, uma edição antiga pode passar por cima de uma nova.
-              </p>
-            }
-            <div class="sync-acoes">
-              @if (sync.status() === 'escolha') {
-                <button type="button" class="btn-ink" (click)="sync.syncNow()">Escolher agora</button>
-              } @else if (sync.status() === 'desatualizado') {
-                <button type="button" class="btn-ink" (click)="reload()">Recarregar a página</button>
-              } @else {
-                <button type="button" class="btn-quiet" (click)="sync.syncNow()" [disabled]="sync.status() === 'sincronizando'" [appBusy]="sync.status() === 'sincronizando'">
-                  <lucide-icon [img]="RefreshIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                  Sincronizar agora
-                </button>
-              }
-            </div>
-            @if (beforeCopy(); as copy) {
-              <p class="hint copia">
-                O mural que estava neste navegador antes de entrar na conta está guardado até {{ copyUntil(copy) }}.
-                <button type="button" class="link-btn" (click)="downloadBefore(copy)">Baixar essa cópia</button>
-              </p>
-            }
-
-            <div class="bloco codigo" role="group" aria-labelledby="codigo-titulo">
-              <h3 id="codigo-titulo" class="sub">Seu código</h3>
-              <div class="codigo-linha">
-                <span class="codigo-valor" aria-hidden="true">{{ acc.codigo }}</span><span class="sr-only">Código {{ spelled(acc.codigo) }}</span>
-                <button type="button" class="btn-quiet" (click)="copyCode(acc.codigo)">
-                  <lucide-icon [img]="CopyIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                  Copiar
-                </button>
-                <button type="button" class="btn-quiet" (click)="copyLink(acc.codigo)">
-                  <lucide-icon [img]="LinkIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                  Copiar o link
-                </button>
-              </div>
-              <p class="hint">
-                Com o código ou o link, qualquer pessoa abre as suas resenhas em Comparar (a fila, a wishlist e os ajustes
-                não vão). Com ele, a pessoa também pode seguir você em Amigos.
-                <button type="button" class="link-btn" (click)="newCode()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'codigo'">
-                  {{ accountBusy() === 'codigo' ? 'Trocando o código…' : 'Trocar o código' }}
-                </button>
-              </p>
-            </div>
-
-            <div class="bloco sair" role="group" aria-label="Sair da conta">
-              <button type="button" class="btn-quiet" (click)="signOut()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'sair'">
-                <lucide-icon [img]="LogOutIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                {{ accountBusy() === 'sair' ? 'Saindo…' : 'Sair' }}
-              </button>
-              <button type="button" class="btn-quiet" (click)="signOutEverywhere()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'sair-todos'">
-                {{ accountBusy() === 'sair-todos' ? 'Saindo de todos…' : 'Sair de todos os aparelhos' }}
-              </button>
-            </div>
-
-            <div class="bloco apagar-conta" role="group" aria-labelledby="apagar-conta-titulo">
-              <h3 id="apagar-conta-titulo" class="sub">Apagar a conta</h3>
-              <p class="hint">
-                Tira da nuvem a conta, o código e tudo o que estiver guardado lá. O mural deste navegador continua aqui.
-              </p>
-              <button type="button" class="btn-ink danger" (click)="deleteAccount(acc.nome, acc.codigo)" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'apagar'">
-                <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                {{ accountBusy() === 'apagar' ? 'Apagando…' : 'Apagar a conta' }}
-              </button>
-            </div>
-          } @else {
-            <p class="lead">
-              Entre com o Google para guardar o mural na nuvem e abrir em qualquer aparelho. Sem conta, tudo continua só
-              neste navegador, como sempre.
-            </p>
-            <div class="entrar">
-              @if (accountBusy() === 'entrar') {
-                <p class="hint entrando" role="status"><span class="carregando" aria-hidden="true"></span>Entrando…</p>
-              } @else {
-                <app-google-button [clientId]="cfg.googleClientId" (credential)="signIn($event)" />
-              }
-            </div>
-            <p class="hint">
-              A nuvem guarda o número da sua conta Google, o nome que você escolher e o seu mural; nunca o seu e-mail.
-              <a href="privacidade.html" target="_blank" rel="noopener">Como a privacidade funciona</a>
-            </p>
-          }
-          @if (accountMsg(); as m) {
-            <p class="msg error" role="alert">{{ m }}</p>
-          }
-          </div>
-          }
-        </section>
-      }
-
-      <!-- ===== Backup ===== -->
-      @if (tab() === 'backup') {
-      <section class="ficha cartolina backup" aria-labelledby="backup-titulo">
-        <app-pin class="pin" color="#e62e2d" />
-        <h2 id="backup-titulo">Backup</h2>
-        <p class="lead">
-          @if (account.signedIn() && cloud.config()) {
-            Suas resenhas estão neste navegador e na sua conta. O backup é um arquivo só seu, com todos os murais: resenhas,
-            pra depois e wishlist.
-          } @else {
-            Suas resenhas moram só neste navegador. O backup é um arquivo com todos os murais: resenhas, pra depois e
-            wishlist.
-          }
-        </p>
-
-        <div class="estado" [class.atrasado]="overdue()">
-          <lucide-icon
-            class="estado-icone"
-            [img]="backup.inCloud() ? CloudOnIcon : overdue() ? AlertIcon : OkIcon"
-            [size]="22"
-            [strokeWidth]="2.4"
-            aria-hidden="true"
-          />
-          <div>
-            <p class="estado-linha">{{ backup.inCloud() ? syncLine() : lastBackup() }}</p>
-            <p class="estado-sub">
-              {{ contents() }}
-              @if (backup.inCloud()) {
-                {{ lastBackup() }}.
-              }
-            </p>
-          </div>
-        </div>
-
-        <button type="button" class="btn-ink baixar" (click)="exportFile()" [disabled]="!hasData() || exporting()" [appBusy]="exporting()">
-          <lucide-icon [img]="DownloadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-          {{ exporting() ? 'Preparando o backup…' : 'Baixar backup' }}
-        </button>
-        <p class="hint arquivo">
-          O arquivo sai como <strong>{{ fileNamePreview() }}</strong> (o nome vem do
-          <button type="button" class="link-btn" (click)="go('perfil')">Perfil</button>).
-        </p>
-
-        @if (backup.persisted() === false) {
-          <p class="tip">
-            <lucide-icon [img]="ShieldIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-            <span>
-              O navegador pode apagar o que um site guarda quando falta espaço (o Safari apaga depois de uma semana sem
-              abrir). Instale o mural na tela inicial para ele ficar protegido.
-            </span>
-          </p>
-        }
-
-        <div class="bloco" role="group" aria-labelledby="restaurar-titulo">
-          <h3 id="restaurar-titulo" class="sub">Restaurar um backup</h3>
-          <fieldset class="escolha">
-            <legend class="rotulo">O que fazer com o que já está aqui?</legend>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="modo" value="merge" [checked]="mode() === 'merge'" (change)="mode.set('merge')" />
-                <span class="adesivo" [class.recorte]="mode() !== 'merge'" [class.colado]="mode() === 'merge'">Juntar</span>
-              </span>
-              <span class="op-texto">Soma o arquivo ao que já está aqui. Se uma resenha está nos dois, fica a mais nova.</span>
-            </label>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="modo" value="replace" [checked]="mode() === 'replace'" (change)="mode.set('replace')" />
-                <span class="adesivo" [class.recorte]="mode() !== 'replace'" [class.colado]="mode() === 'replace'">Substituir</span>
-              </span>
-              <span class="op-texto">Apaga o que está aqui e deixa os murais iguais ao arquivo.</span>
-            </label>
-          </fieldset>
-          <label class="file-btn" [appBusy]="importing()">
-            <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-            {{ importing() ? 'Lendo o arquivo…' : mode() === 'replace' ? 'Escolher arquivo e substituir' : 'Escolher arquivo e juntar' }}
-            <input type="file" accept="application/json,.json,application/gzip,.gz" [disabled]="importing()" (change)="importFile($event)" />
-          </label>
-          <p class="hint">O arquivo .json ou .json.gz baixado aqui, em qualquer navegador.</p>
-          @if (importMsg(); as m) {
-            <p class="msg" [class.error]="m.error" role="status">{{ m.text }}</p>
-          }
-        </div>
-
-        <div class="bloco apagar" role="group" aria-labelledby="apagar-titulo">
-          <h3 id="apagar-titulo" class="sub">Apagar o save</h3>
-          <p class="hint">
-            Começa do zero: tira deste navegador as resenhas, o pra depois, a wishlist, os backups de colegas e o progresso
-            dos Extras. Seu nome, as chaves e as escolhas desta página ficam. Não tem desfazer: baixe um backup antes se
-            quiser guardar.
-            @if (account.signedIn() && cloud.config()) {
-              Com a conta, o mural da nuvem volta para cá na próxima sincronização; para tirar da nuvem, apague a conta.
-            }
-          </p>
-          <button type="button" class="btn-ink danger" (click)="erase()" [disabled]="erasing()" [appBusy]="erasing()">
-            <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-            {{ erasing() ? 'Apagando…' : 'Apagar o save' }}
-          </button>
-        </div>
-      </section>
-      }
-
-      <!-- ===== Mural ===== -->
-      @if (tab() === 'mural') {
-      <section class="ficha cartolina mural" aria-labelledby="mural-titulo">
-        <app-pin class="pin" color="#e62e2d" />
-        <h2 id="mural-titulo">Mural</h2>
-        <fieldset class="escolha">
-          <legend class="rotulo">Etiquetas dos grupos</legend>
-          <label class="op">
-            <span class="opcao">
-              <input type="radio" name="etiquetas" value="mostrar" [checked]="settings.groupLabels()" (change)="settings.groupLabels.set(true)" />
-              <span class="adesivo" [class.recorte]="!settings.groupLabels()" [class.colado]="settings.groupLabels()">Mostrar</span>
-            </span>
-            <span class="op-texto">Uma fita separa cada grupo pelo que ordena: mês, nota, letra ou status.</span>
-          </label>
-          <label class="op">
-            <span class="opcao">
-              <input type="radio" name="etiquetas" value="esconder" [checked]="!settings.groupLabels()" (change)="settings.groupLabels.set(false)" />
-              <span class="adesivo" [class.recorte]="settings.groupLabels()" [class.colado]="!settings.groupLabels()">Esconder</span>
-            </span>
-            <span class="op-texto">As fichas correm juntas, sem nada no meio. Bom para tirar print.</span>
-          </label>
-        </fieldset>
-
-        <!-- um pedaço da parede, para ver o efeito antes de voltar ao mural -->
-        <div class="previa parede" [class.junta]="!settings.groupLabels()" aria-hidden="true">
-          @for (g of preview; track g.label) {
-            <div class="p-grupo">
-              @if (settings.groupLabels()) {
-                <span class="p-fita">{{ g.label }}</span>
-              }
-              <div class="p-fichas">
-                @for (s of g.stocks; track $index) {
-                  <span class="p-ficha" [style.--stock]="'var(--stock-' + s + ')'"></span>
-                }
-              </div>
-            </div>
-          }
-        </div>
-
-        <fieldset class="escolha spoilers">
-          <legend class="rotulo">Spoilers</legend>
-          <label class="op">
-            <span class="opcao">
-              <input type="radio" name="spoilers" value="mostrar" [checked]="!settings.noSpoilers()" (change)="settings.noSpoilers.set(false)" />
-              <span class="adesivo" [class.recorte]="settings.noSpoilers()" [class.colado]="!settings.noSpoilers()">Mostrar</span>
-            </span>
-            <span class="op-texto">As fichas mostram o que você achou: notas, veredito, bônus e a frase da resenha.</span>
-          </label>
-          <label class="op">
-            <span class="opcao">
-              <input type="radio" name="spoilers" value="esconder" [checked]="settings.noSpoilers()" (change)="settings.noSpoilers.set(true)" />
-              <span class="adesivo" [class.recorte]="!settings.noSpoilers()" [class.colado]="settings.noSpoilers()">Sem spoilers</span>
-            </span>
-            <span class="op-texto">
-              Toda nota vira “?”, o veredito vira “Segredo”, as horas e a dificuldade somem, todo bônus fica meio branco e meio preto, e o texto vira um rabisco do mesmo tamanho, como letreiro de desenho animado.
-              Bom para mostrar o mural sem contar nada.
-            </span>
-          </label>
-        </fieldset>
-
-        @if (cloud.config()) {
-          <fieldset class="escolha amigos-murais">
-            <legend class="rotulo">Novidades dos amigos</legend>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="amigos-murais" value="misturado" [checked]="settings.friendKinds() === 'misturado'" (change)="settings.friendKinds.set('misturado')" />
-                <span class="adesivo" [class.recorte]="settings.friendKinds() !== 'misturado'" [class.colado]="settings.friendKinds() === 'misturado'">Misturado</span>
-              </span>
-              <span class="op-texto">Em Amigos aparece tudo: jogos, livros, filmes, séries e animes, esteja no mural que estiver.</span>
-            </label>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="amigos-murais" value="separado" [checked]="settings.friendKinds() === 'separado'" (change)="settings.friendKinds.set('separado')" />
-                <span class="adesivo" [class.recorte]="settings.friendKinds() !== 'separado'" [class.colado]="settings.friendKinds() === 'separado'">Separado</span>
-              </span>
-              <span class="op-texto">Só o que é do mural aberto no cartaz: no de animes, só animes. O número da aba Amigos também.</span>
-            </label>
-          </fieldset>
-
-          <fieldset class="escolha numero-amigos">
-            <legend class="rotulo">Número na aba Amigos</legend>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="numero-amigos" value="mostrar" [checked]="settings.mailCount()" (change)="settings.mailCount.set(true)" />
-                <span class="adesivo" [class.recorte]="!settings.mailCount()" [class.colado]="settings.mailCount()">Mostrar</span>
-              </span>
-              <span class="op-texto">A aba Amigos, no topo, mostra quantas novidades chegaram, e as pessoas acenam quando chega algo.</span>
-            </label>
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="numero-amigos" value="esconder" [checked]="!settings.mailCount()" (change)="settings.mailCount.set(false)" />
-                <span class="adesivo" [class.recorte]="settings.mailCount()" [class.colado]="!settings.mailCount()">Esconder</span>
-              </span>
-              <span class="op-texto">A aba fica quieta; as novidades continuam lá dentro.</span>
-            </label>
-          </fieldset>
-        }
-
-        <!-- vale para a ficha de qualquer outra pessoa: em Amigos, no mural dela e em Comparar -->
-        <fieldset class="escolha spoilers-amigos">
-          <legend class="rotulo">Notas dos outros</legend>
-          <label class="op">
-            <span class="opcao">
-              <input type="radio" name="spoilers-amigos" value="mostrar" [checked]="!settings.friendSpoilers()" (change)="settings.friendSpoilers.set(false)" />
-              <span class="adesivo" [class.recorte]="settings.friendSpoilers()" [class.colado]="!settings.friendSpoilers()">Mostrar</span>
-            </span>
-            <span class="op-texto">As fichas de outras pessoas aparecem inteiras, amigos ou não.</span>
-          </label>
-          <label class="op">
-            <span class="opcao">
-              <input type="radio" name="spoilers-amigos" value="evitar" [checked]="settings.friendSpoilers()" (change)="settings.friendSpoilers.set(true)" />
-              <span class="adesivo" [class.recorte]="!settings.friendSpoilers()" [class.colado]="settings.friendSpoilers()">Evitar spoilers</span>
-            </span>
-            <span class="op-texto">
-              Em Amigos, no mural de alguém e em Comparar, o que você ainda não avaliou fica em segredo; o que já avaliou mostra a nota.
-              Dá para revelar na hora, sem mudar aqui.
-            </span>
-          </label>
-        </fieldset>
-
-        <fieldset class="escolha nota">
-          <legend class="rotulo">Nota</legend>
-          @for (o of scoreDisplays; track o.value) {
-            <label class="op">
-              <span class="opcao">
-                <input type="radio" name="nota" [value]="o.value" [checked]="settings.scoreDisplay() === o.value" (change)="settings.scoreDisplay.set(o.value)" />
-                <span class="adesivo" [class.recorte]="settings.scoreDisplay() !== o.value" [class.colado]="settings.scoreDisplay() === o.value">{{ o.label }}</span>
-              </span>
-              <span class="op-texto">{{ o.text }}</span>
-            </label>
-          }
-        </fieldset>
-
-        <!-- um canto de ficha, para ver o que some e como a nota aparece -->
-        <div class="previa-ficha" aria-hidden="true">
-          <app-judge-label class="p-julgamento" [value]="8.7" verdict="recomendo" size="compact" [masked]="settings.noSpoilers()" />
-          <ul class="p-bonus">
-            @for (b of sampleBonuses; track b.id; let i = $index) {
-              <li><app-bonus-sticker [bonus]="b" [index]="i" size="mini" [masked]="settings.noSpoilers()" seed="previa" /></li>
-            }
-          </ul>
-          <p class="p-frase">
-            @if (settings.noSpoilers()) {
-              “<app-rabisco [text]="sampleLeadMasked" />”
-            } @else {
-              “{{ sampleLead }}”
-            }
-          </p>
-        </div>
-      </section>
-      }
-
-      <!-- ===== Busca e capas ===== -->
-      @if (tab() === 'busca') {
-      <section class="ficha cartolina catalog" aria-labelledby="catalogo-titulo">
-        <app-pin class="pin" color="#f4f4f0" />
-        <h2 id="catalogo-titulo">Busca e capas</h2>
-        <p class="lead">A busca já funciona sem configurar nada. Duas chaves gratuitas deixam ela melhor.</p>
-        @if (account.signedIn() && cloud.config()) {
-          <p class="hint">Com a conta, as chaves coladas aqui valem em todos os seus aparelhos. Elas nunca vão no arquivo de backup.</p>
-        }
-
-        <h3 class="rotulo fontes-titulo" id="fontes-titulo">De onde vem a busca agora</h3>
-        <dl class="fontes" aria-labelledby="fontes-titulo">
-          <div>
-            <dt><lucide-icon [img]="GamesIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Jogos</dt>
-            <dd>
-              @if (settings.effectiveSource() === 'rawg') {
-                RAWG <span class="via">com capa da Steam</span>
-              } @else {
-                Wikipedia <span class="via">em inglês</span>
-              }
-            </dd>
-          </div>
-          <div>
-            <dt><lucide-icon [img]="BooksIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Livros</dt>
-            <dd>Open Library <span class="via">edição em português</span></dd>
-          </div>
-          <div>
-            <dt>
-              <lucide-icon [img]="FilmsIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-              <lucide-icon [img]="SeriesIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Filmes e séries
-            </dt>
-            <dd>
-              @if (settings.hasTmdb()) {
-                TMDB <span class="via">em português</span>
-              } @else {
-                Wikipedia <span class="via">em inglês</span>
-              }
-            </dd>
-          </div>
-          <div>
-            <dt><lucide-icon [img]="AnimesIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />Animes</dt>
-            <dd>Kitsu <span class="via">nome brasileiro quando tem</span></dd>
-          </div>
-        </dl>
-
-        <!-- TMDB -->
-        <section class="chave" aria-labelledby="tmdb-titulo">
-          <div class="chave-topo">
-            <h3 id="tmdb-titulo" class="sub">Chave do TMDB</h3>
-            <span class="selo" [class.ok]="settings.hasTmdb()">
-              @if (settings.hasTmdb()) {
-                <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
-                Chave salva
-              } @else {
-                Sem chave
-              }
-            </span>
-          </div>
-          <p class="ganho">Filmes e séries com o nome e o pôster em português.</p>
-          <ol class="passos">
-            <li>
-              Crie uma conta grátis em
-              <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a>.
-            </li>
-            <li>Peça uma chave de API para uso pessoal.</li>
-            <li>Cole aqui a "Chave da API" ou o "Token de leitura".</li>
-          </ol>
-          <div class="key">
-            <input
-              #tmdbInput
-              id="tmdb-key"
-              aria-labelledby="tmdb-titulo"
-              [type]="showTmdb() ? 'text' : 'password'"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Cole sua chave do TMDB"
-              [value]="settings.tmdbKey()"
-              (input)="settings.setKey('tmdb', $any($event.target).value)"
-            />
-            @if (settings.tmdbKey()) {
-              <button type="button" class="icon-btn" (click)="settings.setKey('tmdb', ''); tmdbInput.focus()" aria-label="Apagar a chave do TMDB">
-                <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
-              </button>
-            }
-            <button
-              type="button"
-              class="icon-btn"
-              (click)="showTmdb.set(!showTmdb())"
-              [attr.aria-label]="showTmdb() ? 'Esconder chave' : 'Mostrar chave'"
-              [attr.aria-pressed]="showTmdb()"
-            >
-              <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
-            </button>
-          </div>
-          <p class="credit">Este site usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.</p>
-        </section>
-
-        <!-- RAWG -->
-        <section class="chave" aria-labelledby="rawg-titulo">
-          <div class="chave-topo">
-            <h3 id="rawg-titulo" class="sub">Chave da RAWG</h3>
-            <span class="selo" [class.ok]="settings.hasRawg()">
-              @if (settings.hasRawg()) {
-                <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
-                Chave salva
-              } @else {
-                Sem chave
-              }
-            </span>
-          </div>
-          <p class="ganho">Busca de jogos mais precisa, e a capa vertical da Steam quando o jogo está lá.</p>
-          <ol class="passos">
-            <li>
-              Crie uma chave grátis em
-              <a href="https://rawg.io/apidocs" target="_blank" rel="noopener">rawg.io/apidocs</a>.
-            </li>
-            <li>Cole a chave aqui.</li>
-          </ol>
-          <div class="key">
-            <input
-              #rawgInput
-              id="rawg-key"
-              aria-labelledby="rawg-titulo"
-              [type]="showKey() ? 'text' : 'password'"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Cole sua chave da RAWG"
-              [value]="settings.rawgKey()"
-              (input)="settings.setKey('rawg', $any($event.target).value)"
-            />
-            @if (settings.rawgKey()) {
-              <button type="button" class="icon-btn" (click)="settings.setKey('rawg', ''); rawgInput.focus()" aria-label="Apagar a chave da RAWG">
-                <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
-              </button>
-            }
-            <button
-              type="button"
-              class="icon-btn"
-              (click)="showKey.set(!showKey())"
-              [attr.aria-label]="showKey() ? 'Esconder chave' : 'Mostrar chave'"
-              [attr.aria-pressed]="showKey()"
-            >
-              <lucide-icon [img]="showKey() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
-            </button>
-          </div>
-
-          <fieldset class="escolha fonte">
-            <legend class="rotulo">Buscar jogos e capas de jogos em</legend>
-            <label class="op">
-              <span class="opcao">
-                <input
-                  type="radio"
-                  name="fonte"
-                  value="wikipedia"
-                  [checked]="settings.effectiveSource() === 'wikipedia'"
-                  (change)="settings.source.set('wikipedia')"
-                />
-                <span class="adesivo" [class.recorte]="settings.effectiveSource() !== 'wikipedia'" [class.colado]="settings.effectiveSource() === 'wikipedia'">
-                  Wikipedia
-                </span>
-              </span>
-              <span class="op-texto">Não precisa de chave.</span>
-            </label>
-            <label class="op" [class.off]="!settings.hasRawg()">
-              <span class="opcao">
-                <input
-                  type="radio"
-                  name="fonte"
-                  value="rawg"
-                  [disabled]="!settings.hasRawg()"
-                  [checked]="settings.effectiveSource() === 'rawg'"
-                  (change)="settings.source.set('rawg')"
-                />
-                <span class="adesivo" [class.recorte]="settings.effectiveSource() !== 'rawg'" [class.colado]="settings.effectiveSource() === 'rawg'">
-                  RAWG
-                </span>
-              </span>
-              <span class="op-texto">
-                @if (settings.hasRawg()) {
-                  Usa a sua chave, e traz a capa da Steam.
-                } @else {
-                  Cole a chave acima para usar.
-                }
-              </span>
-            </label>
-          </fieldset>
-        </section>
-      </section>
-      }
-    </div>
-  `,
+  templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
 })
 export class SettingsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  /** As abas, na ordem da régua. A aberta fica no endereço (#/ajustes?aba=backup), para links irem direto. */
-  protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Search }[] = [
-    { id: 'perfil', label: 'Perfil', icon: UserRound },
-    { id: 'backup', label: 'Backup', icon: HardDriveDownload },
-    { id: 'mural', label: 'Mural', icon: LayoutGrid },
-    { id: 'busca', label: 'Busca e capas', icon: Search },
+  /** As partes, na ordem do índice. A aberta fica no endereço (#/ajustes?aba=backup), para links irem direto. */
+  protected readonly tabs: readonly { id: Tab; label: string; hint: string; icon: LucideIconData }[] = [
+    { id: 'conta', label: 'Conta', hint: 'Nome, perfil e nuvem', icon: UserRound },
+    { id: 'mural', label: 'Mural', hint: 'Notas, grupos e spoilers', icon: LayoutGrid },
+    { id: 'amigos', label: 'Amigos', hint: 'O que chega dos outros', icon: UsersRound },
+    { id: 'backup', label: 'Backup', hint: 'Baixar e restaurar', icon: HardDriveDownload },
+    { id: 'busca', label: 'Busca', hint: 'De onde vêm as capas', icon: Search },
   ];
+  /** As etiquetas no papelão, cada uma presa num ângulo (a aberta fica reta). */
+  protected readonly tilts = ['-1.2deg', '0.9deg', '-0.6deg', '1.1deg', '-0.9deg'];
   protected readonly tab = signal<Tab>(this.tabFrom(this.route.snapshot.queryParamMap.get('aba')));
   /** Um link para outra aba (o "Baixar backup" do aviso) com a página já aberta também troca a aba. */
   private readonly followTabParam = this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(this.tabFrom(q.get('aba'))));
 
   private tabFrom(value: string | null): Tab {
-    return TABS.includes(value as Tab) ? (value as Tab) : 'perfil';
+    // "perfil" era o nome da Conta (links antigos e de outras páginas)
+    if (value === 'perfil') return 'conta';
+    return TABS.includes(value as Tab) ? (value as Tab) : 'conta';
   }
 
   protected go(id: Tab): void {
@@ -732,11 +108,12 @@ export class SettingsPage {
     void this.router.navigate([], { relativeTo: this.route, queryParams: { aba: id }, replaceUrl: true });
   }
 
-  /** Setas, Home e End andam entre as abas (o padrão das abas para teclado). */
+  /** Setas, Home e End andam entre as partes (o padrão das abas para teclado; o índice fica de pé ou deitado). */
   protected onTabKey(e: KeyboardEvent): void {
     const i = TABS.indexOf(this.tab());
-    const next =
-      e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i - 1 + TABS.length) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
+    const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+    const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+    const next = forward ? (i + 1) % TABS.length : back ? (i - 1 + TABS.length) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
     if (next < 0) return;
     e.preventDefault();
     this.go(TABS[next]);
@@ -745,11 +122,11 @@ export class SettingsPage {
 
   protected readonly store = inject(ReviewStore);
   protected readonly settings = inject(Settings);
-  /** O jeito de mostrar a nota, com um exemplo de cada. */
-  protected readonly scoreDisplays: readonly { value: ScoreDisplay; label: string; text: string }[] = [
-    { value: 'livre', label: 'Livre', text: 'Qualquer nota com até uma casa: 8,4 fica 8,4.' },
-    { value: 'metade', label: 'Arredondado', text: 'Vai para a metade ou o inteiro mais perto: 9,2 vira 9 e 8,4 vira 8,5.' },
-    { value: 'inteiro', label: 'Inteiros', text: 'Vai para o inteiro mais perto: 8,4 vira 8 e 8,5 vira 9.' },
+  /** O jeito de mostrar a nota, com um 8,4 em cada um. */
+  protected readonly scoreDisplays: readonly { value: ScoreDisplay; label: string; sample: string }[] = [
+    { value: 'livre', label: 'Como dei', sample: '8,4' },
+    { value: 'metade', label: 'De meio em meio', sample: '8,5' },
+    { value: 'inteiro', label: 'Inteiras', sample: '8' },
   ];
   protected readonly backup = inject(Backup);
   protected readonly ownerNameMax = OWNER_NAME_MAX;
@@ -762,6 +139,8 @@ export class SettingsPage {
   protected readonly cloud = inject(Cloud);
   protected readonly news = inject(News);
   protected readonly MegaphoneIcon = Megaphone;
+  private readonly lookup = inject(GameLookup);
+  private readonly siteKeys = inject(SiteKeys);
   protected readonly account = inject(CloudAccount);
   protected readonly sync = inject(CloudSync);
   protected readonly beforeCopy = signal<BeforeCloudCopy | null>(null);
@@ -776,41 +155,49 @@ export class SettingsPage {
   protected readonly ShowIcon = Eye;
   protected readonly HideIcon = EyeOff;
   protected readonly ClearIcon = X;
-  protected readonly CheckIcon = Check;
   protected readonly OkIcon = CircleCheck;
   protected readonly AlertIcon = TriangleAlert;
   protected readonly ShieldIcon = ShieldAlert;
   protected readonly TrashIcon = Trash2;
-  protected readonly GamesIcon = Gamepad2;
-  protected readonly BooksIcon = BookOpen;
-  protected readonly FilmsIcon = Film;
-  protected readonly SeriesIcon = Tv;
-  protected readonly AnimesIcon = Origami;
   protected readonly CloudOnIcon = CloudIcon;
   protected readonly CopyIcon = Copy;
-  protected readonly UserIcon = UserRound;
+  protected readonly PenIcon = Pencil;
   protected readonly LinkIcon = LinkIconData;
   protected readonly LogOutIcon = LogOut;
   protected readonly RefreshIcon = RefreshCw;
   protected readonly CloudOffIcon = CloudOff;
 
-  /** O pedaço de parede da prévia das etiquetas: dois meses, cinco fichas. */
-  protected readonly preview = [
-    { label: 'Março', stocks: ['rosa', 'azul', 'verde'] },
-    { label: 'Fevereiro', stocks: ['amarelo', 'laranja'] },
-  ];
-
-  /** A prévia do modo sem spoilers: dois bônus, um de cada lado, e uma frase de resenha. */
-  protected readonly sampleBonuses: Bonus[] = [
-    { id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' },
-    { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
-  ];
-  protected readonly sampleLead = 'Valeu cada hora, mesmo com o final corrido.';
-  protected readonly sampleLeadMasked = scramble(this.sampleLead, 'previa');
-
-  protected readonly showKey = signal(false);
+  protected readonly showRawg = signal(false);
   protected readonly showTmdb = signal(false);
-  protected readonly mode = signal<'merge' | 'replace'>('merge');
+
+  /** A busca do site tem as duas chaves: ninguém precisa da própria. */
+  protected readonly siteReady = computed(() => !!this.cloud.config() && this.siteKeys.rawg() && this.siteKeys.tmdb());
+  /** "Usar as suas próprias chaves" abre sozinho quando há chave colada ou quando o site está sem as dele. */
+  protected readonly keysOpen = signal(this.settings.hasRawg() || this.settings.hasTmdb() || !this.siteReady());
+  protected readonly ownKeysLine = computed(() => {
+    const own = [this.settings.hasTmdb() && 'TMDB', this.settings.hasRawg() && 'RAWG'].filter(Boolean);
+    return own.length ? `Em uso: ${own.join(' e ')}` : 'Opcional';
+  });
+
+  /** De onde cada mural busca agora: muda com as chaves (as suas e as do site). */
+  protected readonly sources = computed(() => {
+    const games = this.lookup.gamesSource();
+    const films = this.lookup.filmsSource();
+    const yours = (own: boolean) => (own ? ', com a sua chave' : '');
+    const rows: { wall: string; icons: LucideIconData[]; name: string; via: string }[] = [
+      { wall: 'Jogos', icons: [Gamepad2], name: games.name, via: games.name === 'RAWG' ? `com a capa da Steam${yours(games.own)}` : 'em inglês' },
+      { wall: 'Livros', icons: [BookOpen], name: 'Open Library', via: 'edição em português' },
+      { wall: 'Filmes e séries', icons: [Film, Tv], name: films.name, via: films.name === 'TMDB' ? `em português${yours(films.own)}` : 'em inglês' },
+      { wall: 'Animes', icons: [Origami], name: 'Kitsu', via: 'nome brasileiro quando tem' },
+    ];
+    return rows;
+  });
+
+  /** O que pede atenção, por parte: a sincronização com problema, o backup atrasado. */
+  protected readonly attention = computed<Partial<Record<Tab, string>>>(() => ({
+    ...(this.syncTrouble() && this.account.signedIn() ? { conta: 'a sincronização precisa de atenção' } : {}),
+    ...(this.overdue() ? { backup: 'hora de baixar um backup' } : {}),
+  }));
   protected readonly importMsg = signal<{ text: string; error: boolean } | null>(null);
   protected readonly erasing = signal(false);
 
@@ -1025,7 +412,6 @@ export class SettingsPage {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    const replace = this.mode() === 'replace';
     try {
       // lê antes de perguntar: um arquivo que não serve não pede confirmação nenhuma
       this.importing.set(true);
@@ -1037,6 +423,22 @@ export class SettingsPage {
       }
       // não serve (não é backup, é de outro app ou de uma versão mais nova): avisa antes de perguntar qualquer coisa
       const owner = ownerNameOf(backupLists(text).data);
+      const n = this.store.count();
+      const lists = this.store.draftCount() + this.wishCount();
+      // com algo aqui, a pergunta vem depois do arquivo: juntar (o seguro, a principal) ou substituir
+      let replace = false;
+      if (n > 0 || lists > 0) {
+        const choice = await this.confirm.choose({
+          title: 'Juntar ou substituir?',
+          text:
+            'Juntar soma o arquivo ao que já está aqui (se uma resenha está nos dois, fica a mais nova). ' +
+            'Substituir apaga o que está aqui e deixa os murais iguais ao arquivo.',
+          confirm: 'Juntar',
+          secondary: 'Substituir',
+        });
+        if (!choice) return;
+        replace = choice === 'secondary';
+      }
       // o backup de um colega misturaria as fichas dele com as suas: o lugar dele é Comparar
       const me = this.settings.ownerName().trim();
       if (
@@ -1052,8 +454,6 @@ export class SettingsPage {
       ) {
         return;
       }
-      const n = this.store.count();
-      const lists = this.store.draftCount() + this.wishCount();
       if (
         replace &&
         (n > 0 || lists > 0) &&
@@ -1067,7 +467,7 @@ export class SettingsPage {
       ) {
         return;
       }
-      const res = this.store.importJson(text, this.mode());
+      const res = this.store.importJson(text, replace ? 'replace' : 'merge');
       // o seu próprio backup num navegador novo: o nome volta junto, se ainda não há um aqui
       if (!this.settings.ownerName().trim() && owner) this.settings.ownerName.set(owner.slice(0, OWNER_NAME_MAX));
       const parts = [`${res.added} ${res.added === 1 ? 'resenha nova' : 'resenhas novas'}`];

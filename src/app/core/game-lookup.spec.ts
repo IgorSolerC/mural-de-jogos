@@ -3,6 +3,8 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { GameLookup, LookupError } from './game-lookup';
 import { Settings } from './settings';
+import { Cloud } from './cloud-config';
+import { SiteKeys } from './site-keys';
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -15,7 +17,10 @@ describe('GameLookup', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    // sem a nuvem: a busca só tem a chave da pessoa (a do site tem o seu describe)
+    TestBed.configureTestingModule({
+      providers: [provideZonelessChangeDetection(), { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => null } }],
+    });
     lookup = TestBed.inject(GameLookup);
     settings = TestBed.inject(Settings);
     fetchSpy = spyOn(window, 'fetch');
@@ -314,6 +319,76 @@ describe('GameLookup', () => {
       const { choices: found } = await lookup.coverChoices(hades, 'jogos', signal);
       expect(found.map((c) => c.from)).toEqual(['Wikipedia']);
       expect(fetchSpy.calls.allArgs().some(([u]) => String(u).includes('rawg'))).toBeFalse();
+    });
+  });
+
+  describe('com as chaves do site (pela nuvem)', () => {
+    const API = 'https://api.teste';
+    let keys: SiteKeys;
+
+    beforeEach(() => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideZonelessChangeDetection(),
+          { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
+        ],
+      });
+      fetchSpy.and.callFake((input: RequestInfo | URL) =>
+        String(input) === `${API}/v1/catalogo` ? json({ rawg: true, tmdb: true }) : json({ results: [], query: { pages: [] } }),
+      );
+      lookup = TestBed.inject(GameLookup);
+      settings = TestBed.inject(Settings);
+      keys = TestBed.inject(SiteKeys);
+    });
+
+    const calls = () => fetchSpy.calls.allArgs().map(([u]) => String(u)).filter((u) => !u.endsWith('/v1/catalogo'));
+
+    it('sem a chave da pessoa, jogos e filmes passam pela nuvem, sem chave nenhuma na URL', async () => {
+      await keys.ready;
+      await lookup.search('hades', signal, 'jogos');
+      await lookup.search('duna', signal, 'filmes');
+      expect(calls()[0]).toBe(`${API}/v1/catalogo/rawg/games?search=hades&page_size=8&search_precise=true`);
+      expect(calls()[1]).toContain(`${API}/v1/catalogo/tmdb/search/movie?query=duna`);
+      expect(calls().join(' ')).not.toContain('key=');
+      expect(lookup.gamesSource()).toEqual({ name: 'RAWG', own: false });
+      expect(lookup.sourceName('series')).toBe('TMDB');
+    });
+
+    it('a chave da pessoa vence a do site', async () => {
+      await keys.ready;
+      settings.rawgKey.set('minha');
+      await lookup.search('hades', signal, 'jogos');
+      expect(calls()[0]).toContain('https://api.rawg.io/api/games?');
+      expect(calls()[0]).toContain('key=minha');
+      expect(lookup.gamesSource()).toEqual({ name: 'RAWG', own: true });
+    });
+
+    it('a chave do site no limite: a busca volta para a Wikipedia, sem erro, até recarregar', async () => {
+      await keys.ready;
+      fetchSpy.and.callFake((input: RequestInfo | URL) =>
+        String(input).includes('/v1/catalogo/') ? json({ erro: 'catalogo-limite' }, 503) : json({ query: { pages: [] } }),
+      );
+      expect(await lookup.search('hades', signal, 'jogos')).toEqual([]);
+      expect(calls()[1]).toContain('wikipedia.org');
+      expect(keys.rawg()).toBeFalse();
+      expect(lookup.gamesSource().name).toBe('Wikipedia');
+    });
+
+    it('a nuvem sem as chaves: Wikipedia, como sempre', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) =>
+        String(input) === `${API}/v1/catalogo` ? json({ rawg: false, tmdb: false }) : json({ query: { pages: [] } }),
+      );
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideZonelessChangeDetection(),
+          { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
+        ],
+      });
+      lookup = TestBed.inject(GameLookup);
+      await lookup.search('hades', signal, 'jogos');
+      expect(calls()[0]).toContain('wikipedia.org');
     });
   });
 

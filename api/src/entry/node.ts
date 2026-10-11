@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { migrate, sqliteDb } from '../adapters/sqlite-node';
 import { createApp } from '../app';
+import { readCatalogKeys } from '../routes/catalog';
 import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
@@ -13,7 +14,7 @@ import { Deps } from '../ports';
 /**
  * A entrada fora da Cloudflare: o mesmo app num servidor Node comum, com um arquivo SQLite.
  * Variáveis: as mesmas do wrangler.toml (MODO, ORIGENS, COTA_LINHAS_DIA, GOOGLE_CLIENT_ID, VER_MURAIS), mais
- * BANCO (o arquivo, padrão `mural.sqlite`) e PORT (padrão 8787).
+ * TMDB_KEY e RAWG_KEY (as chaves do site na busca, opcionais), BANCO (o arquivo, padrão `mural.sqlite`) e PORT (padrão 8787).
  */
 const file = process.env['BANCO'] ?? 'mural.sqlite';
 const sqlite = new DatabaseSync(file);
@@ -26,6 +27,7 @@ const deps: Deps = {
   config,
   now: () => new Date(),
   verifyGoogle: googleVerifier(config.googleClientId, createRemoteJWKSet(new URL(GOOGLE_CERTS_URL))),
+  catalog: { keys: readCatalogKeys(process.env) },
 };
 const app = createApp(deps);
 const port = Number(process.env['PORT'] ?? 8787);

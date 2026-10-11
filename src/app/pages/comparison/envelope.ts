@@ -84,7 +84,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
           }
         </div>
         <p class="miudo">
-          O código fica em Ajustes › Perfil, no Meu Mural da pessoa. O arquivo é o .json ou .json.gz baixado em Ajustes.
+          O código fica em Ajustes › Conta, no Meu Mural da pessoa. O arquivo é o .json ou .json.gz baixado em Ajustes.
         </p>
       } @else {
         <p class="convite">

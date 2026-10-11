@@ -6,7 +6,7 @@ import { RatedKey, Review, SCORE_LABEL, counts, formatAmount, formatScore, rated
  * o valor dela é maior ou menor. Vale a sequência de acertos; o primeiro erro acaba a partida.
  *
  * O valor pode ser a Média, uma das quatro notas do mural ou a quantidade (horas, páginas). As notas
- * valem como aparecem (Ajustes › Nota): com "Inteiros", um 7,9 e um 8,2 são dois 8, um empate.
+ * valem como aparecem (Ajustes › Mural › Notas): com "Inteiros", um 7,9 e um 8,2 são dois 8, um empate.
  * Empate vale como acerto, chute o que chutar; mas o jogo evita empates, sorteando a próxima entre as
  * de valor diferente sempre que existe alguma.
  */

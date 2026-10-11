@@ -6,6 +6,7 @@ import { CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks } from './c
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
 const KEY = SETTINGS_KEY;
 
+/** Onde a busca de jogos procura: a RAWG quando há chave (da pessoa ou do site), senão a Wikipedia. */
 export type CoverSource = 'wikipedia' | 'rawg';
 
 /**
@@ -20,7 +21,6 @@ interface Stored {
   rawgKey: string;
   /** Chave do TMDB (a "API key" curta ou o "token de leitura" longo): filmes e séries em português. */
   tmdbKey: string;
-  source: CoverSource;
   /** As etiquetas de fita que separam o mural em grupos. Escondidas, as fichas correm juntas (bom para print). */
   groupLabels: boolean;
   /** Sem spoilers: as fichas do mural escondem notas, veredito, bônus e texto, para mostrar o mural a outros. */
@@ -81,8 +81,6 @@ function readStored(): Stored {
   const raw = readRaw();
   const rawgKey = typeof raw.rawgKey === 'string' ? raw.rawgKey : '';
   const tmdbKey = typeof raw.tmdbKey === 'string' ? raw.tmdbKey : '';
-  // Quem já tinha colado uma chave antes desta opção existir continua na RAWG.
-  const source: CoverSource = raw.source === 'wikipedia' || raw.source === 'rawg' ? raw.source : rawgKey ? 'rawg' : 'wikipedia';
   const groupLabels = raw.groupLabels !== false;
   const noSpoilers = raw.noSpoilers === true;
   const scoreDisplay: ScoreDisplay = SCORE_DISPLAYS.includes(raw.scoreDisplay) ? raw.scoreDisplay : 'livre';
@@ -96,7 +94,7 @@ function readStored(): Stored {
   const pinnedTagsAt = typeof raw.pinnedTagsAt === 'string' && Number.isFinite(Date.parse(raw.pinnedTagsAt)) ? raw.pinnedTagsAt : '';
   const categoryLooks = sanitizeCategoryLooks(raw.categoryLooks);
   const categoryLooksAt = typeof raw.categoryLooksAt === 'string' && Number.isFinite(Date.parse(raw.categoryLooksAt)) ? raw.categoryLooksAt : '';
-  return { rawgKey, tmdbKey, source, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt };
+  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt };
 }
 
 /**
@@ -115,10 +113,9 @@ export class Settings {
   private readonly stored = readStored();
   readonly rawgKey = signal(this.stored.rawgKey);
   readonly tmdbKey = signal(this.stored.tmdbKey);
-  /** Onde a busca de jogos procura jogos e capas. RAWG só vale com chave. */
-  readonly source = signal<CoverSource>(this.stored.source);
+  /** A pessoa colou a própria chave da RAWG (sem ela, a busca usa a do site; ver core/site-keys.ts). */
   readonly hasRawg = computed(() => this.rawgKey().trim().length > 0);
-  /** Com a chave do TMDB, filmes e séries vêm de lá (em português); sem ela, da Wikipedia. */
+  /** A pessoa colou a própria chave do TMDB. */
   readonly hasTmdb = computed(() => this.tmdbKey().trim().length > 0);
   readonly groupLabels = signal(this.stored.groupLabels);
   /** Notas viram "?", bônus viram adesivos meio a meio e o texto vira embaralhado, do mesmo tamanho. */
@@ -193,14 +190,11 @@ export class Settings {
     this.keysAt.set(keys.em);
   }
 
-  readonly effectiveSource = computed<CoverSource>(() => (this.source() === 'rawg' && this.hasRawg() ? 'rawg' : 'wikipedia'));
-
   constructor() {
     effect(() => {
       const data: Stored = {
         rawgKey: this.rawgKey().trim(),
         tmdbKey: this.tmdbKey().trim(),
-        source: this.source(),
         groupLabels: this.groupLabels(),
         noSpoilers: this.noSpoilers(),
         scoreDisplay: this.scoreDisplay(),

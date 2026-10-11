@@ -1,5 +1,6 @@
 import { d1Db } from '../adapters/d1';
 import { createApp } from '../app';
+import { readCatalogKeys } from '../routes/catalog';
 import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
@@ -18,6 +19,9 @@ interface Env {
   COTA_LINHAS_DIA?: string;
   GOOGLE_CLIENT_ID?: string;
   VER_MURAIS?: string;
+  /** Secrets (`wrangler secret put`), nunca no wrangler.toml: as chaves do site na busca. */
+  TMDB_KEY?: string;
+  RAWG_KEY?: string;
 }
 
 /** Fora do `fetch`: as chaves do Google ficam guardadas enquanto o Worker está de pé. */
@@ -25,7 +29,13 @@ const googleKeys = createRemoteJWKSet(new URL(GOOGLE_CERTS_URL));
 
 function deps(env: Env): Deps {
   const config = readConfig(env as unknown as Record<string, unknown>);
-  return { db: d1Db(env.DB), config, now: () => new Date(), verifyGoogle: googleVerifier(config.googleClientId, googleKeys) };
+  return {
+    db: d1Db(env.DB),
+    config,
+    now: () => new Date(),
+    verifyGoogle: googleVerifier(config.googleClientId, googleKeys),
+    catalog: { keys: readCatalogKeys(env as unknown as Record<string, unknown>) },
+  };
 }
 
 export default {

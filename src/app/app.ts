@@ -307,7 +307,7 @@ export class App {
       const { nova } = await this.account.signIn(credential);
       this.toasts.show(nova ? 'Conta criada. O seu mural vai para a nuvem.' : 'Você entrou na sua conta.');
     } catch (err) {
-      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para entrar agora. Tente em Ajustes › Perfil.');
+      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para entrar agora. Tente em Ajustes › Conta.');
     } finally {
       this.signingIn.set(false);
     }

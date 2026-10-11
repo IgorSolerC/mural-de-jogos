@@ -7,6 +7,31 @@ completo está no documento "Meu Mural na nuvem: plano de implementação".
 - Endereço: `https://mural-api.igorsoler.workers.dev`
 - Estado: **fases 1 a 6**. `GET /v1/status`, login com Google (`POST /v1/auth/google`), sair, `GET/PATCH/DELETE /v1/eu` e o mural: `GET /v1/eu/mural` (`?rev=` igual responde 204) e `PUT /v1/eu/mural` (multipart `privado`, `publico`, `novas`, com `Mural-Rev-Base`; 409 se outro aparelho gravou antes). Fase 4: `GET /v1/murais/:codigo` (o mural público pelo código, sem login com `VER_MURAIS=todos`) e `POST /v1/eu/codigo` (trocar o código). Fase 5: seguir e o correio, `POST /v1/seguindo` (`{"codigo"}`), `DELETE`/`PATCH /v1/seguindo/:codigo` (deixar de seguir; `{"silenciado"}`), `GET /v1/eu/pessoas` (quem eu sigo e quem me segue), `DELETE /v1/eu/seguidores/:codigo` (tirar um seguidor), `GET /v1/eu/notificacoes` (os últimos 30 dias; com `?depois=` responde 204 se não há nada novo) e `POST /v1/eu/notificacoes/vistas` (`{"ate"}`). Fase 6: a checagem diária (`scripts/saude.ts`, ver abaixo). Reações (migração 0005): `GET /v1/murais/:codigo/reacoes` (quem reagiu a cada resenha, com o nome; sem login com `VER_MURAIS=todos`), `PUT /v1/murais/:codigo/reacoes/:ref` (`{"reacao", "titulo", "mural"}`: uma das sete ou qualquer emoji sozinho; só quem segue o dono, uma por pessoa por resenha, até 300 por dia) e `DELETE` no mesmo endereço; o dono recebe o aviso no correio (`tipo: 'reagiu'`, com a `reacao`). Freios (migração 0006): os limites por dia de reações e de logins contam cada vez numa tabela à parte (`freios`), então trocar ou tirar a reação e sair da sessão não devolvem a vaga.
 
+## Busca com as chaves do site
+
+A RAWG (jogos) e o TMDB (filmes e séries) pedem chave. Para ninguém precisar trazer a sua, a API
+guarda as chaves do site como **secrets** do Worker e repassa a busca (`src/routes/catalog.ts`):
+`GET /v1/catalogo` diz quais existem (`{"tmdb": true, "rawg": true}`, nunca a chave), e
+`GET /v1/catalogo/tmdb/...` e `GET /v1/catalogo/rawg/...` repassam só os endereços e parâmetros que o
+site usa (a busca, os pôsteres, um jogo e as lojas dele), só para quem vem das `ORIGENS`, com cache de
+um dia no navegador. Não toca no banco nem conta na cota de gravações. Sem o secret, aquele catálogo
+responde `503 sem-chave` e o site volta para a Wikipedia; a chave recusada ou no limite também vira
+503, e o site para de usar a do site até recarregar. Quem cola a própria chave nos Ajustes continua
+indo direto ao catálogo.
+
+Para ligar (uma vez; os secrets ficam entre deploys e nunca vão para o git):
+
+```bash
+cd api
+npx wrangler secret put TMDB_KEY   # a "Chave da API" ou o "Token de leitura" de themoviedb.org/settings/api
+npx wrangler secret put RAWG_KEY   # a chave de rawg.io/apidocs
+```
+
+Para desligar na hora, apague o secret (`npx wrangler secret delete RAWG_KEY`) ou use o `MODO`.
+Limites: a RAWG grátis dá 20 mil pedidos por mês para a chave inteira (cada resenha de jogo gasta uns
+5 a 10: a busca enquanto digita, a capa da Steam e a escolha de capa); o TMDB não tem cota mensal, só um
+limite por segundo. Os dois pedem crédito: está no pé de Ajustes › Busca.
+
 ## Como está montada
 
 O núcleo (`src/app.ts`, `src/domain/`) é TypeScript comum com [Hono](https://hono.dev) e não sabe que

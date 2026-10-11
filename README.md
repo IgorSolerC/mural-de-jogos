@@ -13,7 +13,8 @@ amigos, ver o mural deles pelo código e reagir às resenhas. A API da nuvem mor
   suas quatro notas, os seus três status, a sua cartela de bônus, a sua fila, o seu ranking e o seu lado a lado; o de
   anotações não tem nota. Os perfis ficam em [src/app/core/kinds.ts](src/app/core/kinds.ts).
 - **Busca:** livros na Open Library (edição em português); animes no Kitsu (AniList de reserva); filmes e séries no
-  TMDB, com uma chave gratuita colada em Ajustes, ou na Wikipedia sem ela; jogos na Wikipedia ou na RAWG (com chave).
+  TMDB e jogos na RAWG, com as chaves do site (secrets da API, ver [api/README.md](api/README.md)) ou com a
+  chave da pessoa colada em Ajustes › Busca; sem chave nenhuma, na Wikipedia.
 - **Offline:** em produção, um service worker ([public/sw.js](public/sw.js)) guarda o site e as capas já vistas.
   Dá para instalar na tela inicial.
 

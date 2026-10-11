@@ -561,7 +561,7 @@ export class MailPage {
 
   protected async removeFollower(p: Person): Promise<void> {
     const sure = await this.confirm.ask({
-      text: `${p.nome} deixa de seguir você e para de ver as suas resenhas em Amigos. O seu mural continua aberto para quem tem o seu código; para trocar o código, vá em Ajustes › Perfil.`,
+      text: `${p.nome} deixa de seguir você e para de ver as suas resenhas em Amigos. O seu mural continua aberto para quem tem o seu código; para trocar o código, vá em Ajustes › Conta.`,
       confirm: 'Remover seguidor',
     });
     if (!sure) return;
