@@ -1,6 +1,7 @@
 import { Context, Hono } from 'hono';
 import { utcDayStart, write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
+import { parsePhoto } from '../domain/photo';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
@@ -135,6 +136,8 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const privateDoc = await gzipPart(form, 'privado');
     const publicDoc = await gzipPart(form, 'publico');
     const candidates = parseNew(form.get('novas'));
+    // a foto do perfil (para a lista de amigos): opcional, e uma que não serve só não muda a de antes
+    const photo = parsePhoto(form.get('foto'));
 
     const now = deps.now();
     const at = now.toISOString();
@@ -193,8 +196,8 @@ export function muralRoutes(app: Hono, deps: Deps): void {
         }),
       ),
       {
-        sql: `UPDATE usuarios SET ultima_gravacao_em = ? WHERE id = ? AND EXISTS (${ours})`,
-        params: [at, s.userId, s.userId, mark],
+        sql: `UPDATE usuarios SET ultima_gravacao_em = ?, foto = COALESCE(?, foto) WHERE id = ? AND EXISTS (${ours})`,
+        params: [at, photo, s.userId, s.userId, mark],
       },
     ];
     const [result] = await write(deps, statements, 6 + 4 * fresh.length);

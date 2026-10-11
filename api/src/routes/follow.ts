@@ -2,6 +2,7 @@ import { Context, Hono } from 'hono';
 import { DAY_MS, utcDayStart, write } from '../domain/quota';
 import { base64url, sha256 } from '../domain/bytes';
 import { formatCode, normalizeCode } from '../domain/code';
+import { photoOut } from '../domain/photo';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -184,6 +185,31 @@ export function followRoutes(app: Hono, deps: Deps): void {
     const follower = await byCode(c.req.param('codigo'));
     await write(deps, [{ sql: 'DELETE FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', params: [follower.id, s.userId] }], 3);
     return c.json({ ok: true });
+  });
+
+  /**
+   * Os amigos de alguém, no perfil dele: quem ele segue e o segue de volta, e que tem mural público
+   * (senão o perfil da pessoa nem abre). Os mais novos primeiro (de quando o segundo seguiu), com a
+   * foto do perfil quando já veio. Aberto a quem pode abrir o mural da pessoa (`VER_MURAIS`).
+   */
+  app.get('/v1/murais/:codigo/amigos', async (c) => {
+    if (deps.config.publicMurals === 'logados') await session(c);
+    const code = normalizeCode(c.req.param('codigo'));
+    const owner = code ? await deps.db.first<{ id: string }>('SELECT id FROM usuarios WHERE codigo = ?', [code]) : null;
+    if (!owner) throw new HttpError(404, 'pessoa-nao-encontrada', 'Não achei ninguém com esse código.');
+    const rows = await deps.db.all<{ codigo: string; nome: string; foto: string | null }>(
+      'SELECT u.codigo, u.nome, u.foto FROM seguindo a ' +
+        'JOIN seguindo b ON b.seguidor_id = a.seguido_id AND b.seguido_id = a.seguidor_id ' +
+        'JOIN usuarios u ON u.id = a.seguido_id JOIN murais_publicos p ON p.usuario_id = u.id ' +
+        'WHERE a.seguidor_id = ? ORDER BY MAX(a.criado_em, b.criado_em) DESC, u.nome LIMIT ?',
+      [owner.id, MAX_FOLLOWING],
+    );
+    return c.json({
+      amigos: rows.map((r) => {
+        const foto = photoOut(r.foto);
+        return { ...personOut(r), ...(foto ? { foto } : {}) };
+      }),
+    });
   });
 
   /** As duas listas numa chamada só: quem eu sigo e quem me segue. */

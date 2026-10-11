@@ -71,13 +71,14 @@ export function amigosSuite(label: string, getDb: () => Db) {
     const push = async (
       token: string,
       base: number | string | null,
-      docs: { privado?: string; publico?: string | null; novas?: unknown; novasRaw?: string } = {},
+      docs: { privado?: string; publico?: string | null; novas?: unknown; novasRaw?: string; foto?: string } = {},
     ) => {
       const form = new FormData();
       form.append('privado', new Blob([await gzip(docs.privado ?? '{"reviews":[]}')], { type: 'application/gzip' }));
       if (docs.publico !== null) form.append('publico', new Blob([await gzip(docs.publico ?? '{"reviews":[]}')], { type: 'application/gzip' }));
       if (docs.novasRaw !== undefined) form.append('novas', docs.novasRaw);
       else if (docs.novas !== undefined) form.append('novas', JSON.stringify(docs.novas));
+      if (docs.foto !== undefined) form.append('foto', docs.foto);
       const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
       if (base !== null) headers['Mural-Rev-Base'] = String(base);
       const res = await call('/v1/eu/mural', { method: 'PUT', headers, body: form });
@@ -604,6 +605,77 @@ export function amigosSuite(label: string, getDb: () => Db) {
         await push(ana.token, 0, { privado: '{"segredo":"chave-rawg"}', publico: '{"reviews":[]}' });
         const pub = await call(`/v1/murais/${ana.codigo}`);
         expect(await gunzip(await pub.arrayBuffer())).not.toContain('chave-rawg');
+      });
+    });
+
+    describe('amigos no perfil', () => {
+      /** Ana, Bia, Caio e Duda, com mural público; quem segue quem fica por conta de cada teste. */
+      async function four(env: Record<string, string> = {}) {
+        const t = await setup(env);
+        const [ana, bia, caio, duda] = [await t.login('ana', 'Ana'), await t.login('bia', 'Bia'), await t.login('caio', 'Caio'), await t.login('duda', 'Duda')];
+        for (const p of [ana, bia, caio, duda]) await t.push(p.token, 0);
+        const friends = async (codigo: string, token?: string) => {
+          const res = await t.json('GET', `/v1/murais/${codigo}/amigos`, undefined, token);
+          return { status: res.status, body: res.status === 200 ? ((await res.json()) as any) : null };
+        };
+        const mutual = async (a: { token: string; codigo: string }, b: { token: string; codigo: string }) => {
+          await t.follow(a.token, b.codigo);
+          t.advance(1_000);
+          await t.follow(b.token, a.codigo);
+          t.advance(1_000);
+        };
+        return { ...t, ana, bia, caio, duda, friends, mutual };
+      }
+
+      it('só quem se segue de volta aparece, os mais novos primeiro', async () => {
+        const { friends, mutual, follow, ana, bia, caio, duda } = await four();
+        await mutual(ana, bia);
+        await mutual(caio, ana);
+        // de mão única, nos dois sentidos: não é amizade
+        await follow(ana.token, duda.codigo);
+        const { status, body } = await friends(ana.codigo);
+        expect(status).toBe(200);
+        expect(body.amigos.map((a: any) => a.nome)).toEqual(['Caio', 'Bia']);
+        expect(body.amigos[0]).toEqual({ codigo: caio.codigo, nome: 'Caio' });
+        expect((await friends(duda.codigo)).body.amigos).toEqual([]);
+      });
+
+      it('deixar de seguir tira dos dois perfis', async () => {
+        const { friends, mutual, unfollow, ana, bia } = await four();
+        await mutual(ana, bia);
+        await unfollow(bia.token, ana.codigo);
+        expect((await friends(ana.codigo)).body.amigos).toEqual([]);
+        expect((await friends(bia.codigo)).body.amigos).toEqual([]);
+      });
+
+      it('quem não tem mural público não aparece (o perfil dele nem abre)', async () => {
+        const t = await setup();
+        const ana = await t.login('ana', 'Ana');
+        const bia = await t.login('bia', 'Bia');
+        await t.push(ana.token, 0);
+        await t.follow(ana.token, bia.codigo);
+        await t.follow(bia.token, ana.codigo);
+        const res = await t.json('GET', `/v1/murais/${ana.codigo}/amigos`);
+        expect(((await res.json()) as any).amigos).toEqual([]);
+      });
+
+      it('a foto vem com o envio do mural; a que não serve não apaga a de antes', async () => {
+        const { friends, mutual, push, ana, bia } = await four();
+        await mutual(ana, bia);
+        await push(bia.token, 1, { foto: JSON.stringify({ emoji: '🦊', cor: 'laranja-escuro', extra: 'x' }) });
+        expect((await friends(ana.codigo)).body.amigos[0].foto).toEqual({ emoji: '🦊', cor: 'laranja-escuro' });
+        let rev = 2;
+        for (const foto of ['{"emoji":"oi","cor":"azul"}', '{"emoji":"🦊","cor":"<b>"}', 'quebrado', '']) {
+          expect((await push(bia.token, rev++, { foto })).status).toBe(200);
+        }
+        expect((await friends(ana.codigo)).body.amigos[0].foto).toEqual({ emoji: '🦊', cor: 'laranja-escuro' });
+      });
+
+      it('código que não existe: 404; com VER_MURAIS=logados, só quem entrou', async () => {
+        const { friends, ana } = await four({ VER_MURAIS: 'logados' });
+        expect((await friends('ZZZZ-ZZZZ', ana.token)).status).toBe(404);
+        expect((await friends(ana.codigo)).status).toBe(401);
+        expect((await friends(ana.codigo, ana.token)).status).toBe(200);
       });
     });
 

@@ -775,6 +775,8 @@ export class CloudSync {
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');
     form.append('novas', JSON.stringify(novas));
+    // a foto do perfil, para a lista de amigos no perfil dos outros mostrar a carinha (o resto do perfil a nuvem não abre)
+    if (profile) form.append('foto', JSON.stringify({ emoji: profile.dados.emoji, cor: profile.dados.photo }));
     this.pushes.push({ at: now, print });
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     this.noteClock(res);

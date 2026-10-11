@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
-import { Copy, LucideAngularModule, PenLine, RefreshCw, UserCheck, UserPlus } from 'lucide-angular';
+import { Check, Copy, LucideAngularModule, PenLine, Plus, RefreshCw, UserCheck, UserPlus } from 'lucide-angular';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals, cloudColleagueId, normalizeCode } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { Desk } from '../core/desk';
 import { Follow } from '../core/follow';
+import { Friend, Friends, initialStock, orderFriends } from '../core/friends';
 import { KINDS, Kind, countOf, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Profile, ProfileSection, defaultProfile, profileStats, updatedLabel } from '../core/profile';
@@ -81,6 +82,7 @@ export class ProfilePage {
   private readonly follow = inject(Follow);
   private readonly toasts = inject(Toasts);
   private readonly reactions = inject(Reactions);
+  private readonly friendsOf = inject(Friends);
   private readonly reader = viewChild.required(ReviewReader);
 
   protected readonly EditIcon = PenLine;
@@ -88,6 +90,8 @@ export class ProfilePage {
   protected readonly RetryIcon = RefreshCw;
   protected readonly FollowIcon = UserPlus;
   protected readonly FollowingIcon = UserCheck;
+  protected readonly PlusIcon = Plus;
+  protected readonly CheckIcon = Check;
 
   private readonly param = toSignal(this.route.paramMap.pipe(map((p) => p.get('codigo'))), { initialValue: null });
 
@@ -243,6 +247,81 @@ export class ProfilePage {
       this.toasts.show('Link do perfil copiado');
     } catch {
       this.toasts.show('Não deu para copiar. O link é ' + link);
+    }
+  }
+
+  // ===== Os amigos: quem a pessoa segue e a segue de volta =====
+  /** Pede os amigos de quem está aberto (o seu também: é como os outros veem). */
+  private readonly loadFriends = effect(() => {
+    const code = this.code();
+    const on = !!this.cloud.config();
+    untracked(() => {
+      this.allFriends.set(false);
+      if (code && on) void this.friendsOf.load(code);
+    });
+  });
+  /** Já se sabe quem eu sigo (depois disso, só muda de false para true uma vez). */
+  private readonly peopleKnown = computed(() => this.follow.people() !== null);
+  /**
+   * A lista na ordem do perfil (undefined: ainda não veio, e a parte não aparece). A ordem é tirada
+   * quando a lista chega: seguir alguém daqui não faz a polaroid pular para o fim da fila.
+   */
+  protected readonly friends = computed<readonly Friend[] | undefined>(() => {
+    const code = this.code();
+    const list = code ? this.friendsOf.of(code) : undefined;
+    if (!list || this.own()) return list;
+    const known = this.peopleKnown();
+    return untracked(() => orderFriends(list, known ? this.follow.followingCodes() : null, this.account.account()?.codigo ?? null));
+  });
+  /** No perfil de outra pessoa: quantos dos amigos dela eu já sigo. */
+  protected readonly friendsNote = computed(() => {
+    const list = this.friends();
+    if (!list?.length) return '';
+    if (this.own()) return 'quem você segue e te segue de volta';
+    const n = list.filter((f) => this.follow.isFollowing(f.codigo) === true).length;
+    return n ? `você já segue ${n}` : '';
+  });
+  /** Todos à mostra; fechado, só a primeira fileira (as que cabem, ver o CSS). */
+  protected readonly allFriends = signal(false);
+  private readonly friendBusy = signal<ReadonlySet<string>>(new Set());
+
+  /** O que vai embaixo da foto: seguir (só no perfil dos outros, com conta), já segue, ou "você". */
+  protected friendState(f: Friend): 'voce' | 'segue' | 'seguir' | null {
+    if (this.own() || !this.follow.available()) return null;
+    if (f.codigo === this.account.account()?.codigo) return 'voce';
+    const state = this.follow.isFollowing(f.codigo);
+    return state === null ? null : state ? 'segue' : 'seguir';
+  }
+
+  protected friendBusyFor(code: string): boolean {
+    return this.friendBusy().has(code);
+  }
+
+  protected friendStock(f: Friend): string {
+    return f.foto?.cor ?? initialStock(f.codigo);
+  }
+
+  protected initial(name: string): string {
+    return [...name.trim()][0]?.toUpperCase() ?? '?';
+  }
+
+  protected async followFriend(f: Friend): Promise<void> {
+    if (this.friendBusyFor(f.codigo)) return;
+    this.friendBusy.update((s) => new Set(s).add(f.codigo));
+    try {
+      await this.follow.follow(f.codigo);
+      this.toasts.show(`Agora você segue ${f.nome}. As resenhas novas aparecem em Amigos.`, {
+        label: 'Desfazer',
+        run: () => void this.follow.unfollow(f.codigo).catch(() => undefined),
+      });
+    } catch (err) {
+      this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
+    } finally {
+      this.friendBusy.update((s) => {
+        const next = new Set(s);
+        next.delete(f.codigo);
+        return next;
+      });
     }
   }
 

@@ -51,6 +51,22 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-amigos-no-perfil',
+    version: '1.32.0',
+    kind: 'funcionalidade',
+    date: '2026-10-11',
+    title: 'Os amigos no perfil',
+    items: [
+      'O perfil de cada pessoa ganhou a parte "Amigos": quem ela segue e a segue de volta, cada um numa polaroid pequena com a foto do perfil.',
+      'A foto abre o perfil daquela pessoa, e o botão Seguir embaixo dela segue na hora: dá para conhecer os amigos dos amigos sem pedir código a ninguém.',
+      'Primeiro aparecem os que você ainda não segue; ao lado do título, quantos você já segue. Fica uma fileira só, e "Ver todos" abre o resto.',
+      'No seu perfil aparecem os seus amigos, do jeito que os outros veem. Seguir sozinho não põe ninguém no perfil de ninguém: precisa seguir de volta.',
+      'A foto de cada um chega na próxima vez que o mural dela for salvo na nuvem; até lá, aparece a inicial do nome.',
+    ],
+    notice: 'Novo: os amigos no perfil. Siga os amigos dos seus amigos com um clique.',
+    until: '2026-10-18',
+  },
+  {
     id: '2026-10-11-orelha-das-pastas',
     version: '1.31.6',
     kind: 'melhoria',
