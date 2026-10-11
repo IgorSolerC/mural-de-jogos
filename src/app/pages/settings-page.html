@@ -9,6 +9,11 @@
       <span class="novas">{{ n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
     }
   </a>
+  <!-- as preferências de Mural e Amigos de volta ao começo (o nome, a conta e as chaves ficam) -->
+  <button type="button" class="btn-quiet padrao" [disabled]="settings.atDefaults()" (click)="resetAll()">
+    <lucide-icon [img]="ResetIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+    {{ settings.atDefaults() ? 'Tudo no padrão' : 'Voltar ao padrão' }}
+  </button>
 </header>
 
 <!-- o quadro: a moldura de pinus com quatro parafusos e o papelão dentro; à esquerda (ou em cima) as
@@ -20,6 +25,7 @@
   <span class="parafuso p4" aria-hidden="true"></span>
 
   <div class="papelao">
+    <div class="lado">
     <div class="indice" role="tablist" aria-label="Partes dos ajustes" (keydown)="onTabKey($event)">
       @for (t of tabs; track t.id; let i = $index) {
         <button
@@ -42,6 +48,20 @@
           }
         </button>
       }
+    </div>
+
+    <!-- no computador, o bilhete "Como fica" no papelão embaixo do índice: o efeito do ajuste em que
+         o mouse (ou o foco) está, ao vivo. No celular a prévia abre embaixo do ajuste tocado. -->
+    @if (tab() === 'mural' || tab() === 'amigos') {
+      <div class="previa-lado" aria-hidden="true">
+        <p class="previa-titulo">Como fica</p>
+        @if (peeking(); as id) {
+          <ng-container *ngTemplateOutlet="previa; context: { $implicit: id }" />
+        } @else {
+          <p class="previa-dica">Passe o mouse num ajuste para ver o que ele muda.</p>
+        }
+      </div>
+    }
     </div>
 
     <section class="folha" role="tabpanel" [id]="'painel-' + tab()" [attr.aria-labelledby]="'aba-' + tab()">
@@ -238,7 +258,7 @@
         <p class="lead">Como as suas fichas aparecem, em todos os murais.</p>
 
         <div class="grupo">
-          <fieldset class="linha larga">
+          <fieldset class="linha larga" (mouseenter)="peek('notas')" (focusin)="peek('notas')">
             <legend class="linha-titulo">Notas</legend>
             <p class="linha-desc">Só o jeito de mostrar: a nota guardada, a média e a ordem não mudam. Por exemplo, um 8,4:</p>
             <div class="segmentos">
@@ -250,9 +270,12 @@
                 </label>
               }
             </div>
+            @if (peeking() === 'notas') {
+              <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'notas' }" /></div>
+            }
           </fieldset>
 
-          <div class="linha">
+          <div class="linha" (mouseenter)="peek('etiquetas')" (focusin)="peek('etiquetas')">
             <div class="linha-texto">
               <p class="linha-titulo" id="t-etiquetas">Etiquetas dos grupos</p>
               <p class="linha-desc" id="d-etiquetas">Uma fita separa cada grupo pelo que ordena: mês, nota, letra ou status. Desligue para as fichas correrem juntas (bom para print).</p>
@@ -268,9 +291,12 @@
             >
               <span class="bolinha"></span>
             </button>
+            @if (peeking() === 'etiquetas') {
+              <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'etiquetas' }" /></div>
+            }
           </div>
 
-          <div class="linha">
+          <div class="linha" (mouseenter)="peek('spoilers')" (focusin)="peek('spoilers')">
             <div class="linha-texto">
               <p class="linha-titulo" id="t-spoilers">Sem spoilers</p>
               <p class="linha-desc" id="d-spoilers">Esconde as notas, o veredito, os bônus e o texto das suas fichas. Para mostrar o mural sem contar nada.</p>
@@ -286,6 +312,9 @@
             >
               <span class="bolinha"></span>
             </button>
+            @if (peeking() === 'spoilers') {
+              <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'spoilers' }" /></div>
+            }
           </div>
         </div>
       }
@@ -296,7 +325,7 @@
         <p class="lead">O que você vê das fichas dos outros, em Amigos, no mural de alguém e em Comparar.</p>
 
         <div class="grupo">
-          <div class="linha">
+          <div class="linha" (mouseenter)="peek('spoilers-amigos')" (focusin)="peek('spoilers-amigos')">
             <div class="linha-texto">
               <p class="linha-titulo" id="t-spoilers-amigos">Esconder o que você não avaliou</p>
               <p class="linha-desc" id="d-spoilers-amigos">A ficha de alguém sobre algo que você ainda não avaliou chega em segredo. Dá para revelar na hora, sem mudar aqui.</p>
@@ -312,10 +341,13 @@
             >
               <span class="bolinha"></span>
             </button>
+            @if (peeking() === 'spoilers-amigos') {
+              <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'spoilers-amigos' }" /></div>
+            }
           </div>
 
           @if (cloud.config()) {
-            <fieldset class="linha larga">
+            <fieldset class="linha larga" (mouseenter)="peek('amigos-murais')" (focusin)="peek('amigos-murais')">
               <legend class="linha-titulo">Novidades em Amigos</legend>
               <p class="linha-desc">As resenhas novas de quem você segue.</p>
               <div class="segmentos dois">
@@ -328,9 +360,12 @@
                   <span class="seg-nome">Só do mural aberto</span>
                 </label>
               </div>
+              @if (peeking() === 'amigos-murais') {
+                <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'amigos-murais' }" /></div>
+              }
             </fieldset>
 
-            <div class="linha">
+            <div class="linha" (mouseenter)="peek('numero')" (focusin)="peek('numero')">
               <div class="linha-texto">
                 <p class="linha-titulo" id="t-numero">Contar as novidades</p>
                 <p class="linha-desc" id="d-numero">Um número no botão Amigos, no topo, diz quantas chegaram. Desligado, o botão fica quieto e elas continuam lá dentro.</p>
@@ -346,6 +381,9 @@
               >
                 <span class="bolinha"></span>
               </button>
+            @if (peeking() === 'numero') {
+              <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'numero' }" /></div>
+            }
             </div>
           }
         </div>
@@ -574,3 +612,90 @@
     </section>
   </div>
 </div>
+
+<!-- As prévias: um pedaço do que o ajuste muda, com a escolha de agora. Decorativas (o texto de cada
+     ajuste já diz o que ele faz), então ficam fora da leitura de tela. -->
+<ng-template #previa let-id>
+  @switch (id) {
+    @case ('notas') {
+      <div class="pv pv-nota">
+        <app-judge-label [value]="8.4" verdict="recomendo" size="compact" />
+        <p class="pv-legenda">Uma média de 8,4 aparece como <strong>{{ sampleScore() }}</strong>.</p>
+      </div>
+    }
+    @case ('etiquetas') {
+      <div class="pv">
+        <div class="pv-parede parede" [class.junta]="!settings.groupLabels()">
+          @for (g of wallSample; track g.label) {
+            <div class="p-grupo">
+              @if (settings.groupLabels()) {
+                <span class="p-fita">{{ g.label }}</span>
+              }
+              <div class="p-fichas">
+                @for (st of g.stocks; track $index) {
+                  <span class="p-ficha" [style.--stock]="'var(--stock-' + st + ')'"></span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        <p class="pv-legenda">{{ settings.groupLabels() ? 'Cada mês com a sua fita.' : 'As fichas correm juntas.' }}</p>
+      </div>
+    }
+    @case ('spoilers') {
+      <div class="pv">
+        <div class="pv-ficha" style="--stock: var(--stock-amarelo)">
+          <app-judge-label [value]="8.7" verdict="recomendo" size="compact" [masked]="settings.noSpoilers()" />
+          <ul class="p-bonus">
+            @for (b of sampleBonuses; track b.id; let i = $index) {
+              <li><app-bonus-sticker [bonus]="b" [index]="i" size="mini" [masked]="settings.noSpoilers()" seed="previa" /></li>
+            }
+          </ul>
+          <p class="p-frase">
+            @if (settings.noSpoilers()) {
+              “<app-rabisco [text]="sampleLeadMasked" />”
+            } @else {
+              “{{ sampleLead }}”
+            }
+          </p>
+        </div>
+      </div>
+    }
+    @case ('spoilers-amigos') {
+      <div class="pv">
+        <div class="pv-ficha amiga" style="--stock: var(--stock-rosa)">
+          <p class="pv-ficha-nome">Hades <span>de Ana</span></p>
+          <app-judge-label [value]="9.1" verdict="recomendo" size="compact" [masked]="settings.friendSpoilers()" />
+        </div>
+        <p class="pv-legenda">
+          {{ settings.friendSpoilers() ? 'Você ainda não avaliou: chega em segredo.' : 'Chega com a nota, avaliado ou não.' }}
+        </p>
+      </div>
+    }
+    @case ('amigos-murais') {
+      <div class="pv">
+        <ul class="pv-murais">
+          @for (k of wallKinds; track k) {
+            <li [class.fora]="settings.friendKinds() === 'separado' && k !== mural.kind()">
+              <lucide-icon [img]="kindIcon[k]" [size]="18" [strokeWidth]="2.4" />
+            </li>
+          }
+        </ul>
+        <p class="pv-legenda">
+          {{ settings.friendKinds() === 'separado' ? 'Com o mural de ' + mural.profile().plural + ' aberto, só ' + mural.profile().plural + '.' : 'Tudo junto, esteja no mural que estiver.' }}
+        </p>
+      </div>
+    }
+    @case ('numero') {
+      <div class="pv pv-botton">
+        <span class="botton">
+          <lucide-icon [img]="FriendsIcon" [size]="20" [strokeWidth]="2.4" />
+          @if (settings.mailCount()) {
+            <span class="botton-n">3</span>
+          }
+        </span>
+        <p class="pv-legenda">{{ settings.mailCount() ? 'O botão Amigos conta o que chegou.' : 'O botão fica quieto.' }}</p>
+      </div>
+    }
+  }
+</ng-template>

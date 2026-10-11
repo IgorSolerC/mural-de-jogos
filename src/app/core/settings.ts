@@ -65,6 +65,20 @@ interface Stored {
 
 export type FriendKinds = 'misturado' | 'separado';
 
+/**
+ * O padrão das preferências que "Voltar ao padrão" (Ajustes) desfaz: como as fichas aparecem e o que
+ * chega dos amigos. O nome, as chaves, as tags fixas e o jeito das categorias não entram: são coisas
+ * da pessoa, não escolhas de exibição.
+ */
+export const PREFERENCE_DEFAULTS = {
+  scoreDisplay: 'livre' as ScoreDisplay,
+  groupLabels: true,
+  noSpoilers: false,
+  friendSpoilers: true,
+  friendKinds: 'misturado' as FriendKinds,
+  mailCount: true,
+};
+
 /** O nome é curto: cabe numa etiqueta "Olá, eu sou" e no nome do arquivo. */
 export const OWNER_NAME_MAX = 40;
 
@@ -139,6 +153,27 @@ export class Settings {
   readonly categoryLooks = signal<CategoryLooks>(this.stored.categoryLooks);
   /** Ver `Stored.categoryLooksAt`. */
   readonly categoryLooksAt = signal(this.stored.categoryLooksAt);
+
+  /** Todas as preferências de exibição estão no padrão (ver `PREFERENCE_DEFAULTS`). */
+  readonly atDefaults = computed(
+    () =>
+      this.scoreDisplay() === PREFERENCE_DEFAULTS.scoreDisplay &&
+      this.groupLabels() === PREFERENCE_DEFAULTS.groupLabels &&
+      this.noSpoilers() === PREFERENCE_DEFAULTS.noSpoilers &&
+      this.friendSpoilers() === PREFERENCE_DEFAULTS.friendSpoilers &&
+      this.friendKinds() === PREFERENCE_DEFAULTS.friendKinds &&
+      this.mailCount() === PREFERENCE_DEFAULTS.mailCount,
+  );
+
+  /** "Voltar ao padrão": as preferências de exibição voltam ao começo; o resto fica. */
+  resetPreferences(): void {
+    this.scoreDisplay.set(PREFERENCE_DEFAULTS.scoreDisplay);
+    this.groupLabels.set(PREFERENCE_DEFAULTS.groupLabels);
+    this.noSpoilers.set(PREFERENCE_DEFAULTS.noSpoilers);
+    this.friendSpoilers.set(PREFERENCE_DEFAULTS.friendSpoilers);
+    this.friendKinds.set(PREFERENCE_DEFAULTS.friendKinds);
+    this.mailCount.set(PREFERENCE_DEFAULTS.mailCount);
+  }
 
   /** A tag é fixa? (sem ligar para caixa nem acento) */
   isPinnedTag(tag: string): boolean {

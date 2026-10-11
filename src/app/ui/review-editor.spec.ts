@@ -1,18 +1,25 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReviewEditor } from './review-editor';
+import { Confirm, ConfirmOptions } from './confirm';
 
-/** O editor fechando com texto escrito: só o botão Descartar joga o texto fora. */
+/** O editor fechando com texto escrito: o cartão de confirmação pergunta, e só "Descartar" joga o texto fora. */
 describe('o editor com texto por salvar', () => {
   let fixture: ComponentFixture<ReviewEditor>;
   let closed: number;
   let dialog: HTMLDialogElement;
+  /** As perguntas feitas ao cartão de confirmação, com a resposta que a pessoa ainda vai dar. */
+  let asked: { options: ConfirmOptions; answer: (yes: boolean) => void }[];
   type Inside = { text: { set(v: string): void }; requestClose(e?: Event): void };
   const inside = () => fixture.componentInstance as unknown as Inside;
 
   beforeEach(async () => {
     localStorage.clear();
     TestBed.configureTestingModule({ imports: [ReviewEditor], providers: [provideZonelessChangeDetection()] });
+    asked = [];
+    spyOn(TestBed.inject(Confirm), 'ask').and.callFake(
+      (options: ConfirmOptions) => new Promise<boolean>((answer) => asked.push({ options, answer })),
+    );
     fixture = TestBed.createComponent(ReviewEditor);
     document.body.appendChild(fixture.nativeElement);
     closed = 0;
@@ -37,26 +44,41 @@ describe('o editor com texto por salvar', () => {
     await closeEvent;
     await fixture.whenStable();
   };
-  const question = () => fixture.nativeElement.querySelector('.btn-ink.danger') as HTMLButtonElement | null;
 
-  it('o X pergunta; um segundo X (ou clique no fundo) com a pergunta aberta não fecha', async () => {
+  it('o X pergunta no cartão; um segundo X com a pergunta aberta não faz outra; Descartar fecha', async () => {
     inside().requestClose();
     await fixture.whenStable();
-    expect(question()?.textContent).toContain('Descartar');
+    expect(asked.length).toBe(1);
+    expect(asked[0].options.confirm).toBe('Descartar');
+    expect(asked[0].options.cancel).toBe('Continuar escrevendo');
+    // nada de pergunta no pé da folha
+    expect(fixture.nativeElement.querySelector('.discard-msg')).toBeNull();
     inside().requestClose();
     await fixture.whenStable();
+    expect(asked.length).toBe(1);
     expect(dialog.open).toBeTrue();
     expect(closed).toBe(0);
-    await closing(() => question()!.click());
+    await closing(() => asked[0].answer(true));
     expect(dialog.open).toBeFalse();
     expect(closed).toBe(1);
+  });
+
+  it('"Continuar escrevendo" deixa a folha aberta, e o próximo X pergunta de novo', async () => {
+    inside().requestClose();
+    asked[0].answer(false);
+    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r));
+    expect(dialog.open).toBeTrue();
+    expect(closed).toBe(0);
+    inside().requestClose();
+    expect(asked.length).toBe(2);
   });
 
   it('a folha fechada por fora (o Chrome num segundo Esc) abre de novo, com a pergunta', async () => {
     await closing(() => dialog.close());
     expect(dialog.open).toBeTrue();
     expect(closed).toBe(0);
-    expect(question()?.textContent).toContain('Descartar');
+    expect(asked.length).toBe(1);
   });
 
   it('o texto acima do limite (vindo de um atalho) não salva e diz quanto tirar', async () => {

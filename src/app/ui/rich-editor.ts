@@ -288,7 +288,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         [attr.aria-expanded]="notes() ? linking()?.auto === true && linking()?.big === big : null"
         [attr.aria-controls]="notes() ? areaId + '-elos' : null"
         [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big && optionCount() ? areaId + '-elo-' + active() : null"
-        (input)="value.set(area.value); watchLink(area, big)"
+        (input)="value.set(area.value); dropPassive(); watchLink(area, big)"
         (focus)="onAreaFocus()"
         (click)="watchLink(area, big); onAreaClick($event, area, big)"
         (keyup)="onKeyUp($event, area, big)"
@@ -2165,6 +2165,8 @@ export class RichEditor {
   protected onKeyUp(e: KeyboardEvent, area: HTMLTextAreaElement, big: boolean): void {
     // o cursor andou (setas, Home, End): o "[[" pode ter ficado para trás
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) this.watchLink(area, big);
+    // e pode ter saído do link ou do widget cujo painel abriu pelo clique
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) this.leavePassive(area);
   }
 
   /** Voltou para a folha com a busca da régua aberta: a busca fecha (Esc na folha seria o do editor). */
@@ -2259,6 +2261,13 @@ export class RichEditor {
   }
 
   protected onKey(e: KeyboardEvent, area: HTMLTextAreaElement, big = false): void {
+    // o painel aberto pelo clique (com o cursor ainda na folha): o Esc fecha só ele, não o editor
+    if (e.key === 'Escape' && this.passive && this.panelRange()) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.closePanels();
+      return;
+    }
     // com a lista aberta, as setas, o Enter e o Esc são dela (o Esc fecha só a lista, não o editor)
     if (this.linking() && (this.linking()!.auto || e.key === 'Escape') && this.onListKey(e)) return;
     const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
@@ -2364,6 +2373,8 @@ export class RichEditor {
   /**
    * Um clique na folha (um só: dois escolhem a palavra) na linha de um widget abre o painel dele com
    * o que está escrito, para trocar; num link, o painel do link, com o texto e para onde ele vai.
+   * O cursor fica onde a pessoa clicou: o painel só abre embaixo (é "passivo", ver `passive`), e um
+   * clique fora do link, o cursor saindo dele ou escrever na folha o fecham.
    */
   protected onAreaClick(e: MouseEvent, area: HTMLTextAreaElement, big: boolean): void {
     if (e.detail !== 1 || area.selectionStart !== area.selectionEnd) return;
@@ -2374,14 +2385,20 @@ export class RichEditor {
     const line = text.slice(from, endAt === -1 ? text.length : endAt);
     const w = parseWidgetLine(line);
     const def = w && widgetDef(w.name);
-    if (def) return this.startWidget(area, big, def);
+    if (def) {
+      this.startWidget(area, big, def, false);
+      return;
+    }
     const link = linkAt(line, at - from);
-    if (!link) return;
+    if (!link) {
+      if (this.passive) this.closePanels();
+      return;
+    }
     const [start, end] = [from + link.start, from + link.end];
     if (link.kind === 'url') {
       this.closePanels();
       this.urlLink.set({ big, start, end, text: link.text, url: link.href, swap: true });
-      setTimeout(() => this.panelInput(big, '.url-campo')?.focus());
+      this.passive = true;
       this.showPanel('.url-painel');
     } else if (this.notes()) {
       this.closePanels();
@@ -2390,13 +2407,41 @@ export class RichEditor {
       const label = linkKey(link.label) === linkKey(link.title) ? '' : link.label;
       this.linking.set({ auto: false, big, start, end, query: title, label, chosen: title, swap: true });
       this.active.set(0);
-      setTimeout(() => this.panelInput(big, '.elos-campo')?.focus());
+      this.passive = true;
       this.showPanel('.elo-painel');
     }
   }
 
+  /**
+   * O painel aberto por um clique na folha, com o cursor ainda nela: ele só mostra o link ou o widget
+   * para trocar. Quem quiser mexer vai até ele (Tab ou clique); escrever na folha o fecha, porque o
+   * trecho que ele marcou mudou de lugar.
+   */
+  private passive = false;
+
+  /** O trecho que o painel aberto marcou (o link ou a linha do widget). */
+  private panelRange(): [number, number] | null {
+    const r = this.urlLink() ?? this.linking() ?? this.widgetPick();
+    return r ? [r.start, r.end] : null;
+  }
+
+  /** Escreveu na folha com um painel passivo aberto: ele fecha. */
+  protected dropPassive(): void {
+    if (this.passive && this.panelRange()) this.closePanels();
+  }
+
+  /** O cursor saiu (pelas setas) do link ou do widget do painel passivo: ele fecha. */
+  private leavePassive(area: HTMLTextAreaElement): void {
+    const range = this.passive ? this.panelRange() : null;
+    if (!range) return;
+    const at = area.selectionStart;
+    // a linha do widget conta até o fim (o cursor no fim da linha ainda está nele)
+    if (at < range[0] || at > range[1]) this.closePanels();
+  }
+
   /** Fecha os painéis e menus da régua (antes de abrir outro). */
   private closePanels(): void {
+    this.passive = false;
     this.linking.set(null);
     this.urlLink.set(null);
     this.tablePick.set(null);
@@ -2601,7 +2646,7 @@ export class RichEditor {
    * O painel do widget escolhido: com o cursor na linha de um widget desse tipo, ele abre com o que
    * está escrito, para trocar; senão, um novo.
    */
-  private startWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
+  private startWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef, focusPanel = true): void {
     this.closePanels();
     const { from, lines } = this.linesAt(area);
     const here = lines.length === 1 ? parseWidgetLine(lines[0]) : null;
@@ -2611,7 +2656,9 @@ export class RichEditor {
       this.widgetPick.set({ big, name: def.name, values: { size: 'medio' }, start: area.selectionStart, end: area.selectionEnd, swap: false });
     }
     this.showPanel('.widget-painel');
-    setTimeout(() => this.panelInput(big, 'input')?.focus());
+    // pela régua, o foco vai para o painel; pelo clique na linha do widget, o cursor fica na folha
+    if (focusPanel) setTimeout(() => this.panelInput(big, 'input')?.focus());
+    else this.passive = true;
   }
 
   protected pickWidget(def: WidgetDef): void {

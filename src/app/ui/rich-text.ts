@@ -389,11 +389,11 @@ import { NoteWidget } from './note-widget';
     }
     /* O link: a letra de sempre, sublinhada à mão com a caneta azul (cada linha com o seu risco,
        levemente torto): azul-marinho nas cartolinas claras e no papel, azul-céu nas escuras. Passando
-       por cima, o marca-texto. A cor segue a cartolina da ficha do mural (ver as variações logo
+       por cima, o marca-texto azul, da mesma caneta do risco. A cor segue a cartolina da ficha do mural (ver as variações logo
        abaixo); a leitura é de papel creme, com a caneta azul-marinho. */
     .elo {
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%231d3577' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-      --elo-marca: rgb(255 218 66 / 0.55);
+      --elo-marca: rgb(96 150 235 / 0.3);
       color: inherit;
       text-decoration: none;
       border-radius: 2px;
@@ -430,15 +430,11 @@ import { NoteWidget } from './note-widget';
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23151515' stroke-opacity='.55' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
       opacity: 0.85;
     }
-    /* na cartolina amarela o marca-texto amarelo some: o rosa */
-    :host-context(app-review-card[data-cor='amarelo']) .elo {
-      --elo-marca: rgb(255 112 168 / 0.42);
-    }
     /* nas escuras: a caneta azul-céu, que aparece no escuro, e o marca-texto mais fraco */
     :host-context(app-review-card[data-cor$='-escuro']) .elo,
     :host-context(app-review-card[data-cor='preto']) .elo {
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%238fd3ff' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-      --elo-marca: rgb(255 218 66 / 0.28);
+      --elo-marca: rgb(143 211 255 / 0.26);
     }
     :host-context(app-review-card[data-cor$='-escuro']) .elo.quebrado,
     :host-context(app-review-card[data-cor='preto']) .elo.quebrado {

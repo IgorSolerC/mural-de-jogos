@@ -376,3 +376,73 @@ describe('a régua de formatação do texto', () => {
     });
   });
 });
+
+/** Clicar num link ou num widget da folha abre o painel dele, mas o cursor fica onde a pessoa clicou. */
+describe('o painel aberto pelo clique na folha', () => {
+  let fixture: ComponentFixture<RichEditor>;
+  let area: HTMLTextAreaElement;
+
+  beforeEach(async () => {
+    TestBed.configureTestingModule({ imports: [RichEditor], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(RichEditor);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    area = fixture.nativeElement.querySelector('textarea');
+  });
+
+  afterEach(() => fixture.nativeElement.remove());
+
+  /** Põe o texto e clica (um clique só) na posição `at`. */
+  async function clickAt(text: string, at: number): Promise<void> {
+    fixture.componentInstance.value.set(text);
+    fixture.detectChanges();
+    area.focus();
+    area.setSelectionRange(at, at);
+    area.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 20));
+    fixture.detectChanges();
+  }
+  const panel = (sel: string) => fixture.nativeElement.querySelector(sel) as HTMLElement | null;
+
+  it('num link: o painel abre e o foco e o cursor continuam na folha', async () => {
+    const text = 'veja [o site](https://exemplo.com) depois';
+    await clickAt(text, 8);
+    expect(panel('.url-painel')).not.toBeNull();
+    expect(document.activeElement).toBe(area);
+    expect(area.selectionStart).toBe(8);
+  });
+
+  it('num widget: o painel dele abre com o cursor na folha', async () => {
+    await clickAt('{{contador: 2026-12-25 | Natal}}', 5);
+    expect(panel('.widget-painel')).not.toBeNull();
+    expect(document.activeElement).toBe(area);
+  });
+
+  it('escrever na folha, sair do link pelas setas ou clicar fora fecham o painel', async () => {
+    const text = 'veja [o site](https://exemplo.com) depois';
+    await clickAt(text, 8);
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+    expect(panel('.url-painel')).toBeNull();
+
+    await clickAt(text, 8);
+    area.setSelectionRange(text.length, text.length);
+    area.dispatchEvent(new KeyboardEvent('keyup', { key: 'End', bubbles: true }));
+    fixture.detectChanges();
+    expect(panel('.url-painel')).toBeNull();
+
+    await clickAt(text, 8);
+    await clickAt(text, 2);
+    expect(panel('.url-painel')).toBeNull();
+  });
+
+  it('o Esc fecha só o painel, sem chegar ao editor', async () => {
+    await clickAt('veja [o site](https://exemplo.com)', 8);
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    area.dispatchEvent(esc);
+    fixture.detectChanges();
+    expect(esc.defaultPrevented).toBeTrue();
+    expect(panel('.url-painel')).toBeNull();
+  });
+});

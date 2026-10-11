@@ -361,13 +361,7 @@
     </div>
 
     <footer class="foot">
-      @if (confirmingDiscard()) {
-        <p class="discard-msg" role="alert">Descartar o que você escreveu?</p>
-        <div class="actions">
-          <button type="button" class="btn-quiet" (click)="keepWriting()">Continuar escrevendo</button>
-          <button type="button" class="btn-ink danger" (click)="discard()">Descartar</button>
-        </div>
-      } @else if (confirmingDraft()) {
+      @if (confirmingDraft()) {
         <p class="discard-msg" role="alert">Pra depois fica só o nome e a capa. As notas e o texto se perdem.</p>
         <div class="actions">
           <button type="button" class="btn-quiet" (click)="cancelDraft()">Continuar escrevendo</button>

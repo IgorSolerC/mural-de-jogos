@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   BookOpen,
@@ -23,6 +24,7 @@ import {
   UsersRound,
   LucideAngularModule,
   RefreshCw,
+  RotateCcw,
   CloudOff,
   Origami,
   ShieldAlert,
@@ -40,7 +42,14 @@ import { OWNER_NAME_MAX, ScoreDisplay, Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
-import { fold, localDay } from '../core/review';
+import { Bonus, fold, formatScore, localDay } from '../core/review';
+import { scramble } from '../core/spoiler';
+import { KINDS, Kind } from '../core/kinds';
+import { Mural } from '../core/mural';
+import { JudgeLabel } from '../ui/judge-label';
+import { BonusSticker } from '../ui/bonus';
+import { Rabisco } from '../ui/rabisco';
+import { KIND_ICON } from '../ui/kind-switcher';
 import { Busy } from '../ui/busy';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount, CloudError } from '../core/cloud-account';
@@ -71,11 +80,13 @@ function when(ms: number): string {
  * etiqueta de papel por parte (Conta, Mural, Amigos, Backup, Busca), com uma linha do que tem nela; ao
  * lado, a folha creme da parte aberta. Cada ajuste é uma linha: o nome, o que ele faz e o controle
  * (interruptor, seletor ou botão). O que não tem volta fica junto, no pé da folha, em "Cuidado".
- * Nada aqui tem botão de salvar: vale na hora.
+ * Nada aqui tem botão de salvar: vale na hora. Em Mural e Amigos, cada ajuste tem uma prévia do que
+ * ele muda: no computador, num bilhete no papelão embaixo do índice (o ajuste em que o mouse ou o
+ * foco está); no celular, embaixo do ajuste tocado.
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, LucideAngularModule, Pin, GoogleButton, RouterLink],
+  imports: [Busy, LucideAngularModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
@@ -101,6 +112,17 @@ export class SettingsPage {
     // "perfil" era o nome da Conta (links antigos e de outras páginas)
     if (value === 'perfil') return 'conta';
     return TABS.includes(value as Tab) ? (value as Tab) : 'conta';
+  }
+
+  /** O ajuste cuja prévia aparece (o último em que o mouse passou ou o foco entrou), na parte em que ele está. */
+  private readonly peeked = signal<{ tab: Tab; id: string } | null>(null);
+  protected readonly peeking = computed(() => {
+    const p = this.peeked();
+    return p && p.tab === this.tab() ? p.id : null;
+  });
+
+  protected peek(id: string): void {
+    if (this.peeked()?.id !== id) this.peeked.set({ tab: this.tab(), id });
   }
 
   protected go(id: Tab): void {
@@ -162,6 +184,29 @@ export class SettingsPage {
   protected readonly CloudOnIcon = CloudIcon;
   protected readonly CopyIcon = Copy;
   protected readonly PenIcon = Pencil;
+  protected readonly ResetIcon = RotateCcw;
+  protected readonly FriendsIcon = UsersRound;
+  protected readonly mural = inject(Mural);
+  protected readonly kindIcon = KIND_ICON;
+  /** Os murais com fichas (a prévia de "Novidades em Amigos"). */
+  protected readonly wallKinds: readonly Kind[] = KINDS.filter((k) => k !== 'anotacoes');
+  /** O 8,4 da prévia das notas, como ele aparece com a escolha de agora. */
+  protected readonly sampleScore = computed(() => {
+    this.settings.scoreDisplay();
+    return formatScore(8.4);
+  });
+  /** O pedaço de parede da prévia das etiquetas: dois meses, cinco fichas. */
+  protected readonly wallSample = [
+    { label: 'Março', stocks: ['rosa', 'azul', 'verde'] },
+    { label: 'Fevereiro', stocks: ['amarelo', 'laranja'] },
+  ];
+  /** A prévia do modo sem spoilers: dois bônus, um de cada lado, e uma frase de resenha. */
+  protected readonly sampleBonuses: Bonus[] = [
+    { id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' },
+    { id: 'bugs', label: 'Muitos bugs', kind: 'contra' },
+  ];
+  protected readonly sampleLead = 'Valeu cada hora, mesmo com o final corrido.';
+  protected readonly sampleLeadMasked = scramble(this.sampleLead, 'previa');
   protected readonly LinkIcon = LinkIconData;
   protected readonly LogOutIcon = LogOut;
   protected readonly RefreshIcon = RefreshCw;
@@ -380,6 +425,23 @@ export class SettingsPage {
       this.sync.forgetAccount();
       this.toasts.show('Conta apagada. O mural continua neste navegador.');
     }
+  }
+
+  /** "Voltar ao padrão": pergunta antes, dizendo o que volta e o que fica. */
+  protected async resetAll(): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: 'Voltar ao padrão?',
+      text:
+        'As escolhas de Mural e Amigos voltam ao começo: notas como você deu, etiquetas dos grupos e contagem de novidades ligadas, ' +
+        'sem spoilers desligado, o que você não avaliou em segredo e novidades de todos os murais. ' +
+        'O seu nome, o perfil, a conta, as chaves e o backup não mudam.',
+      confirm: 'Voltar ao padrão',
+      icon: null,
+      tone: 'neutro',
+    });
+    if (!sure) return;
+    this.settings.resetPreferences();
+    this.toasts.show('Os ajustes voltaram ao padrão.');
   }
 
   protected async exportFile(): Promise<void> {

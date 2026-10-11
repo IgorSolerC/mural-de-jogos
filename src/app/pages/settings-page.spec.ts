@@ -5,6 +5,7 @@ import { BehaviorSubject } from 'rxjs';
 import { Cloud } from '../core/cloud-config';
 import { LocalData } from '../core/local-data';
 import { Settings } from '../core/settings';
+import { Confirm } from '../ui/confirm';
 import { SettingsPage } from './settings-page';
 
 /**
@@ -120,5 +121,92 @@ describe('Ajustes (SettingsPage)', () => {
     expect(el.querySelector('#rawg-key')).not.toBeNull();
     // a escolha Wikipedia/RAWG saiu: a busca usa a RAWG sempre que há chave
     expect(el.querySelector('input[name="fonte"]')).toBeNull();
+  });
+});
+
+describe('Ajustes: prévias e Voltar ao padrão', () => {
+  let query: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+
+  async function open(aba: string | null) {
+    query = new BehaviorSubject(convertToParamMap(aba ? { aba } : {}));
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        { provide: LocalData, useClass: MemoryData },
+        { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => null, notice: () => null } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: query.value }, queryParamMap: query } },
+      ],
+    });
+    const fixture = TestBed.createComponent(SettingsPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return { fixture, el: fixture.nativeElement as HTMLElement };
+  }
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('passar o mouse num ajuste mostra o que ele muda, ao vivo', async () => {
+    const { fixture, el } = await open('mural');
+    const side = () => el.querySelector('.previa-lado');
+    expect(side()?.textContent).toContain('Passe o mouse');
+    const row = el.querySelector('[role="switch"][aria-labelledby="t-etiquetas"]')!.closest('.linha')!;
+    row.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+    expect(side()?.querySelectorAll('.p-fita').length).toBe(2);
+    (row.querySelector('[role="switch"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(side()?.querySelectorAll('.p-fita').length).toBe(0);
+    expect(side()?.textContent).toContain('As fichas correm juntas');
+  });
+
+  it('a prévia das notas mostra o 8,4 como ele aparece', async () => {
+    const { fixture, el } = await open('mural');
+    const settings = TestBed.inject(Settings);
+    el.querySelector('fieldset.linha')!.dispatchEvent(new FocusEvent('focusin'));
+    fixture.detectChanges();
+    expect(el.querySelector('.previa-lado strong')?.textContent).toBe('8,4');
+    settings.scoreDisplay.set('metade');
+    fixture.detectChanges();
+    expect(el.querySelector('.previa-lado strong')?.textContent).toBe('8,5');
+    settings.scoreDisplay.set('livre');
+  });
+
+  it('Voltar ao padrão: pergunta, volta as escolhas de Mural e Amigos e deixa o nome e as chaves', async () => {
+    const { fixture, el } = await open('mural');
+    const settings = TestBed.inject(Settings);
+    const confirm = TestBed.inject(Confirm);
+    const button = () => el.querySelector<HTMLButtonElement>('.padrao')!;
+    expect(button().disabled).toBeTrue();
+    settings.groupLabels.set(false);
+    settings.noSpoilers.set(true);
+    settings.friendKinds.set('separado');
+    settings.mailCount.set(false);
+    settings.scoreDisplay.set('inteiro');
+    settings.ownerName.set('Igor');
+    settings.setKey('rawg', 'minha');
+    fixture.detectChanges();
+    expect(button().disabled).toBeFalse();
+
+    const ask = spyOn(confirm, 'ask').and.resolveTo(false);
+    button().click();
+    await fixture.whenStable();
+    expect(settings.groupLabels()).toBeFalse();
+
+    ask.and.resolveTo(true);
+    button().click();
+    await fixture.whenStable();
+    expect(ask.calls.mostRecent().args[0].text).toContain('não mudam');
+    expect(settings.atDefaults()).toBeTrue();
+    expect(settings.groupLabels()).toBeTrue();
+    expect(settings.noSpoilers()).toBeFalse();
+    expect(settings.friendKinds()).toBe('misturado');
+    expect(settings.mailCount()).toBeTrue();
+    expect(settings.scoreDisplay()).toBe('livre');
+    expect(settings.ownerName()).toBe('Igor');
+    expect(settings.rawgKey()).toBe('minha');
+    fixture.detectChanges();
+    expect(button().disabled).toBeTrue();
   });
 });

@@ -334,7 +334,6 @@ export class ReviewEditor {
   protected readonly textMaxShown = TEXT_MAX.toLocaleString('pt-BR');
   protected readonly textTooLong = computed(() => this.text().trim().length > TEXT_MAX);
   protected readonly textExcess = computed(() => (this.text().trim().length - TEXT_MAX).toLocaleString('pt-BR'));
-  protected readonly confirmingDiscard = signal(false);
   /** Já tem nota ou texto e a pessoa pediu para guardar só o jogo: confirma antes de perder. */
   protected readonly confirmingDraft = signal(false);
   protected readonly draftError = signal(false);
@@ -637,7 +636,6 @@ export class ReviewEditor {
     // a busca que ficou aberta da última vez (talvez de outro mural) volta vazia
     this.search()?.reset();
     this.attempted.set(false);
-    this.confirmingDiscard.set(false);
     this.confirmingDraft.set(false);
     this.draftError.set(false);
     this.snapshot = this.serialize();
@@ -946,18 +944,36 @@ export class ReviewEditor {
   }
 
   /**
-   * Esc, X, Cancelar ou o clique no fundo: se tem coisa escrita, pergunta antes. Com a pergunta na
-   * tela, só o botão Descartar joga o texto fora: Esc de novo é "voltar a escrever", e o X, o Cancelar
-   * e o fundo não fazem nada (a pergunta continua lá).
+   * Esc, X, Cancelar ou o clique no fundo: se tem coisa por salvar, o cartão de confirmação pergunta
+   * antes, por cima da folha. Só "Descartar" joga o texto fora; "Continuar escrevendo", o Esc e o
+   * clique fora do cartão voltam para a folha como estava.
    */
   protected requestClose(e?: Event): void {
     if (this.isDirty()) {
       e?.preventDefault();
-      if (!this.confirmingDiscard()) this.confirmingDiscard.set(true);
-      else if (e?.type === 'cancel') this.keepWriting();
+      void this.askDiscard();
       return;
     }
     if (e?.type !== 'cancel') this.shut();
+  }
+
+  /** A pergunta de descartar já está na tela: outro X (ou o fundo) não abre uma segunda. */
+  private askingDiscard = false;
+
+  private async askDiscard(): Promise<void> {
+    if (this.askingDiscard) return;
+    this.askingDiscard = true;
+    try {
+      const sure = await this.confirm.ask({
+        title: 'Descartar o que você escreveu?',
+        text: `${this.notes() ? 'A anotação' : 'A resenha'} ainda não foi salva. Fechando agora, o que você escreveu se perde.`,
+        confirm: 'Descartar',
+        cancel: 'Continuar escrevendo',
+      });
+      if (sure) this.discard();
+    } finally {
+      this.askingDiscard = false;
+    }
   }
 
   /** Fecha de propósito (salvou, descartou, apagou, mandou para a fila…). */
@@ -974,15 +990,11 @@ export class ReviewEditor {
   protected onClose(): void {
     if (!this.closing && this.isDirty()) {
       this.dialog().nativeElement.showModal();
-      this.confirmingDiscard.set(true);
+      void this.askDiscard();
       return;
     }
     this.closing = false;
     this.closed.emit();
-  }
-
-  protected keepWriting(): void {
-    this.confirmingDiscard.set(false);
   }
 
   protected discard(): void {

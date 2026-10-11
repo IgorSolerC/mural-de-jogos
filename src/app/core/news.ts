@@ -51,6 +51,29 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-ajustes-previas-e-padrao',
+    version: '1.31.2',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'Ajustes: ver como fica e voltar ao padrão',
+    items: [
+      'Em Mural e Amigos, cada ajuste mostra o que ele muda: no computador, passando o mouse, num bilhete “Como fica” embaixo das partes; no celular, logo embaixo do ajuste tocado. A prévia acompanha a escolha na hora.',
+      '“Voltar ao padrão”, no alto dos Ajustes, desfaz as escolhas de Mural e Amigos depois de perguntar. O nome, o perfil, a conta, as chaves e o backup não mudam. Com tudo no padrão, ele diz isso e fica apagado.',
+    ],
+  },
+  {
+    id: '2026-10-11-editor-de-texto-mais-calmo',
+    version: '1.31.1',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'Escrever sem perder o lugar',
+    items: [
+      'Clicar num link ou num widget do texto abre o painel dele embaixo, mas o cursor fica onde você clicou: dá para continuar escrevendo. Escrever, sair dele com as setas ou clicar em outro lugar fecha o painel; o Esc também, sem fechar a ficha.',
+      'Passando o mouse num link, o marca-texto agora é azul, da mesma caneta do sublinhado.',
+      'Fechar uma anotação ou uma resenha com coisa por salvar pergunta num cartão por cima da folha (“Continuar escrevendo” ou “Descartar”), em vez da faixa no pé.',
+    ],
+  },
+  {
     id: '2026-10-11-busca-com-as-chaves-do-site',
     version: '1.31.0',
     kind: 'funcionalidade',
