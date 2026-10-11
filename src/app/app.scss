@@ -160,8 +160,9 @@ main {
     --tilt: 1.6;
   }
 
-  /* a fita com desenho (a engrenagem de Ajustes, o envelope de Amigos) */
-  &:has(.tab-icon) {
+  /* a fita com desenho (a engrenagem de Ajustes, o envelope de Amigos, o emoji do perfil) */
+  &:has(.tab-icon),
+  &:has(.tab-emoji) {
     align-self: stretch;
     align-items: center;
     padding-inline: 11px;
@@ -170,6 +171,16 @@ main {
   .tab-icon {
     display: inline-flex;
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.7));
+  }
+
+  /* a sua "foto", pequena, como um adesivo na fita */
+  .tab-emoji {
+    display: inline-flex;
+    font-size: 19px;
+    line-height: 1;
+    letter-spacing: 0;
+    text-shadow: none;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.6));
   }
 
   &.on .tab-icon {

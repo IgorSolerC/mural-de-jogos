@@ -44,7 +44,7 @@ import { KIND_ICON } from '../ui/kind-switcher';
 import { Pin } from '../ui/pin';
 import { ProfileHero } from '../ui/profile-hero';
 import { ProfilePicker } from '../ui/profile-picker';
-import { EmojiPanel } from '../ui/reactions';
+import { EmojiPanel } from '../ui/emoji-panel';
 import { RichEditor } from '../ui/rich-editor';
 
 /** Quantas fichas de uma seção aparecem antes do "Mostrar todas". */

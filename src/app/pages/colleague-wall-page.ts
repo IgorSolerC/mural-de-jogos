@@ -66,15 +66,25 @@ export class ColleagueWallPage {
   });
 
   /**
-   * De onde a pessoa veio: Amigos ("Voltar a Amigos") ou Comparar (o de sempre, também para quem
-   * chegou pelo link).
+   * De onde a pessoa veio: o perfil dela ("Voltar ao perfil"), Amigos ("Voltar a Amigos") ou Comparar
+   * (o de sempre, também para quem chegou pelo link).
    */
-  private readonly from: 'amigos' | 'comparar' = (() => {
+  private readonly prevUrl = (() => {
     const router = inject(Router);
     const prev = untracked(() => router.currentNavigation())?.previousNavigation?.finalUrl;
-    return prev && router.serializeUrl(prev).startsWith('/amigos') ? 'amigos' : 'comparar';
+    return prev ? router.serializeUrl(prev) : '';
   })();
-  protected readonly back = this.from === 'amigos' ? { link: '/amigos', label: 'Voltar a Amigos' } : { link: '/comparar', label: 'Voltar à comparação' };
+  private readonly from: 'perfil' | 'amigos' | 'comparar' = this.prevUrl.startsWith('/perfil/')
+    ? 'perfil'
+    : this.prevUrl.startsWith('/amigos')
+      ? 'amigos'
+      : 'comparar';
+  protected readonly back =
+    this.from === 'perfil'
+      ? { link: this.prevUrl, label: 'Voltar ao perfil' }
+      : this.from === 'amigos'
+        ? { link: '/amigos', label: 'Voltar a Amigos' }
+        : { link: '/comparar', label: 'Voltar à comparação' };
 
   /** As fichas em segredo, as reações da pessoa e nada do que é do dono (marcar, tarefas, chegada). */
   protected readonly access = computed<WallAccess>(() => ({

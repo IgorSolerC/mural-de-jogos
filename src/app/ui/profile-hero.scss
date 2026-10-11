@@ -123,10 +123,16 @@
 }
 
 /* ===== O que vai pregado no fundo ===== */
-.conteudo,
-.pe {
+.conteudo {
   position: relative;
   z-index: 1;
+}
+
+/* os números e, embaixo deles, as ações (Seguir, Editar), sem gastar uma faixa do quadro */
+.lateral {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
 }
 
 /* Os papéis colados no fundo têm a tinta deles: numa cartolina escura, a tinta clara dela não passa
@@ -140,16 +146,28 @@
 
 .conteudo {
   display: grid;
-  grid-template-columns: minmax(0, 31%) minmax(0, 1fr);
+  grid-template-columns: clamp(170px, 31%, 300px) minmax(0, 1fr);
   gap: clamp(22px, 4.2cqw, 56px);
   align-items: start;
+}
+
+/* a coluna da foto: a polaroid e, embaixo dela, a fita de quando o mural mudou */
+.coluna-foto {
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+  min-width: 0;
+
+  .polaroid {
+    width: 100%;
+  }
 }
 
 @container (max-width: 600px) {
   .conteudo {
     grid-template-columns: minmax(0, 1fr);
   }
-  .polaroid {
+  .coluna-foto {
     justify-self: center;
     width: min(240px, 74%);
   }
@@ -523,22 +541,15 @@ figcaption {
   color: var(--ink-2);
 }
 
-/* ===== O pé do quadro: quando mudou, e as ações ===== */
-.pe {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: clamp(20px, 3.2cqw, 34px);
-
-  &:not(:has(.atualizado)):not(:has(.acoes > *)) {
-    display: none;
-  }
+.atualizado {
+  white-space: nowrap;
+  rotate: -1.5deg;
 }
 
-.atualizado {
-  rotate: -1.5deg;
+@container (max-width: 600px) {
+  .atualizado {
+    letter-spacing: 0.07em;
+  }
 }
 
 .ponto {
@@ -553,6 +564,25 @@ figcaption {
 .acoes {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
-  margin-left: auto;
+
+  &:not(:has(*)) {
+    display: none;
+  }
+}
+
+
+/* No quadro largo (o perfil na tela inteira), as fichinhas vão ao lado da folha, duas a duas */
+@container (min-width: 1000px) {
+  .lado {
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 30cqw, 380px);
+    align-items: start;
+  }
+  .lateral {
+    padding-top: 14px;
+  }
+  .numeros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

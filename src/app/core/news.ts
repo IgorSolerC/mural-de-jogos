@@ -51,6 +51,31 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-perfil-mais-quieto',
+    version: '1.30.1',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'Editar o perfil, mais calmo',
+    items: [
+      'As partes de “Seu perfil” agora são fichas pautadas de papel claro, no lugar das cartolinas coloridas: a cor fica na prévia do quadro e nas amostras.',
+      'A fita “Mural atualizado há…” foi para baixo da polaroid, e o quadro não gasta mais uma faixa só com ela.',
+      'O topo de “Seu perfil” volta para o seu perfil, e a fita com o seu emoji fica acesa enquanto você o edita.',
+    ],
+  },
+  {
+    id: '2026-10-10-pagina-do-perfil',
+    version: '1.30.0',
+    kind: 'funcionalidade',
+    date: '2026-10-10',
+    title: 'A página do perfil',
+    items: [
+      'Cada pessoa tem uma página: o quadro com a polaroid, o “Sobre mim” e os números, as pastas dos murais e as seções que ela montou.',
+      'A fita com o seu emoji, no fim das abas lá em cima, abre o seu perfil do jeito que os outros veem (sem as fichas privadas). “Editar o perfil” fica no quadro, embaixo dos números.',
+      'Cada pasta abre o mural inteiro da pessoa naquele assunto, e o mural ganha “Voltar ao perfil”.',
+      'No perfil de alguém dá para seguir a pessoa, e as notas do que você ainda não avaliou ficam em segredo, como no mural dela.',
+    ],
+  },
+  {
     id: '2026-10-10-configuracoes-do-perfil',
     version: '1.29.0',
     kind: 'funcionalidade',

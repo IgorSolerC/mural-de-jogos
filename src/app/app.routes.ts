@@ -47,6 +47,9 @@ export const routes: Routes = [
     title: 'Seu perfil',
     loadComponent: () => import('./pages/profile-edit-page').then((m) => m.ProfileEditPage),
   },
+  // o seu perfil, e o de alguém pelo código (o mesmo do mural)
+  { path: 'perfil', title: 'Perfil', loadComponent: () => import('./pages/profile-page').then((m) => m.ProfilePage) },
+  { path: 'perfil/:codigo', title: 'Perfil', loadComponent: () => import('./pages/profile-page').then((m) => m.ProfilePage) },
   { path: 'ajustes', title: 'Ajustes', loadComponent: () => import('./pages/settings-page').then((m) => m.SettingsPage) },
   { path: 'amigos', title: 'Amigos', loadComponent: () => import('./pages/mail-page').then((m) => m.MailPage) },
   // o primeiro nome da aba

@@ -1,9 +1,9 @@
 <header class="cabeca">
   <h1 class="tape-label big">Seu perfil</h1>
   <p class="resumo">Vale na hora{{ shared() ? ' e vai junto com a sua conta' : '' }}</p>
-  <a class="btn-quiet voltar" routerLink="/ajustes" [queryParams]="{ aba: 'perfil' }">
+  <a class="btn-quiet voltar" routerLink="/perfil">
     <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-    Ajustes
+    Ver o perfil
   </a>
 </header>
 
@@ -25,8 +25,8 @@
 <div class="mesa">
   <div class="fichas">
     <!-- ===== Você: a foto, o nome, a linha, a descrição e os assuntos ===== -->
-    <section class="ficha cartolina voce" aria-labelledby="voce-titulo">
-      <app-pin class="pin" color="#f4f4f0" />
+    <section class="ficha voce" aria-labelledby="voce-titulo">
+      <app-pin class="pin" color="#e62e2d" />
       <h2 id="voce-titulo">Você</h2>
 
       <div class="foto-linha">
@@ -156,7 +156,7 @@
     </section>
 
     <!-- ===== O fundo do quadro: papelaria, cartolina ou uma imagem ===== -->
-    <section class="ficha cartolina fundo-ficha" aria-labelledby="fundo-titulo">
+    <section class="ficha fundo-ficha" aria-labelledby="fundo-titulo">
       <app-pin class="pin" color="#e62e2d" />
       <h2 id="fundo-titulo">Fundo do quadro</h2>
       <p class="lead">O que fica atrás da sua foto, dentro da moldura. O que está escrito continua no papel, então qualquer fundo lê bem.</p>
@@ -232,7 +232,7 @@
     </section>
 
     <!-- ===== Os murais: cada um vira uma pasta no perfil ===== -->
-    <section class="ficha cartolina murais-ficha" aria-labelledby="murais-titulo">
+    <section class="ficha murais-ficha" aria-labelledby="murais-titulo">
       <app-pin class="pin" color="#e62e2d" />
       <h2 id="murais-titulo">Seus murais</h2>
       <p class="lead">Cada mural com alguma ficha à mostra vira uma pasta no perfil, que abre o mural inteiro.</p>
@@ -275,7 +275,7 @@
     </section>
 
     <!-- ===== As seções: fichas escolhidas, com um nome seu ===== -->
-    <section class="ficha cartolina secoes-ficha" aria-labelledby="secoes-titulo">
+    <section class="ficha secoes-ficha" aria-labelledby="secoes-titulo">
       <app-pin class="pin" color="#e62e2d" />
       <h2 id="secoes-titulo">Seções</h2>
       <p class="lead">
@@ -410,7 +410,7 @@
       }
 
       <div class="nova-linha">
-        <button type="button" class="btn-cartolina nova-secao" [disabled]="sectionsFull()" (click)="addSection()">
+        <button type="button" class="btn-ink nova-secao" [disabled]="sectionsFull()" (click)="addSection()">
           <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
           Nova seção
         </button>

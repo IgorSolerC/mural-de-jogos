@@ -1,0 +1,635 @@
+@use '../ui/profile-materials' as materials;
+
+:host {
+  display: block;
+}
+
+/* o giz na parede: o que acontece, dito baixinho */
+.giz {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.assim {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding-left: 4px;
+}
+
+.bloco {
+  margin-top: 72px;
+
+  > .tape-label,
+  > .secao-cabeca {
+    margin-bottom: 30px;
+  }
+}
+
+.vazio {
+  max-width: 60ch;
+}
+
+/* ===== As pastas dos murais: pasta de papel manilha, com as capas aparecendo pela boca ===== */
+.pastas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 46px 34px;
+  margin: 0;
+  padding: 26px 0 0;
+  list-style: none;
+}
+
+.pasta-item {
+  --tilt: -0.8deg;
+
+  &:nth-child(2n) {
+    --tilt: 0.7deg;
+  }
+  &:nth-child(3n) {
+    --tilt: -0.4deg;
+  }
+}
+
+.pasta-mural {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  rotate: var(--tilt);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.4));
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    translate: 0 -3px;
+    rotate: calc(var(--tilt) * 0.35);
+
+    .espia {
+      translate: 0 -10px;
+    }
+    .abrir {
+      text-decoration-thickness: 3px;
+    }
+  }
+
+  &:active {
+    translate: 0 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 6px;
+  }
+}
+
+/* as costas da pasta, mais escuras, com a orelha onde se escreve o mural */
+.costas {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background-color: #dcc58c;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+}
+
+.orelha {
+  position: absolute;
+  top: -28px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 16px;
+  border-radius: 7px 7px 0 0;
+  background: inherit;
+  background-color: #dcc58c;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* as capas das fichas mais novas, saindo da boca da pasta (nomes próprios: .capas é a ficha no tipo Capas) */
+.boca {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  height: 110px;
+  pointer-events: none;
+}
+
+.espia {
+  position: absolute;
+  top: 0;
+  width: 66px;
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  &[data-n='0'] {
+    left: 16%;
+    rotate: -9deg;
+  }
+  &[data-n='1'] {
+    left: 40%;
+    top: -6px;
+    rotate: 3deg;
+    transition-delay: 30ms;
+  }
+  &[data-n='2'] {
+    left: 63%;
+    rotate: 11deg;
+    transition-delay: 60ms;
+  }
+}
+
+/* a frente da pasta, por cima das capas: o nome, o carimbo da contagem e o texto da pessoa */
+.frente {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  min-height: 176px;
+  margin-top: 74px;
+  padding: 18px 20px 16px;
+  border-radius: 2px 2px 3px 3px;
+  background-color: #f3e5bb;
+  background-image: linear-gradient(rgb(255 255 255 / 0.18), transparent 30%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  box-shadow: 0 -3px 5px -2px rgb(0 0 0 / 0.28);
+}
+
+.pasta-titulo {
+  font-family: var(--f-marker);
+  font-size: 1.4rem;
+  line-height: 1.05;
+}
+
+/* a contagem num carimbo de borracha vermelho */
+.carimbo {
+  padding: 3px 8px 2px;
+  border: 2px solid rgb(184 29 28 / 0.85);
+  border-radius: 3px;
+  color: rgb(184 29 28 / 0.92);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  rotate: -3deg;
+}
+
+.pasta-texto {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.abrir {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* ===== As seções ===== */
+.secao-cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+}
+
+/* a linha da pessoa, escrita a giz na parede ao lado da fita */
+.secao-nota {
+  font-family: var(--f-hand);
+  font-size: 1.22rem;
+  line-height: 1.3;
+  color: var(--wall-ink);
+  rotate: -1deg;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.suporte {
+  position: relative;
+}
+
+/* num quadro: a moldura de pinus, os parafusos e a cortiça por dentro; o quadro abraça as fichas */
+.no-quadro .suporte {
+  width: fit-content;
+  min-width: min(100%, 440px);
+  max-width: 100%;
+  padding: 16px;
+  border-radius: 3px;
+  background-color: #b98953;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 22%, transparent 78%, rgb(0 0 0 / 0.2)),
+    repeating-linear-gradient(91deg, rgb(255 240 210 / 0.07) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(89.4deg, rgb(92 52 20 / 0.13) 0 1px, transparent 1px 13px),
+    var(--paper-grain);
+  background-blend-mode: normal, normal, normal, multiply;
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    inset 0 -2px 0 rgb(0 0 0 / 0.25);
+}
+
+.miolo {
+  @include materials.fundos;
+}
+
+.no-quadro .miolo {
+  padding: clamp(34px, 4vw, 52px) clamp(20px, 3vw, 44px) clamp(28px, 3vw, 40px);
+  box-shadow:
+    inset 0 3px 9px rgb(0 0 0 / 0.45),
+    inset 0 0 0 1px rgb(0 0 0 / 0.3);
+}
+
+.parafuso {
+  position: absolute;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fbf8f1, #b7b0a5 52%, #6a645b);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.5);
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 1.5px;
+    right: 1.5px;
+    top: 5px;
+    height: 2px;
+    border-radius: 1px;
+    background: rgb(50 44 38 / 0.75);
+    rotate: var(--fenda, 30deg);
+  }
+
+  &.p1 {
+    top: 2px;
+    left: 2px;
+  }
+  &.p2 {
+    top: 2px;
+    right: 2px;
+    --fenda: -50deg;
+  }
+  &.p3 {
+    bottom: 2px;
+    left: 2px;
+    --fenda: 80deg;
+  }
+  &.p4 {
+    bottom: 2px;
+    right: 2px;
+    --fenda: 12deg;
+  }
+}
+
+/* as fichas, no tipo escolhido, com os mesmos vãos e larguras do mural */
+.fichas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 44px 34px;
+
+  app-review-card {
+    width: var(--ficha-w);
+    max-width: 100%;
+  }
+
+  &[data-tipo='simples'] {
+    gap: 34px 30px;
+
+    app-review-card {
+      width: var(--simples-w);
+    }
+  }
+
+  &[data-tipo='capas'] {
+    gap: 26px 22px;
+
+    app-review-card {
+      width: clamp(116px, calc((var(--simples-page) - 7 * 22px) / 8), 156px);
+    }
+  }
+}
+
+/* no quadro, a cortiça já é a parede: as fichas cabem dentro dele */
+.no-quadro .fichas app-review-card {
+  max-width: 100%;
+}
+
+/* a lista: os nomes numa folha de caderno pautada, presa com fita */
+.lista-folha {
+  position: relative;
+  max-width: 640px;
+  margin: 0;
+  padding: 26px 26px 22px 64px;
+  border-radius: 2px;
+  background-color: #fbfaf3;
+  background-image:
+    linear-gradient(90deg, transparent 46px, rgb(214 60 50 / 0.55) 46px 48px, transparent 48px),
+    repeating-linear-gradient(transparent 0 calc(2.4rem - 1.5px), rgb(70 110 190 / 0.32) calc(2.4rem - 1.5px) 2.4rem),
+    var(--paper-grain);
+  background-position: 0 0, 0 26px, 0 0;
+  background-blend-mode: normal, normal, multiply;
+  color: var(--ink);
+  rotate: -0.5deg;
+  box-shadow: var(--shadow-card);
+  counter-reset: linha;
+  list-style: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: calc(50% - 56px);
+    width: 112px;
+    height: 24px;
+    background-color: rgb(222 205 160 / 0.88);
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    rotate: 2deg;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+  }
+
+  li {
+    counter-increment: linha;
+    position: relative;
+
+    &::before {
+      content: counter(linha) '.';
+      position: absolute;
+      left: -36px;
+      top: 0;
+      width: 28px;
+      font-family: var(--f-marker);
+      font-size: 1.05rem;
+      line-height: 2.4rem;
+      text-align: right;
+      color: var(--red-deep);
+    }
+  }
+}
+
+.lista-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 12px;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.05);
+
+    .lista-nome {
+      text-decoration: underline 2px;
+      text-underline-offset: 4px;
+    }
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+  }
+}
+
+.lista-nome {
+  font-family: var(--f-hand);
+  font-size: 1.3rem;
+  line-height: 2.4rem;
+}
+
+.lista-meta {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  b {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1rem;
+    letter-spacing: 0;
+    color: var(--ink);
+  }
+}
+
+/* uma seção sem nada à mostra (só o dono vê) */
+.secao-vazia {
+  max-width: 560px;
+  padding: 22px 24px;
+  border-radius: 3px;
+  outline: 2px dashed rgb(243 239 230 / 0.4);
+  outline-offset: -2px;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.4;
+  color: var(--wall-ink);
+
+  a {
+    color: inherit;
+    font-weight: 700;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+}
+
+.no-quadro .secao-vazia {
+  outline-color: rgb(21 21 21 / 0.35);
+  color: var(--ink);
+  background: rgb(251 249 242 / 0.9);
+}
+
+/* ===== O pé: quem fez ===== */
+.pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+  margin-top: 96px;
+  padding-top: 26px;
+  border-top: 2px dashed rgb(243 239 230 / 0.18);
+}
+
+.feito {
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.dymo-pe {
+  padding: 6px 11px 5px;
+  border-radius: 2px;
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0.04) 46%, transparent 52%, rgb(0 0 0 / 0.18)),
+    #1d3f9e;
+  color: #ebe5d8;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  text-shadow:
+    0 -1px 0 rgb(255 255 255 / 0.32),
+    0 1px 1px rgb(0 0 0 / 0.7);
+  rotate: 1.5deg;
+}
+
+/* ===== As ações no pé do quadro ===== */
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+
+  a.btn-ink {
+    text-decoration: none;
+  }
+}
+
+/* o "Copiar o link" fica numa fita de papel, para ler em qualquer fundo */
+.copiar {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+
+  &:hover:not(:disabled) {
+    background: #fff;
+  }
+}
+
+.seguir.seguindo {
+  background: var(--hi);
+  color: var(--ink);
+}
+
+/* ===== Avisos: o código não serve, a nuvem desligada, não abriu ===== */
+.aviso {
+  position: relative;
+  max-width: 520px;
+  margin: 40px auto 0;
+  padding: 34px 30px 28px;
+  border-radius: 2px;
+  rotate: 0.6deg;
+  box-shadow: var(--shadow-card);
+  --stock: var(--stock-laranja);
+
+  .pin {
+    top: -10px;
+    left: calc(50% - 13px);
+  }
+
+  h1 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.8rem;
+    line-height: 1.05;
+    margin-bottom: 12px;
+  }
+
+  p {
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  a.btn-ink {
+    text-decoration: none;
+  }
+}
+
+.esperando {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 280px;
+  font-family: var(--f-hand);
+  font-size: 1.3rem;
+  color: var(--wall-ink);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+/* ===== Celular: uma ficha por linha, como no mural ===== */
+@media (max-width: 559px) {
+  .bloco {
+    margin-top: 56px;
+  }
+
+  .fichas {
+    gap: 34px;
+
+    app-review-card,
+    &[data-tipo='simples'] app-review-card {
+      width: 100%;
+    }
+
+    &[data-tipo='capas'] {
+      gap: 22px 12px;
+
+      app-review-card {
+        width: calc((100% - 24px) / 3);
+      }
+    }
+  }
+
+  .no-quadro .miolo {
+    padding: 30px 12px 22px;
+  }
+
+  .lista-folha {
+    padding-right: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pasta-mural,
+  .espia {
+    transition: none;
+  }
+}

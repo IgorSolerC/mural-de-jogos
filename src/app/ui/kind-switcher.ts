@@ -25,7 +25,7 @@ let uid = 0;
  * leva ao mural escolhido. `path`: o caminho, sem query nem fragmento.
  */
 export function sameForEveryMural(path: string, friendKinds: FriendKinds): boolean {
-  return path === '/ajustes' || path === '/novidades' || path === '/perfil/editar' || (path === '/amigos' && friendKinds === 'misturado');
+  return path === '/ajustes' || path === '/novidades' || path === '/perfil' || path.startsWith('/perfil/') || (path === '/amigos' && friendKinds === 'misturado');
 }
 
 /**

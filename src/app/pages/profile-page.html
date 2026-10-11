@@ -1,0 +1,182 @@
+@switch (who().kind) {
+  @case ('invalid') {
+    <section class="aviso cartolina" data-cor="laranja" aria-labelledby="aviso-titulo">
+      <app-pin class="pin" color="#f4f4f0" />
+      <h1 id="aviso-titulo">Esse perfil não existe</h1>
+      <p>O endereço tem um código que não serve. Os códigos têm 8 letras e números, como K7QF-M2XA.</p>
+      <a class="btn-ink" routerLink="/amigos">Ir para Amigos</a>
+    </section>
+  }
+  @default {
+    @if (own() || colleague()) {
+      <app-profile-hero class="topo" [profile]="profile()" [name]="name()" [code]="code()" [stats]="stats()" [updated]="updated()">
+        <div acoes class="acoes">
+          @if (own()) {
+            @if (code()) {
+              <button type="button" class="btn-quiet copiar" (click)="copyLink()">
+                <lucide-icon [img]="CopyIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                Copiar o link
+              </button>
+            }
+            <a class="btn-ink" routerLink="/perfil/editar">
+              <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+              Editar o perfil
+            </a>
+          } @else if (canFollow()) {
+            <button
+              type="button"
+              class="btn-ink seguir"
+              [class.seguindo]="following()"
+              [attr.aria-pressed]="following()"
+              [disabled]="followBusy() || followState() === null"
+              [appBusy]="followBusy() || followState() === null"
+              (click)="toggleFollow()"
+            >
+              <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+              @if (followBusy()) {
+                {{ following() ? 'Deixando de seguir…' : 'Seguindo…' }}
+              } @else {
+                {{ following() ? 'Seguindo' : 'Seguir ' + name() }}
+              }
+            </button>
+          }
+        </div>
+      </app-profile-hero>
+
+      @if (own()) {
+        <p class="giz assim">É assim que os outros veem o seu perfil. As fichas privadas não aparecem.</p>
+      } @else if (loading()) {
+        <p class="giz assim" role="status"><span class="carregando" aria-hidden="true"></span> Conferindo se {{ name() }} mudou alguma coisa…</p>
+      }
+
+      <!-- ===== As pastas: um mural por pasta ===== -->
+      <section class="bloco" aria-labelledby="murais-titulo">
+        <h2 id="murais-titulo" class="tape-label big">{{ own() ? 'Os seus murais' : 'Os murais de ' + name() }}</h2>
+        @if (walls().length) {
+          <ul class="pastas">
+            @for (w of walls(); track w.kind; let i = $index) {
+              <li class="pasta-item" [style.--i]="i">
+                <button type="button" class="pasta-mural" (click)="openWall(w.kind)" [attr.aria-label]="'Abrir o ' + w.title + ' de ' + name() + ', ' + w.count">
+                  <span class="costas" aria-hidden="true">
+                    <span class="orelha">
+                      <lucide-icon [img]="w.icon" [size]="16" [strokeWidth]="2.5" />
+                      {{ w.short }}
+                    </span>
+                  </span>
+                  <span class="boca" aria-hidden="true">
+                    @for (c of w.covers; track c.id; let j = $index) {
+                      <app-cover-sleeve class="espia" [attr.data-n]="j" size="thumb" [game]="c.game" [decorative]="true" />
+                    }
+                  </span>
+                  <span class="frente" aria-hidden="true">
+                    <span class="pasta-titulo">{{ w.title }}</span>
+                    <span class="carimbo">{{ w.count }}</span>
+                    @if (w.text) {
+                      <span class="pasta-texto">{{ w.text }}</span>
+                    }
+                    <span class="abrir">
+                      Abrir o mural
+                      <lucide-icon [img]="OpenIcon" [size]="17" [strokeWidth]="2.6" />
+                    </span>
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="giz vazio">{{ own() ? 'Nenhuma ficha à mostra ainda. As públicas aparecem aqui, cada mural numa pasta.' : name() + ' ainda não tem fichas à mostra.' }}</p>
+        }
+      </section>
+
+      <!-- ===== As seções que a pessoa montou ===== -->
+      @for (s of sections(); track s.id) {
+        <section class="bloco secao" [class.no-quadro]="s.frame === 'quadro'" [attr.aria-label]="s.title || 'Seção sem nome'">
+          <header class="secao-cabeca">
+            <h2 class="tape-label big">{{ s.title || 'Seção sem nome' }}</h2>
+            @if (s.note) {
+              <p class="secao-nota">{{ s.note }}</p>
+            }
+          </header>
+
+          <div class="suporte">
+            @if (s.frame === 'quadro') {
+              <span class="parafuso p1" aria-hidden="true"></span>
+              <span class="parafuso p2" aria-hidden="true"></span>
+              <span class="parafuso p3" aria-hidden="true"></span>
+              <span class="parafuso p4" aria-hidden="true"></span>
+            }
+            <div class="miolo" [attr.data-fundo]="s.frame === 'quadro' ? 'cortica' : null">
+            @if (!s.cards.length) {
+              <p class="secao-vazia">Nenhuma ficha à mostra nesta seção. <a routerLink="/perfil/editar">Escolha em Editar o perfil</a>.</p>
+            } @else if (s.density === 'lista') {
+              <!-- a lista: os nomes escritos à mão numa folha de caderno -->
+              <ol class="lista-folha">
+                @for (r of s.cards; track r.id) {
+                  <li>
+                    <button type="button" class="lista-item" (click)="open(r)">
+                      <span class="lista-nome">{{ r.game.name }}</span>
+                      <span class="lista-meta">
+                        {{ kindLabel(r) }}
+                        @if (score(r) && !hidden().has(r.id)) {
+                          · <b>{{ score(r) }}</b>
+                        }
+                      </span>
+                    </button>
+                  </li>
+                }
+              </ol>
+            } @else {
+              <div class="fichas" [attr.data-tipo]="s.density">
+                @for (r of s.cards; track r.id) {
+                  <app-review-card
+                    [review]="r"
+                    [preview]="true"
+                    [compact]="s.density === 'simples'"
+                    [capas]="s.density === 'capas'"
+                    [full]="s.density === 'inteira'"
+                    [masked]="hidden().has(r.id)"
+                    [reactCode]="reactCode()"
+                    [looks]="looks()"
+                    (opened)="open(r)"
+                  />
+                }
+              </div>
+            }
+            </div>
+          </div>
+        </section>
+      }
+
+      <footer class="pe">
+        <span class="feito">Feito à mão por {{ name() }}</span>
+        @if (code(); as c) {
+          <span class="dymo-pe">{{ c }}</span>
+        }
+      </footer>
+    } @else if (!cloud.config()) {
+      <section class="aviso cartolina" data-cor="laranja" aria-labelledby="aviso-titulo">
+        <app-pin class="pin" color="#f4f4f0" />
+        <h1 id="aviso-titulo">A nuvem está desligada</h1>
+        <p>Os perfis dos outros chegam pela nuvem, e ela está desligada neste site agora.</p>
+      </section>
+    } @else if (failed()) {
+      <section class="aviso cartolina" data-cor="laranja" aria-labelledby="aviso-titulo">
+        <app-pin class="pin" color="#f4f4f0" />
+        <h1 id="aviso-titulo">Não consegui abrir esse perfil</h1>
+        <p>Pode ser a conexão, ou o código pode ter mudado. Confira com quem te passou.</p>
+        <button type="button" class="btn-ink" (click)="fetch()">
+          <lucide-icon [img]="RetryIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          Tentar de novo
+        </button>
+      </section>
+    } @else {
+      <!-- buscando: o quadro vazio, com o que está acontecendo escrito nele -->
+      <div class="esperando" role="status">
+        <span class="carregando" aria-hidden="true"></span>
+        Buscando o perfil na nuvem…
+      </div>
+    }
+  }
+}
+
+<app-review-reader />

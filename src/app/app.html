@@ -16,7 +16,7 @@
         [routerLink]="t.path"
         [class.on]="isOn(t)"
         [attr.aria-current]="isOn(t) ? 'page' : null"
-        [attr.title]="t.icon && !t.named ? t.label : null"
+        [attr.title]="(t.icon && !t.named) || t.emoji ? t.label : null"
       >
         <app-pin class="tab-pin" color="#e62e2d" />
         @if (t.icon && t.named) {
@@ -24,6 +24,9 @@
           <span class="tab-nome">{{ t.label }}</span>
         } @else if (t.icon) {
           <lucide-icon class="tab-icon" [img]="t.icon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          <span class="sr-only">{{ t.label }}</span>
+        } @else if (t.emoji) {
+          <span class="tab-emoji" aria-hidden="true">{{ profiles.profile().emoji }}</span>
           <span class="sr-only">{{ t.label }}</span>
         } @else {
           <span>{{ t.label }}</span>

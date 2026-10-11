@@ -111,11 +111,18 @@
   }
 }
 
-/* ===== As fichas de cartolina, uma por parte ===== */
+/* ===== As fichas pautadas, uma por parte =====
+   Papel de ficha, não cartolina: a cor do perfil fica na prévia e nas amostras, e o formulário fica
+   quieto em volta dela (o mesmo papel das Novidades, com o fio vermelho embaixo do título). */
 .ficha {
   position: relative;
   padding: 30px 28px 28px;
   border-radius: 2px;
+  background-color: #fbf9f2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
   box-shadow: var(--shadow-card);
 
   .pin {
@@ -125,31 +132,30 @@
 }
 
 .voce {
-  --stock: var(--stock-rosa);
-  rotate: -0.5deg;
-}
-
-.fundo-ficha {
-  --stock: var(--stock-azul);
-  rotate: 0.6deg;
-}
-
-.murais-ficha {
-  --stock: var(--stock-verde);
   rotate: -0.4deg;
 }
 
-.secoes-ficha {
-  --stock: var(--stock-amarelo);
-  rotate: 0.3deg;
+.fundo-ficha {
+  rotate: 0.4deg;
 }
 
+.murais-ficha {
+  rotate: -0.3deg;
+}
+
+.secoes-ficha {
+  rotate: 0.25deg;
+}
+
+/* o título na linha de cima da ficha, com o fio vermelho embaixo */
 h2 {
+  margin: 0 -28px 16px;
+  padding: 0 28px 10px;
+  border-bottom: 2px solid rgb(206 58 48 / 0.6);
   font-family: var(--f-marker);
   font-weight: 400;
   font-size: 1.8rem;
   line-height: 1.05;
-  margin-bottom: 10px;
 }
 
 .lead {
@@ -211,7 +217,7 @@ fieldset > :not(legend) {
   min-height: 50px;
   padding: 0 12px 0 14px;
   border-radius: 2px;
-  background: var(--paper);
+  background: #fff;
   box-shadow: inset 0 0 0 2px var(--ink);
 
   &:focus-within {
@@ -442,7 +448,7 @@ fieldset > :not(legend) {
   min-height: 52px;
   padding: 8px 10px;
   border-radius: 2px;
-  background: var(--paper);
+  background: #fff;
   box-shadow: inset 0 0 0 2px var(--ink);
 
   &:focus-within {
@@ -670,11 +676,13 @@ fieldset > :not(legend) {
   text-transform: uppercase;
   cursor: pointer;
 
+  /* no papel claro, o adesivo colado é o de tinta, com a letra em papel */
   &.colado {
     border-radius: 2px;
-    background: var(--paper);
-    color: var(--ink);
-    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.2));
+    background: var(--ink);
+    color: var(--paper);
+    rotate: -2deg;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.18));
   }
 
   &:focus-visible {
@@ -689,7 +697,7 @@ fieldset > :not(legend) {
   padding: 8px 12px;
   border: 0;
   border-radius: 2px;
-  background: rgb(255 255 255 / 0.62);
+  background: #fff;
   box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.4);
   color: var(--ink);
   caret-color: var(--red);
@@ -844,9 +852,9 @@ fieldset > :not(legend) {
   &.colado {
     --cola: -2deg;
     border-radius: 2px;
-    background: var(--paper);
-    color: var(--ink);
-    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.2));
+    background: var(--ink);
+    color: var(--paper);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.18));
   }
 }
 
@@ -895,7 +903,7 @@ fieldset > :not(legend) {
   min-height: 60px;
   padding: 6px 6px 6px 10px;
   border-radius: 2px;
-  background: rgb(255 255 255 / 0.62);
+  background: #f1ebdc;
   counter-increment: item;
 
   &::before {
@@ -908,7 +916,9 @@ fieldset > :not(legend) {
   }
 
   &.escondido {
-    background: rgb(255 255 255 / 0.3);
+    background: transparent;
+    outline: 1.5px dashed rgb(21 21 21 / 0.3);
+    outline-offset: -1.5px;
 
     .item-capa,
     .item-nome {
@@ -975,9 +985,9 @@ fieldset > :not(legend) {
   border-top: 2px dashed rgb(21 21 21 / 0.28);
 }
 
-/* a cartolina nova, branca sobre a amarela, para não sumir no fundo */
+/* a seção nova abre a lista, então é o fim natural da ficha */
 .nova-secao {
-  --stock: var(--paper);
+  min-height: 46px;
 }
 
 /* ===== Celular ===== */
@@ -985,6 +995,11 @@ fieldset > :not(legend) {
   .ficha {
     padding: 26px 16px 22px;
     rotate: 0deg;
+  }
+
+  h2 {
+    margin-inline: -16px;
+    padding-inline: 16px;
   }
 
   .amostras {

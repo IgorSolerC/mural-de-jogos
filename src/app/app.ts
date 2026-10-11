@@ -26,6 +26,7 @@ import { PaperDefs } from './ui/paper-layer';
 import { Pin } from './ui/pin';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
+import { ProfileStore } from './core/profile-store';
 import { Confirm, ConfirmDialog } from './ui/confirm';
 import { NoteBacklinksDialog } from './ui/note-backlinks';
 import { Toast, Toasts } from './ui/toast';
@@ -40,6 +41,10 @@ interface Tab {
   icon?: LucideIconData;
   /** O desenho e o nome (o nome some no celular, onde as fitas são estreitas). */
   named?: boolean;
+  /** No lugar do desenho, o emoji do seu perfil (a sua "foto"). */
+  emoji?: boolean;
+  /** Só acende no próprio caminho e em `also` (o perfil de outra pessoa não é o seu). */
+  exact?: boolean;
 }
 
 /**
@@ -59,8 +64,10 @@ const TABS: Tab[] = [
   { path: '/wishlist', label: 'Wishlist' },
   // o Ranking e o Comparar moram dentro de Extras: a fita de Extras fica acesa neles também
   { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
-  // as Novidades e as Configurações do perfil se abrem por Ajustes (e pela faixa do topo)
-  { path: '/ajustes', label: 'Ajustes', icon: SettingsIcon, also: ['/novidades', '/perfil/editar'] },
+  // as Novidades se abrem por Ajustes (e pela faixa do topo)
+  { path: '/ajustes', label: 'Ajustes', icon: SettingsIcon, also: ['/novidades'] },
+  // o seu perfil: a fita com a sua "foto" (o emoji), acesa também enquanto você o edita
+  { path: '/perfil', label: 'Seu perfil', emoji: true, exact: true, also: ['/perfil/editar'] },
 ];
 
 @Component({
@@ -90,6 +97,7 @@ export class App {
   protected readonly news = inject(News);
   /** Seguir e a aba Amigos (ver core/follow.ts): a fita mostra quantas novidades dos amigos chegaram. */
   private readonly follow = inject(Follow);
+  protected readonly profiles = inject(ProfileStore);
   private readonly settings = inject(Settings);
   /** O convite para entrar com o Google (ver core/login-nudge.ts). */
   protected readonly loginNudge = inject(LoginNudge);
@@ -121,7 +129,8 @@ export class App {
   protected readonly tabs = computed(() => {
     // no mural de anotações não há fila, wishlist nem os extras (que são de notas)
     const base = this.notes() ? TABS.filter((t) => !NOT_FOR_NOTES.includes(t.path)) : TABS;
-    return this.follow.available() ? [...base.slice(0, -1), FRIENDS_TAB, base[base.length - 1]] : base;
+    // Amigos entra antes da engrenagem (a engrenagem e o perfil ficam no fim)
+    return this.follow.available() ? [...base.slice(0, -2), FRIENDS_TAB, ...base.slice(-2)] : base;
   });
   /** O mural aberto é o de anotações. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
@@ -193,7 +202,7 @@ export class App {
 
   protected isOn(t: Tab): boolean {
     const p = this.path();
-    return p === t.path || !!t.also?.includes(p) || (t.path !== '/' && p.startsWith(t.path + '/'));
+    return p === t.path || !!t.also?.includes(p) || (t.path !== '/' && !t.exact && p.startsWith(t.path + '/'));
   }
 
   protected tabCount(path: string): number | null {

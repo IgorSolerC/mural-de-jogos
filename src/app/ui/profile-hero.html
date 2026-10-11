@@ -17,7 +17,9 @@
     }
 
     <div class="conteudo">
-      <!-- a polaroid: o emoji fotografado na cartolina escolhida, o nome escrito embaixo -->
+      <!-- a polaroid: o emoji fotografado na cartolina escolhida, o nome escrito embaixo; e, colada
+           embaixo dela, a fita de quando o mural mudou -->
+      <div class="coluna-foto">
       <figure class="polaroid">
         <span class="fita f1" aria-hidden="true"></span>
         <span class="fita f2" aria-hidden="true"></span>
@@ -32,6 +34,10 @@
           }
         </figcaption>
       </figure>
+      @if (updated()) {
+        <span class="dymo atualizado"><span class="ponto" aria-hidden="true"></span>{{ updated() }}</span>
+      }
+      </div>
 
       <div class="lado">
         <!-- a folha quadriculada, presa com fita: o título em letras recortadas, a descrição à mão -->
@@ -67,7 +73,8 @@
           }
         </article>
 
-        <!-- as fichinhas dos números, cada uma presa por um pedaço de fita -->
+        <!-- as fichinhas dos números, cada uma presa por um pedaço de fita, e embaixo as ações -->
+        <div class="lateral">
         <ul class="numeros" aria-label="Números">
           @for (n of numbers(); track n.label) {
             <li class="numero" [attr.data-faixa]="n.band">
@@ -77,14 +84,9 @@
             </li>
           }
         </ul>
+        <div class="acoes"><ng-content select="[acoes]" /></div>
+        </div>
       </div>
-    </div>
-
-    <div class="pe">
-      @if (updated()) {
-        <span class="dymo atualizado"><span class="ponto" aria-hidden="true"></span>{{ updated() }}</span>
-      }
-      <div class="acoes"><ng-content select="[acoes]" /></div>
     </div>
   </div>
 </div>
