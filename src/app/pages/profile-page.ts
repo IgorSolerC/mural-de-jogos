@@ -33,7 +33,7 @@ export function profileLink(code: string, base: string = location.origin + locat
 }
 
 /** O perfil de quem ainda não montou o seu: o padrão, sem a seção vazia. */
-/** A cor de cada mural na borda da divisória e no carimbo da pasta (da cartela das categorias). */
+/** A cor de cada mural na borda da divisória e na contagem da pasta (da cartela das categorias). */
 const WALL_COLOR: Record<Kind, string> = {
   jogos: '#d63a2f',
   livros: '#5e9c1c',

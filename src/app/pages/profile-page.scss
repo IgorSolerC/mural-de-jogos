@@ -36,19 +36,22 @@
   max-width: 60ch;
 }
 
-/* ===== As pastas dos murais: pasta de manilha deitada e baixa, com a divisória colorida do mural
-   saindo de trás (como as abas das anotações) e as capas espiando pela boca ao lado ===== */
+/* ===== As pastas dos murais: pasta de manilha deitada e baixa, todas numa fileira. A divisória
+   colorida do mural sai de trás (como as abas das anotações), a contagem vai escrita a caneta na
+   faixa de trás, as capas espiam pela boca ao lado, e a frente leva o texto da pessoa ===== */
 .pastas {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 40px 28px;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 34px 14px;
   margin: 0;
-  padding: 26px 0 0;
+  padding: 24px 0 0;
   list-style: none;
 }
 
 .pasta-item {
   --tilt: -0.8deg;
+  /* a pasta se arruma pela própria largura: estreita, mostra duas capas */
+  container: pasta / inline-size;
 
   &:nth-child(2n) {
     --tilt: 0.7deg;
@@ -59,12 +62,18 @@
 }
 
 .pasta-mural {
-  /* a tinta do mural: a cor, puxada para o escuro, para o carimbo ler bem no manilha */
+  /* a tinta do mural: a cor, puxada para o escuro, para ler bem no manilha */
   --tinta: color-mix(in oklab, var(--cor) 82%, #151515);
+  /* o espaço das capas na faixa (--vistas: as que aparecem); cada uma a mais anda 26px */
+  --vistas: var(--capas);
+  --boca: calc(8px + var(--vistas) * 26px);
 
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  /* a fileira inteira na mesma altura: as frentes sem texto esticam */
+  height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
@@ -82,7 +91,7 @@
     rotate: calc(var(--tilt) * 0.35);
 
     .espia {
-      translate: 0 -8px;
+      translate: 0 -7px;
     }
     .orelha {
       translate: 0 -3px;
@@ -99,7 +108,7 @@
   }
 }
 
-/* as costas da pasta, mais escuras: a boca de onde saem as capas */
+/* as costas da pasta, mais escuras: a faixa da contagem e a boca de onde saem as capas */
 .costas {
   position: absolute;
   inset: 0;
@@ -113,24 +122,24 @@
    enfiada atrás da pasta; só a orelha sai pela beirada de cima */
 .orelha {
   position: absolute;
-  top: -27px;
-  left: 12px;
+  top: -24px;
+  left: 9px;
   isolation: isolate;
   display: inline-flex;
   align-items: flex-start;
-  gap: 6px;
-  max-width: calc(100% - 24px);
-  height: 27px + 6px;
-  padding: 8px 13px 0 11px;
+  gap: 5px;
+  max-width: calc(100% - 18px);
+  height: 24px + 6px;
+  padding: 7px 10px 0 9px;
   border-radius: 7px 7px 0 0;
   background-color: #fffcf2;
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   font-family: var(--f-label);
   font-weight: 800;
-  font-size: 0.84rem;
+  font-size: 0.74rem;
   line-height: 1.1;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--ink);
@@ -144,82 +153,80 @@
   }
 }
 
+/* a contagem, escrita a caneta na faixa de trás, na tinta do mural */
+.conta {
+  position: absolute;
+  top: 7px;
+  left: 11px;
+  max-width: calc(100% - 26px - var(--boca));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--f-marker);
+  font-size: 1.02rem;
+  line-height: 1.1;
+  color: var(--tinta);
+  rotate: -2deg;
+}
+
 /* as capas das fichas mais novas, espiando pela boca, à direita
    (nomes próprios: .capas é a ficha no tipo Capas) */
 .boca {
   position: absolute;
-  top: -12px;
-  right: 12px;
-  width: 136px;
-  height: 60px;
+  top: -10px;
+  right: 8px;
+  width: var(--boca);
+  height: 46px;
   pointer-events: none;
 }
 
 .espia {
   position: absolute;
   top: 0;
-  width: 46px;
+  /* a última capa encosta na beirada direita; as outras, 26px cada uma para a esquerda */
+  right: calc((var(--vistas) - 1 - var(--j)) * 26px + 2px);
+  width: 34px;
   transition: translate var(--t-physical) var(--ease-physical);
 
   &[data-n='0'] {
-    right: 76px;
     top: 4px;
     rotate: -8deg;
   }
   &[data-n='1'] {
-    right: 40px;
     top: -2px;
     rotate: 3deg;
     transition-delay: 30ms;
   }
   &[data-n='2'] {
-    right: 4px;
-    top: 5px;
+    top: 4px;
     rotate: 10deg;
     transition-delay: 60ms;
   }
 }
 
-/* a frente da pasta, por cima das capas e do pé da divisória: o nome com o carimbo, e o texto */
+/* pasta estreita: no máximo duas capas, para a contagem caber */
+@container pasta (max-width: 175px) {
+  .pasta-mural {
+    --vistas: min(var(--capas), 2);
+  }
+  .espia[data-n='2'] {
+    display: none;
+  }
+}
+
+/* a frente da pasta, por cima das capas: o texto da pessoa (sem texto, só a beirada) */
 .frente {
   position: relative;
-  display: grid;
-  gap: 4px;
-  margin-top: 30px;
-  padding: 11px 14px 12px 16px;
+  display: block;
+  flex: 1;
+  min-height: 16px;
+  margin-top: 32px;
+  padding: 8px 12px 10px;
   border-radius: 2px 2px 3px 3px;
   background-color: #f3e5bb;
   background-image: linear-gradient(rgb(255 255 255 / 0.18), transparent 30%), var(--paper-grain);
   background-blend-mode: normal, multiply;
   box-shadow: 0 -3px 5px -2px rgb(0 0 0 / 0.28);
-}
-
-.pasta-linha {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-}
-
-.pasta-titulo {
-  font-family: var(--f-marker);
-  font-size: 1.16rem;
-  line-height: 1.1;
-}
-
-/* a contagem num carimbo de borracha, na tinta do mural */
-.carimbo {
-  padding: 2px 6px 1px;
-  border: 2px solid color-mix(in srgb, var(--tinta) 88%, transparent);
-  border-radius: 3px;
-  color: var(--tinta);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.74rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  rotate: -3deg;
 }
 
 .pasta-texto {
@@ -228,7 +235,7 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
   font-family: var(--f-hand);
-  font-size: 0.98rem;
+  font-size: 0.94rem;
   line-height: 1.3;
   color: var(--ink-2);
 }

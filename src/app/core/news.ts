@@ -57,9 +57,9 @@ export const NEWS: NewsEntry[] = [
     date: '2026-10-11',
     title: 'As pastas do perfil, mais baixas e com cor',
     items: [
-      'Cada mural do perfil virou uma pasta deitada, com menos da metade da altura: as capas espiam pela boca, ao lado, e o nome, a contagem e o texto ficam juntos na frente.',
-      'Cada mural tem a sua cor: a orelha é uma divisória de papel claro com a borda colorida, como as abas das anotações, e o carimbo da contagem sai na mesma tinta.',
-      'Saiu o “Abrir o mural”: a pasta inteira continua abrindo o mural.',
+      'Os murais do perfil cabem numa fileira só: cada um é uma pasta deitada e baixa (no celular, duas por linha).',
+      'Cada mural tem a sua cor: a orelha é uma divisória de papel claro com a borda colorida, como as abas das anotações, e a contagem vem escrita a caneta na mesma tinta, na faixa de trás, ao lado das capas.',
+      'Na frente da pasta fica só o texto que você escreveu para o mural. Saíram o título repetido e o “Abrir o mural”: a pasta inteira abre o mural.',
     ],
   },
   {

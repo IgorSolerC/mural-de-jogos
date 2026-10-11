@@ -56,23 +56,20 @@
           <ul class="pastas">
             @for (w of walls(); track w.kind; let i = $index) {
               <li class="pasta-item" [style.--i]="i">
-                <button type="button" class="pasta-mural" [style.--cor]="w.color" (click)="openWall(w.kind)" [attr.aria-label]="'Abrir o ' + w.title + ' de ' + name() + ', ' + w.count">
+                <button type="button" class="pasta-mural" [style.--cor]="w.color" [style.--capas]="w.covers.length" (click)="openWall(w.kind)" [attr.aria-label]="'Abrir o ' + w.title + ' de ' + name() + ', ' + w.count">
                   <!-- a divisória do mural, de papel claro com a borda na cor dele (como as abas das anotações), atrás da pasta -->
                   <span class="orelha orelha-cor" aria-hidden="true">
-                    <lucide-icon [img]="w.icon" [size]="15" [strokeWidth]="2.6" />
+                    <lucide-icon [img]="w.icon" [size]="13" [strokeWidth]="2.6" />
                     {{ w.short }}
                   </span>
                   <span class="costas" aria-hidden="true"></span>
+                  <span class="conta" aria-hidden="true">{{ w.count }}</span>
                   <span class="boca" aria-hidden="true">
                     @for (c of w.covers; track c.id; let j = $index) {
-                      <app-cover-sleeve class="espia" [attr.data-n]="j" size="thumb" [game]="c.game" [decorative]="true" />
+                      <app-cover-sleeve class="espia" [attr.data-n]="j" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true" />
                     }
                   </span>
                   <span class="frente" aria-hidden="true">
-                    <span class="pasta-linha">
-                      <span class="pasta-titulo">{{ w.title }}</span>
-                      <span class="carimbo">{{ w.count }}</span>
-                    </span>
                     @if (w.text) {
                       <span class="pasta-texto">{{ w.text }}</span>
                     }
