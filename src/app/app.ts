@@ -37,21 +37,16 @@ interface Tab {
   label: string;
   /** Outras rotas que moram dentro desta aba (o lado a lado é uma vista do mural). */
   also?: string[];
-  /** Só o desenho na fita (o nome fica para o leitor de tela e a dica): Ajustes é uma ferramenta, não um lugar. */
+  /** Só o desenho na fita (o nome fica para o leitor de tela e a dica): Ajustes e Amigos. */
   icon?: LucideIconData;
-  /** O desenho e o nome (o nome some no celular, onde as fitas são estreitas). */
-  named?: boolean;
-  /** No lugar do desenho, o emoji do seu perfil (a sua "foto"). */
-  emoji?: boolean;
-  /** Só acende no próprio caminho e em `also` (o perfil de outra pessoa não é o seu). */
-  exact?: boolean;
 }
 
 /**
- * Amigos: o que quem você segue pregou. É um lugar (como o Mural e a Wishlist), então leva o nome
- * escrito; o desenho de pessoas diz de quem é, e balança quando chega algo. Só com a conta na nuvem.
+ * Amigos: o que quem você segue pregou. Só o desenho de pessoas na fita (o nome fica para o leitor de
+ * tela e a dica), como a engrenagem: o usuário pediu, para a fileira caber; ele balança quando chega
+ * algo. Só com a conta na nuvem.
  */
-const FRIENDS_TAB: Tab = { path: '/amigos', label: 'Amigos', icon: UsersRound, named: true };
+const FRIENDS_TAB: Tab = { path: '/amigos', label: 'Amigos', icon: UsersRound };
 
 /** As abas que não existem no mural de anotações (e para onde ele não deixa ficar). */
 const NOT_FOR_NOTES = ['/fila', '/wishlist', '/extras'];
@@ -66,8 +61,6 @@ const TABS: Tab[] = [
   { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
   // as Novidades se abrem por Ajustes (e pela faixa do topo)
   { path: '/ajustes', label: 'Ajustes', icon: SettingsIcon, also: ['/novidades'] },
-  // o seu perfil: a fita com a sua "foto" (o emoji), acesa também enquanto você o edita
-  { path: '/perfil', label: 'Seu perfil', emoji: true, exact: true, also: ['/perfil/editar'] },
 ];
 
 @Component({
@@ -129,8 +122,7 @@ export class App {
   protected readonly tabs = computed(() => {
     // no mural de anotações não há fila, wishlist nem os extras (que são de notas)
     const base = this.notes() ? TABS.filter((t) => !NOT_FOR_NOTES.includes(t.path)) : TABS;
-    // Amigos entra antes da engrenagem (a engrenagem e o perfil ficam no fim)
-    return this.follow.available() ? [...base.slice(0, -2), FRIENDS_TAB, ...base.slice(-2)] : base;
+    return this.follow.available() ? [...base.slice(0, -1), FRIENDS_TAB, base[base.length - 1]] : base;
   });
   /** O mural aberto é o de anotações. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
@@ -200,9 +192,12 @@ export class App {
     });
   }
 
+  /** O seu perfil está aberto (o seu, ou editando): a foto do canto acende, como a aba acesa. */
+  protected readonly onProfile = computed(() => this.path() === '/perfil' || this.path() === '/perfil/editar');
+
   protected isOn(t: Tab): boolean {
     const p = this.path();
-    return p === t.path || !!t.also?.includes(p) || (t.path !== '/' && !t.exact && p.startsWith(t.path + '/'));
+    return p === t.path || !!t.also?.includes(p) || (t.path !== '/' && p.startsWith(t.path + '/'));
   }
 
   protected tabCount(path: string): number | null {

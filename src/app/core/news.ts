@@ -51,6 +51,18 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-10-foto-no-canto-amigos-so-icone',
+    version: '1.30.3',
+    kind: 'melhoria',
+    date: '2026-10-10',
+    title: 'As abas de novo numa fileira só',
+    items: [
+      'Com muitas fichas, as abas não cabiam mais entre o cartaz e o botão de adicionar, e a última descia para a linha de baixo.',
+      'O seu perfil saiu das abas: agora é a sua foto, o emoji numa polaroid pequena, colada no canto de cima, acima do botão de adicionar. Ela fica amarela enquanto o seu perfil está aberto.',
+      'A aba Amigos ficou só com o desenho das pessoas, como a engrenagem dos Ajustes (o nome continua na dica e para o leitor de tela).',
+    ],
+  },
+  {
     id: '2026-10-10-nomes-levam-ao-perfil',
     version: '1.30.2',
     kind: 'melhoria',

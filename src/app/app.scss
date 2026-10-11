@@ -160,9 +160,8 @@ main {
     --tilt: 1.6;
   }
 
-  /* a fita com desenho (a engrenagem de Ajustes, o envelope de Amigos, o emoji do perfil) */
-  &:has(.tab-icon),
-  &:has(.tab-emoji) {
+  /* a fita com desenho (a engrenagem de Ajustes, o envelope de Amigos) */
+  &:has(.tab-icon) {
     align-self: stretch;
     align-items: center;
     padding-inline: 11px;
@@ -171,16 +170,6 @@ main {
   .tab-icon {
     display: inline-flex;
     filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.7));
-  }
-
-  /* a sua "foto", pequena, como um adesivo na fita */
-  .tab-emoji {
-    display: inline-flex;
-    font-size: 19px;
-    line-height: 1;
-    letter-spacing: 0;
-    text-shadow: none;
-    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.6));
   }
 
   &.on .tab-icon {
@@ -226,6 +215,69 @@ main {
       display: block;
     }
   }
+}
+
+/* O botão de adicionar e a sua foto dividem a última coluna da primeira fileira: a foto fica por
+   cima, presa no alto, e não empurra nada (nem a fileira das abas) */
+.stack,
+.anotar,
+.cupom,
+.minha-foto {
+  grid-column: -2 / -1;
+  grid-row: 1;
+}
+
+/* A sua foto: o emoji do perfil numa polaroid pequena, colada torta na parede */
+.minha-foto {
+  position: relative;
+  z-index: 2;
+  align-self: start;
+  justify-self: end;
+  /* no alto da parede, saindo um pouco para a margem: pega só o canto da pilha, nunca o texto */
+  margin: -26px -16px 0 0;
+  padding: 4px 4px 10px;
+  border-radius: 2px;
+  background-color: #fbfaf5;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  rotate: 7deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 8px 12px -5px rgb(0 0 0 / 0.6);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    rotate: 2deg;
+    translate: 0 -2px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 4px;
+  }
+
+  /* aberto: a moldura fica amarela, a cor de estado (como a fita acesa), e a foto endireita */
+  &.on {
+    rotate: 0deg;
+    background-color: var(--hi);
+  }
+}
+
+.foto-papel {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 1px;
+  box-shadow: inset 0 0 8px rgb(0 0 0 / 0.22);
+}
+
+.foto-emoji {
+  font-size: 18px;
+  line-height: 1;
+  rotate: -5deg;
 }
 
 /* A pilha: um bloco de fichas em branco, e o botão é a de cima */
@@ -565,6 +617,11 @@ main {
     font-size: 1.08rem;
   }
 
+  /* no celular o topo da página é mais curto: a foto desce um pouco para não ser cortada */
+  .minha-foto {
+    margin: -14px -8px 0 0;
+  }
+
   .stack {
     align-self: center;
     margin-bottom: 0;
@@ -744,23 +801,6 @@ main {
   color: var(--hi);
 }
 
-
-/* Amigos: o desenho e o nome. No celular as fitas ficam estreitas: só o desenho (o nome continua para
-   o leitor de tela). */
-.tab .tab-nome {
-  white-space: nowrap;
-}
-
-@media (max-width: 720px) {
-  .tab .tab-nome {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-}
 
 /* Chegou algo: as pessoas da fita dão uma balançada, como quem acena */
 .tab-icon.balanca {
