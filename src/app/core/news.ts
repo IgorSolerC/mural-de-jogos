@@ -51,6 +51,34 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-topo-varal-e-bottons',
+    version: '1.30.5',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'O topo do site, arrumado',
+    items: [
+      'As partes do mural aberto (Mural, Pra depois, Wishlist e Extras) agora ficam num varal: etiquetas de papel kraft presas por prendedores num barbante. A da página aberta fica amarela.',
+      'O que é seu e vale para todos os murais virou uma fileira de bottons, cada um com o nome embaixo: Perfil (com o seu emoji), Amigos (com o adesivo amarelo do que chegou) e Ajustes.',
+      'O botão de adicionar ficou num lugar só dele, sem nada por cima: a pilha de fichas no mural, a folha de caderno no Pra depois e o cupom na Wishlist continuam iguais.',
+      'Os números de fichas, da fila e da wishlist saíram de cima das abas: cada página já diz quantos são.',
+      'Em tela larga cabe tudo numa fileira só; no computador e no tablet o varal fica embaixo, de ponta a ponta; no celular os bottons ficam ao lado do cartaz.',
+    ],
+    notice: 'O topo do site mudou: as partes do mural estão no varal, e Perfil, Amigos e Ajustes nos bottons do canto.',
+    until: '2026-10-25',
+  },
+  {
+    id: '2026-10-11-topo-no-celular',
+    version: '1.30.4',
+    kind: 'correcao',
+    date: '2026-10-11',
+    title: 'O topo no celular',
+    items: [
+      'Em celulares de uns 410px, as abas Amigos e Ajustes ficavam para fora da tela.',
+      'Em celulares de 320px, o cartaz cobria o começo do botão “Guardar jogo” do Pra depois.',
+      'A sua foto no canto de cima cobria a ponta do botão de adicionar.',
+    ],
+  },
+  {
     id: '2026-10-10-foto-no-canto-amigos-so-icone',
     version: '1.30.3',
     kind: 'melhoria',

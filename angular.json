@@ -122,6 +122,10 @@
               }
             ],
             "styles": [
+              "node_modules/@fontsource/permanent-marker/latin-400.css",
+              "node_modules/@fontsource/kalam/latin-700.css",
+              "node_modules/@fontsource/barlow-condensed/latin-800.css",
+              "node_modules/@fontsource/barlow-condensed/latin-800-italic.css",
               "src/styles.scss"
             ]
           }

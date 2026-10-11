@@ -3,7 +3,7 @@ import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { Cloud as CloudIconData, LucideAngularModule, LucideIconData, Megaphone, NotebookPen, Plus, Scissors, Settings as SettingsIcon, UsersRound, X } from 'lucide-angular';
+import { Cloud as CloudIconData, LucideAngularModule, Megaphone, X } from 'lucide-angular';
 import { filter, map } from 'rxjs';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
@@ -14,58 +14,26 @@ import { LoginNudge } from './core/login-nudge';
 import { Cloud } from './core/cloud-config';
 import { CloudAccount, CloudError } from './core/cloud-account';
 import { GoogleButton } from './ui/google-button';
-import { Follow } from './core/follow';
-import { Settings } from './core/settings';
 import { ReviewStore } from './core/review-store';
 import { ReactionSheetView } from './ui/reactions';
 import { SideBySide } from './core/side-by-side';
 import { ViewTransitions } from './core/view-transitions';
 import { WallView } from './core/wall-view';
-import { KindSwitcher } from './ui/kind-switcher';
 import { PaperDefs } from './ui/paper-layer';
-import { Pin } from './ui/pin';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
-import { ProfileStore } from './core/profile-store';
 import { Confirm, ConfirmDialog } from './ui/confirm';
-import { NoteBacklinksDialog } from './ui/note-backlinks';
+import { NoteBacklinksDialog } from './ui/note-backlinks-dialog';
 import { Toast, Toasts } from './ui/toast';
+import { SiteHeader } from './ui/site-header';
 import { WishAdder } from './ui/wish-adder';
 
-interface Tab {
-  path: string;
-  label: string;
-  /** Outras rotas que moram dentro desta aba (o lado a lado é uma vista do mural). */
-  also?: string[];
-  /** Só o desenho na fita (o nome fica para o leitor de tela e a dica): Ajustes e Amigos. */
-  icon?: LucideIconData;
-}
-
-/**
- * Amigos: o que quem você segue pregou. Só o desenho de pessoas na fita (o nome fica para o leitor de
- * tela e a dica), como a engrenagem: o usuário pediu, para a fileira caber; ele balança quando chega
- * algo. Só com a conta na nuvem.
- */
-const FRIENDS_TAB: Tab = { path: '/amigos', label: 'Amigos', icon: UsersRound };
-
-/** As abas que não existem no mural de anotações (e para onde ele não deixa ficar). */
-const NOT_FOR_NOTES = ['/fila', '/wishlist', '/extras'];
 /** As páginas que só fazem sentido com notas: no mural de anotações, voltam para o mural. */
-const NOTES_AWAY = [...NOT_FOR_NOTES, '/ranking', '/comparar', '/lado-a-lado'];
-
-const TABS: Tab[] = [
-  { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
-  { path: '/fila', label: 'Pra depois' },
-  { path: '/wishlist', label: 'Wishlist' },
-  // o Ranking e o Comparar moram dentro de Extras: a fita de Extras fica acesa neles também
-  { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
-  // as Novidades se abrem por Ajustes (e pela faixa do topo)
-  { path: '/ajustes', label: 'Ajustes', icon: SettingsIcon, also: ['/novidades'] },
-];
+const NOTES_AWAY = ['/fila', '/wishlist', '/extras', '/ranking', '/comparar', '/lado-a-lado'];
 
 @Component({
   selector: 'app-root',
-  imports: [ConfirmDialog, GoogleButton, NoteBacklinksDialog, KindSwitcher, LucideAngularModule, PaperDefs, Pin, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, Toast, WishAdder],
+  imports: [ConfirmDialog, GoogleButton, NoteBacklinksDialog, LucideAngularModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -88,16 +56,12 @@ export class App {
   private readonly cloudMurals = inject(CloudMurals);
   /** As novidades do site e a faixa do topo (ver core/news.ts). */
   protected readonly news = inject(News);
-  /** Seguir e a aba Amigos (ver core/follow.ts): a fita mostra quantas novidades dos amigos chegaram. */
-  private readonly follow = inject(Follow);
-  protected readonly profiles = inject(ProfileStore);
-  private readonly settings = inject(Settings);
   /** O convite para entrar com o Google (ver core/login-nudge.ts). */
   protected readonly loginNudge = inject(LoginNudge);
   private readonly account = inject(CloudAccount);
   protected readonly cloudConfig = inject(Cloud).config;
 
-  /** O caminho aberto, sem query nem fragmento, para acender a aba certa. */
+  /** O caminho aberto, sem query nem fragmento: em que página o N age e de onde o mural de anotações sai. */
   private readonly path = toSignal(
     this.router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
@@ -112,42 +76,11 @@ export class App {
     return p.startsWith('/fila') ? 'fila' : p.startsWith('/wishlist') ? 'wishlist' : null;
   });
 
-  protected readonly PlusIcon = Plus;
-  protected readonly NoteIcon = NotebookPen;
-  protected readonly CutIcon = Scissors;
   protected readonly NoticeIcon = Megaphone;
   protected readonly CloudIcon = CloudIconData;
   protected readonly CloseIcon = X;
-  /** As abas; Amigos entra antes da engrenagem quando há conta na nuvem. */
-  protected readonly tabs = computed(() => {
-    // no mural de anotações não há fila, wishlist nem os extras (que são de notas)
-    const base = this.notes() ? TABS.filter((t) => !NOT_FOR_NOTES.includes(t.path)) : TABS;
-    return this.follow.available() ? [...base.slice(0, -1), FRIENDS_TAB, base[base.length - 1]] : base;
-  });
   /** O mural aberto é o de anotações. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
-
-  /**
-   * Chegou algo dos amigos (o número apareceu ou subiu, inclusive ao abrir o site com novidades
-   * guardadas): as pessoas da fita dão uma balançada, uma vez.
-   */
-  protected readonly nudge = signal(false);
-  private lastUnseen: number | null = null;
-  private nudgeTimer: ReturnType<typeof setTimeout> | undefined;
-  private readonly nudgeOnArrival = effect(() => {
-    const n = this.settings.mailCount() ? this.follow.unseen() : 0;
-    const before = this.lastUnseen;
-    this.lastUnseen = n;
-    if (before === null || n <= before) return;
-    untracked(() => {
-      this.nudge.set(false);
-      requestAnimationFrame(() => {
-        this.nudge.set(true);
-        clearTimeout(this.nudgeTimer);
-        this.nudgeTimer = setTimeout(() => this.nudge.set(false), 1600);
-      });
-    });
-  });
 
   private readonly editor = viewChild.required(ReviewEditor);
   private readonly reader = viewChild.required(ReviewReader);
@@ -190,22 +123,6 @@ export class App {
       this.useTexture('textures/holografico.png', 'has-holo');
       this.useTexture('textures/fita-crepe.png', 'has-tape');
     });
-  }
-
-  /** O seu perfil está aberto (o seu, ou editando): a foto do canto acende, como a aba acesa. */
-  protected readonly onProfile = computed(() => this.path() === '/perfil' || this.path() === '/perfil/editar');
-
-  protected isOn(t: Tab): boolean {
-    const p = this.path();
-    return p === t.path || !!t.also?.includes(p) || (t.path !== '/' && p.startsWith(t.path + '/'));
-  }
-
-  protected tabCount(path: string): number | null {
-    if (path === '/') return this.mural.openCount() || null;
-    if (path === '/fila') return this.mural.draftCount() || null;
-    if (path === '/wishlist') return this.mural.wishCount() || null;
-    if (path === '/amigos') return (this.settings.mailCount() && this.follow.unseen()) || null;
-    return null;
   }
 
   /** Nova ficha; no mural de anotações, dentro de uma aba de categoria, já com a categoria dela. */
