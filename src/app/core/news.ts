@@ -51,6 +51,14 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-orelha-das-pastas',
+    version: '1.31.6',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'O ícone na orelha das pastas, maior e no meio',
+    items: ['Na orelha de cada pasta do perfil, o ícone do mural ficou maior e alinhado com o nome, os dois no meio da borda colorida.'],
+  },
+  {
     id: '2026-10-11-perfil-na-largura-toda',
     version: '1.31.5',
     kind: 'melhoria',

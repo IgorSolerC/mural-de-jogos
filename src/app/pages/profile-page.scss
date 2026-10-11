@@ -230,11 +230,12 @@
   left: 12px;
   isolation: isolate;
   display: inline-flex;
-  align-items: flex-start;
+  /* o ícone e o nome na mesma linha de 19px, os dois no meio da parte que aparece */
+  align-items: center;
   gap: 7px;
   max-width: calc(100% - 24px);
   height: 40px;
-  padding: 9px 13px 0 11px;
+  padding: 0 13px 4px 11px;
   border-radius: 8px 8px 0 0;
   background-color: #fffcf2;
   background-image: var(--paper-grain);
@@ -242,7 +243,7 @@
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.9rem;
-  line-height: 1.1;
+  line-height: 19px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
