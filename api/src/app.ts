@@ -5,6 +5,7 @@ import { offline, readOnly, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
 import { catalogRoutes } from './routes/catalog';
+import { commentRoutes } from './routes/comments';
 import { followRoutes } from './routes/follow';
 import { muralRoutes } from './routes/mural';
 import { reactionRoutes } from './routes/reactions';
@@ -69,6 +70,7 @@ export function createApp(deps: Deps): Hono {
   muralRoutes(app, deps);
   followRoutes(app, deps);
   reactionRoutes(app, deps);
+  commentRoutes(app, deps);
   catalogRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API.' }, 404));

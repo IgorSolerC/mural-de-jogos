@@ -1,5 +1,6 @@
 import { Context, Hono } from 'hono';
 import { formatCode, generateCode } from '../domain/code';
+import { isCommentsFrom } from '../domain/comment';
 import { cleanName } from '../domain/name';
 import { usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
@@ -7,6 +8,9 @@ import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } 
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
+
+/** Os comentários de uma conta que vai embora: os que ela escreveu e os das fichas dela (dois parâmetros, o id duas vezes). */
+const COMMENTS_OF = 'SELECT id FROM comentarios WHERE autor_id = ? OR dono_id = ?';
 
 interface UserRow {
   id: string;
@@ -81,8 +85,8 @@ export function accountRoutes(app: Hono, deps: Deps): void {
 
   app.get('/v1/eu', async (c) => {
     const s = await session(c);
-    const user = await deps.db.first<UserRow & { seguidores: number; seguindo: number; pessoas_visiveis: number }>(
-      'SELECT id, codigo, nome, criado_em, pessoas_visiveis, ' +
+    const user = await deps.db.first<UserRow & { seguidores: number; seguindo: number; pessoas_visiveis: number; comentarios_de: string }>(
+      'SELECT id, codigo, nome, criado_em, pessoas_visiveis, comentarios_de, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguido_id = usuarios.id) AS seguidores, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = usuarios.id) AS seguindo ' +
         'FROM usuarios WHERE id = ?',
@@ -95,30 +99,44 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       seguidores: user.seguidores,
       seguindo: user.seguindo,
       pessoas: user.pessoas_visiveis ? 'listas' : 'numeros',
+      comentarios: user.comentarios_de === 'seguidos' ? 'seguidos' : 'todos',
     });
   });
 
   app.patch('/v1/eu', async (c) => {
     const s = await session(c);
     const body = await readJson(c);
-    // o nome e/ou o que os outros veem de quem eu sigo e de quem me segue: as listas, ou só os números
+    // o nome e/ou o que os outros veem de quem eu sigo e de quem me segue (as listas, ou só os números)
+    // e/ou quem comenta nas minhas publicações (qualquer conta, ou só quem eu sigo)
     const people = body['pessoas'];
     if (people !== undefined && people !== 'listas' && people !== 'numeros') {
       throw new HttpError(400, 'pessoas-invalido', 'Escolha entre mostrar as listas ou só os números.');
     }
-    const visible = people === undefined ? null : people === 'listas' ? 1 : 0;
-    if (body['nome'] === undefined && visible !== null) {
-      await write(deps, [{ sql: 'UPDATE usuarios SET pessoas_visiveis = ? WHERE id = ?', params: [visible, s.userId] }], 2);
-      return c.json({ pessoas: people });
+    const comments = body['comentarios'];
+    if (comments !== undefined && !isCommentsFrom(comments)) {
+      throw new HttpError(400, 'comentarios-invalido', 'Escolha entre todo mundo ou só quem você segue.');
     }
-    const name = cleanName(body['nome']);
-    if (!name) throw new HttpError(400, 'nome-invalido', 'Escreva um nome de 1 a 40 caracteres.');
+    const visible = people === undefined ? null : people === 'listas' ? 1 : 0;
+    const from = comments ?? null;
+    const hasName = body['nome'] !== undefined;
+    const name = hasName ? cleanName(body['nome']) : null;
+    // um nome que não serve, ou um pedido sem nada para mudar (o erro de sempre, o do nome)
+    if ((hasName && !name) || (!hasName && visible === null && from === null)) {
+      throw new HttpError(400, 'nome-invalido', 'Escreva um nome de 1 a 40 caracteres.');
+    }
     await write(
       deps,
-      [{ sql: 'UPDATE usuarios SET nome = ?, pessoas_visiveis = COALESCE(?, pessoas_visiveis) WHERE id = ?', params: [name, visible, s.userId] }],
+      [
+        {
+          sql:
+            'UPDATE usuarios SET nome = COALESCE(?, nome), pessoas_visiveis = COALESCE(?, pessoas_visiveis), ' +
+            'comentarios_de = COALESCE(?, comentarios_de) WHERE id = ?',
+          params: [name, visible, from, s.userId],
+        },
+      ],
       2,
     );
-    return c.json({ nome: name, ...(visible !== null ? { pessoas: people } : {}) });
+    return c.json({ ...(name ? { nome: name } : {}), ...(visible !== null ? { pessoas: people } : {}), ...(from !== null ? { comentarios: from } : {}) });
   });
 
   // Trocar o código: o antigo para de funcionar; quem segue continua seguindo (seguir guarda o id).
@@ -138,8 +156,10 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         '(SELECT COUNT(*) FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?) + ' +
         '(SELECT COUNT(*) FROM atividades WHERE autor_id = ? OR alvo_id = ?) + ' +
         '(SELECT COUNT(*) FROM reacoes WHERE autor_id = ? OR dono_id = ?) + ' +
+        '(SELECT COUNT(*) FROM comentarios WHERE autor_id = ? OR dono_id = ?) + ' +
+        `(SELECT COUNT(*) FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})) + ` +
         '(SELECT COUNT(*) FROM freios WHERE usuario_id = ?) AS n',
-      [id, id, id, id, id, id, id, id, id, id],
+      [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
     );
     await write(
       deps,
@@ -151,6 +171,9 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
         { sql: 'DELETE FROM atividades WHERE autor_id = ? OR alvo_id = ?', params: [id, id] },
         { sql: 'DELETE FROM reacoes WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
+        // os comentários que a pessoa escreveu e os das fichas dela, com as reações deles (antes: elas se acham pelo comentário)
+        { sql: `DELETE FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})`, params: [id, id, id] },
+        { sql: 'DELETE FROM comentarios WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
         { sql: 'DELETE FROM freios WHERE usuario_id = ?', params: [id] },
         { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },
       ],

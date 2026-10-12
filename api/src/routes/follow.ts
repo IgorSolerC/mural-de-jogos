@@ -40,7 +40,7 @@ interface Person {
 }
 
 interface FeedRow {
-  tipo: 'seguiu' | 'resenha' | 'reagiu';
+  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou';
   criado_em: string;
   ref: string | null;
   resumo: string | null;
@@ -266,7 +266,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
     const floor = new Date(now.getTime() - FEED_DAYS * DAY_MS).toISOString();
     const after = isoParam(c.req.query('depois'));
     // as três fontes: quem começou a me seguir (e ainda segue), as resenhas de quem eu sigo,
-    // publicadas depois que comecei a seguir, e quem reagiu às minhas (silenciado se eu silenciei a pessoa)
+    // publicadas depois que comecei a seguir, e quem reagiu às minhas ou comentou nelas (silenciado se eu
+    // silenciei a pessoa)
     const feed = (since: string, limit: number) =>
       deps.db.all<FeedRow>(
         "SELECT 'seguiu' AS tipo, a.criado_em AS criado_em, NULL AS ref, NULL AS resumo, u.codigo, u.nome, 0 AS silenciado, " +
@@ -279,11 +280,11 @@ export function followRoutes(app: Hono, deps: Deps): void {
           'FROM seguindo s JOIN atividades a ON a.autor_id = s.seguido_id ' +
           "JOIN usuarios u ON u.id = a.autor_id WHERE s.seguidor_id = ? AND a.tipo = 'resenha' AND a.criado_em > s.criado_em AND a.criado_em > ? " +
           'UNION ALL ' +
-          "SELECT 'reagiu' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(m.silenciado, 0) AS silenciado, " +
+          'SELECT a.tipo AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(m.silenciado, 0) AS silenciado, ' +
           'CASE WHEN m.seguidor_id IS NULL THEN 0 ELSE 1 END AS eu_sigo ' +
           'FROM atividades a JOIN usuarios u ON u.id = a.autor_id ' +
           'LEFT JOIN seguindo m ON m.seguidor_id = a.alvo_id AND m.seguido_id = a.autor_id ' +
-          "WHERE a.tipo = 'reagiu' AND a.alvo_id = ? AND a.criado_em > ? " +
+          "WHERE a.tipo IN ('reagiu', 'comentou') AND a.alvo_id = ? AND a.criado_em > ? " +
           'ORDER BY criado_em DESC LIMIT ?',
         [s.userId, s.userId, since, s.userId, since, s.userId, since, limit],
       );
