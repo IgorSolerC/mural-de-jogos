@@ -6,6 +6,7 @@ import { ProfileSection } from '../core/profile';
 import { CategoryLooks } from '../core/category-looks';
 import { Review, Stock, formatScore, isNote } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
+import { frameArt } from './frame-art';
 import { MiniPolaroid } from './mini-polaroid';
 import { ReviewCard } from './review-card';
 
@@ -34,6 +35,9 @@ export class ProfileSectionView {
   readonly opened = output<Review>();
 
   protected readonly EditIcon = PenLine;
+
+  /** A arte da moldura desenhada (ver ui/frame-art). */
+  protected readonly art = computed(() => (this.section().frame === 'quadro' ? frameArt(this.section().frameStyle) : null));
 
   protected readonly fill = computed(() => {
     const s = this.section();

@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-mais-molduras',
+    version: '1.34.7',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'Mais oito molduras',
+    items: [
+      'Bambu amarrado, corda náutica, película de cinema, selo postal, renda de crochê, pixel 8-bit, caixote de feira e prendedores.',
+      'Escolha em Editar o perfil, para o quadro de cima e para cada seção num quadro.',
+    ],
+  },
+  {
     id: '2026-10-12-molduras',
     version: '1.34.6',
     kind: 'melhoria',

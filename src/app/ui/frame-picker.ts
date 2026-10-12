@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FrameStyle, PROFILE_FRAMES } from '../core/profile';
+import { frameArt } from './frame-art';
 import { Pin } from './pin';
 
 /**
@@ -16,7 +17,7 @@ import { Pin } from './pin';
       @for (f of frames; track f.id) {
         <label class="opcao" [class.on]="value() === f.id">
           <input type="radio" [name]="name()" [checked]="value() === f.id" (change)="picked.emit(f.id)" />
-          <span class="amostra" [attr.data-moldura]="f.id" aria-hidden="true">
+          <span class="amostra" [attr.data-moldura]="f.id" [style.--moldura-arte]="art(f.id)" aria-hidden="true">
             <span class="parafuso p1"></span>
             <span class="parafuso p2"></span>
             <span class="parafuso p3"></span>
@@ -40,4 +41,5 @@ export class FramePicker {
   readonly picked = output<FrameStyle>();
 
   protected readonly frames = PROFILE_FRAMES;
+  protected readonly art = frameArt;
 }

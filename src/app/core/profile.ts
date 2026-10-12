@@ -63,7 +63,8 @@ export type PageBackground = (typeof PAGE_BACKGROUNDS)[number]['id'];
 
 /**
  * As molduras do quadro de cima e das seções num quadro (o desenho de cada uma fica em
- * ui/_profile-materials.scss, `molduras`; o pinus com parafusos é o de sempre).
+ * ui/_profile-materials.scss, `molduras`; o pinus com parafusos é o de sempre). As desenhadas têm a
+ * arte em public/molduras/<id>.svg (ver ui/frame-art e scripts/molduras.py).
  */
 export const PROFILE_FRAMES = [
   { id: 'pinus', label: 'Pinus com parafusos' },
@@ -74,6 +75,14 @@ export const PROFILE_FRAMES = [
   { id: 'paspatur', label: 'Paspatur de galeria' },
   { id: 'fita', label: 'Só fita crepe' },
   { id: 'neon', label: 'Letreiro neon' },
+  { id: 'bambu', label: 'Bambu amarrado' },
+  { id: 'corda', label: 'Corda náutica' },
+  { id: 'filme', label: 'Película de cinema' },
+  { id: 'selo', label: 'Selo postal' },
+  { id: 'croche', label: 'Renda de crochê' },
+  { id: 'pixel', label: 'Pixel 8-bit' },
+  { id: 'caixote', label: 'Caixote de feira' },
+  { id: 'prendedor', label: 'Prendedores' },
 ] as const;
 export type FrameStyle = (typeof PROFILE_FRAMES)[number]['id'];
 

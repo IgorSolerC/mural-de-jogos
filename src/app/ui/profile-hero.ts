@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { Profile, ProfileStats } from '../core/profile';
 import { STOCK_LABEL } from '../core/review';
+import { frameArt } from './frame-art';
 import { RichText } from './rich-text';
 
 /** As letras do título "Sobre mim", recortadas cada uma de um papel (sempre o mesmo jeito). */
@@ -55,6 +56,8 @@ export class ProfileHero {
 
   protected readonly cuts = LETTERS.map((ch, i) => ({ ch, ...CUTS[i] }));
   protected readonly photoLabel = computed(() => STOCK_LABEL[this.profile().photo]);
+  /** A arte da moldura desenhada (ver ui/frame-art). */
+  protected readonly art = computed(() => frameArt(this.profile().frameStyle));
   /** O link do fundo que não abriu: no lugar dele fica a cortiça. */
   protected readonly failed = signal<string | null>(null);
   protected readonly background = computed(() => {

@@ -14,7 +14,7 @@
     }
   </header>
 
-  <div class="suporte" [attr.data-moldura]="s.frame === 'quadro' ? s.frameStyle : null">
+  <div class="suporte" [attr.data-moldura]="s.frame === 'quadro' ? s.frameStyle : null" [style.--moldura-arte]="art()">
     @if (s.frame === 'quadro') {
       <span class="parafuso p1" aria-hidden="true"></span>
       <span class="parafuso p2" aria-hidden="true"></span>
