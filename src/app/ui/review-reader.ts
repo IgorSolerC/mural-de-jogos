@@ -540,17 +540,29 @@ export class ReviewReader {
     clearTimeout(this.selectionTimer);
   });
 
-  /** Abre ou fecha a folha de comentários; o foco vai com ela (e volta para quem a abriu). */
+  /** Quem abriu a folha de comentários (a orelha ou o "Comentar"): é para onde o foco volta ao fechar. */
+  private commentsOpener: HTMLElement | null = null;
+
+  /**
+   * Abre ou fecha a folha de comentários. O foco vai para a folha ao abrir e, ao fechar, volta para
+   * quem a abriu, sempre sem rolar a ficha: ela fica onde a pessoa estava lendo.
+   */
   protected toggleComments(open = !this.commentsOpen()): void {
+    const dialog = this.dialog().nativeElement;
+    const active = document.activeElement instanceof HTMLElement && dialog.contains(document.activeElement) ? document.activeElement : null;
+    if (open) this.commentsOpener = active?.matches('.orelha, .comentar') ? active : null;
     this.commentsOpen.set(open);
     this.picked.set(null);
     if (!open) this.quote.set(null);
-    const dialog = this.dialog().nativeElement;
     setTimeout(() => {
-      if (open) return dialog.querySelector<HTMLElement>('#leitura-comentarios')?.focus();
-      // a orelha some nas telas estreitas: lá, quem abriu foi o "Comentar" da ficha
+      if (open) return dialog.querySelector<HTMLElement>('#leitura-comentarios')?.focus({ preventScroll: true });
+      // fechou pela própria porta (a orelha, o "Comentar"): o foco já está nela, e fica
+      if (active?.isConnected && !active.closest('#leitura-comentarios')) return;
+      // o foco estava dentro da folha, que sumiu: volta para quem abriu; sem saber quem foi (a ficha
+      // já abriu com os comentários), para a porta que está à vista (a orelha some nas telas estreitas)
       const doors = [...dialog.querySelectorAll<HTMLElement>('.orelha, .comentar')];
-      (doors.find((d) => d.offsetParent !== null) ?? doors[0])?.focus();
+      const opener = this.commentsOpener?.isConnected ? this.commentsOpener : null;
+      (opener ?? doors.find((d) => d.offsetParent !== null) ?? doors[0])?.focus({ preventScroll: true });
     });
   }
 

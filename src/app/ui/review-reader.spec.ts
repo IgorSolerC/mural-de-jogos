@@ -146,6 +146,72 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(side()).not.toBeNull();
   });
 
+  describe('fechar a folha não rola a ficha', () => {
+    /** Uma ficha comprida, que rola: o "Comentar" fica lá no fim do texto, fora de vista. */
+    const long = () => review('r-longa', 'Hades', { text: Array.from({ length: 60 }, (_, i) => `Linha ${i + 1} de uma resenha comprida.`).join('\n') });
+    const body = () => q('.par > article .body')!;
+
+    async function openSheetAtTop(door: '.orelha' | '.comentar'): Promise<void> {
+      fixture.componentInstance.open(long(), 'Ana', [], false, ANA);
+      await settle();
+      expect(body().scrollHeight).toBeGreaterThan(body().clientHeight + 200);
+      q<HTMLButtonElement>(door)!.click();
+      await settle();
+      expect(side()).not.toBeNull();
+      body().scrollTop = 0;
+    }
+
+    it('pela orelha (o bug: a ficha descia até o fim)', async () => {
+      await openSheetAtTop('.orelha');
+      q<HTMLButtonElement>('.orelha')!.click();
+      await settle();
+      expect(side()).toBeNull();
+      expect(body().scrollTop).toBe(0);
+    });
+
+    it('pelo X da folha, e pelo "Voltar para a ficha"', async () => {
+      await openSheetAtTop('.orelha');
+      q<HTMLButtonElement>('.fecha-lado')!.click();
+      await settle();
+      expect(body().scrollTop).toBe(0);
+
+      q<HTMLButtonElement>('.orelha')!.click();
+      await settle();
+      body().scrollTop = 120;
+      q<HTMLButtonElement>('.volta-ficha')!.click();
+      await settle();
+      expect(side()).toBeNull();
+      expect(body().scrollTop).toBe(120);
+    });
+
+    it('o foco volta para quem abriu a folha, sem rolar; quem fechou pela própria porta fica com ele', async () => {
+      // abriu pelo "Comentar" (com a ficha rolada até ele) e fechou pelo X: o foco volta para o "Comentar"
+      fixture.componentInstance.open(long(), 'Ana', [], false, ANA);
+      await settle();
+      const comentar = q<HTMLButtonElement>('.comentar')!;
+      comentar.scrollIntoView({ block: 'center' });
+      const at = body().scrollTop;
+      comentar.focus();
+      comentar.click();
+      await settle();
+      const close = q<HTMLButtonElement>('.fecha-lado')!;
+      close.focus();
+      close.click();
+      await settle();
+      expect(document.activeElement).toBe(comentar);
+      expect(body().scrollTop).toBe(at);
+
+      // abriu e fechou pela mesma porta: o foco não sai dela
+      comentar.click();
+      await settle();
+      comentar.focus();
+      comentar.click();
+      await settle();
+      expect(side()).toBeNull();
+      expect(document.activeElement).toBe(comentar);
+    });
+  });
+
   it('a orelha e o botão dizem quantos comentários a ficha tem', async () => {
     counts[ANA] = { 'r-hades': 3 };
     fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);

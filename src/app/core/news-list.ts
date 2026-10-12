@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-fechar-os-comentarios-nao-rola-a-ficha',
+    version: '1.35.1',
+    kind: 'correcao',
+    date: '2026-10-12',
+    title: 'Fechar os comentários não rola mais a ficha',
+    items: ['Fechar a folha de comentários (pela orelha, pelo X ou pelo "Voltar para a ficha") levava o texto da ficha até o fim. Agora a ficha fica onde você estava lendo.'],
+  },
+  {
     id: '2026-10-12-comentarios-nas-fichas',
     version: '1.35.0',
     kind: 'funcionalidade',
