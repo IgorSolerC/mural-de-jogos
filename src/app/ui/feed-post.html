@@ -2,17 +2,19 @@
 <article class="post" [attr.aria-labelledby]="titleId()">
   <h2 class="sr-only" [id]="titleId()">{{ who().nome }} {{ verb() }}: {{ p.item.titulo }}, {{ ago() }}@if (fresh()) { (novo)}</h2>
 
-  <!-- quem pregou e há quanto tempo, a giz na parede: o nome leva ao perfil da pessoa -->
+  <!-- quem pregou e há quanto tempo, a giz na parede: o nome leva ao perfil da pessoa, e o que ela
+       fez vai sempre na linha de baixo (num post estreito, a hora desce para o lado dessa linha) -->
   <header class="quem">
     <app-person-photo [code]="who().codigo" [name]="who().nome" [face]="face()" />
-    <p class="quem-txt">
-      <button type="button" class="nome" [attr.aria-label]="'Ver o perfil de ' + who().nome" (click)="profile.emit()">{{ who().nome }}</button>
+    <button type="button" class="nome" [attr.aria-label]="'Ver o perfil de ' + who().nome" (click)="profile.emit()">{{ who().nome }}</button>
+    <p class="feito">
       <span class="verbo">{{ verb() }}</span>
+      <time class="quando" [attr.datetime]="p.item.em" [title]="full()">{{ ago() }}</time>
     </p>
-    <time class="quando" [attr.datetime]="p.item.em" [title]="full()">{{ ago() }}</time>
   </header>
 
-  <div class="lugar">
+  <!-- a orelha da categoria sai por cima da anotação: o post abre espaço para ela -->
+  <div class="lugar" [class.com-orelha]="ear()">
     @if (fresh()) {
       <span class="novo" aria-hidden="true">Novo</span>
     }

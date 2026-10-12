@@ -155,6 +155,31 @@ describe('Um post do Feed (FeedPost)', () => {
       expect(text('.verbo')).toBe('publicou uma anotação');
     });
 
+    it('o que ela fez vai sempre embaixo do nome, mesmo cabendo ao lado; a hora na ponta da linha do nome', async () => {
+      const box = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
+      el.style.width = '424px';
+      for (const post of [data(), data({}, 'series'), data({ theirs: { ...review('nana01', 'Compras'), kind: 'anotacoes' } }, 'anotacoes')]) {
+        await show(post);
+        const [name, verb, when] = [box('.nome'), box('.verbo'), box('.quando')];
+        const what = text('.verbo');
+        expect(verb.top).withContext(`"${what}" embaixo do nome`).toBeGreaterThan(name.top + name.height / 2);
+        expect(Math.abs(verb.left - name.left)).withContext(`"${what}" começa onde o nome começa`).toBeLessThan(2);
+        expect(when.bottom).withContext('a hora na linha do nome').toBeLessThanOrEqual(verb.top + 1);
+        expect(when.left).withContext('a hora depois do nome').toBeGreaterThan(name.right);
+      }
+    });
+
+    it('num post estreito a hora desce para o lado do que ela fez, e o nome continua em cima', async () => {
+      const box = (selector: string) => el.querySelector(selector)!.getBoundingClientRect();
+      el.style.width = '320px';
+      await show();
+      const [name, verb, when] = [box('.nome'), box('.verbo'), box('.quando')];
+      expect(verb.top).withContext('embaixo do nome').toBeGreaterThan(name.top + name.height / 2);
+      expect(when.left).withContext('a hora ao lado').toBeGreaterThanOrEqual(verb.right);
+      expect(when.top).withContext('a hora na mesma linha').toBeLessThan(verb.bottom);
+      expect(when.bottom).toBeGreaterThan(verb.top);
+    });
+
     it('o leitor de tela ouve um título por post, com a obra (e o "novo")', async () => {
       const heading = () => text('h2');
       expect(heading()).toBe('Ana avaliou um jogo: Hades, há 2 h');
@@ -178,6 +203,22 @@ describe('Um post do Feed (FeedPost)', () => {
     it('tocar nela abre a leitura (sem os comentários)', async () => {
       click('.ficha-de-mentira');
       expect(host.log).toEqual(['ficha']);
+    });
+
+    it('a anotação com categoria desce para dar lugar à orelha, que não fica em cima de quem pregou', async () => {
+      const note = (extra: Partial<Review> = {}) => data({ theirs: { ...review('nana01', 'Compras'), kind: 'anotacoes', ...extra } }, 'anotacoes');
+      const gap = () => el.querySelector('.lugar')!.getBoundingClientRect().top - el.querySelector('.quem')!.getBoundingClientRect().bottom;
+      el.style.width = '424px';
+      // sem categoria, e uma ficha de jogo: a distância de sempre
+      expect(el.querySelector('.lugar')?.classList).not.toContain('com-orelha');
+      const usual = gap();
+      await show(note());
+      expect(el.querySelector('.lugar')?.classList).not.toContain('com-orelha');
+      expect(gap()).toBe(usual);
+      // com categoria: a orelha sobe até 38px acima da ficha (32 dela, 6 do mouse em cima)
+      await show(note({ category: 'Artezinha' }));
+      expect(el.querySelector('.lugar')?.classList).toContain('com-orelha');
+      expect(gap()).withContext('cabe a orelha levantada, com folga').toBeGreaterThanOrEqual(38 + 8);
     });
 
     it('enquanto o mural vem, uma cartolina com o nome da obra dizendo que está buscando, e nenhum pé', async () => {

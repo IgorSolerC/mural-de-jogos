@@ -77,6 +77,11 @@ export class FeedPost {
   protected readonly who = computed(() => this.post().item.pessoa);
   protected readonly titleId = computed(() => `post-${this.post().key.replace(/[^\w-]/g, '-')}`);
   protected readonly note = computed(() => this.post().item.mural === 'anotacoes');
+  /** A anotação tem categoria: a orelha dela sai por cima da ficha (ver `.aba-cat` em ui/review-card). */
+  protected readonly ear = computed(() => {
+    const theirs = this.post().theirs;
+    return !!theirs && isNote(theirs) && !!theirs.category;
+  });
   /** Reagir e comentar: só nas fichas de quem eu sigo (ver `Reactions.canReact`). */
   protected readonly canReact = computed(() => this.reactions.canReact(this.who().codigo));
   /** Alguém além de mim reagiu: o remendo com as reações aparece (a minha já está no botão). */

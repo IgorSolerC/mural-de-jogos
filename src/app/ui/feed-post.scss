@@ -11,23 +11,26 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 4px 12px;
+  gap: 3px 12px;
   margin-bottom: 16px;
   padding-inline: 2px;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+
+  /* a foto ao lado das duas linhas: o nome em cima, o que a pessoa fez embaixo */
+  app-person-photo {
+    grid-row: 1 / span 2;
+  }
 }
 
-.quem-txt {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 9px;
-  min-width: 0;
-  line-height: 1.2;
+/* a linha de baixo: numa tela larga ela se desfaz, e a hora sobe para a ponta da linha do nome */
+.feito {
+  display: contents;
 }
 
 /* o nome abre o perfil: sublinhado fino a giz, que engrossa quando o mouse chega */
 .nome {
+  grid-area: 1 / 2;
+  justify-self: start;
   max-width: 100%;
   /* o toque passa um pouco da letra, para cima e para baixo */
   margin-block: -5px;
@@ -55,12 +58,16 @@
 }
 
 .verbo {
+  grid-area: 2 / 2 / auto / -1;
+  min-width: 0;
   font-family: var(--f-hand);
   font-size: 1.12rem;
+  line-height: 1.2;
   color: var(--wall-ink-2);
 }
 
 .quando {
+  grid-area: 1 / 3;
   align-self: start;
   padding-top: 7px;
   font-family: var(--f-label);
@@ -82,6 +89,13 @@
     width: 100%;
     max-width: none;
   }
+}
+
+/* a orelha da categoria sobe uns 30px acima da anotação (e mais 6 com o mouse): a ficha desce esses
+   30px a mais, para a orelha ficar na parede e não em cima do que a pessoa fez (esta margem se funde
+   com a de baixo de quem pregou: são 48px ao todo, os 16 de sempre mais a orelha) */
+.lugar.com-orelha {
+  margin-top: 48px;
 }
 
 /* "Novo": o adesivo de tinta com a letra amarela, apertado na quina de cima da ficha */
@@ -334,18 +348,24 @@
   }
 }
 
-/* num post estreito a hora desce para baixo do nome: a linha de quem pregou nunca passa de duas */
+/* num post estreito a hora desce para o lado do que a pessoa fez: quem pregou continua em duas linhas
+   (a hora só ganha uma terceira quando não cabe ali) */
 @container post (max-width: 400px) {
   .quem {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .quem app-person-photo {
-    grid-row: 1 / span 2;
+  .feito {
+    grid-area: 2 / 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 3px 10px;
+    min-width: 0;
   }
 
   .quando {
-    grid-column: 2;
+    align-self: auto;
     padding-top: 0;
   }
 }

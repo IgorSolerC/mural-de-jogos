@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-feed-o-que-a-pessoa-fez-embaixo-do-nome',
+    version: '1.35.3',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'Feed: o que a pessoa fez, sempre embaixo do nome',
+    items: [
+      'Em cada post do Feed, a frase "avaliou um filme" (ou "publicou uma anotação", "escreveu uma rejogada") agora fica sempre na linha de baixo do nome. Antes só descia quando não cabia ao lado. No celular, a hora vai ao lado dessa frase.',
+      'A anotação com categoria desce um pouco no post: a orelha da categoria não fica mais em cima da frase de quem publicou.',
+    ],
+  },
+  {
     id: '2026-10-12-amigos-em-feed-avisos-e-pessoas',
     version: '1.35.2',
     kind: 'melhoria',
