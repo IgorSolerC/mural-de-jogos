@@ -865,12 +865,14 @@ export function amigosSuite(label: string, getDb: () => Db) {
     });
 
     describe('comentários', () => {
-      /** Ana é a dona da ficha r-hades; Bia e Caio têm conta, e ninguém segue ninguém. */
+      /** Ana é a dona da ficha r-hades; Bia e Caio seguem a Ana (ela não segue ninguém). */
       async function commenting(env: Record<string, string> = {}) {
         const t = await setup(env);
         const ana = await t.login('ana', 'Ana');
         const bia = await t.login('bia', 'Bia');
         const caio = await t.login('caio', 'Caio');
+        await t.follow(bia.token, ana.codigo);
+        await t.follow(caio.token, ana.codigo);
         const read = async (res: Response | Promise<Response>) => {
           const r = await res;
           return { status: r.status, body: (await r.json()) as any };
@@ -887,7 +889,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         return { ...t, ana, bia, caio, comment, thread, counts, erase, react, unreact, accept, notices };
       }
 
-      it('quem tem conta comenta; todo mundo vê, do mais antigo para o mais novo, com o nome e a foto', async () => {
+      it('quem segue a dona comenta; todo mundo vê, do mais antigo para o mais novo, com o nome e a foto', async () => {
         const { comment, thread, counts, push, advance, ana, bia, caio } = await commenting();
         await push(bia.token, 0, { foto: JSON.stringify({ emoji: '🐙', cor: 'rosa' }) });
         const at = new Date(NOW.getTime() + 5_000).toISOString();
@@ -912,9 +914,9 @@ export function amigosSuite(label: string, getDb: () => Db) {
           ['Caio', 'Concordo.'],
         ]);
         expect(body.comentarios[1].autor).toEqual({ codigo: caio.codigo, nome: 'Caio' });
-        expect(body).toMatchObject({ maisAntigos: false, quem: 'todos', pode: false });
+        expect(body).toMatchObject({ maisAntigos: false, quem: 'seguidores', pode: false });
         expect((await thread(ana.codigo, 'r-hades', bia.token)).body.pode).toBe(true);
-        expect((await counts(ana.codigo)).body).toEqual({ contagem: { 'r-hades': 2, 'r-celeste': 1 }, quem: 'todos', pode: false });
+        expect((await counts(ana.codigo)).body).toEqual({ contagem: { 'r-hades': 2, 'r-celeste': 1 }, quem: 'seguidores', pode: false });
         expect((await counts(ana.codigo, caio.token)).body.pode).toBe(true);
         // uma sessão que não vale mais conta como ninguém
         expect((await counts(ana.codigo, 'x'.repeat(43))).body.pode).toBe(false);
@@ -991,20 +993,37 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await feed(ana.token)).body.naoVistas).toBe(0);
       });
 
+      it('por padrão, só comenta quem segue a dona; deixar de seguir fecha a porta e deixa o que foi escrito', async () => {
+        const { comment, thread, counts, react, follow, unfollow, login, ana, bia } = await commenting();
+        const dan = await login('dan', 'Dan');
+        const id = (await comment(bia.token, ana.codigo, 'r-hades', 'Eu sigo a Ana.')).body.comentario.id;
+        const refused = await comment(dan.token, ana.codigo, 'r-hades', 'Posso?');
+        expect([refused.status, refused.body.erro, refused.body.mensagem]).toEqual([403, 'comentar-sem-seguir', 'Siga a pessoa para comentar nas fichas dela.']);
+        expect((await react(dan.token, id, 'fogo')).status).toBe(403);
+        expect((await thread(ana.codigo, 'r-hades', dan.token)).body).toMatchObject({ quem: 'seguidores', pode: false });
+        // a dona seguir o Dan não basta: no padrão, é ele quem tem de seguir
+        await follow(ana.token, dan.codigo);
+        expect((await comment(dan.token, ana.codigo, 'r-hades', 'E agora?')).status).toBe(403);
+        await follow(dan.token, ana.codigo);
+        expect((await comment(dan.token, ana.codigo, 'r-hades', 'Agora sim.')).status).toBe(201);
+        expect((await counts(ana.codigo, dan.token)).body.pode).toBe(true);
+        await unfollow(dan.token, ana.codigo);
+        expect((await comment(dan.token, ana.codigo, 'r-hades', 'Mais um.')).status).toBe(403);
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios.map((k: any) => k.autor.nome)).toEqual(['Bia', 'Dan']);
+      });
+
       it('só quem a dona segue: os outros leem, mas não comentam nem reagem', async () => {
-        const { comment, thread, counts, react, accept, follow, json, body, ana, bia, caio } = await commenting();
+        const { comment, thread, counts, react, accept, follow, login, json, body, ana, bia, caio } = await commenting();
         const before = await comment(caio.token, ana.codigo, 'r-hades', 'Cheguei antes.');
-        expect((await body(json('GET', '/v1/eu', undefined, ana.token))).comentarios).toBe('todos');
-        expect((await accept(ana.token, 'ninguem')).status).toBe(400);
+        expect((await body(json('GET', '/v1/eu', undefined, ana.token))).comentarios).toBe('seguidores');
+        for (const bad of ['todos', 'ninguem', 1, null]) expect((await accept(ana.token, bad)).status, String(bad)).toBe(400);
         expect((await accept(ana.token, 'seguidos')).body).toEqual({ comentarios: 'seguidos' });
         expect((await body(json('GET', '/v1/eu', undefined, ana.token)))).toMatchObject({ comentarios: 'seguidos', pessoas: 'listas', nome: 'Ana' });
 
+        // a Bia segue a Ana, mas a Ana não segue a Bia
         const refused = await comment(bia.token, ana.codigo, 'r-hades', 'Posso?');
         expect([refused.status, refused.body.erro, refused.body.mensagem]).toEqual([403, 'comentar-so-seguidos', 'Aqui só comenta quem Ana segue.']);
         expect((await react(bia.token, before.body.comentario.id, 'fogo')).status).toBe(403);
-        // seguir a dona não basta: é ela quem tem de seguir
-        await follow(bia.token, ana.codigo);
-        expect((await comment(bia.token, ana.codigo, 'r-hades', 'E agora?')).status).toBe(403);
         expect((await thread(ana.codigo, 'r-hades', bia.token)).body).toMatchObject({ quem: 'seguidos', pode: false });
 
         await follow(ana.token, bia.codigo);
@@ -1012,10 +1031,14 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await react(bia.token, before.body.comentario.id, 'fogo')).status).toBe(201);
         expect((await counts(ana.codigo, bia.token)).body).toMatchObject({ quem: 'seguidos', pode: true });
         expect((await counts(ana.codigo, caio.token)).body.pode).toBe(false);
+        // quem a dona segue comenta mesmo sem segui-la de volta
+        const dan = await login('dan', 'Dan');
+        await follow(ana.token, dan.codigo);
+        expect((await comment(dan.token, ana.codigo, 'r-hades', 'A Ana me segue.')).status).toBe(201);
         // o que já estava escrito continua à mostra, e a dona sempre comenta
         expect((await comment(ana.token, ana.codigo, 'r-hades', 'Oi, gente.')).status).toBe(201);
-        expect((await thread(ana.codigo, 'r-hades')).body.comentarios.map((k: any) => k.autor.nome)).toEqual(['Caio', 'Bia', 'Ana']);
-        expect((await accept(ana.token, 'todos')).status).toBe(200);
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios.map((k: any) => k.autor.nome)).toEqual(['Caio', 'Bia', 'Dan', 'Ana']);
+        expect((await accept(ana.token, 'seguidores')).status).toBe(200);
         expect((await comment(caio.token, ana.codigo, 'r-hades', 'Voltei.')).status).toBe(201);
       });
 
@@ -1108,9 +1131,10 @@ export function amigosSuite(label: string, getDb: () => Db) {
       });
 
       it('apagar a conta leva o que ela escreveu, o que escreveram nas fichas dela e as reações de tudo isso', async () => {
-        const { db, comment, thread, react, json, notices, ana, bia, caio } = await commenting();
+        const { db, comment, thread, react, follow, json, notices, ana, bia, caio } = await commenting();
         const fromBia = (await comment(bia.token, ana.codigo, 'r-hades', 'Da Bia.')).body.comentario.id;
         const fromCaio = (await comment(caio.token, ana.codigo, 'r-hades', 'Do Caio.')).body.comentario.id;
+        await follow(ana.token, bia.codigo);
         await comment(ana.token, bia.codigo, 'r-celeste', 'Na ficha da Bia.', 'Celeste');
         await react(ana.token, fromCaio, 'amei');
         await react(bia.token, fromCaio, 'fogo');

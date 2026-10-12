@@ -99,7 +99,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       seguidores: user.seguidores,
       seguindo: user.seguindo,
       pessoas: user.pessoas_visiveis ? 'listas' : 'numeros',
-      comentarios: user.comentarios_de === 'seguidos' ? 'seguidos' : 'todos',
+      comentarios: user.comentarios_de === 'seguidos' ? 'seguidos' : 'seguidores',
     });
   });
 
@@ -107,14 +107,14 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     const s = await session(c);
     const body = await readJson(c);
     // o nome e/ou o que os outros veem de quem eu sigo e de quem me segue (as listas, ou só os números)
-    // e/ou quem comenta nas minhas publicações (qualquer conta, ou só quem eu sigo)
+    // e/ou quem comenta nas minhas publicações (quem me segue, ou só quem eu sigo)
     const people = body['pessoas'];
     if (people !== undefined && people !== 'listas' && people !== 'numeros') {
       throw new HttpError(400, 'pessoas-invalido', 'Escolha entre mostrar as listas ou só os números.');
     }
     const comments = body['comentarios'];
     if (comments !== undefined && !isCommentsFrom(comments)) {
-      throw new HttpError(400, 'comentarios-invalido', 'Escolha entre todo mundo ou só quem você segue.');
+      throw new HttpError(400, 'comentarios-invalido', 'Escolha entre quem segue você ou só quem você segue.');
     }
     const visible = people === undefined ? null : people === 'listas' ? 1 : 0;
     const from = comments ?? null;

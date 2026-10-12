@@ -14,9 +14,9 @@ import { MAX_REACTIONS_PER_DAY } from './reactions';
 /**
  * Comentários nas fichas publicadas (resenhas e anotações) e as reações a cada comentário.
  *
- * Comenta quem tem conta, a não ser que o dono só aceite quem ele segue (`usuarios.comentarios_de`,
- * trocado no `PATCH /v1/eu`); o dono sempre comenta nas próprias fichas. Quem vê o mural vê os
- * comentários. O texto leva as marcas de formatação do site e fica guardado como veio (limpo, até
+ * Comenta quem segue o dono, como nas reações; se o dono preferir, só quem ele segue
+ * (`usuarios.comentarios_de`, trocado no `PATCH /v1/eu`). O dono sempre comenta nas próprias fichas.
+ * Quem vê o mural vê os comentários. O texto leva as marcas de formatação do site e fica guardado como veio (limpo, até
  * `COMMENT_MAX` caracteres). Quem escreveu apaga o seu; o dono da ficha apaga qualquer um dela.
  *
  * O dono recebe um aviso no correio (atividade 'comentou'), um por pessoa e ficha: comentar de novo na
@@ -56,7 +56,7 @@ interface ReactionOut {
   em: string;
 }
 
-const fromOf = (o: Pick<Owner, 'comentarios_de'>): CommentsFrom => (o.comentarios_de === 'seguidos' ? 'seguidos' : 'todos');
+const fromOf = (o: Pick<Owner, 'comentarios_de'>): CommentsFrom => (o.comentarios_de === 'seguidos' ? 'seguidos' : 'seguidores');
 
 function commentOut(r: CommentRow, reactions: ReactionOut[]) {
   const foto = photoOut(r.foto);
@@ -106,11 +106,17 @@ export function commentRoutes(app: Hono, deps: Deps): void {
   /** `userId` pode comentar (e reagir aos comentários) nas fichas de `who`? */
   async function allowed(who: Owner, userId: string | null): Promise<boolean> {
     if (!userId) return false;
-    if (userId === who.id || fromOf(who) === 'todos') return true;
-    return !!(await deps.db.first('SELECT 1 AS x FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', [who.id, userId]));
+    if (userId === who.id) return true;
+    // quem segue quem: a pessoa segue o dono, ou (se ele escolheu assim) o dono segue a pessoa
+    const [follower, followed] = fromOf(who) === 'seguidos' ? [who.id, userId] : [userId, who.id];
+    return !!(await deps.db.first('SELECT 1 AS x FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', [follower, followed]));
   }
 
-  const onlyFollowed = (who: Owner) => new HttpError(403, 'comentar-so-seguidos', `Aqui só comenta quem ${who.nome} segue.`);
+  /** A recusa, dizendo o que falta: seguir a pessoa, ou ser seguido por ela. */
+  const refusal = (who: Owner) =>
+    fromOf(who) === 'seguidos'
+      ? new HttpError(403, 'comentar-so-seguidos', `Aqui só comenta quem ${who.nome} segue.`)
+      : new HttpError(403, 'comentar-sem-seguir', 'Siga a pessoa para comentar nas fichas dela.');
 
   /** Quantos comentários cada ficha do mural da pessoa tem, quem pode comentar ali e se quem pergunta pode. */
   app.get('/v1/murais/:codigo/comentarios', async (c) => {
@@ -166,7 +172,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const text = cleanComment(body['texto']);
     if (!text) throw new HttpError(400, 'comentario-vazio', 'Escreva alguma coisa antes de comentar.');
     if (text.length > COMMENT_MAX) throw new HttpError(400, 'comentario-grande', `O comentário passa de ${COMMENT_MAX} caracteres.`);
-    if (!(await allowed(who, s.userId))) throw onlyFollowed(who);
+    if (!(await allowed(who, s.userId))) throw refusal(who);
     const now = deps.now();
     if ((await usedToday(deps, s.userId, 'comentar', now)) >= MAX_COMMENTS_PER_DAY) {
       throw new HttpError(429, 'comentar-devagar', 'Você comentou bastante hoje. Tente de novo amanhã.');
@@ -231,7 +237,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const body = await readJson(c);
     const reaction = body['reacao'];
     if (!isReaction(reaction)) throw new HttpError(400, 'reacao-invalida', 'Essa reação não existe.');
-    if (!(await allowed(k.dono, s.userId))) throw onlyFollowed(k.dono);
+    if (!(await allowed(k.dono, s.userId))) throw refusal(k.dono);
     const now = deps.now();
     const before = await deps.db.first<{ reacao: string }>('SELECT reacao FROM comentario_reacoes WHERE comentario_id = ? AND autor_id = ?', [k.id, s.userId]);
     if (before?.reacao === reaction) return c.json({ reacao: reaction });

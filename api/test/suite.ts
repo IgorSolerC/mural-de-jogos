@@ -373,7 +373,7 @@ export function apiSuite(label: string, getDb: () => Db) {
         const { body } = await login({}, { nome: 'Igor' });
         const me = await json('GET', '/v1/eu', undefined, body.token);
         expect(me.status).toBe(200);
-        expect(await me.json()).toEqual({ id: body.conta.id, codigo: body.conta.codigo, nome: 'Igor', criadoEm: NOW.toISOString(), seguidores: 0, seguindo: 0, pessoas: 'listas', comentarios: 'todos' });
+        expect(await me.json()).toEqual({ id: body.conta.id, codigo: body.conta.codigo, nome: 'Igor', criadoEm: NOW.toISOString(), seguidores: 0, seguindo: 0, pessoas: 'listas', comentarios: 'seguidores' });
         for (const token of [undefined, 'x', 'A'.repeat(43)]) {
           const res = await json('GET', '/v1/eu', undefined, token);
           expect(res.status).toBe(401);

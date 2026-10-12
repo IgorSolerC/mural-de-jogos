@@ -23,8 +23,9 @@ CREATE TABLE comentario_reacoes (
 );
 CREATE INDEX comentario_reacoes_por_autor ON comentario_reacoes (autor_id);
 
--- Quem pode comentar nas publicações da pessoa: 'todos' (qualquer conta) ou 'seguidos' (só quem ela segue).
-ALTER TABLE usuarios ADD COLUMN comentarios_de TEXT NOT NULL DEFAULT 'todos';
+-- Quem pode comentar nas publicações da pessoa: 'seguidores' (quem a segue, como nas reações) ou
+-- 'seguidos' (só quem ela segue).
+ALTER TABLE usuarios ADD COLUMN comentarios_de TEXT NOT NULL DEFAULT 'seguidores';
 
 -- O aviso para o dono (tipo 'comentou'), uma linha por pessoa e ficha: comentar de novo avisa de novo.
 CREATE UNIQUE INDEX atividades_comentou_unica ON atividades (autor_id, alvo_id, ref) WHERE tipo = 'comentou';

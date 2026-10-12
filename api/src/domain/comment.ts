@@ -3,11 +3,11 @@ export const COMMENT_MAX = 500;
 /** O id de um comentário (um UUID sorteado aqui). */
 export const COMMENT_ID_RE = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 
-/** Quem pode comentar nas publicações de alguém: qualquer conta, ou só quem a pessoa segue. */
-export type CommentsFrom = 'todos' | 'seguidos';
+/** Quem pode comentar nas publicações de alguém: quem segue a pessoa (como nas reações), ou só quem ela segue. */
+export type CommentsFrom = 'seguidores' | 'seguidos';
 
 export function isCommentsFrom(v: unknown): v is CommentsFrom {
-  return v === 'todos' || v === 'seguidos';
+  return v === 'seguidores' || v === 'seguidos';
 }
 
 /**
