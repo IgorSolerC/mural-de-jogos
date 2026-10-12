@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { Cloud, CloudNotice } from './cloud-config';
-import { NEWS, News, NewsEntry, VERSION, firstSeen, isSeen, nextVersion, noticeOf, readSeen, seenToSave, today } from './news';
+import { News, NewsEntry, firstSeen, isSeen, nextVersion, noticeOf, readSeen, seenToSave, today } from './news';
+import { NEWS, VERSION } from './news-list';
 import { ReviewStore } from './review-store';
 
 const entry = (id: string, date: string, extra: Partial<NewsEntry> = {}): NewsEntry => ({ id, version: '1.0.0', kind: 'funcionalidade', date, title: id, items: ['x'], ...extra });
@@ -103,7 +104,7 @@ describe('novidades', () => {
       else localStorage.setItem(KEY, saved);
     });
 
-    function make(hasContent: boolean, notice: CloudNotice | null = null): News {
+    async function make(hasContent: boolean, notice: CloudNotice | null = null): Promise<News> {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
         providers: [
@@ -112,18 +113,20 @@ describe('novidades', () => {
           { provide: ReviewStore, useValue: { hasContent: () => hasContent } },
         ],
       });
-      return TestBed.inject(News);
+      const news = TestBed.inject(News);
+      await news.ready;
+      return news;
     }
 
-    it('primeira visita sem mural: nada novo, nenhuma faixa', () => {
-      const news = make(false);
+    it('primeira visita sem mural: nada novo, nenhuma faixa', async () => {
+      const news = await make(false);
       expect(news.unseen()).toBe(0);
       expect(news.notice()).toBeNull();
       expect(readSeen(localStorage.getItem(KEY))?.length).toBe(NEWS.length);
     });
 
-    it('quem já tinha mural vê a mais nova; abrir a página conta tudo como visto', () => {
-      const news = make(true);
+    it('quem já tinha mural vê a mais nova; abrir a página conta tudo como visto', async () => {
+      const news = await make(true);
       expect(news.unseen()).toBe(1);
       expect([...news.unseenIds()]).toEqual([NEWS[0].id]);
       // a mais nova pode não ter aviso; a faixa é a da mais nova que tem, se ainda não foi vista
@@ -133,16 +136,16 @@ describe('novidades', () => {
       expect(news.unseen()).toBe(0);
       expect(news.notice()).toBeNull();
       // e continua assim na próxima abertura
-      expect(make(true).unseen()).toBe(0);
+      expect((await make(true)).unseen()).toBe(0);
     });
 
-    it('fechar o aviso da nuvem guarda só ele', () => {
-      const news = make(false, { id: 'manutencao', text: 'Manutenção' });
+    it('fechar o aviso da nuvem guarda só ele', async () => {
+      const news = await make(false, { id: 'manutencao', text: 'Manutenção' });
       expect(news.notice()?.key).toBe('nuvem:manutencao');
       news.dismiss('nuvem:manutencao');
       expect(news.notice()).toBeNull();
-      expect(make(false, { id: 'manutencao', text: 'Manutenção' }).notice()).toBeNull();
-      expect(make(false, { id: 'manutencao-2', text: 'De novo' }).notice()?.key).toBe('nuvem:manutencao-2');
+      expect((await make(false, { id: 'manutencao', text: 'Manutenção' })).notice()).toBeNull();
+      expect((await make(false, { id: 'manutencao-2', text: 'De novo' })).notice()?.key).toBe('nuvem:manutencao-2');
     });
   });
   it('a lista de vistas guarda todas as novidades vistas; só os avisos da nuvem têm limite', () => {

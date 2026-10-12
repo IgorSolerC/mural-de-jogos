@@ -9,8 +9,8 @@
   }
   @default {
     @if (own() || colleague()) {
-      @if (profile().page !== 'eucatex') {
-        <!-- a parede que a pessoa escolheu, atrás da página inteira (o eucatex é a do site) -->
+      @if (!own()) {
+        <!-- a parede de quem é o perfil, atrás da página inteira, por cima da sua (a sua já está no site) -->
         <app-page-wall class="parede-fundo" [wall]="profile().page" />
       }
       <app-profile-hero

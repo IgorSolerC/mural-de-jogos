@@ -1,3 +1,10 @@
+<!-- a parede escolhida no perfil, atrás do site inteiro (o desenho chega num pedaço à parte) -->
+@if (siteWall() !== 'eucatex') {
+  @defer (on immediate) {
+    <app-page-wall class="parede-site" [wall]="siteWall()" />
+  }
+}
+
 <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 
 <app-site-header />

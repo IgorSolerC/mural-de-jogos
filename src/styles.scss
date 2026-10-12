@@ -201,6 +201,8 @@ body {
 
 /* Quando a textura fotográfica existir, ela substitui furos e fibra */
 body.has-wall-texture {
+  /* a mesma foto, para a parede de eucatex desenhada por cima de outra (ui/page-wall) */
+  --parede-foto: url('textures/parede-eucatex.png');
   background-image:
     radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
     /* demão de tinta quente por cima da foto: os furos continuam lá, mas param de gritar */

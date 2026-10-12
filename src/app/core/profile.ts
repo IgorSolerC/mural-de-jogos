@@ -32,19 +32,20 @@ export type ProfileBackground =
   | { kind: 'link'; url: string };
 
 /**
- * A parede atrás do perfil inteiro, quando alguém o abre (o padrão é o eucatex grafite do site). Todas
- * escuras: o giz, as fitas e os títulos da parede são claros (o desenho de cada uma fica em
- * ui/_profile-materials.scss, `paredes`).
+ * A parede: a do seu site inteiro, e a que fica atrás do seu perfil quando alguém o abre (o padrão é o
+ * eucatex grafite). Todas escuras: o giz, as fitas e os títulos da parede são claros. O desenho de
+ * cada uma fica em ui/_profile-materials.scss (`paredes`); `base` é a cor de fundo dela, que vira o
+ * `--wall` do site enquanto o desenho carrega (e nos furinhos que imitam a parede).
  */
 export const PAGE_BACKGROUNDS = [
-  { id: 'eucatex', label: 'Eucatex grafite' },
-  { id: 'planta', label: 'Planta azul' },
-  { id: 'lousa', label: 'Lousa' },
-  { id: 'jeans', label: 'Jeans' },
-  { id: 'veludo', label: 'Veludo de cinema' },
-  { id: 'estrelas', label: 'Céu de planetário' },
-  { id: 'tijolo', label: 'Tijolinho' },
-  { id: 'nogueira', label: 'Assoalho de nogueira' },
+  { id: 'eucatex', label: 'Eucatex grafite', base: '#1f1c1a' },
+  { id: 'planta', label: 'Planta azul', base: '#12386a' },
+  { id: 'lousa', label: 'Lousa', base: '#21322a' },
+  { id: 'jeans', label: 'Jeans', base: '#1e2d4f' },
+  { id: 'veludo', label: 'Veludo de cinema', base: '#3c0d15' },
+  { id: 'estrelas', label: 'Céu de planetário', base: '#0b1029' },
+  { id: 'tijolo', label: 'Tijolinho', base: '#1a1210' },
+  { id: 'nogueira', label: 'Assoalho de nogueira', base: '#33221a' },
 ] as const;
 export type PageBackground = (typeof PAGE_BACKGROUNDS)[number]['id'];
 
@@ -97,7 +98,7 @@ export interface Profile {
   /** Os assuntos: etiquetas curtas. */
   topics: string[];
   background: ProfileBackground;
-  /** A parede atrás do perfil inteiro. */
+  /** A parede do seu site inteiro e de trás do seu perfil. */
   page: PageBackground;
   walls: Partial<Record<Kind, ProfileWall>>;
   sections: ProfileSection[];

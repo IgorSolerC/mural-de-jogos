@@ -27,13 +27,16 @@ import { NoteBacklinksDialog } from './ui/note-backlinks-dialog';
 import { Toast, Toasts } from './ui/toast';
 import { SiteHeader } from './ui/site-header';
 import { WishAdder } from './ui/wish-adder';
+import { PageWall } from './ui/page-wall';
+import { PAGE_BACKGROUNDS } from './core/profile';
+import { ProfileStore } from './core/profile-store';
 
 /** As páginas que só fazem sentido com notas: no mural de anotações, voltam para o mural. */
 const NOTES_AWAY = ['/fila', '/wishlist', '/extras', '/ranking', '/comparar', '/lado-a-lado'];
 
 @Component({
   selector: 'app-root',
-  imports: [ConfirmDialog, GoogleButton, NoteBacklinksDialog, LucideAngularModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
+  imports: [PageWall, ConfirmDialog, GoogleButton, NoteBacklinksDialog, LucideAngularModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -41,6 +44,7 @@ const NOTES_AWAY = ['/fila', '/wishlist', '/extras', '/ranking', '/comparar', '/
 })
 export class App {
   protected readonly store = inject(ReviewStore);
+  private readonly profiles = inject(ProfileStore);
   protected readonly mural = inject(Mural);
   private readonly view = inject(WallView);
   protected readonly desk = inject(Desk);
@@ -86,7 +90,16 @@ export class App {
   private readonly reader = viewChild.required(ReviewReader);
   private readonly wishAdder = viewChild.required(WishAdder);
 
+  /** A parede escolhida no perfil vale no site inteiro (o eucatex é a do próprio site). */
+  protected readonly siteWall = computed(() => this.profiles.profile().page);
+
   constructor() {
+    // a cor de fundo da parede entra na hora (o desenho chega depois, num pedaço à parte)
+    effect(() => {
+      const wall = PAGE_BACKGROUNDS.find((w) => w.id === this.siteWall());
+      if (!wall || wall.id === 'eucatex') document.documentElement.style.removeProperty('--wall');
+      else document.documentElement.style.setProperty('--wall', wall.base);
+    });
     // trocou para o mural de anotações numa página que ele não tem (a fila, um jogo de Extras, o
     // ranking, o lado a lado): volta para o mural
     effect(() => {

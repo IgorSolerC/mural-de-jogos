@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ChevronDown, LucideAngularModule } from 'lucide-angular';
-import { NEWS_KIND_LABEL, NewsEntry, News, VERSION } from '../core/news';
+import { NEWS_KIND_LABEL, NewsEntry, News } from '../core/news';
+import { NEWS, VERSION } from '../core/news-list';
 import { Pin } from '../ui/pin';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -34,15 +35,15 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
           @if (n.kind === 'funcionalidade') {
             <app-pin class="pin" color="#e62e2d" />
           }
-          @if (fresh.has(n.id)) {
+          @if (fresh().has(n.id)) {
             <span class="novo" aria-hidden="true">Novo</span>
           }
-          <details [open]="fresh.has(n.id)">
+          <details [open]="fresh().has(n.id)">
             <summary>
               <span class="versao">{{ n.version }}</span>
               <h2>
                 {{ n.title }}
-                @if (fresh.has(n.id)) {
+                @if (fresh().has(n.id)) {
                   <span class="sr-only">(novo)</span>
                 }
               </h2>
@@ -297,15 +298,18 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
 export class NewsPage {
   private readonly news = inject(News);
 
-  protected readonly entries = this.news.entries;
+  protected readonly entries = NEWS;
   protected readonly version = VERSION;
   protected readonly label = NEWS_KIND_LABEL;
   protected readonly ChevronIcon = ChevronDown;
   /** O que era novo ao abrir a página: o adesivo fica enquanto ela estiver aberta. */
-  protected readonly fresh = this.news.unseenIds();
+  protected readonly fresh = signal<ReadonlySet<string>>(new Set());
 
   constructor() {
-    this.news.seeAll();
+    void this.news.ready.then(() => {
+      this.fresh.set(this.news.unseenIds());
+      this.news.seeAll();
+    });
   }
 
   protected tilt(i: number): number {

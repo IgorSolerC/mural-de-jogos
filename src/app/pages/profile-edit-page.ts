@@ -94,7 +94,7 @@ export class ProfileEditPage {
   protected readonly densities = SECTION_DENSITIES;
   protected readonly pages = PAGE_BACKGROUNDS;
   protected readonly frames: readonly { id: SectionFrame; label: string; hint: string }[] = [
-    { id: 'parede', label: 'Na parede', hint: 'As fichas pregadas direto no eucatex.' },
+    { id: 'parede', label: 'Na parede', hint: 'As fichas pregadas direto na parede.' },
     { id: 'quadro', label: 'Num quadro', hint: 'Dentro de um quadro de cortiça com moldura.' },
   ];
 
