@@ -181,6 +181,23 @@ export function dayLabel(day: string, now = new Date()): string {
   return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', ...(y !== now.getFullYear() ? { year: 'numeric' } : {}) });
 }
 
+/**
+ * Há quanto tempo, como nas redes: "agora", "há 5 min", "há 2 h" no primeiro dia; depois o dia
+ * ("ontem", "3 de outubro"). Um instante do futuro (o relógio daqui atrasado) é "agora".
+ */
+export function agoLabel(isoText: string, now = new Date()): string {
+  const minutes = Math.floor((now.getTime() - Date.parse(isoText)) / 60_000);
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `há ${minutes} min`;
+  if (minutes < 24 * 60) return `há ${Math.floor(minutes / 60)} h`;
+  return dayLabel(localDayOf(isoText), now);
+}
+
+/** "12 de outubro de 2026 às 10:23": o instante por extenso, para quem passa o mouse no "há 2 h". */
+export function fullWhen(isoText: string): string {
+  return new Date(isoText).toLocaleString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 interface Cache {
   conta: string;
   itens: unknown;

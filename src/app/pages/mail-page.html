@@ -1,13 +1,39 @@
 <header class="cabeca">
   <h1 class="tape-label big">Amigos</h1>
-  <p class="resumo">O que os amigos pregaram no mural</p>
+
+  @if (follow.available()) {
+    <!-- as três partes, em etiquetas de papel: a aberta é a amarela -->
+    <div class="abas" role="tablist" aria-label="Partes de Amigos" (keydown)="onTabKey($event)">
+      @for (t of tabs; track t.id; let i = $index) {
+        <button
+          type="button"
+          role="tab"
+          class="aba"
+          [style.--giro]="tilts[i]"
+          [id]="'aba-' + t.id"
+          [class.aberta]="tab() === t.id"
+          [attr.aria-selected]="tab() === t.id"
+          [attr.aria-controls]="'painel-' + t.id"
+          [attr.tabindex]="tab() === t.id ? 0 : -1"
+          (click)="go(t.id)"
+        >
+          <lucide-icon [img]="t.icon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+          <span class="aba-nome">{{ t.label }}</span>
+          @if (t.id === 'avisos' && freshNotices().size; as n) {
+            <span class="conta" aria-hidden="true">{{ n > 99 ? '99+' : n }}</span>
+            <span class="sr-only"> ({{ n }} {{ n === 1 ? 'novo' : 'novos' }})</span>
+          }
+        </button>
+      }
+    </div>
+  }
 </header>
 
 @if (!follow.available()) {
-  <!-- sem conta (ou com a nuvem desligada): um bilhete dizendo como começar -->
-  <section class="ficha cartolina sem-conta" aria-labelledby="sem-conta-titulo">
+  <!-- sem conta (ou com a nuvem desligada): uma folha dizendo como começar -->
+  <section class="folha solta" aria-labelledby="sem-conta-titulo">
     <app-pin class="pin" color="#e62e2d" />
-    <h2 id="sem-conta-titulo">Siga os amigos pelo código</h2>
+    <h2 class="folha-titulo" id="sem-conta-titulo">Siga os amigos pelo código</h2>
     @if (cloudOn()) {
       <p class="lead">Entre com a sua conta em Ajustes › Conta. Aí é só colar o código de um amigo para ver aqui o que ele pregou no mural.</p>
       <a class="btn-ink" routerLink="/ajustes" [queryParams]="{ aba: 'conta' }">Ir para a Conta</a>
@@ -16,446 +42,304 @@
     }
   </section>
 } @else {
-  <div class="prateleira abas-amigos">
-    <div class="prateleira-abas" role="tablist" aria-label="Partes de Amigos" (keydown)="onTabKey($event)">
-      @for (t of tabs; track t.id) {
-        <button
-          type="button"
-          role="tab"
-          class="plate"
-          [id]="'aba-' + t.id"
-          [class.is-active]="tab() === t.id"
-          [attr.aria-selected]="tab() === t.id"
-          [attr.aria-controls]="'painel-' + t.id"
-          [attr.tabindex]="tab() === t.id ? 0 : -1"
-          (click)="go(t.id)"
-        >
-          <lucide-icon [img]="t.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-          {{ t.label }}
-          @if (t.id === 'pessoas' && peopleCount(); as n) {
-            <span class="count">{{ n }}</span>
+  @switch (tab()) {
+    @case ('chegou') {
+      <!-- ===== Feed: os posts e, em telas largas, o quadro de avisos ao lado ===== -->
+      <div class="painel painel-feed" role="tabpanel" id="painel-chegou" aria-labelledby="aba-chegou">
+        <div class="feed">
+          @if (follow.offline()) {
+            <p class="giz" role="status">Sem conexão com a nuvem: mostrando o que já tinha chegado.</p>
           }
-        </button>
-      }
-    </div>
-  </div>
-
-  <div class="painel" role="tabpanel" [id]="'painel-' + tab()" [attr.aria-labelledby]="'aba-' + tab()" [class.painel-chegou]="tab() === 'chegou'">
-    @if (tab() === 'chegou') {
-      <div class="feed">
-        @if (follow.offline()) {
-          <p class="giz" role="status">Sem conexão com a nuvem: mostrando o que já tinha chegado.</p>
-        }
-        @if (onlyKind(); as plural) {
-          <p class="giz">
-            Só {{ plural }}. Para ver os outros murais, troque no cartaz ou
-            <button type="button" class="link-giz" (click)="settings.friendKinds.set('misturado')">misture tudo</button>.
-          </p>
-        }
-
-        @if (!blocks().length) {
-          <section class="ficha cartolina vazio" aria-labelledby="vazio-titulo">
-            <app-pin class="pin" color="#e62e2d" />
-            <h2 id="vazio-titulo">Nada por aqui ainda</h2>
-            <p class="lead">
-              @if (followingCount()) {
-                Quando quem você segue avaliar {{ onlyKind() ? 'algo deste mural' : 'algo' }}, a ficha aparece aqui. Ficam os últimos 30 dias.
-              } @else {
-                Siga alguém pelo código e, quando essa pessoa avaliar algo, a ficha aparece aqui.
-              }
+          @if (onlyKind(); as plural) {
+            <p class="giz">
+              Só {{ plural }}. Para ver os outros murais, troque no cartaz ou
+              <button type="button" class="link-giz" (click)="settings.friendKinds.set('misturado')">misture tudo</button>.
             </p>
-            <!-- sem a coluna do lado (telas estreitas), o seguir vem aqui mesmo, sem trocar de aba -->
-            @if (!followingCount()) {
-              <div class="vazio-seguir">
-                <ng-container [ngTemplateOutlet]="seguirForm" [ngTemplateOutletContext]="{ id: 'vazio' }" />
-              </div>
+          }
+
+          @if (posts().length) {
+            <ol class="posts">
+              @for (p of posts(); track p.key) {
+                <li>
+                  <app-feed-post
+                    [post]="p"
+                    [fresh]="isFresh(p.item)"
+                    [face]="faces().get(p.item.pessoa.codigo)"
+                    [wished]="!!p.theirs && isWished(p.theirs)"
+                    (profile)="openProfile(p.item.pessoa)"
+                    (opened)="openPost(p, $event.comments)"
+                    (revealed)="reveal(p)"
+                    (wish)="p.theirs && wish(p.theirs)"
+                    (retry)="retryWall(p.item.pessoa.codigo)"
+                  />
+                </li>
+              }
+            </ol>
+          } @else {
+            <!-- nada chegou: um bilhete na parede, com o primeiro passo quando ainda não se segue ninguém -->
+            <section class="bilhete" aria-labelledby="vazio-titulo">
+              <h2 id="vazio-titulo">Nada por aqui ainda</h2>
+              @if (followingCount()) {
+                <p>Quando quem você segue avaliar {{ onlyKind() ? 'algo deste mural' : 'algo' }}, a ficha aparece aqui. Ficam os últimos 30 dias.</p>
+              } @else {
+                <p>Siga alguém pelo código e, quando essa pessoa avaliar algo, a ficha aparece aqui.</p>
+                <button type="button" class="btn-ink" (click)="goFollow()">
+                  <lucide-icon [img]="FollowIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                  Seguir alguém
+                </button>
+              }
+            </section>
+          }
+        </div>
+
+        <!-- o quadro de avisos: os mais novos e quem você segue (no celular, isto é a aba Avisos). Sem
+             ninguém seguido e sem nada para mostrar, fica só o bilhete do Feed, com o primeiro passo -->
+        @if (!starting()) {
+        <aside class="lado" aria-label="Avisos e quem você segue">
+          <app-pine-board>
+            <section class="folha folha-lado" aria-labelledby="lado-avisos">
+              <app-pin class="pin" color="#e62e2d" />
+              <h2 class="folha-titulo" id="lado-avisos">Avisos</h2>
+              @if (notices().length) {
+                <app-notice-list
+                  [notices]="boardNotices()"
+                  [faces]="faces()"
+                  [fresh]="freshNotices()"
+                  [following]="followingBack()"
+                  [waiting]="!!busy()"
+                  (profile)="openProfile($event)"
+                  (card)="openNotice($event)"
+                  (followBack)="followBack($event)"
+                />
+                @if (notices().length > boardNotices().length) {
+                  <button type="button" class="btn-papel quieto ver-todos" (click)="go('avisos')">Ver os {{ notices().length }} avisos</button>
+                }
+              } @else {
+                <p class="nada">Nenhum aviso por enquanto. Quando alguém seguir você, reagir ou comentar numa ficha sua, aparece aqui.</p>
+              }
+            </section>
+
+            <section class="recado" aria-labelledby="lado-sigo">
+              <h2 class="recado-titulo" id="lado-sigo">Quem você segue</h2>
+              @if (people()) {
+                @if (boardFaces().length) {
+                  <ul class="rostos">
+                    @for (f of boardFaces(); track f.codigo) {
+                      <li>
+                        <button type="button" class="rosto" [title]="f.nome" [attr.aria-label]="'Ver o perfil de ' + f.nome" (click)="openProfile(f)">
+                          <app-person-photo [code]="f.codigo" [name]="f.nome" [face]="faces().get(f.codigo)" />
+                        </button>
+                      </li>
+                    }
+                    @if (moreFaces(); as n) {
+                      <li><button type="button" class="rosto-mais" [attr.aria-label]="'Ver as outras ' + n + ' pessoas'" (click)="go('pessoas')">+{{ n }}</button></li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="recado-txt">Ninguém ainda. Peça o código de um amigo.</p>
+                }
+              } @else if (!peopleError()) {
+                <p class="recado-txt" role="status">Buscando…</p>
+              }
+              <button type="button" class="btn-papel" (click)="goFollow()">
+                <lucide-icon [img]="FollowIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                Seguir alguém
+              </button>
+            </section>
+          </app-pine-board>
+        </aside>
+        }
+      </div>
+    }
+
+    @case ('avisos') {
+      <!-- ===== Avisos: todos, no quadro ===== -->
+      <div class="painel" role="tabpanel" id="painel-avisos" aria-labelledby="aba-avisos">
+        <app-pine-board class="quadro quadro-avisos">
+          <section class="folha" aria-labelledby="avisos-titulo">
+            <app-pin class="pin" color="#e62e2d" />
+            <h2 class="folha-titulo" id="avisos-titulo">Avisos</h2>
+            @if (follow.offline()) {
+              <p class="nada" role="status">Sem conexão com a nuvem: mostrando o que já tinha chegado.</p>
+            }
+            @if (notices().length) {
+              <app-notice-list
+                [notices]="notices()"
+                [faces]="faces()"
+                [fresh]="freshNotices()"
+                [following]="followingBack()"
+                [waiting]="!!busy()"
+                (profile)="openProfile($event)"
+                (card)="openNotice($event)"
+                (followBack)="followBack($event)"
+              />
+            } @else {
+              <p class="nada">Nenhum aviso por enquanto. Quando alguém seguir você, reagir ou comentar numa ficha sua, aparece aqui.</p>
             }
           </section>
-        } @else {
-          <ol class="blocos">
-            @for (b of blocks(); track b.key; let i = $index) {
-              <li>
-                @if (b.tipo === 'seguiu') {
-                  <!-- alguém começou a seguir: um bilhete de bloquinho -->
-                  <article class="bilhete-seguiu" [style.rotate.deg]="tilt(i)" [attr.aria-label]="b.item.pessoa.nome + ' começou a seguir você, ' + when(b.dia)">
-                    @if (isFresh(b.item)) {
-                      <span class="novo" aria-hidden="true">Novo</span>
-                    }
-                    <span class="cracha-mini" aria-hidden="true">{{ initial(b.item.pessoa.nome) }}</span>
-                    <div class="seguiu-txt">
-                      <p><strong><button type="button" class="nome-link" [attr.aria-label]="'Ver o perfil de ' + b.item.pessoa.nome" (click)="openProfile(b.item.pessoa)">{{ b.item.pessoa.nome }}</button></strong> começou a seguir você</p>
-                      <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
-                    </div>
-                    <!-- sem a lista ainda (primeira abertura neste aparelho), vale o que a própria notificação diz -->
-                    @if (follow.isFollowing(b.item.pessoa.codigo) ?? b.item.euSigo) {
-                      <span class="mutuo">
-                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-                        Vocês se seguem
-                      </span>
-                    } @else {
-                      <button type="button" class="btn-ink btn-small" [disabled]="rowBusy(b.item.pessoa.codigo)" [appBusy]="isBusy(b.item.pessoa.codigo, 'seguir')" (click)="followBack(b.item.pessoa)">
-                        @if (!isBusy(b.item.pessoa.codigo, 'seguir')) {
-                          <lucide-icon [img]="FollowIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                        }
-                        {{ isBusy(b.item.pessoa.codigo, 'seguir') ? 'Seguindo…' : 'Seguir de volta' }}
-                      </button>
-                    }
-                  </article>
-                } @else if (b.tipo === 'reagiu') {
-                  <!-- alguém reagiu à sua ficha: outro bilhete de bloquinho, com as reações no lugar do crachá -->
-                  <article class="bilhete-seguiu bilhete-reagiu" [style.rotate.deg]="tilt(i)" [attr.aria-label]="reactedSpoken(b) + ', ' + when(b.dia)">
-                    @if (isFresh(b.item)) {
-                      <span class="novo" aria-hidden="true">Novo</span>
-                    }
-                    <span class="reagiu-emojis" aria-hidden="true">
-                      @for (e of reactedEmojis(b); track e) {
-                        <span>{{ e }}</span>
-                      }
-                    </span>
-                    <div class="seguiu-txt">
-                      <p><strong>{{ reactedNames(b) }}</strong> {{ b.who.length > 1 ? 'reagiram' : 'reagiu' }} {{ reactedWhat(b) }} <em class="obra">{{ b.titulo }}</em></p>
-                      <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
-                    </div>
-                    @if (reactedReview(b); as mine) {
-                      <button type="button" class="acao-caneta" (click)="openMine(mine)">Ver a ficha</button>
-                    }
-                  </article>
-                } @else if (b.tipo === 'comentou') {
-                  <!-- alguém comentou na sua ficha: o mesmo bilhete, com o balão de fala no lugar das reações -->
-                  <article class="bilhete-seguiu bilhete-reagiu" [style.rotate.deg]="tilt(i)" [attr.aria-label]="commentedSpoken(b) + ', ' + when(b.dia)">
-                    @if (isFresh(b.item)) {
-                      <span class="novo" aria-hidden="true">Novo</span>
-                    }
-                    <span class="reagiu-emojis comentou-balao" aria-hidden="true">
-                      <lucide-icon [img]="CommentIcon" [size]="24" [strokeWidth]="2.3" />
-                    </span>
-                    <div class="seguiu-txt">
-                      <p><strong>{{ peopleNames(b.who) }}</strong> {{ b.who.length > 1 ? 'comentaram' : 'comentou' }} {{ commentedWhat(b) }} <em class="obra">{{ b.titulo }}</em></p>
-                      <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
-                    </div>
-                    @if (reactedReview(b); as mine) {
-                      <button type="button" class="acao-caneta" (click)="openMyComments(mine)">Ver os comentários</button>
-                    }
-                  </article>
-                } @else {
-                  <!-- as resenhas seguidas de uma pessoa: a fita com o nome e, embaixo, cada ficha com o bilhete de vocês dois -->
-                  <section class="bloco" [attr.aria-labelledby]="'bloco-' + i">
-                    <h2 class="tape-label quem" [id]="'bloco-' + i" [style.rotate.deg]="tilt(i) * 2 - 1.2">
-                      <!-- o nome leva ao perfil da pessoa -->
-                      <button
-                        type="button"
-                        class="quem-nome"
-                        [title]="'Ver o perfil de ' + b.pessoa.nome"
-                        (click)="openProfile(b.pessoa)"
-                      >{{ b.pessoa.nome }}</button>
-                      {{ blockVerb(b.posts) }}
-                    </h2>
+        </app-pine-board>
+      </div>
+    }
 
-                    @for (p of b.posts; track p.key; let j = $index) {
-                      <article class="post" [class.post-par]="j % 2 === 1" [attr.aria-labelledby]="'post-' + i + '-' + j">
-                        <h3 class="sr-only" [id]="'post-' + i + '-' + j">{{ p.item.titulo }}, {{ when(p.dia) }}@if (isFresh(p.item)) { (novo)}</h3>
+    @default {
+      <!-- ===== Pessoas: seguir pelo código, o seu código, e todo mundo numa lista só ===== -->
+      <div class="painel" role="tabpanel" id="painel-pessoas" aria-labelledby="aba-pessoas">
+        <app-pine-board class="quadro quadro-pessoas">
+          <div class="pessoas-grade">
+          <section class="folha" aria-labelledby="pessoas-titulo">
+            <app-pin class="pin" color="#e62e2d" />
+            <h2 class="folha-titulo" id="pessoas-titulo">Pessoas</h2>
 
-                        <div class="post-ficha">
-                          @if (isFresh(p.item)) {
-                            <span class="novo" aria-hidden="true">Novo</span>
-                          }
-                          @if (p.theirs; as theirs) {
-                            <app-review-card
-                              [review]="theirs"
-                              [preview]="true"
-                              [masked]="p.secret"
-                              [reactCode]="p.item.pessoa.codigo"
-                              (opened)="openReview(theirs, p.item.pessoa, p.secret)"
-                            />
-                          } @else {
-                            <!-- sem a ficha: uma cartolina em branco com o nome da obra, dizendo o porquê -->
-                            <div class="cartolina ficha-espera" [class.saiu]="p.estado === 'saiu'" data-cor="cinza">
-                              <span class="furo" aria-hidden="true"></span>
-                              <p class="espera-titulo">{{ p.item.titulo }}</p>
-                              @switch (p.estado) {
-                                @case ('buscando') {
-                                  <p class="espera-txt" role="status">
-                                    <span class="carregando" aria-hidden="true"></span>
-                                    Buscando a ficha no mural de {{ p.item.pessoa.nome }}…
-                                  </p>
-                                }
-                                @case ('erro') {
-                                  <p class="espera-txt">Não consegui buscar o mural de {{ p.item.pessoa.nome }} agora.</p>
-                                  <button type="button" class="btn-ink btn-small" (click)="retryWall(p.item.pessoa.codigo)">
-                                    <lucide-icon [img]="RetryIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                                    Tentar de novo
-                                  </button>
-                                }
-                                @default {
-                                  <p class="espera-txt">{{ p.item.pessoa.nome }} tirou essa ficha do mural.</p>
-                                }
+            <div class="grupo">
+              <form class="linha larga" (submit)="followCode($event)">
+                <div>
+                  <label class="linha-titulo" for="codigo-seguir">Seguir alguém</label>
+                  <p class="linha-desc">Cole o código da pessoa. Ela recebe um aviso de que você começou a seguir.</p>
+                </div>
+                <div class="seguir-campo">
+                  <div class="tira" [class.com-erro]="followError()">
+                    <input
+                      id="codigo-seguir"
+                      type="text"
+                      autocomplete="off"
+                      autocapitalize="characters"
+                      spellcheck="false"
+                      maxlength="12"
+                      placeholder="A1B2-C3D4"
+                      [attr.aria-invalid]="followError() ? true : null"
+                      [attr.aria-describedby]="followError() ? 'codigo-erro' : null"
+                      [value]="code()"
+                      (input)="code.set($any($event.target).value); followError.set(null)"
+                    />
+                  </div>
+                  <button type="submit" class="btn-papel forte" [disabled]="busy() === 'form'" [appBusy]="busy() === 'form'">
+                    {{ busy() === 'form' ? 'Seguindo…' : 'Seguir' }}
+                  </button>
+                  @if (followError(); as err) {
+                    <p class="erro" id="codigo-erro" role="alert">{{ err }}</p>
+                  }
+                </div>
+              </form>
+            </div>
+
+            @if (peopleError(); as err) {
+              <p class="erro solto" role="alert">{{ err }}</p>
+            }
+            @if (people()) {
+              @for (g of groups(); track g.id) {
+                <div class="grupo" role="group" [attr.aria-labelledby]="'g-' + g.id">
+                  <h3 class="grupo-titulo" [id]="'g-' + g.id">{{ g.titulo }} <span class="grupo-n">{{ g.pessoas.length }}</span></h3>
+                  <ul class="pessoas">
+                    @for (x of g.pessoas; track x.codigo) {
+                      <li class="pessoa" [class.quieta]="x.sigo?.silenciado">
+                        <app-person-photo [code]="x.codigo" [name]="x.nome" [face]="faces().get(x.codigo)" />
+                        <div class="pessoa-quem">
+                          <!-- o nome abre o perfil da pessoa, como no Feed -->
+                          <button type="button" class="pessoa-nome" (click)="openProfile(x)" [attr.aria-label]="'Ver o perfil de ' + x.nome">{{ x.nome }}</button>
+                          <span class="lacos">
+                            <span class="laco">
+                              @if (x.sigo && x.segue) {
+                                <lucide-icon [img]="CheckIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
                               }
-                            </div>
+                              {{ bond(x) }}
+                            </span>
+                            @if (x.sigo?.silenciado) {
+                              <span class="laco">
+                                <lucide-icon [img]="MuteIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+                                Silenciada
+                              </span>
+                            }
+                          </span>
+                        </div>
+                        <div class="pessoa-acoes">
+                          @if (x.segue && !x.sigo) {
+                            <button type="button" class="btn-papel forte" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'seguir')" (click)="followBack(x.segue)">
+                              {{ isBusy(x.codigo, 'seguir') ? 'Seguindo…' : 'Seguir de volta' }}
+                            </button>
                           }
+                          <button
+                            type="button"
+                            [id]="'opcoes-btn-' + x.codigo"
+                            class="opcoes"
+                            [class.aberto]="openRow() === x.codigo"
+                            [attr.aria-expanded]="openRow() === x.codigo"
+                            [attr.aria-controls]="'opcoes-' + x.codigo"
+                            (click)="toggleRow(x.codigo)"
+                          >
+                            <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+                            <span class="sr-only">Opções para {{ x.nome }}</span>
+                          </button>
                         </div>
 
-                        @if (p.theirs; as theirs) {
-                          <!-- o bilhete de vocês dois, preso na ficha com um pedaço de fita -->
-                          <div class="nota" [class.nota-segredo]="p.secret">
-                            <span class="nota-fita" aria-hidden="true"></span>
-                            <p class="dia">{{ when(p.dia) }}</p>
-                            @if (isNotePost(p)) {
-                              <!-- a anotação não tem nota: só o dia e as reações -->
-                            } @else if (p.mine; as mine) {
-                              @let d = delta(theirs, mine);
-                              <p class="placar">
-                                @if (d === 0) {
-                                  <span class="placar-n igual" aria-hidden="true">=</span>
-                                  <span class="placar-txt">A mesma nota que você</span>
-                                } @else {
-                                  <span class="placar-txt">{{ p.item.pessoa.nome }} deu</span>
-                                  <span class="placar-n">{{ signed(d) }}</span>
-                                  <span class="placar-txt">que você</span>
-                                }
-                              </p>
-                              <p class="voce">Você deu <strong>{{ formatScore(shown(mine)) }}</strong></p>
-                            } @else {
-                              @if (p.secret) {
-                                <!-- em segredo: revelar mostra a nota e o texto só desta ficha, só desta vez -->
-                                <button type="button" class="acao-caneta revelar" [attr.aria-label]="'Revelar spoilers: ' + theirs.game.name" (click)="reveal(p)">
-                                  <lucide-icon [img]="RevealIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                                  Revelar spoilers
+                        @if (openRow() === x.codigo) {
+                          <!-- as opções: uma tira branca que desce da linha, cada uma dizendo o que faz -->
+                          <div class="gaveta" [id]="'opcoes-' + x.codigo" role="group" [attr.aria-label]="'Opções para ' + x.nome" (keydown.escape)="closeRow(x.codigo)">
+                            @if (x.sigo; as f) {
+                              <div class="gaveta-item">
+                                <button type="button" class="btn-papel" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'silenciar')" (click)="toggleMute(f)">
+                                  <lucide-icon [img]="f.silenciado ? UnmuteIcon : MuteIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                  {{ f.silenciado ? 'Voltar a contar' : 'Silenciar' }}
                                 </button>
-                              } @else {
-                                <p class="segredo-nota">Você ainda não avaliou.</p>
-                              }
-                              @if (isWished(theirs)) {
-                                <p class="voce">
-                                  <lucide-icon [img]="CheckIcon" [size]="15" [strokeWidth]="3" aria-hidden="true" />
-                                  Na sua wishlist
-                                </p>
-                              } @else {
-                                <button type="button" class="acao-caneta quero" (click)="wish(theirs)">
-                                  <lucide-icon [img]="WishIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                                  {{ wantLabel(theirs) }}
+                                <span class="gaveta-dica">{{ f.silenciado ? 'As fichas aparecem, mas não contam no número do botão Amigos.' : 'As fichas continuam aparecendo, sem contar no número do botão Amigos.' }}</span>
+                              </div>
+                              <div class="gaveta-item">
+                                <button type="button" class="btn-papel perigo" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'deixar')" (click)="unfollow(f)">
+                                  <lucide-icon [img]="UnfollowIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                  {{ isBusy(x.codigo, 'deixar') ? 'Deixando de seguir…' : 'Deixar de seguir' }}
                                 </button>
-                              }
+                                <span class="gaveta-dica">Dá para desfazer no aviso que aparece embaixo.</span>
+                              </div>
                             }
-                            <!-- reagir, como segurar a mensagem no WhatsApp: a fileira de emojis sai do botão; e
-                                 comentar, que abre a ficha com a folha de comentários -->
-                            @if (reactions.canReact(p.item.pessoa.codigo)) {
-                              <div class="nota-reagir">
-                                <app-reaction-picker [target]="p.target" />
-                                <button type="button" class="acao-caneta comentar" (click)="openComments(theirs, p.item.pessoa, p.secret)">
-                                  <lucide-icon [img]="CommentIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                                  {{ commentLabel(p) }}
+                            @if (x.segue; as f) {
+                              <div class="gaveta-item">
+                                <button type="button" class="btn-papel perigo" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'tirar')" (click)="removeFollower(f)">
+                                  <lucide-icon [img]="RemoveIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                  {{ isBusy(x.codigo, 'tirar') ? 'Removendo…' : 'Remover seguidor' }}
                                 </button>
+                                <span class="gaveta-dica">{{ x.nome }} para de ver as suas fichas no Feed.</span>
                               </div>
                             }
                           </div>
                         }
-                      </article>
+                      </li>
                     }
-                  </section>
-                }
-              </li>
-            }
-          </ol>
-        }
-      </div>
-
-      <!-- a coluna do lado (telas largas): o seu crachá, o seguir e quem você segue -->
-      <aside class="lado" aria-labelledby="lado-titulo">
-        <h2 id="lado-titulo" class="sr-only">Você e quem você segue</h2>
-        <ng-container [ngTemplateOutlet]="seguirForm" [ngTemplateOutletContext]="{ id: 'lado' }" />
-
-        <section class="lado-pessoas" aria-labelledby="lado-sigo">
-          <h3 id="lado-sigo" class="tape-label lado-fita">Quem você segue <span class="n">{{ followingCount() }}</span></h3>
-          @if (people(); as p) {
-            @if (p.seguindo.length) {
-              <ul class="lado-lista">
-                @for (f of p.seguindo; track f.codigo) {
-                  <li [class.quieta]="f.silenciado">
-                    <span class="cracha-mini" aria-hidden="true">{{ initial(f.nome) }}</span>
-                    <button type="button" class="pessoa-nome" (click)="openProfile(f)" [attr.aria-label]="'Ver o perfil de ' + f.nome">
-                      {{ f.nome }}
-                    </button>
-                    @if (f.silenciado) {
-                      <lucide-icon class="lado-mudo" [img]="MuteIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
-                      <span class="sr-only">(silenciada)</span>
-                    }
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="lado-giz">Ninguém ainda. Peça o código de um amigo e cole ali em cima.</p>
-            }
-          } @else if (!peopleError()) {
-            <p class="lado-giz" role="status">Buscando…</p>
-          }
-          <button type="button" class="btn-quiet lado-gerenciar" (click)="go('pessoas')">
-            Gerenciar pessoas
-            <lucide-icon [img]="GoIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-          </button>
-        </section>
-      </aside>
-    } @else {
-      <!-- ===== Pessoas: o seguir pelo código em cima, e todo mundo numa lista só ===== -->
-      <div class="pessoas-topo">
-        <ng-container [ngTemplateOutlet]="seguirForm" [ngTemplateOutletContext]="{ id: 'pessoas' }" />
-      </div>
-
-      <section class="ficha cartolina lista" aria-labelledby="lista-titulo">
-        <app-pin class="pin" color="#e62e2d" />
-        <h2 id="lista-titulo">Suas pessoas <span class="n">{{ peopleCount() }}</span></h2>
-        @if (peopleError(); as err) {
-          <p class="msg error" role="alert">{{ err }}</p>
-        }
-        @if (people()) {
-          @if (!everyone().length) {
-            <p class="hint">Ninguém ainda. Peça o código de um amigo e cole ali em cima, ou mande o seu.</p>
-          } @else {
-            <ul class="pessoas">
-              @for (x of everyone(); track x.codigo) {
-                <li class="pessoa" [class.quieta]="x.sigo?.silenciado">
-                  <span class="cracha-mini" aria-hidden="true">{{ initial(x.nome) }}</span>
-                  <div class="pessoa-quem">
-                    <!-- o nome abre o perfil da pessoa, como no Feed -->
-                    <button type="button" class="pessoa-nome" (click)="openProfile(x)" [attr.aria-label]="'Ver o perfil de ' + x.nome">
-                      {{ x.nome }}
-                    </button>
-                    <span class="lacos">
-                      <span class="laco" [class.mutuo-laco]="x.sigo && x.segue">
-                        @if (x.sigo && x.segue) {
-                          <lucide-icon [img]="CheckIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
-                        }
-                        {{ bond(x) }}
-                      </span>
-                      @if (x.sigo?.silenciado) {
-                        <span class="laco mudo">
-                          <lucide-icon [img]="MuteIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
-                          Silenciada
-                        </span>
-                      }
-                    </span>
-                  </div>
-                  <div class="pessoa-acoes">
-                    @if (x.segue && !x.sigo) {
-                      <button type="button" class="btn-ink btn-small" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'seguir')" (click)="followBack(x.segue)">
-                        {{ isBusy(x.codigo, 'seguir') ? 'Seguindo…' : 'Seguir de volta' }}
-                      </button>
-                    }
-                    <button
-                      type="button"
-                      [id]="'opcoes-btn-' + x.codigo"
-                      class="btn-quiet opcoes"
-                      [class.aberto]="openRow() === x.codigo"
-                      [attr.aria-expanded]="openRow() === x.codigo"
-                      [attr.aria-controls]="'opcoes-' + x.codigo"
-                      (click)="toggleRow(x.codigo)"
-                    >
-                      <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
-                      <span class="sr-only">Opções para {{ x.nome }}</span>
-                    </button>
-                  </div>
-
-                  @if (openRow() === x.codigo) {
-                    <!-- as opções: uma tira de bloquinho que desce da linha -->
-                    <div class="gaveta" [id]="'opcoes-' + x.codigo" role="group" [attr.aria-label]="'Opções para ' + x.nome" (keydown.escape)="closeRow(x.codigo)">
-                      @if (x.sigo; as f) {
-                        <div class="gaveta-item">
-                          <button type="button" class="btn-quiet" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'silenciar')" (click)="toggleMute(f)">
-                            <lucide-icon [img]="f.silenciado ? UnmuteIcon : MuteIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                            {{ f.silenciado ? 'Voltar a contar' : 'Silenciar' }}
-                          </button>
-                          <span class="gaveta-dica">{{ f.silenciado ? 'As fichas aparecem, mas não contam no número da aba.' : 'As fichas continuam aparecendo, sem contar no número da aba.' }}</span>
-                        </div>
-                        <div class="gaveta-item">
-                          <button type="button" class="btn-quiet danger" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'deixar')" (click)="unfollow(f)">
-                            <lucide-icon [img]="UnfollowIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                            {{ isBusy(x.codigo, 'deixar') ? 'Deixando de seguir…' : 'Deixar de seguir' }}
-                          </button>
-                          <span class="gaveta-dica">Dá para desfazer no aviso que aparece embaixo.</span>
-                        </div>
-                      }
-                      @if (x.segue; as f) {
-                        <div class="gaveta-item">
-                          <button type="button" class="btn-quiet danger" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'tirar')" (click)="removeFollower(f)">
-                            <lucide-icon [img]="RemoveIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                            {{ isBusy(x.codigo, 'tirar') ? 'Removendo…' : 'Remover seguidor' }}
-                          </button>
-                          <span class="gaveta-dica">{{ x.nome }} para de ver as suas fichas aqui.</span>
-                        </div>
-                      }
-                    </div>
-                  }
-                </li>
+                  </ul>
+                </div>
+              } @empty {
+                <p class="nada">Ninguém ainda. Peça o código de um amigo e cole ali em cima, ou mande o seu.</p>
               }
-            </ul>
+            } @else if (!peopleError()) {
+              <p class="nada" role="status">Buscando…</p>
+            }
+          </section>
+
+          <!-- o seu crachá adesivo, colado no papelão: é ele que você manda para quem quiser seguir você -->
+          @if (account.account(); as acc) {
+            <aside class="meu-cracha" aria-label="O seu código">
+              <span class="faixa" aria-hidden="true">Olá, eu sou</span>
+              <p class="meu-nome">{{ acc.nome }}</p>
+              <p class="meu-codigo-linha">
+                <span class="sr-only">O seu código é </span>
+                <strong class="meu-codigo">{{ acc.codigo }}</strong>
+              </p>
+              <p class="meu-dica">Mande para quem quiser seguir você.</p>
+              <div class="meu-copiar">
+                <button type="button" class="btn-quiet" (click)="copyCode(acc.codigo)">
+                  <lucide-icon [img]="CopyIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                  Copiar código
+                </button>
+                <button type="button" class="btn-quiet" (click)="copyLink(acc.codigo)">
+                  <lucide-icon [img]="LinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                  Copiar link
+                </button>
+              </div>
+            </aside>
           }
-        } @else if (!peopleError()) {
-          <p class="hint" role="status">Buscando…</p>
-        }
-      </section>
+          </div>
+        </app-pine-board>
+      </div>
     }
-  </div>
+  }
 }
-
-<!-- o seu crachá com o código e o bilhete para seguir alguém: na coluna do lado, em Pessoas e no vazio -->
-<ng-template #seguirForm let-id="id">
-  <div class="seguir" [class.seguir-largo]="id === 'pessoas'">
-    @if (account.account(); as acc) {
-      <div class="meu-cracha">
-        <span class="faixa" aria-hidden="true">Olá, eu sou</span>
-        <p class="meu-nome">{{ acc.nome }}</p>
-        <p class="meu-codigo-linha">
-          <span class="sr-only">O seu código é </span>
-          <strong class="meu-codigo">{{ acc.codigo }}</strong>
-        </p>
-        <div class="meu-copiar">
-          <button type="button" class="btn-quiet" (click)="copyCode(acc.codigo)">
-            <lucide-icon [img]="CopyIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-            Copiar código
-          </button>
-          <button type="button" class="btn-quiet" (click)="copyLink(acc.codigo)">
-            <lucide-icon [img]="LinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-            Copiar link
-          </button>
-        </div>
-      </div>
-    }
-
-    <!-- na coluna do lado o bilhete fica guardado: um botão só, que abre o campo quando a pessoa quer seguir alguém -->
-    @if (id === 'lado' && !followOpen()) {
-      <button type="button" class="btn-quiet abrir-seguir" [attr.aria-expanded]="false" (click)="openFollow()">
-        <lucide-icon [img]="FollowIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        Seguir alguém pelo código
-      </button>
-    } @else {
-    <form class="bilhete-seguir" [id]="'seguir-' + id" (submit)="followCode($event)" (keydown.escape)="id === 'lado' && closeFollow()" [attr.aria-labelledby]="'seguir-titulo-' + id">
-      <h3 class="bilhete-titulo" [id]="'seguir-titulo-' + id">Seguir alguém</h3>
-      <label class="bilhete-dica" [for]="'codigo-' + id">Cole o código da pessoa. Ela recebe um aviso de que você começou a seguir.</label>
-      <div class="campo">
-        <input
-          [id]="'codigo-' + id"
-          type="text"
-          autocomplete="off"
-          autocapitalize="characters"
-          spellcheck="false"
-          maxlength="12"
-          placeholder="A1B2-C3D4"
-          [attr.aria-invalid]="followError() ? true : null"
-          [value]="code()"
-          (input)="code.set($any($event.target).value); followError.set(null)"
-        />
-        <button type="submit" class="btn-ink" [disabled]="busy() === 'form'" [appBusy]="busy() === 'form'">
-          {{ busy() === 'form' ? 'Seguindo…' : 'Seguir' }}
-        </button>
-      </div>
-      @if (followError(); as err) {
-        <p class="msg error" role="alert">{{ err }}</p>
-      }
-      @if (id === 'lado') {
-        <button type="button" class="btn-quiet fechar-seguir" (click)="closeFollow()">Agora não</button>
-      }
-    </form>
-    }
-  </div>
-</ng-template>
 
 <app-review-reader />

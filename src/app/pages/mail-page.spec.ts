@@ -7,18 +7,23 @@ import { CloudMurals } from '../core/cloud-murals';
 import { Comments } from '../core/comments';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { FeedItem, Follow, People } from '../core/follow';
+import { CardNotice, Notice } from '../core/notices';
+import { ListedPerson, ProfilePeople } from '../core/profile-people';
 import { LocalData } from '../core/local-data';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
+import { FeedPostData } from '../ui/feed-post';
+import { PersonFace } from '../ui/person-photo';
 import { MailPage } from './mail-page';
 
 /**
  * A aba Amigos (MailPage), sem desenhar a tela: o que ela monta a partir do correio, dos murais dos
- * amigos e do meu mural (os blocos do Feed, o estado de cada ficha, a minha nota da mesma obra, o
- * segredo, a lista única de Pessoas) e a ordem do que ela faz ao abrir. O serviço do correio
- * (Follow) e os murais da nuvem (CloudMurals) são de mentira.
+ * amigos e do meu mural (os posts do Feed, o estado de cada ficha, a minha nota da mesma obra, o
+ * segredo, os avisos, as fotos de perfil, a lista única de Pessoas) e a ordem do que ela faz ao abrir.
+ * O serviço do correio (Follow) e os murais da nuvem (CloudMurals) são de mentira. O desenho de cada
+ * peça tem o seu teste: ui/feed-post.spec.ts e ui/notice-list.spec.ts.
  */
 
 class MemoryData {
@@ -74,18 +79,22 @@ const wallOf = (who: typeof ana, reviews: Review[], loadedAt = new Date().toISOS
 } as unknown as Colleague);
 
 interface Page {
-  blocks(): ({ tipo: 'seguiu'; key: string } | { tipo: 'pessoa'; key: string; pessoa: typeof ana; posts: { key: string; estado: string; theirs: Review | null; mine: Review | null; secret: boolean }[] })[];
+  posts(): FeedPostData[];
+  notices(): Notice[];
+  boardNotices(): Notice[];
+  freshNotices(): ReadonlySet<string>;
+  faces(): ReadonlyMap<string, PersonFace>;
   everyone(): { codigo: string; nome: string; sigo: unknown; segue: unknown }[];
+  groups(): { id: string; titulo: string; pessoas: { nome: string }[] }[];
+  tab(): string;
   bond(x: unknown): string;
   isFresh(item: FeedItem): boolean;
-  signed(d: number): string;
-  delta(a: Review, b: Review): number;
-  isNotePost(p: unknown): boolean;
-  blockVerb(posts: unknown[]): string;
   wish(r: Review): void;
   isWished(r: Review): boolean;
   retryWall(code: string): Promise<void>;
   reveal(p: unknown): void;
+  openNotice(n: CardNotice): void;
+  onTabKey(e: KeyboardEvent): void;
 }
 
 describe('Amigos: a página (MailPage)', () => {
@@ -101,6 +110,8 @@ describe('Amigos: a página (MailPage)', () => {
   let needs: string[];
   let store: ReviewStore;
   let settings: Settings;
+  /** As minhas listas de Seguindo e Seguidores, com o cartão (a foto) de cada pessoa. */
+  let myLists: ReturnType<typeof signal<{ seguindo: ListedPerson[]; seguidores: ListedPerson[] } | undefined>>;
 
   beforeEach(() => {
     localStorage.clear();
@@ -111,6 +122,11 @@ describe('Amigos: a página (MailPage)', () => {
     cloudWalls = new Map();
     log = [];
     needs = [];
+    myLists = signal(undefined);
+    const profilePeople = {
+      of: (code: string) => (code === 'EEEE-0000' && myLists() ? { seguindo: 0, seguidores: 0, listasVisiveis: true, listas: myLists() } : undefined),
+      load: async (code: string, lists = false) => void log.push(`pessoas(${code},${lists})`),
+    };
     const follow = {
       available: signal(true),
       items,
@@ -144,6 +160,7 @@ describe('Amigos: a página (MailPage)', () => {
         { provide: LocalData, useClass: MemoryData },
         { provide: Follow, useValue: follow },
         { provide: CloudMurals, useValue: murals },
+        { provide: ProfilePeople, useValue: profilePeople },
         { provide: ColleagueStore, useValue: { colleagues: walls, select: () => undefined } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
         { provide: CloudAccount, useValue: { account: signal({ id: 'u-eu', codigo: 'EEEE-0000', nome: 'Eu' }), signedIn: signal(true) } },
@@ -171,7 +188,7 @@ describe('Amigos: a página (MailPage)', () => {
     for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
   };
 
-  const posts = (page: Page) => page.blocks().flatMap((b) => (b.tipo === 'pessoa' ? b.posts : []));
+  const posts = (page: Page) => page.posts();
 
   describe('ao abrir', () => {
     it('busca o correio inteiro, depois um mural por pessoa (uma vez só), e só então marca como visto', async () => {
@@ -180,6 +197,8 @@ describe('Amigos: a página (MailPage)', () => {
       cloudWalls.set(bia.codigo, wallOf(bia, [review('rbia01', 'Hollow Knight')]));
       await open();
       expect(log[0]).toBe('check(true)');
+      // as fotos de perfil vêm com as minhas listas de Seguindo e Seguidores
+      expect(log).toContain('pessoas(EEEE-0000,true)');
       expect(log.filter((l) => l.startsWith('ensure')).sort()).toEqual([`ensure(${ana.codigo})`, `ensure(${bia.codigo})`]);
       expect(log.at(-1)).toBe('markSeen');
       // quem só começou a seguir não tem mural para buscar
@@ -204,7 +223,7 @@ describe('Amigos: a página (MailPage)', () => {
   });
 
   describe('o Feed', () => {
-    it('agrupa as resenhas seguidas da mesma pessoa; outra pessoa ou um aviso de seguir abrem outro bloco', async () => {
+    it('cada resenha é um post, do mais novo para o mais velho; quem começou a seguir vai para os Avisos', async () => {
       items.set([
         post(ana, 'rana03', '2026-10-06T10:00:00.000Z'),
         post(ana, 'rana02', '2026-10-06T09:00:00.000Z'),
@@ -213,13 +232,13 @@ describe('Amigos: a página (MailPage)', () => {
         post(ana, 'rana01', '2026-10-06T06:00:00.000Z'),
       ]);
       const page = await open();
-      const shape = page.blocks().map((b) => (b.tipo === 'seguiu' ? 'seguiu' : `${b.pessoa.nome}×${b.posts.length}`));
-      expect(shape).toEqual(['Ana×2', 'Bia×1', 'seguiu', 'Ana×1']);
-      const keys = page.blocks().map((b) => b.key);
+      expect(posts(page).map((p) => `${p.item.pessoa.nome}:${p.item.ref}`)).toEqual(['Ana:rana03', 'Ana:rana02', 'Bia:rbia01', 'Ana:rana01']);
+      expect(page.notices().map((n) => `${n.tipo}:${n.people[0].nome}`)).toEqual(['seguiu:Cris']);
+      const keys = posts(page).map((p) => p.key);
       expect(new Set(keys).size).toBe(keys.length); // chaves únicas para o @for
     });
 
-    it('a ficha do amigo aparece com a minha da mesma obra e a diferença das notas', async () => {
+    it('a ficha do amigo aparece com a minha da mesma obra', async () => {
       store.add(review('rme001', 'Celeste', {}, 7));
       items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z', 'Celeste')]);
       cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste', {}, 9)]));
@@ -228,11 +247,12 @@ describe('Amigos: a página (MailPage)', () => {
       expect(p.estado).toBe('ficha');
       expect(p.theirs!.id).toBe('rana01');
       expect(p.mine!.id).toBe('rme001');
-      expect(page.delta(p.theirs!, p.mine!)).toBe(2);
       expect(p.secret).toBeFalse();
+      // a ficha do amigo é o alvo das reações e dos comentários do post
+      expect(p.target).toEqual({ code: ana.codigo, ref: 'rana01', titulo: 'Celeste', mural: 'jogos' });
     });
 
-    it('a anotação publicada aparece como anotação: sem placar, sem segredo, "publicou uma anotação"', async () => {
+    it('a anotação publicada aparece como anotação: sem a minha nota e sem segredo', async () => {
       store.add({ ...review('nme001', 'Compras'), kind: 'anotacoes' });
       items.set([{ ...post(ana, 'nana01', '2026-10-06T10:00:00.000Z', 'Compras'), mural: 'anotacoes' }]);
       cloudWalls.set(ana.codigo, wallOf(ana, [{ ...review('nana01', 'Compras'), kind: 'anotacoes' }]));
@@ -242,8 +262,7 @@ describe('Amigos: a página (MailPage)', () => {
       expect(p.theirs!.id).toBe('nana01');
       expect(p.mine).toBeNull();
       expect(p.secret).toBeFalse();
-      expect(page.isNotePost(p)).toBeTrue();
-      expect(page.blockVerb([p])).toBe('publicou uma anotação');
+      expect(p.item.mural).toBe('anotacoes');
     });
 
     it('"Evitar spoilers": a nota do que eu não avaliei vem em segredo; desligado, aparece', async () => {
@@ -292,12 +311,6 @@ describe('Amigos: a página (MailPage)', () => {
       expect(store.wishes().map((w) => w.game.name)).toEqual(['Celeste']);
       expect(page.isWished(theirs)).toBeTrue();
     });
-
-    it('a diferença com sinal: "+1,4", "−0,8"', async () => {
-      const page = await open();
-      expect(page.signed(1.4)).toBe('+1,4');
-      expect(page.signed(-0.8)).toBe('−0,8');
-    });
   });
 
   describe('Pessoas', () => {
@@ -317,6 +330,8 @@ describe('Amigos: a página (MailPage)', () => {
       const list = page.everyone();
       expect(list.map((x) => x.nome)).toEqual(['Ágata', 'Bia', 'Ana', 'Cris']);
       expect(list.map((x) => page.bond(x))).toEqual(['Segue você', 'Segue você', 'Vocês se seguem', 'Você segue']);
+      // na tela, em dois grupos: quem espera você seguir de volta, e o resto
+      expect(page.groups().map((g) => `${g.titulo}: ${g.pessoas.map((x) => x.nome).join(', ')}`)).toEqual(['Para seguir de volta: Ágata, Bia', 'Suas pessoas: Ana, Cris']);
     });
   });
 
@@ -412,71 +427,108 @@ describe('Amigos: a página (MailPage)', () => {
     });
   });
 
-  describe('reações às minhas fichas', () => {
+  describe('os Avisos', () => {
     const reagiu = (pessoa: typeof ana, ref: string, em: string, reacao: 'fogo' | 'amei'): FeedItem => ({ tipo: 'reagiu', em, pessoa, ref, titulo: `Obra ${ref}`, mural: 'jogos', silenciado: false, reacao });
+    const comentou = (pessoa: typeof ana, ref: string, em: string): FeedItem => ({ tipo: 'comentou', em, pessoa, ref, titulo: `Obra ${ref}`, mural: 'jogos', silenciado: false });
 
-    it('reações seguidas à mesma ficha viram um bilhete só, cada pessoa uma vez; outra ficha, outro bilhete', async () => {
+    it('reações seguidas à mesma ficha viram um aviso só; quem só reagiu não tem mural para buscar', async () => {
       items.set([
         reagiu(ana, 'rminha1', '2026-10-06T10:00:00.000Z', 'fogo'),
         reagiu(bia, 'rminha1', '2026-10-06T09:00:00.000Z', 'amei'),
         reagiu(cris, 'rminha1', '2026-10-06T08:00:00.000Z', 'fogo'),
         reagiu(ana, 'rminha2', '2026-10-05T10:00:00.000Z', 'amei'),
       ]);
-      const page = (await open()) as any;
-      const blocks = page.blocks().filter((b: any) => b.tipo === 'reagiu');
-      expect(blocks.length).toBe(2);
-      expect(blocks[0].who.map((w: any) => w.pessoa.nome)).toEqual(['Ana', 'Bia', 'Cris']);
-      expect(page.reactedNames(blocks[0])).toBe('Ana, Bia e mais 1');
-      expect(page.reactedEmojis(blocks[0])).toEqual(['🔥', '❤️']);
-      expect(page.reactedSpoken(blocks[1])).toBe('Ana reagiu com Amei à sua ficha de Obra rminha2');
-      // quem só reagiu não tem mural para buscar
+      const page = await open();
+      expect(page.notices().map((n) => n.people.map((p) => p.nome).join('+'))).toEqual(['Ana+Bia+Cris', 'Ana']);
+      expect(posts(page)).toEqual([]);
       expect(log.some((l) => l.startsWith('ensure'))).toBeFalse();
+    });
+
+    it('o quadro ao lado do Feed mostra só os cinco mais novos; a aba Avisos, todos', async () => {
+      items.set(['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7'].map((ref, i) => reagiu(ana, `minha-${ref}`, `2026-10-06T${String(20 - i).padStart(2, '0')}:00:00.000Z`, 'fogo')));
+      const page = await open();
+      expect(page.notices().length).toBe(7);
+      expect(page.boardNotices().map((n) => n.item.em)).toEqual(page.notices().slice(0, 5).map((n) => n.item.em));
+    });
+
+    it('os avisos novos são os de depois do visto que valia quando a página abriu (o número da etiqueta Avisos)', async () => {
+      seenAt.set('2026-10-06T08:30:00.000Z');
+      items.set([
+        post(ana, 'rana01', '2026-10-06T11:00:00.000Z'), // um post novo não é aviso
+        reagiu(ana, 'rminha1', '2026-10-06T10:00:00.000Z', 'fogo'),
+        comentou(cris, 'rminha2', '2026-10-06T09:00:00.000Z'),
+        reagiu(bia, 'rminha3', '2026-10-06T08:00:00.000Z', 'amei'),
+        seguiu(bia, '2026-10-06T07:00:00.000Z'),
+      ]);
+      const page = await open();
+      const fresh = page.notices().filter((n) => page.freshNotices().has(n.key));
+      expect(fresh.map((n) => n.tipo)).toEqual(['reagiu', 'comentou']);
+      // abrir marcou como visto, mas o "Novo" fica enquanto a página estiver aberta
+      seenAt.set('2026-10-06T23:00:00.000Z');
+      expect(page.freshNotices().size).toBe(2);
+    });
+
+    it('tocar num aviso de reação abre a minha ficha; num de comentário, já com a folha de comentários', async () => {
+      const mine = review('rminha1', 'Hades');
+      store.add(mine);
+      items.set([comentou(ana, 'rminha1', '2026-10-06T10:00:00.000Z'), reagiu(bia, 'rminha1', '2026-10-06T09:00:00.000Z', 'fogo'), comentou(cris, 'rsumiu', '2026-10-06T08:00:00.000Z')]);
+      const page = await open();
+      const [comment, reaction, gone] = page.notices() as CardNotice[];
+      const comments = TestBed.inject(Comments);
+      page.openNotice(reaction);
+      expect(comments.take('rminha1')).toBeFalse();
+      page.openNotice(comment);
+      // o pedido fica guardado para a leitura que abrir essa ficha (e só para ela)
+      expect(comments.take('rminha1')).toBeTrue();
+      expect(comments.take('rminha1')).toBeFalse();
+      // a ficha que eu já tirei do mural: o aviso fica, mas não abre nada
+      expect(() => page.openNotice(gone)).not.toThrow();
+      expect(comments.take('rsumiu')).toBeFalse();
     });
   });
 
-  describe('comentários nas minhas fichas', () => {
-    const comentou = (pessoa: typeof ana, ref: string, em: string, mural: 'jogos' | 'anotacoes' = 'jogos'): FeedItem => ({ tipo: 'comentou', em, pessoa, ref, titulo: `Obra ${ref}`, mural, silenciado: false });
-
-    it('comentários seguidos na mesma ficha viram um bilhete só, cada pessoa uma vez; outra ficha, outro bilhete', async () => {
-      items.set([
-        comentou(ana, 'rminha1', '2026-10-06T10:00:00.000Z'),
-        comentou(bia, 'rminha1', '2026-10-06T09:00:00.000Z'),
-        comentou(ana, 'rminha1', '2026-10-06T08:30:00.000Z'),
-        comentou(cris, 'rminha1', '2026-10-06T08:00:00.000Z'),
-        comentou(ana, 'nminha2', '2026-10-05T10:00:00.000Z', 'anotacoes'),
-      ]);
-      const page = (await open()) as any;
-      const blocks = page.blocks().filter((b: any) => b.tipo === 'comentou');
-      expect(blocks.length).toBe(2);
-      expect(blocks[0].who.map((w: any) => w.nome)).toEqual(['Ana', 'Bia', 'Cris']);
-      expect(page.commentedSpoken(blocks[0])).toBe('Ana, Bia e mais 1 comentaram na sua ficha de Obra rminha1');
-      expect(page.commentedSpoken(blocks[1])).toBe('Ana comentou na sua anotação Obra nminha2');
-      // quem só comentou não tem mural para buscar
-      expect(log.some((l) => l.startsWith('ensure'))).toBeFalse();
+  describe('as fotos de perfil', () => {
+    it('vêm do cartão das minhas listas e, de quem tem o mural aqui, do perfil dele (o mais novo)', async () => {
+      myLists.set({
+        seguindo: [
+          { ...ana, cartao: { emoji: '🐙', cor: 'rosa', fundo: null, linha: '', fichas: null, murais: null } },
+          { ...bia, cartao: { emoji: '🌵', cor: 'laranja', fundo: null, linha: '', fichas: null, murais: null } },
+        ],
+        seguidores: [{ ...cris, cartao: null }],
+      });
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, { ...wallOf(ana, [review('rana01', 'Celeste')]), profile: { emoji: '🦑', photo: 'azul' } } as unknown as Colleague);
+      const page = await open();
+      expect(page.faces().get(ana.codigo)).toEqual({ emoji: '🦑', cor: 'azul' });
+      expect(page.faces().get(bia.codigo)).toEqual({ emoji: '🌵', cor: 'laranja' });
+      // sem foto: fica a inicial
+      expect(page.faces().has(cris.codigo)).toBeFalse();
     });
+  });
 
-    it('um comentário entre duas reações à mesma ficha separa os bilhetes, na ordem em que chegaram', async () => {
-      items.set([
-        { tipo: 'reagiu', em: '2026-10-06T10:00:00.000Z', pessoa: ana, ref: 'rminha1', titulo: 'Obra', mural: 'jogos', silenciado: false, reacao: 'fogo' },
-        comentou(bia, 'rminha1', '2026-10-06T09:00:00.000Z'),
-        { tipo: 'reagiu', em: '2026-10-06T08:00:00.000Z', pessoa: cris, ref: 'rminha1', titulo: 'Obra', mural: 'jogos', silenciado: false, reacao: 'amei' },
-      ]);
-      const page = (await open()) as any;
-      expect(page.blocks().map((b: any) => b.tipo)).toEqual(['reagiu', 'comentou', 'reagiu']);
-    });
+  describe('as três partes', () => {
+    const key = (k: string) => new KeyboardEvent('keydown', { key: k, cancelable: true });
 
-    it('"Ver os comentários" abre a minha ficha já com a folha de comentários', async () => {
-      const mine = review('rminha1', 'Hades');
-      store.add(mine);
-      items.set([comentou(ana, 'rminha1', '2026-10-06T10:00:00.000Z')]);
-      const page = (await open()) as any;
-      const block = page.blocks().find((b: any) => b.tipo === 'comentou');
-      expect(page.reactedReview(block)?.id).toBe('rminha1');
-      page.openMyComments(mine);
-      // o pedido fica guardado para a leitura que abrir essa ficha (e só para ela)
-      const comments = TestBed.inject(Comments);
-      expect(comments.take('rminha1')).toBeTrue();
-      expect(comments.take('rminha1')).toBeFalse();
+    it('abre no Feed, e as setas dão a volta pelas três; Home e End vão às pontas', async () => {
+      const page = await open();
+      expect(page.tab()).toBe('chegou');
+      page.onTabKey(key('ArrowRight'));
+      expect(page.tab()).toBe('avisos');
+      page.onTabKey(key('ArrowRight'));
+      expect(page.tab()).toBe('pessoas');
+      page.onTabKey(key('ArrowRight'));
+      expect(page.tab()).toBe('chegou');
+      page.onTabKey(key('ArrowLeft'));
+      expect(page.tab()).toBe('pessoas');
+      page.onTabKey(key('Home'));
+      expect(page.tab()).toBe('chegou');
+      page.onTabKey(key('End'));
+      expect(page.tab()).toBe('pessoas');
+      // outra tecla não mexe em nada
+      const other = key('a');
+      page.onTabKey(other);
+      expect(page.tab()).toBe('pessoas');
+      expect(other.defaultPrevented).toBeFalse();
     });
   });
 });

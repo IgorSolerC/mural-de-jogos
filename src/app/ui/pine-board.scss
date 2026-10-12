@@ -1,0 +1,48 @@
+@use 'profile-materials' as materials;
+
+:host {
+  --borda: var(--folga, 14px);
+  position: relative;
+  display: block;
+  min-width: 0;
+  padding: var(--borda);
+  @include materials.moldura-pinus;
+}
+
+.parafuso {
+  @include materials.parafuso;
+  --canto: calc(var(--borda) / 2 - 6px);
+
+  &.p1 {
+    top: var(--canto);
+    left: var(--canto);
+    --fenda: 28deg;
+  }
+  &.p2 {
+    top: var(--canto);
+    right: var(--canto);
+    --fenda: -52deg;
+  }
+  &.p3 {
+    bottom: var(--canto);
+    left: var(--canto);
+    --fenda: 78deg;
+  }
+  &.p4 {
+    bottom: var(--canto);
+    right: var(--canto);
+    --fenda: 10deg;
+  }
+}
+
+/* o papelão da caixa aberta, afundado na moldura */
+.papelao {
+  @include materials.papelao;
+  display: grid;
+  gap: var(--vao, 26px);
+  padding: var(--respiro, 18px);
+  border-radius: 1px;
+  box-shadow:
+    inset 0 3px 9px rgb(0 0 0 / 0.45),
+    inset 0 0 0 1px rgb(0 0 0 / 0.3);
+}

@@ -1,0 +1,4 @@
+SURFACE CONCEPT SEED (key: c91a3d7c; mode: operate; source: api; approved pool: c3b204a1eed6)
+DEALT INDICES: 5, 6, 2 (index 5 leads)
+Grounded list, by resonance: 1 tres colunas; 2 feed + quadro de avisos; 3 um fio so com filtros; 4 caixa de entrada + leitura; 5 por pessoa; 6 linha do tempo por dia; 7 mural dos amigos em grade.
+Round 22070cca: the user declined to pick ("Confio em voce e em seu julgamento"); the builder chose index 2. Choice recorded with concept-seed --kind assigned.

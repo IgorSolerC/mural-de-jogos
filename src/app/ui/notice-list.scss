@@ -1,0 +1,209 @@
+@use 'paper-kit' as kit;
+@use 'felt';
+
+:host {
+  display: block;
+  min-width: 0;
+  /* cada linha se arruma pela largura da lista (o quadro ao lado do Feed é estreito) */
+  container: avisos / inline-size;
+}
+
+.avisos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* um aviso: direto na folha, separado do vizinho por um tracejado de caneta */
+.aviso {
+  --foto: 38px;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 13px 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* a linha inteira é o botão (um só, invisível, por cima dela); o que mais se toca fica acima dele */
+.abre {
+  position: absolute;
+  inset: 0 -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.05);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+  }
+}
+
+/* o lugar das fotos tem sempre a mesma largura: o texto de todas as linhas começa na mesma régua */
+.fotos {
+  position: relative;
+  width: calc(var(--foto) + 10px);
+  height: var(--foto);
+  pointer-events: none;
+
+  app-person-photo:first-child {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* a segunda pessoa, por baixo da primeira, aparecendo pela quina de cima */
+  app-person-photo + app-person-photo {
+    position: absolute;
+    top: -6px;
+    left: 13px;
+  }
+}
+
+/* o remendo na quina da foto: o que a pessoa fez */
+.selo {
+  @include felt.remendo(-3px);
+  position: absolute;
+  z-index: 2;
+  right: -2px;
+  bottom: -7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 11px;
+  outline-width: 1px;
+  font-size: 12px;
+  line-height: 1;
+  rotate: -6deg;
+
+  span + span {
+    margin-left: -2px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.corpo {
+  min-width: 0;
+  pointer-events: none;
+}
+
+.texto {
+  font-size: 0.98rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.gente {
+  font-weight: 700;
+}
+
+/* o título da ficha, sublinhado a lápis */
+.obra {
+  font-weight: 700;
+  text-decoration: underline 2px rgb(21 21 21 / 0.3);
+  text-underline-offset: 3px;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* "Novo": o adesivo de tinta com a letra amarela, pequeno, ao lado da hora */
+.novo {
+  padding: 3px 6px 2px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  rotate: 4deg;
+  animation: aperta 360ms var(--ease-physical) both;
+}
+
+@keyframes aperta {
+  from {
+    opacity: 0;
+    scale: 1.6;
+    rotate: 14deg;
+  }
+}
+
+/* seguir de volta: o botão de papel que conclui, por cima do botão da linha */
+.seguir {
+  @include kit.botao-papel;
+  z-index: 1;
+  min-height: 40px;
+  padding: 6px 12px 5px;
+  background: var(--ink);
+  color: var(--hi);
+  font-size: 0.86rem;
+
+  &:hover:not(:disabled) {
+    background: #2a2a2a;
+  }
+}
+
+.mutuo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  pointer-events: none;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* numa lista estreita, o "Seguir de volta" desce para baixo da frase, na régua do texto */
+@container avisos (max-width: 400px) {
+  .seguir,
+  .mutuo {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .novo {
+    animation: none;
+  }
+
+  .abre {
+    transition: none;
+  }
+}

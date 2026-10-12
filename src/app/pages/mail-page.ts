@@ -1,22 +1,21 @@
 import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender } from '../ui/focus';
-import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Eye, Heart, Inbox, Link, LucideAngularModule, MessageCircleMore, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
+import { Bell, BellOff, Check, Copy, Ellipsis, GalleryVerticalEnd, Link, LucideAngularModule, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals, muralLink } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
-import { FeedItem, Follow, FollowedPerson, Follower, Person, dayLabel, isUnseen, localDayOf } from '../core/follow';
-import { profileOf } from '../core/kinds';
-import { Review, fold, formatScore, isNote, newId, rootOf, shownFinal } from '../core/review';
+import { FeedItem, Follow, FollowedPerson, Follower, Person, isUnseen } from '../core/follow';
+import { CardNotice, groupNotices } from '../core/notices';
+import { ProfilePeople } from '../core/profile-people';
+import { Review, fold, isNote, newId, rootOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
-import { ReviewCard } from '../ui/review-card';
 import { Pin } from '../ui/pin';
 import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
@@ -24,57 +23,17 @@ import { Busy } from '../ui/busy';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { Desk } from '../core/desk';
 import { ReactionTarget, Reactions } from '../core/reactions';
-import { ReactionId, reactionOf } from '../core/reaction-kinds';
-import { ReactionPicker } from '../ui/reactions';
-import { Comments, spokenComments } from '../core/comments';
+import { Comments } from '../core/comments';
+import { FeedPost, FeedPostData } from '../ui/feed-post';
+import { NoticeList } from '../ui/notice-list';
+import { PersonFace, PersonPhoto } from '../ui/person-photo';
+import { PineBoard } from '../ui/pine-board';
 
 /** A aba Feed guarda o id 'chegou' (o nome de antes): o endereço e o que já está guardado não mudam. */
-type Tab = 'chegou' | 'pessoas';
+type Tab = 'chegou' | 'avisos' | 'pessoas';
 /** O mural de alguém, para o Feed: ainda vindo, aqui, ou a nuvem não respondeu. */
 type WallState = 'buscando' | 'pronto' | 'erro';
-
-/** Uma resenha que chegou: a ficha do amigo (quando o mural dele já está aqui) e a minha da mesma obra. */
-interface Post {
-  key: string;
-  item: Extract<FeedItem, { tipo: 'resenha' }>;
-  dia: string;
-  theirs: Review | null;
-  mine: Review | null;
-  secret: boolean;
-  /** A ficha do amigo como alvo das reações. */
-  target: ReactionTarget;
-  /** ficha: a ficha está aqui; buscando: o mural ainda vem; saiu: o mural veio e ela não está; erro: não veio. */
-  estado: 'ficha' | 'buscando' | 'saiu' | 'erro';
-}
-
-/** Quem reagiu às minhas fichas: as reações seguidas à mesma ficha viram um bilhete só. */
-interface Reacted {
-  key: string;
-  /** A mais nova, que dá o dia e o "Novo". */
-  item: Extract<FeedItem, { tipo: 'reagiu' }>;
-  ref: string;
-  titulo: string;
-  dia: string;
-  who: { pessoa: Person; reacao: ReactionId }[];
-}
-
-/** Quem comentou nas minhas fichas: os comentários seguidos na mesma ficha viram um bilhete só. */
-interface Commented {
-  key: string;
-  /** O mais novo, que dá o dia e o "Novo". */
-  item: Extract<FeedItem, { tipo: 'comentou' }>;
-  ref: string;
-  titulo: string;
-  dia: string;
-  who: Person[];
-}
-
-/** O Feed em blocos: um bilhete de quem começou a seguir, de quem reagiu ou comentou, ou as resenhas seguidas de uma pessoa. */
-type Block =
-  | { tipo: 'seguiu'; key: string; item: Extract<FeedItem, { tipo: 'seguiu' }>; dia: string }
-  | ({ tipo: 'reagiu' } & Reacted)
-  | ({ tipo: 'comentou' } & Commented)
-  | { tipo: 'pessoa'; key: string; pessoa: Person; posts: Post[] };
+type Resenha = Extract<FeedItem, { tipo: 'resenha' }>;
 
 /** Uma pessoa na lista única de Pessoas: quem eu sigo e quem me segue, juntos. */
 interface Someone {
@@ -85,19 +44,24 @@ interface Someone {
   /** Ela me segue, ou null. */
   segue: Follower | null;
 }
-const TABS: readonly Tab[] = ['chegou', 'pessoas'];
+const TABS: readonly Tab[] = ['chegou', 'avisos', 'pessoas'];
 const tabFrom = (v: string | null): Tab => (TABS.includes(v as Tab) ? (v as Tab) : 'chegou');
-const TILTS = [-0.5, 0.4, -0.3, 0.6, -0.4, 0.2];
+/** Quantos avisos cabem no quadro ao lado do Feed (os outros ficam na aba Avisos). */
+const BOARD_NOTICES = 5;
+/** Quantos rostos de quem eu sigo aparecem no bilhete do quadro. */
+const BOARD_FACES = 8;
 
 /**
- * Amigos: o que chegou de quem você segue (as resenhas novas, um cartão por pessoa por dia, e quem
- * começou a seguir você) e as pessoas (seguir pelo código, silenciar, deixar de seguir, quem segue
- * você). Abrir conta tudo como visto. Os murais de quem aparece aqui só são baixados ao abrir, com a
- * pergunta "mudou?" à nuvem.
+ * Amigos, em três partes. O Feed é o que quem você segue pregou: um post por ficha, com a ficha de
+ * verdade, a diferença para a sua nota e o reagir e o comentar ali mesmo. Os Avisos são o que
+ * aconteceu com você (quem começou a seguir, reagiu ou comentou nas suas fichas): num quadro ao lado
+ * do Feed, nas telas largas, e numa aba própria. Pessoas é seguir pelo código, silenciar, deixar de
+ * seguir e quem segue você. Abrir conta tudo como visto. Os murais de quem aparece no Feed só são
+ * baixados ao abrir, com a pergunta "mudou?" à nuvem.
  */
 @Component({
   selector: 'app-mail-page',
-  imports: [Busy, LucideAngularModule, NgTemplateOutlet, Pin, ReactionPicker, ReviewCard, ReviewReader, RouterLink],
+  imports: [Busy, FeedPost, LucideAngularModule, NoticeList, PersonPhoto, Pin, PineBoard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mail-page.html',
   styleUrl: './mail-page.scss',
@@ -110,6 +74,7 @@ export class MailPage {
   private readonly cloud = inject(Cloud);
   private readonly cloudMurals = inject(CloudMurals);
   private readonly colleagues = inject(ColleagueStore);
+  private readonly profilePeople = inject(ProfilePeople);
   private readonly store = inject(ReviewStore);
   private readonly toasts = inject(Toasts);
   private readonly confirm = inject(Confirm);
@@ -118,30 +83,27 @@ export class MailPage {
   private readonly reader = viewChild.required(ReviewReader);
   private readonly muralKind = inject(Mural);
   private readonly desk = inject(Desk);
-  protected readonly reactions = inject(Reactions);
-  protected readonly comments = inject(Comments);
-  protected readonly CommentIcon = MessageCircleMore;
+  private readonly reactions = inject(Reactions);
+  private readonly comments = inject(Comments);
+  private readonly injector = inject(Injector);
 
-  protected readonly InboxIcon = Inbox;
   protected readonly FollowIcon = UserPlus;
   protected readonly CheckIcon = Check;
-  protected readonly WishIcon = Heart;
-  protected readonly RevealIcon = Eye;
   protected readonly MuteIcon = BellOff;
   protected readonly UnmuteIcon = Bell;
   protected readonly MoreIcon = Ellipsis;
   protected readonly CopyIcon = Copy;
   protected readonly LinkIcon = Link;
-  protected readonly RetryIcon = RefreshCw;
   protected readonly UnfollowIcon = UserMinus;
   protected readonly RemoveIcon = UserX;
-  protected readonly GoIcon = ArrowRight;
-  protected readonly formatScore = formatScore;
 
-  protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Inbox }[] = [
-    { id: 'chegou', label: 'Feed', icon: Inbox },
+  protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Bell }[] = [
+    { id: 'chegou', label: 'Feed', icon: GalleryVerticalEnd },
+    { id: 'avisos', label: 'Avisos', icon: Bell },
     { id: 'pessoas', label: 'Pessoas', icon: UsersRound },
   ];
+  /** Cada etiqueta colada de um jeito, sempre o mesmo. */
+  protected readonly tilts = ['-1.1deg', '0.8deg', '-0.6deg'];
   protected readonly tab = signal<Tab>(tabFrom(this.route.snapshot.queryParamMap.get('aba')));
   /** Um link para outra aba (#/amigos?aba=pessoas) com a página já aberta também troca a aba. */
   private readonly followTabParam = this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(tabFrom(q.get('aba'))));
@@ -149,53 +111,28 @@ export class MailPage {
   protected readonly cloudOn = computed(() => !!this.cloud.config());
   /** Separado: o plural do mural aberto ("animes"), para dizer que só ele aparece. */
   protected readonly onlyKind = computed(() => (this.settings.friendKinds() === 'separado' ? this.muralKind.profile().plural : null));
-  /**
-   * O que chegou, um por um: cada resenha nova é a ficha do amigo pregada aqui, com a minha ficha da
-   * mesma obra, se eu tiver. Resenhas seguidas da mesma pessoa ficam sob uma fita só.
-   */
-  protected readonly blocks = computed<Block[]>(() => {
-    const out: Block[] = [];
-    for (const item of this.follow.visible()) {
-      const dia = localDayOf(item.em);
-      if (item.tipo === 'seguiu') {
-        out.push({ tipo: 'seguiu', key: `seguiu:${item.pessoa.codigo}`, item, dia });
-        continue;
-      }
-      if (item.tipo === 'reagiu') {
-        const last = out[out.length - 1];
-        if (last?.tipo === 'reagiu' && last.ref === item.ref) {
-          // a mesma pessoa aparece uma vez só, com a reação mais nova
-          if (!last.who.some((w) => w.pessoa.codigo === item.pessoa.codigo)) last.who.push({ pessoa: item.pessoa, reacao: item.reacao });
-        } else {
-          out.push({ tipo: 'reagiu', key: `reagiu:${item.ref}:${item.em}`, item, ref: item.ref, titulo: item.titulo, dia, who: [{ pessoa: item.pessoa, reacao: item.reacao }] });
-        }
-        continue;
-      }
-      if (item.tipo === 'comentou') {
-        const last = out[out.length - 1];
-        if (last?.tipo === 'comentou' && last.ref === item.ref) {
-          if (!last.who.some((w) => w.codigo === item.pessoa.codigo)) last.who.push(item.pessoa);
-        } else {
-          out.push({ tipo: 'comentou', key: `comentou:${item.ref}:${item.em}`, item, ref: item.ref, titulo: item.titulo, dia, who: [item.pessoa] });
-        }
-        continue;
-      }
-      const post = this.postOf(item, dia);
-      const last = out[out.length - 1];
-      if (last?.tipo === 'pessoa' && last.pessoa.codigo === item.pessoa.codigo) last.posts.push(post);
-      else out.push({ tipo: 'pessoa', key: `pessoa:${item.pessoa.codigo}:${item.ref}`, pessoa: item.pessoa, posts: [post] });
-    }
-    return out;
-  });
 
-  /** As fichas em segredo reveladas com "Revelar spoilers" (a chave do post), só enquanto a página estiver aberta. */
+  /**
+   * O Feed: cada resenha que chegou é um post, com a ficha do amigo (quando o mural dele já está
+   * aqui) e a minha ficha da mesma obra, se eu tiver. Do mais novo para o mais velho.
+   */
+  protected readonly posts = computed<FeedPostData[]>(() => this.follow.visible().flatMap((item) => (item.tipo === 'resenha' ? [this.postOf(item)] : [])));
+
+  /** Os Avisos: quem começou a seguir, reagiu ou comentou, com os seguidos sobre a mesma ficha juntos. */
+  protected readonly notices = computed(() => groupNotices(this.follow.visible()));
+  /** Os que cabem no quadro ao lado do Feed. */
+  protected readonly boardNotices = computed(() => this.notices().slice(0, BOARD_NOTICES));
+  /** Os avisos que chegaram depois da última vez que a página foi aberta (as chaves deles). */
+  protected readonly freshNotices = computed<ReadonlySet<string>>(() => new Set(this.notices().flatMap((n) => (this.isFresh(n.item) ? [n.key] : []))));
+
+  /** As fichas em segredo reveladas com "Revelar" (a chave do post), só enquanto a página estiver aberta. */
   private readonly revealed = signal<ReadonlySet<string>>(new Set());
 
-  protected reveal(p: Post): void {
+  protected reveal(p: FeedPostData): void {
     this.revealed.update((s) => new Set(s).add(p.key));
   }
 
-  private postOf(item: Extract<FeedItem, { tipo: 'resenha' }>, dia: string): Post {
+  private postOf(item: Resenha): FeedPostData {
     const key = `resenha:${item.pessoa.codigo}:${item.ref}`;
     const target: ReactionTarget = { code: item.pessoa.codigo, ref: item.ref, titulo: item.titulo, mural: item.mural };
     const theirs = this.reviewOf(item.pessoa.codigo, item.ref);
@@ -205,18 +142,21 @@ export class MailPage {
       const wall = this.wallState().get(item.pessoa.codigo);
       const checked = this.checked.has(`${item.pessoa.codigo}:${item.ref}`);
       const estado = wall === 'erro' ? 'erro' : wall === 'pronto' && checked ? 'saiu' : 'buscando';
-      return { key, item, dia, theirs: null, mine: null, secret: false, target, estado };
+      return { key, item, theirs: null, mine: null, secret: false, target, estado };
     }
     // a anotação não tem nota: nada a comparar nem a esconder
-    if (isNote(theirs)) return { key, item, dia, theirs, mine: null, secret: false, target, estado: 'ficha' };
+    if (isNote(theirs)) return { key, item, theirs, mine: null, secret: false, target, estado: 'ficha' };
     const mine = this.mineOf(item.pessoa.codigo, theirs);
     // "Notas dos outros: Evitar spoilers": o que eu ainda não avaliei vem em segredo, até ser revelado
     const secret = !!this.matches().get(item.pessoa.codigo)?.hidden.has(theirs.id) && !this.revealed().has(key);
-    return { key, item, dia, theirs, mine, secret, target, estado: 'ficha' };
+    return { key, item, theirs, mine, secret, target, estado: 'ficha' };
   }
 
   protected readonly people = this.follow.people;
   protected readonly followingCount = computed(() => this.people()?.seguindo.length ?? 0);
+  /** Quem eu sigo, para os rostos do bilhete do quadro (os primeiros; o resto vira "+N"). */
+  protected readonly boardFaces = computed(() => this.people()?.seguindo.slice(0, BOARD_FACES) ?? []);
+  protected readonly moreFaces = computed(() => Math.max(0, this.followingCount() - BOARD_FACES));
   /**
    * Pessoas, numa lista só: cada pessoa uma vez, com a relação ("Vocês se seguem", "Você segue",
    * "Segue você"). Quem segue você sem você seguir de volta vem primeiro (tem o que fazer); depois
@@ -235,7 +175,20 @@ export class MailPage {
     const pending = (x: Someone) => (x.segue && !x.sigo ? 0 : 1);
     return [...byCode.values()].sort((a, b) => pending(a) - pending(b) || a.nome.localeCompare(b.nome, 'pt-BR'));
   });
-  protected readonly peopleCount = computed(() => this.everyone().length);
+  /** A lista em dois grupos: quem espera você seguir de volta, e o resto. */
+  protected readonly groups = computed(() => {
+    const all = this.everyone();
+    const waiting = all.filter((x) => x.segue && !x.sigo);
+    return [
+      { id: 'voltar', titulo: 'Para seguir de volta', pessoas: waiting },
+      { id: 'todas', titulo: 'Suas pessoas', pessoas: all.filter((x) => !waiting.includes(x)) },
+    ].filter((g) => g.pessoas.length);
+  });
+  /**
+   * O começo de tudo: a lista chegou, ninguém é seguido e nada chegou. O Feed mostra só o bilhete com
+   * o primeiro passo, sem o quadro de avisos ao lado repetindo que não há nada.
+   */
+  protected readonly starting = computed(() => !!this.people() && !this.followingCount() && !this.posts().length && !this.notices().length);
   /** A pessoa com as opções abertas na lista (uma por vez). */
   protected readonly openRow = signal<string | null>(null);
   /** O estado do mural de cada pessoa que tem resenha no Feed. */
@@ -251,11 +204,11 @@ export class MailPage {
   private readonly freshSince = signal<{ at: string | null; keys: ReadonlySet<string> } | undefined>(undefined);
 
   protected readonly code = signal('');
-  /** O bilhete de seguir na coluna do lado: guardado até a pessoa pedir. */
-  protected readonly followOpen = signal(false);
   protected readonly followError = signal<string | null>(null);
   /** O pedido em andamento: 'form', ou 'código:ação' (a ação mostra o aro; a linha toda espera). */
   protected readonly busy = signal<string | null>(null);
+  /** O código de quem está sendo seguido de volta agora (para o botão do aviso esperar). */
+  protected readonly followingBack = computed(() => (this.busy()?.endsWith(':seguir') ? this.busy()!.slice(0, -':seguir'.length) : null));
 
   protected isBusy(code: string, action: string): boolean {
     return this.busy() === `${code}:${action}`;
@@ -269,6 +222,19 @@ export class MailPage {
   private readonly walls = computed(() => {
     const out = new Map<string, Colleague>();
     for (const c of this.colleagues.colleagues()) if (c.codigo) out.set(c.codigo, c);
+    return out;
+  });
+  /**
+   * A foto do perfil de cada pessoa (o emoji na cartolina), pelo código: a do cartão que vem com as
+   * minhas listas de Seguindo e Seguidores e, de quem tem o mural aberto aqui, a do perfil dele (a mais
+   * nova). Quem não tem foto fica com a inicial.
+   */
+  protected readonly faces = computed<ReadonlyMap<string, PersonFace>>(() => {
+    const out = new Map<string, PersonFace>();
+    const me = this.account.account()?.codigo;
+    const lists = me ? this.profilePeople.of(me)?.listas : undefined;
+    for (const p of [...(lists?.seguindo ?? []), ...(lists?.seguidores ?? [])]) if (p.cartao) out.set(p.codigo, { emoji: p.cartao.emoji, cor: p.cartao.cor });
+    for (const [code, c] of this.walls()) if (c.profile) out.set(code, { emoji: c.profile.emoji, cor: c.profile.photo });
     return out;
   });
   private readonly myReviews = computed(() => this.store.reviews().filter((r) => !r.revisitOf));
@@ -297,7 +263,7 @@ export class MailPage {
     });
     // as reações e os comentários das fichas de quem aparece aqui (todo mundo vê; quem segue também reage e comenta)
     effect(() => {
-      const codes = new Set(this.blocks().flatMap((b) => (b.tipo === 'pessoa' ? [b.pessoa.codigo] : [])));
+      const codes = new Set(this.posts().map((p) => p.item.pessoa.codigo));
       untracked(() =>
         codes.forEach((code) => {
           void this.reactions.load(code);
@@ -321,6 +287,9 @@ export class MailPage {
       () => this.peopleError.set(null),
       (e) => this.peopleError.set(e instanceof Error ? e.message : 'Não consegui buscar as pessoas.'),
     );
+    // as fotos de perfil de quem eu sigo e de quem me segue vêm com as minhas listas (sem elas, a inicial)
+    const me = this.account.account()?.codigo;
+    if (me) void this.profilePeople.load(me, true);
     await this.fetchWalls(true);
     this.opened = true;
     await this.follow.markSeen();
@@ -385,21 +354,24 @@ export class MailPage {
     void this.router.navigate([], { relativeTo: this.route, queryParams: { aba: id === 'chegou' ? null : id }, replaceUrl: true });
   }
 
+  /** As setas andam pelas abas (dão a volta); Home e End vão às pontas. */
   protected onTabKey(e: KeyboardEvent): void {
     const i = TABS.indexOf(this.tab());
-    const next = e.key === 'ArrowRight' || e.key === 'End' ? 1 : e.key === 'ArrowLeft' || e.key === 'Home' ? 0 : -1;
+    const last = TABS.length - 1;
+    const next =
+      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+        ? (i + 1) % TABS.length
+        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+          ? (i + last) % TABS.length
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? last
+              : -1;
     if (next < 0 || next === i) return;
     e.preventDefault();
     this.go(TABS[next]);
     queueMicrotask(() => document.getElementById(`aba-${TABS[next]}`)?.focus());
-  }
-
-  protected tilt(i: number): number {
-    return TILTS[i % TILTS.length];
-  }
-
-  protected when(day: string): string {
-    return dayLabel(day);
   }
 
   protected isFresh(item: FeedItem): boolean {
@@ -407,97 +379,25 @@ export class MailPage {
     return since !== undefined && isUnseen(item, since.at, since.keys);
   }
 
-  /** "Bia", "Bia e Caio", "Bia, Caio e mais 2". */
-  protected reactedNames(b: Reacted): string {
-    return this.peopleNames(b.who.map((w) => w.pessoa));
+  /** Abre a ficha do amigo no leitor (com `comments`, já na folha de comentários). */
+  protected openPost(p: FeedPostData, comments: boolean): void {
+    if (!p.theirs) return;
+    if (comments) this.comments.want(p.theirs.id);
+    this.openReview(p.theirs, p.item.pessoa, p.secret);
   }
 
-  protected peopleNames(people: readonly Person[]): string {
-    const names = people.map((p) => p.nome);
-    if (names.length <= 2) return names.join(' e ');
-    return `${names.slice(0, 2).join(', ')} e mais ${names.length - 2}`;
-  }
-
-  /** "na sua ficha de" (Hades), ou "na sua anotação" (Compras). */
-  protected commentedWhat(b: Commented): string {
-    return b.item.mural === 'anotacoes' ? 'na sua anotação' : 'na sua ficha de';
-  }
-
-  /** O que o leitor de tela diz do bilhete: "Bia comentou na sua ficha de Hades". */
-  protected commentedSpoken(b: Commented): string {
-    return `${this.peopleNames(b.who)} ${b.who.length > 1 ? 'comentaram' : 'comentou'} ${this.commentedWhat(b)} ${b.titulo}`;
+  /** Um aviso tocado: a minha ficha que recebeu a reação, ou os comentários dela. */
+  protected openNotice(n: CardNotice): void {
+    const mine = this.store.get(n.item.ref);
+    if (!mine) return;
+    if (n.tipo === 'comentou') this.openMyComments(mine);
+    else this.desk.openReview(mine.id);
   }
 
   /** Abre a minha ficha já com os comentários à mostra. */
   protected openMyComments(r: Review): void {
     this.comments.want(r.id);
     this.desk.openReview(r.id);
-  }
-
-  /** "Comentar", ou quantos comentários a ficha do amigo já tem. */
-  protected commentLabel(p: Post): string {
-    const n = this.comments.countOf(p.target.code, p.target.ref);
-    return n ? spokenComments(n) : 'Comentar';
-  }
-
-  /** Abre a ficha do amigo já com os comentários à mostra. */
-  protected openComments(r: Review, who: Person, secret = false): void {
-    this.comments.want(r.id);
-    this.openReview(r, who, secret);
-  }
-
-  /** As reações do bilhete, sem repetir. */
-  protected reactedEmojis(b: Reacted): string[] {
-    return [...new Set(b.who.map((w) => reactionOf(w.reacao).emoji))];
-  }
-
-  /** "à sua ficha de Hades", ou "à sua anotação Compras". */
-  protected reactedWhat(b: Reacted): string {
-    return b.item.mural === 'anotacoes' ? 'à sua anotação' : 'à sua ficha de';
-  }
-
-  /** O que o leitor de tela diz do bilhete: "Bia reagiu com Fogo à sua ficha de Hades". */
-  protected reactedSpoken(b: Reacted): string {
-    const how = [...new Set(b.who.map((w) => reactionOf(w.reacao).label))].join(', ');
-    return `${this.reactedNames(b)} ${b.who.length > 1 ? 'reagiram' : 'reagiu'} com ${how} ${this.reactedWhat(b)} ${b.titulo}`;
-  }
-
-  /** A minha ficha que recebeu a reação (ou o comentário), se ela ainda está no mural. */
-  protected reactedReview(b: Pick<Reacted, 'ref'>): Review | null {
-    return this.store.get(b.ref) ?? null;
-  }
-
-  /** Abre a minha ficha que recebeu a reação, no leitor de sempre (com as reações embaixo). */
-  protected openMine(r: Review): void {
-    this.desk.openReview(r.id);
-  }
-
-  /** "avaliou", "escreveu uma rejogada" (releitura, reassistida), ou "publicou uma anotação". */
-  protected verb(r: Review): string {
-    if (isNote(r)) return 'publicou uma anotação';
-    return r.revisitOf ? `escreveu uma ${profileOf(r.kind).revisit.one}` : 'avaliou';
-  }
-
-  /** O que vai na fita da pessoa: o verbo da ficha, quando é uma só; senão, pelo que chegou. */
-  protected blockVerb(posts: readonly Post[]): string {
-    if (posts.length === 1 && posts[0].theirs) return this.verb(posts[0].theirs);
-    const notes = posts.filter((p) => this.isNotePost(p)).length;
-    return notes === posts.length ? 'publicou anotações' : notes ? 'publicou' : 'avaliou';
-  }
-
-  /** O post é de uma anotação (sem nota, sem placar, sem wishlist)? */
-  protected isNotePost(p: Post): boolean {
-    return p.item.mural === 'anotacoes';
-  }
-
-  /** A nota do amigo menos a minha, como aparecem (Arredondado e Inteiros mudam a conta). */
-  protected delta(theirs: Review, mine: Review): number {
-    return Math.round((shownFinal(theirs) - shownFinal(mine)) * 10) / 10;
-  }
-
-  /** "+1,4", "−0,8". */
-  protected signed(d: number): string {
-    return `${d > 0 ? '+' : '−'}${formatScore(Math.abs(d))}`;
   }
 
   protected reviewOf(code: string, ref: string): Review | null {
@@ -516,18 +416,8 @@ export class MailPage {
     return compareCollections(this.myReviews(), [asWork]).pairs[0]?.mine ?? null;
   }
 
-
-  protected shown(r: Review): number {
-    return shownFinal(r);
-  }
-
   protected isWished(r: Review): boolean {
     return this.wished().has(`${r.kind}:${fold(r.game.name)}`);
-  }
-
-  protected wantLabel(r: Review): string {
-    const p = profileOf(r.kind);
-    return `Quero ${p.verb}`;
   }
 
   protected wish(r: Review): void {
@@ -543,14 +433,15 @@ export class MailPage {
     this.reader().open(r, wall?.name ?? who.nome, wall?.reviews.filter((x) => x.kind === r.kind) ?? [], secret, who.codigo);
   }
 
-  /** A inicial do crachazinho de cada pessoa na lista. */
-  protected initial(name: string): string {
-    return (name.trim()[0] ?? '?').toLocaleUpperCase('pt-BR');
-  }
-
   /** O nome de alguém leva ao perfil da pessoa (de lá, cada pasta abre um mural dela). */
   protected openProfile(who: Pick<Person, 'codigo'>): void {
     void this.router.navigate(['/perfil', who.codigo]);
+  }
+
+  /** "Seguir alguém", de fora da aba Pessoas: vai para ela, com o foco no campo do código. */
+  protected goFollow(): void {
+    this.go('pessoas');
+    focusAfterRender(this.injector, () => document.getElementById('codigo-seguir'));
   }
 
   protected async followCode(e: Event): Promise<void> {
@@ -561,7 +452,6 @@ export class MailPage {
     try {
       const p = await this.follow.follow(this.code());
       this.code.set('');
-      this.followOpen.set(false);
       this.toasts.show(`Agora você segue ${p.nome}`);
     } catch (err) {
       this.followError.set(err instanceof Error ? err.message : 'Não consegui seguir agora.');
@@ -580,21 +470,8 @@ export class MailPage {
   protected async toggleMute(p: { codigo: string; nome: string; silenciado: boolean }): Promise<void> {
     await this.run(`${p.codigo}:silenciar`, async () => {
       await this.follow.mute(p.codigo, !p.silenciado);
-      this.toasts.show(p.silenciado ? `${p.nome} volta a contar no número da aba` : `${p.nome} não conta mais no número da aba`);
+      this.toasts.show(p.silenciado ? `${p.nome} volta a contar no número do botão` : `${p.nome} não conta mais no número do botão`);
     });
-  }
-
-  protected openFollow(): void {
-    this.followOpen.set(true);
-    focusAfterRender(this.injector, () => document.getElementById('codigo-lado'));
-  }
-  private readonly injector = inject(Injector);
-
-  /** "Agora não" ou Esc: guarda o bilhete e devolve o foco ao botão que o abriu. */
-  protected closeFollow(): void {
-    this.followOpen.set(false);
-    this.followError.set(null);
-    focusAfterRender(this.injector, () => document.querySelector<HTMLElement>('.abrir-seguir'));
   }
 
   protected toggleRow(code: string): void {

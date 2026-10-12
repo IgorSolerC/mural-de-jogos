@@ -26,6 +26,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-amigos-em-feed-avisos-e-pessoas',
+    version: '1.35.2',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'Amigos de cara nova: Feed, Avisos e Pessoas',
+    items: [
+      'A aba Amigos foi redesenhada. O Feed agora é só o que quem você segue pregou, um post por ficha: em cima a foto do perfil, o nome (que abre o perfil) e há quanto tempo; no meio a ficha de verdade; embaixo o Reagir, as reações dos outros e o Comentar, com quantos comentários a ficha tem.',
+      'Na ponta do pé de cada post fica a diferença para a sua nota ("+1,4 que você", na caneta azul) quando você avaliou a mesma obra; se ainda não avaliou, o "Quero jogar" manda para a wishlist. A reação que você deu fica à mostra no botão.',
+      'Os avisos saíram do meio das fichas. Quem começou a seguir você, reagiu ou comentou numa ficha sua aparece num quadro de avisos ao lado do Feed (nas telas largas) e na parte nova "Avisos"; a etiqueta mostra quantos são novos. Tocar num aviso abre a sua ficha, já nos comentários quando o aviso é de comentário.',
+      'Pessoas ficou mais direta: seguir pelo código em cima, o seu crachá com o código ao lado (para copiar e mandar), quem espera você seguir de volta primeiro, e as opções de cada pessoa no "⋯".',
+      'As fotos de perfil (o emoji na cartolina) agora aparecem nos posts, nos avisos e na lista de pessoas. Quem ainda não tem foto fica com a inicial.',
+    ],
+  },
+  {
     id: '2026-10-12-fechar-os-comentarios-nao-rola-a-ficha',
     version: '1.35.1',
     kind: 'correcao',

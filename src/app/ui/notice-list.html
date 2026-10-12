@@ -1,0 +1,75 @@
+<ol class="avisos">
+  @for (n of notices(); track n.key) {
+    @let isNew = fresh().has(n.key);
+    <li class="aviso" [class.de-agora]="isNew">
+      <!-- quem foi (até duas fotos) e, no remendo, o que fez -->
+      <span class="fotos" aria-hidden="true">
+        @for (p of n.people.slice(0, 2); track p.codigo) {
+          <app-person-photo [code]="p.codigo" [name]="p.nome" [face]="faces().get(p.codigo)" />
+        }
+        <span class="selo">
+          @switch (n.tipo) {
+            @case ('reagiu') {
+              @for (e of emojis(n); track e) {
+                <span>{{ e }}</span>
+              }
+            }
+            @case ('comentou') {
+              <lucide-icon [img]="CommentIcon" [size]="13" [strokeWidth]="2.6" />
+            }
+            @default {
+              <lucide-icon [img]="FollowIcon" [size]="13" [strokeWidth]="2.8" />
+            }
+          }
+        </span>
+      </span>
+
+      <div class="corpo">
+        <p class="texto">
+          <span class="sr-only">{{ spoken(n) }}. </span>
+          <span aria-hidden="true">
+            @if (n.people.length === 1) {
+              <span class="gente">{{ n.people[0].nome }}</span>
+            } @else {
+              <span class="gente">{{ names(n.people) }}</span>
+            }
+            {{ verb(n) }}
+            @if (n.tipo !== 'seguiu') {
+              {{ where(n) }} <span class="obra">{{ n.item.titulo }}</span>
+            }
+          </span>
+        </p>
+        <p class="meta">
+          <time [attr.datetime]="n.item.em" [title]="full(n)">{{ ago(n) }}</time>
+          @if (isNew) {
+            <span class="novo">Novo</span>
+          }
+        </p>
+      </div>
+
+      <!-- o que a linha abre: a minha ficha, ou o perfil de quem começou a seguir (o botão cobre a linha) -->
+      @if (n.tipo === 'seguiu') {
+        <button type="button" class="abre" [attr.aria-label]="'Ver o perfil de ' + n.item.pessoa.nome" (click)="profile.emit(n.item.pessoa)"></button>
+        @if (mutual(n)) {
+          <span class="mutuo">
+            <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+            Vocês se seguem
+          </span>
+        } @else {
+          <button
+            type="button"
+            class="seguir"
+            [disabled]="waiting()"
+            [appBusy]="following() === n.item.pessoa.codigo"
+            [attr.aria-label]="'Seguir ' + n.item.pessoa.nome + ' de volta'"
+            (click)="followBack.emit(n.item.pessoa)"
+          >
+            {{ following() === n.item.pessoa.codigo ? 'Seguindo…' : 'Seguir de volta' }}
+          </button>
+        }
+      } @else if (has(n)) {
+        <button type="button" class="abre" [attr.aria-label]="openLabel(n)" (click)="card.emit(n)"></button>
+      }
+    </li>
+  }
+</ol>

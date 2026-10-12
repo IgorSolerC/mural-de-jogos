@@ -1,0 +1,362 @@
+:host {
+  display: block;
+  min-width: 0;
+  /* o pé do post se mede pela largura do próprio post */
+  container: post / inline-size;
+}
+
+/* ===== Quem pregou: a foto, o nome a pincel e o que fez, a giz na parede ===== */
+.quem {
+  --foto: 44px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 16px;
+  padding-inline: 2px;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
+.quem-txt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 9px;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+/* o nome abre o perfil: sublinhado fino a giz, que engrossa quando o mouse chega */
+.nome {
+  max-width: 100%;
+  /* o toque passa um pouco da letra, para cima e para baixo */
+  margin-block: -5px;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  color: var(--wall-ink);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-synthesis: none;
+  font-size: 1.45rem;
+  line-height: 1.15;
+  text-align: left;
+  /* a sombra borrada do giz entope as letras do pincel: aqui, só um fio embaixo */
+  text-shadow: 0 1px 0 rgb(0 0 0 / 0.6);
+  overflow-wrap: anywhere;
+  text-decoration: underline 2px rgb(243 239 230 / 0.35);
+  text-underline-offset: 5px;
+  cursor: pointer;
+  transition: text-decoration-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    text-decoration-color: var(--wall-ink);
+  }
+}
+
+.verbo {
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  color: var(--wall-ink-2);
+}
+
+.quando {
+  align-self: start;
+  padding-top: 7px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--wall-ink-2);
+}
+
+/* ===== A ficha: na largura exata de uma ficha do mural (quem usa dá a largura do post) ===== */
+.lugar {
+  position: relative;
+
+  app-review-card {
+    display: block;
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* "Novo": o adesivo de tinta com a letra amarela, apertado na quina de cima da ficha */
+.novo {
+  position: absolute;
+  z-index: 3;
+  top: -14px;
+  right: 22px;
+  padding: 6px 11px 5px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  rotate: 5deg;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 4px 8px -3px rgb(0 0 0 / 0.4);
+  pointer-events: none;
+  animation: aperta 360ms var(--ease-physical) both;
+}
+
+@keyframes aperta {
+  from {
+    opacity: 0;
+    scale: 1.5;
+    rotate: 14deg;
+  }
+}
+
+/* ===== Sem a ficha: uma cartolina em branco com o nome da obra ===== */
+.espera {
+  --stock: var(--stock-cinza);
+  --focus: var(--ink);
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 12px;
+  width: 100%;
+  min-height: 176px;
+  padding: 34px 22px 24px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+  rotate: -0.6deg;
+}
+
+/* o furo da tachinha, no meio do alto */
+.furo {
+  position: absolute;
+  top: 12px;
+  left: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(21 21 21 / 0.55);
+  box-shadow:
+    inset 0 1px 1px rgb(0 0 0 / 0.5),
+    0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.espera-titulo {
+  font-family: var(--f-marker);
+  font-size: 1.5rem;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.espera-txt {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+.tentar {
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 8px 16px 7px;
+  font-size: 1.02rem;
+}
+
+/* saiu do mural: só o lugar onde a ficha estava, tracejado na parede, escrito a giz */
+.espera.saiu {
+  min-height: 0;
+  background: none;
+  box-shadow: none;
+  outline: 2px dashed rgb(243 239 230 / 0.32);
+  outline-offset: -2px;
+  color: var(--wall-ink-2);
+  rotate: 0deg;
+
+  .furo {
+    background: rgb(0 0 0 / 0.6);
+    box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.6);
+  }
+
+  .espera-titulo {
+    color: var(--wall-ink);
+  }
+}
+
+/* ===== O pé do post: as ações a giz e, na ponta, o bilhete da nota (ou o "Quero jogar") ===== */
+.pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-height: 48px;
+  margin-top: 14px;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  /* o desenho do primeiro botão alinha com a beirada da ficha */
+  margin-left: -10px;
+}
+
+/* as reações dos outros, no remendo das fichas, entre o Reagir e o Comentar */
+.contagem {
+  display: inline-flex;
+  margin: 0 6px 0 4px;
+}
+
+/* um botão a giz: o desenho e uma palavra, no tamanho do dedo (o Reagir é o mesmo, em ui/reactions) */
+.acao {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(243 239 230 / 0.1);
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* o que fica na ponta direita do pé */
+.querer,
+.guardada,
+.placar {
+  margin-left: auto;
+}
+
+.querer {
+  margin-right: -10px;
+}
+
+.guardada {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* "+1,4 que você": um bilhete de papel, com o número na caneta azul do amigo (como no Comparar) */
+.placar {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  padding: 7px 13px 7px 14px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  rotate: 1.2deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 6px 10px -5px rgb(0 0 0 / 0.6);
+}
+
+.placar-linha {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.placar-n {
+  font-family: var(--f-marker);
+  font-size: 1.7rem;
+  line-height: 0.95;
+  color: var(--caneta-azul);
+  font-variant-numeric: tabular-nums;
+}
+
+.placar-txt {
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.1;
+}
+
+.placar-voce {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* com a ficha em segredo o pé ganha o Revelar, e o Comentar fica só com o balão (o nome continua no
+   botão, para o leitor de tela e no mouse parado); num post bem estreito, o "Quero jogar" também */
+.com-segredo .comentar .palavra {
+  display: none;
+}
+
+@container post (max-width: 370px) {
+  .com-segredo .querer .palavra {
+    display: none;
+  }
+}
+
+/* num post estreito a hora desce para baixo do nome: a linha de quem pregou nunca passa de duas */
+@container post (max-width: 400px) {
+  .quem {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .quem app-person-photo {
+    grid-row: 1 / span 2;
+  }
+
+  .quando {
+    grid-column: 2;
+    padding-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .novo {
+    animation: none;
+  }
+
+  .nome,
+  .acao {
+    transition: none;
+  }
+}

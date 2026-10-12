@@ -1,0 +1,107 @@
+@let p = post();
+<article class="post" [attr.aria-labelledby]="titleId()">
+  <h2 class="sr-only" [id]="titleId()">{{ who().nome }} {{ verb() }}: {{ p.item.titulo }}, {{ ago() }}@if (fresh()) { (novo)}</h2>
+
+  <!-- quem pregou e há quanto tempo, a giz na parede: o nome leva ao perfil da pessoa -->
+  <header class="quem">
+    <app-person-photo [code]="who().codigo" [name]="who().nome" [face]="face()" />
+    <p class="quem-txt">
+      <button type="button" class="nome" [attr.aria-label]="'Ver o perfil de ' + who().nome" (click)="profile.emit()">{{ who().nome }}</button>
+      <span class="verbo">{{ verb() }}</span>
+    </p>
+    <time class="quando" [attr.datetime]="p.item.em" [title]="full()">{{ ago() }}</time>
+  </header>
+
+  <div class="lugar">
+    @if (fresh()) {
+      <span class="novo" aria-hidden="true">Novo</span>
+    }
+    @if (p.theirs; as theirs) {
+      <!-- sem os remendos na quina: no Feed, as reações e os comentários da ficha moram no pé do post -->
+      <app-review-card [review]="theirs" [preview]="true" [masked]="p.secret" (opened)="opened.emit({ comments: false })" />
+    } @else {
+      <!-- sem a ficha: uma cartolina em branco com o nome da obra, dizendo o porquê -->
+      <div class="cartolina espera" [class.saiu]="p.estado === 'saiu'" data-cor="cinza">
+        <span class="furo" aria-hidden="true"></span>
+        <p class="espera-titulo">{{ p.item.titulo }}</p>
+        @switch (p.estado) {
+          @case ('buscando') {
+            <p class="espera-txt" role="status">
+              <span class="carregando" aria-hidden="true"></span>
+              Buscando a ficha no mural de {{ who().nome }}…
+            </p>
+          }
+          @case ('erro') {
+            <p class="espera-txt">Não consegui buscar o mural de {{ who().nome }} agora.</p>
+            <button type="button" class="btn-ink tentar" (click)="retry.emit()">
+              <lucide-icon [img]="RetryIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              Tentar de novo
+            </button>
+          }
+          @default {
+            <p class="espera-txt">{{ who().nome }} tirou essa ficha do mural.</p>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  @if (p.theirs; as theirs) {
+    <!-- o pé do post: o que dá para fazer com a ficha e, na ponta, a minha nota contra a do amigo -->
+    <footer class="pe" [class.com-segredo]="p.secret">
+      <div class="acoes">
+        @if (canReact()) {
+          <app-reaction-picker [target]="p.target" [wall]="true" />
+        }
+        @if (othersReacted()) {
+          <!-- as reações dos outros: o remendo de feltro das fichas, que abre quem reagiu -->
+          <span class="contagem"><app-reaction-bubble [target]="p.target" /></span>
+        }
+        <!-- ler os comentários, todo mundo lê; a folha diz quem pode escrever -->
+        <button type="button" class="acao comentar" [attr.aria-label]="commentSpoken()" [title]="commentCount() ? '' : 'Comentar'" (click)="opened.emit({ comments: true })">
+          <lucide-icon [img]="CommentIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          @if (commentCount(); as n) {
+            <span aria-hidden="true">{{ n }}</span>
+          } @else {
+            <span class="palavra" aria-hidden="true">Comentar</span>
+          }
+        </button>
+        @if (p.secret) {
+          <!-- em segredo: revelar mostra a nota e o texto só desta ficha, só desta vez -->
+          <button type="button" class="acao" [attr.aria-label]="'Revelar spoilers: ' + theirs.game.name" (click)="revealed.emit()">
+            <lucide-icon [img]="RevealIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <span aria-hidden="true">Revelar</span>
+          </button>
+        }
+      </div>
+
+      @if (!note()) {
+        @if (p.mine; as mine) {
+          <p class="placar">
+            <span class="sr-only">{{ delta() === 0 ? who().nome + ' deu a mesma nota que você.' : who().nome + ' deu ' + signed() + ' que você.' }}</span>
+            <span class="placar-linha" aria-hidden="true">
+              @if (delta() === 0) {
+                <span class="placar-n">=</span>
+                <span class="placar-txt">a mesma nota</span>
+              } @else {
+                <span class="placar-n">{{ signed() }}</span>
+                <span class="placar-txt">que você</span>
+              }
+            </span>
+            <span class="placar-voce">Você deu {{ formatScore(mine.scores.final) }}</span>
+          </p>
+        } @else if (wished()) {
+          <p class="guardada">
+            <lucide-icon [img]="WishedIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            Na sua wishlist
+          </p>
+        } @else {
+          <button type="button" class="acao querer" [attr.aria-label]="wantLabel()" [title]="wantLabel()" (click)="wish.emit()">
+            <lucide-icon [img]="WishIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <span class="palavra" aria-hidden="true">{{ wantLabel() }}</span>
+          </button>
+        }
+      }
+    </footer>
+  }
+</article>

@@ -147,17 +147,19 @@ const PANEL_ROOM = 330;
       [attr.aria-expanded]="open()"
       aria-haspopup="true"
       [class.quieto]="quiet()"
+      [class.giz]="wall()"
+      [class.dada]="wall() && !!mine()"
       [attr.aria-label]="mine() ? 'Sua reação: ' + mineKind()!.label + '. Trocar' : 'Reagir'"
-      [title]="quiet() ? (mineKind()?.label ?? 'Reagir') : ''"
+      [title]="quiet() || wall() ? (mineKind()?.label ?? 'Reagir') : ''"
       (click)="toggle()"
     >
       @if (mineKind(); as k) {
         <span class="minha" aria-hidden="true">{{ k.emoji }}</span>
         @if (!quiet()) {
-          <span aria-hidden="true">{{ k.label }}</span>
+          <span class="rp-nome" aria-hidden="true">{{ k.label }}</span>
         }
       } @else {
-        <lucide-icon [img]="ReactIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+        <lucide-icon [img]="ReactIcon" [size]="wall() ? 19 : 17" [strokeWidth]="2.4" aria-hidden="true" />
         @if (!quiet()) {
           <span aria-hidden="true">Reagir</span>
         }
@@ -225,6 +227,55 @@ const PANEL_ROOM = 330;
     .reagir.quieto:hover,
     .reagir.quieto[aria-expanded='true'] {
       color: var(--ink);
+    }
+    /* na parede (o pé de um post do Feed): giz em vez de caneta, num botão do tamanho do dedo */
+    .reagir.giz {
+      gap: 7px;
+      min-height: 44px;
+      margin: 0;
+      padding: 0 12px;
+      border-radius: 22px;
+      color: var(--wall-ink);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+    .reagir.giz:hover {
+      background: rgb(243 239 230 / 0.1);
+    }
+    .reagir.giz:focus-visible {
+      outline-color: var(--hi);
+    }
+    /* a reação que você deu fica à mostra: o botão vira o remendo de feltro, com o seu emoji */
+    .reagir.giz.dada {
+      background-color: #f8f0dc;
+      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
+      background-size: 4px 4px;
+      color: #151515;
+      outline: 1.5px dashed rgb(122 74 38 / 0.6);
+      outline-offset: -5px;
+      box-shadow:
+        0 1px 1px rgb(0 0 0 / 0.35),
+        0 3px 6px -3px rgb(0 0 0 / 0.45);
+      rotate: -1.5deg;
+    }
+    .reagir.giz.dada:focus-visible {
+      box-shadow:
+        0 0 0 3px var(--hi),
+        0 3px 6px -3px rgb(0 0 0 / 0.45);
+    }
+    /* num post estreito (o Feed no celular) a reação dada fica só com o emoji, para o bilhete da nota
+       caber na mesma linha; o nome continua no botão, para o leitor de tela e no mouse parado */
+    @container (max-width: 400px) {
+      .reagir.giz.dada .rp-nome {
+        display: none;
+      }
+      .reagir.giz.dada {
+        padding: 0 11px;
+      }
     }
     /* o botão quieto mora na ponta direita da linha: a fileira cresce para a esquerda dele */
     :host(.rp-quieto) .fileira {
@@ -342,6 +393,8 @@ export class ReactionPicker {
   readonly picked = output<ReactionId | null>();
   /** Só o desenho no botão, sem a palavra. */
   readonly quiet = input(false);
+  /** O botão escrito a giz, direto na parede (o pé de um post do Feed). */
+  readonly wall = input(false);
   /** A fileira abre por baixo do botão (não cabia em cima, dentro da folha que rola). */
   protected readonly below = signal(false);
   protected readonly ReactIcon = SmilePlus;

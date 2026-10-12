@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { Cloud } from './cloud-config';
 import { CloudAccount } from './cloud-account';
-import { FeedItem, Follow, dayLabel, localDayOf, parseFeed, parsePeople, unseenCount, visibleFeed } from './follow';
+import { FeedItem, Follow, agoLabel, dayLabel, fullWhen, localDayOf, parseFeed, parsePeople, unseenCount, visibleFeed } from './follow';
 
 const ana = { codigo: 'AAAA-1111', nome: 'Ana' };
 const bia = { codigo: 'BBBB-2222', nome: 'Bia' };
@@ -52,6 +52,25 @@ describe('correio', () => {
     expect(dayLabel('2026-10-05', now)).toBe('ontem');
     expect(dayLabel('2026-10-03', now)).toBe('3 de outubro');
     expect(dayLabel('2025-12-31', now)).toBe('31 de dezembro de 2025');
+  });
+
+  it('há quanto tempo: agora, minutos e horas no primeiro dia; depois, o dia', () => {
+    const now = new Date(2026, 9, 6, 12, 0, 0);
+    const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000).toISOString();
+    expect(agoLabel(ago(0), now)).toBe('agora');
+    expect(agoLabel(ago(0.9), now)).toBe('agora');
+    expect(agoLabel(ago(1), now)).toBe('há 1 min');
+    expect(agoLabel(ago(59), now)).toBe('há 59 min');
+    expect(agoLabel(ago(60), now)).toBe('há 1 h');
+    expect(agoLabel(ago(23 * 60 + 59), now)).toBe('há 23 h');
+    expect(agoLabel(ago(24 * 60), now)).toBe('ontem');
+    expect(agoLabel(ago(3 * 24 * 60), now)).toBe('3 de outubro');
+    // o relógio daqui atrasado: um instante "do futuro" é agora, nunca um número negativo
+    expect(agoLabel(ago(-5), now)).toBe('agora');
+  });
+
+  it('o instante por extenso, para quem passa o mouse', () => {
+    expect(fullWhen(new Date(2026, 9, 6, 9, 5).toISOString())).toMatch(/^6 de outubro de 2026.*09:05$/);
   });
 
   it('lê as listas de pessoas', () => {
