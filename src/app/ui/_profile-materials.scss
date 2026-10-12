@@ -113,14 +113,17 @@
   }
 }
 
-/* As paredes do perfil (ver PAGE_BACKGROUNDS em core/profile.ts): a página inteira atrás do perfil e a
-   prévia nas Configurações. Todas escuras, para o giz, as fitas e os títulos da parede lerem bem.
-   Quem inclui escolhe pelo data-parede; cada uma tem a luz de cima e o canto mais escuro. */
+/* As paredes (ver PAGE_BACKGROUNDS em core/profile.ts): atrás do site inteiro, do perfil e da prévia
+   nas Configurações. Todas escuras, para o giz, as fitas e os títulos da parede lerem bem. Quem inclui
+   escolhe pelo data-parede. Os desenhos grandes ficam em public/paredes/<id>.svg (e <id>-2.svg), que
+   ui/page-wall põe em --arte e --arte-2: só a parede escolhida é baixada. Todos os ladrilhos emendam
+   sem marca (o que passa da beirada volta do outro lado; o ruído tem a região do filtro do tamanho
+   do ladrilho). Gerado por um script: mexer nos números à mão é seguro, nos desenhos não. */
 @mixin paredes {
-  /* a fibra e a tinta irregular, a mesma em todas (fica numa variável para não repetir o desenho) */
+  /* a fibra e a tinta irregular, a mesma em várias (fica numa variável para não repetir o desenho) */
   --grao-parede: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
-  /* Eucatex grafite: a parede do site, com os furos (na página ela nem é pintada: é a do site) */
+  /* Eucatex grafite: a parede do site, com os furos */
   &[data-parede='eucatex'] {
     background-color: #1f1c1a;
     background-image:
@@ -139,7 +142,7 @@
     background-image:
       radial-gradient(ellipse 110% 70% at 50% -10%, rgb(130 185 255 / 0.18), transparent 70%),
       radial-gradient(ellipse at center, transparent 55%, rgb(2 14 38 / 0.5)),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='960' fill='none' stroke='%23e6f0ff' stroke-width='1.3' stroke-opacity='.22'%3E %3Ccircle cx='190' cy='200' r='58'/%3E%3Ccircle cx='190' cy='200' r='22'/%3E %3Cpath d='M110 200h160M190 120v160' stroke-dasharray='14 5 3 5'/%3E %3Cpath d='M120 330h140M120 322v16M260 322v16M120 330l10-4v8zM260 330l-10-4v8z'/%3E %3Ctext x='176' y='322' fill='%23e6f0ff' fill-opacity='.3' stroke='none' font-family='monospace' font-size='12'%3E140%3C/text%3E %3Crect x='520' y='120' width='250' height='150'/%3E %3Ccircle cx='555' cy='155' r='9'/%3E%3Ccircle cx='735' cy='155' r='9'/%3E%3Ccircle cx='555' cy='235' r='9'/%3E%3Ccircle cx='735' cy='235' r='9'/%3E %3Cpath d='M520 270l250-150' stroke-dasharray='6 6'/%3E %3Cpath d='M500 120v150M492 120h16M492 270h16'/%3E %3Cpath d='M300 560a120 120 0 0 1 240 0' /%3E%3Cpath d='M300 560h240M420 560v-120' stroke-dasharray='10 6'/%3E %3Cpath d='M120 700l60-60 60 60-60 60z'/%3E%3Ccircle cx='180' cy='700' r='4'/%3E %3Cpath d='M660 480l40 70h-80z'/%3E %3Crect x='640' y='780' width='260' height='120'/%3E%3Cpath d='M640 820h260M640 860h260M760 780v120'/%3E %3Ctext x='652' y='808' fill='%23e6f0ff' fill-opacity='.32' stroke='none' font-family='monospace' font-size='13' letter-spacing='2'%3EMEU MURAL%3C/text%3E %3Ctext x='652' y='848' fill='%23e6f0ff' fill-opacity='.28' stroke='none' font-family='monospace' font-size='11' letter-spacing='1'%3EPLANTA 01%3C/text%3E %3Ctext x='772' y='848' fill='%23e6f0ff' fill-opacity='.28' stroke='none' font-family='monospace' font-size='11' letter-spacing='1'%3EESC 1:50%3C/text%3E %3Ctext x='652' y='888' fill='%23e6f0ff' fill-opacity='.28' stroke='none' font-family='monospace' font-size='11' letter-spacing='1'%3EREV. A%3C/text%3E %3Cpath d='M60 860h300' stroke-dasharray='2 6'/%3E%3Cpath d='M860 60v300' stroke-dasharray='2 6'/%3E %3C/svg%3E"),
+      var(--arte),
       linear-gradient(rgb(220 235 255 / 0.15) 1px, transparent 1px),
       linear-gradient(90deg, rgb(220 235 255 / 0.15) 1px, transparent 1px),
       linear-gradient(rgb(220 235 255 / 0.065) 1px, transparent 1px),
@@ -156,8 +159,8 @@
     background-image:
       radial-gradient(ellipse 110% 70% at 50% -10%, rgb(235 255 240 / 0.09), transparent 70%),
       radial-gradient(ellipse at center, transparent 50%, rgb(5 14 10 / 0.5)),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1100' height='800' fill='none' stroke='%23fff' stroke-linecap='round'%3E %3Cfilter id='b' x='-30%25' y='-30%25' width='160%25' height='160%25'%3E%3CfeGaussianBlur stdDeviation='9'/%3E%3C/filter%3E %3Cg filter='url(%23b)' stroke-opacity='.05' stroke-width='60'%3E %3Cpath d='M80 160c160-60 330-70 520-10'/%3E%3Cpath d='M640 520c120-50 260-40 380 20'/%3E%3Cpath d='M120 640c90 30 200 30 300-10'/%3E %3C/g%3E %3Cg stroke-opacity='.07' stroke-width='2.2'%3E %3Cpath d='M720 150c20-30 60-30 70 0s-30 50-60 40'/%3E%3Cpath d='M820 140h40M840 120v40'/%3E %3Cpath d='M230 470c40-40 80 40 120 0s80 40 120 0'/%3E %3C/g%3E %3C/svg%3E"),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      var(--arte),
+      var(--arte-2);
     background-size: 100% 100%, 100% 100%, 1100px 800px, 240px 240px;
     background-repeat: no-repeat, no-repeat, repeat, repeat;
   }
@@ -168,10 +171,10 @@
     background-image:
       radial-gradient(ellipse 110% 70% at 50% -10%, rgb(200 220 255 / 0.12), transparent 70%),
       radial-gradient(ellipse at center, transparent 50%, rgb(6 12 28 / 0.5)),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='624' height='624'%3E %3Crect x='560' width='30' height='624' fill='%23000' fill-opacity='.22'/%3E %3Crect x='562' width='2' height='624' fill='%23fff' fill-opacity='.06'/%3E %3Cpath d='M556 0v624M594 0v624' stroke='%23d8963c' stroke-opacity='.75' stroke-width='1.8' stroke-dasharray='8 5'/%3E %3C/svg%3E"),
+      var(--arte),
       repeating-linear-gradient(-55deg, rgb(255 255 255 / 0.055) 0 1px, transparent 1px 3.5px),
       repeating-linear-gradient(35deg, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 4px),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012 .6' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .8 0 0 0 0 .86 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      var(--arte-2);
     background-size: 100% 100%, 100% 100%, 624px 624px, auto, auto, 320px 320px;
     background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat;
   }
@@ -195,8 +198,8 @@
     background-image:
       radial-gradient(ellipse 55% 40% at 78% 18%, rgb(140 92 220 / 0.2), transparent 70%),
       radial-gradient(ellipse 50% 38% at 12% 78%, rgb(50 120 210 / 0.16), transparent 70%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='700' height='700' fill='%23fff'%3E %3Ccircle cx='229' cy='110' r='1.4' fill-opacity='0.38'/%3E%3Ccircle cx='571' cy='71' r='1.1' fill-opacity='0.38'/%3E%3Ccircle cx='355' cy='32' r='0.9' fill-opacity='0.6'/%3E%3Ccircle cx='172' cy='385' r='0.6' fill-opacity='0.85'/%3E%3Ccircle cx='91' cy='160' r='1.4' fill-opacity='0.7'/%3E%3Ccircle cx='49' cy='409' r='0.6' fill-opacity='0.94'/%3E%3Ccircle cx='38' cy='597' r='0.8' fill-opacity='0.6'/%3E%3Ccircle cx='378' cy='399' r='1.1' fill-opacity='0.84'/%3E%3Ccircle cx='130' cy='406' r='1.4' fill-opacity='0.46'/%3E%3Ccircle cx='73' cy='496' r='1.1' fill-opacity='0.39'/%3E%3Ccircle cx='148' cy='474' r='0.9' fill-opacity='0.82'/%3E%3Ccircle cx='326' cy='641' r='0.8' fill-opacity='0.53'/%3E%3Ccircle cx='553' cy='487' r='0.7' fill-opacity='0.4'/%3E%3Ccircle cx='213' cy='347' r='0.8' fill-opacity='0.79'/%3E%3Ccircle cx='204' cy='680' r='0.6' fill-opacity='0.66'/%3E%3Ccircle cx='119' cy='241' r='0.9' fill-opacity='0.6'/%3E%3Ccircle cx='668' cy='59' r='1.1' fill-opacity='0.69'/%3E%3Ccircle cx='608' cy='222' r='1.4' fill-opacity='0.56'/%3E%3Ccircle cx='348' cy='554' r='0.6' fill-opacity='0.85'/%3E%3Ccircle cx='656' cy='332' r='1.4' fill-opacity='0.39'/%3E%3Ccircle cx='509' cy='219' r='1.1' fill-opacity='0.95'/%3E%3Ccircle cx='571' cy='202' r='0.9' fill-opacity='0.88'/%3E%3Ccircle cx='245' cy='653' r='0.8' fill-opacity='0.45'/%3E%3Ccircle cx='87' cy='47' r='1.8' fill-opacity='0.52'/%3E%3Ccircle cx='514' cy='280' r='1.8' fill-opacity='0.65'/%3E%3Ccircle cx='120' cy='282' r='0.8' fill-opacity='0.88'/%3E%3Ccircle cx='570' cy='600' r='0.8' fill-opacity='0.77'/%3E%3Ccircle cx='685' cy='476' r='0.9' fill-opacity='0.92'/%3E%3Ccircle cx='110' cy='127' r='0.7' fill-opacity='0.75'/%3E%3Ccircle cx='14' cy='578' r='0.7' fill-opacity='0.51'/%3E%3Ccircle cx='9' cy='294' r='0.8' fill-opacity='0.72'/%3E%3Ccircle cx='225' cy='92' r='1.8' fill-opacity='0.66'/%3E%3Ccircle cx='431' cy='471' r='0.6' fill-opacity='0.62'/%3E%3Ccircle cx='605' cy='661' r='1.4' fill-opacity='0.83'/%3E%3Ccircle cx='276' cy='280' r='0.6' fill-opacity='0.64'/%3E%3Ccircle cx='282' cy='137' r='0.7' fill-opacity='0.61'/%3E%3Ccircle cx='82' cy='419' r='0.6' fill-opacity='0.35'/%3E%3Ccircle cx='110' cy='76' r='0.8' fill-opacity='0.72'/%3E%3Ccircle cx='54' cy='149' r='0.9' fill-opacity='0.44'/%3E%3Ccircle cx='180' cy='245' r='0.8' fill-opacity='0.63'/%3E%3Ccircle cx='85' cy='342' r='0.9' fill-opacity='0.64'/%3E%3Ccircle cx='221' cy='105' r='1.4' fill-opacity='0.56'/%3E%3Ccircle cx='188' cy='576' r='0.7' fill-opacity='0.66'/%3E%3Ccircle cx='147' cy='661' r='0.8' fill-opacity='0.44'/%3E%3Ccircle cx='380' cy='25' r='1.1' fill-opacity='0.53'/%3E%3Ccircle cx='448' cy='69' r='1.8' fill-opacity='0.51'/%3E%3Ccircle cx='258' cy='121' r='1.8' fill-opacity='0.48'/%3E%3Ccircle cx='379' cy='352' r='1.4' fill-opacity='0.48'/%3E%3Ccircle cx='564' cy='684' r='1.8' fill-opacity='0.47'/%3E%3Ccircle cx='171' cy='282' r='1.8' fill-opacity='0.49'/%3E%3Ccircle cx='362' cy='251' r='0.6' fill-opacity='0.94'/%3E%3Ccircle cx='550' cy='331' r='0.7' fill-opacity='0.77'/%3E%3Ccircle cx='664' cy='314' r='1.4' fill-opacity='0.94'/%3E%3Ccircle cx='663' cy='257' r='0.7' fill-opacity='0.41'/%3E%3Ccircle cx='329' cy='238' r='0.9' fill-opacity='0.72'/%3E%3Ccircle cx='625' cy='584' r='0.9' fill-opacity='0.9'/%3E%3Ccircle cx='243' cy='448' r='1.8' fill-opacity='0.75'/%3E%3Ccircle cx='632' cy='544' r='1.8' fill-opacity='0.47'/%3E%3Ccircle cx='618' cy='305' r='1.4' fill-opacity='0.55'/%3E%3Ccircle cx='557' cy='675' r='0.9' fill-opacity='0.63'/%3E%3Ccircle cx='517' cy='64' r='0.7' fill-opacity='0.45'/%3E%3Ccircle cx='93' cy='110' r='0.9' fill-opacity='0.83'/%3E%3Ccircle cx='107' cy='575' r='0.9' fill-opacity='0.74'/%3E%3Ccircle cx='247' cy='383' r='0.7' fill-opacity='0.36'/%3E%3Ccircle cx='556' cy='506' r='0.6' fill-opacity='0.67'/%3E%3Ccircle cx='648' cy='304' r='1.8' fill-opacity='0.47'/%3E%3Ccircle cx='607' cy='25' r='0.7' fill-opacity='0.53'/%3E%3Ccircle cx='171' cy='409' r='0.8' fill-opacity='0.68'/%3E%3Ccircle cx='580' cy='48' r='1.4' fill-opacity='0.56'/%3E%3Ccircle cx='321' cy='407' r='1.1' fill-opacity='0.6'/%3E %3Cpath d='M470 120L520 160 M520 160L575 150 M575 150L610 205 M610 205L560 250 M560 250L640 270' stroke='%23cfe0ff' stroke-opacity='.22' stroke-width='1' stroke-dasharray='3 4'/%3E %3Ccircle cx='470' cy='120' r='2.1'/%3E%3Ccircle cx='520' cy='160' r='2.1'/%3E%3Ccircle cx='575' cy='150' r='2.1'/%3E%3Ccircle cx='610' cy='205' r='2.1'/%3E%3Ccircle cx='560' cy='250' r='2.1'/%3E%3Ccircle cx='640' cy='270' r='2.1'/%3E %3Cpath d='M150 520l3 9 9 3-9 3-3 9-3-9-9-3 9-3z' fill-opacity='.85'/%3E %3C/svg%3E"),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='230' height='230' fill='%23fff'%3E%3Ccircle cx='40' cy='158' r='.55' fill-opacity='0.45'/%3E%3Ccircle cx='110' cy='51' r='.55' fill-opacity='0.52'/%3E%3Ccircle cx='184' cy='118' r='.55' fill-opacity='0.40'/%3E%3Ccircle cx='56' cy='4' r='.55' fill-opacity='0.35'/%3E%3Ccircle cx='134' cy='19' r='.55' fill-opacity='0.52'/%3E%3Ccircle cx='55' cy='55' r='.55' fill-opacity='0.22'/%3E%3Ccircle cx='226' cy='168' r='.55' fill-opacity='0.55'/%3E%3Ccircle cx='141' cy='11' r='.55' fill-opacity='0.33'/%3E%3Ccircle cx='114' cy='29' r='.55' fill-opacity='0.58'/%3E%3Ccircle cx='86' cy='38' r='.55' fill-opacity='0.53'/%3E%3Ccircle cx='31' cy='211' r='.55' fill-opacity='0.38'/%3E%3Ccircle cx='127' cy='80' r='.55' fill-opacity='0.39'/%3E%3Ccircle cx='45' cy='11' r='.55' fill-opacity='0.55'/%3E%3Ccircle cx='56' cy='178' r='.55' fill-opacity='0.28'/%3E%3Ccircle cx='220' cy='203' r='.55' fill-opacity='0.50'/%3E%3Ccircle cx='174' cy='133' r='.55' fill-opacity='0.49'/%3E%3Ccircle cx='30' cy='110' r='.55' fill-opacity='0.53'/%3E%3Ccircle cx='48' cy='210' r='.55' fill-opacity='0.56'/%3E%3Ccircle cx='95' cy='85' r='.55' fill-opacity='0.38'/%3E%3Ccircle cx='89' cy='226' r='.55' fill-opacity='0.35'/%3E%3Ccircle cx='9' cy='24' r='.55' fill-opacity='0.49'/%3E%3Ccircle cx='225' cy='114' r='.55' fill-opacity='0.40'/%3E%3Ccircle cx='126' cy='171' r='.55' fill-opacity='0.29'/%3E%3Ccircle cx='139' cy='128' r='.55' fill-opacity='0.45'/%3E%3Ccircle cx='43' cy='41' r='.55' fill-opacity='0.34'/%3E%3Ccircle cx='211' cy='81' r='.55' fill-opacity='0.44'/%3E%3C/svg%3E");
+      var(--arte),
+      var(--arte-2);
     background-size: 100% 100%, 100% 100%, 700px 700px, 230px 230px;
     background-repeat: no-repeat, no-repeat, repeat, repeat;
   }
@@ -209,7 +212,7 @@
       radial-gradient(ellipse at center, transparent 50%, rgb(10 4 2 / 0.55)),
       linear-gradient(rgb(20 12 10 / 0.25), rgb(20 12 10 / 0.25)),
       var(--grao-parede),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='352' height='204'%3E %3Crect width='100%25' height='100%25' fill='%231a1210'/%3E%3Crect x='-86' y='2' width='84' height='30' rx='2' fill='%23462822'/%3E%3Crect x='2' y='2' width='84' height='30' rx='2' fill='%2343261f'/%3E%3Crect x='90' y='2' width='84' height='30' rx='2' fill='%23522f26'/%3E%3Crect x='178' y='2' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='266' y='2' width='84' height='30' rx='2' fill='%23462822'/%3E%3Crect x='354' y='2' width='84' height='30' rx='2' fill='%2343261f'/%3E%3Crect x='-130' y='36' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='-42' y='36' width='84' height='30' rx='2' fill='%233d231d'/%3E%3Crect x='46' y='36' width='84' height='30' rx='2' fill='%233d231d'/%3E%3Crect x='134' y='36' width='84' height='30' rx='2' fill='%2343261f'/%3E%3Crect x='222' y='36' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='310' y='36' width='84' height='30' rx='2' fill='%233d231d'/%3E%3Crect x='-86' y='70' width='84' height='30' rx='2' fill='%234f2c21'/%3E%3Crect x='2' y='70' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='90' y='70' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='178' y='70' width='84' height='30' rx='2' fill='%233d231d'/%3E%3Crect x='266' y='70' width='84' height='30' rx='2' fill='%234f2c21'/%3E%3Crect x='354' y='70' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='-130' y='104' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='-42' y='104' width='84' height='30' rx='2' fill='%23522f26'/%3E%3Crect x='46' y='104' width='84' height='30' rx='2' fill='%2356322a'/%3E%3Crect x='134' y='104' width='84' height='30' rx='2' fill='%2356322a'/%3E%3Crect x='222' y='104' width='84' height='30' rx='2' fill='%234a2a22'/%3E%3Crect x='310' y='104' width='84' height='30' rx='2' fill='%23522f26'/%3E%3Crect x='-86' y='138' width='84' height='30' rx='2' fill='%23522f26'/%3E%3Crect x='2' y='138' width='84' height='30' rx='2' fill='%2343261f'/%3E%3Crect x='90' y='138' width='84' height='30' rx='2' fill='%234f2c21'/%3E%3Crect x='178' y='138' width='84' height='30' rx='2' fill='%234f2c21'/%3E%3Crect x='266' y='138' width='84' height='30' rx='2' fill='%23522f26'/%3E%3Crect x='354' y='138' width='84' height='30' rx='2' fill='%2343261f'/%3E%3Crect x='-130' y='172' width='84' height='30' rx='2' fill='%2356322a'/%3E%3Crect x='-42' y='172' width='84' height='30' rx='2' fill='%23522f26'/%3E%3Crect x='46' y='172' width='84' height='30' rx='2' fill='%2356322a'/%3E%3Crect x='134' y='172' width='84' height='30' rx='2' fill='%2343261f'/%3E%3Crect x='222' y='172' width='84' height='30' rx='2' fill='%2356322a'/%3E%3Crect x='310' y='172' width='84' height='30' rx='2' fill='%23522f26'/%3E %3C/svg%3E");
+      var(--arte);
     background-size: 100% 100%, 100% 100%, auto, 300px 300px, 352px 204px;
     background-repeat: no-repeat, no-repeat, repeat, repeat, repeat;
   }
@@ -220,9 +223,160 @@
     background-image:
       radial-gradient(ellipse 100% 65% at 50% -10%, rgb(255 220 180 / 0.12), transparent 70%),
       radial-gradient(ellipse at center, transparent 50%, rgb(12 6 2 / 0.5)),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='480'%3E%3Crect y='0' width='600' height='2' fill='%23000' fill-opacity='.55'/%3E%3Crect y='2' width='600' height='1' fill='%23fff' fill-opacity='.06'/%3E%3Crect x='142' y='2' width='288' height='94' fill='%23fff' fill-opacity='0.025'/%3E%3Crect x='140' y='0' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect x='430' y='0' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect y='96' width='600' height='2' fill='%23000' fill-opacity='.55'/%3E%3Crect y='98' width='600' height='1' fill='%23fff' fill-opacity='.06'/%3E%3Crect x='42' y='98' width='288' height='94' fill='%23000' fill-opacity='0.12'/%3E%3Crect x='40' y='96' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect x='330' y='96' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect y='192' width='600' height='2' fill='%23000' fill-opacity='.55'/%3E%3Crect y='194' width='600' height='1' fill='%23fff' fill-opacity='.06'/%3E%3Crect x='252' y='194' width='288' height='94' fill='%23000' fill-opacity='0.06'/%3E%3Crect x='250' y='192' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect x='540' y='192' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect y='288' width='600' height='2' fill='%23000' fill-opacity='.55'/%3E%3Crect y='290' width='600' height='1' fill='%23fff' fill-opacity='.06'/%3E%3Crect x='92' y='290' width='298' height='94' fill='%23fff' fill-opacity='0.04'/%3E%3Crect x='90' y='288' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect x='390' y='288' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect y='384' width='600' height='2' fill='%23000' fill-opacity='.55'/%3E%3Crect y='386' width='600' height='1' fill='%23fff' fill-opacity='.06'/%3E%3Crect x='202' y='386' width='298' height='94' fill='%23000' fill-opacity='0.1'/%3E%3Crect x='200' y='384' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3Crect x='500' y='384' width='2' height='96' fill='%23000' fill-opacity='.5'/%3E%3C/svg%3E"),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0035 .28' numOctaves='4' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .08 0 0 0 0 .04 0 0 0 0 .02 0 0 0 .8 -.32'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      var(--arte),
+      var(--arte-2);
     background-size: 100% 100%, 100% 100%, 600px 480px, 600px 600px;
     background-repeat: no-repeat, no-repeat, repeat, repeat;
+  }
+
+  /* Caderno pontilhado: a folha preta do bullet journal, com a grade de pontinhos */
+  &[data-parede='pontilhado'] {
+    background-color: #19191b;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(255 250 240 / 0.08), transparent 70%),
+      radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / 0.45)),
+      radial-gradient(circle, rgb(240 236 225 / 0.24) 0 1.2px, transparent 1.7px),
+      var(--grao-parede);
+    background-size: 100% 100%, 100% 100%, 22px 22px, 300px 300px;
+    background-position: 0 0, 0 0, 11px 11px, 0 0;
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
+  }
+
+  /* Feltro de sinuca: o pano verde da mesa e a luz da luminária baixa no meio */
+  &[data-parede='feltro'] {
+    background-color: #0f4a31;
+    background-image:
+      radial-gradient(ellipse 75% 55% at 50% 25%, rgb(150 235 170 / 0.16), transparent 70%),
+      radial-gradient(ellipse at center, transparent 40%, rgb(0 12 5 / 0.65)),
+      var(--arte);
+    background-size: 100% 100%, 100% 100%, 320px 320px;
+    background-repeat: no-repeat, no-repeat, repeat;
+  }
+
+  /* Azulejo: o azul de noite, a flor no meio de cada um e os círculos que se formam nos cantos */
+  &[data-parede='azulejo'] {
+    background-color: #122a52;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(190 215 255 / 0.12), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(3 8 20 / 0.6)),
+      var(--arte);
+    background-size: 100% 100%, 100% 100%, 120px 120px;
+    background-repeat: no-repeat, no-repeat, repeat;
+  }
+
+  /* Capitonê: o couro cor de vinho do sofá, as almofadinhas em losango e os botões afundados */
+  &[data-parede='capitone'] {
+    background-color: #43160f;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(255 200 170 / 0.12), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(15 3 1 / 0.6)),
+      var(--arte),
+      var(--grao-parede);
+    background-size: 100% 100%, 100% 100%, 96px 96px, 300px 300px;
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
+  }
+
+  /* Terminal: a tela de fósforo verde, as linhas de varredura e o código apagado */
+  &[data-parede='terminal'] {
+    background-color: #040b06;
+    background-image:
+      radial-gradient(ellipse 80% 70% at 50% 40%, rgb(60 255 130 / 0.08), transparent 70%),
+      radial-gradient(ellipse at center, transparent 50%, rgb(0 0 0 / 0.6)),
+      repeating-linear-gradient(rgb(0 0 0 / 0.4) 0 1px, transparent 1px 3px),
+      var(--arte);
+    background-size: 100% 100%, 100% 100%, auto, 560px 336px;
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
+  }
+
+  /* Mapa topográfico: as curvas de nível finas, de cinco em cinco uma mais forte, e a grade do mapa */
+  &[data-parede='topografia'] {
+    background-color: #18211b;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(220 235 200 / 0.08), transparent 70%),
+      radial-gradient(ellipse at center, transparent 50%, rgb(2 6 3 / 0.55)),
+      var(--arte),
+      linear-gradient(rgb(220 235 200 / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(220 235 200 / 0.06) 1px, transparent 1px),
+      var(--grao-parede);
+    background-size: 100% 100%, 100% 100%, 480px 480px, 160px 160px, 160px 160px, 300px 300px;
+    background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat;
+  }
+
+  /* Flanela xadrez: o xadrez vermelho e preto da camisa de lenhador, com o fio mostarda */
+  &[data-parede='xadrez'] {
+    background-color: #3a1214;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(255 210 190 / 0.1), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(10 2 2 / 0.55)),
+      repeating-linear-gradient(90deg, transparent 0 57px, rgb(220 170 80 / 0.2) 57px 59px, transparent 59px 80px),
+      repeating-linear-gradient(transparent 0 57px, rgb(220 170 80 / 0.2) 57px 59px, transparent 59px 80px),
+      repeating-linear-gradient(90deg, rgb(8 2 2 / 0.5) 0 40px, transparent 40px 80px),
+      repeating-linear-gradient(rgb(8 2 2 / 0.5) 0 40px, transparent 40px 80px),
+      repeating-linear-gradient(45deg, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 4px),
+      var(--grao-parede);
+    background-size: 100% 100%, 100% 100%, auto, auto, auto, auto, auto, 300px 300px;
+    background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat, repeat;
+  }
+
+  /* Concreto aparente: as placas da fôrma, os furos dos tirantes e as manchas da massa */
+  &[data-parede='concreto'] {
+    background-color: #2b2b29;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(255 250 240 / 0.1), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(0 0 0 / 0.55)),
+      var(--arte),
+      var(--grao-parede);
+    background-size: 100% 100%, 100% 100%, 360px 240px, 300px 300px;
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
+  }
+
+  /* Placa de circuito: o verde da placa, as trilhas de cobre, as ilhas furadas e um chip */
+  &[data-parede='circuito'] {
+    background-color: #0c2a1c;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(150 255 200 / 0.08), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(0 8 4 / 0.6)),
+      var(--arte),
+      var(--grao-parede);
+    background-size: 100% 100%, 100% 100%, 320px 320px, 300px 300px;
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
+  }
+
+  /* Discos de vinil: os discos pretos espalhados, com os sulcos e o selo colorido */
+  &[data-parede='vinil'] {
+    background-color: #17161a;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(255 240 220 / 0.09), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(0 0 0 / 0.55)),
+      var(--arte),
+      var(--grao-parede);
+    background-size: 100% 100%, 100% 100%, 440px 440px, 300px 300px;
+    background-repeat: no-repeat, no-repeat, repeat, repeat;
+  }
+
+  /* Ondas: as escamas de ondas japonesas (seigaiha) em azul de noite */
+  &[data-parede='ondas'] {
+    background-color: #0f1f3d;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(190 215 255 / 0.1), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(2 6 16 / 0.6)),
+      var(--arte);
+    background-size: 100% 100%, 100% 100%, 80px 40px;
+    background-repeat: no-repeat, no-repeat, repeat;
+  }
+
+  /* Poá: o tecido vinho de bolinhas creme, com a trama aparecendo */
+  &[data-parede='poa'] {
+    background-color: #3b1122;
+    background-image:
+      radial-gradient(ellipse 110% 70% at 50% -10%, rgb(255 215 230 / 0.1), transparent 70%),
+      radial-gradient(ellipse at center, transparent 45%, rgb(12 2 6 / 0.55)),
+      radial-gradient(circle, rgb(236 222 195 / 0.5) 0 4.5px, transparent 5px),
+      radial-gradient(circle, rgb(236 222 195 / 0.5) 0 4.5px, transparent 5px),
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(rgb(0 0 0 / 0.12) 0 1px, transparent 1px 3px);
+    background-size: 100% 100%, 100% 100%, 36px 36px, 36px 36px, auto, auto;
+    background-position: 0 0, 0 0, 0 0, 18px 18px, 0 0, 0 0;
+    background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, repeat;
   }
 }

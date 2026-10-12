@@ -26,6 +26,28 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-cartolina-escura-nas-secoes',
+    version: '1.34.5',
+    kind: 'correcao',
+    date: '2026-10-12',
+    title: 'As fichas no quadro de cartolina escura',
+    items: [
+      'Numa seção dentro de um quadro de cartolina escura, as fichas claras ficavam com a escrita branca e quase sumiam. Agora cada ficha fica com a cor e a tinta dela, como no mural.',
+      'O mesmo no topo do perfil e nos mini-murais de Seguindo e Seguidores: o fundo de cartolina escura não muda mais a cor da polaroid.',
+    ],
+  },
+  {
+    id: '2026-10-12-mais-paredes',
+    version: '1.34.4',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'Doze paredes novas',
+    items: [
+      'Caderno pontilhado, feltro de sinuca, azulejo, capitonê, terminal, mapa topográfico, flanela xadrez, concreto aparente, placa de circuito, discos de vinil, ondas e poá. Escolha em Editar o perfil › Parede da página.',
+      'Cada parede só é baixada quando aparece, e todas emendam sem marca.',
+    ],
+  },
+  {
     id: '2026-10-11-texturas-sem-emenda',
     version: '1.34.3',
     kind: 'correcao',

@@ -22,13 +22,12 @@
       <span class="parafuso p4" aria-hidden="true"></span>
     }
     @let f = fill();
-    <div
-      class="miolo"
-      [attr.data-fundo]="f?.material ?? null"
-      [class.cartolina]="!!f?.stock"
-      [attr.data-cor]="f?.stock ?? null"
-      [style.--stock]="f?.stock ? 'var(--stock-' + f!.stock + ')' : null"
-    >
+    <div class="miolo" [attr.data-fundo]="f?.material ?? null">
+    @if (f?.stock; as stock) {
+      <!-- a cartolina do quadro numa camada atrás das fichas, e não em volta delas: assim as regras da
+           cartolina escura (a tinta clara, a fibra escura) não alcançam as fichas pregadas nela -->
+      <span class="miolo-cartolina cartolina" [attr.data-cor]="stock" [style.--stock]="'var(--stock-' + stock + ')'" aria-hidden="true"></span>
+    }
     @if (!cards().length) {
       <p class="secao-vazia">
         Nenhuma ficha à mostra nesta seção.

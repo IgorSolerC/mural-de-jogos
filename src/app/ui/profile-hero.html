@@ -4,13 +4,12 @@
   <span class="parafuso p3" aria-hidden="true"></span>
   <span class="parafuso p4" aria-hidden="true"></span>
 
-  <div
-    class="fundo"
-    [attr.data-fundo]="material()"
-    [class.cartolina]="background().kind === 'cartolina'"
-    [attr.data-cor]="background().kind === 'cartolina' ? $any(background()).stock : null"
-    [style.--stock]="background().kind === 'cartolina' ? 'var(--stock-' + $any(background()).stock + ')' : null"
-  >
+  <div class="fundo" [attr.data-fundo]="material()">
+    @if (background().kind === 'cartolina') {
+      <!-- a cartolina numa camada atrás de tudo, e não em volta: assim a escura não muda a polaroid
+           nem as folhas coladas nela (as regras da cartolina escura valem para o que está dentro) -->
+      <span class="fundo-cartolina cartolina" [attr.data-cor]="$any(background()).stock" [style.--stock]="'var(--stock-' + $any(background()).stock + ')'" aria-hidden="true"></span>
+    }
     @if (background().kind === 'link') {
       <img class="fundo-foto" [src]="$any(background()).url" alt="" referrerpolicy="no-referrer" decoding="async" (error)="failed.set($any(background()).url)" />
       <span class="plastico" aria-hidden="true"></span>

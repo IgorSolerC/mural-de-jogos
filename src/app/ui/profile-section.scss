@@ -33,11 +33,24 @@
   @include materials.fundos;
 }
 
-/* Os papéis pregados no quadro têm a tinta deles: numa cartolina escura, a tinta clara dela não passa
-   para as fichas, a folha da lista e as polaroids (que são papel claro; a ficha escura põe a sua). */
-.miolo.cartolina > * {
-  --ink: #151515;
-  --ink-2: rgb(21 21 21 / 0.78);
+/* O quadro de cartolina: ela fica numa camada atrás do que está pregado (ver o html), e cada ficha
+   continua com a cor e a tinta dela, como no mural */
+.miolo {
+  position: relative;
+  isolation: isolate;
+}
+
+.miolo-cartolina {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+/* a sombra da moldura cai sobre a cartolina também */
+.no-quadro .miolo-cartolina {
+  box-shadow:
+    inset 0 3px 9px rgb(0 0 0 / 0.45),
+    inset 0 0 0 1px rgb(0 0 0 / 0.3);
 }
 
 .no-quadro .miolo {

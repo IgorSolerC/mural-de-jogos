@@ -69,6 +69,13 @@
   @include materials.fundos;
 }
 
+/* A cartolina escolhida, numa camada atrás de tudo (ver o html) */
+.fundo-cartolina {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
 /* Uma imagem por link: colada no fundo, debaixo do plástico de encapar */
 .fundo-foto {
   position: absolute;

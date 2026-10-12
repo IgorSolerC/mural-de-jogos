@@ -46,6 +46,18 @@ export const PAGE_BACKGROUNDS = [
   { id: 'estrelas', label: 'Céu de planetário', base: '#0b1029' },
   { id: 'tijolo', label: 'Tijolinho', base: '#1a1210' },
   { id: 'nogueira', label: 'Assoalho de nogueira', base: '#33221a' },
+  { id: 'pontilhado', label: 'Caderno pontilhado', base: '#19191b' },
+  { id: 'feltro', label: 'Feltro de sinuca', base: '#0f4a31' },
+  { id: 'azulejo', label: 'Azulejo', base: '#122a52' },
+  { id: 'capitone', label: 'Capitonê', base: '#43160f' },
+  { id: 'terminal', label: 'Terminal', base: '#040b06' },
+  { id: 'topografia', label: 'Mapa topográfico', base: '#18211b' },
+  { id: 'xadrez', label: 'Flanela xadrez', base: '#3a1214' },
+  { id: 'concreto', label: 'Concreto aparente', base: '#2b2b29' },
+  { id: 'circuito', label: 'Placa de circuito', base: '#0c2a1c' },
+  { id: 'vinil', label: 'Discos de vinil', base: '#17161a' },
+  { id: 'ondas', label: 'Ondas', base: '#0f1f3d' },
+  { id: 'poa', label: 'Poá', base: '#3b1122' },
 ] as const;
 export type PageBackground = (typeof PAGE_BACKGROUNDS)[number]['id'];
 

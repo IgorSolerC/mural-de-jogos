@@ -58,13 +58,16 @@ type Relation = 'voce' | 'segue' | 'seguir' | null;
                 <ul class="murais">
                   @for (p of l; track p.codigo; let i = $index) {
                     <li class="mini-mural" [style.--i]="i">
-                      <div
-                        class="mm-fundo"
-                        [attr.data-fundo]="material(p)"
-                        [class.cartolina]="p.cartao?.fundo?.kind === 'cartolina'"
-                        [attr.data-cor]="p.cartao?.fundo?.kind === 'cartolina' ? $any(p.cartao!.fundo).stock : null"
-                        [style.--stock]="p.cartao?.fundo?.kind === 'cartolina' ? 'var(--stock-' + $any(p.cartao!.fundo).stock + ')' : null"
-                      >
+                      <div class="mm-fundo" [attr.data-fundo]="material(p)">
+                        @if (p.cartao?.fundo?.kind === 'cartolina') {
+                          <!-- a cartolina atrás, não em volta: a escura não muda a polaroid nem o bilhete -->
+                          <span
+                            class="mm-cartolina cartolina"
+                            [attr.data-cor]="$any(p.cartao!.fundo).stock"
+                            [style.--stock]="'var(--stock-' + $any(p.cartao!.fundo).stock + ')'"
+                            aria-hidden="true"
+                          ></span>
+                        }
                         @if (p.cartao?.fundo?.kind === 'link' && broken() !== $any(p.cartao!.fundo).url) {
                           <img class="mm-foto-fundo" [src]="$any(p.cartao!.fundo).url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="broken.set($any(p.cartao!.fundo).url)" />
                           <span class="mm-plastico" aria-hidden="true"></span>
