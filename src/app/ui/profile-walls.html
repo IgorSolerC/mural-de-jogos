@@ -22,7 +22,12 @@
             <span class="costas" aria-hidden="true"></span>
             <span class="boca" aria-hidden="true">
               @for (c of w.covers; track c.id; let j = $index) {
-                <app-cover-sleeve class="espia" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true" />
+                <app-cover-sleeve class="espia" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true">
+                  <!-- a anotação sem capa: a cartolina dela, pequena, no lugar do preto listrado -->
+                  @if (bareNote(c)) {
+                    <app-mini-cartolina [review]="c" />
+                  }
+                </app-cover-sleeve>
               }
             </span>
             <span class="frente" aria-hidden="true">

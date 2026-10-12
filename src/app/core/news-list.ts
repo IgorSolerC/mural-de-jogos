@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-anotacao-sem-capa-na-pasta',
+    version: '1.34.8',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'Anotações sem capa nas pastas do perfil',
+    items: ['Na pasta das anotações, a que não tem capa aparece com a cartolina dela em miniatura, com o papel, a estampa, o rabisco e o estrago, em vez do quadrado preto.'],
+  },
+  {
     id: '2026-10-12-mais-molduras',
     version: '1.34.7',
     kind: 'melhoria',

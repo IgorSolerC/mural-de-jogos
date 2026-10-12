@@ -6,6 +6,7 @@ import { Profile } from '../core/profile';
 import { Review, isDone, isNote, scoreOf } from '../core/review';
 import { CoverSleeve } from './cover-sleeve';
 import { KIND_ICON } from './kind-switcher';
+import { MiniCartolina } from './mini-cartolina';
 
 /** A cor de cada mural na borda da divisória e na contagem da pasta (da cartela das categorias). */
 const WALL_COLOR: Record<Kind, string> = {
@@ -23,7 +24,7 @@ const WALL_COLOR: Record<Kind, string> = {
  */
 @Component({
   selector: 'app-profile-walls',
-  imports: [CoverSleeve, LucideAngularModule, RouterLink],
+  imports: [CoverSleeve, LucideAngularModule, MiniCartolina, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-walls.html',
   styleUrl: './profile-walls.scss',
@@ -39,6 +40,11 @@ export class ProfileWalls {
   readonly opened = output<Kind>();
 
   protected readonly EditIcon = PenLine;
+
+  /** A anotação sem capa: no lugar da capa vai a cartolina dela. */
+  protected bareNote(r: Review): boolean {
+    return isNote(r) && !r.game.coverUrl;
+  }
 
   /** A sorte desta visita: cada F5 embaralha as capas das pastas, mas elas não pulam enquanto a página está aberta. */
   private readonly luck = Math.random().toString(36);
