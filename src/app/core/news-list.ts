@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-editar-o-perfil-em-fichas-fechadas',
+    version: '1.34.10',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'Editar o perfil, uma ficha de cada vez',
+    items: [
+      'As partes de Editar o perfil começam fechadas, cada uma com o que tem dentro e um resumo do que está escolhido. Abrir uma fecha a outra, e a prévia mostra a parte aberta.',
+      'O mesmo nas seções: cada uma fica fechada na fita com o nome, quantas fichas mostra e como, e só a que você abrir aparece inteira.',
+    ],
+  },
+  {
     id: '2026-10-12-titulo-na-cartolina-da-pasta',
     version: '1.34.9',
     kind: 'melhoria',

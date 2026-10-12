@@ -77,7 +77,7 @@
 
 .fichas {
   display: grid;
-  gap: 48px;
+  gap: 32px;
   min-width: 0;
 }
 
@@ -212,15 +212,146 @@
   rotate: 0.25deg;
 }
 
-/* o título na linha de cima da ficha, com o fio vermelho embaixo */
-h2 {
-  margin: 0 -28px 16px;
-  padding: 0 28px 10px;
-  border-bottom: 2px solid rgb(206 58 48 / 0.6);
+/* ===== A cabeça da ficha: o nome abre e fecha, uma aberta de cada vez =====
+   Embaixo do nome, o que tem dentro; com a ficha fechada, a lápis, o que está escolhido nela. */
+.cabeca-ficha {
+  display: grid;
+  gap: 4px;
+}
+
+.ficha-titulo {
+  margin: 0;
+  font: inherit;
+}
+
+.abre {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 4px;
+    border-radius: 2px;
+  }
+}
+
+.abre-icone {
+  flex: none;
+  display: inline-flex;
+}
+
+.abre-nome {
+  flex: 1;
+  min-width: 0;
   font-family: var(--f-marker);
   font-weight: 400;
   font-size: 1.8rem;
   line-height: 1.05;
+}
+
+/* "Abrir" / "Fechar" com a seta, na ponta da linha do nome (das fichas e das seções) */
+.abre-acao {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  transition: color var(--t-ui) var(--ease-ui);
+}
+
+.abre-seta {
+  display: inline-flex;
+  transition: rotate var(--t-physical) var(--ease-physical);
+}
+
+[aria-expanded='true'] .abre-seta {
+  rotate: 180deg;
+}
+
+.abre:hover .abre-acao,
+.secao-abre:hover .abre-acao {
+  color: var(--ink);
+}
+
+/* o que tem dentro e o resumo ficam embaixo do nome, alinhados com ele (depois do ícone) */
+.abre-dica,
+.cabeca-ficha .resumo-ficha {
+  padding-left: 40px;
+}
+
+.abre-dica {
+  max-width: 60ch;
+  font-size: 0.94rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* o resumo, escrito a lápis: "🙂 Ana · Foto: amarelo · 3 assuntos" */
+.resumo-ficha {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+/* o ponto fica no fim do item: quando a linha quebra, ela nunca começa com ele */
+.resumo-item {
+  overflow-wrap: anywhere;
+
+  &:not(:last-child)::after {
+    content: '·';
+    margin: 0 8px;
+    color: var(--ink-2);
+  }
+}
+
+/* Fechada, a ficha inteira é o botão: o toque em qualquer lugar dela abre, e ela sobe um pouco no
+   hover, como uma ficha que se puxa da pilha. */
+.ficha:not(.aberta) {
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  .abre::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  &:hover {
+    translate: 0 -3px;
+  }
+
+  &:has(.abre:focus-visible) {
+    outline: 3px solid var(--hi);
+    outline-offset: 4px;
+
+    .abre {
+      outline: 0;
+    }
+  }
+}
+
+/* Aberta: o fio vermelho embaixo da cabeça, e o que se mexe embaixo dele */
+.corpo {
+  margin: 16px -28px 0;
+  padding: 22px 28px 0;
+  border-top: 2px solid rgb(206 58 48 / 0.6);
+  animation: abre var(--t-physical) var(--ease-physical);
 }
 
 .lead {
@@ -805,28 +936,27 @@ fieldset > :not(legend) {
   }
 }
 
-/* ===== Seções ===== */
+/* ===== Seções: cada uma fechada na fita com o nome, uma aberta de cada vez ===== */
 .secao {
   display: grid;
-  gap: 14px;
-  padding: 22px 0 24px;
+  gap: 8px;
+  padding: 16px 0 18px;
   border-top: 2px dashed rgb(21 21 21 / 0.28);
+
+  /* a aberta num papel um pouco mais escuro, de uma beirada à outra da ficha: o que está embaixo
+     da fita é dela, até a próxima */
+  &.aberta {
+    margin-inline: -28px;
+    padding: 16px 28px 24px;
+    background: rgb(21 21 21 / 0.04);
+  }
 }
 
-/* a seção que está na prévia ao lado: uma faixa de marca-texto na beirada da ficha */
-.secao.na-previa {
-  position: relative;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 22px;
-    bottom: 24px;
-    left: -28px;
-    width: 6px;
-    border-radius: 0 2px 2px 0;
-    background: var(--hi);
-  }
+.secao-corpo {
+  display: grid;
+  gap: 14px;
+  margin-top: 8px;
+  animation: abre var(--t-physical) var(--ease-physical);
 }
 
 .secao-topo {
@@ -836,9 +966,52 @@ fieldset > :not(legend) {
   gap: 10px;
 }
 
-/* o nome da seção se escreve na própria fita crepe, como vai ficar no perfil */
-.titulo-fita {
+.secao-cabeca {
   flex: 1 1 260px;
+  min-width: 0;
+  margin: 0;
+  font: inherit;
+}
+
+.secao-abre {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+
+  .abre-acao {
+    margin-left: auto;
+  }
+
+  &:hover .secao-fita {
+    translate: 0 -2px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+.secao-resumo {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+.campo-secao .rotulo {
+  margin-bottom: 10px;
+}
+
+/* o nome da seção na própria fita crepe, como vai ficar no perfil: na cabeça, e no campo que o escreve */
+.secao-fita,
+.titulo-fita {
   min-width: 0;
   min-height: 46px;
   padding: 8px 18px 6px;
@@ -847,12 +1020,27 @@ fieldset > :not(legend) {
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   color: var(--ink);
-  caret-color: var(--red);
   font-family: var(--f-marker);
   font-size: 1.3rem;
   line-height: 1.1;
   rotate: -0.8deg;
   clip-path: polygon(0 6%, 6px 28%, 1px 50%, 7px 74%, 0 96%, 100% 100%, calc(100% - 5px) 72%, 100% 48%, calc(100% - 7px) 24%, 100% 2%);
+}
+
+.secao-fita {
+  display: inline-flex;
+  align-items: center;
+  overflow-wrap: anywhere;
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  &.sem-nome {
+    color: rgb(21 21 21 / 0.55);
+  }
+}
+
+.titulo-fita {
+  width: 100%;
+  caret-color: var(--red);
   outline: none;
 
   &::placeholder {
@@ -1100,9 +1288,18 @@ fieldset > :not(legend) {
     rotate: 0deg;
   }
 
-  h2 {
+  .corpo {
     margin-inline: -16px;
     padding-inline: 16px;
+  }
+
+  .abre-dica,
+  .cabeca-ficha .resumo-ficha {
+    padding-left: 0;
+  }
+
+  .abre-nome {
+    font-size: 1.55rem;
   }
 
   .amostras {
@@ -1117,6 +1314,11 @@ fieldset > :not(legend) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .secao.aberta {
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
   .previa-dentro {
     margin-inline: -16px;
     margin-bottom: -22px;
@@ -1124,10 +1326,6 @@ fieldset > :not(legend) {
     .previa-rotulo {
       margin-inline: 16px;
     }
-  }
-
-  .secao.na-previa::before {
-    left: -16px;
   }
 
   .item {
@@ -1145,7 +1343,8 @@ fieldset > :not(legend) {
     width: 34px;
   }
 
-  .titulo-fita {
+  .titulo-fita,
+  .secao-fita {
     font-size: 1.12rem;
   }
 
