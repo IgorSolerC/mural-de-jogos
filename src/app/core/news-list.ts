@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-titulo-na-cartolina-da-pasta',
+    version: '1.34.9',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'O título na cartolina das pastas',
+    items: ['A cartolina em miniatura da anotação sem capa agora leva o título escrito a pincel atômico, como na ficha.'],
+  },
+  {
     id: '2026-10-12-anotacao-sem-capa-na-pasta',
     version: '1.34.8',
     kind: 'melhoria',

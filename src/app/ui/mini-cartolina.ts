@@ -7,8 +7,8 @@ import { PaperArtLayer } from './paper-layer';
 
 /**
  * A cartolina de uma ficha em miniatura, no lugar da capa que ela não tem (a anotação sem foto, nas
- * pastas do perfil): a cor, o papel, a estampa, o rabisco, o estrago, a mancha e a decoração, sem
- * nada escrito. É desenhada no tamanho de uma ficha (quatro vezes a caixa) e reduzida, para os
+ * pastas do perfil): a cor, o papel, a estampa, o rabisco, o estrago, a mancha e a decoração, com
+ * o título a pincel atômico, grande, cortado onde a folha acaba. É desenhada no tamanho de uma ficha (quatro vezes a caixa) e reduzida, para os
  * desenhos saírem como na ficha de verdade, só que pequenos. Enche a caixa em que for posta.
  */
 @Component({
@@ -18,7 +18,9 @@ import { PaperArtLayer } from './paper-layer';
   host: { 'aria-hidden': 'true' },
   template: `
     <div class="folha" [style]="vars()" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
-      <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" />
+      <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
+      <!-- o título, como na ficha: queima junto com o papel (data-queima) e não precisa caber -->
+      <p class="titulo" data-queima>{{ review().game.name }}</p>
     </div>
   `,
   styles: `
@@ -39,6 +41,23 @@ import { PaperArtLayer } from './paper-layer';
       height: calc(100cqh * 4);
       transform: scale(0.25);
       transform-origin: 0 0;
+      color: var(--ink);
+    }
+    /* na cartolina escura, a tinta clara */
+    .folha:is([data-cor$='-escuro'], [data-cor='preto']) {
+      color: var(--ink-claro-solido);
+    }
+    .titulo {
+      position: absolute;
+      top: 7%;
+      left: 9%;
+      right: 4%;
+      margin: 0;
+      font-family: var(--f-marker);
+      font-size: 3.1rem;
+      line-height: 1;
+      overflow-wrap: anywhere;
+      rotate: -2deg;
     }
   `,
 })
