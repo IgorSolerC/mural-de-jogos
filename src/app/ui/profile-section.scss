@@ -27,6 +27,15 @@
     var(--shadow-card),
     inset 0 1px 0 rgb(255 255 255 / 0.3),
     inset 0 -2px 0 rgb(0 0 0 / 0.25);
+
+  /* ou a moldura escolhida (ver `molduras`) */
+  --folga: 16px;
+  @include materials.molduras('.miolo');
+}
+
+/* sem moldura, nada faz sombra por dentro do quadro */
+.no-quadro .suporte[data-moldura='fita'] .miolo-cartolina {
+  box-shadow: none;
 }
 
 .miolo {

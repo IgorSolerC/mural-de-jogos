@@ -8,11 +8,18 @@
   --fita: rgb(222 205 160 / 0.88);
 }
 
-/* ===== A moldura: pinus cru, com o veio da madeira, presa por quatro parafusos ===== */
+/* ===== A moldura: pinus cru, com o veio da madeira, presa por quatro parafusos (ou a escolhida) ===== */
 .moldura {
+  --folga: clamp(12px, 1.7cqw, 20px);
   position: relative;
   padding: clamp(12px, 1.7cqw, 20px);
   @include materials.moldura-pinus;
+  @include materials.molduras('.fundo');
+}
+
+/* sem moldura, nada faz sombra por dentro do quadro */
+.moldura[data-moldura='fita'] .fundo::after {
+  display: none;
 }
 
 .parafuso {

@@ -113,6 +113,293 @@
   }
 }
 
+/* As molduras (ver PROFILE_FRAMES em core/profile.ts): o quadro de cima do perfil, as seções num quadro e
+   as amostras do editor. Quem inclui é a moldura (com data-moldura): põe a folga dela em --folga, tem os
+   quatro cantos (.parafuso.p1…p4) e diz qual é o miolo (o fundo de dentro). O pinus com parafusos é o
+   desenho de cada um (fica como está); aqui, só o que muda nas outras. */
+$sombra-dentro: inset 0 3px 9px rgb(0 0 0 / 0.45), inset 0 0 0 1px rgb(0 0 0 / 0.3);
+
+@mixin cantos($d) {
+  .parafuso.p1 {
+    top: $d;
+    left: $d;
+  }
+  .parafuso.p2 {
+    top: $d;
+    right: $d;
+  }
+  .parafuso.p3 {
+    bottom: $d;
+    left: $d;
+  }
+  .parafuso.p4 {
+    bottom: $d;
+    right: $d;
+  }
+}
+
+@mixin molduras($miolo) {
+  /* Nogueira com filete: a madeira escura cortada a 45 graus (os quatro lados em tons diferentes
+     fazem a meia-esquadria) e um filete dourado colado por dentro */
+  &[data-moldura='nogueira'] {
+    padding: 0;
+    border: calc(var(--folga) * 1.15) solid;
+    border-color: rgb(255 226 190 / 0.13) rgb(0 0 0 / 0.3) rgb(0 0 0 / 0.45) rgb(255 226 190 / 0.04);
+    border-radius: 2px;
+    background-color: #4b2f1e;
+    background-image: linear-gradient(135deg, rgb(255 220 180 / 0.08), transparent 60%), var(--paper-grain);
+    background-origin: border-box;
+    background-blend-mode: normal, multiply;
+    box-shadow:
+      var(--shadow-card),
+      inset 0 0 0 1px rgb(0 0 0 / 0.55);
+
+    #{$miolo} {
+      outline: 3px solid #b8913f;
+    }
+
+    .parafuso {
+      display: none;
+    }
+  }
+
+  /* Dourada de museu: a moldura larga de folha de ouro, a fileira de contas por dentro e as rosetas
+     nos cantos */
+  &[data-moldura='dourada'] {
+    padding: 0;
+    border: calc(var(--folga) * 1.5) solid;
+    border-color: rgb(255 246 205 / 0.32) rgb(70 40 0 / 0.28) rgb(70 40 0 / 0.45) rgb(255 246 205 / 0.16);
+    border-radius: 2px;
+    background-color: #b8892f;
+    background-image:
+      linear-gradient(135deg, #f3dd93, #b8892f 28%, #efd283 50%, #9a6b1e 74%, #e3c169),
+      var(--paper-grain);
+    background-origin: border-box;
+    background-blend-mode: normal, multiply;
+    box-shadow:
+      var(--shadow-card),
+      0 0 0 1px rgb(60 35 0 / 0.55),
+      inset 0 0 0 1px rgb(80 50 0 / 0.6);
+
+    #{$miolo} {
+      outline: 3px dotted rgb(255 236 170 / 0.9);
+      outline-offset: 5px;
+      box-shadow:
+        0 0 0 2px #5a3d0e,
+        $sombra-dentro;
+    }
+
+    .parafuso {
+      width: calc(var(--folga) * 1.25);
+      height: calc(var(--folga) * 1.25);
+      background:
+        radial-gradient(circle, #fff3c4 0 18%, transparent 20%),
+        repeating-conic-gradient(#e8c66a 0 22deg, #a87a26 22deg 45deg);
+      box-shadow:
+        0 1px 2px rgb(60 35 0 / 0.6),
+        inset 0 0 0 1px rgb(90 60 10 / 0.5);
+
+      &::after {
+        display: none;
+      }
+    }
+
+    /* no meio da largura da moldura (o canto é medido de dentro da borda) */
+    @include cantos(calc(var(--folga) * -1.375));
+  }
+
+  /* Alumínio com rebites: o metal escovado, fininho, preso por quatro rebites */
+  &[data-moldura='metal'] {
+    padding: calc(var(--folga) * 0.8);
+    border-radius: 4px;
+    background-color: #a4aaae;
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.4), transparent 30%, transparent 70%, rgb(0 0 0 / 0.25)),
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 0.13) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgb(0 0 0 / 0.07) 0 1px, transparent 1px 5px);
+    background-blend-mode: normal;
+    box-shadow:
+      var(--shadow-card),
+      inset 0 1px 0 rgb(255 255 255 / 0.65),
+      inset 0 -1px 0 rgb(0 0 0 / 0.35),
+      inset 0 0 0 1px rgb(0 0 0 / 0.25);
+
+    .parafuso {
+      width: 9px;
+      height: 9px;
+      background: radial-gradient(circle at 35% 30%, #fff, #cfd3d6 45%, #6c7175);
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.5);
+
+      &::after {
+        display: none;
+      }
+    }
+
+    @include cantos(calc(var(--folga) * 0.4 - 4.5px));
+  }
+
+  /* Lousa de escola: o pinho claro, e embaixo a canaleta com os gizes e o apagador */
+  &[data-moldura='escola'] {
+    padding: var(--folga) var(--folga) calc(var(--folga) + 20px);
+    border-radius: 3px;
+    background-color: #d2ac72;
+    background-image:
+      linear-gradient(180deg, rgb(255 255 255 / 0.2), transparent 22%, transparent 78%, rgb(0 0 0 / 0.18)),
+      repeating-linear-gradient(90.6deg, rgb(140 90 30 / 0.12) 0 1px, transparent 1px 15px),
+      var(--paper-grain);
+    background-blend-mode: normal, normal, multiply;
+    box-shadow:
+      var(--shadow-card),
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      inset 0 0 0 1px rgb(90 55 15 / 0.35);
+
+    .parafuso {
+      display: none;
+    }
+
+    /* a canaleta, saindo um pouco para os lados */
+    &::after {
+      content: '';
+      position: absolute;
+      z-index: 1;
+      left: -8px;
+      right: -8px;
+      bottom: -4px;
+      height: 22px;
+      border-radius: 2px;
+      background-color: #b98d52;
+      background-image:
+        linear-gradient(180deg, rgb(255 255 255 / 0.35) 0 2px, transparent 2px 6px, rgb(0 0 0 / 0.22) 6px 8px, transparent 8px),
+        var(--paper-grain);
+      background-blend-mode: normal, multiply;
+      box-shadow: 0 6px 10px -4px rgb(0 0 0 / 0.55);
+    }
+
+    /* dois gizes e o apagador em cima da canaleta */
+    &::before {
+      content: '';
+      position: absolute;
+      z-index: 2;
+      left: 14%;
+      right: 14%;
+      bottom: 12px;
+      height: 13px;
+      background:
+        linear-gradient(#f6f3ea, #d9d4c6) left 0 bottom 0 / 38px 6px no-repeat,
+        linear-gradient(#f4c2c6, #d79aa0) left 52px bottom 0 / 26px 6px no-repeat,
+        linear-gradient(#b8814a 0 4px, #4a4a4a 4px) right 0 bottom 0 / 54px 13px no-repeat;
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4));
+    }
+  }
+
+  /* Paspatur de galeria: o filete preto fininho e o passe-partout creme largo, com o corte chanfrado */
+  &[data-moldura='paspatur'] {
+    padding: calc(var(--folga) * 2.2);
+    border: 7px solid;
+    border-color: #2b2b2b #121212 #0b0b0b #1d1d1d;
+    border-radius: 1px;
+    background-color: #f3efe5;
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    box-shadow:
+      var(--shadow-card),
+      inset 0 2px 4px rgb(0 0 0 / 0.18);
+
+    #{$miolo} {
+      box-shadow:
+        0 0 0 3px #fffdf6,
+        0 0 0 4px rgb(0 0 0 / 0.14),
+        $sombra-dentro;
+    }
+
+    .parafuso {
+      display: none;
+    }
+  }
+
+  /* Só fita crepe: sem moldura, o quadro colado na parede com um pedaço de fita em cada canto */
+  &[data-moldura='fita'] {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+
+    #{$miolo} {
+      box-shadow: var(--shadow-card);
+    }
+
+    .parafuso {
+      width: 84px;
+      height: 24px;
+      border-radius: 1px;
+      background: var(--fita, rgb(222 205 160 / 0.88)) var(--paper-grain);
+      background-blend-mode: multiply;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+
+      &::after {
+        display: none;
+      }
+
+      &.p1 {
+        top: -6px;
+        left: -24px;
+        rotate: -38deg;
+      }
+      &.p2 {
+        top: -6px;
+        right: -24px;
+        rotate: 38deg;
+      }
+      &.p3 {
+        bottom: -6px;
+        left: -24px;
+        rotate: 38deg;
+      }
+      &.p4 {
+        bottom: -6px;
+        right: -24px;
+        rotate: -36deg;
+      }
+    }
+  }
+
+  /* Letreiro neon: a placa preta e o tubo rosa aceso em volta do quadro */
+  &[data-moldura='neon'] {
+    padding: calc(var(--folga) * 1.1);
+    border-radius: 12px;
+    background-color: #150b17;
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    box-shadow:
+      var(--shadow-card),
+      inset 0 0 0 1px rgb(255 255 255 / 0.06);
+
+    .parafuso {
+      display: none;
+    }
+
+    /* o tubo, no meio da folga: atrás do quadro, então o brilho só sai para fora */
+    &::before {
+      content: '';
+      position: absolute;
+      z-index: 0;
+      inset: calc(var(--folga) * 0.55 - 2px);
+      border: 3px solid #ffe1f1;
+      border-radius: 9px;
+      box-shadow:
+        0 0 3px #ff5fb8,
+        0 0 10px #ff2d9b,
+        0 0 26px rgb(255 45 155 / 0.7),
+        inset 0 0 3px #ff5fb8,
+        inset 0 0 10px rgb(255 45 155 / 0.6);
+      pointer-events: none;
+    }
+
+    #{$miolo} {
+      border-radius: 3px;
+    }
+  }
+}
+
 /* As paredes (ver PAGE_BACKGROUNDS em core/profile.ts): atrás do site inteiro, do perfil e da prévia
    nas Configurações. Todas escuras, para o giz, as fitas e os títulos da parede lerem bem. Quem inclui
    escolhe pelo data-parede. Os desenhos grandes ficam em public/paredes/<id>.svg (e <id>-2.svg), que

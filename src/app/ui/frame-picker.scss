@@ -1,0 +1,169 @@
+@use 'profile-materials' as materials;
+
+:host {
+  display: block;
+}
+
+.cartela {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px 12px;
+}
+
+@media (max-width: 560px) {
+  .cartela {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.opcao {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 8px 4px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  &:has(input:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  &:hover .amostra {
+    translate: 0 -2px;
+  }
+
+  &.on .amostra {
+    rotate: -3deg;
+    translate: 0 -3px;
+  }
+}
+
+.pin {
+  top: -4px;
+  left: calc(50% - 13px);
+  scale: 0.6;
+}
+
+.nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* O quadrinho: a moldura de verdade, em miniatura, em volta de um pedaço de cortiça */
+.amostra {
+  --folga: 7px;
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 108px;
+  aspect-ratio: 4 / 3;
+  padding: var(--folga);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical);
+  @include materials.moldura-pinus;
+  @include materials.molduras('.miolo-amostra');
+
+  .parafuso {
+    @include materials.parafuso;
+    width: 7px;
+    height: 7px;
+
+    &::after {
+      top: 2.75px;
+      left: 1px;
+      right: 1px;
+      height: 1.5px;
+    }
+  }
+  @include materials.cantos(0);
+
+  /* em miniatura: a fita, a canaleta e o giz menores */
+  &[data-moldura='fita'] .parafuso {
+    width: 30px;
+    height: 9px;
+
+    &.p1,
+    &.p3 {
+      left: -9px;
+    }
+    &.p2,
+    &.p4 {
+      right: -9px;
+    }
+    &.p1,
+    &.p2 {
+      top: -2px;
+    }
+    &.p3,
+    &.p4 {
+      bottom: -2px;
+    }
+  }
+
+  &[data-moldura='escola'] {
+    padding-bottom: calc(var(--folga) + 7px);
+
+    &::after {
+      left: -3px;
+      right: -3px;
+      bottom: -2px;
+      height: 9px;
+    }
+
+    &::before {
+      bottom: 5px;
+      height: 6px;
+      background:
+        linear-gradient(#f6f3ea, #d9d4c6) left 0 bottom 0 / 14px 3px no-repeat,
+        linear-gradient(#f4c2c6, #d79aa0) left 20px bottom 0 / 10px 3px no-repeat,
+        linear-gradient(#b8814a 0 2px, #4a4a4a 2px) right 0 bottom 0 / 20px 6px no-repeat;
+    }
+  }
+
+  &[data-moldura='paspatur'] {
+    border-width: 3px;
+  }
+
+  &[data-moldura='metal'] .parafuso {
+    width: 5px;
+    height: 5px;
+  }
+  &[data-moldura='metal'] {
+    @include materials.cantos(0.5px);
+  }
+
+  &[data-moldura='neon']::before {
+    border-width: 2px;
+    border-radius: 6px;
+  }
+}
+
+.miolo-amostra {
+  display: block;
+  height: 100%;
+  box-shadow: materials.$sombra-dentro;
+  @include materials.fundos;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .amostra {
+    transition: none;
+  }
+}

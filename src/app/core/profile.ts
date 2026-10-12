@@ -61,6 +61,22 @@ export const PAGE_BACKGROUNDS = [
 ] as const;
 export type PageBackground = (typeof PAGE_BACKGROUNDS)[number]['id'];
 
+/**
+ * As molduras do quadro de cima e das seções num quadro (o desenho de cada uma fica em
+ * ui/_profile-materials.scss, `molduras`; o pinus com parafusos é o de sempre).
+ */
+export const PROFILE_FRAMES = [
+  { id: 'pinus', label: 'Pinus com parafusos' },
+  { id: 'nogueira', label: 'Nogueira com filete' },
+  { id: 'dourada', label: 'Dourada de museu' },
+  { id: 'metal', label: 'Alumínio com rebites' },
+  { id: 'escola', label: 'Lousa de escola' },
+  { id: 'paspatur', label: 'Paspatur de galeria' },
+  { id: 'fita', label: 'Só fita crepe' },
+  { id: 'neon', label: 'Letreiro neon' },
+] as const;
+export type FrameStyle = (typeof PROFILE_FRAMES)[number]['id'];
+
 /** O que fica dentro do quadro de uma seção: um material ou uma cartolina (sem link). */
 export type SectionFill = Exclude<ProfileBackground, { kind: 'link' }>;
 
@@ -88,6 +104,8 @@ export interface ProfileSection {
   frame: SectionFrame;
   /** O fundo dentro da moldura, quando a seção fica num quadro (o padrão é a cortiça). */
   fill: SectionFill;
+  /** A moldura, quando a seção fica num quadro. */
+  frameStyle: FrameStyle;
   /** Os ids das fichas, na ordem escolhida. Quem visita só vê as que estão públicas. */
   items: string[];
 }
@@ -110,6 +128,8 @@ export interface Profile {
   /** Os assuntos: etiquetas curtas. */
   topics: string[];
   background: ProfileBackground;
+  /** A moldura do quadro de cima. */
+  frameStyle: FrameStyle;
   /** A parede do seu site inteiro e de trás do seu perfil. */
   page: PageBackground;
   walls: Partial<Record<Kind, ProfileWall>>;
@@ -133,7 +153,7 @@ export const DEFAULT_EMOJI = '🙂';
 
 /** Uma seção nova, vazia. */
 export function newSection(title = ''): ProfileSection {
-  return { id: newId(), title, note: '', density: 'completa', frame: 'parede', fill: { kind: 'material', material: 'cortica' }, items: [] };
+  return { id: newId(), title, note: '', density: 'completa', frame: 'parede', fill: { kind: 'material', material: 'cortica' }, frameStyle: 'pinus', items: [] };
 }
 
 /** O perfil de quem ainda não mexeu: o emoji sorrindo, cortiça, e uma seção "Em destaque" vazia. */
@@ -145,6 +165,7 @@ export function defaultProfile(): Profile {
     about: '',
     topics: [],
     background: { kind: 'material', material: 'cortica' },
+    frameStyle: 'pinus',
     page: 'eucatex',
     walls: {},
     sections: [newSection('Em destaque')],
@@ -223,8 +244,13 @@ function sanitizeSection(raw: unknown): ProfileSection | null {
     density: SECTION_DENSITIES.find((d) => d.id === s['density'])?.id ?? 'completa',
     frame: s['frame'] === 'quadro' ? 'quadro' : 'parede',
     fill: sanitizeFill(s['fill']),
+    frameStyle: frameStyleOf(s['frameStyle']),
     items,
   };
+}
+
+function frameStyleOf(raw: unknown): FrameStyle {
+  return PROFILE_FRAMES.find((f) => f.id === raw)?.id ?? 'pinus';
 }
 
 function sanitizeWalls(raw: unknown): Partial<Record<Kind, ProfileWall>> {
@@ -259,6 +285,7 @@ export function sanitizeProfile(raw: unknown): Profile | null {
     about: text(p['about'], PROFILE_LIMITS.about),
     topics: sanitizeTopics(p['topics']),
     background: sanitizeBackground(p['background']),
+    frameStyle: frameStyleOf(p['frameStyle']),
     page: PAGE_BACKGROUNDS.find((b) => b.id === p['page'])?.id ?? 'eucatex',
     walls: sanitizeWalls(p['walls']),
     sections,

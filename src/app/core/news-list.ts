@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-molduras',
+    version: '1.34.6',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'Molduras novas no perfil',
+    items: [
+      'Além do pinus com parafusos: nogueira com filete, dourada de museu, alumínio com rebites, lousa de escola (com o giz e o apagador), paspatur de galeria, só fita crepe e letreiro neon.',
+      'Escolha uma para o quadro de cima em Editar o perfil › Moldura e fundo, e uma para cada seção num quadro.',
+    ],
+  },
+  {
     id: '2026-10-12-cartolina-escura-nas-secoes',
     version: '1.34.5',
     kind: 'correcao',

@@ -161,8 +161,13 @@
     <!-- ===== O fundo do quadro: papelaria, cartolina ou uma imagem ===== -->
     <section class="ficha fundo-ficha" aria-labelledby="fundo-titulo" (focusin)="edit('fundo', $event)" (pointerdown)="edit('fundo', $event)">
       <app-pin class="pin" color="#e62e2d" />
-      <h2 id="fundo-titulo">Fundo do quadro</h2>
-      <p class="lead">O que fica atrás da sua foto, dentro da moldura. O que está escrito continua no papel, então qualquer fundo lê bem.</p>
+      <h2 id="fundo-titulo">Moldura e fundo</h2>
+      <p class="lead">A moldura do quadro de cima e o que fica atrás da sua foto, dentro dela. O que está escrito continua no papel, então qualquer fundo lê bem.</p>
+
+      <fieldset class="grupo">
+        <legend class="rotulo">Moldura</legend>
+        <app-frame-picker name="moldura-topo" [value]="profile().frameStyle" (picked)="setHeroFrame($event)" />
+      </fieldset>
 
       <fieldset class="grupo">
         <legend class="rotulo">Papelaria</legend>
@@ -388,6 +393,11 @@
           </fieldset>
 
           @if (s.frame === 'quadro') {
+            <fieldset class="escolha-linha">
+              <legend class="rotulo">Moldura</legend>
+              <app-frame-picker [name]="'moldura-' + s.id" [value]="s.frameStyle" (picked)="setSectionFrame(s.id, $event)" />
+            </fieldset>
+
             <!-- o que fica dentro da moldura: um material ou uma cartolina -->
             <fieldset class="escolha-linha dentro">
               <legend class="rotulo">Dentro do quadro</legend>

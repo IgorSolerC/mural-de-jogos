@@ -24,6 +24,7 @@ import {
   PAGE_BACKGROUNDS,
   PROFILE_LIMITS,
   PROFILE_MATERIALS,
+  FrameStyle,
   PageBackground,
   ProfileBackground,
   ProfileMaterial,
@@ -46,6 +47,7 @@ import { Confirm } from '../ui/confirm';
 import { CoverSleeve } from '../ui/cover-sleeve';
 import { KIND_ICON } from '../ui/kind-switcher';
 import { Pin } from '../ui/pin';
+import { FramePicker } from '../ui/frame-picker';
 import { PageWall } from '../ui/page-wall';
 import { ProfileHero } from '../ui/profile-hero';
 import { ProfileSectionView } from '../ui/profile-section';
@@ -65,14 +67,14 @@ type Editing = 'voce' | 'fundo' | 'pagina' | 'murais' | { section: string };
 
 /**
  * As Configurações do perfil: o que quem abre o seu nome vê. À esquerda, as fichas com cada parte
- * (Você, Fundo do quadro, Parede, Seus murais, Seções); à direita, ao vivo, a parte que está sendo
+ * (Você, Moldura e fundo, Parede, Seus murais, Seções); à direita, ao vivo, a parte que está sendo
  * mexida, como os outros vão ver (o quadro de cima, as pastas ou a seção), em cima da parede
  * escolhida. Na tela estreita, a prévia entra no pé da ficha mexida. Como os Ajustes, nada tem botão
  * de salvar: vale na hora (e vai para a nuvem com o mural).
  */
 @Component({
   selector: 'app-profile-edit-page',
-  imports: [CoverSleeve, EmojiPanel, LucideAngularModule, NgTemplateOutlet, PageWall, Pin, ProfileHero, ProfilePicker, ProfileSectionView, ProfileWalls, RichEditor, RouterLink],
+  imports: [CoverSleeve, EmojiPanel, LucideAngularModule, FramePicker, NgTemplateOutlet, PageWall, Pin, ProfileHero, ProfilePicker, ProfileSectionView, ProfileWalls, RichEditor, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-edit-page.html',
   styleUrl: './profile-edit-page.scss',
@@ -278,6 +280,15 @@ export class ProfileEditPage {
     img.onload = () => attempt === this.linkTry && this.setBackground({ kind: 'link', url });
     img.onerror = () => attempt === this.linkTry && this.linkError.set('Essa imagem não abriu. Confira o link (ele precisa levar direto à imagem).');
     img.src = url;
+  }
+
+  // ===== As molduras =====
+  protected setHeroFrame(frameStyle: FrameStyle): void {
+    this.profiles.update((p) => ({ ...p, frameStyle }));
+  }
+
+  protected setSectionFrame(id: string, frameStyle: FrameStyle): void {
+    this.patchSection(id, (s) => ({ ...s, frameStyle }));
   }
 
   // ===== A parede atrás da página =====

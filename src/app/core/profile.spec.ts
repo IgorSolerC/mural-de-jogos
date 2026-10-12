@@ -31,7 +31,8 @@ describe('perfil', () => {
     // um link que não é https não vira fundo
     expect(p.background).toEqual({ kind: 'material', material: 'cortica' });
     expect(p.walls).toEqual({ jogos: { hidden: true, text: 'Atmosfera' } });
-    expect(p.sections).toEqual([{ id: 'a1', title: 'Coração', note: '', density: 'completa', frame: 'quadro', fill: { kind: 'material', material: 'cortica' }, items: ['r1', 'r3'] }]);
+    expect(p.sections).toEqual([{ id: 'a1', title: 'Coração', note: '', density: 'completa', frame: 'quadro', fill: { kind: 'material', material: 'cortica' }, frameStyle: 'pinus', items: ['r1', 'r3'] }]);
+    expect(p.frameStyle).toBe('pinus');
     expect(p.page).toBe('eucatex');
   });
 
@@ -57,6 +58,12 @@ describe('perfil', () => {
       { kind: 'material', material: 'cortica' },
     ]);
     expect(sanitizeProfile({ page: 'neon' })!.page).toBe('eucatex');
+  });
+
+  it('as molduras: do quadro de cima e de cada seção, só as conhecidas', () => {
+    const p = sanitizeProfile({ frameStyle: 'neon', sections: [{ id: 's1', frameStyle: 'dourada' }, { id: 's2', frameStyle: 'plástico' }] })!;
+    expect(p.frameStyle).toBe('neon');
+    expect(p.sections.map((s) => s.frameStyle)).toEqual(['dourada', 'pinus']);
   });
 
   it('não é perfil: null', () => {
