@@ -31,6 +31,26 @@ export type ProfileBackground =
   | { kind: 'cartolina'; stock: Stock }
   | { kind: 'link'; url: string };
 
+/**
+ * A parede atrás do perfil inteiro, quando alguém o abre (o padrão é o eucatex grafite do site). Todas
+ * escuras: o giz, as fitas e os títulos da parede são claros (o desenho de cada uma fica em
+ * ui/_profile-materials.scss, `paredes`).
+ */
+export const PAGE_BACKGROUNDS = [
+  { id: 'eucatex', label: 'Eucatex grafite' },
+  { id: 'planta', label: 'Planta azul' },
+  { id: 'lousa', label: 'Lousa' },
+  { id: 'jeans', label: 'Jeans' },
+  { id: 'veludo', label: 'Veludo de cinema' },
+  { id: 'estrelas', label: 'Céu de planetário' },
+  { id: 'tijolo', label: 'Tijolinho' },
+  { id: 'nogueira', label: 'Assoalho de nogueira' },
+] as const;
+export type PageBackground = (typeof PAGE_BACKGROUNDS)[number]['id'];
+
+/** O que fica dentro do quadro de uma seção: um material ou uma cartolina (sem link). */
+export type SectionFill = Exclude<ProfileBackground, { kind: 'link' }>;
+
 /** Como as fichas de uma seção aparecem: os tipos de ficha do mural (a lista vale para tudo aqui). */
 export const SECTION_DENSITIES = [
   { id: 'completa', label: 'Completa', hint: 'A ficha do mural, com a frase e as notas.' },
@@ -53,6 +73,8 @@ export interface ProfileSection {
   note: string;
   density: SectionDensity;
   frame: SectionFrame;
+  /** O fundo dentro da moldura, quando a seção fica num quadro (o padrão é a cortiça). */
+  fill: SectionFill;
   /** Os ids das fichas, na ordem escolhida. Quem visita só vê as que estão públicas. */
   items: string[];
 }
@@ -75,6 +97,8 @@ export interface Profile {
   /** Os assuntos: etiquetas curtas. */
   topics: string[];
   background: ProfileBackground;
+  /** A parede atrás do perfil inteiro. */
+  page: PageBackground;
   walls: Partial<Record<Kind, ProfileWall>>;
   sections: ProfileSection[];
 }
@@ -96,7 +120,7 @@ export const DEFAULT_EMOJI = '🙂';
 
 /** Uma seção nova, vazia. */
 export function newSection(title = ''): ProfileSection {
-  return { id: newId(), title, note: '', density: 'completa', frame: 'parede', items: [] };
+  return { id: newId(), title, note: '', density: 'completa', frame: 'parede', fill: { kind: 'material', material: 'cortica' }, items: [] };
 }
 
 /** O perfil de quem ainda não mexeu: o emoji sorrindo, cortiça, e uma seção "Em destaque" vazia. */
@@ -108,6 +132,7 @@ export function defaultProfile(): Profile {
     about: '',
     topics: [],
     background: { kind: 'material', material: 'cortica' },
+    page: 'eucatex',
     walls: {},
     sections: [newSection('Em destaque')],
   };
@@ -135,11 +160,17 @@ export function cleanImageUrl(v: unknown): string | null {
 
 function sanitizeBackground(raw: unknown): ProfileBackground {
   const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  if (b['kind'] === 'cartolina' && isStock(b['stock'])) return { kind: 'cartolina', stock: b['stock'] };
   if (b['kind'] === 'link') {
     const url = cleanImageUrl(b['url']);
     if (url) return { kind: 'link', url };
   }
+  return sanitizeFill(raw);
+}
+
+/** Um material ou uma cartolina; o resto vira cortiça. */
+function sanitizeFill(raw: unknown): SectionFill {
+  const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  if (b['kind'] === 'cartolina' && isStock(b['stock'])) return { kind: 'cartolina', stock: b['stock'] };
   const material = PROFILE_MATERIALS.find((m) => m.id === b['material'])?.id;
   return { kind: 'material', material: material ?? 'cortica' };
 }
@@ -178,6 +209,7 @@ function sanitizeSection(raw: unknown): ProfileSection | null {
     note: line(s['note'], PROFILE_LIMITS.note),
     density: SECTION_DENSITIES.find((d) => d.id === s['density'])?.id ?? 'completa',
     frame: s['frame'] === 'quadro' ? 'quadro' : 'parede',
+    fill: sanitizeFill(s['fill']),
     items,
   };
 }
@@ -214,6 +246,7 @@ export function sanitizeProfile(raw: unknown): Profile | null {
     about: text(p['about'], PROFILE_LIMITS.about),
     topics: sanitizeTopics(p['topics']),
     background: sanitizeBackground(p['background']),
+    page: PAGE_BACKGROUNDS.find((b) => b.id === p['page'])?.id ?? 'eucatex',
     walls: sanitizeWalls(p['walls']),
     sections,
   };

@@ -25,7 +25,7 @@
 <div class="mesa">
   <div class="fichas">
     <!-- ===== Você: a foto, o nome, a linha, a descrição e os assuntos ===== -->
-    <section class="ficha voce" aria-labelledby="voce-titulo">
+    <section class="ficha voce" aria-labelledby="voce-titulo" (focusin)="edit('voce', $event)" (pointerdown)="edit('voce', $event)">
       <app-pin class="pin" color="#e62e2d" />
       <h2 id="voce-titulo">Você</h2>
 
@@ -153,10 +153,13 @@
         </div>
         <p class="hint">Enter (ou vírgula) prega o assunto. Ele vira uma fita Dymo na folha “Sobre mim”.</p>
       </div>
+      @if (inlineAt('voce')) {
+        <div class="previa-dentro"><ng-container [ngTemplateOutlet]="previa" /></div>
+      }
     </section>
 
     <!-- ===== O fundo do quadro: papelaria, cartolina ou uma imagem ===== -->
-    <section class="ficha fundo-ficha" aria-labelledby="fundo-titulo">
+    <section class="ficha fundo-ficha" aria-labelledby="fundo-titulo" (focusin)="edit('fundo', $event)" (pointerdown)="edit('fundo', $event)">
       <app-pin class="pin" color="#e62e2d" />
       <h2 id="fundo-titulo">Fundo do quadro</h2>
       <p class="lead">O que fica atrás da sua foto, dentro da moldura. O que está escrito continua no papel, então qualquer fundo lê bem.</p>
@@ -229,10 +232,39 @@
           <p id="fundo-link-dica" class="hint">Cole o link direto de uma imagem. Ela fica debaixo de um plástico de encapar. Apagar o link volta para a cortiça.</p>
         }
       </div>
+      @if (inlineAt('fundo')) {
+        <div class="previa-dentro"><ng-container [ngTemplateOutlet]="previa" /></div>
+      }
+    </section>
+
+    <!-- ===== A parede atrás do perfil inteiro: as escuras, para o giz ler ===== -->
+    <section class="ficha pagina-ficha" aria-labelledby="pagina-titulo" (focusin)="edit('pagina', $event)" (pointerdown)="edit('pagina', $event)">
+      <app-pin class="pin" color="#e62e2d" />
+      <h2 id="pagina-titulo">Parede da página</h2>
+      <p class="lead">O que fica atrás do perfil inteiro quando alguém abre o seu nome. Todas são escuras, para o giz e as fitas lerem bem.</p>
+
+      <fieldset class="grupo">
+        <legend class="sr-only">A parede</legend>
+        <div class="materiais paredes">
+          @for (w of pages; track w.id) {
+            <label class="material" [class.on]="profile().page === w.id">
+              <input type="radio" name="parede" [checked]="profile().page === w.id" (change)="setPage(w.id)" />
+              <app-page-wall class="retalho retalho-parede" [wall]="w.id" />
+              <span class="material-nome">{{ w.label }}</span>
+              @if (profile().page === w.id) {
+                <app-pin class="cor-pin" color="#e62e2d" />
+              }
+            </label>
+          }
+        </div>
+      </fieldset>
+      @if (inlineAt('pagina')) {
+        <div class="previa-dentro"><ng-container [ngTemplateOutlet]="previa" /></div>
+      }
     </section>
 
     <!-- ===== Os murais: cada um vira uma pasta no perfil ===== -->
-    <section class="ficha murais-ficha" aria-labelledby="murais-titulo">
+    <section class="ficha murais-ficha" aria-labelledby="murais-titulo" (focusin)="edit('murais', $event)" (pointerdown)="edit('murais', $event)">
       <app-pin class="pin" color="#e62e2d" />
       <h2 id="murais-titulo">Seus murais</h2>
       <p class="lead">Cada mural com alguma ficha à mostra vira uma pasta no perfil, que abre o mural inteiro.</p>
@@ -272,6 +304,9 @@
           </li>
         }
       </ul>
+      @if (inlineAt('murais')) {
+        <div class="previa-dentro"><ng-container [ngTemplateOutlet]="previa" /></div>
+      }
     </section>
 
     <!-- ===== As seções: fichas escolhidas, com um nome seu ===== -->
@@ -283,7 +318,13 @@
       </p>
 
       @for (s of profile().sections; track s.id; let i = $index, first = $first, last = $last) {
-        <article class="secao" [attr.aria-label]="'Seção ' + (i + 1) + (s.title ? ': ' + s.title : '')">
+        <article
+          class="secao"
+          [class.na-previa]="wide() && isEditingSection(s.id)"
+          [attr.aria-label]="'Seção ' + (i + 1) + (s.title ? ': ' + s.title : '')"
+          (focusin)="edit({ section: s.id }, $event)"
+          (pointerdown)="edit({ section: s.id }, $event)"
+        >
           <div class="secao-topo">
             <label class="sr-only" [for]="'secao-titulo-' + s.id">Nome da seção {{ i + 1 }}</label>
             <input
@@ -346,6 +387,45 @@
             </div>
           </fieldset>
 
+          @if (s.frame === 'quadro') {
+            <!-- o que fica dentro da moldura: um material ou uma cartolina -->
+            <fieldset class="escolha-linha dentro">
+              <legend class="rotulo">Dentro do quadro</legend>
+              <div class="materiais">
+                @for (m of materials; track m.id) {
+                  <label class="material" [class.on]="isFill(s, { kind: 'material', material: m.id })">
+                    <input type="radio" [name]="'dentro-' + s.id" [checked]="isFill(s, { kind: 'material', material: m.id })" (change)="setFill(s.id, { kind: 'material', material: m.id })" />
+                    <span class="retalho" [attr.data-fundo]="m.id" aria-hidden="true"></span>
+                    <span class="material-nome">{{ m.label }}</span>
+                    @if (isFill(s, { kind: 'material', material: m.id })) {
+                      <app-pin class="cor-pin" color="#e62e2d" />
+                    }
+                  </label>
+                }
+              </div>
+              <div class="amostras">
+                @for (st of lightStocks; track st) {
+                  <label class="cor" [class.on]="isFill(s, { kind: 'cartolina', stock: st })">
+                    <input type="radio" [name]="'dentro-' + s.id" [attr.aria-label]="'Cartolina ' + stockLabels[st]" [checked]="isFill(s, { kind: 'cartolina', stock: st })" (change)="setFill(s.id, { kind: 'cartolina', stock: st })" />
+                    <span class="amostra cartolina" [attr.data-cor]="st" [style.--stock]="'var(--stock-' + st + ')'"></span>
+                    @if (isFill(s, { kind: 'cartolina', stock: st })) {
+                      <app-pin class="cor-pin" color="#e62e2d" />
+                    }
+                  </label>
+                }
+                @for (st of darkStocks; track st) {
+                  <label class="cor" [class.on]="isFill(s, { kind: 'cartolina', stock: st })">
+                    <input type="radio" [name]="'dentro-' + s.id" [attr.aria-label]="'Cartolina ' + stockLabels[st]" [checked]="isFill(s, { kind: 'cartolina', stock: st })" (change)="setFill(s.id, { kind: 'cartolina', stock: st })" />
+                    <span class="amostra cartolina" [attr.data-cor]="st" [style.--stock]="'var(--stock-' + st + ')'"></span>
+                    @if (isFill(s, { kind: 'cartolina', stock: st })) {
+                      <app-pin class="cor-pin" color="#f4f4f0" />
+                    }
+                  </label>
+                }
+              </div>
+            </fieldset>
+          }
+
           <div class="itens">
             <div class="itens-topo">
               <span class="rotulo">
@@ -404,6 +484,9 @@
               <p class="vazio-secao">Nenhuma ficha ainda. Toque em “Escolher fichas”.</p>
             }
           </div>
+          @if (inlineAt({ section: s.id })) {
+            <div class="previa-dentro"><ng-container [ngTemplateOutlet]="previa" /></div>
+          }
         </article>
       } @empty {
         <p class="vazio-secao">Nenhuma seção. O perfil mostra só o quadro de cima e os seus murais.</p>
@@ -421,11 +504,12 @@
     </section>
   </div>
 
-  <!-- ===== O quadro de cima, ao vivo ===== -->
-  <aside class="previa" aria-label="Prévia do topo do perfil">
-    <p class="previa-rotulo">Assim fica o topo do seu perfil</p>
-    <app-profile-hero [profile]="profile()" [name]="name()" [code]="account.account()?.codigo ?? null" [stats]="stats()" [updated]="updated()" />
-  </aside>
+  <!-- ===== A parte sendo mexida, ao vivo, presa à direita ===== -->
+  @if (wide()) {
+    <aside class="previa" aria-label="Prévia do perfil">
+      <ng-container [ngTemplateOutlet]="previa" />
+    </aside>
+  }
 </div>
 
 <app-profile-picker
@@ -436,3 +520,27 @@
   [chosen]="pickingSection()?.items ?? []"
   (chosenChange)="setItems(picking()!, $event)"
 />
+
+<!-- A prévia: a parte sendo mexida como os outros vão ver, em cima da parede escolhida (só para ver:
+     nada nela responde ao toque nem recebe o foco) -->
+<ng-template #previa>
+  @let v = preview();
+  <p class="previa-rotulo">{{ v.label }}</p>
+  <div #previewBox class="previa-parede">
+    <div class="previa-pano">
+    <app-page-wall class="previa-fundo" [wall]="profile().page" />
+    <div class="previa-miolo" inert>
+      @if (v.kind === 'secao') {
+        <app-profile-section [section]="v.section" [cards]="v.cards" [looks]="settings.categoryLooks()" />
+      } @else if (v.kind === 'murais') {
+        <app-profile-walls [profile]="profile()" [cards]="publicCards()" [name]="name()" [own]="true" />
+      } @else {
+        <app-profile-hero [profile]="profile()" [name]="name()" [code]="account.account()?.codigo ?? null" [stats]="stats()" [updated]="updated()" />
+        @if (v.kind === 'pagina') {
+          <app-profile-walls [profile]="profile()" [cards]="publicCards()" [name]="name()" [own]="true" />
+        }
+      }
+    </div>
+    </div>
+  </div>
+</ng-template>

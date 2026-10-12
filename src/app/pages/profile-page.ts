@@ -10,24 +10,22 @@ import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { Desk } from '../core/desk';
 import { Follow } from '../core/follow';
 import { PeopleTab, ProfilePeople } from '../core/profile-people';
-import { KINDS, Kind, countOf, profileOf } from '../core/kinds';
+import { Kind } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { Profile, ProfileSection, defaultProfile, profileStats, updatedLabel } from '../core/profile';
+import { Profile, defaultProfile, profileStats, updatedLabel } from '../core/profile';
 import { ProfileStore } from '../core/profile-store';
 import { Reactions } from '../core/reactions';
-import { Review, Stock, formatScore, isDone, isNote, isPrivate, scoreOf } from '../core/review';
-import { pinningFor } from '../core/wall-physics';
+import { Review, isPrivate } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { Busy } from '../ui/busy';
-import { CoverSleeve } from '../ui/cover-sleeve';
-import { KIND_ICON } from '../ui/kind-switcher';
-import { MiniPolaroid } from '../ui/mini-polaroid';
+import { PageWall } from '../ui/page-wall';
 import { PeopleSheet } from '../ui/people-sheet';
 import { Pin } from '../ui/pin';
 import { ProfileHero } from '../ui/profile-hero';
-import { ReviewCard } from '../ui/review-card';
+import { ProfileSectionView } from '../ui/profile-section';
+import { ProfileWalls } from '../ui/profile-walls';
 import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
 
@@ -37,17 +35,7 @@ export function profileLink(code: string, base: string = location.origin + locat
 }
 
 /** O perfil de quem ainda não montou o seu: o padrão, sem a seção vazia. */
-/** A cor de cada mural na borda da divisória e na contagem da pasta (da cartela das categorias). */
-const WALL_COLOR: Record<Kind, string> = {
-  jogos: '#d63a2f',
-  livros: '#5e9c1c',
-  filmes: '#8c58d8',
-  series: '#2d8bd6',
-  animes: '#e2579f',
-  anotacoes: '#e46f0c',
-};
-
-const BLANK: Profile ={ ...defaultProfile(), sections: [] };
+const BLANK: Profile = { ...defaultProfile(), sections: [] };
 
 /** Quem é o dono do perfil aberto, e em que pé está. */
 type Who =
@@ -64,7 +52,7 @@ type Who =
  */
 @Component({
   selector: 'app-profile-page',
-  imports: [Busy, CoverSleeve, LucideAngularModule, MiniPolaroid, PeopleSheet, Pin, ProfileHero, ReviewCard, ReviewReader, RouterLink],
+  imports: [Busy, LucideAngularModule, PageWall, PeopleSheet, Pin, ProfileHero, ProfileSectionView, ProfileWalls, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.scss',
@@ -164,42 +152,6 @@ export class ProfilePage {
   protected readonly looks = computed(() => (this.own() ? this.settings.categoryLooks() : (this.colleague()?.categoryLooks ?? {})));
   protected readonly reactCode = computed(() => this.code());
 
-  /** A sorte desta visita: cada F5 embaralha as capas das pastas, mas elas não pulam enquanto a página está aberta. */
-  private readonly luck = Math.random().toString(36);
-
-  /** A posição sorteada de uma ficha nesta visita (um hash do id com a sorte). */
-  private shuffled(id: string): number {
-    let h = 2166136261;
-    for (const ch of this.luck + id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-    return h >>> 0;
-  }
-
-  /** As pastas: um mural por pasta, só os que têm fichas à mostra e que a pessoa não escondeu. */
-  protected readonly walls = computed(() => {
-    const p = this.profile();
-    return KINDS.map((kind) => {
-      // uma ficha por obra, e as anotações finalizadas fora (o mural também não mostra)
-      const list = this.cards().filter((r) => r.kind === kind && !r.revisitOf && !isDone(r));
-      // dez capas sorteadas a cada visita (a pasta mostra quantas couberem): primeiro as com capa e
-      // nota acima de 7, depois as com capa, e por último as sem capa (a listrada com a inicial)
-      const tier = (r: Review) => (r.game.coverUrl ? 0 : 2) + (!isNote(r) && (scoreOf(r.scores, 'final') ?? 0) > 7 ? 0 : 1);
-      const covers = [...list].sort((a, b) => tier(a) - tier(b) || this.shuffled(a.id) - this.shuffled(b.id)).slice(0, 10);
-      return {
-        kind,
-        icon: KIND_ICON[kind],
-        color: WALL_COLOR[kind],
-        title: `Mural de ${profileOf(kind).plural}`,
-        short: profileOf(kind).plural,
-        /** Para quem lê a tela: "68 jogos" (na pasta, só o número; a orelha já diz o mural). */
-        count: countOf(profileOf(kind), list.length),
-        n: list.length,
-        covers,
-        text: p.walls[kind]?.text ?? '',
-        hidden: p.walls[kind]?.hidden === true,
-      };
-    }).filter((w) => w.n > 0 && !w.hidden);
-  });
-
   /** As seções com as fichas que existem e estão à mostra; para quem visita, as vazias somem. */
   protected readonly sections = computed(() =>
     this.profile()
@@ -296,20 +248,4 @@ export class ProfilePage {
     this.reader().open(review, this.name(), this.cards(), this.hidden().has(review.id), this.code());
   }
 
-  protected score(r: Review): string {
-    return isNote(r) ? '' : formatScore(r.scores.final);
-  }
-
-  /** A cartolina da ficha (a mesma do mural): o fundo da polaroid sem capa. */
-  protected stockOf(r: Review): Stock {
-    return pinningFor(r.id, r.stock).stock;
-  }
-
-  protected kindLabel(r: Review): string {
-    return profileOf(r.kind).singular;
-  }
-
-  protected trackSection(_: number, s: ProfileSection): string {
-    return s.id;
-  }
 }

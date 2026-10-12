@@ -31,12 +31,32 @@ describe('perfil', () => {
     // um link que não é https não vira fundo
     expect(p.background).toEqual({ kind: 'material', material: 'cortica' });
     expect(p.walls).toEqual({ jogos: { hidden: true, text: 'Atmosfera' } });
-    expect(p.sections).toEqual([{ id: 'a1', title: 'Coração', note: '', density: 'completa', frame: 'quadro', items: ['r1', 'r3'] }]);
+    expect(p.sections).toEqual([{ id: 'a1', title: 'Coração', note: '', density: 'completa', frame: 'quadro', fill: { kind: 'material', material: 'cortica' }, items: ['r1', 'r3'] }]);
+    expect(p.page).toBe('eucatex');
   });
 
   it('aceita o fundo de cartolina e o link https', () => {
     expect(sanitizeProfile({ background: { kind: 'cartolina', stock: 'azul-escuro' } })!.background).toEqual({ kind: 'cartolina', stock: 'azul-escuro' });
     expect(sanitizeProfile({ background: { kind: 'link', url: 'https://ex.com/f.jpg' } })!.background).toEqual({ kind: 'link', url: 'https://ex.com/f.jpg' });
+  });
+
+  it('a parede da página e o fundo do quadro de cada seção', () => {
+    const p = sanitizeProfile({
+      page: 'planta',
+      sections: [
+        { id: 's1', fill: { kind: 'cartolina', stock: 'verde-escuro' } },
+        { id: 's2', fill: { kind: 'material', material: 'papelao' } },
+        { id: 's3', fill: { kind: 'link', url: 'https://ex.com/f.jpg' } },
+      ],
+    })!;
+    expect(p.page).toBe('planta');
+    expect(p.sections.map((s) => s.fill)).toEqual([
+      { kind: 'cartolina', stock: 'verde-escuro' },
+      { kind: 'material', material: 'papelao' },
+      // o quadro da seção não leva imagem por link
+      { kind: 'material', material: 'cortica' },
+    ]);
+    expect(sanitizeProfile({ page: 'neon' })!.page).toBe('eucatex');
   });
 
   it('não é perfil: null', () => {

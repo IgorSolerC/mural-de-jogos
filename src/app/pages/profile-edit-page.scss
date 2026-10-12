@@ -98,37 +98,77 @@
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
-/* Sem espaço para a prévia ao lado, ela entra logo depois do Fundo do quadro, perto da foto e do
-   fundo que ela mostra (e não no fim da página) */
+/* Um pedaço da parede escolhida, com a parte mexida pregada nele como no perfil. Do lado, ele cabe na
+   tela e rola por dentro (uma seção grande não empurra a prévia para fora). */
+.previa-parede {
+  position: relative;
+  border-radius: 4px;
+  color: var(--wall-ink);
+  color-scheme: dark;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.5),
+    0 10px 24px -8px rgb(0 0 0 / 0.6);
+}
+
+/* o pano de parede cresce com o que está pregado nele (e rola junto, dentro da prévia) */
+.previa-pano {
+  position: relative;
+  isolation: isolate;
+}
+
+.previa-fundo {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.previa .previa-parede {
+  max-height: calc(100dvh - 76px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(243 239 230 / 0.3) transparent;
+}
+
+.previa-miolo {
+  display: flow-root;
+  padding: clamp(18px, 2.4vw, 30px) clamp(14px, 2vw, 26px) clamp(26px, 3vw, 40px);
+
+  /* a primeira parte encosta no alto do pedaço de parede (no perfil, ela desce do quadro de cima) */
+  > :first-child {
+    --bloco-topo: 0px;
+  }
+}
+
+/* Na tela estreita, a prévia entra no pé da ficha mexida, de uma beirada à outra da ficha */
+.previa-dentro {
+  margin: 28px -28px -28px;
+  padding: 18px 0 0;
+  border-top: 2px dashed rgb(21 21 21 / 0.28);
+
+  .previa-rotulo {
+    margin-inline: 28px;
+    color: var(--ink-2);
+    text-shadow: none;
+  }
+
+  .previa-parede {
+    border-radius: 0 0 2px 2px;
+  }
+}
+
+.secao .previa-dentro {
+  margin-bottom: -24px;
+}
+
+/* Sem espaço para a prévia ao lado, as fichas ficam uma embaixo da outra */
 @media (max-width: 1179px) {
   .mesa {
-    display: flex;
-    flex-direction: column;
-    gap: 48px;
+    display: block;
   }
-  .fichas {
-    display: contents;
-  }
-  .ficha,
-  .previa {
+  .ficha {
     width: 100%;
     max-width: 720px;
-  }
-  .voce {
-    order: 1;
-  }
-  .fundo-ficha {
-    order: 2;
-  }
-  .previa {
-    order: 3;
-    position: static;
-  }
-  .murais-ficha {
-    order: 4;
-  }
-  .secoes-ficha {
-    order: 5;
   }
 }
 
@@ -160,8 +200,12 @@
   rotate: 0.4deg;
 }
 
+.pagina-ficha {
+  rotate: -0.25deg;
+}
+
 .murais-ficha {
-  rotate: -0.3deg;
+  rotate: 0.3deg;
 }
 
 .secoes-ficha {
@@ -603,6 +647,27 @@ fieldset > :not(legend) {
   @include materials.fundos;
 }
 
+/* a parede: um retalho maior, e quatro por linha */
+.paredes {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.retalho-parede {
+  max-width: 128px;
+  overflow: hidden;
+}
+
+/* o que fica dentro do quadro da seção: os mesmos retalhos e cartolinas do fundo do quadro de cima */
+.dentro {
+  .materiais {
+    margin-top: 4px;
+  }
+
+  .amostras {
+    margin-top: 14px;
+  }
+}
+
 .material-nome {
   font-family: var(--f-label);
   font-weight: 800;
@@ -746,6 +811,22 @@ fieldset > :not(legend) {
   gap: 14px;
   padding: 22px 0 24px;
   border-top: 2px dashed rgb(21 21 21 / 0.28);
+}
+
+/* a seção que está na prévia ao lado: uma faixa de marca-texto na beirada da ficha */
+.secao.na-previa {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 22px;
+    bottom: 24px;
+    left: -28px;
+    width: 6px;
+    border-radius: 0 2px 2px 0;
+    background: var(--hi);
+  }
 }
 
 .secao-topo {
@@ -1030,6 +1111,23 @@ fieldset > :not(legend) {
 
   .materiais {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .paredes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .previa-dentro {
+    margin-inline: -16px;
+    margin-bottom: -22px;
+
+    .previa-rotulo {
+      margin-inline: 16px;
+    }
+  }
+
+  .secao.na-previa::before {
+    left: -16px;
   }
 
   .item {

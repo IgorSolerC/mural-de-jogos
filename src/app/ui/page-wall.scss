@@ -1,0 +1,15 @@
+@use 'profile-materials' as materials;
+
+/* quem põe a parede escolhe onde ela fica (fixa atrás da página, atrás da prévia, no retalho) */
+:host {
+  position: relative;
+  display: block;
+  pointer-events: none;
+}
+
+.parede {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  @include materials.paredes;
+}

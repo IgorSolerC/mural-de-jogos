@@ -51,6 +51,29 @@ export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-11-previas-do-perfil',
+    version: '1.34.1',
+    kind: 'melhoria',
+    date: '2026-10-11',
+    title: 'Prévia de tudo em Editar o perfil',
+    items: [
+      'A prévia ao lado agora mostra a parte que você está mexendo: o topo, a parede da página, as pastas dos murais ou a seção, do jeito que os outros vão ver.',
+      'Mostrar ou esconder uma pasta, mudar o texto dela, o tipo de ficha, o quadro e as fichas de uma seção: tudo aparece na prévia na hora.',
+      'Na tela estreita, a prévia entra no pé da parte que você tocou.',
+    ],
+  },
+  {
+    id: '2026-10-11-paredes-do-perfil',
+    version: '1.34.0',
+    kind: 'funcionalidade',
+    date: '2026-10-11',
+    title: 'A parede do perfil e o fundo dos quadros',
+    items: [
+      'Escolha a parede atrás do perfil inteiro: eucatex grafite, planta azul, lousa, jeans, veludo de cinema, céu de planetário, tijolinho ou assoalho de nogueira. Todas escuras, para o giz e as fitas lerem bem.',
+      'As seções num quadro ganharam o que vai dentro da moldura: cortiça, kraft, quadriculado, pautado, papelão, eucatex ou qualquer cartolina.',
+    ],
+  },
+  {
     id: '2026-10-11-seguindo-seguidores',
     version: '1.33.0',
     kind: 'funcionalidade',

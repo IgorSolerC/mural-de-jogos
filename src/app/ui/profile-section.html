@@ -1,0 +1,88 @@
+@let s = section();
+<section class="bloco secao" [class.no-quadro]="s.frame === 'quadro'" [attr.aria-label]="s.title || 'Seção sem nome'">
+  <header class="cabeca">
+    <h2 class="tape-label">{{ s.title || 'Seção sem nome' }}</h2>
+    @if (s.note) {
+      <p class="secao-nota">{{ s.note }}</p>
+    }
+    <span class="risco" aria-hidden="true"></span>
+    @if (editable()) {
+      <a class="giz arrumar" routerLink="/perfil/editar" [attr.aria-label]="'Arrumar a seção ' + (s.title || 'sem nome') + ' em Editar o perfil'">
+        <lucide-icon [img]="EditIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+        Arrumar
+      </a>
+    }
+  </header>
+
+  <div class="suporte">
+    @if (s.frame === 'quadro') {
+      <span class="parafuso p1" aria-hidden="true"></span>
+      <span class="parafuso p2" aria-hidden="true"></span>
+      <span class="parafuso p3" aria-hidden="true"></span>
+      <span class="parafuso p4" aria-hidden="true"></span>
+    }
+    @let f = fill();
+    <div
+      class="miolo"
+      [attr.data-fundo]="f?.material ?? null"
+      [class.cartolina]="!!f?.stock"
+      [attr.data-cor]="f?.stock ?? null"
+      [style.--stock]="f?.stock ? 'var(--stock-' + f!.stock + ')' : null"
+    >
+    @if (!cards().length) {
+      <p class="secao-vazia">
+        Nenhuma ficha à mostra nesta seção.
+        @if (editable()) {
+          <a routerLink="/perfil/editar">Escolha em Editar o perfil</a>.
+        } @else {
+          Toque em “Escolher fichas”.
+        }
+      </p>
+    } @else if (s.density === 'lista') {
+      <!-- a lista: os nomes escritos à mão numa folha de caderno -->
+      <ol class="lista-folha">
+        @for (r of cards(); track r.id) {
+          <li>
+            <button type="button" class="lista-item" (click)="opened.emit(r)">
+              <span class="lista-nome">{{ r.game.name }}</span>
+              <span class="lista-meta">
+                {{ kindLabel(r) }}
+                @if (score(r) && !hidden().has(r.id)) {
+                  · <b>{{ score(r) }}</b>
+                }
+              </span>
+            </button>
+          </li>
+        }
+      </ol>
+    } @else if (s.density === 'polaroid') {
+      <!-- as polaroids: a capa na foto, o nome à mão e a nota a caneta, presas com fita -->
+      <ul class="polaroids">
+        @for (r of cards(); track r.id) {
+          <li>
+            <button type="button" class="polaroid-item" [attr.aria-label]="r.game.name + (score(r) && !hidden().has(r.id) ? ', nota ' + score(r) : '')" (click)="opened.emit(r)">
+              <app-mini-polaroid shape="retrato" [image]="r.game.coverUrl" [stock]="stockOf(r)" [caption]="r.game.name" [extra]="hidden().has(r.id) ? '?' : score(r)" />
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <div class="fichas" [attr.data-tipo]="s.density">
+        @for (r of cards(); track r.id) {
+          <app-review-card
+            [review]="r"
+            [preview]="true"
+            [compact]="s.density === 'simples'"
+            [capas]="s.density === 'capas'"
+            [full]="s.density === 'inteira'"
+            [masked]="hidden().has(r.id)"
+            [reactCode]="reactCode()"
+            [looks]="looks()"
+            (opened)="opened.emit(r)"
+          />
+        }
+      </div>
+    }
+    </div>
+  </div>
+</section>

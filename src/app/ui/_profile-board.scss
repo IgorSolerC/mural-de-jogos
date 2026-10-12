@@ -1,0 +1,103 @@
+/* O que as partes do perfil (as pastas dos murais e as seções) têm em comum: o bloco que se arruma
+   pela própria largura, o giz na parede e o cabeçalho com a fita, a linha da pessoa, o risco e o
+   "Arrumar". Quem inclui é o componente de cada parte (ver ui/profile-walls e ui/profile-section). */
+@mixin bloco {
+  .bloco {
+    margin-top: var(--bloco-topo, 56px);
+    /* o que tem dentro (as pastas, as fichas) se arruma pela largura do bloco */
+    container: bloco / inline-size;
+  }
+
+  @media (max-width: 559px) {
+    .bloco {
+      margin-top: var(--bloco-topo, 44px);
+    }
+  }
+
+  /* o giz na parede: o que acontece, dito baixinho */
+  .giz {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.92rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wall-ink-2);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  }
+
+  /* ===== O cabeçalho de cada parte (os murais e as seções), como o das redes: o título numa linha
+     só com a ação na ponta. O título é uma fita-crepe pequena, a linha da pessoa vai a giz ao lado,
+     e um risco tracejado leva até o "Arrumar" (só no seu) ===== */
+  .cabeca {
+    display: flex;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 24px;
+
+    .tape-label {
+      flex: 0 1 auto;
+      min-width: 0;
+      margin: 0;
+      padding: 6px 16px 4px;
+      font-size: 1.24rem;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  /* a linha da pessoa, escrita a giz na parede ao lado da fita */
+  .secao-nota {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 56ch;
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.25;
+    color: var(--wall-ink);
+    rotate: -1deg;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  }
+
+  .risco {
+    flex: 1 1 40px;
+    min-width: 40px;
+    border-top: 2px dashed rgb(243 239 230 / 0.22);
+  }
+
+  .arrumar {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    text-decoration: none;
+
+    &:hover {
+      color: var(--wall-ink);
+      text-decoration: underline 2px;
+      text-underline-offset: 4px;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--hi);
+      outline-offset: 2px;
+    }
+  }
+
+  /* estreito: a linha da pessoa desce para baixo da fita, e o risco some */
+  @container bloco (max-width: 559px) {
+    .cabeca {
+      flex-wrap: wrap;
+    }
+    .secao-nota {
+      order: 5;
+      flex-basis: 100%;
+    }
+    .risco {
+      visibility: hidden;
+    }
+  }
+}

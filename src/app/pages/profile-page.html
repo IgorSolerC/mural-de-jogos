@@ -9,6 +9,10 @@
   }
   @default {
     @if (own() || colleague()) {
+      @if (profile().page !== 'eucatex') {
+        <!-- a parede que a pessoa escolheu, atrás da página inteira (o eucatex é a do site) -->
+        <app-page-wall class="parede-fundo" [wall]="profile().page" />
+      }
       <app-profile-hero
         class="topo"
         [profile]="profile()"
@@ -59,123 +63,19 @@
       }
 
       <!-- ===== As pastas: um mural por pasta ===== -->
-      <section class="bloco murais" aria-labelledby="murais-titulo">
-        <header class="cabeca">
-          <h2 id="murais-titulo" class="tape-label">{{ own() ? 'Os seus murais' : 'Os murais de ' + name() }}</h2>
-          <span class="risco" aria-hidden="true"></span>
-          @if (own()) {
-            <a class="giz arrumar" routerLink="/perfil/editar" aria-label="Arrumar os murais em Editar o perfil">
-              <lucide-icon [img]="EditIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
-              Arrumar
-            </a>
-          }
-        </header>
-        @if (walls().length) {
-          <ul class="pastas" [attr.data-n]="walls().length">
-            @for (w of walls(); track w.kind; let i = $index) {
-              <li class="pasta-item" [style.--i]="i">
-                <button type="button" class="pasta-mural" [style.--cor]="w.color" [style.--capas]="w.covers.length" (click)="openWall(w.kind)" [attr.aria-label]="'Abrir o ' + w.title + ' de ' + name() + ', ' + w.count">
-                  <!-- a divisória do mural, de papel claro com a borda na cor dele (como as abas das anotações), atrás da pasta -->
-                  <span class="orelha orelha-cor" aria-hidden="true">
-                    <lucide-icon [img]="w.icon" [size]="19" [strokeWidth]="2.4" />
-                    {{ w.short }}
-                  </span>
-                  <span class="costas" aria-hidden="true"></span>
-                  <span class="boca" aria-hidden="true">
-                    @for (c of w.covers; track c.id; let j = $index) {
-                      <app-cover-sleeve class="espia" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true" />
-                    }
-                  </span>
-                  <span class="frente" aria-hidden="true">
-                    <span class="conta">{{ w.n }}</span>
-                    @if (w.text) {
-                      <span class="pasta-texto">{{ w.text }}</span>
-                    }
-                  </span>
-                </button>
-              </li>
-            }
-          </ul>
-        } @else {
-          <p class="giz vazio">{{ own() ? 'Nenhuma ficha à mostra ainda. As públicas aparecem aqui, cada mural numa pasta.' : name() + ' ainda não tem fichas à mostra.' }}</p>
-        }
-      </section>
+      <app-profile-walls [profile]="profile()" [cards]="cards()" [name]="name()" [own]="own()" [editable]="own()" (opened)="openWall($event)" />
 
       <!-- ===== As seções que a pessoa montou ===== -->
       @for (s of sections(); track s.id) {
-        <section class="bloco secao" [class.no-quadro]="s.frame === 'quadro'" [attr.aria-label]="s.title || 'Seção sem nome'">
-          <header class="cabeca">
-            <h2 class="tape-label">{{ s.title || 'Seção sem nome' }}</h2>
-            @if (s.note) {
-              <p class="secao-nota">{{ s.note }}</p>
-            }
-            <span class="risco" aria-hidden="true"></span>
-            @if (own()) {
-              <a class="giz arrumar" routerLink="/perfil/editar" [attr.aria-label]="'Arrumar a seção ' + (s.title || 'sem nome') + ' em Editar o perfil'">
-                <lucide-icon [img]="EditIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
-                Arrumar
-              </a>
-            }
-          </header>
-
-          <div class="suporte">
-            @if (s.frame === 'quadro') {
-              <span class="parafuso p1" aria-hidden="true"></span>
-              <span class="parafuso p2" aria-hidden="true"></span>
-              <span class="parafuso p3" aria-hidden="true"></span>
-              <span class="parafuso p4" aria-hidden="true"></span>
-            }
-            <div class="miolo" [attr.data-fundo]="s.frame === 'quadro' ? 'cortica' : null">
-            @if (!s.cards.length) {
-              <p class="secao-vazia">Nenhuma ficha à mostra nesta seção. <a routerLink="/perfil/editar">Escolha em Editar o perfil</a>.</p>
-            } @else if (s.density === 'lista') {
-              <!-- a lista: os nomes escritos à mão numa folha de caderno -->
-              <ol class="lista-folha">
-                @for (r of s.cards; track r.id) {
-                  <li>
-                    <button type="button" class="lista-item" (click)="open(r)">
-                      <span class="lista-nome">{{ r.game.name }}</span>
-                      <span class="lista-meta">
-                        {{ kindLabel(r) }}
-                        @if (score(r) && !hidden().has(r.id)) {
-                          · <b>{{ score(r) }}</b>
-                        }
-                      </span>
-                    </button>
-                  </li>
-                }
-              </ol>
-            } @else if (s.density === 'polaroid') {
-              <!-- as polaroids: a capa na foto, o nome à mão e a nota a caneta, presas com fita -->
-              <ul class="polaroids">
-                @for (r of s.cards; track r.id) {
-                  <li>
-                    <button type="button" class="polaroid-item" [attr.aria-label]="r.game.name + (score(r) && !hidden().has(r.id) ? ', nota ' + score(r) : '')" (click)="open(r)">
-                      <app-mini-polaroid shape="retrato" [image]="r.game.coverUrl" [stock]="stockOf(r)" [caption]="r.game.name" [extra]="hidden().has(r.id) ? '?' : score(r)" />
-                    </button>
-                  </li>
-                }
-              </ul>
-            } @else {
-              <div class="fichas" [attr.data-tipo]="s.density">
-                @for (r of s.cards; track r.id) {
-                  <app-review-card
-                    [review]="r"
-                    [preview]="true"
-                    [compact]="s.density === 'simples'"
-                    [capas]="s.density === 'capas'"
-                    [full]="s.density === 'inteira'"
-                    [masked]="hidden().has(r.id)"
-                    [reactCode]="reactCode()"
-                    [looks]="looks()"
-                    (opened)="open(r)"
-                  />
-                }
-              </div>
-            }
-            </div>
-          </div>
-        </section>
+        <app-profile-section
+          [section]="s"
+          [cards]="s.cards"
+          [hidden]="hidden()"
+          [reactCode]="reactCode()"
+          [looks]="looks()"
+          [editable]="own()"
+          (opened)="open($event)"
+        />
       }
 
       @if (code(); as c) {

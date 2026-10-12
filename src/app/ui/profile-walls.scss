@@ -1,0 +1,260 @@
+@use 'profile-board' as board;
+@use 'sass:list';
+
+:host {
+  display: block;
+}
+
+@include board.bloco;
+
+.vazio {
+  max-width: 60ch;
+}
+
+.murais .cabeca {
+  margin-bottom: 0;
+}
+
+.murais .vazio {
+  margin-top: 20px;
+}
+
+/* ===== As pastas dos murais: pasta de manilha deitada e larga, três por linha. A divisória colorida
+   do mural sai de trás (como as abas das anotações), as capas mais novas enchem a boca da pasta, e
+   a frente leva o número, a caneta na tinta do mural, e o texto da pessoa ===== */
+.pastas {
+  --cols: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: 58px 22px;
+  margin: 0;
+  padding: 46px 0 0;
+  list-style: none;
+}
+
+@container bloco (min-width: 560px) {
+  .pastas {
+    --cols: 2;
+  }
+}
+
+@container bloco (min-width: 900px) {
+  .pastas {
+    --cols: 3;
+    gap: 62px 28px;
+  }
+}
+
+/* quatro murais cabem numa fileira só quando sobra largura (e não fica um sozinho embaixo) */
+@container bloco (min-width: 1160px) {
+  .pastas[data-n='4'] {
+    --cols: 4;
+  }
+}
+
+.pasta-item {
+  --tilt: -0.6deg;
+  /* a pasta se arruma pela própria largura: quantas capas cabem */
+  container: pasta / inline-size;
+
+  &:nth-child(2n) {
+    --tilt: 0.5deg;
+  }
+  &:nth-child(3n) {
+    --tilt: -0.3deg;
+  }
+}
+
+.pasta-mural {
+  /* a tinta do mural: a cor, puxada para o escuro, para ler bem no manilha */
+  --tinta: color-mix(in oklab, var(--cor) 82%, #151515);
+  /* as capas: --vistas aparecem, as que existem (--capas) até as que cabem (--n, ver os @container) */
+  --capa-w: 70px;
+  --n: 3;
+  --vistas: min(var(--capas), var(--n));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* a fileira inteira na mesma altura: as frentes sem texto esticam */
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  rotate: var(--tilt);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.4));
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    translate: 0 -3px;
+    rotate: calc(var(--tilt) * 0.35);
+
+    .espia {
+      translate: 0 -9px;
+    }
+    .orelha {
+      translate: 0 -3px;
+    }
+  }
+
+  &:active {
+    translate: 0 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 6px;
+  }
+}
+
+/* as costas da pasta, mais escuras: a boca de onde saem as capas */
+.costas {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background-color: #dcc58c;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+}
+
+/* a divisória: papel claro com a borda do mural por dentro (ver .orelha-cor em styles.scss),
+   enfiada atrás da pasta; só a orelha sai pela beirada de cima */
+.orelha {
+  position: absolute;
+  top: -31px;
+  left: 12px;
+  isolation: isolate;
+  display: inline-flex;
+  /* o ícone e o nome na mesma linha de 19px, os dois no meio da parte que aparece */
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 24px);
+  height: 40px;
+  padding: 0 13px 4px 11px;
+  border-radius: 8px 8px 0 0;
+  background-color: #fffcf2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 19px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink);
+  --cat-cor: var(--cor);
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--tinta);
+  }
+}
+
+/* as capas sorteadas, enfiadas na boca da pasta de uma beirada à outra
+   (nomes próprios: .capas é a ficha no tipo Capas) */
+.boca {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  height: 90px;
+  pointer-events: none;
+}
+
+.espia {
+  /* espalhadas pela boca inteira: a primeira encosta na beirada esquerda e a última na direita,
+     encavaladas o quanto precisar; com poucas capas, um vão pequeno entre elas */
+  --passo: min(calc((100% - var(--capa-w)) / max(var(--vistas) - 1, 1)), calc(var(--capa-w) + 14px));
+
+  position: absolute;
+  top: 0;
+  left: calc(var(--j) * var(--passo));
+  width: var(--capa-w);
+  transition: translate var(--t-physical) var(--ease-physical);
+  transition-delay: calc(var(--j) * 25ms);
+
+  /* as que não cabem (--n) ficam de fora; os @container abaixo põem mais conforme a largura */
+  &:nth-child(n + 4) {
+    display: none;
+  }
+}
+
+/* tortas, como fichas enfiadas às pressas */
+$tortas: (4px -4deg) (-1px 2deg) (3px -2deg) (-2px 4deg) (2px -3deg) (0 3deg) (4px -1deg) (-2px 5deg) (1px -4deg) (-1px 2deg);
+@for $i from 1 through list.length($tortas) {
+  .espia:nth-child(#{$i}) {
+    top: list.nth(list.nth($tortas, $i), 1);
+    rotate: list.nth(list.nth($tortas, $i), 2);
+  }
+}
+
+/* quantas capas cabem: uma a mais a cada 62px, para o passo entre elas ficar entre ~42 e 62px */
+$cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
+@each $largura, $n in $cabem {
+  @container pasta (min-width: #{$largura}) {
+    .pasta-mural {
+      --n: #{$n};
+    }
+    .espia:nth-child(#{$n}) {
+      display: block;
+    }
+  }
+}
+
+/* a frente da pasta, por cima das capas: o número e o texto da pessoa */
+.frente {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 16px;
+  min-height: 62px;
+  margin-top: 92px;
+  padding: 10px 18px 12px 16px;
+  border-radius: 3px 3px 4px 4px;
+  background-color: #f3e5bb;
+  background-image: linear-gradient(rgb(255 255 255 / 0.18), transparent 30%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  box-shadow: 0 -3px 6px -2px rgb(0 0 0 / 0.3);
+}
+
+/* o número, a caneta na tinta do mural (a orelha já diz de quê) */
+.conta {
+  flex: none;
+  min-width: 1.4ch;
+  font-family: var(--f-marker);
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--tinta);
+  rotate: -3deg;
+}
+
+.pasta-texto {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  padding-left: 14px;
+  border-left: 2px solid rgb(21 21 21 / 0.12);
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pasta-mural,
+  .orelha,
+  .espia {
+    transition: none;
+  }
+}

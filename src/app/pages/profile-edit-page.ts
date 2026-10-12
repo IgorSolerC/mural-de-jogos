@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
   ArrowDown,
@@ -20,13 +21,16 @@ import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { KINDS, Kind, cap, countOf, profileOf } from '../core/kinds';
 import {
+  PAGE_BACKGROUNDS,
   PROFILE_LIMITS,
   PROFILE_MATERIALS,
+  PageBackground,
   ProfileBackground,
   ProfileMaterial,
   ProfileSection,
   SECTION_DENSITIES,
   SectionDensity,
+  SectionFill,
   SectionFrame,
   cleanImageUrl,
   newSection,
@@ -42,7 +46,10 @@ import { Confirm } from '../ui/confirm';
 import { CoverSleeve } from '../ui/cover-sleeve';
 import { KIND_ICON } from '../ui/kind-switcher';
 import { Pin } from '../ui/pin';
+import { PageWall } from '../ui/page-wall';
 import { ProfileHero } from '../ui/profile-hero';
+import { ProfileSectionView } from '../ui/profile-section';
+import { ProfileWalls } from '../ui/profile-walls';
 import { ProfilePicker } from '../ui/profile-picker';
 import { EmojiPanel } from '../ui/emoji-panel';
 import { RichEditor } from '../ui/rich-editor';
@@ -50,14 +57,22 @@ import { RichEditor } from '../ui/rich-editor';
 /** Quantas fichas de uma seção aparecem antes do "Mostrar todas". */
 const FOLDED_ITEMS = 6;
 
+/** A partir dessa largura, a prévia fica presa à direita; antes, ela entra na ficha que está sendo mexida. */
+const SIDE_PREVIEW = '(min-width: 1180px)';
+
+/** A parte do perfil sendo mexida agora (a que a prévia mostra): uma ficha, ou uma seção pelo id. */
+type Editing = 'voce' | 'fundo' | 'pagina' | 'murais' | { section: string };
+
 /**
- * As Configurações do perfil: o que quem abre o seu nome vê. À esquerda, as fichas de cartolina com
- * cada parte (Você, Fundo do quadro, Seus murais, Seções); à direita, o quadro de cima ao vivo. Como
- * os Ajustes, nada tem botão de salvar: vale na hora (e vai para a nuvem com o mural).
+ * As Configurações do perfil: o que quem abre o seu nome vê. À esquerda, as fichas com cada parte
+ * (Você, Fundo do quadro, Parede, Seus murais, Seções); à direita, ao vivo, a parte que está sendo
+ * mexida, como os outros vão ver (o quadro de cima, as pastas ou a seção), em cima da parede
+ * escolhida. Na tela estreita, a prévia entra no pé da ficha mexida. Como os Ajustes, nada tem botão
+ * de salvar: vale na hora (e vai para a nuvem com o mural).
  */
 @Component({
   selector: 'app-profile-edit-page',
-  imports: [CoverSleeve, EmojiPanel, LucideAngularModule, Pin, ProfileHero, ProfilePicker, RichEditor, RouterLink],
+  imports: [CoverSleeve, EmojiPanel, LucideAngularModule, NgTemplateOutlet, PageWall, Pin, ProfileHero, ProfilePicker, ProfileSectionView, ProfileWalls, RichEditor, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-edit-page.html',
   styleUrl: './profile-edit-page.scss',
@@ -77,6 +92,7 @@ export class ProfileEditPage {
   protected readonly darkStocks = DARK_STOCKS;
   protected readonly stockLabels = STOCK_LABEL;
   protected readonly densities = SECTION_DENSITIES;
+  protected readonly pages = PAGE_BACKGROUNDS;
   protected readonly frames: readonly { id: SectionFrame; label: string; hint: string }[] = [
     { id: 'parede', label: 'Na parede', hint: 'As fichas pregadas direto no eucatex.' },
     { id: 'quadro', label: 'Num quadro', hint: 'Dentro de um quadro de cortiça com moldura.' },
@@ -110,6 +126,69 @@ export class ProfileEditPage {
   protected readonly updated = computed(() => updatedLabel(this.publicCards()));
   /** Com a nuvem e uma conta, os outros veem o perfil; sem isso, ele fica só aqui. */
   protected readonly shared = computed(() => !!this.cloud.config() && this.account.signedIn());
+
+  // ===== A prévia: a parte sendo mexida =====
+  protected readonly editing = signal<Editing>('voce');
+  /** Tela larga: a prévia presa à direita. */
+  protected readonly wide = signal(matchMedia(SIDE_PREVIEW).matches);
+  private readonly previewBox = viewChild<ElementRef<HTMLElement>>('previewBox');
+
+  constructor() {
+    const query = matchMedia(SIDE_PREVIEW);
+    const onChange = (e: MediaQueryListEvent) => this.wide.set(e.matches);
+    query.addEventListener('change', onChange);
+    inject(DestroyRef).onDestroy(() => query.removeEventListener('change', onChange));
+    // outra parte na prévia: ela volta para o começo
+    effect(() => {
+      this.preview();
+      this.previewBox()?.nativeElement.scrollTo({ top: 0 });
+    });
+  }
+
+  /** O que a prévia mostra, e o que está escrito em cima dela. */
+  protected readonly preview = computed(() => {
+    const e = this.editing();
+    if (typeof e === 'object') {
+      const section = this.profile().sections.find((s) => s.id === e.section);
+      if (section) {
+        const cards = section.items.map((id) => this.byId().get(id)).filter((r): r is Review => !!r && !isPrivate(r));
+        return { kind: 'secao', section, cards, label: section.title ? `Assim fica a seção “${section.title}”` : 'Assim fica esta seção' } as const;
+      }
+      return { kind: 'topo', label: 'Assim fica o topo do seu perfil' } as const;
+    }
+    if (e === 'murais') return { kind: 'murais', label: 'Assim ficam as pastas dos seus murais' } as const;
+    if (e === 'pagina') return { kind: 'pagina', label: 'Assim fica a página, com a parede atrás' } as const;
+    return { kind: 'topo', label: 'Assim fica o topo do seu perfil' } as const;
+  });
+
+  /** A prévia vai no pé desta ficha (só na tela estreita). */
+  protected inlineAt(part: Editing): boolean {
+    if (this.wide()) return false;
+    const e = this.editing();
+    return typeof part === 'object' ? typeof e === 'object' && e.section === part.section : e === part;
+  }
+
+  protected isEditingSection(id: string): boolean {
+    const e = this.editing();
+    return typeof e === 'object' && e.section === id;
+  }
+
+  private readonly injector = inject(Injector);
+
+  /**
+   * A parte tocada (ou com o foco) vai para a prévia. Na tela estreita, a prévia sai do pé de uma
+   * ficha e entra no de outra: o que foi tocado fica parado no mesmo lugar da tela.
+   */
+  protected edit(part: Editing, event: Event): void {
+    const e = this.editing();
+    const same = typeof part === 'object' ? typeof e === 'object' && e.section === part.section : e === part;
+    if (same) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const before = target?.getBoundingClientRect().top;
+    this.editing.set(part);
+    if (this.wide() || !target || before === undefined) return;
+    afterNextRender({ write: () => window.scrollBy(0, target.getBoundingClientRect().top - before) }, { injector: this.injector });
+  }
 
   // ===== Você =====
   protected readonly emojiOpen = signal(false);
@@ -201,6 +280,11 @@ export class ProfileEditPage {
     img.src = url;
   }
 
+  // ===== A parede atrás da página =====
+  protected setPage(page: PageBackground): void {
+    this.profiles.update((p) => ({ ...p, page }));
+  }
+
   // ===== Murais =====
   /** Os murais com as fichas públicas de cada um (os sem nenhuma não aparecem para ninguém). */
   protected readonly walls = computed(() =>
@@ -254,6 +338,14 @@ export class ProfileEditPage {
 
   protected setFrame(id: string, frame: SectionFrame): void {
     this.patchSection(id, (s) => ({ ...s, frame }));
+  }
+
+  protected setFill(id: string, fill: SectionFill): void {
+    this.patchSection(id, (s) => ({ ...s, fill }));
+  }
+
+  protected isFill(s: ProfileSection, fill: SectionFill): boolean {
+    return s.fill.kind === 'material' ? fill.kind === 'material' && fill.material === s.fill.material : fill.kind === 'cartolina' && fill.stock === s.fill.stock;
   }
 
   protected setItems(id: string, items: string[]): void {
