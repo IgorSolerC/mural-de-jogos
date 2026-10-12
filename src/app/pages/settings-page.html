@@ -418,6 +418,38 @@
                   <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'pessoas' }" /></div>
                 }
               </fieldset>
+
+              <fieldset class="linha larga" (mouseenter)="peek('comentarios')" (focusin)="peek('comentarios')">
+                <legend class="linha-titulo">Quem comenta nas suas fichas</legend>
+                <p class="linha-desc">Quem pode escrever nas fichas que você publicou e reagir aos comentários delas. Ler, todo mundo que vê o seu mural lê; e você sempre pode responder.</p>
+                <div class="segmentos dois">
+                  <label class="segmento">
+                    <input
+                      type="radio"
+                      name="comentarios"
+                      value="seguidores"
+                      [checked]="comments.from() === 'seguidores'"
+                      [disabled]="comments.from() === null || commentsBusy()"
+                      (change)="setCommentsFrom('seguidores')"
+                    />
+                    <span class="seg-nome">Seus seguidores</span>
+                  </label>
+                  <label class="segmento">
+                    <input
+                      type="radio"
+                      name="comentarios"
+                      value="seguidos"
+                      [checked]="comments.from() === 'seguidos'"
+                      [disabled]="comments.from() === null || commentsBusy()"
+                      (change)="setCommentsFrom('seguidos')"
+                    />
+                    <span class="seg-nome">Só quem você segue</span>
+                  </label>
+                </div>
+                @if (peeking() === 'comentarios') {
+                  <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'comentarios' }" /></div>
+                }
+              </fieldset>
             }
           }
         </div>
@@ -740,6 +772,15 @@
         </span>
         <p class="pv-legenda">
           {{ peoplePrivacy.privacy() === 'numeros' ? 'Quem visita vê só quantos são. Você continua vendo as suas listas.' : 'Quem visita toca no número e vê quem são, cada um no seu mini-mural.' }}
+        </p>
+      </div>
+    }
+    @case ('comentarios') {
+      <div class="pv pv-comentarios">
+        <!-- o pé da folha de comentários, como quem não pode comentar o vê -->
+        <p class="pv-porta">{{ comments.from() === 'seguidos' ? 'Aqui só comenta quem ' + previewName() + ' segue.' : 'Para comentar, siga ' + previewName() + '.' }}</p>
+        <p class="pv-legenda">
+          {{ comments.from() === 'seguidos' ? 'É o que lê quem você não segue. Quem você segue comenta, mesmo sem seguir você.' : 'É o que lê quem não segue você. Seguiu, já pode comentar.' }}
         </p>
       </div>
     }

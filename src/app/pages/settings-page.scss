@@ -435,6 +435,21 @@ fieldset.linha .previa-linha {
   background: linear-gradient(transparent 52%, rgb(255 218 66 / 0.75) 52% 92%, transparent 92%);
 }
 
+/* o pé da folha de comentários, como quem não pode comentar o lê: uma tira do papel dela, com o
+   tracejado de cima */
+.pv-porta {
+  padding: 10px 12px 8px;
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .pv-botton {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;

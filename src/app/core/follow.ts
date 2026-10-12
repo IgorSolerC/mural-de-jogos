@@ -47,7 +47,9 @@ export type FeedItem =
   | { tipo: 'seguiu'; em: string; pessoa: Person; euSigo: boolean }
   | { tipo: 'resenha'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean }
   /** Alguém reagiu à minha resenha `ref` (ver core/reactions.ts). */
-  | { tipo: 'reagiu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; reacao: ReactionId };
+  | { tipo: 'reagiu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; reacao: ReactionId }
+  /** Alguém comentou na minha ficha `ref` (ver core/comments.ts). */
+  | { tipo: 'comentou'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean };
 
 /** Ver de novo a cada 15 minutos, com a aba à vista. */
 export const CHECK_EVERY_MS = 15 * 60_000;
@@ -73,12 +75,12 @@ export function parseFeed(raw: unknown): FeedItem[] {
     const pessoa = person(r?.['pessoa']);
     if (!em || !pessoa) continue;
     if (r['tipo'] === 'seguiu') out.push({ tipo: 'seguiu', em, pessoa, euSigo: r['euSigo'] === true });
-    else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu') {
+    else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu' || r['tipo'] === 'comentou') {
       const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
       const titulo = text(r['titulo'], 120);
       if (!ref || !titulo) continue;
       const base = { em, pessoa, ref, titulo, mural: isKind(r['mural']) ? r['mural'] : 'jogos', silenciado: r['silenciado'] === true } as const;
-      if (r['tipo'] === 'resenha') out.push({ tipo: 'resenha', ...base });
+      if (r['tipo'] === 'resenha' || r['tipo'] === 'comentou') out.push({ tipo: r['tipo'], ...base });
       else if (isReaction(r['reacao'])) out.push({ tipo: 'reagiu', ...base, reacao: r['reacao'] });
     }
   }

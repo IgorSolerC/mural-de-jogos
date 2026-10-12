@@ -141,7 +141,8 @@ import { NoteWidget } from './note-widget';
     /* cada linha de texto corrido começa um parágrafo: a primeira linha dele entra um pouco, como
        quem escreve à mão (a lista, o título, a tabela e o widget não) */
     .paragrafo {
-      text-indent: 1em;
+      /* quem usa pode tirar o recuo (os comentários: cada fala começa na margem) */
+      text-indent: var(--recuo, 1em);
     }
     /* ===== As ênfases ===== */
     .negrito {
@@ -233,8 +234,9 @@ import { NoteWidget } from './note-widget';
       content: '';
       position: absolute;
       left: 0.12em;
-      top: 0.3em;
-      bottom: 0.3em;
+      /* quem usa pode tirar a folga (os comentários: a citação de uma linha só ficava um toco de risco) */
+      top: var(--citacao-folga, 0.3em);
+      bottom: var(--citacao-folga, 0.3em);
       width: 7px;
       background: currentColor;
       opacity: 0.45;

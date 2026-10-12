@@ -120,6 +120,23 @@
                       <button type="button" class="acao-caneta" (click)="openMine(mine)">Ver a ficha</button>
                     }
                   </article>
+                } @else if (b.tipo === 'comentou') {
+                  <!-- alguém comentou na sua ficha: o mesmo bilhete, com o balão de fala no lugar das reações -->
+                  <article class="bilhete-seguiu bilhete-reagiu" [style.rotate.deg]="tilt(i)" [attr.aria-label]="commentedSpoken(b) + ', ' + when(b.dia)">
+                    @if (isFresh(b.item)) {
+                      <span class="novo" aria-hidden="true">Novo</span>
+                    }
+                    <span class="reagiu-emojis comentou-balao" aria-hidden="true">
+                      <lucide-icon [img]="CommentIcon" [size]="24" [strokeWidth]="2.3" />
+                    </span>
+                    <div class="seguiu-txt">
+                      <p><strong>{{ peopleNames(b.who) }}</strong> {{ b.who.length > 1 ? 'comentaram' : 'comentou' }} {{ commentedWhat(b) }} <em class="obra">{{ b.titulo }}</em></p>
+                      <span class="dia">{{ when(b.dia) }}@if (isFresh(b.item)) {<span class="sr-only"> (novo)</span>}</span>
+                    </div>
+                    @if (reactedReview(b); as mine) {
+                      <button type="button" class="acao-caneta" (click)="openMyComments(mine)">Ver os comentários</button>
+                    }
+                  </article>
                 } @else {
                   <!-- as resenhas seguidas de uma pessoa: a fita com o nome e, embaixo, cada ficha com o bilhete de vocês dois -->
                   <section class="bloco" [attr.aria-labelledby]="'bloco-' + i">
@@ -219,10 +236,15 @@
                                 </button>
                               }
                             }
-                            <!-- reagir, como segurar a mensagem no WhatsApp: a fileira de emojis sai do botão -->
+                            <!-- reagir, como segurar a mensagem no WhatsApp: a fileira de emojis sai do botão; e
+                                 comentar, que abre a ficha com a folha de comentários -->
                             @if (reactions.canReact(p.item.pessoa.codigo)) {
                               <div class="nota-reagir">
                                 <app-reaction-picker [target]="p.target" />
+                                <button type="button" class="acao-caneta comentar" (click)="openComments(theirs, p.item.pessoa, p.secret)">
+                                  <lucide-icon [img]="CommentIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                                  {{ commentLabel(p) }}
+                                </button>
                               </div>
                             }
                           </div>

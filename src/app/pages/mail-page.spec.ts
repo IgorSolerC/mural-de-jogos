@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals } from '../core/cloud-murals';
+import { Comments } from '../core/comments';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { FeedItem, Follow, People } from '../core/follow';
 import { LocalData } from '../core/local-data';
@@ -430,6 +431,52 @@ describe('Amigos: a página (MailPage)', () => {
       expect(page.reactedSpoken(blocks[1])).toBe('Ana reagiu com Amei à sua ficha de Obra rminha2');
       // quem só reagiu não tem mural para buscar
       expect(log.some((l) => l.startsWith('ensure'))).toBeFalse();
+    });
+  });
+
+  describe('comentários nas minhas fichas', () => {
+    const comentou = (pessoa: typeof ana, ref: string, em: string, mural: 'jogos' | 'anotacoes' = 'jogos'): FeedItem => ({ tipo: 'comentou', em, pessoa, ref, titulo: `Obra ${ref}`, mural, silenciado: false });
+
+    it('comentários seguidos na mesma ficha viram um bilhete só, cada pessoa uma vez; outra ficha, outro bilhete', async () => {
+      items.set([
+        comentou(ana, 'rminha1', '2026-10-06T10:00:00.000Z'),
+        comentou(bia, 'rminha1', '2026-10-06T09:00:00.000Z'),
+        comentou(ana, 'rminha1', '2026-10-06T08:30:00.000Z'),
+        comentou(cris, 'rminha1', '2026-10-06T08:00:00.000Z'),
+        comentou(ana, 'nminha2', '2026-10-05T10:00:00.000Z', 'anotacoes'),
+      ]);
+      const page = (await open()) as any;
+      const blocks = page.blocks().filter((b: any) => b.tipo === 'comentou');
+      expect(blocks.length).toBe(2);
+      expect(blocks[0].who.map((w: any) => w.nome)).toEqual(['Ana', 'Bia', 'Cris']);
+      expect(page.commentedSpoken(blocks[0])).toBe('Ana, Bia e mais 1 comentaram na sua ficha de Obra rminha1');
+      expect(page.commentedSpoken(blocks[1])).toBe('Ana comentou na sua anotação Obra nminha2');
+      // quem só comentou não tem mural para buscar
+      expect(log.some((l) => l.startsWith('ensure'))).toBeFalse();
+    });
+
+    it('um comentário entre duas reações à mesma ficha separa os bilhetes, na ordem em que chegaram', async () => {
+      items.set([
+        { tipo: 'reagiu', em: '2026-10-06T10:00:00.000Z', pessoa: ana, ref: 'rminha1', titulo: 'Obra', mural: 'jogos', silenciado: false, reacao: 'fogo' },
+        comentou(bia, 'rminha1', '2026-10-06T09:00:00.000Z'),
+        { tipo: 'reagiu', em: '2026-10-06T08:00:00.000Z', pessoa: cris, ref: 'rminha1', titulo: 'Obra', mural: 'jogos', silenciado: false, reacao: 'amei' },
+      ]);
+      const page = (await open()) as any;
+      expect(page.blocks().map((b: any) => b.tipo)).toEqual(['reagiu', 'comentou', 'reagiu']);
+    });
+
+    it('"Ver os comentários" abre a minha ficha já com a folha de comentários', async () => {
+      const mine = review('rminha1', 'Hades');
+      store.add(mine);
+      items.set([comentou(ana, 'rminha1', '2026-10-06T10:00:00.000Z')]);
+      const page = (await open()) as any;
+      const block = page.blocks().find((b: any) => b.tipo === 'comentou');
+      expect(page.reactedReview(block)?.id).toBe('rminha1');
+      page.openMyComments(mine);
+      // o pedido fica guardado para a leitura que abrir essa ficha (e só para ela)
+      const comments = TestBed.inject(Comments);
+      expect(comments.take('rminha1')).toBeTrue();
+      expect(comments.take('rminha1')).toBeFalse();
     });
   });
 });

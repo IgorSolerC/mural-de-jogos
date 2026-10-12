@@ -26,6 +26,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-comentarios-nas-fichas',
+    version: '1.35.0',
+    kind: 'funcionalidade',
+    date: '2026-10-12',
+    title: 'Comentários nas fichas',
+    items: [
+      'Dá para comentar nas fichas e anotações publicadas de quem você segue. Na leitura da ficha, a orelha "Comentários" (ou o "Comentar", ao lado do Reagir) puxa uma folha ao lado: a ficha fica à esquerda e a conversa à direita. No celular, a folha cobre a ficha, com o caminho de volta escrito em cima.',
+      'O comentário aceita tudo o que o texto de uma resenha aceita (negrito, listas, tarefas, citação, links, tabela…), em até 500 caracteres. O campo é uma linha só até você tocar nele, e o que ficou escrito sem enviar continua lá enquanto o site estiver aberto.',
+      'Citar: selecione um trecho do texto da ficha e toque em "Citar". A folha abre com o trecho já posto como citação, e você responde na linha de baixo.',
+      'Cada comentário aceita uma reação sua, como as das fichas: passe o mouse (ou toque) no comentário e escolha na fileira de emojis. O remendo embaixo dele mostra as reações, e tocar nele diz quem reagiu.',
+      'Na ficha do mural, um remendo com o balão de fala diz quantos comentários ela tem, ao lado do das reações, e abre a ficha direto neles. Em Amigos, o bilhete de cada ficha ganhou o "Comentar", e quem comenta numa ficha sua aparece no Feed, com "Ver os comentários".',
+      'Você apaga os seus comentários; na sua ficha, apaga os de qualquer pessoa.',
+      'Em Ajustes › Amigos, "Quem comenta nas suas fichas": Seus seguidores (o de sempre, como nas reações) ou Só quem você segue. Ler, todo mundo que vê o seu mural lê.',
+    ],
+  },
+  {
     id: '2026-10-12-editar-o-perfil-em-fichas-fechadas',
     version: '1.34.10',
     kind: 'melhoria',

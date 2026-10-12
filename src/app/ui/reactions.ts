@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injectable, computed, effect, inject, input, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injectable, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { BackdropClose } from './backdrop-close';
 import { LucideAngularModule, Plus, SmilePlus, X } from 'lucide-angular';
@@ -127,6 +127,10 @@ export class ReactionBubble {
   }
 }
 
+/** O espaço que a fileira e o painel do "+" pedem em cima do botão, numa folha que rola. */
+const ROW_ROOM = 60;
+const PANEL_ROOM = 330;
+
 /**
  * Reagir: o botão abre a fileira dos sete emojis por cima dele (como segurar a mensagem no WhatsApp).
  * O escolhido vale; o mesmo de novo tira. Com uma reação dada, o botão mostra ela.
@@ -142,20 +146,26 @@ export class ReactionBubble {
       class="acao-caneta reagir"
       [attr.aria-expanded]="open()"
       aria-haspopup="true"
+      [class.quieto]="quiet()"
       [attr.aria-label]="mine() ? 'Sua reação: ' + mineKind()!.label + '. Trocar' : 'Reagir'"
+      [title]="quiet() ? (mineKind()?.label ?? 'Reagir') : ''"
       (click)="toggle()"
     >
       @if (mineKind(); as k) {
         <span class="minha" aria-hidden="true">{{ k.emoji }}</span>
-        <span aria-hidden="true">{{ k.label }}</span>
+        @if (!quiet()) {
+          <span aria-hidden="true">{{ k.label }}</span>
+        }
       } @else {
         <lucide-icon [img]="ReactIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-        <span aria-hidden="true">Reagir</span>
+        @if (!quiet()) {
+          <span aria-hidden="true">Reagir</span>
+        }
       }
     </button>
     @if (open() && more()) {
       <!-- o "+": todos os emojis, numa folha de feltro que sai do mesmo lugar -->
-      <div class="fileira painel" role="dialog" aria-label="Escolha qualquer emoji" (keydown.escape)="fewerEmojis()">
+      <div class="fileira painel" [class.para-baixo]="below()" role="dialog" aria-label="Escolha qualquer emoji" (keydown.escape)="keep($event); fewerEmojis()">
         <!-- o catálogo de emojis só vem quando alguém abre o "+": fica fora do pacote inicial do site -->
         @defer (on immediate) {
           <app-emoji-panel [current]="mine()" (picked)="pick($event)" />
@@ -164,7 +174,7 @@ export class ReactionBubble {
         }
       </div>
     } @else if (open()) {
-      <div class="fileira" role="group" aria-label="Escolha uma reação" (keydown.escape)="close(true)">
+      <div class="fileira" [class.para-baixo]="below()" role="group" aria-label="Escolha uma reação" (keydown.escape)="keep($event); close(true)">
         @for (k of kinds; track k.id; let i = $index) {
           <button
             type="button"
@@ -181,13 +191,13 @@ export class ReactionBubble {
         @if (mine() && !quick(mine()!)) {
           <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mine() + '. Tirar'" (click)="pick(mine()!)">{{ mine() }}</button>
         }
-        <button type="button" class="opcao mais" aria-label="Outro emoji" title="Outro emoji" [style.--i]="kinds.length" (click)="more.set(true)">
+        <button type="button" class="opcao mais" aria-label="Outro emoji" title="Outro emoji" [style.--i]="kinds.length" (click)="moreEmojis()">
           <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
         </button>
       </div>
     }
   `,
-  host: { '(document:pointerdown)': 'outside($event)' },
+  host: { '(document:pointerdown)': 'outside($event)', '[class.rp-quieto]': 'quiet()' },
   styles: `
     :host {
       position: relative;
@@ -199,6 +209,32 @@ export class ReactionBubble {
     .minha {
       font-size: 1.05rem;
       text-decoration: none;
+    }
+    /* quieto (no pé de um comentário): só o desenho, num botão redondo que não disputa com o texto */
+    .reagir.quieto {
+      justify-content: center;
+      width: 36px;
+      min-height: 36px;
+      margin: 0;
+      padding: 0;
+      border-radius: 50%;
+      /* quem usa escolhe a força da tinta em repouso (--quieto) */
+      color: var(--quieto, var(--ink-2));
+      text-decoration: none;
+    }
+    .reagir.quieto:hover,
+    .reagir.quieto[aria-expanded='true'] {
+      color: var(--ink);
+    }
+    /* o botão quieto mora na ponta direita da linha: a fileira cresce para a esquerda dele */
+    :host(.rp-quieto) .fileira {
+      left: auto;
+      right: -6px;
+    }
+    /* sem lugar em cima (o primeiro comentário da folha): a fileira sai por baixo do botão */
+    .fileira.para-baixo {
+      top: calc(100% + 6px);
+      bottom: auto;
     }
     /* a fileira: o mesmo feltro costurado do remendo, saindo de cima do botão */
     .fileira {
@@ -298,7 +334,16 @@ export class ReactionBubble {
   `,
 })
 export class ReactionPicker {
-  readonly target = input.required<ReactionTarget>();
+  /** A ficha que recebe a reação. Sem ela (a reação a um comentário), valem `current` e `picked`. */
+  readonly target = input<ReactionTarget | null>(null);
+  /** Sem ficha: a reação de agora, que vem de quem usa. */
+  readonly current = input<ReactionId | null>(null);
+  /** Sem ficha: a reação escolhida (null: tirou a que tinha). */
+  readonly picked = output<ReactionId | null>();
+  /** Só o desenho no botão, sem a palavra. */
+  readonly quiet = input(false);
+  /** A fileira abre por baixo do botão (não cabia em cima, dentro da folha que rola). */
+  protected readonly below = signal(false);
   protected readonly ReactIcon = SmilePlus;
   protected readonly kinds = REACTIONS;
   private readonly reactions = inject(Reactions);
@@ -309,24 +354,79 @@ export class ReactionPicker {
   /** O painel do "+" aberto, no lugar da fileira. */
   protected readonly more = signal(false);
   protected readonly quick = isQuickReaction;
-  protected readonly mine = computed(() => this.reactions.mineOn(this.target().code, this.target().ref));
+  protected readonly mine = computed(() => {
+    const t = this.target();
+    return t ? this.reactions.mineOn(t.code, t.ref) : this.current();
+  });
   protected readonly mineKind = computed(() => (this.mine() ? reactionOf(this.mine()!) : null));
 
   protected toggle(): void {
     this.open.update((v) => !v);
+    if (this.open()) {
+      this.below.set(this.cramped(ROW_ROOM));
+      this.guardSheet();
+    }
     // pelo teclado, o foco vai para a reação dada (ou a primeira)
     if (this.open()) setTimeout(() => (this.host.nativeElement.querySelector<HTMLElement>('.opcao.escolhida') ?? this.host.nativeElement.querySelector<HTMLElement>('.opcao'))?.focus());
   }
 
+  /**
+   * O Esc que fecha a fileira é só dela. Dentro de uma leitura (um `<dialog>`), o navegador também manda
+   * fechar o diálogo, num evento à parte (`cancel`): ele é recusado enquanto a fileira está aberta, ou
+   * acabou de fechar por esse mesmo Esc.
+   */
+  protected keep(e: Event): void {
+    e.stopPropagation();
+    this.escapedAt = performance.now();
+  }
+  private escapedAt = -Infinity;
+  private sheet: HTMLDialogElement | null = null;
+  private readonly onSheetCancel = (e: Event) => {
+    const escaped = performance.now() - this.escapedAt < 250;
+    if (!this.open() && !escaped) return;
+    e.preventDefault();
+    // o Esc não passou pela fileira (o foco estava no botão): fecha por aqui
+    if (this.open()) this.more() ? this.fewerEmojis() : this.close(true);
+  };
+  private readonly dropSheet = inject(DestroyRef).onDestroy(() => this.sheet?.removeEventListener('cancel', this.onSheetCancel));
+
+  /** Passa a ouvir o `cancel` do diálogo em volta (uma vez só). */
+  private guardSheet(): void {
+    if (this.sheet) return;
+    this.sheet = this.host.nativeElement.closest('dialog');
+    this.sheet?.addEventListener('cancel', this.onSheetCancel);
+  }
+
+  /** O "+": o painel de todos os emojis no lugar da fileira (ele é alto: sem lugar em cima, sai por baixo). */
+  protected moreEmojis(): void {
+    this.below.set(this.cramped(PANEL_ROOM));
+    this.more.set(true);
+  }
+
   /** Esc no painel de todos os emojis: volta para a fileira, com o foco no "+" de onde ele abriu. */
   protected fewerEmojis(): void {
+    this.below.set(this.cramped(ROW_ROOM));
     this.more.set(false);
     setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.opcao.mais')?.focus());
   }
 
   protected pick(id: ReactionId): void {
-    void this.reactions.react(this.target(), this.mine() === id ? null : id);
+    const next = this.mine() === id ? null : id;
+    const t = this.target();
+    if (t) void this.reactions.react(t, next);
+    else this.picked.emit(next);
     this.close(true);
+  }
+
+  /**
+   * Dentro de uma folha que rola (`data-rola`), o que sai por cima do botão pode ficar cortado pela
+   * borda de cima, se não houver `room` px até ela: aí sai por baixo. Fora de uma folha dessas, sempre
+   * por cima, como sempre foi.
+   */
+  private cramped(room: number): boolean {
+    const box = this.host.nativeElement.closest<HTMLElement>('[data-rola]');
+    if (!box) return false;
+    return this.trigger().nativeElement.getBoundingClientRect().top - box.getBoundingClientRect().top < room;
   }
 
   protected close(refocus = false): void {

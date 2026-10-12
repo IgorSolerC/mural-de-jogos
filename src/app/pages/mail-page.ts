@@ -3,7 +3,7 @@ import { focusAfterRender } from '../ui/focus';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Eye, Heart, Inbox, Link, LucideAngularModule, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
+import { ArrowRight, Bell, BellOff, Check, Copy, Ellipsis, Eye, Heart, Inbox, Link, LucideAngularModule, MessageCircleMore, RefreshCw, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals, muralLink } from '../core/cloud-murals';
@@ -26,6 +26,7 @@ import { Desk } from '../core/desk';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { ReactionId, reactionOf } from '../core/reaction-kinds';
 import { ReactionPicker } from '../ui/reactions';
+import { Comments, spokenComments } from '../core/comments';
 
 /** A aba Feed guarda o id 'chegou' (o nome de antes): o endereço e o que já está guardado não mudam. */
 type Tab = 'chegou' | 'pessoas';
@@ -57,10 +58,22 @@ interface Reacted {
   who: { pessoa: Person; reacao: ReactionId }[];
 }
 
-/** O Feed em blocos: um bilhete de quem começou a seguir, de quem reagiu, ou as resenhas seguidas de uma pessoa. */
+/** Quem comentou nas minhas fichas: os comentários seguidos na mesma ficha viram um bilhete só. */
+interface Commented {
+  key: string;
+  /** O mais novo, que dá o dia e o "Novo". */
+  item: Extract<FeedItem, { tipo: 'comentou' }>;
+  ref: string;
+  titulo: string;
+  dia: string;
+  who: Person[];
+}
+
+/** O Feed em blocos: um bilhete de quem começou a seguir, de quem reagiu ou comentou, ou as resenhas seguidas de uma pessoa. */
 type Block =
   | { tipo: 'seguiu'; key: string; item: Extract<FeedItem, { tipo: 'seguiu' }>; dia: string }
   | ({ tipo: 'reagiu' } & Reacted)
+  | ({ tipo: 'comentou' } & Commented)
   | { tipo: 'pessoa'; key: string; pessoa: Person; posts: Post[] };
 
 /** Uma pessoa na lista única de Pessoas: quem eu sigo e quem me segue, juntos. */
@@ -106,6 +119,8 @@ export class MailPage {
   private readonly muralKind = inject(Mural);
   private readonly desk = inject(Desk);
   protected readonly reactions = inject(Reactions);
+  protected readonly comments = inject(Comments);
+  protected readonly CommentIcon = MessageCircleMore;
 
   protected readonly InboxIcon = Inbox;
   protected readonly FollowIcon = UserPlus;
@@ -153,6 +168,15 @@ export class MailPage {
           if (!last.who.some((w) => w.pessoa.codigo === item.pessoa.codigo)) last.who.push({ pessoa: item.pessoa, reacao: item.reacao });
         } else {
           out.push({ tipo: 'reagiu', key: `reagiu:${item.ref}:${item.em}`, item, ref: item.ref, titulo: item.titulo, dia, who: [{ pessoa: item.pessoa, reacao: item.reacao }] });
+        }
+        continue;
+      }
+      if (item.tipo === 'comentou') {
+        const last = out[out.length - 1];
+        if (last?.tipo === 'comentou' && last.ref === item.ref) {
+          if (!last.who.some((w) => w.codigo === item.pessoa.codigo)) last.who.push(item.pessoa);
+        } else {
+          out.push({ tipo: 'comentou', key: `comentou:${item.ref}:${item.em}`, item, ref: item.ref, titulo: item.titulo, dia, who: [item.pessoa] });
         }
         continue;
       }
@@ -271,10 +295,15 @@ export class MailPage {
       if (!this.follow.available()) return;
       untracked(() => void this.open());
     });
-    // as reações das fichas de quem aparece aqui (todo mundo vê; quem segue também reage)
+    // as reações e os comentários das fichas de quem aparece aqui (todo mundo vê; quem segue também reage e comenta)
     effect(() => {
       const codes = new Set(this.blocks().flatMap((b) => (b.tipo === 'pessoa' ? [b.pessoa.codigo] : [])));
-      untracked(() => codes.forEach((code) => void this.reactions.load(code)));
+      untracked(() =>
+        codes.forEach((code) => {
+          void this.reactions.load(code);
+          void this.comments.loadCounts(code);
+        }),
+      );
     });
     // chegou resenha com a página aberta: o mural guardado da pessoa é de antes dela, busca de novo
     effect(() => {
@@ -380,9 +409,41 @@ export class MailPage {
 
   /** "Bia", "Bia e Caio", "Bia, Caio e mais 2". */
   protected reactedNames(b: Reacted): string {
-    const names = b.who.map((w) => w.pessoa.nome);
+    return this.peopleNames(b.who.map((w) => w.pessoa));
+  }
+
+  protected peopleNames(people: readonly Person[]): string {
+    const names = people.map((p) => p.nome);
     if (names.length <= 2) return names.join(' e ');
     return `${names.slice(0, 2).join(', ')} e mais ${names.length - 2}`;
+  }
+
+  /** "na sua ficha de" (Hades), ou "na sua anotação" (Compras). */
+  protected commentedWhat(b: Commented): string {
+    return b.item.mural === 'anotacoes' ? 'na sua anotação' : 'na sua ficha de';
+  }
+
+  /** O que o leitor de tela diz do bilhete: "Bia comentou na sua ficha de Hades". */
+  protected commentedSpoken(b: Commented): string {
+    return `${this.peopleNames(b.who)} ${b.who.length > 1 ? 'comentaram' : 'comentou'} ${this.commentedWhat(b)} ${b.titulo}`;
+  }
+
+  /** Abre a minha ficha já com os comentários à mostra. */
+  protected openMyComments(r: Review): void {
+    this.comments.want(r.id);
+    this.desk.openReview(r.id);
+  }
+
+  /** "Comentar", ou quantos comentários a ficha do amigo já tem. */
+  protected commentLabel(p: Post): string {
+    const n = this.comments.countOf(p.target.code, p.target.ref);
+    return n ? spokenComments(n) : 'Comentar';
+  }
+
+  /** Abre a ficha do amigo já com os comentários à mostra. */
+  protected openComments(r: Review, who: Person, secret = false): void {
+    this.comments.want(r.id);
+    this.openReview(r, who, secret);
   }
 
   /** As reações do bilhete, sem repetir. */
@@ -401,8 +462,8 @@ export class MailPage {
     return `${this.reactedNames(b)} ${b.who.length > 1 ? 'reagiram' : 'reagiu'} com ${how} ${this.reactedWhat(b)} ${b.titulo}`;
   }
 
-  /** A minha ficha que recebeu a reação, se ela ainda está no mural. */
-  protected reactedReview(b: Reacted): Review | null {
+  /** A minha ficha que recebeu a reação (ou o comentário), se ela ainda está no mural. */
+  protected reactedReview(b: Pick<Reacted, 'ref'>): Review | null {
     return this.store.get(b.ref) ?? null;
   }
 

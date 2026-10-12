@@ -561,9 +561,22 @@
   text-underline-offset: 3px;
 }
 
-/* o reagir fica no pé do bilhete, discreto */
+/* "Fulano comentou na sua ficha": o balão de fala a caneta, no lugar dos emojis */
+.comentou-balao {
+  color: var(--ink);
+}
+
+/* o reagir e o comentar ficam no pé do bilhete, discretos, um ao lado do outro */
 .nota-reagir {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 18px;
   margin-top: 6px;
+
+  .comentar {
+    font-size: 0.98rem;
+  }
 }
 
 /* ===== O crachá "Olá, eu sou" em miniatura: a faixa azul e a inicial a caneta ===== */

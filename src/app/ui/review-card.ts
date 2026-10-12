@@ -41,6 +41,7 @@ import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 import { ReactionBubble } from './reactions';
+import { CommentBubble } from './comment-bubble';
 import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
@@ -85,7 +86,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -400,9 +401,15 @@ function watchDistance(el: HTMLElement): () => void {
         <app-done-stamp [at]="at" [size]="compact() ? 'compact' : 'card'" [dark]="dark()" [hit]="stamping()" />
       </span>
     }
-    <!-- as reações de quem segue o dono, num balãozinho colado na quina de baixo (só quando há alguma) -->
+    <!-- os comentários e as reações, cada um no seu remendo colado na quina de baixo (só quando há algum);
+         o dos comentários abre a ficha já com eles -->
     @if (reactTarget(); as t) {
-      <div class="reacoes"><app-reaction-bubble [target]="t" /></div>
+      <div class="reacoes">
+        @if (!review().private) {
+          <app-comment-bubble [target]="t" (opened)="opened.emit(review().id)" />
+        }
+        <app-reaction-bubble [target]="t" />
+      </div>
     }
     </div>
   `,
@@ -1276,6 +1283,9 @@ function watchDistance(el: HTMLElement): () => void {
       right: 14px;
       bottom: -13px;
       z-index: 6;
+      display: flex;
+      align-items: center;
+      gap: 7px;
     }
     :host(.capas) .reacoes {
       right: 6px;

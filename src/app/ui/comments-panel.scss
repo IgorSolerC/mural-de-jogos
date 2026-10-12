@@ -1,0 +1,447 @@
+@use 'felt';
+
+/* A folha de comentários: papel creme reto, tudo escrito direto nele. Nenhum comentário ganha caixa:
+   quem separa um do outro é o tracejado a caneta, como nas outras folhas do site. */
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  --margem: 22px;
+}
+
+.titulo {
+  display: grid;
+  gap: 3px;
+  padding: 16px 0 12px;
+  outline: none;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.6rem;
+  line-height: 1.05;
+}
+
+/* de qual ficha é a conversa (no celular a ficha fica por baixo da folha) */
+.obra {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.rola {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--margem);
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
+
+.lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comentario {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 0 12px;
+  /* a tinta dos botões do comentário em repouso: fraca, mas à vista (3,4:1 no papel) */
+  --quieto: rgb(21 21 21 / 0.5);
+}
+
+/* o mouse ou o foco chegou no comentário: os botões dele escurecem */
+.comentario:hover,
+.comentario:focus-within {
+  --quieto: var(--ink);
+}
+
+.comentario + .comentario {
+  border-top: 1.5px dashed rgb(21 21 21 / 0.22);
+}
+
+/* a foto do perfil em miniatura: o emoji na cartolina da pessoa, numa moldura de papel de foto */
+.foto {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-top: 2px;
+  border: 3px solid #fbfaf5;
+  border-radius: 2px;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 3px 5px -2px rgb(0 0 0 / 0.35);
+}
+
+.foto-emoji {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.foto-inicial {
+  font-family: var(--f-marker);
+  font-size: 1.15rem;
+  line-height: 1;
+  translate: 0 1px;
+}
+
+.corpo {
+  min-width: 0;
+}
+
+/* a linha do nome: quem e quando, e na ponta o que dá para fazer com o comentário */
+.cabeca {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.quem {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 10px;
+}
+
+.fazer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  /* os botões têm 36px de toque; o desenho deles fica na altura do nome e na margem da folha */
+  margin: -5px -9px -5px 0;
+}
+
+.nome {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.nome-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-thickness: 2.5px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.quando {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* o texto na letra de quem escreveu, sem o recuo de parágrafo das fichas: aqui cada fala começa na
+   margem, embaixo do nome */
+.texto {
+  --line: 1.55rem;
+  --recuo: 0;
+  /* o risco da citação pega a linha inteira: aqui quase toda citação tem uma linha só */
+  --citacao-folga: 0.05em;
+  margin-top: 2px;
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: var(--line);
+  overflow-wrap: anywhere;
+}
+
+/* as reações do comentário: o remendo de feltro embaixo da fala, só quando há alguma */
+.remendo {
+  @include felt.remendo(-3.5px);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 27px;
+  margin: 6px 0 2px;
+  padding: 0 9px 0 7px;
+  border: 0;
+  border-radius: 14px;
+  rotate: -2deg;
+  cursor: pointer;
+  transition: rotate var(--t-ui) var(--ease-ui);
+
+  &:hover,
+  &[aria-expanded='true'] {
+    rotate: 0deg;
+  }
+
+  &:focus-visible {
+    @include felt.remendo-foco;
+  }
+}
+
+.remendo-emojis {
+  display: inline-flex;
+  font-size: 14px;
+  line-height: 1;
+
+  span + span {
+    margin-left: -2px;
+  }
+}
+
+.remendo-n {
+  font-family: var(--f-marker);
+  font-size: 0.88rem;
+  line-height: 1;
+  translate: 0 1px;
+}
+
+/* apagar: em tinta fraca; a tinta vermelha só chega com o mouse ou o foco no próprio botão */
+.apagar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--quieto);
+  cursor: pointer;
+  transition:
+    color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover,
+  &:focus-visible {
+    background: rgb(184 29 28 / 0.1);
+    color: var(--red-deep);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -2px;
+  }
+}
+
+/* quem reagiu com o quê, escrito embaixo do remendo */
+.quem-reagiu {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 2px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.vazio,
+.recado {
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.vazio {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 18px 0 26px;
+
+  .acao-caneta {
+    margin-left: 0;
+  }
+}
+
+p.vazio {
+  display: block;
+}
+
+.recado {
+  padding: 4px 0 10px;
+  font-size: 0.98rem;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.22);
+}
+
+.carregando {
+  margin-right: 0.45em;
+}
+
+/* ===== O pé: escrever ===== */
+.escrever {
+  flex: none;
+  padding: 14px var(--margem) calc(18px + env(safe-area-inset-bottom));
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+  /* a folha de escrever abre com três linhas: é um comentário, não uma resenha */
+  --linhas: 3;
+}
+
+/* fechado: uma tira de papel branco com o contorno de tinta dos campos do site */
+.abrir {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 2px;
+  background: #fffdf8;
+  box-shadow: inset 0 0 0 2px var(--ink);
+  color: var(--ink-2);
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.3;
+  text-align: left;
+  cursor: text;
+  transition: box-shadow var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    box-shadow: inset 0 0 0 3px var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  margin-top: 10px;
+
+  .acao-caneta {
+    margin: 0;
+  }
+}
+
+/* o botão de pincel atômico, um número menor que o das fichas */
+.tinta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 8px 18px 7px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 6px 12px -4px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+  transition: transform var(--t-physical) var(--ease-physical);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+}
+
+/* o que falta para comentar: dito à mão, com a saída ao lado */
+.porta {
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.4;
+}
+
+.porta-seguir {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.porta-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-thickness: 3px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.erro {
+  margin-top: 10px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.02rem;
+  line-height: 1.35;
+  color: var(--red-deep);
+}
+
+@media (max-width: 560px) {
+  :host {
+    --margem: 16px;
+  }
+}
+
+/* lado a lado com a ficha, o título dela já está ali: a folha não repete */
+@media (min-width: 1180px) {
+  .obra {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remendo,
+  .tinta {
+    transition: none;
+  }
+}

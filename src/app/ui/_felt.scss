@@ -1,0 +1,25 @@
+/* O remendo de feltro costurado das reações (ver ui/reactions.ts), para os outros remendos do site:
+   feltro creme com a trama pontilhada, a linha de costura tracejada por dentro e a sombra de adesivo. */
+
+$feltro: #f8f0dc;
+$linha: rgb(122 74 38 / 0.6);
+
+@mixin remendo($costura: -4px) {
+  background-color: $feltro;
+  /* a trama do feltro: um pontilhado leve na cor da linha */
+  background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
+  background-size: 4px 4px;
+  color: #151515;
+  outline: 1.5px dashed $linha;
+  outline-offset: $costura;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 3px 6px -3px rgb(0 0 0 / 0.45);
+}
+
+/* o foco não pode usar o contorno (é a costura): um anel amarelo em volta do remendo */
+@mixin remendo-foco {
+  box-shadow:
+    0 0 0 3px var(--hi, #ffd84d),
+    0 3px 6px -3px rgb(0 0 0 / 0.45);
+}

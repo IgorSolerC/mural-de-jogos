@@ -2,6 +2,7 @@ import { Router } from '@angular/router';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   computed,
   inject,
@@ -11,7 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, LucideIconData, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, Trash2, X } from 'lucide-angular';
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, LucideIconData, MessageCircleMore, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, TextQuote, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -43,15 +44,24 @@ import { DoneStamp } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryIcon } from './category-label';
 import { categoryBonus } from '../core/note-labels';
+import { CloudAccount } from '../core/cloud-account';
+import { CommentTarget, Comments, QuoteRequest, spokenComments } from '../core/comments';
+// só usada dentro do @defer do molde, e num import só dela: assim a folha (com o editor) chega num pedaço à parte
+import { CommentsPanel } from './comments-panel';
 
+
+/** O vão entre o trecho selecionado e o remendo "Citar" (e entre o remendo e o rodapé). */
+const PATCH_GAP = 8;
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CommentsPanel, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet reader" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="review.set(null)">
+    <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="onClosed()">
       @if (review(); as r) {
+        <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários -->
+        <div class="par">
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
           <!-- a cor da cartolina fica só na faixa do cabeçalho, como ficha de fichário -->
@@ -61,7 +71,7 @@ import { categoryBonus } from '../core/note-labels';
             </button>
           </header>
 
-          <div class="body" appLuz>
+          <div class="body" appLuz (scroll)="watchSelection()">
             <!-- veio por um link de outra anotação: o caminho de volta -->
             @if (trail().at(-1); as from) {
               <button type="button" class="btn-quiet voltar-elo" (click)="back()">
@@ -220,19 +230,25 @@ import { categoryBonus } from '../core/note-labels';
                   </div>
                 }
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
-                <div class="text"><app-rich-text [text]="r.text" [fold]="!showDone()" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="!showDone()" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
               <p class="no-text">{{ owner() ? 'Sem texto nessa ficha.' : 'Sem texto nessa ficha. Dá para escrever depois, em Editar.' }}</p>
             }
 
-            <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir -->
+            <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir; e a porta dos comentários -->
             @if (reactTarget(); as t) {
-              @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length) {
+              @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length || commentable()) {
                 <div class="reagir-linha">
                   @if (reactions.canReact(t.code)) {
                     <app-reaction-picker [target]="t" />
+                  }
+                  @if (commentable()) {
+                    <button type="button" class="acao-caneta comentar" [attr.aria-expanded]="commentsOpen()" aria-controls="leitura-comentarios" (click)="toggleComments()">
+                      <lucide-icon [img]="CommentIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      {{ commentCount() ? commentsLabel() : 'Comentar' }}
+                    </button>
                   }
                   <app-reaction-bubble [target]="t" />
                 </div>
@@ -300,6 +316,71 @@ import { categoryBonus } from '../core/note-labels';
             }
           </footer>
         </article>
+
+        @if (commentable()) {
+          @if (commentTarget(); as ct) {
+            <!-- a orelha: um marcador na cor da cartolina, para fora da ficha, que puxa a folha de comentários -->
+            <button
+              type="button"
+              class="orelha cartolina"
+              [attr.data-cor]="pin().stock"
+              [style]="headPaper()"
+              [style.--stock]="'var(--stock-' + pin().stock + ')'"
+              [attr.aria-expanded]="commentsOpen()"
+              aria-controls="leitura-comentarios"
+              [attr.aria-label]="commentCount() ? 'Comentários: ' + commentCount() : 'Comentários'"
+              (click)="toggleComments()"
+            >
+              <lucide-icon [img]="CommentIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+              <span class="orelha-txt" aria-hidden="true">Comentários</span>
+              @if (commentCount(); as n) {
+                <span class="orelha-n" aria-hidden="true">{{ n }}</span>
+              }
+            </button>
+
+            @if (commentsOpen()) {
+              <aside id="leitura-comentarios" class="ficha cartolina lado" tabindex="-1" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock" aria-labelledby="comentarios-titulo">
+                <app-pin class="pin" [color]="pin().pinColor" />
+                <header class="head" [style]="headPaper()">
+                  <!-- em tela estreita a folha cobre a ficha: o caminho de volta fica à esquerda, escrito -->
+                  <button type="button" class="btn-quiet volta-ficha" (click)="toggleComments(false)">
+                    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                    Voltar para a ficha
+                  </button>
+                  <button type="button" class="icon-btn fecha-lado" (click)="toggleComments(false)" aria-label="Fechar os comentários">
+                    <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
+                  </button>
+                </header>
+                @if (masked() && !spoilersOk()) {
+                  <!-- a ficha está em segredo: a conversa sobre ela conta o que a ficha esconde -->
+                  <div class="guarda">
+                    <p>Os comentários podem contar o que esta ficha está escondendo.</p>
+                    <button type="button" class="btn-ink" (click)="spoilersOk.set(true)">
+                      <lucide-icon [img]="RevealIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                      Ver os comentários
+                    </button>
+                  </div>
+                } @else {
+                  <!-- a folha em si (com o editor de texto) chega num pedaço à parte, só para quem abre -->
+                  @defer (on immediate) {
+                    <app-comments-panel [target]="ct" [ownerName]="commentOwner()" [own]="owner() === null" [quote]="quote()" (leave)="leaveTo($event)" />
+                  } @placeholder {
+                    <p class="abrindo" role="status"><span class="carregando" aria-hidden="true"></span>Abrindo os comentários…</p>
+                  }
+                }
+              </aside>
+            }
+          }
+        }
+
+        <!-- selecionou um trecho do texto: o remendo "Citar" aparece no fim da seleção -->
+        @if (picked(); as p) {
+          <button type="button" class="citar" [style.left.px]="p.left" [style.top.px]="p.top" (pointerdown)="$event.preventDefault()" (click)="quoteSelection()">
+            <lucide-icon [img]="QuoteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            Citar
+          </button>
+        }
+        </div>
       }
     </dialog>
   `,
@@ -417,6 +498,131 @@ export class ReviewReader {
    * Marcar e desmarcar não mexem nele: a fonte é o id, e não a `review`, que o linkedSignal refaria.
    */
   protected readonly showDone = linkedSignal({ source: this.reviewId, computation: () => false });
+
+  // ===== Os comentários: a folha presa ao lado da ficha (ver ui/comments-panel.ts) =====
+  protected readonly comments = inject(Comments);
+  private readonly account = inject(CloudAccount);
+  protected readonly CommentIcon = MessageCircleMore;
+  protected readonly QuoteIcon = TextQuote;
+  /** A ficha aberta como alvo dos comentários: a publicada de quem tem código (ou a sua, com a conta aberta). */
+  protected readonly commentTarget = computed<CommentTarget | null>(() => (this.review()?.private ? null : this.reactTarget()));
+  protected readonly commentCount = computed(() => {
+    const t = this.commentTarget();
+    return t ? this.comments.countOf(t.code, t.ref) : 0;
+  });
+  protected readonly commentsLabel = computed(() => spokenComments(this.commentCount()));
+  /** A folha de comentários à mostra; trocar de ficha (as vezes da obra, um link) fecha. */
+  protected readonly commentsOpen = linkedSignal({ source: this.reviewId, computation: () => false });
+  /**
+   * Os comentários têm porta nesta ficha: há algum para ler, ou a ficha é de outra pessoa e você tem
+   * conta para escrever o primeiro (na sua, sem comentário nenhum, não há o que mostrar).
+   */
+  protected readonly commentable = computed(
+    () => !!this.commentTarget() && (this.commentCount() > 0 || this.commentsOpen() || (this.owner() !== null && !!this.comments.myCode())),
+  );
+  /** Quem escreveu a ficha, para a folha dizer quem precisa ser seguido. */
+  protected readonly commentOwner = computed(() => this.owner() ?? this.account.account()?.nome ?? 'Você');
+  /** A ficha em segredo: a pessoa aceitou ver os comentários mesmo assim (só nesta ficha). */
+  protected readonly spoilersOk = linkedSignal({ source: this.reviewId, computation: () => false });
+  /** O trecho que a pessoa mandou citar, para a folha pôr no comentário. */
+  protected readonly quote = linkedSignal<string | undefined, QuoteRequest | null>({ source: this.reviewId, computation: () => null });
+  private quoteCount = 0;
+  /** O trecho selecionado no texto da ficha e onde fica o remendo "Citar" (em px, dentro da dupla). */
+  protected readonly picked = signal<{ text: string; left: number; top: number } | null>(null);
+  /** Dá para citar: há porta para os comentários, você tem conta e o texto não está em segredo. */
+  private readonly canQuote = computed(() => this.commentable() && !!this.comments.myCode() && !this.masked());
+  private selectionTimer: ReturnType<typeof setTimeout> | undefined;
+  /** A seleção de texto da página, ouvida só com a leitura aberta (ver `open`). */
+  private readonly onSelectionChange = () => this.watchSelection();
+  /** A página saiu com a leitura aberta: a seleção deixa de ser ouvida. */
+  private readonly stopWatching = inject(DestroyRef).onDestroy(() => {
+    document.removeEventListener('selectionchange', this.onSelectionChange);
+    clearTimeout(this.selectionTimer);
+  });
+
+  /** Abre ou fecha a folha de comentários; o foco vai com ela (e volta para quem a abriu). */
+  protected toggleComments(open = !this.commentsOpen()): void {
+    this.commentsOpen.set(open);
+    this.picked.set(null);
+    if (!open) this.quote.set(null);
+    const dialog = this.dialog().nativeElement;
+    setTimeout(() => {
+      if (open) return dialog.querySelector<HTMLElement>('#leitura-comentarios')?.focus();
+      // a orelha some nas telas estreitas: lá, quem abriu foi o "Comentar" da ficha
+      const doors = [...dialog.querySelectorAll<HTMLElement>('.orelha, .comentar')];
+      (doors.find((d) => d.offsetParent !== null) ?? doors[0])?.focus();
+    });
+  }
+
+  /** A seleção mudou (ou a ficha rolou): confere daqui a pouco, quando a pessoa parar de arrastar. */
+  protected watchSelection(): void {
+    if (!this.review()) return;
+    clearTimeout(this.selectionTimer);
+    this.selectionTimer = setTimeout(() => this.picked.set(this.readSelection()), 180);
+  }
+
+  /** O trecho selecionado dentro do texto da ficha (e só dele), com o lugar do remendo logo abaixo do fim. */
+  private readSelection(rescrolled = false): { text: string; left: number; top: number } | null {
+    if (!this.canQuote()) return null;
+    const sel = document.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    const dialog = this.dialog().nativeElement;
+    const zone = dialog.querySelector('[data-citavel]');
+    const pair = dialog.querySelector('.par');
+    const text = sel.toString().trim();
+    if (!zone || !pair || !text || !zone.contains(range.startContainer) || !zone.contains(range.endContainer)) return null;
+    const rects = range.getClientRects();
+    const last = rects[rects.length - 1];
+    const body = zone.closest<HTMLElement>('.body');
+    const view = body?.getBoundingClientRect();
+    // o fim da seleção rolou para fora da ficha: o remendo não fica solto no ar
+    if (!last || !body || !view || last.bottom < view.top || last.bottom > view.bottom) return null;
+    // o remendo vai logo abaixo do fim do trecho, e nunca em cima do rodapé: se não cabe ali, a ficha
+    // rola o que falta; no fim da ficha (sem mais o que rolar), ele sobe para cima da última linha
+    const height = (matchMedia('(pointer: coarse)').matches ? 44 : 36) + PATCH_GAP;
+    const lack = last.bottom + PATCH_GAP + height - view.bottom;
+    let top = last.bottom + PATCH_GAP;
+    // (meio pixel de sobra não conta: a rolagem anda em pixels inteiros)
+    if (lack > 1) {
+      const canScroll = body.scrollHeight - body.clientHeight - body.scrollTop;
+      if (canScroll >= lack && !rescrolled) {
+        body.scrollTop += Math.ceil(lack);
+        return this.readSelection(true);
+      }
+      top = last.top - height;
+    }
+    const box = pair.getBoundingClientRect();
+    const article = zone.closest('.ficha')?.getBoundingClientRect() ?? box;
+    const left = Math.min(Math.max(last.right - box.left - 44, 8), article.right - box.left - 104);
+    return { text, left, top: top - box.top };
+  }
+
+  /** "Citar": o trecho vai para a folha de comentários, que abre se estava fechada. */
+  protected quoteSelection(): void {
+    const p = this.picked();
+    if (!p) return;
+    this.picked.set(null);
+    document.getSelection()?.removeAllRanges();
+    this.commentsOpen.set(true);
+    this.quote.set({ text: p.text, n: ++this.quoteCount });
+  }
+
+  /** Um caminho para fora da leitura, tocado na folha de comentários (o perfil de alguém, Ajustes › Conta). */
+  protected leaveTo(commands: string[]): void {
+    this.close();
+    void this.router.navigate(commands, commands[0] === '/ajustes' ? { queryParams: { aba: 'conta' } } : {});
+  }
+
+  /** A leitura fechou (pelo X, por Esc ou pelo fundo): a ficha sai e a seleção deixa de ser ouvida. */
+  protected onClosed(): void {
+    // o aviso de que fechou chega depois: se outra ficha já abriu no lugar, ele não é dela
+    if (this.dialog().nativeElement.open) return;
+    document.removeEventListener('selectionchange', this.onSelectionChange);
+    clearTimeout(this.selectionTimer);
+    this.picked.set(null);
+    this.review.set(null);
+  }
   /** O texto embaralhado do mesmo tamanho, sem as marcas de formatação, para o modo sem spoilers. */
   protected readonly text = computed(() => {
     const r = this.review();
@@ -612,10 +818,15 @@ export class ReviewReader {
     from: Review | null = null,
     revealed = false,
   ): void {
+    // pediram a ficha já com os comentários (o remendo da ficha, o "Comentar" do Feed)
+    const withComments = this.comments.take(review.id);
     // tocou num link na ficha do mural: a anotação de onde veio é o "Voltar"
     this.trail.set(from ? [from] : []);
     this.ownerCode.set(owner === null ? null : code);
-    if (code && owner !== null) void this.reactions.load(code);
+    if (code && owner !== null) {
+      void this.reactions.load(code);
+      void this.comments.loadCounts(code);
+    }
     this.forceMask.set(masked);
     this.revealed.set(masked && revealed);
     this.owner.set(owner);
@@ -623,6 +834,14 @@ export class ReviewReader {
     this.review.set(review);
     this.showDone.set(false);
     this.stampedNow.set(false);
+    this.commentsOpen.set(withComments && this.commentTarget() !== null);
+    this.spoilersOk.set(false);
+    this.quote.set(null);
+    this.picked.set(null);
+    // a seleção de texto (para o "Citar") só é ouvida com a leitura aberta, e sem passar pelo Angular:
+    // ela muda a cada tecla em qualquer campo do site
+    document.removeEventListener('selectionchange', this.onSelectionChange);
+    document.addEventListener('selectionchange', this.onSelectionChange);
     this.dialog().nativeElement.showModal();
   }
 

@@ -1,4 +1,5 @@
 @use 'sheet';
+@use 'felt';
 
 :host {
   display: contents;
@@ -442,5 +443,267 @@ app-judge-label {
   &:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: 2px;
+  }
+}
+
+/* ===== A ficha e a folha de comentários =====
+   A dupla: a ficha de sempre e, puxada de baixo dela pela orelha, a folha de comentários. Fechada, a
+   leitura é a mesma de antes (a dupla tem só a ficha). */
+.par {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  max-height: calc(100dvh - 24px);
+}
+
+.par > article {
+  z-index: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* "Comentar" (ou "3 comentários"), ao lado do reagir */
+.comentar {
+  font-size: 0.98rem;
+}
+
+/* A orelha: um marcador de fichário na cartolina da ficha, para fora da borda direita. É o puxador da
+   folha de comentários: fica no mesmo lugar com ela aberta ou fechada. Só onde há margem para ela. */
+.orelha {
+  display: none;
+  position: absolute;
+  top: 92px;
+  left: calc(100% - 3px);
+  z-index: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 44px;
+  padding: 14px 0 14px 3px;
+  border: 0;
+  border-radius: 0 9px 9px 0;
+  color: var(--ink);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 8px 14px -6px rgb(0 0 0 / 0.5);
+  cursor: pointer;
+  transition: translate var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    translate: 3px 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+/* o nome de pé, a pincel, lido de cima para baixo */
+.orelha-txt {
+  writing-mode: vertical-rl;
+  font-family: var(--f-marker);
+  font-size: 1.02rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+/* quantos são: o disco de tinta com o número amarelo, como o das fichas marcadas */
+.orelha-n {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: 12px;
+  background: #151515;
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 900px) {
+  .orelha {
+    display: flex;
+  }
+}
+
+/* A folha de comentários: outra ficha de fichário, com a mesma faixa de cartolina e a tachinha dela.
+   Em tela estreita, cobre a ficha (a volta fica escrita na faixa); em tela larga, fica ao lado. */
+.lado {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  outline: none;
+}
+
+.lado .head {
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 8px;
+}
+
+.volta-ficha {
+  min-height: 40px;
+  color: var(--ink);
+}
+
+.fecha-lado {
+  display: none;
+}
+
+/* com a folha por cima, a ficha sai do caminho do teclado e do leitor de tela (o tamanho dela fica) */
+.com-lado .par {
+  min-height: min(600px, calc(100dvh - 24px));
+}
+
+.com-lado .par > article {
+  visibility: hidden;
+}
+
+@media (min-width: 1180px) {
+  /* lado a lado: a leitura mantém a largura dela e ganha a da folha (e a margem da orelha) */
+  dialog.reader.com-lado {
+    max-width: min(1190px, calc(100vw - 112px));
+  }
+
+  .com-lado .par > article {
+    visibility: visible;
+  }
+
+  .lado {
+    position: relative;
+    inset: auto;
+    z-index: 0;
+    flex: none;
+    width: clamp(360px, 31vw, 430px);
+    animation: puxa-folha 320ms var(--ease-physical);
+  }
+
+  /* a ficha fica por cima da folha e faz sombra nela */
+  .lado::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 2;
+    width: 16px;
+    background: linear-gradient(to right, rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.06) 45%, transparent);
+    pointer-events: none;
+  }
+
+  /* lado a lado, a faixa da folha é a mesma da ficha, na mesma altura: a emenda das duas não tem degrau.
+     A faixa de uma ficha comprida encolhe 4px (ela é um item flexível da ficha); com a folha ao lado,
+     nenhuma das duas encolhe. Fechada, a leitura continua exatamente como era. */
+  .lado .head {
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding-left: 14px;
+  }
+
+  .lado .head,
+  .com-lado .par > article > .head {
+    flex-shrink: 0;
+  }
+
+  .volta-ficha {
+    display: none;
+  }
+
+  .fecha-lado {
+    display: grid;
+  }
+}
+
+@keyframes puxa-folha {
+  from {
+    opacity: 0;
+    translate: -64px 0;
+  }
+}
+
+/* a ficha em segredo: antes da conversa, o aviso */
+.guarda {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: 22px 22px 26px;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.4;
+}
+
+.abrindo {
+  padding: 22px;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  color: var(--ink-2);
+
+  .carregando {
+    margin-right: 0.45em;
+  }
+}
+
+/* "Citar": um remendo de feltro que brota no fim do trecho selecionado */
+.citar {
+  @include felt.remendo(-4px);
+  position: absolute;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border: 0;
+  border-radius: 18px;
+  font-family: var(--f-marker);
+  font-size: 0.98rem;
+  line-height: 1;
+  rotate: -2deg;
+  cursor: pointer;
+  animation: brota 180ms var(--ease-physical);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    rotate: 0deg;
+  }
+
+  &:focus-visible {
+    @include felt.remendo-foco;
+  }
+}
+
+@media (pointer: coarse) {
+  .citar {
+    height: 44px;
+    border-radius: 22px;
+  }
+}
+
+@keyframes brota {
+  from {
+    opacity: 0;
+    scale: 0.85;
+    translate: 0 -4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lado,
+  .citar {
+    animation: none;
+  }
+
+  .orelha {
+    transition: none;
   }
 }

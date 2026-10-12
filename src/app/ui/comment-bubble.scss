@@ -1,0 +1,45 @@
+@use 'felt';
+
+:host {
+  display: contents;
+}
+
+/* O remendo dos comentários: irmão do das reações (o mesmo feltro costurado), com o balão de fala e
+   quantos são. Torto do seu jeito em cada ficha, para o outro lado do vizinho. */
+.balao {
+  @include felt.remendo;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 15px;
+  rotate: var(--torto, 2deg);
+  cursor: pointer;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    rotate var(--t-ui) var(--ease-ui);
+}
+
+.balao:hover {
+  translate: 0 -1px;
+  rotate: calc(var(--torto, 2deg) * 0.4);
+}
+
+.balao:focus-visible {
+  @include felt.remendo-foco;
+}
+
+lucide-icon {
+  display: inline-flex;
+}
+
+/* o número escrito a pincel, como o das reações */
+.n {
+  font-family: var(--f-marker);
+  font-size: 0.95rem;
+  line-height: 1;
+  translate: 0 1px;
+}
+

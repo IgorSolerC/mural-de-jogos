@@ -25,7 +25,7 @@
 <body>
 <main>
   <h1>Privacidade</h1>
-  <p class="data">Meu Mural · última atualização: 10 de outubro de 2026</p>
+  <p class="data">Meu Mural · última atualização: 12 de outubro de 2026</p>
 
   <div class="resumo">
     <p><strong>Sem conta, nada sai do seu aparelho.</strong> Com uma conta (entrando com o Google), o seu mural fica guardado na nuvem para você abrir em qualquer aparelho, e quem tiver o seu código pode ver as suas resenhas.</p>
@@ -44,6 +44,7 @@
     <li>As chaves da RAWG e do TMDB, se você colou alguma em Ajustes, para valerem nos seus outros aparelhos. Elas não vão no arquivo de backup nem no mural que os outros veem.</li>
     <li>Quem você segue e quem segue você.</li>
     <li>As reações que você deu às resenhas de quem você segue, e as que você recebeu, com a data.</li>
+    <li>Os comentários que você escreveu nas fichas dos outros e os que escreveram nas suas, com a data, e as reações a cada comentário. E a sua escolha de quem pode comentar nas suas fichas.</li>
     <li>As notificações dos últimos 90 dias.</li>
     <li>Os aparelhos conectados, com a data do último uso. A chave de cada sessão é guardada só de forma cifrada (hash).</li>
   </ul>
@@ -55,6 +56,7 @@
     <li>A resenha marcada como <strong>privada</strong> não vai para o mural que os outros veem. A anotação nasce privada: só aparece para os outros se você publicar.</li>
     <li>A fila, a wishlist, as tags fixas e as chaves só você vê.</li>
     <li>As <strong>reações</strong> de uma resenha aparecem para quem vê o seu mural, com o nome de quem reagiu. Só quem segue você pode reagir, e você recebe um aviso de cada reação.</li>
+    <li>Os <strong>comentários</strong> de uma ficha aparecem para quem vê o mural do dono dela, com o nome e a foto do perfil de quem escreveu, e as reações a cada um, com o nome de quem reagiu. Comenta quem segue o dono, ou só quem ele segue, se ele escolher assim em Ajustes. Quem escreveu apaga o próprio comentário; o dono da ficha apaga qualquer comentário dela e recebe um aviso de quem comentou.</li>
     <li>Quando alguém passa a seguir você, você recebe um aviso com o nome dessa pessoa.</li>
     <li>Quando você publica uma resenha nova, quem segue você recebe um aviso com o título e o mural (sem nota e sem texto). A resenha marcada como "visível, sem publicar" fica no mural, mas não gera aviso.</li>
   </ul>
@@ -63,7 +65,7 @@
   <p>Na Cloudflare (Workers e banco D1), cujos servidores podem ficar fora do Brasil. Uma cópia diária do banco, trancada com senha (AES-256), fica guardada por 30 dias no GitHub, para recuperar o serviço se algo der errado. A entrada usa o login do Google (Google Identity Services): o Google fica sabendo que você entrou no Meu Mural, conforme a política de privacidade dele.</p>
 
   <h2>Por quanto tempo</h2>
-  <p>Até você apagar a conta. Em Ajustes, <strong>Apagar conta</strong> remove na hora a conta, o mural, quem você segue, quem segue você, as reações (as que você deu e as que recebeu) e as notificações. As cópias de recuperação guardam o estado anterior por até 30 dias (as da Cloudflare, 7 dias; a cópia diária trancada, 30) e depois somem. Sessões sem uso por 90 dias são encerradas.</p>
+  <p>Até você apagar a conta. Em Ajustes, <strong>Apagar conta</strong> remove na hora a conta, o mural, quem você segue, quem segue você, as reações (as que você deu e as que recebeu), os comentários (os que você escreveu e os que escreveram nas suas fichas) e as notificações. As cópias de recuperação guardam o estado anterior por até 30 dias (as da Cloudflare, 7 dias; a cópia diária trancada, 30) e depois somem. Sessões sem uso por 90 dias são encerradas.</p>
 
   <h2>Seus direitos</h2>
   <p>Pela Lei Geral de Proteção de Dados (LGPD), você pode saber o que é guardado (esta página), ter uma cópia (o backup em Ajustes), corrigir (editando no próprio mural) e apagar tudo (Apagar conta).</p>

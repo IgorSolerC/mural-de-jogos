@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { PeoplePrivacy, ProfilePeople } from '../core/profile-people';
+import { Comments, CommentsFrom } from '../core/comments';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -168,6 +169,11 @@ export class SettingsPage {
   /** Quem você segue e quem te segue, no seu perfil: as listas ou só os números (fica na nuvem). */
   protected readonly peoplePrivacy = inject(ProfilePeople);
   protected readonly privacyBusy = signal(false);
+  /** Quem comenta nas suas fichas: quem segue você, ou só quem você segue (fica na nuvem). */
+  protected readonly comments = inject(Comments);
+  protected readonly commentsBusy = signal(false);
+  /** O seu nome na prévia de quem comenta ("Para comentar, siga Igor."). */
+  protected readonly previewName = computed(() => this.account.account()?.nome ?? 'você');
   protected readonly sync = inject(CloudSync);
   protected readonly beforeCopy = signal<BeforeCloudCopy | null>(null);
   /** A ação da conta em andamento ('entrar', 'codigo', 'sair', 'sair-todos', 'apagar'): ela mostra o aro, as outras esperam. */
@@ -260,8 +266,25 @@ export class SettingsPage {
     });
     // a escolha de quem você segue e quem te segue fica na nuvem: vem dela ao entrar na conta
     effect(() => {
-      if (this.account.signedIn() && this.cloud.config()) untracked(() => void this.peoplePrivacy.loadPrivacy());
+      if (this.account.signedIn() && this.cloud.config()) {
+        untracked(() => {
+          void this.peoplePrivacy.loadPrivacy();
+          void this.comments.loadFrom();
+        });
+      }
     });
+  }
+
+  protected async setCommentsFrom(value: CommentsFrom): Promise<void> {
+    if (this.commentsBusy() || this.comments.from() === value) return;
+    this.commentsBusy.set(true);
+    try {
+      await this.comments.setFrom(value);
+    } catch (err) {
+      this.toasts.show(err instanceof Error ? err.message : 'Não deu para mudar agora. Tente de novo.');
+    } finally {
+      this.commentsBusy.set(false);
+    }
   }
 
   protected async setPeoplePrivacy(value: PeoplePrivacy): Promise<void> {

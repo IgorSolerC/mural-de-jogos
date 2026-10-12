@@ -1,0 +1,140 @@
+<!-- a conversa: rola sozinha (o título vai junto: é o respiro em cima do primeiro comentário, onde a
+     fileira de reações dele abre), com o campo sempre à mão no pé -->
+<div class="rola" #rola data-rola>
+  <h2 class="titulo" id="comentarios-titulo" tabindex="-1">
+    Comentários
+    <span class="obra">{{ target().titulo }}</span>
+  </h2>
+  @if (thread(); as t) {
+    @if (t.maisAntigos) {
+      <p class="recado">Aqui aparecem só os comentários mais novos.</p>
+    }
+    @if (t.comentarios.length) {
+      <ol class="lista" [attr.aria-label]="spoken()">
+        @for (k of t.comentarios; track k.id) {
+          @let mine = k.autor.codigo === me();
+          <li class="comentario" [class.meu]="mine">
+            <!-- a "foto" do perfil de quem escreveu (o emoji na cartolina), ou a inicial -->
+            <span class="foto cartolina" [attr.data-cor]="stockOf(k)" [style.--stock]="'var(--stock-' + stockOf(k) + ')'" [style.rotate.deg]="tilt(k.autor.codigo)" aria-hidden="true">
+              @if (k.autor.foto; as f) {
+                <span class="foto-emoji">{{ f.emoji }}</span>
+              } @else {
+                <span class="foto-inicial">{{ initial(k.autor.nome) }}</span>
+              }
+            </span>
+            <div class="corpo">
+              <div class="cabeca">
+                <p class="quem">
+                  @if (mine) {
+                    <span class="nome">Você</span>
+                  } @else {
+                    <!-- o nome leva ao perfil de quem escreveu -->
+                    <button type="button" class="nome nome-link" [attr.aria-label]="'Ver o perfil de ' + k.autor.nome" (click)="leave.emit(['/perfil', k.autor.codigo])">{{ k.autor.nome }}</button>
+                  }
+                  <time class="quando" [attr.datetime]="k.em">{{ when(k.em) }}</time>
+                </p>
+                <!-- o que dá para fazer com o comentário, na ponta da linha do nome e em tinta fraca:
+                     só escurece quando o mouse (ou o foco) chega nele -->
+                @if (t.pode || canErase(k)) {
+                  <div class="fazer">
+                    @if (t.pode) {
+                      <app-reaction-picker [quiet]="true" [current]="mineOn(k)" (picked)="react(k, $event)" />
+                    }
+                    @if (canErase(k)) {
+                      <button type="button" class="apagar" [attr.aria-label]="mine ? 'Apagar o seu comentário' : 'Apagar o comentário de ' + k.autor.nome" title="Apagar" (click)="erase(k)">
+                        <lucide-icon [img]="EraseIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+              <div class="texto"><app-rich-text [text]="k.texto" /></div>
+
+              @if (k.reacoes.length) {
+                <!-- as reações do comentário: o remendo de feltro, que abre quem reagiu -->
+                <button
+                  type="button"
+                  class="remendo"
+                  [attr.aria-expanded]="whoOpen() === k.id"
+                  [attr.aria-label]="'Reações: ' + reactionsSpoken(k) + '. Ver quem reagiu'"
+                  (click)="whoOpen.set(whoOpen() === k.id ? null : k.id)"
+                >
+                  <span class="remendo-emojis" aria-hidden="true">
+                    @for (r of top(k); track r.kind.id) {
+                      <span>{{ r.kind.emoji }}</span>
+                    }
+                  </span>
+                  @if (k.reacoes.length > 1) {
+                    <span class="remendo-n" aria-hidden="true">{{ k.reacoes.length }}</span>
+                  }
+                </button>
+                @if (whoOpen() === k.id) {
+                  <ul class="quem-reagiu">
+                    @for (w of whoReacted(k); track w.emoji) {
+                      <li><span [attr.aria-label]="w.label" role="img">{{ w.emoji }}</span> {{ w.names }}</li>
+                    }
+                  </ul>
+                }
+              }
+            </div>
+          </li>
+        }
+      </ol>
+    } @else {
+      <!-- o vazio ensina o que não está escrito em lugar nenhum: selecionar texto da ficha cita -->
+      <p class="vazio">Ninguém comentou ainda.@if (t.pode) { Para citar um trecho, selecione o texto da ficha.}</p>
+    }
+  } @else if (failed()) {
+    <div class="vazio">
+      <p>Não consegui buscar os comentários agora.</p>
+      <button type="button" class="acao-caneta" (click)="retry()">
+        <lucide-icon [img]="RetryIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+        Tentar de novo
+      </button>
+    </div>
+  } @else {
+    <p class="vazio" role="status"><span class="carregando" aria-hidden="true"></span>Buscando os comentários…</p>
+  }
+</div>
+
+<!-- o pé: escrever, ou o que falta para poder -->
+<div class="escrever" (keydown.control.enter)="send()" (keydown.meta.enter)="send()">
+  @switch (door()) {
+    @case ('conta') {
+      <p class="porta">
+        <button type="button" class="porta-link" (click)="leave.emit(['/ajustes'])">Entre na sua conta</button> para comentar.
+      </p>
+    }
+    @case ('seguidos') {
+      <p class="porta">Aqui só comenta quem {{ ownerName() }} segue.</p>
+    }
+    @case ('seguir') {
+      <div class="porta porta-seguir">
+        <p>Para comentar, siga {{ ownerName() }}.</p>
+        <button type="button" class="tinta" [appBusy]="following()" (click)="followOwner()">
+          @if (!following()) {
+            <lucide-icon [img]="FollowIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+          }
+          {{ following() ? 'Seguindo…' : 'Seguir' }}
+        </button>
+      </div>
+    }
+    @default {
+      @if (writing()) {
+        <app-rich-editor [(value)]="text" [max]="max" [onCard]="false" label="Seu comentário" placeholder="Escreva um comentário…" />
+        <div class="acoes">
+          <button type="button" class="acao-caneta" (click)="fold()">Fechar</button>
+          <button type="button" class="tinta" [disabled]="!sendable()" [appBusy]="busy()" title="Comentar (Ctrl+Enter)" (click)="send()">
+            {{ busy() ? 'Enviando…' : 'Comentar' }}
+          </button>
+        </div>
+      } @else {
+        <!-- fechado, o campo é uma linha de papel: a régua só aparece quando a pessoa vai escrever -->
+        <button type="button" class="abrir" (click)="write()">{{ text().trim() ? 'Continuar o comentário…' : 'Escreva um comentário…' }}</button>
+      }
+    }
+  }
+  @if (error(); as e) {
+    <p class="erro" role="alert">{{ e }}</p>
+  }
+</div>
