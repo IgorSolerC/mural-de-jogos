@@ -106,8 +106,13 @@ export const WALL_TUNING = {
    */
   ahead: 3,
   aheadLite: 1,
-  /** Quanto tempo depois da última rolagem o mouse volta a levantar as fichas (ver `[data-quieta]`). */
-  quietRest: 140,
+  /**
+   * A rolagem parou quando passaram este tempo e estes quadros seguidos sem a página rolar: só então
+   * o mouse volta a levantar as fichas (ver `[data-quieta]`). Os quadros contam porque, num aparelho
+   * lento, um tempo sozinho vence entre um quadro e outro com a página ainda rolando.
+   */
+  quietRest: 200,
+  quietFrames: 4,
 };
 
 /** A altura de uma ficha ainda não montada, até a primeira do mesmo tipo ser medida. */
@@ -245,7 +250,9 @@ export class WallCardPool implements OnDestroy {
   private idle: number | undefined;
   /** Rolando: as fichas não levantam com o mouse que passa por cima delas (ver `hush`). */
   private quiet = false;
-  private unquiet: ReturnType<typeof setTimeout> | undefined;
+  private stillFrame = 0;
+  private stillFrames = 0;
+  private hushedAt = 0;
   private readonly hovers = typeof matchMedia === 'function' && matchMedia('(hover: hover)').matches;
   private readonly onScroll = () => this.scrolled();
   private readonly onDialogClose = (e: Event) => {
@@ -337,7 +344,7 @@ export class WallCardPool implements OnDestroy {
     cancelAnimationFrame(this.frame);
     cancelAnimationFrame(this.measureFrame);
     clearTimeout(this.calm);
-    clearTimeout(this.unquiet);
+    cancelAnimationFrame(this.stillFrame);
     if (this.idle !== undefined) cancelIdle(this.idle);
     this.unsettle();
     if (typeof removeEventListener === 'function') {
@@ -438,10 +445,10 @@ export class WallCardPool implements OnDestroy {
   private scrolled(): void {
     // a rolagem também acorda quem dormia por causa de um diálogo que fechou sem avisar
     if (this.napped && !document.querySelector('dialog[open]')) this.unnap();
-    this.hush();
     const now = performance.now();
     const y = scrollY;
     const dt = now - this.scrolledAt;
+    this.hush();
     const speed = dt > 0 && dt < 200 ? (Math.abs(y - this.scrolledTo) / dt) * 1000 : 0;
     if (y !== this.scrolledTo) this.heading = y > this.scrolledTo ? 1 : -1;
     this.scrolledAt = now;
@@ -465,19 +472,40 @@ export class WallCardPool implements OnDestroy {
    * inclinação, a sombra, o brilho das folhas): o navegador redesenhava ficha por ficha no meio da
    * rolagem. Enquanto a página rola, e um instante depois, as fichas montadas ficam quietas
    * (`data-quieta`, ver review-card.ts); parou, a que está debaixo do mouse levanta como sempre.
+   *
+   * A rolagem só conta como parada depois de alguns quadros seguidos sem rolar (`quietFrames`), e não
+   * só de um tempo: num aparelho lento os avisos de rolagem chegam espaçados, e com um tempo fixo e
+   * curto as fichas voltavam a levantar entre um quadro e outro, no meio da rolagem, e a cada vez o
+   * navegador redesenhava a ficha inteira.
    */
   private hush(): void {
     if (!this.hovers) return;
-    clearTimeout(this.unquiet);
+    this.stillFrames = 0;
+    this.hushedAt = performance.now();
     if (!this.quiet) {
       this.quiet = true;
-      for (const slot of this.slots.values()) if (slot.ref && !slot.asleep) slot.el.setAttribute(QUIET, '');
+      // (as que dormem também: acordam no meio da rolagem, já debaixo do mouse)
+      for (const slot of this.slots.values()) if (slot.ref) slot.el.setAttribute(QUIET, '');
     }
-    this.unquiet = setTimeout(() => {
-      this.quiet = false;
-      if (this.settings.stillCards()) return;
-      for (const slot of this.slots.values()) if (slot.ref) slot.el.removeAttribute(QUIET);
-    }, WALL_TUNING.quietRest);
+    if (!this.stillFrame) this.stillFrame = requestAnimationFrame(this.watchStill);
+  }
+
+  /** Conta os quadros sem rolar; com quadros e tempo bastantes, a rolagem parou. */
+  private readonly watchStill = () => {
+    this.stillFrame = 0;
+    if (!this.quiet) return;
+    this.stillFrames++;
+    if (this.stillFrames >= WALL_TUNING.quietFrames && performance.now() - this.hushedAt >= WALL_TUNING.quietRest) {
+      this.loosen();
+      return;
+    }
+    this.stillFrame = requestAnimationFrame(this.watchStill);
+  };
+
+  private loosen(): void {
+    this.quiet = false;
+    if (this.settings.stillCards()) return;
+    for (const slot of this.slots.values()) if (slot.ref) slot.el.removeAttribute(QUIET);
   }
 
   // ===== as de mais adiante, com o navegador à toa =====
@@ -701,6 +729,7 @@ export class WallCardPool implements OnDestroy {
     const el = slot.el;
     el.removeAttribute(ASLEEP);
     el.style.removeProperty('--dorme-h');
+    el.toggleAttribute(QUIET, this.quiet || this.settings.stillCards());
     slot.box.setAttribute(LIVE, '');
     slot.asleep = false;
     slot.napping = false;

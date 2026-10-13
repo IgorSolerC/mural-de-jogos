@@ -198,4 +198,30 @@ describe('as fichas do mural, só as de perto montadas (WallCardPool)', () => {
     expect(host.firstElementChild!.querySelector('app-review-card')?.hasAttribute('data-dorme')).toBeFalse();
     expect(pool.counts.awake).toBeLessThan(pool.counts.live);
   });
+  it('rolando, as fichas ficam quietas (a que dorme também: acorda já debaixo do mouse); parou, voltam a levantar', async () => {
+    const list = notes(40);
+    pool.place(host, list, { ...PROPS, landingId: 'nota-39' });
+    pool.settle();
+    const first = host.firstElementChild!.querySelector<HTMLElement>('app-review-card')!;
+    const far = host.lastElementChild!.querySelector<HTMLElement>('app-review-card')!;
+    far.classList.remove('is-landing');
+    pool.nap();
+    expect(far.hasAttribute('data-dorme')).toBeTrue();
+    expect(first.hasAttribute('data-quieta')).toBeFalse();
+
+    window.dispatchEvent(new Event('scroll'));
+    expect(first.hasAttribute('data-quieta')).toBeTrue();
+    expect(far.hasAttribute('data-quieta')).withContext('a que dorme').toBeTrue();
+
+    // ainda rolando: um instante só não basta para soltar
+    await new Promise((r) => setTimeout(r, 60));
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise((r) => setTimeout(r, 60));
+    expect(first.hasAttribute('data-quieta')).withContext('a rolagem não parou').toBeTrue();
+
+    // parou de vez: alguns quadros e um instante sem rolar
+    await new Promise((r) => setTimeout(r, 700));
+    expect(first.hasAttribute('data-quieta')).toBeFalse();
+    expect(far.hasAttribute('data-quieta')).toBeFalse();
+  });
 });

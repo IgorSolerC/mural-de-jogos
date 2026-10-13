@@ -26,6 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-13-fichas-quietas-na-rolagem',
+    version: '1.36.1',
+    kind: 'correcao',
+    date: '2026-10-13',
+    title: 'As fichas não levantam mais no meio da rolagem',
+    items: [
+      'Rolando o mural com o mouse parado em cima dele, as fichas que passavam por baixo ainda levantavam em dois casos: as que tinham acabado de acordar e, nos aparelhos mais lentos, qualquer uma, porque a rolagem era dada como parada cedo demais. Cada levantada fazia o navegador redesenhar a ficha inteira. Agora as fichas só voltam a levantar depois que a página para de verdade; num aparelho lento, a rolagem do mural trava cerca de três vezes menos.',
+    ],
+  },
+  {
     id: '2026-10-12-ajustes-desempenho',
     version: '1.36.0',
     kind: 'funcionalidade',
