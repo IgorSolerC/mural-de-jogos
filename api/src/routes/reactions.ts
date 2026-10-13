@@ -2,6 +2,7 @@ import { Context, Hono } from 'hono';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
+import { Photo, photoOut } from '../domain/photo';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
@@ -10,7 +11,7 @@ import { readJson, sessionOf } from './http';
 
 /**
  * Reações às resenhas, como as do WhatsApp: uma por pessoa por resenha (trocar substitui, dá para
- * tirar). Só reage quem segue o dono; quem vê o mural dele vê todas, com o nome de quem reagiu. O dono
+ * tirar). Só reage quem segue o dono; quem vê o mural dele vê todas, com o nome e a foto de quem reagiu. O dono
  * recebe um aviso no correio (atividade 'reagiu'); trocar de reação avisa de novo, tirar apaga o aviso.
  */
 
@@ -43,13 +44,16 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/murais/:codigo/reacoes', async (c) => {
     if (deps.config.publicMurals === 'logados') await session(c);
     const who = await owner(c.req.param('codigo'));
-    const rows = await deps.db.all<{ ref: string; reacao: string; criado_em: string; codigo: string; nome: string }>(
-      'SELECT r.ref, r.reacao, r.criado_em, u.codigo, u.nome FROM reacoes r JOIN usuarios u ON u.id = r.autor_id ' +
+    const rows = await deps.db.all<{ ref: string; reacao: string; criado_em: string; codigo: string; nome: string; foto: string | null }>(
+      'SELECT r.ref, r.reacao, r.criado_em, u.codigo, u.nome, u.foto FROM reacoes r JOIN usuarios u ON u.id = r.autor_id ' +
         'WHERE r.dono_id = ? ORDER BY r.criado_em DESC LIMIT ?',
       [who.id, MAX_REACTIONS_LISTED],
     );
-    const out: Record<string, { codigo: string; nome: string; reacao: string; em: string }[]> = {};
-    for (const r of rows) (out[r.ref] ??= []).push({ codigo: formatCode(r.codigo), nome: r.nome, reacao: r.reacao, em: r.criado_em });
+    const out: Record<string, { codigo: string; nome: string; foto?: Photo; reacao: string; em: string }[]> = {};
+    for (const r of rows) {
+      const foto = photoOut(r.foto);
+      (out[r.ref] ??= []).push({ codigo: formatCode(r.codigo), nome: r.nome, ...(foto ? { foto } : {}), reacao: r.reacao, em: r.criado_em });
+    }
     return c.json({ reacoes: out });
   });
 

@@ -232,9 +232,11 @@
                   <ul class="pessoas">
                     @for (x of g.pessoas; track x.codigo) {
                       <li class="pessoa" [class.quieta]="x.sigo?.silenciado">
-                        <app-person-photo [code]="x.codigo" [name]="x.nome" [face]="faces().get(x.codigo)" />
+                        <!-- a foto e o nome abrem o perfil da pessoa, como no Feed -->
+                        <button type="button" class="foto-perfil" tabindex="-1" aria-hidden="true" (click)="openProfile(x)">
+                          <app-person-photo [code]="x.codigo" [name]="x.nome" [face]="faces().get(x.codigo)" />
+                        </button>
                         <div class="pessoa-quem">
-                          <!-- o nome abre o perfil da pessoa, como no Feed -->
                           <button type="button" class="pessoa-nome" (click)="openProfile(x)" [attr.aria-label]="'Ver o perfil de ' + x.nome">{{ x.nome }}</button>
                           <span class="lacos">
                             <span class="laco">
@@ -317,7 +319,8 @@
           @if (account.account(); as acc) {
             <aside class="meu-cracha" aria-label="O seu código">
               <span class="faixa" aria-hidden="true">Olá, eu sou</span>
-              <p class="meu-nome">{{ acc.nome }}</p>
+              <!-- o seu nome leva ao seu perfil, como o de todo mundo -->
+              <p class="meu-nome"><a routerLink="/perfil" [attr.aria-label]="acc.nome + ': ver o seu perfil'">{{ acc.nome }}</a></p>
               <p class="meu-codigo-linha">
                 <span class="sr-only">O seu código é </span>
                 <strong class="meu-codigo">{{ acc.codigo }}</strong>

@@ -146,6 +146,14 @@ describe('Um post do Feed (FeedPost)', () => {
       expect(host.log).toEqual(['perfil']);
     });
 
+    it('a foto abre o mesmo perfil, só para o mouse (o leitor de tela e o teclado vão pelo nome)', async () => {
+      const photo = el.querySelector<HTMLButtonElement>('.quem .foto-perfil')!;
+      expect([photo.getAttribute('aria-hidden'), photo.tabIndex]).toEqual(['true', -1]);
+      expect(photo.querySelector('app-person-photo')).not.toBeNull();
+      photo.click();
+      expect(host.log).toEqual(['perfil']);
+    });
+
     it('o que ela fez acompanha o mural e a ficha: "uma série", uma rejogada, uma anotação', async () => {
       await show(data({}, 'series'));
       expect(text('.verbo')).toBe('avaliou uma série');

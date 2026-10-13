@@ -16,8 +16,8 @@
   padding-inline: 2px;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 
-  /* a foto ao lado das duas linhas: o nome em cima, o que a pessoa fez embaixo */
-  app-person-photo {
+  /* a foto (que leva ao perfil) ao lado das duas linhas: o nome em cima, o que a pessoa fez embaixo */
+  .foto-perfil {
     grid-row: 1 / span 2;
   }
 }

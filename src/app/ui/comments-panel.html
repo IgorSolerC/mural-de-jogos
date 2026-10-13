@@ -14,21 +14,23 @@
         @for (k of t.comentarios; track k.id) {
           @let mine = k.autor.codigo === me();
           <li class="comentario" [class.meu]="mine">
-            <!-- a "foto" do perfil de quem escreveu (o emoji na cartolina), ou a inicial -->
-            <span class="foto cartolina" [attr.data-cor]="stockOf(k)" [style.--stock]="'var(--stock-' + stockOf(k) + ')'" [style.rotate.deg]="tilt(k.autor.codigo)" aria-hidden="true">
-              @if (k.autor.foto; as f) {
-                <span class="foto-emoji">{{ f.emoji }}</span>
-              } @else {
-                <span class="foto-inicial">{{ initial(k.autor.nome) }}</span>
-              }
-            </span>
+            <!-- a "foto" do perfil de quem escreveu (o emoji na cartolina), ou a inicial: leva ao perfil, como o nome -->
+            <button type="button" class="foto-perfil" tabindex="-1" aria-hidden="true" (click)="leave.emit(['/perfil', k.autor.codigo])">
+              <span class="foto cartolina" [attr.data-cor]="stockOf(k)" [style.--stock]="'var(--stock-' + stockOf(k) + ')'" [style.rotate.deg]="tilt(k.autor.codigo)">
+                @if (k.autor.foto; as f) {
+                  <span class="foto-emoji">{{ f.emoji }}</span>
+                } @else {
+                  <span class="foto-inicial">{{ initial(k.autor.nome) }}</span>
+                }
+              </span>
+            </button>
             <div class="corpo">
               <div class="cabeca">
                 <p class="quem">
+                  <!-- o nome leva ao perfil de quem escreveu (o seu, ao seu) -->
                   @if (mine) {
-                    <span class="nome">Você</span>
+                    <button type="button" class="nome nome-link" aria-label="Você: ver o seu perfil" (click)="leave.emit(['/perfil', k.autor.codigo])">Você</button>
                   } @else {
-                    <!-- o nome leva ao perfil de quem escreveu -->
                     <button type="button" class="nome nome-link" [attr.aria-label]="'Ver o perfil de ' + k.autor.nome" (click)="leave.emit(['/perfil', k.autor.codigo])">{{ k.autor.nome }}</button>
                   }
                   <time class="quando" [attr.datetime]="k.em">{{ when(k.em) }}</time>
@@ -71,7 +73,13 @@
                 @if (whoOpen() === k.id) {
                   <ul class="quem-reagiu">
                     @for (w of whoReacted(k); track w.emoji) {
-                      <li><span [attr.aria-label]="w.label" role="img">{{ w.emoji }}</span> {{ w.names }}</li>
+                      <li>
+                        <span [attr.aria-label]="w.label" role="img">{{ w.emoji }}</span>
+                        <!-- cada nome leva ao perfil de quem reagiu -->
+                        @for (p of w.people; track p.codigo; let i = $index; let last = $last) {
+                          <span>{{ i ? (last ? ' e ' : ', ') : ' ' }}</span><button type="button" class="quem-link" [attr.aria-label]="p.spoken" (click)="leave.emit(['/perfil', p.codigo])">{{ p.nome }}</button>
+                        }
+                      </li>
                     }
                   </ul>
                 }

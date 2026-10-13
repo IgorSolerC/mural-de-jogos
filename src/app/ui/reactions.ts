@@ -6,7 +6,9 @@ import { Reaction, ReactionTarget, Reactions, spokenReactions, tally } from '../
 import { REACTIONS, ReactionId, isQuickReaction, reactionOf } from '../core/reaction-kinds';
 import { EmojiPanel } from './emoji-panel';
 import { dayLabel, localDayOf } from '../core/follow';
+import { ProfileStore } from '../core/profile-store';
 import { napWall } from '../core/wall-settle';
+import { PersonFace, PersonPhoto } from './person-photo';
 
 /**
  * As reações nas fichas, como as do WhatsApp (ver core/reactions.ts): o balãozinho colado na quina
@@ -497,7 +499,7 @@ export class ReactionPicker {
 /** A folha de quem reagiu, aberta pelo balão: abas por reação e a lista, como no WhatsApp. */
 @Component({
   selector: 'app-reaction-sheet',
-  imports: [BackdropClose, LucideAngularModule, EmojiPanel],
+  imports: [BackdropClose, LucideAngularModule, EmojiPanel, PersonPhoto],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reacoes" aria-labelledby="reacoes-titulo" (close)="sheet.target.set(null)" (backdropClose)="close()">
@@ -544,13 +546,15 @@ export class ReactionPicker {
             </div>
             <ul class="pessoas">
               @for (r of shown(); track r.codigo) {
-                <li class="pessoa" [class.eu]="r.codigo === me()">
-                  <span class="cracha-mini" aria-hidden="true">{{ initial(r.nome) }}</span>
+                <li class="pessoa">
+                  <!-- a foto do perfil de quem reagiu e o nome: os dois levam ao perfil da pessoa -->
+                  <button type="button" class="foto-perfil" tabindex="-1" aria-hidden="true" (click)="openProfile(r.codigo)">
+                    <app-person-photo [code]="r.codigo" [name]="r.nome" [face]="faceOf(r)" />
+                  </button>
                   <span class="quem">
                     @if (r.codigo === me()) {
-                      <span class="nome">Você</span>
+                      <button type="button" class="nome nome-link" aria-label="Você: ver o seu perfil" (click)="openProfile(r.codigo)">Você</button>
                     } @else {
-                      <!-- o nome leva ao perfil de quem reagiu -->
                       <button type="button" class="nome nome-link" [attr.aria-label]="'Ver o perfil de ' + r.nome" (click)="openProfile(r.codigo)">{{ r.nome }}</button>
                     }
                     <span class="quando">{{ when(r.em) }}</span>
@@ -727,6 +731,7 @@ export class ReactionPicker {
       overscroll-behavior: contain;
     }
     .pessoa {
+      --foto: 40px;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -735,30 +740,6 @@ export class ReactionPicker {
     }
     .pessoa + .pessoa {
       border-top: 1px dashed rgb(21 21 21 / 0.2);
-    }
-    .cracha-mini {
-      flex: none;
-      display: grid;
-      place-items: center;
-      width: 34px;
-      height: 36px;
-      padding-top: 7px;
-      border-radius: 4px;
-      background:
-        linear-gradient(to bottom, var(--caneta-azul, #2b4fa8) 0 7px, transparent 7px),
-        #fdfcf8;
-      color: var(--caneta-azul, #2b4fa8);
-      font-family: var(--f-marker);
-      font-size: 1.1rem;
-      line-height: 1;
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
-      rotate: -3deg;
-    }
-    .eu .cracha-mini {
-      background:
-        linear-gradient(to bottom, var(--ink) 0 7px, transparent 7px),
-        #fdfcf8;
-      color: var(--ink);
     }
     .quem {
       flex: 1;
@@ -815,6 +796,7 @@ export class ReactionPicker {
 export class ReactionSheetView {
   protected readonly sheet = inject(ReactionSheet);
   private readonly reactions = inject(Reactions);
+  private readonly profiles = inject(ProfileStore);
   private readonly router = inject(Router);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   protected readonly CloseIcon = X;
@@ -892,8 +874,11 @@ export class ReactionSheetView {
     return reactionOf(id).label;
   }
 
-  protected initial(name: string): string {
-    return (name.trim()[0] ?? '?').toUpperCase();
+  /** A foto do perfil de quem reagiu: a que veio da nuvem; a minha é a do perfil daqui (a mais nova). */
+  protected faceOf(r: Reaction): PersonFace | null {
+    if (r.codigo !== this.me()) return r.foto ?? null;
+    const mine = this.profiles.profile();
+    return { emoji: mine.emoji, cor: mine.photo };
   }
 
   /** "hoje", "ontem", "3 de outubro". */

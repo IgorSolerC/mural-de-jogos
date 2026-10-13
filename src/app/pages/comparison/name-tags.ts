@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Eye, EyeOff, LayoutGrid, LucideAngularModule, PenLine, RefreshCw, Trash2, UserPlus } from 'lucide-angular';
+import { Eye, EyeOff, LayoutGrid, LucideAngularModule, PenLine, RefreshCw, Trash2, UserPlus, UserRound } from 'lucide-angular';
 import { Colleague } from '../../core/colleague-store';
 
 const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -77,6 +77,13 @@ const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 's
           <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
           Ver o mural de {{ colleague().name }}
         </a>
+        <!-- veio pelo código: dá para ir ao perfil da pessoa (o nome no crachá é para corrigir o apelido) -->
+        @if (colleague().codigo; as code) {
+          <a class="btn-quiet ver-perfil" [routerLink]="['/perfil', code]">
+            <lucide-icon [img]="ProfileIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            Ver o perfil de {{ colleague().name }}
+          </a>
+        }
         <!-- sem spoilers: as notas do colega sobre o que você não avaliou, só enquanto a página estiver aberta -->
         @if (secrets()) {
           <button
@@ -130,6 +137,7 @@ export class NameTags {
   protected readonly AddIcon = UserPlus;
   protected readonly TrashIcon = Trash2;
   protected readonly WallIcon = LayoutGrid;
+  protected readonly ProfileIcon = UserRound;
   protected readonly RevealIcon = Eye;
   protected readonly HideIcon = EyeOff;
 

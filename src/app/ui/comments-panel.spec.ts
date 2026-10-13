@@ -143,12 +143,23 @@ describe('A folha de comentários (CommentsPanel)', () => {
     expect(el.querySelector('.foto-inicial')?.textContent?.trim()).toBe('B');
   });
 
-  it('o nome de outra pessoa leva ao perfil dela; o seu, não', async () => {
+  it('o nome de quem escreveu leva ao perfil dela; o "Você", ao seu', async () => {
     const { el, host } = await open();
     const links = el.querySelectorAll<HTMLButtonElement>('.nome-link');
-    expect(links.length).toBe(1);
+    expect([...links].map((l) => l.getAttribute('aria-label'))).toEqual(['Ver o perfil de Bia', 'Você: ver o seu perfil']);
     links[0].click();
-    expect(host.left).toEqual([['/perfil', 'BBBB-2222']]);
+    links[1].click();
+    expect(host.left).toEqual([['/perfil', 'BBBB-2222'], ['/perfil', ME]]);
+  });
+
+  it('a foto de quem escreveu leva ao mesmo perfil, só para o mouse (o leitor de tela e o teclado vão pelo nome)', async () => {
+    const { el, host } = await open();
+    const photos = el.querySelectorAll<HTMLButtonElement>('.comentario > .foto-perfil');
+    expect(photos.length).toBe(2);
+    expect([photos[0].getAttribute('aria-hidden'), photos[0].tabIndex]).toEqual(['true', -1]);
+    photos[0].click();
+    photos[1].click();
+    expect(host.left).toEqual([['/perfil', 'BBBB-2222'], ['/perfil', ME]]);
   });
 
   it('as reações de um comentário ficam num remendo, que abre quem reagiu', async () => {
@@ -161,6 +172,28 @@ describe('A folha de comentários (CommentsPanel)', () => {
     fixture.detectChanges();
     expect(el.querySelector('.quem-reagiu')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('🔥 Caio e Você');
     expect(patches[0].getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('cada nome em quem reagiu leva ao perfil da pessoa', async () => {
+    const { fixture, el, host } = await open({
+      ...THREAD,
+      comentarios: [
+        comment(1, 'BBBB-2222', 'Bia', 'Oi', {
+          reacoes: [
+            { codigo: 'CCCC-3333', nome: 'Caio', reacao: 'fogo', em: at },
+            { codigo: 'DDDD-4444', nome: 'Dani', reacao: 'fogo', em: at },
+            { codigo: ME, nome: 'Eu', reacao: 'fogo', em: at },
+          ],
+        }),
+      ],
+    });
+    el.querySelector<HTMLButtonElement>('.remendo')!.click();
+    fixture.detectChanges();
+    expect(el.querySelector('.quem-reagiu')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('🔥 Caio, Dani e Você');
+    const names = el.querySelectorAll<HTMLButtonElement>('.quem-link');
+    expect([...names].map((n) => n.getAttribute('aria-label'))).toEqual(['Ver o perfil de Caio', 'Ver o perfil de Dani', 'Você: ver o seu perfil']);
+    names[1].click();
+    expect(host.left).toEqual([['/perfil', 'DDDD-4444']]);
   });
 
   it('reagir a um comentário: a fileira sai do botão quieto, e a escolhida de novo tira', async () => {

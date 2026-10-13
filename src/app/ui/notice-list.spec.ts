@@ -58,7 +58,12 @@ describe('A lista de avisos (NoticeList)', () => {
   let known: ReturnType<typeof signal<ReadonlySet<string> | null>>;
 
   const rows = () => [...el.querySelectorAll<HTMLElement>('.aviso')];
-  const seen = (row: HTMLElement) => row.querySelector('.texto [aria-hidden]')?.textContent?.replace(/\s+/g, ' ').trim();
+  /** A frase como se vê: sem a parte que só o leitor de tela ouve. */
+  const seen = (row: HTMLElement) => {
+    const text = row.querySelector('.texto')!.cloneNode(true) as HTMLElement;
+    text.querySelector('.sr-only')?.remove();
+    return text.textContent?.replace(/\s+/g, ' ').trim();
+  };
   const refresh = async () => {
     fixture.detectChanges();
     await fixture.whenStable();
@@ -127,8 +132,37 @@ describe('A lista de avisos (NoticeList)', () => {
     expect(host.profiles).toEqual([CRIS]);
   });
 
-  it('a ficha que eu já tirei do mural: o aviso fica, sem nada para abrir', () => {
-    expect(rows()[4].querySelector('button')).toBeNull();
+  it('a ficha que eu já tirei do mural: o aviso fica, sem ficha para abrir (o perfil de quem foi, sim)', () => {
+    expect(rows()[4].querySelector('.abre')).toBeNull();
+    rows()[4].querySelector<HTMLElement>('.gente-link')!.click();
+    expect(host.profiles).toEqual([ANA]);
+  });
+
+  it('o nome de cada pessoa leva ao perfil dela, mesmo quando a linha abre a ficha', () => {
+    const [reacted] = rows();
+    const names = [...reacted.querySelectorAll<HTMLElement>('.gente-link')];
+    expect(names.map((n) => n.getAttribute('aria-label'))).toEqual(['Ver o perfil de Ana', 'Ver o perfil de Bia']);
+    names[1].click();
+    names[0].click();
+    expect(host.profiles).toEqual([BIA, ANA]);
+    expect(host.cards).toEqual([]);
+  });
+
+  it('com mais de duas pessoas, só as duas primeiras têm nome (e perfil): "Ana, Bia e mais 2"', async () => {
+    const DANI = { codigo: 'DDDD-4444', nome: 'Dani' };
+    const react = (pessoa: Person, min: number): FeedItem => ({ tipo: 'reagiu', em: minutesAgo(min), pessoa, ref: 'rminha1', titulo: 'Hades', mural: 'jogos', silenciado: false, reacao: 'fogo' });
+    host.notices.set(groupNotices([react(ANA, 1), react(BIA, 2), react(CRIS, 3), react(DANI, 4)]));
+    await refresh();
+    expect(seen(rows()[0])).toBe('Ana, Bia e mais 2 reagiram à sua ficha de Hades');
+    expect(rows()[0].querySelectorAll('.gente-link').length).toBe(2);
+  });
+
+  it('a foto de cada pessoa leva ao perfil dela, só para o mouse (o leitor de tela e o teclado vão pelo nome)', () => {
+    const photos = [...rows()[0].querySelectorAll<HTMLButtonElement>('.fotos .foto-perfil')];
+    expect(photos.map((p) => p.tabIndex)).toEqual([-1, -1]);
+    photos[1].click();
+    expect(host.profiles).toEqual([BIA]);
+    expect(host.cards).toEqual([]);
   });
 
   it('quem começou a seguir: "Seguir de volta", ou "Vocês se seguem" quando eu já sigo', async () => {

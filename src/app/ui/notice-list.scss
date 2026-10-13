@@ -58,14 +58,21 @@
   height: var(--foto);
   pointer-events: none;
 
-  app-person-photo:first-child {
+  /* cada foto leva ao perfil da pessoa: fica por cima do botão da linha, com 40px de toque (a foto
+     tem 38: o que sobra do botão passa 1px para cada lado, sem tirar nada do lugar) */
+  .foto-perfil {
     position: relative;
-    z-index: 1;
+    z-index: 2;
+    width: calc(var(--foto) + 2px);
+    height: calc(var(--foto) + 2px);
+    margin: -1px;
+    pointer-events: auto;
   }
 
   /* a segunda pessoa, por baixo da primeira, aparecendo pela quina de cima */
-  app-person-photo + app-person-photo {
+  .foto-perfil + .foto-perfil {
     position: absolute;
+    z-index: 1;
     top: -6px;
     left: 13px;
   }
@@ -75,7 +82,7 @@
 .selo {
   @include felt.remendo(-3px);
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   right: -2px;
   bottom: -7px;
   display: flex;
@@ -113,6 +120,36 @@
 
 .gente {
   font-weight: 700;
+}
+
+/* o nome leva ao perfil da pessoa, por cima do botão da linha: o risco de lápis aparece com o mouse */
+.gente-link {
+  position: relative;
+  z-index: 1;
+  /* o toque passa um pouco da letra, para cima e para baixo, sem mexer na linha */
+  margin-block: -5px;
+  padding: 5px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  overflow-wrap: anywhere;
+  text-decoration: underline 2px transparent;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: text-decoration-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
 }
 
 /* o título da ficha, sublinhado a lápis */
@@ -203,7 +240,8 @@
     animation: none;
   }
 
-  .abre {
+  .abre,
+  .gente-link {
     transition: none;
   }
 }

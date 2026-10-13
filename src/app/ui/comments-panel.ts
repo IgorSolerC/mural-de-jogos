@@ -189,13 +189,16 @@ export class CommentsPanel {
     return spokenReactions(k.reacoes);
   }
 
-  /** Quem reagiu, por reação: "❤️ Ana e Caio". */
-  protected whoReacted(k: Comment): { emoji: string; label: string; names: string }[] {
+  /** Quem reagiu, por reação: "❤️ Ana e Caio" (cada nome leva ao perfil da pessoa). */
+  protected whoReacted(k: Comment): { emoji: string; label: string; people: { codigo: string; nome: string; spoken: string }[] }[] {
     const me = this.me();
-    return tally(k.reacoes).map((t) => {
-      const names = k.reacoes.filter((r) => r.reacao === t.kind.id).map((r) => (r.codigo === me ? 'Você' : r.nome));
-      return { emoji: t.kind.emoji, label: t.kind.label, names: names.length > 1 ? `${names.slice(0, -1).join(', ')} e ${names.at(-1)}` : names[0] };
-    });
+    return tally(k.reacoes).map((t) => ({
+      emoji: t.kind.emoji,
+      label: t.kind.label,
+      people: k.reacoes
+        .filter((r) => r.reacao === t.kind.id)
+        .map((r) => (r.codigo === me ? { codigo: r.codigo, nome: 'Você', spoken: 'Você: ver o seu perfil' } : { codigo: r.codigo, nome: r.nome, spoken: `Ver o perfil de ${r.nome}` })),
+    }));
   }
 
   /** Quem apaga: quem escreveu, ou o dono da ficha. */

@@ -269,6 +269,33 @@ p {
   border: 0;
 }
 
+/* A foto de alguém (ui/person-photo.ts) que leva ao perfil dela: do botão fica só a foto, que
+   levanta um pouco quando o mouse chega. Para o teclado e o leitor de tela, quem leva ao perfil é o
+   nome escrito ao lado (a foto fica de fora, para a pessoa não ser dita duas vezes). */
+.foto-perfil {
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  /* o botão não muda o desenho da foto: a sombra da letra de quem está em volta continua valendo */
+  text-shadow: inherit;
+  cursor: pointer;
+  transition: translate var(--t-physical) var(--ease-physical);
+}
+.foto-perfil:hover {
+  translate: 0 -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .foto-perfil {
+    transition: none;
+  }
+}
+
 /* ===== Plaquinha de categoria: aba de divisória de fichário, plástico impresso ===== */
 .plate {
   --tab: var(--tab-plastic);

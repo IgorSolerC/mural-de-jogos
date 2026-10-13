@@ -398,14 +398,33 @@
 }
 
 .meu-nome {
+  justify-self: stretch;
   max-width: 100%;
-  padding: 12px 16px 0;
-  overflow: hidden;
   font-family: var(--f-marker);
   font-size: 2rem;
   line-height: 1.1;
-  text-overflow: ellipsis;
   white-space: nowrap;
+
+  /* leva ao seu perfil (a faixa do nome inteira se toca): o risco do pincel aparece com o mouse */
+  a {
+    display: block;
+    padding: 12px 16px 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: inherit;
+    text-decoration: underline 3px transparent;
+    text-underline-offset: 6px;
+    transition: text-decoration-color var(--t-ui) var(--ease-ui);
+
+    &:hover {
+      text-decoration-color: currentColor;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: -3px;
+    }
+  }
 }
 
 .meu-codigo-linha {

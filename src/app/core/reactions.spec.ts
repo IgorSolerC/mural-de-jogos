@@ -33,9 +33,18 @@ describe('reações', () => {
       },
     });
     expect([...map.keys()]).toEqual(['r-hades']);
-    expect(map.get('r-hades')).toEqual([{ codigo: 'BBBB-2222', nome: 'Bia', reacao: 'fogo', em: at }]);
+    expect(map.get('r-hades')).toEqual([{ codigo: 'BBBB-2222', nome: 'Bia', foto: null, reacao: 'fogo', em: at }]);
     expect(parseReactions(null).size).toBe(0);
     expect(parseReactions({ reacoes: 'x' }).size).toBe(0);
+  });
+
+  it('a foto do perfil de quem reagiu vem junto; a que não serve vira a inicial', () => {
+    const who = (foto: unknown) => parseReactions({ reacoes: { 'r-hades': [{ codigo: 'BBBB-2222', nome: 'Bia', reacao: 'fogo', em: at, foto }] } }).get('r-hades')![0].foto;
+    expect(who({ emoji: '🐙', cor: 'rosa', sobra: 1 })).toEqual({ emoji: '🐙', cor: 'rosa' });
+    expect(who({ emoji: 'polvo', cor: 'rosa' })).toBeNull();
+    expect(who({ emoji: '🐙', cor: 'furta-cor' })).toBeNull();
+    expect(who('🐙')).toBeNull();
+    expect(who(undefined)).toBeNull();
   });
 
   it('conta da mais dada para a menos (empate: a ordem do seletor), e diz por extenso', () => {

@@ -2,10 +2,12 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { CloudAccount, CloudError } from './cloud-account';
 import { Cloud } from './cloud-config';
 import { normalizeCode } from './cloud-murals';
+import { isEmoji } from './emoji';
 import { Follow } from './follow';
 import { Kind } from './kinds';
 import { Toasts } from '../ui/toast';
 import { REACTIONS, ReactionId, ReactionKind, isReaction, reactionOf } from './reaction-kinds';
+import { STOCKS, Stock } from './review';
 
 /**
  * Reações às resenhas dos outros, como as do WhatsApp (ver `api/src/routes/reactions.ts`): uma por
@@ -16,9 +18,13 @@ import { REACTIONS, ReactionId, ReactionKind, isReaction, reactionOf } from './r
 export interface Reaction {
   codigo: string;
   nome: string;
+  /** A "foto" do perfil (o emoji na cartolina); sem ela, fica a inicial. */
+  foto?: { emoji: string; cor: Stock } | null;
   reacao: ReactionId;
   em: string;
 }
+
+const isStock = (v: unknown): v is Stock => (STOCKS as readonly unknown[]).includes(v);
 
 /** A resenha que recebe a reação: o mural de quem (código) e qual ficha. */
 export interface ReactionTarget {
@@ -62,7 +68,9 @@ export function parseReactions(raw: unknown): Map<string, Reaction[]> {
       const nome = typeof r?.['nome'] === 'string' ? r['nome'].trim().slice(0, 40) : '';
       const em = typeof r?.['em'] === 'string' && Number.isFinite(Date.parse(r['em'])) ? r['em'] : null;
       if (!codigo || !nome || !em || !isReaction(r?.['reacao'])) continue;
-      people.push({ codigo, nome, reacao: r['reacao'], em });
+      const f = r['foto'] as Record<string, unknown> | null | undefined;
+      const foto = f && isEmoji(f['emoji']) && isStock(f['cor']) ? { emoji: f['emoji'], cor: f['cor'] } : null;
+      people.push({ codigo, nome, foto, reacao: r['reacao'], em });
     }
     if (people.length) out.set(ref, people);
   }

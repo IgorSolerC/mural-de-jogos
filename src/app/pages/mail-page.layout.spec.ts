@@ -184,7 +184,7 @@ describe('Amigos em todas as larguras', () => {
     // alguém é um link de texto: vale a altura (30px) e a largura que o nome tiver
     for (const t of boxes('button, a')) {
       if (t.r.left < page.left - 12 || t.r.right > page.right + 12) say(`${t.name} sai da página`);
-      const [minW, minH] = t.el.matches('.nome, .pessoa-nome, .link-giz') ? [16, 30] : [40, 40];
+      const [minW, minH] = t.el.matches('.nome, .pessoa-nome, .gente-link, .link-giz') ? [16, 30] : [40, 40];
       if (t.r.width < minW || t.r.height < minH) say(`${t.name} pequeno demais (${Math.round(t.r.width)}x${Math.round(t.r.height)})`);
     }
     void w;

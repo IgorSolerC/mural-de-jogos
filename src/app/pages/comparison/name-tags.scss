@@ -217,6 +217,10 @@ input.nome {
   text-decoration: none;
 }
 
+.ver-perfil {
+  text-decoration: none;
+}
+
 /* as notas em segredo: à mostra, a fita amarela de estado ligado */
 .notas[aria-pressed='true'] {
   background: var(--hi);

@@ -69,6 +69,15 @@
   border-top: 1.5px dashed rgb(21 21 21 / 0.22);
 }
 
+/* a foto leva ao perfil de quem escreveu: o botão fica no alto da fala, com 40px de toque (a foto
+   tem 38: o que sobra passa 1px para cada lado da coluna, sem tirar nada do lugar) */
+.comentario > .foto-perfil {
+  align-self: start;
+  width: 40px;
+  height: 40px;
+  margin-inline: -1px;
+}
+
 /* a foto do perfil em miniatura: o emoji na cartolina da pessoa, numa moldura de papel de foto */
 .foto {
   display: grid;
@@ -256,6 +265,28 @@
   font-size: 1rem;
   line-height: 1.35;
   color: var(--ink-2);
+}
+
+/* um nome na lista de quem reagiu: leva ao perfil, com o mesmo risco fino do nome de quem escreveu */
+.quem-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline 1.5px rgb(21 21 21 / 0.35);
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--ink);
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
 }
 
 .vazio,

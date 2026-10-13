@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
 import { Check, LucideAngularModule, MessageCircleMore, UserPlus } from 'lucide-angular';
 import { Follow, Person, agoLabel, fullWhen } from '../core/follow';
-import { CardNotice, Notice, noticeSpoken, noticeVerb, noticeWhere, peopleNames } from '../core/notices';
+import { CardNotice, Notice, noticeSpoken, noticeVerb, noticeWhere } from '../core/notices';
 import { reactionOf } from '../core/reaction-kinds';
 import { ReviewStore } from '../core/review-store';
 import { Busy } from './busy';
@@ -10,8 +10,9 @@ import { PersonFace, PersonPhoto } from './person-photo';
 /**
  * Os avisos de Amigos, um por linha, direto na folha: a foto de quem foi (com um remendo dizendo o
  * quê: a reação, o balão de fala, o "seguiu"), a frase e há quanto tempo. A linha inteira abre a
- * minha ficha (nos comentários, quando o aviso é de comentário); o nome abre o perfil da pessoa. Quem
- * começou a seguir traz o "Seguir de volta" ali mesmo. Serve ao quadro ao lado do Feed e à aba Avisos.
+ * minha ficha (nos comentários, quando o aviso é de comentário); a foto e o nome de cada pessoa abrem o
+ * perfil dela. Quem começou a seguir traz o "Seguir de volta" ali mesmo. Serve ao quadro ao lado do
+ * Feed e à aba Avisos.
  */
 @Component({
   selector: 'app-notice-list',
@@ -42,7 +43,6 @@ export class NoticeList {
   protected readonly CommentIcon = MessageCircleMore;
   protected readonly FollowIcon = UserPlus;
   protected readonly CheckIcon = Check;
-  protected readonly names = peopleNames;
   protected readonly verb = noticeVerb;
   protected readonly where = noticeWhere;
   protected readonly spoken = noticeSpoken;

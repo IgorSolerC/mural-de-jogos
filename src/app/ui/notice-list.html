@@ -2,10 +2,12 @@
   @for (n of notices(); track n.key) {
     @let isNew = fresh().has(n.key);
     <li class="aviso" [class.de-agora]="isNew">
-      <!-- quem foi (até duas fotos) e, no remendo, o que fez -->
+      <!-- quem foi (até duas fotos, cada uma levando ao perfil da pessoa) e, no remendo, o que fez -->
       <span class="fotos" aria-hidden="true">
         @for (p of n.people.slice(0, 2); track p.codigo) {
-          <app-person-photo [code]="p.codigo" [name]="p.nome" [face]="faces().get(p.codigo)" />
+          <button type="button" class="foto-perfil" tabindex="-1" (click)="profile.emit(p)">
+            <app-person-photo [code]="p.codigo" [name]="p.nome" [face]="faces().get(p.codigo)" />
+          </button>
         }
         <span class="selo">
           @switch (n.tipo) {
@@ -27,11 +29,16 @@
       <div class="corpo">
         <p class="texto">
           <span class="sr-only">{{ spoken(n) }}. </span>
+          <!-- cada nome (até dois) leva ao perfil da pessoa, por cima do botão da linha -->
+          @for (p of n.people.slice(0, 2); track p.codigo; let i = $index) {
+            @if (i) {
+              <span class="gente" aria-hidden="true">{{ n.people.length > 2 ? ', ' : ' e ' }}</span>
+            }
+            <button type="button" class="gente gente-link" [attr.aria-label]="'Ver o perfil de ' + p.nome" (click)="profile.emit(p)">{{ p.nome }}</button>
+          }
           <span aria-hidden="true">
-            @if (n.people.length === 1) {
-              <span class="gente">{{ n.people[0].nome }}</span>
-            } @else {
-              <span class="gente">{{ names(n.people) }}</span>
+            @if (n.people.length > 2) {
+              <span class="gente">{{ ' e mais ' + (n.people.length - 2) }}</span>
             }
             {{ verb(n) }}
             @if (n.tipo !== 'seguiu') {

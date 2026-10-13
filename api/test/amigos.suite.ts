@@ -733,6 +733,14 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(body.reacoes).toEqual({ 'r-hades': [{ codigo: bia.codigo, nome: 'Bia', reacao: 'fogo', em: NOW.toISOString() }] });
       });
 
+      it('quem reagiu vem com a foto do perfil, se já mandou uma', async () => {
+        const { react, list, push, ana, bia } = await reacting();
+        await push(bia.token, 0, { foto: JSON.stringify({ emoji: '🐙', cor: 'rosa' }) });
+        await react(bia.token, ana.codigo, 'r-hades', 'fogo');
+        const [got] = (await list(ana.codigo)).body.reacoes['r-hades'];
+        expect(got).toMatchObject({ codigo: bia.codigo, nome: 'Bia', foto: { emoji: '🐙', cor: 'rosa' }, reacao: 'fogo' });
+      });
+
       it('o dono recebe o aviso no correio, e ele conta como não visto', async () => {
         const { react, feed, advance, ana, bia } = await reacting();
         // um minuto depois de a conta da Ana nascer (o visto começa ali)

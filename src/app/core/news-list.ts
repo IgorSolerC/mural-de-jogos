@@ -26,6 +26,28 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-13-foto-em-quem-reagiu',
+    version: '1.37.2',
+    kind: 'melhoria',
+    date: '2026-10-13',
+    title: 'Quem reagiu aparece com a foto do perfil',
+    items: [
+      'Na folha de quem reagiu a uma ficha, cada pessoa agora aparece com a foto do perfil dela (o emoji na cartolina que ela escolheu), no lugar do crachá azul com a inicial. Quem ainda não tem foto fica com a inicial numa cartolina, como no resto do site.',
+    ],
+  },
+  {
+    id: '2026-10-13-foto-e-nome-levam-ao-perfil',
+    version: '1.37.1',
+    kind: 'correcao',
+    date: '2026-10-13',
+    title: 'A foto e o nome de alguém sempre levam ao perfil',
+    items: [
+      'Em alguns lugares, tocar na foto ou no nome de uma pessoa não fazia nada. Agora leva ao perfil dela: a foto nos posts do Feed, nos comentários, na lista de Pessoas e na folha de quem reagiu; a foto e o nome em cada aviso (a linha continua abrindo a sua ficha); e os nomes de quem reagiu a um comentário.',
+      'O seu também: o "Você" nos comentários e nas reações e o nome no seu crachá, em Amigos › Pessoas, levam ao seu perfil.',
+      'Em Comparar, com um colega aberto pelo código, a gaveta ganhou "Ver o perfil".',
+    ],
+  },
+  {
     id: '2026-10-13-escolher-o-codigo',
     version: '1.37.0',
     kind: 'funcionalidade',
