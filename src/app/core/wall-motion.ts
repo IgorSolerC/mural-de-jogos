@@ -1,5 +1,6 @@
 import { ApplicationRef, Injectable, inject } from '@angular/core';
 import { repaint } from '../ui/paper-layer';
+import { settleWall } from './wall-settle';
 import { isVeiled, veil } from '../ui/veil';
 
 /** Folga em volta da tela: a sombra, a tachinha e os enfeites passam da caixa da ficha. */
@@ -70,6 +71,9 @@ export class WallMotion {
     for (const a of out) a.cancel();
     change();
     this.appRef.tick();
+    // as fichas da tela no tipo novo, montadas já (as que eram vaga), para a rolagem voltar ao lugar
+    // com as alturas de verdade
+    settleWall();
     if (anchor?.el.isConnected) {
       const dy = anchor.el.getBoundingClientRect().top - anchor.top;
       if (Math.abs(dy) > 1) window.scrollBy({ top: dy, behavior: 'instant' });
@@ -91,6 +95,8 @@ export class WallMotion {
     const before = places();
     change();
     this.appRef.tick();
+    // as que vieram para a tela e ainda eram vaga viram ficha antes de medir o lugar de cada uma
+    settleWall();
     const after = places();
 
     const css = getComputedStyle(document.documentElement);

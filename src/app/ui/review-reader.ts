@@ -39,6 +39,7 @@ import { NoteLinks, backlinksOf, notesOf, resolveNote } from '../core/note-links
 import { NoteBacklinks } from './note-backlinks';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
+import { napWall } from '../core/wall-settle';
 import { WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
 import { NoteTag } from './note-tag';
@@ -854,6 +855,8 @@ export class ReviewReader {
     // ela muda a cada tecla em qualquer campo do site
     document.removeEventListener('selectionchange', this.onSelectionChange);
     document.addEventListener('selectionchange', this.onSelectionChange);
+    // as fichas montadas fora da tela dormem: o navegador recalcula a página inteira quando um diálogo abre
+    napWall();
     this.dialog().nativeElement.showModal();
   }
 

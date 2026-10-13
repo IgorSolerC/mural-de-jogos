@@ -17,6 +17,8 @@ import {
   Film,
   Gamepad2,
   HardDriveDownload,
+  Gauge,
+  Gem,
   LayoutGrid,
   LogOut,
   LucideIconData,
@@ -27,6 +29,7 @@ import {
   LucideAngularModule,
   RefreshCw,
   RotateCcw,
+  Scale,
   CloudOff,
   Origami,
   ShieldAlert,
@@ -35,12 +38,13 @@ import {
   Tv,
   Upload,
   X,
+  Zap,
 } from 'lucide-angular';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
 import { eraseSave, takeErased } from '../core/erase-save';
 import { ReviewStore } from '../core/review-store';
-import { OWNER_NAME_MAX, ScoreDisplay, Settings } from '../core/settings';
+import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset } from '../core/settings';
 import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
@@ -65,8 +69,8 @@ import { SiteKeys } from '../core/site-keys';
 
 const DAY = 86_400_000;
 
-type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'busca';
-const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'busca'];
+type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'busca' | 'desempenho';
+const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'busca', 'desempenho'];
 
 /** "às 14:32" hoje; "em 3 de outubro às 14:32" antes. */
 function when(ms: number): string {
@@ -103,9 +107,55 @@ export class SettingsPage {
     { id: 'amigos', label: 'Amigos', hint: 'O que chega dos outros', icon: UsersRound },
     { id: 'backup', label: 'Backup', hint: 'Baixar e restaurar', icon: HardDriveDownload },
     { id: 'busca', label: 'Busca', hint: 'De onde vêm as capas', icon: Search },
+    { id: 'desempenho', label: 'Desempenho', hint: 'Qualidade ou leveza', icon: Gauge },
+  ];
+  /** As três predefinições de qualidade do mural (ver `PERFORMANCE_PRESETS`). */
+  protected readonly presets: readonly { id: PerformancePreset; label: string; icon: LucideIconData }[] = [
+    { id: 'desempenho', label: 'Desempenho', icon: Zap },
+    { id: 'equilibrio', label: 'Equilíbrio', icon: Scale },
+    { id: 'qualidade', label: 'Qualidade', icon: Gem },
+  ];
+  /** O que cada predefinição faz, numa frase. */
+  protected readonly presetHint: Record<PerformancePreset, string> = {
+    desempenho: 'Tudo o que alivia o aparelho, ligado. Para computador sem placa de vídeo, notebook antigo ou celular que engasga.',
+    equilibrio: 'O padrão: o desenho inteiro das fichas, com a rolagem solta.',
+    qualidade: 'Cada traço como foi desenhado, sem nenhum atalho. Pede mais do aparelho ao rolar.',
+  };
+  /** Cada escolha de Desempenho, com o interruptor dela. */
+  protected readonly performanceOptions: readonly { id: string; key: PerformanceKey; title: string; desc: string }[] = [
+    {
+      id: 'camadas',
+      key: 'cardLayers',
+      title: 'Rolagem lisa',
+      desc: 'Cada ficha perto da tela é desenhada uma vez e guardada, em vez de ser redesenhada quando as vizinhas chegam. A rolagem fica bem mais solta; alguns traços a lápis saem um tico mais suaves.',
+    },
+    {
+      id: 'sombra',
+      key: 'straightShadows',
+      title: 'Sombra reta nas recortadas',
+      desc: 'As fichas rasgadas, queimadas e furadas trocam a sombra que segue o recorte pela sombra reta das outras. É o que mais alivia um aparelho sem placa de vídeo.',
+    },
+    {
+      id: 'lapis',
+      key: 'plainPencil',
+      title: 'Lápis sem grão',
+      desc: 'Os rabiscos a lápis e as manchas de lama, de mofo e de terra perdem o grão e o tremido, e ficam de traço limpo.',
+    },
+    {
+      id: 'paradas',
+      key: 'stillCards',
+      title: 'Fichas paradas',
+      desc: 'As fichas não levantam quando o mouse passa, e os brilhos das notas altas ficam parados.',
+    },
+    {
+      id: 'poucas',
+      key: 'fewCards',
+      title: 'Menos fichas prontas',
+      desc: 'Menos fichas ficam montadas em volta da tela, e entram uma de cada vez. Numa rolagem rápida, aparecem mais vagas tracejadas antes de as fichas entrarem; o aparelho trabalha bem menos.',
+    },
   ];
   /** As etiquetas no papelão, cada uma presa num ângulo (a aberta fica reta). */
-  protected readonly tilts = ['-1.2deg', '0.9deg', '-0.6deg', '1.1deg', '-0.9deg'];
+  protected readonly tilts = ['-1.2deg', '0.9deg', '-0.6deg', '1.1deg', '-0.9deg', '0.7deg'];
   protected readonly tab = signal<Tab>(this.tabFrom(this.route.snapshot.queryParamMap.get('aba')));
   /** Um link para outra aba (o "Baixar backup" do aviso) com a página já aberta também troca a aba. */
   private readonly followTabParam = this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(this.tabFrom(q.get('aba'))));
@@ -475,8 +525,8 @@ export class SettingsPage {
     const sure = await this.confirm.ask({
       title: 'Voltar ao padrão?',
       text:
-        'As escolhas de Mural e Amigos voltam ao começo: notas como você deu, etiquetas dos grupos e contagem de novidades ligadas, ' +
-        'sem spoilers desligado, o que você não avaliou em segredo e novidades de todos os murais. ' +
+        'As escolhas de Mural, Amigos e Desempenho voltam ao começo: notas como você deu, etiquetas dos grupos e contagem de novidades ligadas, ' +
+        'sem spoilers desligado, o que você não avaliou em segredo, novidades de todos os murais e a qualidade do mural no Equilíbrio. ' +
         'O seu nome, o perfil, a conta, as chaves e o backup não mudam.',
       confirm: 'Voltar ao padrão',
       icon: null,

@@ -26,6 +26,33 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-12-ajustes-desempenho',
+    version: '1.36.0',
+    kind: 'funcionalidade',
+    date: '2026-10-12',
+    title: 'Ajustes: a parte Desempenho',
+    items: [
+      'Os Ajustes ganharam a parte Desempenho: você escolhe quanto o mural pede do aparelho. As escolhas valem só no navegador em que foram feitas.',
+      'Três predefinições de qualidade. Equilíbrio é o padrão: o desenho inteiro das fichas, com a rolagem solta. Desempenho liga tudo o que alivia o aparelho, para computador sem placa de vídeo, notebook antigo ou celular que engasga. Qualidade desenha cada traço como foi feito, sem nenhum atalho.',
+      'Embaixo delas, cada escolha tem o seu interruptor, para misturar do seu jeito: Rolagem lisa (cada ficha perto da tela é desenhada uma vez e guardada; alguns traços a lápis saem um tico mais suaves), Sombra reta nas recortadas, Lápis sem grão, Fichas paradas (não levantam com o mouse) e Menos fichas prontas em volta da tela.',
+      'O "Voltar ao padrão" dos Ajustes leva a qualidade do mural de volta ao Equilíbrio.',
+    ],
+  },
+  {
+    id: '2026-10-12-mural-mais-leve',
+    version: '1.35.4',
+    kind: 'melhoria',
+    date: '2026-10-12',
+    title: 'O mural ficou bem mais leve',
+    items: [
+      'O mural agora só monta as fichas perto da tela. As de longe são vagas tracejadas, do tamanho da ficha, e viram ficha quando a rolagem chega perto, entrando como as fichas sempre entraram. Um mural de 300 anotações abria travado por mais de um segundo; agora abre na hora.',
+      'Abrir e fechar a leitura de uma ficha ficou cerca de quatro vezes mais rápido num mural grande: não tem mais aquele meio segundo de espera.',
+      'Rolar ficou mais liso: as fichas não levantam mais uma a uma quando passam por baixo do mouse parado, e as próximas vão sendo preparadas enquanto você lê. Numa rolagem muito rápida, as vagas passam e as fichas entram quando ela acalma.',
+      'O ritmo em que as fichas entram se ajusta ao aparelho: uma de cada vez onde os quadros atrasam, várias onde sobra fôlego. Antes o intervalo era fixo, e travava nos aparelhos mais lentos.',
+      'As fichas rasgadas, queimadas e furadas pesam bem menos para o navegador: o recorte do papel era recalculado em cada pedaço da ficha, e agora é lido uma vez só.',
+    ],
+  },
+  {
     id: '2026-10-12-feed-o-que-a-pessoa-fez-embaixo-do-nome',
     version: '1.35.3',
     kind: 'melhoria',

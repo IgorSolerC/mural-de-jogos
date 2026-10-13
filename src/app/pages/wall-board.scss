@@ -288,11 +288,46 @@
   flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--in-gap);
+}
 
-  app-review-card {
-    width: var(--card-w);
+/* ===== O lugar de cada ficha =====
+   Uma caixa reta, da largura da ficha, que fica sempre na parede (ver wall-cards.ts): dentro dela vai
+   a ficha ou, longe da tela, a vaga. Com a ficha acordada e a "Rolagem lisa" dos Ajustes ligada (a
+   classe .camadas na raiz, ver core/settings.ts), a caixa é uma camada só dela no compositor: a ficha
+   é desenhada uma vez, e não de novo a cada vizinha que chega ou capa que carrega. A camada é a caixa,
+   e não a ficha torta: uma camada girada sairia amolecida. Mesmo assim alguns traços a lápis saem um
+   tico mais suaves, e por isso dá para desligar. */
+.lugar {
+  flex: none;
+  display: flow-root;
+  width: var(--card-w);
+  min-width: 0;
+
+  > app-review-card {
+    width: 100%;
     max-width: none;
   }
+}
+
+:host-context(.camadas) .lugar[data-viva] {
+  will-change: transform;
+}
+
+/* ===== A vaga =====
+   A ficha que ainda não foi montada (longe da tela): a mesma marca tracejada da ficha que espera o
+   papel ficar pronto (review-card.ts), torta como a ficha vai ficar e da altura dela. Vazia, não
+   custa nada ao navegador; quando a rolagem chega perto, a ficha entra no lugar. */
+.vaga {
+  margin-top: var(--drop-y);
+  border: 2px dashed rgb(241 241 236 / 0.16);
+  border-radius: 3px;
+  rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
+  transform-origin: 50% 12px;
+  pointer-events: none;
+}
+
+.wall.capas .vaga {
+  margin-top: calc(var(--drop-y) * 0.4);
 }
 
 /* ===== As fichas inteiras, em colagem =====
@@ -311,10 +346,8 @@
   grid-auto-flow: row;
   gap: 0 var(--in-col);
 
-  app-review-card {
+  .lugar {
     grid-row-end: span var(--linhas, 60);
-    width: var(--card-w);
-    max-width: none;
     margin-left: var(--desvio, 0px);
   }
 }
@@ -389,9 +422,15 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 34px;
 
-    app-review-card {
+    .lugar {
       width: 100%;
     }
+  }
+
+  /* a vaga no celular: quase reta e mais perto da de cima, como a ficha */
+  .vaga {
+    rotate: calc(var(--tilt) * var(--inclina, 1) * 0.5deg);
+    margin-top: calc(var(--drop-y) * 0.4);
   }
 
   /* as fichas inteiras no celular: uma coluna só, uma embaixo da outra, sem o desvio */
@@ -401,7 +440,7 @@
     gap: 34px;
   }
 
-  .wall.inteira app-review-card {
+  .wall.inteira .lugar {
     grid-row-end: auto;
     grid-column: auto;
     width: 100%;

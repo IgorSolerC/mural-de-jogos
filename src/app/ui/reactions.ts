@@ -6,6 +6,7 @@ import { Reaction, ReactionTarget, Reactions, spokenReactions, tally } from '../
 import { REACTIONS, ReactionId, isQuickReaction, reactionOf } from '../core/reaction-kinds';
 import { EmojiPanel } from './emoji-panel';
 import { dayLabel, localDayOf } from '../core/follow';
+import { napWall } from '../core/wall-settle';
 
 /**
  * As reações nas fichas, como as do WhatsApp (ver core/reactions.ts): o balãozinho colado na quina
@@ -856,6 +857,7 @@ export class ReactionSheetView {
       if (t && !el.open) {
         this.tab.set(null);
         this.more.set(false);
+        napWall();
         el.showModal();
         void this.reactions.load(t.code);
       }

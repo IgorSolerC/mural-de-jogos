@@ -1692,3 +1692,25 @@ img.revelada {
     opacity: 0.6;
   }
 }
+
+/* ===== As escolhas de Desempenho (Ajustes; as classes vêm de core/settings.ts) =====
+   Cada uma tira do navegador uma das coisas que mais pesam no papel das fichas; o resto fica. */
+
+/* Sombra reta: a sombra das fichas recortadas, que seguia o rasgo (três desfoques da ficha inteira a
+   cada vez que ela é desenhada), vira a sombra reta das outras fichas. */
+.sombra-reta app-review-card.recortada {
+  filter: none !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+/* Lápis sem grão: os desenhos a lápis e as manchas de lama, de mofo e de terra perdem o grão e o
+   tremido (ruído calculado ponto a ponto), e ficam de traço limpo. */
+.lapis-liso app-paper-art svg :is([filter*='papel-lapis'], [filter*='papel-mancha'], [filter*='papel-lama'], [filter*='papel-mofo'], [filter*='papel-poeira']) {
+  filter: none;
+}
+
+/* Fichas paradas: os brilhos da média alta não piscam (e as fichas não levantam com o mouse, ver
+   pages/wall-cards.ts). */
+.fichas-paradas .brilho {
+  animation: none;
+}

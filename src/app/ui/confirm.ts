@@ -11,6 +11,7 @@ import {
 import { BackdropClose } from './backdrop-close';
 import { LucideAngularModule, LucideIconData, Trash2 } from 'lucide-angular';
 import { Pin } from './pin';
+import { napWall } from '../core/wall-settle';
 
 export interface ConfirmOptions {
   /** A pergunta, na faixa da ficha. */
@@ -138,7 +139,10 @@ export class ConfirmDialog {
     afterRenderEffect(() => {
       const q = this.confirm.current();
       const el = this.dialog().nativeElement;
-      if (q && !el.open) el.showModal();
+      if (q && !el.open) {
+        napWall();
+        el.showModal();
+      }
       else if (!q && el.open) el.close();
       if (q && q.id !== focused) el.querySelector<HTMLElement>('[data-cancelar]')?.focus();
       focused = q?.id ?? null;

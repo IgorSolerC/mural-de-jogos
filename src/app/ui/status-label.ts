@@ -73,7 +73,10 @@ export function statusIcon(kind: Kind, s: Status): LucideIconData {
         0 1px 2px rgb(0 0 0 / 0.35);
       /* a folha troca de cor conforme a luz anda, como as notas holográficas */
       filter: hue-rotate(calc((var(--luz-n, 0.5) - 0.5) * var(--luz) * 150deg)) saturate(calc(1 + var(--luz) * 0.9));
-      transition: --shine 900ms var(--ease-physical);
+      /* a lâmpada acende e apaga devagar aqui, em quem a usa (e não na ficha inteira) */
+      transition:
+        --shine 900ms var(--ease-physical),
+        --luz 600ms var(--ease-physical);
     }
     lucide-icon {
       display: inline-flex;

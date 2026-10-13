@@ -61,6 +61,24 @@ interface Stored {
   categoryLooks: CategoryLooks;
   /** Quando os jeitos das categorias mudaram pela última vez (ISO; vazio: nunca). */
   categoryLooksAt: string;
+  /**
+   * As escolhas de Desempenho (Ajustes): cada uma alivia o aparelho de um jeito, e valem só nele. As
+   * três predefinições (`PERFORMANCE_PRESETS`) ligam e desligam um conjunto delas.
+   *
+   * Rolagem lisa (ligada por padrão): cada ficha acordada do mural é uma camada só dela no compositor,
+   * desenhada uma vez (ver `.lugar[data-viva]` em pages/wall-board.scss). Sem ela, o navegador
+   * redesenha o pedaço da parede a cada ficha vizinha que chega; com ela, alguns traços a lápis saem
+   * um tico mais suaves.
+   */
+  cardLayers: boolean;
+  /** Sombra reta: as fichas recortadas trocam a sombra que segue o recorte pela sombra reta das outras (`.sombra-reta` em styles.scss). */
+  straightShadows: boolean;
+  /** Lápis sem grão: os rabiscos e as manchas perdem o grão e o tremido (`.lapis-liso` em styles.scss). */
+  plainPencil: boolean;
+  /** Fichas paradas: não levantam com o mouse, e os brilhos ficam parados (pages/wall-cards.ts e `.fichas-paradas`). */
+  stillCards: boolean;
+  /** Menos fichas prontas: menos fichas montadas em volta da tela, uma de cada vez (pages/wall-cards.ts). */
+  fewCards: boolean;
 }
 
 export type FriendKinds = 'misturado' | 'separado';
@@ -77,6 +95,28 @@ export const PREFERENCE_DEFAULTS = {
   friendSpoilers: true,
   friendKinds: 'misturado' as FriendKinds,
   mailCount: true,
+  cardLayers: true,
+  straightShadows: false,
+  plainPencil: false,
+  stillCards: false,
+  fewCards: false,
+};
+
+/** As escolhas de Desempenho, pelo nome do ajuste guardado. */
+export const PERFORMANCE_KEYS = ['cardLayers', 'straightShadows', 'plainPencil', 'stillCards', 'fewCards'] as const;
+export type PerformanceKey = (typeof PERFORMANCE_KEYS)[number];
+export type PerformanceChoices = Record<PerformanceKey, boolean>;
+
+/**
+ * As predefinições de qualidade do mural: Qualidade desenha tudo como foi feito, traço por traço;
+ * Equilíbrio (o padrão) só guarda cada ficha desenhada, para a rolagem ficar solta; Desempenho liga
+ * tudo o que alivia o aparelho.
+ */
+export type PerformancePreset = 'desempenho' | 'equilibrio' | 'qualidade';
+export const PERFORMANCE_PRESETS: Record<PerformancePreset, PerformanceChoices> = {
+  desempenho: { cardLayers: true, straightShadows: true, plainPencil: true, stillCards: true, fewCards: true },
+  equilibrio: { cardLayers: true, straightShadows: false, plainPencil: false, stillCards: false, fewCards: false },
+  qualidade: { cardLayers: false, straightShadows: false, plainPencil: false, stillCards: false, fewCards: false },
 };
 
 /** O nome é curto: cabe numa etiqueta "Olá, eu sou" e no nome do arquivo. */
@@ -108,7 +148,12 @@ function readStored(): Stored {
   const pinnedTagsAt = typeof raw.pinnedTagsAt === 'string' && Number.isFinite(Date.parse(raw.pinnedTagsAt)) ? raw.pinnedTagsAt : '';
   const categoryLooks = sanitizeCategoryLooks(raw.categoryLooks);
   const categoryLooksAt = typeof raw.categoryLooksAt === 'string' && Number.isFinite(Date.parse(raw.categoryLooksAt)) ? raw.categoryLooksAt : '';
-  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt };
+  const cardLayers = raw.cardLayers !== false;
+  const straightShadows = raw.straightShadows === true;
+  const plainPencil = raw.plainPencil === true;
+  const stillCards = raw.stillCards === true;
+  const fewCards = raw.fewCards === true;
+  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, straightShadows, plainPencil, stillCards, fewCards };
 }
 
 /**
@@ -153,6 +198,29 @@ export class Settings {
   readonly categoryLooks = signal<CategoryLooks>(this.stored.categoryLooks);
   /** Ver `Stored.categoryLooksAt`. */
   readonly categoryLooksAt = signal(this.stored.categoryLooksAt);
+  /** Ver `Stored.cardLayers`. */
+  readonly cardLayers = signal(this.stored.cardLayers);
+  /** Ver `Stored.straightShadows`. */
+  readonly straightShadows = signal(this.stored.straightShadows);
+  /** Ver `Stored.plainPencil`. */
+  readonly plainPencil = signal(this.stored.plainPencil);
+  /** Ver `Stored.stillCards`. */
+  readonly stillCards = signal(this.stored.stillCards);
+  /** Ver `Stored.fewCards`. */
+  readonly fewCards = signal(this.stored.fewCards);
+
+  /** A predefinição que bate com as escolhas de agora (null: uma mistura feita à mão). */
+  readonly performancePreset = computed<PerformancePreset | null>(() => {
+    for (const preset of Object.keys(PERFORMANCE_PRESETS) as PerformancePreset[]) {
+      if (PERFORMANCE_KEYS.every((key) => this[key]() === PERFORMANCE_PRESETS[preset][key])) return preset;
+    }
+    return null;
+  });
+
+  /** Liga e desliga as escolhas de Desempenho como a predefinição manda. */
+  applyPerformancePreset(preset: PerformancePreset): void {
+    for (const key of PERFORMANCE_KEYS) this[key].set(PERFORMANCE_PRESETS[preset][key]);
+  }
 
   /** Todas as preferências de exibição estão no padrão (ver `PREFERENCE_DEFAULTS`). */
   readonly atDefaults = computed(
@@ -162,7 +230,8 @@ export class Settings {
       this.noSpoilers() === PREFERENCE_DEFAULTS.noSpoilers &&
       this.friendSpoilers() === PREFERENCE_DEFAULTS.friendSpoilers &&
       this.friendKinds() === PREFERENCE_DEFAULTS.friendKinds &&
-      this.mailCount() === PREFERENCE_DEFAULTS.mailCount,
+      this.mailCount() === PREFERENCE_DEFAULTS.mailCount &&
+      PERFORMANCE_KEYS.every((key) => this[key]() === PREFERENCE_DEFAULTS[key]),
   );
 
   /** "Voltar ao padrão": as preferências de exibição voltam ao começo; o resto fica. */
@@ -173,6 +242,7 @@ export class Settings {
     this.friendSpoilers.set(PREFERENCE_DEFAULTS.friendSpoilers);
     this.friendKinds.set(PREFERENCE_DEFAULTS.friendKinds);
     this.mailCount.set(PREFERENCE_DEFAULTS.mailCount);
+    for (const key of PERFORMANCE_KEYS) this[key].set(PREFERENCE_DEFAULTS[key]);
   }
 
   /** A tag é fixa? (sem ligar para caixa nem acento) */
@@ -242,12 +312,26 @@ export class Settings {
         pinnedTagsAt: this.pinnedTagsAt(),
         categoryLooks: this.categoryLooks(),
         categoryLooksAt: this.categoryLooksAt(),
+        cardLayers: this.cardLayers(),
+        straightShadows: this.straightShadows(),
+        plainPencil: this.plainPencil(),
+        stillCards: this.stillCards(),
+        fewCards: this.fewCards(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));
       } catch {
         /* sem armazenamento: vale só nesta sessão */
       }
+    });
+    // as escolhas de Desempenho valem no site inteiro: uma classe na raiz para cada uma que o CSS troca
+    // (ver styles.scss e pages/wall-board.scss)
+    effect(() => {
+      const root = document.documentElement.classList;
+      root.toggle('camadas', this.cardLayers());
+      root.toggle('sombra-reta', this.straightShadows());
+      root.toggle('lapis-liso', this.plainPencil());
+      root.toggle('fichas-paradas', this.stillCards());
     });
   }
 }

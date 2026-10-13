@@ -9,7 +9,7 @@ import { Confirm } from '../ui/confirm';
 import { SettingsPage } from './settings-page';
 
 /**
- * Os Ajustes, desenhados de verdade: as cinco partes no índice, o endereço que abre cada uma (com o
+ * Os Ajustes, desenhados de verdade: as seis partes no índice, o endereço que abre cada uma (com o
  * "perfil" de antes indo para a Conta), os interruptores e o teclado do índice. Sem a nuvem.
  */
 
@@ -56,9 +56,9 @@ describe('Ajustes (SettingsPage)', () => {
   const tabs = (el: HTMLElement) => [...el.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
   const opened = (el: HTMLElement) => el.querySelector('[role="tab"][aria-selected="true"]')?.id;
 
-  it('mostra as cinco partes, cada uma com o que tem dentro, e abre na Conta', async () => {
+  it('mostra as seis partes, cada uma com o que tem dentro, e abre na Conta', async () => {
     const { el } = await open(null);
-    expect(tabs(el).map((t) => t.querySelector('.etiqueta-nome')?.textContent?.trim())).toEqual(['Conta', 'Mural', 'Amigos', 'Backup', 'Busca']);
+    expect(tabs(el).map((t) => t.querySelector('.etiqueta-nome')?.textContent?.trim())).toEqual(['Conta', 'Mural', 'Amigos', 'Backup', 'Busca', 'Desempenho']);
     expect(tabs(el).every((t) => !!t.querySelector('.etiqueta-dica')?.textContent?.trim())).toBeTrue();
     expect(opened(el)).toBe('aba-conta');
     expect(el.querySelector('h2')?.textContent).toContain('Conta');
@@ -86,6 +86,56 @@ describe('Ajustes (SettingsPage)', () => {
     expect(settings.noSpoilers()).toBeTrue();
   });
 
+  it('Desempenho: abre no Equilíbrio; cada predefinição liga e desliga as escolhas e marca a página', async () => {
+    const { fixture, el } = await open('desempenho');
+    const settings = TestBed.inject(Settings);
+    const root = document.documentElement.classList;
+    const preset = (id: string) => el.querySelector<HTMLInputElement>(`input[name="qualidade"][value="${id}"]`)!;
+    const toggle = (id: string) => el.querySelector<HTMLButtonElement>(`[role="switch"][aria-labelledby="t-${id}"]`)!;
+    const on = () => ['camadas', 'sombra', 'lapis', 'paradas', 'poucas'].filter((id) => toggle(id).getAttribute('aria-checked') === 'true');
+    const pick = async (id: string) => {
+      preset(id).checked = true;
+      preset(id).dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    expect(el.querySelector('h2')?.textContent).toContain('Desempenho');
+    expect(preset('equilibrio').checked).toBeTrue();
+    expect(on()).toEqual(['camadas']);
+    expect(root.contains('camadas')).toBeTrue();
+
+    await pick('desempenho');
+    expect(settings.performancePreset()).toBe('desempenho');
+    expect(on()).toEqual(['camadas', 'sombra', 'lapis', 'paradas', 'poucas']);
+    expect(['camadas', 'sombra-reta', 'lapis-liso', 'fichas-paradas'].every((c) => root.contains(c))).toBeTrue();
+    expect(JSON.parse(localStorage.getItem('mural-de-jogos:config:v1')!)).toEqual(
+      jasmine.objectContaining({ cardLayers: true, straightShadows: true, plainPencil: true, stillCards: true, fewCards: true }),
+    );
+    expect(settings.atDefaults()).toBeFalse();
+
+    await pick('qualidade');
+    expect(on()).toEqual([]);
+    expect(['camadas', 'sombra-reta', 'lapis-liso', 'fichas-paradas'].some((c) => root.contains(c))).toBeFalse();
+
+    // uma escolha mexida à mão: nenhuma das três fica marcada, e a página diz que é uma mistura
+    toggle('lapis').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(settings.plainPencil()).toBeTrue();
+    expect(settings.performancePreset()).toBeNull();
+    expect(['desempenho', 'equilibrio', 'qualidade'].some((id) => preset(id).checked)).toBeFalse();
+    expect(el.querySelector('#d-qualidade')?.textContent).toContain('Do seu jeito');
+    expect(root.contains('lapis-liso')).toBeTrue();
+
+    settings.resetPreferences();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(settings.performancePreset()).toBe('equilibrio');
+    expect(preset('equilibrio').checked).toBeTrue();
+    expect(root.contains('lapis-liso')).toBeFalse();
+  });
+
   it('a nota se escolhe pelo exemplo', async () => {
     const { el } = await open('mural');
     const settings = TestBed.inject(Settings);
@@ -108,7 +158,7 @@ describe('Ajustes (SettingsPage)', () => {
     list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
     list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
     fixture.detectChanges();
-    expect(opened(el)).toBe('aba-busca');
+    expect(opened(el)).toBe('aba-desempenho');
   });
 
   it('sem a nuvem, a Busca diz de onde vem cada mural e deixa as chaves à mão', async () => {

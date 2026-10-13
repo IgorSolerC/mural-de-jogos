@@ -549,6 +549,55 @@
         </div>
       }
 
+      <!-- ===== Desempenho: quanto o mural pede do aparelho ===== -->
+      @if (tab() === 'desempenho') {
+        <h2>Desempenho</h2>
+        <p class="lead">Quanto o mural pede do aparelho. Estas escolhas valem só neste navegador.</p>
+
+        <div class="grupo">
+          <!-- as três predefinições: cada uma liga e desliga as escolhas de baixo -->
+          <fieldset class="linha larga">
+            <legend class="linha-titulo">Qualidade do mural</legend>
+            <p class="linha-desc" id="d-qualidade">
+              @if (settings.performancePreset(); as chosen) {
+                {{ presetHint[chosen] }}
+              } @else {
+                Do seu jeito: uma mistura feita à mão nas escolhas de baixo. Tocar numa das três volta para ela.
+              }
+            </p>
+            <div class="segmentos" aria-describedby="d-qualidade">
+              @for (o of presets; track o.id) {
+                <label class="segmento">
+                  <input type="radio" name="qualidade" [value]="o.id" [checked]="settings.performancePreset() === o.id" (change)="settings.applyPerformancePreset(o.id)" />
+                  <span class="seg-num" aria-hidden="true"><lucide-icon [img]="o.icon" [size]="22" [strokeWidth]="2.4" /></span>
+                  <span class="seg-nome">{{ o.label }}</span>
+                </label>
+              }
+            </div>
+          </fieldset>
+
+          @for (o of performanceOptions; track o.id) {
+            <div class="linha">
+              <div class="linha-texto">
+                <p class="linha-titulo" [id]="'t-' + o.id">{{ o.title }}</p>
+                <p class="linha-desc" [id]="'d-' + o.id">{{ o.desc }}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                class="interruptor"
+                [attr.aria-labelledby]="'t-' + o.id"
+                [attr.aria-describedby]="'d-' + o.id"
+                [attr.aria-checked]="settings[o.key]()"
+                (click)="settings[o.key].set(!settings[o.key]())"
+              >
+                <span class="bolinha"></span>
+              </button>
+            </div>
+          }
+        </div>
+      }
+
       <!-- ===== Busca: de onde vêm os nomes e as capas ===== -->
       @if (tab() === 'busca') {
         <h2>Busca e capas</h2>

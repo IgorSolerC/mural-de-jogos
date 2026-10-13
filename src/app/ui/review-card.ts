@@ -435,12 +435,14 @@ function watchDistance(el: HTMLElement): () => void {
       /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts) */
       rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
       transform-origin: var(--tachinha) 12px;
+      /* (a lâmpada, --luz, acende devagar em quem a usa: a folha holográfica do Platinado e a
+         purpurina. Animada aqui, a ficha inteira era recalculada a cada quadro, por 600ms, em toda
+         ficha por onde o mouse passava) */
       transition:
         rotate var(--t-physical) var(--ease-physical),
         translate var(--t-physical) var(--ease-physical),
         box-shadow var(--t-ui) var(--ease-ui),
-        filter var(--t-ui) var(--ease-ui),
-        --luz 600ms var(--ease-physical);
+        filter var(--t-ui) var(--ease-ui);
     }
 
     /* O corpo é a ficha toda, no lugar dela: sem posição própria (as camadas do papel, a tachinha e o
@@ -458,6 +460,13 @@ function watchDistance(el: HTMLElement): () => void {
        rasterizada, e não recebe clique. */
     :host([data-veu]) .corpo {
       visibility: hidden;
+    }
+    /* Dormindo longe da tela (ver pages/wall-cards.ts): a ficha continua montada e do mesmo tamanho
+       (--dorme-h é a altura que o corpo tinha), mas o navegador não calcula o estilo, o layout nem a
+       pintura do que está nela. Dorme sempre com o véu: no lugar dela, a vaga. */
+    :host([data-dorme]) .corpo {
+      content-visibility: hidden;
+      contain-intrinsic-block-size: var(--dorme-h, auto);
     }
     /* Só a cartolina (a dica do Muraldle): o papel, a estampa, o rabisco, o estrago, a mancha e a
        decoração ficam; a capa, o nome, as notas, o texto e os bônus somem sem mudar o tamanho */
@@ -538,15 +547,17 @@ function watchDistance(el: HTMLElement): () => void {
       /* na ficha inteira, e não no papel: o filtro vem antes da máscara, e a máscara do papel cortaria a sombra */
       filter: var(--sombra-papel);
     }
-    :host(.recortada:hover),
+    :host(.recortada:hover:not([data-quieta])),
     :host(.recortada:has(:focus-visible)) {
       --sombra-papel: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 16px 16px rgb(0 0 0 / 0.5)) drop-shadow(0 32px 32px rgb(0 0 0 / 0.45));
     }
 
     /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede. Pelo teclado também, com
        o foco que aparece (:focus-visible), e não com qualquer foco: o clique deixa o foco na ficha (e a
-       leitura, ao fechar, devolve o foco a ela), e a ficha ficava levantada com o mouse já longe */
-    :host(:hover),
+       leitura, ao fechar, devolve o foco a ela), e a ficha ficava levantada com o mouse já longe.
+       Com a página rolando ([data-quieta], ver pages/wall-cards.ts), o mouse parado não levanta as
+       fichas que passam por baixo dele: só quando a rolagem para. */
+    :host(:hover:not([data-quieta])),
     :host(:has(:focus-visible)) {
       rotate: calc(var(--tilt) * var(--inclina, 1) * 0.35deg);
       translate: 0 -3px;
@@ -555,7 +566,7 @@ function watchDistance(el: HTMLElement): () => void {
     }
     /* com o mouse em cima, a lâmpada bate nas folhas holográficas onde o ponteiro está */
     @media (hover: hover) {
-      :host(:hover) {
+      :host(:hover:not([data-quieta])) {
         --luz: 1;
       }
     }
@@ -842,7 +853,7 @@ function watchDistance(el: HTMLElement): () => void {
       transition: translate var(--t-ui) var(--ease-ui);
     }
     /* com o mouse na ficha, a orelha sobe mais um pouco, como a divisória puxada para achar a matéria */
-    :host(:hover) .aba-cat,
+    :host(:hover:not([data-quieta])) .aba-cat,
     :host(:has(:focus-visible)) .aba-cat {
       translate: 0 -6px;
     }
@@ -1111,7 +1122,7 @@ function watchDistance(el: HTMLElement): () => void {
       position: absolute;
       inset: -7px -2px -7px -2px;
     }
-    :host(:hover) :is(.fixar, .feito),
+    :host(:hover:not([data-quieta])) :is(.fixar, .feito),
     .acoes:has(:focus-visible) :is(.fixar, .feito),
     .fixar.marcado {
       opacity: 1;
@@ -1838,9 +1849,10 @@ export class ReviewCard {
         return;
       }
       const measure = () => el.style.setProperty('--aba-fim', `${aba.offsetLeft + aba.offsetWidth}px`);
+      // o observador avisa já na primeira vez, depois do layout e antes da pintura: medir aqui mesmo,
+      // na hora de montar, obrigava o navegador a refazer o layout da parede a cada ficha montada
       const ro = new ResizeObserver(measure);
       ro.observe(aba);
-      measure();
       onCleanup(() => ro.disconnect());
     });
   }

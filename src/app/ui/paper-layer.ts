@@ -16,6 +16,8 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Damage, Decor, Scribble, Stain } from '../core/paper';
 import { decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
+import { budget, perFrame, rest, spend, struggling, tick } from './pace';
+import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reducedMotion, reveal, veil } from './veil';
 
 let uids = 0;
@@ -151,35 +153,35 @@ export class PaperDefs {}
   template: `
     @if (art()?.core?.length) {
       <!-- o miolo da cartolina: aparece onde a cor soltou no rasgo; só o recorte do papel o corta -->
-      <div class="miolo camada" [style.mask-image]="outer()" [style.-webkit-mask-image]="outer()"></div>
+      <div class="miolo camada" [class]="outerCls()"></div>
     }
-    <div class="papel camada" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()"></div>
+    <div class="papel camada" [class]="maskCls()"></div>
     @if (glitter()) {
-      <div class="faisca camada" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()"></div>
+      <div class="faisca camada" [class]="maskCls()"></div>
     }
     @if (art(); as a) {
       @if (a.fundo) {
-        <div class="camada fundo" [class.sem-lapis]="!!lapisHtml()" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().fundo"></div>
+        <div class="camada fundo" [class]="maskCls()" [class.sem-lapis]="!!lapisHtml()" [innerHTML]="html().fundo"></div>
       }
       @if (lapisHtml(); as l) {
         <!-- na cartolina escura o rabisco é de lápis claro: clareia o papel em vez de escurecer -->
-        <div class="camada fundo lapis" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="l"></div>
+        <div class="camada fundo lapis" [class]="maskCls()" [innerHTML]="l"></div>
       }
       @if (a.clareia) {
-        <div class="camada clareia" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().clareia"></div>
+        <div class="camada clareia" [class]="maskCls()" [innerHTML]="html().clareia"></div>
       }
       @if (a.relevo) {
-        <div class="camada relevo" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().relevo"></div>
+        <div class="camada relevo" [class]="maskCls()" [innerHTML]="html().relevo"></div>
       }
       @if (a.frente) {
-        <div class="camada frente" [class.por-cima]="damage() === 'orelha'" [style.mask-image]="burnDamage() ? burnMask() : mask()" [style.-webkit-mask-image]="burnDamage() ? burnMask() : mask()" [innerHTML]="html().frente"></div>
+        <div class="camada frente" [class]="burnDamage() ? burnCls() : maskCls()" [class.por-cima]="damage() === 'orelha'" [innerHTML]="html().frente"></div>
       }
       @if (a.fita) {
         <div class="camada frente" [innerHTML]="html().fita"></div>
       }
       @if (a.topo) {
         <!-- o que caiu na ficha depois de pronta (a gosma): por cima de tudo, até da foto e da nota -->
-        <div class="camada topo" [style.mask-image]="mask()" [style.-webkit-mask-image]="mask()" [innerHTML]="html().topo"></div>
+        <div class="camada topo" [class]="maskCls()" [innerHTML]="html().topo"></div>
       }
     }
     @if (decorHtml(); as d) {
@@ -355,6 +357,11 @@ export class PaperArtLayer {
    * a cada clique e precisa responder na hora.
    */
   veils = false;
+  /**
+   * A ficha acabou de acordar (ver pages/wall-cards.ts): o papel já está desenhado, mas o navegador
+   * vai calcular e pintar a ficha inteira de novo. Para a fila, pesa como uma ficha com desenho.
+   */
+  waking = false;
 
   /** A decoração, desenhada à parte: os furos dela entram no recorte do papel. */
   private readonly decorDrawing = computed(() => {
@@ -412,6 +419,16 @@ export class PaperArtLayer {
     return a && s ? cutMask(a, s.W, s.H, 'miolo') : null;
   });
 
+  /**
+   * As classes dos três recortes: a máscara vai numa regra de CSS, uma por recorte, e não no `style`
+   * de cada camada (ver ui/mask-rules.ts).
+   */
+  protected readonly maskCls = computed(() => classFor(this.mask()));
+  protected readonly burnCls = computed(() => classFor(this.burnMask()));
+  protected readonly outerCls = computed(() => classFor(this.outer()));
+  /** Os recortes que este papel está segurando. */
+  private held: string[] = [];
+
   protected readonly html = computed(() => {
     const a = this.art(),
       s = this.size();
@@ -439,8 +456,21 @@ export class PaperArtLayer {
       this.content();
       untracked(() => enqueue(this));
     });
+    // as regras dos recortes em uso ficam seguras enquanto este papel as usar
+    effect(() => {
+      const now = [this.mask(), this.burnMask(), this.outer()].filter((v): v is string => !!v);
+      untracked(() => {
+        for (const v of now) holdMask(v);
+        for (const v of this.held) dropMask(v);
+        this.held = now;
+      });
+    });
     const destroy = inject(DestroyRef);
-    destroy.onDestroy(() => forget(this));
+    destroy.onDestroy(() => {
+      forget(this);
+      for (const v of this.held) dropMask(v);
+      this.held = [];
+    });
     afterNextRender(() => {
       // a ficha do mural guarda tudo num corpo (ver ReviewCard): o papel é medido pela ficha
       const card = (this.host.parentElement?.closest('app-review-card') as HTMLElement | null) ?? this.host.parentElement;
@@ -495,7 +525,7 @@ export class PaperArtLayer {
   /** Desenhar neste tamanho dá trabalho: o papel tem desenho e o tamanho mudou. */
   costly(at: Size): boolean {
     const s = this.size();
-    return this.needsArt() && (!s || s.W !== at.W || s.H !== at.H);
+    return this.waking || (this.needsArt() && (!s || s.W !== at.W || s.H !== at.H));
   }
 
   /**
@@ -507,6 +537,7 @@ export class PaperArtLayer {
     const changed = !s || s.W !== at.W || s.H !== at.H;
     const ghosts = crossfade && changed && s && this.needsArt() ? this.ghost() : [];
     if (changed) this.size.set(at);
+    this.waking = false;
     this.cdr.detectChanges();
     for (const { el, from } of ghosts) {
       const a = el.animate([{ opacity: from }, { opacity: 0 }], { duration: CROSSFADE, easing: 'ease-in-out', fill: 'forwards' });
@@ -588,12 +619,13 @@ export class PaperArtLayer {
     }
     const prev = this.burnt;
     this.burnt = next;
+    const cls = mask ? maskClass(mask) : '';
     return () => {
       for (const el of prev) if (!next.has(el)) clearMask(el);
       for (const [el, [x, y]] of at) {
         const set = (p: string, v: string) => el.style.setProperty(p, v);
-        set('mask-image', mask!);
-        set('-webkit-mask-image', mask!);
+        // o recorte vem pela classe (ver ui/mask-rules.ts); aqui, só onde ele cai neste texto
+        setMaskClass(el, cls);
         set('mask-size', `${s!.W}px ${s!.H}px`);
         set('-webkit-mask-size', `${s!.W}px ${s!.H}px`);
         set('mask-position', `${-x}px ${-y}px`);
@@ -611,8 +643,25 @@ export class PaperArtLayer {
 const STICKERS = '[data-colado], .selo-dez, .fita-rasgada, app-bonus-tally, app-bonus-sticker';
 
 function clearMask(el: HTMLElement): void {
-  for (const p of ['mask-image', '-webkit-mask-image', 'mask-size', '-webkit-mask-size', 'mask-position', '-webkit-mask-position', 'mask-repeat', '-webkit-mask-repeat', 'mask-clip'])
+  setMaskClass(el, '');
+  for (const p of ['mask-size', '-webkit-mask-size', 'mask-position', '-webkit-mask-position', 'mask-repeat', '-webkit-mask-repeat', 'mask-clip'])
     el.style.removeProperty(p);
+}
+
+/** A classe do recorte de cada texto queimado, para trocar pela nova ou tirar. */
+const burnClass = new WeakMap<HTMLElement, string>();
+
+function setMaskClass(el: HTMLElement, cls: string): void {
+  const old = burnClass.get(el) ?? '';
+  if (old === cls) return;
+  if (old) el.classList.remove(old);
+  if (cls) el.classList.add(cls);
+  if (cls) burnClass.set(el, cls);
+  else burnClass.delete(el);
+}
+
+function classFor(mask: string | null): string {
+  return mask ? maskClass(mask) : '';
 }
 
 type Size = { W: number; H: number };
@@ -667,8 +716,8 @@ function svgOpen(s: Size): string {
  */
 const layers = new WeakMap<Element, PaperArtLayer>();
 const waiting = new Set<PaperArtLayer>();
-/** Quanto tempo de cada quadro a fila pode usar. */
-const BUDGET = 8;
+/** Quanto de cada quadro a fila pode usar: perto da metade (8ms a 60 Hz; ver ui/pace.ts). */
+const BUDGET = 0.48;
 /** Quantas fichas com desenho a fila redesenha num quadro, no máximo. */
 const MAX_COSTLY = 3;
 /** Longe da tela ninguém vê o quadro: com o navegador à toa, a fila pode redesenhar mais de uma. */
@@ -702,6 +751,23 @@ export function repaint(cards: Iterable<Element>): void {
   kick();
 }
 
+/**
+ * A ficha que dormia longe da tela acordou (ver pages/wall-cards.ts): entra na fila como as outras, e
+ * tira o véu na vez dela, de cima para baixo. Devolve se a ficha tem papel para a fila olhar (a que
+ * ainda nem foi desenhada pela primeira vez entra sozinha).
+ */
+export function wakePaper(card: Element): boolean {
+  const layer = layers.get(card);
+  if (!layer) return false;
+  layer.waking = true;
+  waiting.add(layer);
+  kick();
+  return true;
+}
+
+/** A ficha dorme longe da tela: sem conteúdo calculado nem pintado (ver `data-dorme` em review-card.ts). */
+export const ASLEEP = 'data-dorme';
+
 let resizedAt = -Infinity;
 if (typeof window !== 'undefined') {
   addEventListener('resize', () => (resizedAt = performance.now()), { passive: true });
@@ -721,7 +787,7 @@ function settling(): boolean {
   return performance.now() - resizedAt < 250;
 }
 
-function onFrame(): void {
+function onFrame(now: number): void {
   frame = 0;
   if (settling()) {
     later = setTimeout(() => {
@@ -730,9 +796,30 @@ function onFrame(): void {
     }, 120);
     return;
   }
-  const left = step(false, BUDGET, MAX_COSTLY);
-  if (left.urgent) kick();
-  else if (left.far) idleSoon();
+  // o aparelho que não dá conta leva uma ficha por quadro (ver ui/pace.ts)
+  tick(now);
+  const t0 = performance.now();
+  const left = step(false, budget(BUDGET, now), perFrame(MAX_COSTLY));
+  spend(now, performance.now() - t0);
+  if (left.urgent) breathe();
+  else {
+    rest();
+    if (left.far) idleSoon();
+  }
+}
+
+/** O próximo passo da fila: no quadro seguinte ou, com o aparelho sem fôlego, um quadro depois. */
+function breathe(): void {
+  if (!struggling()) {
+    kick();
+    return;
+  }
+  if (frame || later) return;
+  rest();
+  later = setTimeout(() => {
+    later = undefined;
+    kick();
+  }, 34);
 }
 
 type Deadline = { timeRemaining(): number; didTimeout?: boolean };
@@ -761,7 +848,7 @@ function onIdle(deadline: Deadline): void {
     idleSoon();
     return;
   }
-  const left = late ? step(true, 6, 1) : step(true, deadline.timeRemaining() - 3, MAX_COSTLY_IDLE);
+  const left = late ? step(true, 6, 1) : step(true, deadline.timeRemaining() - 3, perFrame(MAX_COSTLY_IDLE));
   if (left.urgent) kick();
   else if (left.far) idleSoon();
 }
@@ -787,6 +874,11 @@ function jobs(): Job[] {
     // ainda sem a ficha (o primeiro desenho põe na fila de novo), fora da página ou escondida pelo
     // layout (o ResizeObserver põe de volta quando ela voltar a ter tamanho)
     if (!card || !card.isConnected) {
+      waiting.delete(layer);
+      continue;
+    }
+    // dormindo: quem a acordar põe de volta na fila (ver wakePaper)
+    if (card.hasAttribute(ASLEEP)) {
       waiting.delete(layer);
       continue;
     }

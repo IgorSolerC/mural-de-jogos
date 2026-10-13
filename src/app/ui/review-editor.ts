@@ -78,6 +78,7 @@ import { RichEditor } from './rich-editor';
 import { ScorePicker } from './score-picker';
 import { StatusPicker } from './status-picker';
 import { VerdictPicker } from './verdict';
+import { napWall } from '../core/wall-settle';
 
 export interface SavedEvent {
   id: string;
@@ -647,6 +648,8 @@ export class ReviewEditor {
     };
     toTop();
     this.previewScale.set(1);
+    // as fichas montadas fora da tela dormem enquanto o diálogo está aberto (ver core/wall-settle.ts)
+    napWall();
     dialog.showModal();
     this.previewObserver?.disconnect();
     this.previewObserver = new ResizeObserver(() => this.fitPreview());
