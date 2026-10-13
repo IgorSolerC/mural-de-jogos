@@ -101,6 +101,31 @@ describe('a ficha de música no mural', () => {
     expect(el.querySelector('.faixa-disco')).toBeNull();
   });
 
+  it('o vinil e a etiqueta ficam lado a lado e o nome embaixo, na largura toda, em qualquer largura de ficha', async () => {
+    await show(music({ verdict: 'masterpiece', status: 'platinado' }, { name: '(((((ultraSound)))))' }));
+    const part = (s: string) => el.querySelector<HTMLElement>(s)!;
+    // da ficha mais estreita do mural (330px) à mais larga (440px)
+    for (const width of [330, 380, 440]) {
+      el.style.width = `${width}px`;
+      // a etiqueta mede o que cabe nela depois de desenhar
+      for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+      await fixture.whenStable();
+      // (a tachinha também tem um .head: o da ficha é o filho do corpo)
+      const [head, cover, judge, words] = ['.corpo > .head', '.cover', '.judge', '.words'].map(part);
+      const coverEnd = cover.offsetTop + cover.offsetHeight;
+      // a etiqueta ao lado do vinil, dentro da altura dele
+      expect(judge.offsetLeft).withContext(`${width}px`).toBeGreaterThanOrEqual(cover.offsetLeft + cover.offsetWidth);
+      expect(judge.offsetTop).withContext(`${width}px`).toBeGreaterThanOrEqual(cover.offsetTop);
+      expect(judge.offsetTop + judge.offsetHeight).withContext(`${width}px`).toBeLessThanOrEqual(coverEnd);
+      // o nome embaixo dos dois, de uma borda à outra: nada sobra embaixo do disco
+      expect(words.offsetTop).withContext(`${width}px`).toBeGreaterThanOrEqual(coverEnd);
+      expect(words.offsetWidth).withContext(`${width}px`).toBe(head.offsetWidth);
+      // a Média e o canhoto cabem no lugar deles: a etiqueta não sai da ficha
+      const ticket = Array.from(judge.children).reduce((w, c) => w + (c as HTMLElement).offsetWidth, 0);
+      expect(ticket).withContext(`${width}px`).toBeLessThanOrEqual(judge.offsetWidth);
+    }
+  });
+
   it('o artista não pega o ícone nem a cor de uma categoria de anotação de mesmo nome', async () => {
     await show(music({ category: 'Trabalho' }), { looks: { trabalho: { color: 'azul', icon: 'maleta' } } });
     expect(el.querySelector('.aba-cat')!.classList).not.toContain('orelha-cor');

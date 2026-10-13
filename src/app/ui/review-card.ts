@@ -1436,10 +1436,28 @@ function watchDistance(el: HTMLElement): () => void {
     }
 
     /* ===== Ficha de música: o vinil no lugar da foto =====
-       A coluna da foto alarga para caber a capa (quadrada) e o disco saindo dela; na ficha simples e
-       na de capa e nome, a coluna é a de sempre e o disco só aponta para fora. */
+       O vinil é largo e baixo: com o nome ao lado dele, sobrava uma coluna de poucas letras para o
+       nome e a etiqueta, e papel vazio embaixo do disco. Então a cabeça tem duas fileiras: o vinil e
+       a etiqueta lado a lado (a etiqueta na altura do meio do disco) e o nome embaixo, na largura
+       toda. A coluna do vinil cresce com a ficha, mas sempre deixa o lugar da etiqueta: a Média e o
+       canhoto só com o ícone, uns 150px. Na ficha simples e na de capa e nome, a coluna é a de
+       sempre e o disco só aponta para fora. */
     :host(.ficha-musica:not(.compact):not(.capas)) {
-      --cover-w: 186px;
+      --cover-w: clamp(124px, 100% - 168px, 200px);
+    }
+    :host(.ficha-musica:not(.compact):not(.capas)) .head {
+      grid-template-areas:
+        'cover judge'
+        'words words';
+      grid-template-rows: auto auto;
+    }
+    :host(.ficha-musica:not(.compact):not(.capas)) .judge {
+      align-self: center;
+      margin-top: 0;
+    }
+    /* a tachinha fura acima do vinil: aqui a folga é a do nome para o disco */
+    :host(.ficha-musica:not(.compact):not(.capas)) .words {
+      padding-top: 14px;
     }
     /* o vinil que toca fica por cima do botão da ficha, mas só o botão do disco pega o toque: o resto
        da capa deixa o toque passar e abre a leitura, como a foto */
@@ -1544,21 +1562,6 @@ function watchDistance(el: HTMLElement): () => void {
         grid-template-areas:
           'words'
           'judge';
-      }
-      /* a música: o vinil e a etiqueta lado a lado, e o nome embaixo, na largura toda (ao lado do
-         vinil, que é largo, sobraria uma coluna de poucas letras) */
-      :host(.ficha-musica:not(.compact):not(.capas)) {
-        --cover-w: min(158px, 52%);
-      }
-      :host(.ficha-musica:not(.compact):not(.capas)) .head {
-        grid-template-areas:
-          'cover judge'
-          'words words';
-        gap: 0 14px;
-      }
-      :host(.ficha-musica:not(.compact):not(.capas)) .judge {
-        align-self: center;
-        margin-top: 0;
       }
       .title {
         font-size: 1.46rem;

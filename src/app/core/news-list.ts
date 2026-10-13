@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-13-ficha-de-musica-arejada',
+    version: '1.38.1',
+    kind: 'melhoria',
+    date: '2026-10-13',
+    title: 'A ficha de música ficou mais arejada',
+    items: [
+      'Na ficha de música, o nome do álbum agora vai embaixo do vinil, na largura toda da cartolina, e a etiqueta da nota fica ao lado do disco. Antes o nome e a nota se apertavam numa coluna estreita, o nome quebrava no meio da palavra e sobrava papel vazio embaixo do vinil.',
+      'O vinil cresce um pouco nas fichas largas e encolhe nas estreitas, sempre deixando o lugar da etiqueta: em telas médias ela não sai mais para fora da ficha.',
+    ],
+  },
+  {
     id: '2026-10-13-mural-de-musicas',
     version: '1.38.0',
     kind: 'funcionalidade',
