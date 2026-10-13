@@ -224,4 +224,31 @@ describe('as fichas do mural, só as de perto montadas (WallCardPool)', () => {
     expect(first.hasAttribute('data-quieta')).toBeFalse();
     expect(far.hasAttribute('data-quieta')).toBeFalse();
   });
+
+  it('com o mouse em cima, a ficha recortada não ganha a sombra reta do empurrãozinho', () => {
+    pool.place(host, notes(1), PROPS);
+    pool.settle();
+    const card = host.querySelector<HTMLElement>('app-review-card')!;
+    card.classList.add('recortada');
+    card.removeAttribute('data-quieta');
+    // O teste não põe o mouse em lugar nenhum, então a conta da cascata é feita aqui: das regras que
+    // valeriam para a ficha com o mouse em cima e mexem na sombra de caixa, ganha a de mais peso (no
+    // empate, a que vem depois). Tem que ser a das recortadas, que tira a caixa: a sombra delas é o
+    // filtro, que segue o recorte.
+    const weight = (selector: string) => (selector.match(/\.[\w-]+|\[[^\]]+\]|:(?!host|not|is|where|has)[\w-]+/g) ?? []).length;
+    let best: { weight: number; shadow: string } | null = null;
+    for (const sheet of Array.from(document.styleSheets)) {
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (!(rule instanceof CSSStyleRule) || !rule.style.boxShadow) continue;
+        for (const selector of rule.selectorText.split(/,(?![^(]*\))/)) {
+          if (!selector.includes(':hover') || /[\s>+~]/.test(selector.trim())) continue;
+          if (!card.matches(selector.replace(/:hover/g, ''))) continue;
+          const w = weight(selector);
+          if (!best || w >= best.weight) best = { weight: w, shadow: rule.style.boxShadow };
+        }
+      }
+    }
+    expect(best).withContext('as regras de hover da ficha').not.toBeNull();
+    expect(best!.shadow).toBe('none');
+  });
 });

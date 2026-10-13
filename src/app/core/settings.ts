@@ -71,8 +71,8 @@ interface Stored {
    * um tico mais suaves.
    */
   cardLayers: boolean;
-  /** Sombra reta: as fichas recortadas trocam a sombra que segue o recorte pela sombra reta das outras (`.sombra-reta` em styles.scss). */
-  straightShadows: boolean;
+  /** Sem sombra na cartolina: as fichas recortadas ficam sem a sombra que segue o recorte (`.sem-sombra` em styles.scss). */
+  noCutShadows: boolean;
   /** Lápis sem grão: os rabiscos e as manchas perdem o grão e o tremido (`.lapis-liso` em styles.scss). */
   plainPencil: boolean;
   /** Fichas paradas: não levantam com o mouse, e os brilhos ficam parados (pages/wall-cards.ts e `.fichas-paradas`). */
@@ -96,14 +96,14 @@ export const PREFERENCE_DEFAULTS = {
   friendKinds: 'misturado' as FriendKinds,
   mailCount: true,
   cardLayers: true,
-  straightShadows: false,
+  noCutShadows: false,
   plainPencil: false,
   stillCards: false,
   fewCards: false,
 };
 
 /** As escolhas de Desempenho, pelo nome do ajuste guardado. */
-export const PERFORMANCE_KEYS = ['cardLayers', 'straightShadows', 'plainPencil', 'stillCards', 'fewCards'] as const;
+export const PERFORMANCE_KEYS = ['cardLayers', 'noCutShadows', 'plainPencil', 'stillCards', 'fewCards'] as const;
 export type PerformanceKey = (typeof PERFORMANCE_KEYS)[number];
 export type PerformanceChoices = Record<PerformanceKey, boolean>;
 
@@ -114,9 +114,9 @@ export type PerformanceChoices = Record<PerformanceKey, boolean>;
  */
 export type PerformancePreset = 'desempenho' | 'equilibrio' | 'qualidade';
 export const PERFORMANCE_PRESETS: Record<PerformancePreset, PerformanceChoices> = {
-  desempenho: { cardLayers: true, straightShadows: true, plainPencil: true, stillCards: true, fewCards: true },
-  equilibrio: { cardLayers: true, straightShadows: false, plainPencil: false, stillCards: false, fewCards: false },
-  qualidade: { cardLayers: false, straightShadows: false, plainPencil: false, stillCards: false, fewCards: false },
+  desempenho: { cardLayers: true, noCutShadows: true, plainPencil: true, stillCards: true, fewCards: true },
+  equilibrio: { cardLayers: true, noCutShadows: false, plainPencil: false, stillCards: false, fewCards: false },
+  qualidade: { cardLayers: false, noCutShadows: false, plainPencil: false, stillCards: false, fewCards: false },
 };
 
 /** O nome é curto: cabe numa etiqueta "Olá, eu sou" e no nome do arquivo. */
@@ -149,11 +149,11 @@ function readStored(): Stored {
   const categoryLooks = sanitizeCategoryLooks(raw.categoryLooks);
   const categoryLooksAt = typeof raw.categoryLooksAt === 'string' && Number.isFinite(Date.parse(raw.categoryLooksAt)) ? raw.categoryLooksAt : '';
   const cardLayers = raw.cardLayers !== false;
-  const straightShadows = raw.straightShadows === true;
+  const noCutShadows = raw.noCutShadows === true;
   const plainPencil = raw.plainPencil === true;
   const stillCards = raw.stillCards === true;
   const fewCards = raw.fewCards === true;
-  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, straightShadows, plainPencil, stillCards, fewCards };
+  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, noCutShadows, plainPencil, stillCards, fewCards };
 }
 
 /**
@@ -200,8 +200,8 @@ export class Settings {
   readonly categoryLooksAt = signal(this.stored.categoryLooksAt);
   /** Ver `Stored.cardLayers`. */
   readonly cardLayers = signal(this.stored.cardLayers);
-  /** Ver `Stored.straightShadows`. */
-  readonly straightShadows = signal(this.stored.straightShadows);
+  /** Ver `Stored.noCutShadows`. */
+  readonly noCutShadows = signal(this.stored.noCutShadows);
   /** Ver `Stored.plainPencil`. */
   readonly plainPencil = signal(this.stored.plainPencil);
   /** Ver `Stored.stillCards`. */
@@ -313,7 +313,7 @@ export class Settings {
         categoryLooks: this.categoryLooks(),
         categoryLooksAt: this.categoryLooksAt(),
         cardLayers: this.cardLayers(),
-        straightShadows: this.straightShadows(),
+        noCutShadows: this.noCutShadows(),
         plainPencil: this.plainPencil(),
         stillCards: this.stillCards(),
         fewCards: this.fewCards(),
@@ -329,7 +329,7 @@ export class Settings {
     effect(() => {
       const root = document.documentElement.classList;
       root.toggle('camadas', this.cardLayers());
-      root.toggle('sombra-reta', this.straightShadows());
+      root.toggle('sem-sombra', this.noCutShadows());
       root.toggle('lapis-liso', this.plainPencil());
       root.toggle('fichas-paradas', this.stillCards());
     });

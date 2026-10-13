@@ -432,6 +432,11 @@ function watchDistance(el: HTMLElement): () => void {
       padding: var(--pad) var(--pad) 14px;
       border-radius: 2px;
       box-shadow: var(--shadow-card);
+      /* A ficha levantada pelo mouse: sobe 3px, então a sombra só se afasta e amolece um pouco. (A
+         --shadow-lift, de quem sai da parede de verdade, pesava demais para tão pouca altura.) A
+         segunda é a mesma sombra para o papel recortado, em drop-shadow. */
+      --sombra-alta: 0 2px 2px rgb(0 0 0 / 0.3), 0 14px 22px -7px rgb(0 0 0 / 0.5), 0 28px 46px -20px rgb(0 0 0 / 0.5);
+      --sombra-papel-alta: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 11px 12px rgb(0 0 0 / 0.45)) drop-shadow(0 22px 24px rgb(0 0 0 / 0.32));
       /* --inclina: na colagem das fichas inteiras, a ficha comprida endireita (ver keptTilt, em pages/wall-cards.ts) */
       rotate: calc(var(--tilt) * var(--inclina, 1) * 1deg);
       transform-origin: var(--tachinha) 12px;
@@ -539,8 +544,11 @@ function watchDistance(el: HTMLElement): () => void {
       /* as mesmas três camadas da --shadow-card (beirada, sombra perto e sombra longe), sem o espalhamento que o drop-shadow não tem */
       --sombra-papel: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.5)) drop-shadow(0 18px 22px rgb(0 0 0 / 0.4));
     }
+    /* (o :not([data-quieta]) repetido aqui é pelo peso: sem ele, o empurrãozinho logo abaixo empata
+       com estas regras, ganha por vir depois e põe a sombra reta dele atrás do papel recortado) */
     :host(.recortada),
     :host(.recortada:hover),
+    :host(.recortada:hover:not([data-quieta])),
     :host(.recortada:has(:focus-visible)),
     :host(.recortada:active) {
       box-shadow: none;
@@ -549,7 +557,7 @@ function watchDistance(el: HTMLElement): () => void {
     }
     :host(.recortada:hover:not([data-quieta])),
     :host(.recortada:has(:focus-visible)) {
-      --sombra-papel: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 16px 16px rgb(0 0 0 / 0.5)) drop-shadow(0 32px 32px rgb(0 0 0 / 0.45));
+      --sombra-papel: var(--sombra-papel-alta);
     }
 
     /* Empurrãozinho: a ficha gira em volta da tachinha e desgruda da parede. Pelo teclado também, com
@@ -561,7 +569,7 @@ function watchDistance(el: HTMLElement): () => void {
     :host(:has(:focus-visible)) {
       rotate: calc(var(--tilt) * var(--inclina, 1) * 0.35deg);
       translate: 0 -3px;
-      box-shadow: var(--shadow-lift);
+      box-shadow: var(--sombra-alta);
       --shine: 100%;
     }
     /* com o mouse em cima, a lâmpada bate nas folhas holográficas onde o ponteiro está */

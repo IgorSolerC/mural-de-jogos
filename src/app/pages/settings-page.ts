@@ -131,9 +131,9 @@ export class SettingsPage {
     },
     {
       id: 'sombra',
-      key: 'straightShadows',
-      title: 'Sombra reta nas recortadas',
-      desc: 'As fichas rasgadas, queimadas e furadas trocam a sombra que segue o recorte pela sombra reta das outras. É o que mais alivia um aparelho sem placa de vídeo.',
+      key: 'noCutShadows',
+      title: 'Sem sombra na cartolina',
+      desc: 'As fichas rasgadas, queimadas e furadas ficam sem a sombra que segue o recorte; as inteiras continuam com a delas. É o que mais alivia um aparelho sem placa de vídeo.',
     },
     {
       id: 'lapis',

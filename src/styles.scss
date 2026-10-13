@@ -1696,11 +1696,11 @@ img.revelada {
 /* ===== As escolhas de Desempenho (Ajustes; as classes vêm de core/settings.ts) =====
    Cada uma tira do navegador uma das coisas que mais pesam no papel das fichas; o resto fica. */
 
-/* Sombra reta: a sombra das fichas recortadas, que seguia o rasgo (três desfoques da ficha inteira a
-   cada vez que ela é desenhada), vira a sombra reta das outras fichas. */
-.sombra-reta app-review-card.recortada {
+/* Sem sombra na cartolina: as fichas recortadas ficam sem a sombra que segue o rasgo (três desfoques
+   da ficha inteira a cada vez que ela é desenhada). Sem sombra nenhuma, e não com a sombra reta das
+   outras: uma caixa escura atrás de um papel rasgado entrega o retângulo que o rasgo esconde. */
+.sem-sombra app-review-card.recortada {
   filter: none !important;
-  box-shadow: var(--shadow-card) !important;
 }
 
 /* Lápis sem grão: os desenhos a lápis e as manchas de lama, de mofo e de terra perdem o grão e o

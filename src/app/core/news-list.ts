@@ -26,6 +26,26 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-13-sombra-da-ficha-levantada',
+    version: '1.36.3',
+    kind: 'melhoria',
+    date: '2026-10-13',
+    title: 'A sombra da ficha levantada ficou mais leve',
+    items: [
+      'Quando o mouse levanta uma ficha, a sombra agora só se afasta e amolece um pouco, em vez de escurecer a parede em volta. A ficha sobe pouco, e a sombra de antes pesava demais para essa altura.',
+    ],
+  },
+  {
+    id: '2026-10-13-sombra-segue-o-recorte',
+    version: '1.36.2',
+    kind: 'correcao',
+    date: '2026-10-13',
+    title: 'Com o mouse em cima, a sombra continua seguindo o recorte',
+    items: [
+      'Com o mouse em cima de uma ficha rasgada, queimada ou furada, aparecia atrás dela uma sombra reta, do tamanho da ficha inteira, que entregava o retângulo que o recorte esconde. Agora a sombra segue o recorte com a ficha parada ou levantada.',
+    ],
+  },
+  {
     id: '2026-10-13-fichas-quietas-na-rolagem',
     version: '1.36.1',
     kind: 'correcao',
@@ -44,7 +64,7 @@ export const NEWS: NewsEntry[] = [
     items: [
       'Os Ajustes ganharam a parte Desempenho: você escolhe quanto o mural pede do aparelho. As escolhas valem só no navegador em que foram feitas.',
       'Três predefinições de qualidade. Equilíbrio é o padrão: o desenho inteiro das fichas, com a rolagem solta. Desempenho liga tudo o que alivia o aparelho, para computador sem placa de vídeo, notebook antigo ou celular que engasga. Qualidade desenha cada traço como foi feito, sem nenhum atalho.',
-      'Embaixo delas, cada escolha tem o seu interruptor, para misturar do seu jeito: Rolagem lisa (cada ficha perto da tela é desenhada uma vez e guardada; alguns traços a lápis saem um tico mais suaves), Sombra reta nas recortadas, Lápis sem grão, Fichas paradas (não levantam com o mouse) e Menos fichas prontas em volta da tela.',
+      'Embaixo delas, cada escolha tem o seu interruptor, para misturar do seu jeito: Rolagem lisa (cada ficha perto da tela é desenhada uma vez e guardada; alguns traços a lápis saem um tico mais suaves), Sem sombra na cartolina (as fichas rasgadas, queimadas e furadas ficam sem a sombra que segue o recorte), Lápis sem grão, Fichas paradas (não levantam com o mouse) e Menos fichas prontas em volta da tela.',
       'O "Voltar ao padrão" dos Ajustes leva a qualidade do mural de volta ao Equilíbrio.',
     ],
   },

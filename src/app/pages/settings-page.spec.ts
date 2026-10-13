@@ -108,15 +108,15 @@ describe('Ajustes (SettingsPage)', () => {
     await pick('desempenho');
     expect(settings.performancePreset()).toBe('desempenho');
     expect(on()).toEqual(['camadas', 'sombra', 'lapis', 'paradas', 'poucas']);
-    expect(['camadas', 'sombra-reta', 'lapis-liso', 'fichas-paradas'].every((c) => root.contains(c))).toBeTrue();
+    expect(['camadas', 'sem-sombra', 'lapis-liso', 'fichas-paradas'].every((c) => root.contains(c))).toBeTrue();
     expect(JSON.parse(localStorage.getItem('mural-de-jogos:config:v1')!)).toEqual(
-      jasmine.objectContaining({ cardLayers: true, straightShadows: true, plainPencil: true, stillCards: true, fewCards: true }),
+      jasmine.objectContaining({ cardLayers: true, noCutShadows: true, plainPencil: true, stillCards: true, fewCards: true }),
     );
     expect(settings.atDefaults()).toBeFalse();
 
     await pick('qualidade');
     expect(on()).toEqual([]);
-    expect(['camadas', 'sombra-reta', 'lapis-liso', 'fichas-paradas'].some((c) => root.contains(c))).toBeFalse();
+    expect(['camadas', 'sem-sombra', 'lapis-liso', 'fichas-paradas'].some((c) => root.contains(c))).toBeFalse();
 
     // uma escolha mexida à mão: nenhuma das três fica marcada, e a página diz que é uma mistura
     toggle('lapis').click();
