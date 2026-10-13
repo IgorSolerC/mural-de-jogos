@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Kind, PickedGame, fold } from './review';
+import { Kind, PickedGame, fold, musicFormOf } from './review';
 import { CoverSource, Settings } from './settings';
 import { SiteCatalog, SiteKeys } from './site-keys';
 
@@ -41,7 +41,7 @@ function bookEditionRank(e: any): number {
 }
 
 /** Onde cada mural procura na Wikipedia (sem chave): páginas com a caixa de informações daquele tipo. */
-const WIKI_TEMPLATE: Record<Exclude<Kind, 'livros' | 'anotacoes'>, string> = {
+const WIKI_TEMPLATE: Record<Exclude<Kind, 'livros' | 'musicas' | 'anotacoes'>, string> = {
   jogos: 'Infobox video game',
   filmes: 'Infobox film',
   series: 'Infobox television',
@@ -70,6 +70,7 @@ const SOURCE_LABEL: Record<PickedGame['source'], string> = {
   kitsu: 'Kitsu',
   anilist: 'AniList',
   tmdb: 'TMDB',
+  itunes: 'iTunes',
   manual: 'Link',
 };
 
@@ -152,9 +153,100 @@ export function sameTitle(a: string, b: string): boolean {
   return ka === kb;
 }
 
-/** A mesma obra: o mesmo título e, se os dois têm ano, o mesmo ano. */
+/**
+ * A mesma obra: o mesmo título e, se os dois têm ano, o mesmo ano. Nas músicas, também o mesmo tipo
+ * (o álbum "Thriller" não é a música "Thriller") e, se os dois dizem, o mesmo artista ("Greatest
+ * Hits" tem um de cada banda).
+ */
 export function sameGame(a: PickedGame, b: PickedGame): boolean {
-  return sameTitle(a.name, b.name) && (!a.year || !b.year || a.year === b.year);
+  if (!sameTitle(a.name, b.name) || (!!a.year && !!b.year && a.year !== b.year)) return false;
+  if (!a.form && !b.form) return true;
+  return musicFormOf(a) === musicFormOf(b) && (!a.by || !b.by || fold(a.by) === fold(b.by));
+}
+
+// ===== As músicas: o catálogo do iTunes (sem chave), com a capa e um trecho de cada faixa =====
+
+const ITUNES = 'https://itunes.apple.com';
+/** A loja de onde vêm os nomes e o que está à venda: a do Brasil. */
+const ITUNES_STORE = { country: 'BR', lang: 'pt_br' };
+const HTTPS = /^https:\/\//;
+
+/**
+ * O artista como resultado da busca: não é um item para resenhar, é a porta para os álbuns dele.
+ * Devolve o número dele no catálogo (ver `GameLookup.artistAlbums`), ou null se o resultado não é um artista.
+ */
+export function artistHitId(g: PickedGame): string | null {
+  return g.source === 'itunes' ? (g.sourceId?.match(/^artist\/(\d+)$/)?.[1] ?? null) : null;
+}
+
+/** O número do álbum no catálogo, se o item veio de lá como álbum; senão, null. */
+export function catalogAlbumId(g: PickedGame): string | null {
+  return g.source === 'itunes' ? (g.sourceId?.match(/^album\/(\d+)$/)?.[1] ?? null) : null;
+}
+
+/** O link é um trecho do catálogo (e não um que a pessoa colou)? */
+export function isCatalogSample(url: string | null | undefined): boolean {
+  return !!url && /^https:\/\/audio-ssl\.itunes\.apple\.com\//.test(url);
+}
+
+/**
+ * O crédito junta mais de um nome ("Daft Punk, Pharrell Williams & Nile Rodgers", "Fulano feat.
+ * Sicrano")? Aí o artista da aba é o principal (ver `GameLookup.primaryArtist`). Um nome que só
+ * parece junto ("Simon & Garfunkel") também passa por aqui, e o catálogo devolve ele mesmo.
+ */
+export function isJointCredit(by: string): boolean {
+  return /[,&+]|\s(feat|ft|featuring|com|part|x|vs)\.?\s/i.test(by);
+}
+
+/** Uma faixa de um álbum, para escolher a que toca no vinil. */
+export interface AlbumTrack {
+  n: number;
+  name: string;
+  /** O trecho de 30 segundos do catálogo. */
+  sample: string;
+}
+
+/** A capa do iTunes vem em miniatura (100x100): o mesmo endereço serve a de 600. */
+function itunesCover(url: unknown): string | null {
+  return typeof url === 'string' && HTTPS.test(url) ? url.replace(/\/\d+x\d+(bb)?\.(jpg|png|webp)$/i, '/600x600bb.jpg') : null;
+}
+
+function itunesYear(r: any): string | undefined {
+  return typeof r?.releaseDate === 'string' && /^\d{4}/.test(r.releaseDate) ? r.releaseDate.slice(0, 4) : undefined;
+}
+
+/** Um álbum do catálogo como item (null: não serve, ou é o "single" de uma faixa só, que já vem como música). */
+function itunesAlbum(r: any): PickedGame | null {
+  const name = String(r?.collectionName ?? '').trim();
+  if (!name || !r?.collectionId) return null;
+  if (r.trackCount === 1 && / - Single$/i.test(name)) return null;
+  return {
+    name,
+    coverUrl: itunesCover(r.artworkUrl100),
+    source: 'itunes',
+    sourceId: `album/${r.collectionId}`,
+    year: itunesYear(r),
+    by: String(r.artistName ?? '').trim() || undefined,
+    form: 'album',
+  };
+}
+
+/** Uma música do catálogo como item, já com o trecho que o vinil toca. */
+function itunesSong(r: any): PickedGame | null {
+  const name = String(r?.trackName ?? '').trim();
+  if (!name || !r?.trackId) return null;
+  const album = String(r.collectionName ?? '').replace(/ - Single$/i, '').trim();
+  return {
+    name,
+    coverUrl: itunesCover(r.artworkUrl100),
+    source: 'itunes',
+    sourceId: `song/${r.trackId}`,
+    year: itunesYear(r),
+    by: String(r.artistName ?? '').trim() || undefined,
+    form: 'faixa',
+    ...(typeof r.previewUrl === 'string' && HTTPS.test(r.previewUrl) ? { sample: r.previewUrl } : {}),
+    ...(album && !sameTitle(album, name) ? { album } : {}),
+  };
 }
 
 /**
@@ -195,6 +287,8 @@ export class GameLookup {
   private readonly siteKeys = inject(SiteKeys);
   /** O que a busca da RAWG já contou: o jogo está na Steam? (id da RAWG → sim/não) */
   private readonly onSteam = new Map<string, boolean>();
+  /** O que a busca de músicas já contou: de qual artista (o principal) é cada álbum e cada música. */
+  private readonly artistIds = new Map<string, string>();
 
   /** O nome do catálogo onde o mural procura, para o leitor de tela. */
   sourceName(kind: Kind): string {
@@ -203,6 +297,8 @@ export class GameLookup {
         return 'Open Library';
       case 'animes':
         return 'Kitsu';
+      case 'musicas':
+        return 'loja do iTunes';
       case 'filmes':
       case 'series':
         return this.tmdbVia() ? 'TMDB' : 'Wikipedia';
@@ -263,6 +359,8 @@ export class GameLookup {
         return [];
       case 'livros':
         return this.searchOpenLibrary(query, signal);
+      case 'musicas':
+        return this.searchItunes(query, signal);
       case 'animes':
         try {
           return await this.searchKitsu(query, signal);
@@ -384,6 +482,17 @@ export class GameLookup {
           }),
         );
         break;
+      case 'musicas': {
+        // as outras edições do mesmo disco (a remasterizada, a de luxo) costumam ter outra arte
+        const album = musicFormOf(game) === 'album';
+        add(
+          'iTunes',
+          this.itunesResults(`${game.name} ${game.by ?? ''}`.trim(), album ? 'album' : 'song', 12, signal).then((rows) =>
+            alike(rows.map(album ? itunesAlbum : itunesSong).filter((g): g is PickedGame => g !== null)),
+          ),
+        );
+        break;
+      }
     }
     // a lista sempre na mesma ordem das fontes, por mais que elas respondam fora de ordem
     const got: CoverChoice[][] = tasks.map(() => []);
@@ -736,6 +845,117 @@ export class GameLookup {
         year: m?.startDate?.year ? String(m.startDate.year) : undefined,
       }))
       .filter((g) => g.name);
+  }
+
+  /**
+   * Músicas: o iTunes, sem chave. Duas buscas juntas (misturadas numa só, os álbuns somem atrás das
+   * músicas): os álbuns, e as músicas com os artistas. Quem tem o nome começando com o que foi
+   * digitado vem primeiro; depois quem tem no nome; depois o que veio pelo nome do artista, os álbuns
+   * antes das músicas. O artista de mesmo nome abre a lista: escolher ele mostra os álbuns dele
+   * (ver `artistHitId`).
+   */
+  private async searchItunes(q: string, signal: AbortSignal): Promise<PickedGame[]> {
+    const [albums, rest] = await Promise.allSettled([this.itunesResults(q, 'album', 8, signal), this.itunesResults(q, 'song,musicArtist', 10, signal)]);
+    if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (albums.status === 'rejected' && rest.status === 'rejected') throw albums.reason;
+    const rows = (r: PromiseSettledResult<any[]>) => (r.status === 'fulfilled' ? r.value : []);
+    this.noteArtists([...rows(albums), ...rows(rest)]);
+    const needle = fold(q);
+    const rank = (name: string) => (fold(name).startsWith(needle) ? 0 : fold(name).includes(needle) ? 1 : 2);
+    const artists: PickedGame[] = rows(rest)
+      .filter((r) => r?.wrapperType === 'artist' && r.artistId && typeof r.artistName === 'string' && rank(r.artistName) < 2)
+      .slice(0, 2)
+      .map((r) => ({ name: r.artistName.trim(), coverUrl: null, source: 'itunes' as const, sourceId: `artist/${r.artistId}` }));
+    const seen = new Set<string>();
+    const items = [...rows(albums).map(itunesAlbum), ...rows(rest).filter((r) => r?.wrapperType === 'track').map(itunesSong)]
+      .filter((g): g is PickedGame => g !== null)
+      // a mesma obra em duas edições (a explícita e a limpa, a remasterizada): fica a primeira
+      .filter((g) => {
+        const key = `${g.form}:${fold(g.name)}:${fold(g.by ?? '')}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((game, index) => ({ game, index, rank: rank(game.name) }))
+      .sort((a, b) => a.rank - b.rank || (a.rank === 2 ? Number(a.game.form === 'faixa') - Number(b.game.form === 'faixa') : 0) || a.index - b.index)
+      .slice(0, 10)
+      .map((x) => x.game);
+    return [...artists, ...items];
+  }
+
+  /** Os álbuns de um artista do catálogo (ver `artistHitId`), os mais novos primeiro. */
+  async artistAlbums(artistId: string, signal: AbortSignal): Promise<PickedGame[]> {
+    if (!/^\d+$/.test(artistId)) return [];
+    const params = new URLSearchParams({ id: artistId, entity: 'album', limit: '60', ...ITUNES_STORE });
+    const data = await this.fetchJson(`${ITUNES}/lookup?${params}`, signal);
+    const seen = new Set<string>();
+    const found: any[] = Array.isArray(data?.results) ? data.results : [];
+    this.noteArtists(found);
+    return found
+      .filter((r) => r?.wrapperType === 'collection')
+      .map(itunesAlbum)
+      .filter((g): g is PickedGame => g !== null)
+      .filter((g) => {
+        if (seen.has(fold(g.name))) return false;
+        seen.add(fold(g.name));
+        return true;
+      })
+      .sort((a, b) => (b.year ?? '').localeCompare(a.year ?? ''));
+  }
+
+  /** As faixas de um álbum do catálogo (ver `catalogAlbumId`), na ordem do disco: só as que têm trecho para tocar. */
+  async albumTracks(albumId: string, signal: AbortSignal): Promise<AlbumTrack[]> {
+    if (!/^\d+$/.test(albumId)) return [];
+    const params = new URLSearchParams({ id: albumId, entity: 'song', limit: '200', ...ITUNES_STORE });
+    const data = await this.fetchJson(`${ITUNES}/lookup?${params}`, signal);
+    return (Array.isArray(data?.results) ? (data.results as any[]) : [])
+      .filter((r) => r?.wrapperType === 'track' && typeof r.trackName === 'string' && r.trackName.trim() && typeof r.previewUrl === 'string' && HTTPS.test(r.previewUrl))
+      .sort((a, b) => (Number(a.discNumber) || 1) - (Number(b.discNumber) || 1) || (Number(a.trackNumber) || 0) - (Number(b.trackNumber) || 0))
+      .map((r, i) => ({ n: i + 1, name: String(r.trackName).trim(), sample: r.previewUrl as string }));
+  }
+
+  /** Guarda de qual artista é cada álbum e cada música que a busca trouxe (o número do principal). */
+  private noteArtists(rows: readonly any[]): void {
+    for (const r of rows) {
+      if (!r?.artistId) continue;
+      if (r.wrapperType === 'collection' && r.collectionId) this.artistIds.set(`album/${r.collectionId}`, String(r.artistId));
+      else if (r.wrapperType === 'track' && r.trackId) this.artistIds.set(`song/${r.trackId}`, String(r.artistId));
+    }
+  }
+
+  /**
+   * O artista principal de um item que a busca trouxe: "Daft Punk", numa música creditada a "Daft
+   * Punk, Pharrell Williams & Nile Rodgers". É ele que vira a aba no mural. Null se a busca não
+   * contou de quem é (um item de outra visita, um nome digitado à mão).
+   */
+  async primaryArtist(game: PickedGame, signal: AbortSignal): Promise<string | null> {
+    const id = game.source === 'itunes' && game.sourceId ? this.artistIds.get(game.sourceId) : undefined;
+    if (!id) return null;
+    const data = await this.fetchJson(`${ITUNES}/lookup?${new URLSearchParams({ id, ...ITUNES_STORE })}`, signal);
+    const hit = (Array.isArray(data?.results) ? (data.results as any[]) : []).find((r) => r?.wrapperType === 'artist' && typeof r.artistName === 'string');
+    return hit?.artistName.trim() || null;
+  }
+
+  /**
+   * Os trechos do catálogo que o vinil de um item pode tocar: as faixas do álbum, ou o trecho da
+   * própria música. Vazio para o que não veio do catálogo (um nome digitado à mão).
+   */
+  async sampleChoices(game: PickedGame, signal: AbortSignal): Promise<AlbumTrack[]> {
+    const album = catalogAlbumId(game);
+    if (album) return this.albumTracks(album, signal);
+    const song = game.source === 'itunes' ? game.sourceId?.match(/^song\/(\d+)$/)?.[1] : null;
+    if (!song) return [];
+    const params = new URLSearchParams({ id: song, ...ITUNES_STORE });
+    const data = await this.fetchJson(`${ITUNES}/lookup?${params}`, signal);
+    const hit = (Array.isArray(data?.results) ? (data.results as any[]) : []).find((r) => typeof r?.previewUrl === 'string' && HTTPS.test(r.previewUrl));
+    return hit ? [{ n: 1, name: String(hit.trackName ?? game.name).trim(), sample: hit.previewUrl as string }] : [];
+  }
+
+  /** Uma busca no iTunes, crua: `entity` diz o que procurar (album, song, musicArtist). */
+  private async itunesResults(q: string, entity: string, limit: number, signal: AbortSignal): Promise<any[]> {
+    const params = new URLSearchParams({ term: q, media: 'music', entity, limit: String(limit), ...ITUNES_STORE });
+    const data = await this.fetchJson(`${ITUNES}/search?${params}`, signal);
+    return Array.isArray(data?.results) ? data.results : [];
   }
 
   /**

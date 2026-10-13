@@ -14,7 +14,7 @@ import {
 import { BackdropClose } from './backdrop-close';
 import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, LucideIconData, MessageCircleMore, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, TextQuote, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, NO_DAY_LABEL, Review, isNote, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
+import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
@@ -26,6 +26,7 @@ import { Rabisco } from './rabisco';
 import { Boletim } from './boletim';
 import { BonusSticker } from './bonus';
 import { CoverSleeve } from './cover-sleeve';
+import { RecordCover } from './record-cover';
 import { Skulls } from './difficulty';
 import { JudgeLabel } from './judge-label';
 import { Luz } from './luz';
@@ -56,7 +57,7 @@ const PATCH_GAP = 8;
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CommentsPanel, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CommentsPanel, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="onClosed()">
@@ -103,18 +104,35 @@ const PATCH_GAP = 8;
                 <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
               }
               @if (!note() || r.game.coverUrl) {
-              <div class="cover">
+              <div class="cover" [class.disco]="music()">
+                @if (music()) {
+                  <!-- a música: o vinil que toca a amostra, com a barra de arrastar quando começa -->
+                  <app-record-cover [game]="r.game" [bar]="true" />
+                  @if (r.status !== 'finalizado') {
+                    <app-status-label class="faixa faixa-disco" [status]="r.status" [kind]="r.kind" [band]="true" />
+                  }
+                } @else {
                 <app-cover-sleeve [game]="r.game" size="big">
                   @if (r.status !== 'finalizado' && !note()) {
                     <app-status-label class="faixa" [status]="r.status" [kind]="r.kind" [band]="true" />
                   }
                 </app-cover-sleeve>
+                }
               </div>
               }
 
               <div class="words">
                 <h2 id="leitura-titulo" class="title" tabindex="-1">{{ r.game.name }}</h2>
-                @if (r.game.by) {
+                @if (music()) {
+                  <!-- o que é e de quem: "Álbum de Radiohead"; a música solta diz de qual álbum saiu -->
+                  <p class="meta by">{{ formLabel() }}@if (artist()) { de {{ artist() }} }</p>
+                  @if (r.game.album) {
+                    <p class="meta">Do álbum {{ r.game.album }}</p>
+                  }
+                  @if (r.game.sampleTitle) {
+                    <p class="meta">No vinil: {{ r.game.sampleTitle }}</p>
+                  }
+                } @else if (r.game.by) {
                   <p class="meta by">de {{ r.game.by }}</p>
                 }
                 <p class="meta">
@@ -489,6 +507,12 @@ export class ReviewReader {
   );
   /** Uma anotação: sem nota, veredito, rejogada nem lado a lado; as categorias e o texto. */
   protected readonly note = computed(() => !!this.review() && isNote(this.review()!));
+  /** Uma ficha de música: o vinil no lugar da foto, e o artista embaixo do nome. */
+  protected readonly music = computed(() => !!this.review() && isMusicReview(this.review()!));
+  /** "Álbum" ou "Música". */
+  protected readonly formLabel = computed(() => (this.review() ? MUSIC_FORM_LABEL[musicFormOf(this.review()!.game)] : ''));
+  /** De quem é a música: o crédito inteiro do catálogo ("Milton Nascimento & Lô Borges"); sem ele, o artista da aba. */
+  protected readonly artist = computed(() => this.review()?.game.by ?? this.review()?.category ?? '');
   /** As tarefas feitas quando a anotação abriu: as que o texto esconde (o mesmo retrato dele, ver RichText). */
   private readonly doneThen = linkedSignal({ source: () => this.review()?.text ?? '', computation: snapshotDone });
   protected readonly foldable = computed(() => (this.review() ? foldedCount(foldDone(parseRich(this.review()!.text), this.doneThen().lines)) : 0));

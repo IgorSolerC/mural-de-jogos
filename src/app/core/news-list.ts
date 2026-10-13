@@ -26,6 +26,26 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-13-mural-de-musicas',
+    version: '1.38.0',
+    kind: 'funcionalidade',
+    date: '2026-10-13',
+    title: 'Mural de músicas',
+    notice: 'Novo: o mural de músicas, com álbuns, faixas e um vinil que toca na ficha. Troque no cartaz.',
+    items: [
+      'Um mural novo no cartaz: "Meu mural de músicas". Cada ficha é a resenha de um álbum inteiro ou de uma música só, com tudo o que as outras resenhas têm: quatro notas, veredito, status, bônus, texto e o estojo da cartolina.',
+      'No lugar da foto, a ficha tem um vinil saindo da capa do álbum, o mesmo do widget de áudio. O botão no meio do disco toca ali mesmo, sem abrir a ficha.',
+      'A busca acha álbuns, músicas e artistas. Escolher um artista mostra os álbuns dele; escolher um álbum ou uma música já traz a capa, o ano e o artista.',
+      'O que toca no vinil é opcional: o trecho de 30 segundos do catálogo (num álbum, você escolhe de qual faixa, a sua preferida), um link seu (YouTube, Vimeo ou um arquivo de som) ou nada.',
+      'O artista é a categoria da ficha: vem preenchido da busca, dá para mudar, e vira uma aba em cima da pasta do mural, como as categorias das anotações. Uma música creditada a vários nomes vai para a aba do artista principal. O artista também aparece na orelha de cada ficha, e dá para ordenar o mural por ele.',
+      'As notas são Envolvimento (que pesa em dobro), Letra, Vocal e Instrumental. Numa faixa instrumental, marque Letra e Vocal como "Não tem" e elas saem da conta.',
+      'Os status são Pulei, Ouvi e No repeat, e a cartela de bônus é da música: Refrão viciante, Arrepia, Nenhuma faixa pra pular, Autotune demais, Enjoa rápido e mais uns quarenta.',
+      'A cartela de filtros ganhou o grupo Tipo, para ver só os álbuns ou só as músicas, e a busca do mural também procura pelo artista e pelo álbum de onde a música é.',
+      'Pra depois, Wishlist (com o adesivo MUST HEAR), Ranking, Comparar, Estatísticas e os jogos de Extras funcionam com o mural de músicas como com os outros, e a mesma obra ouvida de novo vira uma reescuta.',
+      'Na leitura, o vinil vem maior e, tocando, mostra a barra para andar na faixa.',
+    ],
+  },
+  {
     id: '2026-10-13-foto-em-quem-reagiu',
     version: '1.37.2',
     kind: 'melhoria',

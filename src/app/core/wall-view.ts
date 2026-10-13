@@ -1,6 +1,6 @@
 import type { CategoryLooks } from './category-looks';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
-import { KindProfile, countOf, isNotes, revisitCountOf } from './kinds';
+import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { checkCount } from './rich-text';
 import { Settings } from './settings';
@@ -15,6 +15,7 @@ import {
   isDone,
   isPinnedNote,
   letterOf,
+  musicFormOf,
   rankOrder,
   parseDay,
   scoreKeys,
@@ -26,8 +27,8 @@ import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterSize, gra
 import { ONE_DECIMAL as avgFmt } from './review';
 
 /**
- * `categoria`, `tag` (pela primeira tag) e `prioridade` (fixadas, comuns, sub-notas) só no mural de
- * anotações; `nota` e `status`, só nos de resenhas.
+ * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
+ * tag) e `prioridade` (fixadas, comuns, sub-notas) só no de anotações; `nota` e `status`, só nos de resenhas.
  */
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'tag' | 'prioridade';
 const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'tag', 'prioridade'];
@@ -85,6 +86,8 @@ interface ViewPrefs {
   pinnedFirst: boolean;
   /** A aba aberta no mural de anotações (ver core/note-tabs.ts); vazia, "Tudo". */
   noteTab: string;
+  /** A aba (o artista) aberta no mural de músicas; vazia, "Tudo". */
+  musicTab: string;
   /** As seções fechadas: "aba::seção" nas anotações, "k:mural::seção" nos outros (ver `WallView.collapsed`). */
   collapsed: string[];
 }
@@ -105,6 +108,8 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
 /** A ordem que o mural aberto tem de fato: cada mural só ordena pelo que ele tem. */
 export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
   if (isNotes(profile.kind)) return sort === 'nota' || sort === 'status' ? 'data' : sort;
+  // as músicas também se ordenam pelo artista (a categoria delas)
+  if (sort === 'categoria' && isMusic(profile.kind)) return sort;
   return sort === 'categoria' || sort === 'tag' || sort === 'prioridade' ? 'data' : sort;
 }
 
@@ -120,7 +125,7 @@ function readNoteView(raw: unknown, base: NoteView): NoteView | null {
 
 /** Com `whole` falso (a visita), a aba, as seções fechadas e as finalizadas à mostra começam do zero. */
 function readPrefs(key: string, whole: boolean): ViewPrefs {
-  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, pinnedFirst: false, noteTab: ALL_TAB, collapsed: [] };
+  const fallback: ViewPrefs = { sort: 'data', scoreKey: 'final', direction: 'desc', density: 'completa', noteViews: { [ALL_TAB]: NOTE_VIEW }, showDone: false, pinnedFirst: false, noteTab: ALL_TAB, musicTab: ALL_TAB, collapsed: [] };
   try {
     const raw = JSON.parse(localStorage.getItem(key) ?? 'null');
     if (!raw) return fallback;
@@ -151,6 +156,7 @@ function readPrefs(key: string, whole: boolean): ViewPrefs {
       showDone: whole && raw.showDone === true,
       pinnedFirst: raw.pinnedFirst === true,
       noteTab: whole && typeof raw.noteTab === 'string' ? raw.noteTab.slice(0, 80) : ALL_TAB,
+      musicTab: whole && typeof raw.musicTab === 'string' ? raw.musicTab.slice(0, 80) : ALL_TAB,
       collapsed: whole && Array.isArray(raw.collapsed) ? raw.collapsed.filter((k: unknown) => typeof k === 'string').slice(-MAX_COLLAPSED) : [],
     };
   } catch {
@@ -203,6 +209,8 @@ export abstract class WallState {
   readonly profile = computed(() => this.mural.profile());
   /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
   readonly notes = computed(() => isNotes(this.mural.kind()));
+  /** O mural de músicas: de resenhas, com as abas dos artistas em cima da pasta. */
+  readonly music = computed(() => isMusic(this.mural.kind()));
   /** O "Mostrar notas" da régua: só no mural de alguém, enquanto houver nota em segredo (ver VisitView). */
   readonly canReveal: Signal<boolean> = signal(false);
   readonly revealed: Signal<boolean> = signal(false);
@@ -247,14 +255,25 @@ export abstract class WallState {
    * última aba usada. Vazia, "Tudo".
    */
   readonly noteTab: WritableSignal<string>;
-  /** As abas do mural de anotações (null nos de resenhas; sem nenhuma aba, nada a separar). */
-  readonly noteTabs = computed<NoteTabs | null>(() =>
-    isNotes(this.mural.kind()) ? noteTabsOf(this.wall(), (r) => this.shows(r)) : null,
-  );
+  /** A aba (o artista) escolhida no mural de músicas, guardada do mesmo jeito. */
+  readonly musicTab: WritableSignal<string>;
+  /** A aba escolhida no mural aberto: cada mural com abas guarda a dele. */
+  private tabOf(kind: Kind): WritableSignal<string> {
+    return isMusic(kind) ? this.musicTab : this.noteTab;
+  }
+  /**
+   * As abas do mural: uma por categoria nas anotações, uma por artista nas músicas (null nos outros;
+   * sem nenhuma aba, nada a separar).
+   */
+  readonly noteTabs = computed<NoteTabs | null>(() => {
+    const kind = this.mural.kind();
+    if (isNotes(kind)) return noteTabsOf(this.wall(), (r) => this.shows(r));
+    return isMusic(kind) ? noteTabsOf(this.wall(), undefined, 'Sem artista') : null;
+  });
   /** A aba que vale de fato: a escolhida, se ela ainda existe; senão, "Tudo". */
   readonly activeTab = computed<string>(() => {
     const tabs = this.noteTabs();
-    const k = this.noteTab();
+    const k = this.tabOf(this.mural.kind())();
     return tabs && hasTab(tabs, k) ? k : ALL_TAB;
   });
   /** O nome da aba aberta (null em "Tudo"). */
@@ -283,14 +302,16 @@ export abstract class WallState {
   /**
    * As seções fechadas (o maço preso com elástico), cada uma com a chave da seção (ver `groupWall`):
    * nas anotações, por aba ("aba::seção"), e a Fixadas fechada continua fechada em qualquer ordem;
-   * nos outros murais, por mural ("k:jogos::2026-09"). Fica guardado, como a aba.
+   * nos outros murais, por mural ("k:jogos::2026-09"; nas músicas, por mural e por aba). Fica
+   * guardado, como a aba.
    */
   readonly collapsed: WritableSignal<ReadonlySet<string>>;
 
-  /** De onde é a seção: a aba aberta nas anotações, o mural nos outros. */
+  /** De onde é a seção: a aba aberta nas anotações, o mural nos outros (e a aba dele, nas músicas). */
   private collapseKey(groupKey: string): string {
     const kind = this.mural.kind();
-    return `${isNotes(kind) ? this.activeTab() : `k:${kind}`}::${groupKey}`;
+    const from = isNotes(kind) ? this.activeTab() : isMusic(kind) ? `k:${kind}:${this.activeTab()}` : `k:${kind}`;
+    return `${from}::${groupKey}`;
   }
 
   /** A seção está fechada? */
@@ -323,8 +344,8 @@ export abstract class WallState {
    */
   readonly shownSort = computed<SortKey>(() => {
     const sort = sortFor(this.chosenSort(), this.mural.profile());
-    // numa aba de categoria, ordenar por categoria daria uma seção só: vale a Prioridade
-    if (sort === 'categoria' && this.activeTab() !== ALL_TAB) return 'prioridade';
+    // numa aba de categoria, ordenar por categoria daria uma seção só: vale a Prioridade (nas músicas, a Data)
+    if (sort === 'categoria' && this.activeTab() !== ALL_TAB) return this.notes() ? 'prioridade' : 'data';
     return this.guarding() && sort === 'nota' ? 'data' : sort;
   });
   /** Os filtros que valem de fato: sem spoilers, filtrar por veredito, nota ou dificuldade entregaria o que está escondido. */
@@ -417,6 +438,7 @@ export abstract class WallState {
     this.showDone = signal(prefs.showDone);
     this.pinnedFirst = signal(prefs.pinnedFirst);
     this.noteTab = signal(prefs.noteTab);
+    this.musicTab = signal(prefs.musicTab);
     this.collapsed = signal(new Set(prefs.collapsed));
     // na visita, só a ordem e o tipo de ficha ficam guardados: a aba, as seções e as finalizadas são de cada mural
     effect(() => {
@@ -427,7 +449,7 @@ export abstract class WallState {
         density: this.reviewDensity(),
         noteViews: this.noteViews(),
         pinnedFirst: this.pinnedFirst(),
-        ...(memory.whole ? { showDone: this.showDone(), noteTab: this.noteTab(), collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED) } : {}),
+        ...(memory.whole ? { showDone: this.showDone(), noteTab: this.noteTab(), musicTab: this.musicTab(), collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED) } : {}),
       };
       try {
         localStorage.setItem(memory.key, JSON.stringify(kept));
@@ -453,12 +475,13 @@ export abstract class WallState {
   }
 
   /**
-   * Abre uma aba do mural de anotações. Os filtros da cartela eram da aba de antes (as tags dela) e
-   * saem; a busca fica, e passa a procurar na aba nova.
+   * Abre uma aba do mural aberto (uma categoria das anotações, um artista das músicas). Os filtros da
+   * cartela eram da aba de antes (as tags dela) e saem; a busca fica, e passa a procurar na aba nova.
    */
   setNoteTab(key: string): void {
-    if (this.noteTab() === key && this.activeTab() === key) return;
-    this.noteTab.set(key);
+    const tab = this.tabOf(this.mural.kind());
+    if (tab() === key && this.activeTab() === key) return;
+    tab.set(key);
     this.filter.set(NO_FILTER);
   }
 
@@ -512,6 +535,7 @@ export abstract class WallState {
   protected reset(): void {
     this.clearFilters();
     this.noteTab.set(ALL_TAB);
+    this.musicTab.set(ALL_TAB);
     this.collapsed.set(new Set());
     this.showDone.set(false);
   }
@@ -531,17 +555,17 @@ export class WallView extends WallState {
   }
 
   /**
-   * Uma ficha nova que ficaria escondida: no mural de anotações, abre a aba dela (se a aba de agora
+   * Uma ficha nova que ficaria escondida: num mural com abas, abre a aba dela (se a aba de agora
    * a esconde); se ainda assim ficaria fora, limpa a busca e os filtros.
    */
   reveal(r: Review): void {
-    if (isNotes(this.mural.kind()) && !this.inTab(r)) this.setNoteTab(noteTabKey(r));
+    if (hasTabs(this.mural.kind()) && !this.inTab(r)) this.setNoteTab(noteTabKey(r));
     if (!this.visible().some((x) => x.id === r.id)) this.clearFilters();
   }
 
   /** A categoria de uma anotação nova escrita agora: a da aba aberta (null em "Tudo" e em "Sem categoria"). */
   newNoteCategory(): string | null {
-    return this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
+    return this.notes() && this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
   /** Guarda a busca, o filtro e a ordem, e devolve como voltar a eles (ver ViewTransitions.run). */
@@ -553,7 +577,8 @@ export class WallView extends WallState {
       direction = this.reviewDirection(),
       density = this.reviewDensity(),
       noteViews = this.noteViews(),
-      noteTab = this.noteTab();
+      noteTab = this.noteTab(),
+      musicTab = this.musicTab();
     return () => {
       this.query.set(query);
       this.filter.set(filter);
@@ -563,6 +588,7 @@ export class WallView extends WallState {
       this.reviewDensity.set(density);
       this.noteViews.set(noteViews);
       this.noteTab.set(noteTab);
+      this.musicTab.set(musicTab);
     };
   }
 }
@@ -577,6 +603,7 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
     case 'alfabetica':
       return desc ? 'De Z a A' : 'De A a Z';
     case 'categoria':
+      if (isMusic(profile.kind)) return desc ? 'Artistas de Z a A' : 'Artistas de A a Z';
       return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
     case 'tag':
       return desc ? 'Tags de Z a A' : 'Tags de A a Z';
@@ -633,11 +660,19 @@ export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage =
     const n = g.reviews.length;
     // "3 jogos · 1 rejogada": a rejogada não é mais um jogo no mural
     const again = g.reviews.filter((r) => r.revisitOf).length;
-    const parts = [...(n > again ? [countOf(o.profile, n - again)] : []), ...(again ? [revisitCountOf(o.profile, again)] : [])];
+    const parts = [...(n > again ? countsOf(o.profile, g.reviews.filter((r) => !r.revisitOf)) : []), ...(again ? [revisitCountOf(o.profile, again)] : [])];
     if (showAvg && n > 1) parts.push(`média ${avgFmt.format(g.reviews.reduce((s, r) => s + r.scores.final, 0) / n)}`);
     g.summary = parts.join(' · ');
   }
   return groups;
+}
+
+/** "3 jogos"; nas músicas, o que cada ficha é: "2 álbuns", "1 música". */
+function countsOf(profile: KindProfile, originals: readonly Review[]): string[] {
+  if (!isMusic(profile.kind)) return [countOf(profile, originals.length)];
+  const albums = originals.filter((r) => musicFormOf(r.game) === 'album').length;
+  const songs = originals.length - albums;
+  return [...(albums ? [`${albums} ${albums === 1 ? 'álbum' : 'álbuns'}`] : []), ...(songs ? [countOf(profile, songs)] : [])];
 }
 
 const PINNED_GROUP: [string, string] = ['fixadas', 'Fixadas'];
@@ -661,7 +696,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
     case 'categoria':
       return (r) => {
         const c = firstCategory(r);
-        return c === null ? ['sem-categoria', 'Sem categoria'] : [`c:${fold(c)}`, c];
+        return c === null ? ['sem-categoria', isMusic(o.profile.kind) ? 'Sem artista' : 'Sem categoria'] : [`c:${fold(c)}`, c];
       };
     case 'tag':
       return (r) => {

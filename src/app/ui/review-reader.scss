@@ -137,6 +137,21 @@ dialog.reader {
   --band-fs: 0.92rem;
 }
 
+/* A música: a coluna da foto alarga para o vinil (a capa e o disco saindo dela). A fita de status
+   vai no pé da capa, que é 10 dos 17,2 da largura do vinil (medida pela largura: tocando, a barra
+   de arrastar aparece embaixo e o pé da caixa desce) */
+.top:has(.cover.disco) {
+  grid-template-columns: 296px minmax(0, 1fr);
+}
+.cover.disco {
+  position: relative;
+  container-type: inline-size;
+}
+.faixa-disco {
+  inset: calc(100cqw / 1.72 - var(--band-h)) auto auto 0;
+  width: calc(100cqw / 1.72);
+}
+
 .words {
   grid-area: words;
   min-width: 0;
@@ -391,6 +406,19 @@ app-judge-label {
     --band-h: 20px;
     --band-fs: 0.74rem;
     --band-track: 0.06em;
+  }
+
+  /* a música: o vinil em cima, com lugar para o dedo no botão do disco, e o nome embaixo */
+  .top:has(.cover.disco) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'cover'
+      'words'
+      'judgement';
+    gap: 14px 0;
+  }
+  .cover.disco {
+    width: min(100%, 268px);
   }
 
   .title {

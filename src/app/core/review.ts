@@ -1,4 +1,4 @@
-import { KIND_PROFILES, Kind, isKind, isNotes, profileOf } from './kinds';
+import { KIND_PROFILES, Kind, isKind, isMusic, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
 import { cleanCategory, sanitizeTags } from './note-labels';
 import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
@@ -84,7 +84,10 @@ export type RatedKey =
   | 'escrita'
   | 'roteiro'
   | 'atuacao'
-  | 'animacao';
+  | 'animacao'
+  | 'letra'
+  | 'vocal'
+  | 'instrumental';
 
 /** 'final' é a média ponderada das notas dadas, nunca digitada. */
 export type ScoreKey = 'final' | RatedKey;
@@ -193,7 +196,16 @@ export function scoreOf(scores: Rated & { final?: number }, k: ScoreKey): number
   return scores[k] ?? null;
 }
 
-export type GameSource = 'wikipedia' | 'rawg' | 'openlibrary' | 'kitsu' | 'anilist' | 'tmdb' | 'manual';
+export type GameSource = 'wikipedia' | 'rawg' | 'openlibrary' | 'kitsu' | 'anilist' | 'tmdb' | 'itunes' | 'manual';
+
+/** No mural de músicas, o que a ficha resenha: um álbum inteiro ou uma música só. */
+export type MusicForm = 'album' | 'faixa';
+export const MUSIC_FORMS: readonly MusicForm[] = ['album', 'faixa'];
+export const MUSIC_FORM_LABEL: Record<MusicForm, string> = { album: 'Álbum', faixa: 'Música' };
+
+/** O tamanho do nome de um artista (a categoria das músicas) e do link da amostra. */
+export const ARTIST_MAX = 60;
+export const SAMPLE_MAX = 600;
 
 /** O que foi escolhido na busca: um jogo, um livro, um filme… O nome ficou de quando o mural só tinha jogos. */
 export interface PickedGame {
@@ -202,8 +214,29 @@ export interface PickedGame {
   source: GameSource;
   sourceId?: string;
   year?: string;
-  /** Quem escreveu (livros), para distinguir dois títulos iguais. */
+  /** Quem escreveu (livros) ou quem toca (músicas), para distinguir dois títulos iguais. */
   by?: string;
+  /** Só nas músicas: álbum ou música (ver `MusicForm`). Sem o campo, álbum. */
+  form?: MusicForm;
+  /**
+   * Só nas músicas: o link da amostra que o vinil toca (o trecho que vem do catálogo, ou um link que a
+   * pessoa colou: um arquivo de som, YouTube ou Vimeo). Sem o campo, o disco não toca.
+   */
+  sample?: string;
+  /** Só nos álbuns: o nome da faixa que a amostra toca (a de destaque), escrito na etiqueta da capa. */
+  sampleTitle?: string;
+  /** Só nas músicas soltas: o álbum de onde ela é. */
+  album?: string;
+}
+
+/** O que a ficha de música resenha (o álbum, se não diz). */
+export function musicFormOf(g: Pick<PickedGame, 'form'>): MusicForm {
+  return g.form ?? 'album';
+}
+
+/** "  the   beatles " → "the beatles": o artista como foi escrito, sem espaços a mais (blink-182 continua minúsculo). */
+export function cleanArtist(raw: string): string {
+  return raw.replace(/\s+/g, ' ').trim().slice(0, ARTIST_MAX).trim();
 }
 
 export interface Review {
@@ -285,8 +318,9 @@ export interface Review {
    */
   noteRank?: NoteRank;
   /**
-   * Só nas anotações: o assunto dela, um só (Lista de compras, Estudos, Trabalho). Ordena e agrupa o
+   * Nas anotações: o assunto dela, um só (Lista de compras, Estudos, Trabalho). Ordena e agrupa o
    * mural. Sem o campo, sem categoria. Ver core/note-labels.ts.
+   * Nas músicas: o artista (a banda), que vem da busca e vira a aba dela no mural. Sem o campo, sem artista.
    */
   category?: string;
   /** Só nas anotações: as tags, escritas à mão ("Bugfix", "Feature"). Sem o campo, nenhuma. */
@@ -349,6 +383,23 @@ export function withPin(r: Review, pinned: boolean, now: string): Review {
 /** É uma anotação (do mural de anotações), não uma resenha? */
 export function isNote(r: Pick<Review, 'kind'>): boolean {
   return isNotes(r.kind);
+}
+
+/** É uma ficha do mural de músicas (um álbum ou uma música)? */
+export function isMusicReview(r: Pick<Review, 'kind'>): boolean {
+  return isMusic(r.kind);
+}
+
+/**
+ * Em qual lista a ficha é guardada (no navegador, no backup e na nuvem). As anotações e as músicas
+ * moram à parte das resenhas de sempre: um site antigo, que não conhece o mural delas, leria cada
+ * uma como um jogo e gravaria por cima.
+ */
+export type Shelf = 'reviews' | 'notas' | 'musicas';
+export const SHELVES: readonly Shelf[] = ['reviews', 'notas', 'musicas'];
+
+export function shelfOf(r: Pick<Review, 'kind'>): Shelf {
+  return isNotes(r.kind) ? 'notas' : isMusic(r.kind) ? 'musicas' : 'reviews';
 }
 
 /** A anotação foi finalizada? (ver `Review.doneAt`) */
@@ -496,7 +547,7 @@ export function relevanceOf(w: Wish): Relevance {
 export function relevanceLabel(kind: Kind, r: Relevance): string {
   if (r === 'comum') return 'Comum';
   if (r === 'later') return 'LATER';
-  return kind === 'jogos' ? 'MUST PLAY' : kind === 'livros' ? 'MUST READ' : 'MUST WATCH';
+  return kind === 'jogos' ? 'MUST PLAY' : kind === 'livros' ? 'MUST READ' : kind === 'musicas' ? 'MUST HEAR' : 'MUST WATCH';
 }
 
 export const STATUSES: readonly Status[] = ['incompleto', 'finalizado', 'platinado'];
@@ -543,6 +594,9 @@ export const RATED_KEYS: readonly RatedKey[] = [
   'roteiro',
   'atuacao',
   'animacao',
+  'letra',
+  'vocal',
+  'instrumental',
 ];
 
 /** As quatro notas do mural, na ordem do boletim. */
@@ -578,6 +632,9 @@ export const SCORE_LABEL: Record<ScoreKey, string> = {
   roteiro: 'Roteiro',
   atuacao: 'Atuação',
   animacao: 'Animação',
+  letra: 'Letra',
+  vocal: 'Vocal',
+  instrumental: 'Instrumental',
 };
 
 /** Quando o nome inteiro não cabe na casinha do boletim (celular), fica a abreviação. */
@@ -585,6 +642,7 @@ export const SCORE_SHORT: Partial<Record<RatedKey, string>> = {
   jogabilidade: 'Jogab.',
   envolvimento: 'Envolv.',
   personagens: 'Person.',
+  instrumental: 'Instrum.',
 };
 
 export function weightOf(weights: Weights | undefined, k: RatedKey): Weight {
@@ -816,7 +874,18 @@ function isoOr(v: unknown, fallback: string): string {
   return Number.isNaN(t) ? fallback : new Date(t).toISOString();
 }
 
-const SOURCES: readonly GameSource[] = ['wikipedia', 'rawg', 'openlibrary', 'kitsu', 'anilist', 'tmdb', 'manual'];
+const SOURCES: readonly GameSource[] = ['wikipedia', 'rawg', 'openlibrary', 'kitsu', 'anilist', 'tmdb', 'itunes', 'manual'];
+
+/** Um link https inteiro, ou nada (a amostra da música: quem toca confere se é um som). */
+function httpsOr(v: unknown, max: number): string | undefined {
+  const url = str(v, max).trim();
+  return /^https:\/\/\S+$/.test(url) ? url : undefined;
+}
+
+/** Uma linha de texto curta (o nome de uma faixa, de um álbum), sem espaços a mais; vazia, nada. */
+function lineOr(v: unknown, max: number): string | undefined {
+  return str(v, max).replace(/\s+/g, ' ').trim() || undefined;
+}
 
 function sanitizeGame(raw: unknown): PickedGame | null {
   const g = (raw ?? {}) as Record<string, any>;
@@ -831,6 +900,26 @@ function sanitizeGame(raw: unknown): PickedGame | null {
     sourceId: str(g['sourceId'], 100) || undefined,
     year: str(g['year'], 10) || undefined,
     by: str(g['by'], 120).trim() || undefined,
+    // os campos das músicas só vão para o item quando existem: os dos outros murais continuam iguais
+    ...optional('form', MUSIC_FORMS.includes(g['form']) ? (g['form'] as MusicForm) : undefined),
+    ...optional('sample', httpsOr(g['sample'], SAMPLE_MAX)),
+    ...optional('sampleTitle', lineOr(g['sampleTitle'], 120)),
+    ...optional('album', lineOr(g['album'], 200)),
+  };
+}
+
+/**
+ * O item de uma ficha de música: sempre diz se é álbum ou música, e o que é só de um deles sai do
+ * outro (a faixa de destaque é do álbum, e só com a amostra; o álbum de origem é da música solta).
+ */
+export function musicGame(game: PickedGame): PickedGame {
+  const form = musicFormOf(game);
+  const { sampleTitle, album, ...rest } = game;
+  return {
+    ...rest,
+    form,
+    ...(form === 'album' && sampleTitle && game.sample ? { sampleTitle } : {}),
+    ...(form === 'faixa' && album ? { album } : {}),
   };
 }
 
@@ -966,10 +1055,11 @@ export function sanitizeReview(raw: unknown): Review | null {
     !!profile.amount && r['hoursPlayed'] !== null && r['hoursPlayed'] !== undefined && r['hoursPlayed'] !== '' && Number.isFinite(amount) && amount >= 0;
   const now = new Date().toISOString();
   const createdAt = isoOr(r['createdAt'], now);
+  const artist = isMusic(kind) && typeof r['category'] === 'string' ? cleanArtist(r['category']) : '';
   return {
     id: sanitizeId(r['id']),
     kind,
-    game,
+    game: isMusic(kind) ? musicGame(game) : game,
     scores: { final, ...rated },
     ...optional('finalOverride', override),
     status,
@@ -1010,6 +1100,7 @@ export function sanitizeReview(raw: unknown): Review | null {
           : localDay(new Date(createdAt)),
     ...optional('revisitOf', sanitizeRevisitOf(r['revisitOf'], r['id'])),
     ...optional('artFrom', sanitizeArtFrom(r['artFrom'])),
+    ...optional('category', artist || undefined),
     ...optional('private', r['private'] === true ? (true as const) : undefined),
     ...optional('quiet', r['quiet'] === true && r['private'] !== true ? (true as const) : undefined),
     ...optional('publishedAt', isoOr(r['publishedAt'], '') || undefined),
@@ -1048,7 +1139,7 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     ...look,
     id: base.id,
     kind: 'anotacoes',
-    game: { ...game, source: 'manual', sourceId: undefined, year: undefined, by: undefined },
+    game: { name: game.name, coverUrl: game.coverUrl, source: 'manual', sourceId: undefined, year: undefined, by: undefined },
     scores: { final: 0 },
     status: 'finalizado',
     difficulty: 'nenhuma',

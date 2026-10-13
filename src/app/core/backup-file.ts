@@ -87,6 +87,8 @@ export interface BackupLists {
   reviews: unknown[];
   /** As anotações, que vêm à parte (ver ReviewStore.snapshot); null num backup de antes delas. */
   notes: unknown[] | null;
+  /** As fichas do mural de músicas, também à parte; null num backup de antes delas. */
+  music: unknown[] | null;
 }
 
 /**
@@ -110,13 +112,14 @@ export function backupLists(text: string, hint = 'Escolha o backup baixado pelo 
   const reviews = Array.isArray(data) ? data : object?.['reviews'];
   if (!Array.isArray(reviews)) throw new Error(`Não achei resenhas nesse arquivo. ${hint}`);
   const notes = object?.['notas'];
-  return { data, object, reviews, notes: Array.isArray(notes) ? notes : null };
+  const music = object?.['musicas'];
+  return { data, object, reviews, notes: Array.isArray(notes) ? notes : null, music: Array.isArray(music) ? music : null };
 }
 
 /** Só lê e sanitiza: não toca nos dados pessoais nem aplica exclusões ao mural do usuário. */
 export function parseBackupSnapshot(text: string): BackupSnapshot {
-  const { object, reviews: found, notes } = backupLists(text, 'Escolha um backup do Meu Mural.');
-  const list = notes ? [...found, ...notes] : found;
+  const { object, reviews: found, notes, music } = backupLists(text, 'Escolha um backup do Meu Mural.');
+  const list = [...found, ...(notes ?? []), ...(music ?? [])];
   const deleted = object?.['deleted'] as
     | { reviews?: Record<string, unknown> }
     | undefined;

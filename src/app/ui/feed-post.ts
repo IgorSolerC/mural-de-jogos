@@ -4,7 +4,7 @@ import { Comments, spokenComments } from '../core/comments';
 import { FeedItem, agoLabel, fullWhen } from '../core/follow';
 import { Kind, profileOf } from '../core/kinds';
 import { ReactionTarget, Reactions } from '../core/reactions';
-import { Review, formatScore, isNote, shownFinal } from '../core/review';
+import { Review, formatScore, isMusicReview, isNote, musicFormOf, shownFinal } from '../core/review';
 import { PersonFace, PersonPhoto } from './person-photo';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReviewCard } from './review-card';
@@ -30,6 +30,7 @@ const A_WORK: Record<Kind, string> = {
   filmes: 'um filme',
   series: 'uma série',
   animes: 'um anime',
+  musicas: 'uma música',
   anotacoes: 'uma anotação',
 };
 
@@ -77,10 +78,10 @@ export class FeedPost {
   protected readonly who = computed(() => this.post().item.pessoa);
   protected readonly titleId = computed(() => `post-${this.post().key.replace(/[^\w-]/g, '-')}`);
   protected readonly note = computed(() => this.post().item.mural === 'anotacoes');
-  /** A anotação tem categoria: a orelha dela sai por cima da ficha (ver `.aba-cat` em ui/review-card). */
+  /** A anotação tem categoria (ou a música, artista): a orelha dela sai por cima da ficha (ver `.aba-cat` em ui/review-card). */
   protected readonly ear = computed(() => {
     const theirs = this.post().theirs;
-    return !!theirs && isNote(theirs) && !!theirs.category;
+    return !!theirs && (isNote(theirs) || isMusicReview(theirs)) && !!theirs.category;
   });
   /** Reagir e comentar: só nas fichas de quem eu sigo (ver `Reactions.canReact`). */
   protected readonly canReact = computed(() => this.reactions.canReact(this.who().codigo));
@@ -98,6 +99,8 @@ export class FeedPost {
     const { item, theirs } = this.post();
     if (this.note() || (theirs && isNote(theirs))) return 'publicou uma anotação';
     if (theirs?.revisitOf) return `escreveu uma ${profileOf(theirs.kind).revisit.one}`;
+    // a ficha de música diz o que é: um álbum inteiro ou uma música só
+    if (theirs && isMusicReview(theirs) && musicFormOf(theirs.game) === 'album') return 'avaliou um álbum';
     return `avaliou ${A_WORK[item.mural]}`;
   });
 

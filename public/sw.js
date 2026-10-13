@@ -5,7 +5,7 @@
  * - A página (navegação): rede primeiro, com prazo curto; sem rede, a última versão guardada.
  * - Os arquivos do próprio site: o guardado na hora, e a rede atualiza por trás. Os nomes têm hash,
  *   então uma versão nova do site traz arquivos novos, nunca troca um guardado por outro.
- * - As capas (Wikipedia, Steam, RAWG, Open Library, TMDB, AniList): guardadas na primeira vez, para sempre.
+ * - As capas (Wikipedia, Steam, RAWG, Open Library, TMDB, AniList, iTunes): guardadas na primeira vez, para sempre.
  *   As do Kitsu não aceitam CORS: aparecem normalmente, mas não ficam guardadas.
  * - As buscas de catálogo passam direto: sem rede, a busca já avisa e oferece seguir sem capa.
  * - Os arquivos de versões antigas do site (o código e as fontes, que levam o hash no nome) saem
@@ -21,7 +21,7 @@ const OLD_VERSION_DAYS = 30;
 let pruned = false;
 /** As capas já postas no fim da fila nesta vida do service worker. */
 const refreshed = new Set();
-const COVER_HOSTS =/(^|\.)(wikimedia\.org|steamstatic\.com|rawg\.io|openlibrary\.org|archive\.org|tmdb\.org|anilist\.co)$/;
+const COVER_HOSTS =/(^|\.)(wikimedia\.org|steamstatic\.com|rawg\.io|openlibrary\.org|archive\.org|tmdb\.org|anilist\.co|mzstatic\.com)$/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

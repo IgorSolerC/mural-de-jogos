@@ -120,8 +120,8 @@
               <app-cover-sleeve class="tj-capa" size="thumb" [game]="g" />
               <div class="tj-txt">
                 <p class="tj-nome">{{ g.name }}</p>
-                @if (g.year || g.by) {
-                  <p class="tj-ano">{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
+                @if (g.year || g.by || g.form) {
+                  <p class="tj-ano">@if (g.form) {{{ formLabel[g.form] }}@if (g.by || g.year) {<span aria-hidden="true"> · </span>}}{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
                 }
               </div>
               <lucide-icon class="tj-volta" [img]="RevisitIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
@@ -144,14 +144,14 @@
               </div>
             }
           } @else if (game(); as g) {
-            <p class="pergunta">Qual {{ profile().singular }}?</p>
+            <p class="pergunta">{{ profile().ask ?? 'Qual ' + profile().singular + '?' }}</p>
             <!-- o campo, preenchido: a mesma tira de papel da busca, com o jogo escolhido -->
             <div class="tira-jogo">
               <app-cover-sleeve class="tj-capa" size="thumb" [game]="g" />
               <div class="tj-txt">
                 <p class="tj-nome">{{ g.name }}</p>
-                @if (g.year || g.by) {
-                  <p class="tj-ano">{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
+                @if (g.year || g.by || g.form) {
+                  <p class="tj-ano">@if (g.form) {{{ formLabel[g.form] }}@if (g.by || g.year) {<span aria-hidden="true"> · </span>}}{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
                 }
               </div>
               <button type="button" class="acao-caneta" (click)="swapGame()">
@@ -175,6 +175,13 @@
                 <lucide-icon [img]="CoversIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
                 {{ g.coverUrl ? 'Escolher outra capa' : 'Escolher uma capa' }}
               </button>
+            }
+            <!-- a música: se é álbum ou música, de quem é (a aba dela no mural) e o que toca no vinil -->
+            @if (music()) {
+              <!-- chegam num pedaço à parte do site: só o mural de músicas precisa deles -->
+              @defer (on immediate) {
+                <app-music-fields #campos [game]="g" (gameChange)="game.set($event)" [(artist)]="noteCategory" [artists]="artistLib()" [fresh]="freshPick()" [session]="openCount()" />
+              }
             }
           } @else {
             <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />

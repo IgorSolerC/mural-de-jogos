@@ -15,6 +15,7 @@ const WALL_COLOR: Record<Kind, string> = {
   filmes: '#8c58d8',
   series: '#2d8bd6',
   animes: '#e2579f',
+  musicas: '#cf9d00',
   anotacoes: '#e46f0c',
 };
 

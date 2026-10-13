@@ -47,6 +47,15 @@
         ],
         "createdAt": "2026-10-11T22:31:50.167Z",
         "reason": "Claude: Angular [src] binding inside @if on a validated https background link"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/ui/record-cover.ts"
+        ],
+        "createdAt": "2026-10-13T03:06:37.206Z",
+        "reason": "agent: the src is an Angular binding ([src]=\"src\"), filled with the album art at runtime; not an empty image"
       }
     ]
   }

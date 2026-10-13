@@ -1,6 +1,6 @@
 # Meu Mural
 
-Um mural pessoal de resenhas: jogos, livros, filmes, séries e animes, cada um na sua parede, e um mural de
+Um mural pessoal de resenhas: jogos, livros, filmes, séries, animes e músicas, cada um na sua parede, e um mural de
 anotações. Cada resenha é uma cartolina pregada torta com tachinha, com capa, notas, veredito e a primeira frase do
 que você escreveu.
 
@@ -12,7 +12,8 @@ amigos, ver o mural deles pelo código e reagir às resenhas. A API da nuvem mor
 - **Murais:** toque na palavra do cartaz ("Meu mural de *jogos*") para trocar de mural. Cada mural de resenhas tem as
   suas quatro notas, os seus três status, a sua cartela de bônus, a sua fila, o seu ranking e o seu lado a lado; o de
   anotações não tem nota. Os perfis ficam em [src/app/core/kinds.ts](src/app/core/kinds.ts).
-- **Busca:** livros na Open Library (edição em português); animes no Kitsu (AniList de reserva); filmes e séries no
+- **Busca:** livros na Open Library (edição em português); animes no Kitsu (AniList de reserva); músicas (álbuns,
+  faixas e artistas) no iTunes, que também dá a capa e o trecho de 30 segundos que o vinil da ficha toca; filmes e séries no
   TMDB e jogos na RAWG, com as chaves do site (secrets da API, ver [api/README.md](api/README.md)) ou com a
   chave da pessoa colada em Ajustes › Busca; sem chave nenhuma, na Wikipedia.
 - **Offline:** em produção, um service worker ([public/sw.js](public/sw.js)) guarda o site e as capas já vistas.

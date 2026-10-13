@@ -373,6 +373,7 @@ const SOURCE_LABEL: Record<GameSource, string> = {
   kitsu: 'Kitsu',
   anilist: 'AniList',
   tmdb: 'TMDB',
+  itunes: 'iTunes',
   manual: 'Digitado à mão',
 };
 

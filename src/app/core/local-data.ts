@@ -30,6 +30,8 @@ export const DATA_KEYS = [
   'mural-de-jogos:apagadas:v1',
   // as anotações, à parte das resenhas: um site antigo nunca as lê (nem as joga fora)
   'mural-de-jogos:anotacoes:v1',
+  // as músicas, também à parte: um site antigo as leria como jogos
+  'mural-de-jogos:musicas:v1',
 ] as const;
 export type DataKey = (typeof DATA_KEYS)[number];
 

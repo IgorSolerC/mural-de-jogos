@@ -4,9 +4,9 @@ import type { Bonus, RatedKey, Status } from './review';
  * Os murais. Cada um é uma parede à parte: as fichas, o Pra depois, o ranking, o lado a lado e os
  * bônus escritos de um mural nunca aparecem no outro. O valor guardado ('jogos') não muda nunca.
  */
-export type Kind = 'jogos' | 'livros' | 'filmes' | 'series' | 'animes' | 'anotacoes';
+export type Kind = 'jogos' | 'livros' | 'filmes' | 'series' | 'animes' | 'musicas' | 'anotacoes';
 
-export const KINDS: readonly Kind[] = ['jogos', 'livros', 'filmes', 'series', 'animes', 'anotacoes'];
+export const KINDS: readonly Kind[] = ['jogos', 'livros', 'filmes', 'series', 'animes', 'musicas', 'anotacoes'];
 
 /**
  * O mural de anotações não é de resenhas: sem notas, veredito, status, dificuldade nem rejogadas; os
@@ -17,6 +17,23 @@ export const NOTES: Kind = 'anotacoes';
 
 export function isNotes(kind: Kind): boolean {
   return kind === NOTES;
+}
+
+/**
+ * O mural de músicas é de resenhas (notas, veredito, status, bônus, ranking), mas cada ficha é de um
+ * álbum ou de uma música só, tem um artista (a categoria dela, que vira aba no mural, como nas
+ * anotações) e, no lugar da capa, o vinil que toca uma amostra. Também guarda as fichas à parte
+ * (`musicas` no backup): um site antigo, que não conhece o mural, as leria como jogos.
+ */
+export const MUSIC: Kind = 'musicas';
+
+export function isMusic(kind: Kind): boolean {
+  return kind === MUSIC;
+}
+
+/** Os murais com abas em cima da pasta: uma por categoria nas anotações, uma por artista nas músicas. */
+export function hasTabs(kind: Kind): boolean {
+  return isNotes(kind) || isMusic(kind);
 }
 
 /** Os murais de resenhas, com nota: os que entram em comparações, rankings, jogos e estatísticas. */
@@ -75,6 +92,8 @@ export interface KindProfile {
   released: string;
   /** Na busca, o exemplo do que digitar. */
   placeholder: string;
+  /** A pergunta da busca, quando "Qual <singular>?" não serve (nas músicas a ficha pode ser de um álbum). */
+  ask?: string;
   /** Mural vazio: "Pregue a resenha do último jogo que você jogou." */
   lastOne: string;
   /** Pra depois vazio: "Zerou algo e ainda não sabe o que achar?" */
@@ -460,6 +479,80 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
       c('estressante', 'Estressante'),
       c('simplista', 'Simplista'),
       c('dublagem', 'Dublagem ruim'),
+    ],
+  },
+  musicas: {
+    kind: 'musicas',
+    plural: 'músicas',
+    singular: 'música',
+    fem: true,
+    // o quanto a música pega pesa em dobro; a Letra e o Vocal saem da conta numa faixa instrumental ("Não tem")
+    categories: [
+      { key: 'envolvimento', base: 2 },
+      { key: 'letra', base: 1 },
+      { key: 'vocal', base: 1 },
+      { key: 'instrumental', base: 1 },
+    ],
+    status: { incompleto: 'Pulei', finalizado: 'Ouvi', platinado: 'No repeat' },
+    statusGroup: { incompleto: 'Puladas', finalizado: 'Ouvidas', platinado: 'No repeat' },
+    day: { incompleto: 'Ouvi até', feito: 'Ouvi em' },
+    amount: null,
+    difficulty: null,
+    released: 'Lançamento em',
+    placeholder: 'Comece a digitar: Clube da Esquina, Karma Police, Rita Lee…',
+    ask: 'Qual álbum ou música?',
+    lastOne: 'do último disco que você ouviu',
+    finished: 'Ouviu um disco e ainda não sabe o que achar?',
+    again: 'se ouviria de novo',
+    revisit: { one: 'reescuta', many: 'reescutas' },
+    verb: 'ouvir',
+    // a ficha é de um álbum (masculino) ou de uma música (feminino): os nomes não têm gênero
+    bonuses: [
+      f('nao-sai-da-cabeca', 'Não sai da cabeça'),
+      f('arrepia', 'Arrepia'),
+      f('refrao', 'Refrão viciante'),
+      f('letra-marcante', 'Letra marcante'),
+      f('vocal-impecavel', 'Vocal impecável'),
+      f('solo', 'Solo de arrepiar'),
+      f('producao', 'Produção impecável'),
+      f('cantar-junto', 'Pra cantar junto'),
+      f('danca', 'Dá vontade de dançar'),
+      f('sem-pular', 'Nenhuma faixa pra pular'),
+      f('ao-vivo', 'Melhor ainda ao vivo'),
+      f('boa-pra-estrada', 'Boa pra estrada'),
+      f('feat', 'Feat certeiro'),
+      f('capa-linda', 'Capa linda'),
+      f('nostalgia', 'Nostalgia pura'),
+      f('trilha-da-vida', 'Trilha da minha vida'),
+      f('emocionou', 'Me emocionou'),
+      f('me-fez-pensar', 'Me fez pensar'),
+      f('me-marcou', 'Me marcou'),
+      f('genial', 'Genial'),
+      f('melhor-do-genero', 'Melhor do gênero'),
+      f('classico', 'Clássico'),
+      f('atemporal', 'Atemporal'),
+      f('a-frente-do-tempo', 'À frente do tempo'),
+      c('enjoa', 'Enjoa rápido'),
+      c('letra-fraca', 'Letra fraca'),
+      c('refrao-chato', 'Refrão chato'),
+      c('autotune', 'Autotune demais'),
+      c('mixagem', 'Mixagem ruim'),
+      c('generico', 'Soa genérico'),
+      c('copia', 'Parece cópia'),
+      c('cliche', 'Clichê'),
+      c('previsivel', 'Previsível'),
+      c('arrastado', 'Se arrasta'),
+      c('intro-longa', 'Intro longa demais'),
+      c('muito-curto', 'Acaba cedo demais'),
+      c('enchecao', 'Faixas pra encher'),
+      c('caiu', 'Perde o fôlego'),
+      c('ritmo-irregular', 'Altos e baixos'),
+      c('final-decepcionante', 'Final decepcionante'),
+      c('hype', 'Hype demais'),
+      c('datado', 'Envelheceu mal'),
+      c('cansa', 'Cansa o ouvido'),
+      c('caca-niquel', 'Caça-níquel'),
+      c('simplista', 'Simplista'),
     ],
   },
   anotacoes: {

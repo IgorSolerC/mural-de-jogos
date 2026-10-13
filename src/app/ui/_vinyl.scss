@@ -1,0 +1,204 @@
+/* O vinil saindo da capa: o desenho do widget Áudio (ui/audio-track.ts), que a capa das fichas de
+   música usa igualzinho (ui/record-cover.ts). Tudo mede em em de --s, o lado da capa (a capa = 10em);
+   --giro é o torto da peça. A classe .tocando, em quem contém, gira o disco e o puxa mais para fora. */
+@mixin record {
+  .vitrola {
+    position: relative;
+    font-size: calc(var(--s) / 10);
+    width: 17.2em;
+    height: 10em;
+    rotate: var(--giro);
+  }
+  .capa {
+    position: absolute;
+    z-index: 2;
+    inset: 0 auto auto 0;
+    width: 10em;
+    height: 10em;
+    overflow: hidden;
+    border-radius: 1px;
+    background: #1c1b1e;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.34),
+      0.18em 0.3em 0.55em -0.12em rgb(0 0 0 / 0.42);
+  }
+  /* a foto do vídeo cobre a capa; o 4:3 do YouTube tem tarjas pretas em cima e embaixo, que ficam
+     de fora */
+  .capa img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    scale: 1.34;
+  }
+  /* sem foto: o envelope pardo, com o nome escrito a pincel */
+  .capa.parda {
+    display: grid;
+    place-items: center;
+    padding: 1em;
+    box-sizing: border-box;
+    background: var(--paper-grain), #c9a674;
+    background-blend-mode: multiply;
+  }
+  .capa-nome {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+    max-width: 100%;
+    color: #151515;
+    font-family: var(--f-marker);
+    font-size: 1.25em;
+    line-height: 1.08;
+    text-align: center;
+    overflow-wrap: anywhere;
+    rotate: -4deg;
+  }
+  /* o nome, à caneta numa etiqueta branca colada no canto da capa (como o adesivo da loja) */
+  .capa-adesivo {
+    position: absolute;
+    z-index: 1;
+    left: 0.55em;
+    bottom: 0.6em;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    max-width: 7.6em;
+    padding: 0.2em 0.45em 0.15em;
+    border-radius: 1px;
+    background: #fbfaf6;
+    color: #151515;
+    font-family: var(--f-hand);
+    font-size: 0.95em;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+    rotate: -2.5deg;
+    box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.35);
+  }
+  /* a capa gasta: o aro que o disco marcou de tanto entrar e sair, e a borda puída */
+  .capa-gasta {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle closest-side, transparent 85%, rgb(255 255 255 / 0.1) 88.5%, transparent 92%);
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.14),
+      inset 0 0 0.7em rgb(0 0 0 / 0.28);
+  }
+  .disco {
+    position: absolute;
+    z-index: 1;
+    top: 0.3em;
+    left: 6.55em;
+    width: 9.4em;
+    height: 9.4em;
+    border-radius: 50%;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.4),
+      0.1em 0.3em 0.6em -0.1em rgb(0 0 0 / 0.38);
+    transition: translate var(--t-physical) var(--ease-physical);
+  }
+  /* tocando, o disco sai mais um pouco da capa */
+  .tocando .disco {
+    translate: 0.6em 0;
+  }
+  .sulcos {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle closest-side, transparent 0 35%, #0d0d0d 35% 39.5%, transparent 39.5% 62%, rgb(255 255 255 / 0.05) 62% 62.8%, transparent 62.8% 96.5%, #0d0d0d 96.5%),
+      repeating-radial-gradient(circle closest-side, #161616 0 0.06em, #232323 0.06em 0.12em);
+    animation: disco-gira 1.8s linear infinite;
+    animation-play-state: paused;
+  }
+  .tocando .sulcos {
+    animation-play-state: running;
+  }
+  @keyframes disco-gira {
+    to {
+      rotate: 1turn;
+    }
+  }
+  /* o selo do meio, impresso: "Lado A" em cima e "Estéreo" embaixo, para ver o disco girar */
+  .selo {
+    display: grid;
+    align-content: space-between;
+    justify-items: center;
+    width: 3.3em;
+    height: 3.3em;
+    padding: 0.32em 0;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: #efe3c4;
+    box-shadow: inset 0 0 0 0.12em #c9352c;
+    color: #151515;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .selo-a {
+    font-size: 0.42em;
+    letter-spacing: 0.12em;
+  }
+  .selo-b {
+    font-size: 0.34em;
+    letter-spacing: 0.14em;
+  }
+  /* o brilho da luz no vinil fica parado enquanto o disco gira */
+  .disco-brilho {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    background: conic-gradient(from 25deg, transparent 0 5%, rgb(255 255 255 / 0.14) 10%, transparent 16% 50%, rgb(255 255 255 / 0.1) 55%, transparent 61%);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 35%, #000 36%);
+    mask: radial-gradient(circle closest-side, transparent 35%, #000 36%);
+  }
+  .tocar-disco {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 2.15em;
+    height: 2.15em;
+    margin: -1.075em 0 0 -1.075em;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #151515;
+    color: #f4ecd6;
+    font-size: 1em;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+    cursor: pointer;
+    transition: scale var(--t-ui) var(--ease-ui);
+  }
+  /* o toque pega um pouco além do botão (no celular, ele é pequeno) */
+  .tocar-disco::after {
+    content: '';
+    position: absolute;
+    inset: -0.5em;
+    border-radius: 50%;
+  }
+  .tocar-disco svg {
+    width: 1.1em;
+    height: 1.1em;
+    fill: currentColor;
+  }
+  .tocar-disco:hover {
+    scale: 1.08;
+  }
+  .tocar-disco:active {
+    scale: 0.96;
+  }
+  .tocar-disco:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}

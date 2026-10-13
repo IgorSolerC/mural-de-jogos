@@ -5,6 +5,9 @@ import { Review, fold } from './review';
  * por anotação, então ela já é a pasta: a aba só mostra as anotações dela (as fixadas também, no
  * topo da aba), e "Tudo" mostra o mural inteiro, como antes.
  *
+ * O mural de músicas usa as mesmas abas, uma por artista (a categoria da ficha de música é o
+ * artista): tudo o que vale para "categoria" aqui vale para "artista" lá.
+ *
  * - Toda categoria tem a sua aba, e as sem categoria ganham a aba "Sem categoria". Vão da que tem
  *   mais anotações para a que tem menos, pelo número que aparece nelas (o de anotações à mostra);
  *   no empate, a com mais anotações contando as finalizadas escondidas, depois as categorias antes
@@ -46,8 +49,11 @@ export function noteTabKey(r: Pick<Review, 'category'>): string {
   return r.category ? `c:${fold(r.category.trim())}` : NO_CATEGORY_TAB;
 }
 
-/** As abas do mural. `shown`: a anotação está à mostra (as finalizadas escondidas não contam no número). */
-export function noteTabsOf(notes: readonly Review[], shown: (r: Review) => boolean = () => true): NoteTabs {
+/**
+ * As abas do mural. `shown`: a anotação está à mostra (as finalizadas escondidas não contam no
+ * número). `noneLabel`: o nome da aba de quem não tem categoria ("Sem artista", nas músicas).
+ */
+export function noteTabsOf(notes: readonly Review[], shown: (r: Review) => boolean = () => true, noneLabel = 'Sem categoria'): NoteTabs {
   const buckets = new Map<string, { total: number; n: number; spellings: Map<string, number> }>();
   let all = 0;
   for (const r of notes) {
@@ -65,7 +71,7 @@ export function noteTabsOf(notes: readonly Review[], shown: (r: Review) => boole
   const tabs: NoteTab[] = [];
   for (const [key, b] of buckets) {
     // a grafia mais usada (no empate, a primeira que apareceu)
-    const label = key === NO_CATEGORY_TAB ? 'Sem categoria' : [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0];
+    const label = key === NO_CATEGORY_TAB ? noneLabel : [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0];
     tabs.push({ key, label, n: b.n, total: b.total });
   }
   const none = (t: NoteTab) => (t.key === NO_CATEGORY_TAB ? 1 : 0);

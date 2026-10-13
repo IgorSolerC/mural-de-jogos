@@ -51,9 +51,14 @@ import {
   audienceOf,
   TEXT_MAX,
   isNote,
+  isMusicReview,
+  cleanArtist,
+  musicGame,
+  fold,
+  MUSIC_FORM_LABEL,
 } from '../core/review';
-import { GameLookup, isSteamCover } from '../core/game-lookup';
-import { cap, g, isNotes, profileOf } from '../core/kinds';
+import { GameLookup, isJointCredit, isSteamCover } from '../core/game-lookup';
+import { cap, g, isMusic, isNotes, profileOf } from '../core/kinds';
 import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
@@ -71,6 +76,7 @@ import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
 import { GameSearch } from './game-search';
+import { MusicFields } from './music-fields';
 import { JudgeLabel } from './judge-label';
 import { Pin } from './pin';
 import { ReviewCard } from './review-card';
@@ -107,6 +113,7 @@ const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'jul
     CoverSleeve,
     DifficultyPicker,
     GameSearch,
+    MusicFields,
     JudgeLabel,
     Pin,
     ReviewCard,
@@ -167,6 +174,8 @@ export class ReviewEditor {
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
   private readonly labelsPicker = viewChild(NoteLabelsPicker);
+  // pela marca no template, e não pela classe: os campos chegam por @defer, e citar a classe aqui os traria junto com o editor
+  private readonly musicFields = viewChild<MusicFields>('campos');
   private readonly kit = viewChild(CardKit);
   private readonly writer = viewChild(RichEditor);
 
@@ -205,6 +214,26 @@ export class ReviewEditor {
   protected readonly kind = signal<Kind>('jogos');
   /** Uma anotação, não uma resenha: título escrito, capa opcional, categorias, sem notas (ver `isNotes`). */
   protected readonly notes = computed(() => isNotes(this.kind()));
+  /** Uma ficha de música: uma resenha com o tipo (álbum ou música), o artista e o que toca no vinil (ver MusicFields). */
+  protected readonly music = computed(() => isMusic(this.kind()));
+  protected readonly formLabel = MUSIC_FORM_LABEL;
+  /** Os artistas que o mural de músicas já tem, os com mais fichas primeiro: as sugestões do campo. */
+  protected readonly artistLib = computed(() => {
+    const seen = new Map<string, { name: string; n: number }>();
+    for (const r of this.store.reviews()) {
+      if (!isMusicReview(r) || !r.category) continue;
+      const hit = seen.get(fold(r.category));
+      if (hit) hit.n++;
+      else seen.set(fold(r.category), { name: r.category, n: 1 });
+    }
+    return [...seen.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'pt-BR')).map((x) => x.name);
+  });
+  /** O item acabou de ser escolhido na busca (e não veio de uma ficha que já existia). */
+  protected readonly freshPick = signal(false);
+  /** Quantas vezes o editor abriu: os campos da música recomeçam a cada vez. */
+  protected readonly openCount = signal(0);
+  /** O artista como vai para a ficha de música (a categoria dela); vazio, sem artista. */
+  private readonly artistValue = computed(() => (this.music() ? cleanArtist(this.noteCategory() ?? '') : ''));
   /** O título da anotação, como está sendo escrito (vai no `game.name`). */
   protected readonly noteTitle = computed(() => this.game()?.name ?? '');
   /** A anotação como "item", para a escolha da capa (só link colado ou sem capa: não há catálogo). */
@@ -463,6 +492,7 @@ export class ReviewEditor {
     return {
       ...(this.notes() && this.noteRank() ? { noteRank: this.noteRank()! } : {}),
       ...(this.notes() && this.noteCategory() ? { category: this.noteCategory()! } : {}),
+      ...(this.artistValue() ? { category: this.artistValue() } : {}),
       ...(this.notes() && this.noteTags().length ? { tags: [...this.noteTags()] } : {}),
       id: this.id(),
       kind: this.kind(),
@@ -556,8 +586,12 @@ export class ReviewEditor {
     else if (scores.length > 1) m.push(`as notas de ${scores.slice(0, -1).join(', ')} e ${scores.at(-1)}`);
     else if (this.noneCounts()) m.push('ao menos uma categoria que conte na média');
     if (this.overrideOn() && this.overrideValue() === null) m.push('uma nota final de 0 a 11');
+    if (this.soundProblem()) m.push('um link que toque no vinil (ou tirar o link)');
     return m;
   });
+
+  /** O link da música não toca aqui (ver MusicFields.problem): a ficha não vai com um disco mudo sem avisar. */
+  private readonly soundProblem = computed(() => this.music() && !!this.musicFields()?.problem());
 
   protected readonly missingText = computed(() => {
     const m = this.missing();
@@ -584,6 +618,8 @@ export class ReviewEditor {
     const root = review ? (review.revisitOf ?? null) : revisitOf ? (revisitOf.revisitOf ?? revisitOf.id) : null;
     this.revisitRoot.set(root);
     this.keptNotes.set(false);
+    this.freshPick.set(false);
+    this.openCount.update((n) => n + 1);
     // a anotação nasce privada; a resenha, publicada
     this.audience.set(review ? audienceOf(review) : isNotes(kind) ? 'privada' : 'publicar');
     this.noteRank.set(review?.noteRank ?? null);
@@ -625,7 +661,9 @@ export class ReviewEditor {
     this.weights.set({ ...(review?.weights ?? {}) });
     this.bonuses.set([...(review?.bonuses ?? [])]);
     this.bonusPicker()?.reset();
-    this.noteCategory.set(review?.category ?? null);
+    // a música que vem da fila, da wishlist ou de uma reescuta já traz o artista: o da original, ou o do catálogo
+    const artist = isMusic(kind) && !review ? cleanArtist(rootReview?.category ?? this.game()?.by ?? '') : '';
+    this.noteCategory.set(review?.category ?? (artist || null));
     this.noteTags.set([...(review?.tags ?? [])]);
     this.labelsPicker()?.reset();
     this.hours.set(review?.hoursPlayed === null || review?.hoursPlayed === undefined ? '' : String(review.hoursPlayed).replace('.', ','));
@@ -692,8 +730,31 @@ export class ReviewEditor {
     this.choosingCover.set(false);
     this.game.set(game);
     this.draftError.set(false);
+    // a música já vem com o artista do catálogo (dá para mudar); o álbum sai tocando a primeira faixa
+    if (this.music()) {
+      const credited = game.by ? cleanArtist(game.by) : null;
+      this.noteCategory.set(credited);
+      this.freshPick.set(true);
+      // creditada a mais de um nome: a aba é a do artista principal
+      if (credited && isJointCredit(credited)) void this.mainArtist(game, credited);
+    }
     // Achou na RAWG: tenta logo a capa da Steam, que tem o título.
     if (game.source === 'rawg') void this.steamCover(game);
+  }
+
+  /**
+   * "Daft Punk, Pharrell Williams & Nile Rodgers" vai para a aba do Daft Punk: o catálogo diz quem é
+   * o artista principal. Se a pessoa já mexeu no campo (ou trocou de item) enquanto procurava, fica o dela.
+   */
+  private async mainArtist(game: PickedGame, credited: string): Promise<void> {
+    const ctrl = new AbortController();
+    this.coverAbort = ctrl;
+    try {
+      const main = await this.lookup.primaryArtist(game, ctrl.signal);
+      if (main && !ctrl.signal.aborted && this.game()?.sourceId === game.sourceId && this.noteCategory() === credited) this.noteCategory.set(cleanArtist(main));
+    } catch {
+      // sem o catálogo agora, fica o nome como veio
+    }
   }
 
   /** A imagem da RAWG é uma arte de fundo: se o jogo está na Steam, a capa de lá entra no lugar. */
@@ -750,7 +811,7 @@ export class ReviewEditor {
     const game = this.game();
     const final = this.shown();
     const status = this.status();
-    if (!game || final === null || this.missingScores().length || this.noneCounts() || !status || !this.dateValid() || !this.hoursValid() || this.textTooLong()) {
+    if (!game || final === null || this.missingScores().length || this.noneCounts() || !status || !this.dateValid() || !this.hoursValid() || this.textTooLong() || this.soundProblem()) {
       this.focusFirstMissing();
       return;
     }
@@ -759,7 +820,8 @@ export class ReviewEditor {
     const review: Review = {
       id: this.id(),
       kind: this.kind(),
-      game,
+      game: this.music() ? musicGame(game) : game,
+      ...(this.artistValue() ? { category: this.artistValue() } : {}),
       scores: { final, ...this.counted() },
       weights: this.weights(),
       bonuses: this.bonuses(),
@@ -1055,6 +1117,8 @@ export class ReviewEditor {
       this.text().trim(),
       this.audience(),
       this.noteRank(),
+      this.game()?.form,
+      this.game()?.sample,
     ]);
   }
 
@@ -1071,6 +1135,7 @@ export class ReviewEditor {
     setTimeout(() => {
       // na ordem da ficha: o status e a data vêm antes das notas
       if (!this.game()) this.search()?.focus();
+      else if (this.soundProblem()) root.querySelector<HTMLInputElement>('app-music-fields input.link')?.focus();
       else if (!this.status()) root.querySelector<HTMLInputElement>('app-status-picker input')?.focus();
       else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
       else if (!this.hoursValid()) root.querySelector<HTMLInputElement>('#editor-horas')?.focus();

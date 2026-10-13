@@ -3,9 +3,10 @@ import { DestroyRef, ElementRef, afterNextRender, inject } from '@angular/core';
 /**
  * A peça ocupa linhas inteiras da pauta: a altura do host (o que `selector` mede, mais o respiro de
  * cima e de baixo) sobe até a linha seguinte, e o texto de baixo continua em cima das linhas azuis.
- * Chame no construtor do componente.
+ * Chame no construtor do componente. Com `off` dizendo que sim, a peça está fora de um texto
+ * pautado e fica do tamanho dela.
  */
-export function snapToLines(selector: string): void {
+export function snapToLines(selector: string, off?: () => boolean): void {
   const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   const destroy = inject(DestroyRef);
   afterNextRender(() => {
@@ -14,6 +15,7 @@ export function snapToLines(selector: string): void {
     let frame = 0;
     const fit = () => {
       frame = 0;
+      if (off?.()) return;
       const cs = getComputedStyle(host);
       const line = parseFloat(cs.lineHeight);
       if (!line) return;

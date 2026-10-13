@@ -10,23 +10,28 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { LucideAngularModule, PenLine, Search, WifiOff } from 'lucide-angular';
-import { GameLookup, LookupError } from '../core/game-lookup';
-import { cap, g, profileOf } from '../core/kinds';
-import { Kind, PickedGame } from '../core/review';
+import { ChevronRight, LucideAngularModule, MicVocal, PenLine, Search, WifiOff } from 'lucide-angular';
+import { GameLookup, LookupError, artistHitId } from '../core/game-lookup';
+import { cap, g, isMusic, profileOf } from '../core/kinds';
+import { Kind, MUSIC_FORM_LABEL, PickedGame } from '../core/review';
 import { CoverSleeve } from './cover-sleeve';
 
 let uid = 0;
 
 type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: PickedGame };
 
-/** Combobox com auto-complete do catálogo do mural (padrão ARIA 1.2). */
+/**
+ * Combobox com auto-complete do catálogo do mural (padrão ARIA 1.2).
+ *
+ * No mural de músicas a busca acha álbuns, músicas e artistas. O artista não é um item para
+ * resenhar: escolher ele troca a lista pelos álbuns dele (ver `GameLookup.artistAlbums`).
+ */
 @Component({
   selector: 'app-game-search',
   imports: [LucideAngularModule, CoverSleeve],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <label class="pergunta" [for]="inputId">Qual {{ profile().singular }}?</label>
+    <label class="pergunta" [for]="inputId">{{ profile().ask ?? 'Qual ' + profile().singular + '?' }}</label>
     <div class="strip" [class.busy]="loading()">
       <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
       <input
@@ -74,12 +79,20 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
             (mouseenter)="active.set(i)"
             (click)="choose(opt)"
           >
-            @if (opt.kind === 'hit') {
+            @if (opt.kind === 'hit' && isArtist(opt.game)) {
+              <!-- o artista: a porta para os álbuns dele -->
+              <lucide-icon class="manual-icon" [img]="ArtistIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+              <span class="name">
+                {{ opt.game.name }}
+                <span class="by">Artista · ver os álbuns</span>
+              </span>
+              <lucide-icon class="seta" [img]="GoIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            } @else if (opt.kind === 'hit') {
               <app-cover-sleeve class="thumb" size="thumb" [game]="opt.game" />
               <span class="name">
                 {{ opt.game.name }}
-                @if (opt.game.by) {
-                  <span class="by">{{ opt.game.by }}</span>
+                @if (opt.game.by || opt.game.form) {
+                  <span class="by">@if (opt.game.form) {{{ formLabel[opt.game.form] }}@if (opt.game.by) {<span aria-hidden="true"> · </span>}}{{ opt.game.by }}</span>
                 }
               </span>
               @if (opt.game.year) {
@@ -118,7 +131,8 @@ export class GameSearch {
       found: `${cap(p.plural)} ${g(p, 'encontrados', 'encontradas')}`,
       one: `${p.singular} ${g(p, 'encontrado', 'encontrada')}`,
       many: `${p.plural} ${g(p, 'encontrados', 'encontradas')}`,
-      none: `${g(p, 'Nenhum', 'Nenhuma')} ${p.singular} ${g(p, 'conhecido', 'conhecida')} com esse nome.`,
+      // nas músicas a busca é de álbuns, músicas e artistas: "nenhuma música" diria pouco
+      none: isMusic(p.kind) ? 'Nada no catálogo com esse nome.' : `${g(p, 'Nenhum', 'Nenhuma')} ${p.singular} ${g(p, 'conhecido', 'conhecida')} com esse nome.`,
     };
   });
   readonly picked = output<PickedGame>();
@@ -126,6 +140,13 @@ export class GameSearch {
   protected readonly SearchIcon = Search;
   protected readonly PenIcon = PenLine;
   protected readonly OfflineIcon = WifiOff;
+  protected readonly ArtistIcon = MicVocal;
+  protected readonly GoIcon = ChevronRight;
+  protected readonly formLabel = MUSIC_FORM_LABEL;
+  /** O resultado é um artista (e não um álbum ou uma música)? */
+  protected isArtist(game: PickedGame): boolean {
+    return artistHitId(game) !== null;
+  }
 
   protected readonly inputId = `jogo-${++uid}`;
   protected readonly listId = `${this.inputId}-lista`;
@@ -210,7 +231,8 @@ export class GameSearch {
     this.query.set(value);
     this.active.set(-1);
     this.enterPending = false;
-    this.schedule(value, 240);
+    // o catálogo das músicas aceita poucas buscas por minuto: espera a pessoa parar um pouco mais
+    this.schedule(value, isMusic(this.kind()) ? 380 : 240);
   }
 
   private schedule(value: string, delay: number): void {
@@ -299,7 +321,45 @@ export class GameSearch {
   }
 
   protected choose(opt: Option): void {
+    const artist = opt.kind === 'hit' ? artistHitId(opt.game) : null;
+    if (artist) {
+      void this.browse(opt.game.name, artist);
+      return;
+    }
     this.open.set(false);
     this.picked.emit(opt.game);
+  }
+
+  /** O artista escolhido: o campo fica com o nome dele e a lista passa a ser a dos álbuns dele. */
+  private async browse(name: string, artistId: string): Promise<void> {
+    clearTimeout(this.timer);
+    this.abort?.abort();
+    const ctrl = new AbortController();
+    this.abort = ctrl;
+    const q = name.trim();
+    this.query.set(q);
+    this.active.set(-1);
+    this.enterPending = false;
+    this.hits.set([]);
+    this.hitsFor.set('');
+    this.error.set(null);
+    this.open.set(true);
+    this.loading.set(true);
+    try {
+      const albums = await this.lookup.artistAlbums(artistId, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      this.hits.set(albums);
+      this.hitsFor.set(q);
+    } catch (e) {
+      if (ctrl.signal.aborted || (e as Error).name === 'AbortError') return;
+      this.hits.set([]);
+      this.hitsFor.set(q);
+      this.error.set(e instanceof LookupError ? e.message : 'Algo deu errado na busca.');
+    } finally {
+      if (!ctrl.signal.aborted) {
+        this.loading.set(false);
+        this.searched.set(true);
+      }
+    }
   }
 }

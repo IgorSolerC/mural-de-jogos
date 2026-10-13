@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, signal } from '@angular/core';
-import { ChevronDown, LucideAngularModule } from 'lucide-angular';
+import { ChevronDown, LucideAngularModule, MicVocal } from 'lucide-angular';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
@@ -15,6 +15,8 @@ const GAP = 3;
  * mais escuras. Toda categoria fica em pé enquanto couber na largura (e até oito abas, contando
  * Tudo); as que sobram, as com menos anotações, vão para o "Mais" (um <select> invisível sobre a aba,
  * como o Ordenar). Para saber o que cabe, uma fileira escondida mede cada aba de verdade.
+ *
+ * No mural de músicas, as mesmas divisórias, uma por artista.
  */
 @Component({
   selector: 'app-note-tabs',
@@ -22,7 +24,7 @@ const GAP = 3;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (tabs(); as t) {
-      <div class="abas" role="group" aria-label="Categorias das anotações">
+      <div class="abas" role="group" [attr.aria-label]="music() ? 'Artistas' : 'Categorias das anotações'">
         <button type="button" class="aba" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
           <span class="nome">Tudo</span><span class="n">{{ t.all }}</span>
         </button>
@@ -41,7 +43,7 @@ const GAP = 3;
             @if (x.key === NONE) {
               <span class="nome">{{ x.label }}</span>
             } @else {
-              <app-cat-label class="rotulo-cat" [label]="x.label" [look]="lookOf(x)" [iconSize]="15" />
+              <app-cat-label class="rotulo-cat" [label]="x.label" [look]="lookOf(x)" [glyph]="glyph()" [iconSize]="15" />
             }
             <span class="n">{{ x.n }}</span>
           </button>
@@ -53,8 +55,8 @@ const GAP = 3;
               <span class="n">{{ moreCount() }}</span>
             }
             <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-            <select aria-label="Mais categorias" (change)="choose($any($event.target).value)">
-              <option value="" disabled [selected]="!moreOn()">Mais categorias</option>
+            <select [attr.aria-label]="music() ? 'Mais artistas' : 'Mais categorias'" (change)="choose($any($event.target).value)">
+              <option value="" disabled [selected]="!moreOn()">{{ music() ? 'Mais artistas' : 'Mais categorias' }}</option>
               @for (x of layout().more; track x.key) {
                 <option [value]="x.key" [selected]="active() === x.key">{{ x.label }} ({{ x.n }})</option>
               }
@@ -71,7 +73,7 @@ const GAP = 3;
             @if (x.key === NONE) {
               <span class="nome">{{ x.label }}</span>
             } @else {
-              <app-cat-label class="rotulo-cat" [label]="x.label" [look]="lookOf(x)" [iconSize]="15" />
+              <app-cat-label class="rotulo-cat" [label]="x.label" [look]="lookOf(x)" [glyph]="glyph()" [iconSize]="15" />
             }
             <span class="n">{{ x.n }}</span>
           </span>
@@ -307,9 +309,15 @@ export class NoteTabsBar {
     return splitTabs(t.tabs, this.active(), fits);
   });
 
+  /** O mural de músicas: as abas são dos artistas. */
+  protected readonly music = this.view.music;
+  /** O desenho das abas dos artistas (o microfone); nas anotações, cada categoria tem o dela. */
+  protected readonly glyph = computed(() => (this.music() ? MicVocal : null));
+
   /** O desenho e a cor da categoria: os que o dono do mural escolheu (sem escolha, o de sempre). */
   protected lookOf(x: NoteTab): CategoryLook {
-    return this.view.categoryLooks()[lookKey(x.label)] ?? {};
+    // o artista não é categoria de anotação: não pega o jeito de uma de mesmo nome
+    return this.music() ? {} : (this.view.categoryLooks()[lookKey(x.label)] ?? {});
   }
   protected colorOf(x: NoteTab): string | null {
     return categoryColorHex(this.lookOf(x).color);

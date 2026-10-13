@@ -35,6 +35,8 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'alfabetica', label: 'Nome' },
   { value: 'status', label: 'Status' },
 ];
+/** No mural de músicas, também pelo artista (a aba de cada uma). */
+const MUSIC_SORT_OPTIONS: { value: string; label: string }[] = [...SORT_OPTIONS, { value: 'categoria', label: 'Artista' }];
 /** No mural de anotações: sem status nem notas, e com as categorias. */
 const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'prioridade', label: 'Prioridade' },
@@ -101,17 +103,20 @@ export class WallToolbar {
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   /** O seu mural: só nele as fichas se marcam para o lado a lado. */
   protected readonly mine = computed(() => this.view.owner() === null);
+  /** O mural de músicas com mais de um artista: as divisórias deles vão em cima da pasta. */
+  protected readonly artistTabs = computed(() => this.view.music() && !!this.view.noteTabs()?.tabs.length);
   /** "Procurar no mural" (no de alguém, "Procurar no mural de Marina"), ou "Procurar em Trabalho" com uma aba aberta. */
   protected readonly searchLabel = computed(() => {
     const tab = this.view.activeTabLabel();
-    if (this.view.activeTab() === NO_CATEGORY_TAB) return 'Procurar nas sem categoria';
+    if (this.view.activeTab() === NO_CATEGORY_TAB) return this.view.music() ? 'Procurar nas sem artista' : 'Procurar nas sem categoria';
     if (tab) return `Procurar em ${tab}`;
     return this.mine() ? 'Procurar no mural' : `Procurar no mural de ${this.view.owner()}`;
   });
   /** Numa aba de categoria, ordenar por categoria não separa nada: a opção sai. */
-  protected readonly sortOptions = computed(() =>
-    !this.notes() ? SORT_OPTIONS : this.view.activeTab() === ALL_TAB ? NOTE_SORT_OPTIONS : NOTE_SORT_OPTIONS.filter((o) => o.value !== 'categoria'),
-  );
+  protected readonly sortOptions = computed(() => {
+    const all = this.notes() ? NOTE_SORT_OPTIONS : this.view.music() ? MUSIC_SORT_OPTIONS : SORT_OPTIONS;
+    return this.view.activeTab() === ALL_TAB ? all : all.filter((o) => o.value !== 'categoria');
+  });
   /** A Média e as quatro notas do mural aberto. */
   protected readonly scoreOptions = computed(() =>
     scoreKeys(this.mural.kind()).map((k) => ({ value: `nota:${k}`, label: SCORE_LABEL[k] })),

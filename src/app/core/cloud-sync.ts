@@ -8,7 +8,7 @@ import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
 import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
-import { BackupPayload, ReviewStore, canonicalJson } from './review-store';
+import { BackupPayload, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { Confirm } from '../ui/confirm';
 
@@ -53,11 +53,13 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  *     antigo enviaria o mural sem eles, e os outros aparelhos voltariam ao jeito de sempre.
  * 11: o perfil (`perfil`). Um site antigo enviaria o mural sem ele, e o perfil sumiria para quem
  *     visita até outro aparelho enviar de novo.
+ * 12: o mural de músicas (`musicas`, ao lado de `reviews`, e os campos do item: `form`, `sample`,
+ *     `sampleTitle`, `album`). Um site antigo enviaria o mural sem elas.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 11;
+export const SYNC_SCHEMA = 12;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -281,17 +283,19 @@ const byId = <T extends { id: string }>(list: readonly T[]) => [...list].sort((a
 
 /** A impressão digital do conteúdo do mural (sem a data do backup nem o nome), com as chaves se houver. */
 export async function fingerprint(
-  doc: Pick<BackupPayload, 'reviews' | 'notas' | 'drafts' | 'wishes' | 'deleted'>,
+  doc: Pick<BackupPayload, 'reviews' | 'notas' | 'musicas' | 'drafts' | 'wishes' | 'deleted'>,
   keys: SyncedKeys | null = null,
   tags: SyncedTags | null = null,
   looks: SyncedLooks | null = null,
   profile: SyncedProfile | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
+  const music = Array.isArray(doc.musicas) ? doc.musicas : [];
   const text = canonicalJson({
     reviews: byId(doc.reviews ?? []),
-    // só com anotações: o mural de antes delas continua com a mesma impressão
+    // só com anotações (ou com músicas): o mural de antes delas continua com a mesma impressão
     ...(notes.length ? { notas: byId(notes) } : {}),
+    ...(music.length ? { musicas: byId(music) } : {}),
     drafts: byId(doc.drafts ?? []),
     wishes: byId(doc.wishes ?? []),
     deleted: doc.deleted ?? { reviews: {}, drafts: {}, wishes: {} },
@@ -540,8 +544,8 @@ export class CloudSync {
       }
       await this.keepCopy();
       if (choice === 'conta') {
-        // vazia de tudo, anotações também (sem `notas`, o "substituir" guardaria as daqui)
-        const text = remote.kind === 'doc' ? remote.text : JSON.stringify({ reviews: [], notas: [], drafts: [], wishes: [], deleted: {} });
+        // vazia de tudo, anotações e músicas também (sem `notas` e `musicas`, o "substituir" guardaria as daqui)
+        const text = remote.kind === 'doc' ? remote.text : JSON.stringify({ reviews: [], notas: [], musicas: [], drafts: [], wishes: [], deleted: {} });
         this.apply(() => this.store.importJson(text, 'replace'));
       } else if (remote.kind === 'doc') {
         this.merge(remote.text);
@@ -593,7 +597,7 @@ export class CloudSync {
   }
 
   private describe(doc: BackupPayload): string {
-    const n = doc.reviews.length;
+    const n = payloadReviews(doc).length;
     const notes = Array.isArray(doc.notas) ? doc.notas.length : 0;
     const extra = doc.drafts.length + doc.wishes.length;
     const reviews = `${n} ${n === 1 ? 'resenha' : 'resenhas'}${notes ? `, ${notes} ${notes === 1 ? 'anotação' : 'anotações'}` : ''}`;
@@ -604,7 +608,7 @@ export class CloudSync {
     const len = (k: string) => (Array.isArray(data[k]) ? (data[k] as unknown[]).length : 0);
     const deleted = (data['deleted'] ?? {}) as Record<string, Record<string, unknown> | undefined>;
     const tombs = ['reviews', 'drafts', 'wishes'].reduce((n, k) => n + Object.keys(deleted[k] ?? {}).length, 0);
-    return len('reviews') + len('notas') + len('drafts') + len('wishes') + tombs > 0;
+    return len('reviews') + len('notas') + len('musicas') + len('drafts') + len('wishes') + tombs > 0;
   }
 
   /** A cópia de antes da nuvem (ver cloud-before.ts). */
@@ -755,7 +759,10 @@ export class CloudSync {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
     const reviews = publicReviews(doc.reviews);
+    const musicas = publicReviews(doc.musicas ?? []);
     const notas = publicNotes(doc.notas);
+    // tudo o que os outros veem com nota: as resenhas de sempre e as de música
+    const scored = [...reviews, ...musicas];
     const publico = await gzip(
       // o que os outros veem: sem as fichas privadas (nem o id delas nas seções do perfil)
       JSON.stringify({
@@ -765,12 +772,13 @@ export class CloudSync {
         ...(name ? { owner: { name } } : {}),
         reviews,
         notas,
+        ...(musicas.length ? { musicas } : {}),
         ...(looks ? { categorias: publicCategoryLooks(looks.mapa, notas) } : {}),
-        ...(profile ? { perfil: publicProfile(profile.dados, publicIds(reviews, notas)) } : {}),
+        ...(profile ? { perfil: publicProfile(profile.dados, publicIds(scored, notas)) } : {}),
       }),
     );
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha
-    const novas = newReviews([...doc.reviews, ...notesOf(doc.notas)], now);
+    const novas = newReviews([...payloadReviews(doc), ...notesOf(doc.notas)], now);
     const form = new FormData();
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');
@@ -783,8 +791,8 @@ export class CloudSync {
       cor: shown.photo,
       fundo: shown.background,
       linha: shown.tagline,
-      fichas: reviews.length + notas.length,
-      murais: new Set([...reviews.map((r) => r.kind), ...(notas.length ? ['anotacoes'] : [])]).size,
+      fichas: scored.length + notas.length,
+      murais: new Set([...scored.map((r) => r.kind), ...(notas.length ? ['anotacoes'] : [])]).size,
     };
     form.append('cartao', JSON.stringify(cartao));
     this.pushes.push({ at: now, print });

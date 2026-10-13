@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { BookOpen, ChevronDown, Film, Gamepad2, LucideAngularModule, LucideIconData, Origami, StickyNote, Tv } from 'lucide-angular';
+import { BookOpen, ChevronDown, Disc3, Film, Gamepad2, LucideAngularModule, LucideIconData, Origami, StickyNote, Tv } from 'lucide-angular';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { FriendKinds, Settings } from '../core/settings';
@@ -14,6 +14,7 @@ export const KIND_ICON: Record<Kind, LucideIconData> = {
   filmes: Film,
   series: Tv,
   animes: Origami,
+  musicas: Disc3,
   anotacoes: StickyNote,
 };
 

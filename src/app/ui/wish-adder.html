@@ -31,7 +31,7 @@
       <div class="campos">
         <section class="bloco">
           @if (game(); as gm) {
-            <p class="pergunta">Qual {{ profile().singular }}?</p>
+            <p class="pergunta">{{ profile().ask ?? 'Qual ' + profile().singular + '?' }}</p>
             <div class="tira-item">
               <app-cover-sleeve class="ti-capa" size="thumb" [game]="gm" />
               <div class="ti-txt">

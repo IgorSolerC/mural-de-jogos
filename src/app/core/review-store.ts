@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS } from './kinds';
 import { backupLists, gzip } from './backup-file';
 import { DataKey, LocalData } from './local-data';
-import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, Stock, Wish, isCatalogBonus, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, storedNote } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, isCatalogBonus, isMusicReview, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -14,6 +14,18 @@ const DELETED_KEY = 'mural-de-jogos:apagadas:v1';
  * lê e regrava a lista de resenhas sem conhecer anotação, e a jogaria fora.
  */
 const NOTES_KEY = 'mural-de-jogos:anotacoes:v1';
+/** As músicas também (ver `shelfOf`): o site antigo as leria como jogos, e gravaria por cima. */
+const MUSIC_KEY = 'mural-de-jogos:musicas:v1';
+
+/** Onde cada lista de fichas é gravada. */
+const SHELF_KEY: Record<Shelf, DataKey> = { reviews: KEY, notas: NOTES_KEY, musicas: MUSIC_KEY };
+
+/** As fichas separadas pela lista em que cada uma mora, na ordem em que estão. */
+function shelved(list: readonly Review[]): Record<Shelf, Review[]> {
+  const out: Record<Shelf, Review[]> = { reviews: [], notas: [], musicas: [] };
+  for (const r of list) out[shelfOf(r)].push(r);
+  return out;
+}
 
 /** id → quando foi apagado (ISO). */
 export interface Deleted {
@@ -31,6 +43,8 @@ export interface BackupPayload {
   reviews: Review[];
   /** As anotações, sem notas (ver `storedNote`). Fora de `reviews` para um site antigo nem vê-las. */
   notas?: unknown[];
+  /** As fichas do mural de músicas, inteiras. Fora de `reviews` pelo mesmo motivo. */
+  musicas?: Review[];
   drafts: Draft[];
   wishes: Wish[];
   deleted: Deleted;
@@ -111,11 +125,8 @@ export class ReviewStore {
     return Object.fromEntries(KINDS.map((k) => [k, sorted(seen[k])])) as Record<Kind, Bonus[]>;
   });
 
-  /** O que foi gravado por último em cada parte (ver o efeito das resenhas). */
-  private written: { reviews: readonly Review[]; notes: readonly Review[] } = {
-    reviews: this.reviews().filter((r) => !isNote(r)),
-    notes: this.reviews().filter(isNote),
-  };
+  /** O que foi gravado por último em cada lista (ver o efeito das resenhas). */
+  private written: Record<Shelf, readonly Review[]> = shelved(this.reviews());
   /** As listas que acabaram de vir de outra aba: a próxima passada do efeito delas não grava. */
   private readonly skipNext = new Set<DataKey>();
   /**
@@ -133,19 +144,20 @@ export class ReviewStore {
   constructor() {
     effect(() => {
       const list = this.reviews();
-      // cada parte só é regravada quando mudou: pregar uma resenha não regrava as anotações
-      const reviews = list.filter((r) => !isNote(r));
-      const notes = list.filter(isNote);
+      // cada lista só é regravada quando mudou: pregar uma resenha não regrava as anotações nem as músicas
+      const now = shelved(list);
       // vindo de outra aba, o que está gravado já é isto: anota sem gravar (senão a próxima mudança
-      // daqui regravaria a outra parte também, por cima do que a outra aba pode ter gravado depois)
+      // daqui regravaria as outras listas também, por cima do que a outra aba pode ter gravado depois)
       if (this.skipNext.delete(KEY)) {
-        this.written = { reviews, notes };
+        this.written = now;
         return;
       }
       if (list === this.loaded.reviews) return;
-      if (!sameItems(reviews, this.written.reviews)) this.write(KEY, reviews);
-      if (!sameItems(notes, this.written.notes)) this.write(NOTES_KEY, notes.map(storedNote));
-      this.written = { reviews, notes };
+      for (const shelf of SHELVES) {
+        if (sameItems(now[shelf], this.written[shelf])) continue;
+        this.write(SHELF_KEY[shelf], shelf === 'notas' ? now[shelf].map(storedNote) : now[shelf]);
+      }
+      this.written = now;
     });
     this.persist(this.drafts, DRAFTS_KEY, this.loaded.drafts);
     this.persist(this.wishes, WISHES_KEY, this.loaded.wishes);
@@ -154,7 +166,7 @@ export class ReviewStore {
     // Outra aba mexeu no mural: acompanha sem sobrescrever.
     if (typeof window !== 'undefined') {
       this.data.onExternalChange((key) => {
-        if (key === KEY || key === NOTES_KEY) {
+        if (key === KEY || key === NOTES_KEY || key === MUSIC_KEY) {
           this.skipNext.add(KEY);
           this.reviews.set(this.read());
         } else if (key === DRAFTS_KEY) {
@@ -243,16 +255,17 @@ export class ReviewStore {
   }
 
   /**
-   * Salva a ficha. Na original, o item (nome, capa, ano) vai junto para as rejogadas dela: é a mesma
-   * obra, e a rejogada não tem como trocar o item sozinha.
+   * Salva a ficha. Na original, o item (nome, capa, ano; nas músicas, também o artista, que é a aba
+   * dela) vai junto para as rejogadas dela: é a mesma obra, e a rejogada não tem como trocar o item sozinha.
    */
   update(review: Review): OriginalSwap | null {
     const before = this.get(review.id);
-    const sameGame = !before || review.revisitOf || JSON.stringify(before.game) === JSON.stringify(review.game);
+    const sameItem =
+      !before || review.revisitOf || (JSON.stringify(before.game) === JSON.stringify(review.game) && (!isMusicReview(review) || before.category === review.category));
     this.reviews.update((list) =>
       list.map((r) => {
         if (r.id === review.id) return review;
-        if (!sameGame && r.revisitOf === review.id) return { ...r, game: review.game, updatedAt: review.updatedAt };
+        if (!sameItem && r.revisitOf === review.id) return withItemOf(r, review);
         return r;
       }),
     );
@@ -367,13 +380,15 @@ export class ReviewStore {
    */
   snapshot(ownerName = ''): BackupPayload {
     const name = ownerName.trim();
+    const shelves = shelved(this.reviews());
     return {
       app: 'meu-mural',
       version: 2,
       exportedAt: new Date().toISOString(),
       ...(name ? { owner: { name } } : {}),
-      reviews: this.reviews().filter((r) => !isNote(r)),
-      notas: this.reviews().filter(isNote).map(storedNote),
+      reviews: shelves.reviews,
+      notas: shelves.notas.map(storedNote),
+      musicas: shelves.musicas,
       drafts: this.drafts(),
       wishes: this.wishes(),
       deleted: this.deleted(),
@@ -391,8 +406,8 @@ export class ReviewStore {
 
   /** Lança Error com mensagem pronta para o usuário quando o arquivo não serve. */
   importJson(text: string, mode: 'merge' | 'replace'): ImportResult {
-    // as anotações vêm à parte; um backup de antes delas (ou de um site antigo) não tem o campo
-    const { object, reviews: rawList, notes: rawNotes } = backupLists(text);
+    // as anotações e as músicas vêm à parte; um backup de antes delas (ou de um site antigo) não tem o campo
+    const { object, reviews: rawList, notes: rawNotes, music: rawMusic } = backupLists(text);
     const listOf = (field: string) => (Array.isArray(object?.[field]) ? (object[field] as unknown[]) : null);
     // Backups antigos não têm pendentes: nesse caso a fila atual fica como está.
     const rawDrafts = listOf('drafts');
@@ -402,7 +417,7 @@ export class ReviewStore {
     const incomingWishes = (rawWishes ?? []).map(sanitizeWish).filter((w): w is Wish => w !== null);
     const incoming: Review[] = [];
     let skipped = 0;
-    for (const raw of [...rawList, ...(rawNotes ?? [])]) {
+    for (const raw of [...rawList, ...(rawNotes ?? []), ...(rawMusic ?? [])]) {
       const r = sanitizeReview(raw);
       if (r) incoming.push(r);
       else skipped++;
@@ -410,8 +425,9 @@ export class ReviewStore {
     const theirs = sanitizeDeleted(object?.['deleted']);
 
     if (mode === 'replace') {
-      // sem o campo, as anotações daqui ficam como estão (o backup não sabia delas)
-      this.reviews.set(withStocks(rawNotes ? incoming : [...incoming, ...this.reviews().filter(isNote)]));
+      // sem o campo, as anotações (ou as músicas) daqui ficam como estão: o backup não sabia delas
+      const kept = this.reviews().filter((r) => (isNote(r) && !rawNotes) || (isMusicReview(r) && !rawMusic));
+      this.reviews.set(withStocks([...incoming, ...kept]));
       if (rawDrafts) this.drafts.set(incomingDrafts);
       if (rawWishes) this.wishes.set(incomingWishes);
       this.deleted.set(theirs);
@@ -527,7 +543,7 @@ export class ReviewStore {
   }
 
   private read(): Review[] {
-    return withStocks([...this.readList(KEY, sanitizeReview), ...this.readList(NOTES_KEY, sanitizeReview)]);
+    return withStocks(SHELVES.flatMap((shelf) => this.readList(SHELF_KEY[shelf], sanitizeReview)));
   }
 
   private readDrafts(): Draft[] {
@@ -610,6 +626,18 @@ export class ReviewStore {
       /* sem espaço: não há o que fazer */
     }
   }
+}
+
+/** As resenhas de um mural guardado (backup, nuvem): as de sempre e as de música, que vêm à parte. */
+export function payloadReviews(doc: Pick<BackupPayload, 'reviews' | 'musicas'>): Review[] {
+  return Array.isArray(doc.musicas) && doc.musicas.length ? [...doc.reviews, ...doc.musicas] : doc.reviews;
+}
+
+/** A rejogada com o item da original (e, nas músicas, o artista dela). */
+function withItemOf(revisit: Review, original: Review): Review {
+  const { category: _was, ...rest } = revisit;
+  const artist = isMusicReview(original) ? original.category : revisit.category;
+  return { ...rest, game: original.game, ...(artist ? { category: artist } : {}), updatedAt: original.updatedAt };
 }
 
 /** As duas listas têm as mesmas fichas, na mesma ordem (as mesmas referências)? */

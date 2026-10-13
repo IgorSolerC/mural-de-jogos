@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { LucideAngularModule, VolumeOff } from 'lucide-angular';
@@ -42,15 +42,19 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
  * O som do YouTube e do Vimeo vem do player deles, escondido atrás do widget, que só carrega no
  * primeiro toque e obedece por mensagem (tocar, parar, pular). A peça é colada (`data-colado`): o
  * estrago da ficha nunca a come.
+ *
+ * O vinil também é a capa das fichas do mural de músicas (ver ui/record-cover.ts): a peça `bare`,
+ * solta do texto, com a capa do álbum (`art`) e sem a barra.
  */
 @Component({
   selector: 'app-audio-track',
   imports: [LucideAngularModule, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.solta]': 'bare()' },
   template: `
     @let a = info();
     <div class="peca">
-    @if (broken(); as why) {
+    @if (problem(); as why) {
       <span class="falha">
         <lucide-icon [img]="MuteIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
         <span class="falha-nome">{{ why }}</span>
@@ -156,25 +160,29 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
                   <span class="selo"><span class="selo-a">Lado A</span><span class="selo-b">Estéreo</span></span>
                 </span>
                 <span class="disco-brilho" aria-hidden="true"></span>
-                <button type="button" class="tocar-disco tocavel" [attr.aria-label]="playLabel()" [attr.aria-pressed]="playing()" (click)="toggle($event)">
-                  <ng-container *ngTemplateOutlet="playIcon" />
-                </button>
+                @if (playable()) {
+                  <button type="button" class="tocar-disco tocavel" [attr.aria-label]="playLabel()" [attr.aria-pressed]="playing()" (click)="toggle($event)">
+                    <ng-container *ngTemplateOutlet="playIcon" />
+                  </button>
+                }
               </div>
               <div class="capa" data-colado [class.parda]="!capa">
                 @if (capa) {
-                  <img [src]="capa" alt="" referrerpolicy="no-referrer" decoding="async" (error)="coverFailed.set(true)" />
+                  <img [class.arte]="capa === art()" [src]="capa" alt="" referrerpolicy="no-referrer" decoding="async" (error)="coverFailed.set(true)" />
                   @if (a.title) {
                     <span class="capa-adesivo">{{ a.title }}</span>
                   }
                 } @else {
-                  <span class="capa-nome">{{ a.title || 'Lado A' }}</span>
+                  <span class="capa-nome">{{ sleeve() || a.title || 'Lado A' }}</span>
                 }
                 <span class="capa-gasta" aria-hidden="true"></span>
               </div>
             </div>
-            <div class="pe">
-              <ng-container *ngTemplateOutlet="bar" />
-            </div>
+            @if (!bare() || withBar()) {
+              <div class="pe">
+                <ng-container *ngTemplateOutlet="bar" />
+              </div>
+            }
           }
           @default {
             <div class="tira" data-colado>
@@ -189,7 +197,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
           }
         }
         @if (stuck()) {
-          <p class="aviso" role="status">Não começou a tocar. Toque de novo.</p>
+          <p class="aviso" [class.sr-only]="bare()" role="status">Não começou a tocar. Toque de novo.</p>
         }
       </div>
     }
@@ -248,6 +256,8 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     </ng-template>
   `,
   styles: `
+    @use 'vinyl';
+
     :host {
       position: relative;
       display: block;
@@ -705,204 +715,19 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       --s: min(calc(100cqw / 1.72), calc(var(--widget-alto, 22em) - 1.05em - 2.1em));
       width: calc(var(--s) * 1.72);
     }
-    .vitrola {
-      position: relative;
-      font-size: calc(var(--s) / 10);
-      width: 17.2em;
-      height: 10em;
-      rotate: var(--giro);
-    }
-    .capa {
-      position: absolute;
-      z-index: 2;
-      inset: 0 auto auto 0;
-      width: 10em;
-      height: 10em;
-      overflow: hidden;
-      border-radius: 1px;
-      background: #1c1b1e;
-      box-shadow:
-        0 1px 1px rgb(0 0 0 / 0.34),
-        0.18em 0.3em 0.55em -0.12em rgb(0 0 0 / 0.42);
-    }
-    /* a foto do vídeo cobre a capa; o 4:3 do YouTube tem tarjas pretas em cima e embaixo, que ficam
-       de fora */
-    .capa img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      scale: 1.34;
-    }
-    /* sem foto: o envelope pardo, com o nome escrito a pincel */
-    .capa.parda {
-      display: grid;
-      place-items: center;
-      padding: 1em;
-      box-sizing: border-box;
-      background: var(--paper-grain), #c9a674;
-      background-blend-mode: multiply;
-    }
-    .capa-nome {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 4;
-      overflow: hidden;
-      max-width: 100%;
-      color: #151515;
-      font-family: var(--f-marker);
-      font-size: 1.25em;
-      line-height: 1.08;
-      text-align: center;
-      overflow-wrap: anywhere;
-      rotate: -4deg;
-    }
-    /* o nome, à caneta numa etiqueta branca colada no canto da capa (como o adesivo da loja) */
-    .capa-adesivo {
-      position: absolute;
-      z-index: 1;
-      left: 0.55em;
-      bottom: 0.6em;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      overflow: hidden;
-      max-width: 7.6em;
-      padding: 0.2em 0.45em 0.15em;
-      border-radius: 1px;
-      background: #fbfaf6;
-      color: #151515;
-      font-family: var(--f-hand);
-      font-size: 0.95em;
-      line-height: 1.12;
-      overflow-wrap: anywhere;
-      rotate: -2.5deg;
-      box-shadow: 0 1px 1.5px rgb(0 0 0 / 0.35);
-    }
-    /* a capa gasta: o aro que o disco marcou de tanto entrar e sair, e a borda puída */
-    .capa-gasta {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: radial-gradient(circle closest-side, transparent 85%, rgb(255 255 255 / 0.1) 88.5%, transparent 92%);
-      box-shadow:
-        inset 0 0 0 1px rgb(255 255 255 / 0.14),
-        inset 0 0 0.7em rgb(0 0 0 / 0.28);
-    }
-    .disco {
-      position: absolute;
-      z-index: 1;
-      top: 0.3em;
-      left: 6.55em;
-      width: 9.4em;
-      height: 9.4em;
-      border-radius: 50%;
-      box-shadow:
-        0 1px 1px rgb(0 0 0 / 0.4),
-        0.1em 0.3em 0.6em -0.1em rgb(0 0 0 / 0.38);
-      transition: translate var(--t-physical) var(--ease-physical);
-    }
-    /* tocando, o disco sai mais um pouco da capa */
-    .tocando .disco {
-      translate: 0.6em 0;
-    }
-    .sulcos {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      background:
-        radial-gradient(circle closest-side, transparent 0 35%, #0d0d0d 35% 39.5%, transparent 39.5% 62%, rgb(255 255 255 / 0.05) 62% 62.8%, transparent 62.8% 96.5%, #0d0d0d 96.5%),
-        repeating-radial-gradient(circle closest-side, #161616 0 0.06em, #232323 0.06em 0.12em);
-      animation: disco-gira 1.8s linear infinite;
-      animation-play-state: paused;
-    }
-    .tocando .sulcos {
-      animation-play-state: running;
-    }
-    @keyframes disco-gira {
-      to {
-        rotate: 1turn;
-      }
-    }
-    /* o selo do meio, impresso: "Lado A" em cima e "Estéreo" embaixo, para ver o disco girar */
-    .selo {
-      display: grid;
-      align-content: space-between;
-      justify-items: center;
-      width: 3.3em;
-      height: 3.3em;
-      padding: 0.32em 0;
-      box-sizing: border-box;
-      border-radius: 50%;
-      background: #efe3c4;
-      box-shadow: inset 0 0 0 0.12em #c9352c;
-      color: #151515;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1em;
-      line-height: 1;
-      text-transform: uppercase;
-    }
-    .selo-a {
-      font-size: 0.42em;
-      letter-spacing: 0.12em;
-    }
-    .selo-b {
-      font-size: 0.34em;
-      letter-spacing: 0.14em;
-    }
-    /* o brilho da luz no vinil fica parado enquanto o disco gira */
-    .disco-brilho {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      pointer-events: none;
-      background: conic-gradient(from 25deg, transparent 0 5%, rgb(255 255 255 / 0.14) 10%, transparent 16% 50%, rgb(255 255 255 / 0.1) 55%, transparent 61%);
-      -webkit-mask: radial-gradient(circle closest-side, transparent 35%, #000 36%);
-      mask: radial-gradient(circle closest-side, transparent 35%, #000 36%);
-    }
-    .tocar-disco {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      display: grid;
-      place-items: center;
-      width: 2.15em;
-      height: 2.15em;
-      margin: -1.075em 0 0 -1.075em;
+    @include vinyl.record;
+
+    /* A peça solta (a capa das fichas de música): só o vinil, do tamanho da caixa onde está, reto (o
+       torto é o da foto colada na ficha). A capa do álbum já é quadrada: não tem as tarjas do YouTube */
+    :host(.solta) {
       padding: 0;
-      border: 0;
-      border-radius: 50%;
-      background: #151515;
-      color: #f4ecd6;
-      font-size: 1em;
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
-      cursor: pointer;
-      transition: scale var(--t-ui) var(--ease-ui);
     }
-    /* o toque pega um pouco além do botão (no celular, ele é pequeno) */
-    .tocar-disco::after {
-      content: '';
-      position: absolute;
-      inset: -0.5em;
-      border-radius: 50%;
+    :host(.solta) .jeito-vinil {
+      --s: calc(100cqw / 1.72);
+      width: 100%;
     }
-    .tocar-disco svg {
-      width: 1.1em;
-      height: 1.1em;
-      fill: currentColor;
-    }
-    .tocar-disco:hover {
-      scale: 1.08;
-    }
-    .tocar-disco:active {
-      scale: 0.96;
-    }
-    .tocar-disco:focus-visible {
-      outline: 3px solid var(--hi);
-      outline-offset: 2px;
+    .capa img.arte {
+      scale: none;
     }
     .pe {
       display: grid;
@@ -1007,6 +832,21 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
 export class AudioTrack {
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
+  /** A capa do vinil, quando não é a foto do vídeo: a do álbum, nas fichas de música. */
+  readonly art = input<string | null>(null);
+  /**
+   * A peça solta do texto (a capa das fichas de música): só o vinil, sem a barra de arrastar, do
+   * tamanho da caixa onde está. O disco aparece mesmo sem som para tocar (aí, sem o botão).
+   */
+  readonly bare = input(false);
+  /** Começa tocando: a peça só foi montada porque a pessoa pediu para tocar (ver ui/record-cover.ts). */
+  readonly autoplay = input(false);
+  /** A peça solta com a barra de arrastar embaixo do vinil (na leitura da ficha). */
+  readonly withBar = input(false);
+  /** O que vai escrito no envelope pardo (sem foto) quando não é o nome da faixa: o nome do disco. */
+  readonly sleeve = input('');
+  /** O nome que o botão de tocar diz ao leitor de tela, quando a faixa não tem nome escrito. */
+  readonly spoken = input('');
 
   protected readonly MuteIcon = VolumeOff;
   protected readonly clock = clock;
@@ -1050,8 +890,8 @@ export class AudioTrack {
   protected readonly reelRight = computed(() => pack(this.share()));
   protected readonly spokenTime = computed(() => `${clock(this.shown())} de ${this.duration() ? clock(this.duration()) : 'duração desconhecida'}`);
   protected readonly playLabel = computed(() => {
-    const t = this.info().title;
-    return this.playing() || this.waiting() ? 'Pausar' : `Tocar${t ? ': ' + t : ''}`;
+    const t = this.info().title || this.spoken();
+    return this.playing() || this.waiting() ? `Pausar${this.spoken() ? ': ' + t : ''}` : `Tocar${t ? ': ' + t : ''}`;
   });
 
   /** O que não deixa a faixa aparecer (sem link, link sem https, link que não toca aqui, não abriu). */
@@ -1063,6 +903,10 @@ export class AudioTrack {
     if (this.failed()) return 'O som não abriu';
     return '';
   });
+  /** O aviso no lugar da faixa. A peça solta nunca vira aviso: sem som, fica o disco parado. */
+  protected readonly problem = computed(() => (this.bare() ? '' : this.broken()));
+  /** Tem som para tocar: o botão do disco aparece. */
+  protected readonly playable = computed(() => !!this.source() && !this.failed());
   protected readonly host = computed(() => {
     try {
       return new URL(this.info().url).hostname.replace(/^www\./, '');
@@ -1070,14 +914,18 @@ export class AudioTrack {
       return '';
     }
   });
-  /** A capa do vinil: a foto do vídeo do YouTube (o Vimeo e os arquivos ficam no envelope pardo). */
+  /**
+   * A capa do vinil: a que veio de fora (`art`) ou a foto do vídeo do YouTube (o Vimeo e os arquivos
+   * ficam no envelope pardo).
+   */
   protected readonly cover = computed(() => {
+    if (this.coverFailed()) return null;
     const s = this.source();
-    return s?.kind === 'youtube' && !this.coverFailed() ? `https://i.ytimg.com/vi/${s.id}/hqdefault.jpg` : null;
+    return this.art() ?? (s?.kind === 'youtube' ? `https://i.ytimg.com/vi/${s.id}/hqdefault.jpg` : null);
   });
   /** O giro da fita e do vinil, do link: entre 0,5 e 1,5 grau, para um lado ou para o outro. */
   protected readonly tilt = computed(() => {
-    if (this.info().look === 'simples') return 0;
+    if (this.info().look === 'simples' || this.bare()) return 0;
     let h = 0;
     for (const ch of this.info().url) h = (h * 31 + ch.charCodeAt(0)) | 0;
     const mag = 0.5 + (Math.abs(h) % 100) / 100;
@@ -1105,7 +953,10 @@ export class AudioTrack {
   private startWatch = 0;
 
   constructor() {
-    snapToLines('.peca');
+    snapToLines('.peca', () => this.bare());
+    afterNextRender(() => {
+      if (this.autoplay()) this.play();
+    });
     // trocou o link: o player de fora de antes some (o iframe sai junto com o embed), começa do zero
     effect(() => {
       this.url();

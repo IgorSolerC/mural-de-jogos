@@ -122,6 +122,8 @@ export class CategoryLabel {
   readonly label = input.required<string>();
   readonly look = input<CategoryLook>({});
   readonly iconSize = input(13);
+  /** O desenho de quem não é categoria de anotação (o artista, nas músicas): vale no lugar do dela. */
+  readonly glyph = input<LucideIconData | null>(null);
 
-  protected readonly icon = computed(() => categoryIcon(this.label(), this.look()));
+  protected readonly icon = computed(() => this.glyph() ?? categoryIcon(this.label(), this.look()));
 }

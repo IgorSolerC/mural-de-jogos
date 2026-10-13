@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
-import { Check, CheckCheck, CornerDownRight, Eye, ListChecks, LockKeyhole, LucideAngularModule, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
+import { Check, CheckCheck, CornerDownRight, Eye, ListChecks, LockKeyhole, LucideAngularModule, MicVocal, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -21,6 +21,9 @@ import {
   isDarkStock,
   artIdOf,
   isNote,
+  isMusicReview,
+  musicFormOf,
+  MUSIC_FORM_LABEL,
   audienceOf,
 } from '../core/review';
 import { cutsPaper, decorCuts, lookOf } from '../core/paper';
@@ -33,6 +36,7 @@ import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { CategoryLabel } from './category-label';
 import { Boletim } from './boletim';
 import { CoverSleeve } from './cover-sleeve';
+import { RecordCover } from './record-cover';
 import { JudgeLabel } from './judge-label';
 import { Luz } from './luz';
 import { Skulls } from './difficulty';
@@ -86,7 +90,7 @@ function watchDistance(el: HTMLElement): () => void {
  */
 @Component({
   selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel],
+  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
   hostDirectives: [Luz],
@@ -119,6 +123,8 @@ function watchDistance(el: HTMLElement): () => void {
     // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra. Um nome só da
     // ficha: as páginas que a usam têm `.nota` delas (o bilhete do Feed pintava a anotação de papel)
     '[class.ficha-anotacao]': 'note()',
+    // a ficha de música: o vinil no lugar da foto, e o artista na orelha
+    '[class.ficha-musica]': 'music()',
     '[class.sem-capa]': 'note() && !review().game.coverUrl',
     // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
     '[class.fixada]': 'note() && review().noteRank === "fixada"',
@@ -134,23 +140,32 @@ function watchDistance(el: HTMLElement): () => void {
     <app-pin class="pin" [color]="pin().pinColor" />
     <!-- a categoria da anotação: a orelha de divisória de papel manilha, colada atrás da cartolina e
          saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
-         para o leitor de tela) -->
-    @if (note() && !capas() && noteLabels().category; as c) {
-      <span #abaCat class="aba-cat" [class.com-selo]="publicBadge() || visibleBadge()" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
-        <app-cat-label [label]="c.label" [look]="catLook()" [iconSize]="compact() ? 12 : 13" />
+         para o leitor de tela). Na ficha de música, a orelha é do artista (a aba dele no mural) -->
+    @if ((note() || music()) && !capas() && !bare() && noteLabels().category; as c) {
+      <span #abaCat class="aba-cat" [class.com-selo]="note() && (publicBadge() || visibleBadge())" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
+        <app-cat-label [label]="c.label" [look]="catLook()" [glyph]="music() ? ArtistIcon : null" [iconSize]="compact() ? 12 : 13" />
       </span>
     }
 
     <div class="head">
       @if (!note() || review().game.coverUrl) {
-      <div class="cover" data-colado>
+      <div class="cover" data-colado [class.toca]="spins()">
         <div class="box">
+          @if (music()) {
+            <!-- a música: o vinil saindo da capa do álbum; o botão do disco toca a amostra ali mesmo.
+                 Na ficha simples e na de capa e nome, o disco só aponta para fora, parado -->
+            <app-record-cover [game]="review().game" [tucked]="!spins()" [still]="bare()" />
+            @if (review().status !== 'finalizado' && !capas()) {
+              <app-status-label class="faixa faixa-disco" [status]="review().status" [kind]="review().kind" [band]="true" />
+            }
+          } @else {
           <app-cover-sleeve [game]="review().game" [decorative]="true" [size]="compact() ? 'thumb' : 'card'">
             <!-- Finalizado é o normal e não se anuncia; o que foge do normal vem impresso na faixa da capa -->
             @if (review().status !== 'finalizado' && !capas() && !note()) {
               <app-status-label class="faixa" [status]="review().status" [kind]="review().kind" [band]="true" />
             }
           </app-cover-sleeve>
+          }
           <!-- Os selinhos da foto, colados um embaixo do outro no canto, cada um um pouco por cima do
                de cima: o cadeado da privada (só no seu mural; a ficha nunca sai dele) e, só capa e
                nome, o "outra vez" que distingue a rejogada da original. Um selo novo entra no fim. -->
@@ -235,6 +250,10 @@ function watchDistance(el: HTMLElement): () => void {
           </p>
         } @else if (!capas()) {
         <p class="meta" data-queima>
+          <!-- a música diz primeiro o que é: um álbum inteiro ou uma música só -->
+          @if (music() && !compact() && !empty()) {
+            <span>{{ formLabel() }}</span><span aria-hidden="true"> · </span>
+          }
           <!-- a rejogada diz o que é antes da data; a original jogada mais vezes diz quantas, depois -->
           @if (review().revisitOf) {
             <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" [strokeWidth]="3" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
@@ -488,13 +507,13 @@ function watchDistance(el: HTMLElement): () => void {
     :host(.so-cartolina) .cover .box {
       overflow: hidden;
     }
-    :host(.so-cartolina) .cover app-cover-sleeve {
+    :host(.so-cartolina) .cover :is(app-cover-sleeve, app-record-cover) {
       transition: filter var(--t-physical) var(--ease-physical);
     }
-    :host([data-capa='cinza']) .cover app-cover-sleeve {
+    :host([data-capa='cinza']) .cover :is(app-cover-sleeve, app-record-cover) {
       filter: blur(6px) grayscale(1);
     }
-    :host([data-capa='borrada']) .cover app-cover-sleeve {
+    :host([data-capa='borrada']) .cover :is(app-cover-sleeve, app-record-cover) {
       filter: blur(6px);
     }
     /* As camadas do papel saem de vez (são absolutas: a ficha não muda de tamanho). Só esconder não
@@ -1416,6 +1435,36 @@ function watchDistance(el: HTMLElement): () => void {
       font-size: 1.1rem;
     }
 
+    /* ===== Ficha de música: o vinil no lugar da foto =====
+       A coluna da foto alarga para caber a capa (quadrada) e o disco saindo dela; na ficha simples e
+       na de capa e nome, a coluna é a de sempre e o disco só aponta para fora. */
+    :host(.ficha-musica:not(.compact):not(.capas)) {
+      --cover-w: 186px;
+    }
+    /* o vinil que toca fica por cima do botão da ficha, mas só o botão do disco pega o toque: o resto
+       da capa deixa o toque passar e abre a leitura, como a foto */
+    .cover.toca,
+    :host(.orelha) .cover.toca {
+      z-index: 5;
+      pointer-events: none;
+    }
+    .cover.toca ::ng-deep .tocavel {
+      pointer-events: auto;
+    }
+    /* a faixa de status vai no pé da capa, não do disco: a capa é 10 dos 17,2 da largura do vinil
+       (10 dos 13, com o disco enfiado) */
+    .faixa-disco {
+      right: auto;
+      width: calc(100% / 1.72);
+    }
+    :host(.compact) .faixa-disco {
+      width: calc(100% / 1.3);
+    }
+    /* na tira, a capa quadrada é mais baixa que a foto de sempre: fica no meio da altura */
+    :host(.ficha-musica.compact) .cover {
+      align-self: center;
+    }
+
     /* Chegada ao mural: a ficha cai, a tachinha entra com força */
     :host(.is-landing) {
       animation: land 620ms var(--ease-physical) both;
@@ -1495,6 +1544,21 @@ function watchDistance(el: HTMLElement): () => void {
         grid-template-areas:
           'words'
           'judge';
+      }
+      /* a música: o vinil e a etiqueta lado a lado, e o nome embaixo, na largura toda (ao lado do
+         vinil, que é largo, sobraria uma coluna de poucas letras) */
+      :host(.ficha-musica:not(.compact):not(.capas)) {
+        --cover-w: min(158px, 52%);
+      }
+      :host(.ficha-musica:not(.compact):not(.capas)) .head {
+        grid-template-areas:
+          'cover judge'
+          'words words';
+        gap: 0 14px;
+      }
+      :host(.ficha-musica:not(.compact):not(.capas)) .judge {
+        align-self: center;
+        margin-top: 0;
       }
       .title {
         font-size: 1.46rem;
@@ -1700,6 +1764,13 @@ export class ReviewCard {
 
   /** É uma anotação (mural de anotações): sem nota nem veredito; as categorias e o texto. */
   protected readonly note = computed(() => isNote(this.review()));
+  /** É uma ficha de música: o vinil no lugar da foto e o artista na orelha. */
+  protected readonly music = computed(() => isMusicReview(this.review()));
+  /** O vinil inteiro, que toca: na ficha completa e na inteira (nas pequenas, o disco fica enfiado na capa). */
+  protected readonly spins = computed(() => this.music() && !this.compact() && !this.capas());
+  /** "Álbum" ou "Música". */
+  protected readonly formLabel = computed(() => MUSIC_FORM_LABEL[musicFormOf(this.review().game)]);
+  protected readonly ArtistIcon = MicVocal;
   /** A categoria (na orelha) e as tags que cabem ao lado da foto (até 4 na Completa, 2 na Simples); o resto vira "+N". */
   protected readonly noteLabels = computed(() => {
     const r = this.review();
@@ -1712,7 +1783,8 @@ export class ReviewCard {
   /** O desenho e a cor da categoria na orelha: os que o dono escolheu (sem escolha, o de sempre). */
   protected readonly catLook = computed<CategoryLook>(() => {
     const c = this.review().category;
-    return (c && this.looks()[lookKey(c)]) || {};
+    // o artista não é categoria de anotação: não pega o jeito de uma de mesmo nome
+    return (!this.music() && c && this.looks()[lookKey(c)]) || {};
   });
   protected readonly catColor = computed(() => categoryColorHex(this.catLook().color));
 
@@ -1739,7 +1811,7 @@ export class ReviewCard {
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().stain) || decorCuts(this.review().decor));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() =>
-    this.note() ? 'Título da anotação' : `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`,
+    this.note() ? 'Título da anotação' : this.music() ? 'Álbum ou música' : `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`,
   );
   /** Só a cartolina: "Data · Horas · Dificuldade", com as partes que o mural tem. */
   protected readonly bareMeta = computed(() => {
@@ -1817,6 +1889,7 @@ export class ReviewCard {
       return `Abrir anotação: ${[r.game.name, rank, done, cats, todo, when, { publicar: 'publicada', visivel: 'visível', privada: '' }[audienceOf(r)]].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];
+    if (isMusicReview(r)) parts.push(`${MUSIC_FORM_LABEL[musicFormOf(r.game)].toLowerCase()}${r.category ? ' de ' + r.category : ''}`);
     if (this.masked()) {
       if (r.bonuses.length) parts.push(`${r.bonuses.length} bônus`);
     } else {

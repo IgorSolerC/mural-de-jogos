@@ -541,6 +541,45 @@ describe('sincronização com a nuvem', () => {
     expect(JSON.parse(((put.args[1] as RequestInit).body as FormData).get('novas') as string)).toEqual([]);
     expect((await cloud.read()).reviews.map((r: Review) => [r.id, r.private])).toEqual([['rpriv01', true]]);
   });
+
+  it('as músicas vão à parte (`musicas`): inteiras no privado, sem as privadas no público, e viram aviso', async () => {
+    const a = device();
+    const now = new Date().toISOString();
+    const music = (id: string, name: string, extra: Record<string, unknown> = {}) =>
+      sanitizeReview({
+        id,
+        kind: 'musicas',
+        game: { name, coverUrl: null, source: 'manual', form: 'album' },
+        category: 'Radiohead',
+        scores: { envolvimento: 9, letra: 8, vocal: 8, instrumental: 8 },
+        status: 'finalizado',
+        completedAt: '2026-01-01',
+        createdAt: now,
+        updatedAt: now,
+        ...extra,
+      })!;
+    a.store.add(music('rmus0001', 'OK Computer'));
+    a.store.add(music('rmus0002', 'Segredo', { private: true }));
+    a.store.add(review('rjogo001', 'Hades'));
+    const fetchSpy = window.fetch as jasmine.Spy;
+    await a.sync.syncNow();
+    const priv = (await cloud.read()) as unknown as { reviews: Review[]; musicas: Review[] };
+    expect(priv.reviews.map((r) => r.id)).toEqual(['rjogo001']);
+    expect(priv.musicas.map((r) => r.id).sort()).toEqual(['rmus0001', 'rmus0002']);
+    const pub = (await cloud.readPublic()) as unknown as { reviews: Review[]; musicas: Review[] };
+    expect(pub.reviews.map((r) => r.id)).toEqual(['rjogo001']);
+    expect(pub.musicas.map((r) => [r.id, r.category])).toEqual([['rmus0001', 'Radiohead']]);
+    const put = fetchSpy.calls.all().find((c) => (c.args[1] as RequestInit | undefined)?.method === 'PUT')!;
+    const form = (put.args[1] as RequestInit).body as FormData;
+    expect(JSON.parse(form.get('novas') as string)).toContain({ ref: 'rmus0001', titulo: 'OK Computer', mural: 'musicas' });
+    expect((form.get('novas') as string).includes('rmus0002')).toBeFalse();
+    expect(JSON.parse(form.get('cartao') as string)).toEqual(jasmine.objectContaining({ fichas: 2, murais: 2 }));
+
+    // o outro aparelho, vazio, recebe as músicas no mural delas
+    const b = device();
+    await b.sync.syncNow();
+    expect(b.store.reviews().filter((r) => r.kind === 'musicas').map((r) => r.id).sort()).toEqual(['rmus0001', 'rmus0002']);
+  });
 });
 
 describe('o que os outros veem', () => {
@@ -573,10 +612,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
-  it('a leitura das fichas é a mesma da versão 11', async () => {
+  it('a leitura das fichas é a mesma da versão 12', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 11, hex: 'd39b84e6bb6a8fce65475fcbd1cc9b5d45aab15938968e5c5b9f451e61d68f9e' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 12, hex: '3d94590322228de10419e6d632534bf83bc7f3c23a92411927f9f6c0cdd8b58c' });
   });
 });

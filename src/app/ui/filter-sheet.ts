@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output } from '@angular/core';
-import { Ban, CircleSlash2, LucideAngularModule, LucideIconData, PenLine, PenOff, Sparkles, Square, X } from 'lucide-angular';
+import { Ban, CircleSlash2, Disc3, LucideAngularModule, LucideIconData, Music, PenLine, PenOff, Sparkles, Square, X } from 'lucide-angular';
 import { Kind, Status, Verdict } from '../core/review';
 import { isNotes } from '../core/kinds';
 import { Facet, FacetKey, FilterTag, GRADE_SHORT, GradeBand } from '../core/wall-filter';
@@ -96,6 +96,13 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
                   @case ('text') {
                     <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
                       <lucide-icon [img]="o.value === 'com' ? WithTextIcon : NoTextIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                      <span>{{ o.label }}</span>
+                    </span>
+                  }
+                  @case ('form') {
+                    <!-- o tipo da ficha de música: o álbum inteiro ou a música solta -->
+                    <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
+                      <lucide-icon [img]="o.value === 'album' ? AlbumIcon : SongIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
                       <span>{{ o.label }}</span>
                     </span>
                   }
@@ -229,6 +236,10 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     }
     .g-year {
       grid-area: year;
+    }
+    /* o Tipo das músicas (álbum ou música) fica no lugar da Dificuldade, que o mural delas não tem */
+    .g-form {
+      grid-area: difficulty;
     }
     /* Anotações: os grupos correm lado a lado e quebram a linha sozinhos, porque cada aba tem os seus
        (numa aba de categoria não há o grupo Categoria; Visual e Ano só aparecem quando separam
@@ -552,7 +563,11 @@ export class FilterSheet {
   protected readonly DecoratedIcon = Sparkles;
   protected readonly PlainIcon = Square;
 
-  protected readonly hasDifficulty = computed(() => this.facets().some((f) => f.key === 'difficulty'));
+  protected readonly AlbumIcon = Disc3;
+  protected readonly SongIcon = Music;
+
+  /** A Dificuldade, ou o Tipo das músicas, que ocupa o lugar dela na folha. */
+  protected readonly hasDifficulty = computed(() => this.facets().some((f) => f.key === 'difficulty' || f.key === 'form'));
   /** Sem spoilers, Veredito e Média saem da cartela (ver WallView.facets). */
   protected readonly hasVerdict = computed(() => this.facets().some((f) => f.key === 'verdict'));
   /**

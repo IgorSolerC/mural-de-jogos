@@ -122,8 +122,12 @@
 } @else {
   <!-- Nos murais de resenhas, a mesma pasta, solta (sem divisórias em cima): a busca e os controles
        em tinta; Filtrar abre a cartela embaixo da pasta. Depois da linha picotada, os filtros ligados
-       (cada um com o seu X), o que a busca achou e as tarefas. -->
-  <div class="pasta solta">
+       (cada um com o seu X), o que a busca achou e as tarefas. No mural de músicas, as divisórias
+       voltam: uma por artista, como as categorias das anotações. -->
+  @if (artistTabs()) {
+    <app-note-tabs class="cadernos" />
+  }
+  <div class="pasta" [class.solta]="!artistTabs()">
     <div class="pasta-linha">
       <app-search-strip
         class="pasta-busca"
@@ -248,6 +252,9 @@
         @if (view.isFiltered()) {
           <p class="achados" aria-live="polite">
             <span>Mostrando {{ view.visible().length }} de {{ view.pool().length }}</span>
+            @if (view.elsewhere(); as n) {
+              <button type="button" class="tinta-link" (click)="searchAll()">+{{ n }} em outras abas</button>
+            }
             <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
           </p>
         }

@@ -1,8 +1,11 @@
-import { KindProfile, isNotes } from './kinds';
+import { KindProfile, isMusic, isNotes } from './kinds';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
   Difficulty,
+  MUSIC_FORMS,
+  MUSIC_FORM_LABEL,
+  MusicForm,
   Review,
   STATUSES,
   Status,
@@ -10,6 +13,7 @@ import {
   VERDICT_LABEL,
   Verdict,
   fold,
+  musicFormOf,
   shownFinal,
 } from './review';
 
@@ -41,12 +45,14 @@ export interface WallFilter {
   category: readonly string[];
   /** Só nas anotações: uma tag (qualquer uma das escolhidas), ou 'sem' para as sem tag. */
   tag: readonly string[];
+  /** Só nas músicas: álbum ou música. */
+  form: readonly MusicForm[];
 }
 
 export type FacetKey = keyof WallFilter;
 
 /** A ordem dos grupos na cartela e das etiquetas embaixo da régua. */
-export const FACET_KEYS: readonly FacetKey[] = ['category', 'tag', 'verdict', 'status', 'text', 'look', 'grade', 'difficulty', 'year'];
+export const FACET_KEYS: readonly FacetKey[] = ['category', 'tag', 'verdict', 'status', 'form', 'text', 'look', 'grade', 'difficulty', 'year'];
 
 /** Os grupos de cada mural: as anotações não têm nota, veredito, status nem dificuldade; as resenhas, categoria. */
 // (o texto é obrigatório na anotação: o grupo Resenha, com e sem texto, não serve)
@@ -54,10 +60,11 @@ const NOTE_FACETS: readonly FacetKey[] = ['category', 'tag', 'look', 'year'];
 
 export function facetKeysOf(profile: KindProfile): readonly FacetKey[] {
   if (isNotes(profile.kind)) return NOTE_FACETS;
-  return FACET_KEYS.filter((k) => k !== 'category' && k !== 'tag' && (k !== 'difficulty' || profile.difficulty !== null));
+  // (nas músicas, o artista é a aba: não precisa de grupo na cartela)
+  return FACET_KEYS.filter((k) => k !== 'category' && k !== 'tag' && (k !== 'difficulty' || profile.difficulty !== null) && (k !== 'form' || isMusic(profile.kind)));
 }
 
-export const NO_FILTER: WallFilter = { verdict: [], status: [], grade: [], difficulty: [], year: [], text: [], look: [], category: [], tag: [] };
+export const NO_FILTER: WallFilter = { verdict: [], status: [], grade: [], difficulty: [], year: [], text: [], look: [], category: [], tag: [], form: [] };
 
 /** A categoria de uma anotação, ou 'sem'. */
 export function categoryValueOf(r: Review): string {
@@ -110,6 +117,8 @@ function valueOf(r: Review, k: Exclude<FacetKey, 'tag'>): string {
       return hasText(r) ? 'com' : 'sem';
     case 'look':
       return isDecorated(r) ? 'com' : 'sem';
+    case 'form':
+      return musicFormOf(r.game);
   }
 }
 
@@ -134,8 +143,9 @@ export function matchesFilter(r: Review, f: WallFilter, skip?: FacetKey): boolea
 }
 
 /**
- * A busca do mural: nome, texto e bônus (nas anotações, a categoria e as tags), sem ligar para
- * acento nem caixa. `needle` já vem dobrado; "#bug" procura só nas tags.
+ * A busca do mural: nome, texto e bônus (nas anotações, a categoria e as tags; nas músicas, o
+ * artista, o álbum de onde a música é e a faixa de destaque), sem ligar para acento nem caixa.
+ * `needle` já vem dobrado; "#bug" procura só nas tags.
  */
 export function matchesQuery(r: Review, needle: string): boolean {
   if (!needle) return true;
@@ -148,7 +158,8 @@ export function matchesQuery(r: Review, needle: string): boolean {
     fold(r.text).includes(needle) ||
     r.bonuses.some((b) => fold(b.label).includes(needle)) ||
     (!!r.category && fold(r.category).includes(needle)) ||
-    !!r.tags?.some((t) => fold(t).includes(needle))
+    !!r.tags?.some((t) => fold(t).includes(needle)) ||
+    (!!r.game.form && [r.game.by, r.game.album, r.game.sampleTitle].some((t) => !!t && fold(t).includes(needle)))
   );
 }
 
@@ -208,6 +219,7 @@ export const FACET_TITLE: Record<FacetKey, string> = {
   year: 'Ano',
   category: 'Categoria',
   tag: 'Tags',
+  form: 'Tipo',
 };
 
 export const GRADE_LABEL: Record<GradeBand, string> = {
@@ -242,6 +254,8 @@ export function optionLabel(k: FacetKey, value: string, profile: KindProfile): s
       return value === 'sem' ? 'Sem categoria' : value;
     case 'tag':
       return value === 'sem' ? 'Sem tag' : value;
+    case 'form':
+      return MUSIC_FORM_LABEL[value as MusicForm];
   }
 }
 
@@ -285,6 +299,7 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
     year: years,
     category: cats,
     tag: tags,
+    form: MUSIC_FORMS,
   };
 
   return facetKeysOf(profile)

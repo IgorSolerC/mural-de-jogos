@@ -1,12 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CircleCheckBig, CircleDashed, LucideAngularModule, LucideIconData, RotateCcw, Trophy } from 'lucide-angular';
+import { CircleCheckBig, CircleDashed, LucideAngularModule, LucideIconData, Repeat, RotateCcw, SkipForward, Trophy } from 'lucide-angular';
 import { profileOf } from '../core/kinds';
 import { Kind, Status } from '../core/review';
 
-/** O desenho de cada status: o terceiro é o troféu nos jogos e a volta (Relido, Revisto, Revi) nos outros murais. */
+/**
+ * O desenho de cada status: o terceiro é o troféu nos jogos e a volta (Relido, Revisto, Revi) nos outros
+ * murais. Nas músicas, as teclas do toca-discos: pular a faixa (Pulei) e repetir (No repeat).
+ */
 export function statusIcon(kind: Kind, s: Status): LucideIconData {
-  if (s === 'platinado') return kind === 'jogos' ? Trophy : RotateCcw;
-  return s === 'incompleto' ? CircleDashed : CircleCheckBig;
+  if (s === 'platinado') return kind === 'jogos' ? Trophy : kind === 'musicas' ? Repeat : RotateCcw;
+  if (s === 'incompleto') return kind === 'musicas' ? SkipForward : CircleDashed;
+  return CircleCheckBig;
 }
 
 /**
