@@ -848,6 +848,42 @@ label.linha-titulo {
   }
 }
 
+/* trocar o código: o campo de ponta a ponta, os dois botões embaixo dele, e a linha que diz o que falta */
+.codigo-troca {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 8px;
+
+  .campo {
+    grid-column: 1 / -1;
+  }
+
+  /* a pincel e espaçado, como o código de cima */
+  input {
+    font-family: var(--f-marker);
+    font-size: 1.2rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.codigo-nota {
+  grid-column: 1 / -1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-2);
+
+  &:empty {
+    display: none;
+  }
+
+  &.erro {
+    color: var(--error-ink, #6b0000);
+  }
+}
+
 /* o código: a pincel, com espaço entre as letras para ler em voz alta */
 .codigo-valor {
   display: inline-block;

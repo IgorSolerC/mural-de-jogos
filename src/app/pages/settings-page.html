@@ -173,17 +173,45 @@
                 </div>
               </div>
 
-              <div class="linha">
+              <form class="linha larga" (submit)="chooseCode($event, acc.codigo)" novalidate>
                 <div class="linha-texto">
-                  <p class="linha-titulo">Trocar o código</p>
-                  <p class="linha-desc">O código e o link de agora param de abrir o seu mural. Quem segue você continua seguindo.</p>
+                  <label class="linha-titulo" for="codigo-novo">Trocar o código</label>
+                  <p class="linha-desc" id="codigo-novo-desc">
+                    Escreva o seu, com 8 letras e números (sem I, L, O e U), ou sorteie outro. O código e o link de agora param de abrir o seu
+                    mural. Quem segue você continua seguindo.
+                  </p>
                 </div>
-                <div class="acoes">
-                  <button type="button" class="btn-papel" (click)="newCode()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'codigo'">
-                    {{ accountBusy() === 'codigo' ? 'Trocando…' : 'Trocar' }}
+                <div class="codigo-troca">
+                  <div class="campo">
+                    <input
+                      #codeInput
+                      id="codigo-novo"
+                      type="text"
+                      autocomplete="off"
+                      autocapitalize="characters"
+                      spellcheck="false"
+                      maxlength="12"
+                      placeholder="ABCD-1234"
+                      aria-describedby="codigo-novo-desc codigo-novo-msg"
+                      [attr.aria-invalid]="codeNote()?.bad ? 'true' : null"
+                      [value]="codeDraft()"
+                      (input)="codeDraft.set($any($event.target).value)"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    class="btn-papel"
+                    [disabled]="!!accountBusy() || !codeWanted() || codeWanted() === acc.codigo"
+                    [appBusy]="accountBusy() === 'codigo-escolhido'"
+                  >
+                    {{ accountBusy() === 'codigo-escolhido' ? 'Trocando…' : 'Usar este' }}
                   </button>
+                  <button type="button" class="btn-papel" (click)="newCode()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'codigo'">
+                    {{ accountBusy() === 'codigo' ? 'Sorteando…' : 'Sortear' }}
+                  </button>
+                  <p class="codigo-nota" id="codigo-novo-msg" [class.erro]="codeNote()?.bad" [attr.role]="codeNote()?.bad ? 'alert' : 'status'">{{ codeNote()?.text }}</p>
                 </div>
-              </div>
+              </form>
 
               <div class="linha">
                 <div class="linha-texto">

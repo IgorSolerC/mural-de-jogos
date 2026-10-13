@@ -603,6 +603,62 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect((await call(`/v1/murais/${codigo}`)).status).toBe(200);
         expect(((await (await json('GET', '/v1/eu', undefined, token)).json()) as any).codigo).toBe(codigo);
       });
+
+      it('escolher o código: digitado de qualquer jeito, passa a abrir o mural e o antigo para', async () => {
+        const { login, push, json, call } = await setup();
+        const { token, conta } = (await login()).body;
+        await push(token, 0);
+        const res = await json('PUT', '/v1/eu/codigo', { codigo: ' abcd 1234 ' }, token);
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ codigo: 'ABCD-1234' });
+        expect((await call(`/v1/murais/${conta.codigo}`)).status).toBe(404);
+        expect((await call('/v1/murais/ABCD-1234')).status).toBe(200);
+        expect(((await (await json('GET', '/v1/eu', undefined, token)).json()) as any).codigo).toBe('ABCD-1234');
+        // pedir o que já é seu não é erro (nem gasta uma troca do dia)
+        expect((await json('PUT', '/v1/eu/codigo', { codigo: 'ABCD-1234' }, token)).status).toBe(200);
+      });
+
+      it('escolher o código de outra pessoa: 409, e cada um continua com o seu', async () => {
+        const { login, json } = await setup();
+        const ana = (await login({ sub: 'ana', givenName: 'Ana' })).body;
+        const bia = (await login({ sub: 'bia', givenName: 'Bia' })).body;
+        // o de outra pessoa, mesmo escrito com as letras que se confundem (O por 0, I e L por 1)
+        expect((await json('PUT', '/v1/eu/codigo', { codigo: 'S0L1-1234' }, ana.token)).status).toBe(200);
+        const res = await json('PUT', '/v1/eu/codigo', { codigo: 'soli-l234' }, bia.token);
+        expect(res.status).toBe(409);
+        expect(((await res.json()) as any).erro).toBe('codigo-em-uso');
+        expect(((await (await json('GET', '/v1/eu', undefined, bia.token)).json()) as any).codigo).toBe(bia.conta.codigo);
+        expect(((await (await json('GET', '/v1/eu', undefined, ana.token)).json()) as any).codigo).toBe('S011-1234');
+        // Ana troca de novo: o que ela largou fica livre, e a Bia pode pegar
+        expect((await json('PUT', '/v1/eu/codigo', { codigo: 'ANA0-0001' }, ana.token)).status).toBe(200);
+        expect((await json('PUT', '/v1/eu/codigo', { codigo: 'S011-1234' }, bia.token)).status).toBe(200);
+      });
+
+      it('escolher o código: recusa o que não é um código, e exige a sessão', async () => {
+        const { login, json } = await setup();
+        const { token, conta } = (await login()).body;
+        for (const bad of ['ABCD-123', 'ABCD-12345', 'ABCU-1234', 'ABÇD-1234', 12345678, undefined]) {
+          const res = await json('PUT', '/v1/eu/codigo', { codigo: bad }, token);
+          expect(res.status).toBe(400);
+          expect(((await res.json()) as any).erro).toBe('codigo-invalido');
+        }
+        expect((await json('PUT', '/v1/eu/codigo', { codigo: 'ABCD-1234' })).status).toBe(401);
+        expect(((await (await json('GET', '/v1/eu', undefined, token)).json()) as any).codigo).toBe(conta.codigo);
+      });
+
+      it('no máximo 10 trocas de código por dia, sorteadas e escolhidas juntas', async () => {
+        const { login, json, advance } = await setup();
+        const { token } = (await login()).body;
+        for (let i = 0; i < 5; i++) expect((await json('POST', '/v1/eu/codigo', undefined, token)).status).toBe(200);
+        for (let i = 0; i < 5; i++) expect((await json('PUT', '/v1/eu/codigo', { codigo: `ABCD-000${i}` }, token)).status).toBe(200);
+        const chosen = await json('PUT', '/v1/eu/codigo', { codigo: 'ABCD-9999' }, token);
+        expect(chosen.status).toBe(429);
+        expect(((await chosen.json()) as any).erro).toBe('codigo-devagar');
+        expect((await json('POST', '/v1/eu/codigo', undefined, token)).status).toBe(429);
+        expect(((await (await json('GET', '/v1/eu', undefined, token)).json()) as any).codigo).toBe('ABCD-0004');
+        advance(24 * 60 * 60 * 1000 + 1000);
+        expect((await json('PUT', '/v1/eu/codigo', { codigo: 'ABCD-9999' }, token)).status).toBe(200);
+      });
     });
 
     describe('seguir e correio', () => {

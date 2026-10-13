@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-13-escolher-o-codigo',
+    version: '1.37.0',
+    kind: 'funcionalidade',
+    date: '2026-10-13',
+    title: 'Escolha o seu código',
+    items: [
+      'Em Ajustes, na Conta, "Trocar o código" agora deixa você escrever o seu, como ABCD-1234: 8 letras e números, sem I, L, O e U. Para ninguém confundir ao ler, O vira 0 e I e L viram 1; o campo mostra como o código vai ficar antes de você confirmar.',
+      'Se o código já é de outra pessoa, o site avisa e o seu continua o mesmo.',
+      'Sortear um código continua lá, no botão ao lado. O código que você larga fica livre para outra pessoa usar, e são no máximo 10 trocas por dia.',
+    ],
+  },
+  {
     id: '2026-10-13-sombra-da-ficha-levantada',
     version: '1.36.3',
     kind: 'melhoria',

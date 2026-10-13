@@ -1,8 +1,8 @@
 import { Context, Hono } from 'hono';
-import { formatCode, generateCode } from '../domain/code';
+import { MAX_CODES_PER_DAY, formatCode, generateCode, normalizeCode } from '../domain/code';
 import { isCommentsFrom } from '../domain/comment';
 import { cleanName } from '../domain/name';
-import { usedToday } from '../domain/brake';
+import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
 import { HttpError } from '../errors';
@@ -142,8 +142,36 @@ export function accountRoutes(app: Hono, deps: Deps): void {
   // Trocar o código: o antigo para de funcionar; quem segue continua seguindo (seguir guarda o id).
   app.post('/v1/eu/codigo', async (c) => {
     const s = await session(c);
+    const now = deps.now();
+    await codeBrake(deps, s.userId, now);
     const code = await freeCode(deps);
-    await write(deps, [{ sql: 'UPDATE usuarios SET codigo = ? WHERE id = ?', params: [code, s.userId] }], 3);
+    await write(deps, [{ sql: 'UPDATE usuarios SET codigo = ? WHERE id = ?', params: [code, s.userId] }, brakeStatement(s.userId, 'codigo', now)], 5);
+    return c.json({ codigo: formatCode(code) });
+  });
+
+  // Escolher o código (`{ "codigo": "ABCD-1234" }`): vale como o sorteado, se ninguém estiver usando.
+  // Num PUT, e não no POST de cima: uma API antiga, que não conhece a escolha, sortearia outro.
+  app.put('/v1/eu/codigo', async (c) => {
+    const s = await session(c);
+    const body = await readJson(c);
+    const code = typeof body['codigo'] === 'string' ? normalizeCode(body['codigo']) : null;
+    if (!code) {
+      throw new HttpError(400, 'codigo-invalido', 'O código tem 8 letras e números, como ABCD-1234, sem as letras I, L, O e U.');
+    }
+    const taken = () => new HttpError(409, 'codigo-em-uso', 'Esse código já é de outra pessoa. Escolha outro.');
+    const owner = await deps.db.first<{ id: string }>('SELECT id FROM usuarios WHERE codigo = ?', [code]);
+    // (o que já é o seu: nada a gravar)
+    if (owner?.id === s.userId) return c.json({ codigo: formatCode(code) });
+    if (owner) throw taken();
+    const now = deps.now();
+    await codeBrake(deps, s.userId, now);
+    try {
+      await write(deps, [{ sql: 'UPDATE usuarios SET codigo = ? WHERE id = ?', params: [code, s.userId] }, brakeStatement(s.userId, 'codigo', now)], 5);
+    } catch (error) {
+      // duas pessoas pedindo o mesmo código ao mesmo tempo: a coluna é única, e quem chegou depois fica sem
+      if (error instanceof HttpError || !(await deps.db.first('SELECT 1 AS x FROM usuarios WHERE codigo = ? AND id <> ?', [code, s.userId]))) throw error;
+      throw taken();
+    }
     return c.json({ codigo: formatCode(code) });
   });
 
@@ -182,6 +210,13 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     );
     return c.json({ ok: true });
   });
+}
+
+/** O freio de trocar o código (sorteado ou escolhido): cada troca grava, e o código antigo fica livre para outra pessoa. */
+async function codeBrake(deps: Deps, userId: string, now: Date): Promise<void> {
+  if ((await usedToday(deps, userId, 'codigo', now)) >= MAX_CODES_PER_DAY) {
+    throw new HttpError(429, 'codigo-devagar', 'Você trocou o código muitas vezes hoje. Tente de novo amanhã.');
+  }
 }
 
 /** Um código que ninguém usa ainda (com 1,1 trilhão de combinações, quase sempre o primeiro). */

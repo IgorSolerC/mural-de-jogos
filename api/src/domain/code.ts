@@ -4,6 +4,9 @@
  */
 const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
+/** Quantas vezes por dia uma conta troca de código (o sorteado e o escolhido contam juntos). */
+export const MAX_CODES_PER_DAY = 10;
+
 /** Sorteia um código. 32 símbolos = 5 bits, então cada byte vira um símbolo sem viés (`& 31`). */
 export function generateCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8));

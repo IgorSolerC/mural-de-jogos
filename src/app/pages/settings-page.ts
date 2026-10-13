@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { PeoplePrivacy, ProfilePeople } from '../core/profile-people';
 import { Comments, CommentsFrom } from '../core/comments';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -62,7 +62,7 @@ import { CloudAccount, CloudError } from '../core/cloud-account';
 import { CloudSync } from '../core/cloud-sync';
 import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
 import { GoogleButton } from '../ui/google-button';
-import { muralLink } from '../core/cloud-murals';
+import { muralLink, normalizeCode } from '../core/cloud-murals';
 import { News } from '../core/news';
 import { GameLookup } from '../core/game-lookup';
 import { SiteKeys } from '../core/site-keys';
@@ -470,6 +470,62 @@ export class SettingsPage {
       this.toasts.show('Link do mural copiado');
     } catch {
       this.toasts.show(`Não deu para copiar. O link é ${muralLink(code)}`);
+    }
+  }
+
+  /** O código que a pessoa está escrevendo para trocar o dela, como foi digitado. */
+  protected readonly codeDraft = signal('');
+  /** O mesmo, do jeito que a nuvem guarda (`ABCD-1234`); null enquanto não é um código possível. */
+  protected readonly codeWanted = computed(() => normalizeCode(this.codeDraft()));
+  /** O código que a nuvem recusou por já ser de outra pessoa: o aviso fica até o campo mudar. */
+  protected readonly codeTaken = signal('');
+  /** A linha embaixo do campo: o que falta, como o código vai ficar, ou que ele já tem dono. */
+  protected readonly codeNote = computed<{ text: string; bad: boolean } | null>(() => {
+    const typed = this.codeDraft().toUpperCase().replace(/[\s-]/g, '');
+    if (!typed) return null;
+    const wanted = this.codeWanted();
+    if (!wanted) {
+      if (/[^0-9A-Z]/.test(typed)) return { text: 'Só letras sem acento e números.', bad: true };
+      if (typed.includes('U')) return { text: 'A letra U não entra no código.', bad: true };
+      return typed.length > 8 ? { text: 'São 8 letras e números.', bad: true } : null;
+    }
+    if (wanted === this.codeTaken()) return { text: `${wanted} já é de outra pessoa. Escolha outro.`, bad: true };
+    if (wanted === this.account.account()?.codigo) return { text: 'Esse já é o seu código.', bad: false };
+    // O vira 0, I e L viram 1 (para ninguém confundir ao ler): a pessoa vê o código como ele vai ficar
+    return wanted.replace('-', '') === typed ? null : { text: `Vai ficar ${wanted}: O vira 0, I e L viram 1.`, bad: false };
+  });
+  private readonly codeInput = viewChild<ElementRef<HTMLInputElement>>('codeInput');
+
+  /** Troca o código pelo que a pessoa escreveu, se ninguém estiver usando. */
+  protected async chooseCode(event: Event, current: string): Promise<void> {
+    event.preventDefault();
+    const code = this.codeWanted();
+    if (!code || code === current || this.accountBusy()) return;
+    const sure = await this.confirm.ask({
+      title: `Trocar o código para ${code}?`,
+      text:
+        'O código e o link de agora param de abrir o seu mural, e o código antigo fica livre para outra pessoa usar. Quem já abriu fica com a cópia que tinha, e quem segue você continua seguindo.',
+      confirm: `Usar ${code}`,
+      icon: null,
+    });
+    if (!sure) return;
+    let taken = false;
+    const done = await this.accountAction('codigo-escolhido', async () => {
+      try {
+        await this.account.chooseCode(code);
+      } catch (err) {
+        // já tem dono: o aviso vai embaixo do campo, e o código de agora continua valendo
+        if (!(err instanceof CloudError) || err.code !== 'codigo-em-uso') throw err;
+        taken = true;
+      }
+    });
+    if (taken) {
+      this.codeTaken.set(code);
+      this.codeInput()?.nativeElement.focus();
+    } else if (done) {
+      this.codeDraft.set('');
+      this.codeTaken.set('');
+      this.toasts.show(`Código novo: ${code}`);
     }
   }
 

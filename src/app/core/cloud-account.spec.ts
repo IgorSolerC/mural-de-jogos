@@ -106,6 +106,29 @@ describe('conta na nuvem', () => {
     expect(account.signedIn()).toBeFalse();
   });
 
+  it('escolher o código: vai num PUT e passa a ser o da conta; se já tem dono, a conta fica como estava', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));
+    const calls = fakeFetch(
+      json({ codigo: 'K7QF-M2XA', nome: 'Igor' }),
+      json({ codigo: 'ABCD-1234' }),
+      json({ erro: 'codigo-em-uso', mensagem: 'Esse código já é de outra pessoa. Escolha outro.' }, 409),
+    );
+    const account = setup();
+    await settle();
+    expect(await account.chooseCode('ABCD-1234')).toBe('ABCD-1234');
+    expect(calls[1].url).toBe(`${API}/v1/eu/codigo`);
+    expect(calls[1].init.method).toBe('PUT');
+    expect(JSON.parse(calls[1].init.body as string)).toEqual({ codigo: 'ABCD-1234' });
+    expect(account.account()?.codigo).toBe('ABCD-1234');
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).codigo).toBe('ABCD-1234');
+
+    const refused = await account.chooseCode('S011-1234').catch((e: unknown) => e);
+    expect(refused).toBeInstanceOf(CloudError);
+    expect((refused as CloudError).code).toBe('codigo-em-uso');
+    expect(account.account()?.codigo).toBe('ABCD-1234');
+  });
+
   it('apagar a conta sai dela neste navegador', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));

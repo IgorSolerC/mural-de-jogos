@@ -188,6 +188,14 @@ export class CloudAccount {
     return res.codigo;
   }
 
+  /** Troca o código por um escolhido (`ABCD-1234`). Se já é de outra pessoa, a nuvem recusa com `codigo-em-uso` e nada muda. */
+  async chooseCode(code: string): Promise<string> {
+    const res = await this.request<{ codigo: string }>('/v1/eu/codigo', { method: 'PUT', body: { codigo: code } });
+    const account = this.account();
+    if (account) this.setAccount({ ...account, codigo: res.codigo });
+    return res.codigo;
+  }
+
   /** Sai neste navegador. Mesmo sem internet a sessão local vai embora (a da nuvem vence sozinha). */
   async signOut(): Promise<void> {
     try {

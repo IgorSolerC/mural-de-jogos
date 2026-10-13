@@ -6,6 +6,7 @@ import { Cloud } from '../core/cloud-config';
 import { LocalData } from '../core/local-data';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
+import { ACCOUNT_KEY, SESSION_KEY } from '../core/cloud-account';
 import { SettingsPage } from './settings-page';
 
 /**
@@ -258,5 +259,139 @@ describe('Ajustes: prévias e Voltar ao padrão', () => {
     expect(settings.rawgKey()).toBe('minha');
     fixture.detectChanges();
     expect(button().disabled).toBeTrue();
+  });
+});
+
+describe('Ajustes: trocar o código', () => {
+  const API = 'https://api.teste';
+  let calls: { url: string; method: string; body: unknown }[];
+  /** O que a nuvem responde ao PUT do código escolhido. */
+  let answer: () => Response;
+
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  async function open() {
+    localStorage.setItem(SESSION_KEY, 'A'.repeat(43));
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));
+    calls = [];
+    spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url).replace(API, '');
+      const method = init?.method ?? 'GET';
+      calls.push({ url: path, method, body: typeof init?.body === 'string' ? JSON.parse(init.body) : null });
+      if (path === '/v1/eu' && method === 'GET') return json({ codigo: 'K7QF-M2XA', nome: 'Igor' });
+      if (path === '/v1/eu/codigo' && method === 'PUT') return answer();
+      return json({ erro: 'nao-achei', mensagem: 'Não achei.' }, 404);
+    });
+    const query = new BehaviorSubject(convertToParamMap({}));
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        { provide: LocalData, useClass: MemoryData },
+        { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }), notice: () => null } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: query.value }, queryParamMap: query } },
+      ],
+    });
+    const fixture = TestBed.createComponent(SettingsPage);
+    const el = fixture.nativeElement as HTMLElement;
+    const settle = async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+    };
+    await settle();
+    const input = () => el.querySelector<HTMLInputElement>('#codigo-novo')!;
+    const use = () => el.querySelector<HTMLButtonElement>('.codigo-troca button[type="submit"]')!;
+    const note = () => el.querySelector<HTMLElement>('#codigo-novo-msg')!;
+    const type = async (value: string) => {
+      input().value = value;
+      input().dispatchEvent(new Event('input'));
+      await settle();
+    };
+    /** Aperta "Usar este" e responde à pergunta. */
+    const submit = async (sure: boolean) => {
+      use().click();
+      await settle();
+      TestBed.inject(Confirm).current()?.resolve(sure ? 'confirm' : null);
+      await settle();
+      await settle();
+    };
+    const chosen = () => calls.filter((c) => c.url === '/v1/eu/codigo' && c.method === 'PUT');
+    return { el, input, use, note, type, submit, chosen, shown: () => el.querySelector('.codigo-valor')?.textContent };
+  }
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('o botão só solta com um código possível, e a linha de baixo diz o que falta ou como vai ficar', async () => {
+    const { use, note, type } = await open();
+    expect(use().disabled).toBeTrue();
+    expect(note().textContent).toBe('');
+
+    await type('abcd-12');
+    expect(use().disabled).toBeTrue();
+    expect(note().textContent).toBe('');
+
+    await type('abcd-1234');
+    expect(use().disabled).toBeFalse();
+    expect(note().textContent).toBe('');
+
+    await type('solo-1234');
+    expect(use().disabled).toBeFalse();
+    expect(note().textContent).toBe('Vai ficar S010-1234: O vira 0, I e L viram 1.');
+    expect(note().classList.contains('erro')).toBeFalse();
+
+    await type('abcu-1234');
+    expect(use().disabled).toBeTrue();
+    expect(note().textContent).toBe('A letra U não entra no código.');
+    expect(note().getAttribute('role')).toBe('alert');
+
+    await type('abçd-1234');
+    expect(note().textContent).toBe('Só letras sem acento e números.');
+
+    await type('abcd-12345');
+    expect(use().disabled).toBeTrue();
+    expect(note().textContent).toBe('São 8 letras e números.');
+
+    await type('k7qf m2xa');
+    expect(use().disabled).toBeTrue();
+    expect(note().textContent).toBe('Esse já é o seu código.');
+  });
+
+  it('código livre: pergunta, troca e mostra o novo', async () => {
+    const { input, type, submit, chosen, shown } = await open();
+    answer = () => json({ codigo: 'ABCD-1234' });
+    await type('abcd 1234');
+
+    await submit(false);
+    expect(chosen().length).withContext('sem o sim, nada vai para a nuvem').toBe(0);
+    expect(shown()).toBe('K7QF-M2XA');
+
+    await submit(true);
+    expect(chosen().map((c) => c.body)).toEqual([{ codigo: 'ABCD-1234' }]);
+    expect(shown()).toBe('ABCD-1234');
+    expect(input().value).toBe('');
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).codigo).toBe('ABCD-1234');
+  });
+
+  it('código que já é de outra pessoa: avisa embaixo do campo e o código não muda', async () => {
+    const { el, input, note, type, submit, shown } = await open();
+    answer = () => json({ erro: 'codigo-em-uso', mensagem: 'Esse código já é de outra pessoa. Escolha outro.' }, 409);
+    await type('abcd-1234');
+    await submit(true);
+
+    expect(note().textContent).toBe('ABCD-1234 já é de outra pessoa. Escolha outro.');
+    expect(note().getAttribute('role')).toBe('alert');
+    expect(input().getAttribute('aria-invalid')).toBe('true');
+    expect(shown()).toBe('K7QF-M2XA');
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).codigo).toBe('K7QF-M2XA');
+    expect(input().value).withContext('o que a pessoa escreveu continua lá, para ela mexer').toBe('abcd-1234');
+    expect(el.querySelector('.msg.erro')).withContext('o aviso é do campo, não da conta').toBeNull();
+
+    // mexeu no campo: o aviso sai
+    await type('abcd-1235');
+    expect(note().textContent).toBe('');
+    expect(input().hasAttribute('aria-invalid')).toBeFalse();
   });
 });
