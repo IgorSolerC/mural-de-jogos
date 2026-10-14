@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-sem-categoria-ou-tag',
+    version: '1.38.9',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'Salvar sem categoria ou tag pergunta antes',
+    items: [
+      'Ao pregar ou salvar uma anotação sem categoria, sem tag ou sem as duas, o editor pergunta: "Essa anotação não tem categoria. Tem certeza que deseja salvá-la sem?". Voltar leva direto para o que faltou.',
+      'Marque "Nunca mais me perguntar isso" e a pergunta some. Para ela voltar, ligue em Ajustes › Mural › Perguntar antes de salvar sem categoria ou tag.',
+    ],
+  },
+  {
     id: '2026-10-14-desempenho-aparelho',
     version: '1.38.8',
     kind: 'melhoria',

@@ -832,7 +832,7 @@ export class ReviewEditor {
     this.attempted.set(true);
     const audience: Audience = this.isPrivate() ? 'privada' : this.announces() !== other ? 'publicar' : 'visivel';
     if (this.notes()) {
-      this.saveNote(audience);
+      void this.saveNote(audience);
       return;
     }
     const game = this.game();
@@ -890,13 +890,17 @@ export class ReviewEditor {
     this.saved.emit({ id: review.id, isNew: !prev, swap });
   }
 
-  /** Prega a anotação: só o título é obrigatório; sem notas, status, veredito nem dificuldade. */
-  private saveNote(audience: Audience): void {
+  /**
+   * Prega a anotação: só o título é obrigatório; sem notas, status, veredito nem dificuldade. Sem
+   * categoria ou sem tag, pergunta antes (ver `okWithoutLabels`).
+   */
+  private async saveNote(audience: Audience): Promise<void> {
     const name = this.noteTitle().trim();
     if (!name || !this.dateValid() || this.textTooLong()) {
       this.focusFirstMissing();
       return;
     }
+    if (!(await this.okWithoutLabels())) return;
     const now = new Date().toISOString();
     const prev = this.editing();
     const look = this.preview();
@@ -947,6 +951,36 @@ export class ReviewEditor {
     this.snapshot = this.serialize();
     this.shut();
     this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}) });
+  }
+
+  /**
+   * A anotação vai sem categoria ou sem nenhuma tag: "Tem certeza que deseja salvá-la sem?", com o
+   * "Nunca mais me perguntar isso" (que desliga a pergunta do que faltou; os Ajustes ligam de novo).
+   * Voltar leva para o que faltou.
+   */
+  private async okWithoutLabels(): Promise<boolean> {
+    const noCategory = !this.noteCategory() && this.settings.askNoCategory();
+    const noTag = !this.noteTags().length && this.settings.askNoTag();
+    if (!noCategory && !noTag) return true;
+    const { ok, checked } = await this.confirm.askChecked({
+      title: noCategory && noTag ? 'Sem categoria e sem tag' : noCategory ? 'Sem categoria' : 'Sem tag',
+      text: `Essa anotação não tem ${noCategory && noTag ? 'categoria nem tag' : noCategory ? 'categoria' : 'tag'}. Tem certeza que deseja salvá-la sem?`,
+      confirm: this.editing() ? 'Salvar assim' : 'Pregar assim',
+      cancel: 'Voltar',
+      icon: null,
+      tone: 'neutro',
+      check: 'Nunca mais me perguntar isso',
+    });
+    if (checked) {
+      if (noCategory) this.settings.askNoCategory.set(false);
+      if (noTag) this.settings.askNoTag.set(false);
+    }
+    if (!ok) {
+      const picker = this.dialog().nativeElement.querySelector('app-note-labels-picker');
+      const target = noCategory ? picker?.querySelector<HTMLElement>('.toggle[aria-controls$="-cartela"]') : picker?.querySelector<HTMLElement>('input[role="combobox"]');
+      setTimeout(() => target?.focus());
+    }
+    return ok;
   }
 
   /** Guarda só o nome e a capa, fora do mural, para terminar a resenha depois. */

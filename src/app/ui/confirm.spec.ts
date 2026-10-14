@@ -24,4 +24,26 @@ describe('a pergunta antes de apagar', () => {
     confirm.answer(false);
     await fixture.whenStable();
   });
+
+  it('com a caixinha: marcar pelo rótulo volta junto com a resposta', async () => {
+    TestBed.configureTestingModule({ imports: [ConfirmDialog], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(ConfirmDialog);
+    document.body.appendChild(fixture.nativeElement);
+    const confirm = TestBed.inject(Confirm);
+    const el = fixture.nativeElement as HTMLElement;
+    void confirm.ask({ text: 'Apagar?', confirm: 'Apagar' });
+    await fixture.whenStable();
+    expect(el.querySelector('.nunca')).toBeNull();
+    const answer = confirm.askChecked({ text: 'Salvar sem?', confirm: 'Salvar assim', check: 'Nunca mais me perguntar isso', tone: 'neutro' });
+    await fixture.whenStable();
+    const label = el.querySelector<HTMLLabelElement>('.nunca')!;
+    expect(label.textContent!.trim()).toBe('Nunca mais me perguntar isso');
+    expect(label.querySelector('input')!.checked).toBeFalse();
+    // o foco continua no Voltar/Cancelar: salvar nunca é o padrão
+    expect(document.activeElement?.hasAttribute('data-cancelar')).toBeTrue();
+    label.querySelector('span')!.click();
+    await fixture.whenStable();
+    el.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+    expect(await answer).toEqual({ ok: true, checked: true });
+  });
 });

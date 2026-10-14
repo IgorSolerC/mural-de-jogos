@@ -33,3 +33,38 @@ dialog.confirma {
   justify-content: flex-end;
   flex-wrap: wrap;
 }
+
+/* "Nunca mais me perguntar isso": a caixinha desenhada a caneta das tarefas, e a frase a lápis ao
+   lado; marcada, o tique vermelho por cima. O rótulo inteiro pega o toque. */
+.nunca {
+  display: inline-grid;
+  grid-template-columns: 1.15em minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 8px 0 2px;
+  font-size: 0.98rem;
+  color: var(--ink-2);
+  cursor: pointer;
+
+  input {
+    appearance: none;
+    width: 1.05em;
+    height: 1.05em;
+    margin: 0;
+    border: 2px solid var(--ink);
+    border-radius: 2px 3px 2px 4px;
+    rotate: -3deg;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  input:checked {
+    background: no-repeat center / 120% 120%
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  &:hover span {
+    color: var(--ink);
+  }
+}

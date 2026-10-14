@@ -28,6 +28,17 @@ export interface ConfirmOptions {
   tone?: 'perigo' | 'neutro';
 }
 
+export interface CheckedOptions extends ConfirmOptions {
+  /** A caixinha embaixo da pergunta ("Nunca mais me perguntar isso"); `askChecked` devolve se ficou marcada. */
+  check: string;
+}
+
+/** O que a pessoa respondeu, e se marcou a caixinha (vale com qualquer resposta). */
+export interface CheckedAnswer {
+  ok: boolean;
+  checked: boolean;
+}
+
 export interface ChoiceOptions extends ConfirmOptions {
   /** A outra resposta possível, ao lado da principal (`choose` devolve 'secondary'). */
   secondary: string;
@@ -39,6 +50,7 @@ export type Choice = 'confirm' | 'secondary' | null;
 interface Question extends Required<ConfirmOptions> {
   id: number;
   secondary: string | null;
+  check: string | null;
   resolve: (choice: Choice) => void;
 }
 
@@ -49,21 +61,46 @@ interface Question extends Required<ConfirmOptions> {
 @Injectable({ providedIn: 'root' })
 export class Confirm {
   readonly current = signal<Question | null>(null);
+  /** A caixinha da pergunta aberta (cada pergunta começa desmarcada). */
+  readonly checked = signal(false);
   private seq = 0;
+
+  private open(q: Question): void {
+    this.checked.set(false);
+    this.current.set(q);
+  }
 
   ask(options: ConfirmOptions): Promise<boolean> {
     // uma pergunta por vez: a que estava aberta vale como não
     this.current()?.resolve(null);
     return new Promise((resolve) =>
-      this.current.set({
+      this.open({
         title: 'Tem certeza?',
         cancel: 'Cancelar',
         icon: Trash2,
         ...options,
         secondary: null,
+        check: null,
         tone: options.tone ?? 'perigo',
         id: ++this.seq,
         resolve: (choice) => resolve(choice === 'confirm'),
+      }),
+    );
+  }
+
+  /** Como `ask`, com a caixinha embaixo da pergunta: devolve a resposta e se ela ficou marcada. */
+  askChecked(options: CheckedOptions): Promise<CheckedAnswer> {
+    this.current()?.resolve(null);
+    return new Promise((resolve) =>
+      this.open({
+        title: 'Tem certeza?',
+        cancel: 'Cancelar',
+        icon: null,
+        ...options,
+        secondary: null,
+        tone: options.tone ?? 'perigo',
+        id: ++this.seq,
+        resolve: (choice) => resolve({ ok: choice === 'confirm', checked: this.checked() }),
       }),
     );
   }
@@ -72,7 +109,7 @@ export class Confirm {
   choose(options: ChoiceOptions): Promise<Choice> {
     this.current()?.resolve(null);
     return new Promise((resolve) =>
-      this.current.set({ title: 'O que fazer?', cancel: 'Agora não', icon: null, ...options, tone: 'neutro', id: ++this.seq, resolve }),
+      this.open({ title: 'O que fazer?', cancel: 'Agora não', icon: null, ...options, check: null, tone: 'neutro', id: ++this.seq, resolve }),
     );
   }
 
@@ -107,6 +144,13 @@ export class Confirm {
           </header>
           <div class="body">
             <p id="confirma-texto">{{ q.text }}</p>
+            @if (q.check) {
+              <!-- a caixinha a caneta, como a das tarefas: marcada, ganha o tique vermelho -->
+              <label class="nunca">
+                <input type="checkbox" [checked]="confirm.checked()" (change)="confirm.checked.set($any($event.target).checked)" />
+                <span>{{ q.check }}</span>
+              </label>
+            }
           </div>
           <footer class="foot">
             <div class="actions">

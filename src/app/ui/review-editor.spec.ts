@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Settings } from '../core/settings';
 import { ReviewEditor } from './review-editor';
 import { Confirm, ConfirmOptions } from './confirm';
 
@@ -17,6 +18,9 @@ describe('o editor com texto por salvar', () => {
     localStorage.clear();
     TestBed.configureTestingModule({ imports: [ReviewEditor], providers: [provideZonelessChangeDetection()] });
     asked = [];
+    // a pergunta de anotação sem categoria ou tag tem o seu teste (review-editor.labels.spec.ts)
+    TestBed.inject(Settings).askNoCategory.set(false);
+    TestBed.inject(Settings).askNoTag.set(false);
     spyOn(TestBed.inject(Confirm), 'ask').and.callFake(
       (options: ConfirmOptions) => new Promise<boolean>((answer) => asked.push({ options, answer })),
     );

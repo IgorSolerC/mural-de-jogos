@@ -576,12 +576,18 @@ export class SettingsPage {
     }
   }
 
+  /** Liga ou desliga as duas perguntas do editor (sem categoria, sem tag) de uma vez. */
+  protected setAskOnSave(on: boolean): void {
+    this.settings.askNoCategory.set(on);
+    this.settings.askNoTag.set(on);
+  }
+
   /** "Voltar ao padrão": pergunta antes, dizendo o que volta e o que fica. */
   protected async resetAll(): Promise<void> {
     const sure = await this.confirm.ask({
       title: 'Voltar ao padrão?',
       text:
-        'As escolhas de Mural, Amigos e Desempenho voltam ao começo: notas como você deu, etiquetas dos grupos e contagem de novidades ligadas, ' +
+        'As escolhas de Mural, Amigos e Desempenho voltam ao começo: notas como você deu, etiquetas dos grupos, contagem de novidades e a pergunta ao salvar sem categoria ou tag ligadas, ' +
         'sem spoilers desligado, o que você não avaliou em segredo, novidades de todos os murais e a qualidade do mural no Equilíbrio. ' +
         'O seu nome, o perfil, a conta, as chaves e o backup não mudam.',
       confirm: 'Voltar ao padrão',

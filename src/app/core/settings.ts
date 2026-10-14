@@ -79,13 +79,20 @@ interface Stored {
   stillCards: boolean;
   /** Menos fichas prontas: menos fichas montadas em volta da tela, uma de cada vez (pages/wall-cards.ts). */
   fewCards: boolean;
+  /**
+   * Perguntar antes de salvar uma anotação sem categoria (ligado por padrão). O "Nunca mais me
+   * perguntar isso" da pergunta desliga; os Ajustes (Mural) e o "Voltar ao padrão" ligam de novo.
+   */
+  askNoCategory: boolean;
+  /** O mesmo, para a anotação sem nenhuma tag. */
+  askNoTag: boolean;
 }
 
 export type FriendKinds = 'misturado' | 'separado';
 
 /**
- * O padrão das preferências que "Voltar ao padrão" (Ajustes) desfaz: como as fichas aparecem e o que
- * chega dos amigos. O nome, as chaves, as tags fixas e o jeito das categorias não entram: são coisas
+ * O padrão das preferências que "Voltar ao padrão" (Ajustes) desfaz: como as fichas aparecem, o que
+ * chega dos amigos e as perguntas ao salvar uma anotação. O nome, as chaves, as tags fixas e o jeito das categorias não entram: são coisas
  * da pessoa, não escolhas de exibição.
  */
 export const PREFERENCE_DEFAULTS = {
@@ -100,6 +107,8 @@ export const PREFERENCE_DEFAULTS = {
   plainPencil: false,
   stillCards: false,
   fewCards: false,
+  askNoCategory: true,
+  askNoTag: true,
 };
 
 /** As escolhas de Desempenho, pelo nome do ajuste guardado. */
@@ -153,7 +162,9 @@ function readStored(): Stored {
   const plainPencil = raw.plainPencil === true;
   const stillCards = raw.stillCards === true;
   const fewCards = raw.fewCards === true;
-  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, noCutShadows, plainPencil, stillCards, fewCards };
+  const askNoCategory = raw.askNoCategory !== false;
+  const askNoTag = raw.askNoTag !== false;
+  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, noCutShadows, plainPencil, stillCards, fewCards, askNoCategory, askNoTag };
 }
 
 /**
@@ -208,6 +219,10 @@ export class Settings {
   readonly stillCards = signal(this.stored.stillCards);
   /** Ver `Stored.fewCards`. */
   readonly fewCards = signal(this.stored.fewCards);
+  /** Ver `Stored.askNoCategory`. */
+  readonly askNoCategory = signal(this.stored.askNoCategory);
+  /** Ver `Stored.askNoTag`. */
+  readonly askNoTag = signal(this.stored.askNoTag);
 
   /** A predefinição que bate com as escolhas de agora (null: uma mistura feita à mão). */
   readonly performancePreset = computed<PerformancePreset | null>(() => {
@@ -231,6 +246,8 @@ export class Settings {
       this.friendSpoilers() === PREFERENCE_DEFAULTS.friendSpoilers &&
       this.friendKinds() === PREFERENCE_DEFAULTS.friendKinds &&
       this.mailCount() === PREFERENCE_DEFAULTS.mailCount &&
+      this.askNoCategory() === PREFERENCE_DEFAULTS.askNoCategory &&
+      this.askNoTag() === PREFERENCE_DEFAULTS.askNoTag &&
       PERFORMANCE_KEYS.every((key) => this[key]() === PREFERENCE_DEFAULTS[key]),
   );
 
@@ -242,6 +259,8 @@ export class Settings {
     this.friendSpoilers.set(PREFERENCE_DEFAULTS.friendSpoilers);
     this.friendKinds.set(PREFERENCE_DEFAULTS.friendKinds);
     this.mailCount.set(PREFERENCE_DEFAULTS.mailCount);
+    this.askNoCategory.set(PREFERENCE_DEFAULTS.askNoCategory);
+    this.askNoTag.set(PREFERENCE_DEFAULTS.askNoTag);
     for (const key of PERFORMANCE_KEYS) this[key].set(PREFERENCE_DEFAULTS[key]);
   }
 
@@ -317,6 +336,8 @@ export class Settings {
         plainPencil: this.plainPencil(),
         stillCards: this.stillCards(),
         fewCards: this.fewCards(),
+        askNoCategory: this.askNoCategory(),
+        askNoTag: this.askNoTag(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

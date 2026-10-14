@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { Settings } from '../core/settings';
 import { ReviewEditor } from './review-editor';
 
 function note(extra: Record<string, unknown> = {}): Review {
@@ -36,6 +37,9 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     TestBed.configureTestingModule({ imports: [ReviewEditor], providers: [provideZonelessChangeDetection()] });
     TestBed.inject(Cloud).config.set({ api: 'https://api.teste', googleClientId: 'x.apps.googleusercontent.com' });
     store = TestBed.inject(ReviewStore);
+    // a pergunta de anotação sem categoria ou tag tem o seu teste (review-editor.labels.spec.ts)
+    TestBed.inject(Settings).askNoCategory.set(false);
+    TestBed.inject(Settings).askNoTag.set(false);
     fixture = TestBed.createComponent(ReviewEditor);
     document.body.appendChild(fixture.nativeElement);
     el = fixture.nativeElement;
