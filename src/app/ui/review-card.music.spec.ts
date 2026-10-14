@@ -122,8 +122,14 @@ describe('a ficha de música no mural', () => {
       expect(words.offsetWidth).withContext(`${width}px`).toBe(head.offsetWidth);
       // a etiqueta em pé, a Média em cima do canhoto, cabe no lugar dela: não sai da ficha
       expect(judge.classList).withContext(`${width}px`).toContain('stack');
-      const ticket = Math.max(...Array.from(judge.children, (c) => (c as HTMLElement).offsetWidth));
+      const halves = Array.from(judge.children, (c) => c as HTMLElement);
+      const ticket = Math.max(...halves.map((c) => c.offsetWidth));
       expect(ticket).withContext(`${width}px`).toBeLessThanOrEqual(judge.offsetWidth);
+      // e cabe na altura do vinil (a etiqueta em pé é mais alta que o disco da ficha mais estreita)
+      const tall = halves.reduce((h, c) => h + c.offsetHeight, 0);
+      expect(tall).withContext(`${width}px`).toBeLessThanOrEqual(cover.offsetHeight);
+      // da ficha média para cima, as metades têm a altura de sempre
+      if (width >= 380) expect(halves.map((c) => c.offsetHeight)).withContext(`${width}px`).toEqual([42, 42]);
     }
   });
 

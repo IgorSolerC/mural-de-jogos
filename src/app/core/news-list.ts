@@ -26,6 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-ingresso-cabe',
+    version: '1.38.5',
+    kind: 'correcao',
+    date: '2026-10-14',
+    title: 'O ingresso da música cabe ao lado do vinil',
+    items: [
+      'Nas fichas de música mais estreitas, a etiqueta em pé ficava mais alta que o disco e passava por baixo dele. Agora ela encolhe um pouco para caber na altura do vinil; nas outras fichas, continua do mesmo tamanho.',
+    ],
+  },
+  {
     id: '2026-10-14-ingresso-em-pe',
     version: '1.38.4',
     kind: 'melhoria',

@@ -346,6 +346,11 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     :host(.stack) {
       --furo: 1.5px;
       --passo: 6px;
+      /* a altura vem de fora (a da fileira do vinil, com align-self: stretch) e não de dentro: as
+         metades medem metade dela (cqb), até os 42px de sempre. No vinil da ficha mais estreita,
+         mais baixo que 84px, o ingresso encolhe para caber ao lado dele */
+      container-type: size;
+      align-content: center;
       display: grid;
       /* um Meh não deixa o ingresso magrinho: todos têm pelo menos a largura de um Recomendo */
       grid-template-columns: minmax(128px, max-content);
@@ -358,17 +363,17 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     /* as duas metades com a mesma altura, como na etiqueta deitada: o número diminui para caber */
     :host(.stack) .grade,
     :host(.stack) .band {
-      height: 42px;
+      height: clamp(34px, 50cqb, 42px);
     }
     :host(.stack) .grade {
       padding: 3px 16px 0;
       border-radius: 0;
     }
     :host(.stack) .int {
-      font-size: 2.15rem;
+      font-size: min(2.15rem, 41cqb);
     }
     :host(.stack) .dec {
-      font-size: 1.45rem;
+      font-size: min(1.45rem, 27.6cqb);
       margin-bottom: 0.16em;
     }
     :host(.stack) .brilho {

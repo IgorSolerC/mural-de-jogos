@@ -1451,8 +1451,10 @@ function watchDistance(el: HTMLElement): () => void {
         'words words';
       grid-template-rows: auto auto;
     }
+    /* a etiqueta em pé ocupa a altura do vinil, sem empurrar a fileira (ela não conta altura
+       nenhuma, ver :host(.stack) em ui/judge-label.ts): no meio do disco, e nunca maior que ele */
     :host(.ficha-musica:not(.compact):not(.capas)) .judge {
-      align-self: center;
+      align-self: stretch;
       margin-top: 0;
     }
     /* a tachinha fura acima do vinil: aqui a folga é a do nome para o disco */
