@@ -26,6 +26,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-barra-da-pagina',
+    version: '1.38.3',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'O alto das páginas ocupa menos espaço',
+    items: [
+      'A etiqueta do mural, as abas Mural, Pra depois e Wishlist, o logo da página e a contagem agora ficam numa linha só, logo embaixo do topo. Antes eram três faixas uma embaixo da outra, com a parede vazia do lado.',
+      'O bilhete de resgate da Wishlist e a etiqueta de caderno do Pra depois continuam lá, na ponta direita dessa linha, com a contagem ao lado.',
+      'No topo, as três partes ficam no meio do barbante, que vai do cartaz até os bottons. Em telas a partir de uns 960px, tudo cabe numa fileira só (os nomes embaixo dos bottons aparecem a partir de 1100px).',
+      'Nos Extras, a explicação fica ao lado da etiqueta do mural, e nas páginas de dentro (Ranking, Comparar, Estatísticas e os jogos) a volta para Extras também foi para essa linha.',
+    ],
+  },
+  {
     id: '2026-10-14-anotacoes-analises-extras',
     version: '1.38.2',
     kind: 'melhoria',

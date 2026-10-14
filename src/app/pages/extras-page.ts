@@ -1,7 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ArrowUpDown, ChartNoAxesColumn, ChartPie, LucideAngularModule, LucideIconData, Puzzle, Swords, Users } from 'lucide-angular';
-import { Mural } from '../core/mural';
 import { Pin } from '../ui/pin';
 
 interface Entry {
@@ -104,13 +103,8 @@ const SHELVES: Shelf[] = [
   imports: [LucideAngularModule, Pin, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="head">
-      <h1 class="tape-label big">Extras</h1>
-      <p class="intro">
-        Números e jogos com as fichas do seu mural de {{ mural.profile().plural }}. Os jogos também dá para jogar com o mural
-        de um colega aberto em <a routerLink="/comparar">Comparar</a>.
-      </p>
-    </header>
+    <!-- o mural e o que é Extras ficam no índice embaixo do topo (ui/area-bar.ts) -->
+    <h1 class="sr-only">Extras</h1>
 
     @for (shelf of shelves; track shelf.id) {
       <section class="prateleira-extras" [attr.aria-labelledby]="'extras-' + shelf.id">
@@ -134,28 +128,6 @@ const SHELVES: Shelf[] = [
   styles: `
     :host {
       display: block;
-    }
-
-    .head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px 24px;
-      margin-bottom: 40px;
-    }
-
-    .intro {
-      max-width: 52ch;
-      color: var(--wall-ink);
-      font-family: var(--f-hand);
-      font-size: 1.12rem;
-      line-height: 1.35;
-
-      a {
-        color: inherit;
-        text-decoration-thickness: 2px;
-        text-underline-offset: 3px;
-      }
     }
 
     .prateleira-extras + .prateleira-extras {
@@ -236,6 +208,5 @@ const SHELVES: Shelf[] = [
   `,
 })
 export class ExtrasPage {
-  protected readonly mural = inject(Mural);
   protected readonly shelves = SHELVES;
 }

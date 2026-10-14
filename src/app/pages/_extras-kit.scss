@@ -1,11 +1,6 @@
-/* O que os jogos de Extras têm em comum: o "voltar", a folha de regras (bloquinho de súmula), as
+/* O que os jogos de Extras têm em comum: a folha de regras (bloquinho de súmula), as
    plaquinhas de escolha, o placar, a régua de progresso, o adesivo VS e os botões de baixo.
    Cada página de jogo faz `@use 'extras-kit';` no próprio scss. */
-
-.voltar {
-  margin: -6px 0 18px;
-  color: var(--wall-ink);
-}
 
 /* ===== As regras: folha de bloquinho de súmula, presa na parede ===== */
 .regras,

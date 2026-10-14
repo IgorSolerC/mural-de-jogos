@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ChevronDown, Dices, LucideAngularModule, Scissors, X } from 'lucide-angular';
-import { CUTOUT_STYLES, collage } from '../core/clipping';
+import { collage } from '../core/clipping';
 import { Desk } from '../core/desk';
-import { countOf, g } from '../core/kinds';
+import { g } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { RELEVANCE_RANK, Relevance, Wish, fold, relevanceLabel, relevanceOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -19,21 +19,6 @@ const ORDERS: readonly { value: Order; label: string }[] = [
 ];
 
 /**
- * O título da página, letra por letra, cada uma recortada de uma revista (índice em
- * `CUTOUT_STYLES`). Escolhido à mão, não sorteado: é o cabeçalho, tem de ficar bom sempre.
- */
-const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size: number; clip: string }[] = [
-  { t: 'W', s: 1, tilt: -6, dy: 2, size: 1.08, clip: 'polygon(2px 0, 100% 3px, calc(100% - 2px) 100%, 0 calc(100% - 2px))' },
-  { t: 'i', s: 2, tilt: 4, dy: -3, size: 1.02, clip: 'polygon(0 2px, calc(100% - 3px) 0, 100% calc(100% - 1px), 3px 100%)' },
-  { t: 'S', s: 3, tilt: -2, dy: 4, size: 0.92, clip: 'polygon(3px 1px, 100% 0, calc(100% - 1px) calc(100% - 3px), 0 100%)' },
-  { t: 'h', s: 0, tilt: 5, dy: -1, size: 1.1, clip: 'polygon(0 0, calc(100% - 2px) 2px, 100% 100%, 2px calc(100% - 2px))' },
-  { t: 'L', s: 6, tilt: -4, dy: 3, size: 0.98, clip: 'polygon(1px 3px, 100% 0, calc(100% - 3px) 100%, 0 calc(100% - 1px))' },
-  { t: 'i', s: 5, tilt: 3, dy: -2, size: 1.06, clip: 'polygon(2px 0, calc(100% - 1px) 1px, 100% calc(100% - 3px), 0 100%)' },
-  { t: 's', s: 8, tilt: -5, dy: 2, size: 0.95, clip: 'polygon(0 1px, 100% 3px, calc(100% - 2px) 100%, 2px calc(100% - 1px))' },
-  { t: 'T', s: 4, tilt: 6, dy: -2, size: 1.04, clip: 'polygon(3px 0, 100% 2px, 100% calc(100% - 2px), 0 100%)' },
-];
-
-/**
  * Wishlist: o que você quer jogar, ler ou ver, no mural aberto. Cada item é a capa recortada de uma
  * revista e colada na parede, uma colagem. Tocar num recorte começa a resenha; pregada, ela sai daqui.
  * O adesivo na quina diz quanta vontade: MUST PLAY vem na frente, LATER vai para o fim.
@@ -45,33 +30,8 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
   template: `
-    <header class="head">
-      <div class="titulo-linha">
-        <!-- o título recortado letra por letra, como um bilhete de resgate -->
-        <h1 class="titulo">
-          <span class="sr-only">Wishlist</span>
-          <span class="letras" aria-hidden="true">
-            @for (l of masthead; track $index) {
-              <span
-                class="letra"
-                [class]="'fonte-' + styles[l.s].font"
-                [class.caps]="styles[l.s].caps"
-                [style.background]="styles[l.s].bg"
-                [style.color]="styles[l.s].ink"
-                [style.clip-path]="l.clip"
-                [style.rotate.deg]="l.tilt"
-                [style.translate]="'0 ' + l.dy + 'px'"
-                [style.font-size.em]="l.size"
-                >{{ l.t }}</span
-              >
-            }
-          </span>
-        </h1>
-        @if (mural.wishCount(); as n) {
-          <p class="sub">{{ countOf(mural.profile(), n) }} que você quer {{ mural.profile().verb }}</p>
-        }
-      </div>
-    </header>
+    <!-- o nome e a contagem estão no índice embaixo do topo (ui/area-bar.ts) -->
+    <h1 class="sr-only">Wishlist</h1>
 
     @if (mural.wishCount()) {
       <!-- a pasta, como no mural: a busca, a ordem e o sorteio em tinta e, depois do picote, o que a
@@ -187,71 +147,6 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
   styles: `
     :host {
       display: block;
-    }
-    .head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px 24px;
-      margin-bottom: 30px;
-    }
-    .titulo-linha {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px 26px;
-    }
-
-    /* ===== O título: oito letras recortadas de oito revistas ===== */
-    .titulo {
-      margin: 0;
-      font-size: 2.7rem;
-      line-height: 1;
-      rotate: -1.5deg;
-    }
-    .letras {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }
-    .letra {
-      display: inline-block;
-      min-width: 0.9em;
-      padding: 0.1em 0.16em 0.06em;
-      text-align: center;
-      line-height: 1;
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4)) drop-shadow(0 4px 5px rgb(0 0 0 / 0.3));
-    }
-    .letra.fonte-didone {
-      font-family: var(--f-didone);
-    }
-    .letra.fonte-serif {
-      font-family: var(--f-serif);
-      font-size: 1.04em;
-    }
-    .letra.fonte-serif-it {
-      font-family: var(--f-serif);
-      font-style: italic;
-      font-size: 1.06em;
-    }
-    .letra.fonte-label {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-style: italic;
-      padding-top: 0.14em;
-    }
-    .letra.caps {
-      text-transform: uppercase;
-    }
-    .sub {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--wall-ink-2);
-      font-variant-numeric: tabular-nums;
     }
 
     .pasta {
@@ -401,9 +296,6 @@ const MASTHEAD: readonly { t: string; s: number; tilt: number; dy: number; size:
     }
 
     @media (max-width: 559px) {
-      .titulo {
-        font-size: 2.2rem;
-      }
       .recortes {
         column-gap: 18px;
       }
@@ -427,15 +319,12 @@ export class WishlistPage {
   private readonly store = inject(ReviewStore);
   private readonly toasts = inject(Toasts);
   private readonly destroyRef = inject(DestroyRef);
-  protected readonly countOf = countOf;
   protected readonly g = g;
   protected readonly CutIcon = Scissors;
   protected readonly DiceIcon = Dices;
   protected readonly ChevronIcon = ChevronDown;
   protected readonly orders = ORDERS;
   protected readonly CloseIcon = X;
-  protected readonly masthead = MASTHEAD;
-  protected readonly styles = CUTOUT_STYLES;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');

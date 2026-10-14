@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { ArrowLeft, LucideAngularModule } from 'lucide-angular';
 import { filter, map } from 'rxjs';
-import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, areaOf, pathOf, reviewPath, sectionOf } from '../core/areas';
+import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Settings } from '../core/settings';
 import { KindSwitcher } from './kind-switcher';
+import { QueueLogo, WishlistLogo } from './section-logos';
 
 /** Uma aba do índice, já com o endereço e se é a aberta. */
 interface Tab {
@@ -15,26 +17,38 @@ interface Tab {
   on: boolean;
 }
 
+/** A contagem do lado direito: o número em destaque e o resto, inteiro (tela larga) e curto. */
+interface Summary {
+  n: number;
+  long: string;
+  short: string;
+}
+
 /**
- * O índice da parte aberta, logo embaixo do topo, nas páginas que precisam dele: à esquerda o seletor
- * de mural (nas páginas que dependem do mural), ao lado as seções da parte. O topo só diz em que parte
- * se está (Anotações, Análises, Extras); o índice diz o resto, sempre no mesmo lugar.
+ * A barra da página, logo embaixo do topo: o cabeçalho das páginas que dependem do mural, numa
+ * linha só. À esquerda a etiqueta do mural; ao lado, as seções da parte (ou a volta para Extras); na
+ * ponta, o logo da seção (o bilhete de resgate da Wishlist, a etiqueta de caderno do Pra depois) e
+ * quanto há nela. O topo só diz em que parte se está (Anotações, Análises, Extras); a
+ * barra diz o resto, sempre no mesmo lugar, sem uma linha de título a mais em cada página.
  *
- * - Análises: o mural de resenhas e as seções Mural, Pra depois e Wishlist.
+ * - Análises: o mural de resenhas, Mural / Pra depois / Wishlist e a contagem da seção aberta.
  * - Anotações: as seções, quando houver mais de uma (o Estudo cego e o Calendário entram em
  *   `NOTE_SECTIONS`); com uma só, nada.
- * - Extras: só o mural (os números e os jogos são de um mural). O mural de um colega tem o próprio.
- * - Amigos, separado por mural: só o mural, com o de anotações também.
+ * - Extras: o mural e o que é Extras; nas páginas de dentro, a volta para Extras. O mural de um
+ *   colega tem o próprio cabeçalho.
+ * - Amigos, um mural por vez: só o mural, com o de anotações também.
  */
 @Component({
   selector: 'app-area-bar',
-  imports: [KindSwitcher, RouterLink],
+  imports: [KindSwitcher, LucideAngularModule, QueueLogo, RouterLink, WishlistLogo],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.vazio]': '!picker() && !tabs().length' },
+  host: { '[class.vazio]': '!shown()' },
   template: `
-    @let ks = picker();
-    @if (ks || tabs().length) {
-      <div class="indice">
+    @if (shown()) {
+      @let ks = picker();
+      @let sum = summary();
+      @let lg = logo();
+      <div class="indice" [class.com-logo]="lg">
         @if (ks) {
           <app-kind-switcher class="mural" [kinds]="ks" />
         }
@@ -48,6 +62,38 @@ interface Tab {
               }
             </ul>
           </nav>
+        } @else if (inExtras() && !extrasHome()) {
+          <nav class="secoes" aria-label="Voltar">
+            <a class="secao volta" routerLink="/extras">
+              <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+              Extras
+            </a>
+          </nav>
+        }
+        @if (extrasHome()) {
+          <p class="nota">
+            Números e jogos com as fichas do seu mural de {{ mural.profile().plural }}. Os jogos também dá para jogar com o mural
+            de um colega aberto em <a routerLink="/comparar">Comparar</a>.
+          </p>
+        }
+        @if (lg) {
+          <!-- o logo da seção é o título dela (o h1 da página fica para o leitor de tela) -->
+          <div class="pagina">
+            @if (lg === 'wishlist') {
+              <app-wishlist-logo class="logo-wishlist" />
+            } @else {
+              <app-queue-logo class="logo-fila" />
+            }
+            @if (sum) {
+              <p class="resumo">
+                <span class="n">{{ sum.n }}</span><span class="longo">{{ sum.long }}</span><span class="curto">{{ sum.short }}</span>
+              </p>
+            }
+          </div>
+        } @else if (sum) {
+          <p class="resumo">
+            <span class="n">{{ sum.n }}</span><span class="longo">{{ sum.long }}</span><span class="curto">{{ sum.short }}</span>
+          </p>
         }
       </div>
     }
@@ -59,22 +105,31 @@ interface Tab {
       z-index: 15;
       display: block;
       container: indice / inline-size;
-      margin-bottom: 26px;
+      margin-bottom: 24px;
     }
     :host(.vazio) {
       display: none;
     }
 
-    /* Celular: a etiqueta do mural em cima, as seções embaixo, na largura toda. Com espaço, uma
-       fileira só: a etiqueta, um risco de giz, as seções. */
+    /* Celular: a etiqueta do mural e a contagem na primeira linha; as seções (ou o texto de Extras)
+       embaixo, na largura toda */
     .indice {
       display: grid;
-      justify-items: start;
-      gap: 12px;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas:
+        'mural resumo'
+        'secoes secoes'
+        'pagina pagina'
+        'nota nota';
+      align-items: center;
+      gap: 10px 14px;
     }
-
+    .mural {
+      grid-area: mural;
+      justify-self: start;
+    }
     .secoes {
-      justify-self: stretch;
+      grid-area: secoes;
       min-width: 0;
 
       ul {
@@ -85,15 +140,43 @@ interface Tab {
         list-style: none;
       }
     }
+    .nota {
+      grid-area: nota;
+    }
+    .pagina {
+      grid-area: pagina;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 22px;
+      min-width: 0;
+      padding-top: 4px;
+    }
+    .resumo {
+      grid-area: resumo;
+      justify-self: end;
+      text-align: right;
+    }
+    .pagina .resumo {
+      text-align: left;
+    }
 
-    /* Cada seção é uma palavra escrita na parede a giz, em caixa alta. A aberta fica clara, com um
-       traço de marca-texto amarelo (a cor de estado do site) por baixo; ao passar, o traço começa a
-       aparecer. */
+    /* os logos, um pouco menores que no cabeçalho de antes, para caberem na linha da barra */
+    .logo-wishlist {
+      font-size: 1.85rem;
+    }
+    .logo-fila {
+      font-size: 0.8rem;
+    }
+
+    /* Cada seção é uma palavra escrita na parede a giz, em caixa alta. A aberta fica em tinta sobre um
+       traço de marca-texto amarelo (a cor de estado do site); ao passar, o traço começa a aparecer. */
     .secao {
       position: relative;
       isolation: isolate;
       display: inline-flex;
       align-items: center;
+      gap: 6px;
       min-height: 44px;
       padding: 0 8px;
       border-radius: 3px;
@@ -141,7 +224,6 @@ interface Tab {
       }
 
       &.on {
-        /* tinta escura sobre o amarelo: o traço vira o fundo da palavra */
         color: var(--ink);
 
         &::after {
@@ -150,18 +232,92 @@ interface Tab {
           scale: 1 1;
         }
       }
+
+      lucide-icon {
+        display: inline-flex;
+        translate: 0 -1px;
+      }
     }
 
+    /* a volta para Extras: a seta recua um pouco ao passar, sem marca-texto */
+    .volta {
+      &::after {
+        display: none;
+      }
+      lucide-icon {
+        transition: translate var(--t-ui) var(--ease-ui);
+      }
+      &:hover lucide-icon {
+        translate: -3px -1px;
+      }
+    }
+
+    /* O que é Extras, escrito à mão na parede */
+    .nota {
+      max-width: 78ch;
+      margin: 0;
+      color: var(--wall-ink);
+      font-family: var(--f-hand);
+      font-size: 1.06rem;
+      line-height: 1.35;
+      text-wrap: pretty;
+
+      a {
+        color: inherit;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+    }
+
+    /* Quanto há na página, a giz, com o número em destaque */
+    .resumo {
+      margin: 0;
+      color: var(--wall-ink-2);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.86rem;
+      letter-spacing: 0.1em;
+      line-height: 1.2;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+    .n {
+      color: var(--wall-ink);
+      font-size: 1.14rem;
+      letter-spacing: 0.04em;
+    }
+    .longo,
+    .curto {
+      margin-left: 0.4em;
+    }
+    .longo {
+      display: none;
+    }
+    /* embaixo das seções, o logo tem a linha toda: a contagem vai inteira */
+    .pagina .longo {
+      display: inline;
+    }
+    .pagina .curto {
+      display: none;
+    }
+
+    /* Uma fileira só: a etiqueta, um risco de giz, as seções (ou o texto de Extras) e, na ponta, a
+       contagem */
     @container indice (min-width: 500px) {
       .indice {
-        grid-auto-flow: column;
-        justify-content: start;
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 22px;
+        gap: 10px 22px;
       }
 
-      /* o risco de giz entre o mural e as seções */
-      .secoes {
+      /* ainda sem lugar ao lado das seções: o logo e a contagem descem para a linha de baixo */
+      .pagina {
+        flex: 1 0 100%;
+      }
+
+      .secoes,
+      .mural + .nota {
         position: relative;
         padding-left: 22px;
 
@@ -178,7 +334,20 @@ interface Tab {
           opacity: 0.45;
           rotate: 8deg;
         }
+      }
 
+      .nota {
+        flex: 0 1 auto;
+      }
+
+      .resumo {
+        margin-left: auto;
+        padding-left: 12px;
+        white-space: nowrap;
+      }
+      .pagina .resumo {
+        margin-left: 0;
+        padding-left: 0;
       }
 
       .secao {
@@ -188,8 +357,47 @@ interface Tab {
       }
     }
 
+    @container indice (min-width: 860px) {
+      .longo {
+        display: inline;
+      }
+      .curto {
+        display: none;
+      }
+    }
+
+    /* uma linha só: o logo e a contagem na ponta direita, onde antes sobrava parede */
+    @container indice (min-width: 900px) {
+      .indice.com-logo {
+        flex-wrap: nowrap;
+      }
+      .pagina {
+        flex: 0 1 auto;
+        flex-wrap: nowrap;
+        margin-left: auto;
+        padding-top: 0;
+      }
+      .logo-wishlist {
+        font-size: 2.1rem;
+      }
+      .logo-fila {
+        font-size: 0.86rem;
+      }
+    }
+
+    /* entre 900 e 1100 o logo e as seções dividem a linha: a contagem vai curta */
+    @container indice (min-width: 900px) and (max-width: 1099px) {
+      .pagina .longo {
+        display: none;
+      }
+      .pagina .curto {
+        display: inline;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .secao::after {
+      .secao::after,
+      .volta lucide-icon {
         transition: none;
       }
     }
@@ -197,8 +405,10 @@ interface Tab {
 })
 export class AreaBar {
   private readonly router = inject(Router);
-  private readonly mural = inject(Mural);
+  protected readonly mural = inject(Mural);
   private readonly settings = inject(Settings);
+
+  protected readonly BackIcon = ArrowLeft;
 
   private readonly path = toSignal(
     this.router.events.pipe(
@@ -210,14 +420,15 @@ export class AreaBar {
 
   private readonly area = computed(() => areaOf(this.path()));
 
+  /** Em Extras, fora o mural de um colega (que tem o próprio cabeçalho). */
+  protected readonly inExtras = computed(() => this.area() === 'extras' && this.path() !== '/comparar/mural');
+  /** A própria página de Extras: o texto do que mora lá. */
+  protected readonly extrasHome = computed(() => this.path() === '/extras');
+
   /** Os murais do seletor, nas páginas que dependem do mural; `null` onde ele não aparece. */
   protected readonly picker = computed<readonly Kind[] | null>(() => {
-    const p = this.path();
-    const area = this.area();
-    if (area === 'analises') return SCORED_KINDS;
-    // o mural de um colega tem o próprio seletor, com os murais que a pessoa tem
-    if (area === 'extras') return p === '/comparar/mural' ? null : SCORED_KINDS;
-    if (p === '/amigos' && this.settings.friendKinds() === 'separado') return KINDS;
+    if (this.area() === 'analises' || this.inExtras()) return SCORED_KINDS;
+    if (this.path() === '/amigos' && this.settings.friendKinds() === 'separado') return KINDS;
     return null;
   });
 
@@ -234,6 +445,33 @@ export class AreaBar {
       on: s === open,
     }));
   });
+
+  /** Quanto há na seção aberta das Análises (nada quando está vazia: a página já diz). */
+  protected readonly summary = computed<Summary | null>(() => {
+    const place = reviewPlace(this.path());
+    if (!place) return null;
+    const p = this.mural.profile();
+    const noun = (n: number) => (n === 1 ? p.singular : p.plural);
+    const of = (n: number, long: string, short: string): Summary | null => (n ? { n, long: `${noun(n)} ${long}`, short } : null);
+    switch (place.section) {
+      case 'pra-depois':
+        return of(this.mural.draftCount(), 'esperando a sua opinião', 'esperando');
+      case 'wishlist':
+        return of(this.mural.wishCount(), `que você quer ${p.verb}`, 'na lista');
+      case 'lado-a-lado':
+        return null;
+      default:
+        return of(this.mural.count(), 'no mural', noun(this.mural.count()));
+    }
+  });
+
+  /** O logo da seção aberta, nas que têm um. */
+  protected readonly logo = computed<'wishlist' | 'fila' | null>(() => {
+    const section = reviewPlace(this.path())?.section;
+    return section === 'wishlist' ? 'wishlist' : section === 'pra-depois' ? 'fila' : null;
+  });
+
+  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0);
 
   protected readonly navLabel = computed(() => (this.area() === 'analises' ? 'Seções das análises' : 'Seções das anotações'));
 }

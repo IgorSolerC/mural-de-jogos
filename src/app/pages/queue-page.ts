@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { ChevronDown, LucideAngularModule, NotebookPen } from 'lucide-angular';
 import { collage } from '../core/clipping';
 import { Desk } from '../core/desk';
-import { countOf, g } from '../core/kinds';
+import { g } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { ageOf, daysWaiting, pageHeight } from '../core/notebook';
 import { fold } from '../core/review';
@@ -28,20 +28,8 @@ const ORDERS: readonly { value: Order; label: string }[] = [
   imports: [DraftCard, LucideAngularModule, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="head">
-      <div class="titulo-linha">
-        <!-- a etiqueta da capa do caderno, preenchida à mão -->
-        <h1 class="etiqueta">
-          <span class="etiqueta-campo">
-            <span class="etiqueta-rotulo" aria-hidden="true">Matéria</span>
-            <span class="etiqueta-escrito">Pra resenhar depois</span>
-          </span>
-        </h1>
-        @if (mural.draftCount(); as n) {
-          <p class="sub">{{ countOf(mural.profile(), n) }} esperando a sua opinião</p>
-        }
-      </div>
-    </header>
+    <!-- o nome e a contagem estão no índice embaixo do topo (ui/area-bar.ts) -->
+    <h1 class="sr-only">Pra depois</h1>
 
     @if (mural.draftCount()) {
       <!-- a pasta, como no mural: a busca, a ordem em tinta e, depois do picote, o que a busca achou -->
@@ -124,76 +112,6 @@ const ORDERS: readonly { value: Order; label: string }[] = [
     :host {
       display: block;
     }
-    .head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px 24px;
-      margin-bottom: 30px;
-    }
-    .titulo-linha {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px 26px;
-    }
-
-    .sub {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--wall-ink-2);
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* ===== A etiqueta escolar: moldura impressa em azul, o campo pautado, o nome a pincel ===== */
-    .etiqueta {
-      position: relative;
-      margin: 0;
-      padding: 9px 12px 10px;
-      rotate: -1.6deg;
-      background: #fdfcf7;
-      border-radius: 6px;
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4));
-    }
-    /* a moldura impressa: fio duplo, com os cantinhos recortados para dentro */
-    .etiqueta::before {
-      content: '';
-      position: absolute;
-      inset: 4px;
-      border: 2px solid #3a67b8;
-      border-radius: 4px;
-      box-shadow: inset 0 0 0 2px #fdfcf7, inset 0 0 0 3px rgb(58 103 184 / 0.55);
-      pointer-events: none;
-    }
-    .etiqueta-campo {
-      position: relative;
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      padding: 6px 14px 4px;
-    }
-    .etiqueta-rotulo {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.8rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #3a67b8;
-    }
-    /* escrito na linha pontilhada do campo */
-    .etiqueta-escrito {
-      padding: 0 4px 2px;
-      background: radial-gradient(circle, rgb(58 103 184 / 0.6) 0.9px, transparent 1.2px) 0 100% / 5px 3px repeat-x;
-      color: var(--ink);
-      font-family: var(--f-marker);
-      font-weight: 400;
-      font-size: 1.7rem;
-      line-height: 1.1;
-    }
 
     .pasta {
       margin-bottom: 44px;
@@ -264,12 +182,6 @@ const ORDERS: readonly { value: Order; label: string }[] = [
     }
 
     @media (max-width: 559px) {
-      .etiqueta-escrito {
-        font-size: 1.35rem;
-      }
-      .etiqueta-campo {
-        padding-inline: 10px;
-      }
       .sheets {
         column-gap: 18px;
       }
@@ -284,7 +196,6 @@ export class QueuePage {
   protected readonly desk = inject(Desk);
   private readonly transitions = inject(ViewTransitions);
   private readonly destroyRef = inject(DestroyRef);
-  protected readonly countOf = countOf;
   protected readonly g = g;
   protected readonly NoteIcon = NotebookPen;
   protected readonly ChevronIcon = ChevronDown;

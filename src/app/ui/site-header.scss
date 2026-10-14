@@ -5,7 +5,7 @@
   z-index: 20;
   display: block;
   container: topo / inline-size;
-  margin-bottom: 30px;
+  margin-bottom: 22px;
 }
 
 /* ===== A disposição =====
@@ -714,15 +714,14 @@
     font-size: 1.3rem;
   }
 
-  /* três etiquetas não enchem o topo: o barbante vai só até um pouco depois da última, com folga
-     (de ponta a ponta ficaria um varal vazio) */
   .varal {
     --linha: 18px;
-    justify-self: start;
-    padding-right: 56px;
   }
 
+  /* as três partes no meio do barbante, que vai de ponta a ponta: o nome à esquerda, as partes no
+     centro, o que é seu à direita */
   .etiquetas {
+    justify-content: center;
     gap: 18px;
     padding-inline: 22px;
 
@@ -767,6 +766,12 @@
 
   .botton {
     --size: 44px;
+  }
+}
+
+/* o nome embaixo de cada botton, quando sobra largura (antes, só o desenho, com o nome no title) */
+@container topo (min-width: 1100px) {
+  .botton {
     min-width: 56px;
   }
 
@@ -787,17 +792,47 @@
   }
 }
 
-/* ===== Tela larga: tudo numa fileira só. O varal vai do cartaz aos bottons (o cartaz curto, só
-   "Meu mural", deixa a fileira única chegar antes) ===== */
-@container topo (min-width: 1120px) {
+/* ===== Tela larga: tudo numa fileira só, o varal de ponta a ponta entre o cartaz e os bottons, as
+   partes no meio dele. Até 1200px as etiquetas ficam mais justas (e até 1100px os bottons vão sem o
+   nome), para caber já no tablet deitado: uma fileira inteira só para três etiquetas era espaço à
+   toa ===== */
+@container topo (min-width: 920px) {
   .topo {
     grid-template-areas: 'cartaz varal bottons adicionar';
-    column-gap: 28px;
+    column-gap: 22px;
   }
 
   .varal {
     /* o barbante sobe um pouco para as etiquetas ficarem na altura do cartaz */
     margin-top: -8px;
+  }
+
+  .etiquetas {
+    gap: 10px;
+    padding-inline: 14px;
+  }
+
+  .etiqueta {
+    padding-inline: 12px;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+  }
+}
+
+@container topo (min-width: 1200px) {
+  .topo {
+    column-gap: 28px;
+  }
+
+  .etiquetas {
+    gap: 18px;
+    padding-inline: 22px;
+  }
+
+  .etiqueta {
+    padding-inline: 18px;
+    font-size: 0.98rem;
+    letter-spacing: 0.12em;
   }
 }
 

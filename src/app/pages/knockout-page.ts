@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender } from '../ui/focus';
-import { RouterLink } from '@angular/router';
-import { ArrowLeft, LucideAngularModule, RotateCcw, Shuffle, Swords, Trophy, Undo2 } from 'lucide-angular';
+import { LucideAngularModule, RotateCcw, Shuffle, Swords, Trophy, Undo2 } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
 import { SavedKnockout, loadKnockout, saveKnockout } from '../core/knockout-save';
@@ -20,7 +19,7 @@ import { ReviewReader } from '../ui/review-reader';
  */
 @Component({
   selector: 'app-knockout-page',
-  imports: [LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader, RouterLink],
+  imports: [LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './knockout-page.html',
   styleUrl: './knockout-page.scss',
@@ -32,7 +31,6 @@ export class KnockoutPage {
   private readonly desk = inject(Desk);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly BackIcon = ArrowLeft;
   protected readonly SwordsIcon = Swords;
   protected readonly TrophyIcon = Trophy;
   protected readonly UndoIcon = Undo2;

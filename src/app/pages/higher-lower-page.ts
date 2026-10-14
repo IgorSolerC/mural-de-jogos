@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender } from '../ui/focus';
-import { RouterLink } from '@angular/router';
-import { ArrowBigDown, ArrowBigUp, ArrowLeft, ArrowUpDown, LucideAngularModule, RotateCcw, Shuffle } from 'lucide-angular';
+import { ArrowBigDown, ArrowBigUp, ArrowUpDown, LucideAngularModule, RotateCcw, Shuffle } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { cap } from '../core/kinds';
 import { getRecord, offerRecord, recordKey } from '../core/game-records';
@@ -32,7 +31,7 @@ interface Round {
  */
 @Component({
   selector: 'app-higher-lower-page',
-  imports: [LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader, RouterLink],
+  imports: [LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './higher-lower-page.html',
   styleUrl: './higher-lower-page.scss',
@@ -44,7 +43,6 @@ export class HigherLowerPage {
   private readonly desk = inject(Desk);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly BackIcon = ArrowLeft;
   protected readonly GameIcon = ArrowUpDown;
   protected readonly UpIcon = ArrowBigUp;
   protected readonly DownIcon = ArrowBigDown;

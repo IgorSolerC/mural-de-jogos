@@ -30,7 +30,7 @@ const SCENES: { name: string; kind: Kind; url: string; friends: boolean; unseen:
 type Box = { name: string; r: DOMRect; el: Element };
 
 /** A partir desta largura o topo é uma fileira só (ver site-header.scss). */
-const ONE_ROW = 1120;
+const ONE_ROW = 920;
 
 describe('o topo do site', () => {
   describe('as partes do site', () => {

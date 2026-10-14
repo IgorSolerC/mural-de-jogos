@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowLeft, LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
+import { LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
 import { ColleagueStore } from '../core/colleague-store';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals } from '../core/cloud-murals';
@@ -124,7 +124,6 @@ export class ComparisonPage {
   protected readonly CompactIcon = LayoutGrid;
   protected readonly WishIcon = Heart;
   protected readonly DoneIcon = Check;
-  protected readonly BackIcon = ArrowLeft;
   protected readonly fmt = formatScore;
   protected readonly abs = Math.abs;
   protected readonly g = g;

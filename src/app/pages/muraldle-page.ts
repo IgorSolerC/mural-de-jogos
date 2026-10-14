@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender } from '../ui/focus';
-import { RouterLink } from '@angular/router';
-import { ArrowBigDown, ArrowBigUp, ArrowLeft, Flag, Lock, LucideAngularModule, Share2, Shuffle } from 'lucide-angular';
+import { ArrowBigDown, ArrowBigUp, Flag, Lock, LucideAngularModule, Share2, Shuffle } from 'lucide-angular';
 import { Desk } from '../core/desk';
 import { countOf } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -35,7 +34,7 @@ interface Game {
  */
 @Component({
   selector: 'app-muraldle-page',
-  imports: [CoverSleeve, LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader, RouterLink],
+  imports: [CoverSleeve, LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './muraldle-page.html',
   styleUrl: './muraldle-page.scss',
@@ -48,7 +47,6 @@ export class MuraldlePage {
   private readonly reader = viewChild.required(ReviewReader);
   private readonly input = viewChild<ElementRef<HTMLInputElement>>('busca');
 
-  protected readonly BackIcon = ArrowLeft;
   protected readonly UpIcon = ArrowBigUp;
   protected readonly DownIcon = ArrowBigDown;
   protected readonly LockIcon = Lock;
