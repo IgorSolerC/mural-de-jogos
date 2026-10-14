@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-desempenho-aparelho',
+    version: '1.38.8',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'O Desempenho é de cada aparelho',
+    items: [
+      'As escolhas de Ajustes › Desempenho ficam guardadas só no aparelho onde você as fez: o computador pode ficar em Qualidade e o celular em Desempenho, com a mesma conta. Elas não vão para a nuvem nem para o backup.',
+      'A página do Desempenho agora diz isso com todas as letras.',
+    ],
+  },
+  {
     id: '2026-10-14-feitas-tocar',
     version: '1.38.7',
     kind: 'melhoria',

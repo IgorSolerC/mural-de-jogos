@@ -301,6 +301,27 @@ describe('sincronização com a nuvem', () => {
       expect(b.settings.rawgKey()).toBe('da-nuvem');
     });
 
+    it('as escolhas de Desempenho ficam no aparelho: nem a nuvem nem o backup levam', async () => {
+      const a = fresh();
+      a.store.add(review('raaaa1', 'Celeste'));
+      a.settings.applyPerformancePreset('desempenho');
+      a.settings.setKey('rawg', 'chave-rawg-123');
+      await a.sync.syncNow();
+      const sent = JSON.stringify(await cloud.read()) + JSON.stringify(await cloud.readPublic());
+      const { blob } = await a.store.exportBackup('Igor');
+      const backupText = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).text();
+      for (const key of ['cardLayers', 'noCutShadows', 'plainPencil', 'stillCards', 'fewCards']) {
+        expect(sent).not.toContain(key);
+        expect(backupText).not.toContain(key);
+      }
+
+      // o outro aparelho da mesma conta recebe o mural e as chaves, e fica com o Desempenho dele
+      const b = fresh();
+      await b.sync.syncNow();
+      expect(b.settings.rawgKey()).toBe('chave-rawg-123');
+      expect(b.settings.performancePreset()).toBe('equilibrio');
+    });
+
     it('sem chave nenhuma, o mural vai sem o campo', async () => {
       const a = fresh();
       a.store.add(review('raaaa1', 'Celeste'));
