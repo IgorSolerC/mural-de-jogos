@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-orelha-folga',
+    version: '1.38.10',
+    kind: 'correcao',
+    date: '2026-10-14',
+    title: 'A orelha da banda não cobre mais a etiqueta da seção',
+    items: [
+      'No mural de músicas, a orelha com o nome da banda subia por cima da etiqueta do mês e da conta ao lado dela ("4 álbuns · média 9,6"), principalmente no celular. Agora a primeira fileira de cada seção desce o que a orelha pede, e ela fica na parede.',
+      'As anotações com categoria ganharam a mesma folga, para as duas paredes ficarem iguais.',
+    ],
+  },
+  {
     id: '2026-10-14-sem-categoria-ou-tag',
     version: '1.38.9',
     kind: 'melhoria',

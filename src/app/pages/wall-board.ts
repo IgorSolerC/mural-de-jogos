@@ -49,6 +49,8 @@ export class WallBoard {
   protected readonly owner = this.view.owner;
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = this.view.notes;
+  /** As fichas daqui têm orelha (a categoria da anotação, o artista da música): a seção abre lugar para ela. */
+  protected readonly ears = computed(() => this.notes() || this.view.music());
   /** "ficha" nos murais de resenhas, "anotação" no de anotações. */
   protected readonly word = computed(() => (this.notes() ? 'anotação' : 'ficha'));
   /** As fichas inteiras: o texto todo, encaixadas em colagem (ver `appFichasMosaico`). */

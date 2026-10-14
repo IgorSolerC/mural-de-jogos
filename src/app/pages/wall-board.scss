@@ -290,6 +290,17 @@
   gap: var(--in-gap);
 }
 
+/* As orelhas (a categoria da anotação, o artista da música) saem uns 32px por cima da ficha, e mais
+   6 com o mouse: a primeira fileira de cada seção desce o que falta para a orelha ficar na parede, sem
+   cobrir a etiqueta da seção nem a conta ao lado dela. Entre as fileiras o vão já basta. */
+.wall.com-orelhas:not(.capas, .inteira, .lista) .fichas {
+  padding-top: 18px;
+}
+
+.wall.com-orelhas.compact .fichas {
+  padding-top: 14px;
+}
+
 /* ===== O lugar de cada ficha =====
    Uma caixa reta, da largura da ficha, que fica sempre na parede (ver wall-cards.ts): dentro dela vai
    a ficha ou, longe da tela, a vaga. Com a ficha acordada e a "Rolagem lisa" dos Ajustes ligada (a
@@ -425,6 +436,16 @@
     .lugar {
       width: 100%;
     }
+  }
+
+  /* com orelhas, a seção abre mais lugar no alto, e as fileiras se afastam o que a orelha pede */
+  .wall.com-orelhas:not(.capas, .inteira, .lista) .fichas {
+    padding-top: 24px;
+    gap: 40px;
+  }
+
+  .wall.com-orelhas.inteira {
+    gap: 40px;
   }
 
   /* a vaga no celular: quase reta e mais perto da de cima, como a ficha */
