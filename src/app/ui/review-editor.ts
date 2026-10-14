@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { Bookmark, Check, CopyCheck, CornerDownRight, Eye, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
+import { Bookmark, Check, CopyCheck, CornerDownRight, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   Bonus,
@@ -78,6 +78,7 @@ import { DifficultyPicker } from './difficulty';
 import { GameSearch } from './game-search';
 import { MusicFields } from './music-fields';
 import { JudgeLabel } from './judge-label';
+import { FeedMenu } from './feed-menu';
 import { Pin } from './pin';
 import { ReviewCard } from './review-card';
 import { RichEditor } from './rich-editor';
@@ -115,6 +116,7 @@ const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'jul
     GameSearch,
     MusicFields,
     JudgeLabel,
+    FeedMenu,
     Pin,
     ReviewCard,
     RichEditor,
@@ -154,18 +156,17 @@ export class ReviewEditor {
   protected readonly KeepIcon = CopyCheck;
   protected readonly PrivateIcon = LockKeyhole;
   protected readonly EveryoneIcon = UsersRound;
-  protected readonly VisibleIcon = Eye;
   /**
-   * Quem vê: Publicar (o mural e o Feed de quem segue), Visível (só o mural, sem aviso) ou Privado
-   * (fora do mural que os outros veem, e ninguém é avisado). Ver Review.private e Review.quiet.
+   * Quem vê: Público (o mural que os outros veem) ou Privado (só a pessoa, e ninguém é avisado).
+   * Se a pública vai também para o Feed de quem segue não é uma terceira opção: pregar publica, e o
+   * outro caminho fica na setinha ao lado do botão (ver `feedMenu`). Ver Review.private e Review.quiet.
    */
-  protected readonly audience = signal<Audience>('publicar');
-  protected readonly isPrivate = computed(() => this.audience() === 'privada');
-  protected readonly audiences: readonly { value: Audience; label: string }[] = [
-    { value: 'publicar', label: 'Publicar' },
-    { value: 'visivel', label: 'Visível' },
-    { value: 'privada', label: 'Privado' },
-  ];
+  protected readonly visibility = signal<'publica' | 'privada'>('publica');
+  protected readonly isPrivate = computed(() => this.visibility() === 'privada');
+  protected readonly visibilities = [
+    { value: 'publica', label: 'Público', icon: UsersRound },
+    { value: 'privada', label: 'Privado', icon: LockKeyhole },
+  ] as const;
   protected readonly labels = SCORE_LABEL;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -181,6 +182,28 @@ export class ReviewEditor {
 
   protected readonly id = signal(newId());
   protected readonly editing = signal<Review | null>(null);
+  /** Como a ficha editada estava: publicada, só no mural (sem Feed) ou privada; null na ficha nova. */
+  private readonly wasAudience = computed(() => {
+    const prev = this.editing();
+    return prev ? audienceOf(prev) : null;
+  });
+  /**
+   * O botão principal leva a pública para o Feed? Sim, a não ser na que já estava só no mural: salvar
+   * uma correção nela não avisa ninguém de repente. O caminho contrário fica na setinha.
+   */
+  protected readonly announces = computed(() => this.wasAudience() !== 'visivel');
+  /**
+   * A setinha ao lado do botão: só com a nuvem, na pública, e enquanto o Feed ainda é uma escolha (a
+   * ficha que já foi para o Feed não tem como voltar atrás: o aviso foi dado).
+   */
+  protected readonly feedMenu = computed(() => !!this.cloud.config() && !this.isPrivate() && this.wasAudience() !== 'publicar');
+  /** O outro caminho, escrito no bilhete da setinha. */
+  protected readonly feedAlt = computed(() => {
+    const verb = this.editing() ? 'Salvar' : 'Pregar';
+    return this.announces()
+      ? { label: `${verb} sem publicar no Feed`, hint: 'Fica no seu mural e no seu perfil, mas não aparece no Feed de quem segue você.' }
+      : { label: `${verb} e publicar no Feed`, hint: 'Continua no seu mural e aparece no Feed de quem segue você, como nova a partir de hoje.' };
+  });
   /** O pendente que está sendo terminado, se a ficha veio da fila. */
   protected readonly fromDraft = signal<Draft | null>(null);
   /** O desejo da wishlist que virou resenha, se a ficha veio de lá. */
@@ -524,7 +547,7 @@ export class ReviewEditor {
       completedAt: this.dateValid() ? this.dateValue() : this.today(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
       ...this.artFields(),
-      ...(this.isPrivate() ? { private: true as const } : this.audience() === 'visivel' ? { quiet: true as const } : {}),
+      ...(this.isPrivate() ? { private: true as const } : {}),
       createdAt: '',
       updatedAt: '',
     };
@@ -620,8 +643,8 @@ export class ReviewEditor {
     this.keptNotes.set(false);
     this.freshPick.set(false);
     this.openCount.update((n) => n + 1);
-    // a anotação nasce privada; a resenha, publicada
-    this.audience.set(review ? audienceOf(review) : isNotes(kind) ? 'privada' : 'publicar');
+    // a anotação nasce privada; a resenha, pública
+    this.visibility.set(review ? (review.private ? 'privada' : 'publica') : isNotes(kind) ? 'privada' : 'publica');
     this.noteRank.set(review?.noteRank ?? null);
     this.noteDateOpen.set(false);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
@@ -801,11 +824,15 @@ export class ReviewEditor {
     setTimeout(() => this.search()?.focus());
   }
 
-  protected save(e: Event): void {
-    e.preventDefault();
+  /**
+   * Prega (ou salva). `other`: pelo outro caminho da setinha, que troca o Feed (ver `announces`).
+   */
+  protected save(e: Event | null, other = false): void {
+    e?.preventDefault();
     this.attempted.set(true);
+    const audience: Audience = this.isPrivate() ? 'privada' : this.announces() !== other ? 'publicar' : 'visivel';
     if (this.notes()) {
-      this.saveNote();
+      this.saveNote(audience);
       return;
     }
     const game = this.game();
@@ -849,7 +876,7 @@ export class ReviewEditor {
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
       ...this.artFields(),
       // passou a ser publicada agora: para quem segue, ela é nova a partir de hoje
-      ...audienceFields(this.audience(), prev, now),
+      ...audienceFields(audience, prev, now),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
@@ -864,7 +891,7 @@ export class ReviewEditor {
   }
 
   /** Prega a anotação: só o título é obrigatório; sem notas, status, veredito nem dificuldade. */
-  private saveNote(): void {
+  private saveNote(audience: Audience): void {
     const name = this.noteTitle().trim();
     if (!name || !this.dateValid() || this.textTooLong()) {
       this.focusFirstMissing();
@@ -889,7 +916,7 @@ export class ReviewEditor {
       scribbleInk: this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? this.scribbleInk() : undefined,
       text: this.text().trim(),
       completedAt: this.dateValue(),
-      ...audienceFields(this.audience(), prev, now),
+      ...audienceFields(audience, prev, now),
       // editar não desfaz o check: a finalizada continua finalizada, no mesmo dia
       ...(prev?.doneAt ? { doneAt: prev.doneAt } : {}),
       // continua fixada: desafixada, ainda volta a ser sub-nota
@@ -900,7 +927,7 @@ export class ReviewEditor {
     // tira os campos vazios (undefined) que a prévia leva
     const clean = Object.fromEntries(Object.entries(note).filter(([, v]) => v !== undefined)) as unknown as Review;
     // a prévia leva a marca de quem vê; fica só a que vale
-    const seen = audienceFields(this.audience(), prev, now);
+    const seen = audienceFields(audience, prev, now);
     if (!seen.private) delete (clean as Partial<Review>).private;
     if (!seen.quiet) delete (clean as Partial<Review>).quiet;
     // mudou o título: os links das outras anotações (e das resenhas) que abriam esta passam para o título novo
@@ -1115,7 +1142,7 @@ export class ReviewEditor {
       this.game()?.coverUrl,
       this.difficulty(),
       this.text().trim(),
-      this.audience(),
+      this.visibility(),
       this.noteRank(),
       this.game()?.form,
       this.game()?.sample,

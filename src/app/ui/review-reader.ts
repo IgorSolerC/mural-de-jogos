@@ -12,7 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, LucideIconData, MessageCircleMore, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, TextQuote, Trash2, X } from 'lucide-angular';
+import { ArrowLeft, BellOff, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, LucideIconData, MessageCircleMore, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, TextQuote, Trash2, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -174,8 +174,8 @@ const PATCH_GAP = 8;
                   </p>
                 } @else if (r.quiet && owner() === null) {
                   <p class="privada">
-                    <lucide-icon [img]="VisibleIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-                    Visível: está no seu mural, mas não foi para o Feed.
+                    <lucide-icon [img]="QuietIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Pública, sem aviso: está no seu mural, mas não foi para o Feed.
                   </p>
                 }
               </div>
@@ -428,7 +428,7 @@ export class ReviewReader {
   protected readonly RevealIcon = Eye;
   protected readonly HideIcon = EyeOff;
   protected readonly PrivateIcon = LockKeyhole;
-  protected readonly VisibleIcon = Eye;
+  protected readonly QuietIcon = BellOff;
   protected readonly BackIcon = ArrowLeft;
   protected readonly ReopenIcon = RotateCcw;
   protected readonly categorySticker = categoryBonus;

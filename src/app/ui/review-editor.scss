@@ -661,6 +661,45 @@ app-rich-editor.anotacao {
   color: var(--ink-2);
 }
 
+/* Pregar e a setinha (ver ui/feed-menu.ts): um bloco de pincel só, com o picote no meio. A sombra e o
+   levantar do mouse passam para o bloco inteiro, senão a metade que levanta se solta da outra */
+.pregar {
+  position: relative;
+  display: inline-flex;
+}
+
+.pregar.dividido {
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 12px -4px rgb(0 0 0 / 0.35);
+  transition: transform var(--t-physical) var(--ease-physical);
+
+  .btn-ink {
+    border-radius: 3px 0 0 3px;
+    box-shadow: none;
+  }
+
+  .btn-ink:hover:not(:disabled) {
+    transform: none;
+  }
+
+  &:has(.btn-ink:hover) {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+
+  &:has(.btn-ink:active) {
+    transform: translateY(1px);
+  }
+}
+
+/* a setinha ainda chegando: a mesma metade de pincel, quieta */
+.seta-vaga {
+  flex: none;
+  width: 46px;
+  border-left: 2px dashed rgb(247 244 236 / 0.4);
+  border-radius: 0 3px 3px 0;
+  background: var(--ink);
+}
+
 /* "Salvar pra depois": o recorte picotado, a ficha que ainda não foi colada */
 .later {
   box-shadow: none;
@@ -686,6 +725,10 @@ app-rich-editor.anotacao {
      fica só com o marcador (o nome continua lá, para o leitor de tela) */
   .cancelar {
     display: none;
+  }
+
+  .pregar {
+    flex: 1;
   }
 
   .later {

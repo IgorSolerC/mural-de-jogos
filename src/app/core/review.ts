@@ -338,8 +338,9 @@ export interface Review {
    */
   private?: true;
   /**
-   * Visível, sem publicar: fica no mural que os outros veem, mas não vira aviso no Feed de quem segue.
-   * Nunca junto de `private`. Sem os dois, a ficha é publicada (vai para o mural e para o Feed).
+   * Pública, sem aviso: fica no mural que os outros veem, mas não vai para o Feed de quem segue (o
+   * "Pregar sem publicar no Feed" da setinha do editor; até a 1.38.4, a opção "Visível"). Nunca junto
+   * de `private`. Sem os dois, a ficha é publicada (vai para o mural e para o Feed).
    */
   quiet?: true;
   /**
@@ -419,8 +420,9 @@ export function isPrivate(r: Pick<Review, 'private'>): boolean {
 }
 
 /**
- * Quem vê a ficha: publicada (o mural e o Feed de quem segue), visível (só o mural, sem aviso) ou
- * privada (só a pessoa). Ver `Review.private` e `Review.quiet`.
+ * Quem vê a ficha: publicada (o mural e o Feed de quem segue), pública sem aviso (só o mural; o
+ * valor guarda o nome antigo, "visível") ou privada (só a pessoa). Na tela são só duas escolhas,
+ * Público e Privado: o Feed sai do botão de pregar. Ver `Review.private` e `Review.quiet`.
  */
 export type Audience = 'publicar' | 'visivel' | 'privada';
 

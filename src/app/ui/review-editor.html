@@ -330,34 +330,32 @@
           </section>
         }
 
-        <!-- Publicar (o mural pelo código, Amigos, Comparar e o Feed), deixar só visível (o mural, sem
-             aviso no Feed) ou manter privado, até mudar de ideia -->
+        <!-- Público (o mural pelo código, o perfil, Amigos, Comparar) ou Privado, até mudar de ideia.
+             A pública vai também para o Feed de quem segue; quem não quiser usa a setinha do botão -->
         @if (cloud.config()) {
           <section class="bloco quem-ve">
             <fieldset>
-              <legend class="pergunta">Publicar, deixar visível ou manter privado?</legend>
+              <legend class="pergunta">Público ou privado?</legend>
               <div class="quem-opts">
-                @for (o of audiences; track o.value) {
+                @for (o of visibilities; track o.value) {
                   <label class="quem">
-                    <input type="radio" name="editor-quem" [checked]="audience() === o.value" (change)="audience.set(o.value)" aria-describedby="editor-quem-dica" />
+                    <input type="radio" name="editor-quem" [checked]="visibility() === o.value" (change)="visibility.set(o.value)" aria-describedby="editor-quem-dica" />
                     <span class="quem-tag">
-                      <lucide-icon [img]="o.value === 'publicar' ? EveryoneIcon : o.value === 'visivel' ? VisibleIcon : PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="o.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
                       {{ o.label }}
                     </span>
                   </label>
                 }
               </div>
               <p class="quem-dica" id="editor-quem-dica">
-                @switch (audience()) {
-                  @case ('privada') {
-                    Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque.
-                  }
-                  @case ('visivel') {
-                    Fica no seu mural, e quem abrir o seu mural vê. Mas não aparece no Feed de quem segue você.
-                  }
-                  @default {
-                    {{ notes() ? 'Vai para o seu mural de anotações e aparece no Feed de quem segue você.' : 'Vai para o seu mural e aparece no Feed de quem segue você.' }}
-                  }
+                @if (isPrivate()) {
+                  Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque.
+                } @else if (!announces()) {
+                  Está no seu mural, mas não foi para o Feed de quem segue você. Para publicar no Feed, use a setinha ao lado de Salvar.
+                } @else if (editing() && !feedMenu()) {
+                  Está no seu mural e já foi para o Feed de quem segue você.
+                } @else {
+                  {{ notes() ? 'Vai para o seu mural de anotações e aparece no Feed de quem segue você.' : 'Vai para o seu mural e aparece no Feed de quem segue você.' }}
                 }
               </p>
             </fieldset>
@@ -399,10 +397,22 @@
               <span class="later-txt">Salvar pra depois</span>
             </button>
           }
-          <button type="submit" class="btn-ink">
-            <lucide-icon [img]="PinIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
-            {{ editing() ? 'Salvar alterações' : isPrivate() ? 'Pregar só pra mim' : 'Pregar no mural' }}
-          </button>
+          <!-- pregar publica; o outro caminho (sem o Feed, ou com ele) fica na setinha, do outro lado do picote -->
+          <span class="pregar" [class.dividido]="feedMenu()">
+            <button type="submit" class="btn-ink">
+              <lucide-icon [img]="PinIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+              {{ editing() ? 'Salvar alterações' : isPrivate() ? 'Pregar só pra mim' : 'Pregar no mural' }}
+            </button>
+            @if (feedMenu()) {
+              <!-- chega num pedaço à parte, logo depois de o site abrir (o bundle inicial está no limite);
+                   até lá, a metade do botão já está no lugar, para nada pular -->
+              @defer (on idle) {
+                <app-feed-menu [verb]="editing() ? 'salvar' : 'pregar'" [label]="feedAlt().label" [hint]="feedAlt().hint" [announce]="!announces()" (picked)="save(null, true)" />
+              } @placeholder {
+                <span class="seta-vaga" aria-hidden="true"></span>
+              }
+            }
+          </span>
         </div>
       }
     </footer>

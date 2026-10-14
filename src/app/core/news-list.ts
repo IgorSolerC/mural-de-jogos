@@ -26,6 +26,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-publico-ou-privado',
+    version: '1.38.6',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'Público ou privado, e pregar já publica',
+    items: [
+      'Na hora de pregar, a escolha agora é só uma: Público ou Privado. A opção Visível saiu.',
+      'Pregar no mural publica: a ficha vai para o seu mural e para o Feed de quem segue você. Para deixar só no mural, sem aparecer no Feed, use a setinha ao lado do botão: "Pregar sem publicar no Feed".',
+      'A ficha que estava assim continua fora do Feed quando você salva. Se quiser mandar para o Feed, a mesma setinha tem "Salvar e publicar no Feed".',
+      'O selinho de olho saiu do mural: a anotação fora do Feed leva o mesmo selinho da publicada, porque quem abre o seu mural vê as duas.',
+    ],
+  },
+  {
     id: '2026-10-14-ingresso-cabe',
     version: '1.38.5',
     kind: 'correcao',
