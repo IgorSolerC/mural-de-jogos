@@ -3,15 +3,15 @@
     <app-pin class="pin pin-l" color="#e62e2d" />
     <app-pin class="pin pin-r" color="#f4f4f0" />
     <p class="logo">
-      <a class="logo-link" routerLink="/">Meu mural</a><span class="nl"> de <app-kind-switcher /></span>
+      <a class="logo-link" routerLink="/">Meu mural</a>
     </p>
   </div>
 
-  <!-- o varal: as partes do mural aberto, etiquetas de kraft presas por prendedores no barbante -->
-  <nav class="varal" [attr.aria-label]="'Mural de ' + mural.profile().plural">
+  <!-- o varal: as partes do site, etiquetas de kraft presas por prendedores no barbante -->
+  <nav class="varal" aria-label="Partes do site">
     <span class="barbante" aria-hidden="true"></span>
     <ul class="etiquetas">
-      @for (s of sections(); track s.path) {
+      @for (s of sections(); track s.area) {
         <li>
           <a
             class="etiqueta"

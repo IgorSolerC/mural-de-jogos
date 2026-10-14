@@ -4,7 +4,7 @@ import { Router, provideRouter } from '@angular/router';
 import { Follow } from '../core/follow';
 import { Kind } from '../core/review';
 import { Mural } from '../core/mural';
-import { SiteHeader, pathOf, sectionOn } from './site-header';
+import { SiteHeader } from './site-header';
 
 @Component({ template: '' })
 class Blank {}
@@ -18,27 +18,87 @@ const WIDTHS = Array.from({ length: (1384 - 288) / 2 + 1 }, (_, i) => 288 + i * 
 
 /** Os cenários que mudam o tamanho das coisas: o botão de cada página, o mural de nome mais comprido, com e sem Amigos. */
 const SCENES: { name: string; kind: Kind; url: string; friends: boolean; unseen: number }[] = [
-  { name: 'mural de jogos, com amigos', kind: 'jogos', url: '/', friends: true, unseen: 12 },
-  { name: 'Pra depois', kind: 'jogos', url: '/fila', friends: true, unseen: 3 },
-  { name: 'Wishlist', kind: 'jogos', url: '/wishlist', friends: true, unseen: 0 },
-  { name: 'mural de anotações', kind: 'anotacoes', url: '/', friends: true, unseen: 150 },
-  { name: 'Wishlist de séries, sem conta', kind: 'series', url: '/wishlist', friends: false, unseen: 0 },
-  { name: 'Ajustes de animes', kind: 'animes', url: '/ajustes', friends: true, unseen: 7 },
+  { name: 'mural de jogos, com amigos', kind: 'jogos', url: '/analises/jogos', friends: true, unseen: 12 },
+  { name: 'Pra depois', kind: 'jogos', url: '/analises/jogos/pra-depois', friends: true, unseen: 3 },
+  { name: 'Wishlist', kind: 'jogos', url: '/analises/jogos/wishlist', friends: true, unseen: 0 },
+  { name: 'Pra depois de músicas (o nome mais comprido)', kind: 'musicas', url: '/analises/musicas/pra-depois', friends: true, unseen: 0 },
+  { name: 'anotações', kind: 'anotacoes', url: '/anotacoes', friends: true, unseen: 150 },
+  { name: 'Wishlist de séries, sem conta', kind: 'series', url: '/analises/series/wishlist', friends: false, unseen: 0 },
+  { name: 'Ajustes', kind: 'animes', url: '/ajustes', friends: true, unseen: 7 },
 ];
 
 type Box = { name: string; r: DOMRect; el: Element };
 
 /** A partir desta largura o topo é uma fileira só (ver site-header.scss). */
-const ONE_ROW = 1280;
+const ONE_ROW = 1120;
 
 describe('o topo do site', () => {
-  it('acende a etiqueta certa', () => {
-    const extras = { path: '/extras', also: ['/ranking', '/comparar', '/comparar/mural'] };
-    expect(sectionOn('/extras/muraldle', extras)).toBeTrue();
-    expect(sectionOn('/comparar/mural', extras)).toBeTrue();
-    expect(sectionOn('/fila', { path: '/' })).toBeFalse();
-    expect(sectionOn('/lado-a-lado', { path: '/', also: ['/lado-a-lado'] })).toBeTrue();
-    expect(pathOf('/ajustes?aba=backup')).toBe('/ajustes');
+  describe('as partes do site', () => {
+    let fixture: ComponentFixture<SiteHeader>;
+
+    beforeEach(() => {
+      localStorage.clear();
+      TestBed.configureTestingModule({
+        imports: [SiteHeader],
+        providers: [
+          provideZonelessChangeDetection(),
+          provideRouter([{ path: '**', component: Blank }]),
+          { provide: Follow, useValue: { available: signal(true), unseen: signal(0) } },
+        ],
+      });
+      fixture = TestBed.createComponent(SiteHeader);
+    });
+
+    afterEach(() => localStorage.clear());
+
+    const tags = () => [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('.etiqueta')];
+    const at = async (url: string) => {
+      await TestBed.inject(Router).navigateByUrl(url);
+      await fixture.whenStable();
+    };
+
+    it('o cartaz é só "Meu mural", sem trocar de mural, e o varal tem as três partes', async () => {
+      await at('/perfil');
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('.logo')?.textContent?.trim()).toBe('Meu mural');
+      expect(el.querySelector('app-kind-switcher')).toBeNull();
+      expect(tags().map((t) => t.textContent?.trim())).toEqual(['Anotações', 'Análises', 'Extras']);
+      // as Análises abrem direto no último mural de resenhas
+      expect(tags().map((t) => t.getAttribute('href'))).toEqual(['/anotacoes', '/analises/jogos', '/extras']);
+      expect(tags().some((t) => t.classList.contains('on'))).withContext('no Perfil nenhuma parte acende').toBeFalse();
+    });
+
+    it('acende a parte aberta', async () => {
+      const lit: Record<string, string> = {
+        '/anotacoes': 'Anotações',
+        '/analises/livros': 'Análises',
+        '/analises/livros/pra-depois': 'Análises',
+        '/analises/livros/lado-a-lado': 'Análises',
+        '/extras/muraldle': 'Extras',
+        '/ranking': 'Extras',
+        '/comparar/mural': 'Extras',
+      };
+      for (const [url, label] of Object.entries(lit)) {
+        await at(url);
+        expect(tags().filter((t) => t.classList.contains('on')).map((t) => t.textContent?.trim())).withContext(url).toEqual([label]);
+      }
+    });
+
+    it('o botão de adicionar segue a página, não o mural aberto', async () => {
+      const mural = TestBed.inject(Mural);
+      const button = () => (fixture.nativeElement as HTMLElement).querySelector('.adicionar button')!.getAttribute('aria-label');
+      mural.kind.set('anotacoes');
+      await at('/anotacoes');
+      expect(button()).toBe('Nova anotação');
+      // saindo das anotações para o Perfil, o botão já é de resenha
+      await at('/perfil');
+      expect(button()).toBe('Nova resenha');
+      mural.kind.set('livros');
+      await at('/analises/livros/pra-depois');
+      expect(button()).toBe('Guardar livro pra depois');
+      await at('/analises/livros/wishlist');
+      expect(button()).toBe('Adicionar livro à wishlist');
+    });
   });
 
   describe('em todas as larguras', () => {
@@ -113,14 +173,14 @@ describe('o topo do site', () => {
           host.style.width = `${w}px`;
           const top = host.getBoundingClientRect();
           // o que se toca, e o cartaz inteiro (ele não pode cobrir um botão)
-          const targets = boxes('.logo-link, app-kind-switcher button.palavra, .etiqueta, .botton, .adicionar button');
+          const targets = boxes('.logo-link, .etiqueta, .botton, .adicionar button');
           const solid = [...targets, ...boxes('.cartaz')];
           const say = (msg: string) => problems.push(`${w}px: ${msg}`);
 
           for (const t of targets) {
             if (t.r.left < top.left - 4 || t.r.right > top.right + 4) say(`${t.name} sai do topo`);
             // o link "Meu mural" é texto do cartaz: basta a altura da linha
-            const [minW, minH] = t.el.matches('.logo-link') ? [24, 18] : t.el.matches('.palavra') ? [24, 24] : [40, 40];
+            const [minW, minH] = t.el.matches('.logo-link') ? [24, 18] : [40, 40];
             if (t.r.width < minW || t.r.height < minH) say(`${t.name} pequeno demais (${Math.round(t.r.width)}x${Math.round(t.r.height)})`);
           }
           for (let i = 0; i < solid.length; i++) {
@@ -145,8 +205,10 @@ describe('o topo do site', () => {
           if (w >= ONE_ROW ? varal.top > cartaz.bottom || varal.bottom < cartaz.top : varal.top < cartaz.bottom - 4) {
             say(`varal fora do lugar (${w >= ONE_ROW ? 'devia estar ao lado do cartaz' : 'devia estar embaixo do cartaz'})`);
           }
-          // o barbante vai de ponta a ponta, sem passar da beira do topo
+          // o barbante não passa da beira do topo
           if (varal.left < top.left - 1 || varal.right > top.right + 1) say('o barbante sai do topo');
+          // a última etiqueta fica antes do gancho da ponta
+          if (Math.max(...tags.map((t) => t.r.right)) > varal.right) say('a última etiqueta passa do gancho');
         }
         expect(problems).withContext(scene.name).toEqual([]);
       });

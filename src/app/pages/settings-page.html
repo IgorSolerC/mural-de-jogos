@@ -385,7 +385,7 @@
                 </label>
                 <label class="segmento">
                   <input type="radio" name="amigos-murais" value="separado" [checked]="settings.friendKinds() === 'separado'" (change)="settings.friendKinds.set('separado')" />
-                  <span class="seg-nome">Só do mural aberto</span>
+                  <span class="seg-nome">Um mural por vez</span>
                 </label>
               </div>
               @if (peeking() === 'amigos-murais') {
@@ -825,7 +825,7 @@
           }
         </ul>
         <p class="pv-legenda">
-          {{ settings.friendKinds() === 'separado' ? 'Com o mural de ' + mural.profile().plural + ' aberto, só ' + mural.profile().plural + '.' : 'Tudo junto, esteja no mural que estiver.' }}
+          {{ settings.friendKinds() === 'separado' ? 'Um mural por vez, escolhido na própria página de Amigos.' : 'Tudo junto, esteja no mural que estiver.' }}
         </p>
       </div>
     }

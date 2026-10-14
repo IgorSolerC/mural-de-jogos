@@ -1,9 +1,9 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { BookOpen, ChevronDown, Disc3, Film, Gamepad2, LucideAngularModule, LucideIconData, Origami, StickyNote, Tv } from 'lucide-angular';
-import { KINDS, Kind, cap, profileOf } from '../core/kinds';
+import { reviewPath, reviewPlace } from '../core/areas';
+import { Kind, SCORED_KINDS, cap, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { FriendKinds, Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { WallView } from '../core/wall-view';
@@ -21,18 +21,11 @@ export const KIND_ICON: Record<Kind, LucideIconData> = {
 let uid = 0;
 
 /**
- * As páginas que não mudam com o mural escolhido: os Ajustes, as Novidades, o seu perfil e Amigos com as novidades
- * misturadas (de todos os murais). Trocar de mural nelas não mudaria nada na tela, então a troca
- * leva ao mural escolhido. `path`: o caminho, sem query nem fragmento.
- */
-export function sameForEveryMural(path: string, friendKinds: FriendKinds): boolean {
-  return path === '/ajustes' || path === '/novidades' || path === '/perfil' || path.startsWith('/perfil/') || (path === '/amigos' && friendKinds === 'misturado');
-}
-
-/**
- * A palavra do cartaz: "Meu mural de *jogos*". Tocar nela abre um bloquinho com os outros murais;
- * escolher um troca a parede inteira (fichas, fila, ranking e lado a lado), na mesma página. Numa
- * página que é a mesma em todos os murais (ver `sameForEveryMural`), vai para o mural escolhido.
+ * O seletor de mural das páginas que dependem dele (as Análises, os Extras, Amigos separado por
+ * mural): uma etiqueta de papel com o desenho e o nome do mural, escrito a pincel com o risco
+ * vermelho (o mesmo que a palavra tinha no cartaz). Tocar nela abre o bloquinho com os murais;
+ * escolher um troca a parede inteira na mesma página. Nas Análises o mural mora no endereço, então a
+ * troca também vai para o endereço do mural escolhido, na mesma seção.
  */
 @Component({
   selector: 'app-kind-switcher',
@@ -54,8 +47,9 @@ export function sameForEveryMural(path: string, friendKinds: FriendKinds): boole
       (click)="toggle()"
       (keydown)="onTriggerKey($event)"
     >
-      <span class="scribble">{{ mural.profile().plural }}</span>
-      <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" [strokeWidth]="3.2" aria-hidden="true" />
+      <lucide-icon class="ico-mural" [img]="icon()" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+      <span class="nome-mural scribble">{{ label() }}</span>
+      <lucide-icon class="chev" [img]="ChevronIcon" [size]="18" [strokeWidth]="3.2" aria-hidden="true" />
     </button>
 
     @if (open()) {
@@ -87,44 +81,72 @@ export function sameForEveryMural(path: string, friendKinds: FriendKinds): boole
       display: inline-block;
     }
 
-    /* A palavra continua sendo a do cartaz, com o sublinhado de pincel; a setinha diz que ela abre */
+    /* A etiqueta do mural: um pedaço de papel creme colado na parede, um tico torto, com o desenho do
+       mural, o nome a pincel sublinhado de vermelho e a setinha que diz que ela abre */
     .palavra {
       display: inline-flex;
       align-items: center;
-      gap: 2px;
-      margin: -4px -6px;
-      padding: 4px 6px;
+      gap: 9px;
+      min-height: 46px;
+      padding: 8px 12px;
       border: 0;
-      border-radius: 4px;
-      background: transparent;
-      color: inherit;
-      font: inherit;
-      letter-spacing: inherit;
+      border-radius: 2px;
+      background-color: var(--paper);
+      background-image: var(--paper-grain);
+      background-size: 220px;
+      background-blend-mode: multiply;
+      color: var(--ink);
+      font-family: var(--f-marker);
+      font-size: 1.3rem;
+      line-height: 1;
+      letter-spacing: 0.005em;
+      white-space: nowrap;
+      rotate: -1.4deg;
+      box-shadow:
+        0 1px 1px rgb(0 0 0 / 0.3),
+        0 10px 14px -7px rgb(0 0 0 / 0.7);
       cursor: pointer;
-      transition: background-color var(--t-ui) var(--ease-ui);
+      transition:
+        rotate var(--t-physical) var(--ease-physical),
+        translate var(--t-physical) var(--ease-physical),
+        box-shadow var(--t-ui) var(--ease-ui);
     }
     .palavra:hover,
     .palavra[aria-expanded='true'] {
-      background: rgb(21 21 21 / 0.08);
+      rotate: -0.4deg;
+      translate: 0 -1px;
+      box-shadow:
+        0 1px 1px rgb(0 0 0 / 0.25),
+        0 14px 18px -7px rgb(0 0 0 / 0.7);
+    }
+    .palavra:active {
+      translate: 0 1px;
     }
     .palavra:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 1px;
+      outline: 3px solid var(--hi);
+      outline-offset: 4px;
     }
+    .ico-mural,
     .chev {
       display: inline-flex;
-      translate: 0 3px;
+    }
+    .nome-mural {
+      /* o risco de pincel passa um pouco da palavra: folga para ele não encostar na setinha */
+      margin-right: 4px;
+      translate: 0 1px;
+    }
+    .chev {
       transition: rotate var(--t-ui) var(--ease-ui);
     }
     .palavra[aria-expanded='true'] .chev {
       rotate: 180deg;
     }
 
-    /* O bloquinho: folha de papel presa embaixo do cartaz, um mural por linha, escrito a pincel */
+    /* O bloquinho: folha de papel presa embaixo da etiqueta, um mural por linha, escrito a pincel */
     .bloco {
       position: absolute;
-      top: calc(100% + 14px);
-      left: -14px;
+      top: calc(100% + 12px);
+      left: -6px;
       z-index: 30;
       display: grid;
       min-width: 220px;
@@ -188,14 +210,6 @@ export function sameForEveryMural(path: string, friendKinds: FriendKinds): boole
       font-variant-numeric: tabular-nums;
     }
 
-    @media (max-width: 720px) {
-      .bloco {
-        left: -8px;
-      }
-      .chev {
-        translate: 0 2px;
-      }
-    }
     @media (prefers-reduced-motion: reduce) {
       .bloco {
         animation: none;
@@ -209,16 +223,21 @@ export class KindSwitcher {
   private readonly side = inject(SideBySide);
   private readonly vt = inject(ViewTransitions);
   private readonly router = inject(Router);
-  private readonly settings = inject(Settings);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
+
+  /** Os murais do bloquinho: os de resenhas (em Amigos, também o de anotações). */
+  readonly kinds = input<readonly Kind[]>(SCORED_KINDS);
 
   protected readonly ChevronIcon = ChevronDown;
   protected readonly menuId = `murais-${++uid}`;
   protected readonly open = signal(false);
 
+  protected readonly icon = computed(() => KIND_ICON[this.mural.kind()]);
+  protected readonly label = computed(() => cap(this.mural.profile().plural));
+
   protected readonly options = computed(() =>
-    KINDS.map((kind) => ({
+    this.kinds().map((kind) => ({
       kind,
       label: cap(profileOf(kind).plural),
       icon: KIND_ICON[kind],
@@ -235,23 +254,24 @@ export class KindSwitcher {
   protected choose(kind: Kind): void {
     this.close(true);
     if (kind === this.mural.kind()) return;
-    const swap = () => {
-      this.side.picking.set(false);
-      this.view.clearFilters();
-      this.mural.kind.set(kind);
-    };
-    if (sameForEveryMural(this.router.url.split(/[?#]/)[0], this.settings.friendKinds())) {
-      swap();
-      void this.router.navigateByUrl('/');
-      return;
-    }
+    // nas Análises o mural mora no endereço: troca na hora (para a animação) e o endereço vem atrás
+    // (a transição mede a troca uma vez às escondidas e desfaz: nessa vez o endereço não muda)
+    const place = reviewPlace(this.router.url);
+    let measuring = false;
     this.vt.run(
-      swap,
       () => {
+        this.side.picking.set(false);
+        this.view.clearFilters();
+        this.mural.kind.set(kind);
+        if (place && !measuring) void this.router.navigateByUrl(reviewPath(kind, place.section));
+      },
+      () => {
+        measuring = true;
         const picking = this.side.picking(),
           kind = this.mural.kind(),
           view = this.view.snapshot();
         return () => {
+          measuring = false;
           this.side.picking.set(picking);
           this.mural.kind.set(kind);
           view();
@@ -263,7 +283,7 @@ export class KindSwitcher {
   protected onTriggerKey(e: KeyboardEvent): void {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      this.show(e.key === 'ArrowUp' ? KINDS.length - 1 : undefined);
+      this.show(e.key === 'ArrowUp' ? this.kinds().length - 1 : undefined);
     }
   }
 

@@ -1,7 +1,7 @@
 /* O topo segue a própria largura (container queries), não a da janela: o teste mede de 320 a 1920 */
 :host {
   position: relative;
-  /* o bloquinho dos murais e as etiquetas saem por cima da prateleira de filtros (z-index 5) */
+  /* as etiquetas saem por cima do índice e da prateleira de filtros */
   z-index: 20;
   display: block;
   container: topo / inline-size;
@@ -38,11 +38,10 @@
   grid-area: adicionar;
 }
 
-/* ===== Cartaz: a cartolina amarela com o nome do site e a palavra que troca de mural ===== */
+/* ===== Cartaz: a cartolina amarela com o nome do site ===== */
 .cartaz {
   --stock: var(--stock-amarelo);
   position: relative;
-  /* o bloquinho dos murais sai por cima do varal e dos bottons */
   z-index: 3;
   justify-self: start;
   padding: 13px 15px 11px;
@@ -77,16 +76,9 @@
   white-space: nowrap;
 }
 
-/* no celular o nome quebra em duas linhas: "Meu mural / de jogos" (com folga para a palavra que
-   troca de mural não encostar no link de cima) */
-.nl {
-  display: block;
-  margin-top: 9px;
-}
-
-/* "Meu mural" leva ao início; a palavra do mural abre o bloquinho dos murais */
+/* "Meu mural" leva à última parede aberta */
 .logo-link {
-  /* a caixa do link é a da linha, não a da letra (a do pincel é alta e cobriria a palavra embaixo) */
+  /* a caixa do link é a da linha, não a da letra (a do pincel é alta) */
   display: inline-block;
   color: inherit;
   text-decoration: none;
@@ -639,19 +631,9 @@
 }
 
 /* ===== Celular: o cartaz encolhe o que for preciso para nunca encostar nos bottons ao lado =====
-   (6,9 vezes a letra é a largura de "de anotações", a palavra mais comprida; 176px são os bottons e o
-   respiro) */
+   (5,6 vezes a letra é a largura de "Meu mural"; 176px são os bottons e o respiro) */
 .logo {
-  font-size: clamp(1.05rem, calc((100cqi - 176px) / 6.9), 1.5rem);
-}
-
-/* uma etiqueta só (o mural de anotações não tem fila nem wishlist): do tamanho do nome */
-.etiquetas li:only-child {
-  flex: 0 0 auto;
-
-  .etiqueta {
-    padding-inline: 18px;
-  }
+  font-size: clamp(1.05rem, calc((100cqi - 176px) / 5.6), 1.5rem);
 }
 
 /* ===== Celular mais largo: cabe o nome inteiro no botão ===== */
@@ -688,11 +670,6 @@
 
   .logo {
     font-size: 1.62rem;
-  }
-
-  .nl {
-    display: inline;
-    margin-top: 0;
   }
 
   .cartaz {
@@ -737,8 +714,12 @@
     font-size: 1.3rem;
   }
 
+  /* três etiquetas não enchem o topo: o barbante vai só até um pouco depois da última, com folga
+     (de ponta a ponta ficaria um varal vazio) */
   .varal {
     --linha: 18px;
+    justify-self: start;
+    padding-right: 56px;
   }
 
   .etiquetas {
@@ -806,8 +787,9 @@
   }
 }
 
-/* ===== Tela larga: tudo numa fileira só. O varal vai do cartaz aos bottons ===== */
-@container topo (min-width: 1280px) {
+/* ===== Tela larga: tudo numa fileira só. O varal vai do cartaz aos bottons (o cartaz curto, só
+   "Meu mural", deixa a fileira única chegar antes) ===== */
+@container topo (min-width: 1120px) {
   .topo {
     grid-template-areas: 'cartaz varal bottons adicionar';
     column-gap: 28px;

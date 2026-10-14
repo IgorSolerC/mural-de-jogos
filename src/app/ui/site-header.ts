@@ -3,53 +3,36 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule, NotebookPen, Plus, Scissors, Settings as SettingsIcon, UsersRound } from 'lucide-angular';
 import { filter, map } from 'rxjs';
+import { Area, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
 import { Desk } from '../core/desk';
-import { isNotes } from '../core/kinds';
 import { Follow } from '../core/follow';
 import { Mural } from '../core/mural';
 import { ProfileStore } from '../core/profile-store';
 import { Settings } from '../core/settings';
-import { KindSwitcher } from './kind-switcher';
 import { Pin } from './pin';
 
-/** Uma etiqueta do varal: uma parte do mural aberto. */
+/** Uma etiqueta do varal: uma parte do site. */
 interface Section {
-  path: string;
+  area: Area;
   label: string;
-  /** Outras rotas que moram dentro desta parte (o lado a lado é uma vista do mural). */
-  also?: string[];
 }
 
-/** O que muda com o mural aberto: cada mural tem a sua parede, a sua fila, a sua wishlist e os seus extras. */
+/** As três partes do site (ver core/areas.ts). */
 const SECTIONS: Section[] = [
-  { path: '/', label: 'Mural', also: ['/lado-a-lado'] },
-  { path: '/fila', label: 'Pra depois' },
-  { path: '/wishlist', label: 'Wishlist' },
-  // o Ranking e o Comparar moram dentro de Extras: a etiqueta de Extras fica acesa neles também
-  { path: '/extras', label: 'Extras', also: ['/ranking', '/comparar', '/comparar/mural'] },
+  { area: 'anotacoes', label: 'Anotações' },
+  { area: 'analises', label: 'Análises' },
+  { area: 'extras', label: 'Extras' },
 ];
-
-/** As partes que não existem no mural de anotações. */
-const NOT_FOR_NOTES = ['/fila', '/wishlist', '/extras'];
 
 /** Cada etiqueta pende de um jeito no barbante, sempre o mesmo (o prendedor é o eixo). */
 const TILTS = [-2.2, 1.6, -1.2, 2];
 
-/** O caminho aberto, sem query nem fragmento. */
-export function pathOf(url: string): string {
-  return url.split(/[?#]/)[0];
-}
-
-/** A etiqueta acende na própria página, nas que moram dentro dela e nas sub-páginas (menos o Mural, que é a raiz). */
-export function sectionOn(path: string, s: { path: string; also?: string[] }): boolean {
-  return path === s.path || !!s.also?.includes(path) || (s.path !== '/' && path.startsWith(s.path + '/'));
-}
-
 /**
  * O topo do site, igual em todas as páginas, em três grupos que não se misturam:
- * - o cartaz, "Meu mural de *jogos*", que troca de mural;
- * - o varal: as partes do mural aberto (Mural, Pra depois, Wishlist, Extras), etiquetas de kraft presas
- *   por prendedores num barbante;
+ * - o cartaz, "Meu mural", que leva à última parede aberta;
+ * - o varal: as partes do site (Anotações, Análises, Extras), etiquetas de kraft presas por
+ *   prendedores num barbante. O mural de resenhas e as seções de cada parte ficam no índice da
+ *   própria página (ver ui/area-bar.ts), nunca aqui;
  * - os bottons: o que é seu e vale para todos os murais (Perfil, Amigos, Ajustes), broches redondos;
  * e o botão de adicionar da página (a pilha de fichas, a folha de caderno, o cupom), num lugar só dele.
  *
@@ -58,7 +41,7 @@ export function sectionOn(path: string, s: { path: string; also?: string[] }): b
  */
 @Component({
   selector: 'app-site-header',
-  imports: [KindSwitcher, LucideAngularModule, Pin, RouterLink],
+  imports: [LucideAngularModule, Pin, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './site-header.html',
   styleUrl: './site-header.scss',
@@ -85,23 +68,22 @@ export class SiteHeader {
     { initialValue: pathOf(this.router.url) },
   );
 
-  /** O mural aberto é o de anotações: lá só existe a parede. */
-  protected readonly notes = computed(() => isNotes(this.mural.kind()));
+  /** Nas Anotações: o botão prega uma anotação, não uma resenha. */
+  protected readonly notes = computed(() => areaOf(this.path()) === 'anotacoes');
 
-  protected readonly sections = computed(() =>
-    (this.notes() ? SECTIONS.filter((s) => !NOT_FOR_NOTES.includes(s.path)) : SECTIONS).map((s, i) => ({
+  protected readonly sections = computed(() => {
+    const open = areaOf(this.path());
+    return SECTIONS.map((s, i) => ({
       ...s,
-      on: sectionOn(this.path(), s),
+      // as Análises abrem direto no último mural de resenhas (sem passar pelo redirecionamento)
+      path: s.area === 'analises' ? reviewPath(this.mural.reviewKind()) : '/' + s.area,
+      on: s.area === open,
       tilt: TILTS[i % TILTS.length],
-    })),
-  );
-
-  /** Na fila do Pra depois ou na Wishlist: lá o botão adiciona à lista, não ao mural. */
-  protected readonly onList = computed<'fila' | 'wishlist' | null>(() => {
-    if (this.notes()) return null;
-    const p = this.path();
-    return p.startsWith('/fila') ? 'fila' : p.startsWith('/wishlist') ? 'wishlist' : null;
+    }));
   });
+
+  /** No Pra depois ou na Wishlist: lá o botão adiciona à lista, não ao mural. */
+  protected readonly onList = computed(() => listOf(this.path()));
 
   /** Amigos só existe com a nuvem e a conta. */
   protected readonly friends = computed(() => this.follow.available());

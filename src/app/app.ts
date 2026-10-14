@@ -1,13 +1,14 @@
 import { CloudSync } from './core/cloud-sync';
 import { CloudMurals } from './core/cloud-murals';
-import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { Cloud as CloudIconData, LucideAngularModule, Megaphone, X } from 'lucide-angular';
 import { filter, map } from 'rxjs';
+import { areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
-import { cap, isNotes, profileOf, revisitCountOf } from './core/kinds';
+import { NOTES, cap, isNotes, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
 import { News } from './core/news';
 import { LoginNudge } from './core/login-nudge';
@@ -26,17 +27,15 @@ import { Confirm, ConfirmDialog } from './ui/confirm';
 import { NoteBacklinksDialog } from './ui/note-backlinks-dialog';
 import { Toast, Toasts } from './ui/toast';
 import { SiteHeader } from './ui/site-header';
+import { AreaBar } from './ui/area-bar';
 import { WishAdder } from './ui/wish-adder';
 import { PageWall } from './ui/page-wall';
 import { PAGE_BACKGROUNDS } from './core/profile';
 import { ProfileStore } from './core/profile-store';
 
-/** As páginas que só fazem sentido com notas: no mural de anotações, voltam para o mural. */
-const NOTES_AWAY = ['/fila', '/wishlist', '/extras', '/ranking', '/comparar', '/lado-a-lado'];
-
 @Component({
   selector: 'app-root',
-  imports: [PageWall, ConfirmDialog, GoogleButton, NoteBacklinksDialog, LucideAngularModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
+  imports: [AreaBar, PageWall, ConfirmDialog, GoogleButton, NoteBacklinksDialog, LucideAngularModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -69,22 +68,19 @@ export class App {
   private readonly path = toSignal(
     this.router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
-      map((e) => (e as NavigationEnd).urlAfterRedirects.split(/[?#]/)[0]),
+      map((e) => pathOf((e as NavigationEnd).urlAfterRedirects)),
     ),
     { initialValue: '/' },
   );
 
-  /** Na fila do Pra depois ou na Wishlist: lá o N e o botão do topo adicionam à lista, não ao mural. */
-  protected readonly onList = computed<'fila' | 'wishlist' | null>(() => {
-    const p = this.path();
-    return p.startsWith('/fila') ? 'fila' : p.startsWith('/wishlist') ? 'wishlist' : null;
-  });
+  /** No Pra depois ou na Wishlist: lá o N e o botão do topo adicionam à lista, não ao mural. */
+  protected readonly onList = computed(() => listOf(this.path()));
 
   protected readonly NoticeIcon = Megaphone;
   protected readonly CloudIcon = CloudIconData;
   protected readonly CloseIcon = X;
-  /** O mural aberto é o de anotações. */
-  protected readonly notes = computed(() => isNotes(this.mural.kind()));
+  /** Nas Anotações: o N e o botão do topo pregam uma anotação. */
+  protected readonly notes = computed(() => areaOf(this.path()) === 'anotacoes');
 
   private readonly editor = viewChild.required(ReviewEditor);
   private readonly reader = viewChild.required(ReviewReader);
@@ -99,14 +95,6 @@ export class App {
       const wall = PAGE_BACKGROUNDS.find((w) => w.id === this.siteWall());
       if (!wall || wall.id === 'eucatex') document.documentElement.style.removeProperty('--wall');
       else document.documentElement.style.setProperty('--wall', wall.base);
-    });
-    // trocou para o mural de anotações numa página que ele não tem (a fila, um jogo de Extras, o
-    // ranking, o lado a lado): volta para o mural
-    effect(() => {
-      const p = this.path();
-      if (this.notes() && NOTES_AWAY.some((x) => p === x || p.startsWith(x + '/')) && p !== '/comparar/mural') {
-        untracked(() => void this.router.navigate(['/']));
-      }
     });
     void this.cloudMurals.openFromLink();
     this.desk.register({
@@ -138,11 +126,19 @@ export class App {
     });
   }
 
-  /** Nova ficha; no mural de anotações, dentro de uma aba de categoria, já com a categoria dela. */
+  /**
+   * Nova ficha. Nas Anotações, uma anotação (dentro de uma aba de categoria, já com a categoria dela);
+   * em qualquer outra página, uma resenha do último mural de resenhas, o das Análises (fora delas, a
+   * ficha salva leva até ele).
+   */
   protected newReview(): void {
-    const category = this.notes() ? this.view.newNoteCategory() : null;
+    if (!this.notes()) {
+      this.editor().open(undefined, undefined, undefined, undefined, this.mural.reviewKind());
+      return;
+    }
+    const category = this.view.newNoteCategory();
     if (category) this.editor().openInCategory(category);
-    else this.editor().open();
+    else this.editor().open(undefined, undefined, undefined, undefined, NOTES);
   }
 
   protected removeDraft(id: string): void {
@@ -168,31 +164,38 @@ export class App {
   protected onWished(id: string): void {
     const w = this.store.getWish(id);
     if (!w) return;
-    const here = this.router.url.startsWith('/wishlist');
+    const list = reviewPath(w.kind, 'wishlist');
+    const here = this.path() === list;
     if (here) this.desk.land(id);
     this.toasts.show(`“${w.game.name}” está na wishlist`, {
       label: here ? 'Desfazer' : 'Ver wishlist',
-      run: here ? () => this.vt.run(() => this.store.removeWish(id)) : () => this.goLand('/wishlist', id),
+      run: here ? () => this.vt.run(() => this.store.removeWish(id)) : () => this.goLand(list, id),
     });
   }
 
   protected seeWish(id: string): void {
-    if (this.router.url.startsWith('/wishlist')) this.desk.land(id);
-    else this.goLand('/wishlist', id);
+    const w = this.store.getWish(id);
+    const list = reviewPath(w?.kind ?? this.mural.reviewKind(), 'wishlist');
+    if (this.path() === list) this.desk.land(id);
+    else this.goLand(list, id);
   }
 
   protected seeDraft(id: string): void {
-    if (this.router.url.startsWith('/fila')) this.desk.land(id);
-    else this.goLand('/fila', id);
+    const d = this.store.getDraft(id);
+    const list = reviewPath(d?.kind ?? this.mural.reviewKind(), 'pra-depois');
+    if (this.path() === list) this.desk.land(id);
+    else this.goLand(list, id);
   }
 
   protected onDrafted(e: SavedEvent): void {
-    const name = this.store.getDraft(e.id)?.game.name ?? '';
-    const onQueue = this.router.url.startsWith('/fila');
+    const d = this.store.getDraft(e.id);
+    const name = d?.game.name ?? '';
+    const list = reviewPath(d?.kind ?? this.mural.reviewKind(), 'pra-depois');
+    const onQueue = this.path() === list;
     if (onQueue) this.desk.land(e.id);
     this.toasts.show(
       e.isNew ? `“${name}” guardado pra depois` : 'Pendente atualizado',
-      onQueue ? undefined : { label: 'Ver fila', run: () => this.goLand('/fila', e.id) },
+      onQueue ? undefined : { label: 'Ver fila', run: () => this.goLand(list, e.id) },
     );
   }
 
@@ -274,7 +277,9 @@ export class App {
     // Ficha nova vai para o mural: se ela ficaria escondida pela aba ou pelo filtro, abre a aba dela
     // ou limpa o filtro.
     if (e.isNew && saved && !this.view.visible().some((r) => r.id === e.id)) this.view.reveal(saved);
-    if (e.isNew && this.router.url !== '/') this.goLand('/', e.id);
+    // escrita de fora da parede dela (no Perfil, em Extras, no Pra depois): a ficha nova leva até lá
+    const wall = saved ? wallPath(saved.kind) : null;
+    if (e.isNew && wall && this.path() !== wall) this.goLand(wall, e.id);
     else this.desk.land(e.id);
     // a vez mais antiga é sempre a original: a marcada para o lado a lado passa a ser a nova original
     if (e.swap && saved) {
@@ -363,7 +368,7 @@ export class App {
       search.select();
     } else if (e.key === 'n' || e.key === 'N') {
       e.preventDefault();
-      const list = this.notes() ? null : this.onList();
+      const list = this.onList();
       if (list === 'fila') this.desk.newDraft();
       else if (list === 'wishlist') this.desk.newWish();
       else this.newReview();

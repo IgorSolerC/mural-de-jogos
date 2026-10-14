@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { ArrowRight, LucideAngularModule } from 'lucide-angular';
+import { reviewPath } from '../core/areas';
+import { Mural } from '../core/mural';
 import { SideBySide } from '../core/side-by-side';
 import { WallView } from '../core/wall-view';
 import { Toasts } from './toast';
@@ -156,6 +158,7 @@ export class PickTray {
   protected readonly side = inject(SideBySide);
   protected readonly view = inject(WallView);
   private readonly router = inject(Router);
+  private readonly mural = inject(Mural);
   private readonly toasts = inject(Toasts);
 
   protected readonly GoIcon = ArrowRight;
@@ -180,6 +183,6 @@ export class PickTray {
 
   protected open(): void {
     this.side.picking.set(false);
-    void this.router.navigateByUrl('/lado-a-lado');
+    void this.router.navigateByUrl(reviewPath(this.mural.kind(), 'lado-a-lado'));
   }
 }

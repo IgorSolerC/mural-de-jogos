@@ -1,3 +1,4 @@
+import { reviewPath } from '../core/areas';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import {
@@ -268,7 +269,7 @@ export class SideBySidePage {
       run: () => {
         this.side.restore(before);
         this.side.picking.set(false);
-        void this.router.navigateByUrl('/lado-a-lado');
+        void this.router.navigateByUrl(reviewPath(this.mural.kind(), 'lado-a-lado'));
       },
     });
   }
@@ -276,11 +277,11 @@ export class SideBySidePage {
   /** Sem nada para comparar: o mural, marcando (ou só o mural, se ele ainda não tem fichas). */
   private backToWall(): void {
     const pick = this.mural.count() > 0;
-    void this.router.navigateByUrl('/', { replaceUrl: true }).then(() => this.side.picking.set(pick));
+    void this.router.navigateByUrl(reviewPath(this.mural.kind()), { replaceUrl: true }).then(() => this.side.picking.set(pick));
   }
 
   /** Volta ao mural já no modo de marcar. */
   protected pickMore(): void {
-    void this.router.navigateByUrl('/').then(() => this.side.picking.set(true));
+    void this.router.navigateByUrl(reviewPath(this.mural.kind())).then(() => this.side.picking.set(true));
   }
 }

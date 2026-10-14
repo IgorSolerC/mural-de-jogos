@@ -1,3 +1,4 @@
+import { wallPath } from '../core/areas';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -230,11 +231,12 @@ export class ProfilePage {
   // ===== Abrir =====
   /** O mural inteiro: o seu, ou o da pessoa (como em Comparar), já no mural da pasta. */
   protected openWall(kind: Kind): void {
-    this.mural.kind.set(kind);
     const c = this.colleague();
     if (this.own()) {
-      void this.router.navigate(['/']);
+      // o endereço do mural escolhe o mural (ver core/areas.ts)
+      void this.router.navigateByUrl(wallPath(kind));
     } else if (c) {
+      this.mural.kind.set(kind);
       this.colleagues.select(c.id);
       void this.router.navigate(['/comparar/mural']);
     }

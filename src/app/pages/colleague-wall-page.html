@@ -54,7 +54,7 @@
     <section class="vazio cartolina" aria-labelledby="vazio-titulo">
       <span class="fita-vazio" aria-hidden="true"></span>
       <h2 id="vazio-titulo">{{ c.name }} não tem {{ profile().plural }} no mural</h2>
-      <p>As fichas de {{ c.name }} estão em outros murais. Troque de mural no cartaz{{ otherWalls().length ? ' ou toque num dos murais acima' : '' }}.</p>
+      <p>As fichas de {{ c.name }} estão em outros murais.{{ otherWalls().length ? ' Toque num dos murais acima.' : '' }}</p>
     </section>
   } @else {
     <!-- a mesma régua e a mesma parede do seu mural, sobre as fichas da pessoa -->

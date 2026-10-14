@@ -26,6 +26,23 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-anotacoes-analises-extras',
+    version: '1.38.2',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'O site em três partes: Anotações, Análises e Extras',
+    notice: 'O topo mudou: Anotações, Análises e Extras. O mural de resenhas agora se escolhe dentro de Análises.',
+    items: [
+      'O topo agora mostra as partes do site, iguais em todas as páginas: Anotações, Análises e Extras. O cartaz diz só "Meu mural" e leva para a última parede que você abriu.',
+      'O mural de resenhas (jogos, livros, filmes, séries, animes ou músicas) não fica mais preso ao site inteiro. Ele se escolhe numa etiqueta de papel logo embaixo do topo, só nas páginas que dependem dele: nas Análises e nos Extras. O Perfil, Amigos e os Ajustes não mostram mural nenhum.',
+      'O Pra depois e a Wishlist moram dentro de Análises, ao lado do Mural, nas abas embaixo do topo. Trocar de mural numa delas leva para a mesma aba do outro mural.',
+      'As Anotações são uma parte própria: o topo não muda mais quando você está nelas.',
+      'Cada mural tem o seu endereço (como #/analises/livros/wishlist), então dá para salvar nos favoritos, e o voltar do navegador volta para o mural de antes. Os endereços antigos continuam funcionando.',
+      'O botão Nova resenha, fora das Análises, escreve no último mural de resenhas que você abriu, e a ficha salva leva até ele.',
+      'Em Amigos, com as novidades separadas por mural (Ajustes › Amigos), o mural se escolhe na própria página.',
+    ],
+  },
+  {
     id: '2026-10-13-ficha-de-musica-arejada',
     version: '1.38.1',
     kind: 'melhoria',
