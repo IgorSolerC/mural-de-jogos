@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-feitas-tocar',
+    version: '1.38.7',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'Tocar em "tarefas feitas" mostra as feitas',
+    items: [
+      'Na anotação, a linha "3 tarefas feitas" agora é um botão: tocar nela mostra as tarefas daquela lista como elas são, marcadas e riscadas, ali mesmo no mural ou na anotação aberta.',
+      'Vale até você recarregar a página: depois do F5, elas voltam a ficar recolhidas na conta.',
+    ],
+  },
+  {
     id: '2026-10-14-publico-ou-privado',
     version: '1.38.6',
     kind: 'melhoria',

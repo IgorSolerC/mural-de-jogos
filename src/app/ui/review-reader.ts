@@ -36,6 +36,7 @@ import { RichText } from './rich-text';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { foldDone, foldedCount, parseRich, plainText, snapshotDone, toggleCheck } from '../core/rich-text';
+import { ShownDone } from '../core/shown-done';
 import { NoteLinks, backlinksOf, notesOf, resolveNote } from '../core/note-links';
 import { NoteBacklinks } from './note-backlinks';
 import { NoteDone } from '../core/note-done';
@@ -249,7 +250,7 @@ const PATCH_GAP = 8;
                   </div>
                 }
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
-                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="!showDone()" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="!showDone()" [foldKey]="r.id" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -515,7 +516,12 @@ export class ReviewReader {
   protected readonly artist = computed(() => this.review()?.game.by ?? this.review()?.category ?? '');
   /** As tarefas feitas quando a anotação abriu: as que o texto esconde (o mesmo retrato dele, ver RichText). */
   private readonly doneThen = linkedSignal({ source: () => this.review()?.text ?? '', computation: snapshotDone });
-  protected readonly foldable = computed(() => (this.review() ? foldedCount(foldDone(parseRich(this.review()!.text), this.doneThen().lines)) : 0));
+  private readonly shownDone = inject(ShownDone);
+  protected readonly foldable = computed(() => {
+    const r = this.review();
+    // as sequências abertas pela conta (no mural ou aqui) já estão à mostra
+    return r ? foldedCount(foldDone(parseRich(r.text), this.doneThen().lines, this.shownDone.of(r.id))) : 0;
+  });
   /** A anotação aberta. Num `computed`: marcar uma tarefa troca a `review` (salva), mas não a anotação. */
   private readonly reviewId = computed(() => this.review()?.id);
   /**

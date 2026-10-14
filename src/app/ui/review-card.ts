@@ -363,7 +363,7 @@ function watchDistance(el: HTMLElement): () => void {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
         <div class="nota-texto" [class.marcavel]="interactive()" data-widget-teto appCorta>
-          <app-rich-text data-queima [text]="review().text" [fold]="true" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
+          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
     } @else if (!compact() && !capas()) {
@@ -372,7 +372,7 @@ function watchDistance(el: HTMLElement): () => void {
         @if (masked()) {
           <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
         } @else {
-          <div class="texto-inteiro" data-queima><app-rich-text [text]="review().text" [fold]="true" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+          <div class="texto-inteiro" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
         }
       } @else if (lead(); as line) {
         @if (masked() && !bare()) {
@@ -1666,8 +1666,9 @@ export class ReviewCard {
    */
   protected readonly interactive = computed(() => {
     const t = this.review().text;
-    // os links para fora abrem em qualquer mural; as tarefas e os links entre anotações, só no seu
-    return hasInteractive(t) && (this.checkable() || /https?:\/\/|mailto:/.test(t));
+    // os links para fora e a conta das feitas (que as mostra) valem em qualquer mural; as tarefas e
+    // os links entre anotações, só no seu
+    return hasInteractive(t) && (this.checkable() || /https?:\/\/|mailto:/.test(t) || checkCount(t).done > 0);
   });
   /** Acabou de ganhar o check: o carimbo bate, e daqui a pouco a ficha sai do mural. */
   protected readonly stamping = computed(() => this.note() && !this.preview() && this.view.stamping().has(this.review().id));

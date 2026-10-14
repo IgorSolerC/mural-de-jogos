@@ -1,5 +1,5 @@
 import { provideZonelessChangeDetection } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RichText } from './rich-text';
 import { NoteLinks } from '../core/note-links';
 import { Review, sanitizeReview } from '../core/review';
@@ -63,12 +63,12 @@ describe('o texto formatado na leitura', () => {
     document.body.appendChild(el);
     await set('Lista 1\n- [x] um\n- [ ] dois\n- [x] três\nLista 2\n- [x] quatro');
     expect(shown()).toEqual(['dois']);
-    expect(counts()).toEqual(['2 tarefas feitas (escondidas)', '1 tarefa feita (escondida)']);
+    expect(counts()).toEqual(['2 tarefas feitas (escondidas): mostrar', '1 tarefa feita (escondida): mostrar']);
 
     // marcou a "dois" e desmarcou a "três": as duas à vista
     await set('Lista 1\n- [x] um\n- [x] dois\n- [ ] três\nLista 2\n- [x] quatro');
     expect(shown()).toEqual(['dois', 'três']);
-    expect(counts()).toEqual(['1 tarefa feita (escondida)', '1 tarefa feita (escondida)']);
+    expect(counts()).toEqual(['1 tarefa feita (escondida): mostrar', '1 tarefa feita (escondida): mostrar']);
 
     // o texto mudou de verdade (uma edição): o retrato é refeito
     await set('Lista 1\n- [x] um\n- [x] dois\n- [ ] três!\nLista 2\n- [x] quatro');
@@ -112,5 +112,56 @@ describe('o texto formatado na leitura', () => {
       expect(el.querySelector('.elo')).toBeNull();
       expect(el.textContent).toContain('veja [[Hades]]');
     });
+  });
+});
+
+const DONE_TEXT = 'Compras\n- [ ] pão\n- [x] leite\n- [x] café\nResto\n- [x] ovos';
+
+describe('a conta das tarefas feitas', () => {
+  beforeEach(() => TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] }));
+
+  async function make(key: string | null): Promise<ComponentFixture<RichText>> {
+    const f = TestBed.createComponent(RichText);
+    f.componentRef.setInput('text', DONE_TEXT);
+    f.componentRef.setInput('fold', true);
+    f.componentRef.setInput('foldKey', key);
+    await f.whenStable();
+    return f;
+  }
+  const tasks = (f: ComponentFixture<RichText>) => [...(f.nativeElement as HTMLElement).querySelectorAll('.tarefas .tarefa')].map((t) => t.textContent!.trim());
+  const counts = (f: ComponentFixture<RichText>) => [...(f.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.resumo-btn')];
+
+  it('é um botão que mostra as feitas da sua sequência, sem passar o clique adiante', async () => {
+    const f = await make('n1');
+    expect(tasks(f)).toEqual(['pão']);
+    expect(counts(f).map((b) => b.textContent!.trim())).toEqual(['2 tarefas feitas (escondidas): mostrar', '1 tarefa feita (escondida): mostrar']);
+    const outside = jasmine.createSpy('fora');
+    (f.nativeElement as HTMLElement).addEventListener('click', outside);
+    counts(f)[0].click();
+    await f.whenStable();
+    expect(tasks(f)).toEqual(['pão', 'leite', 'café']);
+    expect(counts(f).length).toBe(1);
+    expect(outside).not.toHaveBeenCalled();
+  });
+
+  it('a mesma anotação em outro lugar (o mural e a leitura) também abre; outra anotação, não', async () => {
+    const wall = await make('n1');
+    const reader = await make('n1');
+    const other = await make('n2');
+    counts(wall)[1].click();
+    await reader.whenStable();
+    await other.whenStable();
+    expect(tasks(reader)).toEqual(['pão', 'ovos']);
+    expect(tasks(other)).toEqual(['pão']);
+  });
+
+  it('sem chave, abre só ali', async () => {
+    const a = await make(null);
+    const b = await make(null);
+    counts(a)[0].click();
+    await a.whenStable();
+    await b.whenStable();
+    expect(tasks(a)).toEqual(['pão', 'leite', 'café']);
+    expect(tasks(b)).toEqual(['pão']);
   });
 });

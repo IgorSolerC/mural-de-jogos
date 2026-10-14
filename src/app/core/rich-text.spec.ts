@@ -94,10 +94,26 @@ describe('texto com formatação', () => {
       expect(shape).toEqual([[['b'], undefined], 2, [['d'], 3], 2, [[], 1]]);
       // tudo feito: só a conta
       const all = '- [x] a\n\n- [x] b\n\n- [x] c';
-      expect(foldDone(parseRich(all), doneLines(all))).toEqual([{ kind: 'check', items: [], folded: 3 }]);
+      expect(foldDone(parseRich(all), doneLines(all))).toEqual([{ kind: 'check', items: [], folded: 3, seq: 0 }]);
       // nada a esconder: os blocos como eram
       const none = '- [ ] a\n\n- [ ] b';
       expect(foldDone(parseRich(none), new Set())).toEqual(parseRich(none));
+    });
+
+    it('a conta diz de que sequência é (a linha da primeira tarefa), e a sequência aberta fica como é', () => {
+      const blocks = foldDone(parseRich(t), doneLines(t));
+      expect(blocks.filter(isCheck).map((b) => b.seq)).toEqual([1, 6]);
+      // aberta a primeira: ela volta inteira, sem conta; a segunda continua recolhida
+      const open = foldDone(parseRich(t), doneLines(t), new Set([1]));
+      const checks = open.filter(isCheck);
+      expect(checks.map((b) => [b.items.map((it) => it.line), b.folded])).toEqual([
+        [[1, 2, 3, 4], undefined],
+        [[], 2],
+      ]);
+      expect(foldedCount(open)).toBe(2);
+      // a sequência de listas separadas por linhas em branco abre junta, com as linhas em branco
+      const s = '- [x] a\n\n- [ ] b\n\n- [x] c';
+      expect(foldDone(parseRich(s), doneLines(s), new Set([0]))).toEqual(parseRich(s));
     });
 
     it('sem nada para esconder, o bloco fica como era', () => {

@@ -1,7 +1,8 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, linkedSignal, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
+import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
 import { NoteWidget } from './note-widget';
 
@@ -110,11 +111,14 @@ import { NoteWidget } from './note-widget';
                   </label>
                 </li>
               }
-              <!-- as feitas escondidas: uma linha só, no fim da sequência, com o tique delas -->
+              <!-- as feitas escondidas: uma linha só, no fim da sequência, com o tique delas; tocar
+                   nela mostra as feitas como são (até a página recarregar) -->
               @if (b.folded; as n) {
                 <li class="linha resumo">
-                  <span class="tique" aria-hidden="true"></span>
-                  <span class="resumo-nome">{{ n === 1 ? '1 tarefa feita' : n + ' tarefas feitas' }}<span class="sr-only">{{ n === 1 ? ' (escondida)' : ' (escondidas)' }}</span></span>
+                  <button type="button" class="resumo-btn tocavel" [title]="n === 1 ? 'Mostrar a tarefa feita' : 'Mostrar as tarefas feitas'" (click)="unfold($event, b.seq)">
+                    <span class="tique" aria-hidden="true"></span>
+                    <span class="resumo-nome">{{ n === 1 ? '1 tarefa feita' : n + ' tarefas feitas' }}<span class="sr-only">{{ n === 1 ? ' (escondida): mostrar' : ' (escondidas): mostrar' }}</span></span>
+                  </button>
                 </li>
               }
             </ul>
@@ -366,10 +370,31 @@ import { NoteWidget } from './note-widget';
     }
     /* as feitas escondidas: o tique vermelho solto (sem caixinha, que ali não há o que marcar) e a
        conta a lápis, miúda e apagada, para não parecer mais uma tarefa */
-    .tarefas > .resumo {
+    .resumo-btn {
       display: grid;
+      width: fit-content;
+      max-width: 100%;
       grid-template-columns: 1.35em minmax(0, 1fr);
       align-items: start;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      text-align: start;
+      cursor: pointer;
+    }
+    /* é um botão: com o mouse em cima, a conta escurece e ganha o risco pontilhado do lápis */
+    .resumo-btn:hover .resumo-nome {
+      opacity: 0.9;
+      text-decoration: underline dotted 1.5px;
+      text-underline-offset: 3px;
+    }
+    .resumo-btn:focus-visible {
+      outline: 3px solid currentColor;
+      outline-offset: 2px;
+      border-radius: 2px;
     }
     .resumo .tique {
       width: 0.86em;
@@ -463,6 +488,11 @@ export class RichText {
    * página recarregar ou o texto mudar de verdade (não só as marcas).
    */
   readonly fold = input(false);
+  /**
+   * De quem é o texto (o id da anotação): as feitas que a pessoa abriu tocando na conta ficam abertas
+   * em todo lugar onde ela aparece, até a página recarregar (ver core/shown-done.ts). Sem ele, só aqui.
+   */
+  readonly foldKey = input<string | null>(null);
 
   protected readonly formatted = computed(() => hasFormatting(this.text()));
   protected readonly plainLines = computed(() => this.text().split(/\r?\n/));
@@ -471,8 +501,26 @@ export class RichText {
     const blocks = parseRich(this.text());
     // lido sempre, mesmo sem recolher: o retrato precisa ver cada marca (a desmarcada sai dele)
     const hide = this.doneThen().lines;
-    return this.fold() ? foldDone(blocks, hide) : blocks;
+    return this.fold() ? foldDone(blocks, hide, this.shown()) : blocks;
   });
+
+  private readonly shownDone = inject(ShownDone);
+  /** Só aqui, sem `foldKey`. */
+  private readonly shownHere = signal<ReadonlySet<number>>(new Set());
+  private readonly shown = computed(() => {
+    const key = this.foldKey();
+    return key ? this.shownDone.of(key) : this.shownHere();
+  });
+
+  /** Tocou na conta das feitas: a sequência dela aparece inteira. Só ela age (nada de abrir a ficha). */
+  protected unfold(e: Event, seq: number | undefined): void {
+    e.preventDefault();
+    e.stopPropagation();
+    if (seq === undefined) return;
+    const key = this.foldKey();
+    if (key) this.shownDone.show(key, seq);
+    else this.shownHere.set(new Set([...this.shownHere(), seq]));
+  }
 
   /** Tocou num link: só ele age (a ficha embaixo, a caixinha da tarefa, nada mais). */
   protected go(e: Event, note: Review): void {

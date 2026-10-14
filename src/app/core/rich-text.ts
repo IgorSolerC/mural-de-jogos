@@ -65,7 +65,8 @@ export type Block =
   | { kind: 'p'; lines: Span[][] }
   | { kind: 'ul'; items: ListItem[] }
   | { kind: 'ol'; items: ListItem[]; start: number }
-  | { kind: 'check'; items: ListItem[]; folded?: number }
+  // folded: quantas feitas a sequência esconde; seq: a linha da primeira tarefa dela (ver `foldDone`)
+  | { kind: 'check'; items: ListItem[]; folded?: number; seq?: number }
   | { kind: 'h'; level: 1 | 2 | 3; spans: Span[] }
   | { kind: 'quote'; lines: Span[][] }
   | { kind: 'hr' }
@@ -514,8 +515,11 @@ function isBlank(b: Block | undefined): boolean {
  * conta só, no fim da sequência (`folded`). Listas separadas só por linhas em branco são a mesma
  * sequência (só um texto entre elas separa as contas). Uma lista que fica sem nenhuma tarefa sai
  * com a linha em branco de antes dela; a sequência toda feita fica só com a conta.
+ *
+ * A conta leva `seq`, a linha da primeira tarefa da sequência: é como ela se chama em `show`, as
+ * sequências que a pessoa abriu tocando na conta (essas ficam como são, com as feitas à vista).
  */
-export function foldDone(blocks: readonly Block[], hide: ReadonlySet<number>): Block[] {
+export function foldDone(blocks: readonly Block[], hide: ReadonlySet<number>, show: ReadonlySet<number> = new Set()): Block[] {
   const out: Block[] = [];
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
@@ -531,11 +535,12 @@ export function foldDone(blocks: readonly Block[], hide: ReadonlySet<number>): B
       lists.push(blocks[i + 2] as CheckBlock);
       i += 2;
     }
+    const seq = lists[0].items[0]?.line ?? -1;
     let folded = 0;
     const kept: Block[] = [];
     let last: CheckBlock | null = null;
     for (let n = 0; n < lists.length; n++) {
-      const items = lists[n].items.filter((it) => !(it.done && hide.has(it.line)));
+      const items = show.has(seq) ? lists[n].items : lists[n].items.filter((it) => !(it.done && hide.has(it.line)));
       folded += lists[n].items.length - items.length;
       if (!items.length) continue;
       if (last) kept.push(gaps[n - 1]);
@@ -546,8 +551,8 @@ export function foldDone(blocks: readonly Block[], hide: ReadonlySet<number>): B
       out.push(lists[0], ...lists.slice(1).flatMap((l, n) => [gaps[n], l]));
       continue;
     }
-    if (last) last.folded = folded;
-    else kept.push({ kind: 'check', items: [], folded });
+    if (last) Object.assign(last, { folded, seq });
+    else kept.push({ kind: 'check', items: [], folded, seq });
     out.push(...kept);
   }
   return out;
