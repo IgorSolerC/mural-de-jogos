@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Review, sanitizeReview } from '../core/review';
+import { CATEGORY_COLORS, bandColor, categoryColorHex } from '../core/category-looks';
 import { AudioTrack } from './audio-track';
 import { ReviewCard } from './review-card';
 
@@ -133,9 +134,12 @@ describe('a ficha de música no mural', () => {
     }
   });
 
-  it('o artista não pega o ícone nem a cor de uma categoria de anotação de mesmo nome', async () => {
-    await show(music({ category: 'Trabalho' }), { looks: { trabalho: { color: 'azul', icon: 'maleta' } } });
-    expect(el.querySelector('.aba-cat')!.classList).not.toContain('orelha-cor');
+  it('o artista tem a cor dele, tirada do nome, e não pega a de uma categoria de anotação de mesmo nome', async () => {
+    const other = CATEGORY_COLORS.find((c) => c.id !== bandColor('Trabalho'))!.id;
+    await show(music({ category: 'Trabalho' }), { looks: { trabalho: { color: other, icon: 'maleta' } } });
+    const ear = el.querySelector<HTMLElement>('.aba-cat')!;
+    expect(ear.classList).toContain('orelha-cor');
+    expect(ear.style.getPropertyValue('--cat-cor')).toBe(categoryColorHex(bandColor('Trabalho'))!);
   });
 });
 

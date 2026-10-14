@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { CheckedAnswer, CheckedOptions, Confirm } from './confirm';
@@ -126,5 +127,70 @@ describe('a caixinha da fichinha de confirmação', () => {
     void confirm.ask({ text: 'Apagar?', confirm: 'Apagar' });
     expect(confirm.current()!.check).toBeNull();
     confirm.answer(false);
+  });
+});
+
+describe('o editor: a cor da categoria nova', () => {
+  let fixture: ComponentFixture<ReviewEditor>;
+  let settings: Settings;
+  type Inside = { noteCategory: { set(v: string | null): void } };
+  const pick = async (category: string | null) => {
+    (fixture.componentInstance as unknown as Inside).noteCategory.set(category);
+    await fixture.whenStable();
+  };
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [ReviewEditor], providers: [provideZonelessChangeDetection()] });
+    settings = TestBed.inject(Settings);
+    TestBed.inject(ReviewStore).add({
+      ...sanitizeReview({
+        kind: 'anotacoes',
+        game: { name: 'Já existe', coverUrl: null, source: 'manual' },
+        category: 'Casa',
+        createdAt: '2026-10-01T10:00:00.000Z',
+      })!,
+      id: 'ncasa001',
+    });
+    fixture = TestBed.createComponent(ReviewEditor);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    fixture.componentInstance.openNote('Nova');
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    fixture.nativeElement.remove();
+    localStorage.clear();
+  });
+
+  it('a categoria nova ganha uma cor sorteada, que a prévia já mostra', async () => {
+    spyOn(Math, 'random').and.returnValue(0.5);
+    await pick('Viagens');
+    expect(settings.categoryLook('viagens')).toEqual({ color: 'azul' });
+    expect(fixture.nativeElement.querySelector('.previa .aba-cat')!.classList).toContain('orelha-cor');
+  });
+
+  it('a categoria que já tem anotação fica como está', async () => {
+    await pick('casa');
+    expect(settings.categoryLook('Casa')).toEqual({});
+  });
+
+  it('a que já tem cor fica com ela; com só o ícone, ganha a cor e mantém o ícone', async () => {
+    settings.setCategoryLook('Metas', { color: 'roxo' });
+    settings.setCategoryLook('Leituras', { icon: 'livro' });
+    await pick('Metas');
+    expect(settings.categoryLook('Metas')).toEqual({ color: 'roxo' });
+    await pick('Leituras');
+    expect(settings.categoryLook('Leituras').icon).toBe('livro');
+    expect(settings.categoryLook('Leituras').color).toBeDefined();
+  });
+
+  it('tirada a cor, ela não volta sozinha', async () => {
+    await pick('Viagens');
+    settings.setCategoryLook('Viagens', {});
+    await pick(null);
+    await pick('Viagens');
+    expect(settings.categoryLook('Viagens')).toEqual({});
   });
 });

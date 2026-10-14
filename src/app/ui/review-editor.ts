@@ -4,9 +4,11 @@ import {
   DestroyRef,
   ElementRef,
   computed,
+  effect,
   inject,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
@@ -72,6 +74,7 @@ import { categoryLibrary, tagLibrary } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { CardKit } from './card-kit';
 import { Confirm } from './confirm';
+import { lookKey, randomCategoryColor } from '../core/category-looks';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
@@ -426,6 +429,24 @@ export class ReviewEditor {
   protected readonly categoryLooks = this.settings.categoryLooks;
   /** A cartela de categorias: a pronta e as escritas nas outras anotações. */
   protected readonly categoryLib = computed(() => categoryLibrary(this.store.notes()));
+  /**
+   * Toda categoria nova (nenhuma anotação nela ainda) ganha uma das cores, sorteada, assim que é
+   * escolhida: a prévia e o "Ícone e cor" já mostram a cor, e dá para trocar ou tirar ali. Uma vez só
+   * por categoria enquanto o editor existe: tirada a cor, ela não volta sozinha.
+   */
+  private readonly drawnColors = new Set<string>();
+  private readonly drawColor = effect(() => {
+    const category = this.notes() ? this.noteCategory()?.trim() : null;
+    if (!category) return;
+    untracked(() => {
+      const key = lookKey(category);
+      if (this.drawnColors.has(key)) return;
+      this.drawnColors.add(key);
+      const look = this.settings.categoryLook(category);
+      if (look.color || this.store.notes().some((n) => !!n.category && lookKey(n.category) === key)) return;
+      this.settings.setCategoryLook(category, { ...look, color: randomCategoryColor() });
+    });
+  });
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
   protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.noteCategory()));
 

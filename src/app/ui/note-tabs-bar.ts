@@ -3,7 +3,7 @@ import { ChevronDown, LucideAngularModule, MicVocal } from 'lucide-angular';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
-import { CategoryLook, categoryColorHex, lookKey } from '../core/category-looks';
+import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
 import { CategoryLabel } from './category-label';
 
 /** O vão entre duas abas (o `gap` da fileira). */
@@ -316,8 +316,9 @@ export class NoteTabsBar {
 
   /** O desenho e a cor da categoria: os que o dono do mural escolheu (sem escolha, o de sempre). */
   protected lookOf(x: NoteTab): CategoryLook {
-    // o artista não é categoria de anotação: não pega o jeito de uma de mesmo nome
-    return this.music() ? {} : (this.view.categoryLooks()[lookKey(x.label)] ?? {});
+    // o artista não é categoria de anotação: não pega o jeito de uma de mesmo nome; a cor vem do nome dele
+    if (this.music()) return x.key === NO_CATEGORY_TAB ? {} : { color: bandColor(x.label) };
+    return this.view.categoryLooks()[lookKey(x.label)] ?? {};
   }
   protected colorOf(x: NoteTab): string | null {
     return categoryColorHex(this.lookOf(x).color);

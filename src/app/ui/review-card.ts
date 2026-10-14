@@ -60,7 +60,7 @@ import { WallView } from '../core/wall-view';
 import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
-import { CategoryLook, CategoryLooks, categoryColorHex, lookKey } from '../core/category-looks';
+import { CategoryLook, CategoryLooks, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -1776,8 +1776,9 @@ export class ReviewCard {
   /** O desenho e a cor da categoria na orelha: os que o dono escolheu (sem escolha, o de sempre). */
   protected readonly catLook = computed<CategoryLook>(() => {
     const c = this.review().category;
-    // o artista não é categoria de anotação: não pega o jeito de uma de mesmo nome
-    return (!this.music() && c && this.looks()[lookKey(c)]) || {};
+    if (!c) return {};
+    // o artista não é categoria de anotação: não pega o jeito de uma de mesmo nome; a cor vem do nome dele
+    return this.music() ? { color: bandColor(c) } : (this.looks()[lookKey(c)] ?? {});
   });
   protected readonly catColor = computed(() => categoryColorHex(this.catLook().color));
 

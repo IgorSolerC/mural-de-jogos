@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { MAX_CATEGORY_LOOKS, lookKey, sanitizeCategoryLooks } from './category-looks';
+import { CATEGORY_COLORS, MAX_CATEGORY_LOOKS, bandColor, lookKey, randomCategoryColor, sanitizeCategoryLooks } from './category-looks';
 import { categoryLooksOf, fingerprint, publicCategoryLooks } from './cloud-sync';
 import { parseBackupSnapshot } from './backup-file';
 import { SETTINGS_KEY, Settings } from './settings';
@@ -22,6 +22,21 @@ describe('o ícone e a cor das categorias', () => {
     const many = Object.fromEntries(Array.from({ length: MAX_CATEGORY_LOOKS + 5 }, (_, i) => [`c${i}`, { color: 'rosa' }]));
     expect(Object.keys(sanitizeCategoryLooks(many)).length).toBe(MAX_CATEGORY_LOOKS);
     expect(lookKey(' Estúdios ')).toBe('estudios');
+  });
+
+  it('a cor de cada artista vem do nome: a mesma sempre, sem ligar para caixa nem acento, e todas as cores saem', () => {
+    expect(bandColor('Milton Nascimento')).toBe(bandColor(' milton nascimento '));
+    expect(bandColor('Björk')).toBe(bandColor('BJORK'));
+    const ids = CATEGORY_COLORS.map((c) => c.id) as string[];
+    const names = Array.from({ length: 200 }, (_, i) => `Banda ${i}`);
+    const seen = new Set(names.map(bandColor));
+    expect([...seen].every((c) => ids.includes(c))).toBeTrue();
+    expect(seen.size).toBe(ids.length);
+  });
+
+  it('a cor sorteada é uma das cores, de ponta a ponta', () => {
+    expect(randomCategoryColor(() => 0)).toBe(CATEGORY_COLORS[0].id);
+    expect(randomCategoryColor(() => 0.9999)).toBe(CATEGORY_COLORS.at(-1)!.id);
   });
 
   it('Settings troca, volta ao de sempre e lembra ao recarregar', () => {

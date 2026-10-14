@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-cores-sorteadas',
+    version: '1.38.11',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'Categorias novas e bandas já nascem coloridas',
+    items: [
+      'Toda categoria nova das anotações ganha uma das cores, sorteada, no lugar do manilha liso: a orelha e a aba já saem com a borda colorida. Para trocar ou tirar, é o mesmo "Ícone e cor" do editor. As categorias que você já tinha ficam como estão.',
+      'No mural de músicas, cada banda tem a sua cor, na orelha da ficha e na aba. A cor sai do nome da banda, então é a mesma em todos os seus aparelhos e no mural dos amigos.',
+    ],
+  },
+  {
     id: '2026-10-14-orelha-folga',
     version: '1.38.10',
     kind: 'correcao',

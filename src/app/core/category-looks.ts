@@ -69,6 +69,25 @@ export function categoryColorHex(id: CategoryColorId | undefined): string | null
   return CATEGORY_COLORS.find((c) => c.id === id)?.hex ?? null;
 }
 
+/** Uma das cores, sorteada: a de toda categoria nova das anotações (ver `ReviewEditor`). */
+export function randomCategoryColor(random = Math.random): CategoryColorId {
+  return CATEGORY_COLORS[Math.floor(random() * CATEGORY_COLORS.length) % CATEGORY_COLORS.length].id;
+}
+
+/**
+ * A cor da orelha e da aba de um artista no mural de músicas: tirada do nome (sem acento nem caixa),
+ * então sai a mesma em todo aparelho e no mural dos amigos, sem guardar nada. Parece sorteada, e
+ * dois artistas de nomes parecidos quase sempre ficam com cores diferentes.
+ */
+export function bandColor(artist: string): CategoryColorId {
+  let h = 0x811c9dc5;
+  for (const ch of lookKey(artist)) {
+    h ^= ch.codePointAt(0)!;
+    h = Math.imul(h, 0x01000193);
+  }
+  return CATEGORY_COLORS[(h >>> 0) % CATEGORY_COLORS.length].id;
+}
+
 /** Os jeitos guardados: a categoria sem acento nem caixa → o jeito dela. */
 export type CategoryLooks = Readonly<Record<string, CategoryLook>>;
 
