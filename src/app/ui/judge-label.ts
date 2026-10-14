@@ -16,6 +16,23 @@ import { VERDICT_LABEL, Verdict, formatScore, shownScore } from '../core/review'
 import { BRILHO_PATH } from './brilho';
 import { VERDICT_ICON } from './verdict';
 
+/**
+ * A beirada rasgada à mão da etiqueta em pé: um clip-path com dentes irregulares (fundura de 0,4 a
+ * 3,6px, passo de 3 a 6%), sorteados de um jeito fixo pela semente, para cada ficha ter o seu rasgo
+ * e ele não mudar de um desenho para o outro. `top` rasga a beira de cima; senão, a de baixo.
+ */
+function tornEdge(seed: number, top: boolean): string {
+  let s = (seed * 2654435761) >>> 0 || 1;
+  const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const pts: string[] = [];
+  for (let x = 0; x < 100; x += 3 + rnd() * 3) {
+    const d = (0.4 + rnd() * 3.2).toFixed(1);
+    pts.push(`${x.toFixed(1)}% ${top ? `${d}px` : `calc(100% - ${d}px)`}`);
+  }
+  pts.push(`100% ${top ? '1.6px' : 'calc(100% - 1.6px)'}`);
+  return top ? `polygon(${pts.join(', ')}, 100% 100%, 0 100%)` : `polygon(0 0, 100% 0, ${pts.reverse().join(', ')})`;
+}
+
 const ICON_SIZE = { card: 19, compact: 16, big: 23 } as const;
 /** Sozinho no canhoto, sem a palavra, o ícone cresce para segurar o espaço. */
 const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
@@ -29,7 +46,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
   selector: 'app-judge-label',
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class]': 'size()', '[class.fit]': 'fit()', '[class.so-icone]': 'iconOnly()' },
+  host: { '[class]': 'size()', '[class.fit]': 'fit()', '[class.so-icone]': 'iconOnly()', '[class.stack]': 'stack()' },
   template: `
     <p
       class="grade"
@@ -39,6 +56,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
       [class.tarja-rasgada]="grade().ruim"
       [class.mancha-cafe]="grade().cafe"
       [class.split]="!!verdict() || masked()"
+      [style.clip-path]="stack() ? torn().top : null"
     >
       @if (grade().brilho) {
         @for (b of brilhos; track b) {
@@ -55,7 +73,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     </p>
     @if (masked()) {
       <!-- sem spoilers: o canhoto preto de sempre, com "Segredo" no lugar do veredito, do mesmo tamanho -->
-      <p class="band misterio" role="img" aria-label="Veredito escondido">
+      <p class="band misterio" role="img" aria-label="Veredito escondido" [style.clip-path]="stack() ? torn().bottom : null">
         <lucide-icon [img]="secretIcon" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" />
         <span class="palavra" aria-hidden="true">Segredo</span>
       </p>
@@ -65,7 +83,8 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
         [class.gold]="v === 'masterpiece'"
         [class.tarja-rasgada]="v === 'chato'"
         [class.rasgo-direita]="v === 'chato'"
-        role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + '-lit)'">
+        role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + '-lit)'"
+        [style.clip-path]="stack() ? torn().bottom : null">
         <lucide-icon [img]="verdictIcons[v]" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" />
         <span class="palavra" aria-hidden="true">{{ verdictLabels[v] }}</span>
       </p>
@@ -317,6 +336,76 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     :host(.big) .band.gold::after {
       inset: 5px 5px 5px 6px;
     }
+
+    /* ===== Ficha de música: a etiqueta em pé, a Média em cima e o canhoto embaixo =====
+       O lugar ao lado do vinil é estreito: deitada, a etiqueta só cabia com o ícone. Em pé, as
+       duas metades têm a mesma largura (a da maior), e as beiradas de fora, a de cima e a de baixo,
+       ficam rasgadas à mão (o clip-path vem de tornEdge, um rasgo por ficha). Entre elas, o picote
+       de ingresso de show: os entalhes nas laterais e uma fileira de furinhos de verdade, meio na
+       Média, meio no canhoto, por onde a cartolina aparece. */
+    :host(.stack) {
+      --furo: 1.5px;
+      --passo: 6px;
+      display: grid;
+      /* um Meh não deixa o ingresso magrinho: todos têm pelo menos a largura de um Recomendo */
+      grid-template-columns: minmax(128px, max-content);
+      justify-content: start;
+      min-height: 0;
+    }
+    :host(.stack.fit) {
+      transform-origin: 70px 50%;
+    }
+    /* as duas metades com a mesma altura, como na etiqueta deitada: o número diminui para caber */
+    :host(.stack) .grade,
+    :host(.stack) .band {
+      height: 42px;
+    }
+    :host(.stack) .grade {
+      padding: 3px 16px 0;
+      border-radius: 0;
+    }
+    :host(.stack) .int {
+      font-size: 2.15rem;
+    }
+    :host(.stack) .dec {
+      font-size: 1.45rem;
+      margin-bottom: 0.16em;
+    }
+    :host(.stack) .brilho {
+      --brilho: 12px;
+    }
+    :host(.stack) .brilho.b2,
+    :host(.stack) .brilho.b3 {
+      --brilho: 9px;
+    }
+    :host(.stack) .grade.split {
+      mask:
+        radial-gradient(circle at 50% 100%, #0000 var(--furo), #000 calc(var(--furo) + 0.5px)) 50% 0 / var(--passo) 100% repeat-x,
+        radial-gradient(circle at 0 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) left / 51% 100% no-repeat,
+        radial-gradient(circle at 100% 100%, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) right / 51% 100% no-repeat;
+      mask-composite: intersect, add, add;
+    }
+    :host(.stack) .band {
+      justify-content: center;
+      padding: 0 14px 2px;
+      border-radius: 0;
+      border-left: 0;
+      font-size: 0.92rem;
+      mask:
+        radial-gradient(circle at 50% 0, #0000 var(--furo), #000 calc(var(--furo) + 0.5px)) 50% 0 / var(--passo) 100% repeat-x,
+        radial-gradient(circle at 0 0, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) left / 51% 100% no-repeat,
+        radial-gradient(circle at 100% 0, #0000 var(--notch), #000 calc(var(--notch) + 0.5px)) right / 51% 100% no-repeat;
+      mask-composite: intersect, add, add;
+    }
+    :host(.stack) .band.gold::after {
+      inset: 5px 4px 6px;
+    }
+    :host(.stack) .band.tarja-rasgada {
+      padding-right: 22px;
+    }
+    :host(.stack.so-icone) .band {
+      padding: 1px 14px 3px;
+    }
   `,
 })
 export class JudgeLabel {
@@ -327,6 +416,8 @@ export class JudgeLabel {
   readonly fit = input(false);
   /** Sem spoilers: "?" na Média e no veredito, sempre do mesmo jeito em todas as fichas. */
   readonly masked = input(false);
+  /** Em pé: a Média em cima e o canhoto embaixo (a ficha de música, ao lado do vinil). */
+  readonly stack = input(false);
 
   /** A palavra do veredito não cabe: o canhoto mostra só o ícone. */
   protected readonly iconOnly = signal(false);
@@ -342,6 +433,7 @@ export class JudgeLabel {
       this.size();
       this.fit();
       this.masked();
+      this.stack();
       untracked(() => this.remeasure());
     });
     afterNextRender(() => {
@@ -368,9 +460,9 @@ export class JudgeLabel {
       return;
     }
     if (!this.iconOnly() || !this.full) {
-      let w = 0;
-      for (const child of Array.from(el.children)) w += (child as HTMLElement).offsetWidth;
-      this.full = w;
+      // deitada, as metades somam; em pé, vale a mais larga
+      const widths = Array.from(el.children, (child) => (child as HTMLElement).offsetWidth);
+      this.full = this.stack() ? Math.max(0, ...widths) : widths.reduce((a, b) => a + b, 0);
     }
     this.iconOnly.set(this.full > el.clientWidth + 0.5);
   }
@@ -395,6 +487,11 @@ export class JudgeLabel {
       cafe: v !== null && n >= 4 && n < 5,
       ruim: v !== null && n < 4,
     };
+  });
+  /** Os rasgos de cima e de baixo da etiqueta em pé, sorteados pela nota e pelo veredito. */
+  protected readonly torn = computed(() => {
+    const seed = Math.round((this.value() ?? 0) * 10) * 7 + (this.verdict()?.length ?? 0);
+    return { top: tornEdge(seed, true), bottom: tornEdge(seed + 101, false) };
   });
   protected readonly iconSize = computed(() => (this.iconOnly() ? ICON_ONLY_SIZE : ICON_SIZE)[this.size()]);
   protected readonly verdictLabels = VERDICT_LABEL;

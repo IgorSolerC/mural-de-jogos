@@ -302,7 +302,7 @@ function watchDistance(el: HTMLElement): () => void {
           </ul>
         }
       } @else if (!capas()) {
-        <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" [masked]="masked()" />
+        <app-judge-label class="judge" data-colado [value]="review().scores.final" [verdict]="review().verdict" [size]="compact() ? 'compact' : 'card'" [fit]="true" [masked]="masked()" [stack]="music() && !compact()" />
       }
     </div>
 

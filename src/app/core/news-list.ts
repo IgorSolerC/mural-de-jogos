@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-ingresso-em-pe',
+    version: '1.38.4',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'Nas fichas de música, o veredito aparece por inteiro',
+    items: [
+      'Ao lado do vinil não cabia a etiqueta deitada, e o veredito ficava só com o ícone. Agora a etiqueta fica em pé, como um ingresso de show: a média em cima e o veredito embaixo, com a palavra, as duas partes da mesma altura.',
+      'Entre as duas, o picote do ingresso, com furinhos de verdade; em cima e embaixo, a beirada rasgada à mão, um pouco diferente em cada ficha.',
+    ],
+  },
+  {
     id: '2026-10-14-barra-da-pagina',
     version: '1.38.3',
     kind: 'melhoria',
