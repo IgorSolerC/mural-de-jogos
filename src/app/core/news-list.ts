@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-alto-falante-broche',
+    version: '1.39.3',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'O alto-falante do volume virou um broche',
+    items: [
+      'O botão do volume, no canto dos widgets de som, agora é um broche de lata como os do topo (Perfil, Amigos, Ajustes), com o alto-falante desenhado a tinta bem no meio.',
+      'O desenho mostra o volume: duas ondas no alto, a de fora clarinha no baixo e um X quando o site está calado. O mesmo desenho vai no botão de calar da tira do volume.',
+    ],
+  },
+  {
     id: '2026-10-14-som-sem-tropeco',
     version: '1.39.2',
     kind: 'correcao',

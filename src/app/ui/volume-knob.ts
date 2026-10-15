@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
-import { LucideAngularModule, Volume1, Volume2, VolumeX } from 'lucide-angular';
+import { NgTemplateOutlet } from '@angular/common';
 import { setSoundVolume, settleSoundVolume, soundVolume, toggleMute } from '../core/volume';
 
 let uid = 0;
 
 /**
  * O botão de volume dos widgets que fazem som (a faixa de áudio, o vídeo, o vinil das músicas): um
- * adesivo redondo de tinta com o alto-falante, que aparece com o mouse em cima da peça (quem o usa
+ * broche de lata, como os do topo, com o alto-falante desenhado a tinta na estampa, que aparece com o mouse em cima da peça (quem o usa
  * põe a classe `som` no que conta como "em cima") ou com o foco do teclado. O toque abre a tira de
  * papel do volume, presa com fita crepe: o alto-falante que cala e a barra, que valem para todo som
  * do site (ver core/volume.ts).
@@ -17,7 +17,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-volume-knob',
-  imports: [LucideAngularModule],
+  imports: [NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.aberto]': 'open()' },
   template: `
@@ -30,7 +30,7 @@ let uid = 0;
       [title]="'Volume: ' + percent() + '%'"
       (click)="$event.stopPropagation()"
     >
-      <lucide-icon [img]="icon()" [size]="15" [strokeWidth]="2.4" aria-hidden="true" />
+      <span class="face"><ng-container *ngTemplateOutlet="falante" /></span>
     </button>
     <div
       #panel
@@ -53,7 +53,7 @@ let uid = 0;
       </span>
       <span class="linha">
         <button type="button" class="calar" [attr.aria-label]="muted() ? 'Voltar o som' : 'Calar'" [attr.aria-pressed]="muted()" (click)="mute()">
-          <lucide-icon [img]="icon()" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+          <ng-container *ngTemplateOutlet="falante" />
         </button>
         <input
           class="nivel"
@@ -71,6 +71,27 @@ let uid = 0;
       </span>
       <span class="nota">Vale para todo som do site, neste aparelho.</span>
     </div>
+
+    <!-- o alto-falante a tinta: a caixa cheia e as ondas a pena. O desenho inteiro (caixa e ondas)
+         fica no meio do quadro, e as ondas não somem: no baixo, a de fora fica clarinha; calado, um
+         X no lugar delas. Assim ele não pula de lado quando o volume muda -->
+    <ng-template #falante>
+      <svg class="falante" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          class="caixa"
+          d="M3.5 9.5L7.2 9.2L11.7 5.2C12.2 4.8 12.6 5 12.6 5.6L12.4 18.5C12.4 19.2 12 19.3 11.5 18.9L7.2 15L3.6 14.7C3.2 14.7 3.1 14.4 3.1 14L3.1 10C3.1 9.7 3.2 9.5 3.5 9.5Z"
+        />
+        @switch (level()) {
+          @case ('mudo') {
+            <path class="pena" d="M15.3 8.9L20.2 15.1M20.2 8.9L15.3 15.1" />
+          }
+          @default {
+            <path class="pena" d="M15.3 9.1C16.9 10.9 17 13.2 15.4 15.1" />
+            <path class="pena" [class.fraca]="level() === 'baixo'" d="M17.9 6.4C21 9.7 21.1 14.4 18.1 17.8" />
+          }
+        }
+      </svg>
+    </ng-template>
   `,
   styles: `
     /* escondido até o mouse chegar na peça (ou o foco, no botão); some devagar, para dar tempo de o
@@ -108,7 +129,7 @@ let uid = 0;
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* ===== O adesivo: um botão redondo de tinta, com a borda branca do corte ===== */
+    /* ===== O broche: lata redonda com a estampa creme sob a cúpula, como os do topo ===== */
     .botao {
       display: grid;
       place-items: center;
@@ -117,24 +138,106 @@ let uid = 0;
       padding: 0;
       border: 0;
       border-radius: 50%;
-      background: #151515;
-      color: #fbfaf6;
-      box-shadow:
-        0 0 0 2px #fbfaf6,
-        0 2px 5px 1px rgb(0 0 0 / 0.38);
+      background: none;
+      color: #151515;
       cursor: pointer;
       pointer-events: auto;
-      transition: scale var(--t-ui) var(--ease-ui);
     }
-    .botao:hover {
-      scale: 1.08;
+    .face {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: #f6f2e7;
+      /* a cúpula: a borda curva escurece embaixo, clareia em cima; o broche faz sombra no que está atrás */
+      box-shadow:
+        inset 0 -3px 5px rgb(0 0 0 / 0.24),
+        inset 0 2px 2px rgb(255 255 255 / 0.6),
+        inset 0 0 0 1px rgb(0 0 0 / 0.3),
+        0 1px 2px rgb(0 0 0 / 0.45),
+        0 6px 9px -4px rgb(0 0 0 / 0.6);
+      rotate: -8deg;
+      transition:
+        rotate var(--t-physical) var(--ease-physical),
+        translate var(--t-physical) var(--ease-physical),
+        scale var(--t-ui) var(--ease-ui);
     }
-    .botao:active {
-      scale: 0.95;
+    /* o anel impresso na estampa */
+    .face::before {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border: 1.25px solid rgb(21 21 21 / 0.26);
+      border-radius: 50%;
+    }
+    /* o brilho da lâmpada na cúpula, por cima do desenho */
+    .face::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(ellipse 34% 24% at 34% 24%, rgb(255 255 255 / 0.78), rgb(255 255 255 / 0) 100%),
+        linear-gradient(165deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 48%);
+      pointer-events: none;
+    }
+    /* 18 de 30: a mesma folga dos dois lados, em pixel inteiro (com 17, o navegador arredonda o meio
+       pixel e o desenho escorrega para baixo e para a direita). E meio pixel acima do meio: a sombra da
+       cúpula pesa embaixo, e o meio que o olho vê no broche fica mais alto que o da conta */
+    .face .falante {
+      width: 18px;
+      height: 18px;
+      translate: 0 -0.5px;
+    }
+    .botao:hover .face {
+      rotate: 6deg;
+      translate: 0 -1px;
+    }
+    .botao:active .face {
+      scale: 0.94;
+    }
+    /* aberto: o aro do broche fica amarelo, a cor de estado (como os do topo) */
+    :host(.aberto) .face {
+      rotate: 0deg;
+      box-shadow:
+        inset 0 -3px 5px rgb(0 0 0 / 0.24),
+        inset 0 2px 2px rgb(255 255 255 / 0.6),
+        inset 0 0 0 1px rgb(0 0 0 / 0.3),
+        0 0 0 2.5px var(--hi),
+        0 1px 2px 2.5px rgb(0 0 0 / 0.45),
+        0 6px 9px -4px rgb(0 0 0 / 0.6);
     }
     .botao:focus-visible {
+      outline: none;
+    }
+    .botao:focus-visible .face {
       outline: 3px solid var(--hi);
       outline-offset: 3px;
+    }
+
+    /* o desenho: a caixa cheia de tinta, as ondas a pena, de ponta redonda */
+    .falante {
+      display: block;
+      overflow: visible;
+    }
+    .caixa {
+      fill: currentColor;
+      stroke: currentColor;
+      stroke-width: 0.9;
+      stroke-linejoin: round;
+    }
+    .pena {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: opacity var(--t-ui) var(--ease-ui);
+    }
+    .pena.fraca {
+      opacity: 0.25;
     }
 
     /* ===== A tira do volume: papel branco preso com um pedaço de fita crepe ===== */
@@ -230,6 +333,10 @@ let uid = 0;
         background var(--t-ui) var(--ease-ui),
         color var(--t-ui) var(--ease-ui);
     }
+    .calar .falante {
+      width: 18px;
+      height: 18px;
+    }
     .calar:hover,
     .calar[aria-pressed='true'] {
       background: #151515;
@@ -314,6 +421,13 @@ let uid = 0;
         scale: 1;
         transition: opacity 120ms linear;
       }
+      .face {
+        transition: none;
+      }
+      .botao:hover .face {
+        rotate: -8deg;
+        translate: none;
+      }
       .folha.posta {
         animation: none;
       }
@@ -327,7 +441,8 @@ export class VolumeKnob {
   protected readonly placed = signal(false);
   protected readonly percent = computed(() => Math.round(soundVolume() * 100));
   protected readonly muted = computed(() => soundVolume() === 0);
-  protected readonly icon = computed(() => (this.muted() ? VolumeX : soundVolume() < 0.5 ? Volume1 : Volume2));
+  /** O desenho do alto-falante: calado (um X), baixo (a onda de fora clarinha) ou alto. */
+  protected readonly level = computed(() => (this.muted() ? 'mudo' : soundVolume() < 0.5 ? 'baixo' : 'alto'));
 
   private readonly knob = viewChild.required<ElementRef<HTMLButtonElement>>('knob');
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('panel');

@@ -76,4 +76,34 @@ describe('o botão de volume', () => {
     expect(panel.top).toBeGreaterThan(knob.bottom);
     el.querySelector<HTMLElement>('.folha')!.hidePopover();
   });
+
+  it('o broche desenha o volume: duas ondas no alto, a de fora clarinha no baixo, um X calado', async () => {
+    TestBed.configureTestingModule({ imports: [VolumeKnob], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(VolumeKnob);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const face = () => el.querySelector('.botao .face .falante')!;
+    expect(face().querySelectorAll('.pena').length).toBe(2);
+    expect(face().querySelector('.fraca')).toBeNull();
+
+    setSoundVolume(0.3);
+    await fixture.whenStable();
+    expect(face().querySelectorAll('.pena').length).toBe(2);
+    expect(face().querySelectorAll('.pena.fraca').length).toBe(1);
+
+    setSoundVolume(0);
+    await fixture.whenStable();
+    expect(face().querySelectorAll('.pena').length).toBe(1);
+    // o botão de calar da tira usa o mesmo desenho
+    expect(el.querySelector('.calar .falante .pena')?.getAttribute('d')).toBe(face().querySelector('.pena')!.getAttribute('d'));
+
+    // o desenho fica no meio do broche, com a mesma folga dos dois lados (o broche à mostra, sem a
+    // escala de quando está escondido)
+    el.style.cssText = 'opacity: 1; visibility: visible; scale: 1; transition: none';
+    const f = el.querySelector('.botao .face')!.getBoundingClientRect();
+    const s = face().getBoundingClientRect();
+    // (o meio pixel para cima, girado com o broche, anda 0,5 × sen 8° ≈ 0,07 px de lado)
+    expect(Math.abs(s.left + s.width / 2 - (f.left + f.width / 2))).toBeLessThan(0.1);
+    expect(getComputedStyle(face()).width).toBe('18px');
+  });
 });
