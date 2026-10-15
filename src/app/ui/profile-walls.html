@@ -9,7 +9,50 @@
       </a>
     }
   </header>
-  @if (walls().length) {
+  @if (walls().length && look() === 'arquivo') {
+    <!-- o arquivo: as mesmas pastas, penduradas lado a lado num trilho de gaveta, todas numa fileira -->
+    <ul class="arquivo" [style.--total]="walls().length">
+      @for (w of walls(); track w.kind; let i = $index) {
+        <li class="suspensa-item">
+          <button
+            type="button"
+            class="suspensa"
+            [style.--cor]="w.color"
+            [style.--capas]="w.covers.length"
+            [attr.data-aba]="i % 3"
+            [attr.title]="w.text || null"
+            (click)="opened.emit(w.kind)"
+            [attr.aria-label]="'Abrir o ' + w.title + ' de ' + name() + ', ' + w.count"
+          >
+            <span class="ganchos" aria-hidden="true"></span>
+            <span class="fundo" aria-hidden="true"></span>
+            <!-- a aba de plástico com o papelzinho do mural, presa na beirada de cima, cada uma num lugar -->
+            <span class="aba-linha" aria-hidden="true">
+              <span class="aba orelha-cor">
+                <lucide-icon [img]="w.icon" [size]="15" [strokeWidth]="2.5" />
+                <span class="aba-nome">{{ w.short }}</span>
+              </span>
+            </span>
+            <span class="boquinha" aria-hidden="true">
+              @for (c of w.covers; track c.id; let j = $index) {
+                <app-cover-sleeve class="capinha" [style.--j]="j" size="thumb" [game]="c.game" [decorative]="true">
+                  @if (bareNote(c)) {
+                    <app-mini-cartolina [review]="c" />
+                  }
+                </app-cover-sleeve>
+              }
+            </span>
+            <span class="cara" aria-hidden="true">
+              <span class="numero">{{ w.n }}</span>
+              @if (w.text) {
+                <span class="linha">{{ w.text }}</span>
+              }
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  } @else if (walls().length) {
     <ul class="pastas" [attr.data-n]="walls().length">
       @for (w of walls(); track w.kind; let i = $index) {
         <li class="pasta-item" [style.--i]="i">

@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-arquivo-murais',
+    version: '1.41.12',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'Perfil: os murais num arquivo',
+    items: [
+      'Em Editar o perfil, Seus murais tem agora "Como mostrar": as Pastas de sempre, grandes e três por linha, ou o Arquivo.',
+      'No Arquivo, as pastas ficam penduradas lado a lado num trilho de gaveta, cada uma com a aba do mural num lugar da beirada, as capas espiando por cima e o número a caneta na frente. Os sete murais cabem numa fileira só na tela do computador, e no celular ficam duas por linha.',
+      'O texto de cada pasta aparece em duas linhas na frente; passando o mouse, ele aparece inteiro.',
+    ],
+  },
+  {
     id: '2026-10-15-murall',
     version: '1.41.11',
     kind: 'melhoria',

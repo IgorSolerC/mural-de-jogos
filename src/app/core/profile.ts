@@ -119,6 +119,16 @@ export interface ProfileSection {
   items: string[];
 }
 
+/**
+ * Como as pastas dos murais aparecem no perfil: as pastas grandes deitadas, três por linha (as de
+ * sempre), ou o arquivo, as pastas penduradas lado a lado num trilho, todas numa fileira só.
+ */
+export const WALLS_LOOKS = [
+  { id: 'pastas', label: 'Pastas', hint: 'Uma pasta grande para cada mural, com as capas enfileiradas na boca e o seu texto na frente.' },
+  { id: 'arquivo', label: 'Arquivo', hint: 'As pastas penduradas lado a lado num arquivo, todas numa fileira: ocupa bem menos, e as capas espiam por cima.' },
+] as const;
+export type WallsLook = (typeof WALLS_LOOKS)[number]['id'];
+
 /** O que a pessoa diz de cada mural na pasta dele, e se a pasta aparece. */
 export interface ProfileWall {
   hidden?: true;
@@ -141,6 +151,8 @@ export interface Profile {
   frameStyle: FrameStyle;
   /** A parede do seu site inteiro e de trás do seu perfil. */
   page: PageBackground;
+  /** Como as pastas dos murais aparecem. */
+  wallsLook: WallsLook;
   walls: Partial<Record<Kind, ProfileWall>>;
   sections: ProfileSection[];
 }
@@ -176,6 +188,7 @@ export function defaultProfile(): Profile {
     background: { kind: 'material', material: 'cortica' },
     frameStyle: 'pinus',
     page: 'eucatex',
+    wallsLook: 'pastas',
     walls: {},
     sections: [newSection('Em destaque')],
   };
@@ -296,6 +309,7 @@ export function sanitizeProfile(raw: unknown): Profile | null {
     background: sanitizeBackground(p['background']),
     frameStyle: frameStyleOf(p['frameStyle']),
     page: PAGE_BACKGROUNDS.find((b) => b.id === p['page'])?.id ?? 'eucatex',
+    wallsLook: WALLS_LOOKS.find((l) => l.id === p['wallsLook'])?.id ?? 'pastas',
     walls: sanitizeWalls(p['walls']),
     sections,
   };

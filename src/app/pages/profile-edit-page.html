@@ -284,6 +284,18 @@
       @if (open() === 'murais') {
         <div class="corpo" id="murais-corpo">
           <p class="lead">Cada mural com alguma ficha à mostra vira uma pasta no perfil, que abre o mural inteiro.</p>
+          <fieldset class="escolha-linha murais-jeito">
+            <legend class="rotulo">Como mostrar</legend>
+            <div class="adesivos">
+              @for (l of wallsLooks; track l.id) {
+                <label class="opcao">
+                  <input type="radio" name="murais-jeito" [checked]="profile().wallsLook === l.id" (change)="setWallsLook(l.id)" />
+                  <span class="adesivo" [class.colado]="profile().wallsLook === l.id" [class.recorte]="profile().wallsLook !== l.id">{{ l.label }}</span>
+                </label>
+              }
+            </div>
+            <p class="hint">{{ wallsLookHint(profile().wallsLook) }}</p>
+          </fieldset>
           <ul class="murais-lista">
             @for (w of walls(); track w.kind) {
               <li class="mural-linha" [class.vazio]="!w.count" [class.escondido]="w.hidden && w.count">

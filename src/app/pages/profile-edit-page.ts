@@ -40,6 +40,8 @@ import {
   SectionDensity,
   SectionFill,
   SectionFrame,
+  WALLS_LOOKS,
+  WallsLook,
   cleanImageUrl,
   newSection,
   profileStats,
@@ -105,6 +107,7 @@ export class ProfileEditPage {
   protected readonly darkStocks = DARK_STOCKS;
   protected readonly stockLabels = STOCK_LABEL;
   protected readonly densities = SECTION_DENSITIES;
+  protected readonly wallsLooks = WALLS_LOOKS;
   protected readonly pages = PAGE_BACKGROUNDS;
   protected readonly frames: readonly { id: SectionFrame; label: string; hint: string }[] = [
     { id: 'parede', label: 'Na parede', hint: 'As fichas pregadas direto na parede.' },
@@ -190,9 +193,13 @@ export class ProfileEditPage {
           id,
           title: 'Seus murais',
           icon: FolderOpen,
-          hint: 'Quais murais viram uma pasta no perfil, e uma linha sobre o que tem em cada uma.',
+          hint: 'Quais murais viram uma pasta no perfil, como as pastas aparecem, e uma linha sobre o que tem em cada uma.',
           bits: walls.length
-            ? [plural(walls.length - hidden, 'pasta à mostra', 'pastas à mostra'), ...(hidden ? [plural(hidden, 'escondida', 'escondidas')] : [])]
+            ? [
+                plural(walls.length - hidden, 'pasta à mostra', 'pastas à mostra'),
+                ...(hidden ? [plural(hidden, 'escondida', 'escondidas')] : []),
+                WALLS_LOOKS.find((l) => l.id === p.wallsLook)?.label ?? '',
+              ]
             : ['Nenhuma ficha à mostra ainda'],
         };
       }
@@ -419,6 +426,14 @@ export class ProfileEditPage {
       };
     }),
   );
+
+  protected setWallsLook(wallsLook: WallsLook): void {
+    this.profiles.update((p) => ({ ...p, wallsLook }));
+  }
+
+  protected wallsLookHint(id: WallsLook): string {
+    return WALLS_LOOKS.find((l) => l.id === id)?.hint ?? '';
+  }
 
   protected setWallHidden(kind: Kind, hidden: boolean): void {
     this.profiles.update((p) => ({ ...p, walls: { ...p.walls, [kind]: { ...p.walls[kind], hidden: hidden || undefined } } }));

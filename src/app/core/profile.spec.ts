@@ -66,6 +66,13 @@ describe('perfil', () => {
     expect(p.sections.map((s) => s.frameStyle)).toEqual(['dourada', 'pinus']);
   });
 
+  it('o jeito das pastas dos murais: as pastas de sempre, ou o arquivo', () => {
+    expect(defaultProfile().wallsLook).toBe('pastas');
+    expect(sanitizeProfile({})!.wallsLook).toBe('pastas');
+    expect(sanitizeProfile({ wallsLook: 'arquivo' })!.wallsLook).toBe('arquivo');
+    expect(sanitizeProfile({ wallsLook: 'gaveta' })!.wallsLook).toBe('pastas');
+  });
+
   it('não é perfil: null', () => {
     expect(sanitizeProfile(null)).toBeNull();
     expect(sanitizeProfile([])).toBeNull();

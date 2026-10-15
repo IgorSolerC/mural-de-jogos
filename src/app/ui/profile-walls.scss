@@ -258,3 +258,276 @@ $cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
     transition: none;
   }
 }
+
+/* ===== O arquivo: as mesmas pastas, penduradas num trilho de gaveta, lado a lado e todas numa
+   fileira (o jeito compacto). Cada pasta tem a aba de plástico com o papelzinho do mural, cada uma
+   num lugar da beirada como num arquivo de verdade; as capas espiam pela boca, e a frente leva o
+   número a caneta e o texto da pessoa ===== */
+.arquivo {
+  --vao: 18px;
+  /* todas numa fileira quando cabem (cada uma até 240px); estreito, quantas couberem com 118px */
+  --largura: max(118px, min(240px, (100% - (var(--total) - 1) * var(--vao)) / var(--total)));
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--largura), 1fr));
+  gap: 46px var(--vao);
+  margin: 0;
+  padding: 40px 0 0;
+  list-style: none;
+}
+
+/* no celular, duas por linha */
+@container bloco (max-width: 419px) {
+  .arquivo {
+    --vao: 14px;
+    --largura: calc((100% - var(--vao)) / 2);
+  }
+}
+
+.suspensa-item {
+  position: relative;
+  /* a pasta se arruma pela própria largura: quantas capas cabem */
+  container: suspensa / inline-size;
+
+  /* o trilho da gaveta, de uma pasta à outra (cada pasta desenha o seu pedaço, com o vão) */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: calc(var(--vao) / -2);
+    right: calc(var(--vao) / -2);
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(#b7b1a6, #77726a 45%, #45413b);
+    box-shadow: 0 2px 3px rgb(0 0 0 / 0.55);
+  }
+}
+
+.suspensa {
+  --tinta: color-mix(in oklab, var(--cor) 82%, #151515);
+  --capa-w: 46px;
+  --n: 3;
+  --vistas: min(var(--capas), var(--n));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* a fileira inteira na mesma altura: as frentes sem texto esticam */
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 10px 12px rgb(0 0 0 / 0.4));
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  /* puxada um pouco para fora da gaveta: os ganchos saem do trilho e as capas sobem mais */
+  &:hover {
+    translate: 0 -6px;
+
+    .capinha {
+      translate: 0 -7px;
+    }
+  }
+
+  &:active {
+    translate: 0 -2px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 6px;
+  }
+}
+
+/* os ganchos de metal nos dois cantos de cima, por cima do trilho */
+.ganchos {
+  position: absolute;
+  top: 0;
+  left: -7px;
+  right: -7px;
+  height: 12px;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 13px;
+    height: 12px;
+    border: 3px solid #3d3a35;
+    border-bottom: 0;
+    border-radius: 7px 7px 0 0;
+  }
+  &::before {
+    left: 0;
+    border-right-color: transparent;
+  }
+  &::after {
+    right: 0;
+    border-left-color: transparent;
+  }
+}
+
+/* as costas da pasta, mais escuras, penduradas do trilho */
+.fundo {
+  position: absolute;
+  inset: 6px 0 0;
+  border-radius: 2px 2px 4px 4px;
+  background-color: #dcc58c;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+}
+
+/* a aba: o papelzinho claro com a borda do mural (ver .orelha-cor em styles.scss) dentro da
+   capinha de plástico, presa na beirada de cima à esquerda, no meio ou à direita */
+.aba-linha {
+  position: absolute;
+  top: -25px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  justify-content: flex-start;
+  pointer-events: none;
+
+  .suspensa[data-aba='1'] & {
+    justify-content: center;
+  }
+  .suspensa[data-aba='2'] & {
+    justify-content: flex-end;
+  }
+}
+
+.aba {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  height: 31px;
+  /* o nome no meio do que a borda colorida cerca: ela começa 6px abaixo do topo e desce até a pasta */
+  padding: 6px 10px 0;
+  border-radius: 7px 7px 0 0;
+  background-color: #fffcf2;
+  background-image: linear-gradient(170deg, rgb(255 255 255 / 0.55), transparent 42%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  /* a capinha de plástico em volta do papel */
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.7),
+    0 0 0 1px rgb(21 21 21 / 0.18);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  line-height: 15px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink);
+  --cat-cor: var(--cor);
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--tinta);
+  }
+}
+
+.aba-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* as capas, enfiadas entre as costas e a frente, de uma beirada à outra */
+.boquinha {
+  position: absolute;
+  top: 16px;
+  left: 10px;
+  right: 10px;
+  height: 64px;
+  pointer-events: none;
+}
+
+.capinha {
+  --passo: min(calc((100% - var(--capa-w)) / max(var(--vistas) - 1, 1)), calc(var(--capa-w) + 10px));
+
+  position: absolute;
+  top: 0;
+  left: calc(var(--j) * var(--passo));
+  width: var(--capa-w);
+  transition: translate var(--t-physical) var(--ease-physical);
+  transition-delay: calc(var(--j) * 25ms);
+
+  &:nth-child(n + 4) {
+    display: none;
+  }
+}
+
+$capinhas: (3px -4deg) (-1px 3deg) (2px -2deg) (0 4deg) (3px -3deg) (-1px 2deg);
+@for $i from 1 through list.length($capinhas) {
+  .capinha:nth-child(#{$i}) {
+    top: list.nth(list.nth($capinhas, $i), 1);
+    rotate: list.nth(list.nth($capinhas, $i), 2);
+  }
+}
+
+/* uma capa a mais a cada 44px de pasta, até seis */
+$cabem-suspensa: (170px: 4, 214px: 5, 258px: 6);
+@each $largura, $n in $cabem-suspensa {
+  @container suspensa (min-width: #{$largura}) {
+    .suspensa {
+      --n: #{$n};
+    }
+    .capinha:nth-child(#{$n}) {
+      display: block;
+    }
+  }
+}
+
+/* a frente da pasta, por cima das capas: o número e o texto da pessoa */
+.cara {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 58px;
+  margin-top: 60px;
+  padding: 8px 12px 10px;
+  border-radius: 2px 2px 4px 4px;
+  background-color: #f3e5bb;
+  background-image: linear-gradient(rgb(255 255 255 / 0.18), transparent 30%), var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  box-shadow: 0 -3px 6px -2px rgb(0 0 0 / 0.3);
+}
+
+.numero {
+  font-family: var(--f-marker);
+  font-size: 1.9rem;
+  line-height: 1;
+  color: var(--tinta);
+  rotate: -3deg;
+  transform-origin: left center;
+}
+
+.linha {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  line-height: 1.25;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .suspensa,
+  .capinha {
+    transition: none;
+  }
+}

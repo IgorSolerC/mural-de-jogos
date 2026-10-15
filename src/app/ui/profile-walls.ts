@@ -21,7 +21,8 @@ const WALL_COLOR: Record<Kind, string> = {
 
 /**
  * As pastas dos murais no perfil: um mural por pasta, só os que têm fichas à mostra e que a pessoa
- * não escondeu. É o mesmo no perfil e na prévia das Configurações (sem o "Arrumar").
+ * não escondeu, do jeito escolhido no perfil (`wallsLook`: as pastas grandes ou o arquivo). É o mesmo
+ * no perfil e na prévia das Configurações (sem o "Arrumar").
  */
 @Component({
   selector: 'app-profile-walls',
@@ -41,6 +42,9 @@ export class ProfileWalls {
   readonly opened = output<Kind>();
 
   protected readonly EditIcon = PenLine;
+
+  /** As pastas grandes (as de sempre) ou o arquivo, todas numa fileira. */
+  protected readonly look = computed(() => this.profile().wallsLook);
 
   /** A anotação sem capa: no lugar da capa vai a cartolina dela. */
   protected bareNote(r: Review): boolean {
