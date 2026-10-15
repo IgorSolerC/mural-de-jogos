@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { setSoundVolume, settleSoundVolume, soundVolume } from '../core/volume';
 import { GluedMedia } from './glued-media';
 
 
@@ -55,4 +56,48 @@ describe('a foto colada na anotação', () => {
     expect(frame.src).toBe(src);
     expect(writes()).toBe(0);
   });
+
+  it('o vídeo tem o alto-falante do volume do site, e toca nele; a foto, não', async () => {
+    const before = soundVolume();
+    TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(GluedMedia);
+    fixture.componentRef.setInput('kind', 'video');
+    fixture.componentRef.setInput('args', ['https://exemplo.com.br/clipe.mp4']);
+    setSoundVolume(0.3);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.foto.som app-volume-knob')).not.toBeNull();
+    const video = el.querySelector('video')!;
+    expect(video.volume).toBeCloseTo(0.3, 5);
+    setSoundVolume(0.75);
+    await fixture.whenStable();
+    expect(video.volume).toBeCloseTo(0.75, 5);
+    // a foto não faz som
+    fixture.componentRef.setInput('kind', 'imagem');
+    fixture.componentRef.setInput('args', ['https://i.imgur.com/foto.jpg']);
+    await fixture.whenStable();
+    expect(el.querySelector('app-volume-knob')).toBeNull();
+    setSoundVolume(before);
+    settleSoundVolume();
+  });
+
+  it('o YouTube do vídeo conversa pela API (para o volume); com o site calado, já começa calado', async () => {
+    const before = soundVolume();
+    TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(GluedMedia);
+    fixture.componentRef.setInput('kind', 'video');
+    fixture.componentRef.setInput('args', ['https://youtu.be/dQw4w9WgXcQ']);
+    setSoundVolume(0);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.tocar')!.click();
+    await fixture.whenStable();
+    const src = el.querySelector('iframe')!.src;
+    expect(src).toContain('enablejsapi=1');
+    expect(src).toContain('mute=1');
+    fixture.destroy();
+    setSoundVolume(before);
+    settleSoundVolume();
+  });
 });
+

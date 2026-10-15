@@ -26,6 +26,41 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-som-sem-tropeco',
+    version: '1.39.2',
+    kind: 'correcao',
+    date: '2026-10-14',
+    title: 'A barra do áudio do YouTube e do Vimeo não pula mais',
+    items: [
+      'Enquanto o som carregava, a barra de tempo do widget de áudio podia correr sozinha para a frente (até uns 15 segundos) e depois voltar, e às vezes saíam uns sons estranhos no começo. Agora o tempo só anda com o som de verdade, e o player não começa a tocar antes de estar pronto.',
+      'No Vimeo, a faixa só aparece tocando quando o som começa mesmo, e não quando ele ainda está carregando.',
+    ],
+  },
+  {
+    id: '2026-10-14-som-pronto',
+    version: '1.39.1',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'O áudio do YouTube e do Vimeo começa na hora',
+    items: [
+      'O widget de áudio com link do YouTube ou do Vimeo já deixa o começo da faixa carregado enquanto está na tela, sem som e sem aparecer nada. Quando você aperta o play, toca na hora, como os trechos do mural de músicas.',
+      'Para não pesar, ele carrega um de cada vez, só o que fica na tela, e no máximo quatro ao mesmo tempo. Com a economia de dados do celular ligada ou numa conexão lenta, nada é carregado antes: o som vem no play, como antes.',
+      'Com o começo carregado, a duração da faixa já aparece antes de tocar, e dá para arrastar a barra para onde quiser começar.',
+    ],
+  },
+  {
+    id: '2026-10-14-volume',
+    version: '1.39.0',
+    kind: 'funcionalidade',
+    date: '2026-10-14',
+    title: 'Volume de todo som do site',
+    items: [
+      'Passe o mouse em cima de um widget que faz som (o áudio, nos três jeitos, e o vídeo) e aparece um alto-falante no canto. Ele abre o volume: uma barra e um botão para calar.',
+      'O volume vale para todo som do site, inclusive o vinil das fichas de música, e muda na hora o que está tocando. Calar e voltar devolve o volume de antes.',
+      'Fica guardado neste aparelho, como as escolhas de Desempenho. No celular, o volume continua sendo o dos botões do aparelho.',
+    ],
+  },
+  {
     id: '2026-10-14-varias-manchas',
     version: '1.38.12',
     kind: 'melhoria',

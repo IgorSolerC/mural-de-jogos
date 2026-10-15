@@ -2,12 +2,15 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { NgTemplateOutlet } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { LucideAngularModule, VolumeOff } from 'lucide-angular';
+import { soundVolume } from '../core/volume';
 import { httpsUrl, parseAudio, readAudio } from '../core/widgets';
+import { EmbedBridge, EmbedReport } from './embed-bridge';
 import { snapToLines } from './line-snap';
+import { Warmable, warmups } from './sound-warmup';
+import { VolumeKnob } from './volume-knob';
 
 /** Só uma faixa toca por vez: a que começa para a de antes. */
 let sounding: AudioTrack | null = null;
-let uid = 0;
 
 /** "3:07", "1:02:09"; sem a duração, "–:––". */
 function clock(s: number): string {
@@ -19,8 +22,14 @@ function clock(s: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
-/** O que os players de fora (YouTube, Vimeo) sabem fazer, pedido por mensagem. */
-type Command = { do: 'play' } | { do: 'pause' } | { do: 'seek'; t: number };
+/**
+ * O player de fora, de quem ainda não tocou: nenhum (`cold`), montado escondido e calado, enchendo o
+ * começo da faixa (`warming`), parado no começo com o som já ali (`warm`), e o da pessoa (`live`).
+ */
+type Phase = 'cold' | 'warming' | 'warm' | 'live';
+
+/** Entre um aviso e outro do player de fora, o tempo à mostra anda sozinho até este tanto (s). */
+const AHEAD = 0.6;
 
 /** Os carretéis da fita: o raio do rolo de fita em cada um (o da esquerda esvazia, o da direita enche). */
 const HUB = 10;
@@ -39,16 +48,19 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
  * - o VINIL: a capa (a foto do vídeo, ou um envelope pardo com o nome escrito a pincel) com o disco
  *   saindo pela metade; o botão de tocar fica no meio do disco, que gira tocando.
  *
- * O som do YouTube e do Vimeo vem do player deles, escondido atrás do widget, que só carrega no
- * primeiro toque e obedece por mensagem (tocar, parar, pular). A peça é colada (`data-colado`): o
- * estrago da ficha nunca a come.
+ * O som do YouTube e do Vimeo vem do player deles, escondido atrás do widget, que obedece por
+ * mensagem (tocar, parar, pular, volume: ver ui/embed-bridge.ts). Quem fica na tela tem o player
+ * aquecido sem ninguém ver (ui/sound-warmup.ts): o começo da faixa já está carregado quando a pessoa
+ * aperta o play. A peça é colada (`data-colado`): o estrago da ficha nunca a come.
+ *
+ * Com o mouse em cima, o adesivo do alto-falante abre o volume de todo som do site (ui/volume-knob.ts).
  *
  * O vinil também é a capa das fichas do mural de músicas (ver ui/record-cover.ts): a peça `bare`,
  * solta do texto, com a capa do álbum (`art`) e sem a barra.
  */
 @Component({
   selector: 'app-audio-track',
-  imports: [LucideAngularModule, NgTemplateOutlet],
+  imports: [LucideAngularModule, NgTemplateOutlet, VolumeKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.solta]': 'bare()' },
   template: `
@@ -65,7 +77,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     } @else {
       <div
         class="faixa"
-        [class]="'faixa jeito-' + a.look"
+        [class]="'faixa som jeito-' + a.look"
         [class.tocando]="playing()"
         [class.esperando]="waiting()"
         [style.--p]="share()"
@@ -136,6 +148,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
                 (click)="$event.stopPropagation()"
               />
               <span class="janela-foco" aria-hidden="true"></span>
+              <ng-container *ngTemplateOutlet="volume" />
             </div>
             <div class="deck">
               <span class="teclas">
@@ -176,6 +189,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
                   <span class="capa-nome">{{ sleeve() || a.title || 'Lado A' }}</span>
                 }
                 <span class="capa-gasta" aria-hidden="true"></span>
+                <ng-container *ngTemplateOutlet="volume" />
               </div>
             </div>
             @if (!bare() || withBar()) {
@@ -193,6 +207,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
                 <span class="tira-nome">{{ a.title || host() }}</span>
                 <ng-container *ngTemplateOutlet="bar" />
               </span>
+              <ng-container *ngTemplateOutlet="volume" />
             </div>
           }
         }
@@ -220,9 +235,16 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
           (error)="failed.set(true)"
         ></audio>
       } @else if (embed(); as e) {
-        <iframe #frame class="motor" [src]="e" title="" tabindex="-1" aria-hidden="true" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" (load)="onFrameLoad()"></iframe>
+        <iframe #frame class="motor" [src]="e" title="" tabindex="-1" aria-hidden="true" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" (load)="bridge?.loaded()"></iframe>
       }
     }
+
+    <!-- o alto-falante, num canto da peça (só de quem tem som para tocar) -->
+    <ng-template #volume>
+      @if (playable()) {
+        <app-volume-knob class="volume" />
+      }
+    </ng-template>
 
     <ng-template #playIcon>
       @if (waiting()) {
@@ -452,6 +474,23 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     }
     .tira .trilho {
       margin-top: -0.1em;
+    }
+    .tira {
+      position: relative;
+    }
+
+    /* ===== O alto-falante: um adesivo no canto de cima, à direita (ver ui/volume-knob.ts) =====
+       Na tira, meio para fora da quina (o nome e o tempo ficam à mostra); na fita, na quina do
+       plástico; no vinil, dentro da capa (que corta o que passa dela) */
+    .volume {
+      position: absolute;
+      z-index: 3;
+      top: 6px;
+      right: 6px;
+    }
+    .tira .volume {
+      top: -11px;
+      right: -11px;
     }
 
     /* ===== A FITA CASSETE: o desenho da fita (tamanho em em de --w), as teclas e o contador ===== */
@@ -829,7 +868,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     }
   `,
 })
-export class AudioTrack {
+export class AudioTrack implements Warmable {
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
   /** A capa do vinil, quando não é a foto do vídeo: a do álbum, nas fichas de música. */
@@ -862,22 +901,27 @@ export class AudioTrack {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly sound = viewChild<ElementRef<HTMLAudioElement>>('sound');
   private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
-  private readonly id = ++uid;
 
   protected readonly info = computed(() => readAudio(this.args()));
   // de cada link: trocar o link começa de novo, parado, sem o erro nem o tempo do de antes
   private readonly url = computed(() => this.info().url);
   /** Do link, e só dele: mexer no nome não remonta o player (o de fora recarregaria e tocaria de novo). */
   protected readonly source = computed(() => parseAudio(this.url()));
-  /** O player de fora já foi chamado (no primeiro toque). */
-  private readonly started = linkedSignal({ source: this.url, computation: () => false });
+  /** Onde a faixa começa: o `t=` do link do YouTube, ou o começo. */
+  private readonly startAt = computed(() => {
+    const s = this.source();
+    return s?.kind === 'youtube' ? s.start : 0;
+  });
+  /** O player de fora está montado (aquecido, ou chamado no play). */
+  private readonly mounted = linkedSignal({ source: this.url, computation: () => false });
   protected readonly playing = linkedSignal({ source: this.url, computation: () => false });
   /** Pediu para tocar e o som ainda não veio (carregando). */
   protected readonly waiting = linkedSignal({ source: this.url, computation: () => false });
   protected readonly failed = linkedSignal({ source: this.url, computation: () => false });
   /** Pediu para tocar e não veio nada (o navegador não deixou o player de fora tocar sozinho). */
   protected readonly stuck = linkedSignal({ source: this.url, computation: () => false });
-  protected readonly time = linkedSignal({ source: this.url, computation: () => 0 });
+  /** Onde a faixa está (de cada link: trocar o link volta para o começo dele). */
+  protected readonly time = linkedSignal({ source: this.url, computation: () => untracked(this.startAt) });
   protected readonly duration = linkedSignal({ source: this.url, computation: () => 0 });
   protected readonly coverFailed = linkedSignal({ source: this.url, computation: () => false });
   /** Arrastando a barra: onde a pessoa está soltando (o player só pula quando ela solta). */
@@ -932,47 +976,127 @@ export class AudioTrack {
     return h & 1 ? mag : -mag;
   });
 
-  /** O endereço do player de fora, montado só a partir do id conferido (nunca o link como foi escrito). */
+  /**
+   * O endereço do player de fora, montado só a partir do id conferido (nunca o link como foi
+   * escrito). Ele sempre chega calado e parado: quem toca e solta o som é o pedido por mensagem (o
+   * aquecimento toca calado; o play da pessoa solta o som no volume do site).
+   */
   protected readonly embed = computed<SafeResourceUrl | null>(() => {
     const s = this.source();
-    if (!s || s.kind === 'file' || !this.started()) return null;
+    if (!s || s.kind === 'file' || !this.mounted()) return null;
     const url =
       s.kind === 'youtube'
-        ? `https://www.youtube-nocookie.com/embed/${s.id}?enablejsapi=1&autoplay=1&controls=0&disablekb=1&playsinline=1&rel=0&origin=${encodeURIComponent(location.origin)}${s.start ? `&start=${s.start}` : ''}`
-        : `https://player.vimeo.com/video/${s.id}?autoplay=1&dnt=1&controls=0&playsinline=1${s.hash ? `&h=${s.hash}` : ''}`;
+        ? `https://www.youtube-nocookie.com/embed/${s.id}?enablejsapi=1&autoplay=0&mute=1&controls=0&disablekb=1&playsinline=1&rel=0&origin=${encodeURIComponent(location.origin)}${s.start ? `&start=${s.start}` : ''}`
+        : `https://player.vimeo.com/video/${s.id}?autoplay=0&muted=1&dnt=1&controls=0&playsinline=1${s.hash ? `&h=${s.hash}` : ''}`;
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   });
 
-  // o player de fora: já respondeu, os pedidos que esperam ele ficar pronto, e o tempo que ele disse por último
-  private ready = false;
-  private heard = false;
-  private queue: Command[] = [];
+  /** A conversa com o player de fora montado. */
+  protected bridge: EmbedBridge | null = null;
+  private phase: Phase = 'cold';
+  /** O último tempo que o player de fora contou, e quando. */
   private base = { t: 0, at: 0 };
+  /** Onde o player de fora está parado (o play só pula quando a pessoa quer outro lugar). */
+  private parked = 0;
+  /** Logo depois de pular ou de tocar: os avisos de tempo de antes do pulo, atrasados, não valem. */
+  private hold = { t: 0, until: 0 };
+  /** Quando a pessoa apertou o play: um "parado" atrasado, de antes, não desfaz o pedido. */
+  private playedAt = 0;
   private raf = 0;
-  private listen = 0;
   private startWatch = 0;
+  /** A peça está na tela (para o aquecimento). */
+  private inView = false;
 
   constructor() {
     snapToLines('.peca', () => this.bare());
+    const el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+    let io: IntersectionObserver | null = null;
     afterNextRender(() => {
       if (this.autoplay()) this.play();
+      if (typeof IntersectionObserver === 'undefined') return;
+      io = new IntersectionObserver(
+        (entries) => {
+          this.inView = entries[entries.length - 1].isIntersecting;
+          warmups.seen(this, this.inView && this.warmable());
+        },
+        { rootMargin: '120px 0px' },
+      );
+      io.observe(el);
     });
-    // trocou o link: o player de fora de antes some (o iframe sai junto com o embed), começa do zero
+    // trocou o link: o player de fora de antes some (o iframe sai junto com o embed), começa do zero,
+    // e o novo entra na fila do aquecimento se a peça está na tela
     effect(() => {
       this.url();
-      untracked(() => this.resetEmbed());
+      untracked(() => {
+        const was = this.bridge !== null;
+        this.resetEmbed();
+        if (was) warmups.unmounted(this);
+        warmups.seen(this, false);
+        if (this.inView && this.warmable()) warmups.seen(this, true);
+      });
     });
     // tocando, o tempo anda a cada quadro (o do arquivo vem dele; o de fora, contado desde o último aviso)
     effect(() => {
       if (this.playing()) untracked(() => this.loop());
     });
-    window.addEventListener('message', this.onMessage);
+    // o volume do site: na hora, no que toca (o player aquecido continua calado até o play)
+    effect(() => {
+      const v = soundVolume();
+      const audio = this.sound()?.nativeElement;
+      untracked(() => {
+        if (audio) audio.volume = v;
+        else if (this.phase === 'live') this.bridge?.send({ do: 'volume', v });
+      });
+    });
     inject(DestroyRef).onDestroy(() => {
-      window.removeEventListener('message', this.onMessage);
+      io?.disconnect();
+      warmups.forget(this);
       this.resetEmbed();
       this.sound()?.nativeElement.pause();
       if (sounding === this) sounding = null;
     });
+  }
+
+  /** Só o player de fora se aquece (o arquivo já carrega o começo sozinho) e só o widget do texto. */
+  private warmable(): boolean {
+    const s = this.source();
+    return !!s && s.kind !== 'file' && !this.bare() && !this.failed();
+  }
+
+  // ===== O aquecimento (ver ui/sound-warmup.ts) =====
+
+  warmUp(): void {
+    if (!this.warmable() || this.mounted()) {
+      warmups.done(this);
+      return;
+    }
+    this.phase = 'warming';
+    this.mount();
+  }
+
+  coolDown(): boolean {
+    if (this.phase === 'live' && (this.playing() || this.waiting())) return false;
+    this.resetEmbed();
+    this.mounted.set(false);
+    return true;
+  }
+
+  /** O player de fora entra (calado e parado, no começo da faixa). */
+  private mount(): void {
+    const s = this.source();
+    if (!s || s.kind === 'file') return;
+    if (!this.bridge) this.bridge = new EmbedBridge(s.kind, () => this.frame()?.nativeElement, (r) => this.onReport(r));
+    if (!this.mounted()) {
+      this.parked = this.startAt();
+      this.mounted.set(true);
+      warmups.mounted(this);
+    }
+  }
+
+  /** Aqueceu (ou desistiu): o próximo da fila pode vir. */
+  private warmed(): void {
+    if (this.phase === 'warming') this.phase = 'warm';
+    warmups.done(this);
   }
 
   // ===== O que a pessoa faz =====
@@ -1003,9 +1127,22 @@ export class AudioTrack {
       });
       return;
     }
-    if (restart) this.command({ do: 'seek', t: 0 });
-    if (!this.started()) this.started.set(true);
-    else this.command({ do: 'play' });
+    // aquecendo ainda: a pessoa assume daqui (o que chegou do começo já serve)
+    const was = this.phase;
+    this.phase = 'live';
+    this.mount();
+    if (was === 'warming') warmups.done(this);
+    const from = restart ? 0 : this.time();
+    const now = performance.now();
+    // os pedidos esperam o player ficar pronto, se ele está chegando agora
+    if (restart || Math.abs(from - this.parked) > 0.25) this.bridge!.send({ do: 'seek', t: from });
+    this.bridge!.send({ do: 'volume', v: soundVolume() });
+    this.bridge!.send({ do: 'play' });
+    this.parked = from;
+    this.base = { t: from, at: now };
+    this.hold = { t: from, until: now + 2500 };
+    this.playedAt = now;
+    this.time.set(from);
     clearTimeout(this.startWatch);
     this.startWatch = window.setTimeout(() => {
       if (this.waiting() && !this.playing()) {
@@ -1018,7 +1155,10 @@ export class AudioTrack {
   pause(): void {
     const s = this.source();
     if (s?.kind === 'file') this.sound()?.nativeElement.pause();
-    else if (this.started()) this.command({ do: 'pause' });
+    else if (this.bridge) {
+      this.bridge.send({ do: 'pause' });
+      this.parked = this.time();
+    }
     this.playing.set(false);
     this.waiting.set(false);
     clearTimeout(this.startWatch);
@@ -1055,11 +1195,17 @@ export class AudioTrack {
     if (!d) return;
     const t = Math.min(Math.max(0, to), d);
     const s = this.source();
+    const now = performance.now();
     if (s?.kind === 'file') {
       const el = this.sound()?.nativeElement;
       if (el) el.currentTime = t;
-    } else if (this.started()) this.command({ do: 'seek', t });
-    this.base = { t, at: performance.now() };
+    } else if (this.bridge) {
+      // o player aquecido também pula (parado): o play não precisa pular de novo
+      this.bridge.send({ do: 'seek', t });
+      this.parked = t;
+      this.hold = { t, until: now + 2500 };
+    }
+    this.base = { t, at: now };
     this.time.set(t);
   }
 
@@ -1075,7 +1221,9 @@ export class AudioTrack {
 
   protected onState(state: 'playing' | 'waiting' | 'paused' | 'ended'): void {
     if (state === 'playing') {
-      this.base = { t: this.time(), at: performance.now() };
+      const now = performance.now();
+      // o tempo do player de fora vem do último aviso; parado há tempo, recomeça a conta daqui
+      if (this.sound() || now - this.base.at > 300) this.base = { t: this.time(), at: now };
       this.playing.set(true);
       this.waiting.set(false);
       this.stuck.set(false);
@@ -1085,8 +1233,46 @@ export class AudioTrack {
     } else {
       this.playing.set(false);
       this.waiting.set(false);
+      this.parked = this.time();
       if (state === 'ended' && this.duration()) this.time.set(this.duration());
     }
+  }
+
+  /** O que o player de fora contou (ver ui/embed-bridge.ts). */
+  private onReport(r: EmbedReport): void {
+    if (r.error) {
+      if (!this.playing()) this.failed.set(true);
+      if (this.phase === 'warming') this.warmed();
+      return;
+    }
+    if (r.duration) this.onDuration(r.duration);
+    if (this.phase === 'warming') {
+      // pronto: toca calado, para encher o começo; o tempo andou: o começo está aí, para e volta
+      if (r.ready) this.bridge?.send({ do: 'play' });
+      else if (r.state === 'playing') {
+        this.bridge?.send({ do: 'pause' });
+        this.bridge?.send({ do: 'seek', t: this.startAt() });
+        this.parked = this.startAt();
+        this.warmed();
+      }
+      return;
+    }
+    // aquecido e parado: o que ele conta (o eco do aquecimento) não muda nada aqui
+    if (this.phase !== 'live') return;
+    const now = performance.now();
+    if (r.time !== undefined) {
+      // logo depois de um pulo, um aviso longe de onde a pessoa pediu é de antes do pulo
+      const stale = now < this.hold.until && Math.abs(r.time - this.hold.t) > 1.5;
+      if (!stale) {
+        if (now < this.hold.until) this.hold.until = 0;
+        this.base = { t: r.time, at: now };
+        if (!this.playing()) this.time.set(r.time);
+      }
+    }
+    if (!r.state) return;
+    // o "parado" atrasado de antes do play não desfaz o pedido
+    if ((r.state === 'paused' || r.state === 'ended') && this.waiting() && now - this.playedAt < 600) return;
+    this.onState(r.state);
   }
 
   private loop(): void {
@@ -1096,7 +1282,15 @@ export class AudioTrack {
       if (!this.playing()) return;
       const el = this.sound()?.nativeElement;
       if (!this.waiting()) {
-        const t = el ? el.currentTime : this.base.t + (performance.now() - this.base.at) / 1000;
+        let t: number;
+        if (el) t = el.currentTime;
+        else {
+          // anda sozinho entre os avisos, mas só um pouco: um aviso que atrasa (o player engasgou sem
+          // dizer) para o tempo à mostra em vez de deixá-lo correr na frente e depois voltar
+          t = this.base.t + Math.min(AHEAD, Math.max(0, (performance.now() - this.base.at) / 1000));
+          const cur = this.time();
+          if (t < cur && cur - t < AHEAD + 0.1) t = cur;
+        }
         const d = this.duration();
         this.time.set(d ? Math.min(t, d) : t);
       }
@@ -1105,143 +1299,14 @@ export class AudioTrack {
     this.raf = requestAnimationFrame(tick);
   }
 
-  // ===== O player de fora (YouTube, Vimeo), por mensagem =====
+  // ===== O player de fora =====
 
   private resetEmbed(): void {
-    this.ready = false;
-    this.heard = false;
-    this.queue = [];
-    clearInterval(this.listen);
+    this.bridge?.destroy();
+    this.bridge = null;
+    this.phase = 'cold';
+    this.hold = { t: 0, until: 0 };
     clearTimeout(this.startWatch);
     cancelAnimationFrame(this.raf);
   }
-
-  protected onFrameLoad(): void {
-    const s = this.source();
-    if (!s || s.kind === 'file') return;
-    if (s.kind === 'vimeo') {
-      for (const ev of ['play', 'pause', 'ended', 'timeupdate', 'bufferstart', 'bufferend', 'error']) this.post({ method: 'addEventListener', value: ev });
-      this.post({ method: 'getDuration' });
-      return;
-    }
-    // o YouTube só começa a contar o que acontece depois de ouvir "listening" (repetido até ele responder)
-    let tries = 0;
-    clearInterval(this.listen);
-    const hello = () => {
-      if (this.heard || ++tries > 40) return clearInterval(this.listen);
-      this.post({ event: 'listening', id: this.id, channel: 'widget' });
-    };
-    hello();
-    this.listen = window.setInterval(hello, 250);
-  }
-
-  private readonly onMessage = (e: MessageEvent): void => {
-    const frame = this.frame()?.nativeElement;
-    if (!frame || e.source !== frame.contentWindow) return;
-    let d: unknown = e.data;
-    if (typeof d === 'string') {
-      try {
-        d = JSON.parse(d);
-      } catch {
-        return;
-      }
-    }
-    if (!d || typeof d !== 'object') return;
-    this.heard = true;
-    const kind = this.source()?.kind;
-    if (kind === 'youtube') this.fromYoutube(d as YoutubeMessage);
-    else if (kind === 'vimeo') this.fromVimeo(d as VimeoMessage);
-  };
-
-  private fromYoutube(d: YoutubeMessage): void {
-    if (d.event === 'onReady' || d.event === 'initialDelivery') {
-      for (const ev of ['onStateChange', 'onError']) this.post({ event: 'command', func: 'addEventListener', args: [ev], id: this.id, channel: 'widget' });
-      this.becomeReady();
-    }
-    if (d.event === 'onError') {
-      this.failed.set(true);
-      return;
-    }
-    const info = d.event === 'onStateChange' ? { playerState: d.info as number } : d.event === 'infoDelivery' || d.event === 'initialDelivery' ? (d.info as YoutubeInfo | null) : null;
-    if (!info) return;
-    if (typeof info.duration === 'number') this.onDuration(info.duration);
-    if (typeof info.currentTime === 'number') {
-      this.base = { t: info.currentTime, at: performance.now() };
-      if (!this.playing()) this.time.set(info.currentTime);
-    }
-    // 1 tocando, 3 carregando, 2 parado, 0 acabou (−1 e 5: ainda não começou)
-    const st = info.playerState;
-    if (st === 1) this.onState('playing');
-    else if (st === 3) this.onState('waiting');
-    else if (st === 2) this.onState('paused');
-    else if (st === 0) this.onState('ended');
-  }
-
-  private fromVimeo(d: VimeoMessage): void {
-    if (d.event === 'ready') {
-      this.onFrameLoad();
-      this.becomeReady();
-    }
-    if (d.method === 'getDuration' && typeof d.value === 'number') this.onDuration(d.value);
-    const data = d.data;
-    if ((d.event === 'timeupdate' || d.event === 'playProgress') && data) {
-      if (typeof data.duration === 'number') this.onDuration(data.duration);
-      if (typeof data.seconds === 'number') {
-        this.base = { t: data.seconds, at: performance.now() };
-        if (!this.playing()) this.time.set(data.seconds);
-      }
-    }
-    if (d.event === 'play' || d.event === 'bufferend') {
-      if (d.event === 'play' || this.playing()) this.onState('playing');
-    } else if (d.event === 'bufferstart') this.onState('waiting');
-    else if (d.event === 'pause') this.onState('paused');
-    else if (d.event === 'ended') this.onState('ended');
-    else if (d.event === 'error' && !this.playing()) this.failed.set(true);
-  }
-
-  private becomeReady(): void {
-    if (this.ready) return;
-    this.ready = true;
-    const q = this.queue;
-    this.queue = [];
-    for (const c of q) this.command(c);
-  }
-
-  private command(c: Command): void {
-    if (!this.ready) {
-      this.queue.push(c);
-      return;
-    }
-    const kind = this.source()?.kind;
-    if (kind === 'youtube') {
-      const [func, args] = c.do === 'play' ? ['playVideo', []] : c.do === 'pause' ? ['pauseVideo', []] : ['seekTo', [c.t, true]];
-      this.post({ event: 'command', func, args, id: this.id, channel: 'widget' });
-    } else if (kind === 'vimeo') {
-      this.post(c.do === 'seek' ? { method: 'setCurrentTime', value: c.t } : { method: c.do });
-    }
-  }
-
-  private post(msg: object): void {
-    const win = this.frame()?.nativeElement.contentWindow;
-    if (!win) return;
-    const kind = this.source()?.kind;
-    if (kind === 'youtube') win.postMessage(JSON.stringify(msg), 'https://www.youtube-nocookie.com');
-    else if (kind === 'vimeo') win.postMessage(msg, 'https://player.vimeo.com');
-  }
-}
-
-interface YoutubeInfo {
-  currentTime?: number;
-  duration?: number;
-  playerState?: number;
-}
-interface YoutubeMessage {
-  event?: string;
-  info?: unknown;
-}
-interface VimeoMessage {
-  event?: string;
-  method?: string;
-  value?: unknown;
-  data?: { seconds?: number; duration?: number };
 }

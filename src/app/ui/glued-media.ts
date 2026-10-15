@@ -1,8 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, linkedSignal, untracked, viewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Film, ImageOff, LucideAngularModule } from 'lucide-angular';
+import { soundVolume } from '../core/volume';
 import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
+import { EmbedBridge } from './embed-bridge';
 import { snapToLines } from './line-snap';
+import { VolumeKnob } from './volume-knob';
 
 /**
  * Os widgets IMAGEM e VÍDEO (ver core/widgets.ts): uma foto revelada colada na cartolina, levemente
@@ -16,6 +19,9 @@ import { snapToLines } from './line-snap';
  *
  * A foto é colada (`data-colado`): o estrago da ficha come o papel e a letra, nunca ela.
  *
+ * O vídeo toca no volume de todo som do site: com o mouse em cima, o adesivo do alto-falante, no
+ * canto da foto, abre o volume (ui/volume-knob.ts); o player obedece por mensagem.
+ *
  * O tamanho (ver note-widget.ts): a peça inteira (a borda, a faixa da polaroide, a etiqueta) tem a
  * altura do tamanho, `--widget-alto`, e a foto fica com o que sobra dela, na proporção da foto,
  * qualquer que seja o tamanho do arquivo; mais larga que a linha, ela encolhe até caber. O vídeo é
@@ -23,12 +29,12 @@ import { snapToLines } from './line-snap';
  */
 @Component({
   selector: 'app-glued-media',
-  imports: [LucideAngularModule],
+  imports: [LucideAngularModule, VolumeKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let m = media();
     <figure class="colagem" [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
-      <span class="foto" data-colado [class.video]="kind() === 'video'" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
+      <span class="foto" data-colado [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
@@ -42,15 +48,17 @@ import { snapToLines } from './line-snap';
           <span class="reflexo" aria-hidden="true"></span>
         } @else if (video(); as v) {
           @if (v.kind === 'file') {
-            <video class="tocavel" [src]="v.url" controls preload="metadata" playsinline [attr.aria-label]="m.caption || 'Vídeo'" (error)="failed.set(true)"></video>
+            <video #film class="tocavel" [src]="v.url" controls preload="metadata" playsinline [attr.aria-label]="m.caption || 'Vídeo'" (error)="failed.set(true)"></video>
           } @else if (playing() && embed()) {
             <iframe
+              #frame
               class="tocavel"
               [src]="embed()"
               [title]="m.caption || (v.kind === 'youtube' ? 'Vídeo do YouTube' : 'Vídeo do Vimeo')"
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               allowfullscreen
               referrerpolicy="strict-origin-when-cross-origin"
+              (load)="bridge?.loaded()"
             ></iframe>
           } @else {
             @if (v.kind === 'youtube') {
@@ -64,6 +72,9 @@ import { snapToLines } from './line-snap';
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 5.6c0-.9 1-1.5 1.8-1l9 6.4c.7.5.7 1.5 0 2l-9 6.4c-.8.5-1.8 0-1.8-1z" /></svg>
             </button>
           }
+        }
+        @if (video() && !broken()) {
+          <app-volume-knob class="volume" />
         }
         @if (m.frame === 'polaroid') {
           <figcaption class="legenda-polaroide">{{ m.caption }}</figcaption>
@@ -242,6 +253,15 @@ import { snapToLines } from './line-snap';
       outline-offset: 4px;
     }
 
+    /* ===== O alto-falante: um adesivo no canto de cima da foto, à direita ===== */
+    .volume {
+      grid-area: 1 / 1;
+      place-self: start end;
+      position: relative;
+      z-index: 2;
+      margin: 8px;
+    }
+
     /* ===== As legendas: na faixa da polaroide (a caneta de quem revelou) ou numa etiqueta ===== */
     .legenda-polaroide {
       display: flex;
@@ -394,16 +414,42 @@ export class GluedMedia {
   protected readonly embed = computed<SafeResourceUrl | null>(() => {
     const v = this.video();
     if (!v || v.kind === 'file') return null;
+    // com o site calado, o vídeo já começa calado (o volume de agora: mudar depois não recarrega)
+    const quiet = untracked(soundVolume) === 0;
     const url =
       v.kind === 'youtube'
-        ? `https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&rel=0&playsinline=1${v.start ? `&start=${v.start}` : ''}`
-        : `https://player.vimeo.com/video/${v.id}?autoplay=1&dnt=1${v.hash ? `&h=${v.hash}` : ''}`;
+        ? `https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}${quiet ? '&mute=1' : ''}${v.start ? `&start=${v.start}` : ''}`
+        : `https://player.vimeo.com/video/${v.id}?autoplay=1&dnt=1${quiet ? '&muted=1' : ''}${v.hash ? `&h=${v.hash}` : ''}`;
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   });
+
+  private readonly film = viewChild<ElementRef<HTMLVideoElement>>('film');
+  private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
+  /** A conversa com o player de fora, enquanto ele toca (só para o volume). */
+  protected bridge: EmbedBridge | null = null;
 
   constructor() {
     // a altura inteira, em linhas da pauta: o texto de baixo continua em cima das linhas azuis
     snapToLines('.colagem');
+    // o player de fora entrou (ou saiu, trocando o link): a conversa com ele começa de novo
+    effect(() => {
+      const v = this.video();
+      const kind = this.playing() && v && v.kind !== 'file' ? v.kind : null;
+      untracked(() => {
+        this.bridge?.destroy();
+        this.bridge = kind ? new EmbedBridge(kind, () => this.frame()?.nativeElement, (r) => r.ready && this.bridge?.send({ do: 'volume', v: soundVolume() })) : null;
+      });
+    });
+    // o volume do site, na hora
+    effect(() => {
+      const v = soundVolume();
+      const film = this.film()?.nativeElement;
+      untracked(() => {
+        if (film) film.volume = v;
+        if (this.bridge?.isReady) this.bridge.send({ do: 'volume', v });
+      });
+    });
+    inject(DestroyRef).onDestroy(() => this.bridge?.destroy());
   }
 
   protected onLoad(e: Event): void {
