@@ -9,7 +9,7 @@ const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
  * do seletor da própria página. O título de cada página ganha o mural (ver core/title.ts).
  */
 export const routes: Routes = [
-  // "Meu mural": a última parede aberta
+  // "Murall": a última parede aberta
   { path: '', pathMatch: 'full', redirectTo: toLastWall },
   { path: 'anotacoes', title: 'Anotações', canActivate: [enterNotes], loadComponent: wall },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },

@@ -50,7 +50,7 @@ export async function readBackupFile(file: Blob): Promise<string> {
   } catch (error) {
     if (error instanceof TooLarge) throw error;
     throw new Error(
-      'Não consegui ler esse arquivo. Escolha o backup .json ou .json.gz baixado pelo Meu Mural.',
+      'Não consegui ler esse arquivo. Escolha o backup .json ou .json.gz baixado pelo Murall.',
     );
   } finally {
     reader.releaseLock();
@@ -93,10 +93,10 @@ export interface BackupLists {
 }
 
 /**
- * Lê o JSON de um backup e confere se ele serve: é do Meu Mural, de uma versão que este site sabe
+ * Lê o JSON de um backup e confere se ele serve: é do Murall, de uma versão que este site sabe
  * ler, e tem as resenhas. Se não serve, lança o porquê, terminando com `hint` (o que escolher).
  */
-export function backupLists(text: string, hint = 'Escolha o backup baixado pelo Meu Mural.'): BackupLists {
+export function backupLists(text: string, hint = 'Escolha o backup baixado pelo Murall.'): BackupLists {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -108,7 +108,7 @@ export function backupLists(text: string, hint = 'Escolha o backup baixado pelo 
     throw new Error(`Esse arquivo é de outro aplicativo. ${hint}`);
   }
   if (typeof object?.['version'] === 'number' && object['version'] > 2) {
-    throw new Error('Esse backup é de uma versão mais nova. Atualize o Meu Mural antes de abrir.');
+    throw new Error('Esse backup é de uma versão mais nova. Atualize o Murall antes de abrir.');
   }
   const reviews = Array.isArray(data) ? data : object?.['reviews'];
   if (!Array.isArray(reviews)) throw new Error(`Não achei resenhas nesse arquivo. ${hint}`);
@@ -119,7 +119,7 @@ export function backupLists(text: string, hint = 'Escolha o backup baixado pelo 
 
 /** Só lê e sanitiza: não toca nos dados pessoais nem aplica exclusões ao mural do usuário. */
 export function parseBackupSnapshot(text: string): BackupSnapshot {
-  const { object, reviews: found, notes, music } = backupLists(text, 'Escolha um backup do Meu Mural.');
+  const { object, reviews: found, notes, music } = backupLists(text, 'Escolha um backup do Murall.');
   const list = [...found, ...(notes ?? []), ...(music ?? [])];
   const deleted = object?.['deleted'] as
     | { reviews?: Record<string, unknown> }

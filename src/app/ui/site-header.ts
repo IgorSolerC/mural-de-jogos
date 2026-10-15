@@ -29,7 +29,7 @@ const TILTS = [-2.2, 1.6, -1.2, 2];
 
 /**
  * O topo do site, igual em todas as páginas, em três grupos que não se misturam:
- * - o cartaz, "Meu mural", que leva à última parede aberta;
+ * - o cartaz, "Murall", que leva à última parede aberta;
  * - o varal: as partes do site (Anotações, Análises, Extras), etiquetas de kraft presas por
  *   prendedores num barbante. O mural de resenhas e as seções de cada parte ficam no índice da
  *   própria página (ver ui/area-bar.ts), nunca aqui;

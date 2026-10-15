@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-murall',
+    version: '1.41.11',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'O site agora se chama Murall',
+    notice: 'O Meu Mural agora se chama Murall: o mural de tudo. Veja o cartaz novo no topo.',
+    items: [
+      'O cartaz do topo diz Murall: o "Mur" escrito a pincel no amarelo e o "ALL" num recorte de revista em cartolina rosa, colado torto por cima. É um mural, mas de tudo: anotações, jogos, livros, filmes, séries, animes e músicas.',
+      'O nome novo vale também na aba do navegador, no app instalado no celular e nos avisos do site. Nada muda nos seus murais, nos backups ou na conta.',
+    ],
+  },
+  {
     id: '2026-10-15-decoracoes-x',
     version: '1.41.10',
     kind: 'melhoria',

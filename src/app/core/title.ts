@@ -6,8 +6,8 @@ import { cap } from './kinds';
 import { Mural } from './mural';
 
 /**
- * O título da aba diz onde se está: "Anotações · Meu Mural", "Livros · Meu Mural",
- * "Pra depois · Séries · Meu Mural", "Ranking · Jogos · Meu Mural". O mural só entra nas páginas que
+ * O título da aba diz onde se está: "Anotações · Murall", "Livros · Murall",
+ * "Pra depois · Séries · Murall", "Ranking · Jogos · Murall". O mural só entra nas páginas que
  * dependem dele (as Análises e os Extras); o Perfil, Amigos e os Ajustes são os mesmos em todos.
  */
 @Injectable({ providedIn: 'root' })
@@ -22,7 +22,7 @@ export class MuralTitle extends TitleStrategy {
       const { title, url } = this.page();
       const area = areaOf(url);
       const wall = area === 'analises' || area === 'extras' ? cap(this.mural.profile().plural) : null;
-      this.title.setTitle([title, wall, 'Meu Mural'].filter(Boolean).join(' · '));
+      this.title.setTitle([title, wall, 'Murall'].filter(Boolean).join(' · '));
     });
   }
 

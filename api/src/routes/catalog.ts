@@ -58,7 +58,7 @@ export function catalogRoutes(app: Hono, deps: Deps): void {
   /** Só o próprio site: um pedido sem a origem dele (um script qualquer) não gasta a cota das chaves. */
   const fromSite = (c: Context) => {
     const origin = c.req.header('Origin')?.replace(/\/+$/, '') ?? '';
-    if (!deps.config.allowedOrigins.includes(origin)) throw new HttpError(403, 'origem', 'Só o site do Meu Mural usa esta busca.');
+    if (!deps.config.allowedOrigins.includes(origin)) throw new HttpError(403, 'origem', 'Só o site do Murall usa esta busca.');
   };
 
   const forward = async (c: Context, which: 'tmdb' | 'rawg', url: string, headers: Record<string, string>) => {

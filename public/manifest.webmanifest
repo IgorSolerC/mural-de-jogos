@@ -1,6 +1,6 @@
 {
-  "name": "Meu Mural",
-  "short_name": "Meu Mural",
+  "name": "Murall",
+  "short_name": "Murall",
   "description": "Seu mural pessoal de resenhas de jogos, livros, filmes, séries, animes e músicas, salvo no seu navegador.",
   "lang": "pt-BR",
   "start_url": "./",

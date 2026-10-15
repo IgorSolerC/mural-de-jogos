@@ -84,7 +84,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
           }
         </div>
         <p class="miudo">
-          O código fica em Ajustes › Conta, no Meu Mural da pessoa. O arquivo é o .json ou .json.gz baixado em Ajustes.
+          O código fica em Ajustes › Conta, no Murall da pessoa. O arquivo é o .json ou .json.gz baixado em Ajustes.
         </p>
       } @else {
         <p class="convite">
@@ -103,7 +103,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
             </button>
           }
         </div>
-        <p class="miudo">Arquivo .json ou .json.gz baixado em Ajustes do Meu Mural. Fica só neste navegador.</p>
+        <p class="miudo">Arquivo .json ou .json.gz baixado em Ajustes do Murall. Fica só neste navegador.</p>
       }
       @if (error()) {
         <p class="erro" role="alert">{{ error() }}</p>

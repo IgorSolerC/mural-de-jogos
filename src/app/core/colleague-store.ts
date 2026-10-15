@@ -148,7 +148,7 @@ export class ColleagueStore {
         request.onerror = () => reject(request.error);
         request.onblocked = () =>
           reject(
-            new Error('Feche as outras abas do Meu Mural e tente novamente.'),
+            new Error('Feche as outras abas do Murall e tente novamente.'),
           );
       }).catch((error) => {
         this.database = undefined;

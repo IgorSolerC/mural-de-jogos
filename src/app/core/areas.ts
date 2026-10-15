@@ -88,7 +88,7 @@ export function scoredKind(v: string | undefined): Kind | null {
   return (SCORED_KINDS as readonly string[]).includes(v ?? '') ? (v as Kind) : null;
 }
 
-/** O início ("Meu mural"): a última parede aberta, a das anotações ou a do último mural de resenhas. */
+/** O início ("Murall"): a última parede aberta, a das anotações ou a do último mural de resenhas. */
 export const toLastWall: RedirectFunction = () => {
   const mural = inject(Mural);
   return wallPath(isNotes(mural.kind()) ? NOTES : mural.reviewKind());

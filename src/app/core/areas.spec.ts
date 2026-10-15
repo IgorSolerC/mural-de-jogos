@@ -81,7 +81,7 @@ describe('as três partes do site', () => {
       expect(router.url).toBe('/analises/filmes');
     });
 
-    it('"Meu mural" leva à última parede aberta', async () => {
+    it('"Murall" leva à última parede aberta', async () => {
       await router.navigateByUrl('/anotacoes');
       await router.navigateByUrl('/perfil');
       await router.navigateByUrl('/');

@@ -57,15 +57,29 @@ describe('o topo do site', () => {
       await fixture.whenStable();
     };
 
-    it('o cartaz é só "Meu mural", sem trocar de mural, e o varal tem as três partes', async () => {
+    it('o cartaz é só "Murall", sem trocar de mural, e o varal tem as três partes', async () => {
       await at('/perfil');
       const el = fixture.nativeElement as HTMLElement;
-      expect(el.querySelector('.logo')?.textContent?.trim()).toBe('Meu mural');
+      expect(el.querySelector('.logo')?.textContent?.trim()).toBe('MurALL');
       expect(el.querySelector('app-kind-switcher')).toBeNull();
       expect(tags().map((t) => t.textContent?.trim())).toEqual(['Anotações', 'Análises', 'Extras']);
       // as Análises abrem direto no último mural de resenhas
       expect(tags().map((t) => t.getAttribute('href'))).toEqual(['/anotacoes', '/analises/jogos', '/extras']);
       expect(tags().some((t) => t.classList.contains('on'))).withContext('no Perfil nenhuma parte acende').toBeFalse();
+    });
+
+    it('o logo é "Mur" a pincel e um recorte só com o "ALL", e o leitor de tela ouve "Murall"', async () => {
+      await at('/perfil');
+      const el = fixture.nativeElement as HTMLElement;
+      const link = el.querySelector<HTMLAnchorElement>('.logo-link')!;
+      expect(link.getAttribute('aria-label')).toBe('Murall');
+      expect(link.getAttribute('href')).toBe('/');
+      expect(el.querySelector('.mur')?.textContent).toBe('Mur');
+      const cuts = el.querySelectorAll('.recorte');
+      expect(cuts.length).withContext('um recorte só, não um por letra').toBe(1);
+      expect(cuts[0].textContent).toBe('ALL');
+      // o que se vê não é lido letra por letra: o nome do link já diz tudo
+      for (const part of el.querySelectorAll('.mur, .all')) expect(part.getAttribute('aria-hidden')).toBe('true');
     });
 
     it('acende a parte aberta', async () => {
@@ -114,6 +128,7 @@ describe('o topo do site', () => {
       const faces: [string, string, FontFaceDescriptors][] = [
         ['Permanent Marker', 'permanent-marker-latin-400-normal', { weight: '400' }],
         ['Kalam', 'kalam-latin-700-normal', { weight: '700' }],
+        ['Abril Fatface', 'abril-fatface-latin-400-normal', { weight: '400' }],
         ['Barlow Condensed', 'barlow-condensed-latin-800-normal', { weight: '800' }],
         ['Barlow Condensed', 'barlow-condensed-latin-800-italic', { weight: '800', style: 'italic' }],
       ];
@@ -166,7 +181,8 @@ describe('o topo do site', () => {
         await fixture.whenStable();
         await document.fonts.ready;
         // medido com as letras de verdade (sem elas, as larguras seriam outras)
-        expect(loaded.map((f) => f.status)).withContext('as letras do site carregaram').toEqual(['loaded', 'loaded', 'loaded', 'loaded']);
+        expect(loaded.length).toBe(5);
+        expect(loaded.map((f) => f.status)).withContext('as letras do site carregaram').toEqual(loaded.map(() => 'loaded'));
 
         const problems: string[] = [];
         for (const w of WIDTHS) {
@@ -179,7 +195,7 @@ describe('o topo do site', () => {
 
           for (const t of targets) {
             if (t.r.left < top.left - 4 || t.r.right > top.right + 4) say(`${t.name} sai do topo`);
-            // o link "Meu mural" é texto do cartaz: basta a altura da linha
+            // o link "Murall" é texto do cartaz: basta a altura da linha
             const [minW, minH] = t.el.matches('.logo-link') ? [24, 18] : [40, 40];
             if (t.r.width < minW || t.r.height < minH) say(`${t.name} pequeno demais (${Math.round(t.r.width)}x${Math.round(t.r.height)})`);
           }

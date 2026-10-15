@@ -76,18 +76,58 @@
   white-space: nowrap;
 }
 
-/* "Meu mural" leva à última parede aberta */
+/* "Murall" leva à última parede aberta */
 .logo-link {
   /* a caixa do link é a da linha, não a da letra (a do pincel é alta) */
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   color: inherit;
   text-decoration: none;
   border-radius: 3px;
 
   &:focus-visible {
     outline: 3px solid var(--ink);
-    outline-offset: 3px;
+    outline-offset: 5px;
   }
+}
+
+/* "Mur": o mural, escrito a pincel direto no cartaz */
+.mur {
+  letter-spacing: -0.01em;
+}
+
+/* "all": de tudo. Um recorte de revista, letra de manchete em cartolina rosa, colado torto por cima
+   do cartaz, com a tesoura um pouco fora da linha */
+.all {
+  display: inline-flex;
+  /* encostado no "r", como se tivesse sido colado logo depois da última pincelada */
+  margin-left: 0.03em;
+  /* a sombra é do grupo: o corte (clip-path) cortaria a sombra do próprio recorte */
+  filter: drop-shadow(0 1px 0.5px rgb(0 0 0 / 0.3)) drop-shadow(0 2.5px 2px rgb(0 0 0 / 0.28));
+}
+
+.recorte {
+  display: inline-block;
+  padding: 0.13em 0.2em 0.07em 0.22em;
+  font-family: var(--f-didone);
+  font-size: 1.02em;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  /* cartolina rosa com a mesma fibra do cartaz */
+  background-color: var(--stock-rosa);
+  background-image: var(--grao-img);
+  background-size: var(--grao-tam);
+  background-blend-mode: var(--grao-mistura);
+  clip-path: polygon(0 6%, 41% 0, 100% 4%, 97% 100%, 58% 95%, 2% 100%);
+  rotate: -5deg;
+  translate: 0 -0.03em;
+  transition: rotate var(--t-physical) var(--ease-physical);
+}
+
+/* um gesto só: ao passar por cima do cartaz, o recorte se ajeita como se alguém o apertasse */
+.cartaz:hover .recorte {
+  rotate: -2.5deg;
 }
 
 /* ===== O varal: um barbante de ponta a ponta, preso em dois ganchos, e as partes do mural penduradas
@@ -631,9 +671,9 @@
 }
 
 /* ===== Celular: o cartaz encolhe o que for preciso para nunca encostar nos bottons ao lado =====
-   (5,6 vezes a letra é a largura de "Meu mural"; 176px são os bottons e o respiro) */
+   ("Murall" tem 4,5 vezes a letra de largura, conto 5 de folga; 176px são os bottons e o respiro) */
 .logo {
-  font-size: clamp(1.05rem, calc((100cqi - 176px) / 5.6), 1.5rem);
+  font-size: clamp(1.1rem, calc((100cqi - 176px) / 5), 1.6rem);
 }
 
 /* ===== Celular mais largo: cabe o nome inteiro no botão ===== */
@@ -643,7 +683,7 @@
   }
 
   .logo {
-    font-size: 1.5rem;
+    font-size: 1.62rem;
   }
 
   .cartaz {
@@ -669,7 +709,7 @@
   }
 
   .logo {
-    font-size: 1.62rem;
+    font-size: 1.74rem;
   }
 
   .cartaz {
@@ -838,7 +878,7 @@
 
 @container topo (min-width: 1380px) {
   .logo {
-    font-size: 1.9rem;
+    font-size: 2rem;
   }
 
   .cartaz {
@@ -858,5 +898,9 @@
 @media (prefers-reduced-motion: reduce) {
   .desenho.balanca {
     animation: none;
+  }
+
+  .recorte {
+    transition: none;
   }
 }
