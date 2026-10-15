@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, inject, input, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
 import { FileQuestion, LucideAngularModule } from 'lucide-angular';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
@@ -11,6 +11,10 @@ import { GluedReviewCard } from './glued-review-card';
 const CARD_WIDTH = 300;
 /** Até quanto a ficha cresce além do tamanho dela (o grande, na leitura): mais que isso, a capinha borra. */
 const MAX_SCALE = 2;
+/** A folga mínima em cima da ficha, em em: as pontas da fita, que sobem das quinas, não tampam a linha de cima. */
+const TAPE_ROOM = 0.45;
+/** O respiro entre a orelha da categoria e a linha de cima, em em. */
+const EAR_GAP = 0.2;
 
 /**
  * O widget NOTA (ver core/widgets.ts): outra ficha, de qualquer mural, colada no texto como uma
@@ -39,7 +43,7 @@ const MAX_SCALE = 2;
   },
   template: `
     @if (found(); as f) {
-      <div class="lugar" data-colado [style.width.px]="box().w" [style.height.px]="box().h">
+      <div class="lugar" data-colado [style.width.px]="box().w" [style.height.px]="box().h" [style.margin-top.px]="box().top">
         <div class="escala" #escala [style.width.px]="cardWidth" [style.scale]="box().s">
           <app-review-card
             [review]="f.review"
@@ -103,14 +107,9 @@ const MAX_SCALE = 2;
       text-indent: 0;
       text-transform: none;
     }
+    /* colada com fita, ela não sai do lugar com o mouse (ver GluedReviewCard): só a mãozinha diz que abre */
     :host(.tocavel) app-review-card {
       cursor: pointer;
-      transition: translate var(--t-quick, 160ms) var(--ease-out, ease-out);
-    }
-    @media (hover: hover) {
-      :host(.tocavel) .lugar:hover app-review-card {
-        translate: 0 -2px;
-      }
     }
 
     /* ===== A fita crepe: dois pedaços nas quinas de cima, colando a ficha na de fora ===== */
@@ -180,11 +179,6 @@ const MAX_SCALE = 2;
       font-weight: 700;
       opacity: 0.85;
     }
-    @media (prefers-reduced-motion: reduce) {
-      :host(.tocavel) app-review-card {
-        transition: none;
-      }
-    }
   `,
 })
 export class LinkedCard {
@@ -192,6 +186,12 @@ export class LinkedCard {
   readonly args = input.required<readonly string[]>();
   /** Os links do texto onde ela está: quem abre a ficha, e a anotação de um título (escrita à mão). */
   readonly links = input<NoteLinks | null>(null);
+  /**
+   * O tamanho do widget, em linhas (ver note-widget.ts). A altura chega pela `--widget-alto`, que
+   * não avisa quando muda: numa linha estreita (a caixa já com a altura em linhas, `snapped`) nada
+   * muda de tamanho e a ficha ficava do tamanho de antes. Com ele, ela se mede de novo.
+   */
+  readonly lines = input<number | null>(null);
 
   protected readonly cardWidth = CARD_WIDTH;
   protected readonly LostIcon = FileQuestion;
@@ -207,15 +207,25 @@ export class LinkedCard {
   });
   protected readonly openable = computed(() => !!this.found() && !!this.links()?.openCard);
 
-  /** O tamanho da ficha na folha: a escala e a caixa que ela ocupa depois de encolher. */
-  protected readonly box = signal({ s: 1, w: CARD_WIDTH, h: 0 });
+  /**
+   * O tamanho da ficha na folha: a escala, a caixa que ela ocupa depois de encolher e a folga em
+   * cima (`top`): a orelha da categoria, que sai pela beirada de cima, e as pontas da fita cabem no
+   * espaço do widget, sem tampar a linha de cima.
+   */
+  protected readonly box = signal({ s: 1, w: CARD_WIDTH, h: 0, top: 0 });
   /** A altura em linhas inteiras da pauta, quando a ficha encolheu pela largura; null, a do tamanho. */
   protected readonly snapped = signal<number | null>(null);
   private readonly escala = viewChild<ElementRef<HTMLElement>>('escala');
+  /** Mede de novo, no próximo quadro (depois do primeiro desenho). */
+  private refit: (() => void) | null = null;
 
   constructor() {
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const destroy = inject(DestroyRef);
+    effect(() => {
+      this.lines();
+      untracked(() => this.refit?.());
+    });
     afterNextRender(() => {
       if (typeof ResizeObserver === 'undefined') return;
       let frame = 0;
@@ -230,17 +240,28 @@ export class LinkedCard {
         // a linha toda, sem o respiro dos lados
         const room = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
         if (!w0 || !h0 || room <= 0) return;
-        const s = Math.max(0.2, Math.min(alto / h0, room / w0, MAX_SCALE));
-        const next = { s: Math.round(s * 1000) / 1000, w: Math.round(w0 * s), h: Math.round(h0 * s) };
+        // o que sai pela beirada de cima da ficha (a orelha), do tamanho dela (sem a escala)
+        let over = 0;
+        for (const el of Array.from(card.querySelectorAll<HTMLElement>('.aba-cat'))) {
+          if (el.offsetParent === card) over = Math.max(over, -el.offsetTop);
+        }
+        const em = parseFloat(style.fontSize) || 16;
+        const tape = TAPE_ROOM * em;
+        const gap = over ? EAR_GAP * em : 0;
+        // a ficha e a folga cabem juntas na altura do tamanho
+        const fitH = Math.min((alto - tape) / h0, (alto - gap) / (h0 + over));
+        const s = Math.max(0.2, Math.min(fitH, room / w0, MAX_SCALE));
+        const next = { s: Math.round(s * 1000) / 1000, w: Math.round(w0 * s), h: Math.round(h0 * s), top: Math.round(Math.max(over * s + gap, tape)) };
         const now = this.box();
-        if (now.s !== next.s || now.w !== next.w || now.h !== next.h) this.box.set(next);
+        if (now.s !== next.s || now.w !== next.w || now.h !== next.h || now.top !== next.top) this.box.set(next);
         const line = parseFloat(style.lineHeight);
-        const narrow = room / w0 < Math.min(alto / h0, MAX_SCALE) && line > 0;
-        this.snapped.set(narrow ? Math.ceil((next.h + 4) / line) * line : null);
+        const narrow = room / w0 < Math.min(fitH, MAX_SCALE) && line > 0;
+        this.snapped.set(narrow ? Math.ceil((next.top + next.h + 4) / line) * line : null);
       };
       const later = () => {
         if (!frame) frame = requestAnimationFrame(fit);
       };
+      this.refit = later;
       const ro = new ResizeObserver(later);
       ro.observe(host);
       // a ficha muda de altura (o título quebra, a capa chega); a caixa que corta muda o que cabe
@@ -262,6 +283,7 @@ export class LinkedCard {
         ro.disconnect();
         mo.disconnect();
         cancelAnimationFrame(frame);
+        this.refit = null;
       });
     });
   }

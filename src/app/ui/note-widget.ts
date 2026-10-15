@@ -70,7 +70,7 @@ import { GluedMedia } from './glued-media';
              mural desenha o texto, que desenha este widget, que desenha a ficha: um import comum
              faria um ciclo, e quem carregasse primeiro acharia o outro ainda vazio -->
         @if (linkedCard(); as card) {
-          <ng-container *ngComponentOutlet="card; inputs: { args: args(), links: links() }" />
+          <ng-container *ngComponentOutlet="card; inputs: { args: args(), links: links(), lines: lines() }" />
         } @else {
           <div class="esperando"></div>
         }

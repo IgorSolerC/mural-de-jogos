@@ -34,6 +34,24 @@ describe('a nota colada no texto (o widget Nota)', () => {
     await fixture.whenStable();
   }
 
+  /**
+   * Espera a ficha se medir de novo até parar de mudar (a fonte e o título assentam depois; com a
+   * janela do Karma atrás, os quadros demoram), ou até `done` valer.
+   */
+  async function settle(done?: () => boolean): Promise<void> {
+    let last = '';
+    let still = 0;
+    for (let i = 0; i < 50; i++) {
+      await new Promise((r) => setTimeout(r, 40));
+      await fixture.whenStable();
+      if (done?.()) return;
+      const now = el.querySelector('.lugar')?.getAttribute('style') ?? '';
+      still = now === last ? still + 1 : 0;
+      if (!done && still >= 4) return;
+      last = now;
+    }
+  }
+
   beforeEach(() => {
     localStorage.clear();
     TestBed.configureTestingModule({ imports: [LinkedCard], providers: [provideZonelessChangeDetection()] });
@@ -62,16 +80,60 @@ describe('a nota colada no texto (o widget Nota)', () => {
 
   it('encolhe até a altura do tamanho, e até a largura da linha', async () => {
     await show(['#rjogo1']);
-    await new Promise((r) => setTimeout(r, 80));
-    await fixture.whenStable();
+    await settle();
     const inner = el.querySelector<HTMLElement>('app-review-card')!;
     const box = el.querySelector<HTMLElement>('.lugar')!;
     expect(box.offsetHeight).toBeLessThanOrEqual(201);
     expect(Math.abs(box.offsetHeight - inner.offsetHeight * Number(getComputedStyle(el.querySelector('.escala')!).scale))).toBeLessThan(2);
     el.style.width = '150px';
-    await new Promise((r) => setTimeout(r, 80));
-    await fixture.whenStable();
+    await settle();
     expect(box.offsetWidth).toBeLessThanOrEqual(150);
+  });
+
+  it('colada reta, rente à fita: sem a queda nem o giro do papel dela, e parada com o mouse', async () => {
+    await show(['#rnota1'], { openCard: () => undefined });
+    await settle();
+    const inner = el.querySelector<HTMLElement>('app-review-card')!;
+    // a ficha tem a queda e a inclinação dela (as do mural), mas colada não usa nenhuma das duas
+    expect(inner.style.getPropertyValue('--drop-y')).not.toBe('');
+    const style = getComputedStyle(inner);
+    expect(style.marginTop).toBe('0px');
+    expect(style.rotate).toBe('none');
+    expect(style.translate).toBe('none');
+    // a fita fica nas quinas da ficha: o alto dela é o alto do lugar
+    const lugar = el.querySelector<HTMLElement>('.lugar')!;
+    expect(Math.abs(inner.getBoundingClientRect().top - lugar.getBoundingClientRect().top)).toBeLessThan(1);
+    // nada de levantar com o mouse: nem a ficha, nem a orelha
+    const sheet = Array.from(document.querySelectorAll('style'))
+      .map((s) => s.textContent ?? '')
+      .join('\n');
+    expect(sheet).toMatch(/\.fita-esq/);
+    expect(sheet).not.toMatch(/\.lugar[^{,]*:hover/);
+  });
+
+  it('a orelha da categoria cabe no espaço do widget, sem tampar a linha de cima', async () => {
+    await show(['#rnota1']);
+    await settle();
+    const ear = el.querySelector<HTMLElement>('app-review-card .aba-cat')!;
+    expect(ear.getBoundingClientRect().width).toBeGreaterThan(0);
+    expect(ear.getBoundingClientRect().top).toBeGreaterThanOrEqual(el.getBoundingClientRect().top);
+    // e a ficha com a folga cabe na altura do tamanho
+    const lugar = el.querySelector<HTMLElement>('.lugar')!;
+    expect(lugar.getBoundingClientRect().bottom - el.getBoundingClientRect().top).toBeLessThanOrEqual(201);
+  });
+
+  it('muda de tamanho junto com o widget, mesmo numa linha estreita', async () => {
+    await show(['#rjogo1']);
+    // estreita: a caixa fica com a altura em linhas, e a --widget-alto muda sem nada mudar de tamanho
+    el.style.width = '200px';
+    await settle();
+    const lugar = el.querySelector<HTMLElement>('.lugar')!;
+    const before = lugar.offsetHeight;
+    el.style.setProperty('--widget-alto', '60px');
+    fixture.componentRef.setInput('lines', 3);
+    await settle(() => lugar.offsetHeight < before);
+    expect(lugar.offsetHeight).toBeLessThan(before);
+    expect(lugar.offsetHeight).toBeLessThanOrEqual(60);
   });
 
   it('com quem abra, tocar abre a ficha; sem, ela só se vê (nem o teclado para nela)', async () => {

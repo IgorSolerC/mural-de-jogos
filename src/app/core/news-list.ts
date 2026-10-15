@@ -26,6 +26,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-nota-colada-no-lugar',
+    version: '1.41.1',
+    kind: 'correcao',
+    date: '2026-10-15',
+    title: 'A ficha colada no texto (widget Nota) presa direito na fita',
+    items: [
+      'A fita crepe agora fica nas quinas da ficha colada. Antes, a ficha caía e girava como uma ficha pregada no mural, e a fita ficava solta acima dela, mais ainda quando ela tinha categoria.',
+      'Com o mouse em cima, a ficha colada não levanta mais nem puxa a orelha: colada com fita, ela fica no lugar.',
+      'A orelha da categoria cabe no espaço do widget e não tampa mais a linha de cima do texto.',
+      'Na escolha do widget, a prévia da ficha muda de tamanho ao escolher Mini, Pequeno, Médio ou Grande. Antes, numa folha estreita, ela ficava do tamanho de antes.',
+    ],
+  },
+  {
     id: '2026-10-15-configuracoes-do-mural',
     version: '1.41.0',
     kind: 'funcionalidade',
