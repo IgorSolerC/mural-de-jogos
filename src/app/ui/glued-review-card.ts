@@ -21,32 +21,36 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
     CARD_STYLES,
     `
       /* Colada, ela não cai nem gira em volta da tachinha (o --drop-y e o --tilt do papel dela):
-         fica reta, rente ao alto do lugar, onde foi colada. E não se mexe com o mouse: nem
-         desgruda, nem puxa a orelha (o foco do teclado continua no contorno). */
+         fica reta, rente ao alto do lugar, onde foi colada, com a sombra curta e sutil do vinil do
+         widget de música (ver audio-track.ts), em drop-shadow: serve também para o papel recortado. */
       :host,
-      :host(:hover:not([data-quieta])),
-      :host(:has(:focus-visible)),
-      :host(:active) {
+      :host(.recortada),
+      :host(.recortada:hover),
+      :host(.recortada:active) {
         margin-top: 0;
         rotate: none;
         translate: none;
-        /* a sombra curta e sutil do vinil do widget de música (ver audio-track.ts), em drop-shadow:
-           serve também para o papel recortado */
         box-shadow: none;
         filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.28));
-        transition: none;
+        transition:
+          translate var(--t-ui) var(--ease-ui),
+          filter var(--t-ui) var(--ease-ui);
       }
-      :host(.recortada),
-      :host(.recortada:hover),
+      /* Quando abre (sem quem abra, ela fica inert e o mouse não a pega), sobe um pouco, reta, e a
+         orelha sobe junto (a regra da ficha do mural) */
+      :host(:hover:not([data-quieta])),
+      :host(:has(:focus-visible)),
       :host(.recortada:hover:not([data-quieta])),
-      :host(.recortada:has(:focus-visible)),
-      :host(.recortada:active) {
-        filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.28));
+      :host(.recortada:has(:focus-visible)) {
+        rotate: none;
+        translate: 0 -3px;
+        box-shadow: none;
+        filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 7px 9px rgb(0 0 0 / 0.26));
       }
-      :host(:hover:not([data-quieta])) .aba-cat,
-      :host(:has(:focus-visible)) .aba-cat,
-      :host(:active) .aba-cat {
-        translate: none;
+      @media (prefers-reduced-motion: reduce) {
+        :host {
+          transition: none;
+        }
       }
       .pin {
         display: none;

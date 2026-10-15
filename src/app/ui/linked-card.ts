@@ -104,7 +104,7 @@ const EAR_GAP = 0.2;
       text-indent: 0;
       text-transform: none;
     }
-    /* colada, ela não sai do lugar com o mouse (ver GluedReviewCard): só a mãozinha diz que abre */
+    /* a que abre sobe um pouco com o mouse (ver GluedReviewCard), com a mãozinha */
     :host(.tocavel) app-review-card {
       cursor: pointer;
     }

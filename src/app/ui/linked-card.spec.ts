@@ -90,7 +90,7 @@ describe('a nota colada no texto (o widget Nota)', () => {
     expect(box.offsetWidth).toBeLessThanOrEqual(150);
   });
 
-  it('colada reta, rente ao alto: sem a queda nem o giro do papel dela, e parada com o mouse', async () => {
+  it('colada reta, rente ao alto: sem a queda nem o giro do papel dela', async () => {
     await show(['#rnota1'], { openCard: () => undefined });
     await settle();
     const inner = el.querySelector<HTMLElement>('app-review-card')!;
@@ -103,7 +103,7 @@ describe('a nota colada no texto (o widget Nota)', () => {
     // o alto dela é o alto do lugar
     const lugar = el.querySelector<HTMLElement>('.lugar')!;
     expect(Math.abs(inner.getBoundingClientRect().top - lugar.getBoundingClientRect().top)).toBeLessThan(1);
-    // nada de levantar com o mouse: nem a ficha, nem a orelha
+    // quem sobe com o mouse é a ficha (reta), e não o lugar
     const sheet = Array.from(document.querySelectorAll('style'))
       .map((s) => s.textContent ?? '')
       .join('\n');

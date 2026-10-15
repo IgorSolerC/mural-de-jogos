@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-nota-colada-hover',
+    version: '1.41.3',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'A ficha colada no texto sobe com o mouse',
+    items: ['Quando a ficha colada no texto (widget Nota) abre ao clicar, ela sobe um pouco com o mouse em cima, reta, com a orelha da categoria junto.'],
+  },
+  {
     id: '2026-10-15-nota-colada-sem-fita',
     version: '1.41.2',
     kind: 'melhoria',
