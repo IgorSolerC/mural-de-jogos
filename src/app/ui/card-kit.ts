@@ -62,7 +62,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
 /**
  * O estojo da ficha, na bancada do editor: a cor da cartolina, o papel, a estampa, o rabisco e o
  * estrago, um de cada, e até três manchas e três decorações, desenhadas na ordem em que foram
- * escolhidas (a fileira "na ficha" mostra a ordem, sorteia de novo e tira). Abas de fichário em pé em réguas, como os filtros do
+ * escolhidas (o número no canto mostra a ordem; tocar de novo sorteia, o x do outro canto tira). Abas de fichário em pé em réguas, como os filtros do
  * mural: sete numa fileira só, com um desenho em cima do nome, e um respiro entre o que é a cartolina
  * (cor, papel, estampa) e o que vem por cima dela (rabisco, estrago, mancha, decoração). Cada opção é
  * um retalho da ficha já com o efeito, na cor dela; a ficha ao lado muda na hora.
@@ -116,22 +116,8 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
           <legend class="giz">
             {{ tabLabel() }} <b>{{ multi() ? (picked().length ? picked().length + ' de ' + maxMarks : 'Nenhuma') : chosen().label }}</b>
           </legend>
-          @if (multi() && picked().length) {
-            <!-- o que está na ficha, na ordem do desenho (a última por cima): sortear de novo ou tirar -->
-            <ol class="na-ficha" aria-label="Na ficha, na ordem do desenho">
-              @for (p of picked(); track p.value; let i = $index) {
-                <li class="marca">
-                  <span class="ordem" aria-hidden="true">{{ i + 1 }}</span>
-                  <span class="marca-nome">{{ p.label }}</span>
-                  <button type="button" class="marca-botao" [attr.aria-label]="'Sortear ' + p.label + ' de outro jeito'" title="Sortear de outro jeito" (click)="reroll(i)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.2 9.4A7.6 7.6 0 0 0 5.6 7.8M4.8 14.6a7.6 7.6 0 0 0 13.6 1.6" /><path d="M5.2 3.6v4.6h4.6M18.8 20.4v-4.6h-4.6" /></svg>
-                  </button>
-                  <button type="button" class="marca-botao" [attr.aria-label]="'Tirar ' + p.label" title="Tirar" (click)="unpick(i)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></svg>
-                  </button>
-                </li>
-              }
-            </ol>
+          @if (multi()) {
+            <p class="sr-only" [id]="id() + '-kit-dica'">Marcar de novo uma que já está na ficha sorteia ela de outro jeito; o botão Tirar, no canto, tira.</p>
           }
           <!-- os ajustes da estampa, logo à vista; na Lisa ficam apagados, para a grade não pular ao escolher -->
           @if (tab() === 'estampa') {
@@ -190,15 +176,19 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                  lerem de longe; a ficha ao lado mostra como fica -->
             <ng-template #carimbo let-o>
               @let n = orderOf(o);
-              <label class="carimbo" [class.on]="isOn(o)" [class.cheia]="multi() && o.value !== null && !n && full()">
+              <!-- a vaga: o carimbo e, na Mancha e na Decoração, o x de tirar no canto da escolhida -->
+              <div class="vaga">
+              <label class="carimbo" [class.on]="isOn(o)" [class.cheia]="multi() && o.value !== null && !n && full()" [attr.title]="n ? 'Tocar de novo sorteia de outro jeito' : null">
                 @if (multi()) {
-                  <!-- Mancha e Decoração: várias, até três; com três, as outras esperam uma sair -->
+                  <!-- Mancha e Decoração: várias, até três; com três, as outras esperam uma sair. Tocar
+                       de novo numa escolhida sorteia de outro jeito (não tira: quem tira é o x) -->
                   <input
                     type="checkbox"
                     [checked]="isOn(o)"
                     [disabled]="o.value !== null && !n && full()"
                     (change)="toggle(o.value, $any($event.target))"
                     [attr.aria-label]="o.label"
+                    [attr.aria-describedby]="o.value !== null ? id() + '-kit-dica' : null"
                   />
                 } @else {
                   <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
@@ -213,6 +203,12 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                 }
                 <span class="nome">{{ o.label }}</span>
               </label>
+              @if (n) {
+                <button type="button" class="tirar" [attr.aria-label]="'Tirar ' + o.label" title="Tirar" (click)="unpick(n - 1)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+                </button>
+              }
+              </div>
             </ng-template>
             @if (tab() === 'estampa') {
               <!-- são muitas: os assuntos em cima, para ir direto ao que se quer; Todas mostra tudo, com o assunto
@@ -664,68 +660,61 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
       left: calc(50% + 12px);
       animation: pino 420ms var(--ease-physical);
     }
-    /* a fileira do que está na ficha, na ordem: a mesma régua escura dos assuntos das estampas */
-    .na-ficha {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin: 0 0 14px;
-      padding: 0;
-      list-style: none;
+    /* o x de tirar, no canto de cima à esquerda do desenho, espelhando o número da ordem: um botão de
+       tinta escura, como a régua dos assuntos. A área de toque passa do desenho (o ::before) */
+    .vaga {
+      position: relative;
+      display: grid;
     }
-    .marca {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      min-width: 0;
-      padding: 3px 3px 3px 6px;
-      border-radius: 4px;
-      background: rgb(16 14 13 / 0.94);
-      box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.06),
-        0 6px 10px -6px rgb(0 0 0 / 0.8);
-    }
-    .marca-nome {
-      margin: 0 4px 0 6px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.66rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      white-space: nowrap;
-      color: var(--wall-ink);
-    }
-    .marca-botao {
+    .tirar {
+      position: absolute;
+      top: 0;
+      right: calc(50% + 11px);
       display: grid;
       place-items: center;
-      width: 30px;
-      height: 30px;
+      width: 22px;
+      height: 22px;
       padding: 0;
       border: 0;
-      border-radius: 3px;
-      background: none;
-      color: var(--wall-ink-2);
+      border-radius: 50%;
+      background: rgb(16 14 13 / 0.94);
+      color: var(--wall-ink);
       cursor: pointer;
+      box-shadow:
+        inset 0 0 0 1.5px rgb(241 241 236 / 0.55),
+        0 1px 2px rgb(0 0 0 / 0.55);
+      animation: pino 420ms var(--ease-physical);
       transition:
-        color var(--t-ui) var(--ease-ui),
-        background-color var(--t-ui) var(--ease-ui);
+        background-color var(--t-ui) var(--ease-ui),
+        scale var(--t-ui) var(--ease-ui);
 
+      &::before {
+        content: '';
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+      }
       &:hover {
-        color: var(--wall-ink);
-        background: rgb(255 255 255 / 0.07);
+        background: rgb(46 40 36);
+        scale: 1.08;
       }
       &:focus-visible {
         outline: 3px solid var(--hi);
         outline-offset: 1px;
       }
       svg {
-        width: 16px;
-        height: 16px;
+        width: 13px;
+        height: 13px;
         fill: none;
         stroke: currentColor;
-        stroke-width: 2;
+        stroke-width: 3;
         stroke-linecap: round;
-        stroke-linejoin: round;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .tirar {
+        animation: none;
+        transition: none;
       }
     }
     .carimbo.on .nome {
@@ -1178,16 +1167,17 @@ export class CardKit {
   }
 
   /**
-   * Marca ou desmarca uma mancha (ou decoração): a nova entra por último, por cima das outras, com um
-   * sorteio novo; "Nenhuma" tira todas. A caixinha fica como a ficha ficou (com três, a quarta não
-   * entra).
+   * Marca uma mancha (ou decoração): a nova entra por último, por cima das outras, com um sorteio
+   * novo; tocar de novo numa que já está na ficha a sorteia de outro jeito, no mesmo lugar da ordem
+   * (quem tira é o x do canto, ver `unpick`); "Nenhuma" tira todas. A caixinha fica como a ficha
+   * ficou (com três, a quarta não entra).
    */
   protected toggle(v: string | null, box?: HTMLInputElement): void {
     const t = this.tab();
     if (!isMultiTab(t)) return;
-    const has = v !== null && this.picked().some((p) => p.value === v);
+    const at = v === null ? -1 : this.picked().findIndex((p) => p.value === v);
     if (v === null) this.setMarks(t, () => []);
-    else if (has) this.setMarks(t, (list) => list.filter((_, i) => this.picked()[i].value !== v));
+    else if (at >= 0) this.reroll(at);
     else if (!this.full()) this.setMarks(t, (list) => [...list, { value: v, seed: newSeed() }]);
     if (box) box.checked = v === null ? !this.picked().length : this.picked().some((p) => p.value === v);
   }

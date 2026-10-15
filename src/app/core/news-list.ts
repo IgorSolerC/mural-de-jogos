@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-decoracoes-x',
+    version: '1.41.10',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'Manchas e decorações: o x no canto',
+    items: [
+      'No estojo da ficha, saiu a fileira de retângulos com as setas de sortear de novo e o x, em cima das manchas e das decorações escolhidas.',
+      'Tocar de novo numa que já está na ficha sorteia ela de outro jeito, sem desmarcar. Para tirar, um x aparece no canto de cima, à esquerda, de cada escolhida.',
+    ],
+  },
+  {
     id: '2026-10-15-widgets-adesivos',
     version: '1.41.9',
     kind: 'correcao',

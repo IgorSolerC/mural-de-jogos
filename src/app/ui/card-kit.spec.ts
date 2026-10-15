@@ -71,7 +71,11 @@ describe('CardKit: várias manchas e decorações', () => {
     for (const label of ['Sangue', 'Café', 'Lama respingada']) click(label);
     expect(host.stains().map((m) => m.stain)).toEqual(['sangue', 'cafe', 'lama']);
     expect(host.stains().every((m) => !!m.seed)).toBeTrue();
-    expect([...el.querySelectorAll('.na-ficha .marca-nome')].map((n) => n.textContent!.trim())).toEqual(['Sangue', 'Café', 'Lama respingada']);
+    // o número da ordem no canto de cada escolhida, e o x no outro canto (a fileira de antes saiu)
+    const order = (label: string) => box(label).closest('label')!.querySelector('.ordem')?.textContent?.trim();
+    expect(['Sangue', 'Café', 'Lama respingada'].map(order)).toEqual(['1', '2', '3']);
+    expect(el.querySelectorAll('.tirar').length).toBe(3);
+    expect(el.querySelector('.na-ficha')).toBeNull();
     expect(el.querySelector('legend')!.textContent).toContain('3 de 3');
     // a quarta espera: apagada, sem entrar
     expect(box('Nanquim').disabled).toBeTrue();
@@ -79,32 +83,35 @@ describe('CardKit: várias manchas e decorações', () => {
     expect(host.stains().length).toBe(3);
   });
 
-  it('desmarcar tira só aquela; as de cima descem na ordem', async () => {
+  it('tocar de novo numa escolhida sorteia de outro jeito, no mesmo lugar, sem desmarcar', async () => {
     await open('decoracao');
     for (const label of ['Neve', 'Selo', 'Clipe']) click(label);
+    const before = host.decors();
     click('Selo');
-    expect(host.decors().map((m) => m.decor)).toEqual(['neve', 'clipe']);
-    expect(box('Selo').checked).toBeFalse();
-    expect(box('Pena').disabled).toBeFalse();
+    expect(host.decors().map((m) => m.decor)).toEqual(['neve', 'selo', 'clipe']);
+    expect(host.decors()[1].seed).not.toBe(before[1].seed);
+    expect(host.decors()[0]).toEqual(before[0]);
+    expect(host.decors()[2]).toEqual(before[2]);
+    expect(box('Selo').checked).toBeTrue();
+    expect(box('Pena').disabled).toBeTrue();
   });
 
-  it('sortear de novo troca só o jeito, no mesmo lugar; o x tira; Nenhuma tira todas', async () => {
+  it('o x do canto tira só aquela (as de cima descem na ordem); Nenhuma tira todas', async () => {
     await open('mancha');
     click('Café');
     click('Mofada');
+    click('Sangue');
     const before = host.stains();
-    (el.querySelector('[aria-label="Sortear Café de outro jeito"]') as HTMLButtonElement).click();
-    fixture.detectChanges();
-    expect(host.stains().map((m) => m.stain)).toEqual(['cafe', 'mofado']);
-    expect(host.stains()[0].seed).not.toBe(before[0].seed);
-    expect(host.stains()[1]).toEqual(before[1]);
     (el.querySelector('[aria-label="Tirar Mofada"]') as HTMLButtonElement).click();
     fixture.detectChanges();
-    expect(host.stains().map((m) => m.stain)).toEqual(['cafe']);
+    expect(host.stains()).toEqual([before[0], before[2]]);
+    expect(box('Mofada').checked).toBeFalse();
+    expect(box('Sangue').closest('label')!.querySelector('.ordem')!.textContent!.trim()).toBe('2');
+    expect(el.querySelector('[aria-label="Tirar Mofada"]')).toBeNull();
     click('Nenhuma');
     expect(host.stains()).toEqual([]);
     expect(box('Nenhuma').checked).toBeTrue();
-    expect(el.querySelector('.na-ficha')).toBeNull();
+    expect(el.querySelector('.tirar')).toBeNull();
   });
 
   it('o estrago continua um só', async () => {
