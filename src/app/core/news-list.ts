@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-busca-musicas',
+    version: '1.41.7',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'A Busca diz de onde vêm as músicas',
+    items: ['Nos Ajustes, em Busca e capas, “De onde vem cada mural” passou a mostrar o mural de músicas: o catálogo do iTunes, com a capa e um trecho de cada faixa, sem precisar de chave. Os créditos do pé da página também falam dele.'],
+  },
+  {
     id: '2026-10-15-widgets-resenha-inteira',
     version: '1.41.6',
     kind: 'correcao',

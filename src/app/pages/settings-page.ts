@@ -11,6 +11,7 @@ import {
   Link as LinkIconData,
   Megaphone,
   CircleCheck,
+  Disc3,
   Download,
   Eye,
   EyeOff,
@@ -294,6 +295,7 @@ export class SettingsPage {
       { wall: 'Livros', icons: [BookOpen], name: 'Open Library', via: 'edição em português' },
       { wall: 'Filmes e séries', icons: [Film, Tv], name: films.name, via: films.name === 'TMDB' ? `em português${yours(films.own)}` : 'em inglês' },
       { wall: 'Animes', icons: [Origami], name: 'Kitsu', via: 'nome brasileiro quando tem' },
+      { wall: 'Músicas', icons: [Disc3], name: 'iTunes', via: 'capa e um trecho de cada faixa, sem chave' },
     ];
     return rows;
   });

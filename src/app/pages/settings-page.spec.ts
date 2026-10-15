@@ -167,6 +167,9 @@ describe('Ajustes (SettingsPage)', () => {
     const rows = [...el.querySelectorAll('.fontes > div')].map((r) => r.textContent?.replace(/\s+/g, ' ').trim());
     expect(rows[0]).toContain('Wikipedia');
     expect(rows[1]).toContain('Open Library');
+    // as músicas vêm do iTunes, que não pede chave
+    expect(rows.find((r) => r?.startsWith('Músicas'))).toContain('iTunes');
+    expect(el.querySelector('.creditos')?.textContent).toContain('iTunes');
     expect(el.querySelector<HTMLDetailsElement>('details.chaves')?.open).toBeTrue();
     expect(el.querySelector('#tmdb-key')).not.toBeNull();
     expect(el.querySelector('#rawg-key')).not.toBeNull();
