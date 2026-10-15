@@ -4,7 +4,7 @@
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
 import { MORE_MOTIFS, Motif, MotifDrawing } from './pattern-motifs';
-import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, clamp, cont, f1, hash, isStrip, poly, rng, svgUrl, textureOf } from './paper';
+import { AgedPaper, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, StainMark, clamp, cont, f1, hash, isAgedPaper, isStrip, poly, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -276,9 +276,11 @@ export interface ArtInput {
   damage?: Damage;
   /** O sorteio do estrago (Review.damageSeed); sem ele, o estrago sai só do id. */
   seed?: number;
-  /** A mancha por cima do papel (café, água, sangue, mofo, pegadas, traças), com o sorteio dela. */
-  stain?: Stain;
-  stainSeed?: number;
+  /** O papel marcado pelo tempo (desbotado, carregando), com o sorteio dele (Review.paperSeed). */
+  paper?: Paper;
+  paperSeed?: number;
+  /** As manchas por cima do papel (café, água, sangue, mofo, pegadas, traças), na ordem do desenho. */
+  stains?: readonly StainMark[];
   /** O sorteio do rabisco (Review.scribbleSeed); sem ele, o rabisco sai só do id. */
   scribbleSeed?: number;
   /** A força do lápis do rabisco (um degrau de SCRIBBLE_INK); sem ela, o Normal. */
@@ -300,16 +302,21 @@ export function paperArt(input: ArtInput): PaperArt {
   // nas amostras miúdas o traço afina junto, senão o novelo vira borrão
   const sw = input.plain ? Math.max(0.3, k * 1.3) : Math.max(0.6, k);
   if (input.scribble) out.fundo += scribbleArt(input.scribble, W, H, k, sw, rng(hash(`${input.id}:rabisco:${input.scribble}${input.scribbleSeed ? `:${input.scribbleSeed}` : ''}`)), input.plain, SCRIBBLE_INK[input.scribbleInk ?? DEFAULT_SCRIBBLE_INK] ?? 1);
+  // o desbotado e o carregando sorteiam do mesmo jeito que quando eram estragos (e vinham aqui, depois
+  // do rabisco): a ficha de antes sai igualzinha
+  if (isAgedPaper(input.paper)) damageArt(input.paper, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.paper}${input.paperSeed ? `:${input.paperSeed}` : ''}`)), input.uid, out);
   if (input.damage) damageArt(input.damage, W, H, k, sw, rng(hash(`${input.id}:estrago:${input.damage}${input.seed ? `:${input.seed}` : ''}`)), input.uid, out);
-  // a mancha sorteia do mesmo jeito que quando era um estrago: a ficha de antes sai igualzinha
-  if (input.stain) {
-    const key = `${input.id}:estrago:${input.stain}${input.stainSeed ? `:${input.stainSeed}` : ''}`;
+  // as manchas sorteiam do mesmo jeito que quando eram um estrago: a ficha de antes sai igualzinha.
+  // Uma por cima da outra, na ordem; da segunda em diante os ids do SVG ganham outro nome
+  (input.stains ?? []).forEach(({ stain, seed }, i) => {
+    const key = `${input.id}:estrago:${stain}${seed ? `:${seed}` : ''}`;
     const random = rng(hash(key));
+    const uid = i ? `${input.uid}m${i}` : input.uid;
     // Sorteio separado: a opção de uma bolsa preserva o formato da poça grande aprovada.
-    const composition = input.stain === 'sangue' ? rng(hash(`${key}:composicao`)) : null;
+    const composition = stain === 'sangue' ? rng(hash(`${key}:composicao`)) : null;
     if (composition && composition() < 0.5) out.clareia += smallBloodPoolsArt(W, H, composition() < 0.5 ? 2 : 3, random);
-    else damageArt(input.stain, W, H, k, sw, random, input.uid, out);
-  }
+    else damageArt(stain, W, H, k, sw, random, uid, out);
+  });
   return out;
 }
 
@@ -1829,7 +1836,7 @@ function sweep(a: Pt, b: Pt, r: () => number, bend: number, wave: number, n = 12
 
 type Corner = 'tl' | 'tr' | 'br' | 'bl';
 
-function damageArt(d: Damage | Stain, W: number, H: number, k: number, sw: number, r: () => number, uid: string, out: PaperArt): void {
+function damageArt(d: Damage | Stain | AgedPaper, W: number, H: number, k: number, sw: number, r: () => number, uid: string, out: PaperArt): void {
   const corners: Corner[] = ['br', 'tr', 'bl', 'tl'];
   const corner = corners[Math.floor(r() * 4)];
   /** Um ponto no canto: (u, v) medidos para dentro, a partir da quina. */

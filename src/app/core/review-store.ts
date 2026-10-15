@@ -1,6 +1,8 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS } from './kinds';
 import { backupLists, gzip } from './backup-file';
+import { BUILD } from './build';
+import { buildOf } from './migrations';
 import { DataKey, LocalData } from './local-data';
 import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, isCatalogBonus, isMusicReview, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
 
@@ -38,6 +40,8 @@ export interface Deleted {
 export interface BackupPayload {
   app: 'meu-mural';
   version: 2;
+  /** A build do site que gravou (ver core/build.ts); os backups de antes da 301 não têm. */
+  build: number;
   exportedAt: string;
   owner?: { name: string };
   reviews: Review[];
@@ -384,6 +388,7 @@ export class ReviewStore {
     return {
       app: 'meu-mural',
       version: 2,
+      build: BUILD,
       exportedAt: new Date().toISOString(),
       ...(name ? { owner: { name } } : {}),
       reviews: shelves.reviews,
@@ -417,8 +422,10 @@ export class ReviewStore {
     const incomingWishes = (rawWishes ?? []).map(sanitizeWish).filter((w): w is Wish => w !== null);
     const incoming: Review[] = [];
     let skipped = 0;
+    // as fichas convertidas do formato da build que gravou o backup (ver core/migrations.ts)
+    const from = buildOf(object);
     for (const raw of [...rawList, ...(rawNotes ?? []), ...(rawMusic ?? [])]) {
-      const r = sanitizeReview(raw);
+      const r = sanitizeReview(raw, from);
       if (r) incoming.push(r);
       else skipped++;
     }
@@ -609,7 +616,8 @@ export class ReviewStore {
         this.keepCorrupt(key, raw);
         return [];
       }
-      const out = parsed.map(sanitize).filter((x): x is T => x !== null);
+      // uma de cada vez: o map passaria o índice como segundo argumento (a build, no sanitizeReview)
+      const out = parsed.map((x) => sanitize(x)).filter((x): x is T => x !== null);
       if (out.length !== parsed.length) this.keepCorrupt(key, raw);
       return out;
     } catch {

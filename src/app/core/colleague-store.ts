@@ -206,7 +206,7 @@ export class ColleagueStore {
           )
           .map((c) => ({
             ...c,
-            reviews: c.reviews.map(sanitizeReview).filter((r) => r !== null),
+            reviews: c.reviews.map((r) => sanitizeReview(r)).filter((r) => r !== null),
             profile: sanitizeProfile(c.profile),
           }))
           .sort((a, b) => b.loadedAt.localeCompare(a.loadedAt)),

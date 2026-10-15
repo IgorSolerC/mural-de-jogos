@@ -13,8 +13,8 @@ import {
   untracked,
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { Damage, Decor, Scribble, Stain } from '../core/paper';
-import { decorArt } from '../core/decor-art';
+import { Damage, DecorMark, Paper, Scribble, StainMark, isAgedPaper } from '../core/paper';
+import { DecorArt, decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
 import { budget, perFrame, rest, spend, struggling, tick } from './pace';
 import { dropMask, holdMask, maskClass } from './mask-rules';
@@ -307,12 +307,14 @@ export class PaperArtLayer {
   readonly damage = input<Damage | undefined>(undefined);
   /** O sorteio do estrago (Review.damageSeed). */
   readonly seed = input<number | null | undefined>(undefined);
-  /** A mancha por cima do papel (Review.stain) e o sorteio dela. */
-  readonly stain = input<Stain | undefined>(undefined);
-  readonly stainSeed = input<number | null | undefined>(undefined);
-  /** A decoração por cima de tudo (Review.decor) e o sorteio dela. */
-  readonly decor = input<Decor | undefined>(undefined);
-  readonly decorSeed = input<number | null | undefined>(undefined);
+  /** O papel (Review.paper): só o marcado pelo tempo (desbotado, carregando) é desenhado aqui. */
+  readonly paper = input<Paper | undefined>(undefined);
+  /** O sorteio dele (Review.paperSeed). */
+  readonly paperSeed = input<number | null | undefined>(undefined);
+  /** As manchas por cima do papel (Review.stains), com os sorteios, na ordem do desenho. */
+  readonly stains = input<readonly StainMark[] | undefined>(undefined);
+  /** As decorações por cima de tudo (Review.decors), com os sorteios, na ordem do desenho. */
+  readonly decors = input<readonly DecorMark[] | undefined>(undefined);
   /** O sorteio do rabisco (Review.scribbleSeed). */
   readonly scribbleSeed = input<number | null | undefined>(undefined);
   /** A força do lápis do rabisco (Review.scribbleInk). */
@@ -348,8 +350,10 @@ export class PaperArtLayer {
    * O desenho continua com a ficha longe da tela: voltar a ela não desenha de novo.
    */
   private readonly size = signal<Size | null>(null);
-  /** Tem algo desenhado no papel (rabisco, estrago, mancha, decoração): mudar de tamanho custa. */
-  readonly needsArt = computed(() => !!(this.scribble() || this.damage() || this.stain() || this.decor()));
+  /** O papel marcado pelo tempo, que tem desenho; os outros são só textura. */
+  private readonly aged = computed(() => (isAgedPaper(this.paper()) ? this.paper() : undefined));
+  /** Tem algo desenhado no papel (rabisco, papel marcado, estrago, mancha, decoração): mudar de tamanho custa. */
+  readonly needsArt = computed(() => !!(this.scribble() || this.aged() || this.damage() || this.stains()?.length || this.decors()?.length));
   /** A ficha (o elemento em volta do papel), conhecida depois da primeira renderização. */
   card: HTMLElement | null = null;
   /**
@@ -363,18 +367,26 @@ export class PaperArtLayer {
    */
   waking = false;
 
-  /** A decoração, desenhada à parte: os furos dela entram no recorte do papel. */
-  private readonly decorDrawing = computed(() => {
+  /**
+   * As decorações, desenhadas à parte, uma por cima da outra na ordem em que foram escolhidas: os
+   * furos delas entram no recorte do papel. Da segunda em diante, os ids do SVG ganham outro nome.
+   */
+  private readonly decorDrawing = computed<DecorArt | null>(() => {
     const s = this.size(),
-      d = this.decor();
-    return s && d ? this.memo('decor', decorArt, { id: this.id(), W: s.W, H: s.H, decor: d, seed: this.decorSeed() ?? undefined, uid: this.uid }) : null;
+      list = this.decors() ?? [];
+    if (!s || !list.length) return null;
+    const drawn = list.map(({ decor, seed }, i) => this.memo('decor', decorArt, { id: this.id(), W: s.W, H: s.H, decor, seed, uid: i ? `${this.uid}e${i}` : this.uid }));
+    if (drawn.length === 1) return drawn[0];
+    const under = drawn.map((d) => d.under ?? '').join('');
+    return { cut: drawn.flatMap((d) => d.cut), front: drawn.map((d) => d.front).join(''), ...(under ? { under } : {}) };
   });
 
   protected readonly art = computed<Art | null>(() => {
     const s = this.size();
     const holes = this.decorDrawing()?.cut ?? [];
-    if (!s || (!this.scribble() && !this.damage() && !this.stain() && !holes.length)) return null;
-    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stain: this.stain(), stainSeed: this.stainSeed() ?? undefined, uid: this.uid, plain: this.plain() });
+    const stains = this.stains() ?? [];
+    if (!s || (!this.scribble() && !this.aged() && !this.damage() && !stains.length && !holes.length)) return null;
+    const art = this.memo('papel', paperArt, { id: this.id(), W: s.W, H: s.H, scribble: this.scribble(), scribbleSeed: this.scribbleSeed() ?? undefined, scribbleInk: this.scribbleInk() ?? undefined, paper: this.aged(), paperSeed: this.paperSeed() ?? undefined, damage: this.damage(), seed: this.seed() ?? undefined, stains, uid: this.uid, plain: this.plain() });
     return holes.length ? { ...art, cut: [...art.cut, ...holes] } : art;
   });
 

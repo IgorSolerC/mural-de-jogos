@@ -9,7 +9,9 @@ import {
   DEFAULT_PATTERN_INK,
   Damage,
   Decor,
+  DecorMark,
   LOOK_KEYS,
+  MAX_MARKS,
   LOOK_LABEL,
   LOOK_STEP_LABEL,
   LookKey,
@@ -30,6 +32,8 @@ import {
   STAIN_LABEL,
   Scribble,
   Stain,
+  StainMark,
+  isAgedPaper,
   newSeed,
 } from '../core/paper';
 import { DAMAGE_ICON, DECOR_ICON, SCRIBBLE_ICON, STAIN_ICON, kitIcon } from '../core/kit-icons';
@@ -51,9 +55,14 @@ interface Option {
   decor?: Decor;
 }
 
+/** As abas em que se escolhe mais de um: as manchas e as decorações não estragam a cartolina. */
+type MultiTab = 'mancha' | 'decoracao';
+const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao';
+
 /**
- * O estojo da ficha, na bancada do editor: a cor da cartolina, o papel, a estampa, o rabisco, o
- * estrago, a mancha e a decoração, um de cada. Abas de fichário em pé em réguas, como os filtros do
+ * O estojo da ficha, na bancada do editor: a cor da cartolina, o papel, a estampa, o rabisco e o
+ * estrago, um de cada, e até três manchas e três decorações, desenhadas na ordem em que foram
+ * escolhidas (a fileira "na ficha" mostra a ordem, sorteia de novo e tira). Abas de fichário em pé em réguas, como os filtros do
  * mural: sete numa fileira só, com um desenho em cima do nome, e um respiro entre o que é a cartolina
  * (cor, papel, estampa) e o que vem por cima dela (rabisco, estrago, mancha, decoração). Cada opção é
  * um retalho da ficha já com o efeito, na cor dela; a ficha ao lado muda na hora.
@@ -104,7 +113,26 @@ interface Option {
         </fieldset>
       } @else {
         <fieldset>
-          <legend class="giz">{{ tabLabel() }} <b>{{ chosen().label }}</b></legend>
+          <legend class="giz">
+            {{ tabLabel() }} <b>{{ multi() ? (picked().length ? picked().length + ' de ' + maxMarks : 'Nenhuma') : chosen().label }}</b>
+          </legend>
+          @if (multi() && picked().length) {
+            <!-- o que está na ficha, na ordem do desenho (a última por cima): sortear de novo ou tirar -->
+            <ol class="na-ficha" aria-label="Na ficha, na ordem do desenho">
+              @for (p of picked(); track p.value; let i = $index) {
+                <li class="marca">
+                  <span class="ordem" aria-hidden="true">{{ i + 1 }}</span>
+                  <span class="marca-nome">{{ p.label }}</span>
+                  <button type="button" class="marca-botao" [attr.aria-label]="'Sortear ' + p.label + ' de outro jeito'" title="Sortear de outro jeito" (click)="reroll(i)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.2 9.4A7.6 7.6 0 0 0 5.6 7.8M4.8 14.6a7.6 7.6 0 0 0 13.6 1.6" /><path d="M5.2 3.6v4.6h4.6M18.8 20.4v-4.6h-4.6" /></svg>
+                  </button>
+                  <button type="button" class="marca-botao" [attr.aria-label]="'Tirar ' + p.label" title="Tirar" (click)="unpick(i)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></svg>
+                  </button>
+                </li>
+              }
+            </ol>
+          }
           <!-- os ajustes da estampa, logo à vista; na Lisa ficam apagados, para a grade não pular ao escolher -->
           @if (tab() === 'estampa') {
             <div class="ajustes" [class.apagados]="!pattern()">
@@ -161,12 +189,27 @@ interface Option {
             <!-- são muitas: um desenho só de cada, sem o retalho de cartolina, para caberem à vista e se
                  lerem de longe; a ficha ao lado mostra como fica -->
             <ng-template #carimbo let-o>
-              <label class="carimbo" [class.on]="o.value === value()">
-                <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+              @let n = orderOf(o);
+              <label class="carimbo" [class.on]="isOn(o)" [class.cheia]="multi() && o.value !== null && !n && full()">
+                @if (multi()) {
+                  <!-- Mancha e Decoração: várias, até três; com três, as outras esperam uma sair -->
+                  <input
+                    type="checkbox"
+                    [checked]="isOn(o)"
+                    [disabled]="o.value !== null && !n && full()"
+                    (change)="toggle(o.value, $any($event.target))"
+                    [attr.aria-label]="o.label"
+                  />
+                } @else {
+                  <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+                }
                 @if (iconOf(o); as icon) {
                   <span class="icone" [innerHTML]="icon"></span>
                 } @else {
                   <span class="icone lisa"></span>
+                }
+                @if (n) {
+                  <span class="ordem" aria-hidden="true">{{ n }}</span>
                 }
                 <span class="nome">{{ o.label }}</span>
               </label>
@@ -236,13 +279,11 @@ interface Option {
                     [scribble]="o.scribble"
                     [scribbleSeed]="o.scribble && o.value === value() ? scribbleSeed() : null"
                     [scribbleInk]="scribbleInk()"
+                    [paper]="o.paper"
+                    [paperSeed]="o.paper && o.value === value() ? paperSeed() : null"
                     [damage]="o.damage"
                     [seed]="o.damage && o.value === value() ? damageSeed() : null"
-                    [stain]="o.stain"
-                    [stainSeed]="o.stain && o.value === value() ? stainSeed() : null"
                     [dark]="isDark(stock())"
-                    [decor]="o.decor"
-                    [decorSeed]="o.decor && o.value === value() ? decorSeed() : null"
                     [plain]="true"
                   />
                   @if (o.value === null) {
@@ -384,7 +425,8 @@ interface Option {
         font-weight: 800;
       }
     }
-    input[type='radio'] {
+    input[type='radio'],
+    input[type='checkbox'] {
       position: absolute;
       opacity: 0;
       width: 1px;
@@ -581,6 +623,110 @@ interface Option {
     }
     .carimbo .nome {
       font-size: 0.64rem;
+    }
+    .carimbo {
+      position: relative;
+    }
+    /* com três na ficha, as outras esperam: apagadas, sem subir no hover */
+    .carimbo.cheia {
+      opacity: 0.38;
+      cursor: not-allowed;
+
+      &:hover {
+        color: var(--wall-ink-2);
+      }
+      &:hover .icone {
+        translate: none;
+      }
+    }
+
+    /* ===== Mancha e Decoração: a ordem do desenho, um selinho amarelo numerado ===== */
+    .ordem {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--hi);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.68rem;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+    }
+    /* no carimbo, colado no canto de cima do desenho */
+    .carimbo .ordem {
+      position: absolute;
+      top: 1px;
+      left: calc(50% + 12px);
+      animation: pino 420ms var(--ease-physical);
+    }
+    /* a fileira do que está na ficha, na ordem: a mesma régua escura dos assuntos das estampas */
+    .na-ficha {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 0 0 14px;
+      padding: 0;
+      list-style: none;
+    }
+    .marca {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      min-width: 0;
+      padding: 3px 3px 3px 6px;
+      border-radius: 4px;
+      background: rgb(16 14 13 / 0.94);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.06),
+        0 6px 10px -6px rgb(0 0 0 / 0.8);
+    }
+    .marca-nome {
+      margin: 0 4px 0 6px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: var(--wall-ink);
+    }
+    .marca-botao {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 3px;
+      background: none;
+      color: var(--wall-ink-2);
+      cursor: pointer;
+      transition:
+        color var(--t-ui) var(--ease-ui),
+        background-color var(--t-ui) var(--ease-ui);
+
+      &:hover {
+        color: var(--wall-ink);
+        background: rgb(255 255 255 / 0.07);
+      }
+      &:focus-visible {
+        outline: 3px solid var(--hi);
+        outline-offset: 1px;
+      }
+      svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
     }
     .carimbo.on .nome {
       color: var(--wall-ink);
@@ -801,17 +947,17 @@ export class CardKit {
   readonly pinColor = input.required<string>();
   readonly stock = model.required<Stock>();
   readonly paper = model.required<Paper>();
+  /** O sorteio do papel marcado pelo tempo (desbotado, carregando): cada clique nele desbota de outro jeito. */
+  readonly paperSeed = model.required<number | null>();
   readonly pattern = model.required<Pattern | null>();
   readonly scribble = model.required<Scribble | null>();
   readonly damage = model.required<Damage | null>();
   /** O sorteio do estrago: cada clique num estrago, mesmo no que já está, rasga de outro jeito. */
   readonly damageSeed = model.required<number | null>();
-  /** A mancha por cima do papel, e o sorteio dela (como o do estrago). */
-  readonly stain = model.required<Stain | null>();
-  readonly stainSeed = model.required<number | null>();
-  /** A decoração por cima de tudo, e o sorteio dela (como o do estrago). */
-  readonly decor = model.required<Decor | null>();
-  readonly decorSeed = model.required<number | null>();
+  /** As manchas por cima do papel, até três, na ordem em que foram escolhidas, cada uma com o seu sorteio. */
+  readonly stains = model.required<StainMark[]>();
+  /** As decorações por cima de tudo, como as manchas. */
+  readonly decors = model.required<DecorMark[]>();
   /** O sorteio do rabisco, como o do estrago: cada clique rabisca de outro jeito. */
   readonly scribbleSeed = model.required<number | null>();
   /** A força do lápis do rabisco, um degrau de SCRIBBLE_INK. */
@@ -882,15 +1028,35 @@ export class CardKit {
         return this.scribble();
       case 'estrago':
         return this.damage();
-      case 'mancha':
-        return this.stain();
-      case 'decoracao':
-        return this.decor();
       default:
         return null;
     }
   });
   protected readonly chosen = computed(() => this.options().find((o) => o.value === this.value()) ?? this.options()[0] ?? { label: '' });
+
+  /** A aba aberta é de escolher várias (Mancha, Decoração). */
+  protected readonly multi = computed(() => isMultiTab(this.tab()));
+  /** O que está escolhido na aba de várias, na ordem do desenho. */
+  protected readonly picked = computed<{ value: string; label: string }[]>(() => {
+    const t = this.tab();
+    if (t === 'mancha') return this.stains().map((m) => ({ value: m.stain, label: STAIN_LABEL[m.stain] }));
+    if (t === 'decoracao') return this.decors().map((m) => ({ value: m.decor, label: DECOR_LABEL[m.decor] }));
+    return [];
+  });
+  /** Já tem as três: as outras ficam apagadas até uma sair. */
+  protected readonly full = computed(() => this.picked().length >= MAX_MARKS);
+  protected readonly maxMarks = MAX_MARKS;
+
+  /** A posição da opção no desenho (1, 2, 3), ou 0 se ela não está na ficha. */
+  protected orderOf(o: Option): number {
+    return o.value === null ? 0 : this.picked().findIndex((p) => p.value === o.value) + 1;
+  }
+
+  /** A opção está marcada: a escolhida, ou "Nenhuma" com a lista vazia. */
+  protected isOn(o: Option): boolean {
+    if (!this.multi()) return o.value === this.value();
+    return o.value === null ? !this.picked().length : this.orderOf(o) > 0;
+  }
 
   /** Reset ao abrir outra ficha: a primeira aba de novo. */
   reset(): void {
@@ -976,7 +1142,7 @@ export class CardKit {
 
   /** A aba mostra um pontinho quando a ficha tem algo escolhido ali. */
   protected used(t: Tab): boolean {
-    return t === 'papel' ? this.paper() !== 'cartolina' : t === 'estampa' ? !!this.pattern() : t === 'rabisco' ? !!this.scribble() : t === 'estrago' ? !!this.damage() : t === 'mancha' ? !!this.stain() : t === 'decoracao' ? !!this.decor() : false;
+    return t === 'papel' ? this.paper() !== 'cartolina' : t === 'estampa' ? !!this.pattern() : t === 'rabisco' ? !!this.scribble() : t === 'estrago' ? !!this.damage() : t === 'mancha' ? this.stains().length > 0 : t === 'decoracao' ? this.decors().length > 0 : false;
   }
 
   /** O retalho mostra só o que a opção muda, sobre o que a ficha já tem nas outras abas. */
@@ -989,9 +1155,13 @@ export class CardKit {
 
   protected choose(v: string | null): void {
     switch (this.tab()) {
-      case 'papel':
-        this.paper.set((v ?? 'cartolina') as Paper);
+      case 'papel': {
+        const paper = (v ?? 'cartolina') as Paper;
+        this.paper.set(paper);
+        // o desbotado e o carregando sorteiam como o estrago: cada clique, mesmo no escolhido, de outro jeito
+        this.paperSeed.set(isAgedPaper(paper) ? newSeed(this.paperSeed()) : null);
         break;
+      }
       case 'estampa':
         this.pattern.set(v as Pattern | null);
         this.patternSeed.set(v ? newSeed(this.patternSeed()) : null);
@@ -1004,15 +1174,40 @@ export class CardKit {
         this.damage.set(v as Damage | null);
         this.damageSeed.set(v ? newSeed(this.damageSeed()) : null);
         break;
-      case 'mancha':
-        this.stain.set(v as Stain | null);
-        this.stainSeed.set(v ? newSeed(this.stainSeed()) : null);
-        break;
-      case 'decoracao':
-        this.decor.set(v as Decor | null);
-        this.decorSeed.set(v ? newSeed(this.decorSeed()) : null);
-        break;
     }
+  }
+
+  /**
+   * Marca ou desmarca uma mancha (ou decoração): a nova entra por último, por cima das outras, com um
+   * sorteio novo; "Nenhuma" tira todas. A caixinha fica como a ficha ficou (com três, a quarta não
+   * entra).
+   */
+  protected toggle(v: string | null, box?: HTMLInputElement): void {
+    const t = this.tab();
+    if (!isMultiTab(t)) return;
+    const has = v !== null && this.picked().some((p) => p.value === v);
+    if (v === null) this.setMarks(t, () => []);
+    else if (has) this.setMarks(t, (list) => list.filter((_, i) => this.picked()[i].value !== v));
+    else if (!this.full()) this.setMarks(t, (list) => [...list, { value: v, seed: newSeed() }]);
+    if (box) box.checked = v === null ? !this.picked().length : this.picked().some((p) => p.value === v);
+  }
+
+  /** Outro jeito para a marca na posição `i`: a mesma mancha, no mesmo lugar da ordem, sorteada de novo. */
+  protected reroll(i: number): void {
+    const t = this.tab();
+    if (isMultiTab(t)) this.setMarks(t, (list) => list.map((m, j) => (j === i ? { ...m, seed: newSeed(m.seed) } : m)));
+  }
+
+  /** Tira a marca na posição `i`; as de cima descem uma casa na ordem. */
+  protected unpick(i: number): void {
+    const t = this.tab();
+    if (isMultiTab(t)) this.setMarks(t, (list) => list.filter((_, j) => j !== i));
+  }
+
+  /** Muda a lista da aba sem saber se é de manchas ou de decorações. */
+  private setMarks(t: MultiTab, change: (list: { value: string; seed?: number }[]) => { value: string; seed?: number }[]): void {
+    if (t === 'mancha') this.stains.set(change(this.stains().map((m) => ({ value: m.stain, seed: m.seed }))).map(({ value, seed }) => ({ stain: value as Stain, ...(seed ? { seed } : {}) })));
+    else this.decors.set(change(this.decors().map((m) => ({ value: m.decor, seed: m.seed }))).map(({ value, seed }) => ({ decor: value as Decor, ...(seed ? { seed } : {}) })));
   }
 
   protected setLook(k: LookKey, step: number): void {

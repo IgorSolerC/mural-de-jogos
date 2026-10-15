@@ -1,3 +1,4 @@
+import { BUILD } from './build';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { sanitizeReview } from './review';
@@ -113,6 +114,16 @@ describe('ReviewStore', () => {
       expect(res.removed).toBe(1);
       expect(store.get('raaaa1')).toBeUndefined();
       expect(store.get('rbbbb1')).toBeDefined();
+    });
+
+    it('o backup leva a build do site; o importado de antes dela converte as fichas', async () => {
+      store.importJson(JSON.stringify({ reviews: [{ ...review('rssss1', 'S', old), damage: 'desbotado', damageSeed: 31, paper: 'linho', stain: 'cafe', decor: 'neve' }] }), 'replace');
+      const r = store.get('rssss1')!;
+      expect([r.paper, r.paperSeed, r.damage, r.stains, r.decors]).toEqual(['desbotado', 31, undefined, [{ stain: 'cafe' }], [{ decor: 'neve' }]]);
+      const { blob } = await store.exportBackup();
+      const data = JSON.parse(await readBackupFile(blob));
+      expect(data.build).toBe(BUILD);
+      expect(data.version).toBe(2);
     });
 
     it('desfazer tira a marca de apagada', async () => {

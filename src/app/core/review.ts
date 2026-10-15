@@ -1,7 +1,9 @@
 import { KIND_PROFILES, Kind, isKind, isMusic, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
 import { cleanCategory, sanitizeTags } from './note-labels';
-import { Damage, Decor, Paper, Pattern, Scribble, Stain, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStain } from './paper';
+import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
+import { BUILD } from './build';
+import { migrateReview } from './migrations';
 
 export type { Kind } from './kinds';
 
@@ -264,8 +266,13 @@ export interface Review {
   hoursPlayed: number | null;
   /** Cor da cartolina, escolhida uma vez quando a ficha é criada. */
   stock?: Stock;
-  /** O papel da cartolina (canson, linho, glitter…); sem o campo, a cartolina de sempre. */
+  /** O papel da cartolina (canson, linho, glitter, desbotado…); sem o campo, a cartolina de sempre. */
   paper?: Paper;
+  /**
+   * O sorteio do papel marcado pelo tempo (desbotado, carregando), como o do estrago: cada clique
+   * desbota de outro jeito. Nas fichas que tinham esses dois como estrago, é o sorteio de lá.
+   */
+  paperSeed?: number;
   /** A estampa de papelaria impressa na cartolina (gatinhos, caveiras…); sem o campo, lisa. */
   pattern?: Pattern;
   /** Os ajustes da estampa (PatternLook), um degrau de 0 a 4 cada; sem o campo, o de sempre. */
@@ -286,14 +293,13 @@ export interface Review {
   damage?: Damage;
   /** O sorteio do estrago que a pessoa escolheu (cada clique rasga de outro jeito); sem ele, o jeito sai do id. */
   damageSeed?: number;
-  /** A mancha por cima do papel (café, água, sangue, mofo, pegadas): vai junto com o estrago. */
-  stain?: Stain;
-  /** O sorteio da mancha, como o do estrago. */
-  stainSeed?: number;
-  /** A decoração posta por cima de tudo (purpurina, adesivos, argolas…). */
-  decor?: Decor;
-  /** O sorteio da decoração, como o do estrago. */
-  decorSeed?: number;
+  /**
+   * As manchas por cima do papel (café, água, sangue, mofo, pegadas), até três, cada uma com o seu
+   * sorteio, na ordem em que foram escolhidas (a última fica por cima). Vão junto com o estrago.
+   */
+  stains?: StainMark[];
+  /** As decorações postas por cima de tudo (purpurina, adesivos, argolas…), até três, como as manchas. */
+  decors?: DecorMark[];
   text: string;
   /**
    * Dia em que foi concluído (ou visto pela última vez), 'AAAA-MM-DD', ou apenas 'AAAA'.
@@ -963,20 +969,6 @@ export function sanitizeOverride(raw: unknown): number | undefined {
   return Math.round(Math.min(11, Math.max(0, raw)) * 10) / 10;
 }
 
-/**
- * A mancha e o sorteio dela. As fichas (e backups) de antes guardavam a mancha no lugar do estrago:
- * ela muda de campo com o mesmo sorteio, e sai igualzinha.
- */
-function stainFields(r: Record<string, any>): Pick<Review, 'stain' | 'stainSeed'> {
-  const own = sanitizeStain(r['stain']);
-  const legacy = own ? undefined : sanitizeStain(r['damage']);
-  const stain = own ?? legacy;
-  return {
-    ...optional('stain', stain),
-    ...optional('stainSeed', stain ? sanitizeSeed(own ? r['stainSeed'] : r['damageSeed']) : undefined),
-  };
-}
-
 /** Um campo que só vai para a resenha quando tem valor: as antigas continuam iguais, sem chave vazia. */
 function optional<K extends string, V>(key: K, v: V | undefined): Partial<Record<K, V>> {
   return v === undefined ? {} : ({ [key]: v } as Record<K, V>);
@@ -1021,10 +1013,13 @@ export function sanitizeWish(raw: unknown): Wish | null {
   return rel === 'must' || rel === 'later' ? { ...wish, relevance: rel } : wish;
 }
 
-/** Aceita dados vindos do localStorage ou de um backup e devolve uma resenha válida (ou null). */
-export function sanitizeReview(raw: unknown): Review | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const r = raw as Record<string, any>;
+/**
+ * Aceita dados vindos do localStorage ou de um backup e devolve uma resenha válida (ou null). `from` é
+ * a build que gravou os dados (ver core/migrations.ts); sem ela, passam todas as conversões.
+ */
+export function sanitizeReview(raw: unknown, from = 0): Review | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const r = migrateReview(raw as Record<string, unknown>, from) as Record<string, any>;
   const game = sanitizeGame(r['game']);
   if (!game) return null;
   const kind = sanitizeKind(r['kind']);
@@ -1076,6 +1071,7 @@ export function sanitizeReview(raw: unknown): Review | null {
       : null,
     stock: STOCKS.includes(r['stock']) ? r['stock'] : undefined,
     ...optional('paper', sanitizePaper(r['paper'])),
+    ...optional('paperSeed', isAgedPaper(sanitizePaper(r['paper'])) ? sanitizeSeed(r['paperSeed']) : undefined),
     ...optional('pattern', sanitizePattern(r['pattern'])),
     ...optional('patternSpacing', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternSpacing'], 'spacing') : undefined),
     ...optional('patternSize', sanitizePattern(r['pattern']) ? sanitizeLookStep(r['patternSize'], 'size') : undefined),
@@ -1087,9 +1083,8 @@ export function sanitizeReview(raw: unknown): Review | null {
     ...optional('scribbleInk', sanitizeScribble(r['scribble']) ? sanitizeScribbleInk(r['scribbleInk']) : undefined),
     ...optional('damage', sanitizeDamage(r['damage'])),
     ...optional('damageSeed', sanitizeDamage(r['damage']) ? sanitizeSeed(r['damageSeed']) : undefined),
-    ...stainFields(r),
-    ...optional('decor', sanitizeDecor(r['decor'])),
-    ...optional('decorSeed', sanitizeDecor(r['decor']) ? sanitizeSeed(r['decorSeed']) : undefined),
+    ...optional('stains', sanitizeStains(r['stains'])),
+    ...optional('decors', sanitizeDecors(r['decors'])),
     text: str(r['text']),
     completedAt:
       r['completedAt'] === null
@@ -1130,7 +1125,8 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
         ).map((b) => b.label);
   const category = cleanCategory(typeof r['category'] === 'string' ? r['category'] : (legacy[0] ?? ''));
   const tags = sanitizeTags('tags' in r ? r['tags'] : legacy.slice(1));
-  const base = sanitizeReview({ ...r, kind: 'jogos', bonuses: [], scores: { final: 0 }, revisitOf: undefined, artFrom: undefined, finalOverride: undefined })!;
+  // `r` já passou pelas conversões em sanitizeReview
+  const base = sanitizeReview({ ...r, kind: 'jogos', bonuses: [], scores: { final: 0 }, revisitOf: undefined, artFrom: undefined, finalOverride: undefined }, BUILD)!;
   const {
     finalOverride: _o,
     revisitOf: _r,

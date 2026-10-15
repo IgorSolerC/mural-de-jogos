@@ -1,5 +1,6 @@
 import { CategoryLooks, sanitizeCategoryLooks } from './category-looks';
 import { Profile, sanitizeProfile } from './profile';
+import { buildOf } from './migrations';
 import { Review, sanitizeReview } from './review';
 
 /** Limita também o conteúdo descompactado, antes de tentar interpretar o JSON. */
@@ -125,8 +126,9 @@ export function parseBackupSnapshot(text: string): BackupSnapshot {
     | undefined;
   const reviews = new Map<string, Review>();
   let skipped = 0;
+  const from = buildOf(object);
   for (const raw of list) {
-    const r = sanitizeReview(raw);
+    const r = sanitizeReview(raw, from);
     if (!r) {
       skipped++;
       continue;

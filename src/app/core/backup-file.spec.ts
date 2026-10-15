@@ -156,7 +156,7 @@ describe('mural de fora com conteúdo malicioso', () => {
     expect(r.verdict).toBeNull();
     expect(r.difficulty).toBe('nenhuma');
     expect(r.stock).toBeUndefined();
-    for (const key of ['paper', 'pattern', 'scribble', 'stain', 'decor', 'damageSeed', 'revisitOf'] as const) {
+    for (const key of ['paper', 'paperSeed', 'pattern', 'scribble', 'stains', 'decors', 'damageSeed', 'revisitOf'] as const) {
       expect(r[key]).withContext(key).toBeUndefined();
     }
     expect(r.damage).toBe('queimado');

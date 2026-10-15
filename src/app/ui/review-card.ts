@@ -136,7 +136,7 @@ function watchDistance(el: HTMLElement): () => void {
          ui/veil.ts); a marca tracejada da vaga fica na própria ficha, por baixo -->
     <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
-    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
+    <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
     <app-pin class="pin" [color]="pin().pinColor" />
     <!-- a categoria da anotação: a orelha de divisória de papel manilha, colada atrás da cartolina e
          saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
@@ -1802,7 +1802,7 @@ export class ReviewCard {
   /** Cartolina escura: tinta, lápis e estampa claros. */
   protected readonly dark = computed(() => isDarkStock(this.pin().stock));
   protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark()));
-  protected readonly cut = computed(() => cutsPaper(this.review().damage) || cutsPaper(this.review().stain) || decorCuts(this.review().decor));
+  protected readonly cut = computed(() => cutsPaper(this.review().damage) || !!this.review().stains?.some((m) => cutsPaper(m.stain)) || !!this.review().decors?.some((m) => decorCuts(m.decor)));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() =>
     this.note() ? 'Título da anotação' : this.music() ? 'Álbum ou música' : `Nome ${g(this.profile(), 'do', 'da')} ${this.profile().singular}`,

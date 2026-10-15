@@ -18,7 +18,7 @@ import { PaperArtLayer } from './paper-layer';
   host: { 'aria-hidden': 'true' },
   template: `
     <div class="folha" [style]="vars()" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
-      <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [damage]="review().damage" [seed]="review().damageSeed" [stain]="review().stain" [stainSeed]="review().stainSeed" [decor]="review().decor" [decorSeed]="review().decorSeed" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
+      <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
       <!-- o título, como na ficha: queima junto com o papel (data-queima) e não precisa caber -->
       <p class="titulo" data-queima>{{ review().game.name }}</p>
     </div>

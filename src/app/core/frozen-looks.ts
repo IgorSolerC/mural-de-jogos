@@ -11,12 +11,16 @@
 import { clipHeight, placeFor, ransom, stickerFor, titleFor } from './clipping';
 import { pageFor, pageHeight } from './notebook';
 import { DEFAULT_LOOK, LOOK_KEYS, LOOK_STEPS, PatternLook, hash, textureOf } from './paper';
-import type { Damage, Decor, Paper, Pattern, Scribble, Stain } from './paper';
+import type { AgedPaper, Damage, Decor, Paper, Pattern, Scribble, Stain } from './paper';
 import { decorArt } from './decor-art';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
 import { snipFor, stripFor, tearFor } from './tear';
 
-export const FROZEN_PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter', 'aquarela', 'feltro', 'arroz', 'ondulado', 'metalizado', 'perolado'];
+export const FROZEN_PAPERS: readonly Paper[] = [
+  'cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter', 'aquarela', 'feltro', 'arroz', 'ondulado', 'metalizado', 'perolado',
+  // build 301, os que eram estragos (o desenho deles está nas digitais `damage:desbotado` e `damage:carregando`)
+  'desbotado', 'carregando',
+];
 export const FROZEN_PATTERNS: readonly Pattern[] = [
   'gatinhos', 'caveiras', 'foguinhos', 'coracoes', 'estrelas', 'fantasmas', 'cogumelos', 'flores', 'raios', 'planetas', 'controles', 'aranhas',
   // 2026-09-29, segunda leva
@@ -49,8 +53,14 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
   // 2026-10-02, o computador
   'glitch', 'corrompido', 'desintegrado',
   // 2026-10-03, a quarta leva
-  'partido', 'quebracabeca', 'cantos', 'desgrampeado', 'esfarelado', 'desbotado', 'laser', 'raio', 'acido', 'carregando',
+  'partido', 'quebracabeca', 'cantos', 'desgrampeado', 'esfarelado', 'laser', 'raio', 'acido',
 ];
+/**
+ * Desbotada no sol e Carregou pela metade eram estragos até a build 301 e viraram papel. As digitais
+ * continuam com o nome de estrago (`damage:desbotado:…`), agora desenhadas como papel com o mesmo
+ * sorteio: é a prova de que nenhuma ficha convertida mudou.
+ */
+export const FROZEN_AGED_PAPERS: readonly AgedPaper[] = ['desbotado', 'carregando'];
 /** As manchas eram estragos até 2026-09-29: as digitais delas vieram de lá, iguais. */
 export const FROZEN_STAINS: readonly Stain[] = [
   'molhado', 'cafe', 'tracas', 'mofado', 'pisado', 'pegadas', 'sangue',
@@ -110,10 +120,14 @@ export function frozenPrints(): Record<string, string> {
     for (const id of IDS)
       for (const s of SIZES)
         for (const seed of SEEDS) out[`damage:${damage}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, damage, seed, uid: 'f' });
+  for (const paper of FROZEN_AGED_PAPERS)
+    for (const id of IDS)
+      for (const s of SIZES)
+        for (const seed of SEEDS) out[`damage:${paper}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, paper, paperSeed: seed, uid: 'f' });
   for (const stain of FROZEN_STAINS)
     for (const id of IDS)
       for (const s of SIZES)
-        for (const seed of SEEDS) out[`stain:${stain}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, stain, stainSeed: seed, uid: 'f' });
+        for (const seed of SEEDS) out[`stain:${stain}:${id}:${s.W}x${s.H}:${seed ?? '-'}`] = artPrint({ id, W: s.W, H: s.H, plain: s.plain, stains: [{ stain, seed }], uid: 'f' });
   for (const scribble of FROZEN_SCRIBBLES)
     for (const id of IDS)
       for (const s of SIZES)

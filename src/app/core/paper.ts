@@ -1,9 +1,11 @@
 /**
  * O papel da ficha, escolhido no editor: o papel da cartolina (textura), uma estampa de papelaria
  * (a cartolina temática: gatinhos, caveiras…), um rabisco que toma a ficha inteira, um estrago
- * (arrancada, dobrada, amassada, queimada…) e uma mancha (café, água, mofo, pegadas). Um de cada, no
- * máximo. Estampa e rabisco ficam atrás do que está escrito; o estrago é do papel, então leva junto o
- * que estiver escrito ali, mas não a foto nem os adesivos, que foram colados depois por cima.
+ * (arrancada, dobrada, amassada, queimada…), manchas (café, água, mofo, pegadas) e decorações. Um de
+ * cada, menos as manchas e as decorações, que não estragam a cartolina: até três de cada, desenhadas
+ * na ordem em que foram escolhidas. Estampa e rabisco ficam atrás do que está escrito; o estrago é do
+ * papel, então leva junto o que estiver escrito ali, mas não a foto nem os adesivos, que foram colados
+ * depois por cima.
  * Tudo é desenhado por id: a mesma ficha rasga sempre do mesmo jeito. Os desenhos estão em
  * `paper-art.ts`.
  */
@@ -23,10 +25,20 @@ export type Paper =
   | 'arroz'
   | 'ondulado'
   | 'metalizado'
-  | 'perolado';
+  | 'perolado'
+  | AgedPaper;
 
-/** Na ordem do estojo: dos lisos aos de relevo, os de fibra e, por último, os que brilham. */
-export const PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'aquarela', 'linho', 'feltro', 'verge', 'arroz', 'reciclado', 'ondulado', 'metalizado', 'perolado', 'glitter'];
+/**
+ * Os papéis que o tempo (ou o computador) já marcou: a cor desbotada no sol, a imagem que parou de
+ * carregar. Eram estragos até a build 301; viraram papel porque não rasgam nada, só mudam a cara da
+ * cartolina. O desenho é o mesmo de quando eram estragos, com o mesmo sorteio (`Review.paperSeed`).
+ */
+export type AgedPaper = 'desbotado' | 'carregando';
+export const AGED_PAPERS: readonly AgedPaper[] = ['desbotado', 'carregando'];
+export const isAgedPaper = (p: Paper | null | undefined): p is AgedPaper => p === 'desbotado' || p === 'carregando';
+
+/** Na ordem do estojo: dos lisos aos de relevo, os de fibra, os que brilham e, por último, os marcados pelo tempo. */
+export const PAPERS: readonly Paper[] = ['cartolina', 'lisa', 'canson', 'aquarela', 'linho', 'feltro', 'verge', 'arroz', 'reciclado', 'ondulado', 'metalizado', 'perolado', 'glitter', 'desbotado', 'carregando'];
 
 export const PAPER_LABEL: Record<Paper, string> = {
   cartolina: 'Cartolina',
@@ -42,6 +54,8 @@ export const PAPER_LABEL: Record<Paper, string> = {
   ondulado: 'Ondulado',
   metalizado: 'Metalizado',
   perolado: 'Perolado',
+  desbotado: 'Desbotada no sol',
+  carregando: 'Carregou pela metade',
 };
 
 // ===================== Estampa =====================
@@ -354,11 +368,9 @@ export type Damage =
   | 'cantos'
   | 'desgrampeado'
   | 'esfarelado'
-  | 'desbotado'
   | 'laser'
   | 'raio'
-  | 'acido'
-  | 'carregando';
+  | 'acido';
 
 /** A ordem dos retalhos no editor: os rasgos e remendos, as dobras e o tempo, os bichos, os furos e o fogo e, por último, o que é de computador. */
 export const DAMAGES: readonly Damage[] = [
@@ -376,7 +388,6 @@ export const DAMAGES: readonly Damage[] = [
   'dobrado',
   'amassado',
   'esfarelado',
-  'desbotado',
   'arranhado',
   'garras',
   'mordido',
@@ -389,7 +400,6 @@ export const DAMAGES: readonly Damage[] = [
   'acido',
   'descascado',
   'glitch',
-  'carregando',
   'corrompido',
   'desintegrado',
 ];
@@ -420,11 +430,9 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
   cantos: 'Cantos cortados',
   desgrampeado: 'Grampos arrancados',
   esfarelado: 'Esfarelando',
-  desbotado: 'Desbotada no sol',
   laser: 'Cortada a laser',
   raio: 'Raio',
   acido: 'Ácido',
-  carregando: 'Carregou pela metade',
 };
 
 // ===================== Mancha =====================
@@ -698,6 +706,46 @@ export function newSeed(prev?: number | null): number {
   while (s === prev);
   return s;
 }
+
+// ===================== Manchas e decorações, até três =====================
+
+/** Quantas manchas (e quantas decorações) cabem numa ficha. */
+export const MAX_MARKS = 3;
+
+/** Uma mancha escolhida, com o sorteio dela (sem ele, sai só do id). */
+export interface StainMark {
+  stain: Stain;
+  seed?: number;
+}
+
+/** Uma decoração escolhida, com o sorteio dela (sem ele, sai só do id). */
+export interface DecorMark {
+  decor: Decor;
+  seed?: number;
+}
+
+/**
+ * Uma lista de marcas guardada: só as que existem, sem repetir, até três, na ordem em que vieram (a
+ * ordem em que foram escolhidas, que é a ordem do desenho). Vazia, não vai para o armazenamento.
+ */
+function marks<K extends 'stain' | 'decor', T extends string>(key: K, valid: (raw: unknown) => T | undefined) {
+  return (raw: unknown): ({ [P in K]: T } & { seed?: number })[] | undefined => {
+    if (!Array.isArray(raw)) return undefined;
+    const out: ({ [P in K]: T } & { seed?: number })[] = [];
+    for (const item of raw) {
+      if (!item || typeof item !== 'object') continue;
+      const v = valid((item as Record<string, unknown>)[key]);
+      if (!v || out.some((m) => m[key] === v)) continue;
+      const seed = sanitizeSeed((item as Record<string, unknown>)['seed']);
+      out.push({ [key]: v, ...(seed ? { seed } : {}) } as { [P in K]: T } & { seed?: number });
+      if (out.length === MAX_MARKS) break;
+    }
+    return out.length ? out : undefined;
+  };
+}
+
+export const sanitizeStains: (raw: unknown) => StainMark[] | undefined = marks('stain', (v) => sanitizeStain(v));
+export const sanitizeDecors: (raw: unknown) => DecorMark[] | undefined = marks('decor', (v) => sanitizeDecor(v));
 
 // ===================== Texturas =====================
 

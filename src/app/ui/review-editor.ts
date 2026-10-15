@@ -65,7 +65,7 @@ import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
 import { linkKey, linkableTitle, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
-import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, Decor, Paper, Pattern, PatternLook, Scribble, Stain, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
@@ -180,7 +180,8 @@ export class ReviewEditor {
   private readonly labelsPicker = viewChild(NoteLabelsPicker);
   // pela marca no template, e não pela classe: os campos chegam por @defer, e citar a classe aqui os traria junto com o editor
   private readonly musicFields = viewChild<MusicFields>('campos');
-  private readonly kit = viewChild(CardKit);
+  // pela marca do template, não pela classe: citar a classe traria o estojo de volta ao bundle inicial
+  private readonly kit = viewChild<CardKit>('kit');
   private readonly writer = viewChild(RichEditor);
 
   protected readonly id = signal(newId());
@@ -399,6 +400,8 @@ export class ReviewEditor {
   protected readonly stock = signal<Stock>('amarelo');
   /** O papel da cartolina, a estampa, o rabisco e o estrago: a ficha nova nasce na cartolina de sempre, sem nada. */
   protected readonly paper = signal<Paper>('cartolina');
+  /** O jeito do papel marcado pelo tempo (desbotado, carregando) que a pessoa sorteou. */
+  protected readonly paperSeed = signal<number | null>(null);
   protected readonly pattern = signal<Pattern | null>(null);
   /** O espaço, o tamanho e o alinhamento dos desenhos da estampa. */
   protected readonly patternLook = signal<PatternLook>(DEFAULT_LOOK);
@@ -412,12 +415,10 @@ export class ReviewEditor {
   protected readonly damage = signal<Damage | null>(null);
   /** O jeito do estrago que a pessoa sorteou (um clique a mais no estrago, outro jeito). */
   protected readonly damageSeed = signal<number | null>(null);
-  /** A mancha por cima do papel, e o jeito dela que a pessoa sorteou. */
-  protected readonly stain = signal<Stain | null>(null);
-  protected readonly stainSeed = signal<number | null>(null);
-  /** A decoração por cima de tudo, e o jeito dela que a pessoa sorteou. */
-  protected readonly decor = signal<Decor | null>(null);
-  protected readonly decorSeed = signal<number | null>(null);
+  /** As manchas por cima do papel (até três, na ordem em que foram escolhidas), cada uma com o jeito sorteado. */
+  protected readonly stains = signal<StainMark[]>([]);
+  /** As decorações por cima de tudo, como as manchas. */
+  protected readonly decors = signal<DecorMark[]>([]);
   protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), isDarkStock(this.stock())));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
@@ -552,6 +553,7 @@ export class ReviewEditor {
       hoursPlayed: this.hoursValid() ? this.hoursValue() : null,
       stock: this.stock(),
       paper: this.paper(),
+      paperSeed: this.paperSeed() ?? undefined,
       pattern: this.pattern() ?? undefined,
       ...this.lookFields(),
       patternSeed: this.patternSeed() ?? undefined,
@@ -560,10 +562,8 @@ export class ReviewEditor {
       scribbleInk: this.scribbleInk(),
       damage: this.damage() ?? undefined,
       damageSeed: this.damageSeed() ?? undefined,
-      stain: this.stain() ?? undefined,
-      stainSeed: this.stainSeed() ?? undefined,
-      decor: this.decor() ?? undefined,
-      decorSeed: this.decorSeed() ?? undefined,
+      stains: this.stains().length ? this.stains() : undefined,
+      decors: this.decors().length ? this.decors() : undefined,
       text: this.text(),
       completedAt: this.dateValid() ? this.dateValue() : this.today(),
       ...(this.revisitRoot() ? { revisitOf: this.revisitRoot()! } : {}),
@@ -678,6 +678,7 @@ export class ReviewEditor {
     const look = review ?? (root ? (rootReview ?? revisitOf) : undefined);
     this.stock.set(look?.stock ?? this.store.nextStock(kind));
     this.paper.set(look?.paper ?? 'cartolina');
+    this.paperSeed.set(look?.paperSeed ?? null);
     this.pattern.set(look?.pattern ?? null);
     this.patternLook.set(lookOf(look ?? {}));
     this.patternSeed.set(look?.patternSeed ?? null);
@@ -686,10 +687,8 @@ export class ReviewEditor {
     this.scribbleInk.set(look?.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
     this.damage.set(look?.damage ?? null);
     this.damageSeed.set(look?.damageSeed ?? null);
-    this.stain.set(look?.stain ?? null);
-    this.stainSeed.set(look?.stainSeed ?? null);
-    this.decor.set(look?.decor ?? null);
-    this.decorSeed.set(look?.decorSeed ?? null);
+    this.stains.set(look?.stains ?? []);
+    this.decors.set(look?.decors ?? []);
     this.overrideOn.set(review?.finalOverride !== undefined);
     // a nota como foi dada: com "Inteiros" em Ajustes, um 8,5 escrito como 9 viraria 9 ao salvar
     this.overrideText.set(review?.finalOverride !== undefined ? formatRawScore(review.finalOverride) : '');
@@ -880,6 +879,7 @@ export class ReviewEditor {
       stock: this.stock(),
       // o de sempre não vai para o armazenamento: cartolina sem marca é a ficha como era
       ...(this.paper() !== 'cartolina' ? { paper: this.paper() } : {}),
+      ...(isAgedPaper(this.paper()) && this.paperSeed() ? { paperSeed: this.paperSeed()! } : {}),
       ...(this.pattern() ? { pattern: this.pattern()!, ...this.lookFields() } : {}),
       ...(this.pattern() && this.patternSeed() ? { patternSeed: this.patternSeed()! } : {}),
       ...(this.scribble() ? { scribble: this.scribble()! } : {}),
@@ -887,10 +887,8 @@ export class ReviewEditor {
       ...(this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? { scribbleInk: this.scribbleInk() } : {}),
       ...(this.damage() ? { damage: this.damage()! } : {}),
       ...(this.damage() && this.damageSeed() ? { damageSeed: this.damageSeed()! } : {}),
-      ...(this.stain() ? { stain: this.stain()! } : {}),
-      ...(this.stain() && this.stainSeed() ? { stainSeed: this.stainSeed()! } : {}),
-      ...(this.decor() ? { decor: this.decor()! } : {}),
-      ...(this.decor() && this.decorSeed() ? { decorSeed: this.decorSeed()! } : {}),
+      ...(this.stains().length ? { stains: this.stains() } : {}),
+      ...(this.decors().length ? { decors: this.decors() } : {}),
       ...(this.overrideOn() ? { finalOverride: final } : {}),
       text: this.text().trim(),
       completedAt: this.dateValue(),
@@ -938,6 +936,7 @@ export class ReviewEditor {
       hoursPlayed: null,
       // o de sempre não vai para o armazenamento, como na resenha
       paper: this.paper() !== 'cartolina' ? this.paper() : undefined,
+      paperSeed: isAgedPaper(this.paper()) ? (this.paperSeed() ?? undefined) : undefined,
       scribbleInk: this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? this.scribbleInk() : undefined,
       text: this.text().trim(),
       completedAt: this.dateValue(),
@@ -1172,6 +1171,7 @@ export class ReviewEditor {
       this.game()?.name,
       this.stock(),
       this.paper(),
+      this.paperSeed(),
       this.pattern(),
       this.patternLook(),
       this.patternSeed(),
@@ -1180,10 +1180,8 @@ export class ReviewEditor {
       this.scribbleInk(),
       this.damage(),
       this.damageSeed(),
-      this.stain(),
-      this.stainSeed(),
-      this.decor(),
-      this.decorSeed(),
+      this.stains(),
+      this.decors(),
       this.overrideOn() ? this.overrideText().trim() : null,
       this.categories().map((k) => this.scores()[k] ?? null),
       this.status(),

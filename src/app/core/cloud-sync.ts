@@ -55,11 +55,14 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  *     visita até outro aparelho enviar de novo.
  * 12: o mural de músicas (`musicas`, ao lado de `reviews`, e os campos do item: `form`, `sample`,
  *     `sampleTitle`, `album`). Um site antigo enviaria o mural sem elas.
+ * 13: Desbotada no sol e Carregou pela metade viraram papel (`paper`, `paperSeed`), e a mancha e a
+ *     decoração viraram listas de até três (`stains`, `decors`), com a build que gravou (`build`). Um
+ *     site antigo leria a ficha sem as manchas, as decorações e o desbotado, e as enviaria assim.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 12;
+export const SYNC_SCHEMA = 13;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -768,6 +771,7 @@ export class CloudSync {
       JSON.stringify({
         app: 'meu-mural',
         version: 2,
+        build: doc.build,
         exportedAt: doc.exportedAt,
         ...(name ? { owner: { name } } : {}),
         reviews,

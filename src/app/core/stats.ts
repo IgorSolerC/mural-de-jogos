@@ -118,14 +118,17 @@ export function strength(r: number | null): 'forte' | 'media' | 'fraca' | null {
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 const byName = (a: Review, b: Review) => collator.compare(a.game.name, b.game.name);
 
-function tally<T extends string>(list: readonly Review[], pick: (r: Review) => T | undefined | null, label: (v: T) => string): Count<T>[] {
+/** Quantas fichas têm cada valor; a ficha com vários (as manchas, as decorações) conta em cada um. */
+function tally<T extends string>(list: readonly Review[], pick: (r: Review) => T | readonly T[] | undefined | null, label: (v: T) => string): Count<T>[] {
   const map = new Map<T, Review[]>();
   for (const r of list) {
-    const v = pick(r);
-    if (v === undefined || v === null) continue;
-    const arr = map.get(v);
-    if (arr) arr.push(r);
-    else map.set(v, [r]);
+    const picked = pick(r);
+    if (picked === undefined || picked === null) continue;
+    for (const v of typeof picked === 'string' ? [picked as T] : (picked as readonly T[])) {
+      const arr = map.get(v);
+      if (arr) arr.push(r);
+      else map.set(v, [r]);
+    }
   }
   return [...map]
     .map(([value, rs]) => ({ value, label: label(value), n: rs.length, avg: mean(rs.map((r) => r.scores.final)) }))
@@ -845,8 +848,8 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
     patterns: tally(list, (r) => r.pattern ?? null, (p) => PATTERN_LABEL[p as keyof typeof PATTERN_LABEL]),
     scribbles: tally(list, (r) => r.scribble ?? null, (p) => SCRIBBLE_LABEL[p as keyof typeof SCRIBBLE_LABEL]),
     damages: tally(list, (r) => r.damage ?? null, (p) => DAMAGE_LABEL[p as keyof typeof DAMAGE_LABEL]),
-    stains: tally(list, (r) => r.stain ?? null, (p) => STAIN_LABEL[p as keyof typeof STAIN_LABEL]),
-    decors: tally(list, (r) => r.decor ?? null, (p) => DECOR_LABEL[p as keyof typeof DECOR_LABEL]),
+    stains: tally(list, (r) => r.stains?.map((m) => m.stain), (p) => STAIN_LABEL[p as keyof typeof STAIN_LABEL]),
+    decors: tally(list, (r) => r.decors?.map((m) => m.decor), (p) => DECOR_LABEL[p as keyof typeof DECOR_LABEL]),
     decorated: list.filter(isDecorated).length,
     dressing: (
       [
@@ -855,8 +858,8 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
         ['estampa', 'Com estampa', (r: Review) => !!r.pattern],
         ['rabisco', 'Com rabisco', (r: Review) => !!r.scribble],
         ['estrago', 'Com estrago', (r: Review) => !!r.damage],
-        ['mancha', 'Com mancha', (r: Review) => !!r.stain],
-        ['decoracao', 'Com decoração', (r: Review) => !!r.decor],
+        ['mancha', 'Com mancha', (r: Review) => !!r.stains?.length],
+        ['decoracao', 'Com decoração', (r: Review) => !!r.decors?.length],
       ] as const
     )
       .map(([value, label, test]) => {

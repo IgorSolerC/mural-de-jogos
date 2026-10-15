@@ -26,6 +26,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-14-varias-manchas',
+    version: '1.38.12',
+    kind: 'melhoria',
+    date: '2026-10-14',
+    title: 'Até três manchas e três decorações na mesma ficha',
+    items: [
+      'Mancha e Decoração agora aceitam até três escolhas cada, porque não estragam a cartolina. Elas são desenhadas na ordem em que você escolheu: a última fica por cima.',
+      'Em cima das opções aparece o que está na ficha, numerado na ordem, com um botão para sortear aquela de outro jeito e outro para tirar. "Nenhuma" tira todas.',
+      'Desbotada no sol e Carregou pela metade saíram de Estrago e viraram papéis, no fim da aba Papel. As fichas que já tinham um dos dois foram convertidas sozinhas e continuam iguaizinhas. Se a ficha também tinha outro papel, ficou o desbotado (ou o carregando).',
+      'Os backups passam a guardar de qual versão do site vieram, para os de hoje continuarem abrindo certinho no futuro.',
+    ],
+  },
+  {
     id: '2026-10-14-cores-sorteadas',
     version: '1.38.11',
     kind: 'melhoria',

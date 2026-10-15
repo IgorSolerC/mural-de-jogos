@@ -91,7 +91,7 @@ export function hasText(r: Review): boolean {
 
 /** Tem estampa, rabisco, mancha, estrago ou decoração por cima? */
 export function isDecorated(r: Review): boolean {
-  return !!(r.pattern || r.scribble || r.stain || r.damage || r.decor);
+  return !!(r.pattern || r.scribble || r.stains?.length || r.damage || r.decors?.length);
 }
 
 /** Os valores da ficha num grupo: um só em todos, menos as tags (várias por anotação). */

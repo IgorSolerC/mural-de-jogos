@@ -38,7 +38,10 @@
       <div class="editor-content">
         <div class="kit-panel parede">
           <!-- o estojo: a cor da cartolina, o papel e as marcas; a ficha acima muda na hora -->
-          <app-card-kit class="estojo scrollable" [id]="artId()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stain)]="stain" [(stainSeed)]="stainSeed" [(decor)]="decor" [(decorSeed)]="decorSeed" />
+          <!-- o estojo vem à parte, quando o navegador folga: fora do bundle inicial (e já está aqui quando o editor abre) -->
+          @defer (on idle) {
+            <app-card-kit #kit class="estojo scrollable" [id]="artId()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(paperSeed)]="paperSeed" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stains)]="stains" [(decors)]="decors" />
+          }
         </div>
 
         <div class="form">
