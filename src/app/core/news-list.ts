@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-nota-colada-sem-fita',
+    version: '1.41.2',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'A ficha colada no texto (widget Nota) mais discreta',
+    items: [
+      'A ficha colada no texto ficou com uma sombra curta e sutil, como a do vinil do widget de música.',
+      'Saíram os pedaços de fita crepe das quinas dela.',
+    ],
+  },
+  {
     id: '2026-10-15-nota-colada-no-lugar',
     version: '1.41.1',
     kind: 'correcao',

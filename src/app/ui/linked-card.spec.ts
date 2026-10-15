@@ -67,13 +67,13 @@ describe('a nota colada no texto (o widget Nota)', () => {
     localStorage.clear();
   });
 
-  it('é a ficha simples de verdade, de outro mural, presa com fita e colada (o estrago de fora não a come)', async () => {
+  it('é a ficha simples de verdade, de outro mural, colada (o estrago de fora não a come)', async () => {
     await show(['#rjogo1', 'Hollow Knight']);
     const inner = el.querySelector('app-review-card')!;
     expect(inner.classList).toContain('compact');
     expect(inner.querySelector('.title')?.textContent).toContain('Hollow Knight');
     expect(el.querySelector('.lugar')!.hasAttribute('data-colado')).toBeTrue();
-    expect(el.querySelectorAll('.fita').length).toBe(2);
+    expect(el.querySelectorAll('.fita').length).toBe(0);
     // colada, e não pregada: sem a tachinha
     expect(getComputedStyle(inner.querySelector('.pin')!).display).toBe('none');
   });
@@ -90,7 +90,7 @@ describe('a nota colada no texto (o widget Nota)', () => {
     expect(box.offsetWidth).toBeLessThanOrEqual(150);
   });
 
-  it('colada reta, rente à fita: sem a queda nem o giro do papel dela, e parada com o mouse', async () => {
+  it('colada reta, rente ao alto: sem a queda nem o giro do papel dela, e parada com o mouse', async () => {
     await show(['#rnota1'], { openCard: () => undefined });
     await settle();
     const inner = el.querySelector<HTMLElement>('app-review-card')!;
@@ -100,14 +100,14 @@ describe('a nota colada no texto (o widget Nota)', () => {
     expect(style.marginTop).toBe('0px');
     expect(style.rotate).toBe('none');
     expect(style.translate).toBe('none');
-    // a fita fica nas quinas da ficha: o alto dela é o alto do lugar
+    // o alto dela é o alto do lugar
     const lugar = el.querySelector<HTMLElement>('.lugar')!;
     expect(Math.abs(inner.getBoundingClientRect().top - lugar.getBoundingClientRect().top)).toBeLessThan(1);
     // nada de levantar com o mouse: nem a ficha, nem a orelha
     const sheet = Array.from(document.querySelectorAll('style'))
       .map((s) => s.textContent ?? '')
       .join('\n');
-    expect(sheet).toMatch(/\.fita-esq/);
+    expect(sheet).toMatch(/\.perdida-nome/);
     expect(sheet).not.toMatch(/\.lugar[^{,]*:hover/);
   });
 

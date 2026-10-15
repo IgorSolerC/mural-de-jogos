@@ -11,14 +11,14 @@ import { GluedReviewCard } from './glued-review-card';
 const CARD_WIDTH = 300;
 /** Até quanto a ficha cresce além do tamanho dela (o grande, na leitura): mais que isso, a capinha borra. */
 const MAX_SCALE = 2;
-/** A folga mínima em cima da ficha, em em: as pontas da fita, que sobem das quinas, não tampam a linha de cima. */
-const TAPE_ROOM = 0.45;
+/** A folga mínima em cima da ficha, em em: ela não encosta na linha de cima. */
+const TOP_ROOM = 0.2;
 /** O respiro entre a orelha da categoria e a linha de cima, em em. */
 const EAR_GAP = 0.2;
 
 /**
  * O widget NOTA (ver core/widgets.ts): outra ficha, de qualquer mural, colada no texto como uma
- * cartolina pequena presa na de fora com dois pedaços de fita crepe. É a ficha simples de verdade
+ * cartolina pequena colada na de fora. É a ficha simples de verdade
  * (`GluedReviewCard`, a `ReviewCard` com `compact`), a mesma do mural, encolhida (ou um pouco aumentada) até a altura do
  * tamanho do widget (`--widget-alto`, ver note-widget.ts); numa linha estreita, até caber nela.
  *
@@ -55,8 +55,6 @@ const EAR_GAP = 0.2;
             (opened)="open(f.review)"
           />
         </div>
-        <span class="fita fita-esq" aria-hidden="true"></span>
-        <span class="fita fita-dir" aria-hidden="true"></span>
       </div>
       @if (!openable()) {
         <span class="sr-only">{{ spoken(f.review) }}</span>
@@ -64,7 +62,6 @@ const EAR_GAP = 0.2;
     } @else {
       <!-- sumiu: o pedaço de papel que ficou colado, com o nome dela -->
       <div class="perdida" data-colado role="note">
-        <span class="fita fita-esq" aria-hidden="true"></span>
         <lucide-icon class="perdida-icone" [img]="LostIcon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
         <span class="perdida-texto">
           <span class="perdida-nome">{{ ref().title || 'Uma ficha' }}</span>
@@ -107,32 +104,9 @@ const EAR_GAP = 0.2;
       text-indent: 0;
       text-transform: none;
     }
-    /* colada com fita, ela não sai do lugar com o mouse (ver GluedReviewCard): só a mãozinha diz que abre */
+    /* colada, ela não sai do lugar com o mouse (ver GluedReviewCard): só a mãozinha diz que abre */
     :host(.tocavel) app-review-card {
       cursor: pointer;
-    }
-
-    /* ===== A fita crepe: dois pedaços nas quinas de cima, colando a ficha na de fora ===== */
-    .fita {
-      position: absolute;
-      z-index: 2;
-      top: -0.3em;
-      width: 2.4em;
-      height: 0.68em;
-      background: rgb(222 205 160 / 0.86);
-      box-shadow: 0 1px 1px rgb(0 0 0 / 0.16);
-      pointer-events: none;
-      /* as pontas rasgadas à mão */
-      -webkit-mask: linear-gradient(90deg, transparent 0, #000 2px calc(100% - 2px), transparent 100%);
-      mask: linear-gradient(90deg, transparent 0, #000 2px calc(100% - 2px), transparent 100%);
-    }
-    .fita-esq {
-      left: -0.5em;
-      rotate: -32deg;
-    }
-    .fita-dir {
-      right: -0.5em;
-      rotate: 30deg;
     }
 
     /* ===== A que sumiu: um pedaço de papel pardo rasgado, com o nome ===== */
@@ -152,12 +126,6 @@ const EAR_GAP = 0.2;
         0 3px 6px -2px rgb(0 0 0 / 0.2);
       /* a beirada de baixo rasgada */
       clip-path: polygon(0 0, 100% 0, 100% 86%, 93% 100%, 84% 90%, 72% 99%, 60% 91%, 47% 100%, 35% 90%, 22% 99%, 11% 91%, 0 98%);
-    }
-    .perdida .fita-esq {
-      left: 50%;
-      top: -0.25em;
-      translate: -50% 0;
-      rotate: -3deg;
     }
     .perdida-icone {
       flex: none;
@@ -209,7 +177,7 @@ export class LinkedCard {
 
   /**
    * O tamanho da ficha na folha: a escala, a caixa que ela ocupa depois de encolher e a folga em
-   * cima (`top`): a orelha da categoria, que sai pela beirada de cima, e as pontas da fita cabem no
+   * cima (`top`): a orelha da categoria, que sai pela beirada de cima, e um respiro cabem no
    * espaço do widget, sem tampar a linha de cima.
    */
   protected readonly box = signal({ s: 1, w: CARD_WIDTH, h: 0, top: 0 });
@@ -246,7 +214,7 @@ export class LinkedCard {
           if (el.offsetParent === card) over = Math.max(over, -el.offsetTop);
         }
         const em = parseFloat(style.fontSize) || 16;
-        const tape = TAPE_ROOM * em;
+        const tape = TOP_ROOM * em;
         const gap = over ? EAR_GAP * em : 0;
         // a ficha e a folga cabem juntas na altura do tamanho
         const fitH = Math.min((alto - tape) / h0, (alto - gap) / (h0 + over));
