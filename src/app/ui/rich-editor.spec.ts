@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RichEditor } from './rich-editor';
 import { sanitizeReview } from '../core/review';
+import { ReviewStore } from '../core/review-store';
 
 describe('a régua de formatação do texto', () => {
   let fixture: ComponentFixture<RichEditor>;
@@ -444,5 +445,77 @@ describe('o painel aberto pelo clique na folha', () => {
     fixture.detectChanges();
     expect(esc.defaultPrevented).toBeTrue();
     expect(panel('.url-painel')).toBeNull();
+  });
+});
+
+describe('o widget Nota no editor', () => {
+  let fixture: ComponentFixture<RichEditor>;
+  let el: HTMLElement;
+  const wait = async () => {
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await fixture.whenStable();
+    }
+  };
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [RichEditor], providers: [provideZonelessChangeDetection()] });
+    TestBed.inject(ReviewStore).reviews.set([
+      sanitizeReview({
+        id: 'rjogo1',
+        kind: 'jogos',
+        game: { name: 'Hollow Knight', coverUrl: null, source: 'manual' },
+        scores: { diversao: 9, historia: 8, jogabilidade: 9, visual: 8 },
+        status: 'finalizado',
+        text: '',
+        createdAt: '2026-10-01T10:00:00.000Z',
+        updatedAt: '2026-10-01T10:00:00.000Z',
+      })!,
+    ]);
+    fixture = TestBed.createComponent(RichEditor);
+    fixture.componentRef.setInput('notes', []);
+    el = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(el);
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    el.remove();
+    localStorage.clear();
+  });
+
+  it('escolher a Nota no menu já abre a lista; a ficha escolhida vai para o painel e "Colar" escreve a marca', async () => {
+    el.querySelector<HTMLButtonElement>('button[aria-label="Widgets"]')!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll<HTMLButtonElement>('.widget-op'))
+      .find((b) => b.textContent!.includes('Nota'))!
+      .click();
+    await wait();
+    const picker = el.querySelector('app-card-picker dialog') as HTMLDialogElement;
+    expect(picker?.open).toBeTrue();
+    el.querySelector<HTMLButtonElement>('app-card-picker .escolha')!.click();
+    await wait();
+    expect(picker.open).toBeFalse();
+    expect(el.querySelector('.ficha-escolher-nome')?.textContent).toBe('Hollow Knight');
+    expect(document.activeElement).toBe(el.querySelector('.widget-painel .painel-ok'));
+    el.querySelector<HTMLButtonElement>('.widget-painel .painel-ok')!.click();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.value()).toBe('{{nota: #rjogo1 | Hollow Knight}}');
+  });
+
+  it('fechar a lista sem escolher deixa o foco no "Qual", que a abre de novo', async () => {
+    el.querySelector<HTMLButtonElement>('button[aria-label="Widgets"]')!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll<HTMLButtonElement>('.widget-op'))
+      .find((b) => b.textContent!.includes('Nota'))!
+      .click();
+    await wait();
+    (el.querySelector('app-card-picker dialog') as HTMLDialogElement).close();
+    await wait();
+    const which = el.querySelector<HTMLButtonElement>('.ficha-escolher')!;
+    expect(which.classList).toContain('vazia');
+    expect(document.activeElement).toBe(which);
+    expect(el.querySelector<HTMLButtonElement>('.widget-painel .painel-ok')!.disabled).toBeTrue();
   });
 });

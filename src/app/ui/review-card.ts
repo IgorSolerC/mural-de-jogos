@@ -31,6 +31,7 @@ import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
 import { checkCount, hasInteractive, plainText } from '../core/rich-text';
+import { cardRefsIn } from '../core/widgets';
 import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
 import { CategoryLabel } from './category-label';
@@ -83,55 +84,50 @@ function watchDistance(el: HTMLElement): () => void {
   return () => farAway?.unobserve(el);
 }
 
-/**
- * Ficha do mural: uma cartolina escrita à mão a pincel atômico, com a foto do jogo colada nela. Na foto,
- * só a tira de fita de status colada no pé. O julgamento é um par de mesmo peso: a Média e o veredito
- * na mesma etiqueta dupla, com picote no meio.
- */
-@Component({
-  selector: 'app-review-card',
-  imports: [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
-  hostDirectives: [Luz],
-  host: {
-    class: 'cartolina',
-    '[class.is-landing]': 'landing()',
-    '[class.compact]': 'compact()',
-    '[class.capas]': 'capas()',
-    '[class.inteira]': 'full()',
-    '[class.paired]': 'paired()',
-    '[class.picking]': 'picking()',
-    '[class.picked]': 'pickedAt() !== null',
-    '[style.--stock]': '"var(--stock-" + pin().stock + ")"',
-    '[attr.data-cor]': 'pin().stock',
-    '[style.--pen]': 'pin().stock === "vermelho" ? "var(--ink)" : null',
-    '[style.--tilt]': 'pin().tilt',
-    '[style.--pin-x]': 'pinX() + "%"',
-    '[style.--drop-y]': 'pin().dropY + "px"',
-    // a prévia no editor não disputa o nome com a ficha de verdade que está no mural
-    '[style.view-transition-name]': 'preview() ? null : "ficha-" + review().id',
-    '[class.vazia]': 'empty()',
-    '[class.so-cartolina]': 'bare()',
-    '[attr.data-capa]': 'bare() ? bareCover() : null',
-    // o papel escolhido (textura) e, quando falta um pedaço, o papel recortado desenhado nas marcas
-    '[style]': 'paperVars()',
-    '[class.recortada]': 'cut()',
-    '[class.orelha]': 'review().damage === "orelha"',
-    // marcando pro lado a lado, a rejogada fica de fora (lá é uma ficha por obra)
-    '[class.fora]': 'picking() && !!review().revisitOf',
-    // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra. Um nome só da
-    // ficha: as páginas que a usam têm `.nota` delas (o bilhete do Feed pintava a anotação de papel)
-    '[class.ficha-anotacao]': 'note()',
-    // a ficha de música: o vinil no lugar da foto, e o artista na orelha
-    '[class.ficha-musica]': 'music()',
-    '[class.sem-capa]': 'note() && !review().game.coverUrl',
-    // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
-    '[class.fixada]': 'note() && review().noteRank === "fixada"',
-    '[class.carimbando]': 'stamping()',
-    '[class.feita]': '!capas() && !!doneAt()',
-  },
-  template: `
+/** O que a ficha usa no molde (o mesmo da ficha colada, ver ui/glued-review-card.ts). */
+export const CARD_IMPORTS = [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
+
+/** O que vai no elemento da ficha: as classes e as variáveis do papel (a ficha colada herda, ver ui/glued-review-card.ts). */
+const CARD_HOST = {
+  class: 'cartolina',
+  '[class.is-landing]': 'landing()',
+  '[class.compact]': 'compact()',
+  '[class.capas]': 'capas()',
+  '[class.inteira]': 'full()',
+  '[class.paired]': 'paired()',
+  '[class.picking]': 'picking()',
+  '[class.picked]': 'pickedAt() !== null',
+  '[style.--stock]': '"var(--stock-" + pin().stock + ")"',
+  '[attr.data-cor]': 'pin().stock',
+  '[style.--pen]': 'pin().stock === "vermelho" ? "var(--ink)" : null',
+  '[style.--tilt]': 'pin().tilt',
+  '[style.--pin-x]': 'pinX() + "%"',
+  '[style.--drop-y]': 'pin().dropY + "px"',
+  // a prévia no editor não disputa o nome com a ficha de verdade que está no mural
+  '[style.view-transition-name]': 'preview() ? null : "ficha-" + review().id',
+  '[class.vazia]': 'empty()',
+  '[class.so-cartolina]': 'bare()',
+  '[attr.data-capa]': 'bare() ? bareCover() : null',
+  // o papel escolhido (textura) e, quando falta um pedaço, o papel recortado desenhado nas marcas
+  '[style]': 'paperVars()',
+  '[class.recortada]': 'cut()',
+  '[class.orelha]': 'review().damage === "orelha"',
+  // marcando pro lado a lado, a rejogada fica de fora (lá é uma ficha por obra)
+  '[class.fora]': 'picking() && !!review().revisitOf',
+  // a anotação: sem nota, as categorias no lugar da etiqueta, o texto à mostra. Um nome só da
+  // ficha: as páginas que a usam têm `.nota` delas (o bilhete do Feed pintava a anotação de papel)
+  '[class.ficha-anotacao]': 'note()',
+  // a ficha de música: o vinil no lugar da foto, e o artista na orelha
+  '[class.ficha-musica]': 'music()',
+  '[class.sem-capa]': 'note() && !review().game.coverUrl',
+  // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
+  '[class.fixada]': 'note() && review().noteRank === "fixada"',
+  '[class.carimbando]': 'stamping()',
+  '[class.feita]': '!capas() && !!doneAt()',
+};
+
+/** O molde da ficha. */
+export const CARD_TEMPLATE = `
     <!-- tudo o que está na ficha, junto: é o que entra com fade quando o papel fica pronto (ver
          ui/veil.ts); a marca tracejada da vaga fica na própria ficha, por baixo -->
     <div class="corpo">
@@ -419,8 +415,10 @@ function watchDistance(el: HTMLElement): () => void {
       </div>
     }
     </div>
-  `,
-  styles: `
+`;
+
+/** Os estilos da ficha. */
+export const CARD_STYLES = `
     :host {
       /* ver ::view-transition-old(*.ficha) no styles.scss */
       view-transition-class: ficha;
@@ -1556,7 +1554,22 @@ function watchDistance(el: HTMLElement): () => void {
         font-size: 1.46rem;
       }
     }
-  `,
+`;
+
+/**
+ * Ficha do mural: uma cartolina escrita à mão a pincel atômico, com a foto do jogo colada nela. Na foto,
+ * só a tira de fita de status colada no pé. O julgamento é um par de mesmo peso: a Média e o veredito
+ * na mesma etiqueta dupla, com picote no meio.
+ */
+@Component({
+  selector: 'app-review-card',
+  imports: CARD_IMPORTS,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  // a luz da lâmpada segue o ponteiro nas folhas holográficas da ficha levantada
+  hostDirectives: [Luz],
+  host: CARD_HOST,
+  template: CARD_TEMPLATE,
+  styles: CARD_STYLES,
 })
 export class ReviewCard {
   readonly review = input.required<Review>();
@@ -1666,6 +1679,8 @@ export class ReviewCard {
    */
   protected readonly interactive = computed(() => {
     const t = this.review().text;
+    // a ficha colada (o widget Nota) só abre no seu mural, como os links entre anotações
+    if (this.checkable() && cardRefsIn(t).length) return true;
     // os links para fora e a conta das feitas (que as mostra) valem em qualquer mural; as tarefas e
     // os links entre anotações, só no seu
     return hasInteractive(t) && (this.checkable() || /https?:\/\/|mailto:/.test(t) || checkCount(t).done > 0);
@@ -1752,6 +1767,8 @@ export class ReviewCard {
       resolve: (title) => resolveNote(notes, title),
       open: (n) => this.desk.openReview(n.id, from),
       create: (title) => this.desk.newNote(title, from),
+      // a ficha colada no texto (o widget Nota), de qualquer mural: abre na leitura, com esta no "Voltar"
+      openCard: (card) => this.desk.openReview(card.id, from),
     };
   });
 
@@ -1931,3 +1948,4 @@ export class ReviewCard {
     });
   }
 }
+

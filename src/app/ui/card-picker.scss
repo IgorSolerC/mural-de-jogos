@@ -1,0 +1,59 @@
+/* O "Escolher a nota": o mesmo papel do "Escolher fichas" do perfil (profile-picker.scss), com uma
+   ficha só. Cada linha é um botão: tocar escolhe e fecha. */
+
+.item.escolha {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -1px;
+  }
+
+  /* a escolhida: o fundo de lápis e o tique no adesivo de tinta */
+  &.on {
+    background: rgb(21 21 21 / 0.08);
+  }
+}
+
+/* a anotação sem capa: um pedacinho da cartolina dela, torto, com a folhinha do mural */
+.folhinha {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  border-radius: 1px;
+  background: var(--stock);
+  color: var(--ink);
+  rotate: -3deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.25),
+    0 2px 4px -1px rgb(0 0 0 / 0.18);
+
+  &:is([data-cor$='-escuro'], [data-cor='preto']) {
+    color: var(--ink-claro-solido);
+  }
+}
+
+/* o mural, a categoria e a data numa linha só que quebra junto (o ícone não fica sozinho em cima) */
+.escolha .meta {
+  display: block;
+}
+
+.mural-icone {
+  display: inline-block;
+  margin-right: 2px;
+  vertical-align: -2px;
+}
+
+.escolha .cadeado {
+  display: inline-block;
+  vertical-align: -2px;
+}
+
+.foot .conta {
+  color: var(--ink-2);
+}

@@ -30,13 +30,17 @@ import {
   Strikethrough,
   Table,
   Quote,
+  StickyNote,
   X,
 } from 'lucide-angular';
 import { isTableSep, lineKind, linkAt, tableCells, toggleCheck } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
-import { Review, formatReviewDate } from '../core/review';
+import { cap, profileOf } from '../core/kinds';
+import { Review, formatReviewDate, isNote } from '../core/review';
+import { ReviewStore } from '../core/review-store';
 import { RichText } from './rich-text';
 import { NoteWidget } from './note-widget';
+import { CardPicker } from './card-picker';
 import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetSize, WidgetValues, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
 
 type ListKind = 'ul' | 'ol' | 'check';
@@ -88,13 +92,14 @@ const WIDGET_ICONS: Record<string, LucideIconData> = {
   imagem: Image,
   video: Clapperboard,
   audio: CassetteTape,
+  nota: StickyNote,
 };
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget],
+  imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget, CardPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ng-template #campo let-big="big">
@@ -401,6 +406,47 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                     }
                   </span>
                 </div>
+              } @else if (f.kind === 'card') {
+                <!-- a Nota: qual ficha. O botão abre a lista de todas (ver ui/card-picker.ts); a ficha
+                     escolhida aparece de verdade logo embaixo, em "Como fica" -->
+                @let card = chosenCard();
+                <div class="painel-campo">
+                  <span [id]="areaId + '-qual'">{{ f.label }}</span>
+                  <span class="widget-campo">
+                    <button
+                      type="button"
+                      class="ficha-escolher"
+                      [class.vazia]="!card"
+                      [attr.data-campo]="f.key"
+                      [attr.aria-labelledby]="areaId + '-qual ' + areaId + '-qual-nome'"
+                      aria-haspopup="dialog"
+                      (click)="cardPickerOpen.set(true)"
+                    >
+                      @if (card) {
+                        <span class="ficha-escolher-texto" [id]="areaId + '-qual-nome'">
+                          <span class="ficha-escolher-nome">{{ card.game.name }}</span>
+                          <span class="ficha-escolher-mural">{{ kindOf(card) }}</span>
+                        </span>
+                        <span class="ficha-escolher-acao">Trocar</span>
+                      } @else {
+                        <lucide-icon [img]="CardIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                        <span class="ficha-escolher-texto" [id]="areaId + '-qual-nome'">
+                          <span class="ficha-escolher-nome">{{ w.values['title'] || 'Escolher a ficha' }}</span>
+                          @if (w.values['title']) {
+                            <span class="ficha-escolher-mural">Não está mais no seu mural</span>
+                          }
+                        </span>
+                        @if (w.values['title']) {
+                          <span class="ficha-escolher-acao">Trocar</span>
+                        }
+                      }
+                    </button>
+                  </span>
+                </div>
+                <!-- a lista vem num pedaço à parte, quando abre pela primeira vez -->
+                @defer (when cardPickerOpen()) {
+                  <app-card-picker [open]="cardPickerOpen()" (openChange)="cardPickerOpened($event, big)" [chosen]="card?.id ?? ''" [selfId]="selfId()" (picked)="pickCard($event)" />
+                }
               } @else {
                 <label class="painel-campo">
                   <span>{{ f.label }}</span>
@@ -472,9 +518,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             </div>
             <div class="widget-previa" [class.na-ficha]="cardPreview()" [attr.data-widget-teto]="cardPreview() ? '' : null">
               @if (widgetArgs(); as args) {
-                <app-note-widget [name]="w.name" [args]="args" [size]="widgetSize()" />
+                <app-note-widget [name]="w.name" [args]="args" [size]="widgetSize()" [links]="previewLinks()" />
               } @else {
-                <p class="widget-previa-vazia">{{ def.name === 'contador' ? 'Escolha o dia para ver o contador andando.' : 'Cole o link para ver como fica.' }}</p>
+                <p class="widget-previa-vazia">{{ def.name === 'contador' ? 'Escolha o dia para ver o contador andando.' : def.name === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : 'Cole o link para ver como fica.' }}</p>
               }
             </div>
             <div class="painel-acoes">
@@ -1280,6 +1326,76 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       margin-top: 6px;
     }
 
+    /* ===== A Nota: qual ficha. Sem ela, o botão tracejado de escolher; com ela, o nome a pincel, o
+       mural e o "Trocar" (a ficha de verdade aparece em "Como fica") ===== */
+    .ficha-escolher {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 48px;
+      padding: 6px 10px;
+      border: 1.5px solid var(--ink);
+      border-radius: 4px;
+      background: rgb(255 255 255 / 0.45);
+      color: var(--ink);
+      font: inherit;
+      letter-spacing: 0;
+      text-transform: none;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color var(--t-ui) var(--ease-ui);
+    }
+    .ficha-escolher:hover {
+      background: rgb(255 255 255 / 0.75);
+    }
+    .ficha-escolher:focus-visible {
+      outline: 2.5px solid var(--ink);
+      outline-offset: 3px;
+    }
+    .ficha-escolher.vazia {
+      border-style: dashed;
+      background: transparent;
+    }
+    .ficha-escolher.vazia:hover {
+      background: rgb(21 21 21 / 0.06);
+    }
+    .ficha-escolher lucide-icon {
+      flex: none;
+    }
+    .ficha-escolher-texto {
+      display: grid;
+      flex: 1;
+      min-width: 0;
+      gap: 1px;
+    }
+    .ficha-escolher-nome {
+      font-family: var(--f-marker);
+      font-size: 1.05rem;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+    .ficha-escolher-mural {
+      font-family: var(--f-label);
+      font-weight: 700;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+    }
+    /* o "Trocar": a etiqueta de tinta do lado, como as ações do painel */
+    .ficha-escolher-acao {
+      flex: none;
+      padding: 3px 9px 2px;
+      border-radius: 2px;
+      background: var(--ink);
+      color: var(--hi);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
     /* ===== O tamanho: quatro botões com o desenho de uma ficha e quanto o widget ocupa dela ===== */
     .widget-tamanho-lado {
       display: grid;
@@ -1804,6 +1920,8 @@ export class RichEditor {
    * Na resenha, a ficha do mural mostra só o começo do texto, e a prévia é a da leitura.
    */
   readonly onCard = input(true);
+  /** A ficha deste texto: a Nota (a ficha colada) não oferece colar ela nela mesma. */
+  readonly selfId = input<string | null>(null);
 
   protected readonly LinkIcon = NOTE_LINK_ICON;
   protected readonly UrlIcon = Link;
@@ -1943,6 +2061,7 @@ export class RichEditor {
     { mark: '{{contador: 19/11/2026 18:00 | Nome}}', what: 'Contador até o dia, numa linha só dele (sem o ano: todo ano)' },
     { mark: '{{imagem: https://… | legenda}}', what: 'Imagem colada como foto (polaroid ou recorte no fim: outra moldura)' },
     { mark: '{{video: https://youtu.be/… | legenda}}', what: 'Vídeo do YouTube, do Vimeo ou um .mp4, que toca ali' },
+    { mark: '{{nota: Título}}', what: 'A anotação colada em miniatura (pelo menu Widgets, qualquer ficha, de qualquer mural)' },
     { mark: '{{… | mini}} {{… | pequeno}} {{… | grande}}', what: 'O tamanho do widget, o mesmo para todos (sem ele, o médio)' },
     { mark: '-> <- <-> =>', what: 'Setas: → ← ↔ ⇒ (--> e <-- compridas)' },
     { mark: '!= >= <= ~= +-', what: 'Símbolos: ≠ ≥ ≤ ≈ ±' },
@@ -2578,6 +2697,7 @@ export class RichEditor {
     const big = this.widgetsOpen() ?? false;
     this.widgetsOpen.set(null);
     this.startWidget(area, big, def);
+    this.askCard();
   }
   /**
    * O painel do widget aberto: em qual folha, qual widget, os valores dos campos e o trecho que ele
@@ -2665,6 +2785,52 @@ export class RichEditor {
     const w = this.widgetPick();
     // o tamanho fica: ele vale para todo widget
     if (w) this.widgetPick.set({ ...w, name: def.name, values: { size: w.values['size'] ?? 'medio' } });
+    this.askCard();
+  }
+
+  // ===== A Nota: a ficha colada =====
+
+  protected readonly CardIcon = StickyNote;
+  private readonly store = inject(ReviewStore);
+  /** A lista das fichas (ver ui/card-picker.ts) aberta. */
+  protected readonly cardPickerOpen = signal(false);
+  /** A ficha que a Nota do painel cola: pelo id; escrita à mão, a anotação do título. */
+  protected readonly chosenCard = computed<Review | null>(() => {
+    const w = this.widgetPick();
+    if (w?.name !== 'nota') return null;
+    const id = w.values['id'];
+    if (id) return this.store.get(id) ?? null;
+    const title = w.values['title'];
+    return title ? resolveNote(this.notes() ?? this.store.notes(), title) : null;
+  });
+
+  /** A Nota nova (ainda sem ficha) abre já a lista: escolher a ficha é a primeira coisa a fazer. */
+  private askCard(): void {
+    const w = this.widgetPick();
+    if (w?.name === 'nota' && !w.swap && !w.values['id'] && !w.values['title']) this.cardPickerOpen.set(true);
+  }
+
+  /** Escolheu a ficha: ela vai para o painel (o id e o nome). */
+  protected pickCard(card: Review): void {
+    const w = this.widgetPick();
+    if (!w) return;
+    this.widgetPick.set({ ...w, values: { ...w.values, id: card.id, title: card.game.name } });
+    this.cardJustPicked = true;
+  }
+  private cardJustPicked = false;
+
+  /** A lista fechou: o foco vai para "Colar a nota", se escolheu uma; senão, de volta para o "Qual". */
+  protected cardPickerOpened(open: boolean, big: boolean): void {
+    this.cardPickerOpen.set(open);
+    if (open) return;
+    const picked = this.cardJustPicked;
+    this.cardJustPicked = false;
+    setTimeout(() => this.panelInput(big, picked ? '.painel-ok' : '[data-campo="id"]')?.focus());
+  }
+
+  /** "Anotação", "Jogo"… o mural da ficha, no campo. */
+  protected kindOf(r: Review): string {
+    return isNote(r) ? `Anotação${r.category ? ' · ' + r.category : ''}` : cap(profileOf(r.kind).singular);
   }
 
   protected setWidgetValue(key: string, value: string): void {

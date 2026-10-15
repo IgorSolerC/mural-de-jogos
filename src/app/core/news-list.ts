@@ -26,6 +26,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-widget-nota',
+    version: '1.40.0',
+    kind: 'funcionalidade',
+    date: '2026-10-15',
+    title: 'Widget Nota: uma ficha colada dentro da anotação',
+    items: [
+      'Novo widget Nota, no menu Widgets da régua: ele cola outra ficha dentro do texto, como uma cartolina pequena presa com fita crepe, do jeito que ela aparece nas fichas simples do mural (capa, nome, data, etiquetas e nota).',
+      'Vale qualquer ficha, de qualquer mural: outra anotação, um jogo, um livro, um filme, uma série, um anime ou uma música. Ao escolher Nota, abre a lista de todas as suas fichas, com a busca, as abas por mural e a capa de cada uma; um toque escolhe (ou Enter na busca, para a primeira).',
+      'A ficha colada usa a régua de tamanhos dos outros widgets (Mini, Pequeno, Médio, Grande) e acompanha a ficha: renomear não quebra, e se ela for apagada fica no lugar um pedaço de papel com o nome dela.',
+      'Tocar na ficha colada abre ela, no seu mural e na leitura, com o "Voltar" para a anotação de onde você veio. No mural de outra pessoa, a ficha dela aparece colada do mesmo jeito.',
+      'O link em texto ([[Título]]) continua como estava, para quando você só quer citar a anotação no meio da frase.',
+    ],
+  },
+  {
     id: '2026-10-14-alto-falante-broche',
     version: '1.39.3',
     kind: 'melhoria',

@@ -16,7 +16,7 @@
 export interface WidgetField {
   key: string;
   label: string;
-  kind: 'text' | 'url' | 'date' | 'time' | 'toggle' | 'choice';
+  kind: 'text' | 'url' | 'date' | 'time' | 'toggle' | 'choice' | 'card';
   placeholder?: string;
   /** Sem ele, o widget não sai (o editor leva o foco para o primeiro que falta). */
   required?: true;
@@ -540,8 +540,62 @@ const AUDIO: WidgetDef = {
   },
 };
 
+// ===== A nota: outra ficha, de qualquer mural, colada na cartolina =====
+
+/**
+ * O id de uma ficha escrito no widget: "#r…" (o "#" diz que é o id, e não o título). O id não muda
+ * quando a ficha é renomeada; o título vai junto só para quem lê o texto (a busca) e para dizer qual
+ * era, se ela sumir.
+ */
+const CARD_ID = /^#([A-Za-z0-9_-]{1,64})$/;
+
+/**
+ * Os parâmetros da nota em qualquer ordem: o id ("#r…") e o título. Escrita à mão, só com o título
+ * ("{{nota: Comprar um console}}"), ela é a anotação com esse título, como um link "[[…]]".
+ */
+export function readCardRef(args: readonly string[]): { id: string; title: string } {
+  let id = '';
+  let title = '';
+  for (const a of args) {
+    const m = CARD_ID.exec(a);
+    if (!id && m) id = m[1];
+    else if (!title && a) title = a;
+  }
+  return { id, title };
+}
+
+/** As fichas coladas no texto (o id e o título de cada uma), na ordem. */
+export function cardRefsIn(text: string): { id: string; title: string }[] {
+  const out: { id: string; title: string }[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.includes('{{')) continue;
+    const w = parseWidgetLine(line);
+    if (w?.name === 'nota') out.push(readCardRef(w.args));
+  }
+  return out;
+}
+
+const CARD: WidgetDef = {
+  name: 'nota',
+  aliases: ['ficha', 'anotacao', 'card', 'note'],
+  label: 'Nota',
+  about: 'Outra anotação ou ficha, de qualquer mural, colada aqui em miniatura.',
+  put: 'Colar a nota',
+  swap: 'Trocar a nota',
+  fields: [{ key: 'id', label: 'Qual', kind: 'card', required: true }],
+  read: (args) => readCardRef(args),
+  write(v) {
+    const id = (v['id'] ?? '').trim();
+    const title = (v['title'] ?? '').trim();
+    if (id) return CARD_ID.test(`#${id}`) ? [`#${id}`, title].filter(Boolean) : null;
+    // a escrita à mão, só com o título, continua do jeito que estava
+    return title ? [title] : null;
+  },
+  plain: (args) => readCardRef(args).title,
+};
+
 /** Todos os widgets, na ordem da régua. */
-export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO];
+export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO, CARD];
 
 /** O widget por um dos nomes dele (com ou sem acento, maiúsculas). */
 export function widgetDef(name: string): WidgetDef | null {
