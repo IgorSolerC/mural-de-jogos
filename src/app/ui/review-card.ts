@@ -368,7 +368,7 @@ export const CARD_TEMPLATE = `
         @if (masked()) {
           <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
         } @else {
-          <div class="texto-inteiro" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
         }
       } @else if (lead(); as line) {
         @if (masked() && !bare()) {
@@ -992,6 +992,7 @@ export const CARD_STYLES = `
     }
     /* a resenha inteira: o texto todo no lugar da primeira frase, na mesma letra da anotação */
     .texto-inteiro {
+      position: relative;
       margin-top: 14px;
       font-family: var(--f-hand);
       font-size: 1.04rem;
@@ -1004,17 +1005,17 @@ export const CARD_STYLES = `
     }
     /* com tarefas ou links: o texto fica por cima do botão da ficha, mas só as caixinhas e os links
        pegam o toque; o resto do texto deixa o toque passar e abre a leitura como sempre */
-    .nota-texto.marcavel {
+    /* (o mesmo na resenha inteira: os widgets dela tocam no mural, como os da anotação) */
+    :is(.nota-texto, .texto-inteiro).marcavel {
       z-index: 5;
       pointer-events: none;
     }
-    .nota-texto.marcavel ::ng-deep input[type='checkbox'],
-    .nota-texto.marcavel ::ng-deep .elo[tabindex],
-    .nota-texto.marcavel ::ng-deep a.url,
-    .nota-texto.marcavel ::ng-deep .tocavel {
+    :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep input[type='checkbox'],
+    :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .elo[tabindex],
+    :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep a.url,
+    :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .tocavel {
       pointer-events: auto;
     }
-
     /* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====
        Ficam metade para fora da ficha (como o balão das reações embaixo), então não cobrem o título.
        Aparecem com o mouse em cima da ficha ou com o foco do teclado nelas; a fixada mantém o

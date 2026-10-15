@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-widgets-resenha-inteira',
+    version: '1.41.6',
+    kind: 'correcao',
+    date: '2026-10-15',
+    title: 'Os widgets da resenha tocam no mural',
+    items: ['Na ficha inteira de uma análise, no mural, os widgets do texto (o áudio, o vídeo, a ficha colada) não respondiam ao toque: só funcionavam nas anotações ou com a ficha aberta. Agora tocam ali também, como nas anotações.'],
+  },
+  {
     id: '2026-10-15-categoria-escondida',
     version: '1.41.5',
     kind: 'melhoria',
