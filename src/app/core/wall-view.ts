@@ -4,6 +4,7 @@ import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf }
 import { Mural } from './mural';
 import { checkCount } from './rich-text';
 import { Settings } from './settings';
+import { activeOrder } from './mural-config';
 import {
   NO_DAY_LABEL,
   RATED_KEYS,
@@ -205,6 +206,11 @@ export abstract class WallState {
   abstract readonly owner: Signal<string | null>;
   /** O ícone e a cor das categorias das anotações do dono do mural (ver core/category-looks.ts). */
   abstract readonly categoryLooks: Signal<CategoryLooks>;
+  /**
+   * A ordem das categorias montada à mão pelo dono (a engrenagem do mural, ver core/mural-config.ts),
+   * pela chave; null, da maior para a menor. Só o seu mural tem: a de quem visita não vem junto.
+   */
+  readonly categoryOrder: Signal<readonly string[] | null> = signal(null);
   /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
   readonly profile = computed(() => this.mural.profile());
   /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
@@ -267,7 +273,7 @@ export abstract class WallState {
    */
   readonly noteTabs = computed<NoteTabs | null>(() => {
     const kind = this.mural.kind();
-    if (isNotes(kind)) return noteTabsOf(this.wall(), (r) => this.shows(r));
+    if (isNotes(kind)) return noteTabsOf(this.wall(), (r) => this.shows(r), undefined, this.categoryOrder());
     return isMusic(kind) ? noteTabsOf(this.wall(), undefined, 'Sem artista') : null;
   });
   /** A aba que vale de fato: a escolhida, se ela ainda existe; senão, "Tudo". */
@@ -417,6 +423,7 @@ export abstract class WallState {
     direction: this.direction(),
     profile: this.mural.profile(),
     pinnedFirst: this.pinnedFirst(),
+    categoryOrder: this.notes() ? this.categoryOrder() : null,
   }));
 
   readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.guarding()));
@@ -549,6 +556,7 @@ export class WallView extends WallState {
   readonly guarding = computed(() => this.settings.noSpoilers());
   readonly owner = signal<string | null>(null).asReadonly();
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
+  override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
 
   constructor() {
     super({ key: KEY, whole: true });
@@ -595,7 +603,7 @@ export class WallView extends WallState {
 
 
 /** O que a seta da ordem diz, no seu mural e no de um colega. */
-export function directionLabelOf(sort: SortKey, direction: Direction, profile: KindProfile): string {
+export function directionLabelOf(sort: SortKey, direction: Direction, profile: KindProfile, ordered = false): string {
   const desc = direction === 'desc';
   switch (sort) {
     case 'data':
@@ -604,6 +612,7 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
       return desc ? 'De Z a A' : 'De A a Z';
     case 'categoria':
       if (isMusic(profile.kind)) return desc ? 'Artistas de Z a A' : 'Artistas de A a Z';
+      if (ordered) return desc ? 'Categorias na sua ordem, de trás para a frente' : 'Categorias na sua ordem';
       return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
     case 'tag':
       return desc ? 'Tags de Z a A' : 'Tags de A a Z';
@@ -625,6 +634,8 @@ export interface WallOrder {
   profile: KindProfile;
   /** Nas anotações, as fixadas no topo também fora da Prioridade (na Prioridade, sempre). */
   pinnedFirst?: boolean;
+  /** Nas anotações, a ordem das categorias montada à mão (pela chave); sem ela, de A a Z. */
+  categoryOrder?: readonly string[] | null;
 }
 
 /** As fixadas vêm na frente, numa seção só delas? Na Prioridade sempre; nas outras ordens, só se a pessoa quis. */
@@ -761,8 +772,21 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
     return (la !== null && lb !== null ? sign * collator.compare(la, lb) : 0) || -byDate(a, b);
   };
   switch (o.sort) {
-    case 'categoria':
-      return byLabel(firstCategory);
+    case 'categoria': {
+      const order = o.categoryOrder;
+      if (!order) return byLabel(firstCategory);
+      // na ordem montada: as que têm lugar nele, depois as outras de A a Z; sem categoria sempre no fim
+      const at = new Map(order.map((k, i) => [k, i]));
+      return (a, b) => {
+        const ca = firstCategory(a);
+        const cb = firstCategory(b);
+        if ((ca === null) !== (cb === null)) return ca === null ? 1 : -1;
+        if (ca === null || cb === null) return -byDate(a, b);
+        const pa = at.get(fold(ca.trim())) ?? order.length;
+        const pb = at.get(fold(cb.trim())) ?? order.length;
+        return sign * (pa - pb || collator.compare(ca, cb)) || -byDate(a, b);
+      };
+    }
     case 'tag':
       // pela primeira tag
       return byLabel(firstTag);

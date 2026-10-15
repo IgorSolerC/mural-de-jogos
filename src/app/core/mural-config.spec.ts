@@ -1,0 +1,120 @@
+import { provideZonelessChangeDetection } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { fingerprint, notesConfigOf } from './cloud-sync';
+import {
+  MAX_CONFIG_CATEGORIES,
+  NOTES_CONFIG_DEFAULT,
+  activeOrder,
+  arrangedKeys,
+  asksTag,
+  moveKey,
+  newNoteAudience,
+  prefsOf,
+  sanitizeNotesConfig,
+  subNoteColor,
+  withPrefs,
+} from './mural-config';
+import { SETTINGS_KEY, Settings } from './settings';
+
+describe('as configurações do mural de anotações', () => {
+  beforeEach(() => localStorage.removeItem(SETTINGS_KEY));
+  afterEach(() => localStorage.removeItem(SETTINGS_KEY));
+
+  it('sem nada guardado, fica como o site sempre foi', () => {
+    expect(sanitizeNotesConfig(undefined)).toEqual(NOTES_CONFIG_DEFAULT);
+    expect(sanitizeNotesConfig([1, 2])).toEqual(NOTES_CONFIG_DEFAULT);
+    expect(newNoteAudience(NOTES_CONFIG_DEFAULT, 'Trabalho')).toBe('privada');
+    expect(subNoteColor(NOTES_CONFIG_DEFAULT, null)).toBe('sorteada');
+    expect(asksTag(NOTES_CONFIG_DEFAULT, 'Trabalho', true)).toBeTrue();
+    expect(asksTag(NOTES_CONFIG_DEFAULT, 'Trabalho', false)).toBeFalse();
+    expect(activeOrder(NOTES_CONFIG_DEFAULT)).toBeNull();
+  });
+
+  it('guarda só valores conhecidos, pela categoria sem acento nem caixa, sem as categorias vazias', () => {
+    const cfg = sanitizeNotesConfig({
+      audience: 'publicar',
+      subColor: 'mae',
+      orderBy: 'minha',
+      order: ['Viagens!', 'viagens!', ' Roadmap site ', 3, ''],
+      categories: {
+        'Roadmap site': { audience: 'visivel', subColor: 'nada', askTag: 'sim' },
+        'Viagens!': { audience: 'publicar', askTag: false },
+        Vazia: { audience: 'todo mundo' },
+        Ruim: 'publicar',
+      },
+    });
+    expect(cfg).toEqual({
+      audience: 'publicar',
+      subColor: 'mae',
+      orderBy: 'minha',
+      order: ['viagens!', 'roadmap site'],
+      categories: { 'roadmap site': { audience: 'visivel' }, 'viagens!': { audience: 'publicar', askTag: false } },
+    });
+    const many = Object.fromEntries(Array.from({ length: MAX_CONFIG_CATEGORIES + 5 }, (_, i) => [`c${i}`, { askTag: true }]));
+    expect(Object.keys(sanitizeNotesConfig({ categories: many }).categories).length).toBe(MAX_CONFIG_CATEGORIES);
+  });
+
+  it('a categoria muda o que escolheu; o resto segue o mural', () => {
+    // "todas privadas, mas Roadmap site Disponível e Viagens! Publicar"
+    let cfg = withPrefs(NOTES_CONFIG_DEFAULT, 'Roadmap site', { audience: 'visivel' });
+    cfg = withPrefs(cfg, 'VIAGENS!', { audience: 'publicar', subColor: 'mae', askTag: false });
+    expect(newNoteAudience(cfg, 'roadmap SITE')).toBe('visivel');
+    expect(newNoteAudience(cfg, 'Viagens!')).toBe('publicar');
+    expect(newNoteAudience(cfg, 'Receitas')).toBe('privada');
+    expect(newNoteAudience(cfg, null)).toBe('privada');
+    expect(subNoteColor(cfg, 'Viagens!')).toBe('mae');
+    expect(subNoteColor(cfg, 'Roadmap site')).toBe('sorteada');
+    expect(asksTag(cfg, 'Viagens!', true)).toBeFalse();
+    expect(asksTag(cfg, 'Roadmap site', true)).toBeTrue();
+    // o mural muda: quem não escolheu acompanha
+    cfg = { ...cfg, audience: 'publicar' };
+    expect(newNoteAudience(cfg, 'Receitas')).toBe('publicar');
+    expect(newNoteAudience(cfg, 'Roadmap site')).toBe('visivel');
+  });
+
+  it('voltar a seguir o mural tira o campo, e a categoria sem nada deixa de ser guardada', () => {
+    let cfg = withPrefs(NOTES_CONFIG_DEFAULT, 'Viagens!', { audience: 'publicar', askTag: false });
+    cfg = withPrefs(cfg, 'Viagens!', { audience: undefined });
+    expect(prefsOf(cfg, 'Viagens!')).toEqual({ askTag: false });
+    cfg = withPrefs(cfg, 'viagens!', { askTag: undefined });
+    expect(cfg.categories).toEqual({});
+    // sem nome, nada muda
+    expect(withPrefs(cfg, '  ', { audience: 'publicar' })).toBe(cfg);
+  });
+
+  it('a ordem montada à mão: as que têm lugar nele, as novas no fim', () => {
+    expect(arrangedKeys(['b', 'x', 'a'], ['a', 'b', 'c', 'd'])).toEqual(['b', 'a', 'c', 'd']);
+    expect(arrangedKeys([], ['a', 'b'])).toEqual(['a', 'b']);
+    expect(moveKey(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b']);
+    expect(moveKey(['a', 'b', 'c'], 'a', 9)).toEqual(['b', 'c', 'a']);
+    expect(moveKey(['a', 'b', 'c'], 'z', 0)).toEqual(['a', 'b', 'c']);
+    expect(activeOrder({ ...NOTES_CONFIG_DEFAULT, orderBy: 'minha', order: ['a'] })).toEqual(['a']);
+    // pela quantidade, a ordem fica guardada para voltar a ela
+    expect(activeOrder({ ...NOTES_CONFIG_DEFAULT, orderBy: 'quantidade', order: ['a'] })).toBeNull();
+  });
+
+  it('fica guardado nos Ajustes, e cada mudança vale como a mais nova', () => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const settings = TestBed.inject(Settings);
+    expect(settings.notesConfigAt()).toBe('');
+    settings.setCategoryPrefs('Viagens!', { audience: 'publicar' });
+    settings.setNotesConfig({ subColor: 'mae' });
+    TestBed.tick();
+    expect(settings.notesConfigAt()).not.toBe('');
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
+    expect(stored.notesConfig.subColor).toBe('mae');
+    expect(stored.notesConfig.categories).toEqual({ 'viagens!': { audience: 'publicar' } });
+    // "Voltar ao padrão" (Ajustes) não mexe: são coisas da pessoa
+    settings.resetPreferences();
+    expect(settings.notesConfig().subColor).toBe('mae');
+  });
+
+  it('vai na nuvem com a data, e muda a impressão do mural', async () => {
+    const doc = { reviews: [], drafts: [], wishes: [], deleted: { reviews: {}, drafts: {}, wishes: {} } };
+    const config = { dados: withPrefs(NOTES_CONFIG_DEFAULT, 'Viagens!', { audience: 'publicar' }), em: '2026-10-15T10:00:00.000Z' };
+    expect(await fingerprint(doc, null, null, null, null, config)).not.toBe(await fingerprint(doc));
+    expect(notesConfigOf({ muralAnotacoes: { dados: { ...config.dados, audience: 'ninguem' }, em: config.em } })).toEqual(config);
+    expect(notesConfigOf({ muralAnotacoes: { dados: config.dados } })).toBeNull();
+    expect(notesConfigOf({})).toBeNull();
+  });
+});

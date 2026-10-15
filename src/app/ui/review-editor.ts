@@ -75,6 +75,7 @@ import { Settings } from '../core/settings';
 import { CardKit } from './card-kit';
 import { Confirm } from './confirm';
 import { lookKey, randomCategoryColor } from '../core/category-looks';
+import { asksTag, newNoteAudience, prefsOf, subNoteColor } from '../core/mural-config';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
@@ -195,7 +196,17 @@ export class ReviewEditor {
    * O botão principal leva a pública para o Feed? Sim, a não ser na que já estava só no mural: salvar
    * uma correção nela não avisa ninguém de repente. O caminho contrário fica na setinha.
    */
-  protected readonly announces = computed(() => this.wasAudience() !== 'visivel');
+  protected readonly announces = computed(() => {
+    const was = this.wasAudience();
+    return was ? was !== 'visivel' : !this.bornQuiet();
+  });
+  /**
+   * A anotação nova nasce Disponível (pública, fora do Feed): o botão principal prega sem avisar e a
+   * setinha publica no Feed. Vem das configurações do mural (ver `followDefaults`).
+   */
+  protected readonly bornQuiet = signal(false);
+  /** A pessoa escolheu Público ou Privado nesta ficha: a categoria não muda mais a escolha. */
+  private audienceTouched = false;
   /**
    * A setinha ao lado do botão: só com a nuvem, na pública, e enquanto o Feed ainda é uma escolha (a
    * ficha que já foi para o Feed não tem como voltar atrás: o aviso foi dado).
@@ -448,6 +459,31 @@ export class ReviewEditor {
       this.settings.setCategoryLook(category, { ...look, color: randomCategoryColor() });
     });
   });
+  /**
+   * A anotação nova acompanha a categoria: escolher "Viagens!" faz ela nascer como Viagens! nasce
+   * (configurações do mural), até a pessoa escolher Público ou Privado à mão.
+   */
+  private readonly followDefaults = effect(() => {
+    this.noteCategory();
+    this.settings.notesConfig();
+    if (!this.notes() || this.editing()) return;
+    untracked(() => this.applyDefaultAudience());
+  });
+
+  /** Põe a anotação nova como o mural (ou a categoria) manda, se a pessoa ainda não escolheu. */
+  private applyDefaultAudience(): void {
+    if (!this.notes() || this.editing() || this.audienceTouched) return;
+    const audience = newNoteAudience(this.settings.notesConfig(), this.noteCategory());
+    this.visibility.set(audience === 'privada' ? 'privada' : 'publica');
+    this.bornQuiet.set(audience === 'visivel');
+  }
+
+  /** Público ou Privado, escolhido à mão: vale até fechar, troque a categoria ou não. */
+  protected pickVisibility(v: 'publica' | 'privada'): void {
+    this.audienceTouched = true;
+    this.visibility.set(v);
+  }
+
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
   protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.noteCategory()));
 
@@ -501,6 +537,7 @@ export class ReviewEditor {
   openInCategory(category: string): void {
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.noteCategory.set(category);
+    this.applyDefaultAudience();
     this.snapshot = this.serialize();
   }
 
@@ -517,6 +554,9 @@ export class ReviewEditor {
     const fromNote = !!from && isNote(from);
     this.noteRank.set(fromNote ? 'sub' : null);
     this.noteCategory.set(fromNote ? (from.category ?? null) : null);
+    this.applyDefaultAudience();
+    // a cartolina: sorteada, ou a mesma da anotação mãe, como o mural (ou a categoria dela) manda
+    if (fromNote && subNoteColor(this.settings.notesConfig(), from.category) === 'mae') this.stock.set(pinningFor(from.id, from.stock).stock);
     this.linkTitle = title;
     // fechar sem mexer em nada não pergunta se quer descartar
     this.snapshot = this.serialize();
@@ -664,7 +704,10 @@ export class ReviewEditor {
     this.keptNotes.set(false);
     this.freshPick.set(false);
     this.openCount.update((n) => n + 1);
-    // a anotação nasce privada; a resenha, pública
+    // a resenha nasce pública; a anotação, como o mural manda (privada, a não ser que a pessoa mude
+    // na engrenagem do mural; a categoria escolhida depois pode mudar, ver `followDefaults`)
+    this.audienceTouched = false;
+    this.bornQuiet.set(false);
     this.visibility.set(review ? (review.private ? 'privada' : 'publica') : isNotes(kind) ? 'privada' : 'publica');
     this.noteRank.set(review?.noteRank ?? null);
     this.noteDateOpen.set(false);
@@ -708,6 +751,7 @@ export class ReviewEditor {
     const artist = isMusic(kind) && !review ? cleanArtist(rootReview?.category ?? this.game()?.by ?? '') : '';
     this.noteCategory.set(review?.category ?? (artist || null));
     this.noteTags.set([...(review?.tags ?? [])]);
+    this.applyDefaultAudience();
     this.labelsPicker()?.reset();
     this.hours.set(review?.hoursPlayed === null || review?.hoursPlayed === undefined ? '' : String(review.hoursPlayed).replace('.', ','));
     this.coverAbort?.abort();
@@ -980,7 +1024,10 @@ export class ReviewEditor {
    */
   private async okWithoutLabels(): Promise<boolean> {
     const noCategory = !this.noteCategory() && this.settings.askNoCategory();
-    const noTag = !this.noteTags().length && this.settings.askNoTag();
+    // a categoria pode pedir (ou dispensar) a pergunta da tag, na engrenagem do mural
+    const category = this.noteCategory();
+    const config = this.settings.notesConfig();
+    const noTag = !this.noteTags().length && asksTag(config, category, this.settings.askNoTag());
     if (!noCategory && !noTag) return true;
     const { ok, checked } = await this.confirm.askChecked({
       title: noCategory && noTag ? 'Sem categoria e sem tag' : noCategory ? 'Sem categoria' : 'Sem tag',
@@ -993,7 +1040,11 @@ export class ReviewEditor {
     });
     if (checked) {
       if (noCategory) this.settings.askNoCategory.set(false);
-      if (noTag) this.settings.askNoTag.set(false);
+      // a categoria que pedia a pergunta deixa de pedir; senão, o mural inteiro para de perguntar
+      if (noTag) {
+        if (category && prefsOf(config, category).askTag) this.settings.setCategoryPrefs(category, { askTag: false });
+        else this.settings.askNoTag.set(false);
+      }
     }
     if (!ok) {
       const picker = this.dialog().nativeElement.querySelector('app-note-labels-picker');

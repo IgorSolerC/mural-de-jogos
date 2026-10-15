@@ -2,6 +2,7 @@ import { Injectable, computed, effect, signal } from '@angular/core';
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
+import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs } from './mural-config';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
 const KEY = SETTINGS_KEY;
@@ -84,8 +85,16 @@ interface Stored {
    * perguntar isso" da pergunta desliga; os Ajustes (Mural) e o "Voltar ao padrão" ligam de novo.
    */
   askNoCategory: boolean;
-  /** O mesmo, para a anotação sem nenhuma tag. */
+  /** O mesmo, para a anotação sem nenhuma tag (cada categoria pode mudar: ver `notesConfig`). */
   askNoTag: boolean;
+  /**
+   * As configurações do mural de anotações (a engrenagem da pasta, ver core/mural-config.ts): a
+   * privacidade de quem nasce, a cor da sub-nota, a ordem das categorias e o que cada uma muda. Com
+   * conta, as mudadas por último valem em todos os aparelhos, como os jeitos das categorias.
+   */
+  notesConfig: NotesConfig;
+  /** Quando as configurações do mural de anotações mudaram pela última vez (ISO; vazio: nunca). */
+  notesConfigAt: string;
 }
 
 export type FriendKinds = 'misturado' | 'separado';
@@ -164,7 +173,9 @@ function readStored(): Stored {
   const fewCards = raw.fewCards === true;
   const askNoCategory = raw.askNoCategory !== false;
   const askNoTag = raw.askNoTag !== false;
-  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, noCutShadows, plainPencil, stillCards, fewCards, askNoCategory, askNoTag };
+  const notesConfig = sanitizeNotesConfig(raw.notesConfig);
+  const notesConfigAt = typeof raw.notesConfigAt === 'string' && Number.isFinite(Date.parse(raw.notesConfigAt)) ? raw.notesConfigAt : '';
+  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, noCutShadows, plainPencil, stillCards, fewCards, askNoCategory, askNoTag, notesConfig, notesConfigAt };
 }
 
 /**
@@ -223,6 +234,10 @@ export class Settings {
   readonly askNoCategory = signal(this.stored.askNoCategory);
   /** Ver `Stored.askNoTag`. */
   readonly askNoTag = signal(this.stored.askNoTag);
+  /** Ver `Stored.notesConfig`. Para mudar, `setNotesConfig` (marca a mudança como a mais nova). */
+  readonly notesConfig = signal<NotesConfig>(this.stored.notesConfig);
+  /** Ver `Stored.notesConfigAt`. */
+  readonly notesConfigAt = signal(this.stored.notesConfigAt);
 
   /** A predefinição que bate com as escolhas de agora (null: uma mistura feita à mão). */
   readonly performancePreset = computed<PerformancePreset | null>(() => {
@@ -301,6 +316,23 @@ export class Settings {
     this.categoryLooksAt.set(at);
   }
 
+  /** Muda as configurações do mural de anotações; vale como a mudança mais nova. */
+  setNotesConfig(patch: Partial<NotesConfig>): void {
+    this.notesConfig.set(sanitizeNotesConfig({ ...this.notesConfig(), ...patch }));
+    this.notesConfigAt.set(new Date().toISOString());
+  }
+
+  /** Muda o que uma categoria muda em cima do mural (`undefined` num campo: volta a seguir o mural). */
+  setCategoryPrefs(category: string, patch: CategoryPrefs): void {
+    this.setNotesConfig(withPrefs(this.notesConfig(), category, patch));
+  }
+
+  /** As configurações que vieram de outro aparelho (mudadas depois das daqui). */
+  applyNotesConfig(config: NotesConfig, at: string): void {
+    this.notesConfig.set(sanitizeNotesConfig(config));
+    this.notesConfigAt.set(at);
+  }
+
   /** A pessoa mudou uma chave (digitou, colou ou apagou): a mudança vale como a mais nova. */
   setKey(which: 'rawg' | 'tmdb', value: string): void {
     (which === 'rawg' ? this.rawgKey : this.tmdbKey).set(value);
@@ -338,6 +370,8 @@ export class Settings {
         fewCards: this.fewCards(),
         askNoCategory: this.askNoCategory(),
         askNoTag: this.askNoTag(),
+        notesConfig: this.notesConfig(),
+        notesConfigAt: this.notesConfigAt(),
       };
       try {
         localStorage.setItem(KEY, JSON.stringify(data));

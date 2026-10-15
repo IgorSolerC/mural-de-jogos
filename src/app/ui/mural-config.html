@@ -1,0 +1,253 @@
+<dialog #dialog class="sheet config" aria-labelledby="config-titulo" (close)="closed.emit()" (backdropClose)="close()">
+  <div class="ficha cartolina" style="--stock: var(--stock-azul)" data-cor="azul">
+    <app-pin class="pin" color="#e62e2d" />
+    <header class="head">
+      <div class="titulos">
+        <h2 id="config-titulo">Configurações do mural</h2>
+        <p class="sub">Anotações · vale na hora e fica salvo</p>
+      </div>
+      <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
+        <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+      </button>
+    </header>
+
+    <div class="corpo">
+      <!-- o índice: uma etiqueta por parte, na faixa de manilha (a pasta do mural) -->
+      <div class="indice" role="tablist" aria-label="Partes das configurações" aria-orientation="vertical" (keydown)="onIndexKey($event)">
+        @for (s of sections; track s.id) {
+          <button
+            type="button"
+            class="parte"
+            role="tab"
+            [id]="'config-aba-' + s.id"
+            [attr.aria-selected]="section() === s.id"
+            [attr.aria-controls]="'config-parte-' + s.id"
+            [attr.tabindex]="section() === s.id ? 0 : -1"
+            (click)="pick(s.id)"
+          >
+            <lucide-icon class="parte-icone" [img]="s.icon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <span class="parte-nome">{{ s.label }}</span>
+            <span class="parte-dica">{{ s.hint }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="conteudo" role="tabpanel" [id]="'config-parte-' + section()" [attr.aria-labelledby]="'config-aba-' + section()" tabindex="-1">
+        @switch (section()) {
+          @case ('padroes') {
+            <h3>Padrões</h3>
+            <p class="lead">Como nasce toda anotação deste mural. Cada categoria pode seguir estes padrões ou ter os seus, em <button type="button" class="link" (click)="pick('categorias')">Categorias</button>.</p>
+
+            <div class="grupo">
+              <p class="grupo-titulo">Ao criar</p>
+              <fieldset class="linha">
+                <legend class="linha-titulo">Privacidade da anotação nova</legend>
+                <p class="linha-desc">
+                  {{ audienceDesc(config().audience) }}
+                  @if (!cloud.config()) {
+                    Sem a nuvem, ninguém vê o seu mural: isto passa a valer quando houver.
+                  }
+                </p>
+                <div class="segmentos tres">
+                  @for (o of audiences; track o.value) {
+                    <label class="segmento">
+                      <input type="radio" name="config-nasce" [checked]="config().audience === o.value" (change)="setAudience(o.value)" />
+                      <lucide-icon class="seg-icone" [img]="o.icon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                      <span class="seg-nome">{{ o.label }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+
+              <fieldset class="linha">
+                <legend class="linha-titulo">Sub-nota criada de dentro de outra</legend>
+                <p class="linha-desc">{{ subDesc(config().subColor) }}</p>
+                <div class="segmentos dois">
+                  @for (o of subColors; track o.value) {
+                    <label class="segmento">
+                      <input type="radio" name="config-sub" [checked]="config().subColor === o.value" (change)="setSubColor(o.value)" />
+                      <span class="cartas" [class.iguais]="o.value === 'mae'" aria-hidden="true"><i></i><i></i></span>
+                      <span class="seg-nome">{{ o.label }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+            </div>
+
+            <div class="grupo">
+              <p class="grupo-titulo">Antes de salvar</p>
+              <div class="linha">
+                <div>
+                  <p class="linha-titulo" id="config-t-categoria">Avisar quando faltar a categoria</p>
+                  <p class="linha-desc" id="config-d-categoria">Pergunta antes de pregar uma anotação sem categoria.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  class="interruptor"
+                  aria-labelledby="config-t-categoria"
+                  aria-describedby="config-d-categoria"
+                  [attr.aria-checked]="settings.askNoCategory()"
+                  (click)="settings.askNoCategory.set(!settings.askNoCategory())"
+                >
+                  <span class="bolinha"></span>
+                </button>
+              </div>
+              <div class="linha">
+                <div>
+                  <p class="linha-titulo" id="config-t-tag">Avisar quando faltar a tag</p>
+                  <p class="linha-desc" id="config-d-tag">Pergunta antes de pregar uma anotação sem nenhuma tag. Cada categoria pode pedir ou dispensar.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  class="interruptor"
+                  aria-labelledby="config-t-tag"
+                  aria-describedby="config-d-tag"
+                  [attr.aria-checked]="settings.askNoTag()"
+                  (click)="settings.askNoTag.set(!settings.askNoTag())"
+                >
+                  <span class="bolinha"></span>
+                </button>
+              </div>
+            </div>
+          }
+
+          @case ('categorias') {
+            <h3>Categorias</h3>
+            <p class="lead">Cada categoria segue os padrões do mural, a não ser que você escolha outra coisa para ela.</p>
+
+            @if (categories().length) {
+              <div class="grupo">
+                <fieldset class="linha">
+                  <legend class="linha-titulo">Ordem das abas</legend>
+                  <p class="linha-desc">
+                    {{ manual() ? 'Do jeito que você montar: arraste pela alça ou use ↑ e ↓ nela. Categoria nova entra no fim.' : 'Da categoria com mais anotações para a com menos, sempre.' }}
+                  </p>
+                  <div class="segmentos dois">
+                    <label class="segmento">
+                      <input type="radio" name="config-ordem" [checked]="!manual()" (change)="setOrderBy(false)" />
+                      <span class="seg-nome">Da maior para a menor</span>
+                    </label>
+                    <label class="segmento">
+                      <input type="radio" name="config-ordem" [checked]="manual()" (change)="setOrderBy(true)" />
+                      <span class="seg-nome">Na minha ordem</span>
+                    </label>
+                  </div>
+                </fieldset>
+              </div>
+
+              <ol #lista class="cats" [class.arrastando]="!!drag()" [class.montada]="manual()">
+                @for (c of categories(); track c.key; let i = $index) {
+                  @let aberta = open() === c.key;
+                  @let resumo = summaryOf(c);
+                  <li class="cat" [class.aberta]="aberta" [class.no-ar]="drag()?.key === c.key" [style.translate]="'0 ' + shiftOf(i, c.key) + 'px'">
+                    <div class="cat-linha">
+                      @if (manual()) {
+                        <button
+                          type="button"
+                          class="alca"
+                          [attr.data-alca]="c.key"
+                          [attr.aria-label]="'Mover ' + c.label + ', ' + (i + 1) + 'ª de ' + categories().length + '. Use as setas para cima e para baixo.'"
+                          (pointerdown)="startDrag($event, c, i)"
+                          (keydown)="onHandleKey($event, c, i)"
+                        >
+                          <lucide-icon [img]="GripIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                        </button>
+                      }
+                      <button type="button" class="cat-abre" [attr.aria-expanded]="aberta" [attr.aria-controls]="'config-cat-' + i" (click)="toggle(c)">
+                        <span class="orelha" [class.orelha-cor]="!!colorOf(c)" [style.--cat-cor]="colorOf(c)"><app-cat-label [label]="c.label" [look]="lookOf(c)" [iconSize]="14" /></span>
+                        <span class="cat-textos">
+                          <span class="cat-n">{{ c.n }} {{ c.n === 1 ? 'anotação' : 'anotações' }}</span>
+                          <span class="cat-resumo">
+                            @if (resumo) {
+                              <span class="proprio">{{ resumo }}</span>
+                            } @else {
+                              Segue o mural
+                            }
+                          </span>
+                        </span>
+                        <lucide-icon class="chevron" [img]="ChevronIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    @if (aberta) {
+                      @let p = prefsOf(c);
+                      <div class="cat-painel" [id]="'config-cat-' + i">
+                        <app-category-style class="sub-bloco" [id]="'config-estilo-' + i" [category]="c.label" [bare]="true" />
+
+                        <fieldset class="sub-bloco">
+                          <legend class="sub-titulo">Anotação nova nasce</legend>
+                          <div class="segmentos quatro">
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-nasce-' + i" [checked]="!p.audience" (change)="setPrefs(c, { audience: undefined })" />
+                              <span class="seg-nome">Do mural</span>
+                              <span class="seg-sub">{{ audienceLabel[config().audience] }}</span>
+                            </label>
+                            @for (o of audiences; track o.value) {
+                              <label class="segmento">
+                                <input type="radio" [name]="'config-nasce-' + i" [checked]="p.audience === o.value" (change)="setPrefs(c, { audience: o.value })" />
+                                <lucide-icon class="seg-icone" [img]="o.icon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                <span class="seg-nome">{{ o.label }}</span>
+                              </label>
+                            }
+                          </div>
+                        </fieldset>
+
+                        <fieldset class="sub-bloco">
+                          <legend class="sub-titulo">Sub-nota criada de dentro dela</legend>
+                          <div class="segmentos tres">
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-sub-' + i" [checked]="!p.subColor" (change)="setPrefs(c, { subColor: undefined })" />
+                              <span class="seg-nome">Do mural</span>
+                              <span class="seg-sub">{{ subLabel[config().subColor] }}</span>
+                            </label>
+                            @for (o of subColors; track o.value) {
+                              <label class="segmento">
+                                <input type="radio" [name]="'config-sub-' + i" [checked]="p.subColor === o.value" (change)="setPrefs(c, { subColor: o.value })" />
+                                <span class="seg-nome">{{ o.label }}</span>
+                              </label>
+                            }
+                          </div>
+                        </fieldset>
+
+                        <fieldset class="sub-bloco">
+                          <legend class="sub-titulo">Aviso de “você esqueceu a tag”</legend>
+                          <div class="segmentos tres">
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-tag-' + i" [checked]="p.askTag === undefined" (change)="setPrefs(c, { askTag: undefined })" />
+                              <span class="seg-nome">Do mural</span>
+                              <span class="seg-sub">{{ settings.askNoTag() ? 'Avisa' : 'Não avisa' }}</span>
+                            </label>
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-tag-' + i" [checked]="p.askTag === true" (change)="setPrefs(c, { askTag: true })" />
+                              <span class="seg-nome">Avisar</span>
+                            </label>
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-tag-' + i" [checked]="p.askTag === false" (change)="setPrefs(c, { askTag: false })" />
+                              <span class="seg-nome">Não avisar</span>
+                            </label>
+                          </div>
+                        </fieldset>
+
+                        @if (resumo) {
+                          <button type="button" class="voltar" (click)="resetPrefs(c)">
+                            <lucide-icon [img]="ResetIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                            Voltar a seguir o mural
+                          </button>
+                        }
+                      </div>
+                    }
+                  </li>
+                }
+              </ol>
+              <p class="sr-only" aria-live="polite">{{ said() }}</p>
+            } @else {
+              <p class="vazio">Ainda não há categorias. Escolha uma no editor de uma anotação e ela aparece aqui, pronta para ganhar ícone, cor e padrões próprios.</p>
+            }
+          }
+        }
+      </div>
+    </div>
+  </div>
+</dialog>

@@ -248,6 +248,32 @@ describe('sincronização com a nuvem', () => {
     });
   });
 
+  describe('as configurações do mural de anotações', () => {
+    it('vão para os outros aparelhos só no mural privado, e a mudada por último vale', async () => {
+      localStorage.removeItem('mural-de-jogos:config:v1');
+      const a = device();
+      a.settings.setCategoryPrefs('Viagens!', { audience: 'publicar' });
+      a.settings.setNotesConfig({ orderBy: 'minha', order: ['viagens!', 'trabalho'] });
+      await a.sync.syncNow();
+      const priv = (await cloud.read()) as unknown as { muralAnotacoes?: { dados: { categories: Record<string, unknown> } } };
+      expect(priv.muralAnotacoes!.dados.categories).toEqual({ 'viagens!': { audience: 'publicar' } });
+      // o público não leva: é só da pessoa
+      expect((await cloud.readPublic())['muralAnotacoes']).toBeUndefined();
+
+      localStorage.removeItem('mural-de-jogos:config:v1');
+      const b = device();
+      await b.sync.syncNow();
+      expect(b.settings.notesConfig().categories).toEqual({ 'viagens!': { audience: 'publicar' } });
+      expect(b.settings.notesConfig().order).toEqual(['viagens!', 'trabalho']);
+
+      await new Promise((r) => setTimeout(r, 5));
+      b.settings.setNotesConfig({ subColor: 'mae' });
+      await settle(b, a);
+      expect(a.settings.notesConfig().subColor).toBe('mae');
+      expect(await settle(a, b)).toBe(1);
+    });
+  });
+
   describe('as chaves de busca', () => {
     /** Cada aparelho com os próprios ajustes (o localStorage do teste é um só). */
     function fresh(): Device {
@@ -633,10 +659,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
-  it('a leitura das fichas é a mesma da versão 13', async () => {
+  it('a leitura das fichas é a mesma da versão 14', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 13, hex: 'ebd01422b51c02b262df14a4150a9e53705b7edbd5d2f8113bb25705cf59a619' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 14, hex: 'ebd01422b51c02b262df14a4150a9e53705b7edbd5d2f8113bb25705cf59a619' });
   });
 });

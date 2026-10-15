@@ -16,6 +16,9 @@ import { Review, fold } from './review';
  *   sobram (as com menos anotações) vão para o "Mais" (ver `splitTabs` e NoteTabsBar).
  * - O número da aba é o de anotações à mostra; `total` conta as finalizadas também.
  * - Com tudo numa categoria só (ou tudo sem), não há o que separar: as abas não aparecem.
+ * - Com a ordem montada à mão (a engrenagem do mural, ver core/mural-config.ts), as categorias vão
+ *   nela; as que ficaram de fora (novas) vêm depois, pela quantidade, e "Sem categoria" fecha a fila.
+ *   Para o "Mais" vão as últimas da ordem, não as menores.
  */
 
 /** A aba "Tudo": o mural inteiro. */
@@ -53,7 +56,12 @@ export function noteTabKey(r: Pick<Review, 'category'>): string {
  * As abas do mural. `shown`: a anotação está à mostra (as finalizadas escondidas não contam no
  * número). `noneLabel`: o nome da aba de quem não tem categoria ("Sem artista", nas músicas).
  */
-export function noteTabsOf(notes: readonly Review[], shown: (r: Review) => boolean = () => true, noneLabel = 'Sem categoria'): NoteTabs {
+export function noteTabsOf(
+  notes: readonly Review[],
+  shown: (r: Review) => boolean = () => true,
+  noneLabel = 'Sem categoria',
+  order: readonly string[] | null = null,
+): NoteTabs {
   const buckets = new Map<string, { total: number; n: number; spellings: Map<string, number> }>();
   let all = 0;
   for (const r of notes) {
@@ -76,6 +84,12 @@ export function noteTabsOf(notes: readonly Review[], shown: (r: Review) => boole
   }
   const none = (t: NoteTab) => (t.key === NO_CATEGORY_TAB ? 1 : 0);
   tabs.sort((a, b) => b.n - a.n || b.total - a.total || none(a) - none(b) || collator.compare(a.label, b.label));
+  if (order) {
+    // na ordem montada: as que têm lugar nele, depois as novas (já pela quantidade), "Sem categoria" no fim
+    const at = new Map(order.map((k, i) => [`c:${k}`, i]));
+    const place = (t: NoteTab) => (t.key === NO_CATEGORY_TAB ? Infinity : (at.get(t.key) ?? order.length));
+    tabs.sort((a, b) => place(a) - place(b));
+  }
   return { tabs, all };
 }
 
@@ -87,11 +101,21 @@ export function hasTab(tabs: NoteTabs, key: string): boolean {
 /**
  * Quais abas ficam em pé e quais vão para o "Mais". `fits(n)`: cabem n abas de categoria em pé (as n
  * escolhidas), além de Tudo e, se sobrar alguma, do "Mais". Ficam as com mais anotações (e a aberta,
- * sempre), no máximo `MAX_TABS` contando Tudo; em pé, continuam na ordem de `noteTabsOf`.
+ * sempre), no máximo `MAX_TABS` contando Tudo; em pé, continuam na ordem de `noteTabsOf`. `ordered`:
+ * as abas vêm na ordem montada à mão, e ficam em pé as primeiras dela (e a aberta).
  */
-export function splitTabs(tabs: readonly NoteTab[], active: string, fits: (shown: readonly NoteTab[], more: boolean) => boolean = () => true): { shown: NoteTab[]; more: NoteTab[] } {
-  // a ordem de quem fica: a aberta primeiro, depois as maiores (no empate, a que vem antes)
-  const byWeight = [...tabs].sort((a, b) => (b.key === active ? 1 : 0) - (a.key === active ? 1 : 0) || b.n - a.n || b.total - a.total);
+export function splitTabs(
+  tabs: readonly NoteTab[],
+  active: string,
+  fits: (shown: readonly NoteTab[], more: boolean) => boolean = () => true,
+  ordered = false,
+): { shown: NoteTab[]; more: NoteTab[] } {
+  // a ordem de quem fica: a aberta primeiro, depois as maiores (no empate, a que vem antes); com a
+  // ordem montada à mão, as primeiras dela
+  const at = new Map(tabs.map((t, i) => [t.key, i]));
+  const byWeight = [...tabs].sort(
+    (a, b) => (b.key === active ? 1 : 0) - (a.key === active ? 1 : 0) || (ordered ? at.get(a.key)! - at.get(b.key)! : b.n - a.n || b.total - a.total),
+  );
   let keep = Math.min(tabs.length, MAX_TABS - 1);
   const pick = (k: number) => new Set(byWeight.slice(0, k).map((t) => t.key));
   while (keep > 0 && !fits(tabs.filter((t) => pick(keep).has(t.key)), keep < tabs.length)) keep--;

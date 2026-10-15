@@ -1,0 +1,162 @@
+import type { Audience } from './review';
+import { lookKey } from './category-looks';
+
+/**
+ * As configurações do mural de anotações (a engrenagem da pasta, ver ui/mural-config.ts): o que
+ * vale para o mural inteiro e o que cada categoria muda em cima disso. Uma categoria sem escolha
+ * segue o mural; o mural sem escolha fica como o site sempre foi (anotação nasce privada, a sub-nota
+ * com uma cor sorteada, as abas da maior para a menor).
+ *
+ * O ícone e a cor de cada categoria moram à parte (`Settings.categoryLooks`, ver category-looks.ts),
+ * porque vão também no mural público; isto aqui é só da pessoa e nunca sai do mural privado.
+ *
+ * Para crescer: um ajuste novo do mural entra em `NotesConfig` (com o padrão em
+ * `NOTES_CONFIG_DEFAULT` e a leitura em `sanitizeNotesConfig`); um por categoria, em `CategoryPrefs`
+ * (vazio = segue o mural) e em `sanitizePrefs`. A folha da engrenagem mostra cada um numa linha.
+ */
+
+/** A cor da cartolina de uma sub-nota criada de dentro de outra anotação. */
+export type SubColor = 'sorteada' | 'mae';
+export const SUB_COLORS: readonly SubColor[] = ['sorteada', 'mae'];
+
+/** Como as abas (e a ordem por categoria) se arrumam: pela quantidade ou na ordem que a pessoa montou. */
+export type CategoryOrderBy = 'quantidade' | 'minha';
+
+const AUDIENCES: readonly Audience[] = ['privada', 'visivel', 'publicar'];
+
+/** O que uma categoria muda em cima do mural. Sem o campo: segue o mural. */
+export interface CategoryPrefs {
+  /** Como nasce a anotação nova desta categoria: Privada, Disponível (pública, fora do Feed) ou Publicar. */
+  audience?: Audience;
+  /** A sub-nota criada de dentro de uma anotação desta categoria: cor sorteada ou a da anotação mãe. */
+  subColor?: SubColor;
+  /** Perguntar antes de salvar uma anotação desta categoria sem nenhuma tag. */
+  askTag?: boolean;
+}
+
+export interface NotesConfig {
+  /** Como nasce toda anotação nova (a categoria pode mudar). */
+  audience: Audience;
+  /** A cor da sub-nota, no mural inteiro (a categoria pode mudar). */
+  subColor: SubColor;
+  orderBy: CategoryOrderBy;
+  /**
+   * A ordem montada à mão: as categorias pela chave (sem acento nem caixa, a de `lookKey`). Fica
+   * guardada mesmo com `orderBy: 'quantidade'`, para voltar a ela sem perder nada. A categoria que
+   * não está aqui (nova) entra no fim, pela quantidade.
+   */
+  order: string[];
+  /** O que cada categoria muda, pela chave. */
+  categories: Record<string, CategoryPrefs>;
+}
+
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', subColor: 'sorteada', orderBy: 'quantidade', order: [], categories: {} };
+
+/** Categorias demais viram lixo guardado: no máximo estas (como os jeitos das categorias). */
+export const MAX_CONFIG_CATEGORIES = 200;
+
+function sanitizePrefs(raw: unknown): CategoryPrefs {
+  const out: CategoryPrefs = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  const { audience, subColor, askTag } = raw as Record<string, unknown>;
+  if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
+  if (SUB_COLORS.includes(subColor as SubColor)) out.subColor = subColor as SubColor;
+  if (typeof askTag === 'boolean') out.askTag = askTag;
+  return out;
+}
+
+const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.subColor === undefined && p.askTag === undefined;
+
+/** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
+export function sanitizeNotesConfig(raw: unknown): NotesConfig {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {} };
+  const r = raw as Record<string, unknown>;
+  const order: string[] = [];
+  if (Array.isArray(r['order'])) {
+    for (const k of r['order']) {
+      if (order.length >= MAX_CONFIG_CATEGORIES) break;
+      const key = typeof k === 'string' ? lookKey(k).slice(0, 64) : '';
+      if (key && !order.includes(key)) order.push(key);
+    }
+  }
+  const categories: Record<string, CategoryPrefs> = {};
+  if (r['categories'] && typeof r['categories'] === 'object' && !Array.isArray(r['categories'])) {
+    let n = 0;
+    for (const [k, v] of Object.entries(r['categories'] as Record<string, unknown>)) {
+      if (n >= MAX_CONFIG_CATEGORIES) break;
+      const key = lookKey(k).slice(0, 64);
+      const prefs = sanitizePrefs(v);
+      if (!key || isEmpty(prefs)) continue;
+      categories[key] = prefs;
+      n++;
+    }
+  }
+  return {
+    audience: AUDIENCES.includes(r['audience'] as Audience) ? (r['audience'] as Audience) : NOTES_CONFIG_DEFAULT.audience,
+    subColor: SUB_COLORS.includes(r['subColor'] as SubColor) ? (r['subColor'] as SubColor) : NOTES_CONFIG_DEFAULT.subColor,
+    orderBy: r['orderBy'] === 'minha' ? 'minha' : 'quantidade',
+    order,
+    categories,
+  };
+}
+
+/** O que a categoria muda (vazio: segue o mural, e sem categoria também). */
+export function prefsOf(cfg: NotesConfig, category: string | null | undefined): CategoryPrefs {
+  const key = category ? lookKey(category) : '';
+  return (key && cfg.categories[key]) || {};
+}
+
+/** Como nasce uma anotação nova nesta categoria (ou sem nenhuma). */
+export function newNoteAudience(cfg: NotesConfig, category: string | null | undefined): Audience {
+  return prefsOf(cfg, category).audience ?? cfg.audience;
+}
+
+/** A cor da sub-nota criada de dentro de uma anotação desta categoria. */
+export function subNoteColor(cfg: NotesConfig, category: string | null | undefined): SubColor {
+  return prefsOf(cfg, category).subColor ?? cfg.subColor;
+}
+
+/** Perguntar antes de salvar sem tag uma anotação desta categoria? `mural`: a escolha do mural inteiro. */
+export function asksTag(cfg: NotesConfig, category: string | null | undefined, mural: boolean): boolean {
+  return prefsOf(cfg, category).askTag ?? mural;
+}
+
+/**
+ * Muda o que a categoria muda: um campo `undefined` volta a seguir o mural; a categoria sem nada
+ * deixa de ser guardada.
+ */
+export function withPrefs(cfg: NotesConfig, category: string, patch: CategoryPrefs): NotesConfig {
+  const key = lookKey(category);
+  if (!key) return cfg;
+  const { [key]: old, ...rest } = cfg.categories;
+  const merged: CategoryPrefs = { ...old, ...patch };
+  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined) delete merged[k];
+  return { ...cfg, categories: isEmpty(merged) ? rest : { ...rest, [key]: merged } };
+}
+
+/**
+ * A ordem montada à mão para as categorias de agora (`keys`, já na ordem por quantidade): as que já
+ * têm lugar, nele; as novas, no fim, na ordem em que vieram.
+ */
+export function arrangedKeys(order: readonly string[], keys: readonly string[]): string[] {
+  const at = new Map(order.map((k, i) => [k, i]));
+  const placed = keys.filter((k) => at.has(k)).sort((a, b) => at.get(a)! - at.get(b)!);
+  return [...placed, ...keys.filter((k) => !at.has(k))];
+}
+
+/** Leva a categoria `key` para a posição `to` da lista (as de fora da lista não mudam de lugar). */
+export function moveKey(list: readonly string[], key: string, to: number): string[] {
+  const from = list.indexOf(key);
+  if (from < 0) return [...list];
+  const out = list.filter((k) => k !== key);
+  out.splice(Math.max(0, Math.min(to, out.length)), 0, key);
+  return out;
+}
+
+/**
+ * A ordem que vale nas abas e na ordem por categoria: a montada à mão, ou null (pela quantidade).
+ * Guardar a lista inteira da pasta: as que ficaram de fora vão para o fim.
+ */
+export function activeOrder(cfg: NotesConfig): readonly string[] | null {
+  return cfg.orderBy === 'minha' ? cfg.order : null;
+}

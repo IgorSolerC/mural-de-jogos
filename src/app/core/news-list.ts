@@ -26,6 +26,21 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-configuracoes-do-mural',
+    version: '1.40.0',
+    kind: 'funcionalidade',
+    date: '2026-10-15',
+    title: 'Configurações do mural de anotações, na engrenagem da pasta',
+    items: [
+      'Na pasta do mural de anotações, ao lado dos tipos de ficha, uma engrenagem abre as configurações do mural, em duas partes: Padrões e Categorias.',
+      'Padrões: como nasce toda anotação nova (Privada; Disponível, que fica no seu mural e no perfil sem ir para o Feed; ou Publicar), a cor da sub-nota criada de dentro de outra anotação (sorteada ou a da anotação mãe) e os avisos antes de salvar sem categoria ou sem tag.',
+      'Categorias: o ícone e a cor de cada uma, e o que ela muda em cima do mural. Dá para tudo nascer privado e só "Viagens" nascer publicada, por exemplo. No editor, escolher a categoria já deixa a anotação do jeito dela, até você trocar à mão.',
+      'Cada categoria também escolhe a cor das sub-notas criadas de dentro das anotações dela e se avisa quando falta a tag.',
+      'A ordem das abas pode ser a sua: em "Na minha ordem", arraste cada categoria pela alça (ou use as setas nela). As abas, o "Mais" e a ordem por categoria seguem essa ordem, e categoria nova entra no fim.',
+      'Com a conta, as configurações vão para os seus outros aparelhos junto com o mural.',
+    ],
+  },
+  {
     id: '2026-10-14-alto-falante-broche',
     version: '1.39.3',
     kind: 'melhoria',

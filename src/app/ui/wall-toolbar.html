@@ -85,6 +85,24 @@
             </button>
           }
         </div>
+
+        <!-- a engrenagem: as configurações do mural (categorias, ordem, como nasce cada anotação) -->
+        @if (mine()) {
+          <div class="pasta-grupo">
+            <button
+              #gear
+              type="button"
+              class="tinta so-icone"
+              aria-haspopup="dialog"
+              [attr.aria-expanded]="configOpen()"
+              aria-label="Configurações do mural"
+              title="Configurações do mural"
+              (click)="configOpen.set(true)"
+            >
+              <lucide-icon [img]="GearIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+          </div>
+        }
       </div>
     </div>
 
@@ -294,4 +312,11 @@
     (clearAll)="clearAll()"
     (done)="close()"
   />
+}
+
+<!-- as configurações do mural: um pedaço à parte, que só chega quando a engrenagem é tocada -->
+@if (configOpen()) {
+  @defer (on immediate) {
+    <app-mural-config (closed)="closeConfig()" />
+  }
 }

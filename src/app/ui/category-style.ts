@@ -52,12 +52,14 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
   selector: 'app-category-style',
   imports: [LucideAngularModule, CategoryLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[attr.id]': 'id()' },
+  host: { '[attr.id]': 'id()', '[class.solta]': 'bare()' },
   template: `
-    <div class="previa" aria-hidden="true">
-      <span class="orelha" [class.orelha-cor]="!!color()" [style.--cat-cor]="color()"><app-cat-label [label]="category()" [look]="look()" /></span>
-    </div>
-    <p class="hint">Vale para todas as anotações de {{ category() }}: na orelha da ficha e na aba do mural.</p>
+    @if (!bare()) {
+      <div class="previa" aria-hidden="true">
+        <span class="orelha" [class.orelha-cor]="!!color()" [style.--cat-cor]="color()"><app-cat-label [label]="category()" [look]="look()" /></span>
+      </div>
+      <p class="hint">Vale para todas as anotações de {{ category() }}: na orelha da ficha e na aba do mural.</p>
+    }
     <p class="sub" [id]="id() + '-icones'">Ícone</p>
     <div class="ops" role="group" [attr.aria-labelledby]="id() + '-icones'">
       @for (i of icons; track i) {
@@ -91,6 +93,14 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
         0 1px 2px rgb(0 0 0 / 0.12),
         0 6px 12px -8px rgb(0 0 0 / 0.3);
       animation: folha-in var(--t-physical) var(--ease-physical);
+    }
+    /* solta: dentro de outra folha (as configurações do mural), sem papel nem prévia próprios */
+    :host(.solta) {
+      margin: 0;
+      padding: 0;
+      background: none;
+      box-shadow: none;
+      animation: none;
     }
     @keyframes folha-in {
       from {
@@ -225,6 +235,8 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
 export class CategoryStyle {
   readonly id = input.required<string>();
   readonly category = input.required<string>();
+  /** Sem a folha e a prévia: quem mostra já tem a orelha à vista (ver ui/mural-config.ts). */
+  readonly bare = input(false);
 
   private readonly settings = inject(Settings);
   protected readonly icons = CATEGORY_ICONS;

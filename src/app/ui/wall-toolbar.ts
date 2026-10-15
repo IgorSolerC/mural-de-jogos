@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, Injector, linkedSignal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, Injector, linkedSignal, signal, viewChild } from '@angular/core';
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -14,6 +14,7 @@ import {
   LucideAngularModule,
   Pin,
   Rows3,
+  Settings,
   SquareCheckBig,
 } from 'lucide-angular';
 import { Mural } from '../core/mural';
@@ -24,6 +25,7 @@ import { WallMotion } from '../core/wall-motion';
 import { FacetKey, FilterTag, NO_FILTER } from '../core/wall-filter';
 import { Density, SortKey, WallState, directionLabelOf } from '../core/wall-view';
 import { FilterSheet, FilterTags, FilterToggle } from './filter-sheet';
+import { MuralConfig } from './mural-config';
 import { NoteTabsBar } from './note-tabs-bar';
 import { TagShortcuts } from './tag-shortcuts';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
@@ -48,7 +50,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, FilterTags, LucideAngularModule, NoteTabsBar, SearchStrip, TagShortcuts],
+  imports: [FilterSheet, FilterTags, LucideAngularModule, MuralConfig, NoteTabsBar, SearchStrip, TagShortcuts],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -77,11 +79,17 @@ export class WallToolbar {
   protected readonly DoneIcon = CheckCheck;
   protected readonly PinIcon = Pin;
   protected readonly RevealIcon = Eye;
+  protected readonly GearIcon = Settings;
 
   private readonly injector = inject(Injector);
   /** O Filtrar da pasta (só nos murais de resenhas: as anotações não têm cartela). */
   private readonly filterTab = viewChild<ElementRef<HTMLButtonElement>>('filterTab');
   private readonly sheet = viewChild(FilterSheet);
+  /** A engrenagem das anotações: o foco volta para ela quando as configurações fecham. */
+  private readonly gear = viewChild<ElementRef<HTMLButtonElement>>('gear');
+
+  /** As configurações do mural abertas (a folha chega por @defer, ver ui/mural-config.ts). */
+  protected readonly configOpen = signal(false);
 
   /** A cartela de filtros aberta embaixo da régua. */
   protected readonly open = linkedSignal({ source: this.mural.kind, computation: () => false });
@@ -144,7 +152,7 @@ export class WallToolbar {
   }
 
   protected directionLabel(): string {
-    return directionLabelOf(this.view.shownSort(), this.view.direction(), this.mural.profile());
+    return directionLabelOf(this.view.shownSort(), this.view.direction(), this.mural.profile(), this.notes() && !!this.view.categoryOrder());
   }
 
   protected toggleOpen(e: MouseEvent): void {
@@ -212,6 +220,11 @@ export class WallToolbar {
   /** A busca sai da aba e procura no mural inteiro. */
   protected searchAll(): void {
     this.motion.run(() => this.view.setNoteTab(ALL_TAB));
+  }
+
+  protected closeConfig(): void {
+    this.configOpen.set(false);
+    this.gear()?.nativeElement.focus();
   }
 
   protected flip(): void {

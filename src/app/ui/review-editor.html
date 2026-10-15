@@ -342,7 +342,7 @@
               <div class="quem-opts">
                 @for (o of visibilities; track o.value) {
                   <label class="quem">
-                    <input type="radio" name="editor-quem" [checked]="visibility() === o.value" (change)="visibility.set(o.value)" aria-describedby="editor-quem-dica" />
+                    <input type="radio" name="editor-quem" [checked]="visibility() === o.value" (change)="pickVisibility(o.value)" aria-describedby="editor-quem-dica" />
                     <span class="quem-tag">
                       <lucide-icon [img]="o.icon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
                       {{ o.label }}
@@ -353,6 +353,8 @@
               <p class="quem-dica" id="editor-quem-dica">
                 @if (isPrivate()) {
                   Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque.
+                } @else if (!announces() && !editing()) {
+                  Vai para o seu mural sem aparecer no Feed de quem segue você. Para publicar no Feed também, use a setinha ao lado de Pregar.
                 } @else if (!announces()) {
                   Está no seu mural, mas não foi para o Feed de quem segue você. Para publicar no Feed, use a setinha ao lado de Salvar.
                 } @else if (editing() && !feedMenu()) {

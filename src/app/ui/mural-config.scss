@@ -1,0 +1,670 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+:host {
+  display: contents;
+}
+
+/* A folha: a ficha de fichário dos diálogos (faixa azul das configurações, como os Ajustes), alta o
+   bastante para trocar de parte sem pular, com o índice na faixa de manilha à esquerda. */
+dialog.config {
+  width: 100%;
+  max-width: min(960px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+  height: min(740px, calc(100dvh - 24px));
+  container: config / inline-size;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.titulos {
+  min-width: 0;
+}
+
+.sub {
+  margin-top: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.72);
+}
+
+.corpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+}
+
+/* ===== O índice: etiquetas de papel numa faixa de manilha ===== */
+.indice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 0 22px 16px;
+  background-color: #ecdcaa;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow:
+    inset -2px 0 0 rgb(21 21 21 / 0.12),
+    inset 0 6px 8px -6px rgb(0 0 0 / 0.25);
+}
+
+.parte {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  margin-right: 14px;
+  padding: 11px 12px 12px;
+  border: 0;
+  border-radius: 2px;
+  background-color: #fbf9f2;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  text-align: left;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.22),
+    0 6px 10px -6px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+  rotate: -1deg;
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:nth-child(2n) {
+    rotate: 0.8deg;
+  }
+
+  &:hover {
+    translate: 3px 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+
+  /* a aberta: amarela, reta e encostada na folha */
+  &[aria-selected='true'] {
+    rotate: 0deg;
+    translate: 14px 0;
+    margin-right: 0;
+    background-color: var(--hi);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.25),
+      0 8px 12px -8px rgb(0 0 0 / 0.45);
+  }
+}
+
+.parte-icone {
+  display: inline-flex;
+}
+
+.parte-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.parte-dica {
+  grid-column: 2;
+  font-size: 0.86rem;
+  line-height: 1.3;
+  color: var(--ink-2);
+}
+
+/* ===== O conteúdo da parte aberta ===== */
+.conteudo {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 32px 36px;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+  container: parte / inline-size;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+h3 {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.7rem;
+  line-height: 1.05;
+}
+
+.lead {
+  max-width: 62ch;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.grupo {
+  margin-top: 26px;
+}
+
+.grupo-titulo {
+  @include kit.grupo-titulo;
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 28px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px 0;
+  border: 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* com seletor, tudo empilha: o nome, o que ele faz, e o seletor embaixo */
+fieldset.linha {
+  display: block;
+
+  legend {
+    float: left;
+    width: 100%;
+    padding: 0;
+  }
+
+  > :not(legend) {
+    clear: both;
+  }
+}
+
+.linha-titulo {
+  display: block;
+  margin: 0;
+  font-family: var(--f-ui);
+  font-weight: 700;
+  font-size: 1.06rem;
+  line-height: 1.3;
+}
+
+.linha-desc {
+  max-width: 62ch;
+  margin-top: 3px;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.interruptor {
+  @include kit.interruptor;
+}
+
+/* ===== O seletor: a tira dos Ajustes, com os fios de tinta entre as opções (e quebrando em duas
+   fileiras quando falta largura) ===== */
+.segmentos {
+  @include kit.segmentos;
+  gap: 2px;
+  padding: 2px;
+  background: var(--ink);
+  box-shadow: none;
+  max-width: 560px;
+
+  &.tres {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  &.quatro {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.segmento {
+  @include kit.segmento;
+  background: #fff;
+
+  & + & {
+    box-shadow: none;
+  }
+
+  /* a de fora (2px de tinta) já é o contorno: os cantos acompanham */
+  &:first-child {
+    border-radius: 2px 0 0 2px;
+  }
+  &:last-child {
+    border-radius: 0 2px 2px 0;
+  }
+
+  &:has(input:checked) .seg-sub {
+    color: rgb(247 244 236 / 0.78);
+  }
+}
+
+.seg-nome {
+  @include kit.seg-nome;
+}
+
+.seg-icone {
+  display: inline-flex;
+}
+
+/* "Do mural": o que o mural diz agora, embaixo */
+.seg-sub {
+  font-size: 0.8rem;
+  line-height: 1.1;
+  color: var(--ink-2);
+}
+
+/* duas cartolinas em miniatura: a mãe e a sub-nota (da mesma cor, ou outra) */
+.cartas {
+  position: relative;
+  width: 34px;
+  height: 22px;
+
+  i {
+    position: absolute;
+    width: 22px;
+    height: 16px;
+    border-radius: 1px;
+    box-shadow:
+      inset 0 0 0 1.5px rgb(21 21 21 / 0.55),
+      0 1px 1px rgb(0 0 0 / 0.25);
+  }
+  i:first-child {
+    top: 0;
+    left: 0;
+    rotate: -6deg;
+    background: var(--stock-verde);
+  }
+  i:last-child {
+    right: 0;
+    bottom: 0;
+    rotate: 5deg;
+    background: var(--stock-rosa);
+  }
+  &.iguais i:last-child {
+    background: var(--stock-verde);
+  }
+}
+
+/* ===== As categorias: uma linha por categoria, com a orelha à vista; abre para mudar ===== */
+.cats {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1.5px solid rgb(21 21 21 / 0.2);
+}
+
+.cat {
+  position: relative;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+  background-color: var(--paper);
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  /* a arrastada segue o dedo, sem atraso, por cima das outras */
+  &.no-ar {
+    z-index: 2;
+    transition: none;
+    box-shadow: var(--shadow-card);
+    rotate: -0.8deg;
+  }
+}
+
+.cats.arrastando {
+  user-select: none;
+}
+
+.cat-linha {
+  display: flex;
+  align-items: stretch;
+}
+
+.alca {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  margin-left: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-2);
+  cursor: grab;
+  touch-action: none;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+    color: var(--ink);
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+  }
+}
+
+.cat-abre {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 210px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 14px;
+  min-height: 64px;
+  padding: 10px 6px 10px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover .chevron {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+    border-radius: 4px;
+  }
+}
+
+/* a orelha da ficha, como na aba da pasta: manilha, cantos de cima redondos, o pé no fio */
+.orelha {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-self: end;
+  justify-self: start;
+  max-width: 100%;
+  margin-bottom: -10px;
+  padding: 6px 12px 8px 10px;
+  border-radius: 8px 8px 0 0;
+  background-color: #f3e5bb;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: inset 0 -1.5px 0 rgb(21 21 21 / 0.2);
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  line-height: 1.2;
+
+  &.orelha-cor {
+    padding: 9px 14px 8px 12px;
+    background-color: #fffcf2;
+  }
+}
+
+.cat-textos {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.cat-n {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.cat-resumo {
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+
+  /* o que é dela, e não do mural: em tinta cheia, com o traço de marca-texto (em cada linha) */
+  .proprio {
+    padding: 0 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    color: var(--ink);
+    font-weight: 600;
+    background: linear-gradient(transparent 55%, rgb(255 218 66 / 0.6) 55%, rgb(255 218 66 / 0.6) 92%, transparent 92%);
+  }
+}
+
+.chevron {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    background-color var(--t-ui) var(--ease-ui);
+}
+
+.cat.aberta .chevron {
+  rotate: 180deg;
+}
+
+.cat-painel {
+  display: grid;
+  gap: 18px;
+  margin: 0 0 18px;
+  padding: 18px 18px 20px;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.16);
+  animation: painel-in var(--t-physical) var(--ease-physical);
+}
+
+@keyframes painel-in {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+
+.cats.montada .cat-painel {
+  margin-left: 32px;
+}
+
+.sub-bloco {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  .segmentos {
+    margin-top: 10px;
+  }
+}
+
+.sub-titulo {
+  padding: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* o mesmo risco de pincel do "Voltar ao de sempre" do ícone e cor */
+.voltar {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: -4px 0 -8px -8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.05);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 0;
+  }
+}
+
+.vazio {
+  max-width: 54ch;
+  margin-top: 22px;
+  padding: 16px 18px;
+  border: 2px dashed rgb(21 21 21 / 0.3);
+  border-radius: 2px;
+  font-family: var(--f-hand, inherit);
+  line-height: 1.5;
+}
+
+/* ===== Folha estreita: o índice vira uma fileira em cima ===== */
+@container config (max-width: 640px) {
+  .corpo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .indice {
+    flex-direction: row;
+    gap: 8px;
+    padding: 12px 12px 0;
+    box-shadow: inset 0 -2px 0 rgb(21 21 21 / 0.12);
+  }
+
+  .parte {
+    flex: 1;
+    grid-template-columns: auto;
+    justify-items: center;
+    margin: 0 0 -4px;
+    padding: 9px 8px 12px;
+    rotate: -0.6deg;
+
+    &:nth-child(2n) {
+      rotate: 0.6deg;
+    }
+
+    &:hover {
+      translate: 0 -2px;
+    }
+
+    &[aria-selected='true'] {
+      translate: 0 4px;
+    }
+  }
+
+  .parte-dica {
+    display: none;
+  }
+
+  .parte-nome {
+    font-size: 0.92rem;
+  }
+
+  .conteudo {
+    padding: 20px 16px 28px;
+  }
+}
+
+/* a parte estreita: quatro opções viram duas fileiras, e o painel da categoria encosta */
+@container parte (max-width: 460px) {
+  .segmentos.quatro {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .segmentos.quatro .segmento {
+    border-radius: 0;
+  }
+
+  .cats.montada .cat-painel {
+    margin-left: 0;
+  }
+
+  .cat-painel {
+    padding: 14px 12px 16px;
+  }
+
+  .cat-abre {
+    grid-template-columns: minmax(0, 170px) minmax(0, 1fr) auto;
+  }
+}
+
+@container parte (max-width: 400px) {
+  /* a orelha em cima, o que ela muda embaixo */
+  .cat-abre {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-top: 12px;
+  }
+
+  .orelha {
+    align-self: start;
+    margin-bottom: 0;
+    font-size: 0.94rem;
+  }
+
+  .cat-textos {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+}
+
+@media (pointer: coarse) {
+  .alca {
+    width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat,
+  .parte,
+  .chevron {
+    transition: none;
+  }
+}

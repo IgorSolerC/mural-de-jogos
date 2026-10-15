@@ -299,14 +299,16 @@ export class NoteTabsBar {
     if (!t) return { shown: [], more: [] };
     const w = this.widths();
     const room = this.room();
-    if (!room || !w.size) return splitTabs(t.tabs, this.active());
+    // na ordem montada à mão (só nas anotações), ficam em pé as primeiras dela
+    const ordered = !this.music() && !!this.view.categoryOrder();
+    if (!room || !w.size) return splitTabs(t.tabs, this.active(), undefined, ordered);
     const fits = (shown: readonly NoteTab[], more: boolean) => {
       let used = w.get('tudo') ?? 0;
       for (const x of shown) used += GAP + (w.get(x.key) ?? 0);
       if (more) used += GAP + (w.get('mais') ?? 0);
       return used <= room;
     };
-    return splitTabs(t.tabs, this.active(), fits);
+    return splitTabs(t.tabs, this.active(), fits, ordered);
   });
 
   /** O mural de músicas: as abas são dos artistas. */

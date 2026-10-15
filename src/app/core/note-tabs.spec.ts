@@ -4,6 +4,7 @@ import { Mural } from './mural';
 import { ALL_TAB, MAX_TABS, NO_CATEGORY_TAB, NoteTab, noteTabKey, noteTabsOf, splitTabs } from './note-tabs';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
+import { Settings } from './settings';
 import { WallView } from './wall-view';
 
 let seq = 0;
@@ -104,6 +105,20 @@ describe('as abas do mural de anotações', () => {
     expect(noteTabsOf(list, (r) => !r.doneAt).tabs.map((t) => t.label)).toEqual(['Viagem', 'Compras']);
     expect(noteTabsOf([...list, note('F', 'Compras')], (r) => !r.doneAt).tabs.map((t) => t.label)).toEqual(['Compras', 'Viagem']);
     expect(noteTabsOf([note('A', 'Viagem'), note('B', 'Compras')]).tabs.map((t) => t.label)).toEqual(['Compras', 'Viagem']);
+  });
+
+  it('na ordem montada à mão: as categorias nela, as novas depois (pela quantidade) e Sem categoria no fim', () => {
+    const tabs = noteTabsOf(sea(), undefined, undefined, ['receitas', 'viagem']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Receitas', 'Viagem', 'Trabalho', 'Estudos', 'Sem categoria']);
+  });
+
+  it('na ordem montada, o Mais leva as últimas da ordem, não as menores; a aberta fica em pé', () => {
+    const tabs: NoteTab[] = 'ABCDEFGHIJ'.split('').map((c, i) => ({ key: `c:${c}`, label: c, n: 10 - i, total: 10 - i })).reverse();
+    // J (a menor) é a primeira da ordem
+    const split = splitTabs(tabs, ALL_TAB, undefined, true);
+    expect(split.shown.map((t) => t.label)).toEqual(['J', 'I', 'H', 'G', 'F', 'E', 'D']);
+    expect(split.more.map((t) => t.label)).toEqual(['C', 'B', 'A']);
+    expect(splitTabs(tabs, 'c:A', undefined, true).shown.map((t) => t.label)).toEqual(['J', 'I', 'H', 'G', 'F', 'E', 'A']);
   });
 
   it('uma categoria chamada "Sem" não cai na aba das sem categoria', () => {
@@ -234,6 +249,19 @@ describe('WallView com abas', () => {
     // a aba Estudos começa com a vista de Tudo (por categoria), que ali vira Prioridade
     view.setNoteTab(key('Estudos'));
     expect(view.shownSort()).toBe('prioridade');
+  });
+
+  it('com a ordem montada nas configurações do mural, as abas e as seções por categoria seguem ela', () => {
+    const settings = TestBed.inject(Settings);
+    settings.setNotesConfig({ orderBy: 'minha', order: ['viagem', 'receitas'] });
+    expect(view.noteTabs()!.tabs.map((t) => t.label)).toEqual(['Viagem', 'Receitas', 'Trabalho', 'Estudos', 'Sem categoria']);
+    view.setSort('categoria');
+    // as da ordem nela; as de fora, depois, de A a Z
+    expect(view.groups().map((g) => g.label)).toEqual(['Viagem', 'Receitas', 'Estudos', 'Trabalho', 'Sem categoria']);
+    // pela quantidade de novo: a ordem montada fica guardada, mas não vale
+    settings.setNotesConfig({ orderBy: 'quantidade' });
+    expect(view.noteTabs()!.tabs[0].label).toBe('Trabalho');
+    expect(settings.notesConfig().order).toEqual(['viagem', 'receitas']);
   });
 
   it('por tag: seções pela primeira tag, de A a Z, e Sem tag no fim', () => {
