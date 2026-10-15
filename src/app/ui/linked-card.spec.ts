@@ -141,7 +141,7 @@ describe('a nota colada no texto (o widget Nota)', () => {
     await show(['#rjogo1'], { openCard: (r) => opened.push(r.id) });
     el.querySelector<HTMLButtonElement>('app-review-card .hit')!.click();
     expect(opened).toEqual(['rjogo1']);
-    expect(el.classList).toContain('tocavel');
+    expect(el.classList).toContain('abre');
     fixture.destroy();
     el.remove();
 
@@ -161,6 +161,36 @@ describe('a nota colada no texto (o widget Nota)', () => {
     expect(el.querySelector('app-review-card')).toBeNull();
     expect(el.querySelector('.perdida-nome')?.textContent).toBe('Uma ficha apagada');
     expect(el.querySelector('.perdida-dica')?.textContent).toContain('apagada');
+  });
+
+  it('no mural, o vazio ao lado da ficha colada abre a ficha de fora; a colada abre a dela', async () => {
+    const { ReviewCard } = await import('./review-card');
+    const outer = TestBed.createComponent(ReviewCard);
+    outer.componentRef.setInput('review', card('rfora', 'Viagem', 'anotacoes', { text: '{{nota: #rjogo1 | Hollow Knight | mini}}' }));
+    outer.componentRef.setInput('checkable', true);
+    const host = outer.nativeElement as HTMLElement;
+    host.style.width = '420px';
+    document.body.appendChild(host);
+    let lugar: HTMLElement | null = null;
+    for (let i = 0; i < 50 && !lugar?.offsetWidth; i++) {
+      await new Promise((r) => setTimeout(r, 40));
+      await outer.whenStable();
+      lugar = host.querySelector<HTMLElement>('app-linked-card .lugar');
+    }
+    const line = host.querySelector<HTMLElement>('app-linked-card')!.getBoundingClientRect();
+    const box = lugar!.getBoundingClientRect();
+    expect(line.right - box.right).toBeGreaterThan(40);
+    const y = box.top + box.height / 2;
+    // o vazio à direita: o botão da ficha de fora, por baixo do texto
+    const empty = document.elementFromPoint(box.right + (line.right - box.right) / 2, y)!;
+    expect(empty.closest('app-linked-card')).toBeNull();
+    expect(empty.classList).toContain('hit');
+    expect(host.contains(empty)).toBeTrue();
+    // a ficha colada: a dela
+    const glued = document.elementFromPoint(box.left + box.width / 2, y)!;
+    expect(glued.closest('app-linked-card')).not.toBeNull();
+    host.remove();
+    outer.destroy();
   });
 
   it('as regras da ficha de fora não pegam a de dentro (a anotação sem capa não desmonta a cabeça dela)', async () => {

@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-nota-colada-vazio-abre',
+    version: '1.41.4',
+    kind: 'correcao',
+    date: '2026-10-15',
+    title: 'O vazio ao lado da ficha colada abre a anotação',
+    items: ['No mural, tocar no espaço vazio ao lado de uma ficha colada no texto (widget Nota) não fazia nada. Agora abre a anotação onde ela está colada; tocar na ficha colada continua abrindo a ficha dela.'],
+  },
+  {
     id: '2026-10-15-nota-colada-hover',
     version: '1.41.3',
     kind: 'melhoria',

@@ -37,7 +37,9 @@ const EAR_GAP = 0.2;
   imports: [LucideAngularModule, GluedReviewCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '[class.tocavel]': 'openable()',
+    // (não é o .tocavel do texto: com ele, a linha inteira pegava o toque, e o vazio ao lado da
+    // ficha não abria nada; só a ficha pega o toque, o resto deixa passar para a ficha de fora)
+    '[class.abre]': 'openable()',
     // encolhida pela largura (a linha estreita), ela ocupa só as linhas que precisa
     '[style.min-height.px]': 'snapped()',
   },
@@ -105,8 +107,11 @@ const EAR_GAP = 0.2;
       text-transform: none;
     }
     /* a que abre sobe um pouco com o mouse (ver GluedReviewCard), com a mãozinha */
-    :host(.tocavel) app-review-card {
+    :host(.abre) app-review-card {
       cursor: pointer;
+    }
+    :host(.abre) .lugar {
+      pointer-events: auto;
     }
 
     /* ===== A que sumiu: um pedaço de papel pardo rasgado, com o nome ===== */
