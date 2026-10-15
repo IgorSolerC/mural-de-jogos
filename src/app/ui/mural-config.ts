@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, output, signal, viewChild } from '@angular/core';
-import { ChevronDown, Copy, Dices, Eye, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, SlidersHorizontal, Tags, Undo2, X } from 'lucide-angular';
+import { ChevronDown, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, SlidersHorizontal, Tags, Undo2, X } from 'lucide-angular';
 import { CategoryLook, categoryColorHex, lookKey } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
 import { CategoryPrefs, SubColor, arrangedKeys, moveKey, prefsOf } from '../core/mural-config';
@@ -88,6 +88,8 @@ export class MuralConfig {
   protected readonly GripIcon = GripVertical;
   protected readonly ChevronIcon = ChevronDown;
   protected readonly ResetIcon = Undo2;
+  protected readonly ShownIcon = Eye;
+  protected readonly HiddenIcon = EyeOff;
   protected readonly sections = SECTIONS;
   protected readonly audiences = AUDIENCES;
   protected readonly audienceLabel = AUDIENCE_LABEL;
@@ -201,6 +203,17 @@ export class MuralConfig {
     if (p.subColor) parts.push(`Sub-nota: ${SUB_LABEL[p.subColor].toLowerCase()}`);
     if (p.askTag !== undefined) parts.push(p.askTag ? 'Avisa sem tag' : 'Sem aviso de tag');
     return parts.join(' · ');
+  }
+
+  /** Escondida: a aba dela fica sempre no "Mais" (o mural continua mostrando as anotações em Tudo). */
+  protected isHidden(row: CategoryRow): boolean {
+    return !!this.prefsOf(row).hidden;
+  }
+
+  protected toggleHidden(row: CategoryRow): void {
+    const hide = !this.isHidden(row);
+    this.settings.setCategoryPrefs(row.label, { hidden: hide || undefined });
+    this.said.set(hide ? `${row.label} escondida: a aba fica no Mais.` : `${row.label} de volta às abas.`);
   }
 
   protected toggle(row: CategoryRow): void {

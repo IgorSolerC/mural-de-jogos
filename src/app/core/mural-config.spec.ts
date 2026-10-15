@@ -7,6 +7,7 @@ import {
   activeOrder,
   arrangedKeys,
   asksTag,
+  hiddenKeys,
   moveKey,
   newNoteAudience,
   prefsOf,
@@ -80,6 +81,18 @@ describe('as configurações do mural de anotações', () => {
     expect(cfg.categories).toEqual({});
     // sem nome, nada muda
     expect(withPrefs(cfg, '  ', { audience: 'publicar' })).toBe(cfg);
+  });
+
+  it('esconder a categoria: guardado só quando escondida; mostrar de novo tira o campo', () => {
+    let cfg = withPrefs(NOTES_CONFIG_DEFAULT, 'Viagens!', { hidden: true });
+    cfg = withPrefs(cfg, 'Receitas', { hidden: true, askTag: false });
+    expect([...hiddenKeys(cfg)].sort()).toEqual(['receitas', 'viagens!']);
+    cfg = withPrefs(cfg, 'viagens!', { hidden: false });
+    expect(cfg.categories).toEqual({ receitas: { hidden: true, askTag: false } });
+    cfg = withPrefs(cfg, 'Receitas', { hidden: undefined });
+    expect([...hiddenKeys(cfg)]).toEqual([]);
+    // da nuvem ou do armazenamento: só o true conta
+    expect(sanitizeNotesConfig({ categories: { A: { hidden: true }, B: { hidden: 'sim' }, C: { hidden: false } } }).categories).toEqual({ a: { hidden: true } });
   });
 
   it('a ordem montada à mão: as que têm lugar nele, as novas no fim', () => {

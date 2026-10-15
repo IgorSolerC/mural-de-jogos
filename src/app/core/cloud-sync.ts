@@ -62,11 +62,13 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  * 14: as configurações do mural de anotações (`muralAnotacoes`, só no mural privado: a privacidade de
  *     quem nasce, a cor da sub-nota, a ordem e o que cada categoria muda). Um site antigo enviaria o
  *     mural sem elas, e os outros aparelhos voltariam ao padrão.
+ * 15: a categoria escondida nas configurações do mural (`hidden`, a aba sempre no "Mais"). Um site
+ *     antigo jogaria a marca fora e a enviaria assim, e a aba voltaria para cima em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 14;
+export const SYNC_SCHEMA = 15;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no

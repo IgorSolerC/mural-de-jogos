@@ -102,23 +102,28 @@ export function hasTab(tabs: NoteTabs, key: string): boolean {
  * Quais abas ficam em pé e quais vão para o "Mais". `fits(n)`: cabem n abas de categoria em pé (as n
  * escolhidas), além de Tudo e, se sobrar alguma, do "Mais". Ficam as com mais anotações (e a aberta,
  * sempre), no máximo `MAX_TABS` contando Tudo; em pé, continuam na ordem de `noteTabsOf`. `ordered`:
- * as abas vêm na ordem montada à mão, e ficam em pé as primeiras dela (e a aberta).
+ * as abas vêm na ordem montada à mão, e ficam em pé as primeiras dela (e a aberta). `hidden`: as abas
+ * das categorias escondidas (na engrenagem do mural), que vão sempre para o "Mais", mesmo abertas (o
+ * "Mais" mostra o nome da aberta).
  */
 export function splitTabs(
   tabs: readonly NoteTab[],
   active: string,
   fits: (shown: readonly NoteTab[], more: boolean) => boolean = () => true,
   ordered = false,
+  hidden: ReadonlySet<string> = new Set(),
 ): { shown: NoteTab[]; more: NoteTab[] } {
+  const standing = tabs.filter((t) => !hidden.has(t.key));
+  const anyHidden = standing.length < tabs.length;
   // a ordem de quem fica: a aberta primeiro, depois as maiores (no empate, a que vem antes); com a
   // ordem montada à mão, as primeiras dela
-  const at = new Map(tabs.map((t, i) => [t.key, i]));
-  const byWeight = [...tabs].sort(
+  const at = new Map(standing.map((t, i) => [t.key, i]));
+  const byWeight = [...standing].sort(
     (a, b) => (b.key === active ? 1 : 0) - (a.key === active ? 1 : 0) || (ordered ? at.get(a.key)! - at.get(b.key)! : b.n - a.n || b.total - a.total),
   );
-  let keep = Math.min(tabs.length, MAX_TABS - 1);
+  let keep = Math.min(standing.length, MAX_TABS - 1);
   const pick = (k: number) => new Set(byWeight.slice(0, k).map((t) => t.key));
-  while (keep > 0 && !fits(tabs.filter((t) => pick(keep).has(t.key)), keep < tabs.length)) keep--;
+  while (keep > 0 && !fits(standing.filter((t) => pick(keep).has(t.key)), anyHidden || keep < standing.length)) keep--;
   const kept = pick(keep);
-  return { shown: tabs.filter((t) => kept.has(t.key)), more: tabs.filter((t) => !kept.has(t.key)) };
+  return { shown: standing.filter((t) => kept.has(t.key)), more: tabs.filter((t) => !kept.has(t.key)) };
 }

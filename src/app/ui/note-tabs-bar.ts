@@ -13,7 +13,7 @@ const GAP = 3;
  * As abas do mural de anotações (ver core/note-tabs.ts): divisórias de pasta de papel manilha, em
  * cima da pasta. A aberta fica na frente, clara, emendada na borda da pasta; as outras ficam atrás,
  * mais escuras. Toda categoria fica em pé enquanto couber na largura (e até oito abas, contando
- * Tudo); as que sobram, as com menos anotações, vão para o "Mais" (um <select> invisível sobre a aba,
+ * Tudo); as que sobram, as com menos anotações, e as escondidas na engrenagem do mural vão para o "Mais" (um <select> invisível sobre a aba,
  * como o Ordenar). Para saber o que cabe, uma fileira escondida mede cada aba de verdade.
  *
  * No mural de músicas, as mesmas divisórias, uma por artista.
@@ -301,14 +301,16 @@ export class NoteTabsBar {
     const room = this.room();
     // na ordem montada à mão (só nas anotações), ficam em pé as primeiras dela
     const ordered = !this.music() && !!this.view.categoryOrder();
-    if (!room || !w.size) return splitTabs(t.tabs, this.active(), undefined, ordered);
+    // as escondidas na engrenagem do mural vão sempre para o "Mais"
+    const hidden = this.music() ? undefined : this.view.hiddenTabs();
+    if (!room || !w.size) return splitTabs(t.tabs, this.active(), undefined, ordered, hidden);
     const fits = (shown: readonly NoteTab[], more: boolean) => {
       let used = w.get('tudo') ?? 0;
       for (const x of shown) used += GAP + (w.get(x.key) ?? 0);
       if (more) used += GAP + (w.get('mais') ?? 0);
       return used <= room;
     };
-    return splitTabs(t.tabs, this.active(), fits, ordered);
+    return splitTabs(t.tabs, this.active(), fits, ordered, hidden);
   });
 
   /** O mural de músicas: as abas são dos artistas. */

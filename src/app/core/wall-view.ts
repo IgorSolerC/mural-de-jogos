@@ -4,7 +4,7 @@ import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf }
 import { Mural } from './mural';
 import { checkCount } from './rich-text';
 import { Settings } from './settings';
-import { activeOrder } from './mural-config';
+import { activeOrder, hiddenKeys } from './mural-config';
 import {
   NO_DAY_LABEL,
   RATED_KEYS,
@@ -211,6 +211,11 @@ export abstract class WallState {
    * pela chave; null, da maior para a menor. Só o seu mural tem: a de quem visita não vem junto.
    */
   readonly categoryOrder: Signal<readonly string[] | null> = signal(null);
+  /**
+   * As abas das categorias escondidas ("c:" e a chave), que ficam sempre no "Mais" (ver
+   * core/mural-config.ts). Só no seu mural: quem visita vê todas as abas em pé, como sempre.
+   */
+  readonly hiddenTabs: Signal<ReadonlySet<string>> = signal(new Set<string>());
   /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
   readonly profile = computed(() => this.mural.profile());
   /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
@@ -557,6 +562,7 @@ export class WallView extends WallState {
   readonly owner = signal<string | null>(null).asReadonly();
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
+  override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
 
   constructor() {
     super({ key: KEY, whole: true });

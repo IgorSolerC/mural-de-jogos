@@ -148,6 +148,27 @@ describe('as configurações do mural (a folha)', () => {
     expect(rows()).toEqual(['Receitas', 'Viagens!', 'Roadmap site']);
   });
 
+  it('o olho esconde a categoria no Mais, e mostra de novo', async () => {
+    await go('categorias');
+    const second = el.querySelectorAll('.cat')[1];
+    const eye = second.querySelector<HTMLButtonElement>('.olho')!;
+    expect(eye.getAttribute('aria-pressed')).toBe('false');
+    expect(eye.getAttribute('aria-label')).toBe('Esconder Roadmap site no Mais');
+    eye.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories['roadmap site']).toEqual({ hidden: true });
+    expect(eye.getAttribute('aria-pressed')).toBe('true');
+    expect(second.classList).toContain('escondida');
+    expect(second.querySelector('.cat-n')!.textContent).toContain('escondida no Mais');
+    // esconder não é um padrão da categoria: ela continua seguindo o mural
+    expect(second.querySelector('.cat-resumo')!.textContent!.trim()).toBe('Segue o mural');
+    expect(el.querySelector('[aria-live="polite"]')!.textContent).toContain('Roadmap site escondida');
+    eye.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories).toEqual({});
+    expect(second.classList).not.toContain('escondida');
+  });
+
   it('fechar avisa quem abriu', async () => {
     el.querySelector<HTMLButtonElement>('.icon-btn')!.click();
     await fixture.whenStable();

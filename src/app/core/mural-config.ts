@@ -32,6 +32,8 @@ export interface CategoryPrefs {
   subColor?: SubColor;
   /** Perguntar antes de salvar uma anotação desta categoria sem nenhuma tag. */
   askTag?: boolean;
+  /** Escondida: a aba dela fica sempre no "Mais", nunca em pé lá em cima. Guardado só quando `true`. */
+  hidden?: boolean;
 }
 
 export interface NotesConfig {
@@ -58,14 +60,15 @@ export const MAX_CONFIG_CATEGORIES = 200;
 function sanitizePrefs(raw: unknown): CategoryPrefs {
   const out: CategoryPrefs = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  const { audience, subColor, askTag } = raw as Record<string, unknown>;
+  const { audience, subColor, askTag, hidden } = raw as Record<string, unknown>;
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
   if (SUB_COLORS.includes(subColor as SubColor)) out.subColor = subColor as SubColor;
   if (typeof askTag === 'boolean') out.askTag = askTag;
+  if (hidden === true) out.hidden = true;
   return out;
 }
 
-const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.subColor === undefined && p.askTag === undefined;
+const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.subColor === undefined && p.askTag === undefined && !p.hidden;
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
@@ -130,7 +133,7 @@ export function withPrefs(cfg: NotesConfig, category: string, patch: CategoryPre
   if (!key) return cfg;
   const { [key]: old, ...rest } = cfg.categories;
   const merged: CategoryPrefs = { ...old, ...patch };
-  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined) delete merged[k];
+  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined || (k === 'hidden' && !merged[k])) delete merged[k];
   return { ...cfg, categories: isEmpty(merged) ? rest : { ...rest, [key]: merged } };
 }
 
@@ -159,4 +162,9 @@ export function moveKey(list: readonly string[], key: string, to: number): strin
  */
 export function activeOrder(cfg: NotesConfig): readonly string[] | null {
   return cfg.orderBy === 'minha' ? cfg.order : null;
+}
+
+/** As categorias escondidas (pela chave, a de `lookKey`): as abas delas ficam sempre no "Mais". */
+export function hiddenKeys(cfg: NotesConfig): ReadonlySet<string> {
+  return new Set(Object.entries(cfg.categories).flatMap(([k, p]) => (p.hidden ? [k] : [])));
 }

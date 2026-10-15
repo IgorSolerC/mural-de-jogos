@@ -121,6 +121,16 @@ describe('as abas do mural de anotações', () => {
     expect(splitTabs(tabs, 'c:A', undefined, true).shown.map((t) => t.label)).toEqual(['J', 'I', 'H', 'G', 'F', 'E', 'A']);
   });
 
+  it('as escondidas vão sempre para o Mais, mesmo abertas e com lugar de sobra', () => {
+    const tabs: NoteTab[] = 'ABC'.split('').map((c, i) => ({ key: `c:${c}`, label: c, n: 10 - i, total: 10 - i }));
+    const hidden = new Set(['c:A']);
+    expect(splitTabs(tabs, ALL_TAB, undefined, false, hidden)).toEqual({ shown: [tabs[1], tabs[2]], more: [tabs[0]] });
+    expect(splitTabs(tabs, 'c:A', undefined, false, hidden).more.map((t) => t.label)).toEqual(['A']);
+    // o "Mais" conta na largura: sem lugar para ele e as duas, fica uma em pé
+    const room = (shown: readonly NoteTab[], more: boolean) => shown.length + (more ? 1 : 0) <= 2;
+    expect(splitTabs(tabs, ALL_TAB, room, false, hidden)).toEqual({ shown: [tabs[1]], more: [tabs[0], tabs[2]] });
+  });
+
   it('uma categoria chamada "Sem" não cai na aba das sem categoria', () => {
     expect(noteTabKey({ category: 'Sem' })).not.toBe(NO_CATEGORY_TAB);
   });
@@ -154,6 +164,16 @@ describe('WallView com abas', () => {
   it('a aba Sem categoria mostra as sem categoria', () => {
     view.setNoteTab(NO_CATEGORY_TAB);
     expect(view.visible().map((r) => r.game.name).sort()).toEqual(['Solta', 'Wifi']);
+  });
+
+  it('as categorias escondidas na engrenagem viram abas do Mais (pela chave, sem acento nem caixa)', () => {
+    const settings = TestBed.inject(Settings);
+    expect(view.hiddenTabs().size).toBe(0);
+    settings.setCategoryPrefs('ESTUDOS', { hidden: true });
+    expect([...view.hiddenTabs()]).toEqual([key('Estudos')]);
+    settings.setCategoryPrefs('Estudos', { hidden: false });
+    expect(view.hiddenTabs().size).toBe(0);
+    expect(settings.notesConfig().categories).toEqual({});
   });
 
   it('a aba fica guardada para a próxima visita', () => {

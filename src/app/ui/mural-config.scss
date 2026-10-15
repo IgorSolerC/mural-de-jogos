@@ -381,6 +381,50 @@ fieldset.linha {
   }
 }
 
+/* o olho: esconde a categoria no "Mais". Fechado, fica em tinta cheia (é o que ela tem de diferente) */
+.olho {
+  flex: none;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+    color: var(--ink);
+  }
+
+  &[aria-pressed='true'] {
+    color: var(--ink);
+    background: rgb(255 218 66 / 0.6);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+  }
+}
+
+/* a escondida: a orelha fica de lado, apagada, como a aba que foi para o "Mais" */
+.cat.escondida .orelha {
+  opacity: 0.55;
+}
+
+.no-mais {
+  white-space: nowrap;
+}
+
 .cat-abre {
   flex: 1;
   min-width: 0;
@@ -659,11 +703,17 @@ fieldset.linha {
   .alca {
     width: 44px;
   }
+
+  .olho {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cat,
   .parte,
+  .olho,
   .chevron {
     transition: none;
   }

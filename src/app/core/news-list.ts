@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-categoria-escondida',
+    version: '1.41.5',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'Esconder uma categoria no “Mais”',
+    items: [
+      'Nas Configurações do mural (a engrenagem da pasta), em Categorias, cada categoria ganhou um olho: tocando nele, a categoria fica escondida e a aba dela vai sempre para o “Mais”, em vez de ficar lá em cima.',
+      'As anotações dela continuam em Tudo, e o olho de novo traz a aba de volta. A escolha vai para os seus outros aparelhos pela nuvem.',
+    ],
+  },
+  {
     id: '2026-10-15-nota-colada-vazio-abre',
     version: '1.41.4',
     kind: 'correcao',
