@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-aviso-so-perdida',
+    version: '1.41.8',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'O aviso de categoria e tag só quando você tira',
+    items: [
+      'Ao salvar uma anotação que já existia, o “Você esqueceu a categoria” (ou a tag) só aparece se ela tinha uma e você tirou agora. Uma anotação que já estava sem categoria ou sem tag é salva direto, sem pergunta.',
+      'Na anotação nova, o aviso continua como antes.',
+    ],
+  },
+  {
     id: '2026-10-15-busca-musicas',
     version: '1.41.7',
     kind: 'melhoria',

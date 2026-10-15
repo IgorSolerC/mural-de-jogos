@@ -110,6 +110,82 @@ describe('o editor: anotação sem categoria ou tag', () => {
   });
 });
 
+describe('o editor: anotação que já existia, sem categoria ou tag', () => {
+  let fixture: ComponentFixture<ReviewEditor>;
+  let store: ReviewStore;
+  let asked: CheckedOptions[];
+  type Inside = {
+    noteCategory: { set(v: string | null): void };
+    noteTags: { set(v: string[]): void };
+    save(e: Event | null): void;
+  };
+  const inside = () => fixture.componentInstance as unknown as Inside;
+  const note = (id: string, extra: object) => ({
+    ...sanitizeReview({ kind: 'anotacoes', game: { name: `Nota ${id}`, coverUrl: null, source: 'manual' }, createdAt: '2026-10-01T10:00:00.000Z', ...extra })!,
+    id,
+  });
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [ReviewEditor], providers: [provideZonelessChangeDetection()] });
+    store = TestBed.inject(ReviewStore);
+    asked = [];
+    spyOn(TestBed.inject(Confirm), 'askChecked').and.callFake((options: CheckedOptions) => {
+      asked.push(options);
+      return Promise.resolve({ ok: true, checked: false });
+    });
+    store.add(note('nvazia01', {}));
+    store.add(note('ncheia01', { category: 'Casa', tags: ['mercado'] }));
+    fixture = TestBed.createComponent(ReviewEditor);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    fixture.nativeElement.remove();
+    localStorage.clear();
+  });
+
+  const edit = async (id: string) => {
+    fixture.componentInstance.open(store.reviews().find((r) => r.id === id)!);
+    await fixture.whenStable();
+  };
+  const save = async () => {
+    inside().save(null);
+    await new Promise((r) => setTimeout(r));
+    await fixture.whenStable();
+  };
+
+  it('a que já estava sem as duas salva sem perguntar', async () => {
+    await edit('nvazia01');
+    await save();
+    expect(asked.length).toBe(0);
+  });
+
+  it('a que tinha categoria e perdeu: pergunta só pela categoria', async () => {
+    await edit('ncheia01');
+    inside().noteCategory.set(null);
+    await save();
+    expect(asked.map((o) => o.title)).toEqual(['Sem categoria']);
+    expect(asked[0].confirm).toBe('Salvar assim');
+  });
+
+  it('a que tinha tag e perdeu: pergunta só pela tag', async () => {
+    await edit('ncheia01');
+    inside().noteTags.set([]);
+    await save();
+    expect(asked.map((o) => o.title)).toEqual(['Sem tag']);
+  });
+
+  it('a que estava sem categoria e perdeu a tag: pergunta só pela tag', async () => {
+    store.update({ ...store.reviews().find((r) => r.id === 'ncheia01')!, category: undefined });
+    await edit('ncheia01');
+    inside().noteTags.set([]);
+    await save();
+    expect(asked.map((o) => o.title)).toEqual(['Sem tag']);
+  });
+});
+
 describe('a caixinha da fichinha de confirmação', () => {
   it('começa desmarcada em cada pergunta e volta junto com a resposta', async () => {
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });

@@ -1020,14 +1020,18 @@ export class ReviewEditor {
   /**
    * A anotação vai sem categoria ou sem nenhuma tag: "Tem certeza que deseja salvá-la sem?", com o
    * "Nunca mais me perguntar isso" (que desliga a pergunta do que faltou; os Ajustes ligam de novo).
-   * Voltar leva para o que faltou.
+   * Voltar leva para o que faltou. Numa anotação que já existia, só pergunta pelo que ela tinha e
+   * perdeu agora: a que já estava sem categoria (ou sem tag) é salva sem pergunta nenhuma.
    */
   private async okWithoutLabels(): Promise<boolean> {
-    const noCategory = !this.noteCategory() && this.settings.askNoCategory();
+    const prev = this.editing();
+    const hadCategory = !prev || !!prev.category?.trim();
+    const hadTag = !prev || !!prev.tags?.length;
+    const noCategory = hadCategory && !this.noteCategory() && this.settings.askNoCategory();
     // a categoria pode pedir (ou dispensar) a pergunta da tag, na engrenagem do mural
     const category = this.noteCategory();
     const config = this.settings.notesConfig();
-    const noTag = !this.noteTags().length && asksTag(config, category, this.settings.askNoTag());
+    const noTag = hadTag && !this.noteTags().length && asksTag(config, category, this.settings.askNoTag());
     if (!noCategory && !noTag) return true;
     const { ok, checked } = await this.confirm.askChecked({
       title: noCategory && noTag ? 'Sem categoria e sem tag' : noCategory ? 'Sem categoria' : 'Sem tag',
