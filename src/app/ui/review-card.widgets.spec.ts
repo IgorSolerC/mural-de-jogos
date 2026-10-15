@@ -4,6 +4,7 @@ import { Review, sanitizeReview } from '../core/review';
 import { ReviewCard } from './review-card';
 
 const AUDIO = '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | simples}}';
+const COUNTDOWN = '{{contador: 25/12 | Natal}}';
 
 function card(kind: 'anotacoes' | 'jogos', text: string, extra: Partial<Review> = {}): Review {
   return {
@@ -22,7 +23,7 @@ function card(kind: 'anotacoes' | 'jogos', text: string, extra: Partial<Review> 
   };
 }
 
-/** Os widgets do texto na ficha do mural: tocam na resenha inteira como na anotação. */
+/** Os widgets do texto na ficha do mural: tocam na resenha inteira como na anotação, e ficam na frente do estrago. */
 describe('os widgets na ficha do mural', () => {
   let fixture: ComponentFixture<ReviewCard>;
   let el: HTMLElement;
@@ -54,5 +55,31 @@ describe('os widgets na ficha do mural', () => {
   it('na anotação, o mesmo (no seu mural e no dos outros)', async () => {
     await show(card('anotacoes', `Ouvir:\n${AUDIO}`), { checkable: false });
     expect(el.querySelector('.nota-texto')!.classList).toContain('marcavel');
+  });
+
+  it('o widget sem nada para tocar fica na camada dos adesivos, na frente do estrago (2)', async () => {
+    await show(card('anotacoes', `Falta:\n${COUNTDOWN}`), { checkable: true });
+    const box = el.querySelector<HTMLElement>('.nota-texto')!;
+    expect(box.classList).not.toContain('marcavel');
+    expect(getComputedStyle(box).zIndex).toBe('3');
+  });
+
+  it('o texto sem widget continua onde sempre esteve', async () => {
+    await show(card('anotacoes', 'Só texto.'), { checkable: true });
+    expect(getComputedStyle(el.querySelector('.nota-texto')!).zIndex).toBe('auto');
+  });
+
+  it('o estrago corta o texto, mas não o widget', async () => {
+    await show(card('anotacoes', `Antes do widget\n${COUNTDOWN}\nDepois do widget`, { damage: 'queimado', damageSeed: 7 }), { checkable: true });
+    const masked = (n: Element) => [...n.classList].some((c) => c.startsWith('mascara-'));
+    // o papel é medido e queimado depois de desenhado
+    for (let i = 0; i < 40 && !el.querySelector('.nota-texto .linha[class*="mascara-"]'); i++) {
+      await new Promise((r) => setTimeout(r, 25));
+      await fixture.whenStable();
+    }
+    const widget = el.querySelector('app-note-widget')!;
+    expect([...el.querySelectorAll('.nota-texto .linha')].some(masked)).toBeTrue();
+    expect(masked(widget)).toBeFalse();
+    expect(masked(el.querySelector('.nota-texto app-rich-text')!)).toBeFalse();
   });
 });

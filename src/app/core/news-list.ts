@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-widgets-adesivos',
+    version: '1.41.9',
+    kind: 'correcao',
+    date: '2026-10-15',
+    title: 'Os widgets ficam na frente do estrago',
+    items: ['Os widgets do texto (o contador, a foto, o vídeo, o áudio, a ficha colada) passaram a ser tratados como adesivos colados na cartolina: ficam na frente do estrago dela, e o rasgo, a queimadura ou o furo não os cortam mais junto com o texto.'],
+  },
+  {
     id: '2026-10-15-aviso-so-perdida',
     version: '1.41.8',
     kind: 'melhoria',

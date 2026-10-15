@@ -656,8 +656,8 @@ export class PaperArtLayer {
   }
 }
 
-/** Os adesivos colados por cima do que está escrito: não queimam com o texto. */
-const STICKERS = '[data-colado], .selo-dez, .fita-rasgada, app-bonus-tally, app-bonus-sticker';
+/** Os adesivos colados por cima do que está escrito: não queimam com o texto. Os widgets do texto também são adesivos. */
+const STICKERS = '[data-colado], .selo-dez, .fita-rasgada, app-bonus-tally, app-bonus-sticker, app-note-widget';
 
 function clearMask(el: HTMLElement): void {
   setMaskClass(el, '');

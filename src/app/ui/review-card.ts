@@ -1016,6 +1016,16 @@ export const CARD_STYLES = `
     :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .tocavel {
       pointer-events: auto;
     }
+    /* o widget é um adesivo colado no texto: fica na frente do estrago, como a foto e os bônus (e
+       o estrago não o corta, ver STICKERS em paper-layer.ts). O texto em que ele está colado sobe
+       junto, para a camada dos adesivos (com a orelha, que dobra os adesivos, a de baixo dela) */
+    :is(.nota-texto, .texto-inteiro):has(app-note-widget):not(.marcavel) {
+      z-index: 3;
+    }
+    :host(.orelha) :is(.nota-texto, .texto-inteiro):has(app-note-widget):not(.marcavel) {
+      z-index: 2;
+    }
+
     /* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====
        Ficam metade para fora da ficha (como o balão das reações embaixo), então não cobrem o título.
        Aparecem com o mouse em cima da ficha ou com o foco do teclado nelas; a fixada mantém o
