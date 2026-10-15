@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, ElementRef, afterNextRender, inject, input } from '@angular/core';
+import { NgComponentOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, ElementRef, Type, afterNextRender, effect, inject, input, signal } from '@angular/core';
+import { NoteLinks } from '../core/note-links';
 import { WIDGET_LINES, WidgetSize } from '../core/widgets';
 import { AudioTrack } from './audio-track';
 import { Countdown } from './countdown';
@@ -21,7 +23,7 @@ import { GluedMedia } from './glued-media';
  */
 @Component({
   selector: 'app-note-widget',
-  imports: [AudioTrack, Countdown, GluedMedia],
+  imports: [AudioTrack, Countdown, GluedMedia, NgComponentOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.tam-mini]': "size() === 'mini'",
@@ -60,6 +62,16 @@ import { GluedMedia } from './glued-media';
         @defer (on immediate) {
           <app-audio-track [args]="args()" />
         } @placeholder {
+          <div class="esperando"></div>
+        }
+      }
+      @case ('nota') {
+        <!-- a ficha colada: a ficha simples de verdade, que vem por um import() à parte. A ficha do
+             mural desenha o texto, que desenha este widget, que desenha a ficha: um import comum
+             faria um ciclo, e quem carregasse primeiro acharia o outro ainda vazio -->
+        @if (linkedCard(); as card) {
+          <ng-container *ngComponentOutlet="card; inputs: { args: args(), links: links() }" />
+        } @else {
           <div class="esperando"></div>
         }
       }
@@ -108,11 +120,21 @@ export class NoteWidget {
   readonly name = input.required<string>();
   readonly args = input.required<readonly string[]>();
   readonly size = input<WidgetSize>('medio');
+  /** Os links do texto: a Nota (a ficha colada) abre por eles e acha a anotação de um título. */
+  readonly links = input<NoteLinks | null>(null);
   protected readonly lines = computed(() => WIDGET_LINES[this.size()] ?? WIDGET_LINES.medio);
+  /** A ficha colada (o widget Nota), carregada só quando aparece uma (ver o molde). */
+  protected readonly linkedCard = signal<Type<unknown> | null>(null);
 
   constructor() {
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const destroy = inject(DestroyRef);
+    effect(() => {
+      if (this.name() !== 'nota' || this.linkedCard()) return;
+      void import('./linked-card').then((m) => {
+        if (!destroy.destroyed) this.linkedCard.set(m.LinkedCard);
+      });
+    });
     afterNextRender(() => {
       const box = host.closest<HTMLElement>('[data-widget-teto]');
       if (!box || typeof ResizeObserver === 'undefined') return;

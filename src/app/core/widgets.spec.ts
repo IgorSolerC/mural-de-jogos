@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { Frame, WIDGET_LINES, WIDGET_SIZES, httpsUrl, parseAudio, parseVideo, readAudio, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
+import { Frame, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -192,5 +192,42 @@ describe('widgets das anotações', () => {
       expect(au.problem!({ url: 'http://x.com/a.mp3' })).toContain('https://');
       expect(plainText('{{audio: https://x.com/a.mp3 | Lado B}}')).toBe('Lado B');
     });
+  });
+});
+
+describe('a nota colada (o widget Nota)', () => {
+  it('o id ("#r…") e o título em qualquer ordem; só o título vale para a escrita à mão', () => {
+    expect(readCardRef(['#rabc123', 'Hollow Knight'])).toEqual({ id: 'rabc123', title: 'Hollow Knight' });
+    expect(readCardRef(['Hollow Knight', '#rabc123'])).toEqual({ id: 'rabc123', title: 'Hollow Knight' });
+    expect(readCardRef(['Comprar um console'])).toEqual({ id: '', title: 'Comprar um console' });
+    // um título que parece id, depois do id, é título
+    expect(readCardRef(['#rabc123', '#1'])).toEqual({ id: 'rabc123', title: '#1' });
+    // "#" com espaço não é id
+    expect(readCardRef(['# um título'])).toEqual({ id: '', title: '# um título' });
+  });
+
+  it('os outros nomes, o tamanho e a marca escrita de volta', () => {
+    expect(parseWidgetLine('{{Ficha: #rabc123 | Celeste | pequeno}}')).toEqual({ name: 'nota', args: ['#rabc123', 'Celeste'], size: 'pequeno' });
+    const def = widgetDef('nota')!;
+    expect(def.label).toBe('Nota');
+    expect(def.write({ id: 'rabc123', title: ' Hollow | Knight ' })).toEqual(['#rabc123', 'Hollow | Knight']);
+    expect(widgetLine('nota', def.write({ id: 'rabc123', title: 'Hollow | Knight' })!, 'grande')).toBe('{{nota: #rabc123 | Hollow \\| Knight | grande}}');
+    expect(def.write({ id: '', title: 'Comprar um console' })).toEqual(['Comprar um console']);
+    expect(def.write({ id: 'com espaço' })).toBeNull();
+    expect(def.write({})).toBeNull();
+    // um título que é palavra de tamanho não vira o tamanho
+    const line = widgetLine('nota', def.write({ id: 'rabc123', title: 'Grande' })!, 'medio');
+    expect(parseWidgetLine(line)).toEqual({ name: 'nota', args: ['#rabc123', 'Grande'], size: 'medio' });
+    // lida de volta, para o painel de trocar
+    expect(def.read(['#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste' });
+  });
+
+  it('o texto dela é o título (a busca, a contagem de palavras); as do texto, na ordem', () => {
+    expect(plainText('antes\n{{nota: #rabc123 | Celeste}}')).toBe('antes\nCeleste');
+    expect(cardRefsIn('a\n{{nota: #r1 | Um}}\n- {{nota: #r2}}\r\n{{ficha: Dois}}\n{{contador: 25/12}}')).toEqual([
+      { id: 'r1', title: 'Um' },
+      { id: '', title: 'Dois' },
+    ]);
+    expect(cardRefsIn('sem nada')).toEqual([]);
   });
 });

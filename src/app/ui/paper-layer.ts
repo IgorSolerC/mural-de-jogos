@@ -614,8 +614,13 @@ export class PaperArtLayer {
         }
         for (const child of Array.from(el.children) as HTMLElement[]) if (!child.matches(STICKERS)) burn(child);
       };
-      paper.querySelectorAll<HTMLElement>('[data-queima]').forEach(burn);
-      if (all) paper.querySelectorAll<HTMLElement>('[data-colado]').forEach((el) => next.add(el));
+      // a ficha colada no texto (o widget Nota) tem o papel e o estrago dela: nada dela é desta
+      const own = (el: HTMLElement) => {
+        const glued = el.closest('app-linked-card');
+        return !glued || !paper.contains(glued);
+      };
+      paper.querySelectorAll<HTMLElement>('[data-queima]').forEach((el) => own(el) && burn(el));
+      if (all) paper.querySelectorAll<HTMLElement>('[data-colado]').forEach((el) => own(el) && next.add(el));
     }
     // primeiro só lê onde cada texto está; as escritas vêm depois, junto com as das outras fichas
     const at = new Map<HTMLElement, [number, number]>();

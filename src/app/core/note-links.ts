@@ -175,4 +175,6 @@ export interface NoteLinks {
   resolve?(title: string): Review | null;
   open?(note: Review): void;
   create?(title: string): void;
+  /** Abre a ficha colada no texto (o widget Nota), de qualquer mural. Sem ele, ela só se vê. */
+  openCard?(card: Review): void;
 }

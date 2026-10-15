@@ -37,6 +37,7 @@ import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { foldDone, foldedCount, parseRich, plainText, snapshotDone, toggleCheck } from '../core/rich-text';
 import { ShownDone } from '../core/shown-done';
+import { SpoilerShield } from '../core/spoiler-shield';
 import { NoteLinks, backlinksOf, notesOf, resolveNote } from '../core/note-links';
 import { NoteBacklinks } from './note-backlinks';
 import { NoteDone } from '../core/note-done';
@@ -734,6 +735,8 @@ export class ReviewReader {
     return {
       resolve: (title) => resolveNote(notes, title),
       open: (n) => this.follow(n),
+      // a ficha colada no texto (o widget Nota), de qualquer mural: abre aqui mesmo, com o "Voltar"
+      openCard: (card) => this.followCard(card),
       // a anotação aberta é de onde o link veio: depois de criar a nova, a leitura volta para ela
       ...(mine ? { create: (title: string) => this.createNote.emit({ title, from: this.review()!.id }) } : {}),
     };
@@ -758,6 +761,20 @@ export class ReviewReader {
   protected openParent(p: Review): void {
     this.follow(p);
   }
+
+  /**
+   * Abre a ficha colada no texto (o widget Nota), de qualquer mural, com o "Voltar". No mural de outra
+   * pessoa, a obra que você ainda não resenhou abre com a nota escondida, como no mural dela.
+   */
+  private followCard(card: Review): void {
+    if (this.owner() !== null) {
+      const secret = this.shield.hiddenIn([card]).has(card.id);
+      this.forceMask.set(secret);
+      this.revealed.set(false);
+    }
+    this.follow(card);
+  }
+  private readonly shield = inject(SpoilerShield);
 
   /** Segue um link: a anotação de agora vira o "Voltar". */
   private follow(n: Review): void {

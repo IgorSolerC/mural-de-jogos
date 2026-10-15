@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 export const NEWS: NewsEntry[] = [
   {
     id: '2026-10-15-configuracoes-do-mural',
-    version: '1.40.0',
+    version: '1.41.0',
     kind: 'funcionalidade',
     date: '2026-10-15',
     title: 'Configurações do mural de anotações, na engrenagem da pasta',
@@ -38,6 +38,20 @@ export const NEWS: NewsEntry[] = [
       'Cada categoria também escolhe a cor das sub-notas criadas de dentro das anotações dela e se avisa quando falta a tag.',
       'A ordem das abas pode ser a sua: em "Na minha ordem", arraste cada categoria pela alça (ou use as setas nela). As abas, o "Mais" e a ordem por categoria seguem essa ordem, e categoria nova entra no fim.',
       'Com a conta, as configurações vão para os seus outros aparelhos junto com o mural.',
+    ],
+  },
+  {
+    id: '2026-10-15-widget-nota',
+    version: '1.40.0',
+    kind: 'funcionalidade',
+    date: '2026-10-15',
+    title: 'Widget Nota: uma ficha colada dentro da anotação',
+    items: [
+      'Novo widget Nota, no menu Widgets da régua: ele cola outra ficha dentro do texto, como uma cartolina pequena presa com fita crepe, do jeito que ela aparece nas fichas simples do mural (capa, nome, data, etiquetas e nota).',
+      'Vale qualquer ficha, de qualquer mural: outra anotação, um jogo, um livro, um filme, uma série, um anime ou uma música. Ao escolher Nota, abre a lista de todas as suas fichas, com a busca, as abas por mural e a capa de cada uma; um toque escolhe (ou Enter na busca, para a primeira).',
+      'A ficha colada usa a régua de tamanhos dos outros widgets (Mini, Pequeno, Médio, Grande) e acompanha a ficha: renomear não quebra, e se ela for apagada fica no lugar um pedaço de papel com o nome dela.',
+      'Tocar na ficha colada abre ela, no seu mural e na leitura, com o "Voltar" para a anotação de onde você veio. No mural de outra pessoa, a ficha dela aparece colada do mesmo jeito.',
+      'O link em texto ([[Título]]) continua como estava, para quando você só quer citar a anotação no meio da frase.',
     ],
   },
   {
