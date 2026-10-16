@@ -1,18 +1,25 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import { LucideAngularModule, Plus, Trash2, X } from 'lucide-angular';
-import { NAME_MAX, TRAIT_COLORS, TRAIT_COLOR_LABEL, TRAIT_MAX, TraitColor, addTrait, removeTrait, renameBoard, updateTrait } from '../core/kanban';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
+import { LucideAngularModule, RotateCcw, X } from 'lucide-angular';
+import { tagColorHex } from '../core/category-looks';
+import { belongs } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
+import { fold } from '../core/review';
+import { ReviewStore } from '../core/review-store';
+import { Settings } from '../core/settings';
 import { BackdropClose } from './backdrop-close';
 import { Confirm } from './confirm';
+import { NoteTag } from './note-tag';
 import { Pin } from './pin';
+import { TagColors } from './tag-colors';
 
 /**
- * Os ajustes do quadro (a engrenagem da pasta): o nome, as características (o nome e a cor da fita de
- * cada uma, tirar) e apagar o quadro. Apagar não mexe em nenhuma anotação; a página dá o Desfazer.
+ * Os ajustes do quadro de uma categoria (a engrenagem da pasta): a cor de cada tag das anotações da
+ * categoria (vale em todo o mural, como a cor da categoria) e recomeçar o quadro. O nome do quadro é
+ * o da categoria: muda junto com ela. Recomeçar não mexe em nenhuma anotação; a página dá o Desfazer.
  */
 @Component({
   selector: 'app-kanban-board-sheet',
-  imports: [BackdropClose, LucideAngularModule, Pin],
+  imports: [BackdropClose, LucideAngularModule, NoteTag, Pin, TagColors],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet quadro-ajustes" aria-labelledby="qa-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -22,7 +29,7 @@ import { Pin } from './pin';
           <header class="head">
             <div class="titulos">
               <h2 id="qa-titulo">Ajustes do quadro</h2>
-              <p class="sub">{{ b.name }} · {{ b.cards.length === 1 ? '1 anotação' : b.cards.length + ' anotações' }}</p>
+              <p class="sub">{{ category() }} · {{ count() === 1 ? '1 anotação' : count() + ' anotações' }}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
               <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
@@ -30,58 +37,29 @@ import { Pin } from './pin';
           </header>
 
           <div class="body">
-            <section class="grupo" aria-labelledby="qa-nome-t">
-              <h3 class="grupo-titulo" id="qa-nome-t">Nome do quadro</h3>
-              <label class="campo">
-                <span class="sr-only">Nome do quadro</span>
-                <input #nome type="text" autocomplete="off" [maxLength]="nameMax" [value]="b.name" (change)="rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
-              </label>
-            </section>
-
-            <section class="grupo" aria-labelledby="qa-car-t">
-              <h3 class="grupo-titulo" id="qa-car-t">Características</h3>
-              <p class="dica">As etiquetas deste quadro: “Correção”, “Sincronização”, “Decorações”… Só aparecem aqui, nunca no mural.</p>
-              @if (b.traits.length) {
+            <section class="grupo" aria-labelledby="qa-tags-t">
+              <h3 class="grupo-titulo" id="qa-tags-t">Cor das tags</h3>
+              <p class="dica">As tags das anotações de {{ category() }}. A cor vale em todo o mural, como a da categoria.</p>
+              @if (tags().length) {
                 <ul class="lista">
-                  @for (t of b.traits; track t.id) {
+                  @for (t of tags(); track t.key) {
                     <li class="item">
-                      <label class="cor-escolha" [attr.data-fita]="t.color">
-                        <span class="sr-only">Cor da fita de {{ t.name }}</span>
-                        <select (change)="recolor(t.id, $any($event.target).value)">
-                          @for (c of colors; track c) {
-                            <option [value]="c" [selected]="c === t.color">{{ colorLabel[c] }}</option>
-                          }
-                        </select>
-                      </label>
-                      <label class="fita-nome" [attr.data-fita]="t.color">
-                        <span class="sr-only">Nome da característica</span>
-                        <input type="text" autocomplete="off" [maxLength]="traitMax" [value]="t.name" (change)="renameTrait(t.id, $any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
-                      </label>
-                      <span class="usos">{{ uses()[t.id] || 0 }}</span>
-                      <button type="button" class="tirar" [attr.aria-label]="'Tirar ' + t.name" title="Tirar do quadro" (click)="dropTrait(t.id, t.name)">
-                        <lucide-icon [img]="TrashIcon" [size]="17" [strokeWidth]="2.5" aria-hidden="true" />
-                      </button>
+                      <app-note-tag class="previa" [label]="t.label" [color]="colorOf(t.label)" />
+                      <span class="usos">{{ t.n === 1 ? '1 anotação' : t.n + ' anotações' }}</span>
+                      <app-tag-colors class="cores" [tag]="t.label" />
                     </li>
                   }
                 </ul>
+              } @else {
+                <p class="vazio">Nenhuma anotação de {{ category() }} tem tag ainda. Ponha as tags pela folha de uma anotação no quadro, ou no editor.</p>
               }
-              <form class="nova" (submit)="$event.preventDefault(); create()">
-                <label class="campo">
-                  <span class="sr-only">Nova característica</span>
-                  <input type="text" autocomplete="off" [maxLength]="traitMax" placeholder="Nova característica" [value]="typed()" (input)="typed.set($any($event.target).value)" />
-                </label>
-                <button type="submit" class="papel" [disabled]="!typed().trim()">
-                  <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-                  Criar
-                </button>
-              </form>
             </section>
           </div>
 
           <footer class="foot">
-            <button type="button" class="papel perigo" (click)="removeBoard()">
-              <lucide-icon [img]="TrashIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-              Apagar o quadro
+            <button type="button" class="papel perigo" (click)="reset()">
+              <lucide-icon [img]="ResetIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+              Recomeçar o quadro
             </button>
             <div class="actions">
               <button type="button" class="btn-ink" (click)="close()">Pronto</button>
@@ -95,30 +73,44 @@ import { Pin } from './pin';
 })
 export class KanbanBoardSheet {
   readonly boardId = input.required<string>();
+  /** O nome da categoria do quadro. */
+  readonly category = input.required<string>();
   readonly closed = output<void>();
-  /** Apagar o quadro: a página apaga (com o Desfazer) depois da pergunta. */
-  readonly removing = output<string>();
+  /** Recomeçar o quadro: a página recomeça (com o Desfazer) depois da pergunta. */
+  readonly resetting = output<string>();
 
   protected readonly CloseIcon = X;
-  protected readonly PlusIcon = Plus;
-  protected readonly TrashIcon = Trash2;
-  protected readonly colors = TRAIT_COLORS;
-  protected readonly colorLabel = TRAIT_COLOR_LABEL;
-  protected readonly nameMax = NAME_MAX;
-  protected readonly traitMax = TRAIT_MAX;
-  protected readonly typed = signal('');
+  protected readonly ResetIcon = RotateCcw;
 
   private readonly kanban = inject(KanbanStore);
+  private readonly store = inject(ReviewStore);
+  private readonly settings = inject(Settings);
   private readonly confirm = inject(Confirm);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
-  private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
 
   protected readonly board = computed(() => this.kanban.get(this.boardId()) ?? null);
-  /** Em quantas anotações cada característica está. */
-  protected readonly uses = computed(() => {
-    const out: Record<string, number> = {};
-    for (const c of this.board()?.cards ?? []) for (const t of c.traits) out[t] = (out[t] ?? 0) + 1;
-    return out;
+  protected readonly count = computed(() => {
+    const b = this.board();
+    return b ? this.kanban.live(b).length : 0;
+  });
+
+  /** As tags das anotações da categoria (a grafia mais usada), das mais usadas para as menos. */
+  protected readonly tags = computed(() => {
+    const b = this.board();
+    if (!b) return [];
+    const seen = new Map<string, { n: number; spellings: Map<string, number> }>();
+    for (const r of this.store.notes()) {
+      if (!belongs(b, r)) continue;
+      for (const t of r.tags ?? []) {
+        const e = seen.get(fold(t)) ?? { n: 0, spellings: new Map<string, number>() };
+        e.n++;
+        e.spellings.set(t, (e.spellings.get(t) ?? 0) + 1);
+        seen.set(fold(t), e);
+      }
+    }
+    return [...seen]
+      .map(([key, e]) => ({ key, n: e.n, label: [...e.spellings].reduce((a, x) => (x[1] > a[1] ? x : a))[0] }))
+      .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }));
   });
 
   constructor() {
@@ -130,62 +122,29 @@ export class KanbanBoardSheet {
   }
 
   close(): void {
-    const input = this.nome()?.nativeElement;
-    if (input && input.value.trim() && input.value !== this.board()?.name) this.rename(input.value);
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
   }
 
-  protected rename(name: string): void {
-    if (!name.trim()) return;
-    this.kanban.update(this.boardId(), (b, at) => renameBoard(b, name, at));
+  protected colorOf(tag: string): string | null {
+    return tagColorHex(this.settings.categoryLooks(), tag);
   }
 
-  protected create(): void {
-    const name = this.typed().trim();
-    if (!name) return;
-    this.kanban.update(this.boardId(), (b, at) => addTrait(b, name, at).board);
-    this.typed.set('');
-  }
-
-  protected renameTrait(id: string, name: string): void {
-    if (!name.trim()) return;
-    this.kanban.update(this.boardId(), (b, at) => updateTrait(b, id, { name }, at));
-  }
-
-  protected recolor(id: string, color: TraitColor): void {
-    this.kanban.update(this.boardId(), (b, at) => updateTrait(b, id, { color }, at));
-  }
-
-  protected async dropTrait(id: string, name: string): Promise<void> {
-    const n = this.uses()[id] ?? 0;
-    if (n) {
-      const yes = await this.confirm.ask({
-        title: `Tirar ${name}?`,
-        text: `Ela sai ${n === 1 ? 'da anotação' : `das ${n} anotações`} deste quadro que a têm. As anotações continuam como estão.`,
-        confirm: 'Tirar',
-        cancel: 'Deixar',
-        icon: Trash2,
-      });
-      if (!yes) return;
-    }
-    this.kanban.update(this.boardId(), (b, at) => removeTrait(b, id, at));
-  }
-
-  protected async removeBoard(): Promise<void> {
+  protected async reset(): Promise<void> {
     const b = this.board();
     if (!b) return;
+    const n = this.count();
     const yes = await this.confirm.ask({
-      title: `Apagar o quadro ${b.name}?`,
-      text: b.cards.length
-        ? `As colunas, a importância e as características somem. As ${b.cards.length === 1 ? 'anotação continua' : `${b.cards.length} anotações continuam`} no mural, como estão.`
-        : 'Ele está vazio. Nenhuma anotação muda.',
-      confirm: 'Apagar o quadro',
+      title: `Recomeçar o quadro de ${this.category()}?`,
+      text: n
+        ? `As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro. ${n === 1 ? 'Ela continua' : `As ${n} continuam`} no mural, como ${n === 1 ? 'está' : 'estão'}.`
+        : 'As colunas voltam a ser A fazer, Fazendo e Feito. Nenhuma anotação muda.',
+      confirm: 'Recomeçar',
       cancel: 'Deixar',
-      icon: Trash2,
+      icon: RotateCcw,
     });
     if (!yes) return;
     this.close();
-    this.removing.emit(b.id);
+    this.resetting.emit(b.id);
   }
 }

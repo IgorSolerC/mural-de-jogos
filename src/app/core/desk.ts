@@ -6,8 +6,8 @@ export interface DeskHandlers {
   openReview(id: string, fromId?: string): void;
   /** O link para uma anotação que não existe: criar, com o título (e a categoria da anotação `fromId`). */
   newNote(title: string, fromId?: string): void;
-  /** Uma anotação nova em branco, sem a categoria da aba aberta do mural (o "Nova nota" do Kanban). */
-  newPlainNote(): void;
+  /** Uma anotação nova em branco, já nesta categoria (o "Nova nota" de uma coluna do Kanban). */
+  newNoteIn(category: string): void;
   openDraft(id: string): void;
   /** Recortar um item novo para a wishlist. */
   newWish(): void;
@@ -45,8 +45,8 @@ export class Desk {
     this.handlers?.newNote(title, fromId);
   }
 
-  newPlainNote(): void {
-    this.handlers?.newPlainNote();
+  newNoteIn(category: string): void {
+    this.handlers?.newNoteIn(category);
   }
 
   openDraft(id: string): void {

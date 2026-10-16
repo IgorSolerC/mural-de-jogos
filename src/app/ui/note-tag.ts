@@ -16,6 +16,8 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
     '[class.mini]': 'size() === "mini"',
     '[class.ghost]': 'ghost()',
     '[style.--tag-tilt]': 'tilt() + "deg"',
+    '[class.cor]': '!!color() && !ghost()',
+    '[style.--tag-cor]': 'color()',
   },
   template: `<span class="papel" aria-hidden="true"></span><span class="furo" aria-hidden="true"></span><span class="txt">{{ label() }}</span>`,
   styles: `
@@ -78,6 +80,55 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
     :host(.mini) .furo {
       left: 5px;
     }
+    /* com cor, como a orelha da categoria com cor: a etiqueta vira papel claro e a cor corre num
+       contorno fino por dentro dela, a 2px da beirada, seguindo o bico. São três recortes do mesmo
+       formato, um dentro do outro (o contorno de uma forma recortada não dá para fazer com borda) */
+    :host(.cor) {
+      color: var(--ink);
+    }
+    :host(.cor) .papel {
+      background: var(--paper-grain), #fffcf2;
+      background-blend-mode: multiply;
+    }
+    :host(.cor) .papel::before,
+    :host(.cor) .papel::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      clip-path: polygon(7.4px 0, 100% 0, 100% 100%, 7.4px 100%, 0 50%);
+    }
+    :host(.cor) .papel::before {
+      background: var(--tag-cor);
+    }
+    :host(.cor) .papel::after {
+      inset: 4px 4px 4px 4.6px;
+      clip-path: polygon(5.7px 0, 100% 0, 100% 100%, 5.7px 100%, 0 50%);
+      background: var(--paper-grain), #fffcf2;
+      background-blend-mode: multiply;
+    }
+    :host(.cor.mini) .papel::after {
+      inset: 3.6px 3.6px 3.6px 4.2px;
+    }
+    /* o furinho fica dentro do contorno, no papel claro */
+    :host(.cor) .furo {
+      left: 7px;
+      background: rgb(0 0 0 / 0.5);
+      box-shadow: none;
+    }
+    :host(.cor) {
+      padding-left: 17px;
+    }
+    :host(.cor.mini) {
+      padding-left: 15px;
+    }
+    :host(.cor.mini) .furo {
+      left: 6.5px;
+    }
+    @media (forced-colors: active) {
+      :host(.cor) .papel::before {
+        background: CanvasText;
+      }
+    }
     /* ainda não amarrada: o contorno tracejado de uma etiqueta em branco */
     :host(.ghost) {
       color: rgb(21 21 21 / 0.74);
@@ -97,6 +148,8 @@ export class NoteTag {
   readonly label = input.required<string>();
   readonly size = input<'card' | 'mini'>('card');
   readonly ghost = input(false);
+  /** A cor que o dono deu à tag (o hex, ver `tagColorHex`), ou null: o papel pardo de sempre. */
+  readonly color = input<string | null>(null);
   /** A posição na fileira, para a tortura de cada uma; null amarra reto. */
   readonly index = input<number | null>(null);
 

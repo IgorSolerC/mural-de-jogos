@@ -1,17 +1,20 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CheckCheck, ChevronDown, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, SquareKanban, Tags, X } from 'lucide-angular';
+import { CheckCheck, ChevronDown, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, Tags, X } from 'lucide-angular';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
+import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { KanbanBoard, KanbanCard, MAX_BOARDS, MAX_COLUMNS, NAME_MAX, addColumn, cardsIn, defaultColumns } from '../core/kanban';
+import { KanbanBoard, KanbanCard, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanStore } from '../core/kanban-store';
 import { NOTES } from '../core/kinds';
 import { Review, fold } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { Settings as SettingsStore } from '../core/settings';
 import { CardPicker } from '../ui/card-picker';
+import { CategoryLabel } from '../ui/category-label';
 import { KanbanBoardSheet } from '../ui/kanban-board-sheet';
 import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
@@ -67,11 +70,23 @@ interface Drag {
   height: number;
 }
 
+/** Uma aba de quadro: a categoria, o id do quadro dela, quantas anotações ele tem e a cor da orelha. */
+interface BoardTab {
+  id: string;
+  key: string;
+  label: string;
+  n: number;
+  color: string | null;
+  look: CategoryLook;
+}
+
 /**
- * Kanban (`/anotacoes/kanban/:quadro`): quadros com colunas de etapas e, nelas, as suas anotações,
- * na ficha simples (ver core/kanban.ts). Cada coluna é uma tira de papel pardo presa na parede com
- * fita crepe, com a etiqueta de cartolina dela no alto (ícone, nome, quantas, e o lápis dos ajustes);
- * as anotações ficam pregadas nela, com a importância e as características coladas na beirada.
+ * Kanban (`/anotacoes/kanban/:quadro`): um quadro por categoria das anotações, com colunas de etapas
+ * e, nelas, as anotações daquela categoria, na ficha simples (ver core/kanban.ts). As abas dos
+ * quadros são as próprias categorias, com o ícone e a cor delas, como as abas do mural. Cada coluna
+ * é uma tira de papel pardo presa na parede com fita crepe, com o cabeçalho dela no alto (ícone,
+ * nome, quantas, e o lápis dos ajustes); as anotações ficam pregadas nela, com as tags delas na
+ * ficha e a importância colada na beirada.
  *
  * Arrastar: com o mouse, depois de andar uns pixels; com o dedo, segurando um pouco parado (antes
  * disso, o dedo rola a tela). Uma cópia da ficha vai junto com o ponteiro e, no lugar onde ela cairia,
@@ -80,7 +95,7 @@ interface Drag {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, Pin, RouterLink, SearchStrip],
+  imports: [CardPicker, CategoryLabel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, Pin, RouterLink, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -95,37 +110,49 @@ export class KanbanPage {
   protected readonly NewNoteIcon = FilePlus;
   protected readonly CloseIcon = X;
   protected readonly ColumnIcon = Columns3;
-  protected readonly BoardIcon = SquareKanban;
   protected readonly TagsIcon = Tags;
   protected readonly CardsIcon = Rows2;
   protected readonly TitlesIcon = List;
   protected readonly iconOf = COLUMN_ICON;
-  protected readonly maxBoards = MAX_BOARDS;
   protected readonly maxColumns = MAX_COLUMNS;
-  protected readonly nameMax = NAME_MAX;
   protected readonly notesKind = NOTES;
   protected readonly firstColumns = defaultColumns();
 
   private readonly kanban = inject(KanbanStore);
   private readonly actions = inject(KanbanActions);
   private readonly store = inject(ReviewStore);
+  private readonly settings = inject(SettingsStore);
   private readonly desk = inject(Desk);
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly quadro = viewChild<ElementRef<HTMLElement>>('quadro');
 
-  protected readonly boards = this.kanban.boards;
+  /** As categorias das anotações: cada uma é um quadro. */
+  protected readonly categories = this.kanban.categories;
   private readonly param = toSignal(inject(ActivatedRoute).paramMap.pipe(map((p) => p.get('quadro'))), { initialValue: null });
-  /** O quadro aberto: o do endereço, ou (sem ele, ou um que não existe mais) o último aberto ou o primeiro. */
+  /** A categoria do quadro aberto (a do endereço; sem ela, ou uma que sumiu, a página leva ao último ou ao primeiro). */
+  protected readonly category = computed(() => this.categories().find((c) => boardIdFor(c.key) === this.param()) ?? null);
+  /** O quadro aberto: o guardado da categoria, ou o de sempre (que só é guardado quando alguém mexe). */
   protected readonly board = computed<KanbanBoard | null>(() => {
-    const list = this.boards();
-    return list.find((b) => b.id === this.param()) ?? null;
+    const c = this.category();
+    return c ? this.kanban.boardFor(c.key) : null;
+  });
+
+  /** As abas: uma por categoria, com o ícone e a cor dela e quantas anotações o quadro tem. */
+  protected readonly tabs = computed<BoardTab[]>(() => {
+    const looks = this.settings.categoryLooks();
+    return this.categories().map((c) => {
+      const id = boardIdFor(c.key);
+      const stored = this.kanban.boards().find((b) => b.id === id);
+      const look = looks[c.key] ?? {};
+      return { id, key: c.key, label: c.label, n: stored ? this.kanban.live(stored).length : 0, color: categoryColorHex(look.color), look };
+    });
   });
 
   protected readonly query = signal('');
-  protected readonly traitFilter = signal('');
-  protected readonly firstName = signal('');
+  /** A tag do filtro (sem acento nem caixa), ou "". */
+  protected readonly tagFilter = signal('');
   protected readonly adding = signal<string | null>(null);
   protected readonly picking = signal(false);
   private pickColumn: string | null = null;
@@ -144,21 +171,46 @@ export class KanbanPage {
     return !!b && this.denseBoards().includes(b.id);
   });
 
-  protected readonly filtering = computed(() => !!this.query().trim() || !!this.traitFilter());
-  protected readonly traitLabel = computed(() => this.board()?.traits.find((t) => t.id === this.traitFilter())?.name ?? 'Todas');
+  protected readonly filtering = computed(() => !!this.query().trim() || !!this.tagFilter());
 
-  /** As anotações do quadro que existem (uma apagada some do quadro, sem apagar o lugar dela). */
+  /**
+   * As anotações do quadro que estão nele de verdade: existem e ainda são da categoria dele (uma
+   * apagada, ou levada para outra categoria, some do quadro, sem apagar o lugar dela).
+   */
   private readonly notes = computed(() => {
     const out = new Map<string, Review>();
-    for (const r of this.store.notes()) out.set(r.id, r);
+    const b = this.board();
+    if (!b) return out;
+    for (const r of this.store.notes()) if (belongs(b, r)) out.set(r.id, r);
     return out;
   });
+  /** As cartas do quadro com anotação à mostra. */
+  private readonly live = computed(() => this.board()?.cards.filter((c) => this.notes().has(c.note)) ?? []);
+  protected readonly liveCount = computed(() => this.live().length);
+
+  /** As tags das anotações do quadro, de A a Z (a grafia mais usada), para o filtro. */
+  protected readonly tagOptions = computed(() => {
+    const seen = new Map<string, Map<string, number>>();
+    for (const c of this.live()) {
+      for (const t of this.notes().get(c.note)?.tags ?? []) {
+        const k = fold(t);
+        const m = seen.get(k) ?? new Map<string, number>();
+        m.set(t, (m.get(t) ?? 0) + 1);
+        seen.set(k, m);
+      }
+    }
+    return [...seen]
+      .map(([key, m]) => ({ key, label: [...m].reduce((a, e) => (e[1] > a[1] ? e : a))[0] }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }));
+  });
+  protected readonly tagLabel = computed(() => this.tagOptions().find((t) => t.key === this.tagFilter())?.label ?? 'Todas');
 
   /** As anotações que já estão no quadro: o "Buscar nota" não as mostra. */
-  protected readonly onBoard = computed(() => this.board()?.cards.map((c) => c.note) ?? []);
-  protected readonly pickerEmpty = computed(() =>
-    this.store.notes().length ? 'Todas as suas anotações já estão neste quadro.' : 'Você ainda não tem anotações. Crie uma com Nova nota.',
-  );
+  protected readonly onBoard = computed(() => this.live().map((c) => c.note));
+  protected readonly pickerEmpty = computed(() => {
+    const c = this.category();
+    return c && this.liveCount() >= c.notes ? `Todas as anotações de ${c.label} já estão neste quadro.` : 'Nenhuma anotação para mostrar.';
+  });
 
   /** As colunas como aparecem: o filtro aplicado e, arrastando, a anotação no lugar onde cairia. */
   protected readonly view = computed<ColumnView[]>(() => {
@@ -166,13 +218,13 @@ export class KanbanPage {
     if (!b) return [];
     const notes = this.notes();
     const q = fold(this.query().trim());
-    const trait = this.traitFilter();
+    const tag = this.tagFilter();
     const d = this.drag();
     const shows = (c: KanbanCard) => {
       const n = notes.get(c.note);
       if (!n) return false;
       if (d?.note === c.note) return true;
-      return (!q || fold(n.game.name).includes(q)) && (!trait || c.traits.includes(trait));
+      return (!q || fold(n.game.name).includes(q)) && (!tag || (n.tags ?? []).some((t) => fold(t) === tag));
     };
     const out = b.columns.map((col) => {
       const all = cardsIn(b, col.id).filter((c) => notes.has(c.note));
@@ -191,11 +243,11 @@ export class KanbanPage {
 
   constructor() {
     const destroy = inject(DestroyRef);
-    // sem quadro no endereço (ou um que sumiu): o último aberto, ou o primeiro
+    // sem quadro no endereço (ou de uma categoria que sumiu): o último aberto, ou o primeiro
     effect(() => {
-      const list = this.boards();
+      const ids = this.categories().map((c) => boardIdFor(c.key));
       const id = this.param();
-      if (!list.length || (id && list.some((b) => b.id === id))) return;
+      if (!ids.length || (id && ids.includes(id))) return;
       untracked(() => {
         let last: string | null = null;
         try {
@@ -203,8 +255,8 @@ export class KanbanPage {
         } catch {
           /* sem armazenamento: o primeiro */
         }
-        const to = list.find((b) => b.id === last) ?? list[0];
-        void this.router.navigate([kanbanPath(to.id)], { replaceUrl: true });
+        const to = ids.find((x) => x === last) ?? ids[0];
+        void this.router.navigate([kanbanPath(to)], { replaceUrl: true });
       });
     });
     effect(() => {
@@ -221,7 +273,7 @@ export class KanbanPage {
     effect(() => {
       this.board()?.id;
       untracked(() => {
-        this.traitFilter.set('');
+        this.tagFilter.set('');
         this.adding.set(null);
       });
     });
@@ -235,7 +287,7 @@ export class KanbanPage {
   protected setDense(on: boolean): void {
     const b = this.board();
     if (!b || on === this.dense()) return;
-    const alive = new Set(this.boards().map((q) => q.id));
+    const alive = new Set(this.categories().map((c) => boardIdFor(c.key)));
     const next = this.denseBoards().filter((id) => id !== b.id && alive.has(id));
     if (on) next.push(b.id);
     this.denseBoards.set(next);
@@ -250,32 +302,18 @@ export class KanbanPage {
     return kanbanPath(id);
   }
 
-  protected createFirst(): void {
-    const id = this.kanban.create(this.firstName().trim() || 'Meu quadro');
-    this.firstName.set('');
-    if (id) void this.router.navigate([kanbanPath(id)]);
+  /** Nenhuma categoria ainda: o editor, para a primeira anotação (com a categoria, ela ganha o quadro). */
+  protected firstNote(): void {
+    this.desk.newReview();
   }
 
-  /** Um quadro novo, aberto com os ajustes para dar o nome. */
-  protected newBoard(): void {
-    const id = this.kanban.create(`Quadro ${this.boards().length + 1}`);
-    if (!id) return;
-    void this.router.navigate([kanbanPath(id)]).then(() => this.boardSheet.set(id));
-  }
-
-  /** Apaga o quadro (a folha já perguntou), com Desfazer. */
-  protected removeBoard(id: string): void {
-    const index = this.boards().findIndex((b) => b.id === id);
+  /** Recomeça o quadro (a folha já perguntou): as três colunas de sempre e nenhuma anotação, com Desfazer. */
+  protected resetBoard(id: string): void {
     const b = this.kanban.get(id);
+    const label = this.category()?.label ?? '';
     if (!b) return;
-    this.kanban.remove(id);
-    this.toasts.show(`O quadro ${b.name} foi apagado`, {
-      label: 'Desfazer',
-      run: () => {
-        this.kanban.restore(b, index);
-        void this.router.navigate([kanbanPath(b.id)]);
-      },
-    });
+    this.kanban.update(id, (board, at) => resetBoard(board, at));
+    this.toasts.show(`O quadro de ${label} recomeçou`, { label: 'Desfazer', run: () => this.kanban.restore(b) });
   }
 
   /** Uma coluna nova no fim, aberta com os ajustes para dar o nome. */
@@ -314,13 +352,17 @@ export class KanbanPage {
     this.desk.land(r.id);
   }
 
-  /** Nova nota: o editor abre, e a anotação salva cai no fim desta coluna (ver App.onSaved). */
+  /**
+   * Nova nota: o editor abre já na categoria do quadro, e a anotação salva cai no fim desta coluna
+   * (ver App.onSaved).
+   */
   protected createNote(column: string): void {
     const b = this.board();
-    if (!b) return;
+    const c = this.category();
+    if (!b || !c) return;
     this.adding.set(null);
     this.kanban.pending.set({ board: b.id, column });
-    this.desk.newPlainNote();
+    this.desk.newNoteIn(c.label);
   }
 
   protected read(id: string): void {
@@ -329,7 +371,7 @@ export class KanbanPage {
 
   protected clearFilters(): void {
     this.query.set('');
-    this.traitFilter.set('');
+    this.tagFilter.set('');
   }
 
   // ===== Teclado: Shift e as setas =====

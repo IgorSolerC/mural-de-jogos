@@ -7,7 +7,7 @@ import { Review, isPrivate, storedNote } from './review';
 import { SharedStore } from './shared-store';
 import { canonicalJson as canonical } from './canonical-json';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
-import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
+import { CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
 import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
@@ -87,11 +87,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *
  * 18: os quadros Kanban das anotações (`kanban`, só no mural privado, juntados quadro a quadro). Um
  *     site antigo enviaria o mural sem eles, e um aparelho novo não os receberia até outro enviar.
+ * 19: cada quadro Kanban é de uma categoria (`category`, o id sai dela) e as características viraram
+ *     tags das anotações. Um site antigo jogaria a categoria fora e enviaria os quadros assim.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 18;
+export const SYNC_SCHEMA = 19;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -175,9 +177,17 @@ export function kanbanOf(data: Record<string, unknown>): KanbanState | null {
   return sanitizeKanban(raw);
 }
 
+/** Os quadros que vieram, como este aparelho os enviaria (a impressão compara um com o outro). */
+export function kanbanPrintOf(data: Record<string, unknown>): Partial<KanbanState> | null {
+  const k = kanbanOf(data);
+  return k && kanbanToSync(k);
+}
+
 /** Os quadros que vão para a nuvem: null sem nenhum (o mural de antes deles tem a mesma impressão). */
-export function kanbanToSync(state: KanbanState): KanbanState | null {
-  return state.boards.length || Object.keys(state.removed).length ? state : null;
+export function kanbanToSync(state: KanbanState): Partial<KanbanState> | null {
+  if (!state.boards.length && !state.legacy.length && !Object.keys(state.removed).length) return null;
+  // os de antes só existem até a conversão (logo ao abrir): depois dela, nem a chave vai
+  return state.legacy.length ? state : { boards: state.boards, removed: state.removed };
 }
 
 /**
@@ -209,11 +219,16 @@ export function publicIds(reviews: readonly Review[], notes: readonly unknown[])
 }
 
 /**
- * O ícone e a cor que vão no mural público: só os das categorias das anotações publicadas (o nome
- * de uma categoria usada só nas privadas fica com a pessoa).
+ * O ícone e a cor que vão no mural público: só os das categorias e das tags das anotações publicadas
+ * (o nome de uma categoria ou tag usada só nas privadas fica com a pessoa).
  */
 export function publicCategoryLooks(looks: CategoryLooks, notes: readonly unknown[]): CategoryLooks {
-  const used = new Set(notes.map((n) => (n as { category?: unknown } | null)?.category).filter((c): c is string => typeof c === 'string').map(lookKey));
+  const used = new Set<string>();
+  for (const n of notes) {
+    const { category, tags } = (n ?? {}) as { category?: unknown; tags?: unknown };
+    if (typeof category === 'string') used.add(lookKey(category));
+    if (Array.isArray(tags)) for (const t of tags) if (typeof t === 'string') used.add(tagLookKey(t));
+  }
   return Object.fromEntries(Object.entries(looks).filter(([k]) => used.has(k)));
 }
 
@@ -389,7 +404,7 @@ export async function fingerprint(
   looks: SyncedLooks | null = null,
   profile: SyncedProfile | null = null,
   config: SyncedNotesConfig | null = null,
-  kanban: KanbanState | null = null,
+  kanban: Partial<KanbanState> | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
@@ -849,7 +864,7 @@ export class CloudSync {
   }
 
   /** Os quadros Kanban deste aparelho para a nuvem, ou null sem nenhum. */
-  private localKanban(): KanbanState | null {
+  private localKanban(): Partial<KanbanState> | null {
     return kanbanToSync(this.kanban.state());
   }
 
@@ -875,7 +890,7 @@ export class CloudSync {
 
   /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
   private remotePrint(data: Record<string, unknown>): Promise<string> {
-    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanOf(data));
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data));
   }
 
   private apply(fn: () => void): void {
@@ -921,7 +936,7 @@ export class CloudSync {
     looks: SyncedLooks | null,
     profile: SyncedProfile | null,
     config: SyncedNotesConfig | null,
-    kanban: KanbanState | null,
+    kanban: Partial<KanbanState> | null,
     print: string,
   ): Promise<number> {
     const now = Date.now();

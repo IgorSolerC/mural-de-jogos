@@ -1,23 +1,30 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import { BookOpen, Check, LucideAngularModule, Plus, X } from 'lucide-angular';
-import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, TRAIT_MAX, addTrait, setImportance, toggleTrait } from '../core/kanban';
+import { BookOpen, LucideAngularModule, Plus, X } from 'lucide-angular';
+import { randomCategoryColor, tagColorHex } from '../core/category-looks';
+import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, belongs, setImportance } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanStore } from '../core/kanban-store';
+import { LABEL_MAX, MAX_TAGS, cleanTag, sanitizeTags } from '../core/note-labels';
+import { fold } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { Settings } from '../core/settings';
+import { canManage } from '../core/shared-notes';
+import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { COLUMN_ICON, IMPORTANCE_LEVEL } from './kanban-icons';
+import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 
 /**
- * A folha de uma anotação no quadro (o botão da etiqueta, ou as etiquetas da ficha): em que etapa
- * ela está, a importância e as características. Tudo vale na hora (não tem "Salvar"); mudar de etapa
+ * A folha de uma anotação no quadro (o botão de ajustes, ou a importância da ficha): em que etapa
+ * ela está, a importância e as tags (as da anotação mesmo). Tudo vale na hora (não tem "Salvar"); mudar de etapa
  * passa por `KanbanActions` (finaliza ou abre de novo, como arrastar). Ler a anotação fecha a folha
  * e abre a leitura; Tirar do quadro deixa a anotação no mural.
  */
 @Component({
   selector: 'app-kanban-card-sheet',
-  imports: [BackdropClose, LucideAngularModule, Pin],
+  imports: [BackdropClose, LucideAngularModule, NoteTag, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -27,7 +34,7 @@ import { Pin } from './pin';
           <header class="head">
             <div class="titulos">
               <h2 id="fq-titulo">{{ d.note.game.name }}</h2>
-              <p class="sub">No quadro {{ d.board.name }}</p>
+              <p class="sub">No quadro de {{ d.label }}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
               <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
@@ -72,42 +79,52 @@ import { Pin } from './pin';
               </div>
             </section>
 
-            <section class="grupo" aria-labelledby="fq-car">
-              <h3 class="grupo-titulo" id="fq-car">Características</h3>
-              <p class="dica">Só deste quadro: não mudam as tags da anotação.</p>
-              @if (d.board.traits.length) {
-                <ul class="fitas" aria-labelledby="fq-car">
-                  @for (t of d.board.traits; track t.id) {
-                    @let on = d.card.traits.includes(t.id);
-                    <li>
-                      <button type="button" class="fita" [class.colada]="on" [attr.data-fita]="t.color" [attr.aria-pressed]="on" (click)="toggle(t.id)">
-                        @if (on) {
-                          <lucide-icon [img]="CheckIcon" [size]="12" [strokeWidth]="3.4" aria-hidden="true" />
-                        }
-                        {{ t.name }}
-                      </button>
-                    </li>
-                  }
-                </ul>
+            <section class="grupo" aria-labelledby="fq-tags">
+              <h3 class="grupo-titulo" id="fq-tags">Tags</h3>
+              @if (locked()) {
+                <p class="dica">Nesta anotação compartilhada, só o dono e os gestores mudam as tags.</p>
+                @if (d.note.tags?.length) {
+                  <ul class="tags" aria-labelledby="fq-tags">
+                    @for (t of d.note.tags; track t; let i = $index) {
+                      <li><app-note-tag [label]="t" [index]="i" [color]="colorOf(t)" /></li>
+                    }
+                  </ul>
+                }
+              } @else {
+                <p class="dica">As tags da anotação, as mesmas do mural. Toque para pôr ou tirar.</p>
+                @if (tagChoices().length) {
+                  <ul class="tags" aria-labelledby="fq-tags">
+                    @for (t of tagChoices(); track t.key; let i = $index) {
+                      <li>
+                        <button type="button" class="tag-op" [attr.aria-pressed]="t.on" [attr.aria-label]="t.label" (click)="toggleTag(t.label)">
+                          <app-note-tag [label]="t.label" [ghost]="!t.on" [index]="t.on ? i : null" [color]="colorOf(t.label)" />
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+                <form class="nova" (submit)="$event.preventDefault(); create()">
+                  <label class="campo">
+                    <span class="sr-only">Nova tag</span>
+                    <input
+                      #campo
+                      type="text"
+                      autocomplete="off"
+                      [maxLength]="tagMax"
+                      placeholder="Nova tag: Correção, Urgente…"
+                      [value]="typed()"
+                      (input)="typed.set($any($event.target).value)"
+                    />
+                  </label>
+                  <button type="submit" class="papel" [disabled]="!typed().trim() || full()">
+                    <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                    Pôr
+                  </button>
+                </form>
+                @if (full()) {
+                  <p class="dica">Esta anotação já tem {{ maxTags }} tags: tire uma para pôr outra.</p>
+                }
               }
-              <form class="nova" (submit)="$event.preventDefault(); create()">
-                <label class="campo">
-                  <span class="sr-only">Nova característica</span>
-                  <input
-                    #campo
-                    type="text"
-                    autocomplete="off"
-                    [maxLength]="traitMax"
-                    placeholder="Nova: Correção, Sincronização…"
-                    [value]="typed()"
-                    (input)="typed.set($any($event.target).value)"
-                  />
-                </label>
-                <button type="submit" class="papel" [disabled]="!typed().trim()">
-                  <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-                  Pôr
-                </button>
-              </form>
             </section>
           </div>
 
@@ -134,7 +151,6 @@ export class KanbanCardSheet {
   readonly reading = output<string>();
 
   protected readonly CloseIcon = X;
-  protected readonly CheckIcon = Check;
   protected readonly PlusIcon = Plus;
   protected readonly ReadIcon = BookOpen;
   protected readonly iconOf = COLUMN_ICON;
@@ -142,20 +158,61 @@ export class KanbanCardSheet {
   protected readonly impLabel = IMPORTANCE_LABEL;
   protected readonly level = IMPORTANCE_LEVEL;
   protected readonly steps = [1, 2, 3, 4, 5];
-  protected readonly traitMax = TRAIT_MAX;
+  protected readonly tagMax = LABEL_MAX;
+  protected readonly maxTags = MAX_TAGS;
   protected readonly typed = signal('');
 
   private readonly kanban = inject(KanbanStore);
   private readonly actions = inject(KanbanActions);
   private readonly store = inject(ReviewStore);
+  private readonly settings = inject(Settings);
+  private readonly shared = inject(SharedStore);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+
+  /** Numa compartilhada, só o dono e os gestores mudam as tags (como no editor). */
+  protected readonly locked = computed(() => {
+    const role = this.shared.role(this.noteId());
+    return !!role && !canManage(role);
+  });
+
+  /** As tags que dá para pôr: as das anotações da categoria (as mais usadas primeiro) e as fixas. */
+  private readonly library = computed(() => {
+    const d = this.data();
+    if (!d) return [];
+    const count = new Map<string, { label: string; n: number }>();
+    for (const r of this.store.notes()) {
+      if (!belongs(d.board, r)) continue;
+      for (const t of r.tags ?? []) {
+        const e = count.get(fold(t));
+        if (e) e.n++;
+        else count.set(fold(t), { label: t, n: 1 });
+      }
+    }
+    const used = [...count.values()].sort((a, b) => b.n - a.n).map((e) => e.label);
+    const pinned = this.settings.pinnedTags().filter((t) => !count.has(fold(t)));
+    return [...used, ...pinned];
+  });
+
+  /** As da anotação primeiro (coladas, na ordem dela), depois as outras, em contorno. */
+  protected readonly tagChoices = computed(() => {
+    const own = this.data()?.note.tags ?? [];
+    const on = new Set(own.map(fold));
+    return [
+      ...own.map((label) => ({ key: fold(label), label, on: true })),
+      ...this.library()
+        .filter((t) => !on.has(fold(t)))
+        .slice(0, 16)
+        .map((label) => ({ key: fold(label), label, on: false })),
+    ];
+  });
+  protected readonly full = computed(() => (this.data()?.note.tags?.length ?? 0) >= MAX_TAGS);
 
   protected readonly data = computed(() => {
     const board = this.kanban.get(this.boardId());
     const note = this.store.get(this.noteId());
     const card = board?.cards.find((c) => c.note === this.noteId());
     if (!board || !note || !card) return null;
-    return { board, note, card, stock: pinningFor(note.id, note.stock).stock };
+    return { board, note, card, label: this.kanban.labelOf(board) ?? note.category ?? '', stock: pinningFor(note.id, note.stock).stock };
   });
 
   /** O que a etapa de agora faz com a anotação, quando ela finaliza. */
@@ -191,22 +248,33 @@ export class KanbanCardSheet {
     this.kanban.update(this.boardId(), (b, at) => setImportance(b, this.noteId(), i, at));
   }
 
-  protected toggle(trait: string): void {
-    this.kanban.update(this.boardId(), (b, at) => toggleTrait(b, this.noteId(), trait, at));
+  protected colorOf(tag: string): string | null {
+    return tagColorHex(this.settings.categoryLooks(), tag);
   }
 
-  /** Uma característica nova (ou a que já tem o nome), já colada na anotação. */
+  /** Põe ou tira a tag da anotação (a do mural: muda na anotação mesmo, como no editor). */
+  protected toggleTag(tag: string): void {
+    const r = this.store.get(this.noteId());
+    if (!r) return;
+    const has = (r.tags ?? []).some((t) => fold(t) === fold(tag));
+    const next = has ? (r.tags ?? []).filter((t) => fold(t) !== fold(tag)) : sanitizeTags([...(r.tags ?? []), tag]);
+    if (!has && next.length === (r.tags ?? []).length) return;
+    const { tags: _, ...rest } = r;
+    this.store.update({ ...rest, ...(next.length ? { tags: next } : {}), updatedAt: new Date().toISOString() }, r);
+  }
+
+  /**
+   * Uma tag escrita: a que já existe com esse nome (na grafia dela), ou uma nova, que ganha uma cor
+   * sorteada como a categoria nova. Já colada na anotação.
+   */
   protected create(): void {
-    const name = this.typed().trim();
-    if (!name) return;
-    const note = this.noteId();
-    this.kanban.update(this.boardId(), (b, at) => {
-      const { board, id } = addTrait(b, name, at);
-      if (!id) return board;
-      const card = board.cards.find((c) => c.note === note);
-      return card?.traits.includes(id) ? board : toggleTrait(board, note, id, at);
-    });
+    const tag = cleanTag(this.typed());
     this.typed.set('');
+    if (!tag) return;
+    const known = this.library().find((t) => fold(t) === fold(tag));
+    if (!known && !this.settings.tagColor(tag)) this.settings.setTagColor(tag, randomCategoryColor());
+    const r = this.store.get(this.noteId());
+    if (r && !(r.tags ?? []).some((t) => fold(t) === fold(tag))) this.toggleTag(known ?? tag);
   }
 
   protected removeFromBoard(): void {

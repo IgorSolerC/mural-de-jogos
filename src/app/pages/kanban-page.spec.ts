@@ -1,18 +1,22 @@
 import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
-import { KanbanBoard, cardsIn } from '../core/kanban';
+import { KanbanBoard, boardIdFor, cardsIn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
 import { Review, isDone, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { Settings } from '../core/settings';
 import { KanbanPage } from './kanban-page';
 
-/** A página do Kanban: as colunas com as anotações, o primeiro quadro, mover pelo teclado e o filtro. */
+/** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
 
 @Component({ selector: 'app-raiz', imports: [RouterOutlet], template: '<router-outlet />' })
 class Raiz {}
 
 const T0 = '2026-10-16T10:00:00.000Z';
+const TRAB = boardIdFor('trabalho');
+const EST = boardIdFor('estudos');
+const TRAB_URL = `/anotacoes/kanban/${TRAB}`;
 
 const note = (id: string, title: string, extra: Record<string, unknown> = {}): Review =>
   ({
@@ -22,27 +26,31 @@ const note = (id: string, title: string, extra: Record<string, unknown> = {}): R
 
 function board(): KanbanBoard {
   return {
-    id: 'qtrabalho',
-    name: 'Trabalho',
+    id: TRAB,
+    category: 'trabalho',
     at: T0,
     columns: [
       { id: 'afazer', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false },
       { id: 'fazendo', name: 'Fazendo', icon: 'lapis', color: 'amarelo', finishes: false },
       { id: 'feito', name: 'Feito', icon: 'check', color: 'verde', finishes: true },
     ],
-    traits: [{ id: 'tbug', name: 'Correção', color: 'vermelha' }],
     cards: [
-      { note: 'nlogin01', column: 'afazer', importance: 'critico', traits: ['tbug'] },
-      { note: 'nsync001', column: 'afazer', importance: null, traits: [] },
+      { note: 'nlogin01', column: 'afazer', importance: 'critico' },
+      { note: 'nsync001', column: 'afazer', importance: null },
       // a anotação apagada não aparece (e não quebra nada)
-      { note: 'nsumiu01', column: 'fazendo', importance: null, traits: [] },
+      { note: 'nsumiu01', column: 'fazendo', importance: null },
+      // nem a que agora é de outra categoria
+      { note: 'nprova01', column: 'fazendo', importance: null },
     ],
   };
 }
 
+const state = (...boards: KanbanBoard[]) => ({ boards, removed: {}, legacy: [] });
+
 describe('página do Kanban', () => {
   let host: HTMLElement;
   let kanban: KanbanStore;
+  let store: ReviewStore;
   let router: Router;
 
   async function go(url: string): Promise<void> {
@@ -71,9 +79,12 @@ describe('página do Kanban', () => {
         ]),
       ],
     });
-    TestBed.inject(ReviewStore).reviews.set([
-      note('nlogin01', 'Corrigir o login', { category: 'Trabalho', text: '- [ ] Ver [[Sincronizar quadros]]' }),
+    store = TestBed.inject(ReviewStore);
+    store.reviews.set([
+      note('nlogin01', 'Corrigir o login', { category: 'Trabalho', tags: ['Correção'], text: '- [ ] Ver [[Sincronizar quadros]]' }),
       note('nsync001', 'Sincronizar quadros', { category: 'Trabalho', noteRank: 'sub' }),
+      note('nprova01', 'Prova', { category: 'Estudos' }),
+      note('nsolta01', 'Sem categoria'),
     ]);
     kanban = TestBed.inject(KanbanStore);
     router = TestBed.inject(Router);
@@ -86,36 +97,54 @@ describe('página do Kanban', () => {
     localStorage.clear();
   });
 
-  it('sem quadro: a cartolina cria o primeiro, com as três colunas, e abre nele', async () => {
+  it('sem nenhuma categoria: a cartolina diz que cada categoria tem o seu quadro, sem aba nenhuma', async () => {
+    store.reviews.set([note('nsolta01', 'Sem categoria')]);
     await go('/anotacoes/kanban');
-    expect(host.querySelector('.primeiro')).not.toBeNull();
-    const input = host.querySelector<HTMLInputElement>('.primeiro-campo input')!;
-    input.value = 'Faculdade';
-    input.dispatchEvent(new Event('input'));
-    host.querySelector<HTMLFormElement>('.primeiro-form')!.dispatchEvent(new Event('submit'));
-    await settle();
-    const b = kanban.boards()[0];
-    expect(b.name).toBe('Faculdade');
-    expect(router.url).toBe(`/anotacoes/kanban/${b.id}`);
-    expect([...host.querySelectorAll('.etiqueta-nome')].map(columnName)).toEqual(['A fazer', 'Fazendo', 'Feito']);
+    expect(host.querySelector('.primeiro h2')?.textContent).toContain('Cada categoria tem o seu quadro');
+    expect(host.querySelector('.primeiro .btn-ink')?.textContent).toContain('Escrever uma anotação');
+    expect(host.querySelector('.abas-quadros')).toBeNull();
+    expect(host.querySelector('.primeiro-campo')).toBeNull();
   });
 
-  it('sem quadro no endereço, abre o primeiro; mostra as colunas, as anotações e as etiquetas delas', async () => {
-    kanban.state.set({ boards: [board()], removed: {} });
+  it('as abas são as categorias, com quantas anotações cada quadro tem; não há quadro novo solto', async () => {
+    TestBed.inject(Settings).setCategoryLook('Trabalho', { color: 'azul' });
+    kanban.state.set(state(board()));
     await go('/anotacoes/kanban');
-    expect(router.url).toBe('/anotacoes/kanban/qtrabalho');
+    expect(router.url).toBe(TRAB_URL);
+    const abas = [...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros .aba')];
+    expect(abas.map((a) => a.querySelector('app-cat-label')!.textContent!.trim())).toEqual(['Trabalho', 'Estudos']);
+    expect(abas.map((a) => a.querySelector('.aba-n')!.textContent!.replace(/\s+/g, ' ').trim())).toEqual([', 2 anotações no quadro', ', 0 anotações no quadro']);
+    expect(abas[0].getAttribute('aria-current')).toBe('page');
+    // a cor da categoria, como na aba do mural
+    expect(abas[0].classList).toContain('orelha-cor');
+    expect(abas[1].classList).not.toContain('orelha-cor');
+    expect(host.querySelector('.aba.nova')).toBeNull();
+    // o quadro dos Estudos existe sem ninguém ter mexido nele
+    await go(`/anotacoes/kanban/${EST}`);
+    expect([...host.querySelectorAll('.etiqueta-nome')].map(columnName)).toEqual(['A fazer', 'Fazendo', 'Feito']);
+    expect(kanban.boards().length).toBe(1);
+  });
+
+  it('mostra as colunas e só as anotações da categoria, com a importância e as tags coloridas na ficha', async () => {
+    TestBed.inject(Settings).setTagColor('Correção', 'vermelho');
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
     expect(namesIn('fazendo')).toEqual([]);
     expect(column('feito').querySelector('.carimbo')?.textContent).toContain('Finaliza');
     const login = column('afazer').querySelector('[data-nota="nlogin01"]')!;
     expect(login.querySelector('.imp')?.textContent).toContain('Crítico');
-    expect(login.querySelector('.dymo')?.textContent?.trim()).toBe('Correção');
+    const tag = login.querySelector<HTMLElement>('app-note-tag')!;
+    expect(tag.textContent!.trim()).toBe('Correção');
+    expect(tag.classList).toContain('cor');
+    expect(tag.style.getPropertyValue('--tag-cor')).toBe('#d63a2f');
+    expect(login.querySelector('.dymo')).toBeNull();
     expect(column('afazer').querySelector('.etiqueta-n')?.textContent?.trim()).toBe(', 2 anotações');
   });
 
   it('a ficha do quadro é enxuta: sem tachinha, sem a categoria e sem o "Parte de" da sub-nota; a contagem diz "anotações"', async () => {
-    kanban.state.set({ boards: [board()], removed: {} });
-    await go('/anotacoes/kanban/qtrabalho');
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
     const fichas = column('afazer').querySelectorAll('app-review-card');
     expect(fichas.length).toBe(2);
     expect(column('afazer').querySelector('.aba-cat')).toBeNull();
@@ -126,8 +155,8 @@ describe('página do Kanban', () => {
   });
 
   it('o cabeçalho da coluna é o papel claro com o contorno e o desenho na cor dela, não uma cartolina', async () => {
-    kanban.state.set({ boards: [board()], removed: {} });
-    await go('/anotacoes/kanban/qtrabalho');
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
     const header = column('feito').querySelector<HTMLElement>('.etiqueta')!;
     expect(header.classList).not.toContain('cartolina');
     expect(header.getAttribute('data-cor')).toBe('verde');
@@ -136,20 +165,56 @@ describe('página do Kanban', () => {
     expect(getComputedStyle(header.querySelector('.etiqueta-icone')!).color).toBe('rgb(94, 156, 28)');
   });
 
-  it('a etiqueta dos ajustes abre a folha da anotação no quadro', async () => {
-    kanban.state.set({ boards: [board()], removed: {} });
-    await go('/anotacoes/kanban/qtrabalho');
+  it('a folha da anotação põe e tira as tags dela mesma (as do mural)', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
     const mexer = column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!;
-    expect(mexer.getAttribute('aria-label')).toBe('Etapa, importância e características de Sincronizar quadros');
+    expect(mexer.getAttribute('aria-label')).toBe('Etapa, importância e tags de Sincronizar quadros');
     mexer.click();
     await settle();
-    expect(host.querySelector('app-kanban-card-sheet')).not.toBeNull();
+    const sheet = host.querySelector('app-kanban-card-sheet')!;
+    expect(sheet.querySelector('.sub')!.textContent).toContain('No quadro de Trabalho');
+    // a tag de outra anotação da categoria está à mão, em contorno
+    const op = () => sheet.querySelector<HTMLButtonElement>('.tag-op[aria-label="Correção"]')!;
+    expect(op().getAttribute('aria-pressed')).toBe('false');
+    op().click();
+    await settle();
+    expect(store.get('nsync001')!.tags).toEqual(['Correção']);
+    expect(op().getAttribute('aria-pressed')).toBe('true');
+    op().click();
+    await settle();
+    expect(store.get('nsync001')!.tags).toBeUndefined();
+    // uma tag nova: amarrada na anotação e com uma das cores, sorteada
+    const input = sheet.querySelector<HTMLInputElement>('.nova input')!;
+    input.value = 'Urgente';
+    input.dispatchEvent(new Event('input'));
+    sheet.querySelector<HTMLFormElement>('.nova')!.dispatchEvent(new Event('submit'));
+    await settle();
+    expect(store.get('nsync001')!.tags).toEqual(['Urgente']);
+    expect(TestBed.inject(Settings).tagColor('Urgente')).toBeTruthy();
+  });
+
+  it('os ajustes do quadro trocam a cor das tags da categoria, e a ficha muda junto', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    host.querySelector<HTMLButtonElement>('button[aria-label="Ajustes do quadro"]')!.click();
+    await settle();
+    const sheet = host.querySelector('app-kanban-board-sheet')!;
+    expect(sheet.querySelector('.sub')!.textContent).toContain('Trabalho · 2 anotações');
+    expect([...sheet.querySelectorAll('.item .previa')].map((t) => t.textContent!.trim())).toEqual(['Correção']);
+    sheet.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Verde"]')!.click();
+    await settle();
+    expect(TestBed.inject(Settings).tagColor('correcao')).toBe('verde');
+    expect(column('afazer').querySelector('[data-nota="nlogin01"] app-note-tag')!.classList).toContain('cor');
+    sheet.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Sem cor"]')!.click();
+    await settle();
+    expect(TestBed.inject(Settings).tagColor('correcao')).toBeUndefined();
+    expect(column('afazer').querySelector('[data-nota="nlogin01"] app-note-tag')!.classList).not.toContain('cor');
   });
 
   it('"Só os títulos": a tira com o nome e a importância, lembrada por quadro neste aparelho', async () => {
-    const outro: KanbanBoard = { ...board(), id: 'qfaculda', name: 'Faculdade' };
-    kanban.state.set({ boards: [board(), outro], removed: {} });
-    await go('/anotacoes/kanban/qtrabalho');
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
     const titles = host.querySelector<HTMLButtonElement>('button[aria-label="Só os títulos"]')!;
     expect(titles.getAttribute('aria-pressed')).toBe('false');
     titles.click();
@@ -158,21 +223,19 @@ describe('página do Kanban', () => {
     expect(column('afazer').querySelector('app-review-card')).toBeNull();
     const tiras = [...column('afazer').querySelectorAll('.tira')];
     expect(tiras.map((t) => t.querySelector('.tira-nome')!.textContent!.trim())).toEqual(['Corrigir o login', 'Sincronizar quadros']);
-    // só a escala da importância (quem não tem, nada); o nome dela fica para o leitor de tela
     expect(tiras[0].querySelector('.imp-mini')?.getAttribute('data-imp')).toBe('critico');
     expect(tiras[0].querySelector('.tira-nome')!.getAttribute('aria-label')).toBe('Corrigir o login, importância crítico');
     expect(tiras[1].querySelector('.imp-mini')).toBeNull();
-    expect(tiras[0].querySelector('.dymo')).toBeNull();
-    // o teclado continua movendo pela tira
+    expect(tiras[0].querySelector('app-note-tag')).toBeNull();
     tiras[1].querySelector('.hit')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true }));
     await settle();
     expect(namesIn('afazer')).toEqual(['nsync001', 'nlogin01']);
-    // o outro quadro continua nas fichas; voltando, os títulos
-    await go('/anotacoes/kanban/qfaculda');
-    expect(column('afazer').querySelector('app-review-card')).not.toBeNull();
-    await go('/anotacoes/kanban/qtrabalho');
+    // o quadro dos Estudos continua nas fichas; voltando, os títulos
+    await go(`/anotacoes/kanban/${EST}`);
+    expect(host.querySelector<HTMLButtonElement>('button[aria-label="Só os títulos"]')!.getAttribute('aria-pressed')).toBe('false');
+    await go(TRAB_URL);
     expect(column('afazer').querySelector('.tira')).not.toBeNull();
-    expect(JSON.parse(localStorage.getItem('meu-mural:kanban-titulos:v1')!)).toEqual(['qtrabalho']);
+    expect(JSON.parse(localStorage.getItem('meu-mural:kanban-titulos:v1')!)).toEqual([TRAB]);
     host.querySelector<HTMLButtonElement>('button[aria-label="Fichas"]')!.click();
     await settle();
     expect(column('afazer').querySelector('.tira')).toBeNull();
@@ -180,8 +243,8 @@ describe('página do Kanban', () => {
   });
 
   it('Shift e as setas levam a anotação para o lado (e para Feito, que finaliza) e para cima', async () => {
-    kanban.state.set({ boards: [board()], removed: {} });
-    await go('/anotacoes/kanban/qtrabalho');
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
     const press = (id: string, key: string) => {
       host.querySelector(`[data-nota="${id}"] .hit`)!.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey: true, bubbles: true }));
     };
@@ -193,37 +256,37 @@ describe('página do Kanban', () => {
     expect(namesIn('fazendo')).toEqual(['nlogin01']);
     press('nlogin01', 'ArrowRight');
     await settle();
-    expect(cardsIn(kanban.get('qtrabalho')!, 'feito').map((c) => c.note)).toEqual(['nlogin01']);
-    expect(isDone(TestBed.inject(ReviewStore).get('nlogin01')!)).toBeTrue();
-    // sem Shift, a seta é só a seta
+    expect(cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note)).toEqual(['nlogin01']);
+    expect(isDone(store.get('nlogin01')!)).toBeTrue();
     host.querySelector(`[data-nota="nsync001"] .hit`)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     await settle();
     expect(namesIn('afazer')).toEqual(['nsync001']);
   });
 
-  it('a busca e a característica escondem as outras, e Limpar mostra todas', async () => {
-    kanban.state.set({ boards: [board()], removed: {} });
-    await go('/anotacoes/kanban/qtrabalho');
+  it('a busca e a tag escondem as outras, e Limpar mostra todas', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
     const select = host.querySelector<HTMLSelectElement>('.pasta select')!;
-    select.value = 'tbug';
+    expect([...select.options].map((o) => o.textContent!.trim())).toEqual(['Todas', 'Correção']);
+    select.value = 'correcao';
     select.dispatchEvent(new Event('change'));
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01']);
-    expect(host.querySelector('.achados')?.textContent).toContain('Mostrando 1 de 3');
+    expect(host.querySelector('.achados')?.textContent).toContain('Mostrando 1 de 2');
     host.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
   });
 
-  it('Adicionar nota abre as duas saídas, e Nova coluna cria uma no fim, com os ajustes abertos', async () => {
-    kanban.state.set({ boards: [board()], removed: {} });
-    await go('/anotacoes/kanban/qtrabalho');
-    column('fazendo').querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
+  it('Adicionar nota abre as duas saídas, e Nova coluna cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {
+    await go(`/anotacoes/kanban/${EST}`);
+    column(kanban.boardFor('Estudos').columns[1].id).querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
     await settle();
-    expect([...column('fazendo').querySelectorAll('.adicionar-op')].map((b) => b.textContent!.trim())).toEqual(['Buscar nota', 'Nova nota']);
+    expect([...host.querySelectorAll('.adicionar-op')].map((b) => b.textContent!.trim())).toEqual(['Buscar nota', 'Nova nota']);
     host.querySelector<HTMLButtonElement>('.coluna-nova')!.click();
     await settle();
-    const b = kanban.get('qtrabalho')!;
+    const b = kanban.get(EST)!;
+    expect(kanban.boards().map((x) => x.id)).toEqual([EST]);
     expect(b.columns.length).toBe(4);
     expect(b.columns[3].name).toBe('Nova coluna');
     expect(host.querySelector('app-kanban-column-sheet dialog[open]')).not.toBeNull();

@@ -1,13 +1,23 @@
+import { CategoryColorId, lookKey } from './category-looks';
+import { cleanTag } from './note-labels';
 import { LIGHT_STOCKS, LightStock, fold, newId } from './review';
 
 /**
- * Os quadros Kanban das anotações (`/anotacoes/kanban`): cada quadro tem colunas (as etapas: "A
- * fazer", "Fazendo", "Feito"…) e, nelas, anotações de verdade. A anotação continua sendo a mesma do
- * mural; o quadro só guarda onde ela está, a importância e as características dela ali. Uma anotação
- * pode estar em mais de um quadro, cada um com a sua importância e as suas características.
+ * Os quadros Kanban das anotações (`/anotacoes/kanban`): **cada categoria das anotações tem o seu
+ * quadro**, e só as anotações dela entram nele (não dá para pôr uma anotação de Estudos no quadro do
+ * Trabalho). Não existe quadro solto, sem categoria. O quadro tem colunas (as etapas: "A fazer",
+ * "Fazendo", "Feito"…) e, nelas, anotações de verdade: a anotação continua sendo a mesma do mural; o
+ * quadro só guarda onde ela está e a importância dela ali. As etiquetas da anotação no quadro são as
+ * tags dela mesma (as do mural), cada uma com a sua cor (ver `tagLookKey`).
  *
- * As características são as "tags" do quadro: só existem nele (nunca aparecem no mural nem mudam as
- * tags da anotação), cada uma numa fita Dymo da cor dela.
+ * O id do quadro sai da categoria (`boardIdFor`): dois aparelhos que montam o quadro da mesma
+ * categoria montam o mesmo quadro. Enquanto ninguém mexeu nele, o quadro de uma categoria é o de
+ * sempre (`freshBoard`, com as três colunas e a hora zero, para nunca passar na frente de um de
+ * verdade na junção) e nem é guardado.
+ *
+ * Os quadros de antes (com nome, sem categoria, e as "características" só deles) ficam em `legacy`
+ * até `attachLegacy` espalhar as anotações deles pelos quadros das categorias delas e as
+ * características virarem tags das anotações, com a cor da fita.
  *
  * Tudo aqui é puro (sem Angular): o saneamento do que vem guardado ou da nuvem, as mudanças (sempre
  * devolvendo um quadro novo, com `at` mais novo) e a junção de dois aparelhos (`mergeKanban`), quadro
@@ -25,18 +35,19 @@ export const IMPORTANCE_LABEL: Record<Importance, string> = {
   baixissimo: 'Baixíssimo',
 };
 
-/** As cores das fitas Dymo das características (a fita de plástico em relevo vem nestas cores). */
-export type TraitColor = 'preta' | 'vermelha' | 'azul' | 'verde' | 'amarela' | 'laranja' | 'roxa' | 'rosa';
-export const TRAIT_COLORS: readonly TraitColor[] = ['azul', 'vermelha', 'verde', 'preta', 'amarela', 'roxa', 'laranja', 'rosa'];
-export const TRAIT_COLOR_LABEL: Record<TraitColor, string> = {
-  preta: 'Preta',
-  vermelha: 'Vermelha',
-  azul: 'Azul',
-  verde: 'Verde',
-  amarela: 'Amarela',
-  laranja: 'Laranja',
-  roxa: 'Roxa',
-  rosa: 'Rosa',
+/**
+ * As cores das fitas Dymo das características de antes, na cor de tag que cada uma virou (a preta
+ * vira a tag de sempre, sem cor: o papel pardo já é a etiqueta neutra).
+ */
+export const LEGACY_TRAIT_COLOR: Readonly<Record<string, CategoryColorId | null>> = {
+  preta: null,
+  vermelha: 'vermelho',
+  azul: 'azul',
+  verde: 'verde',
+  amarela: 'amarelo',
+  laranja: 'laranja',
+  roxa: 'roxo',
+  rosa: 'rosa',
 };
 
 /** Os desenhos de uma coluna (o desenho de cada um fica em ui/kanban-icons.ts). */
@@ -75,66 +86,106 @@ export interface KanbanColumn {
   finishes: boolean;
 }
 
-/** Uma característica do quadro: o nome e a cor da fita. */
-export interface KanbanTrait {
-  id: string;
-  name: string;
-  color: TraitColor;
-}
-
 /** Uma anotação no quadro. A ordem dentro da coluna é a ordem em `cards`. */
 export interface KanbanCard {
   /** O id da anotação. */
   note: string;
   column: string;
   importance: Importance | null;
-  /** Os ids das características do quadro. */
-  traits: string[];
 }
 
 export interface KanbanBoard {
+  /** `boardIdFor(category)`. */
   id: string;
-  name: string;
+  /** A categoria do quadro, sem acento nem caixa (a chave de `categoryKey`). */
+  category: string;
   /** Quando o quadro mudou pela última vez (ISO): na junção de dois aparelhos, o mais novo vale. */
   at: string;
   columns: KanbanColumn[];
-  traits: KanbanTrait[];
   cards: KanbanCard[];
+}
+
+/** Uma característica de um quadro de antes: o nome e a cor da fita. */
+export interface LegacyTrait {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/** Um quadro de antes, de nome livre e sem categoria, esperando `attachLegacy`. */
+export interface LegacyBoard {
+  id: string;
+  name: string;
+  at: string;
+  columns: KanbanColumn[];
+  traits: LegacyTrait[];
+  cards: (KanbanCard & { traits: string[] })[];
 }
 
 export interface KanbanState {
   boards: KanbanBoard[];
   /** Os quadros apagados (id → quando): a junção não os traz de volta de outro aparelho. */
   removed: Record<string, string>;
+  /** Os quadros de antes, ainda sem categoria (ver `attachLegacy`). */
+  legacy: LegacyBoard[];
 }
 
-export const EMPTY_KANBAN: KanbanState = { boards: [], removed: {} };
+export const EMPTY_KANBAN: KanbanState = { boards: [], removed: {}, legacy: [] };
 
-export const MAX_BOARDS = 40;
+/** Um quadro por categoria: tantos quanto as categorias que dá para guardar. */
+export const MAX_BOARDS = 200;
 export const MAX_COLUMNS = 20;
 export const MAX_CARDS = 1000;
-export const MAX_TRAITS = 60;
-export const MAX_CARD_TRAITS = 12;
 export const NAME_MAX = 40;
-export const TRAIT_MAX = 28;
+/** A hora de um quadro em que ninguém mexeu: qualquer quadro de verdade passa na frente dele. */
+export const FRESH_AT = '1970-01-01T00:00:00.000Z';
 
 const isIso = (v: unknown): v is string => typeof v === 'string' && Number.isFinite(Date.parse(v));
 const cleanId = (v: unknown) => (typeof v === 'string' ? v.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) : '');
 const cleanName = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '');
 const asList = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+const importanceOf = (v: unknown): Importance | null => ((IMPORTANCES as readonly string[]).includes(v as string) ? (v as Importance) : null);
 
-/** As colunas de todo quadro novo: A fazer, Fazendo e Feito (a que finaliza). */
-export function defaultColumns(): KanbanColumn[] {
+/** A chave da categoria de um quadro: a de `lookKey` (sem acento nem caixa), do tamanho que se guarda. */
+export function categoryKey(category: string): string {
+  return lookKey(category).slice(0, 64);
+}
+
+/** Dois FNV-1a de 32 bits misturados de jeitos diferentes, em hexadecimal: 64 bits, sem colisão na prática. */
+function hash64(text: string): string {
+  let a = 0x811c9dc5;
+  let b = 0x050c5d1f;
+  for (const ch of text) {
+    const c = ch.codePointAt(0)!;
+    a = Math.imul(a ^ c, 0x01000193);
+    b = Math.imul(b ^ c, 0x01000193) ^ (b >>> 13);
+  }
+  return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0');
+}
+
+/** O id do quadro de uma categoria: o mesmo em todo aparelho. */
+export function boardIdFor(category: string): string {
+  return `kb${hash64(categoryKey(category))}`;
+}
+
+/**
+ * As colunas de todo quadro novo: A fazer, Fazendo e Feito (a que finaliza). Com `prefix`, os ids
+ * saem dele (o quadro de uma categoria em que ninguém mexeu é igual em todo aparelho); sem, sorteados.
+ */
+export function defaultColumns(prefix?: string): KanbanColumn[] {
+  const id = (s: string) => (prefix ? `${prefix}-${s}` : newId());
   return [
-    { id: newId(), name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false },
-    { id: newId(), name: 'Fazendo', icon: 'lapis', color: 'amarelo', finishes: false },
-    { id: newId(), name: 'Feito', icon: 'check', color: 'verde', finishes: true },
+    { id: id('afazer'), name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false },
+    { id: id('fazendo'), name: 'Fazendo', icon: 'lapis', color: 'amarelo', finishes: false },
+    { id: id('feito'), name: 'Feito', icon: 'check', color: 'verde', finishes: true },
   ];
 }
 
-export function newBoard(name: string, at = new Date().toISOString()): KanbanBoard {
-  return { id: newId(), name: cleanName(name, NAME_MAX) || 'Quadro', at, columns: defaultColumns(), traits: [], cards: [] };
+/** O quadro de uma categoria em que ninguém mexeu: as três colunas de sempre, vazio, na hora zero. */
+export function freshBoard(category: string): KanbanBoard {
+  const id = boardIdFor(category);
+  return { id, category: categoryKey(category), at: FRESH_AT, columns: defaultColumns(id), cards: [] };
 }
 
 function sanitizeColumn(raw: unknown): KanbanColumn | null {
@@ -150,53 +201,82 @@ function sanitizeColumn(raw: unknown): KanbanColumn | null {
   };
 }
 
-function sanitizeTrait(raw: unknown): KanbanTrait | null {
-  const r = rec(raw);
-  const id = cleanId(r['id']);
-  const name = cleanName(r['name'], TRAIT_MAX);
-  if (!id || !name) return null;
-  return { id, name, color: (TRAIT_COLORS as readonly string[]).includes(r['color'] as string) ? (r['color'] as TraitColor) : 'azul' };
-}
-
-/** Um quadro que veio guardado ou da nuvem: só valores conhecidos, nada sem dono (coluna, característica). */
-export function sanitizeBoard(raw: unknown): KanbanBoard | null {
-  const r = rec(raw);
-  const id = cleanId(r['id']);
-  if (!id || !isIso(r['at'])) return null;
+/** As colunas guardadas, sem repetir; nenhuma: as três de sempre. */
+function sanitizeColumns(raw: unknown, prefix?: string): KanbanColumn[] {
   const columns: KanbanColumn[] = [];
-  for (const c of asList(r['columns'])) {
+  for (const c of asList(raw)) {
     const col = sanitizeColumn(c);
     if (col && !columns.some((x) => x.id === col.id) && columns.length < MAX_COLUMNS) columns.push(col);
   }
-  const traits: KanbanTrait[] = [];
-  for (const t of asList(r['traits'])) {
-    const tr = sanitizeTrait(t);
-    if (tr && !traits.some((x) => x.id === tr.id) && traits.length < MAX_TRAITS) traits.push(tr);
-  }
-  const cards: KanbanCard[] = [];
-  for (const c of asList(r['cards'])) {
+  // um quadro sem coluna nenhuma não tem onde pôr nada: volta com as três de sempre
+  return columns.length ? columns : defaultColumns(prefix);
+}
+
+/** As anotações guardadas de um quadro (com o que veio delas): só as de coluna que existe, uma vez cada. */
+function sanitizeCards(raw: unknown, columns: readonly KanbanColumn[]): { card: KanbanCard; raw: Record<string, unknown> }[] {
+  const out: { card: KanbanCard; raw: Record<string, unknown> }[] = [];
+  for (const c of asList(raw)) {
     const cr = rec(c);
     const note = cleanId(cr['note']);
     const column = cleanId(cr['column']);
-    if (!note || !columns.some((x) => x.id === column) || cards.some((x) => x.note === note) || cards.length >= MAX_CARDS) continue;
-    const ids = asList(cr['traits']).map(cleanId);
-    cards.push({
-      note,
-      column,
-      importance: (IMPORTANCES as readonly string[]).includes(cr['importance'] as string) ? (cr['importance'] as Importance) : null,
-      traits: [...new Set(ids)].filter((t) => traits.some((x) => x.id === t)).slice(0, MAX_CARD_TRAITS),
-    });
+    if (!note || !columns.some((x) => x.id === column) || out.some((x) => x.card.note === note) || out.length >= MAX_CARDS) continue;
+    out.push({ card: { note, column, importance: importanceOf(cr['importance']) }, raw: cr });
   }
-  // um quadro sem coluna nenhuma não tem onde pôr nada: volta com as três de sempre
-  return { id, name: cleanName(r['name'], NAME_MAX) || 'Quadro', at: r['at'] as string, columns: columns.length ? columns : defaultColumns(), traits, cards };
+  return out;
+}
+
+/**
+ * Um quadro que veio guardado ou da nuvem: só valores conhecidos, nada sem dono. Sem categoria, é um
+ * quadro de antes (ver `sanitizeLegacy`): null aqui.
+ */
+export function sanitizeBoard(raw: unknown): KanbanBoard | null {
+  const r = rec(raw);
+  const category = typeof r['category'] === 'string' ? categoryKey(r['category']) : '';
+  if (!category || !isIso(r['at'])) return null;
+  // o id sai da categoria: um id guardado diferente não vale
+  const id = boardIdFor(category);
+  const columns = sanitizeColumns(r['columns'], id);
+  return { id, category, at: r['at'] as string, columns, cards: sanitizeCards(r['cards'], columns).map((c) => c.card) };
+}
+
+/** Um quadro de antes (nome livre, características só dele), ou null. */
+export function sanitizeLegacy(raw: unknown): LegacyBoard | null {
+  const r = rec(raw);
+  const id = cleanId(r['id']);
+  if (!id || typeof r['category'] === 'string' || !isIso(r['at'])) return null;
+  const columns = sanitizeColumns(r['columns']);
+  const traits: LegacyTrait[] = [];
+  for (const t of asList(r['traits'])) {
+    const tr = rec(t);
+    const tid = cleanId(tr['id']);
+    const name = cleanTag(typeof tr['name'] === 'string' ? tr['name'] : '');
+    if (tid && name && !traits.some((x) => x.id === tid)) traits.push({ id: tid, name, color: typeof tr['color'] === 'string' ? tr['color'] : '' });
+  }
+  const cards = sanitizeCards(r['cards'], columns).map(({ card, raw: cr }) => ({
+    ...card,
+    traits: [...new Set(asList(cr['traits']).map(cleanId))].filter((t) => traits.some((x) => x.id === t)),
+  }));
+  return { id, name: cleanName(r['name'], NAME_MAX) || 'Quadro', at: r['at'] as string, columns, traits, cards };
+}
+
+/** Sem os apagados depois da última mudança deles. */
+function alive<T extends { id: string; at: string }>(list: T[], removed: Record<string, string>): T[] {
+  return list.filter((b) => !(removed[b.id] && removed[b.id] >= b.at));
 }
 
 export function sanitizeKanban(raw: unknown): KanbanState {
   const r = rec(raw);
   const boards: KanbanBoard[] = [];
-  for (const b of asList(r['boards'])) {
+  const legacy: LegacyBoard[] = [];
+  // os de antes vêm na lista dos quadros (guardados antes da categoria) ou na deles
+  for (const b of [...asList(r['boards']), ...asList(r['legacy'])]) {
     const board = sanitizeBoard(b);
-    if (board && !boards.some((x) => x.id === board.id) && boards.length < MAX_BOARDS) boards.push(board);
+    if (board) {
+      if (!boards.some((x) => x.id === board.id) && boards.length < MAX_BOARDS) boards.push(board);
+      continue;
+    }
+    const old = sanitizeLegacy(b);
+    if (old && !legacy.some((x) => x.id === old.id) && legacy.length < MAX_BOARDS) legacy.push(old);
   }
   const removed: Record<string, string> = {};
   for (const [k, v] of Object.entries(rec(r['removed']))) {
@@ -204,29 +284,34 @@ export function sanitizeKanban(raw: unknown): KanbanState {
     if (id && isIso(v)) removed[id] = v;
   }
   // um quadro apagado depois da última mudança dele continua apagado
-  return { boards: boards.filter((b) => !(removed[b.id] && removed[b.id] >= b.at)), removed };
+  return { boards: alive(boards, removed), removed, legacy: alive(legacy, removed) };
+}
+
+/** Os daqui, cada um trocado pelo de lá quando o de lá é mais novo, e os só de lá no fim. */
+function newest<T extends { id: string; at: string }>(here: readonly T[], there: readonly T[]): T[] {
+  const theirs = new Map(there.map((b) => [b.id, b]));
+  const out = here.map((b) => {
+    const t = theirs.get(b.id);
+    return t && t.at > b.at ? t : b;
+  });
+  for (const t of there) if (!out.some((b) => b.id === t.id)) out.push(t);
+  return out;
 }
 
 /**
  * Junta os quadros de dois aparelhos: cada quadro inteiro vem de quem o mudou por último (mexer em
  * quadros diferentes nunca briga); um quadro apagado depois da última mudança dele fica apagado. A
- * ordem é a daqui, com os que só existem lá no fim, na ordem de lá.
+ * ordem é a daqui, com os que só existem lá no fim, na ordem de lá. Os quadros de antes também se
+ * juntam (e a conversão deles roda depois, ver `KanbanStore`).
  */
 export function mergeKanban(here: KanbanState, there: KanbanState): KanbanState {
   const removed: Record<string, string> = { ...here.removed };
   for (const [id, at] of Object.entries(there.removed)) if (!removed[id] || removed[id] < at) removed[id] = at;
-  const theirs = new Map(there.boards.map((b) => [b.id, b]));
-  const boards: KanbanBoard[] = [];
-  for (const b of here.boards) {
-    const t = theirs.get(b.id);
-    boards.push(t && t.at > b.at ? t : b);
-  }
-  for (const t of there.boards) if (!boards.some((b) => b.id === t.id)) boards.push(t);
-  return { boards: boards.filter((b) => !(removed[b.id] && removed[b.id] >= b.at)), removed };
+  return { boards: alive(newest(here.boards, there.boards), removed), removed, legacy: alive(newest(here.legacy, there.legacy), removed) };
 }
 
 /** O que muda um quadro: o resultado com `at` novo (a mudança mais nova, na junção). */
-function touch(b: KanbanBoard, patch: Partial<KanbanBoard>, at: string): KanbanBoard {
+function touch<T extends { at: string }>(b: T, patch: Partial<T>, at: string): T {
   return { ...b, ...patch, at: at > b.at ? at : new Date(Date.parse(b.at) + 1).toISOString() };
 }
 
@@ -235,8 +320,9 @@ export function cardsIn(b: KanbanBoard, column: string): KanbanCard[] {
   return b.cards.filter((c) => c.column === column);
 }
 
-export function renameBoard(b: KanbanBoard, name: string, at: string): KanbanBoard {
-  return touch(b, { name: cleanName(name, NAME_MAX) || b.name }, at);
+/** Recomeça o quadro: as três colunas de sempre, sem nenhuma anotação. */
+export function resetBoard(b: KanbanBoard, at: string): KanbanBoard {
+  return touch(b, { columns: defaultColumns(), cards: [] }, at);
 }
 
 /** Uma coluna nova no fim (ou depois de `after`), com uma cor que ainda não está no quadro, se houver. */
@@ -284,13 +370,14 @@ export function removeColumn(b: KanbanBoard, id: string, into: string | null, at
 
 /**
  * Põe a anotação na coluna, na posição `index` entre as anotações dela (no fim, sem `index`). Já
- * estava no quadro: muda de lugar, com a importância e as características dela.
+ * estava no quadro: muda de lugar, com a importância dela. Quem confere se a anotação é da categoria
+ * do quadro é quem chama (`KanbanActions.move`).
  */
 export function placeCard(b: KanbanBoard, note: string, column: string, at: string, index?: number): KanbanBoard {
   if (!b.columns.some((c) => c.id === column)) return b;
   const old = b.cards.find((c) => c.note === note);
   if (!old && b.cards.length >= MAX_CARDS) return b;
-  const card: KanbanCard = old ? { ...old, column } : { note, column, importance: null, traits: [] };
+  const card: KanbanCard = old ? { ...old, column } : { note, column, importance: null };
   const others = b.cards.filter((c) => c.note !== note);
   const inCol = others.filter((c) => c.column === column);
   const i = index === undefined ? inCol.length : Math.max(0, Math.min(index, inCol.length));
@@ -315,48 +402,6 @@ export function setImportance(b: KanbanBoard, note: string, importance: Importan
   return touch(b, { cards: b.cards.map((c) => (c.note === note ? { ...c, importance } : c)) }, at);
 }
 
-/** Liga ou desliga uma característica na anotação. */
-export function toggleTrait(b: KanbanBoard, note: string, trait: string, at: string): KanbanBoard {
-  if (!b.traits.some((t) => t.id === trait)) return b;
-  const cards = b.cards.map((c) => {
-    if (c.note !== note) return c;
-    const has = c.traits.includes(trait);
-    if (!has && c.traits.length >= MAX_CARD_TRAITS) return c;
-    return { ...c, traits: has ? c.traits.filter((t) => t !== trait) : [...c.traits, trait] };
-  });
-  return touch(b, { cards }, at);
-}
-
-/** A característica do quadro com esse nome (sem acento nem caixa), se houver. */
-export function traitNamed(b: KanbanBoard, name: string): KanbanTrait | null {
-  const key = fold(cleanName(name, TRAIT_MAX));
-  return (key && b.traits.find((t) => fold(t.name) === key)) || null;
-}
-
-/**
- * Uma característica nova no quadro (ou a que já tem esse nome), na próxima cor da roda das fitas.
- * Devolve o id ("" quando não cabe ou o nome está vazio).
- */
-export function addTrait(b: KanbanBoard, name: string, at: string, color?: TraitColor): { board: KanbanBoard; id: string } {
-  const clean = cleanName(name, TRAIT_MAX);
-  if (!clean) return { board: b, id: '' };
-  const same = traitNamed(b, clean);
-  if (same) return { board: b, id: same.id };
-  if (b.traits.length >= MAX_TRAITS) return { board: b, id: '' };
-  const trait: KanbanTrait = { id: newId(), name: clean, color: color ?? TRAIT_COLORS[b.traits.length % TRAIT_COLORS.length] };
-  return { board: touch(b, { traits: [...b.traits, trait] }, at), id: trait.id };
-}
-
-export function updateTrait(b: KanbanBoard, id: string, patch: Partial<Omit<KanbanTrait, 'id'>>, at: string): KanbanBoard {
-  const traits = b.traits.map((t) => (t.id === id ? (sanitizeTrait({ ...t, ...patch }) ?? t) : t));
-  return touch(b, { traits }, at);
-}
-
-/** Tira a característica do quadro e de todas as anotações dele. */
-export function removeTrait(b: KanbanBoard, id: string, at: string): KanbanBoard {
-  return touch(b, { traits: b.traits.filter((t) => t.id !== id), cards: b.cards.map((c) => (c.traits.includes(id) ? { ...c, traits: c.traits.filter((t) => t !== id) } : c)) }, at);
-}
-
 /**
  * Para onde vai uma anotação movida, e o que muda nela: chegando numa coluna que finaliza, vindo de
  * uma que não finaliza (ou de fora do quadro), ela é finalizada; saindo de uma que finaliza para uma
@@ -368,4 +413,139 @@ export function doneChange(b: KanbanBoard, from: string | null, to: string): 'fi
   if (t && !f) return 'finalizar';
   if (!t && f && from) return 'abrir';
   return null;
+}
+
+/** O que importa de uma anotação para os quadros: a categoria (que diz o quadro) e as tags. */
+export interface BoardNote {
+  id: string;
+  category?: string;
+  tags?: readonly string[];
+}
+
+/** A anotação pode estar no quadro? Só as da categoria dele. */
+export function belongs(b: Pick<KanbanBoard, 'category'>, n: Pick<BoardNote, 'category'> | undefined): boolean {
+  return !!n?.category?.trim() && categoryKey(n.category) === b.category;
+}
+
+/** As anotações do quadro que estão nele de verdade: existem e ainda são da categoria dele. */
+export function liveCards(b: KanbanBoard, notes: ReadonlyMap<string, Pick<BoardNote, 'category'>>): KanbanCard[] {
+  return b.cards.filter((c) => belongs(b, notes.get(c.note)));
+}
+
+/** Uma categoria com quadro: a chave, o nome (a grafia mais usada) e quantas anotações tem. */
+export interface BoardCategory {
+  key: string;
+  label: string;
+  notes: number;
+}
+
+const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+
+/**
+ * As categorias das anotações, cada uma com o seu quadro: da que tem mais anotações para a que tem
+ * menos (no empate, de A a Z), como as abas do mural; com a ordem montada à mão (`order`, as chaves),
+ * nela, e as novas no fim. As anotações sem categoria não têm quadro.
+ */
+export function boardCategories(notes: readonly Pick<BoardNote, 'category'>[], order: readonly string[] | null = null): BoardCategory[] {
+  const buckets = new Map<string, { n: number; spellings: Map<string, number> }>();
+  for (const r of notes) {
+    const label = r.category?.trim();
+    if (!label) continue;
+    const key = categoryKey(label);
+    let b = buckets.get(key);
+    if (!b) buckets.set(key, (b = { n: 0, spellings: new Map() }));
+    b.n++;
+    b.spellings.set(label, (b.spellings.get(label) ?? 0) + 1);
+  }
+  const out: BoardCategory[] = [...buckets].map(([key, b]) => ({
+    key,
+    // a grafia mais usada (no empate, a primeira que apareceu)
+    label: [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0],
+    notes: b.n,
+  }));
+  out.sort((a, b) => b.notes - a.notes || collator.compare(a.label, b.label));
+  if (order) {
+    const at = new Map(order.map((k, i) => [k, i]));
+    const place = (c: BoardCategory) => at.get(c.key) ?? order.length;
+    out.sort((a, b) => place(a) - place(b));
+  }
+  return out;
+}
+
+/** O que a conversão dos quadros de antes pede para mudar fora dos quadros. */
+export interface LegacyOutcome {
+  state: KanbanState;
+  /** As tags a pôr em cada anotação (as características que ela tinha). */
+  tags: Map<string, string[]>;
+  /** A cor de cada tag (a da fita da característica; a preta não ganha cor). */
+  colors: Map<string, CategoryColorId>;
+}
+
+/**
+ * Espalha as anotações dos quadros de antes pelos quadros das categorias delas: cada uma vai para o
+ * quadro da sua categoria, na coluna de mesmo nome (ou na primeira), com a importância; as
+ * características viram tags dela, com a cor da fita. O quadro de uma categoria nasce com as colunas
+ * do quadro de antes que tinha o nome dela (ou, sem nenhum, do que tinha mais anotações dela). As
+ * anotações sem categoria (ou que não existem mais) ficam de fora: não há quadro solto. Os quadros de
+ * antes ficam lembrados como apagados, para a junção não trazê-los de volta. Sem quadro de antes,
+ * nada muda. Rodar de novo com o resultado não muda mais nada.
+ */
+export function attachLegacy(state: KanbanState, notes: readonly BoardNote[], at: string): LegacyOutcome {
+  const tags = new Map<string, string[]>();
+  const colors = new Map<string, CategoryColorId>();
+  if (!state.legacy.length) return { state, tags, colors };
+  const byId = new Map(notes.map((n) => [n.id, n]));
+  const keyOf = (note: string) => {
+    const c = byId.get(note)?.category?.trim();
+    return c ? categoryKey(c) : '';
+  };
+  // de que quadro de antes vêm as colunas de cada categoria: o de mesmo nome, ou o que tinha mais dela
+  const source = new Map<string, LegacyBoard>();
+  const keys = new Set(state.legacy.flatMap((lb) => lb.cards.map((c) => keyOf(c.note)).filter(Boolean)));
+  for (const lb of state.legacy) {
+    const k = categoryKey(lb.name);
+    if (keys.has(k) && !source.has(k)) source.set(k, lb);
+  }
+  for (const k of keys) {
+    if (source.has(k)) continue;
+    let best: LegacyBoard | null = null;
+    let most = 0;
+    for (const lb of state.legacy) {
+      const n = lb.cards.filter((c) => keyOf(c.note) === k).length;
+      if (n > most) [best, most] = [lb, n];
+    }
+    if (best) source.set(k, best);
+  }
+  const boards = [...state.boards];
+  const indexOf = new Map(boards.map((b, i) => [b.category, i]));
+  for (const lb of state.legacy) {
+    for (const c of lb.cards) {
+      const key = keyOf(c.note);
+      if (!key) continue;
+      let i = indexOf.get(key);
+      if (i === undefined) {
+        const id = boardIdFor(key);
+        const from = source.get(key);
+        boards.push({ id, category: key, at: FRESH_AT, columns: from ? from.columns.map((x) => ({ ...x })) : defaultColumns(id), cards: [] });
+        indexOf.set(key, (i = boards.length - 1));
+      }
+      const b = boards[i];
+      if (b.cards.some((x) => x.note === c.note) || b.cards.length >= MAX_CARDS) continue;
+      const name = fold(lb.columns.find((x) => x.id === c.column)?.name ?? '');
+      const column = b.columns.find((x) => x.id === c.column) ?? b.columns.find((x) => fold(x.name) === name) ?? b.columns[0];
+      boards[i] = touch(b, { cards: [...b.cards, { note: c.note, column: column.id, importance: c.importance }] }, at);
+      for (const t of c.traits) {
+        const trait = lb.traits.find((x) => x.id === t);
+        if (!trait) continue;
+        const list = tags.get(c.note) ?? [];
+        if (!list.some((x) => fold(x) === fold(trait.name))) tags.set(c.note, [...list, trait.name]);
+        const color = LEGACY_TRAIT_COLOR[trait.color];
+        if (color && ![...colors.keys()].some((x) => fold(x) === fold(trait.name))) colors.set(trait.name, color);
+      }
+    }
+  }
+  const kept = new Set(boards.map((b) => b.id));
+  const removed = { ...state.removed };
+  for (const lb of state.legacy) if (!kept.has(lb.id)) removed[lb.id] = at > lb.at ? at : new Date(Date.parse(lb.at) + 1).toISOString();
+  return { state: { boards, removed, legacy: [] }, tags, colors };
 }

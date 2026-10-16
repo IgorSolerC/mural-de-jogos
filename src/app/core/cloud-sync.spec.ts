@@ -10,7 +10,7 @@ import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { ProfileStore } from './profile-store';
 import { KanbanStore } from './kanban-store';
-import { newBoard, placeCard } from './kanban';
+import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
 
@@ -280,34 +280,37 @@ describe('sincronização com a nuvem', () => {
   });
 
   describe('os quadros Kanban', () => {
-    it('vão só no mural privado, e mexer em quadros diferentes em dois aparelhos não perde nenhum', async () => {
+    it('vão só no mural privado, um por categoria, e mexer em quadros diferentes em dois aparelhos não perde nenhum', async () => {
       const a = device();
-      const qa = a.kanban.create('Trabalho');
+      const qa = a.kanban.boardFor('Trabalho').id;
       const col = a.kanban.get(qa)!.columns[1].id;
       a.kanban.update(qa, (b, at) => placeCard(b, 'rnota0001', col, at));
       await a.sync.syncNow();
-      const priv = (await cloud.read()) as unknown as { kanban?: { boards: { name: string }[] } };
-      expect(priv.kanban!.boards.map((b) => b.name)).toEqual(['Trabalho']);
+      const priv = (await cloud.read()) as unknown as { kanban?: { boards: { category: string }[]; legacy?: unknown } };
+      expect(priv.kanban!.boards.map((b) => b.category)).toEqual(['trabalho']);
+      expect(priv.kanban!.legacy).toBeUndefined();
       expect((await cloud.readPublic())['kanban']).toBeUndefined();
 
       localStorage.removeItem('meu-mural:kanban:v1');
       const b = device();
       await b.sync.syncNow();
-      expect(b.kanban.get(qa)!.cards).toEqual([{ note: 'rnota0001', column: col, importance: null, traits: [] }]);
+      expect(b.kanban.get(qa)!.cards).toEqual([{ note: 'rnota0001', column: col, importance: null }]);
 
       // cada um mexe num quadro: os dois ficam com os dois
       await new Promise((r) => setTimeout(r, 5));
-      const qb = b.kanban.create('Faculdade');
-      a.kanban.update(qa, (x, at) => ({ ...x, name: 'Trabalho (novo)', at: at > x.at ? at : x.at }));
+      const qb = b.kanban.boardFor('Faculdade').id;
+      b.kanban.update(qb, (x, at) => placeCard(x, 'rnota0002', x.columns[0].id, at));
+      a.kanban.update(qa, (x, at) => placeCard(x, 'rnota0003', x.columns[0].id, at));
       await settle(a, b);
       for (const d of [a, b]) {
-        expect(d.kanban.boards().map((x) => x.name).sort()).toEqual(['Faculdade', 'Trabalho (novo)']);
+        expect(d.kanban.boards().map((x) => x.category).sort()).toEqual(['faculdade', 'trabalho']);
+        expect(d.kanban.get(qa)!.cards.map((c) => c.note)).toEqual(['rnota0001', 'rnota0003']);
       }
-      // apagar num apaga no outro
-      b.kanban.remove(qb);
+      // recomeçar num recomeça no outro
+      await new Promise((r) => setTimeout(r, 5));
+      b.kanban.update(qb, (x, at) => resetBoard(x, at));
       await settle(b, a);
-      expect(a.kanban.get(qb)).toBeUndefined();
-      expect(newBoard('x').columns.length).toBe(3);
+      expect(a.kanban.get(qb)!.cards).toEqual([]);
     });
   });
 
@@ -833,10 +836,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
-  it('a leitura das fichas é a mesma da versão 18', async () => {
+  it('a leitura das fichas é a mesma da versão 19', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 18, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 19, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
   });
 });

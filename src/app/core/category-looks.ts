@@ -91,12 +91,27 @@ export function bandColor(artist: string): CategoryColorId {
 /** Os jeitos guardados: a categoria sem acento nem caixa → o jeito dela. */
 export type CategoryLooks = Readonly<Record<string, CategoryLook>>;
 
-/** Categorias demais viram lixo guardado: no máximo estas com jeito próprio. */
-export const MAX_CATEGORY_LOOKS = 200;
+/** Categorias e tags demais viram lixo guardado: no máximo estas com jeito próprio. */
+export const MAX_CATEGORY_LOOKS = 500;
 
 /** A chave de uma categoria nos jeitos guardados (a mesma das abas, sem o "c:"). */
 export function lookKey(category: string): string {
   return fold(category.trim());
+}
+
+/**
+ * A chave de uma tag nos mesmos jeitos guardados: "#" e a tag sem acento nem caixa. A tag nunca
+ * começa com "#" (ver `cleanTag`), então a chave dela não esbarra na de nenhuma tag. A tag só tem cor
+ * (o desenho é sempre a etiqueta de papel pardo). Morar junto com as categorias leva a cor para a
+ * nuvem, para o mural público e para o mural dos amigos pelo mesmo caminho.
+ */
+export function tagLookKey(tag: string): string {
+  return `#${lookKey(tag)}`;
+}
+
+/** O hex da cor da tag nos jeitos, ou null (a etiqueta de sempre). */
+export function tagColorHex(looks: CategoryLooks, tag: string): string | null {
+  return categoryColorHex(looks[tagLookKey(tag)]?.color);
 }
 
 /** Os jeitos de um backup ou da nuvem: só desenhos e cores conhecidos, sem os vazios. */

@@ -5,8 +5,8 @@
   display: block;
 }
 
-/* com as etiquetas, a ficha cai em cima delas: ficam presas na beirada de baixo dela, e a ficha
-   ganha um pé a mais para elas não cobrirem as tags da anotação */
+/* com a importância, a ficha cai em cima dela: fica presa na beirada de baixo, e a ficha ganha um pé
+   a mais para ela não cobrir as tags da anotação */
 :host(:has(> .pe)) {
   padding-bottom: 6px;
 }
@@ -15,8 +15,8 @@
   padding-bottom: 16px;
 }
 
-/* As etiquetas coladas na beirada de baixo da ficha: metade no papel, metade fora, tortas como
-   quem colou com pressa. */
+/* A etiqueta da importância colada na beirada de baixo da ficha: metade no papel, metade fora, torta
+   como quem colou com pressa. */
 .pe {
   position: relative;
   z-index: 2;
@@ -32,8 +32,7 @@
   }
 }
 
-.imp,
-.dymo {
+.imp {
   border: 0;
   cursor: pointer;
   transition:
@@ -57,20 +56,6 @@
 
 .escala {
   @include kk.escala;
-}
-
-.dymo {
-  @include kk.dymo;
-  max-width: 150px;
-  rotate: 1.2deg;
-}
-
-.dymo:nth-of-type(even) {
-  rotate: -1.4deg;
-}
-
-.dymo:nth-of-type(3n) {
-  rotate: 0.4deg;
 }
 
 /* ===== Os ajustes da anotação no quadro: a etiqueta de tinta do Fixar e do Finalizar =====
@@ -258,7 +243,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .imp,
-  .dymo,
   .mexer {
     transition: none;
   }

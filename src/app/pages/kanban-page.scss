@@ -62,11 +62,6 @@
   }
 }
 
-.primeiro-campo {
-  @include kit.campo;
-  flex: 1 1 220px;
-}
-
 /* as colunas que o quadro vai ter, desenhadas a giz na parede, cada uma com a etiqueta já colada */
 .primeiro-vagas {
   display: flex;
@@ -195,54 +190,32 @@
     transition: translate var(--t-ui) var(--ease-ui);
   }
 
-  &:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  /* o quadro novo: a divisória ainda em branco, com o contorno tracejado de quem não foi escrita */
-  &.nova {
-    align-items: center;
-    background: transparent;
-    color: var(--wall-ink);
-    outline: 2px dashed rgb(243 239 230 / 0.4);
-    outline-offset: -2px;
-    translate: 0 0;
-
-    &:hover:not(:disabled) {
-      background: rgb(243 239 230 / 0.08);
-      outline-color: rgb(243 239 230 / 0.7);
-    }
-
-    &:focus-visible {
-      outline: 3px solid var(--hi);
-    }
-
-    .aba-nome {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.92rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    lucide-icon {
-      display: inline-flex;
-    }
-  }
 }
 
-.aba-nome {
-  max-width: 20ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* o nome da categoria com o ícone dela, como nas abas do mural (o nome continua com os 20 caracteres) */
+.rotulo-cat {
+  max-width: calc(20ch + 20px);
   font-family: var(--f-marker);
   font-size: 1.1rem;
   line-height: 1.1;
 }
 
-.aba:not(.on) .aba-nome {
+.aba:not(.on) .rotulo-cat {
   opacity: 0.85;
+}
+
+/* com cor, a borda colorida corre por dentro da aba (ver .orelha-cor em styles.scss), num papel claro
+   dos dois lados dela; o pé some atrás da borda da pasta. A de trás escurece um pouco. */
+.aba.orelha-cor {
+  background-color: #fffcf2;
+
+  &:not(.on) {
+    background-color: #d9cdab;
+  }
+
+  &:hover:not(.on) {
+    background-color: #e6dcbf;
+  }
 }
 
 .aba-n {

@@ -1,7 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { LucideAngularModule, SlidersHorizontal } from 'lucide-angular';
-import { IMPORTANCE_LABEL, KanbanCard, KanbanTrait } from '../core/kanban';
+import { IMPORTANCE_LABEL, KanbanCard } from '../core/kanban';
 import { Review } from '../core/review';
 import { Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
@@ -55,8 +55,8 @@ export class KanbanReviewCard extends ReviewCard {
 
 /**
  * Uma anotação no quadro (ver pages/kanban-page.ts), numa de duas vistas:
- * - **fichas**: a ficha simples dela e, colados na beirada de baixo, a etiqueta de importância e as
- *   fitas Dymo das características; tocar na ficha abre a leitura.
+ * - **fichas**: a ficha simples dela (com as tags dela, cada uma na sua cor) e, colada na beirada
+ *   de baixo, a etiqueta de importância; tocar na ficha abre a leitura.
  * - **títulos** (`dense`): só uma tira da cartolina dela com o nome e a escala da importância, para
  *   caber o quadro inteiro na tela.
  * Nas duas, a etiqueta de tinta dos ajustes (como o Fixar e o Finalizar do mural) aparece com o mouse
@@ -85,27 +85,22 @@ export class KanbanReviewCard extends ReviewCard {
       </div>
     } @else {
       <app-review-card [review]="review()" [compact]="true" [preview]="true" [checkable]="true" [looks]="looks()" (opened)="opened.emit(review().id)" />
-      @if (card().importance || traits().length) {
+      @if (card().importance; as imp) {
         <div class="pe">
-          @if (card().importance; as imp) {
-            <button type="button" class="imp" [attr.data-imp]="imp" [attr.aria-label]="'Importância: ' + label[imp] + '. Mudar'" (click)="details.emit()">
-              <span class="escala" aria-hidden="true">
-                @for (n of steps; track n) {
-                  <i [class.acesa]="n <= level[imp]"></i>
-                }
-              </span>
-              {{ label[imp] }}
-            </button>
-          }
-          @for (t of traits(); track t.id) {
-            <button type="button" class="dymo" [attr.data-fita]="t.color" [attr.aria-label]="'Característica: ' + t.name + '. Mudar'" (click)="details.emit()">{{ t.name }}</button>
-          }
+          <button type="button" class="imp" [attr.data-imp]="imp" [attr.aria-label]="'Importância: ' + label[imp] + '. Mudar'" (click)="details.emit()">
+            <span class="escala" aria-hidden="true">
+              @for (n of steps; track n) {
+                <i [class.acesa]="n <= level[imp]"></i>
+              }
+            </span>
+            {{ label[imp] }}
+          </button>
         </div>
       }
       <ng-container [ngTemplateOutlet]="adjust" />
     }
     <ng-template #adjust>
-      <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância e características de ' + review().game.name" title="Etapa, importância e características" aria-haspopup="dialog" (click)="details.emit()">
+      <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância e tags de ' + review().game.name" title="Etapa, importância e tags" aria-haspopup="dialog" (click)="details.emit()">
         <lucide-icon [img]="AdjustIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
       </button>
     </ng-template>
@@ -115,8 +110,6 @@ export class KanbanReviewCard extends ReviewCard {
 export class KanbanNote {
   readonly review = input.required<Review>();
   readonly card = input.required<KanbanCard>();
-  /** As características do quadro (as da anotação saem daqui, na ordem do quadro). */
-  readonly boardTraits = input<readonly KanbanTrait[]>([]);
   /** A vista "Só os títulos": a tira com o nome e a importância, no lugar da ficha. */
   readonly dense = input(false);
   readonly opened = output<string>();
@@ -129,10 +122,6 @@ export class KanbanNote {
   protected readonly looks = inject(Settings).categoryLooks;
   /** A cartolina e a inclinação da ficha no mural: a tira é do mesmo papel. */
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
-  protected readonly traits = computed(() => {
-    const on = new Set(this.card().traits);
-    return this.boardTraits().filter((t) => on.has(t.id));
-  });
   /** O que o leitor de tela diz da tira: o nome, a importância e se está finalizada. */
   protected readonly spoken = computed(() => {
     const r = this.review();

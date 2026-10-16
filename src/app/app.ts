@@ -136,9 +136,9 @@ export class App {
       },
       // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
       newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
-      newPlainNote: () => {
+      newNoteIn: (category) => {
         this.reader().close();
-        this.editor().open(undefined, undefined, undefined, undefined, NOTES);
+        this.editor().openInCategory(category);
       },
       openDraft: (id) => {
         const d = this.store.getDraft(id);
@@ -171,11 +171,12 @@ export class App {
       this.editor().open(undefined, undefined, undefined, undefined, this.mural.reviewKind());
       return;
     }
-    // no Kanban: a anotação nova cai na primeira coluna do quadro aberto
+    // no Kanban: a anotação nova já vem na categoria do quadro aberto e cai na primeira coluna dele
     const board = this.kanban.openBoard() ? this.kanban.get(this.kanban.openBoard()!) : undefined;
-    if (board?.columns.length) {
+    const label = board && this.kanban.labelOf(board);
+    if (board?.columns.length && label) {
       this.kanban.pending.set({ board: board.id, column: board.columns[0].id });
-      this.editor().open(undefined, undefined, undefined, undefined, NOTES);
+      this.editor().openInCategory(label);
       return;
     }
     const category = this.view.newNoteCategory();
@@ -356,7 +357,7 @@ export class App {
   protected onSaved(e: SavedEvent): void {
     const saved = this.store.get(e.id);
     const name = saved?.game.name ?? '';
-    if (e.isNew && saved && isNotes(saved.kind) && this.landOnBoard(saved.id, name)) return;
+    if (e.isNew && saved && isNotes(saved.kind) && this.landOnBoard(saved.id, name, saved.category)) return;
     const revisit = saved?.revisitOf ? profileOf(saved.kind).revisit.one : null;
     // Ficha nova vai para o mural: se ela ficaria escondida pela aba ou pelo filtro, abre a aba dela
     // ou limpa o filtro.
@@ -398,17 +399,19 @@ export class App {
 
   /**
    * A anotação nova foi pedida de dentro de uma coluna do Kanban ("Nova nota"): ela cai no fim da
-   * coluna, e a tela fica no quadro. Numa coluna que finaliza, já nasce finalizada. Devolve se caiu.
+   * coluna, e a tela fica no quadro. Numa coluna que finaliza, já nasce finalizada. Trocada a
+   * categoria no editor, cai na primeira coluna do quadro da categoria nova; sem categoria, em
+   * nenhum (não há quadro solto). Devolve se caiu.
    */
-  private landOnBoard(id: string, name: string): boolean {
-    const spot = this.kanban.claim();
+  private landOnBoard(id: string, name: string, category: string | undefined): boolean {
+    const spot = this.kanban.claim(category);
     const board = spot && this.kanban.get(spot.board);
     if (!spot || !board) return false;
     this.kanban.update(spot.board, (b, at) => placeCard(b, id, spot.column, at));
     if (doneChange(board, null, spot.column) === 'finalizar') this.noteDone.set(id, true, { quiet: true });
     const col = board.columns.find((c) => c.id === spot.column);
     this.desk.land(id);
-    this.toasts.show(`“${name}” pregada em ${col?.name ?? 'uma coluna'}, no quadro ${board.name}`);
+    this.toasts.show(`“${name}” pregada em ${col?.name ?? 'uma coluna'}, no quadro ${category!.trim()}`);
     void this.backup.protect();
     return true;
   }

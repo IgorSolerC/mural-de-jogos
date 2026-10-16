@@ -26,14 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-16-kanban-so-os-titulos',
+    id: '2026-10-16-kanban-por-categoria',
     version: '1.24.1',
     kind: 'ajustes',
     date: '2026-10-16',
-    title: 'Kanban mais enxuto e Só os títulos',
+    title: 'Um Kanban por categoria, tags com cor e Só os títulos',
     melhorias: [
+      'Cada categoria das anotações tem o seu quadro no Kanban, e só as anotações dela entram nele; as abas dos quadros são as próprias categorias, com o ícone e a cor delas. Os quadros de antes foram repartidos pelas categorias das anotações.',
+      'As Características do Kanban viraram as tags das próprias anotações, com a cor da fita: a folha da anotação no quadro põe e tira as tags, e o filtro do quadro é por tag.',
+      'As tags ganharam cor, como as categorias: papel claro com o contorno na cor, no mural, na leitura e no editor. Toda tag nova ganha uma cor sorteada, e os ajustes do quadro trocam a cor de cada uma.',
       'No Kanban, "Só os títulos" (no alto do quadro) mostra cada anotação numa tira só com o nome e a importância, para ver o quadro inteiro de uma vez; cada quadro lembra a vista dele.',
-      'As fichas do Kanban ficaram mais enxutas e mais juntas: sem tachinha, sem a categoria e sem o "Parte de", com o nome e a capa menores; o botão da importância e das características só aparece ao passar o mouse.',
+      'As fichas do Kanban ficaram mais enxutas e mais juntas: sem tachinha, sem a categoria e sem o "Parte de", com o nome e a capa menores; o botão da importância e das tags só aparece ao passar o mouse.',
       'O alto das colunas do Kanban virou um papel claro com a cor da coluna no contorno e no desenho, e a contagem fica miúda ao lado do nome.',
       'No Kanban, o Buscar nota tem "Esconder finalizadas", ligado ao abrir: as anotações finalizadas saem da lista.',
       'Nas orelhas de categoria com cor, o desenho também fica da cor da orelha.',

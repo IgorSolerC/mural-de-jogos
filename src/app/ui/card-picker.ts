@@ -3,6 +3,7 @@ import { Check, LockKeyhole, LucideAngularModule, Search, X } from 'lucide-angul
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { Review, fold, formatReviewDate, formatScore, isNote, isPrivate } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { belongs } from '../core/kanban';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { CoverSleeve } from './cover-sleeve';
@@ -141,6 +142,8 @@ export class CardPicker {
   readonly picked = output<Review>();
   /** Só as fichas deste mural (sem as abas de mural): o "Buscar nota" do Kanban, só anotações. */
   readonly onlyKind = input<Kind | null>(null);
+  /** Só as da categoria (a chave, ver `categoryKey`): o "Buscar nota" do quadro de uma categoria. */
+  readonly onlyCategory = input<string | null>(null);
   /** As que já estão onde a escolhida vai (as do quadro): ficam de fora. */
   readonly exclude = input<readonly string[]>([]);
   readonly heading = input('Escolher a nota');
@@ -171,7 +174,10 @@ export class CardPicker {
     const only = this.onlyKind();
     const out = new Set(this.exclude());
     const noDone = this.doneOption() && this.hideDone();
-    return this.store.reviews().filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && !(noDone && r.doneAt));
+    const cat = this.onlyCategory();
+    return this.store
+      .reviews()
+      .filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && !(noDone && r.doneAt) && (!cat || belongs({ category: cat }, r)));
   });
   /** Os murais que têm alguma ficha, com quantas. */
   protected readonly kinds = computed(() =>

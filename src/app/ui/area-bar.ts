@@ -461,7 +461,7 @@ export class AreaBar {
     // no Kanban: quantas anotações o quadro aberto tem
     if (sectionOf(this.path(), NOTE_SECTIONS)?.slug === 'kanban' && this.area() === 'anotacoes') {
       const board = this.kanban.openBoard() ? this.kanban.get(this.kanban.openBoard()!) : undefined;
-      const n = board?.cards.length ?? 0;
+      const n = board ? this.kanban.live(board).length : 0;
       return n ? { n, long: n === 1 ? 'anotação no quadro' : 'anotações no quadro', short: 'no quadro' } : null;
     }
     const place = reviewPlace(this.path());

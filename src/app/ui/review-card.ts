@@ -64,7 +64,7 @@ import { WallView } from '../core/wall-view';
 import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
-import { CategoryLook, CategoryLooks, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
+import { CategoryLook, CategoryLooks, bandColor, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import type { ReactionTarget } from '../core/reactions';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
@@ -281,7 +281,7 @@ export const CARD_TEMPLATE = `
               <li class="sr-only">{{ c.label }} (categoria)</li>
             }
             @for (t of noteLabels().tags; track t; let i = $index) {
-              <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() ? 'mini' : 'card'" /><span class="sr-only"> (tag)</span></li>
+              <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
             }
             @if (noteLabels().hidden) {
               <li class="mais">+{{ noteLabels().hidden }}</li>
@@ -1821,6 +1821,11 @@ export class ReviewCard {
     const max = this.compact() ? 2 : 4;
     return { category: r.category && !this.onBoard ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
   });
+
+  /** A cor que o dono deu à tag, ou null (o papel pardo de sempre). */
+  protected tagColor(tag: string): string | null {
+    return tagColorHex(this.looks(), tag);
+  }
 
   /** O desenho e a cor da categoria na orelha: os que o dono escolheu (sem escolha, o de sempre). */
   protected readonly catLook = computed<CategoryLook>(() => {

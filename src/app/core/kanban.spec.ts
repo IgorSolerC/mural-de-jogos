@@ -1,52 +1,59 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { fingerprint, kanbanOf, kanbanToSync } from './cloud-sync';
+import { fingerprint, kanbanOf, kanbanPrintOf, kanbanToSync, publicCategoryLooks } from './cloud-sync';
+import { tagColorHex, tagLookKey } from './category-looks';
 import {
+  FRESH_AT,
   KanbanBoard,
   KanbanState,
   addColumn,
-  addTrait,
+  attachLegacy,
+  belongs,
+  boardCategories,
+  boardIdFor,
   cardsIn,
   doneChange,
+  freshBoard,
+  liveCards,
   mergeKanban,
   moveColumn,
-  newBoard,
   placeCard,
   removeColumn,
-  removeTrait,
+  resetBoard,
   sanitizeBoard,
   sanitizeKanban,
   setImportance,
-  toggleTrait,
   updateColumn,
 } from './kanban';
 import { KanbanActions } from './kanban-actions';
 import { KANBAN_KEY, KanbanStore } from './kanban-store';
 import { Review, isDone, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
+import { Settings } from './settings';
 import { Toasts } from '../ui/toast';
 
-/** Os quadros Kanban das anotações: o formato, as mudanças, a junção entre aparelhos e o que finaliza. */
+/** Os quadros Kanban das anotações: um por categoria, as mudanças, a junção, a conversão dos de antes e o que finaliza. */
 
 const T0 = '2026-10-16T10:00:00.000Z';
 const T1 = '2026-10-16T11:00:00.000Z';
 const T2 = '2026-10-16T12:00:00.000Z';
 
-/** Um quadro com as colunas de id conhecido: afazer, fazendo, feito (a que finaliza). */
-function board(id = 'qtrabalho', at = T0): KanbanBoard {
+/** O quadro de uma categoria, com as colunas de id conhecido: afazer, fazendo, feito (a que finaliza). */
+function board(category = 'trabalho', at = T0): KanbanBoard {
   return {
-    id,
-    name: 'Trabalho',
+    id: boardIdFor(category),
+    category,
     at,
     columns: [
       { id: 'afazer', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false },
       { id: 'fazendo', name: 'Fazendo', icon: 'lapis', color: 'amarelo', finishes: false },
       { id: 'feito', name: 'Feito', icon: 'check', color: 'verde', finishes: true },
     ],
-    traits: [],
     cards: [],
   };
 }
+
+const state = (boards: KanbanBoard[], removed: Record<string, string> = {}): KanbanState => ({ boards, removed, legacy: [] });
 
 const notesIn = (b: KanbanBoard, col: string) => cardsIn(b, col).map((c) => c.note);
 
@@ -63,17 +70,74 @@ const note = (id: string, title: string, extra: Record<string, unknown> = {}): R
     id,
   });
 
+/** Um quadro de antes: nome livre, sem categoria, com características. */
+function legacyBoard(id: string, name: string, cards: unknown[], traits: unknown[] = [], columns?: unknown[]) {
+  return {
+    id,
+    name,
+    at: T0,
+    columns: columns ?? [
+      { id: `${id}-a`, name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false },
+      { id: `${id}-f`, name: 'Feito', icon: 'check', color: 'verde', finishes: true },
+    ],
+    traits,
+    cards,
+  };
+}
+
 describe('Kanban', () => {
-  describe('o quadro', () => {
-    it('nasce com A fazer, Fazendo e Feito, e só Feito finaliza', () => {
-      const b = newBoard('  Projeto   da faculdade ', T0);
-      expect(b.name).toBe('Projeto da faculdade');
-      expect(b.columns.map((c) => [c.name, c.finishes])).toEqual([
+  describe('o quadro de uma categoria', () => {
+    it('o id sai da categoria (sem acento nem caixa), o mesmo em todo aparelho', () => {
+      expect(boardIdFor('Trabalho')).toBe(boardIdFor('  trabalho '));
+      expect(boardIdFor('Estudos')).toBe(boardIdFor('estudos'));
+      expect(boardIdFor('Trabalho')).not.toBe(boardIdFor('Estudos'));
+      expect(boardIdFor('Trabalho')).toMatch(/^kb[0-9a-f]{16}$/);
+    });
+
+    it('o quadro em que ninguém mexeu: as três colunas, ids que não mudam e a hora zero', () => {
+      const a = freshBoard('Trabalho');
+      const b = freshBoard('trabalho');
+      expect(a).toEqual(b);
+      expect(a.at).toBe(FRESH_AT);
+      expect(a.category).toBe('trabalho');
+      expect(a.columns.map((c) => [c.name, c.finishes])).toEqual([
         ['A fazer', false],
         ['Fazendo', false],
         ['Feito', true],
       ]);
-      expect(newBoard('   ', T0).name).toBe('Quadro');
+      // qualquer quadro de verdade passa na frente dele na junção
+      const real = placeCard(a, 'n1', a.columns[0].id, T0);
+      expect(mergeKanban(state([a]), state([real])).boards[0]).toBe(real);
+      expect(mergeKanban(state([real]), state([a])).boards[0]).toBe(real);
+    });
+
+    it('só as anotações da categoria são do quadro', () => {
+      const b = board();
+      expect(belongs(b, { category: 'Trabalho' })).toBeTrue();
+      expect(belongs(b, { category: ' TRABALHO ' })).toBeTrue();
+      expect(belongs(b, { category: 'Estudos' })).toBeFalse();
+      expect(belongs(b, {})).toBeFalse();
+      expect(belongs(b, undefined)).toBeFalse();
+      let q = placeCard(b, 'n1', 'afazer', T1);
+      q = placeCard(q, 'n2', 'afazer', T1);
+      q = placeCard(q, 'n3', 'afazer', T1);
+      const notes = new Map([
+        ['n1', { category: 'Trabalho' }],
+        ['n2', { category: 'Estudos' }],
+      ]);
+      // a que mudou de categoria e a que sumiu ficam guardadas, mas não aparecem
+      expect(liveCards(q, notes).map((c) => c.note)).toEqual(['n1']);
+    });
+
+    it('as categorias com quadro: das maiores para as menores, de A a Z no empate, ou na ordem montada à mão', () => {
+      const notes = [{ category: 'Estudos' }, { category: 'Trabalho' }, { category: 'trabalho' }, { category: 'Trabalho' }, { category: 'Casa' }, {}];
+      expect(boardCategories(notes)).toEqual([
+        { key: 'trabalho', label: 'Trabalho', notes: 3 },
+        { key: 'casa', label: 'Casa', notes: 1 },
+        { key: 'estudos', label: 'Estudos', notes: 1 },
+      ]);
+      expect(boardCategories(notes, ['estudos', 'trabalho']).map((c) => c.key)).toEqual(['estudos', 'trabalho', 'casa']);
+      expect(boardCategories([{}, { category: '  ' }])).toEqual([]);
     });
 
     it('põe a anotação na coluna, na posição pedida, e muda de lugar sem perder a importância', () => {
@@ -86,11 +150,9 @@ describe('Kanban', () => {
       b = placeCard(b, 'n1', 'fazendo', T1);
       expect(notesIn(b, 'afazer')).toEqual(['n3', 'n2']);
       expect(notesIn(b, 'fazendo')).toEqual(['n1']);
-      expect(b.cards.find((c) => c.note === 'n1')!.importance).toBe('critico');
-      // dentro da mesma coluna: para baixo e para o fim
+      expect(b.cards.find((c) => c.note === 'n1')).toEqual({ note: 'n1', column: 'fazendo', importance: 'critico' });
       b = placeCard(b, 'n3', 'afazer', T1, 1);
       expect(notesIn(b, 'afazer')).toEqual(['n2', 'n3']);
-      // uma coluna que não existe não muda nada
       expect(placeCard(b, 'n9', 'nenhuma', T2)).toBe(b);
     });
 
@@ -101,7 +163,7 @@ describe('Kanban', () => {
     });
 
     it('toda mudança deixa o quadro mais novo, mesmo com o relógio atrasado', () => {
-      const b = board('q', T2);
+      const b = board('trabalho', T2);
       const later = placeCard(b, 'n1', 'afazer', T0);
       expect(later.at > b.at).toBeTrue();
     });
@@ -134,21 +196,13 @@ describe('Kanban', () => {
       expect(removeColumn(b, 'feito', null, T2)).toBe(b);
     });
 
-    it('as características: o mesmo nome é a mesma, ligar e desligar, e tirar limpa as anotações', () => {
-      let b = placeCard(board(), 'n1', 'afazer', T1);
-      const a = addTrait(b, 'Correção', T1);
-      b = a.board;
-      const again = addTrait(b, '  correcao ', T1);
-      expect(again.id).toBe(a.id);
-      expect(b.traits.length).toBe(1);
-      b = toggleTrait(b, 'n1', a.id, T1);
-      expect(b.cards[0].traits).toEqual([a.id]);
-      b = toggleTrait(b, 'n1', a.id, T1);
-      expect(b.cards[0].traits).toEqual([]);
-      b = toggleTrait(b, 'n1', a.id, T1);
-      b = removeTrait(b, a.id, T1);
-      expect(b.traits).toEqual([]);
-      expect(b.cards[0].traits).toEqual([]);
+    it('recomeçar: as três colunas de sempre, sem anotação nenhuma, e mais novo', () => {
+      let b = addColumn(placeCard(board(), 'n1', 'afazer', T1), 'Revisão', T1).board;
+      b = resetBoard(b, T2);
+      expect(b.cards).toEqual([]);
+      expect(b.columns.map((c) => c.name)).toEqual(['A fazer', 'Fazendo', 'Feito']);
+      expect(b.at).toBe(T2);
+      expect(b.category).toBe('trabalho');
     });
 
     it('chegar numa coluna que finaliza finaliza; sair dela para uma que não finaliza abre de novo', () => {
@@ -162,76 +216,191 @@ describe('Kanban', () => {
   });
 
   describe('o que vem guardado ou da nuvem', () => {
-    it('fica só com o que é conhecido: nada sem coluna, sem característica ou repetido', () => {
+    it('fica só com o que é conhecido: nada sem coluna ou repetido, e o id é o da categoria', () => {
       const raw = {
         ...board(),
-        name: 'x'.repeat(90),
+        id: 'outro-id',
+        category: '  Trabalho ',
         columns: [...board().columns, { id: 'afazer', name: 'De novo' }, { id: '', name: 'Sem id' }, { id: 'nova', icon: 'nave', color: 'neon', finishes: 'sim' }],
-        traits: [{ id: 't1', name: 'Correção', color: 'azul' }, { id: 't2', name: '' }, { id: 't3', name: 'Cor estranha', color: 'dourada' }],
         cards: [
-          { note: 'n1', column: 'afazer', importance: 'critico', traits: ['t1', 't1', 'tsumiu'] },
+          { note: 'n1', column: 'afazer', importance: 'critico', traits: ['t1'] },
           { note: 'n1', column: 'feito' },
           { note: 'n2', column: 'naoexiste' },
           { note: 'n3', column: 'nova', importance: 'urgentissimo' },
         ],
       };
       const b = sanitizeBoard(raw)!;
-      expect(b.name.length).toBe(40);
+      expect(b.id).toBe(boardIdFor('trabalho'));
+      expect(b.category).toBe('trabalho');
       expect(b.columns.map((c) => c.id)).toEqual(['afazer', 'fazendo', 'feito', 'nova']);
       expect(b.columns[3]).toEqual({ id: 'nova', name: 'Coluna', icon: 'circulo', color: 'cinza', finishes: false });
-      expect(b.traits.map((t) => [t.id, t.color])).toEqual([
-        ['t1', 'azul'],
-        ['t3', 'azul'],
-      ]);
       expect(b.cards).toEqual([
-        { note: 'n1', column: 'afazer', importance: 'critico', traits: ['t1'] },
-        { note: 'n3', column: 'nova', importance: null, traits: [] },
+        { note: 'n1', column: 'afazer', importance: 'critico' },
+        { note: 'n3', column: 'nova', importance: null },
       ]);
-      expect(sanitizeBoard({ id: 'q', at: 'ontem' })).toBeNull();
-      expect(sanitizeBoard({ id: 'q', at: T0 })!.columns.length).toBe(3);
+      expect(sanitizeBoard({ category: 'x', at: 'ontem' })).toBeNull();
+      expect(sanitizeBoard({ category: 'x', at: T0 })!.columns.length).toBe(3);
+      // sem categoria é um quadro de antes, não um quadro
+      expect(sanitizeBoard({ id: 'q', at: T0 })).toBeNull();
+    });
+
+    it('os quadros de antes (sem categoria) ficam à parte, esperando a conversão', () => {
+      const st = sanitizeKanban({ boards: [board(), legacyBoard('qvelho', 'Trabalho', [{ note: 'n1', column: 'qvelho-a', traits: ['t1', 'tsumiu'] }], [{ id: 't1', name: '#Correção', color: 'azul' }])] });
+      expect(st.boards.map((b) => b.category)).toEqual(['trabalho']);
+      expect(st.legacy.length).toBe(1);
+      expect(st.legacy[0].traits).toEqual([{ id: 't1', name: 'Correção', color: 'azul' }]);
+      expect(st.legacy[0].cards).toEqual([{ note: 'n1', column: 'qvelho-a', importance: null, traits: ['t1'] }]);
     });
 
     it('um quadro apagado depois da última mudança dele não volta', () => {
-      const st = sanitizeKanban({ boards: [board('qa', T0), board('qb', T2)], removed: { qa: T1, qb: T1, '': T1, qc: 'nunca' } });
-      expect(st.boards.map((b) => b.id)).toEqual(['qb']);
-      expect(st.removed).toEqual({ qa: T1, qb: T1 });
-      expect(sanitizeKanban('lixo')).toEqual({ boards: [], removed: {} });
+      const a = board('trabalho', T0);
+      const b = board('estudos', T2);
+      const st = sanitizeKanban({ boards: [a, b], removed: { [a.id]: T1, [b.id]: T1, '': T1, qc: 'nunca' } });
+      expect(st.boards.map((x) => x.category)).toEqual(['estudos']);
+      expect(st.removed).toEqual({ [a.id]: T1, [b.id]: T1 });
+      expect(sanitizeKanban('lixo')).toEqual({ boards: [], removed: {}, legacy: [] });
+    });
+  });
+
+  describe('a conversão dos quadros de antes', () => {
+    const notes = [
+      { id: 'n1', category: 'Trabalho', tags: ['Login'] },
+      { id: 'n2', category: 'Estudos' },
+      { id: 'n3' },
+      { id: 'n4', category: 'trabalho' },
+    ];
+
+    it('cada anotação vai para o quadro da categoria dela, na coluna de mesmo nome, com a importância', () => {
+      const raw = {
+        boards: [
+          legacyBoard(
+            'qtrab',
+            'Trabalho',
+            [
+              { note: 'n1', column: 'qtrab-f', importance: 'critico' },
+              { note: 'n2', column: 'qtrab-a' },
+              { note: 'n3', column: 'qtrab-a' },
+              { note: 'nsumiu', column: 'qtrab-a' },
+            ],
+            [],
+            [
+              { id: 'qtrab-a', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false },
+              { id: 'qtrab-r', name: 'Revisão', icon: 'olho', color: 'azul', finishes: false },
+              { id: 'qtrab-f', name: 'Feito', icon: 'check', color: 'verde', finishes: true },
+            ],
+          ),
+          legacyBoard('qoutro', 'Projeto', [
+            { note: 'n4', column: 'qoutro-f' },
+            { note: 'n2', column: 'qoutro-f' },
+          ]),
+        ],
+      };
+      const { state: st } = attachLegacy(sanitizeKanban(raw), notes, T1);
+      expect(st.legacy).toEqual([]);
+      const trab = st.boards.find((b) => b.category === 'trabalho')!;
+      const est = st.boards.find((b) => b.category === 'estudos')!;
+      // o Trabalho fica com as colunas do quadro de antes que tinha o nome dele (com a Revisão)
+      expect(trab.id).toBe(boardIdFor('Trabalho'));
+      expect(trab.columns.map((c) => c.name)).toEqual(['A fazer', 'Revisão', 'Feito']);
+      expect(trab.cards).toEqual([
+        { note: 'n1', column: 'qtrab-f', importance: 'critico' },
+        // de outro quadro: na coluna de mesmo nome
+        { note: 'n4', column: 'qtrab-f', importance: null },
+      ]);
+      // os Estudos não tinham quadro de mesmo nome: as colunas do que tinha mais anotações deles
+      expect(est.cards.map((c) => c.note)).toEqual(['n2']);
+      // a sem categoria e a que sumiu ficam de fora; os quadros de antes ficam lembrados como apagados
+      expect(st.boards.length).toBe(2);
+      expect(Object.keys(st.removed).sort()).toEqual(['qoutro', 'qtrab']);
+      // de novo, nada muda
+      expect(attachLegacy(st, notes, T2).state).toBe(st);
+    });
+
+    it('as características viram tags das anotações, com a cor da fita (a preta, sem cor)', () => {
+      const raw = {
+        boards: [
+          legacyBoard(
+            'q1',
+            'Trabalho',
+            [
+              { note: 'n1', column: 'q1-a', traits: ['t1', 't2'] },
+              { note: 'n4', column: 'q1-a', traits: ['t1'] },
+            ],
+            [
+              { id: 't1', name: 'Correção', color: 'vermelha' },
+              { id: 't2', name: 'Login', color: 'preta' },
+            ],
+          ),
+          legacyBoard('q2', 'Outro', [{ note: 'n1', column: 'q2-a', traits: ['t9'] }], [{ id: 't9', name: 'correção', color: 'azul' }]),
+        ],
+      };
+      const { tags, colors } = attachLegacy(sanitizeKanban(raw), notes, T1);
+      expect(tags.get('n1')).toEqual(['Correção', 'Login']);
+      expect(tags.get('n4')).toEqual(['Correção']);
+      // a primeira cor de um nome vale; a preta fica sem
+      expect([...colors]).toEqual([['Correção', 'vermelho']]);
+    });
+
+    it('um quadro de agora da mesma categoria recebe as anotações nas colunas dele', () => {
+      const now = placeCard(board('trabalho', T0), 'n4', 'afazer', T0);
+      const st = sanitizeKanban({ boards: [now, legacyBoard('q1', 'Qualquer', [{ note: 'n1', column: 'q1-f' }, { note: 'n4', column: 'q1-f' }])] });
+      const out = attachLegacy(st, notes, T1).state;
+      expect(out.boards.length).toBe(1);
+      // a coluna Feito do de antes vira a Feito do de agora; a que já estava não se repete
+      expect(out.boards[0].cards).toEqual([
+        { note: 'n4', column: 'afazer', importance: null },
+        { note: 'n1', column: 'feito', importance: null },
+      ]);
     });
   });
 
   describe('a junção de dois aparelhos', () => {
     it('cada quadro vem de quem o mudou por último; os dos dois lados ficam', () => {
-      const here: KanbanState = { boards: [board('qa', T1), board('qb', T0)], removed: {} };
-      const there: KanbanState = { boards: [{ ...board('qb', T2), name: 'Mudado lá' }, { ...board('qa', T0), name: 'Velho' }, board('qc', T0)], removed: {} };
+      const here = state([placeCard(board('trabalho', T1), 'aqui', 'afazer', T1), board('estudos', T0)]);
+      const there = state([placeCard(board('estudos', T2), 'la', 'afazer', T2), board('trabalho', T0), board('casa', T0)]);
       const m = mergeKanban(here, there);
-      expect(m.boards.map((b) => [b.id, b.name])).toEqual([
-        ['qa', 'Trabalho'],
-        ['qb', 'Mudado lá'],
-        ['qc', 'Trabalho'],
+      expect(m.boards.map((b) => [b.category, b.cards.map((c) => c.note)])).toEqual([
+        ['trabalho', ['aqui']],
+        ['estudos', ['la']],
+        ['casa', []],
       ]);
     });
 
     it('apagar num aparelho apaga no outro, a não ser que lá ele tenha mudado depois', () => {
-      const here: KanbanState = { boards: [board('qa', T0), board('qb', T2)], removed: {} };
-      const there: KanbanState = { boards: [], removed: { qa: T1, qb: T1 } };
+      const a = board('trabalho', T0);
+      const b = board('estudos', T2);
+      const here = state([a, b]);
+      const there = state([], { [a.id]: T1, [b.id]: T1 });
       const m = mergeKanban(here, there);
-      expect(m.boards.map((b) => b.id)).toEqual(['qb']);
-      expect(m.removed).toEqual({ qa: T1, qb: T1 });
-      // e a junção ao contrário dá o mesmo
-      expect(mergeKanban(there, here).boards.map((b) => b.id)).toEqual(['qb']);
+      expect(m.boards.map((x) => x.category)).toEqual(['estudos']);
+      expect(mergeKanban(there, here).boards.map((x) => x.category)).toEqual(['estudos']);
     });
 
-    it('na nuvem: vai só com algum quadro (o mural sem eles mantém a impressão) e muda a impressão', async () => {
-      const empty: KanbanState = { boards: [], removed: {} };
-      expect(kanbanToSync(empty)).toBeNull();
-      const st: KanbanState = { boards: [board()], removed: {} };
-      expect(kanbanToSync(st)).toBe(st);
-      expect(kanbanToSync({ boards: [], removed: { qa: T0 } })).not.toBeNull();
+    it('na nuvem: vai só com algum quadro, sem a lista dos de antes depois da conversão, e muda a impressão', async () => {
+      expect(kanbanToSync(state([]))).toBeNull();
+      const st = state([board()]);
+      expect(kanbanToSync(st)).toEqual({ boards: st.boards, removed: {} });
+      expect(kanbanToSync(state([], { qa: T0 }))).not.toBeNull();
       const doc = { reviews: [], drafts: [], wishes: [], deleted: { reviews: {}, drafts: {}, wishes: {} } };
       expect(await fingerprint(doc, null, null, null, null, null, null)).toBe(await fingerprint(doc));
-      expect(await fingerprint(doc, null, null, null, null, null, st)).not.toBe(await fingerprint(doc));
-      expect(kanbanOf({ kanban: st })).toEqual(st);
+      expect(await fingerprint(doc, null, null, null, null, null, kanbanToSync(st))).not.toBe(await fingerprint(doc));
+      expect(kanbanOf({ kanban: kanbanToSync(st) })).toEqual(st);
+      // a impressão do que veio é a mesma do que este aparelho enviaria
+      expect(kanbanPrintOf({ kanban: kanbanToSync(st) })).toEqual(kanbanToSync(st));
       expect(kanbanOf({})).toBeNull();
+    });
+  });
+
+  describe('a cor das tags', () => {
+    it('mora com as cores das categorias, numa chave que não esbarra nelas', () => {
+      expect(tagLookKey('Correção')).toBe('#correcao');
+      expect(tagColorHex({ '#correcao': { color: 'azul' }, correcao: { color: 'rosa' } }, 'CORREÇÃO')).toBe('#2d8bd6');
+      expect(tagColorHex({}, 'Correção')).toBeNull();
+    });
+
+    it('no mural público, só as cores das tags das anotações publicadas', () => {
+      const looks = { '#login': { color: 'azul' as const }, '#segredo': { color: 'rosa' as const }, trabalho: { color: 'verde' as const } };
+      expect(publicCategoryLooks(looks, [{ category: 'Trabalho', tags: ['Login'] }])).toEqual({ '#login': { color: 'azul' }, trabalho: { color: 'verde' } });
     });
   });
 
@@ -239,6 +408,7 @@ describe('Kanban', () => {
     let store: ReviewStore;
     let kanban: KanbanStore;
     let actions: KanbanActions;
+    const TRAB = boardIdFor('trabalho');
 
     beforeEach(() => {
       localStorage.clear();
@@ -246,68 +416,110 @@ describe('Kanban', () => {
       store = TestBed.inject(ReviewStore);
       kanban = TestBed.inject(KanbanStore);
       actions = TestBed.inject(KanbanActions);
-      store.reviews.set([note('nlogin01', 'Corrigir o login'), note('nfeita01', 'Deploy', { doneAt: '2026-10-05T10:00:00.000Z' })]);
-      kanban.state.set({ boards: [board('qtrabalho')], removed: {} });
+      store.reviews.set([
+        note('nlogin01', 'Corrigir o login', { category: 'Trabalho' }),
+        note('nfeita01', 'Deploy', { category: 'Trabalho', doneAt: '2026-10-05T10:00:00.000Z' }),
+        note('nprova01', 'Prova', { category: 'Estudos' }),
+        note('nsolta01', 'Solta'),
+      ]);
+      kanban.state.set(state([board('trabalho')]));
     });
     afterEach(() => localStorage.clear());
 
-    it('guarda os quadros neste navegador e cria, apaga e devolve um quadro', () => {
-      const id = kanban.create('Faculdade');
+    it('cada categoria tem um quadro; o de uma categoria em que ninguém mexeu só é guardado na primeira mudança', () => {
+      expect(kanban.categories().map((c) => c.label)).toEqual(['Trabalho', 'Estudos']);
+      const est = kanban.boardFor('Estudos');
+      expect(est.at).toBe(FRESH_AT);
+      expect(kanban.boards().length).toBe(1);
+      actions.move(est.id, 'nprova01', est.columns[0].id);
+      expect(kanban.boards().length).toBe(2);
+      expect(kanban.boardFor('estudos').cards.map((c) => c.note)).toEqual(['nprova01']);
       TestBed.tick();
-      expect(JSON.parse(localStorage.getItem(KANBAN_KEY)!).boards.map((b: KanbanBoard) => b.name)).toEqual(['Trabalho', 'Faculdade']);
-      const b = kanban.get(id)!;
-      kanban.remove(id);
-      expect(kanban.get(id)).toBeUndefined();
-      expect(kanban.state().removed[id]).toBeTruthy();
-      kanban.restore(b, 0);
-      expect(kanban.boards().map((x) => x.name)).toEqual(['Faculdade', 'Trabalho']);
-      expect(kanban.state().removed[id]).toBeUndefined();
+      expect(JSON.parse(localStorage.getItem(KANBAN_KEY)!).boards.map((b: KanbanBoard) => b.category)).toEqual(['trabalho', 'estudos']);
+    });
+
+    it('não dá para pôr no quadro uma anotação de outra categoria (nem uma sem categoria)', () => {
+      actions.move(TRAB, 'nprova01', 'afazer');
+      actions.move(TRAB, 'nsolta01', 'afazer');
+      expect(kanban.get(TRAB)!.cards).toEqual([]);
+      actions.move(TRAB, 'nlogin01', 'afazer');
+      expect(kanban.get(TRAB)!.cards.map((c) => c.note)).toEqual(['nlogin01']);
+      // trocada a categoria, ela some do quadro (sem perder o lugar)
+      store.update({ ...store.get('nlogin01')!, category: 'Estudos' });
+      expect(kanban.live(kanban.get(TRAB)!)).toEqual([]);
+      expect(kanban.get(TRAB)!.cards.length).toBe(1);
     });
 
     it('levar para Feito finaliza a anotação; o Desfazer devolve o lugar e abre de novo', () => {
-      actions.move('qtrabalho', 'nlogin01', 'afazer');
+      actions.move(TRAB, 'nlogin01', 'afazer');
       expect(isDone(store.get('nlogin01')!)).toBeFalse();
-      actions.move('qtrabalho', 'nlogin01', 'feito');
+      actions.move(TRAB, 'nlogin01', 'feito');
       expect(isDone(store.get('nlogin01')!)).toBeTrue();
       const toast = TestBed.inject(Toasts).current()!;
       expect(toast.text).toContain('finalizada em Feito');
       toast.action!.run();
       expect(isDone(store.get('nlogin01')!)).toBeFalse();
-      expect(notesIn(kanban.get('qtrabalho')!, 'afazer')).toEqual(['nlogin01']);
+      expect(notesIn(kanban.get(TRAB)!, 'afazer')).toEqual(['nlogin01']);
     });
 
     it('tirar de Feito para outra coluna abre a anotação de novo; entre colunas comuns, nada muda', () => {
-      kanban.update('qtrabalho', (b, at) => placeCard(b, 'nfeita01', 'feito', at));
-      actions.move('qtrabalho', 'nfeita01', 'fazendo');
+      kanban.update(TRAB, (b, at) => placeCard(b, 'nfeita01', 'feito', at));
+      actions.move(TRAB, 'nfeita01', 'fazendo');
       expect(isDone(store.get('nfeita01')!)).toBeFalse();
       expect(TestBed.inject(Toasts).current()!.text).toContain('aberta de novo em Fazendo');
-      actions.move('qtrabalho', 'nfeita01', 'afazer');
+      actions.move(TRAB, 'nfeita01', 'afazer');
       expect(isDone(store.get('nfeita01')!)).toBeFalse();
     });
 
     it('tirar do quadro deixa a anotação no mural, e o Desfazer a põe de volta com o que ela tinha', () => {
-      kanban.update('qtrabalho', (b, at) => setImportance(placeCard(b, 'nlogin01', 'fazendo', at), 'nlogin01', 'importante', at));
-      actions.remove(kanban.get('qtrabalho')!, 'nlogin01');
-      expect(kanban.get('qtrabalho')!.cards).toEqual([]);
+      kanban.update(TRAB, (b, at) => setImportance(placeCard(b, 'nlogin01', 'fazendo', at), 'nlogin01', 'importante', at));
+      actions.remove(kanban.get(TRAB)!, 'nlogin01');
+      expect(kanban.get(TRAB)!.cards).toEqual([]);
       expect(store.get('nlogin01')).toBeTruthy();
       TestBed.inject(Toasts).current()!.action!.run();
-      expect(kanban.get('qtrabalho')!.cards).toEqual([{ note: 'nlogin01', column: 'fazendo', importance: 'importante', traits: [] }]);
+      expect(kanban.get(TRAB)!.cards).toEqual([{ note: 'nlogin01', column: 'fazendo', importance: 'importante' }]);
     });
 
-    it('a anotação nova pedida de uma coluna é reclamada uma vez só', () => {
-      kanban.pending.set({ board: 'qtrabalho', column: 'fazendo' });
-      expect(kanban.claim()).toEqual({ board: 'qtrabalho', column: 'fazendo' });
-      expect(kanban.claim()).toBeNull();
-      kanban.pending.set({ board: 'qtrabalho', column: 'sumiu' });
-      expect(kanban.claim()).toBeNull();
+    it('a anotação nova pedida de uma coluna cai no quadro da categoria dela, uma vez só', () => {
+      kanban.pending.set({ board: TRAB, column: 'fazendo' });
+      expect(kanban.claim('Trabalho')).toEqual({ board: TRAB, column: 'fazendo' });
+      expect(kanban.claim('Trabalho')).toBeNull();
+      // trocou a categoria no editor: a primeira coluna do quadro da categoria nova
+      kanban.pending.set({ board: TRAB, column: 'fazendo' });
+      const est = kanban.boardFor('Estudos');
+      expect(kanban.claim('Estudos')).toEqual({ board: est.id, column: est.columns[0].id });
+      // sem categoria, em nenhum
+      kanban.pending.set({ board: TRAB, column: 'fazendo' });
+      expect(kanban.claim(undefined)).toBeNull();
+    });
+
+    it('recomeçar e desfazer devolve o quadro como era', () => {
+      actions.move(TRAB, 'nlogin01', 'fazendo');
+      const before = kanban.get(TRAB)!;
+      kanban.update(TRAB, (b, at) => resetBoard(b, at));
+      expect(kanban.get(TRAB)!.cards).toEqual([]);
+      kanban.restore(before);
+      expect(kanban.get(TRAB)!.cards).toEqual(before.cards);
+      expect(kanban.get(TRAB)!.columns).toEqual(before.columns);
     });
 
     it('a junção com a nuvem só troca o estado quando muda algo', () => {
       const before = kanban.state();
-      kanban.merge({ boards: [board('qtrabalho', '2020-01-01T00:00:00.000Z')], removed: {} });
+      kanban.merge(state([board('trabalho', '2020-01-01T00:00:00.000Z')]));
       expect(kanban.state()).toBe(before);
-      kanban.merge({ boards: [board('qoutro', T0)], removed: {} });
-      expect(kanban.boards().map((b) => b.id)).toEqual(['qtrabalho', 'qoutro']);
+      kanban.merge(state([board('estudos', T0)]));
+      expect(kanban.boards().map((b) => b.category)).toEqual(['trabalho', 'estudos']);
+    });
+
+    it('os quadros de antes viram quadros das categorias assim que aparecem, e as características viram tags com cor', () => {
+      const raw = { boards: [legacyBoard('qvelho', 'Meu quadro', [{ note: 'nlogin01', column: 'qvelho-f', importance: 'baixo', traits: ['t1'] }], [{ id: 't1', name: 'Urgente', color: 'laranja' }])] };
+      kanban.merge(sanitizeKanban(raw));
+      TestBed.tick();
+      expect(kanban.state().legacy).toEqual([]);
+      expect(kanban.get(TRAB)!.cards).toEqual([{ note: 'nlogin01', column: 'feito', importance: 'baixo' }]);
+      expect(store.get('nlogin01')!.tags).toEqual(['Urgente']);
+      expect(TestBed.inject(Settings).tagColor('urgente')).toBe('laranja');
+      expect(kanban.state().removed['qvelho']).toBeTruthy();
     });
   });
 });

@@ -1,26 +1,22 @@
 <!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
-<h1 class="sr-only">Kanban{{ board() ? ': ' + board()!.name : '' }}</h1>
+<h1 class="sr-only">Kanban{{ category() ? ': ' + category()!.label : '' }}</h1>
 
-@if (!boards().length) {
-  <!-- nenhum quadro ainda: a cartolina para montar o primeiro, com as três colunas desenhadas ao lado -->
+@if (!categories().length) {
+  <!-- nenhuma categoria ainda: a cartolina explica de onde vêm os quadros, com as três colunas desenhadas ao lado -->
   <section class="primeiro" aria-labelledby="primeiro-titulo">
     <div class="primeiro-ficha cartolina" data-cor="verde" style="--stock: var(--stock-verde)">
       <app-pin class="pin" color="#e62e2d" />
-      <h2 id="primeiro-titulo">Monte o seu primeiro quadro</h2>
+      <h2 id="primeiro-titulo">Cada categoria tem o seu quadro</h2>
       <p>
-        Um quadro tem colunas de etapas, como <em>A fazer</em>, <em>Fazendo</em> e <em>Feito</em>, e nelas as suas anotações. Arraste uma anotação até
-        <em>Feito</em> e ela é finalizada. Faça um quadro para cada coisa: o trabalho, um projeto da faculdade.
+        O quadro do <em>Trabalho</em> só tem anotações do Trabalho; o dos <em>Estudos</em>, só dos Estudos. Cada um com colunas de etapas, como <em>A fazer</em>,
+        <em>Fazendo</em> e <em>Feito</em>. Escreva uma anotação com categoria e o quadro dela aparece aqui.
       </p>
-      <form class="primeiro-form" (submit)="$event.preventDefault(); createFirst()">
-        <label class="primeiro-campo">
-          <span class="sr-only">Nome do quadro</span>
-          <input type="text" autocomplete="off" [maxLength]="nameMax" placeholder="Nome: Trabalho, Projeto da faculdade…" [value]="firstName()" (input)="firstName.set($any($event.target).value)" />
-        </label>
-        <button type="submit" class="btn-ink">
-          <lucide-icon [img]="BoardIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-          Criar o quadro
+      <div class="primeiro-form">
+        <button type="button" class="btn-ink" (click)="firstNote()">
+          <lucide-icon [img]="NewNoteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          Escrever uma anotação
         </button>
-      </form>
+      </div>
     </div>
     <ol class="primeiro-vagas" aria-hidden="true">
       @for (v of firstColumns; track v.name) {
@@ -34,42 +30,44 @@
     </ol>
   </section>
 } @else if (board(); as b) {
-  <!-- os quadros: divisórias de pasta de papel manilha, como as abas das categorias -->
-  <nav class="abas-quadros" aria-label="Quadros">
+  <!-- os quadros: um por categoria, nas mesmas divisórias de manilha das abas do mural, com o ícone e a cor dela -->
+  <nav class="abas-quadros" aria-label="Quadros das categorias">
     <ul class="abas">
-      @for (q of boards(); track q.id) {
+      @for (q of tabs(); track q.id) {
         <li>
-          <a class="aba" [routerLink]="pathOf(q.id)" [class.on]="q.id === b.id" [attr.aria-current]="q.id === b.id ? 'page' : null">
-            <span class="aba-nome">{{ q.name }}</span>
-            <span class="aba-n">{{ q.cards.length }}</span>
+          <a
+            class="aba"
+            [routerLink]="pathOf(q.id)"
+            [class.on]="q.id === b.id"
+            [class.orelha-cor]="!!q.color"
+            [style.--cat-cor]="q.color"
+            [attr.aria-current]="q.id === b.id ? 'page' : null"
+            [title]="q.label"
+          >
+            <app-cat-label class="rotulo-cat" [label]="q.label" [look]="q.look" [iconSize]="15" />
+            <span class="aba-n"><span class="sr-only">, </span>{{ q.n }}<span class="sr-only">{{ q.n === 1 ? ' anotação no quadro' : ' anotações no quadro' }}</span></span>
           </a>
         </li>
       }
-      <li>
-        <button type="button" class="aba nova" [disabled]="boards().length >= maxBoards" (click)="newBoard()">
-          <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
-          <span class="aba-nome">Novo quadro</span>
-        </button>
-      </li>
     </ul>
   </nav>
 
-  <!-- a pasta: a busca, o filtro de características e os ajustes do quadro -->
+  <!-- a pasta: a busca, o filtro das tags e os ajustes do quadro -->
   <div class="pasta">
     <div class="pasta-linha">
       <app-search-strip class="pasta-busca" inputId="busca-quadro" [glued]="true" label="Procurar no quadro" placeholder="Procurar no quadro…" [value]="query()" (valueChange)="query.set($event)" />
       <div class="pasta-controles">
-        @if (b.traits.length) {
+        @if (tagOptions().length) {
           <div class="pasta-grupo" role="group" aria-label="Filtrar">
             <label class="tinta campo">
               <lucide-icon [img]="TagsIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-              <span class="campo-pre">Característica</span>
-              <span class="campo-val" aria-hidden="true">{{ traitLabel() }}</span>
+              <span class="campo-pre">Tag</span>
+              <span class="campo-val" aria-hidden="true">{{ tagLabel() }}</span>
               <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-              <select aria-label="Mostrar só a característica" (change)="traitFilter.set($any($event.target).value)">
-                <option value="" [selected]="!traitFilter()">Todas</option>
-                @for (t of b.traits; track t.id) {
-                  <option [value]="t.id" [selected]="traitFilter() === t.id">{{ t.name }}</option>
+              <select aria-label="Mostrar só a tag" (change)="tagFilter.set($any($event.target).value)">
+                <option value="" [selected]="!tagFilter()">Todas</option>
+                @for (t of tagOptions(); track t.key) {
+                  <option [value]="t.key" [selected]="tagFilter() === t.key">{{ t.label }}</option>
                 }
               </select>
             </label>
@@ -99,7 +97,7 @@
       @if (filtering()) {
         <div class="pasta-estado">
           <p class="achados" aria-live="polite">
-            <span>Mostrando {{ shownCount() }} de {{ b.cards.length }}</span>
+            <span>Mostrando {{ shownCount() }} de {{ liveCount() }}</span>
             <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
           </p>
         </div>
@@ -142,7 +140,7 @@
               (pointerdown)="onPointerDown($event, it.card.note, v.col.id)"
               (keydown)="onKey($event, it.card.note, v.col.id)"
             >
-              <app-kanban-note [review]="it.note" [card]="it.card" [boardTraits]="b.traits" [dense]="dense()" (opened)="read($event)" (details)="cardSheet.set(it.card.note)" />
+              <app-kanban-note [review]="it.note" [card]="it.card" [dense]="dense()" (opened)="read($event)" (details)="cardSheet.set(it.card.note)" />
             </li>
           } @empty {
             <li class="vazia" aria-hidden="true">{{ filtering() ? 'Nada aqui com esse filtro' : 'Nenhuma anotação ainda' }}</li>
@@ -186,10 +184,11 @@
   <app-card-picker
     [(open)]="picking"
     [onlyKind]="notesKind"
+    [onlyCategory]="b.category"
     [doneOption]="true"
     [exclude]="onBoard()"
     heading="Buscar nota"
-    hint="Uma anotação do seu mural, para pôr nesta coluna. Ela continua no mural."
+    [hint]="'Uma anotação de ' + category()!.label + ', para pôr nesta coluna. Ela continua no mural.'"
     footHint="Toque numa anotação para pôr no quadro."
     [emptyText]="pickerEmpty()"
     (picked)="placePicked($event)"
@@ -202,6 +201,6 @@
     <app-kanban-column-sheet [boardId]="b.id" [columnId]="c.id" [fresh]="c.fresh" (closed)="columnSheet.set(null)" />
   }
   @if (boardSheet(); as id) {
-    <app-kanban-board-sheet [boardId]="id" (closed)="boardSheet.set(null)" (removing)="removeBoard($event)" />
+    <app-kanban-board-sheet [boardId]="id" [category]="category()!.label" (closed)="boardSheet.set(null)" (resetting)="resetBoard($event)" />
   }
 }

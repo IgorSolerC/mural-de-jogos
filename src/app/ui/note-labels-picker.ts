@@ -3,6 +3,7 @@ import { ChevronUp, LucideAngularModule, LucideIconData, Palette, Plus, Star, St
 import { Bonus, fold } from '../core/review';
 import { LABEL_MAX, MAX_TAGS, TagEntry, categoryBonus, cleanCategory, cleanTag } from '../core/note-labels';
 import { Settings } from '../core/settings';
+import { randomCategoryColor, tagColorHex } from '../core/category-looks';
 import { BonusSticker } from './bonus';
 import { CATEGORY_ICON } from './category-label';
 import { CategoryStyle } from './category-style';
@@ -99,7 +100,7 @@ let uid = 0;
       <div class="amarradas" (click)="focusInput($event)">
         @for (t of tags(); track t; let i = $index) {
           <span class="amarrada">
-            <app-note-tag [label]="t" [index]="i" />
+            <app-note-tag [label]="t" [index]="i" [color]="colorOf(t)" />
             <button
               type="button"
               class="mini-btn fixar"
@@ -150,7 +151,7 @@ let uid = 0;
               (mousedown)="$event.preventDefault()"
               (click)="add(s.label)"
             >
-              <app-note-tag [label]="s.label" size="mini" />
+              <app-note-tag [label]="s.label" size="mini" [color]="colorOf(s.label)" />
               <span class="sug-meta">
                 @if (s.pinned) {
                   <lucide-icon class="estrela" [img]="StarIcon" [size]="12" [strokeWidth]="2.6" aria-hidden="true" /> fixa
@@ -625,6 +626,11 @@ export class NoteLabelsPicker {
     return look.icon ? CATEGORY_ICON[look.icon] : null;
   }
 
+  /** A cor da tag, ou null (o papel pardo de sempre). */
+  protected colorOf(tag: string): string | null {
+    return tagColorHex(this.settings.categoryLooks(), tag);
+  }
+
   /** Outra anotação: esquece o que foi escrito na anterior. */
   reset(): void {
     this.styling.set(false);
@@ -725,8 +731,11 @@ export class NoteLabelsPicker {
     this.active.set(0);
     if (!tag || this.tags().length >= MAX_TAGS) return;
     if (this.tags().some((t) => fold(t) === fold(tag))) return;
-    const known = this.library().find((e) => fold(e.label) === fold(tag))?.label ?? tag;
-    this.tags.update((l) => [...l, known]);
+    const known = this.library().find((e) => fold(e.label) === fold(tag))?.label;
+    // como a categoria nova: a tag que ninguém usa ainda ganha uma das cores, sorteada (dá para
+    // trocar nos ajustes do quadro do Kanban)
+    if (!known && !this.settings.tagColor(tag)) this.settings.setTagColor(tag, randomCategoryColor());
+    this.tags.update((l) => [...l, known ?? tag]);
     if (keepFocus) setTimeout(() => this.tagInput()?.nativeElement.focus());
   }
 

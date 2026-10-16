@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
-import { CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
+import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
 import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs } from './mural-config';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
@@ -308,6 +308,28 @@ export class Settings {
     const { [key]: _, ...rest } = this.categoryLooks();
     this.categoryLooks.set(sanitizeCategoryLooks(look.icon || look.color ? { ...rest, [key]: look } : rest));
     this.categoryLooksAt.set(new Date().toISOString());
+  }
+
+  /** A cor da tag (ver `tagLookKey`), ou undefined: a etiqueta de sempre. */
+  tagColor(tag: string): CategoryColorId | undefined {
+    return this.categoryLooks()[tagLookKey(tag)]?.color;
+  }
+
+  /** Troca a cor de várias tags de uma vez (undefined tira a cor); vale como a mudança mais nova. */
+  setTagColors(colors: ReadonlyMap<string, CategoryColorId | undefined>): void {
+    const next: Record<string, CategoryLook> = { ...this.categoryLooks() };
+    for (const [tag, color] of colors) {
+      const key = tagLookKey(tag);
+      if (key === '#') continue;
+      if (color) next[key] = { color };
+      else delete next[key];
+    }
+    this.categoryLooks.set(sanitizeCategoryLooks(next));
+    this.categoryLooksAt.set(new Date().toISOString());
+  }
+
+  setTagColor(tag: string, color: CategoryColorId | undefined): void {
+    this.setTagColors(new Map([[tag, color]]));
   }
 
   /** Os jeitos que vieram de outro aparelho (mudados depois dos daqui). */

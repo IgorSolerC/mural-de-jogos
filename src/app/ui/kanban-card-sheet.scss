@@ -181,55 +181,35 @@ dialog.ficha-quadro {
   }
 }
 
-/* ===== Características: as fitas do quadro; a da anotação, colada (o plástico de verdade) ===== */
-.fitas {
+/* ===== Tags: as da anotação, amarradas (com a cor delas); as outras da categoria, em contorno ===== */
+.tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 4px 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.fita {
-  @include kk.dymo-cores;
-  --fita: #161616;
+.tag-op {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
   min-height: 44px;
-  padding: 6px 11px 5px;
-  border: 1.5px dashed color-mix(in srgb, var(--fita) 70%, transparent);
-  border-radius: 2px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
   background: transparent;
-  color: var(--ink);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.86rem;
-  letter-spacing: 0.1em;
-  line-height: 1;
-  text-transform: uppercase;
   cursor: pointer;
-  transition:
-    background-color var(--t-ui) var(--ease-ui),
-    rotate var(--t-physical) var(--ease-physical);
+  transition: background-color var(--t-ui) var(--ease-ui);
 
   &:hover {
-    background: color-mix(in srgb, var(--fita) 12%, transparent);
+    background-color: rgb(21 21 21 / 0.06);
   }
 
   &:focus-visible {
     outline: 3px solid var(--ink);
-    outline-offset: 2px;
-  }
-
-  &.colada {
-    @include kk.dymo;
-    min-height: 44px;
-    padding: 6px 11px 5px;
-    border: 1.5px solid transparent;
-    font-size: 0.86rem;
-    rotate: -1deg;
+    outline-offset: 0;
   }
 }
 
@@ -255,7 +235,7 @@ dialog.ficha-quadro {
 @media (prefers-reduced-motion: reduce) {
   .etapa,
   .imp,
-  .fita {
+  .tag-op {
     transition: none;
   }
 }

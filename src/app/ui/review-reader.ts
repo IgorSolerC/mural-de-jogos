@@ -50,6 +50,7 @@ import { DoneStamp } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryIcon } from './category-label';
 import { categoryBonus } from '../core/note-labels';
+import { tagColorHex } from '../core/category-looks';
 import { CloudAccount } from '../core/cloud-account';
 import { CommentTarget, Comments, QuoteRequest, spokenComments } from '../core/comments';
 // só usada dentro do @defer do molde, e num import só dela: assim a folha (com o editor) chega num pedaço à parte
@@ -212,7 +213,7 @@ const PATCH_GAP = 8;
                       <li><app-bonus-sticker [bonus]="categorySticker(r.category)" [glyph]="categoryGlyph(r.category)" [index]="0" [seed]="r.id" /><span class="sr-only"> (categoria)</span></li>
                     }
                     @for (t of r.tags ?? []; track t; let i = $index) {
-                      <li><app-note-tag [label]="t" [index]="i + 1" /><span class="sr-only"> (tag)</span></li>
+                      <li><app-note-tag [label]="t" [index]="i + 1" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
                     }
                   </ul>
                 }
@@ -485,6 +486,10 @@ export class ReviewReader {
   protected categoryGlyph(category: string): LucideIconData | null {
     const look = this.owner() === null ? this.settings.categoryLook(category) : {};
     return look.icon ? categoryIcon(category, look) : null;
+  }
+  /** A cor da tag, só nas suas anotações (como o desenho da categoria). */
+  protected tagColor(tag: string): string | null {
+    return this.owner() === null ? tagColorHex(this.settings.categoryLooks(), tag) : null;
   }
   protected readonly PinIcon = PinGlyph;
   protected readonly UnpinIcon = PinOff;

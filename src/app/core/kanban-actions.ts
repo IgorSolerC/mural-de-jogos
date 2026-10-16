@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { KanbanBoard, cardsIn, doneChange, placeCard, removeCard } from './kanban';
+import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, removeCard } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { NoteDone } from './note-done';
 import { isDone } from './review';
@@ -18,11 +18,14 @@ export class KanbanActions {
   private readonly noteDone = inject(NoteDone);
   private readonly toasts = inject(Toasts);
 
-  /** Leva a anotação para a coluna, na posição `index` dela (no fim, sem `index`). */
+  /**
+   * Leva a anotação para a coluna, na posição `index` dela (no fim, sem `index`). Só a anotação da
+   * categoria do quadro entra nele: a de outra categoria (ou sem nenhuma) fica onde está.
+   */
   move(boardId: string, note: string, column: string, index?: number): void {
     const board = this.kanban.get(boardId);
     const r = this.store.get(note);
-    if (!board || !r) return;
+    if (!board || !r || !belongs(board, r)) return;
     const before = board.cards.find((c) => c.note === note) ?? null;
     const beforeIndex = before ? cardsIn(board, before.column).findIndex((c) => c.note === note) : -1;
     this.kanban.update(boardId, (b, at) => placeCard(b, note, column, at, index));
