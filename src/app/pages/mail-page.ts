@@ -9,7 +9,8 @@ import { CloudMurals, muralLink } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
 import { compareCollections } from '../core/comparison';
 import { FeedItem, Follow, FollowedPerson, Follower, Person, isUnseen } from '../core/follow';
-import { CardNotice, groupNotices } from '../core/notices';
+import { CardNotice, SharedNotice, groupNotices } from '../core/notices';
+import { SharedStore } from '../core/shared-store';
 import { ProfilePeople } from '../core/profile-people';
 import { Review, fold, isNote, newId, rootOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -216,6 +217,8 @@ export class MailPage {
   /** O pedido em andamento: 'form', ou 'código:ação' (a ação mostra o aro; a linha toda espera). */
   protected readonly busy = signal<string | null>(null);
   /** O código de quem está sendo seguido de volta agora (para o botão do aviso esperar). */
+  /** A anotação compartilhada de que a pessoa está saindo agora. */
+  protected readonly leavingNote = computed(() => (this.busy()?.endsWith(':sair') ? this.busy()!.slice(0, -':sair'.length) : null));
   protected readonly followingBack = computed(() => (this.busy()?.endsWith(':seguir') ? this.busy()!.slice(0, -':seguir'.length) : null));
 
   protected isBusy(code: string, action: string): boolean {
@@ -466,6 +469,29 @@ export class MailPage {
     } finally {
       this.busy.set(null);
     }
+  }
+
+  private readonly shared = inject(SharedStore);
+
+  /** O aviso de uma anotação compartilhada com você: ela abre no seu mural (já está nele). */
+  protected openShared(n: SharedNotice): void {
+    if (this.store.get(n.item.ref)) this.desk.openReview(n.item.ref);
+    else this.shared.refreshSoon();
+  }
+
+  /** Sair da anotação que compartilharam com você, direto do aviso: ela some do seu mural (e o aviso, daqui). */
+  protected async leaveShared(n: SharedNotice): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: 'Sair desta anotação?',
+      text: `“${n.item.titulo}” sai do seu mural. Ela continua com ${n.item.pessoa.nome} e com quem mais está nela; para voltar, alguém precisa chamar você de novo.`,
+      confirm: 'Sair da anotação',
+    });
+    if (!sure) return;
+    await this.run(`${n.item.ref}:sair`, async () => {
+      await this.shared.leave(n.item.ref);
+      this.follow.forget((i) => i.tipo === 'compartilhou' && i.ref === n.item.ref);
+      this.toasts.show(`Você saiu de “${n.item.titulo}”`);
+    });
   }
 
   protected async followBack(p: Person): Promise<void> {

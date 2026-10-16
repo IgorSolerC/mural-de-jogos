@@ -3,7 +3,9 @@ import { gzip, readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
-import { Review, isPrivate } from './review';
+import { Review, isPrivate, storedNote } from './review';
+import { SharedStore } from './shared-store';
+import { canonicalJson as canonical } from './canonical-json';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks';
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
@@ -78,11 +80,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     antigo jogaria a marca fora e a enviaria assim, e a aba voltaria para cima em todo aparelho.
  * 16: as versões guardadas (`versoes`, só no mural privado: as que perderam numa junção). Um site
  *     antigo enviaria o mural sem elas, e elas sumiriam dos outros aparelhos.
+ * 17: a anotação compartilhada de outra pessoa no mural público leva de quem é (`sharedBy`). Ela só vai
+ *     no público (as compartilhadas nunca vão no mural privado), mas a leitura da anotação mudou.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 16;
+export const SYNC_SCHEMA = 17;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -279,6 +283,11 @@ interface SyncState {
   impressao: string;
   /** Quando a última sincronização terminou bem (ms). */
   em: number | null;
+  /**
+   * A impressão das anotações compartilhadas públicas que foram no último envio (ver core/shared-store.ts):
+   * elas não estão no mural privado, mas vão no público, então mudar uma pede um envio.
+   */
+  publicas?: string;
 }
 
 type Remote = { kind: 'same' } | { kind: 'none' } | { kind: 'doc'; rev: number; text: string; data: Record<string, unknown> };
@@ -324,7 +333,13 @@ function readState(kv: KeyValueStore): SyncState | null {
   try {
     const raw = JSON.parse(kv.getItem(STATE_KEY) ?? 'null') as Partial<SyncState> | null;
     if (!raw || typeof raw.conta !== 'string' || !Number.isSafeInteger(raw.rev) || typeof raw.impressao !== 'string') return null;
-    return { conta: raw.conta, rev: raw.rev!, impressao: raw.impressao, em: typeof raw.em === 'number' ? raw.em : null };
+    return {
+      conta: raw.conta,
+      rev: raw.rev!,
+      impressao: raw.impressao,
+      em: typeof raw.em === 'number' ? raw.em : null,
+      ...(typeof raw.publicas === 'string' ? { publicas: raw.publicas } : {}),
+    };
   } catch {
     return null;
   }
@@ -400,6 +415,8 @@ export class CloudSync {
   private readonly profiles = inject(ProfileStore);
   private readonly confirm = inject(Confirm);
   private readonly kv = inject(SYNC_STORAGE);
+  /** As anotações compartilhadas: as públicas vão no mural que os outros veem (ver `push`). */
+  private readonly shared = inject(SharedStore);
 
   readonly status = signal<SyncStatus>('fora');
   /** O que mostrar junto do estado (erros e avisos), já em português. */
@@ -580,11 +597,12 @@ export class CloudSync {
       const profile = this.localProfile();
       const config = this.localConfig();
       const here = await fingerprint(doc, keys, tags, looks, profile, config);
-      if (here === state.impressao) break;
+      const publicas = await this.sharedPrint();
+      if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, here);
-        state = { ...state, rev, impressao: here };
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, here + publicas);
+        state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
         break;
@@ -885,13 +903,19 @@ export class CloudSync {
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
+    // as anotações compartilhadas públicas (as de outra pessoa dizem de quem são): não estão no mural
+    // privado, mas os outros as veem no seu; as privadas, nem o título nas notas coladas
+    const sharedPublic = this.shared
+      .publicShared()
+      .map((x) => (x.dono ? { ...storedNote(x.note), sharedBy: { codigo: x.dono.codigo, nome: x.dono.nome } } : storedNote(x.note)));
+    const ownNotes = [...publicNotes(doc.notas), ...sharedPublic];
     // tudo o que os outros veem; o que é seu e fica de fora não deixa nem o título nas notas coladas
-    const shownIds = publicIds([...publicReviews(doc.reviews), ...publicReviews(doc.musicas ?? [])], publicNotes(doc.notas));
-    const allIds = publicIds(payloadReviews(doc), Array.isArray(doc.notas) ? doc.notas : []);
+    const shownIds = publicIds([...publicReviews(doc.reviews), ...publicReviews(doc.musicas ?? [])], ownNotes);
+    const allIds = publicIds(payloadReviews(doc), [...(Array.isArray(doc.notas) ? doc.notas : []), ...this.shared.allShared()]);
     const hidden = new Set([...allIds].filter((id) => !shownIds.has(id)));
     const reviews = publicReviews(doc.reviews).map((r) => shownCard(r, hidden));
     const musicas = publicReviews(doc.musicas ?? []).map((r) => shownCard(r, hidden));
-    const notas = publicNotes(doc.notas).map((n) => shownCard(n, hidden));
+    const notas = ownNotes.map((n) => shownCard(n, hidden));
     // tudo o que os outros veem com nota: as resenhas de sempre e as de música
     const scored = [...reviews, ...musicas];
     const publico = await gzip(
@@ -910,7 +934,9 @@ export class CloudSync {
       }),
     );
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha
-    const novas = newReviews([...payloadReviews(doc), ...notesOf(doc.notas)], now);
+    // (das compartilhadas, só as suas: a dos outros é aviso para quem segue o dono)
+    const ownShared = this.shared.publicShared().filter((x) => !x.dono).map((x) => x.note);
+    const novas = newReviews([...payloadReviews(doc), ...notesOf(doc.notas), ...ownShared], now);
     const form = new FormData();
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');
@@ -934,6 +960,15 @@ export class CloudSync {
     this.noteClock(res);
     const body = (await res.json()) as { rev: number };
     return body.rev;
+  }
+
+  /** A impressão das compartilhadas públicas que vão no mural público ('' sem nenhuma). */
+  private async sharedPrint(): Promise<string> {
+    const list = this.shared.publicShared();
+    if (!list.length) return '';
+    const text = canonical(list.map((x) => ({ n: storedNote(x.note), d: x.dono?.codigo ?? null })).sort((a, b) => (a.n.id < b.n.id ? -1 : 1)));
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(digest).slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join('');
   }
 
   private noteClock(res: Response): void {

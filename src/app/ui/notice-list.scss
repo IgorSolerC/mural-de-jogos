@@ -208,6 +208,20 @@
   }
 }
 
+/* sair da anotação: o botão de papel branco (o de tinta é o de seguir de volta, o que se quer) */
+.seguir.sair {
+  background: #fff;
+  color: var(--ink);
+
+  &:hover:not(:disabled) {
+    background: #f1ece0;
+  }
+}
+
+.papel-aviso {
+  letter-spacing: 0.06em;
+}
+
 .mutuo {
   display: inline-flex;
   align-items: center;

@@ -110,6 +110,9 @@
                   (profile)="openProfile($event)"
                   (card)="openNotice($event)"
                   (followBack)="followBack($event)"
+                  [leaving]="leavingNote()"
+                  (sharedNote)="openShared($event)"
+                  (leave)="leaveShared($event)"
                 />
                 @if (notices().length > boardNotices().length) {
                   <button type="button" class="btn-papel quieto ver-todos" (click)="go('avisos')">Ver os {{ notices().length }} avisos</button>
@@ -172,6 +175,9 @@
                 (profile)="openProfile($event)"
                 (card)="openNotice($event)"
                 (followBack)="followBack($event)"
+                [leaving]="leavingNote()"
+                (sharedNote)="openShared($event)"
+                (leave)="leaveShared($event)"
               />
             } @else {
               <p class="nada">Nenhum aviso por enquanto. Quando alguém seguir você, reagir ou comentar numa ficha sua, aparece aqui.</p>

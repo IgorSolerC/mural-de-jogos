@@ -1,0 +1,62 @@
+@use 'felt';
+
+:host {
+  display: contents;
+}
+
+/* O remendo das compartilhadas: o mesmo feltro costurado dos comentários e das reações, com as
+   pessoas e quantas são. Com conflito, a linha e a letra em vermelho, e a palavra escrita. */
+.remendo {
+  @include felt.remendo;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 15px;
+  rotate: var(--torto, -2deg);
+  cursor: pointer;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    rotate var(--t-ui) var(--ease-ui);
+}
+
+.remendo:hover {
+  translate: 0 -1px;
+  rotate: calc(var(--torto, -2deg) * 0.4);
+}
+
+.remendo:focus-visible {
+  @include felt.remendo-foco;
+}
+
+.remendo.conflito {
+  color: var(--red-deep);
+  outline-color: rgb(184 29 28 / 0.65);
+
+  .n {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+lucide-icon {
+  display: inline-flex;
+}
+
+.n {
+  font-family: var(--f-marker);
+  font-size: 0.95rem;
+  line-height: 1;
+  translate: 0 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remendo {
+    transition: none;
+  }
+}

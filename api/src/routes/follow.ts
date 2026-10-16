@@ -41,7 +41,7 @@ interface Person {
 }
 
 interface FeedRow {
-  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou';
+  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou' | 'compartilhou';
   criado_em: string;
   ref: string | null;
   resumo: string | null;
@@ -67,12 +67,17 @@ async function pairKey(followerId: string, followedId: string): Promise<string> 
   return base64url((await sha256(`seguindo:${followerId}:${followedId}`)).slice(0, 12));
 }
 
-function summary(raw: string | null): { titulo: string; mural: string; reacao?: string } | null {
+function summary(raw: string | null): { titulo: string; mural: string; reacao?: string; papel?: string } | null {
   if (!raw) return null;
   try {
     const data = JSON.parse(raw) as Record<string, unknown>;
     if (typeof data['titulo'] !== 'string' || typeof data['mural'] !== 'string') return null;
-    return { titulo: data['titulo'], mural: data['mural'], ...(typeof data['reacao'] === 'string' ? { reacao: data['reacao'] } : {}) };
+    return {
+      titulo: data['titulo'],
+      mural: data['mural'],
+      ...(typeof data['reacao'] === 'string' ? { reacao: data['reacao'] } : {}),
+      ...(typeof data['papel'] === 'string' ? { papel: data['papel'] } : {}),
+    };
   } catch {
     return null;
   }
@@ -288,8 +293,17 @@ export function followRoutes(app: Hono, deps: Deps): void {
           'FROM atividades a JOIN usuarios u ON u.id = a.autor_id ' +
           'LEFT JOIN seguindo m ON m.seguidor_id = a.alvo_id AND m.seguido_id = a.autor_id ' +
           "WHERE a.tipo IN ('reagiu', 'comentou') AND a.alvo_id = ? AND a.criado_em > ? " +
+          'UNION ALL ' +
+          // quem compartilhou uma anotação comigo (enquanto eu ainda estou nela), com o título e o papel de agora
+          "SELECT 'compartilhou' AS tipo, a.criado_em AS criado_em, a.ref, " +
+          "json_object('titulo', COALESCE(json_extract(n.dados, '$.game.name'), ''), 'mural', 'anotacoes', 'papel', m.papel) AS resumo, " +
+          'u.codigo, u.nome, 0 AS silenciado, ' +
+          '(SELECT COUNT(*) FROM seguindo b WHERE b.seguidor_id = ? AND b.seguido_id = a.autor_id) AS eu_sigo ' +
+          'FROM atividades a JOIN usuarios u ON u.id = a.autor_id ' +
+          'JOIN nota_membros m ON m.nota_id = a.ref AND m.usuario_id = a.alvo_id JOIN notas n ON n.id = a.ref ' +
+          "WHERE a.tipo = 'compartilhou' AND a.alvo_id = ? AND a.criado_em > ? " +
           'ORDER BY criado_em DESC LIMIT ?',
-        [s.userId, s.userId, since, s.userId, since, s.userId, since, limit],
+        [s.userId, s.userId, since, s.userId, since, s.userId, since, s.userId, s.userId, since, limit],
       );
     if (after) {
       const fresh = await feed(after > floor ? after : floor, 1);
@@ -306,6 +320,9 @@ export function followRoutes(app: Hono, deps: Deps): void {
         const base = { tipo: r.tipo, em: r.criado_em, pessoa: personOut(r) };
         if (r.tipo === 'seguiu') return { ...base, euSigo: !!r.eu_sigo };
         const sum = summary(r.resumo);
+        if (r.tipo === 'compartilhou') {
+          return { ...base, ref: r.ref, titulo: (sum?.titulo || 'Anotação').slice(0, 120), mural: 'anotacoes', papel: sum?.papel ?? 'leitor', euSigo: !!r.eu_sigo };
+        }
         const review = { ...base, ref: r.ref, titulo: sum?.titulo ?? '', mural: sum?.mural ?? 'jogos', silenciado: !!r.silenciado };
         return r.tipo === 'reagiu' ? { ...review, reacao: sum?.reacao ?? 'amei' } : review;
       }),

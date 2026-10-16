@@ -8,6 +8,7 @@ import { catalogRoutes } from './routes/catalog';
 import { commentRoutes } from './routes/comments';
 import { followRoutes } from './routes/follow';
 import { muralRoutes } from './routes/mural';
+import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
 
 /** A versão da API que o /v1/status informa (mude junto com mudanças que o site precise saber). */
@@ -71,6 +72,7 @@ export function createApp(deps: Deps): Hono {
   followRoutes(app, deps);
   reactionRoutes(app, deps);
   commentRoutes(app, deps);
+  noteRoutes(app, deps);
   catalogRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API.' }, 404));

@@ -796,10 +796,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
-  it('a leitura das fichas é a mesma da versão 16', async () => {
+  it('a leitura das fichas é a mesma da versão 17', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 16, hex: 'ebd01422b51c02b262df14a4150a9e53705b7edbd5d2f8113bb25705cf59a619' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 17, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
   });
 });

@@ -26,6 +26,23 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-16-anotacoes-compartilhadas',
+    version: '1.23.0',
+    kind: 'funcionalidade',
+    date: '2026-10-16',
+    title: 'Anotações compartilhadas',
+    notice: 'Novo: compartilhe uma anotação com amigos, e escrevam nela juntos. Na leitura, toque em Compartilhar.',
+    items: [
+      'Na leitura de uma anotação sua, Compartilhar chama alguém pelo nome (quem você segue ou quem segue você) ou pelo código, com um papel: Gestor faz tudo, Editor escreve sem mudar a categoria, as tags e quem vê, e Leitor só lê.',
+      'A anotação aparece no mural de cada pessoa como se fosse dela, com um remendo das pessoas na quina; o que um escreve chega no mural dos outros. Fixar continua sendo de cada um.',
+      'Privada, ela fica só com quem está nela: ninguém que visita esses murais vê. Pública, aparece também no mural deles, e as reações e os comentários vão todos para a do dono.',
+      'Quem é chamado recebe o aviso "Fulano compartilhou uma nota com você!" em Amigos › Avisos, com o botão Sair; sair (ou ser tirado) tira a anotação do seu mural. Só o dono apaga para todos.',
+      'Duas pessoas escrevendo ao mesmo tempo se juntam como no git: o que só uma mexeu entra, as linhas que as duas acrescentaram ficam as duas, e só o mesmo trecho mudado de jeitos diferentes vira um conflito.',
+      'No conflito, quem escreve na anotação vê "Conflito de sincronização. Deseja manter qual versão?", com as duas versões lado a lado e o que difere a marca-texto; enquanto ninguém escolhe, vale a que já estava.',
+      'Funciona sem rede: a edição espera e sobe quando a conexão voltar. Uma edição que não pôde mais subir (a anotação foi apagada, ou você virou leitor) fica guardada em Ajustes › Backup.',
+    ],
+  },
+  {
     id: '2026-10-16-releituras-ligadas',
     version: '1.22.2',
     kind: 'ajustes',

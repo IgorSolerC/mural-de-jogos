@@ -878,3 +878,11 @@ app-rich-editor.anotacao {
     }
   }
 }
+
+/* a categoria e as tags de uma compartilhada em que você é editor: escritas, sem mexer */
+.rotulos-fixos .rotulos-valor {
+  margin-top: 8px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.1rem;
+}

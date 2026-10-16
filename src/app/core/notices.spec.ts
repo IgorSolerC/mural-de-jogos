@@ -86,6 +86,6 @@ describe('os avisos de Amigos', () => {
     expect(noticeSpoken(note)).toBe('Ana reagiu com Amei à sua anotação Obra nminha2');
     expect(noticeSpoken(follow)).toBe('Cris começou a seguir você');
     expect(noticeSpoken(comments)).toBe('Ana e Bia comentaram na sua ficha de Obra rminha3');
-    expect(noteComment.tipo !== 'seguiu' && noticeWhere(noteComment)).toBe('na sua anotação');
+    expect(noteComment.tipo === 'comentou' && noticeWhere(noteComment)).toBe('na sua anotação');
   });
 });

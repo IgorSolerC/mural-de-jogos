@@ -1,0 +1,184 @@
+<dialog #dialog class="sheet compartilhar" aria-labelledby="compartilhar-titulo" aria-describedby="compartilhar-nota" (close)="closed.emit()" (backdropClose)="close()">
+  @if (note(); as n) {
+    <div class="ficha cartolina" [style.--stock]="'var(--stock-' + (n.stock ?? 'amarelo') + ')'" [attr.data-cor]="n.stock ?? 'amarelo'">
+      <app-pin class="pin" color="#2f6bff" />
+      <header class="head">
+        <div class="titulos">
+          <h2 id="compartilhar-titulo">Compartilhar</h2>
+          <p class="sub" id="compartilhar-nota">“{{ n.game.name }}”</p>
+        </div>
+        <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
+          <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+      </header>
+
+      <div class="body">
+        @if (!signedIn()) {
+          <!-- sem conta não há com quem dividir: a anotação continua só sua -->
+          <div class="sem-conta">
+            <p>Para dividir esta anotação com alguém, entre na sua conta. Ela continua só sua até lá.</p>
+            <button type="button" class="papel forte" (click)="goSignIn()">Entrar em Ajustes › Conta</button>
+          </div>
+        } @else {
+          @if (manages()) {
+            <!-- chamar alguém: o nome de quem você segue (as sugestões) ou o código, e o papel com que entra -->
+            <section class="grupo chamar" aria-labelledby="chamar-titulo">
+              <h3 class="grupo-titulo" id="chamar-titulo">Chamar alguém</h3>
+              <div class="chamar-linha">
+                <label class="campo">
+                  <lucide-icon class="lupa" [img]="SearchIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                  <span class="sr-only">Nome ou código de quem chamar</span>
+                  <input
+                    #campo
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Nome de quem você segue, ou o código"
+                    aria-describedby="chamar-dica"
+                    [value]="query()"
+                    (input)="setQuery($any($event.target).value)"
+                    (keydown.enter)="onEnter($event)"
+                  />
+                </label>
+                <label class="papel-escolha">
+                  <span class="sr-only">Papel de quem entra</span>
+                  <select (change)="newRole.set($any($event.target).value)">
+                    @for (r of roles; track r) {
+                      <option [value]="r" [selected]="r === newRole()">{{ roleLabel[r] }}</option>
+                    }
+                  </select>
+                  <lucide-icon class="seta" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                </label>
+              </div>
+              <p class="dica" id="chamar-dica">{{ roleLabel[newRole()] }}: {{ roleHint[newRole()].toLowerCase() }}.</p>
+
+              @if (suggestions().length || typedCode()) {
+                <ul class="sugestoes" aria-label="Quem chamar">
+                  @for (s of suggestions(); track s.codigo) {
+                    <li>
+                      <button type="button" class="sugestao" [disabled]="!!busy()" [appBusy]="busy() === s.codigo" (click)="add(s.codigo, s.nome)">
+                        <app-person-photo [code]="s.codigo" [name]="s.nome" />
+                        <span class="quem">
+                          <span class="nome">{{ s.nome }}</span>
+                          <span class="rel">{{ s.rel }}</span>
+                        </span>
+                        <span class="chamar-acao">
+                          <lucide-icon [img]="AddIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                          Chamar
+                        </span>
+                      </button>
+                    </li>
+                  }
+                  @if (typedCode(); as code) {
+                    <li>
+                      <button type="button" class="sugestao" [disabled]="!!busy()" [appBusy]="busy() === code" (click)="add(code, code)">
+                        <app-person-photo [code]="code" [name]="code" />
+                        <span class="quem">
+                          <span class="nome">{{ code }}</span>
+                          <span class="rel">Pelo código</span>
+                        </span>
+                        <span class="chamar-acao">
+                          <lucide-icon [img]="AddIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                          Chamar
+                        </span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              } @else if (query().trim()) {
+                <p class="vazio">Ninguém com esse nome entre quem você segue. O código da pessoa (como ABCD-1234) também serve.</p>
+              }
+              @if (error(); as e) {
+                <p class="erro" role="alert">{{ e }}</p>
+              }
+            </section>
+          } @else if (error(); as e) {
+            <p class="erro" role="alert">{{ e }}</p>
+          }
+
+          <!-- quem está: o dono sempre primeiro; quem gere troca o papel ou tira pelo menu da linha -->
+          <section class="grupo" aria-labelledby="quem-titulo">
+            <h3 class="grupo-titulo" id="quem-titulo">Quem está na anotação</h3>
+            @if (!entry()) {
+              <p class="vazio">Por enquanto, só você. Quem você chamar vê a anotação no próprio mural e recebe um aviso em Amigos.</p>
+            }
+            <ul class="pessoas">
+              @for (p of rows(); track p.codigo) {
+                <li class="pessoa">
+                  <app-person-photo [code]="p.codigo" [name]="p.nome" [face]="p.foto" />
+                  <span class="quem">
+                    <span class="nome">{{ p.nome }}@if (p.voce) {<span class="voce">{{ ' (você)' }}</span>}</span>
+                    <span class="rel" [class.dica-papel]="p.papel !== 'dono'">{{ p.papel === 'dono' ? 'Criou a anotação' : roleHint[p.papel] }}</span>
+                  </span>
+                  @if (p.papel === 'dono') {
+                    <span class="papel-fixo dono">
+                      <lucide-icon [img]="OwnerIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                      Dono
+                    </span>
+                  } @else if (manages() && !p.voce) {
+                    <label class="papel-escolha na-linha" [class.esperando]="busy() === p.codigo">
+                      <span class="sr-only">Papel de {{ p.nome }}</span>
+                      <select [attr.data-codigo]="p.codigo" [value]="p.papel" [disabled]="!!busy()" (change)="change(p, $any($event.target).value)">
+                        @for (r of roles; track r) {
+                          <option [value]="r" [selected]="r === p.papel">{{ roleLabel[r] }}</option>
+                        }
+                        <option disabled>──────</option>
+                        <option value="tirar">Tirar da anotação</option>
+                      </select>
+                      <lucide-icon class="seta" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                    </label>
+                  } @else {
+                    <span class="papel-fixo">{{ roleLabel[p.papel] }}</span>
+                  }
+                </li>
+              }
+            </ul>
+          </section>
+
+          @if (entry() || manages()) {
+            <!-- quem visita os murais: a privada fica só com quem está nela -->
+            <section class="grupo" aria-labelledby="visita-titulo">
+              <h3 class="grupo-titulo" id="visita-titulo">Para quem visita</h3>
+              @if (manages()) {
+                <div class="segmentos" role="radiogroup" aria-labelledby="visita-titulo">
+                  <label class="segmento">
+                    <input type="radio" name="compartilhar-visita" [checked]="isPrivate()" (change)="setPrivate(true)" />
+                    <lucide-icon class="seg-icone" [img]="PrivateIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                    <span class="seg-nome">Privada</span>
+                  </label>
+                  <label class="segmento">
+                    <input type="radio" name="compartilhar-visita" [checked]="!isPrivate()" (change)="setPrivate(false)" />
+                    <lucide-icon class="seg-icone" [img]="PublicIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                    <span class="seg-nome">Pública</span>
+                  </label>
+                </div>
+              }
+              <p class="visita-desc">
+                @if (isPrivate()) {
+                  Só quem está aqui vê: ela aparece no mural de cada um, mas quem visita esses murais não a vê.
+                } @else {
+                  Aparece também no mural de quem está aqui, para quem visita. As reações e os comentários vão todos para a do dono.
+                }
+              </p>
+            </section>
+          }
+        }
+        <p class="sr-only" aria-live="polite">{{ said() }}</p>
+      </div>
+
+      <footer class="foot">
+        @if (entry(); as e) {
+          @if (e.papel !== 'dono') {
+            <button type="button" class="papel perigo" [disabled]="!!busy()" [appBusy]="busy() === 'sair'" (click)="leave()">
+              <lucide-icon [img]="LeaveIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              Sair da anotação
+            </button>
+          }
+        }
+        <div class="actions">
+          <button type="button" class="btn-ink" (click)="close()">Pronto</button>
+        </div>
+      </footer>
+    </div>
+  }
+</dialog>

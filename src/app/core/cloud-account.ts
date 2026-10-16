@@ -23,6 +23,8 @@ export class CloudError extends Error {
     message: string,
     readonly code: string,
     readonly status: number,
+    /** O corpo inteiro da resposta de erro (um 409 pode trazer a versão de agora). */
+    readonly body: unknown = null,
   ) {
     super(message);
   }
@@ -138,7 +140,7 @@ export class CloudAccount {
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { erro?: string; mensagem?: string } | null;
       if (res.status === 401 && data?.erro === 'sessao-invalida') this.forget();
-      throw new CloudError(data?.mensagem ?? `A nuvem respondeu com um erro (${res.status}).`, data?.erro ?? 'erro', res.status);
+      throw new CloudError(data?.mensagem ?? `A nuvem respondeu com um erro (${res.status}).`, data?.erro ?? 'erro', res.status, data);
     }
     return res;
   }

@@ -350,6 +350,11 @@ export interface Review {
    */
   quiet?: true;
   /**
+   * Só no mural público, numa anotação compartilhada que é de outra pessoa (ver core/shared-notes.ts):
+   * de quem ela é. Quem visita reage e comenta na ficha do dono, e a leitura diz de quem é.
+   */
+  sharedBy?: { codigo: string; nome: string };
+  /**
    * Quando uma ficha que era privada (ou só visível) passou a ser publicada (ISO). Para quem segue, ela é nova a partir
    * daí, não de quando foi escrita (ver core/cloud-sync.ts). Sem o campo, vale `createdAt`.
    */
@@ -1241,9 +1246,18 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     ...(NOTE_RANKS.includes(r['noteRank']) ? { noteRank: r['noteRank'] as NoteRank } : {}),
     ...(r['noteRank'] === 'fixada' && r['pinnedSub'] === true ? { pinnedSub: true as const } : {}),
     ...optional('doneAt', isoOr(r['doneAt'], '') || undefined),
+    ...optional('sharedBy', sanitizeSharedBy(r['sharedBy'])),
     createdAt,
     updatedAt: isoOr(r['updatedAt'], createdAt),
   };
+}
+
+/** De quem é a anotação compartilhada no mural público de outra pessoa (só o que serve). */
+function sanitizeSharedBy(raw: unknown): { codigo: string; nome: string } | undefined {
+  const p = raw as Record<string, unknown> | null;
+  const codigo = typeof p?.['codigo'] === 'string' && /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(p['codigo']) ? p['codigo'] : null;
+  const nome = typeof p?.['nome'] === 'string' ? p['nome'].replace(/\s+/g, ' ').trim().slice(0, 40) : '';
+  return codigo && nome ? { codigo, nome } : undefined;
 }
 
 /** A anotação como vai para o armazenamento e o backup: sem as notas, que ela não tem. */

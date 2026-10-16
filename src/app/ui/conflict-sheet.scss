@@ -1,0 +1,235 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+:host {
+  display: contents;
+}
+
+/* A ficha de fichário dos diálogos, larga para as duas versões caberem lado a lado. Reta: é de ler. */
+dialog.conflito {
+  width: 100%;
+  max-width: min(980px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+  container: conflito / inline-size;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 4px;
+
+  h2:focus {
+    outline: none;
+  }
+}
+
+.titulos {
+  min-width: 0;
+}
+
+.sub {
+  margin-top: 4px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.12rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.body {
+  gap: 22px;
+  padding-top: 18px;
+}
+
+/* ===== A pergunta ===== */
+.duvida {
+  display: grid;
+  gap: 6px;
+  max-width: 66ch;
+}
+
+.quem-mexeu {
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
+.quando {
+  margin-left: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* a pergunta em si, a pincel: é o que a folha quer saber */
+.qual {
+  font-family: var(--f-marker);
+  font-size: 1.5rem;
+  line-height: 1.15;
+}
+
+.resto {
+  font-size: 0.94rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* ===== As duas versões, separadas por um fio tracejado (nada de caixa dentro da ficha) ===== */
+.versoes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.versao {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 4px 22px 4px 0;
+
+  & + & {
+    padding: 4px 0 4px 22px;
+    border-left: 2px dashed rgb(21 21 21 / 0.25);
+  }
+}
+
+.versao-cab {
+  --foto: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
+}
+
+.versao-nome {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.32rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.rotulo-campo {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.versao-titulo {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.14rem;
+}
+
+/* o texto como está escrito, na letra das anotações; o que difere leva a marca-texto amarela */
+.texto {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  font-family: var(--f-hand);
+  font-size: 1.04rem;
+  line-height: 1.55;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+}
+
+.trecho {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: rgb(21 21 21 / 0.72);
+}
+
+.trecho.difere {
+  color: var(--ink);
+}
+
+/* a marca-texto: uma faixa que não cobre a linha inteira, com a ponta torta da caneta */
+mark {
+  padding: 0.05em 0.15em;
+  margin: 0 -0.15em;
+  border-radius: 0.2em 0.35em 0.25em 0.4em;
+  background: linear-gradient(176deg, rgb(255 218 66 / 0.85) 0 92%, transparent 92%);
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* as linhas iguais recolhidas: uma linha pontilhada com a conta no meio */
+.recolhido {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    border-top: 1.5px dotted rgb(21 21 21 / 0.35);
+  }
+}
+
+.sem-texto {
+  flex: 1;
+  font-size: 0.96rem;
+  color: var(--ink-2);
+}
+
+.manter {
+  align-self: stretch;
+  justify-content: center;
+  margin-top: auto;
+}
+
+.enquanto {
+  font-size: 0.92rem;
+  color: var(--ink-2);
+}
+
+/* estreita: uma versão embaixo da outra, cada uma com o seu botão logo depois dela */
+@container conflito (max-width: 700px) {
+  .versoes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .versao,
+  .versao + .versao {
+    padding: 0;
+    border-left: 0;
+  }
+
+  .versao + .versao {
+    padding-top: 22px;
+    border-top: 2px dashed rgb(21 21 21 / 0.25);
+  }
+
+  .texto {
+    max-height: 38vh;
+  }
+
+  .qual {
+    font-size: 1.32rem;
+  }
+}

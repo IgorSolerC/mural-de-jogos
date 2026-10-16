@@ -1,0 +1,696 @@
+import { DestroyRef, Injectable, InjectionToken, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
+import { CloudAccount, CloudError } from './cloud-account';
+import { Cloud } from './cloud-config';
+import { DataKey, LocalData } from './local-data';
+import { Review } from './review';
+import { ReviewStore, SharedSink } from './review-store';
+import {
+  MemberRole,
+  Personal,
+  SharedConflict,
+  SharedDetail,
+  SharedMember,
+  SharedPerson,
+  SharedRole,
+  canManage,
+  canWrite,
+  mergeNote,
+  noteFrom,
+  parseDetail,
+  parsePerson,
+  personalOf,
+  sameShared,
+  sanitizePersonal,
+  sharedContent,
+  withPersonal,
+} from './shared-notes';
+
+/**
+ * As anotações compartilhadas deste aparelho e a sincronização delas com a nuvem (ver
+ * core/shared-notes.ts e api/src/routes/notes.ts).
+ *
+ * Cada anotação guarda a versão da nuvem em que este aparelho está (`base`, na `rev`) e, se houver, a
+ * edição daqui que ainda não subiu (`local`). Para subir, o site diz em qual `rev` se baseou; se outra
+ * pessoa gravou antes, a nuvem devolve a de agora, e as duas se juntam como no git (`mergeNote`): o que
+ * só um mexeu entra, o que os dois acrescentaram fica. O que os dois mudaram de jeitos diferentes sobe
+ * como conflito: a nuvem guarda as duas versões, e quem escreve escolhe uma (`resolve`).
+ *
+ * Fica tudo no IndexedDB, por conta (outra conta neste navegador não vê nem mexe nas de outra), e
+ * funciona sem rede: a edição espera e sobe quando a conexão voltar. Nada daqui vai no mural da nuvem.
+ */
+
+export const SHARED_KEY: DataKey = 'meu-mural:compartilhadas:v1';
+/** Sincronizar sozinho (ao entrar, de tempos em tempos, depois de editar). Os testes desligam e chamam à mão. */
+export const SHARED_AUTO = new InjectionToken<boolean>('SHARED_AUTO', { providedIn: 'root', factory: () => true });
+
+const SECOND = 1_000;
+const MINUTE = 60 * SECOND;
+/** Quanto depois da última edição ela sobe. */
+const PUSH_DELAY = 1_500;
+/** De quanto em quanto tempo confere se algo mudou (com a aba à vista). */
+const POLL_EVERY = MINUTE;
+/** Com uma compartilhada aberta na leitura ou no editor: mais seguido, para ver os outros escrevendo. */
+const POLL_OPEN = 15 * SECOND;
+/** Quantas anotações pedir de uma vez à nuvem (a API devolve até 25). */
+const DETAILS_PAGE = 25;
+
+/** Uma anotação compartilhada neste aparelho. */
+export interface SharedEntry {
+  id: string;
+  dono: SharedPerson;
+  papel: SharedRole;
+  membros: SharedMember[];
+  /** A versão do conteúdo na nuvem em que este aparelho está. */
+  rev: number;
+  /** Sobe a cada mudança qualquer na nuvem (o conteúdo, as pessoas, o conflito). */
+  versao: number;
+  /** O conteúdo da nuvem na `rev` (de onde a edição daqui partiu). */
+  base: Review;
+  /** A edição daqui que ainda não subiu. */
+  local: Review | null;
+  /** A outra versão de um conflito achado aqui, que ainda não subiu junto com a `local`. */
+  outra: Review | null;
+  /** A `local` é a escolha num conflito (sobe tirando o conflito). */
+  resolver: boolean;
+  conflito: SharedConflict | null;
+  atualizadoEm: string;
+  atualizadoPor: SharedPerson | null;
+  /** O lugar dela no mural de quem está aqui (fixada, sub-nota): não vai para a nuvem. */
+  pessoal: Personal;
+  /** A anotação como ela aparece no mural (feita uma vez por mudança, para o mural saber o que mudou). */
+  view: Review;
+}
+
+/** Um aviso do que aconteceu sem a pessoa pedir (para o bilhete do app). */
+export type SharedNotice =
+  | { tipo: 'conflito'; id: string; titulo: string }
+  | { tipo: 'escolhido'; id: string; titulo: string; por: string }
+  | { tipo: 'saiu'; id: string; titulo: string };
+
+/** O que vai no armazenamento: as anotações de cada conta. */
+interface Stored {
+  contas: Record<string, unknown[]>;
+}
+
+const json = (r: Review | null) => (r ? sharedContent(r) : null);
+
+function viewOf(e: Omit<SharedEntry, 'view'>): Review {
+  return withPersonal(e.local ?? e.base, e.pessoal);
+}
+
+function entryOf(e: Omit<SharedEntry, 'view'>): SharedEntry {
+  return { ...e, view: viewOf(e) };
+}
+
+function storedEntry(e: SharedEntry): unknown {
+  const { view: _v, base, local, outra, conflito, ...rest } = e;
+  return {
+    ...rest,
+    base: json(base),
+    local: json(local),
+    outra: json(outra),
+    conflito: conflito ? { ...conflito, a: json(conflito.a), b: json(conflito.b) } : null,
+  };
+}
+
+function readEntry(raw: unknown): SharedEntry | null {
+  const r = raw as Record<string, unknown> | null;
+  const id = typeof r?.['id'] === 'string' ? r['id'] : null;
+  if (!id) return null;
+  const detail = parseDetail({ ...r, dados: r?.['base'], conflito: r?.['conflito'] });
+  if (!detail) return null;
+  const local = r?.['local'] ? noteFrom(r['local'], id) : null;
+  const outra = r?.['outra'] ? noteFrom(r['outra'], id) : null;
+  return entryOf({
+    id,
+    dono: detail.dono,
+    papel: detail.papel,
+    membros: detail.membros,
+    rev: detail.rev,
+    versao: detail.versao,
+    base: detail.dados,
+    local,
+    outra: local ? outra : null,
+    resolver: r?.['resolver'] === true && !!local,
+    conflito: detail.conflito,
+    atualizadoEm: detail.atualizadoEm,
+    atualizadoPor: detail.atualizadoPor,
+    pessoal: sanitizePersonal(r?.['pessoal']),
+  });
+}
+
+@Injectable({ providedIn: 'root' })
+export class SharedStore implements SharedSink {
+  private readonly data = inject(LocalData);
+  private readonly store = inject(ReviewStore);
+  private readonly account = inject(CloudAccount);
+  private readonly cloud = inject(Cloud);
+  private readonly auto = inject(SHARED_AUTO);
+  private readonly injector = inject(Injector);
+
+  /** As anotações compartilhadas da conta de agora (id → anotação). */
+  readonly entries = signal<ReadonlyMap<string, SharedEntry>>(new Map());
+  /**
+   * A conta em que se está (null: sem conta, e as compartilhadas não aparecem). Sem rede elas continuam
+   * no mural: só a sincronização espera.
+   */
+  private readonly accountId = computed(() => (this.account.signedIn() ? (this.account.account()?.id ?? null) : null));
+  /** Sincroniza: com conta e com a nuvem ligada. */
+  readonly active = computed(() => this.accountId() !== null && this.cloud.config() !== null);
+  /** As anotações com conflito que quem está aqui resolve (o dono, os gestores e os editores). */
+  readonly conflicts = computed(() => [...this.entries().values()].filter((e) => e.conflito && canWrite(e.papel)));
+  /** O último aviso (um conflito chegou, alguém escolheu antes, a anotação saiu do mural). */
+  readonly notice = signal<(SharedNotice & { at: number }) | null>(null);
+  /** As anotações abertas agora na leitura ou no editor: conferidas mais seguido. */
+  private readonly watching = signal<ReadonlySet<string>>(new Set());
+
+  /** De qual conta são as `entries` (null: nenhuma carregada). */
+  private loadedFor: string | null = null;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private pushTimer: ReturnType<typeof setTimeout> | undefined;
+  private current: Promise<void> | null = null;
+  private rerun = false;
+  /** Os conflitos que já abriram o aviso neste aparelho (não avisa duas vezes do mesmo). */
+  private readonly told = new Set<string>();
+
+  constructor() {
+    this.store.attachShared(this);
+    // a conta mudou (entrou, saiu, trocou): as compartilhadas dela, e só elas
+    effect(() => {
+      const id = this.accountId();
+      untracked(() => this.loadFor(id));
+    });
+    // o mural mostra o que está aqui
+    effect(() => {
+      const list = [...this.entries().values()];
+      untracked(() =>
+        this.store.setShared(
+          list.map((e) => e.view),
+          new Set(list.filter((e) => e.papel !== 'dono').map((e) => e.id)),
+        ),
+      );
+    });
+    // outra aba mexeu: acompanha
+    this.data.onExternalChange((key) => {
+      if (key === SHARED_KEY) this.loadFor(this.accountId(), true);
+    });
+    if (!this.auto) return;
+    const destroy = inject(DestroyRef);
+    destroy.onDestroy(() => {
+      clearTimeout(this.timer);
+      clearTimeout(this.pushTimer);
+    });
+    effect(() => {
+      if (this.active()) untracked(() => this.schedule(0));
+      else clearTimeout(this.timer);
+    });
+    if (typeof window !== 'undefined') {
+      const onVisible = () => document.visibilityState === 'visible' && this.active() && this.schedule(0);
+      const onOnline = () => this.active() && this.schedule(0);
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('online', onOnline);
+      destroy.onDestroy(() => {
+        document.removeEventListener('visibilitychange', onVisible);
+        window.removeEventListener('online', onOnline);
+      });
+    }
+  }
+
+  // ——— o que o mural e as telas perguntam ———
+
+  get(id: string): SharedEntry | undefined {
+    return this.entries().get(id);
+  }
+
+  role(id: string): SharedRole | null {
+    return this.entries().get(id)?.papel ?? null;
+  }
+
+  /** Lida, mas não escrita: a pessoa é leitora. */
+  readOnly(id: string): boolean {
+    const e = this.entries().get(id);
+    return !!e && !canWrite(e.papel);
+  }
+
+  owned(): ReadonlySet<string> {
+    return new Set([...this.entries().values()].filter((e) => e.papel === 'dono').map((e) => e.id));
+  }
+
+  /**
+   * As compartilhadas que os outros veem no mural público de quem está aqui (as que não são privadas),
+   * com o dono quando não é a própria pessoa.
+   */
+  publicShared(): { note: Review; dono: SharedPerson | null }[] {
+    return [...this.entries().values()].filter((e) => !e.view.private).map((e) => ({ note: e.view, dono: e.papel === 'dono' ? null : e.dono }));
+  }
+
+  /** Todas as compartilhadas no mural (as privadas também), para esconder o título delas onde forem coladas. */
+  allShared(): Review[] {
+    return [...this.entries().values()].map((e) => e.view);
+  }
+
+  /** A leitura ou o editor abriu (ou fechou) uma compartilhada: enquanto aberta, ela é conferida mais seguido. */
+  watch(id: string, on: boolean): void {
+    if (!this.entries().has(id) && on) return;
+    const next = new Set(this.watching());
+    if (on) next.add(id);
+    else next.delete(id);
+    this.watching.set(next);
+    if (on && this.auto) this.schedule(0);
+  }
+
+  /** Confere já (ao abrir uma compartilhada, ao chegar o aviso de que compartilharam algo). */
+  refreshSoon(): void {
+    if (this.auto && this.active()) this.schedule(0);
+  }
+
+  // ——— o que muda daqui ———
+
+  /**
+   * A anotação foi salva neste aparelho (ver `SharedSink`). Quem só lê muda só o lugar dela no próprio
+   * mural; o editor não muda a estrutura (a categoria, as tags e quem vê ficam como estão). Com `from`
+   * (a versão que o editor abriu) diferente da de agora (outra pessoa gravou enquanto ele estava aberto),
+   * as duas se juntam como no git.
+   */
+  save(review: Review, from?: Review): void {
+    const e = this.entries().get(review.id);
+    if (!e) return;
+    const pessoal = personalOf(review);
+    const current = e.local ?? e.base;
+    let next: Review = withPersonal(review, {});
+    if (!canWrite(e.papel)) next = current;
+    else if (!canManage(e.papel)) next = withStructureOf(next, current);
+    let local = e.local;
+    let outra = e.outra;
+    if (canWrite(e.papel) && !sameShared(next, current)) {
+      if (from && !sameShared(withPersonal(from, {}), current)) {
+        // o editor abriu uma versão e outra chegou por baixo: junta as duas a partir da que ele abriu
+        const m = mergeNote(withPersonal(from, {}), current, next);
+        local = m.merged;
+        outra = m.other ?? outra;
+      } else {
+        local = { ...next, updatedAt: next.updatedAt > current.updatedAt ? next.updatedAt : new Date().toISOString() };
+      }
+    }
+    if (local === e.local && outra === e.outra && samePersonal(pessoal, e.pessoal)) return;
+    this.put({ ...e, local, outra, pessoal });
+    if (local !== e.local) this.schedulePush();
+  }
+
+  /**
+   * Compartilha uma anotação do próprio mural: ela passa a morar na nuvem à parte, com as pessoas
+   * pedidas. Devolve a anotação compartilhada (ou lança CloudError com a mensagem pronta).
+   */
+  async share(review: Review, people: { codigo: string; papel: MemberRole }[]): Promise<SharedEntry> {
+    const res = await this.account.request<{ nota: unknown }>('/v1/notas', {
+      method: 'POST',
+      body: { id: review.id, dados: sharedContent(review), membros: people },
+    });
+    const detail = parseDetail(res?.nota);
+    if (!detail) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
+    // a de antes de compartilhar continua sendo a mais nova aqui, se mudou durante o pedido
+    const now = this.store.get(review.id) ?? review;
+    const local = sameShared(withPersonal(now, {}), detail.dados) ? null : withPersonal(now, {});
+    const entry = this.adopt(detail, { pessoal: personalOf(now), local });
+    if (local) this.schedulePush();
+    return entry;
+  }
+
+  /** Põe alguém na anotação, ou troca o papel de quem já está (o dono e os gestores). */
+  async setRole(id: string, codigo: string, papel: MemberRole): Promise<void> {
+    const res = await this.account.request<{ nota: unknown }>(`/v1/notas/${encodeURIComponent(id)}/membros/${encodeURIComponent(codigo)}`, {
+      method: 'PUT',
+      body: { papel },
+    });
+    this.integrateDetail(res?.nota);
+  }
+
+  /** Tira alguém da anotação (o dono e os gestores). */
+  async removeMember(id: string, codigo: string): Promise<void> {
+    const res = await this.account.request<{ nota: unknown }>(`/v1/notas/${encodeURIComponent(id)}/membros/${encodeURIComponent(codigo)}`, {
+      method: 'DELETE',
+    });
+    this.integrateDetail(res?.nota);
+  }
+
+  /** Sai da anotação: ela some do seu mural (quem ficou continua com ela). */
+  async leave(id: string): Promise<void> {
+    try {
+      await this.account.request(`/v1/notas/${encodeURIComponent(id)}/membros/eu`, { method: 'DELETE' });
+    } catch (err) {
+      // já não estava nela: sai daqui do mesmo jeito
+      if (!(err instanceof CloudError && err.status === 404)) throw err;
+    }
+    this.drop(id);
+  }
+
+  /** Apaga para todos (só o dono). */
+  async deleteForAll(id: string): Promise<void> {
+    try {
+      await this.account.request(`/v1/notas/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch (err) {
+      if (!(err instanceof CloudError && err.status === 404)) throw err;
+    }
+    this.drop(id);
+  }
+
+  /**
+   * Escolhe uma das versões de um conflito (ou uma terceira, juntando as duas). Ela vira a anotação e
+   * sobe tirando o conflito; se outra pessoa escolheu antes, vale a escolha dela.
+   */
+  resolve(id: string, chosen: Review): void {
+    const e = this.entries().get(id);
+    if (!e || !e.conflito || !canWrite(e.papel)) return;
+    this.told.add(conflictKey(e));
+    this.put({ ...e, local: { ...withPersonal(chosen, {}), updatedAt: new Date().toISOString() }, outra: null, resolver: true, conflito: null });
+    this.schedulePush(0);
+  }
+
+  /** Confere agora: baixa o que mudou, junta e sobe o que está esperando. */
+  async sync(): Promise<void> {
+    if (this.current) {
+      this.rerun = true;
+      return this.current;
+    }
+    this.current = this.withLock(() => this.syncOnce());
+    try {
+      await this.current;
+    } finally {
+      this.current = null;
+      if (this.rerun) {
+        this.rerun = false;
+        if (this.auto) this.schedule(SECOND);
+      }
+    }
+  }
+
+  // ——— por dentro ———
+
+  private schedule(ms: number): void {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => void this.sync().catch(() => undefined), ms);
+  }
+
+  private schedulePush(ms = PUSH_DELAY): void {
+    if (!this.auto) return;
+    clearTimeout(this.pushTimer);
+    this.pushTimer = setTimeout(() => void this.sync().catch(() => undefined), ms);
+  }
+
+  /** A próxima conferida sozinha: mais seguido com uma compartilhada aberta, e só com a aba à vista. */
+  private nextPoll(failed: boolean): void {
+    if (!this.auto || !this.active()) return;
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    if (hidden) return;
+    const open = [...this.watching()].some((id) => this.entries().has(id));
+    this.schedule(failed ? 2 * MINUTE : open ? POLL_OPEN : POLL_EVERY);
+  }
+
+  private async withLock(fn: () => Promise<void>): Promise<void> {
+    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+    if (locks?.request) await locks.request('meu-mural:compartilhadas', fn);
+    else await fn();
+  }
+
+  private async syncOnce(): Promise<void> {
+    const account = this.accountId();
+    if (!account || !this.active()) return;
+    // outra aba pode ter gravado enquanto esta esperava a vez
+    this.loadFor(account, true);
+    let failed = false;
+    try {
+      await this.pull();
+      await this.pushAll();
+    } catch (err) {
+      failed = true;
+      if (!(err instanceof CloudError)) console.error(err);
+    } finally {
+      this.nextPoll(failed);
+    }
+  }
+
+  /** Baixa a lista e as anotações que mudaram. */
+  private async pull(): Promise<void> {
+    const res = await this.account.request<{ notas?: unknown }>('/v1/eu/notas');
+    const index = new Map<string, number>();
+    for (const item of Array.isArray(res?.notas) ? res.notas : []) {
+      const r = item as Record<string, unknown> | null;
+      if (typeof r?.['id'] === 'string' && Number.isSafeInteger(r['versao'])) index.set(r['id'], r['versao'] as number);
+    }
+    // as que saíram: a pessoa saiu (ou foi tirada), ou o dono apagou
+    for (const e of [...this.entries().values()]) if (!index.has(e.id)) this.drop(e.id, true);
+    const stale = [...index].filter(([id, v]) => this.entries().get(id)?.versao !== v).map(([id]) => id);
+    const before = new Set(this.entries().keys());
+    for (let i = 0; i < stale.length; i += DETAILS_PAGE) {
+      const ids = stale.slice(i, i + DETAILS_PAGE);
+      const page = await this.account.request<{ notas?: unknown[] }>(`/v1/eu/notas/detalhes?ids=${ids.map(encodeURIComponent).join(',')}`);
+      for (const raw of Array.isArray(page?.notas) ? page.notas : []) this.integrateDetail(raw);
+    }
+    // chegou uma anotação de outra pessoa: o aviso "compartilhou com você" já está no correio, sem esperar a conferida dele
+    const arrived = [...this.entries().values()].some((e) => !before.has(e.id) && e.papel !== 'dono');
+    if (arrived && this.auto) {
+      const { Follow } = await import('./follow');
+      void this.injector.get(Follow).check();
+    }
+  }
+
+  /** Sobe o que está esperando, uma anotação de cada vez. */
+  private async pushAll(): Promise<void> {
+    for (const id of [...this.entries().keys()]) {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const e = this.entries().get(id);
+        if (!e || (!e.local && !e.outra) || !canWrite(e.papel)) break;
+        const done = await this.pushOne(e);
+        if (done) break;
+      }
+    }
+  }
+
+  /** Sobe a edição daqui; devolve false se precisa tentar de novo (outra pessoa gravou antes e já juntou). */
+  private async pushOne(e: SharedEntry): Promise<boolean> {
+    const sent = e.local ?? e.base;
+    const body = {
+      base: e.rev,
+      dados: sharedContent(sent),
+      ...(e.outra ? { conflito: { b: sharedContent(e.outra) } } : e.resolver ? { resolver: true } : {}),
+    };
+    let res: Response;
+    try {
+      res = await this.account.requestRaw(`/v1/notas/${encodeURIComponent(e.id)}`, { method: 'PUT', body });
+    } catch (err) {
+      if (!(err instanceof CloudError)) throw err;
+      if (err.status === 409) {
+        // outra pessoa gravou antes: a de agora vem junto, e as duas se juntam antes de tentar de novo
+        const now = (err.body as { nota?: unknown } | null)?.nota;
+        if (now && parseDetail(now)) this.integrateDetail(now);
+        else await this.refetch(e.id);
+        return false;
+      }
+      if (err.status === 429) return true; // a próxima conferida sobe
+      if (err.status === 404) {
+        this.drop(e.id, true);
+        return true;
+      }
+      if (err.status === 403) {
+        // não pode mais escrever (virou leitor) ou mudou o que não podia: a edição fica guardada
+        this.store.keepVersions([withPersonal(sent, e.pessoal)], 'compartilhada');
+        this.put({ ...this.entries().get(e.id)!, local: null, outra: null, resolver: false });
+        await this.refetch(e.id);
+        return true;
+      }
+      throw err;
+    }
+    const detail = parseDetail(((await res.json().catch(() => null)) as { nota?: unknown } | null)?.nota);
+    const now = this.entries().get(e.id);
+    if (!detail || !now) return true;
+    // o que mudou aqui enquanto subia continua esperando (já partindo do que subiu)
+    const changedMeanwhile = now.local !== e.local;
+    const conflict = detail.conflito;
+    this.put({
+      ...now,
+      ...meta(detail),
+      base: detail.dados,
+      rev: detail.rev,
+      local: changedMeanwhile ? now.local : null,
+      outra: changedMeanwhile ? now.outra : null,
+      resolver: changedMeanwhile ? now.resolver : false,
+      conflito: conflict,
+    });
+    if (conflict && e.outra) this.announce(this.entries().get(e.id)!);
+    return true;
+  }
+
+  private async refetch(id: string): Promise<void> {
+    const page = await this.account.request<{ notas?: unknown[] }>(`/v1/eu/notas/detalhes?ids=${encodeURIComponent(id)}`);
+    const raw = Array.isArray(page?.notas) ? page.notas.find((n) => (n as { id?: unknown } | null)?.id === id) : undefined;
+    if (raw) this.integrateDetail(raw);
+    else this.drop(id, true);
+  }
+
+  /** Uma anotação que veio da nuvem entra aqui, juntando com a edição daqui se houver. */
+  private integrateDetail(raw: unknown): void {
+    const d = parseDetail(raw);
+    if (!d) return;
+    const e = this.entries().get(d.id);
+    if (!e) {
+      this.adopt(d, {});
+      return;
+    }
+    let { local, outra, resolver } = e;
+    // virou leitor: a edição que esperava não sobe mais (fica guardada)
+    if (local && !canWrite(d.papel)) {
+      this.store.keepVersions([withPersonal(local, e.pessoal)], 'compartilhada');
+      local = null;
+      outra = null;
+      resolver = false;
+    }
+    if (d.rev !== e.rev && (local || outra)) {
+      if (resolver && !d.conflito) {
+        // outra pessoa escolheu antes: vale a escolha dela (a daqui, se era outra, fica guardada)
+        if (local && !sameShared(local, d.dados)) this.store.keepVersions([withPersonal(local, e.pessoal)], 'compartilhada', false);
+        this.notice.set({ tipo: 'escolhido', id: d.id, titulo: d.dados.game.name, por: d.atualizadoPor?.nome ?? 'Outra pessoa', at: Date.now() });
+        local = null;
+        outra = null;
+        resolver = false;
+      } else if (outra) {
+        // um conflito daqui ainda não tinha subido: as duas versões dele partem agora da de lá
+        const mine = local ?? e.base;
+        local = mergeNote(e.base, d.dados, mine).merged;
+        const other = mergeNote(e.base, d.dados, outra);
+        outra = other.other ?? other.merged;
+        resolver = false;
+      } else if (local) {
+        // a edição daqui partiu de `e.base`; a da nuvem andou: junta as duas, como o git
+        const m = mergeNote(e.base, d.dados, local);
+        local = sameShared(m.merged, d.dados) && !m.other ? null : m.merged;
+        outra = m.other;
+        if (outra) resolver = false;
+      }
+    }
+    // a escolha daqui num conflito que ainda não subiu: o conflito continua resolvido aqui
+    const conflito = resolver && local ? null : d.conflito;
+    this.put({ ...e, ...meta(d), rev: d.rev, base: d.dados, local, outra, resolver, conflito });
+    if (local || outra) this.schedulePush(0);
+    this.maybeAnnounce(this.entries().get(d.id)!);
+  }
+
+  /** Uma anotação nova aqui (acabou de ser compartilhada, daqui ou com a pessoa). */
+  private adopt(d: SharedDetail, extra: { pessoal?: Personal; local?: Review | null }): SharedEntry {
+    const entry = entryOf({
+      ...meta(d),
+      id: d.id,
+      rev: d.rev,
+      base: d.dados,
+      local: extra.local ?? null,
+      outra: null,
+      resolver: false,
+      conflito: d.conflito,
+      pessoal: extra.pessoal ?? {},
+    });
+    this.put(entry);
+    this.maybeAnnounce(entry);
+    return this.entries().get(d.id)!;
+  }
+
+  /** Tira a anotação daqui. `quiet` falso: foi a pessoa que pediu; verdadeiro: a nuvem disse que saiu. */
+  private drop(id: string, fromCloud = false): void {
+    const e = this.entries().get(id);
+    if (!e) return;
+    // o dono apagou em outro aparelho com uma edição daqui esperando: ela não some
+    if (fromCloud && e.local) this.store.keepVersions([withPersonal(e.local, e.pessoal)], 'compartilhada');
+    const next = new Map(this.entries());
+    next.delete(id);
+    this.entries.set(next);
+    this.persist();
+    if (fromCloud && e.papel !== 'dono') this.notice.set({ tipo: 'saiu', id, titulo: e.view.game.name, at: Date.now() });
+  }
+
+  private put(e: Omit<SharedEntry, 'view'> | SharedEntry): void {
+    const entry = entryOf(e);
+    const before = this.entries().get(entry.id);
+    // a mesma anotação de antes no mural: o mesmo objeto (o mural não refaz a ficha)
+    const view = before && sameView(before.view, entry.view) ? before.view : entry.view;
+    const next = new Map(this.entries());
+    next.set(entry.id, { ...entry, view });
+    this.entries.set(next);
+    this.persist();
+  }
+
+  private maybeAnnounce(e: SharedEntry): void {
+    if (!e.conflito || !canWrite(e.papel)) return;
+    this.announce(e);
+  }
+
+  private announce(e: SharedEntry): void {
+    if (!e.conflito) return;
+    const key = conflictKey(e);
+    if (this.told.has(key)) return;
+    this.told.add(key);
+    this.notice.set({ tipo: 'conflito', id: e.id, titulo: e.view.game.name, at: Date.now() });
+  }
+
+  /** Lê as compartilhadas da conta (de novo, se `force`, quando outra aba gravou). */
+  private loadFor(account: string | null, force = false): void {
+    if (!force && account === this.loadedFor) return;
+    this.loadedFor = account;
+    if (!account) {
+      if (this.entries().size) this.entries.set(new Map());
+      return;
+    }
+    const list = (this.readAll().contas[account] ?? []).map(readEntry).filter((e): e is SharedEntry => e !== null);
+    const before = this.entries();
+    const next = new Map<string, SharedEntry>();
+    for (const e of list) {
+      const was = before.get(e.id);
+      next.set(e.id, was && sameView(was.view, e.view) ? { ...e, view: was.view } : e);
+    }
+    this.entries.set(next);
+  }
+
+  private readAll(): Stored {
+    try {
+      const raw = JSON.parse(this.data.getItem(SHARED_KEY) ?? 'null') as Partial<Stored> | null;
+      const contas = raw?.contas && typeof raw.contas === 'object' ? raw.contas : {};
+      return { contas: Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]> };
+    } catch {
+      return { contas: {} };
+    }
+  }
+
+  private persist(): void {
+    const account = this.loadedFor;
+    if (!account) return;
+    const all = this.readAll();
+    all.contas[account] = [...this.entries().values()].map(storedEntry);
+    if (!all.contas[account].length) delete all.contas[account];
+    try {
+      void Promise.resolve(this.data.setItem(SHARED_KEY, JSON.stringify(all))).catch(() => undefined);
+    } catch {
+      /* sem espaço: fica na memória até a próxima gravação */
+    }
+  }
+}
+
+/** O que vem da nuvem e não é o conteúdo: o dono, o papel, as pessoas, quem gravou. */
+function meta(d: SharedDetail): Pick<SharedEntry, 'id' | 'dono' | 'papel' | 'membros' | 'versao' | 'atualizadoEm' | 'atualizadoPor'> {
+  return { id: d.id, dono: d.dono, papel: d.papel, membros: d.membros, versao: d.versao, atualizadoEm: d.atualizadoEm, atualizadoPor: d.atualizadoPor };
+}
+
+/** A anotação com a estrutura (a categoria, as tags, quem vê) de `from`: o que o editor não muda. */
+function withStructureOf(r: Review, from: Review): Review {
+  const { category: _c, tags: _t, private: _p, quiet: _q, publishedAt: _w, ...rest } = r;
+  return {
+    ...rest,
+    ...(from.category ? { category: from.category } : {}),
+    ...(from.tags?.length ? { tags: from.tags } : {}),
+    ...(from.private ? { private: true as const } : {}),
+    ...(from.quiet ? { quiet: true as const } : {}),
+    ...(from.publishedAt ? { publishedAt: from.publishedAt } : {}),
+  } as Review;
+}
+
+const samePersonal = (a: Personal, b: Personal) => a.noteRank === b.noteRank && !!a.pinnedSub === !!b.pinnedSub;
+const sameView = (a: Review, b: Review) => a.updatedAt === b.updatedAt && sameShared(a, b) && samePersonal(personalOf(a), personalOf(b));
+const conflictKey = (e: SharedEntry) => `${e.id}@${e.conflito?.em ?? ''}`;
+
+export { parsePerson };

@@ -24,7 +24,9 @@ export type KeptReason =
   /** O editor estava aberto com uma versão anterior e salvou por cima. */
   | 'editor'
   /** Estava no mural quando você restaurou outra versão dela. */
-  | 'trocada';
+  | 'trocada'
+  /** Uma edição numa anotação compartilhada que não pôde mais subir (ela foi apagada, ou você saiu dela ou não pode mais editar). */
+  | 'compartilhada';
 
 export interface KeptVersion {
   /** A ficha como era. */
@@ -39,10 +41,11 @@ export const KEEP_VERSION_DAYS = 30;
 /** Quantas versões ficam, no máximo (as mais novas). */
 export const MAX_VERSIONS = 60;
 const DAY = 86_400_000;
-const REASONS: readonly KeptReason[] = ['juntou', 'apagada', 'editor', 'trocada'];
+const REASONS: readonly KeptReason[] = ['juntou', 'apagada', 'editor', 'trocada', 'compartilhada'];
 
 /** O bilhete de quando versões acabaram de ficar guardadas. */
 export function keptMessage(n: number, motivo: KeptReason): string {
+  if (motivo === 'compartilhada') return 'Uma edição sua numa anotação compartilhada não pôde subir. Ela ficou guardada em Ajustes › Backup.';
   if (motivo === 'editor') return 'Esta ficha tinha mudado em outro aparelho enquanto você editava. A versão de lá ficou guardada em Ajustes › Backup.';
   return n === 1
     ? 'Uma ficha mudou em dois aparelhos ao mesmo tempo. Ficou a mexida por último, e a outra versão está guardada em Ajustes › Backup.'

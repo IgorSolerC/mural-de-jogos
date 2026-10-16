@@ -8,6 +8,7 @@ import { Mural } from './mural';
 import { FriendKinds, Settings } from './settings';
 import { ReactionId, isReaction } from './reaction-kinds';
 import { localDay } from './review';
+import { MemberRole, isMemberRole } from './shared-notes';
 
 /**
  * Seguir pessoas pelo código e o correio (ver `api/src/routes/follow.ts`).
@@ -49,7 +50,9 @@ export type FeedItem =
   /** Alguém reagiu à minha resenha `ref` (ver core/reactions.ts). */
   | { tipo: 'reagiu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; reacao: ReactionId }
   /** Alguém comentou na minha ficha `ref` (ver core/comments.ts). */
-  | { tipo: 'comentou'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean };
+  | { tipo: 'comentou'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean }
+  /** Alguém compartilhou comigo a anotação `ref`, com um papel (ver core/shared-notes.ts). Nunca silenciado. */
+  | { tipo: 'compartilhou'; em: string; pessoa: Person; ref: string; titulo: string; mural: 'anotacoes'; silenciado: boolean; papel: MemberRole; euSigo: boolean };
 
 /** Ver de novo a cada 15 minutos, com a aba à vista. */
 export const CHECK_EVERY_MS = 15 * 60_000;
@@ -75,7 +78,12 @@ export function parseFeed(raw: unknown): FeedItem[] {
     const pessoa = person(r?.['pessoa']);
     if (!em || !pessoa) continue;
     if (r['tipo'] === 'seguiu') out.push({ tipo: 'seguiu', em, pessoa, euSigo: r['euSigo'] === true });
-    else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu' || r['tipo'] === 'comentou') {
+    else if (r['tipo'] === 'compartilhou') {
+      const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
+      if (!ref) continue;
+      const papel = isMemberRole(r['papel']) ? r['papel'] : 'leitor';
+      out.push({ tipo: 'compartilhou', em, pessoa, ref, titulo: text(r['titulo'], 120) ?? 'Anotação', mural: 'anotacoes', silenciado: false, papel, euSigo: r['euSigo'] === true });
+    } else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu' || r['tipo'] === 'comentou') {
       const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
       const titulo = text(r['titulo'], 120);
       if (!ref || !titulo) continue;
@@ -112,11 +120,11 @@ export function parsePeople(raw: unknown): People {
 }
 
 /**
- * O que aparece: tudo (misturado) ou só as resenhas do mural aberto (separado). Quem começou a seguir
- * aparece sempre: não é de mural nenhum.
+ * O que aparece: tudo (misturado) ou só as resenhas do mural aberto (separado). Quem começou a seguir e
+ * quem compartilhou uma anotação aparecem sempre: são com a pessoa, não com um mural.
  */
 export function visibleFeed(items: readonly FeedItem[], mode: FriendKinds, kind: Kind): FeedItem[] {
-  return mode === 'misturado' ? [...items] : items.filter((i) => i.tipo === 'seguiu' || i.mural === kind);
+  return mode === 'misturado' ? [...items] : items.filter((i) => i.tipo === 'seguiu' || i.tipo === 'compartilhou' || i.mural === kind);
 }
 
 /** Um item do correio, para lembrar que foi visto (ver `Follow.seenKeys`). */
@@ -426,6 +434,13 @@ export class Follow {
     // o número muda na hora, sem esperar a nuvem
     this.changePeople((list) => ({ ...list, seguindo: list.seguindo.map((f) => (f.codigo === code ? { ...f, silenciado: muted } : f)) }));
     this.items.update((list) => list.map((i) => (i.tipo !== 'seguiu' && i.pessoa.codigo === code ? { ...i, silenciado: muted } : i)));
+    this.save();
+  }
+
+  /** Tira do correio daqui o que não vale mais (o aviso de uma anotação de que a pessoa saiu). */
+  forget(match: (i: FeedItem) => boolean): void {
+    if (!this.items().some(match)) return;
+    this.items.update((list) => list.filter((i) => !match(i)));
     this.save();
   }
 

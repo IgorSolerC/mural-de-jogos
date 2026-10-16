@@ -47,6 +47,9 @@ import { Pin } from './pin';
 import { StatusLabel } from './status-label';
 import { ReactionBubble } from './reactions';
 import { CommentBubble } from './comment-bubble';
+import { SharedPatch } from './shared-patch';
+import { SharedStore } from '../core/shared-store';
+import { canWrite } from '../core/shared-notes';
 import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
@@ -85,7 +88,7 @@ function watchDistance(el: HTMLElement): () => void {
 }
 
 /** O que a ficha usa no molde (o mesmo da ficha colada, ver ui/glued-review-card.ts). */
-export const CARD_IMPORTS = [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
+export const CARD_IMPORTS = [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, SharedPatch, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
 
 /** O que vai no elemento da ficha: as classes e as variáveis do papel (a ficha colada herda, ver ui/glued-review-card.ts). */
 const CARD_HOST = {
@@ -359,7 +362,7 @@ export const CARD_TEMPLATE = `
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
         <div class="nota-texto" [class.marcavel]="interactive()" data-widget-teto appCorta>
-          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
+          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
         </div>
       }
     } @else if (!compact() && !capas()) {
@@ -368,7 +371,7 @@ export const CARD_TEMPLATE = `
         @if (masked()) {
           <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
         } @else {
-          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="checkable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
         }
       } @else if (lead(); as line) {
         @if (masked() && !bare()) {
@@ -406,12 +409,18 @@ export const CARD_TEMPLATE = `
     }
     <!-- os comentários e as reações, cada um no seu remendo colado na quina de baixo (só quando há algum);
          o dos comentários abre a ficha já com eles -->
-    @if (reactTarget(); as t) {
+    @if (reactTarget() || sharedHere()) {
       <div class="reacoes">
-        @if (!review().private) {
-          <app-comment-bubble [target]="t" (opened)="opened.emit(review().id)" />
+        <!-- a compartilhada (no seu mural): quem está nela, ou o aviso de conflito -->
+        @if (sharedHere()) {
+          <app-shared-patch [noteId]="review().id" (opened)="opened.emit(review().id)" />
         }
-        <app-reaction-bubble [target]="t" />
+        @if (reactTarget(); as t) {
+          @if (!review().private) {
+            <app-comment-bubble [target]="t" (opened)="opened.emit(review().id)" />
+          }
+          <app-reaction-bubble [target]="t" />
+        }
       </div>
     }
     </div>
@@ -1624,11 +1633,16 @@ export class ReviewCard {
   readonly toggled = output<string>();
 
   private readonly store = inject(ReviewStore);
+  private readonly shared = inject(SharedStore);
+  /** A anotação compartilhada, no seu mural (o remendo das pessoas). */
+  protected readonly sharedHere = computed(() => this.checkable() && !this.bare() && !this.preview() && !!this.shared.get(this.review().id));
+  /** As tarefas se marcam na ficha: no seu mural, e na compartilhada só para quem escreve nela. */
+  protected readonly ticks = computed(() => this.checkable() && (!this.shared.get(this.review().id) || canWrite(this.shared.role(this.review().id))));
 
   /** Marcou uma tarefa na ficha do mural: a anotação é salva com ela marcada, sem abrir nada. */
   protected toggleTask(line: number): void {
     const r = this.store.get(this.review().id);
-    if (!r || !this.checkable()) return;
+    if (!r || !this.ticks()) return;
     const text = toggleCheck(r.text, line);
     if (text === r.text) return;
     this.store.update({ ...r, text, updatedAt: new Date().toISOString() });
@@ -1682,7 +1696,7 @@ export class ReviewCard {
   });
 
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
-  protected readonly canFinish = computed(() => this.note() && this.checkable() && !this.preview() && !this.capas());
+  protected readonly canFinish = computed(() => this.note() && this.ticks() && !this.preview() && !this.capas());
   protected readonly DoneIcon = CheckCheck;
   /**
    * O texto tem o que tocar (tarefas, links)? Só então ele sobe por cima do botão da ficha; sem nada

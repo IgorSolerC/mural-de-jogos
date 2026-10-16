@@ -11,6 +11,8 @@ import { readJson, sessionOf } from './http';
 
 /** Os comentários de uma conta que vai embora: os que ela escreveu e os das fichas dela (dois parâmetros, o id duas vezes). */
 const COMMENTS_OF = 'SELECT id FROM comentarios WHERE autor_id = ? OR dono_id = ?';
+/** As anotações compartilhadas de uma conta que vai embora (um parâmetro, o id). */
+const NOTES_OF = 'SELECT id FROM notas WHERE dono_id = ?';
 
 interface UserRow {
   id: string;
@@ -186,8 +188,10 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         '(SELECT COUNT(*) FROM reacoes WHERE autor_id = ? OR dono_id = ?) + ' +
         '(SELECT COUNT(*) FROM comentarios WHERE autor_id = ? OR dono_id = ?) + ' +
         `(SELECT COUNT(*) FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})) + ` +
-        '(SELECT COUNT(*) FROM freios WHERE usuario_id = ?) AS n',
-      [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
+        '(SELECT COUNT(*) FROM freios WHERE usuario_id = ?) + ' +
+        '(SELECT COUNT(*) FROM notas WHERE dono_id = ?) + ' +
+        `(SELECT COUNT(*) FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})) AS n`,
+      [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
     );
     await write(
       deps,
@@ -203,6 +207,11 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         { sql: `DELETE FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})`, params: [id, id, id] },
         { sql: 'DELETE FROM comentarios WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
         { sql: 'DELETE FROM freios WHERE usuario_id = ?', params: [id] },
+        // as anotações compartilhadas: as dela somem para todos; nas dos outros, ela sai (e eles veem a lista nova)
+        { sql: 'UPDATE notas SET versao = versao + 1 WHERE id IN (SELECT nota_id FROM nota_membros WHERE usuario_id = ?)', params: [id] },
+        { sql: `DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref IN (${NOTES_OF})`, params: [id] },
+        { sql: `DELETE FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})`, params: [id, id] },
+        { sql: 'DELETE FROM notas WHERE dono_id = ?', params: [id] },
         { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },
       ],
       3 * ((counts?.n ?? 0) + 3),

@@ -6,7 +6,7 @@ import { buildOf } from './migrations';
 import { DataKey, LocalData } from './local-data';
 import { canonicalJson } from './canonical-json';
 import { KeptReason, KeptVersion, mergeVersions, sameContent, sanitizeVersions, storedVersions } from './kept-versions';
-import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, linkSameWorks, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, newId, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, linkSameWorks, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -83,6 +83,18 @@ export interface ImportResult {
 }
 
 /**
+ * Quem cuida das anotações compartilhadas (ver core/shared-store.ts). Elas moram na lista com as
+ * outras fichas (o mural, os links e a leitura as veem iguais), mas cada mudança nelas vai para cá,
+ * não para o armazenamento do mural nem para o mural da nuvem.
+ */
+export interface SharedSink {
+  /** A anotação foi salva (no editor, ao marcar uma tarefa, fixar, finalizar…). */
+  save(review: Review, from?: Review): void;
+  /** As que são do próprio dono (vão no arquivo de backup dele). */
+  owned(): ReadonlySet<string>;
+}
+
+/**
  * A ficha nesta versão é uma que este aparelho e a nuvem já tinham juntos na última sincronização?
  * Uma assim não precisa ser guardada quando outra a substitui: a outra veio depois dela.
  */
@@ -93,6 +105,14 @@ export class ReviewStore {
   /** Onde as listas moram: o IndexedDB, com uma cópia no localStorage (ver `LocalData`). Vem antes de tudo: as listas leem dele. */
   private readonly data = inject(LocalData);
   readonly reviews = signal<Review[]>(this.read());
+  /**
+   * As anotações compartilhadas que estão na lista (ver `SharedSink` e `setShared`): id → a anotação
+   * como entrou. Nada delas vai para o armazenamento do mural, para o mural na nuvem nem conta como
+   * conteúdo do mural deste aparelho.
+   */
+  private readonly sharedNotes = signal<ReadonlyMap<string, Review>>(new Map());
+  readonly sharedIds = computed<ReadonlySet<string>>(() => new Set(this.sharedNotes().keys()));
+  private sharedSink: SharedSink | null = null;
   /** As chaves que o navegador se recusou a salvar (cota cheia, modo privado…), até salvarem de novo. */
   private readonly failedKeys = signal<ReadonlySet<string>>(new Set());
   /**
@@ -120,7 +140,8 @@ export class ReviewStore {
       const t = Date.parse(iso);
       if (t > last) last = t;
     };
-    for (const r of this.reviews()) see(r.updatedAt);
+    const shared = this.sharedIds();
+    for (const r of this.reviews()) if (!shared.has(r.id)) see(r.updatedAt);
     for (const d of this.drafts()) see(d.updatedAt);
     for (const w of this.wishes()) see(w.updatedAt);
     const del = this.deleted();
@@ -171,7 +192,10 @@ export class ReviewStore {
     // viram uma obra só, com a mais antiga como original (gravado já, pelo efeito abaixo)
     this.linkSameWorks();
     effect(() => {
-      const list = this.reviews();
+      const all = this.reviews();
+      const shared = this.sharedIds();
+      // as compartilhadas são gravadas à parte (ver SharedSink)
+      const list = shared.size ? all.filter((r) => !shared.has(r.id)) : all;
       // cada lista só é regravada quando mudou: pregar uma resenha não regrava as anotações nem as músicas
       const now = shelved(list);
       // vindo de outra aba, o que está gravado já é isto: anota sem gravar (senão a próxima mudança
@@ -180,7 +204,7 @@ export class ReviewStore {
         this.written = now;
         return;
       }
-      if (list === this.loaded.reviews) return;
+      if (all === this.loaded.reviews) return;
       for (const shelf of SHELVES) {
         if (sameItems(now[shelf], this.written[shelf])) continue;
         this.write(SHELF_KEY[shelf], shelf === 'notas' ? now[shelf].map(storedNote) : now[shelf]);
@@ -295,6 +319,10 @@ export class ReviewStore {
    * dela) vai junto para as rejogadas dela: é a mesma obra, e a rejogada não tem como trocar o item sozinha.
    */
   update(review: Review, from?: Review): OriginalSwap | null {
+    if (this.sharedIds().has(review.id)) {
+      this.sharedSink?.save(review, from);
+      return null;
+    }
     const before = this.get(review.id);
     if (!before) {
       // sumiu enquanto estava aberta (apagada em outro aparelho, e a sincronização tirou daqui): a
@@ -339,7 +367,8 @@ export class ReviewStore {
    */
   remove(id: string): (Review & { heir?: string }) | undefined {
     const found = this.get(id);
-    if (!found) return found;
+    // a compartilhada sai pela nuvem (apagar para todos, ou sair dela: ver core/shared-store.ts)
+    if (!found || this.sharedIds().has(id)) return undefined;
     const revisits = found.revisitOf ? [] : this.revisitsOf(id);
     this.reviews.update((list) => list.filter((r) => r.id !== id));
     this.mark('reviews', id);
@@ -377,6 +406,11 @@ export class ReviewStore {
     const back = { ...v.ficha, updatedAt: new Date().toISOString() };
     if (current) this.update(back);
     else this.restore(back);
+  }
+
+  /** Guarda versões de anotações compartilhadas que perderam ou saíram (ver core/shared-store.ts). */
+  keepVersions(list: readonly Review[], motivo: KeptReason, notice = true): void {
+    this.keep(list, motivo, notice);
   }
 
   /** Guarda versões que saíram do mural (ver core/kept-versions.ts); `notice`: o bilhete avisa. */
@@ -460,7 +494,8 @@ export class ReviewStore {
    * da pessoa, ele vai junto (`owner.name`): quem abrir em Comparar já sabe de quem é.
    */
   async exportBackup(ownerName = ''): Promise<{ blob: Blob; ext: string }> {
-    const text = JSON.stringify(this.snapshot(ownerName));
+    // as compartilhadas de que a pessoa é dona vão no arquivo dela (as dos outros, não)
+    const text = JSON.stringify(this.snapshot(ownerName, this.sharedSink?.owned()));
     if (typeof CompressionStream === 'undefined') return { blob: new Blob([text], { type: 'application/json' }), ext: 'json' };
     return { blob: new Blob([await gzip(text)], { type: 'application/gzip' }), ext: 'json.gz' };
   }
@@ -470,9 +505,11 @@ export class ReviewStore {
    * pendente diz o seu mural; os backups 1 são todos de jogos. O `owner` veio depois sem mudar a
    * versão: quem não conhece o campo simplesmente o ignora.
    */
-  snapshot(ownerName = ''): BackupPayload {
+  snapshot(ownerName = '', withShared: ReadonlySet<string> = new Set()): BackupPayload {
     const name = ownerName.trim();
-    const shelves = shelved(this.reviews());
+    const shared = this.sharedIds();
+    // as compartilhadas moram na nuvem à parte: no mural, só as pedidas (as do dono, no arquivo de backup)
+    const shelves = shelved(shared.size ? this.reviews().filter((r) => !shared.has(r.id) || withShared.has(r.id)) : this.reviews());
     return {
       app: 'meu-mural',
       version: 2,
@@ -493,7 +530,7 @@ export class ReviewStore {
   hasContent(): boolean {
     const d = this.deleted();
     return (
-      this.reviews().length + this.drafts().length + this.wishes().length > 0 ||
+      this.reviews().length - this.sharedIds().size + this.drafts().length + this.wishes().length > 0 ||
       Object.keys(d.reviews).length + Object.keys(d.drafts).length + Object.keys(d.wishes).length > 0
     );
   }
@@ -531,8 +568,9 @@ export class ReviewStore {
 
     if (mode === 'replace') {
       // sem o campo, as anotações (ou as músicas) daqui ficam como estão: o backup não sabia delas
-      const kept = this.reviews().filter((r) => (isNote(r) && !rawNotes) || (isMusicReview(r) && !rawMusic));
-      this.reviews.set(withStocks([...incoming, ...kept]));
+      const shared = this.sharedIds();
+      const kept = this.reviews().filter((r) => shared.has(r.id) || (isNote(r) && !rawNotes) || (isMusicReview(r) && !rawMusic));
+      this.reviews.set(withStocks([...incoming.filter((r) => !shared.has(r.id)), ...kept]));
       if (rawDrafts) this.drafts.set(incomingDrafts);
       if (rawWishes) this.wishes.set(incomingWishes);
       this.deleted.set(theirs);
@@ -559,9 +597,12 @@ export class ReviewStore {
       if (common && !common(ficha.id, ficha.updatedAt)) lost.push({ ficha, motivo });
     };
     const byId = new Map(this.reviews().map((r) => [r.id, r]));
+    // a compartilhada não sai nem é trocada por uma junção do mural: quem manda nela é a nuvem dela (uma
+    // versão de outro aparelho, de antes de ela ser compartilhada, fica guardada se diz outra coisa)
+    const shared = this.sharedIds();
     for (const [id, when] of Object.entries(theirs.reviews)) {
       const current = byId.get(id);
-      if (current && gone(when, current.updatedAt)) {
+      if (current && !shared.has(id) && gone(when, current.updatedAt)) {
         byId.delete(id);
         removed++;
         lose(current, 'apagada');
@@ -569,6 +610,11 @@ export class ReviewStore {
     }
     for (const r of incoming) {
       const current = byId.get(r.id);
+      if (shared.has(r.id)) {
+        skipped++;
+        if (current && isNewer(r, current) && !sameContent(withoutRank(current), withoutRank(r))) lost.push({ ficha: r, motivo: 'juntou' });
+        continue;
+      }
       if (gone(ours.reviews[r.id], r.updatedAt) || gone(theirs.reviews[r.id], r.updatedAt)) {
         skipped++;
         lose(r, 'apagada');
@@ -639,6 +685,45 @@ export class ReviewStore {
     if (newWishes.length || changedWishes || keptWishes.length !== this.wishes().length) this.wishes.set([...newWishes, ...keptWishes]);
     this.deleted.set(mergeDeleted(ours, theirs));
     return { added, updated, skipped, drafts: newDrafts.length, wishes: newWishes.length, removed, ...(common ? { kept: lost.length } : {}) };
+  }
+
+  /** Quem cuida das compartilhadas (core/shared-store.ts) se apresenta. */
+  attachShared(sink: SharedSink): void {
+    this.sharedSink = sink;
+  }
+
+  /**
+   * As anotações compartilhadas que vão na lista agora (todas: as que saíram da lista saem do mural).
+   * Uma anotação do próprio mural com o mesmo id de uma compartilhada passa a ser a compartilhada: ela
+   * foi compartilhada em outro aparelho (a daqui sai do mural, marcada como apagada para os outros
+   * aparelhos fazerem o mesmo; se dizia outra coisa e é mais nova, fica guardada). `foreign`: as de
+   * outros donos; uma anotação daqui com o id de uma delas (vinda do backup de outra pessoa) ganha um id
+   * novo, para as duas não se misturarem.
+   */
+  setShared(list: readonly Review[], foreign: ReadonlySet<string> = new Set()): void {
+    const before = this.sharedNotes();
+    const next = new Map(list.map((r) => [r.id, r]));
+    if (next.size === before.size && [...next].every(([id, r]) => before.get(id) === r)) return;
+    const absorbed: Review[] = [];
+    const renamed: Review[] = [];
+    const renamedFrom: string[] = [];
+    const own: Review[] = [];
+    for (const r of this.reviews()) {
+      if (before.has(r.id)) continue;
+      if (!next.has(r.id)) own.push(r);
+      else if (foreign.has(r.id)) {
+        renamed.push({ ...r, id: newId(), updatedAt: new Date().toISOString() });
+        renamedFrom.push(r.id);
+      } else absorbed.push(r);
+    }
+    const stale = absorbed.filter((r) => isNewer(r, next.get(r.id)!) && !sameContent(withoutRank(r), withoutRank(next.get(r.id)!)));
+    // as compartilhadas onde estavam na lista (as novas no começo), depois as daqui
+    const order = new Map(this.reviews().map((r, i) => [r.id, i]));
+    const shared = [...next.values()].sort((a, b) => (order.get(a.id) ?? -1) - (order.get(b.id) ?? -1));
+    this.sharedNotes.set(next);
+    this.reviews.set(withStocks([...renamed, ...shared, ...own]));
+    for (const id of [...absorbed.map((r) => r.id), ...renamedFrom]) this.mark('reviews', id);
+    if (stale.length) this.keep(stale, 'juntou');
   }
 
   /** Agora, mas sempre depois do registro de quando foi apagado (o Desfazer pode cair no mesmo milissegundo). */
@@ -825,4 +910,10 @@ function withStocks(list: Review[]): Review[] {
     prev = i;
   }
   return list.map((r) => (r.stock ? r : { ...r, stock: assigned.get(r.id) }));
+}
+
+/** A ficha sem o lugar dela no mural (fixada, sub-nota): o que uma anotação compartilhada tem em comum. */
+function withoutRank(r: Review): Review {
+  const { noteRank: _r, pinnedSub: _s, ...rest } = r;
+  return rest as Review;
 }

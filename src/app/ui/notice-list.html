@@ -19,6 +19,9 @@
             @case ('comentou') {
               <lucide-icon [img]="CommentIcon" [size]="13" [strokeWidth]="2.6" />
             }
+            @case ('compartilhou') {
+              <lucide-icon [img]="SharedIcon" [size]="13" [strokeWidth]="2.6" />
+            }
             @default {
               <lucide-icon [img]="FollowIcon" [size]="13" [strokeWidth]="2.8" />
             }
@@ -41,13 +44,18 @@
               <span class="gente">{{ ' e mais ' + (n.people.length - 2) }}</span>
             }
             {{ verb(n) }}
-            @if (n.tipo !== 'seguiu') {
+            @if (n.tipo === 'compartilhou') {
+              <span class="obra">{{ n.item.titulo }}</span>
+            } @else if (n.tipo !== 'seguiu') {
               {{ where(n) }} <span class="obra">{{ n.item.titulo }}</span>
             }
           </span>
         </p>
         <p class="meta">
           <time [attr.datetime]="n.item.em" [title]="full(n)">{{ ago(n) }}</time>
+          @if (n.tipo === 'compartilhou') {
+            <span class="papel-aviso">· como {{ roleOf(n) }}</span>
+          }
           @if (isNew) {
             <span class="novo">Novo</span>
           }
@@ -74,6 +82,21 @@
             {{ following() === n.item.pessoa.codigo ? 'Seguindo…' : 'Seguir de volta' }}
           </button>
         }
+      } @else if (n.tipo === 'compartilhou') {
+        <!-- a anotação compartilhada: a linha abre; "Sair" tira ela do seu mural -->
+        @if (hasShared(n)) {
+          <button type="button" class="abre" [attr.aria-label]="'Abrir a anotação ' + n.item.titulo" (click)="sharedNote.emit(n)"></button>
+        }
+        <button
+          type="button"
+          class="seguir sair"
+          [disabled]="waiting()"
+          [appBusy]="leaving() === n.item.ref"
+          [attr.aria-label]="'Sair da anotação ' + n.item.titulo"
+          (click)="leave.emit(n)"
+        >
+          {{ leaving() === n.item.ref ? 'Saindo…' : 'Sair' }}
+        </button>
       } @else if (has(n)) {
         <button type="button" class="abre" [attr.aria-label]="openLabel(n)" (click)="card.emit(n)"></button>
       }

@@ -34,6 +34,8 @@ export const DATA_KEYS = [
   'mural-de-jogos:musicas:v1',
   // as versões que perderam numa junção da sincronização (ver core/kept-versions.ts)
   'mural-de-jogos:versoes:v1',
+  // as anotações compartilhadas, de cada conta (ver core/shared-store.ts); nunca vão no mural nem no backup do mural
+  'meu-mural:compartilhadas:v1',
 ] as const;
 export type DataKey = (typeof DATA_KEYS)[number];
 

@@ -97,7 +97,18 @@
 
           <!-- a categoria (uma, o assunto) e as tags (várias, informam) -->
           <section class="bloco">
-            <app-note-labels-picker [(category)]="noteCategory" [(tags)]="noteTags" [categories]="categoryLib()" [library]="tagLib()" />
+            @if (structureLocked()) {
+              <!-- a compartilhada em que você é editor: a categoria e as tags são do dono e dos gestores -->
+              <div class="rotulos-fixos">
+                <p class="pergunta">Categoria e tags</p>
+                <p class="rotulos-valor">
+                  {{ noteCategory() || 'Sem categoria' }}@if (noteTags().length) {<span aria-hidden="true"> · </span>{{ noteTags().join(', ') }}}
+                </p>
+                <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam a categoria, as tags e quem vê.</p>
+              </div>
+            } @else {
+              <app-note-labels-picker [(category)]="noteCategory" [(tags)]="noteTags" [categories]="categoryLib()" [library]="tagLib()" />
+            }
           </section>
 
           <!-- a data numa linha só ("Hoje"); a tira de dia, mês e ano só para quem quiser mudar -->
@@ -335,7 +346,16 @@
 
         <!-- Público (o mural pelo código, o perfil, Amigos, Comparar) ou Privado, até mudar de ideia.
              A pública vai também para o Feed de quem segue; quem não quiser usa a setinha do botão -->
-        @if (cloud.config()) {
+        @if (sharedRole()) {
+          <!-- a compartilhada: quem vê (e quem está nela) muda em Compartilhar, na leitura -->
+          <section class="bloco quem-ve">
+            <p class="pergunta">Quem vê</p>
+            <p class="quem-dica">
+              {{ isPrivate() ? 'Privada: só quem está na anotação vê.' : 'Pública: aparece também no mural de quem está nela, para quem visita.' }}
+              {{ structureLocked() ? 'Só o dono e os gestores mudam isso.' : 'Para mudar, ou chamar mais alguém, use Compartilhar na leitura.' }}
+            </p>
+          </section>
+        } @else if (cloud.config()) {
           <section class="bloco quem-ve">
             <fieldset>
               <legend class="pergunta">Público ou privado?</legend>

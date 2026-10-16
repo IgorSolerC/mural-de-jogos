@@ -1,5 +1,6 @@
 import { FeedItem, Person } from './follow';
 import { ReactionId, reactionOf } from './reaction-kinds';
+import { ROLE_LABEL } from './shared-notes';
 
 /**
  * Os avisos de Amigos: o que aconteceu com você e com as suas fichas (alguém começou a seguir, reagiu
@@ -10,16 +11,21 @@ import { ReactionId, reactionOf } from './reaction-kinds';
 type Followed = Extract<FeedItem, { tipo: 'seguiu' }>;
 type Reacted = Extract<FeedItem, { tipo: 'reagiu' }>;
 type Commented = Extract<FeedItem, { tipo: 'comentou' }>;
+type Shared = Extract<FeedItem, { tipo: 'compartilhou' }>;
 
 export type Notice =
   | { tipo: 'seguiu'; key: string; item: Followed; people: Person[] }
   /** As reações seguidas à mesma ficha: cada pessoa uma vez, e as reações dadas, sem repetir. */
   | { tipo: 'reagiu'; key: string; item: Reacted; people: Person[]; reactions: ReactionId[] }
   /** Os comentários seguidos na mesma ficha: cada pessoa uma vez. */
-  | { tipo: 'comentou'; key: string; item: Commented; people: Person[] };
+  | { tipo: 'comentou'; key: string; item: Commented; people: Person[] }
+  /** Alguém compartilhou uma anotação comigo (um aviso por anotação). */
+  | { tipo: 'compartilhou'; key: string; item: Shared; people: Person[] };
 
-/** Um aviso sobre uma ficha minha (o resto é quem começou a seguir). */
-export type CardNotice = Exclude<Notice, { tipo: 'seguiu' }>;
+/** Um aviso sobre uma ficha minha (reagiram, comentaram). */
+export type CardNotice = Extract<Notice, { tipo: 'reagiu' | 'comentou' }>;
+/** O aviso de uma anotação compartilhada comigo. */
+export type SharedNotice = Extract<Notice, { tipo: 'compartilhou' }>;
 
 /**
  * O correio sem as resenhas dos amigos, do mais novo para o mais velho, com os avisos seguidos do
@@ -34,8 +40,12 @@ export function groupNotices(items: readonly FeedItem[]): Notice[] {
       out.push({ tipo: 'seguiu', key: `seguiu:${item.pessoa.codigo}:${item.em}`, item, people: [item.pessoa] });
       continue;
     }
+    if (item.tipo === 'compartilhou') {
+      out.push({ tipo: 'compartilhou', key: `compartilhou:${item.ref}:${item.em}`, item, people: [item.pessoa] });
+      continue;
+    }
     const last = out[out.length - 1];
-    const same = last && last.tipo !== 'seguiu' && last.tipo === item.tipo && last.item.ref === item.ref ? last : null;
+    const same = last && (last.tipo === 'reagiu' || last.tipo === 'comentou') && last.tipo === item.tipo && last.item.ref === item.ref ? last : null;
     const fresh = !same?.people.some((p) => p.codigo === item.pessoa.codigo);
     if (item.tipo === 'reagiu') {
       if (same?.tipo === 'reagiu') {
@@ -64,6 +74,7 @@ export function peopleNames(people: readonly Person[]): string {
 /** "começou a seguir você", "reagiu" / "reagiram", "comentou" / "comentaram". */
 export function noticeVerb(n: Notice): string {
   if (n.tipo === 'seguiu') return 'começou a seguir você';
+  if (n.tipo === 'compartilhou') return 'compartilhou uma nota com você:';
   const many = n.people.length > 1;
   return n.tipo === 'reagiu' ? (many ? 'reagiram' : 'reagiu') : many ? 'comentaram' : 'comentou';
 }
@@ -79,6 +90,7 @@ export function noticeWhere(n: CardNotice): string {
 export function noticeSpoken(n: Notice): string {
   const who = peopleNames(n.people);
   if (n.tipo === 'seguiu') return `${who} ${noticeVerb(n)}`;
+  if (n.tipo === 'compartilhou') return `${who} compartilhou com você a anotação ${n.item.titulo}. Você é ${ROLE_LABEL[n.item.papel].toLowerCase()}`;
   const how = n.tipo === 'reagiu' ? ` com ${n.reactions.map((r) => reactionOf(r).label).join(', ')}` : '';
   return `${who} ${noticeVerb(n)}${how} ${noticeWhere(n)} ${n.item.titulo}`;
 }

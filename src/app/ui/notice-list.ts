@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
-import { Check, LucideAngularModule, MessageCircleMore, UserPlus } from 'lucide-angular';
+import { Check, LucideAngularModule, MessageCircleMore, UserPlus, UsersRound } from 'lucide-angular';
 import { Follow, Person, agoLabel, fullWhen } from '../core/follow';
-import { CardNotice, Notice, noticeSpoken, noticeVerb, noticeWhere } from '../core/notices';
+import { CardNotice, Notice, SharedNotice, noticeSpoken, noticeVerb, noticeWhere } from '../core/notices';
+import { ROLE_LABEL } from '../core/shared-notes';
 import { reactionOf } from '../core/reaction-kinds';
 import { ReviewStore } from '../core/review-store';
 import { Busy } from './busy';
@@ -36,12 +37,19 @@ export class NoticeList {
   /** Abrir a minha ficha que recebeu a reação ou o comentário. */
   readonly card = output<CardNotice>();
   readonly followBack = output<Person>();
+  /** A anotação compartilhada de que a pessoa está saindo agora (o botão espera). */
+  readonly leaving = input<string | null>(null);
+  /** Abrir a anotação que compartilharam com você. */
+  readonly sharedNote = output<SharedNotice>();
+  /** Sair da anotação que compartilharam com você. */
+  readonly leave = output<SharedNotice>();
 
   private readonly follow = inject(Follow);
   private readonly store = inject(ReviewStore);
 
   protected readonly CommentIcon = MessageCircleMore;
   protected readonly FollowIcon = UserPlus;
+  protected readonly SharedIcon = UsersRound;
   protected readonly CheckIcon = Check;
   protected readonly verb = noticeVerb;
   protected readonly where = noticeWhere;
@@ -50,6 +58,16 @@ export class NoticeList {
   /** A minha ficha do aviso ainda está no mural? (Sem ela, o título é só texto.) */
   protected has(n: CardNotice): boolean {
     return !!this.store.get(n.item.ref);
+  }
+
+  /** A anotação compartilhada já chegou ao seu mural? (Logo depois do aviso, pode ainda estar a caminho.) */
+  protected hasShared(n: SharedNotice): boolean {
+    return !!this.store.get(n.item.ref);
+  }
+
+  /** "editor", "leitor", "gestor". */
+  protected roleOf(n: SharedNotice): string {
+    return ROLE_LABEL[n.item.papel].toLowerCase();
   }
 
   /** As reações do aviso (até duas) para o remendo da foto. */

@@ -5,14 +5,16 @@ import {
   DestroyRef,
   ElementRef,
   computed,
+  effect,
   inject,
   linkedSignal,
+  untracked,
   output,
   signal,
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { ArrowLeft, BellOff, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LucideAngularModule, LucideIconData, MessageCircleMore, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, TextQuote, Trash2, X } from 'lucide-angular';
+import { ArrowLeft, BellOff, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LogOut, LucideAngularModule, LucideIconData, MessageCircleMore, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, TextQuote, TriangleAlert, Trash2, UsersRound, X } from 'lucide-angular';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -52,6 +54,11 @@ import { CloudAccount } from '../core/cloud-account';
 import { CommentTarget, Comments, QuoteRequest, spokenComments } from '../core/comments';
 // só usada dentro do @defer do molde, e num import só dela: assim a folha (com o editor) chega num pedaço à parte
 import { CommentsPanel } from './comments-panel';
+// as folhas das anotações compartilhadas, também em pedaços à parte (cada uma num import só dela)
+import { ShareSheet } from './share-sheet';
+import { ConflictSheet } from './conflict-sheet';
+import { SharedStore } from '../core/shared-store';
+import { ROLE_LABEL, canManage, canWrite } from '../core/shared-notes';
 
 
 /** O vão entre o trecho selecionado e o remendo "Citar" (e entre o remendo e o rodapé). */
@@ -59,7 +66,7 @@ const PATCH_GAP = 8;
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CommentsPanel, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CommentsPanel, ConflictSheet, ShareSheet, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="onClosed()">
@@ -76,6 +83,14 @@ const PATCH_GAP = 8;
           </header>
 
           <div class="body" appLuz (scroll)="watchSelection()">
+            <!-- a anotação compartilhada com duas versões brigando: quem escreve escolhe uma -->
+            @if (conflictHere()) {
+              <div class="aviso-conflito" role="status">
+                <lucide-icon class="aviso-icone" [img]="ConflictIcon" [size]="22" [strokeWidth]="2.5" aria-hidden="true" />
+                <p class="aviso-texto"><strong>Conflito de sincronização.</strong> Duas versões desta anotação mudaram o mesmo trecho.</p>
+                <button type="button" class="btn-ink aviso-btn" aria-haspopup="dialog" (click)="openConflict()">Escolher a versão</button>
+              </div>
+            }
             <!-- veio por um link de outra anotação: o caminho de volta -->
             @if (trail().at(-1); as from) {
               <button type="button" class="btn-quiet voltar-elo" (click)="back()">
@@ -169,7 +184,14 @@ const PATCH_GAP = 8;
                 @if (r.game.year) {
                   <p class="meta year">{{ profile().released }} {{ r.game.year }}</p>
                 }
-                @if (r.private && owner() === null) {
+                @if (sharedHere(); as s) {
+                  <!-- compartilhada: com quem (ou de quem) e o seu papel; a linha abre a folha das pessoas -->
+                  <p class="privada compartilhada">
+                    <lucide-icon [img]="SharedIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    <span>{{ s.line }}</span>
+                    <button type="button" class="parte-de" aria-haspopup="dialog" (click)="openShare()">{{ s.manages ? 'Pessoas' : 'Quem está' }}</button>
+                  </p>
+                } @else if (r.private && owner() === null) {
                   <p class="privada">
                     <lucide-icon [img]="PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
                     Privada: só você vê. Ninguém foi avisado.
@@ -251,7 +273,7 @@ const PATCH_GAP = 8;
                   </div>
                 }
                 <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
-                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="!showDone()" [foldKey]="r.id" [checkable]="owner() === null" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="!showDone()" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -278,11 +300,12 @@ const PATCH_GAP = 8;
           </div>
 
           <footer class="foot">
-            @if (owner(); as name) {
+            @if (owner(); as ownerName) {
+              @let name = r.sharedBy?.nome ?? ownerName;
               @if (name === 'Você') {
                 <p>{{ note() ? 'Sua anotação' : 'Sua resenha' }}</p>
-              } @else if (ownerCode(); as code) {
-                <!-- o nome leva ao perfil de quem escreveu -->
+              } @else if (r.sharedBy?.codigo ?? ownerCode(); as code) {
+                <!-- o nome leva ao perfil de quem escreveu (a compartilhada, ao do dono dela) -->
                 <p>
                   {{ note() ? 'Anotação de' : 'Resenha de' }}
                   <button type="button" class="dono-link" [attr.aria-label]="'Ver o perfil de ' + name" (click)="openOwner(code)">{{ name }}</button>
@@ -293,9 +316,10 @@ const PATCH_GAP = 8;
               <button type="button" class="btn-ink" (click)="close()">Fechar</button>
             } @else {
             <button type="button" class="btn-quiet danger" (click)="remove.emit(r.id)">
-              <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-              <!-- a anotação finalizada também sai do mural; apagar é outra coisa -->
-              {{ note() ? 'Apagar anotação' : 'Remover do mural' }}
+              <lucide-icon [img]="leaves() ? LeaveIcon : TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <!-- a anotação finalizada também sai do mural; apagar é outra coisa. A compartilhada de outra
+                   pessoa não se apaga: sai-se dela -->
+              {{ leaves() ? 'Sair da anotação' : sharedWithOthers() ? 'Apagar para todos' : note() ? 'Apagar anotação' : 'Remover do mural' }}
             </button>
             <div class="actions">
               @if (!note()) {
@@ -324,15 +348,26 @@ const PATCH_GAP = 8;
                   <lucide-icon [img]="r.noteRank === 'fixada' ? UnpinIcon : PinIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
                   {{ r.noteRank === 'fixada' ? 'Desafixar' : 'Fixar' }}
                 </button>
-                <button type="button" class="btn-quiet" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
-                  <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
-                  {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
+                @if (writable()) {
+                  <button type="button" class="btn-quiet" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
+                    <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                    {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
+                  </button>
+                }
+                <!-- dividir com outras pessoas (ou ver quem está, para quem não gere a anotação) -->
+                <button type="button" class="btn-quiet" aria-haspopup="dialog" (click)="openShare()">
+                  <lucide-icon [img]="SharedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                  {{ !sharedHere() || sharedHere()!.manages ? 'Compartilhar' : 'Pessoas' }}
                 </button>
               }
-              <button type="button" class="btn-ink" (click)="edit.emit(r.id)">
-                <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
-                Editar
-              </button>
+              @if (writable()) {
+                <button type="button" class="btn-ink" (click)="edit.emit(r.id)">
+                  <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                  Editar
+                </button>
+              } @else {
+                <p class="so-leitura">Você só lê esta anotação</p>
+              }
             </div>
             }
           </footer>
@@ -402,6 +437,18 @@ const PATCH_GAP = 8;
           </button>
         }
         </div>
+
+        <!-- as folhas das compartilhadas: cada uma num pedaço à parte, só quando abre -->
+        @if (shareOpen()) {
+          @defer (on immediate) {
+            <app-share-sheet [noteId]="r.id" (closed)="closeShare()" (left)="close()" />
+          }
+        }
+        @if (conflictOpen()) {
+          @defer (on immediate) {
+            <app-conflict-sheet [noteId]="r.id" (closed)="conflictOpen.set(false)" />
+          }
+        }
       }
     </dialog>
   `,
@@ -441,7 +488,87 @@ export class ReviewReader {
   }
   protected readonly PinIcon = PinGlyph;
   protected readonly UnpinIcon = PinOff;
+  protected readonly SharedIcon = UsersRound;
+  protected readonly LeaveIcon = LogOut;
+  protected readonly ConflictIcon = TriangleAlert;
   private readonly store = inject(ReviewStore);
+
+  // ===== As anotações compartilhadas (ver core/shared-store.ts) =====
+  private readonly shared = inject(SharedStore);
+  /** A anotação aberta é compartilhada, no seu mural: como ela está aqui. */
+  protected readonly sharedEntry = computed(() => {
+    const r = this.review();
+    return r && this.owner() === null ? (this.shared.get(r.id) ?? null) : null;
+  });
+  /** Quem abriu escreve nela (a sua, ou a compartilhada em que você é dono, gestor ou editor). */
+  protected readonly writable = computed(() => {
+    const e = this.sharedEntry();
+    return !e || canWrite(e.papel);
+  });
+  /** A linha da leitura: com quem está (ou de quem é) e o seu papel. */
+  protected readonly sharedHere = computed(() => {
+    const e = this.sharedEntry();
+    if (!e) return null;
+    const names = e.membros.map((m) => m.nome);
+    const people = names.length <= 2 ? names.join(' e ') : `${names.slice(0, 2).join(', ')} e mais ${names.length - 2}`;
+    const who =
+      e.papel === 'dono'
+        ? names.length
+          ? `Compartilhada com ${people}`
+          : 'Compartilhada, por enquanto só com você'
+        : `De ${e.dono.nome} · você é ${ROLE_LABEL[e.papel].toLowerCase()}`;
+    const vis = e.view.private ? 'privada' : 'pública';
+    return { line: `${who} · ${vis}`, manages: canManage(e.papel) };
+  });
+  /** Quem não é o dono sai da anotação (em vez de apagar). */
+  protected readonly leaves = computed(() => {
+    const e = this.sharedEntry();
+    return !!e && e.papel !== 'dono';
+  });
+  /** O dono de uma anotação com mais gente: apagar é para todos. */
+  protected readonly sharedWithOthers = computed(() => {
+    const e = this.sharedEntry();
+    return !!e && e.papel === 'dono' && e.membros.length > 0;
+  });
+  /** Há um conflito que quem abriu pode resolver. */
+  protected readonly conflictHere = computed(() => {
+    const e = this.sharedEntry();
+    return !!e?.conflito && canWrite(e.papel);
+  });
+  protected readonly shareOpen = linkedSignal({ source: () => this.review()?.id, computation: () => false });
+  protected readonly conflictOpen = linkedSignal({ source: () => this.review()?.id, computation: () => false });
+
+  protected openShare(): void {
+    this.shareOpen.set(true);
+  }
+
+  protected closeShare(): void {
+    this.shareOpen.set(false);
+    // a anotação pode ter mudado (privada, pública): a leitura mostra a de agora
+    const r = this.review();
+    if (r && this.owner() === null) this.review.set(this.store.get(r.id) ?? r);
+  }
+
+  protected openConflict(): void {
+    this.conflictOpen.set(true);
+  }
+
+  /** A compartilhada aberta acompanha o que chega da nuvem (outra pessoa escrevendo). */
+  private readonly followShared = effect(() => {
+    const e = this.sharedEntry();
+    if (!e) return;
+    untracked(() => {
+      const r = this.review();
+      if (r && r.id === e.id && r !== e.view && this.store.get(e.id) === e.view) this.review.set(e.view);
+    });
+  });
+  /** A anotação aberta é conferida mais seguido enquanto está aberta. */
+  private watched: string | null = null;
+  private watchShared(id: string | null): void {
+    if (this.watched) this.shared.watch(this.watched, false);
+    this.watched = id && this.shared.get(id) ? id : null;
+    if (this.watched) this.shared.watch(this.watched, true);
+  }
   protected readonly profile = computed(() => profileOf(this.review()?.kind ?? 'jogos'));
   protected readonly hours = computed(() => {
     const r = this.review();
@@ -486,7 +613,9 @@ export class ReviewReader {
   /** A ficha aberta como alvo das reações: a de quem tem código, ou a sua com a conta aberta. */
   protected readonly reactTarget = computed<ReactionTarget | null>(() => {
     const r = this.review();
-    const code = this.owner() === null ? this.reactions.myCode() : this.ownerCode();
+    // a compartilhada de outra pessoa: as reações e os comentários são os da ficha do dono
+    const e = this.sharedEntry();
+    const code = e && e.papel !== 'dono' ? e.dono.codigo : this.owner() === null ? this.reactions.myCode() : (r?.sharedBy?.codigo ?? this.ownerCode());
     return r && code ? { code, ref: r.id, titulo: r.game.name, mural: r.kind } : null;
   });
   /** Pedido por quem abriu: a ficha de outra pessoa sobre algo que você ainda não avaliou ("Evitar spoilers de outros murais"). */
@@ -666,6 +795,7 @@ export class ReviewReader {
     clearTimeout(this.selectionTimer);
     this.picked.set(null);
     this.review.set(null);
+    this.watchShared(null);
   }
   /** O texto embaralhado do mesmo tamanho, sem as marcas de formatação, para o modo sem spoilers. */
   protected readonly text = computed(() => {
@@ -677,7 +807,7 @@ export class ReviewReader {
   protected toggleTask(line: number): void {
     // a anotação como está agora (a nuvem pode ter trazido uma versão mais nova com a leitura aberta)
     const r = this.review() && (this.store.get(this.review()!.id) ?? this.review());
-    if (!r || this.owner() !== null) return;
+    if (!r || this.owner() !== null || !this.writable()) return;
     const text = toggleCheck(r.text, line);
     if (text === r.text) return;
     const next: Review = { ...r, text, updatedAt: new Date().toISOString() };
@@ -702,7 +832,7 @@ export class ReviewReader {
    */
   protected finish(): void {
     const r = this.review();
-    if (!r || this.owner() !== null || !this.note()) return;
+    if (!r || this.owner() !== null || !this.note() || !this.writable()) return;
     const done = !r.doneAt;
     // mostrando as finalizadas, ela fica no mural: o carimbo bate aqui mesmo, e a leitura continua
     const stay = !done || this.view.showDone();
@@ -887,6 +1017,12 @@ export class ReviewReader {
       void this.reactions.load(code);
       void this.comments.loadCounts(code);
     }
+    // a compartilhada: as reações e os comentários são os da ficha do dono
+    const dono = owner === null ? this.shared.get(review.id)?.dono.codigo : review.sharedBy?.codigo;
+    if (dono && dono !== code) {
+      void this.reactions.load(dono);
+      void this.comments.loadCounts(dono);
+    }
     this.forceMask.set(masked);
     this.revealed.set(masked && revealed);
     this.owner.set(owner);
@@ -905,6 +1041,9 @@ export class ReviewReader {
     // as fichas montadas fora da tela dormem: o navegador recalcula a página inteira quando um diálogo abre
     napWall();
     this.dialog().nativeElement.showModal();
+    this.watchShared(owner === null ? review.id : null);
+    // uma compartilhada com conflito: a pergunta abre já (para quem escreve nela)
+    if (this.conflictHere()) setTimeout(() => this.conflictOpen.set(true), 120);
   }
 
   close(): void {

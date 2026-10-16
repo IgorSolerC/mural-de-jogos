@@ -33,6 +33,7 @@ import { WishAdder } from './ui/wish-adder';
 import { PageWall } from './ui/page-wall';
 import { PAGE_BACKGROUNDS } from './core/profile';
 import { ProfileStore } from './core/profile-store';
+import { SharedStore } from './core/shared-store';
 
 @Component({
   selector: 'app-root',
@@ -64,6 +65,8 @@ export class App {
   protected readonly loginNudge = inject(LoginNudge);
   private readonly account = inject(CloudAccount);
   protected readonly cloudConfig = inject(Cloud).config;
+  /** As anotações compartilhadas: entram no mural e sincronizam à parte (ver core/shared-store.ts). */
+  private readonly shared = inject(SharedStore);
 
   /** O caminho aberto, sem query nem fragmento: em que página o N age e de onde o mural de anotações sai. */
   private readonly path = toSignal(
@@ -105,6 +108,20 @@ export class App {
       untracked(() =>
         this.toasts.show(keptMessage(kept.n, kept.motivo), { label: 'Ver', run: () => void this.router.navigate(['/ajustes'], { queryParams: { aba: 'backup' } }) }, 9000),
       );
+    });
+    // o que aconteceu com uma compartilhada sem a pessoa pedir: um conflito chegou, alguém escolheu antes, saiu do mural
+    effect(() => {
+      const n = this.shared.notice();
+      if (!n) return;
+      untracked(() => {
+        if (n.tipo === 'conflito') {
+          this.toasts.show(`Conflito de sincronização em “${n.titulo}”`, { label: 'Resolver', run: () => this.desk.openReview(n.id) }, 12000);
+        } else if (n.tipo === 'escolhido') {
+          this.toasts.show(`${n.por} já tinha escolhido uma versão de “${n.titulo}”: ficou a dela`, undefined, 9000);
+        } else {
+          this.toasts.show(`“${n.titulo}” não está mais compartilhada com você`, undefined, 7000);
+        }
+      });
     });
     this.desk.register({
       newReview: () => this.newReview(),
@@ -247,6 +264,7 @@ export class App {
     // Pega a ficha antes: o callback da view transition roda depois deste método.
     const r = this.store.get(id);
     if (!r) return;
+    if (this.shared.get(id)) return this.removeShared(id);
     const p = profileOf(r.kind);
     // as rejogadas da original ficam: a mais antiga passa a ser a original
     const revisits = this.store.revisitsOf(id);
@@ -278,6 +296,43 @@ export class App {
         document.querySelector<HTMLElement>('.bilhete button');
       next?.focus({ preventScroll: true });
     }, 60);
+  }
+
+  /**
+   * A anotação compartilhada sai pela nuvem: o dono apaga para todos (com gente nela, a pergunta diz
+   * isso); quem não é o dono sai dela (ela continua com os outros). Sem Desfazer: a nuvem já tirou.
+   */
+  private async removeShared(id: string): Promise<void> {
+    const e = this.shared.get(id);
+    if (!e) return;
+    const name = e.view.game.name;
+    const mine = e.papel === 'dono';
+    const others = e.membros.length;
+    const sure = await this.confirm.ask(
+      mine
+        ? {
+            title: others ? 'Apagar para todos?' : undefined,
+            text: others
+              ? `“${name}” sai do seu mural e do mural de ${others === 1 ? e.membros[0].nome : `todas as ${others} pessoas`} com quem você compartilhou. Não dá para desfazer.`
+              : `“${name}” sai do mural, com o texto. Não dá para desfazer.`,
+            confirm: others ? 'Apagar para todos' : 'Apagar anotação',
+          }
+        : {
+            title: 'Sair desta anotação?',
+            text: `“${name}” sai do seu mural. Ela continua com ${e.dono.nome} e com quem mais está nela; para voltar, alguém precisa chamar você de novo.`,
+            confirm: 'Sair da anotação',
+          },
+    );
+    if (!sure || !this.shared.get(id)) return;
+    try {
+      if (mine) await this.shared.deleteForAll(id);
+      else await this.shared.leave(id);
+    } catch (err) {
+      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu certo agora. Tente de novo.');
+      return;
+    }
+    this.reader().close();
+    this.toasts.show(mine ? `“${name}” foi apagada${others ? ' para todos' : ''}` : `Você saiu de “${name}”`);
   }
 
   protected onSaved(e: SavedEvent): void {

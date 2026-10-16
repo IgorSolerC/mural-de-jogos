@@ -90,6 +90,8 @@ import { ScorePicker } from './score-picker';
 import { StatusPicker } from './status-picker';
 import { VerdictPicker } from './verdict';
 import { napWall } from '../core/wall-settle';
+import { SharedStore } from '../core/shared-store';
+import { canManage } from '../core/shared-notes';
 
 export interface SavedEvent {
   id: string;
@@ -187,6 +189,14 @@ export class ReviewEditor {
 
   protected readonly id = signal(newId());
   protected readonly editing = signal<Review | null>(null);
+  private readonly shared = inject(SharedStore);
+  /** O papel de quem edita uma anotação compartilhada (null: não é compartilhada). */
+  protected readonly sharedRole = computed(() => (this.editing() ? this.shared.role(this.id()) : null));
+  /** O editor de uma compartilhada: a categoria, as tags e quem vê ficam como estão. */
+  protected readonly structureLocked = computed(() => {
+    const role = this.sharedRole();
+    return !!role && !canManage(role);
+  });
   /** Como a ficha editada estava: publicada, só no mural (sem Feed) ou privada; null na ficha nova. */
   private readonly wasAudience = computed(() => {
     const prev = this.editing();

@@ -460,6 +460,7 @@ export class SettingsPage {
     apagada: 'apagada em outro aparelho',
     editor: 'chegou enquanto você editava',
     trocada: 'saiu quando você restaurou outra',
+    compartilhada: 'de uma anotação compartilhada, não pôde subir',
   };
   /** As versões guardadas (ver core/kept-versions.ts), com o que a lista mostra de cada uma. */
   protected readonly keptVersions = computed(() =>
