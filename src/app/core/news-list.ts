@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-16-kanban-esconder-finalizadas',
+    version: '1.24.1',
+    kind: 'ajustes',
+    date: '2026-10-16',
+    title: 'Buscar nota sem as finalizadas',
+    melhorias: ['No Kanban, o Buscar nota tem "Esconder finalizadas", ligado ao abrir: as anotações finalizadas saem da lista.'],
+  },
+  {
     id: '2026-10-16-kanban',
     version: '1.24.0',
     kind: 'funcionalidade',

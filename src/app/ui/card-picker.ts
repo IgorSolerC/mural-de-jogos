@@ -56,6 +56,11 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                 (keydown.arrowdown)="$event.preventDefault(); focusItem(0)"
               />
             </label>
+            @if (doneOption()) {
+              <div class="murais" role="group" aria-label="Finalizadas">
+                <button type="button" class="filtro" [attr.aria-pressed]="hideDone()" (click)="hideDone.set(!hideDone())">Esconder finalizadas</button>
+              </div>
+            }
             @if (!onlyKind()) {
             <div class="murais" role="group" aria-label="Mural">
               <button type="button" class="filtro" [attr.aria-pressed]="kind() === null" (click)="kind.set(null)">Todos <span class="n">{{ cards().length }}</span></button>
@@ -141,6 +146,9 @@ export class CardPicker {
   readonly heading = input('Escolher a nota');
   readonly hint = input('Uma anotação ou ficha de qualquer mural, para colar no texto.');
   readonly footHint = input('Toque numa ficha para colar.');
+  /** Mostra "Esconder finalizadas" (ligado ao abrir): o "Buscar nota" do Kanban. */
+  readonly doneOption = input(false);
+  protected readonly hideDone = signal(true);
   readonly emptyText = input('Você ainda não tem outras fichas. Pregue uma no mural e ela aparece aqui.');
 
   protected readonly XIcon = X;
@@ -162,7 +170,8 @@ export class CardPicker {
     const self = this.selfId();
     const only = this.onlyKind();
     const out = new Set(this.exclude());
-    return this.store.reviews().filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only));
+    const noDone = this.doneOption() && this.hideDone();
+    return this.store.reviews().filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && !(noDone && r.doneAt));
   });
   /** Os murais que têm alguma ficha, com quantas. */
   protected readonly kinds = computed(() =>
