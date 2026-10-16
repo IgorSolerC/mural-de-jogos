@@ -571,6 +571,42 @@
               </div>
             </div>
           }
+
+          @if (keptVersions().length) {
+            <div class="linha versoes-cabeca">
+              <div class="linha-texto">
+                <p class="linha-titulo" id="versoes-titulo">Versões guardadas</p>
+                <p class="linha-desc">
+                  Quando a mesma ficha muda em dois aparelhos, fica a mexida por último, e a outra versão fica guardada aqui por {{ keepDays }} dias,
+                  em todos os aparelhos da conta. Restaurar põe ela de volta no mural, e a de agora fica guardada no lugar.
+                </p>
+              </div>
+            </div>
+            <ul class="versoes" aria-labelledby="versoes-titulo">
+              @for (k of keptVersions(); track k.key) {
+                <li class="versao">
+                  <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
+                  <div class="versao-texto">
+                    <p class="versao-nome">{{ k.name }}</p>
+                    <p class="versao-meta">
+                      <span>{{ k.wall }}</span><span>{{ k.why }}</span><span>guardada {{ k.when }}</span>
+                    </p>
+                  </div>
+                  @if (k.current) {
+                    <p class="versao-agora">
+                      <lucide-icon [img]="OkIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+                      É a de agora
+                    </p>
+                  } @else {
+                    <button type="button" class="btn-papel" (click)="restoreVersion(k.v)" [attr.aria-label]="'Restaurar a versão de ' + k.name + ' guardada ' + k.when">
+                      <lucide-icon [img]="ResetIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      Restaurar
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+          }
         </div>
 
         <div class="grupo cuidado" role="group" aria-labelledby="g-cuidado-backup">

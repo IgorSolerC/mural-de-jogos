@@ -1,6 +1,6 @@
 import { CloudSync } from './core/cloud-sync';
 import { CloudMurals } from './core/cloud-murals';
-import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { Cloud as CloudIconData, LucideAngularModule, Megaphone, X } from 'lucide-angular';
@@ -8,6 +8,7 @@ import { filter, map } from 'rxjs';
 import { areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
+import { keptMessage } from './core/kept-versions';
 import { NOTES, cap, isNotes, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
 import { News } from './core/news';
@@ -97,6 +98,14 @@ export class App {
       else document.documentElement.style.setProperty('--wall', wall.base);
     });
     void this.cloudMurals.openFromLink();
+    // uma versão perdeu numa junção (ou o editor salvou por cima de uma que chegou): diz onde ela ficou
+    effect(() => {
+      const kept = this.store.keptNotice();
+      if (!kept) return;
+      untracked(() =>
+        this.toasts.show(keptMessage(kept.n, kept.motivo), { label: 'Ver', run: () => void this.router.navigate(['/ajustes'], { queryParams: { aba: 'backup' } }) }, 9000),
+      );
+    });
     this.desk.register({
       newReview: () => this.newReview(),
       openReview: (id, fromId) => {

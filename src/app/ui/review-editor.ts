@@ -943,7 +943,8 @@ export class ReviewEditor {
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };
-    const swap = prev ? this.store.update(review) : this.store.add(review);
+    // com a versão que o editor abriu: se outra chegou enquanto ele estava aberto, ela fica guardada
+    const swap = prev ? this.store.update(review, prev) : this.store.add(review);
     const draft = this.fromDraft();
     if (draft) this.store.removeDraft(draft.id, false);
     const wish = this.fromWish();
@@ -1009,7 +1010,7 @@ export class ReviewEditor {
       : born
         ? relinkAfterRename([...notes, born], born, name, now, others)
         : [];
-    if (prev) this.store.update(clean);
+    if (prev) this.store.update(clean, prev);
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);
     this.snapshot = this.serialize();

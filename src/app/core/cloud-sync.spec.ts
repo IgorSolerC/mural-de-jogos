@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
 import { readBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
-import { CloudSync, KeyValueStore, OWNER_KEY, STATE_KEY, SYNC_AUTO, SYNC_SCHEMA, SYNC_STORAGE, fingerprint, newReviews, publicReviews, shownCard } from './cloud-sync';
+import { BASE_KEY, CloudSync, KeyValueStore, OWNER_KEY, STATE_KEY, SYNC_AUTO, SYNC_SCHEMA, SYNC_STORAGE, fingerprint, newReviews, publicReviews, shownCard } from './cloud-sync';
 import { LocalData } from './local-data';
 import { Review, sanitizeDraft, sanitizeNote, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
@@ -646,6 +646,110 @@ describe('sincronização com a nuvem', () => {
     const form = (put.args[1] as RequestInit).body as FormData;
     expect(JSON.parse(form.get('fichas') as string).sort()).toEqual(['rpub0001', 'rpub0002']);
   });
+
+  describe('nada se perde quando dois aparelhos mexem na mesma ficha', () => {
+    /** Os dois aparelhos com a mesma ficha, já acertados com a nuvem. */
+    async function twoDevices() {
+      const a = device();
+      a.store.add(review('rhades01', 'Hades', '2026-03-01T00:00:00.000Z'));
+      await a.sync.syncNow();
+      const b = device();
+      await b.sync.syncNow();
+      expect(b.names()).toEqual(['Hades']);
+      return { a, b };
+    }
+    const rename = (d: Device, name: string, updatedAt: string) => {
+      const r = d.store.get('rhades01')!;
+      d.store.update({ ...r, game: { ...r.game, name }, updatedAt });
+    };
+    const kept = (d: Device) => d.store.versions().map((v) => [v.ficha.game.name, v.motivo]);
+
+    it('a mexida antes de sincronizar perde para a mais nova, mas fica guardada nos dois aparelhos', async () => {
+      const { a, b } = await twoDevices();
+      rename(a, 'Hades (do PC de casa)', '2026-03-02T00:00:00.000Z');
+      await a.sync.syncNow();
+      // o outro PC, sem ter baixado, mexe na mesma ficha (depois)
+      rename(b, 'Hades (do trabalho)', '2026-03-03T00:00:00.000Z');
+      await settle(b, a);
+      expect(a.names()).toEqual(['Hades (do trabalho)']);
+      expect(b.names()).toEqual(['Hades (do trabalho)']);
+      expect(kept(a)).toEqual([['Hades (do PC de casa)', 'juntou']]);
+      expect(kept(b)).toEqual([['Hades (do PC de casa)', 'juntou']]);
+      expect(b.store.keptNotice()?.n).toBe(1);
+    });
+
+    it('do outro jeito também: a daqui, mais velha, perde e fica guardada', async () => {
+      const { a, b } = await twoDevices();
+      rename(b, 'Hades (do trabalho)', '2026-03-02T00:00:00.000Z');
+      rename(a, 'Hades (do PC de casa)', '2026-03-03T00:00:00.000Z');
+      await a.sync.syncNow();
+      await settle(b, a);
+      expect(b.names()).toEqual(['Hades (do PC de casa)']);
+      expect(kept(a)).toEqual([['Hades (do trabalho)', 'juntou']]);
+      expect(kept(b)).toEqual([['Hades (do trabalho)', 'juntou']]);
+    });
+
+    it('mexer de um lado só, um de cada vez, não guarda versão nenhuma', async () => {
+      const { a, b } = await twoDevices();
+      rename(a, 'Hades II', '2026-03-02T00:00:00.000Z');
+      await settle(a, b);
+      rename(b, 'Hades III', '2026-03-03T00:00:00.000Z');
+      await settle(b, a);
+      expect(a.names()).toEqual(['Hades III']);
+      expect(kept(a)).toEqual([]);
+      expect(kept(b)).toEqual([]);
+    });
+
+    it('apagada num aparelho depois de mexida no outro: sai, e a mexida fica guardada', async () => {
+      const { a, b } = await twoDevices();
+      rename(b, 'Hades (com a resenha nova)', '2026-03-02T00:00:00.000Z');
+      a.store.remove('rhades01');
+      await a.sync.syncNow();
+      await settle(b, a);
+      expect(a.names()).toEqual([]);
+      expect(b.names()).toEqual([]);
+      expect(kept(a)).toEqual([['Hades (com a resenha nova)', 'apagada']]);
+      // e dá para trazer de volta, em qualquer aparelho
+      a.store.restoreVersion(a.store.versions()[0]);
+      await settle(a, b);
+      expect(b.names()).toEqual(['Hades (com a resenha nova)']);
+    });
+
+    it('sair mantendo o mural e entrar de novo junta sem guardar o que não mudou', async () => {
+      const { a, b } = await twoDevices();
+      rename(a, 'Hades II', '2026-03-02T00:00:00.000Z');
+      await a.sync.syncNow();
+      // o b esquece o estado (saiu da conta mantendo o mural), mas lembra a base
+      b.kv.removeItem(STATE_KEY);
+      await b.sync.syncNow();
+      expect(b.names()).toEqual(['Hades II']);
+      expect(kept(b)).toEqual([]);
+    });
+
+    it('sem a base (o site de antes dela), o que mudou depois da última sincronização ainda fica guardado', async () => {
+      const { a, b } = await twoDevices();
+      b.kv.removeItem(BASE_KEY);
+      const later = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+      rename(b, 'Hades (do trabalho)', later(1));
+      rename(a, 'Hades (do PC de casa)', later(2));
+      await a.sync.syncNow();
+      await b.sync.syncNow();
+      expect(b.names()).toEqual(['Hades (do PC de casa)']);
+      expect(kept(b)).toEqual([['Hades (do trabalho)', 'juntou']]);
+    });
+
+    it('as versões vão no mural privado da nuvem, nunca no público', async () => {
+      const { a, b } = await twoDevices();
+      rename(a, 'Hades (do PC de casa)', '2026-03-02T00:00:00.000Z');
+      await a.sync.syncNow();
+      rename(b, 'Hades (do trabalho)', '2026-03-03T00:00:00.000Z');
+      await settle(b, a);
+      const priv = (await cloud.read()) as unknown as { versoes: { ficha: Review }[]; sync: { schema: number } };
+      expect(priv.versoes.map((v) => v.ficha.game.name)).toEqual(['Hades (do PC de casa)']);
+      expect(priv.sync.schema).toBe(SYNC_SCHEMA);
+      expect('versoes' in (await cloud.readPublic())).toBeFalse();
+    });
+  });
 });
 
 describe('o que os outros veem', () => {
@@ -688,10 +792,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
-  it('a leitura das fichas é a mesma da versão 15', async () => {
+  it('a leitura das fichas é a mesma da versão 16', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 15, hex: 'ebd01422b51c02b262df14a4150a9e53705b7edbd5d2f8113bb25705cf59a619' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 16, hex: 'ebd01422b51c02b262df14a4150a9e53705b7edbd5d2f8113bb25705cf59a619' });
   });
 });

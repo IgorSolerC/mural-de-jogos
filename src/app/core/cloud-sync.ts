@@ -9,7 +9,7 @@ import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks'
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
 import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
-import { BackupPayload, ReviewStore, canonicalJson, payloadReviews } from './review-store';
+import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
 import { Confirm } from '../ui/confirm';
@@ -25,12 +25,23 @@ import { Confirm } from '../ui/confirm';
  * "Tem algo para enviar?" é decidido pela impressão digital do conteúdo (SHA-256 do mural em JSON
  * canônico), e não por um sinal de "sujo": juntar o que veio da nuvem não gera reenvio, e uma
  * mudança feita durante um envio fica para o próximo.
+ *
+ * A junção fica com a versão mexida por último de cada ficha. Para a outra nunca sumir, o aparelho
+ * lembra a base: a versão de cada ficha que ele e a nuvem tinham juntos (a que baixou por último, ou a
+ * que enviou). Uma ficha que mudou dos dois lados desde a base perde para a mais nova, e a que perdeu
+ * fica guardada em Ajustes (ver core/kept-versions.ts).
  */
 
 /** O estado da sincronização neste aparelho (localStorage; "Apagar o save" leva junto). */
 export const STATE_KEY = 'meu-mural:nuvem:sync';
 /** De qual conta é o mural guardado aqui (fica ao sair mantendo o mural; vai com "Apagar o save"). */
 export const OWNER_KEY = 'meu-mural:nuvem:dono';
+/**
+ * A base: a versão (`updatedAt`) de cada ficha que este aparelho e a nuvem tinham juntos na última
+ * sincronização, e de qual conta. Fica ao sair mantendo o mural (entrar de novo junta sem perder nada);
+ * vai com "Apagar o save".
+ */
+export const BASE_KEY = 'meu-mural:nuvem:base';
 
 /**
  * A versão do formato do mural na nuvem. Aumente quando `sanitizeReview`, `sanitizeNote`, `sanitizeDraft` ou
@@ -65,11 +76,13 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  *     mural sem elas, e os outros aparelhos voltariam ao padrão.
  * 15: a categoria escondida nas configurações do mural (`hidden`, a aba sempre no "Mais"). Um site
  *     antigo jogaria a marca fora e a enviaria assim, e a aba voltaria para cima em todo aparelho.
+ * 16: as versões guardadas (`versoes`, só no mural privado: as que perderam numa junção). Um site
+ *     antigo enviaria o mural sem elas, e elas sumiriam dos outros aparelhos.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 15;
+export const SYNC_SCHEMA = 16;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -319,9 +332,22 @@ function readState(kv: KeyValueStore): SyncState | null {
 
 const byId = <T extends { id: string }>(list: readonly T[]) => [...list].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
+/** A versão de cada ficha de um mural (o daqui ou o da nuvem): id → `updatedAt`. */
+export function versionsOf(doc: { reviews?: unknown; notas?: unknown; musicas?: unknown }): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const list of [doc.reviews, doc.notas, doc.musicas]) {
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      const r = item as { id?: unknown; updatedAt?: unknown } | null;
+      if (typeof r?.id === 'string' && typeof r.updatedAt === 'string') out[r.id] = r.updatedAt;
+    }
+  }
+  return out;
+}
+
 /** A impressão digital do conteúdo do mural (sem a data do backup nem o nome), com as chaves se houver. */
 export async function fingerprint(
-  doc: Pick<BackupPayload, 'reviews' | 'notas' | 'musicas' | 'drafts' | 'wishes' | 'deleted'>,
+  doc: Pick<BackupPayload, 'reviews' | 'notas' | 'musicas' | 'drafts' | 'wishes' | 'deleted' | 'versoes'>,
   keys: SyncedKeys | null = null,
   tags: SyncedTags | null = null,
   looks: SyncedLooks | null = null,
@@ -330,6 +356,14 @@ export async function fingerprint(
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
+  // as versões guardadas, na mesma ordem venha de onde vier (só quando há alguma: o mural de antes delas
+  // continua com a mesma impressão)
+  const kept = Array.isArray(doc.versoes)
+    ? (doc.versoes as { ficha?: { id?: string; updatedAt?: string } }[])
+        .map((v) => [`${v?.ficha?.id}@${v?.ficha?.updatedAt}`, v] as const)
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([, v]) => v)
+    : [];
   const text = canonicalJson({
     reviews: byId(doc.reviews ?? []),
     // só com anotações (ou com músicas): o mural de antes delas continua com a mesma impressão
@@ -338,6 +372,7 @@ export async function fingerprint(
     drafts: byId(doc.drafts ?? []),
     wishes: byId(doc.wishes ?? []),
     deleted: doc.deleted ?? { reviews: {}, drafts: {}, wishes: {} },
+    ...(kept.length ? { versoes: kept } : {}),
     ...(keys ? { chaves: keys } : {}),
     ...(tags ? { tagsFixas: tags } : {}),
     // `publico`: desde a 1.28.5 os jeitos vão também no mural público; a impressão nova faz quem já
@@ -520,7 +555,9 @@ export class CloudSync {
     for (let attempt = 0; ; attempt++) {
       if (remote.kind === 'doc') {
         if (isNewerSchema(remote.data)) throw this.outdated();
-        this.merge(remote.text);
+        this.merge(remote.text, this.knownFor(state));
+        // o que veio da nuvem é o que os dois têm em comum agora
+        this.writeBase(state.conta, versionsOf(remote.data));
         this.mergeKeys(remote.data);
         this.mergeTags(remote.data);
         this.mergeLooks(remote.data);
@@ -549,6 +586,7 @@ export class CloudSync {
         const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, here);
         state = { ...state, rev, impressao: here };
         this.writeState(state);
+        this.writeBase(state.conta, versionsOf(doc));
         break;
       } catch (err) {
         if (!(err instanceof CloudError && err.status === 409)) throw err;
@@ -572,6 +610,8 @@ export class CloudSync {
     const otherOwner = owner !== null && owner !== accountId;
     const remoteHas = remote.kind === 'doc' && this.hasContent(remote.data);
     const base: SyncState = { conta: accountId, rev: remote.kind === 'doc' ? remote.rev : 0, impressao: '', em: null };
+    // a base de quando este aparelho saiu da conta mantendo o mural; sem ela, toda diferença conta
+    const known = this.knownFor(base);
 
     if (remoteHas && !localHas) {
       // aparelho vazio: o mural da conta desce
@@ -591,15 +631,16 @@ export class CloudSync {
         const text = remote.kind === 'doc' ? remote.text : JSON.stringify({ reviews: [], notas: [], musicas: [], drafts: [], wishes: [], deleted: {} });
         this.apply(() => this.store.importJson(text, 'replace'));
       } else if (remote.kind === 'doc') {
-        this.merge(remote.text);
+        this.merge(remote.text, known);
       }
     } else if (remoteHas && localHas) {
       // o mural daqui já era desta conta: junta sem perguntar (com a cópia de antes, por garantia)
       await this.keepCopy();
-      this.merge((remote as { text: string }).text);
+      this.merge((remote as { text: string }).text, known);
     }
     // as chaves: a da nuvem vale se for mais nova (a conferência seguinte é "mudou?", e não traria)
     if (remote.kind === 'doc') {
+      this.writeBase(accountId, versionsOf(remote.data));
       this.mergeKeys(remote.data);
       this.mergeTags(remote.data);
       this.mergeLooks(remote.data);
@@ -662,8 +703,35 @@ export class CloudSync {
     await saveBeforeCloud(blob);
   }
 
-  private merge(text: string): void {
-    this.apply(() => this.store.importJson(text, 'merge'));
+  private merge(text: string, known: KnownVersion): void {
+    this.apply(() => this.store.importJson(text, 'merge', known));
+  }
+
+  /**
+   * Quais versões este aparelho e a nuvem tinham juntos (ver `BASE_KEY`): uma assim, quando perde
+   * na junção, não precisa ser guardada. Sem a base (o site de antes dela), vale o que já existia na
+   * última sincronização; sem nada, toda versão que perde fica guardada.
+   */
+  private knownFor(state: SyncState): KnownVersion {
+    const base = this.readBase(state.conta);
+    if (base) return (id, at) => base[id] === at;
+    const em = state.em;
+    return (_id, at) => em !== null && Date.parse(at) <= em;
+  }
+
+  private readBase(account: string): Record<string, string> | null {
+    try {
+      const raw = JSON.parse(this.kv.getItem(BASE_KEY) ?? 'null') as { conta?: unknown; fichas?: unknown } | null;
+      if (!raw || raw.conta !== account || !raw.fichas || typeof raw.fichas !== 'object') return null;
+      return raw.fichas as Record<string, string>;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeBase(account: string | null, fichas: Record<string, string> = {}): void {
+    if (account) this.kv.setItem(BASE_KEY, JSON.stringify({ conta: account, fichas }));
+    else this.kv.removeItem(BASE_KEY);
   }
 
   /**
@@ -956,6 +1024,7 @@ export class CloudSync {
     this.lastSyncAt.set(null);
     if (choice === 'secondary') {
       this.writeOwner(null);
+      this.writeBase(null);
       const { eraseSave } = await import('./erase-save');
       await eraseSave();
       location.reload();
@@ -967,6 +1036,7 @@ export class CloudSync {
   forgetAccount(): void {
     this.writeState(null);
     this.writeOwner(null);
+    this.writeBase(null);
     this.lastSyncAt.set(null);
   }
 
@@ -985,6 +1055,8 @@ export class CloudSync {
     const state = readState(this.kv);
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.store.hasContent();
-    return (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks())) === state.impressao;
+    return (
+      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig())) === state.impressao
+    );
   }
 }

@@ -45,13 +45,14 @@ import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
 import { eraseSave, takeErased } from '../core/erase-save';
 import { ReviewStore } from '../core/review-store';
+import { KEEP_VERSION_DAYS, KeptReason, KeptVersion, sameContent, versionKey } from '../core/kept-versions';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset } from '../core/settings';
 import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 import { Bonus, fold, formatScore, localDay } from '../core/review';
 import { scramble } from '../core/spoiler';
-import { KINDS, Kind } from '../core/kinds';
+import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { JudgeLabel } from '../ui/judge-label';
 import { BonusSticker } from '../ui/bonus';
@@ -450,6 +451,36 @@ export class SettingsPage {
 
   protected reload(): void {
     location.reload();
+  }
+
+  protected readonly keepDays = KEEP_VERSION_DAYS;
+  /** Por que cada versão ficou guardada, do jeito que a lista diz. */
+  private static readonly KEPT_WHY: Record<KeptReason, string> = {
+    juntou: 'mudou em dois aparelhos',
+    apagada: 'apagada em outro aparelho',
+    editor: 'chegou enquanto você editava',
+    trocada: 'saiu quando você restaurou outra',
+  };
+  /** As versões guardadas (ver core/kept-versions.ts), com o que a lista mostra de cada uma. */
+  protected readonly keptVersions = computed(() =>
+    this.store.versions().map((v) => {
+      const now = this.store.get(v.ficha.id);
+      return {
+        v,
+        key: versionKey(v),
+        name: v.ficha.game.name,
+        icon: this.kindIcon[v.ficha.kind],
+        wall: cap(profileOf(v.ficha.kind).singular),
+        why: SettingsPage.KEPT_WHY[v.motivo],
+        when: new Date(v.em).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        current: !!now && sameContent(now, v.ficha),
+      };
+    }),
+  );
+
+  protected restoreVersion(v: KeptVersion): void {
+    this.store.restoreVersion(v);
+    this.toasts.show(`“${v.ficha.game.name}” voltou ao mural como estava nessa versão.`);
   }
 
   protected copyUntil(copy: BeforeCloudCopy): string {

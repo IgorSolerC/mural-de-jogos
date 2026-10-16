@@ -4,6 +4,8 @@ import { backupLists, gzip } from './backup-file';
 import { BUILD } from './build';
 import { buildOf } from './migrations';
 import { DataKey, LocalData } from './local-data';
+import { canonicalJson } from './canonical-json';
+import { KeptReason, KeptVersion, mergeVersions, sameContent, sanitizeVersions, storedVersions } from './kept-versions';
 import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, isCatalogBonus, isMusicReview, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
@@ -18,6 +20,10 @@ const DELETED_KEY = 'mural-de-jogos:apagadas:v1';
 const NOTES_KEY = 'mural-de-jogos:anotacoes:v1';
 /** As músicas também (ver `shelfOf`): o site antigo as leria como jogos, e gravaria por cima. */
 const MUSIC_KEY = 'mural-de-jogos:musicas:v1';
+/** As versões que perderam numa junção (ver core/kept-versions.ts). */
+const VERSIONS_KEY = 'mural-de-jogos:versoes:v1';
+
+export { canonicalJson };
 
 /** Onde cada lista de fichas é gravada. */
 const SHELF_KEY: Record<Shelf, DataKey> = { reviews: KEY, notas: NOTES_KEY, musicas: MUSIC_KEY };
@@ -52,6 +58,8 @@ export interface BackupPayload {
   drafts: Draft[];
   wishes: Wish[];
   deleted: Deleted;
+  /** As versões guardadas (ver core/kept-versions.ts); só quando há alguma. */
+  versoes?: unknown[];
 }
 
 /** A original de uma obra trocou: `from` era a original e virou rejogada de `to`. */
@@ -70,7 +78,15 @@ export interface ImportResult {
   wishes: number;
   /** Resenhas daqui que o backup diz que foram apagadas depois da última mudança nelas. */
   removed: number;
+  /** Na junção da sincronização: quantas versões que perderam ficaram guardadas (ver `importJson`). */
+  kept?: number;
 }
+
+/**
+ * A ficha nesta versão é uma que este aparelho e a nuvem já tinham juntos na última sincronização?
+ * Uma assim não precisa ser guardada quando outra a substitui: a outra veio depois dela.
+ */
+export type KnownVersion = (id: string, updatedAt: string) => boolean;
 
 @Injectable({ providedIn: 'root' })
 export class ReviewStore {
@@ -93,6 +109,10 @@ export class ReviewStore {
   /** A wishlist, o mais recente primeiro (de todos os murais: ver `Mural`). */
   readonly wishes = signal<Wish[]>(this.readWishes());
   private readonly deleted = signal<Deleted>(this.readDeleted());
+  /** As versões que perderam numa junção, guardadas por 30 dias (ver core/kept-versions.ts). */
+  readonly versions = signal<KeptVersion[]>(this.readVersions());
+  /** Acabou de guardar versões: quantas e por quê (o bilhete do app avisa). */
+  readonly keptNotice = signal<{ n: number; motivo: KeptReason; at: number } | null>(null);
   /** A última mudança em qualquer coisa que vai no backup: resenhas, pendentes, desejos e exclusões (ms). */
   readonly lastChangeAt = computed(() => {
     let last = 0;
@@ -143,6 +163,7 @@ export class ReviewStore {
     drafts: this.drafts(),
     wishes: this.wishes(),
     deleted: this.deleted(),
+    versions: this.versions(),
   };
 
   constructor() {
@@ -166,6 +187,7 @@ export class ReviewStore {
     this.persist(this.drafts, DRAFTS_KEY, this.loaded.drafts);
     this.persist(this.wishes, WISHES_KEY, this.loaded.wishes);
     this.persist(this.deleted, DELETED_KEY, this.loaded.deleted);
+    this.persist(this.versions, VERSIONS_KEY, this.loaded.versions, storedVersions);
 
     // Outra aba mexeu no mural: acompanha sem sobrescrever.
     if (typeof window !== 'undefined') {
@@ -182,6 +204,9 @@ export class ReviewStore {
         } else if (key === DELETED_KEY) {
           this.skipNext.add(DELETED_KEY);
           this.deleted.set(this.readDeleted());
+        } else if (key === VERSIONS_KEY) {
+          this.skipNext.add(VERSIONS_KEY);
+          this.versions.set(this.readVersions());
         }
       });
     }
@@ -262,8 +287,20 @@ export class ReviewStore {
    * Salva a ficha. Na original, o item (nome, capa, ano; nas músicas, também o artista, que é a aba
    * dela) vai junto para as rejogadas dela: é a mesma obra, e a rejogada não tem como trocar o item sozinha.
    */
-  update(review: Review): OriginalSwap | null {
+  update(review: Review, from?: Review): OriginalSwap | null {
     const before = this.get(review.id);
+    if (!before) {
+      // sumiu enquanto estava aberta (apagada em outro aparelho, e a sincronização tirou daqui): a
+      // mudança de agora é a mais nova, e a ficha volta em vez de a edição se perder
+      this.reviews.update((list) => [{ ...review, updatedAt: this.afterDeletion('reviews', review.id) }, ...list]);
+      this.unmark('reviews', review.id);
+      return this.settle(review.id);
+    }
+    // o editor abriu uma versão e, enquanto ele estava aberto, outra chegou (de outro aparelho): a
+    // que estava aqui fica guardada antes de a de agora passar por cima
+    if (from && before.updatedAt !== from.updatedAt && !sameContent(before, from) && !sameContent(before, review)) {
+      this.keep([before], 'editor');
+    }
     const sameItem =
       !before || review.revisitOf || (JSON.stringify(before.game) === JSON.stringify(review.game) && (!isMusicReview(review) || before.category === review.category));
     this.reviews.update((list) =>
@@ -297,6 +334,26 @@ export class ReviewStore {
     // mudada agora: um backup feito enquanto estava apagada não a apaga de novo ao juntar
     this.reviews.update((list) => [{ ...review, updatedAt: this.afterDeletion('reviews', review.id) }, ...list]);
     this.unmark('reviews', review.id);
+  }
+
+  /**
+   * Põe de volta uma versão guardada: ela vira a ficha de agora (mexida agora, para valer nos outros
+   * aparelhos), e a que estava no mural fica guardada no lugar dela, para dar para voltar atrás.
+   */
+  restoreVersion(v: KeptVersion): void {
+    const current = this.get(v.ficha.id);
+    if (current && !sameContent(current, v.ficha)) this.keep([current], 'trocada', false);
+    const back = { ...v.ficha, updatedAt: new Date().toISOString() };
+    if (current) this.update(back);
+    else this.restore(back);
+  }
+
+  /** Guarda versões que saíram do mural (ver core/kept-versions.ts); `notice`: o bilhete avisa. */
+  private keep(list: readonly Review[], motivo: KeptReason, notice = true): void {
+    if (!list.length) return;
+    const em = new Date().toISOString();
+    this.versions.update((v) => mergeVersions(list.map((ficha) => ({ ficha, em, motivo })), v));
+    if (notice) this.keptNotice.set({ n: list.length, motivo, at: Date.now() });
   }
 
   getDraft(id: string): Draft | undefined {
@@ -397,6 +454,7 @@ export class ReviewStore {
       drafts: this.drafts(),
       wishes: this.wishes(),
       deleted: this.deleted(),
+      ...(this.versions().length ? { versoes: storedVersions(this.versions()) } : {}),
     };
   }
 
@@ -409,8 +467,14 @@ export class ReviewStore {
     );
   }
 
-  /** Lança Error com mensagem pronta para o usuário quando o arquivo não serve. */
-  importJson(text: string, mode: 'merge' | 'replace'): ImportResult {
+  /**
+   * Lança Error com mensagem pronta para o usuário quando o arquivo não serve.
+   *
+   * `common` vem da sincronização (ver core/cloud-sync.ts): com ele, a junção guarda a versão que
+   * perdeu quando a mesma ficha foi mexida (ou apagada) dos dois lados desde a última vez que eles se
+   * acertaram (ver core/kept-versions.ts). Sem ele (um backup juntado à mão), a mais velha só sai.
+   */
+  importJson(text: string, mode: 'merge' | 'replace', common?: KnownVersion): ImportResult {
     // as anotações e as músicas vêm à parte; um backup de antes delas (ou de um site antigo) não tem o campo
     const { object, reviews: rawList, notes: rawNotes, music: rawMusic } = backupLists(text);
     const listOf = (field: string) => (Array.isArray(object?.[field]) ? (object[field] as unknown[]) : null);
@@ -430,6 +494,9 @@ export class ReviewStore {
       else skipped++;
     }
     const theirs = sanitizeDeleted(object?.['deleted']);
+    // as versões guardadas nunca saem numa junção, nem ao trocar o mural pelo de lá
+    const theirVersions = sanitizeVersions(object?.['versoes'], from);
+    if (theirVersions.length) this.versions.update((v) => mergeVersions(v, theirVersions));
 
     if (mode === 'replace') {
       // sem o campo, as anotações (ou as músicas) daqui ficam como estão: o backup não sabia delas
@@ -455,29 +522,43 @@ export class ReviewStore {
     let added = 0;
     let updated = 0;
     let removed = 0;
+    // as versões que perdem e que este aparelho e a nuvem não tinham juntos (ver `common`)
+    const lost: { ficha: Review; motivo: KeptReason }[] = [];
+    const lose = (ficha: Review, motivo: KeptReason) => {
+      if (common && !common(ficha.id, ficha.updatedAt)) lost.push({ ficha, motivo });
+    };
     const byId = new Map(this.reviews().map((r) => [r.id, r]));
     for (const [id, when] of Object.entries(theirs.reviews)) {
       const current = byId.get(id);
       if (current && gone(when, current.updatedAt)) {
         byId.delete(id);
         removed++;
+        lose(current, 'apagada');
       }
     }
     for (const r of incoming) {
       const current = byId.get(r.id);
       if (gone(ours.reviews[r.id], r.updatedAt) || gone(theirs.reviews[r.id], r.updatedAt)) {
         skipped++;
+        lose(r, 'apagada');
       } else if (!current) {
         byId.set(r.id, r);
         added++;
       } else if (isNewer(r, current)) {
         byId.set(r.id, r);
         updated++;
+        if (!sameContent(current, r)) lose(current, 'juntou');
       } else {
         skipped++;
+        if (!sameContent(current, r)) lose(r, 'juntou');
       }
     }
     this.reviews.set(withStocks([...byId.values()]));
+    if (lost.length) {
+      const em = new Date().toISOString();
+      this.versions.update((v) => mergeVersions(lost.map((l) => ({ ...l, em })), v));
+      this.keptNotice.set({ n: lost.length, motivo: lost[0].motivo, at: Date.now() });
+    }
 
     // Um pendente ou desejo que virou resenha guarda o mesmo id. Se essa resenha foi apagada depois
     // (aqui ou lá), o pendente e o desejo de um backup antigo também não voltam.
@@ -526,7 +607,7 @@ export class ReviewStore {
     );
     if (newWishes.length || changedWishes || keptWishes.length !== this.wishes().length) this.wishes.set([...newWishes, ...keptWishes]);
     this.deleted.set(mergeDeleted(ours, theirs));
-    return { added, updated, skipped, drafts: newDrafts.length, wishes: newWishes.length, removed };
+    return { added, updated, skipped, drafts: newDrafts.length, wishes: newWishes.length, removed, ...(common ? { kept: lost.length } : {}) };
   }
 
   /** Agora, mas sempre depois do registro de quando foi apagado (o Desfazer pode cair no mesmo milissegundo). */
@@ -569,13 +650,24 @@ export class ReviewStore {
     }
   }
 
-  /** Grava `key` a cada mudança da lista, menos a que veio de outra aba e a lista como foi lida ao abrir. */
-  private persist<T>(list: () => T, key: DataKey, loaded: T): void {
+  private readVersions(): KeptVersion[] {
+    try {
+      return sanitizeVersions(JSON.parse(this.data.getItem(VERSIONS_KEY) ?? 'null'));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Grava `key` a cada mudança da lista, menos a que veio de outra aba e a lista como foi lida ao
+   * abrir. `stored`: como ela vai para o armazenamento, se não for como está.
+   */
+  private persist<T>(list: () => T, key: DataKey, loaded: T, stored: (value: T) => unknown = (v) => v): void {
     effect(() => {
       const value = list();
       if (this.skipNext.delete(key)) return;
       if (value === loaded) return;
-      this.write(key, value);
+      this.write(key, stored(value));
     });
   }
 
@@ -678,14 +770,6 @@ export function isNewer(a: { updatedAt: string }, b: { updatedAt: string }): boo
   return canonicalJson(a) > canonicalJson(b);
 }
 
-/** JSON com as chaves em ordem: o mesmo objeto dá sempre o mesmo texto, venha de onde vier. */
-export function canonicalJson(value: unknown): string {
-  return JSON.stringify(value, (_key, v: unknown) =>
-    v && typeof v === 'object' && !Array.isArray(v)
-      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)))
-      : v,
-  );
-}
 
 /** O apagamento mais recente de cada id, dos dois lados. */
 function mergeDeleted(a: Deleted, b: Deleted): Deleted {

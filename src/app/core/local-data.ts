@@ -32,6 +32,8 @@ export const DATA_KEYS = [
   'mural-de-jogos:anotacoes:v1',
   // as músicas, também à parte: um site antigo as leria como jogos
   'mural-de-jogos:musicas:v1',
+  // as versões que perderam numa junção da sincronização (ver core/kept-versions.ts)
+  'mural-de-jogos:versoes:v1',
 ] as const;
 export type DataKey = (typeof DATA_KEYS)[number];
 

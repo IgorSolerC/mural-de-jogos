@@ -617,6 +617,70 @@ label.linha-titulo {
   gap: 8px;
 }
 
+/* ===== As versões guardadas: uma linha da folha para cada, com o mural, o porquê e o Restaurar ===== */
+.linha.versoes-cabeca {
+  border-bottom: 0;
+  padding-bottom: 6px;
+}
+
+.versoes {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.versao {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 11px 0;
+  border-top: 1px dotted rgb(21 21 21 / 0.18);
+}
+
+.versao-mural {
+  color: var(--ink-2);
+}
+
+.versao-nome {
+  margin: 0;
+  font-family: var(--f-ui);
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.3;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* "Jogo · mudou em dois aparelhos · guardada 15 de out., 14:32": os pedaços quebram inteiros */
+.versao-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.45em;
+  margin: 2px 0 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+
+  /* o ponto vai no fim do pedaço: quebrando, ele fica na linha de cima, e não começa a de baixo */
+  span:not(:last-child)::after {
+    content: '·';
+    margin-left: 0.45em;
+  }
+}
+
+.versao-agora {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--verdict-recomendo, #0b7a3b);
+  white-space: nowrap;
+}
+
 /* ===== Botões de papel: a ação secundária dentro da folha ===== */
 .btn-papel {
   @include kit.botao-papel;
@@ -1053,6 +1117,19 @@ label.linha-titulo {
 
   .fontes dd {
     text-align: left;
+  }
+
+  /* a versão estreita: o Restaurar desce para baixo do nome, alinhado com ele */
+  .versao {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+
+    > .btn-papel,
+    > .versao-agora {
+      grid-column: 2;
+      justify-self: start;
+      margin-top: 6px;
+    }
   }
 }
 

@@ -26,15 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-15-privacidade-das-fichas',
+    id: '2026-10-15-versoes-guardadas',
     version: '1.22.1',
     kind: 'ajustes',
     date: '2026-10-15',
-    title: 'Murall, a privacidade das fichas e as configurações do mural',
+    title: 'Murall, a sincronização sem perdas e a privacidade das fichas',
     notice: 'O Meu Mural agora se chama Murall: o mural de tudo. Veja o cartaz novo no topo.',
     noticeId: '2026-10-15-murall',
     melhorias: [
       'O site agora se chama Murall: no cartaz, o "Mur" a pincel e o "ALL" num recorte de revista rosa. O nome vale também na aba do navegador e no app instalado; nada muda nos seus murais.',
+      'Versões guardadas, em Ajustes › Backup: quando a mesma ficha muda em dois aparelhos, a versão que não ficou fica guardada por 30 dias, em todos os aparelhos da conta, com um botão para restaurar.',
       'As configurações do mural de anotações, na engrenagem da pasta: como nasce cada anotação nova (Privada, Disponível ou Publicar), a cor das sub-notas, os avisos antes de salvar e, por categoria, o ícone, a cor, a ordem das abas e o olho que esconde a aba no "Mais".',
       'No celular, enquanto você escreve, a régua de formatação fica presa em cima do teclado e a ficha usa só a parte da tela que sobra.',
       'O que a busca achou ganha um marca-texto verde-limão nas fichas, no Pra depois e na Wishlist.',
@@ -46,6 +47,7 @@ export const NEWS: NewsEntry[] = [
       'As Novidades foram recontadas por regras fixas: cada versão é uma funcionalidade ou os ajustes de um dia, com as melhorias e as correções em listas separadas. A versão caiu de 1.41.14 para 1.22.1.',
     ],
     correcoes: [
+      'Mexer numa ficha num aparelho antes de ele sincronizar não apaga mais o que foi feito nela em outro aparelho: a versão que perde fica guardada, e uma ficha apagada em outro aparelho enquanto você a editava volta ao salvar.',
       'Uma ficha privada colada numa ficha pública (widget Nota) não mostra mais o nome dela para quem visita, e as reações, os comentários e os avisos de uma ficha que virou privada somem para os outros (voltam se ela voltar a ficar à mostra).',
       'A ficha colada no texto fica presa na fita, a orelha da categoria não tampa mais a linha de cima e a prévia muda com o tamanho escolhido.',
       'Tocar no vazio ao lado de uma ficha colada abre a anotação onde ela está (antes não fazia nada).',
