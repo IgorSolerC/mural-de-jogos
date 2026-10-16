@@ -11,6 +11,8 @@ import { CategoryLooks, lookKey, sanitizeCategoryLooks } from './category-looks'
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
 import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
+import { KanbanState, sanitizeKanban } from './kanban';
+import { KanbanStore } from './kanban-store';
 import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
@@ -83,10 +85,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 17: a anotação compartilhada de outra pessoa no mural público leva de quem é (`sharedBy`). Ela só vai
  *     no público (as compartilhadas nunca vão no mural privado), mas a leitura da anotação mudou.
  *
+ * 18: os quadros Kanban das anotações (`kanban`, só no mural privado, juntados quadro a quadro). Um
+ *     site antigo enviaria o mural sem eles, e um aparelho novo não os receberia até outro enviar.
+ *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 17;
+export const SYNC_SCHEMA = 18;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -157,6 +162,22 @@ export function notesConfigOf(data: Record<string, unknown>): SyncedNotesConfig 
   if (!raw || typeof raw !== 'object') return null;
   const em = typeof raw['em'] === 'string' && Number.isFinite(Date.parse(raw['em'])) ? raw['em'] : null;
   return em ? { dados: sanitizeNotesConfig(raw['dados']), em } : null;
+}
+
+/**
+ * Os quadros Kanban das anotações (ver core/kanban.ts). Vão só no mural privado da nuvem e, ao
+ * contrário dos outros ajustes, não valem inteiros pela data: cada quadro vem de quem o mudou por
+ * último (`mergeKanban`), então mexer em quadros diferentes em dois aparelhos nunca perde nada.
+ */
+export function kanbanOf(data: Record<string, unknown>): KanbanState | null {
+  const raw = data['kanban'];
+  if (!raw || typeof raw !== 'object') return null;
+  return sanitizeKanban(raw);
+}
+
+/** Os quadros que vão para a nuvem: null sem nenhum (o mural de antes deles tem a mesma impressão). */
+export function kanbanToSync(state: KanbanState): KanbanState | null {
+  return state.boards.length || Object.keys(state.removed).length ? state : null;
 }
 
 /**
@@ -368,6 +389,7 @@ export async function fingerprint(
   looks: SyncedLooks | null = null,
   profile: SyncedProfile | null = null,
   config: SyncedNotesConfig | null = null,
+  kanban: KanbanState | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
@@ -395,6 +417,7 @@ export async function fingerprint(
     ...(looks ? { categorias: { ...looks, publico: 2 } } : {}),
     ...(profile ? { perfil: profile } : {}),
     ...(config ? { muralAnotacoes: config } : {}),
+    ...(kanban ? { kanban } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -417,6 +440,7 @@ export class CloudSync {
   private readonly kv = inject(SYNC_STORAGE);
   /** As anotações compartilhadas: as públicas vão no mural que os outros veem (ver `push`). */
   private readonly shared = inject(SharedStore);
+  private readonly kanban = inject(KanbanStore);
 
   readonly status = signal<SyncStatus>('fora');
   /** O que mostrar junto do estado (erros e avisos), já em português. */
@@ -472,6 +496,7 @@ export class CloudSync {
       this.settings.pinnedTagsAt();
       this.settings.categoryLooksAt();
       this.settings.notesConfigAt();
+      this.kanban.state();
       this.profiles.changedAt();
       if (first) {
         first = false;
@@ -579,9 +604,10 @@ export class CloudSync {
         this.mergeTags(remote.data);
         this.mergeLooks(remote.data);
         this.mergeConfig(remote.data);
+        this.mergeKanban(remote.data);
         this.mergeProfile(remote.data);
         state = { ...state, rev: remote.rev };
-        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig());
+        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban());
         if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
@@ -596,12 +622,13 @@ export class CloudSync {
       const looks = this.localLooks();
       const profile = this.localProfile();
       const config = this.localConfig();
-      const here = await fingerprint(doc, keys, tags, looks, profile, config);
+      const kanban = this.localKanban();
+      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban);
       const publicas = await this.sharedPrint();
       if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, here + publicas);
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, here + publicas);
         state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
@@ -663,9 +690,10 @@ export class CloudSync {
       this.mergeTags(remote.data);
       this.mergeLooks(remote.data);
       this.mergeConfig(remote.data);
+      this.mergeKanban(remote.data);
       this.mergeProfile(remote.data);
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
-      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig());
+      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban());
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
     }
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
@@ -820,6 +848,17 @@ export class CloudSync {
     this.apply(() => this.settings.applyNotesConfig(remote.dados, remote.em));
   }
 
+  /** Os quadros Kanban deste aparelho para a nuvem, ou null sem nenhum. */
+  private localKanban(): KanbanState | null {
+    return kanbanToSync(this.kanban.state());
+  }
+
+  /** Os quadros que vieram da nuvem se juntam aos daqui, quadro a quadro. */
+  private mergeKanban(data: Record<string, unknown>): void {
+    const remote = kanbanOf(data);
+    if (remote) this.apply(() => this.kanban.merge(remote));
+  }
+
   /** O perfil deste aparelho para a nuvem, ou null se nunca mudou aqui. */
   private localProfile(): SyncedProfile | null {
     const em = this.profiles.changedAt();
@@ -836,7 +875,7 @@ export class CloudSync {
 
   /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
   private remotePrint(data: Record<string, unknown>): Promise<string> {
-    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data));
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanOf(data));
   }
 
   private apply(fn: () => void): void {
@@ -882,6 +921,7 @@ export class CloudSync {
     looks: SyncedLooks | null,
     profile: SyncedProfile | null,
     config: SyncedNotesConfig | null,
+    kanban: KanbanState | null,
     print: string,
   ): Promise<number> {
     const now = Date.now();
@@ -899,7 +939,7 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), sync: { schema: SYNC_SCHEMA } }));
+    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), sync: { schema: SYNC_SCHEMA } }));
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
@@ -1091,7 +1131,7 @@ export class CloudSync {
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.store.hasContent();
     return (
-      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig())) === state.impressao
+      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban())) === state.impressao
     );
   }
 }

@@ -26,6 +26,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-16-kanban',
+    version: '1.24.0',
+    kind: 'funcionalidade',
+    date: '2026-10-16',
+    title: 'Kanban nas anotações',
+    notice: 'Novo: Kanban nas Anotações. Monte quadros com colunas de etapas e arraste as suas anotações até Feito.',
+    items: [
+      'Kanban, nas Anotações, ao lado do Mural: quadros com colunas de etapas (A fazer, Fazendo, Feito) e as suas anotações nelas, na ficha simples. Faça quantos quadros quiser, cada um numa aba: Trabalho, Projeto da faculdade.',
+      'Arraste uma anotação de uma coluna para outra (no celular, segure um pouco antes; no teclado, Shift e as setas). Levar até Feito finaliza a anotação, e tirar de lá abre de novo.',
+      'Cada coluna tem nome, ícone e cor, e pode finalizar as tarefas movidas para ela; o lápis no alto da coluna muda isso, troca a coluna de lugar ou tira ela. Nova coluna cria outra.',
+      'Em cada coluna, Adicionar nota busca uma anotação do mural ou cria uma nova, que também fica no mural.',
+      'No quadro, cada anotação pode ter uma importância (Crítico, Importante, Médio, Baixo, Baixíssimo) e Características, as etiquetas do quadro (Correção, Sincronização…), que só aparecem nele. A busca e o filtro por característica acham o que você procura.',
+      'Com conta, os quadros vão para os seus outros aparelhos; mexer em quadros diferentes em dois aparelhos não perde nada.',
+    ],
+  },
+  {
     id: '2026-10-16-anotacoes-compartilhadas',
     version: '1.23.0',
     kind: 'funcionalidade',

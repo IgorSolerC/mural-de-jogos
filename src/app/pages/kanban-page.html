@@ -1,0 +1,195 @@
+<!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
+<h1 class="sr-only">Kanban{{ board() ? ': ' + board()!.name : '' }}</h1>
+
+@if (!boards().length) {
+  <!-- nenhum quadro ainda: a cartolina para montar o primeiro, com as três colunas desenhadas ao lado -->
+  <section class="primeiro" aria-labelledby="primeiro-titulo">
+    <div class="primeiro-ficha cartolina" data-cor="verde" style="--stock: var(--stock-verde)">
+      <app-pin class="pin" color="#e62e2d" />
+      <h2 id="primeiro-titulo">Monte o seu primeiro quadro</h2>
+      <p>
+        Um quadro tem colunas de etapas, como <em>A fazer</em>, <em>Fazendo</em> e <em>Feito</em>, e nelas as suas anotações. Arraste uma anotação até
+        <em>Feito</em> e ela é finalizada. Faça um quadro para cada coisa: o trabalho, um projeto da faculdade.
+      </p>
+      <form class="primeiro-form" (submit)="$event.preventDefault(); createFirst()">
+        <label class="primeiro-campo">
+          <span class="sr-only">Nome do quadro</span>
+          <input type="text" autocomplete="off" [maxLength]="nameMax" placeholder="Nome: Trabalho, Projeto da faculdade…" [value]="firstName()" (input)="firstName.set($any($event.target).value)" />
+        </label>
+        <button type="submit" class="btn-ink">
+          <lucide-icon [img]="BoardIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          Criar o quadro
+        </button>
+      </form>
+    </div>
+    <ol class="primeiro-vagas" aria-hidden="true">
+      @for (v of firstColumns; track v.name) {
+        <li class="vaga-coluna">
+          <span class="vaga-etiqueta" [style.--stock]="'var(--stock-' + v.color + ')'">
+            <lucide-icon [img]="iconOf[v.icon]" [size]="16" [strokeWidth]="2.6" />
+            {{ v.name }}
+          </span>
+        </li>
+      }
+    </ol>
+  </section>
+} @else if (board(); as b) {
+  <!-- os quadros: divisórias de pasta de papel manilha, como as abas das categorias -->
+  <nav class="abas-quadros" aria-label="Quadros">
+    <ul class="abas">
+      @for (q of boards(); track q.id) {
+        <li>
+          <a class="aba" [routerLink]="pathOf(q.id)" [class.on]="q.id === b.id" [attr.aria-current]="q.id === b.id ? 'page' : null">
+            <span class="aba-nome">{{ q.name }}</span>
+            <span class="aba-n">{{ q.cards.length }}</span>
+          </a>
+        </li>
+      }
+      <li>
+        <button type="button" class="aba nova" [disabled]="boards().length >= maxBoards" (click)="newBoard()">
+          <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+          <span class="aba-nome">Novo quadro</span>
+        </button>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- a pasta: a busca, o filtro de características e os ajustes do quadro -->
+  <div class="pasta">
+    <div class="pasta-linha">
+      <app-search-strip class="pasta-busca" inputId="busca-quadro" [glued]="true" label="Procurar no quadro" placeholder="Procurar no quadro…" [value]="query()" (valueChange)="query.set($event)" />
+      <div class="pasta-controles">
+        @if (b.traits.length) {
+          <div class="pasta-grupo" role="group" aria-label="Filtrar">
+            <label class="tinta campo">
+              <lucide-icon [img]="TagsIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <span class="campo-pre">Característica</span>
+              <span class="campo-val" aria-hidden="true">{{ traitLabel() }}</span>
+              <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+              <select aria-label="Mostrar só a característica" (change)="traitFilter.set($any($event.target).value)">
+                <option value="" [selected]="!traitFilter()">Todas</option>
+                @for (t of b.traits; track t.id) {
+                  <option [value]="t.id" [selected]="traitFilter() === t.id">{{ t.name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+        <div class="pasta-grupo" role="group" aria-label="Quadro">
+          <button type="button" class="tinta" [disabled]="b.columns.length >= maxColumns" (click)="newColumn()">
+            <lucide-icon [img]="ColumnIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            Nova coluna
+          </button>
+          <button type="button" class="tinta so-icone" aria-label="Ajustes do quadro" aria-haspopup="dialog" title="Ajustes do quadro" (click)="boardSheet.set(b.id)">
+            <lucide-icon [img]="SettingsIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="pasta-linha pasta-baixo">
+      <p class="pasta-nota">Arraste as anotações de uma coluna para outra (no celular, segure um pouco antes). No teclado, Shift e as setas.</p>
+      @if (filtering()) {
+        <div class="pasta-estado">
+          <p class="achados" aria-live="polite">
+            <span>Mostrando {{ shownCount() }} de {{ b.cards.length }}</span>
+            <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
+          </p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->
+  <div #quadro class="quadro" [class.arrastando]="!!drag()" [class.puxando]="panning()" (pointerdown)="onBoardDown($event)">
+    @for (v of view(); track v.col.id; let ci = $index) {
+      <section class="coluna" [attr.data-coluna]="v.col.id" [class.finaliza]="v.col.finishes" [class.alvo]="drag()?.over === v.col.id" [attr.aria-labelledby]="'col-' + v.col.id">
+        <span class="fita fita-e" aria-hidden="true"></span>
+        <span class="fita fita-d" aria-hidden="true"></span>
+        <header class="etiqueta cartolina" [style.--stock]="'var(--stock-' + v.col.color + ')'" [attr.data-cor]="v.col.color">
+          <lucide-icon class="etiqueta-icone" [img]="iconOf[v.col.icon]" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+          <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">{{ v.col.name }}</h2>
+          <span class="etiqueta-n" [attr.aria-label]="v.total === 1 ? '1 anotação' : v.total + ' anotações'">{{ v.total }}</span>
+          <button type="button" class="etiqueta-btn" [attr.aria-label]="'Ajustes da coluna ' + v.col.name" title="Ajustes da coluna" aria-haspopup="dialog" (click)="columnSheet.set({ id: v.col.id, fresh: false })">
+            <lucide-icon [img]="PencilIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+          @if (v.col.finishes) {
+            <!-- o carimbo de quem finaliza -->
+            <span class="carimbo" title="Finaliza as anotações que chegam aqui">
+              <lucide-icon [img]="DoneIcon" [size]="12" [strokeWidth]="3" aria-hidden="true" />
+              Finaliza
+            </span>
+          }
+        </header>
+
+        <ol class="fichas" [attr.aria-label]="'Anotações em ' + v.col.name">
+          @for (it of v.items; track it.card.note) {
+            <li
+              class="lugar"
+              [class.vaga]="it.dragged"
+              [style.--vaga-h.px]="it.dragged ? drag()?.height : null"
+              [attr.data-nota]="it.card.note"
+              (pointerdown)="onPointerDown($event, it.card.note, v.col.id)"
+              (keydown)="onKey($event, it.card.note, v.col.id)"
+            >
+              <app-kanban-note [review]="it.note" [card]="it.card" [boardTraits]="b.traits" (opened)="read($event)" (details)="cardSheet.set(it.card.note)" />
+            </li>
+          } @empty {
+            <li class="vazia" aria-hidden="true">{{ filtering() ? 'Nada aqui com esse filtro' : 'Nenhuma anotação ainda' }}</li>
+          }
+        </ol>
+
+        <div class="adicionar">
+          @if (adding() === v.col.id) {
+            <div class="adicionar-menu" role="group" [attr.aria-label]="'Adicionar em ' + v.col.name" (keydown.escape)="adding.set(null)">
+              <button type="button" class="adicionar-op" (click)="searchNote(v.col.id)">
+                <lucide-icon [img]="SearchIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                Buscar nota
+              </button>
+              <button type="button" class="adicionar-op" (click)="createNote(v.col.id)">
+                <lucide-icon [img]="NewNoteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                Nova nota
+              </button>
+              <button type="button" class="adicionar-fecha" aria-label="Fechar" (click)="adding.set(null)">
+                <lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+              </button>
+            </div>
+          } @else {
+            <button type="button" class="adicionar-btn" (click)="openAdd(v.col.id)">
+              <lucide-icon [img]="PlusIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+              Adicionar nota
+            </button>
+          }
+        </div>
+      </section>
+    }
+    @if (b.columns.length < maxColumns) {
+      <button type="button" class="coluna-nova" (click)="newColumn()">
+        <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+        Nova coluna
+      </button>
+    }
+  </div>
+
+  <p class="sr-only" aria-live="polite">{{ said() }}</p>
+
+  <app-card-picker
+    [(open)]="picking"
+    [onlyKind]="notesKind"
+    [exclude]="onBoard()"
+    heading="Buscar nota"
+    hint="Uma anotação do seu mural, para pôr nesta coluna. Ela continua no mural."
+    footHint="Toque numa anotação para pôr no quadro."
+    [emptyText]="pickerEmpty()"
+    (picked)="placePicked($event)"
+  />
+
+  @if (cardSheet(); as id) {
+    <app-kanban-card-sheet [boardId]="b.id" [noteId]="id" (closed)="cardSheet.set(null)" (reading)="read($event)" />
+  }
+  @if (columnSheet(); as c) {
+    <app-kanban-column-sheet [boardId]="b.id" [columnId]="c.id" [fresh]="c.fresh" (closed)="columnSheet.set(null)" />
+  }
+  @if (boardSheet(); as id) {
+    <app-kanban-board-sheet [boardId]="id" (closed)="boardSheet.set(null)" (removing)="removeBoard($event)" />
+  }
+}

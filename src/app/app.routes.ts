@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { enterExtras, enterNotes, enterReviews, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
+const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
 
 /**
  * O site em três partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
@@ -12,6 +13,8 @@ export const routes: Routes = [
   // "Murall": a última parede aberta
   { path: '', pathMatch: 'full', redirectTo: toLastWall },
   { path: 'anotacoes', title: 'Anotações', canActivate: [enterNotes], loadComponent: wall },
+  { path: 'anotacoes/kanban', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
+  { path: 'anotacoes/kanban/:quadro', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },
   {
     path: 'analises/:tipo',

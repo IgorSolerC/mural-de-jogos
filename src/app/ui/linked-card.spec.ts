@@ -186,6 +186,9 @@ describe('a nota colada no texto (o widget Nota)', () => {
       await outer.whenStable();
       lugar = host.querySelector<HTMLElement>('app-linked-card .lugar');
     }
+    // o que outros testes deixaram na página pode empurrar a ficha para fora da janela: os pontos
+    // medidos abaixo precisam estar à vista
+    host.scrollIntoView({ block: 'start' });
     const line = host.querySelector<HTMLElement>('app-linked-card')!.getBoundingClientRect();
     const box = lugar!.getBoundingClientRect();
     expect(line.right - box.right).toBeGreaterThan(40);

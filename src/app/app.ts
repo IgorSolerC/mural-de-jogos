@@ -34,6 +34,9 @@ import { PageWall } from './ui/page-wall';
 import { PAGE_BACKGROUNDS } from './core/profile';
 import { ProfileStore } from './core/profile-store';
 import { SharedStore } from './core/shared-store';
+import { KanbanStore } from './core/kanban-store';
+import { doneChange, placeCard } from './core/kanban';
+import { NoteDone } from './core/note-done';
 
 @Component({
   selector: 'app-root',
@@ -49,6 +52,8 @@ export class App {
   protected readonly mural = inject(Mural);
   private readonly view = inject(WallView);
   protected readonly desk = inject(Desk);
+  private readonly kanban = inject(KanbanStore);
+  private readonly noteDone = inject(NoteDone);
   private readonly vt = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
   private readonly confirm = inject(Confirm);
@@ -131,6 +136,10 @@ export class App {
       },
       // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
       newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
+      newPlainNote: () => {
+        this.reader().close();
+        this.editor().open(undefined, undefined, undefined, undefined, NOTES);
+      },
       openDraft: (id) => {
         const d = this.store.getDraft(id);
         if (d) this.editor().open(undefined, d);
@@ -160,6 +169,13 @@ export class App {
   protected newReview(): void {
     if (!this.notes()) {
       this.editor().open(undefined, undefined, undefined, undefined, this.mural.reviewKind());
+      return;
+    }
+    // no Kanban: a anotação nova cai na primeira coluna do quadro aberto
+    const board = this.kanban.openBoard() ? this.kanban.get(this.kanban.openBoard()!) : undefined;
+    if (board?.columns.length) {
+      this.kanban.pending.set({ board: board.id, column: board.columns[0].id });
+      this.editor().open(undefined, undefined, undefined, undefined, NOTES);
       return;
     }
     const category = this.view.newNoteCategory();
@@ -240,6 +256,8 @@ export class App {
   }
 
   protected onEditorClosed(): void {
+    // a anotação pedida de uma coluna do Kanban não foi salva: a próxima não cai lá
+    this.kanban.pending.set(null);
     const back = this.returnTo && this.store.get(this.returnTo);
     this.returnTo = null;
     if (back) this.reader().open(back);
@@ -338,6 +356,7 @@ export class App {
   protected onSaved(e: SavedEvent): void {
     const saved = this.store.get(e.id);
     const name = saved?.game.name ?? '';
+    if (e.isNew && saved && isNotes(saved.kind) && this.landOnBoard(saved.id, name)) return;
     const revisit = saved?.revisitOf ? profileOf(saved.kind).revisit.one : null;
     // Ficha nova vai para o mural: se ela ficaria escondida pela aba ou pelo filtro, abre a aba dela
     // ou limpa o filtro.
@@ -375,6 +394,23 @@ export class App {
           : 'Resenha atualizada',
     );
     if (e.isNew) void this.backup.protect();
+  }
+
+  /**
+   * A anotação nova foi pedida de dentro de uma coluna do Kanban ("Nova nota"): ela cai no fim da
+   * coluna, e a tela fica no quadro. Numa coluna que finaliza, já nasce finalizada. Devolve se caiu.
+   */
+  private landOnBoard(id: string, name: string): boolean {
+    const spot = this.kanban.claim();
+    const board = spot && this.kanban.get(spot.board);
+    if (!spot || !board) return false;
+    this.kanban.update(spot.board, (b, at) => placeCard(b, id, spot.column, at));
+    if (doneChange(board, null, spot.column) === 'finalizar') this.noteDone.set(id, true, { quiet: true });
+    const col = board.columns.find((c) => c.id === spot.column);
+    this.desk.land(id);
+    this.toasts.show(`“${name}” pregada em ${col?.name ?? 'uma coluna'}, no quadro ${board.name}`);
+    void this.backup.protect();
+    return true;
   }
 
   /** Em Ajustes o convite para entrar não aparece: o botão do Google já está lá, no Perfil. */

@@ -9,6 +9,8 @@ import { Review, sanitizeDraft, sanitizeNote, sanitizeReview, sanitizeWish } fro
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { ProfileStore } from './profile-store';
+import { KanbanStore } from './kanban-store';
+import { newBoard, placeCard } from './kanban';
 import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
 
@@ -127,6 +129,7 @@ interface Device {
   store: ReviewStore;
   settings: Settings;
   profiles: ProfileStore;
+  kanban: KanbanStore;
   sync: CloudSync;
   kv: ReturnType<typeof memoryKv>;
   /** As respostas que a pessoa daria às perguntas, em ordem (null: fechou sem escolher). */
@@ -176,6 +179,7 @@ describe('sincronização com a nuvem', () => {
         ReviewStore,
         Settings,
         ProfileStore,
+        KanbanStore,
         CloudAccount,
         CloudSync,
         { provide: SYNC_STORAGE, useValue: kv },
@@ -191,6 +195,7 @@ describe('sincronização com a nuvem', () => {
       store,
       settings: injector.get(Settings),
       profiles: injector.get(ProfileStore),
+      kanban: injector.get(KanbanStore),
       sync: injector.get(CloudSync),
       kv,
       answers,
@@ -271,6 +276,38 @@ describe('sincronização com a nuvem', () => {
       await settle(b, a);
       expect(a.settings.notesConfig().subColor).toBe('mae');
       expect(await settle(a, b)).toBe(1);
+    });
+  });
+
+  describe('os quadros Kanban', () => {
+    it('vão só no mural privado, e mexer em quadros diferentes em dois aparelhos não perde nenhum', async () => {
+      const a = device();
+      const qa = a.kanban.create('Trabalho');
+      const col = a.kanban.get(qa)!.columns[1].id;
+      a.kanban.update(qa, (b, at) => placeCard(b, 'rnota0001', col, at));
+      await a.sync.syncNow();
+      const priv = (await cloud.read()) as unknown as { kanban?: { boards: { name: string }[] } };
+      expect(priv.kanban!.boards.map((b) => b.name)).toEqual(['Trabalho']);
+      expect((await cloud.readPublic())['kanban']).toBeUndefined();
+
+      localStorage.removeItem('meu-mural:kanban:v1');
+      const b = device();
+      await b.sync.syncNow();
+      expect(b.kanban.get(qa)!.cards).toEqual([{ note: 'rnota0001', column: col, importance: null, traits: [] }]);
+
+      // cada um mexe num quadro: os dois ficam com os dois
+      await new Promise((r) => setTimeout(r, 5));
+      const qb = b.kanban.create('Faculdade');
+      a.kanban.update(qa, (x, at) => ({ ...x, name: 'Trabalho (novo)', at: at > x.at ? at : x.at }));
+      await settle(a, b);
+      for (const d of [a, b]) {
+        expect(d.kanban.boards().map((x) => x.name).sort()).toEqual(['Faculdade', 'Trabalho (novo)']);
+      }
+      // apagar num apaga no outro
+      b.kanban.remove(qb);
+      await settle(b, a);
+      expect(a.kanban.get(qb)).toBeUndefined();
+      expect(newBoard('x').columns.length).toBe(3);
     });
   });
 
@@ -796,10 +833,10 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao
    * sincronizar. Se a mudança só tirou um campo, basta a impressão (ver SYNC_SCHEMA).
    */
-  it('a leitura das fichas é a mesma da versão 17', async () => {
+  it('a leitura das fichas é a mesma da versão 18', async () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 17, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 18, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
   });
 });

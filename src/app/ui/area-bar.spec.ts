@@ -115,8 +115,19 @@ describe('o índice embaixo do topo', () => {
     expect(host.classList).toContain('vazio');
   });
 
-  it('nas Anotações (uma seção só), no Perfil e nos Ajustes não aparece', async () => {
-    for (const url of ['/anotacoes', '/perfil', '/ajustes', '/novidades', '/amigos']) {
+  it('nas Anotações: Mural e Kanban, sem a etiqueta do mural; o Kanban fica aceso nos quadros', async () => {
+    await go('/anotacoes');
+    expect(picker()).toBeNull();
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban']);
+    expect(tabs()[0].classList).toContain('on');
+    expect(tabs()[1].getAttribute('href')).toBe('/anotacoes/kanban');
+    await go('/anotacoes/kanban/qualquer');
+    expect(tabs()[1].classList).toContain('on');
+    expect(tabs()[0].classList).not.toContain('on');
+  });
+
+  it('no Perfil e nos Ajustes não aparece', async () => {
+    for (const url of ['/perfil', '/ajustes', '/novidades', '/amigos']) {
       await go(url);
       expect(host.querySelector('.indice')).withContext(url).toBeNull();
       expect(getComputedStyle(host).display).withContext(url).toBe('none');

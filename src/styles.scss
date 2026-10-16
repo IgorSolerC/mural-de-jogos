@@ -172,6 +172,14 @@ html {
   overflow-x: clip;
 }
 
+/* arrastando uma anotação no Kanban (ver pages/kanban-page.ts): a mãozinha fechada em todo lugar, e
+   nada se seleciona no caminho */
+html.kanban-arrastando,
+html.kanban-arrastando * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;

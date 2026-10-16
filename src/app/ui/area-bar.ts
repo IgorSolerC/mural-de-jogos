@@ -6,6 +6,7 @@ import { filter, map } from 'rxjs';
 import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
+import { KanbanStore } from '../core/kanban-store';
 import { Settings } from '../core/settings';
 import { KindSwitcher } from './kind-switcher';
 import { QueueLogo, WishlistLogo } from './section-logos';
@@ -48,7 +49,7 @@ interface Summary {
       @let ks = picker();
       @let sum = summary();
       @let lg = logo();
-      <div class="indice" [class.com-logo]="lg">
+      <div class="indice" [class.com-logo]="lg" [class.sem-mural]="!ks">
         @if (ks) {
           <app-kind-switcher class="mural" [kinds]="ks" />
         }
@@ -123,6 +124,14 @@ interface Summary {
         'nota nota';
       align-items: center;
       gap: 10px 14px;
+    }
+    /* sem a etiqueta do mural (nas Anotações): as seções e a contagem dividem a primeira linha */
+    .indice.sem-mural {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'secoes resumo'
+        'pagina pagina'
+        'nota nota';
     }
     .mural {
       grid-area: mural;
@@ -407,6 +416,7 @@ export class AreaBar {
   private readonly router = inject(Router);
   protected readonly mural = inject(Mural);
   private readonly settings = inject(Settings);
+  private readonly kanban = inject(KanbanStore);
 
   protected readonly BackIcon = ArrowLeft;
 
@@ -448,6 +458,12 @@ export class AreaBar {
 
   /** Quanto há na seção aberta das Análises (nada quando está vazia: a página já diz). */
   protected readonly summary = computed<Summary | null>(() => {
+    // no Kanban: quantas anotações o quadro aberto tem
+    if (sectionOf(this.path(), NOTE_SECTIONS)?.slug === 'kanban' && this.area() === 'anotacoes') {
+      const board = this.kanban.openBoard() ? this.kanban.get(this.kanban.openBoard()!) : undefined;
+      const n = board?.cards.length ?? 0;
+      return n ? { n, long: n === 1 ? 'anotação no quadro' : 'anotações no quadro', short: 'no quadro' } : null;
+    }
     const place = reviewPlace(this.path());
     if (!place) return null;
     const p = this.mural.profile();

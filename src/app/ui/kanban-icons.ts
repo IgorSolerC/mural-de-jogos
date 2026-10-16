@@ -1,0 +1,75 @@
+import {
+  Ban,
+  Bug,
+  CalendarDays,
+  CheckCheck,
+  Circle,
+  Cog,
+  Eye,
+  Flag,
+  Flame,
+  Hammer,
+  Hourglass,
+  Lightbulb,
+  ListTodo,
+  LucideIconData,
+  Package,
+  Pause,
+  Pencil,
+  Rocket,
+  Star,
+  Trophy,
+  UsersRound,
+} from 'lucide-angular';
+import { ColumnIcon, Importance } from '../core/kanban';
+
+/** O desenho de cada ícone de coluna (ver `COLUMN_ICONS`). */
+export const COLUMN_ICON: Record<ColumnIcon, LucideIconData> = {
+  circulo: Circle,
+  lista: ListTodo,
+  lapis: Pencil,
+  martelo: Hammer,
+  engrenagem: Cog,
+  olho: Eye,
+  ampulheta: Hourglass,
+  pausa: Pause,
+  bloqueio: Ban,
+  check: CheckCheck,
+  trofeu: Trophy,
+  foguete: Rocket,
+  lampada: Lightbulb,
+  inseto: Bug,
+  bandeira: Flag,
+  estrela: Star,
+  caixa: Package,
+  calendario: CalendarDays,
+  pessoas: UsersRound,
+  chama: Flame,
+};
+
+/** O nome de cada ícone, para o leitor de tela e a dica. */
+export const COLUMN_ICON_LABEL: Record<ColumnIcon, string> = {
+  circulo: 'Círculo',
+  lista: 'Lista',
+  lapis: 'Lápis',
+  martelo: 'Martelo',
+  engrenagem: 'Engrenagem',
+  olho: 'Olho (revisão)',
+  ampulheta: 'Ampulheta (esperando)',
+  pausa: 'Pausa',
+  bloqueio: 'Bloqueado',
+  check: 'Feito',
+  trofeu: 'Troféu',
+  foguete: 'Foguete',
+  lampada: 'Lâmpada (ideias)',
+  inseto: 'Inseto (correção)',
+  bandeira: 'Bandeira',
+  estrela: 'Estrela',
+  caixa: 'Caixa',
+  calendario: 'Calendário',
+  pessoas: 'Pessoas',
+  chama: 'Chama (urgente)',
+};
+
+/** Quantos tracinhos da escala a importância acende (de 5): Crítico 5 … Baixíssimo 1. */
+export const IMPORTANCE_LEVEL: Record<Importance, number> = { critico: 5, importante: 4, medio: 3, baixo: 2, baixissimo: 1 };

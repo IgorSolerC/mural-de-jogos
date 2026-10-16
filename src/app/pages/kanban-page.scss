@@ -1,0 +1,651 @@
+@use '../ui/paper-kit' as kit;
+
+:host {
+  display: block;
+  --kraft: #c6a36b;
+  --kraft-fundo: #b8955d;
+  --coluna-w: 296px;
+}
+
+/* ===== Nenhum quadro: a cartolina verde para montar o primeiro, e as três colunas a giz ao lado ===== */
+.primeiro {
+  display: grid;
+  gap: 34px;
+  align-items: start;
+  max-width: 1080px;
+
+  @media (min-width: 900px) {
+    grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+  }
+}
+
+.primeiro-ficha {
+  position: relative;
+  padding: 30px 26px 26px;
+  border-radius: 2px;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  rotate: -0.8deg;
+
+  .pin {
+    position: absolute;
+    top: -11px;
+    left: calc(50% - 13px);
+  }
+
+  h2 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 2rem;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  p {
+    margin-top: 12px;
+    max-width: 52ch;
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.4;
+  }
+}
+
+.primeiro-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+
+  .btn-ink {
+    flex: none;
+  }
+}
+
+.primeiro-campo {
+  @include kit.campo;
+  flex: 1 1 220px;
+}
+
+/* as colunas que o quadro vai ter, desenhadas a giz na parede, cada uma com a etiqueta já colada */
+.primeiro-vagas {
+  display: flex;
+  gap: 18px;
+  margin: 0;
+  padding: 10px 0 0;
+  list-style: none;
+  overflow: hidden;
+}
+
+.vaga-coluna {
+  flex: 1 1 0;
+  min-width: 120px;
+  max-width: 220px;
+  height: 260px;
+  padding: 16px 10px;
+  border: 2px dashed rgb(243 239 230 / 0.32);
+  border-radius: 3px;
+
+  &:nth-child(2) {
+    height: 210px;
+  }
+  &:nth-child(3) {
+    height: 160px;
+  }
+}
+
+.vaga-etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 6px;
+  border-radius: 2px;
+  background-color: var(--stock);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  box-shadow: var(--shadow-card);
+  rotate: -1.5deg;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* ===== Os quadros: divisórias de pasta de papel manilha em cima da pasta ===== */
+.abas-quadros {
+  position: relative;
+  isolation: isolate;
+  --manilha: #f3e5bb;
+  --manilha-atras: #ae9a6c;
+  --borda: 7px;
+
+  /* a borda da pasta: a aba aberta emenda nela */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    height: var(--borda);
+    background-color: var(--manilha);
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
+    box-shadow: 0 -2px 3px -1px rgb(0 0 0 / 0.35);
+  }
+}
+
+.abas {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  margin: 0;
+  padding: 6px 12px 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  li {
+    flex: none;
+    display: flex;
+  }
+}
+
+.aba {
+  position: relative;
+  z-index: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-height: 44px;
+  padding: 11px 15px calc(8px + var(--borda));
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background-color: var(--manilha-atras);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  translate: 0 3px;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(.on):not(:disabled) {
+    background-color: #c7b385;
+    translate: 0 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: -3px;
+  }
+
+  &.on {
+    z-index: 2;
+    padding-top: 14px;
+    background-color: var(--manilha);
+    translate: 0 0;
+    transition: translate var(--t-ui) var(--ease-ui);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* o quadro novo: a divisória ainda em branco, com o contorno tracejado de quem não foi escrita */
+  &.nova {
+    align-items: center;
+    background: transparent;
+    color: var(--wall-ink);
+    outline: 2px dashed rgb(243 239 230 / 0.4);
+    outline-offset: -2px;
+    translate: 0 0;
+
+    &:hover:not(:disabled) {
+      background: rgb(243 239 230 / 0.08);
+      outline-color: rgb(243 239 230 / 0.7);
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--hi);
+    }
+
+    .aba-nome {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.92rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    lucide-icon {
+      display: inline-flex;
+    }
+  }
+}
+
+.aba-nome {
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--f-marker);
+  font-size: 1.1rem;
+  line-height: 1.1;
+}
+
+.aba:not(.on) .aba-nome {
+  opacity: 0.85;
+}
+
+.aba-n {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== O quadro: as colunas lado a lado; a fileira rola para o lado ===== */
+.quadro {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 30px;
+  /* em cima, a folga das fitas; dos lados e embaixo, a das sombras */
+  padding: 16px 18px 34px;
+  margin-inline: -18px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-color: rgb(243 239 230 / 0.35) transparent;
+  cursor: default;
+
+  &.puxando {
+    cursor: grabbing;
+    user-select: none;
+  }
+}
+
+/* Uma coluna: uma tira comprida de papel pardo presa na parede com dois pedaços de fita crepe; a
+   etiqueta de cartolina dela no alto, as anotações pregadas embaixo. Cada uma um pouco torta. */
+.coluna {
+  position: relative;
+  flex: 0 0 var(--coluna-w);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  padding: 0 14px 14px;
+  border-radius: 2px;
+  background-color: var(--kraft);
+  background-image:
+    repeating-linear-gradient(91deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 7px),
+    var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  rotate: -0.35deg;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:nth-child(even) {
+    rotate: 0.4deg;
+  }
+  &:nth-child(3n) {
+    rotate: -0.15deg;
+  }
+}
+
+/* arrastando: a coluna embaixo do ponteiro clareia um pouco, como papel sob a luz */
+.quadro.arrastando .coluna.alvo {
+  background-color: #d1b07a;
+}
+
+/* os dois pedaços de fita crepe que prendem a tira na parede */
+.fita {
+  position: absolute;
+  top: -11px;
+  z-index: 3;
+  width: 62px;
+  height: 22px;
+  background: var(--tape);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+  pointer-events: none;
+
+  &.fita-e {
+    left: -14px;
+    rotate: -28deg;
+  }
+  &.fita-d {
+    right: -14px;
+    rotate: 24deg;
+  }
+}
+
+:host-context(.has-tape) .fita {
+  background: url('/textures/fita-crepe.png') center / cover;
+}
+
+/* A etiqueta: a cartolina da cor da coluna, colada atravessada no alto da tira */
+.etiqueta {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  margin: 20px -6px 18px;
+  padding: 10px 6px 9px 12px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+  rotate: -1.2deg;
+}
+
+.coluna:nth-child(even) .etiqueta {
+  rotate: 0.9deg;
+}
+
+.etiqueta-icone {
+  display: inline-flex;
+}
+
+.etiqueta-nome {
+  min-width: 0;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+/* quantas: impresso, numa rodela de papel */
+.etiqueta-n {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 14px;
+  background: var(--paper);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.35);
+}
+
+.etiqueta-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px 0 -8px -4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -2px;
+  }
+}
+
+/* "Finaliza": um selo de papel colado na beirada de baixo da etiqueta */
+.carimbo {
+  position: absolute;
+  right: 12px;
+  bottom: -12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px 2px 6px;
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 0 1.5px var(--ink),
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 3px 4px -2px rgb(0 0 0 / 0.3);
+  rotate: 3deg;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* ===== As anotações: pregadas uma embaixo da outra ===== */
+.fichas {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin: 0;
+  padding: 8px 0 4px;
+  list-style: none;
+}
+
+.lugar {
+  position: relative;
+  /* segurar o dedo não abre o menu do navegador nem seleciona texto */
+  -webkit-touch-callout: none;
+  user-select: none;
+  cursor: grab;
+}
+
+/* a vaga: onde a anotação arrastada vai cair, o contorno tracejado do tamanho dela */
+.lugar.vaga {
+  height: var(--vaga-h, 120px);
+  border: 2px dashed rgb(21 21 21 / 0.45);
+  border-radius: 3px;
+  background: rgb(21 21 21 / 0.08);
+
+  app-kanban-note {
+    visibility: hidden;
+  }
+}
+
+.vazia {
+  padding: 18px 8px;
+  border: 2px dashed rgb(21 21 21 / 0.25);
+  border-radius: 3px;
+  color: rgb(21 21 21 / 0.72);
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+/* a cópia que segue o ponteiro: levantada da tira, um pouco mais torta */
+.kanban-fantasma {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  rotate: 3deg;
+  scale: 1.03;
+  filter: drop-shadow(0 18px 22px rgb(0 0 0 / 0.5)) drop-shadow(0 4px 4px rgb(0 0 0 / 0.3));
+  will-change: translate;
+}
+
+/* ===== Adicionar: o contorno tracejado no pé da tira, e as duas saídas ===== */
+.adicionar {
+  margin-top: 18px;
+}
+
+.adicionar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 46px;
+  border: 2px dashed rgb(21 21 21 / 0.4);
+  border-radius: 3px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.85);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    border-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    border-color: rgb(21 21 21 / 0.7);
+    background: rgb(255 255 255 / 0.16);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.adicionar-menu {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 6px;
+  animation: menu-in var(--t-physical) var(--ease-physical);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+.adicionar-op {
+  @include kit.botao-papel;
+  min-width: 0;
+  min-height: 46px;
+  padding-inline: 8px;
+  font-size: 0.86rem;
+  white-space: normal;
+}
+
+.adicionar-fecha {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 46px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+  }
+}
+
+/* ===== Nova coluna: a vaga a giz na parede, no fim do quadro ===== */
+.coluna-nova {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 180px;
+  border: 2px dashed rgb(243 239 230 / 0.35);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color var(--t-ui) var(--ease-ui),
+    border-color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    border-color: rgb(243 239 230 / 0.7);
+    color: var(--wall-ink);
+    background: rgb(243 239 230 / 0.05);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 3px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* ===== Celular: uma coluna (e um pedaço da próxima) por vez, encaixando ao rolar ===== */
+@media (max-width: 600px) {
+  :host {
+    --coluna-w: min(84vw, 320px);
+  }
+
+  .quadro {
+    gap: 18px;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 18px;
+  }
+
+  .quadro.arrastando {
+    scroll-snap-type: none;
+  }
+
+  .coluna,
+  .coluna-nova {
+    scroll-snap-align: start;
+  }
+
+  .primeiro-ficha {
+    padding: 26px 18px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aba,
+  .coluna,
+  .adicionar-btn,
+  .coluna-nova {
+    transition: none;
+  }
+
+  .adicionar-menu {
+    animation: none;
+  }
+}

@@ -33,8 +33,8 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
           <app-pin class="pin" color="#e62e2d" />
           <header class="head">
             <div>
-              <h2 id="colar-titulo">Escolher a nota</h2>
-              <p class="para">Uma anotação ou ficha de qualquer mural, para colar no texto.</p>
+              <h2 id="colar-titulo">{{ heading() }}</h2>
+              <p class="para">{{ hint() }}</p>
             </div>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="open.set(false)">
               <lucide-icon [img]="XIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
@@ -56,6 +56,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                 (keydown.arrowdown)="$event.preventDefault(); focusItem(0)"
               />
             </label>
+            @if (!onlyKind()) {
             <div class="murais" role="group" aria-label="Mural">
               <button type="button" class="filtro" [attr.aria-pressed]="kind() === null" (click)="kind.set(null)">Todos <span class="n">{{ cards().length }}</span></button>
               @for (k of kinds(); track k.kind) {
@@ -65,6 +66,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                 </button>
               }
             </div>
+            }
           </div>
 
           <div class="body">
@@ -106,7 +108,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                   @if (cards().length) {
                     Nenhuma ficha com “{{ query().trim() }}”@if (kind(); as k) { em {{ kindLabel(k) }}}.
                   } @else {
-                    Você ainda não tem outras fichas. Pregue uma no mural e ela aparece aqui.
+                    {{ emptyText() }}
                   }
                 </li>
               }
@@ -114,7 +116,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
           </div>
 
           <footer class="foot">
-            <p class="conta">Toque numa ficha para colar.</p>
+            <p class="conta">{{ footHint() }}</p>
             <div class="actions">
               <button type="button" class="btn-quiet" (click)="open.set(false)">Cancelar</button>
             </div>
@@ -132,6 +134,14 @@ export class CardPicker {
   /** A ficha onde ela vai ser colada: fica de fora da lista. */
   readonly selfId = input<string | null>(null);
   readonly picked = output<Review>();
+  /** Só as fichas deste mural (sem as abas de mural): o "Buscar nota" do Kanban, só anotações. */
+  readonly onlyKind = input<Kind | null>(null);
+  /** As que já estão onde a escolhida vai (as do quadro): ficam de fora. */
+  readonly exclude = input<readonly string[]>([]);
+  readonly heading = input('Escolher a nota');
+  readonly hint = input('Uma anotação ou ficha de qualquer mural, para colar no texto.');
+  readonly footHint = input('Toque numa ficha para colar.');
+  readonly emptyText = input('Você ainda não tem outras fichas. Pregue uma no mural e ela aparece aqui.');
 
   protected readonly XIcon = X;
   protected readonly SearchIcon = Search;
@@ -150,7 +160,9 @@ export class CardPicker {
   /** Todas as suas fichas, menos aquela onde a nota vai ser colada. */
   protected readonly cards = computed(() => {
     const self = this.selfId();
-    return this.store.reviews().filter((r) => r.id !== self);
+    const only = this.onlyKind();
+    const out = new Set(this.exclude());
+    return this.store.reviews().filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only));
   });
   /** Os murais que têm alguma ficha, com quantas. */
   protected readonly kinds = computed(() =>
