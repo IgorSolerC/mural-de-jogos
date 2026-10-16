@@ -4,23 +4,37 @@ import { ReviewStore } from './review-store';
 import { localDay } from './review';
 
 /**
- * As novidades do site: a lista fica em `news-list.ts` (com as regras de versão de cada entrada); aqui
- * ficam os tipos, as regras de visto e a faixa do topo. A lista chega num pedaço à parte, logo depois
- * de o site abrir: até lá, nada de novidade nem de faixa (`ready`).
- */export interface NewsEntry {
-  /** Fixo para sempre: é o que fica guardado como visto neste navegador. */
+ * As novidades do site: a lista fica em `news-list.ts` e as regras de cada entrada (o que é
+ * funcionalidade, melhoria ou correção, e quando juntar) em `NOVIDADES.md`, na raiz; aqui ficam os
+ * tipos, as regras de visto e a faixa do topo. A lista chega num pedaço à parte, logo depois de o site
+ * abrir: até lá, nada de novidade nem de faixa (`ready`).
+ */
+export interface NewsEntry {
+  /**
+   * O que fica guardado como visto neste navegador. A entrada de funcionalidade nunca troca de id; a de
+   * ajustes troca quando ganha um item (ver `NOVIDADES.md`).
+   */
   id: string;
-  /** A versão do site, MAIOR.MENOR.CORREÇÃO (ver acima). */
+  /** A versão do site, MAIOR.MENOR.AJUSTE: a funcionalidade sobe o do meio; os ajustes, o último. */
   version: string;
-  /** `funcionalidade`: coisa nova; `melhoria`: o que já existia, melhor; `correcao`: bug consertado. */
+  /** `funcionalidade`: uma coisa nova, com `items`; `ajustes`: as melhorias e as correções de um dia. */
   kind: NewsKind;
   /** O dia da atualização, AAAA-MM-DD. */
   date: string;
   title: string;
-  /** O que mudou, uma frase por item. */
-  items: string[];
+  /** Funcionalidade: o que ela traz, uma frase por item. */
+  items?: string[];
+  /** Ajustes: o que já existia e ficou melhor. */
+  melhorias?: string[];
+  /** Ajustes: o que não funcionava como devia e agora funciona. */
+  correcoes?: string[];
   /** A frase da faixa no topo do site. Sem ela, a novidade só aparece na página. */
   notice?: string;
+  /**
+   * O id da faixa, quando não é o da entrada: a faixa que nasceu numa entrada que depois foi juntada a
+   * outras (ou trocou de id) não volta para quem já a fechou.
+   */
+  noticeId?: string;
   /** Até quando a faixa aparece (AAAA-MM-DD, inclusive). */
   until?: string;
   /**
@@ -30,16 +44,28 @@ import { localDay } from './review';
   was?: string;
 }
 
-export type NewsKind = 'funcionalidade' | 'melhoria' | 'correcao';
+export type NewsKind = 'funcionalidade' | 'ajustes';
 
+/** O tipo de cada mudança, como a etiqueta da página mostra. */
+export type NewsChangeKind = 'funcionalidade' | 'melhoria' | 'correcao';
 
-/** O nome da etiqueta de cada tipo. */
-export const NEWS_KIND_LABEL: Record<NewsKind, string> = { funcionalidade: 'Funcionalidade', melhoria: 'Melhorias', correcao: 'Correções' };
+/** O nome da etiqueta de cada tipo de mudança. */
+export const NEWS_KIND_LABEL: Record<NewsChangeKind, string> = { funcionalidade: 'Funcionalidade', melhoria: 'Melhorias', correcao: 'Correções' };
 
-/** A versão que vem depois de `prev`, num update ou num bugfix (ver o comentário de `NewsEntry`). */
+/** A versão que vem depois de `prev`: a funcionalidade sobe o número do meio; os ajustes, o último. */
 export function nextVersion(prev: string, kind: NewsKind): string {
   const [major, minor, patch] = prev.split('.').map(Number);
   return kind === 'funcionalidade' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
+}
+
+/** O que ver uma entrada guarda: ela e a faixa dela. */
+function seenKeys(n: NewsEntry): string[] {
+  return n.noticeId ? [n.id, n.noticeId] : [n.id];
+}
+
+/** Tudo o que é dela na lista de vistas: o que ver guarda e a entrada de onde ela saiu. */
+function keysOf(n: NewsEntry): string[] {
+  return n.was ? [...seenKeys(n), n.was] : seenKeys(n);
 }
 
 /** Já foi vista: ela mesma, ou a entrada antiga de onde ela saiu. */
@@ -71,7 +97,7 @@ export function today(now = new Date()): string {
  * nova), e os avisos da nuvem só até `MAX_SEEN`, os mais recentes.
  */
 export function seenToSave(seen: ReadonlySet<string>, news: readonly NewsEntry[]): string[] {
-  const known = new Set(news.flatMap((n) => (n.was ? [n.id, n.was] : [n.id])));
+  const known = new Set(news.flatMap(keysOf));
   const list = [...seen];
   return [...list.filter((k) => known.has(k)), ...list.filter((k) => !known.has(k)).slice(-MAX_SEEN)];
 }
@@ -81,7 +107,7 @@ export function seenToSave(seen: ReadonlySet<string>, news: readonly NewsEntry[]
  * quem já tinha um mural antes desta página existir vê só a mais nova.
  */
 export function firstSeen(news: readonly NewsEntry[], hadWall: boolean): string[] {
-  return hadWall ? news.slice(1).map((n) => n.id) : news.map((n) => n.id);
+  return (hadWall ? news.slice(1) : news).flatMap(seenKeys);
 }
 
 /**
@@ -94,8 +120,10 @@ export function noticeOf(news: readonly NewsEntry[], cloud: CloudNotice | null, 
     return { key: `nuvem:${cloud.id}`, text: cloud.text, news: false };
   }
   const latest = news.find((n) => n.notice);
-  if (!latest?.notice || isSeen(latest, seen) || (latest.until && latest.until < day)) return null;
-  return { key: latest.id, text: latest.notice, news: true };
+  if (!latest?.notice) return null;
+  const key = latest.noticeId ?? latest.id;
+  if (isSeen(latest, seen) || seen.has(key) || (latest.until && latest.until < day)) return null;
+  return { key, text: latest.notice, news: true };
 }
 
 /** Lê o que ficou guardado; null se nunca foi gravado (ou não serve). */
@@ -157,7 +185,7 @@ export class News {
 
   /** Abriu a página: tudo conta como visto, e a faixa de novidade vai embora. */
   seeAll(): void {
-    this.mark(this.entries().map((n) => n.id));
+    this.mark(this.entries().flatMap(seenKeys));
   }
 
   private mark(keys: string[]): void {

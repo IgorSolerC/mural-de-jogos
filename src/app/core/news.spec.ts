@@ -6,6 +6,7 @@ import { NEWS, VERSION } from './news-list';
 import { ReviewStore } from './review-store';
 
 const entry = (id: string, date: string, extra: Partial<NewsEntry> = {}): NewsEntry => ({ id, version: '1.0.0', kind: 'funcionalidade', date, title: id, items: ['x'], ...extra });
+const fixes = (id: string, date: string, extra: Partial<NewsEntry> = {}): NewsEntry => ({ id, version: '1.0.1', kind: 'ajustes', date, title: id, melhorias: ['x'], ...extra });
 
 describe('novidades', () => {
   it('a lista vem da mais nova para a mais velha, com ids únicos e datas válidas', () => {
@@ -13,7 +14,6 @@ describe('novidades', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const n of NEWS) {
       expect(n.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-      expect(n.items.length).toBeGreaterThan(0);
       if (n.until) expect(n.until).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
     const dates = NEWS.map((n) => n.date);
@@ -29,14 +29,38 @@ describe('novidades', () => {
     }
     expect(VERSION).toBe(NEWS[0].version);
     expect(nextVersion('1.9.3', 'funcionalidade')).toBe('1.10.0');
-    expect(nextVersion('1.9.3', 'melhoria')).toBe('1.9.4');
-    expect(nextVersion('1.9.3', 'correcao')).toBe('1.9.4');
+    expect(nextVersion('1.9.3', 'ajustes')).toBe('1.9.4');
+  });
+
+  it('a funcionalidade traz só os itens dela; os ajustes, só melhorias e correções', () => {
+    for (const n of NEWS) {
+      if (n.kind === 'funcionalidade') {
+        expect(n.items?.length).withContext(n.id).toBeGreaterThan(0);
+        expect(n.melhorias).withContext(n.id).toBeUndefined();
+        expect(n.correcoes).withContext(n.id).toBeUndefined();
+      } else {
+        expect(n.items).withContext(n.id).toBeUndefined();
+        expect((n.melhorias?.length ?? 0) + (n.correcoes?.length ?? 0)).withContext(n.id).toBeGreaterThan(0);
+        // uma lista que existe nunca vem vazia: sem correções, o campo não existe
+        if (n.melhorias) expect(n.melhorias.length).withContext(n.id).toBeGreaterThan(0);
+        if (n.correcoes) expect(n.correcoes.length).withContext(n.id).toBeGreaterThan(0);
+      }
+      for (const item of [...(n.items ?? []), ...(n.melhorias ?? []), ...(n.correcoes ?? [])]) expect(item.trim()).withContext(n.id).not.toBe('');
+    }
+  });
+
+  it('os ajustes do mesmo dia, depois da mesma funcionalidade, ficam numa entrada só (NOVIDADES.md)', () => {
+    for (let i = 1; i < NEWS.length; i++) {
+      const [newer, older] = [NEWS[i - 1], NEWS[i]];
+      const twoSameDay = newer.kind === 'ajustes' && older.kind === 'ajustes' && newer.date === older.date;
+      expect(twoSameDay).withContext(`${older.id} e ${newer.id}`).toBeFalse();
+    }
   });
 
   it('a entrada separada de uma antiga já conta como vista para quem viu a antiga', () => {
     const ids = new Set(NEWS.map((n) => n.id));
     for (const n of NEWS) if (n.was) expect(ids.has(n.was)).withContext(n.id).toBeTrue();
-    const split = entry('b-correcoes', '2026-10-02', { kind: 'correcao', was: 'b' });
+    const split = fixes('b-correcoes', '2026-10-02', { was: 'b' });
     expect(isSeen(split, new Set(['b']))).toBeTrue();
     expect(isSeen(split, new Set(['a']))).toBeFalse();
     expect(isSeen(split, new Set(['b-correcoes']))).toBeTrue();
@@ -50,6 +74,8 @@ describe('novidades', () => {
     const news = [entry('c', '2026-10-03'), entry('b', '2026-10-02'), entry('a', '2026-10-01')];
     expect(firstSeen(news, false)).toEqual(['c', 'b', 'a']);
     expect(firstSeen(news, true)).toEqual(['b', 'a']);
+    // a faixa de uma entrada juntada conta como vista junto com ela
+    expect(firstSeen([fixes('d', '2026-10-04', { notice: 'D', noticeId: 'x' }), ...news], false)).toEqual(['d', 'x', 'c', 'b', 'a']);
   });
 
   describe('a faixa do topo', () => {
@@ -67,6 +93,14 @@ describe('novidades', () => {
     it('uma atualização sem aviso não esconde a faixa da anterior', () => {
       expect(noticeOf([entry('d', '2026-10-04'), ...news], null, new Set(), '2026-10-05')?.key).toBe('c');
       expect(noticeOf([entry('d', '2026-10-04'), ...news], null, new Set(['c']), '2026-10-05')).toBeNull();
+    });
+
+    it('a faixa de uma entrada juntada (ou que trocou de id) não volta para quem já a fechou', () => {
+      const merged = [fixes('d', '2026-10-04', { notice: 'Saiu a C', noticeId: 'c' })];
+      expect(noticeOf(merged, null, new Set(), '2026-10-05')).toEqual({ key: 'c', text: 'Saiu a C', news: true });
+      // fechou a faixa quando ela era da entrada c: a entrada d continua nova, mas a faixa não volta
+      expect(noticeOf(merged, null, new Set(['c']), '2026-10-05')).toBeNull();
+      expect(noticeOf(merged, null, new Set(['d']), '2026-10-05')).toBeNull();
     });
 
     it('respeita o prazo, inclusive o próprio dia', () => {
@@ -122,7 +156,8 @@ describe('novidades', () => {
       const news = await make(false);
       expect(news.unseen()).toBe(0);
       expect(news.notice()).toBeNull();
-      expect(readSeen(localStorage.getItem(KEY))?.length).toBe(NEWS.length);
+      // cada novidade e, nas juntadas, a faixa dela
+      expect(readSeen(localStorage.getItem(KEY))?.length).toBe(NEWS.reduce((sum, n) => sum + (n.noticeId ? 2 : 1), 0));
     });
 
     it('quem já tinha mural vê a mais nova; abrir a página conta tudo como visto', async () => {
@@ -131,7 +166,7 @@ describe('novidades', () => {
       expect([...news.unseenIds()]).toEqual([NEWS[0].id]);
       // a mais nova pode não ter aviso; a faixa é a da mais nova que tem, se ainda não foi vista
       const withNotice = NEWS.find((n) => n.notice);
-      expect(news.notice()?.key).toBe(withNotice && withNotice.id === NEWS[0].id ? withNotice.id : undefined);
+      expect(news.notice()?.key).toBe(withNotice && withNotice.id === NEWS[0].id ? (withNotice.noticeId ?? withNotice.id) : undefined);
       news.seeAll();
       expect(news.unseen()).toBe(0);
       expect(news.notice()).toBeNull();

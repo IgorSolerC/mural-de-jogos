@@ -1,8 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ChevronDown, LucideAngularModule } from 'lucide-angular';
-import { NEWS_KIND_LABEL, NewsEntry, News } from '../core/news';
+import { NEWS_KIND_LABEL, NewsChangeKind, NewsEntry, News } from '../core/news';
 import { NEWS, VERSION } from '../core/news-list';
 import { Pin } from '../ui/pin';
+
+/** As listas de uma ficha, cada uma com o seu tipo: a da funcionalidade, ou as melhorias e as correções. */
+function groupsOf(n: NewsEntry): { kind: NewsChangeKind; items: string[] }[] {
+  if (n.kind === 'funcionalidade') return [{ kind: 'funcionalidade', items: n.items ?? [] }];
+  const out: { kind: NewsChangeKind; items: string[] }[] = [];
+  if (n.melhorias?.length) out.push({ kind: 'melhoria', items: n.melhorias });
+  if (n.correcoes?.length) out.push({ kind: 'correcao', items: n.correcoes });
+  return out;
+}
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
@@ -11,9 +20,10 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
 
 /**
  * Novidades: o que mudou em cada versão do site, da mais nova para a mais velha, uma ficha pautada
- * por versão, fechada numa linha (a versão, o título e a etiqueta Funcionalidade, Melhorias ou
- * Correções). As funcionalidades vêm presas com tachinha; melhorias e correções, sem tachinha, mais
- * baixas e recuadas. As que
+ * por versão, fechada numa linha (a versão, o título e o carimbo de cada tipo que ela traz). As
+ * funcionalidades vêm presas com tachinha; os ajustes do dia, sem tachinha, mais baixos e recuados,
+ * com as melhorias e as correções em listas separadas, cada uma aberta pelo nome na tinta do carimbo.
+ * As que
  * a pessoa ainda não tinha visto ganham o adesivo "novo" e já vêm abertas; abrir a página conta tudo
  * como visto (e a faixa de novidade do topo vai embora).
  */
@@ -31,7 +41,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
          mudou. As que a pessoa ainda não tinha visto já vêm abertas. -->
     <ol class="fichas">
       @for (n of entries; track n.id; let i = $index) {
-        <li class="ficha" [class.menor]="n.kind !== 'funcionalidade'" [style.rotate.deg]="tilt(i)">
+        <li class="ficha" [class.menor]="n.kind === 'ajustes'" [style.rotate.deg]="tilt(i)">
           @if (n.kind === 'funcionalidade') {
             <app-pin class="pin" color="#e62e2d" />
           }
@@ -47,15 +57,25 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
                   <span class="sr-only">(novo)</span>
                 }
               </h2>
-              <span class="etiqueta" [attr.data-tipo]="n.kind">{{ label[n.kind] }}</span>
+              @for (g of groups.get(n.id); track g.kind) {
+                <span class="etiqueta" [attr.data-tipo]="g.kind">{{ label[g.kind] }}</span>
+              }
               <time class="data" [attr.datetime]="n.date">{{ when(n) }}</time>
               <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
             </summary>
-            <ul class="itens">
-              @for (item of n.items; track $index) {
-                <li>{{ item }}</li>
+            <div class="corpo">
+              @for (g of groups.get(n.id); track g.kind) {
+                <!-- numa ficha de ajustes, cada lista abre com o nome dela, na tinta do carimbo -->
+                @if (n.kind === 'ajustes') {
+                  <h3 class="tipo" [attr.data-tipo]="g.kind">{{ label[g.kind] }}</h3>
+                }
+                <ul class="itens">
+                  @for (item of g.items; track $index) {
+                    <li>{{ item }}</li>
+                  }
+                </ul>
               }
-            </ul>
+            </div>
           </details>
         </li>
       }
@@ -204,10 +224,10 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       rotate: 180deg;
     }
 
-    .itens {
+    /* a folha pautada embaixo do fio vermelho: as listas e os nomes delas correm na mesma pauta */
+    .corpo {
       margin: 0 26px;
       padding: 6px 0 14px;
-      list-style: none;
       border-top: 2px solid rgb(214 72 72 / 0.55);
       font-family: var(--f-hand);
       font-size: 1.14rem;
@@ -218,6 +238,33 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
           rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)
         )
         0 6px;
+    }
+
+    /* o nome da lista: uma linha da pauta, em tinta de carimbo, com uma linha em branco antes da segunda */
+    .tipo {
+      margin: 0;
+      height: var(--line);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.85rem;
+      line-height: var(--line);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #1f7a45;
+
+      &[data-tipo='correcao'] {
+        color: var(--red-deep);
+      }
+    }
+
+    .itens + .tipo {
+      margin-top: var(--line);
+    }
+
+    .itens {
+      margin: 0;
+      padding: 0;
+      list-style: none;
 
       li {
         position: relative;
@@ -236,7 +283,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       }
     }
 
-    .menor .itens {
+    .menor .corpo {
       margin: 0 22px;
     }
 
@@ -287,8 +334,8 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
         margin-left: auto;
       }
 
-      .itens,
-      .menor .itens {
+      .corpo,
+      .menor .corpo {
         margin: 0 16px;
         font-size: 1.08rem;
       }
@@ -299,6 +346,7 @@ export class NewsPage {
   private readonly news = inject(News);
 
   protected readonly entries = NEWS;
+  protected readonly groups = new Map(NEWS.map((n) => [n.id, groupsOf(n)]));
   protected readonly version = VERSION;
   protected readonly label = NEWS_KIND_LABEL;
   protected readonly ChevronIcon = ChevronDown;
