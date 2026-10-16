@@ -114,9 +114,17 @@ export class MailPage {
 
   /**
    * O Feed: cada resenha que chegou é um post, com a ficha do amigo (quando o mural dele já está
-   * aqui) e a minha ficha da mesma obra, se eu tiver. Do mais novo para o mais velho.
+   * aqui) e a minha ficha da mesma obra, se eu tiver. Do mais novo para o mais velho. A que saiu do
+   * mural (apagada, ou que virou privada) não aparece: um post avisando que algo não existe não diz
+   * nada. Publicada de novo, ela volta.
    */
-  protected readonly posts = computed<FeedPostData[]>(() => this.follow.visible().flatMap((item) => (item.tipo === 'resenha' ? [this.postOf(item)] : [])));
+  protected readonly posts = computed<FeedPostData[]>(() =>
+    this.follow.visible().flatMap((item) => {
+      if (item.tipo !== 'resenha') return [];
+      const post = this.postOf(item);
+      return post.estado === 'saiu' ? [] : [post];
+    }),
+  );
 
   /** Os Avisos: quem começou a seguir, reagiu ou comentou, com os seguidos sobre a mesma ficha juntos. */
   protected readonly notices = computed(() => groupNotices(this.follow.visible()));

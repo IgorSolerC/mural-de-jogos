@@ -28,6 +28,8 @@ import {
   timesOf,
   artIdOf,
   settleOriginal,
+  sameWork,
+  asRevisit,
   Review,
   BONUS_MAX_LABEL,
   fold,
@@ -482,6 +484,44 @@ describe('rejogadas', () => {
       expect(settleOriginal([at('ro0001', '2020-01-01'), at('rv0001', null, { revisitOf: 'ro0001' })], 'rv0001', now).find((r) => !r.revisitOf)?.id).toBe('rv0001');
       expect(settleOriginal([at('ro0001', '2020-05'), at('rv0001', '2020', { revisitOf: 'ro0001' })], 'rv0001', now).find((r) => !r.revisitOf)?.id).toBe('rv0001');
       expect(settleOriginal([at('ro0001', '2020-05-10'), at('rv0001', '2020-05', { revisitOf: 'ro0001' })], 'rv0001', now).find((r) => !r.revisitOf)?.id).toBe('rv0001');
+    });
+
+    it('sem a original (apagada), a rejogada mais antiga passa a ser a original', () => {
+      const list = [at('rv0002', '2024', { revisitOf: 'rsumiu' }), at('rv0001', '2021-02', { revisitOf: 'rsumiu' })];
+      const changed = settleOriginal(list, 'rv0002', now);
+      expect(changed.map((r) => [r.id, r.revisitOf ?? null])).toEqual([
+        ['rv0002', 'rv0001'],
+        ['rv0001', null],
+      ]);
+      for (const r of changed) expect(artIdOf(r)).withContext(r.id).toBe('rsumiu');
+    });
+
+    it('a mesma obra: o mesmo mural e o mesmo nome, menos quando se sabe que são obras diferentes', () => {
+      const a = at('ra0001', '2020', { game: { name: 'Resident Evil 4', coverUrl: null, source: 'manual' } });
+      const named = (name: string, game: Record<string, unknown> = {}, extra: Record<string, unknown> = {}) =>
+        at('rb0001', '2021', { game: { name, coverUrl: null, source: 'manual', ...game }, ...extra });
+      expect(sameWork(a, named(' resident  évil 4 '))).toBeTrue();
+      expect(sameWork(a, named('Resident Evil 5'))).toBeFalse();
+      expect(sameWork(a, named('Resident Evil 4', {}, { kind: 'livros' }))).toBeFalse();
+      // anos, autores ou ids da busca diferentes: um remake, outra obra
+      const y = at('ra0002', '2020', { game: { name: 'Resident Evil 4', coverUrl: null, source: 'manual', year: '2005' } });
+      expect(sameWork(y, named('Resident Evil 4', { year: '2023' }))).toBeFalse();
+      expect(sameWork(y, named('Resident Evil 4', { year: '2005' }))).toBeTrue();
+      expect(sameWork(y, named('Resident Evil 4'))).toBeTrue();
+      const b = at('ra0003', '2020', { game: { name: 'Duna', coverUrl: null, source: 'manual', by: 'Frank Herbert' } });
+      expect(sameWork(b, named('Duna', { by: 'Outra Pessoa' }))).toBeFalse();
+    });
+
+    it('a ficha nova de uma obra que já está no mural vira rejogada da original dela', () => {
+      const list = [at('ro0001', '2020'), at('rv0001', '2021', { revisitOf: 'ro0001' })];
+      const fresh = at('rn0001', '2022', { game: { ...list[0].game } });
+      const again = asRevisit(list, fresh);
+      expect(again.revisitOf).toBe('ro0001');
+      expect(artIdOf(again)).toBe('rn0001');
+      // já rejogada, ou sem outra vez da obra: como veio
+      expect(asRevisit(list, list[1])).toBe(list[1]);
+      const other = at('rn0002', '2022', { game: { ...list[0].game, name: 'Outra' } });
+      expect(asRevisit(list, other)).toBe(other);
     });
 
     it('na mesma data (ou depois), a original continua', () => {

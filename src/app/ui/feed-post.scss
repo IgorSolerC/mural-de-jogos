@@ -184,25 +184,6 @@
   font-size: 1.02rem;
 }
 
-/* saiu do mural: só o lugar onde a ficha estava, tracejado na parede, escrito a giz */
-.espera.saiu {
-  min-height: 0;
-  background: none;
-  box-shadow: none;
-  outline: 2px dashed rgb(243 239 230 / 0.32);
-  outline-offset: -2px;
-  color: var(--wall-ink-2);
-  rotate: 0deg;
-
-  .furo {
-    background: rgb(0 0 0 / 0.6);
-    box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.6);
-  }
-
-  .espera-titulo {
-    color: var(--wall-ink);
-  }
-}
 
 /* ===== O pé do post: as ações a giz e, na ponta, o bilhete da nota (ou o "Quero jogar") ===== */
 .pe {

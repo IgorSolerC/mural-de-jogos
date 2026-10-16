@@ -163,6 +163,15 @@ describe('a nota colada no texto (o widget Nota)', () => {
     expect(el.querySelector('.perdida-dica')?.textContent).toContain('apagada');
   });
 
+  it('a privada (o cadeado no texto de quem visita) diz que é privada, e não que foi apagada', async () => {
+    await show(['#rprivada', '🔒']);
+    expect(el.querySelector('app-review-card')).toBeNull();
+    expect(el.querySelector('.perdida')?.classList).toContain('privada');
+    expect(el.querySelector('.perdida-nome')?.textContent).toBe('Nota privada');
+    expect(el.querySelector('.perdida-dica')?.textContent).toContain('é privada');
+    expect(el.textContent).not.toContain('🔒');
+  });
+
   it('no mural, o vazio ao lado da ficha colada abre a ficha de fora; a colada abre a dela', async () => {
     const { ReviewCard } = await import('./review-card');
     const outer = TestBed.createComponent(ReviewCard);

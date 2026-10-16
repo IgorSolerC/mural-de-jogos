@@ -1215,6 +1215,16 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await comment(bia.token, 'r-celeste')).status).toBe(201);
       });
 
+      it('reagir enquanto ela está privada (a página aberta de antes) não grava nada: publicada de novo, volta a reação de antes', async () => {
+        const { reactions, show, json, ana, bia } = await hiding();
+        await show(JSON.stringify(['r-celeste']));
+        const late = await json('PUT', `/v1/murais/${ana.codigo}/reacoes/r-hades`, { reacao: 'uau', titulo: 'Hades', mural: 'jogos' }, bia.token);
+        expect(late.status).toBe(404);
+        await show(JSON.stringify(['r-celeste', 'r-hades']));
+        const list = (await reactions(bia.token)).body.reacoes['r-hades'];
+        expect(list.map((r: any) => r.reacao)).toEqual(['fogo']);
+      });
+
       it('os comentários e a contagem de uma ficha que virou privada somem para os outros', async () => {
         const { thread, counts, show, ana, bia } = await hiding();
         expect((await counts()).body.contagem).toEqual({ 'r-hades': 1 });

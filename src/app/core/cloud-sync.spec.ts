@@ -637,7 +637,7 @@ describe('sincronização com a nuvem', () => {
     await a.sync.syncNow();
     const pub = (await cloud.readPublic()) as unknown as { reviews: Review[] };
     const text = pub.reviews.find((r) => r.id === 'rpub0001')!.text;
-    expect(text).toBe(['Comprar junto:', '{{nota: #rpriv001 | pequeno}}', '{{nota: #rpub0002 | Celeste}}'].join('\n'));
+    expect(text).toBe(['Comprar junto:', '{{nota: #rpriv001 | 🔒 | pequeno}}', '{{nota: #rpub0002 | Celeste}}'].join('\n'));
     expect(JSON.stringify(pub)).not.toContain('Presente da Ana');
     // o privado continua inteiro
     const priv = await cloud.read();
@@ -768,10 +768,14 @@ describe('o que os outros veem', () => {
     expect(newReviews([old, hidden, stale], now).map((n) => n.ref)).toEqual([old.id]);
   });
 
-  it('a nota colada que é uma ficha sua fora da vista perde o título; a à mostra e a escrita à mão ficam', () => {
+  it('a nota colada que é uma ficha sua fora da vista perde o título e ganha o cadeado; a à mostra e a escrita à mão ficam', () => {
     const hidden = new Set(['rsegredo']);
     const card = { id: 'rpub', text: ['Antes', '{{nota: #rsegredo | Segredo}}', '{{ficha: Segredo}}', '{{nota: #routra | Outra}}'].join('\n') };
-    expect(shownCard(card, hidden).text).toBe(['Antes', '{{nota: #rsegredo}}', '{{ficha: Segredo}}', '{{nota: #routra | Outra}}'].join('\n'));
+    expect(shownCard(card, hidden).text).toBe(['Antes', '{{nota: #rsegredo | 🔒}}', '{{ficha: Segredo}}', '{{nota: #routra | Outra}}'].join('\n'));
+    // sem título também ganha o cadeado; a que já tem fica como está
+    expect(shownCard({ id: 'r3', text: '{{nota: #rsegredo}}' }, hidden).text).toBe('{{nota: #rsegredo | 🔒}}');
+    const marked = { id: 'r4', text: '{{nota: #rsegredo | 🔒}}' };
+    expect(shownCard(marked, hidden)).toBe(marked);
     // sem nada a esconder, a mesma ficha (não copia à toa)
     const plain = { id: 'r1', text: '{{nota: #routra | Outra}}' };
     expect(shownCard(plain, hidden)).toBe(plain);

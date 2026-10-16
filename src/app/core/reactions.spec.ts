@@ -93,12 +93,14 @@ describe('reações', () => {
     let fail: CloudError | null;
     let people: ReturnType<typeof signal<People | null>>;
     let toasts: string[];
+    let feed: ReturnType<typeof signal<FeedItem[]>>;
 
     function make(): Reactions {
       TestBed.resetTestingModule();
       calls = [];
       fail = null;
       toasts = [];
+      feed = signal<FeedItem[]>([]);
       people = signal<People | null>({ seguindo: [{ codigo: ANA, nome: 'Ana', desde: at, silenciado: false, rev: 1, meSegue: true }], seguidores: [] });
       TestBed.configureTestingModule({
         providers: [
@@ -117,7 +119,7 @@ describe('reações', () => {
               },
             },
           },
-          { provide: Follow, useValue: { items: signal<FeedItem[]>([]), people } },
+          { provide: Follow, useValue: { items: feed, people } },
           { provide: Toasts, useValue: { show: (t: string) => toasts.push(t) } },
         ],
       });
@@ -166,6 +168,19 @@ describe('reações', () => {
       expect(s.mineOn(ANA, 'r-hades')).toBeNull();
       expect(s.of(ANA, 'r-hades').length).toBe(1);
       expect(toasts).toEqual(['Siga a pessoa para reagir às resenhas dela.']);
+    });
+
+    it('a ficha virou privada depois que a página abriu: a reação não fica, e o post dela sai do Feed', async () => {
+      const s = make();
+      await s.load(ANA);
+      const pessoa = { codigo: ANA, nome: 'Ana' };
+      const post = (ref: string) => ({ tipo: 'resenha', em: at, pessoa, ref, titulo: ref, mural: 'jogos', silenciado: false }) as unknown as FeedItem;
+      feed.set([post('r-hades'), post('r-celeste')]);
+      fail = new CloudError('Essa ficha não está mais no mural.', 'ficha-nao-encontrada', 404);
+      await s.react({ code: ANA, ref: 'r-hades', titulo: 'Hades', mural: 'jogos' }, 'fogo');
+      expect(s.mineOn(ANA, 'r-hades')).toBeNull();
+      expect(toasts).toEqual(['Essa ficha não está mais no mural.']);
+      expect(feed().map((i) => (i as { ref: string }).ref)).toEqual(['r-celeste']);
     });
 
     it('as reações às minhas fichas chegam ao entrar', async () => {

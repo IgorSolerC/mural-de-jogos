@@ -6,7 +6,7 @@ import { buildOf } from './migrations';
 import { DataKey, LocalData } from './local-data';
 import { canonicalJson } from './canonical-json';
 import { KeptReason, KeptVersion, mergeVersions, sameContent, sanitizeVersions, storedVersions } from './kept-versions';
-import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, isCatalogBonus, isMusicReview, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -261,9 +261,13 @@ export class ReviewStore {
     return this.reviews().find((r) => r.id === id);
   }
 
-  /** Prega a ficha. Devolve a troca de original, se a ficha nova é uma rejogada mais antiga que ela (ver `settle`). */
+  /**
+   * Prega a ficha. A de uma obra que já está no mural (o mesmo nome) entra como rejogada dela (ver
+   * `asRevisit`). Devolve a troca de original, se a ficha nova é uma rejogada mais antiga que ela (ver `settle`).
+   */
   add(review: Review): OriginalSwap | null {
-    const withStock = review.stock ? review : { ...review, stock: this.nextStock(review.kind) };
+    const again = asRevisit(this.reviews(), review);
+    const withStock = again.stock ? again : { ...again, stock: this.nextStock(again.kind) };
     this.reviews.update((list) => [withStock, ...list]);
     return this.settle(review.id);
   }
@@ -318,15 +322,31 @@ export class ReviewStore {
     return this.reviews().filter((r) => r.revisitOf === id);
   }
 
-  /** Tira a ficha do mural. A original leva junto as rejogadas dela (o Desfazer traz todas de volta). */
-  remove(id: string): Review | undefined {
+  /**
+   * Tira a ficha do mural. As rejogadas da original ficam: a mais antiga passa a ser a original (ver
+   * settleOriginal), e devolve o id dela em `heir`. O Desfazer (`undoRemove`) deixa tudo como era.
+   */
+  remove(id: string): (Review & { heir?: string }) | undefined {
     const found = this.get(id);
-    if (found) {
-      const gone = new Set([id, ...this.revisitsOf(id).map((r) => r.id)]);
-      this.reviews.update((list) => list.filter((r) => !gone.has(r.id)));
-      for (const g of gone) this.mark('reviews', g);
-    }
-    return found;
+    if (!found) return found;
+    const revisits = found.revisitOf ? [] : this.revisitsOf(id);
+    this.reviews.update((list) => list.filter((r) => r.id !== id));
+    this.mark('reviews', id);
+    if (!revisits.length) return found;
+    this.settle(revisits[0].id);
+    const heir = revisits.find((r) => !this.get(r.id)?.revisitOf)?.id;
+    return heir ? { ...found, heir } : found;
+  }
+
+  /**
+   * Desfaz o `remove`: a ficha volta e as rejogadas que ela tinha voltam a ser dela, como estavam
+   * (mexidas agora, para valer nos outros aparelhos). `before` é a ficha e as rejogadas de antes.
+   */
+  undoRemove(before: readonly Review[]): void {
+    const now = new Date().toISOString();
+    const back = new Map(before.filter((r) => this.get(r.id)).map((r) => [r.id, { ...r, updatedAt: now }]));
+    if (back.size) this.reviews.update((list) => list.map((r) => back.get(r.id) ?? r));
+    for (const r of before) if (!back.has(r.id)) this.restore(r);
   }
 
   restore(review: Review): void {

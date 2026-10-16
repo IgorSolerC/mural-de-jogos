@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
-import { FileQuestion, LucideAngularModule } from 'lucide-angular';
+import { FileQuestion, LockKeyhole, LucideAngularModule } from 'lucide-angular';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
 import { NoteLinks } from '../core/note-links';
@@ -27,7 +27,8 @@ const EAR_GAP = 0.2;
  * Tocar nela abre a ficha (`links.openCard`): no seu mural e na leitura. Sem quem abra, ela só se
  * vê (fica `inert`: nem o teclado para nela).
  *
- * Sumiu (apagada, privada no mural de outra pessoa): no lugar, um papel rasgado com o nome dela.
+ * Sumiu (apagada, privada no mural de outra pessoa): no lugar, um papel rasgado com o nome dela. A
+ * privada vem marcada no texto de quem visita (ver `hideCardTitles`): o papel diz que ela é privada.
  *
  * A peça é colada (`data-colado`): o estrago da ficha de fora não a come.
  */
@@ -62,13 +63,21 @@ const EAR_GAP = 0.2;
         <span class="sr-only">{{ spoken(f.review) }}</span>
       }
     } @else {
-      <!-- sumiu: o pedaço de papel que ficou colado, com o nome dela -->
-      <div class="perdida" data-colado role="note">
-        <lucide-icon class="perdida-icone" [img]="LostIcon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
-        <span class="perdida-texto">
-          <span class="perdida-nome">{{ ref().title || 'Uma ficha' }}</span>
-          <span class="perdida-dica">{{ ref().id ? 'Essa ficha foi apagada ou não está à mostra.' : 'Nenhuma anotação com esse nome.' }}</span>
-        </span>
+      <!-- sumiu: o pedaço de papel que ficou colado, com o nome dela (ou, a privada, o cadeado) -->
+      <div class="perdida" [class.privada]="ref().hidden" data-colado role="note">
+        @if (ref().hidden) {
+          <lucide-icon class="perdida-icone" [img]="PrivateIcon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
+          <span class="perdida-texto">
+            <span class="perdida-nome">Nota privada</span>
+            <span class="perdida-dica">A nota colada aqui é privada: só quem escreveu vê.</span>
+          </span>
+        } @else {
+          <lucide-icon class="perdida-icone" [img]="LostIcon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
+          <span class="perdida-texto">
+            <span class="perdida-nome">{{ ref().title || 'Uma ficha' }}</span>
+            <span class="perdida-dica">{{ ref().id ? 'Essa ficha foi apagada ou não está à mostra.' : 'Nenhuma anotação com esse nome.' }}</span>
+          </span>
+        }
       </div>
     }
   `,
@@ -168,6 +177,7 @@ export class LinkedCard {
 
   protected readonly cardWidth = CARD_WIDTH;
   protected readonly LostIcon = FileQuestion;
+  protected readonly PrivateIcon = LockKeyhole;
   private readonly finder = inject(CardFinder);
 
   protected readonly ref = computed(() => readCardRef(this.args()));

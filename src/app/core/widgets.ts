@@ -550,18 +550,28 @@ const AUDIO: WidgetDef = {
 const CARD_ID = /^#([A-Za-z0-9_-]{1,64})$/;
 
 /**
- * Os parâmetros da nota em qualquer ordem: o id ("#r…") e o título. Escrita à mão, só com o título
- * ("{{nota: Comprar um console}}"), ela é a anotação com esse título, como um link "[[…]]".
+ * A marca que vai no lugar do título quando a nota colada é uma ficha privada (ver `hideCardTitles`):
+ * quem visita vê o aviso de que ela é privada, e não o de uma ficha apagada. Um cadeado: um site de
+ * antes, que não conhece a marca, mostra o cadeado como o nome da ficha que sumiu.
  */
-export function readCardRef(args: readonly string[]): { id: string; title: string } {
+export const PRIVATE_CARD = '🔒';
+
+/**
+ * Os parâmetros da nota em qualquer ordem: o id ("#r…") e o título. Escrita à mão, só com o título
+ * ("{{nota: Comprar um console}}"), ela é a anotação com esse título, como um link "[[…]]". Com a
+ * marca `PRIVATE_CARD`, `hidden`: a ficha é privada (o texto como foi para quem visita).
+ */
+export function readCardRef(args: readonly string[]): { id: string; title: string; hidden: boolean } {
   let id = '';
   let title = '';
+  let hidden = false;
   for (const a of args) {
     const m = CARD_ID.exec(a);
     if (!id && m) id = m[1];
+    else if (a === PRIVATE_CARD) hidden = true;
     else if (!title && a) title = a;
   }
-  return { id, title };
+  return { id, title, hidden };
 }
 
 /** As fichas coladas no texto (o id e o título de cada uma), na ordem. */
@@ -570,16 +580,18 @@ export function cardRefsIn(text: string): { id: string; title: string }[] {
   for (const line of text.split(/\r?\n/)) {
     if (!line.includes('{{')) continue;
     const w = parseWidgetLine(line);
-    if (w?.name === 'nota') out.push(readCardRef(w.args));
+    if (w?.name !== 'nota') continue;
+    const { id, title } = readCardRef(w.args);
+    out.push({ id, title });
   }
   return out;
 }
 
 /**
  * O texto como vai para quem visita: a nota colada que é uma ficha sua que não está à mostra (privada)
- * perde o título, que ia escrito na marca só para você reconhecer; fica o id, e quem visita vê "Uma
- * ficha", como a de uma ficha que sumiu. A escrita à mão, só com o título, é o que você escreveu, e
- * fica como está (como um link "[[…]]").
+ * perde o título, que ia escrito na marca só para você reconhecer; fica o id e, no lugar do título, a
+ * marca `PRIVATE_CARD`: quem visita vê que a nota colada é privada (e não que ela foi apagada). A
+ * escrita à mão, só com o título, é o que você escreveu, e fica como está (como um link "[[…]]").
  */
 export function hideCardTitles(text: string, hidden: ReadonlySet<string>): string {
   if (!text.includes('{{') || !hidden.size) return text;
@@ -588,10 +600,10 @@ export function hideCardTitles(text: string, hidden: ReadonlySet<string>): strin
     if (!line.includes('{{')) return line;
     const w = parseWidgetLine(line);
     if (w?.name !== 'nota') return line;
-    const { id, title } = readCardRef(w.args);
-    if (!id || !title || !hidden.has(id)) return line;
+    const ref = readCardRef(w.args);
+    if (!ref.id || !hidden.has(ref.id) || (ref.hidden && !ref.title)) return line;
     changed = true;
-    return widgetLine('nota', [`#${id}`], w.size);
+    return widgetLine('nota', [`#${ref.id}`, PRIVATE_CARD], w.size);
   });
   return changed ? lines.join('\n') : text;
 }
@@ -604,7 +616,10 @@ const CARD: WidgetDef = {
   put: 'Colar a nota',
   swap: 'Trocar a nota',
   fields: [{ key: 'id', label: 'Qual', kind: 'card', required: true }],
-  read: (args) => readCardRef(args),
+  read(args) {
+    const { id, title } = readCardRef(args);
+    return { id, title };
+  },
   write(v) {
     const id = (v['id'] ?? '').trim();
     const title = (v['title'] ?? '').trim();

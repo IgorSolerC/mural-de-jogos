@@ -301,15 +301,50 @@ describe('ReviewStore', () => {
       expect(JSON.parse(text).reviews.find((r: { id: string }) => r.id === 'rvez01').revisitOf).toBe('raaaa1');
     });
 
-    it('apagar a original leva as rejogadas junto; apagar a rejogada não mexe na original', () => {
+    it('apagar a rejogada não mexe na original; apagar a original deixa a rejogada mais antiga como a original', () => {
       store.remove('rvez01');
       expect(store.get('raaaa1')).toBeDefined();
       expect(store.get('rvez01')).toBeUndefined();
-      store.restore(sanitizeReview(review('rvez01', 'A', '2024-03-02T00:00:00Z', { revisitOf: 'raaaa1' }))!);
-      store.remove('raaaa1');
+      store.restore(sanitizeReview(review('rvez01', 'A', '2024-03-02T00:00:00Z', { revisitOf: 'raaaa1', completedAt: '2024-03-01' }))!);
+      store.add(sanitizeReview(review('rvez02', 'A', '2024-04-02T00:00:00Z', { revisitOf: 'raaaa1', completedAt: '2024-04-01' }))!);
+      const gone = store.remove('raaaa1')!;
+      expect(gone.heir).toBe('rvez01');
       expect(store.get('raaaa1')).toBeUndefined();
-      expect(store.get('rvez01')).toBeUndefined();
+      expect(store.get('rvez01')!.revisitOf).toBeUndefined();
+      expect(store.get('rvez02')!.revisitOf).toBe('rvez01');
+      // o papel de cada uma continua o de antes (o da original apagada)
+      expect(store.get('rvez01')!.artFrom).toBe('raaaa1');
+      expect(store.get('rvez02')!.artFrom).toBe('raaaa1');
       expect(store.get('rbbbb1')).toBeDefined();
+    });
+
+    it('o Desfazer de apagar a original traz ela de volta como a original, e as rejogadas voltam a ser dela', () => {
+      const before = [store.get('raaaa1')!, ...store.revisitsOf('raaaa1')];
+      store.remove('raaaa1');
+      expect(store.get('rvez01')!.revisitOf).toBeUndefined();
+      store.undoRemove(before);
+      expect(store.get('raaaa1')!.revisitOf).toBeUndefined();
+      expect(store.get('rvez01')!.revisitOf).toBe('raaaa1');
+      expect(store.get('rvez01')!.artFrom).toBeUndefined();
+      expect(store.reviews().filter((r) => r.game.name === 'A' && !r.revisitOf).map((r) => r.id)).toEqual(['raaaa1']);
+    });
+
+    it('a ficha nova com o nome de uma obra que já está no mural entra como rejogada dela, com o papel que ganhou', () => {
+      const swap = store.add(sanitizeReview(review('rnova1', ' a ', '2024-06-01T00:00:00Z', { completedAt: '2024-06-01' }))!);
+      expect(swap).toBeNull();
+      expect(store.get('rnova1')!.revisitOf).toBe('raaaa1');
+      expect(store.get('rnova1')!.artFrom).toBe('rnova1');
+      // outra obra, outro nome: fica sozinha
+      store.add(sanitizeReview(review('rcccc1', 'C', '2024-06-02T00:00:00Z'))!);
+      expect(store.get('rcccc1')!.revisitOf).toBeUndefined();
+    });
+
+    it('a ficha nova com o mesmo nome, mas de antes da original, vira a original', () => {
+      const swap = store.add(sanitizeReview(review('rnova2', 'A', '2024-06-01T00:00:00Z', { completedAt: '2020-01-01' }))!);
+      expect(swap).toEqual({ from: 'raaaa1', to: 'rnova2' });
+      expect(store.get('rnova2')!.revisitOf).toBeUndefined();
+      expect(store.get('raaaa1')!.revisitOf).toBe('rnova2');
+      expect(store.get('rvez01')!.revisitOf).toBe('rnova2');
     });
 
     it('trocar o item da original troca o das rejogadas', () => {

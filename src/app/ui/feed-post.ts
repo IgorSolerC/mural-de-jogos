@@ -19,7 +19,10 @@ export interface FeedPostData {
   secret: boolean;
   /** A ficha do amigo como alvo das reações e dos comentários. */
   target: ReactionTarget;
-  /** ficha: a ficha está aqui; buscando: o mural ainda vem; saiu: o mural veio e ela não está; erro: não veio. */
+  /**
+   * ficha: a ficha está aqui; buscando: o mural ainda vem; saiu: o mural veio e ela não está (o Feed
+   * não mostra o post); erro: não veio.
+   */
   estado: 'ficha' | 'buscando' | 'saiu' | 'erro';
 }
 

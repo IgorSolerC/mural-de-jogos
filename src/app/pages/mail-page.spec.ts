@@ -293,11 +293,23 @@ describe('Amigos: a página (MailPage)', () => {
       expect(posts(page)[0].estado).toBe('ficha');
     });
 
-    it('o mural veio sem a ficha (a pessoa tirou ou deixou privada): "saiu"', async () => {
-      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
-      cloudWalls.set(ana.codigo, wallOf(ana, [review('routra', 'Outra coisa')]));
+    it('o mural veio sem a ficha (a pessoa tirou ou deixou privada): o post não aparece, sem aviso de que saiu', async () => {
+      items.set([post(ana, 'rana02', '2026-10-06T11:00:00.000Z', 'Hades'), post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana02', 'Hades')]));
       const page = await open();
-      expect(posts(page)[0].estado).toBe('saiu');
+      expect(posts(page).map((p) => p.key)).toEqual([`resenha:${ana.codigo}:rana02`]);
+    });
+
+    it('privada e publicada de novo: o post volta com a ficha', async () => {
+      items.set([post(ana, 'rana01', '2026-10-06T10:00:00.000Z')]);
+      cloudWalls.set(ana.codigo, wallOf(ana, []));
+      const page = await open();
+      expect(posts(page)).toEqual([]);
+      // no dia seguinte ela publica de novo: o mural novo, com a ficha, chega
+      cloudWalls.set(ana.codigo, wallOf(ana, [review('rana01', 'Celeste')]));
+      walls.set([wallOf(ana, [review('rana01', 'Celeste')])]);
+      await settle();
+      expect(posts(page).map((p) => p.estado)).toEqual(['ficha']);
     });
 
     it('"Quero jogar" põe na wishlist uma vez só', async () => {
@@ -387,7 +399,7 @@ describe('Amigos: a página (MailPage)', () => {
       log = [];
       items.update((list) => [post(ana, 'rana02', '2026-10-06T11:00:00.000Z', 'Hades'), ...list]);
       await settle();
-      expect(posts(page).find((p) => p.key.endsWith('rana02'))!.estado).toBe('saiu');
+      expect(posts(page).some((p) => p.key.endsWith('rana02'))).toBeFalse();
       items.update((list) => [...list]); // outra conferência do correio, sem nada novo
       await settle();
       expect(log).toEqual([`ensure(${ana.codigo})`]);

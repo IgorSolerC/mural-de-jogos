@@ -248,12 +248,12 @@ export class App {
     const r = this.store.get(id);
     if (!r) return;
     const p = profileOf(r.kind);
-    // a original leva as rejogadas junto; uma rejogada sai sozinha
+    // as rejogadas da original ficam: a mais antiga passa a ser a original
     const revisits = this.store.revisitsOf(id);
     const what = r.revisitOf ? `A ${p.revisit.one} de “${r.game.name}”` : `“${r.game.name}”`;
     const sure = await this.confirm.ask({
       text: revisits.length
-        ? `${what} sai do mural, com as notas e o texto. ${revisits.length === 1 ? `A ${p.revisit.one} dela sai junto.` : `As ${revisitCountOf(p, revisits.length)} dela saem junto.`}`
+        ? `${what} sai do mural, com as notas e o texto. ${revisits.length === 1 ? `A ${p.revisit.one} fica e passa a ser a original.` : `As ${revisitCountOf(p, revisits.length)} ficam, e a mais antiga passa a ser a original.`}`
         : isNotes(r.kind)
           ? `${what} sai do mural, com o texto.`
           : `${what} sai do mural, com as notas e o texto.`,
@@ -265,11 +265,12 @@ export class App {
     const cards = [...document.querySelectorAll<HTMLElement>('[data-ficha]')];
     const at = cards.findIndex((c) => c.dataset['ficha'] === id);
     const neighbour = (cards[at + 1] ?? cards[at - 1])?.dataset['ficha'];
-    const gone = [r, ...this.store.revisitsOf(id)];
+    // a ficha e as rejogadas como estavam: o Desfazer deixa tudo como era
+    const before = [r, ...this.store.revisitsOf(id)];
     this.vt.run(() => this.store.remove(id));
-    this.toasts.show(`${what} saiu do mural`, {
+    this.toasts.show(before.length > 1 ? `${what} saiu do mural; a ${p.revisit.one} mais antiga virou a original` : `${what} saiu do mural`, {
       label: 'Desfazer',
-      run: () => this.vt.run(() => gone.forEach((x) => this.store.restore(x))),
+      run: () => this.vt.run(() => this.store.undoRemove(before)),
     });
     setTimeout(() => {
       const next =

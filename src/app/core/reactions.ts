@@ -160,6 +160,11 @@ export class Reactions {
     } catch (err) {
       this.set(target.code, target.ref, before);
       this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para reagir agora. Tente de novo.');
+      // a ficha virou privada (ou foi apagada) depois que a página abriu: a nuvem não guardou a
+      // reação, e o post dela sai do Feed já, sem esperar a próxima conferência do correio
+      if (err instanceof CloudError && err.code === 'ficha-nao-encontrada') {
+        this.follow.items.update((list) => list.filter((i) => !(i.tipo === 'resenha' && i.pessoa.codigo === target.code && i.ref === target.ref)));
+      }
     }
   }
 

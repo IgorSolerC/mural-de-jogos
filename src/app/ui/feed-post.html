@@ -24,27 +24,22 @@
       <!-- sem os remendos na quina: no Feed, as reações e os comentários da ficha moram no pé do post -->
       <app-review-card [review]="theirs" [preview]="true" [masked]="p.secret" (opened)="opened.emit({ comments: false })" />
     } @else {
-      <!-- sem a ficha: uma cartolina em branco com o nome da obra, dizendo o porquê -->
-      <div class="cartolina espera" [class.saiu]="p.estado === 'saiu'" data-cor="cinza">
+      <!-- sem a ficha: uma cartolina em branco com o nome da obra, dizendo o porquê (a que saiu do
+           mural nem chega aqui: o Feed não mostra o post dela) -->
+      <div class="cartolina espera" data-cor="cinza">
         <span class="furo" aria-hidden="true"></span>
         <p class="espera-titulo">{{ p.item.titulo }}</p>
-        @switch (p.estado) {
-          @case ('buscando') {
-            <p class="espera-txt" role="status">
-              <span class="carregando" aria-hidden="true"></span>
-              Buscando a ficha no mural de {{ who().nome }}…
-            </p>
-          }
-          @case ('erro') {
-            <p class="espera-txt">Não consegui buscar o mural de {{ who().nome }} agora.</p>
-            <button type="button" class="btn-ink tentar" (click)="retry.emit()">
-              <lucide-icon [img]="RetryIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-              Tentar de novo
-            </button>
-          }
-          @default {
-            <p class="espera-txt">{{ who().nome }} tirou essa ficha do mural.</p>
-          }
+        @if (p.estado === 'erro') {
+          <p class="espera-txt">Não consegui buscar o mural de {{ who().nome }} agora.</p>
+          <button type="button" class="btn-ink tentar" (click)="retry.emit()">
+            <lucide-icon [img]="RetryIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            Tentar de novo
+          </button>
+        } @else {
+          <p class="espera-txt" role="status">
+            <span class="carregando" aria-hidden="true"></span>
+            Buscando a ficha no mural de {{ who().nome }}…
+          </p>
         }
       </div>
     }

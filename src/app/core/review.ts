@@ -491,14 +491,20 @@ export function settleOriginal(list: readonly Review[], anyId: string, now: stri
   if (!r) return [];
   const root = rootOf(r);
   const original = list.find((x) => x.id === root && !x.revisitOf);
-  if (!original) return [];
   const revisits = list.filter((x) => x.revisitOf === root);
+  // sem a original (apagada): a rejogada mais antiga passa a ser a original
+  if (!original) return revisits.length ? reroot(revisits, [...revisits].sort(revisitOrder)[0].id, now) : [];
   const older = revisits.filter((x) => dateOrder(x, original) < 0).sort(revisitOrder)[0];
   if (!older) return [];
-  return [original, ...revisits].map((x) => {
+  return reroot([original, ...revisits], older.id, now);
+}
+
+/** As vezes de uma obra com `root` como a original e as outras como rejogadas dela; o papel de cada uma não muda (`artFrom`). */
+function reroot(times: readonly Review[], root: string, now: string): Review[] {
+  return times.map((x) => {
     const art = artIdOf(x);
     const { revisitOf: _was, artFrom: _art, ...rest } = x;
-    const revisitOf = x.id === older.id ? undefined : older.id;
+    const revisitOf = x.id === root ? undefined : root;
     return {
       ...rest,
       ...(revisitOf ? { revisitOf } : {}),
@@ -506,6 +512,40 @@ export function settleOriginal(list: readonly Review[], anyId: string, now: stri
       updatedAt: now,
     };
   });
+}
+
+/** O nome como conta para dizer que é a mesma obra: sem maiúsculas, acentos e espaços a mais. */
+function workKey(s: string | undefined): string {
+  return fold(s ?? '').trim().replace(/\s+/g, ' ');
+}
+
+/**
+ * São a mesma obra? O mesmo mural e o mesmo nome (sem diferença de maiúsculas, acentos e espaços); na
+ * música, também o mesmo artista. Dois títulos iguais que se sabe que são obras diferentes (anos,
+ * autores ou ids da busca diferentes, como um remake) não contam. Anotação não tem outra vez.
+ */
+export function sameWork(a: Review, b: Review): boolean {
+  if (a.kind !== b.kind || isNote(a) || workKey(a.game.name) !== workKey(b.game.name)) return false;
+  if (isMusicReview(a) && workKey(a.category) !== workKey(b.category)) return false;
+  const differ = (x: string | undefined, y: string | undefined) => !!x && !!y && workKey(x) !== workKey(y);
+  if (differ(a.game.year, b.game.year) || differ(a.game.by, b.game.by)) return false;
+  return !(a.game.source === b.game.source && differ(a.game.sourceId, b.game.sourceId));
+}
+
+/**
+ * A ficha nova de uma obra que já está no mural (o mesmo nome, ver `sameWork`) é mais uma vez dela:
+ * nasce como rejogada (releitura, reassistida) da original, com o papel que ganhou no editor
+ * (`artFrom`). Se ela for a vez mais antiga, `settleOriginal` a faz original depois. Sem outra vez da
+ * obra (ou já rejogada, ou anotação), volta como veio.
+ */
+export function asRevisit(list: readonly Review[], review: Review): Review {
+  if (review.revisitOf || isNote(review)) return review;
+  const same = list.find((x) => x.id !== review.id && sameWork(x, review));
+  if (!same) return review;
+  const root = rootOf(same);
+  const art = artIdOf(review);
+  const { artFrom: _art, ...rest } = review;
+  return { ...rest, revisitOf: root, ...(art !== root ? { artFrom: art } : {}) };
 }
 
 /**

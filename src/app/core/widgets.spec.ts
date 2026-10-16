@@ -197,13 +197,16 @@ describe('widgets das anotações', () => {
 
 describe('a nota colada (o widget Nota)', () => {
   it('o id ("#r…") e o título em qualquer ordem; só o título vale para a escrita à mão', () => {
-    expect(readCardRef(['#rabc123', 'Hollow Knight'])).toEqual({ id: 'rabc123', title: 'Hollow Knight' });
-    expect(readCardRef(['Hollow Knight', '#rabc123'])).toEqual({ id: 'rabc123', title: 'Hollow Knight' });
-    expect(readCardRef(['Comprar um console'])).toEqual({ id: '', title: 'Comprar um console' });
+    expect(readCardRef(['#rabc123', 'Hollow Knight'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false });
+    expect(readCardRef(['Hollow Knight', '#rabc123'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false });
+    expect(readCardRef(['Comprar um console'])).toEqual({ id: '', title: 'Comprar um console', hidden: false });
     // um título que parece id, depois do id, é título
-    expect(readCardRef(['#rabc123', '#1'])).toEqual({ id: 'rabc123', title: '#1' });
+    expect(readCardRef(['#rabc123', '#1'])).toEqual({ id: 'rabc123', title: '#1', hidden: false });
     // "#" com espaço não é id
-    expect(readCardRef(['# um título'])).toEqual({ id: '', title: '# um título' });
+    expect(readCardRef(['# um título'])).toEqual({ id: '', title: '# um título', hidden: false });
+    // o cadeado (a ficha privada, no texto de quem visita) não é o título
+    expect(readCardRef(['#rabc123', '🔒'])).toEqual({ id: 'rabc123', title: '', hidden: true });
+    expect(widgetDef('nota')!.plain(['#rabc123', '🔒'])).toBe('');
   });
 
   it('os outros nomes, o tamanho e a marca escrita de volta', () => {

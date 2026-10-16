@@ -242,13 +242,6 @@ describe('Um post do Feed (FeedPost)', () => {
       click('.tentar');
       expect(host.log).toEqual(['tentar']);
     });
-
-    it('a pessoa tirou a ficha: só o lugar dela, sem botão', async () => {
-      await show(data({ theirs: null, estado: 'saiu' }));
-      expect(el.querySelector('.espera')?.classList).toContain('saiu');
-      expect(text('.espera-txt')).toBe('Ana tirou essa ficha do mural.');
-      expect(el.querySelector('.espera button')).toBeNull();
-    });
   });
 
   describe('o pé', () => {
