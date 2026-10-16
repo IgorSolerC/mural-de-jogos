@@ -26,13 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-16-releituras-e-privadas',
+    id: '2026-10-16-releituras-ligadas',
     version: '1.22.2',
     kind: 'ajustes',
     date: '2026-10-16',
     title: 'Releituras pelo nome, notas privadas coladas e o Feed sem fichas que saíram',
     melhorias: [
-      'Uma ficha nova com o nome de uma obra que já está no mural entra como releitura (rejogada, reassistida) dela; se for de antes, vira a original.',
+      'Uma ficha nova com o nome de uma obra que já está no mural entra como releitura (rejogada, reassistida) dela; se for de antes, vira a original. As fichas de nome igual que já estavam soltas no mural também viraram releituras da mais antiga.',
       'Apagar a ficha original não leva mais as releituras junto: a mais antiga passa a ser a original, e o Desfazer deixa tudo como era.',
       'Quem visita vê "Nota privada" no lugar de uma nota privada colada numa ficha pública, e não mais o aviso de ficha apagada.',
       'O Feed não mostra mais o post de uma ficha que a pessoa apagou ou deixou privada (publicada de novo, ela volta), e reagir a uma que acabou de ficar privada tira o post na hora.',

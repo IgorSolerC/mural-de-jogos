@@ -549,6 +549,57 @@ export function asRevisit(list: readonly Review[], review: Review): Review {
 }
 
 /**
+ * Qual vez vem antes, para ligar fichas soltas da mesma obra (`linkSameWorks`): pela data; na mesma
+ * data, a que já é original; depois a pregada antes e, por fim, o id (dois aparelhos chegam à mesma).
+ */
+function timeOrder(a: Review, b: Review): number {
+  return dateOrder(a, b) || Number(!!a.revisitOf) - Number(!!b.revisitOf) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+}
+
+/**
+ * As fichas da mesma obra que ficaram soltas (pregadas antes de a ficha nova de nome igual virar
+ * rejogada sozinha, ver `asRevisit`) viram uma obra só: a vez mais antiga é a original e as outras,
+ * com as rejogadas que já tinham, rejogadas dela. A rejogada cuja original sumiu também ganha uma
+ * original (a mais antiga). O papel de cada uma não muda (`artFrom`). Devolve só as fichas que mudaram.
+ */
+export function linkSameWorks(list: readonly Review[], now: string): Review[] {
+  // as famílias: cada original (ou o id da original que sumiu) com as rejogadas dela
+  const families = new Map<string, Review[]>();
+  for (const r of list) {
+    if (isNote(r)) continue;
+    const family = families.get(rootOf(r));
+    if (family) family.push(r);
+    else families.set(rootOf(r), [r]);
+  }
+  const head = (f: readonly Review[]) => f.find((x) => !x.revisitOf) ?? [...f].sort(timeOrder)[0];
+  // as famílias da mesma obra juntas: o mesmo nome, e cada uma é a mesma obra que todas as outras
+  const byName = new Map<string, Review[][][]>();
+  for (const f of [...families.values()].sort((a, b) => timeOrder(head(a), head(b)))) {
+    const h = head(f);
+    const key = `${h.kind}|${workKey(h.game.name)}`;
+    const groups = byName.get(key) ?? [];
+    byName.set(key, groups);
+    const same = groups.find((g) => g.every((o) => sameWork(head(o), h)));
+    if (same) same.push(f);
+    else groups.push([f]);
+  }
+  const changed: Review[] = [];
+  for (const groups of byName.values()) {
+    for (const g of groups) {
+      const times = g.flat();
+      // uma família só, com a original: nada a ligar
+      if (g.length === 1 && times.some((x) => !x.revisitOf)) continue;
+      const before = new Map(times.map((x) => [x.id, x]));
+      for (const x of reroot(times, [...times].sort(timeOrder)[0].id, now)) {
+        const was = before.get(x.id)!;
+        if (was.revisitOf !== x.revisitOf || was.artFrom !== x.artFrom) changed.push(x);
+      }
+    }
+  }
+  return changed;
+}
+
+/**
  * Todas as vezes de uma obra, a partir de qualquer uma delas: a ficha original primeiro, depois as
  * rejogadas na ordem em que aconteceram. Sem a original (apagada em outro aparelho), só as rejogadas.
  */

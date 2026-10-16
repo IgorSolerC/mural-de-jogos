@@ -279,6 +279,22 @@ describe('ReviewStore', () => {
     expect(store.get('raaaa1')!.stock).toBeDefined();
   });
 
+  it('ao abrir, as fichas soltas de nome igual viram releituras da mais antiga, e isso fica gravado', () => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
+    localStorage.setItem(
+      'mural-de-jogos:resenhas:v1',
+      JSON.stringify([review('rnovo1', 'Hades', '2024-05-01T00:00:00Z', { completedAt: '2024-05-01' }), review('rvelho', 'Hades', '2024-01-01T00:00:00Z', { completedAt: '2021-01-01' })]),
+    );
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const fresh = TestBed.inject(ReviewStore);
+    TestBed.tick();
+    expect(fresh.get('rnovo1')!.revisitOf).toBe('rvelho');
+    expect(fresh.get('rvelho')!.revisitOf).toBeUndefined();
+    const saved = JSON.parse(localStorage.getItem('mural-de-jogos:resenhas:v1')!) as { id: string; revisitOf?: string }[];
+    expect(saved.find((r) => r.id === 'rnovo1')!.revisitOf).toBe('rvelho');
+  });
+
   describe('rejogadas', () => {
     beforeEach(() => {
       store.importJson(

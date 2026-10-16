@@ -30,6 +30,7 @@ import {
   settleOriginal,
   sameWork,
   asRevisit,
+  linkSameWorks,
   Review,
   BONUS_MAX_LABEL,
   fold,
@@ -522,6 +523,40 @@ describe('rejogadas', () => {
       expect(asRevisit(list, list[1])).toBe(list[1]);
       const other = at('rn0002', '2022', { game: { ...list[0].game, name: 'Outra' } });
       expect(asRevisit(list, other)).toBe(other);
+    });
+
+    it('as fichas soltas da mesma obra viram uma só: a mais antiga é a original, com as rejogadas que cada uma tinha', () => {
+      const g = (name: string, year?: string) => ({ name, coverUrl: null, source: 'manual', ...(year ? { year } : {}) });
+      const list = [
+        at('rnova', '2024-05-01', { game: g('Hades') }),
+        at('rnova-vez', '2025-01-01', { game: g('Hades'), revisitOf: 'rnova' }),
+        at('rvelha', '2021-03-01', { game: g('hades ') }),
+        at('routra', '2020-01-01', { game: g('Celeste') }),
+        // o mesmo nome, mas um remake: outra obra
+        at('rre4', '2020', { game: g('Resident Evil 4', '2005') }),
+        at('rre4r', '2023', { game: g('Resident Evil 4', '2023') }),
+      ];
+      const changed = linkSameWorks(list, now);
+      expect(changed.map((r) => [r.id, r.revisitOf ?? null]).sort()).toEqual([
+        ['rnova', 'rvelha'],
+        ['rnova-vez', 'rvelha'],
+      ]);
+      // o papel de cada uma continua o de antes
+      for (const r of changed) expect(artIdOf(r)).withContext(r.id).toBe('rnova');
+      // ligadas, nada mais muda (as duas pontas chegam ao mesmo)
+      expect(linkSameWorks(apply(list, changed), now)).toEqual([]);
+    });
+
+    it('na mesma data, a original que já era continua; a rejogada sem original ganha uma', () => {
+      const same = [at('rb0001', '2022-01-01', { createdAt: '2022-01-02T00:00:00Z' }), at('ra0001', '2022-01-01', { createdAt: '2022-01-03T00:00:00Z' })];
+      expect(linkSameWorks(same, now).map((r) => [r.id, r.revisitOf])).toEqual([['ra0001', 'rb0001']]);
+      const orphans = [at('rv0002', '2024', { revisitOf: 'rsumiu' }), at('rv0001', '2023', { revisitOf: 'rsumiu' })];
+      expect(linkSameWorks(orphans, now).map((r) => [r.id, r.revisitOf ?? null])).toEqual([
+        ['rv0002', 'rv0001'],
+        ['rv0001', null],
+      ]);
+      // as anotações nunca
+      expect(linkSameWorks([at('rn0001', '2022', { kind: 'anotacoes' }), at('rn0002', '2023', { kind: 'anotacoes' })], now)).toEqual([]);
     });
 
     it('na mesma data (ou depois), a original continua', () => {

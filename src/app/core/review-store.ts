@@ -6,7 +6,7 @@ import { buildOf } from './migrations';
 import { DataKey, LocalData } from './local-data';
 import { canonicalJson } from './canonical-json';
 import { KeptReason, KeptVersion, mergeVersions, sameContent, sanitizeVersions, storedVersions } from './kept-versions';
-import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
+import { Bonus, Draft, Kind, LIGHT_STOCKS, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, linkSameWorks, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -167,6 +167,9 @@ export class ReviewStore {
   };
 
   constructor() {
+    // as fichas da mesma obra pregadas soltas, de antes de a ficha de nome igual virar rejogada sozinha:
+    // viram uma obra só, com a mais antiga como original (gravado já, pelo efeito abaixo)
+    this.linkSameWorks();
     effect(() => {
       const list = this.reviews();
       // cada lista só é regravada quando mudou: pregar uma resenha não regrava as anotações nem as músicas
@@ -315,6 +318,14 @@ export class ReviewStore {
       }),
     );
     return this.settle(review.id);
+  }
+
+  /** Liga as fichas soltas da mesma obra (ver `linkSameWorks` em review.ts). Sem nada a ligar, a lista fica a mesma. */
+  private linkSameWorks(): void {
+    const changed = linkSameWorks(this.reviews(), new Date().toISOString());
+    if (!changed.length) return;
+    const byId = new Map(changed.map((r) => [r.id, r]));
+    this.reviews.update((list) => list.map((r) => byId.get(r.id) ?? r));
   }
 
   /** As rejogadas (releituras, reassistidas) de uma ficha original. */
