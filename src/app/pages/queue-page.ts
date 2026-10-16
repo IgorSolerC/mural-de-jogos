@@ -8,6 +8,7 @@ import { ageOf, daysWaiting, pageHeight } from '../core/notebook';
 import { fold } from '../core/review';
 import { ViewTransitions } from '../core/view-transitions';
 import { DraftCard } from '../ui/draft-card';
+import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 
 type Order = 'recentes' | 'antigos' | 'az';
@@ -25,7 +26,7 @@ const ORDERS: readonly { value: Order; label: string }[] = [
  */
 @Component({
   selector: 'app-queue-page',
-  imports: [DraftCard, LucideAngularModule, SearchStrip],
+  imports: [DraftCard, LucideAngularModule, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- o nome e a contagem estão no índice embaixo do topo (ui/area-bar.ts) -->
@@ -84,7 +85,7 @@ const ORDERS: readonly { value: Order; label: string }[] = [
       }
 
       <h2 class="sr-only">Folhas</h2>
-      <div class="sheets" [style.--colunas]="cols()">
+      <div class="sheets" [style.--colunas]="cols()" [appRealceBusca]="query()" realceEm="app-draft-card .title">
         @for (col of columns(); track $index) {
           <div class="coluna">
             @for (d of col; track d.id) {

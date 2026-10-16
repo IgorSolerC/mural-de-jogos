@@ -218,6 +218,18 @@ body.has-wall-texture {
   color: var(--ink);
 }
 
+/* o que bate com a caixa de busca (ver ui/search-highlight.ts): marca-texto verde-limão, cheio e com
+   tinta preta por cima, para ler em qualquer cartolina, até nas escuras; o amarelo já é da seleção e
+   do marca-texto do próprio texto. Na cartolina verde, rosa, para não sumir. A tinta é fixa: nas
+   escuras o --ink vira claro */
+::highlight(busca) {
+  background-color: #c4ff3d;
+  color: #151515;
+}
+[data-cor='verde'] ::highlight(busca) {
+  background-color: #ff9ccb;
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;

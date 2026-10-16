@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-busca-marca-texto',
+    version: '1.41.13',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'Busca: o que ela achou, marcado',
+    items: [
+      'O que você digita na caixa de busca aparece marcado nas fichas, num marca-texto verde-limão: no nome, no texto, nas tags e na categoria. Dá para ver de cara por que cada ficha apareceu.',
+      'Vale sem acento e sem maiúscula, como a busca: "coracao" marca "Coração". Buscando uma #tag, só as tags ganham a marca.',
+      'No Pra depois e na Wishlist, a marca fica no nome.',
+    ],
+  },
+  {
     id: '2026-10-15-arquivo-murais',
     version: '1.41.12',
     kind: 'melhoria',

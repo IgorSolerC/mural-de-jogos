@@ -58,6 +58,8 @@
     [class.lista]="lista()"
     [class.com-orelhas]="ears()"
     [class.sem-etiquetas]="!labels()"
+    [appRealceBusca]="view.query()"
+    realceEm=".fichas, app-note-index"
   >
     @for (g of view.groups(); track g.key) {
       <!-- a etiqueta da seção fecha e abre a seção: fechada, as fichas viram um maço preso com

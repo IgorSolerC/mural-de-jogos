@@ -8,6 +8,7 @@ import { WallGroup, WallState } from '../core/wall-view';
 import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
 import { Pin } from '../ui/pin';
+import { SearchHighlight } from '../ui/search-highlight';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
@@ -22,7 +23,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [DoneStamp, LucideAngularModule, NoteIndex, Pin, WallCards],
+  imports: [DoneStamp, LucideAngularModule, NoteIndex, Pin, SearchHighlight, WallCards],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-board.html',

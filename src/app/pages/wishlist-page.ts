@@ -8,6 +8,7 @@ import { RELEVANCE_RANK, Relevance, Wish, fold, relevanceLabel, relevanceOf } fr
 import { ReviewStore } from '../core/review-store';
 import { ViewTransitions } from '../core/view-transitions';
 import { Toasts } from '../ui/toast';
+import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { WishClip } from '../ui/wish-clip';
 
@@ -26,7 +27,7 @@ const ORDERS: readonly { value: Order; label: string }[] = [
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [LucideAngularModule, SearchStrip, WishClip],
+  imports: [LucideAngularModule, SearchHighlight, SearchStrip, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
   template: `
@@ -110,7 +111,7 @@ const ORDERS: readonly { value: Order; label: string }[] = [
       }
 
       <h2 class="sr-only">Recortes</h2>
-      <div class="recortes" [style.--colunas]="cols()">
+      <div class="recortes" [style.--colunas]="cols()" [appRealceBusca]="query()" realceEm=".nome-colado">
         @for (col of columns(); track $index) {
           <div class="coluna">
             @for (w of col; track w.id) {
