@@ -6,6 +6,7 @@ import { photoOut } from '../domain/photo';
 import { write } from '../domain/quota';
 import { isReaction } from '../domain/reaction';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
+import { isShown, shownRefs } from '../domain/shown';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -112,6 +113,17 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     return !!(await deps.db.first('SELECT 1 AS x FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', [follower, followed]));
   }
 
+  /**
+   * A ficha está à mostra para `userId`? O dono vê as dele todas; os outros, só as do mural público
+   * (ver domain/shown.ts).
+   */
+  async function visible(who: Pick<Owner, 'id'>, ref: string, userId: string | null): Promise<boolean> {
+    return userId === who.id || isShown(await shownRefs(deps.db, who.id), ref);
+  }
+
+  /** A ficha não está à mostra (privada ou apagada): para os outros, ela não existe. */
+  const hiddenCard = () => new HttpError(404, 'ficha-nao-encontrada', 'Essa ficha não está mais no mural.');
+
   /** A recusa, dizendo o que falta: seguir a pessoa, ou ser seguido por ela. */
   const refusal = (who: Owner) =>
     fromOf(who) === 'seguidos'
@@ -126,7 +138,9 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       who.id,
       MAX_CARDS_COUNTED,
     ]);
-    return c.json({ contagem: Object.fromEntries(rows.map((r) => [r.ref, r.n])), quem: fromOf(who), pode: await allowed(who, me) });
+    const shown = me === who.id ? null : await shownRefs(deps.db, who.id);
+    const counted = rows.filter((r) => isShown(shown, r.ref));
+    return c.json({ contagem: Object.fromEntries(counted.map((r) => [r.ref, r.n])), quem: fromOf(who), pode: await allowed(who, me) });
   });
 
   /** Os comentários da ficha `ref`, do mais antigo para o mais novo (os `MAX_COMMENTS_LISTED` mais novos), com as reações de cada um. */
@@ -134,6 +148,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const me = await viewer(c);
     const who = await owner(c.req.param('codigo'));
     const ref = refParam(c);
+    if (!(await visible(who, ref, me))) throw hiddenCard();
     const rows = await deps.db.all<CommentRow>(
       'SELECT k.id, k.texto, k.criado_em, u.codigo, u.nome, u.foto FROM comentarios k JOIN usuarios u ON u.id = k.autor_id ' +
         'WHERE k.dono_id = ? AND k.ref = ? ORDER BY k.criado_em DESC, k.rowid DESC LIMIT ?',
@@ -173,6 +188,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     if (!text) throw new HttpError(400, 'comentario-vazio', 'Escreva alguma coisa antes de comentar.');
     if (text.length > COMMENT_MAX) throw new HttpError(400, 'comentario-grande', `O comentário passa de ${COMMENT_MAX} caracteres.`);
     if (!(await allowed(who, s.userId))) throw refusal(who);
+    if (!(await visible(who, ref, s.userId))) throw hiddenCard();
     const now = deps.now();
     if ((await usedToday(deps, s.userId, 'comentar', now)) >= MAX_COMMENTS_PER_DAY) {
       throw new HttpError(429, 'comentar-devagar', 'Você comentou bastante hoje. Tente de novo amanhã.');
@@ -238,6 +254,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const reaction = body['reacao'];
     if (!isReaction(reaction)) throw new HttpError(400, 'reacao-invalida', 'Essa reação não existe.');
     if (!(await allowed(k.dono, s.userId))) throw refusal(k.dono);
+    if (!(await visible(k.dono, k.ref, s.userId))) throw hiddenCard();
     const now = deps.now();
     const before = await deps.db.first<{ reacao: string }>('SELECT reacao FROM comentario_reacoes WHERE comentario_id = ? AND autor_id = ?', [k.id, s.userId]);
     if (before?.reacao === reaction) return c.json({ reacao: reaction });

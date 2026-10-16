@@ -575,6 +575,27 @@ export function cardRefsIn(text: string): { id: string; title: string }[] {
   return out;
 }
 
+/**
+ * O texto como vai para quem visita: a nota colada que é uma ficha sua que não está à mostra (privada)
+ * perde o título, que ia escrito na marca só para você reconhecer; fica o id, e quem visita vê "Uma
+ * ficha", como a de uma ficha que sumiu. A escrita à mão, só com o título, é o que você escreveu, e
+ * fica como está (como um link "[[…]]").
+ */
+export function hideCardTitles(text: string, hidden: ReadonlySet<string>): string {
+  if (!text.includes('{{') || !hidden.size) return text;
+  let changed = false;
+  const lines = text.split('\n').map((line) => {
+    if (!line.includes('{{')) return line;
+    const w = parseWidgetLine(line);
+    if (w?.name !== 'nota') return line;
+    const { id, title } = readCardRef(w.args);
+    if (!id || !title || !hidden.has(id)) return line;
+    changed = true;
+    return widgetLine('nota', [`#${id}`], w.size);
+  });
+  return changed ? lines.join('\n') : text;
+}
+
 const CARD: WidgetDef = {
   name: 'nota',
   aliases: ['ficha', 'anotacao', 'card', 'note'],

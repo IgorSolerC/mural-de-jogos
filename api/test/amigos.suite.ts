@@ -72,7 +72,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
     const push = async (
       token: string,
       base: number | string | null,
-      docs: { privado?: string; publico?: string | null; novas?: unknown; novasRaw?: string; foto?: string; cartao?: string } = {},
+      docs: { privado?: string; publico?: string | null; novas?: unknown; novasRaw?: string; foto?: string; cartao?: string; fichas?: string } = {},
     ) => {
       const form = new FormData();
       form.append('privado', new Blob([await gzip(docs.privado ?? '{"reviews":[]}')], { type: 'application/gzip' }));
@@ -81,6 +81,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
       else if (docs.novas !== undefined) form.append('novas', JSON.stringify(docs.novas));
       if (docs.foto !== undefined) form.append('foto', docs.foto);
       if (docs.cartao !== undefined) form.append('cartao', docs.cartao);
+      if (docs.fichas !== undefined) form.append('fichas', docs.fichas);
       const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
       if (base !== null) headers['Mural-Rev-Base'] = String(base);
       const res = await call('/v1/eu/mural', { method: 'PUT', headers, body: form });
@@ -1159,6 +1160,102 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
         expect([await count('comentarios'), await count('comentario_reacoes')]).toEqual([0, 0]);
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'comentou'")).toEqual([]);
+      });
+    });
+
+    describe('fichas que não estão à mostra', () => {
+      /**
+       * Ana tem r-hades e r-celeste à mostra; Bia segue a Ana, reage e comenta em r-hades. `hide`
+       * envia o mural da Ana com r-hades fora da lista (privada, ou apagada).
+       */
+      async function hiding() {
+        const t = await two();
+        await t.follow(t.bia.token, t.ana.codigo);
+        t.advance(1000);
+        let rev = (await t.push(t.ana.token, 0, { fichas: JSON.stringify(['r-hades', 'r-celeste']), novas: [review('r-hades', 'Hades')] })).body.rev as number;
+        const read = async (res: Response | Promise<Response>) => {
+          const r = await res;
+          return { status: r.status, body: r.headers.get('Content-Type')?.includes('json') ? ((await r.json()) as any) : null };
+        };
+        const react = (token: string, ref: string) => read(t.json('PUT', `/v1/murais/${t.ana.codigo}/reacoes/${ref}`, { reacao: 'fogo', titulo: 'Hades', mural: 'jogos' }, token));
+        const reactions = (token?: string) => read(t.json('GET', `/v1/murais/${t.ana.codigo}/reacoes`, undefined, token));
+        const comment = (token: string, ref: string, texto = 'Que final!') =>
+          read(t.json('POST', `/v1/murais/${t.ana.codigo}/comentarios/${ref}`, { texto, titulo: 'Hades', mural: 'jogos' }, token));
+        const thread = (ref: string, token?: string) => read(t.json('GET', `/v1/murais/${t.ana.codigo}/comentarios/${ref}`, undefined, token));
+        const counts = (token?: string) => read(t.json('GET', `/v1/murais/${t.ana.codigo}/comentarios`, undefined, token));
+        const show = async (fichas: string | undefined) => {
+          const res = await t.push(t.ana.token, rev, fichas === undefined ? {} : { fichas });
+          expect(res.status).toBe(200);
+          rev = res.body.rev;
+        };
+        expect((await react(t.bia.token, 'r-hades')).status).toBe(201);
+        expect((await comment(t.bia.token, 'r-hades')).status).toBe(201);
+        return { ...t, react, reactions, comment, thread, counts, show };
+      }
+
+      it('as reações de uma ficha que virou privada somem para os outros, e voltam com ela; o dono vê sempre', async () => {
+        const { reactions, show, ana, bia } = await hiding();
+        expect(Object.keys((await reactions()).body.reacoes)).toEqual(['r-hades']);
+        await show(JSON.stringify(['r-celeste']));
+        expect((await reactions()).body.reacoes).toEqual({});
+        expect((await reactions(bia.token)).body.reacoes).toEqual({});
+        expect(Object.keys((await reactions(ana.token)).body.reacoes)).toEqual(['r-hades']);
+        await show(JSON.stringify(['r-celeste', 'r-hades']));
+        expect(Object.keys((await reactions(bia.token)).body.reacoes)).toEqual(['r-hades']);
+      });
+
+      it('ninguém reage nem comenta numa ficha que não está à mostra (o dono comenta nas dele)', async () => {
+        const { react, comment, show, ana, bia } = await hiding();
+        await show(JSON.stringify(['r-celeste']));
+        expect((await react(bia.token, 'r-hades')).body.erro).toBe('ficha-nao-encontrada');
+        expect((await react(bia.token, 'r-segredo')).status).toBe(404);
+        expect((await comment(bia.token, 'r-hades')).status).toBe(404);
+        expect((await comment(ana.token, 'r-hades', 'Anotação minha.')).status).toBe(201);
+        expect((await react(bia.token, 'r-celeste')).status).toBe(201);
+        expect((await comment(bia.token, 'r-celeste')).status).toBe(201);
+      });
+
+      it('os comentários e a contagem de uma ficha que virou privada somem para os outros', async () => {
+        const { thread, counts, show, ana, bia } = await hiding();
+        expect((await counts()).body.contagem).toEqual({ 'r-hades': 1 });
+        await show(JSON.stringify(['r-celeste']));
+        expect((await counts()).body.contagem).toEqual({});
+        expect((await counts(bia.token)).body.contagem).toEqual({});
+        expect((await thread('r-hades')).status).toBe(404);
+        expect((await thread('r-hades', bia.token)).status).toBe(404);
+        expect((await counts(ana.token)).body.contagem).toEqual({ 'r-hades': 1 });
+        expect((await thread('r-hades', ana.token)).body.comentarios.map((k: any) => k.texto)).toEqual(['Que final!']);
+      });
+
+      it('o aviso de uma ficha que virou privada sai do correio de quem segue', async () => {
+        const { feed, show, bia } = await hiding();
+        const refs = async () => (await feed(bia.token)).body.itens.filter((i: any) => i.tipo === 'resenha').map((i: any) => i.ref);
+        expect(await refs()).toEqual(['r-hades']);
+        await show(JSON.stringify(['r-celeste']));
+        expect(await refs()).toEqual([]);
+        await show(JSON.stringify(['r-hades']));
+        expect(await refs()).toEqual(['r-hades']);
+      });
+
+      it('um envio sem a lista (site antigo) ou com uma lista que não serve deixa a de antes', async () => {
+        const { reactions, show, bia } = await hiding();
+        await show(JSON.stringify(['r-celeste']));
+        await show(undefined);
+        await show('não é json');
+        await show(JSON.stringify({ 'r-hades': true }));
+        expect((await reactions(bia.token)).body.reacoes).toEqual({});
+        // os ids que não servem saem; os que servem ficam
+        await show(JSON.stringify(['r-hades', 42, null, '../x', 'a'.repeat(65)]));
+        expect(Object.keys((await reactions(bia.token)).body.reacoes)).toEqual(['r-hades']);
+      });
+
+      it('sem lista nenhuma (quem ainda não enviou por um site novo), vale tudo, como antes', async () => {
+        const t = await two();
+        await t.follow(t.bia.token, t.ana.codigo);
+        await t.push(t.ana.token, 0, {});
+        const res = await t.json('PUT', `/v1/murais/${t.ana.codigo}/reacoes/r-qualquer`, { reacao: 'fogo', titulo: 'X', mural: 'jogos' }, t.bia.token);
+        expect(res.status).toBe(201);
+        expect(Object.keys(((await (await t.json('GET', `/v1/murais/${t.ana.codigo}/reacoes`)).json()) as any).reacoes)).toEqual(['r-qualquer']);
       });
     });
   });

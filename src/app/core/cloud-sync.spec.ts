@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
 import { readBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
-import { CloudSync, KeyValueStore, OWNER_KEY, STATE_KEY, SYNC_AUTO, SYNC_SCHEMA, SYNC_STORAGE, fingerprint, newReviews, publicReviews } from './cloud-sync';
+import { CloudSync, KeyValueStore, OWNER_KEY, STATE_KEY, SYNC_AUTO, SYNC_SCHEMA, SYNC_STORAGE, fingerprint, newReviews, publicReviews, shownCard } from './cloud-sync';
 import { LocalData } from './local-data';
 import { Review, sanitizeDraft, sanitizeNote, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
@@ -627,6 +627,25 @@ describe('sincronização com a nuvem', () => {
     await b.sync.syncNow();
     expect(b.store.reviews().filter((r) => r.kind === 'musicas').map((r) => r.id).sort()).toEqual(['rmus0001', 'rmus0002']);
   });
+
+  it('o público não leva o título de uma ficha privada colada numa pública, e a nuvem recebe a lista do que está à mostra', async () => {
+    const a = device();
+    a.store.add({ ...review('rpriv001', 'Presente da Ana'), private: true });
+    a.store.add({ ...review('rpub0001', 'Hades'), text: ['Comprar junto:', '{{nota: #rpriv001 | Presente da Ana | pequeno}}', '{{nota: #rpub0002 | Celeste}}'].join('\n') });
+    a.store.add(review('rpub0002', 'Celeste'));
+    const fetchSpy = window.fetch as jasmine.Spy;
+    await a.sync.syncNow();
+    const pub = (await cloud.readPublic()) as unknown as { reviews: Review[] };
+    const text = pub.reviews.find((r) => r.id === 'rpub0001')!.text;
+    expect(text).toBe(['Comprar junto:', '{{nota: #rpriv001 | pequeno}}', '{{nota: #rpub0002 | Celeste}}'].join('\n'));
+    expect(JSON.stringify(pub)).not.toContain('Presente da Ana');
+    // o privado continua inteiro
+    const priv = await cloud.read();
+    expect(priv.reviews.find((r) => r.id === 'rpub0001')!.text).toContain('Presente da Ana');
+    const put = fetchSpy.calls.all().find((c) => (c.args[1] as RequestInit | undefined)?.method === 'PUT')!;
+    const form = (put.args[1] as RequestInit).body as FormData;
+    expect(JSON.parse(form.get('fichas') as string).sort()).toEqual(['rpub0001', 'rpub0002']);
+  });
 });
 
 describe('o que os outros veem', () => {
@@ -643,6 +662,16 @@ describe('o que os outros veem', () => {
     const hidden = at('2026-03-09T10:00:00.000Z', { private: true });
     const stale = at('2025-12-02T00:00:00.000Z');
     expect(newReviews([old, hidden, stale], now).map((n) => n.ref)).toEqual([old.id]);
+  });
+
+  it('a nota colada que é uma ficha sua fora da vista perde o título; a à mostra e a escrita à mão ficam', () => {
+    const hidden = new Set(['rsegredo']);
+    const card = { id: 'rpub', text: ['Antes', '{{nota: #rsegredo | Segredo}}', '{{ficha: Segredo}}', '{{nota: #routra | Outra}}'].join('\n') };
+    expect(shownCard(card, hidden).text).toBe(['Antes', '{{nota: #rsegredo}}', '{{ficha: Segredo}}', '{{nota: #routra | Outra}}'].join('\n'));
+    // sem nada a esconder, a mesma ficha (não copia à toa)
+    const plain = { id: 'r1', text: '{{nota: #routra | Outra}}' };
+    expect(shownCard(plain, hidden)).toBe(plain);
+    expect(shownCard({ id: 'r2' }, hidden)).toEqual({ id: 'r2' });
   });
 
   it('a só visível vai para o mural público, mas não vira aviso', () => {

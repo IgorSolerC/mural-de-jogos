@@ -3,6 +3,7 @@ import { DAY_MS, utcDayStart, write } from '../domain/quota';
 import { base64url, sha256 } from '../domain/bytes';
 import { formatCode, normalizeCode } from '../domain/code';
 import { cardOut } from '../domain/photo';
+import { shownSql } from '../domain/shown';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -279,6 +280,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
           "SELECT 'resenha' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, s.silenciado, 1 AS eu_sigo " +
           'FROM seguindo s JOIN atividades a ON a.autor_id = s.seguido_id ' +
           "JOIN usuarios u ON u.id = a.autor_id WHERE s.seguidor_id = ? AND a.tipo = 'resenha' AND a.criado_em > s.criado_em AND a.criado_em > ? " +
+          // a ficha que virou privada (ou foi apagada) sai do correio de quem segue
+          `AND ${shownSql('u', 'a.ref')} ` +
           'UNION ALL ' +
           'SELECT a.tipo AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(m.silenciado, 0) AS silenciado, ' +
           'CASE WHEN m.seguidor_id IS NULL THEN 0 ELSE 1 END AS eu_sigo ' +

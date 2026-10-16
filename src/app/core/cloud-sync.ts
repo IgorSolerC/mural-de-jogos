@@ -11,6 +11,7 @@ import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profi
 import { ProfileStore } from './profile-store';
 import { BackupPayload, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
+import { hideCardTitles } from './widgets';
 import { Confirm } from '../ui/confirm';
 
 /**
@@ -159,7 +160,7 @@ export function profileOf(data: Record<string, unknown>): SyncedProfile | null {
   return em && dados ? { dados, em } : null;
 }
 
-/** Os ids de tudo o que os outros veem (as resenhas públicas e as anotações publicadas). */
+/** Os ids das fichas e das anotações (das públicas: tudo o que os outros veem). */
 export function publicIds(reviews: readonly Review[], notes: readonly unknown[]): Set<string> {
   const ids = new Set(reviews.map((r) => r.id));
   for (const n of notes) {
@@ -176,6 +177,17 @@ export function publicIds(reviews: readonly Review[], notes: readonly unknown[])
 export function publicCategoryLooks(looks: CategoryLooks, notes: readonly unknown[]): CategoryLooks {
   const used = new Set(notes.map((n) => (n as { category?: unknown } | null)?.category).filter((c): c is string => typeof c === 'string').map(lookKey));
   return Object.fromEntries(Object.entries(looks).filter(([k]) => used.has(k)));
+}
+
+/**
+ * A ficha como vai para quem visita: as notas coladas no texto que são fichas suas fora da vista
+ * (`hidden`, as privadas) perdem o título (ver `hideCardTitles`).
+ */
+export function shownCard<T>(card: T, hidden: ReadonlySet<string>): T {
+  const text = (card as { text?: unknown } | null)?.text;
+  if (typeof text !== 'string') return card;
+  const next = hideCardTitles(text, hidden);
+  return next === text ? card : { ...card, text: next };
 }
 
 /** Qual chave vale: a mais nova; sem data aqui, vale a da nuvem. */
@@ -805,9 +817,13 @@ export class CloudSync {
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
-    const reviews = publicReviews(doc.reviews);
-    const musicas = publicReviews(doc.musicas ?? []);
-    const notas = publicNotes(doc.notas);
+    // tudo o que os outros veem; o que é seu e fica de fora não deixa nem o título nas notas coladas
+    const shownIds = publicIds([...publicReviews(doc.reviews), ...publicReviews(doc.musicas ?? [])], publicNotes(doc.notas));
+    const allIds = publicIds(payloadReviews(doc), Array.isArray(doc.notas) ? doc.notas : []);
+    const hidden = new Set([...allIds].filter((id) => !shownIds.has(id)));
+    const reviews = publicReviews(doc.reviews).map((r) => shownCard(r, hidden));
+    const musicas = publicReviews(doc.musicas ?? []).map((r) => shownCard(r, hidden));
+    const notas = publicNotes(doc.notas).map((n) => shownCard(n, hidden));
     // tudo o que os outros veem com nota: as resenhas de sempre e as de música
     const scored = [...reviews, ...musicas];
     const publico = await gzip(
@@ -822,7 +838,7 @@ export class CloudSync {
         notas,
         ...(musicas.length ? { musicas } : {}),
         ...(looks ? { categorias: publicCategoryLooks(looks.mapa, notas) } : {}),
-        ...(profile ? { perfil: publicProfile(profile.dados, publicIds(scored, notas)) } : {}),
+        ...(profile ? { perfil: publicProfile(profile.dados, shownIds) } : {}),
       }),
     );
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha
@@ -843,6 +859,8 @@ export class CloudSync {
       murais: new Set([...scored.map((r) => r.kind), ...(notas.length ? ['anotacoes'] : [])]).size,
     };
     form.append('cartao', JSON.stringify(cartao));
+    // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não estão
+    form.append('fichas', JSON.stringify([...shownIds]));
     this.pushes.push({ at: now, print });
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     this.noteClock(res);

@@ -26,11 +26,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-15-novidades-recontadas',
+    id: '2026-10-15-privacidade-das-fichas',
     version: '1.22.1',
     kind: 'ajustes',
     date: '2026-10-15',
-    title: 'Murall, as configurações do mural e escrever no celular',
+    title: 'Murall, a privacidade das fichas e as configurações do mural',
     notice: 'O Meu Mural agora se chama Murall: o mural de tudo. Veja o cartaz novo no topo.',
     noticeId: '2026-10-15-murall',
     melhorias: [
@@ -46,6 +46,7 @@ export const NEWS: NewsEntry[] = [
       'As Novidades foram recontadas por regras fixas: cada versão é uma funcionalidade ou os ajustes de um dia, com as melhorias e as correções em listas separadas. A versão caiu de 1.41.14 para 1.22.1.',
     ],
     correcoes: [
+      'Uma ficha privada colada numa ficha pública (widget Nota) não mostra mais o nome dela para quem visita, e as reações, os comentários e os avisos de uma ficha que virou privada somem para os outros (voltam se ela voltar a ficar à mostra).',
       'A ficha colada no texto fica presa na fita, a orelha da categoria não tampa mais a linha de cima e a prévia muda com o tamanho escolhido.',
       'Tocar no vazio ao lado de uma ficha colada abre a anotação onde ela está (antes não fazia nada).',
       'Na ficha inteira de uma análise, os widgets do texto voltam a responder ao toque.',

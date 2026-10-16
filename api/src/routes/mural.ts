@@ -3,6 +3,7 @@ import { utcDayStart, write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
 import { cleanCard, parseCard, parsePhoto } from '../domain/photo';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
+import { MAX_SHOWN_CHARS, parseShown } from '../domain/shown';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { sessionOf } from './http';
@@ -124,7 +125,7 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const base = /^\d{1,16}$/.test(rawBase) ? Number(rawBase) : NaN;
     if (!Number.isSafeInteger(base)) throw new HttpError(400, 'sem-rev', 'Faltou dizer em qual versão do mural o envio se baseia.');
     const length = Number(c.req.header('Content-Length') ?? 0);
-    if (length > 2 * MAX_MURAL_BYTES + 64_000) {
+    if (length > 2 * MAX_MURAL_BYTES + MAX_SHOWN_CHARS + 64_000) {
       throw new HttpError(413, 'mural-grande-demais', 'O mural ficou grande demais para a nuvem.');
     }
     let form: FormData;
@@ -141,6 +142,8 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const card = parseCard(form.get('cartao'));
     const cardData = card ? cleanCard(JSON.parse(card)) : null;
     const photo = cardData ? JSON.stringify({ emoji: cardData.emoji, cor: cardData.cor }) : parsePhoto(form.get('foto'));
+    // as fichas à mostra (ver domain/shown.ts): sem a parte, fica a lista de antes
+    const shown = parseShown(form.get('fichas'));
 
     const now = deps.now();
     const at = now.toISOString();
@@ -199,8 +202,10 @@ export function muralRoutes(app: Hono, deps: Deps): void {
         }),
       ),
       {
-        sql: `UPDATE usuarios SET ultima_gravacao_em = ?, foto = COALESCE(?, foto), cartao = COALESCE(?, cartao) WHERE id = ? AND EXISTS (${ours})`,
-        params: [at, photo, card, s.userId, s.userId, mark],
+        sql:
+          'UPDATE usuarios SET ultima_gravacao_em = ?, foto = COALESCE(?, foto), cartao = COALESCE(?, cartao), ' +
+          `fichas_publicas = COALESCE(?, fichas_publicas) WHERE id = ? AND EXISTS (${ours})`,
+        params: [at, photo, card, shown, s.userId, s.userId, mark],
       },
     ];
     const [result] = await write(deps, statements, 6 + 4 * fresh.length);

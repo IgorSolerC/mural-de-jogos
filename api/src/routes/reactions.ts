@@ -7,6 +7,7 @@ import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { isReaction } from '../domain/reaction';
+import { isShown, shownRefs } from '../domain/shown';
 import { readJson, sessionOf } from './http';
 
 /**
@@ -40,10 +41,21 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
     return ref;
   }
 
-  /** Quem reagiu a cada resenha do mural da pessoa, as mais novas primeiro. */
+  /** Quem está olhando, se disse quem é (com `VER_MURAIS=logados`, a sessão é obrigatória, como no mural). */
+  async function viewer(c: Context): Promise<string | null> {
+    if (deps.config.publicMurals === 'logados') return (await session(c)).userId;
+    if (!c.req.header('Authorization')) return null;
+    return (await session(c).catch(() => null))?.userId ?? null;
+  }
+
+  /** A ficha não está à mostra (privada ou apagada): para os outros, ela não existe. */
+  const hiddenCard = () => new HttpError(404, 'ficha-nao-encontrada', 'Essa ficha não está mais no mural.');
+
+  /** Quem reagiu a cada resenha do mural da pessoa, as mais novas primeiro (o dono vê também as das fichas que não estão à mostra). */
   app.get('/v1/murais/:codigo/reacoes', async (c) => {
-    if (deps.config.publicMurals === 'logados') await session(c);
+    const me = await viewer(c);
     const who = await owner(c.req.param('codigo'));
+    const shown = me === who.id ? null : await shownRefs(deps.db, who.id);
     const rows = await deps.db.all<{ ref: string; reacao: string; criado_em: string; codigo: string; nome: string; foto: string | null }>(
       'SELECT r.ref, r.reacao, r.criado_em, u.codigo, u.nome, u.foto FROM reacoes r JOIN usuarios u ON u.id = r.autor_id ' +
         'WHERE r.dono_id = ? ORDER BY r.criado_em DESC LIMIT ?',
@@ -51,6 +63,7 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
     );
     const out: Record<string, { codigo: string; nome: string; foto?: Photo; reacao: string; em: string }[]> = {};
     for (const r of rows) {
+      if (!isShown(shown, r.ref)) continue;
       const foto = photoOut(r.foto);
       (out[r.ref] ??= []).push({ codigo: formatCode(r.codigo), nome: r.nome, ...(foto ? { foto } : {}), reacao: r.reacao, em: r.criado_em });
     }
@@ -68,6 +81,7 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
     if (who.id === s.userId) throw new HttpError(400, 'reagir-a-si', 'Essa resenha é sua.');
     const follows = await deps.db.first('SELECT 1 AS x FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', [s.userId, who.id]);
     if (!follows) throw new HttpError(403, 'reagir-sem-seguir', 'Siga a pessoa para reagir às resenhas dela.');
+    if (!isShown(await shownRefs(deps.db, who.id), ref)) throw hiddenCard();
     const now = deps.now();
     const before = await deps.db.first<{ reacao: string }>('SELECT reacao FROM reacoes WHERE dono_id = ? AND ref = ? AND autor_id = ?', [who.id, ref, s.userId]);
     if (before?.reacao === reaction) return c.json({ reacao: reaction });
