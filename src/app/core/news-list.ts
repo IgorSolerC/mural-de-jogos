@@ -26,6 +26,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-15-celular-escrever',
+    version: '1.41.14',
+    kind: 'melhoria',
+    date: '2026-10-15',
+    title: 'Escrever no celular ficou bem mais fácil',
+    items: [
+      'Enquanto você escreve, a régua de formatação desce e fica presa logo em cima do teclado, onde o polegar alcança: negrito, itálico, título, listas, widgets e o "Mais" sempre à mão, mesmo no meio de um texto comprido. O botão amarelo de tique fecha o teclado.',
+      'Com o teclado aberto, a ficha passa a usar só a parte da tela que sobra: a prévia encolhe, o rodapé sai da frente e quase tudo vira folha para escrever. Na tela cheia, o alto da folha não some mais atrás do teclado.',
+      'A folha do texto cresce com o que você escreve, e a ficha inteira rola de uma vez só (antes era uma folha rolando dentro da outra).',
+      'Com o teclado fechado, a régua mostra todas as marcas numa fileira e, embaixo, "Widgets" e "Mais" com o nome escrito.',
+      'Nos painéis de widget e de link, "Cancelar" e "Pôr" ficam grudados no pé da tela enquanto você preenche, e os botões ficaram do tamanho do dedo.',
+      'No celular e no tablet, a resenha mostra o formulário antes do estojo da cartolina, como as anotações já faziam: a ficha abre direto no que você vai resenhar.',
+      'Na tela cheia (também no computador), o painel de um widget rola por dentro da folha, em vez de passar do fim dela.',
+    ],
+  },
+  {
     id: '2026-10-15-busca-marca-texto',
     version: '1.41.13',
     kind: 'melhoria',

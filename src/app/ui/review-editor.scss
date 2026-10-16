@@ -747,15 +747,16 @@ app-rich-editor.anotacao {
   }
 }
 
-/* A anotação no celular e no tablet: o que se escreve vem antes da cartolina (o estojo desce para o
-   fim), e a ficha de prévia encolhe para a faixa do título enquanto se escreve, para sobrar folha */
+/* No celular e no tablet, o que se escreve vem antes da cartolina (o estojo desce para o fim, logo
+   antes de pregar): a ficha abre no "Qual jogo?", não no estojo. Na anotação, a ficha de prévia
+   ainda encolhe para a faixa do título enquanto se escreve, para sobrar folha */
 @media (max-width: 1023px) {
-  dialog.editor.notas .editor-content {
+  dialog.editor .editor-content {
     display: flex;
     flex-direction: column;
   }
 
-  dialog.editor.notas .form {
+  dialog.editor .form {
     order: -1;
   }
 
@@ -830,5 +831,50 @@ app-rich-editor.anotacao {
 
   app-rich-editor {
     --linhas: 7;
+  }
+}
+
+/* ===== Com o teclado do celular aberto =====
+   O teclado cobre a metade de baixo da tela sem a página saber. A ficha passa a ocupar só a parte que
+   ele deixa à vista (ver ui/visual-viewport.ts), a prévia encolhe para a faixa do título e o rodapé
+   sai (fechar o teclado, ou o "Pronto" da régua, traz ele de volta): sobra folha para escrever. Com
+   a régua presa em cima do teclado (54px, ver rich-editor.ts), a ficha termina em cima dela. */
+@media (pointer: coarse) and (max-width: 1023px), (pointer: coarse) and (max-height: 500px) {
+  :host-context(html.teclado) {
+    dialog.editor {
+      inset: var(--vv-top, 0px) 0 auto;
+      margin: 0 auto;
+      max-height: none;
+    }
+
+    .ficha {
+      height: var(--vv-h, 100dvh);
+      max-height: none;
+    }
+
+    .pin,
+    .foot {
+      display: none;
+    }
+
+    .head {
+      padding-block: 14px 10px;
+
+      h2 {
+        font-size: 1.5rem;
+      }
+    }
+
+    .body {
+      grid-template-rows: 64px minmax(0, 1fr);
+    }
+
+    dialog.editor .bancada {
+      max-height: 64px;
+    }
+
+    .ficha:has(.regua.presa) {
+      padding-bottom: 54px;
+    }
   }
 }

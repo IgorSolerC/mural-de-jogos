@@ -42,8 +42,15 @@ import { RichText } from './rich-text';
 import { NoteWidget } from './note-widget';
 import { CardPicker } from './card-picker';
 import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetSize, WidgetValues, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
+import { watchVisualViewport } from './visual-viewport';
 
 type ListKind = 'ul' | 'ol' | 'check';
+
+/**
+ * Onde a régua desce para cima do teclado: no toque, com a tela estreita (o celular em pé) ou baixa
+ * (deitado). Tablet e computador ficam com a régua no alto da folha.
+ */
+export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-height: 500px)';
 
 /**
  * O campo do texto da ficha: a folha pautada de sempre, com uma régua de formatação em cima e
@@ -101,9 +108,20 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
   selector: 'app-rich-editor',
   imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget, CardPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
+  host: { '[class.presa]': 'docked() !== null' },
   template: `
     <ng-template #campo let-big="big">
-      <div class="regua" role="toolbar" aria-label="Formatação do texto" [attr.aria-controls]="big ? areaId + '-grande' : areaId">
+      <!-- no celular, enquanto se escreve, a régua desce e fica presa em cima do teclado (ver "presa") -->
+      <div
+        #regua
+        class="regua"
+        [class.presa]="docked() === big"
+        role="toolbar"
+        aria-label="Formatação do texto"
+        [attr.aria-controls]="big ? areaId + '-grande' : areaId"
+        (focusout)="onRulerFocusOut($event, area)"
+      >
         <div class="ferramentas">
         <!-- Na régua, só o que se usa toda hora, em três grupos (escrever, listar, ligar); o resto mora
              em "Mais", com o nome e o atalho de cada marca -->
@@ -183,6 +201,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             (keydown.arrowdown)="$event.preventDefault(); openWidgets(big, true)"
           >
             <lucide-icon [img]="WidgetIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <span class="widgets-txt" aria-hidden="true">Widgets</span>
             <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
           </button>
           @if (widgetsOpen() === big) {
@@ -269,6 +288,10 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             <span class="acao-txt">Maximizar</span>
           </button>
         }
+        <!-- presa em cima do teclado: "Pronto" fecha o teclado (e a régua volta para o alto da folha) -->
+        <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="area.blur()">
+          <lucide-icon [img]="DoneIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+        </button>
       </div>
       @if (seeing()) {
         <div class="previa" [class.grande]="big" tabindex="0" [attr.aria-label]="'Como fica: ' + label()">
@@ -294,12 +317,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         [attr.aria-controls]="notes() ? areaId + '-elos' : null"
         [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big && optionCount() ? areaId + '-elo-' + active() : null"
         (input)="value.set(area.value); dropPassive(); watchLink(area, big)"
-        (focus)="onAreaFocus()"
+        (focus)="onAreaFocus(big)"
         (click)="watchLink(area, big); onAreaClick($event, area, big)"
         (keyup)="onKeyUp($event, area, big)"
         (keydown)="onKey($event, area, big)"
         (paste)="onPaste($event, area)"
-        (blur)="onAreaBlur()"
+        (blur)="onAreaBlur($event, regua)"
       ></textarea>
       @if (max(); as m) {
         <!-- quanto já foi escrito, perto do limite em tinta, passou (por um atalho) em vermelho -->
@@ -553,7 +576,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       @if (linking(); as k) {
         @if (k.big === big) {
           @if (k.auto) {
-            <div class="elos" [class.grande]="big">
+            <div class="elos" [class.grande]="big" [class.presa]="docked() === big">
               <p class="elos-dica" aria-hidden="true">Link para…</p>
               <ng-container *ngTemplateOutlet="eloLista" />
             </div>
@@ -798,7 +821,21 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       margin: 0 -8px 0 12px;
       font-size: 0.95rem;
     }
-    /* no celular a régua é estreita: as duas ações ficam só no desenho (o nome vai para o leitor de tela) */
+    /* "Pronto" só existe com a régua presa em cima do teclado; o nome do "Widgets", só no celular */
+    .pronto {
+      display: none;
+    }
+    .widgets-txt {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    /* no celular, a régua em duas fileiras: em cima, todas as marcas (a que não cabe rola de lado, com
+       o esmaecido na ponta dizendo que tem mais); embaixo, "Widgets" e "Mais" com o nome escrito, e ver
+       e maximizar na outra ponta, só no desenho (o nome vai para o leitor de tela) */
     @media (max-width: 559px) {
       .acao-txt {
         position: absolute;
@@ -808,37 +845,206 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         clip-path: inset(50%);
         white-space: nowrap;
       }
-      .ferramenta {
-        flex: none;
-        width: 36px;
-        height: 38px;
-      }
-      /* no celular, uma fileira só: as ferramentas rolam de lado (o esmaecido na ponta avisa que tem
-         mais), e ver e maximizar ficam fixos na ponta */
       .regua {
-        flex-wrap: nowrap;
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 4px 2px;
       }
       .ferramentas {
-        flex: 1 1 0;
+        grid-column: 1 / -1;
         flex-wrap: nowrap;
+        gap: 2px;
         /* a fileira não empurra a coluna do editor: a largura dela vem da coluna, e o resto rola */
         contain: inline-size;
         overflow-x: auto;
         overscroll-behavior-x: contain;
         scrollbar-width: none;
         /* o esmaecido corta o próximo botão pela metade: dá para ver que a fileira continua */
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
-        mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
       }
       .ferramentas::-webkit-scrollbar {
         display: none;
       }
+      .ferramenta,
       .fio {
         flex: none;
       }
-      .tamanho {
-        margin-left: 4px;
+      .ferramenta {
+        width: 40px;
+        min-width: 40px;
+        height: 44px;
       }
+      .fio {
+        margin: 0 3px;
+      }
+      .widgets-ancora {
+        grid-column: 1;
+        margin-left: 0;
+      }
+      .widgets-ancora + .mais-ancora {
+        grid-column: 2;
+      }
+      .regua .ver {
+        grid-column: 4;
+        margin: 0;
+      }
+      .regua .tamanho {
+        grid-column: 5;
+        margin: 0 -6px 0 2px;
+      }
+      .widgets-txt {
+        position: static;
+        width: auto;
+        height: auto;
+        overflow: visible;
+        clip-path: none;
+        font-family: var(--f-label);
+        font-weight: 800;
+        font-size: 0.86rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .regua .ferramenta.widgets {
+        gap: 5px;
+        width: auto;
+        padding: 0 7px 0 8px;
+      }
+    }
+
+    /* ===== Presa em cima do teclado (no celular, enquanto se escreve): a régua sai do alto da folha e
+       vira uma tira de fichário colada no teclado, da largura da tela, onde o polegar alcança. As
+       marcas rolam de lado; "Widgets", "Mais" e "Pronto" ficam na ponta. A tira mede 54px (o editor da
+       ficha guarda esse espaço embaixo dele, ver review-editor.scss) ===== */
+    :host(.presa) {
+      /* a folha medida por container prenderia a régua dentro dela */
+      container-type: normal;
+    }
+    .regua.presa {
+      position: fixed;
+      z-index: 40;
+      left: 0;
+      right: 0;
+      top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh));
+      translate: 0 -100%;
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 4px;
+      box-sizing: border-box;
+      height: 54px;
+      margin: 0;
+      padding: 5px max(6px, env(safe-area-inset-right)) 3px max(6px, env(safe-area-inset-left));
+      background: #fbf9f2;
+      box-shadow:
+        inset 0 2px 0 var(--ink),
+        0 -10px 20px -12px rgb(0 0 0 / 0.55);
+      animation: regua-desce var(--t-ui) var(--ease-ui);
+    }
+    @keyframes regua-desce {
+      from {
+        opacity: 0;
+        translate: 0 calc(-100% + 8px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .regua.presa {
+        animation: none;
+      }
+    }
+    .regua.presa .ferramentas {
+      flex: 1 1 0;
+      flex-wrap: nowrap;
+      gap: 2px;
+      contain: inline-size;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+      mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    }
+    .regua.presa .ferramentas::-webkit-scrollbar {
+      display: none;
+    }
+    .regua.presa .ferramenta,
+    .regua.presa .fio {
+      flex: none;
+    }
+    .regua.presa .ferramenta {
+      width: 40px;
+      min-width: 40px;
+      height: 44px;
+    }
+    .regua.presa .ver,
+    .regua.presa .tamanho {
+      display: none;
+    }
+    .regua.presa .mais-ancora {
+      position: static;
+      margin-left: 0;
+    }
+    .regua.presa .widgets-txt,
+    .regua.presa .mais-txt {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .regua.presa .ferramenta.mais {
+      width: 44px;
+      padding: 0;
+      justify-content: center;
+    }
+    .regua.presa .ferramenta.widgets {
+      padding: 0 5px 0 7px;
+    }
+    /* os menus abrem para cima, por cima da folha (embaixo é o teclado) */
+    .regua.presa .mais-menu {
+      top: auto;
+      bottom: calc(100% + 6px);
+      left: 6px;
+      right: 6px;
+      width: auto;
+      min-width: 0;
+      max-width: none;
+      max-height: calc(var(--vv-h, 100dvh) - 96px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      transform-origin: bottom center;
+    }
+    /* "Pronto": a etiqueta de tinta com o tique amarelo, o mesmo "Pôr" dos painéis */
+    .regua.presa .pronto {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 0;
+      border-radius: 3px;
+      background: var(--ink);
+      color: var(--hi);
+      cursor: pointer;
+    }
+    .regua.presa .pronto:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
+    }
+    /* a lista da "[[" com a régua presa: logo acima dela, onde se está escrevendo (embaixo do texto
+       inteiro ela ficaria fora da tela) */
+    .elos.presa {
+      position: fixed;
+      z-index: 41;
+      left: 6px;
+      right: 6px;
+      top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh) - 60px);
+      translate: 0 -100%;
+      max-height: min(15rem, calc(var(--vv-h, 100dvh) - 140px));
+      margin: 0;
+      overflow-y: auto;
     }
 
     /* ===== Como fica: a mesma folha, já formatada ===== */
@@ -1028,6 +1234,40 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       .painel-campo {
         grid-template-columns: minmax(0, 1fr);
         gap: 2px;
+      }
+      /* no celular o painel é comprido: "Cancelar" e "Pôr" grudam no pé da tela enquanto ele rola */
+      .painel-acoes {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        /* até a borda de tinta do painel, sem cobrir ela */
+        margin: 10px -10px -10px;
+        padding: 8px 10px;
+        background: #fbf9f2;
+        box-shadow:
+          inset 0 2px 0 rgb(21 21 21 / 0.12),
+          0 -10px 14px -12px rgb(0 0 0 / 0.4);
+      }
+      .painel-acoes .painel-ok {
+        flex: 1;
+      }
+      /* os cinco widgets em três colunas iguais (não um sozinho na segunda fileira) */
+      .widget-painel .widget-tipos {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .widget-painel .widget-tipo {
+        padding-inline: 6px;
+      }
+    }
+    @media (pointer: coarse) {
+      .widget-tipo,
+      .widget-tamanho,
+      .widget-vista {
+        min-height: 44px;
+      }
+      .elo-op {
+        padding-block: 11px;
       }
     }
     /* a grade da tabela: papel quadriculado, os quadrados escolhidos em marca-texto */
@@ -1900,6 +2140,59 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         padding: 4px 10px;
         font-size: 1.18rem;
       }
+      /* no celular a folha cresce com o texto e quem rola é o editor: uma rolagem só, não uma folha
+         rolando dentro de outra (no toque, a de dentro prendia o dedo) */
+      textarea:not(.grande),
+      .previa:not(.grande) {
+        max-height: none;
+      }
+    }
+    /* no celular (em pé ou deitado), a tela inteira é a parte que o teclado deixa à vista: o alto da
+       folha não some quando o teclado abre */
+    @media (pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-height: 500px) {
+      .tela-cheia {
+        width: 100vw;
+        height: var(--vv-h, 100dvh);
+        margin: 0;
+        inset: var(--vv-top, 0px) 0 auto;
+      }
+      .folha {
+        padding: 12px 12px 10px;
+      }
+      .titulo {
+        margin-bottom: 8px;
+        font-size: 1.35rem;
+      }
+    }
+    /* com a régua presa embaixo, a folha termina em cima dela */
+    .folha:has(> .regua.presa) {
+      padding-bottom: 60px;
+    }
+    /* os painéis na tela inteira: no máximo um bom pedaço da folha, rolando por dentro (sem empurrar
+       a folha para fora do diálogo) */
+    .folha > .painel {
+      flex: 0 1 auto;
+      min-height: 0;
+      max-height: 62%;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    /* rolando por dentro, o pé grudado do painel encosta na borda de baixo (e redesenha a tinta dela) */
+    @media (max-width: 559px) {
+      .folha > .painel {
+        padding-bottom: 0;
+      }
+      .folha > .painel .painel-acoes {
+        margin-bottom: 0;
+        box-shadow:
+          inset 0 2px 0 rgb(21 21 21 / 0.12),
+          inset 0 -2px 0 var(--ink),
+          0 -10px 14px -12px rgb(0 0 0 / 0.4);
+      }
+    }
+    .folha > textarea.grande,
+    .folha > .previa.grande {
+      min-height: 5rem;
     }
   `,
 })
@@ -1922,6 +2215,21 @@ export class RichEditor {
   readonly onCard = input(true);
   /** A ficha deste texto: a Nota (a ficha colada) não oferece colar ela nela mesma. */
   readonly selfId = input<string | null>(null);
+  /**
+   * No celular, a régua da folha pequena desce para cima do teclado enquanto se escreve (a da tela
+   * inteira desce sempre). Só onde a folha mora num diálogo que acompanha o teclado (o editor da
+   * ficha); num lugar que gira ou rola com a página, ela fica no alto da folha.
+   */
+  readonly dock = input(false);
+
+  /** Em qual folha a régua está presa em cima do teclado (null: no alto da folha, como sempre). */
+  protected readonly docked = signal<boolean | null>(null);
+  protected readonly DoneIcon = Check;
+  private readonly dockMedia = typeof matchMedia === 'function' ? matchMedia(DOCK_MEDIA) : null;
+
+  constructor() {
+    watchVisualViewport();
+  }
 
   protected readonly LinkIcon = NOTE_LINK_ICON;
   protected readonly UrlIcon = Link;
@@ -2158,12 +2466,15 @@ export class RichEditor {
   /** Troca entre escrever e ver como fica; voltando a escrever, o foco volta para o campo. */
   protected see(on: boolean, big: boolean): void {
     this.seeing.set(on);
+    // o campo some: a régua presa volta para o alto (o foco que sai de um campo escondido nem sempre avisa)
+    if (on) this.docked.set(null);
     if (!on) setTimeout(() => this.focusAt(big ? `#${this.areaId}-grande` : `#${this.areaId}`));
   }
 
   /** Volta a escrever (o editor abre outra ficha). */
   reset(): void {
     this.seeing.set(false);
+    this.docked.set(null);
     this.linking.set(null);
     this.dismissedAt = -1;
     // os painéis da régua (link, tabela, mais marcas, guia) eram da ficha de antes: fecham
@@ -2288,14 +2599,27 @@ export class RichEditor {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) this.leavePassive(area);
   }
 
-  /** Voltou para a folha com a busca da régua aberta: a busca fecha (Esc na folha seria o do editor). */
-  protected onAreaFocus(): void {
+  /**
+   * Voltou para a folha com a busca da régua aberta: a busca fecha (Esc na folha seria o do editor).
+   * No celular, a régua desce para cima do teclado (o lugar dela na folha não fica guardado: com o
+   * teclado aberto, cada linha de folha conta).
+   */
+  protected onAreaFocus(big: boolean): void {
     if (this.linking() && !this.linking()!.auto) this.linking.set(null);
+    if ((big || this.dock()) && this.dockMedia?.matches) this.docked.set(big);
   }
 
-  protected onAreaBlur(): void {
+  protected onAreaBlur(e: FocusEvent, ruler: HTMLElement): void {
     // saiu da folha (sem ser para a lista, que não pega o foco): a lista automática fecha
     if (this.linking()?.auto) this.linking.set(null);
+    // para um menu da própria régua (o "Mais", os widgets), ela continua presa
+    if (!ruler.contains(e.relatedTarget as Node | null)) this.docked.set(null);
+  }
+
+  /** O foco saiu da régua presa (de um menu dela) para fora da folha: ela volta para o lugar dela. */
+  protected onRulerFocusOut(e: FocusEvent, area: HTMLTextAreaElement): void {
+    const to = e.relatedTarget as Node | null;
+    if (to !== area && !(e.currentTarget as HTMLElement).contains(to)) this.docked.set(null);
   }
 
   /** Setas, Enter, Tab e Esc na lista da "[[" (pela folha). Devolve se usou a tecla. */
@@ -2369,6 +2693,7 @@ export class RichEditor {
     const big = this.host.nativeElement.querySelector<HTMLTextAreaElement>(`#${this.areaId}-grande`);
     if (big) this.caret = [big.selectionStart, big.selectionEnd];
     this.big.set(false);
+    this.docked.set(null);
     this.focusAt(`#${this.areaId}`);
   }
 
