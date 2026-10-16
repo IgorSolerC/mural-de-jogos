@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CheckCheck, ChevronDown, Columns3, FilePlus, LucideAngularModule, Pencil, Plus, Search, Settings, SquareKanban, Tags, X } from 'lucide-angular';
+import { CheckCheck, ChevronDown, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, SquareKanban, Tags, X } from 'lucide-angular';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { Desk } from '../core/desk';
@@ -23,6 +23,17 @@ import { Toasts } from '../ui/toast';
 
 /** O último quadro aberto, para `/anotacoes/kanban` sem quadro abrir nele. */
 const LAST_KEY = 'meu-mural:kanban-aberto:v1';
+/** Os quadros vistos só pelos títulos neste aparelho (os ids); os outros, nas fichas. */
+const DENSE_KEY = 'meu-mural:kanban-titulos:v1';
+
+function readDense(): string[] {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(DENSE_KEY) ?? '[]');
+    return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 /** Quanto o ponteiro anda antes de virar arrastar (o mouse); o dedo segura `HOLD` ms parado. */
 const SLOP = 6;
@@ -86,6 +97,8 @@ export class KanbanPage {
   protected readonly ColumnIcon = Columns3;
   protected readonly BoardIcon = SquareKanban;
   protected readonly TagsIcon = Tags;
+  protected readonly CardsIcon = Rows2;
+  protected readonly TitlesIcon = List;
   protected readonly iconOf = COLUMN_ICON;
   protected readonly maxBoards = MAX_BOARDS;
   protected readonly maxColumns = MAX_COLUMNS;
@@ -122,6 +135,14 @@ export class KanbanPage {
   protected readonly drag = signal<Drag | null>(null);
   /** O que o leitor de tela ouve depois de mover pelo teclado. */
   protected readonly said = signal('');
+
+  /** Os quadros vistos só pelos títulos (ver `setDense`). */
+  private readonly denseBoards = signal<readonly string[]>(readDense());
+  /** O quadro aberto na vista "Só os títulos": a tira com o nome e a importância, no lugar da ficha. */
+  protected readonly dense = computed(() => {
+    const b = this.board();
+    return !!b && this.denseBoards().includes(b.id);
+  });
 
   protected readonly filtering = computed(() => !!this.query().trim() || !!this.traitFilter());
   protected readonly traitLabel = computed(() => this.board()?.traits.find((t) => t.id === this.traitFilter())?.name ?? 'Todas');
@@ -208,6 +229,21 @@ export class KanbanPage {
       this.kanban.openBoard.set(null);
       this.endDrag();
     });
+  }
+
+  /** Troca a vista do quadro aberto, lembrada neste aparelho (sem os quadros que não existem mais). */
+  protected setDense(on: boolean): void {
+    const b = this.board();
+    if (!b || on === this.dense()) return;
+    const alive = new Set(this.boards().map((q) => q.id));
+    const next = this.denseBoards().filter((id) => id !== b.id && alive.has(id));
+    if (on) next.push(b.id);
+    this.denseBoards.set(next);
+    try {
+      localStorage.setItem(DENSE_KEY, JSON.stringify(next));
+    } catch {
+      /* fica só nesta visita */
+    }
   }
 
   protected pathOf(id: string): string {

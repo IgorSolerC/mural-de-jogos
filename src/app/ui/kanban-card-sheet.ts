@@ -40,7 +40,7 @@ import { Pin } from './pin';
               <div class="etapas" role="radiogroup" aria-labelledby="fq-etapa">
                 @for (c of d.board.columns; track c.id) {
                   @let on = c.id === d.card.column;
-                  <button type="button" role="radio" class="etapa" [attr.aria-checked]="on" [style.--stock]="'var(--stock-' + c.color + ')'" (click)="moveTo(c.id)">
+                  <button type="button" role="radio" class="etapa" [attr.aria-checked]="on" [attr.data-cor]="c.color" (click)="moveTo(c.id)">
                     <lucide-icon [img]="iconOf[c.icon]" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
                     <span class="etapa-nome">{{ c.name }}</span>
                     @if (c.finishes) {

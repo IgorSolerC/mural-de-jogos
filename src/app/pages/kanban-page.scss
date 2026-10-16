@@ -1,4 +1,5 @@
 @use '../ui/paper-kit' as kit;
+@use '../ui/kanban-kit' as kk;
 
 :host {
   display: block;
@@ -94,22 +95,19 @@
 }
 
 .vaga-etiqueta {
+  @include kk.cabecalho;
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px 6px;
-  border-radius: 2px;
-  background-color: var(--stock);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
+  padding: 9px 13px 8px 12px;
   font-family: var(--f-marker);
   font-size: 1rem;
-  box-shadow: var(--shadow-card);
   rotate: -1.5deg;
 
   lucide-icon {
     display: inline-flex;
+    color: var(--col-cor);
   }
 }
 
@@ -336,27 +334,28 @@
   background: url('/textures/fita-crepe.png') center / cover;
 }
 
-/* A etiqueta: a cartolina da cor da coluna, colada atravessada no alto da tira */
+/* O cabeçalho: não é cartolina (as anotações é que são), é o papel claro das orelhas de categoria,
+   com os cantos redondos e a cor da coluna num contorno por dentro; o desenho na mesma cor */
 .etiqueta {
+  @include kk.cabecalho;
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   margin: 20px -6px 18px;
-  padding: 10px 6px 9px 12px;
-  border-radius: 2px;
-  box-shadow: var(--shadow-card);
-  rotate: -1.2deg;
+  padding: 11px 9px 10px 15px;
+  rotate: -0.8deg;
 }
 
 .coluna:nth-child(even) .etiqueta {
-  rotate: 0.9deg;
+  rotate: 0.6deg;
 }
 
 .etiqueta-icone {
   display: inline-flex;
+  color: var(--col-cor);
 }
 
 .etiqueta-nome {
@@ -368,20 +367,17 @@
   overflow-wrap: anywhere;
 }
 
-/* quantas: impresso, numa rodela de papel */
+/* quantas: impresso miúdo logo depois do nome, na tinta da etiqueta mais rala (como nas abas) */
 .etiqueta-n {
-  display: grid;
-  place-items: center;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: 14px;
-  background: var(--paper);
+  margin-left: 0.3em;
   font-family: var(--f-label);
-  font-weight: 800;
+  font-weight: 700;
   font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  vertical-align: 0.12em;
+  opacity: 0.68;
   font-variant-numeric: tabular-nums;
-  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.35);
 }
 
 .etiqueta-btn {
@@ -395,7 +391,11 @@
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
+  /* o lápis fica de lado até a mão chegar na coluna (no toque, sempre) */
+  opacity: 0.55;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    opacity var(--t-ui) var(--ease-ui);
 
   &:hover {
     background: rgb(21 21 21 / 0.1);
@@ -404,6 +404,17 @@
   &:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: -2px;
+  }
+}
+
+.coluna:hover .etiqueta-btn,
+.etiqueta-btn:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .etiqueta-btn {
+    opacity: 1;
   }
 }
 
@@ -440,10 +451,15 @@
 .fichas {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
   margin: 0;
   padding: 8px 0 4px;
   list-style: none;
+}
+
+.quadro.denso .fichas {
+  gap: 6px;
+  padding-top: 2px;
 }
 
 .lugar {

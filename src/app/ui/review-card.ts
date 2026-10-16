@@ -217,19 +217,19 @@ export const CARD_TEMPLATE = `
         } @else if (!capas() && note()) {
           <p class="meta meta-nota" data-queima>
             <!-- a sub-nota diz de qual anotação ela é parte (a que tem o link para ela), antes da data -->
-            @if (review().noteRank === 'sub') {
+            @if (partShown()) {
               <span class="sub-marca">{{ partOf() }}</span>
             }
             <!-- sem data, o lugar dela fica vazio (a linha continua, do mesmo tamanho) -->
             @if (review().completedAt; as day) {
-              @if (review().noteRank === 'sub') {
+              @if (partShown()) {
                 <span aria-hidden="true"> · </span>
               }
               <time [attr.datetime]="day">{{ date() }}</time>
             }
             <!-- as tarefas: quantas já foram feitas -->
             @if (tasks(); as t) {
-              @if (review().noteRank === 'sub' || review().completedAt) {
+              @if (partShown() || review().completedAt) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
@@ -1593,6 +1593,11 @@ export const CARD_STYLES = `
 })
 export class ReviewCard {
   readonly review = input.required<Review>();
+  /**
+   * A ficha pregada no quadro do Kanban (ver ui/kanban-note.ts): sem a orelha da categoria nem o
+   * "Parte de…" da sub-nota, que lá não ajudam a decidir nada. A subclasse do quadro liga.
+   */
+  protected readonly onBoard: boolean = false;
   readonly landing = input(false);
   /** Qual nota está sendo usada na ordenação (para destacar na ficha). */
   readonly highlight = input<ScoreKey | null>(null);
@@ -1672,6 +1677,8 @@ export class ReviewCard {
     const c = checkCount(this.review().text);
     return c.total ? c : null;
   });
+  /** A sub-nota diz de qual anotação é parte (no quadro do Kanban, não). */
+  protected readonly partShown = computed(() => this.review().noteRank === 'sub' && !this.onBoard);
   /**
    * De qual anotação a sub-nota é parte: a que tem o link para ela ("Parte de Sprint 42") ou, com
    * várias apontando para ela, quantas ("Parte de 2 notas"). Só no seu mural (nos outros, a ficha não
@@ -1812,7 +1819,7 @@ export class ReviewCard {
     const tags = r.tags ?? [];
     // a categoria saiu para a orelha: a fileira é toda das tags
     const max = this.compact() ? 2 : 4;
-    return { category: r.category ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
+    return { category: r.category && !this.onBoard ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
   });
 
   /** O desenho e a cor da categoria na orelha: os que o dono escolheu (sem escolha, o de sempre). */

@@ -88,7 +88,8 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
 
 /**
  * O desenho e o nome da categoria, como na orelha da ficha e na aba da pasta. A letra e o tamanho
- * vêm de quem usa (herdados); a borda da cor é da orelha (ver .orelha-cor em styles.scss).
+ * vêm de quem usa (herdados); a borda da cor é da orelha (ver .orelha-cor em styles.scss), e o
+ * desenho, dentro de uma orelha com cor, pega a cor dela.
  */
 @Component({
   selector: 'app-cat-label',
@@ -107,6 +108,11 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
       flex: none;
       display: inline-flex;
       opacity: 0.8;
+    }
+    /* na orelha com cor, o desenho é da cor dela, cheio (o nome continua na tinta preta) */
+    :host-context(.orelha-cor) .icone {
+      color: var(--cat-cor);
+      opacity: 1;
     }
     /* a linha de base do rótulo é a do nome: ao lado de um número (nas abas), os dois se alinham */
     .nome {

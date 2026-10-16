@@ -93,16 +93,15 @@ dialog.ficha-quadro {
     color: var(--ink);
   }
 
+  /* a escolhida: o cabeçalho da coluna, colado (o papel claro com o contorno da cor dela) */
   &[aria-checked='true'] {
-    background-color: var(--stock);
-    background-image: var(--paper-grain);
-    background-blend-mode: multiply;
-    color: var(--ink);
-    box-shadow:
-      inset 0 0 0 2px var(--ink),
-      0 1px 1px rgb(0 0 0 / 0.25),
-      0 4px 6px -3px rgb(0 0 0 / 0.35);
+    @include kk.cabecalho;
+    padding-inline: 13px 15px;
     rotate: -1.2deg;
+
+    lucide-icon {
+      color: var(--col-cor);
+    }
   }
 
   &:focus-visible {

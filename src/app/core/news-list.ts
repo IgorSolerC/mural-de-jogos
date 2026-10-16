@@ -26,12 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-16-kanban-esconder-finalizadas',
+    id: '2026-10-16-kanban-so-os-titulos',
     version: '1.24.1',
     kind: 'ajustes',
     date: '2026-10-16',
-    title: 'Buscar nota sem as finalizadas',
-    melhorias: ['No Kanban, o Buscar nota tem "Esconder finalizadas", ligado ao abrir: as anotações finalizadas saem da lista.'],
+    title: 'Kanban mais enxuto e Só os títulos',
+    melhorias: [
+      'No Kanban, "Só os títulos" (no alto do quadro) mostra cada anotação numa tira só com o nome e a importância, para ver o quadro inteiro de uma vez; cada quadro lembra a vista dele.',
+      'As fichas do Kanban ficaram mais enxutas e mais juntas: sem tachinha, sem a categoria e sem o "Parte de", com o nome e a capa menores; o botão da importância e das características só aparece ao passar o mouse.',
+      'O alto das colunas do Kanban virou um papel claro com a cor da coluna no contorno e no desenho, e a contagem fica miúda ao lado do nome.',
+      'No Kanban, o Buscar nota tem "Esconder finalizadas", ligado ao abrir: as anotações finalizadas saem da lista.',
+      'Nas orelhas de categoria com cor, o desenho também fica da cor da orelha.',
+    ],
   },
   {
     id: '2026-10-16-kanban',

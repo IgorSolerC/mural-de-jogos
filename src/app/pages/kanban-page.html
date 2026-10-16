@@ -25,7 +25,7 @@
     <ol class="primeiro-vagas" aria-hidden="true">
       @for (v of firstColumns; track v.name) {
         <li class="vaga-coluna">
-          <span class="vaga-etiqueta" [style.--stock]="'var(--stock-' + v.color + ')'">
+          <span class="vaga-etiqueta" [attr.data-cor]="v.color">
             <lucide-icon [img]="iconOf[v.icon]" [size]="16" [strokeWidth]="2.6" />
             {{ v.name }}
           </span>
@@ -75,6 +75,14 @@
             </label>
           </div>
         }
+        <div class="pasta-grupo" role="group" aria-label="Vista do quadro">
+          <button type="button" class="tinta so-icone" [attr.aria-pressed]="!dense()" aria-label="Fichas" title="Fichas" (click)="setDense(false)">
+            <lucide-icon [img]="CardsIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+          <button type="button" class="tinta so-icone" [attr.aria-pressed]="dense()" aria-label="Só os títulos" title="Só os títulos" (click)="setDense(true)">
+            <lucide-icon [img]="TitlesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          </button>
+        </div>
         <div class="pasta-grupo" role="group" aria-label="Quadro">
           <button type="button" class="tinta" [disabled]="b.columns.length >= maxColumns" (click)="newColumn()">
             <lucide-icon [img]="ColumnIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
@@ -100,15 +108,18 @@
   </div>
 
   <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->
-  <div #quadro class="quadro" [class.arrastando]="!!drag()" [class.puxando]="panning()" (pointerdown)="onBoardDown($event)">
+  <div #quadro class="quadro" [class.denso]="dense()" [class.arrastando]="!!drag()" [class.puxando]="panning()" (pointerdown)="onBoardDown($event)">
     @for (v of view(); track v.col.id; let ci = $index) {
       <section class="coluna" [attr.data-coluna]="v.col.id" [class.finaliza]="v.col.finishes" [class.alvo]="drag()?.over === v.col.id" [attr.aria-labelledby]="'col-' + v.col.id">
         <span class="fita fita-e" aria-hidden="true"></span>
         <span class="fita fita-d" aria-hidden="true"></span>
-        <header class="etiqueta cartolina" [style.--stock]="'var(--stock-' + v.col.color + ')'" [attr.data-cor]="v.col.color">
+        <header class="etiqueta" [attr.data-cor]="v.col.color">
           <lucide-icon class="etiqueta-icone" [img]="iconOf[v.col.icon]" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
-          <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">{{ v.col.name }}</h2>
-          <span class="etiqueta-n" [attr.aria-label]="v.total === 1 ? '1 anotação' : v.total + ' anotações'">{{ v.total }}</span>
+          <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">
+            {{ v.col.name }}
+            <!-- quantas: impresso miúdo depois do nome, como nas abas dos quadros -->
+            <span class="etiqueta-n"><span class="sr-only">, </span>{{ v.total }}<span class="sr-only">{{ v.total === 1 ? ' anotação' : ' anotações' }}</span></span>
+          </h2>
           <button type="button" class="etiqueta-btn" [attr.aria-label]="'Ajustes da coluna ' + v.col.name" title="Ajustes da coluna" aria-haspopup="dialog" (click)="columnSheet.set({ id: v.col.id, fresh: false })">
             <lucide-icon [img]="PencilIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
@@ -131,7 +142,7 @@
               (pointerdown)="onPointerDown($event, it.card.note, v.col.id)"
               (keydown)="onKey($event, it.card.note, v.col.id)"
             >
-              <app-kanban-note [review]="it.note" [card]="it.card" [boardTraits]="b.traits" (opened)="read($event)" (details)="cardSheet.set(it.card.note)" />
+              <app-kanban-note [review]="it.note" [card]="it.card" [boardTraits]="b.traits" [dense]="dense()" (opened)="read($event)" (details)="cardSheet.set(it.card.note)" />
             </li>
           } @empty {
             <li class="vazia" aria-hidden="true">{{ filtering() ? 'Nada aqui com esse filtro' : 'Nenhuma anotação ainda' }}</li>
