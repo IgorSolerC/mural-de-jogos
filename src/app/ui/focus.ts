@@ -22,3 +22,16 @@ export function tabStep(key: string, i: number, n: number, vertical = true): num
   if (key === 'End') return n - 1;
   return -1;
 }
+
+/**
+ * Engole o clique que o navegador manda logo depois de soltar um arrasto (em `target`, ou na página),
+ * para o arrasto não escolher nem abrir o que estava embaixo do ponteiro. Se não vier clique, nada fica preso.
+ */
+export function swallowNextClick(target: EventTarget = window): void {
+  const swallow = (e: Event) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+  target.addEventListener('click', swallow, { capture: true, once: true });
+  setTimeout(() => target.removeEventListener('click', swallow, { capture: true }));
+}

@@ -41,7 +41,7 @@ import { motifIcon, paperVars } from '../core/paper-art';
 import { STOCKS, STOCK_LABEL, Stock, isDarkStock } from '../core/review';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
-import { tabStep } from './focus';
+import { swallowNextClick, tabStep } from './focus';
 
 type Tab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha' | 'decoracao';
 
@@ -1099,12 +1099,7 @@ export class CardKit {
     strip.classList.remove('arrastando');
     if (strip.hasPointerCapture(e.pointerId)) strip.releasePointerCapture(e.pointerId);
     // o arrasto não escolhe o assunto onde o mouse foi solto
-    const swallow = (c: Event) => {
-      c.stopPropagation();
-      c.preventDefault();
-    };
-    strip.addEventListener('click', swallow, { capture: true, once: true });
-    setTimeout(() => strip.removeEventListener('click', swallow, { capture: true }));
+    swallowNextClick(strip);
   }
 
   /** Rola a régua de assuntos até o assunto `id` aparecer inteiro. */

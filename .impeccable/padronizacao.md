@@ -64,6 +64,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     ui/focus.ts no estojo do editor, nas configurações do mural, em Amigos e nos Ajustes (o estojo continua só deitado);
     a folha de Pessoas, com duas abas que trocam, fica como está.
 
+28. [x] **Engolir o clique depois do arrasto**: a mesma armadilha no estojo (a régua de assuntos) e no Kanban. Agora
+    `swallowNextClick` em ui/focus.ts.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

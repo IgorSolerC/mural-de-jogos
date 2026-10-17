@@ -30,7 +30,7 @@ import { TagChip, TagChips } from '../ui/tag-chips';
 import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
-import { focusAfterRender } from '../ui/focus';
+import { focusAfterRender, swallowNextClick } from '../ui/focus';
 
 /** O último quadro aberto, para `/anotacoes/kanban` sem quadro abrir nele. */
 const LAST_KEY = 'meu-mural:kanban-aberto:v1';
@@ -965,12 +965,7 @@ export class KanbanPage {
     if (!s || e.pointerId !== s.id) return;
     if (d) {
       // o clique que vem depois de soltar não abre a anotação
-      const swallow = (ev: Event) => {
-        ev.stopPropagation();
-        ev.preventDefault();
-      };
-      window.addEventListener('click', swallow, { capture: true, once: true });
-      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+      swallowNextClick();
       this.drop(d);
     }
     this.endDrag();
