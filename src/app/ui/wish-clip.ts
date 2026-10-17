@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule, Sticker } from 'lucide-angular';
 import { CUTOUT_STYLES, placeFor, stickerFor, titleFor } from '../core/clipping';
 import { RELEVANCES, Relevance, Wish, initialOf, relevanceLabel, relevanceOf } from '../core/review';
 import { SHAPE_RATIO, stripFor, tearFor } from '../core/tear';
 import { pinningFor } from '../core/wall-physics';
 import { RelevanceSticker } from './relevance-sticker';
+import { closeOnOutsidePress } from './outside-press';
 
 /**
  * Um desejo da wishlist: a capa arrancada de uma revista e colada na parede. Cada uma de um jeito
@@ -977,14 +978,7 @@ export class WishClip {
     // Clicou fora do recorte com o menu aberto: fecha, sem roubar o foco de onde a pessoa clicou. Só
     // com o menu aberto: cada recorte da wishlist ouvindo todo clique da página fazia o Angular
     // conferir todos eles a cada toque.
-    effect((onCleanup) => {
-      if (!this.menu()) return;
-      const outside = (e: PointerEvent) => {
-        if (!this.host.nativeElement.contains(e.target as Node)) this.menu.set(false);
-      };
-      document.addEventListener('pointerdown', outside);
-      onCleanup(() => document.removeEventListener('pointerdown', outside));
-    });
+    closeOnOutsidePress(this.menu, this.host, () => this.menu.set(false));
   }
 
   /** Um id de SVG só deste recorte (a prévia e o mural podem estar na tela juntos). */

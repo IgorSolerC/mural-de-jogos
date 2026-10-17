@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
 import { BellOff, ChevronDown, GalleryVerticalEnd, LucideAngularModule } from 'lucide-angular';
+import { closeOnOutsidePress } from './outside-press';
 
 let uid = 0;
 
@@ -17,7 +18,6 @@ let uid = 0;
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '(document:pointerdown)': 'onOutside($event)',
     '(focusout)': 'onFocusOut($event)',
   },
   template: `
@@ -180,6 +180,10 @@ export class FeedMenu {
   protected readonly menuId = `outro-jeito-${++uid}`;
   protected readonly open = signal(false);
 
+  constructor() {
+    closeOnOutsidePress(this.open, this.host, () => this.close(false));
+  }
+
   protected toggle(): void {
     if (this.open()) this.close(true);
     else this.show();
@@ -216,10 +220,6 @@ export class FeedMenu {
         this.close(false);
         break;
     }
-  }
-
-  protected onOutside(e: PointerEvent): void {
-    if (this.open() && !this.host.nativeElement.contains(e.target as Node)) this.close(false);
   }
 
   protected onFocusOut(e: FocusEvent): void {

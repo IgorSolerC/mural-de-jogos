@@ -419,6 +419,7 @@ export class KanbanPage {
     destroy.onDestroy(() => {
       this.kanban.openBoard.set(null);
       this.endDrag();
+      this.stopPan?.();
       cancelAnimationFrame(this.edgeFrame);
     });
   }
@@ -616,6 +617,8 @@ export class KanbanPage {
   // ===== Puxar o quadro com o mouse (no papel vazio): ele rola para o lado =====
 
   protected readonly panning = signal(false);
+  /** Solta o quadro puxado (no fim do arraste, ou ao sair da página no meio dele). */
+  private stopPan: (() => void) | null = null;
 
   protected onBoardDown(e: PointerEvent): void {
     if (e.pointerType !== 'mouse' || e.button !== 0 || this.drag()) return;
@@ -629,11 +632,15 @@ export class KanbanPage {
     const move = (ev: PointerEvent) => (q.scrollLeft = left0 - (ev.clientX - x0));
     const up = () => {
       this.panning.set(false);
+      this.stopPan = null;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
     };
+    this.stopPan = up;
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   }
 
   // ===== As beiradas: o quadro corre até a beirada da tela e some num degradê =====

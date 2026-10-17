@@ -7,6 +7,7 @@ import { Mural } from '../core/mural';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { WallView } from '../core/wall-view';
+import { closeOnOutsidePress } from './outside-press';
 
 export const KIND_ICON: Record<Kind, LucideIconData> = {
   jogos: Gamepad2,
@@ -32,7 +33,6 @@ let uid = 0;
   imports: [LucideAngularModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '(document:pointerdown)': 'onOutside($event)',
     '(focusout)': 'onFocusOut($event)',
   },
   template: `
@@ -246,6 +246,10 @@ export class KindSwitcher {
     })),
   );
 
+  constructor() {
+    closeOnOutsidePress(this.open, this.host, () => this.close(false));
+  }
+
   protected toggle(): void {
     if (this.open()) this.close(true);
     else this.show();
@@ -317,10 +321,6 @@ export class KindSwitcher {
         this.close(false);
         break;
     }
-  }
-
-  protected onOutside(e: PointerEvent): void {
-    if (this.open() && !this.host.nativeElement.contains(e.target as Node)) this.close(false);
   }
 
   protected onFocusOut(e: FocusEvent): void {

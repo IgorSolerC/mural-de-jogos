@@ -37,8 +37,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
    A inicial da foto ficou: a dos comentários pega a primeira unidade, a da foto o primeiro caractere (emoji muda).
 8. [x] **Ociosidade**: `requestIdleCallback` com reserva copiado em wall-cards, paper-layer e sound-warmup (tempos diferentes,
    ficam como parâmetro). Agora `whenIdle`/`cancelIdle` em `core/idle.ts`, cada um com o seu prazo e a sua reserva.
-9. [ ] **Ouvintes**: o arrastar do quadro do Kanban não tira os ouvintes da janela ao sair da página; os menus (feed-menu,
-   kind-switcher, reações) ouvem todo clique da página mesmo fechados (o da wish-clip já só ouve aberto).
+9. [x] **Ouvintes**: o arrastar do quadro do Kanban não tira os ouvintes da janela ao sair da página; os menus (feed-menu,
+   kind-switcher, reações) ouvem todo clique da página mesmo fechados (o da wish-clip já só ouve aberto). Agora `closeOnOutsidePress` (ui/outside-press.ts) nos quatro, e o
+   arrastar do quadro solta ao sair da página e também no `pointercancel`.
 10. [ ] **"Está escrevendo?"**: seis jeitos de decidir se a tecla é para um campo (app, kanban, leitura, seleção, jogos).
 11. [ ] **Copiar com bilhete**: copiar para a área de transferência + bilhete repetido em 7 lugares.
 

@@ -9,6 +9,7 @@ import { dayLabel, localDayOf } from '../core/follow';
 import { ProfileStore } from '../core/profile-store';
 import { napWall } from '../core/wall-settle';
 import { PersonFace, PersonPhoto } from './person-photo';
+import { closeOnOutsidePress } from './outside-press';
 
 /**
  * As reações nas fichas, como as do WhatsApp (ver core/reactions.ts): o balãozinho colado na quina
@@ -202,7 +203,7 @@ const PANEL_ROOM = 330;
       </div>
     }
   `,
-  host: { '(document:pointerdown)': 'outside($event)', '[class.rp-quieto]': 'quiet()' },
+  host: { '[class.rp-quieto]': 'quiet()' },
   styles: `
     :host {
       position: relative;
@@ -407,6 +408,7 @@ export class ReactionPicker {
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
   protected readonly MoreIcon = Plus;
   protected readonly open = signal(false);
+
   /** O painel do "+" aberto, no lugar da fileira. */
   protected readonly more = signal(false);
   protected readonly quick = isQuickReaction;
@@ -415,6 +417,10 @@ export class ReactionPicker {
     return t ? this.reactions.mineOn(t.code, t.ref) : this.current();
   });
   protected readonly mineKind = computed(() => (this.mine() ? reactionOf(this.mine()!) : null));
+
+  constructor() {
+    closeOnOutsidePress(this.open, this.host, () => this.close());
+  }
 
   protected toggle(): void {
     this.open.update((v) => !v);
@@ -491,9 +497,6 @@ export class ReactionPicker {
     if (refocus) this.trigger().nativeElement.focus();
   }
 
-  protected outside(e: PointerEvent): void {
-    if (this.open() && !this.host.nativeElement.contains(e.target as Node)) this.close();
-  }
 }
 
 /** A folha de quem reagiu, aberta pelo balão: abas por reação e a lista, como no WhatsApp. */
