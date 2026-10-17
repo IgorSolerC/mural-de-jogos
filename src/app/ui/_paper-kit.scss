@@ -7,7 +7,7 @@
   position: relative;
   min-width: 0;
   border-radius: 2px;
-  background-color: #fbf9f2;
+  background-color: var(--papel-ficha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   color: var(--ink);

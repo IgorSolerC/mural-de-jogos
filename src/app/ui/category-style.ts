@@ -121,7 +121,7 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
       margin-left: 12px;
       padding: 5px 11px 6px 9px;
       border-radius: 8px 8px 0 0;
-      background-color: #f3e5bb;
+      background-color: var(--manilha);
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
       color: #151515;
@@ -135,7 +135,7 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
     }
     .orelha.orelha-cor {
       padding: 9px 13px 6px 11px;
-      background-color: #fffcf2;
+      background-color: var(--papel-orelha);
     }
     .hint {
       margin: 0;
@@ -195,14 +195,14 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
       border: 3px solid var(--c);
       border-bottom: 0;
       border-radius: 6px 6px 0 0;
-      background: #fffcf2;
+      background: var(--papel-orelha);
       box-shadow:
-        0 0 0 2.5px #fffcf2,
+        0 0 0 2.5px var(--papel-orelha),
         0 0 0 3.5px rgb(21 21 21 / 0.18);
     }
     .sem-cor::before {
       border: 1.5px dashed rgb(21 21 21 / 0.45);
-      background: #f3e5bb;
+      background: var(--manilha);
     }
     /* o mesmo risco de pincel das ações do editor */
     .voltar {

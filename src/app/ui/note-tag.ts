@@ -89,7 +89,7 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
       color: #151515;
     }
     :host(.cor) .papel {
-      background: var(--paper-grain), #fffcf2;
+      background: var(--paper-grain), var(--papel-orelha);
       background-blend-mode: multiply;
     }
     :host(.cor) .papel::before,
@@ -105,7 +105,7 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
     :host(.cor) .papel::after {
       inset: 4px 4px 4px 4.6px;
       clip-path: polygon(5.7px 0, 100% 0, 100% 100%, 5.7px 100%, 0 50%);
-      background: var(--paper-grain), #fffcf2;
+      background: var(--paper-grain), var(--papel-orelha);
       background-blend-mode: multiply;
     }
     :host(.cor.mini) .papel::after {

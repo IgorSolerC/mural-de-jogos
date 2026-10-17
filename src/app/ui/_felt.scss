@@ -20,6 +20,6 @@ $linha: rgb(122 74 38 / 0.6);
 /* o foco não pode usar o contorno (é a costura): um anel amarelo em volta do remendo */
 @mixin remendo-foco {
   box-shadow:
-    0 0 0 3px var(--hi, #ffd84d),
+    0 0 0 3px var(--hi),
     0 3px 6px -3px rgb(0 0 0 / 0.45);
 }

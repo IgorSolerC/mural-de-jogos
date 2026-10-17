@@ -425,7 +425,7 @@ function joinSources(list: string[]): string {
       margin-top: 6px;
       font-weight: 600;
       font-size: 0.92rem;
-      color: var(--error-ink, #6b0000);
+      color: var(--error-ink);
     }
 
     @media (max-width: 600px) {

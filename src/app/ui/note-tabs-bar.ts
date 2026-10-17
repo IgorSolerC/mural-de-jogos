@@ -90,7 +90,6 @@ const GAP = 3;
       isolation: isolate;
       display: block;
       /* a borda da pasta: a aba aberta emenda nela */
-      --manilha: #f3e5bb;
       --manilha-atras: #ae9a6c;
       --borda: 7px;
     }
@@ -194,7 +193,7 @@ const GAP = 3;
     /* com cor, a borda colorida corre por dentro da aba (ver .orelha-cor em styles.scss), num papel
        claro dos dois lados dela; o pé some atrás da borda da pasta. A de trás escurece um pouco. */
     .aba.orelha-cor {
-      background-color: #fffcf2;
+      background-color: var(--papel-orelha);
 
       &:not(.on) {
         background-color: #d9cdab;

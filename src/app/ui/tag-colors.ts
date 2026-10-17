@@ -59,7 +59,7 @@ import { Settings } from '../core/settings';
       position: relative;
       width: 28px;
       height: 16px;
-      background: #fffcf2;
+      background: var(--papel-orelha);
       clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0 50%);
       filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
     }
@@ -74,7 +74,7 @@ import { Settings } from '../core/settings';
     .amostra::after {
       inset: 4px 4px 4px 4.5px;
       clip-path: polygon(3.5px 0, 100% 0, 100% 100%, 3.5px 100%, 0 50%);
-      background: #fffcf2;
+      background: var(--papel-orelha);
     }
     /* sem cor: a etiqueta de papel pardo, lisa */
     .sem-cor .amostra {

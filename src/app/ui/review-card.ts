@@ -869,7 +869,7 @@ export const CARD_STYLES = `
       height: 44px;
       padding: 5px 11px 12px 9px;
       border-radius: 8px 8px 0 0;
-      background-color: #f3e5bb;
+      background-color: var(--manilha);
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
       /* a tinta preta fixa: na cartolina escura, a tinta da ficha clareia e sumia no manilha */
@@ -909,7 +909,7 @@ export const CARD_STYLES = `
     /* com cor, a borda colorida corre por dentro da orelha inteira (ver .orelha-cor em styles.scss)
        e o pé dela fica atrás da cartolina: a orelha sobe um pouco, para o nome caber no meio dela */
     .aba-cat.orelha-cor {
-      background-color: #fffcf2;
+      background-color: var(--papel-orelha);
       top: -32px;
       height: 47px;
       padding: 9px 13px 19px 11px;

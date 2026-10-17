@@ -128,7 +128,7 @@
   @include coluna-cores;
   isolation: isolate;
   border-radius: 9px;
-  background-color: #fffcf2;
+  background-color: var(--papel-orelha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   color: #151515;

@@ -134,7 +134,7 @@
   padding: 10px 14px 10px 12px;
   border: 0;
   border-radius: 2px;
-  background-color: #fbf9f2;
+  background-color: var(--papel-ficha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   color: var(--ink);
@@ -211,7 +211,7 @@
   position: relative;
   padding: 22px 14px 14px;
   border-radius: 2px;
-  background-color: #fbf9f2;
+  background-color: var(--papel-ficha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   color: var(--ink);
@@ -501,7 +501,7 @@ fieldset.linha .previa-linha {
   min-width: 0;
   padding: 34px var(--pad) 32px;
   border-radius: 2px;
-  background-color: #fbf9f2;
+  background-color: var(--papel-ficha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   color: var(--ink);
@@ -677,7 +677,7 @@ label.linha-titulo {
   margin: 0;
   font-size: 0.88rem;
   font-weight: 600;
-  color: var(--verdict-recomendo, #0b7a3b);
+  color: var(--verdict-recomendo);
   white-space: nowrap;
 }
 
@@ -833,7 +833,7 @@ label.linha-titulo {
   }
 
   &.erro {
-    color: var(--error-ink, #6b0000);
+    color: var(--error-ink);
   }
 }
 
@@ -943,8 +943,8 @@ label.linha-titulo {
   line-height: 1.4;
 
   &.erro {
-    color: var(--error-ink, #6b0000);
-    box-shadow: inset 0 0 0 2px var(--error-ink, #6b0000);
+    color: var(--error-ink);
+    box-shadow: inset 0 0 0 2px var(--error-ink);
   }
 }
 

@@ -138,7 +138,7 @@
   height: 40px;
   padding: 0 13px 4px 11px;
   border-radius: 8px 8px 0 0;
-  background-color: #fffcf2;
+  background-color: var(--papel-orelha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   font-family: var(--f-label);
@@ -221,7 +221,7 @@ $cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
   margin-top: 92px;
   padding: 10px 18px 12px 16px;
   border-radius: 3px 3px 4px 4px;
-  background-color: #f3e5bb;
+  background-color: var(--manilha);
   background-image: linear-gradient(rgb(255 255 255 / 0.18), transparent 30%), var(--paper-grain);
   background-blend-mode: normal, multiply;
   box-shadow: 0 -3px 6px -2px rgb(0 0 0 / 0.3);
@@ -412,7 +412,7 @@ $cabem: (223px: 4, 285px: 5, 347px: 6, 409px: 7, 471px: 8, 533px: 9, 595px: 10);
   /* o nome no meio do que a borda colorida cerca: ela começa 6px abaixo do topo e desce até a pasta */
   padding: 6px 10px 0;
   border-radius: 7px 7px 0 0;
-  background-color: #fffcf2;
+  background-color: var(--papel-orelha);
   background-image: linear-gradient(170deg, rgb(255 255 255 / 0.55), transparent 42%), var(--paper-grain);
   background-blend-mode: normal, multiply;
   /* a capinha de plástico em volta do papel */
@@ -499,7 +499,7 @@ $cabem-suspensa: (170px: 4, 214px: 5, 258px: 6);
   margin-top: 60px;
   padding: 8px 12px 10px;
   border-radius: 2px 2px 4px 4px;
-  background-color: #f3e5bb;
+  background-color: var(--manilha);
   background-image: linear-gradient(rgb(255 255 255 / 0.18), transparent 30%), var(--paper-grain);
   background-blend-mode: normal, multiply;
   box-shadow: 0 -3px 6px -2px rgb(0 0 0 / 0.3);

@@ -87,7 +87,7 @@ export class ReactionSheet {
     /* o foco não pode usar o contorno (é a costura): um anel amarelo em volta do remendo */
     .balao:focus-visible {
       box-shadow:
-        0 0 0 3px var(--hi, #ffd84d),
+        0 0 0 3px var(--hi),
         0 3px 6px -3px rgb(0 0 0 / 0.45);
     }
     .emojis {
@@ -311,7 +311,7 @@ const PANEL_ROOM = 330;
         0 1px 2px rgb(0 0 0 / 0.35),
         0 10px 20px -6px rgb(0 0 0 / 0.45);
       rotate: -1.2deg;
-      animation: sobe 160ms var(--ease-physical, ease-out);
+      animation: sobe 160ms var(--ease-physical);
     }
     /* o painel do "+": a mesma folha de feltro, maior */
     /* o instante em que o catálogo de emojis ainda está chegando */
@@ -354,7 +354,7 @@ const PANEL_ROOM = 330;
       transition:
         scale 120ms ease-out,
         background-color 120ms ease-out;
-      animation: pula 220ms calc(var(--i) * 25ms) var(--ease-physical, ease-out) both;
+      animation: pula 220ms calc(var(--i) * 25ms) var(--ease-physical) both;
     }
     @keyframes pula {
       from {

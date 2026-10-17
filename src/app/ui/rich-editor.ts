@@ -936,7 +936,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       height: 54px;
       margin: 0;
       padding: 5px max(6px, env(safe-area-inset-right)) 3px max(6px, env(safe-area-inset-left));
-      background: #fbf9f2;
+      background: var(--papel-ficha);
       box-shadow:
         inset 0 2px 0 var(--ink),
         0 -10px 20px -12px rgb(0 0 0 / 0.55);
@@ -1098,7 +1098,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       margin-top: 8px;
       padding: 10px 12px 12px;
       border-radius: 2px;
-      background: #fbf9f2;
+      background: var(--papel-ficha);
       box-shadow:
         inset 0 0 0 2px var(--ink),
         0 6px 14px -6px rgb(0 0 0 / 0.45);
@@ -1243,7 +1243,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         /* até a borda de tinta do painel, sem cobrir ela */
         margin: 10px -10px -10px;
         padding: 8px 10px;
-        background: #fbf9f2;
+        background: var(--papel-ficha);
         box-shadow:
           inset 0 2px 0 rgb(21 21 21 / 0.12),
           0 -10px 14px -12px rgb(0 0 0 / 0.4);
@@ -1389,7 +1389,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       margin: 2px 0 4px;
       font-weight: 600;
       font-size: 0.9rem;
-      color: var(--error-ink, #6b0000);
+      color: var(--error-ink);
     }
     .widget-tipo:focus-visible {
       outline: 3px solid var(--ink);
@@ -1719,7 +1719,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       padding: 1px 5px;
       border-radius: 2px;
       background: rgb(21 21 21 / 0.07);
-      font-family: 'Courier New', ui-monospace, monospace;
+      font-family: var(--f-mono);
       font-weight: 700;
       font-size: 0.86rem;
       letter-spacing: 0;
@@ -1738,7 +1738,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       max-width: calc(100vw - 32px);
       padding: 6px;
       border-radius: 3px;
-      background: #fbf9f2;
+      background: var(--papel-ficha);
       box-shadow:
         inset 0 0 0 2px var(--ink),
         0 2px 4px rgb(0 0 0 / 0.16),
@@ -1824,7 +1824,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       padding: 0 4px;
       border-radius: 2px;
       background: rgb(21 21 21 / 0.08);
-      font-family: 'Courier New', ui-monospace, monospace;
+      font-family: var(--f-mono);
       font-weight: 700;
       font-size: 0.92em;
     }
@@ -1867,7 +1867,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       padding: 1px 5px;
       border-radius: 2px;
       background: rgb(21 21 21 / 0.07);
-      font-family: 'Courier New', ui-monospace, monospace;
+      font-family: var(--f-mono);
       font-weight: 700;
       font-size: 0.9rem;
       white-space: nowrap;
@@ -1883,7 +1883,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       margin-top: 8px;
       padding: 8px;
       border-radius: 2px;
-      background: #fbf9f2;
+      background: var(--papel-ficha);
       box-shadow:
         inset 0 0 0 2px var(--ink),
         0 6px 14px -6px rgb(0 0 0 / 0.45);
@@ -2110,7 +2110,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       font-weight: 700;
     }
     .contagem.passou {
-      color: #6b0000;
+      color: var(--error-ink);
     }
     textarea.grande {
       --line: 2rem;

@@ -100,7 +100,7 @@ function loadGoogle(): Promise<GoogleIdApi> {
       color: var(--ink-2);
     }
     .aviso.erro {
-      color: #6b0000;
+      color: var(--error-ink);
       font-weight: 600;
     }
     .btn-quiet {

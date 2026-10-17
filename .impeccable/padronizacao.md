@@ -59,10 +59,12 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 
 ## Estilos (SCSS)
 
-15. [ ] **Tokens que faltam**: `--error-ink` é usado 14 vezes e nunca definido (vale sempre o reserva `#6b0000`, mais 3
+15. [x] **Tokens que faltam**: `--error-ink` é usado 14 vezes e nunca definido (vale sempre o reserva `#6b0000`, mais 3
     `#6b0000` soltos); reservas erradas de tokens que existem (`--hi`, `--red-deep`, `--caneta-azul`, `--ink-2`), que nunca
     valem; cores repetidas sem token: papel da ficha `#fbf9f2` (16), papel da orelha `#fffcf2` (14), manilha `#f3e5bb` (11);
-    `--f-mono` (5 pilhas monoespaçadas).
+    `--f-mono` (5 pilhas monoespaçadas). Agora `--papel-ficha`, `--papel-orelha`, `--manilha` (era redefinido igual
+    em quatro lugares), `--error-ink` e `--f-mono` no `:root`; as reservas que nunca valiam saíram. A pilha mono fica a
+    de quatro dos cinco (a leitura tinha Consolas depois de Courier New, que nunca chegava a valer no Windows).
 16. [ ] **Dourado repetido**: o mesmo gradiente dourado escrito 4 vezes (filter-sheet, judge-label, verdict ×2).
 17. [ ] **Tachinha com a cor padrão escrita**: `color="#e62e2d"` em 24 tachinhas, que já é o padrão do `app-pin`.
 18. [ ] **Folha creme**: `kit.folha` existe e é usado uma vez; settings copia igual.

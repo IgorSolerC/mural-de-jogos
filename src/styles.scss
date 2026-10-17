@@ -53,6 +53,14 @@
   --roxo-impossivel: #7a2fd0;
   /* papel: todos os neutros claros moram no mesmo eixo quente, do papel à fita */
   --paper: #f7f4ec;
+  /* a ficha de fichário creme (Novidades, Ajustes, Amigos, o editor do perfil) */
+  --papel-ficha: #fbf9f2;
+  /* o papel claro das orelhas, etiquetas e tags com cor */
+  --papel-orelha: #fffcf2;
+  /* a cartolina parda das pastas e das abas de divisória */
+  --manilha: #f3e5bb;
+  /* o erro escrito no papel, embaixo do campo */
+  --error-ink: #6b0000;
   --hi: #ffda42;
 
   /* Abas de divisória: plástico marfim, do mesmo eixo quente do papel; ativa em amarelo */
@@ -74,6 +82,8 @@
   --f-didone: 'Abril Fatface', 'Bodoni MT', serif;
   --f-serif: 'DM Serif Display', Georgia, serif;
   --f-ui: 'Barlow', system-ui, sans-serif;
+  /* a máquina de escrever: o código no texto e os números do contador */
+  --f-mono: var(--f-mono);
 
   /* Uma só gramática de movimento */
   --ease-physical: cubic-bezier(0.16, 1, 0.3, 1);
@@ -508,7 +518,6 @@ select optgroup {
    cima, a pasta emenda nelas; sem divisórias, ela é `.solta` e tem os quatro cantos redondos.
    As regras moram presas à `.pasta`: `.tinta` também é nome de outras peças do app. */
 .pasta {
-  --manilha: #f3e5bb;
   --picote: rgb(21 21 21 / 0.18);
   position: relative;
   padding: 14px 16px 12px;
@@ -796,7 +805,6 @@ select optgroup {
    fichas do Comparar). A aberta fica na frente, clara, emendada na borda da pasta; as outras ficam
    atrás, mais escuras, com o pé escondido atrás da borda. */
 .divisorias {
-  --manilha: #f3e5bb;
   --manilha-atras: #ae9a6c;
   --borda: 7px;
   position: relative;

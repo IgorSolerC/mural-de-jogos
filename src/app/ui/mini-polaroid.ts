@@ -151,7 +151,7 @@ import { Stock } from '../core/review';
       font-family: var(--f-marker);
       font-size: clamp(0.9rem, 12cqw, 1.05rem);
       line-height: 1;
-      color: var(--red-deep, #b3261e);
+      color: var(--red-deep);
       rotate: -3deg;
     }
 

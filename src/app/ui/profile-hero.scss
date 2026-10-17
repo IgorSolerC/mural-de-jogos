@@ -497,7 +497,7 @@ button.gente-item {
   padding: 20px 14px 11px;
   border-radius: 2px;
   /* a faixa de cor é impressa na ficha, como nas fichas pautadas coloridas da papelaria */
-  background-color: #fbf9f2;
+  background-color: var(--papel-ficha);
   background-image: linear-gradient(var(--faixa) 0 5px, transparent 5px), var(--paper-grain);
   background-blend-mode: normal, multiply;
   color: var(--ink);

@@ -119,7 +119,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       --line: 1.85rem;
       position: relative;
       border-radius: 2px;
-      background-color: #fbf9f2;
+      background-color: var(--papel-ficha);
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
       color: var(--ink);

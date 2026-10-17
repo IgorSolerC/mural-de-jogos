@@ -201,7 +201,7 @@ import { Pin } from './pin';
       text-overflow: ellipsis;
       padding: 1px 7px;
       border-radius: 5px 5px 0 0;
-      background-color: #f3e5bb;
+      background-color: var(--manilha);
       background-image: var(--paper-grain);
       background-blend-mode: multiply;
       color: #151515;

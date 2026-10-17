@@ -201,7 +201,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
     }
     .tira.errada {
       box-shadow:
-        inset 0 0 0 3px var(--error-ink, #6b0000),
+        inset 0 0 0 3px var(--error-ink),
         0 1px 3px rgb(0 0 0 / 0.2);
     }
     .tira lucide-icon {
@@ -291,7 +291,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
       font-family: var(--f-hand);
       font-size: 1rem;
       line-height: 1.35;
-      color: var(--ink-2, rgb(21 21 21 / 0.78));
+      color: var(--ink-2);
       text-wrap: pretty;
     }
     .field-error {
@@ -299,7 +299,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
       font-weight: 600;
       font-size: 0.92rem;
       line-height: 1.35;
-      color: var(--error-ink, #6b0000);
+      color: var(--error-ink);
     }
   `,
 })

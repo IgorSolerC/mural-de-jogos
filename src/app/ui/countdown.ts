@@ -383,7 +383,7 @@ const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
       opacity: 0.86;
     }
     .dica code {
-      font-family: 'Courier New', ui-monospace, monospace;
+      font-family: var(--f-mono);
       font-weight: 700;
     }
   `,

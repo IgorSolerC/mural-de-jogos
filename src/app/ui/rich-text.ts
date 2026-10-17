@@ -182,7 +182,7 @@ import { NoteWidget } from './note-widget';
     /* o código: letra de máquina de escrever, num retalho de papel mais escuro */
     .cod,
     .codigo {
-      font-family: 'Courier New', ui-monospace, Consolas, monospace;
+      font-family: var(--f-mono);
       font-weight: 600;
     }
     .cod {
