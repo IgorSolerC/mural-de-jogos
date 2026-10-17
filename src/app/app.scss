@@ -2,7 +2,9 @@
   display: block;
   max-width: 1480px;
   margin: 0 auto;
-  padding: 28px var(--gutter) 120px;
+  /* a folga no pé de toda página; o Kanban a desfaz (as colunas é que vão até o pé da tela) */
+  --pe-pagina: 120px;
+  padding: 28px var(--gutter) var(--pe-pagina);
 }
 
 /* a parede escolhida no perfil: presa atrás de tudo, por cima do eucatex do site */

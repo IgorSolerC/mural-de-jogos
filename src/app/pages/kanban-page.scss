@@ -7,6 +7,9 @@
   --kraft: #c6a36b;
   --kraft-fundo: #b8955d;
   --coluna-w: 296px;
+  /* a página acaba no pé do quadro, sem a folga de baixo das outras páginas: rolada até o fim, as abas
+     ficam no alto da tela e as colunas inteiras embaixo (ver .coluna) */
+  margin-bottom: calc(-1 * var(--pe-pagina, 0px));
 }
 
 /* ===== Nenhum quadro: a cartolina verde para montar o primeiro, e as três colunas a giz ao lado ===== */
@@ -192,6 +195,10 @@
    ser nítida. */
 /* a largura do degradê: estreito no celular, largo numa tela grande */
 $fade: clamp(22px, 7vw, 132px);
+/* com a página rolada até o fim: entre o alto da tela e as abas, e entre o pé das colunas e o da página
+   (a folga das sombras e da tira torta, embaixo do quadro) */
+$folga-alto: 12px;
+$folga-pe: 34px;
 
 .quadro-moldura {
   position: relative;
@@ -210,7 +217,7 @@ $fade: clamp(22px, 7vw, 132px);
   /* da beirada da página até a da tela, dos dois lados (os % são da largura da página) */
   margin-inline: calc(50% - 50vw);
   /* em cima e embaixo, a folga das sombras (e da tira torta); dos lados, a volta até a linha da pasta */
-  padding: 8px calc(50vw - 50%) 34px;
+  padding: 8px calc(50vw - 50%) $folga-pe;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   /* a rolagem de lado numa camada própria, como a da página: sem isso, numa tela sem zoom o Chrome
@@ -431,10 +438,12 @@ $fade: clamp(22px, 7vw, 132px);
   display: flex;
   flex-direction: column;
   min-height: 220px;
-  /* a coluna cabe na tela: as anotações rolam dentro dela (ver .rolo), e a página não cresce com a
-     coluna mais comprida. svh, e não dvh: a barra do navegador do celular indo e vindo não estica as
-     colunas a cada rolagem */
-  max-height: max(360px, calc(100svh - 28px));
+  /* a coluna cabe na tela junto com as abas e a pasta: a tela menos o que vai das abas ao alto das
+     colunas (`--kb-topo`, medido pela página), uma folga em cima das abas e a folga das sombras embaixo
+     do quadro. As anotações rolam dentro dela (ver .rolo), e a página não cresce com a coluna mais
+     comprida. svh, e não dvh: a barra do navegador do celular indo e vindo não estica as colunas a cada
+     rolagem */
+  max-height: max(360px, calc(100svh - var(--kb-topo, 300px) - #{$folga-alto + $folga-pe}));
   padding: 0 14px 14px;
   border-radius: 2px;
   background-color: var(--kraft);

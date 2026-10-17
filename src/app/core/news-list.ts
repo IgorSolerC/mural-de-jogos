@@ -26,13 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-kanban-roda-na-coluna',
+    id: '2026-10-17-kanban-colunas-na-tela',
     version: '1.25.1',
     kind: 'ajustes',
     date: '2026-10-17',
-    title: 'Spoiler no texto e a rolagem das colunas do Kanban',
+    title: 'Spoiler no texto e as colunas do Kanban na tela',
     melhorias: [
       'Nova marca de texto, o spoiler: escreva ||assim|| (ou >!assim!<) e o trecho fica embaixo de uma tarja preta, que some quando alguém toca nela. Está no Mais da régua; na frase da ficha no mural, o trecho vira [spoiler].',
+      'As colunas do Kanban cabem na tela junto com as abas, a busca e as tags: rolada a página até o fim, dá para ver tudo de uma vez, sem rolar mais.',
     ],
     correcoes: [
       'O spoiler se revela tocando nele direto na ficha do mural, sem abrir a leitura.',

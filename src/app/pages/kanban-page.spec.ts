@@ -849,12 +849,15 @@ describe('página do Kanban', () => {
       window.dispatchEvent(new PointerEvent('pointermove', at(afazer.left + afazer.width / 2, top + 2)));
       await settle();
       expect(namesIn('afazer')).toEqual(['nmeio001', 'nlogin01', 'nalfa001', 'nsync001']);
-      // no pé da coluna: a vaga para antes da sem importância
-      window.dispatchEvent(new PointerEvent('pointermove', at(afazer.left + afazer.width / 2, afazer.bottom - 4)));
+      // no pé da coluna (rolada até o fim, se ela não couber na tela do teste): a vaga para antes da sem importância
+      const rolo = column('afazer').querySelector<HTMLElement>('.rolo')!;
+      rolo.scrollTop = rolo.scrollHeight;
+      const foot = [...column('afazer').querySelectorAll('.lugar')].at(-1)!.getBoundingClientRect().bottom - 2;
+      window.dispatchEvent(new PointerEvent('pointermove', at(afazer.left + afazer.width / 2, foot)));
       await settle();
       expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nmeio001', 'nsync001']);
       expect(column('afazer').querySelectorAll('.lugar')[2].classList).toContain('vaga');
-      window.dispatchEvent(new PointerEvent('pointerup', at(afazer.left + afazer.width / 2, afazer.bottom - 4)));
+      window.dispatchEvent(new PointerEvent('pointerup', at(afazer.left + afazer.width / 2, foot)));
       await settle();
       expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nmeio001', 'nsync001']);
       expect(cardsIn(kanban.get(TRAB)!, 'afazer').map((c) => c.note)).toEqual(['nlogin01', 'nsync001', 'nalfa001', 'nmeio001']);
@@ -917,7 +920,10 @@ describe('página do Kanban', () => {
       await settle();
       const rolo = column('feito').querySelector<HTMLElement>('.rolo')!;
       expect(getComputedStyle(rolo).overflowY).toBe('auto');
-      expect(column('feito').getBoundingClientRect().height).toBeLessThanOrEqual(Math.max(360, innerHeight - 28) + 1);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const topo = parseFloat(host.querySelector<HTMLElement>('app-kanban-page')!.style.getPropertyValue('--kb-topo'));
+      // a tela menos as abas e a pasta, a folga em cima delas (12px) e a das sombras embaixo (34px)
+      expect(column('feito').getBoundingClientRect().height).toBeLessThanOrEqual(Math.max(360, innerHeight - topo - 46) + 1);
       expect(rolo.scrollHeight).toBeGreaterThan(rolo.clientHeight);
       // a sombra do pé diz que há mais embaixo; rolando até o fim, ela sai e a do alto aparece
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -927,6 +933,27 @@ describe('página do Kanban', () => {
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       expect(rolo.parentElement!.classList).toContain('acima');
       expect(rolo.parentElement!.classList).not.toContain('abaixo');
+    });
+
+    it('as colunas cabem na tela junto com as abas e a pasta, medida de novo quando a pasta cresce', async () => {
+      kanban.state.set(state(long()));
+      await go(TRAB_URL);
+      const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await frames();
+      const page = host.querySelector<HTMLElement>('app-kanban-page')!;
+      const topo = () => parseFloat(page.style.getPropertyValue('--kb-topo'));
+      // do alto das abas ao alto das colunas (o quadro tem 8px de folga em cima)
+      const measured = () => host.querySelector('.quadro')!.getBoundingClientRect().top + 8 - host.querySelector('.abas-quadros')!.getBoundingClientRect().top;
+      expect(Math.abs(topo() - measured())).toBeLessThanOrEqual(1);
+      expect(getComputedStyle(column('feito')).maxHeight).toBe(`${Math.max(360, innerHeight - topo() - 46)}px`);
+      // a página acaba no pé do quadro: sem a folga de baixo das outras páginas
+      expect(getComputedStyle(page).marginBottom).toMatch(/^(-?0px|-\d+px)$/);
+      // a pasta mais alta (as tags que quebram em outra linha, o "Mostrando 3 de 9"): as colunas encolhem para caber
+      const before = topo();
+      host.querySelector<HTMLElement>('.pasta-baixo')!.style.minHeight = '120px';
+      await frames();
+      expect(topo()).toBeGreaterThan(before);
+      expect(Math.abs(topo() - measured())).toBeLessThanOrEqual(1);
     });
 
     it('a anotação que desce além das que estão à mostra continua à vista', async () => {

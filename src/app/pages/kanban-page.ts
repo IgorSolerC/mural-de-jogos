@@ -175,6 +175,8 @@ export class KanbanPage {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly injector = inject(Injector);
   private readonly quadro = viewChild<ElementRef<HTMLElement>>('quadro');
+  private readonly abas = viewChild<ElementRef<HTMLElement>>('abas');
+  private readonly pasta = viewChild<ElementRef<HTMLElement>>('pasta');
 
   /** As categorias das anotações: cada uma é um quadro. */
   protected readonly categories = this.kanban.categories;
@@ -478,6 +480,17 @@ export class KanbanPage {
       this.dense();
       untracked(() => this.scheduleEdges());
     });
+    // a altura das colunas: o que sobra da tela depois das abas e da pasta (ver `fitColumns`), medido de
+    // novo quando elas mudam de altura (as tags que quebram em outra linha, o "Mostrando 3 de 9")
+    effect((onCleanup) => {
+      const top = this.abas()?.nativeElement;
+      const folder = this.pasta()?.nativeElement;
+      if (!top || !folder) return;
+      const ro = new ResizeObserver(() => this.fitColumns());
+      ro.observe(top);
+      ro.observe(folder);
+      onCleanup(() => ro.disconnect());
+    });
     // a anotação nova que caiu numa coluna (a "Nova nota" do pé dela) aparece, mesmo depois das primeiras
     effect(() => {
       const id = this.desk.landingId();
@@ -502,6 +515,25 @@ export class KanbanPage {
   }
 
   // ===== A rolagem de cada coluna =====
+
+  /** A distância do alto das abas ao alto das colunas, da última vez que foi escrita. */
+  private fitAt = -1;
+
+  /**
+   * As colunas cabem na tela junto com as abas e a pasta: com a página rolada até o fim, as abas ficam
+   * no alto da tela e as colunas inteiras embaixo, sem precisar rolar mais. A coluna lê, em
+   * `--kb-topo`, quanto as abas, a pasta e as folgas entre elas ocupam (ver .coluna). Não depende da
+   * altura das colunas, então medir não muda o que foi medido.
+   */
+  private fitColumns(): void {
+    const top = this.abas()?.nativeElement;
+    const q = this.quadro()?.nativeElement;
+    if (!top || !q) return;
+    const at = Math.round(q.getBoundingClientRect().top + parseFloat(getComputedStyle(q).paddingTop) - top.getBoundingClientRect().top);
+    if (at === this.fitAt) return;
+    this.fitAt = at;
+    this.host.style.setProperty('--kb-topo', `${at}px`);
+  }
 
   private shadeFrame = 0;
   private readonly shading = new Set<HTMLElement>();
