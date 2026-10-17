@@ -443,6 +443,13 @@
   }
 }
 
+/* a coluna com a mão (ou o foco) fica por cima das vizinhas: a etiqueta das ações de uma tira, que
+   sai pela ponta dela, não passa por baixo da coluna do lado */
+.coluna:hover,
+.coluna:focus-within {
+  z-index: 1;
+}
+
 /* arrastando: a coluna embaixo do ponteiro clareia um pouco, como papel sob a luz */
 .quadro.arrastando .coluna.alvo {
   background-color: #d1b07a;

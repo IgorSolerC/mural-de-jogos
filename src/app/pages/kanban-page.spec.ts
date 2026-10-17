@@ -286,6 +286,33 @@ describe('página do Kanban', () => {
     expect(namesIn('afazer')).toEqual(['nsync001']);
   });
 
+  it('a seta da ficha (junto dos ajustes) leva a anotação para a coluna seguinte, e some na última', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const seta = (id: string) => host.querySelector<HTMLButtonElement>(`[data-nota="${id}"] .acoes .avancar`);
+    // na mesma etiqueta dos ajustes, depois deles
+    const acoes = host.querySelector('[data-nota="nlogin01"] .acoes')!;
+    expect([...acoes.querySelectorAll('button')].map((b) => b.className)).toEqual(['mexer', 'avancar']);
+    expect(seta('nlogin01')!.getAttribute('aria-label')).toBe('Levar Corrigir o login para Fazendo');
+    expect(seta('nlogin01')!.title).toBe('Levar para Fazendo');
+    seta('nlogin01')!.click();
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nsync001']);
+    expect(namesIn('fazendo')).toEqual(['nlogin01']);
+    expect(seta('nlogin01')!.getAttribute('aria-label')).toBe('Levar Corrigir o login para Feito');
+    // para Feito, que finaliza; lá, na última coluna, só os ajustes
+    seta('nlogin01')!.click();
+    await settle();
+    expect(cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note)).toEqual(['nlogin01']);
+    expect(isDone(store.get('nlogin01')!)).toBeTrue();
+    expect(seta('nlogin01')).toBeNull();
+    expect(host.querySelector('[data-nota="nlogin01"] .acoes .mexer')).not.toBeNull();
+    // na vista Só os títulos também
+    host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
+    await settle();
+    expect(seta('nsync001')!.getAttribute('aria-label')).toBe('Levar Sincronizar quadros para Fazendo');
+  });
+
   it('a busca e as tags (as etiquetas da pasta, como no mural) escondem as outras, e Limpar mostra todas', async () => {
     store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
     kanban.state.set(state(board()));

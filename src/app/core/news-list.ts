@@ -26,13 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-kanban-largo',
+    id: '2026-10-17-seta-do-kanban',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
     title: 'Ordem das colunas do Kanban, tags por categoria e comentários nas privadas',
     melhorias: [
       'O quadro do Kanban vai até as beiradas da tela, para caberem mais colunas (a busca e as tags continuam onde estavam), e as colunas que passam da tela somem num degradê em vez de um corte seco. Com o mouse, uma seta na beirada diz quantas colunas estão para lá e traz as próximas. As colunas também perderam as fitas crepe das quinas.',
+      'No Kanban, passando o mouse numa anotação, ao lado dos ajustes dela aparece uma seta que a leva para a coluna seguinte, sem arrastar (na última coluna ela não aparece). No celular, a seta fica sempre à mão.',
       'Cada coluna do Kanban pode ter a sua ordem, nos ajustes dela: por importância, criação, última alteração, título, tag ou tarefas por fazer, no sentido que quiser, e um segundo critério para o empate (por importância e tag, por exemplo). O alto da coluna diz a ordem, e À mão volta à ordem em que você arrastou.',
       'Dá para comentar também nas suas análises e anotações privadas, como um recado para você mesmo. Numa anotação compartilhada, pública ou privada, quem está nela comenta mesmo sem seguir ninguém, e todos ali recebem o aviso de cada comentário.',
       'Em Tags, nas configurações do mural, as tags ficam separadas pela categoria das anotações onde são usadas, e a mesma tag pode ter uma cor em cada categoria; renomear ou apagar uma tag mexe só nas anotações daquela categoria.',

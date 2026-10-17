@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { LucideAngularModule, SlidersHorizontal } from 'lucide-angular';
+import { ChevronRight, LucideAngularModule, SlidersHorizontal } from 'lucide-angular';
 import { IMPORTANCE_LABEL, KanbanCard } from '../core/kanban';
 import { Review } from '../core/review';
 import { Settings } from '../core/settings';
@@ -61,9 +61,10 @@ export class KanbanReviewCard extends ReviewCard {
  *   de baixo, a etiqueta de importância; tocar na ficha abre a leitura.
  * - **títulos** (`dense`): só uma tira da cartolina dela com o nome e a escala da importância, para
  *   caber o quadro inteiro na tela.
- * Nas duas, a etiqueta de tinta dos ajustes (como o Fixar e o Finalizar do mural) aparece com o mouse
- * em cima ou o foco do teclado, e abre a folha da anotação no quadro; no toque, fica sempre (na tira,
- * só o desenho, na ponta dela).
+ * Nas duas, a etiqueta de tinta das ações (como o Fixar e o Finalizar do mural) aparece com o mouse
+ * em cima ou o foco do teclado: os ajustes, que abrem a folha da anotação no quadro, e, fora da última
+ * coluna, a seta que a leva para a coluna seguinte (a ponta só, como a do iPhone); no toque, fica
+ * sempre (na tira, só os desenhos, na ponta dela).
  */
 @Component({
   selector: 'app-kanban-note',
@@ -104,9 +105,17 @@ export class KanbanReviewCard extends ReviewCard {
       <ng-container [ngTemplateOutlet]="adjust" />
     }
     <ng-template #adjust>
-      <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância e tags de ' + review().game.name" title="Etapa, importância e tags" aria-haspopup="dialog" (click)="details.emit()">
-        <lucide-icon [img]="AdjustIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-      </button>
+      <!-- as ações da anotação, juntas numa etiqueta de tinta: os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
+      <div class="acoes" [class.duas]="!!next()">
+        <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância e tags de ' + review().game.name" title="Etapa, importância e tags" aria-haspopup="dialog" (click)="details.emit()">
+          <lucide-icon [img]="AdjustIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+        </button>
+        @if (next(); as to) {
+          <button type="button" class="avancar" [attr.aria-label]="'Levar ' + review().game.name + ' para ' + to" [title]="'Levar para ' + to" (click)="advanced.emit()">
+            <lucide-icon [img]="NextIcon" [size]="19" [strokeWidth]="3" aria-hidden="true" />
+          </button>
+        }
+      </div>
     </ng-template>
   `,
   styleUrl: './kanban-note.scss',
@@ -116,10 +125,15 @@ export class KanbanNote {
   readonly card = input.required<KanbanCard>();
   /** A vista "Só os títulos": a tira com o nome e a importância, no lugar da ficha. */
   readonly dense = input(false);
+  /** O nome da coluna seguinte (a da direita), para a seta que leva a anotação para lá; null na última. */
+  readonly next = input<string | null>(null);
   readonly opened = output<string>();
   readonly details = output<void>();
+  /** A seta: levar a anotação para a coluna seguinte. */
+  readonly advanced = output<void>();
 
   protected readonly AdjustIcon = SlidersHorizontal;
+  protected readonly NextIcon = ChevronRight;
   protected readonly label = IMPORTANCE_LABEL;
   protected readonly level = IMPORTANCE_LEVEL;
   protected readonly steps = [1, 2, 3, 4, 5];

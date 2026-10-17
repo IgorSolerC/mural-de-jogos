@@ -143,7 +143,15 @@
               (pointerdown)="onPointerDown($event, it.card.note, v.col.id)"
               (keydown)="onKey($event, it.card.note, v.col.id)"
             >
-              <app-kanban-note [review]="it.note" [card]="it.card" [dense]="dense()" (opened)="read($event)" (details)="cardSheet.set(it.card.note)" />
+              <app-kanban-note
+                [review]="it.note"
+                [card]="it.card"
+                [dense]="dense()"
+                [next]="view()[ci + 1]?.col?.name ?? null"
+                (opened)="read($event)"
+                (details)="cardSheet.set(it.card.note)"
+                (advanced)="advance(it.card.note, v.col.id)"
+              />
             </li>
           } @empty {
             <li class="vazia" aria-hidden="true">{{ filtering() ? 'Nada aqui com esse filtro' : 'Nenhuma anotação ainda' }}</li>

@@ -503,6 +503,32 @@ export class KanbanPage {
     requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
   }
 
+  /**
+   * A seta da ficha: leva a anotação para a coluna seguinte (a da direita), no fim dela (ou no lugar
+   * da ordem, se a coluna tem ordem), finalizando se a coluna pede. A ficha pisca o marca-texto onde
+   * chegou e o quadro rola até ela; o foco vai para a seta dela lá, para avançar de novo.
+   */
+  protected advance(note: string, column: string): void {
+    const b = this.board();
+    if (!b) return;
+    const next = b.columns[b.columns.findIndex((c) => c.id === column) + 1];
+    if (!next) return;
+    this.actions.move(b.id, note, next.id);
+    this.sayPlace(note, this.store.get(note)?.game.name ?? 'A anotação', next.id);
+    requestAnimationFrame(() => {
+      const li = this.host.querySelector<HTMLElement>(`.lugar[data-nota="${note}"]`);
+      const card = li?.querySelector<HTMLElement>('app-kanban-note');
+      if (!li || !card) return;
+      card.classList.remove('chegou');
+      void card.offsetWidth;
+      card.classList.add('chegou');
+      setTimeout(() => card.classList.remove('chegou'), 950);
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      li.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: still ? 'auto' : 'smooth' });
+      (li.querySelector<HTMLElement>('.avancar') ?? li.querySelector<HTMLElement>('.hit'))?.focus({ preventScroll: true });
+    });
+  }
+
   /** Diz onde a anotação ficou: a coluna e a posição em que aparece nela. */
   private sayPlace(note: string, name: string, column: string): void {
     const b = this.board();

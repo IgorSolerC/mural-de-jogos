@@ -61,14 +61,34 @@
   @include kk.escala;
 }
 
-/* ===== Os ajustes da anotação no quadro: a etiqueta de tinta do Fixar e do Finalizar =====
+/* ===== As ações da anotação no quadro: a etiqueta de tinta do Fixar e do Finalizar =====
    Presa na beirada de cima da ficha, metade para fora (não cobre o nome); aparece com o mouse em
-   cima ou com o foco do teclado. No toque, sem mouse, fica sempre, um pouco maior para o dedo. */
-.mexer {
+   cima ou com o foco do teclado. Uma etiqueta só, com um botão por ação separados por um fio: os
+   ajustes e, fora da última coluna, a seta para a coluna seguinte (do lado de lá, para onde ela
+   leva). No toque, sem mouse, fica sempre, um pouco maior para o dedo. */
+.acoes {
   position: absolute;
   top: -14px;
   right: 12px;
   z-index: 6;
+  display: flex;
+  border-radius: 3px;
+  background: #151515;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 4px 8px -3px rgb(0 0 0 / 0.4);
+  rotate: -1.5deg;
+  opacity: 0;
+  translate: 0 5px;
+  pointer-events: none;
+  transition:
+    opacity var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
+}
+
+.mexer,
+.avancar {
+  position: relative;
   display: inline-grid;
   place-items: center;
   width: 30px;
@@ -76,69 +96,96 @@
   padding: 0;
   border: 0;
   border-radius: 3px;
-  background: #151515;
+  background: transparent;
   color: #f1f1ec;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.4),
-    0 4px 8px -3px rgb(0 0 0 / 0.4);
-  rotate: -1.5deg;
   cursor: pointer;
-  opacity: 0;
-  translate: 0 5px;
-  pointer-events: none;
   transition:
-    opacity var(--t-ui) var(--ease-ui),
-    translate var(--t-ui) var(--ease-ui),
-    scale var(--t-ui) var(--ease-ui);
+    background-color var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
 
   lucide-icon {
     display: inline-flex;
   }
 
-  /* a área de toque passa da etiqueta */
+  /* a área de toque passa da etiqueta (para cima e para baixo; dos lados, encosta na vizinha) */
   &::before {
     content: '';
     position: absolute;
-    inset: -7px -4px;
+    inset: -7px 0;
   }
 
   /* o foco na tinta da etiqueta, com folga e o halo claro: aparece na cartolina e no papel pardo */
   &:focus-visible {
+    z-index: 1;
     outline: 2.5px solid #151515;
     outline-offset: 2px;
-    box-shadow:
-      0 0 0 6px rgb(241 241 236 / 0.85),
-      0 1px 2px rgb(0 0 0 / 0.4);
+    box-shadow: 0 0 0 6px rgb(241 241 236 / 0.85);
   }
 }
 
-:host(:hover) .mexer,
-:host(:focus-within) .mexer {
+/* o fio entre os dois botões, riscado na própria tinta */
+.avancar {
+  border-radius: 0 3px 3px 0;
+  box-shadow: inset 1px 0 0 rgb(241 241 236 / 0.24);
+}
+
+.duas .mexer {
+  border-radius: 3px 0 0 3px;
+}
+
+/* a ponta da seta dá um passo para a direita quando a mão chega: é para lá que ela leva */
+@media (hover: hover) {
+  .mexer:hover,
+  .avancar:hover {
+    background: rgb(241 241 236 / 0.16);
+  }
+
+  .avancar:hover lucide-icon {
+    translate: 2px 0;
+  }
+
+  .avancar lucide-icon {
+    transition: translate var(--t-ui) var(--ease-ui);
+  }
+}
+
+:host(:hover) .acoes,
+:host(:focus-within) .acoes {
   opacity: 1;
   translate: 0 0;
   pointer-events: auto;
 }
 
-/* arrastando, ninguém mostra os ajustes (nem a cópia que segue o ponteiro) */
-:host-context(.kanban-arrastando) .mexer {
+/* arrastando, ninguém mostra as ações (nem a cópia que segue o ponteiro) */
+:host-context(.kanban-arrastando) .acoes {
   opacity: 0;
   pointer-events: none;
 }
 
-@media (hover: hover) {
-  .mexer:hover {
-    scale: 1.06;
-  }
-}
-
 @media (hover: none) {
-  .mexer {
-    width: 34px;
-    height: 34px;
+  .acoes {
     top: -17px;
     opacity: 1;
     translate: 0 0;
     pointer-events: auto;
+  }
+
+  .mexer,
+  .avancar {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* acabou de chegar pela seta: a ficha pisca o marca-texto da busca uma vez, para o olho achar onde ela foi */
+:host(.chegou) {
+  animation: chegou 900ms var(--ease-ui);
+}
+
+@keyframes chegou {
+  0%,
+  35% {
+    filter: drop-shadow(0 0 0 rgb(255 218 66 / 0)) drop-shadow(0 0 10px rgb(255 218 66 / 0.95));
   }
 }
 
@@ -208,45 +255,66 @@
   rotate: 2deg;
 }
 
-/* com o mouse, a etiqueta sai pela ponta da tira, no papel pardo, sem cobrir a importância */
-:host(.titulo) .mexer {
+/* com o mouse, a etiqueta sai pela ponta da tira, sem cobrir a importância: as duas ações, menores,
+   vão até antes da coluna vizinha; o fio claro em volta separa a tinta da parede escura do vão */
+:host(.titulo) .acoes {
   top: 50%;
-  right: -24px;
-  margin-top: -15px;
+  right: auto;
+  left: calc(100% - 12px);
+  margin-top: -12px;
   rotate: 2deg;
   translate: -5px 0;
+  box-shadow:
+    0 0 0 1.5px rgb(241 241 236 / 0.55),
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 4px 8px -3px rgb(0 0 0 / 0.4);
+
+  .mexer,
+  .avancar {
+    width: 24px;
+    height: 24px;
+  }
 }
 
-:host(.titulo:hover) .mexer,
-:host(.titulo:focus-within) .mexer {
+:host(.titulo:hover) .acoes,
+:host(.titulo:focus-within) .acoes {
   translate: 0 0;
 }
 
 /* no toque, uma etiqueta preta em cada tira era barulho: só o desenho, na tinta da tira, na ponta */
 @media (hover: none) {
-  :host(.titulo) .mexer {
+  :host(.titulo) .acoes {
     position: relative;
     top: auto;
-    right: auto;
+    left: auto;
     flex: none;
-    width: 30px;
-    height: 30px;
     margin: -4px -6px -4px -2px;
     background: none;
-    color: inherit;
     box-shadow: none;
     rotate: none;
+    translate: none;
     opacity: 0.6;
 
-    &::before {
-      inset: -5px -4px;
+    .mexer,
+    .avancar {
+      width: 30px;
+      height: 30px;
+      color: inherit;
+      box-shadow: none;
     }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .imp,
-  .mexer {
+  .acoes,
+  .mexer,
+  .avancar,
+  .avancar lucide-icon {
     transition: none;
+  }
+
+  :host(.chegou) {
+    animation: none;
   }
 }
