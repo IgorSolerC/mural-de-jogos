@@ -52,6 +52,10 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     escritos à mão, e Amigos e Pessoas variações; o "Não deu certo agora. Tente de novo." estava em cinco lugares. Agora
     `FollowToasts` (ui/follow-toasts.ts) e `failedText`/`TRY_AGAIN`; o Pessoas continua com o Desfazer depois de seguir.
 
+25. [x] **Pra depois e Wishlist**: as mesmas três ordens, a mesma comparação e a mesma conta das colunas copiadas nas duas
+    páginas. Agora `SHELF_ORDERS`, `shelfCompare` e `shelfColumns` em `core/clipping.ts`, ao lado da `collage`
+    (cada uma com a sua largura: 168/32 e 172/34); fotos idênticas.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

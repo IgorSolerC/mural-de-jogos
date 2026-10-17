@@ -1,4 +1,5 @@
 import { SHAPE_W_H, Tear, snipFor, tearFor } from './tear';
+import { nameCollator } from './text';
 import { wobble } from './wall-physics';
 
 /**
@@ -230,4 +231,29 @@ export function collage<T extends { id: string }>(items: readonly T[], columns: 
     sum[at] += height(item.id);
   }
   return out;
+}
+
+/** A ordem das colagens do Pra depois e da Wishlist (a aba "Ordenar" delas). */
+export type ShelfOrder = 'recentes' | 'antigos' | 'az';
+export const SHELF_ORDERS: readonly { value: ShelfOrder; label: string }[] = [
+  { value: 'recentes', label: 'Mais novos' },
+  { value: 'antigos', label: 'Mais antigos' },
+  { value: 'az', label: 'A–Z' },
+];
+
+/** Compara dois itens guardados pela ordem escolhida: o dia em que foram guardados, ou o nome. */
+export function shelfCompare(order: ShelfOrder): (a: { createdAt: string; game: { name: string } }, b: { createdAt: string; game: { name: string } }) => number {
+  switch (order) {
+    case 'recentes':
+      return (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt);
+    case 'antigos':
+      return (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt);
+    case 'az':
+      return (a, b) => nameCollator.compare(a.game.name, b.game.name);
+  }
+}
+
+/** Quantas colunas da colagem cabem na largura: peças de pelo menos `min`px com `gap`px entre elas; duas no celular. */
+export function shelfColumns(width: number, min: number, gap: number): number {
+  return innerWidth < 560 ? 2 : Math.max(3, Math.floor((width + gap) / (min + gap)));
 }

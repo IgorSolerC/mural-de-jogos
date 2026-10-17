@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ChevronDown, Dices, LucideAngularModule, Scissors, X } from 'lucide-angular';
-import { collage } from '../core/clipping';
+import { collage, SHELF_ORDERS, shelfColumns, shelfCompare, ShelfOrder } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { g } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -11,15 +11,8 @@ import { Toasts } from '../ui/toast';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { WishClip } from '../ui/wish-clip';
-import { nameCollator } from '../core/text';
 import { reducedMotion } from '../core/motion';
 
-type Order = 'recentes' | 'antigos' | 'az';
-const ORDERS: readonly { value: Order; label: string }[] = [
-  { value: 'recentes', label: 'Mais novos' },
-  { value: 'antigos', label: 'Mais antigos' },
-  { value: 'az', label: 'A–Z' },
-];
 
 /**
  * Wishlist: o que você quer jogar, ler ou ver, no mural aberto. Cada item é a capa recortada de uma
@@ -325,13 +318,13 @@ export class WishlistPage {
   protected readonly CutIcon = Scissors;
   protected readonly DiceIcon = Dices;
   protected readonly ChevronIcon = ChevronDown;
-  protected readonly orders = ORDERS;
+  protected readonly orders = SHELF_ORDERS;
   protected readonly CloseIcon = X;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');
-  protected readonly order = signal<Order>('recentes');
-  protected readonly orderLabel = computed(() => ORDERS.find((o) => o.value === this.order())!.label);
+  protected readonly order = signal<ShelfOrder>('recentes');
+  protected readonly orderLabel = computed(() => SHELF_ORDERS.find((o) => o.value === this.order())!.label);
   /** O id sorteado; o bilhete some quando ele sai da lista. */
   protected readonly drawn = signal<string | null>(null);
 
@@ -339,16 +332,7 @@ export class WishlistPage {
     const needle = fold(this.query().trim());
     const list = this.mural.wishes();
     const found = needle ? list.filter((w) => fold(w.game.name).includes(needle)) : list;
-    const within = (a: Wish, b: Wish) => {
-      switch (this.order()) {
-        case 'recentes':
-          return Date.parse(b.createdAt) - Date.parse(a.createdAt);
-        case 'antigos':
-          return Date.parse(a.createdAt) - Date.parse(b.createdAt);
-        case 'az':
-          return nameCollator.compare(a.game.name, b.game.name);
-      }
-    };
+    const within = shelfCompare(this.order());
     // a vontade vem sempre primeiro: MUST PLAY na frente, LATER no fim; a aba ordena dentro de cada uma
     const rank = (w: Wish) => RELEVANCE_RANK[relevanceOf(w)];
     return [...found].sort((a, b) => rank(a) - rank(b) || within(a, b));
@@ -362,10 +346,7 @@ export class WishlistPage {
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
-    const measure = () => {
-      const w = host.clientWidth;
-      this.cols.set(innerWidth < 560 ? 2 : Math.max(3, Math.floor((w + 34) / (172 + 34))));
-    };
+    const measure = () => this.cols.set(shelfColumns(host.clientWidth, 172, 34));
     // "Ver na lista" ou um item novo chegando: se a busca esconde ele, a busca sai da frente
     effect(() => {
       const id = this.desk.landingId();
@@ -389,7 +370,7 @@ export class WishlistPage {
     }, 140);
   }
 
-  protected sort(o: Order): void {
+  protected sort(o: ShelfOrder): void {
     if (o === this.order()) return;
     this.transitions.run(() => this.order.set(o));
   }

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal } from '@angular/core';
 import { ChevronDown, LucideAngularModule, NotebookPen } from 'lucide-angular';
-import { collage } from '../core/clipping';
+import { collage, SHELF_ORDERS, shelfColumns, shelfCompare, ShelfOrder } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { g } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -10,14 +10,7 @@ import { ViewTransitions } from '../core/view-transitions';
 import { DraftCard } from '../ui/draft-card';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
-import { nameCollator } from '../core/text';
 
-type Order = 'recentes' | 'antigos' | 'az';
-const ORDERS: readonly { value: Order; label: string }[] = [
-  { value: 'recentes', label: 'Mais novos' },
-  { value: 'antigos', label: 'Mais antigos' },
-  { value: 'az', label: 'A–Z' },
-];
 
 /**
  * Pra depois: o que foi guardado só com nome e capa, no mural aberto, esperando a opinião. Cada um é
@@ -195,24 +188,17 @@ export class QueuePage {
   protected readonly g = g;
   protected readonly NoteIcon = NotebookPen;
   protected readonly ChevronIcon = ChevronDown;
-  protected readonly orders = ORDERS;
+  protected readonly orders = SHELF_ORDERS;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');
-  protected readonly order = signal<Order>('recentes');
-  protected readonly orderLabel = computed(() => ORDERS.find((o) => o.value === this.order())!.label);
+  protected readonly order = signal<ShelfOrder>('recentes');
+  protected readonly orderLabel = computed(() => SHELF_ORDERS.find((o) => o.value === this.order())!.label);
   protected readonly visible = computed(() => {
     const needle = fold(this.query().trim());
     const list = this.mural.drafts();
     const found = needle ? list.filter((d) => fold(d.game.name).includes(needle)) : list;
-    switch (this.order()) {
-      case 'recentes':
-        return [...found].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-      case 'antigos':
-        return [...found].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-      case 'az':
-        return [...found].sort((a, b) => nameCollator.compare(a.game.name, b.game.name));
-    }
+    return [...found].sort(shelfCompare(this.order()));
   });
 
   /** Quantas colunas cabem: folhas de pelo menos 168px, com 32px entre elas (duas no celular). */
@@ -221,7 +207,7 @@ export class QueuePage {
 
   constructor() {
     const host = inject(ElementRef<HTMLElement>).nativeElement as HTMLElement;
-    const measure = () => this.cols.set(innerWidth < 560 ? 2 : Math.max(3, Math.floor((host.clientWidth + 32) / (168 + 32))));
+    const measure = () => this.cols.set(shelfColumns(host.clientWidth, 168, 32));
     // "Ver na lista" ou um item novo chegando: se a busca esconde ele, a busca sai da frente
     effect(() => {
       const id = this.desk.landingId();
@@ -235,7 +221,7 @@ export class QueuePage {
     });
   }
 
-  protected sort(o: Order): void {
+  protected sort(o: ShelfOrder): void {
     if (o === this.order()) return;
     this.transitions.run(() => this.order.set(o));
   }
