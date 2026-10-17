@@ -13,11 +13,11 @@ import {
 import { Check, LockKeyhole, LucideAngularModule, Search, X } from 'lucide-angular';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { PROFILE_LIMITS } from '../core/profile';
-import { Review, fold, formatScore, isNote, isPrivate } from '../core/review';
+import { Review, formatScore, isNote, isPrivate } from '../core/review';
 import { BackdropClose } from './backdrop-close';
 import { CoverSleeve } from './cover-sleeve';
-import { KIND_ICON } from './kind-switcher';
 import { Pin } from './pin';
+import { kindTabs, matchingCards } from './picker-kit';
 
 /**
  * Escolher as fichas de uma seção do perfil: todas as suas, de todos os murais, com busca e abas por
@@ -140,17 +140,13 @@ export class ProfilePicker {
 
   protected readonly full = computed(() => this.chosen().length >= this.max);
   /** Os murais que têm alguma ficha, com quantas. */
-  protected readonly kinds = computed(() =>
-    KINDS.map((kind) => ({ kind, label: cap(profileOf(kind).plural), icon: KIND_ICON[kind], count: this.cards().filter((r) => r.kind === kind).length })).filter((k) => k.count > 0),
-  );
+  protected readonly kinds = computed(() => kindTabs(this.cards(), KINDS));
   /** As que já estavam escolhidas quando a folha abriu: elas vêm primeiro, e nada pula enquanto se marca. */
   private readonly before = signal<readonly string[]>([]);
   /** As escolhidas de antes primeiro (na ordem), depois as outras de A a Z. */
   protected readonly shown = computed(() => {
-    const q = fold(this.query().trim());
-    const kind = this.kind();
     const before = this.before();
-    const list = this.cards().filter((r) => (!kind || r.kind === kind) && (!q || fold(r.game.name).includes(q)));
+    const list = matchingCards(this.cards(), this.kind(), this.query());
     const rank = (r: Review) => {
       const at = before.indexOf(r.id);
       return at < 0 ? Infinity : at;

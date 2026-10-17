@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, model, output, signal, viewChild } from '@angular/core';
 import { Check, LockKeyhole, LucideAngularModule, Search, X } from 'lucide-angular';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
-import { Review, fold, formatReviewDate, formatScore, isNote, isPrivate } from '../core/review';
+import { Review, formatReviewDate, formatScore, isNote, isPrivate } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { belongs } from '../core/kanban';
 import { pinningFor } from '../core/wall-physics';
@@ -9,6 +9,7 @@ import { BackdropClose } from './backdrop-close';
 import { CoverSleeve } from './cover-sleeve';
 import { KIND_ICON } from './kind-switcher';
 import { Pin } from './pin';
+import { kindTabs, matchingCards } from './picker-kit';
 
 /** As abas dos murais: as anotações primeiro (é delas que mais se cola), depois os de resenhas. */
 const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anotacoes')];
@@ -180,17 +181,13 @@ export class CardPicker {
       .filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && !(noDone && r.doneAt) && (!cat || belongs({ category: cat }, r)));
   });
   /** Os murais que têm alguma ficha, com quantas. */
-  protected readonly kinds = computed(() =>
-    ORDER.map((kind) => ({ kind, label: this.kindLabel(kind), icon: KIND_ICON[kind], count: this.cards().filter((r) => r.kind === kind).length })).filter((k) => k.count > 0),
-  );
+  protected readonly kinds = computed(() => kindTabs(this.cards(), ORDER));
   /** A escolhida quando a folha abriu: ela vem primeiro, e nada pula enquanto se procura. */
   private readonly before = signal('');
   /** A escolhida primeiro, depois as mexidas mais recentemente. */
   protected readonly shown = computed(() => {
-    const q = fold(this.query().trim());
-    const kind = this.kind();
     const before = this.before();
-    const list = this.cards().filter((r) => (!kind || r.kind === kind) && (!q || fold(r.game.name).includes(q)));
+    const list = matchingCards(this.cards(), this.kind(), this.query());
     return list.sort((a, b) => Number(b.id === before) - Number(a.id === before) || b.updatedAt.localeCompare(a.updatedAt) || a.game.name.localeCompare(b.game.name, 'pt-BR'));
   });
 

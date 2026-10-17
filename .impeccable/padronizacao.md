@@ -56,6 +56,10 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     páginas. Agora `SHELF_ORDERS`, `shelfCompare` e `shelfColumns` em `core/clipping.ts`, ao lado da `collage`
     (cada uma com a sua largura: 168/32 e 172/34); fotos idênticas.
 
+26. [x] **Os dois seletores de fichas** (Escolher a nota / Buscar nota e Escolher fichas do perfil): as abas de mural com a
+    contagem e o filtro por mural e busca eram cópias. Agora `kindTabs` e `matchingCards` (ui/picker-kit.ts); a ordem de
+    cada um fica (a escolhida e as mexidas por último num, as escolhidas e A–Z no outro).
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e
