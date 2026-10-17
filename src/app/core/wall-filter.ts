@@ -64,6 +64,17 @@ export function facetKeysOf(profile: KindProfile): readonly FacetKey[] {
   return FACET_KEYS.filter((k) => k !== 'category' && k !== 'tag' && (k !== 'difficulty' || profile.difficulty !== null) && (k !== 'form' || isMusic(profile.kind)));
 }
 
+/**
+ * Só os grupos que o mural tem: o filtro é um para todos os murais, e a tag escolhida nas anotações
+ * não pode filtrar as análises, que nem têm tag (nem o veredito das análises, as anotações). O que
+ * sai fica guardado e volta a valer no mural de onde veio.
+ */
+export function filterFor(f: WallFilter, profile: KindProfile): WallFilter {
+  const keys = facetKeysOf(profile);
+  const off = FACET_KEYS.filter((k) => !keys.includes(k) && f[k].length);
+  return off.length ? { ...f, ...Object.fromEntries(off.map((k) => [k, []])) } : f;
+}
+
 export const NO_FILTER: WallFilter = { verdict: [], status: [], grade: [], difficulty: [], year: [], text: [], look: [], category: [], tag: [], form: [] };
 
 /** A categoria de uma anotação, ou 'sem'. */

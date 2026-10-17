@@ -24,7 +24,7 @@ import {
   shownFinal,
 } from './review';
 import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
-import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
+import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
 
 /**
@@ -359,9 +359,13 @@ export abstract class WallState {
     if (sort === 'categoria' && this.activeTab() !== ALL_TAB) return this.notes() ? 'prioridade' : 'data';
     return this.guarding() && sort === 'nota' ? 'data' : sort;
   });
-  /** Os filtros que valem de fato: sem spoilers, filtrar por veredito, nota ou dificuldade entregaria o que está escondido. */
+  /**
+   * Os filtros que valem de fato: só os dos grupos que o mural aberto tem (a tag das anotações não
+   * filtra as análises) e, sem spoilers, sem veredito, nota nem dificuldade, que entregariam o que
+   * está escondido.
+   */
   private readonly activeFilter = computed<WallFilter>(() => {
-    const f = this.filter();
+    const f = filterFor(this.filter(), this.mural.profile());
     return this.guarding() ? withoutSpoilerFacets(f) : f;
   });
 

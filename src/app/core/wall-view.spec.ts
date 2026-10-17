@@ -100,6 +100,25 @@ describe('WallView', () => {
     expect(view.activeScore()).toBe('diversao');
   });
 
+  it('a tag escolhida nas anotações não filtra as análises, e volta a valer nas anotações', () => {
+    store.reviews.update((list) => [
+      ...list,
+      sanitizeReview({ id: 'nbug001', kind: 'anotacoes', game: { name: 'Consertar' }, tags: ['Bug'], createdAt: '2024-01-01T00:00:00.000Z' })!,
+      sanitizeReview({ id: 'nideia1', kind: 'anotacoes', game: { name: 'Pensar' }, tags: ['Ideia'], createdAt: '2024-01-01T00:00:00.000Z' })!,
+    ]);
+    const mural = TestBed.inject(Mural);
+    mural.kind.set('anotacoes');
+    view.toggle('tag', 'Bug');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Consertar']);
+    mural.kind.set('jogos');
+    expect(view.visible().length).toBe(4);
+    expect(view.tags()).toEqual([]);
+    expect(view.filterCount()).toBe(0);
+    expect(view.isFiltered()).toBeFalse();
+    mural.kind.set('anotacoes');
+    expect(view.visible().map((x) => x.game.name)).toEqual(['Consertar']);
+  });
+
   it('filtra por veredito e conta cada um', () => {
     view.toggle('verdict', 'masterpiece');
     expect(view.visible().map((x) => x.game.name)).toEqual(['Zelda']);
