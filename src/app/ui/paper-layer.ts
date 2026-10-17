@@ -20,6 +20,7 @@ import { budget, perFrame, rest, spend, struggling, tick } from './pace';
 import { dropMask, holdMask, maskClass } from './mask-rules';
 import { isVeiled, reveal, veil } from './veil';
 import { reducedMotion } from '../core/motion';
+import { IdleDeadlineLike, whenIdle } from '../core/idle';
 
 let uids = 0;
 
@@ -840,19 +841,17 @@ function breathe(): void {
   }, 34);
 }
 
-type Deadline = { timeRemaining(): number; didTimeout?: boolean };
 /** O máximo que as fichas longe esperam o navegador ficar à toa. */
 const IDLE_TIMEOUT = 600;
 
 function idleSoon(): void {
   if (idle !== undefined) return;
-  const ric = (globalThis as { requestIdleCallback?: (cb: (d: Deadline) => void, o?: { timeout: number }) => number }).requestIdleCallback;
   // com prazo: numa página que nunca fica à toa, as fichas longe ainda ficam prontas
-  idle = ric ? ric(onIdle, { timeout: IDLE_TIMEOUT }) : (setTimeout(() => onIdle({ timeRemaining: () => 8, didTimeout: true }), 80) as unknown as number);
+  idle = whenIdle(onIdle, IDLE_TIMEOUT, { after: 80, deadline: { timeRemaining: () => 8, didTimeout: true } });
 }
 
 /** As fichas longe da tela, uma de cada vez, quando o navegador não tem mais nada para fazer. */
-function onIdle(deadline: Deadline): void {
+function onIdle(deadline: IdleDeadlineLike): void {
   idle = undefined;
   // tem quadro marcado: ele cuida das da tela e chama de volta quando acabar
   if (frame || later) return;

@@ -1,3 +1,4 @@
+import { whenIdle } from '../core/idle';
 /**
  * O aquecimento dos players de fora (YouTube, Vimeo) do widget de áudio: o player de quem fica na
  * tela é montado escondido e calado, toca um instante para encher o começo da faixa e volta ao
@@ -27,10 +28,7 @@ const GIVE_UP = 12000;
 
 type Idle = (cb: () => void, opts?: { timeout: number }) => unknown;
 
-const browserIdle: Idle = (cb, opts) => {
-  const ric = (window as unknown as { requestIdleCallback?: Idle }).requestIdleCallback;
-  return ric ? ric.call(window, cb, opts) : window.setTimeout(cb, 200);
-};
+const browserIdle: Idle = (cb, opts) => whenIdle(() => cb(), opts?.timeout, { after: 200, deadline: { timeRemaining: () => 0 } });
 
 export class Warmups {
   /** Desligado nos testes que não querem iframes de verdade. */

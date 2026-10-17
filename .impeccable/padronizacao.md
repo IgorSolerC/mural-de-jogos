@@ -35,8 +35,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 7. [x] **Pequenos iguais**: `tilt` de comments-panel = person-photo; `host` de audio-track = glued-media; cloud-sync importa
    `canonicalJson` duas vezes com dois nomes. Agora `photoTilt` (profile-people) e `hostOf` (widgets).
    A inicial da foto ficou: a dos comentários pega a primeira unidade, a da foto o primeiro caractere (emoji muda).
-8. [ ] **Ociosidade**: `requestIdleCallback` com reserva copiado em wall-cards, paper-layer e sound-warmup (tempos diferentes,
-   ficam como parâmetro).
+8. [x] **Ociosidade**: `requestIdleCallback` com reserva copiado em wall-cards, paper-layer e sound-warmup (tempos diferentes,
+   ficam como parâmetro). Agora `whenIdle`/`cancelIdle` em `core/idle.ts`, cada um com o seu prazo e a sua reserva.
 9. [ ] **Ouvintes**: o arrastar do quadro do Kanban não tira os ouvintes da janela ao sair da página; os menus (feed-menu,
    kind-switcher, reações) ouvem todo clique da página mesmo fechados (o da wish-clip já só ouve aberto).
 10. [ ] **"Está escrevendo?"**: seis jeitos de decidir se a tecla é para um campo (app, kanban, leitura, seleção, jogos).

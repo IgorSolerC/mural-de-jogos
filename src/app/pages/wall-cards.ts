@@ -22,6 +22,7 @@ import { budget, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } 
 import { ASLEEP, wakePaper } from '../ui/paper-layer';
 import { ReviewCard } from '../ui/review-card';
 import { isVeiled, veil } from '../ui/veil';
+import { cancelIdle, IdleDeadlineLike, whenIdle } from '../core/idle';
 
 /** O que todas as fichas do mural recebem igual; o resto é a própria resenha. */
 export interface WallCardProps {
@@ -512,10 +513,14 @@ export class WallCardPool implements OnDestroy {
 
   private aheadSoon(): void {
     if (this.idle !== undefined || this.rushing) return;
-    this.idle = whenIdle((deadline) => {
-      this.idle = undefined;
-      this.prepareAhead(deadline);
-    });
+    this.idle = whenIdle(
+      (deadline) => {
+        this.idle = undefined;
+        this.prepareAhead(deadline);
+      },
+      2000,
+      { after: 200, deadline: { timeRemaining: () => 10 } },
+    );
   }
 
   /**
@@ -907,22 +912,6 @@ const LIVE = 'data-viva';
 /** As fichas não levantam com o mouse enquanto a página rola, nem com "Fichas paradas" (ver `WallCardPool.hush` e review-card.ts). */
 const QUIET = 'data-quieta';
 
-interface IdleDeadlineLike {
-  timeRemaining(): number;
-  didTimeout?: boolean;
-}
-
-/** Com o navegador à toa (ou, onde não há como saber, daqui a pouco). */
-function whenIdle(run: (deadline: IdleDeadlineLike) => void): number {
-  const ric = (globalThis as { requestIdleCallback?: (cb: (d: IdleDeadlineLike) => void, o?: { timeout: number }) => number }).requestIdleCallback;
-  return ric ? ric(run, { timeout: 2000 }) : (setTimeout(() => run({ timeRemaining: () => 10 }), 200) as unknown as number);
-}
-
-function cancelIdle(id: number): void {
-  const cic = (globalThis as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback;
-  if (cic) cic(id);
-  else clearTimeout(id);
-}
 
 /**
  * A altura do elemento como o layout a calculou, com a fração (412,5px): `offsetHeight` arredonda, e
