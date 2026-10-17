@@ -149,8 +149,10 @@
   }
 }
 
+/* com o mouse em cima, ou com o teclado num dos botões dela. O foco que volta para a ficha (ao fechar
+   a leitura, ou depois da seta) não mostra a etiqueta: ela só aparecia sem a mão estar lá */
 :host(:hover) .acoes,
-:host(:focus-within) .acoes {
+.acoes:has(:focus-visible) {
   opacity: 1;
   translate: 0 0;
   pointer-events: auto;
@@ -274,7 +276,7 @@
 }
 
 :host(.titulo:hover) .acoes,
-:host(.titulo:focus-within) .acoes {
+:host(.titulo) .acoes:has(:focus-visible) {
   translate: 0 0;
 }
 

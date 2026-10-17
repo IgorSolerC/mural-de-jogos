@@ -305,6 +305,17 @@ describe('página do Kanban', () => {
     expect(card('nsync001').querySelector('.sem-texto')).toBeNull();
   });
 
+  it('o foco que volta para a ficha (ao fechar a leitura) não deixa os botões de ajustes e da seta à mostra', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const li = host.querySelector<HTMLElement>('[data-nota="nlogin01"]')!;
+    li.querySelector<HTMLElement>('.hit')!.focus();
+    await settle();
+    expect(li.contains(document.activeElement)).toBeTrue();
+    expect(getComputedStyle(li.querySelector('.acoes')!).opacity).toBe('0');
+    expect(getComputedStyle(li.querySelector('.acoes')!).pointerEvents).toBe('none');
+  });
+
   it('a seta da ficha (junto dos ajustes) leva a anotação para a coluna seguinte, e some na última', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);

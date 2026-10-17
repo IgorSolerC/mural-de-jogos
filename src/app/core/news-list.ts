@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-sem-descricao',
+    id: '2026-10-17-botoes-do-kanban',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
@@ -42,6 +42,9 @@ export const NEWS: NewsEntry[] = [
       'Em Tags, nas configurações do mural, as tags ficam separadas pela categoria das anotações onde são usadas, e a mesma tag pode ter uma cor em cada categoria; renomear ou apagar uma tag mexe só nas anotações daquela categoria.',
       'Nas configurações do mural (a engrenagem da pasta), cada categoria e cada tag pode ser renomeada, e muda em todas as anotações que a usam, com a cor, os padrões e o quadro do Kanban; o nome de outra que já existe junta as duas.',
       'Ali também dá para apagar uma categoria ou uma tag: antes, um aviso diz quantas anotações a usam, e ao confirmar ela sai de todas.',
+    ],
+    correcoes: [
+      'No Kanban, os botões de ajustes e da seta não ficam mais à mostra numa anotação sem o mouse em cima, como depois de fechar a leitura dela.',
     ],
   },
   {
