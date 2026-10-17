@@ -245,6 +245,13 @@
   outline-offset: 2px;
 }
 
+/* sem descrição: o lápis da linha da data da ficha, na tinta da tira, um pouco ralo */
+.sem-texto {
+  flex: none;
+  display: inline-flex;
+  opacity: 0.6;
+}
+
 /* a importância: a etiqueta de bloco sem o nome, só a escala, colada na ponta da tira */
 .imp-mini {
   @include kk.importancia;

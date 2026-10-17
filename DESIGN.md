@@ -1370,3 +1370,11 @@ The user asked for "every tag but this one": right-click a tag in the notes' and
 - **Three states, one chip.** Off (the dashed blank tag), on (the kraft tag tied on) and out: the blank tag and its count at 60%, crossed by one pen stroke in ink (2.5px, −2.5deg, drawn in from the left in 220ms). The count of an out tag is how many notes it is hiding. Out tags always stay in the visible row (never behind "+N"). Hiding wins over including.
 - **Gestures.** Click: on/off, or release when struck. Right-click, the menu key or Shift+F10: hide (or release). On touch, holding still for 500ms hides (a short vibration; the tap that follows does not toggle; moving first scrolls the row). The chip's title spells both gestures; screen readers get ", escondida" and a description of the gesture.
 - **Default Excluído.** In Configurações › Tags, under each tag's colours, "Filtro padrão" as the settings' ink segmented strip at row size (36px, Eye "Disponível", EyeOff "Excluído"); an excluded tag's preview is struck like the chip. Per category, like the colours (`NotesConfig.hiddenTags`, keys of `tagLookKey`; private cloud only, SYNC_SCHEMA 21); it follows renames of the tag and of its category. Every visit to the wall, a wall tab or a board starts with those notes out and the tag struck; releasing lasts for the visit, and Limpar shows everything. "Mostrando N de M" and Limpar appear whenever a hidden tag is removing something.
+
+## Sem descrição (Kanban pass, 2026-10-17)
+
+The user asked the board to flag notes that have no description yet, to know which to detail first. The inverse of Trello's description badge, in the board card's own meta idiom.
+
+- **On the card** (only with `onBoard`; the wall's card is unchanged): after the date and the task count in the label-caps meta line, "· ✎ SEM DESCRIÇÃO" (PenLine at the task icon's size and stroke) at 72% of the line's ink. The note's spoken label adds "sem descrição".
+- **On a strip** (Só os títulos): only the PenLine, 15px, in the strip's ink at 60%, between the name and the importance, titled "Sem descrição".
+- A note with any text (even only tasks or a widget) has a description. Writing one removes the flag at once.

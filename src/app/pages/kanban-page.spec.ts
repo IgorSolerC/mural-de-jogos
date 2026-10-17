@@ -286,6 +286,25 @@ describe('página do Kanban', () => {
     expect(namesIn('afazer')).toEqual(['nsync001']);
   });
 
+  it('a anotação sem descrição avisa na linha da data (e, na vista Só os títulos, com o lápis na tira)', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const card = (id: string) => host.querySelector(`[data-nota="${id}"]`)!;
+    expect(card('nsync001').querySelector('.meta-nota .sem-texto')!.textContent!.trim()).toBe('Sem descrição');
+    expect(card('nsync001').querySelector('.hit')!.getAttribute('aria-label')).toContain('sem descrição');
+    // com texto, nada
+    expect(card('nlogin01').querySelector('.sem-texto')).toBeNull();
+    host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
+    await settle();
+    expect(card('nsync001').querySelector('.tira .sem-texto')!.getAttribute('title')).toBe('Sem descrição');
+    expect(card('nsync001').querySelector('.tira-nome')!.getAttribute('aria-label')).toBe('Sincronizar quadros, sem descrição');
+    expect(card('nlogin01').querySelector('.sem-texto')).toBeNull();
+    // escrever a descrição tira o aviso
+    store.update({ ...store.get('nsync001')!, text: 'Agora tem.' });
+    await settle();
+    expect(card('nsync001').querySelector('.sem-texto')).toBeNull();
+  });
+
   it('a seta da ficha (junto dos ajustes) leva a anotação para a coluna seguinte, e some na última', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);

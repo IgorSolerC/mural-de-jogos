@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
-import { Check, CheckCheck, CornerDownRight, ListChecks, LockKeyhole, LucideAngularModule, MicVocal, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
+import { Check, CheckCheck, CornerDownRight, ListChecks, LockKeyhole, LucideAngularModule, MicVocal, PenLine, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -233,6 +233,13 @@ export const CARD_TEMPLATE = `
                 <span aria-hidden="true"> · </span>
               }
               <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
+            }
+            <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
+            @if (noText()) {
+              @if (partShown() || review().completedAt || tasks()) {
+                <span aria-hidden="true"> · </span>
+              }
+              <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />Sem descrição</span>
             }
           </p>
         } @else if (!capas()) {
@@ -1249,6 +1256,11 @@ export const CARD_STYLES = `
     .tarefas-conta.todas {
       color: #1f7a45;
     }
+    /* sem descrição (só no quadro): o lápis e o aviso na mesma tinta da linha, um pouco mais ralos */
+    .sem-texto {
+      white-space: nowrap;
+      opacity: 0.72;
+    }
     :host([data-cor$='escuro']) .tarefas-conta.todas,
     :host([data-cor='preto']) .tarefas-conta.todas {
       color: #8fe3ad;
@@ -1669,6 +1681,9 @@ export class ReviewCard {
   protected readonly publicBadge = computed(() => this.note() && !isPrivate(this.review()) && this.checkable());
   protected readonly PublicIcon = UsersRound;
   protected readonly TasksIcon = ListChecks;
+  protected readonly NoTextIcon = PenLine;
+  /** No quadro (Kanban), a anotação sem texto nenhum, só o título: a linha da data avisa. */
+  protected readonly noText = computed(() => this.onBoard && isNote(this.review()) && !this.review().text.trim());
   /** As tarefas do texto da anotação: quantas feitas de quantas (null: sem tarefas). */
   protected readonly tasks = computed(() => {
     if (!this.note()) return null;
@@ -1938,7 +1953,7 @@ export class ReviewCard {
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
       const tasks = this.tasks();
       const todo = tasks ? `${tasks.done} de ${tasks.total} tarefas feitas` : '';
-      return `Abrir anotação: ${[r.game.name, rank, done, cats, todo, when, isPrivate(r) ? '' : 'pública'].filter(Boolean).join(', ')}`;
+      return `Abrir anotação: ${[r.game.name, rank, done, cats, todo, this.noText() ? 'sem descrição' : '', when, isPrivate(r) ? '' : 'pública'].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];
     if (isMusicReview(r)) parts.push(`${MUSIC_FORM_LABEL[musicFormOf(r.game)].toLowerCase()}${r.category ? ' de ' + r.category : ''}`);

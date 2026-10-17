@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { ChevronRight, LucideAngularModule, SlidersHorizontal } from 'lucide-angular';
+import { ChevronRight, LucideAngularModule, PenLine, SlidersHorizontal } from 'lucide-angular';
 import { IMPORTANCE_LABEL, KanbanCard } from '../core/kanban';
 import { Review } from '../core/review';
 import { Settings } from '../core/settings';
@@ -75,6 +75,12 @@ export class KanbanReviewCard extends ReviewCard {
     @if (dense()) {
       <div class="tira cartolina" [attr.data-cor]="pin().stock" [style.--stock]="'var(--stock-' + pin().stock + ')'" [style.--tilt]="pin().tilt">
         <button type="button" class="hit tira-nome" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)">{{ review().game.name }}</button>
+        @if (noText()) {
+          <!-- só o título, ainda sem descrição: o lápis na tinta da tira, antes da importância -->
+          <span class="sem-texto" title="Sem descrição" aria-hidden="true">
+            <lucide-icon [img]="NoTextIcon" [size]="15" [strokeWidth]="2.6" />
+          </span>
+        }
         @if (card().importance; as imp) {
           <span class="imp-mini" [attr.data-imp]="imp" [title]="'Importância: ' + label[imp]" aria-hidden="true">
             <span class="escala">
@@ -134,6 +140,9 @@ export class KanbanNote {
 
   protected readonly AdjustIcon = SlidersHorizontal;
   protected readonly NextIcon = ChevronRight;
+  protected readonly NoTextIcon = PenLine;
+  /** A anotação só com o título, sem descrição (a ficha diz na linha da data; a tira, com o lápis). */
+  protected readonly noText = computed(() => !this.review().text.trim());
   protected readonly label = IMPORTANCE_LABEL;
   protected readonly level = IMPORTANCE_LEVEL;
   protected readonly steps = [1, 2, 3, 4, 5];
@@ -144,6 +153,6 @@ export class KanbanNote {
   protected readonly spoken = computed(() => {
     const r = this.review();
     const imp = this.card().importance;
-    return [r.game.name, imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
+    return [r.game.name, imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
   });
 }
