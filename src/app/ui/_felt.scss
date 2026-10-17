@@ -4,14 +4,19 @@
 $feltro: #f8f0dc;
 $linha: rgb(122 74 38 / 0.6);
 
-@mixin remendo($costura: -4px) {
+/* Só o pano: o feltro creme com a trama e a costura por dentro, sem a sombra (quem usa põe a dela) */
+@mixin feltro($costura: -4px) {
   background-color: $feltro;
   /* a trama do feltro: um pontilhado leve na cor da linha */
   background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
   background-size: 4px 4px;
-  color: #151515;
   outline: 1.5px dashed $linha;
   outline-offset: $costura;
+}
+
+@mixin remendo($costura: -4px) {
+  @include feltro($costura);
+  color: #151515;
   box-shadow:
     0 1px 1px rgb(0 0 0 / 0.35),
     0 3px 6px -3px rgb(0 0 0 / 0.45);

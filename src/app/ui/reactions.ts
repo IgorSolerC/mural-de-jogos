@@ -47,6 +47,8 @@ export class ReactionSheet {
     }
   `,
   styles: `
+    @use 'felt';
+
     :host {
       display: contents;
     }
@@ -60,25 +62,12 @@ export class ReactionSheet {
       padding: 0 10px 0 7px;
       border: 0;
       border-radius: 15px;
-      background-color: var(--remendo);
-      /* a trama do feltro: um pontilhado leve na cor da linha */
-      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
-      background-size: 4px 4px;
-      color: #151515;
-      outline: 1.5px dashed var(--linha);
-      outline-offset: -4px;
-      box-shadow:
-        0 1px 1px rgb(0 0 0 / 0.35),
-        0 3px 6px -3px rgb(0 0 0 / 0.45);
+      @include felt.remendo(-4px);
       rotate: var(--torto, -3deg);
       cursor: pointer;
       transition:
         translate var(--t-ui) var(--ease-ui),
         rotate var(--t-ui) var(--ease-ui);
-    }
-    :host {
-      --remendo: #f8f0dc;
-      --linha: rgb(122 74 38 / 0.6);
     }
     .balao:hover {
       translate: 0 -1px;
@@ -86,9 +75,7 @@ export class ReactionSheet {
     }
     /* o foco não pode usar o contorno (é a costura): um anel amarelo em volta do remendo */
     .balao:focus-visible {
-      box-shadow:
-        0 0 0 3px var(--hi),
-        0 3px 6px -3px rgb(0 0 0 / 0.45);
+      @include felt.remendo-foco;
     }
     .emojis {
       display: inline-flex;
@@ -205,6 +192,8 @@ const PANEL_ROOM = 330;
   `,
   host: { '[class.rp-quieto]': 'quiet()' },
   styles: `
+    @use 'felt';
+
     :host {
       position: relative;
       display: inline-flex;
@@ -255,21 +244,11 @@ const PANEL_ROOM = 330;
     }
     /* a reação que você deu fica à mostra: o botão vira o remendo de feltro, com o seu emoji */
     .reagir.giz.dada {
-      background-color: #f8f0dc;
-      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
-      background-size: 4px 4px;
-      color: #151515;
-      outline: 1.5px dashed rgb(122 74 38 / 0.6);
-      outline-offset: -5px;
-      box-shadow:
-        0 1px 1px rgb(0 0 0 / 0.35),
-        0 3px 6px -3px rgb(0 0 0 / 0.45);
+      @include felt.remendo(-5px);
       rotate: -1.5deg;
     }
     .reagir.giz.dada:focus-visible {
-      box-shadow:
-        0 0 0 3px var(--hi),
-        0 3px 6px -3px rgb(0 0 0 / 0.45);
+      @include felt.remendo-foco;
     }
     /* num post estreito (o Feed no celular) a reação dada fica só com o emoji, para o bilhete da nota
        caber na mesma linha; o nome continua no botão, para o leitor de tela e no mouse parado */
@@ -301,12 +280,7 @@ const PANEL_ROOM = 330;
       gap: 2px;
       padding: 7px 8px;
       border-radius: 28px;
-      background-color: #f8f0dc;
-      /* a trama do feltro: um pontilhado leve na cor da linha */
-      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
-      background-size: 4px 4px;
-      outline: 1.5px dashed rgb(122 74 38 / 0.6);
-      outline-offset: -5px;
+      @include felt.feltro(-5px);
       box-shadow:
         0 1px 2px rgb(0 0 0 / 0.35),
         0 10px 20px -6px rgb(0 0 0 / 0.45);
@@ -577,6 +551,8 @@ export class ReactionPicker {
     </dialog>
   `,
   styles: `
+    @use 'felt';
+
     .reacoes {
       max-width: min(420px, calc(100vw - 24px));
     }
@@ -635,12 +611,7 @@ export class ReactionPicker {
       margin: 0 0 14px;
       padding: 7px 8px;
       border-radius: 28px;
-      background-color: #f8f0dc;
-      /* a trama do feltro: um pontilhado leve na cor da linha */
-      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
-      background-size: 4px 4px;
-      outline: 1.5px dashed rgb(122 74 38 / 0.6);
-      outline-offset: -5px;
+      @include felt.feltro(-5px);
       box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
     }
     .opcao.mais {
@@ -661,11 +632,7 @@ export class ReactionPicker {
       margin: -6px 0 14px;
       padding: 12px;
       border-radius: 18px;
-      background-color: #f8f0dc;
-      background-image: radial-gradient(rgb(122 74 38 / 0.09) 0.8px, transparent 1.1px);
-      background-size: 4px 4px;
-      outline: 1.5px dashed rgb(122 74 38 / 0.6);
-      outline-offset: -6px;
+      @include felt.feltro(-6px);
     }
     .opcao {
       display: grid;

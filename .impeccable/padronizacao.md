@@ -80,7 +80,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     o card do Kanban 4px) e `sheet.sub-mao` (Compartilhar e conflito, já iguais).
 21. [x] **Escondido para os olhos** (`sr-only`) copiado em 8 media queries: mixin. Agora `a11y.escondido` (ui/_a11y.scss),
     o bloco de 6 linhas que 7 das 9 cópias já usavam; fotos iguais a 1366px e a 400px.
-22. [ ] **Feltro das reações**: 4 cópias inline do `felt.remendo`.
+22. [x] **Feltro das reações**: 4 cópias inline do `felt.remendo`. Agora `felt.feltro` (o pano com a costura, sem sombra)
+    e `felt.remendo` usa ele; as cinco peças das reações incluem o kit, cada uma com a sua sombra (CSS compilado igual).
 23. [ ] **Interruptor**: 10 cópias do botão com a bolinha; uma sem `aria-describedby`.
 
 ## Fora, por enquanto (mudaria a aparência aprovada ou o comportamento)
