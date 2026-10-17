@@ -82,7 +82,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     o bloco de 6 linhas que 7 das 9 cópias já usavam; fotos iguais a 1366px e a 400px.
 22. [x] **Feltro das reações**: 4 cópias inline do `felt.remendo`. Agora `felt.feltro` (o pano com a costura, sem sombra)
     e `felt.remendo` usa ele; as cinco peças das reações incluem o kit, cada uma com a sua sombra (CSS compilado igual).
-23. [ ] **Interruptor**: 10 cópias do botão com a bolinha; uma sem `aria-describedby`.
+23. [x] **Interruptor**: 10 cópias do botão com a bolinha; uma sem `aria-describedby`. O "Finalizar tarefas movidas
+    para cá" ganhou a descrição como os outros. Um componente `app-interruptor` ficou de fora: o estilo vem do
+    `kit.interruptor` incluído em cada folha (encapsulado), e o botão dentro de outro componente perderia os ajustes de cada uma.
 
 ## Fora, por enquanto (mudaria a aparência aprovada ou o comportamento)
 

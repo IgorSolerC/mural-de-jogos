@@ -94,9 +94,9 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
               <div class="linha">
                 <div class="linha-texto">
                   <p class="linha-nome" id="ca-fin">Finalizar tarefas movidas para cá</p>
-                  <p class="linha-desc">A anotação que chega aqui ganha o carimbo de finalizada; saindo para uma coluna que não finaliza, abre de novo.</p>
+                  <p class="linha-desc" id="ca-fin-d">A anotação que chega aqui ganha o carimbo de finalizada; saindo para uma coluna que não finaliza, abre de novo.</p>
                 </div>
-                <button type="button" class="interruptor" role="switch" [attr.aria-checked]="d.col.finishes" aria-labelledby="ca-fin" (click)="set({ finishes: !d.col.finishes })">
+                <button type="button" class="interruptor" role="switch" [attr.aria-checked]="d.col.finishes" aria-labelledby="ca-fin" aria-describedby="ca-fin-d" (click)="set({ finishes: !d.col.finishes })">
                   <span class="bolinha"></span>
                 </button>
               </div>
