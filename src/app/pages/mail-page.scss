@@ -72,16 +72,10 @@
 
 /* ===== O que é escrito a giz, direto na parede ===== */
 .giz {
+  @include kit.giz;
   max-width: 62ch;
   margin-bottom: 30px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.1em;
   line-height: 1.4;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
 /* "misture tudo", dentro da linha de giz */

@@ -85,6 +85,10 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     Agora `kit.etiqueta-indice`; o foco fica com cada uma (tinta nos Ajustes, amarelo na parede de Amigos) e o passo de
     10px da aberta, só nos Ajustes. O teste novo do bilhete fecha as folhas que outros testes deixam abertas.
 
+34. [x] **A linha a giz embaixo do título** (Ajustes, Lado a lado, editor do perfil, Novidades, Amigos): o mesmo bloco
+    copiado cinco vezes; agora `kit.giz`. As que têm outro tamanho (perfil .92rem, mural de amigo .98rem, Estatísticas
+    .82rem) ficam: igualar mudaria o desenho delas.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

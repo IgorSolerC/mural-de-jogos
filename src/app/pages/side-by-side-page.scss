@@ -1,3 +1,5 @@
+@use '../ui/paper-kit' as kit;
+
 :host {
   display: block;
 }
@@ -13,14 +15,8 @@
 }
 
 .resumo {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
+  @include kit.giz;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
 }
 
 .cabeca-acoes {

@@ -111,6 +111,17 @@
   }
 }
 
+/* A linha escrita a giz direto na parede, embaixo do título da página (o que a página tem) */
+@mixin giz {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+}
+
 /* A etiqueta de papel de um índice (as partes dos Ajustes, as de Amigos): papel de ficha creme, torta
    por --giro, que sobe no mouse; a aberta (.aberta) é amarela e reta. O desenho de dentro e o foco
    ficam com quem inclui (o fundo atrás delas muda). */

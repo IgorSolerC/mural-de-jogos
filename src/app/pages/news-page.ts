@@ -98,13 +98,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
     }
 
     .resumo {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.95rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--wall-ink-2);
-      text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+      @include kit.giz;
     }
 
     .fichas {
