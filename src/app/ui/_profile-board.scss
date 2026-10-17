@@ -22,7 +22,7 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--wall-ink-2);
-    text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+    text-shadow: var(--chalk-shadow);
   }
 
   /* ===== O cabeçalho de cada parte (os murais e as seções), como o das redes: o título numa linha
@@ -54,7 +54,7 @@
     line-height: 1.25;
     color: var(--wall-ink);
     rotate: -1deg;
-    text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+    text-shadow: var(--chalk-shadow);
   }
 
   .risco {

@@ -110,7 +110,7 @@
   text-transform: uppercase;
   color: var(--wall-ink-2);
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  text-shadow: var(--chalk-shadow);
 }
 
 /* o resumo e os outros murais da pessoa, ao lado da placa */

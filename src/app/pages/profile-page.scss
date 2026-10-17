@@ -18,7 +18,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--wall-ink-2);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  text-shadow: var(--chalk-shadow);
 }
 
 .assim {
@@ -45,7 +45,7 @@
   font-family: var(--f-hand);
   font-size: 1.2rem;
   color: var(--wall-ink-2);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  text-shadow: var(--chalk-shadow);
 }
 
 .dymo-pe {
@@ -136,5 +136,5 @@
   font-family: var(--f-hand);
   font-size: 1.3rem;
   color: var(--wall-ink);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  text-shadow: var(--chalk-shadow);
 }

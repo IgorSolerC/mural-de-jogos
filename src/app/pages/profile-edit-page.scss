@@ -91,7 +91,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--wall-ink-2);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  text-shadow: var(--chalk-shadow);
 }
 
 /* Um pedaço da parede escolhida, com a parte mexida pregada nele como no perfil. Do lado, ele cabe na

@@ -95,6 +95,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 36. [x] **O select invisível por cima** do campo "Ordenar" (a pasta), das abas "Mais", do ano das Estatísticas e do Lado a
     lado: quatro cópias; agora `kit.select-por-cima` (o do Lado a lado ganhou a cor de papel da lista, como os outros).
 
+37. [x] **A sombra do giz**: `text-shadow: 0 1px 2px rgb(0 0 0 / 0.9)` em dez lugares; agora `--chalk-shadow`.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e
