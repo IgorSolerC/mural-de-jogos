@@ -6,7 +6,8 @@ import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard } from '../core/kanban';
+import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard, undressLooks } from '../core/kanban';
+import { KanbanDresser } from '../core/kanban-dresser';
 import { KanbanActions } from '../core/kanban-actions';
 import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
@@ -146,6 +147,8 @@ export class KanbanPage {
 
   private readonly kanban = inject(KanbanStore);
   private readonly actions = inject(KanbanActions);
+  /** O card padrão das colunas, vestindo e despindo as anotações (ver core/kanban-dresser.ts). */
+  private readonly dresser = inject(KanbanDresser);
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(SettingsStore);
   private readonly desk = inject(Desk);
@@ -455,6 +458,8 @@ export class KanbanPage {
     const b = this.kanban.get(id);
     const label = this.category()?.label ?? '';
     if (!b) return;
+    // as vestidas pelo card padrão saem do quadro: voltam ao visual de antes (o Desfazer veste de novo)
+    this.dresser.paint(undressLooks(b.cards));
     this.kanban.update(id, (board, at) => resetBoard(board, at));
     this.toasts.show(`O quadro de ${label} recomeçou`, { label: 'Desfazer', run: () => this.kanban.restore(b) });
   }
@@ -505,7 +510,9 @@ export class KanbanPage {
     if (!b || !c) return;
     this.adding.set(null);
     this.kanban.pending.set({ board: b.id, column });
-    this.desk.newNoteIn(c.label);
+    // com o card padrão ligado, a anotação já nasce vestida com ele
+    const col = b.columns.find((x) => x.id === column);
+    this.desk.newNoteIn(c.label, col?.dresses ? col.look : undefined);
   }
 
   protected read(id: string): void {

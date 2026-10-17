@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-botoes-do-kanban',
+    id: '2026-10-17-card-padrao',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
-    title: 'Kanban mais largo, tags escondidas no filtro e ordem das colunas',
+    title: 'Card padrão nas colunas do Kanban, tags escondidas no filtro e o quadro mais largo',
     melhorias: [
+      'Cada coluna do Kanban pode ter um Card padrão, nos ajustes dela: monte o card com o mesmo estojo do editor (cor, papel, estampa, rabisco, estrago, manchas e decorações), e toda anotação que chega à coluna veste esse card. Mudar o card repinta as que estão lá, a Nova nota da coluna já nasce com ele, e a anotação que sai para uma coluna sem card volta ao visual dela.',
       'No filtro de tags do mural de anotações e do Kanban, o clique direito numa tag (no celular, segurar o dedo) esconde as anotações dela: a tag fica riscada, e um toque nela mostra de novo. É o "todas, menos estas".',
       'Em Tags, nas configurações do mural, cada tag tem o Filtro padrão: Disponível ou Excluído. A excluída já começa riscada toda vez que você abre o mural ou o quadro daquela categoria, e Limpar mostra tudo.',
       'O quadro do Kanban vai até as beiradas da tela, para caberem mais colunas (a busca e as tags continuam onde estavam), e as colunas que passam da tela somem num degradê em vez de um corte seco. Com o mouse, uma seta na beirada diz quantas colunas estão para lá e traz as próximas. As colunas também perderam as fitas crepe das quinas.',

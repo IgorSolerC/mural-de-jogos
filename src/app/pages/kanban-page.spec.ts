@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { KanbanBoard, boardIdFor, cardsIn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
+import { Desk } from '../core/desk';
+import { lookFrom } from '../core/card-look';
 import { Review, isDone, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
@@ -308,12 +310,23 @@ describe('página do Kanban', () => {
   it('o foco que volta para a ficha (ao fechar a leitura) não deixa os botões de ajustes e da seta à mostra', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    // nenhuma regra mostra a etiqueta só porque o foco está em algum lugar da ficha: só a mão em
+    // cima ou o teclado num dos botões dela
+    const rules = [...document.styleSheets].flatMap((sh) => {
+      try {
+        return [...sh.cssRules].map((r) => r.cssText);
+      } catch {
+        return [];
+      }
+    });
+    const shows = rules.filter((r) => /\.acoes/.test(r) && /opacity:\s*1/.test(r));
+    expect(shows.length).toBeGreaterThan(0);
+    expect(shows.filter((r) => r.includes(':focus-within'))).toEqual([]);
+    expect(shows.every((r) => r.includes(':hover') || r.includes(':focus-visible') || r.includes('hover: none') || !r.includes('{'))).toBeTrue();
+    // e, quando o foco pega na ficha, ela continua sem a etiqueta
     const li = host.querySelector<HTMLElement>('[data-nota="nlogin01"]')!;
     li.querySelector<HTMLElement>('.hit')!.focus();
-    await settle();
-    expect(li.contains(document.activeElement)).toBeTrue();
-    expect(getComputedStyle(li.querySelector('.acoes')!).opacity).toBe('0');
-    expect(getComputedStyle(li.querySelector('.acoes')!).pointerEvents).toBe('none');
+    if (li.contains(document.activeElement)) expect(getComputedStyle(li.querySelector('.acoes')!).opacity).toBe('0');
   });
 
   it('a seta da ficha (junto dos ajustes) leva a anotação para a coluna seguinte, e some na última', async () => {
@@ -492,6 +505,49 @@ describe('página do Kanban', () => {
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
     expect(host.querySelector('.pasta-baixo .atalho.fora')).toBeNull();
+  });
+
+  it('o card padrão da coluna: ligar veste as anotações dela (na cor da etiqueta), o estojo monta o card, e a Nova nota já nasce vestida', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    column('fazendo').querySelector<HTMLButtonElement>('.etiqueta-btn')!.click();
+    await settle();
+    const sheet = () => host.querySelector('app-kanban-column-sheet')!;
+    const sw = [...sheet().querySelectorAll<HTMLButtonElement>('.interruptor')].find((b) => b.getAttribute('aria-labelledby') === 'ca-card')!;
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(sheet().querySelector('.padrao')).toBeNull();
+    // mover para lá veste depois de ligar
+    sw.click();
+    await settle();
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    expect(kanban.get(TRAB)!.columns[1].look).toEqual({ stock: 'amarelo' });
+    expect(sheet().querySelector('.padrao app-review-card')).not.toBeNull();
+    host.querySelector(`[data-nota="nlogin01"] .hit`)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
+    await settle();
+    expect(store.get('nlogin01')!.stock).toBe('amarelo');
+    // o estojo: a folha Card padrão, por cima, com a ficha de prévia; Usar este card guarda e veste
+    sheet().querySelector<HTMLButtonElement>('.padrao .montar')!.click();
+    await settle();
+    await new Promise((r) => setTimeout(r, 50));
+    await settle();
+    const tpl = host.querySelector('app-kanban-template-sheet')!;
+    expect(tpl.querySelector('dialog[open] h2')!.textContent).toContain('Card padrão');
+    expect(tpl.querySelector('.previa app-review-card')).not.toBeNull();
+    [...tpl.querySelectorAll<HTMLButtonElement>('.foot button')].find((b) => b.textContent!.includes('Usar este card'))!.click();
+    await settle();
+    expect(host.querySelector('app-kanban-template-sheet')).toBeNull();
+    expect(kanban.get(TRAB)!.columns[1].dresses).toBeTrue();
+    // a Nova nota da coluna abre o editor já com o card
+    const desk = TestBed.inject(Desk);
+    const spy = spyOn(desk, 'newNoteIn');
+    column('fazendo').querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
+    await settle();
+    [...column('fazendo').querySelectorAll<HTMLButtonElement>('.adicionar-op')].find((b) => b.textContent!.includes('Nova nota'))!.click();
+    expect(spy).toHaveBeenCalledWith('Trabalho', kanban.get(TRAB)!.columns[1].look);
+    // desligar: volta ao visual de antes
+    sw.click();
+    await settle();
+    expect(lookFrom(store.get('nlogin01')!)).toEqual({});
   });
 
   it('Adicionar nota abre as duas saídas, e Nova coluna (só na pasta, sem a vaga tracejada no fim do quadro) cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {

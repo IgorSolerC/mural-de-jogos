@@ -98,6 +98,34 @@ dialog.coluna-ajustes {
   @include kit.interruptor;
 }
 
+.linha + .linha {
+  padding-top: 12px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+/* o card padrão ligado: a ficha vestida, pequena, numa tira de papel pardo como a coluna, e o botão
+   que abre o estojo dele */
+.padrao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 18px;
+}
+
+.padrao-previa {
+  flex: 0 1 236px;
+  min-width: 0;
+  padding: 14px 12px 16px;
+  border-radius: 2px;
+  background-color: #c6a36b;
+  background-image:
+    repeating-linear-gradient(91deg, rgb(255 255 255 / 0.035) 0 2px, transparent 2px 7px),
+    var(--paper-grain);
+  background-blend-mode: normal, multiply;
+  box-shadow: var(--shadow-card);
+  rotate: -0.6deg;
+}
+
 /* A ordem das anotações: a frase do que vale agora, e os dois níveis (a ordem e o desempate), cada um
    com a cartela dos critérios e, escolhido um, a tira dos dois sentidos dele, nas palavras dele */
 .ordem-frase {

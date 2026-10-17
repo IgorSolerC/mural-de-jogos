@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { EMPTY_KANBAN, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, sanitizeKanban } from './kanban';
+import { EMPTY_KANBAN, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, restoredBoard, sanitizeKanban } from './kanban';
 import { activeOrder } from './mural-config';
 import { sanitizeTags } from './note-labels';
 import { ReviewStore } from './review-store';
@@ -121,9 +121,12 @@ export class KanbanStore {
     this.changedAt.set(Date.now());
   }
 
-  /** Desfazer: o quadro volta como era, e mais novo que a mudança desfeita. */
+  /**
+   * Desfazer: o quadro volta como era, e mais novo que a mudança desfeita. As anotações vestidas pelo
+   * card padrão vestem ou despem de novo conforme a coluna em que voltam (ver `restoredBoard`).
+   */
   restore(board: KanbanBoard): void {
-    this.update(board.id, (_, at) => ({ ...board, at }));
+    this.update(board.id, (now, at) => ({ ...restoredBoard(board, now), at }));
   }
 
   /** Os quadros que vieram de outro aparelho, juntados aos daqui (os de antes são convertidos em seguida). */

@@ -1,3 +1,4 @@
+import { CardLook, lookFrom, sameLook, sanitizeLook } from './card-look';
 import { CategoryColorId, lookKey } from './category-looks';
 import { SortRule, sanitizeSort } from './kanban-sort';
 import { cleanTag } from './note-labels';
@@ -90,6 +91,23 @@ export interface KanbanColumn {
    * Sem o campo, a ordem em que foram arrastadas.
    */
   sort?: SortRule[];
+  /**
+   * O card padrão da coluna: o visual (a cor, o papel, a estampa, o rabisco, o estrago, as manchas e
+   * as decorações) que a anotação que chega veste. Fica guardado mesmo desligado, para voltar a ele.
+   */
+  look?: CardLook;
+  /** O card padrão ligado: as anotações da coluna vestem `look` (ver `dressBoard`). */
+  dresses?: true;
+}
+
+/**
+ * A anotação vestida pelo card padrão de uma coluna: qual coluna, qual versão do card (para vestir de
+ * novo quando ele muda) e o visual dela antes de vestir (para voltar a ele quando sai).
+ */
+export interface Dress {
+  col: string;
+  v: string;
+  own: CardLook;
 }
 
 /** Uma anotação no quadro. A ordem dentro da coluna é a ordem em `cards`. */
@@ -98,6 +116,8 @@ export interface KanbanCard {
   note: string;
   column: string;
   importance: Importance | null;
+  /** Vestida pelo card padrão da coluna (ver `dressBoard`). */
+  dress?: Dress;
 }
 
 export interface KanbanBoard {
@@ -199,6 +219,7 @@ function sanitizeColumn(raw: unknown): KanbanColumn | null {
   const id = cleanId(r['id']);
   if (!id) return null;
   const sort = sanitizeSort(r['sort']);
+  const look = r['look'] && typeof r['look'] === 'object' ? sanitizeLook(r['look']) : null;
   return {
     id,
     name: cleanName(r['name'], NAME_MAX) || 'Coluna',
@@ -206,7 +227,22 @@ function sanitizeColumn(raw: unknown): KanbanColumn | null {
     color: (LIGHT_STOCKS as readonly string[]).includes(r['color'] as string) ? (r['color'] as LightStock) : 'cinza',
     finishes: r['finishes'] === true,
     ...(sort.length ? { sort } : {}),
+    ...(look ? { look } : {}),
+    ...(look && r['dresses'] === true ? { dresses: true as const } : {}),
   };
+}
+
+/**
+ * A marca de vestida que veio guardada: de coluna que existe (ou "por refazer", sem coluna nem versão,
+ * ver `restoredBoard`), com o visual de antes.
+ */
+function sanitizeDress(raw: unknown, columns: readonly KanbanColumn[]): Dress | undefined {
+  const r = rec(raw);
+  if (!r['own'] || typeof r['own'] !== 'object') return undefined;
+  const col = cleanId(r['col']);
+  const v = typeof r['v'] === 'string' ? r['v'].replace(/[^0-9a-f]/g, '').slice(0, 16) : '';
+  if (col && !columns.some((c) => c.id === col)) return undefined;
+  return { col, v, own: sanitizeLook(r['own']) };
 }
 
 /** As colunas guardadas, sem repetir; nenhuma: as três de sempre. */
@@ -228,7 +264,8 @@ function sanitizeCards(raw: unknown, columns: readonly KanbanColumn[]): { card: 
     const note = cleanId(cr['note']);
     const column = cleanId(cr['column']);
     if (!note || !columns.some((x) => x.id === column) || out.some((x) => x.card.note === note) || out.length >= MAX_CARDS) continue;
-    out.push({ card: { note, column, importance: importanceOf(cr['importance']) }, raw: cr });
+    const dress = sanitizeDress(cr['dress'], columns);
+    out.push({ card: { note, column, importance: importanceOf(cr['importance']), ...(dress ? { dress } : {}) }, raw: cr });
   }
   return out;
 }
@@ -470,6 +507,75 @@ export function doneChange(b: KanbanBoard, from: string | null, to: string): 'fi
   if (t && !f) return 'finalizar';
   if (!t && f && from) return 'abrir';
   return null;
+}
+
+/** A versão do card padrão: muda quando o visual muda, e então as anotações vestem de novo. */
+export function lookVersion(look: CardLook): string {
+  return hash64(JSON.stringify(lookFrom(look)));
+}
+
+/**
+ * O quadro de um Desfazer (`before`, como era), sem perder o visual de antes das anotações vestidas:
+ * cada marca fica "por refazer" (sem coluna nem versão), com o visual de antes mais antigo que se
+ * conhece (o de agora, ou o de `before`), e o vestidor veste ou despe cada anotação de novo conforme
+ * a coluna em que ela volta a estar.
+ */
+export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined): KanbanBoard {
+  const current = new Map((now?.cards ?? []).map((c) => [c.note, c]));
+  const cards = before.cards.map((c) => {
+    const own = current.get(c.note)?.dress?.own ?? c.dress?.own;
+    const { dress: _, ...plain } = c;
+    return own ? { ...plain, dress: { col: '', v: '', own } } : plain;
+  });
+  return { ...before, cards };
+}
+
+/** O visual de antes das anotações vestidas destas cartas (para as que saem do quadro voltarem a ele). */
+export function undressLooks(cards: readonly KanbanCard[]): { note: string; look: CardLook }[] {
+  return cards.flatMap((c) => (c.dress ? [{ note: c.note, look: c.dress.own }] : []));
+}
+
+/** A anotação que o vestidor vê: o id, a categoria (do quadro) e o visual dela. */
+export type DressNote = BoardNote & CardLook;
+
+/**
+ * Veste e despe as anotações do quadro conforme o card padrão das colunas, e devolve o quadro com as
+ * marcas e o visual novo de cada anotação que muda:
+ * - numa coluna com o card padrão ligado, a anotação que ainda não vestiu esta versão dele (acabou de
+ *   chegar, ou o card mudou) veste: fica com o visual do card, e o visual de antes fica guardado (o
+ *   de antes de vestir a primeira vez, mesmo passando por outras colunas com card);
+ * - fora disso, a anotação vestida volta ao visual de antes e perde a marca.
+ * Só na hora da mudança: a anotação vestida que a pessoa repinta no editor fica como ela deixou, até
+ * mudar de coluna ou o card mudar. `skip` diz quais não se tocam (as compartilhadas). Sem nada para
+ * fazer, devolve o mesmo quadro.
+ */
+export function dressBoard(
+  b: KanbanBoard,
+  notes: ReadonlyMap<string, DressNote>,
+  at: string,
+  skip: (note: string) => boolean = () => false,
+): { board: KanbanBoard; looks: { note: string; look: CardLook }[] } {
+  const looks: { note: string; look: CardLook }[] = [];
+  const versions = new Map(b.columns.filter((c) => c.dresses && c.look).map((c) => [c.id, lookVersion(c.look!)]));
+  let changed = false;
+  const cards = b.cards.map((c) => {
+    const n = notes.get(c.note);
+    if (!n || !belongs(b, n) || skip(c.note)) return c;
+    const v = versions.get(c.column);
+    if (v) {
+      if (c.dress?.col === c.column && c.dress.v === v) return c;
+      const look = b.columns.find((x) => x.id === c.column)!.look!;
+      if (!sameLook(lookFrom(n), look)) looks.push({ note: c.note, look });
+      changed = true;
+      return { ...c, dress: { col: c.column, v, own: c.dress?.own ?? lookFrom(n) } };
+    }
+    if (!c.dress) return c;
+    if (!sameLook(lookFrom(n), c.dress.own)) looks.push({ note: c.note, look: c.dress.own });
+    changed = true;
+    const { dress: _, ...plain } = c;
+    return plain;
+  });
+  return { board: changed ? touch(b, { cards }, at) : b, looks };
 }
 
 /** O que importa de uma anotação para os quadros: a categoria (que diz o quadro) e as tags. */

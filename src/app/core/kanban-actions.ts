@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, placeCards, removeCard } from './kanban';
+import { KanbanDresser } from './kanban-dresser';
 import { KanbanStore } from './kanban-store';
 import { NoteDone } from './note-done';
 import { isDone } from './review';
@@ -17,6 +18,7 @@ export class KanbanActions {
   private readonly store = inject(ReviewStore);
   private readonly noteDone = inject(NoteDone);
   private readonly toasts = inject(Toasts);
+  private readonly dresser = inject(KanbanDresser);
 
   /**
    * Leva a anotação para a coluna, na posição `index` dela (no fim, sem `index`). Só a anotação da
@@ -103,19 +105,24 @@ export class KanbanActions {
     });
   }
 
-  /** Tira a anotação do quadro (ela continua no mural), com Desfazer. */
+  /**
+   * Tira a anotação do quadro (ela continua no mural), com Desfazer. Vestida pelo card padrão da
+   * coluna, ela volta ao visual de antes; o Desfazer a veste de novo.
+   */
   remove(board: KanbanBoard, note: string): void {
     const card = board.cards.find((c) => c.note === note);
     if (!card) return;
     const index = cardsIn(board, card.column).findIndex((c) => c.note === note);
     const name = this.store.get(note)?.game.name ?? 'A anotação';
+    if (card.dress) this.dresser.paint([{ note, look: card.dress.own }]);
+    const back = card.dress ? { ...card, dress: { ...card.dress, col: '', v: '' } } : card;
     this.kanban.update(board.id, (b, at) => removeCard(b, note, at));
     this.toasts.show(`“${name}” saiu do quadro (continua no mural)`, {
       label: 'Desfazer',
       run: () =>
         this.kanban.update(board.id, (b, at) => {
-          const back = placeCard(b, note, card.column, at, index);
-          return { ...back, cards: back.cards.map((c) => (c.note === note ? { ...card } : c)) };
+          const placed = placeCard(b, note, card.column, at, index);
+          return { ...placed, cards: placed.cards.map((c) => (c.note === note ? { ...back } : c)) };
         }),
     });
   }

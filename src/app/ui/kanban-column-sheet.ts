@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,6 +9,7 @@ import {
   Columns3,
   Hand,
   History,
+  Palette,
   ListTodo,
   LucideAngularModule,
   LucideIconData,
@@ -21,6 +22,8 @@ import { SORT_DIRS, SORT_KEYS, SORT_LABEL, SortKey, SortRule, sameSort, sortSent
 import { KanbanStore } from '../core/kanban-store';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { BackdropClose } from './backdrop-close';
+import { KanbanReviewCard } from './kanban-note';
+import { KanbanTemplateSheet, sampleNote } from './kanban-template-sheet';
 import { Confirm } from './confirm';
 import { COLUMN_ICON, COLUMN_ICON_LABEL } from './kanban-icons';
 import { Pin } from './pin';
@@ -57,7 +60,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
  */
 @Component({
   selector: 'app-kanban-column-sheet',
-  imports: [BackdropClose, LucideAngularModule, Pin],
+  imports: [BackdropClose, KanbanReviewCard, KanbanTemplateSheet, LucideAngularModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet coluna-ajustes" aria-labelledby="ca-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -97,6 +100,29 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
                   <span class="bolinha"></span>
                 </button>
               </div>
+              <!-- o card padrão: a anotação que chega veste o visual dele, e volta ao dela ao sair -->
+              <div class="linha">
+                <div class="linha-texto">
+                  <p class="linha-nome" id="ca-card">Card padrão</p>
+                  <p class="linha-desc" id="ca-card-d">
+                    A anotação que chega aqui veste a cor, o papel e os enfeites do card padrão; saindo para uma coluna sem card padrão, volta a ser como era. As compartilhadas ficam como estão.
+                  </p>
+                </div>
+                <button type="button" class="interruptor" role="switch" [attr.aria-checked]="!!d.col.dresses" aria-labelledby="ca-card" aria-describedby="ca-card-d" (click)="toggleDress()">
+                  <span class="bolinha"></span>
+                </button>
+              </div>
+              @if (d.col.dresses) {
+                <div class="padrao">
+                  <div class="padrao-previa" aria-hidden="true">
+                    <app-review-card [review]="sample()!" [compact]="true" [preview]="true" />
+                  </div>
+                  <button type="button" class="papel montar" (click)="templating.set(true)">
+                    <lucide-icon [img]="PaletteIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Montar o card padrão
+                  </button>
+                </div>
+              }
             </section>
 
             <!-- a ordem: à mão, ou por um critério e o desempate; a frase em cima diz o que vale agora -->
@@ -224,6 +250,9 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
         </div>
       }
     </dialog>
+    @if (templating()) {
+      <app-kanban-template-sheet [boardId]="boardId()" [columnId]="columnId()" (closed)="templating.set(false)" />
+    }
   `,
   styleUrl: './kanban-column-sheet.scss',
 })
@@ -241,6 +270,9 @@ export class KanbanColumnSheet {
   protected readonly TrashIcon = Trash2;
   protected readonly HandIcon = Hand;
   protected readonly ColumnsIcon = Columns3;
+  protected readonly PaletteIcon = Palette;
+  /** A folha "Card padrão" aberta por cima desta. */
+  protected readonly templating = signal(false);
   protected readonly sortKeys = SORT_KEYS;
   protected readonly sortLabel = SORT_LABEL;
   protected readonly sortDirs = SORT_DIRS;
@@ -264,6 +296,15 @@ export class KanbanColumnSheet {
     if (!board || index < 0) return null;
     const col = board.columns[index];
     return { board, col, index, count: cardsIn(board, col.id).length };
+  });
+
+  /** A ficha do quadro vestida com o card padrão da coluna (a prévia em miniatura). */
+  protected readonly sample = computed(() => {
+    const d = this.data();
+    if (!d?.col.look) return null;
+    const first = d.board.cards.find((c) => c.column === d.col.id);
+    const name = (first && this.kanban.notesById().get(first.note)?.game.name) || 'Anotação de exemplo';
+    return sampleNote(`modelo${d.col.id}`.slice(0, 40), name, d.col.look);
   });
 
   /** A regra da ordem e a do desempate (null: à mão / nenhum). */
@@ -302,6 +343,23 @@ export class KanbanColumnSheet {
     this.kanban.update(this.boardId(), (b, at) => updateColumn(b, this.columnId(), patch, at));
   }
 
+  /**
+   * Liga ou desliga o card padrão. Ligado pela primeira vez, ele começa na cor da etiqueta da coluna;
+   * desligado, o card fica guardado para a próxima vez. As anotações da coluna vestem ou voltam ao
+   * visual delas na hora, com Desfazer.
+   */
+  protected toggleDress(): void {
+    const d = this.data();
+    if (!d) return;
+    const before = d.board;
+    const on = !d.col.dresses;
+    this.kanban.update(d.board.id, (b, at) => updateColumn(b, d.col.id, on ? { look: d.col.look ?? { stock: d.col.color }, dresses: true } : { dresses: undefined }, at));
+    if (!d.count) return;
+    const who = d.count === 1 ? 'A anotação' : `As ${d.count} anotações`;
+    const text = on ? `${who} de ${d.col.name} ${d.count === 1 ? 'vestiu' : 'vestiram'} o card padrão` : `${who} de ${d.col.name} ${d.count === 1 ? 'voltou' : 'voltaram'} ao visual de antes`;
+    this.toasts.show(text, { label: 'Desfazer', run: () => this.kanban.restore(before) });
+  }
+
   private setSort(sort: SortRule[]): void {
     this.kanban.update(this.boardId(), (b, at) => updateColumn(b, this.columnId(), { sort }, at));
   }
@@ -338,7 +396,7 @@ export class KanbanColumnSheet {
     if (!d) return;
     const before = d.board;
     this.kanban.update(d.board.id, (b, at) => sortAllColumns(b, d.col.sort ?? [], at));
-    this.toasts.show(`A ordem de ${d.col.name} vale em todas as colunas`, { label: 'Desfazer', run: () => this.kanban.update(before.id, (_, at) => ({ ...before, at })) });
+    this.toasts.show(`A ordem de ${d.col.name} vale em todas as colunas`, { label: 'Desfazer', run: () => this.kanban.restore(before) });
   }
 
   protected rename(name: string): void {
@@ -370,6 +428,6 @@ export class KanbanColumnSheet {
     const before = this.kanban.get(d.board.id);
     this.close();
     this.kanban.update(d.board.id, (b, at) => removeColumn(b, d.col.id, into.id, at));
-    if (before) this.toasts.show(`A coluna ${d.col.name} saiu do quadro`, { label: 'Desfazer', run: () => this.kanban.update(before.id, (_, at) => ({ ...before, at })) });
+    if (before) this.toasts.show(`A coluna ${d.col.name} saiu do quadro`, { label: 'Desfazer', run: () => this.kanban.restore(before) });
   }
 }

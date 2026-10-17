@@ -67,6 +67,7 @@ import { OriginalSwap, ReviewStore } from '../core/review-store';
 import { linkKey, linkableTitle, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
 import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
+import type { CardLook } from '../core/card-look';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
 import { NoteLabelsPicker } from './note-labels-picker';
@@ -558,11 +559,30 @@ export class ReviewEditor {
    * Uma anotação nova escrita dentro de uma aba do mural: já vem com a categoria da aba. Fechar sem
    * mexer em nada não pergunta se quer descartar.
    */
-  openInCategory(category: string): void {
+  openInCategory(category: string, look?: CardLook): void {
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.noteCategory.set(category);
+    // de uma coluna do Kanban com card padrão: a cartolina dele (o estojo continua mudando)
+    if (look) this.setLook(look);
     this.applyDefaultAudience();
     this.snapshot = this.serialize();
+  }
+
+  /** O estojo com um visual pronto (o card padrão de uma coluna do Kanban); o que ele não tem, o de sempre. */
+  private setLook(look: CardLook): void {
+    if (look.stock) this.stock.set(look.stock);
+    this.paper.set(look.paper ?? 'cartolina');
+    this.paperSeed.set(look.paperSeed ?? null);
+    this.pattern.set(look.pattern ?? null);
+    this.patternLook.set(lookOf(look));
+    this.patternSeed.set(look.patternSeed ?? null);
+    this.scribble.set(look.scribble ?? null);
+    this.scribbleSeed.set(look.scribbleSeed ?? null);
+    this.scribbleInk.set(look.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
+    this.damage.set(look.damage ?? null);
+    this.damageSeed.set(look.damageSeed ?? null);
+    this.stains.set([...(look.stains ?? [])]);
+    this.decors.set([...(look.decors ?? [])]);
   }
 
   /**

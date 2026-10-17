@@ -35,6 +35,7 @@ import { PAGE_BACKGROUNDS } from './core/profile';
 import { ProfileStore } from './core/profile-store';
 import { SharedStore } from './core/shared-store';
 import { KanbanStore } from './core/kanban-store';
+import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard } from './core/kanban';
 import { NoteDone } from './core/note-done';
 
@@ -53,6 +54,8 @@ export class App {
   private readonly view = inject(WallView);
   protected readonly desk = inject(Desk);
   private readonly kanban = inject(KanbanStore);
+  /** O card padrão das colunas do Kanban veste as anotações em qualquer página (o que chega da nuvem também). */
+  private readonly dresser = inject(KanbanDresser);
   private readonly noteDone = inject(NoteDone);
   private readonly vt = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
@@ -136,9 +139,9 @@ export class App {
       },
       // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
       newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
-      newNoteIn: (category) => {
+      newNoteIn: (category, look) => {
         this.reader().close();
-        this.editor().openInCategory(category);
+        this.editor().openInCategory(category, look);
       },
       openDraft: (id) => {
         const d = this.store.getDraft(id);
