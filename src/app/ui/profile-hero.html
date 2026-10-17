@@ -5,13 +5,14 @@
   <span class="parafuso p4" aria-hidden="true"></span>
 
   <div class="fundo" [attr.data-fundo]="material()">
-    @if (background().kind === 'cartolina') {
+    @let bg = background();
+    @if (bg.kind === 'cartolina') {
       <!-- a cartolina numa camada atrás de tudo, e não em volta: assim a escura não muda a polaroid
            nem as folhas coladas nela (as regras da cartolina escura valem para o que está dentro) -->
-      <span class="fundo-cartolina cartolina" [attr.data-cor]="$any(background()).stock" [style.--stock]="'var(--stock-' + $any(background()).stock + ')'" aria-hidden="true"></span>
+      <span class="fundo-cartolina cartolina" [attr.data-cor]="bg.stock" [style.--stock]="'var(--stock-' + bg.stock + ')'" aria-hidden="true"></span>
     }
-    @if (background().kind === 'link') {
-      <img class="fundo-foto" [src]="$any(background()).url" alt="" referrerpolicy="no-referrer" decoding="async" (error)="failed.set($any(background()).url)" />
+    @if (bg.kind === 'link') {
+      <img class="fundo-foto" [src]="bg.url" alt="" referrerpolicy="no-referrer" decoding="async" (error)="failed.set(bg.url)" />
       <span class="plastico" aria-hidden="true"></span>
     }
 

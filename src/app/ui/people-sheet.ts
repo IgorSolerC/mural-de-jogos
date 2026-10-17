@@ -61,17 +61,18 @@ type Relation = 'voce' | 'segue' | 'seguir' | null;
                   @for (p of l; track p.codigo; let i = $index) {
                     <li class="mini-mural" [style.--i]="i">
                       <div class="mm-fundo" [attr.data-fundo]="material(p)">
-                        @if (p.cartao?.fundo?.kind === 'cartolina') {
+                        @let fundo = p.cartao?.fundo;
+                        @if (fundo && fundo.kind === 'cartolina') {
                           <!-- a cartolina atrás, não em volta: a escura não muda a polaroid nem o bilhete -->
                           <span
                             class="mm-cartolina cartolina"
-                            [attr.data-cor]="$any(p.cartao!.fundo).stock"
-                            [style.--stock]="'var(--stock-' + $any(p.cartao!.fundo).stock + ')'"
+                            [attr.data-cor]="fundo.stock"
+                            [style.--stock]="'var(--stock-' + fundo.stock + ')'"
                             aria-hidden="true"
                           ></span>
                         }
-                        @if (p.cartao?.fundo?.kind === 'link' && broken() !== $any(p.cartao!.fundo).url) {
-                          <img class="mm-foto-fundo" [src]="$any(p.cartao!.fundo).url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="broken.set($any(p.cartao!.fundo).url)" />
+                        @if (fundo && fundo.kind === 'link' && broken() !== fundo.url) {
+                          <img class="mm-foto-fundo" [src]="fundo.url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" (error)="broken.set(fundo.url)" />
                           <span class="mm-plastico" aria-hidden="true"></span>
                         }
                         <a class="mm-link" [routerLink]="['/perfil', p.codigo]" (click)="close()" [attr.aria-label]="'Ver o perfil de ' + p.nome">
