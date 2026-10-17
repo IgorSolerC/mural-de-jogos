@@ -544,19 +544,7 @@ a {
 }
 
 .linha {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px 28px;
-  min-width: 0;
-  margin: 0;
-  padding: 18px 0;
-  border: 0;
-  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
-
-  &:last-child {
-    border-bottom: 0;
-  }
+  @include kit.linha;
 
   /* o controle largo (um campo, o código) ganha uma coluna própria */
   &.larga {
@@ -566,39 +554,15 @@ a {
 
 /* com seletor, tudo empilha: o nome, o que ele faz, e o seletor embaixo */
 fieldset.linha {
-  display: block;
-
-  legend {
-    float: left;
-    width: 100%;
-    padding: 0;
-  }
-
-  > :not(legend) {
-    clear: both;
-  }
+  @include kit.linha-pilha;
 }
 
 .linha-titulo {
-  display: block;
-  margin: 0;
-  font-family: var(--f-ui);
-  font-weight: 700;
-  font-size: 1.06rem;
-  line-height: 1.3;
-  color: var(--ink);
-}
-
-label.linha-titulo {
-  cursor: pointer;
+  @include kit.linha-titulo;
 }
 
 .linha-desc {
-  max-width: 62ch;
-  margin-top: 3px;
-  font-size: 0.94rem;
-  line-height: 1.45;
-  color: var(--ink-2);
+  @include kit.linha-desc;
 }
 
 .acoes {

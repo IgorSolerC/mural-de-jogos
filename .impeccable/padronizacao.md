@@ -72,7 +72,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 18. [x] **Folha creme**: `kit.folha` existe e é usado uma vez; settings copia igual. Agora Ajustes, editor do perfil,
     Novidades e o bilhete do Feed vazio incluem o kit; nas Novidades e no editor do perfil faltava o `--focus` de tinta
     (o anel saía amarelo no creme, contra a regra do DESIGN): correção nas Novidades.
-19. [ ] **Linha de ajuste** (`.linha`, `.linha-titulo`, `.linha-desc`): igual em settings, mural-config e Amigos, sem mixin.
+19. [x] **Linha de ajuste** (`.linha`, `.linha-titulo`, `.linha-desc`): igual em settings, mural-config e Amigos, sem mixin.
+    Agora `kit.linha`, `kit.linha-pilha`, `kit.linha-titulo`, `kit.linha-desc` (Amigos guarda a coluna de 300px do campo).
+    A linha da folha da coluna do Kanban fica: é flex, com 16px e a descrição em 0.92rem; igualar mudaria o desenho de ontem.
 20. [ ] **Título das folhas** (`.titulos`, `.sub`): 7 cópias nas folhas que já usam `_sheet.scss`.
 21. [ ] **Escondido para os olhos** (`sr-only`) copiado em 8 media queries: mixin.
 22. [ ] **Feltro das reações**: 4 cópias inline do `felt.remendo`.
