@@ -15,6 +15,7 @@ import { Confirm } from './confirm';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagColors } from './tag-colors';
+import { nameCollator } from '../core/text';
 
 /**
  * As partes da folha, uma por vez, como as partes dos Ajustes. Para crescer, uma entrada aqui e o
@@ -52,7 +53,6 @@ interface CategoryRow {
   n: number;
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
 /** Conta os nomes (sem acento nem caixa), com a grafia mais usada de cada um, do mais usado ao menos. */
 function tally(names: Iterable<string>): CategoryRow[] {
@@ -71,7 +71,7 @@ function tally(names: Iterable<string>): CategoryRow[] {
     label: [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0],
     n: b.n,
   }));
-  return rows.sort((a, b) => b.n - a.n || collator.compare(a.label, b.label));
+  return rows.sort((a, b) => b.n - a.n || nameCollator.compare(a.label, b.label));
 }
 
 /** As tags de uma categoria, na parte Tags: cada categoria com as suas. */

@@ -45,6 +45,7 @@ import { StatusLabel } from '../ui/status-label';
 import { Toasts } from '../ui/toast';
 import { VerdictStamp } from '../ui/verdict';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
+import { nameCollator } from '../core/text';
 
 const SORT_OPTIONS: { value: SideSort; label: string }[] = [
   { value: 'marcada', label: 'Como marquei' },
@@ -52,7 +53,6 @@ const SORT_OPTIONS: { value: SideSort; label: string }[] = [
   { value: 'data', label: 'Data' },
 ];
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
 /** As linhas do quadro: as notas primeiro, os fatos da ficha depois. */
 type RowKind = 'final' | 'score' | 'bonus' | 'verdict' | 'hours' | 'status' | 'difficulty' | 'date' | 'year';
@@ -152,7 +152,7 @@ export class SideBySidePage {
         const ay = year(a);
         const by = year(b);
         if (Number.isNaN(ay) || Number.isNaN(by)) return Number.isNaN(ay) ? (Number.isNaN(by) ? 0 : 1) : -1;
-        return ay - by || collator.compare(a.game.name, b.game.name);
+        return ay - by || nameCollator.compare(a.game.name, b.game.name);
       });
     }
     return list.sort((a, b) => {

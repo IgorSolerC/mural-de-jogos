@@ -11,6 +11,7 @@ import { Toasts } from '../ui/toast';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { WishClip } from '../ui/wish-clip';
+import { nameCollator } from '../core/text';
 
 type Order = 'recentes' | 'antigos' | 'az';
 const ORDERS: readonly { value: Order; label: string }[] = [
@@ -344,7 +345,7 @@ export class WishlistPage {
         case 'antigos':
           return Date.parse(a.createdAt) - Date.parse(b.createdAt);
         case 'az':
-          return a.game.name.localeCompare(b.game.name, 'pt-BR', { sensitivity: 'base', numeric: true });
+          return nameCollator.compare(a.game.name, b.game.name);
       }
     };
     // a vontade vem sempre primeiro: MUST PLAY na frente, LATER no fim; a aba ordena dentro de cada uma

@@ -10,6 +10,7 @@ import { ViewTransitions } from '../core/view-transitions';
 import { DraftCard } from '../ui/draft-card';
 import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
+import { nameCollator } from '../core/text';
 
 type Order = 'recentes' | 'antigos' | 'az';
 const ORDERS: readonly { value: Order; label: string }[] = [
@@ -210,7 +211,7 @@ export class QueuePage {
       case 'antigos':
         return [...found].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
       case 'az':
-        return [...found].sort((a, b) => a.game.name.localeCompare(b.game.name, 'pt-BR', { sensitivity: 'base', numeric: true }));
+        return [...found].sort((a, b) => nameCollator.compare(a.game.name, b.game.name));
     }
   });
 

@@ -3,6 +3,7 @@ import { CategoryColorId, lookKey } from './category-looks';
 import { SortRule, sanitizeSort } from './kanban-sort';
 import { cleanTag } from './note-labels';
 import { LIGHT_STOCKS, LightStock, fold, newId } from './review';
+import { nameCollator } from './text';
 
 /**
  * Os quadros Kanban das anotações (`/anotacoes/kanban`): **cada categoria das anotações tem o seu
@@ -602,7 +603,6 @@ export interface BoardCategory {
   notes: number;
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
 /**
  * As categorias das anotações, cada uma com o seu quadro: da que tem mais anotações para a que tem
@@ -626,7 +626,7 @@ export function boardCategories(notes: readonly Pick<BoardNote, 'category'>[], o
     label: [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0],
     notes: b.n,
   }));
-  out.sort((a, b) => b.notes - a.notes || collator.compare(a.label, b.label));
+  out.sort((a, b) => b.notes - a.notes || nameCollator.compare(a.label, b.label));
   if (order) {
     const at = new Map(order.map((k, i) => [k, i]));
     const place = (c: BoardCategory) => at.get(c.key) ?? order.length;

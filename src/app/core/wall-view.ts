@@ -27,6 +27,7 @@ import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
+import { nameCollator } from './text';
 
 /**
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
@@ -166,7 +167,6 @@ function readPrefs(key: string, whole: boolean): ViewPrefs {
   }
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
 /** A letra da seção na ordem alfabética: A a Z sem acento, e "#" para número, símbolo e outras escritas. */
 const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
@@ -845,7 +845,7 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
     const la = labelOf(a);
     const lb = labelOf(b);
     if ((la === null) !== (lb === null)) return la === null ? 1 : -1;
-    return (la !== null && lb !== null ? sign * collator.compare(la, lb) : 0) || -byDate(a, b);
+    return (la !== null && lb !== null ? sign * nameCollator.compare(la, lb) : 0) || -byDate(a, b);
   };
   switch (o.sort) {
     case 'categoria': {
@@ -860,7 +860,7 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
         if (ca === null || cb === null) return -byDate(a, b);
         const pa = at.get(fold(ca.trim())) ?? order.length;
         const pb = at.get(fold(cb.trim())) ?? order.length;
-        return sign * (pa - pb || collator.compare(ca, cb)) || -byDate(a, b);
+        return sign * (pa - pb || nameCollator.compare(ca, cb)) || -byDate(a, b);
       };
     }
     case 'tag':
@@ -870,7 +870,7 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
       // a seção manda primeiro (o "#" antes do A), senão o Ø, o Ł ou um nome em japonês, que o
       // collator põe no meio do alfabeto, abririam outra seção "#" no meio das letras
       return (a, b) =>
-        sign * (letterOf(a.game.name).localeCompare(letterOf(b.game.name)) || collator.compare(a.game.name, b.game.name)) ||
+        sign * (letterOf(a.game.name).localeCompare(letterOf(b.game.name)) || nameCollator.compare(a.game.name, b.game.name)) ||
         -byDate(a, b);
     case 'status':
       return (a, b) => sign * (STATUS_RANK[a.status] - STATUS_RANK[b.status]) || -byDate(a, b);

@@ -1,4 +1,5 @@
 import { Review, fold } from './review';
+import { nameCollator } from './text';
 
 /**
  * As abas do mural de anotações: as divisórias de fichário, uma por categoria. A categoria é uma só
@@ -45,7 +46,6 @@ export interface NoteTabs {
   all: number;
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
 /** A aba de uma anotação. O "c:" na frente: uma categoria chamada "Sem" não cai na aba das sem categoria. */
 export function noteTabKey(r: Pick<Review, 'category'>): string {
@@ -83,7 +83,7 @@ export function noteTabsOf(
     tabs.push({ key, label, n: b.n, total: b.total });
   }
   const none = (t: NoteTab) => (t.key === NO_CATEGORY_TAB ? 1 : 0);
-  tabs.sort((a, b) => b.n - a.n || b.total - a.total || none(a) - none(b) || collator.compare(a.label, b.label));
+  tabs.sort((a, b) => b.n - a.n || b.total - a.total || none(a) - none(b) || nameCollator.compare(a.label, b.label));
   if (order) {
     // na ordem montada: as que têm lugar nele, depois as novas (já pela quantidade), "Sem categoria" no fim
     const at = new Map(order.map((k, i) => [`c:${k}`, i]));

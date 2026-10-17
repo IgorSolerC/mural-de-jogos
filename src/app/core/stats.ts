@@ -39,6 +39,7 @@ import {
 import { pinningFor } from './wall-physics';
 import { isDecorated } from './wall-filter';
 import { ONE_DECIMAL as one } from './review';
+import { nameCollator } from './text';
 
 /**
  * As Estatísticas do mural: tudo o que dá para tirar das fichas de um mural (o seu ou o de um colega),
@@ -115,8 +116,7 @@ export function strength(r: number | null): 'forte' | 'media' | 'fraca' | null {
   return a >= 0.6 ? 'forte' : a >= 0.3 ? 'media' : 'fraca';
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
-const byName = (a: Review, b: Review) => collator.compare(a.game.name, b.game.name);
+const byName = (a: Review, b: Review) => nameCollator.compare(a.game.name, b.game.name);
 
 /** Quantas fichas têm cada valor; a ficha com vários (as manchas, as decorações) conta em cada um. */
 function tally<T extends string>(list: readonly Review[], pick: (r: Review) => T | readonly T[] | undefined | null, label: (v: T) => string): Count<T>[] {
@@ -132,7 +132,7 @@ function tally<T extends string>(list: readonly Review[], pick: (r: Review) => T
   }
   return [...map]
     .map(([value, rs]) => ({ value, label: label(value), n: rs.length, avg: mean(rs.map((r) => r.scores.final)) }))
-    .sort((a, b) => b.n - a.n || collator.compare(a.label, b.label));
+    .sort((a, b) => b.n - a.n || nameCollator.compare(a.label, b.label));
 }
 
 // ======================= datas =======================
@@ -468,7 +468,7 @@ export function franchisesOf(list: readonly Review[]): Franchise[] {
     }
     out.push({ name, reviews: [...rs].sort((a, b) => shownFinal(b) - shownFinal(a) || byName(a, b)), avg: mean(rs.map((r) => r.scores.final))! });
   }
-  return out.sort((a, b) => b.reviews.length - a.reviews.length || b.avg - a.avg || collator.compare(a.name, b.name));
+  return out.sort((a, b) => b.reviews.length - a.reviews.length || b.avg - a.avg || nameCollator.compare(a.name, b.name));
 }
 
 /**
@@ -735,7 +735,7 @@ export function wallStats(list: readonly Review[], kind: Kind, sessions: readonl
       }
     return [...map]
       .map(([value, rs]) => ({ value, label: stickers.get(value)!.label, n: rs.length, avg: mean(rs.map((r) => r.scores.final)) }))
-      .sort((a, b) => b.n - a.n || collator.compare(a.label, b.label));
+      .sort((a, b) => b.n - a.n || nameCollator.compare(a.label, b.label));
   };
   const favor = bonusOf('favor');
   const contra = bonusOf('contra');

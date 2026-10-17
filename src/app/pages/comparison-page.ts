@@ -44,6 +44,7 @@ import { VerdictStamp } from '../ui/verdict';
 import { BackupEnvelope } from './comparison/envelope';
 import { Caderno, OpenRequest } from './comparison/caderno';
 import { NameTags } from './comparison/name-tags';
+import { nameCollator } from '../core/text';
 
 type Tab = 'comum' | 'dicas' | 'minhas';
 type PairSort = 'briga' | 'minha' | 'colega' | 'nome';
@@ -68,8 +69,7 @@ interface NoteRow {
 /** Quantos pares (ou fichas soltas) aparecem de cada vez. */
 const PAGE = 12;
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
-const byName = (a: Review, b: Review) => collator.compare(a.game.name, b.game.name) || a.id.localeCompare(b.id);
+const byName = (a: Review, b: Review) => nameCollator.compare(a.game.name, b.game.name) || a.id.localeCompare(b.id);
 
 /**
  * Comparar murais: o backup de um colega aberto ao lado do seu mural, sem se misturar com ele.

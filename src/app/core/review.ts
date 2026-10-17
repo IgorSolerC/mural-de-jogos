@@ -4,8 +4,10 @@ import { cleanCategory, sanitizeTags } from './note-labels';
 import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
 import { BUILD } from './build';
 import { migrateReview } from './migrations';
+import { fold } from './text';
 
 export type { Kind } from './kinds';
+export { fold } from './text';
 
 /** Não terminei, terminei e fui além (Platinado, Relido, Revisto, Revi). Os nomes mudam por mural; o valor, nunca. */
 export type Status = 'incompleto' | 'finalizado' | 'platinado';
@@ -1266,10 +1268,6 @@ export function storedNote(r: Review): Omit<Review, 'scores'> & { scores?: never
   return rest;
 }
 
-/** Normaliza texto para busca: sem acento, minúsculo. */
-export function fold(s: string): string {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
 
 /** A letra da seção de um nome, de A a Z ("#" para o resto: número, outra escrita). */
 export function letterOf(name: string): string {

@@ -1,6 +1,7 @@
 import type { Importance, KanbanCard } from './kanban';
 import { fold } from './review';
 import { tasksOf } from './rich-text';
+import { nameCollator } from './text';
 
 /**
  * A ordem de uma coluna do Kanban (os ajustes da coluna). Sem regra, a coluna fica na ordem em que
@@ -111,7 +112,6 @@ export interface SortNote {
 /** A importância da mais alta para a mais baixa (a ordem de `IMPORTANCES`, sem importar o kanban.ts, que importa daqui). */
 const IMPORTANCE_RANK: Record<Importance, number> = { critico: 0, importante: 1, medio: 2, baixo: 3, baixissimo: 4 };
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 
 /** O valor de uma anotação num critério; null: não tem (vai para o fim). */
 type Key = number | string | readonly string[] | null;
@@ -128,7 +128,7 @@ function keyOf(by: SortKey, card: KanbanCard, n: SortNote | undefined): Key {
     case 'titulo':
       return n.game.name.trim();
     case 'tag': {
-      const tags = [...new Set((n.tags ?? []).map((t) => fold(t.trim())).filter(Boolean))].sort(collator.compare);
+      const tags = [...new Set((n.tags ?? []).map((t) => fold(t.trim())).filter(Boolean))].sort(nameCollator.compare);
       return tags.length ? tags : null;
     }
     case 'tarefas': {
@@ -149,12 +149,12 @@ function compareKeys(by: SortKey, a: Exclude<Key, null>, b: Exclude<Key, null>):
     case 'tarefas':
       return (b as number) - (a as number);
     case 'titulo':
-      return collator.compare(a as string, b as string);
+      return nameCollator.compare(a as string, b as string);
     case 'tag': {
       const x = a as readonly string[];
       const y = b as readonly string[];
       for (let i = 0; i < Math.min(x.length, y.length); i++) {
-        const c = collator.compare(x[i], y[i]);
+        const c = nameCollator.compare(x[i], y[i]);
         if (c) return c;
       }
       return x.length - y.length;

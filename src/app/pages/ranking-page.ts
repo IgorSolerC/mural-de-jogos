@@ -22,6 +22,7 @@ import { ViewTransitions } from '../core/view-transitions';
 import { BonusSticker } from '../ui/bonus';
 import { CoverSleeve } from '../ui/cover-sleeve';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
+import { nameCollator } from '../core/text';
 
 interface Row {
   review: Review;
@@ -29,7 +30,6 @@ interface Row {
   score: number;
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
 const printed = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 /**
@@ -85,7 +85,7 @@ export class RankingPage {
         (a, b) =>
           scoreOf(b.scores, k)! - scoreOf(a.scores, k)! ||
           shownFinal(b) - shownFinal(a) ||
-          collator.compare(a.game.name, b.game.name),
+          nameCollator.compare(a.game.name, b.game.name),
       );
     let pos = 0;
     return scored.map((r, i) => {
