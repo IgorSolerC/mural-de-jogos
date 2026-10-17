@@ -685,6 +685,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     </dialog>
   `,
   styles: `
+    @use 'a11y';
+
     :host {
       display: block;
       container: folha / inline-size;
@@ -717,22 +719,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
        só perde o nome quando a régua é bem estreita */
     @container folha (max-width: 720px) {
       .tamanho .acao-txt {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
+        @include a11y.escondido;
       }
     }
     @container folha (max-width: 680px) {
       .ver .acao-txt {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
+        @include a11y.escondido;
       }
     }
     /* apertada mesmo sem os nomes, a régua não quebra em duas: as ferramentas rolam de lado, com o
@@ -826,24 +818,14 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       display: none;
     }
     .widgets-txt {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
+      @include a11y.escondido;
     }
     /* no celular, a régua em duas fileiras: em cima, todas as marcas (a que não cabe rola de lado, com
        o esmaecido na ponta dizendo que tem mais); embaixo, "Widgets" e "Mais" com o nome escrito, e ver
        e maximizar na outra ponta, só no desenho (o nome vai para o leitor de tela) */
     @media (max-width: 559px) {
       .acao-txt {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
-        white-space: nowrap;
+        @include a11y.escondido;
       }
       .regua {
         display: grid;
@@ -986,12 +968,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     }
     .regua.presa .widgets-txt,
     .regua.presa .mais-txt {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
+      @include a11y.escondido;
     }
     .regua.presa .ferramenta.mais {
       width: 44px;

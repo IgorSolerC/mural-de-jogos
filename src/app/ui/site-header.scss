@@ -1,3 +1,5 @@
+@use 'a11y';
+
 /* O topo segue a própria largura (container queries), não a da janela: o teste mede de 320 a 1920 */
 :host {
   position: relative;
@@ -401,12 +403,7 @@
 
 /* o nome embaixo, escrito na parede a giz; no celular só o desenho (o nome fica para o leitor de tela) */
 .legenda {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  @include a11y.escondido;
 }
 
 .botton.on .legenda {

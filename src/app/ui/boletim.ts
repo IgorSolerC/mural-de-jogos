@@ -65,6 +65,8 @@ import { PenMark } from './pen-mark';
     </dl>
   `,
   styles: `
+    @use 'a11y';
+
     :host {
       position: relative;
       display: block;
@@ -200,11 +202,7 @@ import { PenMark } from './pen-mark';
     }
     @container boletim (max-width: 380px) {
       dt.tem-curto .nome {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip-path: inset(50%);
+        @include a11y.escondido;
       }
       dt.tem-curto .nome-curto {
         display: inline;

@@ -1,0 +1,10 @@
+/* Some para os olhos e fica para o leitor de tela, como a classe global .sr-only, mas para usar dentro
+   de uma media query ou de um container (o nome que só sai do desenho quando falta lugar). */
+@mixin escondido {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

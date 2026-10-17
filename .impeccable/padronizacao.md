@@ -78,7 +78,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 20. [x] **Título das folhas** (`.titulos`, `.sub`): 7 cópias nas folhas que já usam `_sheet.scss`. Agora `sheet.titulos`,
     `sheet.sub` (impressa: margem 6px e 0.08em, como 3 de 5; as configurações do mural tinham 4px, 0.06em e tinta a 72%,
     o card do Kanban 4px) e `sheet.sub-mao` (Compartilhar e conflito, já iguais).
-21. [ ] **Escondido para os olhos** (`sr-only`) copiado em 8 media queries: mixin.
+21. [x] **Escondido para os olhos** (`sr-only`) copiado em 8 media queries: mixin. Agora `a11y.escondido` (ui/_a11y.scss),
+    o bloco de 6 linhas que 7 das 9 cópias já usavam; fotos iguais a 1366px e a 400px.
 22. [ ] **Feltro das reações**: 4 cópias inline do `felt.remendo`.
 23. [ ] **Interruptor**: 10 cópias do botão com a bolinha; uma sem `aria-describedby`.
 
