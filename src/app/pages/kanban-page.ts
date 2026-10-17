@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ArrowDownWideNarrow, CheckCheck, ChevronLeft, ChevronRight, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
@@ -30,6 +30,7 @@ import { TagChip, TagChips } from '../ui/tag-chips';
 import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
+import { focusAfterRender } from '../ui/focus';
 
 /** O último quadro aberto, para `/anotacoes/kanban` sem quadro abrir nele. */
 const LAST_KEY = 'meu-mural:kanban-aberto:v1';
@@ -157,6 +158,7 @@ export class KanbanPage {
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly injector = inject(Injector);
   private readonly quadro = viewChild<ElementRef<HTMLElement>>('quadro');
 
   /** As categorias das anotações: cada uma é um quadro. */
@@ -474,6 +476,12 @@ export class KanbanPage {
   protected openAdd(column: string): void {
     this.adding.set(column);
     requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-coluna="${column}"] .adicionar-op`)?.focus());
+  }
+
+  /** Fecha o Adicionar (Esc ou o X) e o foco volta para o "Adicionar nota" da coluna, que tomou o lugar dele. */
+  protected closeAdd(column: string): void {
+    this.adding.set(null);
+    focusAfterRender(this.injector, () => this.host.querySelector<HTMLElement>(`[data-coluna="${column}"] .adicionar-btn`));
   }
 
   protected searchNote(column: string): void {

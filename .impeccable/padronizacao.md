@@ -67,6 +67,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     Chrome (testado), então o bilhete entra no diálogo modal de cima enquanto aparece e volta quando some ou ele fecha.
 13. [x] **Dia em UTC**: o Card padrão do Kanban usa o dia UTC (`toISOString`), que depois das 21h no Brasil já é amanhã. Também o nome do arquivo "antes da nuvem"
     nos Ajustes (`copy.at.slice(0, 10)`). Os dois usam o dia local agora.
+15b. [x] **Foco perdido ao fechar com Esc**: o Adicionar nota do Kanban (Esc e o X) e o painel dos emojis do perfil (Esc e
+    escolher) sumiam com o foco dentro; agora ele volta ao botão que abriu, como as opções da pessoa em Amigos (`focusAfterRender`).
 14. [x] **Fechar sem `aria-hidden`**: o X da leitura e do editor anunciam o ícone. Eram 33 dos 413 ícones sem
     `aria-hidden` (todos decorativos); os seletores de ficha (card-picker, profile-picker) usavam o X com traço 2.4, e o
     padrão das outras 12 folhas é 22px com 2.6: ficaram no padrão.

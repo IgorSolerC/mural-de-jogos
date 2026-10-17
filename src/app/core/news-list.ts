@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-titulo-das-folhas',
+    id: '2026-10-17-foco-ao-fechar',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
@@ -50,6 +50,7 @@ export const NEWS: NewsEntry[] = [
       'Com uma folha aberta (os ajustes de uma coluna do Kanban, Pessoas, os comentários), o bilhete do que acabou de acontecer aparece por cima dela, com o Desfazer à mão, em vez de ficar escondido atrás.',
       'A prévia do Card padrão e o nome do arquivo guardado antes da nuvem usam o dia daqui, e não mais o de amanhã depois das 21h.',
       'Nas Novidades e no editor do perfil, o contorno do teclado nas fichas creme é de tinta, como nos Ajustes e em Amigos, e não mais o amarelo que quase sumia no papel.',
+      'Fechar o Adicionar nota do Kanban (com o Esc ou o X) e o painel dos emojis do perfil devolve o foco do teclado ao botão que os abriu, em vez de deixá-lo perdido na página.',
     ],
   },
   {

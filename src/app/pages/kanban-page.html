@@ -160,7 +160,7 @@
 
         <div class="adicionar">
           @if (adding() === v.col.id) {
-            <div class="adicionar-menu" role="group" [attr.aria-label]="'Adicionar em ' + v.col.name" (keydown.escape)="adding.set(null)">
+            <div class="adicionar-menu" role="group" [attr.aria-label]="'Adicionar em ' + v.col.name" (keydown.escape)="closeAdd(v.col.id)">
               <button type="button" class="adicionar-op" (click)="searchNote(v.col.id)">
                 <lucide-icon [img]="SearchIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
                 Buscar nota
@@ -169,7 +169,7 @@
                 <lucide-icon [img]="NewNoteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
                 Nova nota
               </button>
-              <button type="button" class="adicionar-fecha" aria-label="Fechar" (click)="adding.set(null)">
+              <button type="button" class="adicionar-fecha" aria-label="Fechar" (click)="closeAdd(v.col.id)">
                 <lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
               </button>
             </div>

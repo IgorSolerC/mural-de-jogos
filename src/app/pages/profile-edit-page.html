@@ -52,7 +52,7 @@
           </div>
 
           @if (emojiOpen()) {
-            <div id="painel-emoji" class="painel-emoji" (keydown.escape)="emojiOpen.set(false)">
+            <div id="painel-emoji" class="painel-emoji" (keydown.escape)="closeEmoji()">
               <app-emoji-panel [current]="profile().emoji" (picked)="setEmoji($event)" />
             </div>
           }

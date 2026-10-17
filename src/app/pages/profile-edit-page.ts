@@ -65,6 +65,7 @@ import { ProfilePicker } from '../ui/profile-picker';
 import { EmojiPanel } from '../ui/emoji-panel';
 import { RichEditor } from '../ui/rich-editor';
 import { plural } from '../core/text';
+import { focusAfterRender } from '../ui/focus';
 
 /** Quantas fichas de uma seção aparecem antes do "Mostrar todas". */
 const FOLDED_ITEMS = 6;
@@ -313,7 +314,13 @@ export class ProfileEditPage {
 
   protected setEmoji(emoji: string): void {
     this.profiles.update((p) => ({ ...p, emoji }));
+    this.closeEmoji();
+  }
+
+  /** Fecha o painel dos emojis (Esc ou um emoji escolhido) e o foco volta para a polaroid que o abriu. */
+  protected closeEmoji(): void {
     this.emojiOpen.set(false);
+    focusAfterRender(this.injector, () => document.querySelector<HTMLElement>('.foto-btn'));
   }
 
   protected setPhoto(photo: Stock): void {
