@@ -417,4 +417,144 @@ describe('página do Kanban', () => {
     expect(host.querySelectorAll('[data-marcada]').length).toBe(0);
   });
 
+  describe('ordem da coluna', () => {
+    /** A fazer com três anotações à mão: login (crítico), sync (sem importância), alfa (crítico). */
+    function sortable(): KanbanBoard {
+      const b = board();
+      return {
+        ...b,
+        cards: [
+          { note: 'nlogin01', column: 'afazer', importance: 'critico' },
+          { note: 'nsync001', column: 'afazer', importance: null },
+          { note: 'nalfa001', column: 'afazer', importance: 'critico' },
+          { note: 'nmeio001', column: 'fazendo', importance: 'critico' },
+        ],
+      };
+    }
+    beforeEach(() => {
+      store.reviews.update((list) => [...list, note('nalfa001', 'Alfa', { category: 'Trabalho' }), note('nmeio001', 'Meio', { category: 'Trabalho' })]);
+    });
+    async function openSheet(col: string): Promise<HTMLElement> {
+      column(col).querySelector<HTMLButtonElement>('.etiqueta-btn')!.click();
+      await settle();
+      return host.querySelector<HTMLElement>('app-kanban-column-sheet')!;
+    }
+    /** Escolhe o critério `text` no nível `level` (0: a ordem, 1: o desempate). */
+    async function pick(sheet: HTMLElement, level: number, text: string): Promise<void> {
+      const label = [...sheet.querySelectorAll('.nivel')[level].querySelectorAll<HTMLElement>('.ordem-op')].find((l) => l.textContent!.trim() === text)!;
+      label.querySelector('input')!.click();
+      await settle();
+    }
+
+    it('nos ajustes da coluna: por importância e, no empate, por título; o cabeçalho e a frase dizem; À mão devolve a ordem de antes', async () => {
+      kanban.state.set(state(sortable()));
+      await go(TRAB_URL);
+      expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001', 'nalfa001']);
+      expect(column('afazer').querySelector('.etiqueta-ordem')).toBeNull();
+      const sheet = await openSheet('afazer');
+      expect(sheet.querySelector('.ordem-frase')!.textContent).toContain('Na ordem em que você arrastar');
+      // à mão, o desempate nem aparece
+      expect(sheet.querySelectorAll('.nivel').length).toBe(1);
+
+      await pick(sheet, 0, 'Importância');
+      expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nsync001']);
+      expect(column('afazer').querySelector('.etiqueta-ordem')!.textContent!.trim()).toBe('Por importância');
+      expect([...sheet.querySelectorAll('.segmento .seg-nome')].map((s) => s.textContent!.trim())).toEqual(['Crítico primeiro', 'Baixíssimo primeiro']);
+      // o desempate não oferece o critério da ordem
+      expect([...sheet.querySelectorAll('.nivel')[1].querySelectorAll('.ordem-op')].map((l) => l.textContent!.trim())).toEqual([
+        'Nenhum',
+        'Criação',
+        'Alteração',
+        'Título',
+        'Tag',
+        'Tarefas',
+      ]);
+
+      await pick(sheet, 1, 'Título');
+      expect(namesIn('afazer')).toEqual(['nalfa001', 'nlogin01', 'nsync001']);
+      expect(column('afazer').querySelector('.etiqueta-ordem')!.textContent!.trim()).toBe('Por importância e título');
+      expect(sheet.querySelector('.ordem-frase')!.textContent).toContain('No empate, por título, de A a Z.');
+      expect(kanban.get(TRAB)!.columns[0].sort).toEqual([{ by: 'importancia' }, { by: 'titulo' }]);
+      // a ordem à mão continua guardada
+      expect(cardsIn(kanban.get(TRAB)!, 'afazer').map((c) => c.note)).toEqual(['nlogin01', 'nsync001', 'nalfa001']);
+
+      // o título vira a ordem: os dois trocam de lugar
+      await pick(sheet, 0, 'Título');
+      expect(kanban.get(TRAB)!.columns[0].sort).toEqual([{ by: 'titulo' }, { by: 'importancia' }]);
+      const sentido = sheet.querySelectorAll<HTMLInputElement>('input[name="ca-sentido-1"]');
+      sentido[1].click();
+      await settle();
+      expect(namesIn('afazer')).toEqual(['nsync001', 'nlogin01', 'nalfa001']);
+      expect(kanban.get(TRAB)!.columns[0].sort).toEqual([{ by: 'titulo', reverse: true }, { by: 'importancia' }]);
+
+      await pick(sheet, 0, 'À mão');
+      expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001', 'nalfa001']);
+      expect('sort' in kanban.get(TRAB)!.columns[0]).toBeFalse();
+      expect(column('afazer').querySelector('.etiqueta-ordem')).toBeNull();
+    });
+
+    it('"Usar esta ordem nas outras colunas" leva a ordem a todas (com Desfazer) e some quando todas já estão nela', async () => {
+      kanban.state.set(state(sortable()));
+      await go(TRAB_URL);
+      const sheet = await openSheet('afazer');
+      expect(sheet.querySelector('.ordem-todas')).toBeNull();
+      await pick(sheet, 0, 'Tag');
+      const all = sheet.querySelector<HTMLButtonElement>('.ordem-todas button')!;
+      expect(all.textContent!.trim()).toBe('Usar esta ordem nas outras colunas');
+      all.click();
+      await settle();
+      expect(kanban.get(TRAB)!.columns.map((c) => c.sort)).toEqual([[{ by: 'tag' }], [{ by: 'tag' }], [{ by: 'tag' }]]);
+      expect(sheet.querySelector('.ordem-todas')).toBeNull();
+      expect(column('feito').querySelector('.etiqueta-ordem')!.textContent!.trim()).toBe('Por tag');
+    });
+
+    it('Shift e as setas numa coluna em ordem só trocam com a empatada; sem empate, dizem por que ficam', async () => {
+      const b = sortable();
+      kanban.state.set(state({ ...b, columns: b.columns.map((c) => (c.id === 'afazer' ? { ...c, sort: [{ by: 'importancia' }] } : c)) }));
+      await go(TRAB_URL);
+      expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nsync001']);
+      const press = (id: string, key: string) => {
+        host.querySelector(`[data-nota="${id}"] .hit`)!.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey: true, bubbles: true }));
+      };
+      press('nsync001', 'ArrowUp');
+      await settle();
+      expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nsync001']);
+      expect(host.querySelector('[aria-live="polite"].sr-only')!.textContent).toContain('Sincronizar quadros fica no lugar: A fazer está em ordem por importância.');
+      press('nalfa001', 'ArrowUp');
+      await settle();
+      expect(namesIn('afazer')).toEqual(['nalfa001', 'nlogin01', 'nsync001']);
+      expect(host.querySelector('[aria-live="polite"].sr-only')!.textContent).toContain('Alfa: A fazer, 1 de 3.');
+      // vindo do lado, cai no lugar dela na ordem (depois das críticas, antes da sem importância)
+      press('nmeio001', 'ArrowLeft');
+      await settle();
+      expect(namesIn('afazer')).toEqual(['nalfa001', 'nlogin01', 'nmeio001', 'nsync001']);
+    });
+
+    it('arrastando para uma coluna em ordem, a vaga fica onde a anotação vai aparecer', async () => {
+      const b = sortable();
+      kanban.state.set(state({ ...b, columns: b.columns.map((c) => (c.id === 'afazer' ? { ...c, sort: [{ by: 'importancia' }] } : c)) }));
+      await go(TRAB_URL);
+      const grab = host.querySelector<HTMLElement>('.lugar[data-nota="nmeio001"] .hit')!;
+      const r = grab.getBoundingClientRect();
+      const at = (x: number, y: number) => ({ bubbles: true, cancelable: true, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse', clientX: x, clientY: y });
+      grab.dispatchEvent(new PointerEvent('pointerdown', at(r.left + 20, r.top + 10)));
+      window.dispatchEvent(new PointerEvent('pointermove', at(r.left + 40, r.top + 30)));
+      await settle();
+      // no alto de A fazer: ela é crítica como as que estão lá, então a vaga pode ir até o topo
+      const afazer = column('afazer').getBoundingClientRect();
+      const top = column('afazer').querySelector('.lugar')!.getBoundingClientRect().top;
+      window.dispatchEvent(new PointerEvent('pointermove', at(afazer.left + afazer.width / 2, top + 2)));
+      await settle();
+      expect(namesIn('afazer')).toEqual(['nmeio001', 'nlogin01', 'nalfa001', 'nsync001']);
+      // no pé da coluna: a vaga para antes da sem importância
+      window.dispatchEvent(new PointerEvent('pointermove', at(afazer.left + afazer.width / 2, afazer.bottom - 4)));
+      await settle();
+      expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nmeio001', 'nsync001']);
+      expect(column('afazer').querySelectorAll('.lugar')[2].classList).toContain('vaga');
+      window.dispatchEvent(new PointerEvent('pointerup', at(afazer.left + afazer.width / 2, afazer.bottom - 4)));
+      await settle();
+      expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nmeio001', 'nsync001']);
+      expect(cardsIn(kanban.get(TRAB)!, 'afazer').map((c) => c.note)).toEqual(['nlogin01', 'nsync001', 'nalfa001', 'nmeio001']);
+    });
+  });
 });

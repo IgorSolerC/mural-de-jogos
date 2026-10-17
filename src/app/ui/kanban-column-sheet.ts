@@ -1,6 +1,23 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
-import { ArrowLeft, ArrowRight, Check, LucideAngularModule, Trash2, X } from 'lucide-angular';
-import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, removeColumn, updateColumn } from '../core/kanban';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarPlus,
+  CaseSensitive,
+  ChartNoAxesColumnIncreasing,
+  Check,
+  Columns3,
+  Hand,
+  History,
+  ListTodo,
+  LucideAngularModule,
+  LucideIconData,
+  Tag,
+  Trash2,
+  X,
+} from 'lucide-angular';
+import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, removeColumn, sortAllColumns, updateColumn } from '../core/kanban';
+import { SORT_DIRS, SORT_KEYS, SORT_LABEL, SortKey, SortRule, sameSort, sortSentence } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { BackdropClose } from './backdrop-close';
@@ -22,9 +39,20 @@ const STOCK_LABEL: Record<LightStock, string> = {
   branco: 'Branco',
 };
 
+/** O desenho de cada critério de ordem. */
+const SORT_ICON: Record<SortKey, LucideIconData> = {
+  importancia: ChartNoAxesColumnIncreasing,
+  criacao: CalendarPlus,
+  alteracao: History,
+  titulo: CaseSensitive,
+  tag: Tag,
+  tarefas: ListTodo,
+};
+
 /**
  * Os ajustes de uma coluna do quadro (o lápis no alto dela): o nome, o ícone e a cor da etiqueta,
- * "Finalizar tarefas movidas para cá", a posição e tirar a coluna. Vale na hora; a etiqueta de prévia
+ * "Finalizar tarefas movidas para cá", a ordem das anotações (À mão, ou por um critério e, no
+ * empate, por outro, cada um no seu sentido), a posição e tirar a coluna. Vale na hora; a etiqueta de prévia
  * em cima é a mesma da coluna.
  */
 @Component({
@@ -69,6 +97,80 @@ const STOCK_LABEL: Record<LightStock, string> = {
                   <span class="bolinha"></span>
                 </button>
               </div>
+            </section>
+
+            <!-- a ordem: à mão, ou por um critério e o desempate; a frase em cima diz o que vale agora -->
+            <section class="grupo" aria-labelledby="ca-ordem-t">
+              <h3 class="grupo-titulo" id="ca-ordem-t">Ordem das anotações</h3>
+              <p class="ordem-frase" aria-live="polite">{{ sentence() }}</p>
+
+              <fieldset class="nivel">
+                <legend class="nivel-nome">Primeiro por</legend>
+                <div class="ordem-ops">
+                  <label class="ordem-op">
+                    <input type="radio" name="ca-ordem-1" [checked]="!first()" (change)="setFirst(null)" />
+                    <lucide-icon [img]="HandIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    À mão
+                  </label>
+                  @for (k of sortKeys; track k) {
+                    <label class="ordem-op">
+                      <input type="radio" name="ca-ordem-1" [checked]="first()?.by === k" (change)="setFirst(k)" />
+                      <lucide-icon [img]="sortIcon[k]" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      {{ sortLabel[k] }}
+                    </label>
+                  }
+                </div>
+                @if (first(); as f) {
+                  <div class="segmentos dois" role="radiogroup" [attr.aria-label]="'Sentido da ordem por ' + sortLabel[f.by]">
+                    @for (dir of sortDirs[f.by]; track $index) {
+                      <label class="segmento">
+                        <input type="radio" name="ca-sentido-1" [checked]="!!f.reverse === ($index === 1)" (change)="setReverse(0, $index === 1)" />
+                        <span class="seg-nome">{{ dir }}</span>
+                      </label>
+                    }
+                  </div>
+                }
+              </fieldset>
+
+              @if (first(); as f) {
+                <fieldset class="nivel">
+                  <legend class="nivel-nome">No empate, por</legend>
+                  <div class="ordem-ops">
+                    <label class="ordem-op">
+                      <input type="radio" name="ca-ordem-2" [checked]="!second()" (change)="setSecond(null)" />
+                      Nenhum
+                    </label>
+                    @for (k of sortKeys; track k) {
+                      @if (k !== f.by) {
+                        <label class="ordem-op">
+                          <input type="radio" name="ca-ordem-2" [checked]="second()?.by === k" (change)="setSecond(k)" />
+                          <lucide-icon [img]="sortIcon[k]" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                          {{ sortLabel[k] }}
+                        </label>
+                      }
+                    }
+                  </div>
+                  @if (second(); as s) {
+                    <div class="segmentos dois" role="radiogroup" [attr.aria-label]="'Sentido do desempate por ' + sortLabel[s.by]">
+                      @for (dir of sortDirs[s.by]; track $index) {
+                        <label class="segmento">
+                          <input type="radio" name="ca-sentido-2" [checked]="!!s.reverse === ($index === 1)" (change)="setReverse(1, $index === 1)" />
+                          <span class="seg-nome">{{ dir }}</span>
+                        </label>
+                      }
+                    </div>
+                  }
+                </fieldset>
+              }
+
+              @if (othersDiffer()) {
+                <div class="ordem-todas">
+                  <button type="button" class="papel" (click)="sortAll()">
+                    <lucide-icon [img]="ColumnsIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    Usar esta ordem nas outras colunas
+                  </button>
+                </div>
+              }
             </section>
 
             <section class="grupo" aria-labelledby="ca-icone-t">
@@ -137,6 +239,12 @@ export class KanbanColumnSheet {
   protected readonly LeftIcon = ArrowLeft;
   protected readonly RightIcon = ArrowRight;
   protected readonly TrashIcon = Trash2;
+  protected readonly HandIcon = Hand;
+  protected readonly ColumnsIcon = Columns3;
+  protected readonly sortKeys = SORT_KEYS;
+  protected readonly sortLabel = SORT_LABEL;
+  protected readonly sortDirs = SORT_DIRS;
+  protected readonly sortIcon = SORT_ICON;
   protected readonly icons = COLUMN_ICONS;
   protected readonly iconOf = COLUMN_ICON;
   protected readonly iconLabel = COLUMN_ICON_LABEL;
@@ -156,6 +264,16 @@ export class KanbanColumnSheet {
     if (!board || index < 0) return null;
     const col = board.columns[index];
     return { board, col, index, count: cardsIn(board, col.id).length };
+  });
+
+  /** A regra da ordem e a do desempate (null: à mão / nenhum). */
+  protected readonly first = computed(() => this.data()?.col.sort?.[0] ?? null);
+  protected readonly second = computed(() => this.data()?.col.sort?.[1] ?? null);
+  protected readonly sentence = computed(() => sortSentence(this.data()?.col.sort ?? []));
+  /** Alguma outra coluna está noutra ordem? (só então dá para levar esta a todas) */
+  protected readonly othersDiffer = computed(() => {
+    const d = this.data();
+    return !!d && d.board.columns.some((c) => c.id !== d.col.id && !sameSort(c.sort, d.col.sort));
   });
 
   constructor() {
@@ -182,6 +300,45 @@ export class KanbanColumnSheet {
 
   protected set(patch: { icon?: ColumnIcon; color?: LightStock; finishes?: boolean }): void {
     this.kanban.update(this.boardId(), (b, at) => updateColumn(b, this.columnId(), patch, at));
+  }
+
+  private setSort(sort: SortRule[]): void {
+    this.kanban.update(this.boardId(), (b, at) => updateColumn(b, this.columnId(), { sort }, at));
+  }
+
+  /**
+   * A ordem: null volta para à mão. Escolher o critério que estava no desempate troca os dois de lugar
+   * (por importância e tag → por tag e importância), cada um com o seu sentido.
+   */
+  protected setFirst(by: SortKey | null): void {
+    const cur = this.data()?.col.sort ?? [];
+    if (!by) return this.setSort([]);
+    if (cur[0]?.by === by) return;
+    const picked = cur.find((r) => r.by === by) ?? { by };
+    const rest = cur[1]?.by === by ? cur[0] : cur[1];
+    this.setSort(rest ? [picked, rest] : [picked]);
+  }
+
+  /** O desempate (null: nenhum). */
+  protected setSecond(by: SortKey | null): void {
+    const cur = this.data()?.col.sort ?? [];
+    if (!cur[0]) return;
+    this.setSort(by ? [cur[0], cur.find((r) => r.by === by) ?? { by }] : [cur[0]]);
+  }
+
+  protected setReverse(level: number, reverse: boolean): void {
+    const cur = this.data()?.col.sort ?? [];
+    if (!cur[level]) return;
+    this.setSort(cur.map((r, i) => (i === level ? (reverse ? { by: r.by, reverse: true } : { by: r.by }) : r)));
+  }
+
+  /** A ordem desta coluna vale em todas, com Desfazer. */
+  protected sortAll(): void {
+    const d = this.data();
+    if (!d) return;
+    const before = d.board;
+    this.kanban.update(d.board.id, (b, at) => sortAllColumns(b, d.col.sort ?? [], at));
+    this.toasts.show(`A ordem de ${d.col.name} vale em todas as colunas`, { label: 'Desfazer', run: () => this.kanban.update(before.id, (_, at) => ({ ...before, at })) });
   }
 
   protected rename(name: string): void {

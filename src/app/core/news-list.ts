@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-comentar-nas-privadas',
+    id: '2026-10-17-ordem-do-kanban',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
-    title: 'Tags por categoria, renomear e apagar, comentários nas privadas',
+    title: 'Ordem das colunas do Kanban, tags por categoria e comentários nas privadas',
     melhorias: [
+      'Cada coluna do Kanban pode ter a sua ordem, nos ajustes dela: por importância, criação, última alteração, título, tag ou tarefas por fazer, no sentido que quiser, e um segundo critério para o empate (por importância e tag, por exemplo). O alto da coluna diz a ordem, e À mão volta à ordem em que você arrastou.',
       'Dá para comentar também nas suas análises e anotações privadas, como um recado para você mesmo. Numa anotação compartilhada, pública ou privada, quem está nela comenta mesmo sem seguir ninguém, e todos ali recebem o aviso de cada comentário.',
       'Em Tags, nas configurações do mural, as tags ficam separadas pela categoria das anotações onde são usadas, e a mesma tag pode ter uma cor em cada categoria; renomear ou apagar uma tag mexe só nas anotações daquela categoria.',
       'Nas configurações do mural (a engrenagem da pasta), cada categoria e cada tag pode ser renomeada, e muda em todas as anotações que a usam, com a cor, os padrões e o quadro do Kanban; o nome de outra que já existe junta as duas.',

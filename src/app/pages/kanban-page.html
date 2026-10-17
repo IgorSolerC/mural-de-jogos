@@ -106,6 +106,13 @@
           <button type="button" class="etiqueta-btn" [attr.aria-label]="'Ajustes da coluna ' + v.col.name" title="Ajustes da coluna" aria-haspopup="dialog" (click)="columnSheet.set({ id: v.col.id, fresh: false })">
             <lucide-icon [img]="PencilIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
+          @if (v.col.sort?.length) {
+            <!-- a ordem da coluna, impressa miúdo embaixo do nome: diz por que as anotações estão assim -->
+            <p class="etiqueta-ordem" [title]="sortSentence(v.col.sort!)">
+              <lucide-icon [img]="SortIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              {{ sortShort(v.col.sort!) }}
+            </p>
+          }
           @if (v.col.finishes) {
             <!-- o carimbo de quem finaliza -->
             <span class="carimbo" title="Finaliza as anotações que chegam aqui">

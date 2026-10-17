@@ -1,4 +1,5 @@
 import { CategoryColorId, lookKey } from './category-looks';
+import { SortRule, sanitizeSort } from './kanban-sort';
 import { cleanTag } from './note-labels';
 import { LIGHT_STOCKS, LightStock, fold, newId } from './review';
 
@@ -84,6 +85,11 @@ export interface KanbanColumn {
   color: LightStock;
   /** Anotação que chega aqui é finalizada (e, saindo para uma coluna que não finaliza, aberta de novo). */
   finishes: boolean;
+  /**
+   * A ordem das anotações na coluna (até duas regras, a segunda desempata; ver core/kanban-sort.ts).
+   * Sem o campo, a ordem em que foram arrastadas.
+   */
+  sort?: SortRule[];
 }
 
 /** Uma anotação no quadro. A ordem dentro da coluna é a ordem em `cards`. */
@@ -192,12 +198,14 @@ function sanitizeColumn(raw: unknown): KanbanColumn | null {
   const r = rec(raw);
   const id = cleanId(r['id']);
   if (!id) return null;
+  const sort = sanitizeSort(r['sort']);
   return {
     id,
     name: cleanName(r['name'], NAME_MAX) || 'Coluna',
     icon: (COLUMN_ICONS as readonly string[]).includes(r['icon'] as string) ? (r['icon'] as ColumnIcon) : 'circulo',
     color: (LIGHT_STOCKS as readonly string[]).includes(r['color'] as string) ? (r['color'] as LightStock) : 'cinza',
     finishes: r['finishes'] === true,
+    ...(sort.length ? { sort } : {}),
   };
 }
 
@@ -372,6 +380,11 @@ export function updateColumn(b: KanbanBoard, id: string, patch: Partial<Omit<Kan
     return sanitizeColumn(next) ?? c;
   });
   return touch(b, { columns }, at);
+}
+
+/** A ordem de todas as colunas do quadro passa a ser `sort` (vazia: todas à mão). */
+export function sortAllColumns(b: KanbanBoard, sort: readonly SortRule[], at: string): KanbanBoard {
+  return touch(b, { columns: b.columns.map((c) => sanitizeColumn({ ...c, sort }) ?? c) }, at);
 }
 
 /** Leva a coluna para a posição `to` (as outras andam). */

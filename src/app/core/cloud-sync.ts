@@ -89,11 +89,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     site antigo enviaria o mural sem eles, e um aparelho novo não os receberia até outro enviar.
  * 19: cada quadro Kanban é de uma categoria (`category`, o id sai dela) e as características viraram
  *     tags das anotações. Um site antigo jogaria a categoria fora e enviaria os quadros assim.
+ * 20: a ordem de cada coluna do Kanban (`sort`, a ordem e o desempate). Um site antigo jogaria a ordem
+ *     fora e enviaria o quadro assim, e as colunas voltariam a ficar à mão em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 19;
+export const SYNC_SCHEMA = 20;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no

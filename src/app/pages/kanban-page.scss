@@ -391,6 +391,45 @@
   }
 }
 
+/* A ordem da coluna, quando não é à mão: impressa miúdo embaixo do nome, na tinta da etiqueta mais rala */
+.etiqueta-ordem {
+  grid-column: 2 / 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-top: -5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.68);
+
+  lucide-icon {
+    flex: none;
+    display: inline-flex;
+    color: var(--col-cor);
+  }
+}
+
+/* arrastando por cima de uma coluna em ordem: o marca-texto na linha diz por que a vaga vai para o
+   lugar dela, e não para onde está o ponteiro */
+.coluna.alvo .etiqueta-ordem {
+  justify-self: start;
+  margin-left: -4px;
+  padding: 2px 4px 1px;
+  border-radius: 2px 5px 3px 6px;
+  background: rgb(255 218 66 / 0.85);
+  color: var(--ink);
+}
+
+/* com o selo "Finaliza" na beirada de baixo, a linha da ordem deixa o lugar dele */
+.coluna.finaliza .etiqueta-ordem {
+  margin-right: 78px;
+}
+
 /* "Finaliza": um selo de papel colado na beirada de baixo da etiqueta */
 .carimbo {
   position: absolute;

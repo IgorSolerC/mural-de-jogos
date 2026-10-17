@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CheckCheck, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
+import { ArrowDownWideNarrow, CheckCheck, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { KanbanBoard, KanbanCard, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard } from '../core/kanban';
+import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
+import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
 import { NOTES } from '../core/kinds';
 import { Review, fold } from '../core/review';
@@ -68,6 +69,8 @@ interface Drag {
   over: string;
   /** A posição entre as anotações à mostra da coluna `over`. */
   index: number;
+  /** A posição de onde ela saiu, entre as à mostra da coluna `from` (soltar ali não muda nada). */
+  start: number;
   /** A altura da ficha (ou de todas as que vão juntas), para a vaga do mesmo tamanho. */
   height: number;
   /**
@@ -118,6 +121,9 @@ export class KanbanPage {
   protected readonly ColumnIcon = Columns3;
   protected readonly CardsIcon = Rows2;
   protected readonly TitlesIcon = List;
+  protected readonly SortIcon = ArrowDownWideNarrow;
+  protected readonly sortShort = sortShort;
+  protected readonly sortSentence = sortSentence;
   protected readonly iconOf = COLUMN_ICON;
   protected readonly maxColumns = MAX_COLUMNS;
   protected readonly notesKind = NOTES;
@@ -250,7 +256,7 @@ export class KanbanPage {
       return (!q || fold(n.game.name).includes(q)) && (!tags.length || (n.tags ?? []).some((t) => tags.includes(fold(t))));
     };
     const out = b.columns.map((col) => {
-      const all = cardsIn(b, col.id).filter((c) => notes.has(c.note));
+      const all = this.ordered(b, col);
       const items = all.filter((c) => shows(c) && !moving.has(c.note)).map((card) => ({ card, note: notes.get(card.note)!, dragged: false }));
       return { col, items, total: all.length };
     });
@@ -262,6 +268,16 @@ export class KanbanPage {
     }
     return out;
   });
+  /**
+   * As anotações de uma coluna (as que estão no quadro de verdade) na ordem em que aparecem: a dos
+   * ajustes da coluna (ver core/kanban-sort.ts), ou, à mão, a ordem em que foram arrastadas.
+   */
+  private ordered(b: KanbanBoard, col: KanbanColumn): KanbanCard[] {
+    const notes = this.notes();
+    const list = cardsIn(b, col.id).filter((c) => notes.has(c.note));
+    return col.sort?.length ? sortCards(list, col.sort, (id) => notes.get(id)) : list;
+  }
+
   protected readonly shownCount = computed(() => this.view().reduce((n, v) => n + v.items.length, 0));
 
   /**
@@ -423,18 +439,23 @@ export class KanbanPage {
     if (!b) return;
     const cols = b.columns;
     const ci = cols.findIndex((c) => c.id === column);
+    const here = cols[ci];
+    const n = this.store.get(note)?.game.name ?? 'A anotação';
+    if (here?.sort?.length && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      this.nudgeSorted(b, here, note, n, e.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
     const list = cardsIn(b, column);
     const at = list.findIndex((c) => c.note === note);
     let to = column;
-    let index = at;
-    if (e.key === 'ArrowLeft') {
-      if (ci <= 0) return;
-      to = cols[ci - 1].id;
-      index = Math.min(at, cardsIn(b, to).length);
-    } else if (e.key === 'ArrowRight') {
-      if (ci >= cols.length - 1) return;
-      to = cols[ci + 1].id;
-      index = Math.min(at, cardsIn(b, to).length);
+    let index: number | undefined = at;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      const next = cols[ci + (e.key === 'ArrowLeft' ? -1 : 1)];
+      if (!next) return;
+      to = next.id;
+      // numa coluna em ordem, ela cai no lugar dela (no fim da ordem à mão, para o empate)
+      index = next.sort?.length ? undefined : Math.min(at, cardsIn(b, to).length);
     } else if (e.key === 'ArrowUp') {
       if (at <= 0) return;
       index = at - 1;
@@ -444,10 +465,38 @@ export class KanbanPage {
     } else return;
     e.preventDefault();
     this.actions.move(b.id, note, to, index);
-    const col = cols.find((c) => c.id === to)!;
-    const n = this.store.get(note)?.game.name ?? 'A anotação';
-    this.said.set(`${n}: ${col.name}, ${index + 1} de ${cardsIn(this.board()!, to).length}.`);
+    this.sayPlace(note, n, to);
     // a ficha foi redesenhada em outro lugar: o foco vai com ela
+    requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
+  }
+
+  /** Diz onde a anotação ficou: a coluna e a posição em que aparece nela. */
+  private sayPlace(note: string, name: string, column: string): void {
+    const b = this.board();
+    const col = b?.columns.find((c) => c.id === column);
+    if (!b || !col) return;
+    const list = this.ordered(b, col);
+    this.said.set(`${name}: ${col.name}, ${list.findIndex((c) => c.note === note) + 1} de ${list.length}.`);
+  }
+
+  /**
+   * Shift e as setas para cima e para baixo numa coluna em ordem: só troca de lugar com a vizinha
+   * empatada com ela (a ordem decide o resto); sem empate, diz por que não sai do lugar.
+   */
+  private nudgeSorted(b: KanbanBoard, col: KanbanColumn, note: string, name: string, by: -1 | 1): void {
+    const list = this.ordered(b, col);
+    const at = list.findIndex((c) => c.note === note);
+    const other = list[at + by];
+    const cmp = sortComparator(col.sort ?? [], (id) => this.notes().get(id));
+    if (at < 0 || !other || cmp(list[at], other) !== 0) {
+      this.said.set(`${name} fica no lugar: ${col.name} está em ordem ${sortShort(col.sort ?? []).toLowerCase()}.`);
+      return;
+    }
+    // na ordem à mão (a do empate), antes ou depois da vizinha
+    const stored = cardsIn(b, col.id).filter((c) => c.note !== note);
+    const i = stored.findIndex((c) => c.note === other.note);
+    this.actions.move(b.id, note, col.id, by < 0 ? i : i + 1);
+    this.sayPlace(note, name, col.id);
     requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
   }
 
@@ -568,7 +617,7 @@ export class KanbanPage {
       .items.findIndex((it) => it.card.note === s.note);
     // o lugar de todas na coluna: as alturas delas e os vãos entre elas
     const height = group.length ? this.heightOf(group) : rect.height;
-    this.drag.set({ note: s.note, from: s.column, over: s.column, index: Math.max(0, index), height, group });
+    this.drag.set({ note: s.note, from: s.column, over: s.column, index: Math.max(0, index), start: Math.max(0, index), height, group });
     document.documentElement.classList.add('kanban-arrastando');
     if (s.touch) navigator.vibrate?.(12);
     this.follow();
@@ -583,7 +632,7 @@ export class KanbanPage {
     const b = this.board();
     const marked = new Set(this.selection.ids());
     if (!b || !marked.has(note) || marked.size < 2) return [];
-    return b.columns.flatMap((col) => cardsIn(b, col.id).filter((c) => marked.has(c.note) && this.notes().has(c.note))).map((c) => c.note);
+    return b.columns.flatMap((col) => this.ordered(b, col).filter((c) => marked.has(c.note))).map((c) => c.note);
   }
 
   /** A altura das fichas do grupo empilhadas na coluna, com o vão de entre elas. */
@@ -645,7 +694,22 @@ export class KanbanPage {
         break;
       }
     }
+    index = this.clampSorted(d, id, index);
     if (d.over !== id || d.index !== index) this.drag.set({ ...d, over: id, index });
+  }
+
+  /**
+   * Numa coluna em ordem, a vaga só anda entre as anotações empatadas com a que vai (a ordem decide o
+   * resto): ela mostra onde a anotação vai aparecer de verdade.
+   */
+  private clampSorted(d: Drag, column: string, index: number): number {
+    const b = this.board();
+    const col = b?.columns.find((c) => c.id === column);
+    const card = b?.cards.find((c) => c.note === d.note);
+    if (!col?.sort?.length || !card) return index;
+    const shown = this.view().find((v) => v.col.id === column)?.items.filter((it) => !it.dragged).map((it) => it.card) ?? [];
+    const [lo, hi] = tieRange(shown, card, col.sort, (id) => this.notes().get(id));
+    return Math.max(lo, Math.min(index, hi));
   }
 
   /** A coluna na altura do ponteiro (pelo x: entre duas, a mais perto). */
@@ -718,11 +782,19 @@ export class KanbanPage {
     const b = this.board();
     if (!b) return;
     const shown = this.view().find((v) => v.col.id === d.over)?.items.filter((it) => !it.dragged) ?? [];
-    const before = shown[d.index]?.card.note;
+    const col = b.columns.find((c) => c.id === d.over);
+    let before: string | undefined = shown[d.index]?.card.note;
+    if (col?.sort?.length) {
+      // em ordem: soltar onde estava não mexe em nada (nem na ordem à mão guardada)
+      if (d.over === d.from && d.index === d.start) return;
+      // a vaga ficou entre as empatadas: antes da que vem depois dela, se também empata; senão, depois de todas
+      const card = b.cards.find((c) => c.note === d.note);
+      const cmp = sortComparator(col.sort, (id) => this.notes().get(id));
+      if (!card || !before || cmp(shown[d.index].card, card) !== 0) before = undefined;
+    }
     if (d.group.length) {
       // todas juntas, na ordem do quadro, antes da que estava no lugar da vaga
       this.actions.moveMany(b.id, d.group, d.over, before ?? null);
-      const col = b.columns.find((c) => c.id === d.over);
       this.said.set(`${d.group.length} anotações: ${col?.name ?? ''}.`);
       return;
     }
@@ -730,7 +802,6 @@ export class KanbanPage {
     const index = before ? all.findIndex((c) => c.note === before) : all.length;
     this.actions.move(b.id, d.note, d.over, index < 0 ? undefined : index);
     const n = this.store.get(d.note)?.game.name ?? 'A anotação';
-    const col = b.columns.find((c) => c.id === d.over);
     this.said.set(`${n}: ${col?.name ?? ''}.`);
   }
 
