@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Injectable, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injectable, effect, inject, signal, viewChild } from '@angular/core';
 
 export interface ToastMsg {
   id: number;
@@ -54,7 +54,7 @@ export class Toasts {
   selector: 'app-toast',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="live" role="status" aria-live="polite">
+    <div #live class="live" role="status" aria-live="polite">
       @if (toasts.current(); as t) {
         <div
           class="bilhete"
@@ -133,4 +133,39 @@ export class Toasts {
 })
 export class Toast {
   protected readonly toasts = inject(Toasts);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly live = viewChild.required<ElementRef<HTMLElement>>('live');
+
+  constructor() {
+    // Com uma folha aberta (um <dialog> modal), o resto da página fica por baixo dela e não responde:
+    // o bilhete e o Desfazer iam para trás da folha. Ele aparece dentro da folha de cima, no mesmo
+    // lugar da tela (as folhas paradas não têm transform), e volta para cá quando some ou ela fecha.
+    effect((onCleanup) => {
+      const live = this.live().nativeElement;
+      const home = this.host.nativeElement;
+      if (!this.toasts.current()) {
+        if (live.parentElement !== home) home.append(live);
+        return;
+      }
+      const sheet = topModal();
+      const into = sheet ?? home;
+      if (live.parentElement !== into) into.append(live);
+      if (!sheet) return;
+      const back = () => home.append(live);
+      sheet.addEventListener('close', back);
+      onCleanup(() => sheet.removeEventListener('close', back));
+    });
+  }
+}
+
+/** O diálogo modal aberto por cima de todos, se houver. */
+function topModal(): HTMLDialogElement | null {
+  const open = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')].filter((d) => {
+    try {
+      return d.matches(':modal');
+    } catch {
+      return false;
+    }
+  });
+  return open.at(-1) ?? null;
 }
