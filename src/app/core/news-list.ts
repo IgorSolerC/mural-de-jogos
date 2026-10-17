@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-rolagem-de-lado',
+    id: '2026-10-17-colunas-que-rolam',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
     title: 'Card padrão nas colunas do Kanban, tags escondidas no filtro e o quadro mais largo',
     melhorias: [
+      'As colunas do Kanban cabem na tela e rolam por dentro, cada uma com a sua rolagem, e a página não fica mais comprida por causa da coluna maior. Uma coluna com mais de 10 anotações (como a das finalizadas) mostra as 10 primeiras e, no pé, "Mostrar mais 5"; a anotação que chega a ela, por arrastar, pela seta ou pela Nova nota, sempre fica à vista.',
       'Cada coluna do Kanban pode ter um Card padrão, nos ajustes dela: monte o card com o mesmo estojo do editor (cor, papel, estampa, rabisco, estrago, manchas e decorações), e toda anotação que chega à coluna veste esse card. Mudar o card repinta as que estão lá, a Nova nota da coluna já nasce com ele, e a anotação que sai para uma coluna sem card volta ao visual dela.',
       'No filtro de tags do mural de anotações e do Kanban, o clique direito numa tag (no celular, segurar o dedo) esconde as anotações dela: a tag fica riscada, e um toque nela mostra de novo. É o "todas, menos estas".',
       'Em Tags, nas configurações do mural, cada tag tem o Filtro padrão: Disponível ou Excluído. A excluída já começa riscada toda vez que você abre o mural ou o quadro daquela categoria, e Limpar mostra tudo.',
@@ -48,6 +49,7 @@ export const NEWS: NewsEntry[] = [
       'Por dentro, o site passou por uma revisão para cada coisa ser feita de um jeito só em todas as telas: a ordem dos nomes, as contagens, as datas, o que fica guardado no navegador e os menus que fecham ao clicar fora (que agora só prestam atenção na página quando estão abertos), e os ícones ficam calados para quem usa leitor de tela. O X de fechar e a linha embaixo do título são os mesmos em todas as folhas. Quando o navegador não deixa copiar um link ou código, o aviso em Amigos diz o mesmo que nos Ajustes e no Perfil.',
     ],
     correcoes: [
+      'No Kanban, mover uma anotação não desliga mais as tags ligadas no filtro do quadro.',
       'No Kanban, os botões de ajustes e da seta não ficam mais à mostra numa anotação sem o mouse em cima, como depois de fechar a leitura dela.',
       'Com uma folha aberta (os ajustes de uma coluna do Kanban, Pessoas, os comentários), o bilhete do que acabou de acontecer aparece por cima dela, com o Desfazer à mão, em vez de ficar escondido atrás.',
       'A prévia do Card padrão e o nome do arquivo guardado antes da nuvem usam o dia daqui, e não mais o de amanhã depois das 21h.',

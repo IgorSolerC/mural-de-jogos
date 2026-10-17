@@ -131,6 +131,10 @@
           }
         </header>
 
+        <!-- as anotações rolam dentro da coluna (a página não cresce com a coluna mais comprida); a caixa
+             leva a sombra do alto e do pé enquanto há o que rolar para lá -->
+        <div class="caixa">
+        <div class="rolo">
         <ol class="fichas" [attr.aria-label]="'Anotações em ' + v.col.name">
           @for (it of v.items; track it.card.note) {
             <li
@@ -155,6 +159,16 @@
             <li class="vazia" aria-hidden="true">{{ filtering() ? 'Nada aqui com esse filtro' : 'Nenhuma anotação ainda' }}</li>
           }
         </ol>
+        @if (v.hidden) {
+          <!-- uma coluna comprida não monta todas as fichas de uma vez: as próximas cinco no pé dela -->
+          <button type="button" class="mais" (click)="showMore(v.col.id)">
+            <lucide-icon [img]="MoreIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            Mostrar mais {{ v.hidden < showStep ? v.hidden : showStep }}
+            <span class="mais-n"><span class="sr-only">, </span>faltam {{ v.hidden }}</span>
+          </button>
+        }
+        </div>
+        </div>
 
         <div class="adicionar">
           @if (adding() === v.col.id) {

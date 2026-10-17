@@ -860,4 +860,104 @@ describe('página do Kanban', () => {
       expect(cardsIn(kanban.get(TRAB)!, 'afazer').map((c) => c.note)).toEqual(['nlogin01', 'nsync001', 'nalfa001', 'nmeio001']);
     });
   });
+
+  it('mover uma anotação não desliga o filtro das tags (só trocar de quadro)', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const chips = () => [...host.querySelectorAll<HTMLButtonElement>('.pasta-baixo app-tag-chips .atalho')];
+    chips()[0].click();
+    await settle();
+    host.querySelector('[data-nota="nlogin01"] .hit')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
+    await settle();
+    expect(namesIn('fazendo')).toEqual(['nlogin01']);
+    expect(chips()[0].getAttribute('aria-pressed')).toBe('true');
+  });
+
+  describe('colunas compridas', () => {
+    /** Trabalho com 23 anotações em Feito (a coluna das finalizadas). */
+    function long(): KanbanBoard {
+      const b = board();
+      const ids = Array.from({ length: 23 }, (_, i) => `nfeit${String(i).padStart(3, '0')}`);
+      store.reviews.update((rs) => [...rs, ...ids.map((id, i) => note(id, `Feita ${i + 1}`, { category: 'Trabalho' }))]);
+      return { ...b, cards: [...b.cards, ...ids.map((id) => ({ note: id, column: 'feito', importance: null }))] };
+    }
+
+    it('mostram as 10 primeiras e o "Mostrar mais 5" no pé; a última leva das que faltam', async () => {
+      kanban.state.set(state(long()));
+      await go(TRAB_URL);
+      expect(namesIn('feito').length).toBe(10);
+      // a contagem da etiqueta continua contando todas
+      expect(column('feito').querySelector('.etiqueta-n')!.textContent).toContain('23');
+      const mais = () => column('feito').querySelector<HTMLButtonElement>('.mais');
+      expect(mais()!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Mostrar mais 5 , faltam 13');
+      // a coluna com poucas não tem botão
+      expect(column('afazer').querySelector('.mais')).toBeNull();
+      mais()!.click();
+      await settle();
+      expect(namesIn('feito').length).toBe(15);
+      mais()!.click();
+      await settle();
+      expect(namesIn('feito').length).toBe(20);
+      expect(mais()!.textContent).toContain('Mostrar mais 3');
+      mais()!.click();
+      await settle();
+      expect(namesIn('feito').length).toBe(23);
+      expect(mais()).toBeNull();
+      await settle();
+      // o botão sumiu: o foco vai para a primeira das que chegaram
+      // (na suíte inteira o foco às vezes não pega no headless: só confere quando a janela tem o foco)
+      if (document.hasFocus()) expect(document.activeElement?.closest('.lugar')?.getAttribute('data-nota')).toBe('nfeit020');
+    });
+
+    it('cada coluna rola por dentro: a altura dela cabe na tela e a página não cresce com ela', async () => {
+      kanban.state.set(state(long()));
+      await go(TRAB_URL);
+      column('feito').querySelector<HTMLButtonElement>('.mais')!.click();
+      await settle();
+      const rolo = column('feito').querySelector<HTMLElement>('.rolo')!;
+      expect(getComputedStyle(rolo).overflowY).toBe('auto');
+      expect(column('feito').getBoundingClientRect().height).toBeLessThanOrEqual(Math.max(360, innerHeight - 28) + 1);
+      expect(rolo.scrollHeight).toBeGreaterThan(rolo.clientHeight);
+      // a sombra do pé diz que há mais embaixo; rolando até o fim, ela sai e a do alto aparece
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      expect(rolo.parentElement!.classList).toContain('abaixo');
+      rolo.scrollTop = rolo.scrollHeight;
+      rolo.dispatchEvent(new Event('scroll'));
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      expect(rolo.parentElement!.classList).toContain('acima');
+      expect(rolo.parentElement!.classList).not.toContain('abaixo');
+    });
+
+    it('a anotação que desce além das que estão à mostra continua à vista', async () => {
+      kanban.state.set(state(long()));
+      await go(TRAB_URL);
+      // a 10ª desce uma: a coluna passa a mostrar 15
+      host.querySelector('[data-nota="nfeit009"] .hit')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true }));
+      await settle();
+      expect(namesIn('feito').length).toBe(15);
+      expect(namesIn('feito')[10]).toBe('nfeit009');
+    });
+
+    it('soltar depois da última à mostra cai antes das que o "Mostrar mais" guarda', async () => {
+      kanban.state.set(state(long()));
+      await go(TRAB_URL);
+      const grab = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"] .hit')!;
+      const r = grab.getBoundingClientRect();
+      const at = (x: number, y: number) => ({ bubbles: true, cancelable: true, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse', clientX: x, clientY: y });
+      grab.dispatchEvent(new PointerEvent('pointerdown', at(r.left + 20, r.top + 10)));
+      window.dispatchEvent(new PointerEvent('pointermove', at(r.left + 40, r.top + 30)));
+      await settle();
+      const rolo = column('feito').querySelector<HTMLElement>('.rolo')!;
+      rolo.scrollTop = rolo.scrollHeight;
+      const feito = column('feito').getBoundingClientRect();
+      const last = [...column('feito').querySelectorAll('.lugar:not(.vaga)')].at(-1)!.getBoundingClientRect();
+      window.dispatchEvent(new PointerEvent('pointermove', at(feito.left + feito.width / 2, last.bottom - 2)));
+      await settle();
+      window.dispatchEvent(new PointerEvent('pointerup', at(feito.left + feito.width / 2, last.bottom - 2)));
+      await settle();
+      const ids = cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note);
+      expect(ids.indexOf('nlogin01')).toBe(10);
+      expect(namesIn('feito')).toContain('nlogin01');
+    });
+  });
 });

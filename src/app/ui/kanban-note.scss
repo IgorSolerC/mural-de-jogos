@@ -193,8 +193,8 @@
 
 /* ===== Só os títulos: uma tira da cartolina da anotação, com o nome e a importância =====
    Sem tachinha nem data: o quadro inteiro numa olhada. Quase reta (um quarto da inclinação dela no
-   mural), uma tira grudada na outra. A etiqueta dos ajustes sai pela beirada da direita, no papel
-   pardo, para não cobrir a tira de cima. */
+   mural), uma tira grudada na outra. A etiqueta dos ajustes cola na ponta da direita, no meio da
+   altura, para não cobrir a tira de cima. */
 .tira {
   position: relative;
   display: flex;
@@ -264,12 +264,12 @@
   rotate: 2deg;
 }
 
-/* com o mouse, a etiqueta (a mesma do Fixar e do Finalizar, sem mudar nada nela) sai pela ponta da
-   tira, sem cobrir a importância; a coluna com a mão fica por cima da vizinha (ver kanban-page.scss) */
+/* com o mouse, a etiqueta (a mesma do Fixar e do Finalizar, sem mudar nada nela) cola na ponta da
+   tira, por cima da importância enquanto a mão está lá: a coluna rola por dentro e corta o que passa
+   da beirada dela (ver .rolo em kanban-page.scss), então ela não sai mais para o papel pardo */
 :host(.titulo) .acoes {
   top: 50%;
-  right: auto;
-  left: calc(100% - 12px);
+  right: -6px;
   margin-top: -15px;
   rotate: 2deg;
   translate: -5px 0;

@@ -431,6 +431,10 @@ $fade: clamp(22px, 7vw, 132px);
   display: flex;
   flex-direction: column;
   min-height: 220px;
+  /* a coluna cabe na tela: as anotações rolam dentro dela (ver .rolo), e a página não cresce com a
+     coluna mais comprida. svh, e não dvh: a barra do navegador do celular indo e vindo não estica as
+     colunas a cada rolagem */
+  max-height: max(360px, calc(100svh - 28px));
   padding: 0 14px 14px;
   border-radius: 2px;
   background-color: var(--kraft);
@@ -473,7 +477,9 @@ $fade: clamp(22px, 7vw, 132px);
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  margin: 20px -6px 18px;
+  flex: none;
+  /* embaixo, a etiqueta encosta na caixa das anotações, que leva a folga dela por dentro (ver .rolo) */
+  margin: 20px -6px 0;
   padding: 11px 9px 10px 15px;
   rotate: -0.8deg;
 }
@@ -621,19 +627,106 @@ $fade: clamp(22px, 7vw, 132px);
   }
 }
 
-/* ===== As anotações: pregadas uma embaixo da outra ===== */
+/* ===== As anotações: pregadas uma embaixo da outra, rolando dentro da coluna =====
+   A caixa ocupa o que sobra da coluna entre a etiqueta e o Adicionar; o rolo dentro dela vai de uma
+   beirada da tira à outra (a barra fica na beirada do papel pardo) e tem por dentro a folga de antes,
+   em cima maior, para a etiqueta das ações e o adesivo da marcada da primeira ficha não serem
+   cortados. */
+.caixa {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  margin-inline: -14px;
+
+  /* a sombra do papel: embaixo da etiqueta quando rolou para baixo, em cima do pé quando há mais
+     embaixo; ligada só pela opacidade (a página troca a classe, ver `shade`) */
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    z-index: 3;
+    height: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--t-ui) var(--ease-ui);
+  }
+
+  &::before {
+    top: 0;
+    background: linear-gradient(rgb(64 42 14 / 0.34), rgb(64 42 14 / 0));
+  }
+
+  &::after {
+    bottom: 0;
+    background: linear-gradient(rgb(64 42 14 / 0), rgb(64 42 14 / 0.3));
+  }
+
+  &.acima::before,
+  &.abaixo::after {
+    opacity: 1;
+  }
+}
+
+.rolo {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: 22px 14px 6px;
+  overflow-y: auto;
+  /* a rolagem numa camada própria, como a do quadro: desliza o que já está desenhado */
+  will-change: scroll-position;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(64 42 14 / 0.45) transparent;
+  /* o foco do teclado e a ficha que chegou não param embaixo da sombra */
+  scroll-padding-block: 22px 12px;
+}
+
+/* arrastando, a vaga anda pelas fichas; a rolagem da coluna não salta para segui-la */
+.quadro.arrastando .rolo {
+  overflow-anchor: none;
+}
+
+/* ===== Mostrar mais: as próximas cinco, no pé das que estão à mostra ===== */
+.mais {
+  @include kit.botao-papel;
+  width: 100%;
+  margin-top: 16px;
+  gap: 7px;
+  /* as fichas que chegam empurram o botão para baixo; a rolagem não se prende a ele */
+  overflow-anchor: none;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* quantas faltam: miúdo, na tinta rala, fora da caixa alta do botão */
+.mais-n {
+  font-family: var(--f-body);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgb(21 21 21 / 0.66);
+}
+
 .fichas {
   display: flex;
   flex-direction: column;
   gap: 16px;
   margin: 0;
-  padding: 8px 0 4px;
+  padding: 0;
   list-style: none;
 }
 
 .quadro.denso .fichas {
   gap: 6px;
-  padding-top: 2px;
+}
+
+.quadro.denso .rolo {
+  padding-top: 16px;
 }
 
 .lugar {
@@ -676,7 +769,8 @@ $fade: clamp(22px, 7vw, 132px);
     content: counter(marca);
     position: absolute;
     top: -19px;
-    right: -19px;
+    /* (no mural, -19px; aqui a beirada da coluna, que rola, cortaria a ponta do adesivo) */
+    right: -13px;
     z-index: 2;
     display: grid;
     place-items: center;
@@ -709,7 +803,7 @@ $fade: clamp(22px, 7vw, 132px);
   }
   &::after {
     top: -11px;
-    right: -18px;
+    right: -13px;
     width: 26px;
     height: 26px;
     border-width: 2px;

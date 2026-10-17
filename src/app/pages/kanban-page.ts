@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ArrowDownWideNarrow, CheckCheck, ChevronLeft, ChevronRight, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
+import { ArrowDownWideNarrow, CheckCheck, ChevronLeft, ChevronRight, ChevronsDown, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
@@ -54,6 +54,11 @@ const HOLD = 280;
 const TOUCH_SLOP = 10;
 /** A faixa perto da beirada onde o quadro (ou a página) rola sozinho enquanto se arrasta. */
 const EDGE = 70;
+/** A faixa perto do alto e do pé de uma coluna onde ela rola sozinha enquanto se arrasta. */
+const COLUMN_EDGE = 56;
+/** Quantas anotações uma coluna mostra de saída, e quantas a mais a cada "Mostrar mais". */
+export const FIRST_SHOWN = 10;
+export const SHOW_STEP = 5;
 
 /** Uma anotação numa coluna, como aparece: a ficha, o lugar no quadro e se é a que está sendo arrastada. */
 interface Item {
@@ -64,7 +69,12 @@ interface Item {
 
 interface ColumnView {
   col: KanbanBoard['columns'][number];
+  /** As que aparecem: as primeiras do filtro (ver `FIRST_SHOWN`) e, arrastando, a vaga. */
   items: Item[];
+  /** Todas as que o filtro deixa, na ordem da coluna (sem as que estão sendo arrastadas). */
+  list: KanbanCard[];
+  /** Quantas do filtro ainda não aparecem (o "Mostrar mais"). */
+  hidden: number;
   /** Quantas anotações a coluna tem de verdade (com o filtro, mostra menos). */
   total: number;
 }
@@ -143,6 +153,8 @@ export class KanbanPage {
   protected readonly SortIcon = ArrowDownWideNarrow;
   protected readonly BackIcon = ChevronLeft;
   protected readonly NextIcon = ChevronRight;
+  protected readonly MoreIcon = ChevronsDown;
+  protected readonly showStep = SHOW_STEP;
   protected readonly sortShort = sortShort;
   protected readonly sortSentence = sortSentence;
   protected readonly iconOf = COLUMN_ICON;
@@ -208,6 +220,12 @@ export class KanbanPage {
   protected readonly drag = signal<Drag | null>(null);
   /** O que o leitor de tela ouve depois de mover pelo teclado. */
   protected readonly said = signal('');
+  /**
+   * Quantas anotações cada coluna mostra (pelo id dela); sem número, as primeiras `FIRST_SHOWN`. Uma
+   * coluna comprida (a das finalizadas) não monta todas as fichas de uma vez: o "Mostrar mais" no pé
+   * dela traz mais `SHOW_STEP`. Vale nesta visita ao quadro.
+   */
+  private readonly shown = signal<ReadonlyMap<string, number>>(new Map());
 
   /** Os quadros vistos só pelos títulos (ver `setDense`). */
   private readonly denseBoards = signal<readonly string[]>(readDense());
@@ -332,10 +350,13 @@ export class KanbanPage {
       if (moving.has(c.note)) return true;
       return (!q || fold(n.game.name).includes(q)) && (!tags.length || (n.tags ?? []).some((t) => tags.includes(fold(t)))) && !hidden(n);
     };
+    const shown = this.shown();
     const out = b.columns.map((col) => {
       const all = this.ordered(b, col);
-      const items = all.filter((c) => shows(c) && !moving.has(c.note)).map((card) => ({ card, note: notes.get(card.note)!, dragged: false }));
-      return { col, items, total: all.length };
+      const list = all.filter((c) => shows(c) && !moving.has(c.note));
+      const limit = shown.get(col.id) ?? FIRST_SHOWN;
+      const items = list.slice(0, limit).map((card) => ({ card, note: notes.get(card.note)!, dragged: false }));
+      return { col, items, list, hidden: Math.max(0, list.length - limit), total: all.length };
     });
     if (d) {
       const card = b.cards.find((c) => c.note === d.note);
@@ -355,7 +376,37 @@ export class KanbanPage {
     return col.sort?.length ? sortCards(list, col.sort, (id) => notes.get(id)) : list;
   }
 
-  protected readonly shownCount = computed(() => this.view().reduce((n, v) => n + v.items.length, 0));
+  /** Quantas o filtro deixa no quadro (as que o "Mostrar mais" ainda guarda contam). */
+  protected readonly shownCount = computed(() => this.view().reduce((n, v) => n + v.list.length + v.items.filter((it) => it.dragged).length, 0));
+
+  /**
+   * O "Mostrar mais" do pé da coluna: mais `SHOW_STEP` fichas. O foco fica no botão, que desce com
+   * elas; se ele some (eram as últimas), vai para a primeira das que chegaram.
+   */
+  protected showMore(column: string): void {
+    const v = this.view().find((x) => x.col.id === column);
+    if (!v || !v.hidden) return;
+    const first = v.list[v.items.filter((it) => !it.dragged).length]?.note;
+    const last = v.hidden <= SHOW_STEP;
+    this.shown.update((m) => new Map(m).set(column, (m.get(column) ?? FIRST_SHOWN) + SHOW_STEP));
+    if (last && first) focusAfterRender(this.injector, () => this.host.querySelector<HTMLElement>(`.lugar[data-nota="${first}"] .hit`));
+  }
+
+  /**
+   * Garante que a anotação aparece na coluna dela (a que acabou de chegar, ou de descer além das
+   * que estão à mostra): a coluna passa a mostrar até ela, de cinco em cinco como o botão.
+   */
+  private reveal(note: string): void {
+    const b = this.board();
+    const card = b?.cards.find((c) => c.note === note);
+    const col = card ? b!.columns.find((c) => c.id === card.column) : undefined;
+    if (!b || !col) return;
+    const at = this.ordered(b, col).findIndex((c) => c.note === note);
+    const now = this.shown().get(col.id) ?? FIRST_SHOWN;
+    if (at < now) return;
+    const need = FIRST_SHOWN + Math.ceil((at + 1 - FIRST_SHOWN) / SHOW_STEP) * SHOW_STEP;
+    this.shown.update((m) => new Map(m).set(col.id, need));
+  }
 
   /**
    * Ctrl+clique marca anotações do quadro para copiar o texto delas, e Ctrl+C copia (ver
@@ -394,12 +445,15 @@ export class KanbanPage {
       writeText(LAST_KEY, b.id);
     });
     // trocou de quadro: o filtro e o que estava aberto eram do outro
+    // (pelo id: mexer numa ficha troca o objeto do quadro, e o filtro não pode sair a cada movida)
+    const boardId = computed(() => this.board()?.id);
     effect(() => {
-      this.board()?.id;
+      boardId();
       untracked(() => {
         this.tagFilter.set([]);
         this.tagOuts.set(NO_TAG_OUTS);
         this.adding.set(null);
+        this.shown.set(new Map());
       });
     });
     // as beiradas: medidas de novo ao rolar, ao mudar de tamanho e a cada coluna que entra ou sai
@@ -423,12 +477,55 @@ export class KanbanPage {
       this.dense();
       untracked(() => this.scheduleEdges());
     });
+    // a anotação nova que caiu numa coluna (a "Nova nota" do pé dela) aparece, mesmo depois das primeiras
+    effect(() => {
+      const id = this.desk.landingId();
+      if (id) untracked(() => this.reveal(id));
+    });
+    // cada coluna rola sozinha: a sombra no alto e no pé diz que há mais para lá (ver `shade`)
+    const onScroll = (e: Event) => {
+      const t = e.target;
+      if (t instanceof HTMLElement && t.classList.contains('rolo')) this.scheduleShade(t);
+    };
+    this.host.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    destroy.onDestroy(() => {
+      this.host.removeEventListener('scroll', onScroll, { capture: true });
+      cancelAnimationFrame(this.shadeFrame);
+    });
     destroy.onDestroy(() => {
       this.kanban.openBoard.set(null);
       this.endDrag();
       this.stopPan?.();
       cancelAnimationFrame(this.edgeFrame);
     });
+  }
+
+  // ===== A rolagem de cada coluna =====
+
+  private shadeFrame = 0;
+  private readonly shading = new Set<HTMLElement>();
+
+  private scheduleShade(rolo: HTMLElement): void {
+    this.shading.add(rolo);
+    if (this.shadeFrame) return;
+    this.shadeFrame = requestAnimationFrame(() => {
+      this.shadeFrame = 0;
+      for (const r of this.shading) this.shade(r);
+      this.shading.clear();
+    });
+  }
+
+  /**
+   * A sombra do papel embaixo da etiqueta (rolou para baixo) e em cima do pé (há mais embaixo): liga
+   * e desliga só pela classe da caixa, sem passar pelo Angular.
+   */
+  private shade(rolo: HTMLElement): void {
+    const box = rolo.parentElement;
+    if (!box) return;
+    const top = rolo.scrollTop > 2;
+    const bottom = rolo.scrollTop < rolo.scrollHeight - rolo.clientHeight - 2;
+    if (box.classList.contains('acima') !== top) box.classList.toggle('acima', top);
+    if (box.classList.contains('abaixo') !== bottom) box.classList.toggle('abaixo', bottom);
   }
 
   /** Troca a vista do quadro aberto, lembrada neste aparelho (sem os quadros que não existem mais). */
@@ -501,6 +598,7 @@ export class KanbanPage {
     this.pickColumn = null;
     if (!b || !col) return;
     this.actions.move(b.id, r.id, col);
+    this.reveal(r.id);
     this.desk.land(r.id);
   }
 
@@ -566,6 +664,7 @@ export class KanbanPage {
     } else return;
     e.preventDefault();
     this.actions.move(b.id, note, to, index);
+    this.reveal(note);
     this.sayPlace(note, n, to);
     // a ficha foi redesenhada em outro lugar: o foco vai com ela
     requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
@@ -582,6 +681,7 @@ export class KanbanPage {
     const next = b.columns[b.columns.findIndex((c) => c.id === column) + 1];
     if (!next) return;
     this.actions.move(b.id, note, next.id, 0);
+    this.reveal(note);
     this.sayPlace(note, this.store.get(note)?.game.name ?? 'A anotação', next.id);
     requestAnimationFrame(() => {
       const li = this.host.querySelector<HTMLElement>(`.lugar[data-nota="${note}"]`);
@@ -623,6 +723,7 @@ export class KanbanPage {
     const stored = cardsIn(b, col.id).filter((c) => c.note !== note);
     const i = stored.findIndex((c) => c.note === other.note);
     this.actions.move(b.id, note, col.id, by < 0 ? i : i + 1);
+    this.reveal(note);
     this.sayPlace(note, name, col.id);
     requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
   }
@@ -635,7 +736,10 @@ export class KanbanPage {
 
   protected onBoardDown(e: PointerEvent): void {
     if (e.pointerType !== 'mouse' || e.button !== 0 || this.drag()) return;
-    if ((e.target as HTMLElement).closest('.lugar, .etiqueta, .adicionar, button, a, input, select, label')) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('.lugar, .etiqueta, .adicionar, button, a, input, select, label')) return;
+    // a barra de rolagem da coluna é dela
+    if (target.classList.contains('rolo') && e.clientX > target.getBoundingClientRect().left + target.clientLeft + target.clientWidth) return;
     const q = this.quadro()?.nativeElement;
     if (!q || q.scrollWidth <= q.clientWidth) return;
     const x0 = e.clientX;
@@ -705,6 +809,7 @@ export class KanbanPage {
       }
       next = { start, end, before, after };
       this.placeVeil(q);
+      for (const r of Array.from(q.querySelectorAll<HTMLElement>('.rolo'))) this.shade(r);
     }
     const e = this.edges();
     if (e.start !== next.start || e.end !== next.end || e.before !== next.before || e.after !== next.after) this.edges.set(next);
@@ -936,7 +1041,7 @@ export class KanbanPage {
     const col = b?.columns.find((c) => c.id === column);
     const card = b?.cards.find((c) => c.note === d.note);
     if (!col?.sort?.length || !card) return index;
-    const shown = this.view().find((v) => v.col.id === column)?.items.filter((it) => !it.dragged).map((it) => it.card) ?? [];
+    const shown = this.view().find((v) => v.col.id === column)?.list ?? [];
     const [lo, hi] = tieRange(shown, card, col.sort, (id) => this.notes().get(id));
     return Math.max(lo, Math.min(index, hi));
   }
@@ -965,7 +1070,24 @@ export class KanbanPage {
       const { x, y } = this.pointer;
       const q = this.quadro()?.nativeElement;
       const speed = (d: number) => Math.round(((EDGE - d) / EDGE) * 18);
+      // a coluna embaixo do ponteiro rola para cima ou para baixo perto do alto e do pé dela; então a
+      // página espera
+      const rolo = this.columnAt(x)?.querySelector<HTMLElement>('.rolo');
       let moved = false;
+      if (rolo) {
+        const r = rolo.getBoundingClientRect();
+        const step = (d: number) => Math.round(((COLUMN_EDGE - d) / COLUMN_EDGE) * 16);
+        if (x >= r.left && x <= r.right && y > r.top - COLUMN_EDGE && y < r.bottom + COLUMN_EDGE) {
+          if (y < r.top + COLUMN_EDGE && rolo.scrollTop > 0) {
+            rolo.scrollTop -= step(Math.max(0, y - r.top));
+            moved = true;
+          } else if (y > r.bottom - COLUMN_EDGE && rolo.scrollTop < rolo.scrollHeight - rolo.clientHeight - 1) {
+            rolo.scrollTop += step(Math.max(0, r.bottom - y));
+            moved = true;
+          }
+        }
+      }
+      const columnMoved = moved;
       if (q) {
         const r = q.getBoundingClientRect();
         if (x < r.left + EDGE && q.scrollLeft > 0) {
@@ -976,7 +1098,9 @@ export class KanbanPage {
           moved = true;
         }
       }
-      if (y < EDGE) {
+      if (columnMoved) {
+        // a coluna já rola: a página fica
+      } else if (y < EDGE) {
         window.scrollBy(0, -speed(Math.max(0, y)));
         moved = true;
       } else if (y > innerHeight - EDGE) {
@@ -1005,26 +1129,29 @@ export class KanbanPage {
   private drop(d: Drag): void {
     const b = this.board();
     if (!b) return;
-    const shown = this.view().find((v) => v.col.id === d.over)?.items.filter((it) => !it.dragged) ?? [];
+    // (entre todas as do filtro: soltar depois da última à mostra cai antes da primeira que o "Mostrar mais" guarda)
+    const shown = this.view().find((v) => v.col.id === d.over)?.list ?? [];
     const col = b.columns.find((c) => c.id === d.over);
-    let before: string | undefined = shown[d.index]?.card.note;
+    let before: string | undefined = shown[d.index]?.note;
     if (col?.sort?.length) {
       // em ordem: soltar onde estava não mexe em nada (nem na ordem à mão guardada)
       if (d.over === d.from && d.index === d.start) return;
       // a vaga ficou entre as empatadas: antes da que vem depois dela, se também empata; senão, depois de todas
       const card = b.cards.find((c) => c.note === d.note);
       const cmp = sortComparator(col.sort, (id) => this.notes().get(id));
-      if (!card || !before || cmp(shown[d.index].card, card) !== 0) before = undefined;
+      if (!card || !before || cmp(shown[d.index], card) !== 0) before = undefined;
     }
     if (d.group.length) {
       // todas juntas, na ordem do quadro, antes da que estava no lugar da vaga
       this.actions.moveMany(b.id, d.group, d.over, before ?? null);
+      for (const n of d.group) this.reveal(n);
       this.said.set(`${d.group.length} anotações: ${col?.name ?? ''}.`);
       return;
     }
     const all = cardsIn(b, d.over).filter((c) => c.note !== d.note);
     const index = before ? all.findIndex((c) => c.note === before) : all.length;
     this.actions.move(b.id, d.note, d.over, index < 0 ? undefined : index);
+    this.reveal(d.note);
     const n = this.store.get(d.note)?.game.name ?? 'A anotação';
     this.said.set(`${n}: ${col?.name ?? ''}.`);
   }
