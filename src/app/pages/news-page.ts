@@ -82,6 +82,8 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
     </ol>
   `,
   styles: `
+    @use '../ui/paper-kit' as kit;
+
     :host {
       display: block;
     }
@@ -116,14 +118,8 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
 
     /* Ficha pautada de papelaria: branca, o fio vermelho embaixo da linha do título e a pauta azul no resto */
     .ficha {
+      @include kit.folha;
       --line: 1.85rem;
-      position: relative;
-      border-radius: 2px;
-      background-color: var(--papel-ficha);
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      color: var(--ink);
-      box-shadow: var(--shadow-card);
 
       .pin {
         top: -10px;

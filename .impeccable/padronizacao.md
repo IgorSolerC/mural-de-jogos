@@ -69,7 +69,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     `--foil-gold-word` no `:root`, ao lado do `--foil-gold`.
 17. [x] **Tachinha com a cor padrão escrita**: `color="#e62e2d"` em 27 tachinhas, que já é o padrão do `app-pin`. Saiu;
     só as brancas (e as outras cores) dizem a cor.
-18. [ ] **Folha creme**: `kit.folha` existe e é usado uma vez; settings copia igual.
+18. [x] **Folha creme**: `kit.folha` existe e é usado uma vez; settings copia igual. Agora Ajustes, editor do perfil,
+    Novidades e o bilhete do Feed vazio incluem o kit; nas Novidades e no editor do perfil faltava o `--focus` de tinta
+    (o anel saía amarelo no creme, contra a regra do DESIGN): correção nas Novidades.
 19. [ ] **Linha de ajuste** (`.linha`, `.linha-titulo`, `.linha-desc`): igual em settings, mural-config e Amigos, sem mixin.
 20. [ ] **Título das folhas** (`.titulos`, `.sub`): 7 cópias nas folhas que já usam `_sheet.scss`.
 21. [ ] **Escondido para os olhos** (`sr-only`) copiado em 8 media queries: mixin.

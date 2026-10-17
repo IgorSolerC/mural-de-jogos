@@ -495,18 +495,9 @@ fieldset.linha .previa-linha {
 
 /* ===== A folha: papel de ficha creme, reta, com o fio vermelho embaixo do título ===== */
 .folha {
+  @include kit.folha;
   --pad: 36px;
-  --focus: var(--ink);
-  position: relative;
-  min-width: 0;
   padding: 34px var(--pad) 32px;
-  border-radius: 2px;
-  background-color: var(--papel-ficha);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  color-scheme: light;
-  box-shadow: var(--shadow-card);
   container: folha / inline-size;
 
   .pin {

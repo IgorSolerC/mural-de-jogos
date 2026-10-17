@@ -1,4 +1,5 @@
 @use '../ui/profile-materials' as materials;
+@use '../ui/paper-kit' as kit;
 
 :host {
   display: block;
@@ -176,15 +177,8 @@
    Papel de ficha, não cartolina: a cor do perfil fica na prévia e nas amostras, e o formulário fica
    quieto em volta dela (o mesmo papel das Novidades, com o fio vermelho embaixo do título). */
 .ficha {
-  position: relative;
+  @include kit.folha;
   padding: 30px 28px 28px;
-  border-radius: 2px;
-  background-color: var(--papel-ficha);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  color-scheme: light;
-  box-shadow: var(--shadow-card);
 
   .pin {
     top: -10px;
