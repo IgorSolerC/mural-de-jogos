@@ -109,7 +109,7 @@
           <lucide-icon class="etiqueta-icone" [img]="iconOf[v.col.icon]" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
           <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">
             {{ v.col.name }}
-            <!-- quantas: impresso miúdo depois do nome, como nas abas dos quadros -->
+            <!-- quantas: impresso miúdo na ponta da etiqueta, sempre no mesmo lugar, como nas abas dos quadros -->
             <span class="etiqueta-n"><span class="sr-only">, </span>{{ v.total }}<span class="sr-only">{{ v.total === 1 ? ' anotação' : ' anotações' }}</span></span>
           </h2>
           <button type="button" class="etiqueta-btn" [attr.aria-label]="'Ajustes da coluna ' + v.col.name" title="Ajustes da coluna" aria-haspopup="dialog" (click)="columnSheet.set({ id: v.col.id, fresh: false })">

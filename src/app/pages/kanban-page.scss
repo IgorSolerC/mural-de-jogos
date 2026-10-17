@@ -483,8 +483,14 @@ $fade: clamp(22px, 7vw, 132px);
   color: var(--col-cor);
 }
 
+/* o nome à esquerda, quebrando em quantas linhas precisar; a contagem sempre na ponta direita, junto do
+   lápis, no meio da altura como o ícone e o lápis: no mesmo lugar em toda coluna, com nome curto ou longo */
 .etiqueta-nome {
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-family: var(--f-marker);
   font-weight: 400;
   font-size: 1.3rem;
@@ -492,15 +498,15 @@ $fade: clamp(22px, 7vw, 132px);
   overflow-wrap: anywhere;
 }
 
-/* quantas: impresso miúdo logo depois do nome, na tinta da etiqueta mais rala (como nas abas) */
+/* quantas: impresso miúdo na ponta da etiqueta, na tinta dela mais rala (como nas abas) */
 .etiqueta-n {
-  margin-left: 0.3em;
+  flex: none;
   font-family: var(--f-label);
   font-weight: 700;
   font-size: 0.92rem;
+  line-height: 1;
   letter-spacing: 0.04em;
   white-space: nowrap;
-  vertical-align: 0.12em;
   opacity: 0.68;
   font-variant-numeric: tabular-nums;
 }

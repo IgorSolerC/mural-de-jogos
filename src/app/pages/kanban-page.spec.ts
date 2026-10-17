@@ -357,6 +357,28 @@ describe('página do Kanban', () => {
     expect(seta('nsync001')!.getAttribute('aria-label')).toBe('Levar Sincronizar quadros para Fazendo');
   });
 
+  it('a contagem fica na ponta direita da etiqueta, no mesmo lugar com nome curto ou longo', async () => {
+    const b = board();
+    b.columns[0].name = 'Ok';
+    b.columns[1].name = 'Esperando a resposta do cliente sobre o orçamento';
+    kanban.state.set(state(b));
+    await go(TRAB_URL);
+    const gap = (id: string) => {
+      const h = column(id).querySelector('.etiqueta-nome')!.getBoundingClientRect();
+      const n = column(id).querySelector('.etiqueta-n')!.getBoundingClientRect();
+      return { right: h.right - n.right, middle: Math.abs((n.top + n.bottom) / 2 - (h.top + h.bottom) / 2), lines: h.height };
+    };
+    const curto = gap('afazer');
+    const longo = gap('fazendo');
+    expect(longo.lines).toBeGreaterThan(curto.lines);
+    expect(Math.abs(curto.right)).toBeLessThan(1);
+    expect(Math.abs(longo.right)).toBeLessThan(1);
+    expect(curto.middle).toBeLessThan(3);
+    expect(longo.middle).toBeLessThan(3);
+    // o nome continua sendo o texto do título, com a contagem para o leitor de tela
+    expect(columnName(column('afazer').querySelector('.etiqueta-nome')!)).toBe('Ok');
+  });
+
   it('a seta põe a anotação no topo da coluna seguinte, em cima das que já estavam lá', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
