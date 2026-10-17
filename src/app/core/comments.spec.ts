@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudAccountInfo, CloudError } from './cloud-account';
-import { COMMENT_MAX, Comments, commentWhen, parseComment, parseCounts, parseThread, quoteOf, spokenComments, withQuote } from './comments';
+import { COMMENT_MAX, Comment, Comments, commentTree, commentWhen, liveCount, parseComment, parseCounts, parseThread, quoteOf, spokenComments, withQuote, withoutComment } from './comments';
 import { FeedItem, Follow, parseFeed } from './follow';
 import { parseRich } from './rich-text';
 import { Toasts } from '../ui/toast';
@@ -83,10 +83,95 @@ describe('comentários', () => {
       expect(parseCounts(undefined)).toEqual({ contagem: new Map(), quem: 'seguidores', pode: false });
     });
 
+    it('a resposta leva o id do respondido; o apagado com respostas vem sem autor nem texto', () => {
+      expect(parseComment(raw(2, 'Caio', 'Concordo.', { respostaA: id(1) }))?.replyTo).toBe(id(1));
+      // um id que não serve (ou o próprio) não vira resposta
+      expect(parseComment(raw(2, 'Caio', 'Oi', { respostaA: 'x' }))?.replyTo).toBeUndefined();
+      expect(parseComment(raw(2, 'Caio', 'Oi', { respostaA: id(2) }))?.replyTo).toBeUndefined();
+      expect(parseComment({ id: id(3), apagado: true, autor: null, texto: '', em: at, reacoes: [], respostaA: id(1) })).toEqual({
+        id: id(3),
+        autor: { codigo: '', nome: '', foto: null },
+        texto: '',
+        em: at,
+        reacoes: [],
+        gone: true,
+        replyTo: id(1),
+      });
+    });
+
+    it('o aviso de resposta no correio: com o dono da ficha e a resposta; sem dono, fica de fora', () => {
+      const base = { em: at, pessoa: { codigo: 'BBBB-2222', nome: 'Bia' }, ref: 'r-hades', titulo: 'Hades', mural: 'jogos', silenciado: false };
+      const items = parseFeed([
+        { tipo: 'respondeu', ...base, dono: 'aaaa1111', comentario: id(4) },
+        { tipo: 'respondeu', ...base, dono: '' },
+        { tipo: 'respondeu', ...base, dono: ANA, comentario: 'nao' },
+      ]);
+      expect(items).toEqual([
+        { tipo: 'respondeu', ...base, mural: 'jogos', dono: ANA, comentario: id(4) } as FeedItem,
+        { tipo: 'respondeu', ...base, mural: 'jogos', dono: ANA, comentario: null } as FeedItem,
+      ]);
+    });
+
     it('o aviso de comentário no correio', () => {
       const base = { em: at, pessoa: { codigo: 'BBBB-2222', nome: 'Bia' }, ref: 'r-hades', titulo: 'Hades', mural: 'jogos', silenciado: false };
       const items = parseFeed([{ tipo: 'comentou', ...base }, { tipo: 'comentou', ...base, ref: 'x' }, { tipo: 'comentou', ...base, titulo: '' }]);
       expect(items).toEqual([{ tipo: 'comentou', ...base, mural: 'jogos' } as FeedItem]);
+    });
+  });
+
+  describe('a árvore da conversa', () => {
+    const k = (n: number, replyTo?: number, gone = false): Comment => ({
+      id: id(n),
+      autor: gone ? { codigo: '', nome: '', foto: null } : { codigo: 'BBBB-2222', nome: 'Bia', foto: null },
+      texto: gone ? '' : `c${n}`,
+      em: at,
+      reacoes: [],
+      ...(replyTo ? { replyTo: id(replyTo) } : {}),
+      ...(gone ? { gone: true as const } : {}),
+    });
+    const shape = (nodes: ReturnType<typeof commentTree>): unknown => nodes.map((n) => [n.k.texto || 'x', n.size, ...(n.kids.length ? [shape(n.kids)] : [])]);
+
+    it('cada resposta embaixo do comentário dela, na ordem em que veio, com quantas há embaixo', () => {
+      const tree = commentTree([k(1), k(2), k(3, 1), k(4, 3), k(5, 1), k(6, 2)]);
+      expect(shape(tree)).toEqual([
+        ['c1', 3, [['c3', 1, [['c4', 0]]], ['c5', 0]]],
+        ['c2', 1, [['c6', 0]]],
+      ]);
+    });
+
+    it('a resposta a um comentário que não veio fica na raiz, marcada; uma mais velha que o pai, também', () => {
+      const tree = commentTree([k(1), k(2, 9), k(3, 4), k(4)]);
+      expect(tree.map((n) => [n.k.texto, n.lost])).toEqual([
+        ['c1', false],
+        ['c2', true],
+        ['c3', true],
+        ['c4', false],
+      ]);
+    });
+
+    it('o apagado não conta: nem na conversa, nem nas respostas embaixo', () => {
+      const list = [k(1, undefined, true), k(2, 1), k(3, 2, true), k(4, 3)];
+      expect(liveCount(list)).toBe(2);
+      expect(commentTree(list)[0].size).toBe(2);
+    });
+
+    it('apagar: com respostas fica o lugar; sem, sai e leva o apagado de cima que ficou só por ele', () => {
+      const list = [k(1), k(2, 1), k(3, 2), k(4, 1)];
+      const a = withoutComment(list, id(2));
+      expect(a.map((c) => [c.texto, !!c.gone])).toEqual([
+        ['c1', false],
+        ['', true],
+        ['c3', false],
+        ['c4', false],
+      ]);
+      expect(a[1].replyTo).toBe(id(1));
+      const b = withoutComment(withoutComment(a, id(1)), id(3));
+      // o 2 (apagado) saiu com a última resposta; o 1 (apagado) fica pela do lado (4)
+      expect(b.map((c) => [c.id, !!c.gone])).toEqual([
+        [id(1), true],
+        [id(4), false],
+      ]);
+      expect(withoutComment(b, id(4))).toEqual([]);
     });
   });
 
@@ -262,6 +347,36 @@ describe('comentários', () => {
       fail = new CloudError('Siga a pessoa para comentar nas fichas dela.', 'comentar-sem-seguir', 403);
       await expectAsync(s.post(HADES, 'Posso?')).toBeRejectedWith(fail);
       expect(s.thread(ANA, 'r-hades')!.comentarios.length).toBe(2);
+    });
+
+    it('responder: a resposta vai com o id do respondido e entra na conversa', async () => {
+      const s = make();
+      await s.loadThread(HADES);
+      await s.post(HADES, 'Né?', id(1));
+      expect(calls.at(-1)!.body).toEqual({ texto: 'Né?', titulo: 'Hades', mural: 'jogos', respostaA: id(1) });
+      expect(s.countOf(ANA, 'r-hades')).toBe(3);
+    });
+
+    it('apagar um comentário com respostas deixa o lugar dele, e a conta desce', async () => {
+      const s = make();
+      thread = [raw(1, 'Bia', 'Que final!'), raw(2, 'Caio', 'Concordo.', { respostaA: id(1) })];
+      await s.loadThread(HADES);
+      await s.remove(HADES, id(1));
+      expect(s.thread(ANA, 'r-hades')!.comentarios.map((k) => [k.id, !!k.gone])).toEqual([
+        [id(1), true],
+        [id(2), false],
+      ]);
+      expect(s.countOf(ANA, 'r-hades')).toBe(1);
+    });
+
+    it('o comentário que a conversa deve mostrar ao abrir (o do aviso) vale uma vez, e só para a ficha dele', () => {
+      const s = make();
+      s.want('r-hades', id(4));
+      expect(s.takeFocus('r-celeste')).toBeNull();
+      expect(s.takeFocus('r-hades')).toBe(id(4));
+      expect(s.takeFocus('r-hades')).toBeNull();
+      s.want('r-hades');
+      expect(s.takeFocus('r-hades')).toBeNull();
     });
 
     it('apagar some na hora; se a nuvem recusar, volta e o bilhete diz por quê', async () => {

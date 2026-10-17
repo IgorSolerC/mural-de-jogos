@@ -26,6 +26,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-17-respostas-nos-comentarios',
+    version: '1.25.0',
+    kind: 'funcionalidade',
+    date: '2026-10-17',
+    title: 'Respostas nos comentários',
+    notice: 'Novo: responda aos comentários. Toque em Responder embaixo de qualquer comentário, até de uma resposta.',
+    items: [
+      'Qualquer comentário pode ser respondido, até a resposta de uma resposta: Responder, embaixo dele, abre o campo dizendo a quem você responde (o X volta a comentar na ficha), e o comentário respondido fica marcado.',
+      'As respostas ficam embaixo do comentário, recuadas e ligadas a ele por um fio fino que desce da foto; tocar no fio recolhe a conversa dali para baixo, e "Ver 3 respostas" abre de novo. Bem fundo na conversa, a resposta diz a quem responde.',
+      'Quem foi respondido recebe o aviso em Amigos › Avisos ("Bia respondeu ao seu comentário em Hades"), que abre a conversa já na resposta, na sua ficha ou na de outra pessoa.',
+      'Apagar um comentário que tem respostas deixa "Comentário apagado" no lugar dele, para a conversa continuar fazendo sentido; ele sai de vez quando a última resposta sai.',
+    ],
+  },
+  {
     id: '2026-10-17-contador-que-repete',
     version: '1.24.2',
     kind: 'ajustes',

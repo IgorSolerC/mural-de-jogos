@@ -888,6 +888,8 @@ export function amigosSuite(label: string, getDb: () => Db) {
         };
         const comment = (token: string | undefined, codigo: string, ref: string, texto: unknown, titulo = 'Hades') =>
           read(t.json('POST', `/v1/murais/${codigo}/comentarios/${ref}`, { texto, titulo, mural: 'jogos' }, token));
+        const reply = (token: string | undefined, codigo: string, ref: string, respostaA: unknown, texto: string) =>
+          read(t.json('POST', `/v1/murais/${codigo}/comentarios/${ref}`, { texto, titulo: 'Hades', mural: 'jogos', respostaA }, token));
         const thread = (codigo: string, ref: string, token?: string) => read(t.json('GET', `/v1/murais/${codigo}/comentarios/${ref}`, undefined, token));
         const counts = (codigo: string, token?: string) => read(t.json('GET', `/v1/murais/${codigo}/comentarios`, undefined, token));
         const erase = (token: string | undefined, id: string) => read(t.json('DELETE', `/v1/comentarios/${id}`, undefined, token));
@@ -895,7 +897,8 @@ export function amigosSuite(label: string, getDb: () => Db) {
         const unreact = (token: string | undefined, id: string) => read(t.json('DELETE', `/v1/comentarios/${id}/reacao`, undefined, token));
         const accept = (token: string, comentarios: unknown) => read(t.json('PATCH', '/v1/eu', { comentarios }, token));
         const notices = async (token: string) => (await t.feed(token)).body.itens.filter((i: any) => i.tipo === 'comentou');
-        return { ...t, ana, bia, caio, comment, thread, counts, erase, react, unreact, accept, notices };
+        const answers = async (token: string) => (await t.feed(token)).body.itens.filter((i: any) => i.tipo === 'respondeu');
+        return { ...t, ana, bia, caio, comment, reply, thread, counts, erase, react, unreact, accept, notices, answers };
       }
 
       it('quem segue a dona comenta; todo mundo vê, do mais antigo para o mais novo, com o nome e a foto', async () => {
@@ -1049,6 +1052,106 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await thread(ana.codigo, 'r-hades')).body.comentarios.map((k: any) => k.autor.nome)).toEqual(['Caio', 'Bia', 'Dan', 'Ana']);
         expect((await accept(ana.token, 'seguidores')).status).toBe(200);
         expect((await comment(caio.token, ana.codigo, 'r-hades', 'Voltei.')).status).toBe(201);
+      });
+
+      it('respostas: a qualquer comentário da ficha, até a resposta de uma resposta, com o id do respondido', async () => {
+        const { comment, reply, thread, counts, login, ana, bia, caio } = await commenting();
+        const root = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        const first = await reply(caio.token, ana.codigo, 'r-hades', root, 'Concordo.');
+        expect(first.status).toBe(201);
+        expect(first.body.comentario).toMatchObject({ texto: 'Concordo.', respostaA: root });
+        const deep = await reply(bia.token, ana.codigo, 'r-hades', first.body.comentario.id, 'Né?');
+        expect(deep.body.comentario.respostaA).toBe(first.body.comentario.id);
+        const { body } = await thread(ana.codigo, 'r-hades');
+        expect(body.comentarios.map((k: any) => [k.texto, k.respostaA ?? null])).toEqual([
+          ['Que final!', null],
+          ['Concordo.', root],
+          ['Né?', first.body.comentario.id],
+        ]);
+        // o comentário que não é uma resposta não leva o campo
+        expect('respostaA' in body.comentarios[0]).toBe(false);
+        expect((await counts(ana.codigo)).body.contagem).toEqual({ 'r-hades': 3 });
+        // o respondido precisa ser desta ficha e existir
+        const other = (await comment(caio.token, ana.codigo, 'r-celeste', 'Outra ficha.', 'Celeste')).body.comentario.id;
+        for (const bad of [other, '00000000-0000-0000-0000-000000000000', 'nao-e-um-id', 7]) {
+          const res = await reply(bia.token, ana.codigo, 'r-hades', bad, 'Oi');
+          expect([res.status, res.body.erro], String(bad)).toEqual([404, 'comentario-nao-encontrado']);
+        }
+        // quem não pode comentar também não responde
+        const dan = await login('dan', 'Dan');
+        expect((await reply(dan.token, ana.codigo, 'r-hades', root, 'Oi')).status).toBe(403);
+      });
+
+      it('quem foi respondido recebe o aviso, com o dono da ficha e a resposta; a dona respondida não recebe dois', async () => {
+        const { comment, reply, notices, answers, advance, ana, bia, caio } = await commenting();
+        advance(60_000);
+        const fromBia = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        const fromAna = (await comment(ana.token, ana.codigo, 'r-hades', 'Obrigada!')).body.comentario.id;
+        const at = new Date(NOW.getTime() + 60_000).toISOString();
+        const r1 = (await reply(caio.token, ana.codigo, 'r-hades', fromBia, 'Concordo.')).body.comentario.id;
+        expect(await answers(bia.token)).toEqual([
+          {
+            tipo: 'respondeu',
+            em: at,
+            pessoa: { codigo: caio.codigo, nome: 'Caio' },
+            ref: 'r-hades',
+            titulo: 'Hades',
+            mural: 'jogos',
+            silenciado: false,
+            dono: ana.codigo,
+            comentario: r1,
+          },
+        ]);
+        // a dona continua com o "comentou" do Caio (a resposta não foi a ela)
+        expect((await notices(ana.token)).map((i: any) => i.pessoa.nome).sort()).toEqual(['Bia', 'Caio']);
+        // respondendo à dona: só o "respondeu", não o "comentou" também
+        await reply(bia.token, ana.codigo, 'r-hades', fromAna, 'De nada!');
+        expect((await answers(ana.token)).map((i: any) => i.pessoa.nome)).toEqual(['Bia']);
+        expect((await notices(ana.token)).map((i: any) => i.pessoa.nome).sort()).toEqual(['Bia', 'Caio']);
+        // responder ao próprio comentário não avisa ninguém
+        await reply(caio.token, ana.codigo, 'r-hades', r1, 'Aliás…');
+        expect(await answers(caio.token)).toEqual([]);
+      });
+
+      it('apagar um comentário com respostas deixa o lugar dele; a última resposta que sai leva o apagado junto', async () => {
+        const { comment, reply, thread, counts, erase, react, answers, ana, bia, caio } = await commenting();
+        const root = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        const r1 = (await reply(caio.token, ana.codigo, 'r-hades', root, 'Concordo.')).body.comentario.id;
+        await react(caio.token, root, 'amei');
+        const gone = await erase(bia.token, root);
+        expect([gone.status, gone.body]).toEqual([200, { ok: true, apagado: true }]);
+        const { body } = await thread(ana.codigo, 'r-hades');
+        expect(body.comentarios).toEqual([
+          { id: root, apagado: true, autor: null, texto: '', em: expect.any(String), reacoes: [] },
+          expect.objectContaining({ id: r1, respostaA: root, texto: 'Concordo.' }),
+        ]);
+        expect((await counts(ana.codigo)).body.contagem).toEqual({ 'r-hades': 1 });
+        // o apagado não recebe mais nada: nem reação, nem resposta, nem outro apagar
+        expect((await react(caio.token, root, 'fogo')).status).toBe(404);
+        expect((await reply(caio.token, ana.codigo, 'r-hades', root, 'Oi')).status).toBe(404);
+        expect((await erase(bia.token, root)).status).toBe(404);
+        // o aviso do Caio à Bia sai com a resposta, e o apagado sai junto
+        expect(await answers(bia.token)).toHaveLength(1);
+        expect((await erase(caio.token, r1)).body).toEqual({ ok: true });
+        expect(await answers(bia.token)).toEqual([]);
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios).toEqual([]);
+      });
+
+      it('o apagado que ainda tem outra resposta fica; numa árvore, só sobe enquanto não sobra resposta', async () => {
+        const { comment, reply, thread, erase, ana, bia, caio } = await commenting();
+        const root = (await comment(bia.token, ana.codigo, 'r-hades', 'Raiz')).body.comentario.id;
+        const mid = (await reply(caio.token, ana.codigo, 'r-hades', root, 'Meio')).body.comentario.id;
+        const leaf = (await reply(bia.token, ana.codigo, 'r-hades', mid, 'Folha')).body.comentario.id;
+        const side = (await reply(caio.token, ana.codigo, 'r-hades', root, 'Ao lado')).body.comentario.id;
+        await erase(bia.token, root);
+        await erase(caio.token, mid);
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios.map((k: any) => k.apagado ?? false)).toEqual([true, true, false, false]);
+        // sai a folha: o meio (apagado, sem mais respostas) sai; a raiz fica, por causa da do lado
+        await erase(bia.token, leaf);
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios.map((k: any) => k.id)).toEqual([root, side]);
+        // a dona apaga a do lado: não sobra nada
+        await erase(ana.token, side);
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios).toEqual([]);
       });
 
       it('apaga quem escreveu ou a dona da ficha; o aviso sai com o último comentário da pessoa ali', async () => {

@@ -41,7 +41,7 @@ interface Person {
 }
 
 interface FeedRow {
-  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou' | 'compartilhou';
+  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou' | 'respondeu' | 'compartilhou';
   criado_em: string;
   ref: string | null;
   resumo: string | null;
@@ -67,7 +67,7 @@ async function pairKey(followerId: string, followedId: string): Promise<string> 
   return base64url((await sha256(`seguindo:${followerId}:${followedId}`)).slice(0, 12));
 }
 
-function summary(raw: string | null): { titulo: string; mural: string; reacao?: string; papel?: string } | null {
+function summary(raw: string | null): { titulo: string; mural: string; reacao?: string; papel?: string; dono?: string; comentario?: string } | null {
   if (!raw) return null;
   try {
     const data = JSON.parse(raw) as Record<string, unknown>;
@@ -77,6 +77,8 @@ function summary(raw: string | null): { titulo: string; mural: string; reacao?: 
       mural: data['mural'],
       ...(typeof data['reacao'] === 'string' ? { reacao: data['reacao'] } : {}),
       ...(typeof data['papel'] === 'string' ? { papel: data['papel'] } : {}),
+      ...(typeof data['dono'] === 'string' ? { dono: data['dono'] } : {}),
+      ...(typeof data['comentario'] === 'string' ? { comentario: data['comentario'] } : {}),
     };
   } catch {
     return null;
@@ -293,7 +295,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
           'FROM atividades a JOIN usuarios u ON u.id = a.autor_id ' +
           'LEFT JOIN seguindo m ON m.seguidor_id = a.alvo_id AND m.seguido_id = a.autor_id ' +
           // (o comentário do dono numa anotação compartilhada é aviso só para os outros dela)
-          "WHERE a.tipo IN ('reagiu', 'comentou') AND a.alvo_id = ? AND a.autor_id <> a.alvo_id AND a.criado_em > ? " +
+          // (e quem respondeu a um comentário meu, em qualquer ficha)
+          "WHERE a.tipo IN ('reagiu', 'comentou', 'respondeu') AND a.alvo_id = ? AND a.autor_id <> a.alvo_id AND a.criado_em > ? " +
           'UNION ALL ' +
           // quem comentou numa anotação em que eu estou (de outra pessoa), enquanto eu ainda estou nela
           "SELECT 'comentou' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(f.silenciado, 0) AS silenciado, " +
@@ -334,6 +337,8 @@ export function followRoutes(app: Hono, deps: Deps): void {
           return { ...base, ref: r.ref, titulo: (sum?.titulo || 'Anotação').slice(0, 120), mural: 'anotacoes', papel: sum?.papel ?? 'leitor', euSigo: !!r.eu_sigo };
         }
         const review = { ...base, ref: r.ref, titulo: sum?.titulo ?? '', mural: sum?.mural ?? 'jogos', silenciado: !!r.silenciado };
+        // a resposta: de quem é a ficha (pode ser de outra pessoa) e qual comentário abrir
+        if (r.tipo === 'respondeu') return { ...review, dono: sum?.dono ?? '', comentario: sum?.comentario ?? '' };
         return r.tipo === 'reagiu' ? { ...review, reacao: sum?.reacao ?? 'amei' } : review;
       }),
       vistasEm: seenAt,

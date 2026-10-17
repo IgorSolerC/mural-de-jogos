@@ -389,12 +389,35 @@ export class MailPage {
     this.openReview(p.theirs, p.item.pessoa, p.secret);
   }
 
-  /** Um aviso tocado: a minha ficha que recebeu a reação, ou os comentários dela. */
+  /**
+   * Um aviso tocado: a minha ficha que recebeu a reação, ou os comentários dela; a resposta a um
+   * comentário meu abre a conversa já nela, na minha ficha (ou na anotação compartilhada que está no
+   * meu mural) ou na ficha da outra pessoa, que vem do mural dela.
+   */
   protected openNotice(n: CardNotice): void {
     const mine = this.store.get(n.item.ref);
+    if (n.tipo === 'respondeu') {
+      if (mine) {
+        this.comments.want(mine.id, n.item.comentario ?? undefined);
+        this.desk.openReview(mine.id);
+      } else void this.openTheirs(n.item.dono, n.item.ref, n.item.comentario);
+      return;
+    }
     if (!mine) return;
     if (n.tipo === 'comentou') this.openMyComments(mine);
     else this.desk.openReview(mine.id);
+  }
+
+  /** A ficha `ref` do mural de `code`, aberta na conversa (no comentário `comment`, se veio). */
+  private async openTheirs(code: string, ref: string, comment: string | null): Promise<void> {
+    const wall = await this.cloudMurals.ensure(code, [ref]);
+    const r = wall?.reviews.find((x) => x.id === ref);
+    if (!wall || !r) {
+      this.toasts.show(wall ? 'Essa ficha não está mais no mural.' : 'Não consegui abrir essa ficha agora. Tente de novo.');
+      return;
+    }
+    this.comments.want(r.id, comment ?? undefined);
+    this.openReview(r, { codigo: code, nome: wall.name });
   }
 
   /** Abre a minha ficha já com os comentários à mostra. */

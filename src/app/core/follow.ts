@@ -52,6 +52,11 @@ export type FeedItem =
   | { tipo: 'reagiu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; reacao: ReactionId }
   /** Alguém comentou na minha ficha `ref` (ver core/comments.ts). */
   | { tipo: 'comentou'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean }
+  /**
+   * Alguém respondeu a um comentário meu na ficha `ref` do mural de `dono` (a minha, ou a de outra
+   * pessoa); `comentario` é a resposta, para a conversa abrir nela.
+   */
+  | { tipo: 'respondeu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; dono: string; comentario: string | null }
   /** Alguém compartilhou comigo a anotação `ref`, com um papel (ver core/shared-notes.ts). Nunca silenciado. */
   | { tipo: 'compartilhou'; em: string; pessoa: Person; ref: string; titulo: string; mural: 'anotacoes'; silenciado: boolean; papel: MemberRole; euSigo: boolean };
 
@@ -84,12 +89,18 @@ export function parseFeed(raw: unknown): FeedItem[] {
       if (!ref) continue;
       const papel = isMemberRole(r['papel']) ? r['papel'] : 'leitor';
       out.push({ tipo: 'compartilhou', em, pessoa, ref, titulo: text(r['titulo'], 120) ?? 'Anotação', mural: 'anotacoes', silenciado: false, papel, euSigo: r['euSigo'] === true });
-    } else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu' || r['tipo'] === 'comentou') {
+    } else if (r['tipo'] === 'resenha' || r['tipo'] === 'reagiu' || r['tipo'] === 'comentou' || r['tipo'] === 'respondeu') {
       const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
       const titulo = text(r['titulo'], 120);
       if (!ref || !titulo) continue;
       const base = { em, pessoa, ref, titulo, mural: isKind(r['mural']) ? r['mural'] : 'jogos', silenciado: r['silenciado'] === true } as const;
       if (r['tipo'] === 'resenha' || r['tipo'] === 'comentou') out.push({ tipo: r['tipo'], ...base });
+      else if (r['tipo'] === 'respondeu') {
+        // sem o dono, não há como abrir a ficha: o aviso não entra
+        const dono = typeof r['dono'] === 'string' ? normalizeCode(r['dono']) : null;
+        const comentario = typeof r['comentario'] === 'string' && /^[0-9a-f-]{36}$/.test(r['comentario']) ? r['comentario'] : null;
+        if (dono) out.push({ tipo: 'respondeu', ...base, dono, comentario });
+      }
       else if (isReaction(r['reacao'])) out.push({ tipo: 'reagiu', ...base, reacao: r['reacao'] });
     }
   }

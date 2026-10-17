@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
-import { Check, LucideAngularModule, MessageCircleMore, UserPlus, UsersRound } from 'lucide-angular';
+import { Check, LucideAngularModule, MessageCircleMore, Reply, UserPlus, UsersRound } from 'lucide-angular';
+import { CloudAccount } from '../core/cloud-account';
 import { Follow, Person, agoLabel, fullWhen } from '../core/follow';
 import { CardNotice, Notice, SharedNotice, noticeSpoken, noticeVerb, noticeWhere } from '../core/notices';
 import { ROLE_LABEL } from '../core/shared-notes';
@@ -11,7 +12,7 @@ import { PersonFace, PersonPhoto } from './person-photo';
 /**
  * Os avisos de Amigos, um por linha, direto na folha: a foto de quem foi (com um remendo dizendo o
  * quê: a reação, o balão de fala, o "seguiu"), a frase e há quanto tempo. A linha inteira abre a
- * minha ficha (nos comentários, quando o aviso é de comentário); a foto e o nome de cada pessoa abrem o
+ * ficha (nos comentários, quando o aviso é de comentário ou de resposta); a foto e o nome de cada pessoa abrem o
  * perfil dela. Quem começou a seguir traz o "Seguir de volta" ali mesmo. Serve ao quadro ao lado do
  * Feed e à aba Avisos.
  */
@@ -46,8 +47,12 @@ export class NoticeList {
 
   private readonly follow = inject(Follow);
   private readonly store = inject(ReviewStore);
+  private readonly account = inject(CloudAccount);
+  /** O meu código (a resposta na minha ficha abre do meu mural). */
+  private readonly me = () => this.account.account()?.codigo ?? null;
 
   protected readonly CommentIcon = MessageCircleMore;
+  protected readonly ReplyIcon = Reply;
   protected readonly FollowIcon = UserPlus;
   protected readonly SharedIcon = UsersRound;
   protected readonly CheckIcon = Check;
@@ -55,8 +60,12 @@ export class NoticeList {
   protected readonly where = noticeWhere;
   protected readonly spoken = noticeSpoken;
 
-  /** A minha ficha do aviso ainda está no mural? (Sem ela, o título é só texto.) */
+  /**
+   * A ficha do aviso ainda está à mão? A minha, no mural (sem ela, o título é só texto); a de outra
+   * pessoa (uma resposta lá) vem do mural dela ao tocar.
+   */
   protected has(n: CardNotice): boolean {
+    if (n.tipo === 'respondeu' && n.item.dono !== this.me()) return true;
     return !!this.store.get(n.item.ref);
   }
 
@@ -82,6 +91,7 @@ export class NoticeList {
 
   /** O que o leitor de tela diz da linha que abre a ficha. */
   protected openLabel(n: CardNotice): string {
+    if (n.tipo === 'respondeu') return `Ver a resposta em ${n.item.titulo}`;
     return n.tipo === 'comentou' ? `Ver os comentários de ${n.item.titulo}` : `Ver a ficha ${n.item.titulo}`;
   }
 

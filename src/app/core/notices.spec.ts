@@ -88,4 +88,29 @@ describe('os avisos de Amigos', () => {
     expect(noticeSpoken(comments)).toBe('Ana e Bia comentaram na sua ficha de Obra rminha3');
     expect(noteComment.tipo === 'comentou' && noticeWhere(noteComment)).toBe('na sua anotação');
   });
+
+  it('respostas aos meus comentários: seguidas na mesma ficha viram um aviso; a frase diz onde, de quem for a ficha', () => {
+    const respondeu = (pessoa: typeof ana, ref: string, h: number): FeedItem => ({
+      tipo: 'respondeu',
+      em: at(h),
+      pessoa,
+      ref,
+      titulo: `Obra ${ref}`,
+      mural: 'jogos',
+      silenciado: false,
+      dono: dani.codigo,
+      comentario: null,
+    });
+    const [two, one] = groupNotices([respondeu(ana, 'rdani01', 20), respondeu(bia, 'rdani01', 19), comentou(cris, 'rminha1', 18), respondeu(cris, 'rdani02', 17)]).filter(
+      (n) => n.tipo === 'respondeu',
+    );
+    expect(noticeSpoken(two)).toBe('Ana e Bia responderam ao seu comentário em Obra rdani01');
+    expect(noticeSpoken(one)).toBe('Cris respondeu ao seu comentário em Obra rdani02');
+  });
+
+  it('a resposta que também chegou como comentário (na anotação compartilhada) aparece uma vez só, como resposta', () => {
+    const answer: FeedItem = { tipo: 'respondeu', em: at(20), pessoa: bia, ref: 'nminha1', titulo: 'Compras', mural: 'anotacoes', silenciado: false, dono: ana.codigo, comentario: null };
+    const notices = groupNotices([answer, comentou(bia, 'nminha1', 20, 'anotacoes'), comentou(cris, 'nminha1', 19, 'anotacoes')]);
+    expect(notices.map((n) => `${n.tipo}:${n.people.map((p) => p.nome).join('+')}`)).toEqual(['respondeu:Bia', 'comentou:Cris']);
+  });
 });

@@ -11,6 +11,7 @@ import { ROLE_LABEL } from './shared-notes';
 type Followed = Extract<FeedItem, { tipo: 'seguiu' }>;
 type Reacted = Extract<FeedItem, { tipo: 'reagiu' }>;
 type Commented = Extract<FeedItem, { tipo: 'comentou' }>;
+type Answered = Extract<FeedItem, { tipo: 'respondeu' }>;
 type Shared = Extract<FeedItem, { tipo: 'compartilhou' }>;
 
 export type Notice =
@@ -19,11 +20,13 @@ export type Notice =
   | { tipo: 'reagiu'; key: string; item: Reacted; people: Person[]; reactions: ReactionId[] }
   /** Os comentários seguidos na mesma ficha: cada pessoa uma vez. */
   | { tipo: 'comentou'; key: string; item: Commented; people: Person[] }
+  /** As respostas seguidas aos meus comentários na mesma ficha: cada pessoa uma vez. */
+  | { tipo: 'respondeu'; key: string; item: Answered; people: Person[] }
   /** Alguém compartilhou uma anotação comigo (um aviso por anotação). */
   | { tipo: 'compartilhou'; key: string; item: Shared; people: Person[] };
 
-/** Um aviso sobre uma ficha minha (reagiram, comentaram). */
-export type CardNotice = Extract<Notice, { tipo: 'reagiu' | 'comentou' }>;
+/** Um aviso sobre uma ficha (reagiram ou comentaram na minha, responderam a um comentário meu). */
+export type CardNotice = Extract<Notice, { tipo: 'reagiu' | 'comentou' | 'respondeu' }>;
 /** O aviso de uma anotação compartilhada comigo. */
 export type SharedNotice = Extract<Notice, { tipo: 'compartilhou' }>;
 
@@ -34,8 +37,11 @@ export type SharedNotice = Extract<Notice, { tipo: 'compartilhou' }>;
  */
 export function groupNotices(items: readonly FeedItem[]): Notice[] {
   const out: Notice[] = [];
+  // a resposta a um comentário meu numa anotação compartilhada também chega como "comentou": fica só a resposta
+  const answered = new Set(items.filter((i) => i.tipo === 'respondeu').map((i) => `${i.pessoa.codigo}|${i.ref}|${i.em}`));
   for (const item of items) {
     if (item.tipo === 'resenha') continue;
+    if (item.tipo === 'comentou' && answered.has(`${item.pessoa.codigo}|${item.ref}|${item.em}`)) continue;
     if (item.tipo === 'seguiu') {
       out.push({ tipo: 'seguiu', key: `seguiu:${item.pessoa.codigo}:${item.em}`, item, people: [item.pessoa] });
       continue;
@@ -45,7 +51,7 @@ export function groupNotices(items: readonly FeedItem[]): Notice[] {
       continue;
     }
     const last = out[out.length - 1];
-    const same = last && (last.tipo === 'reagiu' || last.tipo === 'comentou') && last.tipo === item.tipo && last.item.ref === item.ref ? last : null;
+    const same = last && (last.tipo === 'reagiu' || last.tipo === 'comentou' || last.tipo === 'respondeu') && last.tipo === item.tipo && last.item.ref === item.ref ? last : null;
     const fresh = !same?.people.some((p) => p.codigo === item.pessoa.codigo);
     if (item.tipo === 'reagiu') {
       if (same?.tipo === 'reagiu') {
@@ -55,6 +61,12 @@ export function groupNotices(items: readonly FeedItem[]): Notice[] {
           if (!same.reactions.includes(item.reacao)) same.reactions.push(item.reacao);
         }
       } else out.push({ tipo: 'reagiu', key: `reagiu:${item.ref}:${item.em}`, item, people: [item.pessoa], reactions: [item.reacao] });
+      continue;
+    }
+    if (item.tipo === 'respondeu') {
+      if (same?.tipo === 'respondeu') {
+        if (fresh) same.people.push(item.pessoa);
+      } else out.push({ tipo: 'respondeu', key: `respondeu:${item.ref}:${item.em}`, item, people: [item.pessoa] });
       continue;
     }
     if (same?.tipo === 'comentou') {
@@ -76,12 +88,15 @@ export function noticeVerb(n: Notice): string {
   if (n.tipo === 'seguiu') return 'começou a seguir você';
   if (n.tipo === 'compartilhou') return 'compartilhou uma nota com você:';
   const many = n.people.length > 1;
+  if (n.tipo === 'respondeu') return many ? 'responderam ao seu comentário' : 'respondeu ao seu comentário';
   return n.tipo === 'reagiu' ? (many ? 'reagiram' : 'reagiu') : many ? 'comentaram' : 'comentou';
 }
 
 /** "à sua ficha de" (Hades), "à sua anotação" (Compras); com comentário, "na sua…". */
 export function noticeWhere(n: CardNotice): string {
   const note = n.item.mural === 'anotacoes';
+  // a resposta pode ser na ficha de outra pessoa: "em Hades"
+  if (n.tipo === 'respondeu') return 'em';
   if (n.tipo === 'reagiu') return note ? 'à sua anotação' : 'à sua ficha de';
   return note ? 'na sua anotação' : 'na sua ficha de';
 }

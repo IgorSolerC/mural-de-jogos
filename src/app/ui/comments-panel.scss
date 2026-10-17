@@ -51,31 +51,75 @@
   list-style: none;
 }
 
+/* Um comentário: a fala (a foto e o corpo) e, embaixo, o ramo com as respostas. Na raiz, a foto tem
+   38px; nas respostas, 28px (como no Reddit e no Instagram), e tudo o que mede o recuo e o fio sai
+   dela (`--foto`). */
 .comentario {
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px 0 12px;
-  /* a tinta dos botões do comentário em repouso: fraca, mas à vista (3,4:1 no papel) */
-  --quieto: rgb(21 21 21 / 0.5);
+  --foto: 38px;
+  --topo: 14px;
+  position: relative;
+  padding: var(--topo) 0 12px;
 }
 
-/* o mouse ou o foco chegou no comentário: os botões dele escurecem */
-.comentario:hover,
-.comentario:focus-within {
-  --quieto: var(--ink);
+.comentario.resposta {
+  --foto: 28px;
+  --topo: 10px;
+  padding-bottom: 0;
 }
 
-.comentario + .comentario {
+/* só os comentários soltos se separam com o tracejado; as respostas ficam juntas no ramo */
+.lista > .comentario + .comentario {
   border-top: 1.5px dashed rgb(21 21 21 / 0.22);
 }
 
-/* a foto leva ao perfil de quem escreveu: o botão fica no alto da fala, com 40px de toque (a foto
-   tem 38: o que sobra passa 1px para cada lado da coluna, sem tirar nada do lugar) */
-.comentario > .foto-perfil {
+.fala {
+  /* o vão entre a foto e o texto: "Ver N respostas" alinha por ele */
+  --vao: 12px;
+  display: grid;
+  grid-template-columns: var(--foto) minmax(0, 1fr);
+  gap: var(--vao);
+  border-radius: 3px;
+  /* a tinta dos botões do comentário em repouso: fraca, mas à vista (3,4:1 no papel) */
+  --quieto: rgb(21 21 21 / 0.5);
+  transition:
+    background-color 600ms var(--ease-ui),
+    box-shadow 600ms var(--ease-ui);
+}
+
+.resposta > .fala {
+  --vao: 10px;
+}
+
+/* o mouse ou o foco chegou na fala: os botões dela escurecem (os das respostas embaixo, não). No
+   toque, só o foco: o :hover de um dedo fica preso depois de tocar */
+.fala:focus-within {
+  --quieto: var(--ink);
+}
+
+@media (hover: hover) {
+  .fala:hover {
+    --quieto: var(--ink);
+  }
+}
+
+/* a fala que o campo do pé está respondendo, e a que acabou de chegar: o marca-texto amarelo por
+   trás, passando um pouco das beiradas */
+.respondendo > .fala,
+.fala.chegou {
+  background-color: rgb(255 218 66 / 0.32);
+  box-shadow: 0 0 0 6px rgb(255 218 66 / 0.32);
+}
+
+.fala.chegou {
+  transition: none;
+}
+
+/* a foto leva ao perfil de quem escreveu: o botão fica no alto da fala, com 2px de toque a mais que a
+   foto (o que sobra passa 1px para cada lado da coluna, sem tirar nada do lugar) */
+.fala > .foto-perfil {
   align-self: start;
-  width: 40px;
-  height: 40px;
+  width: calc(var(--foto) + 2px);
+  height: calc(var(--foto) + 2px);
   margin-inline: -1px;
 }
 
@@ -83,8 +127,8 @@
 .foto {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: var(--foto);
+  height: var(--foto);
   margin-top: 2px;
   border: 3px solid #fbfaf5;
   border-radius: 2px;
@@ -93,16 +137,140 @@
     0 3px 5px -2px rgb(0 0 0 / 0.35);
 }
 
+.resposta .foto {
+  border-width: 2px;
+}
+
 .foto-emoji {
-  font-size: 19px;
+  font-size: calc(var(--foto) * 0.5);
   line-height: 1;
 }
 
 .foto-inicial {
   font-family: var(--f-marker);
-  font-size: 1.15rem;
+  font-size: calc(var(--foto) * 0.48);
   line-height: 1;
   translate: 0 1px;
+}
+
+/* ===== O comentário apagado que ficou por causa das respostas: só o contorno de onde ele estava ===== */
+.foto-vazia {
+  width: var(--foto);
+  height: var(--foto);
+  margin-top: 2px;
+  border: 2px dashed rgb(21 21 21 / 0.3);
+  border-radius: 2px;
+}
+
+.texto.apagado-texto {
+  margin: 0;
+  padding-top: calc((var(--foto) - var(--line)) / 2);
+  color: var(--ink-2);
+}
+
+/* ===== O ramo: o fio que desce da foto e as respostas recuadas =====
+   O fio é um traço fino de caneta, do pé da foto até o fim das respostas, no meio da foto (o mesmo
+   lugar do Reddit). A área de toque dele tem 16px; escurece com o mouse, e tocar recolhe. */
+.fio {
+  --fio-cor: rgb(21 21 21 / 0.2);
+  position: absolute;
+  top: calc(var(--topo) + var(--foto) + 8px);
+  bottom: 4px;
+  /* 24px de toque (o fio é o único jeito de recolher no celular), o traço de 2px no meio */
+  left: calc(var(--foto) / 2 - 12px);
+  z-index: 1;
+  width: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(90deg, transparent 11px, var(--fio-cor) 11px 13px, transparent 13px);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  @media (hover: hover) {
+    &:hover {
+      --fio-cor: rgb(21 21 21 / 0.62);
+      background-color: rgb(21 21 21 / 0.05);
+    }
+  }
+
+  &:focus-visible {
+    --fio-cor: var(--ink);
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+.ramo {
+  /* as respostas começam um pouco depois do fio, na coluna do texto de quem foi respondido */
+  padding-left: calc(var(--foto) / 2 + 14px);
+
+  /* fundo demais para recuar de novo: as respostas ficam na linha da fala de cima */
+  &.rente {
+    padding-left: 0;
+  }
+}
+
+.respostas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* recolhidas: quantas respostas há, na coluna do texto, para abrir de novo */
+.mostrar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  /* o texto do botão começa na coluna do texto da fala (o vão menos o respiro do botão) */
+  margin: 2px 0 0 calc(var(--foto) + var(--vao, 12px) - 8px);
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  @media (hover: hover) {
+    &:hover {
+      background: rgb(21 21 21 / 0.06);
+      color: var(--ink);
+    }
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* a quem a fala responde, quando o recuo não diz mais (ou o respondido não veio) */
+.a-quem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 1px 0 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+  }
 }
 
 .corpo {
@@ -185,6 +353,60 @@
   overflow-wrap: anywhere;
 }
 
+/* o pé da fala: o remendo das reações (quando há alguma) e Responder, na mesma linha */
+.pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+
+/* Responder: escrito em tinta fraca como os outros botões da fala, escurece com o mouse ou o foco */
+.responder {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  margin-left: -7px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--quieto);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  @media (hover: hover) {
+    &:hover {
+      background: rgb(21 21 21 / 0.07);
+      color: var(--ink);
+    }
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+    color: var(--ink);
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* com o remendo na frente, Responder não precisa voltar até a margem */
+.remendo + .responder {
+  margin-left: 0;
+}
+
 /* as reações do comentário: o remendo de feltro embaixo da fala, só quando há alguma */
 .remendo {
   @include felt.remendo(-3.5px);
@@ -192,7 +414,7 @@
   align-items: center;
   gap: 3px;
   height: 27px;
-  margin: 6px 0 2px;
+  margin: 2px 0;
   padding: 0 9px 0 7px;
   border: 0;
   border-radius: 14px;
@@ -360,6 +582,79 @@ p.vazio {
   }
 }
 
+/* respondendo: a quem, com o X que volta a comentar na ficha, em cima do campo */
+.respondendo-a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 8px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+  }
+}
+
+.respondendo-texto {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* o nome leva até a fala respondida, lá em cima (o marca-texto passa nela) */
+.respondendo-nome {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: underline 1.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-thickness: 2.5px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.respondendo-tirar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -6px -8px -6px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.08);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -2px;
+  }
+}
+
 .acoes {
   display: flex;
   align-items: center;
@@ -455,7 +750,10 @@ p.vazio {
 
 @media (prefers-reduced-motion: reduce) {
   .remendo,
-  .tinta {
+  .tinta,
+  .fala,
+  .fio,
+  .responder {
     transition: none;
   }
 }

@@ -14,81 +14,8 @@
     }
     @if (t.comentarios.length) {
       <ol class="lista" [attr.aria-label]="spoken()">
-        @for (k of t.comentarios; track k.id) {
-          @let mine = k.autor.codigo === me();
-          <li class="comentario" [class.meu]="mine">
-            <!-- a "foto" do perfil de quem escreveu (o emoji na cartolina), ou a inicial: leva ao perfil, como o nome -->
-            <button type="button" class="foto-perfil" tabindex="-1" aria-hidden="true" (click)="leave.emit(['/perfil', k.autor.codigo])">
-              <span class="foto cartolina" [attr.data-cor]="stockOf(k)" [style.--stock]="'var(--stock-' + stockOf(k) + ')'" [style.rotate.deg]="tilt(k.autor.codigo)">
-                @if (k.autor.foto; as f) {
-                  <span class="foto-emoji">{{ f.emoji }}</span>
-                } @else {
-                  <span class="foto-inicial">{{ initial(k.autor.nome) }}</span>
-                }
-              </span>
-            </button>
-            <div class="corpo">
-              <div class="cabeca">
-                <p class="quem">
-                  <!-- o nome leva ao perfil de quem escreveu (o seu, ao seu) -->
-                  @if (mine) {
-                    <button type="button" class="nome nome-link" aria-label="Você: ver o seu perfil" (click)="leave.emit(['/perfil', k.autor.codigo])">Você</button>
-                  } @else {
-                    <button type="button" class="nome nome-link" [attr.aria-label]="'Ver o perfil de ' + k.autor.nome" (click)="leave.emit(['/perfil', k.autor.codigo])">{{ k.autor.nome }}</button>
-                  }
-                  <time class="quando" [attr.datetime]="k.em">{{ when(k.em) }}</time>
-                </p>
-                <!-- o que dá para fazer com o comentário, na ponta da linha do nome e em tinta fraca:
-                     só escurece quando o mouse (ou o foco) chega nele -->
-                @if (t.pode || canErase(k)) {
-                  <div class="fazer">
-                    @if (t.pode) {
-                      <app-reaction-picker [quiet]="true" [current]="mineOn(k)" (picked)="react(k, $event)" />
-                    }
-                    @if (canErase(k)) {
-                      <button type="button" class="apagar" [attr.aria-label]="mine ? 'Apagar o seu comentário' : 'Apagar o comentário de ' + k.autor.nome" title="Apagar" (click)="erase(k)">
-                        <lucide-icon [img]="EraseIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
-                      </button>
-                    }
-                  </div>
-                }
-              </div>
-              <div class="texto"><app-rich-text [text]="k.texto" /></div>
-
-              @if (k.reacoes.length) {
-                <!-- as reações do comentário: o remendo de feltro, que abre quem reagiu -->
-                <button
-                  type="button"
-                  class="remendo"
-                  [attr.aria-expanded]="whoOpen() === k.id"
-                  [attr.aria-label]="'Reações: ' + reactionsSpoken(k) + '. Ver quem reagiu'"
-                  (click)="whoOpen.set(whoOpen() === k.id ? null : k.id)"
-                >
-                  <span class="remendo-emojis" aria-hidden="true">
-                    @for (r of top(k); track r.kind.id) {
-                      <span>{{ r.kind.emoji }}</span>
-                    }
-                  </span>
-                  @if (k.reacoes.length > 1) {
-                    <span class="remendo-n" aria-hidden="true">{{ k.reacoes.length }}</span>
-                  }
-                </button>
-                @if (whoOpen() === k.id) {
-                  <ul class="quem-reagiu">
-                    @for (w of whoReacted(k); track w.emoji) {
-                      <li>
-                        <span [attr.aria-label]="w.label" role="img">{{ w.emoji }}</span>
-                        <!-- cada nome leva ao perfil de quem reagiu -->
-                        @for (p of w.people; track p.codigo; let i = $index; let last = $last) {
-                          <span>{{ i ? (last ? ' e ' : ', ') : ' ' }}</span><button type="button" class="quem-link" [attr.aria-label]="p.spoken" (click)="leave.emit(['/perfil', p.codigo])">{{ p.nome }}</button>
-                        }
-                      </li>
-                    }
-                  </ul>
-                }
-              }
-            </div>
-          </li>
+        @for (n of tree(); track n.k.id) {
+          <ng-container *ngTemplateOutlet="fala; context: { $implicit: n, depth: 0, flat: false, parent: null }" />
         }
       </ol>
     } @else {
@@ -107,6 +34,155 @@
     <p class="vazio" role="status"><span class="carregando" aria-hidden="true"></span>Buscando os comentários…</p>
   }
 </div>
+
+<!-- um comentário e, embaixo dele, as respostas (que usam este mesmo molde, uma fundura abaixo) -->
+<ng-template #fala let-n let-depth="depth" let-flat="flat" let-parent="parent">
+  @let k = n.k;
+  @let mine = !k.gone && k.autor.codigo === me();
+  <li
+    class="comentario"
+    [class.resposta]="depth > 0"
+    [class.apagado]="k.gone"
+    [class.meu]="mine"
+    [class.respondendo]="replyTo()?.id === k.id"
+    [attr.data-comentario]="k.id"
+  >
+    <div class="fala">
+      @if (k.gone) {
+        <!-- apagado, mas com respostas: o lugar dele, sem foto, nome nem texto -->
+        <span class="foto-vazia" aria-hidden="true"></span>
+        <div class="corpo">
+          <p class="texto apagado-texto">Comentário apagado</p>
+        </div>
+      } @else {
+        <!-- a "foto" do perfil de quem escreveu (o emoji na cartolina), ou a inicial: leva ao perfil, como o nome -->
+        <button type="button" class="foto-perfil" tabindex="-1" aria-hidden="true" (click)="leave.emit(['/perfil', k.autor.codigo])">
+          <span class="foto cartolina" [attr.data-cor]="stockOf(k)" [style.--stock]="'var(--stock-' + stockOf(k) + ')'" [style.rotate.deg]="tilt(k.autor.codigo)">
+            @if (k.autor.foto; as f) {
+              <span class="foto-emoji">{{ f.emoji }}</span>
+            } @else {
+              <span class="foto-inicial">{{ initial(k.autor.nome) }}</span>
+            }
+          </span>
+        </button>
+        <div class="corpo">
+          <div class="cabeca">
+            <p class="quem">
+              <!-- o nome leva ao perfil de quem escreveu (o seu, ao seu) -->
+              @if (mine) {
+                <button type="button" class="nome nome-link" aria-label="Você: ver o seu perfil" (click)="leave.emit(['/perfil', k.autor.codigo])">Você</button>
+              } @else {
+                <button type="button" class="nome nome-link" [attr.aria-label]="'Ver o perfil de ' + k.autor.nome" (click)="leave.emit(['/perfil', k.autor.codigo])">{{ k.autor.nome }}</button>
+              }
+              <time class="quando" [attr.datetime]="k.em">{{ when(k.em) }}</time>
+            </p>
+            <!-- o que dá para fazer com o comentário, na ponta da linha do nome e em tinta fraca:
+                 só escurece quando o mouse (ou o foco) chega nele -->
+            @if (canReact() || canErase(k)) {
+              <div class="fazer">
+                @if (canReact()) {
+                  <app-reaction-picker [quiet]="true" [current]="mineOn(k)" (picked)="react(k, $event)" />
+                }
+                @if (canErase(k)) {
+                  <button type="button" class="apagar" [attr.aria-label]="mine ? 'Apagar o seu comentário' : 'Apagar o comentário de ' + k.autor.nome" title="Apagar" (click)="erase(n)">
+                    <lucide-icon [img]="EraseIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+                  </button>
+                }
+              </div>
+            }
+          </div>
+          @if (flat && parent) {
+            <!-- fundo demais para recuar: a fala diz a quem responde, como no Twitter -->
+            <p class="a-quem">
+              <lucide-icon [img]="ReplyIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              {{ parent.gone ? 'Respondendo a um comentário apagado' : 'Respondendo a ' + nameOf(parent) }}
+            </p>
+          } @else if (n.lost) {
+            <p class="a-quem">
+              <lucide-icon [img]="ReplyIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              Respondendo a um comentário mais antigo
+            </p>
+          }
+          <div class="texto"><app-rich-text [text]="k.texto" /></div>
+
+          <!-- o pé da fala: as reações (o remendo de feltro, só quando há alguma) e Responder -->
+          @if (k.reacoes.length || canReact()) {
+            <div class="pe">
+              @if (k.reacoes.length) {
+                <button
+                  type="button"
+                  class="remendo"
+                  [attr.aria-expanded]="whoOpen() === k.id"
+                  [attr.aria-label]="'Reações: ' + reactionsSpoken(k) + '. Ver quem reagiu'"
+                  (click)="whoOpen.set(whoOpen() === k.id ? null : k.id)"
+                >
+                  <span class="remendo-emojis" aria-hidden="true">
+                    @for (r of top(k); track r.kind.id) {
+                      <span>{{ r.kind.emoji }}</span>
+                    }
+                  </span>
+                  @if (k.reacoes.length > 1) {
+                    <span class="remendo-n" aria-hidden="true">{{ k.reacoes.length }}</span>
+                  }
+                </button>
+              }
+              @if (canReact()) {
+                <button type="button" class="responder" [attr.aria-label]="mine ? 'Responder ao seu comentário' : 'Responder a ' + k.autor.nome" (click)="answer(k)">
+                  <lucide-icon [img]="ReplyIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                  Responder
+                </button>
+              }
+            </div>
+          }
+          @if (whoOpen() === k.id) {
+            <ul class="quem-reagiu">
+              @for (w of whoReacted(k); track w.emoji) {
+                <li>
+                  <span [attr.aria-label]="w.label" role="img">{{ w.emoji }}</span>
+                  <!-- cada nome leva ao perfil de quem reagiu -->
+                  @for (p of w.people; track p.codigo; let i = $index; let last = $last) {
+                    <span>{{ i ? (last ? ' e ' : ', ') : ' ' }}</span><button type="button" class="quem-link" [attr.aria-label]="p.spoken" (click)="leave.emit(['/perfil', p.codigo])">{{ p.nome }}</button>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </div>
+
+    @if (n.kids.length) {
+      @if (collapsed().has(k.id)) {
+        <!-- recolhida: só quantas respostas há, para abrir de novo -->
+        <button type="button" class="mostrar" aria-expanded="false" (click)="toggle(k.id)">
+          <lucide-icon [img]="MoreIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+          {{ n.size === 1 ? 'Ver 1 resposta' : 'Ver ' + n.size + ' respostas' }}
+        </button>
+      } @else {
+        <!-- o ramo: o fio fino que desce da foto (tocar nele recolhe a conversa daqui para baixo, como no
+             Reddit) e as respostas, recuadas até a fundura que cabe na folha -->
+        @let rente = depth + 1 > maxIndent;
+        @if (!rente) {
+          <button
+            type="button"
+            class="fio"
+            aria-expanded="true"
+            [attr.aria-label]="(n.size === 1 ? 'Recolher a resposta a ' : 'Recolher as ' + n.size + ' respostas a ') + nameOf(k)"
+            [title]="n.size === 1 ? 'Recolher a resposta' : 'Recolher as ' + n.size + ' respostas'"
+            (click)="toggle(k.id)"
+          ></button>
+        }
+        <div class="ramo" [class.rente]="rente">
+          <ol class="respostas" [attr.aria-label]="'Respostas a ' + nameOf(k)">
+            @for (c of n.kids; track c.k.id) {
+              <ng-container *ngTemplateOutlet="fala; context: { $implicit: c, depth: depth + 1, flat: rente, parent: k }" />
+            }
+          </ol>
+        </div>
+      }
+    }
+  </li>
+</ng-template>
 
 <!-- o pé: escrever, ou o que falta para poder -->
 <div class="escrever" (keydown.control.enter)="send()" (keydown.meta.enter)="send()">
@@ -132,11 +208,27 @@
     }
     @default {
       @if (writing()) {
-        <app-rich-editor [(value)]="text" [max]="max" [onCard]="false" label="Seu comentário" placeholder="Escreva um comentário…" />
+        @if (replyTo(); as r) {
+          <!-- respondendo: a quem, e o X que volta a comentar na ficha (o texto fica) -->
+          <p class="respondendo-a">
+            <lucide-icon [img]="ReplyIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+            <span class="respondendo-texto">Respondendo a <button type="button" class="respondendo-nome" [attr.aria-label]="'Ver o comentário de ' + r.nome" (click)="show(r.id)">{{ r.nome }}</button></span>
+            <button type="button" class="respondendo-tirar" aria-label="Não responder: comentar na ficha" title="Comentar na ficha" (click)="unanswer()">
+              <lucide-icon [img]="CloseIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+            </button>
+          </p>
+        }
+        <app-rich-editor
+          [(value)]="text"
+          [max]="max"
+          [onCard]="false"
+          [label]="replyTo() ? 'Sua resposta a ' + replyTo()!.nome : 'Seu comentário'"
+          [placeholder]="replyTo() ? 'Responda a ' + replyTo()!.nome + '…' : 'Escreva um comentário…'"
+        />
         <div class="acoes">
           <button type="button" class="acao-caneta" (click)="fold()">Fechar</button>
-          <button type="button" class="tinta" [disabled]="!sendable()" [appBusy]="busy()" title="Comentar (Ctrl+Enter)" (click)="send()">
-            {{ busy() ? 'Enviando…' : 'Comentar' }}
+          <button type="button" class="tinta" [disabled]="!sendable()" [appBusy]="busy()" [title]="(replyTo() ? 'Responder' : 'Comentar') + ' (Ctrl+Enter)'" (click)="send()">
+            {{ busy() ? 'Enviando…' : replyTo() ? 'Responder' : 'Comentar' }}
           </button>
         </div>
       } @else {

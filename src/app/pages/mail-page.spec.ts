@@ -497,6 +497,21 @@ describe('Amigos: a página (MailPage)', () => {
       expect(() => page.openNotice(gone)).not.toThrow();
       expect(comments.take('rsumiu')).toBeFalse();
     });
+
+    it('tocar numa resposta ao meu comentário na minha ficha abre a conversa já na resposta', async () => {
+      const mine = review('rminha1', 'Hades');
+      store.add(mine);
+      const reply = '00000000-0000-4000-8000-000000000007';
+      items.set([{ tipo: 'respondeu', em: '2026-10-06T10:00:00.000Z', pessoa: ana, ref: 'rminha1', titulo: 'Hades', mural: 'jogos', silenciado: false, dono: 'EEEE-0000', comentario: reply }]);
+      const page = await open();
+      const [n] = page.notices() as CardNotice[];
+      page.openNotice(n);
+      const comments = TestBed.inject(Comments);
+      expect(comments.take('rminha1')).toBeTrue();
+      expect(comments.takeFocus('rminha1')).toBe(reply);
+      // a minha ficha está aqui: nada de buscar o mural de ninguém
+      expect(log.some((l) => l.startsWith('ensure(EEEE'))).toBeFalse();
+    });
   });
 
   describe('as fotos de perfil', () => {

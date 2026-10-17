@@ -17,6 +17,11 @@ import { plural } from './text';
  * escolheu assim em Ajustes › Amigos (o dono sempre comenta nas próprias fichas). O texto leva as
  * mesmas marcas de formatação das resenhas, até `COMMENT_MAX` caracteres, e é sempre desenhado pelo
  * `app-rich-text` (nunca HTML).
+ *
+ * Respostas, como no Reddit: qualquer comentário pode ser respondido, até a resposta de uma resposta
+ * (`replyTo`). A conversa chega numa lista só, do mais antigo para o mais novo; a árvore é montada aqui
+ * (`commentTree`). Um comentário apagado que tinha respostas fica no lugar dele (`gone`), sem texto nem
+ * autor, até a última resposta sair.
  */
 
 /** O tamanho de um comentário, contado como o campo conta (`String.length`); a API confere igual. */
@@ -41,6 +46,67 @@ export interface Comment {
   texto: string;
   em: string;
   reacoes: Reaction[];
+  /** O comentário a que este responde (da mesma ficha). */
+  replyTo?: string;
+  /** Apagado, mas com respostas: fica só o lugar dele na conversa (sem texto, autor nem reações). */
+  gone?: true;
+}
+
+/** O "autor" do comentário apagado: ninguém. */
+const NOBODY: CommentAuthor = { codigo: '', nome: '', foto: null };
+
+/** Um comentário na árvore da conversa, com as respostas a ele. */
+export interface CommentNode {
+  k: Comment;
+  kids: CommentNode[];
+  /** Quantas respostas há embaixo dele, em todas as funduras (sem as apagadas). */
+  size: number;
+  /** Responde a um comentário que não veio (mais antigo que os que a nuvem devolve): fica na raiz. */
+  lost: boolean;
+}
+
+/**
+ * A árvore da conversa: os comentários soltos na ordem em que vieram (do mais antigo para o mais
+ * novo), cada um com as respostas embaixo, também nessa ordem. Uma resposta só entra embaixo de um
+ * comentário mais antigo que ela (o que garante uma árvore, mesmo com dados tortos).
+ */
+export function commentTree(list: readonly Comment[]): CommentNode[] {
+  const at = new Map(list.map((k, i) => [k.id, i]));
+  const nodes = list.map((k) => ({ k, kids: [] as CommentNode[], size: 0, lost: false }));
+  const roots: CommentNode[] = [];
+  nodes.forEach((n, i) => {
+    const p = n.k.replyTo !== undefined ? at.get(n.k.replyTo) : undefined;
+    if (p !== undefined && p < i) nodes[p].kids.push(n);
+    else {
+      n.lost = n.k.replyTo !== undefined;
+      roots.push(n);
+    }
+  });
+  // de trás para a frente: as respostas (mais novas) já estão contadas quando chega a vez do pai
+  for (let i = nodes.length - 1; i >= 0; i--) nodes[i].size = nodes[i].kids.reduce((n, kid) => n + kid.size + (kid.k.gone ? 0 : 1), 0);
+  return roots;
+}
+
+/** Quantos comentários a conversa tem de verdade (os apagados que ficaram no lugar não contam). */
+export function liveCount(list: readonly Comment[]): number {
+  return list.reduce((n, k) => n + (k.gone ? 0 : 1), 0);
+}
+
+/**
+ * A conversa sem o comentário `id`: com respostas, ele fica como apagado; sem, sai, e leva junto o
+ * apagado de cima que ficou só por causa dele (e assim por diante), como a nuvem faz.
+ */
+export function withoutComment(list: readonly Comment[], id: string): Comment[] {
+  if (list.some((k) => k.replyTo === id)) return list.map((k) => (k.id === id ? { id: k.id, autor: NOBODY, texto: '', em: k.em, reacoes: [], gone: true, ...(k.replyTo ? { replyTo: k.replyTo } : {}) } : k));
+  let out = list.filter((k) => k.id !== id);
+  let up = list.find((k) => k.id === id)?.replyTo;
+  while (up) {
+    const p = out.find((k) => k.id === up);
+    if (!p?.gone || out.some((k) => k.replyTo === p.id)) break;
+    out = out.filter((k) => k.id !== p.id);
+    up = p.replyTo;
+  }
+  return out;
 }
 
 /** Os comentários de uma ficha, do mais antigo para o mais novo. */
@@ -95,10 +161,13 @@ function reactions(raw: unknown): Reaction[] {
 export function parseComment(raw: unknown): Comment | null {
   const k = raw as Record<string, unknown> | null;
   const id = typeof k?.['id'] === 'string' && ID.test(k['id']) ? k['id'] : null;
+  const em = typeof k?.['em'] === 'string' && Number.isFinite(Date.parse(k['em'])) ? k['em'] : null;
+  const replyTo = typeof k?.['respostaA'] === 'string' && ID.test(k['respostaA']) && k['respostaA'] !== id ? { replyTo: k['respostaA'] } : {};
+  // o apagado que ficou por causa das respostas: só o lugar
+  if (k?.['apagado'] === true) return id && em ? { id, autor: NOBODY, texto: '', em, reacoes: [], gone: true, ...replyTo } : null;
   const autor = author(k?.['autor']);
   const texto = typeof k?.['texto'] === 'string' ? k['texto'].slice(0, COMMENT_MAX) : '';
-  const em = typeof k?.['em'] === 'string' && Number.isFinite(Date.parse(k['em'])) ? k['em'] : null;
-  return id && autor && texto.trim() && em ? { id, autor, texto, em, reacoes: reactions(k?.['reacoes']) } : null;
+  return id && autor && texto.trim() && em ? { id, autor, texto, em, reacoes: reactions(k?.['reacoes']), ...replyTo } : null;
 }
 
 /** Os comentários de uma ficha, como vieram da nuvem: só o que tem a forma certa passa, cada um uma vez. */
@@ -226,6 +295,8 @@ export class Comments {
    * quem pede guarda aqui, e a leitura, ao abrir essa ficha, pega (ver ReviewReader).
    */
   private wanted: string | null = null;
+  /** O comentário que a conversa deve mostrar ao abrir (a resposta de um aviso). */
+  private focus: { ref: string; id: string } | null = null;
 
   /** A sua escolha em Ajustes › Amigos (null: ainda não se sabe). */
   readonly from = signal<CommentsFrom | null>(null);
@@ -249,7 +320,8 @@ export class Comments {
     const thread = this.threads().get(keyOf(code, ref));
     // a conversa que veio inteira é a conta certa (um comentário de agora já está nela); cortada, vale a maior
     if (!thread) return counted;
-    return thread.maisAntigos ? Math.max(counted, thread.comentarios.length) : thread.comentarios.length;
+    const live = liveCount(thread.comentarios);
+    return thread.maisAntigos ? Math.max(counted, live) : live;
   }
 
   /** Os comentários da ficha, se já vieram. */
@@ -273,9 +345,17 @@ export class Comments {
     else this.drafts.delete(key);
   }
 
-  /** A próxima leitura de `ref` abre com os comentários. */
-  want(ref: string): void {
+  /** A próxima leitura de `ref` abre com os comentários (com `comment`, mostrando ele). */
+  want(ref: string, comment?: string): void {
     this.wanted = ref;
+    this.focus = comment && ID.test(comment) ? { ref, id: comment } : null;
+  }
+
+  /** A conversa de `ref` abriu: o comentário que ela deve mostrar, se pediram um. (Vale uma vez.) */
+  takeFocus(ref: string): string | null {
+    const f = this.focus?.ref === ref ? this.focus.id : null;
+    if (f) this.focus = null;
+    return f;
   }
 
   /** A leitura abriu `ref`: era para abrir com os comentários? (Vale uma vez.) */
@@ -331,13 +411,14 @@ export class Comments {
   }
 
   /**
-   * Publica o comentário. Só entra na conversa quando a nuvem confirma (o texto volta limpo de lá); se
-   * ela recusar, o erro sobe com a mensagem pronta, e quem chamou mantém o rascunho.
+   * Publica o comentário (com `replyTo`, a resposta a ele). Só entra na conversa quando a nuvem confirma
+   * (o texto volta limpo de lá); se ela recusar, o erro sobe com a mensagem pronta, e quem chamou
+   * mantém o rascunho.
    */
-  async post(target: CommentTarget, text: string): Promise<Comment> {
+  async post(target: CommentTarget, text: string, replyTo?: string): Promise<Comment> {
     const res = await this.account.request<{ comentario?: unknown }>(`/v1/murais/${target.code}/comentarios/${encodeURIComponent(target.ref)}`, {
       method: 'POST',
-      body: { texto: text, titulo: target.titulo, mural: target.mural },
+      body: { texto: text, titulo: target.titulo, mural: target.mural, ...(replyTo ? { respostaA: replyTo } : {}) },
     });
     const made = parseComment(res?.comentario);
     if (!made) throw new CloudError('A nuvem respondeu de um jeito estranho. Confira se o comentário entrou.', 'resposta-estranha', 0);
@@ -346,11 +427,14 @@ export class Comments {
     return made;
   }
 
-  /** Apaga um comentário (o seu, ou qualquer um da sua ficha). Some na hora; se a nuvem recusar, volta. */
+  /**
+   * Apaga um comentário (o seu, ou qualquer um da sua ficha). Some na hora (com respostas, fica o lugar
+   * dele, como "Comentário apagado"); se a nuvem recusar, volta.
+   */
   async remove(target: Pick<CommentTarget, 'code' | 'ref'>, id: string): Promise<boolean> {
     const key = keyOf(target.code, target.ref);
     const before = this.threads().get(key);
-    this.changeThread(key, (t) => ({ ...t, comentarios: t.comentarios.filter((k) => k.id !== id) }));
+    this.changeThread(key, (t) => ({ ...t, comentarios: withoutComment(t.comentarios, id) }));
     try {
       await this.account.request(`/v1/comentarios/${id}`, { method: 'DELETE' });
       return true;

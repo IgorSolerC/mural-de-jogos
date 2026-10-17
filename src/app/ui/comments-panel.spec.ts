@@ -45,6 +45,8 @@ class FakeComments {
   readonly removed: string[] = [];
   readonly reacted: [string, string | null][] = [];
   readonly wanted: string[] = [];
+  readonly replies: (string | undefined)[] = [];
+  focus: string | null = null;
   loads = 0;
   refuse: CloudError | null = null;
   private draft = '';
@@ -53,6 +55,11 @@ class FakeComments {
   hasFailed = () => this.failed();
   countOf = () => this.counts();
   want = (ref: string) => void this.wanted.push(ref);
+  takeFocus = () => {
+    const f = this.focus;
+    this.focus = null;
+    return f;
+  };
   draftOf = () => this.draft;
   setDraft = (_: unknown, text: string) => void (this.draft = text.trim() ? text : '');
   loadCounts = async () => undefined;
@@ -63,10 +70,11 @@ class FakeComments {
     this.removed.push(comment);
     return true;
   };
-  post = async (_: unknown, text: string) => {
+  post = async (_: unknown, text: string, replyTo?: string) => {
     if (this.refuse) throw this.refuse;
     this.posted.push(text);
-    const made = comment(90 + this.posted.length, ME, 'Eu', text.trim());
+    this.replies.push(replyTo);
+    const made = comment(90 + this.posted.length, ME, 'Eu', text.trim(), replyTo ? { replyTo } : {});
     this.threads.update((t) => (t ? { ...t, comentarios: [...t.comentarios, made] } : t));
     return made;
   };
@@ -101,9 +109,10 @@ describe('A folha de comentários (CommentsPanel)', () => {
   };
 
   /** `thread` null: a conversa ainda não chegou. */
-  async function open(thread: Thread | null = THREAD) {
+  async function open(thread: Thread | null = THREAD, focus: string | null = null) {
     fake = new FakeComments();
     fake.threads.set(thread ?? undefined);
+    fake.focus = focus;
     followed = [];
     asked = [];
     answer = true;
@@ -154,7 +163,7 @@ describe('A folha de comentários (CommentsPanel)', () => {
 
   it('a foto de quem escreveu leva ao mesmo perfil, só para o mouse (o leitor de tela e o teclado vão pelo nome)', async () => {
     const { el, host } = await open();
-    const photos = el.querySelectorAll<HTMLButtonElement>('.comentario > .foto-perfil');
+    const photos = el.querySelectorAll<HTMLButtonElement>('.comentario > .fala > .foto-perfil');
     expect(photos.length).toBe(2);
     expect([photos[0].getAttribute('aria-hidden'), photos[0].tabIndex]).toEqual(['true', -1]);
     photos[0].click();
@@ -382,6 +391,132 @@ describe('A folha de comentários (CommentsPanel)', () => {
     const { el } = await open({ ...THREAD, maisAntigos: true });
     expect(el.querySelector('.recado')?.textContent).toContain('só os comentários mais novos');
   });
+
+  describe('respostas', () => {
+    /** Bia comenta; Caio responde a ela; Bia responde ao Caio; Dan comenta solto. */
+    const TREE: Thread = {
+      comentarios: [
+        comment(1, 'BBBB-2222', 'Bia', 'Que final!'),
+        comment(2, 'CCCC-3333', 'Caio', 'Concordo.', { replyTo: id(1) }),
+        comment(3, 'BBBB-2222', 'Bia', 'Né?', { replyTo: id(2) }),
+        comment(4, 'DDDD-4444', 'Dan', 'Outro assunto.'),
+      ],
+      maisAntigos: false,
+      quem: 'seguidores',
+      pode: true,
+    };
+    const ids = (el: Element, sel: string) => [...el.querySelectorAll(sel)].map((li) => li.getAttribute('data-comentario'));
+
+    it('cada resposta fica embaixo da fala respondida, num ramo com o fio', async () => {
+      const { el } = await open(TREE);
+      expect(ids(el, '.lista > .comentario')).toEqual([id(1), id(4)]);
+      const bia = el.querySelector(`[data-comentario="${id(1)}"]`)!;
+      expect(ids(bia, ':scope > .ramo > .respostas > .comentario')).toEqual([id(2)]);
+      expect(ids(bia, '.comentario.resposta')).toEqual([id(2), id(3)]);
+      expect(bia.querySelector(':scope > .fio')!.getAttribute('aria-label')).toBe('Recolher as 2 respostas a Bia');
+      expect(bia.querySelector('.respostas')!.getAttribute('aria-label')).toBe('Respostas a Bia');
+      // só a raiz se separa com o tracejado: as respostas ficam juntas
+      expect(el.querySelector(`[data-comentario="${id(4)}"] .fio`)).toBeNull();
+    });
+
+    it('o fio recolhe a conversa dali para baixo, e "Ver N respostas" abre de novo', async () => {
+      const { fixture, el } = await open(TREE);
+      el.querySelector<HTMLButtonElement>(`[data-comentario="${id(1)}"] > .fio`)!.click();
+      await settle(fixture);
+      expect(el.querySelectorAll('.comentario.resposta').length).toBe(0);
+      const more = el.querySelector<HTMLButtonElement>(`[data-comentario="${id(1)}"] > .mostrar`)!;
+      expect(more.textContent?.trim()).toBe('Ver 2 respostas');
+      expect(more.getAttribute('aria-expanded')).toBe('false');
+      more.click();
+      await settle(fixture);
+      expect(el.querySelectorAll('.comentario.resposta').length).toBe(2);
+    });
+
+    it('Responder abre o campo dizendo a quem; enviar manda o id do respondido', async () => {
+      const { fixture, el } = await open(TREE);
+      const reply = el.querySelector<HTMLButtonElement>(`[data-comentario="${id(2)}"] .responder`)!;
+      expect(reply.getAttribute('aria-label')).toBe('Responder a Caio');
+      reply.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('Respondendo a Caio');
+      // a fala respondida fica marcada
+      expect(el.querySelector(`[data-comentario="${id(2)}"]`)!.classList).toContain('respondendo');
+      const area = el.querySelector<HTMLTextAreaElement>('textarea')!;
+      expect(area.getAttribute('placeholder')).toBe('Responda a Caio…');
+      area.value = 'Também!';
+      area.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      const send = el.querySelector<HTMLButtonElement>('.acoes .tinta')!;
+      expect(send.textContent?.trim()).toBe('Responder');
+      send.click();
+      await settle(fixture);
+      expect(fake.replies).toEqual([id(2)]);
+      // entrou embaixo do Caio, e o campo voltou a comentar na ficha
+      const caio = el.querySelector(`[data-comentario="${id(2)}"]`)!;
+      expect(ids(caio, ':scope > .ramo > .respostas > .comentario')).toEqual([id(3), id(91)]);
+      expect(el.querySelector('.respondendo-a')).toBeNull();
+      expect(el.querySelector('.respondendo')).toBeNull();
+    });
+
+    it('o X do "Respondendo a…" volta a comentar na ficha, sem perder o texto', async () => {
+      const { fixture, el } = await open(TREE);
+      el.querySelector<HTMLButtonElement>(`[data-comentario="${id(1)}"] .responder`)!.click();
+      await settle(fixture);
+      const area = el.querySelector<HTMLTextAreaElement>('textarea')!;
+      area.value = 'Rascunho';
+      area.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      el.querySelector<HTMLButtonElement>('.respondendo-tirar')!.click();
+      await settle(fixture);
+      expect(el.querySelector('.respondendo-a')).toBeNull();
+      expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Rascunho');
+      el.querySelector<HTMLButtonElement>('.acoes .tinta')!.click();
+      await settle(fixture);
+      expect(fake.replies).toEqual([undefined]);
+    });
+
+    it('quem não pode comentar não vê Responder', async () => {
+      const { el } = await open({ ...TREE, pode: false });
+      expect(el.querySelectorAll('.responder').length).toBe(0);
+    });
+
+    it('o apagado com respostas fica no lugar, sem nome, texto ou botões', async () => {
+      const gone = comment(1, '', '', '', { gone: true, autor: { codigo: '', nome: '', foto: null } });
+      const { el } = await open({ ...TREE, comentarios: [gone, ...TREE.comentarios.slice(1)] });
+      const li = el.querySelector(`[data-comentario="${id(1)}"]`)!;
+      expect(li.classList).toContain('apagado');
+      expect(li.querySelector(':scope > .fala')!.textContent?.trim()).toBe('Comentário apagado');
+      expect(li.querySelector(':scope > .fala .responder, :scope > .fala .apagar, :scope > .fala .nome')).toBeNull();
+      expect(li.querySelector(':scope > .fio')!.getAttribute('aria-label')).toBe('Recolher as 2 respostas a um comentário apagado');
+      // a conta da folha não conta o apagado
+      expect(el.querySelector('.lista')!.getAttribute('aria-label')).toBe('3 comentários');
+    });
+
+    it('apagar um comentário com respostas avisa que elas continuam', async () => {
+      const { el } = await open({ ...TREE, comentarios: [comment(1, ME, 'Eu', 'Meu'), comment(2, 'CCCC-3333', 'Caio', 'Oi', { replyTo: id(1) })] });
+      el.querySelector<HTMLButtonElement>(`[data-comentario="${id(1)}"] > .fala .apagar`)!.click();
+      await new Promise((res) => setTimeout(res, 0));
+      expect(asked[0].text).toContain('As respostas a ele continuam');
+      expect(fake.removed).toEqual([id(1)]);
+    });
+
+    it('fundo demais: a folha para de recuar e a resposta diz a quem responde', async () => {
+      const deep = Array.from({ length: 7 }, (_, i) => comment(i + 1, 'BBBB-2222', `P${i + 1}`, `n${i + 1}`, i ? { replyTo: id(i) } : {}));
+      const { el } = await open({ ...TREE, comentarios: deep });
+      // raiz + 4 funduras recuadas; da 5ª em diante, rente e com "Respondendo a"
+      expect(el.querySelectorAll('.ramo.rente').length).toBe(2);
+      const p6 = el.querySelector(`[data-comentario="${id(6)}"]`)!;
+      expect(p6.querySelector(':scope > .fala .a-quem')?.textContent?.trim()).toBe('Respondendo a P5');
+      expect(el.querySelector(`[data-comentario="${id(5)}"] > .fala .a-quem`)).toBeNull();
+    });
+
+    it('aberta por um aviso: a conversa vai até a resposta, abre as recolhidas e passa o marca-texto nela', async () => {
+      const { fixture, el } = await open(TREE, id(3));
+      await new Promise((res) => setTimeout(res, 20));
+      fixture.detectChanges();
+      expect(el.querySelector(`[data-comentario="${id(3)}"] > .fala`)!.classList).toContain('chegou');
+    });
+  });
 });
 
 describe('O remendo dos comentários na ficha (CommentBubble)', () => {
@@ -412,4 +547,5 @@ describe('O remendo dos comentários na ficha (CommentBubble)', () => {
     expect(fixture.componentInstance.opened).toBe(1);
     TestBed.resetTestingModule();
   });
+
 });

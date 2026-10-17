@@ -28,6 +28,14 @@ import { MAX_REACTIONS_PER_DAY } from './reactions';
  *
  * Reagir a um comentário é como reagir a uma ficha (uma por pessoa, trocar substitui, dá para tirar),
  * para quem pode comentar ali, e não avisa ninguém. Conta no mesmo freio das reações às fichas.
+ *
+ * Respostas: um comentário pode responder a outro da mesma ficha (`respostaA`), e a resposta também
+ * pode ser respondida, sem limite de fundura (a árvore é o site que desenha). Quem foi respondido
+ * recebe um aviso ('respondeu', um por pessoa, respondido e ficha, como o 'comentou'), que leva o
+ * código do dono da ficha e o id da resposta; o dono não recebe também o 'comentou' quando a resposta
+ * é a um comentário dele (fora da anotação compartilhada, em que o 'comentou' é o aviso de todos).
+ * Apagar um comentário com respostas deixa ele no lugar, sem texto nem autor (`apagado`), para a
+ * conversa continuar fazendo sentido; ele sai de vez quando a última resposta dele sai.
  */
 
 /** Quantos comentários uma conta escreve em 24 horas, contando os apagados depois (ver `domain/brake.ts`). */
@@ -40,6 +48,7 @@ const MAX_REACTIONS_LISTED = 3000;
 
 interface Owner {
   id: string;
+  codigo: string;
   nome: string;
   comentarios_de: string;
 }
@@ -48,6 +57,8 @@ interface CommentRow {
   id: string;
   texto: string;
   criado_em: string;
+  resposta_a: string | null;
+  apagado: number;
   codigo: string;
   nome: string;
   foto: string | null;
@@ -63,8 +74,11 @@ interface ReactionOut {
 const fromOf = (o: Pick<Owner, 'comentarios_de'>): CommentsFrom => (o.comentarios_de === 'seguidos' ? 'seguidos' : 'seguidores');
 
 function commentOut(r: CommentRow, reactions: ReactionOut[]) {
+  const reply = r.resposta_a ? { respostaA: r.resposta_a } : {};
+  // o apagado que ficou por causa das respostas: só o lugar dele na conversa
+  if (r.apagado) return { id: r.id, apagado: true, autor: null, texto: '', em: r.criado_em, reacoes: [], ...reply };
   const foto = photoOut(r.foto);
-  return { id: r.id, autor: { codigo: formatCode(r.codigo), nome: r.nome, ...(foto ? { foto } : {}) }, texto: r.texto, em: r.criado_em, reacoes: reactions };
+  return { id: r.id, autor: { codigo: formatCode(r.codigo), nome: r.nome, ...(foto ? { foto } : {}) }, texto: r.texto, em: r.criado_em, reacoes: reactions, ...reply };
 }
 
 export function commentRoutes(app: Hono, deps: Deps): void {
@@ -83,7 +97,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
   /** O dono da ficha pelo código, ou 404. */
   async function owner(input: string): Promise<Owner> {
     const code = normalizeCode(input);
-    const found = code ? await deps.db.first<Owner>('SELECT id, nome, comentarios_de FROM usuarios WHERE codigo = ?', [code]) : null;
+    const found = code ? await deps.db.first<Owner>('SELECT id, codigo, nome, comentarios_de FROM usuarios WHERE codigo = ?', [code]) : null;
     if (!found) throw new HttpError(404, 'pessoa-nao-encontrada', 'Não achei ninguém com esse código.');
     return found;
   }
@@ -94,17 +108,53 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     return ref;
   }
 
-  /** O comentário pelo id, com o dono da ficha, ou 404. */
-  async function comment(c: Context): Promise<{ id: string; dono_id: string; ref: string; autor_id: string; dono: Owner }> {
+  /** O comentário pelo id, com o dono da ficha, ou 404 (também o apagado que ficou por causa das respostas). */
+  async function comment(c: Context): Promise<{ id: string; dono_id: string; ref: string; autor_id: string; resposta_a: string | null; dono: Owner }> {
     const id = c.req.param('id') ?? '';
     const found = COMMENT_ID_RE.test(id)
-      ? await deps.db.first<{ id: string; dono_id: string; ref: string; autor_id: string; nome: string; comentarios_de: string }>(
-          'SELECT k.id, k.dono_id, k.ref, k.autor_id, d.nome, d.comentarios_de FROM comentarios k JOIN usuarios d ON d.id = k.dono_id WHERE k.id = ?',
+      ? await deps.db.first<{ id: string; dono_id: string; ref: string; autor_id: string; resposta_a: string | null; codigo: string; nome: string; comentarios_de: string }>(
+          'SELECT k.id, k.dono_id, k.ref, k.autor_id, k.resposta_a, d.codigo, d.nome, d.comentarios_de FROM comentarios k JOIN usuarios d ON d.id = k.dono_id ' +
+            'WHERE k.id = ? AND k.apagado = 0',
           [id],
         )
       : null;
     if (!found) throw new HttpError(404, 'comentario-nao-encontrado', 'Esse comentário não existe mais.');
-    return { id: found.id, dono_id: found.dono_id, ref: found.ref, autor_id: found.autor_id, dono: { id: found.dono_id, nome: found.nome, comentarios_de: found.comentarios_de } };
+    return {
+      id: found.id,
+      dono_id: found.dono_id,
+      ref: found.ref,
+      autor_id: found.autor_id,
+      resposta_a: found.resposta_a,
+      dono: { id: found.dono_id, codigo: found.codigo, nome: found.nome, comentarios_de: found.comentarios_de },
+    };
+  }
+
+  /**
+   * Os avisos que um comentário que saiu deixa de dar: o 'comentou' de quem escreveu, se ele não tem
+   * mais nenhum na ficha, e o 'respondeu' ao autor do comentário respondido, se ele não respondeu mais
+   * nada dessa pessoa ali. Vão depois de o comentário sair (ou virar apagado), no mesmo lote.
+   */
+  async function noticesGone(k: { dono_id: string; ref: string; autor_id: string; resposta_a: string | null }) {
+    const parent = k.resposta_a ? await deps.db.first<{ autor_id: string }>('SELECT autor_id FROM comentarios WHERE id = ?', [k.resposta_a]) : null;
+    return [
+      {
+        sql:
+          "DELETE FROM atividades WHERE tipo = 'comentou' AND autor_id = ? AND alvo_id = ? AND ref = ? " +
+          'AND NOT EXISTS (SELECT 1 FROM comentarios WHERE dono_id = ? AND ref = ? AND autor_id = ? AND apagado = 0)',
+        params: [k.autor_id, k.dono_id, k.ref, k.dono_id, k.ref, k.autor_id],
+      },
+      ...(!parent
+        ? []
+        : [
+            {
+              sql:
+                "DELETE FROM atividades WHERE tipo = 'respondeu' AND autor_id = ? AND alvo_id = ? AND ref = ? " +
+                'AND NOT EXISTS (SELECT 1 FROM comentarios r JOIN comentarios p ON p.id = r.resposta_a ' +
+                'WHERE r.dono_id = ? AND r.ref = ? AND r.autor_id = ? AND r.apagado = 0 AND p.autor_id = ?)',
+              params: [k.autor_id, parent.autor_id, k.ref, k.dono_id, k.ref, k.autor_id, parent.autor_id],
+            },
+          ]),
+    ];
   }
 
   /** A ficha `ref` do mural de `ownerId` é uma anotação compartilhada com alguém? */
@@ -156,7 +206,8 @@ export function commentRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/murais/:codigo/comentarios', async (c) => {
     const me = await viewer(c);
     const who = await owner(c.req.param('codigo'));
-    const rows = await deps.db.all<{ ref: string; n: number }>('SELECT ref, COUNT(*) AS n FROM comentarios WHERE dono_id = ? GROUP BY ref LIMIT ?', [
+    // (o apagado que ficou por causa das respostas não conta)
+    const rows = await deps.db.all<{ ref: string; n: number }>('SELECT ref, COUNT(*) AS n FROM comentarios WHERE dono_id = ? AND apagado = 0 GROUP BY ref LIMIT ?', [
       who.id,
       MAX_CARDS_COUNTED,
     ]);
@@ -177,14 +228,17 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     return c.json({ contagem: Object.fromEntries(counted.map((r) => [r.ref, r.n])), quem: fromOf(who), pode: await allowed(who, me) });
   });
 
-  /** Os comentários da ficha `ref`, do mais antigo para o mais novo (os `MAX_COMMENTS_LISTED` mais novos), com as reações de cada um. */
+  /**
+   * Os comentários da ficha `ref`, do mais antigo para o mais novo (os `MAX_COMMENTS_LISTED` mais novos),
+   * com as reações de cada um e, nas respostas, o id do comentário respondido (`respostaA`).
+   */
   app.get('/v1/murais/:codigo/comentarios/:ref', async (c) => {
     const me = await viewer(c);
     const who = await owner(c.req.param('codigo'));
     const ref = refParam(c);
     if (!(await visible(who, ref, me))) throw hiddenCard();
     const rows = await deps.db.all<CommentRow>(
-      'SELECT k.id, k.texto, k.criado_em, u.codigo, u.nome, u.foto FROM comentarios k JOIN usuarios u ON u.id = k.autor_id ' +
+      'SELECT k.id, k.texto, k.criado_em, k.resposta_a, k.apagado, u.codigo, u.nome, u.foto FROM comentarios k JOIN usuarios u ON u.id = k.autor_id ' +
         'WHERE k.dono_id = ? AND k.ref = ? ORDER BY k.criado_em DESC, k.rowid DESC LIMIT ?',
       [who.id, ref, MAX_COMMENTS_LISTED + 1],
     );
@@ -212,7 +266,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     });
   });
 
-  /** Comentar na ficha `ref` do mural de `codigo`. */
+  /** Comentar na ficha `ref` do mural de `codigo` (com `respostaA`, respondendo a um comentário dela). */
   app.post('/v1/murais/:codigo/comentarios/:ref', async (c) => {
     const s = await session(c);
     const who = await owner(c.req.param('codigo'));
@@ -223,6 +277,20 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     if (text.length > COMMENT_MAX) throw new HttpError(400, 'comentario-grande', `O comentário passa de ${COMMENT_MAX} caracteres.`);
     if (!(await allowed(who, s.userId, ref))) throw refusal(who);
     if (!(await visible(who, ref, s.userId))) throw hiddenCard();
+    // a resposta: o comentário respondido é desta ficha e ainda está nela
+    const replyTo = body['respostaA'];
+    let parent: { id: string; autor_id: string } | null = null;
+    if (replyTo !== undefined && replyTo !== null) {
+      parent =
+        typeof replyTo === 'string' && COMMENT_ID_RE.test(replyTo)
+          ? await deps.db.first<{ id: string; autor_id: string }>('SELECT id, autor_id FROM comentarios WHERE id = ? AND dono_id = ? AND ref = ? AND apagado = 0', [
+              replyTo,
+              who.id,
+              ref,
+            ])
+          : null;
+      if (!parent) throw new HttpError(404, 'comentario-nao-encontrado', 'O comentário que você ia responder não existe mais.');
+    }
     const now = deps.now();
     if ((await usedToday(deps, s.userId, 'comentar', now)) >= MAX_COMMENTS_PER_DAY) {
       throw new HttpError(429, 'comentar-devagar', 'Você comentou bastante hoje. Tente de novo amanhã.');
@@ -233,12 +301,29 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const at = now.toISOString();
     const mural = typeof body['mural'] === 'string' && MURAL_RE.test(body['mural']) ? body['mural'] : 'jogos';
     const resumo = JSON.stringify({ titulo: cleanTitle(body['titulo']), mural });
-    // o aviso: só de outra pessoa para o dono, ou de qualquer um numa anotação compartilhada (ver o começo)
-    const notify = who.id !== s.userId || (await sharedNote(who.id, ref));
+    // o aviso: só de outra pessoa para o dono, ou de qualquer um numa anotação compartilhada (ver o começo);
+    // a resposta a um comentário do próprio dono já avisa ele com o 'respondeu'
+    const shared = await sharedNote(who.id, ref);
+    const answered = parent && parent.autor_id !== s.userId ? parent.autor_id : null;
+    const notify = shared || (who.id !== s.userId && answered !== who.id);
+    const replyNote = JSON.stringify({ titulo: cleanTitle(body['titulo']), mural, dono: formatCode(who.codigo), comentario: id });
     await write(
       deps,
       [
-        { sql: 'INSERT INTO comentarios (id, dono_id, ref, autor_id, texto, criado_em) VALUES (?, ?, ?, ?, ?, ?)', params: [id, who.id, ref, s.userId, text, at] },
+        {
+          sql: 'INSERT INTO comentarios (id, dono_id, ref, autor_id, texto, criado_em, resposta_a) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          params: [id, who.id, ref, s.userId, text, at, parent?.id ?? null],
+        },
+        // o aviso para quem foi respondido: o de antes sai e entra o de agora
+        ...(!answered
+          ? []
+          : [
+              { sql: "DELETE FROM atividades WHERE tipo = 'respondeu' AND autor_id = ? AND alvo_id = ? AND ref = ?", params: [s.userId, answered, ref] },
+              {
+                sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('respondeu', ?, ?, ?, ?, ?)",
+                params: [s.userId, answered, ref, replyNote, at],
+              },
+            ]),
         // o aviso: o de antes sai e entra o de agora
         ...(!notify
           ? []
@@ -251,12 +336,16 @@ export function commentRoutes(app: Hono, deps: Deps): void {
             ]),
         brakeStatement(s.userId, 'comentar', now),
       ],
-      18,
+      20,
     );
-    return c.json({ comentario: commentOut({ id, texto: text, criado_em: at, ...author }, []) }, 201);
+    return c.json({ comentario: commentOut({ id, texto: text, criado_em: at, resposta_a: parent?.id ?? null, apagado: 0, ...author }, []) }, 201);
   });
 
-  /** Apagar um comentário: quem escreveu, ou o dono da ficha. As reações dele vão junto. */
+  /**
+   * Apagar um comentário: quem escreveu, ou o dono da ficha. As reações dele vão junto. Com respostas,
+   * ele fica no lugar como apagado (sem texto nem autor à mostra) e a resposta diz `{ apagado: true }`;
+   * sem respostas, sai de vez, e leva junto o apagado de cima que ficou só por causa dele.
+   */
   app.delete('/v1/comentarios/:id', async (c) => {
     const s = await session(c);
     const k = await comment(c);
@@ -264,22 +353,29 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       throw new HttpError(403, 'comentario-de-outro', 'Só quem escreveu ou o dono da ficha apaga um comentário.');
     }
     const reactions = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM comentario_reacoes WHERE comentario_id = ?', [k.id]);
+    const replies = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM comentarios WHERE resposta_a = ?', [k.id]);
+    const keep = (replies?.n ?? 0) > 0;
     await write(
       deps,
       [
         { sql: 'DELETE FROM comentario_reacoes WHERE comentario_id = ?', params: [k.id] },
-        { sql: 'DELETE FROM comentarios WHERE id = ?', params: [k.id] },
-        // o aviso só sai com o último comentário da pessoa naquela ficha
-        {
-          sql:
-            "DELETE FROM atividades WHERE tipo = 'comentou' AND autor_id = ? AND alvo_id = ? AND ref = ? " +
-            'AND NOT EXISTS (SELECT 1 FROM comentarios WHERE dono_id = ? AND ref = ? AND autor_id = ?)',
-          params: [k.autor_id, k.dono_id, k.ref, k.dono_id, k.ref, k.autor_id],
-        },
+        keep
+          ? { sql: "UPDATE comentarios SET apagado = 1, texto = '' WHERE id = ?", params: [k.id] }
+          : { sql: 'DELETE FROM comentarios WHERE id = ?', params: [k.id] },
+        // os avisos só saem com o último comentário (ou a última resposta) da pessoa ali
+        ...(await noticesGone(k)),
       ],
-      10 + 2 * (reactions?.n ?? 0),
+      12 + 2 * (reactions?.n ?? 0),
     );
-    return c.json({ ok: true });
+    // o apagado de cima que ficou só por causa deste sai também (e o de cima dele, e assim por diante)
+    let up = keep ? null : k.resposta_a;
+    while (up) {
+      const p = await deps.db.first<{ id: string; apagado: number; resposta_a: string | null }>('SELECT id, apagado, resposta_a FROM comentarios WHERE id = ?', [up]);
+      if (!p?.apagado || (await deps.db.first('SELECT 1 AS x FROM comentarios WHERE resposta_a = ? LIMIT 1', [p.id]))) break;
+      await write(deps, [{ sql: 'DELETE FROM comentarios WHERE id = ?', params: [p.id] }], 2);
+      up = p.resposta_a;
+    }
+    return c.json(keep ? { ok: true, apagado: true } : { ok: true });
   });
 
   /** Reagir (ou trocar a reação) a um comentário. */

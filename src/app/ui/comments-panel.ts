@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { LucideAngularModule, RefreshCw, Trash2, UserPlus } from 'lucide-angular';
+import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { CornerDownRight, LucideAngularModule, RefreshCw, Reply, Trash2, UserPlus, X } from 'lucide-angular';
 import { CloudError } from '../core/cloud-account';
-import { COMMENT_MAX, Comment, CommentTarget, Comments, QuoteRequest, commentWhen, spokenComments, withQuote } from '../core/comments';
+import { COMMENT_MAX, Comment, CommentNode, CommentTarget, Comments, QuoteRequest, commentTree, commentWhen, liveCount, spokenComments, withQuote } from '../core/comments';
+import { reducedMotion } from '../core/motion';
+import { focusAfterRender } from './focus';
 import { Follow } from '../core/follow';
 import { initialStock, photoTilt } from '../core/profile-people';
 import { ReactionId } from '../core/reaction-kinds';
@@ -22,10 +25,19 @@ import { Toasts } from './toast';
  * para fazer com ele fica no pé (reagir, quem reagiu, apagar), em tinta fraca até o mouse chegar. O
  * campo é uma linha só até a pessoa tocar nele; aí vira a folha das resenhas, com as mesmas marcas e
  * `COMMENT_MAX` caracteres.
+ *
+ * Respostas, como no Reddit: "Responder" embaixo de qualquer fala abre o campo do pé dizendo a quem
+ * responde ("Respondendo a Bia", com o X que volta a comentar na ficha), e a fala respondida fica
+ * marcada. As respostas descem da foto de quem foi respondido por um fio fino, recuadas, com a foto
+ * menor; tocar no fio recolhe a conversa dali para baixo ("Ver 3 respostas" abre de novo). Depois de
+ * `MAX_INDENT` funduras a folha não recua mais: a resposta diz a quem responde, como no Twitter.
  */
+/** Quantas vezes as respostas recuam na folha; mais fundo, ficam rentes e dizem a quem respondem. */
+const MAX_INDENT = 4;
+
 @Component({
   selector: 'app-comments-panel',
-  imports: [Busy, LucideAngularModule, ReactionPicker, RichEditor, RichText],
+  imports: [Busy, LucideAngularModule, NgTemplateOutlet, ReactionPicker, RichEditor, RichText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comments-panel.html',
   styleUrl: './comments-panel.scss',
@@ -47,6 +59,8 @@ export class CommentsPanel {
   private readonly follow = inject(Follow);
   private readonly confirm = inject(Confirm);
   private readonly toasts = inject(Toasts);
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly rola = viewChild<ElementRef<HTMLElement>>('rola');
   private readonly editor = viewChild(RichEditor);
 
@@ -54,12 +68,24 @@ export class CommentsPanel {
   protected readonly EraseIcon = Trash2;
   protected readonly RetryIcon = RefreshCw;
   protected readonly FollowIcon = UserPlus;
+  protected readonly ReplyIcon = Reply;
+  protected readonly MoreIcon = CornerDownRight;
+  protected readonly CloseIcon = X;
+  protected readonly maxIndent = MAX_INDENT;
   protected readonly when = commentWhen;
 
   protected readonly me = this.comments.myCode;
   protected readonly thread = computed(() => this.comments.thread(this.target().code, this.target().ref));
   protected readonly failed = computed(() => this.comments.hasFailed(this.target().code, this.target().ref));
-  protected readonly count = computed(() => this.thread()?.comentarios.length ?? 0);
+  protected readonly count = computed(() => liveCount(this.thread()?.comentarios ?? []));
+  /** A conversa em árvore: os comentários soltos e, embaixo de cada um, as respostas. */
+  protected readonly tree = computed(() => commentTree(this.thread()?.comentarios ?? []));
+  /** Quem vê pode comentar ali (e então reagir e responder). */
+  protected readonly canReact = computed(() => !!this.thread()?.pode);
+  /** A fala que o campo do pé está respondendo (null: comenta na ficha). */
+  protected readonly replyTo = signal<{ id: string; nome: string } | null>(null);
+  /** As falas com as respostas recolhidas. */
+  protected readonly collapsed = signal<ReadonlySet<string>>(new Set());
   protected readonly spoken = computed(() => spokenComments(this.count()));
 
   /** O comentário em andamento (guardado por ficha no serviço, enquanto o site está aberto). */
@@ -88,11 +114,18 @@ export class CommentsPanel {
       key();
       untracked(() => {
         const t = this.target();
-        void this.comments.loadThread(t).then(() => this.toEnd());
         this.text.set(this.comments.draftOf(t));
         this.writing.set(false);
         this.error.set(null);
         this.whoOpen.set(null);
+        this.replyTo.set(null);
+        this.collapsed.set(new Set());
+        void this.comments.loadThread(t).then(() => {
+          // aberta por um aviso de resposta: a conversa vai até ela, marcada; senão, o fim da conversa
+          const focus = this.comments.takeFocus(t.ref);
+          if (focus) this.show(focus);
+          else this.toEnd();
+        });
       });
     });
     // o rascunho acompanha o que é escrito
@@ -113,10 +146,64 @@ export class CommentsPanel {
     setTimeout(() => this.editor()?.focus());
   }
 
-  /** Fecha o campo (o que foi escrito fica guardado para a próxima vez). */
+  /** Fecha o campo (o que foi escrito fica guardado para a próxima vez; a resposta deixa de ser). */
   protected fold(): void {
     this.writing.set(false);
     this.error.set(null);
+    this.replyTo.set(null);
+  }
+
+  /** "Responder" numa fala: o campo do pé abre respondendo a ela. */
+  protected answer(k: Comment): void {
+    if (k.gone || !this.canReact()) return;
+    this.replyTo.set({ id: k.id, nome: k.autor.codigo === this.me() ? 'você mesmo' : k.autor.nome });
+    this.error.set(null);
+    this.write();
+  }
+
+  /** O X do "Respondendo a…": o texto fica, e volta a ser um comentário na ficha. */
+  protected unanswer(): void {
+    this.replyTo.set(null);
+    setTimeout(() => this.editor()?.focus());
+  }
+
+  /** Recolhe ou abre as respostas de uma fala. */
+  protected toggle(id: string): void {
+    const opening = this.collapsed().has(id);
+    this.collapsed.update((set) => {
+      const next = new Set(set);
+      if (opening) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    // o foco fica no lugar dele: no "Ver N respostas" que entra, ou no fio que volta
+    focusAfterRender(this.injector, () => this.host.querySelector<HTMLElement>(`[data-comentario="${id}"] > ${opening ? '.fio' : '.mostrar'}`));
+  }
+
+  /**
+   * Leva a conversa até a fala `id` (abrindo as recolhidas em cima dela) e passa o marca-texto nela uma
+   * vez: a resposta que acabou de entrar, a do aviso, o nome do "Respondendo a…".
+   */
+  protected show(id: string): void {
+    const list = this.thread()?.comentarios ?? [];
+    const open = new Set(this.collapsed());
+    for (let up = list.find((k) => k.id === id)?.replyTo; up; up = list.find((k) => k.id === up)?.replyTo) open.delete(up);
+    if (open.size !== this.collapsed().size) this.collapsed.set(open);
+    setTimeout(() => {
+      const li = this.host.querySelector<HTMLElement>(`[data-comentario="${id}"]`);
+      const fala = li?.querySelector<HTMLElement>(':scope > .fala');
+      if (!li || !fala) return;
+      fala.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+      fala.classList.remove('chegou');
+      void fala.offsetWidth;
+      fala.classList.add('chegou');
+      setTimeout(() => fala.classList.remove('chegou'), 1600);
+    });
+  }
+
+  /** O nome de quem escreveu a fala, como a folha diz ("você", no seu). */
+  protected nameOf(k: Comment): string {
+    return k.gone ? 'um comentário apagado' : k.autor.codigo === this.me() ? 'você' : k.autor.nome;
   }
 
   private cite(selection: string): void {
@@ -141,11 +228,15 @@ export class CommentsPanel {
     this.busy.set(true);
     this.error.set(null);
     const target = this.target();
+    const reply = this.replyTo();
     try {
-      await this.comments.post(target, this.text());
+      const made = await this.comments.post(target, this.text(), reply?.id);
       this.text.set('');
       this.writing.set(false);
-      this.toEnd();
+      this.replyTo.set(null);
+      // a resposta entra embaixo da fala respondida: a conversa vai até ela; o comentário, no fim
+      if (reply) this.show(made.id);
+      else this.toEnd();
     } catch (err) {
       this.error.set(err instanceof CloudError ? err.message : 'Não deu para comentar agora. Tente de novo.');
       // a regra pode ter mudado com a folha aberta (deixou de seguir, a pessoa trocou a escolha)
@@ -205,17 +296,22 @@ export class CommentsPanel {
 
   /** Quem apaga: quem escreveu, ou o dono da ficha. */
   protected canErase(k: Comment): boolean {
-    return !!this.me() && (this.own() || k.autor.codigo === this.me());
+    return !k.gone && !!this.me() && (this.own() || k.autor.codigo === this.me());
   }
 
-  protected async erase(k: Comment): Promise<void> {
+  protected async erase(n: CommentNode): Promise<void> {
+    const k = n.k;
     const mine = k.autor.codigo === this.me();
+    // com respostas, ele fica como "Comentário apagado" e as respostas continuam
+    const kids = n.kids.length ? ' As respostas a ele continuam, com “Comentário apagado” no lugar dele.' : '';
     const ok = await this.confirm.ask({
       title: 'Apagar o comentário?',
-      text: mine ? 'O seu comentário sai da ficha, com as reações que recebeu. Não dá para desfazer.' : `O comentário de ${k.autor.nome} sai da sua ficha. Não dá para desfazer.`,
+      text: (mine ? 'O seu comentário sai da ficha, com as reações que recebeu.' : `O comentário de ${k.autor.nome} sai da sua ficha.`) + kids + ' Não dá para desfazer.',
       confirm: 'Apagar',
     });
-    if (ok) void this.comments.remove(this.target(), k.id);
+    if (!ok) return;
+    if (this.replyTo()?.id === k.id) this.replyTo.set(null);
+    void this.comments.remove(this.target(), k.id);
   }
 
   protected stockOf(k: Comment): Stock {
