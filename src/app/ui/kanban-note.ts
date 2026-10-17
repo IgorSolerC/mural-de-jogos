@@ -14,12 +14,14 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
  * à parte, para os estilos da página não pegarem nela. Na tira de papel pardo da coluna, quase reta
  * (40% da inclinação dela no mural) e sem a queda da parede. Mais enxuta que a do mural: sem a
  * tachinha, o nome menor, sem a orelha da categoria e sem o "Parte de…" da sub-nota (`onBoard`).
+ * O que vem dentro dela (a etiqueta da importância) vai junto quando ela sobe com o mouse.
  */
 @Component({
   selector: 'app-review-card',
   imports: CARD_IMPORTS,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: CARD_TEMPLATE,
+  // a etiqueta da importância vem de fora, colada na ficha (ver KanbanNote)
+  template: CARD_TEMPLATE + '<ng-content />',
   styles: [
     CARD_STYLES,
     `
@@ -84,19 +86,21 @@ export class KanbanReviewCard extends ReviewCard {
         <ng-container [ngTemplateOutlet]="adjust" />
       </div>
     } @else {
-      <app-review-card [review]="review()" [compact]="true" [preview]="true" [checkable]="true" [looks]="looks()" (opened)="opened.emit(review().id)" />
-      @if (card().importance; as imp) {
-        <div class="pe">
-          <button type="button" class="imp" [attr.data-imp]="imp" [attr.aria-label]="'Importância: ' + label[imp] + '. Mudar'" (click)="details.emit()">
-            <span class="escala" aria-hidden="true">
-              @for (n of steps; track n) {
-                <i [class.acesa]="n <= level[imp]"></i>
-              }
-            </span>
-            {{ label[imp] }}
-          </button>
-        </div>
-      }
+      <app-review-card [review]="review()" [compact]="true" [preview]="true" [checkable]="true" [looks]="looks()" (opened)="opened.emit(review().id)">
+        <!-- dentro da ficha: sobe e gira com ela quando o mouse chega -->
+        @if (card().importance; as imp) {
+          <div class="pe">
+            <button type="button" class="imp" [attr.data-imp]="imp" [attr.aria-label]="'Importância: ' + label[imp] + '. Mudar'" (click)="details.emit()">
+              <span class="escala" aria-hidden="true">
+                @for (n of steps; track n) {
+                  <i [class.acesa]="n <= level[imp]"></i>
+                }
+              </span>
+              {{ label[imp] }}
+            </button>
+          </div>
+        }
+      </app-review-card>
       <ng-container [ngTemplateOutlet]="adjust" />
     }
     <ng-template #adjust>

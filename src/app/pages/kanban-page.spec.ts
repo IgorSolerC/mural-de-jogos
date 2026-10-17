@@ -134,6 +134,15 @@ describe('página do Kanban', () => {
     expect(column('feito').querySelector('.carimbo')?.textContent).toContain('Finaliza');
     const login = column('afazer').querySelector('[data-nota="nlogin01"]')!;
     expect(login.querySelector('.imp')?.textContent).toContain('Crítico');
+    // a etiqueta da importância mora dentro da ficha: sobe e gira com ela no hover
+    expect(login.querySelector('app-review-card .pe .imp')).not.toBeNull();
+    // metade na ficha, metade fora, e dentro do lugar da anotação (não encosta na de baixo)
+    const ficha = login.querySelector('app-review-card')!.getBoundingClientRect();
+    const imp = login.querySelector('.imp')!.getBoundingClientRect();
+    const lugar = login.querySelector('app-kanban-note')!.getBoundingClientRect();
+    expect(imp.top).toBeLessThan(ficha.bottom);
+    expect(imp.bottom).toBeGreaterThan(ficha.bottom);
+    expect(imp.bottom).toBeLessThanOrEqual(lugar.bottom + 1);
     const tag = login.querySelector<HTMLElement>('app-note-tag')!;
     expect(tag.textContent!.trim()).toBe('Correção');
     expect(tag.classList).toContain('cor');

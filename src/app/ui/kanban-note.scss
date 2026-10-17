@@ -5,26 +5,29 @@
   display: block;
 }
 
-/* com a importância, a ficha cai em cima dela: fica presa na beirada de baixo, e a ficha ganha um pé
-   a mais para ela não cobrir as tags da anotação */
-:host(:has(> .pe)) {
-  padding-bottom: 6px;
+/* com a importância, a ficha ganha um pé a mais para ela não cobrir as tags da anotação, e a
+   anotação um a mais embaixo, para a metade da etiqueta que sai da ficha não encostar na de baixo */
+:host(:has(.pe)) {
+  padding-bottom: 16px;
 }
 
-:host(:has(> .pe)) app-review-card {
+:host(:has(.pe)) app-review-card {
   padding-bottom: 16px;
 }
 
 /* A etiqueta da importância colada na beirada de baixo da ficha: metade no papel, metade fora, torta
-   como quem colou com pressa. */
+   como quem colou com pressa. Mora dentro da ficha (ver KanbanReviewCard), então sobe e gira com ela
+   quando o mouse chega. */
 .pe {
-  position: relative;
-  z-index: 2;
+  position: absolute;
+  top: calc(100% - 12px);
+  left: 10px;
+  right: 8px;
+  z-index: 7;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 5px 6px;
-  margin: -12px 8px 0 10px;
   pointer-events: none;
 
   > * {
