@@ -6,6 +6,7 @@ import { KanbanStore } from '../core/kanban-store';
 import { Desk } from '../core/desk';
 import { lookFrom } from '../core/card-look';
 import { Review, isDone, sanitizeReview } from '../core/review';
+import { ProfileStore } from '../core/profile-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { KanbanPage } from './kanban-page';
@@ -401,8 +402,9 @@ describe('página do Kanban', () => {
     expect(q.getBoundingClientRect().width).toBeGreaterThan(pasta.width);
     expect(Math.abs(q.querySelector('.coluna')!.getBoundingClientRect().left - pasta.left)).toBeLessThan(3);
     // no começo: degradê só na direita, e a seta de lá diz quantas estão escondidas
-    expect(q.classList).toContain('corte-fim');
-    expect(q.classList).not.toContain('corte-inicio');
+    const veu = (lado: string) => host.querySelector(`.veu-${lado}`)!.classList;
+    expect(veu('fim')).toContain('on');
+    expect(veu('inicio')).not.toContain('on');
     expect(host.querySelector('.trilho-inicio')).toBeNull();
     const seta = host.querySelector<HTMLButtonElement>('.trilho-fim .seta-quadro')!;
     const escondidas = Number(seta.querySelector('.seta-n')!.textContent);
@@ -418,14 +420,44 @@ describe('página do Kanban', () => {
     expect(q.scrollLeft).toBeGreaterThan(0);
     expect(alvo.getBoundingClientRect().left).toBeGreaterThanOrEqual(pasta.left - 2);
     // rolado: o degradê e a seta da esquerda aparecem
-    expect(q.classList).toContain('corte-inicio');
+    expect(veu('inicio')).toContain('on');
     expect(host.querySelector('.trilho-inicio .seta-quadro')).not.toBeNull();
     // no fim, a beirada da direita volta a ser nítida e a seta dela sai
     q.scrollLeft = q.scrollWidth;
     q.dispatchEvent(new Event('scroll'));
     await frames();
-    expect(q.classList).not.toContain('corte-fim');
+    expect(veu('fim')).not.toContain('on');
     expect(host.querySelector('.trilho-fim')).toBeNull();
+  });
+
+  it('o degradê é a parede do site por cima das beiradas, e não uma máscara no quadro que rola', async () => {
+    const many = board();
+    many.columns = Array.from({ length: 9 }, (_, i) => ({ id: `c${i}`, name: `Etapa ${i + 1}`, icon: 'circulo' as const, color: 'cinza' as const, finishes: false }));
+    kanban.state.set(state(many));
+    await go(TRAB_URL);
+    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    await settle();
+    const q = host.querySelector<HTMLElement>('.quadro')!;
+    expect(getComputedStyle(q).maskImage).toBe('none');
+    // a de eucatex (a de sempre) é o fundo da página: a do véu começa no alto da página, na largura dela
+    const paredes = [...host.querySelectorAll<HTMLElement>('.veu .veu-parede')];
+    expect(paredes.length).toBe(2);
+    for (const p of paredes) {
+      expect(p.querySelector('[data-parede]')!.getAttribute('data-parede')).toBe('eucatex');
+      expect(p.classList).toContain('na-pagina');
+      const r = p.getBoundingClientRect();
+      expect(Math.abs(r.top + scrollY)).toBeLessThan(2);
+      expect(Math.abs(r.width - document.documentElement.clientWidth)).toBeLessThan(2);
+    }
+    // por cima das colunas, sem pegar o mouse
+    expect(getComputedStyle(host.querySelector('.veu')!).pointerEvents).toBe('none');
+    // as outras paredes ficam presas na tela, como a do site
+    TestBed.inject(ProfileStore).update((p) => ({ ...p, page: 'planta' }));
+    await settle();
+    for (const p of host.querySelectorAll<HTMLElement>('.veu .veu-parede')) {
+      expect(p.classList).not.toContain('na-pagina');
+      expect(getComputedStyle(p).position).toBe('fixed');
+    }
   });
 
   it('com poucas colunas, o quadro cabe: nem degradê nem seta', async () => {
@@ -436,9 +468,8 @@ describe('página do Kanban', () => {
     await go(TRAB_URL);
     for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
     await settle();
-    const q = host.querySelector<HTMLElement>('.quadro')!;
-    expect(q.classList).not.toContain('corte-inicio');
-    expect(q.classList).not.toContain('corte-fim');
+    expect(host.querySelector('.veu-inicio')!.classList).not.toContain('on');
+    expect(host.querySelector('.veu-fim')!.classList).not.toContain('on');
     expect(host.querySelector('.seta-quadro')).toBeNull();
   });
 

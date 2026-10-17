@@ -13,6 +13,7 @@ import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '..
 import { KanbanStore } from '../core/kanban-store';
 import { NOTES } from '../core/kinds';
 import { Review, fold } from '../core/review';
+import { ProfileStore } from '../core/profile-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings as SettingsStore } from '../core/settings';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, outTags, releaseTag, showAllTags } from '../core/tag-filter';
@@ -24,6 +25,7 @@ import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { COLUMN_ICON } from '../ui/kanban-icons';
 import { KanbanNote } from '../ui/kanban-note';
 import { NoteSelection } from '../ui/note-selection';
+import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { TagChip, TagChips } from '../ui/tag-chips';
@@ -122,7 +124,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, Pin, RouterLink, SearchStrip, TagChips],
+  imports: [CardPicker, CategoryLabel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, PageWall, Pin, RouterLink, SearchStrip, TagChips],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -408,6 +410,9 @@ export class KanbanPage {
       q.addEventListener('scroll', schedule, { passive: true });
       const ro = new ResizeObserver(schedule);
       ro.observe(q);
+      // a página que cresce ou encolhe em cima do quadro (um aviso que sai) o tira do lugar: a parede
+      // de eucatex do véu das beiradas precisa saber onde ele foi parar
+      ro.observe(document.documentElement);
       onCleanup(() => {
         q.removeEventListener('scroll', schedule);
         ro.disconnect();
@@ -660,6 +665,11 @@ export class KanbanPage {
    */
   protected readonly edges = signal<Edges>(NO_EDGES);
   private edgeFrame = 0;
+  private readonly profiles = inject(ProfileStore);
+  /** A parede do site, que o véu das beiradas repete por cima das colunas (ver .veu). */
+  protected readonly wall = computed(() => this.profiles.profile().page);
+  /** Onde o véu das beiradas foi posto da última vez (para não reescrever o estilo a cada rolagem). */
+  private veilAt = '';
 
   private scheduleEdges(): void {
     cancelAnimationFrame(this.edgeFrame);
@@ -694,9 +704,29 @@ export class KanbanPage {
         else if (c.offsetLeft + c.offsetWidth > hi + 4) after++;
       }
       next = { start, end, before, after };
+      this.placeVeil(q);
     }
     const e = this.edges();
     if (e.start !== next.start || e.end !== next.end || e.before !== next.before || e.after !== next.after) this.edges.set(next);
+  }
+
+  /**
+   * O véu das beiradas vai da beirada esquerda da página à direita (sem a barra de rolagem), e a
+   * parede de eucatex dele, que é o fundo da página, começa no alto da página: em pixels da página.
+   */
+  private placeVeil(q: HTMLElement): void {
+    const m = q.parentElement;
+    if (!m) return;
+    const r = m.getBoundingClientRect();
+    const mx = Math.round(r.left + scrollX);
+    const y = Math.round(r.top + scrollY);
+    const w = document.documentElement.clientWidth;
+    const at = `${mx}|${y}|${w}`;
+    if (at === this.veilAt) return;
+    this.veilAt = at;
+    m.style.setProperty('--veu-mx', `${mx}px`);
+    m.style.setProperty('--veu-y', `${y}px`);
+    m.style.setProperty('--veu-w', `${w}px`);
   }
 
   /**

@@ -190,17 +190,20 @@
    de cada lado é a mesma que o quadro passou dela). Do lado em que ainda há o que rolar, as colunas
    somem num degradê até a parede, em vez de um corte seco; rolada até o fim, aquela beirada volta a
    ser nítida. */
+/* a largura do degradê: estreito no celular, largo numa tela grande */
+$fade: clamp(22px, 7vw, 132px);
+
 .quadro-moldura {
   position: relative;
   margin-top: 30px;
 }
 
 .quadro {
-  /* a largura do degradê: estreito no celular, largo numa tela grande (registrada em styles.scss) */
-  --kb-fade: clamp(22px, 7vw, 132px);
-  --kb-fade-inicio: 0px;
-  --kb-fade-fim: 0px;
+  /* registrada em styles.scss: a página lê a largura do degradê já em pixels */
+  --kb-fade: #{$fade};
   position: relative;
+  /* as colunas e as fichas ficam todas debaixo do véu das beiradas, por mais alto que subam */
+  isolation: isolate;
   display: flex;
   align-items: flex-start;
   gap: 24px;
@@ -214,29 +217,74 @@
   scroll-padding-inline: max(var(--sangria, 0px), var(--kb-fade));
   scrollbar-color: rgb(243 239 230 / 0.35) transparent;
   cursor: default;
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    #000 var(--kb-fade-inicio),
-    #000 calc(100% - var(--kb-fade-fim)),
-    transparent 100%
-  );
-  transition:
-    --kb-fade-inicio var(--t-physical) var(--ease-ui),
-    --kb-fade-fim var(--t-physical) var(--ease-ui);
-
-  &.corte-inicio {
-    --kb-fade-inicio: var(--kb-fade);
-  }
-
-  &.corte-fim {
-    --kb-fade-fim: var(--kb-fade);
-  }
 
   &.puxando {
     cursor: grabbing;
     user-select: none;
   }
+}
+
+/* O degradê das beiradas não é uma máscara no quadro (que pintava o quadro inteiro de novo a cada
+   passo da rolagem): é a própria parede, posta de novo numa tira em cada beirada da tela, por cima das
+   colunas, inteira na beirada e sumindo para dentro. A tira não muda nunca; o quadro rola por baixo
+   dela sem custo, e o degradê aparece e some só pela opacidade. A parede da tira fica onde a do site
+   está: presa na tela (as paredes do perfil, ver .parede-site em app.scss) ou, a de eucatex, que é o
+   fundo da página e rola com ela, presa no alto da página (a página mede onde ele está, ver
+   `placeVeil`). */
+.veu {
+  position: absolute;
+  inset-block: 0;
+  /* da beirada esquerda da página até a direita, sem a barra de rolagem */
+  left: calc(-1 * var(--veu-mx, 0px));
+  z-index: 3;
+  width: var(--veu-w, 100vw);
+  pointer-events: none;
+}
+
+.veu-lado {
+  position: absolute;
+  inset-block: 0;
+  width: $fade;
+  /* recorta também a parede presa na tela */
+  clip-path: inset(0);
+  opacity: 0;
+  transition: opacity var(--t-physical) var(--ease-ui);
+
+  &.on {
+    opacity: 1;
+  }
+}
+
+.veu-inicio {
+  left: 0;
+}
+
+.veu-fim {
+  right: 0;
+}
+
+.veu-parede {
+  position: fixed;
+  inset: 0;
+
+  /* a de eucatex: do alto da página até o pé da tira, na largura dela */
+  &.na-pagina {
+    position: absolute;
+    inset: auto;
+    top: calc(-1 * var(--veu-y, 0px));
+    width: var(--veu-w, 100vw);
+    height: calc(var(--veu-y, 0px) + 100%);
+  }
+}
+
+.veu-inicio .veu-parede {
+  left: 0;
+  mask-image: linear-gradient(to right, #000, transparent $fade);
+}
+
+.veu-fim .veu-parede {
+  right: 0;
+  mask-image: linear-gradient(to left, #000, transparent $fade);
 }
 
 /* As setas das beiradas: um disco de papel na parede, por cima do degradê, que traz a próxima página

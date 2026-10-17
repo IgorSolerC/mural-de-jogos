@@ -192,19 +192,9 @@ html {
   overflow-x: clip;
 }
 
-/* o degradê das beiradas do Kanban (ver pages/kanban-page.scss): registradas para o degradê crescer e
-   sumir aos poucos, e para a página ler a largura dele já em pixels */
+/* a largura do degradê das beiradas do Kanban (ver pages/kanban-page.scss): registrada para a página
+   ler a largura dele já em pixels */
 @property --kb-fade {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 0px;
-}
-@property --kb-fade-inicio {
-  syntax: '<length>';
-  inherits: false;
-  initial-value: 0px;
-}
-@property --kb-fade-fim {
   syntax: '<length>';
   inherits: false;
   initial-value: 0px;

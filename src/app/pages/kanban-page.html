@@ -101,8 +101,6 @@
     [class.denso]="dense()"
     [class.arrastando]="!!drag()"
     [class.puxando]="panning()"
-    [class.corte-inicio]="edges().start"
-    [class.corte-fim]="edges().end"
     (pointerdown)="onBoardDown($event)"
   >
     @for (v of view(); track v.col.id; let ci = $index) {
@@ -182,6 +180,16 @@
         </div>
       </section>
     }
+  </div>
+  <!-- o degradê das beiradas: a própria parede de novo, por cima das colunas, sumindo para dentro; o
+       quadro rola por baixo sem máscara nenhuma (ver .veu) -->
+  <div class="veu" aria-hidden="true">
+    <div class="veu-lado veu-inicio" [class.on]="edges().start">
+      <app-page-wall class="veu-parede" [class.na-pagina]="wall() === 'eucatex'" [wall]="wall()" />
+    </div>
+    <div class="veu-lado veu-fim" [class.on]="edges().end">
+      <app-page-wall class="veu-parede" [class.na-pagina]="wall() === 'eucatex'" [wall]="wall()" />
+    </div>
   </div>
   @if (edges().before; as n) {
     <div class="trilho trilho-inicio">
