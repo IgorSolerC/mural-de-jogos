@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { NoteTag } from './note-tag';
+import { plural } from '../core/text';
 
 /** Quantas tags ficam à mão; as outras aparecem no "+N". */
 const MAX_SHORTCUTS = 10;
@@ -215,7 +216,7 @@ export class TagChips {
   });
 
   protected titleOf(t: TagChip): string {
-    if (t.out) return `Escondida: ${t.n === 1 ? '1 anotação fora' : t.n + ' anotações fora'}. Clique para mostrar de novo`;
+    if (t.out) return `Escondida: ${plural(t.n, 'anotação fora', 'anotações fora')}. Clique para mostrar de novo`;
     return `${t.on ? 'Clique para tirar do filtro' : 'Clique: só as com ' + t.label}. Botão direito: esconder ${t.label}`;
   }
 

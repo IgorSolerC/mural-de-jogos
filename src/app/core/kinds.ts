@@ -1,4 +1,5 @@
 import type { Bonus, RatedKey, Status } from './review';
+import { plural } from './text';
 
 /**
  * Os murais. Cada um é uma parede à parte: as fichas, o Pra depois, o ranking, o lado a lado e os
@@ -605,12 +606,12 @@ export function g(p: KindProfile, masc: string, fem: string): string {
 
 /** "1 jogo", "3 séries". */
 export function countOf(p: KindProfile, n: number): string {
-  return `${n} ${n === 1 ? p.singular : p.plural}`;
+  return plural(n, p.singular, p.plural);
 }
 
 /** "1 rejogada", "3 releituras". */
 export function revisitCountOf(p: KindProfile, n: number): string {
-  return `${n} ${n === 1 ? p.revisit.one : p.revisit.many}`;
+  return plural(n, p.revisit.one, p.revisit.many);
 }
 
 export { cap } from './text';

@@ -13,6 +13,7 @@ import {
   localDay,
   shownFinal,
 } from './review';
+import { plural } from './text';
 
 /**
  * O Muraldle: o "Wordle" do mural, como o Loldle. Uma ficha secreta por dia (ou uma de treino), e a
@@ -162,7 +163,7 @@ const EMOJI: Record<Mark, string> = { certo: '🟩', perto: '🟨', errado: '�
 /** O texto para mandar no grupo: só os quadradinhos, sem nenhum nome (nada de spoiler). */
 export function shareText(title: string, rows: readonly Cell[][], won: boolean): string {
   const tries = rows.length;
-  const head = won ? `Acertei em ${tries} ${tries === 1 ? 'tentativa' : 'tentativas'}` : `Desisti depois de ${tries} ${tries === 1 ? 'tentativa' : 'tentativas'}`;
+  const head = won ? `Acertei em ${plural(tries, 'tentativa', 'tentativas')}` : `Desisti depois de ${plural(tries, 'tentativa', 'tentativas')}`;
   // a fileira do primeiro chute embaixo, como apareceram
   const grid = [...rows].reverse().map((cells) => cells.map((c) => EMOJI[c.mark]).join(''));
   return [title, head, ...grid].join('\n');

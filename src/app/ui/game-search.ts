@@ -15,6 +15,7 @@ import { GameLookup, LookupError, artistHitId } from '../core/game-lookup';
 import { cap, g, isMusic, profileOf } from '../core/kinds';
 import { Kind, MUSIC_FORM_LABEL, PickedGame } from '../core/review';
 import { CoverSleeve } from './cover-sleeve';
+import { plural } from '../core/text';
 
 let uid = 0;
 
@@ -186,7 +187,7 @@ export class GameSearch {
     if (err) return `${err} Você ainda pode seguir sem capa.`;
     const n = this.fresh().length;
     if (!n) return this.searched() ? this.words().none : '';
-    return `${n} ${n === 1 ? this.words().one : this.words().many}.`;
+    return `${plural(n, this.words().one, this.words().many)}.`;
   });
 
   constructor() {

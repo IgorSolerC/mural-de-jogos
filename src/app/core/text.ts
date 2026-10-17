@@ -41,3 +41,8 @@ export function cap(s: string): string {
 export function cleanLabel(raw: string, max: number): string {
   return cap(raw.replace(/\s+/g, ' ').trim().slice(0, max).trim());
 }
+
+/** A contagem com a palavra no número certo: plural(1, 'ficha', 'fichas') → "1 ficha"; plural(3, …) → "3 fichas". */
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}

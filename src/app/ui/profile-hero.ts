@@ -3,6 +3,7 @@ import { Profile, ProfileStats } from '../core/profile';
 import { STOCK_LABEL } from '../core/review';
 import { frameArt } from './frame-art';
 import { RichText } from './rich-text';
+import { plural } from '../core/text';
 
 /** As letras do título "Sobre mim", recortadas cada uma de um papel (sempre o mesmo jeito). */
 const LETTERS = 'Sobre mim'.split('');
@@ -51,7 +52,7 @@ export class ProfileHero {
     return tab === 'seguindo' ? 'seguindo' : n === 1 ? 'seguidor' : 'seguidores';
   }
   protected peopleLabel(tab: 'seguindo' | 'seguidores', n: number): string {
-    return tab === 'seguindo' ? `Segue ${n} ${n === 1 ? 'pessoa' : 'pessoas'}` : `${n} ${n === 1 ? 'seguidor' : 'seguidores'}`;
+    return tab === 'seguindo' ? `Segue ${plural(n, 'pessoa', 'pessoas')}` : plural(n, 'seguidor', 'seguidores');
   }
 
   protected readonly cuts = LETTERS.map((ch, i) => ({ ch, ...CUTS[i] }));
@@ -72,7 +73,7 @@ export class ProfileHero {
     const s = this.stats();
     return [
       { label: 'Fichas', value: String(s.cards), note: s.cards === 1 ? 'no mural' : 'nos murais', band: 'rosa' },
-      { label: 'Murais', value: String(s.walls), note: s.walls === 1 ? 'com fichas' : 'com fichas', band: 'azul' },
+      { label: 'Murais', value: String(s.walls), note: 'com fichas', band: 'azul' },
       { label: 'Masterpieces', value: String(s.masterpieces), note: 'as de coroa', band: 'amarelo' },
       { label: 'Desde', value: s.since ?? '—', note: 'a primeira ficha', band: 'verde', small: true },
     ];

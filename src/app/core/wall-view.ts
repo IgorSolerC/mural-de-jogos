@@ -27,7 +27,7 @@ import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
-import { cap, labelKey, nameCollator } from './text';
+import { cap, labelKey, nameCollator, plural } from './text';
 
 /**
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
@@ -759,7 +759,7 @@ function countsOf(profile: KindProfile, originals: readonly Review[]): string[] 
   if (!isMusic(profile.kind)) return [countOf(profile, originals.length)];
   const albums = originals.filter((r) => musicFormOf(r.game) === 'album').length;
   const songs = originals.length - albums;
-  return [...(albums ? [`${albums} ${albums === 1 ? 'álbum' : 'álbuns'}`] : []), ...(songs ? [countOf(profile, songs)] : [])];
+  return [...(albums ? [plural(albums, 'álbum', 'álbuns')] : []), ...(songs ? [countOf(profile, songs)] : [])];
 }
 
 const PINNED_GROUP: [string, string] = ['fixadas', 'Fixadas'];

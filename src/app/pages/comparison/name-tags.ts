@@ -12,6 +12,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { Eye, EyeOff, LayoutGrid, LucideAngularModule, PenLine, RefreshCw, Trash2, UserPlus, UserRound } from 'lucide-angular';
 import { Colleague } from '../../core/colleague-store';
+import { plural } from '../../core/text';
 
 const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -151,9 +152,9 @@ export class NameTags {
     const c = this.colleague();
     const parts = [
       c.exportedAt ? `Backup de ${exportedFmt.format(new Date(c.exportedAt))}` : `Arquivo ${c.fileName}`,
-      `${c.reviews.length} ${c.reviews.length === 1 ? 'resenha' : 'resenhas'} em todos os murais`,
+      `${plural(c.reviews.length, 'resenha', 'resenhas')} em todos os murais`,
     ];
-    if (c.skipped) parts.push(`${c.skipped} ${c.skipped === 1 ? 'registro com defeito ficou' : 'registros com defeito ficaram'} de fora`);
+    if (c.skipped) parts.push(`${plural(c.skipped, 'registro com defeito ficou', 'registros com defeito ficaram')} de fora`);
     return parts.join(' · ');
   });
 

@@ -17,6 +17,7 @@ import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
 import { Confirm } from '../ui/confirm';
+import { plural } from './text';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -756,7 +757,7 @@ export class CloudSync {
     const n = payloadReviews(doc).length;
     const notes = Array.isArray(doc.notas) ? doc.notas.length : 0;
     const extra = doc.drafts.length + doc.wishes.length;
-    const reviews = `${n} ${n === 1 ? 'resenha' : 'resenhas'}${notes ? `, ${notes} ${notes === 1 ? 'anotação' : 'anotações'}` : ''}`;
+    const reviews = `${plural(n, 'resenha', 'resenhas')}${notes ? `, ${plural(notes, 'anotação', 'anotações')}` : ''}`;
     return extra ? `${reviews} e mais ${extra} na fila e na wishlist` : reviews;
   }
 

@@ -8,6 +8,7 @@ import { ReactionId, isReaction } from './reaction-kinds';
 import { Reaction, ReactionTarget } from './reactions';
 import { STOCKS, Stock } from './review';
 import { Toasts } from '../ui/toast';
+import { plural } from './text';
 
 /**
  * Comentários nas fichas publicadas e as reações a cada comentário (ver `api/src/routes/comments.ts`).
@@ -136,7 +137,7 @@ export interface QuoteRequest {
 
 /** "1 comentário", "3 comentários". */
 export function spokenComments(n: number): string {
-  return n === 1 ? '1 comentário' : `${n} comentários`;
+  return plural(n, 'comentário', 'comentários');
 }
 
 /** "hoje às 10:23", "ontem às 16:12", "3 de outubro": a hora só importa enquanto a conversa está quente. */

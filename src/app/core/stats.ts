@@ -39,7 +39,7 @@ import {
 import { pinningFor } from './wall-physics';
 import { isDecorated } from './wall-filter';
 import { ONE_DECIMAL as one } from './review';
-import { nameCollator } from './text';
+import { nameCollator, plural } from './text';
 
 /**
  * As Estatísticas do mural: tudo o que dá para tirar das fichas de um mural (o seu ou o de um colega),
@@ -978,7 +978,7 @@ export function portraitLines(s: WallStats, profile: KindProfile, who: { you: bo
   }
 
   const fav = [...s.verdicts].sort((a, b) => b.n - a.n)[0];
-  if (fav && fav.n >= 2) out.push(`O carimbo que mais usa é ${fav.label} (${fav.n} ${fav.n === 1 ? 'vez' : 'vezes'}).`);
+  if (fav && fav.n >= 2) out.push(`O carimbo que mais usa é ${fav.label} (${plural(fav.n, 'vez', 'vezes')}).`);
 
   const bf = s.bonuses.favor[0];
   const bc = s.bonuses.contra[0];

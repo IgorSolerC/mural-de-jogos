@@ -2,6 +2,7 @@ import { DestroyRef, afterRenderEffect, effect, inject, signal, untracked } from
 import { notesAsText } from '../core/note-copy';
 import { Review } from '../core/review';
 import { Toasts } from './toast';
+import { plural } from '../core/text';
 
 const MARKED = 'data-marcada';
 /** O atalho de copiar, como está escrito no teclado de quem usa. */
@@ -119,7 +120,7 @@ export class NoteSelection {
     const ids = this.ids();
     this.ids.set(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
     const n = this.ids().length;
-    if (n) this.toasts.show(`${n === 1 ? '1 anotação marcada' : `${n} anotações marcadas`}. ${COPY_KEY} copia o texto; Esc desmarca.`);
+    if (n) this.toasts.show(`${plural(n, 'anotação marcada', 'anotações marcadas')}. ${COPY_KEY} copia o texto; Esc desmarca.`);
     else this.toasts.dismiss();
   }
 

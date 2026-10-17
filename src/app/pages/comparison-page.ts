@@ -44,7 +44,7 @@ import { VerdictStamp } from '../ui/verdict';
 import { BackupEnvelope } from './comparison/envelope';
 import { Caderno, OpenRequest } from './comparison/caderno';
 import { NameTags } from './comparison/name-tags';
-import { nameCollator } from '../core/text';
+import { nameCollator, plural } from '../core/text';
 
 type Tab = 'comum' | 'dicas' | 'minhas';
 type PairSort = 'briga' | 'minha' | 'colega' | 'nome';
@@ -406,7 +406,7 @@ export class ComparisonPage {
     this.error.set('');
     try {
       const fresh = await this.colleagues.replace(c.id, file);
-      this.toasts.show(`Backup de ${fresh.name} atualizado: ${fresh.reviews.length} ${fresh.reviews.length === 1 ? 'resenha' : 'resenhas'}`);
+      this.toasts.show(`Backup de ${fresh.name} atualizado: ${plural(fresh.reviews.length, 'resenha', 'resenhas')}`);
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : 'Não consegui ler esse backup. O anterior continua aqui.');
     } finally {

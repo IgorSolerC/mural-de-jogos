@@ -68,6 +68,7 @@ import { muralLink, normalizeCode } from '../core/cloud-murals';
 import { News } from '../core/news';
 import { GameLookup } from '../core/game-lookup';
 import { SiteKeys } from '../core/site-keys';
+import { plural } from '../core/text';
 
 const DAY = 86_400_000;
 
@@ -381,7 +382,7 @@ export class SettingsPage {
     const drafts = this.store.draftCount();
     const wishes = this.wishCount();
     if (!n && !drafts && !wishes) return 'Ainda não há nada para guardar.';
-    const parts = [`${n} ${n === 1 ? 'resenha' : 'resenhas'}`];
+    const parts = [plural(n, 'resenha', 'resenhas')];
     if (drafts) parts.push(`${drafts} pra depois`);
     if (wishes) parts.push(`${wishes} na wishlist`);
     const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}` : parts[0];
@@ -721,15 +722,15 @@ export class SettingsPage {
       const res = this.store.importJson(text, replace ? 'replace' : 'merge');
       // o seu próprio backup num navegador novo: o nome volta junto, se ainda não há um aqui
       if (!this.settings.ownerName().trim() && owner) this.settings.ownerName.set(owner.slice(0, OWNER_NAME_MAX));
-      const parts = [`${res.added} ${res.added === 1 ? 'resenha nova' : 'resenhas novas'}`];
-      if (res.updated) parts.push(`${res.updated} atualizada${res.updated === 1 ? '' : 's'}`);
-      if (res.skipped) parts.push(`${res.skipped} ignorada${res.skipped === 1 ? '' : 's'}`);
-      if (res.removed) parts.push(`${res.removed} ${res.removed === 1 ? 'apagada' : 'apagadas'} como no backup`);
+      const parts = [plural(res.added, 'resenha nova', 'resenhas novas')];
+      if (res.updated) parts.push(plural(res.updated, 'atualizada', 'atualizadas'));
+      if (res.skipped) parts.push(plural(res.skipped, 'ignorada', 'ignoradas'));
+      if (res.removed) parts.push(`${plural(res.removed, 'apagada', 'apagadas')} como no backup`);
       if (res.drafts) parts.push(`${res.drafts} pra depois`);
       if (res.wishes) parts.push(`${res.wishes} na wishlist`);
       this.importMsg.set({ text: `Backup restaurado: ${parts.join(', ')}.`, error: false });
       const total = res.added + res.updated;
-      if (total) this.toasts.show(`${total} ${total === 1 ? 'resenha voltou' : 'resenhas voltaram'} para os murais`);
+      if (total) this.toasts.show(`${plural(total, 'resenha voltou', 'resenhas voltaram')} para os murais`);
     } catch (err) {
       this.importMsg.set({ text: (err as Error).message, error: true });
     }

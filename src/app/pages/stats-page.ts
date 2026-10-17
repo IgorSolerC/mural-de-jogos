@@ -40,6 +40,7 @@ import { Numero, Numeros } from './stats/numeros';
 import { Pesos } from './stats/pesos';
 import { Regua } from './stats/regua';
 import { ONE_DECIMAL as one, formatAvg } from '../core/review';
+import { plural } from '../core/text';
 
 export type Aba = 'resumo' | 'notas' | 'tempo' | 'habitos' | 'carimbos' | 'cartolinas' | 'curiosidades';
 
@@ -359,7 +360,7 @@ export class StatsPage {
 
   protected days(n: number): string {
     if (n < 1) return 'desde hoje';
-    if (n < 60) return `há ${n} ${n === 1 ? 'dia' : 'dias'}`;
+    if (n < 60) return `há ${plural(n, 'dia', 'dias')}`;
     if (n < 730) return `há ${Math.round(n / 30)} meses`;
     return `há ${one.format(n / 365)} anos`;
   }

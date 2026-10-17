@@ -11,6 +11,7 @@ import { DUEL_OPTIONS, DuelOption, MIN_GAP, agreement, drawEntrants, ensureDraws
 import { PlayerPicker } from '../ui/player-picker';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
+import { plural } from '../core/text';
 
 /**
  * O mata-mata: as fichas do mural escolhido (o seu ou o de um colega) duelam de duas em duas e a
@@ -118,7 +119,7 @@ export class KnockoutPage {
         : byes === 1
           ? ` ${g(p, 'O', 'A')} de nota mais alta passa direto da primeira rodada.`
           : ` ${g(p, 'Os', 'As')} ${byes} de nota mais alta passam direto da primeira rodada.`;
-    return `${picked}, ${n - 1} ${n - 1 === 1 ? 'duelo' : 'duelos'} até ${g(p, 'o campeão', 'a campeã')}.${skip}`;
+    return `${picked}, ${plural(n - 1, 'duelo', 'duelos')} até ${g(p, 'o campeão', 'a campeã')}.${skip}`;
   });
 
   /** O duelo da vez tem a distância? (num mural de notas parecidas, às vezes não dá) */

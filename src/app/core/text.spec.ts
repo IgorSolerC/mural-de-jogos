@@ -1,4 +1,4 @@
-import { cap, cleanLabel, fold, labelKey, nameCollator, nameKey, slugOf } from './text';
+import { cap, cleanLabel, fold, labelKey, nameCollator, nameKey, plural, slugOf } from './text';
 import { fold as foldFromReview } from './review';
 
 describe('text', () => {
@@ -43,5 +43,11 @@ describe('text', () => {
     expect(cap('')).toBe('');
     expect(cleanLabel('  lista   de compras ', 32)).toBe('Lista de compras');
     expect(cleanLabel('abc def', 4)).toBe('Abc');
+  });
+
+  it('plural escolhe a palavra pelo número, com o 0 no plural', () => {
+    expect(plural(1, 'ficha', 'fichas')).toBe('1 ficha');
+    expect(plural(0, 'ficha', 'fichas')).toBe('0 fichas');
+    expect(plural(3, 'anotação usa', 'anotações usam')).toBe('3 anotações usam');
   });
 });

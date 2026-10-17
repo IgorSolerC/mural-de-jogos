@@ -64,6 +64,7 @@ import { ProfileWalls } from '../ui/profile-walls';
 import { ProfilePicker } from '../ui/profile-picker';
 import { EmojiPanel } from '../ui/emoji-panel';
 import { RichEditor } from '../ui/rich-editor';
+import { plural } from '../core/text';
 
 /** Quantas fichas de uma seção aparecem antes do "Mostrar todas". */
 const FOLDED_ITEMS = 6;
@@ -539,10 +540,6 @@ export class ProfileEditPage {
   }
 
   protected readonly isNote = isNote;
-}
-
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
 }
 
 /** O fundo do quadro de cima, em palavras (o resumo da ficha fechada). */

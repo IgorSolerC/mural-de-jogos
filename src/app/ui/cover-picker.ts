@@ -16,6 +16,7 @@ import { Link, LucideAngularModule } from 'lucide-angular';
 import { CoverChoice, GameLookup, LookupError, coverFrom, imageLoads } from '../core/game-lookup';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
+import { plural } from '../core/text';
 
 const SOURCE_ARTICLE: Record<string, string> = { TMDB: 'no', Kitsu: 'no', AniList: 'no' };
 
@@ -471,7 +472,7 @@ export class CoverPicker {
     if (this.loading() && w.length) return `Procurando mais capas ${joinSources(w)}…`;
     if (this.loading()) return 'Procurando mais capas…';
     const n = this.shown().filter((c) => c.coverUrl && !this.isLoaded(c.coverUrl) && !this.isBroken(c.coverUrl)).length;
-    if (n) return n === 1 ? 'Carregando 1 foto…' : `Carregando ${n} fotos…`;
+    if (n) return `Carregando ${plural(n, 'foto', 'fotos')}…`;
     return '';
   });
   protected readonly pasting = signal(false);

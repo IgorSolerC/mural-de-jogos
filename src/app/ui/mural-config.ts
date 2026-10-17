@@ -15,7 +15,7 @@ import { Confirm } from './confirm';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagColors } from './tag-colors';
-import { nameCollator } from '../core/text';
+import { nameCollator, plural } from '../core/text';
 
 /**
  * As partes da folha, uma por vez, como as partes dos Ajustes. Para crescer, uma entrada aqui e o
@@ -239,13 +239,13 @@ export class MuralConfig {
 
   /** "em 3 anotações", e as compartilhadas que ficaram de fora. */
   private told(r: LabelEditResult): string {
-    const n = r.changed === 1 ? 'em 1 anotação' : `em ${r.changed} anotações`;
+    const n = `em ${plural(r.changed, 'anotação', 'anotações')}`;
     const out = r.skipped === 1 ? ' Uma compartilhada ficou como estava: só o dono e os gestores mudam.' : r.skipped ? ` ${r.skipped} compartilhadas ficaram como estavam: só o dono e os gestores mudam.` : '';
     return `${n}.${out}`;
   }
 
   private uses(n: number): string {
-    return n === 1 ? '1 anotação usa' : `${n} anotações usam`;
+    return plural(n, 'anotação usa', 'anotações usam');
   }
 
   protected async renameCategory(e: Event, row: CategoryRow, field: HTMLInputElement): Promise<void> {

@@ -19,6 +19,7 @@ import { Toasts } from '../ui/toast';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { WallAccess, WallBoard } from './wall-board';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
+import { plural } from '../core/text';
 
 const NO_PICKS: ReadonlyMap<string, number> = new Map();
 
@@ -105,7 +106,7 @@ export class ColleagueWallPage {
     if (!list.length) return '';
     if (isNotes(this.profile().kind)) {
       const done = list.filter(isDone).length;
-      return `${countOf(this.profile(), list.length - done)}${done ? ` · ${done} ${done === 1 ? 'finalizada' : 'finalizadas'}` : ''}`;
+      return `${countOf(this.profile(), list.length - done)}${done ? ` · ${plural(done, 'finalizada', 'finalizadas')}` : ''}`;
     }
     if (this.visit.guarding()) return `${countOf(this.profile(), list.length)} · ${this.visit.hidden().size} em segredo`;
     const avg = list.reduce((s, r) => s + r.scores.final, 0) / list.length;

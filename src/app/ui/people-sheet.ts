@@ -9,6 +9,7 @@ import { BackdropClose } from './backdrop-close';
 import { Busy } from './busy';
 import { MiniPolaroid } from './mini-polaroid';
 import { Toasts } from './toast';
+import { plural } from '../core/text';
 
 /** O que vai no canto do mini-mural: seguir (com conta), já segue, ou é você. */
 type Relation = 'voce' | 'segue' | 'seguir' | null;
@@ -223,7 +224,7 @@ export class PeopleSheet {
   protected cardsLabel(p: ListedPerson): string {
     const n = p.cartao?.fichas ?? 0;
     const walls = p.cartao?.murais ?? 0;
-    return `${n} ${n === 1 ? 'ficha' : 'fichas'}` + (walls > 1 ? ` · ${walls} murais` : '');
+    return plural(n, 'ficha', 'fichas') + (walls > 1 ? ` · ${walls} murais` : '');
   }
 
   protected followsMe(p: ListedPerson): boolean {

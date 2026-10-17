@@ -6,6 +6,7 @@ import { NoteDone } from './note-done';
 import { isDone } from './review';
 import { ReviewStore } from './review-store';
 import { Toasts } from '../ui/toast';
+import { plural } from './text';
 
 /**
  * O que acontece quando uma anotação anda no quadro: o lugar novo e, se a coluna pede, a anotação
@@ -88,9 +89,9 @@ export class KanbanActions {
     const where = board.columns.find((c) => c.id === column)?.name ?? 'outra coluna';
     const n = rs.length;
     const text = finished
-      ? `${finished === 1 ? '1 anotação finalizada' : `${finished} anotações finalizadas`} em ${where}`
+      ? `${plural(finished, 'anotação finalizada', 'anotações finalizadas')} em ${where}`
       : opened
-        ? `${opened === 1 ? '1 anotação aberta' : `${opened} anotações abertas`} de novo em ${where}`
+        ? `${plural(opened, 'anotação aberta', 'anotações abertas')} de novo em ${where}`
         : `${n} anotações levadas para ${where}`;
     this.toasts.show(text, {
       label: 'Desfazer',

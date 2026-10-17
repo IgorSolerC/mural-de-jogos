@@ -16,8 +16,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
    note-tabs, kanban-sort, wall-view, comparison; o corpo do slug repetido em `customBonusId` e `categoryBonus`;
    `cleanCategory` = `cleanBonusLabel` (mesmo limite 32); `cap` repetido inline. Agora `labelKey`, `nameKey`,
    `slugOf`, `cap` e `cleanLabel` em `core/text.ts` (o `fold(by).trim()` do autor em comparison fica: não junta espaços).
-3. [ ] **Plural**: `plural(n, um, muitos)` privado no profile-edit; `spokenComments` e ~25 ternários `n === 1 ? …`
-   iguais; "N anotações" montado à mão onde `countOf(NOTES)` já dá; ternário morto em profile-hero (`'com fichas'` nos dois lados).
+3. [x] **Plural**: `plural(n, um, muitos)` privado no profile-edit; `spokenComments` e ~25 ternários `n === 1 ? …`
+   iguais; "N anotações" montado à mão onde `countOf(NOTES)` já dá; ternário morto em profile-hero (`'com fichas'` nos dois lados). Feito nos `.ts` (`plural` em `core/text.ts`, e
+   `countOf`/`revisitCountOf` usam ele); as frases com verbo concordando e os ternários dos templates ficam (cada um é uma frase).
 4. [ ] **Datas**: `news.today` e `muraldle.dayKey` são `localDay`; `stats-page.created` monta o dia à mão; `previousDay`
    e follow partem 'AAAA-MM-DD' à mão (= `parseDay`); `DAY` = 86 400 000 redeclarado 9 vezes; `MONTHS` curtos e longos
    em 3 arquivos cada; formatadores de data longos repetidos (done-stamp, wall-view); "hoje/ontem/há N dias" igual em

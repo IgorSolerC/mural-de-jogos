@@ -1,6 +1,7 @@
 import { isEmoji } from './emoji';
 import { KINDS, Kind } from './kinds';
 import { STOCKS, Stock, newId } from './review';
+import { plural } from './text';
 
 /**
  * O perfil da pessoa: o que quem abre o nome dela vê antes dos murais. A "foto" é um emoji numa
@@ -360,7 +361,7 @@ export function updatedLabel(cards: readonly { updatedAt: string }[], now = Date
   if (min < 2) return 'Mural atualizado agora';
   if (min < 60) return `Mural atualizado há ${min} min`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `Mural atualizado há ${h} ${h === 1 ? 'hora' : 'horas'}`;
+  if (h < 24) return `Mural atualizado há ${plural(h, 'hora', 'horas')}`;
   const d = Math.floor(h / 24);
   if (d === 1) return 'Mural atualizado ontem';
   if (d < 30) return `Mural atualizado há ${d} dias`;
