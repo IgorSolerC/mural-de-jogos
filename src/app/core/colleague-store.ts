@@ -6,19 +6,13 @@ import {
 } from './backup-file';
 import { newId, sanitizeReview } from './review';
 import { sanitizeProfile } from './profile';
+import { readText, writeText } from './storage';
 
 /** O banco do IndexedDB com os backups de colegas. */
 export const COLLEAGUES_DB = 'meu-mural:colegas';
 
 const CHOSEN_KEY = 'meu-mural:colega-aberto';
 
-function readChosen(): string | null {
-  try {
-    return localStorage.getItem(CHOSEN_KEY);
-  } catch {
-    return null;
-  }
-}
 
 export interface Colleague extends BackupSnapshot {
   id: string;
@@ -42,7 +36,7 @@ export class ColleagueStore {
   readonly ready = this.load();
 
   /** O colega aberto na comparação, lembrado entre as visitas (só o id, neste navegador). */
-  private readonly chosenId = signal<string | null>(readChosen());
+  private readonly chosenId = signal<string | null>(readText(CHOSEN_KEY));
   /** O escolhido, ou o backup aberto mais recentemente quando a escolha sumiu. */
   readonly selected = computed<Colleague | null>(() => {
     const list = this.colleagues();
@@ -51,11 +45,7 @@ export class ColleagueStore {
 
   select(id: string): void {
     this.chosenId.set(id);
-    try {
-      localStorage.setItem(CHOSEN_KEY, id);
-    } catch {
-      /* sem armazenamento, a escolha vale só até recarregar */
-    }
+    writeText(CHOSEN_KEY, id);
   }
 
   /** `name` é o palpite (do nome do arquivo, ou "Colega"): o nome que veio dentro do backup vence. */

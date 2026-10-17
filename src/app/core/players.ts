@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { ColleagueStore } from './colleague-store';
 import { Mural } from './mural';
 import { Review, originalsOf } from './review';
+import { writeText } from './storage';
 
 const KEY = 'mural-de-jogos:extras-dono:v1';
 
@@ -73,11 +74,7 @@ export class Players {
 
   select(id: string): void {
     this.chosenId.set(id);
-    try {
-      localStorage.setItem(KEY, id);
-    } catch {
-      /* vale até recarregar */
-    }
+    writeText(KEY, id);
   }
 
   byId(id: string): Player | undefined {

@@ -1,4 +1,5 @@
 import { previousDay } from './muraldle';
+import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:muraldle:v1';
 
@@ -43,11 +44,7 @@ function read(): Stored {
 }
 
 function write(s: Stored): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(s));
-  } catch {
-    /* sem armazenamento: vale até recarregar */
-  }
+  writeJson(KEY, s);
 }
 
 export function loadDaily(slot: string): DailyGame | null {

@@ -9,6 +9,7 @@ import { FriendKinds, Settings } from './settings';
 import { ReactionId, isReaction } from './reaction-kinds';
 import { DAY_MS, localDay, parseDay } from './dates';
 import { MemberRole, isMemberRole } from './shared-notes';
+import { removeKey, writeJson } from './storage';
 
 /**
  * Seguir pessoas pelo código e o correio (ver `api/src/routes/follow.ts`).
@@ -489,11 +490,7 @@ export class Follow {
     this.people.set(null);
     this.serverNow = null;
     if (dropCache) {
-      try {
-        localStorage.removeItem(CACHE_KEY);
-      } catch {
-        /* nada guardado */
-      }
+      removeKey(CACHE_KEY);
     }
   }
 
@@ -508,10 +505,6 @@ export class Follow {
       agora: this.serverNow,
       pessoas: this.people() ?? undefined,
     };
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    } catch {
-      /* sem armazenamento: confere a nuvem a cada abertura */
-    }
+    writeJson(CACHE_KEY, cache);
   }
 }

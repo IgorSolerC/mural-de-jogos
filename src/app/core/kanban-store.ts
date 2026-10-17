@@ -4,6 +4,7 @@ import { activeOrder } from './mural-config';
 import { sanitizeTags } from './note-labels';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
+import { writeJson } from './storage';
 
 /** Os quadros deste navegador (vão embora com "Apagar o save", como as anotações). */
 export const KANBAN_KEY = 'meu-mural:kanban:v1';
@@ -69,11 +70,7 @@ export class KanbanStore {
   constructor() {
     effect(() => {
       const data = this.state();
-      try {
-        localStorage.setItem(KANBAN_KEY, JSON.stringify(data));
-      } catch {
-        /* sem armazenamento: vale só nesta sessão */
-      }
+      writeJson(KANBAN_KEY, data);
     });
     // os quadros de antes, assim que existem (ao abrir, ou vindos da nuvem)
     effect(() => {

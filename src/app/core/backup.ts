@@ -5,6 +5,7 @@ import { CloudSync } from './cloud-sync';
 import { Settings } from './settings';
 import { Toasts } from '../ui/toast';
 import { DAY_MS } from './dates';
+import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:backup:v1';
 /** Depois de quantos dias sem backup, com coisa nova no mural, o bilhete aparece. */
@@ -128,10 +129,6 @@ export class Backup {
 
   private save(next: Stored): void {
     this.state.set(next);
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* sem armazenamento: vale só nesta sessão */
-    }
+    writeJson(KEY, next);
   }
 }

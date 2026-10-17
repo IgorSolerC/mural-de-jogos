@@ -25,9 +25,11 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
    draft-card e settings. Agora em `core/dates.ts` (`DAY_MS`, `MONTHS_SHORT`, `MONTHS_LONG`, `longDayFmt`, `longMonthFmt`,
    `localDay`, `todayISO`, `parseDay`, `daysAgoLabel`); `review.ts` reexporta os três de dia. As contagens de dias que
    arredondam diferente (piso de 24 h × dias de calendário) ficam como estão: dariam um dia de diferença.
-5. [ ] **Guardar no navegador**: um `core/storage.ts` (`readText`, `readJson`, `writeJson`, `writeText`, `removeKey`) no lugar de
+5. [x] **Guardar no navegador**: um `core/storage.ts` (`readText`, `readJson`, `writeJson`, `writeText`, `removeKey`) no lugar de
    ~25 `try { localStorage.setItem(...) } catch {}` e dos 3 leitores idênticos (`safeGet`, `readChosen`, `readNext`).
-   A camada do IndexedDB (local-data) fica como está: ela precisa saber quando a cota acaba.
+   A camada do IndexedDB (local-data) fica como está: ela precisa saber quando a cota acaba. Os leitores de JSON
+   que conferem a forma dentro do mesmo `try` ficam (a conferência também pode falhar e cair no padrão), e o
+   `writeNext` do convite para entrar também (a data é montada dentro do `try`).
 6. [ ] **Movimento reduzido**: `reducedMotion()` (ui/veil) existe, mas 12 lugares leem `matchMedia` à mão.
 7. [ ] **Pequenos iguais**: `tilt` de comments-panel = person-photo; `host` de audio-track = glued-media; cloud-sync importa
    `canonicalJson` duas vezes com dois nomes.

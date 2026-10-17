@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { writeJson } from './storage';
 
 /**
  * O volume de tudo o que toca no site: os widgets de áudio e de vídeo e o vinil das fichas de
@@ -37,11 +38,7 @@ export const soundVolume = () => state().v;
 
 function write(next: Stored): void {
   state.set(next);
-  try {
-    localStorage.setItem(KEY, JSON.stringify(next));
-  } catch {
-    // sem lugar (ou sem localStorage): vale só até fechar a aba
-  }
+  writeJson(KEY, next);
 }
 
 /** Durante o arrasto: o volume muda na hora, e o de voltar (de antes de calar) fica onde estava. */

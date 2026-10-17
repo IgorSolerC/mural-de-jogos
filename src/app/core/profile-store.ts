@@ -1,5 +1,6 @@
 import { Injectable, effect, signal } from '@angular/core';
 import { Profile, defaultProfile, sanitizeProfile } from './profile';
+import { writeJson } from './storage';
 
 /** O perfil deste navegador e quando mudou (fica com "Apagar o save", como os outros ajustes). */
 export const PROFILE_KEY = 'meu-mural:perfil:v1';
@@ -36,11 +37,7 @@ export class ProfileStore {
   constructor() {
     effect(() => {
       const data: StoredProfile = { perfil: this.profile(), em: this.changedAt() };
-      try {
-        localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
-      } catch {
-        /* sem armazenamento: vale só nesta sessão */
-      }
+      writeJson(PROFILE_KEY, data);
     });
   }
 

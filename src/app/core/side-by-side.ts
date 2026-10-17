@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS, isKind } from './kinds';
 import { Mural } from './mural';
 import { Kind, Review, ScoreKey } from './review';
+import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:lado-a-lado:v1';
 
@@ -62,11 +63,7 @@ export class SideBySide {
   constructor() {
     effect(() => {
       const ids = this.ids();
-      try {
-        localStorage.setItem(KEY, JSON.stringify(ids));
-      } catch {
-        /* a seleção vale só nesta sessão */
-      }
+      writeJson(KEY, ids);
     });
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', (e) => {

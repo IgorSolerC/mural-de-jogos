@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { CloudAccount } from './cloud-account';
 import { Cloud } from './cloud-config';
 import { ReviewStore } from './review-store';
+import { readText } from './storage';
 
 /**
  * O convite para entrar com o Google, na faixa de avisos: para quem tem um mural só neste navegador
@@ -18,13 +19,6 @@ export function nudgeDue(next: string | null, now: number): boolean {
   return !Number.isFinite(t) || now >= t;
 }
 
-function readNext(): string | null {
-  try {
-    return localStorage.getItem(KEY);
-  } catch {
-    return null;
-  }
-}
 
 function writeNext(at: number): void {
   try {
@@ -41,7 +35,7 @@ export class LoginNudge {
   private readonly store = inject(ReviewStore);
 
   /** Pode aparecer nesta abertura (decidido uma vez, ao abrir). */
-  private readonly dueNow = signal(nudgeDue(readNext(), Date.now()));
+  private readonly dueNow = signal(nudgeDue(readText(KEY), Date.now()));
   private readonly closed = signal(false);
 
   /** A nuvem ligada, ninguém logado e um mural que valha guardar. */

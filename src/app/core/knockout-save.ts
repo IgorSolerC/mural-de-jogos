@@ -1,5 +1,6 @@
 import { Kind, isKind } from './kinds';
 import { DUEL_OPTIONS, DuelOption, Slot } from './tournament';
+import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:mata-mata:v1';
 
@@ -50,12 +51,8 @@ export function loadKnockout(kind: Kind): SavedKnockout | null {
 }
 
 export function saveKnockout(kind: Kind, game: SavedKnockout | null): void {
-  try {
-    const all = readAll();
-    if (game) all[kind] = game;
-    else delete all[kind];
-    localStorage.setItem(KEY, JSON.stringify(all));
-  } catch {
-    /* sem armazenamento: o torneio vale até recarregar */
-  }
+  const all = readAll();
+  if (game) all[kind] = game;
+  else delete all[kind];
+  writeJson(KEY, all);
 }

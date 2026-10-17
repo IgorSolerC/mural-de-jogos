@@ -7,6 +7,7 @@ import { DataKey, LocalData } from './local-data';
 import { canonicalJson } from './canonical-json';
 import { KeptReason, KeptVersion, mergeVersions, sameContent, sanitizeVersions, storedVersions } from './kept-versions';
 import { Bonus, Draft, Kind, LIGHT_STOCKS, newId, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, linkSameWorks, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
+import { readText, writeText } from './storage';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -835,12 +836,8 @@ export class ReviewStore {
   }
 
   private keepCorrupt(key: string, raw: string): void {
-    try {
-      // guarda a primeira versão ruim; não troca por uma já limpa numa visita seguinte
-      if (!localStorage.getItem(`${key}:corrompido`)) localStorage.setItem(`${key}:corrompido`, raw);
-    } catch {
-      /* sem espaço: não há o que fazer */
-    }
+    // guarda a primeira versão ruim; não troca por uma já limpa numa visita seguinte (sem espaço, não há o que fazer)
+    if (!readText(`${key}:corrompido`)) writeText(`${key}:corrompido`, raw);
   }
 }
 

@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Cloud } from './cloud-config';
 import { OWNER_NAME_MAX, Settings } from './settings';
+import { readJson, removeKey, writeJson, writeText } from './storage';
 
 /**
  * A conta na nuvem: entrar com o Google, sair e apagar. A sessão é um token da nossa API (não o do
@@ -66,14 +67,6 @@ export function deviceLabel(ua: string): string {
               ? 'Linux'
               : '';
   return system ? `${browser} no ${system}` : browser;
-}
-
-function readJson<T>(key: string): T | null {
-  try {
-    return JSON.parse(localStorage.getItem(key) ?? 'null') as T | null;
-  } catch {
-    return null;
-  }
 }
 
 function readAccount(): CloudAccountInfo | null {
@@ -222,31 +215,19 @@ export class CloudAccount {
   private remember(token: string, account: CloudAccountInfo): void {
     this.token.set(token);
     this.setAccount(account);
-    try {
-      localStorage.setItem(SESSION_KEY, token);
-    } catch {
-      /* sem armazenamento: a sessão vale até recarregar */
-    }
+    writeText(SESSION_KEY, token);
   }
 
   private setAccount(account: CloudAccountInfo): void {
     this.account.set(account);
-    try {
-      localStorage.setItem(ACCOUNT_KEY, JSON.stringify(account));
-    } catch {
-      /* idem */
-    }
+    writeJson(ACCOUNT_KEY, account);
   }
 
   /** Esquece a sessão neste navegador (sem avisar a nuvem). */
   forget(): void {
     this.token.set(null);
     this.account.set(null);
-    try {
-      localStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem(ACCOUNT_KEY);
-    } catch {
-      /* nada guardado */
-    }
+    removeKey(SESSION_KEY);
+    removeKey(ACCOUNT_KEY);
   }
 }

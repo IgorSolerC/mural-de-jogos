@@ -18,6 +18,7 @@ import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
 import { Confirm } from '../ui/confirm';
 import { plural } from './text';
+import { readText, removeKey, writeText } from './storage';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -349,27 +350,10 @@ export interface KeyValueStore {
 export const SYNC_STORAGE = new InjectionToken<KeyValueStore>('SYNC_STORAGE', {
   providedIn: 'root',
   factory: () => ({
-    getItem: (k) => {
-      try {
-        return localStorage.getItem(k);
-      } catch {
-        return null;
-      }
-    },
-    setItem: (k, v) => {
-      try {
-        localStorage.setItem(k, v);
-      } catch {
-        /* sem armazenamento: a próxima abertura recomeça pela primeira sincronização (que só junta) */
-      }
-    },
-    removeItem: (k) => {
-      try {
-        localStorage.removeItem(k);
-      } catch {
-        /* idem */
-      }
-    },
+    // sem armazenamento, a próxima abertura recomeça pela primeira sincronização (que só junta)
+    getItem: readText,
+    setItem: writeText,
+    removeItem: removeKey,
   }),
 });
 

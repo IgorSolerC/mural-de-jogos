@@ -2,6 +2,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS, KindProfile, SCORED_KINDS, isKind, isNotes, profileOf } from './kinds';
 import { Bonus, Draft, Kind, Review, Wish, originalsOf } from './review';
 import { ReviewStore } from './review-store';
+import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:mural:v1';
 /** O último mural de resenhas aberto: o das Análises e de Extras, mesmo depois de passar pelas anotações. */
@@ -81,19 +82,11 @@ export class Mural {
     this.kind.update = (fn: (k: Kind) => Kind) => this.kind.set(fn(this.kind()));
     effect(() => {
       const k = this.kind();
-      try {
-        localStorage.setItem(KEY, JSON.stringify(k));
-      } catch {
-        /* vale só nesta sessão */
-      }
+      writeJson(KEY, k);
     });
     effect(() => {
       const k = this.reviewKind();
-      try {
-        localStorage.setItem(REVIEW_KEY, JSON.stringify(k));
-      } catch {
-        /* vale só nesta sessão */
-      }
+      writeJson(REVIEW_KEY, k);
     });
   }
 }

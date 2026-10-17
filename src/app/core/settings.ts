@@ -3,6 +3,7 @@ import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
 import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withTagHidden } from './mural-config';
+import { writeJson } from './storage';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
 const KEY = SETTINGS_KEY;
@@ -410,11 +411,7 @@ export class Settings {
         notesConfig: this.notesConfig(),
         notesConfigAt: this.notesConfigAt(),
       };
-      try {
-        localStorage.setItem(KEY, JSON.stringify(data));
-      } catch {
-        /* sem armazenamento: vale só nesta sessão */
-      }
+      writeJson(KEY, data);
     });
     // as escolhas de Desempenho valem no site inteiro: uma classe na raiz para cada uma que o CSS troca
     // (ver styles.scss e pages/wall-board.scss)

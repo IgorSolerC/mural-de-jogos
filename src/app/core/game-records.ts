@@ -1,3 +1,4 @@
+import { writeJson } from './storage';
 const KEY = 'mural-de-jogos:recordes:v1';
 
 /**
@@ -29,10 +30,6 @@ export function offerRecord(key: string, value: number): boolean {
   const all = readAll();
   if (value <= (all[key] ?? 0)) return false;
   all[key] = value;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(all));
-  } catch {
-    /* sem armazenamento: o recorde vale até recarregar */
-  }
+  writeJson(KEY, all);
   return true;
 }

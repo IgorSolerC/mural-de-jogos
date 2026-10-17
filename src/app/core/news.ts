@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Cloud, CloudNotice } from './cloud-config';
 import { ReviewStore } from './review-store';
 import { todayISO } from './dates';
+import { readText, writeJson } from './storage';
 
 /**
  * As novidades do site: a lista fica em `news-list.ts` e as regras de cada entrada (o que é
@@ -201,13 +202,8 @@ export class News {
   }
 
   private load(): ReadonlySet<string> {
-    let raw: string | null = null;
-    try {
-      raw = localStorage.getItem(KEY);
-    } catch {
-      /* sem localStorage: a faixa volta a cada abertura, o que é melhor que nunca avisar */
-    }
-    const list = readSeen(raw);
+    // sem localStorage, nada lido: a faixa volta a cada abertura, o que é melhor que nunca avisar
+    const list = readSeen(readText(KEY));
     if (list) return new Set(list);
     const first = new Set(firstSeen(this.entries(), this.store.hasContent()));
     this.save(first);
@@ -215,10 +211,6 @@ export class News {
   }
 
   private save(seen: ReadonlySet<string>): void {
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ vistas: seenToSave(seen, this.entries()) }));
-    } catch {
-      /* cota cheia ou sem localStorage: só esta aba lembra */
-    }
+    writeJson(KEY, { vistas: seenToSave(seen, this.entries()) });
   }
 }

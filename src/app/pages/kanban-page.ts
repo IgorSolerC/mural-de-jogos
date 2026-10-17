@@ -28,6 +28,7 @@ import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { TagChip, TagChips } from '../ui/tag-chips';
 import { Toasts } from '../ui/toast';
+import { readText, writeJson, writeText } from '../core/storage';
 
 /** O último quadro aberto, para `/anotacoes/kanban` sem quadro abrir nele. */
 const LAST_KEY = 'meu-mural:kanban-aberto:v1';
@@ -375,12 +376,8 @@ export class KanbanPage {
       const id = this.param();
       if (!ids.length || (id && ids.includes(id))) return;
       untracked(() => {
-        let last: string | null = null;
-        try {
-          last = localStorage.getItem(LAST_KEY);
-        } catch {
-          /* sem armazenamento: o primeiro */
-        }
+        // sem armazenamento, nada lido: o primeiro
+        const last = readText(LAST_KEY);
         const to = ids.find((x) => x === last) ?? ids[0];
         void this.router.navigate([kanbanPath(to)], { replaceUrl: true });
       });
@@ -389,11 +386,7 @@ export class KanbanPage {
       const b = this.board();
       this.kanban.openBoard.set(b?.id ?? null);
       if (!b) return;
-      try {
-        localStorage.setItem(LAST_KEY, b.id);
-      } catch {
-        /* fica sem lembrar */
-      }
+      writeText(LAST_KEY, b.id);
     });
     // trocou de quadro: o filtro e o que estava aberto eram do outro
     effect(() => {
@@ -437,11 +430,7 @@ export class KanbanPage {
     const next = this.denseBoards().filter((id) => id !== b.id && alive.has(id));
     if (on) next.push(b.id);
     this.denseBoards.set(next);
-    try {
-      localStorage.setItem(DENSE_KEY, JSON.stringify(next));
-    } catch {
-      /* fica só nesta visita */
-    }
+    writeJson(DENSE_KEY, next);
   }
 
   protected pathOf(id: string): string {

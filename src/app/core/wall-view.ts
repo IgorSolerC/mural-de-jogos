@@ -29,6 +29,7 @@ import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filt
 import { ONE_DECIMAL as avgFmt } from './review';
 import { cap, labelKey, nameCollator, plural } from './text';
 import { longMonthFmt } from './dates';
+import { writeJson } from './storage';
 
 /**
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
@@ -497,11 +498,7 @@ export abstract class WallState {
         pinnedFirst: this.pinnedFirst(),
         ...(memory.whole ? { showDone: this.showDone(), noteTab: this.noteTab(), musicTab: this.musicTab(), collapsed: [...this.collapsed()].slice(-MAX_COLLAPSED) } : {}),
       };
-      try {
-        localStorage.setItem(memory.key, JSON.stringify(kept));
-      } catch {
-        /* preferências valem só nesta sessão */
-      }
+      writeJson(memory.key, kept);
     });
   }
 

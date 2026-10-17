@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { readText } from './storage';
 
 /**
  * Onde moram as resenhas, a fila, a wishlist e as apagadas: no IndexedDB, que não tem o teto de uns
@@ -79,7 +80,7 @@ export class LocalData {
       const stored = await readAll(db);
       if (stored.get(MIGRATED) == null) {
         const copied = new Map<DataKey, string | null>();
-        for (const key of DATA_KEYS) copied.set(key, safeGet(key));
+        for (const key of DATA_KEYS) copied.set(key, readText(key));
         await writeMany(db, [
           ...[...copied].filter(([, v]) => v !== null).map(([k, v]) => [k, v] as [string, string]),
           [MIGRATED, new Date().toISOString()],
@@ -94,7 +95,7 @@ export class LocalData {
         for (const key of DATA_KEYS) {
           const value = stored.get(key);
           this.cache.set(key, typeof value === 'string' ? value : null);
-          const mirror = safeGet(key);
+          const mirror = readText(key);
           if (mirror !== null && mirror !== value && stamps[key] !== stamp(mirror)) {
             foreign[key] = mirror;
             any = true;
@@ -102,7 +103,7 @@ export class LocalData {
         }
         if (any) {
           // o resto das chaves vai junto (é igual ao daqui ou mais velho; juntar não muda nada)
-          for (const key of DATA_KEYS) foreign[key] ??= safeGet(key) ?? undefined;
+          for (const key of DATA_KEYS) foreign[key] ??= readText(key) ?? undefined;
           this.foreign = foreign;
         }
       }
@@ -224,13 +225,6 @@ function readStamps(): Record<string, string> {
   }
 }
 
-function safeGet(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
