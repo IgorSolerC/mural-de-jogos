@@ -572,7 +572,7 @@ export class KanbanPage {
   }
 
   /**
-   * A seta da ficha: leva a anotação para a coluna seguinte (a da direita), no fim dela (ou no lugar
+   * A seta da ficha: leva a anotação para a coluna seguinte (a da direita), no topo dela (ou no lugar
    * da ordem, se a coluna tem ordem), finalizando se a coluna pede. A ficha pisca o marca-texto onde
    * chegou e o quadro rola até ela; o foco vai para a seta dela lá, para avançar de novo.
    */
@@ -581,7 +581,7 @@ export class KanbanPage {
     if (!b) return;
     const next = b.columns[b.columns.findIndex((c) => c.id === column) + 1];
     if (!next) return;
-    this.actions.move(b.id, note, next.id);
+    this.actions.move(b.id, note, next.id, 0);
     this.sayPlace(note, this.store.get(note)?.game.name ?? 'A anotação', next.id);
     requestAnimationFrame(() => {
       const li = this.host.querySelector<HTMLElement>(`.lugar[data-nota="${note}"]`);

@@ -357,6 +357,18 @@ describe('página do Kanban', () => {
     expect(seta('nsync001')!.getAttribute('aria-label')).toBe('Levar Sincronizar quadros para Fazendo');
   });
 
+  it('a seta põe a anotação no topo da coluna seguinte, em cima das que já estavam lá', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const seta = (id: string) => host.querySelector<HTMLButtonElement>(`[data-nota="${id}"] .acoes .avancar`)!;
+    seta('nsync001').click();
+    await settle();
+    seta('nlogin01').click();
+    await settle();
+    expect(namesIn('fazendo')).toEqual(['nlogin01', 'nsync001']);
+    expect(cardsIn(kanban.get(TRAB)!, 'fazendo')[0].note).toBe('nlogin01');
+  });
+
   it('a busca e as tags (as etiquetas da pasta, como no mural) escondem as outras, e Limpar mostra todas', async () => {
     store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
     kanban.state.set(state(board()));
