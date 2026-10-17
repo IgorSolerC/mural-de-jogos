@@ -71,13 +71,7 @@
   cursor: pointer;
 
   select {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    opacity: 0;
-    cursor: pointer;
-    font-size: 16px;
-    color-scheme: light;
+    @include kit.select-por-cima;
   }
 
   &:has(select:focus-visible) {

@@ -658,17 +658,7 @@ select optgroup {
     padding-right: 30px;
 
     select {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      opacity: 0;
-      cursor: pointer;
-      /* 16px: o iOS não dá zoom ao abrir */
-      font-size: 16px;
-      /* a lista que abre é papel com tinta preta, mesmo com o esquema escuro da parede */
-      color-scheme: light;
-      color: var(--ink);
-      background-color: var(--paper);
+      @include kit.select-por-cima;
     }
   }
 

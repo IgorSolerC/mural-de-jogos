@@ -92,6 +92,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 35. [x] **O radio escondido** debaixo das opções desenhadas (a global `.opcao > input`, o estojo, as caveiras, as notas, as
     molduras, o perfil, os seletores, a coluna do Kanban): nove cópias iguais; agora `a11y.radio-escondido`.
 
+36. [x] **O select invisível por cima** do campo "Ordenar" (a pasta), das abas "Mais", do ano das Estatísticas e do Lado a
+    lado: quatro cópias; agora `kit.select-por-cima` (o do Lado a lado ganhou a cor de papel da lista, como os outros).
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

@@ -1,3 +1,5 @@
+@use '../ui/paper-kit' as kit;
+
 /*
  * Estatísticas: um quadro de cortiça de dossiê. Cada número vem num papel do mundo do mural:
  * - fichas de cartolina com tachinha para os números grandes;
@@ -74,15 +76,7 @@
   cursor: pointer;
 
   select {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    opacity: 0;
-    cursor: pointer;
-    font-size: 16px;
-    color-scheme: light;
-    color: var(--ink);
-    background-color: var(--paper);
+    @include kit.select-por-cima;
   }
 
   &:has(select:focus-visible) {

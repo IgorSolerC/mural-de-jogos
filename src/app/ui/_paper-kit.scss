@@ -111,6 +111,22 @@
   }
 }
 
+/* O <select> nativo, invisível, por cima de um campo impresso ("Ordenar: Data") ou de uma aba: o
+   desenho fica com o campo, e a lista que abre é a do sistema */
+@mixin select-por-cima {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+  /* 16px: o iOS não dá zoom ao abrir */
+  font-size: 16px;
+  /* a lista que abre é papel com tinta preta, mesmo com o esquema escuro da parede */
+  color-scheme: light;
+  color: var(--ink);
+  background-color: var(--paper);
+}
+
 /* A linha escrita a giz direto na parede, embaixo do título da página (o que a página tem) */
 @mixin giz {
   font-family: var(--f-label);

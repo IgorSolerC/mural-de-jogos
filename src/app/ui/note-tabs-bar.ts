@@ -84,6 +84,7 @@ const GAP = 3;
   `,
   styles: `
     @use 'divisorias' as div;
+    @use 'paper-kit' as kit;
 
     /* As camadas: as abas de trás (0) ficam atrás da borda da pasta (1), que passa por cima do pé
        delas; só a aberta (2) vem para a frente, emendada na borda. */
@@ -190,15 +191,7 @@ const GAP = 3;
       }
 
       select {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        opacity: 0;
-        cursor: pointer;
-        font-size: 16px;
-        color-scheme: light;
-        color: var(--ink);
-        background-color: var(--paper);
+        @include kit.select-por-cima;
       }
     }
 
