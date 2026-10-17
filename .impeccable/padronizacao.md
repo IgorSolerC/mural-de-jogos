@@ -60,6 +60,10 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     contagem e o filtro por mural e busca eram cópias. Agora `kindTabs` e `matchingCards` (ui/picker-kit.ts); a ordem de
     cada um fica (a escolhida e as mexidas por último num, as escolhidas e A–Z no outro).
 
+27. [x] **Setas nas abas**: a conta da aba seguinte (← →, ↑ ↓, Home, End) escrita de cinco jeitos. Agora `tabStep` em
+    ui/focus.ts no estojo do editor, nas configurações do mural, em Amigos e nos Ajustes (o estojo continua só deitado);
+    a folha de Pessoas, com duas abas que trocam, fica como está.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

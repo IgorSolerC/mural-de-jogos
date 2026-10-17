@@ -70,6 +70,7 @@ import { GameLookup } from '../core/game-lookup';
 import { SiteKeys } from '../core/site-keys';
 import { plural } from '../core/text';
 import { DAY_MS, daysAgoLabel, localDay } from '../core/dates';
+import { tabStep } from '../ui/focus';
 
 
 type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'busca' | 'desempenho';
@@ -187,10 +188,7 @@ export class SettingsPage {
 
   /** Setas, Home e End andam entre as partes (o padrão das abas para teclado; o índice fica de pé ou deitado). */
   protected onTabKey(e: KeyboardEvent): void {
-    const i = TABS.indexOf(this.tab());
-    const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
-    const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
-    const next = forward ? (i + 1) % TABS.length : back ? (i - 1 + TABS.length) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
+    const next = tabStep(e.key, TABS.indexOf(this.tab()), TABS.length);
     if (next < 0) return;
     e.preventDefault();
     this.go(TABS[next]);

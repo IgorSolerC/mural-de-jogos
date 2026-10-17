@@ -41,6 +41,7 @@ import { motifIcon, paperVars } from '../core/paper-art';
 import { STOCKS, STOCK_LABEL, Stock, isDarkStock } from '../core/review';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
+import { tabStep } from './focus';
 
 type Tab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha' | 'decoracao';
 
@@ -1211,13 +1212,8 @@ export class CardKit {
 
   /** Setas trocam de aba, como um tablist. */
   protected onTabKey(e: KeyboardEvent): void {
-    const i = this.tabs.findIndex((t) => t.id === this.tab());
-    let next = i;
-    if (e.key === 'ArrowRight') next = (i + 1) % this.tabs.length;
-    else if (e.key === 'ArrowLeft') next = (i - 1 + this.tabs.length) % this.tabs.length;
-    else if (e.key === 'Home') next = 0;
-    else if (e.key === 'End') next = this.tabs.length - 1;
-    else return;
+    const next = tabStep(e.key, this.tabs.findIndex((t) => t.id === this.tab()), this.tabs.length, false);
+    if (next < 0) return;
     e.preventDefault();
     this.selectTab(this.tabs[next].id);
     this.el.querySelector<HTMLElement>(`#kit-aba-${this.tabs[next].id}`)?.focus();

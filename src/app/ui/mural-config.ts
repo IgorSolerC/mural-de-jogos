@@ -16,6 +16,7 @@ import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagColors } from './tag-colors';
 import { nameCollator, plural } from '../core/text';
+import { tabStep } from './focus';
 
 /**
  * As partes da folha, uma por vez, como as partes dos Ajustes. Para crescer, uma entrada aqui e o
@@ -207,12 +208,9 @@ export class MuralConfig {
 
   /** ←/→ (e ↑/↓), Home e End andam pelas partes, como numa lista de abas. */
   protected onIndexKey(e: KeyboardEvent): void {
-    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-    if (!keys.includes(e.key)) return;
+    const next = tabStep(e.key, SECTIONS.findIndex((s) => s.id === this.section()), SECTIONS.length);
+    if (next < 0) return;
     e.preventDefault();
-    const i = SECTIONS.findIndex((s) => s.id === this.section());
-    const n = SECTIONS.length;
-    const next = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : (i + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + n) % n;
     this.pick(SECTIONS[next].id);
     afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('.parte[aria-selected="true"]')?.focus(), { injector: this.injector });
   }

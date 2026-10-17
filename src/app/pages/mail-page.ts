@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { focusAfterRender } from '../ui/focus';
+import { focusAfterRender, tabStep } from '../ui/focus';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Bell, BellOff, Check, Copy, Ellipsis, GalleryVerticalEnd, Link, LucideAngularModule, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
@@ -370,17 +370,7 @@ export class MailPage {
   /** As setas andam pelas abas (dão a volta); Home e End vão às pontas. */
   protected onTabKey(e: KeyboardEvent): void {
     const i = TABS.indexOf(this.tab());
-    const last = TABS.length - 1;
-    const next =
-      e.key === 'ArrowRight' || e.key === 'ArrowDown'
-        ? (i + 1) % TABS.length
-        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
-          ? (i + last) % TABS.length
-          : e.key === 'Home'
-            ? 0
-            : e.key === 'End'
-              ? last
-              : -1;
+    const next = tabStep(e.key, i, TABS.length);
     if (next < 0 || next === i) return;
     e.preventDefault();
     this.go(TABS[next]);
