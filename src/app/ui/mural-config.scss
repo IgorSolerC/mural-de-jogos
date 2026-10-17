@@ -599,6 +599,76 @@ fieldset.linha {
   }
 }
 
+/* ===== Renomear e apagar ===== */
+
+/* o recado do que mudou: um bilhete com o traço de marca-texto, no alto da parte */
+.aviso {
+  max-width: 60ch;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 2px;
+  background: rgb(255 218 66 / 0.45);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ink);
+
+  &:empty {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.nome-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 8px;
+}
+
+.campo {
+  @include kit.campo;
+  flex: 1 1 220px;
+  max-width: 360px;
+  min-height: 44px;
+
+  input {
+    height: 42px;
+    font-family: var(--f-marker);
+    font-size: 1.05rem;
+  }
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+.nome-dica {
+  margin-top: 8px;
+  max-width: 56ch;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* o pé do painel: voltar a seguir o mural à esquerda, apagar na outra ponta */
+.cat-pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+
+  .voltar {
+    margin: 0 0 0 -8px;
+  }
+}
+
+.apagar {
+  margin-left: auto;
+}
+
 /* ===== As tags: uma linha por tag, ela mesma como fica na ficha, e as cores embaixo ===== */
 .tags {
   margin: 22px 0 0;
@@ -609,7 +679,7 @@ fieldset.linha {
 
 .tag {
   display: grid;
-  grid-template-columns: minmax(0, 210px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 210px) minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px 14px;
   padding: 16px 0 12px;
@@ -618,6 +688,29 @@ fieldset.linha {
 
 .tag-previa {
   justify-self: start;
+}
+
+.tag-acoes {
+  display: flex;
+  gap: 2px;
+
+  .olho {
+    margin-right: 0;
+  }
+}
+
+.apagar-tag:hover {
+  color: var(--red-deep);
+  background: #fbe9e6;
+}
+
+/* renomeando: o campo no lugar da etiqueta, e os dois botões ao lado */
+.tag-nome {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
 }
 
 /* o primeiro quadradinho encosta na margem: o vão é o do hover, não da linha */
@@ -704,6 +797,15 @@ fieldset.linha {
 
   .cat-abre {
     grid-template-columns: minmax(0, 170px) minmax(0, 1fr) auto;
+  }
+
+  /* a etiqueta só com o tamanho dela: a contagem cabe numa linha, antes do lápis e da lixeira */
+  .tag {
+    grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
+  }
+
+  .tag .cat-n {
+    white-space: nowrap;
   }
 
   /* as nove cores não cabem numa fileira: duas fileiras parelhas (cinco e quatro), sem uma sobrando

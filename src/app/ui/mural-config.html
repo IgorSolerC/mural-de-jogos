@@ -116,6 +116,7 @@
           @case ('categorias') {
             <h3>Categorias</h3>
             <p class="lead">Cada categoria segue os padrões do mural, a não ser que você escolha outra coisa para ela.</p>
+            <p class="aviso" role="status">{{ notice() }}</p>
 
             @if (categories().length) {
               <div class="grupo">
@@ -192,6 +193,21 @@
                     @if (aberta) {
                       @let p = prefsOf(c);
                       <div class="cat-painel" [id]="'config-cat-' + i">
+                        <!-- o nome: muda em toda anotação da categoria; o de outra junta as duas -->
+                        <form class="sub-bloco nome" (submit)="renameCategory($event, c, nomeCat)">
+                          <label class="sub-titulo" [for]="'config-nome-' + i">Nome</label>
+                          <div class="nome-linha">
+                            <span class="campo">
+                              <input #nomeCat type="text" autocomplete="off" spellcheck="false" [id]="'config-nome-' + i" [maxLength]="labelMax" [value]="c.label" [attr.aria-describedby]="'config-nome-dica-' + i" (keydown.escape)="$event.preventDefault(); nomeCat.value = c.label" />
+                            </span>
+                            <button type="submit" class="papel">
+                              <lucide-icon [img]="RenameIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                              Renomear
+                            </button>
+                          </div>
+                          <p class="nome-dica" [id]="'config-nome-dica-' + i">Muda em {{ c.n === 1 ? 'a anotação' : 'todas as ' + c.n + ' anotações' }}. Com o nome de outra categoria, as duas viram uma só.</p>
+                        </form>
+
                         <app-category-style class="sub-bloco" [id]="'config-estilo-' + i" [category]="c.label" [bare]="true" />
 
                         <fieldset class="sub-bloco">
@@ -248,12 +264,18 @@
                           </div>
                         </fieldset>
 
-                        @if (resumo) {
-                          <button type="button" class="voltar" (click)="resetPrefs(c)">
-                            <lucide-icon [img]="ResetIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                            Voltar a seguir o mural
+                        <div class="cat-pe">
+                          @if (resumo) {
+                            <button type="button" class="voltar" (click)="resetPrefs(c)">
+                              <lucide-icon [img]="ResetIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                              Voltar a seguir o mural
+                            </button>
+                          }
+                          <button type="button" class="papel perigo apagar" (click)="deleteCategory(c)">
+                            <lucide-icon [img]="DeleteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                            Apagar a categoria
                           </button>
-                        }
+                        </div>
                       </div>
                     }
                   </li>
@@ -268,13 +290,36 @@
           @case ('tags') {
             <h3>Tags</h3>
             <p class="lead">A cor de uma tag aparece em toda anotação que tem a tag, no mural e no Kanban. Sem cor, fica o papel pardo de sempre.</p>
+            <p class="aviso" role="status">{{ notice() }}</p>
 
             @if (tags().length) {
               <ul class="tags">
                 @for (t of tags(); track t.key) {
-                  <li class="tag">
-                    <app-note-tag class="tag-previa" [label]="t.label" [color]="tagColorOf(t)" />
-                    <span class="cat-n">{{ t.n }} {{ t.n === 1 ? 'anotação' : 'anotações' }}</span>
+                  <li class="tag" [class.renomeando]="renamingTag() === t.key">
+                    @if (renamingTag() === t.key) {
+                      <form class="tag-nome" (submit)="renameTag($event, t, nomeTag)">
+                        <span class="campo">
+                          <span class="sr-only">Novo nome da tag {{ t.label }}</span>
+                          <input #nomeTag type="text" autocomplete="off" spellcheck="false" [attr.data-tag-campo]="t.key" [maxLength]="labelMax" [value]="t.label" (keydown.escape)="$event.preventDefault(); stopTagRename(t.key)" />
+                        </span>
+                        <button type="submit" class="papel">
+                          <lucide-icon [img]="OkIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+                          Renomear
+                        </button>
+                        <button type="button" class="papel quieto" (click)="stopTagRename(t.key)">Cancelar</button>
+                      </form>
+                    } @else {
+                      <app-note-tag class="tag-previa" [label]="t.label" [color]="tagColorOf(t)" />
+                      <span class="cat-n">{{ t.n }} {{ t.n === 1 ? 'anotação' : 'anotações' }}</span>
+                      <span class="tag-acoes">
+                        <button type="button" class="olho" [attr.data-tag-lapis]="t.key" [attr.aria-label]="'Renomear a tag ' + t.label" title="Renomear" (click)="startTagRename(t)">
+                          <lucide-icon [img]="RenameIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                        </button>
+                        <button type="button" class="olho apagar-tag" [attr.aria-label]="'Apagar a tag ' + t.label" title="Apagar" (click)="deleteTag(t)">
+                          <lucide-icon [img]="DeleteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                        </button>
+                      </span>
+                    }
                     <app-tag-colors class="tag-cores" [tag]="t.label" />
                   </li>
                 }

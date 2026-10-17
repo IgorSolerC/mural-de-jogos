@@ -325,6 +325,34 @@ export function resetBoard(b: KanbanBoard, at: string): KanbanBoard {
   return touch(b, { columns: defaultColumns(), cards: [] }, at);
 }
 
+/**
+ * A categoria `from` mudou de nome para `to` (as chaves de `lookKey`; null: apagada): o quadro dela
+ * passa para o nome novo, e o de antes sai (fica em `removed`, para a junção não o trazer de volta).
+ * Se a categoria nova já tem quadro guardado, as anotações do de antes vão para ele: na coluna de
+ * mesmo nome, senão na primeira. Sem quadro guardado (o de sempre), nada muda.
+ */
+export function moveBoardCategory(st: KanbanState, from: string, to: string | null, at: string): KanbanState {
+  const fromId = boardIdFor(from);
+  const old = st.boards.find((b) => b.id === fromId);
+  if (!old || (to !== null && boardIdFor(to) === fromId)) return st;
+  let boards = st.boards.filter((b) => b.id !== fromId);
+  if (to !== null) {
+    const toId = boardIdFor(to);
+    const target = boards.find((b) => b.id === toId);
+    if (!target) boards.push({ ...old, id: toId, category: categoryKey(to), at });
+    else {
+      const byName = new Map(target.columns.map((c) => [fold(c.name), c.id]));
+      const nameOf = new Map(old.columns.map((c) => [c.id, fold(c.name)]));
+      const there = new Set(target.cards.map((c) => c.note));
+      const moved = old.cards
+        .filter((c) => !there.has(c.note))
+        .map((c) => ({ ...c, column: byName.get(nameOf.get(c.column) ?? '') ?? target.columns[0].id }));
+      boards = boards.map((b) => (b === target ? { ...b, cards: [...b.cards, ...moved], at } : b));
+    }
+  }
+  return { ...st, boards, removed: { ...st.removed, [fromId]: at } };
+}
+
 /** Uma coluna nova no fim (ou depois de `after`), com uma cor que ainda não está no quadro, se houver. */
 export function addColumn(b: KanbanBoard, name: string, at: string, after?: string): { board: KanbanBoard; id: string } {
   if (b.columns.length >= MAX_COLUMNS) return { board: b, id: '' };

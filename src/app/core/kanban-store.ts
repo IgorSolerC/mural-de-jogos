@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { EMPTY_KANBAN, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, sanitizeKanban } from './kanban';
+import { EMPTY_KANBAN, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, sanitizeKanban } from './kanban';
 import { activeOrder } from './mural-config';
 import { sanitizeTags } from './note-labels';
 import { ReviewStore } from './review-store';
@@ -110,6 +110,14 @@ export class KanbanStore {
     if (i >= 0) boards[i] = next;
     else boards.push(next);
     this.state.set({ ...st, boards });
+    this.changedAt.set(Date.now());
+  }
+
+  /** A categoria mudou de nome ou foi apagada (as chaves; ver `moveBoardCategory`): o quadro acompanha. */
+  moveCategory(from: string, to: string | null): void {
+    const next = moveBoardCategory(this.state(), from, to, new Date().toISOString());
+    if (next === this.state()) return;
+    this.state.set(next);
     this.changedAt.set(Date.now());
   }
 

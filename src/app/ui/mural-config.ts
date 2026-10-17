@@ -1,14 +1,17 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, output, signal, viewChild } from '@angular/core';
-import { ChevronDown, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, SlidersHorizontal, Tag, Tags, Undo2, X } from 'lucide-angular';
+import { Check, ChevronDown, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, Pencil, SlidersHorizontal, Tag, Tags, Trash2, Undo2, X } from 'lucide-angular';
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
+import { LabelEditResult, LabelEdits } from '../core/label-edits';
 import { CategoryPrefs, SubColor, arrangedKeys, moveKey, prefsOf } from '../core/mural-config';
 import type { Audience } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { LABEL_MAX, cleanCategory, cleanTag } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { BackdropClose } from './backdrop-close';
 import { CategoryLabel } from './category-label';
 import { CategoryStyle } from './category-style';
+import { Confirm } from './confirm';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { TagColors } from './tag-colors';
@@ -19,8 +22,8 @@ import { TagColors } from './tag-colors';
  */
 const SECTIONS = [
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: SlidersHorizontal },
-  { id: 'categorias', label: 'Categorias', hint: 'Ordem, cor e padrões de cada uma', icon: Tags },
-  { id: 'tags', label: 'Tags', hint: 'A cor de cada uma', icon: Tag },
+  { id: 'categorias', label: 'Categorias', hint: 'Nome, ordem, cor e padrões', icon: Tags },
+  { id: 'tags', label: 'Tags', hint: 'Nome e cor de cada uma', icon: Tag },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -86,6 +89,8 @@ interface Drag {
  * Padrões: como nasce toda anotação (privacidade, cor da sub-nota) e as perguntas antes de salvar.
  * Categorias: a ordem das abas e, em cada uma, o ícone e a cor e o que ela muda em cima do mural.
  * Tags: a cor de cada tag (a mesma escolha do quadro do Kanban, ver KanbanBoardSheet).
+ * Nas duas, renomear e apagar (em toda anotação que usa; ver core/label-edits.ts), apagar com a
+ * pergunta antes.
  * Tudo vale na hora e fica guardado (ver core/mural-config.ts). Chega num pedaço à parte, só quando
  * a engrenagem é tocada.
  */
@@ -107,6 +112,8 @@ export class MuralConfig {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly list = viewChild<ElementRef<HTMLOListElement>>('lista');
   private readonly injector = inject(Injector);
+  private readonly edits = inject(LabelEdits);
+  private readonly confirm = inject(Confirm);
 
   protected readonly CloseIcon = X;
   protected readonly GripIcon = GripVertical;
@@ -114,6 +121,10 @@ export class MuralConfig {
   protected readonly ResetIcon = Undo2;
   protected readonly ShownIcon = Eye;
   protected readonly HiddenIcon = EyeOff;
+  protected readonly RenameIcon = Pencil;
+  protected readonly DeleteIcon = Trash2;
+  protected readonly OkIcon = Check;
+  protected readonly labelMax = LABEL_MAX;
   protected readonly sections = SECTIONS;
   protected readonly audiences = AUDIENCES;
   protected readonly audienceLabel = AUDIENCE_LABEL;
@@ -141,6 +152,10 @@ export class MuralConfig {
   protected readonly drag = signal<Drag | null>(null);
   /** O que o leitor de tela ouve depois de mover uma categoria. */
   protected readonly said = signal('');
+  /** O recado depois de renomear ou apagar (à mostra, no alto da parte): o que mudou e onde. */
+  protected readonly notice = signal('');
+  /** A tag sendo renomeada (a chave), com o campo no lugar dela. */
+  protected readonly renamingTag = signal<string | null>(null);
 
   constructor() {
     afterNextRender(() => {
@@ -159,6 +174,7 @@ export class MuralConfig {
   // ===== as partes =====
 
   protected pick(id: SectionId): void {
+    if (id !== this.section()) this.notice.set('');
     this.section.set(id);
     lastSection = id;
   }
@@ -191,6 +207,105 @@ export class MuralConfig {
 
   protected subDesc(c: SubColor): string {
     return SUB_COLORS.find((o) => o.value === c)!.desc;
+  }
+
+  // ===== renomear e apagar =====
+
+  /** "em 3 anotações", e as compartilhadas que ficaram de fora. */
+  private told(r: LabelEditResult): string {
+    const n = r.changed === 1 ? 'em 1 anotação' : `em ${r.changed} anotações`;
+    const out = r.skipped === 1 ? ' Uma compartilhada ficou como estava: só o dono e os gestores mudam.' : r.skipped ? ` ${r.skipped} compartilhadas ficaram como estavam: só o dono e os gestores mudam.` : '';
+    return `${n}.${out}`;
+  }
+
+  private uses(n: number): string {
+    return n === 1 ? '1 anotação usa' : `${n} anotações usam`;
+  }
+
+  protected async renameCategory(e: Event, row: CategoryRow, field: HTMLInputElement): Promise<void> {
+    e.preventDefault();
+    const name = cleanCategory(field.value);
+    if (!name || name === row.label) {
+      field.value = row.label;
+      return;
+    }
+    const other = this.edits.existingCategory(name, row.label);
+    if (other) {
+      const sure = await this.confirm.ask({
+        title: `Juntar com ${other}?`,
+        text: `Já existe a categoria ${other}. As anotações de ${row.label} passam para ela, e ficam a cor, os padrões e o quadro do Kanban de ${other}.`,
+        confirm: `Juntar com ${other}`,
+        tone: 'neutro',
+        icon: null,
+      });
+      if (!sure) {
+        field.value = row.label;
+        return;
+      }
+    }
+    const r = this.edits.renameCategory(row.label, other ?? name);
+    this.open.set(lookKey(other ?? name));
+    this.notice.set(other ? `${row.label} entrou em ${other} ${this.told(r)}` : `${row.label} virou ${name} ${this.told(r)}`);
+  }
+
+  protected async deleteCategory(row: CategoryRow): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: `Apagar a categoria ${row.label}?`,
+      text: `${this.uses(row.n)} esta categoria. Elas continuam no mural, sem categoria; o ícone, a cor, os padrões e o quadro do Kanban dela vão embora.`,
+      confirm: 'Apagar a categoria',
+      icon: this.DeleteIcon,
+    });
+    if (!sure) return;
+    this.open.set(null);
+    const r = this.edits.renameCategory(row.label, null);
+    this.notice.set(`${row.label} foi apagada ${this.told(r)}`);
+  }
+
+  protected startTagRename(row: CategoryRow): void {
+    this.renamingTag.set(row.key);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLInputElement>(`[data-tag-campo="${CSS.escape(row.key)}"]`)?.select(), { injector: this.injector });
+  }
+
+  /** Fecha o campo da tag e devolve o foco ao lápis dela. */
+  protected stopTagRename(key: string): void {
+    this.renamingTag.set(null);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-tag-lapis="${CSS.escape(key)}"]`)?.focus(), { injector: this.injector });
+  }
+
+  protected async renameTag(e: Event, row: CategoryRow, field: HTMLInputElement): Promise<void> {
+    e.preventDefault();
+    const name = cleanTag(field.value);
+    if (!name || name === row.label) {
+      this.stopTagRename(row.key);
+      return;
+    }
+    const other = this.edits.existingTag(name, row.label);
+    if (other) {
+      const sure = await this.confirm.ask({
+        title: `Juntar com ${other}?`,
+        text: `Já existe a tag ${other}. As anotações com ${row.label} passam a ter ${other}, com a cor dela.`,
+        confirm: `Juntar com ${other}`,
+        tone: 'neutro',
+        icon: null,
+      });
+      if (!sure) return;
+    }
+    const r = this.edits.renameTag(row.label, other ?? name);
+    this.stopTagRename(lookKey(other ?? name));
+    this.notice.set(other ? `${row.label} entrou em ${other} ${this.told(r)}` : `${row.label} virou ${name} ${this.told(r)}`);
+  }
+
+  protected async deleteTag(row: CategoryRow): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: `Apagar a tag ${row.label}?`,
+      text: `${this.uses(row.n)} esta tag. Ela sai de todas, e a cor dela vai embora; as anotações continuam no mural.`,
+      confirm: 'Apagar a tag',
+      icon: this.DeleteIcon,
+    });
+    if (!sure) return;
+    this.renamingTag.set(null);
+    const r = this.edits.renameTag(row.label, null);
+    this.notice.set(`${row.label} foi apagada ${this.told(r)}`);
   }
 
   // ===== tags =====

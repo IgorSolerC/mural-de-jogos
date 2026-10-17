@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-17-renomear-categorias-e-tags',
+    version: '1.24.2',
+    kind: 'ajustes',
+    date: '2026-10-17',
+    title: 'Renomear e apagar categorias e tags',
+    melhorias: [
+      'Nas configurações do mural (a engrenagem da pasta), cada categoria e cada tag pode ser renomeada, e muda em todas as anotações que a usam, com a cor, os padrões e o quadro do Kanban; o nome de outra que já existe junta as duas.',
+      'Ali também dá para apagar uma categoria ou uma tag: antes, um aviso diz quantas anotações a usam, e ao confirmar ela sai de todas.',
+    ],
+  },
+  {
     id: '2026-10-16-tags-do-kanban',
     version: '1.24.1',
     kind: 'ajustes',
