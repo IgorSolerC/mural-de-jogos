@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, removeCard } from './kanban';
+import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, placeCards, removeCard } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { NoteDone } from './note-done';
 import { isDone } from './review';
@@ -42,6 +42,63 @@ export class KanbanActions {
         if (before) this.kanban.update(boardId, (b, at) => placeCard(b, note, before.column, at, beforeIndex));
         else this.kanban.update(boardId, (b, at) => removeCard(b, note, at));
         this.noteDone.set(note, wasDone, { quiet: true });
+      },
+    });
+  }
+
+  /**
+   * Leva as anotações marcadas juntas para a coluna, na ordem dada, antes de `before` (ou no fim),
+   * finalizando ou abrindo de novo as que a coluna pede. Um bilhete só, com um Desfazer que devolve
+   * todas para onde estavam, com o check de antes.
+   */
+  moveMany(boardId: string, notes: readonly string[], column: string, before: string | null): void {
+    const board = this.kanban.get(boardId);
+    if (!board) return;
+    const rs = notes.map((n) => this.store.get(n)).filter((r) => !!r && belongs(board, r));
+    if (!rs.length) return;
+    // onde cada uma estava, na ordem do quadro (para voltar uma a uma, cada uma no lugar dela)
+    const was = rs
+      .map((r) => {
+        const card = board.cards.find((c) => c.note === r!.id) ?? null;
+        return {
+          note: r!.id,
+          column: card?.column ?? null,
+          index: card ? cardsIn(board, card.column).findIndex((c) => c.note === r!.id) : -1,
+          order: card ? board.cards.indexOf(card) : Infinity,
+          done: isDone(r!),
+        };
+      })
+      .sort((a, b) => a.order - b.order);
+    this.kanban.update(boardId, (b, at) => placeCards(b, rs.map((r) => r!.id), column, at, before));
+    if (this.kanban.get(boardId) === board) return;
+    let finished = 0;
+    let opened = 0;
+    for (const w of was) {
+      const change = doneChange(board, w.column, column);
+      if (change === 'finalizar' && !w.done) {
+        this.noteDone.set(w.note, true, { quiet: true });
+        finished++;
+      } else if (change === 'abrir' && w.done) {
+        this.noteDone.set(w.note, false, { quiet: true });
+        opened++;
+      }
+    }
+    const where = board.columns.find((c) => c.id === column)?.name ?? 'outra coluna';
+    const n = rs.length;
+    const text = finished
+      ? `${finished === 1 ? '1 anotação finalizada' : `${finished} anotações finalizadas`} em ${where}`
+      : opened
+        ? `${opened === 1 ? '1 anotação aberta' : `${opened} anotações abertas`} de novo em ${where}`
+        : `${n} anotações levadas para ${where}`;
+    this.toasts.show(text, {
+      label: 'Desfazer',
+      run: () => {
+        for (const w of was) {
+          if (w.column) this.kanban.update(boardId, (b, at) => placeCard(b, w.note, w.column!, at, w.index));
+          else this.kanban.update(boardId, (b, at) => removeCard(b, w.note, at));
+          const r = this.store.get(w.note);
+          if (r && isDone(r) !== w.done) this.noteDone.set(w.note, w.done, { quiet: true });
+        }
       },
     });
   }

@@ -18,6 +18,7 @@ import {
   mergeKanban,
   moveColumn,
   placeCard,
+  placeCards,
   removeColumn,
   resetBoard,
   sanitizeBoard,
@@ -154,6 +155,25 @@ describe('Kanban', () => {
       b = placeCard(b, 'n3', 'afazer', T1, 1);
       expect(notesIn(b, 'afazer')).toEqual(['n2', 'n3']);
       expect(placeCard(b, 'n9', 'nenhuma', T2)).toBe(b);
+    });
+
+    it('várias de uma vez: uma atrás da outra, na ordem dada, antes da que fica na coluna (ou no fim)', () => {
+      let b = board();
+      for (const [n, c] of [
+        ['n1', 'afazer'],
+        ['n2', 'afazer'],
+        ['n3', 'fazendo'],
+        ['n4', 'fazendo'],
+        ['n5', 'feito'],
+      ])
+        b = placeCard(b, n, c, T1);
+      const q = placeCards(b, ['n1', 'n3'], 'fazendo', T2, 'n4');
+      expect(notesIn(q, 'afazer')).toEqual(['n2']);
+      expect(notesIn(q, 'fazendo')).toEqual(['n1', 'n3', 'n4']);
+      const end = placeCards(b, ['n4', 'n1'], 'feito', T2, null);
+      expect(notesIn(end, 'feito')).toEqual(['n5', 'n4', 'n1']);
+      // já estavam assim: nada muda
+      expect(placeCards(b, ['n3', 'n4'], 'fazendo', T2, null)).toBe(b);
     });
 
     it('não sair do lugar não muda o quadro (nem a hora dele)', () => {
@@ -460,6 +480,29 @@ describe('Kanban', () => {
       toast.action!.run();
       expect(isDone(store.get('nlogin01')!)).toBeFalse();
       expect(notesIn(kanban.get(TRAB)!, 'afazer')).toEqual(['nlogin01']);
+    });
+
+    it('várias juntas para Feito: todas finalizadas, um bilhete só, e o Desfazer devolve cada uma ao lugar', () => {
+      store.update({ ...store.get('nprova01')!, category: 'Trabalho' });
+      actions.move(TRAB, 'nlogin01', 'afazer');
+      actions.move(TRAB, 'nprova01', 'afazer');
+      actions.move(TRAB, 'nfeita01', 'fazendo');
+      store.update({ ...store.get('nfeita01')!, doneAt: undefined });
+      actions.moveMany(TRAB, ['nlogin01', 'nfeita01'], 'feito', null);
+      expect(notesIn(kanban.get(TRAB)!, 'feito')).toEqual(['nlogin01', 'nfeita01']);
+      expect(isDone(store.get('nlogin01')!)).toBeTrue();
+      expect(isDone(store.get('nfeita01')!)).toBeTrue();
+      const toast = TestBed.inject(Toasts).current()!;
+      expect(toast.text).toBe('2 anotações finalizadas em Feito');
+      toast.action!.run();
+      expect(notesIn(kanban.get(TRAB)!, 'afazer')).toEqual(['nlogin01', 'nprova01']);
+      expect(notesIn(kanban.get(TRAB)!, 'fazendo')).toEqual(['nfeita01']);
+      expect(isDone(store.get('nlogin01')!)).toBeFalse();
+      expect(isDone(store.get('nfeita01')!)).toBeFalse();
+      // entre colunas comuns, o bilhete diz para onde foram
+      actions.moveMany(TRAB, ['nlogin01', 'nprova01'], 'fazendo', 'nfeita01');
+      expect(notesIn(kanban.get(TRAB)!, 'fazendo')).toEqual(['nlogin01', 'nprova01', 'nfeita01']);
+      expect(TestBed.inject(Toasts).current()!.text).toBe('2 anotações levadas para Fazendo');
     });
 
     it('tirar de Feito para outra coluna abre a anotação de novo; entre colunas comuns, nada muda', () => {

@@ -22,6 +22,12 @@ export interface NoteSelectionConfig {
   reset: () => unknown;
   /** O que, mudando, redesenha as fichas: as marcas voltam para os elementos novos. */
   layout?: () => unknown;
+  /**
+   * As fichas daqui se arrastam (o Kanban): apertar uma ficha marcada pode ser o começo de arrastar
+   * todas juntas, então só o clique (o aperto que não virou arrastar) desmarca; e o aperto com Ctrl
+   * segue para a página, que pode arrastar com ele.
+   */
+  drags?: boolean;
 }
 
 /**
@@ -82,17 +88,32 @@ export class NoteSelection {
 
   private down(e: PointerEvent): void {
     if (this.target(e)) {
-      // sem foco, sem seleção de texto e sem arrastar: o toque é só para marcar
+      // sem foco e sem seleção de texto: o toque é para marcar (ou, onde as fichas se arrastam, para
+      // arrastar com o Ctrl apertado)
       e.preventDefault();
-      e.stopImmediatePropagation();
+      if (!this.cfg.drags) e.stopImmediatePropagation();
       return;
     }
+    // numa ficha marcada, o aperto pode virar arrastar todas: quem desmarca é o clique
+    if (this.cfg.drags && this.onMarked(e)) return;
     this.clear();
+  }
+
+  /** O aperto foi numa ficha marcada desta página. */
+  private onMarked(e: MouseEvent): boolean {
+    const t = e.target instanceof Element ? e.target : null;
+    const box = t?.closest(this.cfg.markable);
+    return !!box && box.hasAttribute(MARKED) && this.cfg.host.contains(box);
   }
 
   private click(e: MouseEvent): void {
     const id = this.target(e);
-    if (!id) return;
+    if (!id) {
+      // o aperto numa ficha marcada que não virou arrastar (depois de arrastar, a página engole o
+      // clique antes de chegar aqui)
+      if (this.cfg.drags && this.onMarked(e)) this.clear();
+      return;
+    }
     e.preventDefault();
     e.stopImmediatePropagation();
     const ids = this.ids();

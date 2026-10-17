@@ -334,4 +334,48 @@ describe('página do Kanban', () => {
     await settle();
     expect(host.querySelectorAll('[data-marcada]').length).toBe(0);
   });
+  it('arrastar uma das marcadas leva todas juntas, na ordem do quadro, e elas continuam marcadas', async () => {
+    store.update({ ...store.get('nprova01')!, category: 'Trabalho' });
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const card = (id: string) => host.querySelector<HTMLElement>(`.lugar[data-nota="${id}"]`)!;
+    const ctrlClick = (el: HTMLElement) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: true, button: 0, isPrimary: true }));
+      el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, ctrlKey: true, button: 0, isPrimary: true }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+    };
+    ctrlClick(card('nprova01').querySelector<HTMLElement>('.hit')!);
+    ctrlClick(card('nlogin01').querySelector<HTMLElement>('.hit')!);
+    await settle();
+    expect(host.querySelectorAll('[data-marcada]').length).toBe(2);
+    // aperta (sem o Ctrl) a de baixo e leva até Feito
+    const grab = card('nprova01').querySelector<HTMLElement>('.hit')!;
+    const r = grab.getBoundingClientRect();
+    const at = (x: number, y: number) => ({ bubbles: true, cancelable: true, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse', clientX: x, clientY: y });
+    grab.dispatchEvent(new PointerEvent('pointerdown', at(r.left + 20, r.top + 10)));
+    window.dispatchEvent(new PointerEvent('pointermove', at(r.left + 40, r.top + 30)));
+    await settle();
+    // as duas saíram das colunas: no lugar, uma vaga só, e a pilha segue o ponteiro com o 2
+    expect(host.querySelectorAll('.lugar.vaga').length).toBe(1);
+    expect(host.querySelector('.kanban-fantasma.pilha .pilha-n')?.textContent).toBe('2');
+    const feito = column('feito').getBoundingClientRect();
+    window.dispatchEvent(new PointerEvent('pointermove', at(feito.left + feito.width / 2, feito.top + 80)));
+    await settle();
+    window.dispatchEvent(new PointerEvent('pointerup', at(feito.left + feito.width / 2, feito.top + 80)));
+    grab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+    await settle();
+    expect(namesIn('feito')).toEqual(['nlogin01', 'nprova01']);
+    expect(isDone(store.get('nlogin01')!)).toBeTrue();
+    expect(isDone(store.get('nprova01')!)).toBeTrue();
+    expect(host.querySelector('.kanban-fantasma')).toBeNull();
+    expect([...host.querySelectorAll('[data-marcada]')].map((e) => e.getAttribute('data-nota'))).toEqual(['nlogin01', 'nprova01']);
+    // um clique comum numa delas desmarca (e abre a anotação, como sempre)
+    const plain = card('nlogin01').querySelector<HTMLElement>('.hit')!;
+    plain.dispatchEvent(new PointerEvent('pointerdown', at(0, 0)));
+    window.dispatchEvent(new PointerEvent('pointerup', at(0, 0)));
+    plain.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+    await settle();
+    expect(host.querySelectorAll('[data-marcada]').length).toBe(0);
+  });
+
 });

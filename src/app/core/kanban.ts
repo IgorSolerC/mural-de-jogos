@@ -393,6 +393,22 @@ export function placeCard(b: KanbanBoard, note: string, column: string, at: stri
   return touch(b, { cards }, at);
 }
 
+/**
+ * Leva várias anotações de uma vez para a coluna, uma atrás da outra na ordem dada, antes da
+ * anotação `before` (que fica na coluna e não está entre elas) ou, sem ela, no fim da coluna.
+ */
+export function placeCards(b: KanbanBoard, notes: readonly string[], column: string, at: string, before: string | null): KanbanBoard {
+  let out = b;
+  for (const note of notes) {
+    const inCol = out.cards.filter((c) => c.column === column && c.note !== note);
+    const i = before ? inCol.findIndex((c) => c.note === before) : -1;
+    out = placeCard(out, note, column, at, i < 0 ? undefined : i);
+  }
+  // não saiu nada do lugar: nada muda (nem a hora do quadro)
+  if (out.cards.length === b.cards.length && out.cards.every((c, k) => c.note === b.cards[k].note && c.column === b.cards[k].column)) return b;
+  return out;
+}
+
 export function removeCard(b: KanbanBoard, note: string, at: string): KanbanBoard {
   if (!b.cards.some((c) => c.note === note)) return b;
   return touch(b, { cards: b.cards.filter((c) => c.note !== note) }, at);

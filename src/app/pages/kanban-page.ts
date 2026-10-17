@@ -67,8 +67,13 @@ interface Drag {
   over: string;
   /** A posição entre as anotações à mostra da coluna `over`. */
   index: number;
-  /** A altura da ficha, para a vaga do mesmo tamanho. */
+  /** A altura da ficha (ou de todas as que vão juntas), para a vaga do mesmo tamanho. */
   height: number;
+  /**
+   * Arrastando uma das marcadas com o Ctrl (ver ui/note-selection.ts): todas as marcadas, na ordem do
+   * quadro, que saem das colunas e caem juntas. Vazio, só `note`.
+   */
+  group: readonly string[];
 }
 
 /** Uma aba de quadro: a categoria, o id do quadro dela, quantas anotações ele tem e a cor da orelha. */
@@ -221,15 +226,17 @@ export class KanbanPage {
     const q = fold(this.query().trim());
     const tag = this.tagFilter();
     const d = this.drag();
+    // as que estão sendo arrastadas saem das colunas (a vaga, uma só, fica onde cairiam)
+    const moving = new Set(d ? [d.note, ...d.group] : []);
     const shows = (c: KanbanCard) => {
       const n = notes.get(c.note);
       if (!n) return false;
-      if (d?.note === c.note) return true;
+      if (moving.has(c.note)) return true;
       return (!q || fold(n.game.name).includes(q)) && (!tag || (n.tags ?? []).some((t) => fold(t) === tag));
     };
     const out = b.columns.map((col) => {
       const all = cardsIn(b, col.id).filter((c) => notes.has(c.note));
-      const items = all.filter((c) => shows(c) && c.note !== d?.note).map((card) => ({ card, note: notes.get(card.note)!, dragged: false }));
+      const items = all.filter((c) => shows(c) && !moving.has(c.note)).map((card) => ({ card, note: notes.get(card.note)!, dragged: false }));
       return { col, items, total: all.length };
     });
     if (d) {
@@ -250,7 +257,8 @@ export class KanbanPage {
     host: this.host,
     markable: '.lugar[data-nota]',
     idOf: (el) => el.getAttribute('data-nota'),
-    on: () => !this.drag(),
+    on: () => true,
+    drags: true,
     notes: this.notes,
     // (o id, e não o quadro: mexer nas fichas troca o quadro, e não deve desmarcar)
     reset: computed(() => [this.board()?.id, this.query(), this.tagFilter()].join('|')),
@@ -532,7 +540,8 @@ export class KanbanPage {
     if (!card) return;
     const rect = card.getBoundingClientRect();
     this.grab = { x: s.x - rect.left, y: s.y - rect.top };
-    const ghost = card.cloneNode(true) as HTMLElement;
+    const group = this.groupFor(s.note);
+    const ghost = group.length ? this.pile(card, group, s.note) : (card.cloneNode(true) as HTMLElement);
     ghost.classList.add('kanban-fantasma');
     ghost.setAttribute('aria-hidden', 'true');
     ghost.removeAttribute('data-ficha');
@@ -542,11 +551,64 @@ export class KanbanPage {
     const index = this.view()
       .find((v) => v.col.id === s.column)!
       .items.findIndex((it) => it.card.note === s.note);
-    this.drag.set({ note: s.note, from: s.column, over: s.column, index: Math.max(0, index), height: rect.height });
+    // o lugar de todas na coluna: as alturas delas e os vãos entre elas
+    const height = group.length ? this.heightOf(group) : rect.height;
+    this.drag.set({ note: s.note, from: s.column, over: s.column, index: Math.max(0, index), height, group });
     document.documentElement.classList.add('kanban-arrastando');
     if (s.touch) navigator.vibrate?.(12);
     this.follow();
     this.scrollLoop();
+  }
+
+  /**
+   * As marcadas que vão junto com a ficha pega, na ordem do quadro (coluna a coluna, de cima para
+   * baixo); vazio quando ela não está marcada ou é a única.
+   */
+  private groupFor(note: string): string[] {
+    const b = this.board();
+    const marked = new Set(this.selection.ids());
+    if (!b || !marked.has(note) || marked.size < 2) return [];
+    return b.columns.flatMap((col) => cardsIn(b, col.id).filter((c) => marked.has(c.note) && this.notes().has(c.note))).map((c) => c.note);
+  }
+
+  /** A altura das fichas do grupo empilhadas na coluna, com o vão de entre elas. */
+  private heightOf(group: readonly string[]): number {
+    const lis = group.map((n) => this.host.querySelector<HTMLElement>(`.lugar[data-nota="${n}"]`)).filter((li) => !!li);
+    const list = lis[0]?.parentElement;
+    const gap = list ? parseFloat(getComputedStyle(list).rowGap) || 0 : 0;
+    return lis.reduce((h, li) => h + li.getBoundingClientRect().height, 0) + gap * Math.max(0, lis.length - 1);
+  }
+
+  /**
+   * A pilha que segue o ponteiro quando vão várias: a ficha pega por cima, até duas das outras
+   * marcadas por baixo, saindo de lado como um maço, e o adesivo com quantas vão.
+   */
+  private pile(card: HTMLElement, group: readonly string[], note: string): HTMLElement {
+    const pile = document.createElement('div');
+    // os estilos da página valem nela como nas fichas copiadas
+    const scope = Array.from(card.attributes, (a) => a.name).filter((n) => n.startsWith('_ngcontent-'));
+    for (const name of scope) pile.setAttribute(name, '');
+    pile.classList.add('pilha');
+    const under = group.filter((n) => n !== note).slice(0, 2);
+    // a mais funda primeiro, para a de cima ser pintada por último
+    under.reverse().forEach((n, i) => {
+      const other = this.host.querySelector<HTMLElement>(`.lugar[data-nota="${n}"] app-kanban-note`);
+      if (!other) return;
+      const copy = other.cloneNode(true) as HTMLElement;
+      copy.removeAttribute('data-ficha');
+      copy.classList.add('pilha-baixo');
+      copy.style.setProperty('--k', String(under.length - i));
+      pile.append(copy);
+    });
+    const top = card.cloneNode(true) as HTMLElement;
+    top.removeAttribute('data-ficha');
+    pile.append(top);
+    const count = document.createElement('span');
+    for (const name of scope) count.setAttribute(name, '');
+    count.className = 'pilha-n';
+    count.textContent = String(group.length);
+    pile.append(count);
+    return pile;
   }
 
   /** A cópia segue o ponteiro; a vaga vai para a coluna e a posição embaixo dele. */
@@ -642,6 +704,13 @@ export class KanbanPage {
     if (!b) return;
     const shown = this.view().find((v) => v.col.id === d.over)?.items.filter((it) => !it.dragged) ?? [];
     const before = shown[d.index]?.card.note;
+    if (d.group.length) {
+      // todas juntas, na ordem do quadro, antes da que estava no lugar da vaga
+      this.actions.moveMany(b.id, d.group, d.over, before ?? null);
+      const col = b.columns.find((c) => c.id === d.over);
+      this.said.set(`${d.group.length} anotações: ${col?.name ?? ''}.`);
+      return;
+    }
     const all = cardsIn(b, d.over).filter((c) => c.note !== d.note);
     const index = before ? all.findIndex((c) => c.note === before) : all.length;
     this.actions.move(b.id, d.note, d.over, index < 0 ? undefined : index);
