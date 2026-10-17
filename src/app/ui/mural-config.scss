@@ -599,6 +599,33 @@ fieldset.linha {
   }
 }
 
+/* ===== As tags: uma linha por tag, ela mesma como fica na ficha, e as cores embaixo ===== */
+.tags {
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1.5px solid rgb(21 21 21 / 0.2);
+}
+
+.tag {
+  display: grid;
+  grid-template-columns: minmax(0, 210px) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 14px;
+  padding: 16px 0 12px;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.tag-previa {
+  justify-self: start;
+}
+
+/* o primeiro quadradinho encosta na margem: o vão é o do hover, não da linha */
+.tag-cores {
+  grid-column: 1 / -1;
+  margin-left: -6px;
+}
+
 .vazio {
   max-width: 54ch;
   margin-top: 22px;
@@ -677,6 +704,13 @@ fieldset.linha {
 
   .cat-abre {
     grid-template-columns: minmax(0, 170px) minmax(0, 1fr) auto;
+  }
+
+  /* as nove cores não cabem numa fileira: duas fileiras parelhas (cinco e quatro), sem uma sobrando
+     sozinha embaixo */
+  .tag-cores ::ng-deep .ops {
+    display: grid;
+    grid-template-columns: repeat(5, max-content);
   }
 }
 

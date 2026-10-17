@@ -6,7 +6,7 @@ import { Settings } from '../core/settings';
 import { MuralConfig } from './mural-config';
 
 let seq = 0;
-const note = (category: string | null): Review =>
+const note = (category: string | null, tags: string[] = []): Review =>
   sanitizeReview({
     id: `ncfg${++seq}`,
     kind: 'anotacoes',
@@ -19,6 +19,7 @@ const note = (category: string | null): Review =>
     updatedAt: '2026-10-01T10:00:00.000Z',
     private: true,
     ...(category ? { category } : {}),
+    ...(tags.length ? { tags } : {}),
   })!;
 
 /** A folha da engrenagem do mural de anotações. */
@@ -32,15 +33,15 @@ describe('as configurações do mural (a folha)', () => {
     localStorage.clear();
     TestBed.configureTestingModule({ imports: [MuralConfig], providers: [provideZonelessChangeDetection()] });
     settings = TestBed.inject(Settings);
-    // Viagens! (3), Roadmap site (2), Receitas (1) e uma sem categoria
+    // Viagens! (3), Roadmap site (2), Receitas (1) e uma sem categoria; as tags: urgente (3), Ideia (2), bug (1)
     TestBed.inject(ReviewStore).reviews.set([
+      note('Viagens!', ['Ideia']),
+      note('viagens!', ['urgente']),
       note('Viagens!'),
-      note('viagens!'),
-      note('Viagens!'),
-      note('Roadmap site'),
-      note('Roadmap site'),
+      note('Roadmap site', ['urgente', 'bug']),
+      note('Roadmap site', ['ideia']),
       note('Receitas'),
-      note(null),
+      note(null, ['Urgente']),
     ]);
     fixture = TestBed.createComponent(MuralConfig);
     document.body.appendChild(fixture.nativeElement);
@@ -167,6 +168,36 @@ describe('as configurações do mural (a folha)', () => {
     await fixture.whenStable();
     expect(settings.notesConfig().categories).toEqual({});
     expect(second.classList).not.toContain('escondida');
+  });
+
+  it('lista as tags da mais usada para a menos, e a cor muda na hora em toda anotação', async () => {
+    await go('tags');
+    expect(el.querySelector('h3')!.textContent).toBe('Tags');
+    const items = () => Array.from(el.querySelectorAll('.tags > li'));
+    expect(items().map((li) => li.querySelector('app-note-tag')!.textContent!.trim())).toEqual(['urgente', 'Ideia', 'bug']);
+    expect(items().map((li) => li.querySelector('.cat-n')!.textContent!.trim())).toEqual(['3 anotações', '2 anotações', '1 anotação']);
+    const second = items()[1];
+    expect(second.querySelector('app-note-tag')!.classList).not.toContain('cor');
+    expect(second.querySelector('[role="radiogroup"]')!.getAttribute('aria-label')).toBe('Cor da tag Ideia');
+    expect(second.querySelector('[aria-label="Sem cor"]')!.getAttribute('aria-checked')).toBe('true');
+    second.querySelector<HTMLButtonElement>('[aria-label="Verde"]')!.click();
+    await fixture.whenStable();
+    expect(settings.tagColor('ideia')).toBe('verde');
+    expect(settings.categoryLooks()['#ideia']).toEqual({ color: 'verde' });
+    expect(second.querySelector('app-note-tag')!.classList).toContain('cor');
+    expect(second.querySelector('[aria-label="Verde"]')!.getAttribute('aria-checked')).toBe('true');
+    // Sem cor volta ao papel pardo de sempre
+    second.querySelector<HTMLButtonElement>('[aria-label="Sem cor"]')!.click();
+    await fixture.whenStable();
+    expect(settings.tagColor('Ideia')).toBeUndefined();
+    expect(second.querySelector('app-note-tag')!.classList).not.toContain('cor');
+  });
+
+  it('sem nenhuma tag, a parte das tags diz onde pôr uma', async () => {
+    TestBed.inject(ReviewStore).reviews.set([note('Receitas')]);
+    await go('tags');
+    expect(el.querySelector('.tags')).toBeNull();
+    expect(el.querySelector('.vazio')!.textContent).toContain('Ainda não há tags');
   });
 
   it('fechar avisa quem abriu', async () => {

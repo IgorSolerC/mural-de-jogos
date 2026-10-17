@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, output, signal, viewChild } from '@angular/core';
-import { ChevronDown, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, SlidersHorizontal, Tags, Undo2, X } from 'lucide-angular';
-import { CategoryLook, categoryColorHex, lookKey } from '../core/category-looks';
+import { ChevronDown, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, SlidersHorizontal, Tag, Tags, Undo2, X } from 'lucide-angular';
+import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
 import { CategoryPrefs, SubColor, arrangedKeys, moveKey, prefsOf } from '../core/mural-config';
 import type { Audience } from '../core/review';
@@ -9,7 +9,9 @@ import { Settings } from '../core/settings';
 import { BackdropClose } from './backdrop-close';
 import { CategoryLabel } from './category-label';
 import { CategoryStyle } from './category-style';
+import { NoteTag } from './note-tag';
 import { Pin } from './pin';
+import { TagColors } from './tag-colors';
 
 /**
  * As partes da folha, uma por vez, como as partes dos Ajustes. Para crescer, uma entrada aqui e o
@@ -18,6 +20,7 @@ import { Pin } from './pin';
 const SECTIONS = [
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: SlidersHorizontal },
   { id: 'categorias', label: 'Categorias', hint: 'Ordem, cor e padrões de cada uma', icon: Tags },
+  { id: 'tags', label: 'Tags', hint: 'A cor de cada uma', icon: Tag },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -37,7 +40,7 @@ const SUB_COLORS: readonly { value: SubColor; label: string; icon: typeof Eye; d
 ];
 const SUB_LABEL: Record<SubColor, string> = { sorteada: 'Cor sorteada', mae: 'Cor da mãe' };
 
-/** Uma categoria das anotações, na lista da folha. */
+/** Uma categoria ou uma tag das anotações, na lista da folha. */
 interface CategoryRow {
   key: string;
   /** A grafia mais usada. */
@@ -47,6 +50,26 @@ interface CategoryRow {
 }
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+
+/** Conta os nomes (sem acento nem caixa), com a grafia mais usada de cada um, do mais usado ao menos. */
+function tally(names: Iterable<string>): CategoryRow[] {
+  const seen = new Map<string, { n: number; spellings: Map<string, number> }>();
+  for (const raw of names) {
+    const c = raw.trim();
+    if (!c) continue;
+    const key = lookKey(c);
+    let b = seen.get(key);
+    if (!b) seen.set(key, (b = { n: 0, spellings: new Map() }));
+    b.n++;
+    b.spellings.set(c, (b.spellings.get(c) ?? 0) + 1);
+  }
+  const rows = [...seen].map(([key, b]) => ({
+    key,
+    label: [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0],
+    n: b.n,
+  }));
+  return rows.sort((a, b) => b.n - a.n || collator.compare(a.label, b.label));
+}
 
 /** O arrastar de uma categoria pela alça: onde ela estava, onde vai cair e quanto andou. */
 interface Drag {
@@ -62,12 +85,13 @@ interface Drag {
  * As configurações do mural de anotações: a engrenagem da pasta abre esta folha (ver WallToolbar).
  * Padrões: como nasce toda anotação (privacidade, cor da sub-nota) e as perguntas antes de salvar.
  * Categorias: a ordem das abas e, em cada uma, o ícone e a cor e o que ela muda em cima do mural.
+ * Tags: a cor de cada tag (a mesma escolha do quadro do Kanban, ver KanbanBoardSheet).
  * Tudo vale na hora e fica guardado (ver core/mural-config.ts). Chega num pedaço à parte, só quando
  * a engrenagem é tocada.
  */
 @Component({
   selector: 'app-mural-config',
-  imports: [BackdropClose, CategoryLabel, CategoryStyle, LucideAngularModule, Pin],
+  imports: [BackdropClose, CategoryLabel, CategoryStyle, LucideAngularModule, NoteTag, Pin, TagColors],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mural-config.html',
   styleUrl: './mural-config.scss',
@@ -103,26 +127,14 @@ export class MuralConfig {
 
   /** As categorias das anotações: pela quantidade, ou na ordem montada (as novas no fim). */
   protected readonly categories = computed<CategoryRow[]>(() => {
-    const seen = new Map<string, { n: number; spellings: Map<string, number> }>();
-    for (const r of this.store.notes()) {
-      const c = r.category?.trim();
-      if (!c) continue;
-      const key = lookKey(c);
-      let b = seen.get(key);
-      if (!b) seen.set(key, (b = { n: 0, spellings: new Map() }));
-      b.n++;
-      b.spellings.set(c, (b.spellings.get(c) ?? 0) + 1);
-    }
-    const rows = [...seen].map(([key, b]) => ({
-      key,
-      label: [...b.spellings.entries()].reduce((best, e) => (e[1] > best[1] ? e : best))[0],
-      n: b.n,
-    }));
-    rows.sort((a, b) => b.n - a.n || collator.compare(a.label, b.label));
+    const rows = tally(this.store.notes().flatMap((r) => (r.category ? [r.category] : [])));
     if (!this.manual()) return rows;
     const byKey = new Map(rows.map((r) => [r.key, r]));
     return arrangedKeys(this.config().order, rows.map((r) => r.key)).map((k) => byKey.get(k)!);
   });
+
+  /** As tags das anotações (finalizadas também), da mais usada para a menos. */
+  protected readonly tags = computed<CategoryRow[]>(() => tally(this.store.notes().flatMap((r) => r.tags ?? [])));
 
   /** A categoria aberta (uma por vez, como o acordeão do perfil). */
   protected readonly open = signal<string | null>(null);
@@ -179,6 +191,12 @@ export class MuralConfig {
 
   protected subDesc(c: SubColor): string {
     return SUB_COLORS.find((o) => o.value === c)!.desc;
+  }
+
+  // ===== tags =====
+
+  protected tagColorOf(row: CategoryRow): string | null {
+    return tagColorHex(this.settings.categoryLooks(), row.label);
   }
 
   // ===== categorias =====

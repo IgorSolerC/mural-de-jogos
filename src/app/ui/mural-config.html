@@ -264,6 +264,25 @@
               <p class="vazio">Ainda não há categorias. Escolha uma no editor de uma anotação e ela aparece aqui, pronta para ganhar ícone, cor e padrões próprios.</p>
             }
           }
+
+          @case ('tags') {
+            <h3>Tags</h3>
+            <p class="lead">A cor de uma tag aparece em toda anotação que tem a tag, no mural e no Kanban. Sem cor, fica o papel pardo de sempre.</p>
+
+            @if (tags().length) {
+              <ul class="tags">
+                @for (t of tags(); track t.key) {
+                  <li class="tag">
+                    <app-note-tag class="tag-previa" [label]="t.label" [color]="tagColorOf(t)" />
+                    <span class="cat-n">{{ t.n }} {{ t.n === 1 ? 'anotação' : 'anotações' }}</span>
+                    <app-tag-colors class="tag-cores" [tag]="t.label" />
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="vazio">Ainda não há tags. Ponha uma no editor de uma anotação e ela aparece aqui, pronta para ganhar cor.</p>
+            }
+          }
         }
       </div>
     </div>
