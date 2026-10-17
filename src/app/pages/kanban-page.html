@@ -1,19 +1,30 @@
 <!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
-<h1 class="sr-only">Kanban{{ category() ? ': ' + category()!.label : '' }}</h1>
+<h1 class="sr-only">Kanban{{ category() ? ": " + category()!.label : "" }}</h1>
 
 @if (!categories().length) {
   <!-- nenhuma categoria ainda: a cartolina explica de onde vêm os quadros, com as três colunas desenhadas ao lado -->
   <section class="primeiro" aria-labelledby="primeiro-titulo">
-    <div class="primeiro-ficha cartolina" data-cor="verde" style="--stock: var(--stock-verde)">
+    <div
+      class="primeiro-ficha cartolina"
+      data-cor="verde"
+      style="--stock: var(--stock-verde)"
+    >
       <app-pin class="pin" />
       <h2 id="primeiro-titulo">Cada categoria tem o seu quadro</h2>
       <p>
-        O quadro do <em>Trabalho</em> só tem anotações do Trabalho; o dos <em>Estudos</em>, só dos Estudos. Cada um com colunas de etapas, como <em>A fazer</em>,
-        <em>Fazendo</em> e <em>Feito</em>. Escreva uma anotação com categoria e o quadro dela aparece aqui.
+        O quadro do <em>Trabalho</em> só tem anotações do Trabalho; o dos
+        <em>Estudos</em>, só dos Estudos. Cada um com colunas de etapas, como
+        <em>A fazer</em>, <em>Fazendo</em> e <em>Feito</em>. Escreva uma
+        anotação com categoria e o quadro dela aparece aqui.
       </p>
       <div class="primeiro-form">
         <button type="button" class="btn-ink" (click)="firstNote()">
-          <lucide-icon [img]="NewNoteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon
+            [img]="NewNoteIcon"
+            [size]="18"
+            [strokeWidth]="2.4"
+            aria-hidden="true"
+          />
           Escrever uma anotação
         </button>
       </div>
@@ -22,7 +33,12 @@
       @for (v of firstColumns; track v.name) {
         <li class="vaga-coluna">
           <span class="vaga-etiqueta" [attr.data-cor]="v.color">
-            <lucide-icon [img]="iconOf[v.icon]" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon
+              [img]="iconOf[v.icon]"
+              [size]="16"
+              [strokeWidth]="2.6"
+              aria-hidden="true"
+            />
             {{ v.name }}
           </span>
         </li>
@@ -44,8 +60,18 @@
             [attr.aria-current]="q.id === b.id ? 'page' : null"
             [title]="q.label"
           >
-            <app-cat-label class="rotulo-cat" [label]="q.label" [look]="q.look" [iconSize]="15" />
-            <span class="aba-n"><span class="sr-only">, </span>{{ q.n }}<span class="sr-only">{{ q.n === 1 ? ' anotação no quadro' : ' anotações no quadro' }}</span></span>
+            <app-cat-label
+              class="rotulo-cat"
+              [label]="q.label"
+              [look]="q.look"
+              [iconSize]="15"
+            />
+            <span class="aba-n"
+              ><span class="sr-only">, </span>{{ q.n
+              }}<span class="sr-only">{{
+                q.n === 1 ? " anotação no quadro" : " anotações no quadro"
+              }}</span></span
+            >
           </a>
         </li>
       }
@@ -55,34 +81,95 @@
   <!-- a pasta: a busca, o filtro das tags e os ajustes do quadro -->
   <div class="pasta">
     <div class="pasta-linha">
-      <app-search-strip class="pasta-busca" inputId="busca-quadro" [glued]="true" label="Procurar no quadro" placeholder="Procurar no quadro…" [value]="query()" (valueChange)="query.set($event)" />
+      <app-search-strip
+        class="pasta-busca"
+        inputId="busca-quadro"
+        [glued]="true"
+        label="Procurar no quadro"
+        placeholder="Procurar no quadro…"
+        [value]="query()"
+        (valueChange)="query.set($event)"
+      />
       <div class="pasta-controles">
         <div class="pasta-grupo" role="group" aria-label="Vista do quadro">
-          <button type="button" class="tinta so-icone" [attr.aria-pressed]="!dense()" aria-label="Fichas" title="Fichas" (click)="setDense(false)">
-            <lucide-icon [img]="CardsIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <button
+            type="button"
+            class="tinta so-icone"
+            [attr.aria-pressed]="!dense()"
+            aria-label="Fichas"
+            title="Fichas"
+            (click)="setDense(false)"
+          >
+            <lucide-icon
+              [img]="CardsIcon"
+              [size]="18"
+              [strokeWidth]="2.6"
+              aria-hidden="true"
+            />
           </button>
-          <button type="button" class="tinta so-icone" [attr.aria-pressed]="dense()" aria-label="Só os títulos" title="Só os títulos" (click)="setDense(true)">
-            <lucide-icon [img]="TitlesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <button
+            type="button"
+            class="tinta so-icone"
+            [attr.aria-pressed]="dense()"
+            aria-label="Só os títulos"
+            title="Só os títulos"
+            (click)="setDense(true)"
+          >
+            <lucide-icon
+              [img]="TitlesIcon"
+              [size]="18"
+              [strokeWidth]="2.6"
+              aria-hidden="true"
+            />
           </button>
         </div>
         <div class="pasta-grupo" role="group" aria-label="Quadro">
-          <button type="button" class="tinta" [disabled]="b.columns.length >= maxColumns" (click)="newColumn()">
-            <lucide-icon [img]="ColumnIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <button
+            type="button"
+            class="tinta"
+            [disabled]="b.columns.length >= maxColumns"
+            (click)="newColumn()"
+          >
+            <lucide-icon
+              [img]="ColumnIcon"
+              [size]="18"
+              [strokeWidth]="2.6"
+              aria-hidden="true"
+            />
             Nova coluna
           </button>
-          <button type="button" class="tinta so-icone" aria-label="Ajustes do quadro" aria-haspopup="dialog" title="Ajustes do quadro" (click)="boardSheet.set(b.id)">
-            <lucide-icon [img]="SettingsIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+          <button
+            type="button"
+            class="tinta so-icone"
+            aria-label="Ajustes do quadro"
+            aria-haspopup="dialog"
+            title="Ajustes do quadro"
+            (click)="boardSheet.set(b.id)"
+          >
+            <lucide-icon
+              [img]="SettingsIcon"
+              [size]="19"
+              [strokeWidth]="2.6"
+              aria-hidden="true"
+            />
           </button>
         </div>
       </div>
     </div>
     <div class="pasta-linha pasta-baixo">
-      <app-tag-chips class="pasta-tags" [tags]="tagChips()" (toggled)="toggleTag($event)" (excluded)="excludeTagChip($event)" />
+      <app-tag-chips
+        class="pasta-tags"
+        [tags]="tagChips()"
+        (toggled)="toggleTag($event)"
+        (excluded)="excludeTagChip($event)"
+      />
       @if (filtering()) {
         <div class="pasta-estado">
           <p class="achados" aria-live="polite">
             <span>Mostrando {{ shownCount() }} de {{ liveCount() }}</span>
-            <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
+            <button type="button" class="tinta-link" (click)="clearFilters()">
+              Limpar
+            </button>
           </p>
         </div>
       }
@@ -90,137 +177,284 @@
   </div>
 
   <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->
-  <p id="kanban-dica" class="sr-only">Arraste as anotações de uma coluna para outra. No teclado, Shift e as setas.</p>
+  <p id="kanban-dica" class="sr-only">
+    Arraste as anotações de uma coluna para outra. No teclado, Shift e as setas.
+  </p>
   <!-- o quadro passa da pasta e corre até as beiradas da tela; o que fica para lá some num degradê, e
        as setas nas beiradas trazem as colunas escondidas (ver `measureEdges`) -->
   <div class="quadro-moldura">
-  <div
-    #quadro
-    class="quadro"
-    aria-describedby="kanban-dica"
-    [class.denso]="dense()"
-    [class.arrastando]="!!drag()"
-    [class.puxando]="panning()"
-    (pointerdown)="onBoardDown($event)"
-  >
-    @for (v of view(); track v.col.id; let ci = $index) {
-      <section class="coluna" [attr.data-coluna]="v.col.id" [class.finaliza]="v.col.finishes" [class.alvo]="drag()?.over === v.col.id" [attr.aria-labelledby]="'col-' + v.col.id">
-        <header class="etiqueta" [attr.data-cor]="v.col.color">
-          <lucide-icon class="etiqueta-icone" [img]="iconOf[v.col.icon]" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
-          <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">
-            {{ v.col.name }}
-            <!-- quantas: impresso miúdo na ponta da etiqueta, sempre no mesmo lugar, como nas abas dos quadros -->
-            <span class="etiqueta-n"><span class="sr-only">, </span>{{ v.total }}<span class="sr-only">{{ v.total === 1 ? ' anotação' : ' anotações' }}</span></span>
-          </h2>
-          <button type="button" class="etiqueta-btn" [attr.aria-label]="'Ajustes da coluna ' + v.col.name" title="Ajustes da coluna" aria-haspopup="dialog" (click)="columnSheet.set({ id: v.col.id, fresh: false })">
-            <lucide-icon [img]="PencilIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
-          </button>
-          @if (v.col.sort?.length) {
-            <!-- a ordem da coluna, impressa miúdo embaixo do nome: diz por que as anotações estão assim -->
-            <p class="etiqueta-ordem" [title]="sortSentence(v.col.sort!)">
-              <lucide-icon [img]="SortIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
-              {{ sortShort(v.col.sort!) }}
-            </p>
-          }
-          @if (v.col.finishes) {
-            <!-- o carimbo de quem finaliza -->
-            <span class="carimbo" title="Finaliza as anotações que chegam aqui">
-              <lucide-icon [img]="DoneIcon" [size]="12" [strokeWidth]="3" aria-hidden="true" />
-              Finaliza
-            </span>
-          }
-        </header>
-
-        <!-- as anotações rolam dentro da coluna (a página não cresce com a coluna mais comprida); a caixa
-             leva a sombra do alto e do pé enquanto há o que rolar para lá -->
-        <div class="caixa">
-        <div class="rolo">
-        <ol class="fichas" [attr.aria-label]="'Anotações em ' + v.col.name">
-          @for (it of v.items; track it.card.note) {
-            <li
-              class="lugar"
-              [class.vaga]="it.dragged"
-              [style.--vaga-h.px]="it.dragged ? drag()?.height : null"
-              [attr.data-nota]="it.card.note"
-              (pointerdown)="onPointerDown($event, it.card.note, v.col.id)"
-              (keydown)="onKey($event, it.card.note, v.col.id)"
+    <div
+      #quadro
+      class="quadro"
+      aria-describedby="kanban-dica"
+      [class.denso]="dense()"
+      [class.arrastando]="!!drag()"
+      [class.puxando]="panning()"
+      (pointerdown)="onBoardDown($event)"
+    >
+      @for (v of view(); track v.col.id; let ci = $index) {
+        <section
+          class="coluna"
+          [attr.data-coluna]="v.col.id"
+          [class.finaliza]="v.col.finishes"
+          [class.alvo]="drag()?.over === v.col.id"
+          [attr.aria-labelledby]="'col-' + v.col.id"
+        >
+          <!-- a roda do mouse na etiqueta e no pé rola a lista da coluna, e não a página (ver ui/column-wheel.ts) -->
+          <header class="etiqueta" appColumnWheel [attr.data-cor]="v.col.color">
+            <lucide-icon
+              class="etiqueta-icone"
+              [img]="iconOf[v.col.icon]"
+              [size]="20"
+              [strokeWidth]="2.6"
+              aria-hidden="true"
+            />
+            <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">
+              {{ v.col.name }}
+              <!-- quantas: impresso miúdo na ponta da etiqueta, sempre no mesmo lugar, como nas abas dos quadros -->
+              <span class="etiqueta-n"
+                ><span class="sr-only">, </span>{{ v.total
+                }}<span class="sr-only">{{
+                  v.total === 1 ? " anotação" : " anotações"
+                }}</span></span
+              >
+            </h2>
+            <button
+              type="button"
+              class="etiqueta-btn"
+              [attr.aria-label]="'Ajustes da coluna ' + v.col.name"
+              title="Ajustes da coluna"
+              aria-haspopup="dialog"
+              (click)="columnSheet.set({ id: v.col.id, fresh: false })"
             >
-              <app-kanban-note
-                [review]="it.note"
-                [card]="it.card"
-                [dense]="dense()"
-                [next]="view()[ci + 1]?.col?.name ?? null"
-                (opened)="read($event)"
-                (details)="cardSheet.set(it.card.note)"
-                (advanced)="advance(it.card.note, v.col.id)"
+              <lucide-icon
+                [img]="PencilIcon"
+                [size]="16"
+                [strokeWidth]="2.6"
+                aria-hidden="true"
               />
-            </li>
-          } @empty {
-            <li class="vazia" aria-hidden="true">{{ filtering() ? 'Nada aqui com esse filtro' : 'Nenhuma anotação ainda' }}</li>
-          }
-        </ol>
-        @if (v.hidden) {
-          <!-- uma coluna comprida não monta todas as fichas de uma vez: as próximas cinco no pé dela -->
-          <button type="button" class="mais" (click)="showMore(v.col.id)">
-            <lucide-icon [img]="MoreIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-            Mostrar mais {{ v.hidden < showStep ? v.hidden : showStep }}
-            <span class="mais-n"><span class="sr-only">, </span>faltam {{ v.hidden }}</span>
-          </button>
-        }
-        </div>
-        </div>
-
-        <div class="adicionar">
-          @if (adding() === v.col.id) {
-            <div class="adicionar-menu" role="group" [attr.aria-label]="'Adicionar em ' + v.col.name" (keydown.escape)="closeAdd(v.col.id)">
-              <button type="button" class="adicionar-op" (click)="searchNote(v.col.id)">
-                <lucide-icon [img]="SearchIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                Buscar nota
-              </button>
-              <button type="button" class="adicionar-op" (click)="createNote(v.col.id)">
-                <lucide-icon [img]="NewNoteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                Nova nota
-              </button>
-              <button type="button" class="adicionar-fecha" aria-label="Fechar" (click)="closeAdd(v.col.id)">
-                <lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
-              </button>
-            </div>
-          } @else {
-            <button type="button" class="adicionar-btn" (click)="openAdd(v.col.id)">
-              <lucide-icon [img]="PlusIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
-              Adicionar nota
             </button>
-          }
-        </div>
-      </section>
-    }
-  </div>
-  <!-- o degradê das beiradas: a própria parede de novo, por cima das colunas, sumindo para dentro; o
+            @if (v.col.sort?.length) {
+              <!-- a ordem da coluna, impressa miúdo embaixo do nome: diz por que as anotações estão assim -->
+              <p class="etiqueta-ordem" [title]="sortSentence(v.col.sort!)">
+                <lucide-icon
+                  [img]="SortIcon"
+                  [size]="13"
+                  [strokeWidth]="2.6"
+                  aria-hidden="true"
+                />
+                {{ sortShort(v.col.sort!) }}
+              </p>
+            }
+            @if (v.col.finishes) {
+              <!-- o carimbo de quem finaliza -->
+              <span
+                class="carimbo"
+                title="Finaliza as anotações que chegam aqui"
+              >
+                <lucide-icon
+                  [img]="DoneIcon"
+                  [size]="12"
+                  [strokeWidth]="3"
+                  aria-hidden="true"
+                />
+                Finaliza
+              </span>
+            }
+          </header>
+
+          <!-- as anotações rolam dentro da coluna (a página não cresce com a coluna mais comprida); a caixa
+             leva a sombra do alto e do pé enquanto há o que rolar para lá -->
+          <div class="caixa">
+            <div class="rolo">
+              <ol
+                class="fichas"
+                [attr.aria-label]="'Anotações em ' + v.col.name"
+              >
+                @for (it of v.items; track it.card.note) {
+                  <li
+                    class="lugar"
+                    [class.vaga]="it.dragged"
+                    [style.--vaga-h.px]="it.dragged ? drag()?.height : null"
+                    [attr.data-nota]="it.card.note"
+                    (pointerdown)="
+                      onPointerDown($event, it.card.note, v.col.id)
+                    "
+                    (keydown)="onKey($event, it.card.note, v.col.id)"
+                  >
+                    <app-kanban-note
+                      [review]="it.note"
+                      [card]="it.card"
+                      [dense]="dense()"
+                      [next]="view()[ci + 1]?.col?.name ?? null"
+                      (opened)="read($event)"
+                      (details)="cardSheet.set(it.card.note)"
+                      (advanced)="advance(it.card.note, v.col.id)"
+                    />
+                  </li>
+                } @empty {
+                  <li class="vazia" aria-hidden="true">
+                    {{
+                      filtering()
+                        ? "Nada aqui com esse filtro"
+                        : "Nenhuma anotação ainda"
+                    }}
+                  </li>
+                }
+              </ol>
+              @if (v.hidden) {
+                <!-- uma coluna comprida não monta todas as fichas de uma vez: as próximas cinco no pé dela -->
+                <button type="button" class="mais" (click)="showMore(v.col.id)">
+                  <lucide-icon
+                    [img]="MoreIcon"
+                    [size]="17"
+                    [strokeWidth]="2.6"
+                    aria-hidden="true"
+                  />
+                  Mostrar mais {{ v.hidden < showStep ? v.hidden : showStep }}
+                  <span class="mais-n"
+                    ><span class="sr-only">, </span>faltam {{ v.hidden }}</span
+                  >
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="adicionar" appColumnWheel>
+            @if (adding() === v.col.id) {
+              <div
+                class="adicionar-menu"
+                role="group"
+                [attr.aria-label]="'Adicionar em ' + v.col.name"
+                (keydown.escape)="closeAdd(v.col.id)"
+              >
+                <button
+                  type="button"
+                  class="adicionar-op"
+                  (click)="searchNote(v.col.id)"
+                >
+                  <lucide-icon
+                    [img]="SearchIcon"
+                    [size]="17"
+                    [strokeWidth]="2.6"
+                    aria-hidden="true"
+                  />
+                  Buscar nota
+                </button>
+                <button
+                  type="button"
+                  class="adicionar-op"
+                  (click)="createNote(v.col.id)"
+                >
+                  <lucide-icon
+                    [img]="NewNoteIcon"
+                    [size]="17"
+                    [strokeWidth]="2.6"
+                    aria-hidden="true"
+                  />
+                  Nova nota
+                </button>
+                <button
+                  type="button"
+                  class="adicionar-fecha"
+                  aria-label="Fechar"
+                  (click)="closeAdd(v.col.id)"
+                >
+                  <lucide-icon
+                    [img]="CloseIcon"
+                    [size]="17"
+                    [strokeWidth]="2.8"
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+            } @else {
+              <button
+                type="button"
+                class="adicionar-btn"
+                (click)="openAdd(v.col.id)"
+              >
+                <lucide-icon
+                  [img]="PlusIcon"
+                  [size]="17"
+                  [strokeWidth]="2.8"
+                  aria-hidden="true"
+                />
+                Adicionar nota
+              </button>
+            }
+          </div>
+        </section>
+      }
+    </div>
+    <!-- o degradê das beiradas: a própria parede de novo, por cima das colunas, sumindo para dentro; o
        quadro rola por baixo sem máscara nenhuma (ver .veu) -->
-  <div class="veu" aria-hidden="true">
-    <div class="veu-lado veu-inicio" [class.on]="edges().start">
-      <app-page-wall class="veu-parede" [class.na-pagina]="wall() === 'eucatex'" [wall]="wall()" />
+    <div class="veu" aria-hidden="true">
+      <div class="veu-lado veu-inicio" [class.on]="edges().start">
+        <app-page-wall
+          class="veu-parede"
+          [class.na-pagina]="wall() === 'eucatex'"
+          [wall]="wall()"
+        />
+      </div>
+      <div class="veu-lado veu-fim" [class.on]="edges().end">
+        <app-page-wall
+          class="veu-parede"
+          [class.na-pagina]="wall() === 'eucatex'"
+          [wall]="wall()"
+        />
+      </div>
     </div>
-    <div class="veu-lado veu-fim" [class.on]="edges().end">
-      <app-page-wall class="veu-parede" [class.na-pagina]="wall() === 'eucatex'" [wall]="wall()" />
-    </div>
-  </div>
-  @if (edges().before; as n) {
-    <div class="trilho trilho-inicio">
-      <button type="button" class="seta-quadro" [attr.aria-label]="'Ver as colunas da esquerda: ' + (n === 1 ? '1 escondida' : n + ' escondidas')" [title]="n === 1 ? '1 coluna para a esquerda' : n + ' colunas para a esquerda'" (click)="page(-1)">
-        <lucide-icon [img]="BackIcon" [size]="24" [strokeWidth]="2.8" aria-hidden="true" />
-        <span class="seta-n" aria-hidden="true">{{ n }}</span>
-      </button>
-    </div>
-  }
-  @if (edges().after; as n) {
-    <div class="trilho trilho-fim">
-      <button type="button" class="seta-quadro" [attr.aria-label]="'Ver as colunas da direita: ' + (n === 1 ? '1 escondida' : n + ' escondidas')" [title]="n === 1 ? '1 coluna para a direita' : n + ' colunas para a direita'" (click)="page(1)">
-        <lucide-icon [img]="NextIcon" [size]="24" [strokeWidth]="2.8" aria-hidden="true" />
-        <span class="seta-n" aria-hidden="true">{{ n }}</span>
-      </button>
-    </div>
-  }
+    @if (edges().before; as n) {
+      <div class="trilho trilho-inicio">
+        <button
+          type="button"
+          class="seta-quadro"
+          [attr.aria-label]="
+            'Ver as colunas da esquerda: ' +
+            (n === 1 ? '1 escondida' : n + ' escondidas')
+          "
+          [title]="
+            n === 1
+              ? '1 coluna para a esquerda'
+              : n + ' colunas para a esquerda'
+          "
+          (click)="page(-1)"
+        >
+          <lucide-icon
+            [img]="BackIcon"
+            [size]="24"
+            [strokeWidth]="2.8"
+            aria-hidden="true"
+          />
+          <span class="seta-n" aria-hidden="true">{{ n }}</span>
+        </button>
+      </div>
+    }
+    @if (edges().after; as n) {
+      <div class="trilho trilho-fim">
+        <button
+          type="button"
+          class="seta-quadro"
+          [attr.aria-label]="
+            'Ver as colunas da direita: ' +
+            (n === 1 ? '1 escondida' : n + ' escondidas')
+          "
+          [title]="
+            n === 1 ? '1 coluna para a direita' : n + ' colunas para a direita'
+          "
+          (click)="page(1)"
+        >
+          <lucide-icon
+            [img]="NextIcon"
+            [size]="24"
+            [strokeWidth]="2.8"
+            aria-hidden="true"
+          />
+          <span class="seta-n" aria-hidden="true">{{ n }}</span>
+        </button>
+      </div>
+    }
   </div>
 
   <p class="sr-only" aria-live="polite">{{ said() }}</p>
@@ -232,19 +466,38 @@
     [doneOption]="true"
     [exclude]="onBoard()"
     heading="Buscar nota"
-    [hint]="'Uma anotação de ' + category()!.label + ', para pôr nesta coluna. Ela continua no mural.'"
+    [hint]="
+      'Uma anotação de ' +
+      category()!.label +
+      ', para pôr nesta coluna. Ela continua no mural.'
+    "
     footHint="Toque numa anotação para pôr no quadro."
     [emptyText]="pickerEmpty()"
     (picked)="placePicked($event)"
   />
 
   @if (cardSheet(); as id) {
-    <app-kanban-card-sheet [boardId]="b.id" [noteId]="id" (closed)="cardSheet.set(null)" (reading)="read($event)" />
+    <app-kanban-card-sheet
+      [boardId]="b.id"
+      [noteId]="id"
+      (closed)="cardSheet.set(null)"
+      (reading)="read($event)"
+    />
   }
   @if (columnSheet(); as c) {
-    <app-kanban-column-sheet [boardId]="b.id" [columnId]="c.id" [fresh]="c.fresh" (closed)="columnSheet.set(null)" />
+    <app-kanban-column-sheet
+      [boardId]="b.id"
+      [columnId]="c.id"
+      [fresh]="c.fresh"
+      (closed)="columnSheet.set(null)"
+    />
   }
   @if (boardSheet(); as id) {
-    <app-kanban-board-sheet [boardId]="id" [category]="category()!.label" (closed)="boardSheet.set(null)" (resetting)="resetBoard($event)" />
+    <app-kanban-board-sheet
+      [boardId]="id"
+      [category]="category()!.label"
+      (closed)="boardSheet.set(null)"
+      (resetting)="resetBoard($event)"
+    />
   }
 }

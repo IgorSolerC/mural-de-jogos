@@ -674,7 +674,12 @@ $fade: clamp(22px, 7vw, 132px);
   flex: 0 1 auto;
   min-height: 0;
   padding: 22px 14px 6px;
+  overflow-x: hidden;
   overflow-y: auto;
+  /* a roda do mouse (ou o dedo) numa coluna rola só a coluna: chegando no alto ou no pé dela, para ali,
+     em vez de passar a rolar a página, que tiraria a coluna de baixo do ponteiro. Só na vertical: de
+     lado, o gesto continua indo para o quadro */
+  overscroll-behavior-y: contain;
   /* a rolagem numa camada própria, como a do quadro: desliza o que já está desenhado */
   will-change: scroll-position;
   scrollbar-width: thin;

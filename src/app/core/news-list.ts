@@ -26,15 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-spoiler-na-ficha',
+    id: '2026-10-17-kanban-roda-na-coluna',
     version: '1.25.1',
     kind: 'ajustes',
     date: '2026-10-17',
-    title: 'Spoiler no texto',
+    title: 'Spoiler no texto e a rolagem das colunas do Kanban',
     melhorias: [
       'Nova marca de texto, o spoiler: escreva ||assim|| (ou >!assim!<) e o trecho fica embaixo de uma tarja preta, que some quando alguém toca nela. Está no Mais da régua; na frase da ficha no mural, o trecho vira [spoiler].',
     ],
-    correcoes: ['O spoiler se revela tocando nele direto na ficha do mural, sem abrir a leitura.'],
+    correcoes: [
+      'O spoiler se revela tocando nele direto na ficha do mural, sem abrir a leitura.',
+      'Com o mouse numa coluna do Kanban, a roda rola só a coluna (também em cima do nome e do Adicionar nota): chegando no fim dela, a página não começa mais a rolar junto.',
+    ],
   },
   {
     id: '2026-10-17-respostas-nos-comentarios',

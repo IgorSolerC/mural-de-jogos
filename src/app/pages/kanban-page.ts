@@ -22,6 +22,7 @@ import { CategoryLabel } from '../ui/category-label';
 import { KanbanBoardSheet } from '../ui/kanban-board-sheet';
 import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
+import { ColumnWheel } from '../ui/column-wheel';
 import { COLUMN_ICON } from '../ui/kanban-icons';
 import { KanbanNote } from '../ui/kanban-note';
 import { NoteSelection } from '../ui/note-selection';
@@ -134,7 +135,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, PageWall, Pin, RouterLink, SearchStrip, TagChips],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, PageWall, Pin, RouterLink, SearchStrip, TagChips],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
