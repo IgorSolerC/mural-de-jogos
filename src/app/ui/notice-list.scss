@@ -193,29 +193,14 @@
   }
 }
 
-/* seguir de volta: o botão de papel que conclui, por cima do botão da linha */
+/* seguir de volta: o botão de papel que conclui (.forte), por cima do botão da linha; sair da
+   anotação é a etiqueta de papel (o de tinta é o de seguir de volta, o que se quer) */
 .seguir {
   @include kit.botao-papel;
   z-index: 1;
   min-height: 40px;
   padding: 6px 12px 5px;
-  background: var(--ink);
-  color: var(--hi);
   font-size: 0.86rem;
-
-  &:hover:not(:disabled) {
-    background: #2a2a2a;
-  }
-}
-
-/* sair da anotação: o botão de papel branco (o de tinta é o de seguir de volta, o que se quer) */
-.seguir.sair {
-  background: #fff;
-  color: var(--ink);
-
-  &:hover:not(:disabled) {
-    background: #f1ece0;
-  }
 }
 
 .papel-aviso {

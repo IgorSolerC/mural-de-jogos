@@ -187,5 +187,9 @@ describe('A lista de avisos (NoticeList)', () => {
     expect(button.disabled).toBeTrue();
     expect(button.textContent?.trim()).toBe('Seguindo…');
     expect(button.getAttribute('aria-busy')).toBe('true');
+    // é o botão de tinta (.forte), e esperando não desbota como o desligado
+    expect(button.classList).toContain('forte');
+    expect(getComputedStyle(button).opacity).toBe('1');
+    expect(getComputedStyle(button).backgroundColor).toBe('rgb(21, 21, 21)');
   });
 });

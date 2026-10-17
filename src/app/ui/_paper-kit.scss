@@ -168,9 +168,16 @@
   }
 }
 
-/* Botão de papel: a ação secundária dentro da folha. Com .forte, .quieto e .perigo. */
+/* Botão de papel: a ação secundária dentro da folha. Uma etiqueta adesiva ainda na cartela: papel
+   claro com grão, colado rente (a sombra curta), e o meio-corte tracejado por dentro da beirada, o
+   mesmo recorte das opções do editor ("Quem vê?", "Lugar no mural"). No mouse ela descola um pouco
+   (sobe, entorta 1°, a sombra cresce e o corte escurece); apertando, assenta. Desligada, sobra só o
+   corte na cartela, sem a etiqueta. Com .forte, .quieto e .perigo. */
 @mixin botao-papel {
+  --corte: rgb(21 21 21 / 0.42);
+  --corte-forte: rgb(21 21 21 / 0.72);
   position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -178,10 +185,15 @@
   min-height: 44px;
   padding: 8px 14px 7px;
   border: 0;
-  border-radius: 3px;
-  background: #fff;
+  border-radius: 2px;
+  background-color: #fffdf8;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
   color: var(--ink);
-  box-shadow: inset 0 0 0 2px var(--ink);
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.08),
+    0 1px 1px rgb(0 0 0 / 0.24),
+    0 3px 6px -3px rgb(0 0 0 / 0.32);
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.94rem;
@@ -193,19 +205,52 @@
   cursor: pointer;
   transition:
     background-color var(--t-ui) var(--ease-ui),
-    translate var(--t-physical) var(--ease-physical);
+    box-shadow var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical);
+
+  /* o meio-corte: tracejado por dentro da beirada, embaixo das letras */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    z-index: -1;
+    border: 1.5px dashed var(--corte);
+    border-radius: 1px;
+    pointer-events: none;
+    transition: border-color var(--t-ui) var(--ease-ui);
+  }
 
   &:hover:not(:disabled) {
-    background: #f1ece0;
+    background-color: #fff;
     translate: 0 -1px;
+    rotate: -1deg;
+    box-shadow:
+      0 0 0 1px rgb(21 21 21 / 0.08),
+      0 2px 2px rgb(0 0 0 / 0.2),
+      0 7px 12px -5px rgb(0 0 0 / 0.4);
+
+    &::after {
+      border-color: var(--corte-forte);
+    }
   }
 
   &:active:not(:disabled) {
     translate: 0 1px;
+    rotate: 0deg;
+    box-shadow:
+      0 0 0 1px rgb(21 21 21 / 0.08),
+      0 1px 1px rgb(0 0 0 / 0.22);
+    transition-duration: 80ms;
   }
 
-  &:disabled {
-    opacity: 0.55;
+  /* desligada: a etiqueta ainda não está ali, só o corte na cartela (esperando uma resposta não é
+     desligada: ver .carregando em styles.scss) */
+  &:disabled:not(.carregando) {
+    --corte: rgb(21 21 21 / 0.3);
+    background: transparent;
+    box-shadow: none;
+    color: rgb(21 21 21 / 0.5);
     cursor: not-allowed;
   }
 
@@ -219,27 +264,62 @@
     display: inline-flex;
   }
 
-  /* a que conclui (escolher, recarregar): tinta com letra amarela, como o botão de pincel */
+  /* a que conclui (escolher, recarregar, seguir de volta): tinta com letra amarela, como o botão de
+     pincel; sem o corte, que é coisa de papel */
   &.forte {
-    background: var(--ink);
+    background-color: var(--ink);
+    background-image: none;
     color: var(--hi);
+
+    &::after {
+      content: none;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: #2a2a2a;
+    }
+
+    &:disabled:not(.carregando) {
+      opacity: 0.55;
+    }
   }
 
-  /* só a palavra, sem contorno (Ver o perfil) */
+  /* só a palavra, sem etiqueta (Ver o perfil) */
   &.quieto {
     background: transparent;
     box-shadow: none;
     text-decoration: underline 2px;
     text-underline-offset: 4px;
-  }
 
-  /* o que não tem volta: tinta vermelha */
-  &.perigo {
-    color: var(--red-deep);
-    box-shadow: inset 0 0 0 2px var(--red-deep);
+    &::after {
+      content: none;
+    }
 
     &:hover:not(:disabled) {
-      background: #fbe9e6;
+      background: rgb(21 21 21 / 0.07);
+      box-shadow: none;
+      rotate: 0deg;
+    }
+  }
+
+  /* o que não tem volta: tinta e corte vermelhos */
+  &.perigo {
+    --corte: rgb(184 29 28 / 0.5);
+    --corte-forte: rgb(184 29 28 / 0.85);
+    color: var(--red-deep);
+
+    &:hover:not(:disabled) {
+      background-color: #fff3f1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    & {
+      transition: background-color var(--t-ui) var(--ease-ui);
+    }
+
+    &:hover:not(:disabled) {
+      rotate: 0deg;
     }
   }
 }

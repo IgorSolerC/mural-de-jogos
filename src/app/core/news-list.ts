@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-kanban-sombra-da-ultima',
+    id: '2026-10-17-botoes-de-etiqueta',
     version: '1.25.1',
     kind: 'ajustes',
     date: '2026-10-17',
-    title: 'Spoiler no texto e as colunas do Kanban na tela',
+    title: 'Botões de etiqueta, spoiler no texto e as colunas do Kanban na tela',
     melhorias: [
+      'Os botões brancos de contorno preto viraram etiquetas de papel coladas na folha, com o recorte tracejado por dentro, como as opções do editor: sobem um pouco com o mouse, e desligados ficam só no recorte. Estão no Kanban, nos Ajustes, em Amigos, no Compartilhar, nas configurações do mural, no envelope do Comparar e na escolha da ficha do widget Nota.',
       'Nova marca de texto, o spoiler: escreva ||assim|| (ou >!assim!<) e o trecho fica embaixo de uma tarja preta, que some quando alguém toca nela. Está no Mais da régua; na frase da ficha no mural, o trecho vira [spoiler].',
       'As colunas do Kanban cabem na tela junto com as abas, a busca e as tags: rolada a página até o fim, dá para ver tudo de uma vez, sem rolar mais.',
     ],

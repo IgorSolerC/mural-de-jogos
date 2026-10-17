@@ -65,12 +65,27 @@ dialog.compartilhar {
   }
 }
 
-/* O papel: um select nativo vestido de etiqueta de papel, com a seta desenhada */
+/* O papel: um select nativo vestido da etiqueta de papel dos botões (botao-papel em
+   ui/_paper-kit.scss), com a seta desenhada. O meio-corte fica no rótulo: o select não tem ::after */
 .papel-escolha {
   position: relative;
   flex: none;
   display: inline-flex;
   align-items: center;
+
+  &:not(.na-linha)::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1.5px dashed rgb(21 21 21 / 0.42);
+    border-radius: 1px;
+    pointer-events: none;
+    transition: border-color var(--t-ui) var(--ease-ui);
+  }
+
+  &:not(.na-linha):hover::after {
+    border-color: rgb(21 21 21 / 0.72);
+  }
 
   select {
     appearance: none;
@@ -79,26 +94,35 @@ dialog.compartilhar {
     padding: 0 38px 0 14px;
     border: 0;
     border-radius: 2px;
-    background: #fff;
+    background-color: #fffdf8;
+    background-image: var(--paper-grain);
+    background-blend-mode: multiply;
     color: var(--ink);
-    box-shadow: inset 0 0 0 2px var(--ink);
+    box-shadow:
+      0 0 0 1px rgb(21 21 21 / 0.08),
+      0 1px 1px rgb(0 0 0 / 0.24),
+      0 3px 6px -3px rgb(0 0 0 / 0.32);
     font-family: var(--f-label);
     font-weight: 800;
     font-size: 0.96rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background-color var(--t-ui) var(--ease-ui);
+    transition:
+      background-color var(--t-ui) var(--ease-ui),
+      box-shadow var(--t-physical) var(--ease-physical);
 
     &:hover:not(:disabled) {
-      background: #f4efe3;
+      background-color: #fff;
+      box-shadow:
+        0 0 0 1px rgb(21 21 21 / 0.08),
+        0 2px 2px rgb(0 0 0 / 0.2),
+        0 7px 12px -5px rgb(0 0 0 / 0.4);
     }
 
     &:focus-visible {
-      outline: none;
-      box-shadow:
-        inset 0 0 0 3px var(--ink),
-        var(--field-halo);
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
     }
 
     &:disabled {
@@ -128,6 +152,7 @@ dialog.compartilhar {
     }
 
     &:focus-visible {
+      outline: none;
       box-shadow: inset 0 0 0 3px var(--ink);
     }
   }

@@ -617,6 +617,26 @@ describe('página do Kanban', () => {
     expect(lookFrom(store.get('nlogin01')!)).toEqual({});
   });
 
+  it('as saídas do Adicionar são a etiqueta de papel: sem contorno de tinta, com o meio-corte tracejado por dentro', async () => {
+    await go(`/anotacoes/kanban/${EST}`);
+    column(kanban.boardFor('Estudos').columns[1].id).querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
+    await settle();
+    const op = host.querySelector<HTMLButtonElement>('.adicionar-op')!;
+    const look = getComputedStyle(op);
+    // colada rente: só sombra para fora, nada de contorno de tinta por dentro
+    expect(look.boxShadow).not.toContain('inset');
+    expect(look.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    const corte = getComputedStyle(op, '::after');
+    expect(corte.borderTopStyle).toBe('dashed');
+    expect(corte.pointerEvents).toBe('none');
+    // desligada, sobra só o corte: sem papel nem sombra (sem a transição, para ler o fim dela)
+    op.style.transition = 'none';
+    op.disabled = true;
+    expect(getComputedStyle(op).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(getComputedStyle(op).boxShadow).toBe('none');
+    expect(getComputedStyle(op, '::after').borderTopStyle).toBe('dashed');
+  });
+
   it('Adicionar nota abre as duas saídas, e Nova coluna (só na pasta, sem a vaga tracejada no fim do quadro) cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {
     await go(`/anotacoes/kanban/${EST}`);
     column(kanban.boardFor('Estudos').columns[1].id).querySelector<HTMLButtonElement>('.adicionar-btn')!.click();

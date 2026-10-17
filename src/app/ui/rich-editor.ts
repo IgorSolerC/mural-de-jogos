@@ -1559,34 +1559,73 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
 
     /* ===== A Nota: qual ficha. Sem ela, o botão tracejado de escolher; com ela, o nome a pincel, o
        mural e o "Trocar" (a ficha de verdade aparece em "Como fica") ===== */
+    /* escolhida, é a etiqueta de papel dos botões (botao-papel em ui/_paper-kit.scss): colada rente,
+       com o meio-corte por dentro; sem ficha, só o recorte tracejado na cartela */
     .ficha-escolher {
+      position: relative;
+      isolation: isolate;
       display: flex;
       align-items: center;
       gap: 10px;
       width: 100%;
       min-height: 48px;
-      padding: 6px 10px;
-      border: 1.5px solid var(--ink);
-      border-radius: 4px;
-      background: rgb(255 255 255 / 0.45);
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 2px;
+      background-color: #fffdf8;
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      box-shadow:
+        0 0 0 1px rgb(21 21 21 / 0.08),
+        0 1px 1px rgb(0 0 0 / 0.24),
+        0 3px 6px -3px rgb(0 0 0 / 0.32);
       color: var(--ink);
       font: inherit;
       letter-spacing: 0;
       text-transform: none;
       text-align: left;
       cursor: pointer;
-      transition: background-color var(--t-ui) var(--ease-ui);
+      transition:
+        background-color var(--t-ui) var(--ease-ui),
+        box-shadow var(--t-physical) var(--ease-physical),
+        translate var(--t-physical) var(--ease-physical);
     }
-    .ficha-escolher:hover {
-      background: rgb(255 255 255 / 0.75);
+    .ficha-escolher::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      z-index: -1;
+      border: 1.5px dashed rgb(21 21 21 / 0.42);
+      border-radius: 1px;
+      pointer-events: none;
+      transition: border-color var(--t-ui) var(--ease-ui);
+    }
+    .ficha-escolher:not(.vazia):hover {
+      background-color: #fff;
+      translate: 0 -1px;
+      box-shadow:
+        0 0 0 1px rgb(21 21 21 / 0.08),
+        0 2px 2px rgb(0 0 0 / 0.2),
+        0 7px 12px -5px rgb(0 0 0 / 0.4);
+    }
+    .ficha-escolher:hover::after {
+      border-color: rgb(21 21 21 / 0.72);
+    }
+    .ficha-escolher:not(.vazia):active {
+      translate: 0 1px;
     }
     .ficha-escolher:focus-visible {
       outline: 2.5px solid var(--ink);
       outline-offset: 3px;
     }
     .ficha-escolher.vazia {
-      border-style: dashed;
+      padding: 6px 10px;
+      border: 1.5px dashed var(--ink);
       background: transparent;
+      box-shadow: none;
+    }
+    .ficha-escolher.vazia::after {
+      content: none;
     }
     .ficha-escolher.vazia:hover {
       background: rgb(21 21 21 / 0.06);
