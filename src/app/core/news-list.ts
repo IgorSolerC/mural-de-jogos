@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-kanban-colunas-na-tela',
+    id: '2026-10-17-kanban-sombra-da-ultima',
     version: '1.25.1',
     kind: 'ajustes',
     date: '2026-10-17',
@@ -38,6 +38,7 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'O spoiler se revela tocando nele direto na ficha do mural, sem abrir a leitura.',
       'Com o mouse numa coluna do Kanban, a roda rola só a coluna (também em cima do nome e do Adicionar nota): chegando no fim dela, a página não começa mais a rolar junto.',
+      'A sombra da última anotação de uma coluna do Kanban não sai mais cortada por uma linha reta: ela se apaga inteira no papel da coluna.',
     ],
   },
   {

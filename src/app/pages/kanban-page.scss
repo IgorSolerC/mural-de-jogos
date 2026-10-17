@@ -199,6 +199,9 @@ $fade: clamp(22px, 7vw, 132px);
    (a folga das sombras e da tira torta, embaixo do quadro) */
 $folga-alto: 12px;
 $folga-pe: 34px;
+/* entre a última ficha de uma coluna e o pé do rolo dela: onde a sombra da ficha (--shadow-card) já se
+   apagou no papel pardo */
+$folga-sombra: 30px;
 
 .quadro-moldura {
   position: relative;
@@ -682,7 +685,10 @@ $folga-pe: 34px;
 .rolo {
   flex: 0 1 auto;
   min-height: 0;
-  padding: 22px 14px 6px;
+  /* embaixo, a folga da sombra da última ficha (e do selo da importância, que sai pela beirada dela): o
+     rolo corta o que passa dele, e com a beirada logo embaixo da ficha a sombra saía picotada; assim ela
+     se apaga inteira no papel pardo antes do pé (o Adicionar sobe o mesmo tanto, ver .adicionar) */
+  padding: 22px 14px $folga-sombra;
   overflow-x: hidden;
   overflow-y: auto;
   /* a roda do mouse (ou o dedo) numa coluna rola só a coluna: chegando no alto ou no pé dela, para ali,
@@ -741,6 +747,8 @@ $folga-pe: 34px;
 
 .quadro.denso .rolo {
   padding-top: 16px;
+  /* as tiras têm a sombra curta: basta a folga de antes */
+  padding-bottom: 20px;
 }
 
 .lugar {
@@ -907,9 +915,10 @@ $folga-pe: 34px;
   }
 }
 
-/* ===== Adicionar: o contorno tracejado no pé da tira, e as duas saídas ===== */
+/* ===== Adicionar: o contorno tracejado no pé da tira, e as duas saídas =====
+   colado no pé do rolo, que já leva a folga da sombra da última ficha */
 .adicionar {
-  margin-top: 18px;
+  margin-top: 4px;
 }
 
 .adicionar-btn {

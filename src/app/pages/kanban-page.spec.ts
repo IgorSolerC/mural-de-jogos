@@ -956,6 +956,22 @@ describe('página do Kanban', () => {
       expect(Math.abs(topo() - measured())).toBeLessThanOrEqual(1);
     });
 
+    it('a sombra da última ficha se apaga dentro da coluna, sem ser cortada pela beirada do rolo', async () => {
+      kanban.state.set(state(long()));
+      await go(TRAB_URL);
+      for (const id of ['afazer', 'feito']) {
+        const rolo = column(id).querySelector<HTMLElement>('.rolo')!;
+        rolo.scrollTop = rolo.scrollHeight;
+        const last = [...rolo.querySelectorAll('.lugar app-kanban-note')].at(-1)!.getBoundingClientRect();
+        const end = rolo.querySelector('.mais')?.getBoundingClientRect().bottom ?? last.bottom;
+        // a sombra das fichas (--shadow-card) é forte nos primeiros 20px e se apaga até uns 30px
+        expect(rolo.getBoundingClientRect().bottom - end).toBeGreaterThanOrEqual(29);
+      }
+      // o Adicionar sobe o mesmo tanto: entre a última e ele, a folga de antes mais a da sombra
+      const rolo = column('afazer').querySelector<HTMLElement>('.rolo')!;
+      expect(column('afazer').querySelector('.adicionar')!.getBoundingClientRect().top - rolo.getBoundingClientRect().bottom).toBeLessThanOrEqual(5);
+    });
+
     it('a anotação que desce além das que estão à mostra continua à vista', async () => {
       kanban.state.set(state(long()));
       await go(TRAB_URL);
