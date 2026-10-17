@@ -292,7 +292,17 @@ export function followRoutes(app: Hono, deps: Deps): void {
           'CASE WHEN m.seguidor_id IS NULL THEN 0 ELSE 1 END AS eu_sigo ' +
           'FROM atividades a JOIN usuarios u ON u.id = a.autor_id ' +
           'LEFT JOIN seguindo m ON m.seguidor_id = a.alvo_id AND m.seguido_id = a.autor_id ' +
-          "WHERE a.tipo IN ('reagiu', 'comentou') AND a.alvo_id = ? AND a.criado_em > ? " +
+          // (o comentário do dono numa anotação compartilhada é aviso só para os outros dela)
+          "WHERE a.tipo IN ('reagiu', 'comentou') AND a.alvo_id = ? AND a.autor_id <> a.alvo_id AND a.criado_em > ? " +
+          'UNION ALL ' +
+          // quem comentou numa anotação em que eu estou (de outra pessoa), enquanto eu ainda estou nela
+          "SELECT 'comentou' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(f.silenciado, 0) AS silenciado, " +
+          'CASE WHEN f.seguidor_id IS NULL THEN 0 ELSE 1 END AS eu_sigo ' +
+          'FROM nota_membros nm JOIN notas n ON n.id = nm.nota_id ' +
+          "JOIN atividades a ON a.alvo_id = n.dono_id AND a.ref = n.id AND a.tipo = 'comentou' " +
+          'JOIN usuarios u ON u.id = a.autor_id ' +
+          'LEFT JOIN seguindo f ON f.seguidor_id = nm.usuario_id AND f.seguido_id = a.autor_id ' +
+          'WHERE nm.usuario_id = ? AND a.autor_id <> ? AND a.criado_em > ? ' +
           'UNION ALL ' +
           // quem compartilhou uma anotação comigo (enquanto eu ainda estou nela), com o título e o papel de agora
           "SELECT 'compartilhou' AS tipo, a.criado_em AS criado_em, a.ref, " +
@@ -303,7 +313,7 @@ export function followRoutes(app: Hono, deps: Deps): void {
           'JOIN nota_membros m ON m.nota_id = a.ref AND m.usuario_id = a.alvo_id JOIN notas n ON n.id = a.ref ' +
           "WHERE a.tipo = 'compartilhou' AND a.alvo_id = ? AND a.criado_em > ? " +
           'ORDER BY criado_em DESC LIMIT ?',
-        [s.userId, s.userId, since, s.userId, since, s.userId, since, s.userId, s.userId, since, limit],
+        [s.userId, s.userId, since, s.userId, since, s.userId, since, s.userId, s.userId, since, s.userId, s.userId, since, limit],
       );
     if (after) {
       const fresh = await feed(after > floor ? after : floor, 1);

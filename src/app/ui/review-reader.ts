@@ -420,7 +420,7 @@ const PATCH_GAP = 8;
                 } @else {
                   <!-- a folha em si (com o editor de texto) chega num pedaço à parte, só para quem abre -->
                   @defer (on immediate) {
-                    <app-comments-panel [target]="ct" [ownerName]="commentOwner()" [own]="owner() === null" [quote]="quote()" (leave)="leaveTo($event)" />
+                    <app-comments-panel [target]="ct" [ownerName]="commentOwner()" [own]="owner() === null && !leaves()" [audience]="commentAudience()" [quote]="quote()" (leave)="leaveTo($event)" />
                   } @placeholder {
                     <p class="abrindo" role="status"><span class="carregando" aria-hidden="true"></span>Abrindo os comentários…</p>
                   }
@@ -670,8 +670,17 @@ export class ReviewReader {
   private readonly account = inject(CloudAccount);
   protected readonly CommentIcon = MessageCircleMore;
   protected readonly QuoteIcon = TextQuote;
-  /** A ficha aberta como alvo dos comentários: a publicada de quem tem código (ou a sua, com a conta aberta). */
-  protected readonly commentTarget = computed<CommentTarget | null>(() => (this.review()?.private ? null : this.reactTarget()));
+  /**
+   * A ficha aberta como alvo dos comentários: a de quem tem código (ou a sua, com a conta aberta). A
+   * privada também: o dono escreve nela para si, e numa anotação compartilhada fala com quem está nela.
+   */
+  protected readonly commentTarget = computed<CommentTarget | null>(() => this.reactTarget());
+  /** Quem lê os comentários de uma ficha privada, para a folha dizer (null: a ficha está à mostra). */
+  protected readonly commentAudience = computed(() => {
+    if (!this.review()?.private) return null;
+    const e = this.sharedEntry();
+    return e && (e.papel !== 'dono' || e.membros.length) ? 'Anotação privada: só quem está nela vê os comentários.' : 'Ficha privada: só você vê os comentários.';
+  });
   protected readonly commentCount = computed(() => {
     const t = this.commentTarget();
     return t ? this.comments.countOf(t.code, t.ref) : 0;

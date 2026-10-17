@@ -16,12 +16,15 @@ import { MAX_REACTIONS_PER_DAY } from './reactions';
  * Comentários nas fichas publicadas (resenhas e anotações) e as reações a cada comentário.
  *
  * Comenta quem segue o dono, como nas reações; se o dono preferir, só quem ele segue
- * (`usuarios.comentarios_de`, trocado no `PATCH /v1/eu`). O dono sempre comenta nas próprias fichas.
- * Quem vê o mural vê os comentários. O texto leva as marcas de formatação do site e fica guardado como veio (limpo, até
+ * (`usuarios.comentarios_de`, trocado no `PATCH /v1/eu`). O dono sempre comenta nas próprias fichas,
+ * até nas privadas, e quem está numa anotação compartilhada comenta nela (privada ou não).
+ * Quem vê o mural vê os comentários; os de uma ficha privada, só o dono e quem está na anotação. O texto leva as marcas de formatação do site e fica guardado como veio (limpo, até
  * `COMMENT_MAX` caracteres). Quem escreveu apaga o seu; o dono da ficha apaga qualquer um dela.
  *
  * O dono recebe um aviso no correio (atividade 'comentou'), um por pessoa e ficha: comentar de novo na
  * mesma ficha troca o aviso pelo de agora, e apagar o último comentário da pessoa ali apaga o aviso.
+ * Numa anotação compartilhada, o mesmo aviso chega a todos que estão nela, menos a quem escreveu (ver
+ * `/v1/eu/notificacoes`): por isso o comentário do dono ali também guarda o aviso, com ele de alvo.
  *
  * Reagir a um comentário é como reagir a uma ficha (uma por pessoa, trocar substitui, dá para tirar),
  * para quem pode comentar ali, e não avisa ninguém. Conta no mesmo freio das reações às fichas.
@@ -104,21 +107,40 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     return { id: found.id, dono_id: found.dono_id, ref: found.ref, autor_id: found.autor_id, dono: { id: found.dono_id, nome: found.nome, comentarios_de: found.comentarios_de } };
   }
 
-  /** `userId` pode comentar (e reagir aos comentários) nas fichas de `who`? */
-  async function allowed(who: Owner, userId: string | null): Promise<boolean> {
+  /** A ficha `ref` do mural de `ownerId` é uma anotação compartilhada com alguém? */
+  async function sharedNote(ownerId: string, ref: string): Promise<boolean> {
+    return !!(await deps.db.first('SELECT 1 AS x FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.nota_id = ? AND n.dono_id = ? LIMIT 1', [ref, ownerId]));
+  }
+
+  /** `userId` está na anotação compartilhada `ref` do mural de `ownerId` (sem ser o dono)? */
+  async function member(ownerId: string, ref: string, userId: string | null): Promise<boolean> {
+    if (!userId || userId === ownerId) return false;
+    return !!(await deps.db.first('SELECT 1 AS x FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.nota_id = ? AND n.dono_id = ? AND m.usuario_id = ?', [
+      ref,
+      ownerId,
+      userId,
+    ]));
+  }
+
+  /**
+   * `userId` pode comentar (e reagir aos comentários) nas fichas de `who`? Com `ref`, na ficha `ref`:
+   * quem está nela, se for uma anotação compartilhada, pode sempre.
+   */
+  async function allowed(who: Owner, userId: string | null, ref?: string): Promise<boolean> {
     if (!userId) return false;
     if (userId === who.id) return true;
+    if (ref !== undefined && (await member(who.id, ref, userId))) return true;
     // quem segue quem: a pessoa segue o dono, ou (se ele escolheu assim) o dono segue a pessoa
     const [follower, followed] = fromOf(who) === 'seguidos' ? [who.id, userId] : [userId, who.id];
     return !!(await deps.db.first('SELECT 1 AS x FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?', [follower, followed]));
   }
 
   /**
-   * A ficha está à mostra para `userId`? O dono vê as dele todas; os outros, só as do mural público
-   * (ver domain/shown.ts).
+   * A ficha está à mostra para `userId`? O dono vê as dele todas, até as privadas; quem está numa
+   * anotação compartilhada vê ela; os outros, só as do mural público (ver domain/shown.ts).
    */
   async function visible(who: Pick<Owner, 'id'>, ref: string, userId: string | null): Promise<boolean> {
-    return userId === who.id || isShown(await shownRefs(deps.db, who.id), ref);
+    return userId === who.id || isShown(await shownRefs(deps.db, who.id), ref) || (await member(who.id, ref, userId));
   }
 
   /** A ficha não está à mostra (privada ou apagada): para os outros, ela não existe. */
@@ -139,7 +161,19 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       MAX_CARDS_COUNTED,
     ]);
     const shown = me === who.id ? null : await shownRefs(deps.db, who.id);
-    const counted = rows.filter((r) => isShown(shown, r.ref));
+    // as anotações dele em que quem pergunta está contam mesmo privadas
+    const joined =
+      shown && me
+        ? new Set(
+            (
+              await deps.db.all<{ id: string }>('SELECT n.id FROM nota_membros m JOIN notas n ON n.id = m.nota_id WHERE m.usuario_id = ? AND n.dono_id = ?', [
+                me,
+                who.id,
+              ])
+            ).map((n) => n.id),
+          )
+        : null;
+    const counted = rows.filter((r) => isShown(shown, r.ref) || !!joined?.has(r.ref));
     return c.json({ contagem: Object.fromEntries(counted.map((r) => [r.ref, r.n])), quem: fromOf(who), pode: await allowed(who, me) });
   });
 
@@ -174,7 +208,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       comentarios: shown.map((r) => commentOut(r, byComment.get(r.id) ?? [])),
       maisAntigos: older,
       quem: fromOf(who),
-      pode: await allowed(who, me),
+      pode: await allowed(who, me, ref),
     });
   });
 
@@ -187,7 +221,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const text = cleanComment(body['texto']);
     if (!text) throw new HttpError(400, 'comentario-vazio', 'Escreva alguma coisa antes de comentar.');
     if (text.length > COMMENT_MAX) throw new HttpError(400, 'comentario-grande', `O comentário passa de ${COMMENT_MAX} caracteres.`);
-    if (!(await allowed(who, s.userId))) throw refusal(who);
+    if (!(await allowed(who, s.userId, ref))) throw refusal(who);
     if (!(await visible(who, ref, s.userId))) throw hiddenCard();
     const now = deps.now();
     if ((await usedToday(deps, s.userId, 'comentar', now)) >= MAX_COMMENTS_PER_DAY) {
@@ -199,12 +233,14 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const at = now.toISOString();
     const mural = typeof body['mural'] === 'string' && MURAL_RE.test(body['mural']) ? body['mural'] : 'jogos';
     const resumo = JSON.stringify({ titulo: cleanTitle(body['titulo']), mural });
+    // o aviso: só de outra pessoa para o dono, ou de qualquer um numa anotação compartilhada (ver o começo)
+    const notify = who.id !== s.userId || (await sharedNote(who.id, ref));
     await write(
       deps,
       [
         { sql: 'INSERT INTO comentarios (id, dono_id, ref, autor_id, texto, criado_em) VALUES (?, ?, ?, ?, ?, ?)', params: [id, who.id, ref, s.userId, text, at] },
-        // o aviso para o dono (nunca de um comentário dele mesmo): o de antes sai e entra o de agora
-        ...(who.id === s.userId
+        // o aviso: o de antes sai e entra o de agora
+        ...(!notify
           ? []
           : [
               { sql: "DELETE FROM atividades WHERE tipo = 'comentou' AND autor_id = ? AND alvo_id = ? AND ref = ?", params: [s.userId, who.id, ref] },
@@ -253,7 +289,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const body = await readJson(c);
     const reaction = body['reacao'];
     if (!isReaction(reaction)) throw new HttpError(400, 'reacao-invalida', 'Essa reação não existe.');
-    if (!(await allowed(k.dono, s.userId))) throw refusal(k.dono);
+    if (!(await allowed(k.dono, s.userId, k.ref))) throw refusal(k.dono);
     if (!(await visible(k.dono, k.ref, s.userId))) throw hiddenCard();
     const now = deps.now();
     const before = await deps.db.first<{ reacao: string }>('SELECT reacao FROM comentario_reacoes WHERE comentario_id = ? AND autor_id = ?', [k.id, s.userId]);

@@ -416,9 +416,7 @@ export const CARD_TEMPLATE = `
           <app-shared-patch [noteId]="review().id" (opened)="opened.emit(review().id)" />
         }
         @if (reactTarget(); as t) {
-          @if (!review().private) {
-            <app-comment-bubble [target]="t" (opened)="opened.emit(review().id)" />
-          }
+          <app-comment-bubble [target]="t" (opened)="opened.emit(review().id)" />
           <app-reaction-bubble [target]="t" />
         }
       </div>
@@ -1836,11 +1834,17 @@ export class ReviewCard {
   });
   protected readonly catColor = computed(() => categoryColorHex(this.catLook().color));
 
-  /** A ficha como alvo das reações: o mural de quem e qual ficha. */
+  /**
+   * A ficha como alvo das reações e dos comentários: o mural de quem e qual ficha. A compartilhada de
+   * outra pessoa é a ficha do dono (no seu mural, pela anotação; no mural público, por `sharedBy`).
+   */
   protected readonly reactTarget = computed<ReactionTarget | null>(() => {
-    const code = this.reactCode();
     const r = this.review();
-    return code && !this.bare() ? { code, ref: r.id, titulo: r.game.name, mural: r.kind } : null;
+    const wall = this.reactCode();
+    if (!wall || this.bare()) return null;
+    const e = this.checkable() ? this.shared.get(r.id) : undefined;
+    const code = e ? (e.papel !== 'dono' ? e.dono.codigo : wall) : (r.sharedBy?.codigo ?? wall);
+    return { code, ref: r.id, titulo: r.game.name, mural: r.kind };
   });
 
   protected readonly AgainIcon = Repeat;

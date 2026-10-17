@@ -7,6 +7,7 @@ import { Comments } from '../core/comments';
 import { FeedItem, Follow, People } from '../core/follow';
 import { LocalData } from '../core/local-data';
 import { Review, sanitizeReview } from '../core/review';
+import { SHARED_AUTO, SharedEntry, SharedStore } from '../core/shared-store';
 import { ReviewReader } from './review-reader';
 
 /**
@@ -80,6 +81,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
         provideZonelessChangeDetection(),
         provideRouter([]),
         { provide: LocalData, useClass: MemoryData },
+        { provide: SHARED_AUTO, useValue: false },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
         {
           provide: CloudAccount,
@@ -236,7 +238,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(q('.orelha-n')?.textContent).toBe('1');
   });
 
-  it('na sua ficha: a porta para comentar, mesmo sem comentários; com eles, a contagem; a privada nunca tem', async () => {
+  it('na sua ficha: a porta para comentar, mesmo sem comentários; com eles, a contagem; na privada também, dizendo que só você vê', async () => {
     counts[ME.codigo] = { 'r-comentada': 2, 'r-privada': 4 };
     // o pedido de quando a conta entrou (ainda sem comentários) termina primeiro; aí, o de agora
     await settle();
@@ -260,10 +262,51 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(q('.comentar')?.textContent?.trim()).toBe('2 comentários');
     await closeReader();
 
+    reader.open(review('r-comentada', 'Hades'));
+    await settle();
+    q<HTMLButtonElement>('.comentar')!.click();
+    await settle();
+    // a ficha à mostra não tem recado de quem vê
+    expect(q('app-comments-panel .recado')).toBeNull();
+    await closeReader();
+
     reader.open(review('r-privada', 'Segredo', { private: true }));
     await settle();
-    expect(q('.orelha')).toBeNull();
-    expect(q('.comentar')).toBeNull();
+    expect(q('.orelha-n')?.textContent).toBe('4');
+    expect(q('.comentar')?.textContent?.trim()).toBe('4 comentários');
+    q<HTMLButtonElement>('.comentar')!.click();
+    await settle();
+    expect(q('app-comments-panel .recado')?.textContent?.trim()).toBe('Ficha privada: só você vê os comentários.');
+    expect(q('app-comments-panel .abrir')).not.toBeNull();
+  });
+
+  it('na anotação privada que a Ana compartilhou com você: os comentários são os da ficha dela, e a folha diz quem vê', async () => {
+    counts[ANA] = { 'nota-1': 2 };
+    const note = review('nota-1', 'Lista do mercado', { kind: 'anotacoes', private: true });
+    const shared: SharedEntry = {
+      id: 'nota-1',
+      dono: { codigo: ANA, nome: 'Ana', foto: null },
+      papel: 'leitor',
+      membros: [{ codigo: ME.codigo, nome: ME.nome, foto: null, papel: 'leitor', desde: '' }],
+      rev: 1,
+      versao: 1,
+      base: note,
+      local: null,
+      outra: null,
+      resolver: false,
+      conflito: null,
+      atualizadoEm: note.updatedAt,
+      atualizadoPor: null,
+      pessoal: {},
+      view: note,
+    };
+    TestBed.inject(SharedStore).entries.set(new Map([['nota-1', shared]]));
+    fixture.componentInstance.open(note);
+    await settle();
+    expect(q('.orelha-n')?.textContent).toBe('2');
+    q<HTMLButtonElement>('.comentar')!.click();
+    await settle();
+    expect(q('app-comments-panel .recado')?.textContent?.trim()).toBe('Anotação privada: só quem está nela vê os comentários.');
   });
 
   it('uma ficha sem código (um backup aberto em Comparar) não tem comentários', async () => {

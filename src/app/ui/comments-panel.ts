@@ -36,6 +36,8 @@ export class CommentsPanel {
   readonly ownerName = input.required<string>();
   /** A ficha é sua: você apaga qualquer comentário dela. */
   readonly own = input(false);
+  /** Na ficha privada, quem vê os comentários (null: quem vê o mural). */
+  readonly audience = input<string | null>(null);
   /** Um trecho da ficha que a pessoa mandou citar. */
   readonly quote = input<QuoteRequest | null>(null);
   /** Tocaram em algo que sai daqui (o perfil de alguém, Ajustes): a leitura fecha. */

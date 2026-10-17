@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-tags-por-categoria',
+    id: '2026-10-17-comentar-nas-privadas',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
-    title: 'Tags por categoria, renomear e apagar',
+    title: 'Tags por categoria, renomear e apagar, comentários nas privadas',
     melhorias: [
+      'Dá para comentar também nas suas análises e anotações privadas, como um recado para você mesmo. Numa anotação compartilhada, pública ou privada, quem está nela comenta mesmo sem seguir ninguém, e todos ali recebem o aviso de cada comentário.',
       'Em Tags, nas configurações do mural, as tags ficam separadas pela categoria das anotações onde são usadas, e a mesma tag pode ter uma cor em cada categoria; renomear ou apagar uma tag mexe só nas anotações daquela categoria.',
       'Nas configurações do mural (a engrenagem da pasta), cada categoria e cada tag pode ser renomeada, e muda em todas as anotações que a usam, com a cor, os padrões e o quadro do Kanban; o nome de outra que já existe junta as duas.',
       'Ali também dá para apagar uma categoria ou uma tag: antes, um aviso diz quantas anotações a usam, e ao confirmar ela sai de todas.',

@@ -385,6 +385,72 @@ export function notasSuite(label: string, getDb: () => Db) {
       });
     });
 
+    describe('comentários', () => {
+      /** Ana compartilha nota-1 com Bia e Cris (ninguém segue ninguém) e deixa a anotação privada (fora do mural público). */
+      async function talking() {
+        const t = await three();
+        const dan = await t.login('dan', 'Dan');
+        await t.share(t.ana.token, 'nota-1', [
+          { codigo: t.bia.codigo, papel: 'leitor' },
+          { codigo: t.cris.codigo, papel: 'editor' },
+        ]);
+        await t.db.batch([{ sql: 'UPDATE usuarios SET fichas_publicas = ? WHERE id = ?', params: ['[]', t.ana.id] }]);
+        const comment = (token: string, texto: string, ref = 'nota-1') =>
+          t.res(t.json('POST', `/v1/murais/${t.ana.codigo}/comentarios/${ref}`, { texto, titulo: 'Lista do mercado', mural: 'anotacoes' }, token));
+        const thread = (token?: string) => t.res(t.json('GET', `/v1/murais/${t.ana.codigo}/comentarios/nota-1`, undefined, token));
+        const counts = async (token?: string) => (await t.res(t.json('GET', `/v1/murais/${t.ana.codigo}/comentarios`, undefined, token))).body.contagem;
+        const notices = async (token: string) =>
+          ((await t.feed(token)).itens as any[]).filter((i) => i.tipo === 'comentou').map((i) => [i.pessoa.nome, i.ref, i.titulo, i.mural]);
+        return { ...t, dan, comment, thread, counts, notices };
+      }
+
+      it('na privada, a dona e quem está nela comentam e leem, mesmo sem seguir; os outros não veem nada', async () => {
+        const { comment, thread, counts, ana, bia, cris, dan } = await talking();
+        expect((await comment(ana.token, 'Lembrete: comprar café.')).status).toBe(201);
+        expect((await comment(bia.token, 'Eu levo o café.')).status).toBe(201);
+        expect((await comment(cris.token, 'E eu o pão.')).status).toBe(201);
+        for (const who of [ana, bia, cris]) {
+          const r = await thread(who.token);
+          expect([r.status, r.body.pode], who.nome).toEqual([200, true]);
+          expect(r.body.comentarios.map((k: any) => k.autor.nome)).toEqual(['Ana', 'Bia', 'Cris']);
+          expect(await counts(who.token)).toEqual({ 'nota-1': 3 });
+        }
+        expect((await thread(dan.token)).status).toBe(404);
+        expect((await thread()).status).toBe(404);
+        expect(await counts(dan.token)).toEqual({});
+        expect(await counts()).toEqual({});
+        expect((await comment(dan.token, 'Oi?')).status).not.toBe(201);
+      });
+
+      it('quem está nela reage aos comentários sem seguir a dona', async () => {
+        const { comment, res, json, ana, bia } = await talking();
+        const id = (await comment(ana.token, 'Alguém viu o açúcar?')).body.comentario.id;
+        expect((await res(json('PUT', `/v1/comentarios/${id}/reacao`, { reacao: 'fogo' }, bia.token))).status).toBe(201);
+      });
+
+      it('o aviso chega a todos que estão nela, menos a quem escreveu; quem sai deixa de ver', async () => {
+        const { comment, notices, drop, ana, bia, cris } = await talking();
+        await comment(ana.token, 'Lembrete: comprar café.');
+        expect(await notices(ana.token)).toEqual([]);
+        expect(await notices(bia.token)).toEqual([['Ana', 'nota-1', 'Lista do mercado', 'anotacoes']]);
+        expect(await notices(cris.token)).toEqual([['Ana', 'nota-1', 'Lista do mercado', 'anotacoes']]);
+        await comment(bia.token, 'Eu levo o café.');
+        expect(await notices(ana.token)).toEqual([['Bia', 'nota-1', 'Lista do mercado', 'anotacoes']]);
+        expect(await notices(bia.token)).toEqual([['Ana', 'nota-1', 'Lista do mercado', 'anotacoes']]);
+        expect((await notices(cris.token)).map((n) => n[0]).sort()).toEqual(['Ana', 'Bia']);
+        expect((await drop(cris.token, 'nota-1', 'eu')).status).toBe(200);
+        expect(await notices(cris.token)).toEqual([]);
+      });
+
+      it('apagar o comentário da dona tira o aviso dos outros', async () => {
+        const { comment, notices, res, json, ana, bia } = await talking();
+        const id = (await comment(ana.token, 'Lembrete: comprar café.')).body.comentario.id;
+        expect(await notices(bia.token)).toHaveLength(1);
+        expect((await res(json('DELETE', `/v1/comentarios/${id}`, undefined, ana.token))).status).toBe(200);
+        expect(await notices(bia.token)).toEqual([]);
+      });
+    });
+
     describe('sair, apagar e ir embora', () => {
       it('a dona apaga para todos: some das listas e do correio de todo mundo', async () => {
         const { share, index, feed, res, json, ana, bia } = await three();

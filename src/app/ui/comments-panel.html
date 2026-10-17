@@ -5,6 +5,9 @@
     Comentários
     <span class="obra">{{ target().titulo }}</span>
   </h2>
+  @if (audience(); as a) {
+    <p class="recado">{{ a }}</p>
+  }
   @if (thread(); as t) {
     @if (t.maisAntigos) {
       <p class="recado">Aqui aparecem só os comentários mais novos.</p>
