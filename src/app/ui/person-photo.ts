@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { initialStock } from '../core/profile-people';
+import { initialStock, photoTilt } from '../core/profile-people';
 import { Stock } from '../core/review';
 
 /** A "foto" do perfil de alguém: o emoji e a cartolina atrás dele. */
@@ -67,10 +67,5 @@ export class PersonPhoto {
 
   protected readonly stock = computed(() => this.face()?.cor ?? initialStock(this.code()));
   protected readonly initial = computed(() => ([...this.name().trim()][0] ?? '?').toLocaleUpperCase('pt-BR'));
-  /** De −4 a +4 graus, pelo código da pessoa (a mesma conta da folha de comentários). */
-  protected readonly tilt = computed(() => {
-    let h = 0;
-    for (const c of this.code()) h = (h * 31 + c.charCodeAt(0)) | 0;
-    return (Math.abs(h) % 9) - 4;
-  });
+  protected readonly tilt = computed(() => photoTilt(this.code()));
 }

@@ -3,7 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { LucideAngularModule, VolumeOff } from 'lucide-angular';
 import { soundVolume } from '../core/volume';
-import { httpsUrl, parseAudio, readAudio } from '../core/widgets';
+import { hostOf, httpsUrl, parseAudio, readAudio } from '../core/widgets';
 import { EmbedBridge, EmbedReport } from './embed-bridge';
 import { snapToLines } from './line-snap';
 import { Warmable, warmups } from './sound-warmup';
@@ -951,13 +951,7 @@ export class AudioTrack implements Warmable {
   protected readonly problem = computed(() => (this.bare() ? '' : this.broken()));
   /** Tem som para tocar: o botão do disco aparece. */
   protected readonly playable = computed(() => !!this.source() && !this.failed());
-  protected readonly host = computed(() => {
-    try {
-      return new URL(this.info().url).hostname.replace(/^www\./, '');
-    } catch {
-      return '';
-    }
-  });
+  protected readonly host = computed(() => hostOf(this.info().url));
   /**
    * A capa do vinil: a que veio de fora (`art`) ou a foto do vídeo do YouTube (o Vimeo e os arquivos
    * ficam no envelope pardo).

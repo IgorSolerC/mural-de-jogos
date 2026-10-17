@@ -5,7 +5,6 @@ import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
 import { Review, isPrivate, storedNote } from './review';
 import { SharedStore } from './shared-store';
-import { canonicalJson as canonical } from './canonical-json';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
@@ -1016,7 +1015,7 @@ export class CloudSync {
   private async sharedPrint(): Promise<string> {
     const list = this.shared.publicShared();
     if (!list.length) return '';
-    const text = canonical(list.map((x) => ({ n: storedNote(x.note), d: x.dono?.codigo ?? null })).sort((a, b) => (a.n.id < b.n.id ? -1 : 1)));
+    const text = canonicalJson(list.map((x) => ({ n: storedNote(x.note), d: x.dono?.codigo ?? null })).sort((a, b) => (a.n.id < b.n.id ? -1 : 1)));
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return Array.from(new Uint8Array(digest).slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join('');
   }

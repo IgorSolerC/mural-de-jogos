@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, e
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Film, ImageOff, LucideAngularModule } from 'lucide-angular';
 import { soundVolume } from '../core/volume';
-import { httpsUrl, parseVideo, readMedia } from '../core/widgets';
+import { hostOf, httpsUrl, parseVideo, readMedia } from '../core/widgets';
 import { EmbedBridge } from './embed-bridge';
 import { snapToLines } from './line-snap';
 import { VolumeKnob } from './volume-knob';
@@ -394,13 +394,7 @@ export class GluedMedia {
     if (this.failed()) return this.kind() === 'video' ? 'O vídeo não abriu' : 'A imagem não abriu';
     return '';
   });
-  protected readonly host = computed(() => {
-    try {
-      return new URL(this.media().url).hostname.replace(/^www\./, '');
-    } catch {
-      return '';
-    }
-  });
+  protected readonly host = computed(() => hostOf(this.media().url));
 
   /** O giro da foto, do link: entre 0,6 e 1,8 grau, para um lado ou para o outro. */
   protected readonly tilt = computed(() => {

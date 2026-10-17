@@ -117,6 +117,13 @@ export function initialStock(code: string): Stock {
   return pool[h % pool.length];
 }
 
+/** A foto da pessoa meio torta, de −4 a +4 graus, sempre igual pelo código dela (foto do perfil e dos comentários). */
+export function photoTilt(code: string): number {
+  let h = 0;
+  for (const c of code) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return (Math.abs(h) % 9) - 4;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ProfilePeople {
   private readonly account = inject(CloudAccount);

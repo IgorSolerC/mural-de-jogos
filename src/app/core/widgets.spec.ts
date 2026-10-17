@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { Frame, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
+import { Frame, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -232,5 +232,11 @@ describe('a nota colada (o widget Nota)', () => {
       { id: '', title: 'Dois' },
     ]);
     expect(cardRefsIn('sem nada')).toEqual([]);
+  });
+
+  it('hostOf: o site do link, sem o www; vazio se não for link', () => {
+    expect(hostOf('https://www.youtube.com/watch?v=x')).toBe('youtube.com');
+    expect(hostOf('https://soundcloud.com/a/b')).toBe('soundcloud.com');
+    expect(hostOf('não é link')).toBe('');
   });
 });

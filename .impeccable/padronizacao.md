@@ -32,8 +32,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
    `writeNext` do convite para entrar também (a data é montada dentro do `try`).
 6. [x] **Movimento reduzido**: `reducedMotion()` (ui/veil) existe, mas 12 lugares leem `matchMedia` à mão. Mudou para
    `core/motion.ts` (o core não importa mais da ui para isso) e os 12 usam ele.
-7. [ ] **Pequenos iguais**: `tilt` de comments-panel = person-photo; `host` de audio-track = glued-media; cloud-sync importa
-   `canonicalJson` duas vezes com dois nomes.
+7. [x] **Pequenos iguais**: `tilt` de comments-panel = person-photo; `host` de audio-track = glued-media; cloud-sync importa
+   `canonicalJson` duas vezes com dois nomes. Agora `photoTilt` (profile-people) e `hostOf` (widgets).
+   A inicial da foto ficou: a dos comentários pega a primeira unidade, a da foto o primeiro caractere (emoji muda).
 8. [ ] **Ociosidade**: `requestIdleCallback` com reserva copiado em wall-cards, paper-layer e sound-warmup (tempos diferentes,
    ficam como parâmetro).
 9. [ ] **Ouvintes**: o arrastar do quadro do Kanban não tira os ouvintes da janela ao sair da página; os menus (feed-menu,

@@ -3,7 +3,7 @@ import { LucideAngularModule, RefreshCw, Trash2, UserPlus } from 'lucide-angular
 import { CloudError } from '../core/cloud-account';
 import { COMMENT_MAX, Comment, CommentTarget, Comments, QuoteRequest, commentWhen, spokenComments, withQuote } from '../core/comments';
 import { Follow } from '../core/follow';
-import { initialStock } from '../core/profile-people';
+import { initialStock, photoTilt } from '../core/profile-people';
 import { ReactionId } from '../core/reaction-kinds';
 import { spokenReactions, tally } from '../core/reactions';
 import { Stock } from '../core/review';
@@ -227,11 +227,7 @@ export class CommentsPanel {
   }
 
   /** Meio torta, cada foto do seu jeito (o mesmo sempre, pelo código da pessoa). */
-  protected tilt(code: string): number {
-    let h = 0;
-    for (const c of code) h = (h * 31 + c.charCodeAt(0)) | 0;
-    return (Math.abs(h) % 9) - 4;
-  }
+  protected readonly tilt = photoTilt;
 
   /** O fim da conversa à mostra: é onde o comentário novo entra. */
   private toEnd(): void {

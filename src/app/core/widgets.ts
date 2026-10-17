@@ -327,6 +327,15 @@ function frameWord(a: string): Frame | null {
 /** Um link com cara de link (o "https://" é conferido por quem usa). */
 const LINKY = /^[a-z][a-z0-9+.-]*:\/\/\S+$/i;
 
+/** O site de um link, sem o "www." ("youtube.com"); vazio se não for um link. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
 /** Só https: a imagem e o vídeo vêm de qualquer lugar da internet, mas nunca de um endereço sem cadeado. */
 export function httpsUrl(raw: string): string | null {
   const t = raw.trim();
