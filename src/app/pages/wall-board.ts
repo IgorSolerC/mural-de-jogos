@@ -10,6 +10,7 @@ import { NoteIndex } from '../ui/note-index';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
+import { WallSelection } from './wall-select';
 
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
 export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable' | 'looks'>;
@@ -24,7 +25,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
 @Component({
   selector: 'app-wall-board',
   imports: [DoneStamp, LucideAngularModule, NoteIndex, Pin, SearchHighlight, WallCards],
-  providers: [WallCardPool],
+  providers: [WallCardPool, WallSelection],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-board.html',
   styleUrl: './wall-board.scss',
@@ -34,6 +35,8 @@ export class WallBoard {
   private readonly settings = inject(Settings);
   private readonly motion = inject(WallMotion);
   private readonly pool = inject(WallCardPool);
+  /** Ctrl+clique marca anotações para copiar o texto delas (ver wall-select.ts). */
+  readonly selection = inject(WallSelection);
 
   readonly access = input.required<WallAccess>();
   /** Tocou numa ficha (ou numa linha da lista): o id dela. */

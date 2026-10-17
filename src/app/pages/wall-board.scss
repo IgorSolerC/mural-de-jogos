@@ -481,3 +481,61 @@
     gap: 22px 12px;
   }
 }
+
+/* ===== Marcada para copiar (Ctrl+clique, ver wall-select.ts) =====
+   Um tracejado de giz em volta da ficha, torto com ela, como a linha do "recorte aqui", e no canto o
+   adesivo do Lado a lado com a ordem em que ela entra na cópia (o disco de tinta com o número em
+   amarelo), de beirada clara para não sumir na parede escura. O tracejado é o da vaga (o ::before da
+   ficha, ver review-card.ts), afastado da beirada e atrás de tudo da ficha: a orelha da categoria e
+   a tachinha passam por cima dele, em vez de ele riscar o nome da orelha. */
+.lugar[data-marcada] > app-review-card {
+  counter-reset: marca var(--marca-n);
+
+  &:not([data-veu])::before {
+    inset: -8px;
+    z-index: -5;
+    border: 2.5px dashed var(--wall-ink);
+    border-radius: 5px;
+    opacity: 1;
+    transition: opacity 120ms ease-out;
+  }
+
+  &::after {
+    content: counter(marca);
+    position: absolute;
+    top: -26px;
+    right: -26px;
+    z-index: 6;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 2.5px solid var(--wall-ink);
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.35),
+      0 4px 6px -2px rgb(0 0 0 / 0.4);
+    color: var(--hi);
+    font-family: var(--f-marker);
+    font-size: 1.2rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    rotate: -8deg;
+    pointer-events: none;
+    animation: marca-cola 280ms var(--ease-physical);
+  }
+}
+
+@keyframes marca-cola {
+  from {
+    scale: 0.6;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lugar[data-marcada] > app-review-card::after {
+    animation: none;
+  }
+}

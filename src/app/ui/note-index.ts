@@ -215,6 +215,44 @@ interface Row {
       opacity: 0.75;
     }
 
+    /* marcada para copiar (Ctrl+clique, ver pages/wall-select.ts): o tracejado a caneta em volta da
+       linha e, no fim dela, o adesivo com a ordem em que ela entra na cópia, como nas fichas */
+    .linha[data-marcada] {
+      counter-reset: marca var(--marca-n);
+      .hit {
+        outline: 2px dashed var(--ink);
+        outline-offset: -5px;
+        &::after {
+          content: counter(marca);
+          flex: none;
+          display: grid;
+          place-items: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: var(--ink);
+          color: var(--hi);
+          font-family: var(--f-marker);
+          font-size: 1rem;
+          line-height: 1;
+          font-variant-numeric: tabular-nums;
+          rotate: -8deg;
+          animation: marca-cola 280ms var(--ease-physical);
+        }
+      }
+    }
+    @keyframes marca-cola {
+      from {
+        scale: 0.6;
+        opacity: 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .linha[data-marcada] .hit::after {
+        animation: none;
+      }
+    }
+
     @media (max-width: 720px) {
       .folha {
         --margem: 30px;
