@@ -213,6 +213,10 @@ $fade: clamp(22px, 7vw, 132px);
   padding: 8px calc(50vw - 50%) 34px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  /* a rolagem de lado numa camada própria, como a da página: sem isso, numa tela sem zoom o Chrome
+     guarda o texto nítido e redesenha todas as fichas à mostra a cada passo da rolagem (quanto mais
+     fichas, mais lenta); assim ela só desliza o que já estava desenhado */
+  will-change: scroll-position;
   /* o foco do teclado e a coluna nova param fora do degradê */
   scroll-padding-inline: max(var(--sangria, 0px), var(--kb-fade));
   scrollbar-color: rgb(243 239 230 / 0.35) transparent;

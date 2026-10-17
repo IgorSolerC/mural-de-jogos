@@ -473,6 +473,8 @@ describe('página do Kanban', () => {
     await settle();
     const q = host.querySelector<HTMLElement>('.quadro')!;
     expect(getComputedStyle(q).maskImage).toBe('none');
+    // a rolagem de lado numa camada própria: desliza o que já está desenhado, sem redesenhar as fichas
+    expect(getComputedStyle(q).willChange).toBe('scroll-position');
     // a de eucatex (a de sempre) é o fundo da página: a do véu começa no alto da página, na largura dela
     const paredes = [...host.querySelectorAll<HTMLElement>('.veu .veu-parede')];
     expect(paredes.length).toBe(2);

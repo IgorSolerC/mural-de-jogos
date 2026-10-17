@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-contagem-fixa',
+    id: '2026-10-17-rolagem-de-lado',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
@@ -35,7 +35,7 @@ export const NEWS: NewsEntry[] = [
       'Cada coluna do Kanban pode ter um Card padrão, nos ajustes dela: monte o card com o mesmo estojo do editor (cor, papel, estampa, rabisco, estrago, manchas e decorações), e toda anotação que chega à coluna veste esse card. Mudar o card repinta as que estão lá, a Nova nota da coluna já nasce com ele, e a anotação que sai para uma coluna sem card volta ao visual dela.',
       'No filtro de tags do mural de anotações e do Kanban, o clique direito numa tag (no celular, segurar o dedo) esconde as anotações dela: a tag fica riscada, e um toque nela mostra de novo. É o "todas, menos estas".',
       'Em Tags, nas configurações do mural, cada tag tem o Filtro padrão: Disponível ou Excluído. A excluída já começa riscada toda vez que você abre o mural ou o quadro daquela categoria, e Limpar mostra tudo.',
-      'O quadro do Kanban vai até as beiradas da tela, para caberem mais colunas (a busca e as tags continuam onde estavam), e as colunas que passam da tela somem num degradê em vez de um corte seco, leve o bastante para não engasgar a rolagem. Com o mouse, uma seta na beirada diz quantas colunas estão para lá e traz as próximas. As colunas também perderam as fitas crepe das quinas.',
+      'O quadro do Kanban vai até as beiradas da tela, para caberem mais colunas (a busca e as tags continuam onde estavam), e as colunas que passam da tela somem num degradê em vez de um corte seco. Rolar o quadro de lado ficou tão leve quanto rolar a página, mesmo com muitas anotações à mostra. Com o mouse, uma seta na beirada diz quantas colunas estão para lá e traz as próximas. As colunas também perderam as fitas crepe das quinas.',
       'No alto das colunas do Kanban, a contagem de anotações fica sempre na ponta direita, junto do lápis, em vez de andar conforme o tamanho do nome da coluna.',
       'No Kanban, a anotação que ainda não tem descrição avisa na linha da data, com um lápis e "Sem descrição" (em Só os títulos, só o lápis na tira), para saber quais detalhar primeiro.',
       'No Kanban, passando o mouse numa anotação, ao lado dos ajustes dela aparece uma seta que a leva para o topo da coluna seguinte, sem arrastar (na última coluna ela não aparece). No celular, a seta fica sempre à mão.',
