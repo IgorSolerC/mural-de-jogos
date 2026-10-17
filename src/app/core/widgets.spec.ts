@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { Frame, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetDef, widgetLine, writeWhen } from './widgets';
+import { Frame, WIDGETS, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetCopy, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -238,5 +238,21 @@ describe('a nota colada (o widget Nota)', () => {
     expect(hostOf('https://www.youtube.com/watch?v=x')).toBe('youtube.com');
     expect(hostOf('https://soundcloud.com/a/b')).toBe('soundcloud.com');
     expect(hostOf('não é link')).toBe('');
+  });
+});
+
+describe('a cópia de cada widget, como texto', () => {
+  it('todo widget sai como "{nome: …}", com o nome dele, e um nome que não existe não sai', () => {
+    const ctx = { now: Date.now() };
+    for (const w of WIDGETS) {
+      const out = widgetCopy(w.name, [], ctx);
+      expect(out === `{${w.name}}` || out.startsWith(`{${w.name}: `)).withContext(out).toBeTrue();
+    }
+    expect(widgetCopy('foto', ['https://x.com/a.jpg'], ctx)).toBe('{imagem: https://x.com/a.jpg}');
+    expect(widgetCopy('nada', ['x'], ctx)).toBe('');
+  });
+
+  it('a cópia fica numa linha só', () => {
+    expect(widgetCopy('imagem', ['https://x.com/a.jpg', 'Uma\nlegenda'], { now: 0 })).toBe('{imagem: https://x.com/a.jpg | Uma legenda}');
   });
 });

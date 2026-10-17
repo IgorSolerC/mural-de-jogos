@@ -50,8 +50,38 @@ export interface WidgetDef {
   write(values: WidgetValues): string[] | null;
   /** O texto do widget para o que lê palavras (a busca, a contagem de palavras). */
   plain(args: readonly string[]): string;
+  /**
+   * O que vai dentro de "{nome: …}" quando a anotação é copiada como texto (Ctrl+C nas marcadas, ver
+   * `widgetCopy`): o que importa dele para quem lê fora do site (o link, quanto falta, o título da
+   * nota). Todo widget novo precisa dizer o dele.
+   */
+  copy(args: readonly string[], ctx: CopyContext): string;
   /** O que está errado nos campos já preenchidos (um link que não serve), para o editor dizer. */
   problem?(values: WidgetValues): string | null;
+}
+
+/** O que a cópia do widget pode precisar saber de fora: a hora (o contador) e o título de uma ficha (a nota). */
+export interface CopyContext {
+  now: number;
+  /** O título de agora da ficha com esse id (ela pode ter sido renomeada depois de colada); null, não achou. */
+  cardTitle?(id: string): string | null;
+}
+
+/**
+ * O widget como texto, para colar fora do site: "{audio: https://…}", "{contador: 34 dias e 12h
+ * faltantes | Viagem}", "{nota: Lista de compras}". Uma chave só (com duas, colado de volta aqui, ele
+ * viraria o widget de novo, sem o que faltou).
+ */
+export function widgetCopy(name: string, args: readonly string[], ctx: CopyContext): string {
+  const def = widgetDef(name);
+  if (!def) return '';
+  const body = def.copy(args, ctx).replace(/\s+/g, ' ').trim();
+  return body ? `{${def.name}: ${body}}` : `{${def.name}}`;
+}
+
+/** Os pedaços da cópia, separados por " | " como na marca (os vazios saem). */
+function joinCopy(...parts: string[]): string {
+  return parts.filter(Boolean).join(' | ');
 }
 
 /** Uma linha que é só um widget: "{{nome: a | b}}" (ou "{{nome}}"). */
@@ -305,7 +335,34 @@ const COUNTDOWN: WidgetDef = {
   plain(args) {
     return readCountdown(args).title;
   },
+  copy(args, { now }) {
+    const { when, title } = readCountdown(args);
+    // sem data, o que estiver escrito no lugar dela
+    if (!when) return joinCopy(...args);
+    return joinCopy(countdownLeft(when, now), title);
+  },
 };
+
+/**
+ * Quanto falta, em palavras curtas, para a cópia: as duas maiores unidades ("34 dias e 12h
+ * faltantes", "3h e 20min faltantes"); chegou, "chegou em 19/11/2026" ("é hoje", o de todo ano).
+ */
+export function countdownLeft(w: When, now: number): string {
+  const target = targetOf(w, now);
+  const r = remaining(target, now);
+  if (r.past) {
+    if (w.year === null) return 'é hoje';
+    const at = new Date(target);
+    return `chegou em ${pad(at.getDate())}/${pad(at.getMonth() + 1)}/${at.getFullYear()}` + (w.timed ? ` ${pad(w.hour)}:${pad(w.minute)}` : '');
+  }
+  const parts = [r.days && `${r.days} ${r.days === 1 ? 'dia' : 'dias'}`, r.hours && `${r.hours}h`, r.minutes && `${r.minutes}min`].filter(
+    (x): x is string => !!x,
+  );
+  if (!parts.length) return 'menos de 1min faltante';
+  const two = parts.slice(0, 2);
+  const one = two.length === 1 && /^1\D/.test(two[0]);
+  return `${two.join(' e ')} ${one ? 'faltante' : 'faltantes'}`;
+}
 
 // ===== A imagem e o vídeo: uma foto colada na cartolina =====
 
@@ -423,6 +480,12 @@ function readMediaValues(args: readonly string[]): WidgetValues {
   return { url, caption, frame };
 }
 
+/** A imagem e o vídeo copiados: o link e, se tiver, a legenda. */
+function copyMedia(args: readonly string[]): string {
+  const { url, caption } = readMedia(args);
+  return joinCopy(url, caption);
+}
+
 const IMAGE: WidgetDef = {
   name: 'imagem',
   aliases: ['foto', 'image', 'img'],
@@ -434,6 +497,7 @@ const IMAGE: WidgetDef = {
   read: readMediaValues,
   write: (v) => writeMedia(v, (url) => !!httpsUrl(url)),
   plain: (args) => readMedia(args).caption,
+  copy: copyMedia,
   problem(v) {
     const url = (v['url'] ?? '').trim();
     return url && !httpsUrl(url) ? 'O link precisa começar com https://' : null;
@@ -451,6 +515,7 @@ const VIDEO: WidgetDef = {
   read: readMediaValues,
   write: (v) => writeMedia(v, (url) => !!parseVideo(url)),
   plain: (args) => readMedia(args).caption,
+  copy: copyMedia,
   problem(v) {
     const url = (v['url'] ?? '').trim();
     if (!url || parseVideo(url)) return null;
@@ -540,6 +605,10 @@ const AUDIO: WidgetDef = {
     return [url, title, look].filter(Boolean);
   },
   plain: (args) => readAudio(args).title,
+  copy(args) {
+    const { url, title } = readAudio(args);
+    return joinCopy(url, title);
+  },
   problem(v) {
     const url = (v['url'] ?? '').trim();
     if (!url || parseAudio(url)) return null;
@@ -637,6 +706,12 @@ const CARD: WidgetDef = {
     return title ? [title] : null;
   },
   plain: (args) => readCardRef(args).title,
+  copy(args, { cardTitle }) {
+    const { id, title, hidden } = readCardRef(args);
+    // o título de agora (renomeada depois de colada), o escrito na marca, ou o aviso de privada
+    const now = id ? cardTitle?.(id)?.trim() : '';
+    return now || title || (hidden ? 'nota privada' : '');
+  },
 };
 
 /** Todos os widgets, na ordem da régua. */

@@ -18,7 +18,7 @@
  * destes blocos (ver ui/rich-text.ts).
  */
 
-import { WidgetSize, parseWidgetLine, widgetDef } from './widgets';
+import { CopyContext, WidgetSize, parseWidgetLine, widgetCopy, widgetDef } from './widgets';
 
 /** Um pedaço de texto corrido, com as marcas que valem para ele. */
 export interface Span {
@@ -369,6 +369,18 @@ export function hasInteractive(text: string): boolean {
  * linha de tabela vira uma linha (as células separadas por " · "); a divisória some.
  */
 export function plainText(text: string): string {
+  return textOf(text, (name, args) => widgetDef(name)?.plain(args) ?? '');
+}
+
+/**
+ * O texto para copiar e colar fora do site: como `plainText`, mas cada widget vira a marca dele em
+ * palavras ("{imagem: https://…}", "{contador: 3 dias e 4h faltantes}", ver `widgetCopy`).
+ */
+export function copyText(text: string, ctx: CopyContext): string {
+  return textOf(text, (name, args) => widgetCopy(name, args, ctx));
+}
+
+function textOf(text: string, widget: (name: string, args: readonly string[]) => string): string {
   const join = (spans: readonly Span[]) => spans.map((s) => s.text).join('');
   const out: string[] = [];
   for (const b of parseRich(text)) {
@@ -387,7 +399,7 @@ export function plainText(text: string): string {
         out.push([b.head, ...b.rows].map((r) => r.map(join).filter(Boolean).join(' · ')).join('\n'));
         break;
       case 'widget': {
-        const t = widgetDef(b.name)?.plain(b.args);
+        const t = widget(b.name, b.args);
         if (t) out.push(t);
         break;
       }

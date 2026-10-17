@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-foco-ao-fechar',
+    id: '2026-10-17-widgets-na-copia',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
@@ -39,6 +39,7 @@ export const NEWS: NewsEntry[] = [
       'No Kanban, a anotação que ainda não tem descrição avisa na linha da data, com um lápis e "Sem descrição" (em Só os títulos, só o lápis na tira), para saber quais detalhar primeiro.',
       'No Kanban, passando o mouse numa anotação, ao lado dos ajustes dela aparece uma seta que a leva para a coluna seguinte, sem arrastar (na última coluna ela não aparece). No celular, a seta fica sempre à mão.',
       'Cada coluna do Kanban pode ter a sua ordem, nos ajustes dela: por importância, criação, última alteração, título, tag ou tarefas por fazer, no sentido que quiser, e um segundo critério para o empate (por importância e tag, por exemplo). O alto da coluna diz a ordem, e À mão volta à ordem em que você arrastou.',
+      'Ao copiar as anotações marcadas (Ctrl+C), os widgets vêm junto, em palavras: a imagem, o vídeo e o áudio com o link, o contador com quanto falta ("{contador: 34 dias e 12h faltantes}") e a nota colada com o título dela.',
       'Dá para comentar também nas suas análises e anotações privadas, como um recado para você mesmo. Numa anotação compartilhada, pública ou privada, quem está nela comenta mesmo sem seguir ninguém, e todos ali recebem o aviso de cada comentário.',
       'Em Tags, nas configurações do mural, as tags ficam separadas pela categoria das anotações onde são usadas, e a mesma tag pode ter uma cor em cada categoria; renomear ou apagar uma tag mexe só nas anotações daquela categoria.',
       'Nas configurações do mural (a engrenagem da pasta), cada categoria e cada tag pode ser renomeada, e muda em todas as anotações que a usam, com a cor, os padrões e o quadro do Kanban; o nome de outra que já existe junta as duas.',

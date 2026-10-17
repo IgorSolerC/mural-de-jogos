@@ -17,3 +17,37 @@ describe('o texto das anotações marcadas (Ctrl+C no mural)', () => {
     expect(notesAsText([note('Só o título', '   ')])).toBe('1.\nTÍTULO: Só o título\nDESCRIÇÃO:');
   });
 });
+
+describe('os widgets na cópia das anotações', () => {
+  // 17/10/2026 10:00, na hora local
+  const now = new Date(2026, 9, 17, 10, 0).getTime();
+  const copy = (text: string, cardTitle?: (id: string) => string | null) => notesAsText([note('N', text)], { now, cardTitle });
+
+  it('imagem, vídeo e áudio viram o link (e a legenda ou o nome, se tiver)', () => {
+    expect(copy('{{imagem: https://x.com/a.jpg}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {imagem: https://x.com/a.jpg}');
+    expect(copy('{{video: https://youtu.be/abc | polaroid | Trailer | grande}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {video: https://youtu.be/abc | Trailer}');
+    expect(copy('{{audio: https://x.com/a.mp3 | vinil}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {audio: https://x.com/a.mp3}');
+  });
+
+  it('o contador vira quanto falta, as duas maiores unidades, com o título', () => {
+    expect(copy('{{contador: 20/11/2026 22:00 | Viagem}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: 34 dias e 12h faltantes | Viagem}');
+    expect(copy('{{contador: 17/10/2026 13:20}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: 3h e 20min faltantes}');
+    expect(copy('{{contador: 18/10/2026}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: 14h faltantes}');
+    expect(copy('{{contador: 18/10/2026 10:00}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: 1 dia faltante}');
+  });
+
+  it('o contador que chegou diz quando; o de todo ano, no dia, "é hoje"', () => {
+    expect(copy('{{contador: 01/10/2026 18:30 | Show}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: chegou em 01/10/2026 18:30 | Show}');
+    expect(copy('{{contador: 17/10 | Aniversário}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: é hoje | Aniversário}');
+  });
+
+  it('a nota vira o título de agora da ficha, o escrito na marca, ou o aviso de privada', () => {
+    expect(copy('{{nota: #r1 | Compras}}', (id) => (id === 'r1' ? 'Mercado' : null))).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {nota: Mercado}');
+    expect(copy('{{nota: #r1 | Compras}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {nota: Compras}');
+    expect(copy('{{nota: #r1 | 🔒}}', () => null)).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {nota: nota privada}');
+  });
+
+  it('o widget fica no lugar dele, entre as outras linhas', () => {
+    expect(copy('Antes\n\n{{imagem: https://x.com/a.jpg}}\n\nDepois')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: Antes\n\n{imagem: https://x.com/a.jpg}\n\nDepois');
+  });
+});
