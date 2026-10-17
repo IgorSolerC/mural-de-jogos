@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-16-arrastar-varias',
+    id: '2026-10-16-filtro-por-mural',
     version: '1.24.1',
     kind: 'ajustes',
     date: '2026-10-16',
@@ -41,6 +41,10 @@ export const NEWS: NewsEntry[] = [
       'O alto das colunas do Kanban virou um papel claro com a cor da coluna no contorno e no desenho, e a contagem fica miúda ao lado do nome.',
       'No Kanban, o Buscar nota tem "Esconder finalizadas", ligado ao abrir: as anotações finalizadas saem da lista.',
       'Nas orelhas de categoria com cor, o desenho também fica da cor da orelha.',
+    ],
+    correcoes: [
+      'A tag escolhida no filtro das anotações não filtra mais as análises ao trocar de mural; ela volta a valer quando você volta para as anotações.',
+      'No Kanban, a etiqueta da importância sobe junto com a ficha quando o mouse passa por cima, em vez de ficar parada embaixo dela.',
     ],
   },
   {
