@@ -92,6 +92,7 @@ import { VerdictPicker } from './verdict';
 import { napWall } from '../core/wall-settle';
 import { SharedStore } from '../core/shared-store';
 import { canManage } from '../core/shared-notes';
+import { ShareSheet } from './share-sheet';
 
 export interface SavedEvent {
   id: string;
@@ -124,6 +125,7 @@ const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'jul
     JudgeLabel,
     FeedMenu,
     Pin,
+    ShareSheet,
     ReviewCard,
     RichEditor,
     ScorePicker,
@@ -197,9 +199,21 @@ export class ReviewEditor {
     const role = this.sharedRole();
     return !!role && !canManage(role);
   });
+  /**
+   * A compartilhada como está no mural agora: quem vê muda em Compartilhar (aberto daqui ou da
+   * leitura), não no editor, então é esta que diz se ela é privada, e não a que o editor abriu.
+   */
+  private readonly liveShared = computed(() => (this.sharedRole() ? (this.store.get(this.id()) ?? null) : null));
+  /** A folha Compartilhar, aberta pelo "Quem vê?" da compartilhada. */
+  protected readonly shareOpen = signal(false);
+  /** Mudou em Compartilhar: a prévia (o cadeado) e o que o editor salva seguem a anotação. */
+  private readonly followShared = effect(() => {
+    const live = this.liveShared();
+    if (live) untracked(() => this.visibility.set(live.private ? 'privada' : 'publica'));
+  });
   /** Como a ficha editada estava: publicada, só no mural (sem Feed) ou privada; null na ficha nova. */
   private readonly wasAudience = computed(() => {
-    const prev = this.editing();
+    const prev = this.liveShared() ?? this.editing();
     return prev ? audienceOf(prev) : null;
   });
   /**
@@ -714,6 +728,7 @@ export class ReviewEditor {
     this.keptNotes.set(false);
     this.freshPick.set(false);
     this.openCount.update((n) => n + 1);
+    this.shareOpen.set(false);
     // a resenha nasce pública; a anotação, como o mural manda (privada, a não ser que a pessoa mude
     // na engrenagem do mural; a categoria escolhida depois pode mudar, ver `followDefaults`)
     this.audienceTouched = false;
@@ -995,7 +1010,7 @@ export class ReviewEditor {
       scribbleInk: this.scribble() && this.scribbleInk() !== DEFAULT_SCRIBBLE_INK ? this.scribbleInk() : undefined,
       text: this.text().trim(),
       completedAt: this.dateValue(),
-      ...audienceFields(audience, prev, now),
+      ...audienceFields(audience, this.liveShared() ?? prev, now),
       // editar não desfaz o check: a finalizada continua finalizada, no mesmo dia
       ...(prev?.doneAt ? { doneAt: prev.doneAt } : {}),
       // continua fixada: desafixada, ainda volta a ser sub-nota
@@ -1006,7 +1021,7 @@ export class ReviewEditor {
     // tira os campos vazios (undefined) que a prévia leva
     const clean = Object.fromEntries(Object.entries(note).filter(([, v]) => v !== undefined)) as unknown as Review;
     // a prévia leva a marca de quem vê; fica só a que vale
-    const seen = audienceFields(audience, prev, now);
+    const seen = audienceFields(audience, this.liveShared() ?? prev, now);
     if (!seen.private) delete (clean as Partial<Review>).private;
     if (!seen.quiet) delete (clean as Partial<Review>).quiet;
     // mudou o título: os links das outras anotações (e das resenhas) que abriam esta passam para o título novo
@@ -1188,6 +1203,12 @@ export class ReviewEditor {
     }
   }
 
+  /** Saiu da anotação compartilhada pelo Compartilhar: ela sumiu do mural, e o editor fecha sem salvar. */
+  protected leftShared(): void {
+    this.shareOpen.set(false);
+    this.shut();
+  }
+
   /** Fecha de propósito (salvou, descartou, apagou, mandou para a fila…). */
   private shut(): void {
     this.closing = true;
@@ -1261,7 +1282,8 @@ export class ReviewEditor {
       this.game()?.coverUrl,
       this.difficulty(),
       this.text().trim(),
-      this.visibility(),
+      // na compartilhada, quem vê muda em Compartilhar (e já vale): não é coisa por salvar
+      this.liveShared() ? null : this.visibility(),
       this.noteRank(),
       this.game()?.form,
       this.game()?.sample,

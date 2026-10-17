@@ -4,6 +4,7 @@ import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { SharedStore } from '../core/shared-store';
 import { ReviewEditor } from './review-editor';
 
 function note(extra: Record<string, unknown> = {}): Review {
@@ -91,7 +92,7 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     fixture.componentInstance.openNote('Ideias de viagem');
     await fixture.whenStable();
     expect(options()).toEqual(['Público', 'Privado']);
-    expect(block()!.querySelector('legend')!.textContent!.trim()).toBe('Público ou privado?');
+    expect(block()!.querySelector('legend')!.textContent!.trim()).toBe('Quem vê?');
     expect(block()!.textContent).not.toContain('Visível');
   });
 
@@ -207,5 +208,65 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     await fixture.whenStable();
     expect(block()).toBeNull();
     expect(arrow()).toBeNull();
+  });
+
+  describe('na anotação compartilhada', () => {
+    const shared = () => el.querySelector<HTMLElement>('.quem-ve:has(.quem-mudar)');
+    const change = () => el.querySelector<HTMLButtonElement>('.quem-mudar')!;
+    async function openShared(role: 'gestor' | 'editor', extra: Record<string, unknown> = {}): Promise<Review> {
+      spyOn(TestBed.inject(SharedStore), 'role').and.returnValue(role);
+      const n = note({ quiet: true, ...extra });
+      store.add(n);
+      fixture.componentInstance.open(n);
+      await fixture.whenStable();
+      return n;
+    }
+
+    it('"Quem vê?" mostra como ela está e leva ao Compartilhar, em vez das opções', async () => {
+      await openShared('gestor');
+      expect(block()).toBeNull();
+      expect(shared()!.querySelector('.pergunta')!.textContent!.trim()).toBe('Quem vê?');
+      expect(shared()!.querySelector('.quem-tag.escolhida')!.textContent!.trim()).toBe('Público');
+      expect(change().textContent!.trim()).toBe('Mudar em Compartilhar');
+      expect(change().getAttribute('aria-haspopup')).toBe('dialog');
+      change().click();
+      await fixture.whenStable();
+      let sheet: HTMLDialogElement | null = null;
+      for (let i = 0; i < 100 && !sheet; i++) {
+        await new Promise((r) => setTimeout(r, 10));
+        await fixture.whenStable();
+        sheet = el.querySelector<HTMLDialogElement>('app-share-sheet dialog[open]');
+      }
+      expect(sheet).not.toBeNull();
+    });
+
+    it('quem só edita vê como ela está e que só o dono e os gestores mudam', async () => {
+      await openShared('editor', { private: true, quiet: undefined });
+      expect(shared()!.querySelector('.quem-tag.escolhida')!.textContent!.trim()).toBe('Privado');
+      expect(change().textContent!.trim()).toBe('Ver em Compartilhar');
+      expect(el.querySelector('#editor-quem-dica')!.textContent).toContain('Só o dono e os gestores mudam isso.');
+    });
+
+    it('mudou em Compartilhar: o editor acompanha, salva sem desfazer e fecha sem perguntar', async () => {
+      const n = await openShared('gestor');
+      const { quiet: _q, ...rest } = n;
+      store.update({ ...rest, private: true, updatedAt: '2026-10-02T10:00:00.000Z' } as Review);
+      await fixture.whenStable();
+      expect(shared()!.querySelector('.quem-tag.escolhida')!.textContent!.trim()).toBe('Privado');
+      await closing(() => el.querySelector<HTMLButtonElement>('.btn-quiet.cancelar')!.click());
+      expect(closed).toBe(1);
+      expect(store.get('nquem001')!.private).toBeTrue();
+    });
+
+    it('salvar a compartilhada depois do Compartilhar guarda o quem vê de agora', async () => {
+      const n = await openShared('gestor', { private: true, quiet: undefined });
+      const { private: _p, ...rest } = n;
+      store.update({ ...rest, quiet: true, updatedAt: '2026-10-02T10:00:00.000Z' } as Review);
+      await fixture.whenStable();
+      await closing(() => submit().click());
+      const saved = store.get('nquem001')!;
+      expect(saved.private).toBeUndefined();
+      expect(saved.quiet).toBeTrue();
+    });
   });
 });

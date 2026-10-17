@@ -347,18 +347,35 @@
         <!-- Público (o mural pelo código, o perfil, Amigos, Comparar) ou Privado, até mudar de ideia.
              A pública vai também para o Feed de quem segue; quem não quiser usa a setinha do botão -->
         @if (sharedRole()) {
-          <!-- a compartilhada: quem vê (e quem está nela) muda em Compartilhar, na leitura -->
+          <!-- a compartilhada: quem vê (e quem está nela) muda em Compartilhar, aberto daqui mesmo -->
           <section class="bloco quem-ve">
-            <p class="pergunta">Quem vê</p>
-            <p class="quem-dica">
-              {{ isPrivate() ? 'Privada: só quem está na anotação vê.' : 'Pública: aparece também no mural de quem está nela, para quem visita.' }}
-              {{ structureLocked() ? 'Só o dono e os gestores mudam isso.' : 'Para mudar, ou chamar mais alguém, use Compartilhar na leitura.' }}
+            <p class="pergunta">Quem vê?</p>
+            <div class="quem-opts">
+              <span class="quem-tag escolhida">
+                <lucide-icon [img]="isPrivate() ? PrivateIcon : EveryoneIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                {{ isPrivate() ? 'Privado' : 'Público' }}
+              </span>
+              <button type="button" class="quem-tag quem-mudar" aria-haspopup="dialog" aria-describedby="editor-quem-dica" (click)="shareOpen.set(true)">
+                <lucide-icon [img]="EveryoneIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                {{ structureLocked() ? 'Ver em Compartilhar' : 'Mudar em Compartilhar' }}
+              </button>
+            </div>
+            <p class="quem-dica" id="editor-quem-dica">
+              {{ isPrivate() ? 'Só quem está na anotação vê.' : 'Aparece também no mural de quem está nela, para quem visita.' }}
+              @if (structureLocked()) {
+                Só o dono e os gestores mudam isso.
+              }
             </p>
           </section>
+          @if (shareOpen()) {
+            @defer (on immediate) {
+              <app-share-sheet [noteId]="id()" (closed)="shareOpen.set(false)" (left)="leftShared()" />
+            }
+          }
         } @else if (cloud.config()) {
           <section class="bloco quem-ve">
             <fieldset>
-              <legend class="pergunta">Público ou privado?</legend>
+              <legend class="pergunta">Quem vê?</legend>
               <div class="quem-opts">
                 @for (o of visibilities; track o.value) {
                   <label class="quem">

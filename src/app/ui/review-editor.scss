@@ -632,7 +632,8 @@ app-rich-editor.anotacao {
   transition: rotate var(--t-ui) var(--ease-ui);
 }
 
-.quem input:checked + .quem-tag {
+.quem input:checked + .quem-tag,
+.quem-tag.escolhida {
   outline: 0;
   background: var(--ink);
   color: var(--paper);
@@ -642,6 +643,26 @@ app-rich-editor.anotacao {
 
 .quem input:focus-visible + .quem-tag {
   box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--focus);
+}
+
+/* a compartilhada: quem vê muda em Compartilhar; o recorte tracejado que leva até lá */
+.quem-mudar {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    rotate var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--focus);
+    outline-offset: 2px;
+  }
 }
 
 /* outra anotação com o mesmo título: um lembrete, não um erro */
