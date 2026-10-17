@@ -1,4 +1,5 @@
 @use 'felt';
+@use 'paper-kit' as kit;
 
 /* A folha de comentários: papel creme reto, tudo escrito direto nele. Nenhum comentário ganha caixa:
    quem separa um do outro é o tracejado a caneta, como nas outras folhas do site. */
@@ -373,33 +374,15 @@ p.vazio {
 
 /* o botão de pincel atômico, um número menor que o das fichas */
 .tinta {
+  @include kit.tinta;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   min-height: 44px;
   padding: 8px 18px 7px;
-  border: 0;
-  border-radius: 3px;
-  background: var(--ink);
-  color: var(--hi);
-  font-family: var(--f-marker);
   font-size: 1.05rem;
-  line-height: 1;
   white-space: nowrap;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.35),
-    0 6px 12px -4px rgb(0 0 0 / 0.35);
-  cursor: pointer;
-  transition: transform var(--t-physical) var(--ease-physical);
-
-  &:hover:not(:disabled) {
-    transform: translateY(-2px) rotate(-1deg);
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(1px);
-  }
 
   &:disabled {
     opacity: 0.45;

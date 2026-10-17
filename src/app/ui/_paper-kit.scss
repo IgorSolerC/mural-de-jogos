@@ -83,6 +83,34 @@
   color: var(--ink-2);
 }
 
+/* O botão de tinta: o bloco de tinta preta com a letra a pincel amarela, que sobe torto no mouse e
+   afunda no aperto (o .btn-ink global e os menores das folhas). O tamanho fica com quem inclui. */
+@mixin tinta($tinge: false) {
+  border: 0;
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-marker);
+  line-height: 1;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 12px -4px rgb(0 0 0 / 0.35);
+  /* com `$tinge`, a cor também muda devagar (o .btn-ink, que tem a versão de perigo) */
+  @if $tinge {
+    transition:
+      transform var(--t-physical) var(--ease-physical),
+      background-color var(--t-ui) var(--ease-ui);
+  } @else {
+    transition: transform var(--t-physical) var(--ease-physical);
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+}
+
 /* Botão de papel: a ação secundária dentro da folha. Com .forte, .quieto e .perigo. */
 @mixin botao-papel {
   position: relative;

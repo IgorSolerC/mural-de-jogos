@@ -154,6 +154,8 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     </footer>
   `,
   styles: `
+    @use 'paper-kit' as kit;
+
     :host {
       position: relative;
       display: block;
@@ -457,24 +459,10 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     }
 
     .pronto {
+      @include kit.tinta;
       min-height: 44px;
       padding: 9px 20px 8px;
-      border: 0;
-      border-radius: 3px;
-      background: var(--ink);
-      color: var(--hi);
-      font-family: var(--f-marker);
       font-size: 1.08rem;
-      line-height: 1;
-      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 12px -4px rgb(0 0 0 / 0.35);
-      cursor: pointer;
-      transition: transform var(--t-physical) var(--ease-physical);
-    }
-    .pronto:hover {
-      transform: translateY(-2px) rotate(-1deg);
-    }
-    .pronto:active {
-      transform: translateY(1px);
     }
     .pronto:focus-visible {
       outline: 3px solid var(--ink);

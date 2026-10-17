@@ -73,6 +73,10 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 30. [x] **Halo do campo com foco**: `0 0 0 4px rgb(21 21 21 / 0.16)` escrito 11 vezes; agora `--field-halo` no `:root`
     (o foco calculado é o mesmo, conferido no navegador).
 
+31. [x] **O botão de tinta**: o material (tinta preta, letra a pincel amarela, sombra, sobe torto e afunda) estava copiado no
+    Pronto da cartela de filtros e no botão dos comentários. Agora `kit.tinta` (com `$tinge` no `.btn-ink`, que muda de cor
+    no perigo); cada um com o seu tamanho, que fica: igualar os tamanhos mudaria o desenho aprovado de cada um.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e
@@ -119,8 +123,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 
 - [-] **Abas de manilha** (global `.divisorias`, abas das anotações, quadros do Kanban): as do Kanban são 4px mais altas, de
   propósito ou não; juntar mudaria a altura de uma delas. Precisa do usuário.
-- [-] **Botões de tinta menores** (filtro, comentários, painéis do editor) e **9 bolinhas de contagem**: tamanhos diferentes
-  em cada lugar; igualar mudaria o desenho aprovado de cada um.
+- [-] **Tamanhos dos botões de tinta menores** (filtro, comentários, painéis do editor) e **9 bolinhas de contagem**: tamanhos
+  diferentes em cada lugar; igualar mudaria o desenho aprovado de cada um (o material do botão já é um só, item 31).
 - [-] **Contornos de foco** redundantes (73 `outline: 3px solid var(--ink)`): os deslocamentos variam (12 valores); tirar
   mudaria onde o anel aparece.
 - [-] **Pedidos da varredura de UI que mudam o jeito** (`setTimeout` → `focusAfterRender` em 35 lugares, a confirmação do
