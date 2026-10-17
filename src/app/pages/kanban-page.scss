@@ -455,6 +455,80 @@
   }
 }
 
+/* marcada para copiar (Ctrl+clique, ver ui/note-selection.ts): o mesmo do mural, na tira de papel
+   pardo. O tracejado é a caneta da vaga, mais forte, afastado da ficha; no canto, o adesivo do Lado a
+   lado com a ordem em que ela entra na cópia, de beirada clara para descolar do pardo */
+.lugar[data-marcada] {
+  counter-reset: marca var(--marca-n);
+
+  &::before {
+    content: '';
+    position: absolute;
+    /* 5px: duas vizinhas marcadas (16px uma da outra) ficam com contornos separados */
+    inset: -5px;
+    border: 2.5px dashed rgb(21 21 21 / 0.85);
+    border-radius: 5px;
+    pointer-events: none;
+  }
+
+  &::after {
+    content: counter(marca);
+    position: absolute;
+    top: -19px;
+    right: -19px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 2.5px solid var(--paper);
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.35),
+      0 4px 6px -2px rgb(0 0 0 / 0.4);
+    color: var(--hi);
+    font-family: var(--f-marker);
+    font-size: 1.05rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    rotate: -8deg;
+    pointer-events: none;
+    animation: marca-cola 280ms var(--ease-physical);
+  }
+}
+
+/* só os títulos: as tiras ficam a 6px uma da outra, o tracejado encosta mais */
+.quadro.denso .lugar[data-marcada] {
+  &::before {
+    /* por cima da tira (que é um pouco torta e cobriria a linha) e rente a ela, a 2px da vizinha */
+    z-index: 1;
+    inset: -2px -6px;
+    border-width: 2px;
+  }
+  &::after {
+    top: -11px;
+    right: -18px;
+    width: 26px;
+    height: 26px;
+    border-width: 2px;
+    font-size: 0.9rem;
+  }
+}
+
+@keyframes marca-cola {
+  from {
+    scale: 0.6;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lugar[data-marcada]::after {
+    animation: none;
+  }
+}
+
 .vazia {
   padding: 18px 8px;
   border: 2px dashed rgb(21 21 21 / 0.25);

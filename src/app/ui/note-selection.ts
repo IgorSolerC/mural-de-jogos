@@ -1,39 +1,48 @@
-import { DestroyRef, ElementRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, afterRenderEffect, effect, inject, signal, untracked } from '@angular/core';
 import { notesAsText } from '../core/note-copy';
-import { SideBySide } from '../core/side-by-side';
-import { WallState } from '../core/wall-view';
-import { Toasts } from '../ui/toast';
+import { Review } from '../core/review';
+import { Toasts } from './toast';
 
-/** A caixa da ficha (ver wall-cards.ts) ou a linha da lista (ver ui/note-index.ts). */
-const MARKABLE = '.lugar[data-lugar], .linha[data-ficha]';
 const MARKED = 'data-marcada';
 /** O atalho de copiar, como está escrito no teclado de quem usa. */
 const COPY_KEY = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘C' : 'Ctrl+C';
 
+/** Onde e como marcar: cada página diz quais são as fichas dela e quando as marcas deixam de valer. */
+export interface NoteSelectionConfig {
+  /** A página: só as fichas dentro dela marcam. */
+  host: HTMLElement;
+  /** As fichas que marcam (o elemento que recebe o tracejado) e o atributo com o id da anotação. */
+  markable: string;
+  idOf: (el: Element) => string | null;
+  /** Se o Ctrl+clique marca agora. */
+  on: () => boolean;
+  /** As anotações que dá para copiar, pelo id. */
+  notes: () => ReadonlyMap<string, Review>;
+  /** O que, mudando, desmarca tudo (o quadro, a busca, o filtro): as marcas de antes não valem mais. */
+  reset: () => unknown;
+  /** O que, mudando, redesenha as fichas: as marcas voltam para os elementos novos. */
+  layout?: () => unknown;
+}
+
 /**
- * Marcar anotações para copiar o texto delas: Ctrl+clique (⌘ no Mac) numa ficha ou numa linha da lista
- * marca ou desmarca, com um tracejado em volta e o adesivo com a ordem; Ctrl+C copia as marcadas, na
- * ordem em que foram marcadas (ver core/note-copy.ts). Esc ou qualquer outro toque na página desmarca
- * tudo. Só no seu mural de anotações. Pelo teclado também: Ctrl+Enter na ficha com o foco.
+ * Marcar anotações para copiar o texto delas, no mural e no Kanban: Ctrl+clique (⌘ no Mac) numa
+ * ficha marca ou desmarca, com um tracejado em volta e o adesivo com a ordem; Ctrl+C copia as
+ * marcadas, na ordem em que foram marcadas (ver core/note-copy.ts). Esc ou qualquer outro toque na
+ * página desmarca tudo. Pelo teclado também: Ctrl+Enter na ficha com o foco. Criada no construtor da
+ * página (precisa do contexto de injeção).
  */
-@Injectable()
-export class WallSelection {
-  private readonly view = inject(WallState);
+export class NoteSelection {
   private readonly toasts = inject(Toasts);
-  private readonly host = inject(ElementRef).nativeElement as HTMLElement;
 
   /** As marcadas, na ordem em que foram marcadas. */
   readonly ids = signal<readonly string[]>([]);
-  private readonly side = inject(SideBySide);
-  /** Só no seu mural de anotações, e não enquanto o toque na ficha é para o lado a lado. */
-  private readonly on = computed(() => this.view.notes() && this.view.owner() === null && !this.side.picking());
 
-  constructor() {
+  constructor(private readonly cfg: NoteSelectionConfig) {
     if (typeof document === 'undefined') return;
     const down = (e: PointerEvent) => this.down(e);
     const click = (e: MouseEvent) => this.click(e);
     const key = (e: KeyboardEvent) => this.key(e);
-    // na descida, antes da ficha: o clique com Ctrl não abre a leitura
+    // na descida, antes da ficha: o clique com Ctrl não abre a leitura nem começa a arrastar
     document.addEventListener('pointerdown', down, true);
     document.addEventListener('click', click, true);
     document.addEventListener('keydown', key, true);
@@ -42,12 +51,15 @@ export class WallSelection {
       document.removeEventListener('click', click, true);
       document.removeEventListener('keydown', key, true);
     });
-    // o tracejado e o número seguem a lista
-    effect(() => this.paint(this.ids()));
-    // a parede mudou (busca, filtro, aba, outro mural): as marcas de antes não valem mais
+    // o tracejado e o número seguem a lista, depois de a página desenhar as fichas
+    afterRenderEffect(() => {
+      const ids = this.ids();
+      cfg.layout?.();
+      untracked(() => this.paint(ids));
+    });
     effect(() => {
-      this.view.visible();
-      this.on();
+      cfg.reset();
+      cfg.on();
       untracked(() => this.clear());
     });
   }
@@ -58,19 +70,21 @@ export class WallSelection {
 
   /** A anotação debaixo do clique com Ctrl, se o clique é para marcar. */
   private target(e: MouseEvent): string | null {
-    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.button !== 0 || !this.on()) return null;
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.button !== 0 || !this.cfg.on()) return null;
     const t = e.target instanceof Element ? e.target : null;
     // Ctrl+clique num link do texto continua abrindo o link numa aba nova
     if (!t || t.closest('a[href]')) return null;
-    const box = t.closest(MARKABLE);
-    if (!box || !this.host.contains(box) || box.querySelector('[data-vaga]')) return null;
-    return box.getAttribute('data-lugar') ?? box.getAttribute('data-ficha');
+    const box = t.closest(this.cfg.markable);
+    if (!box || !this.cfg.host.contains(box)) return null;
+    const id = this.cfg.idOf(box);
+    return id && this.cfg.notes().has(id) ? id : null;
   }
 
   private down(e: PointerEvent): void {
     if (this.target(e)) {
-      // sem foco e sem seleção de texto: o toque é só para marcar
+      // sem foco, sem seleção de texto e sem arrastar: o toque é só para marcar
       e.preventDefault();
+      e.stopImmediatePropagation();
       return;
     }
     this.clear();
@@ -104,7 +118,7 @@ export class WallSelection {
   }
 
   private async copy(): Promise<void> {
-    const byId = new Map(this.view.wall().map((r) => [r.id, r]));
+    const byId = this.cfg.notes();
     const notes = this.ids()
       .map((id) => byId.get(id))
       .filter((r) => !!r);
@@ -119,8 +133,8 @@ export class WallSelection {
 
   private paint(ids: readonly string[]): void {
     const order = new Map(ids.map((id, i) => [id, i + 1]));
-    for (const el of this.host.querySelectorAll<HTMLElement>(MARKABLE)) {
-      const n = order.get(el.getAttribute('data-lugar') ?? el.getAttribute('data-ficha') ?? '');
+    for (const el of this.cfg.host.querySelectorAll<HTMLElement>(this.cfg.markable)) {
+      const n = order.get(this.cfg.idOf(el) ?? '');
       el.toggleAttribute(MARKED, !!n);
       if (n) el.style.setProperty('--marca-n', String(n));
       else el.style.removeProperty('--marca-n');

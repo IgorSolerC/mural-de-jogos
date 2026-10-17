@@ -20,6 +20,7 @@ import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { COLUMN_ICON } from '../ui/kanban-icons';
 import { KanbanNote } from '../ui/kanban-note';
+import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { Toasts } from '../ui/toast';
@@ -240,6 +241,21 @@ export class KanbanPage {
     return out;
   });
   protected readonly shownCount = computed(() => this.view().reduce((n, v) => n + v.items.length, 0));
+
+  /**
+   * Ctrl+clique marca anotações do quadro para copiar o texto delas, e Ctrl+C copia (ver
+   * ui/note-selection.ts). Trocar de quadro, buscar ou filtrar desmarca; mover uma ficha não.
+   */
+  readonly selection = new NoteSelection({
+    host: this.host,
+    markable: '.lugar[data-nota]',
+    idOf: (el) => el.getAttribute('data-nota'),
+    on: () => !this.drag(),
+    notes: this.notes,
+    // (o id, e não o quadro: mexer nas fichas troca o quadro, e não deve desmarcar)
+    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter()].join('|')),
+    layout: this.view,
+  });
 
   constructor() {
     const destroy = inject(DestroyRef);

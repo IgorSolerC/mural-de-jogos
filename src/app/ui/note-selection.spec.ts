@@ -4,13 +4,13 @@ import { Mural } from '../core/mural';
 import { sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { WallState } from '../core/wall-view';
-import { Toasts } from '../ui/toast';
-import { WallAccess, WallBoard } from './wall-board';
+import { Toasts } from './toast';
+import { WallAccess, WallBoard } from '../pages/wall-board';
 
 const ACCESS: WallAccess = { landingId: null, picking: false, picked: new Map(), masked: false, secret: new Set(), reactCode: null, checkable: true, looks: {} };
 
 /** Ctrl+clique marca anotações no mural; Ctrl+C copia o texto delas; Esc ou outro toque desmarca. */
-describe('marcar anotações para copiar (WallSelection)', () => {
+describe('marcar anotações para copiar (NoteSelection, no mural)', () => {
   let el: HTMLElement;
   let copied: string[];
 

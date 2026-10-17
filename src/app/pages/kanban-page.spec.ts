@@ -291,4 +291,47 @@ describe('página do Kanban', () => {
     expect(b.columns[3].name).toBe('Nova coluna');
     expect(host.querySelector('app-kanban-column-sheet dialog[open]')).not.toBeNull();
   });
+  it('Ctrl+clique marca as anotações do quadro, sem abrir nem arrastar; Ctrl+C copia na ordem; Esc desmarca', async () => {
+    const copied: string[] = [];
+    spyOn(navigator.clipboard, 'writeText').and.callFake(async (t: string) => void copied.push(t));
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const card = (id: string) => host.querySelector<HTMLElement>(`.lugar[data-nota="${id}"]`)!;
+    const ctrlClick = (el: HTMLElement) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: true, button: 0, isPrimary: true }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+    };
+    const marked = () => [...host.querySelectorAll('[data-marcada]')].map((e) => e.getAttribute('data-nota') + '#' + (e as HTMLElement).style.getPropertyValue('--marca-n'));
+    ctrlClick(card('nsync001').querySelector<HTMLElement>('.hit')!);
+    ctrlClick(card('nlogin01').querySelector<HTMLElement>('.hit')!);
+    await settle();
+    expect(marked()).toEqual(['nlogin01#2', 'nsync001#1']);
+    // nem a leitura abriu, nem o arrastar começou
+    expect(document.querySelector('dialog[open]')).toBeNull();
+    expect(host.querySelector('.quadro')!.classList).not.toContain('arrastando');
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true, cancelable: true }));
+    await settle();
+    expect(copied).toEqual(['1.\nTÍTULO: Sincronizar quadros\nDESCRIÇÃO:\n\n2.\nTÍTULO: Corrigir o login\nDESCRIÇÃO: Ver Sincronizar quadros']);
+    // "Só os títulos" redesenha as fichas: as marcas continuam
+    host.querySelector<HTMLElement>('button[aria-label="Só os títulos"]')!.click();
+    await settle();
+    expect(host.querySelector('.quadro')!.classList).toContain('denso');
+    expect(marked()).toEqual(['nlogin01#2', 'nsync001#1']);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle();
+    expect(marked()).toEqual([]);
+  });
+
+  it('um toque comum fora desmarca', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const li = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"] .hit')!;
+    li.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+    li.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+    await settle();
+    expect(host.querySelectorAll('[data-marcada]').length).toBe(1);
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    await settle();
+    expect(host.querySelectorAll('[data-marcada]').length).toBe(0);
+  });
 });

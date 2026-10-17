@@ -1,16 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { ChevronDown, LucideAngularModule, Plus } from 'lucide-angular';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { Settings } from '../core/settings';
+import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
 import { pinningFor } from '../core/wall-physics';
 import { WallGroup, WallState } from '../core/wall-view';
 import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
+import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
-import { WallSelection } from './wall-select';
 
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
 export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable' | 'looks'>;
@@ -25,7 +26,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
 @Component({
   selector: 'app-wall-board',
   imports: [DoneStamp, LucideAngularModule, NoteIndex, Pin, SearchHighlight, WallCards],
-  providers: [WallCardPool, WallSelection],
+  providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-board.html',
   styleUrl: './wall-board.scss',
@@ -35,8 +36,6 @@ export class WallBoard {
   private readonly settings = inject(Settings);
   private readonly motion = inject(WallMotion);
   private readonly pool = inject(WallCardPool);
-  /** Ctrl+clique marca anotações para copiar o texto delas (ver wall-select.ts). */
-  readonly selection = inject(WallSelection);
 
   readonly access = input.required<WallAccess>();
   /** Tocou numa ficha (ou numa linha da lista): o id dela. */
@@ -92,7 +91,23 @@ export class WallBoard {
     times: this.view.times(),
   }));
 
+  /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */
+  readonly selection: NoteSelection;
+
   constructor() {
+    const side = inject(SideBySide);
+    const byId = computed(() => new Map(this.view.wall().map((r) => [r.id, r])));
+    this.selection = new NoteSelection({
+      host: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
+      // a caixa da ficha (ver wall-cards.ts) ou a linha da lista (ver ui/note-index.ts)
+      markable: '.lugar[data-lugar], .linha[data-ficha]',
+      idOf: (el) => el.getAttribute('data-lugar') ?? el.getAttribute('data-ficha'),
+      // só no seu mural de anotações, e não enquanto o toque na ficha é para o lado a lado
+      on: () => this.notes() && this.owner() === null && !side.picking(),
+      notes: byId,
+      // a parede mudou (busca, filtro, aba, outro mural)
+      reset: this.view.visible,
+    });
     this.pool.props = this.cardProps;
     this.pool.onOpen = (id) => this.opened.emit(id);
     this.pool.onToggle = (id) => this.toggled.emit(id);
