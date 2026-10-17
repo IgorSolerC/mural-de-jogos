@@ -1,0 +1,73 @@
+/* As divisórias de pasta de papel manilha: as abas que ficam de pé em cima da pasta (o Comparar, as abas
+   das anotações, os quadros do Kanban). As de trás descem até atrás da borda da pasta; a aberta vem
+   para a frente, clara, emendada nela. Quem inclui escolhe os nomes e como a aberta é marcada. */
+
+/* O lugar das abas: as camadas (de trás 0, a borda 1, a aberta 2) e as medidas da pasta */
+@mixin pasta {
+  --manilha-atras: #ae9a6c;
+  --borda: 7px;
+  position: relative;
+  isolation: isolate;
+}
+
+/* A borda da pasta, num ::after do lugar das abas: a aba aberta emenda nela */
+@mixin borda-da-pasta {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  height: var(--borda);
+  border-radius: 1px;
+  background-color: var(--manilha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  /* a sombra fina que a borda da pasta faz no pé das abas de trás */
+  box-shadow: 0 -2px 3px -1px rgb(0 0 0 / 0.35);
+}
+
+/* Uma aba; `$aberta` é o seletor da aberta ('.on', '[aria-pressed="true"]') */
+@mixin aba($aberta) {
+  position: relative;
+  z-index: 0;
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-height: 40px;
+  /* a de trás desce até o fundo: o pé dela fica escondido atrás da borda da pasta */
+  padding: 10px 14px calc(7px + var(--borda));
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background-color: var(--manilha-atras);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  translate: 0 3px;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(#{$aberta}):not(:disabled) {
+    background-color: #c7b385;
+    translate: 0 0;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: -3px;
+  }
+
+  &#{$aberta} {
+    z-index: 2;
+    padding-top: 13px;
+    background-color: var(--manilha);
+    translate: 0 0;
+    /* a cor muda na hora: ela já vem para a frente da borda da pasta, e o marrom de trás escorrendo
+       para o claro aparecia por cima da borda por alguns quadros */
+    transition: translate var(--t-ui) var(--ease-ui);
+  }
+}

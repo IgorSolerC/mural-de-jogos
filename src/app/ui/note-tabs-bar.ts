@@ -83,30 +83,16 @@ const GAP = 3;
     }
   `,
   styles: `
+    @use 'divisorias' as div;
+
     /* As camadas: as abas de trás (0) ficam atrás da borda da pasta (1), que passa por cima do pé
        delas; só a aberta (2) vem para a frente, emendada na borda. */
     :host {
-      position: relative;
-      isolation: isolate;
+      @include div.pasta;
       display: block;
-      /* a borda da pasta: a aba aberta emenda nela */
-      --manilha-atras: #ae9a6c;
-      --borda: 7px;
     }
     :host::after {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 1;
-      height: var(--borda);
-      border-radius: 1px;
-      background-color: var(--manilha);
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      /* a sombra fina que a borda da pasta faz no pé das abas de trás */
-      box-shadow: 0 -2px 3px -1px rgb(0 0 0 / 0.35);
+      @include div.borda-da-pasta;
     }
 
     .abas {
@@ -126,49 +112,16 @@ const GAP = 3;
     }
 
     .aba {
-      position: relative;
-      z-index: 0;
-      flex: none;
-      display: inline-flex;
-      align-items: baseline;
-      gap: 7px;
-      min-height: 40px;
-      /* a de trás desce até o fundo: o pé dela fica escondido atrás da borda da pasta */
-      padding: 10px 14px calc(7px + var(--borda));
-      border: 0;
-      border-radius: 10px 10px 0 0;
-      background-color: var(--manilha-atras);
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      color: var(--ink);
-      cursor: pointer;
-      white-space: nowrap;
-      translate: 0 3px;
-      transition:
-        translate var(--t-ui) var(--ease-ui),
-        background-color var(--t-ui) var(--ease-ui);
+      @include div.aba('.on');
 
-      &:hover:not(.on) {
-        background-color: #c7b385;
-        translate: 0 0;
-      }
-
-      &:focus-visible,
+      /* o "Mais" é um select dentro da aba */
       &:has(select:focus-visible) {
         outline: 3px solid var(--focus);
         outline-offset: -3px;
       }
 
-      /* a aberta: na frente, clara, emendada na borda da pasta */
       &.on {
-        z-index: 2;
-        padding-top: 13px;
-        background-color: var(--manilha);
         box-shadow: none;
-        translate: 0 0;
-        /* a cor muda na hora: ela já vem para a frente da borda da pasta, e o marrom de trás
-           escorrendo para o claro aparecia por cima da borda por alguns quadros */
-        transition: translate var(--t-ui) var(--ease-ui);
       }
     }
 

@@ -1,5 +1,6 @@
 @use '../ui/paper-kit' as kit;
 @use '../ui/kanban-kit' as kk;
+@use '../ui/divisorias' as div;
 
 :host {
   display: block;
@@ -108,24 +109,10 @@
 
 /* ===== Os quadros: divisórias de pasta de papel manilha em cima da pasta ===== */
 .abas-quadros {
-  position: relative;
-  isolation: isolate;
-  --manilha-atras: #ae9a6c;
-  --borda: 7px;
+  @include div.pasta;
 
-  /* a borda da pasta: a aba aberta emenda nela */
   &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
-    height: var(--borda);
-    background-color: var(--manilha);
-    background-image: var(--paper-grain);
-    background-blend-mode: multiply;
-    box-shadow: 0 -2px 3px -1px rgb(0 0 0 / 0.35);
+    @include div.borda-da-pasta;
   }
 }
 
@@ -149,46 +136,16 @@
   }
 }
 
+/* as abas dos quadros são um pouco maiores que as do mural */
 .aba {
-  position: relative;
-  z-index: 0;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
+  @include div.aba('.on');
   min-height: 44px;
   padding: 11px 15px calc(8px + var(--borda));
-  border: 0;
-  border-radius: 10px 10px 0 0;
-  background-color: var(--manilha-atras);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
   text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-  translate: 0 3px;
-  transition:
-    translate var(--t-ui) var(--ease-ui),
-    background-color var(--t-ui) var(--ease-ui);
-
-  &:hover:not(.on):not(:disabled) {
-    background-color: #c7b385;
-    translate: 0 0;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: -3px;
-  }
 
   &.on {
-    z-index: 2;
     padding-top: 14px;
-    background-color: var(--manilha);
-    translate: 0 0;
-    transition: translate var(--t-ui) var(--ease-ui);
   }
-
 }
 
 /* o nome da categoria com o ícone dela, como nas abas do mural (o nome continua com os 20 caracteres) */
