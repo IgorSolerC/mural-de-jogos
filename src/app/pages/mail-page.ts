@@ -29,6 +29,7 @@ import { FeedPost, FeedPostData } from '../ui/feed-post';
 import { NoticeList } from '../ui/notice-list';
 import { PersonFace, PersonPhoto } from '../ui/person-photo';
 import { PineBoard } from '../ui/pine-board';
+import { failedText, FollowToasts } from '../ui/follow-toasts';
 
 /** A aba Feed guarda o id 'chegou' (o nome de antes): o endereço e o que já está guardado não mudam. */
 type Tab = 'chegou' | 'avisos' | 'pessoas';
@@ -78,6 +79,7 @@ export class MailPage {
   private readonly profilePeople = inject(ProfilePeople);
   private readonly store = inject(ReviewStore);
   private readonly toasts = inject(Toasts);
+  private readonly followToasts = inject(FollowToasts);
   private readonly confirm = inject(Confirm);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -525,9 +527,7 @@ export class MailPage {
 
   protected async unfollow(p: Person): Promise<void> {
     await this.run(`${p.codigo}:deixar`, async () => {
-      await this.follow.unfollow(p.codigo);
-      // seguir de novo não manda outro aviso para a pessoa
-      this.toasts.show(`Você deixou de seguir ${p.nome}`, { label: 'Desfazer', run: () => void this.follow.follow(p.codigo).catch(() => undefined) });
+      await this.followToasts.stop(p.codigo, p.nome);
     });
   }
 
@@ -557,7 +557,7 @@ export class MailPage {
     try {
       await job();
     } catch (err) {
-      this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
+      this.toasts.show(failedText(err));
     } finally {
       this.busy.set(null);
     }

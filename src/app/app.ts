@@ -38,6 +38,7 @@ import { KanbanStore } from './core/kanban-store';
 import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard } from './core/kanban';
 import { NoteDone } from './core/note-done';
+import { TRY_AGAIN } from './ui/follow-toasts';
 
 @Component({
   selector: 'app-root',
@@ -350,7 +351,7 @@ export class App {
       if (mine) await this.shared.deleteForAll(id);
       else await this.shared.leave(id);
     } catch (err) {
-      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu certo agora. Tente de novo.');
+      this.toasts.show(err instanceof CloudError ? err.message : TRY_AGAIN);
       return;
     }
     this.reader().close();

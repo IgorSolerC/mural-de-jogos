@@ -29,6 +29,7 @@ import { ProfileSectionView } from '../ui/profile-section';
 import { ProfileWalls } from '../ui/profile-walls';
 import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
+import { failedText, FollowToasts } from '../ui/follow-toasts';
 
 /** O link que abre o perfil de quem tem esse código. */
 export function profileLink(code: string, base: string = location.origin + location.pathname): string {
@@ -73,6 +74,7 @@ export class ProfilePage {
   private readonly mural = inject(Mural);
   private readonly follow = inject(Follow);
   private readonly toasts = inject(Toasts);
+  private readonly followToasts = inject(FollowToasts);
   private readonly reactions = inject(Reactions);
   private readonly peopleOf = inject(ProfilePeople);
   private readonly peopleSheet = viewChild(PeopleSheet);
@@ -178,17 +180,12 @@ export class ProfilePage {
     const name = this.name();
     this.followBusy.set(true);
     try {
-      if (this.following()) {
-        await this.follow.unfollow(who.code);
-        this.toasts.show(`Você deixou de seguir ${name}`, { label: 'Desfazer', run: () => void this.follow.follow(who.code).catch(() => undefined) });
-      } else {
-        await this.follow.follow(who.code);
-        this.toasts.show(`Agora você segue ${name}. As resenhas novas aparecem em Amigos.`);
-      }
+      if (this.following()) await this.followToasts.stop(who.code, name);
+      else await this.followToasts.start(who.code, name);
       // o número de seguidores dela mudou
       void this.peopleOf.load(who.code, false, true);
     } catch (err) {
-      this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
+      this.toasts.show(failedText(err));
     } finally {
       this.followBusy.set(false);
     }

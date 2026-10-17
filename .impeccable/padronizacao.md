@@ -46,6 +46,12 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 11. [x] **Copiar com bilhete**: copiar para a área de transferência + bilhete repetido em 7 lugares. Agora `Toasts.copy`;
    em Amigos, a falha de copiar o link e o código diz "Não deu para copiar. …" como em Ajustes e no Perfil (M1, nas Novidades).
 
+## Achados extras (depois do inventário)
+
+24. [x] **Seguir com bilhete**: o mural de um amigo e o perfil tinham o mesmo seguir/deixar de seguir com os bilhetes
+    escritos à mão, e Amigos e Pessoas variações; o "Não deu certo agora. Tente de novo." estava em cinco lugares. Agora
+    `FollowToasts` (ui/follow-toasts.ts) e `failedText`/`TRY_AGAIN`; o Pessoas continua com o Desfazer depois de seguir.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

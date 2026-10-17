@@ -10,6 +10,7 @@ import { Busy } from './busy';
 import { MiniPolaroid } from './mini-polaroid';
 import { Toasts } from './toast';
 import { plural } from '../core/text';
+import { failedText, FollowToasts } from './follow-toasts';
 
 /** O que vai no canto do mini-mural: seguir (com conta), já segue, ou é você. */
 type Relation = 'voce' | 'segue' | 'seguir' | null;
@@ -140,6 +141,7 @@ export class PeopleSheet {
   private readonly follow = inject(Follow);
   private readonly account = inject(CloudAccount);
   private readonly toasts = inject(Toasts);
+  private readonly followToasts = inject(FollowToasts);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   /** De quem são as listas. */
@@ -246,13 +248,9 @@ export class PeopleSheet {
     if (this.busy(p.codigo)) return;
     this.busyCodes.update((s) => new Set(s).add(p.codigo));
     try {
-      await this.follow.follow(p.codigo);
-      this.toasts.show(`Agora você segue ${p.nome}. As resenhas novas aparecem em Amigos.`, {
-        label: 'Desfazer',
-        run: () => void this.follow.unfollow(p.codigo).catch(() => undefined),
-      });
+      await this.followToasts.start(p.codigo, p.nome, true);
     } catch (err) {
-      this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
+      this.toasts.show(failedText(err));
     } finally {
       this.busyCodes.update((s) => {
         const next = new Set(s);

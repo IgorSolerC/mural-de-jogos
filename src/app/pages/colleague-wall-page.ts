@@ -20,6 +20,7 @@ import { WallToolbar } from '../ui/wall-toolbar';
 import { WallAccess, WallBoard } from './wall-board';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
 import { plural } from '../core/text';
+import { failedText, FollowToasts } from '../ui/follow-toasts';
 
 const NO_PICKS: ReadonlyMap<string, number> = new Map();
 
@@ -126,6 +127,7 @@ export class ColleagueWallPage {
   private readonly follow = inject(Follow);
   private readonly account = inject(CloudAccount);
   private readonly toasts = inject(Toasts);
+  private readonly followToasts = inject(FollowToasts);
   /** Seguir só faz sentido para um mural aberto pelo código, com conta, e que não é o meu. */
   protected readonly canFollow = computed(() => {
     const code = this.visit.code();
@@ -145,15 +147,10 @@ export class ColleagueWallPage {
     const code = c.codigo;
     this.followBusy.set(true);
     try {
-      if (this.following()) {
-        await this.follow.unfollow(code);
-        this.toasts.show(`Você deixou de seguir ${c.name}`, { label: 'Desfazer', run: () => void this.follow.follow(code).catch(() => undefined) });
-      } else {
-        await this.follow.follow(code);
-        this.toasts.show(`Agora você segue ${c.name}. As resenhas novas aparecem em Amigos.`);
-      }
+      if (this.following()) await this.followToasts.stop(code, c.name);
+      else await this.followToasts.start(code, c.name);
     } catch (err) {
-      this.toasts.show(err instanceof Error ? err.message : 'Não deu certo agora. Tente de novo.');
+      this.toasts.show(failedText(err));
     } finally {
       this.followBusy.set(false);
     }
