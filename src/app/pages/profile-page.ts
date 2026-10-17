@@ -199,12 +199,7 @@ export class ProfilePage {
     const code = this.code();
     if (!code) return;
     const link = profileLink(code);
-    try {
-      await navigator.clipboard.writeText(link);
-      this.toasts.show('Link do perfil copiado');
-    } catch {
-      this.toasts.show('Não deu para copiar. O link é ' + link);
-    }
+    await this.toasts.copy(link, 'Link do perfil copiado', `Não deu para copiar. O link é ${link}`);
   }
 
   // ===== Seguindo e Seguidores: os números na polaroid, e as listas numa ficha por cima =====

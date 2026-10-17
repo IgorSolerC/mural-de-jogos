@@ -544,21 +544,11 @@ export class MailPage {
   }
 
   protected async copyLink(code: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(muralLink(code));
-      this.toasts.show('Link do seu mural copiado');
-    } catch {
-      this.toasts.show(`O link é ${muralLink(code)}`);
-    }
+    await this.toasts.copy(muralLink(code), 'Link do seu mural copiado', `Não deu para copiar. O link é ${muralLink(code)}`);
   }
 
   protected async copyCode(code: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(code);
-      this.toasts.show('Código copiado');
-    } catch {
-      this.toasts.show(`O seu código é ${code}`);
-    }
+    await this.toasts.copy(code, 'Código copiado', `Não deu para copiar. O seu código é ${code}`);
   }
 
   private async run(key: string, job: () => Promise<void>): Promise<void> {

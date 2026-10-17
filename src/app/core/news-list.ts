@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-padronizacao',
+    id: '2026-10-17-padronizacao-copiar',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
@@ -43,7 +43,7 @@ export const NEWS: NewsEntry[] = [
       'Em Tags, nas configurações do mural, as tags ficam separadas pela categoria das anotações onde são usadas, e a mesma tag pode ter uma cor em cada categoria; renomear ou apagar uma tag mexe só nas anotações daquela categoria.',
       'Nas configurações do mural (a engrenagem da pasta), cada categoria e cada tag pode ser renomeada, e muda em todas as anotações que a usam, com a cor, os padrões e o quadro do Kanban; o nome de outra que já existe junta as duas.',
       'Ali também dá para apagar uma categoria ou uma tag: antes, um aviso diz quantas anotações a usam, e ao confirmar ela sai de todas.',
-      'Por dentro, o site passou por uma revisão para cada coisa ser feita de um jeito só em todas as telas, a começar pela ordem dos nomes nas listas.',
+      'Por dentro, o site passou por uma revisão para cada coisa ser feita de um jeito só em todas as telas: a ordem dos nomes, as contagens, as datas, o que fica guardado no navegador e os menus que fecham ao clicar fora (que agora só prestam atenção na página quando estão abertos). Quando o navegador não deixa copiar um link ou código, o aviso em Amigos diz o mesmo que nos Ajustes e no Perfil.',
     ],
     correcoes: [
       'No Kanban, os botões de ajustes e da seta não ficam mais à mostra numa anotação sem o mouse em cima, como depois de fechar a leitura dela.',

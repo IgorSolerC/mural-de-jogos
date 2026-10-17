@@ -28,6 +28,19 @@ export class Toasts {
     clearTimeout(this.timer);
   }
 
+  /**
+   * Copia o texto para a área de transferência e diz no bilhete se deu certo (`done`) ou não
+   * (`failed`: o navegador não deixou; o bilhete costuma trazer o próprio texto, para copiar à mão).
+   */
+  async copy(text: string, done: string, failed: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      this.show(done);
+    } catch {
+      this.show(failed);
+    }
+  }
+
   /** Saiu de cima: ainda dá um tempinho para ler antes de sumir. */
   release(ms = 3000): void {
     if (!this.current()) return;

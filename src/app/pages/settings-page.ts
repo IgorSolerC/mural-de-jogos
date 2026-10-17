@@ -417,12 +417,7 @@ export class SettingsPage {
   }
 
   protected async copyCode(code: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(code);
-      this.toasts.show(`Código ${code} copiado`);
-    } catch {
-      this.toasts.show('Não deu para copiar. Selecione o código e copie à mão.');
-    }
+    await this.toasts.copy(code, `Código ${code} copiado`, 'Não deu para copiar. Selecione o código e copie à mão.');
   }
 
   /** A linha do estado da sincronização, na ficha da Conta. */
@@ -500,12 +495,7 @@ export class SettingsPage {
   }
 
   protected async copyLink(code: string): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(muralLink(code));
-      this.toasts.show('Link do mural copiado');
-    } catch {
-      this.toasts.show(`Não deu para copiar. O link é ${muralLink(code)}`);
-    }
+    await this.toasts.copy(muralLink(code), 'Link do mural copiado', `Não deu para copiar. O link é ${muralLink(code)}`);
   }
 
   /** O código que a pessoa está escrevendo para trocar o dela, como foi digitado. */

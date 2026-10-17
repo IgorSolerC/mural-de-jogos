@@ -40,8 +40,11 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 9. [x] **Ouvintes**: o arrastar do quadro do Kanban não tira os ouvintes da janela ao sair da página; os menus (feed-menu,
    kind-switcher, reações) ouvem todo clique da página mesmo fechados (o da wish-clip já só ouve aberto). Agora `closeOnOutsidePress` (ui/outside-press.ts) nos quatro, e o
    arrastar do quadro solta ao sair da página e também no `pointercancel`.
-10. [ ] **"Está escrevendo?"**: seis jeitos de decidir se a tecla é para um campo (app, kanban, leitura, seleção, jogos).
-11. [ ] **Copiar com bilhete**: copiar para a área de transferência + bilhete repetido em 7 lugares.
+10. [-] **"Está escrevendo?"**: seis jeitos de decidir se a tecla é para um campo (app, kanban, leitura, seleção, jogos).
+   Fora: cada um decide uma coisa diferente de propósito (os jogos ignoram as teclas com um diálogo aberto, a leitura
+   mora num diálogo, o `/` do topo conta `select`, a marcação não); juntar mudaria quando as teclas valem.
+11. [x] **Copiar com bilhete**: copiar para a área de transferência + bilhete repetido em 7 lugares. Agora `Toasts.copy`;
+   em Amigos, a falha de copiar o link e o código diz "Não deu para copiar. …" como em Ajustes e no Perfil (M1, nas Novidades).
 
 ## Correções achadas na varredura
 

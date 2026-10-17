@@ -223,12 +223,7 @@ export class MuraldlePage {
 
   protected async share(): Promise<void> {
     const text = shareText(this.title(), this.rows().map((r) => r.cells), this.done() === 'acertou');
-    try {
-      await navigator.clipboard.writeText(text);
-      this.toasts.show('Resultado copiado. É só colar no grupo.');
-    } catch {
-      this.toasts.show('O navegador não deixou copiar.');
-    }
+    await this.toasts.copy(text, 'Resultado copiado. É só colar no grupo.', 'O navegador não deixou copiar.');
   }
 
   protected open(review: Review): void {

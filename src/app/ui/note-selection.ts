@@ -145,12 +145,11 @@ export class NoteSelection {
       .map((id) => byId.get(id))
       .filter((r) => !!r);
     if (!notes.length) return;
-    try {
-      await navigator.clipboard.writeText(notesAsText(notes));
-      this.toasts.show(notes.length === 1 ? 'Copiei o texto da anotação.' : `Copiei o texto das ${notes.length} anotações.`);
-    } catch {
-      this.toasts.show('Não deu para copiar. Tente de novo.');
-    }
+    await this.toasts.copy(
+      notesAsText(notes),
+      notes.length === 1 ? 'Copiei o texto da anotação.' : `Copiei o texto das ${notes.length} anotações.`,
+      'Não deu para copiar. Tente de novo.',
+    );
   }
 
   private paint(ids: readonly string[]): void {
