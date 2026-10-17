@@ -1,7 +1,6 @@
 import type { Importance, KanbanCard } from './kanban';
-import { fold } from './review';
 import { tasksOf } from './rich-text';
-import { nameCollator } from './text';
+import { labelKey, nameCollator } from './text';
 
 /**
  * A ordem de uma coluna do Kanban (os ajustes da coluna). Sem regra, a coluna fica na ordem em que
@@ -128,7 +127,7 @@ function keyOf(by: SortKey, card: KanbanCard, n: SortNote | undefined): Key {
     case 'titulo':
       return n.game.name.trim();
     case 'tag': {
-      const tags = [...new Set((n.tags ?? []).map((t) => fold(t.trim())).filter(Boolean))].sort(nameCollator.compare);
+      const tags = [...new Set((n.tags ?? []).map(labelKey).filter(Boolean))].sort(nameCollator.compare);
       return tags.length ? tags : null;
     }
     case 'tarefas': {

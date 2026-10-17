@@ -27,7 +27,7 @@ import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
-import { nameCollator } from './text';
+import { cap, labelKey, nameCollator } from './text';
 
 /**
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
@@ -821,7 +821,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
         if (r.completedAt.length === 4) return [r.completedAt, r.completedAt];
         const month = r.completedAt.slice(0, 7);
         const label = monthFmt.format(parseDay(month + '-01'));
-        return [month, label.charAt(0).toUpperCase() + label.slice(1)];
+        return [month, cap(label)];
       };
   }
 }
@@ -858,8 +858,8 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
         const cb = firstCategory(b);
         if ((ca === null) !== (cb === null)) return ca === null ? 1 : -1;
         if (ca === null || cb === null) return -byDate(a, b);
-        const pa = at.get(fold(ca.trim())) ?? order.length;
-        const pb = at.get(fold(cb.trim())) ?? order.length;
+        const pa = at.get(labelKey(ca)) ?? order.length;
+        const pb = at.get(labelKey(cb)) ?? order.length;
         return sign * (pa - pb || nameCollator.compare(ca, cb)) || -byDate(a, b);
       };
     }

@@ -1,5 +1,5 @@
-import { Review, fold } from './review';
-import { nameCollator } from './text';
+import { Review } from './review';
+import { labelKey, nameCollator } from './text';
 
 /**
  * As abas do mural de anotações: as divisórias de fichário, uma por categoria. A categoria é uma só
@@ -49,7 +49,7 @@ export interface NoteTabs {
 
 /** A aba de uma anotação. O "c:" na frente: uma categoria chamada "Sem" não cai na aba das sem categoria. */
 export function noteTabKey(r: Pick<Review, 'category'>): string {
-  return r.category ? `c:${fold(r.category.trim())}` : NO_CATEGORY_TAB;
+  return r.category ? `c:${labelKey(r.category)}` : NO_CATEGORY_TAB;
 }
 
 /**

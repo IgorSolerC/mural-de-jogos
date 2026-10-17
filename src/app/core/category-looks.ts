@@ -1,4 +1,4 @@
-import { fold } from './review';
+import { labelKey } from './text';
 
 /**
  * O jeito de uma categoria das anotações: o desenho e a cor que a pessoa escolheu para ela (ver
@@ -101,7 +101,7 @@ export const MAX_CATEGORY_LOOKS = 2000;
 
 /** A chave de uma categoria nos jeitos guardados (a mesma das abas, sem o "c:"). */
 export function lookKey(category: string): string {
-  return fold(category.trim());
+  return labelKey(category);
 }
 
 /**

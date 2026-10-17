@@ -1,5 +1,6 @@
 import { profileOf } from './kinds';
 import { Bonus, Review, fold } from './review';
+import { cleanLabel, slugOf } from './text';
 
 /**
  * A categoria e as tags de uma anotação.
@@ -23,8 +24,7 @@ export const MAX_PINNED_TAGS = 40;
 
 /** "  lista   de compras " → "Lista de compras". */
 export function cleanCategory(raw: string): string {
-  const flat = raw.replace(/\s+/g, ' ').trim().slice(0, LABEL_MAX).trim();
-  return flat.charAt(0).toUpperCase() + flat.slice(1);
+  return cleanLabel(raw, LABEL_MAX);
 }
 
 /** A tag como foi escrita ("BugFix" continua BugFix), sem espaços a mais nem "#" na frente. */
@@ -63,7 +63,7 @@ export const DEFAULT_CATEGORIES: readonly string[] = ['trabalho', 'estudos'];
 export function categoryBonus(label: string): Bonus {
   const preset = categoryPresets().find((b) => fold(b.label) === fold(label));
   if (preset) return preset;
-  const slug = fold(label).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
+  const slug = slugOf(label);
   return { id: `cat-${slug || 'categoria'}`, label, kind: 'favor' };
 }
 

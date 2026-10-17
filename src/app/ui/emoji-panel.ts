@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, comput
 import { EMOJI_DRAWERS, EmojiEntry, searchEmoji } from '../core/emoji-catalog';
 import { ReactionId } from '../core/reaction-kinds';
 import { fold } from '../core/review';
+import { cap } from '../core/text';
 
 /**
  * O "+" das reações: as gavetas de emojis (caras, gestos, corações…) e a busca pelo nome, para reagir
@@ -161,6 +162,6 @@ export class EmojiPanel {
   /** O nome do emoji para quem não o vê: a primeira palavra da busca. */
   protected nameOf(item: EmojiEntry): string {
     const first = item.k.split(' ')[0];
-    return first.charAt(0).toUpperCase() + first.slice(1);
+    return cap(first);
   }
 }

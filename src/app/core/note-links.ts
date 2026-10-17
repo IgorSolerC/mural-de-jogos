@@ -1,5 +1,6 @@
-import { Review, fold, isNote } from './review';
+import { Review, isNote } from './review';
 import { LINK, lineKind, linesOf, noteLinksOf, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
+import { nameKey } from './text';
 
 /**
  * Os links entre anotações: "[[Comprar um console]]" no texto de uma anotação aponta para a
@@ -18,7 +19,7 @@ import { LINK, lineKind, linesOf, noteLinksOf, proseLines, replaceNoteLinks, spl
 
 /** A chave de um título: sem maiúsculas, acentos e espaços a mais. */
 export function linkKey(title: string): string {
-  return fold(title).trim().replace(/\s+/g, ' ');
+  return nameKey(title);
 }
 
 /**

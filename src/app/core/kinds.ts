@@ -613,7 +613,4 @@ export function revisitCountOf(p: KindProfile, n: number): string {
   return `${n} ${n === 1 ? p.revisit.one : p.revisit.many}`;
 }
 
-/** Primeira letra maiúscula: "Séries", "Livro". */
-export function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+export { cap } from './text';

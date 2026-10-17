@@ -12,9 +12,10 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 1. [x] **Ordem dos nomes e `fold` num módulo só** (`core/text.ts`, sem imports). O `Intl.Collator('pt-BR', base, numeric)`
    estava declarado 9 vezes, mais 2 `localeCompare` com as mesmas opções (Pra depois, Wishlist). `fold` mudou para lá;
    `review.ts` reexporta.
-2. [ ] **Chaves de texto**: `linkKey` (note-links) = `workKey` (review); `lookKey` (category-looks) repetido inline em
+2. [x] **Chaves de texto**: `linkKey` (note-links) = `workKey` (review); `lookKey` (category-looks) repetido inline em
    note-tabs, kanban-sort, wall-view, comparison; o corpo do slug repetido em `customBonusId` e `categoryBonus`;
-   `cleanCategory` = `cleanBonusLabel` (mesmo limite 32); `cap` repetido inline.
+   `cleanCategory` = `cleanBonusLabel` (mesmo limite 32); `cap` repetido inline. Agora `labelKey`, `nameKey`,
+   `slugOf`, `cap` e `cleanLabel` em `core/text.ts` (o `fold(by).trim()` do autor em comparison fica: não junta espaços).
 3. [ ] **Plural**: `plural(n, um, muitos)` privado no profile-edit; `spokenComments` e ~25 ternários `n === 1 ? …`
    iguais; "N anotações" montado à mão onde `countOf(NOTES)` já dá; ternário morto em profile-hero (`'com fichas'` nos dois lados).
 4. [ ] **Datas**: `news.today` e `muraldle.dayKey` são `localDay`; `stats-page.created` monta o dia à mão; `previousDay`

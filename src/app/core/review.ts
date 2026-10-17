@@ -4,7 +4,7 @@ import { cleanCategory, sanitizeTags } from './note-labels';
 import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
 import { BUILD } from './build';
 import { migrateReview } from './migrations';
-import { fold } from './text';
+import { cleanLabel, fold, nameKey, slugOf } from './text';
 
 export type { Kind } from './kinds';
 export { fold } from './text';
@@ -163,17 +163,13 @@ export function isCatalogBonus(kind: Kind, id: string): boolean {
  * no id para "Curto" a favor numa ficha e "Curto" contra noutra não virarem o mesmo bônus.
  */
 export function customBonusId(label: string, kind: BonusKind): string {
-  const slug = fold(label)
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48);
+  const slug = slugOf(label);
   return `u-${kind === 'favor' ? 'f' : 'c'}-${slug || 'bonus'}`;
 }
 
 /** "  muitos   inimigos " → "Muitos inimigos". */
 export function cleanBonusLabel(label: string): string {
-  const flat = label.replace(/\s+/g, ' ').trim().slice(0, BONUS_MAX_LABEL).trim();
-  return flat.charAt(0).toUpperCase() + flat.slice(1);
+  return cleanLabel(label, BONUS_MAX_LABEL);
 }
 
 /** Os a favor primeiro, os contra depois; dentro de cada lado, a ordem em que foram colados. */
@@ -523,7 +519,7 @@ function reroot(times: readonly Review[], root: string, now: string): Review[] {
 
 /** O nome como conta para dizer que é a mesma obra: sem maiúsculas, acentos e espaços a mais. */
 function workKey(s: string | undefined): string {
-  return fold(s ?? '').trim().replace(/\s+/g, ' ');
+  return nameKey(s ?? '');
 }
 
 /**
