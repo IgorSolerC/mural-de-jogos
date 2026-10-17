@@ -80,7 +80,7 @@ export const VERDICT_ICON: Record<Verdict, LucideIconData> = {
       pointer-events: none;
     }
     .gold .palavra {
-      background: linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
+      background: var(--foil-gold-word);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
@@ -217,7 +217,7 @@ let uid = 0;
       pointer-events: none;
     }
     .canhoto.colado.gold .palavra {
-      background: linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
+      background: var(--foil-gold-word);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;

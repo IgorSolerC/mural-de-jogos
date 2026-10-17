@@ -390,7 +390,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
       pointer-events: none;
     }
     .canhoto.colado.gold .palavra {
-      background: linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
+      background: var(--foil-gold-word);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;

@@ -65,7 +65,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     `--f-mono` (5 pilhas monoespaçadas). Agora `--papel-ficha`, `--papel-orelha`, `--manilha` (era redefinido igual
     em quatro lugares), `--error-ink` e `--f-mono` no `:root`; as reservas que nunca valiam saíram. A pilha mono fica a
     de quatro dos cinco (a leitura tinha Consolas depois de Courier New, que nunca chegava a valer no Windows).
-16. [ ] **Dourado repetido**: o mesmo gradiente dourado escrito 4 vezes (filter-sheet, judge-label, verdict ×2).
+16. [x] **Dourado repetido**: o mesmo gradiente dourado escrito 4 vezes (filter-sheet, judge-label, verdict ×2). Agora
+    `--foil-gold-word` no `:root`, ao lado do `--foil-gold`.
 17. [ ] **Tachinha com a cor padrão escrita**: `color="#e62e2d"` em 24 tachinhas, que já é o padrão do `app-pin`.
 18. [ ] **Folha creme**: `kit.folha` existe e é usado uma vez; settings copia igual.
 19. [ ] **Linha de ajuste** (`.linha`, `.linha-titulo`, `.linha-desc`): igual em settings, mural-config e Amigos, sem mixin.

@@ -243,7 +243,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     .band.gold span {
       background:
         linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.95) 45%, transparent 60%) calc(var(--shine) * 1.6 - 60%) 0 / 220% 100% no-repeat,
-        linear-gradient(100deg, #d8ab48 0%, #f7dc8a 30%, #fff4c4 45%, #e3b857 65%, #f3d27a 100%);
+        var(--foil-gold-word);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
