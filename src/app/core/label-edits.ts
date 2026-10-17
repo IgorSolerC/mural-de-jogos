@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { CategoryLook, CategoryLooks, lookKey, tagLookKey } from './category-looks';
+import { CategoryLook, CategoryLooks, lookKey, tagKeyPrefix, tagLookKey } from './category-looks';
 import { KanbanStore } from './kanban-store';
 import { NotesConfig } from './mural-config';
 import { MAX_PINNED_TAGS, cleanCategory, cleanTag, sanitizeTags } from './note-labels';
@@ -12,8 +12,11 @@ import { SharedStore } from './shared-store';
 /**
  * Renomear e apagar uma categoria ou uma tag das anotações, pelas Configurações do mural. O nome mora
  * em vários lugares, e todos acompanham: as próprias anotações, o ícone e a cor (nos jeitos das
- * categorias, com a chave "#" das tags), a ordem e os padrões de cada categoria, as tags fixas e o
+ * categorias, com as chaves "#" das tags), a ordem e os padrões de cada categoria, as tags fixas e o
  * quadro do Kanban (um por categoria, pelo nome).
+ *
+ * A tag é de uma categoria: renomear ou apagar a "Bug" do Trabalho não mexe na "Bug" dos Estudos, e
+ * cada uma tem a sua cor (ver `tagLookKey`).
  *
  * Renomear para o nome de outra que já existe junta as duas: as anotações passam para ela, e o que
  * ela já tinha (cor, padrões, lugar na ordem, colunas do quadro) vale; o da que sumiu só entra onde
@@ -44,10 +47,16 @@ export function notesWithCategory(notes: readonly Review[], from: string, to: st
   return out;
 }
 
-/** As anotações com a tag `from` (pela chave), agora com `to` no lugar dela (null: sem ela). */
-export function notesWithTag(notes: readonly Review[], from: string, to: string | null, at: string): Review[] {
+/** A anotação é da categoria (pela chave; "" é a sem categoria)? */
+export function inCategory(r: Pick<Review, 'category'>, category: string): boolean {
+  return lookKey(r.category ?? '') === category;
+}
+
+/** As anotações da categoria `category` (a chave) com a tag `from` (pela chave), agora com `to` no lugar dela (null: sem ela). */
+export function notesWithTag(notes: readonly Review[], category: string, from: string, to: string | null, at: string): Review[] {
   const out: Review[] = [];
   for (const r of notes) {
+    if (!inCategory(r, category)) continue;
     const tags = r.tags ?? [];
     if (!tags.some((t) => lookKey(t) === from)) continue;
     // no lugar dela, para a ordem das tags na ficha não mudar; se a anotação já tinha a outra, fica uma
@@ -67,6 +76,47 @@ export function looksMoved(looks: CategoryLooks, from: string, to: string | null
   if (from === to) return { ...looks };
   if (!moving || !to || rest[to]) return rest;
   return { ...rest, [to]: moving };
+}
+
+/**
+ * A cor das tags da categoria `from` passada para a categoria `to` (null: apagada, e as cores vão
+ * junto); a que a tag já tinha em `to`, se tinha, vale.
+ */
+export function tagLooksMoved(looks: CategoryLooks, from: string, to: string | null): Record<string, CategoryLook> {
+  const out: Record<string, CategoryLook> = { ...looks };
+  const fromPrefix = tagKeyPrefix(from);
+  if (to !== null && tagKeyPrefix(to) === fromPrefix) return out;
+  for (const [k, look] of Object.entries(looks)) {
+    // a chave de uma tag nunca começa com "#": o que começa é de outra categoria ("a" e "a#b")
+    if (!k.startsWith(fromPrefix) || k.slice(fromPrefix.length).startsWith('#')) continue;
+    delete out[k];
+    const moved = to === null ? null : tagKeyPrefix(to) + k.slice(fromPrefix.length);
+    if (moved && !out[moved]) out[moved] = look;
+  }
+  return out;
+}
+
+/**
+ * A cor da tag `from` na categoria passada para `to` (null: apagada). A que valia vai junto, mesmo a
+ * de sempre da tag (que não muda o nome, porque vale nas outras categorias). Juntando (`to` já está
+ * em anotações da categoria), vale a cor de `to`.
+ */
+export function tagLookMoved(looks: CategoryLooks, category: string, from: string, to: string | null, merging: boolean): Record<string, CategoryLook> {
+  const out: Record<string, CategoryLook> = { ...looks };
+  const fromKey = tagLookKey(from, category);
+  const look = looks[fromKey] ?? (looks[tagLookKey(from)]?.color ? { color: looks[tagLookKey(from)]!.color } : null);
+  delete out[fromKey];
+  if (to === null || lookKey(to) === lookKey(from)) {
+    if (to !== null && looks[fromKey]) out[fromKey] = looks[fromKey];
+    return out;
+  }
+  const toKey = tagLookKey(to, category);
+  if (merging) return out;
+  if (look) out[toKey] = look;
+  // sem cor, continua sem: a cor de sempre do nome novo (de outra categoria) não entra por baixo
+  else if (looks[tagLookKey(to)]?.color) out[toKey] = { none: true };
+  else delete out[toKey];
+  return out;
 }
 
 /** A ordem e os padrões das categorias com a chave `from` passada para `to` (null: apagada). */
@@ -96,10 +146,11 @@ export class LabelEdits {
     return this.store.notes().filter((r) => !!r.category && lookKey(r.category) === key).length;
   }
 
-  /** Quantas anotações têm a tag (pela chave). */
-  tagUses(tag: string): number {
+  /** Quantas anotações da categoria ("" é a sem categoria) têm a tag (pela chave). */
+  tagUses(tag: string, category: string): number {
     const key = lookKey(tag);
-    return this.store.notes().filter((r) => (r.tags ?? []).some((t) => lookKey(t) === key)).length;
+    const cat = lookKey(category);
+    return this.store.notes().filter((r) => inCategory(r, cat) && (r.tags ?? []).some((t) => lookKey(t) === key)).length;
   }
 
   /** O nome de outra categoria que já atende por `name` (sem ligar para caixa e acento), para juntar. */
@@ -109,10 +160,12 @@ export class LabelEdits {
     return this.store.notes().find((r) => !!r.category && lookKey(r.category) === key)?.category ?? null;
   }
 
-  existingTag(name: string, except: string): string | null {
+  /** O nome de outra tag da mesma categoria que já atende por `name`, para juntar. */
+  existingTag(name: string, except: string, category: string): string | null {
     const key = lookKey(name);
+    const cat = lookKey(category);
     if (key === lookKey(except)) return null;
-    return this.store.notes().flatMap((r) => r.tags ?? []).find((t) => lookKey(t) === key) ?? null;
+    return this.store.notes().filter((r) => inCategory(r, cat)).flatMap((r) => r.tags ?? []).find((t) => lookKey(t) === key) ?? null;
   }
 
   /** Renomeia a categoria (null: apaga). Devolve quantas anotações mudaram e quantas ficaram de fora. */
@@ -123,25 +176,29 @@ export class LabelEdits {
     const toKey = to === null ? null : lookKey(to);
     const result = this.save(notesWithCategory(this.store.notes(), from, to, new Date().toISOString()));
     if (toKey !== from) {
-      this.settings.applyCategoryLooks(looksMoved(this.settings.categoryLooks(), from, toKey), new Date().toISOString());
+      // apagada, as anotações dela ficam sem categoria, e as tags levam a cor para lá
+      this.settings.applyCategoryLooks(tagLooksMoved(looksMoved(this.settings.categoryLooks(), from, toKey), from, toKey ?? ''), new Date().toISOString());
       this.settings.setNotesConfig(configMoved(this.settings.notesConfig(), from, toKey));
       this.kanban.moveCategory(from, toKey);
     }
     return result;
   }
 
-  /** Renomeia a tag (null: tira de todas as anotações). */
-  renameTag(tag: string, name: string | null): LabelEditResult {
+  /**
+   * Renomeia a tag nas anotações da categoria ("" é a sem categoria; null no nome: tira dela). A tag
+   * fixa acompanha só quando a de antes não ficou em mais nenhuma anotação.
+   */
+  renameTag(tag: string, category: string, name: string | null): LabelEditResult {
     const from = lookKey(tag);
+    const cat = lookKey(category);
     const to = name === null ? null : cleanTag(name);
     if (to === '') return { changed: 0, skipped: 0 };
-    const toKey = to === null ? null : lookKey(to);
-    const result = this.save(notesWithTag(this.store.notes(), from, to, new Date().toISOString()));
     const at = new Date().toISOString();
-    if (toKey !== from) {
-      this.settings.applyCategoryLooks(looksMoved(this.settings.categoryLooks(), tagLookKey(tag), toKey === null ? null : `#${toKey}`), at);
-    }
-    if (this.settings.pinnedTags().some((t) => lookKey(t) === from)) this.settings.applyPinnedTags(pinnedMoved(this.settings.pinnedTags(), from, to), at);
+    const merging = to !== null && !!this.existingTag(to, tag, category);
+    const result = this.save(notesWithTag(this.store.notes(), cat, from, to, at));
+    this.settings.applyCategoryLooks(tagLookMoved(this.settings.categoryLooks(), cat, tag, to, merging), at);
+    const left = this.store.notes().some((r) => (r.tags ?? []).some((t) => lookKey(t) === from));
+    if (!left && this.settings.pinnedTags().some((t) => lookKey(t) === from)) this.settings.applyPinnedTags(pinnedMoved(this.settings.pinnedTags(), from, to), at);
     return result;
   }
 

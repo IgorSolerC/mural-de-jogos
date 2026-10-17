@@ -23,7 +23,7 @@ import { TagColors } from './tag-colors';
 const SECTIONS = [
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: SlidersHorizontal },
   { id: 'categorias', label: 'Categorias', hint: 'Nome, ordem, cor e padrões', icon: Tags },
-  { id: 'tags', label: 'Tags', hint: 'Nome e cor de cada uma', icon: Tag },
+  { id: 'tags', label: 'Tags', hint: 'Por categoria: nome e cor', icon: Tag },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -74,6 +74,17 @@ function tally(names: Iterable<string>): CategoryRow[] {
   return rows.sort((a, b) => b.n - a.n || collator.compare(a.label, b.label));
 }
 
+/** As tags de uma categoria, na parte Tags: cada categoria com as suas. */
+interface TagGroup {
+  /** A chave da categoria ("" para as anotações sem categoria). */
+  key: string;
+  /** O nome à mostra ("Sem categoria" para as sem). */
+  label: string;
+  /** A categoria como vai para as cores e o renomear ("" para as sem). */
+  category: string;
+  tags: CategoryRow[];
+}
+
 /** O arrastar de uma categoria pela alça: onde ela estava, onde vai cair e quanto andou. */
 interface Drag {
   key: string;
@@ -88,7 +99,8 @@ interface Drag {
  * As configurações do mural de anotações: a engrenagem da pasta abre esta folha (ver WallToolbar).
  * Padrões: como nasce toda anotação (privacidade, cor da sub-nota) e as perguntas antes de salvar.
  * Categorias: a ordem das abas e, em cada uma, o ícone e a cor e o que ela muda em cima do mural.
- * Tags: a cor de cada tag (a mesma escolha do quadro do Kanban, ver KanbanBoardSheet).
+ * Tags: as tags de cada categoria, com a cor de cada uma ali (a mesma escolha do quadro do Kanban
+ * daquela categoria, ver KanbanBoardSheet).
  * Nas duas, renomear e apagar (em toda anotação que usa; ver core/label-edits.ts), apagar com a
  * pergunta antes.
  * Tudo vale na hora e fica guardado (ver core/mural-config.ts). Chega num pedaço à parte, só quando
@@ -144,8 +156,22 @@ export class MuralConfig {
     return arrangedKeys(this.config().order, rows.map((r) => r.key)).map((k) => byKey.get(k)!);
   });
 
-  /** As tags das anotações (finalizadas também), da mais usada para a menos. */
-  protected readonly tags = computed<CategoryRow[]>(() => tally(this.store.notes().flatMap((r) => r.tags ?? [])));
+  /**
+   * As tags de cada categoria, na ordem das categorias (a das abas), e as das anotações sem categoria
+   * por último; em cada uma, da mais usada para a menos (finalizadas também). A mesma tag aparece em
+   * cada categoria em que é usada, com a cor dela ali.
+   */
+  protected readonly tagGroups = computed<TagGroup[]>(() => {
+    const notes = this.store.notes();
+    const groups: TagGroup[] = [];
+    for (const c of this.categories()) {
+      const tags = tally(notes.filter((r) => !!r.category && lookKey(r.category) === c.key).flatMap((r) => r.tags ?? []));
+      if (tags.length) groups.push({ key: c.key, label: c.label, category: c.label, tags });
+    }
+    const loose = tally(notes.filter((r) => !r.category?.trim()).flatMap((r) => r.tags ?? []));
+    if (loose.length) groups.push({ key: '', label: 'Sem categoria', category: '', tags: loose });
+    return groups;
+  });
 
   /** A categoria aberta (uma por vez, como o acordeão do perfil). */
   protected readonly open = signal<string | null>(null);
@@ -261,57 +287,77 @@ export class MuralConfig {
     this.notice.set(`${row.label} foi apagada ${this.told(r)}`);
   }
 
-  protected startTagRename(row: CategoryRow): void {
-    this.renamingTag.set(row.key);
-    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLInputElement>(`[data-tag-campo="${CSS.escape(row.key)}"]`)?.select(), { injector: this.injector });
+  /** O id de uma tag na folha: a categoria e a tag (a mesma tag aparece em cada categoria). */
+  protected tagId(group: TagGroup, row: CategoryRow): string {
+    return `${group.key}|${row.key}`;
+  }
+
+  protected startTagRename(group: TagGroup, row: CategoryRow): void {
+    const id = this.tagId(group, row);
+    this.renamingTag.set(id);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLInputElement>(`[data-tag-campo="${CSS.escape(id)}"]`)?.select(), { injector: this.injector });
   }
 
   /** Fecha o campo da tag e devolve o foco ao lápis dela. */
-  protected stopTagRename(key: string): void {
+  protected stopTagRename(id: string): void {
     this.renamingTag.set(null);
-    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-tag-lapis="${CSS.escape(key)}"]`)?.focus(), { injector: this.injector });
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-tag-lapis="${CSS.escape(id)}"]`)?.focus(), { injector: this.injector });
   }
 
-  protected async renameTag(e: Event, row: CategoryRow, field: HTMLInputElement): Promise<void> {
+  /** "Em Trabalho, " ou "Nas anotações sem categoria, ": onde a tag mudou. */
+  private where(group: TagGroup): string {
+    return group.category ? `Em ${group.label}, ` : 'Nas anotações sem categoria, ';
+  }
+
+  protected async renameTag(e: Event, group: TagGroup, row: CategoryRow, field: HTMLInputElement): Promise<void> {
     e.preventDefault();
     const name = cleanTag(field.value);
     if (!name || name === row.label) {
-      this.stopTagRename(row.key);
+      this.stopTagRename(this.tagId(group, row));
       return;
     }
-    const other = this.edits.existingTag(name, row.label);
+    const other = this.edits.existingTag(name, row.label, group.category);
     if (other) {
       const sure = await this.confirm.ask({
         title: `Juntar com ${other}?`,
-        text: `Já existe a tag ${other}. As anotações com ${row.label} passam a ter ${other}, com a cor dela.`,
+        text: `${group.category ? `${group.label} já tem a tag ${other}` : `As anotações sem categoria já têm a tag ${other}`}. As anotações com ${row.label} passam a ter ${other}, com a cor dela.`,
         confirm: `Juntar com ${other}`,
         tone: 'neutro',
         icon: null,
       });
       if (!sure) return;
     }
-    const r = this.edits.renameTag(row.label, other ?? name);
-    this.stopTagRename(lookKey(other ?? name));
-    this.notice.set(other ? `${row.label} entrou em ${other} ${this.told(r)}` : `${row.label} virou ${name} ${this.told(r)}`);
+    const r = this.edits.renameTag(row.label, group.category, other ?? name);
+    this.stopTagRename(`${group.key}|${lookKey(other ?? name)}`);
+    this.notice.set(`${this.where(group)}${row.label} ${other ? `entrou em ${other}` : `virou ${name}`} ${this.told(r)}`);
   }
 
-  protected async deleteTag(row: CategoryRow): Promise<void> {
+  protected async deleteTag(group: TagGroup, row: CategoryRow): Promise<void> {
     const sure = await this.confirm.ask({
-      title: `Apagar a tag ${row.label}?`,
-      text: `${this.uses(row.n)} esta tag. Ela sai de todas, e a cor dela vai embora; as anotações continuam no mural.`,
+      title: group.category ? `Apagar a tag ${row.label} de ${group.label}?` : `Apagar a tag ${row.label}?`,
+      text: `${this.uses(row.n)} esta tag${group.category ? ` em ${group.label}` : ' sem categoria'}. Ela sai delas, e a cor dela ali vai embora; nas outras categorias, ela continua.`,
       confirm: 'Apagar a tag',
       icon: this.DeleteIcon,
     });
     if (!sure) return;
     this.renamingTag.set(null);
-    const r = this.edits.renameTag(row.label, null);
-    this.notice.set(`${row.label} foi apagada ${this.told(r)}`);
+    const r = this.edits.renameTag(row.label, group.category, null);
+    this.notice.set(`${this.where(group)}${row.label} foi apagada ${this.told(r)}`);
   }
 
   // ===== tags =====
 
-  protected tagColorOf(row: CategoryRow): string | null {
-    return tagColorHex(this.settings.categoryLooks(), row.label);
+  /** O ícone e a cor da categoria do grupo, na orelha (como na parte Categorias). */
+  protected groupLook(group: TagGroup): CategoryLook {
+    return this.settings.categoryLooks()[group.key] ?? {};
+  }
+
+  protected groupColor(group: TagGroup): string | null {
+    return categoryColorHex(this.groupLook(group).color);
+  }
+
+  protected tagColorOf(group: TagGroup, row: CategoryRow): string | null {
+    return tagColorHex(this.settings.categoryLooks(), row.label, group.category);
   }
 
   // ===== categorias =====

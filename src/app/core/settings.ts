@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
-import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
+import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
 import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs } from './mural-config';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
@@ -310,26 +310,34 @@ export class Settings {
     this.categoryLooksAt.set(new Date().toISOString());
   }
 
-  /** A cor da tag (ver `tagLookKey`), ou undefined: a etiqueta de sempre. */
-  tagColor(tag: string): CategoryColorId | undefined {
-    return this.categoryLooks()[tagLookKey(tag)]?.color;
+  /**
+   * A cor da tag (ver `tagLookKey`), ou undefined: a etiqueta de sempre. Com `category` (a da anotação;
+   * "" ou null para a sem categoria), a da tag naquela categoria; sem, só a cor de sempre da tag.
+   */
+  tagColor(tag: string, category?: string | null): CategoryColorId | undefined {
+    return category === undefined ? this.categoryLooks()[tagLookKey(tag)]?.color : tagColorOf(this.categoryLooks(), tag, category);
   }
 
-  /** Troca a cor de várias tags de uma vez (undefined tira a cor); vale como a mudança mais nova. */
-  setTagColors(colors: ReadonlyMap<string, CategoryColorId | undefined>): void {
+  /**
+   * Troca a cor de várias tags de uma vez (undefined tira a cor); vale como a mudança mais nova. Com
+   * `category`, a cor delas naquela categoria (e "Sem cor" por cima da cor de sempre fica marcado);
+   * sem, a cor de sempre (só a conversão dos quadros de antes grava ali).
+   */
+  setTagColors(colors: ReadonlyMap<string, CategoryColorId | undefined>, category?: string | null): void {
     const next: Record<string, CategoryLook> = { ...this.categoryLooks() };
     for (const [tag, color] of colors) {
-      const key = tagLookKey(tag);
-      if (key === '#') continue;
+      if (!lookKey(tag)) continue;
+      const key = category === undefined ? tagLookKey(tag) : tagLookKey(tag, category ?? '');
       if (color) next[key] = { color };
+      else if (category !== undefined && next[tagLookKey(tag)]?.color) next[key] = { none: true };
       else delete next[key];
     }
     this.categoryLooks.set(sanitizeCategoryLooks(next));
     this.categoryLooksAt.set(new Date().toISOString());
   }
 
-  setTagColor(tag: string, color: CategoryColorId | undefined): void {
-    this.setTagColors(new Map([[tag, color]]));
+  setTagColor(tag: string, color: CategoryColorId | undefined, category?: string | null): void {
+    this.setTagColors(new Map([[tag, color]]), category);
   }
 
   /** Os jeitos que vieram de outro aparelho (mudados depois dos daqui). */

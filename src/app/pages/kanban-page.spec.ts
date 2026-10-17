@@ -210,7 +210,9 @@ describe('página do Kanban', () => {
     sheet.querySelector<HTMLFormElement>('.nova')!.dispatchEvent(new Event('submit'));
     await settle();
     expect(store.get('nsync001')!.tags).toEqual(['Urgente']);
-    expect(TestBed.inject(Settings).tagColor('Urgente')).toBeTruthy();
+    // a cor nasce na categoria da anotação
+    expect(TestBed.inject(Settings).tagColor('Urgente', 'Trabalho')).toBeTruthy();
+    expect(TestBed.inject(Settings).tagColor('Urgente', 'Estudos')).toBeUndefined();
   });
 
   it('os ajustes do quadro trocam a cor das tags da categoria, e a ficha muda junto', async () => {
@@ -223,11 +225,13 @@ describe('página do Kanban', () => {
     expect([...sheet.querySelectorAll('.item .previa')].map((t) => t.textContent!.trim())).toEqual(['Correção']);
     sheet.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Verde"]')!.click();
     await settle();
-    expect(TestBed.inject(Settings).tagColor('correcao')).toBe('verde');
+    // só na categoria do quadro
+    expect(TestBed.inject(Settings).tagColor('correcao', 'Trabalho')).toBe('verde');
+    expect(TestBed.inject(Settings).tagColor('correcao', 'Estudos')).toBeUndefined();
     expect(column('afazer').querySelector('[data-nota="nlogin01"] app-note-tag')!.classList).toContain('cor');
     sheet.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Sem cor"]')!.click();
     await settle();
-    expect(TestBed.inject(Settings).tagColor('correcao')).toBeUndefined();
+    expect(TestBed.inject(Settings).tagColor('correcao', 'Trabalho')).toBeUndefined();
     expect(column('afazer').querySelector('[data-nota="nlogin01"] app-note-tag')!.classList).not.toContain('cor');
   });
 

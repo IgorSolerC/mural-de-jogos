@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { BookOpen, LucideAngularModule, Plus, X } from 'lucide-angular';
-import { randomCategoryColor, tagColorHex } from '../core/category-looks';
+import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
 import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, belongs, setImportance } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanStore } from '../core/kanban-store';
@@ -248,8 +248,13 @@ export class KanbanCardSheet {
     this.kanban.update(this.boardId(), (b, at) => setImportance(b, this.noteId(), i, at));
   }
 
+  /** A categoria da anotação: a cor de cada tag é a dela ali. */
+  private category(): string {
+    return this.store.get(this.noteId())?.category ?? '';
+  }
+
   protected colorOf(tag: string): string | null {
-    return tagColorHex(this.settings.categoryLooks(), tag);
+    return tagColorHex(this.settings.categoryLooks(), tag, this.category());
   }
 
   /** Põe ou tira a tag da anotação (a do mural: muda na anotação mesmo, como no editor). */
@@ -272,7 +277,7 @@ export class KanbanCardSheet {
     this.typed.set('');
     if (!tag) return;
     const known = this.library().find((t) => fold(t) === fold(tag));
-    if (!known && !this.settings.tagColor(tag)) this.settings.setTagColor(tag, randomCategoryColor());
+    if (!known && !tagHasLook(this.settings.categoryLooks(), tag, this.category())) this.settings.setTagColor(tag, randomCategoryColor(), this.category());
     const r = this.store.get(this.noteId());
     if (r && !(r.tags ?? []).some((t) => fold(t) === fold(tag))) this.toggleTag(known ?? tag);
   }

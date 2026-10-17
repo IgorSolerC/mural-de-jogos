@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { KanbanBoard, KanbanState, boardIdFor, mergeKanban, moveBoardCategory } from './kanban';
 import { KanbanStore } from './kanban-store';
-import { LabelEdits, configMoved, looksMoved, notesWithCategory, notesWithTag, pinnedMoved } from './label-edits';
+import { LabelEdits, configMoved, looksMoved, notesWithCategory, notesWithTag, pinnedMoved, tagLookMoved, tagLooksMoved } from './label-edits';
 import { NOTES_CONFIG_DEFAULT } from './mural-config';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
@@ -51,11 +51,34 @@ describe('renomear e apagar categorias e tags', () => {
       expect(notesWithCategory([note('n4', 'Trabalho')], 'trabalho', 'Trabalho', AT)).toEqual([]);
     });
 
-    it('a tag: no mesmo lugar, sem repetir na anotação que já tinha a outra; sem nenhuma, o campo sai', () => {
-      expect(notesWithTag(notes, 'bug', 'Erro', AT).map((r) => r.tags)).toEqual([['Erro', 'urgente'], ['Erro'], ['Urgente', 'Erro']]);
-      expect(notesWithTag(notes, 'bug', 'Urgente', AT).map((r) => r.tags)).toEqual([['Urgente'], ['Urgente'], ['Urgente']]);
-      const gone = notesWithTag([note('n5', null, ['bug'])], 'bug', null, AT);
+    it('a tag: só na categoria, no mesmo lugar, sem repetir na anotação que já tinha a outra; sem nenhuma, o campo sai', () => {
+      expect(notesWithTag(notes, 'trabalho', 'bug', 'Erro', AT).map((r) => [r.id, r.tags])).toEqual([
+        ['n1', ['Erro', 'urgente']],
+        ['n2', ['Erro']],
+      ]);
+      expect(notesWithTag(notes, 'trabalho', 'bug', 'Urgente', AT).map((r) => r.tags)).toEqual([['Urgente'], ['Urgente']]);
+      expect(notesWithTag(notes, 'estudos', 'bug', null, AT).map((r) => r.tags)).toEqual([['Urgente']]);
+      // "" é a anotação sem categoria
+      const gone = notesWithTag([note('n5', null, ['bug']), note('n6', 'Casa', ['bug'])], '', 'bug', null, AT);
+      expect(gone.map((r) => r.id)).toEqual(['n5']);
       expect('tags' in gone[0]).toBeFalse();
+    });
+
+    it('a cor da tag na categoria vai com o nome novo, mesmo a de sempre; juntando, fica a da outra', () => {
+      const looks = { '#bug': { color: 'azul' as const }, '##trabalho#bug': { color: 'rosa' as const }, '##trabalho#erro': { color: 'verde' as const } };
+      expect(tagLookMoved(looks, 'trabalho', 'Bug', 'Falha', false)).toEqual({ '#bug': { color: 'azul' }, '##trabalho#falha': { color: 'rosa' }, '##trabalho#erro': { color: 'verde' } });
+      expect(tagLookMoved(looks, 'trabalho', 'Bug', 'Erro', true)).toEqual({ '#bug': { color: 'azul' }, '##trabalho#erro': { color: 'verde' } });
+      // nos Estudos ela tinha a de sempre: o nome novo leva a cor, e a de sempre fica para as outras
+      expect(tagLookMoved(looks, 'estudos', 'Bug', 'Falha', false)['##estudos#falha']).toEqual({ color: 'azul' });
+      expect(tagLookMoved(looks, 'trabalho', 'Bug', null, false)).toEqual({ '#bug': { color: 'azul' }, '##trabalho#erro': { color: 'verde' } });
+      // sem cor, continua sem, mesmo que o nome novo tenha uma cor de sempre
+      expect(tagLookMoved({ '#falha': { color: 'roxo' } }, 'casa', 'Bug', 'Falha', false)['##casa#falha']).toEqual({ none: true });
+    });
+
+    it('a categoria renomeada leva as cores das tags dela; só as dela', () => {
+      const looks = { '##trabalho#bug': { color: 'rosa' as const }, '##trabalho##x#bug': { color: 'azul' as const }, '##projeto#bug': { color: 'verde' as const }, '##trabalho#ideia': { color: 'roxo' as const } };
+      expect(tagLooksMoved(looks, 'trabalho', 'projeto')).toEqual({ '##trabalho##x#bug': { color: 'azul' }, '##projeto#bug': { color: 'verde' }, '##projeto#ideia': { color: 'roxo' } });
+      expect(tagLooksMoved(looks, 'trabalho', '')).toEqual({ '##trabalho##x#bug': { color: 'azul' }, '##projeto#bug': { color: 'verde' }, '###bug': { color: 'rosa' }, '###ideia': { color: 'roxo' } });
     });
 
     it('a cor e os padrões vão para o nome novo; juntando, valem os da que já existia', () => {
@@ -138,22 +161,43 @@ describe('renomear e apagar categorias e tags', () => {
       spyOn(TestBed.inject(SharedStore), 'role').and.callFake((id: string) => (id === 'n2' ? 'editor' : id === 'n3' ? 'gestor' : null));
       expect(edits.renameCategory('Trabalho', 'Projeto')).toEqual({ changed: 1, skipped: 1 });
       // o gestor muda, como o dono
-      expect(edits.renameTag('bug', null)).toEqual({ changed: 2, skipped: 0 });
+      expect(edits.renameTag('bug', 'Estudos', null)).toEqual({ changed: 1, skipped: 0 });
     });
 
-    it('apaga a tag de todas as anotações, com a cor e a fixa', () => {
-      settings.setTagColor('Bug', 'vermelho');
+    it('apaga a tag só da categoria; a fixa sai quando ela não está em mais nenhuma anotação', () => {
+      settings.setTagColor('Bug', 'vermelho', 'Trabalho');
+      settings.setTagColor('Bug', 'azul', 'Estudos');
       settings.togglePinnedTag('BUG');
-      expect(edits.tagUses('bug')).toBe(2);
-      expect(edits.renameTag('Bug', null)).toEqual({ changed: 2, skipped: 0 });
-      expect(store.notes().some((r) => r.tags?.length)).toBeFalse();
-      expect(settings.tagColor('bug')).toBeUndefined();
+      expect(edits.tagUses('bug', 'Trabalho')).toBe(1);
+      expect(edits.renameTag('Bug', 'Trabalho', null)).toEqual({ changed: 1, skipped: 0 });
+      expect(store.notes().map((r) => r.tags ?? [])).toEqual([[], [], ['bug']]);
+      expect(settings.tagColor('bug', 'Trabalho')).toBeUndefined();
+      expect(settings.tagColor('bug', 'Estudos')).toBe('azul');
+      expect(settings.pinnedTags()).toEqual(['BUG']);
+      edits.renameTag('bug', 'Estudos', null);
       expect(settings.pinnedTags()).toEqual([]);
+    });
+
+    it('renomeia a tag só na categoria, com a cor dela ali', () => {
+      settings.setTagColor('Bug', 'rosa', 'Trabalho');
+      expect(edits.existingTag('BUG', 'Ideia', 'Estudos')).toBe('bug');
+      expect(edits.existingTag('Ideia', 'Bug', 'Estudos')).toBeNull();
+      expect(edits.renameTag('Bug', 'Trabalho', 'Falha')).toEqual({ changed: 1, skipped: 0 });
+      expect(store.notes().map((r) => r.tags ?? [])).toEqual([['Falha'], [], ['bug']]);
+      expect(settings.tagColor('Falha', 'Trabalho')).toBe('rosa');
+      expect(settings.tagColor('bug', 'Trabalho')).toBeUndefined();
+    });
+
+    it('a categoria renomeada leva as cores das tags dela', () => {
+      settings.setTagColor('Bug', 'rosa', 'Trabalho');
+      edits.renameCategory('Trabalho', 'Projeto');
+      expect(settings.tagColor('bug', 'Projeto')).toBe('rosa');
+      expect(settings.categoryLooks()['##trabalho#bug']).toBeUndefined();
     });
 
     it('um nome vazio não muda nada', () => {
       expect(edits.renameCategory('Trabalho', '   ')).toEqual({ changed: 0, skipped: 0 });
-      expect(edits.renameTag('Bug', '#')).toEqual({ changed: 0, skipped: 0 });
+      expect(edits.renameTag('Bug', 'Trabalho', '#')).toEqual({ changed: 0, skipped: 0 });
       expect(store.notes().map((r) => r.category)).toEqual(['Trabalho', 'Trabalho', 'Estudos']);
     });
   });

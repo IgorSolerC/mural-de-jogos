@@ -677,6 +677,35 @@ fieldset.linha {
   border-top: 1.5px solid rgb(21 21 21 / 0.2);
 }
 
+/* cada categoria com as suas: a orelha dela pousada no fio, como as abas da pasta */
+.tags-grupo {
+  margin-top: 26px;
+
+  .tags {
+    margin-top: 0;
+  }
+}
+
+.tags-cat {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0;
+  font: inherit;
+
+  .orelha {
+    margin-bottom: 0;
+  }
+
+  .cat-n {
+    padding-bottom: 7px;
+  }
+}
+
+.orelha.sem {
+  color: var(--ink-2);
+}
+
 .tag {
   display: grid;
   grid-template-columns: minmax(0, 210px) minmax(0, 1fr) auto;

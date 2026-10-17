@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { fingerprint, kanbanOf, kanbanPrintOf, kanbanToSync, publicCategoryLooks } from './cloud-sync';
-import { tagColorHex, tagLookKey } from './category-looks';
+import { categoryColorHex, sanitizeCategoryLooks, tagColorHex, tagLookKey } from './category-looks';
 import {
   FRESH_AT,
   KanbanBoard,
@@ -412,15 +412,56 @@ describe('Kanban', () => {
   });
 
   describe('a cor das tags', () => {
-    it('mora com as cores das categorias, numa chave que não esbarra nelas', () => {
+    it('mora com as cores das categorias, numa chave que não esbarra nelas, uma por categoria', () => {
       expect(tagLookKey('Correção')).toBe('#correcao');
-      expect(tagColorHex({ '#correcao': { color: 'azul' }, correcao: { color: 'rosa' } }, 'CORREÇÃO')).toBe('#2d8bd6');
-      expect(tagColorHex({}, 'Correção')).toBeNull();
+      expect(tagLookKey('Correção', 'Trabalho')).toBe('##trabalho#correcao');
+      expect(tagLookKey('Correção', '')).toBe('###correcao');
+      // o "#" da categoria vem dobrado: "a#b" e a tag "c" não esbarram em "a" e a tag "b#c"
+      expect(tagLookKey('c', 'a#b')).not.toBe(tagLookKey('b#c', 'a'));
+      const looks = { '#correcao': { color: 'azul' as const }, correcao: { color: 'rosa' as const }, '##estudos#correcao': { color: 'verde' as const } };
+      // a de sempre da tag vale onde a categoria não escolheu
+      expect(tagColorHex(looks, 'CORREÇÃO', 'Trabalho')).toBe('#2d8bd6');
+      expect(tagColorHex(looks, 'Correção', 'Estudos')).toBe(categoryColorHex('verde'));
+      // "Sem cor" escolhido na categoria vale mais que a de sempre
+      expect(tagColorHex({ ...looks, '##casa#correcao': { none: true } }, 'Correção', 'Casa')).toBeNull();
+      expect(tagColorHex({}, 'Correção', 'Trabalho')).toBeNull();
+    });
+
+    it('trocar a cor numa categoria não muda a das outras; Sem cor por cima da de sempre fica marcado', () => {
+      localStorage.clear();
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      const settings = TestBed.inject(Settings);
+      settings.setTagColors(new Map([['Bug', 'azul']]));
+      settings.setTagColor('Bug', 'rosa', 'Trabalho');
+      expect(settings.tagColor('bug', 'Trabalho')).toBe('rosa');
+      expect(settings.tagColor('bug', 'Estudos')).toBe('azul');
+      settings.setTagColor('Bug', undefined, 'Estudos');
+      expect(settings.tagColor('bug', 'Estudos')).toBeUndefined();
+      expect(settings.categoryLooks()['##estudos#bug']).toEqual({ none: true });
+      // sem a de sempre, "Sem cor" é só não ter nada
+      settings.setTagColor('Ideia', 'verde', 'Casa');
+      settings.setTagColor('Ideia', undefined, 'Casa');
+      expect(settings.categoryLooks()['##casa#ideia']).toBeUndefined();
+      // e tudo sobrevive ao armazenamento (a chave comprida também)
+      const long = 'Uma categoria de nome bem comprido';
+      settings.setTagColor('Uma tag de nome bem comprido também', 'roxo', long);
+      expect(sanitizeCategoryLooks(settings.categoryLooks())).toEqual(settings.categoryLooks());
+      localStorage.clear();
     });
 
     it('no mural público, só as cores das tags das anotações publicadas', () => {
-      const looks = { '#login': { color: 'azul' as const }, '#segredo': { color: 'rosa' as const }, trabalho: { color: 'verde' as const } };
-      expect(publicCategoryLooks(looks, [{ category: 'Trabalho', tags: ['Login'] }])).toEqual({ '#login': { color: 'azul' }, trabalho: { color: 'verde' } });
+      const looks = {
+        '#login': { color: 'azul' as const },
+        '##trabalho#login': { color: 'rosa' as const },
+        '##estudos#login': { color: 'verde' as const },
+        '#segredo': { color: 'rosa' as const },
+        trabalho: { color: 'verde' as const },
+      };
+      expect(publicCategoryLooks(looks, [{ category: 'Trabalho', tags: ['Login'] }])).toEqual({
+        '#login': { color: 'azul' },
+        '##trabalho#login': { color: 'rosa' },
+        trabalho: { color: 'verde' },
+      });
     });
   });
 

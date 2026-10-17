@@ -3,9 +3,10 @@ import { CATEGORY_COLORS, CategoryColorId } from '../core/category-looks';
 import { Settings } from '../core/settings';
 
 /**
- * As cores de uma tag: as mesmas oito das categorias e "Sem cor" (o papel pardo de sempre), cada uma
- * desenhada como uma etiqueta em miniatura (o bico, o contorno colorido por dentro do papel claro,
- * como a tag fica na ficha). Muda na hora, em toda anotação que tem a tag (ver `Settings.setTagColor`).
+ * As cores de uma tag numa categoria (a mesma tag pode ter uma cor em cada uma): as mesmas oito das
+ * categorias e "Sem cor" (o papel pardo de sempre), cada uma desenhada como uma etiqueta em miniatura
+ * (o bico, o contorno colorido por dentro do papel claro, como a tag fica na ficha). Muda na hora, em
+ * toda anotação da categoria que tem a tag (ver `Settings.setTagColor`).
  */
 @Component({
   selector: 'app-tag-colors',
@@ -98,12 +99,14 @@ import { Settings } from '../core/settings';
 })
 export class TagColors {
   readonly tag = input.required<string>();
+  /** A categoria em que a cor vale ("" para as anotações sem categoria). */
+  readonly category = input.required<string>();
 
   protected readonly colors = CATEGORY_COLORS;
   private readonly settings = inject(Settings);
-  protected readonly color = computed(() => this.settings.tagColor(this.tag()));
+  protected readonly color = computed(() => this.settings.tagColor(this.tag(), this.category()));
 
   protected set(color: CategoryColorId | undefined): void {
-    this.settings.setTagColor(this.tag(), color);
+    this.settings.setTagColor(this.tag(), color, this.category());
   }
 }

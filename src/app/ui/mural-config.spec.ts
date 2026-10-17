@@ -171,27 +171,40 @@ describe('as configurações do mural (a folha)', () => {
     expect(second.classList).not.toContain('escondida');
   });
 
-  it('lista as tags da mais usada para a menos, e a cor muda na hora em toda anotação', async () => {
+  it('as tags vêm separadas por categoria (as sem categoria por último), e a cor muda só na categoria', async () => {
+    settings.setCategoryLook('Roadmap site', { color: 'azul' });
     await go('tags');
     expect(el.querySelector('h3')!.textContent).toBe('Tags');
-    const items = () => Array.from(el.querySelectorAll('.tags > li'));
-    expect(items().map((li) => li.querySelector('app-note-tag')!.textContent!.trim())).toEqual(['urgente', 'Ideia', 'bug']);
-    expect(items().map((li) => li.querySelector('.cat-n')!.textContent!.trim())).toEqual(['3 anotações', '2 anotações', '1 anotação']);
-    const second = items()[1];
-    expect(second.querySelector('app-note-tag')!.classList).not.toContain('cor');
-    expect(second.querySelector('[role="radiogroup"]')!.getAttribute('aria-label')).toBe('Cor da tag Ideia');
-    expect(second.querySelector('[aria-label="Sem cor"]')!.getAttribute('aria-checked')).toBe('true');
-    second.querySelector<HTMLButtonElement>('[aria-label="Verde"]')!.click();
+    const groups = () => Array.from(el.querySelectorAll<HTMLElement>('.tags-grupo'));
+    // na ordem das categorias; Receitas não tem tag nenhuma
+    expect(groups().map((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim())).toEqual(['Viagens!', 'Roadmap site', 'Sem categoria']);
+    expect(groups().map((g) => g.getAttribute('aria-label'))).toEqual(['Tags de Viagens!', 'Tags de Roadmap site', 'Tags das anotações sem categoria']);
+    const names = (g: HTMLElement) => Array.from(g.querySelectorAll('.tags > li app-note-tag')).map((t) => t.textContent!.trim());
+    expect(groups().map(names)).toEqual([['Ideia', 'urgente'], ['bug', 'ideia', 'urgente'], ['Urgente']]);
+    expect(groups()[1].querySelector('.tags-cat .cat-n')!.textContent!.trim()).toBe('3 tags');
+    // a orelha com a cor da categoria
+    expect(groups()[1].querySelector('.tags-cat .orelha')!.classList).toContain('orelha-cor');
+    const ideiaViagens = groups()[0].querySelector('.tags > li')!;
+    const ideiaRoadmap = groups()[1].querySelectorAll('.tags > li')[1];
+    expect(ideiaViagens.querySelector('[role="radiogroup"]')!.getAttribute('aria-label')).toBe('Cor da tag Ideia');
+    expect(ideiaViagens.querySelector('[aria-label="Sem cor"]')!.getAttribute('aria-checked')).toBe('true');
+    ideiaViagens.querySelector<HTMLButtonElement>('[aria-label="Verde"]')!.click();
     await fixture.whenStable();
-    expect(settings.tagColor('ideia')).toBe('verde');
-    expect(settings.categoryLooks()['#ideia']).toEqual({ color: 'verde' });
-    expect(second.querySelector('app-note-tag')!.classList).toContain('cor');
-    expect(second.querySelector('[aria-label="Verde"]')!.getAttribute('aria-checked')).toBe('true');
+    expect(settings.tagColor('ideia', 'Viagens!')).toBe('verde');
+    expect(settings.categoryLooks()['##viagens!#ideia']).toEqual({ color: 'verde' });
+    // a mesma tag na outra categoria continua como estava, e pode ter outra cor
+    expect(settings.tagColor('ideia', 'Roadmap site')).toBeUndefined();
+    expect(ideiaRoadmap.querySelector('app-note-tag')!.classList).not.toContain('cor');
+    expect(ideiaViagens.querySelector('app-note-tag')!.classList).toContain('cor');
+    ideiaRoadmap.querySelector<HTMLButtonElement>('[aria-label="Rosa"]')!.click();
+    await fixture.whenStable();
+    expect(settings.tagColor('Ideia', 'Roadmap site')).toBe('rosa');
+    expect(settings.tagColor('Ideia', 'Viagens!')).toBe('verde');
     // Sem cor volta ao papel pardo de sempre
-    second.querySelector<HTMLButtonElement>('[aria-label="Sem cor"]')!.click();
+    ideiaViagens.querySelector<HTMLButtonElement>('[aria-label="Sem cor"]')!.click();
     await fixture.whenStable();
-    expect(settings.tagColor('Ideia')).toBeUndefined();
-    expect(second.querySelector('app-note-tag')!.classList).not.toContain('cor');
+    expect(settings.tagColor('Ideia', 'Viagens!')).toBeUndefined();
+    expect(ideiaViagens.querySelector('app-note-tag')!.classList).not.toContain('cor');
   });
 
   it('sem nenhuma tag, a parte das tags diz onde pôr uma', async () => {
@@ -291,11 +304,16 @@ describe('as configurações do mural (a folha)', () => {
       expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagada em 2 anotações.');
     });
 
-    it('renomear a tag pelo lápis muda todas as anotações, a cor e as fixas; Esc desiste', async () => {
-      settings.setTagColor('urgente', 'vermelho');
+    const group = (label: string) => Array.from(el.querySelectorAll<HTMLElement>('.tags-grupo')).find((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim() === label)!;
+    const tagIn = (cat: string, label: string) => Array.from(group(cat).querySelectorAll<HTMLElement>('.tags > li')).find((li) => li.querySelector('app-note-tag')?.textContent!.trim() === label)!;
+
+    it('renomear a tag pelo lápis muda só as anotações da categoria, com a cor dela ali; Esc desiste', async () => {
+      settings.setTagColor('urgente', 'vermelho', 'Roadmap site');
+      settings.setTagColor('urgente', 'azul', 'Viagens!');
       settings.togglePinnedTag('Urgente');
       await go('tags');
-      tagRow('urgente').querySelector<HTMLButtonElement>('[aria-label="Renomear a tag urgente"]')!.click();
+      const pencil = () => tagIn('Roadmap site', 'urgente').querySelector<HTMLButtonElement>('[aria-label="Renomear a tag urgente em Roadmap site"]')!;
+      pencil().click();
       await settle();
       let field = el.querySelector<HTMLInputElement>('.tag-nome input')!;
       expect(document.activeElement).toBe(field);
@@ -303,44 +321,58 @@ describe('as configurações do mural (a folha)', () => {
       await settle();
       expect(el.querySelector('.tag-nome')).toBeNull();
       expect(el.querySelector('dialog')!.open).toBeTrue();
-      tagRow('urgente').querySelector<HTMLButtonElement>('[aria-label="Renomear a tag urgente"]')!.click();
+      pencil().click();
       await settle();
       field = el.querySelector<HTMLInputElement>('.tag-nome input')!;
       field.value = 'Prioridade';
       submit(el.querySelector<HTMLFormElement>('.tag-nome')!);
       await settle();
-      expect(notes().filter((r) => r.tags?.includes('Prioridade')).length).toBe(3);
-      expect(notes().some((r) => r.tags?.some((t) => t.toLowerCase() === 'urgente'))).toBeFalse();
-      expect(settings.tagColor('Prioridade')).toBe('vermelho');
-      expect(settings.tagColor('urgente')).toBeUndefined();
-      expect(settings.pinnedTags()).toEqual(['Prioridade']);
-      expect(el.querySelector('.aviso')!.textContent).toContain('urgente virou Prioridade em 3 anotações.');
+      expect(notes().filter((r) => r.tags?.includes('Prioridade')).map((r) => r.category)).toEqual(['Roadmap site']);
+      expect(notes().filter((r) => r.tags?.some((t) => t.toLowerCase() === 'urgente')).length).toBe(2);
+      expect(settings.tagColor('Prioridade', 'Roadmap site')).toBe('vermelho');
+      expect(settings.tagColor('urgente', 'Roadmap site')).toBeUndefined();
+      expect(settings.tagColor('urgente', 'Viagens!')).toBe('azul');
+      // a fixa continua: a tag ainda está nas outras categorias
+      expect(settings.pinnedTags()).toEqual(['Urgente']);
+      expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, urgente virou Prioridade em 1 anotação.');
       // o foco volta para o lápis da tag, com o nome novo
-      expect(document.activeElement?.getAttribute('aria-label')).toBe('Renomear a tag Prioridade');
+      expect(document.activeElement?.getAttribute('aria-label')).toBe('Renomear a tag Prioridade em Roadmap site');
     });
 
-    it('a tag com o nome de outra junta as duas, sem repetir na mesma anotação', async () => {
+    it('a tag com o nome de outra da mesma categoria junta as duas, sem repetir na mesma anotação', async () => {
       await go('tags');
-      tagRow('bug').querySelector<HTMLButtonElement>('[aria-label="Renomear a tag bug"]')!.click();
+      tagIn('Roadmap site', 'bug').querySelector<HTMLButtonElement>('[aria-label="Renomear a tag bug em Roadmap site"]')!.click();
       await settle();
       el.querySelector<HTMLInputElement>('.tag-nome input')!.value = 'URGENTE';
       submit(el.querySelector<HTMLFormElement>('.tag-nome')!);
       await settle();
       expect(asked[0].title).toBe('Juntar com urgente?');
+      expect(asked[0].text).toContain('Roadmap site já tem a tag urgente');
       expect(notes().find((r) => r.category === 'Roadmap site' && r.tags?.includes('urgente'))!.tags).toEqual(['urgente']);
     });
 
-    it('apagar a tag pergunta antes e tira a tag de todas as anotações', async () => {
-      settings.setTagColor('Ideia', 'verde');
+    it('o nome de uma tag de outra categoria não junta nada: é outra tag', async () => {
       await go('tags');
-      tagRow('Ideia').querySelector<HTMLButtonElement>('[aria-label="Apagar a tag Ideia"]')!.click();
+      tagIn('Viagens!', 'Ideia').querySelector<HTMLButtonElement>('[aria-label="Renomear a tag Ideia em Viagens!"]')!.click();
       await settle();
-      expect(asked[0].title).toBe('Apagar a tag Ideia?');
-      expect(asked[0].text).toContain('2 anotações usam esta tag');
-      expect(notes().some((r) => r.tags?.some((t) => t.toLowerCase() === 'ideia'))).toBeFalse();
-      expect(notes().filter((r) => r.tags?.length).length).toBe(3);
-      expect(settings.tagColor('Ideia')).toBeUndefined();
-      expect(Array.from(el.querySelectorAll('.tags > li app-note-tag')).map((t) => t.textContent!.trim())).toEqual(['urgente', 'bug']);
+      el.querySelector<HTMLInputElement>('.tag-nome input')!.value = 'bug';
+      submit(el.querySelector<HTMLFormElement>('.tag-nome')!);
+      await settle();
+      expect(asked).toEqual([]);
+      expect(notes()[0].tags).toEqual(['bug']);
+    });
+
+    it('apagar a tag pergunta antes e tira a tag só das anotações da categoria', async () => {
+      settings.setTagColor('Ideia', 'verde', 'Roadmap site');
+      await go('tags');
+      tagIn('Roadmap site', 'ideia').querySelector<HTMLButtonElement>('[aria-label="Apagar a tag ideia de Roadmap site"]')!.click();
+      await settle();
+      expect(asked[0].title).toBe('Apagar a tag ideia de Roadmap site?');
+      expect(asked[0].text).toContain('1 anotação usa esta tag em Roadmap site');
+      expect(notes().filter((r) => r.tags?.some((t) => t.toLowerCase() === 'ideia')).map((r) => r.category)).toEqual(['Viagens!']);
+      expect(settings.tagColor('Ideia', 'Roadmap site')).toBeUndefined();
+      expect(Array.from(group('Roadmap site').querySelectorAll('.tags > li app-note-tag')).map((t) => t.textContent!.trim())).toEqual(['bug', 'urgente']);
+      expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, ideia foi apagada em 1 anotação.');
     });
   });
 

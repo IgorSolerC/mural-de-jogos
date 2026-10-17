@@ -227,7 +227,9 @@ export function publicCategoryLooks(looks: CategoryLooks, notes: readonly unknow
   for (const n of notes) {
     const { category, tags } = (n ?? {}) as { category?: unknown; tags?: unknown };
     if (typeof category === 'string') used.add(lookKey(category));
-    if (Array.isArray(tags)) for (const t of tags) if (typeof t === 'string') used.add(tagLookKey(t));
+    // a cor da tag na categoria da anotação, e a de sempre da tag, que vale onde a categoria não escolheu
+    const cat = typeof category === 'string' ? category : '';
+    if (Array.isArray(tags)) for (const t of tags) if (typeof t === 'string') used.add(tagLookKey(t)).add(tagLookKey(t, cat));
   }
   return Object.fromEntries(Object.entries(looks).filter(([k]) => used.has(k)));
 }

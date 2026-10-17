@@ -3,7 +3,7 @@ import { ChevronUp, LucideAngularModule, LucideIconData, Palette, Plus, Star, St
 import { Bonus, fold } from '../core/review';
 import { LABEL_MAX, MAX_TAGS, TagEntry, categoryBonus, cleanCategory, cleanTag } from '../core/note-labels';
 import { Settings } from '../core/settings';
-import { randomCategoryColor, tagColorHex } from '../core/category-looks';
+import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
 import { BonusSticker } from './bonus';
 import { CATEGORY_ICON } from './category-label';
 import { CategoryStyle } from './category-style';
@@ -626,9 +626,9 @@ export class NoteLabelsPicker {
     return look.icon ? CATEGORY_ICON[look.icon] : null;
   }
 
-  /** A cor da tag, ou null (o papel pardo de sempre). */
+  /** A cor da tag na categoria escolhida, ou null (o papel pardo de sempre). */
   protected colorOf(tag: string): string | null {
-    return tagColorHex(this.settings.categoryLooks(), tag);
+    return tagColorHex(this.settings.categoryLooks(), tag, this.category() ?? '');
   }
 
   /** Outra anotação: esquece o que foi escrito na anterior. */
@@ -731,10 +731,12 @@ export class NoteLabelsPicker {
     this.active.set(0);
     if (!tag || this.tags().length >= MAX_TAGS) return;
     if (this.tags().some((t) => fold(t) === fold(tag))) return;
-    const known = this.library().find((e) => fold(e.label) === fold(tag))?.label;
-    // como a categoria nova: a tag que ninguém usa ainda ganha uma das cores, sorteada (dá para
-    // trocar nos ajustes do quadro do Kanban)
-    if (!known && !this.settings.tagColor(tag)) this.settings.setTagColor(tag, randomCategoryColor());
+    const entry = this.library().find((e) => fold(e.label) === fold(tag));
+    const known = entry?.label;
+    // como a categoria nova: a tag que ainda não está em nenhuma anotação da categoria, e não tem cor
+    // nela, ganha uma das cores, sorteada (dá para trocar nas configurações do mural)
+    const category = this.category() ?? '';
+    if (!entry?.n && !tagHasLook(this.settings.categoryLooks(), tag, category)) this.settings.setTagColor(tag, randomCategoryColor(), category);
     this.tags.update((l) => [...l, known ?? tag]);
     if (keepFocus) setTimeout(() => this.tagInput()?.nativeElement.focus());
   }

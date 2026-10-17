@@ -9,6 +9,11 @@ import { fold } from './review';
 export interface CategoryLook {
   icon?: CategoryIconId;
   color?: CategoryColorId;
+  /**
+   * Só nas tags de uma categoria (ver `tagLookKey`): "Sem cor" escolhido ali, que vale mais que a cor
+   * de sempre da tag. Sem ele, a categoria sem cor própria mostra a de sempre.
+   */
+  none?: true;
 }
 
 /** Os desenhos que dá para escolher (o desenho de cada um fica em ui/category-label.ts). */
@@ -91,8 +96,8 @@ export function bandColor(artist: string): CategoryColorId {
 /** Os jeitos guardados: a categoria sem acento nem caixa → o jeito dela. */
 export type CategoryLooks = Readonly<Record<string, CategoryLook>>;
 
-/** Categorias e tags demais viram lixo guardado: no máximo estas com jeito próprio. */
-export const MAX_CATEGORY_LOOKS = 500;
+/** Categorias e tags demais viram lixo guardado: no máximo estas com jeito próprio (as tags contam uma vez por categoria). */
+export const MAX_CATEGORY_LOOKS = 2000;
 
 /** A chave de uma categoria nos jeitos guardados (a mesma das abas, sem o "c:"). */
 export function lookKey(category: string): string {
@@ -100,18 +105,44 @@ export function lookKey(category: string): string {
 }
 
 /**
- * A chave de uma tag nos mesmos jeitos guardados: "#" e a tag sem acento nem caixa. A tag nunca
- * começa com "#" (ver `cleanTag`), então a chave dela não esbarra na de nenhuma tag. A tag só tem cor
- * (o desenho é sempre a etiqueta de papel pardo). Morar junto com as categorias leva a cor para a
- * nuvem, para o mural público e para o mural dos amigos pelo mesmo caminho.
+ * A chave de uma tag nos mesmos jeitos guardados. A tag só tem cor (o desenho é sempre a etiqueta de
+ * papel pardo). Morar junto com as categorias leva a cor para a nuvem, para o mural público e para o
+ * mural dos amigos pelo mesmo caminho.
+ *
+ * - Sem `category`: "#" e a tag sem acento nem caixa, a cor de sempre da tag (a de antes de cada
+ *   categoria ter a sua). A tag nunca começa com "#" (ver `cleanTag`), então a chave dela não esbarra
+ *   na de nenhuma tag. Nada novo grava aqui: ela fica como a cor de partida da tag em toda categoria.
+ * - Com `category` (a da anotação; "" para a anotação sem categoria): "##", a categoria (com cada "#"
+ *   dobrado), "#" e a tag. A mesma tag pode ter uma cor em cada categoria.
  */
-export function tagLookKey(tag: string): string {
-  return `#${lookKey(tag)}`;
+export function tagLookKey(tag: string, category?: string | null): string {
+  if (category === undefined || category === null) return `#${lookKey(tag)}`;
+  return `##${lookKey(category).replace(/#/g, '##')}#${lookKey(tag)}`;
 }
 
-/** O hex da cor da tag nos jeitos, ou null (a etiqueta de sempre). */
-export function tagColorHex(looks: CategoryLooks, tag: string): string | null {
-  return categoryColorHex(looks[tagLookKey(tag)]?.color);
+/** A cor da tag na categoria (a dela, ou a de sempre da tag), ou undefined: a etiqueta de sempre. */
+export function tagColorOf(looks: CategoryLooks, tag: string, category: string | null | undefined): CategoryColorId | undefined {
+  const own = looks[tagLookKey(tag, category ?? '')];
+  if (own) return own.none ? undefined : own.color;
+  return looks[tagLookKey(tag)]?.color;
+}
+
+/** O hex da cor da tag na categoria da anotação, ou null (a etiqueta de sempre). */
+export function tagColorHex(looks: CategoryLooks, tag: string, category: string | null | undefined): string | null {
+  return categoryColorHex(tagColorOf(looks, tag, category));
+}
+
+/**
+ * A tag já tem jeito na categoria: uma cor (dela ou a de sempre da tag) ou um "Sem cor" escolhido. A
+ * tag nova que ainda não tem nenhum dos dois ganha uma cor sorteada, como a categoria nova.
+ */
+export function tagHasLook(looks: CategoryLooks, tag: string, category: string | null | undefined): boolean {
+  return !!looks[tagLookKey(tag, category ?? '')] || !!looks[tagLookKey(tag)]?.color;
+}
+
+/** As chaves das cores das tags de uma categoria ("" é a da anotação sem categoria) começam assim. */
+export function tagKeyPrefix(category: string): string {
+  return `##${lookKey(category).replace(/#/g, '##')}#`;
 }
 
 /** Os jeitos de um backup ou da nuvem: só desenhos e cores conhecidos, sem os vazios. */
@@ -121,13 +152,15 @@ export function sanitizeCategoryLooks(raw: unknown): Record<string, CategoryLook
   let n = 0;
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
     if (n >= MAX_CATEGORY_LOOKS) break;
-    const key = lookKey(k).slice(0, 64);
+    // a cor de uma tag numa categoria leva o nome das duas: cabe mais
+    const key = lookKey(k).slice(0, k.startsWith('##') ? 140 : 64);
     if (!key || !v || typeof v !== 'object') continue;
-    const { icon, color } = v as Record<string, unknown>;
+    const { icon, color, none } = v as Record<string, unknown>;
     const look: CategoryLook = {};
     if ((CATEGORY_ICONS as readonly unknown[]).includes(icon)) look.icon = icon as CategoryIconId;
     if (CATEGORY_COLORS.some((c) => c.id === color)) look.color = color as CategoryColorId;
-    if (look.icon || look.color) {
+    else if (none === true && key.startsWith('##')) look.none = true;
+    if (look.icon || look.color || look.none) {
       out[key] = look;
       n++;
     }

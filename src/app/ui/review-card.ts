@@ -1824,7 +1824,7 @@ export class ReviewCard {
 
   /** A cor que o dono deu à tag, ou null (o papel pardo de sempre). */
   protected tagColor(tag: string): string | null {
-    return tagColorHex(this.looks(), tag);
+    return tagColorHex(this.looks(), tag, this.review().category ?? '');
   }
 
   /** O desenho e a cor da categoria na orelha: os que o dono escolheu (sem escolha, o de sempre). */

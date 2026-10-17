@@ -489,7 +489,7 @@ export class ReviewReader {
   }
   /** A cor da tag, só nas suas anotações (como o desenho da categoria). */
   protected tagColor(tag: string): string | null {
-    return this.owner() === null ? tagColorHex(this.settings.categoryLooks(), tag) : null;
+    return this.owner() === null ? tagColorHex(this.settings.categoryLooks(), tag, this.review()?.category ?? '') : null;
   }
   protected readonly PinIcon = PinGlyph;
   protected readonly UnpinIcon = PinOff;
