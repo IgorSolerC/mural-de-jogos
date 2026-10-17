@@ -1,10 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { localDay } from './review';
 import { ReviewStore } from './review-store';
 import { CloudSync } from './cloud-sync';
 import { Settings } from './settings';
 import { Toasts } from '../ui/toast';
-import { DAY_MS } from './dates';
+import { DAY_MS, localDay } from './dates';
 import { writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:backup:v1';

@@ -51,7 +51,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e
     o Desfazer não pode ser clicado: ajustes da coluna do Kanban (vestir o card, ordenar), Pessoas (seguir), comentários. Um `popover` por cima do diálogo continua inerte no
     Chrome (testado), então o bilhete entra no diálogo modal de cima enquanto aparece e volta quando some ou ele fecha.
-13. [ ] **Dia em UTC**: o Card padrão do Kanban usa o dia UTC (`toISOString`), que depois das 21h no Brasil já é amanhã.
+13. [x] **Dia em UTC**: o Card padrão do Kanban usa o dia UTC (`toISOString`), que depois das 21h no Brasil já é amanhã. Também o nome do arquivo "antes da nuvem"
+    nos Ajustes (`copy.at.slice(0, 10)`). Os dois usam o dia local agora.
 14. [ ] **Fechar sem `aria-hidden`**: o X da leitura e do editor anunciam o ícone.
 
 ## Estilos (SCSS)

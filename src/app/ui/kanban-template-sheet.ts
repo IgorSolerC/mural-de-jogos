@@ -10,10 +10,11 @@ import { BackdropClose } from './backdrop-close';
 import { CardKit } from './card-kit';
 import { KanbanReviewCard } from './kanban-note';
 import { Toasts } from './toast';
+import { todayISO } from '../core/dates';
 
 /** Uma anotação de mentira com o visual do card padrão, para a prévia (a ficha do quadro de verdade). */
 export function sampleNote(id: string, name: string, look: CardLook): Review {
-  const r = sanitizeReview({ kind: 'anotacoes', game: { name }, text: 'Assim fica cada anotação que chega aqui.', completedAt: new Date().toISOString().slice(0, 10), ...look })!;
+  const r = sanitizeReview({ kind: 'anotacoes', game: { name }, text: 'Assim fica cada anotação que chega aqui.', completedAt: todayISO(), ...look })!;
   return { ...r, id };
 }
 

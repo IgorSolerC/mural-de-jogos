@@ -50,7 +50,7 @@ import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePres
 import { Confirm } from '../ui/confirm';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
-import { Bonus, fold, formatScore, localDay } from '../core/review';
+import { Bonus, fold, formatScore } from '../core/review';
 import { scramble } from '../core/spoiler';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -69,7 +69,7 @@ import { News } from '../core/news';
 import { GameLookup } from '../core/game-lookup';
 import { SiteKeys } from '../core/site-keys';
 import { plural } from '../core/text';
-import { DAY_MS, daysAgoLabel } from '../core/dates';
+import { DAY_MS, daysAgoLabel, localDay } from '../core/dates';
 
 
 type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'busca' | 'desempenho';
@@ -489,7 +489,7 @@ export class SettingsPage {
     const url = URL.createObjectURL(copy.blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `meu-mural-antes-da-nuvem-${copy.at.slice(0, 10)}.json.gz`;
+    a.download = `meu-mural-antes-da-nuvem-${localDay(new Date(copy.at))}.json.gz`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }

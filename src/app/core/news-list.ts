@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-bilhete-na-folha',
+    id: '2026-10-17-dia-local',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
@@ -48,6 +48,7 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'No Kanban, os botões de ajustes e da seta não ficam mais à mostra numa anotação sem o mouse em cima, como depois de fechar a leitura dela.',
       'Com uma folha aberta (os ajustes de uma coluna do Kanban, Pessoas, os comentários), o bilhete do que acabou de acontecer aparece por cima dela, com o Desfazer à mão, em vez de ficar escondido atrás.',
+      'A prévia do Card padrão e o nome do arquivo guardado antes da nuvem usam o dia daqui, e não mais o de amanhã depois das 21h.',
     ],
   },
   {
