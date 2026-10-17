@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-16-quem-ve-compartilhada',
+    id: '2026-10-16-comentar-na-sua',
     version: '1.24.1',
     kind: 'ajustes',
     date: '2026-10-16',
@@ -44,6 +44,7 @@ export const NEWS: NewsEntry[] = [
       'O Kanban, o Pra depois e a Wishlist não têm mais o recado explicativo no alto da pasta, que fica mais baixa.',
       'No Kanban, a vaga tracejada de nova coluna no fim do quadro saiu: Nova coluna fica só no alto, ao lado da busca.',
       'No editor, "Público ou privado?" virou "Quem vê?"; na anotação compartilhada, ele mostra se ela é pública ou privada e abre o Compartilhar ali mesmo para mudar.',
+      'Dá para comentar nas suas próprias análises e anotações públicas: a leitura delas tem o Comentar mesmo antes do primeiro comentário.',
     ],
     correcoes: [
       'A tag escolhida no filtro das anotações não filtra mais as análises ao trocar de mural; ela volta a valer quando você volta para as anotações.',

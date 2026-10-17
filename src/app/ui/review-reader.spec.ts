@@ -236,7 +236,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(q('.orelha-n')?.textContent).toBe('1');
   });
 
-  it('na sua ficha: sem comentários, nada; com eles, a porta; a privada nunca tem', async () => {
+  it('na sua ficha: a porta para comentar, mesmo sem comentários; com eles, a contagem; a privada nunca tem', async () => {
     counts[ME.codigo] = { 'r-comentada': 2, 'r-privada': 4 };
     // o pedido de quando a conta entrou (ainda sem comentários) termina primeiro; aí, o de agora
     await settle();
@@ -244,7 +244,14 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     const reader = fixture.componentInstance;
     reader.open(review('r-quieta', 'Celeste'));
     await settle();
-    expect(q('.orelha')).toBeNull();
+    expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários');
+    expect(q('.comentar')?.textContent?.trim()).toBe('Comentar');
+    q<HTMLButtonElement>('.comentar')!.click();
+    await settle();
+    expect(side()).not.toBeNull();
+    // o dono escreve o primeiro: o campo está lá, e a folha ensina a citar
+    expect(q('app-comments-panel .abrir')).not.toBeNull();
+    expect(q('app-comments-panel .vazio')?.textContent).toContain('selecione o texto da ficha');
     await closeReader();
 
     reader.open(review('r-comentada', 'Hades'));

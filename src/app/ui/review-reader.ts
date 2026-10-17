@@ -680,12 +680,10 @@ export class ReviewReader {
   /** A folha de comentários à mostra; trocar de ficha (as vezes da obra, um link) fecha. */
   protected readonly commentsOpen = linkedSignal({ source: this.reviewId, computation: () => false });
   /**
-   * Os comentários têm porta nesta ficha: há algum para ler, ou a ficha é de outra pessoa e você tem
-   * conta para escrever o primeiro (na sua, sem comentário nenhum, não há o que mostrar).
+   * Os comentários têm porta nesta ficha: há algum para ler, ou você tem conta para escrever o
+   * primeiro (na ficha de outra pessoa ou na sua: o dono também comenta nas dele).
    */
-  protected readonly commentable = computed(
-    () => !!this.commentTarget() && (this.commentCount() > 0 || this.commentsOpen() || (this.owner() !== null && !!this.comments.myCode())),
-  );
+  protected readonly commentable = computed(() => !!this.commentTarget() && (this.commentCount() > 0 || this.commentsOpen() || !!this.comments.myCode()));
   /** Quem escreveu a ficha, para a folha dizer quem precisa ser seguido. */
   protected readonly commentOwner = computed(() => this.owner() ?? this.account.account()?.nome ?? 'Você');
   /** A ficha em segredo: a pessoa aceitou ver os comentários mesmo assim (só nesta ficha). */
