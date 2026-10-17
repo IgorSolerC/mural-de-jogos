@@ -38,6 +38,8 @@ jobs:
       BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
     steps:
       - name: Confere a senha antes de tudo
+        # roda antes do checkout: a pasta api ainda não existe, e o passo falhava ao começar
+        working-directory: .
         run: |
           if [ -z "$BACKUP_SENHA" ]; then
             echo "::error::Falta o secret BACKUP_SENHA (Settings › Secrets and variables › Actions). Sem ele o backup não é feito, para nunca subir o banco aberto."
