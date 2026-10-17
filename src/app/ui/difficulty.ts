@@ -167,6 +167,8 @@ let uid = 0;
     </fieldset>
   `,
   styles: `
+    @use 'a11y';
+
     :host {
       display: block;
     }
@@ -212,12 +214,7 @@ let uid = 0;
       outline-offset: -2px;
     }
     input {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      margin: 0;
-      pointer-events: none;
+      @include a11y.radio-escondido;
     }
     /* a escala vazia é a das leituras: caveiras em tinta rala */
     .liso {

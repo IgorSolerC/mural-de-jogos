@@ -1,5 +1,6 @@
 @use '../ui/profile-materials' as materials;
 @use '../ui/paper-kit' as kit;
+@use '../ui/a11y';
 
 :host {
   display: block;
@@ -569,12 +570,7 @@ fieldset > :not(legend) {
   cursor: pointer;
 
   input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    pointer-events: none;
+    @include a11y.radio-escondido;
   }
 
   &:has(input:focus-visible) {
@@ -727,12 +723,7 @@ fieldset > :not(legend) {
   cursor: pointer;
 
   input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    pointer-events: none;
+    @include a11y.radio-escondido;
   }
 
   &:has(input:focus-visible) {

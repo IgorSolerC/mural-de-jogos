@@ -89,6 +89,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     copiado cinco vezes; agora `kit.giz`. As que têm outro tamanho (perfil .92rem, mural de amigo .98rem, Estatísticas
     .82rem) ficam: igualar mudaria o desenho delas.
 
+35. [x] **O radio escondido** debaixo das opções desenhadas (a global `.opcao > input`, o estojo, as caveiras, as notas, as
+    molduras, o perfil, os seletores, a coluna do Kanban): nove cópias iguais; agora `a11y.radio-escondido`.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

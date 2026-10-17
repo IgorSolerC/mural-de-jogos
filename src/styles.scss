@@ -1,5 +1,6 @@
 @use 'app/ui/paper-kit' as kit;
 @use 'app/ui/divisorias' as div;
+@use 'app/ui/a11y';
 
 /* Murall: parede de eucatex com papelaria pregada. Tokens globais e materiais. */
 
@@ -1402,12 +1403,7 @@ dialog.sheet {
   cursor: pointer;
 }
 .opcao > input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-  pointer-events: none;
+  @include a11y.radio-escondido;
 }
 .opcao:has(input:focus-visible) {
   outline: 3px solid var(--ink);

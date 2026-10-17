@@ -1,5 +1,6 @@
 @use 'sheet';
 @use 'paper-kit' as kit;
+@use 'a11y';
 
 :host {
   display: contents;
@@ -188,12 +189,7 @@ dialog.coluna-ajustes {
   }
 
   input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    pointer-events: none;
+    @include a11y.radio-escondido;
   }
 
   &:hover:not(:has(input:checked)) {

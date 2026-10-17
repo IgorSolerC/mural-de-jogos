@@ -8,3 +8,14 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* O radio (ou a caixinha) de verdade debaixo de uma opção desenhada: continua no teclado e no leitor
+   de tela, mas não aparece nem pega o clique (quem pega é o rótulo em volta). */
+@mixin radio-escondido {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}

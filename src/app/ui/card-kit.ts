@@ -297,6 +297,8 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
     </div>
   `,
   styles: `
+    @use 'a11y';
+
     :host {
       display: grid;
       width: 100%;
@@ -424,12 +426,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
     }
     input[type='radio'],
     input[type='checkbox'] {
-      position: absolute;
-      opacity: 0;
-      width: 1px;
-      height: 1px;
-      margin: 0;
-      pointer-events: none;
+      @include a11y.radio-escondido;
     }
 
     /* ===== Cor: as amostras de cartolina; a escolhida é pregada com uma tachinha ===== */
