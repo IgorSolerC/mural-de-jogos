@@ -75,7 +75,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 19. [x] **Linha de ajuste** (`.linha`, `.linha-titulo`, `.linha-desc`): igual em settings, mural-config e Amigos, sem mixin.
     Agora `kit.linha`, `kit.linha-pilha`, `kit.linha-titulo`, `kit.linha-desc` (Amigos guarda a coluna de 300px do campo).
     A linha da folha da coluna do Kanban fica: é flex, com 16px e a descrição em 0.92rem; igualar mudaria o desenho de ontem.
-20. [ ] **Título das folhas** (`.titulos`, `.sub`): 7 cópias nas folhas que já usam `_sheet.scss`.
+20. [x] **Título das folhas** (`.titulos`, `.sub`): 7 cópias nas folhas que já usam `_sheet.scss`. Agora `sheet.titulos`,
+    `sheet.sub` (impressa: margem 6px e 0.08em, como 3 de 5; as configurações do mural tinham 4px, 0.06em e tinta a 72%,
+    o card do Kanban 4px) e `sheet.sub-mao` (Compartilhar e conflito, já iguais).
 21. [ ] **Escondido para os olhos** (`sr-only`) copiado em 8 media queries: mixin.
 22. [ ] **Feltro das reações**: 4 cópias inline do `felt.remendo`.
 23. [ ] **Interruptor**: 10 cópias do botão com a bolinha; uma sem `aria-describedby`.

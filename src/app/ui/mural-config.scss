@@ -24,17 +24,11 @@ dialog.config {
 }
 
 .titulos {
-  min-width: 0;
+  @include sheet.titulos;
 }
 
 .sub {
-  margin-top: 4px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.84rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(21 21 21 / 0.72);
+  @include sheet.sub;
 }
 
 .corpo {

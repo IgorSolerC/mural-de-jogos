@@ -1,5 +1,30 @@
 /* Ficha grande em diálogo: compartilhado pelo editor, pela leitura, pela confirmação e pelas sub-notas. */
 
+/* O título da folha e a linha embaixo dele: impressa (a coluna, o quadro, as configurações) ou à mão
+   (o nome da anotação, no Compartilhar e no conflito). Quem inclui escolhe os nomes das classes. */
+@mixin titulos {
+  min-width: 0;
+}
+
+@mixin sub {
+  margin-top: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+@mixin sub-mao {
+  margin-top: 4px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.12rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .ficha {
   display: flex;
   flex-direction: column;

@@ -34,16 +34,11 @@ dialog.coluna-ajustes {
 }
 
 .titulos {
-  min-width: 0;
+  @include sheet.titulos;
 }
 
 .sub {
-  margin-top: 6px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.84rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @include sheet.sub;
 }
 
 .body {

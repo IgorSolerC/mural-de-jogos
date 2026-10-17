@@ -26,16 +26,11 @@ dialog.conflito {
 }
 
 .titulos {
-  min-width: 0;
+  @include sheet.titulos;
 }
 
 .sub {
-  margin-top: 4px;
-  font-family: var(--f-hand);
-  font-weight: 700;
-  font-size: 1.12rem;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
+  @include sheet.sub-mao;
 }
 
 .body {
