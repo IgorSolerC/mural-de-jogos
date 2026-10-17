@@ -43,7 +43,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
       @for (n of entries; track n.id; let i = $index) {
         <li class="ficha" [class.menor]="n.kind === 'ajustes'" [style.rotate.deg]="tilt(i)">
           @if (n.kind === 'funcionalidade') {
-            <app-pin class="pin" color="#e62e2d" />
+            <app-pin class="pin" />
           }
           @if (fresh().has(n.id)) {
             <span class="novo" aria-hidden="true">Novo</span>

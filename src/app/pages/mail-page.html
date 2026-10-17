@@ -32,7 +32,7 @@
 @if (!follow.available()) {
   <!-- sem conta (ou com a nuvem desligada): uma folha dizendo como começar -->
   <section class="folha solta" aria-labelledby="sem-conta-titulo">
-    <app-pin class="pin" color="#e62e2d" />
+    <app-pin class="pin" />
     <h2 class="folha-titulo" id="sem-conta-titulo">Siga os amigos pelo código</h2>
     @if (cloudOn()) {
       <p class="lead">Entre com a sua conta em Ajustes › Conta. Aí é só colar o código de um amigo para ver aqui o que ele pregou no mural.</p>
@@ -98,7 +98,7 @@
         <aside class="lado" aria-label="Avisos e quem você segue">
           <app-pine-board>
             <section class="folha folha-lado" aria-labelledby="lado-avisos">
-              <app-pin class="pin" color="#e62e2d" />
+              <app-pin class="pin" />
               <h2 class="folha-titulo" id="lado-avisos">Avisos</h2>
               @if (notices().length) {
                 <app-notice-list
@@ -160,7 +160,7 @@
       <div class="painel" role="tabpanel" id="painel-avisos" aria-labelledby="aba-avisos">
         <app-pine-board class="quadro quadro-avisos">
           <section class="folha" aria-labelledby="avisos-titulo">
-            <app-pin class="pin" color="#e62e2d" />
+            <app-pin class="pin" />
             <h2 class="folha-titulo" id="avisos-titulo">Avisos</h2>
             @if (follow.offline()) {
               <p class="nada" role="status">Sem conexão com a nuvem: mostrando o que já tinha chegado.</p>
@@ -193,7 +193,7 @@
         <app-pine-board class="quadro quadro-pessoas">
           <div class="pessoas-grade">
           <section class="folha" aria-labelledby="pessoas-titulo">
-            <app-pin class="pin" color="#e62e2d" />
+            <app-pin class="pin" />
             <h2 class="folha-titulo" id="pessoas-titulo">Pessoas</h2>
 
             <div class="grupo">

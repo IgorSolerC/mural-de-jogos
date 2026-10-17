@@ -26,7 +26,7 @@ import { Pin } from './pin';
           </span>
           <span class="nome">{{ f.label }}</span>
           @if (value() === f.id) {
-            <app-pin class="pin" color="#e62e2d" />
+            <app-pin class="pin" />
           }
         </label>
       }

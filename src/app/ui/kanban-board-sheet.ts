@@ -25,7 +25,7 @@ import { TagColors } from './tag-colors';
     <dialog #dialog class="sheet quadro-ajustes" aria-labelledby="qa-titulo" (close)="closed.emit()" (backdropClose)="close()">
       @if (board(); as b) {
         <div class="ficha cartolina" data-cor="azul">
-          <app-pin class="pin" color="#e62e2d" />
+          <app-pin class="pin" />
           <header class="head">
             <div class="titulos">
               <h2 id="qa-titulo">Ajustes do quadro</h2>

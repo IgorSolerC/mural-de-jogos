@@ -26,7 +26,7 @@
   <div class="fichas">
     <!-- ===== Você: a foto, o nome, a linha, a descrição e os assuntos ===== -->
     <section class="ficha voce" [class.aberta]="open() === 'voce'" aria-labelledby="voce-titulo">
-      <app-pin class="pin" color="#e62e2d" />
+      <app-pin class="pin" />
       <ng-container [ngTemplateOutlet]="cabeca" [ngTemplateOutletContext]="{ $implicit: parts().voce }" />
       @if (open() === 'voce') {
         <div class="corpo" id="voce-corpo">
@@ -65,7 +65,7 @@
                   <input type="radio" name="foto-cor" [value]="s" [checked]="profile().photo === s" [attr.aria-label]="stockLabels[s]" (change)="setPhoto(s)" />
                   <span class="amostra cartolina" [attr.data-cor]="s" [style.--stock]="'var(--stock-' + s + ')'"></span>
                   @if (profile().photo === s) {
-                    <app-pin class="cor-pin" color="#e62e2d" />
+                    <app-pin class="cor-pin" />
                   }
                 </label>
               }
@@ -163,7 +163,7 @@
 
     <!-- ===== O fundo do quadro: papelaria, cartolina ou uma imagem ===== -->
     <section class="ficha fundo-ficha" [class.aberta]="open() === 'fundo'" aria-labelledby="fundo-titulo">
-      <app-pin class="pin" color="#e62e2d" />
+      <app-pin class="pin" />
       <ng-container [ngTemplateOutlet]="cabeca" [ngTemplateOutletContext]="{ $implicit: parts().fundo }" />
       @if (open() === 'fundo') {
         <div class="corpo" id="fundo-corpo">
@@ -182,7 +182,7 @@
                   <span class="retalho" [attr.data-fundo]="m.id" aria-hidden="true"></span>
                   <span class="material-nome">{{ m.label }}</span>
                   @if (isMaterial(m.id)) {
-                    <app-pin class="cor-pin" color="#e62e2d" />
+                    <app-pin class="cor-pin" />
                   }
                 </label>
               }
@@ -197,7 +197,7 @@
                   <input type="radio" name="fundo" [attr.aria-label]="'Cartolina ' + stockLabels[s]" [checked]="isStockBackground(s)" (change)="setBackground({ kind: 'cartolina', stock: s })" />
                   <span class="amostra cartolina" [attr.data-cor]="s" [style.--stock]="'var(--stock-' + s + ')'"></span>
                   @if (isStockBackground(s)) {
-                    <app-pin class="cor-pin" color="#e62e2d" />
+                    <app-pin class="cor-pin" />
                   }
                 </label>
               }
@@ -250,7 +250,7 @@
 
     <!-- ===== A parede atrás do perfil inteiro: as escuras, para o giz ler ===== -->
     <section class="ficha pagina-ficha" [class.aberta]="open() === 'pagina'" aria-labelledby="pagina-titulo">
-      <app-pin class="pin" color="#e62e2d" />
+      <app-pin class="pin" />
       <ng-container [ngTemplateOutlet]="cabeca" [ngTemplateOutletContext]="{ $implicit: parts().pagina }" />
       @if (open() === 'pagina') {
         <div class="corpo" id="pagina-corpo">
@@ -264,7 +264,7 @@
                   <app-page-wall class="retalho retalho-parede" [wall]="w.id" />
                   <span class="material-nome">{{ w.label }}</span>
                   @if (profile().page === w.id) {
-                    <app-pin class="cor-pin" color="#e62e2d" />
+                    <app-pin class="cor-pin" />
                   }
                 </label>
               }
@@ -279,7 +279,7 @@
 
     <!-- ===== Os murais: cada um vira uma pasta no perfil ===== -->
     <section class="ficha murais-ficha" [class.aberta]="open() === 'murais'" aria-labelledby="murais-titulo">
-      <app-pin class="pin" color="#e62e2d" />
+      <app-pin class="pin" />
       <ng-container [ngTemplateOutlet]="cabeca" [ngTemplateOutletContext]="{ $implicit: parts().murais }" />
       @if (open() === 'murais') {
         <div class="corpo" id="murais-corpo">
@@ -340,7 +340,7 @@
 
     <!-- ===== As seções: fichas escolhidas, com um nome seu ===== -->
     <section class="ficha secoes-ficha" [class.aberta]="open() === 'secoes'" aria-labelledby="secoes-titulo">
-      <app-pin class="pin" color="#e62e2d" />
+      <app-pin class="pin" />
       <ng-container [ngTemplateOutlet]="cabeca" [ngTemplateOutletContext]="{ $implicit: parts().secoes }" />
       @if (open() === 'secoes') {
         <div class="corpo" id="secoes-corpo">
@@ -454,7 +454,7 @@
                             <span class="retalho" [attr.data-fundo]="m.id" aria-hidden="true"></span>
                             <span class="material-nome">{{ m.label }}</span>
                             @if (isFill(s, { kind: 'material', material: m.id })) {
-                              <app-pin class="cor-pin" color="#e62e2d" />
+                              <app-pin class="cor-pin" />
                             }
                           </label>
                         }
@@ -465,7 +465,7 @@
                             <input type="radio" [name]="'dentro-' + s.id" [attr.aria-label]="'Cartolina ' + stockLabels[st]" [checked]="isFill(s, { kind: 'cartolina', stock: st })" (change)="setFill(s.id, { kind: 'cartolina', stock: st })" />
                             <span class="amostra cartolina" [attr.data-cor]="st" [style.--stock]="'var(--stock-' + st + ')'"></span>
                             @if (isFill(s, { kind: 'cartolina', stock: st })) {
-                              <app-pin class="cor-pin" color="#e62e2d" />
+                              <app-pin class="cor-pin" />
                             }
                           </label>
                         }

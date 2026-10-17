@@ -31,7 +31,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
     <dialog #dialog class="sheet escolher" aria-labelledby="colar-titulo" (close)="open.set(false)" (backdropClose)="open.set(false)" (keydown)="$event.stopPropagation()">
       @if (open()) {
         <div class="ficha cartolina" data-cor="amarelo">
-          <app-pin class="pin" color="#e62e2d" />
+          <app-pin class="pin" />
           <header class="head">
             <div>
               <h2 id="colar-titulo">{{ heading() }}</h2>

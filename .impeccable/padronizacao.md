@@ -67,7 +67,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     de quatro dos cinco (a leitura tinha Consolas depois de Courier New, que nunca chegava a valer no Windows).
 16. [x] **Dourado repetido**: o mesmo gradiente dourado escrito 4 vezes (filter-sheet, judge-label, verdict ×2). Agora
     `--foil-gold-word` no `:root`, ao lado do `--foil-gold`.
-17. [ ] **Tachinha com a cor padrão escrita**: `color="#e62e2d"` em 24 tachinhas, que já é o padrão do `app-pin`.
+17. [x] **Tachinha com a cor padrão escrita**: `color="#e62e2d"` em 27 tachinhas, que já é o padrão do `app-pin`. Saiu;
+    só as brancas (e as outras cores) dizem a cor.
 18. [ ] **Folha creme**: `kit.folha` existe e é usado uma vez; settings copia igual.
 19. [ ] **Linha de ajuste** (`.linha`, `.linha-titulo`, `.linha-desc`): igual em settings, mural-config e Amigos, sem mixin.
 20. [ ] **Título das folhas** (`.titulos`, `.sub`): 7 cópias nas folhas que já usam `_sheet.scss`.

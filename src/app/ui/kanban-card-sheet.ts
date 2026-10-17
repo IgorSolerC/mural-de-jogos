@@ -30,7 +30,7 @@ import { Pin } from './pin';
     <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="closed.emit()" (backdropClose)="close()">
       @if (data(); as d) {
         <div class="ficha cartolina" [style.--stock]="'var(--stock-' + d.stock + ')'" [attr.data-cor]="d.stock">
-          <app-pin class="pin" color="#e62e2d" />
+          <app-pin class="pin" />
           <header class="head">
             <div class="titulos">
               <h2 id="fq-titulo">{{ d.note.game.name }}</h2>

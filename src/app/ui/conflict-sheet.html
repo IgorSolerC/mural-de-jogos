@@ -1,7 +1,7 @@
 <dialog #dialog class="sheet conflito" aria-labelledby="conflito-titulo" aria-describedby="conflito-pergunta" (close)="closed.emit()" (backdropClose)="close()">
   @if (conflict(); as c) {
     <div class="ficha cartolina" [style.--stock]="'var(--stock-' + (c.a.stock ?? 'amarelo') + ')'" [attr.data-cor]="c.a.stock ?? 'amarelo'">
-      <app-pin class="pin" color="#e62e2d" />
+      <app-pin class="pin" />
       <header class="head">
         <div class="titulos">
           <h2 id="conflito-titulo" tabindex="-1">Conflito de sincronização</h2>
