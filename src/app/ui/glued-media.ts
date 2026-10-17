@@ -64,7 +64,7 @@ import { VolumeKnob } from './volume-knob';
             @if (v.kind === 'youtube') {
               <img class="capa" [src]="'https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg'" alt="" referrerpolicy="no-referrer" decoding="async" />
             } @else {
-              <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="FilmIcon" [size]="34" [strokeWidth]="1.8" /></span>
+              <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="FilmIcon" [size]="34" [strokeWidth]="1.8" aria-hidden="true" /></span>
             }
             <span class="reflexo" aria-hidden="true"></span>
             <!-- o adesivo redondo de tocar, colado no meio da foto -->

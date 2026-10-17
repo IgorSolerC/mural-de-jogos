@@ -39,7 +39,7 @@ import { Pin } from './pin';
               <p class="para">para “{{ sectionTitle() || 'Seção sem nome' }}”</p>
             </div>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="open.set(false)">
-              <lucide-icon [img]="XIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
             </button>
           </header>
 
@@ -85,7 +85,7 @@ import { Pin } from './pin';
                       @if (at >= 0) {
                         {{ at + 1 }}
                       } @else if (!locked) {
-                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="3" />
+                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
                       }
                     </span>
                   </label>
@@ -127,7 +127,7 @@ export class ProfilePicker {
   readonly chosenChange = output<string[]>();
 
   protected readonly max = PROFILE_LIMITS.items;
-  protected readonly XIcon = X;
+  protected readonly CloseIcon = X;
   protected readonly SearchIcon = Search;
   protected readonly CheckIcon = Check;
   protected readonly LockIcon = LockKeyhole;

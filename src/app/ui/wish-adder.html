@@ -4,7 +4,7 @@
     <header class="masthead">
       <h2 id="desejo-titulo">{{ mode() === 'draft' ? 'Guardar pra depois' : 'Pôr na wishlist' }}</h2>
       <button type="button" class="fechar" (click)="close()" aria-label="Fechar">
-        <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
+        <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
       </button>
     </header>
 

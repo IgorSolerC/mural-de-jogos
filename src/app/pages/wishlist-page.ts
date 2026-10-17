@@ -102,7 +102,7 @@ const ORDERS: readonly { value: Order; label: string }[] = [
             </button>
           </div>
           <button type="button" class="sorteio-fechar" (click)="closeDraw()" aria-label="Fechar o sorteio">
-            <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" />
+            <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
         </aside>
       }

@@ -184,11 +184,11 @@ export const CARD_TEMPLATE = `
                 </span>
               }
               @if (capas() && review().revisitOf) {
-                <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" [strokeWidth]="3" /></span>
+                <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" /></span>
               }
               <!-- só capa e nome: no lugar do carimbo, um selinho de feito -->
               @if (capas() && doneAt()) {
-                <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" /></span>
+                <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" /></span>
               }
             </span>
           }
@@ -205,7 +205,7 @@ export const CARD_TEMPLATE = `
             </span>
           }
           @if (capas() && doneAt()) {
-            <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" /></span>
+            <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" /></span>
           }
         </span>
       }

@@ -191,7 +191,7 @@ import { closeOnOutsidePress } from './outside-press';
           >
             @if (rel() === 'comum') {
               <span class="fantasma" aria-hidden="true">
-                <lucide-icon [img]="StickerIcon" [size]="16" [strokeWidth]="2.4" />
+                <lucide-icon [img]="StickerIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
               </span>
             } @else {
               <app-relevance-sticker class="adesivo" [relevance]="rel()" [kind]="wish().kind" />

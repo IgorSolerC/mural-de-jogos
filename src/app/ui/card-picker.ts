@@ -38,7 +38,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
               <p class="para">{{ hint() }}</p>
             </div>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="open.set(false)">
-              <lucide-icon [img]="XIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
             </button>
           </header>
 
@@ -86,7 +86,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                     } @else {
                       <!-- a anotação sem capa: um pedacinho da cartolina dela, na cor do mural -->
                       <span class="capa folhinha" [style.--stock]="'var(--stock-' + stockOf(r) + ')'" [attr.data-cor]="stockOf(r)" aria-hidden="true">
-                        <lucide-icon [img]="NoteIcon" [size]="18" [strokeWidth]="2.4" />
+                        <lucide-icon [img]="NoteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
                       </span>
                     }
                     <span class="texto">
@@ -101,7 +101,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                     </span>
                     <span class="marca" aria-hidden="true">
                       @if (on) {
-                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="3" />
+                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
                       }
                     </span>
                     @if (on) {
@@ -154,7 +154,7 @@ export class CardPicker {
   protected readonly hideDone = signal(true);
   readonly emptyText = input('Você ainda não tem outras fichas. Pregue uma no mural e ela aparece aqui.');
 
-  protected readonly XIcon = X;
+  protected readonly CloseIcon = X;
   protected readonly SearchIcon = Search;
   protected readonly CheckIcon = Check;
   protected readonly LockIcon = LockKeyhole;

@@ -652,7 +652,7 @@
               @for (o of presets; track o.id) {
                 <label class="segmento">
                   <input type="radio" name="qualidade" [value]="o.id" [checked]="settings.performancePreset() === o.id" (change)="settings.applyPerformancePreset(o.id)" />
-                  <span class="seg-num" aria-hidden="true"><lucide-icon [img]="o.icon" [size]="22" [strokeWidth]="2.4" /></span>
+                  <span class="seg-num" aria-hidden="true"><lucide-icon [img]="o.icon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" /></span>
                   <span class="seg-nome">{{ o.label }}</span>
                 </label>
               }
@@ -750,7 +750,7 @@
               />
               @if (settings.tmdbKey()) {
                 <button type="button" class="icone-btn" (click)="settings.setKey('tmdb', ''); tmdbInput.focus()" aria-label="Apagar a chave do TMDB">
-                  <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
+                  <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
                 </button>
               }
               <button
@@ -760,7 +760,7 @@
                 [attr.aria-label]="showTmdb() ? 'Esconder a chave do TMDB' : 'Mostrar a chave do TMDB'"
                 [attr.aria-pressed]="showTmdb()"
               >
-                <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
+                <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -786,7 +786,7 @@
               />
               @if (settings.rawgKey()) {
                 <button type="button" class="icone-btn" (click)="settings.setKey('rawg', ''); rawgInput.focus()" aria-label="Apagar a chave da RAWG">
-                  <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" />
+                  <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
                 </button>
               }
               <button
@@ -796,7 +796,7 @@
                 [attr.aria-label]="showRawg() ? 'Esconder a chave da RAWG' : 'Mostrar a chave da RAWG'"
                 [attr.aria-pressed]="showRawg()"
               >
-                <lucide-icon [img]="showRawg() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" />
+                <lucide-icon [img]="showRawg() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -876,7 +876,7 @@
         <ul class="pv-murais">
           @for (k of wallKinds; track k) {
             <li [class.fora]="settings.friendKinds() === 'separado' && k !== mural.kind()">
-              <lucide-icon [img]="kindIcon[k]" [size]="18" [strokeWidth]="2.4" />
+              <lucide-icon [img]="kindIcon[k]" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
             </li>
           }
         </ul>
@@ -888,7 +888,7 @@
     @case ('numero') {
       <div class="pv pv-botton">
         <span class="botton">
-          <lucide-icon [img]="FriendsIcon" [size]="20" [strokeWidth]="2.4" />
+          <lucide-icon [img]="FriendsIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
           @if (settings.mailCount()) {
             <span class="botton-n">3</span>
           }

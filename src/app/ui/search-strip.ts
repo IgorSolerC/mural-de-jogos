@@ -32,7 +32,7 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
     />
     @if (value()) {
       <button type="button" class="clear" (click)="clear()" aria-label="Limpar busca">
-        <lucide-icon [img]="ClearIcon" [size]="18" [strokeWidth]="2.6" />
+        <lucide-icon [img]="ClearIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
       </button>
     } @else {
       <kbd aria-hidden="true">/</kbd>

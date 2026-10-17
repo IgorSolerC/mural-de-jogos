@@ -42,7 +42,7 @@ const BURST = (() => {
       @case ('later') {
         <span class="borda"></span>
         <span class="miolo">
-          <lucide-icon [img]="MoonIcon" [size]="size() === 'mini' ? 10 : 12" [strokeWidth]="2.6" />
+          <lucide-icon [img]="MoonIcon" [size]="size() === 'mini' ? 10 : 12" [strokeWidth]="2.6" aria-hidden="true" />
           <span>{{ label() }}</span>
         </span>
       }

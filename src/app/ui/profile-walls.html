@@ -29,7 +29,7 @@
             <!-- a aba de plástico com o papelzinho do mural, presa na beirada de cima, cada uma num lugar -->
             <span class="aba-linha" aria-hidden="true">
               <span class="aba orelha-cor">
-                <lucide-icon [img]="w.icon" [size]="15" [strokeWidth]="2.5" />
+                <lucide-icon [img]="w.icon" [size]="15" [strokeWidth]="2.5" aria-hidden="true" />
                 <span class="aba-nome">{{ w.short }}</span>
               </span>
             </span>
@@ -59,7 +59,7 @@
           <button type="button" class="pasta-mural" [style.--cor]="w.color" [style.--capas]="w.covers.length" (click)="opened.emit(w.kind)" [attr.aria-label]="'Abrir o ' + w.title + ' de ' + name() + ', ' + w.count">
             <!-- a divisória do mural, de papel claro com a borda na cor dele (como as abas das anotações), atrás da pasta -->
             <span class="orelha orelha-cor" aria-hidden="true">
-              <lucide-icon [img]="w.icon" [size]="19" [strokeWidth]="2.4" />
+              <lucide-icon [img]="w.icon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
               {{ w.short }}
             </span>
             <span class="costas" aria-hidden="true"></span>

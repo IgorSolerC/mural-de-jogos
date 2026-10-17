@@ -79,7 +79,7 @@ const PATCH_GAP = 8;
           <!-- a cor da cartolina fica só na faixa do cabeçalho, como ficha de fichário -->
           <header class="head" [style]="headPaper()">
             <button type="button" class="icon-btn" (click)="close()" aria-label="Fechar">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
+              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
             </button>
           </header>
 
@@ -405,7 +405,7 @@ const PATCH_GAP = 8;
                     Voltar para a ficha
                   </button>
                   <button type="button" class="icon-btn fecha-lado" (click)="toggleComments(false)" aria-label="Fechar os comentários">
-                    <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" />
+                    <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
                   </button>
                 </header>
                 @if (masked() && !spoilersOk()) {

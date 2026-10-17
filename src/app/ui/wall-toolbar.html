@@ -54,7 +54,7 @@
             [attr.aria-label]="directionLabel() + '. Inverter ordem'"
             [title]="directionLabel()"
           >
-            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
+            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
           <!-- fora da Prioridade, as fixadas vão para o meio das outras, a não ser que a pessoa as queira no topo -->
           @if (showPinnedFirst()) {
@@ -217,7 +217,7 @@
             [attr.aria-label]="directionLabel() + '. Inverter ordem'"
             [title]="directionLabel()"
           >
-            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" />
+            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
           </button>
         </div>
 

@@ -81,7 +81,7 @@ const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
     } @else {
       <!-- sem uma data que exista: o contador em branco diz como escrever -->
       <div class="contador quebrado" role="note">
-        <span class="vazio-icone" aria-hidden="true"><lucide-icon [img]="EmptyIcon" [size]="22" [strokeWidth]="2.4" /></span>
+        <span class="vazio-icone" aria-hidden="true"><lucide-icon [img]="EmptyIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" /></span>
         <span class="lado">
           <span class="nome">Contador sem data</span>
           <span class="dica">

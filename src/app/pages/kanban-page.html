@@ -22,7 +22,7 @@
       @for (v of firstColumns; track v.name) {
         <li class="vaga-coluna">
           <span class="vaga-etiqueta" [attr.data-cor]="v.color">
-            <lucide-icon [img]="iconOf[v.icon]" [size]="16" [strokeWidth]="2.6" />
+            <lucide-icon [img]="iconOf[v.icon]" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
             {{ v.name }}
           </span>
         </li>

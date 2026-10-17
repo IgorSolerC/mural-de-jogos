@@ -511,7 +511,7 @@ export class ReactionPicker {
           <header class="topo">
             <h2 id="reacoes-titulo">Reações <span class="obra">{{ t.titulo }}</span></h2>
             <button type="button" class="fechar" aria-label="Fechar" (click)="close()">
-              <lucide-icon [img]="CloseIcon" [size]="20" [strokeWidth]="2.6" />
+              <lucide-icon [img]="CloseIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
             </button>
           </header>
 

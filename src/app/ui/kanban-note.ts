@@ -78,7 +78,7 @@ export class KanbanReviewCard extends ReviewCard {
         @if (noText()) {
           <!-- só o título, ainda sem descrição: o lápis na tinta da tira, antes da importância -->
           <span class="sem-texto" title="Sem descrição" aria-hidden="true">
-            <lucide-icon [img]="NoTextIcon" [size]="15" [strokeWidth]="2.6" />
+            <lucide-icon [img]="NoTextIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
           </span>
         }
         @if (card().importance; as imp) {
