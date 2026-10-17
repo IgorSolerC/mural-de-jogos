@@ -1,4 +1,5 @@
 import { DAY_MS } from './dates';
+import { cap } from './text';
 /**
  * Os widgets das anotações: peças vivas que moram no próprio texto, numa linha só delas, como as
  * outras marcas (ver core/rich-text.ts):
@@ -17,8 +18,12 @@ import { DAY_MS } from './dates';
 export interface WidgetField {
   key: string;
   label: string;
-  kind: 'text' | 'url' | 'date' | 'time' | 'toggle' | 'choice' | 'card';
+  kind: 'text' | 'url' | 'date' | 'time' | 'number' | 'toggle' | 'choice' | 'card';
   placeholder?: string;
+  /** O campo só aparece (e só é pedido) quando isto diz que sim, pelos valores de agora; sem ele, sempre. */
+  shown?(values: WidgetValues): boolean;
+  /** O menor e o maior de um `number`. */
+  range?: readonly [number, number];
   /** Sem ele, o widget não sai (o editor leva o foco para o primeiro que falta). */
   required?: true;
   /** As escolhas de `choice` (a primeira é a de quando nada foi escolhido). */
@@ -58,6 +63,11 @@ export interface WidgetDef {
   copy(args: readonly string[], ctx: CopyContext): string;
   /** O que está errado nos campos já preenchidos (um link que não serve), para o editor dizer. */
   problem?(values: WidgetValues): string | null;
+}
+
+/** Os campos que o painel mostra agora (os de `shown` só quando valem para os valores de agora). */
+export function fieldsFor(def: WidgetDef, values: WidgetValues): WidgetField[] {
+  return def.fields.filter((f) => !f.shown || f.shown(values));
 }
 
 /** O que a cópia do widget pode precisar saber de fora: a hora (o contador) e o título de uma ficha (a nota). */
@@ -174,15 +184,50 @@ export function widgetLine(name: string, args: readonly string[], size: WidgetSi
 
 // ===== O contador =====
 
-/** A data de um contador. Sem ano, ele volta todo ano (aniversário, Natal). */
+/**
+ * De quanto em quanto um contador que se repete volta: todo dia (só a hora), toda semana (o dia da
+ * semana e a hora) ou todo mês (o dia do mês e a hora). O de todo ano é a data sem o ano.
+ */
+export type Every = 'dia' | 'semana' | 'mes';
+
+/** A data de um contador. Sem ano, ele volta todo ano (aniversário, Natal); com `every`, mais vezes. */
 export interface When {
   year: number | null;
   month: number;
+  /** O dia do mês (no de todo mês, o dia em que ele volta; no de todo dia e de toda semana, 0). */
   day: number;
   hour: number;
   minute: number;
   /** A hora foi escrita (sem ela, meia-noite, e a data aparece sem hora). */
   timed: boolean;
+  /** O que se repete mais que todo ano (sem ele, a data é uma só, ou a de todo ano). */
+  every?: Every;
+  /** O dia da semana do de toda semana: 0 é domingo, como no `Date`. */
+  weekday?: number;
+}
+
+/** Os dias da semana como se escrevem: o nome por extenso e o "todo"/"toda" que vem antes dele. */
+export const WEEKDAY_NAMES: readonly { name: string; short: string; every: string }[] = [
+  { name: 'domingo', short: 'dom', every: 'todo domingo' },
+  { name: 'segunda', short: 'seg', every: 'toda segunda' },
+  { name: 'terça', short: 'ter', every: 'toda terça' },
+  { name: 'quarta', short: 'qua', every: 'toda quarta' },
+  { name: 'quinta', short: 'qui', every: 'toda quinta' },
+  { name: 'sexta', short: 'sex', every: 'toda sexta' },
+  { name: 'sábado', short: 'sáb', every: 'todo sábado' },
+];
+
+/** "todo dia" / "toda sexta" / "todo dia 5" / "todo ano": a regra do contador que se repete, em palavras. */
+export function everyText(w: When): string {
+  if (w.every === 'dia') return 'todo dia';
+  if (w.every === 'semana') return WEEKDAY_NAMES[w.weekday ?? 0].every;
+  if (w.every === 'mes') return `todo dia ${w.day}`;
+  return w.year === null ? 'todo ano' : '';
+}
+
+/** O contador volta depois de chegar (todo dia, toda semana, todo mês ou todo ano)? */
+export function repeats(w: When): boolean {
+  return !!w.every || w.year === null;
 }
 
 const PT_DATE = /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{4}|\d{2}))?(?!\d)/;
@@ -201,6 +246,7 @@ function validDay(year: number, month: number, day: number): boolean {
  */
 export function parseWhen(raw: string): When | null {
   const t = raw.trim();
+  if (/^tod/i.test(t) || /^diariamente\b/i.test(key(t))) return parseEvery(t);
   let year: number | null;
   let month: number;
   let day: number;
@@ -233,18 +279,99 @@ export function parseWhen(raw: string): When | null {
   return { year, month, day, hour, minute, timed };
 }
 
+/** Os dias da semana como ficam sem acento, para ler o que foi escrito. */
+const WEEKDAY_KEYS = WEEKDAY_NAMES.map((d) => key(d.name));
+
+/** A hora que vem depois da regra ("18:00", "18h", ", às 18h30"); nada, meia-noite. null se não for hora. */
+function readTime(rest: string): { hour: number; minute: number; timed: boolean } | null {
+  const r = rest.replace(/^[\s,]+/, '');
+  if (!r) return { hour: 0, minute: 0, timed: false };
+  const h = TIME.exec(r);
+  if (!h) return null;
+  const hour = Number(h[1]);
+  const minute = Number(h[2] ?? h[3] ?? 0);
+  return hour > 23 || minute > 59 ? null : { hour, minute, timed: true };
+}
+
+/**
+ * O contador que se repete, escrito em palavras:
+ * - todo mês: "todo dia 5", "todo dia 5 18:00", "todo mês, dia 5 às 18h";
+ * - todo dia (só a hora, que é obrigatória): "todo dia 18:00", "todos os dias às 7h", "diariamente 7h";
+ * - toda semana: "toda sexta 18:00", "todas as segundas-feiras às 9h", "todo domingo".
+ * "todo dia 18" é o dia 18 de todo mês; "todo dia 18h", às 18h de todo dia, como se fala.
+ */
+function parseEvery(raw: string): When | null {
+  const s = key(raw).replace(/\s+/g, ' ').trim();
+  const at = (every: Every, rest: string, extra: Partial<When>): When | null => {
+    const time = readTime(rest);
+    if (!time || (every === 'dia' && !time.timed)) return null;
+    return { year: null, month: 0, day: 0, ...time, every, ...extra };
+  };
+  let m = /^(?:todo dia|todos os dias|todo mes,? (?:no )?dia|todos os meses,? (?:no )?dia) (\d{1,2})(?![\d:h])(.*)$/.exec(s);
+  if (m) {
+    const day = Number(m[1]);
+    return day >= 1 && day <= 31 ? at('mes', m[2], { day }) : null;
+  }
+  m = /^(?:todo dia|todos os dias|diariamente|diario),?((?: .*)?)$/.exec(s);
+  if (m) return at('dia', m[1], {});
+  m = /^tod[oa]s? (?:os |as )?(domingo|segunda|terca|quarta|quinta|sexta|sabado)s?(?:[- ]feiras?)?((?:[ ,].*)?)$/.exec(s);
+  if (m) return at('semana', m[2], { weekday: WEEKDAY_KEYS.indexOf(m[1]) });
+  return null;
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** A data escrita de volta, do jeito daqui: "19/11/2026 18:00", "19/11/2026" ou "25/12". */
+/**
+ * A data escrita de volta, do jeito daqui: "19/11/2026 18:00", "19/11/2026" ou "25/12"; o que se
+ * repete, em palavras: "todo dia 07:00", "toda sexta 18:00", "todo dia 5".
+ */
 export function writeWhen(w: When): string {
+  if (w.every) {
+    const time = w.timed ? ` ${pad(w.hour)}:${pad(w.minute)}` : '';
+    return everyText(w) + time;
+  }
   const date = `${pad(w.day)}/${pad(w.month)}` + (w.year === null ? '' : `/${w.year}`);
   return w.timed ? `${date} ${pad(w.hour)}:${pad(w.minute)}` : date;
 }
 
 /** Um dia inteiro: um contador de todo ano fica "chegou" até o fim do dia, e só então vira o ano. */
 
+/**
+ * Até quando o contador que se repete fica "chegou" antes de voltar a contar: o de todo dia, uma
+ * hora (às 7h do remédio, logo depois já conta para amanhã); o de toda semana e o de todo mês, até o
+ * fim daquele dia ("É hoje!").
+ */
+const EVERY_DAY_HOLD = 3_600_000;
+function heldUntil(w: When, t: number): number {
+  if (w.every === 'dia') return t + EVERY_DAY_HOLD;
+  const d = new Date(t);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+}
+
+/** O próximo do contador que se repete (ou o de agora, enquanto ele ainda está "chegou"). */
+function nextEvery(w: When, now: number): number {
+  const base = new Date(now);
+  const y = base.getFullYear();
+  if (w.every === 'mes') {
+    // num mês sem o dia (31 em abril), o último dia dele
+    for (let i = -1; i < 3; i++) {
+      const last = new Date(y, base.getMonth() + i + 1, 0).getDate();
+      const t = new Date(y, base.getMonth() + i, Math.min(w.day, last), w.hour, w.minute).getTime();
+      if (now < heldUntil(w, t)) return t;
+    }
+  }
+  // todo dia: cada um dos dias; toda semana: só os do dia da semana dela
+  for (let i = -7; i <= 8; i++) {
+    const d = new Date(y, base.getMonth(), base.getDate() + i, w.hour, w.minute);
+    if (w.every === 'semana' && d.getDay() !== w.weekday) continue;
+    if (now < heldUntil(w, d.getTime())) return d.getTime();
+  }
+  return now;
+}
+
 /** O instante que o contador espera (o de todo ano: o próximo, ou o de hoje enquanto ele ainda é hoje). */
 export function targetOf(w: When, now: number): number {
+  if (w.every) return nextEvery(w, now);
   const at = (y: number) => new Date(y, w.month - 1, w.day, w.hour, w.minute).getTime();
   if (w.year !== null) return at(w.year);
   let y = new Date(now).getFullYear() - 1;
@@ -291,46 +418,73 @@ export function readCountdown(args: readonly string[]): { when: When | null; tit
   return { when, title };
 }
 
+/** De quanto em quanto o contador volta, no painel: o primeiro (uma vez só) é o de quando nada foi escolhido. */
+const REPEAT_OPTIONS = [
+  { value: '', label: 'Uma vez' },
+  { value: 'dia', label: 'Todo dia' },
+  { value: 'semana', label: 'Toda semana' },
+  { value: 'mes', label: 'Todo mês' },
+  { value: 'ano', label: 'Todo ano' },
+] as const;
+/** Os dias da semana no painel, de segunda a domingo (o valor é o do `Date`: 0 é domingo). */
+const WEEKDAY_OPTIONS = [1, 2, 3, 4, 5, 6, 0].map((d) => ({ value: String(d), label: cap(WEEKDAY_NAMES[d].short) }));
 const COUNTDOWN: WidgetDef = {
   name: 'contador',
   aliases: ['contagem', 'countdown'],
   label: 'Contador',
-  about: 'Conta o tempo que falta até um dia e uma hora.',
+  about: 'Conta o tempo que falta até um dia e uma hora, uma vez só ou repetindo.',
   put: 'Pôr o contador',
   swap: 'Trocar o contador',
   fields: [
     { key: 'title', label: 'Para quê', kind: 'text', placeholder: 'Lançamento, aniversário, viagem…', max: 80 },
-    { key: 'date', label: 'Dia', kind: 'date', required: true },
-    { key: 'time', label: 'Hora', kind: 'time', hint: 'Sem hora, conta até a meia-noite.' },
-    { key: 'yearly', label: 'Todo ano', kind: 'toggle', hint: 'Aniversário, Natal: no dia seguinte, volta a contar para o próximo ano.' },
+    { key: 'repeat', label: 'Repete', kind: 'choice', options: REPEAT_OPTIONS },
+    { key: 'date', label: 'Dia', kind: 'date', required: true, shown: (v) => !v['repeat'] || v['repeat'] === 'ano' },
+    { key: 'weekday', label: 'Dia da semana', kind: 'choice', options: WEEKDAY_OPTIONS, shown: (v) => v['repeat'] === 'semana' },
+    { key: 'monthDay', label: 'Dia do mês', kind: 'number', range: [1, 31], placeholder: '5', required: true, shown: (v) => v['repeat'] === 'mes', hint: 'Num mês sem esse dia (31 em abril), conta até o último dia dele.' },
+    { key: 'time', label: 'Hora', kind: 'time', hint: 'Sem hora, conta até a meia-noite.', shown: (v) => v['repeat'] !== 'dia' },
+    // o de todo dia é só a hora: ela é obrigatória
+    { key: 'time', label: 'Hora', kind: 'time', required: true, hint: 'Conta até essa hora, todo dia.', shown: (v) => v['repeat'] === 'dia' },
   ],
   read(args) {
     const { when, title } = readCountdown(args);
-    if (!when) return { title, date: '', time: '', yearly: '' };
+    const none = { title, repeat: '', date: '', weekday: '', monthDay: '', time: '' };
+    if (!when) return none;
+    const time = when.timed ? `${pad(when.hour)}:${pad(when.minute)}` : '';
+    if (when.every === 'dia') return { ...none, repeat: 'dia', time };
+    if (when.every === 'semana') return { ...none, repeat: 'semana', weekday: String(when.weekday ?? 1), time };
+    if (when.every === 'mes') return { ...none, repeat: 'mes', monthDay: String(when.day), time };
     // o de todo ano aparece no campo com o ano que vem pela frente (o campo de data pede um ano)
     const year = when.year ?? new Date(targetOf(when, Date.now())).getFullYear();
-    return {
-      title,
-      date: `${year}-${pad(when.month)}-${pad(when.day)}`,
-      time: when.timed ? `${pad(when.hour)}:${pad(when.minute)}` : '',
-      yearly: when.year === null ? '1' : '',
-    };
+    return { ...none, repeat: when.year === null ? 'ano' : '', date: `${year}-${pad(when.month)}-${pad(when.day)}`, time };
   },
   write(v) {
+    const t = /^(\d{2}):(\d{2})/.exec(v['time'] ?? '');
+    const time = { hour: t ? Number(t[1]) : 0, minute: t ? Number(t[2]) : 0, timed: !!t };
+    const title = (v['title'] ?? '').trim();
+    const out = (w: When) => (title ? [writeWhen(w), title] : [writeWhen(w)]);
+    const repeat = v['repeat'] ?? '';
+    if (repeat === 'dia') return t ? out({ year: null, month: 0, day: 0, ...time, every: 'dia' }) : null;
+    if (repeat === 'semana') return out({ year: null, month: 0, day: 0, ...time, every: 'semana', weekday: Number(v['weekday'] || WEEKDAY_OPTIONS[0].value) });
+    if (repeat === 'mes') {
+      const day = Number((v['monthDay'] ?? '').trim());
+      return Number.isInteger(day) && day >= 1 && day <= 31 ? out({ year: null, month: 0, day, ...time, every: 'mes' }) : null;
+    }
     const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v['date'] ?? '');
     if (!d) return null;
-    const t = /^(\d{2}):(\d{2})/.exec(v['time'] ?? '');
     const when: When = {
-      year: v['yearly'] ? null : Number(d[1]),
+      year: repeat === 'ano' ? null : Number(d[1]),
       month: Number(d[2]),
       day: Number(d[3]),
-      hour: t ? Number(t[1]) : 0,
-      minute: t ? Number(t[2]) : 0,
-      timed: !!t,
+      ...time,
     };
     if (!validDay(when.year ?? 2024, when.month, when.day)) return null;
-    const title = (v['title'] ?? '').trim();
-    return title ? [writeWhen(when), title] : [writeWhen(when)];
+    return out(when);
+  },
+  problem(v) {
+    const day = (v['monthDay'] ?? '').trim();
+    if (v['repeat'] !== 'mes' || !day) return null;
+    const n = Number(day);
+    return Number.isInteger(n) && n >= 1 && n <= 31 ? null : 'O dia do mês vai de 1 a 31.';
   },
   plain(args) {
     return readCountdown(args).title;
@@ -351,7 +505,8 @@ export function countdownLeft(w: When, now: number): string {
   const target = targetOf(w, now);
   const r = remaining(target, now);
   if (r.past) {
-    if (w.year === null) return 'é hoje';
+    if (w.every === 'dia') return 'é agora';
+    if (repeats(w)) return 'é hoje';
     const at = new Date(target);
     return `chegou em ${pad(at.getDate())}/${pad(at.getMonth() + 1)}/${at.getFullYear()}` + (w.timed ? ` ${pad(w.hour)}:${pad(w.minute)}` : '');
   }

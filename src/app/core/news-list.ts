@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-colunas-que-rolam',
+    id: '2026-10-17-contador-que-repete',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
     title: 'Card padrão nas colunas do Kanban, tags escondidas no filtro e o quadro mais largo',
     melhorias: [
+      'O contador ganhou mais jeitos de repetir, em Repete: Todo dia (só a hora), Toda semana (o dia da semana e a hora) e Todo mês (o dia do mês e a hora), além de Uma vez e Todo ano. Na hora, ele carimba "É agora!" (todo dia) ou "É hoje!" e logo volta a contar para a próxima; à mão, vale escrever no contador “toda sexta 18:00”, “todo dia 7:00” ou “todo dia 5”.',
       'As colunas do Kanban cabem na tela e rolam por dentro, cada uma com a sua rolagem, e a página não fica mais comprida por causa da coluna maior. Uma coluna com mais de 10 anotações (como a das finalizadas) mostra as 10 primeiras e, no pé, "Mostrar mais 5"; a anotação que chega a ela, por arrastar, pela seta ou pela Nova nota, sempre fica à vista.',
       'Cada coluna do Kanban pode ter um Card padrão, nos ajustes dela: monte o card com o mesmo estojo do editor (cor, papel, estampa, rabisco, estrago, manchas e decorações), e toda anotação que chega à coluna veste esse card. Mudar o card repinta as que estão lá, a Nova nota da coluna já nasce com ele, e a anotação que sai para uma coluna sem card volta ao visual dela.',
       'No filtro de tags do mural de anotações e do Kanban, o clique direito numa tag (no celular, segurar o dedo) esconde as anotações dela: a tag fica riscada, e um toque nela mostra de novo. É o "todas, menos estas".',

@@ -41,7 +41,7 @@ import { ReviewStore } from '../core/review-store';
 import { RichText } from './rich-text';
 import { NoteWidget } from './note-widget';
 import { CardPicker } from './card-picker';
-import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetSize, WidgetValues, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
+import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetSize, WidgetValues, fieldsFor, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
 import { watchVisualViewport } from './visual-viewport';
 
 type ListKind = 'ul' | 'ol' | 'check';
@@ -74,7 +74,7 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha.
  *
  * E ganha "Widgets", ao lado do "Mais": um menu com todos os widgets; cada um abre um painel com
- * os campos dele (o contador: para quê, o dia, a hora, todo ano) e ele mesmo, vivo, embaixo. "Pôr"
+ * os campos dele (o contador: para quê, se repete, o dia, a hora) e ele mesmo, vivo, embaixo. "Pôr"
  * escreve a marca ("{{contador: …}}") numa linha só dela. Com o cursor na linha de um widget, o
  * painel abre com o que está escrito e troca a linha.
  *
@@ -410,7 +410,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               </div>
             }
             <p class="widget-sobre">{{ def.about }}</p>
-            @for (f of def.fields; track f.key) {
+            @for (f of fieldsFor(def, w.values); track f.key) {
               @if (f.kind === 'toggle') {
                 <label class="widget-caixa">
                   <input type="checkbox" [attr.data-campo]="f.key" [checked]="!!w.values[f.key]" (change)="setWidgetValue(f.key, $any($event.target).checked ? '1' : '')" (keydown.enter)="$event.preventDefault(); putWidget(area)" />
@@ -477,7 +477,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                     <input
                       [class]="'widget-' + f.kind"
                       [type]="f.kind"
-                      [attr.inputmode]="f.kind === 'url' ? 'url' : null"
+                      [attr.inputmode]="f.kind === 'url' ? 'url' : f.kind === 'number' ? 'numeric' : null"
+                      [attr.min]="f.range?.[0] ?? null"
+                      [attr.max]="f.range?.[1] ?? null"
                       autocomplete="off"
                       [attr.maxlength]="f.max ?? null"
                       [attr.placeholder]="f.placeholder ?? null"
@@ -543,7 +545,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               @if (widgetArgs(); as args) {
                 <app-note-widget [name]="w.name" [args]="args" [size]="widgetSize()" [links]="previewLinks()" />
               } @else {
-                <p class="widget-previa-vazia">{{ def.name === 'contador' ? 'Escolha o dia para ver o contador andando.' : def.name === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : 'Cole o link para ver como fica.' }}</p>
+                <p class="widget-previa-vazia">{{ def.name === 'contador' ? 'Escolha o dia (ou a hora) para ver o contador andando.' : def.name === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : 'Cole o link para ver como fica.' }}</p>
               }
             </div>
             <div class="painel-acoes">
@@ -1350,6 +1352,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     }
     .painel-campo .widget-time {
       max-width: 9rem;
+    }
+    /* o dia do mês do contador de todo mês: um número de dois algarismos */
+    .painel-campo .widget-number {
+      max-width: 6rem;
+      min-height: 38px;
+      font-variant-numeric: tabular-nums;
     }
     /* o ícone do calendário e do relógio do navegador, na tinta da folha */
     .painel-campo input::-webkit-calendar-picker-indicator {
@@ -2344,6 +2352,7 @@ export class RichEditor {
     { mark: '| a | b |', what: 'Tabela (2ª linha: | --- | --- |)' },
     { mark: '---', what: 'Divisória' },
     { mark: '{{contador: 19/11/2026 18:00 | Nome}}', what: 'Contador até o dia, numa linha só dele (sem o ano: todo ano)' },
+    { mark: '{{contador: toda sexta 18:00 | Nome}}', what: 'Contador que se repete: todo dia 7:00, toda sexta 18:00, todo dia 5 (todo mês)' },
     { mark: '{{imagem: https://… | legenda}}', what: 'Imagem colada como foto (polaroid ou recorte no fim: outra moldura)' },
     { mark: '{{video: https://youtu.be/… | legenda}}', what: 'Vídeo do YouTube, do Vimeo ou um .mp4, que toca ali' },
     { mark: '{{nota: Título}}', what: 'A anotação colada em miniatura (pelo menu Widgets, qualquer ficha, de qualquer mural)' },
@@ -2923,6 +2932,7 @@ export class RichEditor {
   // ===== Os widgets =====
 
   protected readonly widgets = WIDGETS;
+  protected readonly fieldsFor = fieldsFor;
   protected readonly WidgetIcon = Blocks;
   protected readonly ChevronIcon = ChevronDown;
   /** O desenho de cada widget no menu. */
@@ -3151,7 +3161,8 @@ export class RichEditor {
     const args = this.widgetArgs();
     if (!args) {
       const def = this.widgetOf(w.name);
-      const missing = def.fields.find((f) => f.required && !w.values[f.key]?.trim()) ?? def.fields.find((f) => f.required) ?? def.fields[0];
+      const fields = fieldsFor(def, w.values);
+      const missing = fields.find((f) => f.required && !w.values[f.key]?.trim()) ?? fields.find((f) => f.required) ?? fields[0];
       this.panelInput(w.big, `[data-campo="${missing.key}"]`)?.focus();
       return;
     }

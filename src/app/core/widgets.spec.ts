@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { Frame, WIDGETS, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, remaining, splitArgs, targetOf, widgetCopy, widgetDef, widgetLine, writeWhen } from './widgets';
+import { Frame, WIDGETS, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -63,6 +63,43 @@ describe('widgets das anotações', () => {
       expect(parseWhen('29/02')).not.toBeNull();
     });
 
+    it('o que se repete, em palavras', () => {
+      const every = (raw: string) => {
+        const w = parseWhen(raw);
+        return w && { every: w.every, day: w.day, weekday: w.weekday, hour: w.hour, minute: w.minute, timed: w.timed };
+      };
+      // todo dia: só a hora
+      expect(every('todo dia 18:00')).toEqual({ every: 'dia', day: 0, weekday: undefined, hour: 18, minute: 0, timed: true });
+      expect(every('Todos os dias às 7h30')).toEqual({ every: 'dia', day: 0, weekday: undefined, hour: 7, minute: 30, timed: true });
+      expect(every('diariamente 7h')?.every).toBe('dia');
+      expect(every('todo dia 18h')?.every).toBe('dia');
+      // toda semana: o dia da semana (0 é domingo) e a hora
+      expect(every('toda sexta 18:00')).toEqual({ every: 'semana', day: 0, weekday: 5, hour: 18, minute: 0, timed: true });
+      expect(every('todas as segundas-feiras, às 9h')).toEqual({ every: 'semana', day: 0, weekday: 1, hour: 9, minute: 0, timed: true });
+      expect(every('todo sábado')).toEqual({ every: 'semana', day: 0, weekday: 6, hour: 0, minute: 0, timed: false });
+      expect(every('toda terça-feira 20:15')?.weekday).toBe(2);
+      // todo mês: o dia do mês ("todo dia 18" é o dia 18; "todo dia 18h", a hora)
+      expect(every('todo dia 5')).toEqual({ every: 'mes', day: 5, weekday: undefined, hour: 0, minute: 0, timed: false });
+      expect(every('todo dia 18 10:00')).toEqual({ every: 'mes', day: 18, weekday: undefined, hour: 10, minute: 0, timed: true });
+      expect(every('todo mês, dia 31 às 8h')).toEqual({ every: 'mes', day: 31, weekday: undefined, hour: 8, minute: 0, timed: true });
+      // nada disso: um título que começa com "todo", o todo dia sem hora, um dia que não existe
+      for (const bad of ['Todo mundo', 'todo dia', 'todo dia 32', 'todo dia 0', 'toda sexta 25:00', 'toda semana']) {
+        expect(parseWhen(bad)).withContext(bad).toBeNull();
+      }
+      expect(readCountdown(['Todo mundo junto', 'toda sexta 18h'])).toEqual({ when: parseWhen('toda sexta 18h'), title: 'Todo mundo junto' });
+    });
+
+    it('o que se repete, escrito de volta', () => {
+      expect(writeWhen(parseWhen('todos os dias às 7h')!)).toBe('todo dia 07:00');
+      expect(writeWhen(parseWhen('todas as segundas-feiras, às 9h')!)).toBe('toda segunda 09:00');
+      expect(writeWhen(parseWhen('todo domingo')!)).toBe('todo domingo');
+      expect(writeWhen(parseWhen('todo mês, dia 5 às 18h')!)).toBe('todo dia 5 18:00');
+      // e lido de novo, a mesma coisa
+      for (const raw of ['todo dia 07:00', 'toda segunda 09:00', 'todo sábado 10:30', 'todo dia 5 18:00', 'todo dia 5']) {
+        expect(writeWhen(parseWhen(raw)!)).withContext(raw).toBe(raw);
+      }
+    });
+
     it('o que não é data (ou não existe) não vale', () => {
       for (const bad of ['31/02/2026', '29/02/2027', '19/13/2026', '19/11/2026 25:00', '19/11/2026 18', 'amanhã', '19/11/20261', '']) {
         expect(parseWhen(bad)).withContext(bad).toBeNull();
@@ -103,18 +140,82 @@ describe('widgets das anotações', () => {
     it('com ano, a data é ela mesma', () => {
       expect(targetOf(parseWhen('19/11/2026 18:00')!, at(2030, 1, 1))).toBe(at(2026, 11, 19, 18));
     });
+
+    it('o de todo dia: a próxima vez da hora; chegou, fica "agora" por uma hora e conta para amanhã', () => {
+      const pill = parseWhen('todo dia 08:00')!;
+      // 17/10/2026 é um sábado
+      expect(targetOf(pill, at(2026, 10, 17, 7))).toBe(at(2026, 10, 17, 8));
+      expect(targetOf(pill, at(2026, 10, 17, 8, 40))).toBe(at(2026, 10, 17, 8));
+      expect(targetOf(pill, at(2026, 10, 17, 9, 0, 1))).toBe(at(2026, 10, 18, 8));
+      expect(targetOf(pill, at(2026, 10, 17, 23))).toBe(at(2026, 10, 18, 8));
+    });
+
+    it('o de toda semana: o próximo dia da semana; no dia, "é hoje" até o fim dele', () => {
+      const friday = parseWhen('toda sexta 18:00')!;
+      expect(targetOf(friday, at(2026, 10, 17, 12))).toBe(at(2026, 10, 23, 18));
+      expect(targetOf(friday, at(2026, 10, 23, 9))).toBe(at(2026, 10, 23, 18));
+      expect(targetOf(friday, at(2026, 10, 23, 22))).toBe(at(2026, 10, 23, 18));
+      expect(targetOf(friday, at(2026, 10, 24, 0, 0, 1))).toBe(at(2026, 10, 30, 18));
+      expect(targetOf(parseWhen('todo sábado')!, at(2026, 10, 17, 12))).toBe(at(2026, 10, 17));
+    });
+
+    it('o de todo mês: o próximo dia do mês; num mês sem ele, o último dia', () => {
+      const rent = parseWhen('todo dia 5 10:00')!;
+      expect(targetOf(rent, at(2026, 10, 17))).toBe(at(2026, 11, 5, 10));
+      expect(targetOf(rent, at(2026, 11, 5, 15))).toBe(at(2026, 11, 5, 10));
+      expect(targetOf(rent, at(2026, 11, 6))).toBe(at(2026, 12, 5, 10));
+      const last = parseWhen('todo dia 31')!;
+      expect(targetOf(last, at(2026, 11, 2))).toBe(at(2026, 11, 30));
+      expect(targetOf(last, at(2026, 12, 1))).toBe(at(2026, 12, 31));
+      // dezembro → janeiro do ano que vem
+      expect(targetOf(rent, at(2026, 12, 20))).toBe(at(2027, 1, 5, 10));
+    });
+
+    it('a cópia diz "é agora" no de todo dia e "é hoje" nos outros que se repetem', () => {
+      expect(widgetCopy('contador', ['todo dia 08:00', 'Remédio'], { now: at(2026, 10, 17, 8, 10) })).toBe('{contador: é agora | Remédio}');
+      expect(widgetCopy('contador', ['toda sexta 18:00'], { now: at(2026, 10, 23, 19) })).toBe('{contador: é hoje}');
+      expect(widgetCopy('contador', ['toda sexta 18:00'], { now: at(2026, 10, 23, 15) })).toBe('{contador: 3h faltantes}');
+    });
   });
 
   describe('o formulário do contador', () => {
     const def = widgetDef('contador')!;
 
     it('os campos viram a marca, e a marca volta para os campos', () => {
-      expect(def.write({ title: ' GTA VI ', date: '2026-11-19', time: '18:00', yearly: '' })).toEqual(['19/11/2026 18:00', 'GTA VI']);
-      expect(def.write({ date: '2026-12-25', yearly: '1' })).toEqual(['25/12']);
+      expect(def.write({ title: ' GTA VI ', date: '2026-11-19', time: '18:00', repeat: '' })).toEqual(['19/11/2026 18:00', 'GTA VI']);
+      expect(def.write({ date: '2026-12-25', repeat: 'ano' })).toEqual(['25/12']);
       expect(def.write({ title: 'sem dia', date: '' })).toBeNull();
-      expect(def.read(['19/11/2026 18:00', 'GTA VI'])).toEqual({ title: 'GTA VI', date: '2026-11-19', time: '18:00', yearly: '' });
-      expect(def.read(['GTA VI'])).toEqual({ title: 'GTA VI', date: '', time: '', yearly: '' });
-      expect(def.read(['25/12'])['yearly']).toBe('1');
+      expect(def.read(['19/11/2026 18:00', 'GTA VI'])).toEqual({ title: 'GTA VI', repeat: '', date: '2026-11-19', weekday: '', monthDay: '', time: '18:00' });
+      expect(def.read(['GTA VI'])).toEqual({ title: 'GTA VI', repeat: '', date: '', weekday: '', monthDay: '', time: '' });
+      expect(def.read(['25/12'])['repeat']).toBe('ano');
+    });
+
+    it('Repete: todo dia pede só a hora; toda semana, o dia da semana; todo mês, o dia do mês', () => {
+      const shown = (v: Record<string, string>) => fieldsFor(def, v).map((f) => f.key);
+      expect(shown({})).toEqual(['title', 'repeat', 'date', 'time']);
+      expect(shown({ repeat: 'ano' })).toEqual(['title', 'repeat', 'date', 'time']);
+      expect(shown({ repeat: 'dia' })).toEqual(['title', 'repeat', 'time']);
+      expect(shown({ repeat: 'semana' })).toEqual(['title', 'repeat', 'weekday', 'time']);
+      expect(shown({ repeat: 'mes' })).toEqual(['title', 'repeat', 'monthDay', 'time']);
+      // a hora do de todo dia é obrigatória; a dos outros, não
+      expect(fieldsFor(def, { repeat: 'dia' }).find((f) => f.key === 'time')!.required).toBeTrue();
+      expect(fieldsFor(def, { repeat: 'semana' }).find((f) => f.key === 'time')!.required).toBeUndefined();
+
+      expect(def.write({ repeat: 'dia', time: '07:30', title: 'Remédio' })).toEqual(['todo dia 07:30', 'Remédio']);
+      expect(def.write({ repeat: 'dia', time: '' })).toBeNull();
+      // sem escolher, a semana começa na segunda (o primeiro botão)
+      expect(def.write({ repeat: 'semana', time: '18:00' })).toEqual(['toda segunda 18:00']);
+      expect(def.write({ repeat: 'semana', weekday: '0' })).toEqual(['todo domingo']);
+      expect(def.write({ repeat: 'mes', monthDay: '5', time: '10:00', date: '2026-11-19' })).toEqual(['todo dia 5 10:00']);
+      expect(def.write({ repeat: 'mes', monthDay: '32' })).toBeNull();
+      expect(def.problem!({ repeat: 'mes', monthDay: '32' })).toBe('O dia do mês vai de 1 a 31.');
+      expect(def.problem!({ repeat: 'mes', monthDay: '12' })).toBeNull();
+
+      expect(def.read(['todo dia 07:30', 'Remédio'])).toEqual({ title: 'Remédio', repeat: 'dia', date: '', weekday: '', monthDay: '', time: '07:30' });
+      expect(def.read(['toda sexta 18:00'])).toEqual({ title: '', repeat: 'semana', date: '', weekday: '5', monthDay: '', time: '18:00' });
+      expect(def.read(['todo dia 5'])).toEqual({ title: '', repeat: 'mes', date: '', weekday: '', monthDay: '5', time: '' });
+      // o dia da semana: de segunda a domingo
+      expect(def.fields.find((f) => f.key === 'weekday')!.options!.map((o) => o.label)).toEqual(['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']);
     });
   });
 

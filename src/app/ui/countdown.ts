@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Hourglass, LucideAngularModule } from 'lucide-angular';
 import { Clock } from '../core/clock';
-import { Remaining, readCountdown, remaining, targetOf } from '../core/widgets';
+import { Remaining, When, everyText, readCountdown, remaining, repeats, targetOf } from '../core/widgets';
+import { cap } from '../core/text';
 import { DAY_MS, MONTHS_LONG, MONTHS_SHORT } from '../core/dates';
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -53,16 +54,16 @@ const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
             }
           </span>
           @if (s.r.past) {
-            <span class="carimbo">{{ s.yearly ? 'É hoje!' : 'Chegou!' }}</span>
+            <span class="carimbo">{{ s.stamp }}</span>
           }
         </div>
         <div class="lado" aria-hidden="true">
-          <span class="nome">{{ s.title || s.dateShort }}</span>
+          <span class="nome">{{ s.title || s.name }}</span>
           <span class="quando">
             @if (s.r.past && !s.yearly) {
               Foi em
             }
-            {{ s.title ? s.dateShort : '' }}{{ s.title && s.time ? ' · ' : '' }}{{ s.time }}{{ s.yearly ? (s.title || s.time ? ' · ' : '') + 'todo ano' : '' }}
+            {{ s.when }}
             @if (s.soon) {
               <span class="logo">{{ s.soon }}</span>
             }
@@ -425,21 +426,37 @@ export class Countdown {
     const target = targetOf(when, now);
     const r = remaining(target, now);
     const at = new Date(target);
-    const yearly = when.year === null;
+    const yearly = repeats(when);
     const big = this.bigOf(r, at);
+    const dateShort = `${at.getDate()} ${MONTHS_SHORT[at.getMonth()]}` + (yearly ? '' : ` ${at.getFullYear()}`);
+    const time = when.timed ? `${pad(when.hour)}:${pad(when.minute)}` : '';
     return {
       r,
       title,
       yearly,
       big,
+      stamp: when.every === 'dia' ? 'É agora!' : yearly ? 'É hoje!' : 'Chegou!',
       month: MONTHS_SHORT[at.getMonth()],
-      dateShort: `${at.getDate()} ${MONTHS_SHORT[at.getMonth()]}` + (yearly ? '' : ` ${at.getFullYear()}`),
-      time: when.timed ? `${pad(when.hour)}:${pad(when.minute)}` : '',
+      ...this.linesOf(when, !!title, dateShort, time),
       rest: r.past ? [] : this.restOf(r, big.u),
-      ago: r.past ? this.agoOf(r, yearly) : '',
-      soon: r.past ? '' : this.soonOf(at, now),
+      ago: r.past ? this.agoOf(r, when) : '',
+      // (o de todo dia é sempre hoje ou amanhã: dizer seria barulho)
+      soon: r.past || when.every === 'dia' ? '' : this.soonOf(at, now),
     };
   });
+
+  /**
+   * O nome (sem título) e a linha do dia, ao lado do bloquinho. O de uma vez e o de todo ano: a data
+   * ("19 nov 2026 · 18:00", "25 dez · todo ano"). O que se repete mais: a regra é o nome ("Toda
+   * sexta"), e a linha diz o próximo ("24 out · 18:00"); o de todo dia, só a hora.
+   */
+  private linesOf(w: When, titled: boolean, dateShort: string, time: string): { name: string; when: string } {
+    const join = (...parts: string[]) => parts.filter(Boolean).join(' · ');
+    if (!w.every) return { name: dateShort, when: join(titled ? dateShort : '', time, w.year === null ? 'todo ano' : '') };
+    const rule = everyText(w);
+    const next = w.every === 'dia' ? '' : dateShort;
+    return { name: cap(rule), when: join(titled ? rule : '', next, time) };
+  }
 
   /** A folha: a maior unidade que ainda falta; chegou, o dia do mês. */
   private bigOf(r: Remaining, at: Date): { n: number; text: string; unit: string; u: Unit | null } {
@@ -455,8 +472,11 @@ export class Countdown {
     return ORDER.slice(from).map((k) => ({ n: pad(r[k]), u: UNIT_SHORT[k] }));
   }
 
-  private agoOf(r: Remaining, yearly: boolean): string {
-    if (yearly) return 'Hoje. Amanhã volta a contar para o ano que vem.';
+  private agoOf(r: Remaining, w: When): string {
+    if (w.every === 'dia') return 'Agora. Daqui a pouco volta a contar para amanhã.';
+    if (w.every === 'semana') return 'Hoje. Amanhã volta a contar para a semana que vem.';
+    if (w.every === 'mes') return 'Hoje. Amanhã volta a contar para o mês que vem.';
+    if (w.year === null) return 'Hoje. Amanhã volta a contar para o ano que vem.';
     const u = ORDER.find((k) => r[k] > 0 && k !== 'seconds');
     return u ? `há ${plural(r[u], u)}` : 'agora há pouco';
   }
@@ -476,15 +496,18 @@ export class Countdown {
     const target = targetOf(when, now);
     const r = remaining(target, now);
     const at = new Date(target);
-    const date = `${at.getDate()} de ${MONTHS_LONG[at.getMonth()]}` + (when.year === null ? '' : ` de ${at.getFullYear()}`) + (when.timed ? ` às ${pad(when.hour)}:${pad(when.minute)}` : '');
+    const hour = when.timed ? ` às ${pad(when.hour)}:${pad(when.minute)}` : '';
+    const date = when.every === 'dia' ? `hoje${hour}` : `${at.getDate()} de ${MONTHS_LONG[at.getMonth()]}` + (repeats(when) ? '' : ` de ${at.getFullYear()}`) + hour;
     const name = title ? `Contador: ${title}. ` : 'Contador. ';
-    if (r.past) return name + (when.year === null ? `É hoje, ${date}.` : `Chegou em ${date}.`);
+    if (r.past) return name + (when.every === 'dia' ? `É agora, ${pad(when.hour)}:${pad(when.minute)}.` : repeats(when) ? `É hoje, ${date}.` : `Chegou em ${date}.`);
     const parts = ORDER.filter((k) => k !== 'seconds' && r[k] > 0)
       .slice(0, 2)
       .map((k) => plural(r[k], k));
     const left = parts.length ? parts.join(' e ') : 'menos de 1 minuto';
     // concorda com o primeiro, como o papelão: "Falta 1 dia e 3 horas", "Faltam 2 dias"
     const one = !parts.length || parts[0].startsWith('1 ');
-    return `${name}${one ? 'Falta' : 'Faltam'} ${left}, até ${date}${when.year === null ? ' (todo ano)' : ''}.`;
+    // o de todo dia: "até as 07:00 (todo dia)"; os outros, a data e a regra
+    const until = when.every === 'dia' ? `as ${pad(when.hour)}:${pad(when.minute)}` : date;
+    return `${name}${one ? 'Falta' : 'Faltam'} ${left}, até ${until}${repeats(when) ? ` (${everyText(when)})` : ''}.`;
   });
 }

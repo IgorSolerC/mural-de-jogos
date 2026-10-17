@@ -899,14 +899,15 @@ describe('página do Kanban', () => {
       await settle();
       expect(namesIn('feito').length).toBe(20);
       expect(mais()!.textContent).toContain('Mostrar mais 3');
+      const focused = spyOn(HTMLElement.prototype, 'focus').and.callThrough();
       mais()!.click();
       await settle();
       expect(namesIn('feito').length).toBe(23);
       expect(mais()).toBeNull();
       await settle();
       // o botão sumiu: o foco vai para a primeira das que chegaram
-      // (na suíte inteira o foco às vezes não pega no headless: só confere quando a janela tem o foco)
-      if (document.hasFocus()) expect(document.activeElement?.closest('.lugar')?.getAttribute('data-nota')).toBe('nfeit020');
+      // (na suíte inteira o foco às vezes não pega no headless: confere a quem ele foi dado)
+      expect(focused.calls.all().map((c) => (c.object as HTMLElement).closest('.lugar')?.getAttribute('data-nota'))).toContain('nfeit020');
     });
 
     it('cada coluna rola por dentro: a altura dela cabe na tela e a página não cresce com ela', async () => {
