@@ -255,25 +255,15 @@
   rotate: 2deg;
 }
 
-/* com o mouse, a etiqueta sai pela ponta da tira, sem cobrir a importância: as duas ações, menores,
-   vão até antes da coluna vizinha; o fio claro em volta separa a tinta da parede escura do vão */
+/* com o mouse, a etiqueta (a mesma do Fixar e do Finalizar, sem mudar nada nela) sai pela ponta da
+   tira, sem cobrir a importância; a coluna com a mão fica por cima da vizinha (ver kanban-page.scss) */
 :host(.titulo) .acoes {
   top: 50%;
   right: auto;
   left: calc(100% - 12px);
-  margin-top: -12px;
+  margin-top: -15px;
   rotate: 2deg;
   translate: -5px 0;
-  box-shadow:
-    0 0 0 1.5px rgb(241 241 236 / 0.55),
-    0 1px 2px rgb(0 0 0 / 0.4),
-    0 4px 8px -3px rgb(0 0 0 / 0.4);
-
-  .mexer,
-  .avancar {
-    width: 24px;
-    height: 24px;
-  }
 }
 
 :host(.titulo:hover) .acoes,
