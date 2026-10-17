@@ -70,6 +70,9 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 29. [x] **`$any` no fundo do perfil**: o topo do perfil e a folha de Pessoas desligavam o tipo do fundo com `$any` (6 vezes);
     agora `@let` e o `@if` estreitam o tipo. Os `$any($event.target).value` ficam: é o jeito do site todo para ler um campo.
 
+30. [x] **Halo do campo com foco**: `0 0 0 4px rgb(21 21 21 / 0.16)` escrito 11 vezes; agora `--field-halo` no `:root`
+    (o foco calculado é o mesmo, conferido no navegador).
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

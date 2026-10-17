@@ -1051,7 +1051,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     .previa:focus-visible {
       box-shadow:
         inset 0 0 0 3px var(--ink),
-        0 0 0 4px rgb(21 21 21 / 0.16);
+        var(--field-halo);
     }
     .previa.grande {
       --line: 2rem;
@@ -2028,7 +2028,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       &:focus {
         box-shadow:
           inset 0 0 0 3px var(--ink),
-          0 0 0 4px rgb(21 21 21 / 0.16);
+          var(--field-halo);
       }
     }
 

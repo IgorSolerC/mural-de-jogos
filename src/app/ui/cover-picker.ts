@@ -376,7 +376,7 @@ function joinSources(list: string[]): string {
       &:focus-within {
         box-shadow:
           inset 0 0 0 3px var(--ink),
-          0 0 0 4px rgb(21 21 21 / 0.16);
+          var(--field-halo);
       }
 
       &.busy {
