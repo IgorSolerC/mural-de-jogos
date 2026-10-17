@@ -13,7 +13,9 @@ import {
   prefsOf,
   sanitizeNotesConfig,
   subNoteColor,
+  tagHiddenByDefault,
   withPrefs,
+  withTagHidden,
 } from './mural-config';
 import { SETTINGS_KEY, Settings } from './settings';
 
@@ -50,6 +52,7 @@ describe('as configurações do mural de anotações', () => {
       orderBy: 'minha',
       order: ['viagens!', 'roadmap site'],
       categories: { 'roadmap site': { audience: 'visivel' }, 'viagens!': { audience: 'publicar', askTag: false } },
+      hiddenTags: [],
     });
     const many = Object.fromEntries(Array.from({ length: MAX_CONFIG_CATEGORIES + 5 }, (_, i) => [`c${i}`, { askTag: true }]));
     expect(Object.keys(sanitizeNotesConfig({ categories: many }).categories).length).toBe(MAX_CONFIG_CATEGORIES);
@@ -93,6 +96,20 @@ describe('as configurações do mural de anotações', () => {
     expect([...hiddenKeys(cfg)]).toEqual([]);
     // da nuvem ou do armazenamento: só o true conta
     expect(sanitizeNotesConfig({ categories: { A: { hidden: true }, B: { hidden: 'sim' }, C: { hidden: false } } }).categories).toEqual({ a: { hidden: true } });
+  });
+
+  it('o filtro padrão das tags: Excluído por categoria (a mesma tag pode ficar em outra), e da nuvem só chaves de tag', () => {
+    let cfg = withTagHidden(NOTES_CONFIG_DEFAULT, 'Desabafo', 'Pessoal', true);
+    cfg = withTagHidden(cfg, 'Rascunho', null, true);
+    expect(cfg.hiddenTags).toEqual(['##pessoal#desabafo', '###rascunho']);
+    expect(tagHiddenByDefault(cfg, 'DESABAFO', 'pessoal')).toBeTrue();
+    expect(tagHiddenByDefault(cfg, 'Desabafo', 'Trabalho')).toBeFalse();
+    expect(tagHiddenByDefault(cfg, 'rascunho', '')).toBeTrue();
+    // de novo não repete; Disponível tira
+    expect(withTagHidden(cfg, 'desabafo', 'Pessoal', true).hiddenTags).toEqual(['###rascunho', '##pessoal#desabafo']);
+    expect(withTagHidden(cfg, 'Desabafo', 'Pessoal', false).hiddenTags).toEqual(['###rascunho']);
+    expect(sanitizeNotesConfig({ hiddenTags: ['##pessoal#desabafo', '##pessoal#desabafo', 'pessoal', '#cor', 7, '##x#' + 'a'.repeat(200)] }).hiddenTags).toEqual(['##pessoal#desabafo']);
+    expect(sanitizeNotesConfig({}).hiddenTags).toEqual([]);
   });
 
   it('a ordem montada à mão: as que têm lugar nele, as novas no fim', () => {

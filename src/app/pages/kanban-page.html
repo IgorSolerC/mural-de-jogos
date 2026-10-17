@@ -77,7 +77,7 @@
       </div>
     </div>
     <div class="pasta-linha pasta-baixo">
-      <app-tag-chips class="pasta-tags" [tags]="tagChips()" (toggled)="toggleTag($event)" />
+      <app-tag-chips class="pasta-tags" [tags]="tagChips()" (toggled)="toggleTag($event)" (excluded)="excludeTagChip($event)" />
       @if (filtering()) {
         <div class="pasta-estado">
           <p class="achados" aria-live="polite">

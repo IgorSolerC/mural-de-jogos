@@ -3,7 +3,7 @@ import { Check, ChevronDown, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { CategoryPrefs, SubColor, arrangedKeys, moveKey, prefsOf } from '../core/mural-config';
+import { CategoryPrefs, SubColor, arrangedKeys, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
 import type { Audience } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { LABEL_MAX, cleanCategory, cleanTag } from '../core/note-labels';
@@ -358,6 +358,18 @@ export class MuralConfig {
 
   protected tagColorOf(group: TagGroup, row: CategoryRow): string | null {
     return tagColorHex(this.settings.categoryLooks(), row.label, group.category);
+  }
+
+  /** O filtro padrão da tag na categoria: Excluído (cada visita começa sem as anotações dela). */
+  protected tagHidden(group: TagGroup, row: CategoryRow): boolean {
+    return tagHiddenByDefault(this.settings.notesConfig(), row.label, group.category);
+  }
+
+  protected setTagHidden(group: TagGroup, row: CategoryRow, hidden: boolean): void {
+    if (this.tagHidden(group, row) === hidden) return;
+    this.settings.setTagHidden(row.label, group.category, hidden);
+    const where = group.category ? ` em ${group.label}` : ' nas sem categoria';
+    this.notice.set(hidden ? `As anotações com ${row.label}${where} começam escondidas no filtro do mural e do Kanban.` : `${row.label}${where} volta a aparecer no filtro.`);
   }
 
   // ===== categorias =====

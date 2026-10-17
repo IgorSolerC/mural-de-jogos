@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { KanbanBoard, KanbanState, boardIdFor, mergeKanban, moveBoardCategory } from './kanban';
 import { KanbanStore } from './kanban-store';
-import { LabelEdits, configMoved, looksMoved, notesWithCategory, notesWithTag, pinnedMoved, tagLookMoved, tagLooksMoved } from './label-edits';
+import { LabelEdits, configMoved, tagConfigMoved, looksMoved, notesWithCategory, notesWithTag, pinnedMoved, tagLookMoved, tagLooksMoved } from './label-edits';
 import { NOTES_CONFIG_DEFAULT } from './mural-config';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
@@ -89,8 +89,22 @@ describe('renomear e apagar categorias e tags', () => {
       expect(configMoved(cfg, 'trabalho', 'projeto')).toEqual({ ...cfg, order: ['estudos', 'projeto', 'casa'], categories: { projeto: { hidden: true } } });
       expect(configMoved(cfg, 'trabalho', 'casa')).toEqual({ ...cfg, order: ['estudos', 'casa'], categories: { casa: { hidden: true } } });
       expect(configMoved(cfg, 'trabalho', null)).toEqual({ ...cfg, order: ['estudos', 'casa'], categories: {} });
+      // as tags que nascem escondidas vão com a categoria (apagada: para as sem categoria)
+      const hid = { ...NOTES_CONFIG_DEFAULT, hiddenTags: ['##trabalho#bug', '##trabalho#a#b', '##estudos#bug'] };
+      expect(configMoved(hid, 'trabalho', 'projeto').hiddenTags).toEqual(['##projeto#bug', '##projeto#a#b', '##estudos#bug']);
+      expect(configMoved(hid, 'trabalho', 'estudos').hiddenTags).toEqual(['##estudos#bug', '##estudos#a#b']);
+      expect(configMoved(hid, 'trabalho', null).hiddenTags).toEqual(['###bug', '###a#b', '##estudos#bug']);
       expect(pinnedMoved(['Bug', 'Ideia'], 'bug', 'Ideia')).toEqual(['Ideia']);
       expect(pinnedMoved(['Bug', 'Ideia'], 'bug', null)).toEqual(['Ideia']);
+    });
+
+    it('o filtro padrão da tag vai com o nome novo; apagada ou juntada, sai (na junção vale o da outra)', () => {
+      const cfg = { ...NOTES_CONFIG_DEFAULT, hiddenTags: ['##pessoal#desabafo'] };
+      expect(tagConfigMoved(cfg, 'pessoal', 'Desabafo', 'Diário', false).hiddenTags).toEqual(['##pessoal#diario']);
+      expect(tagConfigMoved(cfg, 'pessoal', 'Desabafo', 'Diário', true).hiddenTags).toEqual([]);
+      expect(tagConfigMoved(cfg, 'pessoal', 'Desabafo', null, false).hiddenTags).toEqual([]);
+      expect(tagConfigMoved(cfg, 'pessoal', 'Desabafo', 'DESABAFO', false)).toBe(cfg);
+      expect(tagConfigMoved(cfg, 'trabalho', 'Desabafo', 'Diário', false)).toBe(cfg);
     });
 
     it('o quadro do Kanban passa para o nome novo, e o de antes não volta de outro aparelho', () => {

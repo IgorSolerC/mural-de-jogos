@@ -1,5 +1,5 @@
 import type { Audience } from './review';
-import { lookKey } from './category-looks';
+import { lookKey, tagLookKey } from './category-looks';
 
 /**
  * As configurações do mural de anotações (a engrenagem da pasta, ver ui/mural-config.ts): o que
@@ -50,9 +50,18 @@ export interface NotesConfig {
   order: string[];
   /** O que cada categoria muda, pela chave. */
   categories: Record<string, CategoryPrefs>;
+  /**
+   * As tags com "Filtro padrão: Excluído": cada visita ao mural e ao quadro começa sem as anotações
+   * delas (ver core/tag-filter.ts). Pelas chaves de `tagLookKey(tag, categoria)`, então a mesma tag
+   * pode ser escondida numa categoria e não em outra; "" é a categoria das anotações sem categoria.
+   */
+  hiddenTags: string[];
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', subColor: 'sorteada', orderBy: 'quantidade', order: [], categories: {} };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', subColor: 'sorteada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [] };
+
+/** Tags demais viram lixo guardado: no máximo estas com o filtro padrão Excluído. */
+export const MAX_HIDDEN_TAGS = 500;
 
 /** Categorias demais viram lixo guardado: no máximo estas (como os jeitos das categorias). */
 export const MAX_CONFIG_CATEGORIES = 200;
@@ -72,7 +81,7 @@ const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.subColor ===
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {} };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [] };
   const r = raw as Record<string, unknown>;
   const order: string[] = [];
   if (Array.isArray(r['order'])) {
@@ -94,13 +103,34 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
       n++;
     }
   }
+  const hiddenTags: string[] = [];
+  if (Array.isArray(r['hiddenTags'])) {
+    for (const k of r['hiddenTags']) {
+      if (hiddenTags.length >= MAX_HIDDEN_TAGS) break;
+      // só chaves de tag numa categoria ("##categoria#tag"), do tamanho que se guarda
+      if (typeof k === 'string' && /^##.*#[^#]/.test(k) && k.length <= 160 && !hiddenTags.includes(k)) hiddenTags.push(k);
+    }
+  }
   return {
     audience: AUDIENCES.includes(r['audience'] as Audience) ? (r['audience'] as Audience) : NOTES_CONFIG_DEFAULT.audience,
     subColor: SUB_COLORS.includes(r['subColor'] as SubColor) ? (r['subColor'] as SubColor) : NOTES_CONFIG_DEFAULT.subColor,
     orderBy: r['orderBy'] === 'minha' ? 'minha' : 'quantidade',
     order,
     categories,
+    hiddenTags,
   };
+}
+
+/** A tag nasce escondida no filtro das anotações desta categoria ("" ou null: as sem categoria)? */
+export function tagHiddenByDefault(cfg: NotesConfig, tag: string, category: string | null | undefined): boolean {
+  return cfg.hiddenTags.includes(tagLookKey(tag, category ?? ''));
+}
+
+/** O filtro padrão da tag na categoria: escondida (Excluído) ou não (Disponível). */
+export function withTagHidden(cfg: NotesConfig, tag: string, category: string | null | undefined, hidden: boolean): NotesConfig {
+  const key = tagLookKey(tag, category ?? '');
+  const rest = cfg.hiddenTags.filter((k) => k !== key);
+  return { ...cfg, hiddenTags: hidden ? [...rest, key] : rest };
 }
 
 /** O que a categoria muda (vazio: segue o mural, e sem categoria também). */

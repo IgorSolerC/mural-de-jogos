@@ -207,6 +207,27 @@ describe('as configurações do mural (a folha)', () => {
     expect(ideiaViagens.querySelector('app-note-tag')!.classList).not.toContain('cor');
   });
 
+  it('cada tag tem o filtro padrão, Disponível ou Excluído, só na categoria dela; a excluída fica riscada', async () => {
+    await go('tags');
+    const groups = () => Array.from(el.querySelectorAll<HTMLElement>('.tags-grupo'));
+    const ideiaViagens = () => groups()[0].querySelector<HTMLElement>('.tags > li')!;
+    const option = (row: HTMLElement, text: string) =>
+      Array.from(row.querySelectorAll<HTMLLabelElement>('.filtro-op')).find((l) => l.textContent!.trim() === text)!.querySelector('input')!;
+    expect(ideiaViagens().querySelector('.tag-filtro legend')!.textContent!.trim()).toBe('Filtro padrão');
+    expect(option(ideiaViagens(), 'Disponível').checked).toBeTrue();
+    option(ideiaViagens(), 'Excluído').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().hiddenTags).toEqual(['##viagens!#ideia']);
+    expect(ideiaViagens().classList).toContain('excluida');
+    expect(el.querySelector('.aviso')!.textContent).toContain('Ideia em Viagens! começam escondidas');
+    // a mesma tag em outra categoria continua Disponível
+    expect(option(groups()[1].querySelectorAll<HTMLElement>('.tags > li')[1], 'Disponível').checked).toBeTrue();
+    option(ideiaViagens(), 'Disponível').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().hiddenTags).toEqual([]);
+    expect(ideiaViagens().classList).not.toContain('excluida');
+  });
+
   it('sem nenhuma tag, a parte das tags diz onde pôr uma', async () => {
     TestBed.inject(ReviewStore).reviews.set([note('Receitas')]);
     await go('tags');

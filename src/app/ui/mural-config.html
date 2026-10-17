@@ -289,7 +289,7 @@
 
           @case ('tags') {
             <h3>Tags</h3>
-            <p class="lead">Cada categoria tem as suas tags, e a mesma tag pode ter uma cor em cada uma: a cor aparece nas anotações daquela categoria, no mural e no Kanban. Sem cor, fica o papel pardo de sempre.</p>
+            <p class="lead">Cada categoria tem as suas tags, e a mesma tag pode ter uma cor em cada uma: a cor aparece nas anotações daquela categoria, no mural e no Kanban. Sem cor, fica o papel pardo de sempre. No filtro padrão, Excluído faz o mural e o Kanban abrirem sem as anotações da tag; um toque nela, riscada no filtro, mostra de novo.</p>
             <p class="aviso" role="status">{{ notice() }}</p>
 
             @for (g of tagGroups(); track g.key) {
@@ -305,7 +305,8 @@
                 <ul class="tags">
                   @for (t of g.tags; track t.key) {
                     @let id = tagId(g, t);
-                    <li class="tag" [class.renomeando]="renamingTag() === id">
+                    @let fora = tagHidden(g, t);
+                    <li class="tag" [class.renomeando]="renamingTag() === id" [class.excluida]="fora">
                       @if (renamingTag() === id) {
                         <form class="tag-nome" (submit)="renameTag($event, g, t, nomeTag)">
                           <span class="campo">
@@ -331,6 +332,22 @@
                         </span>
                       }
                       <app-tag-colors class="tag-cores" [tag]="t.label" [category]="g.category" />
+                      <!-- o filtro padrão: Excluído faz cada visita ao mural e ao quadro começar sem as anotações dela -->
+                      <fieldset class="tag-filtro">
+                        <legend class="tag-filtro-titulo">Filtro padrão</legend>
+                        <div class="filtro-ops">
+                          <label class="filtro-op">
+                            <input type="radio" [name]="'config-filtro-' + id" [checked]="!fora" (change)="setTagHidden(g, t, false)" />
+                            <lucide-icon [img]="ShownIcon" [size]="15" [strokeWidth]="2.5" aria-hidden="true" />
+                            <span>Disponível</span>
+                          </label>
+                          <label class="filtro-op">
+                            <input type="radio" [name]="'config-filtro-' + id" [checked]="fora" (change)="setTagHidden(g, t, true)" />
+                            <lucide-icon [img]="HiddenIcon" [size]="15" [strokeWidth]="2.5" aria-hidden="true" />
+                            <span>Excluído</span>
+                          </label>
+                        </div>
+                      </fieldset>
                     </li>
                   }
                 </ul>

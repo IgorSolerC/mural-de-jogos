@@ -26,12 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-17-seta-do-kanban',
+    id: '2026-10-17-tags-escondidas',
     version: '1.24.2',
     kind: 'ajustes',
     date: '2026-10-17',
-    title: 'Ordem das colunas do Kanban, tags por categoria e comentários nas privadas',
+    title: 'Kanban mais largo, tags escondidas no filtro e ordem das colunas',
     melhorias: [
+      'No filtro de tags do mural de anotações e do Kanban, o clique direito numa tag (no celular, segurar o dedo) esconde as anotações dela: a tag fica riscada, e um toque nela mostra de novo. É o "todas, menos estas".',
+      'Em Tags, nas configurações do mural, cada tag tem o Filtro padrão: Disponível ou Excluído. A excluída já começa riscada toda vez que você abre o mural ou o quadro daquela categoria, e Limpar mostra tudo.',
       'O quadro do Kanban vai até as beiradas da tela, para caberem mais colunas (a busca e as tags continuam onde estavam), e as colunas que passam da tela somem num degradê em vez de um corte seco. Com o mouse, uma seta na beirada diz quantas colunas estão para lá e traz as próximas. As colunas também perderam as fitas crepe das quinas.',
       'No Kanban, passando o mouse numa anotação, ao lado dos ajustes dela aparece uma seta que a leva para a coluna seguinte, sem arrastar (na última coluna ela não aparece). No celular, a seta fica sempre à mão.',
       'Cada coluna do Kanban pode ter a sua ordem, nos ajustes dela: por importância, criação, última alteração, título, tag ou tarefas por fazer, no sentido que quiser, e um segundo critério para o empate (por importância e tag, por exemplo). O alto da coluna diz a ordem, e À mão volta à ordem em que você arrastou.',

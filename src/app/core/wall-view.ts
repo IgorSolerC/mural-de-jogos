@@ -24,6 +24,7 @@ import {
   shownFinal,
 } from './review';
 import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
+import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
 
@@ -216,6 +217,11 @@ export abstract class WallState {
    * core/mural-config.ts). Só no seu mural: quem visita vê todas as abas em pé, como sempre.
    */
   readonly hiddenTabs: Signal<ReadonlySet<string>> = signal(new Set<string>());
+  /**
+   * As tags que nascem escondidas no filtro (as chaves de `tagLookKey(tag, categoria)`, ver
+   * core/tag-filter.ts): só no seu mural, pelas configurações; no de um colega, nenhuma.
+   */
+  readonly defaultTagOuts: Signal<ReadonlySet<string>> = signal(new Set<string>());
   /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
   readonly profile = computed(() => this.mural.profile());
   /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
@@ -230,6 +236,11 @@ export abstract class WallState {
   readonly query = signal('');
   /** Os filtros da cartela. Valem só nesta visita, como a busca. */
   readonly filter = signal<WallFilter>(NO_FILTER);
+  /**
+   * As tags escondidas nesta visita (o clique direito no filtro) e as escondidas pelo padrão que a
+   * pessoa mostrou de novo. A anotação com uma tag escondida sai do mural (ver core/tag-filter.ts).
+   */
+  readonly tagOuts = signal<TagOuts>(NO_TAG_OUTS);
   /** A ordem escolhida nos murais de resenhas (o de anotações tem uma por aba, `noteViews`). */
   readonly sort: WritableSignal<SortKey>;
   /**
@@ -369,11 +380,29 @@ export abstract class WallState {
     return this.guarding() ? withoutSpoilerFacets(f) : f;
   });
 
-  /** As fichas que a busca encontra, antes dos filtros: é sobre elas que a cartela conta. */
+  /** A anotação está fora por uma tag escondida (no filtro, ou pelo padrão)? */
+  private readonly outByTags = computed(() => {
+    const outs = this.tagOuts();
+    const defaults = this.defaultTagOuts();
+    return (r: Review) => hiddenByTags(r, outs, defaults);
+  });
+
+  /**
+   * As fichas que a busca encontra, antes dos filtros, sem as das tags escondidas: é sobre elas que a
+   * cartela conta.
+   */
   private readonly searched = computed<Review[]>(() => {
     const needle = fold(this.query().trim());
+    const out = this.outByTags();
     // a parede inteira: as fichas e as rejogadas, cada uma no seu lugar (as anotações finalizadas, só à mostra)
-    return this.pool().filter((r) => matchesQuery(r, needle));
+    return this.pool().filter((r) => matchesQuery(r, needle) && !out(r));
+  });
+
+  /** Quantas fichas que a busca acharia as tags escondidas tiram do mural. */
+  readonly tagHidden = computed(() => {
+    const needle = fold(this.query().trim());
+    const out = this.outByTags();
+    return this.pool().filter((r) => out(r) && matchesQuery(r, needle)).length;
   });
 
   /** Quantas anotações finalizadas, escondidas, a busca acharia (para o mural dizer que elas existem). */
@@ -387,7 +416,8 @@ export abstract class WallState {
   readonly elsewhere = computed(() => {
     const needle = fold(this.query().trim());
     if (!needle || this.activeTab() === ALL_TAB) return 0;
-    return this.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle)).length;
+    const out = this.outByTags();
+    return this.wall().filter((r) => !this.inTab(r) && this.shows(r) && matchesQuery(r, needle) && !out(r)).length;
   });
 
   /** Os grupos da cartela, com quantas fichas cada opção mostraria. */
@@ -401,7 +431,7 @@ export abstract class WallState {
   readonly tags = computed(() => tagsOf(this.activeFilter(), this.mural.profile()));
   readonly filterCount = computed(() => filterSize(this.activeFilter()));
 
-  readonly isFiltered = computed(() => this.query().trim() !== '' || this.filterCount() > 0);
+  readonly isFiltered = computed(() => this.query().trim() !== '' || this.filterCount() > 0 || this.tagHidden() > 0);
 
   readonly visible = computed<Review[]>(() => {
     const f = this.activeFilter();
@@ -499,6 +529,7 @@ export abstract class WallState {
     if (tab() === key && this.activeTab() === key) return;
     tab.set(key);
     this.filter.set(NO_FILTER);
+    this.tagOuts.set(NO_TAG_OUTS);
   }
 
   /** Muda a vista da aba aberta do mural de anotações (só ela: as outras abas ficam como estão). */
@@ -538,18 +569,50 @@ export abstract class WallState {
     this.filter.update((f) => toggleOption(f, key, value));
   }
 
+  /**
+   * O clique direito numa tag do filtro: esconde as anotações que têm a tag (sai das ligadas, se
+   * estava). Na tag já escondida, mostra de novo.
+   */
+  excludeTag(value: string): void {
+    if (this.tagIsOut(value)) {
+      this.releaseTag(value);
+      return;
+    }
+    const k = fold(value);
+    this.filter.update((f) => (f.tag.some((t) => fold(t) === k) ? { ...f, tag: f.tag.filter((t) => fold(t) !== k) } : f));
+    this.tagOuts.update((o) => excludeTag(o, value));
+  }
+
+  /** O clique na tag riscada: as anotações dela voltam (nesta visita, mesmo as que o padrão esconde). */
+  releaseTag(value: string): void {
+    this.tagOuts.update((o) => releaseTag(o, value, outByDefault(value, this.tabbed(), this.defaultTagOuts())));
+  }
+
+  /** A tag está riscada no filtro: esconde alguma anotação da aba. */
+  tagIsOut(value: string): boolean {
+    const k = fold(value);
+    const outs = this.tagOuts();
+    if (outs.out.includes(k)) return true;
+    const defaults = this.defaultTagOuts();
+    return this.tabbed().some((r) => !!r.tags?.some((t) => fold(t) === k && tagIsOut(t, r.category, outs, defaults)));
+  }
+
   clearFacet(key: FacetKey): void {
     this.filter.update((f) => (f[key].length ? { ...f, [key]: [] } : f));
   }
 
+  /** Limpar: sem busca nem filtros, e nenhuma tag escondida nesta visita (nem pelo padrão). */
   clearFilters(): void {
     this.query.set('');
     this.filter.set(NO_FILTER);
+    this.tagOuts.set(showAllTags(this.wall(), this.defaultTagOuts()));
   }
 
   /** Volta ao começo: sem busca nem filtros, em "Tudo", com as seções abertas e as finalizadas fora. */
   protected reset(): void {
     this.clearFilters();
+    // (as tags do padrão voltam a nascer escondidas)
+    this.tagOuts.set(NO_TAG_OUTS);
     this.noteTab.set(ALL_TAB);
     this.musicTab.set(ALL_TAB);
     this.collapsed.set(new Set());
@@ -567,6 +630,7 @@ export class WallView extends WallState {
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
+  override readonly defaultTagOuts = this.settings.hiddenTagKeys;
 
   constructor() {
     super({ key: KEY, whole: true });
@@ -590,6 +654,7 @@ export class WallView extends WallState {
   snapshot(): () => void {
     const query = this.query(),
       filter = this.filter(),
+      tagOuts = this.tagOuts(),
       sort = this.sort(),
       scoreKey = this.scoreKey(),
       direction = this.reviewDirection(),
@@ -600,6 +665,7 @@ export class WallView extends WallState {
     return () => {
       this.query.set(query);
       this.filter.set(filter);
+      this.tagOuts.set(tagOuts);
       this.sort.set(sort);
       this.scoreKey.set(scoreKey);
       this.reviewDirection.set(direction);

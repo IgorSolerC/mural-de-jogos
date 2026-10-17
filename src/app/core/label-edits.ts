@@ -119,13 +119,38 @@ export function tagLookMoved(looks: CategoryLooks, category: string, from: strin
   return out;
 }
 
-/** A ordem e os padrões das categorias com a chave `from` passada para `to` (null: apagada). */
+/**
+ * A ordem e os padrões das categorias com a chave `from` passada para `to` (null: apagada), e as tags
+ * dela que nascem escondidas no filtro: vão para `to` (apagada, para as anotações sem categoria, para
+ * onde as anotações dela vão).
+ */
 export function configMoved(cfg: NotesConfig, from: string, to: string | null): NotesConfig {
   if (from === to) return cfg;
   const order = cfg.order.flatMap((k) => (k !== from ? [k] : to && !cfg.order.includes(to) ? [to] : []));
   const { [from]: moving, ...categories } = cfg.categories;
   if (moving && to && !categories[to]) categories[to] = moving;
-  return { ...cfg, order, categories };
+  const fromPrefix = tagKeyPrefix(from);
+  const toPrefix = tagKeyPrefix(to ?? '');
+  const hiddenTags: string[] = [];
+  for (const k of cfg.hiddenTags) {
+    // (a chave de uma tag nunca começa com "#": o que começa é de outra categoria, "a" e "a#b")
+    const mine = k.startsWith(fromPrefix) && !k.slice(fromPrefix.length).startsWith('#');
+    const moved = mine ? toPrefix + k.slice(fromPrefix.length) : k;
+    if (!hiddenTags.includes(moved)) hiddenTags.push(moved);
+  }
+  return { ...cfg, order, categories, hiddenTags };
+}
+
+/**
+ * O filtro padrão da tag `from` da categoria passado para `to` (null: apagada, e o padrão sai junto).
+ * Juntando com uma tag que já existe, vale o padrão dela.
+ */
+export function tagConfigMoved(cfg: NotesConfig, category: string, from: string, to: string | null, merging: boolean): NotesConfig {
+  const fromKey = tagLookKey(from, category);
+  if (!cfg.hiddenTags.includes(fromKey) || (to !== null && lookKey(to) === lookKey(from))) return cfg;
+  const rest = cfg.hiddenTags.filter((k) => k !== fromKey);
+  const toKey = to === null || merging ? null : tagLookKey(to, category);
+  return { ...cfg, hiddenTags: toKey && !rest.includes(toKey) ? [...rest, toKey] : rest };
 }
 
 /** As tags fixas com a tag `from` (pela chave) trocada por `to` (null: solta). */
@@ -197,6 +222,8 @@ export class LabelEdits {
     const merging = to !== null && !!this.existingTag(to, tag, category);
     const result = this.save(notesWithTag(this.store.notes(), cat, from, to, at));
     this.settings.applyCategoryLooks(tagLookMoved(this.settings.categoryLooks(), cat, tag, to, merging), at);
+    const cfg = tagConfigMoved(this.settings.notesConfig(), cat, tag, to, merging);
+    if (cfg !== this.settings.notesConfig()) this.settings.setNotesConfig(cfg);
     const left = this.store.notes().some((r) => (r.tags ?? []).some((t) => lookKey(t) === from));
     if (!left && this.settings.pinnedTags().some((t) => lookKey(t) === from)) this.settings.applyPinnedTags(pinnedMoved(this.settings.pinnedTags(), from, to), at);
     return result;

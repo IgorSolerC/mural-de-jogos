@@ -14,6 +14,7 @@ import { NOTES } from '../core/kinds';
 import { Review, fold } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings as SettingsStore } from '../core/settings';
+import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, outTags, releaseTag, showAllTags } from '../core/tag-filter';
 import { CardPicker } from '../ui/card-picker';
 import { CategoryLabel } from '../ui/category-label';
 import { KanbanBoardSheet } from '../ui/kanban-board-sheet';
@@ -178,6 +179,17 @@ export class KanbanPage {
   protected readonly query = signal('');
   /** As tags ligadas no filtro (sem acento nem caixa): mostra as anotações com qualquer uma delas. */
   protected readonly tagFilter = signal<readonly string[]>([]);
+  /**
+   * As tags escondidas nesta visita (o clique direito no filtro) e as que o padrão esconde e a pessoa
+   * mostrou de novo (ver core/tag-filter.ts). Trocar de quadro volta ao padrão.
+   */
+  protected readonly tagOuts = signal<TagOuts>(NO_TAG_OUTS);
+  /** A anotação fica fora do quadro por uma tag escondida (no filtro, ou pelo padrão das configurações)? */
+  private readonly outByTags = computed(() => {
+    const outs = this.tagOuts();
+    const defaults = this.settings.hiddenTagKeys();
+    return (r: Review) => hiddenByTags(r, outs, defaults);
+  });
   protected readonly adding = signal<string | null>(null);
   protected readonly picking = signal(false);
   private pickColumn: string | null = null;
@@ -196,7 +208,7 @@ export class KanbanPage {
     return !!b && this.denseBoards().includes(b.id);
   });
 
-  protected readonly filtering = computed(() => !!this.query().trim() || this.tagFilter().length > 0);
+  protected readonly filtering = computed(() => !!this.query().trim() || this.tagFilter().length > 0 || this.tagHidden() > 0);
 
   /**
    * As anotações do quadro que estão nele de verdade: existem e ainda são da categoria dele (uma
@@ -212,6 +224,15 @@ export class KanbanPage {
   /** As cartas do quadro com anotação à mostra. */
   private readonly live = computed(() => this.board()?.cards.filter((c) => this.notes().has(c.note)) ?? []);
   protected readonly liveCount = computed(() => this.live().length);
+  /** Quantas anotações do quadro (que a busca acharia) as tags escondidas tiram dele. */
+  private readonly tagHidden = computed(() => {
+    const q = fold(this.query().trim());
+    const out = this.outByTags();
+    return this.live().filter((c) => {
+      const n = this.notes().get(c.note)!;
+      return out(n) && (!q || fold(n.game.name).includes(q));
+    }).length;
+  });
 
   /**
    * As tags das anotações do quadro para o filtro, como as do mural (ver `TagChips`): a grafia mais
@@ -220,10 +241,19 @@ export class KanbanPage {
   protected readonly tagChips = computed<TagChip[]>(() => {
     const q = fold(this.query().trim());
     const on = new Set(this.tagFilter());
+    const out = this.outByTags();
+    // as escondidas: quantas anotações (que a busca acharia) cada uma tira do quadro
+    const hidden = outTags(
+      this.live()
+        .map((c) => this.notes().get(c.note)!)
+        .filter((n) => !q || fold(n.game.name).includes(q)),
+      this.tagOuts(),
+      this.settings.hiddenTagKeys(),
+    );
     const seen = new Map<string, { spell: Map<string, number>; uses: number; n: number }>();
     for (const c of this.live()) {
       const note = this.notes().get(c.note)!;
-      const found = !q || fold(note.game.name).includes(q);
+      const found = (!q || fold(note.game.name).includes(q)) && !out(note);
       for (const k of new Set((note.tags ?? []).map(fold))) {
         const e = seen.get(k) ?? { spell: new Map<string, number>(), uses: 0, n: 0 };
         e.uses++;
@@ -236,14 +266,37 @@ export class KanbanPage {
       }
     }
     return [...seen]
-      .map(([value, e]) => ({ value, label: [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0], n: e.n, on: on.has(value), uses: e.uses }))
+      .map(([value, e]) => {
+        const label = [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0];
+        const h = hidden.get(value);
+        return h ? { value, label, n: h.n, on: false, out: true, uses: e.uses } : { value, label, n: e.n, on: on.has(value), uses: e.uses };
+      })
       .sort((a, b) => b.uses - a.uses || a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }))
       .map(({ uses: _u, ...chip }) => chip);
   });
 
-  /** Liga ou desliga uma tag do filtro. */
+  /** O clique numa tag do filtro: liga ou desliga; na riscada, as anotações dela voltam ao quadro. */
   protected toggleTag(value: string): void {
+    if (this.tagChips().find((c) => c.value === value)?.out) {
+      this.tagOuts.update((o) => releaseTag(o, value, outByDefault(value, this.boardNotes(), this.settings.hiddenTagKeys())));
+      return;
+    }
     this.tagFilter.update((on) => (on.includes(value) ? on.filter((t) => t !== value) : [...on, value]));
+  }
+
+  /** O clique direito: esconde as anotações da tag (sai das ligadas); na riscada, mostra de novo. */
+  protected excludeTagChip(value: string): void {
+    if (this.tagChips().find((c) => c.value === value)?.out) {
+      this.toggleTag(value);
+      return;
+    }
+    this.tagFilter.update((on) => on.filter((t) => t !== value));
+    this.tagOuts.update((o) => excludeTag(o, value));
+  }
+
+  /** As anotações do quadro (as que estão nele de verdade). */
+  private boardNotes(): Review[] {
+    return this.live().map((c) => this.notes().get(c.note)!);
   }
 
   /** As anotações que já estão no quadro: o "Buscar nota" não as mostra. */
@@ -260,6 +313,7 @@ export class KanbanPage {
     const notes = this.notes();
     const q = fold(this.query().trim());
     const tags = this.tagFilter();
+    const hidden = this.outByTags();
     const d = this.drag();
     // as que estão sendo arrastadas saem das colunas (a vaga, uma só, fica onde cairiam)
     const moving = new Set(d ? [d.note, ...d.group] : []);
@@ -267,7 +321,7 @@ export class KanbanPage {
       const n = notes.get(c.note);
       if (!n) return false;
       if (moving.has(c.note)) return true;
-      return (!q || fold(n.game.name).includes(q)) && (!tags.length || (n.tags ?? []).some((t) => tags.includes(fold(t))));
+      return (!q || fold(n.game.name).includes(q)) && (!tags.length || (n.tags ?? []).some((t) => tags.includes(fold(t)))) && !hidden(n);
     };
     const out = b.columns.map((col) => {
       const all = this.ordered(b, col);
@@ -306,7 +360,7 @@ export class KanbanPage {
     drags: true,
     notes: this.notes,
     // (o id, e não o quadro: mexer nas fichas troca o quadro, e não deve desmarcar)
-    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(',')].join('|')),
+    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(','), this.tagOuts().out.join(','), this.tagOuts().free.join(',')].join('|')),
     layout: this.view,
   });
 
@@ -343,6 +397,7 @@ export class KanbanPage {
       this.board()?.id;
       untracked(() => {
         this.tagFilter.set([]);
+        this.tagOuts.set(NO_TAG_OUTS);
         this.adding.set(null);
       });
     });
@@ -457,9 +512,11 @@ export class KanbanPage {
     this.desk.openReview(id);
   }
 
+  /** Limpar: sem busca, sem tag ligada e nenhuma escondida nesta visita (nem pelo padrão). */
   protected clearFilters(): void {
     this.query.set('');
     this.tagFilter.set([]);
+    this.tagOuts.set(showAllTags(this.boardNotes(), this.settings.hiddenTagKeys()));
   }
 
   // ===== Teclado: Shift e as setas =====

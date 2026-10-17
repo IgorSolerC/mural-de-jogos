@@ -2,7 +2,7 @@ import { Injectable, computed, effect, signal } from '@angular/core';
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
-import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs } from './mural-config';
+import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withTagHidden } from './mural-config';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
 const KEY = SETTINGS_KEY;
@@ -238,6 +238,8 @@ export class Settings {
   readonly notesConfig = signal<NotesConfig>(this.stored.notesConfig);
   /** Ver `Stored.notesConfigAt`. */
   readonly notesConfigAt = signal(this.stored.notesConfigAt);
+  /** As tags com o filtro padrão Excluído (as chaves de `tagLookKey(tag, categoria)`), ver core/tag-filter.ts. */
+  readonly hiddenTagKeys = computed<ReadonlySet<string>>(() => new Set(this.notesConfig().hiddenTags));
 
   /** A predefinição que bate com as escolhas de agora (null: uma mistura feita à mão). */
   readonly performancePreset = computed<PerformancePreset | null>(() => {
@@ -355,6 +357,11 @@ export class Settings {
   /** Muda o que uma categoria muda em cima do mural (`undefined` num campo: volta a seguir o mural). */
   setCategoryPrefs(category: string, patch: CategoryPrefs): void {
     this.setNotesConfig(withPrefs(this.notesConfig(), category, patch));
+  }
+
+  /** O filtro padrão da tag na categoria ("" ou null: as sem categoria): Excluído (`true`) ou Disponível. */
+  setTagHidden(tag: string, category: string | null, hidden: boolean): void {
+    this.setNotesConfig(withTagHidden(this.notesConfig(), tag, category, hidden));
   }
 
   /** As configurações que vieram de outro aparelho (mudadas depois das daqui). */

@@ -399,6 +399,71 @@ describe('página do Kanban', () => {
     expect(host.querySelector('.seta-quadro')).toBeNull();
   });
 
+  it('o clique direito numa tag do filtro esconde as anotações dela (riscada, com quantas tira); um clique mostra de novo', async () => {
+    store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const chips = () => [...host.querySelectorAll<HTMLButtonElement>('.pasta-baixo app-tag-chips .atalho')];
+    const chip = (label: string) => chips().find((b) => b.querySelector('app-note-tag')!.textContent!.trim() === label)!;
+    // ligada e depois escondida: sai das ligadas
+    chip('Correção').click();
+    await settle();
+    const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    chip('Correção').dispatchEvent(menu);
+    await settle();
+    expect(menu.defaultPrevented).toBeTrue();
+    expect(namesIn('afazer')).toEqual(['nsync001']);
+    expect(chip('Correção').classList).toContain('fora');
+    expect(chip('Correção').getAttribute('aria-pressed')).toBe('false');
+    expect(chip('Correção').textContent).toContain('escondida');
+    expect(chip('Correção').querySelector('.n')!.textContent).toBe('1');
+    expect(host.querySelector('.achados')?.textContent).toContain('Mostrando 1 de 2');
+    chip('Correção').click();
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
+    expect(chip('Correção').classList).not.toContain('fora');
+    expect(host.querySelector('.achados')).toBeNull();
+  });
+
+  it('no dedo, segurar a tag meio segundo esconde (e o toque que sobe não liga a tag); um toque comum liga', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const chip = () => host.querySelector<HTMLButtonElement>('.pasta-baixo .atalho')!;
+    const touch = (type: string) => chip().dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'touch', clientX: 10, clientY: 10 }));
+    touch('pointerdown');
+    await new Promise((r) => setTimeout(r, 560));
+    // o menu do navegador que vem do segurar não esconde de novo
+    chip().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    touch('pointerup');
+    chip().click();
+    await settle();
+    expect(chip().classList).toContain('fora');
+    expect(namesIn('afazer')).toEqual(['nsync001']);
+    // um toque comum (sem segurar) na riscada mostra de novo
+    touch('pointerdown');
+    touch('pointerup');
+    chip().click();
+    await settle();
+    expect(chip().classList).not.toContain('fora');
+    expect(chip().getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('a tag com o filtro padrão Excluído (na categoria do quadro) começa riscada, e Limpar mostra todas', async () => {
+    TestBed.inject(Settings).setTagHidden('Correção', 'Trabalho', true);
+    // em outra categoria, a mesma tag não esconde nada
+    TestBed.inject(Settings).setTagHidden('Sincronização', 'Estudos', true);
+    store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    expect(namesIn('afazer')).toEqual(['nsync001']);
+    const fora = [...host.querySelectorAll('.pasta-baixo .atalho.fora app-note-tag')].map((t) => t.textContent!.trim());
+    expect(fora).toEqual(['Correção']);
+    host.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
+    expect(host.querySelector('.pasta-baixo .atalho.fora')).toBeNull();
+  });
+
   it('Adicionar nota abre as duas saídas, e Nova coluna (só na pasta, sem a vaga tracejada no fim do quadro) cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {
     await go(`/anotacoes/kanban/${EST}`);
     column(kanban.boardFor('Estudos').columns[1].id).querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
