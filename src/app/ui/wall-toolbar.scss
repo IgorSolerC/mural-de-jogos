@@ -14,12 +14,8 @@
   display: none;
 }
 
-/* ===== Depois do picote: as tags (ou os filtros ligados), o que a busca achou e as tarefas ===== */
-.pasta-tags {
-  flex: 1 1 320px;
-  min-width: 0;
-}
-
+/* ===== Depois do picote: as tags (ou os filtros ligados), o que a busca achou e as tarefas =====
+   (as tags moram em styles.scss, com a pasta: o Kanban usa as mesmas) */
 /* os filtros ligados da cartela, adesivos de papel colados na pasta, cada um com o seu X */
 .pasta-filtros {
   flex: 1 1 320px;
@@ -86,19 +82,6 @@
   /* no celular, Marcar é só o ícone (e a contagem) */
   .marcar-txt {
     display: none;
-  }
-
-  /* no celular, as tags numa linha só, que corre de lado (quebrando, a pasta ficava alta) */
-  .pasta-tags {
-    flex-basis: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin-inline: -10px;
-    padding-inline: 10px;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
   }
 
   .pasta-filtros {

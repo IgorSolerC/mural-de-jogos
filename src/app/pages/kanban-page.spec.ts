@@ -110,7 +110,7 @@ describe('página do Kanban', () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     expect(host.querySelector('.pasta-nota')).toBeNull();
-    expect(getComputedStyle(host.querySelector('.pasta-baixo')!).display).toBe('none');
+    expect(host.querySelector('.pasta')!.textContent).not.toContain('Arraste');
     const dica = host.querySelector('#' + host.querySelector('.quadro')!.getAttribute('aria-describedby'))!;
     expect(dica.classList).toContain('sr-only');
     expect(dica.textContent).toContain('Shift e as setas');
@@ -282,19 +282,32 @@ describe('página do Kanban', () => {
     expect(namesIn('afazer')).toEqual(['nsync001']);
   });
 
-  it('a busca e a tag escondem as outras, e Limpar mostra todas', async () => {
+  it('a busca e as tags (as etiquetas da pasta, como no mural) escondem as outras, e Limpar mostra todas', async () => {
+    store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
     kanban.state.set(state(board()));
     await go(TRAB_URL);
-    const select = host.querySelector<HTMLSelectElement>('.pasta select')!;
-    expect([...select.options].map((o) => o.textContent!.trim())).toEqual(['Todas', 'Correção']);
-    select.value = 'correcao';
-    select.dispatchEvent(new Event('change'));
+    // sem seletor: as etiquetas depois do picote, como as do mural de anotações
+    expect(host.querySelector('.pasta select')).toBeNull();
+    const chips = () => [...host.querySelectorAll<HTMLButtonElement>('.pasta-baixo app-tag-chips .atalho')];
+    expect(chips().map((b) => b.querySelector('app-note-tag')!.textContent!.trim())).toEqual(['Correção', 'Sincronização']);
+    expect(chips().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false']);
+    chips()[0].click();
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01']);
+    expect(chips()[0].getAttribute('aria-pressed')).toBe('true');
     expect(host.querySelector('.achados')?.textContent).toContain('Mostrando 1 de 2');
+    // ligadas várias, vale qualquer uma delas
+    chips()[1].click();
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
+    chips()[0].click();
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nsync001']);
+    // a busca conta em quantas cada tag ainda está
     host.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
+    expect(chips().every((b) => b.getAttribute('aria-pressed') === 'false')).toBeTrue();
   });
 
   it('Adicionar nota abre as duas saídas, e Nova coluna (só na pasta, sem a vaga tracejada no fim do quadro) cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {

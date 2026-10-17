@@ -57,22 +57,6 @@
     <div class="pasta-linha">
       <app-search-strip class="pasta-busca" inputId="busca-quadro" [glued]="true" label="Procurar no quadro" placeholder="Procurar no quadro…" [value]="query()" (valueChange)="query.set($event)" />
       <div class="pasta-controles">
-        @if (tagOptions().length) {
-          <div class="pasta-grupo" role="group" aria-label="Filtrar">
-            <label class="tinta campo">
-              <lucide-icon [img]="TagsIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-              <span class="campo-pre">Tag</span>
-              <span class="campo-val" aria-hidden="true">{{ tagLabel() }}</span>
-              <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-              <select aria-label="Mostrar só a tag" (change)="tagFilter.set($any($event.target).value)">
-                <option value="" [selected]="!tagFilter()">Todas</option>
-                @for (t of tagOptions(); track t.key) {
-                  <option [value]="t.key" [selected]="tagFilter() === t.key">{{ t.label }}</option>
-                }
-              </select>
-            </label>
-          </div>
-        }
         <div class="pasta-grupo" role="group" aria-label="Vista do quadro">
           <button type="button" class="tinta so-icone" [attr.aria-pressed]="!dense()" aria-label="Fichas" title="Fichas" (click)="setDense(false)">
             <lucide-icon [img]="CardsIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
@@ -93,6 +77,7 @@
       </div>
     </div>
     <div class="pasta-linha pasta-baixo">
+      <app-tag-chips class="pasta-tags" [tags]="tagChips()" (toggled)="toggleTag($event)" />
       @if (filtering()) {
         <div class="pasta-estado">
           <p class="achados" aria-live="polite">

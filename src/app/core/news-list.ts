@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-16-comentar-na-sua',
+    id: '2026-10-16-tags-do-kanban',
     version: '1.24.1',
     kind: 'ajustes',
     date: '2026-10-16',
@@ -45,6 +45,7 @@ export const NEWS: NewsEntry[] = [
       'No Kanban, a vaga tracejada de nova coluna no fim do quadro saiu: Nova coluna fica só no alto, ao lado da busca.',
       'No editor, "Público ou privado?" virou "Quem vê?"; na anotação compartilhada, ele mostra se ela é pública ou privada e abre o Compartilhar ali mesmo para mudar.',
       'Dá para comentar nas suas próprias análises e anotações públicas: a leitura delas tem o Comentar mesmo antes do primeiro comentário.',
+      'O filtro de tags do Kanban virou as etiquetas da pasta, como no mural das anotações: um toque liga ou desliga cada tag, e com várias ligadas aparecem as anotações com qualquer uma delas.',
     ],
     correcoes: [
       'A tag escolhida no filtro das anotações não filtra mais as análises ao trocar de mural; ela volta a valer quando você volta para as anotações.',

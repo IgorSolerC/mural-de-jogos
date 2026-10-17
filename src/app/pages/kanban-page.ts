@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CheckCheck, ChevronDown, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, Tags, X } from 'lucide-angular';
+import { CheckCheck, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
@@ -23,6 +23,7 @@ import { KanbanNote } from '../ui/kanban-note';
 import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
+import { TagChip, TagChips } from '../ui/tag-chips';
 import { Toasts } from '../ui/toast';
 
 /** O último quadro aberto, para `/anotacoes/kanban` sem quadro abrir nele. */
@@ -101,14 +102,13 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, Pin, RouterLink, SearchStrip],
+  imports: [CardPicker, CategoryLabel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, Pin, RouterLink, SearchStrip, TagChips],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
 })
 export class KanbanPage {
   protected readonly PlusIcon = Plus;
-  protected readonly ChevronIcon = ChevronDown;
   protected readonly SettingsIcon = Settings;
   protected readonly PencilIcon = Pencil;
   protected readonly DoneIcon = CheckCheck;
@@ -116,7 +116,6 @@ export class KanbanPage {
   protected readonly NewNoteIcon = FilePlus;
   protected readonly CloseIcon = X;
   protected readonly ColumnIcon = Columns3;
-  protected readonly TagsIcon = Tags;
   protected readonly CardsIcon = Rows2;
   protected readonly TitlesIcon = List;
   protected readonly iconOf = COLUMN_ICON;
@@ -157,8 +156,8 @@ export class KanbanPage {
   });
 
   protected readonly query = signal('');
-  /** A tag do filtro (sem acento nem caixa), ou "". */
-  protected readonly tagFilter = signal('');
+  /** As tags ligadas no filtro (sem acento nem caixa): mostra as anotações com qualquer uma delas. */
+  protected readonly tagFilter = signal<readonly string[]>([]);
   protected readonly adding = signal<string | null>(null);
   protected readonly picking = signal(false);
   private pickColumn: string | null = null;
@@ -177,7 +176,7 @@ export class KanbanPage {
     return !!b && this.denseBoards().includes(b.id);
   });
 
-  protected readonly filtering = computed(() => !!this.query().trim() || !!this.tagFilter());
+  protected readonly filtering = computed(() => !!this.query().trim() || this.tagFilter().length > 0);
 
   /**
    * As anotações do quadro que estão nele de verdade: existem e ainda são da categoria dele (uma
@@ -194,22 +193,38 @@ export class KanbanPage {
   private readonly live = computed(() => this.board()?.cards.filter((c) => this.notes().has(c.note)) ?? []);
   protected readonly liveCount = computed(() => this.live().length);
 
-  /** As tags das anotações do quadro, de A a Z (a grafia mais usada), para o filtro. */
-  protected readonly tagOptions = computed(() => {
-    const seen = new Map<string, Map<string, number>>();
+  /**
+   * As tags das anotações do quadro para o filtro, como as do mural (ver `TagChips`): a grafia mais
+   * usada, as mais usadas no quadro primeiro, e em quantas a busca de agora deixa cada uma.
+   */
+  protected readonly tagChips = computed<TagChip[]>(() => {
+    const q = fold(this.query().trim());
+    const on = new Set(this.tagFilter());
+    const seen = new Map<string, { spell: Map<string, number>; uses: number; n: number }>();
     for (const c of this.live()) {
-      for (const t of this.notes().get(c.note)?.tags ?? []) {
-        const k = fold(t);
-        const m = seen.get(k) ?? new Map<string, number>();
+      const note = this.notes().get(c.note)!;
+      const found = !q || fold(note.game.name).includes(q);
+      for (const k of new Set((note.tags ?? []).map(fold))) {
+        const e = seen.get(k) ?? { spell: new Map<string, number>(), uses: 0, n: 0 };
+        e.uses++;
+        if (found) e.n++;
+        seen.set(k, e);
+      }
+      for (const t of note.tags ?? []) {
+        const m = seen.get(fold(t))!.spell;
         m.set(t, (m.get(t) ?? 0) + 1);
-        seen.set(k, m);
       }
     }
     return [...seen]
-      .map(([key, m]) => ({ key, label: [...m].reduce((a, e) => (e[1] > a[1] ? e : a))[0] }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }));
+      .map(([value, e]) => ({ value, label: [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0], n: e.n, on: on.has(value), uses: e.uses }))
+      .sort((a, b) => b.uses - a.uses || a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }))
+      .map(({ uses: _u, ...chip }) => chip);
   });
-  protected readonly tagLabel = computed(() => this.tagOptions().find((t) => t.key === this.tagFilter())?.label ?? 'Todas');
+
+  /** Liga ou desliga uma tag do filtro. */
+  protected toggleTag(value: string): void {
+    this.tagFilter.update((on) => (on.includes(value) ? on.filter((t) => t !== value) : [...on, value]));
+  }
 
   /** As anotações que já estão no quadro: o "Buscar nota" não as mostra. */
   protected readonly onBoard = computed(() => this.live().map((c) => c.note));
@@ -224,7 +239,7 @@ export class KanbanPage {
     if (!b) return [];
     const notes = this.notes();
     const q = fold(this.query().trim());
-    const tag = this.tagFilter();
+    const tags = this.tagFilter();
     const d = this.drag();
     // as que estão sendo arrastadas saem das colunas (a vaga, uma só, fica onde cairiam)
     const moving = new Set(d ? [d.note, ...d.group] : []);
@@ -232,7 +247,7 @@ export class KanbanPage {
       const n = notes.get(c.note);
       if (!n) return false;
       if (moving.has(c.note)) return true;
-      return (!q || fold(n.game.name).includes(q)) && (!tag || (n.tags ?? []).some((t) => fold(t) === tag));
+      return (!q || fold(n.game.name).includes(q)) && (!tags.length || (n.tags ?? []).some((t) => tags.includes(fold(t))));
     };
     const out = b.columns.map((col) => {
       const all = cardsIn(b, col.id).filter((c) => notes.has(c.note));
@@ -261,7 +276,7 @@ export class KanbanPage {
     drags: true,
     notes: this.notes,
     // (o id, e não o quadro: mexer nas fichas troca o quadro, e não deve desmarcar)
-    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter()].join('|')),
+    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(',')].join('|')),
     layout: this.view,
   });
 
@@ -297,7 +312,7 @@ export class KanbanPage {
     effect(() => {
       this.board()?.id;
       untracked(() => {
-        this.tagFilter.set('');
+        this.tagFilter.set([]);
         this.adding.set(null);
       });
     });
@@ -395,7 +410,7 @@ export class KanbanPage {
 
   protected clearFilters(): void {
     this.query.set('');
-    this.tagFilter.set('');
+    this.tagFilter.set([]);
   }
 
   // ===== Teclado: Shift e as setas =====

@@ -667,6 +667,12 @@ select optgroup {
     }
   }
 
+  /* as tags que filtram (ver ui/tag-chips.ts): o mural das anotações e o Kanban */
+  .pasta-tags {
+    flex: 1 1 320px;
+    min-width: 0;
+  }
+
   .pasta-estado {
     display: flex;
     flex-wrap: wrap;
@@ -746,6 +752,18 @@ select optgroup {
       margin-left: 0;
     }
 
+    /* no celular, as tags numa linha só, que corre de lado (quebrando, a pasta ficava alta) */
+    .pasta-tags {
+      flex-basis: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin-inline: -10px;
+      padding-inline: 10px;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
