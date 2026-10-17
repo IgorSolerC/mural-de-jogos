@@ -369,6 +369,31 @@ export function hasInteractive(text: string): boolean {
   return HAS_LINK.test(text) || HAS_URL.test(text) || checkCount(text).total > 0;
 }
 
+/** Os pedaços de texto de um bloco (de todas as linhas, itens e células). */
+function spansOf(b: Block): Span[] {
+  switch (b.kind) {
+    case 'p':
+    case 'quote':
+      return b.lines.flat();
+    case 'h':
+      return b.spans;
+    case 'ul':
+    case 'ol':
+    case 'check':
+      return b.items.flatMap((it) => it.spans);
+    case 'table':
+      return [...b.head, ...b.rows.flat()].flat();
+    default:
+      return [];
+  }
+}
+
+/** O texto tem um spoiler ("||…||" ou ">!…!<") para tocar e revelar? (Só lê as marcas quando pode haver um.) */
+export function hasSpoiler(text: string): boolean {
+  if (!text.includes('||') && !text.includes('>!')) return false;
+  return parseRich(text).some((b) => spansOf(b).some((s) => s.spoiler));
+}
+
 /**
  * O texto sem as marcas, para o que lê palavras: a frase da ficha, as dicas do Muraldle, a contagem
  * de palavras, o embaralhado do modo sem spoilers. Cada item de lista, título, linha de citação e

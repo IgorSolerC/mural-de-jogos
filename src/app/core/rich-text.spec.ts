@@ -1,4 +1,4 @@
-import { Block, checkCount, copyText, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
+import { Block, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -32,6 +32,15 @@ describe('texto com formatação', () => {
     expect(parseInline('a || b || c')).toEqual([{ text: 'a || b || c' }]);
     expect(parseInline('\\||nada\\||')).toEqual([{ text: '||nada||' }]);
     expect(hasFormatting('só ||isso||')).toBeTrue();
+  });
+
+  it('tem spoiler: em qualquer bloco (lista, título, tabela); "||" solto ou no código, não', () => {
+    expect(hasSpoiler('- item ||x||')).toBeTrue();
+    expect(hasSpoiler('# Fim: >!morre!<')).toBeTrue();
+    expect(hasSpoiler('| a | b |\n| - | - |\n| >!x!< | y |')).toBeTrue();
+    expect(hasSpoiler('a || b')).toBeFalse();
+    expect(hasSpoiler('`||x||`')).toBeFalse();
+    expect(hasSpoiler('nada aqui')).toBeFalse();
   });
 
   it('o texto sem marcas nunca conta o spoiler; a cópia leva o trecho entre ||', () => {

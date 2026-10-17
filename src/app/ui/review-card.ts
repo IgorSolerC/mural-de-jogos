@@ -30,7 +30,7 @@ import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
-import { checkCount, hasInteractive, plainText } from '../core/rich-text';
+import { checkCount, hasInteractive, hasSpoiler, plainText } from '../core/rich-text';
 import { cardRefsIn } from '../core/widgets';
 import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
@@ -1028,7 +1028,8 @@ export const CARD_STYLES = `
     :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep input[type='checkbox'],
     :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .elo[tabindex],
     :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep a.url,
-    :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .tocavel {
+    :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .tocavel,
+    :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .spoiler:not(.revelado) {
       pointer-events: auto;
     }
     /* o widget é um adesivo colado no texto: fica na frente do estrago, como a foto e os bônus (e
@@ -1720,11 +1721,13 @@ export class ReviewCard {
   protected readonly canFinish = computed(() => this.note() && this.ticks() && !this.preview() && !this.capas());
   protected readonly DoneIcon = CheckCheck;
   /**
-   * O texto tem o que tocar (tarefas, links)? Só então ele sobe por cima do botão da ficha; sem nada
-   * para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
+   * O texto tem o que tocar (tarefas, links, um spoiler)? Só então ele sobe por cima do botão da ficha;
+   * sem nada para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
    */
   protected readonly interactive = computed(() => {
     const t = this.review().text;
+    // o spoiler se revela tocando nele direto na ficha, em qualquer mural (sem abrir a leitura)
+    if (hasSpoiler(t)) return true;
     // a ficha colada (o widget Nota) só abre no seu mural, como os links entre anotações
     if (this.checkable() && cardRefsIn(t).length) return true;
     // os links para fora e a conta das feitas (que as mostra) valem em qualquer mural; as tarefas e

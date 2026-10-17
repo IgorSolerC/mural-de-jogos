@@ -64,6 +64,34 @@ describe('os widgets na ficha do mural', () => {
     expect(getComputedStyle(box).zIndex).toBe('3');
   });
 
+  it('o spoiler se revela tocando na própria ficha, sem abrir a leitura; revelado, o toque volta a abrir', async () => {
+    await show(card('anotacoes', 'O final: ||ele volta|| e pronto.'), { checkable: false });
+    const box = el.querySelector<HTMLElement>('.nota-texto')!;
+    expect(box.classList).toContain('marcavel');
+    const spoiler = box.querySelector<HTMLElement>('.spoiler')!;
+    expect(getComputedStyle(spoiler).pointerEvents).toBe('auto');
+    let opened = 0;
+    fixture.componentInstance.opened.subscribe(() => opened++);
+    let reached = 0;
+    el.addEventListener('click', () => reached++);
+    spoiler.click();
+    expect(spoiler.classList).toContain('revelado');
+    expect(reached).toBe(0);
+    expect(opened).toBe(0);
+    // revelado, o texto deixa o toque passar para o botão da ficha, como o resto
+    expect(getComputedStyle(spoiler).pointerEvents).toBe('none');
+  });
+
+  it('na resenha inteira também, e o texto sem spoiler (nem nada para tocar) fica por baixo', async () => {
+    await show(card('jogos', 'Bom. >!O vilão é o pai!<'), { full: true, checkable: true });
+    expect(el.querySelector('.texto-inteiro')!.classList).toContain('marcavel');
+    fixture.destroy();
+    el.remove();
+    TestBed.resetTestingModule();
+    await show(card('jogos', 'a || b, sem spoiler'), { full: true, checkable: true });
+    expect(el.querySelector('.texto-inteiro')!.classList).not.toContain('marcavel');
+  });
+
   it('o texto sem widget continua onde sempre esteve', async () => {
     await show(card('anotacoes', 'Só texto.'), { checkable: true });
     expect(getComputedStyle(el.querySelector('.nota-texto')!).zIndex).toBe('auto');
