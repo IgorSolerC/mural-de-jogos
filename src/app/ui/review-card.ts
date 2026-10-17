@@ -66,6 +66,7 @@ import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
 import { CategoryLook, CategoryLooks, bandColor, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import type { ReactionTarget } from '../core/reactions';
+import { reducedMotion } from '../core/motion';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
@@ -1772,7 +1773,7 @@ export class ReviewCard {
   private leaveAfterStamp(el: HTMLElement): void {
     const run = ++this.stampRun;
     const id = this.review().id;
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = reducedMotion();
     const still = () => run === this.stampRun && this.view.stamping().has(id);
     setTimeout(
       () => {

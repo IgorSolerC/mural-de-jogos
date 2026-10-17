@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import type { CardLook } from './card-look';
+import { reducedMotion } from './motion';
 
 export interface DeskHandlers {
   newReview(): void;
@@ -72,7 +73,7 @@ export class Desk {
     this.landingId.set(id);
     clearTimeout(this.landingTimer);
     this.landingTimer = setTimeout(() => this.landingId.set(null), 1100);
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = reducedMotion();
     let tries = 0;
     const seek = () => {
       const el = document.querySelector(`[data-ficha="${id}"]`);

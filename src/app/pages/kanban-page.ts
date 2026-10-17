@@ -29,6 +29,7 @@ import { SearchStrip } from '../ui/search-strip';
 import { TagChip, TagChips } from '../ui/tag-chips';
 import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
+import { reducedMotion } from '../core/motion';
 
 /** O último quadro aberto, para `/anotacoes/kanban` sem quadro abrir nele. */
 const LAST_KEY = 'meu-mural:kanban-aberto:v1';
@@ -576,7 +577,7 @@ export class KanbanPage {
       void card.offsetWidth;
       card.classList.add('chegou');
       setTimeout(() => card.classList.remove('chegou'), 950);
-      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const still = reducedMotion();
       li.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: still ? 'auto' : 'smooth' });
       (li.querySelector<HTMLElement>('.avancar') ?? li.querySelector<HTMLElement>('.hit'))?.focus({ preventScroll: true });
     });
@@ -702,7 +703,7 @@ export class KanbanPage {
       if (c) left = c.offsetLeft + c.offsetWidth - (q.clientWidth - inset);
     }
     if (left === null) return;
-    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const still = reducedMotion();
     q.scrollTo({ left: Math.max(0, Math.min(left, max)), behavior: still ? 'auto' : 'smooth' });
   }
 

@@ -45,6 +45,7 @@ import { BackupEnvelope } from './comparison/envelope';
 import { Caderno, OpenRequest } from './comparison/caderno';
 import { NameTags } from './comparison/name-tags';
 import { nameCollator, plural } from '../core/text';
+import { reducedMotion } from '../core/motion';
 
 type Tab = 'comum' | 'dicas' | 'minhas';
 type PairSort = 'briga' | 'minha' | 'colega' | 'nome';
@@ -478,7 +479,7 @@ export class ComparisonPage {
     this.notesOpen.set(pair.key);
     requestAnimationFrame(() =>
       document.getElementById('fichas')?.scrollIntoView({
-        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        behavior: reducedMotion() ? 'auto' : 'smooth',
         block: 'start',
       }),
     );

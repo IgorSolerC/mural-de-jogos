@@ -18,7 +18,8 @@ import { DecorArt, decorArt } from '../core/decor-art';
 import { PaperArt as Art, cutMask, paperArt } from '../core/paper-art';
 import { budget, perFrame, rest, spend, struggling, tick } from './pace';
 import { dropMask, holdMask, maskClass } from './mask-rules';
-import { isVeiled, reducedMotion, reveal, veil } from './veil';
+import { isVeiled, reveal, veil } from './veil';
+import { reducedMotion } from '../core/motion';
 
 let uids = 0;
 

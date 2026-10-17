@@ -1,3 +1,4 @@
+import { reducedMotion } from '../core/motion';
 /**
  * O véu das fichas: a ficha cujo papel ainda não está pronto no tamanho dela não aparece com o
  * desenho velho. No lugar dela fica a vaga, a marca tracejada na parede (`data-veu`, ver
@@ -27,11 +28,6 @@ const FAINT = 0.02;
 
 const entering = new WeakMap<Element, Animation[]>();
 let nextAt = 0;
-
-/** Quem pediu menos movimento no sistema. */
-export function reducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
 
 /** O que entra com fade: o corpo da ficha (a vaga tracejada fica na própria ficha, por baixo). */
 function bodyOf(card: HTMLElement): HTMLElement {

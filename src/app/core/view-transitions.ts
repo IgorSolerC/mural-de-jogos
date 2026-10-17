@@ -1,5 +1,6 @@
 import { ApplicationRef, Injectable, inject } from '@angular/core';
 import { Mural } from './mural';
+import { reducedMotion } from './motion';
 
 /** Folga em volta da tela: a sombra, a tachinha e os enfeites passam da caixa da ficha. */
 const MARGIN = 240;
@@ -23,7 +24,7 @@ export class ViewTransitions {
    */
   run(change: () => void, snapshot?: () => () => void): void {
     const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<unknown> } };
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = reducedMotion();
     // Muitas fichas: trocar direto é mais rápido que animar cada uma.
     if (!doc.startViewTransition || reduced || this.mural.wallCount() > 160) {
       change();

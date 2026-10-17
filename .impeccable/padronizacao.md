@@ -30,7 +30,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
    A camada do IndexedDB (local-data) fica como está: ela precisa saber quando a cota acaba. Os leitores de JSON
    que conferem a forma dentro do mesmo `try` ficam (a conferência também pode falhar e cair no padrão), e o
    `writeNext` do convite para entrar também (a data é montada dentro do `try`).
-6. [ ] **Movimento reduzido**: `reducedMotion()` (ui/veil) existe, mas 12 lugares leem `matchMedia` à mão.
+6. [x] **Movimento reduzido**: `reducedMotion()` (ui/veil) existe, mas 12 lugares leem `matchMedia` à mão. Mudou para
+   `core/motion.ts` (o core não importa mais da ui para isso) e os 12 usam ele.
 7. [ ] **Pequenos iguais**: `tilt` de comments-panel = person-photo; `host` de audio-track = glued-media; cloud-sync importa
    `canonicalJson` duas vezes com dois nomes.
 8. [ ] **Ociosidade**: `requestIdleCallback` com reserva copiado em wall-cards, paper-layer e sound-warmup (tempos diferentes,

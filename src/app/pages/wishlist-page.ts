@@ -12,6 +12,7 @@ import { SearchHighlight } from '../ui/search-highlight';
 import { SearchStrip } from '../ui/search-strip';
 import { WishClip } from '../ui/wish-clip';
 import { nameCollator } from '../core/text';
+import { reducedMotion } from '../core/motion';
 
 type Order = 'recentes' | 'antigos' | 'az';
 const ORDERS: readonly { value: Order; label: string }[] = [
@@ -384,7 +385,7 @@ export class WishlistPage {
     setTimeout(() => {
       const btn = document.querySelector<HTMLElement>(`[data-ficha="${w.id}"] .adesivo-btn`);
       btn?.focus({ preventScroll: true });
-      btn?.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      btn?.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
     }, 140);
   }
 
@@ -399,7 +400,7 @@ export class WishlistPage {
     if (!pool.length) return;
     const w = pool[Math.floor(Math.random() * pool.length)];
     this.drawn.set(w.id);
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = reducedMotion();
     requestAnimationFrame(() => {
       document.querySelector(`[data-ficha="${w.id}"]`)?.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
       this.startBtn()?.nativeElement.focus({ preventScroll: true });

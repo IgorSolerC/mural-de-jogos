@@ -42,6 +42,7 @@ import { Regua } from './stats/regua';
 import { ONE_DECIMAL as one, formatAvg } from '../core/review';
 import { plural } from '../core/text';
 import { localDay } from '../core/dates';
+import { reducedMotion } from '../core/motion';
 
 export type Aba = 'resumo' | 'notas' | 'tempo' | 'habitos' | 'carimbos' | 'cartolinas' | 'curiosidades';
 
@@ -141,7 +142,7 @@ export class StatsPage {
   protected setAba(id: Aba, scroll = false): void {
     if (this.aba() === id) return;
     this.router.navigate([], { relativeTo: this.route, queryParams: { aba: id === 'resumo' ? null : id }, queryParamsHandling: 'merge' });
-    if (scroll) document.getElementById('abas')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    if (scroll) document.getElementById('abas')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
   }
 
   // ===== de quem e de quando =====

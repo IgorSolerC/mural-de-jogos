@@ -2,6 +2,7 @@ import { ApplicationRef, Injectable, inject } from '@angular/core';
 import { repaint } from '../ui/paper-layer';
 import { settleWall } from './wall-settle';
 import { isVeiled, veil } from '../ui/veil';
+import { reducedMotion } from './motion';
 
 /** Folga em volta da tela: a sombra, a tachinha e os enfeites passam da caixa da ficha. */
 const MARGIN = 240;
@@ -39,7 +40,7 @@ export class WallMotion {
    * cada ficha entra quando o papel dela fica pronto, de cima para baixo (ver a fila do papel).
    */
   swap(change: () => void): void {
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = reducedMotion();
     if (reduced || typeof Element.prototype.animate !== 'function') {
       change();
       return;
@@ -87,7 +88,7 @@ export class WallMotion {
   }
 
   run(change: () => void): void {
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = reducedMotion();
     if (reduced || typeof Element.prototype.animate !== 'function') {
       change();
       return;
