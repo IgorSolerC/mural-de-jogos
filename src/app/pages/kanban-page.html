@@ -91,11 +91,22 @@
 
   <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->
   <p id="kanban-dica" class="sr-only">Arraste as anotações de uma coluna para outra. No teclado, Shift e as setas.</p>
-  <div #quadro class="quadro" aria-describedby="kanban-dica" [class.denso]="dense()" [class.arrastando]="!!drag()" [class.puxando]="panning()" (pointerdown)="onBoardDown($event)">
+  <!-- o quadro passa da pasta e corre até as beiradas da tela; o que fica para lá some num degradê, e
+       as setas nas beiradas trazem as colunas escondidas (ver `measureEdges`) -->
+  <div class="quadro-moldura">
+  <div
+    #quadro
+    class="quadro"
+    aria-describedby="kanban-dica"
+    [class.denso]="dense()"
+    [class.arrastando]="!!drag()"
+    [class.puxando]="panning()"
+    [class.corte-inicio]="edges().start"
+    [class.corte-fim]="edges().end"
+    (pointerdown)="onBoardDown($event)"
+  >
     @for (v of view(); track v.col.id; let ci = $index) {
       <section class="coluna" [attr.data-coluna]="v.col.id" [class.finaliza]="v.col.finishes" [class.alvo]="drag()?.over === v.col.id" [attr.aria-labelledby]="'col-' + v.col.id">
-        <span class="fita fita-e" aria-hidden="true"></span>
-        <span class="fita fita-d" aria-hidden="true"></span>
         <header class="etiqueta" [attr.data-cor]="v.col.color">
           <lucide-icon class="etiqueta-icone" [img]="iconOf[v.col.icon]" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
           <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">
@@ -163,6 +174,23 @@
         </div>
       </section>
     }
+  </div>
+  @if (edges().before; as n) {
+    <div class="trilho trilho-inicio">
+      <button type="button" class="seta-quadro" [attr.aria-label]="'Ver as colunas da esquerda: ' + (n === 1 ? '1 escondida' : n + ' escondidas')" [title]="n === 1 ? '1 coluna para a esquerda' : n + ' colunas para a esquerda'" (click)="page(-1)">
+        <lucide-icon [img]="BackIcon" [size]="24" [strokeWidth]="2.8" aria-hidden="true" />
+        <span class="seta-n" aria-hidden="true">{{ n }}</span>
+      </button>
+    </div>
+  }
+  @if (edges().after; as n) {
+    <div class="trilho trilho-fim">
+      <button type="button" class="seta-quadro" [attr.aria-label]="'Ver as colunas da direita: ' + (n === 1 ? '1 escondida' : n + ' escondidas')" [title]="n === 1 ? '1 coluna para a direita' : n + ' colunas para a direita'" (click)="page(1)">
+        <lucide-icon [img]="NextIcon" [size]="24" [strokeWidth]="2.8" aria-hidden="true" />
+        <span class="seta-n" aria-hidden="true">{{ n }}</span>
+      </button>
+    </div>
+  }
   </div>
 
   <p class="sr-only" aria-live="polite">{{ said() }}</p>

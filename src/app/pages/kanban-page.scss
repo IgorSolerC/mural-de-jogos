@@ -228,19 +228,54 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ===== O quadro: as colunas lado a lado; a fileira rola para o lado ===== */
+/* ===== O quadro: as colunas lado a lado; a fileira rola para o lado =====
+   A pasta (as abas, a busca, as tags) fica na largura da página; o quadro passa dela e corre até as
+   beiradas da tela, para caberem mais colunas. A primeira coluna continua na linha da pasta (a folga
+   de cada lado é a mesma que o quadro passou dela). Do lado em que ainda há o que rolar, as colunas
+   somem num degradê até a parede, em vez de um corte seco; rolada até o fim, aquela beirada volta a
+   ser nítida. */
+.quadro-moldura {
+  position: relative;
+  margin-top: 30px;
+}
+
 .quadro {
+  /* a largura do degradê: estreito no celular, largo numa tela grande (registrada em styles.scss) */
+  --kb-fade: clamp(22px, 7vw, 132px);
+  --kb-fade-inicio: 0px;
+  --kb-fade-fim: 0px;
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 24px;
-  margin-top: 30px;
-  /* em cima, a folga das fitas; dos lados e embaixo, a das sombras */
-  padding: 16px 18px 34px;
-  margin-inline: -18px;
+  /* da beirada da página até a da tela, dos dois lados (os % são da largura da página) */
+  margin-inline: calc(50% - 50vw);
+  /* em cima e embaixo, a folga das sombras (e da tira torta); dos lados, a volta até a linha da pasta */
+  padding: 8px calc(50vw - 50%) 34px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  /* o foco do teclado e a coluna nova param fora do degradê */
+  scroll-padding-inline: max(var(--sangria, 0px), var(--kb-fade));
   scrollbar-color: rgb(243 239 230 / 0.35) transparent;
   cursor: default;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--kb-fade-inicio),
+    #000 calc(100% - var(--kb-fade-fim)),
+    transparent 100%
+  );
+  transition:
+    --kb-fade-inicio var(--t-physical) var(--ease-ui),
+    --kb-fade-fim var(--t-physical) var(--ease-ui);
+
+  &.corte-inicio {
+    --kb-fade-inicio: var(--kb-fade);
+  }
+
+  &.corte-fim {
+    --kb-fade-fim: var(--kb-fade);
+  }
 
   &.puxando {
     cursor: grabbing;
@@ -248,8 +283,139 @@
   }
 }
 
-/* Uma coluna: uma tira comprida de papel pardo presa na parede com dois pedaços de fita crepe; a
-   etiqueta de cartolina dela no alto, as anotações pregadas embaixo. Cada uma um pouco torta. */
+/* As setas das beiradas: um disco de papel na parede, por cima do degradê, que traz a próxima página
+   de colunas; o adesivo de tinta no canto diz quantas estão para lá (o mesmo das marcadas). O trilho
+   tem a altura do quadro e a seta anda nele presa no meio da tela, para estar à mão mesmo numa coluna
+   comprida. Só com mouse: no toque, o dedo já arrasta o quadro de lado. */
+.trilho {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  display: none;
+  width: 48px;
+  padding-top: 64px;
+  pointer-events: none;
+}
+
+.trilho-inicio {
+  /* a beirada da tela, um pouco para dentro */
+  left: calc(50% - 50vw + 22px);
+}
+
+.trilho-fim {
+  right: calc(50% - 50vw + 30px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .trilho {
+    display: block;
+  }
+}
+
+.seta-quadro {
+  position: sticky;
+  top: calc(50dvh - 24px);
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.45),
+    0 8px 16px -6px rgb(0 0 0 / 0.6);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: seta-chega var(--t-physical) var(--ease-physical);
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    scale var(--t-ui) var(--ease-ui),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    scale: 1.06;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.45),
+      0 12px 20px -6px rgb(0 0 0 / 0.65);
+  }
+
+  &:active {
+    scale: 0.97;
+  }
+
+  /* o foco na tinta, com a volta clara: aparece na parede escura e no papel pardo */
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+    box-shadow:
+      0 0 0 7px rgb(241 241 236 / 0.85),
+      0 8px 16px -6px rgb(0 0 0 / 0.6);
+  }
+}
+
+.trilho-inicio .seta-quadro:hover {
+  translate: -2px 0;
+}
+
+.trilho-fim .seta-quadro:hover {
+  translate: 2px 0;
+}
+
+.seta-n {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border: 2px solid var(--paper);
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-marker);
+  font-size: 0.82rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  rotate: -8deg;
+}
+
+.trilho-inicio .seta-n {
+  right: auto;
+  left: -7px;
+  rotate: 8deg;
+}
+
+/* arrastando, a beirada do quadro já rola sozinha: as setas saem do caminho */
+.quadro.arrastando ~ .trilho {
+  opacity: 0;
+  pointer-events: none;
+
+  .seta-quadro {
+    pointer-events: none;
+  }
+}
+
+@keyframes seta-chega {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+
+/* Uma coluna: uma tira comprida de papel pardo na parede (sem fita nas quinas: o usuário achou
+   barulho); o cabeçalho dela no alto, as anotações embaixo. Cada uma um pouco torta. */
 .coluna {
   position: relative;
   flex: 0 0 var(--coluna-w);
@@ -280,31 +446,6 @@
 /* arrastando: a coluna embaixo do ponteiro clareia um pouco, como papel sob a luz */
 .quadro.arrastando .coluna.alvo {
   background-color: #d1b07a;
-}
-
-/* os dois pedaços de fita crepe que prendem a tira na parede */
-.fita {
-  position: absolute;
-  top: -11px;
-  z-index: 3;
-  width: 62px;
-  height: 22px;
-  background: var(--tape);
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
-  pointer-events: none;
-
-  &.fita-e {
-    left: -14px;
-    rotate: -28deg;
-  }
-  &.fita-d {
-    right: -14px;
-    rotate: 24deg;
-  }
-}
-
-:host-context(.has-tape) .fita {
-  background: url('/textures/fita-crepe.png') center / cover;
 }
 
 /* O cabeçalho: não é cartolina (as anotações é que são), é o papel claro das orelhas de categoria,
@@ -730,7 +871,6 @@
   .quadro {
     gap: 18px;
     scroll-snap-type: x mandatory;
-    scroll-padding-inline: 18px;
   }
 
   .quadro.arrastando {
@@ -749,11 +889,14 @@
 @media (prefers-reduced-motion: reduce) {
   .aba,
   .coluna,
-  .adicionar-btn {
+  .adicionar-btn,
+  .quadro,
+  .seta-quadro {
     transition: none;
   }
 
-  .adicionar-menu {
+  .adicionar-menu,
+  .seta-quadro {
     animation: none;
   }
 }

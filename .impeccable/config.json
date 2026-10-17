@@ -56,6 +56,24 @@
         ],
         "createdAt": "2026-10-13T03:06:37.206Z",
         "reason": "agent: the src is an Angular binding ([src]=\"src\"), filled with the album art at runtime; not an empty image"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/app/pages/kanban-page.scss"
+        ],
+        "createdAt": "2026-10-16T20:01:53.246Z",
+        "reason": "Claude triage: L125 is the manila folder's 7px top edge spanning the full width under the board tabs (same as ui/note-tabs-bar.ts), not a card side accent"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "src/styles.scss"
+        ],
+        "createdAt": "2026-10-17T12:39:27.356Z",
+        "reason": "Claude triage: .metal-nota is the approved gold foil of 9+ scores (DESIGN.md 'Nota 10 (foil pass)'), pre-existing, not touched by this change"
       }
     ]
   }

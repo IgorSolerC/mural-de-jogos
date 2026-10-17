@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ArrowDownWideNarrow, CheckCheck, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
+import { ArrowDownWideNarrow, CheckCheck, ChevronLeft, ChevronRight, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
@@ -80,6 +80,18 @@ interface Drag {
   group: readonly string[];
 }
 
+/**
+ * O que passa das beiradas do quadro: `start`/`end` ligam o degradê daquele lado (há o que rolar
+ * para lá), e `before`/`after` contam as colunas que não estão inteiras à vista daquele lado (as setas).
+ */
+interface Edges {
+  start: boolean;
+  end: boolean;
+  before: number;
+  after: number;
+}
+const NO_EDGES: Edges = { start: false, end: false, before: 0, after: 0 };
+
 /** Uma aba de quadro: a categoria, o id do quadro dela, quantas anotações ele tem e a cor da orelha. */
 interface BoardTab {
   id: string;
@@ -94,7 +106,7 @@ interface BoardTab {
  * Kanban (`/anotacoes/kanban/:quadro`): um quadro por categoria das anotações, com colunas de etapas
  * e, nelas, as anotações daquela categoria, na ficha simples (ver core/kanban.ts). As abas dos
  * quadros são as próprias categorias, com o ícone e a cor delas, como as abas do mural. Cada coluna
- * é uma tira de papel pardo presa na parede com fita crepe, com o cabeçalho dela no alto (ícone,
+ * é uma tira de papel pardo na parede, com o cabeçalho dela no alto (ícone,
  * nome, quantas, e o lápis dos ajustes); as anotações ficam pregadas nela, com as tags delas na
  * ficha e a importância colada na beirada.
  *
@@ -122,6 +134,8 @@ export class KanbanPage {
   protected readonly CardsIcon = Rows2;
   protected readonly TitlesIcon = List;
   protected readonly SortIcon = ArrowDownWideNarrow;
+  protected readonly BackIcon = ChevronLeft;
+  protected readonly NextIcon = ChevronRight;
   protected readonly sortShort = sortShort;
   protected readonly sortSentence = sortSentence;
   protected readonly iconOf = COLUMN_ICON;
@@ -332,9 +346,28 @@ export class KanbanPage {
         this.adding.set(null);
       });
     });
+    // as beiradas: medidas de novo ao rolar, ao mudar de tamanho e a cada coluna que entra ou sai
+    effect((onCleanup) => {
+      const q = this.quadro()?.nativeElement;
+      if (!q) return;
+      const schedule = () => this.scheduleEdges();
+      q.addEventListener('scroll', schedule, { passive: true });
+      const ro = new ResizeObserver(schedule);
+      ro.observe(q);
+      onCleanup(() => {
+        q.removeEventListener('scroll', schedule);
+        ro.disconnect();
+      });
+    });
+    effect(() => {
+      this.view();
+      this.dense();
+      untracked(() => this.scheduleEdges());
+    });
     destroy.onDestroy(() => {
       this.kanban.openBoard.set(null);
       this.endDrag();
+      cancelAnimationFrame(this.edgeFrame);
     });
   }
 
@@ -521,6 +554,77 @@ export class KanbanPage {
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+  }
+
+  // ===== As beiradas: o quadro corre até a beirada da tela e some num degradê =====
+
+  /**
+   * O quadro passa da largura da pasta e vai até as beiradas da tela (a primeira coluna continua
+   * alinhada com a pasta); do lado em que ainda há o que rolar, as colunas somem num degradê, e uma
+   * seta na beirada diz quantas estão para lá e traz a próxima página delas.
+   */
+  protected readonly edges = signal<Edges>(NO_EDGES);
+  private edgeFrame = 0;
+
+  private scheduleEdges(): void {
+    cancelAnimationFrame(this.edgeFrame);
+    this.edgeFrame = requestAnimationFrame(() => this.measureEdges());
+  }
+
+  /**
+   * A janela à mostra, no sistema do conteúdo do quadro (o das colunas, que não muda ao rolar): o que
+   * o degradê de cada lado ainda deixa ler. `inset` é onde uma coluna trazida pela seta encosta: na
+   * linha da pasta, ou depois do degradê, se ele for mais largo.
+   */
+  private windowOf(q: HTMLElement, start: boolean, end: boolean): { lo: number; hi: number; inset: number } {
+    const fade = parseFloat(getComputedStyle(q).getPropertyValue('--kb-fade')) || 0;
+    const sangria = Math.max(0, this.host.getBoundingClientRect().left - q.getBoundingClientRect().left);
+    q.style.setProperty('--sangria', `${Math.round(sangria)}px`);
+    return { lo: q.scrollLeft + (start ? fade : 0), hi: q.scrollLeft + q.clientWidth - (end ? fade : 0), inset: Math.max(sangria, fade) };
+  }
+
+  private measureEdges(): void {
+    const q = this.quadro()?.nativeElement;
+    let next = NO_EDGES;
+    if (q) {
+      const max = q.scrollWidth - q.clientWidth;
+      const start = q.scrollLeft > 2;
+      const end = q.scrollLeft < max - 2;
+      const { lo, hi } = this.windowOf(q, start, end);
+      let before = 0;
+      let after = 0;
+      // pela caixa de layout (offsetLeft), não pela de tela: a coluna é um pouco torta
+      for (const c of Array.from(q.querySelectorAll<HTMLElement>(':scope > .coluna'))) {
+        if (c.offsetLeft < lo - 4) before++;
+        else if (c.offsetLeft + c.offsetWidth > hi + 4) after++;
+      }
+      next = { start, end, before, after };
+    }
+    const e = this.edges();
+    if (e.start !== next.start || e.end !== next.end || e.before !== next.before || e.after !== next.after) this.edges.set(next);
+  }
+
+  /**
+   * A seta da beirada: traz a página seguinte de colunas. Para a direita, a primeira que não estava
+   * inteira encosta na linha da pasta; para a esquerda, a última escondida encosta na beirada de lá.
+   */
+  protected page(dir: -1 | 1): void {
+    const q = this.quadro()?.nativeElement;
+    if (!q) return;
+    const max = q.scrollWidth - q.clientWidth;
+    const { lo, hi, inset } = this.windowOf(q, q.scrollLeft > 2, q.scrollLeft < max - 2);
+    const cols = Array.from(q.querySelectorAll<HTMLElement>(':scope > .coluna'));
+    let left: number | null = null;
+    if (dir > 0) {
+      const c = cols.find((x) => x.offsetLeft + x.offsetWidth > hi + 4);
+      if (c) left = c.offsetLeft - inset;
+    } else {
+      const c = cols.reverse().find((x) => x.offsetLeft < lo - 4);
+      if (c) left = c.offsetLeft + c.offsetWidth - (q.clientWidth - inset);
+    }
+    if (left === null) return;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    q.scrollTo({ left: Math.max(0, Math.min(left, max)), behavior: still ? 'auto' : 'smooth' });
   }
 
   // ===== Arrastar: mouse, caneta e dedo =====

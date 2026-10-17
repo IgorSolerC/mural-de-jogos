@@ -314,6 +314,64 @@ describe('página do Kanban', () => {
     expect(chips().every((b) => b.getAttribute('aria-pressed') === 'false')).toBeTrue();
   });
 
+  it('o quadro passa da pasta até as beiradas da tela: a primeira coluna na linha da pasta, o resto some num degradê, e a seta traz as escondidas', async () => {
+    const frames = async (n = 3) => {
+      for (let i = 0; i < n; i++) await new Promise((r) => requestAnimationFrame(r));
+      await settle();
+    };
+    const many = board();
+    many.columns = Array.from({ length: 9 }, (_, i) => ({ id: `c${i}`, name: `Etapa ${i + 1}`, icon: 'circulo' as const, color: 'cinza' as const, finishes: false }));
+    many.cards = [{ note: 'nlogin01', column: 'c0', importance: null }];
+    kanban.state.set(state(many));
+    await go(TRAB_URL);
+    await frames();
+    const q = host.querySelector<HTMLElement>('.quadro')!;
+    const pasta = host.querySelector('.pasta')!.getBoundingClientRect();
+    // mais largo que a pasta, de beirada a beirada da tela; a primeira coluna onde a pasta começa
+    expect(q.getBoundingClientRect().width).toBeGreaterThan(pasta.width);
+    expect(Math.abs(q.querySelector('.coluna')!.getBoundingClientRect().left - pasta.left)).toBeLessThan(3);
+    // no começo: degradê só na direita, e a seta de lá diz quantas estão escondidas
+    expect(q.classList).toContain('corte-fim');
+    expect(q.classList).not.toContain('corte-inicio');
+    expect(host.querySelector('.trilho-inicio')).toBeNull();
+    const seta = host.querySelector<HTMLButtonElement>('.trilho-fim .seta-quadro')!;
+    const escondidas = Number(seta.querySelector('.seta-n')!.textContent);
+    expect(escondidas).toBeGreaterThan(0);
+    expect(seta.getAttribute('aria-label')).toContain(`${escondidas} escondida`);
+    // a seta traz a primeira coluna que não estava inteira para a linha da pasta
+    const primeiraCortada = [...q.querySelectorAll<HTMLElement>('.coluna')].length - escondidas;
+    q.style.scrollBehavior = 'auto';
+    spyOn(q, 'scrollTo').and.callFake(((o: ScrollToOptions) => (q.scrollLeft = o.left!)) as typeof q.scrollTo);
+    seta.click();
+    await frames();
+    const alvo = q.querySelectorAll<HTMLElement>('.coluna')[primeiraCortada];
+    expect(q.scrollLeft).toBeGreaterThan(0);
+    expect(alvo.getBoundingClientRect().left).toBeGreaterThanOrEqual(pasta.left - 2);
+    // rolado: o degradê e a seta da esquerda aparecem
+    expect(q.classList).toContain('corte-inicio');
+    expect(host.querySelector('.trilho-inicio .seta-quadro')).not.toBeNull();
+    // no fim, a beirada da direita volta a ser nítida e a seta dela sai
+    q.scrollLeft = q.scrollWidth;
+    q.dispatchEvent(new Event('scroll'));
+    await frames();
+    expect(q.classList).not.toContain('corte-fim');
+    expect(host.querySelector('.trilho-fim')).toBeNull();
+  });
+
+  it('com poucas colunas, o quadro cabe: nem degradê nem seta', async () => {
+    const one = board();
+    one.columns = one.columns.slice(0, 1);
+    one.cards = one.cards.filter((c) => c.column === 'afazer');
+    kanban.state.set(state(one));
+    await go(TRAB_URL);
+    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    await settle();
+    const q = host.querySelector<HTMLElement>('.quadro')!;
+    expect(q.classList).not.toContain('corte-inicio');
+    expect(q.classList).not.toContain('corte-fim');
+    expect(host.querySelector('.seta-quadro')).toBeNull();
+  });
+
   it('Adicionar nota abre as duas saídas, e Nova coluna (só na pasta, sem a vaga tracejada no fim do quadro) cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {
     await go(`/anotacoes/kanban/${EST}`);
     column(kanban.boardFor('Estudos').columns[1].id).querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
