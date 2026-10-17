@@ -81,6 +81,10 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
     nas abas das anotações e nos quadros do Kanban. Agora `ui/_divisorias.scss` (`pasta`, `borda-da-pasta`, `aba($aberta)`);
     o Kanban guarda as abas 4px maiores por cima do mixin, e a borda da pasta dele ganhou o canto de 1px das outras duas.
 
+33. [x] **Etiquetas do índice** (as partes dos Ajustes e as de Amigos): o mesmo papel, sombra, giro, hover e aberta amarela.
+    Agora `kit.etiqueta-indice`; o foco fica com cada uma (tinta nos Ajustes, amarelo na parede de Amigos) e o passo de
+    10px da aberta, só nos Ajustes. O teste novo do bilhete fecha as folhas que outros testes deixam abertas.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e

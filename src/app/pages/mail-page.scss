@@ -24,6 +24,7 @@
 
 /* a etiqueta de papel de cada parte (como as do índice dos Ajustes); a aberta é a amarela, reta */
 .aba {
+  @include kit.etiqueta-indice;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -31,12 +32,6 @@
   gap: 9px;
   min-height: 46px;
   padding: 9px 17px 8px 14px;
-  border: 0;
-  border-radius: 2px;
-  background-color: var(--papel-ficha);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 1.04rem;
@@ -44,28 +39,10 @@
   line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
-  rotate: var(--giro, 0deg);
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.35),
-    0 6px 10px -4px rgb(0 0 0 / 0.5);
-  cursor: pointer;
-  transition:
-    rotate var(--t-physical) var(--ease-physical),
-    translate var(--t-physical) var(--ease-physical),
-    background-color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    translate: 0 -2px;
-  }
 
   &:focus-visible {
     outline: 3px solid var(--hi);
     outline-offset: 4px;
-  }
-
-  &.aberta {
-    background-color: var(--hi);
-    rotate: 0deg;
   }
 
   lucide-icon {

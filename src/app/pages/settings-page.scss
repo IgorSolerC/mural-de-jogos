@@ -124,6 +124,7 @@
 }
 
 .etiqueta {
+  @include kit.etiqueta-indice;
   position: relative;
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
@@ -132,36 +133,15 @@
   row-gap: 3px;
   min-height: 58px;
   padding: 10px 14px 10px 12px;
-  border: 0;
-  border-radius: 2px;
-  background-color: var(--papel-ficha);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
   text-align: left;
-  rotate: var(--giro, 0deg);
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.35),
-    0 6px 10px -4px rgb(0 0 0 / 0.5);
-  cursor: pointer;
-  transition:
-    rotate var(--t-physical) var(--ease-physical),
-    translate var(--t-physical) var(--ease-physical),
-    background-color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    translate: 0 -2px;
-  }
 
   &:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: 3px;
   }
 
-  /* a parte aberta: papel amarelo, reta, um passo na direção da folha */
+  /* a parte aberta: um passo na direção da folha */
   &.aberta {
-    background-color: var(--hi);
-    rotate: 0deg;
     translate: 10px 0;
   }
 }

@@ -26,6 +26,8 @@ describe('Toasts.copy', () => {
     const fixture = TestBed.createComponent(Toast);
     document.body.appendChild(fixture.nativeElement);
     const toasts = TestBed.inject(Toasts);
+    // folhas que outros testes deixaram abertas ficariam por cima desta
+    document.querySelectorAll('dialog[open]').forEach((d) => (d as HTMLDialogElement).close());
     const sheet = document.createElement('dialog');
     document.body.appendChild(sheet);
     sheet.showModal();

@@ -111,6 +111,36 @@
   }
 }
 
+/* A etiqueta de papel de um índice (as partes dos Ajustes, as de Amigos): papel de ficha creme, torta
+   por --giro, que sobe no mouse; a aberta (.aberta) é amarela e reta. O desenho de dentro e o foco
+   ficam com quem inclui (o fundo atrás delas muda). */
+@mixin etiqueta-indice {
+  border: 0;
+  border-radius: 2px;
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  rotate: var(--giro, 0deg);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 6px 10px -4px rgb(0 0 0 / 0.5);
+  cursor: pointer;
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    translate: 0 -2px;
+  }
+
+  &.aberta {
+    background-color: var(--hi);
+    rotate: 0deg;
+  }
+}
+
 /* Botão de papel: a ação secundária dentro da folha. Com .forte, .quieto e .perigo. */
 @mixin botao-papel {
   position: relative;
