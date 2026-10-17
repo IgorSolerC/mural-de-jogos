@@ -26,6 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-17-spoiler-no-texto',
+    version: '1.25.1',
+    kind: 'ajustes',
+    date: '2026-10-17',
+    title: 'Spoiler no texto',
+    melhorias: [
+      'Nova marca de texto, o spoiler: escreva ||assim|| (ou >!assim!<) e o trecho fica embaixo de uma tarja preta, que some quando alguém toca nela. Está no Mais da régua; na frase da ficha no mural, o trecho vira [spoiler].',
+    ],
+  },
+  {
     id: '2026-10-17-respostas-nos-comentarios',
     version: '1.25.0',
     kind: 'funcionalidade',

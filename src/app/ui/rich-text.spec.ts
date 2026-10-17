@@ -23,6 +23,39 @@ describe('o texto formatado na leitura', () => {
 
   afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
 
+  it('o spoiler é uma tarja: o texto fica de fora do leitor de tela e do Tab até tocar, e o toque não chega à ficha', async () => {
+    const el = await render('O fim: ||ele **volta**|| e pronto.');
+    const parts = Array.from(el.querySelectorAll<HTMLElement>('.spoiler'));
+    // o negrito no meio é outro pedaço do mesmo spoiler
+    expect(parts.length).toBe(2);
+    expect(parts[0].getAttribute('role')).toBe('button');
+    expect(parts[0].getAttribute('tabindex')).toBe('0');
+    expect(parts[0].getAttribute('aria-label')).toBe('Spoiler escondido: revelar');
+    expect(parts.every((p) => p.querySelector('.spoiler-texto')!.hasAttribute('inert'))).toBeTrue();
+    expect(getComputedStyle(parts[0]).color).toBe('rgba(0, 0, 0, 0)');
+    let reached = 0;
+    el.addEventListener('click', () => reached++);
+    parts[1].click();
+    // os dois pedaços revelam juntos, e o clique parou no spoiler
+    expect(parts.every((p) => p.classList.contains('revelado'))).toBeTrue();
+    expect(parts.every((p) => !p.querySelector('.spoiler-texto')!.hasAttribute('inert') && !p.hasAttribute('role') && p.getAttribute('tabindex') === '-1')).toBeTrue();
+    expect(reached).toBe(0);
+    // (a tinta volta numa transição curta)
+    await new Promise((r) => setTimeout(r, 400));
+    expect(getComputedStyle(parts[0]).color).not.toBe('rgba(0, 0, 0, 0)');
+    // revelado, o toque segue o caminho de sempre
+    parts[0].click();
+    expect(reached).toBe(1);
+  });
+
+  it('o spoiler revela também com Enter; outro spoiler na linha continua escondido', async () => {
+    const el = await render('||um|| e ||dois||');
+    const [a, b] = Array.from(el.querySelectorAll<HTMLElement>('.spoiler'));
+    a.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(a.classList).toContain('revelado');
+    expect(b.classList).not.toContain('revelado');
+  });
+
   it('a lista numerada mostra o número, e a comum, o ponto (não o ponto nas duas)', async () => {
     const el = await render('- leite\n- ovos\n\n3. três\n4. quatro');
     const [bullet] = Array.from(el.querySelectorAll('ul.lista li'));

@@ -10,6 +10,7 @@ import {
   Ellipsis,
   Eye,
   Heading,
+  EyeOff,
   Highlighter,
   Hourglass,
   CassetteTape,
@@ -225,7 +226,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             type="button"
             class="ferramenta mais"
             [disabled]="seeing()"
-            title="Mais marcas: riscado, marca-texto, código, citação, divisória e o guia"
+            title="Mais marcas: riscado, marca-texto, spoiler, código, citação, divisória e o guia"
             aria-haspopup="menu"
             [attr.aria-expanded]="moreOpen() === big"
             [attr.aria-controls]="moreOpen() === big ? areaId + '-mais' : null"
@@ -247,6 +248,11 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                 <lucide-icon [img]="MarkIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
                 <span class="mais-nome"><mark>Marca-texto</mark></span>
                 <kbd class="atalho" aria-hidden="true">Ctrl+Shift+H</kbd>
+              </button>
+              <button type="button" role="menuitem" tabindex="-1" class="mais-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'spoiler')">
+                <lucide-icon [img]="SpoilerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="mais-nome"><span class="tarja-amostra">Spoiler</span></span>
+                <kbd class="jeito">||texto||</kbd>
               </button>
               <button type="button" role="menuitem" tabindex="-1" class="mais-op" aria-keyshortcuts="Control+E" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'code')">
                 <lucide-icon [img]="CodeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
@@ -1805,6 +1811,13 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       background: linear-gradient(transparent 4%, rgb(255 218 66 / 0.62) 4%, rgb(255 218 66 / 0.62) 96%, transparent 96%);
       color: inherit;
     }
+    /* a amostra do spoiler: a palavra na tarja preta, em claro para ler o nome */
+    .tarja-amostra {
+      padding: 0 5px;
+      border-radius: 3px 2px 3px 2px;
+      background: #151515;
+      color: #f1f1ec;
+    }
     .mais-nome code {
       padding: 0 4px;
       border-radius: 2px;
@@ -2221,6 +2234,7 @@ export class RichEditor {
   protected readonly PlusIcon = Plus;
   protected readonly StrikeIcon = Strikethrough;
   protected readonly MarkIcon = Highlighter;
+  protected readonly SpoilerIcon = EyeOff;
   protected readonly HeadingIcon = Heading;
   protected readonly QuoteIcon = Quote;
   protected readonly CloseIcon = X;
@@ -2310,7 +2324,7 @@ export class RichEditor {
   }
 
   /** Uma marca do "Mais": põe no texto e fecha o painel (o guia abre no lugar dele). */
-  protected moreDo(area: HTMLTextAreaElement, what: 'strike' | 'mark' | 'code' | 'quote' | 'rule' | 'guide'): void {
+  protected moreDo(area: HTMLTextAreaElement, what: 'strike' | 'mark' | 'spoiler' | 'code' | 'quote' | 'rule' | 'guide'): void {
     const big = this.moreOpen();
     this.moreOpen.set(null);
     if (what === 'guide') {
@@ -2320,6 +2334,7 @@ export class RichEditor {
     }
     if (what === 'strike') this.wrap(area, '~~');
     else if (what === 'mark') this.wrap(area, '==');
+    else if (what === 'spoiler') this.wrap(area, '||');
     else if (what === 'code') this.code(area);
     else if (what === 'quote') this.quote(area);
     else this.rule(area);
@@ -2339,6 +2354,7 @@ export class RichEditor {
     { mark: '*itálico*', what: 'Itálico (Ctrl+I)' },
     { mark: '~~riscado~~', what: 'Riscado' },
     { mark: '==marca==', what: 'Marca-texto' },
+    { mark: '||spoiler||', what: 'Spoiler: uma tarja preta que some ao tocar (>!spoiler!< também vale)' },
     { mark: '# Título', what: 'Título (## e ### menores)' },
     { mark: '> citação', what: 'Citação' },
     { mark: '- item', what: 'Lista' },

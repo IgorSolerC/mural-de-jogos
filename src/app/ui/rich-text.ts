@@ -20,6 +20,11 @@ import { NoteWidget } from './note-widget';
  * Sem `links` (as resenhas), os colchetes ficam como foram escritos.
  *
  * Os widgets ("{{contador: …}}", ver core/widgets.ts) viram a peça deles, numa linha só.
+ *
+ * O spoiler ("||texto||") é uma tarja de caneta preta por cima das letras, como num documento
+ * censurado: o texto embaixo não aparece, não é lido pelo leitor de tela nem achado pelo teclado
+ * (`inert`), e tocar (ou Enter) tira a tarja, como no Discord. Revelado, fica uma sombra clara para
+ * dizer que ali era um spoiler, até a página desenhar o texto de novo.
  */
 @Component({
   selector: 'app-rich-text',
@@ -126,7 +131,9 @@ import { NoteWidget } from './note-widget';
         }
       }
     }
-    <ng-template #span let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
+    <!-- o spoiler: a tarja preta por cima do pedaço (o pedaço por dentro, com as marcas dele, fica inerte até revelar) -->
+    <ng-template #span let-s>@if (s.spoiler) {<span class="spoiler" role="button" tabindex="0" aria-label="Spoiler escondido: revelar" title="Spoiler: toque para revelar" (click)="reveal($event)" (keydown.enter)="reveal($event)" (keydown.space)="reveal($event)"><span class="spoiler-texto" inert><ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" /></span></span>} @else {<ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" />}</ng-template>
+    <ng-template #pedaco let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
     <ng-template #elo let-s>@let l = links(); @let title = s.ref ?? s.text; @if (!l) {{{ '[[' + (s.ref ? s.ref + '|' : '') + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [title]="s.ref ?? null">{{ s.text }}</span>} @else {@let note = l.resolve(title); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" role="link" tabindex="0" [attr.aria-label]="(s.ref ? s.text + ': ' : '') + 'abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + title" [title]="'Ainda não tem uma anotação ' + title + '. Toque para criar.'" (click)="make($event, title)" (keydown.enter)="make($event, title)" (keydown.space)="make($event, title)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" title="Essa anotação não existe ou não está à mostra">{{ s.text }}</span>}}</ng-template>
   `,
@@ -178,6 +185,70 @@ import { NoteWidget } from './note-widget';
     :host-context(app-review-card[data-cor$='-escuro']) .marca,
     :host-context(app-review-card[data-cor='preto']) .marca {
       --marca-cor: rgb(255 218 66 / 0.32);
+    }
+    /* o spoiler: a tarja de caneta preta da altura das letras (como a do marca-texto, só que cobrindo
+       tudo), cada linha com a sua; o texto embaixo fica transparente, com as marcas dele. Numa
+       cartolina escura, a tarja é de corretivo claro */
+    .spoiler {
+      --tarja: #151515;
+      background: linear-gradient(var(--tarja), var(--tarja)) no-repeat 0 56% / 100% 1.08em;
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+      padding: 0 0.12em;
+      border-radius: 3px 2px 3px 2px;
+      cursor: pointer;
+      transition: color var(--t-ui, 160ms) var(--ease-ui, ease-out);
+    }
+    .spoiler:not(.revelado) {
+      color: transparent;
+      user-select: none;
+    }
+    /* os pedaços colados do mesmo spoiler (um negrito no meio) são uma tarja só, sem emenda */
+    .spoiler:has(+ .spoiler) {
+      padding-right: 0;
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .spoiler + .spoiler {
+      padding-left: 0;
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+    /* o que vem dentro (negrito, marca-texto, link, código) também some embaixo da tarja */
+    .spoiler:not(.revelado) .spoiler-texto * {
+      color: transparent !important;
+      background: none !important;
+      text-decoration-color: transparent !important;
+    }
+    @media (hover: hover) {
+      .spoiler:not(.revelado):hover {
+        --tarja: #3a3a3a;
+      }
+    }
+    .spoiler:focus-visible {
+      outline: 2.5px solid var(--focus, #151515);
+      outline-offset: 2px;
+    }
+    .spoiler.revelado {
+      --tarja: rgb(21 21 21 / 0.09);
+      cursor: auto;
+    }
+    :host-context(app-review-card[data-cor$='-escuro']) .spoiler,
+    :host-context(app-review-card[data-cor='preto']) .spoiler {
+      --tarja: #f1f1ec;
+    }
+    :host-context(app-review-card[data-cor$='-escuro']) .spoiler:not(.revelado):hover,
+    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.revelado):hover {
+      --tarja: #cfcfc8;
+    }
+    :host-context(app-review-card[data-cor$='-escuro']) .spoiler.revelado,
+    :host-context(app-review-card[data-cor='preto']) .spoiler.revelado {
+      --tarja: rgb(241 241 236 / 0.14);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spoiler {
+        transition: none;
+      }
     }
     /* o código: letra de máquina de escrever, num retalho de papel mais escuro */
     .cod,
@@ -513,6 +584,34 @@ export class RichText {
   });
 
   /** Tocou na conta das feitas: a sequência dela aparece inteira. Só ela age (nada de abrir a ficha). */
+  /**
+   * Tira a tarja do spoiler tocado (e dos pedaços colados a ele do mesmo spoiler, como um negrito no
+   * meio). O toque não chega à ficha (não abre a leitura); revelado, ele vira texto comum, fora da
+   * ordem do Tab, mas com o foco onde estava.
+   */
+  protected reveal(e: Event): void {
+    const el = e.currentTarget as HTMLElement;
+    if (el.classList.contains('revelado')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const group = [el];
+    // entre dois pedaços seguidos, o Angular deixa só comentários
+    const next = (n: Node | null, dir: 'previousSibling' | 'nextSibling'): HTMLElement | null => {
+      while (n && n.nodeType === Node.COMMENT_NODE) n = n[dir];
+      return n instanceof HTMLElement && n.classList.contains('spoiler') ? n : null;
+    };
+    for (let n = next(el.previousSibling, 'previousSibling'); n; n = next(n.previousSibling, 'previousSibling')) group.push(n);
+    for (let n = next(el.nextSibling, 'nextSibling'); n; n = next(n.nextSibling, 'nextSibling')) group.push(n);
+    for (const g of group) {
+      g.classList.add('revelado');
+      g.removeAttribute('role');
+      g.removeAttribute('aria-label');
+      g.removeAttribute('title');
+      g.setAttribute('tabindex', '-1');
+      g.querySelector('.spoiler-texto')?.removeAttribute('inert');
+    }
+  }
+
   protected unfold(e: Event, seq: number | undefined): void {
     e.preventDefault();
     e.stopPropagation();

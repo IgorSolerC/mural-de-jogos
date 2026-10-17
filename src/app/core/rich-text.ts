@@ -1,7 +1,8 @@
 /**
  * O texto das fichas com formatação, guardado como texto simples com marcas leves (um markdown):
  *
- * - Na linha: **negrito**, *itálico* (ou _itálico_), ~~riscado~~, ==marca-texto==, `código`,
+ * - Na linha: **negrito**, *itálico* (ou _itálico_), ~~riscado~~, ==marca-texto==, ||spoiler|| (ou
+ *   >!spoiler!<, como no Reddit), `código`,
  *   [texto](https://endereço), endereços soltos (https://…) e, nas anotações, links para outras
  *   anotações ("[[Título]]", ver core/note-links.ts). Uma barra antes de uma marca a escreve como é
  *   ("\*" é um asterisco).
@@ -28,6 +29,8 @@ export interface Span {
   strike?: true;
   /** ==marca-texto== */
   mark?: true;
+  /** ||spoiler||: escondido num bloco preto até alguém tocar (ver ui/rich-text.ts). */
+  spoiler?: true;
   /** `código`: o texto como foi escrito, sem marcas. */
   code?: true;
   /** Um link "[[título]]" (ou "[[título|texto]]"): `text` é o que aparece, sem os colchetes. */
@@ -79,7 +82,8 @@ const CHECK = /^\s*[-*•]\s+\[([ xX])\]\s?(.*)$/;
 const BULLET = /^\s*[-*•]\s+(.*)$/;
 const NUMBER = /^\s*(\d{1,4})[.)]\s+(.*)$/;
 const HEADING = /^(#{1,3})\s+(.*\S.*)$/;
-const QUOTE = /^\s*>\s?(.*)$/;
+// (">!spoiler!<" no começo da linha é um spoiler, não uma citação)
+const QUOTE = /^\s*>(?!!\S.*!<)\s?(.*)$/;
 const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
 const FENCE = /^\s*```/;
 /** A linha de traços embaixo do cabeçalho da tabela: "| --- | :-: |". */
@@ -213,7 +217,7 @@ export function parseInline(text: string): Span[] {
         plain += a.text;
       } else {
         flush();
-        if (a.kind === 'code') out.push({ ...pick(marks, 'bold', 'italic', 'strike', 'mark'), text: a.text, code: true });
+        if (a.kind === 'code') out.push({ ...pick(marks, 'bold', 'italic', 'strike', 'mark', 'spoiler'), text: a.text, code: true });
         else if (a.kind === 'note') out.push({ ...marks, text: a.label, link: true, ...(a.label !== a.title ? { ref: a.title } : {}) });
         else out.push({ ...marks, text: a.text, href: a.href });
       }
@@ -229,7 +233,7 @@ function pick(m: Marks, ...keys: (keyof Marks)[]): Marks {
   return out;
 }
 
-const FLAGS = ['bold', 'italic', 'strike', 'mark'] as const;
+const FLAGS = ['bold', 'italic', 'strike', 'mark', 'spoiler'] as const;
 
 function sameMarks(a: Marks, b: Marks): boolean {
   return FLAGS.every((k) => !!a[k] === !!b[k]);
@@ -244,9 +248,9 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
     if (last && sameMarks(last, marks)) last.text += t;
     else out.push({ text: t, ...marks });
   };
-  // ***os dois***, **negrito**, ~~riscado~~, ==marca-texto==, *itálico* ou _itálico_
+  // ***os dois***, **negrito**, ~~riscado~~, ==marca-texto==, ||spoiler|| ou >!spoiler!<, *itálico* ou _itálico_
   const re =
-    /\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*|\*\*(?=\S)(.+?)(?<=\S)\*\*|~~(?=\S)(.+?)(?<=\S)~~|==(?=\S)(.+?)(?<=\S)==|\*(?=[^\s*])(.+?)(?<=[^\s*])\*|(?<![\p{L}\p{N}])_(?=\S)(.+?)(?<=\S)_(?![\p{L}\p{N}])/gu;
+    /\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*|\*\*(?=\S)(.+?)(?<=\S)\*\*|~~(?=\S)(.+?)(?<=\S)~~|==(?=\S)(.+?)(?<=\S)==|\*(?=[^\s*])(.+?)(?<=[^\s*])\*|(?<![\p{L}\p{N}])_(?=\S)(.+?)(?<=\S)_(?![\p{L}\p{N}])|\|\|(?=\S)(.+?)(?<=\S)\|\||>!(?=\S)(.+?)(?<=\S)!</gu;
   let at = 0;
   for (const m of text.matchAll(re)) {
     push(text.slice(at, m.index), inherit);
@@ -259,7 +263,9 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
             ? [m[3], { strike: true }]
             : m[4] !== undefined
               ? [m[4], { mark: true }]
-              : [m[5] ?? m[6], { italic: true }];
+              : m[7] !== undefined || m[8] !== undefined
+                ? [m[7] ?? m[8], { spoiler: true }]
+                : [m[5] ?? m[6], { italic: true }];
     // o que tem dentro pode ter outras ênfases: "**muito *bom***", "~~**caro**~~"
     for (const s of parseMarks(inner, { ...inherit, ...add })) {
       const { text: t, ...marks } = s;
@@ -369,19 +375,41 @@ export function hasInteractive(text: string): boolean {
  * linha de tabela vira uma linha (as células separadas por " · "); a divisória some.
  */
 export function plainText(text: string): string {
-  return textOf(text, (name, args) => widgetDef(name)?.plain(args) ?? '');
+  return textOf(text, (name, args) => widgetDef(name)?.plain(args) ?? '', 'hide');
 }
+
+/** O spoiler no texto sem marcas (a frase da ficha no mural, as dicas do Muraldle): nunca o que ele esconde. */
+export const SPOILER_PLAIN = '[spoiler]';
 
 /**
  * O texto para copiar e colar fora do site: como `plainText`, mas cada widget vira a marca dele em
  * palavras ("{imagem: https://…}", "{contador: 3 dias e 4h faltantes}", ver `widgetCopy`).
  */
 export function copyText(text: string, ctx: CopyContext): string {
-  return textOf(text, (name, args) => widgetCopy(name, args, ctx));
+  return textOf(text, (name, args) => widgetCopy(name, args, ctx), 'mark');
 }
 
-function textOf(text: string, widget: (name: string, args: readonly string[]) => string): string {
-  const join = (spans: readonly Span[]) => spans.map((s) => s.text).join('');
+/**
+ * `spoiler`: o que fazer com o trecho escondido. 'hide' põe `SPOILER_PLAIN` no lugar (o que é lido sem
+ * o bloco preto não pode contar o segredo); 'mark' deixa o texto entre "||", como se escreve no
+ * Discord (a cópia).
+ */
+function textOf(text: string, widget: (name: string, args: readonly string[]) => string, spoiler: 'hide' | 'mark'): string {
+  const join = (spans: readonly Span[]) => {
+    let out = '';
+    for (let i = 0; i < spans.length; i++) {
+      const s = spans[i];
+      if (!s.spoiler) {
+        out += s.text;
+        continue;
+      }
+      // os pedaços seguidos do mesmo spoiler (um negrito dentro dele) são um trecho só
+      let hidden = s.text;
+      while (spans[i + 1]?.spoiler) hidden += spans[++i].text;
+      out += spoiler === 'hide' ? SPOILER_PLAIN : `||${hidden}||`;
+    }
+    return out;
+  };
   const out: string[] = [];
   for (const b of parseRich(text)) {
     switch (b.kind) {

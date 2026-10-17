@@ -1,4 +1,4 @@
-import { Block, checkCount, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
+import { Block, checkCount, copyText, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -17,6 +17,26 @@ describe('texto com formatação', () => {
       { text: 'bom', bold: true, italic: true },
       { text: ' mesmo', bold: true },
     ]);
+  });
+
+  it('spoiler: ||texto|| como no Discord, ou >!texto!< como no Reddit, com as outras marcas por dentro', () => {
+    expect(parseInline('o final: ||ele morre|| no fim')).toEqual([{ text: 'o final: ' }, { text: 'ele morre', spoiler: true }, { text: ' no fim' }]);
+    expect(parseInline('>!o vilão é **o pai**!<')).toEqual([
+      { text: 'o vilão é ', spoiler: true },
+      { text: 'o pai', spoiler: true, bold: true },
+    ]);
+    // ">!…!<" no começo da linha é spoiler, não citação; "> !" continua citação
+    expect(parseRich('>!segredo!< e mais')[0]).toEqual({ kind: 'p', lines: [[{ text: 'segredo', spoiler: true }, { text: ' e mais' }]] });
+    expect(parseRich('> !importante')[0].kind).toBe('quote');
+    // separado do texto, ou escapado, fica como foi escrito
+    expect(parseInline('a || b || c')).toEqual([{ text: 'a || b || c' }]);
+    expect(parseInline('\\||nada\\||')).toEqual([{ text: '||nada||' }]);
+    expect(hasFormatting('só ||isso||')).toBeTrue();
+  });
+
+  it('o texto sem marcas nunca conta o spoiler; a cópia leva o trecho entre ||', () => {
+    expect(plainText('Gostei. ||O pai **volta**|| no fim.')).toBe('Gostei. [spoiler] no fim.');
+    expect(copyText('Gostei. ||O pai **volta**|| no fim.', { now: 0 })).toBe('Gostei. ||O pai volta|| no fim.');
   });
 
   it('marca solta ou separada do texto fica como foi escrita', () => {
