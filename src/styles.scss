@@ -662,7 +662,7 @@ select optgroup {
     border-top: 2px dashed var(--picote);
 
     /* sem nada para dizer, o picote não aparece */
-    &:not(:has(.atalhos, .achados, .tarefas, .pasta-nota)) {
+    &:not(:has(.atalhos, .achados, .tarefas)) {
       display: none;
     }
   }
@@ -716,17 +716,6 @@ select optgroup {
     }
   }
 
-  /* o recado a lápis, à esquerda da linha de baixo ("Toque numa folha para terminar a resenha.") */
-  .pasta-nota {
-    flex: 1 1 260px;
-    max-width: 60ch;
-    margin: 0;
-    font-family: var(--f-hand);
-    font-size: 1.08rem;
-    line-height: 1.3;
-    color: rgb(21 21 21 / 0.74);
-  }
-
   @media (max-width: 720px) {
     padding: 12px 10px 10px;
 
@@ -757,14 +746,6 @@ select optgroup {
       margin-left: 0;
     }
 
-    /* no celular, o recado sai: a pasta fica baixa */
-    .pasta-nota {
-      display: none;
-    }
-
-    .pasta-baixo:not(:has(.atalhos, .achados, .tarefas)) {
-      display: none;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {

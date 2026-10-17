@@ -4,7 +4,7 @@ import { collage } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { g } from '../core/kinds';
 import { Mural } from '../core/mural';
-import { ageOf, daysWaiting, pageHeight } from '../core/notebook';
+import { pageHeight } from '../core/notebook';
 import { fold } from '../core/review';
 import { ViewTransitions } from '../core/view-transitions';
 import { DraftCard } from '../ui/draft-card';
@@ -63,12 +63,6 @@ const ORDERS: readonly { value: Order; label: string }[] = [
         </div>
 
         <div class="pasta-linha pasta-baixo">
-          <p class="pasta-nota">
-            Toque numa folha para terminar a resenha.
-            @if (anyAged()) {
-              As mais amarelas estão esperando há mais tempo.
-            }
-          </p>
           @if (query().trim()) {
             <div class="pasta-estado">
               <p class="achados" aria-live="polite">
@@ -219,8 +213,6 @@ export class QueuePage {
         return [...found].sort((a, b) => a.game.name.localeCompare(b.game.name, 'pt-BR', { sensitivity: 'base', numeric: true }));
     }
   });
-  /** Alguma folha já amarelou: vale explicar o que o amarelo quer dizer. */
-  protected readonly anyAged = computed(() => this.mural.drafts().some((d) => ageOf(daysWaiting(d.createdAt)) !== 'nova'));
 
   /** Quantas colunas cabem: folhas de pelo menos 168px, com 32px entre elas (duas no celular). */
   protected readonly cols = signal(6);

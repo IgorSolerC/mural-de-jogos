@@ -93,7 +93,6 @@
       </div>
     </div>
     <div class="pasta-linha pasta-baixo">
-      <p class="pasta-nota">Arraste as anotações de uma coluna para outra (no celular, segure um pouco antes). No teclado, Shift e as setas.</p>
       @if (filtering()) {
         <div class="pasta-estado">
           <p class="achados" aria-live="polite">
@@ -106,7 +105,8 @@
   </div>
 
   <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->
-  <div #quadro class="quadro" [class.denso]="dense()" [class.arrastando]="!!drag()" [class.puxando]="panning()" (pointerdown)="onBoardDown($event)">
+  <p id="kanban-dica" class="sr-only">Arraste as anotações de uma coluna para outra. No teclado, Shift e as setas.</p>
+  <div #quadro class="quadro" aria-describedby="kanban-dica" [class.denso]="dense()" [class.arrastando]="!!drag()" [class.puxando]="panning()" (pointerdown)="onBoardDown($event)">
     @for (v of view(); track v.col.id; let ci = $index) {
       <section class="coluna" [attr.data-coluna]="v.col.id" [class.finaliza]="v.col.finishes" [class.alvo]="drag()?.over === v.col.id" [attr.aria-labelledby]="'col-' + v.col.id">
         <span class="fita fita-e" aria-hidden="true"></span>

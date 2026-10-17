@@ -73,7 +73,6 @@ const ORDERS: readonly { value: Order; label: string }[] = [
         </div>
 
         <div class="pasta-linha pasta-baixo">
-          <p class="pasta-nota">Toque num recorte para começar a resenha.</p>
           @if (query().trim()) {
             <div class="pasta-estado">
               <p class="achados" aria-live="polite">

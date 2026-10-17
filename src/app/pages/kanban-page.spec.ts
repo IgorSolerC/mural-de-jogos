@@ -106,6 +106,16 @@ describe('página do Kanban', () => {
     expect(host.querySelector('.primeiro-campo')).toBeNull();
   });
 
+  it('a pasta não tem recado explicativo: a dica de arrastar fica só para o leitor de tela', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    expect(host.querySelector('.pasta-nota')).toBeNull();
+    expect(getComputedStyle(host.querySelector('.pasta-baixo')!).display).toBe('none');
+    const dica = host.querySelector('#' + host.querySelector('.quadro')!.getAttribute('aria-describedby'))!;
+    expect(dica.classList).toContain('sr-only');
+    expect(dica.textContent).toContain('Shift e as setas');
+  });
+
   it('as abas são as categorias, com quantas anotações cada quadro tem; não há quadro novo solto', async () => {
     TestBed.inject(Settings).setCategoryLook('Trabalho', { color: 'azul' });
     kanban.state.set(state(board()));
