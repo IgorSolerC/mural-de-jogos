@@ -94,6 +94,7 @@ import { napWall } from '../core/wall-settle';
 import { SharedStore } from '../core/shared-store';
 import { canManage } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
+import { MONTHS_LONG } from '../core/dates';
 
 export interface SavedEvent {
   id: string;
@@ -107,7 +108,6 @@ export interface SavedEvent {
 /** O ano mais antigo aceito na data (o mesmo limite da validação dos backups). */
 const MIN_YEAR = 1971;
 
-const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
 @Component({
   selector: 'app-review-editor',
@@ -386,7 +386,7 @@ export class ReviewEditor {
   protected readonly noDay = NO_DAY_LABEL;
   protected readonly today = signal(todayISO());
   protected readonly dateLabel = computed(() => (this.status() ? dayLabel(this.kind(), this.status()!) : 'Data'));
-  protected readonly months = MONTHS;
+  protected readonly months = MONTHS_LONG;
   protected readonly dateUnknown = computed(() => !this.dateDay().trim() && !this.dateMonth() && !this.dateYear().trim());
   /** A data montada com o que foi preenchido ('AAAA-MM-DD', 'AAAA-MM', 'AAAA'); null sem nada. */
   protected readonly dateValue = computed<string | null>(() => {
@@ -405,7 +405,7 @@ export class ReviewEditor {
     if (!y) return this.dateDay().trim() || this.dateMonth() ? 'Falta o ano. Se não lembra nem o ano, deixe tudo em branco.' : '';
     if (!/^\d{4}$/.test(y) || Number(y) < MIN_YEAR || y > top) return `O ano vai de ${MIN_YEAR} a ${top}.`;
     if (this.dateDay().trim() && !this.dateMonth()) return 'Para o dia valer, escolha o mês também.';
-    if (!isValidReviewDate(value)) return `${MONTHS[Number(this.dateMonth()) - 1]} de ${y} não tem dia ${Number(this.dateDay())}.`;
+    if (!isValidReviewDate(value)) return `${MONTHS_LONG[Number(this.dateMonth()) - 1]} de ${y} não tem dia ${Number(this.dateDay())}.`;
     if (value > this.today().slice(0, value.length)) return 'Essa data ainda não chegou.';
     return '';
   });

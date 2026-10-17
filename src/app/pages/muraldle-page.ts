@@ -5,9 +5,10 @@ import { Desk } from '../core/desk';
 import { countOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { DailyGame, DailyStats, finishDay, loadDaily, loadStats, saveDaily } from '../core/muraldle-save';
-import { Cell, HINTS, HINT_EVERY, columnsFor, compare, dailySecret, dayKey, hintsUnlocked, revealedWords, shareText, wordsShown } from '../core/muraldle';
+import { Cell, HINTS, HINT_EVERY, columnsFor, compare, dailySecret, hintsUnlocked, revealedWords, shareText, wordsShown } from '../core/muraldle';
 import { Players } from '../core/players';
 import { Review, fold } from '../core/review';
+import { todayISO } from '../core/dates';
 import { CoverSleeve } from '../ui/cover-sleeve';
 import { PlayerPicker } from '../ui/player-picker';
 import { ReviewCard } from '../ui/review-card';
@@ -61,7 +62,7 @@ export class MuraldlePage {
   protected readonly mode = signal<Mode>('dia');
   protected readonly columns = computed(() => columnsFor(this.mural.kind()));
 
-  private readonly today = signal(dayKey());
+  private readonly today = signal(todayISO());
   /** "jogos|eu": o jogo do dia é de cada mural e de cada dono. */
   private readonly slot = computed(() => `${this.mural.kind()}|${this.owner().id}`);
   protected readonly pool = computed(() => this.owner().reviews);
@@ -243,7 +244,7 @@ export class MuraldlePage {
   }
 
   private openDaily(slot: string): void {
-    const today = dayKey();
+    const today = todayISO();
     this.today.set(today);
     this.stats.set(loadStats(slot, today));
     let saved = loadDaily(slot);

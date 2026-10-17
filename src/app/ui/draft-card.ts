@@ -3,6 +3,7 @@ import { ageOf, daysWaiting, notebookDate, pageFor } from '../core/notebook';
 import { Draft } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { CoverSleeve } from './cover-sleeve';
+import { daysAgoLabel } from '../core/dates';
 
 /**
  * Um título guardado para resenhar depois: ainda não é cartolina, é uma folha arrancada às pressas
@@ -440,6 +441,6 @@ export class DraftCard {
   protected readonly date = computed(() => notebookDate(this.draft().createdAt));
   protected readonly waited = computed(() => {
     const d = this.days();
-    return d === 0 ? 'hoje' : d === 1 ? 'ontem' : `há ${d} dias`;
+    return daysAgoLabel(d);
   });
 }

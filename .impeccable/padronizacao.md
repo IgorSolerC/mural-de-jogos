@@ -19,10 +19,12 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 3. [x] **Plural**: `plural(n, um, muitos)` privado no profile-edit; `spokenComments` e ~25 ternários `n === 1 ? …`
    iguais; "N anotações" montado à mão onde `countOf(NOTES)` já dá; ternário morto em profile-hero (`'com fichas'` nos dois lados). Feito nos `.ts` (`plural` em `core/text.ts`, e
    `countOf`/`revisitCountOf` usam ele); as frases com verbo concordando e os ternários dos templates ficam (cada um é uma frase).
-4. [ ] **Datas**: `news.today` e `muraldle.dayKey` são `localDay`; `stats-page.created` monta o dia à mão; `previousDay`
+4. [x] **Datas**: `news.today` e `muraldle.dayKey` são `localDay`; `stats-page.created` monta o dia à mão; `previousDay`
    e follow partem 'AAAA-MM-DD' à mão (= `parseDay`); `DAY` = 86 400 000 redeclarado 9 vezes; `MONTHS` curtos e longos
    em 3 arquivos cada; formatadores de data longos repetidos (done-stamp, wall-view); "hoje/ontem/há N dias" igual em
-   draft-card e settings.
+   draft-card e settings. Agora em `core/dates.ts` (`DAY_MS`, `MONTHS_SHORT`, `MONTHS_LONG`, `longDayFmt`, `longMonthFmt`,
+   `localDay`, `todayISO`, `parseDay`, `daysAgoLabel`); `review.ts` reexporta os três de dia. As contagens de dias que
+   arredondam diferente (piso de 24 h × dias de calendário) ficam como estão: dariam um dia de diferença.
 5. [ ] **Guardar no navegador**: um `core/storage.ts` (`readText`, `readJson`, `writeJson`, `writeText`, `removeKey`) no lugar de
    ~25 `try { localStorage.setItem(...) } catch {}` e dos 3 leitores idênticos (`safeGet`, `readChosen`, `readNext`).
    A camada do IndexedDB (local-data) fica como está: ela precisa saber quando a cota acaba.

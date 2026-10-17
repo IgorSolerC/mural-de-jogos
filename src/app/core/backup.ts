@@ -4,9 +4,9 @@ import { ReviewStore } from './review-store';
 import { CloudSync } from './cloud-sync';
 import { Settings } from './settings';
 import { Toasts } from '../ui/toast';
+import { DAY_MS } from './dates';
 
 const KEY = 'mural-de-jogos:backup:v1';
-const DAY = 86_400_000;
 /** Depois de quantos dias sem backup, com coisa nova no mural, o bilhete aparece. */
 export const BACKUP_EVERY_DAYS = 30;
 /** Sincronizado com a nuvem há menos que isso, o bilhete do backup não aparece. */
@@ -66,7 +66,7 @@ export class Backup {
    */
   readonly inCloud = computed(() => {
     const at = this.sync.lastSyncAt();
-    return this.sync.active() && at !== null && Date.now() - at < CLOUD_FRESH_DAYS * DAY;
+    return this.sync.active() && at !== null && Date.now() - at < CLOUD_FRESH_DAYS * DAY_MS;
   });
   /** O navegador prometeu não apagar os dados (null: ainda não se sabe). */
   readonly persisted = signal<boolean | null>(null);
@@ -82,7 +82,7 @@ export class Backup {
     if (snoozeUntil && Date.parse(snoozeUntil) > now) return null;
     const reviews = this.store.reviews();
     if (!lastAt) return reviews.length >= FIRST_AT ? 0 : null;
-    const days = Math.floor((now - Date.parse(lastAt)) / DAY);
+    const days = Math.floor((now - Date.parse(lastAt)) / DAY_MS);
     if (days < BACKUP_EVERY_DAYS) return null;
     // qualquer mudança conta: resenha, pendente, desejo, ou algo apagado
     return this.store.lastChangeAt() > Date.parse(lastAt) ? days : null;
@@ -113,7 +113,7 @@ export class Backup {
   }
 
   snooze(): void {
-    this.save({ ...this.state(), snoozeUntil: new Date(Date.now() + SNOOZE_DAYS * DAY).toISOString() });
+    this.save({ ...this.state(), snoozeUntil: new Date(Date.now() + SNOOZE_DAYS * DAY_MS).toISOString() });
   }
 
   /**

@@ -5,9 +5,11 @@ import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sa
 import { BUILD } from './build';
 import { migrateReview } from './migrations';
 import { cleanLabel, fold, nameKey, slugOf } from './text';
+import { localDay, longDayFmt, longMonthFmt, parseDay, todayISO } from './dates';
 
 export type { Kind } from './kinds';
 export { fold } from './text';
+export { localDay, parseDay, todayISO } from './dates';
 
 /** Não terminei, terminei e fui além (Platinado, Relido, Revisto, Revi). Os nomes mudam por mural; o valor, nunca. */
 export type Status = 'incompleto' | 'finalizado' | 'platinado';
@@ -867,22 +869,6 @@ export function leadSentence(text: string, max = 120): string {
   return `${(space > max * 0.5 ? cut.slice(0, space) : cut.slice(0, max)).replace(/[\s,;:–-]+$/, '')}…`;
 }
 
-/** Uma data no fuso local, 'AAAA-MM-DD'. */
-export function localDay(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** Hoje no fuso local, 'AAAA-MM-DD'. */
-export function todayISO(): string {
-  return localDay(new Date());
-}
-
-/** 'AAAA-MM-DD' → Date à meia-noite local (sem o pulo de fuso de `new Date('AAAA-MM-DD')`). */
-export function parseDay(day: string): Date {
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
 export function isValidDay(v: unknown): v is string {
   if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
   const d = parseDay(v);
@@ -909,8 +895,6 @@ const reviewDateFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 
 const reviewDayFmt = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' });
 const reviewMonthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' });
 const reviewMonthOnlyFmt = new Intl.DateTimeFormat('pt-BR', { month: 'short' });
-const longDayFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-const longMonthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
 /** "15 de mar de 2024", "mar de 2024" ou "2024"; com `dayOnly` (o mês já está na seção), "15 de mar" ou "mar". */
 export function formatReviewDate(date: string | null, dayOnly = false): string {

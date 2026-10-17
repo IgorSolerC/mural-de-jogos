@@ -1,3 +1,4 @@
+import { DAY_MS } from './dates';
 /**
  * Os widgets das anotações: peças vivas que moram no próprio texto, numa linha só delas, como as
  * outras marcas (ver core/rich-text.ts):
@@ -211,7 +212,6 @@ export function writeWhen(w: When): string {
 }
 
 /** Um dia inteiro: um contador de todo ano fica "chegou" até o fim do dia, e só então vira o ano. */
-const DAY = 86_400_000;
 
 /** O instante que o contador espera (o de todo ano: o próximo, ou o de hoje enquanto ele ainda é hoje). */
 export function targetOf(w: When, now: number): number {
@@ -222,7 +222,7 @@ export function targetOf(w: When, now: number): number {
   for (let i = 0; i < 10; i++, y++) {
     if (!validDay(y, w.month, w.day)) continue;
     const t = at(y);
-    if (now < t + DAY) return t;
+    if (now < t + DAY_MS) return t;
   }
   return at(y);
 }

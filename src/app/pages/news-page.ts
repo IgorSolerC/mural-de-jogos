@@ -3,6 +3,7 @@ import { ChevronDown, LucideAngularModule } from 'lucide-angular';
 import { NEWS_KIND_LABEL, NewsChangeKind, NewsEntry, News } from '../core/news';
 import { NEWS, VERSION } from '../core/news-list';
 import { Pin } from '../ui/pin';
+import { MONTHS_SHORT } from '../core/dates';
 
 /** As listas de uma ficha, cada uma com o seu tipo: a da funcionalidade, ou as melhorias e as correções. */
 function groupsOf(n: NewsEntry): { kind: NewsChangeKind; items: string[] }[] {
@@ -13,7 +14,6 @@ function groupsOf(n: NewsEntry): { kind: NewsChangeKind; items: string[] }[] {
   return out;
 }
 
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
 /** Inclinações fixas, uma por ficha, para a pilha não parecer impressa (pequenas: as fichas são baixas). */
 const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
@@ -367,6 +367,6 @@ export class NewsPage {
   protected when(n: NewsEntry): string {
     // curta, para caber na linha da versão: "7 out 2026"
     const [y, m, d] = n.date.split('-').map(Number);
-    return `${d} ${MONTHS[m - 1]} ${y}`;
+    return `${d} ${MONTHS_SHORT[m - 1]} ${y}`;
   }
 }

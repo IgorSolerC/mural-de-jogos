@@ -1,17 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { longDayFmt, MONTHS_SHORT } from '../core/dates';
 
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const longFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
 /** "07 OUT 2026": o dia no fuso de quem vê, como um carimbo datador imprime. */
 export function stampDay(iso: string): string {
   const d = new Date(iso);
-  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /** "7 de outubro de 2026". */
 export function doneDayLong(iso: string): string {
-  return longFmt.format(new Date(iso));
+  return longDayFmt.format(new Date(iso));
 }
 
 /** Cada carimbo tem um id próprio para o caminho do texto em volta (o SVG mora no documento). */

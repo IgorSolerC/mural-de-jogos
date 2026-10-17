@@ -1,5 +1,6 @@
 import { canonicalJson } from './canonical-json';
 import { Review, isNote, sanitizeReview, storedNote } from './review';
+import { DAY_MS } from './dates';
 
 /**
  * As versões guardadas: a rede de proteção da sincronização.
@@ -40,7 +41,6 @@ export interface KeptVersion {
 export const KEEP_VERSION_DAYS = 30;
 /** Quantas versões ficam, no máximo (as mais novas). */
 export const MAX_VERSIONS = 60;
-const DAY = 86_400_000;
 const REASONS: readonly KeptReason[] = ['juntou', 'apagada', 'editor', 'trocada', 'compartilhada'];
 
 /** O bilhete de quando versões acabaram de ficar guardadas. */
@@ -90,7 +90,7 @@ export function storedVersions(list: readonly KeptVersion[]): unknown[] {
 export function mergeVersions(a: readonly KeptVersion[], b: readonly KeptVersion[], now = Date.now()): KeptVersion[] {
   const byKey = new Map<string, KeptVersion>();
   for (const v of [...a, ...b]) {
-    if (now - Date.parse(v.em) > KEEP_VERSION_DAYS * DAY) continue;
+    if (now - Date.parse(v.em) > KEEP_VERSION_DAYS * DAY_MS) continue;
     const k = versionKey(v);
     const had = byKey.get(k);
     if (!had || v.em < had.em || (v.em === had.em && canonicalJson(v) < canonicalJson(had))) byKey.set(k, v);

@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Cloud, CloudNotice } from './cloud-config';
 import { ReviewStore } from './review-store';
-import { localDay } from './review';
+import { todayISO } from './dates';
 
 /**
  * As novidades do site: a lista fica em `news-list.ts` e as regras de cada entrada (o que é
@@ -87,10 +87,6 @@ const KEY = NEWS_SEEN_KEY;
 /** Um limite para os avisos da nuvem vistos não crescerem para sempre (eles não estão em NEWS). */
 const MAX_SEEN = 200;
 
-/** Hoje, AAAA-MM-DD, no fuso de quem usa. */
-export function today(now = new Date()): string {
-  return localDay(now);
-}
 
 /**
  * O que vai para a lista de vistas: as novidades vistas, todas (cortar uma faria ela voltar como
@@ -148,7 +144,7 @@ export class News {
   private readonly seen = signal<ReadonlySet<string>>(new Set());
   private readonly loaded = signal(false);
   /** Hoje, uma vez por abertura: o prazo de um aviso não precisa de relógio. */
-  private readonly day = today();
+  private readonly day = todayISO();
   /** Quando a lista chegou e o que foi visto já foi lido. */
   readonly ready: Promise<void>;
 

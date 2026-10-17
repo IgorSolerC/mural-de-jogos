@@ -40,6 +40,7 @@ import { pinningFor } from './wall-physics';
 import { isDecorated } from './wall-filter';
 import { ONE_DECIMAL as one } from './review';
 import { nameCollator, plural } from './text';
+import { DAY_MS, MONTHS_LONG, MONTHS_SHORT } from './dates';
 
 /**
  * As Estatísticas do mural: tudo o que dá para tirar das fichas de um mural (o seu ou o de um colega),
@@ -169,13 +170,11 @@ export function releaseOf(r: Review): number | null {
   return y > 1800 && y < 2200 ? y : null;
 }
 
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const MONTHS_LONG = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 /** Começa na segunda, como a folhinha da parede. */
 export const WEEKDAYS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 export const WEEKDAYS_LONG = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
 
-export const monthName = (m: number) => MONTHS[m - 1];
+export const monthName = (m: number) => MONTHS_SHORT[m - 1];
 export const monthLong = (m: number) => MONTHS_LONG[m - 1];
 
 /** As quatro partes do dia em que as fichas foram pregadas. */
@@ -186,7 +185,6 @@ export const DAY_PARTS = [
   { key: 'noite', label: 'Noite', from: 18, to: 24 },
 ] as const;
 
-const DAY_MS = 86_400_000;
 
 // ======================= o retrato =======================
 

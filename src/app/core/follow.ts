@@ -7,7 +7,7 @@ import { Kind, isKind } from './kinds';
 import { Mural } from './mural';
 import { FriendKinds, Settings } from './settings';
 import { ReactionId, isReaction } from './reaction-kinds';
-import { localDay } from './review';
+import { DAY_MS, localDay, parseDay } from './dates';
 import { MemberRole, isMemberRole } from './shared-notes';
 
 /**
@@ -181,12 +181,11 @@ export function localDayOf(isoText: string): string {
 /** "hoje", "ontem" ou "3 de outubro". */
 export function dayLabel(day: string, now = new Date()): string {
   const today = localDayOf(now.toISOString());
-  const yesterday = localDayOf(new Date(now.getTime() - 86_400_000).toISOString());
+  const yesterday = localDayOf(new Date(now.getTime() - DAY_MS).toISOString());
   if (day === today) return 'hoje';
   if (day === yesterday) return 'ontem';
-  const [y, m, d] = day.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', ...(y !== now.getFullYear() ? { year: 'numeric' } : {}) });
+  const date = parseDay(day);
+  return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}) });
 }
 
 /**

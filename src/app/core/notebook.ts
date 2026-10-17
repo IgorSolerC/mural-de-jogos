@@ -1,4 +1,4 @@
-import { localDay, parseDay } from './review';
+import { DAY_MS, localDay, parseDay } from './dates';
 import { wobble } from './wall-physics';
 
 /**
@@ -78,7 +78,7 @@ export function daysWaiting(createdAt: string, now = Date.now()): number {
   const from = parseDay(localDay(new Date(t)));
   const to = parseDay(localDay(new Date(now)));
   // arredonda: um dia com horário de verão tem 23 ou 25 horas
-  return Math.max(0, Math.round((to.getTime() - from.getTime()) / 86_400_000));
+  return Math.max(0, Math.round((to.getTime() - from.getTime()) / DAY_MS));
 }
 
 /**

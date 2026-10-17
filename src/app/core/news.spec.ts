@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { Cloud, CloudNotice } from './cloud-config';
-import { News, NewsEntry, firstSeen, isSeen, nextVersion, noticeOf, readSeen, seenToSave, today } from './news';
+import { News, NewsEntry, firstSeen, isSeen, nextVersion, noticeOf, readSeen, seenToSave } from './news';
 import { NEWS, VERSION } from './news-list';
 import { ReviewStore } from './review-store';
 
@@ -64,10 +64,6 @@ describe('novidades', () => {
     expect(isSeen(split, new Set(['b']))).toBeTrue();
     expect(isSeen(split, new Set(['a']))).toBeFalse();
     expect(isSeen(split, new Set(['b-correcoes']))).toBeTrue();
-  });
-
-  it('hoje no fuso de quem usa', () => {
-    expect(today(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
   });
 
   it('quem chega agora não recebe notícia velha; quem já tinha mural vê só a mais nova', () => {

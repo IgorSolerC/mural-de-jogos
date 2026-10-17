@@ -1,3 +1,4 @@
+import { DAY_MS } from './dates';
 /**
  * A cópia de antes da nuvem: na primeira vez que um aparelho junta (ou troca) o mural com o da conta,
  * o mural que estava aqui fica guardado inteiro, compactado, por 30 dias. Ajustes oferece para
@@ -7,7 +8,6 @@ const DB_NAME = 'meu-mural:antes-da-nuvem';
 const STORE = 'copias';
 const KEY = 'ultima';
 export const KEEP_DAYS = 30;
-const DAY = 86_400_000;
 
 export interface BeforeCloudCopy {
   /** O backup, como sai de "Baixar backup". */
@@ -58,7 +58,7 @@ export async function readBeforeCloud(now = new Date()): Promise<BeforeCloudCopy
   try {
     const copy = (await run('readonly', (s) => s.get(KEY))) as BeforeCloudCopy | undefined;
     if (!copy) return null;
-    if (now.getTime() - Date.parse(copy.at) > KEEP_DAYS * DAY) {
+    if (now.getTime() - Date.parse(copy.at) > KEEP_DAYS * DAY_MS) {
       await run('readwrite', (s) => s.delete(KEY));
       return null;
     }

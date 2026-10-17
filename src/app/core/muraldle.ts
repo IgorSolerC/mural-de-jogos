@@ -10,9 +10,9 @@ import {
   VERDICT_LABEL,
   formatAmount,
   formatScore,
-  localDay,
   shownFinal,
 } from './review';
+import { localDay, parseDay } from './dates';
 import { plural } from './text';
 
 /**
@@ -148,14 +148,11 @@ export function dailySecret(pool: readonly Review[], day: string, salt: string, 
   return list[hash(`${day}|${salt}`) % list.length];
 }
 
-/** O dia de hoje no fuso local, e o de ontem. */
-export function dayKey(d: Date = new Date()): string {
-  return localDay(d);
-}
-
+/** O dia antes de 'AAAA-MM-DD'. */
 export function previousDay(day: string): string {
-  const [y, m, d] = day.split('-').map(Number);
-  return localDay(new Date(y, m - 1, d - 1));
+  const d = parseDay(day);
+  d.setDate(d.getDate() - 1);
+  return localDay(d);
 }
 
 const EMOJI: Record<Mark, string> = { certo: '🟩', perto: '🟨', errado: '🟥', desconhecido: '⬜' };

@@ -2,10 +2,9 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { Hourglass, LucideAngularModule } from 'lucide-angular';
 import { Clock } from '../core/clock';
 import { Remaining, readCountdown, remaining, targetOf } from '../core/widgets';
+import { DAY_MS, MONTHS_LONG, MONTHS_SHORT } from '../core/dates';
 
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-const MONTHS_LONG = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
 type Unit = 'days' | 'hours' | 'minutes' | 'seconds';
 const UNIT_NAMES: Record<Unit, [string, string]> = {
@@ -433,8 +432,8 @@ export class Countdown {
       title,
       yearly,
       big,
-      month: MONTHS[at.getMonth()],
-      dateShort: `${at.getDate()} ${MONTHS[at.getMonth()]}` + (yearly ? '' : ` ${at.getFullYear()}`),
+      month: MONTHS_SHORT[at.getMonth()],
+      dateShort: `${at.getDate()} ${MONTHS_SHORT[at.getMonth()]}` + (yearly ? '' : ` ${at.getFullYear()}`),
       time: when.timed ? `${pad(when.hour)}:${pad(when.minute)}` : '',
       rest: r.past ? [] : this.restOf(r, big.u),
       ago: r.past ? this.agoOf(r, yearly) : '',
@@ -465,7 +464,7 @@ export class Countdown {
   /** "é hoje!" e "amanhã!", pelo dia do calendário (não pelas 24 horas). */
   private soonOf(at: Date, now: number): string {
     const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    const diff = Math.round((day(at) - day(new Date(now))) / 86_400_000);
+    const diff = Math.round((day(at) - day(new Date(now))) / DAY_MS);
     return diff === 0 ? 'é hoje!' : diff === 1 ? 'amanhã!' : '';
   }
 

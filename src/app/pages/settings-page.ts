@@ -69,8 +69,8 @@ import { News } from '../core/news';
 import { GameLookup } from '../core/game-lookup';
 import { SiteKeys } from '../core/site-keys';
 import { plural } from '../core/text';
+import { DAY_MS, daysAgoLabel } from '../core/dates';
 
-const DAY = 86_400_000;
 
 type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'busca' | 'desempenho';
 const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'busca', 'desempenho'];
@@ -359,7 +359,7 @@ export class SettingsPage {
   /** Dias desde o último backup (null: nunca baixou). */
   private readonly daysSince = computed(() => {
     const at = this.backup.lastAt();
-    return at ? Math.max(0, Math.floor((Date.now() - Date.parse(at)) / DAY)) : null;
+    return at ? Math.max(0, Math.floor((Date.now() - Date.parse(at)) / DAY_MS)) : null;
   });
 
   /** Mesmo critério do bilhete em cima do mural: passou do prazo, ou nunca baixou e já tem o que guardar. */
@@ -372,7 +372,7 @@ export class SettingsPage {
   protected readonly lastBackup = computed(() => {
     const d = this.daysSince();
     if (d === null) return 'Nenhum backup baixado ainda';
-    const when = d === 0 ? 'hoje' : d === 1 ? 'ontem' : `há ${d} dias`;
+    const when = daysAgoLabel(d);
     return this.overdue() ? `Último backup: ${when}. Hora de baixar outro.` : `Último backup: ${when}`;
   });
 
@@ -486,7 +486,7 @@ export class SettingsPage {
   }
 
   protected copyUntil(copy: BeforeCloudCopy): string {
-    const until = new Date(Date.parse(copy.at) + KEEP_DAYS * DAY);
+    const until = new Date(Date.parse(copy.at) + KEEP_DAYS * DAY_MS);
     return until.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
   }
 

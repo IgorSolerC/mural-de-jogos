@@ -28,6 +28,7 @@ import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTa
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
 import { cap, labelKey, nameCollator, plural } from './text';
+import { longMonthFmt } from './dates';
 
 /**
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
@@ -169,7 +170,6 @@ function readPrefs(key: string, whole: boolean): ViewPrefs {
 
 
 /** A letra da seção na ordem alfabética: A a Z sem acento, e "#" para número, símbolo e outras escritas. */
-const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 
 /** Uma seção do mural: fichas vizinhas na ordem atual que dividem a mesma etiqueta. */
 export interface WallGroup {
@@ -820,7 +820,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
         // mês sem dia fica na seção do mês, depois dos dias (pela mesma regra, ver comparatorOf)
         if (r.completedAt.length === 4) return [r.completedAt, r.completedAt];
         const month = r.completedAt.slice(0, 7);
-        const label = monthFmt.format(parseDay(month + '-01'));
+        const label = longMonthFmt.format(parseDay(month + '-01'));
         return [month, cap(label)];
       };
   }

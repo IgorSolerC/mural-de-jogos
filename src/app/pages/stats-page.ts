@@ -41,6 +41,7 @@ import { Pesos } from './stats/pesos';
 import { Regua } from './stats/regua';
 import { ONE_DECIMAL as one, formatAvg } from '../core/review';
 import { plural } from '../core/text';
+import { localDay } from '../core/dates';
 
 export type Aba = 'resumo' | 'notas' | 'tempo' | 'habitos' | 'carimbos' | 'cartolinas' | 'curiosidades';
 
@@ -355,7 +356,7 @@ export class StatsPage {
 
   protected created(r: Review): string {
     const d = new Date(r.createdAt);
-    return Number.isNaN(d.getTime()) ? '' : formatReviewDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    return Number.isNaN(d.getTime()) ? '' : formatReviewDate(localDay(d));
   }
 
   protected days(n: number): string {
