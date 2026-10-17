@@ -97,6 +97,8 @@ Ordem: menor risco primeiro. Um commit por item. `[x]` feito, `[ ]` pendente, `[
 
 37. [x] **A sombra do giz**: `text-shadow: 0 1px 2px rgb(0 0 0 / 0.9)` em dez lugares; agora `--chalk-shadow`.
 
+38. [x] **DESIGN.md**: a seção "Padronização" lista os tokens e os kits novos, para as próximas telas usarem.
+
 ## Correções achadas na varredura
 
 12. [x] **Bilhete escondido atrás de uma folha aberta**: o bilhete fica embaixo de um `<dialog>` modal (camada de cima) e
