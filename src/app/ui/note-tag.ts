@@ -82,9 +82,11 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
     }
     /* com cor, como a orelha da categoria com cor: a etiqueta vira papel claro e a cor corre num
        contorno fino por dentro dela, a 2px da beirada, seguindo o bico. São três recortes do mesmo
-       formato, um dentro do outro (o contorno de uma forma recortada não dá para fazer com borda) */
+       formato, um dentro do outro (o contorno de uma forma recortada não dá para fazer com borda).
+       A tinta é fixa, como a do papel pardo: o papel é sempre claro, e a tinta clara da cartolina
+       escura (--ink) sumia nele */
     :host(.cor) {
-      color: var(--ink);
+      color: #151515;
     }
     :host(.cor) .papel {
       background: var(--paper-grain), #fffcf2;
