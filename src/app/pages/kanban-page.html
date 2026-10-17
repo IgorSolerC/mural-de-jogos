@@ -171,12 +171,6 @@
         </div>
       </section>
     }
-    @if (b.columns.length < maxColumns) {
-      <button type="button" class="coluna-nova" (click)="newColumn()">
-        <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
-        Nova coluna
-      </button>
-    }
   </div>
 
   <p class="sr-only" aria-live="polite">{{ said() }}</p>

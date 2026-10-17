@@ -297,12 +297,15 @@ describe('página do Kanban', () => {
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
   });
 
-  it('Adicionar nota abre as duas saídas, e Nova coluna cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {
+  it('Adicionar nota abre as duas saídas, e Nova coluna (só na pasta, sem a vaga tracejada no fim do quadro) cria uma no fim, com os ajustes abertos (e guarda o quadro)', async () => {
     await go(`/anotacoes/kanban/${EST}`);
     column(kanban.boardFor('Estudos').columns[1].id).querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
     await settle();
     expect([...host.querySelectorAll('.adicionar-op')].map((b) => b.textContent!.trim())).toEqual(['Buscar nota', 'Nova nota']);
-    host.querySelector<HTMLButtonElement>('.coluna-nova')!.click();
+    expect([...host.querySelectorAll('.quadro button')].some((x) => x.textContent!.includes('Nova coluna'))).toBeFalse();
+    const nova = [...host.querySelectorAll<HTMLButtonElement>('.pasta button')].filter((x) => x.textContent!.includes('Nova coluna'));
+    expect(nova.length).toBe(1);
+    nova[0].click();
     await settle();
     const b = kanban.get(EST)!;
     expect(kanban.boards().map((x) => x.id)).toEqual([EST]);

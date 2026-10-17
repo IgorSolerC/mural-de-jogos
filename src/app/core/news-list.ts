@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-16-sem-recados',
+    id: '2026-10-16-sem-vaga-de-coluna',
     version: '1.24.1',
     kind: 'ajustes',
     date: '2026-10-16',
@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'No Kanban, o Buscar nota tem "Esconder finalizadas", ligado ao abrir: as anotações finalizadas saem da lista.',
       'Nas orelhas de categoria com cor, o desenho também fica da cor da orelha.',
       'O Kanban, o Pra depois e a Wishlist não têm mais o recado explicativo no alto da pasta, que fica mais baixa.',
+      'No Kanban, a vaga tracejada de nova coluna no fim do quadro saiu: Nova coluna fica só no alto, ao lado da busca.',
     ],
     correcoes: [
       'A tag escolhida no filtro das anotações não filtra mais as análises ao trocar de mural; ela volta a valer quando você volta para as anotações.',

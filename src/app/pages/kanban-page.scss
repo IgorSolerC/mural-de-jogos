@@ -682,46 +682,6 @@
   }
 }
 
-/* ===== Nova coluna: a vaga a giz na parede, no fim do quadro ===== */
-.coluna-nova {
-  flex: 0 0 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 180px;
-  border: 2px dashed rgb(243 239 230 / 0.35);
-  border-radius: 3px;
-  background: transparent;
-  color: var(--wall-ink-2);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 1rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    color var(--t-ui) var(--ease-ui),
-    border-color var(--t-ui) var(--ease-ui),
-    background-color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    border-color: rgb(243 239 230 / 0.7);
-    color: var(--wall-ink);
-    background: rgb(243 239 230 / 0.05);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 3px;
-  }
-
-  lucide-icon {
-    display: inline-flex;
-  }
-}
-
 /* ===== Celular: uma coluna (e um pedaço da próxima) por vez, encaixando ao rolar ===== */
 @media (max-width: 600px) {
   :host {
@@ -738,8 +698,7 @@
     scroll-snap-type: none;
   }
 
-  .coluna,
-  .coluna-nova {
+  .coluna {
     scroll-snap-align: start;
   }
 
@@ -751,8 +710,7 @@
 @media (prefers-reduced-motion: reduce) {
   .aba,
   .coluna,
-  .adicionar-btn,
-  .coluna-nova {
+  .adicionar-btn {
     transition: none;
   }
 
