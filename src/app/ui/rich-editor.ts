@@ -7,6 +7,7 @@ import {
   ChevronDown,
   CircleHelp,
   Code,
+  CornerDownRight,
   Eye,
   EyeOff,
   Heading1,
@@ -38,7 +39,7 @@ import {
   Type,
   X,
 } from 'lucide-angular';
-import { isTableSep, lineKind, linkAt, tableCells, toggleCheck } from '../core/rich-text';
+import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, ownerItem, tableCells, toggleCheck } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { cap, profileOf } from '../core/kinds';
 import { Review, formatReviewDate, isNote } from '../core/review';
@@ -54,7 +55,7 @@ type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar", "Inserir" e a caixa do estilo do parágrafo. */
 type MenuName = 'formatar' | 'inserir' | 'estilo';
 /** O que a régua (e os menus) fazem no texto. */
-type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'code' | ListKind | 'url' | 'note' | 'table' | 'rule';
+type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'table' | 'rule';
 /** O estilo do parágrafo, como a caixa "Texto normal" dos editores: o da linha do cursor. */
 export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'codigo';
 
@@ -257,6 +258,13 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                       <kbd class="atalho" aria-hidden="true">{{ l.keys }}</kbd>
                     </button>
                   }
+                  <!-- a descrição de um item: uma linha recuada que continua dele (no celular, o único jeito
+                       fácil, sem Shift+Enter) -->
+                  <button type="button" role="menuitem" tabindex="-1" class="menu-op" aria-keyshortcuts="Shift+Enter" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, 'inside')">
+                    <lucide-icon [img]="InsideIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    <span class="menu-op-nome">Linha dentro do item</span>
+                    <kbd class="atalho" aria-hidden="true">Shift+Enter</kbd>
+                  </button>
                 </div>
               </div>
             }
@@ -2434,6 +2442,7 @@ export class RichEditor {
     { act: 'spoiler', icon: EyeOff, keys: '', aria: null },
     { act: 'code', icon: Code, keys: 'Ctrl+E', aria: 'Control+E' },
   ];
+  protected readonly InsideIcon = CornerDownRight;
   /** As listas: no "Formatar" e na régua, com os atalhos do Docs. */
   protected readonly lists: readonly { act: ListKind; name: string; icon: LucideIconData; keys: string; aria: string }[] = [
     { act: 'check', name: 'Tarefas', icon: ListChecks, keys: 'Ctrl+Shift+9', aria: 'Control+Shift+9' },
@@ -2574,6 +2583,8 @@ export class RichEditor {
         return this.startTable(big);
       case 'rule':
         return this.rule(area);
+      case 'inside':
+        return this.lineInItem(area);
       default:
         return this.list(area, what);
     }
@@ -3060,6 +3071,10 @@ export class RichEditor {
     } else if (e.key === 'Enter' && !e.shiftKey && !mod && !e.isComposing) {
       if (this.tableLine(area)) this.tableEnter(e, area);
       else this.continueList(e, area);
+    } else if (e.key === 'Enter' && e.shiftKey && !mod && !e.altKey && !e.isComposing && this.inItem(area)) {
+      // Shift+Enter num item (ou no que vem embaixo dele): uma linha nova dentro do mesmo item
+      e.preventDefault();
+      this.lineInItem(area);
     }
   }
 
@@ -3422,11 +3437,15 @@ export class RichEditor {
     const lineStart = text.lastIndexOf('\n', w.start - 1) + 1;
     const lineEndAt = text.indexOf('\n', w.end);
     const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+    // num item (ou embaixo dele), o widget entra recuado: fica dele, como a descrição
+    const indent = bodyIndent(linesOf(text), text.slice(0, lineStart).split('\n').length - 1) ?? '';
     if (!text.slice(lineStart, lineEnd).trim()) {
-      this.replace(area, lineStart, lineEnd, line, lineStart + line.length, lineStart + line.length);
+      // na linha vazia, com o recuo que ela já tinha
+      const own = /^[ \t]*/.exec(text.slice(lineStart, lineEnd))![0] + line;
+      this.replace(area, lineStart, lineEnd, own, lineStart + own.length, lineStart + own.length);
       return;
     }
-    const piece = '\n' + line;
+    const piece = '\n' + indent + line;
     this.replace(area, lineEnd, lineEnd, piece, lineEnd + piece.length, lineEnd + piece.length);
   }
 
@@ -3654,7 +3673,10 @@ export class RichEditor {
     const lineEnd = text.indexOf('\n', at);
     const line = text.slice(from, lineEnd === -1 ? text.length : lineEnd);
     const k = lineKind(line);
-    if (k.kind === 'p') return;
+    if (k.kind === 'p') {
+      this.itemAfterBody(e, area, from, line);
+      return;
+    }
     e.preventDefault();
     const indent = /^\s*/.exec(line)![0];
     if (!k.rest.trim()) {
@@ -3676,7 +3698,54 @@ export class RichEditor {
       return;
     }
     const prefix = indent + prefixOf(k.kind, k.kind === 'ol' ? k.n + 1 : 1);
-    this.replace(area, at, at, '\n' + prefix, at + 1 + prefix.length, at + 1 + prefix.length);
+    // no fim de um item com o que vem embaixo dele: o item novo entra depois disso, que continua dele
+    const { lines, at: here } = this.cursorLine(area);
+    const end = at === from + line.length ? itemEnd(lines, here) : here;
+    const put = end === here ? at : from + lines.slice(here, end + 1).join('\n').length;
+    this.replace(area, put, put, '\n' + prefix, put + 1 + prefix.length, put + 1 + prefix.length);
+  }
+
+  /** A linha do cursor: o número dela no texto, e as linhas todas. */
+  private cursorLine(area: HTMLTextAreaElement): { lines: string[]; at: number } {
+    return { lines: linesOf(area.value), at: area.value.slice(0, area.selectionStart).split('\n').length - 1 };
+  }
+
+  /** O cursor está num item de lista (ou no que vem embaixo dele, recuado)? */
+  private inItem(area: HTMLTextAreaElement): boolean {
+    const { lines, at } = this.cursorLine(area);
+    return ownerItem(lines, at) !== null;
+  }
+
+  /**
+   * Uma linha nova dentro do mesmo item (Shift+Enter, ou "Linha dentro do item" no Formatar): recuada
+   * até a coluna do texto dele, ela é a descrição, a foto, a lista de dentro. Fora de lista, só a
+   * linha nova.
+   */
+  protected lineInItem(area: HTMLTextAreaElement): void {
+    const { lines, at } = this.cursorLine(area);
+    const piece = '\n' + (bodyIndent(lines, at) ?? '');
+    const [s, e] = [area.selectionStart, area.selectionEnd];
+    this.replace(area, s, e, piece, s + piece.length, s + piece.length);
+  }
+
+  /**
+   * Enter numa linha que é de um item (a descrição embaixo dele): um item novo da mesma lista, como
+   * no Docs depois do Shift+Enter. Na linha do corpo só de espaços, o item novo fica no lugar dela.
+   */
+  private itemAfterBody(e: KeyboardEvent, area: HTMLTextAreaElement, from: number, line: string): void {
+    const { lines, at } = this.cursorLine(area);
+    const owner = ownerItem(lines, at);
+    if (owner === null || owner === at) return;
+    e.preventDefault();
+    const top = lines[owner];
+    const k = lineKind(top);
+    const prefix = /^\s*/.exec(top)![0] + prefixOf(k.kind as ListKind, k.kind === 'ol' ? k.n + 1 : 1);
+    if (!line.trim()) {
+      this.replace(area, from, from + line.length, prefix, from + prefix.length, from + prefix.length);
+      return;
+    }
+    const cur = area.selectionStart;
+    this.replace(area, cur, cur, '\n' + prefix, cur + 1 + prefix.length, cur + 1 + prefix.length);
   }
 
   /**

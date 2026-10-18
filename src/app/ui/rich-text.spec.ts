@@ -65,6 +65,44 @@ describe('o texto formatado na leitura', () => {
     expect(el.querySelector('ol')!.getAttribute('start')).toBe('3');
   });
 
+  it('o que vem embaixo da tarefa fica no alinhamento do texto dela, com uma linha de respiro; feita, é riscado junto', async () => {
+    const el = await render('- [x] **Mandolin**\n      Descrição: adaptável\n      {{imagem: https://ex.com/m.jpg}}\n- [ ] Panelas\n      fundo triplo\n- [ ] Cola', null, true);
+    const items = Array.from(el.querySelectorAll<HTMLElement>('.tarefas > li'));
+    expect(items.length).toBe(3);
+    const [done, open, last] = items;
+    const body = done.querySelector<HTMLElement>(':scope > .corpo')!;
+    // fora do rótulo: tocar na descrição não marca a tarefa
+    expect(body.closest('label')).toBeNull();
+    expect(body.querySelector('.linha')!.textContent).toBe('Descrição: adaptável');
+    expect(body.querySelector('app-note-widget')).not.toBeNull();
+    // no alinhamento do texto da tarefa, sem o recuo de parágrafo
+    const left = (n: Element) => n.getBoundingClientRect().left;
+    expect(Math.abs(left(body.querySelector('.linha')!) - left(done.querySelector('.tarefa')!))).toBeLessThan(1.5);
+    expect(parseFloat(getComputedStyle(body.querySelector('.linha')!).textIndent)).toBe(0);
+    // uma linha da pauta inteira entre a tarefa com corpo e a de baixo; a última, sem
+    const line = parseFloat(getComputedStyle(done).minHeight);
+    expect(parseFloat(getComputedStyle(done).marginBottom)).toBeCloseTo(line, 1);
+    expect(parseFloat(getComputedStyle(open).marginBottom)).toBeCloseTo(line, 1);
+    expect(parseFloat(getComputedStyle(last).marginBottom)).toBe(0);
+    // feita: o texto de baixo riscado e a foto com o risco ligado; a por fazer, não
+    expect(getComputedStyle(body.querySelector('.linha')!).textDecorationLine).toBe('line-through');
+    expect(getComputedStyle(body.querySelector('app-note-widget')!).getPropertyValue('--riscado').trim()).toBe('1');
+    const openBody = open.querySelector(':scope > .corpo .linha')!;
+    expect(getComputedStyle(openBody).textDecorationLine).toBe('none');
+    body.querySelector<HTMLElement>('.linha')!.click();
+    expect(toggled).toEqual([]);
+    done.querySelector<HTMLInputElement>('input')!.click();
+    expect(toggled).toEqual([0]);
+  });
+
+  it('a lista recuada vira a lista de dentro, e a tarefa de dentro marca a linha dela', async () => {
+    const el = await render('- [ ] mala\n  - [ ] roupa\n  - [ ] escova', null, true);
+    const inner = el.querySelectorAll('.tarefas > li > .corpo .tarefas > li');
+    expect(Array.from(inner).map((li) => li.textContent!.trim())).toEqual(['roupa', 'escova']);
+    inner[1].querySelector<HTMLInputElement>('input')!.click();
+    expect(toggled).toEqual([2]);
+  });
+
   it('texto sem marca nenhuma sai como foi escrito, cada linha um parágrafo com o recuo, sem espaço sobrando', async () => {
     const el = await render('Linha um\n\n  Linha dois: 2 * 3 = 6');
     const lines = Array.from(el.querySelectorAll('.linha'));

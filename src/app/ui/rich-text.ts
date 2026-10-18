@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
-import { foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
+import { Block, foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
 import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
@@ -21,6 +21,10 @@ import { NoteWidget } from './note-widget';
  *
  * Os widgets ("{{contador: …}}", ver core/widgets.ts) viram a peça deles, numa linha só.
  *
+ * O que vem embaixo de um item, recuado (a descrição, a foto, outra lista), fica no alinhamento do
+ * texto dele, com uma linha da pauta de respiro antes do próximo item. Na tarefa feita, é riscado
+ * junto: o texto a lápis, como o da tarefa, e a foto com um risco de caneta vermelha de ponta a ponta.
+ *
  * O spoiler ("||texto||") é uma tarja de caneta preta por cima das letras, como num documento
  * censurado: o texto embaixo não aparece, não é lido pelo leitor de tela nem achado pelo teclado
  * (`inert`), e tocar (ou Enter) tira a tarja, como no Discord. Revelado, fica uma sombra clara para
@@ -38,7 +42,11 @@ import { NoteWidget } from './note-widget';
         <div class="linha paragrafo">{{ l }}</div>
       }
     } @else {
-      @for (b of blocks(); track $index) {
+      <ng-container *ngTemplateOutlet="blocos; context: { $implicit: blocks() }" />
+    }
+    <!-- os blocos: o texto inteiro e, do mesmo jeito, o que vem embaixo de um item (o corpo dele) -->
+    <ng-template #blocos let-bs>
+      @for (b of asBlocks(bs); track $index) {
         @switch (b.kind) {
           @case ('p') {
             @for (l of b.lines; track $index) {
@@ -48,14 +56,14 @@ import { NoteWidget } from './note-widget';
           @case ('ul') {
             <ul class="lista">
               @for (it of b.items; track it.line) {
-                <li class="linha">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</li>
+                <li class="linha">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
               }
             </ul>
           }
           @case ('ol') {
             <ol class="lista numerada" [start]="b.start" [style.counter-reset]="'item ' + (b.start - 1)">
               @for (it of b.items; track it.line) {
-                <li class="linha">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</li>
+                <li class="linha">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
               }
             </ol>
           }
@@ -114,6 +122,11 @@ import { NoteWidget } from './note-widget';
                     }
                     <span class="tarefa">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</span>
                   </label>
+                  <!-- a descrição, a foto, a lista de dentro: fora do rótulo (tocar nelas não marca a
+                       tarefa), no alinhamento do texto dela; feita, riscadas junto -->
+                  @if (it.body) {
+                    <div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>
+                  }
                 </li>
               }
               <!-- as feitas escondidas: uma linha só, no fim da sequência, com o tique delas; tocar
@@ -130,7 +143,7 @@ import { NoteWidget } from './note-widget';
           }
         }
       }
-    }
+    </ng-template>
     <!-- o spoiler: a tarja preta por cima do pedaço (o pedaço por dentro, com as marcas dele, fica inerte até revelar) -->
     <ng-template #span let-s>@if (s.spoiler) {<span class="spoiler" role="button" tabindex="0" aria-label="Spoiler escondido: revelar" title="Spoiler: toque para revelar" (click)="reveal($event)" (keydown.enter)="reveal($event)" (keydown.space)="reveal($event)"><span class="spoiler-texto" inert><ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" /></span></span>} @else {<ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" />}</ng-template>
     <ng-template #pedaco let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
@@ -384,6 +397,28 @@ import { NoteWidget } from './note-widget';
       padding: 0;
       list-style: none;
     }
+    /* o que vem embaixo do item: no alinhamento do texto dele, cada linha na margem (sem o recuo de
+       parágrafo), e o respiro de uma linha inteira da pauta antes do próximo item (a letra continua
+       sentada nas linhas da folha) */
+    .corpo {
+      --recuo: 0;
+      white-space: normal;
+    }
+    .tarefas .corpo {
+      padding-left: 1.35em;
+    }
+    .lista > li:has(> .corpo):not(:last-child) {
+      margin-bottom: var(--line, 1.5em);
+    }
+    /* a tarefa feita risca o que vem embaixo dela: o texto a lápis, como o dela, e a foto ou o vídeo
+       com o risco de caneta (ver ui/glued-media.ts, --riscado) */
+    .feita > .corpo {
+      --riscado: 1;
+      opacity: 0.7;
+    }
+    .feita > .corpo :is(.linha, th, td, .codigo) {
+      text-decoration: line-through 2px rgb(21 21 21 / 0.45);
+    }
     /* o item fica pendurado: a segunda linha começa onde o texto começa, não embaixo do marcador */
     .lista > li {
       position: relative;
@@ -539,7 +574,9 @@ import { NoteWidget } from './note-widget';
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23f3ece0' stroke-opacity='.6' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
     }
     :host-context(.cartolina[data-cor$='-escuro']) .feita .tarefa,
-    :host-context(.cartolina[data-cor='preto']) .feita .tarefa {
+    :host-context(.cartolina[data-cor='preto']) .feita .tarefa,
+    :host-context(.cartolina[data-cor$='-escuro']) .feita > .corpo .linha,
+    :host-context(.cartolina[data-cor='preto']) .feita > .corpo .linha {
       text-decoration-color: rgb(243 236 224 / 0.5);
     }
   `,
@@ -574,6 +611,11 @@ export class RichText {
     const hide = this.doneThen().lines;
     return this.fold() ? foldDone(blocks, hide, this.shown()) : blocks;
   });
+
+  /** O molde dos blocos recebe a lista sem tipo (é o mesmo para o texto e para o corpo de um item). */
+  protected asBlocks(bs: unknown): readonly Block[] {
+    return bs as readonly Block[];
+  }
 
   private readonly shownDone = inject(ShownDone);
   /** Só aqui, sem `foldKey`. */

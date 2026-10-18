@@ -1,18 +1,21 @@
 /**
  * O texto das fichas com formatação, guardado como texto simples com marcas leves (um markdown):
  *
- * - Na linha: **negrito**, *itálico* (ou _itálico_), ~~riscado~~, ==marca-texto==, ||spoiler|| (ou
- *   >!spoiler!<, como no Reddit), `código`,
- *   [texto](https://endereço), endereços soltos (https://…) e, nas anotações, links para outras
- *   anotações ("[[Título]]", ver core/note-links.ts). Uma barra antes de uma marca a escreve como é
- *   ("\*" é um asterisco).
+ * - Na linha: **negrito** (ou __negrito__), *itálico* (ou _itálico_), ~~riscado~~, ==marca-texto==,
+ *   ||spoiler|| (ou >!spoiler!<, como no Reddit), `código`,
+ *   [texto](https://endereço), <https://endereço>, endereços soltos (https://… ou www.…) e, nas
+ *   anotações, links para outras anotações ("[[Título]]", ver core/note-links.ts). Uma barra antes de
+ *   qualquer sinal o escreve como é ("\*" é um asterisco, "1\." não começa lista).
  * - Os símbolos escritos com sinais: "->" →, "<-" ←, "<->" ↔, "-->" ⟶, "<--" ⟵, "=>" ⇒, "<=>" ⇔,
  *   "==>" ⟹, "<==" ⟸, "!=" ≠, ">=" ≥, "<=" ≤, "~=" ≈ e "+-" ±. Fora do código e dos links; com a
  *   barra antes do último sinal ("-\>"), ficam como são.
- * - Em blocos: títulos ("# ", "## ", "### "), listas ("- item", "1. item"), checklists ("- [ ] tarefa",
- *   "- [x] feita"), citações ("> "), a divisória ("---"), tabelas (as linhas com "|", a segunda só de
- *   traços), blocos de código (entre "```") e os widgets das anotações ("{{contador: 19/11/2026 |
- *   Lançamento}}", numa linha só dele; ver core/widgets.ts).
+ * - Em blocos: títulos ("# ", "## ", "### "; do quarto ao sexto, como o terceiro), listas ("- item",
+ *   "+ item", "1. item"), checklists ("- [ ] tarefa", "- [x] feita"), citações ("> "), a divisória
+ *   ("---"), tabelas (as linhas com "|", a segunda só de traços), blocos de código (entre "```" ou
+ *   "~~~") e os widgets das anotações ("{{contador: 19/11/2026 | Lançamento}}", numa linha só dele;
+ *   ver core/widgets.ts).
+ * - O que vem embaixo de um item, recuado dois espaços ou mais, é dele, como no markdown: a
+ *   descrição em várias linhas, outra lista, um widget (ver `ListItem.body`).
  *
  * O texto continua sendo uma string: as resenhas antigas não mudam, o backup e a nuvem não mudam, e
  * um site antigo mostra as marcas cruas. Nunca vira HTML: quem desenha é o próprio Angular, a partir
@@ -44,8 +47,8 @@ export interface Span {
 /** "[[título]]": sem colchetes nem quebra de linha dentro, e com algo além de espaços. */
 export const LINK = /\[\[([^[\]\n]*[^[\]\s][^[\]\n]*)\]\]/g;
 export const HAS_LINK = new RegExp(LINK.source);
-/** Um endereço para fora: [texto](https://…) ou um https:// solto. */
-const HAS_URL = /\]\((?:https?:\/\/|mailto:)|https?:\/\/\S/;
+/** Um endereço para fora: [texto](https://…), <https://…> ou um https:// (ou www.) solto. */
+const HAS_URL = /\]\((?:https?:\/\/|mailto:)|<(?:https?:\/\/|mailto:)|https?:\/\/\S|(?<![\w@./-])www\.\S/;
 /** Cada pedaço lido inteiro (link, código, marca escapada) vira um caractere de uso privado enquanto as ênfases são lidas. */
 const SLOT = 0xe000;
 
@@ -55,6 +58,12 @@ export interface ListItem {
   line: number;
   /** Só nos checklists: a tarefa feita. */
   done?: boolean;
+  /**
+   * O que vem embaixo do item, recuado (as linhas com dois espaços ou mais além do começo do item,
+   * como no markdown): a descrição, outra lista, um widget. Lido como um texto à parte; feita a
+   * tarefa, ele é riscado junto.
+   */
+  body?: Block[];
 }
 
 /** O alinhamento de uma coluna da tabela (":--", ":-:", "--:"); null, o de sempre. */
@@ -78,14 +87,103 @@ export type Block =
   | { kind: 'widget'; name: string; args: string[]; size: WidgetSize }
   | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][] };
 
-const CHECK = /^\s*[-*•]\s+\[([ xX])\]\s?(.*)$/;
-const BULLET = /^\s*[-*•]\s+(.*)$/;
+const CHECK = /^\s*[-*+•]\s+\[([ xX])\]\s?(.*)$/;
+const BULLET = /^\s*[-*+•]\s+(.*)$/;
 const NUMBER = /^\s*(\d{1,4})[.)]\s+(.*)$/;
-const HEADING = /^(#{1,3})\s+(.*\S.*)$/;
+// do "####" ao "######" (o markdown tem seis níveis), com a cara do terceiro; os "#" do fim saem
+const HEADING = /^(#{1,6})\s+(.*?\S)(?:\s+#+)?\s*$/;
 // (">!spoiler!<" no começo da linha é um spoiler, não uma citação)
 const QUOTE = /^\s*>(?!!\S.*!<)\s?(.*)$/;
 const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
-const FENCE = /^\s*```/;
+/** A cerca do bloco de código: três crases ou três tis (fecha com a mesma). */
+const FENCE = /^\s*(`{3,}|~{3,})/;
+
+/** A cerca que a linha abre ("```", "~~~~"), ou null. */
+function fenceOf(line: string): string | null {
+  return FENCE.exec(line)?.[1] ?? null;
+}
+
+/** A linha fecha o bloco aberto por `open`: a mesma marca, pelo menos do mesmo tamanho. */
+function closes(line: string, open: string): boolean {
+  const f = fenceOf(line);
+  return !!f && f[0] === open[0] && f.length >= open.length;
+}
+
+/** A largura do recuo da linha (o tab vai até a próxima parada de 4, como no markdown). */
+function indentOf(line: string): number {
+  let w = 0;
+  for (const ch of line) {
+    if (ch === ' ') w++;
+    else if (ch === '\t') w += 4 - (w % 4);
+    else break;
+  }
+  return w;
+}
+
+/** A linha sem `n` colunas de recuo (o tab vira espaços antes). */
+function dedent(line: string, n: number): string {
+  const lead = /^[ \t]*/.exec(line)![0];
+  let spaces = '';
+  for (const ch of lead) spaces += ch === ' ' ? ' ' : ' '.repeat(4 - (spaces.length % 4));
+  return spaces.slice(n) + line.slice(lead.length);
+}
+
+/**
+ * As linhas embaixo do item da linha `i` que são dele: as recuadas pelo menos dois espaços além do
+ * começo do item e as em branco entre elas (a em branco seguida de uma linha sem o recuo termina o
+ * item). Onde elas acabam (a última delas) e o recuo que todas têm; null, o item não tem nada embaixo.
+ */
+function bodyOf(lines: readonly string[], i: number): { end: number; indent: number } | null {
+  const min = indentOf(lines[i]) + 2;
+  let end = i;
+  let indent = Infinity;
+  for (let j = i + 1; j < lines.length; j++) {
+    if (!lines[j].trim()) continue;
+    if (indentOf(lines[j]) < min) break;
+    end = j;
+    indent = Math.min(indent, indentOf(lines[j]));
+  }
+  return end === i ? null : { end, indent };
+}
+/**
+ * O item de quem a linha `i` é: ela mesma, se é um item, ou o item em cujo corpo ela está (ver
+ * `bodyOf`; uma linha só de espaços conta pelo recuo dela). Null se a linha não é de item nenhum.
+ */
+export function ownerItem(lines: readonly string[], i: number): number | null {
+  if (lineKind(lines[i]).kind !== 'p') return i;
+  const probe = [...lines];
+  // a linha só de espaços (acabou de ser aberta) conta como se já tivesse texto
+  if (!probe[i].trim()) {
+    if (!probe[i]) return null;
+    probe[i] += '.';
+  }
+  for (let j = i - 1; j >= 0; j--) {
+    if (!probe[j].trim()) continue;
+    if (lineKind(probe[j]).kind !== 'p') {
+      if ((bodyOf(probe, j)?.end ?? j) >= i) return j;
+    } else if (indentOf(probe[j]) === 0) {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** A última linha do item da linha `i`, com o que vem embaixo dele (sem nada embaixo, ela mesma). */
+export function itemEnd(lines: readonly string[], i: number): number {
+  return bodyOf(lines, i)?.end ?? i;
+}
+
+/**
+ * O recuo de uma linha nova aberta embaixo da `i` que continua no mesmo item: embaixo do item, o da
+ * coluna do texto dele ("- [ ] " são seis espaços); no corpo, o da própria linha. Null fora de item.
+ */
+export function bodyIndent(lines: readonly string[], i: number): string | null {
+  const owner = ownerItem(lines, i);
+  if (owner === null) return null;
+  if (owner === i) return ' '.repeat(indentOf(lines[i]) + (lines[i].trimStart().length - lineKind(lines[i]).rest.length));
+  return /^[ \t]*/.exec(lines[i])![0];
+}
+
 /** A linha de traços embaixo do cabeçalho da tabela: "| --- | :-: |". */
 const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
@@ -110,8 +208,26 @@ export function lineKind(line: string): LineKind {
   return { kind: 'p', rest: line };
 }
 
-/** Os pedaços lidos inteiros, antes das ênfases: a marca escapada, o código, o link de anotação, o link para fora e o endereço solto. */
-const ATOMS = /\\([\\`*_~=[\]|#>-])|`([^`\n]+)`|\[\[([^[\]\n]*[^[\]\s][^[\]\n]*)\]\]|\[([^[\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)|(https?:\/\/[^\s<>()[\]]*[^\s<>()[\].,;:!?'"’”])/g;
+/**
+ * Os pedaços lidos inteiros, antes das ênfases: a marca escapada (qualquer sinal, como no markdown:
+ * "1\." não é lista), o código (entre crases; entre duas, pode ter uma dentro), o link de anotação,
+ * o link para fora (o endereço pode ter parênteses, como os da Wikipédia, e um "título" no fim, que
+ * fica de fora), o endereço entre "<>" e o endereço solto (https:// ou www.).
+ */
+const ATOMS =
+  /\\(?<lit>[!-/:-@[-`{-~])|(?<!`)(?<tick>`+)(?!`)(?<code>[^\n]+?)(?<!`)\k<tick>(?!`)|\[\[(?<note>[^[\]\n]*[^[\]\s][^[\]\n]*)\]\]|\[(?<label>[^[\]\n]+)\]\((?<href>(?:https?:\/\/|mailto:)(?:[^\s()]|\([^\s()]*\))+)(?:\s+"[^"\n]*")?\)|<(?<auto>(?:https?:\/\/|mailto:)[^\s<>]+)>|(?<bare>(?:https?:\/\/|(?<![\w@./-])www\.)(?:[^\s<>()[\]]|\([^\s<>()[\]]*\))*(?:[^\s<>()[\].,;:!?'"’”]|\([^\s<>()[\]]*\)))/g;
+
+type AtomGroups = Partial<Record<'lit' | 'tick' | 'code' | 'note' | 'label' | 'href' | 'auto' | 'bare', string>>;
+
+/** O endereço solto como link: o "www." ganha o https://. */
+function bareHref(bare: string): string {
+  return /^www\./i.test(bare) ? 'https://' + bare : bare;
+}
+
+/** O código entre crases: um espaço de cada ponta sai (para escrever "`` `x` ``"), se as duas têm. */
+function codeText(code: string): string {
+  return code.length > 2 && code.startsWith(' ') && code.endsWith(' ') && code.trim() ? code.slice(1, -1) : code;
+}
 
 type Atom = { kind: 'lit'; text: string } | { kind: 'code'; text: string } | { kind: 'note'; title: string; label: string } | { kind: 'url'; text: string; href: string };
 
@@ -127,13 +243,14 @@ export type LinkAt =
  */
 export function linkAt(line: string, at: number): LinkAt | null {
   for (const m of line.matchAll(ATOMS)) {
+    const g = m.groups as AtomGroups;
     const start = m.index;
     const end = start + m[0].length;
     if (at < start) return null;
-    if (at > end || m[1] !== undefined || m[2] !== undefined) continue;
-    if (m[3] !== undefined) return { kind: 'note', start, end, ...splitLink(m[3]) };
-    if (m[4] !== undefined) return { kind: 'url', start, end, text: m[4], href: m[5] };
-    return { kind: 'url', start, end, text: '', href: m[6] };
+    if (at > end || g.lit !== undefined || g.code !== undefined) continue;
+    if (g.note !== undefined) return { kind: 'note', start, end, ...splitLink(g.note) };
+    if (g.label !== undefined) return { kind: 'url', start, end, text: g.label, href: g.href! };
+    return { kind: 'url', start, end, text: '', href: g.auto ?? bareHref(g.bare!) };
   }
   return null;
 }
@@ -183,11 +300,13 @@ type Marks = Omit<Span, 'text'>;
 export function parseInline(text: string): Span[] {
   const atoms: Atom[] = [];
   for (const m of text.matchAll(ATOMS)) {
-    if (m[1] !== undefined) atoms.push({ kind: 'lit', text: m[1] });
-    else if (m[2] !== undefined) atoms.push({ kind: 'code', text: m[2] });
-    else if (m[3] !== undefined) atoms.push({ kind: 'note', ...splitLink(m[3]) });
-    else if (m[4] !== undefined) atoms.push({ kind: 'url', text: m[4], href: m[5] });
-    else atoms.push({ kind: 'url', text: m[6], href: m[6] });
+    const g = m.groups as AtomGroups;
+    if (g.lit !== undefined) atoms.push({ kind: 'lit', text: g.lit });
+    else if (g.code !== undefined) atoms.push({ kind: 'code', text: codeText(g.code) });
+    else if (g.note !== undefined) atoms.push({ kind: 'note', ...splitLink(g.note) });
+    else if (g.label !== undefined) atoms.push({ kind: 'url', text: g.label, href: g.href! });
+    else if (g.auto !== undefined) atoms.push({ kind: 'url', text: g.auto, href: g.auto });
+    else atoms.push({ kind: 'url', text: g.bare!, href: bareHref(g.bare!) });
   }
   if (!atoms.length) return parseMarks(typeset(text));
   // cada pedaço vira um caractere de uso privado, de uma faixa que não aparece no texto (um emoji
@@ -248,24 +367,28 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
     if (last && sameMarks(last, marks)) last.text += t;
     else out.push({ text: t, ...marks });
   };
-  // ***os dois***, **negrito**, ~~riscado~~, ==marca-texto==, ||spoiler|| ou >!spoiler!<, *itálico* ou _itálico_
+  // ***os dois*** (ou ___), **negrito** (ou __), ~~riscado~~, ==marca-texto==, *itálico* (ou _),
+  // ||spoiler|| (ou >!…!<). O "_" só vale fora das palavras ("snake_case" e "a__b__c" ficam); o "*"
+  // que fecha não pode ser metade de outra marca ("*um **dois** três*" é um itálico só, com o negrito
+  // dentro, e "**muito *bom***", um negrito com o itálico no fim)
   const re =
-    /\*\*\*(?=\S)(.+?)(?<=\S)\*\*\*|\*\*(?=\S)(.+?)(?<=\S)\*\*|~~(?=\S)(.+?)(?<=\S)~~|==(?=\S)(.+?)(?<=\S)==|\*(?=[^\s*])(.+?)(?<=[^\s*])\*|(?<![\p{L}\p{N}])_(?=\S)(.+?)(?<=\S)_(?![\p{L}\p{N}])|\|\|(?=\S)(.+?)(?<=\S)\|\||>!(?=\S)(.+?)(?<=\S)!</gu;
+    /\*\*\*(?=\S)(?<bi>.+?)(?<=\S)\*\*\*|(?<![\p{L}\p{N}_])___(?=\S)(?<bi2>.+?)(?<=\S)___(?![\p{L}\p{N}_])|\*\*(?=\S)(?<b>.+?)(?<=\S)\*\*(?!\*)|(?<![\p{L}\p{N}_])__(?=\S)(?<b2>.+?)(?<=\S)__(?![\p{L}\p{N}_])|~~(?=\S)(?<s>.+?)(?<=\S)~~|==(?=\S)(?<m>.+?)(?<=\S)==|\*(?=[^\s*])(?<i>.+?)(?<=[^\s*])\*(?!\*)|(?<![\p{L}\p{N}_])_(?=[^\s_])(?<i2>.+?)(?<=[^\s_])_(?![\p{L}\p{N}_])|\|\|(?=\S)(?<sp>.+?)(?<=\S)\|\||>!(?=\S)(?<sp2>.+?)(?<=\S)!</gu;
   let at = 0;
   for (const m of text.matchAll(re)) {
     push(text.slice(at, m.index), inherit);
+    const g = m.groups as Partial<Record<'bi' | 'bi2' | 'b' | 'b2' | 's' | 'm' | 'i' | 'i2' | 'sp' | 'sp2', string>>;
     const [inner, add]: [string, Marks] =
-      m[1] !== undefined
-        ? [m[1], { bold: true, italic: true }]
-        : m[2] !== undefined
-          ? [m[2], { bold: true }]
-          : m[3] !== undefined
-            ? [m[3], { strike: true }]
-            : m[4] !== undefined
-              ? [m[4], { mark: true }]
-              : m[7] !== undefined || m[8] !== undefined
-                ? [m[7] ?? m[8], { spoiler: true }]
-                : [m[5] ?? m[6], { italic: true }];
+      (g.bi ?? g.bi2) !== undefined
+        ? [(g.bi ?? g.bi2)!, { bold: true, italic: true }]
+        : (g.b ?? g.b2) !== undefined
+          ? [(g.b ?? g.b2)!, { bold: true }]
+          : g.s !== undefined
+            ? [g.s, { strike: true }]
+            : g.m !== undefined
+              ? [g.m, { mark: true }]
+              : (g.sp ?? g.sp2) !== undefined
+                ? [(g.sp ?? g.sp2)!, { spoiler: true }]
+                : [(g.i ?? g.i2)!, { italic: true }];
     // o que tem dentro pode ter outras ênfases: "**muito *bom***", "~~**caro**~~"
     for (const s of parseMarks(inner, { ...inherit, ...add })) {
       const { text: t, ...marks } = s;
@@ -298,15 +421,20 @@ function startsTable(lines: readonly string[], i: number): boolean {
 
 /** O texto em blocos: o texto corrido (linha a linha), as listas seguidas, os títulos, as citações, as tabelas… */
 export function parseRich(text: string): Block[] {
+  return parseLines(linesOf(text), 0);
+}
+
+/** As linhas em blocos; `base` é o número no texto da primeira (o que vem embaixo de um item é lido à parte). */
+function parseLines(lines: readonly string[], base: number): Block[] {
   const blocks: Block[] = [];
-  const lines = linesOf(text);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const last = blocks.at(-1);
-    // o bloco de código vai até o "```" que fecha (ou até o fim)
-    if (FENCE.test(line)) {
+    // o bloco de código vai até a cerca que fecha (ou até o fim)
+    const open = fenceOf(line);
+    if (open) {
       const body: string[] = [];
-      while (++i < lines.length && !FENCE.test(lines[i])) body.push(lines[i]);
+      while (++i < lines.length && !closes(lines[i], open)) body.push(lines[i]);
       blocks.push({ kind: 'code', text: body.join('\n') });
       continue;
     }
@@ -335,7 +463,7 @@ export function parseRich(text: string): Block[] {
     }
     const h = HEADING.exec(line);
     if (h) {
-      blocks.push({ kind: 'h', level: h[1].length as 1 | 2 | 3, spans: parseInline(h[2].trim()) });
+      blocks.push({ kind: 'h', level: Math.min(3, h[1].length) as 1 | 2 | 3, spans: parseInline(h[2].trim()) });
       continue;
     }
     const q = QUOTE.exec(line);
@@ -351,7 +479,14 @@ export function parseRich(text: string): Block[] {
       else blocks.push({ kind: 'p', lines: [spans] });
       continue;
     }
-    const item: ListItem = { spans: parseInline(k.rest), line: i, ...(k.kind === 'check' ? { done: k.done } : {}) };
+    const item: ListItem = { spans: parseInline(k.rest), line: base + i, ...(k.kind === 'check' ? { done: k.done } : {}) };
+    // as linhas recuadas embaixo são do item: a descrição, outra lista, um widget
+    const body = bodyOf(lines, i);
+    if (body) {
+      const inner = lines.slice(i + 1, body.end + 1).map((l) => (l.trim() ? dedent(l, body.indent) : ''));
+      item.body = parseLines(inner, base + i + 1);
+      i = body.end;
+    }
     if (last?.kind === k.kind) last.items.push(item);
     else if (k.kind === 'ol') blocks.push({ kind: 'ol', items: [item], start: k.n });
     else blocks.push({ kind: k.kind, items: [item] } as Block);
@@ -369,7 +504,7 @@ export function hasInteractive(text: string): boolean {
   return HAS_LINK.test(text) || HAS_URL.test(text) || checkCount(text).total > 0;
 }
 
-/** Os pedaços de texto de um bloco (de todas as linhas, itens e células). */
+/** Os pedaços de texto de um bloco (de todas as linhas, itens, células e o que vem embaixo dos itens). */
 function spansOf(b: Block): Span[] {
   switch (b.kind) {
     case 'p':
@@ -380,7 +515,7 @@ function spansOf(b: Block): Span[] {
     case 'ul':
     case 'ol':
     case 'check':
-      return b.items.flatMap((it) => it.spans);
+      return b.items.flatMap((it) => [...it.spans, ...(it.body ?? []).flatMap(spansOf)]);
     case 'table':
       return [...b.head, ...b.rows.flat()].flat();
     default:
@@ -436,32 +571,39 @@ function textOf(text: string, widget: (name: string, args: readonly string[]) =>
     return out;
   };
   const out: string[] = [];
-  for (const b of parseRich(text)) {
-    switch (b.kind) {
-      case 'p':
-      case 'quote':
-        out.push(...b.lines.map(join));
-        break;
-      case 'h':
-        out.push(join(b.spans));
-        break;
-      case 'code':
-        out.push(b.text);
-        break;
-      case 'table':
-        out.push([b.head, ...b.rows].map((r) => r.map(join).filter(Boolean).join(' · ')).join('\n'));
-        break;
-      case 'widget': {
-        const t = widget(b.name, b.args);
-        if (t) out.push(t);
-        break;
+  const read = (blocks: readonly Block[]) => {
+    for (const b of blocks) {
+      switch (b.kind) {
+        case 'p':
+        case 'quote':
+          out.push(...b.lines.map(join));
+          break;
+        case 'h':
+          out.push(join(b.spans));
+          break;
+        case 'code':
+          out.push(b.text);
+          break;
+        case 'table':
+          out.push([b.head, ...b.rows].map((r) => r.map(join).filter(Boolean).join(' · ')).join('\n'));
+          break;
+        case 'widget': {
+          const t = widget(b.name, b.args);
+          if (t) out.push(t);
+          break;
+        }
+        case 'hr':
+          break;
+        default:
+          // o que vem embaixo do item, logo depois dele
+          for (const it of b.items) {
+            out.push(join(it.spans));
+            if (it.body) read(it.body);
+          }
       }
-      case 'hr':
-        break;
-      default:
-        out.push(...b.items.map((it) => join(it.spans)));
     }
-  }
+  };
+  read(parseRich(text));
   return out.join('\n');
 }
 
@@ -487,8 +629,9 @@ export function proseLines(text: string): { line: string; at: number }[] {
   const out: { line: string; at: number }[] = [];
   const lines = linesOf(text);
   for (let i = 0; i < lines.length; i++) {
-    if (FENCE.test(lines[i])) {
-      while (++i < lines.length && !FENCE.test(lines[i]));
+    const open = fenceOf(lines[i]);
+    if (open) {
+      while (++i < lines.length && !closes(lines[i], open));
       continue;
     }
     out.push({ line: lines[i], at: i });
@@ -512,13 +655,20 @@ export function tasksOf(text: string): Map<number, boolean> {
  */
 export function noteLinksOf(line: string): { inner: string; at: number; length: number }[] {
   const out: { inner: string; at: number; length: number }[] = [];
-  for (const m of line.matchAll(ATOMS)) if (m[3] !== undefined) out.push({ inner: m[3], at: m.index, length: m[0].length });
+  for (const m of line.matchAll(ATOMS)) {
+    const note = (m.groups as AtomGroups).note;
+    if (note !== undefined) out.push({ inner: note, at: m.index, length: m[0].length });
+  }
   return out;
 }
 
 /** A linha com cada link de anotação trocado por `swap(inner)` (o resto, o código e os escapados ficam). */
 export function replaceNoteLinks(line: string, swap: (inner: string, all: string) => string): string {
-  return line.replace(ATOMS, (all: string, ...groups: (string | undefined)[]) => (groups[2] !== undefined ? swap(groups[2], all) : all));
+  // com grupos com nome, o último argumento são eles
+  return line.replace(ATOMS, (all: string, ...rest: unknown[]) => {
+    const note = (rest.at(-1) as AtomGroups).note;
+    return note !== undefined ? swap(note, all) : all;
+  });
 }
 
 /** Quantas tarefas o texto tem e quantas estão feitas. */

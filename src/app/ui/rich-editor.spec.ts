@@ -108,6 +108,57 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('- le\n- ite');
   });
 
+  it('Shift+Enter num item abre uma linha dentro dele, na coluna do texto; Enter nela volta para a lista', () => {
+    write('- [ ] Panelas|');
+    key('Enter', { shiftKey: true });
+    expect(value()).toBe('- [ ] Panelas\n      ');
+    area.setRangeText('fundo triplo', area.selectionStart, area.selectionStart, 'end');
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+    // na descrição, Shift+Enter continua nela
+    key('Enter', { shiftKey: true });
+    expect(value()).toBe('- [ ] Panelas\n      fundo triplo\n      ');
+    // Enter na linha só de espaços: ela vira a próxima tarefa
+    key('Enter');
+    expect(value()).toBe('- [ ] Panelas\n      fundo triplo\n- [ ] ');
+    // Enter no fim da descrição: a próxima tarefa (o numerado conta)
+    write('1. um\n   desc|');
+    key('Enter');
+    expect(value()).toBe('1. um\n   desc\n2. ');
+    // fora de lista, o Shift+Enter é o de sempre
+    write('texto|');
+    const e = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    area.dispatchEvent(e);
+    expect(e.defaultPrevented).toBeFalse();
+  });
+
+  it('Enter no fim de um item com descrição: a tarefa nova vem depois da descrição, que continua dela', () => {
+    write('- [ ] a|\n  desc\n- [ ] b');
+    key('Enter');
+    expect(value()).toBe('- [ ] a\n  desc\n- [ ] \n- [ ] b');
+    expect(area.selectionStart).toBe('- [ ] a\n  desc\n- [ ] '.length);
+  });
+
+  it('"Linha dentro do item" no Formatar faz o mesmo que o Shift+Enter (no celular não tem Shift+Enter)', () => {
+    write('- leite|');
+    pick('formatar', 'Linha dentro do item');
+    expect(value()).toBe('- leite\n  ');
+  });
+
+  it('o widget posto num item entra recuado, dele; na linha recuada vazia, fica com o recuo dela', () => {
+    const put = (marked: string) => {
+      write(marked);
+      const ed = fixture.componentInstance as unknown as { widgetPick: { set(v: unknown): void }; putWidget(a: HTMLTextAreaElement): void };
+      ed.widgetPick.set({ big: false, name: 'imagem', values: { url: 'https://ex.com/a.jpg', size: 'medio' }, start: area.selectionStart, end: area.selectionEnd, swap: false });
+      ed.putWidget(area);
+    };
+    put('- [ ] Mandolin|');
+    expect(value()).toBe('- [ ] Mandolin\n      {{imagem: https://ex.com/a.jpg}}');
+    put('- [ ] Mandolin\n      |');
+    expect(value()).toBe('- [ ] Mandolin\n      {{imagem: https://ex.com/a.jpg}}');
+    put('texto|');
+    expect(value()).toBe('texto\n{{imagem: https://ex.com/a.jpg}}');
+  });
+
   it('Enter fora de lista é um Enter comum', () => {
     write('texto|');
     const e = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });

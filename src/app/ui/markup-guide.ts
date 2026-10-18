@@ -26,6 +26,12 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
       { what: 'Tarefas', mark: '- [ ] tarefa', keys: 'Ctrl+Shift+9', note: 'Feita: - [x] tarefa.' },
       { what: 'Lista', mark: '- item', keys: 'Ctrl+Shift+8' },
       { what: 'Lista numerada', mark: '1. item', keys: 'Ctrl+Shift+7', note: 'Enter continua a lista; Enter num item vazio termina.' },
+      {
+        what: 'Dentro do item',
+        mark: '- [ ] tarefa\n  descrição',
+        keys: 'Shift+Enter',
+        note: 'As linhas com dois espaços (ou mais) antes, embaixo de um item, são dele: a descrição, uma foto, outra lista. Feita a tarefa, tudo é riscado junto.',
+      },
     ],
   },
   {

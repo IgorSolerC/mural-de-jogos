@@ -157,6 +157,20 @@ import { VolumeKnob } from './volume-knob';
     .tocando .foto {
       rotate: 0deg;
     }
+    /* riscada: a foto embaixo de uma tarefa feita leva um risco de caneta vermelha (a do tique) de
+       canto a canto, por cima de tudo e sem pegar o toque. Quem liga é o texto (--riscado: 1, ver
+       ui/rich-text.ts); sem ele, o risco não aparece */
+    .foto::after {
+      content: '';
+      position: absolute;
+      inset: 6% 5%;
+      z-index: 4;
+      pointer-events: none;
+      opacity: var(--riscado, 0);
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M3 94C24 77 41 58 60 40S86 13 97 5' fill='none' stroke='%23c4302b' stroke-width='3.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E")
+        center / 100% 100% no-repeat;
+      filter: drop-shadow(0 0 1px rgb(255 255 255 / 0.7));
+    }
     img,
     video,
     iframe,
