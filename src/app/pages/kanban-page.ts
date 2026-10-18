@@ -6,7 +6,7 @@ import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard } from '../core/kanban';
+import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, nextStop, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDresser } from '../core/kanban-dresser';
 import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
@@ -78,6 +78,8 @@ interface ColumnView {
   hidden: number;
   /** Quantas anotações a coluna tem de verdade (com o filtro, mostra menos). */
   total: number;
+  /** O nome da coluna para onde a seta das fichas leva (pulando as que a seta pula), ou null. */
+  next: string | null;
 }
 
 /** O arrastar em andamento: qual anotação, de onde, e onde ela cairia agora. */
@@ -357,7 +359,7 @@ export class KanbanPage {
       const list = all.filter((c) => shows(c) && !moving.has(c.note));
       const limit = shown.get(col.id) ?? FIRST_SHOWN;
       const items = list.slice(0, limit).map((card) => ({ card, note: notes.get(card.note)!, dragged: false }));
-      return { col, items, list, hidden: Math.max(0, list.length - limit), total: all.length };
+      return { col, items, list, hidden: Math.max(0, list.length - limit), total: all.length, next: nextStop(b.columns, col.id)?.name ?? null };
     });
     if (d) {
       const card = b.cards.find((c) => c.note === d.note);
@@ -702,14 +704,15 @@ export class KanbanPage {
   }
 
   /**
-   * A seta da ficha: leva a anotação para a coluna seguinte (a da direita), no topo dela (ou no lugar
-   * da ordem, se a coluna tem ordem), finalizando se a coluna pede. A ficha pisca o marca-texto onde
+   * A seta da ficha: leva a anotação para a coluna seguinte (a da direita, pulando as que a seta pula,
+   * ver `nextStop`), no topo dela (ou no lugar da ordem, se a coluna tem ordem), finalizando se a
+   * coluna pede. A ficha pisca o marca-texto onde
    * chegou e o quadro rola até ela; o foco vai para a seta dela lá, para avançar de novo.
    */
   protected advance(note: string, column: string): void {
     const b = this.board();
     if (!b) return;
-    const next = b.columns[b.columns.findIndex((c) => c.id === column) + 1];
+    const next = nextStop(b.columns, column);
     if (!next) return;
     this.actions.move(b.id, note, next.id, 0);
     this.reveal(note);

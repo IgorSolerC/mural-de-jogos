@@ -17,7 +17,7 @@ import {
   Trash2,
   X,
 } from 'lucide-angular';
-import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, removeColumn, sortAllColumns, updateColumn } from '../core/kanban';
+import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, nextStop, removeColumn, sortAllColumns, updateColumn } from '../core/kanban';
 import { SORT_DIRS, SORT_KEYS, SORT_LABEL, SortKey, SortRule, sameSort, sortSentence } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
@@ -54,7 +54,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
 
 /**
  * Os ajustes de uma coluna do quadro (o lápis no alto dela): o nome, o ícone e a cor da etiqueta,
- * "Finalizar tarefas movidas para cá", a ordem das anotações (À mão, ou por um critério e, no
+ * "Finalizar tarefas movidas para cá", o card padrão, "Pular esta coluna" (a seta de avançar), a ordem das anotações (À mão, ou por um critério e, no
  * empate, por outro, cada um no seu sentido), a posição e tirar a coluna. Vale na hora; a etiqueta de prévia
  * em cima é a mesma da coluna.
  */
@@ -123,6 +123,21 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
                   </button>
                 </div>
               }
+            </section>
+
+            <!-- a seta das fichas: uma coluna de entrada (Bugs ao lado de Features) fica fora do caminho
+                 dela; a frase diz para onde a seta leva no lugar desta -->
+            <section class="grupo" aria-labelledby="ca-seta-t">
+              <h3 class="grupo-titulo" id="ca-seta-t">Seta de avançar</h3>
+              <div class="linha">
+                <div class="linha-texto">
+                  <p class="linha-nome" id="ca-pula">Pular esta coluna</p>
+                  <p class="linha-desc" id="ca-pula-d">{{ skipSentence() }}</p>
+                </div>
+                <button type="button" class="interruptor" role="switch" [attr.aria-checked]="!!d.col.skip" aria-labelledby="ca-pula" aria-describedby="ca-pula-d" (click)="set({ skip: d.col.skip ? undefined : true })">
+                  <span class="bolinha"></span>
+                </button>
+              </div>
             </section>
 
             <!-- a ordem: à mão, ou por um critério e o desempate; a frase em cima diz o que vale agora -->
@@ -298,6 +313,16 @@ export class KanbanColumnSheet {
     return { board, col, index, count: cardsIn(board, col.id).length };
   });
 
+  /** O que pular a coluna faz: para onde a seta das colunas da esquerda leva no lugar dela. */
+  protected readonly skipSentence = computed(() => {
+    const d = this.data();
+    if (!d) return '';
+    const to = nextStop(d.board.columns, d.col.id);
+    return to
+      ? `A seta das colunas anteriores passa direto por esta e leva a anotação para “${to.name}”. Arrastando, ela ainda chega aqui.`
+      : 'A seta das colunas anteriores passa direto por esta; sem outra coluna depois, ela não aparece. Arrastando, a anotação ainda chega aqui.';
+  });
+
   /** A ficha do quadro vestida com o card padrão da coluna (a prévia em miniatura). */
   protected readonly sample = computed(() => {
     const d = this.data();
@@ -339,7 +364,7 @@ export class KanbanColumnSheet {
     if (el.open) el.close();
   }
 
-  protected set(patch: { icon?: ColumnIcon; color?: LightStock; finishes?: boolean }): void {
+  protected set(patch: { icon?: ColumnIcon; color?: LightStock; finishes?: boolean; skip?: true }): void {
     this.kanban.update(this.boardId(), (b, at) => updateColumn(b, this.columnId(), patch, at));
   }
 

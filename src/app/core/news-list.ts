@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-18-card-padrao-fica',
+    id: '2026-10-18-pular-coluna',
     version: '1.25.2',
     kind: 'ajustes',
     date: '2026-10-18',
@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
       'Quando os dois aparelhos mudaram o mesmo trecho (ou um apagou e o outro mudou), a ficha ganha o remendo Conflito e a mesma pergunta das compartilhadas mostra as duas versões, com o aparelho de cada uma. A escolha vale em todos os aparelhos, a outra versão vai para Ajustes › Backup, e os conflitos que esperam ficam também em Ajustes › Conta, na Nuvem.',
       'No Kanban, o quadro mexido nos dois aparelhos não pergunta nada: colunas renomeadas, criadas ou arrastadas, a ordem e a importância de cada um ficam juntas, e a anotação movida nos dois fica onde foi posta por último.',
       'O Card padrão de uma coluna do Kanban fica na anotação: saindo da coluna (ou desligado o card), ela continua com a cor, o papel e os enfeites dele, e só o Desfazer devolve o visual de antes.',
+      'Nos ajustes de uma coluna do Kanban, Pular esta coluna faz a seta de avançar passar direto por ela: com Reworks, Features, Bugs e Fazendo, puladas as três primeiras, a seta leva de qualquer uma delas direto para Fazendo. Arrastando, a anotação ainda chega na coluna pulada.',
       'Fixar uma anotação compartilhada (ou deixá-la como sub-nota) num aparelho passa a valer nos seus outros aparelhos; para as outras pessoas da anotação, nada muda.',
       'A régua do texto foi organizada como a do Word e a do Google Docs: tudo mora em dois menus com nome, Formatar (negrito, itálico, riscado, marca-texto, spoiler, código, títulos, citação, bloco de código e listas, com o atalho de cada um) e Inserir (links, tabela, divisória e todos os widgets), e os botões de toda hora continuam à mão ao lado.',
       'A caixa do estilo, como a “Texto normal” do Docs, mostra o estilo da linha do cursor e troca entre texto, Título 1, 2 e 3, citação e bloco de código; Texto normal dentro de um bloco de código tira as marcas dele.',

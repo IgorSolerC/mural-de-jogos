@@ -17,6 +17,7 @@ import {
   liveCards,
   mergeKanban,
   moveColumn,
+  nextStop,
   placeCard,
   placeCards,
   removeColumn,
@@ -87,6 +88,34 @@ function legacyBoard(id: string, name: string, cards: unknown[], traits: unknown
 }
 
 describe('Kanban', () => {
+  describe('a seta de avançar', () => {
+    const cols = (...skips: boolean[]) =>
+      ['reworks', 'features', 'bugs', 'fazendo', 'entregue'].map((id, i) => ({ id, name: id, icon: 'circulo' as const, color: 'cinza' as const, finishes: false, ...(skips[i] ? { skip: true as const } : {}) }));
+
+    it('sem colunas puladas, leva para a da direita; na última, para nenhuma', () => {
+      const c = cols();
+      expect(nextStop(c, 'reworks')?.id).toBe('features');
+      expect(nextStop(c, 'fazendo')?.id).toBe('entregue');
+      expect(nextStop(c, 'entregue')).toBeNull();
+      expect(nextStop(c, 'naoexiste')).toBeNull();
+    });
+
+    it('passa direto pelas colunas puladas: de Reworks e de Features, direto para Fazendo', () => {
+      const c = cols(true, true, true);
+      expect(nextStop(c, 'reworks')?.id).toBe('fazendo');
+      expect(nextStop(c, 'features')?.id).toBe('fazendo');
+      expect(nextStop(c, 'bugs')?.id).toBe('fazendo');
+      // a coluna pulada continua tendo a seta dela, e a primeira coluna pulada não muda nada
+      expect(nextStop(cols(true), 'reworks')?.id).toBe('features');
+    });
+
+    it('sem coluna depois que a seta não pule, ela some', () => {
+      const c = cols(false, false, false, false, true);
+      expect(nextStop(c, 'fazendo')).toBeNull();
+      expect(nextStop(c, 'bugs')?.id).toBe('fazendo');
+    });
+  });
+
   describe('o quadro de uma categoria', () => {
     it('o id sai da categoria (sem acento nem caixa), o mesmo em todo aparelho', () => {
       expect(boardIdFor('Trabalho')).toBe(boardIdFor('  trabalho '));
@@ -263,6 +292,17 @@ describe('Kanban', () => {
       expect(sanitizeBoard({ category: 'x', at: T0 })!.columns.length).toBe(3);
       // sem categoria é um quadro de antes, não um quadro
       expect(sanitizeBoard({ id: 'q', at: T0 })).toBeNull();
+    });
+
+    it('a marca da coluna que a seta pula só vale quando é true', () => {
+      const raw = { ...board(), columns: [{ id: 'a', skip: true }, { id: 'b', skip: 'sim' }, { id: 'c', skip: false }] };
+      const b = sanitizeBoard(raw)!;
+      expect(b.columns.map((c) => c.skip)).toEqual([true, undefined, undefined]);
+      expect('skip' in b.columns[1]).toBeFalse();
+      // desligar tira o campo
+      const off = updateColumn(b, 'a', { skip: undefined }, T1);
+      expect('skip' in off.columns[0]).toBeFalse();
+      expect(updateColumn(off, 'c', { skip: true }, T2).columns[2].skip).toBeTrue();
     });
 
     it('os quadros de antes (sem categoria) ficam à parte, esperando a conversão', () => {

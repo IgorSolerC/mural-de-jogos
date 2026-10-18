@@ -120,11 +120,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     lugar das anotações compartilhadas no mural da pessoa (`lugares`: fixada, sub-nota). Um site
  *     antigo jogaria os três fora: o que outro aparelho mexesse no quadro de antes se perderia, e fixar
  *     uma compartilhada voltaria a valer só no aparelho em que foi feito.
+ * 25: a coluna do Kanban que a seta de avançar pula (`skip`). Um site antigo jogaria a marca fora e
+ *     enviaria o quadro assim, e a seta voltaria a parar nela em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 24;
+export const SYNC_SCHEMA = 25;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

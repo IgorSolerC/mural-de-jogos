@@ -192,7 +192,7 @@
       [class.puxando]="panning()"
       (pointerdown)="onBoardDown($event)"
     >
-      @for (v of view(); track v.col.id; let ci = $index) {
+      @for (v of view(); track v.col.id) {
         <section
           class="coluna"
           [attr.data-coluna]="v.col.id"
@@ -286,7 +286,7 @@
                       [review]="it.note"
                       [card]="it.card"
                       [dense]="dense()"
-                      [next]="view()[ci + 1]?.col?.name ?? null"
+                      [next]="v.next"
                       (opened)="read($event)"
                       (details)="cardSheet.set(it.card.note)"
                       (advanced)="advance(it.card.note, v.col.id)"

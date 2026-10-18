@@ -356,6 +356,48 @@ describe('página do Kanban', () => {
     expect(seta('nsync001')!.getAttribute('aria-label')).toBe('Levar Sincronizar quadros para Fazendo');
   });
 
+  it('Pular esta coluna, nos ajustes dela: a seta das colunas da esquerda passa direto por ela', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const seta = (id: string) => host.querySelector<HTMLButtonElement>(`[data-nota="${id}"] .acoes .avancar`);
+    column('fazendo').querySelector<HTMLButtonElement>('.etiqueta-btn')!.click();
+    await settle();
+    const sheet = host.querySelector('app-kanban-column-sheet')!;
+    const sw = [...sheet.querySelectorAll<HTMLButtonElement>('.interruptor')].find((b) => b.getAttribute('aria-labelledby') === 'ca-pula')!;
+    expect(sheet.querySelector('#ca-pula')!.textContent!.trim()).toBe('Pular esta coluna');
+    expect(sheet.querySelector('#ca-pula-d')!.textContent).toContain('leva a anotação para “Feito”');
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    sw.click();
+    await settle();
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    expect(kanban.get(TRAB)!.columns[1].skip).toBeTrue();
+    // a seta de A fazer diz e leva para Feito
+    expect(seta('nlogin01')!.title).toBe('Levar para Feito');
+    seta('nlogin01')!.click();
+    await settle();
+    expect(cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note)).toEqual(['nlogin01']);
+    expect(isDone(store.get('nlogin01')!)).toBeTrue();
+    // arrastando (pelo teclado), ela ainda chega na coluna pulada
+    host.querySelector(`[data-nota="nsync001"] .hit`)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
+    await settle();
+    expect(cardsIn(kanban.get(TRAB)!, 'fazendo').map((c) => c.note)).toContain('nsync001');
+    // e a coluna pulada continua com a seta dela
+    expect(seta('nsync001')!.title).toBe('Levar para Feito');
+  });
+
+  it('a seta some quando todas as colunas depois são puladas', async () => {
+    const b = board();
+    b.columns[1].skip = true;
+    b.columns[2].skip = true;
+    kanban.state.set(state(b));
+    await go(TRAB_URL);
+    expect(host.querySelector('[data-nota="nlogin01"] .acoes .avancar')).toBeNull();
+    expect(host.querySelector('[data-nota="nlogin01"] .acoes .mexer')).not.toBeNull();
+    column('fazendo').querySelector<HTMLButtonElement>('.etiqueta-btn')!.click();
+    await settle();
+    expect(host.querySelector('app-kanban-column-sheet #ca-pula-d')!.textContent).toContain('sem outra coluna depois, ela não aparece');
+  });
+
   it('a contagem fica na ponta direita da etiqueta, no mesmo lugar com nome curto ou longo', async () => {
     const b = board();
     b.columns[0].name = 'Ok';

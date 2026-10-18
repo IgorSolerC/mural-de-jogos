@@ -101,6 +101,12 @@ export interface KanbanColumn {
   look?: CardLook;
   /** O card padrão ligado: as anotações da coluna vestem `look` (ver `dressBoard`). */
   dresses?: true;
+  /**
+   * A seta de avançar das colunas da esquerda pula esta (uma coluna de entrada, como "Bugs" ao lado de
+   * "Features"): a anotação vai para a próxima coluna que não é pulada (ver `nextStop`). Arrastar
+   * continua trazendo para cá.
+   */
+  skip?: true;
 }
 
 /**
@@ -244,7 +250,18 @@ function sanitizeColumn(raw: unknown): KanbanColumn | null {
     ...(sort.length ? { sort } : {}),
     ...(look ? { look } : {}),
     ...(look && r['dresses'] === true ? { dresses: true as const } : {}),
+    ...(r['skip'] === true ? { skip: true as const } : {}),
   };
+}
+
+/**
+ * Para onde a seta de avançar leva uma anotação da coluna `from`: a primeira coluna à direita que a
+ * seta não pula (ver `KanbanColumn.skip`), ou null quando não há nenhuma (a seta some).
+ */
+export function nextStop(columns: readonly KanbanColumn[], from: string): KanbanColumn | null {
+  const at = columns.findIndex((c) => c.id === from);
+  if (at < 0) return null;
+  return columns.slice(at + 1).find((c) => !c.skip) ?? null;
 }
 
 /**

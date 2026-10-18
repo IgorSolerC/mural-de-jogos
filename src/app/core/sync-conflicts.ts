@@ -227,7 +227,7 @@ function flatten(v: unknown, label: string, out: string[], secret: boolean): voi
 export function boardLines(b: KanbanBoard, title: (id: string) => string | null): string[] {
   const out: string[] = [];
   for (const col of b.columns) {
-    const extra = [`cartolina ${STOCK_LABEL[col.color].toLowerCase()}`, col.finishes ? 'finaliza a anotação' : '', col.sort?.length ? 'em ordem' : '', col.dresses ? 'com card padrão' : ''].filter(Boolean);
+    const extra = [`cartolina ${STOCK_LABEL[col.color].toLowerCase()}`, col.finishes ? 'finaliza a anotação' : '', col.sort?.length ? 'em ordem' : '', col.dresses ? 'com card padrão' : '', col.skip ? 'a seta pula' : ''].filter(Boolean);
     out.push(`Coluna “${col.name}”: ${extra.join(', ')}`);
   }
   for (const col of b.columns) {
