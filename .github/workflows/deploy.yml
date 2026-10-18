@@ -24,7 +24,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx ng build --base-href "/${{ github.event.repository.name }}/"
+      # o caminho do site: /mural-de-jogos/ no endereço do GitHub; com o domínio próprio
+      # (murall.igorsc.com.br, em Settings › Pages), a raiz. Muda sozinho na publicação seguinte.
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: npx ng build --base-href "${{ steps.pages.outputs.base_path }}/"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/mural-de-jogos/browser

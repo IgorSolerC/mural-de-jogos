@@ -10,6 +10,9 @@
  * - As buscas de catálogo passam direto: sem rede, a busca já avisa e oferece seguir sem capa.
  * - Os arquivos de versões antigas do site (o código e as fontes, que levam o hash no nome) saem
  *   quando ninguém os pede há mais de 30 dias. Os da versão atual ficam sempre, mesmo sem uso.
+ * - A ponte da mudança de endereço (ponte.html e ponte.js): guardada na instalação e servida do cache
+ *   primeiro. Depois que o endereço do GitHub passar a redirecionar para murall.igorsc.com.br, é ela
+ *   que ainda roda no endereço antigo e entrega o mural deste navegador ao novo (ver public/ponte.js).
  */
 /** O mesmo nome está em src/main.ts, que guarda os arquivos da primeira visita. */
 const SHELL = 'mural-site-v1';
@@ -27,7 +30,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL)
-      .then((cache) => cache.addAll(['./', 'manifest.webmanifest', 'favicon.svg']))
+      .then((cache) => cache.addAll(['./', 'manifest.webmanifest', 'favicon.svg', 'ponte.html', 'ponte.js']))
       .then(() => self.skipWaiting()),
   );
 });
@@ -47,6 +50,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
 
   if (url.origin === self.location.origin) {
+    // a ponte da mudança: do cache, mesmo com a rede redirecionando para o endereço novo
+    if (/\/ponte\.(html|js)$/.test(url.pathname)) {
+      event.respondWith(bridge(req));
+      return;
+    }
     // Uma página avulsa do site (como privacidade.html) não é o mural: passa direto, sem virar a página guardada.
     if (req.mode === 'navigate' && /\.html$/.test(url.pathname) && !url.pathname.endsWith('/index.html')) return;
     if (req.mode === 'navigate') event.respondWith(page(req, event));
@@ -86,6 +94,16 @@ async function page(req, event) {
   }
   const cached = await cache.match('./');
   return cached ?? network;
+}
+
+/** A ponte: a guardada primeiro; sem ela, a rede (e guarda, se vier dela mesma, sem redirecionar). */
+async function bridge(req) {
+  const cache = await caches.open(SHELL);
+  const cached = await cache.match(req, { ignoreSearch: true });
+  if (cached) return cached;
+  const res = await fetch(req);
+  if (res.ok && !res.redirected) await cache.put(req, res.clone());
+  return res;
 }
 
 /** Rede primeiro; sem rede, a última cópia guardada. */

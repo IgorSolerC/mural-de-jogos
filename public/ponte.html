@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
+    <meta name="robots" content="noindex" />
+    <title>Levando o seu mural · Murall</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 16px;
+        background: #1f1c1a;
+        color: #151515;
+        font: 1.05rem/1.5 system-ui, sans-serif;
+      }
+      main {
+        max-width: 420px;
+        padding: 26px 24px;
+        border-radius: 2px;
+        background: #fbf9f2;
+        box-shadow: 0 10px 18px -6px rgb(0 0 0 / 0.55);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.4rem;
+      }
+      p {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Levando o seu mural</h1>
+      <p id="msg">Um instante: o Murall está passando o mural deste navegador para o endereço novo.</p>
+    </main>
+    <script src="ponte.js"></script>
+  </body>
+</html>

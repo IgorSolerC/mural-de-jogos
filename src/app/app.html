@@ -29,6 +29,44 @@
   </aside>
 }
 
+<!-- o endereço novo começa vazio: trazer o mural deste navegador do endereço antigo (ver core/move-house.ts) -->
+@if (move.offered()) {
+  @let ms = move.state();
+  <aside class="aviso aviso-mudanca" aria-label="Trazer o mural do endereço antigo">
+    <lucide-icon class="aviso-icone" [img]="MoveIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+    <p role="status">
+      @switch (ms) {
+        @case ('abrindo') {
+          Trazendo o mural: uma janela do endereço antigo abre e fecha sozinha.
+        }
+        @case ('vazio') {
+          O endereço antigo não tinha mural neste navegador. Se você tinha conta, é só entrar com o Google em Ajustes › Conta.
+        }
+        @case ('sem-antigo') {
+          Este navegador não guardou o endereço antigo. Se você tinha conta, entre com o Google em Ajustes › Conta e o mural volta da nuvem; se tem um backup, importe em Ajustes › Backup.
+        }
+        @case ('bloqueado') {
+          O navegador bloqueou a janela do endereço antigo. Permita janelas deste site e tente de novo.
+        }
+        @case ('falhou') {
+          Não deu para trazer o mural agora. Tente de novo; se continuar, entre com o Google ou importe um backup em Ajustes.
+        }
+        @default {
+          O Murall mudou para murall.igorsc.com.br. Usava pelo endereço antigo (igorsolerc.github.io)? Traga o mural deste navegador para cá.
+        }
+      }
+    </p>
+    @if (ms === 'pronto' || ms === 'bloqueado' || ms === 'falhou') {
+      <button type="button" class="btn-ink aviso-ver" (click)="move.bring()">{{ ms === 'pronto' ? 'Trazer o mural' : 'Tentar de novo' }}</button>
+    } @else if (ms === 'abrindo') {
+      <p class="aviso-entrando"><span class="carregando" aria-hidden="true"></span>Trazendo…</p>
+    }
+    <button type="button" class="aviso-fechar" (click)="move.close()" aria-label="Fechar o aviso da mudança" title="Fechar">
+      <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+    </button>
+  </aside>
+}
+
 <!-- quem tem mural só neste navegador: o convite para entrar com o Google (no máximo a cada 2 dias) -->
 @let invite = loginNudge.visible() && !onSettings();
 @if (invite && cloudConfig(); as cfg) {

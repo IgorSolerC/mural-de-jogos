@@ -11,7 +11,7 @@ preview_urls = false
 # ligado | so-leitura | desligado. Qualquer outro valor desliga (ver src/config.ts).
 MODO = "ligado"
 # Quem pode chamar a API pelo navegador.
-ORIGENS = "https://igorsolerc.github.io,http://localhost:4200"
+ORIGENS = "https://murall.igorsc.com.br,https://igorsolerc.github.io,http://localhost:4200"
 # Cota própria de linhas gravadas por dia UTC: 60% do limite gratuito do D1 (100 mil).
 COTA_LINHAS_DIA = "60000"
 # Quem abre um mural pelo código: todos | logados (qualquer outro valor: logados).

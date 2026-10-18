@@ -3,7 +3,8 @@ import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { Cloud as CloudIconData, LucideAngularModule, Megaphone, X } from 'lucide-angular';
+import { Cloud as CloudIconData, LucideAngularModule, Megaphone, Truck, X } from 'lucide-angular';
+import { MoveHouse } from './core/move-house';
 import { filter, map } from 'rxjs';
 import { CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
@@ -75,6 +76,8 @@ export class App {
   protected readonly news = inject(News);
   /** O convite para entrar com o Google (ver core/login-nudge.ts). */
   protected readonly loginNudge = inject(LoginNudge);
+  /** A mudança de endereço: trazer o mural deste navegador do endereço antigo (ver core/move-house.ts). */
+  protected readonly move = inject(MoveHouse);
   private readonly account = inject(CloudAccount);
   protected readonly cloudConfig = inject(Cloud).config;
   /** As anotações compartilhadas: entram no mural e sincronizam à parte (ver core/shared-store.ts). */
@@ -96,6 +99,7 @@ export class App {
 
   protected readonly NoticeIcon = Megaphone;
   protected readonly CloudIcon = CloudIconData;
+  protected readonly MoveIcon = Truck;
   protected readonly CloseIcon = X;
   /** Nas Anotações: o N e o botão do topo pregam uma anotação. */
   protected readonly notes = computed(() => areaOf(this.path()) === 'anotacoes');
