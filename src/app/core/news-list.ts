@@ -26,12 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-18-campos-de-papel',
+    id: '2026-10-18-jeitos-do-contador',
     version: '1.25.2',
     kind: 'ajustes',
     date: '2026-10-18',
-    title: 'Campos, seletores e interruptores de papel',
+    title: 'Neon, placar e riscado no contador, e campos de papel',
     melhorias: [
+      'O contador ganhou mais três jeitos, em Jeito: Neon (o letreiro de relógio digital, com dias, horas, minutos e segundos), Placar (as plaquinhas de aeroporto, que viram quando o número muda) e Riscado (o bloquinho adesivo com a conta à caneta e os dias de antes riscados). À mão, escreva “neon”, “placar” ou “riscado” no contador.',
+      'O Calendário do contador ficou mais limpo, sem a fita crepe e só com o nome e o dia ao lado. Ele conta sempre em dias: com menos de um dia, a folha diz “0 dias” e as horas que faltam aparecem ao lado, para vários contadores juntos falarem a mesma unidade.',
       'Nada mais de caixa de contorno preto: os campos de escrever viraram tiras de papel coladas com uma linha de caneta, que engrossa quando você escreve e fica vermelho-escura quando algo está errado; o texto das anotações é a folha de fichário colada.',
       'Os seletores (como mostrar as notas, Novidades em Amigos e outros) são a cartela de recortes do editor, com a escolhida colada em tinta, e o interruptor desligado é o recorte tracejado da trilha.',
       'Nas cartelas de ícones e cores, a escolhida ganha o círculo de caneta da nota escolhida; as listas e os menus que abrem por cima são papel solto, sem o fio preto.',

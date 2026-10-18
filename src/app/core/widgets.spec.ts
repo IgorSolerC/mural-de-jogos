@@ -86,7 +86,7 @@ describe('widgets das anotações', () => {
       for (const bad of ['Todo mundo', 'todo dia', 'todo dia 32', 'todo dia 0', 'toda sexta 25:00', 'toda semana']) {
         expect(parseWhen(bad)).withContext(bad).toBeNull();
       }
-      expect(readCountdown(['Todo mundo junto', 'toda sexta 18h'])).toEqual({ when: parseWhen('toda sexta 18h'), title: 'Todo mundo junto' });
+      expect(readCountdown(['Todo mundo junto', 'toda sexta 18h'])).toEqual({ when: parseWhen('toda sexta 18h'), title: 'Todo mundo junto', look: 'calendario' });
     });
 
     it('o que se repete, escrito de volta', () => {
@@ -115,6 +115,12 @@ describe('widgets das anotações', () => {
       expect(readCountdown(['GTA VI', '19/11/2026']).title).toBe('GTA VI');
       expect(readCountdown(['GTA VI', '19/11/2026']).when?.day).toBe(19);
       expect(readCountdown(['GTA VI']).when).toBeNull();
+      // o jeito em qualquer lugar, com os nomes de cada um; sem ele, o calendário
+      expect(readCountdown(['Post-it', '19/11/2026', 'GTA VI'])).toEqual({ when: parseWhen('19/11/2026'), title: 'GTA VI', look: 'riscado' });
+      expect(readCountdown(['19/11/2026', 'GTA VI', 'Placar']).look).toBe('placar');
+      expect(readCountdown(['19/11/2026', 'Digital']).look).toBe('neon');
+      expect(readCountdown(['19/11/2026', 'neon', 'Neon'])).toEqual({ when: parseWhen('19/11/2026'), title: 'Neon', look: 'neon' });
+      expect(readCountdown(['19/11/2026', 'constructor']).look).toBe('calendario');
     });
   });
 
@@ -185,18 +191,18 @@ describe('widgets das anotações', () => {
       expect(def.write({ title: ' GTA VI ', date: '2026-11-19', time: '18:00', repeat: '' })).toEqual(['19/11/2026 18:00', 'GTA VI']);
       expect(def.write({ date: '2026-12-25', repeat: 'ano' })).toEqual(['25/12']);
       expect(def.write({ title: 'sem dia', date: '' })).toBeNull();
-      expect(def.read(['19/11/2026 18:00', 'GTA VI'])).toEqual({ title: 'GTA VI', repeat: '', date: '2026-11-19', weekday: '', monthDay: '', time: '18:00' });
-      expect(def.read(['GTA VI'])).toEqual({ title: 'GTA VI', repeat: '', date: '', weekday: '', monthDay: '', time: '' });
+      expect(def.read(['19/11/2026 18:00', 'GTA VI'])).toEqual({ title: 'GTA VI', repeat: '', date: '2026-11-19', weekday: '', monthDay: '', time: '18:00', look: 'calendario' });
+      expect(def.read(['GTA VI'])).toEqual({ title: 'GTA VI', repeat: '', date: '', weekday: '', monthDay: '', time: '', look: 'calendario' });
       expect(def.read(['25/12'])['repeat']).toBe('ano');
     });
 
     it('Repete: todo dia pede só a hora; toda semana, o dia da semana; todo mês, o dia do mês', () => {
       const shown = (v: Record<string, string>) => fieldsFor(def, v).map((f) => f.key);
-      expect(shown({})).toEqual(['title', 'repeat', 'date', 'time']);
-      expect(shown({ repeat: 'ano' })).toEqual(['title', 'repeat', 'date', 'time']);
-      expect(shown({ repeat: 'dia' })).toEqual(['title', 'repeat', 'time']);
-      expect(shown({ repeat: 'semana' })).toEqual(['title', 'repeat', 'weekday', 'time']);
-      expect(shown({ repeat: 'mes' })).toEqual(['title', 'repeat', 'monthDay', 'time']);
+      expect(shown({})).toEqual(['title', 'repeat', 'date', 'time', 'look']);
+      expect(shown({ repeat: 'ano' })).toEqual(['title', 'repeat', 'date', 'time', 'look']);
+      expect(shown({ repeat: 'dia' })).toEqual(['title', 'repeat', 'time', 'look']);
+      expect(shown({ repeat: 'semana' })).toEqual(['title', 'repeat', 'weekday', 'time', 'look']);
+      expect(shown({ repeat: 'mes' })).toEqual(['title', 'repeat', 'monthDay', 'time', 'look']);
       // a hora do de todo dia é obrigatória; a dos outros, não
       expect(fieldsFor(def, { repeat: 'dia' }).find((f) => f.key === 'time')!.required).toBeTrue();
       expect(fieldsFor(def, { repeat: 'semana' }).find((f) => f.key === 'time')!.required).toBeUndefined();
@@ -211,11 +217,21 @@ describe('widgets das anotações', () => {
       expect(def.problem!({ repeat: 'mes', monthDay: '32' })).toBe('O dia do mês vai de 1 a 31.');
       expect(def.problem!({ repeat: 'mes', monthDay: '12' })).toBeNull();
 
-      expect(def.read(['todo dia 07:30', 'Remédio'])).toEqual({ title: 'Remédio', repeat: 'dia', date: '', weekday: '', monthDay: '', time: '07:30' });
-      expect(def.read(['toda sexta 18:00'])).toEqual({ title: '', repeat: 'semana', date: '', weekday: '5', monthDay: '', time: '18:00' });
-      expect(def.read(['todo dia 5'])).toEqual({ title: '', repeat: 'mes', date: '', weekday: '', monthDay: '5', time: '' });
+      expect(def.read(['todo dia 07:30', 'Remédio'])).toEqual({ title: 'Remédio', repeat: 'dia', date: '', weekday: '', monthDay: '', time: '07:30', look: 'calendario' });
+      expect(def.read(['toda sexta 18:00'])).toEqual({ title: '', repeat: 'semana', date: '', weekday: '5', monthDay: '', time: '18:00', look: 'calendario' });
+      expect(def.read(['todo dia 5'])).toEqual({ title: '', repeat: 'mes', date: '', weekday: '', monthDay: '5', time: '', look: 'calendario' });
       // o dia da semana: de segunda a domingo
       expect(def.fields.find((f) => f.key === 'weekday')!.options!.map((o) => o.label)).toEqual(['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']);
+    });
+
+    it('o jeito: o calendário não se escreve; os outros vão depois da data, e um título que é nome de jeito vai depois dele', () => {
+      expect(def.fields.find((f) => f.key === 'look')!.options!.map((o) => o.label)).toEqual(['Calendário', 'Neon', 'Placar', 'Riscado']);
+      expect(def.write({ date: '2026-11-19', title: 'GTA VI', look: 'calendario' })).toEqual(['19/11/2026', 'GTA VI']);
+      expect(def.write({ date: '2026-11-19', title: 'GTA VI', look: 'neon' })).toEqual(['19/11/2026', 'neon', 'GTA VI']);
+      expect(def.write({ repeat: 'dia', time: '07:00', look: 'placar' })).toEqual(['todo dia 07:00', 'placar']);
+      expect(def.write({ date: '2026-11-19', title: 'Neon' })).toEqual(['19/11/2026', 'calendario', 'Neon']);
+      expect(def.read(['19/11/2026', 'neon', 'GTA VI'])['look']).toBe('neon');
+      expect(def.read(['19/11/2026', 'calendario', 'Neon'])).toEqual(jasmine.objectContaining({ look: 'calendario', title: 'Neon' }));
     });
   });
 

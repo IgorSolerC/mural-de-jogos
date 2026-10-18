@@ -406,16 +406,54 @@ export function remaining(target: number, now: number): Remaining {
   return { past, days, hours, minutes, seconds: s - minutes * 60 };
 }
 
-/** Os parâmetros do contador em qualquer ordem: o que é data é a data; o primeiro outro, o título. */
-export function readCountdown(args: readonly string[]): { when: When | null; title: string } {
+/**
+ * O jeito do contador: o bloquinho de calendário de destacar (o de sempre), o letreiro de neon com
+ * números de relógio digital, o placar de plaquinhas que viram (de estação e aeroporto) ou o
+ * bloquinho adesivo onde a conta é escrita à mão e os números de antes vão sendo riscados.
+ */
+export type CountdownLook = 'calendario' | 'neon' | 'placar' | 'riscado';
+export const COUNTDOWN_LOOKS: readonly { value: CountdownLook; label: string }[] = [
+  { value: 'calendario', label: 'Calendário' },
+  { value: 'neon', label: 'Neon' },
+  { value: 'placar', label: 'Placar' },
+  { value: 'riscado', label: 'Riscado' },
+];
+/** Os nomes que valem para cada jeito, escritos à mão (sem acento, em minúsculas). */
+const COUNTDOWN_LOOK_WORDS: Record<string, CountdownLook> = {
+  calendario: 'calendario',
+  bloquinho: 'calendario',
+  neon: 'neon',
+  digital: 'neon',
+  placar: 'placar',
+  letreiro: 'placar',
+  aeroporto: 'placar',
+  riscado: 'riscado',
+  riscadinho: 'riscado',
+  'post-it': 'riscado',
+  postit: 'riscado',
+  recado: 'riscado',
+};
+function countdownLookWord(a: string): CountdownLook | null {
+  const k = key(a.trim());
+  return Object.hasOwn(COUNTDOWN_LOOK_WORDS, k) ? COUNTDOWN_LOOK_WORDS[k] : null;
+}
+
+/**
+ * Os parâmetros do contador em qualquer ordem: o que é data é a data; o primeiro que é o nome de um
+ * jeito ("neon"), o jeito; o primeiro outro, o título.
+ */
+export function readCountdown(args: readonly string[]): { when: When | null; title: string; look: CountdownLook } {
   let when: When | null = null;
   let title = '';
+  let look: CountdownLook | null = null;
   for (const a of args) {
     const w: When | null = when ? null : parseWhen(a);
+    const l: CountdownLook | null = look ? null : countdownLookWord(a);
     if (w) when = w;
+    else if (l) look = l;
     else if (!title && a) title = a;
   }
-  return { when, title };
+  return { when, title, look: look ?? 'calendario' };
 }
 
 /** De quanto em quanto o contador volta, no painel: o primeiro (uma vez só) é o de quando nada foi escolhido. */
@@ -444,10 +482,11 @@ const COUNTDOWN: WidgetDef = {
     { key: 'time', label: 'Hora', kind: 'time', hint: 'Sem hora, conta até a meia-noite.', shown: (v) => v['repeat'] !== 'dia' },
     // o de todo dia é só a hora: ela é obrigatória
     { key: 'time', label: 'Hora', kind: 'time', required: true, hint: 'Conta até essa hora, todo dia.', shown: (v) => v['repeat'] === 'dia' },
+    { key: 'look', label: 'Jeito', kind: 'choice', options: COUNTDOWN_LOOKS },
   ],
   read(args) {
-    const { when, title } = readCountdown(args);
-    const none = { title, repeat: '', date: '', weekday: '', monthDay: '', time: '' };
+    const { when, title, look } = readCountdown(args);
+    const none = { title, repeat: '', date: '', weekday: '', monthDay: '', time: '', look };
     if (!when) return none;
     const time = when.timed ? `${pad(when.hour)}:${pad(when.minute)}` : '';
     if (when.every === 'dia') return { ...none, repeat: 'dia', time };
@@ -461,7 +500,11 @@ const COUNTDOWN: WidgetDef = {
     const t = /^(\d{2}):(\d{2})/.exec(v['time'] ?? '');
     const time = { hour: t ? Number(t[1]) : 0, minute: t ? Number(t[2]) : 0, timed: !!t };
     const title = (v['title'] ?? '').trim();
-    const out = (w: When) => (title ? [writeWhen(w), title] : [writeWhen(w)]);
+    // como a faixa: o jeito de sempre (o calendário) não se escreve, a não ser que o título seja o
+    // nome de um jeito (um contador chamado "Neon"), que aí precisa vir antes dele
+    const look = countdownLookWord(v['look'] ?? '') ?? 'calendario';
+    const named = !!title && !!countdownLookWord(title);
+    const out = (w: When) => [writeWhen(w), named || look !== 'calendario' ? look : '', title].filter(Boolean);
     const repeat = v['repeat'] ?? '';
     if (repeat === 'dia') return t ? out({ year: null, month: 0, day: 0, ...time, every: 'dia' }) : null;
     if (repeat === 'semana') return out({ year: null, month: 0, day: 0, ...time, every: 'semana', weekday: Number(v['weekday'] || WEEKDAY_OPTIONS[0].value) });
