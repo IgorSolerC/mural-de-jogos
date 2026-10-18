@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, placeCards, removeCard } from './kanban';
-import { KanbanDresser } from './kanban-dresser';
+import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, placeCards, redressCards, removeCard } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { NoteDone } from './note-done';
 import { isDone } from './review';
@@ -11,7 +10,8 @@ import { plural } from './text';
 /**
  * O que acontece quando uma anotação anda no quadro: o lugar novo e, se a coluna pede, a anotação
  * finalizada (ou aberta de novo), com o bilhete e o Desfazer, que devolve tudo como era (o lugar e o
- * check). Quem arrasta, o teclado e a folha da anotação passam todos por aqui.
+ * check, e o visual de antes de chegar numa coluna com card padrão). Quem arrasta, o teclado e a folha
+ * da anotação passam todos por aqui.
  */
 @Injectable({ providedIn: 'root' })
 export class KanbanActions {
@@ -19,7 +19,6 @@ export class KanbanActions {
   private readonly store = inject(ReviewStore);
   private readonly noteDone = inject(NoteDone);
   private readonly toasts = inject(Toasts);
-  private readonly dresser = inject(KanbanDresser);
 
   /**
    * Leva a anotação para a coluna, na posição `index` dela (no fim, sem `index`). Só a anotação da
@@ -44,7 +43,7 @@ export class KanbanActions {
     this.toasts.show(text, {
       label: 'Desfazer',
       run: () => {
-        if (before) this.kanban.update(boardId, (b, at) => placeCard(b, note, before.column, at, beforeIndex));
+        if (before) this.kanban.update(boardId, (b, at) => redressCards(placeCard(b, note, before.column, at, beforeIndex), [note]));
         else this.kanban.update(boardId, (b, at) => removeCard(b, note, at));
         this.noteDone.set(note, wasDone, { quiet: true });
       },
@@ -100,7 +99,7 @@ export class KanbanActions {
       label: 'Desfazer',
       run: () => {
         for (const w of was) {
-          if (w.column) this.kanban.update(boardId, (b, at) => placeCard(b, w.note, w.column!, at, w.index));
+          if (w.column) this.kanban.update(boardId, (b, at) => redressCards(placeCard(b, w.note, w.column!, at, w.index), [w.note]));
           else this.kanban.update(boardId, (b, at) => removeCard(b, w.note, at));
           const r = this.store.get(w.note);
           if (r && isDone(r) !== w.done) this.noteDone.set(w.note, w.done, { quiet: true });
@@ -111,14 +110,13 @@ export class KanbanActions {
 
   /**
    * Tira a anotação do quadro (ela continua no mural), com Desfazer. Vestida pelo card padrão da
-   * coluna, ela volta ao visual de antes; o Desfazer a veste de novo.
+   * coluna, ela continua com o visual dele.
    */
   remove(board: KanbanBoard, note: string): void {
     const card = board.cards.find((c) => c.note === note);
     if (!card) return;
     const index = cardsIn(board, card.column).findIndex((c) => c.note === note);
     const name = this.store.get(note)?.game.name ?? 'A anotação';
-    if (card.dress) this.dresser.paint([{ note, look: card.dress.own }]);
     const back = card.dress ? { ...card, dress: { ...card.dress, col: '', v: '' } } : card;
     this.kanban.update(board.id, (b, at) => removeCard(b, note, at));
     this.toasts.show(`“${name}” saiu do quadro (continua no mural)`, {

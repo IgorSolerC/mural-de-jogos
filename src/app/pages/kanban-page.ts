@@ -6,9 +6,9 @@ import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard, undressLooks } from '../core/kanban';
-import { KanbanDresser } from '../core/kanban-dresser';
+import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
+import { KanbanDresser } from '../core/kanban-dresser';
 import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
 import { NOTES } from '../core/kinds';
@@ -165,8 +165,6 @@ export class KanbanPage {
 
   private readonly kanban = inject(KanbanStore);
   private readonly actions = inject(KanbanActions);
-  /** O card padrão das colunas, vestindo e despindo as anotações (ver core/kanban-dresser.ts). */
-  private readonly dresser = inject(KanbanDresser);
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(SettingsStore);
   private readonly desk = inject(Desk);
@@ -429,6 +427,8 @@ export class KanbanPage {
 
   constructor() {
     const destroy = inject(DestroyRef);
+    // o card padrão das colunas veste as anotações que chegam (ver core/kanban-dresser.ts)
+    inject(KanbanDresser);
     // sem quadro no endereço (ou de uma categoria que sumiu): o último aberto, ou o primeiro
     effect(() => {
       const ids = this.categories().map((c) => boardIdFor(c.key));
@@ -586,8 +586,6 @@ export class KanbanPage {
     const b = this.kanban.get(id);
     const label = this.category()?.label ?? '';
     if (!b) return;
-    // as vestidas pelo card padrão saem do quadro: voltam ao visual de antes (o Desfazer veste de novo)
-    this.dresser.paint(undressLooks(b.cards));
     this.kanban.update(id, (board, at) => resetBoard(board, at));
     this.toasts.show(`O quadro de ${label} recomeçou`, { label: 'Desfazer', run: () => this.kanban.restore(b) });
   }

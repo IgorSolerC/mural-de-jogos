@@ -105,7 +105,8 @@ export interface KanbanColumn {
 
 /**
  * A anotação vestida pelo card padrão de uma coluna: qual coluna, qual versão do card (para vestir de
- * novo quando ele muda) e o visual dela antes de vestir (para voltar a ele quando sai).
+ * novo quando ele muda) e o visual dela antes de vestir (para voltar a ele num Desfazer; saindo da
+ * coluna, ela continua vestida, ver `dressBoard`).
  */
 export interface Dress {
   col: string;
@@ -722,21 +723,28 @@ export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined,
   return { ...before, cards };
 }
 
-/** O visual de antes das anotações vestidas destas cartas (para as que saem do quadro voltarem a ele). */
-export function undressLooks(cards: readonly KanbanCard[]): { note: string; look: CardLook }[] {
-  return cards.flatMap((c) => (c.dress ? [{ note: c.note, look: c.dress.own }] : []));
+/**
+ * As anotações `notes` (as vestidas) ficam com a marca "por refazer", como no Desfazer de um quadro
+ * inteiro: o Desfazer de uma mudança de lugar devolve o visual de antes dela, e não só o lugar.
+ */
+export function redressCards(b: KanbanBoard, notes: readonly string[]): KanbanBoard {
+  if (!b.cards.some((c) => c.dress && notes.includes(c.note))) return b;
+  return { ...b, cards: b.cards.map((c) => (c.dress && notes.includes(c.note) ? { ...c, dress: { col: '', v: '', own: c.dress.own } } : c)) };
 }
 
 /** A anotação que o vestidor vê: o id, a categoria (do quadro) e o visual dela. */
 export type DressNote = BoardNote & CardLook;
 
 /**
- * Veste e despe as anotações do quadro conforme o card padrão das colunas, e devolve o quadro com as
- * marcas e o visual novo de cada anotação que muda:
+ * Veste as anotações do quadro conforme o card padrão das colunas, e devolve o quadro com as marcas e
+ * o visual novo de cada anotação que muda:
  * - numa coluna com o card padrão ligado, a anotação que ainda não vestiu esta versão dele (acabou de
  *   chegar, ou o card mudou) veste: fica com o visual do card, e o visual de antes fica guardado (o
- *   de antes de vestir a primeira vez, mesmo passando por outras colunas com card);
- * - fora disso, a anotação vestida volta ao visual de antes e perde a marca.
+ *   de antes de chegar na coluna; com o card mudado, o de antes de vestir o primeiro);
+ * - o visual fica dela: saindo para uma coluna sem card padrão (ou com o card desligado, ou saindo do
+ *   quadro), ela continua vestida e só perde a marca;
+ * - só a marca "por refazer" (de um Desfazer, ver `restoredBoard` e `redressCards`) numa coluna sem
+ *   card devolve o visual de antes.
  * Só na hora da mudança: a anotação vestida que a pessoa repinta no editor fica como ela deixou, até
  * mudar de coluna ou o card mudar. `skip` diz quais não se tocam (as compartilhadas). Sem nada para
  * fazer, devolve o mesmo quadro.
@@ -759,10 +767,12 @@ export function dressBoard(
       const look = b.columns.find((x) => x.id === c.column)!.look!;
       if (!sameLook(lookFrom(n), look)) looks.push({ note: c.note, look });
       changed = true;
-      return { ...c, dress: { col: c.column, v, own: c.dress?.own ?? lookFrom(n) } };
+      // chegando de outra coluna com card, o que ela vestiu lá já é dela: o visual de antes é o de agora
+      const own = c.dress && (c.dress.col === c.column || c.dress.col === '') ? c.dress.own : lookFrom(n);
+      return { ...c, dress: { col: c.column, v, own } };
     }
     if (!c.dress) return c;
-    if (!sameLook(lookFrom(n), c.dress.own)) looks.push({ note: c.note, look: c.dress.own });
+    if (c.dress.col === '' && !sameLook(lookFrom(n), c.dress.own)) looks.push({ note: c.note, look: c.dress.own });
     changed = true;
     const { dress: _, ...plain } = c;
     return plain;

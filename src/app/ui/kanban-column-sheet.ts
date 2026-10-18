@@ -100,12 +100,12 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
                   <span class="bolinha"></span>
                 </button>
               </div>
-              <!-- o card padrão: a anotação que chega veste o visual dele, e volta ao dela ao sair -->
+              <!-- o card padrão: a anotação que chega veste o visual dele, e fica com ele ao sair -->
               <div class="linha">
                 <div class="linha-texto">
                   <p class="linha-nome" id="ca-card">Card padrão</p>
                   <p class="linha-desc" id="ca-card-d">
-                    A anotação que chega aqui veste a cor, o papel e os enfeites do card padrão; saindo para uma coluna sem card padrão, volta a ser como era. As compartilhadas ficam como estão.
+                    A anotação que chega aqui veste a cor, o papel e os enfeites do card padrão, e fica com eles depois de sair. As compartilhadas ficam como estão.
                   </p>
                 </div>
                 <button type="button" class="interruptor" role="switch" [attr.aria-checked]="!!d.col.dresses" aria-labelledby="ca-card" aria-describedby="ca-card-d" (click)="toggleDress()">
@@ -345,8 +345,9 @@ export class KanbanColumnSheet {
 
   /**
    * Liga ou desliga o card padrão. Ligado pela primeira vez, ele começa na cor da etiqueta da coluna;
-   * desligado, o card fica guardado para a próxima vez. As anotações da coluna vestem ou voltam ao
-   * visual delas na hora, com Desfazer.
+   * desligado, o card fica guardado para a próxima vez. Ligado, as anotações da coluna vestem na hora,
+   * com Desfazer; desligado, elas continuam vestidas (o visual já é delas) e só as que chegarem depois
+   * não vestem mais.
    */
   protected toggleDress(): void {
     const d = this.data();
@@ -354,10 +355,9 @@ export class KanbanColumnSheet {
     const before = d.board;
     const on = !d.col.dresses;
     this.kanban.update(d.board.id, (b, at) => updateColumn(b, d.col.id, on ? { look: d.col.look ?? { stock: d.col.color }, dresses: true } : { dresses: undefined }, at));
-    if (!d.count) return;
+    if (!d.count || !on) return;
     const who = d.count === 1 ? 'A anotação' : `As ${d.count} anotações`;
-    const text = on ? `${who} de ${d.col.name} ${d.count === 1 ? 'vestiu' : 'vestiram'} o card padrão` : `${who} de ${d.col.name} ${d.count === 1 ? 'voltou' : 'voltaram'} ao visual de antes`;
-    this.toasts.show(text, { label: 'Desfazer', run: () => this.kanban.restore(before) });
+    this.toasts.show(`${who} de ${d.col.name} ${d.count === 1 ? 'vestiu' : 'vestiram'} o card padrão`, { label: 'Desfazer', run: () => this.kanban.restore(before) });
   }
 
   private setSort(sort: SortRule[]): void {

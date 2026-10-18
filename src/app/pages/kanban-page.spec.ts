@@ -4,7 +4,6 @@ import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { KanbanBoard, boardIdFor, cardsIn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
 import { Desk } from '../core/desk';
-import { lookFrom } from '../core/card-look';
 import { Review, isDone, sanitizeReview } from '../core/review';
 import { ProfileStore } from '../core/profile-store';
 import { ReviewStore } from '../core/review-store';
@@ -624,10 +623,10 @@ describe('página do Kanban', () => {
     await settle();
     [...column('fazendo').querySelectorAll<HTMLButtonElement>('.adicionar-op')].find((b) => b.textContent!.includes('Nova nota'))!.click();
     expect(spy).toHaveBeenCalledWith('Trabalho', kanban.get(TRAB)!.columns[1].look);
-    // desligar: volta ao visual de antes
+    // desligar: as que estão lá continuam vestidas (o visual já é delas)
     sw.click();
     await settle();
-    expect(lookFrom(store.get('nlogin01')!)).toEqual({});
+    expect(store.get('nlogin01')!.stock).toBe('amarelo');
   });
 
   it('as saídas do Adicionar são a etiqueta de papel: sem contorno de tinta, com o meio-corte tracejado por dentro', async () => {

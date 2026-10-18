@@ -8,8 +8,9 @@ import { SharedStore } from './shared-store';
 /**
  * O card padrão das colunas do Kanban, na prática: sempre que um quadro ou as anotações mudam (mover,
  * mudar o card padrão, ligar ou desligar, um Desfazer, o que chegou da nuvem), veste as anotações que
- * acabaram de chegar numa coluna com card e devolve o visual de antes às que saíram (ver
- * `dressBoard`). Rodar de novo sem mudança nenhuma não faz nada.
+ * acabaram de chegar numa coluna com card. O visual fica delas: saindo da coluna, continuam vestidas;
+ * só um Desfazer devolve o visual de antes (ver `dressBoard`). Rodar de novo sem mudança nenhuma não
+ * faz nada.
  *
  * As anotações compartilhadas ficam como estão: o visual delas é de todos que dividem a anotação, e o
  * quadro é só seu.
@@ -38,8 +39,8 @@ export class KanbanDresser {
     }
   }
 
-  /** Grava o visual nas anotações (as que saem do quadro também passam por aqui, ver `undress`). */
-  paint(looks: readonly { note: string; look: CardLook }[], at = new Date().toISOString()): void {
+  /** Grava o visual nas anotações. */
+  private paint(looks: readonly { note: string; look: CardLook }[], at: string): void {
     for (const { note, look } of looks) {
       const r = this.store.get(note);
       if (!r || this.shared.role(note) !== null) continue;

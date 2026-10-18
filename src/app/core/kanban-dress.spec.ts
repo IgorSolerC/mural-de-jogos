@@ -1,14 +1,15 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { CardLook, lookFrom, sameLook, sanitizeLook, withLook } from './card-look';
-import { KanbanBoard, boardIdFor, dressBoard, lookVersion, restoredBoard, sanitizeBoard, undressLooks, updateColumn } from './kanban';
+import { KanbanBoard, boardIdFor, dressBoard, lookVersion, redressCards, restoredBoard, sanitizeBoard, updateColumn } from './kanban';
 import { KanbanActions } from './kanban-actions';
 import { KanbanDresser } from './kanban-dresser';
 import { KanbanStore } from './kanban-store';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
+import { Toasts } from '../ui/toast';
 
-/** O card padrão das colunas do Kanban: vestir quem chega, devolver o visual de quem sai. */
+/** O card padrão das colunas do Kanban: vestir quem chega, e o visual fica com quem sai (só o Desfazer devolve). */
 
 const T0 = '2026-10-17T10:00:00.000Z';
 const T1 = '2026-10-17T11:00:00.000Z';
@@ -65,15 +66,44 @@ describe('o card padrão (dressBoard)', () => {
     expect(r.board.cards[1].dress!.own).toEqual({ stock: 'verde' });
   });
 
-  it('saindo para uma coluna sem card, ou com o card desligado, volta ao visual de antes', () => {
+  it('saindo para uma coluna sem card, ou com o card desligado, continua vestida e só perde a marca', () => {
     const b = dressBoard(board(), notes({ n2: { stock: 'verde' } }), T1).board;
     const saiu = { ...b, cards: b.cards.map((c) => (c.note === 'n2' ? { ...c, column: 'afazer' } : c)) };
     const r = dressBoard(saiu, notes({ n2: VERMELHO }), T1);
-    expect(r.looks).toEqual([{ note: 'n2', look: { stock: 'verde' } }]);
+    expect(r.looks).toEqual([]);
     expect(r.board.cards[1].dress).toBeUndefined();
+    expect(r.board).not.toBe(saiu);
+    // sem marca, nada mais a fazer
+    expect(dressBoard(r.board, notes({ n2: VERMELHO }), T1).board).toBe(r.board);
     const off = updateColumn(b, 'bloq', { dresses: undefined }, T1);
     expect(off.columns[1].look).toEqual(VERMELHO);
-    expect(dressBoard(off, notes({ n2: VERMELHO }), T1).looks).toEqual([{ note: 'n2', look: { stock: 'verde' } }]);
+    const desligado = dressBoard(off, notes({ n2: VERMELHO }), T1);
+    expect(desligado.looks).toEqual([]);
+    expect(desligado.board.cards[1].dress).toBeUndefined();
+  });
+
+  it('de uma coluna com card para outra com card: veste a nova, e o visual de antes é o que vestiu na primeira', () => {
+    const duas = board();
+    duas.columns = [...duas.columns, { id: 'rev', name: 'Revisão', icon: 'circulo', color: 'azul', finishes: false, look: { stock: 'lilas' }, dresses: true }];
+    const b = dressBoard(duas, notes({ n2: { stock: 'verde' } }), T1).board;
+    const foi = { ...b, cards: b.cards.map((c) => (c.note === 'n2' ? { ...c, column: 'rev' } : c)) };
+    const r = dressBoard(foi, notes({ n2: VERMELHO }), T1);
+    expect(r.looks).toEqual([{ note: 'n2', look: { stock: 'lilas' } }]);
+    expect(r.board.cards[1].dress).toEqual({ col: 'rev', v: lookVersion({ stock: 'lilas' }), own: VERMELHO });
+  });
+
+  it('o Desfazer de uma mudança de lugar (marca por refazer) devolve o visual de antes numa coluna sem card', () => {
+    const b = dressBoard(board(), notes({ n2: { stock: 'verde' } }), T1).board;
+    const voltou = { ...b, cards: b.cards.map((c) => (c.note === 'n2' ? { ...c, column: 'afazer' } : c)) };
+    const marcado = redressCards(voltou, ['n1', 'n2']);
+    expect(marcado.cards[1].dress).toEqual({ col: '', v: '', own: { stock: 'verde' } });
+    // a que não estava vestida fica como estava
+    expect(marcado.cards[0]).toBe(voltou.cards[0]);
+    const limpo = board();
+    expect(redressCards(limpo, ['n1'])).toBe(limpo);
+    const r = dressBoard(marcado, notes({ n2: VERMELHO }), T1);
+    expect(r.looks).toEqual([{ note: 'n2', look: { stock: 'verde' } }]);
+    expect(r.board.cards[1].dress).toBeUndefined();
   });
 
   it('não toca nas compartilhadas, nem nas de outra categoria', () => {
@@ -89,7 +119,7 @@ describe('o card padrão (dressBoard)', () => {
     expect(volta.cards[1].dress).toEqual({ col: '', v: '', own: { stock: 'verde' } });
     const r = dressBoard(volta, notes({ n2: { stock: 'verde' } }), T1);
     expect(r.looks).toEqual([{ note: 'n2', look: VERMELHO }]);
-    expect(undressLooks(vestido.cards)).toEqual([{ note: 'n2', look: { stock: 'verde' } }]);
+    expect(r.board.cards[1].dress!.own).toEqual({ stock: 'verde' });
   });
 
   it('guardado e lido de novo: o card, o ligado e as marcas (as de coluna que não existe saem)', () => {
@@ -123,7 +153,7 @@ describe('o card padrão no site (KanbanDresser)', () => {
   });
   afterEach(() => localStorage.clear());
 
-  it('mover para a coluna com card veste; voltar devolve; mudar o card repinta quem está lá', () => {
+  it('mover para a coluna com card veste; sair continua vestida; mudar o card repinta só quem está lá', () => {
     kanban.state.set({ boards: [board()], removed: {}, legacy: [] });
     TestBed.tick();
     expect(look('n2')).toEqual(VERMELHO);
@@ -133,18 +163,40 @@ describe('o card padrão no site (KanbanDresser)', () => {
     expect(look('n1')).toEqual(VERMELHO);
     TestBed.inject(KanbanActions).move(ID, 'n1', 'afazer');
     TestBed.tick();
-    expect(look('n1')).toEqual({ stock: 'azul' });
+    expect(look('n1')).toEqual(VERMELHO);
+    expect(kanban.get(ID)!.cards.find((c) => c.note === 'n1')!.dress).toBeUndefined();
     kanban.update(ID, (b, at) => updateColumn(b, 'bloq', { look: { stock: 'lilas' } }, at));
     TestBed.tick();
     expect(look('n2')).toEqual({ stock: 'lilas' });
+    expect(look('n1')).toEqual(VERMELHO);
   });
 
-  it('tirar a anotação do quadro devolve o visual dela, e o Desfazer veste de novo', () => {
+  it('o Desfazer de uma anotação finalizada ao chegar na coluna devolve o lugar e o visual de antes', () => {
+    const fim = board();
+    fim.columns[1] = { ...fim.columns[1], finishes: true };
+    kanban.state.set({ boards: [fim], removed: {}, legacy: [] });
+    TestBed.tick();
+    const show = spyOn(TestBed.inject(Toasts), 'show').and.callThrough();
+    TestBed.inject(KanbanActions).move(ID, 'n1', 'bloq');
+    TestBed.tick();
+    expect(look('n1')).toEqual(VERMELHO);
+    show.calls.mostRecent().args[1]!.run();
+    TestBed.tick();
+    expect(kanban.get(ID)!.cards.find((c) => c.note === 'n1')!.column).toBe('afazer');
+    expect(look('n1')).toEqual({ stock: 'azul' });
+  });
+
+  it('tirar a anotação do quadro deixa o visual do card nela, e o Desfazer a põe de volta vestida', () => {
     kanban.state.set({ boards: [board()], removed: {}, legacy: [] });
     TestBed.tick();
+    const show = spyOn(TestBed.inject(Toasts), 'show').and.callThrough();
     TestBed.inject(KanbanActions).remove(kanban.get(ID)!, 'n2');
     TestBed.tick();
-    expect(look('n2')).toEqual({ stock: 'verde' });
+    expect(look('n2')).toEqual(VERMELHO);
     expect(kanban.get(ID)!.cards.some((c) => c.note === 'n2')).toBeFalse();
+    show.calls.mostRecent().args[1]!.run();
+    TestBed.tick();
+    expect(kanban.get(ID)!.cards.find((c) => c.note === 'n2')!.dress!.col).toBe('bloq');
+    expect(look('n2')).toEqual(VERMELHO);
   });
 });
