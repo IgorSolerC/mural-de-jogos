@@ -610,6 +610,13 @@ fieldset.linha {
   white-space: nowrap;
 }
 
+/* os conflitos da sincronização: o mesmo jeito das versões guardadas, com o aviso a caneta vermelha */
+.conflitos-icone {
+  vertical-align: -3px;
+  margin-right: 4px;
+  color: var(--red-deep);
+}
+
 /* ===== Botões de papel: a ação secundária dentro da folha ===== */
 .btn-papel {
   @include kit.botao-papel;

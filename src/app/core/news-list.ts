@@ -26,12 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-18-tarefas-espacadas',
+    id: '2026-10-18-juncao-entre-aparelhos',
     version: '1.25.2',
     kind: 'ajustes',
     date: '2026-10-18',
-    title: 'A régua do texto como no Word, tarefas com descrição e foto, e neon no contador',
+    title: 'Dois aparelhos juntos, a régua do texto como no Word e tarefas com descrição',
     melhorias: [
+      'Mexeu no mural em dois aparelhos ao mesmo tempo? As mudanças agora se juntam, como já acontecia nas anotações compartilhadas: campos diferentes da mesma ficha, linhas diferentes do mesmo texto, anotações postas no mesmo quadro Kanban e partes diferentes das configurações ficam todas, em vez de a mexida por último passar por cima da outra.',
+      'Quando os dois aparelhos mudaram o mesmo trecho (ou um apagou e o outro mudou), a ficha ganha o remendo Conflito e a mesma pergunta das compartilhadas mostra as duas versões, com o aparelho de cada uma. A escolha vale em todos os aparelhos, a outra versão vai para Ajustes › Backup, e os conflitos que esperam ficam também em Ajustes › Conta, na Nuvem.',
       'A régua do texto foi organizada como a do Word e a do Google Docs: tudo mora em dois menus com nome, Formatar (negrito, itálico, riscado, marca-texto, spoiler, código, títulos, citação, bloco de código e listas, com o atalho de cada um) e Inserir (links, tabela, divisória e todos os widgets), e os botões de toda hora continuam à mão ao lado.',
       'A caixa do estilo, como a “Texto normal” do Docs, mostra o estilo da linha do cursor e troca entre texto, Título 1, 2 e 3, citação e bloco de código; Texto normal dentro de um bloco de código tira as marcas dele.',
       'Em cima da folha ficam as abas Escrever e Ver como fica, e Ajuda e Tela cheia com o nome escrito; no celular, a régua presa em cima do teclado leva o Formatar e o Inserir.',

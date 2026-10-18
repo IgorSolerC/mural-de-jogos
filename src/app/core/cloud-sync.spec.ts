@@ -13,6 +13,7 @@ import { KanbanStore } from './kanban-store';
 import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
+import { SyncConflicts } from './sync-conflicts';
 
 const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
@@ -131,6 +132,7 @@ interface Device {
   profiles: ProfileStore;
   kanban: KanbanStore;
   sync: CloudSync;
+  conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
   /** As respostas que a pessoa daria às perguntas, em ordem (null: fechou sem escolher). */
   answers: Choice[];
@@ -182,6 +184,7 @@ describe('sincronização com a nuvem', () => {
         KanbanStore,
         CloudAccount,
         CloudSync,
+        SyncConflicts,
         { provide: SYNC_STORAGE, useValue: kv },
         { provide: SYNC_AUTO, useValue: false },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
@@ -197,6 +200,7 @@ describe('sincronização com a nuvem', () => {
       profiles: injector.get(ProfileStore),
       kanban: injector.get(KanbanStore),
       sync: injector.get(CloudSync),
+      conflicts: injector.get(SyncConflicts),
       kv,
       answers,
       asked,
@@ -404,7 +408,7 @@ describe('sincronização com a nuvem', () => {
     expect(a.sync.status()).toBe('ok');
     expect(cloud.rev).toBe(1);
     expect((await cloud.read()).reviews.map((r) => r.game.name).sort()).toEqual(['Celeste', 'Hades']);
-    expect((await cloud.read()).sync).toEqual({ schema: SYNC_SCHEMA });
+    expect((await cloud.read()).sync).toEqual(jasmine.objectContaining({ schema: SYNC_SCHEMA }));
 
     const b = device();
     await b.sync.syncNow();
@@ -433,7 +437,7 @@ describe('sincronização com a nuvem', () => {
     expect(await fingerprint(a.store.snapshot())).toBe(await fingerprint(b.store.snapshot()));
   });
 
-  it('apagar num aparelho vence a edição mais antiga do outro; a edição mais nova vence o apagar', async () => {
+  it('apagar num aparelho vence a edição que não mudou nada no outro; apagar e mudar ao mesmo tempo vira pergunta, com a mudada no mural', async () => {
     const a = device();
     a.store.add(review('raaaa1', 'Celeste'));
     a.store.add(review('rbbbb1', 'Hades'));
@@ -448,6 +452,7 @@ describe('sincronização com a nuvem', () => {
     await settle(a, b);
     expect(a.names()).toEqual(['Hades II']);
     expect(b.names()).toEqual(['Hades II']);
+    for (const d of [a, b]) expect(d.conflicts.pending().map((c) => c.alvo)).toEqual(['ficha:rbbbb1']);
   });
 
   it('sincronizar agora com uma rodada no meio espera ela e envia o que mudou depois', async () => {
@@ -704,30 +709,30 @@ describe('sincronização com a nuvem', () => {
     };
     const kept = (d: Device) => d.store.versions().map((v) => [v.ficha.game.name, v.motivo]);
 
-    it('a mexida antes de sincronizar perde para a mais nova, mas fica guardada nos dois aparelhos', async () => {
-      const { a, b } = await twoDevices();
-      rename(a, 'Hades (do PC de casa)', '2026-03-02T00:00:00.000Z');
-      await a.sync.syncNow();
-      // o outro PC, sem ter baixado, mexe na mesma ficha (depois)
-      rename(b, 'Hades (do trabalho)', '2026-03-03T00:00:00.000Z');
-      await settle(b, a);
-      expect(a.names()).toEqual(['Hades (do trabalho)']);
-      expect(b.names()).toEqual(['Hades (do trabalho)']);
-      expect(kept(a)).toEqual([['Hades (do PC de casa)', 'juntou']]);
-      expect(kept(b)).toEqual([['Hades (do PC de casa)', 'juntou']]);
-      expect(b.store.keptNotice()?.n).toBe(1);
-    });
-
-    it('do outro jeito também: a daqui, mais velha, perde e fica guardada', async () => {
-      const { a, b } = await twoDevices();
-      rename(b, 'Hades (do trabalho)', '2026-03-02T00:00:00.000Z');
-      rename(a, 'Hades (do PC de casa)', '2026-03-03T00:00:00.000Z');
-      await a.sync.syncNow();
-      await settle(b, a);
-      expect(b.names()).toEqual(['Hades (do PC de casa)']);
-      expect(kept(a)).toEqual([['Hades (do trabalho)', 'juntou']]);
-      expect(kept(b)).toEqual([['Hades (do trabalho)', 'juntou']]);
-    });
+    for (const [first, second] of [
+      ['2026-03-02T00:00:00.000Z', '2026-03-03T00:00:00.000Z'],
+      ['2026-03-03T00:00:00.000Z', '2026-03-02T00:00:00.000Z'],
+    ]) {
+      it(`o mesmo título mudado nos dois vira pergunta, mexido antes ou depois (${first.slice(5, 10)}): no mural a que chegou antes na nuvem, as duas guardadas`, async () => {
+        const { a, b } = await twoDevices();
+        rename(a, 'Hades (do PC de casa)', first);
+        await a.sync.syncNow();
+        // o outro PC, sem ter baixado, mexe na mesma ficha
+        rename(b, 'Hades (do trabalho)', second);
+        await settle(b, a);
+        expect(a.names()).toEqual(['Hades (do PC de casa)']);
+        expect(b.names()).toEqual(['Hades (do PC de casa)']);
+        for (const d of [a, b]) {
+          const [c] = d.conflicts.pending();
+          expect(c.alvo).toBe('ficha:rhades01');
+          expect(c.partes).toEqual(['titulo']);
+          expect((c.a as Review).game.name).toBe('Hades (do PC de casa)');
+          expect((c.b as Review).game.name).toBe('Hades (do trabalho)');
+          // nada foi para as versões guardadas: as duas estão no conflito
+          expect(kept(d)).toEqual([]);
+        }
+      });
+    }
 
     it('mexer de um lado só, um de cada vez, não guarda versão nenhuma', async () => {
       const { a, b } = await twoDevices();
@@ -740,19 +745,26 @@ describe('sincronização com a nuvem', () => {
       expect(kept(b)).toEqual([]);
     });
 
-    it('apagada num aparelho depois de mexida no outro: sai, e a mexida fica guardada', async () => {
+    it('apagada num aparelho e mexida no outro: a mexida fica no mural até a escolha; "manter apagada" apaga nos dois e guarda a mexida', async () => {
       const { a, b } = await twoDevices();
       rename(b, 'Hades (com a resenha nova)', '2026-03-02T00:00:00.000Z');
       a.store.remove('rhades01');
       await a.sync.syncNow();
       await settle(b, a);
+      expect(a.names()).toEqual(['Hades (com a resenha nova)']);
+      expect(b.names()).toEqual(['Hades (com a resenha nova)']);
+      const [c] = a.conflicts.pending();
+      expect(c.a).toBeNull();
+      a.conflicts.resolve(`${c.alvo}@${c.em}`, 'a');
+      await settle(a, b);
       expect(a.names()).toEqual([]);
       expect(b.names()).toEqual([]);
-      expect(kept(a)).toEqual([['Hades (com a resenha nova)', 'apagada']]);
+      expect(b.conflicts.pending()).toEqual([]);
+      expect(kept(b)).toEqual([['Hades (com a resenha nova)', 'conflito']]);
       // e dá para trazer de volta, em qualquer aparelho
-      a.store.restoreVersion(a.store.versions()[0]);
-      await settle(a, b);
-      expect(b.names()).toEqual(['Hades (com a resenha nova)']);
+      b.store.restoreVersion(b.store.versions()[0]);
+      await settle(b, a);
+      expect(a.names()).toEqual(['Hades (com a resenha nova)']);
     });
 
     it('sair mantendo o mural e entrar de novo junta sem guardar o que não mudou', async () => {
@@ -780,9 +792,13 @@ describe('sincronização com a nuvem', () => {
 
     it('as versões vão no mural privado da nuvem, nunca no público', async () => {
       const { a, b } = await twoDevices();
-      rename(a, 'Hades (do PC de casa)', '2026-03-02T00:00:00.000Z');
+      // sem a base, a junção é a de sempre: a mexida antes perde e fica guardada
+      b.kv.removeItem(BASE_KEY);
+      const later = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+      rename(a, 'Hades (do PC de casa)', later(1));
       await a.sync.syncNow();
-      rename(b, 'Hades (do trabalho)', '2026-03-03T00:00:00.000Z');
+      rename(b, 'Hades (do trabalho)', later(2));
+      await a.sync.syncNow();
       await settle(b, a);
       const priv = (await cloud.read()) as unknown as { versoes: { ficha: Review }[]; sync: { schema: number } };
       expect(priv.versoes.map((v) => v.ficha.game.name)).toEqual(['Hades (do PC de casa)']);
@@ -840,6 +856,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 22, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 23, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
   });
 });

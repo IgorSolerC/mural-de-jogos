@@ -34,6 +34,7 @@ import { PageWall } from './ui/page-wall';
 import { PAGE_BACKGROUNDS } from './core/profile';
 import { ProfileStore } from './core/profile-store';
 import { SharedStore } from './core/shared-store';
+import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard } from './core/kanban';
@@ -76,6 +77,8 @@ export class App {
   protected readonly cloudConfig = inject(Cloud).config;
   /** As anotações compartilhadas: entram no mural e sincronizam à parte (ver core/shared-store.ts). */
   private readonly shared = inject(SharedStore);
+  /** Os conflitos da sincronização da conta (ver core/sync-conflicts.ts): o bilhete avisa quando chega um. */
+  private readonly syncConflicts = inject(SyncConflicts);
 
   /** O caminho aberto, sem query nem fragmento: em que página o N age e de onde o mural de anotações sai. */
   private readonly path = toSignal(
@@ -130,6 +133,17 @@ export class App {
         } else {
           this.toasts.show(`“${n.titulo}” não está mais compartilhada com você`, undefined, 7000);
         }
+      });
+    });
+    // a mesma coisa mudou em dois aparelhos da conta ao mesmo tempo, e falta a pessoa escolher a versão
+    effect(() => {
+      const n = this.syncConflicts.notice();
+      if (!n) return;
+      untracked(() => {
+        const [tipo, id] = splitTarget(n.alvo);
+        const titulo = tipo === 'ficha' ? `“${n.titulo}”` : n.titulo.charAt(0).toLowerCase() + n.titulo.slice(1);
+        const run = tipo === 'ficha' ? () => this.desk.openReview(id) : () => void this.router.navigate(['/ajustes'], { queryParams: { aba: 'conta' } });
+        this.toasts.show(`Conflito de sincronização em ${titulo}`, { label: 'Resolver', run }, 12000);
       });
     });
     this.desk.register({

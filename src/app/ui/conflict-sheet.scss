@@ -102,6 +102,40 @@ dialog.conflito {
   border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
 }
 
+/* na conta, o aparelho no lugar da foto: um botão de lata com o desenho dele, do tamanho da foto */
+.aparelho {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--foto);
+  height: var(--foto);
+  border-radius: 50%;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 32% 28%, rgb(255 255 255 / 0.85), transparent 46%),
+    radial-gradient(circle at 50% 50%, #e9e4d8 0 58%, #c9c2b3 100%);
+  box-shadow:
+    inset 0 0 0 2px rgb(21 21 21 / 0.55),
+    inset 0 -3px 5px rgb(21 21 21 / 0.18),
+    0 2px 4px rgb(21 21 21 / 0.28);
+}
+
+.versao-quem {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.versao-aparelho {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
 .versao-nome {
   font-family: var(--f-marker);
   font-weight: 400;
@@ -183,6 +217,41 @@ mark {
     flex: 1;
     border-top: 1.5px dotted rgb(21 21 21 / 0.35);
   }
+}
+
+/* a versão que apaga: um carimbo de borracha vermelho, batido meio torto, no lugar do texto */
+.carimbo-apagada {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.carimbo-texto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 5px;
+  border: 3px solid var(--red);
+  border-radius: 7px 5px 8px 4px;
+  color: var(--red-deep);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  /* a tinta falha um pouco, como de carimbo de verdade */
+  mask-image: radial-gradient(circle at 20% 30%, #000 0 60%, rgb(0 0 0 / 0.78) 100%);
+  mix-blend-mode: multiply;
+}
+
+.apagada-desc {
+  font-size: 0.96rem;
+  line-height: 1.4;
+  color: var(--ink-2);
 }
 
 .sem-texto {

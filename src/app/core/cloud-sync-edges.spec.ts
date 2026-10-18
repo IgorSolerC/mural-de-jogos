@@ -8,6 +8,7 @@ import { Review, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { Choice, Confirm } from '../ui/confirm';
+import { SyncConflicts } from './sync-conflicts';
 
 /**
  * A sincronização com a nuvem, nas bordas: respostas de erro da API (429, 503, 401, 409 em série),
@@ -176,6 +177,7 @@ describe('sincronização: bordas e bugs conhecidos', () => {
         Settings,
         CloudAccount,
         CloudSync,
+        SyncConflicts,
         { provide: SYNC_STORAGE, useValue: kv },
         { provide: SYNC_AUTO, useValue: false },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
@@ -356,7 +358,7 @@ describe('sincronização: bordas e bugs conhecidos', () => {
       expect((priv['wishes'] as unknown[]).length).toBe(1);
       expect(Object.keys((priv['deleted'] as { reviews: object }).reviews)).toEqual(['rapag1']);
       expect((priv['chaves'] as { rawg: string }).rawg).toBe('segredo-rawg');
-      expect(priv['sync']).toEqual({ schema: SYNC_SCHEMA });
+      expect(priv['sync']).toEqual(jasmine.objectContaining({ schema: SYNC_SCHEMA }));
     });
 
     it('a ficha que vira privada sai do mural público no envio seguinte', async () => {

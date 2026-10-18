@@ -153,6 +153,43 @@
                 </p>
               }
 
+              <!-- o que mudou em dois aparelhos ao mesmo tempo e espera a pessoa escolher a versão -->
+              @if (pendingConflicts().length) {
+                <div class="linha versoes-cabeca">
+                  <div class="linha-texto">
+                    <p class="linha-titulo" id="conflitos-titulo">
+                      <lucide-icon class="conflitos-icone" [img]="AlertIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                      {{ pendingConflicts().length === 1 ? 'Um conflito para escolher' : pendingConflicts().length + ' conflitos para escolher' }}
+                    </p>
+                    <p class="linha-desc">
+                      A mesma coisa mudou em dois aparelhos seus ao mesmo tempo. O resto já está junto; falta escolher qual versão fica. Até lá, as duas
+                      ficam guardadas.
+                    </p>
+                  </div>
+                </div>
+                <ul class="versoes conflitos" aria-labelledby="conflitos-titulo">
+                  @for (k of pendingConflicts(); track k.key) {
+                    <li class="versao">
+                      <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
+                      <div class="versao-texto">
+                        <p class="versao-nome">{{ k.name }}</p>
+                        <p class="versao-meta">
+                          <span>{{ k.wall }}</span><span>{{ k.why }}</span><span>{{ k.when }}</span>
+                        </p>
+                      </div>
+                      <button type="button" class="btn-papel forte" aria-haspopup="dialog" (click)="openConflict.set(k.key)" [attr.aria-label]="'Escolher a versão de ' + k.name">
+                        Escolher
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+              @if (openConflict(); as key) {
+                @defer (on immediate) {
+                  <app-conflict-sheet [chave]="key" (closed)="openConflict.set(null)" />
+                }
+              }
+
               <div class="linha larga">
                 <div class="linha-texto">
                   <p class="linha-titulo" id="codigo-titulo">Seu código</p>

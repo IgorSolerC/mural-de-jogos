@@ -3,21 +3,27 @@ import { gzip, readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
-import { Review, isPrivate, storedNote } from './review';
+import { Review, isNote, isPrivate, sanitizeReview, shelfOf, storedNote } from './review';
+import { BUILD } from './build';
 import { SharedStore } from './shared-store';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
 import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
-import { KanbanState, sanitizeKanban } from './kanban';
+import { KanbanBoard, KanbanState, sanitizeKanban } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
 import { Confirm } from '../ui/confirm';
 import { plural } from './text';
-import { readText, removeKey, writeText } from './storage';
+import { KeyValueStore, SYNC_STORAGE } from './sync-storage';
+import { buildOf } from './migrations';
+import { DeviceTag, sanitizeDevice } from './device';
+import { BLOCK_KINDS, BaseContent, BlockKind, readBaseContent, writeBaseContent } from './sync-base';
+import { SyncConflict, SyncConflicts, blockDefault, sanitizeConflicts, storedConflicts } from './sync-conflicts';
+import { planBlock, planBoards, planFichas, stampAfter } from './sync-merge';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -31,10 +37,18 @@ import { readText, removeKey, writeText } from './storage';
  * canônico), e não por um sinal de "sujo": juntar o que veio da nuvem não gera reenvio, e uma
  * mudança feita durante um envio fica para o próximo.
  *
- * A junção fica com a versão mexida por último de cada ficha. Para a outra nunca sumir, o aparelho
- * lembra a base: a versão de cada ficha que ele e a nuvem tinham juntos (a que baixou por último, ou a
- * que enviou). Uma ficha que mudou dos dois lados desde a base perde para a mais nova, e a que perdeu
- * fica guardada em Ajustes (ver core/kept-versions.ts).
+ * A junção é de três vias, como a do git e a das anotações compartilhadas. O aparelho lembra a base: a
+ * versão de cada ficha que ele e a nuvem tinham juntos (a que baixou por último, ou a que enviou) e,
+ * das que mudaram aqui desde então, o conteúdo dela (ver core/sync-base.ts). Uma ficha que mudou só de
+ * um lado fica com a mudança; uma que mudou dos dois lados é juntada a partir da base, campo a campo e
+ * texto a texto (ver core/sync-merge.ts), e o que os dois mudaram do mesmo jeito diferente (o mesmo
+ * trecho, o mesmo título; ou apagada num e mudada no outro) vira um conflito, que a pessoa resolve
+ * escolhendo uma das versões (ver core/sync-conflicts.ts). Até a escolha, as duas ficam guardadas. O
+ * mesmo vale para os quadros Kanban (coluna a coluna, ficha a ficha) e para os ajustes que vão junto.
+ *
+ * Sem o conteúdo da base (o aparelho de antes dele, ou a ficha mudou antes de ele ser guardado), a
+ * junção é a de sempre: fica a mexida por último, e a outra fica guardada em Ajustes (ver
+ * core/kept-versions.ts).
  */
 
 /** O estado da sincronização neste aparelho (localStorage; "Apagar o save" leva junto). */
@@ -98,11 +112,17 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 22: o card padrão das colunas do Kanban (`look`, `dresses`) e a marca das anotações vestidas por
  *     ele (`dress`, com o visual de antes). Um site antigo jogaria os dois fora e enviaria o quadro
  *     assim, e as anotações não voltariam mais ao visual delas ao sair da coluna.
+ * 23: os conflitos da junção de três vias que esperam a pessoa escolher (`conflitos`, só no mural
+ *     privado, com as duas versões) e o aparelho que enviou o mural (`sync.aparelho`). Um site antigo
+ *     enviaria o mural sem eles, e a versão de um aparelho num conflito sumiria dos outros.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 22;
+export const SYNC_SCHEMA = 23;
+
+export { SYNC_STORAGE };
+export type { KeyValueStore };
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -339,23 +359,6 @@ interface SyncState {
 
 type Remote = { kind: 'same' } | { kind: 'none' } | { kind: 'doc'; rev: number; text: string; data: Record<string, unknown> };
 
-/** Onde o estado da sincronização mora (o localStorage; os testes dão um por aparelho). */
-export interface KeyValueStore {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
-
-export const SYNC_STORAGE = new InjectionToken<KeyValueStore>('SYNC_STORAGE', {
-  providedIn: 'root',
-  factory: () => ({
-    // sem armazenamento, a próxima abertura recomeça pela primeira sincronização (que só junta)
-    getItem: readText,
-    setItem: writeText,
-    removeItem: removeKey,
-  }),
-});
-
 /** Sincronizar sozinho (ao abrir, ao mudar algo, de tempos em tempos). Os testes desligam e chamam à mão. */
 export const SYNC_AUTO = new InjectionToken<boolean>('SYNC_AUTO', { providedIn: 'root', factory: () => true });
 
@@ -399,6 +402,7 @@ export async function fingerprint(
   profile: SyncedProfile | null = null,
   config: SyncedNotesConfig | null = null,
   kanban: Partial<KanbanState> | null = null,
+  conflicts: readonly unknown[] | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
@@ -427,9 +431,55 @@ export async function fingerprint(
     ...(profile ? { perfil: profile } : {}),
     ...(config ? { muralAnotacoes: config } : {}),
     ...(kanban ? { kanban } : {}),
+    // os conflitos, na mesma ordem venha de onde vier (só com algum: o mural de antes deles tem a mesma impressão)
+    ...(conflicts?.length ? { conflitos: [...conflicts].map((c) => [canonicalJson(c), c] as const).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, c]) => c) } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** As apagadas do mural que veio da nuvem (id → quando). */
+export function deletedOf(data: Record<string, unknown>): Record<string, string> {
+  const raw = (data['deleted'] as Record<string, unknown> | undefined)?.['reviews'];
+  if (!raw || typeof raw !== 'object') return {};
+  return Object.fromEntries(Object.entries(raw).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+}
+
+/**
+ * O mural que veio da nuvem com as fichas juntadas no lugar das de lá (ver core/sync-merge.ts): cada
+ * uma na lista em que mora (a anotação sem as notas, como no mural), as outras como vieram.
+ */
+export function withFichas(data: Record<string, unknown>, fichas: readonly Review[]): Record<string, unknown> {
+  const ids = new Set(fichas.map((r) => r.id));
+  const out: Record<string, unknown> = { ...data };
+  for (const key of ['reviews', 'notas', 'musicas']) {
+    const list = Array.isArray(data[key]) ? (data[key] as unknown[]) : [];
+    out[key] = list.filter((x) => !ids.has((x as { id?: unknown } | null)?.id as string));
+  }
+  for (const r of fichas) (out[shelfOf(r)] as unknown[]).push(isNote(r) ? storedNote(r) : r);
+  return out;
+}
+
+/** Os ajustes que vieram da nuvem: os dados de cada um e quando mudou (null: não veio). */
+export function blocksOf(data: Record<string, unknown>): Record<BlockKind, { dados: unknown; em: string } | null> {
+  const keys = keysOf(data);
+  const tags = pinnedTagsOf(data);
+  const looks = categoryLooksOf(data);
+  const config = notesConfigOf(data);
+  const profile = profileOf(data);
+  return {
+    chaves: keys && { dados: { rawg: keys.rawg, tmdb: keys.tmdb }, em: keys.em },
+    tagsFixas: tags && { dados: tags.lista, em: tags.em },
+    categorias: looks && { dados: looks.mapa, em: looks.em },
+    muralAnotacoes: config && { dados: config.dados, em: config.em },
+    perfil: profile && { dados: profile.dados, em: profile.em },
+  };
+}
+
+/** Os conflitos que vieram, como este aparelho os enviaria (a impressão compara um com o outro). */
+export function conflictsPrintOf(data: Record<string, unknown>): unknown[] | null {
+  const list = sanitizeConflicts(data['conflitos'], buildOf(data));
+  return list.length ? storedConflicts(list) : null;
 }
 
 /** O mural na nuvem é de uma versão do formato mais nova do que este site sabe ler? */
@@ -450,6 +500,10 @@ export class CloudSync {
   /** As anotações compartilhadas: as públicas vão no mural que os outros veem (ver `push`). */
   private readonly shared = inject(SharedStore);
   private readonly kanban = inject(KanbanStore);
+  /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
+  private readonly conflicts = inject(SyncConflicts);
+  /** Este aparelho, para o conflito dizer de onde veio cada versão. */
+  private readonly device: DeviceTag = this.conflicts.device;
 
   readonly status = signal<SyncStatus>('fora');
   /** O que mostrar junto do estado (erros e avisos), já em português. */
@@ -472,10 +526,21 @@ export class CloudSync {
   /** O mural local mudou por causa da própria sincronização: não agenda outra por isso. */
   private applying = false;
   private lastAttempt = 0;
+  /** O conteúdo da base da conta (ver core/sync-base.ts), lido uma vez. */
+  private baseCache: BaseContent | null = null;
+  /** As fichas e os quadros como estavam na última vez que a base olhou (ver `captureBase`). */
+  private seenReviews: readonly Review[] = this.store.reviews();
+  private seenBoards: readonly KanbanBoard[] = this.kanban.state().boards;
 
   constructor() {
     const destroy = inject(DestroyRef);
     destroy.onDestroy(() => clearTimeout(this.timer));
+    // a ficha (ou o quadro) da base mudou aqui: a versão de antes fica guardada para a junção de três vias
+    effect(() => {
+      this.store.reviews();
+      this.kanban.state();
+      untracked(() => this.captureBase());
+    });
     if (!inject(SYNC_AUTO)) return;
     // Entrou (ou a nuvem ligou): sincroniza já. Saiu: para.
     effect(() => {
@@ -507,6 +572,7 @@ export class CloudSync {
       this.settings.notesConfigAt();
       this.kanban.state();
       this.profiles.changedAt();
+      this.conflicts.list();
       if (first) {
         first = false;
         return;
@@ -606,17 +672,9 @@ export class CloudSync {
     for (let attempt = 0; ; attempt++) {
       if (remote.kind === 'doc') {
         if (isNewerSchema(remote.data)) throw this.outdated();
-        this.merge(remote.text, this.knownFor(state));
-        // o que veio da nuvem é o que os dois têm em comum agora
-        this.writeBase(state.conta, versionsOf(remote.data));
-        this.mergeKeys(remote.data);
-        this.mergeTags(remote.data);
-        this.mergeLooks(remote.data);
-        this.mergeConfig(remote.data);
-        this.mergeKanban(remote.data);
-        this.mergeProfile(remote.data);
+        this.integrate(state.conta, remote, this.knownFor(state));
         state = { ...state, rev: remote.rev };
-        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban());
+        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync());
         if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
@@ -632,15 +690,19 @@ export class CloudSync {
       const profile = this.localProfile();
       const config = this.localConfig();
       const kanban = this.localKanban();
-      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban);
+      const conflitos = this.conflicts.toSync();
+      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos);
       const publicas = await this.sharedPrint();
       if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, here + publicas);
+        const boards = this.kanban.state().boards;
+        const blocks = this.blocksNow();
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, here + publicas);
         state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
+        this.rebaseAfterPush(state.conta, doc, boards, blocks);
         break;
       } catch (err) {
         if (!(err instanceof CloudError && err.status === 409)) throw err;
@@ -667,6 +729,8 @@ export class CloudSync {
     // a base de quando este aparelho saiu da conta mantendo o mural; sem ela, toda diferença conta
     const known = this.knownFor(base);
 
+    // juntar as fichas (a junção de três vias); sem, elas já desceram trocando as daqui (ou não há o que juntar)
+    let mergeFichas = false;
     if (remoteHas && !localHas) {
       // aparelho vazio: o mural da conta desce
       this.apply(() => this.store.importJson((remote as { text: string }).text, 'replace'));
@@ -685,24 +749,18 @@ export class CloudSync {
         const text = remote.kind === 'doc' ? remote.text : JSON.stringify({ reviews: [], notas: [], musicas: [], drafts: [], wishes: [], deleted: {} });
         this.apply(() => this.store.importJson(text, 'replace'));
       } else if (remote.kind === 'doc') {
-        this.merge(remote.text, known);
+        mergeFichas = true;
       }
     } else if (remoteHas && localHas) {
       // o mural daqui já era desta conta: junta sem perguntar (com a cópia de antes, por garantia)
       await this.keepCopy();
-      this.merge((remote as { text: string }).text, known);
+      mergeFichas = true;
     }
     // as chaves: a da nuvem vale se for mais nova (a conferência seguinte é "mudou?", e não traria)
     if (remote.kind === 'doc') {
-      this.writeBase(accountId, versionsOf(remote.data));
-      this.mergeKeys(remote.data);
-      this.mergeTags(remote.data);
-      this.mergeLooks(remote.data);
-      this.mergeConfig(remote.data);
-      this.mergeKanban(remote.data);
-      this.mergeProfile(remote.data);
+      this.integrate(accountId, remote, mergeFichas ? known : null);
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
-      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban());
+      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync());
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
     }
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
@@ -758,8 +816,208 @@ export class CloudSync {
     await saveBeforeCloud(blob);
   }
 
-  private merge(text: string, known: KnownVersion): void {
-    this.apply(() => this.store.importJson(text, 'merge', known));
+  /**
+   * O que veio da nuvem entra aqui: as fichas (com `known`; sem, elas já entraram de outro jeito), os
+   * ajustes e os quadros, cada um com a junção de três vias quando os dois lados mudaram desde a base
+   * (ver o topo do arquivo), e os conflitos de lá junto com os achados agora. Depois, o que veio da
+   * nuvem é o que os dois têm em comum: vira a base.
+   */
+  private integrate(conta: string, remote: { text: string; data: Record<string, unknown> }, known: KnownVersion | null): void {
+    // o que mudou aqui até agora e o effect ainda não viu
+    this.captureBase();
+    const now = new Date().toISOString();
+    const base = this.baseFor(conta);
+    const from = buildOf(remote.data);
+    const deA = sanitizeDevice((remote.data['sync'] as Record<string, unknown> | undefined)?.['aparelho']);
+    const found: SyncConflict[] = [];
+    const conflict = (alvo: string, a: unknown, b: unknown, partes: SyncConflict['partes'] = []) =>
+      found.push({ alvo, em: now, a, b, deA, deB: this.device, partes });
+    // os de lá primeiro: um conflito escolhido em outro aparelho não pergunta mais aqui
+    this.conflicts.merge(remote.data['conflitos'], from);
+    const remoteFichas = this.fichasOf(remote.data, from);
+
+    if (known) {
+      const shared = this.store.sharedIds();
+      const plan = planFichas({
+        local: this.store.reviews().filter((r) => !shared.has(r.id)),
+        localDeleted: this.store.snapshot().deleted.reviews,
+        remote: remoteFichas,
+        remoteDeleted: deletedOf(remote.data),
+        known,
+        base: (id) => base.fichas[id],
+        now,
+      });
+      const text = plan.replace.length ? JSON.stringify(withFichas(remote.data, plan.replace)) : remote.text;
+      const common: KnownVersion = plan.known.size ? (id, at) => known(id, at) || plan.known.has(`${id}@${at}`) : known;
+      this.apply(() => this.store.importJson(text, 'merge', common));
+      for (const c of plan.conflicts) conflict(`ficha:${c.id}`, c.a, c.b, c.parts);
+    }
+    // o que veio da nuvem é o que os dois têm em comum agora
+    this.writeBase(conta, versionsOf(remote.data));
+
+    // os ajustes: a junção de três vias quando os dois mudaram; sem base, o mudado por último vale
+    const remoteBlocks = blocksOf(remote.data);
+    for (const kind of BLOCK_KINDS) {
+      const r = remoteBlocks[kind];
+      const plan = planBlock(base.ajustes[kind], this.conflicts.blockNow(kind) ?? undefined, r?.dados);
+      if (plan.kind === 'sempre') this.mergeOld(kind, remote.data);
+      else if (plan.kind === 'remoto') this.apply(() => this.conflicts.applyBlock(kind, r!.dados, r!.em));
+      else if (plan.kind === 'junto') {
+        this.apply(() => this.conflicts.applyBlock(kind, plan.dados, stampAfter(now, r!.em, this.blockAt(kind) ?? '')));
+        if (plan.outro !== null) conflict(`ajuste:${kind}`, plan.dados, plan.outro);
+      }
+    }
+
+    // os quadros: os mudados dos dois lados se juntam coluna a coluna, ficha a ficha
+    const board = kanbanOf(remote.data);
+    if (board) {
+      const plan = planBoards(this.kanban.state().boards, board.boards, base, now);
+      const replaced = new Map(plan.replace.map((b) => [b.id, b]));
+      const adjusted = replaced.size ? { ...board, boards: board.boards.map((b) => replaced.get(b.id) ?? b) } : board;
+      this.apply(() => this.kanban.merge(adjusted));
+      for (const c of plan.conflicts) conflict(`kanban:${c.id}`, c.a, c.b);
+    }
+
+    this.conflicts.add(found);
+    this.rebase(conta, remote.data, remoteFichas);
+  }
+
+  /** As fichas do mural que veio da nuvem, no formato desta build (sem as compartilhadas). */
+  private fichasOf(data: Record<string, unknown>, from: number): Review[] {
+    const shared = this.store.sharedIds();
+    const out: Review[] = [];
+    for (const key of ['reviews', 'notas', 'musicas']) {
+      const list = data[key];
+      if (!Array.isArray(list)) continue;
+      for (const raw of list) {
+        const r = sanitizeReview(raw, from);
+        if (r && !shared.has(r.id)) out.push(r);
+      }
+    }
+    return out;
+  }
+
+  /** A junção de sempre de um ajuste: o mudado por último vale. */
+  private mergeOld(kind: BlockKind, data: Record<string, unknown>): void {
+    if (kind === 'chaves') this.mergeKeys(data);
+    else if (kind === 'tagsFixas') this.mergeTags(data);
+    else if (kind === 'categorias') this.mergeLooks(data);
+    else if (kind === 'muralAnotacoes') this.mergeConfig(data);
+    else this.mergeProfile(data);
+  }
+
+  /** Quando um ajuste mudou aqui pela última vez (null: nunca). */
+  private blockAt(kind: BlockKind): string | null {
+    if (kind === 'chaves') return this.settings.keysAt() || null;
+    if (kind === 'tagsFixas') return this.settings.pinnedTagsAt() || null;
+    if (kind === 'categorias') return this.settings.categoryLooksAt() || null;
+    if (kind === 'muralAnotacoes') return this.settings.notesConfigAt() || null;
+    return this.profiles.changedAt() || null;
+  }
+
+  /** Os ajustes daqui agora (os dados, sem a data), para a base depois de enviar. */
+  private blocksNow(): Partial<Record<BlockKind, unknown>> {
+    const out: Partial<Record<BlockKind, unknown>> = {};
+    for (const kind of BLOCK_KINDS) {
+      const v = this.conflicts.blockNow(kind) ?? blockDefault(kind);
+      if (v !== undefined) out[kind] = v;
+    }
+    return out;
+  }
+
+  /** O conteúdo da base desta conta (ver core/sync-base.ts). */
+  private baseFor(conta: string): BaseContent {
+    if (this.baseCache?.conta !== conta) this.baseCache = readBaseContent(this.kv, conta);
+    return this.baseCache;
+  }
+
+  private writeBaseContent(base: BaseContent | null): void {
+    this.baseCache = base;
+    writeBaseContent(this.kv, base);
+  }
+
+  /**
+   * Uma ficha (ou um quadro) que estava na versão da base mudou aqui: a versão de antes fica guardada
+   * (ver core/sync-base.ts). Roda a cada mudança e antes de cada junção; o que a própria sincronização
+   * muda não conta (ver `apply`).
+   */
+  private captureBase(): void {
+    const reviews = this.store.reviews();
+    const boards = this.kanban.state().boards;
+    if (reviews === this.seenReviews && boards === this.seenBoards) return;
+    const conta = this.account.account()?.id;
+    const versions = conta ? this.readBase(conta) : null;
+    if (conta && versions) {
+      const base = this.baseFor(conta);
+      let changed = false;
+      if (reviews !== this.seenReviews) {
+        const shared = this.store.sharedIds();
+        const now = new Map(reviews.map((r) => [r.id, r]));
+        for (const r of this.seenReviews) {
+          if (base.fichas[r.id] || versions[r.id] !== r.updatedAt || shared.has(r.id)) continue;
+          if (now.get(r.id)?.updatedAt === r.updatedAt) continue;
+          base.fichas[r.id] = r;
+          changed = true;
+        }
+      }
+      if (boards !== this.seenBoards) {
+        const now = new Map(boards.map((b) => [b.id, b]));
+        for (const b of this.seenBoards) {
+          if (base.quadros[b.id] || base.quadrosV[b.id] !== b.at || now.get(b.id)?.at === b.at) continue;
+          base.quadros[b.id] = b;
+          changed = true;
+        }
+      }
+      if (changed) this.writeBaseContent(base);
+    }
+    this.seenReviews = reviews;
+    this.seenBoards = boards;
+  }
+
+  /**
+   * Depois de juntar o que veio da nuvem, ele é a base: das fichas (e dos quadros) que ainda estão
+   * diferentes aqui, a versão de lá; os ajustes como lá.
+   */
+  private rebase(conta: string, data: Record<string, unknown>, remoteFichas: readonly Review[]): void {
+    const remote = new Map(remoteFichas.map((r) => [r.id, r]));
+    const fichas: Record<string, Review> = {};
+    for (const r of this.store.reviews()) {
+      const there = remote.get(r.id);
+      if (there && there.updatedAt !== r.updatedAt) fichas[r.id] = there;
+    }
+    const board = kanbanOf(data)?.boards ?? [];
+    const quadrosV = Object.fromEntries(board.map((b) => [b.id, b.at]));
+    const quadros: Record<string, KanbanBoard> = {};
+    for (const b of this.kanban.state().boards) {
+      const there = board.find((x) => x.id === b.id);
+      if (there && there.at !== b.at) quadros[b.id] = there;
+    }
+    // o ajuste que a nuvem não tem é o de sempre (quem mudar primeiro muda a partir dele)
+    const ajustes: Partial<Record<BlockKind, unknown>> = {};
+    const there = blocksOf(data);
+    for (const kind of BLOCK_KINDS) {
+      const v = there[kind]?.dados ?? blockDefault(kind);
+      if (v !== undefined) ajustes[kind] = v;
+    }
+    this.writeBaseContent({ conta, fichas, quadrosV, quadros, ajustes });
+  }
+
+  /** Depois de enviar, o enviado é a base (o que mudou aqui durante o envio guarda a versão enviada). */
+  private rebaseAfterPush(conta: string, doc: BackupPayload, boards: readonly KanbanBoard[], ajustes: Partial<Record<BlockKind, unknown>>): void {
+    const sent = new Map<string, Review>();
+    for (const r of [...doc.reviews, ...(doc.notas ?? []), ...(doc.musicas ?? [])] as Review[]) sent.set(r.id, r);
+    const fichas: Record<string, Review> = {};
+    for (const r of this.store.reviews()) {
+      const was = sent.get(r.id);
+      const ficha = was && was.updatedAt !== r.updatedAt ? sanitizeReview(was, BUILD) : null;
+      if (ficha) fichas[r.id] = ficha;
+    }
+    const quadros: Record<string, KanbanBoard> = {};
+    for (const b of this.kanban.state().boards) {
+      const was = boards.find((x) => x.id === b.id);
+      if (was && was.at !== b.at) quadros[b.id] = was;
+    }
+    this.writeBaseContent({ conta, fichas, quadrosV: Object.fromEntries(boards.map((b) => [b.id, b.at])), quadros, ajustes });
   }
 
   /**
@@ -862,12 +1120,6 @@ export class CloudSync {
     return kanbanToSync(this.kanban.state());
   }
 
-  /** Os quadros que vieram da nuvem se juntam aos daqui, quadro a quadro. */
-  private mergeKanban(data: Record<string, unknown>): void {
-    const remote = kanbanOf(data);
-    if (remote) this.apply(() => this.kanban.merge(remote));
-  }
-
   /** O perfil deste aparelho para a nuvem, ou null se nunca mudou aqui. */
   private localProfile(): SyncedProfile | null {
     const em = this.profiles.changedAt();
@@ -884,13 +1136,16 @@ export class CloudSync {
 
   /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
   private remotePrint(data: Record<string, unknown>): Promise<string> {
-    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data));
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), conflictsPrintOf(data));
   }
 
   private apply(fn: () => void): void {
     this.applying = true;
     try {
       fn();
+      // o que a sincronização mudou não é mudança daqui (a base não guarda nada por isso)
+      this.seenReviews = this.store.reviews();
+      this.seenBoards = this.kanban.state().boards;
     } finally {
       // os effects do mural rodam depois; o envio que eles agendariam já está sendo feito aqui
       setTimeout(() => (this.applying = false), 0);
@@ -931,6 +1186,7 @@ export class CloudSync {
     profile: SyncedProfile | null,
     config: SyncedNotesConfig | null,
     kanban: Partial<KanbanState> | null,
+    conflitos: unknown[] | null,
     print: string,
   ): Promise<number> {
     const now = Date.now();
@@ -948,7 +1204,7 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), sync: { schema: SYNC_SCHEMA } }));
+    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device } }));
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
@@ -1109,6 +1365,7 @@ export class CloudSync {
     if (choice === 'secondary') {
       this.writeOwner(null);
       this.writeBase(null);
+      this.writeBaseContent(null);
       const { eraseSave } = await import('./erase-save');
       await eraseSave();
       location.reload();
@@ -1121,6 +1378,7 @@ export class CloudSync {
     this.writeState(null);
     this.writeOwner(null);
     this.writeBase(null);
+    this.writeBaseContent(null);
     this.lastSyncAt.set(null);
   }
 
@@ -1140,7 +1398,7 @@ export class CloudSync {
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.store.hasContent();
     return (
-      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban())) === state.impressao
+      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync())) === state.impressao
     );
   }
 }
