@@ -229,8 +229,14 @@ $folga-sombra: 30px;
   will-change: scroll-position;
   /* o foco do teclado e a coluna nova param fora do degradê */
   scroll-padding-inline: max(var(--sangria, 0px), var(--kb-fade));
-  scrollbar-color: rgb(243 239 230 / 0.35) transparent;
+  /* sem a barra de rolagem: o quadro corre pelas setas das beiradas, arrastando o fundo, com Shift +
+     roda, no trackpad e no dedo, e o degradê já mostra que há mais colunas de cada lado */
+  scrollbar-width: none;
   cursor: default;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   &.puxando {
     cursor: grabbing;

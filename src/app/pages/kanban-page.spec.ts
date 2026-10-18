@@ -496,6 +496,19 @@ describe('página do Kanban', () => {
     }
   });
 
+  it('o quadro que rola de lado não mostra a barra de rolagem (nem guarda o lugar dela)', async () => {
+    const many = board();
+    many.columns = Array.from({ length: 9 }, (_, i) => ({ id: `c${i}`, name: `Etapa ${i + 1}`, icon: 'circulo' as const, color: 'cinza' as const, finishes: false }));
+    kanban.state.set(state(many));
+    await go(TRAB_URL);
+    for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r));
+    await settle();
+    const q = host.querySelector<HTMLElement>('.quadro')!;
+    expect(q.scrollWidth).toBeGreaterThan(q.clientWidth);
+    expect(getComputedStyle(q).scrollbarWidth).toBe('none');
+    expect(q.offsetHeight - q.clientHeight).toBe(0);
+  });
+
   it('com poucas colunas, o quadro cabe: nem degradê nem seta', async () => {
     const one = board();
     one.columns = one.columns.slice(0, 1);
