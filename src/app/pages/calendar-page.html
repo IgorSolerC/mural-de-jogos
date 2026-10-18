@@ -47,7 +47,7 @@
     <!-- a folhinha de parede, presa pela espiral -->
     <section class="folha folha-mes" [attr.aria-label]="period()">
       <span class="espiral" aria-hidden="true"></span>
-      <app-calendar-month [day]="day()" [today]="today()" [reminders]="reminders()" (picked)="openDay($event)" (moved)="go('mes', $event, true)" />
+      <app-calendar-month [day]="day()" [today]="today()" [now]="now()" [reminders]="reminders()" (picked)="openDay($event)" (moved)="go('mes', $event, true)" />
       @if (empty()) {
         <p class="dica">Toque num dia para ver o que tem nele e marcar um lembrete, ou use o Novo lembrete lá em cima.</p>
       }
@@ -68,12 +68,12 @@
             @if (c.list.length) {
               <ul class="tiras" [attr.aria-label]="'Lembretes de ' + c.label">
                 @for (r of c.list; track r.id) {
-                  @let feito = isDone(r, c.day);
+                  @let passou = past(r, c.day);
                   <li>
                     <button
                       type="button"
                       class="tira cartolina"
-                      [class.feita]="feito"
+                      [class.passou]="passou"
                       [attr.data-cor]="r.color"
                       [style.--stock]="'var(--stock-' + r.color + ')'"
                       [style.--giro]="tiltOf(r.id)"
@@ -84,11 +84,8 @@
                         <span class="tira-hora">{{ timeLabel(r.time) }}</span>
                       }
                       <span class="tira-nome">{{ r.title }}</span>
-                      @if (feito || r.repeat || r.notes.length) {
+                      @if (r.repeat || r.notes.length) {
                         <span class="tira-pe" aria-hidden="true">
-                          @if (feito) {
-                            <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" />
-                          }
                           @if (r.repeat) {
                             <lucide-icon [img]="RepeatIcon" [size]="13" [strokeWidth]="2.6" />
                           }
@@ -128,7 +125,7 @@
               <lucide-icon [img]="NextIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
             </button>
           </div>
-          <app-calendar-month [mini]="true" [day]="day()" [today]="today()" [reminders]="reminders()" (picked)="go('dia', $event)" (moved)="go('dia', $event, true)" />
+          <app-calendar-month [mini]="true" [day]="day()" [today]="today()" [now]="now()" [reminders]="reminders()" (picked)="go('dia', $event)" (moved)="go('dia', $event, true)" />
         </section>
       </aside>
 
@@ -149,17 +146,12 @@
         @if (dayList().length) {
           <ol class="entradas">
             @for (r of dayList(); track r.id) {
-              @let feito = isDone(r, day());
+              @let passou = past(r, day());
               @let notas = notesOf(r);
               <li class="entrada">
-                <div class="lembrete cartolina" [class.feito]="feito" [attr.data-cor]="r.color" [style.--stock]="'var(--stock-' + r.color + ')'" [style.--giro]="tiltOf(r.id)">
-                  <button type="button" class="check" role="checkbox" [attr.aria-checked]="feito" [attr.aria-label]="'Feito: ' + r.title" (click)="toggleDone(r, day())">
-                    @if (feito) {
-                      <lucide-icon [img]="CheckIcon" [size]="20" [strokeWidth]="3.2" aria-hidden="true" />
-                    }
-                  </button>
+                <div class="lembrete cartolina" [class.passou]="passou" [attr.data-cor]="r.color" [style.--stock]="'var(--stock-' + r.color + ')'" [style.--giro]="tiltOf(r.id)">
                   <div class="lembrete-texto">
-                    <p class="lembrete-nome">{{ r.title }}</p>
+                    <p class="lembrete-nome">{{ r.title }}@if (passou) {<span class="sr-only"> (já passou)</span>}</p>
                     <p class="lembrete-meta">
                       <span class="meta-item">
                         <lucide-icon [img]="ClockIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
@@ -170,9 +162,6 @@
                           <lucide-icon [img]="RepeatIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
                           {{ repeatShort(r) }}
                         </span>
-                      }
-                      @if (feito) {
-                        <span class="meta-item">Feito</span>
                       }
                     </p>
                   </div>

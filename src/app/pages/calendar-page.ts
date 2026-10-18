@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CalendarDays, CalendarRange, CalendarSearch, Check, ChevronLeft, ChevronRight, Clock, LucideAngularModule, LucideIconData, Paperclip, Pencil, Plus, Repeat, Square } from 'lucide-angular';
+import { CalendarDays, CalendarRange, CalendarSearch, ChevronLeft, ChevronRight, Clock, LucideAngularModule, LucideIconData, Paperclip, Pencil, Plus, Repeat, Square } from 'lucide-angular';
 import { map } from 'rxjs';
 import { MONTHS_LONG } from '../core/dates';
 import {
@@ -11,7 +11,7 @@ import {
   addDays,
   addMonths,
   isDay,
-  isDone,
+  isPast,
   longDay,
   monthLabel,
   monthOf,
@@ -85,7 +85,7 @@ function tiltOf(id: string): string {
  * - **Semana**: a agenda semanal, os sete dias lado a lado (um embaixo do outro no celular), cada
  *   lembrete numa tira de cartolina com o horário, o nome, se repete e o clipe das anotações.
  * - **Dia**: o calendário pequeno ao lado (para pular de dia) e a página do dia, com cada lembrete
- *   inteiro: feito ou não, o horário, como repete e as anotações anexadas, as fichas de verdade, presas
+ *   inteiro (riscado, se já passou): o horário, como repete e as anotações anexadas, as fichas de verdade, presas
  *   por um clipe (tocar abre a leitura).
  *
  * Na pasta: Hoje, as setas do período e o nome dele, e "Ir para" uma data. Teclas: T (hoje), M, S e D
@@ -105,13 +105,12 @@ export class CalendarPage {
   protected readonly PlusIcon = Plus;
   protected readonly RepeatIcon = Repeat;
   protected readonly ClipIcon = Paperclip;
-  protected readonly CheckIcon = Check;
   protected readonly ClockIcon = Clock;
   protected readonly PencilIcon = Pencil;
   protected readonly views = VIEWS;
   protected readonly timeLabel = timeLabel;
   protected readonly repeatShort = repeatShort;
-  protected readonly isDone = isDone;
+
   protected readonly tiltOf = tiltOf;
 
   private readonly calendar = inject(CalendarStore);
@@ -128,6 +127,7 @@ export class CalendarPage {
   });
 
   protected readonly today = this.calendar.today;
+  protected readonly now = this.calendar.time;
   protected readonly reminders = this.calendar.reminders;
   /** A vista aberta: a do endereço, ou a última deste aparelho, ou o mês. */
   protected readonly view = computed<CalendarView>(() => {
@@ -291,12 +291,13 @@ export class CalendarPage {
     if (this.sheet() === s) this.sheet.set(null);
   }
 
-  protected toggleDone(r: Reminder, day: string): void {
-    this.calendar.toggleDone(r.id, day);
-  }
-
   protected read(id: string): void {
     this.desk.openReview(id);
+  }
+
+  /** Esta vez do lembrete já passou (sai riscada; ninguém marca nem desmarca). */
+  protected past(r: Reminder, day: string): boolean {
+    return isPast(r, day, this.today(), this.now());
   }
 
   /** As anotações anexadas que existem (uma apagada some da lista sem mexer no lembrete). */
@@ -310,7 +311,7 @@ export class CalendarPage {
     if (r.repeat) parts.push(repeatShort(r));
     const n = this.notesOf(r).length;
     if (n) parts.push(n === 1 ? '1 anotação anexada' : `${n} anotações anexadas`);
-    if (isDone(r, day)) parts.push('feito');
+    if (this.past(r, day)) parts.push('já passou');
     return `${parts.join(', ')}. Editar`;
   }
 

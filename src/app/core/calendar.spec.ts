@@ -6,6 +6,7 @@ import {
   calendarToSync,
   drawColor,
   isDay,
+  isPast,
   mergeCalendar,
   monthGrid,
   nextOccurrence,
@@ -17,7 +18,6 @@ import {
   sanitizeReminder,
   skipDay,
   timeLabel,
-  toggleDone,
   weekDays,
   weekLabel,
   weekday,
@@ -30,7 +30,6 @@ function reminder(over: Partial<Reminder> = {}): Reminder {
     date: '2026-10-18',
     color: 'amarelo',
     notes: [],
-    done: [],
     skip: [],
     createdAt: '2026-10-18T10:00:00.000Z',
     at: '2026-10-18T10:00:00.000Z',
@@ -111,16 +110,23 @@ describe('Calendário: quando o lembrete aparece', () => {
     expect(nextOccurrence(ano, '2025-03-01')).toBe('2026-02-28');
   });
 
-  it('um dia tirado da série some só ele, e o feito é por dia', () => {
+  it('um dia tirado da série some só ele', () => {
     const r = reminder({ repeat: 'semana' });
-    const sem = skipDay(toggleDone(r, '2026-10-25', 'x'), '2026-10-25', '2026-10-19T00:00:00.000Z');
+    const sem = skipDay(r, '2026-10-25', '2026-10-19T00:00:00.000Z');
     expect(occursOn(sem, '2026-10-25')).toBeFalse();
-    expect(sem.done).toEqual([]);
     expect(occursOn(sem, '2026-11-01')).toBeTrue();
     expect(nextOccurrence(sem, '2026-10-19')).toBe('2026-11-01');
-    const feito = toggleDone(r, '2026-11-01', 'x');
-    expect(feito.done).toEqual(['2026-11-01']);
-    expect(toggleDone(feito, '2026-11-01', 'x').done).toEqual([]);
+  });
+
+  it('o que já passou sai do relógio: o dia de antes, e hoje o horário que já foi (o dia todo, só amanhã)', () => {
+    const cafe = reminder({ time: '08:30' });
+    const todo = reminder();
+    expect(isPast(todo, '2026-10-17', '2026-10-18', '00:00')).toBeTrue();
+    expect(isPast(todo, '2026-10-18', '2026-10-18', '23:59')).toBeFalse();
+    expect(isPast(cafe, '2026-10-18', '2026-10-18', '08:29')).toBeFalse();
+    expect(isPast(cafe, '2026-10-18', '2026-10-18', '08:30')).toBeFalse();
+    expect(isPast(cafe, '2026-10-18', '2026-10-18', '08:31')).toBeTrue();
+    expect(isPast(cafe, '2026-10-19', '2026-10-18', '23:59')).toBeFalse();
   });
 
   it('no dia, o dia todo primeiro, depois pelo horário e pelo nome', () => {
@@ -151,13 +157,14 @@ describe('Calendário: guardar e juntar', () => {
     expect(sanitizeReminder({ ...reminder(), title: '   ' })).toBeNull();
     expect(sanitizeReminder({ ...reminder(), date: '2026-02-30' })).toBeNull();
     expect(sanitizeReminder({ ...reminder(), id: '<script>' })).toBeNull();
-    const r = sanitizeReminder({ ...reminder(), title: '  Bolo   de  fubá ', time: '25:00', repeat: 'hora', color: 'dourado', notes: ['ra', 'ra', 3, 'rb'], done: ['2026-10-18', 'ontem'], skip: ['2026-10-19'] })!;
+    const r = sanitizeReminder({ ...reminder(), title: '  Bolo   de  fubá ', time: '25:00', repeat: 'hora', color: 'dourado', notes: ['ra', 'ra', 3, 'rb'], done: ['2026-10-18'], skip: ['2026-10-19'] })!;
     expect(r.title).toBe('Bolo de fubá');
     expect(r.time).toBeUndefined();
     expect(r.repeat).toBeUndefined();
     expect(r.color).toBe('amarelo');
     expect(r.notes).toEqual(['ra', 'rb']);
-    expect(r.done).toEqual(['2026-10-18']);
+    // a marca de feito de antes não existe mais (o que passou sai riscado sozinho)
+    expect('done' in r).toBeFalse();
     // sem repetir, não há dia tirado
     expect(r.skip).toEqual([]);
     expect(sanitizeCalendar('lixo')).toEqual({ reminders: [], removed: {} });

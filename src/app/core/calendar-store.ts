@@ -1,6 +1,12 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
-import { CalendarState, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay, toggleDone } from './calendar';
+import { CalendarState, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay } from './calendar';
 import { todayISO } from './dates';
+
+/** A hora do aparelho, 'HH:MM'. */
+function nowTime(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 import { newId } from './review';
 import { writeJson } from './storage';
 
@@ -47,6 +53,8 @@ export class CalendarStore {
 
   /** O dia de hoje, que vira à meia-noite enquanto o site está aberto (ver `tick`). */
   readonly today = signal(todayISO());
+  /** A hora de agora ('HH:MM'): o lembrete de hoje cujo horário já foi sai riscado. */
+  readonly time = signal(nowTime());
   /** Quantos lembretes hoje tem (a contagem da barra da página). */
   readonly todayCount = computed(() => remindersOn(this.reminders(), this.today()).length);
 
@@ -54,10 +62,11 @@ export class CalendarStore {
     effect(() => writeJson(CALENDAR_KEY, this.state()));
   }
 
-  /** Confere se o dia virou (a página chama de vez em quando e quando a aba volta). */
+  /** Confere se o dia (ou o minuto) virou: a página chama de vez em quando e quando a aba volta. */
   tick(): void {
-    const now = todayISO();
-    if (now !== this.today()) this.today.set(now);
+    const day = todayISO();
+    if (day !== this.today()) this.today.set(day);
+    this.time.set(nowTime());
   }
 
   get(id: string): Reminder | undefined {
@@ -71,7 +80,7 @@ export class CalendarStore {
   /** Um lembrete em branco para a folha: no dia pedido, sem horário, com uma cor sorteada. */
   blank(day: string): Reminder {
     const now = new Date().toISOString();
-    return { id: newId(), title: '', date: day, color: drawColor(this.reminders()), notes: [], done: [], skip: [], createdAt: now, at: now };
+    return { id: newId(), title: '', date: day, color: drawColor(this.reminders()), notes: [], skip: [], createdAt: now, at: now };
   }
 
   /** Guarda o lembrete (novo, ou no lugar do de mesmo id), mais novo que antes. */
@@ -95,10 +104,6 @@ export class CalendarStore {
   /** Desfazer: o lembrete volta como era, mais novo que a mudança desfeita. */
   restore(r: Reminder): void {
     this.save(r);
-  }
-
-  toggleDone(id: string, day: string): void {
-    this.change(id, (r, at) => toggleDone(r, day, at));
   }
 
   /** "Apagar só neste dia", num lembrete que se repete. */

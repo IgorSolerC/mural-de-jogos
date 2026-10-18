@@ -276,7 +276,7 @@
   overflow-wrap: anywhere;
 }
 
-.feita .tira-nome {
+.passou .tira-nome {
   text-decoration: line-through 2px var(--ink);
 }
 
@@ -533,61 +533,19 @@
   list-style: none;
 }
 
-/* o lembrete inteiro: a tira de cartolina, maior, com o quadradinho de feito, o nome e o que mais ele diz */
+/* o lembrete inteiro: a tira de cartolina, maior, com o nome e o que mais ele diz (riscado, se já passou) */
 .lembrete {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 4px 14px;
-  padding: 14px 10px 14px 16px;
+  padding: 14px 10px 14px 18px;
   border-radius: 2px;
   color: var(--ink);
   rotate: calc(var(--giro, 0deg) * 0.6);
   box-shadow:
     0 1px 1px rgb(0 0 0 / 0.22),
     0 5px 10px -5px rgb(0 0 0 / 0.4);
-}
-
-/* o quadradinho de papel, marcado a caneta quando feito */
-.check {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  margin-top: 2px;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  background-color: #fffdf8;
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  box-shadow:
-    inset 0 0 0 2px var(--ink),
-    0 1px 1px rgb(0 0 0 / 0.2);
-  cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
-
-  lucide-icon {
-    display: inline-flex;
-  }
-
-  /* o quadradinho desenhado tem 32px; o toque pega 44 */
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -6px;
-  }
-
-  &:hover {
-    background-color: #ffffff;
-  }
-
-  &:focus-visible {
-    outline: 2.5px solid var(--ink);
-    outline-offset: 2px;
-  }
 }
 
 .lembrete-texto {
@@ -602,7 +560,7 @@
   overflow-wrap: anywhere;
 }
 
-.feito .lembrete-nome {
+.passou .lembrete-nome {
   text-decoration: line-through 2.5px var(--ink);
 }
 
@@ -725,7 +683,6 @@
   .tira,
   .dia-mais,
   .dia-cab,
-  .check,
   .editar {
     transition: none;
   }

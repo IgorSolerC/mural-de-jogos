@@ -9,7 +9,8 @@ import { nameCollator } from './text';
  *
  * Tudo aqui é puro: os dias são 'AAAA-MM-DD' e as contas são em dias inteiros (UTC), sem fuso nem
  * horário de verão no meio. O lembrete guarda o primeiro dia (`date`) e como se repete; os dias em que
- * ele aparece saem de `occursOn`. Feito e "só neste dia não" são marcas por dia (`done`, `skip`).
+ * ele aparece saem de `occursOn`; "só neste dia não" é uma marca por dia (`skip`). O que já passou
+ * sai riscado sozinho (`isPast`): ninguém marca nem desmarca.
  *
  * Guardado neste navegador e no mural privado da nuvem (`calendario`), lembrete a lembrete: vale o
  * mudado por último, e os apagados são lembrados (ver `mergeCalendar`). Nunca no mural público nem no
@@ -23,7 +24,7 @@ export const REPEATS: readonly Repeat[] = ['dia', 'semana', 'mes', 'ano'];
 export const TITLE_MAX = 120;
 /** Quantas anotações cabem num lembrete. */
 export const MAX_NOTES = 12;
-/** Quantos dias marcados (feitos, pulados) um lembrete guarda: os mais recentes. */
+/** Quantos dias tirados (pulados) um lembrete guarda: os mais recentes. */
 const MAX_MARKS = 500;
 const MAX_REMINDERS = 3000;
 
@@ -38,8 +39,6 @@ export interface Reminder {
   color: LightStock;
   /** As anotações anexadas, na ordem em que foram presas. */
   notes: string[];
-  /** Os dias em que ele foi feito (num lembrete de um dia só, no máximo o dele). */
-  done: string[];
   /** Os dias tirados de um lembrete que se repete ("Apagar só neste dia"). */
   skip: string[];
   createdAt: string;
@@ -277,21 +276,20 @@ export function remindersByDay(list: readonly Reminder[], days: readonly string[
   return out;
 }
 
-export function isDone(r: Pick<Reminder, 'done'>, day: string): boolean {
-  return r.done.includes(day);
+/**
+ * Esta vez do lembrete já passou? O dia antes de hoje passou; hoje, só o que tem horário e o horário
+ * já foi (o do dia todo passa à meia-noite). Sai do relógio do aparelho, sem marca guardada: um
+ * lembrete marcado para trás já nasce riscado.
+ */
+export function isPast(r: Pick<Reminder, 'time'>, day: string, today: string, now: string): boolean {
+  return day < today || (day === today && !!r.time && r.time < now);
 }
 
 // ===== Mudanças (devolvem o lembrete novo) =====
 
-/** Marca (ou desmarca) o lembrete como feito naquele dia. */
-export function toggleDone(r: Reminder, day: string, at: string): Reminder {
-  const done = r.done.includes(day) ? r.done.filter((d) => d !== day) : marks([...r.done, day]);
-  return { ...r, done, at };
-}
-
 /** Tira um dia de um lembrete que se repete (o resto continua). */
 export function skipDay(r: Reminder, day: string, at: string): Reminder {
-  return { ...r, skip: marks([...r.skip, day]), done: r.done.filter((d) => d !== day), at };
+  return { ...r, skip: marks([...r.skip, day]), at };
 }
 
 /** A cor do lembrete novo: sorteada entre as cartolinas (sem o branco), nunca a do último criado. */
@@ -334,7 +332,6 @@ export function sanitizeReminder(raw: unknown): Reminder | null {
     ...(repeat ? { repeat } : {}),
     color: (LIGHT_STOCKS as readonly unknown[]).includes(r['color']) ? (r['color'] as LightStock) : 'amarelo',
     notes,
-    done: Array.isArray(r['done']) ? marks(r['done'] as string[]) : [],
     skip: repeat && Array.isArray(r['skip']) ? marks(r['skip'] as string[]) : [],
     createdAt,
     at: isStamp(r['at']) ? r['at'] : createdAt,

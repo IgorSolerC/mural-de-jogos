@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, output } from '@angular/core';
 import { MONTHS_LONG } from '../core/dates';
-import { Reminder, WEEKDAYS_LONG, WEEKDAYS_SHORT, addDays, addMonths, isDone, monthGrid, monthLabel, monthOf, remindersByDay, timeLabel, weekday } from '../core/calendar';
+import { Reminder, WEEKDAYS_LONG, WEEKDAYS_SHORT, addDays, addMonths, isPast, monthGrid, monthLabel, monthOf, remindersByDay, timeLabel, weekday } from '../core/calendar';
 
 /** Um dia da folha, já com o que ele mostra. */
 interface Cell {
@@ -10,10 +10,10 @@ interface Cell {
   out: boolean;
   sunday: boolean;
   today: boolean;
-  /** Na pequena, as bolinhas: a cor de cada lembrete (os primeiros) e se ele já foi feito. */
-  dots: { color: string; done: boolean }[];
+  /** Na pequena, as bolinhas: a cor de cada lembrete (os primeiros) e se ele já passou. */
+  dots: { color: string; past: boolean }[];
   /** Na grande, as tirinhas: o nome de cada lembrete (os primeiros), na cor dele, com o horário. */
-  chips: { id: string; title: string; time: string | null; color: string; done: boolean }[];
+  chips: { id: string; title: string; time: string | null; color: string; past: boolean }[];
   /** Quantos não couberam. */
   more: number;
   label: string;
@@ -24,8 +24,8 @@ interface Cell {
 /**
  * A folha de um mês (a "folhinha"): os dias de domingo a sábado, os domingos impressos em vermelho, o
  * dia de hoje circulado a caneta e, embaixo do número, o nome de cada lembrete do dia numa tirinha da
- * cor dele (com o horário; riscado quando feito), três por dia e "+2 mais". Na pequena, no lugar das
- * tirinhas, uma bolinha adesiva na cor de cada lembrete (riscada quando feito). Tocar num dia o escolhe
+ * cor dele (com o horário; riscado quando já passou), três por dia e "+2 mais". Na pequena, no lugar
+ * das tirinhas, uma bolinha adesiva na cor de cada lembrete (riscada quando já passou). Tocar num dia o escolhe
  * (`picked`); as setas andam pelos dias (e mudam de mês nas pontas), PageUp e PageDown pulam um mês,
  * Home e End vão ao começo e ao fim da semana (`moved`; quem usa troca o dia).
  *
@@ -70,7 +70,7 @@ interface Cell {
                   @if (c.chips.length) {
                     <span class="tirinhas" aria-hidden="true">
                       @for (t of c.chips; track t.id) {
-                        <span class="tirinha cartolina" [class.feita]="t.done" [attr.data-cor]="t.color" [style.--stock]="'var(--stock-' + t.color + ')'">
+                        <span class="tirinha cartolina" [class.passou]="t.past" [attr.data-cor]="t.color" [style.--stock]="'var(--stock-' + t.color + ')'">
                           @if (t.time) {
                             <span class="tirinha-hora">{{ t.time }}</span>
                           }
@@ -85,7 +85,7 @@ interface Cell {
                   @if (c.dots.length) {
                     <span class="pontos" aria-hidden="true">
                       @for (p of c.dots; track $index) {
-                        <span class="ponto" [class.feito]="p.done" [style.--stock]="'var(--stock-' + p.color + ')'"></span>
+                        <span class="ponto" [class.passou]="p.past" [style.--stock]="'var(--stock-' + p.color + ')'"></span>
                       }
                       @if (c.more) {
                         <span class="mais">+{{ c.more }}</span>
@@ -229,7 +229,7 @@ interface Cell {
       hyphens: auto;
       overflow-wrap: break-word;
 
-      &.feita {
+      &.passou {
         text-decoration: line-through 1.5px var(--ink);
       }
     }
@@ -262,7 +262,7 @@ interface Cell {
       pointer-events: none;
     }
 
-    /* as bolinhas adesivas: uma por lembrete, na cor dele; a de um lembrete feito, riscada a caneta */
+    /* as bolinhas adesivas: uma por lembrete, na cor dele; a de um que já passou, riscada a caneta */
     .pontos {
       display: flex;
       flex-wrap: wrap;
@@ -283,8 +283,8 @@ interface Cell {
         inset 0 0 0 1px rgb(21 21 21 / 0.6),
         0 1px 1px rgb(0 0 0 / 0.25);
 
-      /* feito: o risco de caneta atravessando a bolinha (a branca continua diferente da feita) */
-      &.feito::after {
+      /* passou: o risco de caneta atravessando a bolinha (a branca continua diferente da riscada) */
+      &.passou::after {
         content: '';
         position: absolute;
         left: -2px;
@@ -344,7 +344,7 @@ interface Cell {
         height: 6px;
         box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.6);
 
-        &.feito::after {
+        &.passou::after {
           left: -1px;
           right: -1px;
           height: 1px;
@@ -438,6 +438,8 @@ export class CalendarMonth {
   /** O dia escolhido (na grande, onde o teclado está); o mês da folha é o dele. */
   readonly day = input.required<string>();
   readonly today = input.required<string>();
+  /** A hora de agora ('HH:MM'), para riscar o que já passou hoje. */
+  readonly now = input('00:00');
   readonly reminders = input.required<readonly Reminder[]>();
   readonly mini = input(false);
   /** Tocou num dia (ou Enter nele). */
@@ -462,6 +464,7 @@ export class CalendarMonth {
     const byDay = remindersByDay(this.reminders(), weeks.flat());
     const month = this.month();
     const today = this.today();
+    const now = this.now();
     const mini = this.mini();
     return weeks.map((week) =>
       week.map((day) => {
@@ -477,8 +480,8 @@ export class CalendarMonth {
           out: monthOf(day) !== month,
           sunday: weekday(day) === 0,
           today: day === today,
-          dots: mini ? list.slice(0, shown).map((r) => ({ color: r.color, done: isDone(r, day) })) : [],
-          chips: mini ? [] : list.slice(0, shown).map((r) => ({ id: r.id, title: r.title, time: r.time ? timeLabel(r.time) : null, color: r.color, done: isDone(r, day) })),
+          dots: mini ? list.slice(0, shown).map((r) => ({ color: r.color, past: isPast(r, day, today, now) })) : [],
+          chips: mini ? [] : list.slice(0, shown).map((r) => ({ id: r.id, title: r.title, time: r.time ? timeLabel(r.time) : null, color: r.color, past: isPast(r, day, today, now) })),
           more: list.length - shown,
           label: `${WEEKDAYS_LONG[weekday(day)]}, ${n} de ${MONTHS_LONG[m - 1]}${day === today ? ', hoje' : ''}${list.length ? `, ${count}: ${list.map((r) => r.title).join(', ')}` : ''}`,
           names: list.map((r) => r.title).join('\n'),

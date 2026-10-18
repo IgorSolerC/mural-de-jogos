@@ -24,7 +24,7 @@ const note = (id: string, title: string, extra: Record<string, unknown> = {}): R
   });
 
 function reminder(id: string, title: string, date: string, extra: Partial<Reminder> = {}): Reminder {
-  return { id, title, date, color: 'amarelo', notes: [], done: [], skip: [], createdAt: T0, at: T0, ...extra };
+  return { id, title, date, color: 'amarelo', notes: [], skip: [], createdAt: T0, at: T0, ...extra };
 }
 
 describe('página do Calendário', () => {
@@ -67,12 +67,14 @@ describe('página do Calendário', () => {
     ]);
     calendar = TestBed.inject(CalendarStore);
     calendar.today.set(HOJE);
+    // meio-dia: o remédio das 8h de hoje já passou; o aniversário (o dia todo) não
+    calendar.time.set('12:00');
     calendar.state.set({
       removed: {},
       reminders: [
         reminder('rbolo0001', 'Fazer bolo de aniversário', '2026-10-20', { color: 'rosa', time: '15:00', notes: ['nbolo0001', 'ncalda001'] }),
         reminder('rbruna001', 'Aniversário da Bruna', '2020-10-18', { color: 'lilas', repeat: 'ano' }),
-        reminder('rremedio1', 'Tomar o remédio', '2026-10-01', { color: 'azul', repeat: 'dia', time: '08:00', done: [HOJE] }),
+        reminder('rremedio1', 'Tomar o remédio', '2026-10-01', { color: 'azul', repeat: 'dia', time: '08:00' }),
       ],
     });
     desk = TestBed.inject(Desk);
@@ -95,9 +97,12 @@ describe('página do Calendário', () => {
       expect(cell(HOJE).getAttribute('aria-current')).toBe('date');
       expect(cell(HOJE).classList).toContain('hoje');
       expect(cell(HOJE).classList).toContain('domingo');
-      // hoje: o aniversário (o dia todo, primeiro) e o remédio, com o horário (feito: riscado)
+      // hoje: o aniversário (o dia todo, primeiro) e o remédio, com o horário (já passou: riscado)
       expect([...cell(HOJE).querySelectorAll('.tirinha')].map(text)).toEqual(['Aniversário da Bruna', '8h Tomar o remédio']);
-      expect(cell(HOJE).querySelector('.tirinha.feita')?.textContent).toContain('Tomar o remédio');
+      expect([...cell(HOJE).querySelectorAll('.tirinha.passou')].map(text)).toEqual(['8h Tomar o remédio']);
+      // os dias de antes, todos riscados
+      expect(cell('2026-10-17').querySelector('.tirinha.passou')).not.toBeNull();
+      expect(cell('2026-10-19').querySelector('.tirinha.passou')).toBeNull();
       expect(cell(HOJE).querySelector('.tirinha')!.getAttribute('data-cor')).toBe('lilas');
       // na folha grande, nada de bolinha
       expect(cell(HOJE).querySelector('.ponto')).toBeNull();
@@ -169,8 +174,8 @@ describe('página do Calendário', () => {
       expect(text(bolo.querySelector('.tira-hora'))).toBe('15h');
       expect(text(bolo.querySelector('.tira-clipe'))).toBe('2');
       expect(bolo.getAttribute('aria-label')).toBe('Fazer bolo de aniversário, às 15h, 2 anotações anexadas. Editar');
-      // o remédio de hoje já foi feito: riscado
-      expect(dias[0].querySelector('.tira.feita .tira-nome')?.textContent).toContain('Tomar o remédio');
+      // o remédio de hoje já passou: riscado
+      expect(dias[0].querySelector('.tira.passou .tira-nome')?.textContent).toContain('Tomar o remédio');
     });
 
     it('tocar numa tira abre a folha do lembrete; o + de um dia abre um lembrete novo naquele dia', async () => {
@@ -219,15 +224,23 @@ describe('página do Calendário', () => {
       expect(text($('.vazio'))).toContain('Nada marcado');
     });
 
-    it('o quadradinho marca o lembrete como feito só naquele dia', async () => {
-      await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
-      const check = $$('.check')[0];
-      expect(check.getAttribute('aria-checked')).toBe('false');
-      check.click();
+    it('o que já passou sai riscado sozinho, sem quadradinho para marcar; marcado para trás, já nasce riscado', async () => {
+      await go(`/anotacoes/calendario?vista=dia&dia=${HOJE}`);
+      expect(host.querySelector('.check, [role="checkbox"]')).toBeNull();
+      const [bruna, remedio] = $$('.lembrete');
+      expect(bruna.classList).not.toContain('passou');
+      expect(remedio.classList).toContain('passou');
+      expect(text(remedio.querySelector('.lembrete-nome'))).toBe('Tomar o remédio (já passou)');
+      // o relógio anda: virou o dia, o aniversário também passou
+      calendar.today.set('2026-10-19');
+      calendar.time.set('00:01');
       await settle();
-      expect(calendar.get('rremedio1')!.done).toEqual([HOJE, '2026-10-20']);
-      expect($$('.check')[0].getAttribute('aria-checked')).toBe('true');
-      expect(text($$('.lembrete-meta')[0])).toContain('Feito');
+      await go(`/anotacoes/calendario?vista=dia&dia=${HOJE}`);
+      expect($$('.lembrete').every((l) => l.classList.contains('passou'))).toBeTrue();
+      // um lembrete novo num dia que já foi: riscado desde o começo
+      calendar.save(reminder('rontem001', 'Consulta', '2026-10-02'));
+      await go('/anotacoes/calendario?vista=dia&dia=2026-10-02');
+      expect($$('.lembrete.passou').map((l) => text(l.querySelector('.lembrete-nome')))).toContain('Consulta (já passou)');
     });
 
     it('uma anotação apagada some do lembrete sem quebrar nada', async () => {

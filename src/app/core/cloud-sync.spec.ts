@@ -343,11 +343,10 @@ describe('sincronização com a nuvem', () => {
       await new Promise((r) => setTimeout(r, 5));
       const bruna = { ...b.calendar.blank('2026-03-14'), title: 'Aniversário da Bruna', repeat: 'ano' as const };
       b.calendar.save(bruna);
-      a.calendar.toggleDone(bolo.id, '2027-08-23');
+      a.calendar.save({ ...a.calendar.get(bolo.id)!, title: 'Fazer o bolo da Bia' });
       await settle(a, b);
       for (const d of [a, b]) {
-        expect(d.calendar.reminders().map((r) => r.title).sort()).toEqual(['Aniversário da Bruna', 'Fazer bolo de aniversário']);
-        expect(d.calendar.get(bolo.id)!.done).toEqual(['2027-08-23']);
+        expect(d.calendar.reminders().map((r) => r.title).sort()).toEqual(['Aniversário da Bruna', 'Fazer o bolo da Bia']);
       }
 
       // apagar num apaga no outro, e ele não volta
