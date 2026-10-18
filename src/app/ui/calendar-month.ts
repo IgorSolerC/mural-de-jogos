@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, output } from '@angular/core';
 import { MONTHS_LONG } from '../core/dates';
-import { Reminder, WEEKDAYS_LONG, WEEKDAYS_SHORT, addDays, addMonths, isDone, monthGrid, monthLabel, monthOf, remindersByDay, weekday } from '../core/calendar';
+import { Reminder, WEEKDAYS_LONG, WEEKDAYS_SHORT, addDays, addMonths, isDone, monthGrid, monthLabel, monthOf, remindersByDay, timeLabel, weekday } from '../core/calendar';
 
 /** Um dia da folha, já com o que ele mostra. */
 interface Cell {
@@ -10,9 +10,11 @@ interface Cell {
   out: boolean;
   sunday: boolean;
   today: boolean;
-  /** As bolinhas: a cor de cada lembrete (os primeiros) e se ele já foi feito. */
+  /** Na pequena, as bolinhas: a cor de cada lembrete (os primeiros) e se ele já foi feito. */
   dots: { color: string; done: boolean }[];
-  /** Quantos não couberam em bolinhas. */
+  /** Na grande, as tirinhas: o nome de cada lembrete (os primeiros), na cor dele, com o horário. */
+  chips: { id: string; title: string; time: string | null; color: string; done: boolean }[];
+  /** Quantos não couberam. */
   more: number;
   label: string;
   /** Os nomes, para a dica do mouse. */
@@ -21,8 +23,9 @@ interface Cell {
 
 /**
  * A folha de um mês (a "folhinha"): os dias de domingo a sábado, os domingos impressos em vermelho, o
- * dia de hoje circulado a caneta e, embaixo do número, uma bolinha adesiva na cor de cada lembrete do
- * dia (as de papelaria, de marcar), apagada quando ele já foi feito. Tocar num dia o escolhe
+ * dia de hoje circulado a caneta e, embaixo do número, o nome de cada lembrete do dia numa tirinha da
+ * cor dele (com o horário; riscado quando feito), três por dia e "+2 mais". Na pequena, no lugar das
+ * tirinhas, uma bolinha adesiva na cor de cada lembrete (riscada quando feito). Tocar num dia o escolhe
  * (`picked`); as setas andam pelos dias (e mudam de mês nas pontas), PageUp e PageDown pulam um mês,
  * Home e End vão ao começo e ao fim da semana (`moved`; quem usa troca o dia).
  *
@@ -55,7 +58,7 @@ interface Cell {
                   [class.domingo]="c.sunday"
                   [class.hoje]="c.today"
                   [class.escolhido]="mini() && c.day === day()"
-                  [class.tem]="c.dots.length > 0"
+                  [class.tem]="c.dots.length + c.chips.length > 0"
                   [attr.tabindex]="c.day === cursor() ? 0 : -1"
                   [attr.aria-label]="c.label"
                   [attr.aria-current]="c.today ? 'date' : null"
@@ -64,6 +67,21 @@ interface Cell {
                   (click)="picked.emit(c.day)"
                 >
                   <span class="num" aria-hidden="true">{{ c.n }}</span>
+                  @if (c.chips.length) {
+                    <span class="tirinhas" aria-hidden="true">
+                      @for (t of c.chips; track t.id) {
+                        <span class="tirinha cartolina" [class.feita]="t.done" [attr.data-cor]="t.color" [style.--stock]="'var(--stock-' + t.color + ')'">
+                          @if (t.time) {
+                            <span class="tirinha-hora">{{ t.time }}</span>
+                          }
+                          {{ t.title }}
+                        </span>
+                      }
+                      @if (c.more) {
+                        <span class="mais-linha">+{{ c.more }} mais</span>
+                      }
+                    </span>
+                  }
                   @if (c.dots.length) {
                     <span class="pontos" aria-hidden="true">
                       @for (p of c.dots; track $index) {
@@ -114,6 +132,8 @@ interface Cell {
 
     /* as linhas da folha: riscos finos de impressão entre os dias */
     td {
+      /* (o 1px deixa o dia ocupar a altura da semana inteira: a mais cheia decide) */
+      height: 1px;
       padding: 0;
       border-top: 1.5px solid var(--linha);
       vertical-align: top;
@@ -127,11 +147,13 @@ interface Cell {
       position: relative;
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      justify-content: space-between;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 4px;
       width: 100%;
-      height: var(--celula, clamp(64px, 9.5vw, 112px));
-      padding: 8px 8px 9px 10px;
+      height: 100%;
+      min-height: var(--celula, clamp(88px, 8.5vw, 118px));
+      padding: 8px 6px 8px 8px;
       border: 0;
       border-radius: 2px;
       background: transparent;
@@ -153,6 +175,7 @@ interface Cell {
     /* o número impresso; o de domingo em vermelho, como numa folhinha */
     .num {
       position: relative;
+      align-self: flex-start;
       display: grid;
       place-items: center;
       min-width: 1.9em;
@@ -173,9 +196,61 @@ interface Cell {
       .num {
         opacity: 0.62;
       }
-      .pontos {
-        opacity: 0.45;
+      .pontos,
+      .tirinhas {
+        opacity: 0.55;
       }
+    }
+
+    /* as tirinhas: o nome de cada lembrete escrito numa tira da cartolina dele, uma linha cada */
+    .tirinhas {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .tirinha {
+      min-width: 0;
+      padding: 2px 6px 1px;
+      border-radius: 2px;
+      color: var(--ink);
+      box-shadow:
+        inset 0 0 0 1px rgb(21 21 21 / 0.12),
+        0 1px 1px rgb(0 0 0 / 0.18);
+      font-family: var(--f-hand);
+      font-weight: 700;
+      font-size: 0.86rem;
+      line-height: 1.22;
+      /* até duas linhas do nome, para ele ser lido; o resto, só abrindo o dia */
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      hyphens: auto;
+      overflow-wrap: break-word;
+
+      &.feita {
+        text-decoration: line-through 1.5px var(--ink);
+      }
+    }
+
+    .tirinha-hora {
+      margin-right: 3px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.74rem;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mais-linha {
+      padding-left: 4px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.76rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-2);
     }
 
     /* hoje: o número circulado a caneta vermelha, à mão */
@@ -249,10 +324,12 @@ interface Cell {
         justify-content: flex-start;
         gap: 2px;
         height: 46px;
+        min-height: 0;
         padding: 5px 2px 4px;
       }
 
       .num {
+        align-self: center;
         margin: 0;
         font-size: 0.98rem;
       }
@@ -300,14 +377,37 @@ interface Cell {
       }
 
       .dia {
-        align-items: center;
-        height: var(--celula, 58px);
-        padding: 6px 2px 7px;
+        gap: 3px;
+        min-height: var(--celula, 64px);
+        padding: 6px 2px 6px;
       }
 
       .num {
+        align-self: center;
         margin: -2px 0 0;
         font-size: 1rem;
+      }
+
+      /* no celular, a tirinha é menor e vai sem o horário */
+      .tirinhas {
+        gap: 2px;
+      }
+
+      .tirinha {
+        padding: 1px 3px;
+        font-size: 0.7rem;
+        line-height: 1.15;
+      }
+
+      .tirinha-hora {
+        display: none;
+      }
+
+      .mais-linha {
+        padding-left: 0;
+        text-align: center;
+        font-size: 0.68rem;
+        letter-spacing: 0;
       }
 
       /* numa célula de 44px cabem três bolinhas e o +N, numa linha só */
@@ -362,11 +462,12 @@ export class CalendarMonth {
     const byDay = remindersByDay(this.reminders(), weeks.flat());
     const month = this.month();
     const today = this.today();
-    const max = this.mini() ? 3 : 4;
+    const mini = this.mini();
     return weeks.map((week) =>
       week.map((day) => {
         const list = byDay.get(day) ?? [];
-        const shown = list.length > max ? max - 1 : list.length;
+        // na pequena, três bolinhas (ou duas e o +N); na grande, três tirinhas e o "+N mais" embaixo
+        const shown = mini ? (list.length > 3 ? 2 : list.length) : Math.min(list.length, 3);
         const n = Number(day.slice(8));
         const m = Number(day.slice(5, 7));
         const count = list.length === 1 ? '1 lembrete' : `${list.length} lembretes`;
@@ -376,7 +477,8 @@ export class CalendarMonth {
           out: monthOf(day) !== month,
           sunday: weekday(day) === 0,
           today: day === today,
-          dots: list.slice(0, shown).map((r) => ({ color: r.color, done: isDone(r, day) })),
+          dots: mini ? list.slice(0, shown).map((r) => ({ color: r.color, done: isDone(r, day) })) : [],
+          chips: mini ? [] : list.slice(0, shown).map((r) => ({ id: r.id, title: r.title, time: r.time ? timeLabel(r.time) : null, color: r.color, done: isDone(r, day) })),
           more: list.length - shown,
           label: `${WEEKDAYS_LONG[weekday(day)]}, ${n} de ${MONTHS_LONG[m - 1]}${day === today ? ', hoje' : ''}${list.length ? `, ${count}: ${list.map((r) => r.title).join(', ')}` : ''}`,
           names: list.map((r) => r.title).join('\n'),

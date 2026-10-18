@@ -88,30 +88,38 @@ describe('página do Calendário', () => {
   });
 
   describe('o mês', () => {
-    it('abre na folha do mês de hoje, com hoje circulado, os domingos em vermelho e uma bolinha por lembrete', async () => {
+    it('abre na folha do mês de hoje, com hoje circulado, os domingos em vermelho e o nome de cada lembrete no dia', async () => {
       await go('/anotacoes/calendario');
       expect(text($('.periodo'))).toBe('Outubro de 2026');
       expect($$('.divisoria')[0].getAttribute('aria-pressed')).toBe('true');
       expect(cell(HOJE).getAttribute('aria-current')).toBe('date');
       expect(cell(HOJE).classList).toContain('hoje');
       expect(cell(HOJE).classList).toContain('domingo');
-      // hoje: o aniversário e o remédio (feito: a bolinha só de contorno)
-      expect(cell(HOJE).querySelectorAll('.ponto').length).toBe(2);
-      expect(cell(HOJE).querySelectorAll('.ponto.feito').length).toBe(1);
+      // hoje: o aniversário (o dia todo, primeiro) e o remédio, com o horário (feito: riscado)
+      expect([...cell(HOJE).querySelectorAll('.tirinha')].map(text)).toEqual(['Aniversário da Bruna', '8h Tomar o remédio']);
+      expect(cell(HOJE).querySelector('.tirinha.feita')?.textContent).toContain('Tomar o remédio');
+      expect(cell(HOJE).querySelector('.tirinha')!.getAttribute('data-cor')).toBe('lilas');
+      // na folha grande, nada de bolinha
+      expect(cell(HOJE).querySelector('.ponto')).toBeNull();
       expect(cell(HOJE).getAttribute('aria-label')).toBe('domingo, 18 de outubro, hoje, 2 lembretes: Aniversário da Bruna, Tomar o remédio');
       // antes do primeiro dia do remédio, nada
-      expect(cell('2026-09-30').querySelector('.ponto')).toBeNull();
+      expect(cell('2026-09-30').querySelector('.tirinha')).toBeNull();
       expect($('.dica')).toBeNull();
     });
 
-    it('um dia cheio mostra três bolinhas e quantos mais', async () => {
+    it('um dia cheio mostra três nomes e quantos mais; o calendário pequeno, bolinhas', async () => {
       calendar.state.update((s) => ({
         ...s,
         reminders: [...s.reminders, ...['a', 'b', 'c'].map((x) => reminder(`rmais000${x}`, `Mais ${x}`, '2026-10-20'))],
       }));
       await go('/anotacoes/calendario');
-      expect(cell('2026-10-20').querySelectorAll('.ponto').length).toBe(3);
-      expect(text(cell('2026-10-20').querySelector('.mais'))).toBe('+2');
+      expect([...cell('2026-10-20').querySelectorAll('.tirinha')].map(text)).toEqual(['Mais a', 'Mais b', 'Mais c']);
+      expect(text(cell('2026-10-20').querySelector('.mais-linha'))).toBe('+2 mais');
+      await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
+      const mini = $('app-calendar-month.mini [data-dia="2026-10-20"]')!;
+      expect(mini.querySelectorAll('.ponto').length).toBe(2);
+      expect(text(mini.querySelector('.mais'))).toBe('+3');
+      expect(mini.querySelector('.tirinha')).toBeNull();
     });
 
     it('as setas andam de mês, o Hoje volta, e tocar num dia abre o dia', async () => {
