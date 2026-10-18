@@ -13,6 +13,7 @@ import { LocalData } from '../core/local-data';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { SHARED_AUTO } from '../core/shared-store';
 import { Confirm } from '../ui/confirm';
 import { FeedPostData } from '../ui/feed-post';
 import { PersonFace } from '../ui/person-photo';
@@ -164,6 +165,7 @@ describe('Amigos: a página (MailPage)', () => {
         { provide: ColleagueStore, useValue: { colleagues: walls, select: () => undefined } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
         { provide: CloudAccount, useValue: { account: signal({ id: 'u-eu', codigo: 'EEEE-0000', nome: 'Eu' }), signedIn: signal(true) } },
+        { provide: SHARED_AUTO, useValue: false },
         { provide: Confirm, useValue: { ask: async () => true, choose: async () => null } },
       ],
     });

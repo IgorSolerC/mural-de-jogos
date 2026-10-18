@@ -10,6 +10,7 @@ import { FeedItem, Follow, People } from '../core/follow';
 import { LocalData } from '../core/local-data';
 import { ProfilePeople } from '../core/profile-people';
 import { Reactions } from '../core/reactions';
+import { SHARED_AUTO } from '../core/shared-store';
 import { Confirm } from '../ui/confirm';
 import { ReviewReader } from '../ui/review-reader';
 import { MailPage } from './mail-page';
@@ -137,6 +138,7 @@ describe('Amigos em todas as larguras', () => {
         { provide: Comments, useValue: { countOf: () => 0, loadCounts: async () => undefined, want: () => undefined } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
         { provide: CloudAccount, useValue: { account: signal({ id: 'u-eu', codigo: 'EEEE-0000', nome: 'Eu' }), signedIn: signal(true) } },
+        { provide: SHARED_AUTO, useValue: false },
         { provide: Confirm, useValue: { ask: async () => true, choose: async () => null } },
       ],
     });
