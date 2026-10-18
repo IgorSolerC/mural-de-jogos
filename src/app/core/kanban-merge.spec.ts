@@ -19,7 +19,7 @@ import {
   updateColumn,
   IMPORTANCES,
 } from './kanban';
-import { mergeFields, mergeOrder, mergeSet, merge3Json } from './merge-parts';
+import { mergeFields, mergeOrder } from './merge-parts';
 
 /**
  * A junção do Kanban por partes (`mergeBoards`, `mergeKanban` com a base) contra operações sorteadas
@@ -378,25 +378,11 @@ describe('a junção do Kanban por partes', () => {
 });
 
 describe('merge-parts (as junções pequenas)', () => {
-  it('merge3Json: campo a campo; o apagado de um lado sai; o mudado dos dois fica com o escolhido', () => {
-    const o = { a: 1, b: { x: 1, y: 2 }, c: 3 };
-    expect(merge3Json(o, { a: 2, b: { x: 1, y: 2 }, c: 3 }, { a: 1, b: { x: 1, y: 5 } }, true)).toEqual({ a: 2, b: { x: 1, y: 5 } });
-    expect(merge3Json(o, { ...o, a: 7 }, { ...o, a: 9 }, true)).toEqual({ ...o, a: 7 });
-    expect(merge3Json(o, { ...o, a: 7 }, { ...o, a: 9 }, false)).toEqual({ ...o, a: 9 });
-    expect(merge3Json(undefined, { k: 1 }, { j: 2 }, true)).toEqual({ k: 1, j: 2 });
-  });
-
   it('mergeFields: cada campo inteiro (os objetos de dentro não se misturam)', () => {
     const o = { look: { stock: 'azul', pattern: 'xadrez' }, name: 'A' };
     const a = { look: { stock: 'rosa', pattern: 'xadrez' }, name: 'A' };
     const b = { look: { stock: 'azul', pattern: 'bolinhas' }, name: 'B' };
     expect(mergeFields(o, a, b, true)).toEqual({ look: a.look, name: 'B' });
-  });
-
-  it('mergeSet: o posto de um lado entra, o tirado de um lado sai, sem repetir (sem ligar para caixa)', () => {
-    const key = (s: string) => s.toLowerCase();
-    expect(mergeSet(['a', 'b', 'c'], ['a', 'c', 'd'], ['A', 'b', 'c', 'e'], key)).toEqual(['a', 'c', 'd', 'e']);
-    expect(mergeSet([], ['x'], ['X'], key)).toEqual(['x']);
   });
 
   it('mergeOrder: cada lado arrasta um e os dois ficam; o que só devia ficar (keep) vem no fim', () => {

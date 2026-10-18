@@ -2,12 +2,14 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, output } f
 import { LucideAngularModule, TriangleAlert, UsersRound } from 'lucide-angular';
 import { canWrite } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
+import { SyncConflicts } from '../core/sync-conflicts';
 
 /**
  * A anotação compartilhada, no mural: um remendo de feltro na quina de baixo da ficha, ao lado do dos
  * comentários e do das reações, com as pessoas e quantas são (as que não são você). Com um conflito
  * esperando quem escreve, o remendo vira o aviso em vermelho. Tocar abre a ficha (e a leitura mostra a
- * pergunta do conflito). Só no seu mural; a anotação só sua não tem remendo.
+ * pergunta do conflito). Só no seu mural; a anotação só sua não tem remendo, a não ser o do conflito
+ * da conta (a ficha mudou em dois aparelhos seus ao mesmo tempo, ver core/sync-conflicts.ts).
  */
 @Component({
   selector: 'app-shared-patch',
@@ -35,12 +37,13 @@ export class SharedPatch {
   readonly noteId = input.required<string>();
   readonly opened = output<void>();
   private readonly shared = inject(SharedStore);
+  private readonly conflicts = inject(SyncConflicts);
   protected readonly PeopleIcon = UsersRound;
   protected readonly ConflictIcon = TriangleAlert;
 
   protected readonly state = computed(() => {
     const e = this.shared.get(this.noteId());
-    if (!e) return null;
+    if (!e) return this.conflicts.forFicha(this.noteId()) ? { conflict: true, n: 0, spoken: 'Conflito de sincronização: escolher a versão' } : null;
     const conflict = !!e.conflito && canWrite(e.papel);
     // as pessoas além de você: no seu, quem você chamou; na dos outros, o dono e os outros (você está na lista)
     const n = e.membros.length;

@@ -2,7 +2,8 @@ import { EnvironmentInjector, createEnvironmentInjector, provideZonelessChangeDe
 import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
 import { Cloud } from './cloud-config';
-import { CloudSync, KeyValueStore, PARTS_BASE_KEY, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
+import { CloudSync, KeyValueStore, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
+import { BASE_CONTENT_KEY } from './sync-base';
 import { KANBAN_KEY, KanbanStore } from './kanban-store';
 import { KanbanBoard, sanitizeKanban, addColumn, cardsIn, placeCard, removeCard, removeColumn, setImportance, updateColumn } from './kanban';
 import { LabelEdits } from './label-edits';
@@ -13,6 +14,7 @@ import { ReviewStore } from './review-store';
 import { SETTINGS_KEY, Settings } from './settings';
 import { SHARED_AUTO, SharedStore } from './shared-store';
 import { Confirm } from '../ui/confirm';
+import { SyncConflicts, conflictKey } from './sync-conflicts';
 
 /**
  * A sincronização entre aparelhos da mesma pessoa, de ponta a ponta, no que se junta por partes: os
@@ -114,6 +116,7 @@ interface Device {
   kanban: KanbanStore;
   labels: LabelEdits;
   sync: CloudSync;
+  conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
   /** O quadro da categoria (guardado ou o de sempre). */
   board(category: string): KanbanBoard;
@@ -160,6 +163,7 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
         { provide: SHARED_AUTO, useValue: false },
         LabelEdits,
         CloudSync,
+        SyncConflicts,
         { provide: SYNC_STORAGE, useValue: kv },
         { provide: SYNC_AUTO, useValue: false },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
@@ -176,6 +180,7 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
       settings: injector.get(Settings),
       kanban,
       labels: injector.get(LabelEdits),
+      conflicts: injector.get(SyncConflicts),
       sync: injector.get(CloudSync),
       kv,
       board,
@@ -477,13 +482,21 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
       }
     });
 
-    it('a mesma categoria pintada nos dois: vale a mudada por último, igual nos dois', async () => {
+    it('a mesma categoria pintada de cores diferentes nos dois: a mesma cor nos dois até a pessoa escolher, e a escolha vale nos dois', async () => {
       const { a, b } = await twoDevices();
       a.settings.setCategoryLook('Trabalho', { color: 'azul' });
       await later();
       b.settings.setCategoryLook('Trabalho', { color: 'rosa' });
       await settle(a, b);
-      for (const d of [a, b]) expect(d.settings.categoryLook('Trabalho').color).toBe('rosa');
+      for (const d of [a, b]) expect(d.settings.categoryLook('Trabalho').color).toBe('azul');
+      const [c] = b.conflicts.pending();
+      expect(c).toBeDefined();
+      b.conflicts.resolve(conflictKey(c), 'b');
+      await settle(b, a);
+      for (const d of [a, b]) {
+        expect(d.settings.categoryLook('Trabalho').color).toBe('rosa');
+        expect(d.conflicts.pending()).toEqual([]);
+      }
     });
 
     it('renomear uma categoria num e pintar uma tag de outra no outro: as duas coisas ficam', async () => {
@@ -565,7 +578,7 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
   describe('versões do site', () => {
     it('sem a base das partes (o site de antes dela): a primeira junção fica com o mexido por último, e as seguintes já juntam por partes', async () => {
       const { a, b } = await twoDevices();
-      b.kv.removeItem(PARTS_BASE_KEY);
+      b.kv.removeItem(BASE_CONTENT_KEY);
       edit(a, 'Trabalho', (x, at) => placeCard(x, 'nt01', col(x, 'Fazendo'), at));
       await later();
       edit(b, 'Trabalho', (x, at) => placeCard(x, 'nt02', col(x, 'Feito'), at));

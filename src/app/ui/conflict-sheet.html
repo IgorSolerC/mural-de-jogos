@@ -1,11 +1,11 @@
 <dialog #dialog class="sheet conflito" aria-labelledby="conflito-titulo" aria-describedby="conflito-pergunta" (close)="closed.emit()" (backdropClose)="close()">
-  @if (conflict(); as c) {
-    <div class="ficha cartolina" [style.--stock]="'var(--stock-' + (c.a.stock ?? 'amarelo') + ')'" [attr.data-cor]="c.a.stock ?? 'amarelo'">
+  @if (view(); as v) {
+    <div class="ficha cartolina" [style.--stock]="'var(--stock-' + v.stock + ')'" [attr.data-cor]="v.stock">
       <app-pin class="pin" />
       <header class="head">
         <div class="titulos">
           <h2 id="conflito-titulo" tabindex="-1">Conflito de sincronização</h2>
-          <p class="sub">“{{ entry()?.view?.game?.name }}”</p>
+          <p class="sub">{{ v.sub }}</p>
         </div>
         <button type="button" class="icon-btn" aria-label="Decidir depois" (click)="close()">
           <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
@@ -16,51 +16,74 @@
         <!-- a pergunta, e o que já está resolvido (para ninguém ter medo de perder o resto) -->
         <div class="duvida" id="conflito-pergunta">
           <p class="quem-mexeu">
-            {{ sentence() }}
-            @if (when(); as w) {
-              <time class="quando" [attr.datetime]="c.em" [title]="w.full">{{ w.ago }}</time>
+            {{ v.sentence }}
+            @if (v.when; as w) {
+              <time class="quando" [attr.datetime]="w.iso" [title]="w.full">{{ w.ago }}</time>
             }
           </p>
           <p class="qual">Deseja manter qual versão?</p>
-          <p class="resto">O resto do que cada um mudou já está junto nas duas. Escolher uma vale para todo mundo.</p>
+          <p class="resto">{{ v.rest }}</p>
         </div>
 
         <div class="versoes">
-          @for (s of sides(); track s.key) {
-            <section class="versao" [attr.aria-labelledby]="'versao-' + s.key">
+          @for (s of v.sides; track s.key) {
+            <section class="versao" [class.apagada]="s.deleted" [attr.aria-labelledby]="'versao-' + s.key">
               <header class="versao-cab">
-                <app-person-photo [code]="s.who?.codigo ?? s.key" [name]="s.name" [face]="s.who?.foto" />
-                <h3 class="versao-nome" [id]="'versao-' + s.key">{{ s.name === 'Você' ? 'A sua versão' : 'A versão de ' + s.name }}</h3>
-              </header>
-
-              @if (s.title) {
-                <p class="versao-titulo"><span class="rotulo-campo">Título</span> <mark>{{ s.title }}</mark></p>
-              }
-
-              @if (!sameText()) {
-                <!-- o texto como está escrito (com as marcas), o que difere a marca-texto -->
-                <div class="texto" role="group" [attr.aria-label]="'Texto da ' + (s.name === 'Você' ? 'sua versão' : 'versão de ' + s.name)">
-                  @for (p of s.pieces; track $index) {
-                    @switch (p.kind) {
-                      @case ('diff') {
-                        <p class="trecho difere"><mark>{{ p.text || ' ' }}</mark><span class="sr-only"> (diferente)</span></p>
-                      }
-                      @case ('same') {
-                        <p class="trecho">{{ p.text }}</p>
-                      }
-                      @case ('gap') {
-                        <p class="recolhido">{{ p.n === 1 ? '1 linha igual' : p.n + ' linhas iguais' }}</p>
-                      }
-                    }
+                @if (s.device; as d) {
+                  <!-- o aparelho no lugar da foto: um botão de lata com o desenho dele -->
+                  <span class="aparelho" aria-hidden="true">
+                    <lucide-icon [img]="d.icon" [size]="20" [strokeWidth]="2.4" />
+                  </span>
+                } @else {
+                  <app-person-photo [code]="s.who?.codigo ?? s.key" [name]="s.name" [face]="s.who?.foto" />
+                }
+                <div class="versao-quem">
+                  <h3 class="versao-nome" [id]="'versao-' + s.key">{{ s.heading }}</h3>
+                  @if (s.device?.label; as label) {
+                    <p class="versao-aparelho">{{ label }}</p>
                   }
                 </div>
-              } @else if (!s.title) {
-                <p class="sem-texto">O texto é igual nas duas; muda {{ parts() }}.</p>
+              </header>
+
+              @if (s.deleted) {
+                <!-- a versão que apaga: um carimbo no lugar do texto -->
+                <div class="carimbo-apagada">
+                  <span class="carimbo-texto">
+                    <lucide-icon [img]="DeletedIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                    Apagada
+                  </span>
+                  <p class="apagada-desc">Neste lado, ela foi tirada do mural.</p>
+                </div>
+              } @else {
+                @if (s.title) {
+                  <p class="versao-titulo"><span class="rotulo-campo">Título</span> <mark>{{ s.title }}</mark></p>
+                }
+
+                @if (s.pieces; as pieces) {
+                  <!-- o texto como está escrito (com as marcas), o que difere a marca-texto -->
+                  <div class="texto" role="group" [attr.aria-label]="'Texto da ' + s.spoken">
+                    @for (p of pieces; track $index) {
+                      @switch (p.kind) {
+                        @case ('diff') {
+                          <p class="trecho difere"><mark>{{ p.text || ' ' }}</mark><span class="sr-only"> (diferente)</span></p>
+                        }
+                        @case ('same') {
+                          <p class="trecho">{{ p.text }}</p>
+                        }
+                        @case ('gap') {
+                          <p class="recolhido">{{ p.n === 1 ? '1 linha igual' : p.n + ' linhas iguais' }}</p>
+                        }
+                      }
+                    }
+                  </div>
+                } @else if (!s.title) {
+                  <p class="sem-texto">O texto é igual nas duas; muda {{ v.parts }}.</p>
+                }
               }
 
-              <button type="button" class="btn-ink manter" [attr.aria-label]="s.name === 'Você' ? 'Manter a sua versão' : 'Manter a versão de ' + s.name" (click)="keep(s)">
-                <lucide-icon [img]="KeepIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
-                Manter esta
+              <button type="button" class="btn-ink manter" [attr.aria-label]="'Manter a ' + s.spoken" (click)="keep(s)">
+                <lucide-icon [img]="s.deleted ? DeletedIcon : KeepIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+                {{ s.keep }}
               </button>
             </section>
           }
@@ -68,7 +91,7 @@
       </div>
 
       <footer class="foot">
-        <p class="enquanto">Enquanto ninguém escolhe, vale a {{ sides()[0]?.name === 'Você' ? 'sua versão' : 'versão de ' + sides()[0]?.name }}.</p>
+        <p class="enquanto">{{ v.meanwhile }}</p>
         <div class="actions">
           <button type="button" class="btn-quiet" (click)="close()">Decidir depois</button>
         </div>

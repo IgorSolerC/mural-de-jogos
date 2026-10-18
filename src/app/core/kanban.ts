@@ -372,8 +372,10 @@ function newest<T extends { id: string; at: string }>(here: readonly T[], there:
  * quadro de antes de uma categoria renomeada, mexido em outro aparelho sem saber da troca, vai para o
  * quadro do nome novo (ver `movedTo`). A ordem é a daqui, com os que só existem lá no fim, na ordem de
  * lá. Os quadros de antes também se juntam (e a conversão deles roda depois, ver `KanbanStore`).
+ * `byParts` falso: a junção por partes já foi feita antes (a sincronização junta em `planBoards`), e a
+ * base só serve para levar o quadro de antes de uma categoria renomeada para o novo.
  */
-export function mergeKanban(here: KanbanState, there: KanbanState, base: KanbanState | null = null): KanbanState {
+export function mergeKanban(here: KanbanState, there: KanbanState, base: KanbanState | null = null, byParts = true): KanbanState {
   const removed: Record<string, string> = { ...here.removed };
   for (const [id, at] of Object.entries(there.removed)) if (!removed[id] || removed[id] < at) removed[id] = at;
   const movedTo = { ...there.movedTo, ...here.movedTo };
@@ -383,7 +385,7 @@ export function mergeKanban(here: KanbanState, there: KanbanState, base: KanbanS
   const boards = here.boards.map((h) => {
     const t = theirs.get(h.id);
     if (!t) return h;
-    const o = origin(h);
+    const o = byParts ? origin(h) : null;
     return o ? mergeBoards(o, h, t) : t.at > h.at ? t : h;
   });
   for (const t of there.boards) if (!boards.some((b) => b.id === t.id)) boards.push(t);
@@ -433,6 +435,14 @@ function followMoves(movedTo: Record<string, string>, to: string, from: string, 
  * a coluna de mesmo nome (senão a primeira), como em `moveBoardCategory`.
  */
 function rebase(o: KanbanBoard, old: KanbanBoard, target: KanbanBoard): KanbanBoard {
+  const m = rebased(o, old, target);
+  if (m === target || boardContent(m) === boardContent(target)) return target;
+  // mais novo que os dois: quem já tem o quadro novo fica com este na junção de sempre
+  const at = [target.at, old.at].sort().at(-1)!;
+  return { ...m, at: new Date(Date.parse(at) + 1).toISOString() };
+}
+
+function rebased(o: KanbanBoard, old: KanbanBoard, target: KanbanBoard): KanbanBoard {
   const as = (b: KanbanBoard): KanbanBoard => ({ ...b, id: target.id, category: target.category });
   if (o.columns.every((c) => target.columns.some((t) => t.id === c.id))) return mergeBoards(as(o), target, as(old));
   const byName = new Map(target.columns.map((c) => [fold(c.name), c.id]));

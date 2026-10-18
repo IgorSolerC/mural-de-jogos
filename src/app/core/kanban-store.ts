@@ -128,10 +128,12 @@ export class KanbanStore {
 
   /**
    * Os quadros que vieram de outro aparelho, juntados aos daqui (os de antes são convertidos em seguida).
-   * `base`: os quadros na última sincronização (ver `mergeKanban`).
+   * `base`: os quadros na última sincronização, só para levar o quadro de antes de uma categoria
+   * renomeada para o novo (a junção por partes de um quadro mexido dos dois lados já foi feita, ver
+   * `planBoards`).
    */
   merge(remote: KanbanState, base: KanbanState | null = null): void {
-    const next = mergeKanban(this.state(), remote, base);
+    const next = mergeKanban(this.state(), remote, base, false);
     if (JSON.stringify(next) !== JSON.stringify(this.state())) this.state.set(next);
   }
 

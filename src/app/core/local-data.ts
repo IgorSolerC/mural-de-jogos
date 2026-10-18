@@ -37,6 +37,8 @@ export const DATA_KEYS = [
   'mural-de-jogos:versoes:v1',
   // as anotações compartilhadas, de cada conta (ver core/shared-store.ts); nunca vão no mural nem no backup do mural
   'meu-mural:compartilhadas:v1',
+  // os conflitos da sincronização da conta que esperam a pessoa escolher (ver core/sync-conflicts.ts)
+  'meu-mural:conflitos:v1',
 ] as const;
 export type DataKey = (typeof DATA_KEYS)[number];
 

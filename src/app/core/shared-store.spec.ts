@@ -10,6 +10,7 @@ import { SHARED_AUTO, SharedStore } from './shared-store';
 import { CloudSync, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
 import { ProfileStore } from './profile-store';
 import { Confirm } from '../ui/confirm';
+import { SyncConflicts } from './sync-conflicts';
 import { mergeNote, sharedContent } from './shared-notes';
 import { KanbanStore } from './kanban-store';
 import { KanbanActions } from './kanban-actions';
@@ -299,6 +300,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
         KanbanDresser,
         KanbanActions,
         CloudSync,
+        SyncConflicts,
         { provide: SYNC_AUTO, useValue: false },
         { provide: SYNC_STORAGE, useValue: kv() },
         { provide: Confirm, useValue: { choose: async () => 'confirm', ask: async () => true } },

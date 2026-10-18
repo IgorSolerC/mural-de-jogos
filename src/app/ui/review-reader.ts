@@ -59,6 +59,7 @@ import { CommentsPanel } from './comments-panel';
 import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { SharedStore } from '../core/shared-store';
+import { SyncConflicts } from '../core/sync-conflicts';
 import { ROLE_LABEL, canManage, canWrite } from '../core/shared-notes';
 
 
@@ -84,11 +85,11 @@ const PATCH_GAP = 8;
           </header>
 
           <div class="body" appLuz (scroll)="watchSelection()">
-            <!-- a anotação compartilhada com duas versões brigando: quem escreve escolhe uma -->
+            <!-- duas versões brigando (de duas pessoas numa compartilhada, ou de dois aparelhos seus): escolher uma -->
             @if (conflictHere()) {
               <div class="aviso-conflito" role="status">
                 <lucide-icon class="aviso-icone" [img]="ConflictIcon" [size]="22" [strokeWidth]="2.5" aria-hidden="true" />
-                <p class="aviso-texto"><strong>Conflito de sincronização.</strong> Duas versões desta anotação mudaram o mesmo trecho.</p>
+                <p class="aviso-texto"><strong>Conflito de sincronização.</strong> {{ conflictLine() }}</p>
                 <button type="button" class="btn-ink aviso-btn" aria-haspopup="dialog" (click)="openConflict()">Escolher a versão</button>
               </div>
             }
@@ -447,7 +448,7 @@ const PATCH_GAP = 8;
         }
         @if (conflictOpen()) {
           @defer (on immediate) {
-            <app-conflict-sheet [noteId]="r.id" (closed)="conflictOpen.set(false)" />
+            <app-conflict-sheet [noteId]="r.id" (closed)="conflictOpen.set(false)" (resolved)="afterConflict()" />
           }
         }
       }
@@ -500,6 +501,7 @@ export class ReviewReader {
 
   // ===== As anotações compartilhadas (ver core/shared-store.ts) =====
   private readonly shared = inject(SharedStore);
+  private readonly syncConflicts = inject(SyncConflicts);
   /** A anotação aberta é compartilhada, no seu mural: como ela está aqui. */
   protected readonly sharedEntry = computed(() => {
     const r = this.review();
@@ -538,7 +540,21 @@ export class ReviewReader {
   /** Há um conflito que quem abriu pode resolver. */
   protected readonly conflictHere = computed(() => {
     const e = this.sharedEntry();
-    return !!e?.conflito && canWrite(e.papel);
+    if (e) return !!e.conflito && canWrite(e.papel);
+    return !!this.ownConflict();
+  });
+  /** O conflito da conta nesta ficha (ela mudou em dois aparelhos seus; ver core/sync-conflicts.ts). */
+  private readonly ownConflict = computed(() => {
+    const r = this.review();
+    return r && this.owner() === null ? this.syncConflicts.forFicha(r.id) : null;
+  });
+  /** A frase do aviso, de quem é o conflito. */
+  protected readonly conflictLine = computed(() => {
+    const c = this.ownConflict();
+    const what = this.review() && isNote(this.review()!) ? 'esta anotação' : 'esta ficha';
+    if (!c) return 'Duas versões desta anotação mudaram o mesmo trecho.';
+    if (c.a === null || c.b === null) return `Você apagou ${what} num aparelho e mudou no outro.`;
+    return `${what.charAt(0).toUpperCase()}${what.slice(1)} mudou em dois aparelhos seus ao mesmo tempo, no mesmo trecho.`;
   });
   protected readonly shareOpen = linkedSignal({ source: () => this.review()?.id, computation: () => false });
   protected readonly conflictOpen = linkedSignal({ source: () => this.review()?.id, computation: () => false });
@@ -556,6 +572,15 @@ export class ReviewReader {
 
   protected openConflict(): void {
     this.conflictOpen.set(true);
+  }
+
+  /** Escolheu uma versão: a leitura mostra a de agora (e fecha, se a escolhida foi apagar). */
+  protected afterConflict(): void {
+    const r = this.review();
+    if (!r || this.owner() !== null) return;
+    const now = this.store.get(r.id);
+    if (now) this.review.set(now);
+    else this.close();
   }
 
   /** A compartilhada aberta acompanha o que chega da nuvem (outra pessoa escrevendo). */

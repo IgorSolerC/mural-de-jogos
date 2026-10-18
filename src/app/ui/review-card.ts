@@ -49,6 +49,7 @@ import { ReactionBubble } from './reactions';
 import { CommentBubble } from './comment-bubble';
 import { SharedPatch } from './shared-patch';
 import { SharedStore } from '../core/shared-store';
+import { SyncConflicts } from '../core/sync-conflicts';
 import { canWrite } from '../core/shared-notes';
 import { RichText } from './rich-text';
 import { Corta } from './clamp';
@@ -1655,8 +1656,12 @@ export class ReviewCard {
 
   private readonly store = inject(ReviewStore);
   private readonly shared = inject(SharedStore);
+  /** Os conflitos da conta: a ficha que mudou em dois aparelhos ganha o remendo do conflito. */
+  private readonly conflicts = inject(SyncConflicts);
   /** A anotação compartilhada, no seu mural (o remendo das pessoas). */
-  protected readonly sharedHere = computed(() => this.checkable() && !this.bare() && !this.preview() && !!this.shared.get(this.review().id));
+  protected readonly sharedHere = computed(
+    () => this.checkable() && !this.bare() && !this.preview() && (!!this.shared.get(this.review().id) || !!this.conflicts.forFicha(this.review().id)),
+  );
   /** As tarefas se marcam na ficha: no seu mural, e na compartilhada só para quem escreve nela. */
   protected readonly ticks = computed(() => this.checkable() && (!this.shared.get(this.review().id) || canWrite(this.shared.role(this.review().id))));
 

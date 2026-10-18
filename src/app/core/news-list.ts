@@ -26,12 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-18-sincronizacao-por-partes',
+    id: '2026-10-18-juncao-entre-aparelhos',
     version: '1.25.2',
     kind: 'ajustes',
     date: '2026-10-18',
-    title: 'A régua do texto como no Word, tarefas com descrição e foto, e neon no contador',
+    title: 'Dois aparelhos juntos, a régua do texto como no Word e tarefas com descrição',
     melhorias: [
+      'Mexeu no mural em dois aparelhos ao mesmo tempo? As mudanças agora se juntam, como já acontecia nas anotações compartilhadas: campos diferentes da mesma ficha, linhas diferentes do mesmo texto, anotações postas no mesmo quadro Kanban e partes diferentes das configurações ficam todas, em vez de a mexida por último passar por cima da outra.',
+      'Quando os dois aparelhos mudaram o mesmo trecho (ou um apagou e o outro mudou), a ficha ganha o remendo Conflito e a mesma pergunta das compartilhadas mostra as duas versões, com o aparelho de cada uma. A escolha vale em todos os aparelhos, a outra versão vai para Ajustes › Backup, e os conflitos que esperam ficam também em Ajustes › Conta, na Nuvem.',
+      'No Kanban, o quadro mexido nos dois aparelhos não pergunta nada: colunas renomeadas, criadas ou arrastadas, a ordem e a importância de cada um ficam juntas, e a anotação movida nos dois fica onde foi posta por último.',
+      'Fixar uma anotação compartilhada (ou deixá-la como sub-nota) num aparelho passa a valer nos seus outros aparelhos; para as outras pessoas da anotação, nada muda.',
       'A régua do texto foi organizada como a do Word e a do Google Docs: tudo mora em dois menus com nome, Formatar (negrito, itálico, riscado, marca-texto, spoiler, código, títulos, citação, bloco de código e listas, com o atalho de cada um) e Inserir (links, tabela, divisória e todos os widgets), e os botões de toda hora continuam à mão ao lado.',
       'A caixa do estilo, como a “Texto normal” do Docs, mostra o estilo da linha do cursor e troca entre texto, Título 1, 2 e 3, citação e bloco de código; Texto normal dentro de um bloco de código tira as marcas dele.',
       'Em cima da folha ficam as abas Escrever e Ver como fica, e Ajuda e Tela cheia com o nome escrito; no celular, a régua presa em cima do teclado leva o Formatar e o Inserir.',
@@ -44,12 +48,9 @@ export const NEWS: NewsEntry[] = [
       'Nada mais de caixa de contorno preto: os campos de escrever viraram tiras de papel coladas com uma linha de caneta, que engrossa quando você escreve e fica vermelho-escura quando algo está errado; o texto das anotações é a folha de fichário colada.',
       'Os seletores (como mostrar as notas, Novidades em Amigos e outros) são a cartela de recortes do editor, com a escolhida colada em tinta, e o interruptor desligado é o recorte tracejado da trilha.',
       'Nas cartelas de ícones e cores, a escolhida ganha o círculo de caneta da nota escolhida; as listas e os menus que abrem por cima são papel solto, sem o fio preto.',
-      'Fixar uma anotação compartilhada (ou deixá-la como sub-nota) num aparelho passa a valer nos seus outros aparelhos; para as outras pessoas da anotação, nada muda.',
     ],
     correcoes: [
-      'O Kanban mexido em dois aparelhos ao mesmo tempo não perde mais o que um deles fez: anotações movidas, colunas renomeadas, criadas ou arrastadas, a ordem e a importância de cada um ficam juntas, e a anotação movida nos dois fica onde foi posta por último.',
       'Renomear uma categoria num aparelho enquanto o quadro dela era mexido em outro não deixa mais essas mudanças num quadro perdido: elas vão para o quadro do nome novo.',
-      'A cor e o ícone das categorias e das tags, as configurações do mural e as tags fixas, mudados em dois aparelhos ao mesmo tempo (cada um numa coisa), não desfazem mais a mudança do outro.',
       'Nas anotações compartilhadas, escolher uma versão num conflito não desfaz mais o que alguém escreveu depois dele, e a escolha de quem edita não é mais recusada quando a categoria mudou no meio do caminho.',
       'Sair de uma anotação compartilhada com uma edição que ainda não tinha subido não a perde mais: ela fica guardada em Ajustes.',
       'Quem só lê uma anotação compartilhada e a leva para uma coluna que finaliza não vê mais o carimbo nem o aviso de finalizada: a anotação só anda no seu quadro.',

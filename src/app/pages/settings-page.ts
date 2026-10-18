@@ -40,6 +40,8 @@ import {
   Upload,
   X,
   Zap,
+  SlidersHorizontal,
+  Columns3,
 } from 'lucide-angular';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
@@ -48,6 +50,9 @@ import { ReviewStore } from '../core/review-store';
 import { KEEP_VERSION_DAYS, KeptReason, KeptVersion, sameContent, versionKey } from '../core/kept-versions';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset } from '../core/settings';
 import { Confirm } from '../ui/confirm';
+import { ConflictSheet } from '../ui/conflict-sheet';
+import { SyncConflicts, conflictKey, splitTarget } from '../core/sync-conflicts';
+import { Review } from '../core/review';
 import { Toasts } from '../ui/toast';
 import { Pin } from '../ui/pin';
 import { Bonus, fold, formatScore } from '../core/review';
@@ -96,7 +101,7 @@ function when(ms: number): string {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, LucideAngularModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco],
+  imports: [Busy, LucideAngularModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
@@ -455,6 +460,7 @@ export class SettingsPage {
     editor: 'chegou enquanto você editava',
     trocada: 'saiu quando você restaurou outra',
     compartilhada: 'de uma anotação compartilhada, não pôde subir',
+    conflito: 'ficou de fora quando você escolheu a outra',
   };
   /** As versões guardadas (ver core/kept-versions.ts), com o que a lista mostra de cada uma. */
   protected readonly keptVersions = computed(() =>
@@ -469,6 +475,25 @@ export class SettingsPage {
         why: SettingsPage.KEPT_WHY[v.motivo],
         when: new Date(v.em).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
         current: !!now && sameContent(now, v.ficha),
+      };
+    }),
+  );
+
+  /** Os conflitos da sincronização da conta que esperam a pessoa (ver core/sync-conflicts.ts). */
+  protected readonly syncConflicts = inject(SyncConflicts);
+  /** O conflito aberto na folha (a chave). */
+  protected readonly openConflict = signal<string | null>(null);
+  protected readonly pendingConflicts = computed(() =>
+    this.syncConflicts.pending().map((c) => {
+      const [tipo] = splitTarget(c.alvo);
+      const ficha = tipo === 'ficha' ? ((c.a ?? c.b) as Review) : null;
+      return {
+        key: conflictKey(c),
+        name: this.syncConflicts.titleOf(c),
+        icon: ficha ? this.kindIcon[ficha.kind] : tipo === 'kanban' ? Columns3 : SlidersHorizontal,
+        wall: ficha ? cap(profileOf(ficha.kind).singular) : tipo === 'kanban' ? 'Kanban' : 'Ajuste',
+        why: c.a === null || c.b === null ? 'apagada num aparelho e mudada no outro' : 'mudou em dois aparelhos',
+        when: new Date(c.em).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
       };
     }),
   );
