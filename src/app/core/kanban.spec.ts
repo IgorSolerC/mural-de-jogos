@@ -151,7 +151,8 @@ describe('Kanban', () => {
       b = placeCard(b, 'n1', 'fazendo', T1);
       expect(notesIn(b, 'afazer')).toEqual(['n3', 'n2']);
       expect(notesIn(b, 'fazendo')).toEqual(['n1']);
-      expect(b.cards.find((c) => c.note === 'n1')).toEqual({ note: 'n1', column: 'fazendo', importance: 'critico' });
+      // a hora em que ela foi posta no lugar vai junto (a junção de dois aparelhos olha para ela)
+      expect(b.cards.find((c) => c.note === 'n1')).toEqual({ note: 'n1', column: 'fazendo', importance: 'critico', at: T1 });
       b = placeCard(b, 'n3', 'afazer', T1, 1);
       expect(notesIn(b, 'afazer')).toEqual(['n2', 'n3']);
       expect(placeCard(b, 'n9', 'nenhuma', T2)).toBe(b);
@@ -368,7 +369,7 @@ describe('Kanban', () => {
       expect(out.boards.length).toBe(1);
       // a coluna Feito do de antes vira a Feito do de agora; a que já estava não se repete
       expect(out.boards[0].cards).toEqual([
-        { note: 'n4', column: 'afazer', importance: null },
+        { note: 'n4', column: 'afazer', importance: null, at: T0 },
         { note: 'n1', column: 'feito', importance: null },
       ]);
     });
@@ -561,7 +562,7 @@ describe('Kanban', () => {
       expect(kanban.get(TRAB)!.cards).toEqual([]);
       expect(store.get('nlogin01')).toBeTruthy();
       TestBed.inject(Toasts).current()!.action!.run();
-      expect(kanban.get(TRAB)!.cards).toEqual([{ note: 'nlogin01', column: 'fazendo', importance: 'importante' }]);
+      expect(kanban.get(TRAB)!.cards).toEqual([{ note: 'nlogin01', column: 'fazendo', importance: 'importante', at: jasmine.any(String) }]);
     });
 
     it('a anotação nova pedida de uma coluna cai no quadro da categoria dela, uma vez só', () => {

@@ -34,6 +34,9 @@ export class NoteDone {
     if (!r || !isNote(r) || isDone(r) === done) return;
     const was = r.doneAt;
     this.store.update(withDone(r, done, new Date().toISOString()));
+    // não mudou (uma compartilhada em que a pessoa só lê): nem carimbo, nem bilhete
+    const now = this.store.get(id);
+    if (!now || isDone(now) !== done) return;
     clearTimeout(this.fallbacks.get(id));
     if (!done) {
       this.view.release(id);

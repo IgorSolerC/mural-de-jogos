@@ -37,6 +37,8 @@ export class KanbanActions {
     if (change === 'finalizar' && !wasDone) this.noteDone.set(note, true, { quiet: true });
     else if (change === 'abrir' && wasDone) this.noteDone.set(note, false, { quiet: true });
     else return;
+    // a anotação não mudou (uma compartilhada em que a pessoa só lê): ela só andou no quadro
+    if (isDone(this.store.get(note) ?? r) === wasDone) return;
     const col = board.columns.find((c) => c.id === column);
     const text = change === 'finalizar' ? `“${r.game.name}” finalizada em ${col?.name ?? 'outra coluna'}` : `“${r.game.name}” aberta de novo em ${col?.name ?? 'outra coluna'}`;
     this.toasts.show(text, {
@@ -78,13 +80,14 @@ export class KanbanActions {
     let opened = 0;
     for (const w of was) {
       const change = doneChange(board, w.column, column);
-      if (change === 'finalizar' && !w.done) {
-        this.noteDone.set(w.note, true, { quiet: true });
-        finished++;
-      } else if (change === 'abrir' && w.done) {
-        this.noteDone.set(w.note, false, { quiet: true });
-        opened++;
-      }
+      const want = change === 'finalizar' && !w.done ? true : change === 'abrir' && w.done ? false : null;
+      if (want === null) continue;
+      this.noteDone.set(w.note, want, { quiet: true });
+      // (a compartilhada em que a pessoa só lê não muda: só anda no quadro)
+      const now = this.store.get(w.note);
+      if (!now || isDone(now) !== want) continue;
+      if (want) finished++;
+      else opened++;
     }
     const where = board.columns.find((c) => c.id === column)?.name ?? 'outra coluna';
     const n = rs.length;

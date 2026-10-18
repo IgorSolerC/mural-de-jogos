@@ -1,5 +1,6 @@
 import type { Audience } from './review';
 import { lookKey, tagLookKey } from './category-looks';
+import { merge3Json, mergeFields, mergeOrder, mergeSet } from './merge-parts';
 
 /**
  * As configurações do mural de anotações (a engrenagem da pasta, ver ui/mural-config.ts): o que
@@ -197,4 +198,20 @@ export function activeOrder(cfg: NotesConfig): readonly string[] | null {
 /** As categorias escondidas (pela chave, a de `lookKey`): as abas delas ficam sempre no "Mais". */
 export function hiddenKeys(cfg: NotesConfig): ReadonlySet<string> {
   return new Set(Object.entries(cfg.categories).flatMap(([k, p]) => (p.hidden ? [k] : [])));
+}
+
+/**
+ * Junta as configurações de dois aparelhos que partiram de `o` (a base da última sincronização; ver
+ * core/merge-parts.ts): cada ajuste do mural por si, cada categoria campo a campo, as tags escondidas
+ * como um conjunto (a escondida de um lado entra, a mostrada de um lado sai) e a ordem das abas
+ * juntando o que cada lado arrastou. O que os dois mudaram diferente fica com `a` se `preferA`.
+ */
+export function mergeNotesConfig(o: NotesConfig, a: NotesConfig, b: NotesConfig, preferA: boolean): NotesConfig {
+  const scalars = (c: NotesConfig) => ({ audience: c.audience, subColor: c.subColor, orderBy: c.orderBy });
+  return sanitizeNotesConfig({
+    ...mergeFields(scalars(o), scalars(a), scalars(b), preferA),
+    order: mergeOrder(o.order, a.order, b.order, preferA),
+    categories: merge3Json(o.categories, a.categories, b.categories, preferA),
+    hiddenTags: mergeSet(o.hiddenTags, a.hiddenTags, b.hiddenTags),
+  });
 }

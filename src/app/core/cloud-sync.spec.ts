@@ -294,7 +294,7 @@ describe('sincronização com a nuvem', () => {
       localStorage.removeItem('meu-mural:kanban:v1');
       const b = device();
       await b.sync.syncNow();
-      expect(b.kanban.get(qa)!.cards).toEqual([{ note: 'rnota0001', column: col, importance: null }]);
+      expect(b.kanban.get(qa)!.cards).toEqual([{ note: 'rnota0001', column: col, importance: null, at: jasmine.any(String) }]);
 
       // cada um mexe num quadro: os dois ficam com os dois
       await new Promise((r) => setTimeout(r, 5));
@@ -840,6 +840,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 22, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 23, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
   });
 });

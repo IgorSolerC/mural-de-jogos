@@ -11,6 +11,15 @@ import { CloudSync, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
 import { ProfileStore } from './profile-store';
 import { Confirm } from '../ui/confirm';
 import { mergeNote, sharedContent } from './shared-notes';
+import { KanbanStore } from './kanban-store';
+import { KanbanActions } from './kanban-actions';
+import { KanbanDresser } from './kanban-dresser';
+import { NoteDone } from './note-done';
+import { WallView } from './wall-view';
+import { WallMotion } from './wall-motion';
+import { Mural } from './mural';
+import { Toasts } from '../ui/toast';
+import { isDone } from './review';
 
 /**
  * As anotações compartilhadas de ponta a ponta, com pessoas diferentes (cada uma com o seu aparelho) e
@@ -53,6 +62,10 @@ class FakeNotes {
   readonly murals = new Map<string, { publico: { notas: Record<string, unknown>[] }; fichas: string[]; novas: { ref: string }[] }>();
   offline = false;
   puts = 0;
+  /** O mural privado de cada um na nuvem (para os aparelhos da mesma pessoa). */
+  readonly privados = new Map<string, { rev: number; doc: Uint8Array }>();
+  /** Com a regra de 1 s entre duas gravações da mesma pessoa (429 devagar), como a API. */
+  strict = false;
 
   private user(init: RequestInit): User | null {
     const auth = ((init.headers ?? {}) as Record<string, string>)['Authorization'] ?? '';
@@ -102,16 +115,25 @@ class FakeNotes {
     const path = u.pathname;
     if (path === '/v1/eu' && method === 'GET') return json({ id: me.id, codigo: me.codigo, nome: me.nome });
     // o mural de cada um (o que vai para quem visita, só para conferir)
-    if (path === '/v1/eu/mural' && method === 'GET') return json({ erro: 'sem-mural', mensagem: 'Ainda não há mural.' }, 404);
+    if (path === '/v1/eu/mural' && method === 'GET') {
+      const mine = this.privados.get(me.id);
+      if (!mine) return json({ erro: 'sem-mural', mensagem: 'Ainda não há mural.' }, 404);
+      if (u.searchParams.get('rev') === String(mine.rev)) return new Response(null, { status: 204, headers: { 'Mural-Rev': String(mine.rev) } });
+      return new Response(mine.doc.slice(), { status: 200, headers: { 'Mural-Rev': String(mine.rev), 'Content-Type': 'application/gzip' } });
+    }
     if (path === '/v1/eu/mural' && method === 'PUT') {
       const form = init.body as FormData;
+      const rev = this.privados.get(me.id)?.rev ?? 0;
+      const base = Number(((init.headers ?? {}) as Record<string, string>)['Mural-Rev-Base']);
+      if (base !== rev) return json({ erro: 'conflito', mensagem: 'Outro aparelho gravou antes.', rev }, 409);
+      this.privados.set(me.id, { rev: rev + 1, doc: new Uint8Array(await (form.get('privado') as Blob).arrayBuffer()) });
       const stream = (form.get('publico') as Blob).stream().pipeThrough(new DecompressionStream('gzip'));
       this.murals.set(me.id, {
         publico: JSON.parse(await new Response(stream).text()),
         fichas: JSON.parse(String(form.get('fichas'))),
         novas: JSON.parse(String(form.get('novas'))),
       });
-      return json({ rev: 1, novas: 0 });
+      return json({ rev: rev + 1, novas: 0 });
     }
     if (path === '/v1/eu/notas' && method === 'GET') {
       const out = [...this.notes.values()].filter((n) => this.access(n, me)).map((n) => ({ id: n.id, versao: n.versao, papel: this.access(n, me) }));
@@ -154,6 +176,7 @@ class FakeNotes {
     // PUT: gravar o conteúdo
     if (access === 'leitor') return json({ erro: 'so-leitura', mensagem: 'Só leitura.' }, 403);
     if (body.base !== n.rev) return json({ erro: 'conflito', mensagem: 'Outra pessoa gravou antes.', nota: this.detail(n, access) }, 409);
+    if (this.strict && n.por === me.id && Date.now() - Date.parse(n.em) < 1000) return json({ erro: 'devagar', mensagem: 'Muitas gravações seguidas.' }, 429);
     if (access === 'editor') {
       const allowed = new Set([this.structure(n.dados)]);
       if (body.resolver && n.conflito) for (const v of [n.conflito.a, n.conflito.b]) allowed.add(this.structure(v as Record<string, unknown>));
@@ -216,6 +239,9 @@ interface Person {
   mural: CloudSync;
   store: ReviewStore;
   shared: SharedStore;
+  kanban: KanbanStore;
+  actions: KanbanActions;
+  toasts: Toasts;
   data: MemoryData;
   edit(id: string, change: Partial<Review>): void;
   text(id: string): string | undefined;
@@ -264,6 +290,14 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
         SharedStore,
         { provide: SHARED_AUTO, useValue: false },
         ProfileStore,
+        Mural,
+        WallView,
+        WallMotion,
+        Toasts,
+        NoteDone,
+        KanbanStore,
+        KanbanDresser,
+        KanbanActions,
         CloudSync,
         { provide: SYNC_AUTO, useValue: false },
         { provide: SYNC_STORAGE, useValue: kv() },
@@ -281,6 +315,9 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       mural: injector.get(CloudSync),
       store,
       shared,
+      kanban: injector.get(KanbanStore),
+      actions: injector.get(KanbanActions),
+      toasts: injector.get(Toasts),
       data,
       edit: (id, change) => {
         later();
@@ -647,6 +684,306 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       ana.edit('nota-1', { private: true });
       await ana.mural.syncNow();
       expect(cloud.murals.get(USERS['ana'].id)!.publico.notas).toEqual([]);
+    });
+  });
+
+  describe('mais cenários de sincronização', () => {
+    it('a mesma pessoa em dois aparelhos: o celular sem rede e o computador mexem em linhas diferentes, e tudo junta', async () => {
+      const { ana, bia } = await sharedNote('um\ndois\ntrês');
+      const phone = person('bia');
+      await sync(phone);
+      expect(phone.text('nota-1')).toBe('um\ndois\ntrês');
+      cloud.offline = true;
+      phone.edit('nota-1', { text: 'UM\ndois\ntrês' });
+      await sync(phone);
+      cloud.offline = false;
+      bia.edit('nota-1', { text: 'um\ndois\nTRÊS' });
+      await sync(bia);
+      await sync(phone, bia, ana);
+      for (const p of [ana, bia, phone]) expect(p.text('nota-1')).toBe('UM\ndois\nTRÊS');
+      expect(bia.shared.conflicts()).toEqual([]);
+    });
+
+    it('três pessoas escrevendo ao mesmo tempo em linhas diferentes: as três mudanças ficam para todas', async () => {
+      const { ana, bia, cris } = await sharedNote('um\ndois\ntrês');
+      await ana.shared.setRole('nota-1', USERS['cris'].codigo, 'editor');
+      await sync(cris);
+      ana.edit('nota-1', { text: 'UM\ndois\ntrês' });
+      bia.edit('nota-1', { text: 'um\nDOIS\ntrês' });
+      cris.edit('nota-1', { text: 'um\ndois\nTRÊS\nquatro' });
+      await sync(cris, bia, ana);
+      for (const p of [ana, bia, cris]) {
+        expect(p.text('nota-1')).toBe('UM\nDOIS\nTRÊS\nquatro');
+        expect(p.shared.conflicts()).toEqual([]);
+      }
+    });
+
+    it('sem rede, a mesma linha mudada pelas duas: ao voltar, conflito; a escolha da Bia vale para todas', async () => {
+      const { ana, bia } = await sharedNote('O gato preto.');
+      cloud.offline = true;
+      bia.edit('nota-1', { text: 'O gato cinza.' });
+      await sync(bia);
+      cloud.offline = false;
+      ana.edit('nota-1', { text: 'O gato branco.' });
+      await sync(ana);
+      await sync(bia, ana);
+      expect(bia.shared.conflicts().length).toBe(1);
+      later();
+      bia.shared.resolve('nota-1', bia.shared.conflicts()[0].conflito!.b);
+      TestBed.tick();
+      await sync(bia, ana);
+      for (const p of [ana, bia]) {
+        expect(p.text('nota-1')).toBe('O gato cinza.');
+        expect(p.shared.conflicts()).toEqual([]);
+      }
+    });
+
+    it('escolher uma versão do conflito não desfaz o que alguém escreveu depois dele', async () => {
+      const { ana, bia, cris } = await sharedNote('O gato preto.\n\nlista:');
+      await ana.shared.setRole('nota-1', USERS['cris'].codigo, 'editor');
+      await sync(cris);
+      ana.edit('nota-1', { text: 'O gato branco.\n\nlista:' });
+      bia.edit('nota-1', { text: 'O gato cinza.\n\nlista:' });
+      await sync(ana, bia, ana, cris);
+      expect(cris.shared.conflicts().length).toBe(1);
+      // depois do conflito, a Cris acrescenta uma linha (sem escolher nada)
+      cris.edit('nota-1', { text: `${cris.text('nota-1')}\n- leite` });
+      await sync(cris, ana);
+      expect(ana.shared.conflicts().length).toBe(1);
+      later();
+      ana.shared.resolve('nota-1', ana.shared.conflicts()[0].conflito!.b);
+      TestBed.tick();
+      await sync(ana, bia, cris);
+      for (const p of [ana, bia, cris]) {
+        expect(p.text('nota-1')).toBe('O gato cinza.\n\nlista:\n- leite');
+        expect(p.shared.conflicts()).toEqual([]);
+      }
+    });
+
+    it('escolher a versão que já estava valendo também guarda o que veio depois', async () => {
+      const { ana, bia } = await sharedNote('O gato preto.\nfim');
+      ana.edit('nota-1', { text: 'O gato branco.\nfim' });
+      bia.edit('nota-1', { text: 'O gato cinza.\nfim' });
+      await sync(ana, bia, ana);
+      bia.edit('nota-1', { text: 'O gato branco.\nFIM' });
+      await sync(bia, ana);
+      later();
+      ana.shared.resolve('nota-1', ana.shared.conflicts()[0].conflito!.a);
+      TestBed.tick();
+      await sync(ana, bia);
+      for (const p of [ana, bia]) expect(p.text('nota-1')).toBe('O gato branco.\nFIM');
+    });
+
+    it('escolher sem rede enquanto a outra escreve em outra linha: ao voltar, a escolha e a linha nova ficam', async () => {
+      const { ana, bia } = await sharedNote('O gato preto.\nfim');
+      ana.edit('nota-1', { text: 'O gato branco.\nfim' });
+      bia.edit('nota-1', { text: 'O gato cinza.\nfim' });
+      await sync(ana, bia, ana);
+      cloud.offline = true;
+      later();
+      bia.shared.resolve('nota-1', bia.shared.conflicts()[0].conflito!.b);
+      TestBed.tick();
+      await sync(bia);
+      cloud.offline = false;
+      ana.edit('nota-1', { text: 'O gato branco.\nfim\nnovo' });
+      await sync(ana);
+      await sync(bia, ana);
+      for (const p of [ana, bia]) {
+        expect(p.text('nota-1')).toBe('O gato cinza.\nfim\nnovo');
+        expect(p.shared.conflicts()).toEqual([]);
+      }
+    });
+
+    it('a editora escolhe a versão da gestora (outra categoria) depois de a dona pôr uma tag: a escolha entra sem a nuvem recusar', async () => {
+      const { ana, bia, cris } = await sharedNote('O gato preto.', { category: 'Casa' });
+      await ana.shared.setRole('nota-1', USERS['cris'].codigo, 'gestor');
+      await sync(cris);
+      ana.edit('nota-1', { text: 'O gato branco.', category: 'Mercado' });
+      cris.edit('nota-1', { text: 'O gato cinza.', category: 'Feira' });
+      await sync(ana, cris, ana, bia);
+      expect(bia.shared.conflicts().length).toBe(1);
+      ana.edit('nota-1', { tags: ['urgente'] });
+      await sync(ana, bia);
+      later();
+      const c = bia.shared.conflicts()[0].conflito!;
+      bia.shared.resolve('nota-1', c.b.category === 'Feira' ? c.b : c.a);
+      TestBed.tick();
+      await sync(bia, ana, cris);
+      for (const p of [ana, bia, cris]) {
+        expect(p.shared.conflicts()).toEqual([]);
+        expect(p.text('nota-1')).toBe('O gato cinza.');
+        expect(p.store.get('nota-1')!.category).toBe('Feira');
+      }
+      expect(bia.store.versions().length).toBe(0);
+    });
+
+    it('sair com uma edição que ainda não subiu: a edição fica guardada', async () => {
+      const { ana, bia } = await sharedNote();
+      cloud.offline = true;
+      bia.edit('nota-1', { text: 'ia mandar depois' });
+      cloud.offline = false;
+      await bia.shared.leave('nota-1');
+      TestBed.tick();
+      expect(bia.store.get('nota-1')).toBeUndefined();
+      expect(bia.store.versions().some((v) => v.ficha.text === 'ia mandar depois')).toBeTrue();
+      await sync(ana);
+      expect(ana.text('nota-1')).toBe('arroz\nfeijão');
+    });
+
+    it('tirada pela dona enquanto escrevia sem rede: a edição fica guardada e ela fica sabendo', async () => {
+      const { ana, bia } = await sharedNote();
+      cloud.offline = true;
+      bia.edit('nota-1', { text: 'escrevendo no avião' });
+      cloud.offline = false;
+      await ana.shared.removeMember('nota-1', USERS['bia'].codigo);
+      await sync(bia);
+      expect(bia.store.get('nota-1')).toBeUndefined();
+      expect(bia.shared.notice()?.tipo).toBe('saiu');
+      expect(bia.store.versions().some((v) => v.ficha.text === 'escrevendo no avião')).toBeTrue();
+    });
+
+    it('saiu e foi posta de novo: a anotação volta como está agora', async () => {
+      const { ana, bia } = await sharedNote();
+      await bia.shared.leave('nota-1');
+      ana.edit('nota-1', { text: 'mudou enquanto ela estava fora' });
+      await sync(ana);
+      await ana.shared.setRole('nota-1', USERS['bia'].codigo, 'editor');
+      await sync(bia);
+      expect(bia.text('nota-1')).toBe('mudou enquanto ela estava fora');
+      expect(bia.shared.role('nota-1')).toBe('editor');
+    });
+
+    it('a dona muda a categoria enquanto a editora escreve: as duas mudanças ficam, e a editora não desfaz a categoria', async () => {
+      const { ana, bia } = await sharedNote('um', { category: 'Casa' });
+      ana.edit('nota-1', { category: 'Mercado' });
+      bia.edit('nota-1', { text: 'um\ndois' });
+      await sync(ana, bia, ana);
+      for (const p of [ana, bia]) {
+        expect(p.store.get('nota-1')!.category).toBe('Mercado');
+        expect(p.text('nota-1')).toBe('um\ndois');
+      }
+      // a editora salva de novo (o editor dela ainda mostrava a categoria de antes): continua Mercado
+      bia.edit('nota-1', { text: 'um\ndois\ntrês', category: 'Casa' });
+      await sync(bia, ana);
+      expect(ana.store.get('nota-1')!.category).toBe('Mercado');
+      expect(ana.text('nota-1')).toBe('um\ndois\ntrês');
+    });
+
+    it('a dona e a gestora mexem nas tags ao mesmo tempo: o que cada uma pôs fica, o que tirou sai', async () => {
+      const { ana, bia } = await sharedNote('a', { tags: ['mercado', 'semana'] });
+      await ana.shared.setRole('nota-1', USERS['bia'].codigo, 'gestor');
+      await sync(bia);
+      ana.edit('nota-1', { tags: ['mercado', 'semana', 'urgente'] });
+      bia.edit('nota-1', { tags: ['mercado', 'feira'] });
+      await sync(ana, bia, ana);
+      for (const p of [ana, bia]) expect([...p.store.get('nota-1')!.tags!].sort()).toEqual(['feira', 'mercado', 'urgente']);
+    });
+
+    it('duas gravações seguidas da mesma pessoa (a nuvem pede para esperar 1 s): nada se perde, e sobe depois', async () => {
+      const { ana, bia } = await sharedNote('um');
+      cloud.strict = true;
+      bia.edit('nota-1', { text: 'um\ndois' });
+      await sync(bia);
+      // logo em seguida (no mesmo segundo), outra edição
+      const r = bia.store.get('nota-1')!;
+      bia.store.update({ ...r, text: 'um\ndois\ntrês', updatedAt: new Date(Date.now() + 1).toISOString() });
+      TestBed.tick();
+      await bia.shared.sync();
+      expect(bia.text('nota-1')).toBe('um\ndois\ntrês');
+      later();
+      await sync(bia, ana);
+      expect(ana.text('nota-1')).toBe('um\ndois\ntrês');
+    });
+
+    it('fixar uma compartilhada num aparelho fixa nos outros aparelhos da mesma pessoa (e só nos dela)', async () => {
+      const { ana, bia } = await sharedNote();
+      await bia.mural.syncNow();
+      const phone = person('bia');
+      later();
+      bia.store.update(withPin(bia.store.get('nota-1')!, true, new Date().toISOString()));
+      TestBed.tick();
+      await bia.mural.syncNow();
+      // no celular, a anotação chega depois do mural (ou antes): fica fixada do mesmo jeito
+      await phone.mural.syncNow();
+      await sync(phone);
+      expect(phone.store.get('nota-1')?.noteRank).toBe('fixada');
+      expect(ana.store.get('nota-1')?.noteRank).toBeUndefined();
+      // soltar no celular solta no computador
+      later();
+      phone.store.update(withPin(phone.store.get('nota-1')!, false, new Date().toISOString()));
+      TestBed.tick();
+      await phone.mural.syncNow();
+      await bia.mural.syncNow();
+      TestBed.tick();
+      expect(bia.store.get('nota-1')?.noteRank).toBeUndefined();
+      // nada disso foi para a anotação na nuvem
+      expect(cloud.notes.get('nota-1')!.dados['noteRank']).toBeUndefined();
+    });
+
+    it('o lugar escolhido em outro aparelho vale para a compartilhada que chega depois', async () => {
+      const { bia } = await sharedNote();
+      later();
+      bia.store.update(withPin(bia.store.get('nota-1')!, true, new Date().toISOString()));
+      TestBed.tick();
+      await bia.mural.syncNow();
+      const phone = person('bia');
+      await phone.mural.syncNow();
+      expect(phone.store.get('nota-1')).toBeUndefined();
+      await sync(phone);
+      expect(phone.store.get('nota-1')?.noteRank).toBe('fixada');
+      // o celular manda uma vez (a compartilhada pública passa a ir no mural público dele); depois, nada
+      await phone.mural.syncNow();
+      await bia.mural.syncNow();
+      const before = [...cloud.privados.values()].map((x) => x.rev).join();
+      await phone.mural.syncNow();
+      await bia.mural.syncNow();
+      expect([...cloud.privados.values()].map((x) => x.rev).join()).toBe(before);
+    });
+
+    it('a dona apaga para todos com a leitora tendo fixado: some, e ela fica sabendo', async () => {
+      const { ana, cris } = await sharedNote();
+      later();
+      cris.store.update(withPin(cris.store.get('nota-1')!, true, new Date().toISOString()));
+      TestBed.tick();
+      await ana.shared.deleteForAll('nota-1');
+      await sync(cris);
+      expect(cris.store.get('nota-1')).toBeUndefined();
+      expect(cris.shared.notice()?.tipo).toBe('saiu');
+    });
+
+    describe('no Kanban', () => {
+      it('a editora leva a compartilhada para Feito: ela finaliza para todas', async () => {
+        const { ana, bia } = await sharedNote('a', { category: 'Casa' });
+        const board = bia.kanban.boardFor('Casa');
+        bia.actions.move(board.id, 'nota-1', board.columns[2].id);
+        TestBed.tick();
+        expect(isDone(bia.store.get('nota-1')!)).toBeTrue();
+        await sync(bia, ana);
+        expect(isDone(ana.store.get('nota-1')!)).toBeTrue();
+      });
+
+      it('a leitora leva a compartilhada para Feito: o quadro é dela, mas a anotação não finaliza (e o bilhete não diz que finalizou)', async () => {
+        const { ana, cris } = await sharedNote('a', { category: 'Casa' });
+        const board = cris.kanban.boardFor('Casa');
+        spyOn(cris.toasts, 'show').and.callThrough();
+        cris.actions.move(board.id, 'nota-1', board.columns[2].id);
+        TestBed.tick();
+        expect(cris.kanban.boardFor('Casa').cards.map((c) => c.note)).toEqual(['nota-1']);
+        expect(isDone(cris.store.get('nota-1')!)).toBeFalse();
+        expect(cris.toasts.show).not.toHaveBeenCalled();
+        await sync(cris, ana);
+        expect(isDone(ana.store.get('nota-1')!)).toBeFalse();
+      });
+
+      it('a dona tira a compartilhada da categoria: ela sai do quadro da leitora, sem quebrar o quadro', async () => {
+        const { ana, cris } = await sharedNote('a', { category: 'Casa' });
+        const board = cris.kanban.boardFor('Casa');
+        cris.actions.move(board.id, 'nota-1', board.columns[0].id);
+        ana.edit('nota-1', { category: 'Trabalho' });
+        await sync(ana, cris);
+        expect(cris.kanban.live(cris.kanban.boardFor('Casa'))).toEqual([]);
+        expect(cris.store.get('nota-1')!.category).toBe('Trabalho');
+      });
     });
   });
 

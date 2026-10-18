@@ -378,6 +378,48 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect(r.status).toBe(403);
       });
 
+      it('escolher a partir de uma vez velha (alguém gravou depois do conflito): 409 com a de agora, e o conflito continua', async () => {
+        const { put, details, ana, bia, cris, setRole } = await shared();
+        await setRole(ana.token, 'nota-1', cris.codigo, 'editor');
+        await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'a' }), conflito: { b: nota('nota-1', { text: 'b' }) } });
+        await put(cris.token, 'nota-1', { base: 2, dados: nota('nota-1', { text: 'a\nc' }) });
+        const r = await put(ana.token, 'nota-1', { base: 2, dados: nota('nota-1', { text: 'b' }), resolver: true });
+        expect(r.status).toBe(409);
+        expect(r.body.nota).toMatchObject({ rev: 3, dados: { text: 'a\nc' }, conflito: { a: { text: 'a' }, b: { text: 'b' } } });
+        expect((await details(bia.token, ['nota-1']))[0].conflito).toBeDefined();
+        // a partir da de agora, a escolha entra e tira o conflito
+        const ok = await put(ana.token, 'nota-1', { base: 3, dados: nota('nota-1', { text: 'b\nc' }), resolver: true });
+        expect(ok.status).toBe(200);
+        expect(ok.body.nota.conflito).toBeUndefined();
+      });
+
+      it('um conflito novo toma o lugar do que ainda não foi escolhido', async () => {
+        const { put, details, ana, bia } = await shared();
+        await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'a1' }), conflito: { b: nota('nota-1', { text: 'b1' }) } });
+        await put(ana.token, 'nota-1', { base: 2, dados: nota('nota-1', { text: 'a2' }), conflito: { b: nota('nota-1', { text: 'b2' }) } });
+        const [d] = await details(bia.token, ['nota-1']);
+        expect(d.conflito).toMatchObject({ a: { text: 'a2' }, b: { text: 'b2' }, autorA: { nome: 'Bia' }, autorB: { nome: 'Ana' } });
+      });
+
+      it('quem foi tirado não grava mais nem vê a anotação (404), e quem ficou continua gravando', async () => {
+        const { put, drop, details, index, ana, bia } = await shared();
+        await drop(ana.token, 'nota-1', bia.codigo);
+        const r = await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'tarde demais' }) });
+        expect(r.status).toBe(404);
+        expect(r.body.erro).toBe('nota-nao-encontrada');
+        expect(await details(bia.token, ['nota-1'])).toEqual([]);
+        expect((await index(bia.token)).map((n) => n.id)).not.toContain('nota-1');
+        expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'segue' }) })).status).toBe(200);
+      });
+
+      it('mudar o papel não muda a vez de gravar (rev), só a versão: uma edição esperando não briga com ela', async () => {
+        const { put, setRole, index, ana, bia, cris } = await shared();
+        const before = (await index(bia.token)).find((n) => n.id === 'nota-1')!.versao;
+        await setRole(ana.token, 'nota-1', cris.codigo, 'editor');
+        expect((await index(bia.token)).find((n) => n.id === 'nota-1')!.versao).toBe(before + 1);
+        expect((await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'ok' }) })).status).toBe(200);
+      });
+
       it('o leitor não escolhe num conflito', async () => {
         const { put, cris, bia } = await shared();
         await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'a' }), conflito: { b: nota('nota-1', { text: 'b' }) } });

@@ -36,7 +36,9 @@ import {
  * como conflito: a nuvem guarda as duas versões, e quem escreve escolhe uma (`resolve`).
  *
  * Fica tudo no IndexedDB, por conta (outra conta neste navegador não vê nem mexe nas de outra), e
- * funciona sem rede: a edição espera e sobe quando a conexão voltar. Nada daqui vai no mural da nuvem.
+ * funciona sem rede: a edição espera e sobe quando a conexão voltar. Nada da anotação vai no mural da
+ * nuvem; só o lugar dela no mural de quem está aqui (fixada, sub-nota), que é da pessoa e vai para os
+ * outros aparelhos dela pelo mural privado (`places`, ver core/cloud-sync.ts), nunca para a anotação.
  */
 
 export const SHARED_KEY: DataKey = 'meu-mural:compartilhadas:v1';
@@ -87,9 +89,39 @@ export type SharedNotice =
   | { tipo: 'escolhido'; id: string; titulo: string; por: string }
   | { tipo: 'saiu'; id: string; titulo: string };
 
-/** O que vai no armazenamento: as anotações de cada conta. */
+/**
+ * O lugar de uma anotação compartilhada no mural de quem está aqui (fixada, sub-nota) e quando ele
+ * mudou: vai para os outros aparelhos da pessoa, e o mudado por último vale.
+ */
+export interface Place {
+  p: Personal;
+  em: string;
+}
+
+/** Lugares demais viram lixo guardado: os mais novos ficam (uma conta tem até 500 compartilhadas). */
+export const MAX_PLACES = 600;
+
+/** Os lugares guardados ou vindos da nuvem (id → lugar), só os que servem. */
+export function sanitizePlaces(raw: unknown): Map<string, Place> {
+  const out = new Map<string, Place>();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+    const em = (v as { em?: unknown } | null)?.em;
+    if (!/^[\w-]{4,64}$/.test(id) || typeof em !== 'string' || !Number.isFinite(Date.parse(em))) continue;
+    out.set(id, { p: sanitizePersonal((v as { p?: unknown }).p), em });
+  }
+  return newestPlaces(out);
+}
+
+function newestPlaces(map: Map<string, Place>): Map<string, Place> {
+  if (map.size <= MAX_PLACES) return map;
+  return new Map([...map].sort(([, a], [, b]) => (a.em < b.em ? 1 : a.em > b.em ? -1 : 0)).slice(0, MAX_PLACES));
+}
+
+/** O que vai no armazenamento: as anotações de cada conta, e o lugar delas no mural. */
 interface Stored {
   contas: Record<string, unknown[]>;
+  lugares: Record<string, unknown>;
 }
 
 const json = (r: Review | null) => (r ? sharedContent(r) : null);
@@ -150,6 +182,11 @@ export class SharedStore implements SharedSink {
 
   /** As anotações compartilhadas da conta de agora (id → anotação). */
   readonly entries = signal<ReadonlyMap<string, SharedEntry>>(new Map());
+  /**
+   * O lugar de cada uma no mural de quem está aqui, com quando mudou (ver `Place`), também das que
+   * ainda não chegaram neste aparelho: elas já chegam no lugar escolhido em outro.
+   */
+  readonly places = signal<ReadonlyMap<string, Place>>(new Map());
   /**
    * A conta em que se está (null: sem conta, e as compartilhadas não aparecem). Sem rede elas continuam
    * no mural: só a sincronização espera.
@@ -249,6 +286,34 @@ export class SharedStore implements SharedSink {
     return [...this.entries().values()].map((e) => e.view);
   }
 
+  /**
+   * Os lugares que vieram de outro aparelho da pessoa (pelo mural privado): cada um fica se for o
+   * mudado por último, e a anotação que já está aqui vai para ele.
+   */
+  mergePlaces(remote: ReadonlyMap<string, Place>): void {
+    const places = new Map(this.places());
+    let changed = false;
+    for (const [id, place] of remote) {
+      const here = places.get(id);
+      if (here && here.em >= place.em) continue;
+      places.set(id, place);
+      changed = true;
+    }
+    if (!changed) return;
+    this.places.set(newestPlaces(places));
+    for (const e of [...this.entries().values()]) {
+      const p = this.places().get(e.id)?.p;
+      if (p && !samePersonal(p, e.pessoal)) this.put({ ...e, pessoal: p });
+    }
+    this.persist();
+  }
+
+  private setPlace(id: string, p: Personal): void {
+    const places = new Map(this.places());
+    places.set(id, { p, em: new Date().toISOString() });
+    this.places.set(newestPlaces(places));
+  }
+
   /** A leitura ou o editor abriu (ou fechou) uma compartilhada: enquanto aberta, ela é conferida mais seguido. */
   watch(id: string, on: boolean): void {
     if (!this.entries().has(id) && on) return;
@@ -293,6 +358,7 @@ export class SharedStore implements SharedSink {
       }
     }
     if (local === e.local && outra === e.outra && samePersonal(pessoal, e.pessoal)) return;
+    if (!samePersonal(pessoal, e.pessoal)) this.setPlace(e.id, pessoal);
     this.put({ ...e, local, outra, pessoal });
     if (local !== e.local) this.schedulePush();
   }
@@ -311,7 +377,9 @@ export class SharedStore implements SharedSink {
     // a de antes de compartilhar continua sendo a mais nova aqui, se mudou durante o pedido
     const now = this.store.get(review.id) ?? review;
     const local = sameShared(withPersonal(now, {}), detail.dados) ? null : withPersonal(now, {});
-    const entry = this.adopt(detail, { pessoal: personalOf(now), local });
+    const pessoal = personalOf(now);
+    if (pessoal.noteRank) this.setPlace(detail.id, pessoal);
+    const entry = this.adopt(detail, { pessoal, local });
     if (local) this.schedulePush();
     return entry;
   }
@@ -333,7 +401,10 @@ export class SharedStore implements SharedSink {
     this.integrateDetail(res?.nota);
   }
 
-  /** Sai da anotação: ela some do seu mural (quem ficou continua com ela). */
+  /**
+   * Sai da anotação: ela some do seu mural (quem ficou continua com ela). Uma edição daqui que ainda não
+   * subiu não vai mais, mas fica guardada (em Ajustes), como quando a anotação sai pela nuvem.
+   */
   async leave(id: string): Promise<void> {
     try {
       await this.account.request(`/v1/notas/${encodeURIComponent(id)}/membros/eu`, { method: 'DELETE' });
@@ -341,6 +412,8 @@ export class SharedStore implements SharedSink {
       // já não estava nela: sai daqui do mesmo jeito
       if (!(err instanceof CloudError && err.status === 404)) throw err;
     }
+    const e = this.entries().get(id);
+    if (e?.local && !sameShared(e.local, e.base)) this.store.keepVersions([withPersonal(e.local, e.pessoal)], 'compartilhada');
     this.drop(id);
   }
 
@@ -356,13 +429,22 @@ export class SharedStore implements SharedSink {
 
   /**
    * Escolhe uma das versões de um conflito (ou uma terceira, juntando as duas). Ela vira a anotação e
-   * sobe tirando o conflito; se outra pessoa escolheu antes, vale a escolha dela.
+   * sobe tirando o conflito; se outra pessoa escolheu antes, vale a escolha dela. As duas versões são
+   * de quando o conflito aconteceu: o que alguém escreveu depois dele (em outro trecho) continua, porque
+   * a escolha entra na anotação de agora como uma edição a partir da versão que ficou valendo (`a`).
    */
   resolve(id: string, chosen: Review): void {
     const e = this.entries().get(id);
     if (!e || !e.conflito || !canWrite(e.papel)) return;
     this.told.add(conflictKey(e));
-    this.put({ ...e, local: { ...withPersonal(chosen, {}), updatedAt: new Date().toISOString() }, outra: null, resolver: true, conflito: null });
+    const current = e.local ?? e.base;
+    const pick = withPersonal(chosen, {});
+    const m = mergeNote(e.conflito.a, current, pick);
+    // o que veio depois mexeu no mesmo trecho que a escolha: vale a escolha
+    let next = m.other ?? m.merged;
+    // quem não gere só manda a estrutura (categoria, tags, quem vê) de agora ou a da versão escolhida (a nuvem recusa outra)
+    if (!canManage(e.papel) && structureKey(next) !== structureKey(current) && structureKey(next) !== structureKey(pick)) next = withStructureOf(next, pick);
+    this.put({ ...e, local: { ...next, updatedAt: new Date().toISOString() }, outra: null, resolver: true, conflito: null });
     this.schedulePush(0);
   }
 
@@ -585,7 +667,8 @@ export class SharedStore implements SharedSink {
       outra: null,
       resolver: false,
       conflito: d.conflito,
-      pessoal: extra.pessoal ?? {},
+      // o lugar escolhido em outro aparelho, se veio antes dela
+      pessoal: extra.pessoal ?? this.places().get(d.id)?.p ?? {},
     });
     this.put(entry);
     this.maybeAnnounce(entry);
@@ -601,6 +684,11 @@ export class SharedStore implements SharedSink {
     const next = new Map(this.entries());
     next.delete(id);
     this.entries.set(next);
+    if (this.places().has(id)) {
+      const places = new Map(this.places());
+      places.delete(id);
+      this.places.set(places);
+    }
     this.persist();
     if (fromCloud && e.papel !== 'dono') this.notice.set({ tipo: 'saiu', id, titulo: e.view.game.name, at: Date.now() });
   }
@@ -635,9 +723,12 @@ export class SharedStore implements SharedSink {
     this.loadedFor = account;
     if (!account) {
       if (this.entries().size) this.entries.set(new Map());
+      if (this.places().size) this.places.set(new Map());
       return;
     }
-    const list = (this.readAll().contas[account] ?? []).map(readEntry).filter((e): e is SharedEntry => e !== null);
+    const all = this.readAll();
+    this.places.set(sanitizePlaces(all.lugares[account]));
+    const list = (all.contas[account] ?? []).map(readEntry).filter((e): e is SharedEntry => e !== null);
     const before = this.entries();
     const next = new Map<string, SharedEntry>();
     for (const e of list) {
@@ -651,9 +742,10 @@ export class SharedStore implements SharedSink {
     try {
       const raw = JSON.parse(this.data.getItem(SHARED_KEY) ?? 'null') as Partial<Stored> | null;
       const contas = raw?.contas && typeof raw.contas === 'object' ? raw.contas : {};
-      return { contas: Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]> };
+      const lugares = raw?.lugares && typeof raw.lugares === 'object' ? raw.lugares : {};
+      return { contas: Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]>, lugares };
     } catch {
-      return { contas: {} };
+      return { contas: {}, lugares: {} };
     }
   }
 
@@ -663,6 +755,8 @@ export class SharedStore implements SharedSink {
     const all = this.readAll();
     all.contas[account] = [...this.entries().values()].map(storedEntry);
     if (!all.contas[account].length) delete all.contas[account];
+    all.lugares[account] = Object.fromEntries(this.places());
+    if (!this.places().size) delete all.lugares[account];
     try {
       void Promise.resolve(this.data.setItem(SHARED_KEY, JSON.stringify(all))).catch(() => undefined);
     } catch {
@@ -689,6 +783,8 @@ function withStructureOf(r: Review, from: Review): Review {
   } as Review;
 }
 
+/** A estrutura da anotação como a nuvem confere (ver `structureOf` em api/src/domain/shared-note.ts). */
+const structureKey = (r: Review) => JSON.stringify([r.category ?? '', [...(r.tags ?? [])].sort(), !!r.private, !!r.quiet]);
 const samePersonal = (a: Personal, b: Personal) => a.noteRank === b.noteRank && !!a.pinnedSub === !!b.pinnedSub;
 const sameView = (a: Review, b: Review) => a.updatedAt === b.updatedAt && sameShared(a, b) && samePersonal(personalOf(a), personalOf(b));
 const conflictKey = (e: SharedEntry) => `${e.id}@${e.conflito?.em ?? ''}`;

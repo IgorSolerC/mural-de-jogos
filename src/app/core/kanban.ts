@@ -1,6 +1,8 @@
 import { CardLook, lookFrom, sameLook, sanitizeLook } from './card-look';
+import { canonicalJson } from './canonical-json';
 import { CategoryColorId, lookKey } from './category-looks';
 import { SortRule, sanitizeSort } from './kanban-sort';
+import { mergeFields, mergeOrder } from './merge-parts';
 import { cleanTag } from './note-labels';
 import { LIGHT_STOCKS, LightStock, fold, newId } from './review';
 import { nameCollator } from './text';
@@ -119,6 +121,11 @@ export interface KanbanCard {
   importance: Importance | null;
   /** Vestida pelo card padrão da coluna (ver `dressBoard`). */
   dress?: Dress;
+  /**
+   * Quando a pessoa a pôs no lugar (ou mudou a importância) pela última vez: na junção de dois
+   * aparelhos que mexeram na mesma anotação, vale a mexida por último (e não o quadro mexido por último).
+   */
+  at?: string;
 }
 
 export interface KanbanBoard {
@@ -155,6 +162,12 @@ export interface KanbanState {
   removed: Record<string, string>;
   /** Os quadros de antes, ainda sem categoria (ver `attachLegacy`). */
   legacy: LegacyBoard[];
+  /**
+   * Para onde foi o quadro de uma categoria renomeada (id de antes → id novo; ver
+   * `moveBoardCategory`): o que outro aparelho mexeu no quadro de antes, sem saber da troca, vai para o
+   * novo na junção em vez de se perder num quadro sem categoria.
+   */
+  movedTo?: Record<string, string>;
 }
 
 export const EMPTY_KANBAN: KanbanState = { boards: [], removed: {}, legacy: [] };
@@ -266,7 +279,7 @@ function sanitizeCards(raw: unknown, columns: readonly KanbanColumn[]): { card: 
     const column = cleanId(cr['column']);
     if (!note || !columns.some((x) => x.id === column) || out.some((x) => x.card.note === note) || out.length >= MAX_CARDS) continue;
     const dress = sanitizeDress(cr['dress'], columns);
-    out.push({ card: { note, column, importance: importanceOf(cr['importance']), ...(dress ? { dress } : {}) }, raw: cr });
+    out.push({ card: { note, column, importance: importanceOf(cr['importance']), ...(dress ? { dress } : {}), ...(isIso(cr['at']) ? { at: cr['at'] } : {}) }, raw: cr });
   }
   return out;
 }
@@ -329,8 +342,14 @@ export function sanitizeKanban(raw: unknown): KanbanState {
     const id = cleanId(k);
     if (id && isIso(v)) removed[id] = v;
   }
+  const movedTo: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rec(r['movedTo']))) {
+    const from = cleanId(k);
+    const to = cleanId(v);
+    if (from && to && from !== to && removed[from]) movedTo[from] = to;
+  }
   // um quadro apagado depois da última mudança dele continua apagado
-  return { boards: alive(boards, removed), removed, legacy: alive(legacy, removed) };
+  return { boards: alive(boards, removed), removed, legacy: alive(legacy, removed), ...(Object.keys(movedTo).length ? { movedTo } : {}) };
 }
 
 /** Os daqui, cada um trocado pelo de lá quando o de lá é mais novo, e os só de lá no fim. */
@@ -345,16 +364,173 @@ function newest<T extends { id: string; at: string }>(here: readonly T[], there:
 }
 
 /**
- * Junta os quadros de dois aparelhos: cada quadro inteiro vem de quem o mudou por último (mexer em
- * quadros diferentes nunca briga); um quadro apagado depois da última mudança dele fica apagado. A
- * ordem é a daqui, com os que só existem lá no fim, na ordem de lá. Os quadros de antes também se
- * juntam (e a conversão deles roda depois, ver `KanbanStore`).
+ * Junta os quadros de dois aparelhos. Com a base (`base`: os quadros que este aparelho e a nuvem tinham
+ * juntos na última sincronização), um quadro mexido dos dois lados se junta por partes (`mergeBoards`):
+ * cada um move uma anotação, renomeia uma coluna, muda a ordem de outra, e tudo fica. Sem a base (a
+ * primeira vez depois do site de antes dela), o quadro inteiro vem de quem o mudou por último. Mexer em
+ * quadros diferentes nunca briga; um quadro apagado depois da última mudança dele fica apagado; o
+ * quadro de antes de uma categoria renomeada, mexido em outro aparelho sem saber da troca, vai para o
+ * quadro do nome novo (ver `movedTo`). A ordem é a daqui, com os que só existem lá no fim, na ordem de
+ * lá. Os quadros de antes também se juntam (e a conversão deles roda depois, ver `KanbanStore`).
  */
-export function mergeKanban(here: KanbanState, there: KanbanState): KanbanState {
+export function mergeKanban(here: KanbanState, there: KanbanState, base: KanbanState | null = null): KanbanState {
   const removed: Record<string, string> = { ...here.removed };
   for (const [id, at] of Object.entries(there.removed)) if (!removed[id] || removed[id] < at) removed[id] = at;
-  return { boards: alive(newest(here.boards, there.boards), removed), removed, legacy: alive(newest(here.legacy, there.legacy), removed) };
+  const movedTo = { ...there.movedTo, ...here.movedTo };
+  const theirs = new Map(there.boards.map((b) => [b.id, b]));
+  // o quadro na base; sem ele (nasceu depois da última sincronização), o de sempre da categoria, de onde todo quadro parte
+  const origin = (b: KanbanBoard) => (base ? (base.boards.find((x) => x.id === b.id) ?? freshBoard(b.category)) : null);
+  const boards = here.boards.map((h) => {
+    const t = theirs.get(h.id);
+    if (!t) return h;
+    const o = origin(h);
+    return o ? mergeBoards(o, h, t) : t.at > h.at ? t : h;
+  });
+  for (const t of there.boards) if (!boards.some((b) => b.id === t.id)) boards.push(t);
+  for (const [from, to] of Object.entries(movedTo)) {
+    // só de um lado: o outro trocou a categoria; mexido aqui depois da última sincronização, vai para o novo
+    const mine = here.boards.find((b) => b.id === from);
+    const other = there.boards.find((b) => b.id === from);
+    if (!mine === !other) continue;
+    const [side, mover] = mine ? [here, there] : [there, here];
+    const old = (mine ?? other)!;
+    // quem tem o quadro já sabia da troca (o quadro foi feito de novo depois dela): fica como está
+    if (!mover.movedTo?.[from] || side.removed[from] === mover.removed[from]) continue;
+    const o = base ? (base.boards.find((x) => x.id === from) ?? freshBoard(old.category)) : null;
+    const changed = o ? !sameBoard(o, old) : old.at > (removed[from] ?? '');
+    const i = boards.indexOf(old);
+    const j = boards.findIndex((b) => b.id === followMoves(movedTo, to, from, boards));
+    // sem o quadro novo (apagado depois), o de antes mexido fica pela hora, como um apagado
+    if (i < 0 || (changed && j < 0)) continue;
+    if (changed) boards[j] = rebase(o ?? freshBoard(old.category), old, boards[j]);
+    boards.splice(i, 1);
+    if (old.at > removed[from]) removed[from] = old.at;
+  }
+  return {
+    boards: alive(boards, removed),
+    removed,
+    legacy: alive(newest(here.legacy, there.legacy), removed),
+    ...(Object.keys(movedTo).length ? { movedTo } : {}),
+  };
 }
+
+/** O quadro em que um quadro movido está agora (seguindo as trocas de nome), ou null. */
+function followMoves(movedTo: Record<string, string>, to: string, from: string, boards: readonly KanbanBoard[]): string | null {
+  const seen = new Set([from]);
+  let id: string | undefined = to;
+  while (id && !seen.has(id)) {
+    if (boards.some((b) => b.id === id)) return id;
+    seen.add(id);
+    id = movedTo[id];
+  }
+  return null;
+}
+
+/**
+ * O que mudou no quadro de antes de uma categoria renomeada (`old`, partindo de `o`), posto no quadro
+ * para onde ele foi (`target`). Renomeada para um nome novo, o quadro é o mesmo (as colunas foram
+ * junto) e se junta inteiro; juntada com uma categoria que já tinha quadro, só as anotações vão, para
+ * a coluna de mesmo nome (senão a primeira), como em `moveBoardCategory`.
+ */
+function rebase(o: KanbanBoard, old: KanbanBoard, target: KanbanBoard): KanbanBoard {
+  const as = (b: KanbanBoard): KanbanBoard => ({ ...b, id: target.id, category: target.category });
+  if (o.columns.every((c) => target.columns.some((t) => t.id === c.id))) return mergeBoards(as(o), target, as(old));
+  const byName = new Map(target.columns.map((c) => [fold(c.name), c.id]));
+  const mapped = (b: KanbanBoard): KanbanBoard => {
+    const nameOf = new Map(b.columns.map((c) => [c.id, fold(c.name)]));
+    const column = (id: string) => (target.columns.some((c) => c.id === id) ? id : (byName.get(nameOf.get(id) ?? '') ?? target.columns[0].id));
+    return { ...as(b), columns: target.columns, cards: b.cards.map((c) => ({ ...c, column: column(c.column) })) };
+  };
+  return mergeBoards(mapped(o), target, mapped(old));
+}
+
+/** O que importa de um quadro na junção (as colunas e as anotações; a hora não). */
+const boardContent = (b: KanbanBoard) => canonicalJson({ columns: b.columns, cards: b.cards });
+const sameBoard = (x: KanbanBoard, y: KanbanBoard) => boardContent(x) === boardContent(y);
+
+/**
+ * Junta duas versões do mesmo quadro (`a`, a daqui; `b`, a de lá) que partiram de `o`, como o git:
+ * - as colunas, cada uma campo a campo (o nome num aparelho e a cor no outro ficam as duas); a coluna
+ *   nova de cada lado entra, a tirada de um lado sai; a ordem delas junta o que cada lado mudou;
+ * - as anotações, cada uma campo a campo (a coluna, a importância, o card padrão); a posta de um lado
+ *   entra, a tirada de um lado sai (a não ser que o outro a tenha mexido depois); a ordem junta o que
+ *   cada lado arrastou;
+ * - o que os dois mudaram de jeitos diferentes fica com o quadro mexido por último.
+ * A anotação de uma coluna que saiu vai para a coluna em que estava do outro lado (ou na base), senão
+ * para a primeira: nunca some do quadro por causa da junção.
+ */
+export function mergeBoards(o: KanbanBoard, a: KanbanBoard, b: KanbanBoard): KanbanBoard {
+  const ca = boardContent(a);
+  const cb = boardContent(b);
+  if (ca === cb) return a.at >= b.at ? a : b;
+  if (ca === boardContent(o)) return b;
+  if (cb === boardContent(o)) return a;
+  // o desempate não depende de quem junta: dois aparelhos chegam no mesmo quadro
+  const preferA = a.at > b.at || (a.at === b.at && ca > cb);
+  const at = a.at > b.at ? a.at : b.at;
+
+  const colsO = new Map(o.columns.map((c) => [c.id, c]));
+  const colsA = new Map(a.columns.map((c) => [c.id, c]));
+  const colsB = new Map(b.columns.map((c) => [c.id, c]));
+  const liveCols = new Set([...colsA.keys(), ...colsB.keys()].filter((id) => !(colsO.has(id) && (!colsA.has(id) || !colsB.has(id)))));
+  let columns = mergeOrder(
+    o.columns.map((c) => c.id),
+    a.columns.map((c) => c.id),
+    b.columns.map((c) => c.id),
+    preferA,
+    liveCols,
+  ).map((id) => {
+    const x = colsA.get(id);
+    const y = colsB.get(id);
+    if (!x || !y) return (x ?? y)!;
+    return sanitizeColumn(mergeFields(colsO.get(id), x, y, preferA)) ?? (preferA ? x : y);
+  });
+  if (!columns.length) columns = preferA ? a.columns : b.columns;
+  const colIds = new Set(columns.map((c) => c.id));
+
+  const cardsO = new Map(o.cards.map((c) => [c.note, c]));
+  const cardsA = new Map(a.cards.map((c) => [c.note, c]));
+  const cardsB = new Map(b.cards.map((c) => [c.note, c]));
+  const merged = new Map<string, KanbanCard>();
+  for (const note of new Set([...cardsA.keys(), ...cardsB.keys()])) {
+    const x = cardsA.get(note);
+    const y = cardsB.get(note);
+    const z = cardsO.get(note);
+    let card: KanbanCard;
+    if (x && y) {
+      // a mesma anotação mexida dos dois lados: vale a mexida por último (sem a hora dela, o quadro)
+      const tx = x.at ?? '';
+      const ty = y.at ?? '';
+      card = mergeFields(z, x, y, tx !== ty ? tx > ty : preferA);
+      const at = tx > ty ? x.at : y.at;
+      if (at) card = { ...card, at };
+    } else {
+      const only = (x ?? y)!;
+      // tirada do outro lado: sai, a não ser que este lado a tenha mexido depois de o outro mexer no quadro
+      if (z && (sameCard(z, only) || (only.at ?? (x ? a.at : b.at)) <= (x ? b.at : a.at))) continue;
+      card = only;
+    }
+    if (!colIds.has(card.column)) {
+      const where = [x?.column, y?.column, z?.column].find((c) => c && colIds.has(c));
+      card = { ...card, column: where ?? columns[0].id };
+    }
+    merged.set(note, card);
+  }
+  const order = mergeOrder(
+    o.cards.map((c) => c.note),
+    a.cards.map((c) => c.note),
+    b.cards.map((c) => c.note),
+    preferA,
+    new Set(merged.keys()),
+  );
+  const cards = sanitizeCards(
+    order.map((n) => merged.get(n)),
+    columns,
+  ).map((c) => c.card);
+  return { id: a.id, category: a.category, at, columns, cards };
+}
+
+const sameCard = (x: KanbanCard, y: KanbanCard) => canonicalJson(x) === canonicalJson(y);
 
 /** O que muda um quadro: o resultado com `at` novo (a mudança mais nova, na junção). */
 function touch<T extends { at: string }>(b: T, patch: Partial<T>, at: string): T {
@@ -396,7 +572,9 @@ export function moveBoardCategory(st: KanbanState, from: string, to: string | nu
       boards = boards.map((b) => (b === target ? { ...b, cards: [...b.cards, ...moved], at } : b));
     }
   }
-  return { ...st, boards, removed: { ...st.removed, [fromId]: at } };
+  // para a junção levar ao quadro novo o que outro aparelho mexer no de antes sem saber da troca
+  const movedTo = to === null ? st.movedTo : { ...st.movedTo, [fromId]: boardIdFor(to) };
+  return { ...st, boards, removed: { ...st.removed, [fromId]: at }, ...(movedTo ? { movedTo } : {}) };
 }
 
 /** Uma coluna nova no fim (ou depois de `after`), com uma cor que ainda não está no quadro, se houver. */
@@ -456,7 +634,7 @@ export function placeCard(b: KanbanBoard, note: string, column: string, at: stri
   if (!b.columns.some((c) => c.id === column)) return b;
   const old = b.cards.find((c) => c.note === note);
   if (!old && b.cards.length >= MAX_CARDS) return b;
-  const card: KanbanCard = old ? { ...old, column } : { note, column, importance: null };
+  const card: KanbanCard = old ? { ...old, column, at } : { note, column, importance: null, at };
   const others = b.cards.filter((c) => c.note !== note);
   const inCol = others.filter((c) => c.column === column);
   const i = index === undefined ? inCol.length : Math.max(0, Math.min(index, inCol.length));
@@ -494,7 +672,7 @@ export function removeCard(b: KanbanBoard, note: string, at: string): KanbanBoar
 }
 
 export function setImportance(b: KanbanBoard, note: string, importance: Importance | null, at: string): KanbanBoard {
-  return touch(b, { cards: b.cards.map((c) => (c.note === note ? { ...c, importance } : c)) }, at);
+  return touch(b, { cards: b.cards.map((c) => (c.note === note ? { ...c, importance, at } : c)) }, at);
 }
 
 /**
@@ -519,14 +697,17 @@ export function lookVersion(look: CardLook): string {
  * O quadro de um Desfazer (`before`, como era), sem perder o visual de antes das anotações vestidas:
  * cada marca fica "por refazer" (sem coluna nem versão), com o visual de antes mais antigo que se
  * conhece (o de agora, ou o de `before`), e o vestidor veste ou despe cada anotação de novo conforme
- * a coluna em que ela volta a estar.
+ * a coluna em que ela volta a estar. Com `at`, as anotações que voltam para outro lugar (ou outra
+ * importância) ficam com essa hora: desfazer é mexer agora.
  */
-export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined): KanbanBoard {
+export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined, at?: string): KanbanBoard {
   const current = new Map((now?.cards ?? []).map((c) => [c.note, c]));
   const cards = before.cards.map((c) => {
-    const own = current.get(c.note)?.dress?.own ?? c.dress?.own;
+    const was = current.get(c.note);
+    const own = was?.dress?.own ?? c.dress?.own;
     const { dress: _, ...plain } = c;
-    return own ? { ...plain, dress: { col: '', v: '', own } } : plain;
+    const moved = at && (!was || was.column !== c.column || was.importance !== c.importance) ? { at } : {};
+    return own ? { ...plain, ...moved, dress: { col: '', v: '', own } } : { ...plain, ...moved };
   });
   return { ...before, cards };
 }
@@ -710,5 +891,5 @@ export function attachLegacy(state: KanbanState, notes: readonly BoardNote[], at
   const kept = new Set(boards.map((b) => b.id));
   const removed = { ...state.removed };
   for (const lb of state.legacy) if (!kept.has(lb.id)) removed[lb.id] = at > lb.at ? at : new Date(Date.parse(lb.at) + 1).toISOString();
-  return { state: { boards, removed, legacy: [] }, tags, colors };
+  return { state: { ...state, boards, removed, legacy: [] }, tags, colors };
 }

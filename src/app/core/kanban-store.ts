@@ -123,12 +123,15 @@ export class KanbanStore {
    * card padrão vestem ou despem de novo conforme a coluna em que voltam (ver `restoredBoard`).
    */
   restore(board: KanbanBoard): void {
-    this.update(board.id, (now, at) => ({ ...restoredBoard(board, now), at }));
+    this.update(board.id, (now, at) => ({ ...restoredBoard(board, now, at), at }));
   }
 
-  /** Os quadros que vieram de outro aparelho, juntados aos daqui (os de antes são convertidos em seguida). */
-  merge(remote: KanbanState): void {
-    const next = mergeKanban(this.state(), remote);
+  /**
+   * Os quadros que vieram de outro aparelho, juntados aos daqui (os de antes são convertidos em seguida).
+   * `base`: os quadros na última sincronização (ver `mergeKanban`).
+   */
+  merge(remote: KanbanState, base: KanbanState | null = null): void {
+    const next = mergeKanban(this.state(), remote, base);
     if (JSON.stringify(next) !== JSON.stringify(this.state())) this.state.set(next);
   }
 

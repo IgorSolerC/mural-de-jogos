@@ -4,19 +4,20 @@ import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
 import { Review, isPrivate, storedNote } from './review';
-import { SharedStore } from './shared-store';
+import { Place, SharedStore, sanitizePlaces } from './shared-store';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
-import { NotesConfig, sanitizeNotesConfig } from './mural-config';
+import { NOTES_CONFIG_DEFAULT, NotesConfig, mergeNotesConfig, sanitizeNotesConfig } from './mural-config';
+import { merge3Json, mergeSet } from './merge-parts';
 import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
-import { KanbanState, sanitizeKanban } from './kanban';
+import { EMPTY_KANBAN, KanbanState, sanitizeKanban } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
 import { Confirm } from '../ui/confirm';
-import { plural } from './text';
+import { labelKey, plural } from './text';
 import { readText, removeKey, writeText } from './storage';
 
 /**
@@ -47,6 +48,13 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
  * vai com "Apagar o save".
  */
 export const BASE_KEY = 'meu-mural:nuvem:base';
+/**
+ * A base do que se junta por partes, e não pela data (ver `Parts`): como estavam o jeito das categorias,
+ * as configurações do mural, as tags fixas e os quadros do Kanban na última sincronização, e de qual
+ * conta. Com ela, pintar uma categoria num aparelho e outra no outro guarda as duas; sem ela (o site de
+ * antes dela), vale o mudado por último. Fica e vai como a `BASE_KEY`.
+ */
+export const PARTS_BASE_KEY = 'meu-mural:nuvem:base-partes';
 
 /**
  * A versão do formato do mural na nuvem. Aumente quando `sanitizeReview`, `sanitizeNote`, `sanitizeDraft` ou
@@ -98,11 +106,18 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 22: o card padrão das colunas do Kanban (`look`, `dresses`) e a marca das anotações vestidas por
  *     ele (`dress`, com o visual de antes). Um site antigo jogaria os dois fora e enviaria o quadro
  *     assim, e as anotações não voltariam mais ao visual delas ao sair da coluna.
+ * 23: para onde foi o quadro Kanban de uma categoria renomeada (`movedTo`) e quando cada anotação
+ *     andou no quadro (`at` da anotação no quadro), que a junção por partes usa. Um site antigo jogaria
+ *     os dois fora e os enviaria assim: o que outro aparelho mexesse no quadro de antes se perderia, e a
+ *     anotação mexida nos dois aparelhos ficaria com a do quadro mexido por último. E o lugar das
+ *     anotações compartilhadas no mural da pessoa (`lugares`: fixada, sub-nota), para os outros
+ *     aparelhos dela; um site antigo enviaria o mural sem eles, e fixar uma compartilhada voltaria a
+ *     valer só no aparelho em que foi feito.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 22;
+export const SYNC_SCHEMA = 23;
 
 /**
  * As chaves de busca (RAWG e TMDB) e quando mudaram. Vão só no mural privado da nuvem: nunca no
@@ -196,7 +211,40 @@ export function kanbanPrintOf(data: Record<string, unknown>): Partial<KanbanStat
 export function kanbanToSync(state: KanbanState): Partial<KanbanState> | null {
   if (!state.boards.length && !state.legacy.length && !Object.keys(state.removed).length) return null;
   // os de antes só existem até a conversão (logo ao abrir): depois dela, nem a chave vai
-  return state.legacy.length ? state : { boards: state.boards, removed: state.removed };
+  if (state.legacy.length) return state;
+  return { boards: state.boards, removed: state.removed, ...(state.movedTo && Object.keys(state.movedTo).length ? { movedTo: state.movedTo } : {}) };
+}
+
+/**
+ * O lugar das anotações compartilhadas no mural da pessoa (fixada, sub-nota; ver `Place` em
+ * core/shared-store.ts). Vai só no mural privado: é da pessoa, para os outros aparelhos dela, e não da
+ * anotação. Cada um vale pelo mudado por último.
+ */
+export function placesOf(data: Record<string, unknown>): Record<string, Place> | null {
+  const map = sanitizePlaces(data['lugares']);
+  return map.size ? Object.fromEntries(map) : null;
+}
+
+/**
+ * O que se junta por partes, como estava na última sincronização (ver `PARTS_BASE_KEY`): o jeito das
+ * categorias, as configurações do mural, as tags fixas e os quadros do Kanban. Uma parte que não
+ * existia ainda é a vazia (tudo o que vier dela é novo).
+ */
+export interface Parts {
+  looks: CategoryLooks;
+  config: NotesConfig;
+  tags: string[];
+  kanban: KanbanState;
+}
+
+/** As partes de um mural (o da nuvem, ou o que este aparelho enviou). */
+export function partsOf(data: Record<string, unknown>): Parts {
+  return {
+    looks: categoryLooksOf(data)?.mapa ?? {},
+    config: notesConfigOf(data)?.dados ?? { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [] },
+    tags: pinnedTagsOf(data)?.lista ?? [],
+    kanban: kanbanOf(data) ?? { ...EMPTY_KANBAN, removed: {}, legacy: [] },
+  };
 }
 
 /**
@@ -399,6 +447,7 @@ export async function fingerprint(
   profile: SyncedProfile | null = null,
   config: SyncedNotesConfig | null = null,
   kanban: Partial<KanbanState> | null = null,
+  places: Record<string, Place> | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
@@ -427,6 +476,7 @@ export async function fingerprint(
     ...(profile ? { perfil: profile } : {}),
     ...(config ? { muralAnotacoes: config } : {}),
     ...(kanban ? { kanban } : {}),
+    ...(places ? { lugares: places } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -506,6 +556,7 @@ export class CloudSync {
       this.settings.categoryLooksAt();
       this.settings.notesConfigAt();
       this.kanban.state();
+      this.shared.places();
       this.profiles.changedAt();
       if (first) {
         first = false;
@@ -609,14 +660,10 @@ export class CloudSync {
         this.merge(remote.text, this.knownFor(state));
         // o que veio da nuvem é o que os dois têm em comum agora
         this.writeBase(state.conta, versionsOf(remote.data));
-        this.mergeKeys(remote.data);
-        this.mergeTags(remote.data);
-        this.mergeLooks(remote.data);
-        this.mergeConfig(remote.data);
-        this.mergeKanban(remote.data);
-        this.mergeProfile(remote.data);
+        this.mergeParts(remote.data, this.readParts(state.conta));
+        this.writeParts(state.conta, remote.data);
         state = { ...state, rev: remote.rev };
-        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban());
+        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.localPlaces());
         if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
@@ -632,15 +679,17 @@ export class CloudSync {
       const profile = this.localProfile();
       const config = this.localConfig();
       const kanban = this.localKanban();
-      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban);
+      const places = this.localPlaces();
+      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, places);
       const publicas = await this.sharedPrint();
       if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, here + publicas);
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, places, here + publicas);
         state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
+        this.writeParts(state.conta, { ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}) });
         break;
       } catch (err) {
         if (!(err instanceof CloudError && err.status === 409)) throw err;
@@ -695,14 +744,10 @@ export class CloudSync {
     // as chaves: a da nuvem vale se for mais nova (a conferência seguinte é "mudou?", e não traria)
     if (remote.kind === 'doc') {
       this.writeBase(accountId, versionsOf(remote.data));
-      this.mergeKeys(remote.data);
-      this.mergeTags(remote.data);
-      this.mergeLooks(remote.data);
-      this.mergeConfig(remote.data);
-      this.mergeKanban(remote.data);
-      this.mergeProfile(remote.data);
+      this.mergeParts(remote.data, this.readParts(accountId));
+      this.writeParts(accountId, remote.data);
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
-      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban());
+      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.localPlaces());
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
     }
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
@@ -821,12 +866,63 @@ export class CloudSync {
     return em ? { lista: [...this.settings.pinnedTags()], em } : null;
   }
 
-  /** As tags fixas que vieram da nuvem ficam aqui se forem as mudadas por último. */
-  private mergeTags(data: Record<string, unknown>): void {
+  /** Junta aqui tudo o que veio com o mural da nuvem, além das fichas. `base`: ver `PARTS_BASE_KEY`. */
+  private mergeParts(data: Record<string, unknown>, base: Parts | null): void {
+    this.mergeKeys(data);
+    this.mergeTags(data, base);
+    this.mergeLooks(data, base);
+    this.mergeConfig(data, base);
+    this.mergeKanban(data, base);
+    this.mergeProfile(data);
+    const places = placesOf(data);
+    if (places) this.apply(() => this.shared.mergePlaces(new Map(Object.entries(places))));
+  }
+
+  /**
+   * As tags fixas que vieram da nuvem se juntam às daqui (a fixada de um lado entra, a solta de um lado
+   * sai). Sem a base, ou sem nunca terem mudado aqui, valem as mudadas por último.
+   */
+  private mergeTags(data: Record<string, unknown>, base: Parts | null): void {
     const remote = pinnedTagsOf(data);
     const em = this.settings.pinnedTagsAt();
-    if (!remote || (em && remote.em <= em)) return;
+    if (!remote) return;
+    if (em && base) {
+      const here = [...this.settings.pinnedTags()];
+      const merged = sanitizeTags(mergeSet(base.tags, here, remote.lista, labelKey), MAX_PINNED_TAGS);
+      return this.adopt(merged, here, remote.lista, em, remote.em, (v, at) => this.settings.applyPinnedTags(v, at));
+    }
+    if (em && remote.em <= em) return;
     this.apply(() => this.settings.applyPinnedTags(remote.lista, remote.em));
+  }
+
+  /**
+   * O resultado de uma junção por partes: igual ao da nuvem, fica o da nuvem (com a data dela, para não
+   * enviar de volta); igual ao daqui, nada muda; diferente dos dois, fica a junção, com a data mais nova.
+   */
+  private adopt<T>(merged: T, here: T, remote: T, em: string, remoteEm: string, set: (v: T, at: string) => void): void {
+    const same = (x: unknown, y: unknown) => canonicalJson(x) === canonicalJson(y);
+    if (same(merged, remote)) {
+      if (!same(here, remote) || em !== remoteEm) this.apply(() => set(remote, remoteEm));
+    } else if (!same(merged, here)) {
+      this.apply(() => set(merged, remoteEm > em ? remoteEm : em));
+    }
+  }
+
+  private readParts(account: string): Parts | null {
+    try {
+      const raw = JSON.parse(this.kv.getItem(PARTS_BASE_KEY) ?? 'null') as { conta?: unknown; dados?: unknown } | null;
+      if (!raw || raw.conta !== account || !raw.dados || typeof raw.dados !== 'object') return null;
+      return partsOf(raw.dados as Record<string, unknown>);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Guarda as partes de `data` (o mural da nuvem, ou o que subiu) como a base da próxima junção. */
+  private writeParts(account: string | null, data: Record<string, unknown> = {}): void {
+    if (!account) return this.kv.removeItem(PARTS_BASE_KEY);
+    const { tagsFixas, categorias, muralAnotacoes, kanban } = data;
+    this.kv.setItem(PARTS_BASE_KEY, JSON.stringify({ conta: account, dados: { tagsFixas, categorias, muralAnotacoes, kanban } }));
   }
 
   /** Os jeitos das categorias deste aparelho para a nuvem, ou null se nunca mudaram aqui. */
@@ -835,11 +931,20 @@ export class CloudSync {
     return em ? { mapa: this.settings.categoryLooks(), em } : null;
   }
 
-  /** Os jeitos das categorias que vieram da nuvem ficam aqui se forem os mudados por último. */
-  private mergeLooks(data: Record<string, unknown>): void {
+  /**
+   * Os jeitos das categorias que vieram da nuvem se juntam aos daqui, categoria a categoria (e tag a
+   * tag). Sem a base, ou sem nunca terem mudado aqui, valem os mudados por último.
+   */
+  private mergeLooks(data: Record<string, unknown>, base: Parts | null): void {
     const remote = categoryLooksOf(data);
     const em = this.settings.categoryLooksAt();
-    if (!remote || (em && remote.em <= em)) return;
+    if (!remote) return;
+    if (em && base) {
+      const here = this.settings.categoryLooks();
+      const merged = sanitizeCategoryLooks(merge3Json(base.looks, here, remote.mapa, em > remote.em));
+      return this.adopt(merged, here, remote.mapa, em, remote.em, (v, at) => this.settings.applyCategoryLooks(v, at));
+    }
+    if (em && remote.em <= em) return;
     this.apply(() => this.settings.applyCategoryLooks(remote.mapa, remote.em));
   }
 
@@ -849,11 +954,20 @@ export class CloudSync {
     return em ? { dados: this.settings.notesConfig(), em } : null;
   }
 
-  /** As configurações do mural de anotações que vieram da nuvem ficam aqui se forem as mudadas por último. */
-  private mergeConfig(data: Record<string, unknown>): void {
+  /**
+   * As configurações do mural de anotações que vieram da nuvem se juntam às daqui, ajuste a ajuste (ver
+   * `mergeNotesConfig`). Sem a base, ou sem nunca terem mudado aqui, valem as mudadas por último.
+   */
+  private mergeConfig(data: Record<string, unknown>, base: Parts | null): void {
     const remote = notesConfigOf(data);
     const em = this.settings.notesConfigAt();
-    if (!remote || (em && remote.em <= em)) return;
+    if (!remote) return;
+    if (em && base) {
+      const here = this.settings.notesConfig();
+      const merged = mergeNotesConfig(base.config, here, remote.dados, em > remote.em);
+      return this.adopt(merged, here, remote.dados, em, remote.em, (v, at) => this.settings.applyNotesConfig(v, at));
+    }
+    if (em && remote.em <= em) return;
     this.apply(() => this.settings.applyNotesConfig(remote.dados, remote.em));
   }
 
@@ -862,10 +976,16 @@ export class CloudSync {
     return kanbanToSync(this.kanban.state());
   }
 
-  /** Os quadros que vieram da nuvem se juntam aos daqui, quadro a quadro. */
-  private mergeKanban(data: Record<string, unknown>): void {
+  /** Os quadros que vieram da nuvem se juntam aos daqui, quadro a quadro (e, com a base, por partes). */
+  private mergeKanban(data: Record<string, unknown>, base: Parts | null): void {
     const remote = kanbanOf(data);
-    if (remote) this.apply(() => this.kanban.merge(remote));
+    if (remote) this.apply(() => this.kanban.merge(remote, base?.kanban ?? null));
+  }
+
+  /** O lugar das compartilhadas no mural daqui, para a nuvem (ver `placesOf`), ou null sem nenhum. */
+  private localPlaces(): Record<string, Place> | null {
+    const map = this.shared.places();
+    return map.size ? Object.fromEntries(map) : null;
   }
 
   /** O perfil deste aparelho para a nuvem, ou null se nunca mudou aqui. */
@@ -884,7 +1004,7 @@ export class CloudSync {
 
   /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
   private remotePrint(data: Record<string, unknown>): Promise<string> {
-    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data));
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), placesOf(data));
   }
 
   private apply(fn: () => void): void {
@@ -931,6 +1051,7 @@ export class CloudSync {
     profile: SyncedProfile | null,
     config: SyncedNotesConfig | null,
     kanban: Partial<KanbanState> | null,
+    places: Record<string, Place> | null,
     print: string,
   ): Promise<number> {
     const now = Date.now();
@@ -948,7 +1069,7 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), sync: { schema: SYNC_SCHEMA } }));
+    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(places ? { lugares: places } : {}), sync: { schema: SYNC_SCHEMA } }));
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
@@ -1109,6 +1230,7 @@ export class CloudSync {
     if (choice === 'secondary') {
       this.writeOwner(null);
       this.writeBase(null);
+      this.writeParts(null);
       const { eraseSave } = await import('./erase-save');
       await eraseSave();
       location.reload();
@@ -1121,6 +1243,7 @@ export class CloudSync {
     this.writeState(null);
     this.writeOwner(null);
     this.writeBase(null);
+    this.writeParts(null);
     this.lastSyncAt.set(null);
   }
 
@@ -1140,7 +1263,7 @@ export class CloudSync {
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.store.hasContent();
     return (
-      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban())) === state.impressao
+      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.localPlaces())) === state.impressao
     );
   }
 }
