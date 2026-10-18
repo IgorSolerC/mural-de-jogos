@@ -7,10 +7,11 @@ import {
   ChevronDown,
   CircleHelp,
   Code,
-  Ellipsis,
   Eye,
-  Heading,
   EyeOff,
+  Heading1,
+  Heading2,
+  Heading3,
   Highlighter,
   Hourglass,
   CassetteTape,
@@ -27,11 +28,14 @@ import {
   Minimize2,
   Minus,
   PenLine,
+  Pilcrow,
   Plus,
+  SquareCode,
   Strikethrough,
   Table,
   Quote,
   StickyNote,
+  Type,
   X,
 } from 'lucide-angular';
 import { isTableSep, lineKind, linkAt, tableCells, toggleCheck } from '../core/rich-text';
@@ -42,10 +46,17 @@ import { ReviewStore } from '../core/review-store';
 import { RichText } from './rich-text';
 import { NoteWidget } from './note-widget';
 import { CardPicker } from './card-picker';
+import { MarkupGuide } from './markup-guide';
 import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetSize, WidgetValues, fieldsFor, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
 import { watchVisualViewport } from './visual-viewport';
 
 type ListKind = 'ul' | 'ol' | 'check';
+/** Os menus da régua: "Formatar", "Inserir" e a caixa do estilo do parágrafo. */
+type MenuName = 'formatar' | 'inserir' | 'estilo';
+/** O que a régua (e os menus) fazem no texto. */
+type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'code' | ListKind | 'url' | 'note' | 'table' | 'rule';
+/** O estilo do parágrafo, como a caixa "Texto normal" dos editores: o da linha do cursor. */
+export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'codigo';
 
 /**
  * Onde a régua desce para cima do teclado: no toque, com a tela estreita (o celular em pé) ou baixa
@@ -54,30 +65,34 @@ type ListKind = 'ul' | 'ol' | 'check';
 export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-height: 500px)';
 
 /**
- * O campo do texto da ficha: a folha pautada de sempre, com uma régua de formatação em cima e
- * "Maximizar", que abre a mesma folha na tela inteira para os textos longos. O que a régua faz são
- * as marcas de core/rich-text.ts, escritas no próprio texto:
+ * O campo do texto da ficha: a folha pautada de sempre, organizada como os editores que todo mundo
+ * conhece (Word, Docs). No alto, as abas "Escrever" e "Ver como fica" e, na outra ponta, "Ajuda" e
+ * "Tela cheia". Na folha, em cima da margem vermelha do caderno, a régua:
  *
- * - negrito, itálico, riscado e marca-texto em volta da seleção (de novo, tira);
- * - título (cada toque, um nível menor, até voltar a texto), citação, listas e tarefas nas linhas;
- * - link para um endereço (um painelzinho com o texto e o endereço; colar um endereço com texto
- *   selecionado já faz o link), tabela (escolhida numa grade; Tab anda entre as células, Enter no
- *   fim de uma linha cria a próxima), código e a divisória;
- * - "?" abre o guia de todas as marcas.
+ * - "Formatar": o texto (negrito, itálico, riscado, marca-texto, spoiler, código, com o atalho de
+ *   cada um) e o parágrafo (os estilos e as listas);
+ * - "Inserir": link para um endereço, link para outra anotação, tabela, divisória e os widgets;
+ * - a caixa do estilo do parágrafo ("Texto normal", "Título 1"…), que diz o da linha do cursor;
+ * - os botões de toda hora (negrito, itálico, riscado, marca-texto, as listas, o link). Sem lugar,
+ *   os que também estão nos menus saem primeiro, e no fim os que sobram rolam de lado; nada some,
+ *   tudo continua no "Formatar" e no "Inserir".
+ *
+ * O que a régua faz são as marcas de core/rich-text.ts, escritas no próprio texto. A "Ajuda"
+ * (ui/markup-guide.ts) lista todas, em partes, com o jeito de escrever e o atalho.
  *
  * Atalhos: Ctrl+B, Ctrl+I, Ctrl+K (link), Ctrl+E (código), Ctrl+Shift+X (riscado), Ctrl+Shift+H
- * (marca-texto); Enter continua a lista (num item vazio, termina).
+ * (marca-texto), Ctrl+Shift+7, 8 e 9 (listas, como no Docs), Ctrl+/ (Ajuda); Enter continua a
+ * lista (num item vazio, termina).
  *
  * As mudanças passam por `insertText`, então o Ctrl+Z do navegador desfaz cada uma.
  *
- * Com `notes` (o editor da anotação), a régua ganha "Link para outra anotação": escreve
+ * Com `notes` (o editor da anotação), o "Inserir" ganha "Link para outra anotação": escreve
  * "[[Título]]" no texto (ver core/note-links.ts). Escrever "[[" direto na folha abre a mesma lista,
  * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha.
  *
- * E ganha "Widgets", ao lado do "Mais": um menu com todos os widgets; cada um abre um painel com
- * os campos dele (o contador: para quê, se repete, o dia, a hora) e ele mesmo, vivo, embaixo. "Pôr"
- * escreve a marca ("{{contador: …}}") numa linha só dela. Com o cursor na linha de um widget, o
- * painel abre com o que está escrito e troca a linha.
+ * Cada widget do "Inserir" abre um painel com os campos dele (o contador: para quê, se repete, o
+ * dia, a hora) e ele mesmo, vivo, embaixo. "Pôr" escreve a marca ("{{contador: …}}") numa linha só
+ * dela. Com o cursor na linha de um widget, o painel abre com o que está escrito e troca a linha.
  *
  * Um clique na linha de um widget já abre o painel dele assim; num link (de anotação ou de
  * endereço), o painel do link, com o que está escrito, para trocar.
@@ -107,229 +122,303 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget, CardPicker],
+  imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget, CardPicker, MarkupGuide],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null' },
   template: `
     <ng-template #campo let-big="big">
-      <!-- no celular, enquanto se escreve, a régua desce e fica presa em cima do teclado (ver "presa") -->
-      <div
-        #regua
-        class="regua"
-        [class.presa]="docked() === big"
-        role="toolbar"
-        aria-label="Formatação do texto"
-        [attr.aria-controls]="big ? areaId + '-grande' : areaId"
-        (focusout)="onRulerFocusOut($event, area)"
-      >
-        <div class="ferramentas">
-        <!-- Na régua, só o que se usa toda hora, em três grupos (escrever, listar, ligar); o resto mora
-             em "Mais", com o nome e o atalho de cada marca -->
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Negrito (Ctrl+B)" aria-label="Negrito" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '**')">
-          <lucide-icon [img]="BoldIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Itálico (Ctrl+I)" aria-label="Itálico" (pointerdown)="$event.preventDefault()" (click)="wrap(area, '*')">
-          <lucide-icon [img]="ItalicIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Título (de novo: um nível menor)" aria-label="Título" (pointerdown)="$event.preventDefault()" (click)="heading(area)">
-          <lucide-icon [img]="HeadingIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
-        <span class="fio" aria-hidden="true"></span>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Tarefas (checklist)" aria-label="Tarefas" (pointerdown)="$event.preventDefault()" (click)="list(area, 'check')">
-          <lucide-icon [img]="ChecksIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Lista" aria-label="Lista" (pointerdown)="$event.preventDefault()" (click)="list(area, 'ul')">
-          <lucide-icon [img]="ListIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
-        </button>
-        <button type="button" class="ferramenta" [disabled]="seeing()" title="Lista numerada" aria-label="Lista numerada" (pointerdown)="$event.preventDefault()" (click)="list(area, 'ol')">
-          <lucide-icon [img]="OrderedIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
-        </button>
-        <span class="fio" aria-hidden="true"></span>
-        <button
-          type="button"
-          class="ferramenta"
-          [disabled]="seeing()"
-          title="Link para um endereço (Ctrl+K)"
-          aria-label="Link para um endereço"
-          [attr.aria-expanded]="urlLink()?.big === big"
-          (pointerdown)="$event.preventDefault()"
-          (click)="startUrl(area, big)"
-        >
-          <lucide-icon [img]="UrlIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
-        @if (notes()) {
+      <!-- O alto da folha, como nos editores de sempre: as duas abas (escrever e ver como fica) e, na
+           outra ponta, "Ajuda" e "Tela cheia", sempre com o nome (no celular, só o desenho) -->
+      <div class="cabeca">
+        <div class="abas" role="tablist" aria-label="Escrever ou ver como fica">
           <button
             type="button"
-            class="ferramenta"
-            [disabled]="seeing()"
-            title="Link para outra anotação (ou escreva [[)"
-            aria-label="Link para outra anotação"
-            [attr.aria-expanded]="linking()?.big === big && !linking()?.auto"
-            (pointerdown)="$event.preventDefault()"
-            (click)="startLink(area, big)"
+            role="tab"
+            class="aba"
+            [id]="areaId + (big ? '-aba-escrever-g' : '-aba-escrever')"
+            [attr.aria-selected]="!seeing()"
+            [attr.aria-controls]="areaId + (big ? '-papel-g' : '-papel')"
+            [attr.tabindex]="seeing() ? -1 : 0"
+            (click)="see(false, big)"
+            (keydown)="onTabKey($event, big)"
           >
-            <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon [img]="WriteIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            <span>Escrever</span>
           </button>
-        }
-        <button
-          type="button"
-          class="ferramenta"
-          [disabled]="seeing()"
-          title="Tabela"
-          aria-label="Tabela"
-          [attr.aria-expanded]="tablePick()?.big === big"
-          (pointerdown)="$event.preventDefault()"
-          (click)="startTable(big)"
-        >
-          <lucide-icon [img]="TableIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-        </button>
+          <button
+            type="button"
+            role="tab"
+            class="aba"
+            [id]="areaId + (big ? '-aba-ver-g' : '-aba-ver')"
+            [attr.aria-selected]="seeing()"
+            [attr.aria-controls]="areaId + (big ? '-papel-g' : '-papel')"
+            [attr.tabindex]="seeing() ? 0 : -1"
+            (click)="see(true, big)"
+            (keydown)="onTabKey($event, big)"
+          >
+            <lucide-icon [img]="SeeIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            <span>Ver como fica</span>
+          </button>
         </div>
-        <!-- "Widgets": fixo ao lado do "Mais", abre o menu com todos os widgets; cada um abre o painel
-             dele -->
-        <span class="mais-ancora widgets-ancora" (focusout)="onWidgetsFocusOut($event)">
-          <button
-            type="button"
-            class="ferramenta widgets"
-            [disabled]="seeing()"
-            title="Widgets: contador e outros"
-            aria-label="Widgets"
-            aria-haspopup="menu"
-            [attr.aria-expanded]="widgetsOpen() === big"
-            [attr.aria-controls]="widgetsOpen() === big ? areaId + '-widgets' : null"
-            (pointerdown)="$event.preventDefault()"
-            (click)="toggleWidgets(big, $event, area)"
-            (keydown.arrowdown)="$event.preventDefault(); openWidgets(big, true)"
-          >
-            <lucide-icon [img]="WidgetIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
-            <span class="widgets-txt" aria-hidden="true">Widgets</span>
-            <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
-          </button>
-          @if (widgetsOpen() === big) {
-            <div class="mais-menu widgets-menu" role="menu" tabindex="-1" [id]="areaId + '-widgets'" aria-label="Widgets" (keydown)="onWidgetsKey($event, area)">
-              @for (d of widgets; track d.name) {
-                <button type="button" role="menuitem" tabindex="-1" class="mais-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, d)">
-                  <lucide-icon [img]="iconOf(d.name)" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
-                  <span class="widget-op-texto">
-                    <span class="mais-nome">{{ d.label }}</span>
-                    <span class="widget-op-sobre">{{ d.about }}</span>
-                  </span>
-                </button>
-              }
-            </div>
-          }
-        </span>
-        <!-- "Mais": as outras marcas num menu que abre colado no botão, por cima da folha (não empurra
-             nada): cada marca com o desenho, o nome escrito do jeito que ela fica e o atalho -->
-        <span class="mais-ancora" (focusout)="onMoreFocusOut($event)">
-          <button
-            type="button"
-            class="ferramenta mais"
-            [disabled]="seeing()"
-            title="Mais marcas: riscado, marca-texto, spoiler, código, citação, divisória e o guia"
-            aria-haspopup="menu"
-            [attr.aria-expanded]="moreOpen() === big"
-            [attr.aria-controls]="moreOpen() === big ? areaId + '-mais' : null"
-            (pointerdown)="$event.preventDefault()"
-            (click)="toggleMore(big, $event, area)"
-            (keydown.arrowdown)="$event.preventDefault(); openMore(big, true)"
-          >
-            <lucide-icon [img]="MoreIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-            <span class="mais-txt">Mais</span>
-          </button>
-          @if (moreOpen() === big) {
-            <div class="mais-menu" role="menu" tabindex="-1" [id]="areaId + '-mais'" aria-label="Mais marcas" (keydown)="onMoreKey($event, area)">
-              <button type="button" role="menuitem" tabindex="-1" class="mais-op" aria-keyshortcuts="Control+Shift+X" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'strike')">
-                <lucide-icon [img]="StrikeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome"><s>Riscado</s></span>
-                <kbd class="atalho" aria-hidden="true">Ctrl+Shift+X</kbd>
-              </button>
-              <button type="button" role="menuitem" tabindex="-1" class="mais-op" aria-keyshortcuts="Control+Shift+H" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'mark')">
-                <lucide-icon [img]="MarkIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome"><mark>Marca-texto</mark></span>
-                <kbd class="atalho" aria-hidden="true">Ctrl+Shift+H</kbd>
-              </button>
-              <button type="button" role="menuitem" tabindex="-1" class="mais-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'spoiler')">
-                <lucide-icon [img]="SpoilerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome"><span class="tarja-amostra">Spoiler</span></span>
-                <kbd class="jeito">||texto||</kbd>
-              </button>
-              <button type="button" role="menuitem" tabindex="-1" class="mais-op" aria-keyshortcuts="Control+E" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'code')">
-                <lucide-icon [img]="CodeIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome"><code>Código</code></span>
-                <kbd class="atalho" aria-hidden="true">Ctrl+E</kbd>
-              </button>
-              <span class="mais-fio" role="separator"></span>
-              <button type="button" role="menuitem" tabindex="-1" class="mais-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'quote')">
-                <lucide-icon [img]="QuoteIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
-                <span class="mais-nome">Citação</span>
-                <kbd class="jeito">&gt; no começo</kbd>
-              </button>
-              <button type="button" role="menuitem" tabindex="-1" class="mais-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'rule')">
-                <lucide-icon [img]="RuleIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
-                <span class="mais-nome">Divisória</span>
-                <kbd class="jeito">---</kbd>
-              </button>
-              <span class="mais-fio" role="separator"></span>
-              <button type="button" role="menuitem" tabindex="-1" class="mais-op guia-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="moreDo(area, 'guide')">
-                <lucide-icon [img]="HelpIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                <span class="mais-nome">Guia de todas as marcas</span>
-              </button>
-            </div>
-          }
-        </span>
-        <!-- as marcas ficam no texto: "Ver como fica" mostra a folha formatada (e marca as tarefas) -->
-        <button type="button" class="acao-caneta ver" [attr.aria-pressed]="seeing()" [attr.aria-label]="seeing() ? 'Escrever' : 'Ver como fica'" [title]="seeing() ? 'Escrever' : 'Ver como fica'" (click)="see(!seeing(), big)">
-          <lucide-icon [img]="seeing() ? WriteIcon : SeeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-          <span class="acao-txt">{{ seeing() ? 'Escrever' : 'Ver como fica' }}</span>
+        <button
+          type="button"
+          class="acao-folha ajuda"
+          [attr.aria-expanded]="guide() === big"
+          [attr.aria-controls]="guide() === big ? areaId + '-guia' : null"
+          aria-label="Ajuda: como escrever cada marca"
+          title="Ajuda: como escrever cada marca (Ctrl+/)"
+          (click)="toggleGuide(big)"
+        >
+          <lucide-icon [img]="HelpIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          <span class="acao-txt" aria-hidden="true">Ajuda</span>
         </button>
         @if (big) {
-          <button type="button" class="acao-caneta tamanho" (click)="shrink()" aria-label="Diminuir" title="Diminuir">
-            <lucide-icon [img]="ShrinkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-            <span class="acao-txt">Diminuir</span>
+          <button type="button" class="acao-folha tamanho" aria-label="Sair da tela cheia" title="Sair da tela cheia" (click)="shrink()">
+            <lucide-icon [img]="ShrinkIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <span class="acao-txt" aria-hidden="true">Sair da tela cheia</span>
           </button>
         } @else {
-          <button type="button" class="acao-caneta tamanho" (click)="grow(area)" aria-haspopup="dialog" aria-label="Maximizar" title="Maximizar">
-            <lucide-icon [img]="GrowIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
-            <span class="acao-txt">Maximizar</span>
+          <button type="button" class="acao-folha tamanho" aria-haspopup="dialog" aria-label="Tela cheia" title="Tela cheia: escrever na tela inteira" (click)="grow(area)">
+            <lucide-icon [img]="GrowIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <span class="acao-txt" aria-hidden="true">Tela cheia</span>
           </button>
         }
-        <!-- presa em cima do teclado: "Pronto" fecha o teclado (e a régua volta para o alto da folha) -->
-        <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="area.blur()">
-          <lucide-icon [img]="DoneIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
-        </button>
       </div>
-      @if (seeing()) {
-        <div class="previa" [class.grande]="big" tabindex="0" [attr.aria-label]="'Como fica: ' + label()">
-          @if (value().trim()) {
-            <app-rich-text [text]="value()" [checkable]="true" [links]="previewLinks()" (toggled)="value.set(toggle(value(), $event))" />
-          } @else {
-            <p class="vazio">Nada escrito ainda.</p>
-          }
-        </div>
-      }
-      <textarea
-        [hidden]="seeing()"
-        #area
-        [id]="big ? areaId + '-grande' : areaId"
+      <!-- a folha: no alto dela, acima da margem vermelha do caderno, a régua; embaixo, as linhas -->
+      <div
+        class="papel"
         [class.grande]="big"
-        [placeholder]="placeholder()"
-        [attr.aria-label]="big ? label() : null"
-        [value]="value()"
-        [attr.maxlength]="max()"
-        [attr.aria-describedby]="max() ? areaId + '-conta' + (big ? '-grande' : '') : null"
-        [attr.aria-autocomplete]="notes() ? 'list' : null"
-        [attr.aria-expanded]="notes() ? linking()?.auto === true && linking()?.big === big : null"
-        [attr.aria-controls]="notes() ? areaId + '-elos' : null"
-        [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big && optionCount() ? areaId + '-elo-' + active() : null"
-        (input)="value.set(area.value); dropPassive(); watchLink(area, big)"
-        (focus)="onAreaFocus(big)"
-        (click)="watchLink(area, big); onAreaClick($event, area, big)"
-        (keyup)="onKeyUp($event, area, big)"
-        (keydown)="onKey($event, area, big)"
-        (paste)="onPaste($event, area)"
-        (blur)="onAreaBlur($event, regua)"
-      ></textarea>
+        role="tabpanel"
+        [id]="areaId + (big ? '-papel-g' : '-papel')"
+        [attr.aria-labelledby]="areaId + (big ? (seeing() ? '-aba-ver-g' : '-aba-escrever-g') : seeing() ? '-aba-ver' : '-aba-escrever')"
+      >
+        <!-- no celular, enquanto se escreve, a régua desce e fica presa em cima do teclado (ver "presa") -->
+        <div
+          #regua
+          class="regua"
+          [hidden]="seeing()"
+          [class.presa]="docked() === big"
+          role="toolbar"
+          aria-label="Formatação do texto"
+          [attr.aria-controls]="big ? areaId + '-grande' : areaId"
+          (focusout)="onRulerFocusOut($event, area)"
+        >
+          <!-- Os dois menus com nome, onde mora tudo (como os do Word e do Docs): "Formatar" (o texto
+               e o parágrafo) e "Inserir" (links, tabela, divisória e os widgets) -->
+          <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
+            <button
+              type="button"
+              class="menu-botao"
+              data-menu="formatar"
+              aria-haspopup="menu"
+              [attr.aria-expanded]="isOpen('formatar', big)"
+              [attr.aria-controls]="isOpen('formatar', big) ? areaId + '-formatar' : null"
+              title="Formatar: negrito, títulos, listas e o resto"
+              (pointerdown)="$event.preventDefault()"
+              (click)="toggleMenu('formatar', big, $event, area)"
+              (keydown.arrowdown)="$event.preventDefault(); openMenu('formatar', big, true)"
+            >
+              <lucide-icon [img]="FormatIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <span class="menu-nome">Formatar</span>
+              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+            </button>
+            @if (isOpen('formatar', big)) {
+              <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-formatar'" aria-label="Formatar" (keydown)="onMenuKey($event, area)">
+                <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-texto'">
+                  <p class="menu-secao" [id]="areaId + '-sec-texto'" aria-hidden="true">Texto</p>
+                  @for (t of textMarks; track t.act) {
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="t.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, t.act)">
+                      <lucide-icon [img]="t.icon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                      <span class="menu-op-nome">
+                        @switch (t.act) {
+                          @case ('bold') { <b>Negrito</b> }
+                          @case ('italic') { <i>Itálico</i> }
+                          @case ('strike') { <s>Riscado</s> }
+                          @case ('mark') { <mark>Marca-texto</mark> }
+                          @case ('spoiler') { <span class="tarja-amostra">Spoiler</span> }
+                          @default { <code>Código</code> }
+                        }
+                      </span>
+                      @if (t.keys) {
+                        <kbd class="atalho" aria-hidden="true">{{ t.keys }}</kbd>
+                      }
+                    </button>
+                  }
+                </div>
+                <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-paragrafo'">
+                  <p class="menu-secao" [id]="areaId + '-sec-paragrafo'" aria-hidden="true">Parágrafo</p>
+                  <ng-container *ngTemplateOutlet="estilos; context: { area, big }" />
+                  <span class="menu-fio" role="separator"></span>
+                  @for (l of lists; track l.act) {
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, l.act)">
+                      <lucide-icon [img]="l.icon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      <span class="menu-op-nome">{{ l.name }}</span>
+                      <kbd class="atalho" aria-hidden="true">{{ l.keys }}</kbd>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          </span>
+          <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
+            <button
+              type="button"
+              class="menu-botao"
+              data-menu="inserir"
+              aria-haspopup="menu"
+              [attr.aria-expanded]="isOpen('inserir', big)"
+              [attr.aria-controls]="isOpen('inserir', big) ? areaId + '-inserir' : null"
+              title="Inserir: link, tabela, divisória e widgets (contador, imagem, vídeo…)"
+              (pointerdown)="$event.preventDefault()"
+              (click)="toggleMenu('inserir', big, $event, area)"
+              (keydown.arrowdown)="$event.preventDefault(); openMenu('inserir', big, true)"
+            >
+              <lucide-icon [img]="PlusIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+              <span class="menu-nome">Inserir</span>
+              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+            </button>
+            @if (isOpen('inserir', big)) {
+              <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-inserir'" aria-label="Inserir" (keydown)="onMenuKey($event, area)">
+                <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-links'">
+                  <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e tabelas</p>
+                  @for (o of inserts(); track o.act) {
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
+                      <lucide-icon [img]="o.icon" [size]="17" [strokeWidth]="2.5" aria-hidden="true" />
+                      <span class="menu-op-nome">{{ o.name }}</span>
+                      @if (o.keys) {
+                        <kbd class="atalho" aria-hidden="true">{{ o.keys }}</kbd>
+                      } @else if (o.typed) {
+                        <kbd class="jeito" [title]="'Ou escreva ' + o.typed + ' no texto'">{{ o.typed }}</kbd>
+                      }
+                    </button>
+                  }
+                </div>
+                <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-widgets'">
+                  <p class="menu-secao" [id]="areaId + '-sec-widgets'" aria-hidden="true">Widgets</p>
+                  @for (d of widgets; track d.name) {
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
+                      <lucide-icon [img]="iconOf(d.name)" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                      <span class="widget-op-texto">
+                        <span class="menu-op-nome">{{ d.label }}</span>
+                        <span class="widget-op-sobre">{{ d.about }}</span>
+                      </span>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          </span>
+          <!-- o estilo do parágrafo, como a caixa "Texto normal" do Docs: diz o da linha do cursor e troca -->
+          <span class="menu-ancora estilo-ancora" (focusout)="onMenuFocusOut($event)">
+            <button
+              type="button"
+              class="menu-botao estilo"
+              data-menu="estilo"
+              aria-haspopup="menu"
+              [attr.aria-expanded]="isOpen('estilo', big)"
+              [attr.aria-controls]="isOpen('estilo', big) ? areaId + '-estilo' : null"
+              [attr.aria-label]="'Estilo do parágrafo: ' + styleName()"
+              title="Estilo do parágrafo: texto, títulos, citação, código"
+              (pointerdown)="$event.preventDefault()"
+              (click)="toggleMenu('estilo', big, $event, area)"
+              (keydown.arrowdown)="$event.preventDefault(); openMenu('estilo', big, true)"
+            >
+              <span class="menu-nome">{{ styleName() }}</span>
+              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+            </button>
+            @if (isOpen('estilo', big)) {
+              <div class="menu" role="menu" tabindex="-1" [id]="areaId + '-estilo'" aria-label="Estilo do parágrafo" (keydown)="onMenuKey($event, area)">
+                <ng-container *ngTemplateOutlet="estilos; context: { area, big }" />
+              </div>
+            }
+          </span>
+          <span class="fio estilo-fio" aria-hidden="true"></span>
+          <!-- os botões de sempre, à mão (no estreito, rolam de lado; tudo também está nos menus) -->
+          <div class="ferramentas">
+            <button type="button" class="ferramenta" title="Negrito (Ctrl+B)" aria-label="Negrito" aria-keyshortcuts="Control+B" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'bold')">
+              <lucide-icon [img]="BoldIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+            </button>
+            <button type="button" class="ferramenta" title="Itálico (Ctrl+I)" aria-label="Itálico" aria-keyshortcuts="Control+I" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'italic')">
+              <lucide-icon [img]="ItalicIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+            <button type="button" class="ferramenta extra" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" aria-keyshortcuts="Control+Shift+X" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'strike')">
+              <lucide-icon [img]="StrikeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+            <button type="button" class="ferramenta extra" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" aria-keyshortcuts="Control+Shift+H" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'mark')">
+              <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+            <span class="fio" aria-hidden="true"></span>
+            @for (l of lists; track l.act) {
+              <button type="button" class="ferramenta" [title]="l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
+                <lucide-icon [img]="l.icon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+              </button>
+            }
+            <span class="fio" aria-hidden="true"></span>
+            <button
+              type="button"
+              class="ferramenta"
+              title="Link para um endereço (Ctrl+K)"
+              aria-label="Link para um endereço"
+              aria-keyshortcuts="Control+K"
+              [attr.aria-expanded]="urlLink()?.big === big"
+              (pointerdown)="$event.preventDefault()"
+              (click)="act(area, big, 'url')"
+            >
+              <lucide-icon [img]="UrlIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            </button>
+            @if (notes()) {
+              <button
+                type="button"
+                class="ferramenta extra"
+                title="Link para outra anotação (ou escreva [[)"
+                aria-label="Link para outra anotação"
+                [attr.aria-expanded]="linking()?.big === big && !linking()?.auto"
+                (pointerdown)="$event.preventDefault()"
+                (click)="act(area, big, 'note')"
+              >
+                <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+              </button>
+            }
+          </div>
+          <!-- presa em cima do teclado: "Pronto" fecha o teclado (e a régua volta para o alto da folha) -->
+          <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="area.blur()">
+            <lucide-icon [img]="DoneIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+          </button>
+        </div>
+        @if (seeing()) {
+          <div class="previa" [class.grande]="big" tabindex="0" [attr.aria-label]="'Como fica: ' + label()">
+            @if (value().trim()) {
+              <app-rich-text [text]="value()" [checkable]="true" [links]="previewLinks()" (toggled)="value.set(toggle(value(), $event))" />
+            } @else {
+              <p class="vazio">Nada escrito ainda.</p>
+            }
+          </div>
+        }
+        <textarea
+          [hidden]="seeing()"
+          #area
+          [id]="big ? areaId + '-grande' : areaId"
+          [class.grande]="big"
+          [placeholder]="placeholder()"
+          [attr.aria-label]="big ? label() : null"
+          [value]="value()"
+          [attr.maxlength]="max()"
+          [attr.aria-describedby]="max() ? areaId + '-conta' + (big ? '-grande' : '') : null"
+          [attr.aria-autocomplete]="notes() ? 'list' : null"
+          [attr.aria-expanded]="notes() ? linking()?.auto === true && linking()?.big === big : null"
+          [attr.aria-controls]="notes() ? areaId + '-elos' : null"
+          [attr.aria-activedescendant]="linking()?.auto && linking()?.big === big && optionCount() ? areaId + '-elo-' + active() : null"
+          (input)="value.set(area.value); dropPassive(); watchLink(area, big); track(area)"
+          (focus)="onAreaFocus(big); track(area)"
+          (click)="watchLink(area, big); onAreaClick($event, area, big); track(area)"
+          (select)="track(area)"
+          (keyup)="onKeyUp($event, area, big)"
+          (keydown)="onKey($event, area, big)"
+          (paste)="onPaste($event, area)"
+          (blur)="onAreaBlur($event, regua)"
+        ></textarea>
+      </div>
       @if (max(); as m) {
         <!-- quanto já foi escrito, perto do limite em tinta, passou (por um atalho) em vermelho -->
         <p class="contagem" [id]="areaId + '-conta' + (big ? '-grande' : '')" [class.perto]="value().length > m * 0.9" [class.passou]="value().length > m">
@@ -561,21 +650,18 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           </div>
         }
       }
-      <!-- o guia: todas as marcas, com o jeito de escrever cada uma -->
+      <!-- a Ajuda: todas as marcas, em partes (como a lista de atalhos do Docs), com o jeito de escrever
+           cada uma e o atalho de teclado -->
       @if (guide() === big) {
-        <div class="painel guia" [id]="areaId + '-guia'" role="region" aria-label="Guia das marcas" (keydown.escape)="closeGuide($event, area)">
+        <div class="painel guia" [id]="areaId + '-guia'" role="region" aria-label="Ajuda: como escrever" (keydown.escape)="closeGuide($event, area)">
           <div class="painel-topo">
             <p class="painel-titulo">Como escrever</p>
-            <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeGuide(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+            <button type="button" class="painel-fechar" aria-label="Fechar a ajuda" title="Fechar" (click)="closeGuide(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
           </div>
-          <dl class="guia-lista">
-            @for (g of guideItems; track g.mark) {
-              <div class="guia-item">
-                <dt><code>{{ g.mark }}</code></dt>
-                <dd>{{ g.what }}</dd>
-              </div>
-            }
-          </dl>
+          <!-- a lista vem num pedaço à parte, quando a Ajuda abre pela primeira vez -->
+          @defer {
+            <app-markup-guide [noteLinks]="!!notes()" [idPrefix]="areaId + '-guia'" />
+          }
         </div>
       }
       <!-- o link para outra anotação, embaixo da folha, sem cobrir o que se escreve: por "[[" na
@@ -680,6 +766,29 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       </ul>
     </ng-template>
 
+    <!-- os estilos do parágrafo (no "Formatar" e na caixa do estilo): cada um escrito do jeito que fica,
+         com o tique no da linha do cursor -->
+    <ng-template #estilos let-area="area" let-big="big">
+      @for (s of styles; track s.value) {
+        <button
+          type="button"
+          role="menuitemradio"
+          tabindex="-1"
+          class="menu-op estilo-op"
+          [attr.aria-checked]="lineStyle() === s.value"
+          (pointerdown)="$event.preventDefault()"
+          (pointerenter)="$any($event.currentTarget).focus()"
+          (click)="pickStyle(area, s.value)"
+        >
+          <lucide-icon [img]="s.icon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+          <span class="menu-op-nome" [attr.data-estilo]="s.value">{{ s.name }}</span>
+          @if (lineStyle() === s.value) {
+            <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+          }
+        </button>
+      }
+    </ng-template>
+
     <ng-container *ngTemplateOutlet="campo; context: { big: false }" />
 
     <!-- A mesma folha na tela inteira: o mesmo texto, para ler e escrever os longos sem rolar num cantinho -->
@@ -700,212 +809,281 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       container: folha / inline-size;
     }
 
-    /* ===== A régua: os botões de formatação encostados no alto da folha, numa linha só; as ações
-       (ver, maximizar) ficam sempre na ponta ===== */
-    .regua {
+    /* ===== O alto da folha, como nos editores de sempre: as abas "Escrever" e "Ver como fica" à
+       esquerda; "Ajuda" e "Tela cheia" na outra ponta, com o nome (no estreito, só o desenho) ===== */
+    /* o alto mede a si mesmo (não a folha): com a régua presa, a folha deixa de ser medida */
+    .cabeca {
+      container: cabeca / inline-size;
       display: flex;
-      /* uma linha só: o "Mais" e as ações da folha ficam sempre na ponta; quem se ajeita no espaço que
-         sobra são as ferramentas (abaixo de 600px, elas rolam de lado) */
+      align-items: flex-end;
+      gap: 2px;
+      min-width: 0;
+    }
+    .abas {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      min-width: 0;
+      margin-right: auto;
+    }
+    /* a de trás é só o nome; a escolhida é um pedaço da própria folha, emendado nela (cobre o fio de
+       cima dela, sem a sombra embaixo) */
+    .aba {
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 38px;
+      margin-bottom: -1px;
+      padding: 0 13px 1px;
+      border: 0;
+      border-radius: 3px 3px 0 0;
+      background: transparent;
+      color: var(--ink-2);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      cursor: pointer;
+      transition:
+        color var(--t-ui) var(--ease-ui),
+        background-color var(--t-ui) var(--ease-ui);
+    }
+    .aba:hover {
+      color: var(--ink);
+      background: rgb(21 21 21 / 0.06);
+    }
+    .aba[aria-selected='true'] {
+      color: var(--ink);
+      background: var(--campo-papel);
+      box-shadow: 0 0 0 1px rgb(21 21 21 / 0.1);
+      clip-path: inset(-2px -2px 0 -2px);
+      cursor: default;
+    }
+    .aba:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: -3px;
+    }
+    /* Os botões da régua e do alto da folha: tinta no papel, um tom por baixo no mouse e aberto */
+    .acao-folha,
+    .ferramenta,
+    .menu-botao {
+      flex: none;
+      align-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--ink);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background-color var(--t-ui) var(--ease-ui);
+    }
+    .acao-folha:hover,
+    .ferramenta:hover,
+    .menu-botao:hover {
+      background: rgb(21 21 21 / 0.08);
+    }
+    .ferramenta:active {
+      background: rgb(21 21 21 / 0.16);
+    }
+    [aria-expanded='true']:is(.acao-folha, .ferramenta, .menu-botao) {
+      background: rgb(21 21 21 / 0.1);
+    }
+    :is(.acao-folha, .ferramenta, .menu-botao):focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: -1px;
+    }
+    /* "Ajuda" e "Tela cheia": o desenho e o nome impresso, quietos ao lado das abas */
+    .acao-folha {
+      display: inline-flex;
+      gap: 6px;
+      min-height: 36px;
+      margin-bottom: 3px;
+      padding: 0 8px;
+      font-size: 0.86rem;
+    }
+    .acao-folha.tamanho {
+      margin-right: -6px;
+    }
+    /* sem lugar, as ações ficam só no desenho (o nome vai para o leitor de tela e para a dica) */
+    @container cabeca (max-width: 520px) {
+      .acao-txt {
+        @include a11y.escondido;
+      }
+      .acao-folha {
+        justify-content: center;
+        min-width: 40px;
+        padding: 0;
+      }
+    }
+    @container cabeca (max-width: 340px) {
+      .aba {
+        padding-inline: 9px;
+      }
+    }
+
+    /* ===== A folha: papel colado como um campo, com a régua no alto dela, em cima da margem vermelha
+       do caderno, e as linhas azuis embaixo ===== */
+    .papel {
+      border-radius: 0 2px 2px 2px;
+      background: var(--campo-papel);
+      box-shadow: var(--campo-sombra);
+      transition: box-shadow var(--t-physical) var(--ease-physical);
+    }
+    .papel:focus-within {
+      box-shadow: var(--campo-sombra-foco);
+    }
+
+    /* ===== A régua: os dois menus com nome ("Formatar", "Inserir"), a caixa do estilo e os botões de
+       sempre, numa linha só ===== */
+    .regua {
+      position: relative;
+      display: flex;
       flex-wrap: nowrap;
       align-items: center;
-      gap: 4px 2px;
-      margin-bottom: 6px;
+      gap: 2px;
+      padding: 4px 6px 5px;
+      border-bottom: 1.5px solid rgb(214 76 76 / 0.5);
+    }
+    .regua[hidden] {
+      display: none;
     }
     .ferramentas {
       display: flex;
       flex: 1 1 auto;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
       gap: 2px;
       min-width: 0;
-    }
-    .regua .ver,
-    .regua .tamanho {
-      flex: none;
-    }
-    /* sem lugar, "Maximizar" fica só no desenho primeiro (o nome vai para o leitor de tela e para a dica); "Ver como fica" (a ação principal da folha)
-       só perde o nome quando a régua é bem estreita */
-    @container folha (max-width: 720px) {
-      .tamanho .acao-txt {
-        @include a11y.escondido;
-      }
-    }
-    @container folha (max-width: 680px) {
-      .ver .acao-txt {
-        @include a11y.escondido;
-      }
-    }
-    /* apertada mesmo sem os nomes, a régua não quebra em duas: as ferramentas rolam de lado, com o
-       esmaecido na ponta (como no celular), e o "Widgets", o "Mais" e as ações ficam fixos */
-    @container folha (max-width: 600px) {
-      .ferramentas {
-        flex: 1 1 0;
-        flex-wrap: nowrap;
-        contain: inline-size;
-        overflow-x: auto;
-        overscroll-behavior-x: contain;
-        scrollbar-width: none;
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
-        mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
-      }
-      .ferramentas::-webkit-scrollbar {
-        display: none;
-      }
-      .ferramentas > .ferramenta,
-      .ferramentas > .fio {
-        flex: none;
-      }
-    }
-    /* o "Mais" e o menu dele: o menu se ancora no botão */
-    .mais-ancora {
-      position: relative;
-      display: inline-flex;
-      flex: none;
-      margin-left: 4px;
-    }
-    /* a régua inteira cabe: as ações da folha não passam da borda */
-    .regua .tamanho {
-      margin-right: 0;
-    }
-    /* dedo não é cursor: no toque, todo botão da régua com 44px */
-    @media (pointer: coarse) {
-      .ferramenta,
-      .regua .acao-caneta {
-        min-width: 44px;
-        height: 44px;
-      }
-      .ferramentas {
-        gap: 4px;
-      }
     }
     .ferramenta {
       display: grid;
       place-items: center;
       width: 34px;
       height: 36px;
-      padding: 0;
-      border: 0;
-      border-radius: 4px;
-      background: transparent;
-      color: var(--ink);
-      cursor: pointer;
-      transition: background-color var(--t-ui) var(--ease-ui);
-    }
-    .ferramenta:hover {
-      background: rgb(21 21 21 / 0.08);
-    }
-    .ferramenta:active {
-      background: rgb(21 21 21 / 0.16);
-    }
-    .ferramenta:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: -1px;
     }
     .fio {
+      flex: none;
       width: 2px;
       height: 20px;
-      margin: 0 4px;
+      margin: 0 5px;
       border-radius: 1px;
-      background: rgb(21 21 21 / 0.25);
+      background: rgb(21 21 21 / 0.2);
     }
-    .ferramenta:disabled {
-      opacity: 0.35;
-      cursor: default;
-      background: transparent;
+    /* os menus: o nome impresso e a setinha de quem abre uma lista; o menu se ancora no botão */
+    .menu-ancora {
+      position: relative;
+      display: inline-flex;
+      flex: none;
     }
-    .ver {
-      margin: 0 0 0 auto;
-      font-size: 0.95rem;
+    .menu-botao {
+      display: inline-flex;
+      gap: 5px;
+      height: 36px;
+      padding: 0 6px 0 7px;
     }
-    .tamanho {
-      margin: 0 -8px 0 12px;
-      font-size: 0.95rem;
+    .menu-botao .seta {
+      opacity: 0.7;
+      transition: rotate var(--t-ui) var(--ease-ui);
     }
-    /* "Pronto" só existe com a régua presa em cima do teclado; o nome do "Widgets", só no celular */
-    .pronto {
-      display: none;
+    .menu-botao[aria-expanded='true'] .seta {
+      rotate: 180deg;
     }
-    .widgets-txt {
-      @include a11y.escondido;
+    /* a caixa do estilo: o nome do estilo da linha na letra do texto, de largura fixa (a régua não
+       pula quando ele troca) */
+    .menu-botao.estilo {
+      justify-content: space-between;
+      width: 8.4rem;
+      padding-inline: 9px 7px;
+      font-family: var(--f-ui);
+      font-weight: 600;
+      font-size: 0.92rem;
+      letter-spacing: 0;
+      text-transform: none;
+      background: rgb(21 21 21 / 0.045);
     }
-    /* no celular, a régua em duas fileiras: em cima, todas as marcas (a que não cabe rola de lado, com
-       o esmaecido na ponta dizendo que tem mais); embaixo, "Widgets" e "Mais" com o nome escrito, e ver
-       e maximizar na outra ponta, só no desenho (o nome vai para o leitor de tela) */
-    @media (max-width: 559px) {
-      .acao-txt {
-        @include a11y.escondido;
+    .menu-botao.estilo:hover {
+      background: rgb(21 21 21 / 0.09);
+    }
+    .menu-botao.estilo .menu-nome {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .estilo-ancora {
+      margin-left: 4px;
+    }
+
+    /* Sem lugar, os botões que também estão nos menus saem da régua (como a régua do Docs): primeiro o
+       riscado, o marca-texto e o link de anotação; depois a caixa do estilo. Nada some: tudo continua
+       no "Formatar" e no "Inserir". */
+    @container folha (max-width: 759px) {
+      .ferramenta.extra {
+        display: none;
       }
-      .regua {
-        display: grid;
-        grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-        align-items: center;
-        gap: 4px 2px;
+    }
+    @container folha (max-width: 599px) {
+      .estilo-ancora,
+      .estilo-fio {
+        display: none;
       }
+      /* o menu se alinha às bordas da régua */
+      .menu-ancora {
+        position: static;
+      }
+      .menu {
+        left: 6px;
+        right: 6px;
+        width: auto;
+        min-width: 0;
+      }
+    }
+    /* apertada mesmo assim, a régua não quebra em duas: os botões rolam de lado, com o esmaecido na
+       ponta dizendo que tem mais, e os menus ficam fixos */
+    @container folha (max-width: 479px) {
       .ferramentas {
-        grid-column: 1 / -1;
-        flex-wrap: nowrap;
-        gap: 2px;
-        /* a fileira não empurra a coluna do editor: a largura dela vem da coluna, e o resto rola */
+        flex: 1 1 0;
         contain: inline-size;
         overflow-x: auto;
         overscroll-behavior-x: contain;
         scrollbar-width: none;
-        /* o esmaecido corta o próximo botão pela metade: dá para ver que a fileira continua */
         -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
         mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
       }
       .ferramentas::-webkit-scrollbar {
         display: none;
       }
-      .ferramenta,
-      .fio {
-        flex: none;
-      }
+    }
+    /* dedo não é cursor: no toque, todo botão da régua com 44px */
+    @media (pointer: coarse) {
       .ferramenta {
         width: 40px;
-        min-width: 40px;
         height: 44px;
       }
-      .fio {
-        margin: 0 3px;
+      .menu-botao,
+      .acao-folha {
+        height: 44px;
       }
-      .widgets-ancora {
-        grid-column: 1;
-        margin-left: 0;
+      .aba {
+        min-height: 44px;
       }
-      .widgets-ancora + .mais-ancora {
-        grid-column: 2;
-      }
-      .regua .ver {
-        grid-column: 4;
-        margin: 0;
-      }
-      .regua .tamanho {
-        grid-column: 5;
-        margin: 0 -6px 0 2px;
-      }
-      .widgets-txt {
-        position: static;
-        width: auto;
-        height: auto;
-        overflow: visible;
-        clip-path: none;
-        font-family: var(--f-label);
-        font-weight: 800;
-        font-size: 0.86rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-      .regua .ferramenta.widgets {
-        gap: 5px;
-        width: auto;
-        padding: 0 7px 0 8px;
-      }
+    }
+    /* "Pronto" só existe com a régua presa em cima do teclado */
+    .pronto {
+      display: none;
     }
 
     /* ===== Presa em cima do teclado (no celular, enquanto se escreve): a régua sai do alto da folha e
-       vira uma tira de fichário colada no teclado, da largura da tela, onde o polegar alcança. As
-       marcas rolam de lado; "Widgets", "Mais" e "Pronto" ficam na ponta. A tira mede 54px (o editor da
+       vira uma tira de fichário colada no teclado, da largura da tela, onde o polegar alcança. Os botões
+       rolam de lado; "Formatar", "Inserir" e "Pronto" ficam fixos. A tira mede 54px (o editor da
        ficha guarda esse espaço embaixo dele, ver review-editor.scss) ===== */
     :host(.presa) {
       /* a folha medida por container prenderia a régua dentro dela */
@@ -921,11 +1099,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       display: flex;
       flex-wrap: nowrap;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
       box-sizing: border-box;
       height: 54px;
       margin: 0;
       padding: 5px max(6px, env(safe-area-inset-right)) 3px max(6px, env(safe-area-inset-left));
+      border-bottom: 0;
       background: var(--papel-ficha);
       box-shadow:
         inset 0 2px 0 var(--ink),
@@ -945,8 +1124,6 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     }
     .regua.presa .ferramentas {
       flex: 1 1 0;
-      flex-wrap: nowrap;
-      gap: 2px;
       contain: inline-size;
       overflow-x: auto;
       overscroll-behavior-x: contain;
@@ -957,37 +1134,16 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     .regua.presa .ferramentas::-webkit-scrollbar {
       display: none;
     }
-    .regua.presa .ferramenta,
-    .regua.presa .fio {
-      flex: none;
-    }
-    .regua.presa .ferramenta {
-      width: 40px;
-      min-width: 40px;
-      height: 44px;
-    }
-    .regua.presa .ver,
-    .regua.presa .tamanho {
+    .regua.presa .ferramenta.extra,
+    .regua.presa .estilo-ancora,
+    .regua.presa .estilo-fio {
       display: none;
     }
-    .regua.presa .mais-ancora {
+    .regua.presa .menu-ancora {
       position: static;
-      margin-left: 0;
-    }
-    .regua.presa .widgets-txt,
-    .regua.presa .mais-txt {
-      @include a11y.escondido;
-    }
-    .regua.presa .ferramenta.mais {
-      width: 44px;
-      padding: 0;
-      justify-content: center;
-    }
-    .regua.presa .ferramenta.widgets {
-      padding: 0 5px 0 7px;
     }
     /* os menus abrem para cima, por cima da folha (embaixo é o teclado) */
-    .regua.presa .mais-menu {
+    .regua.presa .menu {
       top: auto;
       bottom: calc(100% + 6px);
       left: 6px;
@@ -996,10 +1152,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       min-width: 0;
       max-width: none;
       max-height: calc(var(--vv-h, 100dvh) - 96px);
-      overflow-y: auto;
-      overscroll-behavior: contain;
       transform-origin: bottom center;
     }
+
     /* "Pronto": a etiqueta de tinta com o tique amarelo, o mesmo "Pôr" dos painéis */
     .regua.presa .pronto {
       display: grid;
@@ -1007,6 +1162,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       flex: none;
       width: 44px;
       height: 44px;
+      margin-left: 2px;
       padding: 0;
       border: 0;
       border-radius: 3px;
@@ -1042,12 +1198,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       border-radius: 2px;
       background:
         repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line))
-          0 4px,
-        rgb(255 255 255 / 0.55);
+          0 4px;
       background-attachment: local;
-      box-shadow:
-        inset 0 0 0 2px rgb(21 21 21 / 0.45),
-        0 1px 3px rgb(0 0 0 / 0.2);
       color: var(--ink);
       font-family: var(--f-hand);
       font-size: 1.14rem;
@@ -1057,7 +1209,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       outline: none;
     }
     .previa:focus-visible {
-      box-shadow: var(--campo-sombra-foco);
+      outline: 3px solid var(--ink);
+      outline-offset: -3px;
     }
     .previa.grande {
       --line: 2rem;
@@ -1283,49 +1436,6 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         height: 32px;
       }
     }
-    /* "Widgets": o desenho e a setinha de quem abre um menu, colado no "Mais" */
-    .ferramenta.widgets {
-      display: inline-flex;
-      align-items: center;
-      gap: 1px;
-      width: auto;
-      padding: 0 5px 0 7px;
-    }
-    .ferramenta.widgets .seta {
-      opacity: 0.7;
-      transition: rotate var(--t-ui) var(--ease-ui);
-    }
-    .ferramenta.widgets[aria-expanded='true'] {
-      background: rgb(21 21 21 / 0.1);
-    }
-    .ferramenta.widgets[aria-expanded='true'] .seta {
-      rotate: 180deg;
-    }
-    .widgets-ancora + .mais-ancora {
-      margin-left: 0;
-    }
-    .widgets-menu {
-      min-width: 17rem;
-    }
-    /* cada widget: o desenho, o nome à mão e, embaixo, o que ele faz */
-    .widget-op {
-      grid-template-columns: 22px minmax(0, 1fr);
-      align-items: start;
-      padding-block: 7px;
-    }
-    .widget-op lucide-icon {
-      margin-top: 3px;
-    }
-    .widget-op-texto {
-      display: grid;
-      gap: 1px;
-    }
-    .widget-op-sobre {
-      font-size: 0.84rem;
-      line-height: 1.3;
-      color: var(--ink-2);
-    }
-
     /* ===== O painel do widget: os campos impressos à esquerda, como os do link, e o widget vivo
        embaixo, num pedaço da folha pautada ===== */
     .widget-sobre {
@@ -1378,17 +1488,15 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       font-size: 0.9rem;
       color: var(--error-ink);
     }
-    .widget-tipo:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 2px;
-    }
     .widget-tipos {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin-bottom: 8px;
     }
-    .widget-tipo {
+    /* os tipos e os tamanhos: recortes tracejados na cartela; o escolhido, a etiqueta de tinta */
+    .widget-tipo,
+    .widget-tamanho {
       min-height: 36px;
       padding: 0 12px;
       border: 1.5px dashed rgb(21 21 21 / 0.42);
@@ -1402,10 +1510,14 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       text-transform: uppercase;
       cursor: pointer;
     }
-    .widget-tipo[aria-checked='true'] {
+    [aria-checked='true']:is(.widget-tipo, .widget-tamanho) {
       border: 1.5px solid var(--ink);
       background: var(--ink);
       color: var(--hi);
+    }
+    :is(.widget-tipo, .widget-tamanho):focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
     }
     /* "Todo ano": a caixinha de tarefa, na coluna dos campos, com o nome impresso no lugar do rótulo */
     .widget-caixa {
@@ -1685,25 +1797,6 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       gap: 8px;
       min-height: 40px;
       padding: 0 12px 0 8px;
-      border: 1.5px dashed rgb(21 21 21 / 0.42);
-      border-radius: 6px;
-      background: transparent;
-      color: var(--ink);
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      cursor: pointer;
-    }
-    .widget-tamanho[aria-checked='true'] {
-      border: 1.5px solid var(--ink);
-      background: var(--ink);
-      color: var(--hi);
-    }
-    .widget-tamanho:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 2px;
     }
     .tamanho-desenho {
       flex: none;
@@ -1725,43 +1818,21 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       fill: currentColor;
     }
 
-    /* "Mais": o único botão da régua com nome, para dizer que tem mais coisa ali */
-    .ferramenta.mais {
-      display: inline-flex;
-      gap: 4px;
-      width: auto;
-      padding: 0 9px 0 7px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .ferramenta.mais[aria-expanded='true'] {
-      background: rgb(21 21 21 / 0.1);
-    }
-    /* o jeito de escrever ("---", "> no começo") é texto da folha: a letra de máquina, como no guia */
-    .mais-op .jeito {
-      padding: 1px 5px;
-      border-radius: 2px;
-      background: rgb(21 21 21 / 0.07);
-      font-family: var(--f-mono);
-      font-weight: 700;
-      font-size: 0.86rem;
-      letter-spacing: 0;
-      color: var(--ink);
-    }
-    /* o menu do "Mais": um cartão de papel que cai do botão, por cima da folha; as marcas da linha,
-       as de bloco e o guia separados por um risco tracejado */
-    .mais-menu {
+    /* ===== Os menus ("Formatar", "Inserir", o estilo): um cartão de papel que cai do botão, por cima
+       da folha; os de duas colunas com o nome de cada parte em cima e um risco tracejado entre elas ===== */
+    .menu {
       position: absolute;
       top: calc(100% + 6px);
-      right: 0;
+      left: 0;
       z-index: 30;
       display: grid;
+      align-items: start;
       width: max-content;
-      min-width: 16rem;
+      min-width: 14rem;
       max-width: calc(100vw - 32px);
+      max-height: min(34rem, 72vh);
+      overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 6px;
       border-radius: 3px;
       background: var(--papel-ficha);
@@ -1769,25 +1840,55 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         0 0 0 1px rgb(21 21 21 / 0.14),
         0 2px 4px rgb(0 0 0 / 0.16),
         0 14px 28px -12px rgb(0 0 0 / 0.55);
-      transform-origin: top right;
+      transform-origin: top left;
       animation: menu-cai var(--t-ui) var(--ease-ui);
     }
-    .mais-menu:focus {
+    .menu:focus {
       outline: none;
     }
-    /* folha estreita: o menu se alinha às bordas da régua (não corre o risco de sair da folha) */
-    @container folha (max-width: 560px) {
-      .regua {
-        position: relative;
+    /* no celular, o menu que cai cabe entre a régua e o pé do editor (rola por dentro) */
+    @media (max-width: 559px) {
+      .menu {
+        max-height: 46dvh;
       }
-      .mais-ancora {
-        position: static;
+    }
+    /* os de duas colunas saem do começo da régua, sem passar da folha */
+    .menu-ancora:has(> .menu.duas) {
+      position: static;
+    }
+    .menu.duas {
+      left: 6px;
+      max-width: calc(100% - 12px);
+    }
+    .menu-coluna {
+      display: grid;
+      align-content: start;
+      min-width: 0;
+    }
+    /* numa coluna só (estreita, ou presa em cima do teclado), as partes uma embaixo da outra */
+    .menu-coluna + .menu-coluna {
+      margin-top: 4px;
+      padding-top: 6px;
+      background: linear-gradient(to right, rgb(21 21 21 / 0.16) 50%, transparent 50%) left top / 8px 1.5px repeat-x;
+    }
+    .menu-secao {
+      margin: 3px 8px 4px;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.76rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+    }
+    @container folha (min-width: 520px) {
+      .menu.duas {
+        grid-template-columns: repeat(2, minmax(13rem, max-content));
+        column-gap: 8px;
       }
-      .mais-menu {
-        left: 0;
-        right: 0;
-        width: auto;
-        min-width: 0;
+      .menu.duas .menu-coluna + .menu-coluna {
+        margin-top: 0;
+        padding: 0 0 0 8px;
+        background: linear-gradient(rgb(21 21 21 / 0.16) 50%, transparent 50%) left top / 1.5px 8px repeat-y;
       }
     }
     @keyframes menu-cai {
@@ -1798,15 +1899,15 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      .mais-menu {
+      .menu {
         animation: none;
       }
     }
-    .mais-fio {
+    .menu-fio {
       margin: 4px 8px;
-      border-top: 2px dashed rgb(21 21 21 / 0.18);
+      border-top: 2px dashed rgb(21 21 21 / 0.16);
     }
-    .mais-op {
+    .menu-op {
       display: grid;
       grid-template-columns: 22px minmax(0, 1fr) auto;
       align-items: center;
@@ -1820,29 +1921,26 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       text-align: left;
       cursor: pointer;
     }
-    .mais-op:hover,
-    .mais-op:focus-visible {
+    .menu-op:hover,
+    .menu-op:focus-visible {
       background: rgb(21 21 21 / 0.07);
     }
-    .guia-op .mais-nome {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.84rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .mais-op:focus-visible {
+    .menu-op:focus-visible {
       outline: 3px solid var(--ink);
       outline-offset: -1px;
     }
-    .mais-nome {
+    .menu-op-nome {
       font-family: var(--f-hand);
       font-size: 1.08rem;
+      line-height: 1.2;
     }
-    .mais-nome s {
+    .menu-op-nome b {
+      font-weight: 700;
+    }
+    .menu-op-nome s {
       text-decoration-thickness: 2px;
     }
-    .mais-nome mark {
+    .menu-op-nome mark {
       background: linear-gradient(transparent 4%, rgb(255 218 66 / 0.62) 4%, rgb(255 218 66 / 0.62) 96%, transparent 96%);
       color: inherit;
     }
@@ -1853,7 +1951,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       background: #151515;
       color: #f1f1ec;
     }
-    .mais-nome code {
+    .menu-op-nome code {
       padding: 0 4px;
       border-radius: 2px;
       background: rgb(21 21 21 / 0.08);
@@ -1861,7 +1959,35 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       font-weight: 700;
       font-size: 0.92em;
     }
-    .mais-op kbd {
+    /* os estilos, cada um do jeito que fica no texto (as medidas dos títulos são as da leitura) */
+    [data-estilo='t1'],
+    [data-estilo='t2'] {
+      font-family: var(--f-marker);
+      font-size: 1.12rem;
+    }
+    [data-estilo='t1'] {
+      font-size: 1.3rem;
+    }
+    [data-estilo='t3'] {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.92rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    [data-estilo='citacao'] {
+      font-style: italic;
+    }
+    [data-estilo='codigo'] {
+      font-family: var(--f-mono);
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    /* o estilo da linha: o marca-texto amarelo e o tique, no lugar do atalho */
+    .menu-op[aria-checked='true'] {
+      background: rgb(255 218 66 / 0.4);
+    }
+    .menu-op kbd {
       font-family: var(--f-label);
       font-weight: 700;
       font-size: 0.78rem;
@@ -1869,48 +1995,53 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       color: var(--ink-2);
       white-space: nowrap;
     }
-    /* no toque não tem atalho de teclado: fica só o jeito de escrever, quando tem */
-    @media (pointer: coarse) {
-      .mais-op .atalho {
-        display: none;
-      }
-      .mais-op {
-        min-height: 44px;
-      }
-      .mais-op:focus-visible {
-        outline-width: 2px;
-      }
-    }
-
-    /* o guia: as marcas na letra de máquina, o que fazem ao lado */
-    .guia-lista {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-      gap: 4px 18px;
-      margin: 0;
-    }
-    .guia-item {
-      display: grid;
-      grid-template-columns: minmax(7.5rem, auto) minmax(0, 1fr);
-      align-items: baseline;
-      gap: 10px;
-      min-height: 30px;
-    }
-    .guia-item dt code {
+    /* o jeito de escrever ("[[", "---") é texto da folha: a letra de máquina, como na Ajuda */
+    .menu-op .jeito {
       padding: 1px 5px;
       border-radius: 2px;
       background: rgb(21 21 21 / 0.07);
       font-family: var(--f-mono);
       font-weight: 700;
-      font-size: 0.9rem;
-      white-space: nowrap;
+      font-size: 0.86rem;
+      letter-spacing: 0;
+      color: var(--ink);
     }
-    .guia-item dd {
-      margin: 0;
-      font-size: 0.92rem;
+    /* cada widget: o desenho, o nome à mão e, embaixo, o que ele faz */
+    .widget-op {
+      grid-template-columns: 22px minmax(0, 1fr);
+      align-items: start;
+      padding-block: 6px;
+    }
+    .widget-op lucide-icon {
+      margin-top: 3px;
+    }
+    .widget-op-texto {
+      display: grid;
+      gap: 1px;
+    }
+    .widget-op-sobre {
+      max-width: 17rem;
+      font-size: 0.82rem;
+      line-height: 1.3;
       color: var(--ink-2);
     }
+    /* no toque não tem atalho de teclado: fica só o jeito de escrever, quando tem */
+    @media (pointer: coarse) {
+      .menu-op .atalho {
+        display: none;
+      }
+      .menu-op {
+        min-height: 44px;
+      }
+    }
 
+    /* ===== A Ajuda: as marcas em partes; cada uma com o nome, o jeito de escrever na letra de
+       máquina (que quebra a linha, por mais comprida que seja) e o atalho na ponta ===== */
+    .guia {
+      max-height: min(34rem, 72vh);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
     /* ===== A lista do link: uma tira de fichário presa embaixo da folha ===== */
     .elos {
       margin-top: 8px;
@@ -2045,7 +2176,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       }
     }
 
-    /* ===== A folha pautada (a mesma de antes da régua) ===== */
+    /* ===== A folha pautada (o papel, a sombra e o foco são do .papel em volta dela) ===== */
     textarea {
       --line: 1.75rem;
       field-sizing: content;
@@ -2061,8 +2192,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       background:
         /* pauta azul de fichário, a mesma das folhas do Pra depois */
         repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line))
-          0 4px,
-        rgb(255 255 255 / 0.55);
+          0 4px;
       background-attachment: local;
       color: var(--ink);
       font-family: var(--f-hand);
@@ -2070,15 +2200,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       line-height: var(--line);
       caret-color: var(--red);
       outline: none;
-      box-shadow: var(--campo-sombra);
-      transition: box-shadow var(--t-physical) var(--ease-physical);
 
       &::placeholder {
         color: rgb(21 21 21 / 0.7);
-      }
-
-      &:focus {
-        box-shadow: var(--campo-sombra-foco);
       }
     }
 
@@ -2191,8 +2315,15 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         font-size: 1.35rem;
       }
     }
+    /* na tela inteira, o papel enche a folha e o texto enche o papel */
+    .papel.grande {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 5rem;
+    }
     /* com a régua presa embaixo, a folha termina em cima dela */
-    .folha:has(> .regua.presa) {
+    .folha:has(.regua.presa) {
       padding-bottom: 60px;
     }
     /* os painéis na tela inteira: no máximo um bom pedaço da folha, rolando por dentro (sem empurrar
@@ -2217,8 +2348,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           0 -10px 14px -12px rgb(0 0 0 / 0.4);
       }
     }
-    .folha > textarea.grande,
-    .folha > .previa.grande {
+    .papel > textarea.grande,
+    .papel > .previa.grande {
       min-height: 5rem;
     }
   `,
@@ -2263,14 +2394,9 @@ export class RichEditor {
   protected readonly PlusIcon = Plus;
   protected readonly StrikeIcon = Strikethrough;
   protected readonly MarkIcon = Highlighter;
-  protected readonly SpoilerIcon = EyeOff;
-  protected readonly HeadingIcon = Heading;
-  protected readonly QuoteIcon = Quote;
   protected readonly CloseIcon = X;
-  protected readonly TableIcon = Table;
-  protected readonly CodeIcon = Code;
-  protected readonly RuleIcon = Minus;
   protected readonly HelpIcon = CircleHelp;
+  protected readonly FormatIcon = Type;
 
   /**
    * O painel do link para um endereço: o trecho que ele vai ocupar, o texto e o endereço (`swap`: o
@@ -2283,129 +2409,273 @@ export class RichEditor {
   protected readonly tablePick = signal<{ big: boolean; cols: number; rows: number } | null>(null);
   protected readonly gridCols = [1, 2, 3, 4, 5, 6];
   protected readonly gridRows = [1, 2, 3, 4, 5, 6];
-  /** O painel "Mais" aberto (em qual das folhas), ou null. */
-  protected readonly moreOpen = signal<boolean | null>(null);
-  protected readonly MoreIcon = Ellipsis;
 
   /** O painel que acabou de abrir entra na tela (no celular, a régua pode já ter saído dela). */
   private showPanel(selector: string): void {
     setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
   }
 
-  /** Abre ou fecha "Mais" (e fecha os outros painéis da régua). */
-  protected toggleMore(big: boolean, e: MouseEvent, area: HTMLTextAreaElement): void {
-    // fechar pelo próprio botão: o foco volta para o texto (o menu, com o foco, sai da tela)
-    if (this.moreOpen() === big) this.closeMore(null, area);
-    // pelo teclado (Enter, espaço: um clique sem ponteiro), o foco já vai para a primeira marca
-    else this.openMore(big, e.detail === 0);
+  // ===== Os menus: "Formatar", "Inserir" e a caixa do estilo =====
+
+  /** As marcas do texto, no "Formatar" (o nome vai escrito do jeito que fica), com o atalho. */
+  protected readonly textMarks: readonly { act: Action; icon: LucideIconData; keys: string; aria: string | null }[] = [
+    { act: 'bold', icon: Bold, keys: 'Ctrl+B', aria: 'Control+B' },
+    { act: 'italic', icon: Italic, keys: 'Ctrl+I', aria: 'Control+I' },
+    { act: 'strike', icon: Strikethrough, keys: 'Ctrl+Shift+X', aria: 'Control+Shift+X' },
+    { act: 'mark', icon: Highlighter, keys: 'Ctrl+Shift+H', aria: 'Control+Shift+H' },
+    { act: 'spoiler', icon: EyeOff, keys: '', aria: null },
+    { act: 'code', icon: Code, keys: 'Ctrl+E', aria: 'Control+E' },
+  ];
+  /** As listas: no "Formatar" e na régua, com os atalhos do Docs. */
+  protected readonly lists: readonly { act: ListKind; name: string; icon: LucideIconData; keys: string; aria: string }[] = [
+    { act: 'check', name: 'Tarefas', icon: ListChecks, keys: 'Ctrl+Shift+9', aria: 'Control+Shift+9' },
+    { act: 'ul', name: 'Lista', icon: List, keys: 'Ctrl+Shift+8', aria: 'Control+Shift+8' },
+    { act: 'ol', name: 'Lista numerada', icon: ListOrdered, keys: 'Ctrl+Shift+7', aria: 'Control+Shift+7' },
+  ];
+  /** Os estilos do parágrafo. */
+  protected readonly styles: readonly { value: LineStyle; name: string; icon: LucideIconData }[] = [
+    { value: 'texto', name: 'Texto normal', icon: Pilcrow },
+    { value: 't1', name: 'Título 1', icon: Heading1 },
+    { value: 't2', name: 'Título 2', icon: Heading2 },
+    { value: 't3', name: 'Título 3', icon: Heading3 },
+    { value: 'citacao', name: 'Citação', icon: Quote },
+    { value: 'codigo', name: 'Bloco de código', icon: SquareCode },
+  ];
+  /** O que o "Inserir" tem antes dos widgets (o link para outra anotação, só onde ele abre alguma). */
+  protected readonly inserts = computed(() => {
+    const all: { act: Action; name: string; icon: LucideIconData; keys: string; aria: string | null; typed: string }[] = [
+      { act: 'url', name: 'Link para um endereço', icon: Link, keys: 'Ctrl+K', aria: 'Control+K', typed: '' },
+      { act: 'note', name: 'Link para outra anotação', icon: NOTE_LINK_ICON, keys: '', aria: null, typed: '[[' },
+      { act: 'table', name: 'Tabela', icon: Table, keys: '', aria: null, typed: '' },
+      { act: 'rule', name: 'Divisória', icon: Minus, keys: '', aria: null, typed: '---' },
+    ];
+    return this.notes() ? all : all.filter((o) => o.act !== 'note');
+  });
+
+  /** O menu aberto (qual, e em qual das folhas), ou null. */
+  protected readonly menu = signal<{ name: MenuName; big: boolean } | null>(null);
+  /** O menu foi aberto pelo teclado: o Esc volta para o botão dele (o lugar de quem estava na régua). */
+  private menuByKeyboard = false;
+
+  protected isOpen(name: MenuName, big: boolean): boolean {
+    const m = this.menu();
+    return !!m && m.name === name && m.big === big;
   }
-  /** O menu foi aberto pelo teclado: o Esc volta para o botão "Mais" (o lugar de quem estava na régua). */
-  private moreByKeyboard = false;
+
+  /** Abre ou fecha um menu (e fecha os painéis da régua). */
+  protected toggleMenu(name: MenuName, big: boolean, e: MouseEvent, area: HTMLTextAreaElement): void {
+    // fechar pelo próprio botão: o foco volta para o texto (o menu, com o foco, sai da tela)
+    if (this.isOpen(name, big)) this.closeMenu(null, area);
+    // pelo teclado (Enter, espaço: um clique sem ponteiro), o foco já vai para o primeiro item
+    else this.openMenu(name, big, e.detail === 0);
+  }
 
   /**
-   * Abre o menu do "Mais". Pelo teclado, o foco vai para a primeira marca; pelo mouse, fica no menu
-   * (sem marcar nenhuma de cara), e as setas, Esc e Tab já valem.
+   * Abre um menu. Pelo teclado, o foco vai para o primeiro item (na caixa do estilo, para o estilo da
+   * linha); pelo mouse, fica no menu (sem marcar nenhum de cara), e as setas, Esc e Tab já valem.
    */
-  protected openMore(big: boolean, first: boolean): void {
-    this.moreByKeyboard = first;
+  protected openMenu(name: MenuName, big: boolean, first: boolean): void {
+    this.menuByKeyboard = first;
     this.closePanels();
-    this.moreOpen.set(big);
+    this.menu.set({ name, big });
     setTimeout(() => {
-      const target = first ? this.moreItems()[0] : this.host.nativeElement.querySelector<HTMLElement>('.mais-menu');
-      target?.focus({ preventScroll: true });
+      const menu = this.host.nativeElement.querySelector<HTMLElement>('.menu');
+      const chosen = name === 'estilo' ? menu?.querySelector<HTMLElement>('.menu-op[aria-checked="true"]') : null;
+      (first ? (chosen ?? this.menuItems()[0]) : menu)?.focus({ preventScroll: true });
+      // o menu inteiro na tela (embaixo da folha, ele pode cair atrás do pé do editor); preso em cima
+      // do teclado, ele já abre para cima, à vista
+      if (this.docked() === null) menu?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
   }
 
-  private moreItems(): HTMLElement[] {
-    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.mais-menu .mais-op'));
+  private menuItems(): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.menu .menu-op'));
   }
 
-  /** No menu: setas, Home e End andam pelas marcas; Esc fecha e volta para o texto; Tab sai e fecha. */
-  protected onMoreKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
-    const items = this.moreItems();
+  /**
+   * No menu: setas para cima e para baixo, Home e End andam pelos itens; nos de duas colunas, as
+   * setas do lado passam para a outra, na mesma altura. Esc fecha e volta para o texto (pelo
+   * teclado, para o botão); Tab sai e fecha.
+   */
+  protected onMenuKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    const items = this.menuItems();
     const at = items.indexOf(document.activeElement as HTMLElement);
     const go = (i: number) => {
       e.preventDefault();
       items[(i + items.length) % items.length]?.focus();
     };
-    // com o foco no menu (aberto pelo mouse), a seta para baixo vai para a primeira e a para cima, a última
+    // com o foco no menu (aberto pelo mouse), a seta para baixo vai para o primeiro e a para cima, o último
     if (e.key === 'ArrowDown') go(at + 1);
     else if (e.key === 'ArrowUp') go(at < 0 ? items.length - 1 : at - 1);
     else if (e.key === 'Home') go(0);
     else if (e.key === 'End') go(items.length - 1);
-    else if (e.key === 'Escape') {
-      if (!this.moreByKeyboard) return this.closeMore(e, area);
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const cols = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.menu .menu-coluna'));
+      if (cols.length < 2) return;
+      const col = Math.max(0, cols.findIndex((c) => c.contains(document.activeElement)));
+      const row = at < 0 ? 0 : Array.from(cols[col].querySelectorAll('.menu-op')).indexOf(items[at]);
+      const next = Array.from(cols[(col + (e.key === 'ArrowRight' ? 1 : cols.length - 1)) % cols.length].querySelectorAll<HTMLElement>('.menu-op'));
+      e.preventDefault();
+      next[Math.min(Math.max(row, 0), next.length - 1)]?.focus();
+    } else if (e.key === 'Escape') {
+      if (!this.menuByKeyboard) return this.closeMenu(e, area);
       e.preventDefault();
       e.stopPropagation();
-      const big = this.moreOpen();
-      this.moreOpen.set(null);
-      const menus = this.host.nativeElement.querySelectorAll<HTMLElement>('.ferramenta.mais');
+      const m = this.menu();
+      this.menu.set(null);
+      const buttons = this.host.nativeElement.querySelectorAll<HTMLElement>(`.menu-botao[data-menu="${m?.name}"]`);
       // a régua da folha grande (no diálogo) é a segunda
-      menus[big ? menus.length - 1 : 0]?.focus();
-    }
-    else if (e.key === 'Tab') this.moreOpen.set(null);
+      buttons[m?.big ? buttons.length - 1 : 0]?.focus();
+    } else if (e.key === 'Tab') this.menu.set(null);
   }
 
-  /** O foco saiu do "Mais" (um toque fora, outro campo): o menu fecha. */
-  protected onMoreFocusOut(e: FocusEvent): void {
+  /** O foco saiu do menu (um toque fora, outro campo): ele fecha. */
+  protected onMenuFocusOut(e: FocusEvent): void {
     const to = e.relatedTarget as Node | null;
-    if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.moreOpen.set(null);
+    if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.menu.set(null);
   }
 
-  /** Uma marca do "Mais": põe no texto e fecha o painel (o guia abre no lugar dele). */
-  protected moreDo(area: HTMLTextAreaElement, what: 'strike' | 'mark' | 'spoiler' | 'code' | 'quote' | 'rule' | 'guide'): void {
-    const big = this.moreOpen();
-    this.moreOpen.set(null);
-    if (what === 'guide') {
-      this.guide.set(big ?? false);
-      this.showPanel('.guia');
-      return;
-    }
-    if (what === 'strike') this.wrap(area, '~~');
-    else if (what === 'mark') this.wrap(area, '==');
-    else if (what === 'spoiler') this.wrap(area, '||');
-    else if (what === 'code') this.code(area);
-    else if (what === 'quote') this.quote(area);
-    else this.rule(area);
-  }
-
-  protected closeMore(e: Event | null, area: HTMLTextAreaElement): void {
+  protected closeMenu(e: Event | null, area: HTMLTextAreaElement): void {
     e?.preventDefault();
     e?.stopPropagation();
-    this.moreOpen.set(null);
+    this.menu.set(null);
     area.focus();
   }
 
-  /** O guia das marcas aberto (em qual das folhas), ou null. */
+  /** O que um botão da régua ou um item dos menus faz (o menu fecha antes). */
+  protected act(area: HTMLTextAreaElement, big: boolean, what: Action): void {
+    this.menu.set(null);
+    switch (what) {
+      case 'bold':
+        return this.wrap(area, '**');
+      case 'italic':
+        return this.wrap(area, '*');
+      case 'strike':
+        return this.wrap(area, '~~');
+      case 'mark':
+        return this.wrap(area, '==');
+      case 'spoiler':
+        return this.wrap(area, '||');
+      case 'code':
+        return this.code(area);
+      case 'url':
+        return this.startUrl(area, big);
+      case 'note':
+        return this.startLink(area, big);
+      case 'table':
+        return this.startTable(big);
+      case 'rule':
+        return this.rule(area);
+      default:
+        return this.list(area, what);
+    }
+  }
+
+  // ===== O estilo do parágrafo =====
+
+  /** O estilo da linha do cursor: a caixa do estilo diz qual é, e os menus marcam. */
+  protected readonly lineStyle = signal<LineStyle>('texto');
+  protected readonly styleName = computed(() => this.styles.find((s) => s.value === this.lineStyle())?.name ?? 'Texto normal');
+
+  /** O cursor andou (ou o texto mudou): o estilo da linha dele. */
+  protected track(area: HTMLTextAreaElement): void {
+    this.lineStyle.set(styleAt(area.value, area.selectionStart));
+  }
+
+  protected pickStyle(area: HTMLTextAreaElement, style: LineStyle): void {
+    this.menu.set(null);
+    this.setStyle(area, style);
+  }
+
+  /**
+   * Troca o estilo das linhas da seleção (ou da linha do cursor), como a caixa de estilos do Word:
+   * o título e a citação trocam a marca do começo de cada linha; o bloco de código cerca as linhas
+   * com "```" (e sair dele tira as cercas, o que estava dentro fica).
+   */
+  protected setStyle(area: HTMLTextAreaElement, style: LineStyle): void {
+    const now = styleAt(area.value, area.selectionStart);
+    if (now === 'codigo') {
+      if (style === 'codigo') return area.focus();
+      this.unfence(area);
+      if (style === 'texto') return this.track(area);
+    }
+    if (style === 'codigo') return this.fence(area);
+    const prefix = STYLE_PREFIX[style];
+    const { from, to, lines } = this.linesAt(area);
+    const single = lines.length === 1;
+    const caret = area.selectionStart - from;
+    let shift = 0;
+    const out = lines.map((l, i) => {
+      // linha em branco no meio da seleção fica em branco
+      if (!single && !l.trim()) return l;
+      const bare = l.replace(QUOTE_MARK, '').replace(HEADING_MARK, '');
+      if (i === 0) shift = prefix.length - (l.length - bare.length);
+      return prefix + bare;
+    }).join('\n');
+    // uma linha só, sem seleção: o cursor fica no mesmo ponto do texto dela
+    const at = single && area.selectionStart === area.selectionEnd ? Math.max(from + prefix.length, from + caret + shift) : -1;
+    if (at >= 0) this.replace(area, from, to, out, at, at);
+    else this.replace(area, from, to, out, from, from + out.length);
+    this.track(area);
+  }
+
+  /** O bloco de código em volta das linhas (numa linha vazia, o bloco vazio com o cursor dentro). */
+  private fence(area: HTMLTextAreaElement): void {
+    const { from, to } = this.linesAt(area);
+    const inner = area.value.slice(from, to);
+    const piece = '```\n' + inner + '\n```';
+    this.replace(area, from, to, piece, from + 4, from + 4 + inner.length);
+    this.track(area);
+  }
+
+  /** Tira as cercas "```" do bloco de código em que o cursor está (a de baixo pode faltar). */
+  private unfence(area: HTMLTextAreaElement): void {
+    const text = area.value;
+    const lines = text.split('\n');
+    const here = text.slice(0, area.selectionStart).split('\n').length - 1;
+    const fences = lines.map((l, i) => (FENCE_MARK.test(l) ? i : -1)).filter((i) => i >= 0);
+    // as cercas abrem e fecham aos pares: a que abre o bloco do cursor é a última de número par até ele
+    const k = fences.filter((i) => i <= here).length - 1;
+    const open = fences[k - (k % 2)];
+    const close = fences[k - (k % 2) + 1];
+    if (open === undefined) return;
+    const offset = (i: number) => lines.slice(0, i).reduce((n, l) => n + l.length + 1, 0);
+    let caret = area.selectionStart;
+    const drop = (i: number) => {
+      const start = offset(i);
+      // a linha com a quebra depois dela; a última, com a de antes
+      const [s, e] = i < lines.length - 1 ? [start, start + lines[i].length + 1] : [Math.max(0, start - 1), start + lines[i].length];
+      if (caret > s) caret = Math.max(s, caret - (e - s));
+      this.replace(area, s, e, '', s, s);
+    };
+    // a de baixo primeiro: a de cima continua no mesmo lugar
+    if (close !== undefined) drop(close);
+    drop(open);
+    area.setSelectionRange(caret, caret);
+  }
+
+  // ===== A Ajuda =====
+
+  /** A Ajuda aberta (em qual das folhas), ou null. */
   protected readonly guide = signal<boolean | null>(null);
-  protected readonly guideItems: readonly { mark: string; what: string }[] = [
-    { mark: '**negrito**', what: 'Negrito (Ctrl+B)' },
-    { mark: '*itálico*', what: 'Itálico (Ctrl+I)' },
-    { mark: '~~riscado~~', what: 'Riscado' },
-    { mark: '==marca==', what: 'Marca-texto' },
-    { mark: '||spoiler||', what: 'Spoiler: uma tarja preta que some ao tocar (>!spoiler!< também vale)' },
-    { mark: '# Título', what: 'Título (## e ### menores)' },
-    { mark: '> citação', what: 'Citação' },
-    { mark: '- item', what: 'Lista' },
-    { mark: '1. item', what: 'Lista numerada' },
-    { mark: '- [ ] tarefa', what: 'Tarefa ([x] feita)' },
-    { mark: '[texto](https://…)', what: 'Link para um endereço (Ctrl+K)' },
-    { mark: '[[Título]]', what: 'Link para outra anotação' },
-    { mark: '[[Título|texto]]', what: 'O link abre a anotação e mostra o texto' },
-    { mark: '`código`', what: 'Código (Ctrl+E)' },
-    { mark: '```', what: 'Bloco de código (abre e fecha)' },
-    { mark: '| a | b |', what: 'Tabela (2ª linha: | --- | --- |)' },
-    { mark: '---', what: 'Divisória' },
-    { mark: '{{contador: 19/11/2026 18:00 | Nome}}', what: 'Contador até o dia, numa linha só dele (sem o ano: todo ano)' },
-    { mark: '{{contador: toda sexta 18:00 | Nome}}', what: 'Contador que se repete: todo dia 7:00, toda sexta 18:00, todo dia 5 (todo mês)' },
-    { mark: '{{imagem: https://… | legenda}}', what: 'Imagem colada como foto (polaroid ou recorte no fim: outra moldura)' },
-    { mark: '{{video: https://youtu.be/… | legenda}}', what: 'Vídeo do YouTube, do Vimeo ou um .mp4, que toca ali' },
-    { mark: '{{nota: Título}}', what: 'A anotação colada em miniatura (pelo menu Widgets, qualquer ficha, de qualquer mural)' },
-    { mark: '{{… | mini}} {{… | pequeno}} {{… | grande}}', what: 'O tamanho do widget, o mesmo para todos (sem ele, o médio)' },
-    { mark: '-> <- <-> =>', what: 'Setas: → ← ↔ ⇒ (--> e <-- compridas)' },
-    { mark: '!= >= <= ~= +-', what: 'Símbolos: ≠ ≥ ≤ ≈ ±' },
-    { mark: '\\*', what: 'A marca como ela é, sem formatar' },
-  ];
+  /** "Ajuda" (ou Ctrl+/): abre a lista de todas as marcas embaixo da folha; de novo, fecha. */
+  protected toggleGuide(big: boolean): void {
+    const open = this.guide() === big;
+    this.closePanels();
+    if (open) return;
+    this.guide.set(big);
+    this.showPanel('.guia');
+  }
+
+  /** As abas: as setas do lado (e Home, End) trocam entre escrever e ver como fica. */
+  protected onTabKey(e: KeyboardEvent, big: boolean): void {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const on = e.key === 'Home' ? false : e.key === 'End' ? true : !this.seeing();
+    this.seeing.set(on);
+    if (on) this.docked.set(null);
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(`#${this.areaId}${on ? '-aba-ver' : '-aba-escrever'}${big ? '-g' : ''}`)?.focus());
+  }
 
   /**
    * A lista do link aberta: pela régua (`auto` falso, com a própria busca) ou por "[[" escrito na
@@ -2470,16 +2740,13 @@ export class RichEditor {
 
   protected readonly BoldIcon = Bold;
   protected readonly ItalicIcon = Italic;
-  protected readonly ListIcon = List;
-  protected readonly OrderedIcon = ListOrdered;
-  protected readonly ChecksIcon = ListChecks;
   protected readonly GrowIcon = Maximize2;
   protected readonly ShrinkIcon = Minimize2;
 
   protected readonly SeeIcon = Eye;
   protected readonly WriteIcon = PenLine;
   protected readonly toggle = toggleCheck;
-  /** Mostrando a folha formatada no lugar do campo ("Ver como fica"). */
+  /** Mostrando a folha formatada no lugar do campo (a aba "Ver como fica"). */
   protected readonly seeing = signal(false);
 
   /** A tela inteira está aberta. */
@@ -2628,6 +2895,7 @@ export class RichEditor {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) this.watchLink(area, big);
     // e pode ter saído do link ou do widget cujo painel abriu pelo clique
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) this.leavePassive(area);
+    this.track(area);
   }
 
   /**
@@ -2743,6 +3011,13 @@ export class RichEditor {
       this.closePanels();
       return;
     }
+    // a Ajuda aberta: o Esc na folha fecha só ela
+    if (e.key === 'Escape' && this.guide() !== null) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.guide.set(null);
+      return;
+    }
     // com a lista aberta, as setas, o Enter e o Esc são dela (o Esc fecha só a lista, não o editor)
     if (this.linking() && (this.linking()!.auto || e.key === 'Escape') && this.onListKey(e)) return;
     const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
@@ -2765,6 +3040,13 @@ export class RichEditor {
     } else if (mod && e.shiftKey && key === 'h') {
       e.preventDefault();
       this.wrap(area, '==');
+    } else if (mod && e.shiftKey && LIST_KEYS[e.code]) {
+      // Ctrl+Shift+7, 8 e 9, como no Docs (pela tecla, não pelo que ela escreve com o Shift)
+      e.preventDefault();
+      this.list(area, LIST_KEYS[e.code]);
+    } else if (mod && !e.shiftKey && (e.key === '/' || e.code === 'Slash')) {
+      e.preventDefault();
+      this.toggleGuide(big);
     } else if (e.key === 'Tab' && !mod && !e.altKey && this.tableLine(area)) {
       this.tableTab(e, area);
     } else if (e.key === 'Enter' && !e.shiftKey && !mod && !e.isComposing) {
@@ -2773,7 +3055,7 @@ export class RichEditor {
     }
   }
 
-  // ===== Título, citação, código e divisória =====
+  // ===== Código e divisória =====
 
   /** A linha do cursor (ou as da seleção): onde começa, onde termina e o texto. */
   private linesAt(area: HTMLTextAreaElement): { from: number; to: number; lines: string[] } {
@@ -2782,28 +3064,6 @@ export class RichEditor {
     const endAt = text.indexOf('\n', Math.max(area.selectionEnd - (area.selectionEnd > area.selectionStart && text[area.selectionEnd - 1] === '\n' ? 1 : 0), area.selectionStart));
     const to = endAt === -1 ? text.length : endAt;
     return { from, to, lines: text.slice(from, to).split('\n') };
-  }
-
-  /** Título na linha: texto → "# " → "## " → "### " → texto de novo. */
-  protected heading(area: HTMLTextAreaElement): void {
-    const { from, lines } = this.linesAt(area);
-    const line = lines[0];
-    const m = /^(#{1,3})\s+/.exec(line);
-    const level = m ? m[1].length : 0;
-    const rest = m ? line.slice(m[0].length) : line.replace(/^\s+/, '');
-    const next = level >= 3 ? rest : '#'.repeat(level + 1) + ' ' + rest;
-    const end = from + lines[0].length;
-    this.replace(area, from, end, next, from + next.length, from + next.length);
-  }
-
-  /** Citação nas linhas: cada uma ganha "> "; se todas já têm, tira. */
-  protected quote(area: HTMLTextAreaElement): void {
-    const { from, to, lines } = this.linesAt(area);
-    // todas já com "> " (as vazias não contam; só vazias, não: aí é para pôr)
-    const all = lines.some((l) => /^\s*>/.test(l)) && lines.every((l) => /^\s*>/.test(l) || !l.trim());
-    const next = lines.map((l) => (all ? l.replace(/^(\s*)>\s?/, '$1') : !l.trim() && lines.length > 1 ? l : '> ' + l)).join('\n');
-    const single = area.selectionStart === area.selectionEnd && lines.length === 1;
-    this.replace(area, from, to, next, single ? from + next.length : from, from + next.length);
   }
 
   /** Código: na seleção de uma linha, entre crases; em várias linhas (ou numa linha vazia), o bloco entre "```". */
@@ -2920,8 +3180,7 @@ export class RichEditor {
     this.linking.set(null);
     this.urlLink.set(null);
     this.tablePick.set(null);
-    this.moreOpen.set(null);
-    this.widgetsOpen.set(null);
+    this.menu.set(null);
     this.guide.set(null);
     this.widgetPick.set(null);
   }
@@ -2978,81 +3237,15 @@ export class RichEditor {
 
   protected readonly widgets = WIDGETS;
   protected readonly fieldsFor = fieldsFor;
-  protected readonly WidgetIcon = Blocks;
   protected readonly ChevronIcon = ChevronDown;
   /** O desenho de cada widget no menu. */
   protected iconOf(name: string): LucideIconData {
     return WIDGET_ICONS[name] ?? Blocks;
   }
 
-  /** O menu "Widgets" aberto (em qual das folhas), ou null. */
-  protected readonly widgetsOpen = signal<boolean | null>(null);
-  /** O menu foi aberto pelo teclado: o Esc volta para o botão. */
-  private widgetsByKeyboard = false;
-
-  protected toggleWidgets(big: boolean, e: MouseEvent, area: HTMLTextAreaElement): void {
-    if (this.widgetsOpen() === big) this.closeWidgets(null, area);
-    else this.openWidgets(big, e.detail === 0);
-  }
-
-  /** Abre o menu (e fecha os painéis da régua); pelo teclado, o foco vai para o primeiro widget. */
-  protected openWidgets(big: boolean, first: boolean): void {
-    this.widgetsByKeyboard = first;
-    this.linking.set(null);
-    this.urlLink.set(null);
-    this.tablePick.set(null);
-    this.guide.set(null);
-    this.moreOpen.set(null);
-    this.widgetsOpen.set(big);
-    setTimeout(() => {
-      const items = this.menuItems('.widgets-menu');
-      (first ? items[0] : this.host.nativeElement.querySelector<HTMLElement>('.widgets-menu'))?.focus({ preventScroll: true });
-    });
-  }
-
-  private menuItems(menu: string): HTMLElement[] {
-    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>(`${menu} .mais-op`));
-  }
-
-  /** No menu: setas, Home e End andam; Esc fecha (pelo teclado, volta para o botão); Tab sai e fecha. */
-  protected onWidgetsKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
-    const items = this.menuItems('.widgets-menu');
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    const go = (i: number) => {
-      e.preventDefault();
-      items[(i + items.length) % items.length]?.focus();
-    };
-    if (e.key === 'ArrowDown') go(at + 1);
-    else if (e.key === 'ArrowUp') go(at < 0 ? items.length - 1 : at - 1);
-    else if (e.key === 'Home') go(0);
-    else if (e.key === 'End') go(items.length - 1);
-    else if (e.key === 'Escape') {
-      if (!this.widgetsByKeyboard) return this.closeWidgets(e, area);
-      e.preventDefault();
-      e.stopPropagation();
-      const big = this.widgetsOpen();
-      this.widgetsOpen.set(null);
-      const buttons = this.host.nativeElement.querySelectorAll<HTMLElement>('.ferramenta.widgets');
-      buttons[big ? buttons.length - 1 : 0]?.focus();
-    } else if (e.key === 'Tab') this.widgetsOpen.set(null);
-  }
-
-  protected onWidgetsFocusOut(e: FocusEvent): void {
-    const to = e.relatedTarget as Node | null;
-    if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.widgetsOpen.set(null);
-  }
-
-  protected closeWidgets(e: Event | null, area: HTMLTextAreaElement): void {
-    e?.preventDefault();
-    e?.stopPropagation();
-    this.widgetsOpen.set(null);
-    area.focus();
-  }
-
   /** Escolheu um widget no menu: o painel dele abre. */
-  protected chooseWidget(area: HTMLTextAreaElement, def: WidgetDef): void {
-    const big = this.widgetsOpen() ?? false;
-    this.widgetsOpen.set(null);
+  protected chooseWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
+    this.menu.set(null);
     this.startWidget(area, big, def);
     this.askCard();
   }
@@ -3500,6 +3693,28 @@ export class RichEditor {
 }
 
 let uid = 0;
+
+/** A marca do começo da linha de cada estilo do parágrafo (o bloco de código são as cercas). */
+const STYLE_PREFIX: Record<Exclude<LineStyle, 'codigo'>, string> = { texto: '', t1: '# ', t2: '## ', t3: '### ', citacao: '> ' };
+const HEADING_MARK = /^#{1,3}\s+/;
+/** A citação ("> "), não o spoiler ">!texto!<". */
+const QUOTE_MARK = /^\s*>(?!!\S.*!<)\s?/;
+const FENCE_MARK = /^\s*```/;
+/** Ctrl+Shift+7, 8 e 9: as listas, pela tecla (com o Shift, ela escreve outra coisa). */
+const LIST_KEYS: Record<string, ListKind> = { Digit7: 'ol', Digit8: 'ul', Digit9: 'check' };
+
+/** O estilo do parágrafo da linha em que cai a posição `at`: dentro das cercas "```", o bloco de código. */
+export function styleAt(text: string, at: number): LineStyle {
+  const lines = text.split('\n');
+  const here = text.slice(0, at).split('\n').length - 1;
+  const line = lines[here] ?? '';
+  let open = false;
+  for (let i = 0; i < here; i++) if (FENCE_MARK.test(lines[i])) open = !open;
+  if (open || FENCE_MARK.test(line)) return 'codigo';
+  const h = /^(#{1,3})\s/.exec(line);
+  if (h) return `t${h[1].length}` as LineStyle;
+  return QUOTE_MARK.test(line) && !/^\s*>!/.test(line) ? 'citacao' : 'texto';
+}
 
 /** O endereço do link, se serve: com "https://" quando faltou ("site.com"); null se não parece endereço. */
 export function normalizeUrl(raw: string): string | null {

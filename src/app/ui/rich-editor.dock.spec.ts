@@ -45,15 +45,16 @@ describe('a régua presa em cima do teclado', () => {
     expect(fixture.nativeElement.classList).not.toContain('presa');
   });
 
-  it('o "Mais" aberto com a régua presa não a solta (o menu abre para cima)', async () => {
+  it('o "Formatar" aberto com a régua presa não a solta (o menu abre para cima, numa coluna)', async () => {
     await make(true);
     area().focus();
     await settle();
-    (fixture.nativeElement.querySelector('.ferramenta.mais') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
     await settle();
     await new Promise((r) => setTimeout(r));
     await settle();
-    expect(fixture.nativeElement.querySelector('.mais-menu')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.menu')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.menu').classList).not.toContain('duas');
     expect(ruler().classList).toContain('presa');
   });
 
@@ -82,11 +83,11 @@ describe('a régua presa em cima do teclado', () => {
     expect(ruler().classList).not.toContain('presa');
   });
 
-  it('"Ver como fica" esconde a folha e solta a régua', async () => {
+  it('a aba "Ver como fica" esconde a folha e solta a régua', async () => {
     await make(true);
     area().focus();
     await settle();
-    (fixture.nativeElement.querySelector('button.ver') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelectorAll('[role=tab]')[1] as HTMLButtonElement).click();
     await settle();
     expect(ruler().classList).not.toContain('presa');
   });
