@@ -143,7 +143,7 @@ export const CARD_TEMPLATE = `
          saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
          para o leitor de tela). Na ficha de música, a orelha é do artista (a aba dele no mural) -->
     @if ((note() || music()) && !capas() && !bare() && noteLabels().category; as c) {
-      <span #abaCat class="aba-cat" [class.com-selo]="publicBadge()" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
+      <span #abaCat class="aba-cat" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
         <app-cat-label [label]="c.label" [look]="catLook()" [glyph]="music() ? ArtistIcon : null" [iconSize]="compact() ? 12 : 13" />
       </span>
     }
@@ -167,20 +167,21 @@ export const CARD_TEMPLATE = `
             }
           </app-cover-sleeve>
           }
-          <!-- Os selinhos da foto, colados um embaixo do outro no canto, cada um um pouco por cima do
-               de cima: o cadeado da privada (só no seu mural; a ficha nunca sai dele) e, só capa e
-               nome, o "outra vez" que distingue a rejogada da original. Um selo novo entra no fim. -->
-          @if ((lockBadge() || publicBadge() || (capas() && (review().revisitOf || doneAt()))) && !bare()) {
+          <!-- Só capa e nome, que não tem a linha da data: os selinhos da foto, colados um embaixo do
+               outro no canto, cada um um pouco por cima do de cima: quem vê (o cadeado da privada, as
+               pessoas da anotação pública), o "outra vez" que distingue a rejogada da original e o de
+               feito. Um selo novo entra no fim. Nas outras vistas, quem vê é o desenho antes da data -->
+          @if (capas() && (lockBadge() || publicBadge() || review().revisitOf || doneAt()) && !bare()) {
             <span class="selos">
               @if (lockBadge()) {
                 <span class="selo privada-selo" title="Privada: só você vê">
-                  <lucide-icon [img]="PrivateIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="PrivateIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
                   <span class="sr-only">Privada: só você vê</span>
                 </span>
               }
               @if (publicBadge()) {
                 <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
-                  <lucide-icon [img]="PublicIcon" [size]="compact() || capas() ? 13 : 15" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="PublicIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
                   <span class="sr-only">Publicada: quem abre o seu mural vê</span>
                 </span>
               }
@@ -195,9 +196,9 @@ export const CARD_TEMPLATE = `
           }
         </div>
       </div>
-      } @else if ((publicBadge() || (capas() && doneAt())) && !bare()) {
-        <!-- anotação sem capa: os selinhos ficam no canto da ficha. A anotação nasce privada: o
-             cadeado em todas não diria nada, então quem ganha selo é a publicada -->
+      } @else if (capas() && (publicBadge() || doneAt()) && !bare()) {
+        <!-- anotação sem capa, só capa e nome: os selinhos ficam no canto da ficha. A anotação nasce
+             privada: o cadeado em todas não diria nada, então quem ganha selo é a publicada -->
         <span class="selos selos-ficha">
           @if (publicBadge()) {
             <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
@@ -222,23 +223,31 @@ export const CARD_TEMPLATE = `
             @if (partShown()) {
               <span class="sub-marca">{{ partOf() }}</span>
             }
-            <!-- sem data, o lugar dela fica vazio (a linha continua, do mesmo tamanho) -->
-            @if (review().completedAt; as day) {
+            <!-- quem vê (a pública, no seu mural) e a data; sem data, o lugar dela fica vazio (a linha
+                 continua, do mesmo tamanho) -->
+            @if (review().completedAt || publicBadge()) {
               @if (partShown()) {
                 <span aria-hidden="true"> · </span>
               }
-              <time [attr.datetime]="day">{{ date() }}</time>
+              <span class="quando">
+                @if (publicBadge()) {
+                  <span class="quem-ve" title="Publicada: quem abre o seu mural vê"><lucide-icon class="quem-ve-icone" [img]="PublicIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.6" aria-hidden="true" /><span class="sr-only">Publicada: quem abre o seu mural vê. </span></span>
+                }
+                @if (review().completedAt; as day) {
+                  <time [attr.datetime]="day">{{ date() }}</time>
+                }
+              </span>
             }
             <!-- as tarefas: quantas já foram feitas -->
             @if (tasks(); as t) {
-              @if (partShown() || review().completedAt) {
+              @if (partShown() || review().completedAt || publicBadge()) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
             <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
             @if (noText()) {
-              @if (partShown() || review().completedAt || tasks()) {
+              @if (partShown() || review().completedAt || publicBadge() || tasks()) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />Sem descrição</span>
@@ -254,11 +263,17 @@ export const CARD_TEMPLATE = `
           @if (review().revisitOf) {
             <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" [strokeWidth]="3" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
           }
-          @if (review().completedAt; as day) {
-            <time [attr.datetime]="day">{{ date() }}</time>
-          } @else {
-            <span>{{ date() }}</span>
-          }
+          <span class="quando">
+            <!-- a resenha privada (só no seu mural): o cadeado antes da data -->
+            @if (lockBadge()) {
+              <span class="quem-ve" title="Privada: só você vê"><lucide-icon class="quem-ve-icone" [img]="PrivateIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.6" aria-hidden="true" /><span class="sr-only">Privada: só você vê. </span></span>
+            }
+            @if (review().completedAt; as day) {
+              <time [attr.datetime]="day">{{ date() }}</time>
+            } @else {
+              <span>{{ date() }}</span>
+            }
+          </span>
           <!-- sem spoilers, a linha fica só com a data: as horas e as caveiras também contam o que achou -->
           @if (!review().revisitOf && times() > 1) {
             <span aria-hidden="true"> · </span><span class="vez-marca" [title]="timesTitle()"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" [strokeWidth]="3" aria-hidden="true" />{{ times() }}×<span class="sr-only"> ({{ timesTitle() }})</span></span>
@@ -889,11 +904,6 @@ export const CARD_STYLES = `
     :host(:active) .aba-cat {
       translate: 0 0;
     }
-    /* com os selos no canto, a orelha começa depois deles */
-    .aba-cat.com-selo {
-      left: 30px;
-      max-width: calc(100% - 30px - 60px);
-    }
     .aba-cat app-cat-label {
       font-family: var(--f-marker);
       font-size: 0.94rem;
@@ -1275,6 +1285,22 @@ export const CARD_STYLES = `
     /* o selo da anotação pública: o selinho de tinta com o desenho de pessoas */
     .publica-selo {
       color: #f7f4ec;
+    }
+    /* quem vê, antes da data: só o desenho, na tinta da linha, um pouco mais ralo (como o "Sem
+       descrição"); a data encosta nele sem ponto, e os dois não se separam na quebra */
+    .quando {
+      white-space: nowrap;
+    }
+    .quem-ve {
+      opacity: 0.62;
+    }
+    .quem-ve-icone {
+      display: inline-block;
+      vertical-align: -2px;
+      margin-right: 4px;
+    }
+    :host(.compact) .quem-ve-icone {
+      margin-right: 3px;
     }
 
     /* ===== Só capa e nome, na anotação sem capa: o título é a ficha ===== */
@@ -2002,8 +2028,6 @@ export class ReviewCard {
     // a orelha da categoria com o nome inteiro: a tachinha fura a ficha depois dela (ver --tachinha)
     effect((onCleanup) => {
       const aba = this.abaCat()?.nativeElement;
-      // os selos no canto empurram a orelha para a direita
-      this.publicBadge();
       if (!aba) {
         el.style.removeProperty('--aba-fim');
         return;

@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-18-pular-coluna',
+    id: '2026-10-18-quem-ve-discreto',
     version: '1.25.2',
     kind: 'ajustes',
     date: '2026-10-18',
@@ -50,6 +50,7 @@ export const NEWS: NewsEntry[] = [
       'Nada mais de caixa de contorno preto: os campos de escrever viraram tiras de papel coladas com uma linha de caneta, que engrossa quando você escreve e fica vermelho-escura quando algo está errado; o texto das anotações é a folha de fichário colada.',
       'Os seletores (como mostrar as notas, Novidades em Amigos e outros) são a cartela de recortes do editor, com a escolhida colada em tinta, e o interruptor desligado é o recorte tracejado da trilha.',
       'Nas cartelas de ícones e cores, a escolhida ganha o círculo de caneta da nota escolhida; as listas e os menus que abrem por cima são papel solto, sem o fio preto.',
+      'Quem vê a ficha ficou discreto: no lugar do selo redondo no canto, um desenho pequeno antes da data, na tinta da linha (as pessoas na anotação pública, o cadeado na análise privada). Só a vista Capa e nome, que não tem a data, continua com o selinho.',
       'O quadro do Kanban não mostra mais a barra de rolagem embaixo das colunas: ele continua correndo de lado pelas setas das beiradas, arrastando o fundo, com Shift e a roda ou no trackpad.',
     ],
     correcoes: [
