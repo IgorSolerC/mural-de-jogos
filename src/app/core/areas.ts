@@ -29,18 +29,22 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
 ];
 
 /**
- * As seções das Anotações: o mural e os quadros Kanban (`/anotacoes/kanban/:quadro`). O Estudo cego e
- * o Calendário entram aqui (e nas rotas) e aparecem sozinhos no índice.
+ * As seções das Anotações: o mural, os quadros Kanban (`/anotacoes/kanban/:quadro`) e o Calendário
+ * (`/anotacoes/calendario`). O Estudo cego entra aqui (e nas rotas) e aparece sozinho no índice.
  */
 export const NOTE_SECTIONS: readonly AreaSection[] = [
   { slug: '', label: 'Mural' },
   { slug: 'kanban', label: 'Kanban' },
+  { slug: 'calendario', label: 'Calendário' },
 ];
 
 /** O caminho de um quadro Kanban (sem quadro: o último aberto, ou o primeiro). */
 export function kanbanPath(board?: string): string {
   return '/anotacoes/kanban' + (board ? `/${board}` : '');
 }
+
+/** O Calendário das anotações. */
+export const CALENDAR_PATH = '/anotacoes/calendario';
 
 /** O caminho de um mural de resenhas, ou de uma seção dele: `/analises/jogos/pra-depois`. */
 export function reviewPath(kind: Kind, section = ''): string {

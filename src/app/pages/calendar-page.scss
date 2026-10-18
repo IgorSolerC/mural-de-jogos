@@ -1,0 +1,732 @@
+@use '../ui/paper-kit' as kit;
+
+:host {
+  display: block;
+}
+
+/* ===== As vistas: as divisórias de manilha (globais, `.divisorias`), cada uma com o desenho dela ===== */
+.vistas {
+  .divisoria {
+    align-items: center;
+  }
+}
+
+.divisoria-icone {
+  display: inline-flex;
+  margin-top: -1px;
+}
+
+/* ===== A pasta: hoje, as setas e o nome do período; ir para uma data ===== */
+.navegar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* o nome do período, a pincel, como o título de uma folha */
+.periodo {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.ir {
+  position: relative;
+}
+
+/* o campo de data do aparelho fica embaixo do "Ir para", invisível: só o calendário dele abre */
+.ir-data {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+
+  /* sem o calendário do aparelho: o campo aparece embaixo do "Ir para", para escrever a data */
+  &.aberto {
+    top: calc(100% + 6px);
+    bottom: auto;
+    z-index: 4;
+    width: auto;
+    height: 44px;
+    padding: 0 10px;
+    border-radius: 2px;
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
+    color: var(--ink);
+    opacity: 1;
+    pointer-events: auto;
+    font-family: var(--f-label);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+}
+
+/* o Hoje marcado a marca-texto enquanto o período aberto tem o dia de hoje (como o ligado da pasta) */
+.pasta .hoje[aria-current]::before {
+  opacity: 1;
+  scale: 1 1;
+}
+
+/* ===== As folhas: papel creme pendurado na parede pela espiral =====
+   Lidas e mexidas o tempo todo, ficam retas (como as fichas abertas); o que é feito à mão vai nelas. */
+.folha {
+  --focus: var(--ink);
+  position: relative;
+  margin-top: 34px;
+  padding: 34px 22px 20px;
+  border-radius: 2px;
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
+  box-shadow: var(--shadow-card);
+}
+
+/* a espiral: os furos no alto da folha e o arame passando por cima da beirada */
+.espiral {
+  position: absolute;
+  top: -15px;
+  left: 18px;
+  right: 18px;
+  height: 36px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='36'%3E%3Ccircle cx='13' cy='28' r='3.6' fill='%232e2924'/%3E%3Cpath d='M9.6 28.5V8.5a3.4 3.4 0 0 1 6.8 0v20' fill='none' stroke='%23777268' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M11.2 24V9a1.8 1.8 0 0 1 2.6-1.6' fill='none' stroke='%23e6e1d7' stroke-width='1' stroke-linecap='round' opacity='.85'/%3E%3C/svg%3E")
+    0 0 / 26px 36px space no-repeat;
+  filter: drop-shadow(0 2px 1.5px rgb(0 0 0 / 0.35));
+  pointer-events: none;
+}
+
+.dica {
+  margin-top: 16px;
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+/* ===== Mês ===== */
+.folha-mes {
+  padding-top: 32px;
+}
+
+/* ===== Semana: a agenda, um dia por coluna ===== */
+.folha-semana {
+  container: semana / inline-size;
+  padding: 32px 10px 8px;
+}
+
+.semana {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dia-col {
+  position: relative;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-areas:
+    'cab tiras'
+    'cab mais';
+  align-items: start;
+  gap: 4px 12px;
+  min-width: 0;
+  padding: 12px 16px 12px 12px;
+
+  & + & {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+  }
+}
+
+/* o cabeçalho do dia: a sigla impressa e o número grande; hoje, circulado a caneta */
+.dia-cab {
+  grid-area: cab;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+.dsem {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dnum {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 1.6em;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.85rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.domingo .dia-cab {
+  color: var(--red-deep);
+}
+
+.hoje .dnum::after {
+  content: '';
+  position: absolute;
+  inset: -3px -7px;
+  background: var(--circulo-caneta) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+.tiras {
+  grid-area: tiras;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 0 0;
+  list-style: none;
+}
+
+/* um lembrete: a tira de cartolina na cor dele, colada torta na agenda */
+.tira {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 7px 10px 8px;
+  border: 0;
+  border-radius: 2px;
+  color: var(--ink);
+  text-align: left;
+  min-height: 44px;
+  rotate: var(--giro, 0deg);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.22),
+    0 3px 6px -3px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    rotate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    translate: 0 -2px;
+    rotate: 0deg;
+    box-shadow:
+      0 2px 2px rgb(0 0 0 / 0.2),
+      0 8px 12px -6px rgb(0 0 0 / 0.4);
+  }
+
+  &:active {
+    translate: 0 0;
+    transition-duration: 80ms;
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.tira-hora {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* o nome é escrito à mão, como numa agenda de papel */
+.tira-nome {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.feita .tira-nome {
+  text-decoration: line-through 2px var(--ink);
+}
+
+.tira-pe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  opacity: 0.82;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.tira-clipe {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "+ Lembrete": o tracejado a lápis no pé do dia */
+.dia-mais {
+  grid-area: mais;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin-top: 2px;
+  padding: 4px 10px 3px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-2);
+  outline: 1.5px dashed rgb(21 21 21 / 0.3);
+  outline-offset: -1.5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    opacity var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui),
+    color var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+/* com mouse, o "+ Lembrete" só aparece no dia em que a mão está (no dedo, sempre) */
+@media (hover: hover) {
+  .dia-col:not(:hover, :focus-within) .dia-mais {
+    opacity: 0;
+  }
+}
+
+/* larga: os sete dias lado a lado, separados por riscos a lápis */
+@container semana (min-width: 820px) {
+  .semana {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .dia-col {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      'cab'
+      'tiras'
+      'mais';
+    gap: 8px;
+    min-height: 340px;
+    padding: 0 8px 12px;
+
+    & + & {
+      border-top: 0;
+      border-left: 1.5px dashed rgb(21 21 21 / 0.2);
+    }
+  }
+
+  .dia-cab {
+    justify-self: stretch;
+  }
+
+  .tiras {
+    align-content: start;
+    padding: 0;
+  }
+
+  .dia-mais {
+    justify-self: stretch;
+    justify-content: center;
+  }
+}
+
+/* ===== Dia: o calendário pequeno ao lado e a página do dia ===== */
+.dia-vista {
+  display: grid;
+  gap: 0 30px;
+  align-items: start;
+
+  @media (min-width: 960px) {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+}
+
+/* no celular, o dia primeiro; o calendário pequeno vem embaixo */
+.lado {
+  order: 2;
+
+  @media (min-width: 960px) {
+    order: 0;
+    position: sticky;
+    top: 16px;
+  }
+}
+
+.folha-mini {
+  max-width: 380px;
+  padding: 30px 12px 10px;
+  rotate: -0.6deg;
+}
+
+/* o mês do calendário pequeno, com as setas dele (as da pasta andam de dia em dia) */
+.mini-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin: -6px 0 6px;
+}
+
+.mini-mes {
+  font-family: var(--f-marker);
+  font-size: 1.2rem;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.mini-seta {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+.folha-dia {
+  padding: 30px 26px 30px;
+}
+
+.dia-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding-bottom: 18px;
+  border-bottom: 2px dashed rgb(21 21 21 / 0.22);
+}
+
+/* o número grande impresso, como o da folhinha de destacar; o de domingo em vermelho, hoje circulado */
+.dia-numero {
+  position: relative;
+  flex: none;
+  min-width: 1.3em;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 4.2rem;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+
+  &.domingo {
+    color: var(--red-deep);
+  }
+
+  &.hoje::after {
+    content: '';
+    position: absolute;
+    inset: -10px -14px -8px;
+    background: var(--circulo-caneta) center / 100% 100% no-repeat;
+    pointer-events: none;
+  }
+}
+
+.dia-nomes {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.dia-semana {
+  margin: 0;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.8rem;
+  line-height: 1.05;
+}
+
+.dia-mes {
+  margin-top: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dia-hoje {
+  color: var(--ink);
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+.entradas {
+  display: grid;
+  gap: 30px;
+  margin: 0;
+  padding: 24px 0 0;
+  list-style: none;
+}
+
+/* o lembrete inteiro: a tira de cartolina, maior, com o quadradinho de feito, o nome e o que mais ele diz */
+.lembrete {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 14px;
+  padding: 14px 10px 14px 16px;
+  border-radius: 2px;
+  color: var(--ink);
+  rotate: calc(var(--giro, 0deg) * 0.6);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.22),
+    0 5px 10px -5px rgb(0 0 0 / 0.4);
+}
+
+/* o quadradinho de papel, marcado a caneta quando feito */
+.check {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background-color: #fffdf8;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    0 1px 1px rgb(0 0 0 / 0.2);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  /* o quadradinho desenhado tem 32px; o toque pega 44 */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+  }
+
+  &:hover {
+    background-color: #ffffff;
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.lembrete-texto {
+  min-width: 0;
+}
+
+.lembrete-nome {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.4rem;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+
+.feito .lembrete-nome {
+  text-decoration: line-through 2.5px var(--ink);
+}
+
+.lembrete-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.editar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -6px 0 -6px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+/* as anotações anexadas: as fichas de verdade, cada uma presa por um clipe, embaixo do lembrete */
+.anexadas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 30px 22px;
+  margin: 0;
+  padding: 30px 0 0 18px;
+  list-style: none;
+}
+
+.anexada {
+  position: relative;
+  min-width: 0;
+}
+
+/* o clipe de metal, prendendo a ficha pela beirada de cima (do lado direito: a orelha da categoria fica à esquerda) */
+.clipe {
+  position: absolute;
+  z-index: 3;
+  top: -20px;
+  right: 30px;
+  width: 18px;
+  height: 46px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 46'%3E%3Cpath d='M6 15v20.5a3 3 0 0 0 6 0V7.5a5 5 0 0 0-10 0V38a7 7 0 0 0 14 0V13' fill='none' stroke='%23858079' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M3.4 30V7.8a3.6 3.6 0 0 1 4-3.5' fill='none' stroke='%23efebe2' stroke-width='.9' stroke-linecap='round' opacity='.9'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  filter: drop-shadow(1px 2px 1px rgb(0 0 0 / 0.35));
+  rotate: -4deg;
+  pointer-events: none;
+}
+
+.vazio {
+  padding: 26px 0 8px;
+  font-family: var(--f-hand);
+  font-size: 1.18rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+@media (max-width: 720px) {
+  .periodo {
+    flex-basis: 100%;
+    order: -1;
+    font-size: 1.32rem;
+  }
+
+  .folha {
+    padding-inline: 12px;
+  }
+
+  .folha-semana {
+    padding-inline: 0;
+  }
+
+  .folha-dia {
+    padding: 26px 14px 24px;
+  }
+
+  .dia-numero {
+    font-size: 3.4rem;
+  }
+
+  .dia-semana {
+    font-size: 1.5rem;
+  }
+
+  .anexadas {
+    padding-left: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tira,
+  .dia-mais,
+  .dia-cab,
+  .check,
+  .editar {
+    transition: none;
+  }
+}

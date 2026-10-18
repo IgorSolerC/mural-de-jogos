@@ -26,6 +26,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-18-calendario',
+    version: '1.26.0',
+    kind: 'funcionalidade',
+    date: '2026-10-18',
+    title: 'Calendário nas Anotações',
+    notice: 'Novo: o Calendário, ao lado do Mural e do Kanban. Marque lembretes, uma vez só ou que se repetem, com as anotações que ajudam presas neles.',
+    items: [
+      'As Anotações ganharam o Calendário, ao lado do Mural e do Kanban: lembretes de um dia só ("Fazer o bolo dia 23/08") ou que se repetem todo dia, toda semana, todo mês ou todo ano ("Aniversário da Bruna"), cada um com horário ou o dia todo e a cor de uma cartolina.',
+      'Cada lembrete pode levar as anotações que ajudam, presas por um clipe: a receita do bolo e a da calda, o contador do lançamento. Anexe uma que já existe ou escreva uma nova ali mesmo, sem sair do lembrete.',
+      'Três vistas, como nos calendários de sempre: o Mês, uma folhinha de parede com uma bolinha na cor de cada lembrete do dia; a Semana, uma agenda com os sete dias e cada lembrete numa tira; e o Dia, com tudo do dia aberto, as anotações inteiras e o calendário pequeno ao lado para pular de dia.',
+      'Marque o lembrete como feito em cada dia; num que se repete, dá para apagar só aquele dia ou todos, com Desfazer. Hoje fica circulado a caneta, e a barra diz quantos lembretes hoje tem.',
+      'O Novo lembrete fica no topo (ou a tecla N), e o teclado anda pelo calendário: T volta para hoje, M, S e D trocam a vista, as setas passam o período e andam pelos dias da folha.',
+      'Com a conta, os lembretes vão para os seus outros aparelhos; nunca para o mural que os outros veem.',
+    ],
+  },
+  {
     id: '2026-10-18-quem-ve-discreto',
     version: '1.25.2',
     kind: 'ajustes',

@@ -3,6 +3,7 @@ import { enterExtras, enterNotes, enterReviews, toLastWall, toReviews } from './
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
+const calendar = () => import('./pages/calendar-page').then((m) => m.CalendarPage);
 
 /**
  * O site em três partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
@@ -15,6 +16,7 @@ export const routes: Routes = [
   { path: 'anotacoes', title: 'Anotações', canActivate: [enterNotes], loadComponent: wall },
   { path: 'anotacoes/kanban', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
   { path: 'anotacoes/kanban/:quadro', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
+  { path: 'anotacoes/calendario', title: 'Calendário', canActivate: [enterNotes], loadComponent: calendar },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },
   {
     path: 'analises/:tipo',

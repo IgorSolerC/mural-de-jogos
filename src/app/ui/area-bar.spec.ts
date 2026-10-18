@@ -7,6 +7,7 @@ import { Draft, Wish } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { AreaBar } from './area-bar';
+import { CalendarStore } from '../core/calendar-store';
 
 @Component({ template: '' })
 class Blank {}
@@ -115,15 +116,30 @@ describe('o índice embaixo do topo', () => {
     expect(host.classList).toContain('vazio');
   });
 
-  it('nas Anotações: Mural e Kanban, sem a etiqueta do mural; o Kanban fica aceso nos quadros', async () => {
+  it('nas Anotações: Mural, Kanban e Calendário, sem a etiqueta do mural; o Kanban fica aceso nos quadros', async () => {
     await go('/anotacoes');
     expect(picker()).toBeNull();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário']);
     expect(tabs()[0].classList).toContain('on');
     expect(tabs()[1].getAttribute('href')).toBe('/anotacoes/kanban');
     await go('/anotacoes/kanban/qualquer');
     expect(tabs()[1].classList).toContain('on');
     expect(tabs()[0].classList).not.toContain('on');
+    await go('/anotacoes/calendario?vista=semana');
+    expect(tabs()[2].classList).toContain('on');
+    expect(tabs()[2].getAttribute('href')).toBe('/anotacoes/calendario');
+  });
+
+  it('no Calendário, quantos lembretes hoje tem', async () => {
+    const calendar = TestBed.inject(CalendarStore);
+    await go('/anotacoes/calendario');
+    expect(summary()).toBeNull();
+    calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' });
+    calendar.save({ ...calendar.blank('2020-01-01'), title: 'Remédio', repeat: 'dia' });
+    calendar.save({ ...calendar.blank('2099-01-01'), title: 'Longe' });
+    await fixture.whenStable();
+    expect(summary()).toContain('2');
+    expect(summary()).toContain('lembretes hoje');
   });
 
   it('no Perfil e nos Ajustes não aparece', async () => {

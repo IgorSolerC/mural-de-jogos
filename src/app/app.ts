@@ -5,7 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { Cloud as CloudIconData, LucideAngularModule, Megaphone, X } from 'lucide-angular';
 import { filter, map } from 'rxjs';
-import { areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
+import { CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { keptMessage } from './core/kept-versions';
@@ -36,6 +36,7 @@ import { ProfileStore } from './core/profile-store';
 import { SharedStore } from './core/shared-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
+import { CalendarStore } from './core/calendar-store';
 import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard } from './core/kanban';
 import { NoteDone } from './core/note-done';
@@ -56,6 +57,7 @@ export class App {
   private readonly view = inject(WallView);
   protected readonly desk = inject(Desk);
   private readonly kanban = inject(KanbanStore);
+  private readonly calendar = inject(CalendarStore);
   /** O card padrão das colunas do Kanban veste as anotações em qualquer página (o que chega da nuvem também). */
   private readonly dresser = inject(KanbanDresser);
   private readonly noteDone = inject(NoteDone);
@@ -277,6 +279,8 @@ export class App {
   protected onEditorClosed(): void {
     // a anotação pedida de uma coluna do Kanban não foi salva: a próxima não cai lá
     this.kanban.pending.set(null);
+    // nem a pedida pela folha de um lembrete
+    this.calendar.pendingNote.set(null);
     const back = this.returnTo && this.store.get(this.returnTo);
     this.returnTo = null;
     if (back) this.reader().open(back);
@@ -376,6 +380,12 @@ export class App {
     const saved = this.store.get(e.id);
     const name = saved?.game.name ?? '';
     if (e.isNew && saved && isNotes(saved.kind) && this.landOnBoard(saved.id, name, saved.category)) return;
+    // pedida pela folha de um lembrete ("Escrever uma nota nova"): ela é anexada lá, e a tela fica no Calendário
+    if (e.isNew && saved && isNotes(saved.kind) && this.calendar.claimNote(saved.id)) {
+      this.toasts.show(`“${name}” pregada no mural e anexada ao lembrete`);
+      void this.backup.protect();
+      return;
+    }
     const revisit = saved?.revisitOf ? profileOf(saved.kind).revisit.one : null;
     // Ficha nova vai para o mural: se ela ficaria escondida pela aba ou pelo filtro, abre a aba dela
     // ou limpa o filtro.
@@ -493,6 +503,7 @@ export class App {
       const list = this.onList();
       if (list === 'fila') this.desk.newDraft();
       else if (list === 'wishlist') this.desk.newWish();
+      else if (this.path() === CALENDAR_PATH) this.calendar.ask();
       else this.newReview();
     }
   }

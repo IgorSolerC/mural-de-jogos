@@ -13,6 +13,8 @@ import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profi
 import { ProfileStore } from './profile-store';
 import { KanbanBoard, KanbanState, sanitizeKanban } from './kanban';
 import { KanbanStore } from './kanban-store';
+import { CalendarState, calendarToSync, sanitizeCalendar } from './calendar';
+import { CalendarStore } from './calendar-store';
 import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
@@ -122,11 +124,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     uma compartilhada voltaria a valer só no aparelho em que foi feito.
  * 25: a coluna do Kanban que a seta de avançar pula (`skip`). Um site antigo jogaria a marca fora e
  *     enviaria o quadro assim, e a seta voltaria a parar nela em todo aparelho.
+ * 26: os lembretes do Calendário das anotações (`calendario`, só no mural privado, juntados lembrete a
+ *     lembrete). Um site antigo enviaria o mural sem eles, e eles sumiriam da nuvem.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 25;
+export const SYNC_SCHEMA = 26;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
@@ -217,6 +221,22 @@ export function kanbanOf(data: Record<string, unknown>): KanbanState | null {
 export function kanbanPrintOf(data: Record<string, unknown>): Partial<KanbanState> | null {
   const k = kanbanOf(data);
   return k && kanbanToSync(k);
+}
+
+/**
+ * Os lembretes do Calendário (ver core/calendar.ts). Vão só no mural privado da nuvem, juntados
+ * lembrete a lembrete: vale o mudado por último, e o apagado fica apagado (`mergeCalendar`).
+ */
+export function calendarOf(data: Record<string, unknown>): CalendarState | null {
+  const raw = data['calendario'];
+  if (!raw || typeof raw !== 'object') return null;
+  return sanitizeCalendar(raw);
+}
+
+/** Os lembretes que vieram, como este aparelho os enviaria (a impressão compara um com o outro). */
+export function calendarPrintOf(data: Record<string, unknown>): CalendarState | null {
+  const c = calendarOf(data);
+  return c && calendarToSync(c);
 }
 
 /**
@@ -422,6 +442,7 @@ export async function fingerprint(
   kanban: Partial<KanbanState> | null = null,
   conflicts: readonly unknown[] | null = null,
   places: Record<string, Place> | null = null,
+  calendar: CalendarState | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
@@ -453,6 +474,8 @@ export async function fingerprint(
     // os conflitos, na mesma ordem venha de onde vier (só com algum: o mural de antes deles tem a mesma impressão)
     ...(conflicts?.length ? { conflitos: [...conflicts].map((c) => [canonicalJson(c), c] as const).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, c]) => c) } : {}),
     ...(places ? { lugares: places } : {}),
+    // só com lembretes (ou apagados): o mural de antes do Calendário continua com a mesma impressão
+    ...(calendar ? { calendario: calendar } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -520,6 +543,7 @@ export class CloudSync {
   /** As anotações compartilhadas: as públicas vão no mural que os outros veem (ver `push`). */
   private readonly shared = inject(SharedStore);
   private readonly kanban = inject(KanbanStore);
+  private readonly calendar = inject(CalendarStore);
   /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
   private readonly conflicts = inject(SyncConflicts);
   /** Este aparelho, para o conflito dizer de onde veio cada versão. */
@@ -591,6 +615,7 @@ export class CloudSync {
       this.settings.categoryLooksAt();
       this.settings.notesConfigAt();
       this.kanban.state();
+      this.calendar.state();
       this.shared.places();
       this.profiles.changedAt();
       this.conflicts.list();
@@ -695,7 +720,7 @@ export class CloudSync {
         if (isNewerSchema(remote.data)) throw this.outdated();
         this.integrate(state.conta, remote, this.knownFor(state));
         state = { ...state, rev: remote.rev };
-        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces());
+        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar());
         if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
@@ -713,14 +738,15 @@ export class CloudSync {
       const kanban = this.localKanban();
       const places = this.localPlaces();
       const conflitos = this.conflicts.toSync();
-      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos, places);
+      const calendario = this.localCalendar();
+      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos, places, calendario);
       const publicas = await this.sharedPrint();
       if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
         const boards = this.kanban.state().boards;
         const blocks = this.blocksNow();
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, here + publicas);
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, here + publicas);
         state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
@@ -782,7 +808,7 @@ export class CloudSync {
     if (remote.kind === 'doc') {
       this.integrate(accountId, remote, mergeFichas ? known : null);
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
-      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces());
+      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar());
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
     }
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
@@ -905,6 +931,10 @@ export class CloudSync {
       this.apply(() => this.kanban.merge(adjusted, known));
       for (const c of plan.conflicts) conflict(`kanban:${c.id}`, c.a, c.b);
     }
+
+    // os lembretes do Calendário: cada um vem de onde mudou por último
+    const calendario = calendarOf(remote.data);
+    if (calendario) this.apply(() => this.calendar.merge(calendario));
 
     // o lugar das compartilhadas no mural (fixada, sub-nota): o mudado por último, em qualquer aparelho
     const places = placesOf(remote.data);
@@ -1152,6 +1182,11 @@ export class CloudSync {
     return kanbanToSync(this.kanban.state());
   }
 
+  /** Os lembretes deste aparelho para a nuvem, ou null sem nenhum. */
+  private localCalendar(): CalendarState | null {
+    return calendarToSync(this.calendar.state());
+  }
+
   /** O perfil deste aparelho para a nuvem, ou null se nunca mudou aqui. */
   private localProfile(): SyncedProfile | null {
     const em = this.profiles.changedAt();
@@ -1174,7 +1209,7 @@ export class CloudSync {
 
   /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
   private remotePrint(data: Record<string, unknown>): Promise<string> {
-    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), conflictsPrintOf(data), placesOf(data));
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), conflictsPrintOf(data), placesOf(data), calendarPrintOf(data));
   }
 
   private apply(fn: () => void): void {
@@ -1226,6 +1261,7 @@ export class CloudSync {
     kanban: Partial<KanbanState> | null,
     conflitos: unknown[] | null,
     places: Record<string, Place> | null,
+    calendario: CalendarState | null,
     print: string,
   ): Promise<number> {
     const now = Date.now();
@@ -1243,7 +1279,7 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device } }));
+    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device } }));
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
@@ -1437,7 +1473,7 @@ export class CloudSync {
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.store.hasContent();
     return (
-      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces())) === state.impressao
+      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar())) === state.impressao
     );
   }
 }

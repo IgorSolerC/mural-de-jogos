@@ -3,7 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { LucideAngularModule, NotebookPen, Plus, Scissors, Settings as SettingsIcon, UsersRound } from 'lucide-angular';
 import { filter, map } from 'rxjs';
-import { Area, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
+import { Area, CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
+import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { Follow } from '../core/follow';
 import { Mural } from '../core/mural';
@@ -49,6 +50,7 @@ const TILTS = [-2.2, 1.6, -1.2, 2];
 export class SiteHeader {
   protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
+  private readonly calendar = inject(CalendarStore);
   protected readonly profiles = inject(ProfileStore);
   private readonly follow = inject(Follow);
   private readonly settings = inject(Settings);
@@ -81,6 +83,19 @@ export class SiteHeader {
       tilt: TILTS[i % TILTS.length],
     }));
   });
+
+  /** No Calendário: o botão marca um lembrete, não prega uma anotação. */
+  protected readonly onCalendar = computed(() => this.path() === CALENDAR_PATH);
+
+  /** O que o botão de adicionar cria: "Nova resenha", "Nova anotação" ou, no Calendário, "Novo lembrete". */
+  protected readonly addLabel = computed(() =>
+    this.onCalendar() ? { verb: 'Novo', noun: 'lembrete' } : { verb: 'Nova', noun: this.notes() ? 'anotação' : 'resenha' },
+  );
+
+  protected add(): void {
+    if (this.onCalendar()) this.calendar.ask();
+    else this.desk.newReview();
+  }
 
   /** No Pra depois ou na Wishlist: lá o botão adiciona à lista, não ao mural. */
   protected readonly onList = computed(() => listOf(this.path()));

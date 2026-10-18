@@ -10,6 +10,7 @@ import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { ProfileStore } from './profile-store';
 import { KanbanStore } from './kanban-store';
+import { CalendarStore } from './calendar-store';
 import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
@@ -131,6 +132,7 @@ interface Device {
   settings: Settings;
   profiles: ProfileStore;
   kanban: KanbanStore;
+  calendar: CalendarStore;
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
@@ -182,6 +184,7 @@ describe('sincronização com a nuvem', () => {
         Settings,
         ProfileStore,
         KanbanStore,
+        CalendarStore,
         CloudAccount,
         CloudSync,
         SyncConflicts,
@@ -199,6 +202,7 @@ describe('sincronização com a nuvem', () => {
       settings: injector.get(Settings),
       profiles: injector.get(ProfileStore),
       kanban: injector.get(KanbanStore),
+      calendar: injector.get(CalendarStore),
       sync: injector.get(CloudSync),
       conflicts: injector.get(SyncConflicts),
       kv,
@@ -315,6 +319,44 @@ describe('sincronização com a nuvem', () => {
       b.kanban.update(qb, (x, at) => resetBoard(x, at));
       await settle(b, a);
       expect(a.kanban.get(qb)!.cards).toEqual([]);
+    });
+  });
+
+  describe('os lembretes do Calendário', () => {
+    it('vão só no mural privado, lembrete a lembrete, e o apagado fica apagado nos dois aparelhos', async () => {
+      const a = device();
+      const bolo = { ...a.calendar.blank('2027-08-23'), title: 'Fazer bolo de aniversário', notes: ['rreceita1'] };
+      a.calendar.save(bolo);
+      await a.sync.syncNow();
+      const priv = (await cloud.read()) as unknown as { calendario?: { reminders: { title: string; notes: string[] }[] } };
+      expect(priv.calendario!.reminders.map((r) => [r.title, r.notes])).toEqual([['Fazer bolo de aniversário', ['rreceita1']]]);
+      // o público e o mural dos outros nunca levam
+      expect((await cloud.readPublic())['calendario']).toBeUndefined();
+
+      localStorage.removeItem('meu-mural:calendario:v1');
+      const b = device();
+      expect(b.calendar.reminders()).toEqual([]);
+      await b.sync.syncNow();
+      expect(b.calendar.get(bolo.id)?.title).toBe('Fazer bolo de aniversário');
+
+      // cada um mexe num lembrete: os dois ficam com as duas mudanças
+      await new Promise((r) => setTimeout(r, 5));
+      const bruna = { ...b.calendar.blank('2026-03-14'), title: 'Aniversário da Bruna', repeat: 'ano' as const };
+      b.calendar.save(bruna);
+      a.calendar.toggleDone(bolo.id, '2027-08-23');
+      await settle(a, b);
+      for (const d of [a, b]) {
+        expect(d.calendar.reminders().map((r) => r.title).sort()).toEqual(['Aniversário da Bruna', 'Fazer bolo de aniversário']);
+        expect(d.calendar.get(bolo.id)!.done).toEqual(['2027-08-23']);
+      }
+
+      // apagar num apaga no outro, e ele não volta
+      await new Promise((r) => setTimeout(r, 5));
+      b.calendar.remove(bolo.id);
+      await settle(b, a);
+      expect(a.calendar.get(bolo.id)).toBeUndefined();
+      expect(await settle(a, b)).toBe(1);
+      expect(b.calendar.get(bolo.id)).toBeUndefined();
     });
   });
 
@@ -856,6 +898,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 25, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 26, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
   });
 });

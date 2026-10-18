@@ -5,6 +5,8 @@ import { Follow } from '../core/follow';
 import { Kind } from '../core/review';
 import { Mural } from '../core/mural';
 import { SiteHeader } from './site-header';
+import { CalendarStore } from '../core/calendar-store';
+import { Desk } from '../core/desk';
 
 @Component({ template: '' })
 class Blank {}
@@ -112,6 +114,18 @@ describe('o topo do site', () => {
       expect(button()).toBe('Guardar livro pra depois');
       await at('/analises/livros/wishlist');
       expect(button()).toBe('Adicionar livro à wishlist');
+    });
+
+    it('no Calendário, o botão marca um lembrete (e não abre o editor)', async () => {
+      const calendar = TestBed.inject(CalendarStore);
+      const newReview = spyOn(TestBed.inject(Desk), 'newReview');
+      await at('/anotacoes/calendario?vista=semana');
+      const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.adicionar button')!;
+      expect(btn.getAttribute('aria-label')).toBe('Novo lembrete');
+      expect(btn.textContent!.replace(/\s+/g, ' ').trim()).toBe('Novo lembrete');
+      btn.click();
+      expect(calendar.compose()?.day).toBeNull();
+      expect(newReview).not.toHaveBeenCalled();
     });
   });
 

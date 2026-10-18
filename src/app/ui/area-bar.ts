@@ -7,6 +7,7 @@ import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, areaOf, pathOf, reviewPath
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { KanbanStore } from '../core/kanban-store';
+import { CalendarStore } from '../core/calendar-store';
 import { Settings } from '../core/settings';
 import { KindSwitcher } from './kind-switcher';
 import { QueueLogo, WishlistLogo } from './section-logos';
@@ -417,6 +418,7 @@ export class AreaBar {
   protected readonly mural = inject(Mural);
   private readonly settings = inject(Settings);
   private readonly kanban = inject(KanbanStore);
+  private readonly calendar = inject(CalendarStore);
 
   protected readonly BackIcon = ArrowLeft;
 
@@ -463,6 +465,11 @@ export class AreaBar {
       const board = this.kanban.openBoard() ? this.kanban.get(this.kanban.openBoard()!) : undefined;
       const n = board ? this.kanban.live(board).length : 0;
       return n ? { n, long: n === 1 ? 'anotação no quadro' : 'anotações no quadro', short: 'no quadro' } : null;
+    }
+    // no Calendário: quantos lembretes hoje tem
+    if (sectionOf(this.path(), NOTE_SECTIONS)?.slug === 'calendario' && this.area() === 'anotacoes') {
+      const n = this.calendar.todayCount();
+      return n ? { n, long: n === 1 ? 'lembrete hoje' : 'lembretes hoje', short: 'hoje' } : null;
     }
     const place = reviewPlace(this.path());
     if (!place) return null;

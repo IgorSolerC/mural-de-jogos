@@ -1,0 +1,206 @@
+<!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
+<h1 class="sr-only">Calendário</h1>
+
+<!-- as vistas: as divisórias de manilha em cima da pasta, como as abas do Comparar -->
+<div class="divisorias vistas" role="group" aria-label="Vista do calendário">
+  @for (v of views; track v.id) {
+    <button
+      type="button"
+      class="divisoria"
+      [attr.aria-pressed]="view() === v.id"
+      [attr.aria-keyshortcuts]="v.key"
+      (click)="go(v.id, day())"
+    >
+      <lucide-icon class="divisoria-icone" [img]="v.icon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+      <span class="divisoria-nome">{{ v.label }}</span>
+    </button>
+  }
+</div>
+
+<!-- a pasta: hoje, as setas do período e o nome dele, e ir para uma data -->
+<div class="pasta">
+  <div class="pasta-linha">
+    <div class="navegar" role="group" aria-label="Período">
+      <button type="button" class="tinta hoje" [attr.aria-current]="showsToday() ? 'date' : null" aria-keyshortcuts="t" (click)="goToday()">Hoje</button>
+      <button type="button" class="tinta so-icone" [attr.aria-label]="stepNames().prev" [title]="stepNames().prev" (click)="step(-1)">
+        <lucide-icon [img]="PrevIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+      </button>
+      <button type="button" class="tinta so-icone" [attr.aria-label]="stepNames().next" [title]="stepNames().next" (click)="step(1)">
+        <lucide-icon [img]="NextIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+      </button>
+    </div>
+    <h2 class="periodo" aria-live="polite">{{ period() }}</h2>
+    <div class="pasta-controles">
+      <div class="pasta-grupo ir">
+        <button type="button" class="tinta" (click)="openJump()">
+          <lucide-icon [img]="JumpIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          Ir para
+        </button>
+        <input #ir type="date" class="ir-data" [class.aberto]="jumpShown()" [attr.tabindex]="jumpShown() ? 0 : -1" aria-label="Ir para a data" (change)="jump($any($event.target).value)" (blur)="jumpShown.set(false)" />
+      </div>
+    </div>
+  </div>
+</div>
+
+@switch (view()) {
+  @case ('mes') {
+    <!-- a folhinha de parede, presa pela espiral -->
+    <section class="folha folha-mes" [attr.aria-label]="period()">
+      <span class="espiral" aria-hidden="true"></span>
+      <app-calendar-month [day]="day()" [today]="today()" [reminders]="reminders()" (picked)="openDay($event)" (moved)="go('mes', $event, true)" />
+      @if (empty()) {
+        <p class="dica">Toque num dia para ver o que tem nele e marcar um lembrete, ou use o Novo lembrete lá em cima.</p>
+      }
+    </section>
+  }
+
+  @case ('semana') {
+    <!-- a agenda da semana: um dia em cada coluna, cada lembrete numa tira de cartolina -->
+    <section class="folha folha-semana" [attr.aria-label]="'Semana de ' + period()">
+      <span class="espiral" aria-hidden="true"></span>
+      <ol class="semana">
+        @for (c of week(); track c.day) {
+          <li class="dia-col" [class.hoje]="c.today" [class.domingo]="c.sunday">
+            <button type="button" class="dia-cab" [attr.aria-label]="c.label + '. Abrir o dia'" [attr.aria-current]="c.today ? 'date' : null" (click)="openDay(c.day)">
+              <span class="dsem" aria-hidden="true">{{ c.short }}</span>
+              <span class="dnum" aria-hidden="true">{{ c.n }}</span>
+            </button>
+            @if (c.list.length) {
+              <ul class="tiras" [attr.aria-label]="'Lembretes de ' + c.label">
+                @for (r of c.list; track r.id) {
+                  @let feito = isDone(r, c.day);
+                  <li>
+                    <button
+                      type="button"
+                      class="tira cartolina"
+                      [class.feita]="feito"
+                      [attr.data-cor]="r.color"
+                      [style.--stock]="'var(--stock-' + r.color + ')'"
+                      [style.--giro]="tiltOf(r.id)"
+                      [attr.aria-label]="spoken(r, c.day)"
+                      (click)="edit(r, c.day)"
+                    >
+                      @if (r.time) {
+                        <span class="tira-hora">{{ timeLabel(r.time) }}</span>
+                      }
+                      <span class="tira-nome">{{ r.title }}</span>
+                      @if (feito || r.repeat || r.notes.length) {
+                        <span class="tira-pe" aria-hidden="true">
+                          @if (feito) {
+                            <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" />
+                          }
+                          @if (r.repeat) {
+                            <lucide-icon [img]="RepeatIcon" [size]="13" [strokeWidth]="2.6" />
+                          }
+                          @if (notesOf(r).length; as n) {
+                            <span class="tira-clipe"><lucide-icon [img]="ClipIcon" [size]="13" [strokeWidth]="2.6" />{{ n }}</span>
+                          }
+                        </span>
+                      }
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+            <button type="button" class="dia-mais" [attr.aria-label]="'Novo lembrete: ' + c.label" (click)="create(c.day)">
+              <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+              <span class="dia-mais-txt">Lembrete</span>
+            </button>
+          </li>
+        }
+      </ol>
+    </section>
+  }
+
+  @case ('dia') {
+    @let h = dayHead();
+    <div class="dia-vista">
+      <!-- o calendário pequeno, para pular de dia -->
+      <aside class="lado">
+        <section class="folha folha-mini" aria-label="Escolher o dia">
+          <span class="espiral" aria-hidden="true"></span>
+          <div class="mini-topo">
+            <button type="button" class="mini-seta" aria-label="Mês anterior" title="Mês anterior" (click)="shiftMonth(-1)">
+              <lucide-icon [img]="PrevIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+            </button>
+            <p class="mini-mes" aria-live="polite">{{ monthOfDay() }}</p>
+            <button type="button" class="mini-seta" aria-label="Próximo mês" title="Próximo mês" (click)="shiftMonth(1)">
+              <lucide-icon [img]="NextIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+            </button>
+          </div>
+          <app-calendar-month [mini]="true" [day]="day()" [today]="today()" [reminders]="reminders()" (picked)="go('dia', $event)" (moved)="go('dia', $event, true)" />
+        </section>
+      </aside>
+
+      <!-- a página do dia: cada lembrete inteiro, com as anotações presas por um clipe -->
+      <section class="folha folha-dia" aria-labelledby="dia-titulo">
+        <header class="dia-topo">
+          <span class="dia-numero" [class.domingo]="h.sunday" [class.hoje]="h.today" aria-hidden="true">{{ h.n }}</span>
+          <div class="dia-nomes">
+            <h3 id="dia-titulo" class="dia-semana">{{ h.weekday }}<span class="sr-only">, {{ h.n }} de {{ h.month }}</span></h3>
+            <p class="dia-mes" aria-hidden="true">{{ h.month }}@if (h.today) {<span class="dia-hoje"> · hoje</span>}</p>
+          </div>
+          <button type="button" class="papel novo" (click)="create(day())">
+            <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+            Novo lembrete
+          </button>
+        </header>
+
+        @if (dayList().length) {
+          <ol class="entradas">
+            @for (r of dayList(); track r.id) {
+              @let feito = isDone(r, day());
+              @let notas = notesOf(r);
+              <li class="entrada">
+                <div class="lembrete cartolina" [class.feito]="feito" [attr.data-cor]="r.color" [style.--stock]="'var(--stock-' + r.color + ')'" [style.--giro]="tiltOf(r.id)">
+                  <button type="button" class="check" role="checkbox" [attr.aria-checked]="feito" [attr.aria-label]="'Feito: ' + r.title" (click)="toggleDone(r, day())">
+                    @if (feito) {
+                      <lucide-icon [img]="CheckIcon" [size]="20" [strokeWidth]="3.2" aria-hidden="true" />
+                    }
+                  </button>
+                  <div class="lembrete-texto">
+                    <p class="lembrete-nome">{{ r.title }}</p>
+                    <p class="lembrete-meta">
+                      <span class="meta-item">
+                        <lucide-icon [img]="ClockIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
+                        {{ r.time ? timeLabel(r.time) : 'Dia todo' }}
+                      </span>
+                      @if (r.repeat) {
+                        <span class="meta-item">
+                          <lucide-icon [img]="RepeatIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
+                          {{ repeatShort(r) }}
+                        </span>
+                      }
+                      @if (feito) {
+                        <span class="meta-item">Feito</span>
+                      }
+                    </p>
+                  </div>
+                  <button type="button" class="editar" [attr.aria-label]="'Editar “' + r.title + '”'" title="Editar" (click)="edit(r, day())">
+                    <lucide-icon [img]="PencilIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                  </button>
+                </div>
+                @if (notas.length) {
+                  <ul class="anexadas" [attr.aria-label]="'Anotações anexadas a ' + r.title">
+                    @for (n of notas; track n.id) {
+                      <li class="anexada">
+                        <span class="clipe" aria-hidden="true"></span>
+                        <app-review-card [review]="n" [compact]="true" [preview]="true" [checkable]="true" [looks]="looks()" (opened)="read($event)" />
+                      </li>
+                    }
+                  </ul>
+                }
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="vazio">Nada marcado para este dia.</p>
+        }
+      </section>
+    </div>
+  }
+}
+
+@if (sheet(); as s) {
+  <app-reminder-sheet [reminder]="s.reminder" [day]="s.day" (closed)="closeSheet(s)" />
+}
