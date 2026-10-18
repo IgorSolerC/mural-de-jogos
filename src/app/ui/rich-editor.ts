@@ -354,10 +354,10 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                 <lucide-icon [img]="l.icon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
               </button>
             }
-            <span class="fio" aria-hidden="true"></span>
+            <span class="fio link-fio" aria-hidden="true"></span>
             <button
               type="button"
-              class="ferramenta"
+              class="ferramenta link"
               title="Link para um endereço (Ctrl+K)"
               aria-label="Link para um endereço"
               aria-keyshortcuts="Control+K"
@@ -911,9 +911,6 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       padding: 0 8px;
       font-size: 0.86rem;
     }
-    .acao-folha.tamanho {
-      margin-right: -6px;
-    }
     /* sem lugar, as ações ficam só no desenho (o nome vai para o leitor de tela e para a dica) */
     @container cabeca (max-width: 520px) {
       .acao-txt {
@@ -957,6 +954,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     .regua[hidden] {
       display: none;
     }
+    /* o que não couber (letra ou zoom maiores) rola de lado, em vez de passar da folha */
     .ferramentas {
       display: flex;
       flex: 1 1 auto;
@@ -964,6 +962,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       align-items: center;
       gap: 2px;
       min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
     }
     .ferramenta {
       display: grid;
@@ -1002,7 +1002,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
        pula quando ele troca) */
     .menu-botao.estilo {
       justify-content: space-between;
-      width: 8.4rem;
+      width: 7.6rem;
       padding-inline: 9px 7px;
       font-family: var(--f-ui);
       font-weight: 600;
@@ -1023,10 +1023,18 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     }
 
     /* Sem lugar, os botões que também estão nos menus saem da régua (como a régua do Docs): primeiro o
-       riscado, o marca-texto e o link de anotação; depois a caixa do estilo. Nada some: tudo continua
-       no "Formatar" e no "Inserir". */
-    @container folha (max-width: 759px) {
+       riscado, o marca-texto e o link de anotação; depois o link (Ctrl+K); por fim a caixa do estilo.
+       Nada some: tudo continua no "Formatar" e no "Inserir". Os cortes têm folga sobre a medida da
+       régua (medida: uns 720px com tudo, 615 sem os primeiros, 560 sem o link, 425 sem a caixa), para a letra
+       e o zoom de cada computador */
+    @container folha (max-width: 819px) {
       .ferramenta.extra {
+        display: none;
+      }
+    }
+    @container folha (max-width: 699px) {
+      .link,
+      .link-fio {
         display: none;
       }
     }

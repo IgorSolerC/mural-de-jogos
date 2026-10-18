@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-18-regua-do-texto',
+    id: '2026-10-18-regua-sem-corte',
     version: '1.25.2',
     kind: 'ajustes',
     date: '2026-10-18',
@@ -45,6 +45,7 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'A Ajuda (o antigo guia de todas as marcas) não sai mais da folha nem quebra o texto uma palavra por linha: as marcas vêm em partes, cada uma com o jeito de escrever e o atalho.',
       'O código no texto voltou a aparecer na letra de máquina de escrever.',
+      'A régua do texto não passa mais da borda da folha em telas um pouco mais estreitas: o que não cabe sai dela e continua no Formatar e no Inserir.',
     ],
   },
   {

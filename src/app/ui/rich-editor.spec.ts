@@ -168,6 +168,19 @@ describe('a régua de formatação do texto', () => {
       expect(inserir).not.toContain('Link para outra anotação');
     });
 
+    it('a régua nunca passa da folha: de 480px para cima, o que não cabe sai dela (e continua nos menus)', async () => {
+      fixture.componentRef.setInput('notes', []);
+      fixture.detectChanges();
+      const ruler = fixture.nativeElement.querySelector('.regua') as HTMLElement;
+      const tools = ruler.querySelector('.ferramentas') as HTMLElement;
+      for (const w of [480, 520, 560, 600, 615, 640, 700, 760, 820, 960]) {
+        (fixture.nativeElement as HTMLElement).style.width = w + 'px';
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        expect(ruler.scrollWidth).withContext(`régua em ${w}px`).toBeLessThanOrEqual(ruler.clientWidth);
+        expect(tools.scrollWidth).withContext(`botões em ${w}px`).toBeLessThanOrEqual(tools.clientWidth);
+      }
+    });
+
     it('riscado e marca-texto em volta da seleção (pelo "Formatar", pelo botão e pelos atalhos); de novo, tira', () => {
       write('um |caro| item');
       pick('formatar', 'Riscado');
