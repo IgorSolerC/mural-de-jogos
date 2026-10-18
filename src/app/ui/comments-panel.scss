@@ -554,7 +554,7 @@ p.vazio {
   --linhas: 3;
 }
 
-/* fechado: uma tira de papel branco com o contorno de tinta dos campos do site */
+/* fechado: a tira de papel com a linha de caneta dos campos do site */
 .abrir {
   display: block;
   width: 100%;
@@ -562,8 +562,8 @@ p.vazio {
   padding: 10px 14px;
   border: 0;
   border-radius: 2px;
-  background: #fffdf8;
-  box-shadow: inset 0 0 0 2px var(--ink);
+  background: var(--campo-fundo);
+  box-shadow: var(--campo-sombra);
   color: var(--ink-2);
   font-family: var(--f-hand);
   font-size: 1.08rem;
@@ -573,7 +573,8 @@ p.vazio {
   transition: box-shadow var(--t-ui) var(--ease-ui);
 
   &:hover {
-    box-shadow: inset 0 0 0 3px var(--ink);
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
   }
 
   &:focus-visible {

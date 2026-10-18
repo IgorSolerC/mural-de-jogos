@@ -178,8 +178,13 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
       outline: 3px solid var(--ink);
       outline-offset: 0;
     }
+    /* a escolhida: o círculo de caneta da nota escolhida em volta */
     .op[aria-pressed='true'] {
-      box-shadow: inset 0 0 0 2px var(--ink);
+      box-shadow: none;
+      background-image: var(--circulo-caneta);
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 100% 100%;
     }
     .icone[aria-pressed='true'] {
       background: rgb(255 218 66 / 0.55);

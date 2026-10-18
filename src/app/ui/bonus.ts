@@ -713,11 +713,12 @@ let uid = 0;
       scale: 1.04;
       box-shadow: 0 2px 3px rgb(0 0 0 / 0.3);
     }
-    /* o a favor colado ganha o fio inteiro: papel sobre papel precisa da borda para se ver colado */
+    /* o a favor colado: papel sobre papel, então a sombra é mais funda e um fio rala desenha a beirada */
     .slot.favor[aria-pressed='true'] app-bonus-sticker {
       box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 2px 3px rgb(0 0 0 / 0.3);
+        0 0 0 1px rgb(21 21 21 / 0.2),
+        0 2px 3px rgb(0 0 0 / 0.3),
+        0 6px 10px -4px rgb(0 0 0 / 0.35);
     }
     /* dedo não é cursor: no toque, alvos maiores e mais folga entre os adesivos */
     @media (pointer: coarse) {
@@ -768,9 +769,7 @@ let uid = 0;
       font-size: 0.92rem;
       letter-spacing: 0.015em;
       outline: none;
-      box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 0 0 3px rgb(21 21 21 / 0.12);
+      box-shadow: var(--campo-sombra-foco);
     }
     .write.contra {
       background: var(--ink);

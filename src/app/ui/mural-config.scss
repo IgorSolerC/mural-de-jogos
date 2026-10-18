@@ -195,14 +195,10 @@ fieldset.linha {
   @include kit.interruptor;
 }
 
-/* ===== O seletor: a tira dos Ajustes, com os fios de tinta entre as opções (e quebrando em duas
-   fileiras quando falta largura) ===== */
+/* ===== O seletor dos Ajustes: os recortes, o escolhido colado (e quebrando em duas fileiras quando
+   falta largura) ===== */
 .segmentos {
   @include kit.segmentos;
-  gap: 2px;
-  padding: 2px;
-  background: var(--ink);
-  box-shadow: none;
   max-width: 560px;
 
   &.tres {
@@ -216,19 +212,6 @@ fieldset.linha {
 
 .segmento {
   @include kit.segmento;
-  background: #fff;
-
-  & + & {
-    box-shadow: none;
-  }
-
-  /* a de fora (2px de tinta) já é o contorno: os cantos acompanham */
-  &:first-child {
-    border-radius: 2px 0 0 2px;
-  }
-  &:last-child {
-    border-radius: 0 2px 2px 0;
-  }
 
   &:has(input:checked) .seg-sub {
     color: rgb(247 244 236 / 0.78);
@@ -835,10 +818,6 @@ fieldset.linha {
 @container parte (max-width: 460px) {
   .segmentos.quatro {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .segmentos.quatro .segmento {
-    border-radius: 0;
   }
 
   .cats.montada .cat-painel {

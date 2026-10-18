@@ -316,8 +316,9 @@ let uid = 0;
     .slot[aria-pressed='true'] app-bonus-sticker {
       scale: 1.04;
       box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 2px 3px rgb(0 0 0 / 0.3);
+        0 0 0 1px rgb(21 21 21 / 0.2),
+        0 2px 3px rgb(0 0 0 / 0.3),
+        0 6px 10px -4px rgb(0 0 0 / 0.35);
     }
     .slot:focus-visible {
       outline: 3px solid var(--ink);
@@ -354,9 +355,7 @@ let uid = 0;
       font-weight: 800;
       font-size: 0.92rem;
       outline: none;
-      box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 0 0 3px rgb(21 21 21 / 0.12);
+      box-shadow: var(--campo-sombra-foco);
     }
 
     /* ===== Tags: as etiquetas amarradas e o campo, numa tira de papel ===== */
@@ -368,16 +367,15 @@ let uid = 0;
       min-height: 46px;
       padding: 7px 10px;
       border-radius: 2px;
-      background: var(--paper);
-      box-shadow:
-        inset 0 0 0 1.5px rgb(21 21 21 / 0.2),
-        inset 0 2px 3px rgb(0 0 0 / 0.06);
+      padding-bottom: 12px;
+      background: var(--campo-fundo);
+      box-shadow: var(--campo-sombra);
       cursor: text;
+      transition: box-shadow var(--t-physical) var(--ease-physical);
     }
     .amarradas:focus-within {
-      box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 0 0 3px rgb(21 21 21 / 0.1);
+      background: var(--campo-fundo-foco);
+      box-shadow: var(--campo-sombra-foco);
     }
     .amarrada {
       display: inline-flex;

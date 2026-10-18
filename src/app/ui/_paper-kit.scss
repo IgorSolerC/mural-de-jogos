@@ -324,7 +324,8 @@
   }
 }
 
-/* Campo: a tira branca com o contorno de tinta; o input dentro dela não tem borda */
+/* Campo: a tira de papel colada rente na folha, com a linha de caneta onde se escreve (ver --campo-*
+   em styles.scss); o input dentro dela não tem borda. Com .erro, a linha é da tinta de erro. */
 @mixin campo {
   display: flex;
   align-items: center;
@@ -333,13 +334,13 @@
   min-height: 50px;
   padding: 0 4px 0 14px;
   border-radius: 2px;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--ink);
+  background: var(--campo-fundo);
+  box-shadow: var(--campo-sombra);
+  transition: box-shadow var(--t-physical) var(--ease-physical);
 
   &:focus-within {
-    box-shadow:
-      inset 0 0 0 3px var(--ink),
-      var(--field-halo);
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
   }
 
   input {
@@ -360,7 +361,17 @@
   }
 }
 
-/* O interruptor: trilho de tinta e bolinha amarela quando ligado. Dentro, um `.bolinha`. */
+/* O campo com erro: a linha de caneta na tinta de erro (com ou sem foco) */
+@mixin campo-erro {
+  &,
+  &:focus-within {
+    background: var(--campo-fundo-erro);
+    box-shadow: var(--campo-sombra-erro);
+  }
+}
+
+/* O interruptor: desligado, o recorte da trilha ainda na cartela (tracejado, a bolinha de tinta numa
+   ponta); ligado, a trilha de tinta colada e a bolinha amarela na outra. Dentro, um `.bolinha`. */
 @mixin interruptor {
   position: relative;
   flex: none;
@@ -369,10 +380,11 @@
   padding: 0;
   border: 0;
   border-radius: 16px;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--ink);
+  background: rgb(21 21 21 / 0.04);
   cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    box-shadow var(--t-ui) var(--ease-ui);
 
   /* o alvo do dedo passa dos 44px */
   &::before {
@@ -381,8 +393,25 @@
     inset: -7px -4px;
   }
 
-  &:hover .bolinha {
-    scale: 1.08;
+  /* o recorte da trilha */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1.5px dashed rgb(21 21 21 / 0.5);
+    border-radius: inherit;
+    pointer-events: none;
+    transition: border-color var(--t-ui) var(--ease-ui);
+  }
+
+  &:hover {
+    &::after {
+      border-color: rgb(21 21 21 / 0.8);
+    }
+
+    .bolinha {
+      scale: 1.08;
+    }
   }
 
   &:focus-visible {
@@ -392,6 +421,13 @@
 
   &[aria-checked='true'] {
     background: var(--ink);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 3px 6px -3px rgb(0 0 0 / 0.35);
+
+    &::after {
+      border-color: transparent;
+    }
 
     .bolinha {
       translate: 26px 0;
@@ -414,16 +450,15 @@
   }
 }
 
-/* O seletor: uma tira com as opções (cada uma um `segmento` com um rádio dentro), a escolhida em tinta */
+/* O seletor: as opções lado a lado como a cartela de adesivos do editor ("Quem vê?"): cada uma o
+   recorte tracejado ainda na cartela, a escolhida o adesivo de tinta colado, torto. Cada opção é um
+   `segmento` com um rádio dentro. */
 @mixin segmentos {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   max-width: 480px;
   margin-top: 14px;
-  border-radius: 4px;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--ink);
-  overflow: hidden;
 
   &.dois {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -438,13 +473,16 @@
   gap: 4px;
   min-height: 52px;
   padding: 8px 6px;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
   text-align: center;
   cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
-
-  & + & {
-    box-shadow: inset 2px 0 0 var(--ink);
-  }
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    outline-color var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical),
+    scale var(--t-physical) var(--ease-physical);
 
   input {
     position: absolute;
@@ -457,11 +495,18 @@
 
   &:hover:not(:has(input:checked)) {
     background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.72);
   }
 
   &:has(input:checked) {
+    outline-color: transparent;
     background: var(--ink);
     color: var(--paper);
+    rotate: -1.5deg;
+    scale: 1.02;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
 
     .seg-num {
       color: var(--hi);
@@ -470,12 +515,14 @@
 
   &:has(input:focus-visible) {
     outline: 3px solid var(--ink);
-    outline-offset: -6px;
-    outline-color: var(--hi);
+    outline-offset: 2px;
   }
 
-  &:not(:has(input:checked)):has(input:focus-visible) {
-    outline-color: var(--ink);
+  @media (prefers-reduced-motion: reduce) {
+    &:has(input:checked) {
+      rotate: 0deg;
+      scale: 1;
+    }
   }
 }
 

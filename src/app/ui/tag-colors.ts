@@ -51,8 +51,13 @@ import { Settings } from '../core/settings';
       outline: 3px solid var(--ink);
       outline-offset: 0;
     }
+    /* a escolhida: o círculo de caneta da nota escolhida em volta */
     .op[aria-checked='true'] {
-      box-shadow: inset 0 0 0 2px var(--ink);
+      box-shadow: none;
+      background-image: var(--circulo-caneta);
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 100% 100%;
     }
     /* a etiqueta em miniatura: três recortes do mesmo formato, um dentro do outro (ver NoteTag) */
     .amostra {

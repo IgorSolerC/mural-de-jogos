@@ -79,8 +79,24 @@
   --shadow-lift: 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65);
   /* a sombra do que é escrito a giz direto na parede: lê sobre os furos do eucatex */
   --chalk-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
-  /* o halo do campo com foco, em volta do contorno de tinta mais grosso */
-  --field-halo: 0 0 0 4px rgb(21 21 21 / 0.16);
+  /* O campo: uma tira de papel colada rente na folha, com a linha de caneta onde se escreve (um
+     traço à mão, 12px das pontas e 7px do pé). Com foco, a linha engrossa na tinta cheia e a tira
+     descola um pouco; com erro, a linha é da tinta de erro. Nada de contorno de tinta em volta: ele
+     é a caixa genérica que o site não usa. Quem tem a linha usa `background: var(--campo-fundo…)`. */
+  --campo-papel: #fffdf8;
+  --campo-linha: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 4' preserveAspectRatio='none'%3E%3Cpath d='M1 2.3C70 1.5 130 2.7 205 2s140-.9 194 .4' fill='none' stroke='%23151515' stroke-opacity='.5' stroke-width='1.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --campo-linha-foco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 4' preserveAspectRatio='none'%3E%3Cpath d='M1 2.3C70 1.5 130 2.7 205 2s140-.9 194 .4' fill='none' stroke='%23151515' stroke-width='2.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --campo-linha-erro: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 4' preserveAspectRatio='none'%3E%3Cpath d='M1 2.3C70 1.5 130 2.7 205 2s140-.9 194 .4' fill='none' stroke='%236b0000' stroke-width='2.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --campo-fundo: var(--campo-linha) left 12px bottom 7px / calc(100% - 24px) 4px no-repeat, var(--campo-papel);
+  --campo-fundo-foco: var(--campo-linha-foco) left 12px bottom 7px / calc(100% - 24px) 4px no-repeat, #fff;
+  --campo-fundo-erro: var(--campo-linha-erro) left 12px bottom 7px / calc(100% - 24px) 4px no-repeat, var(--campo-papel);
+  --campo-sombra: 0 0 0 1px rgb(21 21 21 / 0.1), 0 1px 1px rgb(0 0 0 / 0.16), 0 2px 5px -2px rgb(0 0 0 / 0.24);
+  --campo-sombra-foco: 0 0 0 1px rgb(21 21 21 / 0.14), 0 2px 2px rgb(0 0 0 / 0.16), 0 7px 12px -5px rgb(0 0 0 / 0.36);
+  --campo-sombra-erro: 0 0 0 1.5px rgb(107 0 0 / 0.45), 0 1px 1px rgb(0 0 0 / 0.16), 0 2px 5px -2px rgb(0 0 0 / 0.24);
+  /* O papel solto por cima (a lista que abre embaixo de um campo, um menu): fio e sombra de folha */
+  --papel-solto-sombra: 0 0 0 1px rgb(21 21 21 / 0.14), 0 2px 2px rgb(0 0 0 / 0.18), 0 10px 18px -8px rgb(0 0 0 / 0.42);
+  /* A escolhida numa cartela de amostras (ícones, cores): o círculo de caneta da nota escolhida */
+  --circulo-caneta: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 50' preserveAspectRatio='none'%3E%3Cpath d='M33 5c-14-2-27 5-28 18-1 12 11 22 26 21 15-1 25-10 24-21C54 12 43 4 29 7' fill='none' stroke='%23e62e2d' stroke-width='3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
 
   /* Tipos */
   --f-marker: 'Permanent Marker', 'Comic Sans MS', cursive;

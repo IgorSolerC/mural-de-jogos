@@ -267,8 +267,9 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     }
     app-bonus-sticker.colado-nota {
       box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 2px 3px rgb(0 0 0 / 0.3);
+        0 0 0 1px rgb(21 21 21 / 0.2),
+        0 2px 3px rgb(0 0 0 / 0.3),
+        0 6px 10px -4px rgb(0 0 0 / 0.35);
     }
 
     .grupo {

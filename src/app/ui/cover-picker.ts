@@ -370,13 +370,12 @@ function joinSources(list: string[]): string {
       min-height: 46px;
       padding: 0 12px;
       border-radius: 2px;
-      background: var(--paper);
-      box-shadow: inset 0 0 0 2px var(--ink);
+      background: var(--campo-fundo);
+      box-shadow: var(--campo-sombra);
 
       &:focus-within {
-        box-shadow:
-          inset 0 0 0 3px var(--ink),
-          var(--field-halo);
+        background: var(--campo-fundo-foco);
+        box-shadow: var(--campo-sombra-foco);
       }
 
       &.busy {

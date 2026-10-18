@@ -147,6 +147,31 @@ describe('Ajustes (SettingsPage)', () => {
     settings.scoreDisplay.set('livre');
   });
 
+  it('nada de caixa de contorno de tinta: o seletor é a cartela de recortes, o interruptor desligado é o recorte da trilha', async () => {
+    const { el } = await open('mural');
+    const options = [...el.querySelectorAll<HTMLLabelElement>('.segmento')];
+    const chosen = options.find((o) => o.querySelector('input')!.checked)!;
+    const other = options.find((o) => o !== chosen)!;
+    // o recorte tracejado ainda na cartela; o escolhido é o adesivo de tinta colado, torto
+    expect(getComputedStyle(other).outlineStyle).toBe('dashed');
+    expect(getComputedStyle(other).boxShadow).toBe('none');
+    expect(getComputedStyle(chosen).backgroundColor).toBe('rgb(21, 21, 21)');
+    expect(getComputedStyle(chosen).rotate).not.toBe('none');
+    // a tira do seletor não tem mais fundo nem contorno
+    expect(getComputedStyle(el.querySelector('.segmentos')!).boxShadow).toBe('none');
+    const off = el.querySelector<HTMLElement>('.interruptor[aria-checked="false"]')!;
+    expect(getComputedStyle(off).boxShadow).not.toContain('inset');
+    expect(getComputedStyle(off, '::after').borderTopStyle).toBe('dashed');
+  });
+
+  it('os campos são a tira de papel colada, sem o contorno de tinta em volta', async () => {
+    const { el } = await open('busca');
+    for (const campo of el.querySelectorAll<HTMLElement>('.campo')) {
+      expect(getComputedStyle(campo).boxShadow).not.toContain('inset');
+    }
+    expect(el.querySelectorAll('.campo').length).toBeGreaterThan(0);
+  });
+
   it('as setas andam pelo índice, de pé ou deitado', async () => {
     const { fixture, el } = await open(null);
     const list = el.querySelector('[role="tablist"]')!;

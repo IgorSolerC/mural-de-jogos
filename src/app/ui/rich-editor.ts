@@ -1057,9 +1057,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       outline: none;
     }
     .previa:focus-visible {
-      box-shadow:
-        inset 0 0 0 3px var(--ink),
-        var(--field-halo);
+      box-shadow: var(--campo-sombra-foco);
     }
     .previa.grande {
       --line: 2rem;
@@ -1084,9 +1082,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       padding: 10px 12px 12px;
       border-radius: 2px;
       background: var(--papel-ficha);
-      box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 6px 14px -6px rgb(0 0 0 / 0.45);
+      box-shadow: var(--papel-solto-sombra);
       animation: painel-desce var(--t-physical) var(--ease-physical);
     }
     @keyframes painel-desce {
@@ -1770,7 +1766,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       border-radius: 3px;
       background: var(--papel-ficha);
       box-shadow:
-        inset 0 0 0 2px var(--ink),
+        0 0 0 1px rgb(21 21 21 / 0.14),
         0 2px 4px rgb(0 0 0 / 0.16),
         0 14px 28px -12px rgb(0 0 0 / 0.55);
       transform-origin: top right;
@@ -1921,9 +1917,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       padding: 8px;
       border-radius: 2px;
       background: var(--papel-ficha);
-      box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 6px 14px -6px rgb(0 0 0 / 0.45);
+      box-shadow: var(--papel-solto-sombra);
     }
     .elos.grande {
       flex: 0 0 auto;
@@ -2076,19 +2070,15 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       line-height: var(--line);
       caret-color: var(--red);
       outline: none;
-      box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 1px 3px rgb(0 0 0 / 0.2);
-      transition: box-shadow var(--t-ui) var(--ease-ui);
+      box-shadow: var(--campo-sombra);
+      transition: box-shadow var(--t-physical) var(--ease-physical);
 
       &::placeholder {
         color: rgb(21 21 21 / 0.7);
       }
 
       &:focus {
-        box-shadow:
-          inset 0 0 0 3px var(--ink),
-          var(--field-halo);
+        box-shadow: var(--campo-sombra-foco);
       }
     }
 

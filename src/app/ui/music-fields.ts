@@ -188,21 +188,18 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
       min-height: 50px;
       padding: 0 14px;
       border-radius: 2px;
-      background: var(--paper);
+      background: var(--campo-fundo);
       color: var(--ink);
-      box-shadow:
-        inset 0 0 0 2px var(--ink),
-        0 1px 3px rgb(0 0 0 / 0.2);
+      box-shadow: var(--campo-sombra);
     }
     .tira:focus-within {
-      box-shadow:
-        inset 0 0 0 3px var(--ink),
-        var(--field-halo);
+      background: var(--campo-fundo-foco);
+      box-shadow: var(--campo-sombra-foco);
     }
-    .tira.errada {
-      box-shadow:
-        inset 0 0 0 3px var(--error-ink),
-        0 1px 3px rgb(0 0 0 / 0.2);
+    .tira.errada,
+    .tira.errada:focus-within {
+      background: var(--campo-fundo-erro);
+      box-shadow: var(--campo-sombra-erro);
     }
     .tira lucide-icon {
       flex: none;

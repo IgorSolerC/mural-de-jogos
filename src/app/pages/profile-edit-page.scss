@@ -394,7 +394,7 @@ fieldset > :not(legend) {
   margin-top: 24px;
 }
 
-/* a tira de papel do campo, com o contorno de tinta (o mesmo das chaves nos Ajustes) */
+/* a tira de papel do campo, com a linha de caneta (o mesmo campo dos Ajustes) */
 .tira {
   display: flex;
   align-items: center;
@@ -402,17 +402,17 @@ fieldset > :not(legend) {
   min-height: 50px;
   padding: 0 12px 0 14px;
   border-radius: 2px;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--ink);
+  background: var(--campo-fundo);
+  box-shadow: var(--campo-sombra);
+  transition: box-shadow var(--t-physical) var(--ease-physical);
 
   &:focus-within {
-    box-shadow:
-      inset 0 0 0 3px var(--ink),
-      var(--field-halo);
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
   }
 
   &.erro {
-    box-shadow: inset 0 0 0 3px var(--error-ink);
+    @include kit.campo-erro;
   }
 
   input {
@@ -626,15 +626,15 @@ fieldset > :not(legend) {
   align-items: center;
   gap: 8px;
   min-height: 52px;
-  padding: 8px 10px;
+  padding: 8px 10px 12px;
   border-radius: 2px;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--ink);
+  background: var(--campo-fundo);
+  box-shadow: var(--campo-sombra);
+  transition: box-shadow var(--t-physical) var(--ease-physical);
 
   &:focus-within {
-    box-shadow:
-      inset 0 0 0 3px var(--ink),
-      var(--field-halo);
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
   }
 
   input {
@@ -899,8 +899,8 @@ fieldset > :not(legend) {
   padding: 8px 12px;
   border: 0;
   border-radius: 2px;
-  background: #fff;
-  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.4);
+  background: var(--campo-papel);
+  box-shadow: var(--campo-sombra);
   color: var(--ink);
   caret-color: var(--red);
   font-family: var(--f-hand);
@@ -914,9 +914,8 @@ fieldset > :not(legend) {
   }
 
   &:focus {
-    box-shadow:
-      inset 0 0 0 2.5px var(--ink),
-      0 0 0 4px rgb(21 21 21 / 0.14);
+    background: #fff;
+    box-shadow: var(--campo-sombra-foco);
   }
 }
 

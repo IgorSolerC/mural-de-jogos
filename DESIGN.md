@@ -1413,3 +1413,15 @@ The secondary paper button (`botao-papel` in `_paper-kit.scss`) was a white box 
 - **Variants:** `.forte` stays the ink block with yellow lettering (no cut; the follow-back in Avisos now uses it instead of repainting by hand); `.perigo` takes red-deep lettering and a red cut (50%, 85% on hover) with a pink tint on hover; `.quieto` stays the underlined word.
 - **Same label elsewhere:** the Compartilhar role select (cut on its label, since a select draws no `::after`; the in-row variant stays a printed reminder), the Comparar envelope's file button (with its marker lettering) and the Nota widget's chosen card in the editor (empty, it stays the dashed cut alone).
 - Fields (`campo`, the comment opener) keep their ink inset outline: that outline means "write here", not "press".
+
+## Campos, seletores e interruptores de papel (fields pass, 2026-10-18)
+
+The generic box (white fill and a 2px ink inset outline) left the system entirely; the only ink rings left are keyboard focus rings and printed decoration.
+
+- **Field (`campo` in `_paper-kit.scss`, tokens `--campo-*` in `styles.scss`):** a strip of `#fffdf8` paper glued flat (`--campo-sombra`: a 1px ink hairline at 10% and a short drop), with a hand-drawn pen line to write on: an SVG stroke at 50% ink, 1.6px, 12px in from both ends and 7px above the foot (`--campo-fundo`). Focus: the line turns full ink at 2.6px, the paper turns white and the strip comes slightly unstuck (`--campo-fundo-foco`, `--campo-sombra-foco`). Error (`campo-erro` mixin): the line in `error-ink` and a 45% error hairline. Every hand-made field uses the same tokens: editor title, date and hours strips, game and wish search, cover link, music fields, profile fields, the comment opener, the Comparar code, the tag field.
+- **Ruled textarea:** the blue-ruled sheet keeps its rules and is glued like the field (no ink outline); focus lifts it.
+- **Loose paper (`--papel-solto-sombra`):** autocomplete lists and the editor's panels and menus are paper with a 14% hairline and a sheet shadow.
+- **Selector (`segmentos` / `segmento`):** the editor's sticker sheet: options 8px apart, each the kiss-cut outline (1.5px dashed ink at 42%, hover 72% with a 6% tint); the chosen one is the ink sticker stuck on, -1.5deg, scale 1.02, small drop, numerals in hi-vis yellow. No strip, no dividers.
+- **Switch (`interruptor`):** off is the kiss-cut of the track (1.5px dashed ink at 50% over 4% ink) with the ink knob; on is the ink track glued (small drop) with the yellow knob.
+- **Swatch sheets (category icon and colour, tag colours, Kanban column icon and colour):** the chosen sample gets the red pen circle of the chosen score (`--circulo-caneta`) instead of a square; Kanban icon options are kiss-cuts and the chosen icon is the tilted ink sticker; a chosen colour sample lifts and tilts -3deg inside the circle.
+- **Notes in Ajustes:** the status card and the "Usar as suas próprias chaves" strip are glued paper; a late backup is a yellow note (`#fff1b8`), an error message a pink one (`#fbe7e3`).
