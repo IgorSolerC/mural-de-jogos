@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-18-tarefas-com-descricao',
+    id: '2026-10-18-tarefas-espacadas',
     version: '1.25.2',
     kind: 'ajustes',
     date: '2026-10-18',
@@ -37,7 +37,7 @@ export const NEWS: NewsEntry[] = [
       'Em cima da folha ficam as abas Escrever e Ver como fica, e Ajuda e Tela cheia com o nome escrito; no celular, a régua presa em cima do teclado leva o Formatar e o Inserir.',
       'Novos atalhos, os mesmos do Docs: Ctrl+Shift+7, 8 e 9 para as listas e Ctrl+/ para abrir a Ajuda.',
       'Tarefas e itens de lista podem ter o que quiser embaixo deles, como no markdown: as linhas com dois espaços antes, logo abaixo do item, são dele (a descrição em várias linhas, uma foto ou outro widget, uma lista de dentro). Shift+Enter (ou Linha dentro do item, no Formatar) abre essa linha, e Enter nela volta para a lista.',
-      'Feita a tarefa, o que vem embaixo dela é riscado junto: o texto a lápis e a foto com um risco de caneta vermelha. Entre um item com descrição e o próximo fica uma linha de respiro.',
+      'Feita a tarefa, o que vem embaixo dela é riscado junto: o texto a lápis e a foto com um risco de caneta vermelha. Na ficha do mural, as tarefas ficam um pouco afastadas umas das outras, sem precisar de linha em branco entre elas; na leitura, a que tem descrição ganha uma linha de respiro.',
       'Mais do markdown de sempre no texto: __negrito__, + item, títulos com #### (com a cara do terceiro), blocos de código entre ~~~, links <https://…> e www.… soltos, código com uma crase dentro (entre duas) e a barra antes de qualquer sinal (1\\. não começa lista).',
       'O contador ganhou mais três jeitos, em Jeito: Neon (o letreiro de relógio digital, com dias, horas, minutos e segundos), Placar (as plaquinhas de aeroporto, que viram quando o número muda) e Riscado (o bloquinho adesivo com a conta à caneta e os dias de antes riscados). À mão, escreva “neon”, “placar” ou “riscado” no contador.',
       'O Calendário do contador ficou mais limpo, sem a fita crepe e só com o nome e o dia ao lado. Ele conta sempre em dias: com menos de um dia, a folha diz “0 dias” e as horas que faltam aparecem ao lado, para vários contadores juntos falarem a mesma unidade.',

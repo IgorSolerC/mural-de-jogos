@@ -408,7 +408,12 @@ import { NoteWidget } from './note-widget';
       padding-left: 1.35em;
     }
     .lista > li:has(> .corpo):not(:last-child) {
-      margin-bottom: var(--line, 1.5em);
+      margin-bottom: var(--corpo-respiro, var(--line, 1.5em));
+    }
+    /* o respiro entre uma tarefa e a seguinte: quem usa diz quanto (a ficha do mural, onde não há
+       pauta para seguir); sem dizer, nenhum, e cada tarefa fica na linha dela */
+    .tarefas > li + li {
+      margin-top: var(--tarefa-respiro, 0);
     }
     /* a tarefa feita risca o que vem embaixo dela: o texto a lápis, como o dela, e a foto ou o vídeo
        com o risco de caneta (ver ui/glued-media.ts, --riscado) */

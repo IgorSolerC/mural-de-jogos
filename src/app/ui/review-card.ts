@@ -980,6 +980,10 @@ export const CARD_STYLES = `
       /* o widget não passa do fim da ficha: ele encolhe até caber no que sobra dela (ver
          ui/note-widget.ts). A ficha não cresce por causa dele */
       --widget-teto: calc(var(--line) * var(--linhas));
+      /* as tarefas um pouco afastadas umas das outras, sem precisar de linha em branco entre elas
+         (menos que uma linha inteira, e a com descrição embaixo também: a ficha não tem pauta) */
+      --tarefa-respiro: 0.45em;
+      --corpo-respiro: 0px;
     }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {

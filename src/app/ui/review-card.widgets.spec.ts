@@ -110,4 +110,18 @@ describe('os widgets na ficha do mural', () => {
     expect(masked(widget)).toBeFalse();
     expect(masked(el.querySelector('.nota-texto app-rich-text')!)).toBeFalse();
   });
+
+  it('as tarefas ficam um pouco afastadas umas das outras na ficha (menos que uma linha), com ou sem descrição', async () => {
+    await show(card('anotacoes', '- [ ] Cola\n- [ ] Panelas\n      fundo triplo\n- [ ] Mandolin'), { checkable: true });
+    const items = [...el.querySelectorAll<HTMLElement>('.nota-texto .tarefas > li')];
+    expect(items.length).toBe(3);
+    const line = parseFloat(getComputedStyle(items[0]).minHeight);
+    // (pelo offsetTop: a ficha é torta, e a caixa girada engana a medida)
+    const gap = (a: HTMLElement, b: HTMLElement) => b.offsetTop - (a.offsetTop + a.offsetHeight);
+    // o mesmo respiro entre todas, pequeno: nem colado, nem a linha inteira da leitura
+    expect(gap(items[0], items[1])).toBeGreaterThan(4);
+    expect(gap(items[0], items[1])).toBeLessThan(line / 2);
+    // (o offset é arredondado ao pixel)
+    expect(Math.abs(gap(items[1], items[2]) - gap(items[0], items[1]))).toBeLessThanOrEqual(1);
+  });
 });
