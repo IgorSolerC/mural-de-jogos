@@ -107,8 +107,10 @@ describe('o Google Agenda', () => {
     build({ ...ENV, AGENDA_CODIGOS: '' });
     const token = await login();
     expect(((await (await json('GET', '/v1/agenda', undefined, token)).json()) as { disponivel: boolean }).disponivel).toBe(false);
-    const codigo = (await db.first<{ codigo: string }>('SELECT codigo FROM usuarios'))!.codigo;
-    build({ ...ENV, AGENDA_CODIGOS: `XXXX-XXXX, ${codigo.toLowerCase()}` });
+    // o código como a pessoa vê (com o traço, como em Ajustes), e não como fica no banco
+    const me = (await (await json('GET', '/v1/eu', undefined, token)).json()) as { codigo: string };
+    expect(me.codigo).toMatch(/^[0-9A-Z]{4}-[0-9A-Z]{4}$/);
+    build({ ...ENV, AGENDA_CODIGOS: `XXXX-XXXX, ${me.codigo.toLowerCase()}` });
     expect(((await (await json('GET', '/v1/agenda', undefined, token)).json()) as { disponivel: boolean }).disponivel).toBe(true);
     const other = await login('bia');
     expect((await json('POST', '/v1/agenda/conectar', { retorno: BACK }, other)).status).toBe(503);

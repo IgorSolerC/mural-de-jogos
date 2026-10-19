@@ -29,11 +29,17 @@ export interface AgendaKeys {
 
 export function readAgendaKeys(env: Record<string, unknown>): AgendaKeys {
   const text = (k: string) => (typeof env[k] === 'string' ? (env[k] as string).trim() : '');
+  // o código como aparece (K7QF-M2XA) ou como fica no banco (K7QFM2XA): vale sem o traço
   const codes = text('AGENDA_CODIGOS')
     .split(',')
-    .map((c) => c.trim().toUpperCase())
+    .map((c) => (c.trim() === '*' ? '*' : plainCode(c)))
     .filter(Boolean);
   return { clientSecret: text('GOOGLE_CLIENT_SECRET'), key: text('AGENDA_CHAVE'), codes };
+}
+
+/** O código da conta sem o traço e em maiúsculas, para comparar. */
+export function plainCode(code: string): string {
+  return code.toUpperCase().replace(/[^0-9A-Z]/g, '');
 }
 
 function fromBase64(text: string): Uint8Array<ArrayBuffer> {

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, open, seal, trimEvent } from '../domain/agenda';
+import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, open, plainCode, seal, trimEvent } from '../domain/agenda';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url, sha256 } from '../domain/bytes';
 import { write } from '../domain/quota';
@@ -42,7 +42,7 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
     if (!configured()) return false;
     if (keys.codes.includes('*')) return true;
     const row = await deps.db.first<{ codigo: string }>('SELECT codigo FROM usuarios WHERE id = ?', [userId]);
-    return !!row && keys.codes.includes(row.codigo.toUpperCase());
+    return !!row && keys.codes.includes(plainCode(row.codigo));
   };
   const ensure = async (userId: string) => {
     if (!(await available(userId))) throw new HttpError(503, 'agenda-indisponivel', 'O Google Agenda ainda não está disponível.');
