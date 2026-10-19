@@ -379,16 +379,17 @@ const PATCH_GAP = 8;
           </footer>
         </article>
 
-        <!-- As orelhas da ficha de fichário, na beirada da direita, uma embaixo da outra: a do grupo da
-             anotação (a mesma orelha de divisória da ficha no mural; no celular, sem lado, ela sai pela
-             beirada de cima, como no mural) e a que puxa a folha de comentários -->
+        <!-- o grupo da anotação: a mesma orelha de divisória da ficha no mural, saindo pela beirada de
+             cima, atrás da faixa -->
+        @if (groupEar(); as g) {
+          <span class="orelha-grupo" [class.orelha-cor]="!!g.color" [style.--cat-cor]="g.color">
+            <span class="sr-only">Grupo: </span>
+            <app-cat-label [label]="g.label" [look]="g.look" [iconSize]="13" />
+          </span>
+        }
+
+        <!-- a orelha que puxa a folha de comentários, na beirada da direita -->
         <div class="orelhas">
-          @if (groupEar(); as g) {
-            <span class="orelha-grupo" [class.orelha-cor]="!!g.color" [style.--cat-cor]="g.color">
-              <span class="sr-only">Grupo: </span>
-              <app-cat-label [label]="g.label" [look]="g.look" [iconSize]="16" />
-            </span>
-          }
           @if (commentable() && commentTarget()) {
             <!-- a orelha: um marcador na cor da cartolina, para fora da ficha, que puxa a folha de comentários -->
             <button

@@ -779,63 +779,59 @@ app-judge-label {
 }
 
 /* ===== As orelhas da ficha =====
-   As abas do fichário, para fora da beirada da direita, uma embaixo da outra (o pé delas fica atrás da
-   ficha): a do grupo da anotação e a dos comentários. Ficam no mesmo lugar com a folha de comentários
-   aberta ou fechada. Só onde há margem para elas; no celular, a do grupo sai pela beirada de cima, como
-   na ficha do mural, e a dos comentários dá lugar ao "Comentar". */
+   A do grupo da anotação sai pela beirada de cima, como na ficha do mural; a dos comentários, pela
+   beirada da direita (só onde há margem para ela; no celular, dá lugar ao "Comentar"). O pé das duas
+   fica atrás da ficha. */
 .orelhas {
   position: absolute;
   top: 92px;
   left: calc(100% - 3px);
   z-index: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
 }
 
-/* A orelha do grupo: a orelha de divisória da ficha no mural (o papel manilha, ou o claro com a borda
-   da cor do grupo por dentro, o desenho e o nome a pincel), deitada na beirada. Não é botão: diz de
-   que grupo a anotação é. */
+/* A orelha do grupo: a orelha de divisória da ficha do mural, igual (o papel manilha, ou o claro com a
+   borda da cor do grupo por dentro, o desenho e o nome a pincel), à esquerda da tachinha. Não é botão:
+   diz de que grupo a anotação é. A ficha desce um tanto para ela caber. */
 .orelha-grupo {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  width: 44px;
-  max-height: 300px;
-  padding: 14px 0 14px 3px;
-  border-radius: 0 9px 9px 0;
+  position: absolute;
+  top: -29px;
+  left: 14px;
+  z-index: 0;
+  display: inline-flex;
+  align-items: center;
+  max-width: calc(50% - 40px);
+  height: 44px;
+  padding: 5px 11px 12px 9px;
+  border-radius: 8px 8px 0 0;
   background-color: var(--manilha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;
   color: #151515;
   box-shadow:
-    -1px 0 0 rgb(255 255 255 / 0.35) inset,
-    0 1px 2px rgb(0 0 0 / 0.35),
-    0 8px 14px -6px rgb(0 0 0 / 0.5);
-  writing-mode: vertical-rl;
+    0 -1px 0 rgb(255 255 255 / 0.35) inset,
+    0 2px 6px rgb(0 0 0 / 0.45);
 
   app-cat-label {
-    max-width: none;
-    max-height: 100%;
     font-family: var(--f-marker);
-    font-size: 1.02rem;
-    line-height: 1;
-    letter-spacing: 0.02em;
+    font-size: 0.94rem;
+    line-height: 1.2;
   }
 }
 
 .orelha-grupo.orelha-cor {
+  top: -32px;
+  height: 47px;
+  padding: 9px 13px 19px 11px;
   background-color: var(--papel-orelha);
-  padding: 15px 0 15px 4px;
 }
 
-/* a borda da cor corre por dentro da orelha, aberta do lado em que ela entra na ficha */
-.orelha-grupo.orelha-cor::before {
-  inset: 3px 3px 3px 0;
-  border: 3px solid var(--cat-cor);
-  border-left: 0;
-  border-radius: 0 6px 6px 0;
+.par.com-grupo {
+  margin-top: 28px;
+  max-height: calc(100dvh - 52px);
+}
+
+.par.com-grupo > .ficha {
+  max-height: calc(100dvh - 52px);
 }
 
 /* A orelha dos comentários: um marcador de fichário na cartolina da ficha. É o puxador da folha. */
@@ -901,51 +897,6 @@ app-judge-label {
   }
 }
 
-/* no celular (e onde não há margem ao lado), a orelha do grupo sai pela beirada de cima da faixa, à
-   esquerda, como na ficha do mural; a ficha desce um tanto para ela caber */
-@media (max-width: 899px) {
-  .orelhas {
-    top: -30px;
-    left: 16px;
-    right: 16px;
-  }
-
-  .orelha-grupo {
-    width: auto;
-    max-width: 100%;
-    height: 46px;
-    max-height: none;
-    padding: 6px 12px 16px 10px;
-    border-radius: 8px 8px 0 0;
-    writing-mode: horizontal-tb;
-
-    app-cat-label {
-      max-width: 100%;
-      font-size: 0.94rem;
-      line-height: 1.2;
-    }
-  }
-
-  .orelha-grupo.orelha-cor {
-    padding: 8px 13px 17px 11px;
-  }
-
-  .orelha-grupo.orelha-cor::before {
-    inset: 3px 3px 0;
-    border: 3px solid var(--cat-cor);
-    border-bottom: 0;
-    border-radius: 6px 6px 0 0;
-  }
-
-  .par.com-grupo {
-    margin-top: 28px;
-    max-height: calc(100dvh - 52px);
-  }
-
-  .par.com-grupo > .ficha {
-    max-height: calc(100dvh - 52px);
-  }
-}
 
 /* A folha de comentários: outra ficha de fichário, com a mesma faixa de cartolina e a tachinha dela.
    Em tela estreita, cobre a ficha (a volta fica escrita na faixa); em tela larga, fica ao lado. */

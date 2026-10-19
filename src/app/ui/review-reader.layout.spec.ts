@@ -267,10 +267,10 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(q('.voltar-elo')).toBeNull();
   });
 
-  it('o grupo é a orelha da ficha (como no mural), e não se repete junto das tags', async () => {
+  it('o grupo é a orelha de cima da ficha (como no mural), e não se repete junto das tags', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado', { category: 'Casa', tags: ['Feira'] }));
     await settle();
-    expect(words(q('.orelhas .orelha-grupo'))).toBe('Grupo: Casa');
+    expect(words(q('.par > .orelha-grupo'))).toBe('Grupo: Casa');
     expect(qa('.categorias li').map(words)).toEqual(['Feira']);
     expect(q('.par')!.classList.contains('com-grupo')).toBeTrue();
 
