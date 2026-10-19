@@ -343,6 +343,36 @@ describe('página do Calendário', () => {
       expect(nova).toEqual(jasmine.objectContaining({ date: '2026-10-22', time: '19:30', repeat: 'semana', color: 'verde', notes: ['ngta60001'] }));
     });
 
+    it('vários dias: a folha pede até que dia, e a semana mostra a tira em cada dia, picotada onde emenda', async () => {
+      const s = await openNew('2026-10-20');
+      type(s.querySelector<HTMLInputElement>('.nome input')!, 'Congresso');
+      const varios = [...s.querySelectorAll<HTMLButtonElement>('[role="switch"]')][1];
+      varios.click();
+      await settle();
+      expect(varios.getAttribute('aria-checked')).toBe('true');
+      const ate = s.querySelector<HTMLInputElement>('.fim input[type="date"]')!;
+      expect(ate.value).toBe('2026-10-21');
+      ate.value = '2026-10-22';
+      ate.dispatchEvent(new Event('change'));
+      await settle();
+      expect(text(s.querySelector('.sub'))).toBe('De 20 a 22 de outubro');
+      expect(text(s.querySelector('.frase'))).toBe('De 20 a 22 de outubro de 2026.');
+      s.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      await settle();
+      expect(calendar.reminders().find((r) => r.title === 'Congresso')).toEqual(jasmine.objectContaining({ date: '2026-10-20', end: '2026-10-22' }));
+
+      await go('/anotacoes/calendario?vista=semana&dia=2026-10-20');
+      const tiras = $$('.tira').filter((t) => t.textContent!.includes('Congresso'));
+      expect(tiras.length).toBe(3);
+      expect(tiras.map((t) => [t.classList.contains('emenda-antes'), t.classList.contains('emenda-depois')])).toEqual([
+        [false, true],
+        [true, true],
+        [true, false],
+      ]);
+      expect(text(tiras[1].querySelector('.tira-hora'))).toBe('continua');
+      expect(tiras[1].getAttribute('aria-label')).toContain('Dia 2 de 3');
+    });
+
     it('nada muda no calendário até salvar', async () => {
       await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
       $$('.editar')[1].click();

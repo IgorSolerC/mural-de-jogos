@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, open, plainCode, seal, trimEvent } from '../domain/agenda';
+import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, isInstanceId, open, plainCode, seal, trimEvent } from '../domain/agenda';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url, sha256 } from '../domain/bytes';
 import { write } from '../domain/quota';
@@ -224,7 +224,8 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
       if (res.status === 401 || res.status === 403) throw new HttpError(502, 'google-recusou', 'O Google recusou o pedido à agenda.');
       if (!res.ok) throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
       const body = (await res.json()) as { items?: Record<string, unknown>[]; nextPageToken?: string; nextSyncToken?: string };
-      for (const item of body.items ?? []) if (isEventId(item['id'])) eventos.push(trimEvent(item));
+      // as vezes de um evento que repete (tirada ou mudada só num dia) vêm com o id delas
+      for (const item of body.items ?? []) if (isEventId(item['id']) || isInstanceId(item['id'])) eventos.push(trimEvent(item));
       if (body.nextPageToken) {
         page = body.nextPageToken;
         continue;
@@ -236,7 +237,9 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
 
   /**
    * O que mudou no Murall, até 25 por vez: criar (com o id que o site escolheu, que não repete entre
-   * aparelhos), mudar e apagar. Cada uma tem a sua resposta; uma que falha não impede as outras.
+   * aparelhos), mudar e apagar; e, numa vez só de um evento que repete (o id da vez), apagar (tirar o
+   * dia, como o "Só este evento" do Google) e voltar (o dia tirado volta). Cada uma tem a sua resposta;
+   * uma que falha não impede as outras.
    */
   app.post('/v1/agenda/enviar', async (c) => {
     const s = await sessionOf(deps, c);
@@ -254,11 +257,20 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
     for (const op of ops) {
       const o = (op ?? {}) as Record<string, unknown>;
       const id = o['id'];
-      if (!isEventId(id) || !['criar', 'mudar', 'apagar'].includes(o['acao'] as string)) throw new HttpError(400, 'ops-invalidas', 'Uma das mudanças não é válida.');
+      const acao = o['acao'];
+      const ok = isEventId(id) ? ['criar', 'mudar', 'apagar'].includes(acao as string) : isInstanceId(id) && (acao === 'apagar' || acao === 'voltar');
+      if (!ok || typeof id !== 'string') throw new HttpError(400, 'ops-invalidas', 'Uma das mudanças não é válida.');
       const url = `${CALENDAR_URL}/${id}`;
       let res: Response | null = null;
       try {
-        if (o['acao'] === 'apagar') {
+        if (acao === 'voltar') {
+          res = await calendar(s.userId, url, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) });
+          // a vez não existe mais (a repetição mudou): não há o que voltar
+          if (res.ok || res.status === 404 || res.status === 410) resultados.push({ id, ok: true });
+          else failed(id, res);
+          continue;
+        }
+        if (acao === 'apagar') {
           res = await calendar(s.userId, url, { method: 'DELETE' });
           // já apagado lá: está feito
           if (res.ok || res.status === 404 || res.status === 410) resultados.push({ id, ok: true });
@@ -266,7 +278,7 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
           continue;
         }
         const event = cleanEvent(o['evento']);
-        if (o['acao'] === 'criar') {
+        if (acao === 'criar') {
           res = await calendar(s.userId, CALENDAR_URL, { method: 'POST', body: JSON.stringify({ ...event, id }) });
           // outro aparelho já criou (o id é o mesmo): vira mudança
           if (res.status === 409) res = await calendar(s.userId, url, { method: 'PATCH', body: JSON.stringify(event) });

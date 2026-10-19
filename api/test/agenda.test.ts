@@ -231,6 +231,44 @@ describe('o Google Agenda', () => {
     expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'apagar', id: 'X!' }] }, token)).status).toBe(400);
   });
 
+  it('as vezes de um evento que repete: vêm na busca, e uma vez se tira (apagar) e volta (voltar)', async () => {
+    const token = await login();
+    await connect(token);
+    google = (c) => {
+      if (c.method === 'GET')
+        return reply(200, {
+          items: [
+            { id: 'mu0001_20261027', status: 'cancelled', recurringEventId: 'mu0001', originalStartTime: { date: '2026-10-27' } },
+            { id: 'abc123_20261028T120000Z', status: 'cancelled', recurringEventId: 'abc123', originalStartTime: { dateTime: '2026-10-28T09:00:00-03:00' } },
+            { id: 'abc123_lixo', status: 'cancelled' },
+          ],
+          nextSyncToken: 's',
+        });
+      if (c.method === 'PATCH') return reply(200, { status: 'confirmed' });
+      if (c.method === 'DELETE') return reply(204);
+      return reply(500);
+    };
+    const list = (await (await json('GET', '/v1/agenda/eventos', undefined, token)).json()) as { eventos: Record<string, unknown>[] };
+    expect(list.eventos.map((e) => e['id'])).toEqual(['mu0001_20261027', 'abc123_20261028T120000Z']);
+    expect(list.eventos[0]!['recurringEventId']).toBe('mu0001');
+    calls = [];
+    const r = (await (
+      await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'apagar', id: 'abc123_20261028T120000Z' }, { acao: 'voltar', id: 'mu0001_20261027' }] }, token)
+    ).json()) as { resultados: Record<string, unknown>[] };
+    expect(r.resultados).toEqual([
+      { id: 'abc123_20261028T120000Z', ok: true },
+      { id: 'mu0001_20261027', ok: true },
+    ]);
+    expect(calls.map((c) => [c.method, c.url.slice(CALENDAR_URL.length)])).toEqual([
+      ['DELETE', '/abc123_20261028T120000Z'],
+      ['PATCH', '/mu0001_20261027'],
+    ]);
+    expect(JSON.parse(calls[1]!.body)).toEqual({ status: 'confirmed' });
+    // numa vez só não se cria nem se muda o evento; voltar é só de uma vez
+    expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'mudar', id: 'mu0001_20261027', evento: { summary: 'x' } }] }, token)).status).toBe(400);
+    expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'voltar', id: 'mu0001' }] }, token)).status).toBe(400);
+  });
+
   it('a permissão tirada no Google: a agenda fica desligada; desligar devolve a permissão ao Google', async () => {
     const token = await login();
     await connect(token);

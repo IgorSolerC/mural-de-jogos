@@ -4,20 +4,26 @@ import {
   addDays,
   addMonths,
   calendarToSync,
+  coversDay,
   drawColor,
   isDay,
   isPast,
   mergeCalendar,
   monthGrid,
   nextOccurrence,
+  occurrenceStart,
   occursOn,
+  rangeLabel,
   remindersOn,
   repeatSentence,
   repeatShort,
   sanitizeCalendar,
   sanitizeReminder,
+  segmentOn,
   skipDay,
+  spanLabel,
   timeLabel,
+  timeOn,
   weekDays,
   weekLabel,
   weekday,
@@ -137,6 +143,34 @@ describe('Calendário: quando o lembrete aparece', () => {
       reminder({ id: 'rd', title: 'Amanhã', date: '2026-10-19' }),
     ];
     expect(remindersOn(list, '2026-10-18').map((r) => r.title)).toEqual(['Aniversário', 'Café', 'Dentista']);
+  });
+
+  it('vários dias: aparece em cada dia, do primeiro ao último, e passa só no fim', () => {
+    const viagem = reminder({ id: 'rv', title: 'Viagem', date: '2026-10-20', end: '2026-10-22', time: '20:00', endTime: '10:00' });
+    expect(['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'].map((d) => coversDay(viagem, d))).toEqual([false, true, true, true, false]);
+    expect(segmentOn(viagem, '2026-10-21')).toEqual({ start: '2026-10-20', n: 2, total: 3, first: false, last: false });
+    expect(['2026-10-20', '2026-10-21', '2026-10-22'].map((d) => spanLabel(viagem, d))).toEqual(['20h', 'continua', 'até 10h']);
+    expect(timeOn(viagem, '2026-10-21')).toBeUndefined();
+    // hoje só passa no último dia, depois da hora do fim
+    expect(isPast(viagem, '2026-10-20', '2026-10-20', '23:00')).toBeFalse();
+    expect(isPast(viagem, '2026-10-22', '2026-10-22', '09:59')).toBeFalse();
+    expect(isPast(viagem, '2026-10-22', '2026-10-22', '10:01')).toBeTrue();
+    expect(isPast(viagem, '2026-10-21', '2026-10-22', '00:00')).toBeTrue();
+    // em cima no dia, como as faixas do Google
+    const cafe = reminder({ id: 'rc', title: 'Café', date: '2026-10-21', time: '08:00' });
+    const feira = reminder({ id: 'rf', title: 'Feira', date: '2026-10-21' });
+    expect(remindersOn([cafe, feira, viagem], '2026-10-21').map((r) => r.title)).toEqual(['Viagem', 'Feira', 'Café']);
+    expect(repeatSentence(undefined, '2026-10-20', { end: '2026-10-22' })).toBe('De 20 a 22 de outubro de 2026.');
+    expect(rangeLabel('2026-10-30', '2026-11-02')).toBe('30 de out. a 2 de nov.');
+  });
+
+  it('vários dias que se repetem: cada vez passa pelos dias dela, e tirar uma vez tira os dias dela', () => {
+    const fds = reminder({ id: 'rf', title: 'Sítio', date: '2026-10-24', end: '2026-10-25', repeat: 'semana' });
+    expect(['2026-10-31', '2026-11-01', '2026-11-02'].map((d) => occurrenceStart(fds, d))).toEqual(['2026-10-31', '2026-10-31', null]);
+    const sem = skipDay(fds, '2026-10-31', '2026-10-19T00:00:00.000Z');
+    expect(coversDay(sem, '2026-11-01')).toBeFalse();
+    expect(coversDay(sem, '2026-11-08')).toBeTrue();
+    expect(repeatSentence('semana', fds.date, fds)).toBe('Todo sábado, a partir de 24 de outubro de 2026. Cada vez dura 2 dias.');
   });
 
   it('diz como repete, por extenso e curto', () => {

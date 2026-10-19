@@ -21,6 +21,8 @@ interface FakeCalendar {
   version: number;
   ops: { acao: string; id: string; evento?: Record<string, unknown> }[];
   refazer: boolean;
+  /** Os ids que o Google recusa (400). */
+  refuse: string[];
 }
 
 describe('o Google Agenda ligado ao Calendário', () => {
@@ -56,6 +58,9 @@ describe('o Google Agenda ligado ao Calendário', () => {
         resultados: ops.map((op) => {
           fake.version++;
           const updated = `2026-10-18T12:00:00.${String(fake.version).padStart(3, '0')}Z`;
+          if (fake.refuse.includes(op.id)) return { id: op.id, ok: false, erro: 'recusado' };
+          // uma vez só de um que repete: tirada ou devolvida (o evento dela não muda)
+          if (op.id.includes('_')) return { id: op.id, ok: true };
           if (op.acao === 'apagar') {
             fake.events.delete(op.id);
             return { id: op.id, ok: true };
@@ -82,7 +87,7 @@ describe('o Google Agenda ligado ao Calendário', () => {
   beforeEach(async () => {
     localStorage.clear();
     connected = true;
-    fake = { events: new Map(), changes: [], version: 0, ops: [], refazer: false };
+    fake = { events: new Map(), changes: [], version: 0, ops: [], refazer: false, refuse: [] };
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -161,6 +166,120 @@ describe('o Google Agenda ligado ao Calendário', () => {
     fake.changes.push({ id: `${id}_20261027`, status: 'cancelled', recurringEventId: id, originalStartTime: { date: '2026-10-27' }, updated: `2026-10-18T12:00:00.${String(fake.version).padStart(3, '0')}Z` });
     await google.sync();
     expect(calendar.get('rbolo00001')!.skip).toEqual(['2026-10-27']);
+  });
+
+  it('a vez tirada chega antes do evento, na mesma leva, e o evento mudado depois não a traz de volta', async () => {
+    fake.events.set('pilates0001', {
+      id: 'pilates0001',
+      status: 'confirmed',
+      summary: 'Pilates',
+      start: { date: '2026-10-20' },
+      end: { date: '2026-10-21' },
+      recurrence: ['RRULE:FREQ=WEEKLY'],
+      updated: T0,
+      etag: '"p"',
+      seu: true,
+      tipo: 'default',
+    });
+    const tirada: GEvent = { id: 'pilates0001_20261027', status: 'cancelled', recurringEventId: 'pilates0001', originalStartTime: { date: '2026-10-27' } };
+    // a leitura do zero devolve a vez tirada antes do evento dela
+    const all = [tirada, ...fake.events.values()];
+    fake.events = new Map(all.map((e) => [e.id, e]));
+    await google.sync();
+    expect(calendar.get('gpilates0001')!.skip).toEqual(['2026-10-27']);
+    expect(fake.ops).toEqual([]);
+    changeInGoogle({ id: 'pilates0001', summary: 'Pilates da manhã' });
+    await google.sync();
+    const r = calendar.get('gpilates0001')!;
+    expect(r.title).toBe('Pilates da manhã');
+    expect(r.skip).toEqual(['2026-10-27']);
+    expect(google.pending()).toBe(0);
+  });
+
+  it('"Só neste dia" no Murall: o evento vai com o dia de fora e a vez é tirada no Google; o Desfazer a devolve', async () => {
+    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo', { repeat: 'semana' })], removed: {} });
+    await google.sync();
+    const id = eventIdFor('rbolo00001');
+    const antes = calendar.get('rbolo00001')!;
+    calendar.skipDay('rbolo00001', '2026-10-27');
+    expect(google.pending()).toBe(1);
+    fake.ops = [];
+    await google.sync();
+    expect(fake.ops).toEqual([
+      { acao: 'mudar', id, evento: jasmine.objectContaining({ recurrence: ['RRULE:FREQ=WEEKLY', 'EXDATE;VALUE=DATE:20261027'] }) },
+      { acao: 'apagar', id: `${id}_20261027` },
+    ]);
+    expect(calendar.get('rbolo00001')!.google!.skip).toEqual(['2026-10-27']);
+    expect(google.pending()).toBe(0);
+    fake.ops = [];
+    calendar.restore(antes);
+    await google.sync();
+    expect(fake.ops).toEqual([
+      { acao: 'mudar', id, evento: jasmine.objectContaining({ recurrence: ['RRULE:FREQ=WEEKLY'] }) },
+      { acao: 'voltar', id: `${id}_20261027` },
+    ]);
+    expect(calendar.get('rbolo00001')!.google!.skip).toEqual([]);
+  });
+
+  it('uma repetição que só o Google muda: um dia sai daqui (só a vez), e apagar tudo apaga lá', async () => {
+    fake.events.set('quintas0001', {
+      id: 'quintas0001',
+      status: 'confirmed',
+      summary: 'Faxina',
+      start: { date: '2026-10-20' },
+      end: { date: '2026-10-21' },
+      recurrence: ['RRULE:FREQ=WEEKLY;INTERVAL=2'],
+      updated: T0,
+      etag: '"q"',
+      seu: true,
+      tipo: 'default',
+    });
+    await google.sync();
+    expect(calendar.get('gquintas0001')!.google!.lock).toBe('repeticao');
+    calendar.skipDay('gquintas0001', '2026-11-03');
+    fake.ops = [];
+    await google.sync();
+    expect(fake.ops).toEqual([{ acao: 'apagar', id: 'quintas0001_20261103' }]);
+    calendar.remove('gquintas0001');
+    fake.ops = [];
+    await google.sync();
+    expect(fake.ops).toEqual([{ acao: 'apagar', id: 'quintas0001' }]);
+  });
+
+  it('desconectar desfaz os vínculos: o que veio do Google vira lembrete do Murall, que muda aqui', async () => {
+    fake.events.set('convite0001', { id: 'convite0001', status: 'confirmed', summary: 'Reunião', start: { date: '2026-10-21' }, end: { date: '2026-10-22' }, updated: T0, etag: '"c"', seu: false, tipo: 'default' });
+    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo')], removed: {} });
+    await google.sync();
+    const before = calendar.get('gconvite0001')!;
+    expect(before.google!.lock).toBe('convite');
+    await google.disconnect();
+    expect(google.status()).toBe('desligada');
+    expect(calendar.reminders().every((r) => !r.google)).toBeTrue();
+    expect(calendar.get('gconvite0001')!.at > before.at).toBeTrue();
+    // apagar agora não leva nada ao Google
+    calendar.remove('gconvite0001');
+    expect(calendar.state().googleTrash).toBeUndefined();
+  });
+
+  it('o Google recusou uma mudança: a folha diz, e ela vai de novo na próxima rodada', async () => {
+    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo')], removed: {} });
+    fake.refuse = [eventIdFor('rbolo00001')];
+    await google.sync();
+    expect(google.error()).toContain('O Google não aceitou 1 mudança');
+    expect(google.pending()).toBe(1);
+    fake.refuse = [];
+    await google.sync();
+    expect(google.error()).toBeNull();
+    expect(google.pending()).toBe(0);
+  });
+
+  it('vários dias vão e voltam inteiros', async () => {
+    calendar.state.set({ reminders: [reminder('rviagem0001', 'Viagem', { end: '2026-10-22' })], removed: {} });
+    await google.sync();
+    expect(fake.ops[0].evento).toEqual(jasmine.objectContaining({ start: { date: '2026-10-20' }, end: { date: '2026-10-23' } }));
+    changeInGoogle({ id: eventIdFor('rviagem0001'), end: { date: '2026-10-25' } });
+    await google.sync();
+    expect(calendar.get('rviagem0001')!.end).toBe('2026-10-24');
   });
 
   it('os dois mudaram: vale a mudança mais nova', async () => {

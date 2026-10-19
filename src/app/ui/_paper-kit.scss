@@ -535,3 +535,34 @@
   line-height: 1.1;
   text-transform: uppercase;
 }
+
+/*
+ * O picote de uma tira que continua no dia ao lado (um lembrete de vários dias): o lado que emenda
+ * sai serrilhado, como uma tira de cartolina rasgada de uma maior. `$antes`: continua do dia de
+ * antes (o lado esquerdo); `$depois`: continua no seguinte (o direito). A sombra vem de fora (a máscara
+ * corta a sombra da própria tira): use um `drop-shadow` no pai.
+ */
+@mixin picote($antes, $depois, $dente: 5px) {
+  $meio: 100%;
+  @if $antes and $depois {
+    $meio: calc(100% - #{2 * $dente});
+  } @else if $antes or $depois {
+    $meio: calc(100% - #{$dente});
+  }
+  $x: 0;
+  @if $antes {
+    $x: $dente;
+  }
+  $camadas: linear-gradient(#000 0 0) $x 0 / #{$meio} 100% no-repeat;
+  @if $antes {
+    $camadas: $camadas, conic-gradient(from 45deg at left, #0000, #000 1deg 89deg, #0000 90deg) left / #{$dente} #{2 * $dente} repeat-y;
+    padding-left: calc(var(--picote-pad, 6px) + #{$dente});
+  }
+  @if $depois {
+    $camadas: $camadas, conic-gradient(from -135deg at right, #0000, #000 1deg 89deg, #0000 90deg) right / #{$dente} #{2 * $dente} repeat-y;
+    padding-right: calc(var(--picote-pad, 6px) + #{$dente});
+  }
+  border-radius: 0;
+  -webkit-mask: $camadas;
+  mask: $camadas;
+}

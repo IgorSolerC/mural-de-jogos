@@ -77,19 +77,23 @@
               <ul class="tiras" [attr.aria-label]="'Lembretes de ' + c.label">
                 @for (r of c.list; track r.id) {
                   @let passou = past(r, c.day);
+                  @let seg = segment(r, c.day);
+                  @let hora = spanLabel(r, c.day);
                   <li>
                     <button
                       type="button"
                       class="tira cartolina"
                       [class.passou]="passou"
+                      [class.emenda-antes]="seg && !seg.first"
+                      [class.emenda-depois]="seg && !seg.last"
                       [attr.data-cor]="r.color"
                       [style.--stock]="'var(--stock-' + r.color + ')'"
-                      [style.--giro]="tiltOf(r.id)"
+                      [style.--giro]="seg ? '0deg' : tiltOf(r.id)"
                       [attr.aria-label]="spoken(r, c.day)"
                       (click)="edit(r, c.day)"
                     >
-                      @if (r.time) {
-                        <span class="tira-hora">{{ timeLabel(r.time) }}</span>
+                      @if (hora) {
+                        <span class="tira-hora">{{ hora }}</span>
                       }
                       <span class="tira-nome">{{ r.title }}</span>
                       @if (r.repeat || r.notes.length) {
@@ -163,7 +167,7 @@
                     <p class="lembrete-meta">
                       <span class="meta-item">
                         <lucide-icon [img]="ClockIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
-                        {{ r.time ? timeLabel(r.time) : 'Dia todo' }}
+                        {{ whenOn(r, day()) }}
                       </span>
                       @if (r.repeat) {
                         <span class="meta-item">

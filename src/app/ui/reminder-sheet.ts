@@ -1,6 +1,27 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, effect, inject, input, linkedSignal, output, signal, untracked, viewChild } from '@angular/core';
 import { Check, FilePlus, LucideAngularModule, Paperclip, Trash2, X } from 'lucide-angular';
-import { MAX_NOTES, REPEATS, REPEAT_LABEL, Reminder, Repeat, TITLE_MAX, WEEKDAYS_LONG, dayAndMonth, isDay, longDay, nextOccurrence, occursOn, repeatSentence, repeatShort, timeLabel, weekday } from '../core/calendar';
+import {
+  MAX_NOTES,
+  REPEATS,
+  REPEAT_LABEL,
+  Reminder,
+  Repeat,
+  TITLE_MAX,
+  WEEKDAYS_LONG,
+  addDays,
+  dayAndMonth,
+  isDay,
+  longDay,
+  nextOccurrence,
+  occurrenceStart,
+  rangeLabel,
+  repeatSentence,
+  repeatShort,
+  sanitizeReminder,
+  spanOf,
+  timeLabel,
+  weekday,
+} from '../core/calendar';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { NOTES } from '../core/kinds';
@@ -103,12 +124,40 @@ const FIRST_TIME = '09:00';
                 </label>
               }
             </div>
+            @if (d.end || d.time) {
+              <div class="quando fim">
+                @if (d.end) {
+                  <label class="campo data">
+                    <span class="campo-nome">Até o dia</span>
+                    <input type="date" required [min]="minEnd()" [value]="d.end" [disabled]="!!locked()" (change)="setEnd($any($event.target).value)" />
+                  </label>
+                }
+                @if (d.time) {
+                  <label class="campo hora">
+                    <span class="campo-nome">Acaba às</span>
+                    <input type="time" [value]="d.endTime ?? ''" [disabled]="!!locked()" [attr.aria-describedby]="d.end ? null : 'lb-fim-d'" (change)="setEndTime($any($event.target).value)" />
+                  </label>
+                }
+              </div>
+              @if (d.time && !d.end && !d.endTime) {
+                <p class="linha-desc fim-desc" id="lb-fim-d">Sem a hora do fim, ele dura uma hora.</p>
+              }
+            }
             <div class="linha">
               <div class="linha-texto">
                 <p class="linha-nome" id="lb-todo">Dia todo</p>
                 <p class="linha-desc" id="lb-todo-d">{{ d.time ? 'Com horário, ele entra no dia na ordem das horas.' : 'Sem horário, ele fica no alto do dia.' }}</p>
               </div>
               <button type="button" class="interruptor" role="switch" [attr.aria-checked]="!d.time" [disabled]="!!locked()" aria-labelledby="lb-todo" aria-describedby="lb-todo-d" (click)="toggleAllDay()">
+                <span class="bolinha"></span>
+              </button>
+            </div>
+            <div class="linha">
+              <div class="linha-texto">
+                <p class="linha-nome" id="lb-varios">Vários dias</p>
+                <p class="linha-desc" id="lb-varios-d">{{ d.end ? 'Ele aparece em cada dia, do primeiro ao último.' : 'Ele começa e acaba no mesmo dia.' }}</p>
+              </div>
+              <button type="button" class="interruptor" role="switch" [attr.aria-checked]="!!d.end" [disabled]="!!locked()" aria-labelledby="lb-varios" aria-describedby="lb-varios-d" (click)="toggleManyDays()">
                 <span class="bolinha"></span>
               </button>
             </div>
@@ -186,7 +235,7 @@ const FIRST_TIME = '09:00';
         </form>
 
         <footer class="foot">
-          @if (!isNew() && !locked()) {
+          @if (!isNew() && removable()) {
             <button type="button" class="papel perigo" (click)="remove()">
               <lucide-icon [img]="TrashIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
               Apagar
@@ -254,21 +303,29 @@ export class ReminderSheet {
   /** As anotações anexadas que existem (uma apagada some daqui sem mexer no lembrete). */
   protected readonly attached = computed(() => this.draft().notes.map((id) => this.store.get(id)).filter((r): r is Review => !!r));
 
-  /** Embaixo do título: o dia por extenso, o horário e, ligado, que está no Google Agenda. */
+  /** Embaixo do título: o dia (ou de quando a quando) por extenso, o horário e, ligado, que está no Google Agenda. */
   protected readonly whenLine = computed(() => {
     const d = this.draft();
-    const when = `${WEEKDAYS_LONG[weekday(d.date)]}, ${longDay(d.date)}` + (d.time ? ` · ${timeLabel(d.time)}` : '');
+    const many = spanOf(d) > 1;
+    const days = many ? `De ${rangeLabel(d.date, d.end!)}` : `${WEEKDAYS_LONG[weekday(d.date)]}, ${longDay(d.date)}`;
+    const end = d.endTime ? (many ? `, acaba às ${timeLabel(d.endTime)}` : ` às ${timeLabel(d.endTime)}`) : '';
+    const hours = d.time ? `${many ? 'começa às ' : ''}${timeLabel(d.time)}${end}` : '';
+    const when = hours ? `${days} · ${hours}` : days;
     return d.google ? `${when} · No Google Agenda` : when;
   });
 
   /** Um evento do Google que o Murall não pode mudar (convite, repetição só do Google, tipo especial). */
   protected readonly locked = computed(() => this.draft().google?.lock ?? null);
+  /** Apagar dá num evento seu, mesmo de uma repetição que só o Google muda; um convite ou um aniversário, não. */
+  protected readonly removable = computed(() => !this.locked() || this.locked() === 'repeticao');
+  /** O último dia vem depois do primeiro. */
+  protected readonly minEnd = computed(() => addDays(this.draft().date, 1));
   protected readonly lockText = computed(() => {
     switch (this.locked()) {
       case 'convite':
         return 'Este evento é um convite de outra pessoa no Google Agenda: só quem convidou muda.';
       case 'repeticao':
-        return 'Este evento repete de um jeito que só o Google Agenda muda: mude por lá.';
+        return 'Este evento repete de um jeito que só o Google Agenda muda: mude por lá (apagar, ou tirar só um dia, dá aqui).';
       case 'google':
         return 'Este é um evento especial do Google Agenda: só dá para mudar lá.';
       default:
@@ -312,20 +369,53 @@ export class ReminderSheet {
     this.patch({ title: v.slice(0, TITLE_MAX) });
   }
 
+  /** Mudar o primeiro dia leva o último junto (cada vez continua com os mesmos dias). */
   protected setDate(v: string): void {
-    if (isDay(v)) this.patch({ date: v });
+    if (!isDay(v)) return;
+    const d = this.draft();
+    this.patch(d.end ? { date: v, end: addDays(v, spanOf(d) - 1) } : { date: v });
   }
 
   protected setTime(v: string): void {
-    if (/^\d{2}:\d{2}$/.test(v)) this.patch({ time: v });
+    if (!/^\d{2}:\d{2}$/.test(v)) return;
+    const d = this.draft();
+    // no mesmo dia, o fim que ficou antes do começo sai (volta a durar uma hora)
+    if (!d.end && d.endTime && d.endTime <= v) {
+      const { endTime: _, ...rest } = d;
+      this.draft.set({ ...rest, time: v });
+    } else this.patch({ time: v });
+  }
+
+  protected setEnd(v: string): void {
+    if (isDay(v) && v > this.draft().date) this.patch({ end: v });
+  }
+
+  /** A hora do fim; vazia, sai (um dia só dura uma hora; vários dias vão até o fim do último). */
+  protected setEndTime(v: string): void {
+    const d = this.draft();
+    if (/^\d{2}:\d{2}$/.test(v) && (d.end || (d.time && v > d.time))) {
+      this.patch({ endTime: v });
+      return;
+    }
+    const { endTime: _, ...rest } = d;
+    this.draft.set(rest);
   }
 
   protected toggleAllDay(): void {
     const d = this.draft();
     if (d.time) {
-      const { time: _, ...rest } = d;
+      const { time: _, endTime: __, ...rest } = d;
       this.draft.set(rest);
     } else this.patch({ time: FIRST_TIME });
+  }
+
+  /** Vários dias: o último começa no dia seguinte (com horário, acabando na mesma hora). */
+  protected toggleManyDays(): void {
+    const d = this.draft();
+    if (d.end) {
+      const { end: _, endTime, ...rest } = d;
+      this.draft.set(endTime && d.time && endTime > d.time ? { ...rest, endTime } : rest);
+    } else this.patch({ end: addDays(d.date, 1), ...(d.time ? { endTime: d.endTime ?? d.time } : {}) });
   }
 
   protected setRepeat(o: Repeat | 'nunca'): void {
@@ -368,8 +458,9 @@ export class ReminderSheet {
       this.nome()?.nativeElement.focus();
       return;
     }
-    // os dias tirados só valem num lembrete que se repete
-    this.calendar.save({ ...d, title, skip: d.repeat ? d.skip : [] });
+    // os dias tirados só valem num lembrete que se repete; o fim, quando vem depois do começo
+    const clean = sanitizeReminder({ ...d, title, skip: d.repeat ? d.skip : [] }) ?? { ...d, title };
+    this.calendar.save({ ...clean, notes: d.notes });
     this.toasts.show(this.isNew() ? `“${title}” marcado para ${dayAndMonth(d.date)}${d.repeat ? ` (${repeatShort(d)})` : ''}` : 'Lembrete atualizado');
     this.close();
   }
@@ -377,19 +468,25 @@ export class ReminderSheet {
   protected async remove(): Promise<void> {
     const before = this.reminder();
     if (!before) return;
-    const day = this.day();
     const name = `“${before.title}”`;
-    if (before.repeat && occursOn(before, day)) {
+    // a vez aberta: num de vários dias, a que passa pelo dia de onde a folha abriu
+    const day = occurrenceStart(before, this.day());
+    if (before.repeat && day) {
+      const many = spanOf(before) > 1;
+      const which = many ? `a de ${rangeLabel(day, addDays(day, spanOf(before) - 1))}` : `o de ${dayAndMonth(day)}`;
       const choice = await this.confirm.choose({
         title: 'Apagar o lembrete?',
-        text: `${name} se repete (${repeatShort(before)}). Apagar só o de ${dayAndMonth(day)}, ou todos?`,
-        confirm: 'Apagar todos',
-        secondary: 'Só neste dia',
+        text: `${name} se repete (${repeatShort(before)}). Apagar só ${which}, ou ${many ? 'todas' : 'todos'}?`,
+        confirm: many ? 'Apagar todas' : 'Apagar todos',
+        secondary: many ? 'Só esta vez' : 'Só neste dia',
       });
       if (!choice) return;
       if (choice === 'secondary') {
         this.calendar.skipDay(before.id, day);
-        this.toasts.show(`${name} saiu de ${dayAndMonth(day)}`, { label: 'Desfazer', run: () => this.calendar.restore(before) });
+        this.toasts.show(many ? `${name} saiu de ${rangeLabel(day, addDays(day, spanOf(before) - 1))}` : `${name} saiu de ${dayAndMonth(day)}`, {
+          label: 'Desfazer',
+          run: () => this.calendar.restore(before),
+        });
         this.close();
         return;
       }

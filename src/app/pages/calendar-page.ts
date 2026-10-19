@@ -6,6 +6,7 @@ import { map } from 'rxjs';
 import { MONTHS_LONG } from '../core/dates';
 import {
   Reminder,
+  Segment,
   WEEKDAYS_LONG,
   WEEKDAYS_SHORT,
   addDays,
@@ -15,9 +16,13 @@ import {
   longDay,
   monthLabel,
   monthOf,
+  rangeLabel,
   remindersByDay,
   remindersOn,
   repeatShort,
+  segmentOn,
+  spanLabel,
+  spanOf,
   timeLabel,
   weekDays,
   weekLabel,
@@ -112,6 +117,7 @@ export class CalendarPage {
   protected readonly PencilIcon = Pencil;
   protected readonly views = VIEWS;
   protected readonly timeLabel = timeLabel;
+  protected readonly spanLabel = spanLabel;
   protected readonly repeatShort = repeatShort;
 
   protected readonly tiltOf = tiltOf;
@@ -315,9 +321,27 @@ export class CalendarPage {
     return r.notes.map((id) => this.store.get(id)).filter((n): n is Review => !!n);
   }
 
+  /** O pedaço de uma vez de vários dias neste dia (null num lembrete de um dia só): as tiras se emendam. */
+  protected segment(r: Reminder, day: string): Segment | null {
+    return spanOf(r) > 1 ? segmentOn(r, day) : null;
+  }
+
+  /**
+   * Quando, neste dia, por extenso: "9h", "9h às 10h30", "Dia todo"; nos de vários dias, qual dia é e
+   * de quando a quando ("Dia 2 de 3 · 20 a 22 de outubro"), com o começo no primeiro e o fim no último.
+   */
+  protected whenOn(r: Reminder, day: string): string {
+    const seg = this.segment(r, day);
+    if (!seg) return r.time ? (r.endTime ? `${timeLabel(r.time)} às ${timeLabel(r.endTime)}` : timeLabel(r.time)) : 'Dia todo';
+    const parts = [`Dia ${seg.n} de ${seg.total}`, rangeLabel(seg.start, addDays(seg.start, seg.total - 1))];
+    if (seg.first && r.time) parts.push(`começa às ${timeLabel(r.time)}`);
+    if (seg.last && r.endTime) parts.push(`acaba às ${timeLabel(r.endTime)}`);
+    return parts.join(' · ');
+  }
+
   /** O que o leitor de tela ouve numa tira da semana. */
   protected spoken(r: Reminder, day: string): string {
-    const parts = [r.title, r.time ? `às ${timeLabel(r.time)}` : 'dia todo'];
+    const parts = [r.title, this.segment(r, day) ? this.whenOn(r, day) : r.time ? `às ${timeLabel(r.time)}` : 'dia todo'];
     if (r.repeat) parts.push(repeatShort(r));
     const n = this.notesOf(r).length;
     if (n) parts.push(n === 1 ? '1 anotação anexada' : `${n} anotações anexadas`);

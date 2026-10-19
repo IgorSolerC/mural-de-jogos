@@ -26,6 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-19-varios-dias',
+    version: '1.26.2',
+    kind: 'ajustes',
+    date: '2026-10-19',
+    title: 'Lembretes de vários dias',
+    melhorias: [
+      'Um lembrete do Calendário pode durar vários dias (um congresso, uma viagem): ele aparece em cada dia, do primeiro ao último, numa tira picotada do lado em que continua; com horário, ele também diz a hora em que acaba.',
+    ],
+  },
+  {
     id: '2026-10-18-endereco-novo',
     version: '1.26.1',
     kind: 'ajustes',

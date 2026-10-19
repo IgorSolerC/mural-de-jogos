@@ -1,5 +1,5 @@
-import { Reminder, occursOn, repeatSentence, repeatShort } from './calendar';
-import { GEvent, eventIdFor, fromEvent, parseRecurrence, reminderIdFor, ruleOf, toEvent } from './google-agenda';
+import { Reminder, occursOn, repeatSentence, repeatShort, sanitizeReminder } from './calendar';
+import { GEvent, eventIdFor, fromEvent, instanceIdFor, parseRecurrence, reminderIdFor, ruleOf, toEvent } from './google-agenda';
 
 const T = '2026-10-10T10:00:00.000Z';
 
@@ -38,11 +38,11 @@ describe('Google Agenda: do lembrete para o evento', () => {
     expect(toEvent(reminder({ color: 'branco' }), 'UTC').colorId).toBeUndefined();
   });
 
-  it('com horário: uma hora no fuso do aparelho (ou a duração que veio do Google), virando o dia se preciso', () => {
+  it('com horário: uma hora no fuso do aparelho (ou até a hora do fim), virando o dia se preciso', () => {
     const e = toEvent(reminder({ time: '23:30' }), 'America/Sao_Paulo');
     expect(e.start).toEqual({ dateTime: '2026-10-20T23:30:00', timeZone: 'America/Sao_Paulo' });
     expect(e.end).toEqual({ dateTime: '2026-10-21T00:30:00', timeZone: 'America/Sao_Paulo' });
-    const longo = toEvent(reminder({ time: '09:00', google: { id: 'abc123def456', dur: 150 } }), 'UTC');
+    const longo = toEvent(reminder({ time: '09:00', endTime: '11:30' }), 'UTC');
     expect(longo.end).toEqual({ dateTime: '2026-10-20T11:30:00', timeZone: 'UTC' });
   });
 
@@ -113,13 +113,14 @@ describe('Google Agenda: do evento para o lembrete', () => {
     expect(x.time).toBeUndefined();
   });
 
-  it('com horário, no fuso daqui, e a duração quando não é uma hora', () => {
+  it('com horário, no fuso daqui, e a hora do fim quando não dura uma hora', () => {
     const start = new Date(2026, 9, 20, 15, 0);
     const end = new Date(2026, 9, 20, 15, 30);
     const r = fromEvent(event({ start: { dateTime: start.toISOString() }, end: { dateTime: end.toISOString() } }), undefined, today) as { reminder: Reminder };
     expect(r.reminder.date).toBe('2026-10-20');
     expect(r.reminder.time).toBe('15:00');
-    expect(r.reminder.google!.dur).toBe(30);
+    expect(r.reminder.endTime).toBe('15:30');
+    expect(r.reminder.end).toBeUndefined();
     expect(r.reminder.color).toBe('azul');
   });
 
@@ -129,6 +130,45 @@ describe('Google Agenda: do evento para o lembrete', () => {
     expect((fromEvent(event({ recurrence: ['RRULE:FREQ=WEEKLY;INTERVAL=2'] }), undefined, today) as { reminder: Reminder }).reminder.google!.lock).toBe('repeticao');
     expect(fromEvent(event({ tipo: 'workingLocation' }), undefined, today)).toEqual({ kind: 'ignore', reason: 'tipo' });
     expect(fromEvent(event({ recurrence: ['RRULE:FREQ=MONTHLY;BYDAY=1MO'] }), undefined, today)).toEqual({ kind: 'ignore', reason: 'repeticao' });
+  });
+
+  it('vários dias: o dia todo até o último dia, e com horário até a hora do fim (meia-noite é o fim do dia de antes)', () => {
+    const feriado = fromEvent(event({ start: { date: '2026-10-20' }, end: { date: '2026-10-23' } }), undefined, today) as { reminder: Reminder };
+    expect(feriado.reminder.end).toBe('2026-10-22');
+    expect(feriado.reminder.google!.dur).toBeUndefined();
+    const viagem = fromEvent(event({ start: { dateTime: new Date(2026, 9, 20, 20, 0).toISOString() }, end: { dateTime: new Date(2026, 9, 22, 10, 0).toISOString() } }), undefined, today) as {
+      reminder: Reminder;
+    };
+    expect(viagem.reminder).toEqual(jasmine.objectContaining({ date: '2026-10-20', time: '20:00', end: '2026-10-22', endTime: '10:00' }));
+    const ateMeiaNoite = fromEvent(event({ start: { dateTime: new Date(2026, 9, 20, 20, 0).toISOString() }, end: { dateTime: new Date(2026, 9, 23, 0, 0).toISOString() } }), undefined, today) as {
+      reminder: Reminder;
+    };
+    expect(ateMeiaNoite.reminder.end).toBe('2026-10-22');
+    expect(ateMeiaNoite.reminder.endTime).toBeUndefined();
+    // e de volta, igual
+    expect(toEvent(feriado.reminder, 'UTC').end).toEqual({ date: '2026-10-23' });
+    expect(toEvent(viagem.reminder, 'UTC').end).toEqual({ dateTime: '2026-10-22T10:00:00', timeZone: 'UTC' });
+    expect(toEvent(ateMeiaNoite.reminder, 'UTC').end).toEqual({ dateTime: '2026-10-23T00:00:00', timeZone: 'UTC' });
+  });
+
+  it('o lembrete guardado com a duração de antes ganha o fim no lugar dela', () => {
+    expect(sanitizeReminder(reminder({ google: { id: 'abc123def456', dur: 3 } }))).toEqual(jasmine.objectContaining({ end: '2026-10-22', google: { id: 'abc123def456' } }));
+    expect(sanitizeReminder(reminder({ time: '09:00', google: { id: 'abc123def456', dur: 150 } }))).toEqual(jasmine.objectContaining({ endTime: '11:30', google: { id: 'abc123def456' } }));
+    const longo = sanitizeReminder(reminder({ time: '20:00', google: { id: 'abc123def456', dur: 38 * 60 } }))!;
+    expect([longo.end, longo.endTime]).toEqual(['2026-10-22', '10:00']);
+  });
+
+  it('os dias tirados lá como "só este evento" ficam no lembrete quando o evento muda', () => {
+    const antes = reminder({ id: 'gabc123def456', repeat: 'semana', skip: ['2026-10-27'], google: { id: 'abc123def456', skip: ['2026-10-27'] } });
+    const r = fromEvent(event({ summary: 'Pilates', recurrence: ['RRULE:FREQ=WEEKLY', 'EXDATE;VALUE=DATE:20261103'] }), antes, today) as { reminder: Reminder };
+    expect(r.reminder.skip).toEqual(['2026-10-27', '2026-11-03']);
+    expect(r.reminder.google!.skip).toEqual(['2026-10-27', '2026-11-03']);
+  });
+
+  it('o id de uma vez de um que repete: o dia, e com horário a hora do começo em UTC', () => {
+    expect(instanceIdFor('abc123def456', {}, '2026-10-27')).toBe('abc123def456_20261027');
+    const utc = new Date(2026, 9, 27, 9, 0).toISOString().slice(0, 19).replace(/[-:]/g, '');
+    expect(instanceIdFor('abc123def456', { time: '09:00' }, '2026-10-27')).toBe(`abc123def456_${utc}Z`);
   });
 
   it('apagado no Google, uma vez tirada de um que repete, e o que acabou faz tempo', () => {

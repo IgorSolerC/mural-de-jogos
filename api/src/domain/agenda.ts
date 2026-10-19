@@ -72,12 +72,19 @@ export async function open(secret: string, sealed: string): Promise<string> {
 // ===== O que vai para o Google =====
 
 const EVENT_ID = /^[a-v0-9]{5,1024}$/;
+/** Uma vez de um evento que repete: o id dele, o dia e, com horário, a hora do começo em UTC (`abc123_20261027T120000Z`). */
+const INSTANCE_ID = /^[a-v0-9]{5,1000}_\d{8}(T\d{6}Z)?$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
 const TIME_ZONE = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+){0,2}$/;
 
 export function isEventId(v: unknown): v is string {
   return typeof v === 'string' && EVENT_ID.test(v);
+}
+
+/** Uma vez só de um evento que repete (a que se tira de um dia, ou a mudada só nele). */
+export function isInstanceId(v: unknown): v is string {
+  return typeof v === 'string' && INSTANCE_ID.test(v);
 }
 
 type When = { date: string } | { dateTime: string; timeZone: string };

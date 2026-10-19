@@ -275,6 +275,36 @@
   }
 }
 
+/* um lembrete de vários dias: a tira de cada dia sai picotada do lado em que continua, e reta */
+.tira {
+  --picote-pad: 10px;
+
+  &.emenda-antes {
+    @include kit.picote(true, false);
+  }
+
+  &.emenda-depois {
+    @include kit.picote(false, true);
+  }
+
+  &.emenda-antes.emenda-depois {
+    @include kit.picote(true, true);
+  }
+
+  &.emenda-antes,
+  &.emenda-depois {
+    box-shadow: none;
+
+    &:hover {
+      box-shadow: none;
+    }
+  }
+}
+
+.tiras li:has(> .emenda-antes, > .emenda-depois) {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.16));
+}
+
 .tira-hora {
   font-family: var(--f-label);
   font-weight: 800;

@@ -1,4 +1,4 @@
-import { GoogleLink, Reminder, Repeat, addDays, dayNumber, isDay, occursOn, sanitizeReminder, weekday } from './calendar';
+import { GoogleLink, Reminder, Repeat, addDays, dayNumber, isDay, endAfter, occursOn, sanitizeReminder, spanOf, weekday } from './calendar';
 import { localDay } from './dates';
 import { LightStock } from './review';
 
@@ -113,6 +113,19 @@ export function reminderIdFor(eventId: string): string {
   return eventId.length <= 63 ? 'g' + eventId : 'g' + digest(eventId);
 }
 
+/**
+ * O id de uma vez de um evento que repete, como o Google dá (`abc123_20261027` no dia todo, e com horário
+ * a hora do começo em UTC, `abc123_20261027T120000Z`): é por ele que se tira só um dia, como o "Só este
+ * evento" do Google. O horário do lembrete é o deste aparelho (o fuso com que o evento foi mandado).
+ */
+export function instanceIdFor(eventId: string, r: Pick<Reminder, 'time'>, day: string): string {
+  if (!r.time) return `${eventId}_${compact(day)}`;
+  const [y, m, d] = day.split('-').map(Number);
+  const [h, mi] = r.time.split(':').map(Number);
+  const utc = new Date(y, m - 1, d, h, mi).toISOString();
+  return `${eventId}_${utc.slice(0, 19).replace(/[-:]/g, '')}Z`;
+}
+
 /** O evento nasceu no Murall (a descrição com as anotações é dele). */
 export function isMuralEvent(eventId: string): boolean {
   return eventId.startsWith('mu');
@@ -175,10 +188,13 @@ export function ruleOf(r: Reminder): string | null {
 
 /** O evento do Google de um lembrete. `notes`: os nomes das anotações, para a descrição (só nos eventos do Murall). */
 export function toEvent(r: Reminder, tz: string, notes: readonly string[] = []): GEventBody {
-  const dur = r.google?.dur;
+  // vários dias: até a hora do fim no último dia (sem ela, até o fim dele); um dia só: até a hora do fim, ou
+  // uma hora; o fim do dia todo é o dia seguinte ao último
+  const many = spanOf(r) > 1 ? r.end! : null;
+  const endAt = many ? (r.endTime ? `${many}T${r.endTime}:00` : `${addDays(many, 1)}T00:00:00`) : r.endTime ? `${r.date}T${r.endTime}:00` : null;
   const when = r.time
-    ? { start: { dateTime: `${r.date}T${r.time}:00`, timeZone: tz }, end: { dateTime: addMinutes(r.date, r.time, dur ?? 60), timeZone: tz } }
-    : { start: { date: r.date }, end: { date: addDays(r.date, dur ?? 1) } };
+    ? { start: { dateTime: `${r.date}T${r.time}:00`, timeZone: tz }, end: { dateTime: endAt ?? addMinutes(r.date, r.time, 60), timeZone: tz } }
+    : { start: { date: r.date }, end: { date: addDays(many ?? r.date, 1) } };
   const rule = ruleOf(r);
   const recurrence = rule ? [`RRULE:${rule}`] : undefined;
   if (recurrence && r.skip.length) {
@@ -317,26 +333,33 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
   if (ev.tipo && NOT_REMINDERS.includes(ev.tipo)) return { kind: 'ignore', reason: 'tipo' };
   let date: string;
   let time: string | undefined;
-  let dur: number | undefined;
+  /** Vários dias: o último (e, com horário, a hora em que acaba nele). */
+  let end: string | undefined;
+  let endTime: string | undefined;
   if (ev.start?.date && isDay(ev.start.date)) {
     date = ev.start.date;
+    // o fim do dia todo é o dia seguinte ao último
     const days = ev.end?.date && isDay(ev.end.date) ? dayNumber(ev.end.date) - dayNumber(date) : 1;
-    if (days > 1) dur = days;
+    if (days > 1) end = addDays(date, days - 1);
   } else if (ev.start?.dateTime) {
     const s = localParts(ev.start.dateTime);
     if (!s) return { kind: 'ignore', reason: 'invalido' };
     date = s.day;
     time = s.time;
     const minutes = ev.end?.dateTime ? Math.round((Date.parse(ev.end.dateTime) - Date.parse(ev.start.dateTime)) / 60_000) : 60;
-    if (minutes > 0 && minutes !== 60) dur = minutes;
+    // uma hora é o de sempre (sem fim guardado); o resto guarda onde acaba
+    if (minutes > 0 && minutes !== 60) ({ end, endTime } = endAfter(date, time, minutes));
   } else return { kind: 'ignore', reason: 'invalido' };
   const rule = parseRecurrence(ev.recurrence, date);
   if (rule === null) return { kind: 'ignore', reason: 'repeticao' };
   // o que acabou faz tempo fica só no Google (o que já está no Murall continua acompanhando)
   if (!existing) {
-    const last = rule ? (rule.until ?? null) : addDays(date, Math.max(1, Math.ceil((dur ?? 1) / (time ? 1440 : 1))) - 1);
+    const last = rule ? (rule.until ?? null) : (end ?? date);
     if (last && last < addDays(today, -IMPORT_DAYS)) return { kind: 'ignore', reason: 'antigo' };
   }
+  // os dias tirados lá como "só este evento" não estão na repetição: vêm de cada vez tirada, e ficam
+  const known = rule ? [...new Set([...rule.skip, ...(existing?.google?.skip ?? [])])].sort() : [];
+  const skip = rule ? [...new Set([...known, ...(existing?.repeat ? existing.skip : [])])].sort() : [];
   const updated = ev.updated && Number.isFinite(Date.parse(ev.updated)) ? new Date(ev.updated).toISOString() : new Date().toISOString();
   const lock: GoogleLink['lock'] =
     ev.seu === false ? 'convite' : ev.tipo && ev.tipo !== 'default' ? 'google' : rule && ((rule.every ?? 1) > 1 || rule.days?.length) ? 'repeticao' : undefined;
@@ -346,14 +369,16 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
     at: updated,
     ...(ev.htmlLink ? { link: ev.htmlLink } : {}),
     ...(lock ? { lock } : {}),
-    ...(dur ? { dur } : {}),
+    ...(rule ? { skip: known } : {}),
   };
   const reminder = sanitizeReminder({
     id: existing?.id ?? reminderIdFor(ev.id),
     title: ev.summary?.trim() || '(Sem título)',
     date,
     ...(time ? { time } : {}),
-    ...(rule ? { repeat: rule.repeat, every: rule.every, days: rule.days, until: rule.until, skip: rule.skip } : {}),
+    ...(end ? { end } : {}),
+    ...(endTime ? { endTime } : {}),
+    ...(rule ? { repeat: rule.repeat, every: rule.every, days: rule.days, until: rule.until, skip } : {}),
     color: ev.colorId && STOCK_OF[ev.colorId] ? STOCK_OF[ev.colorId] : (existing?.color ?? DEFAULT_STOCK),
     notes: existing?.notes ?? [],
     createdAt: existing?.createdAt ?? updated,

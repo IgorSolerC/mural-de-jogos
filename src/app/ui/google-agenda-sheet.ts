@@ -142,7 +142,7 @@ export class GoogleAgendaSheet {
   protected async disconnect(): Promise<void> {
     const sure = await this.confirm.ask({
       title: 'Desconectar o Google Agenda?',
-      text: 'Os lembretes e os eventos continuam onde estão, nos dois lados; só param de se acompanhar.',
+      text: 'Os lembretes e os eventos continuam onde estão, nos dois lados; só param de se acompanhar. Os que vieram do Google viram lembretes do Murall, que você muda e apaga aqui.',
       confirm: 'Desconectar',
     });
     if (sure) await this.google.disconnect();

@@ -107,8 +107,9 @@ export class CalendarStore {
     const gone = st.reminders.find((r) => r.id === id);
     if (!gone) return;
     const at = new Date().toISOString();
-    // ligado a um evento do Google (que é dele): o evento sai de lá também (ver GoogleAgenda)
-    const trash = gone.google && !gone.google.lock ? { googleTrash: { ...st.googleTrash, [gone.google.id]: at } } : {};
+    // ligado a um evento do Google que é dele (a repetição que só o Google muda também): o evento sai de lá (ver GoogleAgenda)
+    const own = gone.google && (!gone.google.lock || gone.google.lock === 'repeticao');
+    const trash = own ? { googleTrash: { ...st.googleTrash, [gone.google!.id]: at } } : {};
     this.set({ ...st, ...trash, reminders: st.reminders.filter((r) => r.id !== id), removed: { ...st.removed, [id]: at } });
   }
 
@@ -146,9 +147,29 @@ export class CalendarStore {
     this.set({ ...st, reminders: st.reminders.map((x) => (x === r ? { ...x, at, google: { ...google, at } } : x)) });
   }
 
+  /**
+   * O Google Agenda foi desconectado: nenhum lembrete fica ligado a um evento (nem travado por ser de lá);
+   * todos se mudam e se apagam aqui. Mais novos que antes, para os outros aparelhos ficarem iguais.
+   */
+  unlinkGoogle(): void {
+    const st = this.state();
+    if (!st.reminders.some((r) => r.google)) return;
+    const reminders = st.reminders.map((r) => {
+      if (!r.google) return r;
+      const { google: _, ...rest } = r;
+      return { ...rest, at: stampAfter(r.at) };
+    });
+    this.set({ ...st, reminders });
+  }
+
   /** Desfazer: o lembrete volta como era, mais novo que a mudança desfeita. */
   restore(r: Reminder): void {
-    this.save(r);
+    // a ligação com o Google é a de agora (o que o Google já sabe), não a de antes da mudança
+    const now = this.get(r.id);
+    const back = now ? { ...r, google: now.google } : r;
+    if (!back.google) delete back.google;
+    // (desfez o apagar: o evento continua no lixo do Google, mas um lembrete ligado a ele o segura lá)
+    this.save(back);
   }
 
   /** "Apagar só neste dia", num lembrete que se repete. */

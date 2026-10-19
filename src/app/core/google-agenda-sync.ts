@@ -1,8 +1,8 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { Reminder } from './calendar';
+import { Reminder, addDays } from './calendar';
 import { CalendarStore } from './calendar-store';
 import { CloudAccount, CloudError } from './cloud-account';
-import { GEvent, deviceTimeZone, eventIdFor, fromEvent, isMuralEvent, reminderIdFor, toEvent } from './google-agenda';
+import { GEvent, deviceTimeZone, eventIdFor, fromEvent, instanceIdFor, isMuralEvent, reminderIdFor, toEvent } from './google-agenda';
 import { ReviewStore } from './review-store';
 import { readJson, removeKey, writeJson } from './storage';
 
@@ -22,6 +22,8 @@ interface DeviceState {
   sync?: string;
   feitos?: string[];
   em?: string;
+  /** De que ligação é a leitura (o `desde` da API): ligar de novo recomeça. */
+  desde?: string;
 }
 
 export type AgendaStatus = 'fora' | 'indisponivel' | 'desligada' | 'ligando' | 'ligada';
@@ -39,12 +41,58 @@ interface StatusReply {
 }
 
 interface Op {
-  acao: 'criar' | 'mudar' | 'apagar';
+  acao: 'criar' | 'mudar' | 'apagar' | 'voltar';
   id: string;
   evento?: unknown;
-  /** Do lembrete (não vai para a API): qual e o `at` que foi. */
-  reminder?: string;
-  sent?: string;
+}
+
+/** As mudanças de um lembrete, que vão juntas: o evento (se mudou) e as vezes tiradas ou devolvidas. */
+interface Group {
+  reminder: string;
+  /** O `at` que foi. */
+  sent: string;
+  ops: Op[];
+  /** O evento é criado agora (os dias tirados vão dentro dele). */
+  creates: boolean;
+  /** Os dias tirados do lembrete (o que o Google vai saber, se tudo der certo). */
+  skip: string[];
+  /** O dia de cada vez mandada, pelo id dela. */
+  days: Map<string, { day: string; back: boolean }>;
+}
+
+/** Até quanto tempo atrás um dia tirado ainda vai ao Google como "tirar esta vez". */
+const SKIP_DAYS = 30;
+
+/** O evento do lembrete mudou aqui e ainda não foi (o que só o Google muda nunca vai). */
+function eventPending(r: Reminder): boolean {
+  return !r.google?.lock && r.google?.at !== r.at;
+}
+
+/**
+ * Os dias tirados (ou devolvidos, no Desfazer) que o Google ainda não sabe, de um lembrete já ligado que
+ * se repete. O que o Google sabe é o `google.skip`; sem ele (ligado antes), os tirados foram na repetição.
+ * Um convite ou um evento especial não se tira daqui; a repetição que só o Google muda, sim.
+ */
+function skipChanges(r: Reminder, today: string): { add: string[]; back: string[] } {
+  const g = r.google;
+  if (!g || !r.repeat || g.lock === 'convite' || g.lock === 'google') return { add: [], back: [] };
+  const known = new Set(g.skip ?? r.skip);
+  const mine = new Set(r.skip);
+  const since = addDays(today, -SKIP_DAYS);
+  return { add: r.skip.filter((d) => !known.has(d) && d >= since), back: [...known].filter((d) => !mine.has(d) && d >= since) };
+}
+
+function hasPending(r: Reminder, today: string): boolean {
+  if (eventPending(r)) return true;
+  const c = skipChanges(r, today);
+  return c.add.length + c.back.length > 0;
+}
+
+/** Agora, mas depois de `a` e de `b` (a mudança daqui é a mais nova). */
+function after(...stamps: (string | undefined)[]): string {
+  let t = Date.now();
+  for (const s of stamps) if (s && Date.parse(s) >= t) t = Date.parse(s) + 1;
+  return new Date(t).toISOString();
 }
 
 /**
@@ -83,8 +131,11 @@ export class GoogleAgenda {
   readonly pending = computed(() => {
     const st = this.calendar.state();
     const done = new Set(this.doneDeletes());
-    const changed = st.reminders.filter((r) => !r.google?.lock && r.google?.at !== r.at).length;
-    const deletes = Object.keys(st.googleTrash ?? {}).filter((id) => !done.has(id)).length;
+    const today = this.calendar.today();
+    const changed = st.reminders.filter((r) => hasPending(r, today)).length;
+    // um lembrete ligado ao evento (o apagar desfeito) o segura no Google
+    const live = new Set(st.reminders.map((r) => r.google?.id));
+    const deletes = Object.keys(st.googleTrash ?? {}).filter((id) => !done.has(id) && !live.has(id)).length;
     return changed + deletes;
   });
   private readonly doneDeletes = signal<string[]>([]);
@@ -126,6 +177,11 @@ export class GoogleAgenda {
       const r = await this.account.request<StatusReply>('/v1/agenda');
       this.since.set(r.desde);
       this.status.set(!r.disponivel && !r.conectada ? 'indisponivel' : r.conectada ? 'ligada' : 'desligada');
+      // ligado de novo (noutro aparelho) depois da última leitura daqui: lê tudo de novo
+      if (r.conectada && r.desde && this.device.desde !== r.desde) {
+        this.saveDevice({ sync: undefined, feitos: [], desde: r.desde });
+        this.doneDeletes.set([]);
+      }
     } catch {
       this.status.set('indisponivel');
       return;
@@ -174,7 +230,8 @@ export class GoogleAgenda {
       this.status.set('ligada');
       this.error.set(null);
       // uma ligação nova lê tudo de novo
-      this.saveDevice({ sync: undefined });
+      this.saveDevice({ sync: undefined, feitos: [], desde: r.desde });
+      this.doneDeletes.set([]);
       await this.sync();
     } catch (err) {
       this.status.set('desligada');
@@ -194,7 +251,10 @@ export class GoogleAgenda {
     this.device = conta ? { conta } : null;
     this.doneDeletes.set([]);
     this.lastSync.set(null);
+    this.skipped.set({ repeticao: 0, excecao: 0 });
     this.status.set('desligada');
+    // sem vínculo nenhum: os eventos que vieram do Google viram lembretes do Murall, que se mudam aqui
+    this.calendar.unlinkGoogle();
   }
 
   /** Lê o que mudou no Google, aplica, e manda o que mudou no Murall. Uma rodada por vez. */
@@ -207,15 +267,18 @@ export class GoogleAgenda {
     this.running = (async () => {
       this.syncing.set(true);
       try {
+        let refused = 0;
         do {
           this.again = false;
           await this.pull();
-          await this.push();
+          refused = await this.push();
         } while (this.again);
         const em = new Date().toISOString();
         this.saveDevice({ em });
         this.lastSync.set(em);
-        this.error.set(null);
+        this.error.set(
+          refused ? `O Google não aceitou ${refused === 1 ? '1 mudança' : `${refused} mudanças`} do Murall. ${refused === 1 ? 'Ela tenta' : 'Elas tentam'} de novo na próxima sincronização.` : null,
+        );
       } catch (err) {
         if (err instanceof CloudError && err.code === 'agenda-desligada') {
           this.status.set('desligada');
@@ -296,20 +359,31 @@ export class GoogleAgenda {
     const byEvent = new Map(reminders.filter((r) => r.google).map((r) => [r.google!.id, r]));
     const byId = new Map(reminders.map((r) => [r.id, r]));
     const today = this.calendar.today();
+    const removed = this.calendar.state().removed;
     const upserts = new Map<string, Reminder>();
     const removes: { id: string; at: string }[] = [];
     const current = (id: string) => upserts.get(id) ?? byId.get(id);
-    for (const ev of events) {
+    // as vezes tiradas por último: o evento delas pode chegar depois, na mesma leva (ou ser novo)
+    const ordered = [...events.filter((e) => !(e.status === 'cancelled' && e.recurringEventId)), ...events.filter((e) => e.status === 'cancelled' && e.recurringEventId)];
+    for (const ev of ordered) {
       const known = byEvent.get(ev.id) ?? byId.get(reminderIdFor(ev.id));
       const existing = known && current(known.id);
-      const pendingHere = !!existing && !existing.google?.lock && existing.google?.at !== existing.at;
+      const pendingHere = !!existing && hasPending(existing, today);
       const result = fromEvent(ev, existing, today);
       switch (result.kind) {
         case 'upsert': {
           if (existing?.google?.etag && existing.google.etag === ev.etag) break;
-          // mudado aqui depois da mudança de lá: o daqui vai para o Google
-          if (pendingHere && existing!.at > result.reminder.at) break;
-          upserts.set(result.reminder.id, result.reminder);
+          // apagado aqui depois da mudança de lá (o eco do que foi mandado antes): não volta
+          const gone = removed[result.reminder.id];
+          if (!existing && gone && gone >= result.reminder.at) break;
+          // mudado aqui depois da mudança de lá: o daqui vai para o Google (o que só o Google muda vem sempre)
+          if (pendingHere && existing!.at > result.reminder.at && !result.reminder.google?.lock) break;
+          let next = result.reminder;
+          // um dia tirado aqui que ainda não foi: continua para ir
+          const sent = new Set(next.google?.skip ?? []);
+          if (next.skip.some((d) => !sent.has(d))) next = { ...next, at: after(existing?.at, next.at) };
+          upserts.set(next.id, next);
+          byEvent.set(ev.id, next);
           break;
         }
         case 'remove': {
@@ -323,9 +397,16 @@ export class GoogleAgenda {
         case 'skipDay': {
           const master = byEvent.get(result.masterEventId);
           const m = master && current(master.id);
-          if (!m || m.skip.includes(result.day)) break;
-          const at = new Date().toISOString();
-          upserts.set(m.id, { ...m, skip: [...m.skip, result.day].sort(), at, google: { ...m.google!, at } });
+          if (!m?.google || !m.repeat) break;
+          const known = m.google.skip ?? m.skip;
+          if (m.skip.includes(result.day) && known.includes(result.day)) break;
+          const skip = [...new Set([...m.skip, result.day])].sort();
+          const gskip = [...new Set([...known, result.day])].sort();
+          // o lembrete sem mudança daqui fica igual ao de lá; com mudança, ela continua para ir
+          const at = after(m.at);
+          const next: Reminder = { ...m, skip, at, google: { ...m.google, skip: gskip, ...(m.google.at === m.at ? { at } : {}) } };
+          upserts.set(m.id, next);
+          byEvent.set(result.masterEventId, next);
           break;
         }
         case 'ignore':
@@ -337,31 +418,81 @@ export class GoogleAgenda {
     this.calendar.applyGoogle([...upserts.values()], removes);
   }
 
-  private async push(): Promise<void> {
+  /**
+   * Manda o que mudou no Murall: o evento de cada lembrete mudado, as vezes tiradas (ou devolvidas) de
+   * cada um que se repete, depois do evento, e os apagados. Devolve quantas mudanças o Google recusou
+   * (elas tentam de novo na próxima rodada).
+   */
+  private async push(): Promise<number> {
     const st = this.calendar.state();
     const tz = deviceTimeZone();
+    const today = this.calendar.today();
     const done = new Set(this.doneDeletes());
-    const ops: Op[] = [];
+    const items: (Group | Op)[] = [];
     for (const r of st.reminders) {
-      if (r.google?.lock || (r.google && r.google.at === r.at)) continue;
+      const sendEvent = eventPending(r);
+      const { add, back } = skipChanges(r, today);
+      if (!sendEvent && !add.length && !back.length) continue;
       const id = r.google?.id ?? eventIdFor(r.id);
-      const names = isMuralEvent(id) ? r.notes.map((n) => this.store.get(n)?.game.name).filter((x): x is string => !!x) : [];
-      ops.push({ acao: r.google ? 'mudar' : 'criar', id, evento: toEvent(r, tz, names), reminder: r.id, sent: r.at });
+      const ops: Op[] = [];
+      if (sendEvent) {
+        const names = isMuralEvent(id) ? r.notes.map((n) => this.store.get(n)?.game.name).filter((x): x is string => !!x) : [];
+        ops.push({ acao: r.google ? 'mudar' : 'criar', id, evento: toEvent(r, tz, names) });
+      }
+      const days = new Map<string, { day: string; back: boolean }>();
+      const changes = [...add.map((day) => ({ day, back: false })), ...back.map((day) => ({ day, back: true }))];
+      // o que não couber vai na próxima rodada (o Google continua sem saber dele)
+      for (const c of changes.slice(0, BATCH - ops.length)) {
+        const iid = instanceIdFor(id, r, c.day);
+        ops.push({ acao: c.back ? 'voltar' : 'apagar', id: iid });
+        days.set(iid, c);
+      }
+      items.push({ reminder: r.id, sent: r.at, ops, creates: !r.google, skip: r.google ? (r.google.skip ?? r.skip) : r.skip, days });
     }
-    for (const id of Object.keys(st.googleTrash ?? {})) if (!done.has(id)) ops.push({ acao: 'apagar', id });
-    for (let i = 0; i < ops.length; i += BATCH) {
-      const batch = ops.slice(i, i + BATCH);
+    const live = new Set(st.reminders.map((r) => r.google?.id));
+    for (const id of Object.keys(st.googleTrash ?? {})) if (!done.has(id) && !live.has(id)) items.push({ acao: 'apagar', id });
+    let refused = 0;
+    for (let i = 0; i < items.length; ) {
+      // um lembrete não se divide entre duas idas (o evento vai antes das vezes dele)
+      const batch: (Group | Op)[] = [];
+      let size = 0;
+      for (; i < items.length; i++) {
+        const n = 'ops' in items[i] ? (items[i] as Group).ops.length : 1;
+        if (size && size + n > BATCH) break;
+        batch.push(items[i]);
+        size += n;
+      }
+      const ops = batch.flatMap((x) => ('ops' in x ? x.ops : [x]));
       const { resultados } = await this.account.request<{ resultados: { id: string; ok: boolean; etag?: string | null; htmlLink?: string | null; erro?: string }[] }>(
         '/v1/agenda/enviar',
-        { method: 'POST', body: { ops: batch.map(({ acao, id, evento }) => ({ acao, id, ...(evento ? { evento } : {}) })) } },
+        { method: 'POST', body: { ops: ops.map(({ acao, id, evento }) => ({ acao, id, ...(evento ? { evento } : {}) })) } },
       );
       const byId = new Map(resultados.map((x) => [x.id, x]));
+      refused += resultados.filter((x) => !x.ok && x.erro === 'recusado').length;
       const deleted: string[] = [];
-      for (const op of batch) {
-        const res = byId.get(op.id);
-        if (!res?.ok) continue;
-        if (op.acao === 'apagar') deleted.push(op.id);
-        else this.calendar.linkGoogle(op.reminder!, { id: op.id, ...(res.etag ? { etag: res.etag } : {}), ...(res.htmlLink ? { link: res.htmlLink } : {}) }, op.sent!);
+      for (const item of batch) {
+        if (!('ops' in item)) {
+          if (byId.get(item.id)?.ok) deleted.push(item.id);
+          continue;
+        }
+        const eventOp = item.ops.find((o) => o.acao === 'criar' || o.acao === 'mudar');
+        const eventRes = eventOp ? byId.get(eventOp.id) : undefined;
+        // o evento não foi: nada fica ligado, e tudo vai de novo
+        if (eventOp && !eventRes?.ok) continue;
+        // o que o Google sabe dos dias tirados: os que iam no evento novo, e as vezes que foram
+        const known = new Set(item.skip);
+        for (const [iid, c] of item.days) {
+          if (!byId.get(iid)?.ok) continue;
+          if (c.back) known.delete(c.day);
+          else known.add(c.day);
+        }
+        const id = eventOp?.id ?? this.calendar.get(item.reminder)?.google?.id;
+        if (!id) continue;
+        this.calendar.linkGoogle(
+          item.reminder,
+          { id, ...(eventRes?.etag ? { etag: eventRes.etag } : {}), ...(eventRes?.htmlLink ? { link: eventRes.htmlLink } : {}), skip: [...known].sort() },
+          item.sent,
+        );
       }
       if (deleted.length) {
         const feitos = [...new Set([...this.doneDeletes(), ...deleted])];
@@ -370,6 +501,7 @@ export class GoogleAgenda {
       }
       if (resultados.some((x) => !x.ok && x.erro === 'limite')) throw new CloudError('O Google pediu um tempo: o resto vai daqui a pouco.', 'limite', 429);
     }
+    return refused;
   }
 
   private saveDevice(patch: Partial<DeviceState>): void {

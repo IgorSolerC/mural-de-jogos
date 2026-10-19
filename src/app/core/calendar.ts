@@ -29,6 +29,8 @@ const MAX_MARKS = 500;
 const MAX_REMINDERS = 3000;
 /** O maior intervalo de uma repetição (a cada 99 dias, semanas, meses ou anos). */
 const MAX_EVERY = 99;
+/** Quantos dias uma vez do lembrete pode durar (o Google deixa mais: o resto é cortado). */
+export const MAX_SPAN = 366;
 
 /**
  * O lembrete ligado a um evento do Google Agenda (ver core/google-agenda.ts): o id do evento, a versão
@@ -42,8 +44,13 @@ export interface GoogleLink {
   link?: string;
   /** convite: o evento é de outra pessoa; repeticao: repete de um jeito que só o Google muda; google: um tipo especial do Google (aniversário). */
   lock?: 'convite' | 'repeticao' | 'google';
-  /** Quanto o evento dura no Google, quando não é o de sempre: minutos (com horário) ou dias (o dia todo). */
+  /** De antes do fim no lembrete (`end`, `endTime`): quanto o evento durava no Google. Lido só para converter. */
   dur?: number;
+  /**
+   * Os dias tirados que o Google já sabe (tirados lá, ou mandados daqui): os do lembrete que faltam aqui
+   * vão ao Google como "tirar só esta vez", e os que saíram do lembrete (o Desfazer) voltam lá.
+   */
+  skip?: string[];
 }
 
 export interface Reminder {
@@ -53,6 +60,13 @@ export interface Reminder {
   date: string;
   /** 'HH:MM'; sem horário, é o dia todo. */
   time?: string;
+  /** Mais de um dia: o último dia (de cada vez, quando se repete), depois do `date`. */
+  end?: string;
+  /**
+   * Com horário, a hora em que acaba: no último dia, quando são vários (sem ela, vai até o fim dele); no
+   * mesmo dia, depois do começo (sem ela, dura uma hora).
+   */
+  endTime?: string;
   repeat?: Repeat;
   /** A cada quantos dias, semanas, meses ou anos (sem o campo, 1). Vem do Google: o Murall não escreve. */
   every?: number;
@@ -233,9 +247,12 @@ function joinDays(days: readonly number[]): string {
 const UNIT: Record<Repeat, [string, string]> = { dia: ['dia', 'dias'], semana: ['semana', 'semanas'], mes: ['mês', 'meses'], ano: ['ano', 'anos'] };
 
 /** Como ele se repete, por extenso, para o lembrete aberto: "Todo ano, em 23 de agosto." */
-export function repeatSentence(repeat: Repeat | undefined, date: string, extra: Pick<Reminder, 'every' | 'days' | 'until'> = {}): string {
+export function repeatSentence(repeat: Repeat | undefined, date: string, extra: Pick<Reminder, 'every' | 'days' | 'until' | 'end'> = {}): string {
+  const span = spanOf({ date, end: extra.end });
+  if (!repeat && span > 1) return `De ${rangeLabel(date, extra.end!)}${date.slice(0, 4) === extra.end!.slice(0, 4) ? ` de ${date.slice(0, 4)}` : ''}.`;
   const base = baseSentence(repeat, date, extra);
-  return repeat && extra.until ? `${base.slice(0, -1)}, até ${longDay(extra.until)}.` : base;
+  const withEnd = repeat && extra.until ? `${base.slice(0, -1)}, até ${longDay(extra.until)}.` : base;
+  return repeat && span > 1 ? `${withEnd} Cada vez dura ${span} dias.` : withEnd;
 }
 
 function baseSentence(repeat: Repeat | undefined, date: string, extra: Pick<Reminder, 'every' | 'days'>): string {
@@ -330,15 +347,97 @@ export function nextOccurrence(r: Rule, from: string): string | null {
   return null;
 }
 
-/** A ordem dentro de um dia: o dia todo primeiro, depois pelo horário, depois pelo nome. */
-export function compareInDay(a: Reminder, b: Reminder): number {
-  if (!a.time !== !b.time) return a.time ? 1 : -1;
-  return (a.time ?? '').localeCompare(b.time ?? '') || nameCollator.compare(a.title, b.title) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+// ===== Mais de um dia =====
+
+type Spanned = Rule & Pick<Reminder, 'end'>;
+
+/** Quantos dias cada vez do lembrete ocupa (1, quando acaba no dia em que começa). */
+export function spanOf(r: Pick<Reminder, 'date' | 'end'>): number {
+  return r.end && r.end > r.date ? Math.min(MAX_SPAN, dayNumber(r.end) - dayNumber(r.date) + 1) : 1;
 }
 
-/** Os lembretes do dia, na ordem dele. */
+/** O primeiro dia da vez do lembrete que passa por este dia (o próprio dia, num lembrete de um dia só), ou null. */
+export function occurrenceStart(r: Spanned, day: string): string | null {
+  const span = spanOf(r);
+  if (span === 1) return occursOn(r, day) ? day : null;
+  if (!r.repeat) return day >= r.date && dayNumber(day) - dayNumber(r.date) < span && !r.skip.includes(r.date) ? r.date : null;
+  for (let k = 0; k < span; k++) {
+    const start = addDays(day, -k);
+    if (start < r.date) break;
+    if (occursOn(r, start)) return start;
+  }
+  return null;
+}
+
+/** O lembrete está neste dia (começa nele, ou uma vez de vários dias passa por ele)? */
+export function coversDay(r: Spanned, day: string): boolean {
+  return occurrenceStart(r, day) !== null;
+}
+
+/** O pedaço de uma vez que cai neste dia: o primeiro dia dela, qual dia é (1 no primeiro) e de quantos. */
+export interface Segment {
+  start: string;
+  n: number;
+  total: number;
+  first: boolean;
+  last: boolean;
+}
+
+export function segmentOn(r: Spanned, day: string): Segment | null {
+  const start = occurrenceStart(r, day);
+  if (!start) return null;
+  const total = spanOf(r);
+  const n = dayNumber(day) - dayNumber(start) + 1;
+  return { start, n, total, first: n === 1, last: n === total };
+}
+
+/** O horário do lembrete neste dia: o do começo no primeiro dia; nos outros de uma vez de vários dias, nenhum. */
+export function timeOn(r: Reminder, day: string): string | undefined {
+  if (!r.time) return undefined;
+  return spanOf(r) === 1 || occurrenceStart(r, day) === day ? r.time : undefined;
+}
+
+/**
+ * O horário curto do lembrete neste dia, para as tiras: "20h" (começa), "até 10h" (o último dia, que
+ * acaba com hora), "continua" (o meio, ou o último dia inteiro) e "" (o dia todo).
+ */
+export function spanLabel(r: Reminder, day: string): string {
+  const seg = spanOf(r) > 1 ? segmentOn(r, day) : null;
+  if (!seg || seg.first) return r.time ? timeLabel(r.time) : '';
+  if (seg.last && r.endTime) return `até ${timeLabel(r.endTime)}`;
+  return 'continua';
+}
+
+/** De quando a quando vai uma vez: "20 a 22 de outubro", "30 de out. a 2 de nov.", "30 de dez. de 2026 a 2 de jan. de 2027". */
+export function rangeLabel(start: string, end: string): string {
+  const [ay, am, ad] = parts(start);
+  const [by, bm, bd] = parts(end);
+  if (ay !== by) return `${ad} de ${MONTHS_SHORT[am - 1]}. de ${ay} a ${bd} de ${MONTHS_SHORT[bm - 1]}. de ${by}`;
+  if (am !== bm) return `${ad} de ${MONTHS_SHORT[am - 1]}. a ${bd} de ${MONTHS_SHORT[bm - 1]}.`;
+  return `${ad} a ${bd} de ${MONTHS_LONG[am - 1]}`;
+}
+
+/**
+ * A ordem dentro de um dia: primeiro o que dura vários dias (como as faixas do Google; o que começou
+ * antes, e o mais comprido, em cima), depois o dia todo, depois pelo horário, depois pelo nome.
+ */
+export function compareInDay(a: Reminder, b: Reminder, day?: string): number {
+  const sa = spanOf(a) > 1;
+  const sb = spanOf(b) > 1;
+  if (sa !== sb) return sa ? -1 : 1;
+  if (sa && day) {
+    const by = (occurrenceStart(a, day) ?? '').localeCompare(occurrenceStart(b, day) ?? '') || spanOf(b) - spanOf(a);
+    if (by) return by;
+  }
+  const ta = day ? timeOn(a, day) : a.time;
+  const tb = day ? timeOn(b, day) : b.time;
+  if (!ta !== !tb) return ta ? 1 : -1;
+  return (ta ?? '').localeCompare(tb ?? '') || nameCollator.compare(a.title, b.title) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+}
+
+/** Os lembretes do dia (os de vários dias também nos dias do meio e no último), na ordem dele. */
 export function remindersOn(list: readonly Reminder[], day: string): Reminder[] {
-  return list.filter((r) => occursOn(r, day)).sort(compareInDay);
+  return list.filter((r) => coversDay(r, day)).sort((a, b) => compareInDay(a, b, day));
 }
 
 /** Os lembretes de cada dia de uma lista de dias (a folha do mês, a semana). */
@@ -353,8 +452,14 @@ export function remindersByDay(list: readonly Reminder[], days: readonly string[
  * já foi (o do dia todo passa à meia-noite). Sai do relógio do aparelho, sem marca guardada: um
  * lembrete marcado para trás já nasce riscado.
  */
-export function isPast(r: Pick<Reminder, 'time'>, day: string, today: string, now: string): boolean {
-  return day < today || (day === today && !!r.time && r.time < now);
+export function isPast(r: Pick<Reminder, 'time'> & Partial<Reminder>, day: string, today: string, now: string): boolean {
+  if (day !== today) return day < today;
+  // vários dias: hoje só passa no último dia, quando a hora do fim já foi
+  if (r.date && r.end && spanOf({ date: r.date, end: r.end }) > 1) {
+    const seg = segmentOn({ date: r.date, end: r.end, repeat: r.repeat, skip: r.skip ?? [], every: r.every, days: r.days, until: r.until }, day);
+    return !!seg?.last && !!r.endTime && r.endTime < now;
+  }
+  return !!r.time && r.time < now;
 }
 
 // ===== Mudanças (devolvem o lembrete novo) =====
@@ -396,6 +501,7 @@ function sanitizeLink(raw: unknown): GoogleLink | undefined {
   if (typeof g['id'] !== 'string' || !EVENT_ID_RE.test(g['id'])) return undefined;
   const link = typeof g['link'] === 'string' && /^https:\/\/(www\.)?google\.com\/calendar\//.test(g['link']) && g['link'].length <= 600 ? g['link'] : undefined;
   const dur = typeof g['dur'] === 'number' && Number.isInteger(g['dur']) && g['dur'] > 0 && g['dur'] <= 60 * 24 * 60 ? g['dur'] : undefined;
+  const skip = Array.isArray(g['skip']) ? marks(g['skip'] as string[]) : [];
   return {
     id: g['id'],
     ...(typeof g['etag'] === 'string' && g['etag'].length <= 100 ? { etag: g['etag'] } : {}),
@@ -403,7 +509,21 @@ function sanitizeLink(raw: unknown): GoogleLink | undefined {
     ...(link ? { link } : {}),
     ...(LOCKS.includes(g['lock'] as string) ? { lock: g['lock'] as GoogleLink['lock'] } : {}),
     ...(dur ? { dur } : {}),
+    ...(Array.isArray(g['skip']) ? { skip } : {}),
   };
+}
+
+/**
+ * O fim de uma vez que começa no dia e na hora e dura `minutes` minutos: a hora em que acaba e, passando
+ * do dia, o último dia (acabar à meia-noite é ir até o fim do dia de antes, sem a hora).
+ */
+export function endAfter(date: string, time: string, minutes: number): { end?: string; endTime?: string } {
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + Math.max(1, minutes);
+  const rest = total % 1440;
+  const last = Math.floor(total / 1440) - (rest === 0 ? 1 : 0);
+  const endTime = rest ? `${pad(Math.floor(rest / 60))}:${pad(rest % 60)}` : undefined;
+  return last >= 1 ? { end: addDays(date, last), ...(endTime ? { endTime } : {}) } : { endTime: endTime ?? '23:59' };
 }
 
 export function sanitizeReminder(raw: unknown): Reminder | null {
@@ -420,12 +540,33 @@ export function sanitizeReminder(raw: unknown): Reminder | null {
       ? [...new Set(r['days'].filter((d): d is number => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6))].sort()
       : [];
   const until = repeat && isDay(r['until']) && r['until'] >= (r['date'] as string) ? r['until'] : undefined;
-  const google = sanitizeLink(r['google']);
+  let google = sanitizeLink(r['google']);
+  const date = r['date'] as string;
+  const time = isTime(r['time']) ? r['time'] : undefined;
+  const rawEnd = r['end'];
+  let end = isDay(rawEnd) && rawEnd > date ? rawEnd : undefined;
+  const rawEndTime = r['endTime'];
+  let endTime = time && isTime(rawEndTime) ? rawEndTime : undefined;
+  // antes do fim no lembrete, o evento do Google que não durava uma hora (ou um dia) guardava só a duração
+  if (google?.dur) {
+    if (!end && !endTime) {
+      const span = time ? endAfter(date, time, google.dur) : google.dur > 1 ? { end: addDays(date, google.dur - 1) } : {};
+      end = span.end;
+      endTime = time ? span.endTime : undefined;
+    }
+    const { dur: _, ...rest } = google;
+    google = rest;
+  }
+  if (end && dayNumber(end) - dayNumber(date) + 1 > MAX_SPAN) end = addDays(date, MAX_SPAN - 1);
+  // no mesmo dia, o fim vem depois do começo
+  if (!end && endTime && endTime <= time!) endTime = undefined;
   return {
     id: r['id'],
     title,
-    date: r['date'],
-    ...(isTime(r['time']) ? { time: r['time'] } : {}),
+    date,
+    ...(time ? { time } : {}),
+    ...(end ? { end } : {}),
+    ...(endTime ? { endTime } : {}),
     ...(repeat ? { repeat } : {}),
     ...(every ? { every } : {}),
     ...(days.length ? { days } : {}),

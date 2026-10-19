@@ -86,6 +86,11 @@ dialog.lembrete {
   }
 }
 
+/* o fim fica colado no começo: os dois são o "quando" (a dica sobe junto, sem o respiro do grupo) */
+.fim-desc {
+  margin-top: -7px;
+}
+
 .campo-nome {
   flex: none;
   margin-right: 8px;

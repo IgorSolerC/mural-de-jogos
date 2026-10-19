@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, output } from '@angular/core';
 import { MONTHS_LONG } from '../core/dates';
-import { Reminder, WEEKDAYS_LONG, WEEKDAYS_SHORT, addDays, addMonths, isPast, monthGrid, monthLabel, monthOf, remindersByDay, timeLabel, weekday } from '../core/calendar';
+import { Reminder, WEEKDAYS_LONG, WEEKDAYS_SHORT, addDays, addMonths, isPast, monthGrid, monthLabel, monthOf, remindersByDay, segmentOn, spanLabel, spanOf, weekday } from '../core/calendar';
 
 /** Um dia da folha, já com o que ele mostra. */
 interface Cell {
@@ -13,7 +13,7 @@ interface Cell {
   /** Na pequena, as bolinhas: a cor de cada lembrete (os primeiros) e se ele já passou. */
   dots: { color: string; past: boolean }[];
   /** Na grande, as tirinhas: o nome de cada lembrete (os primeiros), na cor dele, com o horário. */
-  chips: { id: string; title: string; time: string | null; color: string; past: boolean }[];
+  chips: { id: string; title: string; time: string | null; color: string; past: boolean; before: boolean; after: boolean }[];
   /** Quantos não couberam. */
   more: number;
   label: string;
@@ -70,7 +70,7 @@ interface Cell {
                   @if (c.chips.length) {
                     <span class="tirinhas" aria-hidden="true">
                       @for (t of c.chips; track t.id) {
-                        <span class="tirinha cartolina" [class.passou]="t.past" [attr.data-cor]="t.color" [style.--stock]="'var(--stock-' + t.color + ')'">
+                        <span class="tirinha cartolina" [class.passou]="t.past" [class.emenda-antes]="t.before" [class.emenda-depois]="t.after" [attr.data-cor]="t.color" [style.--stock]="'var(--stock-' + t.color + ')'">
                           @if (t.time) {
                             <span class="tirinha-hora">{{ t.time }}</span>
                           }
@@ -101,6 +101,8 @@ interface Cell {
     </table>
   `,
   styles: `
+    @use 'paper-kit' as kit;
+
     :host {
       display: block;
       --linha: rgb(21 21 21 / 0.16);
@@ -231,6 +233,19 @@ interface Cell {
 
       &.passou {
         text-decoration: line-through 1.5px var(--ink);
+      }
+
+      /* um lembrete de vários dias: picotada do lado em que continua no dia ao lado */
+      &.emenda-antes {
+        @include kit.picote(true, false, 3px);
+      }
+
+      &.emenda-depois {
+        @include kit.picote(false, true, 3px);
+      }
+
+      &.emenda-antes.emenda-depois {
+        @include kit.picote(true, true, 3px);
       }
     }
 
@@ -481,7 +496,7 @@ export class CalendarMonth {
           sunday: weekday(day) === 0,
           today: day === today,
           dots: mini ? list.slice(0, shown).map((r) => ({ color: r.color, past: isPast(r, day, today, now) })) : [],
-          chips: mini ? [] : list.slice(0, shown).map((r) => ({ id: r.id, title: r.title, time: r.time ? timeLabel(r.time) : null, color: r.color, past: isPast(r, day, today, now) })),
+          chips: mini ? [] : list.slice(0, shown).map((r) => this.chip(r, day, today, now)),
           more: list.length - shown,
           label: `${WEEKDAYS_LONG[weekday(day)]}, ${n} de ${MONTHS_LONG[m - 1]}${day === today ? ', hoje' : ''}${list.length ? `, ${count}: ${list.map((r) => r.title).join(', ')}` : ''}`,
           names: list.map((r) => r.title).join('\n'),
@@ -489,6 +504,14 @@ export class CalendarMonth {
       }),
     );
   });
+
+  /** A tirinha de um lembrete no dia: o horário dele ali ("20h", "até 10h", "continua") e se emenda com o dia ao lado. */
+  private chip(r: Reminder, day: string, today: string, now: string): Cell['chips'][number] {
+    const seg = spanOf(r) > 1 ? segmentOn(r, day) : null;
+    // no mês, o "continua" fica só no picote (a tirinha é pequena)
+    const time = seg && !seg.first && !(seg.last && r.endTime) ? null : spanLabel(r, day) || null;
+    return { id: r.id, title: r.title, time, color: r.color, past: isPast(r, day, today, now), before: !!seg && !seg.first, after: !!seg && !seg.last };
+  }
 
   constructor() {
     afterRenderEffect(() => {
