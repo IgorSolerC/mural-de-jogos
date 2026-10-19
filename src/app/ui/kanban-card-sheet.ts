@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
-import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, belongs, setImportance } from '../core/kanban';
+import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, MAX_DEPS, belongs, setImportance } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
+import { KanbanDeps } from '../core/kanban-deps';
+import { NOTES } from '../core/kinds';
 import { KanbanStore } from '../core/kanban-store';
 import { LABEL_MAX, MAX_TAGS, cleanTag, sanitizeTags } from '../core/note-labels';
 import { fold } from '../core/review';
@@ -12,19 +14,21 @@ import { canManage } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
+import { CardPicker } from './card-picker';
 import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 
 /**
  * A folha de uma anotação no quadro (o botão de ajustes, ou a importância da ficha): em que etapa
- * ela está, a importância e as tags (as da anotação mesmo). Tudo vale na hora (não tem "Salvar"); mudar de etapa
+ * ela está, a importância, as dependências (as anotações que precisam estar finalizadas antes, ver
+ * `KanbanDeps`) e as tags (as da anotação mesmo). Tudo vale na hora (não tem "Salvar"); mudar de etapa
  * passa por `KanbanActions` (finaliza ou abre de novo, como arrastar). Ler a anotação fecha a folha
  * e abre a leitura; Tirar do quadro deixa a anotação no mural.
  */
 @Component({
   selector: 'app-kanban-card-sheet',
-  imports: [BackdropClose, IconModule, NoteTag, Pin],
+  imports: [BackdropClose, CardPicker, IconModule, NoteTag, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -77,6 +81,40 @@ import { Pin } from './pin';
                 }
                 <button type="button" role="radio" class="imp nenhuma" [class.colado]="!d.card.importance" [attr.aria-checked]="!d.card.importance" (click)="setImp(null)">Nenhuma</button>
               </div>
+            </section>
+
+            <section class="grupo" aria-labelledby="fq-deps">
+              <h3 class="grupo-titulo" id="fq-deps">Dependências</h3>
+              <p class="dica">As anotações que precisam estar finalizadas antes desta. Finalizar com alguma aberta pergunta antes.</p>
+              @if (depRows().length) {
+                <ul class="deps" aria-labelledby="fq-deps">
+                  @for (d of depRows(); track d.note.id) {
+                    <li class="dep" [class.feita]="d.done">
+                      <span class="caixa" [class.marcada]="d.done" aria-hidden="true">
+                        @if (d.done) {
+                          <lucide-icon [img]="CheckIcon" [size]="13" aria-hidden="true" />
+                        }
+                      </span>
+                      <span class="dep-texto">
+                        <button type="button" class="dep-nome" (click)="read(d.note.id)">
+                          {{ d.note.game.name }}<span class="sr-only">{{ d.done ? ', finalizada' : ', aberta' }}</span>
+                        </button>
+                        <span class="dep-onde">{{ d.where }}</span>
+                      </span>
+                      <button type="button" class="icon-btn dep-tirar" [attr.aria-label]="'Tirar ' + d.note.game.name + ' das dependências'" title="Tirar das dependências" (click)="removeDep(d.note.id)">
+                        <lucide-icon [img]="CloseIcon" [size]="16" aria-hidden="true" />
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+              <button type="button" class="papel por-dep" [disabled]="depsFull()" (click)="pickingDep.set(true)">
+                <lucide-icon [img]="DepsIcon" [size]="16" aria-hidden="true" />
+                Pôr dependência
+              </button>
+              @if (depsFull()) {
+                <p class="dica">Esta anotação já tem {{ maxDeps }} dependências: tire uma para pôr outra.</p>
+              }
             </section>
 
             <section class="grupo" aria-labelledby="fq-tags">
@@ -140,6 +178,20 @@ import { Pin } from './pin';
         </div>
       }
     </dialog>
+
+    @if (data(); as d) {
+      <app-card-picker
+        [(open)]="pickingDep"
+        [onlyKind]="notesKind"
+        [doneOption]="true"
+        [exclude]="depExcluded()"
+        heading="Pôr dependência"
+        [hint]="'Uma anotação que precisa estar finalizada antes de “' + d.note.game.name + '”. Pode ser de outro grupo.'"
+        footHint="Toque numa anotação para pôr como dependência."
+        emptyText="Não há outra anotação que possa ser dependência desta."
+        (picked)="addDep($event.id)"
+      />
+    }
   `,
   styleUrl: './kanban-card-sheet.scss',
 })
@@ -161,6 +213,12 @@ export class KanbanCardSheet {
   protected readonly tagMax = LABEL_MAX;
   protected readonly maxTags = MAX_TAGS;
   protected readonly typed = signal('');
+  protected readonly DepsIcon = ICON.dependencias;
+  protected readonly CheckIcon = ICON.pronto;
+  protected readonly maxDeps = MAX_DEPS;
+  protected readonly notesKind = NOTES;
+  /** O seletor da dependência nova aberto. */
+  protected readonly pickingDep = signal(false);
 
   private readonly kanban = inject(KanbanStore);
   private readonly actions = inject(KanbanActions);
@@ -168,6 +226,19 @@ export class KanbanCardSheet {
   private readonly settings = inject(Settings);
   private readonly shared = inject(SharedStore);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly deps = inject(KanbanDeps);
+
+  /** As dependências guardadas (as que ainda existem): finalizada ou não e onde estão. */
+  protected readonly depRows = computed(() => {
+    const d = this.data();
+    if (!d) return [];
+    return this.deps
+      .progress(d.card.deps)
+      .all.map((note) => ({ note, done: !!note.doneAt, where: this.deps.whereOf(note, d.note.id) }));
+  });
+  protected readonly depsFull = computed(() => (this.data()?.card.deps?.length ?? 0) >= MAX_DEPS);
+  /** Fora do seletor: ela mesma, as que já são, e as que dependem dela (fariam uma roda). */
+  protected readonly depExcluded = computed(() => this.deps.excluded(this.noteId()));
 
   /** Numa compartilhada, só o dono e os gestores mudam as tags (como no editor). */
   protected readonly locked = computed(() => {
@@ -282,14 +353,22 @@ export class KanbanCardSheet {
     if (r && !(r.tags ?? []).some((t) => fold(t) === fold(tag))) this.toggleTag(known ?? tag);
   }
 
+  protected addDep(id: string): void {
+    this.deps.add(this.noteId(), id);
+  }
+
+  protected removeDep(id: string): void {
+    this.deps.remove(this.noteId(), id);
+  }
+
   protected removeFromBoard(): void {
     const board: KanbanBoard | undefined = this.kanban.get(this.boardId());
     if (board) this.actions.remove(board, this.noteId());
     this.close();
   }
 
-  protected read(): void {
-    const id = this.noteId();
+  /** Ler a anotação (ou uma dependência dela): a folha fecha e a leitura abre. */
+  protected read(id = this.noteId()): void {
     this.close();
     this.reading.emit(id);
   }

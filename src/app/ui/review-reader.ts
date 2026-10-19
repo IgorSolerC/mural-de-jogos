@@ -43,6 +43,7 @@ import { ShownDone } from '../core/shown-done';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { NoteLinks, backlinksOf, notesOf, resolveNote } from '../core/note-links';
 import { NoteBacklinks } from './note-backlinks';
+import { KanbanDeps } from '../core/kanban-deps';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { napWall } from '../core/wall-settle';
@@ -855,6 +856,7 @@ export class ReviewReader {
     void this.noteDone.offerLinked(r.id, text, line, { quiet: true });
   }
   private readonly noteDone = inject(NoteDone);
+  private readonly deps = inject(KanbanDeps);
   private readonly notePin = inject(NotePin);
   /** Fixa (ou desafixa) a sua anotação no topo do mural; a leitura continua aberta. */
   protected togglePin(): void {
@@ -872,6 +874,14 @@ export class ReviewReader {
     const r = this.review();
     if (!r || this.owner() !== null || !this.note() || !this.writable()) return;
     const done = !r.doneAt;
+    // finalizar com dependência ainda aberta (no quadro) pergunta antes; sem o sim, nada muda
+    const ok = done ? this.deps.allowFinish([r.id]) : true;
+    if (ok === true) this.applyFinish(r, done);
+    else void ok.then((yes) => yes && this.applyFinish(this.store.get(r.id) ?? r, done));
+  }
+
+  private applyFinish(r: Review, done: boolean): void {
+    if (!!r.doneAt === done) return;
     // mostrando as finalizadas, ela fica no mural: o carimbo bate aqui mesmo, e a leitura continua
     const stay = !done || this.view.showDone();
     // veio por um link: volta para a anotação de antes (o bilhete com Desfazer ficaria por baixo da leitura)

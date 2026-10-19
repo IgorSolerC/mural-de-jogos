@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, placeCards, redressCards, removeCard } from './kanban';
+import { KanbanDeps } from './kanban-deps';
 import { KanbanStore } from './kanban-store';
 import { NoteDone } from './note-done';
 import { isDone } from './review';
@@ -19,12 +20,29 @@ export class KanbanActions {
   private readonly store = inject(ReviewStore);
   private readonly noteDone = inject(NoteDone);
   private readonly toasts = inject(Toasts);
+  private readonly deps = inject(KanbanDeps);
 
   /**
    * Leva a anotação para a coluna, na posição `index` dela (no fim, sem `index`). Só a anotação da
-   * categoria do quadro entra nele: a de outra categoria (ou sem nenhuma) fica onde está.
+   * categoria do quadro entra nele: a de outra categoria (ou sem nenhuma) fica onde está. Indo para
+   * uma coluna que finaliza com alguma dependência ainda aberta, pergunta antes (ver `KanbanDeps`); sem
+   * o sim, ela fica onde estava. `then` roda depois que ela andou (na hora, ou depois do sim).
    */
-  move(boardId: string, note: string, column: string, index?: number): void {
+  move(boardId: string, note: string, column: string, index?: number, then?: () => void): void {
+    const board = this.kanban.get(boardId);
+    const r = this.store.get(note);
+    if (!board || !r || !belongs(board, r)) return;
+    const from = board.cards.find((c) => c.note === note)?.column ?? null;
+    const ok = doneChange(board, from, column) === 'finalizar' ? this.deps.allowFinish([note]) : true;
+    const go = () => {
+      this.place(boardId, note, column, index);
+      then?.();
+    };
+    if (ok === true) go();
+    else void ok.then((yes) => yes && go());
+  }
+
+  private place(boardId: string, note: string, column: string, index?: number): void {
     const board = this.kanban.get(boardId);
     const r = this.store.get(note);
     if (!board || !r || !belongs(board, r)) return;
@@ -53,9 +71,23 @@ export class KanbanActions {
   /**
    * Leva as anotações marcadas juntas para a coluna, na ordem dada, antes de `before` (ou no fim),
    * finalizando ou abrindo de novo as que a coluna pede. Um bilhete só, com um Desfazer que devolve
-   * todas para onde estavam, com o check de antes.
+   * todas para onde estavam, com o check de antes. Com dependência aberta numa das que finalizam,
+   * pergunta antes, como `move`.
    */
-  moveMany(boardId: string, notes: readonly string[], column: string, before: string | null): void {
+  moveMany(boardId: string, notes: readonly string[], column: string, before: string | null, then?: () => void): void {
+    const board = this.kanban.get(boardId);
+    if (!board) return;
+    const finishing = notes.filter((n) => doneChange(board, board.cards.find((c) => c.note === n)?.column ?? null, column) === 'finalizar');
+    const ok = finishing.length ? this.deps.allowFinish(finishing) : true;
+    const go = () => {
+      this.placeMany(boardId, notes, column, before);
+      then?.();
+    };
+    if (ok === true) go();
+    else void ok.then((yes) => yes && go());
+  }
+
+  private placeMany(boardId: string, notes: readonly string[], column: string, before: string | null): void {
     const board = this.kanban.get(boardId);
     if (!board) return;
     const rs = notes.map((n) => this.store.get(n)).filter((r) => !!r && belongs(board, r));

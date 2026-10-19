@@ -192,7 +192,7 @@ describe('página do Kanban', () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     const mexer = column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!;
-    expect(mexer.getAttribute('aria-label')).toBe('Etapa, importância e tags de Sincronizar quadros');
+    expect(mexer.getAttribute('aria-label')).toBe('Etapa, importância, dependências e tags de Sincronizar quadros');
     mexer.click();
     await settle();
     const sheet = host.querySelector('app-kanban-card-sheet')!;
@@ -428,6 +428,126 @@ describe('página do Kanban', () => {
     host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
     await settle();
     expect(seta('nsync001')!.getAttribute('aria-label')).toBe('Levar Sincronizar quadros para Fazendo');
+  });
+
+  describe('dependências', () => {
+    /** O login depende de sincronizar (aberta, A fazer) e da prova (de Estudos, finalizada). */
+    function withDeps(): KanbanBoard {
+      const b = board();
+      b.cards[0] = { ...b.cards[0], deps: ['nsync001', 'nprova01'] };
+      return b;
+    }
+    const selo = (id: string) => host.querySelector<HTMLButtonElement>(`[data-nota="${id}"] app-kanban-deps .selo`);
+    const tira = (id: string) => host.querySelector<HTMLElement>(`[data-nota="${id}"] .tira-deps`)!;
+
+    beforeEach(() => store.update({ ...store.get('nprova01')!, doneAt: T0 }));
+
+    it('o selo na ficha, ao lado da importância: o desenho e quantas já foram finalizadas, de quantas', async () => {
+      kanban.state.set(state(withDeps()));
+      await go(TRAB_URL);
+      expect(selo('nlogin01')!.closest('.pe')).not.toBeNull();
+      expect(selo('nlogin01')!.querySelector('lucide-icon')).not.toBeNull();
+      expect(selo('nlogin01')!.textContent!.trim()).toBe('1/2');
+      expect(selo('nlogin01')!.getAttribute('aria-label')).toBe('Dependências: 1 de 2 finalizadas. Ver');
+      expect(selo('nlogin01')!.classList).not.toContain('prontas');
+      // sem dependência, sem selo (e sem importância, sem o pé)
+      expect(selo('nsync001')).toBeNull();
+      expect(host.querySelector('[data-nota="nsync001"] .pe')).toBeNull();
+      // todas finalizadas: verde
+      store.update({ ...store.get('nsync001')!, doneAt: T0 });
+      await settle();
+      expect(selo('nlogin01')!.textContent!.trim()).toBe('2/2');
+      expect(selo('nlogin01')!.classList).toContain('prontas');
+      // na vista Só os títulos também, na tira
+      host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
+      await settle();
+      expect(host.querySelector('[data-nota="nlogin01"] .tira app-kanban-deps.mini .selo')!.textContent!.trim()).toBe('2/2');
+    });
+
+    it('com o mouse parado no selo, a tira mostra cada uma: o check, o nome que abre a leitura e onde ela está', async () => {
+      kanban.state.set(state(withDeps()));
+      await go(TRAB_URL);
+      const open = spyOn(TestBed.inject(Desk), 'openReview');
+      selo('nlogin01')!.parentElement!.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
+      await new Promise((r) => setTimeout(r, 300));
+      await settle();
+      expect(tira('nlogin01').matches(':popover-open')).toBeTrue();
+      expect(tira('nlogin01').querySelector('.numero')!.textContent).toBe('1 de 2');
+      const rows = [...tira('nlogin01').querySelectorAll('.dep')];
+      expect(rows.map((r) => r.querySelector('.nome')!.textContent!.trim())).toEqual(['Sincronizar quadros', 'Prova']);
+      expect(rows.map((r) => r.querySelector('.onde')!.textContent!.trim())).toEqual(['A fazer', 'Estudos · Fora do quadro']);
+      expect(rows.map((r) => r.classList.contains('feita'))).toEqual([false, true]);
+      // o check finaliza ali mesmo, e a conta acompanha
+      rows[0].querySelector<HTMLButtonElement>('.caixa')!.click();
+      await settle();
+      expect(isDone(store.get('nsync001')!)).toBeTrue();
+      expect(selo('nlogin01')!.textContent!.trim()).toBe('2/2');
+      // o nome abre a leitura (e a tira fecha)
+      tira('nlogin01').querySelector<HTMLButtonElement>('.dep .nome')!.click();
+      await settle();
+      expect(open).toHaveBeenCalledWith('nsync001');
+      expect(tira('nlogin01').matches(':popover-open')).toBeFalse();
+    });
+
+    it('o clique (ou o toque) no selo abre a tira, e "Mudar as dependências" abre a folha da anotação', async () => {
+      kanban.state.set(state(withDeps()));
+      await go(TRAB_URL);
+      selo('nlogin01')!.click();
+      await settle();
+      expect(tira('nlogin01').matches(':popover-open')).toBeTrue();
+      // o clique no selo não abre a leitura nem começa a arrastar
+      expect(host.querySelector('app-kanban-card-sheet')).toBeNull();
+      tira('nlogin01').querySelector<HTMLButtonElement>('.mudar')!.click();
+      await settle();
+      expect(host.querySelector('app-kanban-card-sheet #fq-deps')!.textContent).toBe('Dependências');
+    });
+
+    it('a folha da anotação põe dependência (o seletor esconde as que fariam roda) e tira', async () => {
+      kanban.state.set(state(withDeps()));
+      await go(TRAB_URL);
+      column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
+      await settle();
+      const sheet = host.querySelector('app-kanban-card-sheet')!;
+      expect(sheet.querySelectorAll('.dep').length).toBe(0);
+      sheet.querySelector<HTMLButtonElement>('.por-dep')!.click();
+      await settle();
+      const picker = sheet.querySelector('app-card-picker dialog')!;
+      // nem ela mesma, nem o login (que depende dela); de qualquer grupo; a prova está finalizada (escondida pelo filtro)
+      const listed = () => [...picker.querySelectorAll('.escolha .nome')].map((n) => n.textContent!.trim());
+      expect(listed()).toEqual(['Sem categoria']);
+      picker.querySelector<HTMLButtonElement>('.filtro[aria-pressed="true"]')!.click();
+      await settle();
+      expect(listed()).toEqual(['Prova', 'Sem categoria']);
+      picker.querySelector<HTMLButtonElement>('.escolha')!.click();
+      await settle();
+      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nsync001')!.deps).toEqual(['nprova01']);
+      const rows = [...sheet.querySelectorAll('.dep')];
+      expect(rows.map((r) => r.querySelector('.dep-onde')!.textContent!.trim())).toEqual(['Estudos · Fora do quadro']);
+      expect(rows[0].classList).toContain('feita');
+      sheet.querySelector<HTMLButtonElement>('.dep-tirar')!.click();
+      await settle();
+      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nsync001')!.deps).toBeUndefined();
+      expect(sheet.querySelectorAll('.dep').length).toBe(0);
+    });
+
+    it('a seta pergunta antes de finalizar com dependência aberta', async () => {
+      const b = withDeps();
+      b.cards[0] = { ...b.cards[0], column: 'fazendo' };
+      kanban.state.set(state(b));
+      await go(TRAB_URL);
+      const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(false);
+      host.querySelector<HTMLButtonElement>('[data-nota="nlogin01"] .acoes .avancar')!.click();
+      await settle();
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(ask.calls.mostRecent().args[0].confirm).toBe('Finalizar mesmo assim');
+      expect(namesIn('fazendo')).toEqual(['nlogin01']);
+      expect(isDone(store.get('nlogin01')!)).toBeFalse();
+      ask.and.resolveTo(true);
+      host.querySelector<HTMLButtonElement>('[data-nota="nlogin01"] .acoes .avancar')!.click();
+      await settle();
+      expect(cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note)).toEqual(['nlogin01']);
+      expect(isDone(store.get('nlogin01')!)).toBeTrue();
+    });
   });
 
   it('Pular esta coluna, nos ajustes dela: a seta das colunas da esquerda passa direto por ela', async () => {

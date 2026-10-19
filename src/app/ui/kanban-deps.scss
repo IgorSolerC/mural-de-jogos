@@ -1,0 +1,323 @@
+@use 'kanban-kit' as kk;
+
+:host {
+  display: inline-flex;
+  flex: none;
+}
+
+/* O selo: a etiqueta de bloco da importância (as duas listras finas, a letra de etiqueta), com o
+   desenho das dependências e a conta. Na tinta preta enquanto falta alguma; todas finalizadas, verde. */
+.selo {
+  @include kk.importancia;
+  --imp: #151515;
+  gap: 4px;
+  border: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  rotate: 1.5deg;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &.prontas {
+    --imp: #0b7a3b;
+  }
+
+  &:hover {
+    translate: 0 -1px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+:host(.aberta) .selo {
+  translate: 0 -1px;
+  rotate: 0deg;
+}
+
+/* na tira da vista "Só os títulos": menor, como a escala da importância ao lado */
+:host(.mini) .selo {
+  min-height: 20px;
+  padding: 3px 5px 2px 4px;
+  font-size: 0.68rem;
+  rotate: -2deg;
+}
+
+/* ===== A tira das dependências: papel branco preso com um pedaço de fita crepe (a do volume) ===== */
+.tira-deps {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(272px, calc(100vw - 16px));
+  padding: 14px 12px 8px 14px;
+  overflow: visible;
+  border: 0;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(94deg, rgb(0 0 0 / 0.018) 0 1px, transparent 1px 4px),
+    #fbfaf6;
+  color: #151515;
+  font-size: 16px;
+  line-height: 1.2;
+  text-align: left;
+  white-space: normal;
+  rotate: -0.6deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.3),
+    0 8px 18px -6px rgb(0 0 0 / 0.42);
+  pointer-events: auto;
+}
+
+.tira-deps:popover-open {
+  display: grid;
+  gap: 6px;
+}
+
+/* aberta e ainda sem lugar (o aviso de aberta chega um instante depois): não aparece no canto */
+.tira-deps:popover-open:not(.posta) {
+  visibility: hidden;
+}
+
+.tira-deps.posta {
+  animation: tira-chega 200ms var(--ease-ui);
+}
+
+@keyframes tira-chega {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+.fita {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 58px;
+  height: 18px;
+  translate: -50% 0;
+  rotate: -3deg;
+  background: rgb(222 205 160 / 0.86);
+  clip-path: polygon(2% 8%, 98% 0, 100% 92%, 0 100%);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.08);
+}
+
+.cabeca {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-right: 2px;
+}
+
+.titulo {
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.numero {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.lista {
+  display: grid;
+  gap: 2px;
+  max-height: min(320px, 50vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(21 21 21 / 0.3) transparent;
+}
+
+/* uma dependência: o check, o nome (sublinhado na cartolina dela, para o olho achar a ficha no quadro)
+   e onde ela está */
+.dep {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  padding: 5px 2px 5px 0;
+
+  & + & {
+    border-top: 1px dashed rgb(21 21 21 / 0.16);
+  }
+}
+
+/* a caixinha das tarefas, a tinta: vazia falta, com o tique já foi */
+.caixa {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  padding: 0;
+  border: 2px solid #151515;
+  border-radius: 3px;
+  background: #fff;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    scale var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  /* a área de toque passa da caixinha */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+
+  &[aria-pressed='true'] {
+    background: #151515;
+  }
+
+  &:hover {
+    scale: 1.08;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+.texto {
+  display: grid;
+  min-width: 0;
+}
+
+.nome {
+  justify-self: start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  text-align: left;
+  text-decoration-line: underline;
+  text-decoration-color: var(--stock);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 3px;
+  text-decoration-skip-ink: none;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-thickness: 5px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/* a cartolina branca não aparece no papel branco: o risco vai na tinta clarinha */
+.dep[data-cor='branco'] .nome {
+  text-decoration-color: rgb(21 21 21 / 0.25);
+}
+
+/* a finalizada: riscada a caneta, como a tarefa feita */
+.feita .nome {
+  color: rgb(21 21 21 / 0.62);
+  text-decoration-line: line-through;
+  text-decoration-color: rgb(21 21 21 / 0.7);
+  text-decoration-thickness: 1.5px;
+}
+
+.onde {
+  margin-top: 2px;
+  color: rgb(21 21 21 / 0.66);
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+/* mudar as dependências: o link miúdo do pé, que abre a folha da anotação no quadro */
+.mudar {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  color: #151515;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-top: 1px solid rgb(21 21 21 / 0.14);
+  border-radius: 0;
+  width: 100%;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+@media (hover: none) {
+  .caixa {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mudar {
+    padding: 10px 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selo,
+  .caixa {
+    transition: none;
+  }
+
+  .tira-deps.posta {
+    animation: none;
+  }
+}

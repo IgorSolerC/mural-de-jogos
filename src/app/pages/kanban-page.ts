@@ -636,9 +636,10 @@ export class KanbanPage {
     const col = this.pickColumn;
     this.pickColumn = null;
     if (!b || !col) return;
-    this.actions.move(b.id, r.id, col);
-    this.reveal(r.id);
-    this.desk.land(r.id);
+    this.actions.move(b.id, r.id, col, undefined, () => {
+      this.reveal(r.id);
+      this.desk.land(r.id);
+    });
   }
 
   /**
@@ -702,11 +703,12 @@ export class KanbanPage {
       index = at + 1;
     } else return;
     e.preventDefault();
-    this.actions.move(b.id, note, to, index);
-    this.reveal(note);
-    this.sayPlace(note, n, to);
-    // a ficha foi redesenhada em outro lugar: o foco vai com ela
-    requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
+    this.actions.move(b.id, note, to, index, () => {
+      this.reveal(note);
+      this.sayPlace(note, n, to);
+      // a ficha foi redesenhada em outro lugar: o foco vai com ela
+      requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
+    });
   }
 
   /**
@@ -720,9 +722,13 @@ export class KanbanPage {
     if (!b) return;
     const next = nextStop(b.columns, column);
     if (!next) return;
-    this.actions.move(b.id, note, next.id, 0);
+    this.actions.move(b.id, note, next.id, 0, () => this.arrived(note, next.id));
+  }
+
+  /** A ficha chegou pela seta: pisca onde está agora, o quadro rola até ela e o foco vai para a seta dela. */
+  private arrived(note: string, column: string): void {
     this.reveal(note);
-    this.sayPlace(note, this.store.get(note)?.game.name ?? 'A anotação', next.id);
+    this.sayPlace(note, this.store.get(note)?.game.name ?? 'A anotação', column);
     requestAnimationFrame(() => {
       const li = this.host.querySelector<HTMLElement>(`.lugar[data-nota="${note}"]`);
       const card = li?.querySelector<HTMLElement>('app-kanban-note');
@@ -762,10 +768,11 @@ export class KanbanPage {
     // na ordem à mão (a do empate), antes ou depois da vizinha
     const stored = cardsIn(b, col.id).filter((c) => c.note !== note);
     const i = stored.findIndex((c) => c.note === other.note);
-    this.actions.move(b.id, note, col.id, by < 0 ? i : i + 1);
-    this.reveal(note);
-    this.sayPlace(note, name, col.id);
-    requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
+    this.actions.move(b.id, note, col.id, by < 0 ? i : i + 1, () => {
+      this.reveal(note);
+      this.sayPlace(note, name, col.id);
+      requestAnimationFrame(() => this.host.querySelector<HTMLElement>(`[data-nota="${note}"] .hit`)?.focus());
+    });
   }
 
   // ===== Puxar o quadro com o mouse (no papel vazio): ele rola para o lado =====
@@ -911,8 +918,8 @@ export class KanbanPage {
   protected onPointerDown(e: PointerEvent, note: string, column: string): void {
     if (this.drag() || e.button !== 0 || !e.isPrimary) return;
     const target = e.target as HTMLElement;
-    // as etiquetas, o botão delas e as caixinhas das tarefas são deles
-    if (target.closest('.pe, input, label, a, select, textarea')) return;
+    // as etiquetas, o botão delas, o selo das dependências e as caixinhas das tarefas são deles
+    if (target.closest('.pe, app-kanban-deps, input, label, a, select, textarea')) return;
     const el = e.currentTarget as HTMLElement;
     const touch = e.pointerType === 'touch';
     this.start = { x: e.clientX, y: e.clientY, note, column, el, touch, id: e.pointerId };
@@ -1183,17 +1190,21 @@ export class KanbanPage {
     }
     if (d.group.length) {
       // todas juntas, na ordem do quadro, antes da que estava no lugar da vaga
-      this.actions.moveMany(b.id, d.group, d.over, before ?? null);
-      for (const n of d.group) this.reveal(n);
-      this.said.set(`${d.group.length} anotações: ${col?.name ?? ''}.`);
+      const group = d.group;
+      this.actions.moveMany(b.id, group, d.over, before ?? null, () => {
+        for (const n of group) this.reveal(n);
+        this.said.set(`${group.length} anotações: ${col?.name ?? ''}.`);
+      });
       return;
     }
     const all = cardsIn(b, d.over).filter((c) => c.note !== d.note);
     const index = before ? all.findIndex((c) => c.note === before) : all.length;
-    this.actions.move(b.id, d.note, d.over, index < 0 ? undefined : index);
-    this.reveal(d.note);
-    const n = this.store.get(d.note)?.game.name ?? 'A anotação';
-    this.said.set(`${n}: ${col?.name ?? ''}.`);
+    const note = d.note;
+    this.actions.move(b.id, note, d.over, index < 0 ? undefined : index, () => {
+      this.reveal(note);
+      const n = this.store.get(note)?.game.name ?? 'A anotação';
+      this.said.set(`${n}: ${col?.name ?? ''}.`);
+    });
   }
 
   private endDrag(): void {

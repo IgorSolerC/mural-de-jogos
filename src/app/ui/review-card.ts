@@ -58,6 +58,7 @@ import { toggleCheck } from '../core/rich-text';
 import { NoteLinks, backlinksOf, partOfLabel, resolveNote } from '../core/note-links';
 import { NoteBacklinks } from './note-backlinks';
 import { Desk } from '../core/desk';
+import { KanbanDeps } from '../core/kanban-deps';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { WallMotion } from '../core/wall-motion';
@@ -1704,6 +1705,7 @@ export class ReviewCard {
 
   private readonly desk = inject(Desk);
   private readonly noteDone = inject(NoteDone);
+  private readonly deps = inject(KanbanDeps);
   private readonly view = inject(WallView);
   private readonly motion = inject(WallMotion);
 
@@ -1788,7 +1790,12 @@ export class ReviewCard {
   protected finish(): void {
     // o carimbo ainda batendo: o segundo clique (um duplo clique) não desfaz o que acabou de fazer
     if (!this.canFinish() || this.stamping()) return;
-    this.noteDone.set(this.review().id, !this.review().doneAt);
+    const id = this.review().id;
+    const done = !this.review().doneAt;
+    // finalizar com dependência ainda aberta (no quadro) pergunta antes
+    const ok = done ? this.deps.allowFinish([id]) : true;
+    if (ok === true) this.noteDone.set(id, done);
+    else void ok.then((yes) => yes && this.noteDone.set(id, done));
   }
 
   /** A ficha sai do mural; o foco que estava nela passa para a vizinha (senão cairia no nada). */

@@ -136,11 +136,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 29: os grupos das anotações e as colunas do Kanban escolhem o ícone na mesma cartela (a soma das duas
  *     de antes, ver core/icon-choices.ts). Um site antigo jogaria fora o ícone que a cartela dele não
  *     tinha (o grupo ficaria com o de sempre, a coluna com o círculo) e enviaria assim.
+ * 30: as dependências de uma anotação no quadro Kanban (`deps`). Um site antigo jogaria o campo fora e
+ *     enviaria o quadro assim, e as dependências sumiriam em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 29;
+export const SYNC_SCHEMA = 30;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

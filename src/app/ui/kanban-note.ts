@@ -2,9 +2,11 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { IMPORTANCE_LABEL, KanbanCard } from '../core/kanban';
+import { KanbanDeps } from '../core/kanban-deps';
 import { Review } from '../core/review';
 import { Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
+import { KanbanDepsBadge } from './kanban-deps';
 import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-card';
 
@@ -57,10 +59,10 @@ export class KanbanReviewCard extends ReviewCard {
 
 /**
  * Uma anotação no quadro (ver pages/kanban-page.ts), numa de duas vistas:
- * - **fichas**: a ficha simples dela (com as tags dela, cada uma na sua cor) e, colada na beirada
- *   de baixo, a etiqueta de importância; tocar na ficha abre a leitura.
- * - **títulos** (`dense`): só uma tira da cartolina dela com o nome e a escala da importância, para
- *   caber o quadro inteiro na tela.
+ * - **fichas**: a ficha simples dela (com as tags dela, cada uma na sua cor) e, coladas na beirada
+ *   de baixo, a etiqueta de importância e o selo das dependências; tocar na ficha abre a leitura.
+ * - **títulos** (`dense`): só uma tira da cartolina dela com o nome, o selo das dependências e a
+ *   escala da importância, para caber o quadro inteiro na tela.
  * Nas duas, a etiqueta de tinta das ações (como o Fixar e o Finalizar do mural) aparece com o mouse
  * em cima ou o foco do teclado: os ajustes, que abrem a folha da anotação no quadro, e, fora da última
  * coluna, a seta que a leva para a coluna seguinte (a ponta só, como a do iPhone); no toque, fica
@@ -68,7 +70,7 @@ export class KanbanReviewCard extends ReviewCard {
  */
 @Component({
   selector: 'app-kanban-note',
-  imports: [KanbanReviewCard, IconModule, NgTemplateOutlet],
+  imports: [KanbanReviewCard, KanbanDepsBadge, IconModule, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[attr.data-ficha]': 'review().id', '[class.titulo]': 'dense()' },
   template: `
@@ -80,6 +82,9 @@ export class KanbanReviewCard extends ReviewCard {
           <span class="sem-texto" title="Sem descrição" aria-hidden="true">
             <lucide-icon [img]="NoTextIcon" [size]="15" aria-hidden="true" />
           </span>
+        }
+        @if (hasDeps()) {
+          <app-kanban-deps class="dependencias" [noteId]="review().id" [owner]="review().game.name" [deps]="card().deps!" [mini]="true" (opened)="opened.emit($event)" (edit)="details.emit()" />
         }
         @if (card().importance; as imp) {
           <span class="imp-mini" [attr.data-imp]="imp" [title]="'Importância: ' + label[imp]" aria-hidden="true">
@@ -95,16 +100,21 @@ export class KanbanReviewCard extends ReviewCard {
     } @else {
       <app-review-card [review]="review()" [compact]="true" [preview]="true" [checkable]="true" [looks]="looks()" (opened)="opened.emit(review().id)">
         <!-- dentro da ficha: sobe e gira com ela quando o mouse chega -->
-        @if (card().importance; as imp) {
+        @if (card().importance || hasDeps()) {
           <div class="pe">
-            <button type="button" class="imp" [attr.data-imp]="imp" [attr.aria-label]="'Importância: ' + label[imp] + '. Mudar'" (click)="details.emit()">
-              <span class="escala" aria-hidden="true">
-                @for (n of steps; track n) {
-                  <i [class.acesa]="n <= level[imp]"></i>
-                }
-              </span>
-              {{ label[imp] }}
-            </button>
+            @if (card().importance; as imp) {
+              <button type="button" class="imp" [attr.data-imp]="imp" [attr.aria-label]="'Importância: ' + label[imp] + '. Mudar'" (click)="details.emit()">
+                <span class="escala" aria-hidden="true">
+                  @for (n of steps; track n) {
+                    <i [class.acesa]="n <= level[imp]"></i>
+                  }
+                </span>
+                {{ label[imp] }}
+              </button>
+            }
+            @if (hasDeps()) {
+              <app-kanban-deps class="dependencias" [noteId]="review().id" [owner]="review().game.name" [deps]="card().deps!" (opened)="opened.emit($event)" (edit)="details.emit()" />
+            }
           </div>
         }
       </app-review-card>
@@ -113,7 +123,7 @@ export class KanbanReviewCard extends ReviewCard {
     <ng-template #adjust>
       <!-- as ações da anotação, juntas numa etiqueta de tinta: os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
       <div class="acoes" [class.duas]="!!next()">
-        <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância e tags de ' + review().game.name" title="Etapa, importância e tags" aria-haspopup="dialog" (click)="details.emit()">
+        <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância, dependências e tags de ' + review().game.name" title="Etapa, importância, dependências e tags" aria-haspopup="dialog" (click)="details.emit()">
           <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
         </button>
         @if (next(); as to) {
@@ -141,6 +151,9 @@ export class KanbanNote {
   protected readonly AdjustIcon = ICON.ajustar;
   protected readonly NextIcon = ICON.proximo;
   protected readonly NoTextIcon = ICON.escrever;
+  /** Com dependências guardadas: o selo com a conta (as apagadas não contam). */
+  private readonly depsOf = inject(KanbanDeps);
+  protected readonly hasDeps = computed(() => this.depsOf.progress(this.card().deps).total > 0);
   /** A anotação só com o título, sem descrição (a ficha diz na linha da data; a tira, com o lápis). */
   protected readonly noText = computed(() => !this.review().text.trim());
   protected readonly label = IMPORTANCE_LABEL;

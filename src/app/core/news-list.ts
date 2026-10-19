@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-19-dependencias',
+    version: '1.27.0',
+    kind: 'funcionalidade',
+    date: '2026-10-19',
+    title: 'Dependências no Kanban',
+    items: [
+      'Uma anotação do Kanban pode depender de outras, de qualquer grupo: em Dependências, na folha da anotação no quadro, ponha as que precisam estar finalizadas antes dela (o site não deixa uma depender da outra em roda).',
+      'A ficha mostra o selo das dependências com a conta das finalizadas, como 1/2, e fica verde quando todas estão. Com o mouse parado nele (ou tocando), a lista mostra cada uma e onde ela está, para finalizar ali mesmo ou abrir a leitura.',
+      'Finalizar uma anotação com dependência ainda aberta (levando para uma coluna que finaliza, pelo check da ficha ou pela leitura) pergunta antes, dizendo quais faltam.',
+    ],
+  },
+  {
     id: '2026-10-19-icones',
     version: '1.26.2',
     kind: 'ajustes',

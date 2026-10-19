@@ -94,6 +94,18 @@ export class KanbanStore {
     return f;
   }
 
+  /**
+   * O lugar da anotação no quadro do grupo dela (o quadro e a anotação nele), ou null: sem grupo, fora
+   * do quadro, ou apagada.
+   */
+  cardOf(note: string): { board: KanbanBoard; card: KanbanCard } | null {
+    const category = this.notesById().get(note)?.category;
+    if (!category?.trim()) return null;
+    const board = this.boardFor(category);
+    const card = board.cards.find((c) => c.note === note);
+    return card ? { board, card } : null;
+  }
+
   /** Troca um quadro pelo resultado de `change` (as funções de core/kanban.ts). O de sempre passa a ser guardado. */
   update(id: string, change: (b: KanbanBoard, at: string) => KanbanBoard): void {
     const at = new Date().toISOString();

@@ -109,6 +109,12 @@ export interface KanbanCard {
   /** Vestida pelo card padrão da coluna (ver `dressBoard`). */
   dress?: Dress;
   /**
+   * As dependências: as anotações (de qualquer grupo, pelo id) que precisam estar finalizadas antes
+   * desta ser finalizada. Finalizar com alguma ainda aberta pergunta antes (ver `KanbanDeps`). Nunca
+   * em roda: uma anotação não depende de outra que, por algum caminho, depende dela (`dependsOn`).
+   */
+  deps?: string[];
+  /**
    * Quando a pessoa a pôs no lugar (ou mudou a importância) pela última vez: na junção de dois
    * aparelhos que mexeram na mesma anotação, vale a mexida por último (e não o quadro mexido por último).
    */
@@ -163,6 +169,8 @@ export const EMPTY_KANBAN: KanbanState = { boards: [], removed: {}, legacy: [] }
 export const MAX_BOARDS = 200;
 export const MAX_COLUMNS = 20;
 export const MAX_CARDS = 1000;
+/** Quantas dependências uma anotação pode ter. */
+export const MAX_DEPS = 30;
 export const NAME_MAX = 40;
 /** A hora de um quadro em que ninguém mexeu: qualquer quadro de verdade passa na frente dele. */
 export const FRESH_AT = '1970-01-01T00:00:00.000Z';
@@ -268,6 +276,11 @@ function sanitizeColumns(raw: unknown, prefix?: string): KanbanColumn[] {
   return columns.length ? columns : defaultColumns(prefix);
 }
 
+/** As dependências guardadas de uma anotação: ids, sem repetir, sem ela mesma. */
+function sanitizeDeps(raw: unknown, note: string): string[] {
+  return [...new Set(asList(raw).map(cleanId))].filter((d) => d && d !== note).slice(0, MAX_DEPS);
+}
+
 /** As anotações guardadas de um quadro (com o que veio delas): só as de coluna que existe, uma vez cada. */
 function sanitizeCards(raw: unknown, columns: readonly KanbanColumn[]): { card: KanbanCard; raw: Record<string, unknown> }[] {
   const out: { card: KanbanCard; raw: Record<string, unknown> }[] = [];
@@ -277,7 +290,11 @@ function sanitizeCards(raw: unknown, columns: readonly KanbanColumn[]): { card: 
     const column = cleanId(cr['column']);
     if (!note || !columns.some((x) => x.id === column) || out.some((x) => x.card.note === note) || out.length >= MAX_CARDS) continue;
     const dress = sanitizeDress(cr['dress'], columns);
-    out.push({ card: { note, column, importance: importanceOf(cr['importance']), ...(dress ? { dress } : {}), ...(isIso(cr['at']) ? { at: cr['at'] } : {}) }, raw: cr });
+    const deps = sanitizeDeps(cr['deps'], note);
+    out.push({
+      card: { note, column, importance: importanceOf(cr['importance']), ...(dress ? { dress } : {}), ...(deps.length ? { deps } : {}), ...(isIso(cr['at']) ? { at: cr['at'] } : {}) },
+      raw: cr,
+    });
   }
   return out;
 }
@@ -681,6 +698,58 @@ export function removeCard(b: KanbanBoard, note: string, at: string): KanbanBoar
 
 export function setImportance(b: KanbanBoard, note: string, importance: Importance | null, at: string): KanbanBoard {
   return touch(b, { cards: b.cards.map((c) => (c.note === note ? { ...c, importance, at } : c)) }, at);
+}
+
+/**
+ * As dependências da anotação passam a ser `deps` (na ordem dada; vazia: nenhuma). As que fariam uma
+ * roda (ver `dependsOn`) ficam de fora. Quem confere a roda pelos quadros todos é quem chama; aqui,
+ * só pelo quadro.
+ */
+export function setDeps(b: KanbanBoard, note: string, deps: readonly string[], at: string): KanbanBoard {
+  const card = b.cards.find((c) => c.note === note);
+  if (!card) return b;
+  const next = sanitizeDeps(deps, note).filter((d) => !dependsOn([b], d, note));
+  if (canonicalJson(next) === canonicalJson(card.deps ?? [])) return b;
+  return touch(
+    b,
+    {
+      cards: b.cards.map((c) => {
+        if (c.note !== note) return c;
+        const { deps: _, ...plain } = c;
+        return { ...plain, ...(next.length ? { deps: next } : {}), at };
+      }),
+    },
+    at,
+  );
+}
+
+/**
+ * A anotação `note` depende de `other`, direto ou por algum caminho (pelas dependências guardadas
+ * nos quadros)? Pôr `other` como dependência de uma anotação de que ela depende faria uma roda: nenhuma
+ * das duas poderia ser finalizada primeiro.
+ */
+export function dependsOn(boards: readonly KanbanBoard[], note: string, other: string): boolean {
+  const deps = new Map<string, readonly string[]>();
+  for (const b of boards) for (const c of b.cards) if (c.deps?.length) deps.set(c.note, [...(deps.get(c.note) ?? []), ...c.deps]);
+  const seen = new Set<string>();
+  const stack = [note];
+  while (stack.length) {
+    const at = stack.pop()!;
+    if (seen.has(at)) continue;
+    seen.add(at);
+    for (const d of deps.get(at) ?? []) {
+      if (d === other) return true;
+      stack.push(d);
+    }
+  }
+  return false;
+}
+
+/** Quantas dependências já foram finalizadas, de quantas (só as que ainda existem), e as abertas. */
+export function depProgress<T extends { id: string; doneAt?: string | null }>(deps: readonly string[] | undefined, notes: ReadonlyMap<string, T>): { done: number; total: number; open: T[]; all: T[] } {
+  const all = (deps ?? []).map((d) => notes.get(d)).filter((n): n is T => !!n);
+  const open = all.filter((n) => !n.doneAt);
+  return { done: all.length - open.length, total: all.length, open, all };
 }
 
 /**

@@ -228,6 +228,7 @@ import {
   Waves,
   WifiOff,
   Wind,
+  Workflow,
   X,
   Zap,
 } from 'lucide-angular';
@@ -413,6 +414,8 @@ export const ICON = {
   painel: LayoutDashboard,
   grade: Grid3x3,
   colunas: Columns3,
+  /** As dependências de uma anotação no quadro: as que precisam estar finalizadas antes dela. */
+  dependencias: Workflow,
   parede: BrickWall,
   moldura: Frame,
   capas: Images,

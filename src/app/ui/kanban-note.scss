@@ -254,6 +254,12 @@
   opacity: 0.6;
 }
 
+/* o selo das dependências, por cima do nome (que cobre a tira inteira para abrir a leitura) */
+.tira .dependencias {
+  position: relative;
+  z-index: 1;
+}
+
 /* a importância: a etiqueta de bloco sem o nome, só a escala, colada na ponta da tira */
 .imp-mini {
   @include kk.importancia;
