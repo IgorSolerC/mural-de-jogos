@@ -28,7 +28,7 @@ const MAX_PAGES = 8;
 export const MAX_OPS = 25;
 const UPSTREAM_TIMEOUT_MS = 10_000;
 const EVENT_FIELDS =
-  'nextPageToken,nextSyncToken,items(id,status,summary,start,end,recurrence,recurringEventId,originalStartTime,colorId,updated,etag,htmlLink,eventType,organizer(self),attendees(self))';
+  'nextPageToken,nextSyncToken,items(id,status,summary,start,end,recurrence,recurringEventId,originalStartTime,colorId,updated,etag,htmlLink,eventType,reminders,organizer(self),attendees(self))';
 
 /** O acesso de cada conta enquanto o Worker está de pé (vale ~1 hora): poupa um pedido ao Google por chamada. */
 const accessCache = new Map<string, { token: string; until: number }>();

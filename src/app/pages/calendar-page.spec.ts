@@ -373,6 +373,56 @@ describe('página do Calendário', () => {
       expect(tiras[1].getAttribute('aria-label')).toContain('Dia 2 de 3');
     });
 
+    it('personalizar a repetição como no Google, e marcar sem aviso', async () => {
+      const s = await openNew('2026-10-20'); // a terceira terça
+      type(s.querySelector<HTMLInputElement>('.nome input')!, 'Reunião do condomínio');
+      // o tipo: uma marcação, que não avisa
+      [...s.querySelectorAll<HTMLInputElement>('input[name="lb-tipo"]')][1].click();
+      await settle();
+      expect(text(s.querySelector('#lb-tipo-d'))).toBe('Fica marcado no calendário, sem aviso no celular.');
+      [...s.querySelectorAll<HTMLInputElement>('input[name="lb-repetir"]')][3].click(); // todo mês
+      await settle();
+      const abrir = s.querySelector<HTMLButtonElement>('.personalizar-btn')!;
+      expect(abrir.getAttribute('aria-expanded')).toBe('false');
+      abrir.click();
+      await settle();
+      const modos = [...s.querySelectorAll<HTMLElement>('input[name="lb-mes"]')].map((i) => text(i.parentElement));
+      expect(modos).toEqual(['No dia 20', 'Na terceira terça']);
+      s.querySelectorAll<HTMLInputElement>('input[name="lb-mes"]')[1].click();
+      await settle();
+      const cada = s.querySelector<HTMLInputElement>('.personalizar .intervalo input')!;
+      cada.value = '2';
+      cada.dispatchEvent(new Event('change'));
+      await settle();
+      expect(text(s.querySelector('.personalizar .unidade'))).toBe('meses');
+      s.querySelectorAll<HTMLInputElement>('input[name="lb-termina"]')[2].click(); // depois de
+      await settle();
+      const vezes = s.querySelector<HTMLInputElement>('.termina input')!;
+      vezes.value = '6';
+      vezes.dispatchEvent(new Event('change'));
+      await settle();
+      expect(text(s.querySelector('.frase'))).toBe('A cada 2 meses, na terceira terça-feira, 6 vezes.');
+      s.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      await settle();
+      const r = calendar.reminders().find((x) => x.title === 'Reunião do condomínio')!;
+      expect(r).toEqual(jasmine.objectContaining({ repeat: 'mes', every: 2, nth: 3, count: 6, until: '2027-08-17', quiet: true }));
+
+      // a semana: os dias, e o personalizar já aberto num que repete personalizado
+      await go('/anotacoes/calendario?vista=dia&dia=2026-12-15');
+      $$('.editar')[0].click();
+      await settle();
+      const s2 = sheet()!;
+      expect(s2.querySelector('.personalizar')).not.toBeNull();
+      expect(text($('.lembrete-meta'))).toContain('Marcação, sem aviso');
+      [...s2.querySelectorAll<HTMLInputElement>('input[name="lb-repetir"]')][2].click(); // toda semana
+      await settle();
+      const dias = [...s2.querySelectorAll<HTMLInputElement>('.dias-semana input')];
+      expect(dias.map((d) => d.checked)).toEqual([false, false, true, false, false, false, false]);
+      dias[4].click();
+      await settle();
+      expect(text(s2.querySelector('.frase'))).toContain('Toda semana, na terça e quinta');
+    });
+
     it('nada muda no calendário até salvar', async () => {
       await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
       $$('.editar')[1].click();

@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-19-varios-dias',
+    id: '2026-10-19-repeticoes',
     version: '1.26.2',
     kind: 'ajustes',
     date: '2026-10-19',
-    title: 'Lembretes de vários dias',
+    title: 'Lembretes de vários dias e repetições personalizadas',
     melhorias: [
+      'As repetições do Calendário ganharam o Personalizar: a cada 2 semanas (ou tantos dias, meses ou anos), em vários dias da semana (de segunda a sexta, por exemplo), na terceira terça ou na última sexta do mês, e o fim num dia ou depois de tantas vezes.',
       'Um lembrete do Calendário pode durar vários dias (um congresso, uma viagem): ele aparece em cada dia, do primeiro ao último, numa tira picotada do lado em que continua; com horário, ele também diz a hora em que acaba.',
     ],
   },

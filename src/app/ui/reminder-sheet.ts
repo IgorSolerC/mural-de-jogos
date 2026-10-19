@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, effect, inject, input, linkedSignal, output, signal, untracked, viewChild } from '@angular/core';
-import { Check, FilePlus, LucideAngularModule, Paperclip, Trash2, X } from 'lucide-angular';
+import { Bell, BellOff, Check, FilePlus, LucideAngularModule, Paperclip, SlidersHorizontal, Trash2, X } from 'lucide-angular';
 import {
+  MAX_COUNT,
   MAX_NOTES,
   REPEATS,
   REPEAT_LABEL,
@@ -8,11 +9,17 @@ import {
   Repeat,
   TITLE_MAX,
   WEEKDAYS_LONG,
+  WEEKDAYS_SHORT,
   addDays,
+  addMonths,
+  countEnd,
   dayAndMonth,
   isDay,
+  isLastOfMonth,
   longDay,
   nextOccurrence,
+  nthLabel,
+  nthOf,
   occurrenceStart,
   rangeLabel,
   repeatSentence,
@@ -20,8 +27,10 @@ import {
   sanitizeReminder,
   spanOf,
   timeLabel,
+  unitLabel,
   weekday,
 } from '../core/calendar';
+import { MONTHS_LONG } from '../core/dates';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { NOTES } from '../core/kinds';
@@ -51,6 +60,9 @@ const REPEAT_OPTIONS: readonly (Repeat | 'nunca')[] = ['nunca', ...REPEATS];
 
 /** O horário que o lembrete ganha ao sair do "dia todo". */
 const FIRST_TIME = '09:00';
+
+/** Como a repetição acaba: nunca, num dia, ou depois de N vezes. */
+type EndMode = 'nunca' | 'dia' | 'vezes';
 
 /**
  * A folha de um lembrete do Calendário (novo ou para mudar): o que lembrar, o dia, o horário (ou o dia
@@ -108,6 +120,25 @@ const FIRST_TIME = '09:00';
             @if (missing()) {
               <p class="erro-msg" id="lb-nome-erro" role="alert">Falta o nome do lembrete.</p>
             }
+          </section>
+
+          <section class="grupo" aria-labelledby="lb-tipo-t">
+            <h3 class="grupo-titulo" id="lb-tipo-t">Tipo</h3>
+            <div class="segmentos dois" role="radiogroup" aria-labelledby="lb-tipo-t" aria-describedby="lb-tipo-d">
+              <label class="segmento">
+                <input type="radio" name="lb-tipo" [checked]="!d.quiet" [disabled]="!!locked()" (change)="setQuiet(false)" />
+                <lucide-icon [img]="BellIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="seg-nome">Lembrete</span>
+              </label>
+              <label class="segmento">
+                <input type="radio" name="lb-tipo" [checked]="!!d.quiet" [disabled]="!!locked()" (change)="setQuiet(true)" />
+                <lucide-icon [img]="QuietIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <span class="seg-nome">Marcação</span>
+              </label>
+            </div>
+            <p class="linha-desc" id="lb-tipo-d">
+              {{ d.quiet ? 'Fica marcado no calendário, sem aviso no celular.' : 'Com o Google Agenda ligado, ele avisa no celular, com os avisos da sua agenda.' }}
+            </p>
           </section>
 
           <section class="grupo" aria-labelledby="lb-quando-t">
@@ -174,6 +205,74 @@ const FIRST_TIME = '09:00';
                 </label>
               }
             </div>
+            @if (d.repeat && !locked()) {
+              <button type="button" class="papel personalizar-btn" [attr.aria-expanded]="custom()" aria-controls="lb-personalizar" (click)="custom.set(!custom())">
+                <lucide-icon [img]="CustomIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                {{ custom() ? 'Fechar o personalizar' : 'Personalizar' }}
+              </button>
+            }
+            @if (d.repeat && custom() && !locked()) {
+              <div class="personalizar" id="lb-personalizar">
+                <label class="campo intervalo">
+                  <span class="campo-nome">A cada</span>
+                  <input type="number" inputmode="numeric" min="1" max="99" [value]="d.every ?? 1" (change)="setEvery($any($event.target).value)" />
+                  <span class="unidade">{{ unit() }}</span>
+                </label>
+
+                @if (d.repeat === 'semana') {
+                  <fieldset class="sub">
+                    <legend class="sub-nome">Nos dias</legend>
+                    <div class="dias-semana">
+                      @for (w of weekdaysShort; track $index) {
+                        <label class="segmento dia-semana" [title]="weekdaysLong[$index]">
+                          <input type="checkbox" [checked]="weekDays().includes($index)" [attr.aria-label]="weekdaysLong[$index]" (change)="toggleDay($index)" />
+                          <span class="seg-nome" aria-hidden="true">{{ w }}</span>
+                        </label>
+                      }
+                    </div>
+                  </fieldset>
+                }
+
+                @if (d.repeat === 'mes' || d.repeat === 'ano') {
+                  <fieldset class="sub">
+                    <legend class="sub-nome">{{ d.repeat === 'mes' ? 'Em que dia do mês' : 'Em que dia de ' + monthName() }}</legend>
+                    <div class="segmentos" [class.dois]="monthModes().length === 2">
+                      @for (o of monthModes(); track o.nth) {
+                        <label class="segmento">
+                          <input type="radio" name="lb-mes" [checked]="(d.nth ?? 0) === o.nth" (change)="setNth(o.nth)" />
+                          <span class="seg-nome">{{ o.label }}</span>
+                        </label>
+                      }
+                    </div>
+                  </fieldset>
+                }
+
+                <fieldset class="sub">
+                  <legend class="sub-nome">Termina</legend>
+                  <div class="segmentos">
+                    @for (o of endOptions; track o.id) {
+                      <label class="segmento">
+                        <input type="radio" name="lb-termina" [checked]="endMode() === o.id" (change)="setEndMode(o.id)" />
+                        <span class="seg-nome">{{ o.label }}</span>
+                      </label>
+                    }
+                  </div>
+                  @if (endMode() === 'dia') {
+                    <label class="campo data termina">
+                      <span class="campo-nome">No dia</span>
+                      <input type="date" [min]="d.date" [value]="d.until ?? ''" (change)="setUntil($any($event.target).value)" />
+                    </label>
+                  }
+                  @if (endMode() === 'vezes') {
+                    <label class="campo intervalo termina">
+                      <span class="campo-nome">Depois de</span>
+                      <input type="number" inputmode="numeric" min="1" [max]="maxCount" [value]="d.count ?? ''" (change)="setCount($any($event.target).value)" />
+                      <span class="unidade">{{ d.count === 1 ? 'vez' : 'vezes' }}</span>
+                    </label>
+                  }
+                </fieldset>
+              </div>
+            }
           </section>
 
           <section class="grupo" aria-labelledby="lb-cor-t">
@@ -274,6 +373,12 @@ export class ReminderSheet {
   protected readonly TrashIcon = Trash2;
   protected readonly ClipIcon = Paperclip;
   protected readonly NewNoteIcon = FilePlus;
+  protected readonly CustomIcon = SlidersHorizontal;
+  protected readonly BellIcon = Bell;
+  protected readonly QuietIcon = BellOff;
+  protected readonly weekdaysShort = WEEKDAYS_SHORT;
+  protected readonly weekdaysLong = WEEKDAYS_LONG;
+  protected readonly maxCount = MAX_COUNT;
   protected readonly stocks = LIGHT_STOCKS;
   protected readonly stockLabel = STOCK_LABEL;
   protected readonly repeatOptions = REPEAT_OPTIONS;
@@ -317,15 +422,49 @@ export class ReminderSheet {
   /** Um evento do Google que o Murall não pode mudar (convite, repetição só do Google, tipo especial). */
   protected readonly locked = computed(() => this.draft().google?.lock ?? null);
   /** Apagar dá num evento seu, mesmo de uma repetição que só o Google muda; um convite ou um aniversário, não. */
-  protected readonly removable = computed(() => !this.locked() || this.locked() === 'repeticao');
+  protected readonly removable = computed(() => !this.locked());
+
+  /** O personalizar da repetição aberto: começa aberto num lembrete que já repete de um jeito personalizado. */
+  protected readonly custom = linkedSignal(() => {
+    const r = this.reminder();
+    return !!r && (!!r.every || !!r.days?.length || !!r.nth || !!r.strict || !!r.until || !!r.count);
+  });
+  /** "semana" ou "semanas", para o "a cada". */
+  protected readonly unit = computed(() => {
+    const d = this.draft();
+    return d.repeat ? unitLabel(d.repeat, d.every ?? 1) : '';
+  });
+  /** Os dias da semana em que ele acontece (sem os dias escolhidos, o do começo). */
+  protected readonly weekDays = computed(() => {
+    const d = this.draft();
+    return d.days?.length ? d.days : [weekday(d.date)];
+  });
+  protected readonly monthName = computed(() => MONTHS_LONG[Number(this.draft().date.slice(5, 7)) - 1]);
+  /** No mês: o dia do mês, a vez do dia da semana ("na terceira terça") e, se for, a última. */
+  protected readonly monthModes = computed(() => {
+    const date = this.draft().date;
+    const n = nthOf(date);
+    const male = [0, 6].includes(weekday(date));
+    const modes: { nth: number; label: string }[] = [{ nth: 0, label: `No dia ${Number(date.slice(8))}` }];
+    if (n < 5) modes.push({ nth: n, label: `${male ? 'No' : 'Na'} ${nthLabel(date, n, false)}` });
+    if (isLastOfMonth(date)) modes.push({ nth: -1, label: `${male ? 'No' : 'Na'} ${nthLabel(date, -1, false)}` });
+    return modes;
+  });
+  protected readonly endOptions: readonly { id: EndMode; label: string }[] = [
+    { id: 'nunca', label: 'Nunca' },
+    { id: 'dia', label: 'Num dia' },
+    { id: 'vezes', label: 'Depois de' },
+  ];
+  protected readonly endMode = computed<EndMode>(() => {
+    const d = this.draft();
+    return d.count ? 'vezes' : d.until ? 'dia' : 'nunca';
+  });
   /** O último dia vem depois do primeiro. */
   protected readonly minEnd = computed(() => addDays(this.draft().date, 1));
   protected readonly lockText = computed(() => {
     switch (this.locked()) {
       case 'convite':
         return 'Este evento é um convite de outra pessoa no Google Agenda: só quem convidou muda.';
-      case 'repeticao':
-        return 'Este evento repete de um jeito que só o Google Agenda muda: mude por lá (apagar, ou tirar só um dia, dá aqui).';
       case 'google':
         return 'Este é um evento especial do Google Agenda: só dá para mudar lá.';
       default:
@@ -362,7 +501,29 @@ export class ReminderSheet {
   }
 
   protected patch(p: Partial<Reminder>): void {
-    this.draft.update((d) => ({ ...d, ...p }));
+    this.put({ ...this.draft(), ...p });
+  }
+
+  /**
+   * Toda mudança passa aqui: o que não vale para o jeito de repetir sai (os dias da semana fora da
+   * semana, a vez do mês fora do mês e do ano), a vez acompanha o dia ("a terceira terça" de outro
+   * dia), e o "depois de N vezes" recalcula o último dia.
+   */
+  private put(next: Reminder): void {
+    const r: Reminder = { ...next };
+    const drop = (...keys: (keyof Reminder)[]) => keys.forEach((k) => delete r[k]);
+    if (!r.repeat) drop('every', 'days', 'nth', 'strict', 'weekStart', 'until', 'count');
+    if (r.repeat !== 'semana') drop('days', 'weekStart');
+    if (r.repeat !== 'mes' && r.repeat !== 'ano') drop('nth', 'strict');
+    if (r.nth) r.nth = r.nth === -1 && isLastOfMonth(r.date) ? -1 : nthOf(r.date) === 5 ? -1 : nthOf(r.date);
+    if (r.strict && Number(r.date.slice(8)) < 29) drop('strict');
+    if (r.until && r.until < r.date) drop('until');
+    if (r.count) {
+      const last = countEnd(r, r.count);
+      if (last) r.until = last;
+      else drop('count', 'until');
+    }
+    this.draft.set(r);
   }
 
   protected setTitle(v: string): void {
@@ -382,7 +543,7 @@ export class ReminderSheet {
     // no mesmo dia, o fim que ficou antes do começo sai (volta a durar uma hora)
     if (!d.end && d.endTime && d.endTime <= v) {
       const { endTime: _, ...rest } = d;
-      this.draft.set({ ...rest, time: v });
+      this.put({ ...rest, time: v });
     } else this.patch({ time: v });
   }
 
@@ -398,14 +559,14 @@ export class ReminderSheet {
       return;
     }
     const { endTime: _, ...rest } = d;
-    this.draft.set(rest);
+    this.put(rest);
   }
 
   protected toggleAllDay(): void {
     const d = this.draft();
     if (d.time) {
       const { time: _, endTime: __, ...rest } = d;
-      this.draft.set(rest);
+      this.put(rest);
     } else this.patch({ time: FIRST_TIME });
   }
 
@@ -414,16 +575,58 @@ export class ReminderSheet {
     const d = this.draft();
     if (d.end) {
       const { end: _, endTime, ...rest } = d;
-      this.draft.set(endTime && d.time && endTime > d.time ? { ...rest, endTime } : rest);
+      this.put(endTime && d.time && endTime > d.time ? { ...rest, endTime } : rest);
     } else this.patch({ end: addDays(d.date, 1), ...(d.time ? { endTime: d.endTime ?? d.time } : {}) });
   }
 
+  /** Outro jeito de repetir recomeça o personalizar (o "a cada", os dias, a vez); o fim fica. */
   protected setRepeat(o: Repeat | 'nunca'): void {
+    const { repeat: _, every: __, days: ___, nth: ____, strict: _____, weekStart: ______, ...rest } = this.draft();
+    this.put(o === 'nunca' ? rest : { ...rest, repeat: o });
+  }
+
+  protected setEvery(v: string): void {
+    const n = Math.round(Number(v));
+    const { every: _, ...rest } = this.draft();
+    this.put(Number.isFinite(n) && n > 1 ? { ...rest, every: Math.min(99, n) } : rest);
+  }
+
+  /** Um dia da semana a mais ou a menos (sempre fica um; só o do começo é o de sempre). */
+  protected toggleDay(w: number): void {
     const d = this.draft();
-    if (o === 'nunca') {
-      const { repeat: _, ...rest } = d;
-      this.draft.set(rest);
-    } else this.patch({ repeat: o });
+    const now = this.weekDays();
+    const next = now.includes(w) ? now.filter((x) => x !== w) : [...now, w].sort();
+    if (!next.length) return;
+    const { days: _, ...rest } = d;
+    this.put(next.length === 1 && next[0] === weekday(d.date) ? rest : { ...rest, days: next });
+  }
+
+  /** O dia no mês: o número (0), a vez do dia da semana (1 a 5) ou a última (-1). */
+  protected setNth(nth: number): void {
+    const { nth: _, ...rest } = this.draft();
+    this.put(nth ? { ...rest, nth } : rest);
+  }
+
+  protected setEndMode(mode: EndMode): void {
+    const { until: _, count: __, ...rest } = this.draft();
+    if (mode === 'nunca') this.put(rest);
+    else if (mode === 'vezes') this.put({ ...rest, count: 10 });
+    // num dia: um mês depois do começo, para começar
+    else this.put({ ...rest, until: addMonths(rest.date, rest.repeat === 'ano' ? 60 : rest.repeat === 'mes' ? 12 : 1) });
+  }
+
+  protected setUntil(v: string): void {
+    if (isDay(v) && v >= this.draft().date) this.patch({ until: v });
+  }
+
+  protected setCount(v: string): void {
+    const n = Math.round(Number(v));
+    if (Number.isFinite(n) && n >= 1) this.patch({ count: Math.min(MAX_COUNT, n) });
+  }
+
+  protected setQuiet(quiet: boolean): void {
+    const { quiet: _, ...rest } = this.draft();
+    this.put(quiet ? { ...rest, quiet: true } : rest);
   }
 
   protected stockOf(r: Review): string {

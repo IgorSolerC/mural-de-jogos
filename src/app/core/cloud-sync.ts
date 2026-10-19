@@ -129,11 +129,15 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 27: o lembrete ligado ao Google Agenda (`google`), as repetições que vêm de lá (`every`, `days`,
  *     `until`) e os eventos do Google a apagar (`googleTrash`). Um site antigo jogaria os campos fora e,
  *     sem o `google`, o outro aparelho mandaria tudo de novo como mudança.
+ * 28: o lembrete de vários dias e a hora do fim (`end`, `endTime`), as repetições que faltavam do Google
+ *     (`nth`, `count`, `strict`, `weekStart`), a marcação que não avisa (`quiet`) e o que o Google já sabe
+ *     dele (`google.skip`, `google.quiet`). Um site antigo jogaria os campos fora e enviaria o lembrete
+ *     assim: a viagem voltaria a ter um dia só e a repetição mudaria nos outros aparelhos.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 27;
+export const SYNC_SCHEMA = 28;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

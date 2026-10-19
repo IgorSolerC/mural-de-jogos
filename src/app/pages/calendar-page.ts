@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CalendarDays, CalendarRange, CalendarSearch, CalendarSync, ChevronLeft, ChevronRight, Clock, LucideAngularModule, LucideIconData, Paperclip, Pencil, Plus, Repeat, Square } from 'lucide-angular';
+import { BellOff, CalendarDays, CalendarRange, CalendarSearch, CalendarSync, ChevronLeft, ChevronRight, Clock, LucideAngularModule, LucideIconData, Paperclip, Pencil, Plus, Repeat, Square } from 'lucide-angular';
 import { map } from 'rxjs';
 import { MONTHS_LONG } from '../core/dates';
 import {
@@ -114,6 +114,7 @@ export class CalendarPage {
   protected readonly RepeatIcon = Repeat;
   protected readonly ClipIcon = Paperclip;
   protected readonly ClockIcon = Clock;
+  protected readonly QuietIcon = BellOff;
   protected readonly PencilIcon = Pencil;
   protected readonly views = VIEWS;
   protected readonly timeLabel = timeLabel;
@@ -343,6 +344,7 @@ export class CalendarPage {
   protected spoken(r: Reminder, day: string): string {
     const parts = [r.title, this.segment(r, day) ? this.whenOn(r, day) : r.time ? `às ${timeLabel(r.time)}` : 'dia todo'];
     if (r.repeat) parts.push(repeatShort(r));
+    if (r.quiet) parts.push('marcação, sem aviso');
     const n = this.notesOf(r).length;
     if (n) parts.push(n === 1 ? '1 anotação anexada' : `${n} anotações anexadas`);
     if (this.past(r, day)) parts.push('já passou');

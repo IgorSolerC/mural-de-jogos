@@ -81,8 +81,72 @@ describe('Google Agenda: a repetição que vem do Google', () => {
     expect(parseRecurrence(['RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;COUNT=4'], '2026-10-19')!.until).toBe('2026-11-04');
   });
 
+  it('todas as do Google: a vez do dia da semana, o último dia, o dia que só existe em alguns meses, N vezes e a semana a partir do domingo', () => {
+    // 2026-10-20 é a terceira terça; 2026-10-27, a quarta e a última
+    expect(parseRecurrence(['RRULE:FREQ=MONTHLY;BYDAY=3TU'], '2026-10-20')).toEqual({ repeat: 'mes', nth: 3, skip: [] });
+    expect(parseRecurrence(['RRULE:FREQ=MONTHLY;BYDAY=-1TU'], '2026-10-27')).toEqual({ repeat: 'mes', nth: -1, skip: [] });
+    expect(parseRecurrence(['RRULE:FREQ=MONTHLY;BYDAY=TU;BYSETPOS=3'], '2026-10-20')).toEqual({ repeat: 'mes', nth: 3, skip: [] });
+    expect(parseRecurrence(['RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=4TH'], '2026-11-26')).toEqual({ repeat: 'ano', nth: 4, skip: [] });
+    expect(parseRecurrence(['RRULE:FREQ=MONTHLY'], '2026-01-31')).toEqual({ repeat: 'mes', strict: true, skip: [] });
+    expect(parseRecurrence(['RRULE:FREQ=YEARLY'], '2024-02-29')).toEqual({ repeat: 'ano', strict: true, skip: [] });
+    expect(parseRecurrence(['RRULE:FREQ=DAILY;COUNT=3'], '2026-10-20')).toEqual({ repeat: 'dia', count: 3, until: '2026-10-22', skip: [] });
+    expect(parseRecurrence(['RRULE:FREQ=WEEKLY;WKST=SU;INTERVAL=2;BYDAY=SU,SA'], '2026-10-18')).toEqual({ repeat: 'semana', every: 2, days: [0, 6], weekStart: 0, skip: [] });
+
+    const terceira = { date: '2026-10-20', repeat: 'mes' as const, nth: 3, skip: [] };
+    expect(['2026-11-17', '2026-11-20', '2026-12-15'].map((d) => occursOn(terceira, d))).toEqual([true, false, true]);
+    const ultima = { date: '2026-10-27', repeat: 'mes' as const, nth: -1, skip: [] };
+    expect(['2026-11-24', '2026-12-29', '2026-12-22'].map((d) => occursOn(ultima, d))).toEqual([true, true, false]);
+    const trinta = { date: '2026-01-31', repeat: 'mes' as const, strict: true as const, skip: [] };
+    expect(['2026-02-28', '2026-03-31', '2026-04-30'].map((d) => occursOn(trinta, d))).toEqual([false, true, false]);
+    // de domingo a sábado, o sábado 24 e o domingo 25 são de semanas diferentes
+    const fds = { date: '2026-10-18', repeat: 'semana' as const, every: 2, days: [0, 6], weekStart: 0 as const, skip: [] };
+    expect(['2026-10-18', '2026-10-24', '2026-10-25', '2026-11-01', '2026-11-07'].map((d) => occursOn(fds, d))).toEqual([true, true, false, true, true]);
+
+    expect(repeatSentence('mes', '2026-10-20', { nth: 3 })).toBe('Toda terceira terça-feira do mês.');
+    expect(repeatSentence('mes', '2026-10-31', { nth: -1 })).toBe('Todo último sábado do mês.');
+    expect(repeatSentence('mes', '2026-10-20', { nth: 3, every: 2 })).toBe('A cada 2 meses, na terceira terça-feira.');
+    expect(repeatSentence('ano', '2026-11-26', { nth: 4 })).toBe('Todo ano, na quarta quinta-feira de novembro.');
+    expect(repeatSentence('mes', '2026-01-31', { strict: true })).toBe('Todo dia 31 de cada mês (só nos meses que têm o dia 31).');
+    expect(repeatSentence('semana', '2026-10-19', { days: [1, 2, 3, 4, 5], count: 10 })).toBe('Toda semana, de segunda a sexta, a partir de 19 de outubro de 2026, 10 vezes.');
+    expect(repeatShort({ repeat: 'mes', date: '2026-10-20', nth: 3 })).toBe('toda terceira terça');
+  });
+
+  it('a regra de cada jeito vai e volta igual (com o COUNT e a vez do mês)', () => {
+    for (const r of [
+      reminder({ repeat: 'mes', nth: 3 }),
+      reminder({ date: '2026-10-27', repeat: 'mes', nth: -1, every: 2 }),
+      reminder({ date: '2026-11-26', repeat: 'ano', nth: 4 }),
+      reminder({ date: '2026-01-31', repeat: 'mes', strict: true }),
+      reminder({ date: '2026-10-18', repeat: 'semana', every: 2, days: [0, 6], weekStart: 0 }),
+      reminder({ repeat: 'semana', days: [1, 2, 3, 4, 5], count: 10, until: '2026-11-02' }),
+    ]) {
+      const rule = ruleOf(r)!;
+      const back = parseRecurrence([`RRULE:${rule}`], r.date)!;
+      const pick = (x: Partial<Reminder>) => ({ repeat: x.repeat, every: x.every, days: x.days, nth: x.nth, strict: x.strict, weekStart: x.weekStart, count: x.count });
+      expect(pick(back as Partial<Reminder>)).withContext(rule).toEqual(pick(r));
+    }
+    expect(ruleOf(reminder({ repeat: 'mes', nth: 3 }))).toBe('FREQ=MONTHLY;BYDAY=3TU');
+    expect(ruleOf(reminder({ repeat: 'dia', count: 5, until: '2026-10-24' }))).toBe('FREQ=DAILY;COUNT=5');
+  });
+
+  it('a marcação vai sem avisos; o lembrete volta aos avisos da agenda só se o Google estava calado', () => {
+    expect(toEvent(reminder({ quiet: true }), 'UTC').reminders).toEqual({ useDefault: false, overrides: [] });
+    expect(toEvent(reminder(), 'UTC').reminders).toBeUndefined();
+    expect(toEvent(reminder({ google: { id: 'abc123def456', quiet: true } }), 'UTC').reminders).toEqual({ useDefault: true });
+    const calada = fromEvent(event({ reminders: { useDefault: false, overrides: [] } }), undefined, '2026-10-18') as { reminder: Reminder };
+    expect(calada.reminder.quiet).toBeTrue();
+    expect(calada.reminder.google!.quiet).toBeTrue();
+    // os avisos próprios da pessoa no Google: é um lembrete (e eles ficam lá)
+    const propria = fromEvent(event({ reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 30 }] } }), undefined, '2026-10-18') as { reminder: Reminder };
+    expect(propria.reminder.quiet).toBeUndefined();
+    expect(toEvent(propria.reminder, 'UTC').reminders).toBeUndefined();
+  });
+
   it('o que só o Google sabe fazer fica de fora', () => {
-    expect(parseRecurrence(['RRULE:FREQ=MONTHLY;BYDAY=2SA'], '2026-10-10')).toBeNull();
+    expect(parseRecurrence(['RRULE:FREQ=MONTHLY;BYDAY=2SA,4SA'], '2026-10-10')).toBeNull();
+    expect(parseRecurrence(['RRULE:FREQ=MONTHLY;BYMONTHDAY=1,15'], '2026-10-01')).toBeNull();
+    // a vez de outro dia da semana que não o do começo
+    expect(parseRecurrence(['RRULE:FREQ=MONTHLY;BYDAY=2SU'], '2026-10-10')).toBeNull();
     expect(parseRecurrence(['RRULE:FREQ=HOURLY'], '2026-10-10')).toBeNull();
     expect(parseRecurrence(['RRULE:FREQ=DAILY', 'RDATE:20261111'], '2026-10-10')).toBeNull();
     expect(parseRecurrence(['RRULE:FREQ=YEARLY;BYMONTH=3'], '2026-10-10')).toBeNull();
@@ -124,10 +188,11 @@ describe('Google Agenda: do evento para o lembrete', () => {
     expect(r.reminder.color).toBe('azul');
   });
 
-  it('um convite, um aniversário ou um "a cada 2 semanas" ficam só para ler; os tipos que não são lembrete ficam de fora', () => {
+  it('um convite ou um aniversário ficam só para ler; os tipos que não são lembrete ficam de fora', () => {
     expect((fromEvent(event({ seu: false }), undefined, today) as { reminder: Reminder }).reminder.google!.lock).toBe('convite');
     expect((fromEvent(event({ tipo: 'birthday', recurrence: ['RRULE:FREQ=YEARLY'] }), undefined, today) as { reminder: Reminder }).reminder.google!.lock).toBe('google');
-    expect((fromEvent(event({ recurrence: ['RRULE:FREQ=WEEKLY;INTERVAL=2'] }), undefined, today) as { reminder: Reminder }).reminder.google!.lock).toBe('repeticao');
+    // a repetição personalizada se muda aqui
+    expect((fromEvent(event({ recurrence: ['RRULE:FREQ=WEEKLY;INTERVAL=2'] }), undefined, today) as { reminder: Reminder }).reminder.google!.lock).toBeUndefined();
     expect(fromEvent(event({ tipo: 'workingLocation' }), undefined, today)).toEqual({ kind: 'ignore', reason: 'tipo' });
     expect(fromEvent(event({ recurrence: ['RRULE:FREQ=MONTHLY;BYDAY=1MO'] }), undefined, today)).toEqual({ kind: 'ignore', reason: 'repeticao' });
   });

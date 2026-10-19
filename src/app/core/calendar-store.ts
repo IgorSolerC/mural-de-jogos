@@ -107,8 +107,8 @@ export class CalendarStore {
     const gone = st.reminders.find((r) => r.id === id);
     if (!gone) return;
     const at = new Date().toISOString();
-    // ligado a um evento do Google que é dele (a repetição que só o Google muda também): o evento sai de lá (ver GoogleAgenda)
-    const own = gone.google && (!gone.google.lock || gone.google.lock === 'repeticao');
+    // ligado a um evento do Google que é dele: o evento sai de lá (ver GoogleAgenda)
+    const own = gone.google && !gone.google.lock;
     const trash = own ? { googleTrash: { ...st.googleTrash, [gone.google!.id]: at } } : {};
     this.set({ ...st, ...trash, reminders: st.reminders.filter((r) => r.id !== id), removed: { ...st.removed, [id]: at } });
   }

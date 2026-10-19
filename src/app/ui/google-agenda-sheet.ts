@@ -70,7 +70,8 @@ import { Pin } from './pin';
                   <li>Os lembretes do Murall aparecem na sua agenda do Google, com o horário, a repetição e a cor.</li>
                   <li>Os eventos da sua agenda, de 30 dias atrás em diante, aparecem no Calendário do Murall.</li>
                   <li>Mudou de um lado, muda do outro; quando os dois mudam, vale a mudança mais nova.</li>
-                  <li>Convites de outras pessoas e repetições que só o Google faz aparecem aqui, mas só mudam lá.</li>
+                  <li>Uma marcação fica na agenda sem avisar no celular; um lembrete avisa como a sua agenda manda.</li>
+                  <li>Convites de outras pessoas e eventos especiais (como aniversários) aparecem aqui, mas só mudam lá.</li>
                 </ul>
               </section>
               <div class="acoes-linha">

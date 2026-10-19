@@ -1,4 +1,4 @@
-import { GoogleLink, Reminder, Repeat, addDays, dayNumber, isDay, endAfter, occursOn, sanitizeReminder, spanOf, weekday } from './calendar';
+import { GoogleLink, MAX_COUNT, Reminder, Repeat, addDays, countEnd, dayNumber, endAfter, isDay, sanitizeReminder, spanOf, weekday } from './calendar';
 import { localDay } from './dates';
 import { LightStock } from './review';
 
@@ -28,6 +28,7 @@ export interface GEvent {
   htmlLink?: string;
   tipo?: string;
   seu?: boolean;
+  reminders?: { useDefault?: boolean; overrides?: unknown[] };
   convidados?: number;
 }
 
@@ -39,6 +40,8 @@ export interface GEventBody {
   recurrence?: string[];
   colorId?: string;
   description?: string;
+  /** Os avisos: sem nenhum, a marcação; com os da agenda, o lembrete. */
+  reminders?: { useDefault: boolean; overrides?: { method: string; minutes: number }[] };
 }
 
 /** As cores de evento do Google mais perto de cada cartolina (o branco fica na cor da agenda). */
@@ -172,11 +175,19 @@ export function ruleOf(r: Reminder): string | null {
   if ((r.every ?? 1) > 1) parts.push(`INTERVAL=${r.every}`);
   const d = Number(r.date.slice(8));
   const m = Number(r.date.slice(5, 7));
-  if (r.repeat === 'semana' && r.days?.length) parts.push(`BYDAY=${r.days.map((x) => BYDAY[x]).join(',')}`);
-  // o 29 a 31 caem no último dia dos meses mais curtos (o Google pularia esses meses)
-  if (r.repeat === 'mes' && d >= 29) parts.push(`BYMONTHDAY=${Array.from({ length: d - 27 }, (_, i) => 28 + i).join(',')}`, 'BYSETPOS=-1');
-  if (r.repeat === 'ano' && m === 2 && d === 29) parts.push('BYMONTH=2', 'BYMONTHDAY=28,29', 'BYSETPOS=-1');
-  if (r.until) {
+  if (r.repeat === 'semana' && r.days?.length) {
+    parts.push(`BYDAY=${r.days.map((x) => BYDAY[x]).join(',')}`);
+    if (r.weekStart === 0 && (r.every ?? 1) > 1) parts.push('WKST=SU');
+  }
+  // a vez do dia da semana: "a terceira terça" (BYDAY=3TU), no ano com o mês
+  const by = r.nth ? `BYDAY=${r.nth}${BYDAY[weekday(r.date)]}` : null;
+  if (r.repeat === 'mes' && by) parts.push(by);
+  if (r.repeat === 'ano' && by) parts.push(`BYMONTH=${m}`, by);
+  // o 29 a 31 caem no último dia dos meses mais curtos (o Google pularia esses meses, como no `strict`)
+  if (r.repeat === 'mes' && !by && d >= 29 && !r.strict) parts.push(`BYMONTHDAY=${Array.from({ length: d - 27 }, (_, i) => 28 + i).join(',')}`, 'BYSETPOS=-1');
+  if (r.repeat === 'ano' && !by && m === 2 && d === 29 && !r.strict) parts.push('BYMONTH=2', 'BYMONTHDAY=28,29', 'BYSETPOS=-1');
+  if (r.count) parts.push(`COUNT=${r.count}`);
+  else if (r.until) {
     if (r.time) {
       const [y, mo, dd] = r.until.split('-').map(Number);
       const end = new Date(y, mo - 1, dd, 23, 59, 59);
@@ -201,11 +212,15 @@ export function toEvent(r: Reminder, tz: string, notes: readonly string[] = []):
     recurrence.push(r.time ? `EXDATE;TZID=${tz}:${r.skip.map((s) => `${compact(s)}T${r.time!.replace(':', '')}00`).join(',')}` : `EXDATE;VALUE=DATE:${r.skip.map(compact).join(',')}`);
   }
   const color = COLOR_OF[r.color];
+  // a marcação não avisa; o lembrete avisa como a agenda manda (só se diz quando o Google estava calado,
+  // para não apagar os avisos que a pessoa pôs no Google)
+  const reminders = r.quiet ? { useDefault: false, overrides: [] } : r.google?.quiet ? { useDefault: true } : null;
   return {
     summary: r.title,
     ...when,
     ...(recurrence ? { recurrence } : {}),
     ...(color ? { colorId: color } : {}),
+    ...(reminders ? { reminders } : {}),
     ...(notes.length ? { description: `Anotações no Murall: ${notes.join(', ')}` } : {}),
   };
 }
@@ -216,7 +231,11 @@ interface ParsedRule {
   repeat: Repeat;
   every?: number;
   days?: number[];
+  nth?: number;
+  strict?: true;
+  weekStart?: 0;
   until?: string;
+  count?: number;
   skip: string[];
 }
 
@@ -263,50 +282,76 @@ export function parseRecurrence(lines: readonly string[] | undefined, date: stri
   if (!Number.isInteger(every) || every < 1 || every > 99) return null;
   const d = Number(date.slice(8));
   const m = Number(date.slice(5, 7));
-  let days: number[] | undefined;
-  if (rule['BYDAY']) {
-    if (repeat !== 'semana') return null;
-    const list = rule['BYDAY'].split(',').map((x) => BYDAY.indexOf(x.trim().toUpperCase()));
-    if (list.some((x) => x < 0)) return null;
-    days = [...new Set(list)].sort();
-    if (days.length === 1 && days[0] === weekday(date)) days = undefined;
-  }
+  const wd = weekday(date);
   const monthDays = rule['BYMONTHDAY'];
   const setPos = rule['BYSETPOS'];
+  const month = rule['BYMONTH'];
+  let days: number[] | undefined;
+  let nth: number | undefined;
+  if (rule['BYDAY']) {
+    const items = rule['BYDAY'].split(',').map((x) => /^([+-]?\d{1,2})?(SU|MO|TU|WE|TH|FR|SA)$/.exec(x.trim().toUpperCase()));
+    if (items.some((x) => !x)) return null;
+    const ordinals = items.map((x) => (x![1] ? Number(x![1]) : null));
+    if (repeat === 'semana') {
+      if (ordinals.some((o) => o !== null)) return null;
+      days = [...new Set(items.map((x) => BYDAY.indexOf(x![2])))].sort();
+      if (days.length === 1 && days[0] === wd) days = undefined;
+    } else if (repeat === 'mes' || repeat === 'ano') {
+      // "a terceira terça" (3TU), ou TU com BYSETPOS=3: um dia da semana só, o do começo
+      if (items.length !== 1 || BYDAY.indexOf(items[0]![2]) !== wd || monthDays) return null;
+      const n = ordinals[0] ?? (setPos ? Number(setPos) : null);
+      if (n === null || !((n >= 1 && n <= 5) || n === -1) || (ordinals[0] !== null && setPos)) return null;
+      nth = n;
+    } else return null;
+  }
+  // o Murall põe o 29 a 31 no último dia dos meses curtos assim; o Google, sem nada, pula esses meses
   const lastOfShort = (top: number) => monthDays === Array.from({ length: top - 27 }, (_, i) => 28 + i).join(',') && setPos === '-1';
-  if (repeat === 'dia' && (monthDays || rule['BYMONTH'] || setPos)) return null;
-  if (repeat === 'semana' && (monthDays || rule['BYMONTH'] || setPos)) return null;
+  let strict: true | undefined;
+  if ((repeat === 'dia' || repeat === 'semana') && (monthDays || month || setPos)) return null;
   if (repeat === 'mes') {
-    if (rule['BYMONTH']) return null;
-    if (monthDays && !(monthDays === String(d) && !setPos) && !(d >= 29 && lastOfShort(d))) return null;
-    if (setPos && !monthDays) return null;
+    if (month) return null;
+    if (!nth) {
+      if (monthDays && !(monthDays === String(d) && !setPos) && !(d >= 29 && lastOfShort(d))) return null;
+      if (setPos && !monthDays) return null;
+      if (d >= 29 && !lastOfShort(d)) strict = true;
+    }
   }
   if (repeat === 'ano') {
-    if (rule['BYMONTH'] && rule['BYMONTH'] !== String(m)) return null;
-    if (monthDays && !(monthDays === String(d) && !setPos) && !(m === 2 && d === 29 && lastOfShort(29))) return null;
-    if (setPos && !monthDays) return null;
+    if (month && month !== String(m)) return null;
+    if (!nth) {
+      if (monthDays && !(monthDays === String(d) && !setPos) && !(m === 2 && d === 29 && lastOfShort(29))) return null;
+      if (setPos && !monthDays) return null;
+      if (m === 2 && d === 29 && !lastOfShort(29)) strict = true;
+    }
   }
+  // o "a cada 2 semanas" em vários dias conta a semana a partir do WKST (o Google manda SU às vezes)
+  const wkst = rule['WKST'];
+  if (wkst && !BYDAY.includes(wkst.toUpperCase())) return null;
+  const weekStart = repeat === 'semana' && days && every > 1 && wkst?.toUpperCase() === 'SU' ? (0 as const) : undefined;
   let until: string | undefined;
   if (rule['UNTIL']) {
     const day = icalDay(rule['UNTIL']);
     if (!day) return null;
     until = day;
   }
-  const base: ParsedRule = { repeat, skip: [...new Set(skip)].sort(), ...(every > 1 ? { every } : {}), ...(days ? { days } : {}), ...(until ? { until } : {}) };
+  const base: ParsedRule = {
+    repeat,
+    skip: [...new Set(skip)].sort(),
+    ...(every > 1 ? { every } : {}),
+    ...(days ? { days } : {}),
+    ...(nth ? { nth } : {}),
+    ...(strict ? { strict } : {}),
+    ...(weekStart === 0 ? { weekStart } : {}),
+    ...(until ? { until } : {}),
+  };
   if (rule['COUNT']) {
     const count = Number(rule['COUNT']);
-    if (!Number.isInteger(count) || count < 1) return null;
+    if (!Number.isInteger(count) || count < 1 || count > MAX_COUNT || until) return null;
     // N vezes: o último dia é o da N-ésima vez (os dias tirados contam, como no Google)
-    const probe = { date, repeat, every: base.every, days: base.days, until: base.until, skip: [] as string[] };
-    let seen = 0;
-    let day = date;
-    for (let i = 0; i < 40 * 366 && seen < count; i++, day = addDays(day, 1)) {
-      if (occursOn(probe, day)) {
-        seen++;
-        if (seen === count) base.until = day;
-      }
-    }
-    if (seen < count) return null;
+    const last = countEnd({ date, ...base }, count);
+    if (!last) return null;
+    base.count = count;
+    base.until = last;
   }
   return base;
 }
@@ -362,13 +407,16 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
   const skip = rule ? [...new Set([...known, ...(existing?.repeat ? existing.skip : [])])].sort() : [];
   const updated = ev.updated && Number.isFinite(Date.parse(ev.updated)) ? new Date(ev.updated).toISOString() : new Date().toISOString();
   const lock: GoogleLink['lock'] =
-    ev.seu === false ? 'convite' : ev.tipo && ev.tipo !== 'default' ? 'google' : rule && ((rule.every ?? 1) > 1 || rule.days?.length) ? 'repeticao' : undefined;
+    ev.seu === false ? 'convite' : ev.tipo && ev.tipo !== 'default' ? 'google' : undefined;
+  // sem nenhum aviso (nem os da agenda) é uma marcação; com os da agenda ou os próprios, um lembrete
+  const quiet = ev.reminders?.useDefault === false && !ev.reminders.overrides?.length;
   const google: GoogleLink = {
     id: ev.id,
     ...(ev.etag ? { etag: ev.etag } : {}),
     at: updated,
     ...(ev.htmlLink ? { link: ev.htmlLink } : {}),
     ...(lock ? { lock } : {}),
+    ...(quiet ? { quiet: true } : {}),
     ...(rule ? { skip: known } : {}),
   };
   const reminder = sanitizeReminder({
@@ -378,7 +426,8 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
     ...(time ? { time } : {}),
     ...(end ? { end } : {}),
     ...(endTime ? { endTime } : {}),
-    ...(rule ? { repeat: rule.repeat, every: rule.every, days: rule.days, until: rule.until, skip } : {}),
+    ...(rule ? { repeat: rule.repeat, every: rule.every, days: rule.days, nth: rule.nth, strict: rule.strict, weekStart: rule.weekStart, until: rule.until, count: rule.count, skip } : {}),
+    ...(quiet ? { quiet: true } : {}),
     color: ev.colorId && STOCK_OF[ev.colorId] ? STOCK_OF[ev.colorId] : (existing?.color ?? DEFAULT_STOCK),
     notes: existing?.notes ?? [],
     createdAt: existing?.createdAt ?? updated,

@@ -96,10 +96,13 @@
                         <span class="tira-hora">{{ hora }}</span>
                       }
                       <span class="tira-nome">{{ r.title }}</span>
-                      @if (r.repeat || r.notes.length) {
+                      @if (r.repeat || r.notes.length || r.quiet) {
                         <span class="tira-pe" aria-hidden="true">
                           @if (r.repeat) {
                             <lucide-icon [img]="RepeatIcon" [size]="13" [strokeWidth]="2.6" />
+                          }
+                          @if (r.quiet) {
+                            <lucide-icon [img]="QuietIcon" [size]="13" [strokeWidth]="2.6" />
                           }
                           @if (notesOf(r).length; as n) {
                             <span class="tira-clipe"><lucide-icon [img]="ClipIcon" [size]="13" [strokeWidth]="2.6" />{{ n }}</span>
@@ -173,6 +176,12 @@
                         <span class="meta-item">
                           <lucide-icon [img]="RepeatIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
                           {{ repeatShort(r) }}
+                        </span>
+                      }
+                      @if (r.quiet) {
+                        <span class="meta-item">
+                          <lucide-icon [img]="QuietIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
+                          Marcação, sem aviso
                         </span>
                       }
                     </p>

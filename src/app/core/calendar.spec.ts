@@ -173,6 +173,19 @@ describe('Calendário: quando o lembrete aparece', () => {
     expect(repeatSentence('semana', fds.date, fds)).toBe('Todo sábado, a partir de 24 de outubro de 2026. Cada vez dura 2 dias.');
   });
 
+  it('guarda as repetições do Google e converte a que antes só o Google mudava', () => {
+    const r = sanitizeReminder(reminder({ date: '2026-10-19', repeat: 'semana', days: [1, 3], every: 2, count: 4, quiet: true }))!;
+    expect(r).toEqual(jasmine.objectContaining({ count: 4, until: '2026-11-04', quiet: true }));
+    // a vez do mês só no mês e no ano; o dia só de alguns meses só do 29 em diante
+    expect(sanitizeReminder(reminder({ repeat: 'dia', nth: 3 }))!.nth).toBeUndefined();
+    expect(sanitizeReminder(reminder({ repeat: 'mes', strict: true }))!.strict).toBeUndefined();
+    // a repetição travada de antes: sem a trava e sem nada a mandar ao Google
+    const antes = { ...reminder({ repeat: 'semana', every: 2, at: '2026-10-12T00:00:00.000Z' }), google: { id: 'abc12345', lock: 'repeticao', at: '2026-10-11T00:00:00.000Z' } };
+    const depois = sanitizeReminder(antes)!;
+    expect(depois.google).toEqual({ id: 'abc12345', at: '2026-10-12T00:00:00.000Z' });
+    expect(sanitizeReminder(depois)).toEqual(depois);
+  });
+
   it('diz como repete, por extenso e curto', () => {
     expect(repeatSentence(undefined, '2027-08-23')).toBe('Só em 23 de agosto de 2027.');
     expect(repeatSentence('semana', '2026-10-22')).toBe('Toda quinta-feira, a partir de 22 de outubro de 2026.');

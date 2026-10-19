@@ -231,6 +231,33 @@ describe('o Google Agenda', () => {
     expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'apagar', id: 'X!' }] }, token)).status).toBe(400);
   });
 
+  it('os avisos: a marcação vai sem nenhum, o lembrete com os da agenda; a busca devolve os do Google', async () => {
+    const token = await login();
+    await connect(token);
+    const base = { summary: 'Feira', start: { date: '2026-10-20' }, end: { date: '2026-10-21' } };
+    google = (c) => (c.method === 'GET' ? reply(200, { items: [{ id: 'feira1', status: 'confirmed', reminders: { useDefault: false } }], nextSyncToken: 's' }) : reply(200, { etag: '"x"' }));
+    calls = [];
+    const ok = await json(
+      'POST',
+      '/v1/agenda/enviar',
+      {
+        ops: [
+          { acao: 'mudar', id: 'mu0001', evento: { ...base, reminders: { useDefault: false, overrides: [] } } },
+          { acao: 'mudar', id: 'mu0002', evento: { ...base, reminders: { useDefault: true, overrides: [{ method: 'popup', minutes: 10 }] } } },
+        ],
+      },
+      token,
+    );
+    expect(ok.status).toBe(200);
+    const sent = calls.filter((c) => c.method === 'PATCH').map((c) => JSON.parse(c.body).reminders);
+    expect(sent).toEqual([{ useDefault: false, overrides: [] }, { useDefault: true }]);
+    const bad = { ...base, reminders: { useDefault: false, overrides: [{ method: 'sms', minutes: 10 }] } };
+    expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'mudar', id: 'mu0003', evento: bad }] }, token)).status).toBe(400);
+    const list = (await (await json('GET', '/v1/agenda/eventos', undefined, token)).json()) as { eventos: Record<string, unknown>[] };
+    expect(list.eventos[0]!['reminders']).toEqual({ useDefault: false });
+    expect(new URL(calls.find((c) => c.method === 'GET' && c.url.startsWith(CALENDAR_URL))!.url).searchParams.get('fields')).toContain('reminders');
+  });
+
   it('as vezes de um evento que repete: vêm na busca, e uma vez se tira (apagar) e volta (voltar)', async () => {
     const token = await login();
     await connect(token);

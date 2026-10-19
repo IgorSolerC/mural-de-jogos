@@ -101,7 +101,8 @@ function when(v: unknown): When | null {
 
 /**
  * O evento que o site manda, só com os campos que o Murall escreve (nada de convidados, lugar ou
- * conferência): o nome, quando começa e acaba, a repetição (RRULE e EXDATE), a cor e a descrição.
+ * conferência): o nome, quando começa e acaba, a repetição (RRULE e EXDATE), a cor, a descrição e os avisos
+ * (os da agenda, ou nenhum: a marcação que não avisa).
  */
 export function cleanEvent(raw: unknown): Record<string, unknown> {
   const bad = () => new HttpError(400, 'evento-invalido', 'O lembrete não virou um evento válido.');
@@ -122,7 +123,25 @@ export function cleanEvent(raw: unknown): Record<string, unknown> {
     out['colorId'] = r['colorId'];
   }
   if (typeof r['description'] === 'string') out['description'] = r['description'].slice(0, 8000);
+  if (r['reminders'] !== undefined) out['reminders'] = cleanReminders(r['reminders'], bad);
   return out;
+}
+
+/** Os avisos do evento: os da agenda (`useDefault`) ou os próprios, até 5, pelo celular (popup) ou por e-mail. */
+function cleanReminders(raw: unknown, bad: () => HttpError): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object') throw bad();
+  const r = raw as Record<string, unknown>;
+  if (typeof r['useDefault'] !== 'boolean') throw bad();
+  const list = r['overrides'] ?? [];
+  if (!Array.isArray(list) || list.length > 5) throw bad();
+  const overrides = list.map((o) => {
+    const x = (o ?? {}) as Record<string, unknown>;
+    const minutes = x['minutes'];
+    if ((x['method'] !== 'popup' && x['method'] !== 'email') || typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 0 || minutes > 40320) throw bad();
+    return { method: x['method'], minutes };
+  });
+  // com os da agenda, os próprios não valem (o Google recusa os dois juntos)
+  return r['useDefault'] ? { useDefault: true } : { useDefault: false, overrides };
 }
 
 // ===== O que volta do Google =====
@@ -145,6 +164,7 @@ export function trimEvent(raw: Record<string, unknown>): Record<string, unknown>
     ...pick('updated'),
     ...pick('etag'),
     ...pick('htmlLink'),
+    ...pick('reminders'),
     tipo: typeof raw['eventType'] === 'string' ? raw['eventType'] : 'default',
     // sem organizador, ou o próprio: é seu; um convite de outra pessoa só se muda lá
     seu: !organizer || organizer.self === true,

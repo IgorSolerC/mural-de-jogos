@@ -42,8 +42,10 @@ export interface GoogleLink {
   etag?: string;
   at?: string;
   link?: string;
-  /** convite: o evento é de outra pessoa; repeticao: repete de um jeito que só o Google muda; google: um tipo especial do Google (aniversário). */
-  lock?: 'convite' | 'repeticao' | 'google';
+  /** convite: o evento é de outra pessoa; google: um tipo especial do Google (aniversário). */
+  lock?: 'convite' | 'google';
+  /** O evento no Google não avisa (sem os avisos da agenda): o que o Google sabe da marcação (`quiet`). */
+  quiet?: boolean;
   /** De antes do fim no lembrete (`end`, `endTime`): quanto o evento durava no Google. Lido só para converter. */
   dur?: number;
   /**
@@ -68,12 +70,28 @@ export interface Reminder {
    */
   endTime?: string;
   repeat?: Repeat;
-  /** A cada quantos dias, semanas, meses ou anos (sem o campo, 1). Vem do Google: o Murall não escreve. */
+  /** A cada quantos dias, semanas, meses ou anos (sem o campo, 1). */
   every?: number;
-  /** Na semana: os dias (0 é domingo). Vem do Google, como o `every`. */
+  /** Na semana: os dias (0 é domingo). Sem eles, o dia da semana do `date`. */
   days?: number[];
-  /** O último dia em que ele pode aparecer (a repetição acaba). */
+  /**
+   * No mês (ou no mês do ano): a vez do dia da semana do `date` dentro do mês, em vez do dia do mês ("a
+   * terceira terça"): de 1 a 5, ou -1 para a última.
+   */
+  nth?: number;
+  /**
+   * No mês (ou no ano) a partir do dia 29: só nos meses (ou anos) que têm o dia, como o Google faz com o
+   * "mensal no dia 31". Sem ele, cai no último dia dos mais curtos (o jeito do Murall).
+   */
+  strict?: true;
+  /** Em que dia começa a semana para contar o "a cada 2 semanas" em vários dias (0, domingo; sem o campo, segunda). */
+  weekStart?: 0;
+  /** O último dia em que ele pode aparecer (a repetição acaba). Com `count`, é o da última vez. */
   until?: string;
+  /** Quantas vezes ele acontece (o "depois de 10 vezes" do Google); o `until` sai daqui. */
+  count?: number;
+  /** Uma marcação, não um lembrete: fica no calendário, mas o Google Agenda não avisa. */
+  quiet?: true;
   color: LightStock;
   /** As anotações anexadas, na ordem em que foram presas. */
   notes: string[];
@@ -221,6 +239,7 @@ export function timeLabel(time: string): string {
   return m ? `${h}h${pad(m)}` : `${h}h`;
 }
 
+
 /** O nome curto de cada jeito de repetir. */
 export const REPEAT_LABEL: Record<Repeat | 'nunca', string> = {
   nunca: 'Não repete',
@@ -230,43 +249,93 @@ export const REPEAT_LABEL: Record<Repeat | 'nunca', string> = {
   ano: 'Todo ano',
 };
 
+/** O sábado e o domingo são masculinos ("todo sábado"); os outros, femininos ("toda quinta"). */
+function masculine(w: number): boolean {
+  return w === 0 || w === 6;
+}
+
 /** "Toda quinta-feira", "Todo sábado". */
 function everyWeekday(day: string): string {
   const w = weekday(day);
-  return `${w === 0 || w === 6 ? 'Todo' : 'Toda'} ${WEEKDAYS_LONG[w]}`;
+  return `${masculine(w) ? 'Todo' : 'Toda'} ${WEEKDAYS_LONG[w]}`;
 }
 
 const WEEKDAYS_PLAIN = WEEKDAYS_LONG.map((w) => w.replace('-feira', ''));
 
-/** "segunda e quarta", "segunda, quarta e sexta". */
+/** "segunda e quarta", "segunda, quarta e sexta", "segunda a sexta". */
 function joinDays(days: readonly number[]): string {
-  const names = [...days].sort().map((d) => WEEKDAYS_PLAIN[d]);
+  const sorted = [...days].sort();
+  if (sorted.join() === '1,2,3,4,5') return 'segunda a sexta';
+  const names = sorted.map((d) => WEEKDAYS_PLAIN[d]);
   return names.length > 1 ? `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}` : (names[0] ?? '');
 }
 
 const UNIT: Record<Repeat, [string, string]> = { dia: ['dia', 'dias'], semana: ['semana', 'semanas'], mes: ['mês', 'meses'], ano: ['ano', 'anos'] };
 
+/** O nome da unidade de um intervalo: "semana" ou "semanas". */
+export function unitLabel(repeat: Repeat, n: number): string {
+  return UNIT[repeat][n === 1 ? 0 : 1];
+}
+
+const ORDINAL_F = ['primeira', 'segunda', 'terceira', 'quarta', 'quinta'];
+const ORDINAL_M = ['primeiro', 'segundo', 'terceiro', 'quarto', 'quinto'];
+
+/** A vez do dia da semana do dia dentro do mês: 1 a 5 ("a terceira terça"). */
+export function nthOf(day: string): number {
+  return Math.ceil(Number(day.slice(8)) / 7);
+}
+
+/** O dia é o último daquele dia da semana no mês ("a última sexta")? */
+export function isLastOfMonth(day: string): boolean {
+  const [y, m, d] = parts(day);
+  return d + 7 > daysInMonth(y, m);
+}
+
+/** "terceira terça-feira", "último sábado": o dia da semana do dia, na vez `nth` (−1, a última). */
+export function nthLabel(day: string, nth: number, long = true): string {
+  const w = weekday(day);
+  const ord = nth < 0 ? (masculine(w) ? 'último' : 'última') : (masculine(w) ? ORDINAL_M : ORDINAL_F)[nth - 1];
+  return `${ord} ${long ? WEEKDAYS_LONG[w] : WEEKDAYS_PLAIN[w]}`;
+}
+
+type Extra = Pick<Reminder, 'every' | 'days' | 'until' | 'end' | 'nth' | 'strict' | 'count'>;
+
 /** Como ele se repete, por extenso, para o lembrete aberto: "Todo ano, em 23 de agosto." */
-export function repeatSentence(repeat: Repeat | undefined, date: string, extra: Pick<Reminder, 'every' | 'days' | 'until' | 'end'> = {}): string {
+export function repeatSentence(repeat: Repeat | undefined, date: string, extra: Extra = {}): string {
   const span = spanOf({ date, end: extra.end });
   if (!repeat && span > 1) return `De ${rangeLabel(date, extra.end!)}${date.slice(0, 4) === extra.end!.slice(0, 4) ? ` de ${date.slice(0, 4)}` : ''}.`;
   const base = baseSentence(repeat, date, extra);
-  const withEnd = repeat && extra.until ? `${base.slice(0, -1)}, até ${longDay(extra.until)}.` : base;
+  const ending = !repeat ? '' : extra.count ? `, ${extra.count === 1 ? '1 vez' : `${extra.count} vezes`}` : extra.until ? `, até ${longDay(extra.until)}` : '';
+  const withEnd = ending ? `${base.slice(0, -1)}${ending}.` : base;
   return repeat && span > 1 ? `${withEnd} Cada vez dura ${span} dias.` : withEnd;
 }
 
-function baseSentence(repeat: Repeat | undefined, date: string, extra: Pick<Reminder, 'every' | 'days'>): string {
+function baseSentence(repeat: Repeat | undefined, date: string, extra: Extra): string {
   const [, m, d] = parts(date);
   const n = extra.every ?? 1;
+  const nth = repeat === 'mes' || repeat === 'ano' ? extra.nth : undefined;
+  const short = d > 28 ? (extra.strict ? ` (só nos meses que têm o dia ${d})` : ' (no último dia, nos meses mais curtos)') : '';
+  if (nth) {
+    const where = nthLabel(date, nth);
+    const male = masculine(weekday(date));
+    const month = repeat === 'ano' ? ` de ${MONTHS_LONG[m - 1]}` : '';
+    if (n > 1) return `A cada ${n} ${UNIT[repeat!][1]}, ${male ? 'no' : 'na'} ${where}${month}.`;
+    return repeat === 'mes' ? `${male ? 'Todo' : 'Toda'} ${where} do mês.` : `Todo ano, ${male ? 'no' : 'na'} ${where}${month}.`;
+  }
   if (repeat && (n > 1 || extra.days?.length)) {
     const each = n > 1 ? `A cada ${n} ${UNIT[repeat][1]}` : repeat === 'semana' ? 'Toda semana' : '';
     switch (repeat) {
       case 'dia':
         return `${each}, a partir de ${longDay(date)}.`;
-      case 'semana':
-        return `${each}, ${extra.days?.length ? `na ${joinDays(extra.days)}` : `na ${WEEKDAYS_PLAIN[weekday(date)]}`}, a partir de ${longDay(date)}.`;
+      case 'semana': {
+        const list = extra.days?.length ? [...extra.days].sort() : [weekday(date)];
+        const days = joinDays(list);
+        // "na segunda e quarta", "no sábado e domingo", "de segunda a sexta"
+        const prep = days === 'segunda a sexta' ? 'de' : masculine(list[0]) ? 'no' : 'na';
+        return `${each}, ${prep} ${days}, a partir de ${longDay(date)}.`;
+      }
       case 'mes':
-        return `${each}, no dia ${d}.`;
+        return `${each}, no dia ${d}${short}.`;
       case 'ano':
         return `${each}, em ${dayAndMonth(date)}.`;
     }
@@ -277,24 +346,26 @@ function baseSentence(repeat: Repeat | undefined, date: string, extra: Pick<Remi
     case 'semana':
       return `${everyWeekday(date)}, a partir de ${longDay(date)}.`;
     case 'mes':
-      return d > 28 ? `Todo dia ${d} de cada mês (no último dia, nos meses mais curtos).` : `Todo dia ${d} de cada mês.`;
+      return `Todo dia ${d} de cada mês${short}.`;
     case 'ano':
-      return m === 2 && d === 29 ? 'Todo ano, em 29 de fevereiro (no dia 28, nos anos que não são bissextos).' : `Todo ano, em ${dayAndMonth(date)}.`;
+      if (m === 2 && d === 29) return extra.strict ? 'Todo ano, em 29 de fevereiro (só nos anos bissextos).' : 'Todo ano, em 29 de fevereiro (no dia 28, nos anos que não são bissextos).';
+      return `Todo ano, em ${dayAndMonth(date)}.`;
     default:
       return `Só em ${longDay(date)}.`;
   }
 }
 
-/** Como ele se repete, curto, para a linha impressa embaixo do nome: "todo ano", "toda quinta". */
-export function repeatShort(r: Pick<Reminder, 'repeat' | 'date' | 'every' | 'days'>): string {
+/** Como ele se repete, curto, para a linha impressa embaixo do nome: "todo ano", "toda quinta", "toda terceira terça". */
+export function repeatShort(r: Pick<Reminder, 'repeat' | 'date' | 'every' | 'days' | 'nth'>): string {
   if (r.repeat && (r.every ?? 1) > 1) return `a cada ${r.every} ${UNIT[r.repeat][1]}`;
-  if (r.repeat === 'semana' && r.days?.length) return joinDays(r.days.map((d) => d));
+  if (r.repeat === 'semana' && r.days?.length) return joinDays(r.days);
+  if (r.repeat === 'mes' && r.nth) return `${masculine(weekday(r.date)) ? 'todo' : 'toda'} ${nthLabel(r.date, r.nth, false)}`;
   switch (r.repeat) {
     case 'dia':
       return 'todo dia';
     case 'semana': {
       const w = weekday(r.date);
-      return `${w === 0 || w === 6 ? 'todo' : 'toda'} ${WEEKDAYS_LONG[w].replace('-feira', '')}`;
+      return `${masculine(w) ? 'todo' : 'toda'} ${WEEKDAYS_PLAIN[w]}`;
     }
     case 'mes':
       return `todo dia ${Number(r.date.slice(8))}`;
@@ -307,12 +378,20 @@ export function repeatShort(r: Pick<Reminder, 'repeat' | 'date' | 'every' | 'day
 
 // ===== Quando ele aparece =====
 
-/** A semana do dia, contada de segunda a domingo (o jeito do Google contar o "a cada 2 semanas"). */
-function mondayWeek(day: string): number {
-  return Math.floor((dayNumber(day) + 3) / 7);
+/**
+ * A semana do dia, para contar o "a cada 2 semanas" em vários dias: de segunda a domingo (o jeito do
+ * iCalendar, sem dizer nada), ou de domingo a sábado (`weekStart` 0, o WKST=SU do Google).
+ */
+function weekIndex(day: string, start: 0 | 1): number {
+  return Math.floor((dayNumber(day) + (start === 0 ? 4 : 3)) / 7);
 }
 
-type Rule = Pick<Reminder, 'date' | 'repeat' | 'skip' | 'every' | 'days' | 'until'>;
+/** O dia é a vez `nth` do dia da semana dele no mês (−1: a última)? */
+function isNth(day: string, nth: number): boolean {
+  return nth < 0 ? isLastOfMonth(day) : nthOf(day) === nth;
+}
+
+type Rule = Pick<Reminder, 'date' | 'repeat' | 'skip' | 'every' | 'days' | 'until' | 'nth' | 'strict' | 'weekStart'>;
 
 /** O lembrete aparece neste dia? */
 export function occursOn(r: Rule, day: string): boolean {
@@ -321,16 +400,18 @@ export function occursOn(r: Rule, day: string): boolean {
   const n = r.every ?? 1;
   const [ay, am, ad] = parts(r.date);
   const [y, m, d] = parts(day);
+  // no mês (e no ano): a vez do dia da semana, o dia certo, ou o último dia dos meses mais curtos
+  const inMonth = () => (r.nth ? weekday(day) === weekday(r.date) && isNth(day, r.nth) : r.strict ? d === ad : d === Math.min(ad, daysInMonth(y, m)));
   switch (r.repeat) {
     case 'dia':
       return (dayNumber(day) - dayNumber(r.date)) % n === 0;
     case 'semana':
-      if (r.days?.length) return r.days.includes(weekday(day)) && (mondayWeek(day) - mondayWeek(r.date)) % n === 0;
+      if (r.days?.length) return r.days.includes(weekday(day)) && (weekIndex(day, r.weekStart ?? 1) - weekIndex(r.date, r.weekStart ?? 1)) % n === 0;
       return (dayNumber(day) - dayNumber(r.date)) % (7 * n) === 0;
     case 'mes':
-      return (y * 12 + m - (ay * 12 + am)) % n === 0 && d === Math.min(ad, daysInMonth(y, m));
+      return (y * 12 + m - (ay * 12 + am)) % n === 0 && inMonth();
     case 'ano':
-      return (y - ay) % n === 0 && m === am && d === Math.min(ad, daysInMonth(y, m));
+      return (y - ay) % n === 0 && m === am && inMonth();
   }
 }
 
@@ -338,14 +419,29 @@ export function occursOn(r: Rule, day: string): boolean {
 export function nextOccurrence(r: Rule, from: string): string | null {
   if (!r.repeat) return r.date >= from && !r.skip.includes(r.date) ? r.date : null;
   let day = from < r.date ? r.date : from;
-  // o que mais demora é o 29 de fevereiro (um ano, ou alguns com o intervalo) e os dias pulados depois dele
-  const limit = Math.min(3 * 366 * (r.every ?? 1), 40 * 366);
+  // o que mais demora é o 29 de fevereiro só nos bissextos (quatro anos, ou mais com o intervalo) e os dias pulados depois dele
+  const limit = Math.min(9 * 366 * (r.every ?? 1), 40 * 366);
   for (let i = 0; i < limit; i++, day = addDays(day, 1)) {
     if (r.until && day > r.until) return null;
     if (occursOn(r, day)) return day;
   }
   return null;
 }
+
+/**
+ * O dia da última de `count` vezes ("depois de 10 vezes"), ou null se elas não cabem em 40 anos. Os
+ * dias tirados contam, como no Google (tirar uma vez não empurra o fim).
+ */
+export function countEnd(r: Omit<Rule, 'skip' | 'until'>, count: number): string | null {
+  const probe: Rule = { ...r, skip: [], until: undefined };
+  let seen = 0;
+  let day = r.date;
+  for (let i = 0; i < 40 * 366; i++, day = addDays(day, 1)) {
+    if (occursOn(probe, day) && ++seen === count) return day;
+  }
+  return null;
+}
+
 
 // ===== Mais de um dia =====
 
@@ -489,7 +585,10 @@ function marks(days: string[]): string[] {
 
 const ID_RE = /^[\w-]{1,64}$/;
 const EVENT_ID_RE = /^[a-v0-9]{5,1024}$/;
-const LOCKS = ['convite', 'repeticao', 'google'];
+/** (O `repeticao` de antes, a repetição que só o Google mudava, saiu: o Murall agora mostra e muda todas.) */
+const LOCKS = ['convite', 'google'];
+/** Quantas vezes, no máximo, no "depois de N vezes". */
+export const MAX_COUNT = 999;
 
 function isStamp(v: unknown): v is string {
   return typeof v === 'string' && v.length <= 40 && Number.isFinite(Date.parse(v));
@@ -510,6 +609,7 @@ function sanitizeLink(raw: unknown): GoogleLink | undefined {
     ...(LOCKS.includes(g['lock'] as string) ? { lock: g['lock'] as GoogleLink['lock'] } : {}),
     ...(dur ? { dur } : {}),
     ...(Array.isArray(g['skip']) ? { skip } : {}),
+    ...(g['quiet'] === true ? { quiet: true } : {}),
   };
 }
 
@@ -539,7 +639,7 @@ export function sanitizeReminder(raw: unknown): Reminder | null {
     repeat === 'semana' && Array.isArray(r['days'])
       ? [...new Set(r['days'].filter((d): d is number => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6))].sort()
       : [];
-  const until = repeat && isDay(r['until']) && r['until'] >= (r['date'] as string) ? r['until'] : undefined;
+  let until = repeat && isDay(r['until']) && r['until'] >= (r['date'] as string) ? (r['until'] as string) : undefined;
   let google = sanitizeLink(r['google']);
   const date = r['date'] as string;
   const time = isTime(r['time']) ? r['time'] : undefined;
@@ -560,6 +660,23 @@ export function sanitizeReminder(raw: unknown): Reminder | null {
   if (end && dayNumber(end) - dayNumber(date) + 1 > MAX_SPAN) end = addDays(date, MAX_SPAN - 1);
   // no mesmo dia, o fim vem depois do começo
   if (!end && endTime && endTime <= time!) endTime = undefined;
+  // a vez do dia da semana no mês ("a terceira terça"), só no mês e no ano
+  const rawNth = r['nth'];
+  const nth = (repeat === 'mes' || repeat === 'ano') && typeof rawNth === 'number' && Number.isInteger(rawNth) && ((rawNth >= 1 && rawNth <= 5) || rawNth === -1) ? rawNth : undefined;
+  const strict = (repeat === 'mes' || repeat === 'ano') && !nth && r['strict'] === true && Number(date.slice(8)) >= 29 ? (true as const) : undefined;
+  const weekStart = repeat === 'semana' && r['weekStart'] === 0 ? (0 as const) : undefined;
+  // "depois de N vezes": o último dia sai da conta
+  const rawCount = r['count'];
+  let count = repeat && typeof rawCount === 'number' && Number.isInteger(rawCount) && rawCount >= 1 && rawCount <= MAX_COUNT ? rawCount : undefined;
+  if (count) {
+    const last = countEnd({ date, repeat, every, days: days.length ? days : undefined, nth, strict, weekStart }, count);
+    if (last) until = last;
+    else count = undefined;
+  }
+  const at = isStamp(r['at']) ? r['at'] : createdAt;
+  // a repetição que só o Google mudava agora se muda aqui: ela continua igual à de lá (nada a mandar)
+  const rawLink = r['google'] as Record<string, unknown> | undefined;
+  if (google && rawLink?.['lock'] === 'repeticao' && !google.lock) google = { ...google, at };
   return {
     id: r['id'],
     title,
@@ -570,12 +687,17 @@ export function sanitizeReminder(raw: unknown): Reminder | null {
     ...(repeat ? { repeat } : {}),
     ...(every ? { every } : {}),
     ...(days.length ? { days } : {}),
+    ...(nth ? { nth } : {}),
+    ...(strict ? { strict } : {}),
+    ...(weekStart === 0 ? { weekStart } : {}),
     ...(until ? { until } : {}),
+    ...(count ? { count } : {}),
+    ...(r['quiet'] === true ? { quiet: true as const } : {}),
     color: (LIGHT_STOCKS as readonly unknown[]).includes(r['color']) ? (r['color'] as LightStock) : 'amarelo',
     notes,
     skip: repeat && Array.isArray(r['skip']) ? marks(r['skip'] as string[]) : [],
     createdAt,
-    at: isStamp(r['at']) ? r['at'] : createdAt,
+    at,
     ...(google ? { google } : {}),
   };
 }

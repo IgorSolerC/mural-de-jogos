@@ -221,7 +221,7 @@ describe('o Google Agenda ligado ao Calendário', () => {
     expect(calendar.get('rbolo00001')!.google!.skip).toEqual([]);
   });
 
-  it('uma repetição que só o Google muda: um dia sai daqui (só a vez), e apagar tudo apaga lá', async () => {
+  it('uma repetição personalizada do Google se muda aqui: um dia sai (o evento e a vez), e apagar tudo apaga lá', async () => {
     fake.events.set('quintas0001', {
       id: 'quintas0001',
       status: 'confirmed',
@@ -235,15 +235,37 @@ describe('o Google Agenda ligado ao Calendário', () => {
       tipo: 'default',
     });
     await google.sync();
-    expect(calendar.get('gquintas0001')!.google!.lock).toBe('repeticao');
+    expect(calendar.get('gquintas0001')!.google!.lock).toBeUndefined();
+    expect(calendar.get('gquintas0001')!.every).toBe(2);
     calendar.skipDay('gquintas0001', '2026-11-03');
     fake.ops = [];
     await google.sync();
-    expect(fake.ops).toEqual([{ acao: 'apagar', id: 'quintas0001_20261103' }]);
+    expect(fake.ops).toEqual([
+      { acao: 'mudar', id: 'quintas0001', evento: jasmine.objectContaining({ recurrence: ['RRULE:FREQ=WEEKLY;INTERVAL=2', 'EXDATE;VALUE=DATE:20261103'] }) },
+      { acao: 'apagar', id: 'quintas0001_20261103' },
+    ]);
     calendar.remove('gquintas0001');
     fake.ops = [];
     await google.sync();
     expect(fake.ops).toEqual([{ acao: 'apagar', id: 'quintas0001' }]);
+  });
+
+  it('uma marcação vai ao Google sem avisos; virar lembrete devolve os avisos da agenda', async () => {
+    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo', { quiet: true })], removed: {} });
+    await google.sync();
+    expect(fake.ops[0].evento).toEqual(jasmine.objectContaining({ reminders: { useDefault: false, overrides: [] } }));
+    expect(calendar.get('rbolo00001')!.google!.quiet).toBeTrue();
+    fake.ops = [];
+    const { quiet: _, ...lembrete } = calendar.get('rbolo00001')!;
+    calendar.save(lembrete);
+    await google.sync();
+    expect(fake.ops[0].evento).toEqual(jasmine.objectContaining({ reminders: { useDefault: true } }));
+    expect(calendar.get('rbolo00001')!.google!.quiet).toBeFalse();
+    // de novo, já com os avisos lá: não se diz nada (os avisos que a pessoa pôs no Google ficam)
+    fake.ops = [];
+    calendar.save({ ...calendar.get('rbolo00001')!, title: 'Bolo de cenoura' });
+    await google.sync();
+    expect(fake.ops[0].evento!['reminders']).toBeUndefined();
   });
 
   it('desconectar desfaz os vínculos: o que veio do Google vira lembrete do Murall, que muda aqui', async () => {
