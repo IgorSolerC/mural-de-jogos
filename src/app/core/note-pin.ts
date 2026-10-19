@@ -6,7 +6,7 @@ import { Toasts } from '../ui/toast';
 
 /**
  * Fixar a anotação no topo do mural (o alfinete da ficha, da leitura e do editor). A ficha desliza
- * para a seção Fixadas; desafixada, volta ao lugar de antes (comum, ou sub-nota se era). O bilhete
+ * para a seção Fixadas; desafixada, volta a ser comum. O bilhete
  * tem Desfazer.
  */
 @Injectable({ providedIn: 'root' })
@@ -31,11 +31,10 @@ export class NotePin {
   private restore(before: Review): void {
     const now = this.store.get(before.id);
     if (!now) return;
-    const { noteRank: _r, pinnedSub: _s, ...rest } = now;
+    const { noteRank: _r, ...rest } = now;
     const back: Review = {
       ...rest,
       ...(before.noteRank ? { noteRank: before.noteRank } : {}),
-      ...(before.pinnedSub ? { pinnedSub: true as const } : {}),
       updatedAt: new Date().toISOString(),
     };
     this.motion.run(() => this.store.update(back));

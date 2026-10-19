@@ -909,8 +909,8 @@ function withStocks(list: Review[]): Review[] {
   return list.map((r) => (r.stock ? r : { ...r, stock: assigned.get(r.id) }));
 }
 
-/** A ficha sem o lugar dela no mural (fixada, sub-nota): o que uma anotação compartilhada tem em comum. */
+/** A ficha sem o lugar dela no mural (fixada): o que uma anotação compartilhada tem em comum. */
 function withoutRank(r: Review): Review {
-  const { noteRank: _r, pinnedSub: _s, ...rest } = r;
+  const { noteRank: _r, ...rest } = r;
   return rest as Review;
 }

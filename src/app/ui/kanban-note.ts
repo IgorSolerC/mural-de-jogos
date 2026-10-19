@@ -15,7 +15,7 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
  * ficha do mural (como a ficha colada do widget Nota, ver ui/glued-review-card.ts), num componente
  * à parte, para os estilos da página não pegarem nela. Na tira de papel pardo da coluna, quase reta
  * (40% da inclinação dela no mural) e sem a queda da parede. Mais enxuta que a do mural: sem a
- * tachinha, o nome menor, sem a orelha da categoria e sem o "Parte de…" da sub-nota (`onBoard`).
+ * tachinha, o nome menor e sem a orelha da categoria (`onBoard`).
  * O que vem dentro dela (a etiqueta da importância) vai junto quando ela sobe com o mouse.
  */
 @Component({

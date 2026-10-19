@@ -55,8 +55,7 @@ import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
-import { NoteLinks, backlinksOf, partOfLabel, resolveNote } from '../core/note-links';
-import { NoteBacklinks } from './note-backlinks';
+import { NoteLinks, resolveNote } from '../core/note-links';
 import { Desk } from '../core/desk';
 import { KanbanDeps } from '../core/kanban-deps';
 import { NoteDone } from '../core/note-done';
@@ -220,16 +219,9 @@ export const CARD_TEMPLATE = `
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
         } @else if (!capas() && note()) {
           <p class="meta meta-nota" data-queima>
-            <!-- a sub-nota diz de qual anotação ela é parte (a que tem o link para ela), antes da data -->
-            @if (partShown()) {
-              <span class="sub-marca">{{ partOf() }}</span>
-            }
             <!-- quem vê (a pública, no seu mural) e a data; sem data, o lugar dela fica vazio (a linha
                  continua, do mesmo tamanho) -->
             @if (review().completedAt || publicBadge()) {
-              @if (partShown()) {
-                <span aria-hidden="true"> · </span>
-              }
               <span class="quando">
                 @if (publicBadge()) {
                   <span class="quem-ve" title="Publicada: quem abre o seu mural vê"><lucide-icon class="quem-ve-icone" [img]="PublicIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Publicada: quem abre o seu mural vê. </span></span>
@@ -241,14 +233,14 @@ export const CARD_TEMPLATE = `
             }
             <!-- as tarefas: quantas já foram feitas -->
             @if (tasks(); as t) {
-              @if (partShown() || review().completedAt || publicBadge()) {
+              @if (review().completedAt || publicBadge()) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
             <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
             @if (noText()) {
-              @if (partShown() || review().completedAt || publicBadge() || tasks()) {
+              @if (review().completedAt || publicBadge() || tasks()) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />Sem descrição</span>
@@ -364,22 +356,6 @@ export const CARD_TEMPLATE = `
         >
           <lucide-icon [img]="PinIcon" [size]="16" aria-hidden="true" />
         </button>
-        <!-- a sub-nota: a seta de item de dentro, sempre à mostra (como o alfinete da fixada); abre
-             a lista das anotações que apontam para ela -->
-        @if (subMark(); as s) {
-          <button
-            type="button"
-            class="sub-ind"
-            [attr.aria-label]="'Sub-nota: ver ' + (s.count === 1 ? 'a anotação que aponta' : 'as ' + s.count + ' anotações que apontam') + ' para ' + review().game.name"
-            [title]="s.count === 1 ? 'Sub-nota: ver de onde ela é parte' : 'Sub-nota: citada em ' + s.count + ' anotações'"
-            (click)="backlinks.open(review().id)"
-          >
-            <lucide-icon [img]="SubIcon" [size]="16" aria-hidden="true" />
-            @if (s.count) {
-              <span class="sub-n" aria-hidden="true">{{ s.count }}</span>
-            }
-          </button>
-        }
       </div>
     }
     @if (note() && !compact() && !capas()) {
@@ -1104,56 +1080,6 @@ export const CARD_STYLES = `
     .fixar {
       width: 30px;
     }
-    /* a sub-nota: sempre à mostra, como o alfinete da fixada (é o estado dela) */
-    .sub-ind {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      min-width: 30px;
-      height: 30px;
-      padding: 0 7px;
-      border: 0;
-      border-radius: 3px;
-      background: var(--etiqueta);
-      color: var(--etiqueta-tinta);
-      box-shadow:
-        0 1px 2px rgb(0 0 0 / 0.4),
-        0 4px 8px -3px rgb(0 0 0 / 0.4);
-      cursor: pointer;
-      transition: scale var(--t-ui) var(--ease-ui);
-    }
-    .sub-ind::before {
-      content: '';
-      position: absolute;
-      inset: -7px -2px;
-    }
-    .sub-ind lucide-icon {
-      display: inline-flex;
-    }
-    .sub-n {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.82rem;
-      font-variant-numeric: tabular-nums;
-    }
-    .sub-ind:focus-visible {
-      outline: 2.5px solid var(--etiqueta);
-      outline-offset: 2px;
-      box-shadow:
-        0 0 0 6px rgb(241 241 236 / 0.85),
-        0 1px 2px rgb(0 0 0 / 0.4);
-    }
-    @media (hover: hover) {
-      .sub-ind:hover {
-        scale: 1.06;
-      }
-    }
-    :host(.carimbando) .sub-ind {
-      opacity: 0;
-      pointer-events: none;
-    }
     .feito {
       padding: 0 10px 0 8px;
       font-family: var(--f-label);
@@ -1247,10 +1173,6 @@ export const CARD_STYLES = `
         top: -17px;
         gap: 6px;
       }
-      .sub-ind {
-        min-width: 34px;
-        height: 34px;
-      }
       .acao-nome {
         display: none;
       }
@@ -1258,9 +1180,6 @@ export const CARD_STYLES = `
       .feito::before {
         inset: -5px -3px;
       }
-    }
-    .sub-marca {
-      opacity: 0.7;
     }
     /* as tarefas da anotação: o desenho do checklist e a conta; todas feitas, o verde do carimbo */
     .tarefas-conta {
@@ -1638,8 +1557,8 @@ export const CARD_STYLES = `
 export class ReviewCard {
   readonly review = input.required<Review>();
   /**
-   * A ficha pregada no quadro do Kanban (ver ui/kanban-note.ts): sem a orelha da categoria nem o
-   * "Parte de…" da sub-nota, que lá não ajudam a decidir nada. A subclasse do quadro liga.
+   * A ficha pregada no quadro do Kanban (ver ui/kanban-note.ts): sem a orelha da categoria, que lá
+   * não ajuda a decidir nada. A subclasse do quadro liga.
    */
   protected readonly onBoard: boolean = false;
   readonly landing = input(false);
@@ -1729,31 +1648,6 @@ export class ReviewCard {
     const c = checkCount(this.review().text);
     return c.total ? c : null;
   });
-  /** A sub-nota diz de qual anotação é parte (no quadro do Kanban, não). */
-  protected readonly partShown = computed(() => this.review().noteRank === 'sub' && !this.onBoard);
-  /**
-   * De qual anotação a sub-nota é parte: a que tem o link para ela ("Parte de Sprint 42") ou, com
-   * várias apontando para ela, quantas ("Parte de 2 notas"). Só no seu mural (nos outros, a ficha não
-   * conhece as outras anotações): lá, e sem nenhuma, "Sub-nota".
-   */
-  protected readonly partOf = computed(() => {
-    const r = this.review();
-    if (!this.note() || r.noteRank !== 'sub' || !this.checkable()) return 'Sub-nota';
-    return partOfLabel(backlinksOf(r, this.store.notes()));
-  });
-
-  protected readonly backlinks = inject(NoteBacklinks);
-  protected readonly SubIcon = ICON.dentro;
-  /**
-   * O indicador de sub-nota (também na fixada que era sub-nota), com quantas anotações apontam para
-   * ela. Só onde a ficha tem as etiquetas de cima (no seu mural).
-   */
-  protected readonly subMark = computed(() => {
-    const r = this.review();
-    if (!this.canFinish() || (r.noteRank !== 'sub' && !r.pinnedSub)) return null;
-    return { count: backlinksOf(r, this.store.notes()).length };
-  });
-
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
   protected readonly canFinish = computed(() => this.note() && this.ticks() && !this.preview() && !this.capas());
   protected readonly DoneIcon = ICON.feito;
@@ -1995,7 +1889,7 @@ export class ReviewCard {
     if (isNote(r)) {
       const cats = [r.category ? `grupo ${r.category}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
-      const rank = r.noteRank === 'fixada' ? 'fixada' : r.noteRank === 'sub' ? 'sub-nota' : '';
+      const rank = r.noteRank === 'fixada' ? 'fixada' : '';
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
       const tasks = this.tasks();
       const todo = tasks ? `${tasks.done} de ${tasks.total} tarefas feitas` : '';

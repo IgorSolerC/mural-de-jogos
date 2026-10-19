@@ -11,7 +11,7 @@ import { CONFLICT_PART_LABEL, ConflictPart } from './shared-notes';
  * linhas e, no trecho em briga, por palavras (`mergeText`); o título e a capa cada um por si; as tags
  * como um conjunto (o que um pôs fica, o que um tirou sai); a aparência e quem vê em grupos que mudam
  * juntos; e o resto campo a campo (as notas de cada critério, cada uma por si). Vale para resenhas,
- * músicas e anotações, com o lugar no mural (fixada, sub-nota), que aqui é da pessoa.
+ * músicas e anotações, com o lugar no mural (fixada no topo), que aqui é da pessoa.
  *
  * `a` é a versão que estava na nuvem e `b` a deste aparelho: o que brigou fica, na ficha do mural, do
  * jeito de `a` até a pessoa escolher.
@@ -40,7 +40,7 @@ const GROUPS: readonly { keys: readonly string[]; part: FichaPart }[] = [
   { keys: ['stains'], part: 'aparencia' },
   { keys: ['decors'], part: 'aparencia' },
   { keys: ['private', 'quiet', 'publishedAt'], part: 'publico' },
-  { keys: ['noteRank', 'pinnedSub'], part: 'lugar' },
+  { keys: ['noteRank'], part: 'lugar' },
 ];
 const GROUPED = new Set(GROUPS.flatMap((g) => g.keys));
 /** Os campos tratados à parte; o resto vai por `mergeJson`, campo a campo. */

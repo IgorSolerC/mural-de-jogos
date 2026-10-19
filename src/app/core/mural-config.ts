@@ -4,8 +4,9 @@ import { lookKey, tagLookKey } from './category-looks';
 /**
  * As configurações do mural de anotações (a engrenagem da pasta, ver ui/mural-config.ts): o que
  * vale para o mural inteiro e o que cada categoria muda em cima disso. Uma categoria sem escolha
- * segue o mural; o mural sem escolha fica como o site sempre foi (anotação nasce privada, a sub-nota
- * com uma cor sorteada, as abas da maior para a menor).
+ * segue o mural; o mural sem escolha fica como o site sempre foi (anotação nasce privada, as abas da
+ * maior para a menor). A cor da sub-nota (`subColor`) saiu com a sub-nota, na build 443: o que vier
+ * guardado com ela é ignorado.
  *
  * O ícone e a cor de cada categoria moram à parte (`Settings.categoryLooks`, ver category-looks.ts),
  * porque vão também no mural público; isto aqui é só da pessoa e nunca sai do mural privado.
@@ -14,10 +15,6 @@ import { lookKey, tagLookKey } from './category-looks';
  * `NOTES_CONFIG_DEFAULT` e a leitura em `sanitizeNotesConfig`); um por categoria, em `CategoryPrefs`
  * (vazio = segue o mural) e em `sanitizePrefs`. A folha da engrenagem mostra cada um numa linha.
  */
-
-/** A cor da cartolina de uma sub-nota criada de dentro de outra anotação. */
-export type SubColor = 'sorteada' | 'mae';
-export const SUB_COLORS: readonly SubColor[] = ['sorteada', 'mae'];
 
 /** Como as abas (e a ordem por categoria) se arrumam: pela quantidade ou na ordem que a pessoa montou. */
 export type CategoryOrderBy = 'quantidade' | 'minha';
@@ -28,8 +25,6 @@ const AUDIENCES: readonly Audience[] = ['privada', 'visivel', 'publicar'];
 export interface CategoryPrefs {
   /** Como nasce a anotação nova desta categoria: Privada, Disponível (pública, fora do Feed) ou Publicar. */
   audience?: Audience;
-  /** A sub-nota criada de dentro de uma anotação desta categoria: cor sorteada ou a da anotação mãe. */
-  subColor?: SubColor;
   /** Perguntar antes de salvar uma anotação desta categoria sem nenhuma tag. */
   askTag?: boolean;
   /** Escondida: a aba dela fica sempre no "Mais", nunca em pé lá em cima. Guardado só quando `true`. */
@@ -39,8 +34,6 @@ export interface CategoryPrefs {
 export interface NotesConfig {
   /** Como nasce toda anotação nova (a categoria pode mudar). */
   audience: Audience;
-  /** A cor da sub-nota, no mural inteiro (a categoria pode mudar). */
-  subColor: SubColor;
   orderBy: CategoryOrderBy;
   /**
    * A ordem montada à mão: as categorias pela chave (sem acento nem caixa, a de `lookKey`). Fica
@@ -58,7 +51,7 @@ export interface NotesConfig {
   hiddenTags: string[];
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', subColor: 'sorteada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [] };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [] };
 
 /** Tags demais viram lixo guardado: no máximo estas com o filtro padrão Excluído. */
 export const MAX_HIDDEN_TAGS = 500;
@@ -69,15 +62,14 @@ export const MAX_CONFIG_CATEGORIES = 200;
 function sanitizePrefs(raw: unknown): CategoryPrefs {
   const out: CategoryPrefs = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  const { audience, subColor, askTag, hidden } = raw as Record<string, unknown>;
+  const { audience, askTag, hidden } = raw as Record<string, unknown>;
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
-  if (SUB_COLORS.includes(subColor as SubColor)) out.subColor = subColor as SubColor;
   if (typeof askTag === 'boolean') out.askTag = askTag;
   if (hidden === true) out.hidden = true;
   return out;
 }
 
-const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.subColor === undefined && p.askTag === undefined && !p.hidden;
+const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden;
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
@@ -113,7 +105,6 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
   }
   return {
     audience: AUDIENCES.includes(r['audience'] as Audience) ? (r['audience'] as Audience) : NOTES_CONFIG_DEFAULT.audience,
-    subColor: SUB_COLORS.includes(r['subColor'] as SubColor) ? (r['subColor'] as SubColor) : NOTES_CONFIG_DEFAULT.subColor,
     orderBy: r['orderBy'] === 'minha' ? 'minha' : 'quantidade',
     order,
     categories,
@@ -142,11 +133,6 @@ export function prefsOf(cfg: NotesConfig, category: string | null | undefined): 
 /** Como nasce uma anotação nova nesta categoria (ou sem nenhuma). */
 export function newNoteAudience(cfg: NotesConfig, category: string | null | undefined): Audience {
   return prefsOf(cfg, category).audience ?? cfg.audience;
-}
-
-/** A cor da sub-nota criada de dentro de uma anotação desta categoria. */
-export function subNoteColor(cfg: NotesConfig, category: string | null | undefined): SubColor {
-  return prefsOf(cfg, category).subColor ?? cfg.subColor;
 }
 
 /** Perguntar antes de salvar sem tag uma anotação desta categoria? `mural`: a escolha do mural inteiro. */

@@ -4,7 +4,6 @@ import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
-import { pinningFor } from '../core/wall-physics';
 import { CheckedAnswer, CheckedOptions, Confirm } from './confirm';
 import { ReviewEditor } from './review-editor';
 
@@ -26,7 +25,7 @@ function note(id: string, name: string, extra: Record<string, unknown> = {}): Re
 
 /**
  * As configurações do mural de anotações no editor: a anotação nova nasce como o mural (ou a
- * categoria dela) manda, a sub-nota pega a cor da mãe quando pedido, e a categoria pede ou dispensa a
+ * categoria dela) manda, a anotação de um link fica no grupo de onde veio, e a categoria pede ou dispensa a
  * pergunta da tag. O exemplo do pedido: tudo privado, mas "Roadmap site" Disponível e "Viagens!" Publicar.
  */
 describe('o editor segue as configurações do mural', () => {
@@ -36,7 +35,8 @@ describe('o editor segue as configurações do mural', () => {
   let settings: Settings;
   let asked: { options: CheckedOptions; answer: (a: CheckedAnswer) => void }[];
   type Inside = {
-    noteCategory: { set(v: string | null): void };
+    noteCategory: { (): string | null; set(v: string | null): void };
+    preview(): { noteRank?: string };
     noteTags: { set(v: string[]): void };
     stock(): string;
     save(e: Event | null): void;
@@ -153,16 +153,16 @@ describe('o editor segue as configurações do mural', () => {
     expect(chosen()).toBe('Privado');
   });
 
-  it('a sub-nota criada de dentro de outra: cor sorteada, ou a da mãe quando a categoria pede', async () => {
+  it('a anotação criada por um link dentro de outra é comum, no mesmo grupo dela, e nasce como o grupo manda', async () => {
     const mother = note('nmae0001', 'Roteiro', { category: 'Viagens!', stock: 'lilas' });
     store.add(mother);
-    settings.setCategoryPrefs('Viagens!', { subColor: 'mae' });
+    settings.setCategoryPrefs('Viagens!', { audience: 'publicar' });
     fixture.componentInstance.openNote('Hotel', store.get('nmae0001'));
     await fixture.whenStable();
-    expect(inside().stock()).toBe(pinningFor(mother.id, mother.stock).stock);
-    // e a sub-nota nasce como a categoria da mãe manda
+    expect(inside().noteCategory()).toBe('Viagens!');
+    expect(inside().preview().noteRank).toBeUndefined();
     expect(chosen()).toBe('Público');
-    // fechar sem mexer não pergunta se quer descartar: a cor da mãe é o começo, não uma mudança
+    // fechar sem mexer não pergunta se quer descartar
     expect(fixture.componentInstance['serialize']()).toBe(fixture.componentInstance['snapshot']);
   });
 

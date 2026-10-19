@@ -33,7 +33,7 @@ import { writeJson } from './storage';
 
 /**
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
- * tag) e `prioridade` (fixadas, comuns, sub-notas) só no de anotações; `nota` e `status`, só nos de resenhas.
+ * tag) e `prioridade` (fixadas, depois as comuns) só no de anotações; `nota` e `status`, só nos de resenhas.
  */
 export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'tag' | 'prioridade';
 const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'tag', 'prioridade'];
@@ -245,8 +245,8 @@ export abstract class WallState {
   /** A ordem escolhida nos murais de resenhas (o de anotações tem uma por aba, `noteViews`). */
   readonly sort: WritableSignal<SortKey>;
   /**
-   * A vista de cada aba do mural de anotações: a ordem (a de sempre é Prioridade: fixadas, comuns,
-   * sub-notas), a direção e o tipo de ficha. A chave é a da aba; "" é Tudo.
+   * A vista de cada aba do mural de anotações: a ordem (a de sempre é Prioridade: fixadas, depois
+   * as comuns), a direção e o tipo de ficha. A chave é a da aba; "" é Tudo.
    */
   readonly noteViews: WritableSignal<Readonly<Record<string, NoteView>>>;
   /** A nota escolhida para ordenar. Guardada mesmo que o mural aberto não tenha ela (ver `activeScore`). */
@@ -690,7 +690,7 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
     case 'tag':
       return desc ? 'Tags de Z a A' : 'Tags de A a Z';
     case 'prioridade':
-      return desc ? 'Fixadas, comuns e sub-notas; as mais recentes primeiro' : 'Fixadas, comuns e sub-notas; as mais antigas primeiro';
+      return desc ? 'Fixadas primeiro; as mais recentes antes' : 'Fixadas primeiro; as mais antigas antes';
     case 'status':
       return `${desc ? profile.statusGroup.platinado : profile.statusGroup.incompleto} primeiro`;
     default:
@@ -760,8 +760,8 @@ function countsOf(profile: KindProfile, originals: readonly Review[]): string[] 
 }
 
 const PINNED_GROUP: [string, string] = ['fixadas', 'Fixadas'];
-/** As seções da Prioridade: as fixadas, as comuns e as sub-notas. */
-const RANK_GROUPS: [string, string][] = [PINNED_GROUP, ['comuns', 'Anotações'], ['sub-notas', 'Sub-notas']];
+/** As seções da Prioridade: as fixadas e as comuns. */
+const RANK_GROUPS: [string, string][] = [PINNED_GROUP, ['comuns', 'Anotações']];
 
 /** A categoria da anotação (a seção dela ordenando por categoria), ou nenhuma. */
 function firstCategory(r: Review): string | null {
@@ -826,8 +826,8 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
 function comparatorOf(o: WallOrder): (a: Review, b: Review) => number {
   const inner = orderOf(o);
   if (!pinsFirst(o)) return inner;
-  // as fixadas vêm primeiro; na Prioridade, as sub-notas vêm por último
-  const rank = o.sort === 'prioridade' ? rankOrder : (r: Review) => (isPinnedNote(r) ? 0 : 1);
+  // as fixadas vêm primeiro
+  const rank = (r: Review) => (isPinnedNote(r) ? 0 : 1);
   return (a, b) => rank(a) - rank(b) || inner(a, b);
 }
 

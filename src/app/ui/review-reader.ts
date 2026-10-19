@@ -41,8 +41,7 @@ import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { checkCount, plainText, toggleCheck } from '../core/rich-text';
 import { SpoilerShield } from '../core/spoiler-shield';
-import { NoteLinks, backlinksOf, notesOf, resolveNote } from '../core/note-links';
-import { NoteBacklinks } from './note-backlinks';
+import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
 import { KanbanDeps } from '../core/kanban-deps';
 import { KanbanStore } from '../core/kanban-store';
 import { IMPORTANCE_LABEL } from '../core/kanban';
@@ -172,19 +171,6 @@ const PATCH_GAP = 8;
                   <!-- o lugar da anotação no mural vem antes da data, com ou sem data -->
                   @if (note() && r.noteRank === 'fixada') {
                     Fixada<span aria-hidden="true"> · </span>
-                  } @else if (note() && r.noteRank === 'sub') {
-                    <!-- a sub-nota diz de qual anotação é parte, e abre ela; com várias, quantas são, e
-                         no seu mural o número abre a lista delas -->
-                    @let ps = parents();
-                    @if (ps.length === 1) {
-                      Parte de <button type="button" class="parte-de" (click)="openParent(ps[0])">{{ ps[0].game.name }}</button><span aria-hidden="true"> · </span>
-                    } @else if (ps.length && owner() === null) {
-                      Parte de <button type="button" class="parte-de" aria-haspopup="dialog" (click)="openParents(r)">{{ ps.length }} notas</button><span aria-hidden="true"> · </span>
-                    } @else if (ps.length) {
-                      Parte de {{ ps.length }} notas<span aria-hidden="true"> · </span>
-                    } @else {
-                      Sub-nota<span aria-hidden="true"> · </span>
-                    }
                   }
                   @if (r.completedAt === null) {
                     {{ noDay }}
@@ -1074,26 +1060,6 @@ export class ReviewReader {
       ...(mine ? { create: (title: string) => this.createNote.emit({ title, from: this.review()!.id }) } : {}),
     };
   });
-
-  /** As anotações de que a sub-nota aberta é parte (as que têm o link para ela), das mais antigas para as mais novas. */
-  protected readonly parents = computed(() => {
-    const r = this.review();
-    return r && this.note() && r.noteRank === 'sub' ? backlinksOf(r, this.linkable()) : [];
-  });
-  protected readonly backlinks = inject(NoteBacklinks);
-
-  /** A lista das anotações de que esta é parte; a escolhida abre aqui, com o "Voltar" para esta. */
-  protected openParents(r: Review): void {
-    this.backlinks.open(r.id, (id) => {
-      const n = this.parents().find((p) => p.id === id);
-      if (n) this.follow(n);
-    });
-  }
-
-  /** Abre a anotação de que esta é parte, com o "Voltar" para esta. */
-  protected openParent(p: Review): void {
-    this.follow(p);
-  }
 
   /**
    * Abre a ficha colada no texto (o widget Nota), de qualquer mural, com o "Voltar". No mural de outra

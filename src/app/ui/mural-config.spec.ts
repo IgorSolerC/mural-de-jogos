@@ -78,10 +78,9 @@ describe('as configurações do mural (a folha)', () => {
   it('os padrões mudam o mural inteiro na hora', async () => {
     await go('padroes');
     segment(el, 'Disponível').click();
-    segment(el, 'Cor da mãe').click();
     await fixture.whenStable();
     expect(settings.notesConfig().audience).toBe('visivel');
-    expect(settings.notesConfig().subColor).toBe('mae');
+    expect(el.textContent).not.toContain('Sub-nota');
     const tagSwitch = el.querySelector<HTMLButtonElement>('[aria-labelledby="config-t-tag"]')!;
     tagSwitch.click();
     await fixture.whenStable();

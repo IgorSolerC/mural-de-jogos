@@ -319,8 +319,8 @@ export interface Review {
    */
   artFrom?: string;
   /**
-   * Só nas anotações: o lugar dela no mural. Fixada fica sempre no topo; sub-nota (a que nasceu de um
-   * link dentro de outra anotação) vale menos e vai para o fim. Sem o campo, uma anotação comum.
+   * Só nas anotações: fixada no topo do mural. Sem o campo, uma anotação comum. (Até a build 443
+   * havia também a sub-nota, `'sub'`, que ia para o fim; ela virou comum: ver `sanitizeNote`.)
    */
   noteRank?: NoteRank;
   /**
@@ -331,8 +331,6 @@ export interface Review {
   category?: string;
   /** Só nas anotações: as tags, escritas à mão ("Bugfix", "Feature"). Sem o campo, nenhuma. */
   tags?: string[];
-  /** Fixada que era sub-nota: desafixada, volta a ser sub-nota (sem o campo, volta a ser comum). */
-  pinnedSub?: true;
   /**
    * Só nas anotações: quando foi finalizada (ISO), com o check da ficha ou da leitura. A finalizada
    * sai do mural, a não ser com "Mostrar finalizadas", e leva o carimbo com esse dia.
@@ -364,12 +362,12 @@ export interface Review {
 }
 
 /** O lugar de uma anotação no mural (ver `Review.noteRank`); a comum não tem o campo. */
-export type NoteRank = 'fixada' | 'sub';
-export const NOTE_RANKS: readonly NoteRank[] = ['fixada', 'sub'];
+export type NoteRank = 'fixada';
+export const NOTE_RANKS: readonly NoteRank[] = ['fixada'];
 
-/** A ordem dos lugares: fixadas, comuns, sub-notas. */
+/** A ordem dos lugares: fixadas, depois as comuns. */
 export function rankOrder(r: Pick<Review, 'noteRank'>): number {
-  return r.noteRank === 'fixada' ? 0 : r.noteRank === 'sub' ? 2 : 1;
+  return r.noteRank === 'fixada' ? 0 : 1;
 }
 
 /** A anotação fixada no topo do mural? */
@@ -379,17 +377,13 @@ export function isPinnedNote(r: Pick<Review, 'noteRank'>): boolean {
 
 /** A anotação num outro lugar do mural (null: comum). */
 export function withRank(r: Review, rank: NoteRank | null, now: string): Review {
-  const { noteRank: _was, pinnedSub: _sub, ...rest } = r;
+  const { noteRank: _was, ...rest } = r;
   return { ...rest, ...(rank ? { noteRank: rank } : {}), updatedAt: now };
 }
 
-/** Fixar (lembrando se era sub-nota) ou desafixar (voltando a ser sub-nota, se era). */
+/** Fixar no topo ou desafixar (volta a ser comum). */
 export function withPin(r: Review, pinned: boolean, now: string): Review {
-  if (pinned) {
-    const next = withRank(r, 'fixada', now);
-    return r.noteRank === 'sub' ? { ...next, pinnedSub: true } : next;
-  }
-  return withRank(r, r.pinnedSub ? 'sub' : null, now);
+  return withRank(r, pinned ? 'fixada' : null, now);
 }
 
 /** É uma anotação (do mural de anotações), não uma resenha? */
@@ -1225,8 +1219,8 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     ...(category ? { category } : {}),
     ...(tags.length ? { tags } : {}),
     hoursPlayed: null,
+    // a sub-nota de antes (e o "era sub-nota" da fixada) não existe mais: vira comum
     ...(NOTE_RANKS.includes(r['noteRank']) ? { noteRank: r['noteRank'] as NoteRank } : {}),
-    ...(r['noteRank'] === 'fixada' && r['pinnedSub'] === true ? { pinnedSub: true as const } : {}),
     ...optional('doneAt', isoOr(r['doneAt'], '') || undefined),
     ...optional('sharedBy', sanitizeSharedBy(r['sharedBy'])),
     createdAt,

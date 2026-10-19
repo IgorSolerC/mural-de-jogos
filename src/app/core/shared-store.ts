@@ -37,7 +37,7 @@ import {
  *
  * Fica tudo no IndexedDB, por conta (outra conta neste navegador não vê nem mexe nas de outra), e
  * funciona sem rede: a edição espera e sobe quando a conexão voltar. Nada da anotação vai no mural da
- * nuvem; só o lugar dela no mural de quem está aqui (fixada, sub-nota), que é da pessoa e vai para os
+ * nuvem; só o lugar dela no mural de quem está aqui (fixada no topo), que é da pessoa e vai para os
  * outros aparelhos dela pelo mural privado (`places`, ver core/cloud-sync.ts), nunca para a anotação.
  */
 
@@ -77,7 +77,7 @@ export interface SharedEntry {
   conflito: SharedConflict | null;
   atualizadoEm: string;
   atualizadoPor: SharedPerson | null;
-  /** O lugar dela no mural de quem está aqui (fixada, sub-nota): não vai para a nuvem. */
+  /** O lugar dela no mural de quem está aqui (fixada no topo): não vai para a nuvem. */
   pessoal: Personal;
   /** A anotação como ela aparece no mural (feita uma vez por mudança, para o mural saber o que mudou). */
   view: Review;
@@ -90,7 +90,7 @@ export type SharedNotice =
   | { tipo: 'saiu'; id: string; titulo: string };
 
 /**
- * O lugar de uma anotação compartilhada no mural de quem está aqui (fixada, sub-nota) e quando ele
+ * O lugar de uma anotação compartilhada no mural de quem está aqui (fixada no topo) e quando ele
  * mudou: vai para os outros aparelhos da pessoa, e o mudado por último vale.
  */
 export interface Place {
@@ -785,7 +785,7 @@ function withStructureOf(r: Review, from: Review): Review {
 
 /** A estrutura da anotação como a nuvem confere (ver `structureOf` em api/src/domain/shared-note.ts). */
 const structureKey = (r: Review) => JSON.stringify([r.category ?? '', [...(r.tags ?? [])].sort(), !!r.private, !!r.quiet]);
-const samePersonal = (a: Personal, b: Personal) => a.noteRank === b.noteRank && !!a.pinnedSub === !!b.pinnedSub;
+const samePersonal = (a: Personal, b: Personal) => a.noteRank === b.noteRank;
 const sameView = (a: Review, b: Review) => a.updatedAt === b.updatedAt && sameShared(a, b) && samePersonal(personalOf(a), personalOf(b));
 const conflictKey = (e: SharedEntry) => `${e.id}@${e.conflito?.em ?? ''}`;
 

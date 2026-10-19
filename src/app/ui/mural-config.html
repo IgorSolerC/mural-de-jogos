@@ -59,19 +59,6 @@
                 </div>
               </fieldset>
 
-              <fieldset class="linha">
-                <legend class="linha-titulo">Sub-nota criada de dentro de outra</legend>
-                <p class="linha-desc">{{ subDesc(config().subColor) }}</p>
-                <div class="segmentos dois">
-                  @for (o of subColors; track o.value) {
-                    <label class="segmento">
-                      <input type="radio" name="config-sub" [checked]="config().subColor === o.value" (change)="setSubColor(o.value)" />
-                      <span class="cartas" [class.iguais]="o.value === 'mae'" aria-hidden="true"><i></i><i></i></span>
-                      <span class="seg-nome">{{ o.label }}</span>
-                    </label>
-                  }
-                </div>
-              </fieldset>
             </div>
 
             <div class="grupo">
@@ -228,22 +215,6 @@
                           </div>
                         </fieldset>
 
-                        <fieldset class="sub-bloco">
-                          <legend class="sub-titulo">Sub-nota criada de dentro dela</legend>
-                          <div class="segmentos tres">
-                            <label class="segmento">
-                              <input type="radio" [name]="'config-sub-' + i" [checked]="!p.subColor" (change)="setPrefs(c, { subColor: undefined })" />
-                              <span class="seg-nome">Do mural</span>
-                              <span class="seg-sub">{{ subLabel[config().subColor] }}</span>
-                            </label>
-                            @for (o of subColors; track o.value) {
-                              <label class="segmento">
-                                <input type="radio" [name]="'config-sub-' + i" [checked]="p.subColor === o.value" (change)="setPrefs(c, { subColor: o.value })" />
-                                <span class="seg-nome">{{ o.label }}</span>
-                              </label>
-                            }
-                          </div>
-                        </fieldset>
 
                         <fieldset class="sub-bloco">
                           <legend class="sub-titulo">Aviso de “você esqueceu a tag”</legend>

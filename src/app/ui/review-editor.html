@@ -315,35 +315,6 @@
           <ng-container [ngTemplateOutlet]="textoCampo" />
         }
 
-        @if (notes()) {
-          <!-- o lugar no mural: fixada no topo, comum, ou sub-nota (parte de outra anotação), no fim -->
-          <section class="bloco quem-ve">
-            <fieldset>
-              <legend class="pergunta">Lugar no mural</legend>
-              <div class="quem-opts">
-                @for (o of noteRanks; track o.value) {
-                  <label class="quem">
-                    <input type="radio" name="editor-lugar" [checked]="noteRank() === o.value" (change)="noteRank.set(o.value)" aria-describedby="editor-lugar-dica" />
-                    <span class="quem-tag">
-                      <lucide-icon [img]="o.icon" [size]="16" aria-hidden="true" />
-                      {{ o.label }}
-                    </span>
-                  </label>
-                }
-              </div>
-              <p class="quem-dica" id="editor-lugar-dica">
-                @if (noteRank() === 'fixada') {
-                  Fica sempre no topo do mural, em qualquer ordem.
-                } @else if (noteRank() === 'sub') {
-                  Parte de outra anotação: fica no fim do mural, com as outras sub-notas.
-                } @else {
-                  Fica no meio do mural: depois das fixadas, antes das sub-notas.
-                }
-              </p>
-            </fieldset>
-          </section>
-        }
-
         <!-- Público (o mural pelo código, o perfil, Amigos, Comparar) ou Privado, até mudar de ideia.
              A pública vai também para o Feed de quem segue; quem não quiser usa a setinha do botão -->
         @if (sharedRole()) {

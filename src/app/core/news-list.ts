@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-19-folha-do-widget',
+    id: '2026-10-19-sem-sub-nota',
     version: '1.28.1',
     kind: 'ajustes',
     date: '2026-10-19',
@@ -45,6 +45,7 @@ export const NEWS: NewsEntry[] = [
       'O pé da ficha aberta tem uma fileira só, também no celular: o Editar e o Finalizar à mão, e o resto (fixar, compartilhar, escrever outra vez, lado a lado, apagar) no Mais.',
       'A anotação finalizada leva o carimbo na faixa, ao lado do nome, e quem chegou por um link volta pela seta na ponta da faixa.',
       'O botão "Mostrar as tarefas feitas" saiu da ficha aberta: tocar na linha das tarefas feitas já mostra.',
+      'A sub-nota saiu: toda anotação nasce comum (também a criada por um link, que fica no grupo de onde veio), as sub-notas de antes viraram comuns, e fixar no topo continua pelo alfinete da ficha e da leitura.',
     ],
   },
   {

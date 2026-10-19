@@ -254,7 +254,7 @@ export function calendarPrintOf(data: Record<string, unknown>): CalendarState | 
 }
 
 /**
- * O lugar das anotações compartilhadas no mural da pessoa (fixada, sub-nota; ver `Place` em
+ * O lugar das anotações compartilhadas no mural da pessoa (fixada no topo; ver `Place` em
  * core/shared-store.ts). Vai só no mural privado: é da pessoa, para os outros aparelhos dela, e não da
  * anotação. Cada um vale pelo mudado por último.
  */
@@ -950,7 +950,7 @@ export class CloudSync {
     const calendario = calendarOf(remote.data);
     if (calendario) this.apply(() => this.calendar.merge(calendario));
 
-    // o lugar das compartilhadas no mural (fixada, sub-nota): o mudado por último, em qualquer aparelho
+    // o lugar das compartilhadas no mural (fixada no topo): o mudado por último, em qualquer aparelho
     const places = placesOf(remote.data);
     if (places) this.apply(() => this.shared.mergePlaces(new Map(Object.entries(places))));
 

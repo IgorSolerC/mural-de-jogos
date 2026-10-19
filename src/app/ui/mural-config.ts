@@ -5,7 +5,7 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { CategoryPrefs, SubColor, arrangedKeys, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
+import { CategoryPrefs, arrangedKeys, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
 import type { Audience } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { LABEL_MAX, cleanCategory, cleanTag } from '../core/note-labels';
@@ -42,12 +42,6 @@ const AUDIENCES: readonly { value: Audience; label: string; icon: LucideIconData
   { value: 'publicar', label: 'Publicar', icon: ICON.megafone, desc: 'No seu mural e no Feed de quem segue você.' },
 ];
 const AUDIENCE_LABEL: Record<Audience, string> = { privada: 'Privada', visivel: 'Disponível', publicar: 'Publicar' };
-
-const SUB_COLORS: readonly { value: SubColor; label: string; icon: LucideIconData; desc: string }[] = [
-  { value: 'sorteada', label: 'Cor sorteada', icon: ICON.sortear, desc: 'A sub-nota nasce numa cartolina sorteada.' },
-  { value: 'mae', label: 'Cor da mãe', icon: ICON.copiar, desc: 'A sub-nota nasce na mesma cartolina da anotação de onde veio.' },
-];
-const SUB_LABEL: Record<SubColor, string> = { sorteada: 'Cor sorteada', mae: 'Cor da mãe' };
 
 /** Uma categoria ou uma tag das anotações, na lista da folha. */
 interface CategoryRow {
@@ -102,7 +96,7 @@ interface Drag {
 
 /**
  * As configurações do mural de anotações: a engrenagem da pasta abre esta folha (ver WallToolbar).
- * Padrões: como nasce toda anotação (privacidade, cor da sub-nota) e as perguntas antes de salvar.
+ * Padrões: como nasce toda anotação (a privacidade) e as perguntas antes de salvar.
  * Categorias: a ordem das abas e, em cada uma, o ícone e a cor e o que ela muda em cima do mural.
  * Tags: as tags de cada categoria, com a cor de cada uma ali (a mesma no mural e no quadro do Kanban
  * daquela categoria).
@@ -154,8 +148,6 @@ export class MuralConfig {
   protected readonly sections = computed(() => SECTIONS.filter((s) => s.id !== 'quadro' || !!this.board()));
   protected readonly audiences = AUDIENCES;
   protected readonly audienceLabel = AUDIENCE_LABEL;
-  protected readonly subColors = SUB_COLORS;
-  protected readonly subLabel = SUB_LABEL;
 
   /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
   protected readonly section = signal<SectionId>(lastSection === 'quadro' && !this.board() ? 'padroes' : lastSection);
@@ -272,16 +264,8 @@ export class MuralConfig {
     this.settings.setNotesConfig({ audience: a });
   }
 
-  protected setSubColor(c: SubColor): void {
-    this.settings.setNotesConfig({ subColor: c });
-  }
-
   protected audienceDesc(a: Audience): string {
     return AUDIENCES.find((o) => o.value === a)!.desc;
-  }
-
-  protected subDesc(c: SubColor): string {
-    return SUB_COLORS.find((o) => o.value === c)!.desc;
   }
 
   // ===== renomear e apagar =====
@@ -435,12 +419,11 @@ export class MuralConfig {
     return prefsOf(this.config(), row.label);
   }
 
-  /** O que a categoria muda, numa linha curta ("Nasce Disponível · Cor da mãe"); vazio: segue o mural. */
+  /** O que a categoria muda, numa linha curta ("Nasce Disponível · Avisa sem tag"); vazio: segue o mural. */
   protected summaryOf(row: CategoryRow): string {
     const p = this.prefsOf(row);
     const parts: string[] = [];
     if (p.audience) parts.push(`Nasce ${AUDIENCE_LABEL[p.audience]}`);
-    if (p.subColor) parts.push(`Sub-nota: ${SUB_LABEL[p.subColor].toLowerCase()}`);
     if (p.askTag !== undefined) parts.push(p.askTag ? 'Avisa sem tag' : 'Sem aviso de tag');
     return parts.join(' · ');
   }
@@ -465,7 +448,7 @@ export class MuralConfig {
   }
 
   protected resetPrefs(row: CategoryRow): void {
-    this.settings.setCategoryPrefs(row.label, { audience: undefined, subColor: undefined, askTag: undefined });
+    this.settings.setCategoryPrefs(row.label, { audience: undefined, askTag: undefined });
   }
 
   /** Pela quantidade ou na ordem montada; a montada começa da ordem de agora e nunca se perde. */

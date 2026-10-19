@@ -1,5 +1,5 @@
 import { Review, sanitizeReview } from './review';
-import { backlinkLine, backlinksOf, linkKey, partOfLabel, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
+import { linkKey, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
 import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
@@ -87,30 +87,6 @@ describe('links entre anotações', () => {
   it('um caractere de uso privado no texto não vira link; a tarefa marca com \\r\\n no texto', () => {
     expect(parseInline(' e [[Compras]]')).toEqual([{ text: ' e ' }, { text: 'Compras', link: true }]);
     expect(toggleCheck('- [ ] leite\r\n- [ ] ovos', 1)).toBe('- [ ] leite\n- [x] ovos');
-  });
-
-  it('as anotações que apontam para uma, das mais antigas para as mais novas, e a linha onde cada uma a cita', () => {
-    const bug = note('nbug00001', 'Corrigir bug', '', '2026-10-03T10:00:00.000Z');
-    const daily = note('ndaily001', 'Daily', 'Revisar.\n- [ ] [[corrigir  BUG|o bug do login]] hoje', '2026-10-02T10:00:00.000Z');
-    const reuniao = note('nreun0001', 'Reunião', '1. Pauta: [[Corrigir bug]] e [[Outra]]', '2026-10-01T10:00:00.000Z');
-    const solta = note('nsolta001', 'Solta', 'Nada aqui.');
-    const notes = [bug, daily, reuniao, solta];
-    expect(backlinksOf(bug, notes).map((n) => n.game.name)).toEqual(['Reunião', 'Daily']);
-    expect(backlinksOf(solta, notes)).toEqual([]);
-    expect(backlinkLine(daily, bug, notes)).toEqual({ before: '', link: 'o bug do login', after: ' hoje' });
-    expect(backlinkLine(reuniao, bug, notes)).toEqual({ before: 'Pauta: ', link: 'Corrigir bug', after: ' e Outra' });
-    const longa = note('nlonga001', 'Longa', 'Um começo bem comprido que fala de muitas coisas antes de chegar no [[Corrigir bug]] afinal.');
-    expect(backlinkLine(longa, bug, [...notes, longa])).toEqual({ before: '…de muitas coisas antes de chegar no ', link: 'Corrigir bug', after: ' afinal.' });
-    expect(backlinkLine(solta, bug, notes)).toBeNull();
-  });
-
-  it('a sub-nota diz o nome da anotação de que é parte, ou quantas são', () => {
-    const bug = note('nbug00001', 'Corrigir bug', '');
-    const daily = note('ndaily001', 'Daily', '[[Corrigir bug]]', '2026-10-02T10:00:00.000Z');
-    const reuniao = note('nreun0001', 'Reunião', '[[Corrigir bug]]', '2026-10-01T10:00:00.000Z');
-    expect(partOfLabel(backlinksOf(bug, [bug, daily]))).toBe('Parte de Daily');
-    expect(partOfLabel(backlinksOf(bug, [bug, daily, reuniao]))).toBe('Parte de 2 notas');
-    expect(partOfLabel([])).toBe('Sub-nota');
   });
 
   it('a tarefa marcada com links oferece as anotações abertas que ela abre (sem repetir, sem a própria, sem as finalizadas)', () => {

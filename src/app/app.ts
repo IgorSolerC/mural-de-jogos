@@ -26,7 +26,6 @@ import { PaperDefs } from './ui/paper-layer';
 import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
 import { Confirm, ConfirmDialog } from './ui/confirm';
-import { NoteBacklinksDialog } from './ui/note-backlinks-dialog';
 import { Toast, Toasts } from './ui/toast';
 import { SiteHeader } from './ui/site-header';
 import { AreaBar } from './ui/area-bar';
@@ -45,7 +44,7 @@ import { TRY_AGAIN } from './ui/follow-toasts';
 
 @Component({
   selector: 'app-root',
-  imports: [AreaBar, PageWall, ConfirmDialog, GoogleButton, NoteBacklinksDialog, IconModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
+  imports: [AreaBar, PageWall, ConfirmDialog, GoogleButton, IconModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',

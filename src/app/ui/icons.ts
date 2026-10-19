@@ -346,7 +346,7 @@ export const ICON = {
   aumentar: Maximize2,
   diminuir: Minimize2,
   responder: Reply,
-  /** Dentro de outra (sub-nota, resposta, "mais respostas"). */
+  /** Dentro de outra (resposta, "mais respostas"). */
   dentro: CornerDownRight,
   maisOpcoes: Ellipsis,
   mostrarMais: ChevronsDown,

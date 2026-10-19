@@ -95,61 +95,6 @@ export function relinkAfterRename(notes: readonly Review[], before: Review, titl
 }
 
 /**
- * A anotação de que `note` é parte: a que tem um link que abre ela (a mais antiga, se forem várias).
- * É de onde a sub-nota nasceu, ou para onde ela foi ligada depois. Null se nenhuma aponta para ela.
- */
-export function parentNoteOf(note: Review, notes: readonly Review[]): Review | null {
-  let best: Review | null = null;
-  for (const n of notes) {
-    // no mesmo instante, a de menor id (a mesma ordem de `backlinksOf`)
-    if (n.id === note.id || (best && (n.createdAt > best.createdAt || (n.createdAt === best.createdAt && n.id > best.id)))) continue;
-    if (linksIn(n.text).some((t) => resolveNote(notes, t)?.id === note.id)) best = n;
-  }
-  return best;
-}
-
-/**
- * As anotações que apontam para `note`: as que têm no texto um link que abre ela, das mais antigas
- * para as mais novas (a primeira é a de que a sub-nota é parte, ver `parentNoteOf`).
- */
-export function backlinksOf(note: Review, notes: readonly Review[]): Review[] {
-  return notes
-    .filter((n) => n.id !== note.id && linksIn(n.text).some((t) => resolveNote(notes, t)?.id === note.id))
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
-}
-
-/**
- * O que a sub-nota diz de onde é parte, pelas anotações que apontam para ela (`backlinksOf`): o
- * nome da única ("Parte de Sprint 42"), quantas são ("Parte de 2 notas") ou, sem nenhuma, "Sub-nota".
- */
-export function partOfLabel(from: readonly Review[]): string {
-  if (from.length > 1) return `Parte de ${from.length} notas`;
-  return from.length ? `Parte de ${from[0].game.name}` : 'Sub-nota';
-}
-
-/** Até quantas letras antes do link o trecho mostra (o começo de uma linha comprida vira "…"). */
-const BEFORE_MAX = 40;
-
-/**
- * A linha do texto de `from` onde está o link para `note`, para mostrar onde ela é citada, em três
- * pedaços: o que vem antes, o link (escrito como aparece: "[[Título|texto]]" vira "texto") e o que
- * vem depois. Sem a marca da lista ou da tarefa; os outros links da linha viram o texto deles, e um
- * começo comprido fica só com as últimas palavras antes do link. Null se nenhuma linha tem o link.
- */
-export function backlinkLine(from: Review, note: Review, notes: readonly Review[]): { before: string; link: string; after: string } | null {
-  const plain = (s: string) => s.replace(LINK, (_all, inner: string) => splitLink(inner).label);
-  for (const { line: raw } of proseLines(from.text)) {
-    const line = raw.replace(/^\s*(?:[-*•]\s+(?:\[[ xX]\]\s*)?|\d{1,4}[.)]\s+|#{1,3}\s+|>\s?)/, '');
-    const hit = noteLinksOf(line).find((l) => resolveNote(notes, splitLink(l.inner).title)?.id === note.id);
-    if (!hit) continue;
-    let before = plain(line.slice(0, hit.at)).trimStart();
-    if (before.length > BEFORE_MAX) before = '…' + before.slice(-BEFORE_MAX).replace(/^\S*\s/, '');
-    return { before, link: splitLink(hit.inner).label, after: plain(line.slice(hit.at + hit.length)).trimEnd() };
-  }
-  return null;
-}
-
-/**
  * As anotações ligadas numa tarefa que acabou de ser marcada: os links da linha `line` de `text`,
  * se ela é uma tarefa feita, que abrem uma anotação ainda não finalizada (sem repetir, e nunca a
  * própria `selfId`). É o que a ficha oferece finalizar junto.

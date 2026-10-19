@@ -183,7 +183,6 @@ const KEY_LABEL: Record<string, string> = {
   rawg: 'Chave do RAWG',
   tmdb: 'Chave do TMDB',
   audience: 'Toda anotação nova nasce',
-  subColor: 'Cor da sub-nota',
   orderBy: 'Ordem dos grupos',
   order: 'Ordem à mão',
   categories: 'Grupo',

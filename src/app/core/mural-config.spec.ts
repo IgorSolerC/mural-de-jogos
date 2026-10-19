@@ -12,7 +12,6 @@ import {
   newNoteAudience,
   prefsOf,
   sanitizeNotesConfig,
-  subNoteColor,
   tagHiddenByDefault,
   withPrefs,
   withTagHidden,
@@ -27,7 +26,6 @@ describe('as configurações do mural de anotações', () => {
     expect(sanitizeNotesConfig(undefined)).toEqual(NOTES_CONFIG_DEFAULT);
     expect(sanitizeNotesConfig([1, 2])).toEqual(NOTES_CONFIG_DEFAULT);
     expect(newNoteAudience(NOTES_CONFIG_DEFAULT, 'Trabalho')).toBe('privada');
-    expect(subNoteColor(NOTES_CONFIG_DEFAULT, null)).toBe('sorteada');
     expect(asksTag(NOTES_CONFIG_DEFAULT, 'Trabalho', true)).toBeTrue();
     expect(asksTag(NOTES_CONFIG_DEFAULT, 'Trabalho', false)).toBeFalse();
     expect(activeOrder(NOTES_CONFIG_DEFAULT)).toBeNull();
@@ -36,6 +34,7 @@ describe('as configurações do mural de anotações', () => {
   it('guarda só valores conhecidos, pela categoria sem acento nem caixa, sem as categorias vazias', () => {
     const cfg = sanitizeNotesConfig({
       audience: 'publicar',
+      // a cor da sub-nota de antes (até a build 443) é ignorada
       subColor: 'mae',
       orderBy: 'minha',
       order: ['Viagens!', 'viagens!', ' Roadmap site ', 3, ''],
@@ -48,7 +47,6 @@ describe('as configurações do mural de anotações', () => {
     });
     expect(cfg).toEqual({
       audience: 'publicar',
-      subColor: 'mae',
       orderBy: 'minha',
       order: ['viagens!', 'roadmap site'],
       categories: { 'roadmap site': { audience: 'visivel' }, 'viagens!': { audience: 'publicar', askTag: false } },
@@ -61,13 +59,11 @@ describe('as configurações do mural de anotações', () => {
   it('a categoria muda o que escolheu; o resto segue o mural', () => {
     // "todas privadas, mas Roadmap site Disponível e Viagens! Publicar"
     let cfg = withPrefs(NOTES_CONFIG_DEFAULT, 'Roadmap site', { audience: 'visivel' });
-    cfg = withPrefs(cfg, 'VIAGENS!', { audience: 'publicar', subColor: 'mae', askTag: false });
+    cfg = withPrefs(cfg, 'VIAGENS!', { audience: 'publicar', askTag: false });
     expect(newNoteAudience(cfg, 'roadmap SITE')).toBe('visivel');
     expect(newNoteAudience(cfg, 'Viagens!')).toBe('publicar');
     expect(newNoteAudience(cfg, 'Receitas')).toBe('privada');
     expect(newNoteAudience(cfg, null)).toBe('privada');
-    expect(subNoteColor(cfg, 'Viagens!')).toBe('mae');
-    expect(subNoteColor(cfg, 'Roadmap site')).toBe('sorteada');
     expect(asksTag(cfg, 'Viagens!', true)).toBeFalse();
     expect(asksTag(cfg, 'Roadmap site', true)).toBeTrue();
     // o mural muda: quem não escolheu acompanha
@@ -128,15 +124,15 @@ describe('as configurações do mural de anotações', () => {
     const settings = TestBed.inject(Settings);
     expect(settings.notesConfigAt()).toBe('');
     settings.setCategoryPrefs('Viagens!', { audience: 'publicar' });
-    settings.setNotesConfig({ subColor: 'mae' });
+    settings.setNotesConfig({ orderBy: 'minha' });
     TestBed.tick();
     expect(settings.notesConfigAt()).not.toBe('');
     const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
-    expect(stored.notesConfig.subColor).toBe('mae');
+    expect(stored.notesConfig.orderBy).toBe('minha');
     expect(stored.notesConfig.categories).toEqual({ 'viagens!': { audience: 'publicar' } });
     // "Voltar ao padrão" (Ajustes) não mexe: são coisas da pessoa
     settings.resetPreferences();
-    expect(settings.notesConfig().subColor).toBe('mae');
+    expect(settings.notesConfig().orderBy).toBe('minha');
   });
 
   it('vai na nuvem com a data, e muda a impressão do mural', async () => {

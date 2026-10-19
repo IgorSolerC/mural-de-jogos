@@ -17,7 +17,6 @@ interface Row {
   tasks: { done: number; total: number } | null;
   pinned: boolean;
   done: boolean;
-  sub: boolean;
 }
 
 /**
@@ -33,7 +32,7 @@ interface Row {
   template: `
     <ul class="folha">
       @for (r of rows(); track r.id) {
-        <li class="linha" [attr.data-ficha]="r.id" [class.feita]="r.done" [class.sub]="r.sub" [style.--cor]="r.stock">
+        <li class="linha" [attr.data-ficha]="r.id" [class.feita]="r.done" [style.--cor]="r.stock">
           <button type="button" class="hit" (click)="opened.emit(r.id)">
             <span class="cor" aria-hidden="true"></span>
             <span class="titulo">{{ r.title }}</span>
@@ -138,11 +137,6 @@ interface Row {
       font-weight: 700;
       font-size: 1.15rem;
       line-height: 1.2;
-    }
-
-    .sub .titulo {
-      padding-left: 18px;
-      font-weight: 400;
     }
 
     .feita .titulo {
@@ -293,7 +287,6 @@ export class NoteIndex {
         tasks: tasks.total ? tasks : null,
         pinned: isPinnedNote(r),
         done: isDone(r),
-        sub: r.noteRank === 'sub',
       };
     }),
   );

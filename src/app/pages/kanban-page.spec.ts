@@ -86,7 +86,7 @@ describe('página do Kanban', () => {
     store = TestBed.inject(ReviewStore);
     store.reviews.set([
       note('nlogin01', 'Corrigir o login', { category: 'Trabalho', tags: ['Correção'], text: '- [ ] Ver [[Sincronizar quadros]]' }),
-      note('nsync001', 'Sincronizar quadros', { category: 'Trabalho', noteRank: 'sub' }),
+      note('nsync001', 'Sincronizar quadros', { category: 'Trabalho' }),
       note('nprova01', 'Prova', { category: 'Estudos' }),
       note('nsolta01', 'Sem categoria'),
     ]);
@@ -165,14 +165,12 @@ describe('página do Kanban', () => {
     expect(column('afazer').querySelector('.etiqueta-n')?.textContent?.trim()).toBe(', 2 anotações');
   });
 
-  it('a ficha do quadro é enxuta: sem tachinha, sem a categoria e sem o "Parte de" da sub-nota; a contagem diz "anotações"', async () => {
+  it('a ficha do quadro é enxuta: sem tachinha e sem a categoria; a contagem diz "anotações"', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     const fichas = column('afazer').querySelectorAll('app-review-card');
     expect(fichas.length).toBe(2);
     expect(column('afazer').querySelector('.aba-cat')).toBeNull();
-    expect(column('afazer').querySelector('.sub-marca')).toBeNull();
-    expect(column('afazer').querySelector('[data-nota="nsync001"]')!.textContent).not.toContain('Parte de');
     for (const pin of column('afazer').querySelectorAll('app-review-card app-pin')) expect(getComputedStyle(pin).display).toBe('none');
     expect(column('afazer').querySelector('.etiqueta-nome')!.textContent!.replace(/\s+/g, ' ')).toContain('A fazer , 2 anotações');
   });

@@ -69,7 +69,7 @@ export interface SharedDetail {
   papel: SharedRole;
   rev: number;
   versao: number;
-  /** O conteúdo na nuvem (sem o que é de cada um: fixada, sub-nota). */
+  /** O conteúdo na nuvem (sem o que é de cada um: fixada). */
   dados: Review;
   membros: SharedMember[];
   atualizadoEm: string;
@@ -80,22 +80,21 @@ export interface SharedDetail {
 /** O que é de cada um, não da anotação: o lugar dela no próprio mural. */
 export interface Personal {
   noteRank?: NoteRank;
-  pinnedSub?: true;
 }
 
 /** O que da anotação vai para a nuvem: tudo, menos o lugar dela no mural de cada um. */
 export function sharedContent(r: Review): Record<string, unknown> {
-  const { noteRank: _r, pinnedSub: _s, sharedBy: _b, ...rest } = storedNote(r);
+  const { noteRank: _r, sharedBy: _b, ...rest } = storedNote(r);
   return rest as Record<string, unknown>;
 }
 
-export function personalOf(r: Pick<Review, 'noteRank' | 'pinnedSub'>): Personal {
-  return { ...(r.noteRank ? { noteRank: r.noteRank } : {}), ...(r.noteRank === 'fixada' && r.pinnedSub ? { pinnedSub: true as const } : {}) };
+export function personalOf(r: Pick<Review, 'noteRank'>): Personal {
+  return r.noteRank ? { noteRank: r.noteRank } : {};
 }
 
 /** A anotação do mural: o conteúdo compartilhado com o lugar dela no mural de quem vê. */
 export function withPersonal(content: Review, personal: Personal): Review {
-  const { noteRank: _r, pinnedSub: _s, ...rest } = content;
+  const { noteRank: _r, ...rest } = content;
   return { ...rest, ...personal };
 }
 
@@ -290,5 +289,6 @@ export function mergeNote(o: Review, a: Review, b: Review): NoteMerge {
 export function sanitizePersonal(raw: unknown): Personal {
   const p = (raw ?? {}) as Record<string, unknown>;
   const rank = NOTE_RANKS.find((r) => r === p['noteRank']);
-  return { ...(rank ? { noteRank: rank } : {}), ...(rank === 'fixada' && p['pinnedSub'] === true ? { pinnedSub: true as const } : {}) };
+  // a sub-nota de antes não existe mais: o lugar dela vira comum
+  return rank ? { noteRank: rank } : {};
 }

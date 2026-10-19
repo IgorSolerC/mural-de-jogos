@@ -12,7 +12,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -77,7 +76,7 @@ import { Settings } from '../core/settings';
 import { CardKit } from './card-kit';
 import { Confirm } from './confirm';
 import { lookKey, randomCategoryColor } from '../core/category-looks';
-import { asksTag, newNoteAudience, prefsOf, subNoteColor } from '../core/mural-config';
+import { asksTag, newNoteAudience, prefsOf } from '../core/mural-config';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker } from './difficulty';
@@ -317,13 +316,11 @@ export class ReviewEditor {
     setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-data')?.focus());
   }
 
-  /** O lugar da anotação no mural: fixada no topo, comum (null) ou sub-nota, no fim. */
+  /**
+   * Fixada no topo ou comum (null): não se escolhe aqui (fixar é pelo alfinete da ficha e da leitura);
+   * o editor só guarda o lugar que a anotação já tinha.
+   */
   protected readonly noteRank = signal<NoteRank | null>(null);
-  protected readonly noteRanks: readonly { value: NoteRank | null; label: string; icon: LucideIconData }[] = [
-    { value: 'fixada', label: 'Fixada', icon: ICON.fixar },
-    { value: null, label: 'Comum', icon: ICON.desmarcado },
-    { value: 'sub', label: 'Sub-nota', icon: ICON.dentro },
-  ];
   protected readonly profile = computed(() => profileOf(this.kind()));
   /** As quatro notas do mural, na ordem do boletim. */
   protected readonly categories = computed<RatedKey[]>(() => this.profile().categories.map((c) => c.key));
@@ -588,21 +585,17 @@ export class ReviewEditor {
   }
 
   /**
-   * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce
-   * sub-nota (ela faz parte da anotação de onde veio); dá para trocar no editor.
+   * Uma anotação nova já com o título: o link para uma anotação que ainda não existia. Nasce comum,
+   * no grupo da anotação de onde veio.
    */
   openNote(title: string, from: Review | null = null): void {
     // sempre no mural de anotações, de onde quer que venha o link
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.setNoteTitle(title);
-    // veio de outra anotação: é parte dela (sub-nota) e tem o mesmo assunto. De uma resenha, é uma
-    // anotação comum (sub-nota é a que está dentro de outra anotação)
+    // veio de outra anotação: tem o mesmo assunto (de uma resenha, nenhum)
     const fromNote = !!from && isNote(from);
-    this.noteRank.set(fromNote ? 'sub' : null);
     this.noteCategory.set(fromNote ? (from.category ?? null) : null);
     this.applyDefaultAudience();
-    // a cartolina: sorteada, ou a mesma da anotação mãe, como o mural (ou a categoria dela) manda
-    if (fromNote && subNoteColor(this.settings.notesConfig(), from.category) === 'mae') this.stock.set(pinningFor(from.id, from.stock).stock);
     this.linkTitle = title;
     // fechar sem mexer em nada não pergunta se quer descartar
     this.snapshot = this.serialize();
@@ -1035,8 +1028,6 @@ export class ReviewEditor {
       ...audienceFields(audience, this.liveShared() ?? prev, now),
       // editar não desfaz o check: a finalizada continua finalizada, no mesmo dia
       ...(prev?.doneAt ? { doneAt: prev.doneAt } : {}),
-      // continua fixada: desafixada, ainda volta a ser sub-nota
-      ...(prev?.pinnedSub && this.noteRank() === 'fixada' ? { pinnedSub: true as const } : {}),
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     };

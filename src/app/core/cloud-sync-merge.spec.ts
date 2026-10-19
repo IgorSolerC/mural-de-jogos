@@ -338,13 +338,13 @@ describe('sincronização: a junção de três vias de dois aparelhos da mesma c
 
   it('as configurações do mural mudadas em pedaços diferentes nos dois aparelhos ficam as duas', async () => {
     const { a, b } = await twoDevices();
-    a.settings.setNotesConfig({ subColor: 'mae' });
+    a.settings.setNotesConfig({ audience: 'publicar' });
     await a.sync.syncNow();
     await tick();
     b.settings.setNotesConfig({ orderBy: 'minha', order: ['casa', 'trabalho'] });
     await settle(b, a);
     for (const d of [a, b]) {
-      expect(d.settings.notesConfig().subColor).toBe('mae');
+      expect(d.settings.notesConfig().audience).toBe('publicar');
       expect(d.settings.notesConfig().orderBy).toBe('minha');
       expect(d.settings.notesConfig().order).toEqual(['casa', 'trabalho']);
       expect(d.conflicts.pending()).toEqual([]);
@@ -357,21 +357,21 @@ describe('sincronização: a junção de três vias de dois aparelhos da mesma c
     await a.sync.syncNow();
     await tick();
     b.settings.setCategoryPrefs('Casa', { audience: 'visivel' });
-    b.settings.setNotesConfig({ subColor: 'mae' });
+    b.settings.setNotesConfig({ orderBy: 'minha' });
     await settle(b, a);
     const pending = (d: Device): SyncConflict[] => d.conflicts.pending().filter((c) => c.alvo === 'ajuste:muralAnotacoes');
     for (const d of [a, b]) {
       expect(pending(d).length).toBe(1);
       // vale a que chegou antes na nuvem, e o que não brigou já está junto
       expect(d.settings.notesConfig().categories['casa']?.audience).toBe('publicar');
-      expect(d.settings.notesConfig().subColor).toBe('mae');
+      expect(d.settings.notesConfig().orderBy).toBe('minha');
     }
     expect(b.conflicts.linesOf(pending(b)[0], 'b')).toContain('Grupo › casa › Toda anotação nova nasce: visível');
     b.conflicts.resolve(conflictKey(pending(b)[0]), 'b');
     await settle(b, a);
     for (const d of [a, b]) {
       expect(d.settings.notesConfig().categories['casa']?.audience).toBe('visivel');
-      expect(d.settings.notesConfig().subColor).toBe('mae');
+      expect(d.settings.notesConfig().orderBy).toBe('minha');
       expect(pending(d)).toEqual([]);
     }
   });

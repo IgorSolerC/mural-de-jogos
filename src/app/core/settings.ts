@@ -90,7 +90,7 @@ interface Stored {
   askNoTag: boolean;
   /**
    * As configurações do mural de anotações (a engrenagem da pasta, ver core/mural-config.ts): a
-   * privacidade de quem nasce, a cor da sub-nota, a ordem das categorias e o que cada uma muda. Com
+   * privacidade de quem nasce, a ordem das categorias e o que cada uma muda. Com
    * conta, as mudadas por último valem em todos os aparelhos, como os jeitos das categorias.
    */
   notesConfig: NotesConfig;

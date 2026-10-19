@@ -280,9 +280,9 @@ describe('sincronização com a nuvem', () => {
       expect(b.settings.notesConfig().order).toEqual(['viagens!', 'trabalho']);
 
       await new Promise((r) => setTimeout(r, 5));
-      b.settings.setNotesConfig({ subColor: 'mae' });
+      b.settings.setNotesConfig({ audience: 'visivel' });
       await settle(b, a);
-      expect(a.settings.notesConfig().subColor).toBe('mae');
+      expect(a.settings.notesConfig().audience).toBe('visivel');
       expect(await settle(a, b)).toBe(1);
     });
   });
@@ -897,6 +897,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 31, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 31, hex: '1f9dd95fc748968d8f73b2067928d81707baf9175ed1374aa4cfde7b6cf005d1' });
   });
 });

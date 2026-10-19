@@ -8,7 +8,7 @@ import { NotePin } from './note-pin';
 import { Toasts } from '../ui/toast';
 import { WallView, groupWall, sortWall } from './wall-view';
 
-/** Fixadas no topo, comuns, sub-notas no fim: o lugar de cada anotação no mural. */
+/** Fixadas no topo, as comuns depois: o lugar de cada anotação no mural (a sub-nota de antes virou comum). */
 
 const note = (id: string, title: string, day: string, extra: Record<string, unknown> = {}): Review => ({
   ...sanitizeReview({ kind: 'anotacoes', game: { name: title }, completedAt: day, createdAt: `${day}T10:00:00.000Z`, ...extra })!,
@@ -26,23 +26,23 @@ const profile = KIND_PROFILES.anotacoes;
 const names = (rs: readonly Review[]) => rs.map((r) => r.game.name);
 
 describe('o lugar da anotação no mural', () => {
-  it('guarda fixada e sub; o resto é comum, sem o campo', () => {
-    expect(list.map((r) => r.noteRank ?? null)).toEqual(['sub', null, 'fixada', null, 'fixada']);
+  it('guarda a fixada; o resto é comum, sem o campo (a sub-nota de antes também)', () => {
+    expect(list.map((r) => r.noteRank ?? null)).toEqual([null, null, 'fixada', null, 'fixada']);
+    expect('pinnedSub' in note('nx000002', 'X', '2026-10-01', { noteRank: 'fixada', pinnedSub: true })).toBeFalse();
     expect('noteRank' in note('nx000001', 'X', '2026-10-01', { noteRank: 'topo' })).toBeFalse();
-    expect(list.map(rankOrder)).toEqual([2, 1, 0, 1, 0]);
+    expect(list.map(rankOrder)).toEqual([1, 1, 0, 1, 0]);
     const unpinned = withRank(list[2], null, '2026-10-08T00:00:00.000Z');
     expect('noteRank' in unpinned).toBeFalse();
     expect(unpinned.updatedAt).toBe('2026-10-08T00:00:00.000Z');
   });
 
-  it('Prioridade: fixadas, comuns e sub-notas, cada seção das mais recentes para as mais antigas', () => {
+  it('Prioridade: fixadas e comuns, cada seção das mais recentes para as mais antigas', () => {
     const order = { sort: 'prioridade' as const, key: 'final' as const, direction: 'desc' as const, profile };
     const sorted = sortWall(list, order);
-    expect(names(sorted)).toEqual(['A fazeres', 'Compras', 'Viagem', 'Ideias', 'Detalhes do console']);
+    expect(names(sorted)).toEqual(['A fazeres', 'Compras', 'Viagem', 'Detalhes do console', 'Ideias']);
     expect(groupWall(sorted, order).map((g) => [g.label, g.reviews.length])).toEqual([
       ['Fixadas', 2],
-      ['Anotações', 2],
-      ['Sub-notas', 1],
+      ['Anotações', 3],
     ]);
   });
 
@@ -105,14 +105,11 @@ describe('o lugar da anotação no mural', () => {
       // a comum desafixada volta a ser comum
       expect(store.get('ncomum001')!.noteRank).toBeUndefined();
       pin.set('nsub00001', true);
-      expect(store.get('nsub00001')!.pinnedSub).toBeTrue();
       pin.set('nsub00001', false);
-      // a sub-nota desafixada volta a ser sub-nota
-      expect(store.get('nsub00001')!.noteRank).toBe('sub');
-      expect(store.get('nsub00001')!.pinnedSub).toBeUndefined();
+      // a que era sub-nota antes também volta a ser comum
+      expect(store.get('nsub00001')!.noteRank).toBeUndefined();
       TestBed.inject(Toasts).current()!.action!.run();
       expect(store.get('nsub00001')!.noteRank).toBe('fixada');
-      expect(store.get('nsub00001')!.pinnedSub).toBeTrue();
     });
 
     it('fixada, a data vai inteira (a seção Fixadas não tem a etiqueta do mês); a contagem do mural não conta as finalizadas', () => {
