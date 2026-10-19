@@ -1,0 +1,379 @@
+<!-- as teclas ficam aqui: o editor por baixo não ouve o Esc nem o que se digita -->
+<dialog #dialog class="sheet wfolha" [attr.aria-labelledby]="ids + '-titulo'" (close)="closed.emit()" (backdropClose)="close()" (keydown)="$event.stopPropagation()">
+  @let d = def();
+  <div class="ficha cartolina" style="--stock: var(--stock-amarelo)" data-cor="amarelo">
+    <app-pin class="pin" />
+    <header class="head">
+      <div class="titulos">
+        <h2 [id]="ids + '-titulo'">
+          <lucide-icon class="titulo-icone" [img]="iconOf(d.name)" [size]="26" aria-hidden="true" />
+          {{ d.label }}
+        </h2>
+        <p class="sub">{{ swap() ? 'Mexendo no widget do texto' : 'Widget novo, numa linha só dele' }}</p>
+      </div>
+      <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
+        <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+      </button>
+    </header>
+
+    <div class="conteudo">
+        <!-- o palco: o widget de verdade, andando, como vai ficar -->
+        <section class="palco" [attr.aria-labelledby]="ids + '-palco'">
+          <div class="palco-topo">
+            <p class="palco-nome" [id]="ids + '-palco'">Como fica</p>
+            @if (onCard()) {
+              <div class="vistas" role="radiogroup" [attr.aria-labelledby]="ids + '-palco'">
+                @for (v of views; track v.value) {
+                  <label class="vista">
+                    <input type="radio" [name]="ids + '-vista'" [checked]="view() === v.value" (change)="view.set(v.value)" />
+                    {{ v.label }}
+                  </label>
+                }
+              </div>
+            }
+          </div>
+          <div class="parede palco-parede" [class.na-ficha]="cardView()">
+            @if (cardView()) {
+              <!-- na ficha do mural: um pedaço da cartolina da anotação, pregado, do tamanho do texto dela -->
+              <div class="mini-ficha cartolina" [style.--stock]="'var(--stock-' + (stock() || 'amarelo') + ')'" [attr.data-cor]="stock() || 'amarelo'">
+                <app-pin class="mini-pin" />
+                <div class="mini-texto" data-widget-teto>
+                  <ng-container *ngTemplateOutlet="vivo" />
+                </div>
+              </div>
+            } @else {
+              <!-- aberta: a folha pautada da leitura -->
+              <div class="folha-aberta">
+                <ng-container *ngTemplateOutlet="vivo" />
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- o que ele mostra: o link, o nome, quando -->
+        <section class="oque" [attr.aria-label]="d.what">
+            @for (row of rows(); track row.key) {
+              <div class="linha-campos">
+                @for (f of row.fields; track f.key + f.label) {
+                  @switch (f.kind) {
+                    @case ('card') {
+                      <!-- a Nota: a ficha escolhida, colada como a etiqueta de papel; sem ela, o recorte de escolher -->
+                      @let card = chosenCard();
+                      <div class="campo-bloco largo">
+                        <span class="rotulo" [id]="ids + '-qual'">{{ f.label }}</span>
+                        <button
+                          type="button"
+                          class="ficha-escolher"
+                          [class.vazia]="!card"
+                          [class.falta]="isMissing(f)"
+                          data-campo="id"
+                          [attr.aria-labelledby]="ids + '-qual ' + ids + '-qual-nome'"
+                          aria-haspopup="dialog"
+                          (click)="cardPickerOpen.set(true)"
+                        >
+                          @if (card) {
+                            @if (card.game.coverUrl || !isNoteCard(card)) {
+                              <app-cover-sleeve class="ficha-capa" size="thumb" [game]="card.game" [decorative]="true" />
+                            } @else {
+                              <span class="ficha-capa folhinha cartolina" [style.--stock]="'var(--stock-' + (card.stock || 'amarelo') + ')'" [attr.data-cor]="card.stock || 'amarelo'" aria-hidden="true"></span>
+                            }
+                            <span class="ficha-escolher-texto" [id]="ids + '-qual-nome'">
+                              <span class="ficha-escolher-nome">{{ card.game.name }}</span>
+                              <span class="ficha-escolher-mural">{{ kindOf(card) }}</span>
+                            </span>
+                            <span class="ficha-escolher-acao">Trocar</span>
+                          } @else {
+                            <lucide-icon [img]="CardIcon" [size]="20" aria-hidden="true" />
+                            <span class="ficha-escolher-texto" [id]="ids + '-qual-nome'">
+                              <span class="ficha-escolher-nome">{{ values()['title'] || 'Escolher a ficha' }}</span>
+                              <span class="ficha-escolher-mural">{{ values()['title'] ? 'Não está mais no seu mural' : 'De qualquer mural: anotação, jogo, livro…' }}</span>
+                            </span>
+                          }
+                        </button>
+                      </div>
+                      <!-- a lista vem num pedaço à parte, quando abre pela primeira vez -->
+                      @defer (when cardPickerOpen()) {
+                        <app-card-picker [open]="cardPickerOpen()" (openChange)="cardPickerOpened($event)" [chosen]="card?.id ?? ''" [selfId]="selfId()" (picked)="pickCard($event)" />
+                      }
+                    }
+                    @case ('choice') {
+                      @if (f.display === 'select') {
+                        <label class="campo-bloco curto">
+                          <span class="rotulo">{{ f.label }}</span>
+                          <span class="campo escolha">
+                            <span class="escolha-nome" aria-hidden="true">{{ labelOf(f) }}</span>
+                            <lucide-icon class="escolha-seta" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
+                            <select [attr.data-campo]="f.key" (change)="set(f.key, $any($event.target).value)">
+                              @for (o of f.options ?? []; track o.value) {
+                                <option [value]="o.value" [selected]="valueOf(f) === o.value">{{ o.label }}</option>
+                              }
+                            </select>
+                          </span>
+                        </label>
+                      } @else {
+                        <!-- os dias da semana, em bolinhas, como nos calendários -->
+                        <div class="campo-bloco largo">
+                          <span class="rotulo" [id]="ids + '-' + f.key">{{ f.label }}</span>
+                          <div class="dias" role="radiogroup" [attr.aria-labelledby]="ids + '-' + f.key">
+                            @for (o of f.options ?? []; track o.value; let first = $first) {
+                              @let on = valueOf(f) === o.value;
+                              <button
+                                type="button"
+                                role="radio"
+                                class="dia"
+                                [attr.aria-checked]="on"
+                                [attr.tabindex]="on ? 0 : -1"
+                                [attr.data-campo]="first ? f.key : null"
+                                (click)="set(f.key, o.value)"
+                                (keydown)="onDaysKey($event, f)"
+                              >
+                                {{ o.label }}
+                              </button>
+                            }
+                          </div>
+                        </div>
+                      }
+                    }
+                    @default {
+                      <label class="campo-bloco" [class.largo]="f.kind === 'url' || f.kind === 'text'" [class.curto]="f.kind !== 'url' && f.kind !== 'text'">
+                        <span class="rotulo">{{ f.label }}</span>
+                        <span class="campo" [class.erro]="isMissing(f) || (f.kind === 'url' && !!problem())" [class.com-icone]="f.kind === 'url'">
+                          @if (f.kind === 'url') {
+                            <lucide-icon class="campo-icone" [img]="LinkIcon" [size]="17" aria-hidden="true" />
+                          }
+                          <input
+                            [class]="'tipo-' + f.kind"
+                            [type]="f.kind"
+                            [attr.inputmode]="f.kind === 'url' ? 'url' : f.kind === 'number' ? 'numeric' : null"
+                            [attr.min]="f.range?.[0] ?? null"
+                            [attr.max]="f.range?.[1] ?? null"
+                            autocomplete="off"
+                            [attr.spellcheck]="f.kind === 'url' ? false : null"
+                            [attr.maxlength]="f.max ?? null"
+                            [attr.placeholder]="f.placeholder ?? null"
+                            [attr.data-campo]="f.key"
+                            [attr.aria-describedby]="f.kind === 'url' ? ids + '-link' : null"
+                            [attr.aria-invalid]="isMissing(f) || (f.kind === 'url' && !!problem()) ? true : null"
+                            [value]="values()[f.key] || ''"
+                            (input)="set(f.key, $any($event.target).value)"
+                            (keydown.enter)="$event.preventDefault(); put()"
+                          />
+                        </span>
+                        @if (f.kind === 'url') {
+                          <!-- o que o link é: confirmado em tinta, ou o que está errado nele -->
+                          <span class="link-diz" [id]="ids + '-link'" [class.ruim]="!!problem()" aria-live="polite">
+                            @if (problem(); as pr) {
+                              <lucide-icon [img]="WarnIcon" [size]="15" aria-hidden="true" />
+                              {{ pr }}
+                            } @else if (found(); as ok) {
+                              <lucide-icon [img]="OkIcon" [size]="15" aria-hidden="true" />
+                              {{ ok }}
+                            }
+                          </span>
+                        }
+                      </label>
+                    }
+                  }
+                }
+              </div>
+              @if (hintsOf(row); as h) {
+                <p class="dica">{{ h }}</p>
+              }
+            }
+            @if (problem() && def().name === 'contador') {
+              <p class="dica ruim" role="alert">{{ problem() }}</p>
+            }
+        </section>
+
+        <!-- a aparência: o jeito em miniaturas (a escolhida presa com a tachinha) e o tamanho -->
+        <section class="aparencia" aria-label="Aparência">
+            @for (f of looks(); track f.key) {
+              <fieldset class="bloco">
+                <legend class="rotulo">{{ f.label }}</legend>
+                <div class="jeitos" [style.--n]="f.options?.length ?? 3">
+                  @for (o of f.options ?? []; track o.value) {
+                    @let on = valueOf(f) === o.value;
+                    <label class="jeito" [class.on]="on">
+                      <input type="radio" [name]="ids + '-' + f.key" [value]="o.value" [checked]="on" [attr.data-campo]="$first ? f.key : null" (change)="set(f.key, o.value)" />
+                      <span class="jeito-papel">
+                        <svg class="jeito-desenho" viewBox="0 0 64 48" aria-hidden="true">
+                          <ng-container *ngTemplateOutlet="desenho; context: { $implicit: o.value }" />
+                        </svg>
+                      </span>
+                      @if (on) {
+                        <app-pin class="jeito-pin" />
+                      }
+                      <span class="jeito-nome">{{ o.label }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+            }
+            <fieldset class="bloco">
+              <legend class="rotulo">Tamanho</legend>
+              <div class="tamanhos">
+                @for (o of sizes; track o.value) {
+                  <label class="segmento tamanho" [title]="o.hint">
+                    <input type="radio" [name]="ids + '-tamanho'" [checked]="size() === o.value" (change)="set('size', o.value)" />
+                    <svg class="tamanho-desenho" viewBox="0 0 36 28" aria-hidden="true">
+                      <rect class="tamanho-ficha" x="1" y="1" width="34" height="26" rx="2.5" />
+                      <line class="tamanho-linha" x1="5.5" y1="6.5" x2="30.5" y2="6.5" />
+                      <rect class="tamanho-peca" x="5.5" y="10.5" [attr.width]="sizeArt[o.value].w" [attr.height]="sizeArt[o.value].h" rx="1" />
+                    </svg>
+                    <span class="seg-nome">{{ o.label }}</span>
+                  </label>
+                }
+              </div>
+              @if (onCard() && size() === 'grande') {
+                <p class="dica">Na ficha do mural, o grande vai até o fim dela.</p>
+              }
+            </fieldset>
+        </section>
+      </div>
+
+    <footer class="foot pe">
+      @if (swap()) {
+        <button type="button" class="btn-quiet tirar" title="Tirar do texto" (click)="remove()">
+          <lucide-icon [img]="RemoveIcon" [size]="17" aria-hidden="true" />
+          <span class="tirar-nome">Tirar do texto</span>
+        </button>
+      }
+      <p class="falta" [class.agora]="tried()" [id]="ids + '-falta'" aria-live="polite">{{ tried() || !swap() ? missingText() : '' }}</p>
+      <div class="actions">
+        <button type="button" class="btn-quiet" (click)="close()">Cancelar</button>
+        <button type="button" class="btn-ink ok" [attr.aria-describedby]="!args() ? ids + '-falta' : null" (click)="put()">
+          {{ swap() ? d.swap : d.put }}
+        </button>
+      </div>
+    </footer>
+  </div>
+</dialog>
+
+<!-- o widget no palco: o de verdade; sem o que ele precisa, um exemplo esmaecido (o contador, com um
+     dia daqui a pouco), ou o desenho do jeito escolhido e o que falta para ele aparecer -->
+<ng-template #vivo>
+  @if (args(); as a) {
+    <app-note-widget [name]="name()" [args]="a" [size]="size()" [links]="links()" />
+  } @else if (sample(); as a) {
+    <div class="exemplo">
+      <span class="exemplo-selo">Exemplo</span>
+      <app-note-widget [name]="name()" [args]="a" [size]="size()" [links]="links()" />
+    </div>
+  } @else {
+    <div class="palco-vazio">
+      @if (looks()[0]; as f) {
+        <svg class="vazio-desenho" viewBox="0 0 64 48" aria-hidden="true">
+          <ng-container *ngTemplateOutlet="desenho; context: { $implicit: valueOf(f) }" />
+        </svg>
+      } @else {
+        <lucide-icon [img]="iconOf(name())" [size]="28" aria-hidden="true" />
+      }
+      <span>{{ name() === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : 'Cole o link para ver como fica.' }}</span>
+    </div>
+  }
+</ng-template>
+
+<!-- as miniaturas de cada jeito, desenhadas nas cores de cada um -->
+<ng-template #desenho let-v>
+  @switch (v) {
+    @case ('calendario') {
+      <svg:g transform="rotate(-4 32 24)">
+        <svg:rect x="17" y="10" width="30" height="34" rx="2" fill="#ddd4bf" />
+        <svg:rect x="16" y="8" width="30" height="34" rx="2" fill="#ece5d4" />
+        <svg:rect x="15" y="6" width="30" height="34" rx="2" fill="#fffdf6" stroke="#151515" stroke-opacity=".18" />
+        <svg:path d="M15 8a2 2 0 0 1 2-2h26a2 2 0 0 1 2 2v7H15z" fill="#a51c1b" />
+        <svg:line x1="18" y1="15.5" x2="42" y2="15.5" stroke="#6d2321" stroke-width=".8" stroke-dasharray="1.4 1.4" />
+        <svg:text x="30" y="32" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="800" font-size="15" fill="#151515">61</svg:text>
+        <svg:text x="30" y="38" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="800" font-size="4.6" letter-spacing=".6" fill="#6d2321">DIAS</svg:text>
+      </svg:g>
+    }
+    @case ('neon') {
+      <svg:rect x="5" y="11" width="54" height="26" rx="5" fill="#0d0f22" stroke="#4fdcff" stroke-width="1.8" />
+      <svg:rect x="7.5" y="13.5" width="49" height="21" rx="3.5" fill="none" stroke="#b8f6ff" stroke-opacity=".5" stroke-width=".7" />
+      <svg:g transform="skewX(-6)" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="13" fill="#ff4a5a">
+        <svg:text x="36" y="29.5" text-anchor="middle">61:04</svg:text>
+      </svg:g>
+    }
+    @case ('placar') {
+      <svg:rect x="4" y="11" width="56" height="26" rx="2" fill="#1b1b1e" />
+      @for (x of [8, 21, 34, 47]; track x) {
+        <svg:rect [attr.x]="x" y="15" width="10" height="16" rx="1" fill="#2b2b2f" />
+        <svg:line [attr.x1]="x" y1="23" [attr.x2]="x + 10" y2="23" stroke="#111" stroke-width="1" />
+      }
+      <svg:g font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="600" font-size="12" fill="#f1ece0" text-anchor="middle">
+        <svg:text x="13" y="27.5">0</svg:text>
+        <svg:text x="26" y="27.5">6</svg:text>
+        <svg:text x="39" y="27.5">1</svg:text>
+        <svg:text x="52" y="27.5">4</svg:text>
+      </svg:g>
+      <svg:rect x="8" y="33" width="49" height="1.4" fill="#f6c64a" opacity=".55" />
+    }
+    @case ('riscado') {
+      <svg:g transform="rotate(3 32 24)">
+        <svg:rect x="15" y="6" width="34" height="36" rx="1" fill="#fbe46f" />
+        <svg:rect x="15" y="6" width="34" height="6" fill="#000" opacity=".06" />
+        <svg:text x="32" y="32" text-anchor="middle" font-family="Permanent Marker, cursive" font-size="15" fill="#151515">61</svg:text>
+        <svg:g font-family="Kalam, cursive" font-size="6.5" fill="#151515" opacity=".7">
+          <svg:text x="20" y="20">63</svg:text>
+          <svg:text x="38" y="20">62</svg:text>
+        </svg:g>
+        <svg:line x1="19" y1="18" x2="28" y2="16.4" stroke="#d93a2b" stroke-width="1.3" stroke-linecap="round" />
+        <svg:line x1="37" y1="18" x2="46" y2="16.4" stroke="#d93a2b" stroke-width="1.3" stroke-linecap="round" />
+      </svg:g>
+    }
+    @case ('foto') {
+      <svg:g transform="rotate(-3 32 24)">
+        <svg:rect x="9" y="8" width="46" height="33" rx="1" fill="#fbfaf6" />
+        <ng-container *ngTemplateOutlet="foto; context: { x: 12, y: 11, w: 40, h: 27 }" />
+      </svg:g>
+    }
+    @case ('polaroid') {
+      <svg:g transform="rotate(3 32 24)">
+        <svg:rect x="16" y="3" width="32" height="42" rx="1" fill="#fbfaf6" />
+        <ng-container *ngTemplateOutlet="foto; context: { x: 19, y: 6, w: 26, h: 27 }" />
+        <svg:path d="M22 39.5c3-1 7 .6 10-.3s6-.5 9 .2" fill="none" stroke="#151515" stroke-opacity=".55" stroke-width="1" stroke-linecap="round" />
+      </svg:g>
+    }
+    @case ('recorte') {
+      <svg:g transform="rotate(-2 32 24)">
+        <ng-container *ngTemplateOutlet="foto; context: { x: 10, y: 9, w: 44, h: 30 }" />
+      </svg:g>
+    }
+    @case ('fita') {
+      <svg:g transform="rotate(-2 32 24)">
+        <svg:rect x="5" y="9" width="54" height="31" rx="3" fill="#2a282d" />
+        <svg:rect x="9" y="12" width="46" height="19" rx="1.5" fill="#f4ecd6" />
+        <svg:rect x="9" y="12" width="46" height="3" fill="#df6a2c" />
+        <svg:rect x="18" y="19" width="28" height="9" rx="4.5" fill="#2a282d" />
+        <svg:circle cx="24" cy="23.5" r="3" fill="#f4ecd6" />
+        <svg:circle cx="40" cy="23.5" r="3" fill="#f4ecd6" />
+        <svg:path d="M17 40l3-5h24l3 5" fill="#3a383d" />
+      </svg:g>
+    }
+    @case ('simples') {
+      <svg:rect x="3" y="15" width="58" height="18" rx="1.5" fill="#fffdf8" stroke="#151515" stroke-opacity=".14" />
+      <svg:circle cx="13" cy="24" r="5.5" fill="#151515" />
+      <svg:path d="M11.4 21.4v5.2l4.3-2.6z" fill="#fffdf8" />
+      <svg:line x1="23" y1="24" x2="55" y2="24" stroke="#151515" stroke-opacity=".3" stroke-width="1.4" stroke-linecap="round" />
+      <svg:line x1="23" y1="24" x2="35" y2="24" stroke="#151515" stroke-width="1.6" stroke-linecap="round" />
+    }
+    @case ('vinil') {
+      <svg:circle cx="40" cy="24" r="15" fill="#151515" />
+      <svg:circle cx="40" cy="24" r="11" fill="none" stroke="#fff" stroke-opacity=".08" />
+      <svg:circle cx="40" cy="24" r="5" fill="#f4ecd6" />
+      <svg:circle cx="40" cy="24" r=".9" fill="#151515" />
+      <svg:g transform="rotate(-2 22 24)">
+        <svg:rect x="8" y="10" width="28" height="28" rx="1" fill="#c9a46c" />
+        <svg:rect x="12" y="27" width="20" height="7" rx=".8" fill="#fffdf8" />
+        <svg:path d="M14.5 31c2.5-.8 5 .4 7.5-.2s4-.4 6 .1" fill="none" stroke="#151515" stroke-opacity=".6" stroke-width=".9" stroke-linecap="round" />
+      </svg:g>
+    }
+  }
+</ng-template>
+
+<!-- a fotinho de dentro das molduras: céu, sol e morro -->
+<ng-template #foto let-x="x" let-y="y" let-w="w" let-h="h">
+  <svg:rect [attr.x]="x" [attr.y]="y" [attr.width]="w" [attr.height]="h" fill="#8fc8f0" />
+  <svg:circle [attr.cx]="x + w * 0.74" [attr.cy]="y + h * 0.3" [attr.r]="h * 0.12" fill="#ffd95e" />
+  <svg:path [attr.d]="'M' + x + ' ' + (y + h) + 'L' + (x + w * 0.32) + ' ' + (y + h * 0.48) + 'L' + (x + w * 0.55) + ' ' + (y + h * 0.78) + 'L' + (x + w * 0.72) + ' ' + (y + h * 0.6) + 'L' + (x + w) + ' ' + (y + h) + 'Z'" fill="#3f8a4f" />
+</ng-template>

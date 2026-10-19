@@ -147,9 +147,8 @@ describe('a régua de formatação do texto', () => {
   it('o widget posto num item entra recuado, dele; na linha recuada vazia, fica com o recuo dela', () => {
     const put = (marked: string) => {
       write(marked);
-      const ed = fixture.componentInstance as unknown as { widgetPick: { set(v: unknown): void }; putWidget(a: HTMLTextAreaElement): void };
-      ed.widgetPick.set({ big: false, name: 'imagem', values: { url: 'https://ex.com/a.jpg', size: 'medio' }, start: area.selectionStart, end: area.selectionEnd, swap: false });
-      ed.putWidget(area);
+      const ed = fixture.componentInstance as unknown as { writeWidget(a: HTMLTextAreaElement, w: { start: number; end: number; swap: boolean }, line: string): void };
+      ed.writeWidget(area, { start: area.selectionStart, end: area.selectionEnd, swap: false }, '{{imagem: https://ex.com/a.jpg}}');
     };
     put('- [ ] Mandolin|');
     expect(value()).toBe('- [ ] Mandolin\n      {{imagem: https://ex.com/a.jpg}}');
@@ -601,10 +600,30 @@ describe('o painel aberto pelo clique na folha', () => {
     expect(area.selectionStart).toBe(8);
   });
 
-  it('num widget: o painel dele abre com o cursor na folha', async () => {
+  it('num widget: a tirinha dele (o nome, o que mostra, Tirar e Editar) abre com o cursor na folha', async () => {
     await clickAt('{{contador: 2026-12-25 | Natal}}', 5);
-    expect(panel('.widget-painel')).not.toBeNull();
+    const tira = panel('.widget-tira');
+    expect(tira).not.toBeNull();
+    expect(tira!.querySelector('.widget-tira-nome')?.textContent).toBe('Contador');
+    expect(tira!.querySelector('.widget-tira-resumo')?.textContent).toBe('Natal');
     expect(document.activeElement).toBe(area);
+    // a folha do widget só abre pelo Editar
+    expect(fixture.nativeElement.querySelector('app-widget-sheet')).toBeNull();
+  });
+
+  it('o Tirar da tirinha tira a linha do widget, com a quebra dela', async () => {
+    await clickAt('antes\n{{contador: 2026-12-25 | Natal}}\ndepois', 9);
+    panel('.widget-tira-tirar')!.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.value()).toBe('antes\ndepois');
+    expect(panel('.widget-tira')).toBeNull();
+  });
+
+  it('escrever na folha fecha a tirinha', async () => {
+    await clickAt('{{contador: 2026-12-25 | Natal}}', 5);
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+    expect(panel('.widget-tira')).toBeNull();
   });
 
   it('escrever na folha, sair do link pelas setas ou clicar fora fecham o painel', async () => {
@@ -635,15 +654,16 @@ describe('o painel aberto pelo clique na folha', () => {
   });
 });
 
-describe('o widget Nota no editor', () => {
+describe('a folha do widget no editor', () => {
   let fixture: ComponentFixture<RichEditor>;
   let el: HTMLElement;
   const wait = async () => {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       await new Promise((r) => setTimeout(r, 20));
       await fixture.whenStable();
     }
   };
+  const sheet = () => el.querySelector('dialog.wfolha') as HTMLDialogElement | null;
 
   beforeEach(async () => {
     localStorage.clear();
@@ -668,42 +688,158 @@ describe('o widget Nota no editor', () => {
   });
 
   afterEach(() => {
+    sheet()?.close();
     el.remove();
     localStorage.clear();
   });
 
-  it('escolher a Nota no menu já abre a lista; a ficha escolhida vai para o painel e "Colar" escreve a marca', async () => {
+  async function choose(label: string): Promise<void> {
     el.querySelector<HTMLButtonElement>('.menu-botao[data-menu="inserir"]')!.click();
     await fixture.whenStable();
     Array.from(el.querySelectorAll<HTMLButtonElement>('.widget-op'))
-      .find((b) => b.textContent!.includes('Nota'))!
+      .find((b) => b.textContent!.includes(label))!
       .click();
     await wait();
+  }
+
+  it('escolher um widget no Inserir abre a folha dele, com o nome dele na faixa', async () => {
+    await choose('Imagem');
+    expect(sheet()?.open).toBeTrue();
+    expect(el.querySelector('.wfolha h2')?.textContent?.trim()).toBe('Imagem');
+    expect(el.querySelector('.wfolha .sub')?.textContent?.trim()).toBe('Widget novo, numa linha só dele');
+    // o primeiro campo (o link) leva o foco
+    expect(document.activeElement).toBe(el.querySelector('.wfolha [data-campo="url"]'));
+  });
+
+  it('a imagem: o link confirmado embaixo dele, a moldura nas miniaturas e "Colar" escreve a marca quando a folha fecha', async () => {
+    await choose('Imagem');
+    const link = el.querySelector<HTMLInputElement>('.wfolha [data-campo="url"]')!;
+    link.value = 'https://ex.com/praia.jpg';
+    link.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait();
+    expect(el.querySelector('.wfolha .link-diz')?.textContent).toContain('Imagem de ex.com');
+    const jeitos = el.querySelectorAll<HTMLInputElement>('.wfolha .jeito input');
+    expect(jeitos.length).toBe(3);
+    jeitos[1].click();
+    await wait();
+    expect(el.querySelector('.wfolha .jeito.on .jeito-nome')?.textContent).toBe('Polaroide');
+    expect(el.querySelector('.wfolha .jeito.on app-pin')).not.toBeNull();
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(sheet()).toBeNull();
+    expect(fixture.componentInstance.value()).toBe('{{imagem: https://ex.com/praia.jpg | polaroid}}');
+  });
+
+  it('sem o que ele precisa, o botão diz o que falta e leva o foco ao campo', async () => {
+    await choose('Contador');
+    expect(el.querySelector('.wfolha .falta')?.textContent?.trim()).toBe('Falta o dia');
+    const ok = el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!;
+    // sem o dia, o palco mostra um contador de exemplo, esmaecido
+    expect(el.querySelector('.wfolha .exemplo app-note-widget')).not.toBeNull();
+    (document.activeElement as HTMLElement | null)?.blur();
+    ok.click();
+    await wait();
+    expect(document.activeElement).toBe(el.querySelector('.wfolha [data-campo="date"]'));
+    expect(el.querySelector('.wfolha [data-campo="date"]')?.getAttribute('aria-invalid')).toBe('true');
+    expect(fixture.componentInstance.value()).toBe('');
+  });
+
+  it('o contador de toda semana: o repete numa lista, os dias em bolinhas e a hora', async () => {
+    await choose('Contador');
+    const repete = el.querySelector<HTMLSelectElement>('.wfolha select[data-campo="repeat"]')!;
+    repete.value = 'semana';
+    repete.dispatchEvent(new Event('change', { bubbles: true }));
+    await wait();
+    const dias = Array.from(el.querySelectorAll<HTMLButtonElement>('.wfolha .dia'));
+    expect(dias.map((d) => d.textContent!.trim())).toEqual(['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']);
+    expect(el.querySelector('.wfolha [data-campo="date"]')).toBeNull();
+    dias[4].click();
+    await wait();
+    expect(el.querySelector('.wfolha .dia[aria-checked="true"]')?.textContent?.trim()).toBe('Sex');
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(fixture.componentInstance.value()).toBe('{{contador: toda sexta}}');
+  });
+
+  it('o vídeo: o link que serve é confirmado embaixo dele; o que não serve diz o porquê', async () => {
+    await choose('Vídeo');
+    const link = el.querySelector<HTMLInputElement>('.wfolha [data-campo="url"]')!;
+    link.value = 'https://youtu.be/dQw4w9WgXcQ';
+    link.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait();
+    expect(el.querySelector('.wfolha .link-diz')?.textContent).toContain('Vídeo do YouTube');
+    link.value = 'https://site.com/pagina';
+    link.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait();
+    expect(el.querySelector('.wfolha .link-diz.ruim')?.textContent).toContain('YouTube');
+    expect(link.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('a Nota: escolher no menu já abre a lista; a ficha escolhida vai para a folha e "Colar" escreve a marca', async () => {
+    await choose('Nota');
     const picker = el.querySelector('app-card-picker dialog') as HTMLDialogElement;
     expect(picker?.open).toBeTrue();
     el.querySelector<HTMLButtonElement>('app-card-picker .escolha')!.click();
     await wait();
     expect(picker.open).toBeFalse();
-    expect(el.querySelector('.ficha-escolher-nome')?.textContent).toBe('Hollow Knight');
-    expect(document.activeElement).toBe(el.querySelector('.widget-painel .painel-ok'));
-    el.querySelector<HTMLButtonElement>('.widget-painel .painel-ok')!.click();
-    await fixture.whenStable();
+    expect(el.querySelector('.wfolha .ficha-escolher-nome')?.textContent).toBe('Hollow Knight');
+    expect(document.activeElement).toBe(el.querySelector('.wfolha .pe .ok'));
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
     expect(fixture.componentInstance.value()).toBe('{{nota: #rjogo1 | Hollow Knight}}');
   });
 
-  it('fechar a lista sem escolher deixa o foco no "Qual", que a abre de novo', async () => {
-    el.querySelector<HTMLButtonElement>('.menu-botao[data-menu="inserir"]')!.click();
-    await fixture.whenStable();
-    Array.from(el.querySelectorAll<HTMLButtonElement>('.widget-op'))
-      .find((b) => b.textContent!.includes('Nota'))!
-      .click();
-    await wait();
+  it('fechar a lista da Nota sem escolher deixa o foco na ficha a escolher, que a abre de novo', async () => {
+    await choose('Nota');
     (el.querySelector('app-card-picker dialog') as HTMLDialogElement).close();
     await wait();
-    const which = el.querySelector<HTMLButtonElement>('.ficha-escolher')!;
+    const which = el.querySelector<HTMLButtonElement>('.wfolha .ficha-escolher')!;
     expect(which.classList).toContain('vazia');
     expect(document.activeElement).toBe(which);
-    expect(el.querySelector<HTMLButtonElement>('.widget-painel .painel-ok')!.disabled).toBeTrue();
+    expect(el.querySelector('.wfolha .falta')?.textContent?.trim()).toBe('Falta escolher a ficha');
+  });
+
+  it('o Editar da tirinha abre a folha com o widget; salvar troca a linha, e o Tirar da folha a tira', async () => {
+    const area = el.querySelector('textarea')!;
+    const open = async (text: string, at: number) => {
+      fixture.componentInstance.value.set(text);
+      fixture.detectChanges();
+      area.focus();
+      area.setSelectionRange(at, at);
+      area.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      await wait();
+      el.querySelector<HTMLButtonElement>('.widget-tira-editar')!.click();
+      await wait();
+    };
+    await open('oi\n{{audio: https://ex.com/a.mp3 | Faixa}}', 6);
+    expect(sheet()?.open).toBeTrue();
+    expect(el.querySelector('.wfolha h2')?.textContent?.trim()).toBe('Áudio');
+    expect(el.querySelector('.wfolha .sub')?.textContent?.trim()).toBe('Mexendo no widget do texto');
+    expect(el.querySelector<HTMLInputElement>('.wfolha [data-campo="title"]')!.value).toBe('Faixa');
+    el.querySelectorAll<HTMLInputElement>('.wfolha .jeito input')[2].click();
+    await wait();
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(fixture.componentInstance.value()).toBe('oi\n{{audio: https://ex.com/a.mp3 | Faixa | vinil}}');
+
+    await open('oi\n{{audio: https://ex.com/a.mp3 | Faixa}}\nfim', 6);
+    el.querySelector<HTMLButtonElement>('.wfolha .tirar')!.click();
+    await wait();
+    expect(fixture.componentInstance.value()).toBe('oi\nfim');
+  });
+
+  it('Cancelar fecha a folha sem mexer no texto', async () => {
+    await choose('Imagem');
+    const link = el.querySelector<HTMLInputElement>('.wfolha [data-campo="url"]')!;
+    link.value = 'https://ex.com/a.jpg';
+    link.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait();
+    Array.from(el.querySelectorAll<HTMLButtonElement>('.wfolha .pe .btn-quiet'))
+      .find((b) => b.textContent!.includes('Cancelar'))!
+      .click();
+    await wait();
+    expect(sheet()).toBeNull();
+    expect(fixture.componentInstance.value()).toBe('');
   });
 });
 

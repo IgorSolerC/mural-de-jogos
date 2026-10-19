@@ -1,0 +1,783 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+@use 'a11y';
+
+:host {
+  display: contents;
+}
+
+/* A folha: a ficha de fichário dos diálogos (a faixa amarela de sempre), com o nome do widget na
+   faixa, como as Configurações do mural; da altura do que ela tem, até a da tela. */
+dialog.wfolha {
+  width: 100%;
+  max-width: min(980px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+  container: wfolha / inline-size;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.titulos {
+  @include sheet.titulos;
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.titulo-icone {
+  flex: none;
+  display: inline-flex;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+/* ===== O conteúdo: o que ele mostra, o palco e a aparência. Larga, o palco fica ao lado e não sai
+   da vista enquanto os campos rolam; estreita, ele vem entre o que ele mostra e a aparência, para
+   escolher o jeito vendo o widget logo em cima. ===== */
+.conteudo {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'oque'
+    'palco'
+    'aparencia';
+  align-content: start;
+  gap: 24px;
+  padding: 22px 28px 28px;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+  container: wparte / inline-size;
+}
+
+.oque {
+  grid-area: oque;
+  min-width: 0;
+}
+
+.palco {
+  grid-area: palco;
+  min-width: 0;
+}
+
+/* a aparência começa depois do fio tracejado de caneta das folhas */
+.aparencia {
+  grid-area: aparencia;
+  min-width: 0;
+  padding-top: 2px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.22);
+}
+
+@container wfolha (min-width: 760px) {
+  .conteudo {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas:
+      'oque palco'
+      'aparencia palco';
+    grid-template-rows: auto 1fr;
+    column-gap: 36px;
+    row-gap: 22px;
+  }
+
+  .palco {
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+}
+
+/* ===== O palco: um pedaço da parede, com a ficha pregada nela (ou a folha da leitura) ===== */
+.palco-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.palco-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* Na ficha / Aberta: o seletor de recortes do site, em pequeno */
+.vistas {
+  display: flex;
+  gap: 6px;
+}
+
+.vista {
+  @include kit.segmento;
+
+  & {
+    min-height: 34px;
+    padding: 4px 12px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
+
+.palco-parede {
+  display: grid;
+  place-items: center;
+  min-height: 248px;
+  padding: 30px 16px 24px;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 0 / 0.55),
+    inset 0 0 0 1px rgb(0 0 0 / 0.4);
+  overflow: hidden;
+}
+
+/* a cartolina da anotação, do tamanho do texto da ficha do mural, com o mesmo corte embaixo (as
+   medidas são as de .nota-texto, em review-card.ts) */
+.mini-ficha {
+  position: relative;
+  width: min(100%, calc(17.5rem + 32px));
+  padding: 22px 16px 14px;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+  rotate: -1.2deg;
+}
+
+.mini-pin {
+  top: -9px;
+  left: calc(50% - 13px);
+}
+
+.mini-texto {
+  --line: 1.4rem;
+  --linhas: 8;
+  --widget-teto: calc(var(--line) * var(--linhas));
+  height: calc(var(--line) * var(--linhas));
+  overflow: clip;
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.04rem;
+  line-height: var(--line);
+}
+
+/* aberta: a folha pautada da leitura */
+.folha-aberta {
+  --line: 1.75rem;
+  width: 100%;
+  padding: 0 14px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)),
+    var(--paper);
+  box-shadow: var(--shadow-card);
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.14rem;
+  line-height: var(--line);
+}
+
+/* sem o que ele precisa: o desenho do jeito escolhido, apagado, e o que falta */
+.palco-vazio {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  min-height: calc(var(--line) * 5);
+  margin: 0;
+  text-align: center;
+  color: var(--ink-2);
+
+  lucide-icon {
+    opacity: 0.6;
+  }
+}
+
+.vazio-desenho {
+  width: 104px;
+  height: 78px;
+  opacity: 0.55;
+}
+
+.mini-texto .palco-vazio {
+  min-height: 100%;
+}
+
+/* o contador de exemplo: esmaecido, com a etiqueta de que é só um exemplo */
+.exemplo {
+  position: relative;
+  opacity: 0.6;
+}
+
+.exemplo-selo {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  z-index: 2;
+  padding: 2px 7px 1px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  rotate: 3deg;
+}
+
+/* ===== O que ele mostra ===== */
+/* uma linha de campos: os curtos (o repete, o dia, a hora) lado a lado; os largos, sozinhos */
+.linha-campos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px 12px;
+
+  & + & {
+    margin-top: 18px;
+  }
+}
+
+.dica + .linha-campos {
+  margin-top: 18px;
+}
+
+.campo-bloco {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+
+  &.largo {
+    flex: 1 1 100%;
+  }
+
+  &.curto {
+    flex: 0 1 auto;
+  }
+}
+
+/* o nome do campo, impresso; o valor de agora (nas escolhas), escrito à mão do lado */
+.rotulo {
+  padding: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.campo {
+  @include kit.campo;
+
+  &.erro {
+    @include kit.campo-erro;
+  }
+
+  &.com-icone {
+    padding-left: 12px;
+  }
+
+  input {
+    font-size: 1.02rem;
+
+    /* 4,5:1 na tira de papel do campo */
+    &::placeholder {
+      color: rgb(21 21 21 / 0.64);
+    }
+  }
+
+  /* a data e a hora: os números alinhados e o calendário do aparelho na tinta da folha */
+  input:is(.tipo-date, .tipo-time, .tipo-number) {
+    color-scheme: light;
+    font-variant-numeric: tabular-nums;
+  }
+
+  input::-webkit-calendar-picker-indicator {
+    opacity: 0.7;
+    cursor: pointer;
+  }
+}
+
+.campo-icone {
+  flex: none;
+  display: inline-flex;
+  color: var(--ink-2);
+}
+
+.curto .campo {
+  min-width: 7rem;
+}
+
+.curto .campo:has(.tipo-date) {
+  min-width: 10rem;
+}
+
+.curto .campo:has(.tipo-number) {
+  width: 6.5rem;
+  min-width: 0;
+}
+
+/* o "Repete": a lista do aparelho por cima do campo impresso, com o nome do que está escolhido */
+.campo.escolha {
+  position: relative;
+  gap: 8px;
+  min-width: 7.5rem;
+  padding-right: 12px;
+  cursor: pointer;
+
+  select {
+    @include kit.select-por-cima;
+  }
+
+  &:has(select:focus-visible) {
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
+  }
+}
+
+.escolha-nome {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.escolha-seta {
+  display: inline-flex;
+  color: var(--ink-2);
+}
+
+/* o que o link é: confirmado (com o tique) ou o que está errado nele */
+.link-diz {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+
+  lucide-icon {
+    flex: none;
+    display: inline-flex;
+    margin-top: 1px;
+  }
+
+  &.ruim {
+    font-weight: 600;
+    color: var(--error-ink);
+  }
+}
+
+.dica {
+  max-width: 62ch;
+  margin-top: 8px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+
+  &.ruim {
+    font-weight: 600;
+    color: var(--error-ink);
+  }
+}
+
+/* os dias da semana: recortes redondos; o escolhido, o disco de tinta */
+.dias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dia {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    outline-color var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical);
+
+  &:hover:not([aria-checked='true']) {
+    background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.72);
+  }
+
+  &[aria-checked='true'] {
+    outline-color: transparent;
+    background: var(--ink);
+    color: var(--paper);
+    rotate: -6deg;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+/* ===== A Nota: a ficha escolhida, a etiqueta de papel dos botões; sem ela, o recorte de escolher ===== */
+.ficha-escolher {
+  @include kit.botao-papel;
+
+  & {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 64px;
+    padding: 10px 14px;
+    font: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: left;
+  }
+
+  &.vazia {
+    padding: 10px 14px;
+  }
+
+  &.falta {
+    --corte: var(--error-ink);
+    --corte-forte: var(--error-ink);
+  }
+}
+
+.ficha-capa {
+  flex: none;
+  width: 36px;
+}
+
+.folhinha {
+  display: block;
+  height: 44px;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  rotate: -3deg;
+}
+
+.ficha-escolher-texto {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ficha-escolher-nome {
+  font-family: var(--f-marker);
+  font-size: 1.08rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.ficha-escolher-mural {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.ficha-escolher-acao {
+  flex: none;
+  padding: 4px 10px 3px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ===== A Aparência ===== */
+fieldset.bloco {
+  min-width: 0;
+  margin: 20px 0 0;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: 12px;
+  }
+}
+
+/* o jeito: uma miniatura desenhada de cada um, como as amostras de cartolina do editor; a escolhida
+   descola, entorta e fica presa com a tachinha */
+.jeitos {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+  gap: 16px 12px;
+  max-width: calc(var(--n, 3) * 136px);
+}
+
+.jeito {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  cursor: pointer;
+
+  input {
+    @include a11y.radio-escondido;
+  }
+}
+
+.jeito-papel {
+  display: block;
+  width: 100%;
+  max-width: 124px;
+  aspect-ratio: 4 / 3;
+  border-radius: 2px;
+  background-color: #fffdf8;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.08),
+    0 1px 1px rgb(0 0 0 / 0.24),
+    0 4px 7px -3px rgb(0 0 0 / 0.36);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-physical) var(--ease-physical);
+}
+
+.jeito-desenho {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+}
+
+.jeito:hover .jeito-papel {
+  translate: 0 -2px;
+}
+
+.jeito.on .jeito-papel {
+  rotate: -4deg;
+  translate: 0 -3px;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.08),
+    0 2px 2px rgb(0 0 0 / 0.22),
+    0 9px 14px -6px rgb(0 0 0 / 0.45);
+}
+
+.jeito:has(input:focus-visible) .jeito-papel {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.jeito-pin {
+  top: -2px;
+  left: calc(50% - 13px);
+  scale: 0.6;
+  animation: pino 420ms var(--ease-physical);
+}
+
+@keyframes pino {
+  from {
+    scale: 1.1;
+    opacity: 0;
+  }
+}
+
+.jeito-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.jeito.on .jeito-nome {
+  color: var(--ink);
+}
+
+/* o tamanho: o seletor de recortes, cada um com a ficha e quanto o widget ocupa dela */
+.tamanhos {
+  @include kit.segmentos;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 560px;
+  margin-top: 0;
+}
+
+.segmento {
+  @include kit.segmento;
+}
+
+.seg-nome {
+  @include kit.seg-nome;
+}
+
+.tamanho-desenho {
+  width: 32px;
+  height: 25px;
+}
+
+.tamanho-ficha {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.tamanho-linha {
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  opacity: 0.45;
+}
+
+.tamanho-peca {
+  fill: currentColor;
+}
+
+/* ===== O pé: tirar à esquerda (só no que já está no texto), o que falta e as ações ===== */
+.pe .falta {
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-align: right;
+  color: var(--ink-2);
+}
+
+.pe .actions {
+  margin-left: 0;
+}
+
+.btn-quiet {
+  color: var(--ink);
+}
+
+.tirar {
+  color: var(--red-deep);
+}
+
+/* ===== A folha estreita: tudo numa coluna, o pé numa fileira ===== */
+@container wfolha (max-width: 640px) {
+  .conteudo {
+    gap: 20px;
+    padding: 18px 16px 24px;
+  }
+
+  .palco-parede {
+    min-height: 200px;
+    padding: 24px 12px 18px;
+  }
+
+  /* o pé numa fileira só: o tirar vira só a lixeira, e o que falta aparece depois de tentar pôr */
+  .pe {
+    position: relative;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .pe .falta {
+    display: none;
+
+    &.agora {
+      display: block;
+      position: absolute;
+      inset: auto 16px calc(100% + 6px);
+      padding: 6px 10px;
+      border-radius: 2px;
+      background: var(--papel-ficha);
+      box-shadow: var(--papel-solto-sombra);
+      text-align: left;
+      color: var(--error-ink);
+    }
+  }
+
+  .pe .actions {
+    flex: 1;
+    width: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+
+  .pe .ok {
+    flex: 1;
+    padding-inline: 12px;
+    font-size: 1.05rem;
+  }
+
+  .tirar {
+    flex: none;
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .tirar-nome {
+    @include a11y.escondido;
+  }
+}
+
+@container wparte (max-width: 400px) {
+  .jeitos {
+    gap: 14px 8px;
+  }
+
+  .tamanhos {
+    gap: 6px;
+  }
+
+  .tamanho {
+    padding-inline: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jeito.on .jeito-papel,
+  .dia[aria-checked='true'] {
+    rotate: 0deg;
+  }
+
+  .jeito-pin {
+    animation: none;
+  }
+}

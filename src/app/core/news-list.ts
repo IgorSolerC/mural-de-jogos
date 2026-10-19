@@ -26,12 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-19-ficha-aberta',
+    id: '2026-10-19-folha-do-widget',
     version: '1.28.1',
     kind: 'ajustes',
     date: '2026-10-19',
-    title: 'A ficha aberta, mais fácil de ler',
+    title: 'A ficha aberta, mais fácil de ler, e a folha dos widgets',
     melhorias: [
+      'Pôr e mexer num widget ficou bem mais simples: ele abre numa folha só dele, com os widgets numa coluna ao lado (trocar de um para outro leva o link e o nome junto), o que ele mostra num grupo, a aparência em outro e o widget de verdade ao lado, andando, na ficha do mural ou aberto.',
+      'Os jeitos de cada widget (calendário, neon, placar, riscado; foto, polaroide, recorte; fita, simples, vinil) viraram miniaturas desenhadas, e a escolhida fica presa com a tachinha.',
+      'No contador, a repetição virou uma lista só, ao lado do dia e da hora, e a de toda semana escolhe o dia em bolinhas, como nos calendários.',
+      'O link da imagem, do vídeo e do som é confirmado embaixo do campo (de onde ele vem e que toca ali mesmo), e o botão de pôr diz o que ainda falta.',
+      'Tocar na linha de um widget no texto mostra só uma tirinha com o que ele é, Editar e Tirar, em vez da folha inteira.',
       'A ficha aberta ficou mais calma para ler: o nome vai escrito na faixa colorida do alto (que fica no lugar enquanto o texto rola), e o texto da anotação começa logo depois de uma linha só, com a data e as tags.',
       'O grupo da anotação aberta virou a orelha da ficha, como no mural, saindo pela beirada de cima.',
       'A anotação aberta mostra onde mais ela está: a coluna do Kanban, com a importância, o status e as dependências, e o próximo lembrete do Calendário em que ela foi presa (tocar abre o quadro ou o dia), além da conta das tarefas.',

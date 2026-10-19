@@ -372,4 +372,35 @@ describe('a cópia de cada widget, como texto', () => {
   it('a cópia fica numa linha só', () => {
     expect(widgetCopy('imagem', ['https://x.com/a.jpg', 'Uma\nlegenda'], { now: 0 })).toBe('{imagem: https://x.com/a.jpg | Uma legenda}');
   });
+
+  describe('a folha do widget', () => {
+    it('todo widget diz a dica do índice, o nome do que mostra, e os jeitos vão para a Aparência como miniaturas', () => {
+      for (const def of WIDGETS) {
+        expect(def.hint).withContext(def.name).toBeTruthy();
+        expect(def.what).withContext(def.name).toBeTruthy();
+        // o que é obrigatório diz o que falta
+        for (const f of def.fields.filter((f) => f.required)) expect(f.missing).withContext(def.name + '.' + f.key).toMatch(/^Falta /);
+      }
+      const tiles = (name: string) => widgetDef(name)!.fields.filter((f) => f.display === 'tiles').map((f) => f.key);
+      expect(tiles('contador')).toEqual(['look']);
+      expect(tiles('imagem')).toEqual(['frame']);
+      expect(tiles('video')).toEqual(['frame']);
+      expect(tiles('audio')).toEqual(['look']);
+      expect(tiles('nota')).toEqual([]);
+      // o repete, o dia e a hora do contador numa linha só
+      const quando = widgetDef('contador')!.fields.filter((f) => f.row === 'quando').map((f) => f.key);
+      expect(quando).toEqual(['repeat', 'date', 'monthDay', 'time', 'time']);
+    });
+
+    it('o link que serve é confirmado: de onde ele vem e que toca ali mesmo', () => {
+      expect(widgetDef('imagem')!.found!({ url: 'https://www.exemplo.com/a.jpg' })).toBe('Imagem de exemplo.com');
+      expect(widgetDef('imagem')!.found!({ url: 'http://exemplo.com/a.jpg' })).toBeNull();
+      expect(widgetDef('video')!.found!({ url: 'https://youtu.be/dQw4w9WgXcQ' })).toBe('Vídeo do YouTube, toca aqui mesmo');
+      expect(widgetDef('video')!.found!({ url: 'https://vimeo.com/76979871' })).toBe('Vídeo do Vimeo, toca aqui mesmo');
+      expect(widgetDef('video')!.found!({ url: 'https://site.com/clip.webm' })).toBe('Vídeo de um arquivo .webm, toca aqui mesmo');
+      expect(widgetDef('audio')!.found!({ url: 'https://site.com/a.MP3' })).toBe('Som de um arquivo .mp3, toca aqui mesmo');
+      expect(widgetDef('audio')!.found!({ url: 'https://site.com/pagina' })).toBeNull();
+      expect(widgetDef('audio')!.found!({})).toBeNull();
+    });
+  });
 });

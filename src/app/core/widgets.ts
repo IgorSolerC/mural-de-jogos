@@ -32,6 +32,16 @@ export interface WidgetField {
   hint?: string;
   /** Até quantas letras (os textos). */
   max?: number;
+  /**
+   * Como a folha do widget mostra a escolha: `tiles`, as miniaturas desenhadas de cada jeito (vão para a
+   * parte "Aparência"); `select`, uma lista que abre; `days`, os dias da semana em bolinhas. Sem ele, o
+   * seletor de recortes.
+   */
+  display?: 'tiles' | 'select' | 'days';
+  /** Os campos com o mesmo `row` ficam lado a lado, numa linha só (o repete, o dia e a hora do contador). */
+  row?: string;
+  /** O que a folha diz quando ele falta ("Falta o dia"). */
+  missing?: string;
 }
 
 export type WidgetValues = Record<string, string>;
@@ -45,6 +55,10 @@ export interface WidgetDef {
   label: string;
   /** Uma frase do que ele faz. */
   about: string;
+  /** Poucas palavras do que ele faz, na etiqueta do índice da folha ("Quanto falta para um dia"). */
+  hint: string;
+  /** O nome do que ele mostra, no alto dos campos ("O contador", "A imagem"). */
+  what: string;
   /** O botão que põe no texto ("Pôr o contador") e o que troca o que já estava ("Trocar o contador"). */
   put: string;
   swap: string;
@@ -63,6 +77,8 @@ export interface WidgetDef {
   copy(args: readonly string[], ctx: CopyContext): string;
   /** O que está errado nos campos já preenchidos (um link que não serve), para o editor dizer. */
   problem?(values: WidgetValues): string | null;
+  /** O que deu certo no link ("Vídeo do YouTube"), para a folha confirmar embaixo dele; null, nada a dizer. */
+  found?(values: WidgetValues): string | null;
 }
 
 /** Os campos que o painel mostra agora (os de `shown` só quando valem para os valores de agora). */
@@ -471,18 +487,20 @@ const COUNTDOWN: WidgetDef = {
   aliases: ['contagem', 'countdown'],
   label: 'Contador',
   about: 'Conta o tempo que falta até um dia e uma hora, uma vez só ou repetindo.',
+  hint: 'Quanto falta para um dia',
+  what: 'O contador',
   put: 'Pôr o contador',
-  swap: 'Trocar o contador',
+  swap: 'Salvar o contador',
   fields: [
-    { key: 'title', label: 'Para quê', kind: 'text', placeholder: 'Lançamento, aniversário, viagem…', max: 80 },
-    { key: 'repeat', label: 'Repete', kind: 'choice', options: REPEAT_OPTIONS },
-    { key: 'date', label: 'Dia', kind: 'date', required: true, shown: (v) => !v['repeat'] || v['repeat'] === 'ano' },
-    { key: 'weekday', label: 'Dia da semana', kind: 'choice', options: WEEKDAY_OPTIONS, shown: (v) => v['repeat'] === 'semana' },
-    { key: 'monthDay', label: 'Dia do mês', kind: 'number', range: [1, 31], placeholder: '5', required: true, shown: (v) => v['repeat'] === 'mes', hint: 'Num mês sem esse dia (31 em abril), conta até o último dia dele.' },
-    { key: 'time', label: 'Hora', kind: 'time', hint: 'Sem hora, conta até a meia-noite.', shown: (v) => v['repeat'] !== 'dia' },
+    { key: 'title', label: 'Título', kind: 'text', placeholder: 'Embarque, aniversário, lançamento…', max: 80 },
+    { key: 'repeat', label: 'Repete', kind: 'choice', options: REPEAT_OPTIONS, display: 'select', row: 'quando' },
+    { key: 'date', label: 'Dia', kind: 'date', required: true, missing: 'Falta o dia', row: 'quando', shown: (v) => !v['repeat'] || v['repeat'] === 'ano' },
+    { key: 'weekday', label: 'Dia da semana', kind: 'choice', options: WEEKDAY_OPTIONS, display: 'days', shown: (v) => v['repeat'] === 'semana' },
+    { key: 'monthDay', label: 'Dia do mês', kind: 'number', range: [1, 31], placeholder: '5', required: true, missing: 'Falta o dia do mês', row: 'quando', shown: (v) => v['repeat'] === 'mes', hint: 'Num mês sem esse dia (31 em abril), conta até o último dia dele.' },
+    { key: 'time', label: 'Hora', kind: 'time', hint: 'Sem hora, conta até a meia-noite.', row: 'quando', shown: (v) => v['repeat'] !== 'dia' },
     // o de todo dia é só a hora: ela é obrigatória
-    { key: 'time', label: 'Hora', kind: 'time', required: true, hint: 'Conta até essa hora, todo dia.', shown: (v) => v['repeat'] === 'dia' },
-    { key: 'look', label: 'Jeito', kind: 'choice', options: COUNTDOWN_LOOKS },
+    { key: 'time', label: 'Hora', kind: 'time', required: true, missing: 'Falta a hora', hint: 'Conta até essa hora, todo dia.', row: 'quando', shown: (v) => v['repeat'] === 'dia' },
+    { key: 'look', label: 'Jeito', kind: 'choice', options: COUNTDOWN_LOOKS, display: 'tiles' },
   ],
   read(args) {
     const { when, title, look } = readCountdown(args);
@@ -656,8 +674,16 @@ export function parseVideo(raw: string): VideoSource | null {
 const MEDIA_FIELDS = (link: WidgetField): readonly WidgetField[] => [
   link,
   { key: 'caption', label: 'Legenda', kind: 'text', placeholder: 'Opcional', max: 120 },
-  { key: 'frame', label: 'Moldura', kind: 'choice', options: FRAMES },
+  { key: 'frame', label: 'Moldura', kind: 'choice', options: FRAMES, display: 'tiles' },
 ];
+
+/** De onde vem o vídeo ou o som ("do YouTube", "de um arquivo .mp3"), para a folha confirmar o link. */
+function sourceName(src: VideoSource | AudioSource): string {
+  if (src.kind === 'youtube') return 'do YouTube';
+  if (src.kind === 'vimeo') return 'do Vimeo';
+  const ext = /\.([a-z0-9]+)$/i.exec(new URL(src.url).pathname)?.[1]?.toLowerCase();
+  return ext ? `de um arquivo .${ext}` : 'de um arquivo';
+}
 
 /**
  * Os campos da foto colada viram os parâmetros: o link, a legenda e a moldura (a foto, que é a de
@@ -689,9 +715,11 @@ const IMAGE: WidgetDef = {
   aliases: ['foto', 'image', 'img'],
   label: 'Imagem',
   about: 'Uma imagem de um link, colada como foto.',
+  hint: 'Uma foto de um link',
+  what: 'A imagem',
   put: 'Colar a imagem',
-  swap: 'Trocar a imagem',
-  fields: MEDIA_FIELDS({ key: 'url', label: 'Link', kind: 'url', placeholder: 'https://…/foto.jpg', required: true }),
+  swap: 'Salvar a imagem',
+  fields: MEDIA_FIELDS({ key: 'url', label: 'Link da imagem', kind: 'url', placeholder: 'https://…/foto.jpg', required: true, missing: 'Falta o link' }),
   read: readMediaValues,
   write: (v) => writeMedia(v, (url) => !!httpsUrl(url)),
   plain: (args) => readMedia(args).caption,
@@ -700,6 +728,10 @@ const IMAGE: WidgetDef = {
     const url = (v['url'] ?? '').trim();
     return url && !httpsUrl(url) ? 'O link precisa começar com https://' : null;
   },
+  found(v) {
+    const url = httpsUrl(v['url'] ?? '');
+    return url ? `Imagem de ${hostOf(url)}` : null;
+  },
 };
 
 const VIDEO: WidgetDef = {
@@ -707,9 +739,11 @@ const VIDEO: WidgetDef = {
   aliases: ['filme', 'youtube'],
   label: 'Vídeo',
   about: 'Um vídeo do YouTube, do Vimeo ou um arquivo .mp4, que toca ali mesmo.',
+  hint: 'YouTube, Vimeo ou .mp4',
+  what: 'O vídeo',
   put: 'Colar o vídeo',
-  swap: 'Trocar o vídeo',
-  fields: MEDIA_FIELDS({ key: 'url', label: 'Link', kind: 'url', placeholder: 'YouTube, Vimeo ou um .mp4', required: true }),
+  swap: 'Salvar o vídeo',
+  fields: MEDIA_FIELDS({ key: 'url', label: 'Link do vídeo', kind: 'url', placeholder: 'YouTube, Vimeo ou um .mp4', required: true, missing: 'Falta o link' }),
   read: readMediaValues,
   write: (v) => writeMedia(v, (url) => !!parseVideo(url)),
   plain: (args) => readMedia(args).caption,
@@ -718,6 +752,10 @@ const VIDEO: WidgetDef = {
     const url = (v['url'] ?? '').trim();
     if (!url || parseVideo(url)) return null;
     return httpsUrl(url) ? 'Esse link não é de um vídeo que dê para tocar aqui: use um do YouTube, do Vimeo ou um arquivo .mp4.' : 'O link precisa começar com https://';
+  },
+  found(v) {
+    const src = parseVideo(v['url'] ?? '');
+    return src ? `Vídeo ${sourceName(src)}, toca aqui mesmo` : null;
   },
 };
 
@@ -782,12 +820,14 @@ const AUDIO: WidgetDef = {
   aliases: ['som', 'musica', 'faixa', 'track'],
   label: 'Áudio',
   about: 'Uma faixa de som de um link (ou o som de um vídeo), para tocar ali mesmo.',
+  hint: 'Uma faixa para tocar',
+  what: 'A faixa',
   put: 'Pôr a faixa',
-  swap: 'Trocar a faixa',
+  swap: 'Salvar a faixa',
   fields: [
-    { key: 'url', label: 'Link', kind: 'url', placeholder: 'Um .mp3, YouTube, Vimeo ou um .mp4', required: true },
-    { key: 'title', label: 'Nome', kind: 'text', placeholder: 'Opcional: a música, o episódio…', max: 80 },
-    { key: 'look', label: 'Jeito', kind: 'choice', options: AUDIO_LOOKS },
+    { key: 'url', label: 'Link do som', kind: 'url', placeholder: 'Um .mp3, YouTube, Vimeo ou um .mp4', required: true, missing: 'Falta o link' },
+    { key: 'title', label: 'Nome da faixa', kind: 'text', placeholder: 'Opcional: a música, o episódio…', max: 80 },
+    { key: 'look', label: 'Jeito', kind: 'choice', options: AUDIO_LOOKS, display: 'tiles' },
   ],
   read(args) {
     const { url, look, title } = readAudio(args);
@@ -813,6 +853,10 @@ const AUDIO: WidgetDef = {
     return httpsUrl(url)
       ? 'Esse link não é de um som que dê para tocar aqui: use um arquivo de áudio (.mp3, .ogg, .wav…), um vídeo do YouTube ou do Vimeo, ou um .mp4.'
       : 'O link precisa começar com https://';
+  },
+  found(v) {
+    const src = parseAudio(v['url'] ?? '');
+    return src ? `Som ${sourceName(src)}, toca aqui mesmo` : null;
   },
 };
 
@@ -889,9 +933,11 @@ const CARD: WidgetDef = {
   aliases: ['ficha', 'anotacao', 'card', 'note'],
   label: 'Nota',
   about: 'Outra anotação ou ficha, de qualquer mural, colada aqui em miniatura.',
+  hint: 'Outra ficha, colada aqui',
+  what: 'A ficha',
   put: 'Colar a nota',
-  swap: 'Trocar a nota',
-  fields: [{ key: 'id', label: 'Qual', kind: 'card', required: true }],
+  swap: 'Salvar a nota',
+  fields: [{ key: 'id', label: 'Qual ficha', kind: 'card', required: true, missing: 'Falta escolher a ficha' }],
   read(args) {
     const { id, title } = readCardRef(args);
     return { id, title };

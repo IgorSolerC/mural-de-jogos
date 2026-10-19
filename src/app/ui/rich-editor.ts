@@ -4,14 +4,13 @@ import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, ownerItem, tableCells, toggleCheck } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
-import { cap, profileOf } from '../core/kinds';
-import { Review, formatReviewDate, isNote } from '../core/review';
-import { ReviewStore } from '../core/review-store';
+import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
-import { NoteWidget } from './note-widget';
-import { CardPicker } from './card-picker';
+import { WidgetSheet } from './widget-sheet';
+import type { WidgetDone } from './widget-sheet';
+import { WIDGET_ICONS } from './widget-icons';
 import { MarkupGuide } from './markup-guide';
-import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetSize, WidgetValues, fieldsFor, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
+import { WIDGETS, WidgetDef, WidgetValues, hostOf, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
 import { watchVisualViewport } from './visual-viewport';
 
 type ListKind = 'ul' | 'ol' | 'check';
@@ -61,20 +60,12 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  * Um clique na linha de um widget já abre o painel dele assim; num link (de anotação ou de
  * endereço), o painel do link, com o que está escrito, para trocar.
  */
-/** O desenho de cada widget no menu "Widgets" (ver core/widgets.ts). */
-const WIDGET_ICONS: Record<string, LucideIconData> = {
-  contador: ICON.ampulheta,
-  imagem: ICON.imagem,
-  video: ICON.video,
-  audio: ICON.fitaCassete,
-  nota: ICON.anotacoes,
-};
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [IconModule, NgTemplateOutlet, RichText, NoteWidget, CardPicker, MarkupGuide],
+  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null' },
@@ -447,165 +438,29 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           </div>
         }
       }
-      <!-- o widget: os campos dele e ele mesmo, vivo, como vai ficar na anotação -->
+      <!-- o widget tocado na folha: uma tirinha com o que ele é, Editar (abre a folha dele) e Tirar.
+           Ela é passiva, como o painel do link: o cursor fica na folha, e escrever ou sair da linha fecha -->
       @if (widgetPick(); as w) {
-        @if (w.big === big) {
+        @if (w.big === big && !widgetSheet()) {
           @let def = widgetOf(w.name);
-          <div class="painel widget-painel" role="group" [attr.aria-label]="(w.swap ? 'Trocar o widget: ' : 'Widget: ') + def.label" (keydown.escape)="closeWidget($event, area)">
-            <div class="painel-topo">
-              <p class="painel-titulo">{{ w.swap ? def.swap : 'Widget · ' + def.label }}</p>
-              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeWidget(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
-            </div>
-            @if (widgets.length > 1 && !w.swap) {
-              <div class="widget-tipos" role="radiogroup" aria-label="Qual widget">
-                @for (d of widgets; track d.name) {
-                  <button type="button" role="radio" class="widget-tipo" [attr.aria-checked]="d.name === w.name" (click)="pickWidget(d)">{{ d.label }}</button>
-                }
-              </div>
-            }
-            <p class="widget-sobre">{{ def.about }}</p>
-            @for (f of fieldsFor(def, w.values); track f.key) {
-              @if (f.kind === 'toggle') {
-                <label class="widget-caixa">
-                  <input type="checkbox" [attr.data-campo]="f.key" [checked]="!!w.values[f.key]" (change)="setWidgetValue(f.key, $any($event.target).checked ? '1' : '')" (keydown.enter)="$event.preventDefault(); putWidget(area)" />
-                  <span class="widget-caixa-nome">{{ f.label }}</span>
-                  @if (f.hint) {
-                    <small>{{ f.hint }}</small>
-                  }
-                </label>
-              } @else if (f.kind === 'choice') {
-                <div class="painel-campo" role="radiogroup" [attr.aria-label]="f.label">
-                  <span>{{ f.label }}</span>
-                  <span class="widget-escolhas">
-                    @for (o of f.options ?? []; track o.value; let first = $first) {
-                      @let on = (w.values[f.key] || (f.options ?? [])[0]?.value) === o.value;
-                      <button type="button" role="radio" class="widget-tipo" [attr.aria-checked]="on" [attr.tabindex]="on ? 0 : -1" [attr.data-campo]="first ? f.key : null" (click)="setWidgetValue(f.key, o.value)" (keydown)="onChoiceKey($event, f.key, f.options ?? [])">{{ o.label }}</button>
-                    }
-                  </span>
-                </div>
-              } @else if (f.kind === 'card') {
-                <!-- a Nota: qual ficha. O botão abre a lista de todas (ver ui/card-picker.ts); a ficha
-                     escolhida aparece de verdade logo embaixo, em "Como fica" -->
-                @let card = chosenCard();
-                <div class="painel-campo">
-                  <span [id]="areaId + '-qual'">{{ f.label }}</span>
-                  <span class="widget-campo">
-                    <button
-                      type="button"
-                      class="ficha-escolher"
-                      [class.vazia]="!card"
-                      [attr.data-campo]="f.key"
-                      [attr.aria-labelledby]="areaId + '-qual ' + areaId + '-qual-nome'"
-                      aria-haspopup="dialog"
-                      (click)="cardPickerOpen.set(true)"
-                    >
-                      @if (card) {
-                        <span class="ficha-escolher-texto" [id]="areaId + '-qual-nome'">
-                          <span class="ficha-escolher-nome">{{ card.game.name }}</span>
-                          <span class="ficha-escolher-mural">{{ kindOf(card) }}</span>
-                        </span>
-                        <span class="ficha-escolher-acao">Trocar</span>
-                      } @else {
-                        <lucide-icon [img]="CardIcon" [size]="18" aria-hidden="true" />
-                        <span class="ficha-escolher-texto" [id]="areaId + '-qual-nome'">
-                          <span class="ficha-escolher-nome">{{ w.values['title'] || 'Escolher a ficha' }}</span>
-                          @if (w.values['title']) {
-                            <span class="ficha-escolher-mural">Não está mais no seu mural</span>
-                          }
-                        </span>
-                        @if (w.values['title']) {
-                          <span class="ficha-escolher-acao">Trocar</span>
-                        }
-                      }
-                    </button>
-                  </span>
-                </div>
-                <!-- a lista vem num pedaço à parte, quando abre pela primeira vez -->
-                @defer (when cardPickerOpen()) {
-                  <app-card-picker [open]="cardPickerOpen()" (openChange)="cardPickerOpened($event, big)" [chosen]="card?.id ?? ''" [selfId]="selfId()" (picked)="pickCard($event)" />
-                }
-              } @else {
-                <label class="painel-campo">
-                  <span>{{ f.label }}</span>
-                  <span class="widget-campo">
-                    <input
-                      [class]="'widget-' + f.kind"
-                      [type]="f.kind"
-                      [attr.inputmode]="f.kind === 'url' ? 'url' : f.kind === 'number' ? 'numeric' : null"
-                      [attr.min]="f.range?.[0] ?? null"
-                      [attr.max]="f.range?.[1] ?? null"
-                      autocomplete="off"
-                      [attr.maxlength]="f.max ?? null"
-                      [attr.placeholder]="f.placeholder ?? null"
-                      [attr.data-campo]="f.key"
-                      [value]="w.values[f.key] ?? ''"
-                      (input)="setWidgetValue(f.key, $any($event.target).value)"
-                      (keydown.enter)="$event.preventDefault(); putWidget(area)"
-                    />
-                    @if (f.hint) {
-                      <small>{{ f.hint }}</small>
-                    }
-                  </span>
-                </label>
+          <div class="painel widget-tira" role="group" [attr.aria-label]="'Widget: ' + def.label" (keydown.escape)="closeWidget($event, area)">
+            <lucide-icon class="widget-tira-icone" [img]="iconOf(w.name)" [size]="20" aria-hidden="true" />
+            <span class="widget-tira-texto">
+              <span class="widget-tira-nome">{{ def.label }}</span>
+              @if (widgetSummary(); as resumo) {
+                <span class="widget-tira-resumo">{{ resumo }}</span>
               }
-            }
-            @if (widgetProblem(); as pr) {
-              <p class="widget-problema" role="alert">{{ pr }}</p>
-            }
-            <!-- o tamanho, de todo widget: cada um com o desenho de quanto ele ocupa da ficha -->
-            <div class="painel-campo widget-tamanho-campo">
-              <span [id]="areaId + '-tamanho'">Tamanho</span>
-              <span class="widget-tamanho-lado">
-                <span class="widget-tamanhos" role="radiogroup" [attr.aria-labelledby]="areaId + '-tamanho'" [attr.aria-describedby]="areaId + '-tamanho-dica'">
-                  @for (o of sizes; track o.value; let first = $first) {
-                    @let on = widgetSize() === o.value;
-                    <button
-                      type="button"
-                      role="radio"
-                      class="widget-tamanho"
-                      [attr.aria-checked]="on"
-                      [attr.tabindex]="on ? 0 : -1"
-                      [attr.data-campo]="first ? 'size' : null"
-                      (click)="setWidgetValue('size', o.value)"
-                      (keydown)="onChoiceKey($event, 'size', sizes)"
-                      (keydown.enter)="$event.preventDefault(); putWidget(area)"
-                    >
-                      <svg class="tamanho-desenho" viewBox="0 0 36 28" aria-hidden="true">
-                        <rect class="tamanho-ficha" x="1" y="1" width="34" height="26" rx="2.5" />
-                        <line class="tamanho-linha" x1="5.5" y1="6.5" x2="30.5" y2="6.5" />
-                        <rect class="tamanho-peca" x="5.5" y="10.5" [attr.width]="sizeArt[o.value].w" [attr.height]="sizeArt[o.value].h" rx="1" />
-                      </svg>
-                      <span>{{ o.label }}</span>
-                    </button>
-                  }
-                </span>
-                <small [id]="areaId + '-tamanho-dica'">{{ sizeHint() }}</small>
-              </span>
-            </div>
-            <!-- como vai ficar: o widget de verdade, andando, do tamanho escolhido, na ficha do mural ou
-                 aberta (a folha pautada da leitura) -->
-            <div class="widget-previa-topo">
-              <span class="widget-previa-nome" [id]="areaId + '-previa'">Como fica</span>
-              @if (onCard()) {
-                <span class="widget-vistas" role="radiogroup" [attr.aria-labelledby]="areaId + '-previa'">
-                  @for (v of previewViews; track v.value) {
-                    @let on = widgetView() === v.value;
-                    <button type="button" role="radio" class="widget-vista" [attr.aria-checked]="on" [attr.tabindex]="on ? 0 : -1" (click)="widgetView.set(v.value)" (keydown)="onViewKey($event)">{{ v.label }}</button>
-                  }
-                </span>
-              }
-            </div>
-            <div class="widget-previa" [class.na-ficha]="cardPreview()" [attr.data-widget-teto]="cardPreview() ? '' : null">
-              @if (widgetArgs(); as args) {
-                <app-note-widget [name]="w.name" [args]="args" [size]="widgetSize()" [links]="previewLinks()" />
-              } @else {
-                <p class="widget-previa-vazia">{{ def.name === 'contador' ? 'Escolha o dia (ou a hora) para ver o contador andando.' : def.name === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : 'Cole o link para ver como fica.' }}</p>
-              }
-            </div>
-            <div class="painel-acoes">
-              <button type="button" class="acao-caneta" (click)="closeWidget(null, area)">Cancelar</button>
-              <button type="button" class="painel-ok" [disabled]="!widgetArgs()" (click)="putWidget(area)">{{ w.swap ? def.swap : def.put }}</button>
-            </div>
+            </span>
+            <span class="widget-tira-acoes">
+              <button type="button" class="acao-caneta widget-tira-tirar" (click)="removeWidget(area)">
+                <lucide-icon [img]="RemoveIcon" [size]="16" aria-hidden="true" />
+                Tirar
+              </button>
+              <button type="button" class="painel-ok widget-tira-editar" (click)="openWidgetSheet()">
+                <lucide-icon [img]="EditIcon" [size]="16" aria-hidden="true" />
+                Editar
+              </button>
+            </span>
           </div>
         }
       }
@@ -749,6 +604,24 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     </ng-template>
 
     <ng-container *ngTemplateOutlet="campo; context: { big: false }" />
+
+    <!-- a folha do widget: vem num pedaço à parte, quando um widget é posto ou editado -->
+    @if (widgetSheet() && widgetPick(); as w) {
+      @defer (on immediate) {
+        <app-widget-sheet
+          [start]="{ name: w.name, values: w.values }"
+          [swap]="w.swap"
+          [onCard]="onCard()"
+          [stock]="stock()"
+          [links]="previewLinks()"
+          [notes]="notes()"
+          [selfId]="selfId()"
+          (done)="onWidgetDone($event)"
+          (removed)="onWidgetRemoved()"
+          (closed)="onWidgetClosed()"
+        />
+      }
+    }
 
     <!-- A mesma folha na tela inteira: o mesmo texto, para ler e escrever os longos sem rolar num cantinho -->
     <dialog #grande class="tela-cheia" [attr.aria-labelledby]="areaId + '-titulo'" (close)="onClosed()">
@@ -1352,21 +1225,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       .painel-acoes .painel-ok {
         flex: 1;
       }
-      /* os cinco widgets em três colunas iguais (não um sozinho na segunda fileira) */
-      .widget-painel .widget-tipos {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      .widget-painel .widget-tipo {
-        padding-inline: 6px;
-      }
     }
     @media (pointer: coarse) {
-      .widget-tipo,
-      .widget-tamanho,
-      .widget-vista {
-        min-height: 44px;
-      }
       .elo-op {
         padding-block: 11px;
       }
@@ -1403,386 +1263,62 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         height: 32px;
       }
     }
-    /* ===== O painel do widget: os campos impressos à esquerda, como os do link, e o widget vivo
-       embaixo, num pedaço da folha pautada ===== */
-    .widget-sobre {
-      margin: -2px 0 10px;
-      font-size: 0.9rem;
-      color: var(--ink-2);
-    }
-    .widget-campo {
-      display: grid;
-      gap: 3px;
-      min-width: 0;
-    }
-    /* o campo com o foco: sem a moldura em volta, só o risco de baixo mais grosso (a altura não muda) */
-    .widget-painel .painel-campo input:focus-visible {
-      outline: none;
-      padding-bottom: 4.5px;
-      border-bottom-width: 3.5px;
-    }
-    .painel-campo .widget-date,
-    .painel-campo .widget-time {
-      max-width: 13rem;
-      min-height: 38px;
-      color-scheme: light;
-      font-variant-numeric: tabular-nums;
-      cursor: text;
-    }
-    .painel-campo .widget-time {
-      max-width: 9rem;
-    }
-    /* o dia do mês do contador de todo mês: um número de dois algarismos */
-    .painel-campo .widget-number {
-      max-width: 6rem;
-      min-height: 38px;
-      font-variant-numeric: tabular-nums;
-    }
-    /* o ícone do calendário e do relógio do navegador, na tinta da folha */
-    .painel-campo input::-webkit-calendar-picker-indicator {
-      opacity: 0.75;
-      cursor: pointer;
-    }
-    .widget-escolhas {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      letter-spacing: normal;
-    }
-    .widget-problema {
-      margin: 2px 0 4px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--error-ink);
-    }
-    .widget-tipos {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
-    /* os tipos e os tamanhos: recortes tracejados na cartela; o escolhido, a etiqueta de tinta */
-    .widget-tipo,
-    .widget-tamanho {
-      min-height: 36px;
-      padding: 0 12px;
-      border: 1.5px dashed rgb(21 21 21 / 0.42);
-      border-radius: 6px;
-      background: transparent;
-      color: var(--ink);
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      cursor: pointer;
-    }
-    [aria-checked='true']:is(.widget-tipo, .widget-tamanho) {
-      border: 1.5px solid var(--ink);
-      background: var(--ink);
-      color: var(--hi);
-    }
-    :is(.widget-tipo, .widget-tamanho):focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 2px;
-    }
-    /* "Todo ano": a caixinha de tarefa, na coluna dos campos, com o nome impresso no lugar do rótulo */
-    .widget-caixa {
-      display: grid;
-      grid-template-columns: 6.5em 1.4em minmax(0, 1fr);
-      align-items: center;
-      gap: 4px 8px;
-      min-height: 40px;
-      margin-bottom: 4px;
-      cursor: pointer;
-    }
-    .widget-caixa-nome {
-      grid-column: 1;
-      grid-row: 1;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .widget-caixa input {
-      grid-column: 2;
-      grid-row: 1;
-      appearance: none;
-      width: 20px;
-      height: 20px;
-      margin: 0;
-      border: 2px solid var(--ink);
-      border-radius: 2px 3px 2px 4px;
-      rotate: -3deg;
-      background: transparent;
-      cursor: pointer;
-    }
-    .widget-caixa input:checked {
-      background: no-repeat center / 120% 120%
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    }
-    .widget-caixa input:focus-visible {
-      outline: 2.5px solid var(--ink);
-      outline-offset: 3px;
-    }
-    .widget-caixa small {
-      grid-column: 3;
-      grid-row: 1;
-      font-size: 0.86rem;
-      line-height: 1.3;
-      color: var(--ink-2);
-    }
-    @media (max-width: 559px) {
-      .widget-caixa {
-        grid-template-columns: 1.4em minmax(0, 1fr);
-      }
-      .widget-caixa input {
-        grid-column: 1;
-      }
-      .widget-caixa-nome {
-        grid-column: 2;
-      }
-      .widget-caixa small {
-        grid-column: 1 / -1;
-        grid-row: 2;
-      }
-    }
-    .widget-previa {
-      --line: 1.75rem;
-      margin-top: 10px;
-      padding: 0 12px;
-      border-radius: 2px;
-      background:
-        repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)),
-        rgb(255 255 255 / 0.55);
-      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.3);
-      color: var(--ink);
-      font-family: var(--f-hand);
-      font-size: 1.14rem;
-      line-height: var(--line);
-    }
-    .widget-previa-vazia {
-      display: flex;
-      align-items: center;
-      min-height: calc(var(--line) * 4);
-      margin: 0;
-      font-style: italic;
-      color: rgb(21 21 21 / 0.64);
-    }
-    /* na ficha: o pedaço do texto da ficha do mural, da largura e da altura dela, com o mesmo corte
-       (as medidas são as de .nota-texto, em review-card.ts) */
-    .widget-previa.na-ficha {
-      --line: 1.4rem;
-      --linhas: 8;
-      --widget-teto: calc(var(--line) * var(--linhas));
-      box-sizing: content-box;
-      width: min(100% - 24px, 17.5rem);
-      height: calc(var(--line) * var(--linhas));
-      overflow: clip;
-      font-size: 1.04rem;
-    }
-    .widget-previa.na-ficha .widget-previa-vazia {
-      min-height: 100%;
-    }
-    /* "Como fica": o nome e, do lado, onde (na ficha, aberta) */
-    .widget-previa-topo {
+    /* ===== O widget tocado na folha: uma tirinha só, com o desenho, o nome, o que ele mostra e as duas
+       ações (Tirar, à caneta; Editar, a etiqueta de tinta), como o menu de um bloco nos editores ===== */
+    .widget-tira {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
-      gap: 6px 10px;
-      margin-top: 12px;
+      gap: 6px 14px;
+      padding: 8px 10px 8px 14px;
+      container: tira / inline-size;
     }
-    .widget-previa-nome {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .widget-vistas {
-      display: inline-flex;
-      gap: 2px;
-      padding: 2px;
-      border-radius: 6px;
-      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.3);
-    }
-    .widget-vista {
-      min-height: 30px;
-      padding: 0 10px;
-      border: 0;
-      border-radius: 4px;
-      background: transparent;
-      color: var(--ink);
-      font-family: var(--f-ui);
-      font-weight: 600;
-      font-size: 0.84rem;
-      cursor: pointer;
-    }
-    .widget-vista[aria-checked='true'] {
-      background: var(--ink);
-      color: var(--hi);
-    }
-    .widget-vista:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 2px;
-    }
-    .widget-previa-topo + .widget-previa {
-      margin-top: 6px;
-    }
-
-    /* ===== A Nota: qual ficha. Sem ela, o botão tracejado de escolher; com ela, o nome a pincel, o
-       mural e o "Trocar" (a ficha de verdade aparece em "Como fica") ===== */
-    /* escolhida, é a etiqueta de papel dos botões (botao-papel em ui/_paper-kit.scss): colada rente,
-       com o meio-corte por dentro; sem ficha, só o recorte tracejado na cartela */
-    .ficha-escolher {
-      position: relative;
-      isolation: isolate;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      min-height: 48px;
-      padding: 8px 12px;
-      border: 0;
-      border-radius: 2px;
-      background-color: #fffdf8;
-      background-image: var(--paper-grain);
-      background-blend-mode: multiply;
-      box-shadow:
-        0 0 0 1px rgb(21 21 21 / 0.08),
-        0 1px 1px rgb(0 0 0 / 0.24),
-        0 3px 6px -3px rgb(0 0 0 / 0.32);
-      color: var(--ink);
-      font: inherit;
-      letter-spacing: 0;
-      text-transform: none;
-      text-align: left;
-      cursor: pointer;
-      transition:
-        background-color var(--t-ui) var(--ease-ui),
-        box-shadow var(--t-physical) var(--ease-physical),
-        translate var(--t-physical) var(--ease-physical);
-    }
-    .ficha-escolher::after {
-      content: '';
-      position: absolute;
-      inset: 3px;
-      z-index: -1;
-      border: 1.5px dashed rgb(21 21 21 / 0.42);
-      border-radius: 1px;
-      pointer-events: none;
-      transition: border-color var(--t-ui) var(--ease-ui);
-    }
-    .ficha-escolher:not(.vazia):hover {
-      background-color: #fff;
-      translate: 0 -1px;
-      box-shadow:
-        0 0 0 1px rgb(21 21 21 / 0.08),
-        0 2px 2px rgb(0 0 0 / 0.2),
-        0 7px 12px -5px rgb(0 0 0 / 0.4);
-    }
-    .ficha-escolher:hover::after {
-      border-color: rgb(21 21 21 / 0.72);
-    }
-    .ficha-escolher:not(.vazia):active {
-      translate: 0 1px;
-    }
-    .ficha-escolher:focus-visible {
-      outline: 2.5px solid var(--ink);
-      outline-offset: 3px;
-    }
-    .ficha-escolher.vazia {
-      padding: 6px 10px;
-      border: 1.5px dashed var(--ink);
-      background: transparent;
-      box-shadow: none;
-    }
-    .ficha-escolher.vazia::after {
-      content: none;
-    }
-    .ficha-escolher.vazia:hover {
-      background: rgb(21 21 21 / 0.06);
-    }
-    .ficha-escolher lucide-icon {
+    .widget-tira-icone {
       flex: none;
+      display: inline-flex;
     }
-    .ficha-escolher-texto {
+    /* a largura dele não conta para a da folha: o resumo comprido corta com reticências, nunca alarga o editor */
+    .widget-tira-texto {
       display: grid;
-      flex: 1;
+      grid-template-columns: minmax(0, 1fr);
+      flex: 1 1 10rem;
       min-width: 0;
       gap: 1px;
+      contain: inline-size;
     }
-    .ficha-escolher-nome {
-      font-family: var(--f-marker);
-      font-size: 1.05rem;
-      line-height: 1.15;
-      overflow-wrap: anywhere;
-    }
-    .ficha-escolher-mural {
-      font-family: var(--f-label);
-      font-weight: 700;
-      font-size: 0.78rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--ink-2);
-    }
-    /* o "Trocar": a etiqueta de tinta do lado, como as ações do painel */
-    .ficha-escolher-acao {
-      flex: none;
-      padding: 3px 9px 2px;
-      border-radius: 2px;
-      background: var(--ink);
-      color: var(--hi);
+    .widget-tira-nome {
       font-family: var(--f-label);
       font-weight: 800;
-      font-size: 0.78rem;
-      letter-spacing: 0.06em;
+      font-size: 0.86rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    /* ===== O tamanho: quatro botões com o desenho de uma ficha e quanto o widget ocupa dela ===== */
-    .widget-tamanho-lado {
-      display: grid;
-      gap: 4px;
-      min-width: 0;
-    }
-    .widget-tamanho-lado small {
-      font-size: 0.86rem;
-      line-height: 1.3;
+    .widget-tira-resumo {
+      overflow: hidden;
+      font-family: var(--f-hand);
+      font-size: 1.04rem;
+      line-height: 1.25;
+      white-space: nowrap;
+      text-overflow: ellipsis;
       color: var(--ink-2);
     }
-    .widget-tamanhos {
+    /* as duas ações juntas: sem lugar ao lado do nome, descem inteiras, à direita */
+    .widget-tira-acoes {
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      letter-spacing: normal;
+      align-items: center;
+      gap: 14px;
+      margin-left: auto;
     }
-    .widget-tamanho {
+    .widget-tira-tirar,
+    .widget-tira-editar {
+      flex: none;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      min-height: 40px;
-      padding: 0 12px 0 8px;
+      gap: 6px;
+      min-height: 44px;
     }
-    .tamanho-desenho {
-      flex: none;
-      width: 32px;
-      height: 25px;
-    }
-    .tamanho-ficha {
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.6;
-    }
-    .tamanho-linha {
-      stroke: currentColor;
-      stroke-width: 1.6;
-      stroke-linecap: round;
-      opacity: 0.45;
-    }
-    .tamanho-peca {
-      fill: currentColor;
+    .widget-tira-tirar {
+      color: var(--red-deep);
     }
 
     /* ===== Os menus ("Formatar", "Inserir", o estilo): um cartão de papel que cai do botão, por cima
@@ -3210,176 +2746,127 @@ export class RichEditor {
   // ===== Os widgets =====
 
   protected readonly widgets = WIDGETS;
-  protected readonly fieldsFor = fieldsFor;
   protected readonly ChevronIcon = ICON.abrir;
+  protected readonly RemoveIcon = ICON.apagar;
+  protected readonly EditIcon = ICON.editar;
   /** O desenho de cada widget no menu. */
   protected iconOf(name: string): LucideIconData {
     return WIDGET_ICONS[name] ?? ICON.widgets;
   }
 
-  /** Escolheu um widget no menu: o painel dele abre. */
+  /** Escolheu um widget no menu: a folha dele abre. */
   protected chooseWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
     this.menu.set(null);
     this.startWidget(area, big, def);
-    this.askCard();
   }
   /**
-   * O painel do widget aberto: em qual folha, qual widget, os valores dos campos e o trecho que ele
-   * vai ocupar (`swap`: a linha de um widget que já estava lá, que ele troca).
+   * O widget aberto: em qual folha, qual widget, os valores dos campos e o trecho que ele vai ocupar
+   * (`swap`: a linha de um widget que já estava lá, que ele troca).
    */
   protected readonly widgetPick = signal<{ big: boolean; name: string; values: WidgetValues; start: number; end: number; swap: boolean } | null>(null);
-  /** Os tamanhos, de todo widget (o valor fica em `values.size`). */
-  protected readonly sizes = WIDGET_SIZES;
-  /** O desenho de cada tamanho: a peça na ficha, da altura das linhas dele (3, 5, 7, 10), larga como um vídeo. */
-  protected readonly sizeArt: Record<WidgetSize, { w: number; h: number }> = {
-    mini: { w: 7, h: 4 },
-    pequeno: { w: 12, h: 6.5 },
-    medio: { w: 17, h: 9.5 },
-    grande: { w: 25, h: 13.5 },
-  };
-  protected readonly widgetSize = computed<WidgetSize>(() => (this.widgetPick()?.values['size'] as WidgetSize | undefined) || 'medio');
-  protected readonly sizeHint = computed(() => WIDGET_SIZES.find((o) => o.value === this.widgetSize())?.hint ?? '');
-  /** Onde a prévia mostra o widget: na ficha do mural (do tamanho dela) ou aberta (a leitura). */
-  protected readonly previewViews = [
-    { value: 'ficha', label: 'Na ficha' },
-    { value: 'aberta', label: 'Aberta' },
-  ] as const;
-  protected readonly widgetView = signal<'ficha' | 'aberta'>('ficha');
-  /** A prévia na ficha do mural: só onde o texto aparece nela (a anotação). */
-  protected readonly cardPreview = computed(() => this.onCard() && this.widgetView() === 'ficha');
-
-  protected onViewKey(e: KeyboardEvent): void {
-    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(e.key)) return;
-    e.preventDefault();
-    this.widgetView.update((v) => (v === 'ficha' ? 'aberta' : 'ficha'));
-    const group = (e.currentTarget as HTMLElement).parentElement;
-    setTimeout(() => group?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
-  }
-
-  /** Os parâmetros do widget do painel; null, falta o que ele precisa (o dia do contador). */
-  protected readonly widgetArgs = computed(() => {
-    const w = this.widgetPick();
-    return w ? this.widgetOf(w.name).write(w.values) : null;
-  });
-
-  /** O que está errado no que já foi escrito no painel (um link que não serve). */
-  protected readonly widgetProblem = computed(() => {
-    const w = this.widgetPick();
-    return w ? (this.widgetOf(w.name).problem?.(w.values) ?? null) : null;
-  });
-
-  /** Nas escolhas (a moldura): as setas trocam, como num grupo de rádios. */
-  protected onChoiceKey(e: KeyboardEvent, key: string, options: readonly { value: string }[]): void {
-    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    const w = this.widgetPick();
-    if (!w) return;
-    const at = Math.max(0, options.findIndex((o) => o.value === (w.values[key] || options[0]?.value)));
-    const next = options[(at + step + options.length) % options.length];
-    this.setWidgetValue(key, next.value);
-    const group = (e.currentTarget as HTMLElement).parentElement;
-    setTimeout(() => group?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
-  }
+  /** A folha do widget aberta (sem ela, o widget tocado na folha mostra só a tirinha). */
+  protected readonly widgetSheet = signal(false);
+  /** A cartolina da anotação, para a prévia do widget na ficha do mural. */
+  readonly stock = input<string | null>(null);
 
   protected widgetOf(name: string): WidgetDef {
     return widgetDef(name) ?? WIDGETS[0];
   }
 
+  /** O que a tirinha diz do widget tocado: o título, a legenda ou o site do link. */
+  protected readonly widgetSummary = computed(() => {
+    const w = this.widgetPick();
+    if (!w) return '';
+    const def = this.widgetOf(w.name);
+    const args = def.write(w.values);
+    const words = args ? def.plain(args).trim() : '';
+    return words || hostOf(w.values['url'] ?? '');
+  });
+
   /**
-   * O painel do widget escolhido: com o cursor na linha de um widget desse tipo, ele abre com o que
-   * está escrito, para trocar; senão, um novo.
+   * O widget escolhido: com o cursor na linha de um widget desse tipo, ele abre com o que está
+   * escrito, para trocar; senão, um novo. Pela régua, a folha dele abre; pelo clique na linha do
+   * widget, só a tirinha, com o cursor na folha.
    */
-  private startWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef, focusPanel = true): void {
+  private startWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef, openSheet = true): void {
     this.closePanels();
     const { from, lines } = this.linesAt(area);
     const here = lines.length === 1 ? parseWidgetLine(lines[0]) : null;
-    if (here && here.name === def.name) {
-      this.widgetPick.set({ big, name: def.name, values: { ...def.read(here.args), size: here.size }, start: from, end: from + lines[0].length, swap: true });
+    if (here && (here.name === def.name || !openSheet)) {
+      const known = this.widgetOf(here.name);
+      this.widgetPick.set({ big, name: known.name, values: { ...known.read(here.args), size: here.size }, start: from, end: from + lines[0].length, swap: true });
     } else {
       this.widgetPick.set({ big, name: def.name, values: { size: 'medio' }, start: area.selectionStart, end: area.selectionEnd, swap: false });
     }
-    this.showPanel('.widget-painel');
-    // pela régua, o foco vai para o painel; pelo clique na linha do widget, o cursor fica na folha
-    if (focusPanel) setTimeout(() => this.panelInput(big, 'input')?.focus());
-    else this.passive = true;
+    if (openSheet) this.widgetSheet.set(true);
+    else {
+      this.passive = true;
+      this.showPanel('.widget-tira');
+    }
   }
 
-  protected pickWidget(def: WidgetDef): void {
+  /** O Editar da tirinha: a folha abre com o widget tocado. */
+  protected openWidgetSheet(): void {
+    this.passive = false;
+    this.widgetSheet.set(true);
+  }
+
+  /**
+   * O que a folha pediu para o texto: a linha do widget pronto, ou tirar a dele. Só é feito quando ela
+   * fecha: enquanto ela está aberta, a folha do texto fica por baixo e não recebe o foco (e o que se
+   * escreve nela, pelo `insertText`, iria parar no campo da folha do widget).
+   */
+  private widgetOrder: { line: string } | 'tirar' | null = null;
+
+  protected onWidgetDone(done: WidgetDone): void {
+    this.widgetOrder = { line: widgetLine(done.name, done.args, done.size) };
+  }
+
+  protected onWidgetRemoved(): void {
+    this.widgetOrder = 'tirar';
+  }
+
+  /** A folha fechou: o widget vai para o texto (ou sai dele), e o cursor volta para a folha. */
+  protected onWidgetClosed(): void {
+    this.widgetSheet.set(false);
     const w = this.widgetPick();
-    // o tamanho fica: ele vale para todo widget
-    if (w) this.widgetPick.set({ ...w, name: def.name, values: { size: w.values['size'] ?? 'medio' } });
-    this.askCard();
+    const order = this.widgetOrder;
+    this.widgetOrder = null;
+    const area = w && this.areaOf(w.big);
+    if (!w || !area) {
+      this.widgetPick.set(null);
+      return;
+    }
+    if (order === 'tirar') {
+      this.removeWidget(area);
+      return;
+    }
+    this.widgetPick.set(null);
+    if (order) {
+      this.writeWidget(area, w, order.line);
+      return;
+    }
+    area.focus({ preventScroll: true });
+    area.setSelectionRange(w.start, w.end);
   }
 
-  // ===== A Nota: a ficha colada =====
-
-  protected readonly CardIcon = ICON.anotacoes;
-  private readonly store = inject(ReviewStore);
-  /** A lista das fichas (ver ui/card-picker.ts) aberta. */
-  protected readonly cardPickerOpen = signal(false);
-  /** A ficha que a Nota do painel cola: pelo id; escrita à mão, a anotação do título. */
-  protected readonly chosenCard = computed<Review | null>(() => {
+  /** Tira a linha do widget do texto (com a quebra de linha dela, para não sobrar uma linha vazia). */
+  protected removeWidget(area: HTMLTextAreaElement): void {
     const w = this.widgetPick();
-    if (w?.name !== 'nota') return null;
-    const id = w.values['id'];
-    if (id) return this.store.get(id) ?? null;
-    const title = w.values['title'];
-    return title ? resolveNote(this.notes() ?? this.store.notes(), title) : null;
-  });
-
-  /** A Nota nova (ainda sem ficha) abre já a lista: escolher a ficha é a primeira coisa a fazer. */
-  private askCard(): void {
-    const w = this.widgetPick();
-    if (w?.name === 'nota' && !w.swap && !w.values['id'] && !w.values['title']) this.cardPickerOpen.set(true);
-  }
-
-  /** Escolheu a ficha: ela vai para o painel (o id e o nome). */
-  protected pickCard(card: Review): void {
-    const w = this.widgetPick();
-    if (!w) return;
-    this.widgetPick.set({ ...w, values: { ...w.values, id: card.id, title: card.game.name } });
-    this.cardJustPicked = true;
-  }
-  private cardJustPicked = false;
-
-  /** A lista fechou: o foco vai para "Colar a nota", se escolheu uma; senão, de volta para o "Qual". */
-  protected cardPickerOpened(open: boolean, big: boolean): void {
-    this.cardPickerOpen.set(open);
-    if (open) return;
-    const picked = this.cardJustPicked;
-    this.cardJustPicked = false;
-    setTimeout(() => this.panelInput(big, picked ? '.painel-ok' : '[data-campo="id"]')?.focus());
-  }
-
-  /** "Anotação", "Jogo"… o mural da ficha, no campo. */
-  protected kindOf(r: Review): string {
-    return isNote(r) ? `Anotação${r.category ? ' · ' + r.category : ''}` : cap(profileOf(r.kind).singular);
-  }
-
-  protected setWidgetValue(key: string, value: string): void {
-    const w = this.widgetPick();
-    if (w) this.widgetPick.set({ ...w, values: { ...w.values, [key]: value } });
+    this.widgetPick.set(null);
+    this.passive = false;
+    if (!w?.swap) return;
+    const text = area.value;
+    const end = text[w.end] === '\n' ? w.end + 1 : w.end;
+    const start = end === w.end && w.start > 0 && text[w.start - 1] === '\n' ? w.start - 1 : w.start;
+    this.replace(area, start, end, '', start, start);
   }
 
   /**
    * Põe o widget numa linha só dele: no lugar da linha que ele troca, numa linha vazia onde está o
-   * cursor, ou numa linha nova logo depois da do cursor. Sem o que ele precisa, o foco vai para o
-   * primeiro campo de data vazio.
+   * cursor, ou numa linha nova logo depois da do cursor.
    */
-  protected putWidget(area: HTMLTextAreaElement): void {
-    const w = this.widgetPick();
-    if (!w) return;
-    const args = this.widgetArgs();
-    if (!args) {
-      const def = this.widgetOf(w.name);
-      const fields = fieldsFor(def, w.values);
-      const missing = fields.find((f) => f.required && !w.values[f.key]?.trim()) ?? fields.find((f) => f.required) ?? fields[0];
-      this.panelInput(w.big, `[data-campo="${missing.key}"]`)?.focus();
-      return;
-    }
-    const line = widgetLine(w.name, args, this.widgetSize());
-    this.widgetPick.set(null);
+  protected writeWidget(area: HTMLTextAreaElement, w: { start: number; end: number; swap: boolean }, line: string): void {
     if (w.swap) {
       this.replace(area, w.start, w.end, line, w.start + line.length, w.start + line.length);
       return;
