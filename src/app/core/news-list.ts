@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-18-endereco-novo',
+    version: '1.26.1',
+    kind: 'ajustes',
+    date: '2026-10-18',
+    title: 'O endereço novo: murall.igorsc.com.br',
+    melhorias: [
+      'O Murall mudou de endereço: agora é murall.igorsc.com.br. O endereço antigo (igorsolerc.github.io/mural-de-jogos) leva para o novo sozinho, inclusive os links de mural que você já compartilhou.',
+      'O que ficava guardado só no navegador não muda de endereço sozinho: no endereço novo, com o mural vazio, a faixa "Trazer o mural" busca o mural que este navegador tinha no endereço antigo (com conta, entrar com o Google também traz tudo da nuvem). Quem instalou o site como app precisa instalar de novo pelo endereço novo.',
+    ],
+  },
+  {
     id: '2026-10-18-calendario',
     version: '1.26.0',
     kind: 'funcionalidade',
