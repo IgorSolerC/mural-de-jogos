@@ -15,9 +15,9 @@ import {
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
 import { LucideIconData } from 'lucide-angular';
-import { ICON, IconModule } from './icons';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { cap, g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
+import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
@@ -34,25 +34,30 @@ import { Skulls } from './difficulty';
 import { JudgeLabel } from './judge-label';
 import { Luz } from './luz';
 import { Pin } from './pin';
+import { MoreItem, MoreMenu } from './more-menu';
 import { StatusLabel } from './status-label';
 import { RichText } from './rich-text';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
-import { foldDone, foldedCount, parseRich, plainText, snapshotDone, toggleCheck } from '../core/rich-text';
-import { ShownDone } from '../core/shown-done';
+import { checkCount, plainText, toggleCheck } from '../core/rich-text';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { NoteLinks, backlinksOf, notesOf, resolveNote } from '../core/note-links';
 import { NoteBacklinks } from './note-backlinks';
 import { KanbanDeps } from '../core/kanban-deps';
+import { KanbanStore } from '../core/kanban-store';
+import { IMPORTANCE_LABEL } from '../core/kanban';
+import { CalendarStore } from '../core/calendar-store';
+import { nearDayLabel, remindersOfNote, timeLabel } from '../core/calendar';
+import { KanbanDepsBadge } from './kanban-deps';
+import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { napWall } from '../core/wall-settle';
 import { WallView } from '../core/wall-view';
 import { DoneStamp } from './done-stamp';
 import { NoteTag } from './note-tag';
-import { categoryIcon } from './category-label';
-import { categoryBonus } from '../core/note-labels';
-import { tagColorHex } from '../core/category-looks';
+import { CategoryLabel } from './category-label';
+import { categoryColorHex, tagColorHex } from '../core/category-looks';
 import { CloudAccount } from '../core/cloud-account';
 import { CommentTarget, Comments, QuoteRequest, spokenComments } from '../core/comments';
 // só usada dentro do @defer do molde, e num import só dela: assim a folha (com o editor) chega num pedaço à parte
@@ -70,18 +75,30 @@ const PATCH_GAP = 8;
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CommentsPanel, ConflictSheet, ShareSheet, IconModule, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, ShareSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="onClosed()">
       @if (review(); as r) {
         <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários -->
-        <div class="par">
+        <div class="par" [class.com-grupo]="!!groupEar()">
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
-          <!-- a cor da cartolina fica só na faixa do cabeçalho, como ficha de fichário -->
-          <header class="head" [style]="headPaper()">
-            <button type="button" class="icon-btn" (click)="close()" aria-label="Fechar">
+          <!-- a faixa da cartolina é a orelha da ficha de fichário: o nome vai escrito nela, a pincel, e
+               o resto da folha fica para o que se lê -->
+          <header class="head faixa-nome" [class.feita]="note() && !!r.doneAt" [class.com-volta]="!!trail().length" [style]="headPaper()">
+            <!-- veio por um link de outra anotação: o caminho de volta, na ponta da faixa -->
+            @if (trail().at(-1); as from) {
+              <button type="button" class="icon-btn voltar-elo" (click)="back()" [attr.aria-label]="'Voltar para “' + from.game.name + '”'" [title]="'Voltar para “' + from.game.name + '”'">
+                <lucide-icon [img]="BackIcon" [size]="22" aria-hidden="true" />
+              </button>
+            }
+            <h2 id="leitura-titulo" class="title" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
+            <!-- finalizada: o carimbo redondo batido na emenda da faixa com a folha -->
+            @if (note() && r.doneAt) {
+              <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
+            }
+            <button type="button" class="icon-btn fecha" (click)="close()" aria-label="Fechar">
               <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
@@ -94,13 +111,6 @@ const PATCH_GAP = 8;
                 <p class="aviso-texto"><strong>Conflito de sincronização.</strong> {{ conflictLine() }}</p>
                 <button type="button" class="btn-ink aviso-btn" aria-haspopup="dialog" (click)="openConflict()">Escolher a versão</button>
               </div>
-            }
-            <!-- veio por um link de outra anotação: o caminho de volta -->
-            @if (trail().at(-1); as from) {
-              <button type="button" class="btn-quiet voltar-elo" (click)="back()">
-                <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
-                <span class="voltar-txt">Voltar para “{{ from.game.name }}”</span>
-              </button>
             }
             <!-- A obra jogada mais de uma vez: as vezes viram páginas, a original e cada rejogada -->
             @if (times().length > 1) {
@@ -118,12 +128,10 @@ const PATCH_GAP = 8;
               </nav>
             }
 
-            <!-- A mesma ficha do mural, vista de perto: foto colada, nome, data e a etiqueta do julgamento -->
-            <div class="top" [class.sem-capa]="note() && !r.game.coverUrl" [class.feita]="note() && !!r.doneAt">
-              <!-- finalizada: o carimbo redondo batido no canto, como na ficha -->
-              @if (note() && r.doneAt) {
-                <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
-              }
+            <!-- A ficha vista de perto. A análise: a foto colada e, ao lado, a data, a etiqueta do julgamento
+                 e os bônus, em equilíbrio com a foto. A anotação: uma linha só (a data, o grupo e as tags),
+                 e o texto logo embaixo, que é o que importa -->
+            <div class="top" [class.nota]="note()" [class.sem-capa]="note() && !r.game.coverUrl" [class.com-carimbo]="note() && !!r.doneAt">
               @if (!note() || r.game.coverUrl) {
               <div class="cover" [class.disco]="music()">
                 @if (music()) {
@@ -133,7 +141,7 @@ const PATCH_GAP = 8;
                     <app-status-label class="faixa faixa-disco" [status]="r.status" [kind]="r.kind" [band]="true" />
                   }
                 } @else {
-                <app-cover-sleeve [game]="r.game" size="big">
+                <app-cover-sleeve [game]="r.game" [size]="note() ? 'card' : 'big'">
                   @if (r.status !== 'finalizado' && !note()) {
                     <app-status-label class="faixa" [status]="r.status" [kind]="r.kind" [band]="true" />
                   }
@@ -143,10 +151,9 @@ const PATCH_GAP = 8;
               }
 
               <div class="words">
-                <h2 id="leitura-titulo" class="title" tabindex="-1">{{ r.game.name }}</h2>
                 @if (music()) {
                   <!-- o que é e de quem: "Álbum de Radiohead"; a música solta diz de qual álbum saiu -->
-                  <p class="meta by">{{ formLabel() }}@if (artist()) { de {{ artist() }} }</p>
+                  <p class="by">{{ formLabel() }}@if (artist()) { de {{ artist() }} }</p>
                   @if (r.game.album) {
                     <p class="meta">Do álbum {{ r.game.album }}</p>
                   }
@@ -154,9 +161,14 @@ const PATCH_GAP = 8;
                     <p class="meta">No vinil: {{ r.game.sampleTitle }}</p>
                   }
                 } @else if (r.game.by) {
-                  <p class="meta by">de {{ r.game.by }}</p>
+                  <p class="by">de {{ r.game.by }}</p>
                 }
                 <p class="meta">
+                  <!-- quem vê, como na ficha do mural: só o desenho antes da data (o que ele quer dizer fica
+                       no título e para o leitor de tela) -->
+                  @if (audience(); as a) {
+                    <span class="quem-ve" [title]="a.title"><lucide-icon class="quem-ve-icone" [img]="a.icon" [size]="15" aria-hidden="true" /><span class="sr-only">{{ a.title }}. </span></span>
+                  }
                   <!-- o lugar da anotação no mural vem antes da data, com ou sem data -->
                   @if (note() && r.noteRank === 'fixada') {
                     Fixada<span aria-hidden="true"> · </span>
@@ -184,45 +196,83 @@ const PATCH_GAP = 8;
                   @if (!masked() && hours(); as h) {
                     <span aria-hidden="true"> · </span>{{ h }}
                   }
+                  <!-- as tarefas: quantas já foram feitas, como na ficha do mural -->
+                  @if (tasks(); as t) {
+                    <span class="tarefas-conta" [class.todas]="t.done === t.total"><span aria-hidden="true"> · </span><lucide-icon class="quem-ve-icone" [img]="TasksIcon" [size]="15" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
+                  }
+                  @if (sharedHere(); as s) {
+                    <!-- compartilhada: com quem (ou de quem) e o seu papel; o nome abre a folha das pessoas -->
+                    <span aria-hidden="true"> · </span>
+                    <span class="compartilhada">
+                      <lucide-icon class="quem-ve-icone" [img]="SharedIcon" [size]="15" aria-hidden="true" />
+                      <button type="button" class="parte-de" aria-haspopup="dialog" [title]="s.manages ? 'Pessoas na anotação' : 'Quem está na anotação'" (click)="openShare()">{{ s.line }}</button>
+                    </span>
+                  }
                 </p>
-                @if (r.game.year) {
+                @if (r.game.year && !note()) {
                   <p class="meta year">{{ profile().released }} {{ r.game.year }}</p>
-                }
-                @if (sharedHere(); as s) {
-                  <!-- compartilhada: com quem (ou de quem) e o seu papel; a linha abre a folha das pessoas -->
-                  <p class="privada compartilhada">
-                    <lucide-icon [img]="SharedIcon" [size]="16" aria-hidden="true" />
-                    <span>{{ s.line }}</span>
-                    <button type="button" class="parte-de" aria-haspopup="dialog" (click)="openShare()">{{ s.manages ? 'Pessoas' : 'Quem está' }}</button>
-                  </p>
-                } @else if (r.private && owner() === null) {
-                  <p class="privada">
-                    <lucide-icon [img]="PrivateIcon" [size]="16" aria-hidden="true" />
-                    Privada: só você vê. Ninguém foi avisado.
-                  </p>
-                } @else if (r.quiet && owner() === null) {
-                  <p class="privada">
-                    <lucide-icon [img]="QuietIcon" [size]="16" aria-hidden="true" />
-                    Pública, sem aviso: está no seu mural, mas não foi para o Feed.
-                  </p>
                 }
               </div>
 
               @if (note()) {
-                <!-- a categoria e as tags da anotação, no lugar da nota -->
-                @if (r.category || r.tags?.length) {
-                  <ul class="judgement categorias" aria-label="Grupo e tags">
-                    @if (r.category) {
-                      <li><app-bonus-sticker [bonus]="categorySticker(r.category)" [glyph]="categoryGlyph(r.category)" [index]="0" [seed]="r.id" /><span class="sr-only"> (grupo)</span></li>
-                    }
+                <!-- as tags da anotação, no lugar da nota (o grupo é a orelha da ficha) -->
+                @if (r.tags?.length) {
+                  <ul class="judgement categorias" aria-label="Tags">
                     @for (t of r.tags ?? []; track t; let i = $index) {
-                      <li><app-note-tag [label]="t" [index]="i + 1" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
+                      <li><app-note-tag [label]="t" [index]="i + 1" [color]="tagColor(t)" /></li>
                     }
                   </ul>
+                }
+                <!-- onde mais ela está: o lugar no quadro do Kanban e os dias do Calendário em que foi presa -->
+                @if (board() || reminders().length) {
+                  <div class="lugares" [class.todos]="allRemindersShown()">
+                    @if (board(); as b) {
+                      <div class="lugar no-quadro" [attr.data-cor]="b.color">
+                        <span class="sr-only">No Kanban: </span>
+                        <lucide-icon class="lugar-icone" [img]="b.icon ?? CalendarIcon" [size]="16" aria-hidden="true" />
+                        <button type="button" class="parte-de" [title]="'Abrir o quadro de ' + r.category + ' no Kanban'" (click)="openBoard(b.id)">{{ b.column }}</button>
+                        @if (b.importance; as imp) {
+                          <span class="etq imp" [attr.data-imp]="imp">
+                            <span class="escala" aria-hidden="true">
+                              @for (n of steps; track n) {
+                                <i [class.acesa]="n <= importanceLevel[imp]"></i>
+                              }
+                            </span>
+                            <span class="sr-only">Importância: </span>{{ importanceLabel[imp] }}
+                          </span>
+                        }
+                        @if (b.status; as st) {
+                          <span class="etq status" [title]="st"><span class="sr-only">Status: </span>{{ st }}</span>
+                        }
+                        @if (b.deps; as deps) {
+                          <app-kanban-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="openBoard(b.id)" />
+                        }
+                      </div>
+                    }
+                    @for (x of reminders(); track x.id; let last = $last) {
+                      <div class="lugar na-agenda" [class.passou]="x.past" [attr.data-cor]="x.color">
+                        <span class="sr-only">No Calendário: </span>
+                        <lucide-icon class="lugar-icone" [img]="CalendarIcon" [size]="16" aria-hidden="true" />
+                        <button type="button" class="parte-de" [title]="'Abrir ' + x.when + ' no Calendário'" (click)="openDay(x.day)">{{ x.when }}</button>
+                        <span class="lembrete">{{ x.title }}</span>
+                        <!-- os outros lembretes ficam atrás de um "e mais 2", escrito à mão depois do nome, para a
+                             linha não empurrar o texto -->
+                        @if (last && moreReminders(); as more) {
+                          <button type="button" class="mais-lembretes" [attr.aria-label]="'Mostrar mais ' + (more === 1 ? '1 lembrete' : more + ' lembretes')" (click)="allRemindersShown.set(true)">e mais {{ more }}</button>
+                        }
+                      </div>
+                    }
+                  </div>
                 }
               } @else {
               <div class="judgement">
                 <app-judge-label [value]="r.scores.final" [verdict]="r.verdict" size="big" [masked]="masked()" />
+                @if (profile().difficulty && !masked()) {
+                  <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
+                }
+                @if (!masked() && handAverage(); as avg) {
+                  <p class="na-mao">Nota dada na mão · a média daria {{ avg }}</p>
+                }
                 <!-- a ficha de outra pessoa em segredo: revelada aqui, fica revelada no mural de quem abriu (ver revealedChange) -->
                 @if (forceMask()) {
                   <button type="button" class="btn-quiet revelar" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
@@ -230,34 +280,28 @@ const PATCH_GAP = 8;
                     {{ revealed() ? 'Esconder a nota' : 'Revelar a nota' }}
                   </button>
                 }
-                @if (!masked() && handAverage(); as avg) {
-                  <p class="na-mao">Nota dada na mão · a média daria {{ avg }}</p>
-                }
-                @if (profile().difficulty && !masked()) {
-                  <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
-                }
               </div>
+
+              <!-- Os bônus: os mesmos adesivos da ficha, todos, com a conta sem eles logo abaixo -->
+              @if (bonuses().length) {
+                <div class="bonus-block">
+                  <ul class="bonus" aria-label="Bônus">
+                    @for (b of bonuses(); track b.id; let i = $index) {
+                      <li>
+                        <app-bonus-sticker [bonus]="b" [index]="i" [masked]="masked()" [seed]="r.id" />
+                        @if (!masked()) {
+                          <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
+                        }
+                      </li>
+                    }
+                  </ul>
+                  @if (!masked()) {
+                    <p class="sem">{{ withoutBonus() }}</p>
+                  }
+                </div>
+              }
               }
             </div>
-
-            <!-- Os bônus: os mesmos adesivos da ficha, todos, com a conta sem eles logo abaixo -->
-            @if (bonuses().length && !note()) {
-              <div class="bonus-block">
-                <ul class="bonus" aria-label="Bônus">
-                  @for (b of bonuses(); track b.id; let i = $index) {
-                    <li>
-                      <app-bonus-sticker [bonus]="b" [index]="i" [masked]="masked()" [seed]="r.id" />
-                      @if (!masked()) {
-                        <span class="sr-only">({{ kindLabels[b.kind].toLowerCase() }})</span>
-                      }
-                    </li>
-                  }
-                </ul>
-                @if (!masked()) {
-                  <p class="sem">{{ withoutBonus() }}</p>
-                }
-              </div>
-            }
 
             @if (!note()) {
               <app-boletim [review]="r" size="big" [masked]="masked()" />
@@ -267,17 +311,9 @@ const PATCH_GAP = 8;
               @if (masked()) {
                 <div class="text"><app-rabisco [text]="text()" /><span class="sr-only">Texto escondido</span></div>
               } @else {
-                <!-- as tarefas feitas viram uma conta, como no mural; aqui dá para ver o texto como ele é -->
-                @if (foldable(); as n) {
-                  <div class="feitas-linha">
-                    <button type="button" class="btn-quiet feitas-btn" [attr.aria-pressed]="showDone()" (click)="showDone.set(!showDone())">
-                      <lucide-icon [img]="showDone() ? HideIcon : RevealIcon" [size]="17" aria-hidden="true" />
-                      {{ showDone() ? 'Esconder as feitas' : n === 1 ? 'Mostrar a tarefa feita' : 'Mostrar as ' + n + ' tarefas feitas' }}
-                    </button>
-                  </div>
-                }
-                <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha -->
-                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="!showDone()" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+                <!-- com a formatação do editor; as tarefas se marcam aqui mesmo, na sua ficha. As feitas viram
+                     uma conta, como no mural, e tocar nela mostra a sequência -->
+                <div class="text" data-citavel><app-rich-text [text]="r.text" [fold]="true" [foldKey]="r.id" [checkable]="owner() === null && writable()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
               }
             } @else if (!note()) {
               <!-- a anotação pode ser só o título: sem aviso de texto em branco -->
@@ -319,49 +355,15 @@ const PATCH_GAP = 8;
               }
               <button type="button" class="btn-ink" (click)="close()">Fechar</button>
             } @else {
-            <button type="button" class="btn-quiet danger" (click)="remove.emit(r.id)">
-              <lucide-icon [img]="leaves() ? LeaveIcon : TrashIcon" [size]="18" aria-hidden="true" />
-              <!-- a anotação finalizada também sai do mural; apagar é outra coisa. A compartilhada de outra
-                   pessoa não se apaga: sai-se dela -->
-              {{ leaves() ? 'Sair da anotação' : sharedWithOthers() ? 'Apagar para todos' : note() ? 'Apagar anotação' : 'Remover do mural' }}
-            </button>
+            <!-- o que se faz de vez em quando (fixar, compartilhar, escrever outra vez, lado a lado, apagar)
+                 fica guardado no bilhete do "Mais"; no pé, só o que se usa toda hora -->
+            <app-more-menu class="mais-menu" [items]="moreItems()" [label]="note() ? 'Mais ações da anotação' : 'Mais ações da ficha'" (picked)="onMore($event)" />
             <div class="actions">
-              @if (!note()) {
-              <button type="button" class="btn-quiet" (click)="revisit.emit(r.id)">
-                <lucide-icon [img]="RevisitIcon" [size]="19" aria-hidden="true" />
-                Escrever {{ profile().revisit.one }}
-              </button>
-              }
-              <!-- as rejogadas não entram no lado a lado: lá é uma ficha por obra (e anotação não se compara) -->
-              @if (!r.revisitOf && !note()) {
-              <button
-                type="button"
-                class="btn-quiet side"
-                [attr.aria-pressed]="side.has(r.id)"
-                (click)="side.toggle(r.id)"
-                [title]="'Marcar pra comparar com ' + others()"
-              >
-                <lucide-icon [img]="side.has(r.id) ? CheckedIcon : UncheckedIcon" [size]="19" aria-hidden="true" />
-                Lado a lado
-              </button>
-              }
               <!-- o check da anotação inteira: finaliza (e ela sai do mural com o carimbo) ou abre de novo -->
-              @if (note()) {
-                <!-- fixar no topo do mural -->
-                <button type="button" class="btn-quiet" [attr.aria-pressed]="r.noteRank === 'fixada'" (click)="togglePin()">
-                  <lucide-icon [img]="r.noteRank === 'fixada' ? UnpinIcon : PinIcon" [size]="19" aria-hidden="true" />
-                  {{ r.noteRank === 'fixada' ? 'Desafixar' : 'Fixar' }}
-                </button>
-                @if (writable()) {
-                  <button type="button" class="btn-quiet" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
-                    <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" aria-hidden="true" />
-                    {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
-                  </button>
-                }
-                <!-- dividir com outras pessoas (ou ver quem está, para quem não gere a anotação) -->
-                <button type="button" class="btn-quiet" aria-haspopup="dialog" (click)="openShare()">
-                  <lucide-icon [img]="SharedIcon" [size]="19" aria-hidden="true" />
-                  {{ !sharedHere() || sharedHere()!.manages ? 'Compartilhar' : 'Pessoas' }}
+              @if (note() && writable()) {
+                <button type="button" class="btn-quiet finalizar" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
+                  <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" aria-hidden="true" />
+                  {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
                 </button>
               }
               @if (writable()) {
@@ -377,8 +379,17 @@ const PATCH_GAP = 8;
           </footer>
         </article>
 
-        @if (commentable()) {
-          @if (commentTarget(); as ct) {
+        <!-- As orelhas da ficha de fichário, na beirada da direita, uma embaixo da outra: a do grupo da
+             anotação (a mesma orelha de divisória da ficha no mural; no celular, sem lado, ela sai pela
+             beirada de cima, como no mural) e a que puxa a folha de comentários -->
+        <div class="orelhas">
+          @if (groupEar(); as g) {
+            <span class="orelha-grupo" [class.orelha-cor]="!!g.color" [style.--cat-cor]="g.color">
+              <span class="sr-only">Grupo: </span>
+              <app-cat-label [label]="g.label" [look]="g.look" [iconSize]="16" />
+            </span>
+          }
+          @if (commentable() && commentTarget()) {
             <!-- a orelha: um marcador na cor da cartolina, para fora da ficha, que puxa a folha de comentários -->
             <button
               type="button"
@@ -397,7 +408,11 @@ const PATCH_GAP = 8;
                 <span class="orelha-n" aria-hidden="true">{{ n }}</span>
               }
             </button>
+          }
+        </div>
 
+        @if (commentable()) {
+          @if (commentTarget(); as ct) {
             @if (commentsOpen()) {
               <aside id="leitura-comentarios" class="ficha cartolina lado" tabindex="-1" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock" aria-labelledby="comentarios-titulo">
                 <app-pin class="pin" [color]="pin().pinColor" />
@@ -481,15 +496,21 @@ export class ReviewReader {
   protected readonly RevealIcon = ICON.ver;
   protected readonly HideIcon = ICON.esconder;
   protected readonly PrivateIcon = ICON.privada;
+  protected readonly PublicIcon = ICON.publica;
   protected readonly QuietIcon = ICON.silenciar;
   protected readonly BackIcon = ICON.voltar;
   protected readonly ReopenIcon = ICON.recomecar;
-  protected readonly categorySticker = categoryBonus;
-  /** O desenho escolhido para a categoria, só nas suas anotações (ver core/category-looks.ts). */
-  protected categoryGlyph(category: string): LucideIconData | null {
-    const look = this.owner() === null ? this.settings.categoryLook(category) : {};
-    return look.icon ? categoryIcon(category, look) : null;
-  }
+  /**
+   * A orelha do grupo da anotação: o nome, o desenho e a cor dele, os que você escolheu (só nas suas;
+   * nas dos outros, o desenho de sempre), como a orelha da ficha no mural.
+   */
+  protected readonly groupEar = computed(() => {
+    const r = this.review();
+    const label = r && this.note() ? r.category?.trim() : '';
+    if (!label) return null;
+    const look = this.owner() === null ? this.settings.categoryLook(label) : {};
+    return { label, look, color: categoryColorHex(look.color) };
+  });
   /** A cor da tag, só nas suas anotações (como o desenho da categoria). */
   protected tagColor(tag: string): string | null {
     return this.owner() === null ? tagColorHex(this.settings.categoryLooks(), tag, this.review()?.category ?? '') : null;
@@ -514,7 +535,7 @@ export class ReviewReader {
     const e = this.sharedEntry();
     return !e || canWrite(e.papel);
   });
-  /** A linha da leitura: com quem está (ou de quem é) e o seu papel. */
+  /** O pedaço da linha da data: com quem está (ou de quem é, e o seu papel) e quem visita vê. */
   protected readonly sharedHere = computed(() => {
     const e = this.sharedEntry();
     if (!e) return null;
@@ -523,12 +544,134 @@ export class ReviewReader {
     const who =
       e.papel === 'dono'
         ? names.length
-          ? `Compartilhada com ${people}`
-          : 'Compartilhada, por enquanto só com você'
-        : `De ${e.dono.nome} · você é ${ROLE_LABEL[e.papel].toLowerCase()}`;
+          ? `Com ${people}`
+          : 'Por enquanto, só com você'
+        : `De ${e.dono.nome} · ${ROLE_LABEL[e.papel].toLowerCase()}`;
     const vis = e.view.private ? 'privada' : 'pública';
     return { line: `${who} · ${vis}`, manages: canManage(e.papel) };
   });
+  /**
+   * Quem vê, como na ficha do mural: só um desenho antes da data, e o que ele quer dizer no título e
+   * para o leitor de tela. A análise mostra o cadeado quando é privada; a anotação (que nasce privada),
+   * o olho quando foi publicada. A sem aviso, nas duas, o sino cortado. Só no seu mural; a
+   * compartilhada diz com quem está na mesma linha.
+   */
+  protected readonly audience = computed<{ icon: LucideIconData; title: string } | null>(() => {
+    const r = this.review();
+    if (!r || this.owner() !== null || this.sharedEntry()) return null;
+    if (r.quiet) return { icon: this.QuietIcon, title: 'Pública, sem aviso: está no seu mural, mas não foi para o Feed' };
+    if (isPrivate(r)) return this.note() ? null : { icon: this.PrivateIcon, title: 'Privada: só você vê' };
+    return this.note() ? { icon: this.PublicIcon, title: 'Publicada: quem abre o seu mural vê' } : null;
+  });
+
+  // ===== Onde mais a anotação está: o quadro do Kanban e os dias do Calendário =====
+  private readonly kanban = inject(KanbanStore);
+  private readonly calendar = inject(CalendarStore);
+  protected readonly CalendarIcon = ICON.calendario;
+  protected readonly TasksIcon = ICON.tarefas;
+  protected readonly importanceLabel = IMPORTANCE_LABEL;
+  protected readonly importanceLevel = IMPORTANCE_LEVEL;
+  protected readonly steps = [1, 2, 3, 4, 5];
+  /** As tarefas do texto da anotação: quantas já foram feitas (como na linha da data da ficha do mural). */
+  protected readonly tasks = computed(() => {
+    const r = this.review();
+    if (!r || !this.note()) return null;
+    const c = checkCount(r.text);
+    return c.total ? c : null;
+  });
+  /**
+   * A anotação no quadro do grupo dela (no seu mural): a coluna (com o desenho e a cor dela), a
+   * importância, o status e as dependências, as mesmas etiquetas da ficha no quadro.
+   */
+  protected readonly board = computed(() => {
+    const r = this.review();
+    if (!r || !this.note() || this.owner() !== null) return null;
+    const spot = this.kanban.cardOf(r.id);
+    if (!spot) return null;
+    const column = spot.board.columns.find((c) => c.id === spot.card.column) ?? null;
+    return {
+      id: spot.board.id,
+      column: column?.name ?? 'No quadro',
+      icon: column ? ICON_CHOICE[column.icon] : null,
+      color: column?.color ?? null,
+      importance: spot.card.importance,
+      status: spot.card.status ?? null,
+      deps: this.deps.progress(spot.card.deps).total ? spot.card.deps! : null,
+    };
+  });
+  /** Os lembretes do Calendário com a anotação presa: até dois, os mais perto primeiro, e quantos mais há. */
+  private readonly allReminders = computed(() => {
+    const r = this.review();
+    return r && this.note() && this.owner() === null ? remindersOfNote(this.calendar.reminders(), r.id, this.calendar.today()) : [];
+  });
+  /** Todos os lembretes à mostra (o "+2"), só até trocar de anotação. */
+  protected readonly allRemindersShown = linkedSignal({ source: () => this.reviewId(), computation: () => false });
+  /** Os lembretes à mostra: o mais perto (todos, depois do "+2"), com o dia dito perto de quem lê. */
+  protected readonly reminders = computed(() =>
+    this.allReminders()
+      .slice(0, this.allRemindersShown() ? undefined : 1)
+      .map((x) => ({ ...x, when: `${nearDayLabel(x.day, this.calendar.today())}${x.time ? `, ${timeLabel(x.time)}` : ''}` })),
+  );
+  protected readonly moreReminders = computed(() => (this.allRemindersShown() ? 0 : Math.max(0, this.allReminders().length - 1)));
+
+  /** O quadro do grupo da anotação, no Kanban: a leitura fecha e o quadro abre. */
+  protected openBoard(id: string): void {
+    this.close();
+    void this.router.navigate(['/anotacoes/kanban', id]);
+  }
+
+  /** O dia do lembrete, no Calendário (na vista do dia). */
+  protected openDay(day: string): void {
+    this.close();
+    void this.router.navigate(['/anotacoes/calendario'], { queryParams: { vista: 'dia', dia: day } });
+  }
+
+  /** Uma dependência tocada na tira do selo: ela abre aqui mesmo, com o "Voltar" para esta. */
+  protected openDep(id: string): void {
+    const n = this.store.get(id);
+    if (n) this.follow(n);
+  }
+
+  /** O bilhete do "Mais": o que se faz de vez em quando com a ficha aberta, o que apaga por último. */
+  protected readonly moreItems = computed<MoreItem[]>(() => {
+    const r = this.review();
+    if (!r) return [];
+    // a anotação finalizada também sai do mural; apagar é outra coisa. A compartilhada de outra
+    // pessoa não se apaga: sai-se dela
+    const remove: MoreItem = {
+      id: 'remover',
+      label: this.leaves() ? 'Sair da anotação' : this.sharedWithOthers() ? 'Apagar para todos' : this.note() ? 'Apagar anotação' : 'Remover do mural',
+      icon: this.leaves() ? this.LeaveIcon : this.TrashIcon,
+      danger: true,
+    };
+    if (this.note()) {
+      const pinned = r.noteRank === 'fixada';
+      const shared = this.sharedHere();
+      return [
+        { id: 'fixar', label: pinned ? 'Desafixar' : 'Fixar no topo', icon: pinned ? this.UnpinIcon : this.PinIcon },
+        // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
+        { id: 'compartilhar', label: !shared || shared.manages ? 'Compartilhar' : 'Pessoas', icon: this.SharedIcon, dialog: true },
+        remove,
+      ];
+    }
+    return [
+      { id: 'outra-vez', label: `Escrever ${this.profile().revisit.one}`, icon: this.RevisitIcon },
+      // as rejogadas não entram no lado a lado: lá é uma ficha por obra
+      ...(r.revisitOf ? [] : [{ id: 'lado-a-lado', label: 'Lado a lado', icon: this.side.has(r.id) ? this.CheckedIcon : this.UncheckedIcon, pressed: this.side.has(r.id), hint: `Marcar pra comparar com ${this.others()}` }]),
+      remove,
+    ];
+  });
+
+  protected onMore(id: string): void {
+    const r = this.review();
+    if (!r) return;
+    if (id === 'fixar') this.togglePin();
+    else if (id === 'compartilhar') this.openShare();
+    else if (id === 'outra-vez') this.revisit.emit(r.id);
+    else if (id === 'lado-a-lado') this.side.toggle(r.id);
+    else if (id === 'remover') this.remove.emit(r.id);
+  }
+
   /** Quem não é o dono sai da anotação (em vez de apagar). */
   protected readonly leaves = computed(() => {
     const e = this.sharedEntry();
@@ -676,21 +819,8 @@ export class ReviewReader {
   protected readonly formLabel = computed(() => (this.review() ? MUSIC_FORM_LABEL[musicFormOf(this.review()!.game)] : ''));
   /** De quem é a música: o crédito inteiro do catálogo ("Milton Nascimento & Lô Borges"); sem ele, o artista da aba. */
   protected readonly artist = computed(() => this.review()?.game.by ?? this.review()?.category ?? '');
-  /** As tarefas feitas quando a anotação abriu: as que o texto esconde (o mesmo retrato dele, ver RichText). */
-  private readonly doneThen = linkedSignal({ source: () => this.review()?.text ?? '', computation: snapshotDone });
-  private readonly shownDone = inject(ShownDone);
-  protected readonly foldable = computed(() => {
-    const r = this.review();
-    // as sequências abertas pela conta (no mural ou aqui) já estão à mostra
-    return r ? foldedCount(foldDone(parseRich(r.text), this.doneThen().lines, this.shownDone.of(r.id))) : 0;
-  });
   /** A anotação aberta. Num `computed`: marcar uma tarefa troca a `review` (salva), mas não a anotação. */
   private readonly reviewId = computed(() => this.review()?.id);
-  /**
-   * Mostrando as tarefas feitas: só até trocar de anotação (cada uma abre com elas escondidas).
-   * Marcar e desmarcar não mexem nele: a fonte é o id, e não a `review`, que o linkedSignal refaria.
-   */
-  protected readonly showDone = linkedSignal({ source: this.reviewId, computation: () => false });
 
   // ===== Os comentários: a folha presa ao lado da ficha (ver ui/comments-panel.ts) =====
   protected readonly comments = inject(Comments);
@@ -765,6 +895,30 @@ export class ReviewReader {
       (opener ?? doors.find((d) => d.offsetParent !== null) ?? doors[0])?.focus({ preventScroll: true });
     });
   }
+
+  /**
+   * Com a folha de comentários ao lado, a faixa dela tem a altura da faixa da ficha (que cresce com o
+   * nome escrito nela): a emenda das duas fica sem degrau.
+   */
+  private readonly bandSync = effect((onCleanup) => {
+    if (!this.commentsOpen()) return;
+    const dialog = this.dialog().nativeElement;
+    const measure = () => {
+      const head = dialog.querySelector<HTMLElement>('.par > article > .head');
+      const pair = dialog.querySelector<HTMLElement>('.par');
+      if (head && pair) pair.style.setProperty('--faixa-h', `${head.offsetHeight}px`);
+    };
+    const watcher = new ResizeObserver(measure);
+    // a faixa e a folha só existem depois do desenho
+    const timer = setTimeout(() => {
+      const head = dialog.querySelector('.par > article > .head');
+      if (head) watcher.observe(head);
+    });
+    onCleanup(() => {
+      clearTimeout(timer);
+      watcher.disconnect();
+    });
+  });
 
   /** A seleção mudou (ou a ficha rolou): confere daqui a pouco, quando a pessoa parar de arrastar. */
   protected watchSelection(): void {
@@ -1076,7 +1230,6 @@ export class ReviewReader {
     this.owner.set(owner);
     this.pool.set(pool);
     this.review.set(review);
-    this.showDone.set(false);
     this.stampedNow.set(false);
     this.commentsOpen.set(withComments && this.commentTarget() !== null);
     this.spoilersOk.set(false);

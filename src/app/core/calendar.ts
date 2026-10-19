@@ -748,3 +748,43 @@ export function mergeCalendar(here: CalendarState, there: CalendarState): Calend
 export function calendarToSync(state: CalendarState): CalendarState | null {
   return state.reminders.length || Object.keys(state.removed).length ? state : null;
 }
+
+/** Um lembrete que tem a anotação presa, como a leitura dela mostra (ver `remindersOfNote`). */
+export interface NoteReminder {
+  id: string;
+  title: string;
+  /** O dia que importa: o de hoje (está acontecendo), a próxima vez, ou a última, se já passou. */
+  day: string;
+  time?: string;
+  /** Já passou e não volta mais. */
+  past: boolean;
+  color: LightStock;
+}
+
+/**
+ * Os lembretes do Calendário que têm a anotação presa: cada um no dia que importa para quem lê (hoje,
+ * se uma vez dele passa por hoje; senão a próxima; o que não volta mais, o último dia dele), os que
+ * vêm primeiro (do mais perto para o mais longe) e depois os que passaram (do mais recente).
+ */
+export function remindersOfNote(list: readonly Reminder[], note: string, today: string): NoteReminder[] {
+  const out = list
+    .filter((r) => r.notes.includes(note))
+    .map((r) => {
+      const next = coversDay(r, today) ? today : nextOccurrence(r, today);
+      const day = next ?? (r.repeat ? (r.until ?? r.date) : (r.end ?? r.date));
+      // o horário só no dia em que ele começa (no meio de uma vez de vários dias, não)
+      const time = next ? timeOn(r, day) : undefined;
+      return { id: r.id, title: r.title, day, ...(time ? { time } : {}), past: next === null, color: r.color };
+    });
+  return out.sort((a, b) => (a.past !== b.past ? (a.past ? 1 : -1) : a.past ? b.day.localeCompare(a.day) : a.day.localeCompare(b.day) || (a.time ?? '').localeCompare(b.time ?? '')));
+}
+
+/** O dia de um lembrete, curto e perto de quem lê: "Hoje", "Amanhã", "ter, 21 de out." (com o ano, se é outro). */
+export function nearDayLabel(day: string, today: string): string {
+  if (day === today) return 'Hoje';
+  if (day === addDays(today, 1)) return 'Amanhã';
+  if (day === addDays(today, -1)) return 'Ontem';
+  const [y, m, d] = parts(day);
+  const year = y === parts(today)[0] ? '' : ` de ${y}`;
+  return `${WEEKDAYS_SHORT[weekday(day)]}, ${d} de ${MONTHS_SHORT[m - 1]}.${year}`;
+}

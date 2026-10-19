@@ -10,10 +10,12 @@ import {
   isPast,
   mergeCalendar,
   monthGrid,
+  nearDayLabel,
   nextOccurrence,
   occurrenceStart,
   occursOn,
   rangeLabel,
+  remindersOfNote,
   remindersOn,
   repeatSentence,
   repeatShort,
@@ -246,3 +248,46 @@ describe('Calendário: guardar e juntar', () => {
     }
   });
 });
+
+describe('Calendário: os lembretes de uma anotação (a leitura dela)', () => {
+  const today = '2026-10-19';
+
+  it('só os que têm a anotação presa, os próximos primeiro e os que passaram depois', () => {
+    const list = [
+      reminder({ id: 'rpassado1', title: 'Já foi', date: '2026-10-02', notes: ['n-x'] }),
+      reminder({ id: 'rlonge001', title: 'Longe', date: '2026-12-01', notes: ['n-x'] }),
+      reminder({ id: 'rperto001', title: 'Perto', date: '2026-10-21', time: '14:00', notes: ['n-x', 'n-y'] }),
+      reminder({ id: 'routra001', title: 'De outra', date: '2026-10-20', notes: ['n-y'] }),
+      reminder({ id: 'rpassado2', title: 'Foi há pouco', date: '2026-10-15', notes: ['n-x'] }),
+    ];
+    const got = remindersOfNote(list, 'n-x', today);
+    expect(got.map((r) => r.title)).toEqual(['Perto', 'Longe', 'Foi há pouco', 'Já foi']);
+    expect(got[0]).toEqual(jasmine.objectContaining({ day: '2026-10-21', time: '14:00', past: false }));
+    expect(got[2].past).toBeTrue();
+    // o que passou não leva o horário
+    expect(got[2].time).toBeUndefined();
+  });
+
+  it('o que se repete vale pela próxima vez; o de vários dias que passa por hoje, por hoje', () => {
+    const weekly = reminder({ id: 'rsemana01', date: '2026-10-05', repeat: 'semana', time: '09:00', notes: ['n-x'] });
+    expect(remindersOfNote([weekly], 'n-x', today)[0]).toEqual(jasmine.objectContaining({ day: '2026-10-19', time: '09:00', past: false }));
+
+    const trip = reminder({ id: 'rviagem01', date: '2026-10-17', end: '2026-10-22', time: '08:00', notes: ['n-x'] });
+    const got = remindersOfNote([trip], 'n-x', today)[0];
+    expect(got.day).toBe(today);
+    // no meio da viagem não há horário de começo
+    expect(got.time).toBeUndefined();
+
+    const ended = reminder({ id: 'racabou01', date: '2026-09-01', repeat: 'dia', until: '2026-09-10', notes: ['n-x'] });
+    expect(remindersOfNote([ended], 'n-x', today)[0]).toEqual(jasmine.objectContaining({ day: '2026-09-10', past: true }));
+  });
+
+  it('diz o dia perto de quem lê', () => {
+    expect(nearDayLabel('2026-10-19', today)).toBe('Hoje');
+    expect(nearDayLabel('2026-10-20', today)).toBe('Amanhã');
+    expect(nearDayLabel('2026-10-18', today)).toBe('Ontem');
+    expect(nearDayLabel('2026-10-21', today)).toBe('qua, 21 de out.');
+    expect(nearDayLabel('2027-01-04', today)).toBe('seg, 4 de jan. de 2027');
+  });
+});
+

@@ -26,6 +26,23 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-19-ficha-aberta',
+    version: '1.28.1',
+    kind: 'ajustes',
+    date: '2026-10-19',
+    title: 'A ficha aberta, mais fácil de ler',
+    melhorias: [
+      'A ficha aberta ficou mais calma para ler: o nome vai escrito na faixa colorida do alto (que fica no lugar enquanto o texto rola), e o texto da anotação começa logo depois de uma linha só, com a data e as tags.',
+      'O grupo da anotação aberta virou a orelha da ficha, como no mural: na beirada, junto da orelha dos Comentários (no celular, em cima).',
+      'A anotação aberta mostra onde mais ela está: a coluna do Kanban, com a importância, o status e as dependências, e o próximo lembrete do Calendário em que ela foi presa (tocar abre o quadro ou o dia), além da conta das tarefas.',
+      'Na análise, a nota, as caveiras e os bônus ficam ao lado da capa, e as notas de cada categoria e o texto vêm logo embaixo.',
+      'Quem vê a ficha virou um desenho pequeno antes da data, como no mural (o cadeado da privada, o olho da publicada, o sino cortado da sem aviso); a frase comprida saiu.',
+      'O pé da ficha aberta tem uma fileira só, também no celular: o Editar e o Finalizar à mão, e o resto (fixar, compartilhar, escrever outra vez, lado a lado, apagar) no Mais.',
+      'A anotação finalizada leva o carimbo na faixa, ao lado do nome, e quem chegou por um link volta pela seta na ponta da faixa.',
+      'O botão "Mostrar as tarefas feitas" saiu da ficha aberta: tocar na linha das tarefas feitas já mostra.',
+    ],
+  },
+  {
     id: '2026-10-19-status-kanban',
     version: '1.28.0',
     kind: 'funcionalidade',
