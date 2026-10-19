@@ -299,10 +299,10 @@ export const CARD_TEMPLATE = `
         <!-- a categoria (o adesivo) e as tags (as etiquetas de papel pardo), no lugar da etiqueta da
              nota: o espaço ao lado da foto é delas -->
         @if (!capas() && (noteLabels().category || noteLabels().tags.length)) {
-          <ul class="judge categorias" data-colado aria-label="Categoria e tags">
+          <ul class="judge categorias" data-colado aria-label="Grupo e tags">
             <!-- a categoria está na orelha de cima; aqui, só para o leitor de tela -->
             @if (noteLabels().category; as c) {
-              <li class="sr-only">{{ c.label }} (categoria)</li>
+              <li class="sr-only">{{ c.label }} (grupo)</li>
             }
             @for (t of noteLabels().tags; track t; let i = $index) {
               <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
@@ -1986,7 +1986,7 @@ export class ReviewCard {
   protected readonly spoken = computed(() => {
     const r = this.review();
     if (isNote(r)) {
-      const cats = [r.category ? `categoria ${r.category}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
+      const cats = [r.category ? `grupo ${r.category}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixada' : r.noteRank === 'sub' ? 'sub-nota' : '';
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';

@@ -59,7 +59,7 @@ export function noteTabKey(r: Pick<Review, 'category'>): string {
 export function noteTabsOf(
   notes: readonly Review[],
   shown: (r: Review) => boolean = () => true,
-  noneLabel = 'Sem categoria',
+  noneLabel = 'Sem grupo',
   order: readonly string[] | null = null,
 ): NoteTabs {
   const buckets = new Map<string, { total: number; n: number; spellings: Map<string, number> }>();

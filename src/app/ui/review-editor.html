@@ -100,11 +100,11 @@
             @if (structureLocked()) {
               <!-- a compartilhada em que você é editor: a categoria e as tags são do dono e dos gestores -->
               <div class="rotulos-fixos">
-                <p class="pergunta">Categoria e tags</p>
+                <p class="pergunta">Grupo e tags</p>
                 <p class="rotulos-valor">
-                  {{ noteCategory() || 'Sem categoria' }}@if (noteTags().length) {<span aria-hidden="true"> · </span>{{ noteTags().join(', ') }}}
+                  {{ noteCategory() || 'Sem grupo' }}@if (noteTags().length) {<span aria-hidden="true"> · </span>{{ noteTags().join(', ') }}}
                 </p>
-                <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam a categoria, as tags e quem vê.</p>
+                <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam o grupo, as tags e quem vê.</p>
               </div>
             } @else {
               <app-note-labels-picker [(category)]="noteCategory" [(tags)]="noteTags" [categories]="categoryLib()" [library]="tagLib()" />

@@ -228,7 +228,7 @@ export const FACET_TITLE: Record<FacetKey, string> = {
   grade: 'Média',
   difficulty: 'Dificuldade',
   year: 'Ano',
-  category: 'Categoria',
+  category: 'Grupo',
   tag: 'Tags',
   form: 'Tipo',
 };
@@ -262,7 +262,7 @@ export function optionLabel(k: FacetKey, value: string, profile: KindProfile): s
     case 'look':
       return value === 'com' ? 'Com decoração' : 'Sem decoração';
     case 'category':
-      return value === 'sem' ? 'Sem categoria' : value;
+      return value === 'sem' ? 'Sem grupo' : value;
     case 'tag':
       return value === 'sem' ? 'Sem tag' : value;
     case 'form':

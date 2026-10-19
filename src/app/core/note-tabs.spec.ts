@@ -43,10 +43,10 @@ function sea(): Review[] {
 describe('as abas do mural de anotações', () => {
   it('toda categoria tem aba, das com mais anotações para as com menos, Sem categoria também', () => {
     const tabs = noteTabsOf(sea());
-    expect(tabs.tabs.map((t) => t.label)).toEqual(['Trabalho', 'Estudos', 'Viagem', 'Sem categoria', 'Receitas']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Trabalho', 'Estudos', 'Viagem', 'Sem grupo', 'Receitas']);
     // com mais anotações que as categorias, Sem categoria vem antes delas
     const loose = noteTabsOf([...sea(), note('Avulsa', null), note('Outra', null), note('Mais uma', null)]);
-    expect(loose.tabs.map((t) => t.label)).toEqual(['Sem categoria', 'Trabalho', 'Estudos', 'Viagem', 'Receitas']);
+    expect(loose.tabs.map((t) => t.label)).toEqual(['Sem grupo', 'Trabalho', 'Estudos', 'Viagem', 'Receitas']);
     expect(tabs.all).toBe(12);
   });
 
@@ -75,7 +75,7 @@ describe('as abas do mural de anotações', () => {
     // cabem só duas além de Tudo (e do Mais)
     const split = splitTabs(tabs, ALL_TAB, (shown) => shown.length <= 2);
     expect(split.shown.map((t) => t.label)).toEqual(['Trabalho', 'Estudos']);
-    expect(split.more.map((t) => t.label)).toEqual(['Viagem', 'Sem categoria', 'Receitas']);
+    expect(split.more.map((t) => t.label)).toEqual(['Viagem', 'Sem grupo', 'Receitas']);
   });
 
   it('a finalizada conta para a aba existir, mas não no número dela quando está escondida', () => {
@@ -94,7 +94,7 @@ describe('as abas do mural de anotações', () => {
   it('a categoria vale sem ligar para acento e caixa, com a grafia mais usada', () => {
     expect(noteTabKey({ category: 'Diário' })).toBe(noteTabKey({ category: 'diario' }));
     const tabs = noteTabsOf([note('A', 'Diário'), note('B', 'Diário'), note('C', 'diario'), note('D', null)]);
-    expect(tabs.tabs.map((t) => t.label)).toEqual(['Diário', 'Sem categoria']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Diário', 'Sem grupo']);
   });
 
   it('a ordem é a do número à mostra; no empate, a com mais finalizadas escondidas, depois de A a Z', () => {
@@ -109,7 +109,7 @@ describe('as abas do mural de anotações', () => {
 
   it('na ordem montada à mão: as categorias nela, as novas depois (pela quantidade) e Sem categoria no fim', () => {
     const tabs = noteTabsOf(sea(), undefined, undefined, ['receitas', 'viagem']);
-    expect(tabs.tabs.map((t) => t.label)).toEqual(['Receitas', 'Viagem', 'Trabalho', 'Estudos', 'Sem categoria']);
+    expect(tabs.tabs.map((t) => t.label)).toEqual(['Receitas', 'Viagem', 'Trabalho', 'Estudos', 'Sem grupo']);
   });
 
   it('na ordem montada, o Mais leva as últimas da ordem, não as menores; a aberta fica em pé', () => {
@@ -274,10 +274,10 @@ describe('WallView com abas', () => {
   it('com a ordem montada nas configurações do mural, as abas e as seções por categoria seguem ela', () => {
     const settings = TestBed.inject(Settings);
     settings.setNotesConfig({ orderBy: 'minha', order: ['viagem', 'receitas'] });
-    expect(view.noteTabs()!.tabs.map((t) => t.label)).toEqual(['Viagem', 'Receitas', 'Trabalho', 'Estudos', 'Sem categoria']);
+    expect(view.noteTabs()!.tabs.map((t) => t.label)).toEqual(['Viagem', 'Receitas', 'Trabalho', 'Estudos', 'Sem grupo']);
     view.setSort('categoria');
     // as da ordem nela; as de fora, depois, de A a Z
-    expect(view.groups().map((g) => g.label)).toEqual(['Viagem', 'Receitas', 'Estudos', 'Trabalho', 'Sem categoria']);
+    expect(view.groups().map((g) => g.label)).toEqual(['Viagem', 'Receitas', 'Estudos', 'Trabalho', 'Sem grupo']);
     // pela quantidade de novo: a ordem montada fica guardada, mas não vale
     settings.setNotesConfig({ orderBy: 'quantidade' });
     expect(view.noteTabs()!.tabs[0].label).toBe('Trabalho');

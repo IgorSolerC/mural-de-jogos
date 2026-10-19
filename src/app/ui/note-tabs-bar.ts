@@ -24,7 +24,7 @@ const GAP = 3;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (tabs(); as t) {
-      <div class="abas" role="group" [attr.aria-label]="music() ? 'Artistas' : 'Categorias das anotações'">
+      <div class="abas" role="group" [attr.aria-label]="music() ? 'Artistas' : 'Grupos das anotações'">
         <button type="button" class="aba" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
           <span class="nome">Tudo</span><span class="n">{{ t.all }}</span>
         </button>
@@ -55,8 +55,8 @@ const GAP = 3;
               <span class="n">{{ moreCount() }}</span>
             }
             <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-            <select [attr.aria-label]="music() ? 'Mais artistas' : 'Mais categorias'" (change)="choose($any($event.target).value)">
-              <option value="" disabled [selected]="!moreOn()">{{ music() ? 'Mais artistas' : 'Mais categorias' }}</option>
+            <select [attr.aria-label]="music() ? 'Mais artistas' : 'Mais grupos'" (change)="choose($any($event.target).value)">
+              <option value="" disabled [selected]="!moreOn()">{{ music() ? 'Mais artistas' : 'Mais grupos' }}</option>
               @for (x of layout().more; track x.key) {
                 <option [value]="x.key" [selected]="active() === x.key">{{ x.label }} ({{ x.n }})</option>
               }

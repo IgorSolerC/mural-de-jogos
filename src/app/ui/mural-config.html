@@ -36,7 +36,7 @@
         @switch (section()) {
           @case ('padroes') {
             <h3>Padrões</h3>
-            <p class="lead">Como nasce toda anotação deste mural. Cada categoria pode seguir estes padrões ou ter os seus, em <button type="button" class="link" (click)="pick('categorias')">Categorias</button>.</p>
+            <p class="lead">Como nasce toda anotação deste mural. Cada grupo pode seguir estes padrões ou ter os seus, em <button type="button" class="link" (click)="pick('categorias')">Grupos</button>.</p>
 
             <div class="grupo">
               <p class="grupo-titulo">Ao criar</p>
@@ -78,8 +78,8 @@
               <p class="grupo-titulo">Antes de salvar</p>
               <div class="linha">
                 <div>
-                  <p class="linha-titulo" id="config-t-categoria">Avisar quando faltar a categoria</p>
-                  <p class="linha-desc" id="config-d-categoria">Pergunta antes de pregar uma anotação sem categoria.</p>
+                  <p class="linha-titulo" id="config-t-categoria">Avisar quando faltar o grupo</p>
+                  <p class="linha-desc" id="config-d-categoria">Pergunta antes de pregar uma anotação sem grupo.</p>
                 </div>
                 <button
                   type="button"
@@ -96,7 +96,7 @@
               <div class="linha">
                 <div>
                   <p class="linha-titulo" id="config-t-tag">Avisar quando faltar a tag</p>
-                  <p class="linha-desc" id="config-d-tag">Pergunta antes de pregar uma anotação sem nenhuma tag. Cada categoria pode pedir ou dispensar.</p>
+                  <p class="linha-desc" id="config-d-tag">Pergunta antes de pregar uma anotação sem nenhuma tag. Cada grupo pode pedir ou dispensar.</p>
                 </div>
                 <button
                   type="button"
@@ -114,8 +114,8 @@
           }
 
           @case ('categorias') {
-            <h3>Categorias</h3>
-            <p class="lead">Cada categoria segue os padrões do mural, a não ser que você escolha outra coisa para ela.</p>
+            <h3>Grupos</h3>
+            <p class="lead">Cada grupo segue os padrões do mural, a não ser que você escolha outra coisa para ele.</p>
             <p class="aviso" role="status">{{ notice() }}</p>
 
             @if (categories().length) {
@@ -123,8 +123,8 @@
                 <fieldset class="linha">
                   <legend class="linha-titulo">Ordem das abas</legend>
                   <p class="linha-desc">
-                    {{ manual() ? 'Do jeito que você montar: arraste pela alça ou use ↑ e ↓ nela. Categoria nova entra no fim.' : 'Da categoria com mais anotações para a com menos, sempre.' }}
-                    O olho esconde a categoria: a aba dela fica sempre no “Mais”.
+                    {{ manual() ? 'Do jeito que você montar: arraste pela alça ou use ↑ e ↓ nela. Grupo novo entra no fim.' : 'Do grupo com mais anotações ao que tem menos, sempre.' }}
+                    O olho esconde o grupo: a aba dele fica sempre no “Mais”.
                   </p>
                   <div class="segmentos dois">
                     <label class="segmento">
@@ -205,7 +205,7 @@
                               Renomear
                             </button>
                           </div>
-                          <p class="nome-dica" [id]="'config-nome-dica-' + i">Muda em {{ c.n === 1 ? 'a anotação' : 'todas as ' + c.n + ' anotações' }}. Com o nome de outra categoria, as duas viram uma só.</p>
+                          <p class="nome-dica" [id]="'config-nome-dica-' + i">Muda em {{ c.n === 1 ? 'a anotação' : 'todas as ' + c.n + ' anotações' }}. Com o nome de outro grupo, os dois viram um só.</p>
                         </form>
 
                         <app-category-style class="sub-bloco" [id]="'config-estilo-' + i" [category]="c.label" [bare]="true" />
@@ -273,7 +273,7 @@
                           }
                           <button type="button" class="papel perigo apagar" (click)="deleteCategory(c)">
                             <lucide-icon [img]="DeleteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
-                            Apagar a categoria
+                            Apagar o grupo
                           </button>
                         </div>
                       </div>
@@ -283,22 +283,22 @@
               </ol>
               <p class="sr-only" aria-live="polite">{{ said() }}</p>
             } @else {
-              <p class="vazio">Ainda não há categorias. Escolha uma no editor de uma anotação e ela aparece aqui, pronta para ganhar ícone, cor e padrões próprios.</p>
+              <p class="vazio">Ainda não há grupos. Escolha um no editor de uma anotação e ele aparece aqui, pronto para ganhar ícone, cor e padrões próprios.</p>
             }
           }
 
           @case ('tags') {
             <h3>Tags</h3>
-            <p class="lead">Cada categoria tem as suas tags, e a mesma tag pode ter uma cor em cada uma: a cor aparece nas anotações daquela categoria, no mural e no Kanban. Sem cor, fica o papel pardo de sempre. No filtro padrão, Excluído faz o mural e o Kanban abrirem sem as anotações da tag; um toque nela, riscada no filtro, mostra de novo.</p>
+            <p class="lead">Cada grupo tem as suas tags, e a mesma tag pode ter uma cor em cada um: a cor aparece nas anotações daquele grupo, no mural e no Kanban. Sem cor, fica o papel pardo de sempre. No filtro padrão, Excluído faz o mural e o Kanban abrirem sem as anotações da tag; um toque nela, riscada no filtro, mostra de novo.</p>
             <p class="aviso" role="status">{{ notice() }}</p>
 
             @for (g of tagGroups(); track g.key) {
-              <section class="tags-grupo" [attr.aria-label]="g.category ? 'Tags de ' + g.label : 'Tags das anotações sem categoria'">
+              <section class="tags-grupo" [attr.aria-label]="g.category ? 'Tags de ' + g.label : 'Tags das anotações sem grupo'">
                 <h4 class="tags-cat">
                   @if (g.category) {
                     <span class="orelha" [class.orelha-cor]="!!groupColor(g)" [style.--cat-cor]="groupColor(g)"><app-cat-label [label]="g.label" [look]="groupLook(g)" [iconSize]="14" /></span>
                   } @else {
-                    <span class="orelha sem">Sem categoria</span>
+                    <span class="orelha sem">Sem grupo</span>
                   }
                   <span class="cat-n">{{ g.tags.length === 1 ? '1 tag' : g.tags.length + ' tags' }}</span>
                 </h4>

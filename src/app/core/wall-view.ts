@@ -685,8 +685,8 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
       return desc ? 'De Z a A' : 'De A a Z';
     case 'categoria':
       if (isMusic(profile.kind)) return desc ? 'Artistas de Z a A' : 'Artistas de A a Z';
-      if (ordered) return desc ? 'Categorias na sua ordem, de trás para a frente' : 'Categorias na sua ordem';
-      return desc ? 'Categorias de Z a A' : 'Categorias de A a Z';
+      if (ordered) return desc ? 'Grupos na sua ordem, de trás para a frente' : 'Grupos na sua ordem';
+      return desc ? 'Grupos de Z a A' : 'Grupos de A a Z';
     case 'tag':
       return desc ? 'Tags de Z a A' : 'Tags de A a Z';
     case 'prioridade':
@@ -780,7 +780,7 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
     case 'categoria':
       return (r) => {
         const c = firstCategory(r);
-        return c === null ? ['sem-categoria', isMusic(o.profile.kind) ? 'Sem artista' : 'Sem categoria'] : [`c:${fold(c)}`, c];
+        return c === null ? ['sem-categoria', isMusic(o.profile.kind) ? 'Sem artista' : 'Sem grupo'] : [`c:${fold(c)}`, c];
       };
     case 'tag':
       return (r) => {

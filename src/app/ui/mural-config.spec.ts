@@ -94,7 +94,7 @@ describe('as configurações do mural (a folha)', () => {
     tab('padroes').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     await fixture.whenStable();
     expect(tab('categorias').getAttribute('aria-selected')).toBe('true');
-    expect(el.querySelector('h3')!.textContent).toBe('Categorias');
+    expect(el.querySelector('h3')!.textContent).toBe('Grupos');
     const again = TestBed.createComponent(MuralConfig);
     document.body.appendChild(again.nativeElement);
     await again.whenStable();
@@ -177,8 +177,8 @@ describe('as configurações do mural (a folha)', () => {
     expect(el.querySelector('h3')!.textContent).toBe('Tags');
     const groups = () => Array.from(el.querySelectorAll<HTMLElement>('.tags-grupo'));
     // na ordem das categorias; Receitas não tem tag nenhuma
-    expect(groups().map((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim())).toEqual(['Viagens!', 'Roadmap site', 'Sem categoria']);
-    expect(groups().map((g) => g.getAttribute('aria-label'))).toEqual(['Tags de Viagens!', 'Tags de Roadmap site', 'Tags das anotações sem categoria']);
+    expect(groups().map((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim())).toEqual(['Viagens!', 'Roadmap site', 'Sem grupo']);
+    expect(groups().map((g) => g.getAttribute('aria-label'))).toEqual(['Tags de Viagens!', 'Tags de Roadmap site', 'Tags das anotações sem grupo']);
     const names = (g: HTMLElement) => Array.from(g.querySelectorAll('.tags > li app-note-tag')).map((t) => t.textContent!.trim());
     expect(groups().map(names)).toEqual([['Ideia', 'urgente'], ['bug', 'ideia', 'urgente'], ['Urgente']]);
     expect(groups()[1].querySelector('.tags-cat .cat-n')!.textContent!.trim()).toBe('3 tags');
@@ -313,8 +313,8 @@ describe('as configurações do mural (a folha)', () => {
       row.querySelector<HTMLButtonElement>('.apagar')!.click();
       await settle();
       expect(asked.length).toBe(1);
-      expect(asked[0].title).toBe('Apagar a categoria Roadmap site?');
-      expect(asked[0].text).toContain('2 anotações usam esta categoria');
+      expect(asked[0].title).toBe('Apagar o grupo Roadmap site?');
+      expect(asked[0].text).toContain('2 anotações usam este grupo');
       expect(notes().filter((r) => r.category === 'Roadmap site').length).toBe(2);
       answer = true;
       row.querySelector<HTMLButtonElement>('.apagar')!.click();
@@ -322,7 +322,7 @@ describe('as configurações do mural (a folha)', () => {
       expect(notes().filter((r) => !r.category).length).toBe(3);
       expect(settings.categoryLooks()['roadmap site']).toBeUndefined();
       expect(rows()).toEqual(['Viagens!', 'Receitas']);
-      expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagada em 2 anotações.');
+      expect(el.querySelector('.aviso')!.textContent).toContain('Roadmap site foi apagado em 2 anotações.');
     });
 
     const group = (label: string) => Array.from(el.querySelectorAll<HTMLElement>('.tags-grupo')).find((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim() === label)!;
@@ -395,6 +395,23 @@ describe('as configurações do mural (a folha)', () => {
       expect(Array.from(group('Roadmap site').querySelectorAll('.tags > li app-note-tag')).map((t) => t.textContent!.trim())).toEqual(['bug', 'urgente']);
       expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, ideia foi apagada em 1 anotação.');
     });
+  });
+
+  it('na tela, a categoria da anotação se chama grupo, em todas as partes', async () => {
+    // o texto e o que o leitor de tela lê (aria-label, placeholder, title)
+    const said = () =>
+      [el.textContent, ...Array.from(el.querySelectorAll('[aria-label], [placeholder], [title]')).flatMap((n) => ['aria-label', 'placeholder', 'title'].map((a) => n.getAttribute(a) ?? ''))].join(' ');
+    for (const part of ['padroes', 'categorias', 'tags']) {
+      await go(part);
+      if (part === 'categorias') {
+        el.querySelector<HTMLButtonElement>('.cat-abre')!.click();
+        await fixture.whenStable();
+      }
+      expect(said()).not.toMatch(/categori/i);
+    }
+    await go('categorias');
+    expect(el.querySelector('h3')!.textContent).toBe('Grupos');
+    expect(tab('categorias').textContent).toContain('Grupos');
   });
 
   it('fechar avisa quem abriu', async () => {

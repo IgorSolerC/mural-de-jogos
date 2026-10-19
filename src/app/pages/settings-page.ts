@@ -112,7 +112,7 @@ export class SettingsPage {
   /** As partes, na ordem do índice. A aberta fica no endereço (#/ajustes?aba=backup), para links irem direto. */
   protected readonly tabs: readonly { id: Tab; label: string; hint: string; icon: LucideIconData }[] = [
     { id: 'conta', label: 'Conta', hint: 'Nome, perfil e nuvem', icon: UserRound },
-    { id: 'mural', label: 'Mural', hint: 'Notas, grupos e spoilers', icon: LayoutGrid },
+    { id: 'mural', label: 'Mural', hint: 'Notas, seções e spoilers', icon: LayoutGrid },
     { id: 'amigos', label: 'Amigos', hint: 'O que chega dos outros', icon: UsersRound },
     { id: 'backup', label: 'Backup', hint: 'Baixar e restaurar', icon: HardDriveDownload },
     { id: 'busca', label: 'Busca', hint: 'De onde vêm as capas', icon: Search },
@@ -635,7 +635,7 @@ export class SettingsPage {
     const sure = await this.confirm.ask({
       title: 'Voltar ao padrão?',
       text:
-        'As escolhas de Mural, Amigos e Desempenho voltam ao começo: notas como você deu, etiquetas dos grupos, contagem de novidades e a pergunta ao salvar sem categoria ou tag ligadas, ' +
+        'As escolhas de Mural, Amigos e Desempenho voltam ao começo: notas como você deu, etiquetas das seções, contagem de novidades e a pergunta ao salvar sem grupo ou tag ligadas, ' +
         'sem spoilers desligado, o que você não avaliou em segredo, novidades de todos os murais e a qualidade do mural no Equilíbrio. ' +
         'O seu nome, o perfil, a conta, as chaves e o backup não mudam.',
       confirm: 'Voltar ao padrão',

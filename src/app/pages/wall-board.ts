@@ -75,7 +75,7 @@ export class WallBoard {
   /** "do mural", "de Trabalho" com uma aba aberta; no mural de alguém, "de Marina". */
   protected readonly where = computed(() => {
     const tab = this.view.activeTabLabel();
-    if (this.view.activeTab() === NO_CATEGORY_TAB) return 'sem categoria';
+    if (this.view.activeTab() === NO_CATEGORY_TAB) return 'sem grupo';
     if (tab) return `de ${tab}`;
     return this.owner() === null ? 'do mural' : `de ${this.owner()}`;
   });

@@ -31,7 +31,7 @@ export const ROLE_LABEL: Record<SharedRole, string> = { dono: 'Dono', gestor: 'G
 /** O que cada papel pode, numa frase (no menu de papéis). */
 export const ROLE_HINT: Record<MemberRole, string> = {
   gestor: 'Edita tudo e chama mais gente',
-  editor: 'Escreve, sem mudar categoria, tags e quem vê',
+  editor: 'Escreve, sem mudar grupo, tags e quem vê',
   leitor: 'Só lê',
 };
 
@@ -171,7 +171,7 @@ export const CONFLICT_PART_LABEL: Record<ConflictPart, string> = {
   titulo: 'o título',
   capa: 'a capa',
   texto: 'o texto',
-  categoria: 'a categoria',
+  categoria: 'o grupo',
   publico: 'quem vê',
   aparencia: 'o papel da ficha',
   data: 'a data',

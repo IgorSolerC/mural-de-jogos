@@ -159,7 +159,7 @@ describe('anotações', () => {
     expect(facets[0].options.map((o) => [o.label, o.n])).toEqual([
       ['Casa', 1],
       ['Trabalho', 2],
-      ['Sem categoria', 1],
+      ['Sem grupo', 1],
     ]);
     expect(facets[1].options.map((o) => [o.label, o.n])).toEqual([
       ['Bugfix', 1],
@@ -183,9 +183,9 @@ describe('anotações', () => {
     expect(groups.map((g) => [g.label, g.summary])).toEqual([
       ['Compras', '1 anotação'],
       ['Viagem', '1 anotação'],
-      ['Sem categoria', '1 anotação'],
+      ['Sem grupo', '1 anotação'],
     ]);
     const desc = { ...order, direction: 'desc' as const };
-    expect(groupWall(sortWall(list, desc), desc).map((g) => g.label)).toEqual(['Viagem', 'Compras', 'Sem categoria']);
+    expect(groupWall(sortWall(list, desc), desc).map((g) => g.label)).toEqual(['Viagem', 'Compras', 'Sem grupo']);
   });
 });

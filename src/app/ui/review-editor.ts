@@ -1080,8 +1080,8 @@ export class ReviewEditor {
     const noTag = hadTag && !this.noteTags().length && asksTag(config, category, this.settings.askNoTag());
     if (!noCategory && !noTag) return true;
     const { ok, checked } = await this.confirm.askChecked({
-      title: noCategory && noTag ? 'Sem categoria e sem tag' : noCategory ? 'Sem categoria' : 'Sem tag',
-      text: `Essa anotação não tem ${noCategory && noTag ? 'categoria nem tag' : noCategory ? 'categoria' : 'tag'}. Tem certeza que deseja salvá-la sem?`,
+      title: noCategory && noTag ? 'Sem grupo e sem tag' : noCategory ? 'Sem grupo' : 'Sem tag',
+      text: `Essa anotação não tem ${noCategory && noTag ? 'grupo nem tag' : noCategory ? 'grupo' : 'tag'}. Tem certeza que deseja salvá-la sem?`,
       confirm: this.editing() ? 'Salvar assim' : 'Pregar assim',
       cancel: 'Voltar',
       icon: null,

@@ -24,8 +24,8 @@ import { tabStep } from './focus';
  */
 const SECTIONS = [
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: SlidersHorizontal },
-  { id: 'categorias', label: 'Categorias', hint: 'Nome, ordem, cor e padrões', icon: Tags },
-  { id: 'tags', label: 'Tags', hint: 'Por categoria: nome e cor', icon: Tag },
+  { id: 'categorias', label: 'Grupos', hint: 'Nome, ordem, cor e padrões', icon: Tags },
+  { id: 'tags', label: 'Tags', hint: 'Por grupo: nome e cor', icon: Tag },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -170,7 +170,7 @@ export class MuralConfig {
       if (tags.length) groups.push({ key: c.key, label: c.label, category: c.label, tags });
     }
     const loose = tally(notes.filter((r) => !r.category?.trim()).flatMap((r) => r.tags ?? []));
-    if (loose.length) groups.push({ key: '', label: 'Sem categoria', category: '', tags: loose });
+    if (loose.length) groups.push({ key: '', label: 'Sem grupo', category: '', tags: loose });
     return groups;
   });
 
@@ -257,7 +257,7 @@ export class MuralConfig {
     if (other) {
       const sure = await this.confirm.ask({
         title: `Juntar com ${other}?`,
-        text: `Já existe a categoria ${other}. As anotações de ${row.label} passam para ela, e ficam a cor, os padrões e o quadro do Kanban de ${other}.`,
+        text: `Já existe o grupo ${other}. As anotações de ${row.label} passam para ele, e ficam a cor, os padrões e o quadro do Kanban de ${other}.`,
         confirm: `Juntar com ${other}`,
         tone: 'neutro',
         icon: null,
@@ -274,15 +274,15 @@ export class MuralConfig {
 
   protected async deleteCategory(row: CategoryRow): Promise<void> {
     const sure = await this.confirm.ask({
-      title: `Apagar a categoria ${row.label}?`,
-      text: `${this.uses(row.n)} esta categoria. Elas continuam no mural, sem categoria; o ícone, a cor, os padrões e o quadro do Kanban dela vão embora.`,
-      confirm: 'Apagar a categoria',
+      title: `Apagar o grupo ${row.label}?`,
+      text: `${this.uses(row.n)} este grupo. Elas continuam no mural, sem grupo; o ícone, a cor, os padrões e o quadro do Kanban dele vão embora.`,
+      confirm: 'Apagar o grupo',
       icon: this.DeleteIcon,
     });
     if (!sure) return;
     this.open.set(null);
     const r = this.edits.renameCategory(row.label, null);
-    this.notice.set(`${row.label} foi apagada ${this.told(r)}`);
+    this.notice.set(`${row.label} foi apagado ${this.told(r)}`);
   }
 
   /** O id de uma tag na folha: a categoria e a tag (a mesma tag aparece em cada categoria). */
@@ -304,7 +304,7 @@ export class MuralConfig {
 
   /** "Em Trabalho, " ou "Nas anotações sem categoria, ": onde a tag mudou. */
   private where(group: TagGroup): string {
-    return group.category ? `Em ${group.label}, ` : 'Nas anotações sem categoria, ';
+    return group.category ? `Em ${group.label}, ` : 'Nas anotações sem grupo, ';
   }
 
   protected async renameTag(e: Event, group: TagGroup, row: CategoryRow, field: HTMLInputElement): Promise<void> {
@@ -318,7 +318,7 @@ export class MuralConfig {
     if (other) {
       const sure = await this.confirm.ask({
         title: `Juntar com ${other}?`,
-        text: `${group.category ? `${group.label} já tem a tag ${other}` : `As anotações sem categoria já têm a tag ${other}`}. As anotações com ${row.label} passam a ter ${other}, com a cor dela.`,
+        text: `${group.category ? `${group.label} já tem a tag ${other}` : `As anotações sem grupo já têm a tag ${other}`}. As anotações com ${row.label} passam a ter ${other}, com a cor dela.`,
         confirm: `Juntar com ${other}`,
         tone: 'neutro',
         icon: null,
@@ -333,7 +333,7 @@ export class MuralConfig {
   protected async deleteTag(group: TagGroup, row: CategoryRow): Promise<void> {
     const sure = await this.confirm.ask({
       title: group.category ? `Apagar a tag ${row.label} de ${group.label}?` : `Apagar a tag ${row.label}?`,
-      text: `${this.uses(row.n)} esta tag${group.category ? ` em ${group.label}` : ' sem categoria'}. Ela sai delas, e a cor dela ali vai embora; nas outras categorias, ela continua.`,
+      text: `${this.uses(row.n)} esta tag${group.category ? ` em ${group.label}` : ' sem grupo'}. Ela sai delas, e a cor dela ali vai embora; nos outros grupos, ela continua.`,
       confirm: 'Apagar a tag',
       icon: this.DeleteIcon,
     });
@@ -366,7 +366,7 @@ export class MuralConfig {
   protected setTagHidden(group: TagGroup, row: CategoryRow, hidden: boolean): void {
     if (this.tagHidden(group, row) === hidden) return;
     this.settings.setTagHidden(row.label, group.category, hidden);
-    const where = group.category ? ` em ${group.label}` : ' nas sem categoria';
+    const where = group.category ? ` em ${group.label}` : ' nas sem grupo';
     this.notice.set(hidden ? `As anotações com ${row.label}${where} começam escondidas no filtro do mural e do Kanban.` : `${row.label}${where} volta a aparecer no filtro.`);
   }
 

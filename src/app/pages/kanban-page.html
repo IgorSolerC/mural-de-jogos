@@ -10,12 +10,12 @@
       style="--stock: var(--stock-verde)"
     >
       <app-pin class="pin" />
-      <h2 id="primeiro-titulo">Cada categoria tem o seu quadro</h2>
+      <h2 id="primeiro-titulo">Cada grupo tem o seu quadro</h2>
       <p>
         O quadro do <em>Trabalho</em> só tem anotações do Trabalho; o dos
         <em>Estudos</em>, só dos Estudos. Cada um com colunas de etapas, como
         <em>A fazer</em>, <em>Fazendo</em> e <em>Feito</em>. Escreva uma
-        anotação com categoria e o quadro dela aparece aqui.
+        anotação com grupo e o quadro dele aparece aqui.
       </p>
       <div class="primeiro-form">
         <button type="button" class="btn-ink" (click)="firstNote()">
@@ -47,7 +47,7 @@
   </section>
 } @else if (board(); as b) {
   <!-- os quadros: um por categoria, nas mesmas divisórias de manilha das abas do mural, com o ícone e a cor dela -->
-  <nav #abas class="abas-quadros" aria-label="Quadros das categorias">
+  <nav #abas class="abas-quadros" aria-label="Quadros dos grupos">
     <ul class="abas">
       @for (q of tabs(); track q.id) {
         <li>

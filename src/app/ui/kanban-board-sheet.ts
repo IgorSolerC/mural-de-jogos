@@ -39,7 +39,7 @@ import { TagColors } from './tag-colors';
           <div class="body">
             <section class="grupo" aria-labelledby="qa-tags-t">
               <h3 class="grupo-titulo" id="qa-tags-t">Cor das tags</h3>
-              <p class="dica">As tags das anotações de {{ category() }}. A cor de cada uma vale só nesta categoria, no mural e no quadro.</p>
+              <p class="dica">As tags das anotações de {{ category() }}. A cor de cada uma vale só neste grupo, no mural e no quadro.</p>
               @if (tags().length) {
                 <ul class="lista">
                   @for (t of tags(); track t.key) {

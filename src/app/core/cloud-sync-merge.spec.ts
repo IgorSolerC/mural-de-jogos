@@ -366,7 +366,7 @@ describe('sincronização: a junção de três vias de dois aparelhos da mesma c
       expect(d.settings.notesConfig().categories['casa']?.audience).toBe('publicar');
       expect(d.settings.notesConfig().subColor).toBe('mae');
     }
-    expect(b.conflicts.linesOf(pending(b)[0], 'b')).toContain('Categoria › casa › Toda anotação nova nasce: visível');
+    expect(b.conflicts.linesOf(pending(b)[0], 'b')).toContain('Grupo › casa › Toda anotação nova nasce: visível');
     b.conflicts.resolve(conflictKey(pending(b)[0]), 'b');
     await settle(b, a);
     for (const d of [a, b]) {

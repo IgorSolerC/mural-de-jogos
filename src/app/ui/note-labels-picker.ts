@@ -28,7 +28,7 @@ let uid = 0;
     <!-- ===== Categoria ===== -->
     <div class="grupo" role="group" [attr.aria-labelledby]="id + '-cat'">
       <div class="top">
-        <p class="pergunta" [id]="id + '-cat'">Categoria</p>
+        <p class="pergunta" [id]="id + '-cat'">Grupo</p>
         <!-- as ações da categoria, à direita do título: o mesmo risco de pincel das outras ações do editor -->
         <div class="acoes">
           @if (category() && !open()) {
@@ -36,7 +36,7 @@ let uid = 0;
               <lucide-icon [img]="styling() ? CloseIcon : PaletteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
               Ícone e cor
             </button>
-            <button type="button" class="toggle" (click)="category.set(null)" [attr.aria-label]="'Tirar a categoria ' + category()">
+            <button type="button" class="toggle" (click)="category.set(null)" [attr.aria-label]="'Tirar o grupo ' + category()">
               <lucide-icon [img]="RemoveIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
               Tirar
             </button>
@@ -63,15 +63,15 @@ let uid = 0;
                 autocomplete="off"
                 enterkeyhint="done"
                 [maxLength]="max"
-                placeholder="Nome da categoria"
-                aria-label="Nova categoria. Enter cola na anotação."
+                placeholder="Nome do grupo"
+                aria-label="Grupo novo. Enter cola na anotação."
                 (keydown)="onWriteKey($event)"
                 (blur)="commitWrite($any($event.target))"
               />
             } @else {
               <button type="button" class="slot write-btn" data-write (click)="startWriting()">
                 <lucide-icon [img]="PlusIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
-                Escrever outra
+                Escrever outro
               </button>
             }
           </div>
@@ -87,7 +87,7 @@ let uid = 0;
           }
         }
       } @else {
-        <p class="hint">O assunto da anotação, um só: {{ examples() }} O mural agrupa e filtra por ela.</p>
+        <p class="hint">O assunto da anotação, um só: {{ examples() }} O mural separa e filtra por ele.</p>
       }
     </div>
 

@@ -209,9 +209,9 @@ const PATCH_GAP = 8;
               @if (note()) {
                 <!-- a categoria e as tags da anotação, no lugar da nota -->
                 @if (r.category || r.tags?.length) {
-                  <ul class="judgement categorias" aria-label="Categoria e tags">
+                  <ul class="judgement categorias" aria-label="Grupo e tags">
                     @if (r.category) {
-                      <li><app-bonus-sticker [bonus]="categorySticker(r.category)" [glyph]="categoryGlyph(r.category)" [index]="0" [seed]="r.id" /><span class="sr-only"> (categoria)</span></li>
+                      <li><app-bonus-sticker [bonus]="categorySticker(r.category)" [glyph]="categoryGlyph(r.category)" [index]="0" [seed]="r.id" /><span class="sr-only"> (grupo)</span></li>
                     }
                     @for (t of r.tags ?? []; track t; let i = $index) {
                       <li><app-note-tag [label]="t" [index]="i + 1" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>

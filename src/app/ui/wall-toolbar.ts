@@ -44,7 +44,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'prioridade', label: 'Prioridade' },
   { value: 'data', label: 'Data' },
   { value: 'alfabetica', label: 'Título' },
-  { value: 'categoria', label: 'Categoria' },
+  { value: 'categoria', label: 'Grupo' },
   { value: 'tag', label: 'Tag' },
 ];
 
@@ -116,7 +116,7 @@ export class WallToolbar {
   /** "Procurar no mural" (no de alguém, "Procurar no mural de Marina"), ou "Procurar em Trabalho" com uma aba aberta. */
   protected readonly searchLabel = computed(() => {
     const tab = this.view.activeTabLabel();
-    if (this.view.activeTab() === NO_CATEGORY_TAB) return this.view.music() ? 'Procurar nas sem artista' : 'Procurar nas sem categoria';
+    if (this.view.activeTab() === NO_CATEGORY_TAB) return this.view.music() ? 'Procurar nas sem artista' : 'Procurar nas sem grupo';
     if (tab) return `Procurar em ${tab}`;
     return this.mine() ? 'Procurar no mural' : `Procurar no mural de ${this.view.owner()}`;
   });

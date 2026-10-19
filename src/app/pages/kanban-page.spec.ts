@@ -102,7 +102,7 @@ describe('página do Kanban', () => {
   it('sem nenhuma categoria: a cartolina diz que cada categoria tem o seu quadro, sem aba nenhuma', async () => {
     store.reviews.set([note('nsolta01', 'Sem categoria')]);
     await go('/anotacoes/kanban');
-    expect(host.querySelector('.primeiro h2')?.textContent).toContain('Cada categoria tem o seu quadro');
+    expect(host.querySelector('.primeiro h2')?.textContent).toContain('Cada grupo tem o seu quadro');
     expect(host.querySelector('.primeiro .btn-ink')?.textContent).toContain('Escrever uma anotação');
     expect(host.querySelector('.abas-quadros')).toBeNull();
     expect(host.querySelector('.primeiro-campo')).toBeNull();

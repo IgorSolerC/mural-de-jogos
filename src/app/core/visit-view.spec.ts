@@ -45,7 +45,7 @@ describe('VisitView', () => {
     const visit = TestBed.inject(VisitView);
     expect(visit.owner()).toBe('Marina');
     expect(visit.wall().map((r) => r.game.name)).toEqual(['Daily', 'Pão', 'Solta']);
-    expect(visit.noteTabs()!.tabs.map((t) => t.label)).toEqual(['Receitas', 'Trabalho', 'Sem categoria']);
+    expect(visit.noteTabs()!.tabs.map((t) => t.label)).toEqual(['Receitas', 'Trabalho', 'Sem grupo']);
   });
 
   it('a ordem e o tipo de ficha de quem visita não mexem nos do seu mural', () => {

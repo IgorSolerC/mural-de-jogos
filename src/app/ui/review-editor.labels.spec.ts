@@ -60,8 +60,8 @@ describe('o editor: anotação sem categoria ou tag', () => {
   it('sem as duas: pergunta pelas duas; Voltar não salva', async () => {
     await save();
     expect(asked.length).toBe(1);
-    expect(asked[0].options.title).toBe('Sem categoria e sem tag');
-    expect(asked[0].options.text).toBe('Essa anotação não tem categoria nem tag. Tem certeza que deseja salvá-la sem?');
+    expect(asked[0].options.title).toBe('Sem grupo e sem tag');
+    expect(asked[0].options.text).toBe('Essa anotação não tem grupo nem tag. Tem certeza que deseja salvá-la sem?');
     expect(asked[0].options.check).toBe('Nunca mais me perguntar isso');
     expect(asked[0].options.confirm).toBe('Pregar assim');
     await answer({ ok: false, checked: false });
@@ -93,12 +93,25 @@ describe('o editor: anotação sem categoria ou tag', () => {
   it('"Nunca mais me perguntar isso" desliga a pergunta do que faltou, e só dela', async () => {
     inside().noteTags.set(['mercado']);
     await save();
-    expect(asked[0].options.title).toBe('Sem categoria');
+    expect(asked[0].options.title).toBe('Sem grupo');
     await answer({ ok: true, checked: true });
     expect(saved()).toBeTrue();
     expect(settings.askNoCategory()).toBeFalse();
     expect(settings.askNoTag()).toBeTrue();
     expect(JSON.parse(localStorage.getItem('mural-de-jogos:config:v1')!)).toEqual(jasmine.objectContaining({ askNoCategory: false, askNoTag: true }));
+  });
+
+  it('na tela, a categoria se chama grupo: o título, o campo e o que o leitor de tela lê', async () => {
+    const picker = fixture.nativeElement.querySelector('app-note-labels-picker') as HTMLElement;
+    expect(picker.querySelector('.pergunta')!.textContent!.trim()).toBe('Grupo');
+    picker.querySelector<HTMLButtonElement>('.acoes .toggle')!.click();
+    await fixture.whenStable();
+    picker.querySelector<HTMLButtonElement>('[data-write]')!.click();
+    await fixture.whenStable();
+    const field = picker.querySelector<HTMLInputElement>('input.write')!;
+    expect(field.placeholder).toBe('Nome do grupo');
+    const said = [picker.textContent, ...Array.from(picker.querySelectorAll('[aria-label], [placeholder]')).flatMap((n) => [n.getAttribute('aria-label') ?? '', n.getAttribute('placeholder') ?? ''])].join(' ');
+    expect(said).not.toMatch(/categori/i);
   });
 
   it('desligada a pergunta, salva direto', async () => {
@@ -166,7 +179,7 @@ describe('o editor: anotação que já existia, sem categoria ou tag', () => {
     await edit('ncheia01');
     inside().noteCategory.set(null);
     await save();
-    expect(asked.map((o) => o.title)).toEqual(['Sem categoria']);
+    expect(asked.map((o) => o.title)).toEqual(['Sem grupo']);
     expect(asked[0].confirm).toBe('Salvar assim');
   });
 

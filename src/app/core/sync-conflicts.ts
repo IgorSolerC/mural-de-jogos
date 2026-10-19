@@ -63,7 +63,7 @@ export const conflictKey = (c: Pick<SyncConflict, 'alvo' | 'em'>): string => `${
 export const BLOCK_LABEL: Record<BlockKind, string> = {
   chaves: 'As chaves de busca',
   tagsFixas: 'As tags fixas',
-  categorias: 'O ícone e a cor das categorias',
+  categorias: 'O ícone e a cor dos grupos',
   muralAnotacoes: 'As configurações do mural de anotações',
   perfil: 'O seu perfil',
 };
@@ -184,9 +184,9 @@ const KEY_LABEL: Record<string, string> = {
   tmdb: 'Chave do TMDB',
   audience: 'Toda anotação nova nasce',
   subColor: 'Cor da sub-nota',
-  orderBy: 'Ordem das categorias',
+  orderBy: 'Ordem dos grupos',
   order: 'Ordem à mão',
-  categories: 'Categoria',
+  categories: 'Grupo',
   hiddenTags: 'Tags escondidas no filtro',
   icon: 'ícone',
   color: 'cor',
