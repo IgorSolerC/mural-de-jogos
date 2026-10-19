@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CalendarDays, CalendarRange, CalendarSearch, ChevronLeft, ChevronRight, Clock, LucideAngularModule, LucideIconData, Paperclip, Pencil, Plus, Repeat, Square } from 'lucide-angular';
+import { CalendarDays, CalendarRange, CalendarSearch, CalendarSync, ChevronLeft, ChevronRight, Clock, LucideAngularModule, LucideIconData, Paperclip, Pencil, Plus, Repeat, Square } from 'lucide-angular';
 import { map } from 'rxjs';
 import { MONTHS_LONG } from '../core/dates';
 import {
@@ -31,6 +31,8 @@ import { Settings } from '../core/settings';
 import { readText, writeText } from '../core/storage';
 import { cap } from '../core/text';
 import { CalendarMonth } from '../ui/calendar-month';
+import { GoogleAgenda } from '../core/google-agenda-sync';
+import { GoogleAgendaSheet } from '../ui/google-agenda-sheet';
 import { ClippedReviewCard } from '../ui/calendar-note';
 import { ReminderSheet } from '../ui/reminder-sheet';
 
@@ -93,7 +95,7 @@ function tiltOf(id: string): string {
  */
 @Component({
   selector: 'app-calendar-page',
-  imports: [CalendarMonth, ClippedReviewCard, LucideAngularModule, ReminderSheet],
+  imports: [CalendarMonth, ClippedReviewCard, GoogleAgendaSheet, LucideAngularModule, ReminderSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './calendar-page.html',
   styleUrl: './calendar-page.scss',
@@ -102,6 +104,7 @@ export class CalendarPage {
   protected readonly PrevIcon = ChevronLeft;
   protected readonly NextIcon = ChevronRight;
   protected readonly JumpIcon = CalendarSearch;
+  protected readonly GoogleIcon = CalendarSync;
   protected readonly PlusIcon = Plus;
   protected readonly RepeatIcon = Repeat;
   protected readonly ClipIcon = Paperclip;
@@ -119,6 +122,11 @@ export class CalendarPage {
   private readonly router = inject(Router);
   protected readonly looks = inject(Settings).categoryLooks;
   private readonly jumpInput = viewChild<ElementRef<HTMLInputElement>>('ir');
+  /** O Google Agenda (ver core/google-agenda-sync.ts): o botão na pasta e a folha dele. */
+  protected readonly google = inject(GoogleAgenda);
+  protected readonly googleOpen = signal(false);
+  /** O botão aparece para quem pode ligar (a conta está na lista da API) ou já ligou. */
+  protected readonly googleShown = computed(() => ['desligada', 'ligando', 'ligada'].includes(this.google.status()));
   /** Sem o calendário do aparelho (showPicker), o campo de data aparece ali mesmo. */
   protected readonly jumpShown = signal(false);
 
@@ -224,6 +232,8 @@ export class CalendarPage {
         this.create(ask.day ?? this.day());
       });
     });
+    // ligado, o Google Agenda acompanha o Calendário aberto
+    this.google.use();
     // o dia vira à meia-noite com o site aberto, e ao voltar para a aba
     const timer = setInterval(() => this.calendar.tick(), 60_000);
     const onVisible = () => document.visibilityState === 'visible' && this.calendar.tick();

@@ -4,6 +4,7 @@ import { HttpError } from './errors';
 import { offline, readOnly, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
+import { agendaRoutes } from './routes/agenda';
 import { catalogRoutes } from './routes/catalog';
 import { commentRoutes } from './routes/comments';
 import { followRoutes } from './routes/follow';
@@ -74,6 +75,7 @@ export function createApp(deps: Deps): Hono {
   commentRoutes(app, deps);
   noteRoutes(app, deps);
   catalogRoutes(app, deps);
+  agendaRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API.' }, 404));
 

@@ -276,6 +276,33 @@ dialog.lembrete {
   @include kit.botao-papel;
 }
 
+/* um evento do Google que só muda lá: o bilhete amarelo, com o caminho para lá */
+.nota-google {
+  max-width: 62ch;
+  padding: 10px 12px;
+  border-radius: 2px;
+  background: #fff1b8;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.18);
+  font-size: 0.94rem;
+  line-height: 1.45;
+
+  a {
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: underline 2px;
+    text-underline-offset: 3px;
+  }
+}
+
+.op:disabled,
+.segmento:has(input:disabled),
+.interruptor:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .head,
   .op {

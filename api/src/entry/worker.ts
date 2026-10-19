@@ -1,6 +1,7 @@
 import { d1Db } from '../adapters/d1';
 import { createApp } from '../app';
 import { readCatalogKeys } from '../routes/catalog';
+import { readAgendaKeys } from '../domain/agenda';
 import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
@@ -22,6 +23,9 @@ interface Env {
   /** Secrets (`wrangler secret put`), nunca no wrangler.toml: as chaves do site na busca. */
   TMDB_KEY?: string;
   RAWG_KEY?: string;
+  /** O Google Agenda: o client secret do cliente OAuth e a chave (32 bytes em base64) que cifra a permissão. */
+  GOOGLE_CLIENT_SECRET?: string;
+  AGENDA_CHAVE?: string;
 }
 
 /** Fora do `fetch`: as chaves do Google ficam guardadas enquanto o Worker está de pé. */
@@ -35,6 +39,7 @@ function deps(env: Env): Deps {
     now: () => new Date(),
     verifyGoogle: googleVerifier(config.googleClientId, googleKeys),
     catalog: { keys: readCatalogKeys(env as unknown as Record<string, unknown>) },
+    agenda: { keys: readAgendaKeys(env as unknown as Record<string, unknown>) },
   };
 }
 

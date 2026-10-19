@@ -31,6 +31,14 @@
     </div>
     <h2 class="periodo" aria-live="polite">{{ period() }}</h2>
     <div class="pasta-controles">
+      @if (googleShown()) {
+        <div class="pasta-grupo">
+          <button type="button" class="tinta google" aria-haspopup="dialog" [attr.aria-pressed]="google.status() === 'ligada'" (click)="googleOpen.set(true)">
+            <lucide-icon [class.girando]="google.syncing()" [img]="GoogleIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            Google Agenda
+          </button>
+        </div>
+      }
       <div class="pasta-grupo ir">
         <button type="button" class="tinta" (click)="openJump()">
           <lucide-icon [img]="JumpIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
@@ -188,6 +196,10 @@
       </section>
     </div>
   }
+}
+
+@if (googleOpen()) {
+  <app-google-agenda-sheet (closed)="googleOpen.set(false)" />
 }
 
 @if (sheet(); as s) {

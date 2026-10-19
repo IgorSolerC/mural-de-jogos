@@ -3,6 +3,7 @@
  * as suas versões (ver `src/adapters/` e `src/entry/`). Trocar de host é escrever outro adaptador.
  */
 
+import type { AgendaKeys } from './domain/agenda';
 import type { VerifyGoogle } from './domain/google';
 
 /** O que pode ir num parâmetro de SQL. */
@@ -58,4 +59,9 @@ export interface Deps {
    * estão sem chave. `fetch` só muda nos testes.
    */
   catalog?: { keys: CatalogKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
+  /**
+   * O Google Agenda do Calendário (ver `src/routes/agenda.ts`): o client secret e a chave que cifra a
+   * permissão guardada. Sem isto, ele fica indisponível. `fetch` só muda nos testes.
+   */
+  agenda?: { keys: AgendaKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
 }

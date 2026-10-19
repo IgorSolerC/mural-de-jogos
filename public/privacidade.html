@@ -25,7 +25,7 @@
 <body>
 <main>
   <h1>Privacidade</h1>
-  <p class="data">Murall · última atualização: 12 de outubro de 2026</p>
+  <p class="data">Murall · última atualização: 18 de outubro de 2026</p>
 
   <div class="resumo">
     <p><strong>Sem conta, nada sai do seu aparelho.</strong> Com uma conta (entrando com o Google), o seu mural fica guardado na nuvem para você abrir em qualquer aparelho, e quem tiver o seu código pode ver as suas resenhas.</p>
@@ -40,7 +40,8 @@
   <ul>
     <li>O número que identifica a sua conta Google. <strong>Não guardamos o seu e-mail, a sua foto nem senha nenhuma.</strong></li>
     <li>O nome público que você escolher e o seu código de usuário.</li>
-    <li>O seu mural: resenhas, anotações, fila, wishlist, itens apagados e as tags fixas das anotações.</li>
+    <li>O seu mural: resenhas, anotações, fila, wishlist, itens apagados, as tags fixas das anotações, os quadros do Kanban e os lembretes do Calendário.</li>
+    <li>Se você ligar o Google Agenda (veja abaixo), a permissão que o Google dá ao Murall, guardada cifrada.</li>
     <li>As chaves da RAWG e do TMDB, se você colou alguma em Ajustes, para valerem nos seus outros aparelhos. Elas não vão no arquivo de backup nem no mural que os outros veem.</li>
     <li>Quem você segue e quem segue você.</li>
     <li>As reações que você deu às resenhas de quem você segue, e as que você recebeu, com a data.</li>
@@ -49,6 +50,16 @@
     <li>Os aparelhos conectados, com a data do último uso. A chave de cada sessão é guardada só de forma cifrada (hash).</li>
   </ul>
   <p>Ficam só no seu aparelho, e nunca vão para a nuvem: as preferências de exibição, os recordes dos jogos de Extras e os murais de colegas que você importou de arquivo.</p>
+
+  <h2>Google Agenda (opcional)</h2>
+  <p>No Calendário do Murall, você pode ligar a sua agenda principal do Google para os lembretes e os eventos se acompanharem nos dois sentidos. Só acontece se você tocar em <strong>Conectar o Google Agenda</strong> e der a permissão na tela do Google.</p>
+  <ul>
+    <li><strong>O que o Murall acessa:</strong> os eventos da sua agenda principal (o nome, quando começa e acaba, a repetição, a cor, se é um convite de outra pessoa e o link do evento), para mostrá-los no seu Calendário do Murall; e cria, muda e apaga lá os eventos dos seus lembretes do Murall. O Murall não lê o lugar, a descrição dos seus eventos nem os convidados, e não mexe em outras agendas.</li>
+    <li><strong>O que guardamos:</strong> a permissão do Google (o "refresh token"), cifrada, no servidor do Murall. Os eventos não ficam guardados no servidor: viram lembretes do seu Calendário, que ficam no seu aparelho e no seu mural da nuvem, como os outros lembretes, só para você.</li>
+    <li><strong>Ninguém mais vê:</strong> os dados do Google Agenda não vão para o mural que os outros veem, não são vendidos, não servem para anúncios e não são usados para treinar inteligência artificial.</li>
+    <li><strong>Para desligar:</strong> em Calendário › Google Agenda › Desconectar (a permissão é devolvida ao Google e apagada do servidor), em <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, ou apagando a conta.</li>
+  </ul>
+  <p>O uso e a transferência, para qualquer outro app, de informações recebidas das APIs do Google seguem a <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de Dados do Usuário dos Serviços de API do Google</a>, incluindo os requisitos de Uso Limitado.</p>
 
   <h2>Quem vê o quê</h2>
   <ul>
@@ -65,7 +76,7 @@
   <p>Na Cloudflare (Workers e banco D1), cujos servidores podem ficar fora do Brasil. Uma cópia diária do banco, trancada com senha (AES-256), fica guardada por 30 dias no GitHub, para recuperar o serviço se algo der errado. A entrada usa o login do Google (Google Identity Services): o Google fica sabendo que você entrou no Murall, conforme a política de privacidade dele.</p>
 
   <h2>Por quanto tempo</h2>
-  <p>Até você apagar a conta. Em Ajustes, <strong>Apagar conta</strong> remove na hora a conta, o mural, quem você segue, quem segue você, as reações (as que você deu e as que recebeu), os comentários (os que você escreveu e os que escreveram nas suas fichas) e as notificações. As cópias de recuperação guardam o estado anterior por até 30 dias (as da Cloudflare, 7 dias; a cópia diária trancada, 30) e depois somem. Sessões sem uso por 90 dias são encerradas.</p>
+  <p>Até você apagar a conta. Em Ajustes, <strong>Apagar conta</strong> remove na hora a conta, o mural, a permissão do Google Agenda, quem você segue, quem segue você, as reações (as que você deu e as que recebeu), os comentários (os que você escreveu e os que escreveram nas suas fichas) e as notificações. As cópias de recuperação guardam o estado anterior por até 30 dias (as da Cloudflare, 7 dias; a cópia diária trancada, 30) e depois somem. Sessões sem uso por 90 dias são encerradas.</p>
 
   <h2>Seus direitos</h2>
   <p>Pela Lei Geral de Proteção de Dados (LGPD), você pode saber o que é guardado (esta página), ter uma cópia (o backup em Ajustes), corrigir (editando no próprio mural) e apagar tudo (Apagar conta).</p>

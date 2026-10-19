@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
-import { CalendarState, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay } from './calendar';
+import { CalendarState, GoogleLink, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay } from './calendar';
 import { todayISO } from './dates';
 
 /** A hora do aparelho, 'HH:MM'. */
@@ -19,6 +19,13 @@ function read(): CalendarState {
   } catch {
     return { reminders: [], removed: {} };
   }
+}
+
+/** Agora, mas sempre depois de `prev` (duas mudanças no mesmo milissegundo continuam em ordem). */
+function stampAfter(prev: string | undefined): string {
+  const now = Date.now();
+  const before = prev ? Date.parse(prev) : NaN;
+  return new Date(Number.isFinite(before) && before >= now ? before + 1 : now).toISOString();
 }
 
 /** O pedido de um lembrete novo (o botão do topo, o N, um dia da folha), com o dia em que ele nasce. */
@@ -85,20 +92,58 @@ export class CalendarStore {
 
   /** Guarda o lembrete (novo, ou no lugar do de mesmo id), mais novo que antes. */
   save(r: Reminder): void {
-    const at = new Date().toISOString();
-    const next = { ...r, at };
     const st = this.state();
     const i = st.reminders.findIndex((x) => x.id === r.id);
+    const at = stampAfter(i >= 0 ? st.reminders[i].at : undefined);
+    const next = { ...r, at };
     const reminders = i >= 0 ? st.reminders.map((x, j) => (j === i ? next : x)) : [...st.reminders, next];
     const removed = { ...st.removed };
     delete removed[r.id];
-    this.set({ reminders, removed });
+    this.set({ ...st, reminders, removed });
   }
 
   remove(id: string): void {
     const st = this.state();
-    if (!st.reminders.some((r) => r.id === id)) return;
-    this.set({ reminders: st.reminders.filter((r) => r.id !== id), removed: { ...st.removed, [id]: new Date().toISOString() } });
+    const gone = st.reminders.find((r) => r.id === id);
+    if (!gone) return;
+    const at = new Date().toISOString();
+    // ligado a um evento do Google (que é dele): o evento sai de lá também (ver GoogleAgenda)
+    const trash = gone.google && !gone.google.lock ? { googleTrash: { ...st.googleTrash, [gone.google.id]: at } } : {};
+    this.set({ ...st, ...trash, reminders: st.reminders.filter((r) => r.id !== id), removed: { ...st.removed, [id]: at } });
+  }
+
+  /**
+   * O que veio do Google Agenda: os lembretes como estão lá (com o `at` da mudança de lá, o mesmo em
+   * todo aparelho) e os apagados lá (que não voltam para o lixo do Google).
+   */
+  applyGoogle(upserts: readonly Reminder[], removes: readonly { id: string; at: string }[]): void {
+    if (!upserts.length && !removes.length) return;
+    const st = this.state();
+    const byId = new Map(st.reminders.map((r) => [r.id, r]));
+    for (const r of upserts) byId.set(r.id, r);
+    const removed = { ...st.removed };
+    for (const { id, at } of removes) {
+      byId.delete(id);
+      removed[id] = at;
+    }
+    this.set({ ...st, reminders: [...byId.values()], removed });
+  }
+
+  /**
+   * O lembrete foi para o Google: guarda o evento dele. Se ele não mudou enquanto ia (`sent` é o `at`
+   * que foi), fica igual ao de lá; se mudou, continua com mudança para mandar.
+   */
+  linkGoogle(id: string, link: Omit<GoogleLink, 'at'>, sent: string): void {
+    const st = this.state();
+    const r = st.reminders.find((x) => x.id === id);
+    if (!r) return;
+    const google: GoogleLink = { ...r.google, ...link };
+    if (r.at !== sent) {
+      this.set({ ...st, reminders: st.reminders.map((x) => (x === r ? { ...x, google: { ...google, at: sent } } : x)) });
+      return;
+    }
+    const at = stampAfter(r.at);
+    this.set({ ...st, reminders: st.reminders.map((x) => (x === r ? { ...x, at, google: { ...google, at } } : x)) });
   }
 
   /** Desfazer: o lembrete volta como era, mais novo que a mudança desfeita. */
@@ -140,12 +185,11 @@ export class CalendarStore {
 
   private change(id: string, fn: (r: Reminder, at: string) => Reminder): void {
     const st = this.state();
-    const at = new Date().toISOString();
     let changed = false;
     const reminders = st.reminders.map((r) => {
       if (r.id !== id) return r;
       changed = true;
-      return fn(r, at);
+      return fn(r, stampAfter(r.at));
     });
     if (changed) this.set({ ...st, reminders });
   }

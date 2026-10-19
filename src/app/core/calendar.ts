@@ -27,6 +27,24 @@ export const MAX_NOTES = 12;
 /** Quantos dias tirados (pulados) um lembrete guarda: os mais recentes. */
 const MAX_MARKS = 500;
 const MAX_REMINDERS = 3000;
+/** O maior intervalo de uma repetição (a cada 99 dias, semanas, meses ou anos). */
+const MAX_EVERY = 99;
+
+/**
+ * O lembrete ligado a um evento do Google Agenda (ver core/google-agenda.ts): o id do evento, a versão
+ * dele (`etag`), o `at` do lembrete quando os dois estavam iguais (diferente: há mudança daqui para
+ * mandar), o endereço do evento no Google e, quando o Murall não pode mudar o evento, por quê.
+ */
+export interface GoogleLink {
+  id: string;
+  etag?: string;
+  at?: string;
+  link?: string;
+  /** convite: o evento é de outra pessoa; repeticao: repete de um jeito que só o Google muda; google: um tipo especial do Google (aniversário). */
+  lock?: 'convite' | 'repeticao' | 'google';
+  /** Quanto o evento dura no Google, quando não é o de sempre: minutos (com horário) ou dias (o dia todo). */
+  dur?: number;
+}
 
 export interface Reminder {
   id: string;
@@ -36,6 +54,12 @@ export interface Reminder {
   /** 'HH:MM'; sem horário, é o dia todo. */
   time?: string;
   repeat?: Repeat;
+  /** A cada quantos dias, semanas, meses ou anos (sem o campo, 1). Vem do Google: o Murall não escreve. */
+  every?: number;
+  /** Na semana: os dias (0 é domingo). Vem do Google, como o `every`. */
+  days?: number[];
+  /** O último dia em que ele pode aparecer (a repetição acaba). */
+  until?: string;
   color: LightStock;
   /** As anotações anexadas, na ordem em que foram presas. */
   notes: string[];
@@ -44,12 +68,16 @@ export interface Reminder {
   createdAt: string;
   /** Quando mudou por último (a junção entre aparelhos fica com o mais novo). */
   at: string;
+  /** O evento do Google Agenda ligado a ele. */
+  google?: GoogleLink;
 }
 
 export interface CalendarState {
   reminders: Reminder[];
   /** Os apagados: id → quando. Um lembrete mais velho que isso não volta de outro aparelho. */
   removed: Record<string, string>;
+  /** Os eventos do Google de lembretes apagados no Murall: id do evento → quando (para apagar lá). */
+  googleTrash?: Record<string, string>;
 }
 
 export const EMPTY_CALENDAR: CalendarState = { reminders: [], removed: {} };
@@ -194,9 +222,38 @@ function everyWeekday(day: string): string {
   return `${w === 0 || w === 6 ? 'Todo' : 'Toda'} ${WEEKDAYS_LONG[w]}`;
 }
 
+const WEEKDAYS_PLAIN = WEEKDAYS_LONG.map((w) => w.replace('-feira', ''));
+
+/** "segunda e quarta", "segunda, quarta e sexta". */
+function joinDays(days: readonly number[]): string {
+  const names = [...days].sort().map((d) => WEEKDAYS_PLAIN[d]);
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}` : (names[0] ?? '');
+}
+
+const UNIT: Record<Repeat, [string, string]> = { dia: ['dia', 'dias'], semana: ['semana', 'semanas'], mes: ['mês', 'meses'], ano: ['ano', 'anos'] };
+
 /** Como ele se repete, por extenso, para o lembrete aberto: "Todo ano, em 23 de agosto." */
-export function repeatSentence(repeat: Repeat | undefined, date: string): string {
+export function repeatSentence(repeat: Repeat | undefined, date: string, extra: Pick<Reminder, 'every' | 'days' | 'until'> = {}): string {
+  const base = baseSentence(repeat, date, extra);
+  return repeat && extra.until ? `${base.slice(0, -1)}, até ${longDay(extra.until)}.` : base;
+}
+
+function baseSentence(repeat: Repeat | undefined, date: string, extra: Pick<Reminder, 'every' | 'days'>): string {
   const [, m, d] = parts(date);
+  const n = extra.every ?? 1;
+  if (repeat && (n > 1 || extra.days?.length)) {
+    const each = n > 1 ? `A cada ${n} ${UNIT[repeat][1]}` : repeat === 'semana' ? 'Toda semana' : '';
+    switch (repeat) {
+      case 'dia':
+        return `${each}, a partir de ${longDay(date)}.`;
+      case 'semana':
+        return `${each}, ${extra.days?.length ? `na ${joinDays(extra.days)}` : `na ${WEEKDAYS_PLAIN[weekday(date)]}`}, a partir de ${longDay(date)}.`;
+      case 'mes':
+        return `${each}, no dia ${d}.`;
+      case 'ano':
+        return `${each}, em ${dayAndMonth(date)}.`;
+    }
+  }
   switch (repeat) {
     case 'dia':
       return `Todo dia, a partir de ${longDay(date)}.`;
@@ -212,7 +269,9 @@ export function repeatSentence(repeat: Repeat | undefined, date: string): string
 }
 
 /** Como ele se repete, curto, para a linha impressa embaixo do nome: "todo ano", "toda quinta". */
-export function repeatShort(r: Pick<Reminder, 'repeat' | 'date'>): string {
+export function repeatShort(r: Pick<Reminder, 'repeat' | 'date' | 'every' | 'days'>): string {
+  if (r.repeat && (r.every ?? 1) > 1) return `a cada ${r.every} ${UNIT[r.repeat][1]}`;
+  if (r.repeat === 'semana' && r.days?.length) return joinDays(r.days.map((d) => d));
   switch (r.repeat) {
     case 'dia':
       return 'todo dia';
@@ -231,30 +290,43 @@ export function repeatShort(r: Pick<Reminder, 'repeat' | 'date'>): string {
 
 // ===== Quando ele aparece =====
 
+/** A semana do dia, contada de segunda a domingo (o jeito do Google contar o "a cada 2 semanas"). */
+function mondayWeek(day: string): number {
+  return Math.floor((dayNumber(day) + 3) / 7);
+}
+
+type Rule = Pick<Reminder, 'date' | 'repeat' | 'skip' | 'every' | 'days' | 'until'>;
+
 /** O lembrete aparece neste dia? */
-export function occursOn(r: Pick<Reminder, 'date' | 'repeat' | 'skip'>, day: string): boolean {
-  if (day < r.date || r.skip.includes(day)) return false;
+export function occursOn(r: Rule, day: string): boolean {
+  if (day < r.date || r.skip.includes(day) || (r.until && day > r.until)) return false;
   if (!r.repeat) return day === r.date;
-  const [, am, ad] = parts(r.date);
+  const n = r.every ?? 1;
+  const [ay, am, ad] = parts(r.date);
   const [y, m, d] = parts(day);
   switch (r.repeat) {
     case 'dia':
-      return true;
+      return (dayNumber(day) - dayNumber(r.date)) % n === 0;
     case 'semana':
-      return (dayNumber(day) - dayNumber(r.date)) % 7 === 0;
+      if (r.days?.length) return r.days.includes(weekday(day)) && (mondayWeek(day) - mondayWeek(r.date)) % n === 0;
+      return (dayNumber(day) - dayNumber(r.date)) % (7 * n) === 0;
     case 'mes':
-      return d === Math.min(ad, daysInMonth(y, m));
+      return (y * 12 + m - (ay * 12 + am)) % n === 0 && d === Math.min(ad, daysInMonth(y, m));
     case 'ano':
-      return m === am && d === Math.min(ad, daysInMonth(y, m));
+      return (y - ay) % n === 0 && m === am && d === Math.min(ad, daysInMonth(y, m));
   }
 }
 
 /** A próxima vez dele a partir do dia (o próprio dia vale), ou null se não há mais. */
-export function nextOccurrence(r: Pick<Reminder, 'date' | 'repeat' | 'skip'>, from: string): string | null {
+export function nextOccurrence(r: Rule, from: string): string | null {
   if (!r.repeat) return r.date >= from && !r.skip.includes(r.date) ? r.date : null;
   let day = from < r.date ? r.date : from;
-  // o que mais demora é o 29 de fevereiro (um ano) e alguns dias pulados depois dele
-  for (let i = 0; i < 3 * 366; i++, day = addDays(day, 1)) if (occursOn(r, day)) return day;
+  // o que mais demora é o 29 de fevereiro (um ano, ou alguns com o intervalo) e os dias pulados depois dele
+  const limit = Math.min(3 * 366 * (r.every ?? 1), 40 * 366);
+  for (let i = 0; i < limit; i++, day = addDays(day, 1)) {
+    if (r.until && day > r.until) return null;
+    if (occursOn(r, day)) return day;
+  }
   return null;
 }
 
@@ -311,9 +383,27 @@ function marks(days: string[]): string[] {
 // ===== Guardar e juntar =====
 
 const ID_RE = /^[\w-]{1,64}$/;
+const EVENT_ID_RE = /^[a-v0-9]{5,1024}$/;
+const LOCKS = ['convite', 'repeticao', 'google'];
 
 function isStamp(v: unknown): v is string {
   return typeof v === 'string' && v.length <= 40 && Number.isFinite(Date.parse(v));
+}
+
+function sanitizeLink(raw: unknown): GoogleLink | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const g = raw as Record<string, unknown>;
+  if (typeof g['id'] !== 'string' || !EVENT_ID_RE.test(g['id'])) return undefined;
+  const link = typeof g['link'] === 'string' && /^https:\/\/(www\.)?google\.com\/calendar\//.test(g['link']) && g['link'].length <= 600 ? g['link'] : undefined;
+  const dur = typeof g['dur'] === 'number' && Number.isInteger(g['dur']) && g['dur'] > 0 && g['dur'] <= 60 * 24 * 60 ? g['dur'] : undefined;
+  return {
+    id: g['id'],
+    ...(typeof g['etag'] === 'string' && g['etag'].length <= 100 ? { etag: g['etag'] } : {}),
+    ...(isStamp(g['at']) ? { at: g['at'] } : {}),
+    ...(link ? { link } : {}),
+    ...(LOCKS.includes(g['lock'] as string) ? { lock: g['lock'] as GoogleLink['lock'] } : {}),
+    ...(dur ? { dur } : {}),
+  };
 }
 
 export function sanitizeReminder(raw: unknown): Reminder | null {
@@ -324,18 +414,36 @@ export function sanitizeReminder(raw: unknown): Reminder | null {
   const notes = Array.isArray(r['notes']) ? [...new Set(r['notes'].filter((n): n is string => typeof n === 'string' && ID_RE.test(n)))].slice(0, MAX_NOTES) : [];
   const repeat = (REPEATS as readonly unknown[]).includes(r['repeat']) ? (r['repeat'] as Repeat) : undefined;
   const createdAt = isStamp(r['createdAt']) ? r['createdAt'] : new Date(0).toISOString();
+  const every = repeat && typeof r['every'] === 'number' && Number.isInteger(r['every']) && r['every'] > 1 && r['every'] <= MAX_EVERY ? r['every'] : undefined;
+  const days =
+    repeat === 'semana' && Array.isArray(r['days'])
+      ? [...new Set(r['days'].filter((d): d is number => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6))].sort()
+      : [];
+  const until = repeat && isDay(r['until']) && r['until'] >= (r['date'] as string) ? r['until'] : undefined;
+  const google = sanitizeLink(r['google']);
   return {
     id: r['id'],
     title,
     date: r['date'],
     ...(isTime(r['time']) ? { time: r['time'] } : {}),
     ...(repeat ? { repeat } : {}),
+    ...(every ? { every } : {}),
+    ...(days.length ? { days } : {}),
+    ...(until ? { until } : {}),
     color: (LIGHT_STOCKS as readonly unknown[]).includes(r['color']) ? (r['color'] as LightStock) : 'amarelo',
     notes,
     skip: repeat && Array.isArray(r['skip']) ? marks(r['skip'] as string[]) : [],
     createdAt,
     at: isStamp(r['at']) ? r['at'] : createdAt,
+    ...(google ? { google } : {}),
   };
+}
+
+function sanitizeTrash(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [id, at] of Object.entries(raw as Record<string, unknown>).slice(0, MAX_REMINDERS)) if (EVENT_ID_RE.test(id) && isStamp(at)) out[id] = at;
+  return out;
 }
 
 export function sanitizeCalendar(raw: unknown): CalendarState {
@@ -350,7 +458,8 @@ export function sanitizeCalendar(raw: unknown): CalendarState {
     const rem = sanitizeReminder(item);
     if (rem && !(removed[rem.id] && removed[rem.id] >= rem.at)) byId.set(rem.id, rem);
   }
-  return { reminders: [...byId.values()].sort(byCreation), removed };
+  const trash = sanitizeTrash(r['googleTrash']);
+  return { reminders: [...byId.values()].sort(byCreation), removed, ...(Object.keys(trash).length ? { googleTrash: trash } : {}) };
 }
 
 /**
@@ -367,7 +476,9 @@ export function mergeCalendar(here: CalendarState, there: CalendarState): Calend
     if (!before || r.at > before.at || (r.at === before.at && JSON.stringify(r) > JSON.stringify(before))) byId.set(r.id, r);
   }
   const reminders = [...byId.values()].filter((r) => !(removed[r.id] && removed[r.id] >= r.at)).sort(byCreation);
-  return { reminders, removed };
+  const trash: Record<string, string> = { ...here.googleTrash };
+  for (const [id, at] of Object.entries(there.googleTrash ?? {})) if (!trash[id] || at > trash[id]) trash[id] = at;
+  return { reminders, removed, ...(Object.keys(trash).length ? { googleTrash: trash } : {}) };
 }
 
 /** O que vai para a nuvem: null sem nada (o mural de antes do Calendário fica com a mesma impressão). */

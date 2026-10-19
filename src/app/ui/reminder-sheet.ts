@@ -58,6 +58,14 @@ const FIRST_TIME = '09:00';
         </header>
 
         <form class="body" id="lb-form" (submit)="$event.preventDefault(); save()">
+          @if (lockText(); as lt) {
+            <p class="nota-google">
+              {{ lt }} As anotações você prende aqui.
+              @if (d.google?.link; as link) {
+                <a [href]="link" target="_blank" rel="noopener noreferrer">Abrir no Google Agenda</a>
+              }
+            </p>
+          }
           <section class="grupo" aria-labelledby="lb-nome-t">
             <h3 class="grupo-titulo" id="lb-nome-t">O que lembrar</h3>
             <label class="campo nome" [class.erro]="missing()">
@@ -70,6 +78,7 @@ const FIRST_TIME = '09:00';
                 placeholder="Ex.: Aniversário da Bruna"
                 [maxLength]="titleMax"
                 [value]="d.title"
+                [readOnly]="!!locked()"
                 [attr.aria-invalid]="missing() || null"
                 [attr.aria-describedby]="missing() ? 'lb-nome-erro' : null"
                 (input)="setTitle($any($event.target).value)"
@@ -85,12 +94,12 @@ const FIRST_TIME = '09:00';
             <div class="quando">
               <label class="campo data">
                 <span class="campo-nome">Dia</span>
-                <input type="date" required [value]="d.date" (change)="setDate($any($event.target).value)" />
+                <input type="date" required [value]="d.date" [disabled]="!!locked()" (change)="setDate($any($event.target).value)" />
               </label>
               @if (d.time) {
                 <label class="campo hora">
                   <span class="campo-nome">Às</span>
-                  <input type="time" required [value]="d.time" (change)="setTime($any($event.target).value)" />
+                  <input type="time" required [value]="d.time" [disabled]="!!locked()" (change)="setTime($any($event.target).value)" />
                 </label>
               }
             </div>
@@ -99,7 +108,7 @@ const FIRST_TIME = '09:00';
                 <p class="linha-nome" id="lb-todo">Dia todo</p>
                 <p class="linha-desc" id="lb-todo-d">{{ d.time ? 'Com horário, ele entra no dia na ordem das horas.' : 'Sem horário, ele fica no alto do dia.' }}</p>
               </div>
-              <button type="button" class="interruptor" role="switch" [attr.aria-checked]="!d.time" aria-labelledby="lb-todo" aria-describedby="lb-todo-d" (click)="toggleAllDay()">
+              <button type="button" class="interruptor" role="switch" [attr.aria-checked]="!d.time" [disabled]="!!locked()" aria-labelledby="lb-todo" aria-describedby="lb-todo-d" (click)="toggleAllDay()">
                 <span class="bolinha"></span>
               </button>
             </div>
@@ -111,7 +120,7 @@ const FIRST_TIME = '09:00';
             <div class="segmentos" role="radiogroup" aria-labelledby="lb-rep-t">
               @for (o of repeatOptions; track o) {
                 <label class="segmento">
-                  <input type="radio" name="lb-repetir" [checked]="(d.repeat ?? 'nunca') === o" (change)="setRepeat(o)" />
+                  <input type="radio" name="lb-repetir" [checked]="(d.repeat ?? 'nunca') === o" [disabled]="!!locked()" (change)="setRepeat(o)" />
                   <span class="seg-nome">{{ repeatLabel[o] }}</span>
                 </label>
               }
@@ -128,6 +137,7 @@ const FIRST_TIME = '09:00';
                   class="op cor"
                   [style.--stock]="'var(--stock-' + s + ')'"
                   [attr.aria-checked]="d.color === s"
+                  [disabled]="!!locked()"
                   [attr.aria-label]="stockLabel[s]"
                   [title]="stockLabel[s]"
                   (click)="patch({ color: s })"
@@ -176,7 +186,7 @@ const FIRST_TIME = '09:00';
         </form>
 
         <footer class="foot">
-          @if (!isNew()) {
+          @if (!isNew() && !locked()) {
             <button type="button" class="papel perigo" (click)="remove()">
               <lucide-icon [img]="TrashIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
               Apagar
@@ -244,17 +254,32 @@ export class ReminderSheet {
   /** As anotações anexadas que existem (uma apagada some daqui sem mexer no lembrete). */
   protected readonly attached = computed(() => this.draft().notes.map((id) => this.store.get(id)).filter((r): r is Review => !!r));
 
-  /** Embaixo do título: o dia por extenso e o horário. */
+  /** Embaixo do título: o dia por extenso, o horário e, ligado, que está no Google Agenda. */
   protected readonly whenLine = computed(() => {
     const d = this.draft();
-    const when = `${WEEKDAYS_LONG[weekday(d.date)]}, ${longDay(d.date)}`;
-    return d.time ? `${when} · ${timeLabel(d.time)}` : when;
+    const when = `${WEEKDAYS_LONG[weekday(d.date)]}, ${longDay(d.date)}` + (d.time ? ` · ${timeLabel(d.time)}` : '');
+    return d.google ? `${when} · No Google Agenda` : when;
+  });
+
+  /** Um evento do Google que o Murall não pode mudar (convite, repetição só do Google, tipo especial). */
+  protected readonly locked = computed(() => this.draft().google?.lock ?? null);
+  protected readonly lockText = computed(() => {
+    switch (this.locked()) {
+      case 'convite':
+        return 'Este evento é um convite de outra pessoa no Google Agenda: só quem convidou muda.';
+      case 'repeticao':
+        return 'Este evento repete de um jeito que só o Google Agenda muda: mude por lá.';
+      case 'google':
+        return 'Este é um evento especial do Google Agenda: só dá para mudar lá.';
+      default:
+        return null;
+    }
   });
 
   /** Como se repete, por extenso, e quando é a próxima vez (se não for o próprio dia). */
   protected readonly sentence = computed(() => {
     const d = this.draft();
-    const base = repeatSentence(d.repeat, d.date);
+    const base = repeatSentence(d.repeat, d.date, d);
     if (!d.repeat) return base;
     const next = nextOccurrence(d, this.calendar.today());
     return next && next !== d.date ? `${base} Próxima vez: ${WEEKDAYS_LONG[weekday(next)]}, ${longDay(next)}.` : base;

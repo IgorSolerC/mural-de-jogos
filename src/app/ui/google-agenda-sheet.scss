@@ -1,0 +1,115 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+:host {
+  display: contents;
+}
+
+/* A ficha de fichário dos diálogos, com a faixa azul dos ajustes. */
+dialog.google-agenda {
+  width: 100%;
+  max-width: min(540px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+.body {
+  gap: 20px;
+  padding-top: 18px;
+}
+
+.grupo {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.grupo-titulo {
+  @include kit.grupo-titulo;
+}
+
+.texto {
+  max-width: 60ch;
+  line-height: 1.45;
+
+  &.ralo {
+    color: var(--ink-2);
+    font-size: 0.94rem;
+  }
+
+  a {
+    color: var(--ink);
+    text-decoration: underline 2px;
+    text-underline-offset: 3px;
+  }
+}
+
+.pontos {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.2em;
+  max-width: 60ch;
+  line-height: 1.45;
+
+  li::marker {
+    color: var(--ink-2);
+  }
+}
+
+.estado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+
+  .estado-icone {
+    display: inline-flex;
+  }
+}
+
+/* o que ficou só no Google: um bilhete amarelo, como o aviso do backup atrasado nos Ajustes */
+.nota-papel {
+  max-width: 60ch;
+  padding: 10px 12px;
+  border-radius: 2px;
+  background: #fff1b8;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.18);
+  font-size: 0.94rem;
+  line-height: 1.4;
+}
+
+.acoes-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+.erro {
+  padding: 10px 12px;
+  border-radius: 2px;
+  background: #fbe7e3;
+  color: var(--error-ink);
+  font-weight: 600;
+}

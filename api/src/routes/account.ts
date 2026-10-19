@@ -207,6 +207,9 @@ export function accountRoutes(app: Hono, deps: Deps): void {
         { sql: `DELETE FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})`, params: [id, id, id] },
         { sql: 'DELETE FROM comentarios WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
         { sql: 'DELETE FROM freios WHERE usuario_id = ?', params: [id] },
+        // a permissão do Google Agenda guardada (a do Google mesmo, a pessoa tira lá)
+        { sql: 'DELETE FROM agenda_google WHERE usuario_id = ?', params: [id] },
+        { sql: 'DELETE FROM agenda_pedidos WHERE usuario_id = ?', params: [id] },
         // as anotações compartilhadas: as dela somem para todos; nas dos outros, ela sai (e eles veem a lista nova)
         { sql: 'UPDATE notas SET versao = versao + 1 WHERE id IN (SELECT nota_id FROM nota_membros WHERE usuario_id = ?)', params: [id] },
         { sql: `DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref IN (${NOTES_OF})`, params: [id] },

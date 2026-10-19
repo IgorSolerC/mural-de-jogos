@@ -16,6 +16,9 @@ ORIGENS = "https://murall.igorsc.com.br,https://igorsolerc.github.io,http://loca
 COTA_LINHAS_DIA = "60000"
 # Quem abre um mural pelo código: todos | logados (qualquer outro valor: logados).
 VER_MURAIS = "todos"
+# Quem vê o Google Agenda no Calendário: os códigos das contas, separados por vírgula (os usuários de
+# teste, enquanto o app não é verificado pelo Google); vazio, ninguém; "*", todo mundo.
+AGENDA_CODIGOS = ""
 # Público (vai também no site); é o `aud` que o login confere.
 GOOGLE_CLIENT_ID = "891037362218-0d8ncsj5p4n6pmvqlei60qs7l1oo7f4t.apps.googleusercontent.com"
 

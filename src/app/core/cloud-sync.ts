@@ -126,11 +126,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     enviaria o quadro assim, e a seta voltaria a parar nela em todo aparelho.
  * 26: os lembretes do Calendário das anotações (`calendario`, só no mural privado, juntados lembrete a
  *     lembrete). Um site antigo enviaria o mural sem eles, e eles sumiriam da nuvem.
+ * 27: o lembrete ligado ao Google Agenda (`google`), as repetições que vêm de lá (`every`, `days`,
+ *     `until`) e os eventos do Google a apagar (`googleTrash`). Um site antigo jogaria os campos fora e,
+ *     sem o `google`, o outro aparelho mandaria tudo de novo como mudança.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 26;
+export const SYNC_SCHEMA = 27;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

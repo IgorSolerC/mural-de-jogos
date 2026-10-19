@@ -8,6 +8,7 @@ import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Choice, Confirm } from '../ui/confirm';
 import { CalendarPage } from './calendar-page';
+import { GoogleAgenda } from '../core/google-agenda-sync';
 
 /** A página do Calendário: as três vistas, andar pelos períodos, a folha do lembrete e as anotações anexadas. */
 
@@ -247,6 +248,46 @@ describe('página do Calendário', () => {
       TestBed.inject(ReviewStore).reviews.update((list) => list.filter((r) => r.id !== 'nbolo0001'));
       await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
       expect($$('.anexada').length).toBe(1);
+    });
+  });
+
+  describe('o Google Agenda', () => {
+    it('o botão só aparece para quem pode ligar, e abre a folha que explica e liga', async () => {
+      await go('/anotacoes/calendario');
+      expect($('.tinta.google')).toBeNull();
+      const google = TestBed.inject(GoogleAgenda);
+      google.status.set('desligada');
+      await settle();
+      $<HTMLButtonElement>('.tinta.google')!.click();
+      await settle();
+      const sheet = document.querySelector<HTMLDialogElement>('dialog.google-agenda')!;
+      expect(sheet.open).toBeTrue();
+      expect(text(sheet.querySelector('.btn-ink'))).toBe('Conectar o Google Agenda');
+      expect(text(sheet)).toContain('de 30 dias atrás em diante');
+      google.status.set('ligada');
+      google.skipped.set({ repeticao: 2, excecao: 0 });
+      await settle();
+      expect(text(sheet.querySelector('.nota-papel'))).toBe('2 eventos repetem de um jeito que o Murall não sabe mostrar: ficaram só no Google.');
+      expect([...sheet.querySelectorAll('.papel')].map(text)).toEqual(['Sincronizar agora', 'Desconectar']);
+      sheet.close();
+    });
+
+    it('um convite de outra pessoa abre só para ler (as anotações ainda se prendem), com o caminho para o Google', async () => {
+      calendar.save(
+        reminder('gconvite0001', 'Reunião', '2026-10-21', { google: { id: 'convite0001', lock: 'convite', link: 'https://www.google.com/calendar/event?eid=abc' } }),
+      );
+      await go('/anotacoes/calendario?vista=dia&dia=2026-10-21');
+      const entry = $$('.entrada').find((e) => text(e.querySelector('.lembrete-nome')) === 'Reunião')!;
+      entry.querySelector<HTMLElement>('.editar')!.click();
+      await settle();
+      const s = sheet()!;
+      expect(text(s.querySelector('.nota-google'))).toContain('convite de outra pessoa');
+      expect(s.querySelector<HTMLAnchorElement>('.nota-google a')!.href).toBe('https://www.google.com/calendar/event?eid=abc');
+      expect(s.querySelector<HTMLInputElement>('.nome input')!.readOnly).toBeTrue();
+      expect(s.querySelector<HTMLInputElement>('input[type="date"]')!.disabled).toBeTrue();
+      expect(s.querySelector('.perigo')).toBeNull();
+      expect(text(s.querySelector('.sub'))).toContain('No Google Agenda');
+      expect([...s.querySelectorAll<HTMLButtonElement>('.anexar .papel')].every((b) => !b.disabled)).toBeTrue();
     });
   });
 

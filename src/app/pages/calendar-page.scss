@@ -70,6 +70,27 @@
   }
 }
 
+/* o Google Agenda ligado: o marca-texto do ligado da pasta; sincronizando, o desenho gira */
+.google lucide-icon {
+  display: inline-flex;
+}
+
+.girando {
+  animation: girar 1.1s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .girando {
+    animation: none;
+  }
+}
+
 /* o Hoje marcado a marca-texto enquanto o período aberto tem o dia de hoje (como o ligado da pasta) */
 .pasta .hoje[aria-current]::before {
   opacity: 1;

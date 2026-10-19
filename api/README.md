@@ -32,6 +32,31 @@ Limites: a RAWG grátis dá 20 mil pedidos por mês para a chave inteira (cada r
 5 a 10: a busca enquanto digita, a capa da Steam e a escolha de capa); o TMDB não tem cota mensal, só um
 limite por segundo. Os dois pedem crédito: está no pé de Ajustes › Busca.
 
+## Google Agenda (Calendário)
+
+O Calendário das anotações sincroniza com a agenda principal do Google, nos dois sentidos
+(`src/routes/agenda.ts`, migração `0013_agenda.sql`). A API guarda só a permissão (o refresh token,
+cifrado com AES-GCM) e conversa com o Google; quem converte lembrete em evento é o site.
+
+- `GET /v1/agenda`: disponível para a conta? ligado? desde quando?
+- `POST /v1/agenda/conectar` `{ retorno }`: o endereço do Google (o `retorno` é o `google.html` do site).
+- `POST /v1/agenda/retorno` `{ codigo, estado }`: troca o código pela permissão e guarda.
+- `DELETE /v1/agenda`: devolve a permissão ao Google e apaga.
+- `GET /v1/agenda/eventos?sync=&pagina=`: o que mudou na agenda (410 `agenda-refazer`: ler do zero).
+- `POST /v1/agenda/enviar` `{ ops }`: até 25 mudanças (criar, mudar, apagar), cada uma com a sua resposta.
+
+Para ligar (uma vez):
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_SECRET   # o client secret do cliente OAuth do site (o mesmo client ID do login)
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | npx wrangler secret put AGENDA_CHAVE
+```
+
+E, no `wrangler.toml`, `AGENDA_CODIGOS`: os códigos das contas que veem o Google Agenda (os usuários
+de teste, enquanto o app não é verificado pelo Google); vazio, ninguém; `*`, todo mundo. No Google
+Cloud: a Google Calendar API ativada, o escopo `calendar.events` na tela de permissão e o endereço
+`https://murall.igorsc.com.br/google.html` em "URIs de redirecionamento autorizados" do cliente OAuth.
+
 ## Como está montada
 
 O núcleo (`src/app.ts`, `src/domain/`) é TypeScript comum com [Hono](https://hono.dev) e não sabe que

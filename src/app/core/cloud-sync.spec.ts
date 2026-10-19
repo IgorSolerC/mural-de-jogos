@@ -897,6 +897,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 26, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 27, hex: '6fb8c1ec5ce8b170b9c653e4607b4d4707487541864b1b084490da5ea322a041' });
   });
 });

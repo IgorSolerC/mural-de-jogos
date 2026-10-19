@@ -15,5 +15,7 @@ export async function cleanup(deps: Deps): Promise<void> {
     { sql: 'DELETE FROM uso_diario WHERE dia < ?', params: [utcDay(new Date(now.getTime() - 30 * DAY_MS))] },
     { sql: 'DELETE FROM seguindo_desfeito WHERE desfeito_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
     { sql: 'DELETE FROM freios WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
+    // os pedidos para ligar o Google Agenda que ninguém terminou (valem 15 minutos)
+    { sql: 'DELETE FROM agenda_pedidos WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
   ]);
 }
