@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import { LucideAngularModule, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CardLook, sanitizeLook } from '../core/card-look';
 import { updateColumn } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
@@ -26,7 +26,7 @@ export function sampleNote(id: string, name: string, look: CardLook): Review {
  */
 @Component({
   selector: 'app-kanban-template-sheet',
-  imports: [BackdropClose, CardKit, KanbanReviewCard, LucideAngularModule],
+  imports: [BackdropClose, CardKit, KanbanReviewCard, IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet modelo" aria-labelledby="kt-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -38,7 +38,7 @@ export function sampleNote(id: string, name: string, look: CardLook): Review {
               <p class="sub">Coluna {{ col.name }} · {{ count() === 1 ? '1 anotação veste' : count() + ' anotações vestem' }}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar sem mudar" (click)="close()">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
 
@@ -91,7 +91,7 @@ export class KanbanTemplateSheet {
   readonly columnId = input.required<string>();
   readonly closed = output<void>();
 
-  protected readonly CloseIcon = X;
+  protected readonly CloseIcon = ICON.fechar;
   private readonly kanban = inject(KanbanStore);
   private readonly toasts = inject(Toasts);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');

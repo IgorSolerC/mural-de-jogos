@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject,
 import { focusAfterRender, tabStep } from '../ui/focus';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Bell, BellOff, Check, Copy, Ellipsis, GalleryVerticalEnd, Link, LucideAngularModule, UserMinus, UserPlus, UserX, UsersRound } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals, muralLink } from '../core/cloud-murals';
@@ -63,7 +64,7 @@ const BOARD_FACES = 8;
  */
 @Component({
   selector: 'app-mail-page',
-  imports: [Busy, FeedPost, LucideAngularModule, NoticeList, PersonPhoto, Pin, PineBoard, ReviewReader, RouterLink],
+  imports: [Busy, FeedPost, IconModule, NoticeList, PersonPhoto, Pin, PineBoard, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mail-page.html',
   styleUrl: './mail-page.scss',
@@ -90,20 +91,20 @@ export class MailPage {
   private readonly comments = inject(Comments);
   private readonly injector = inject(Injector);
 
-  protected readonly FollowIcon = UserPlus;
-  protected readonly CheckIcon = Check;
-  protected readonly MuteIcon = BellOff;
-  protected readonly UnmuteIcon = Bell;
-  protected readonly MoreIcon = Ellipsis;
-  protected readonly CopyIcon = Copy;
-  protected readonly LinkIcon = Link;
-  protected readonly UnfollowIcon = UserMinus;
-  protected readonly RemoveIcon = UserX;
+  protected readonly FollowIcon = ICON.seguir;
+  protected readonly CheckIcon = ICON.pronto;
+  protected readonly MuteIcon = ICON.silenciar;
+  protected readonly UnmuteIcon = ICON.avisos;
+  protected readonly MoreIcon = ICON.maisOpcoes;
+  protected readonly CopyIcon = ICON.copiar;
+  protected readonly LinkIcon = ICON.link;
+  protected readonly UnfollowIcon = ICON.deixarDeSeguir;
+  protected readonly RemoveIcon = ICON.removerPessoa;
 
-  protected readonly tabs: readonly { id: Tab; label: string; icon: typeof Bell }[] = [
-    { id: 'chegou', label: 'Feed', icon: GalleryVerticalEnd },
-    { id: 'avisos', label: 'Avisos', icon: Bell },
-    { id: 'pessoas', label: 'Pessoas', icon: UsersRound },
+  protected readonly tabs: readonly { id: Tab; label: string; icon: LucideIconData }[] = [
+    { id: 'chegou', label: 'Feed', icon: ICON.feed },
+    { id: 'avisos', label: 'Avisos', icon: ICON.avisos },
+    { id: 'pessoas', label: 'Pessoas', icon: ICON.pessoas },
   ];
   /** Cada etiqueta colada de um jeito, sempre o mesmo. */
   protected readonly tilts = ['-1.1deg', '0.8deg', '-0.6deg'];

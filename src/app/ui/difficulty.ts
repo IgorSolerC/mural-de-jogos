@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, model, signal } from '@angular/core';
-import { Ban, LucideAngularModule, Skull } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
@@ -11,66 +11,22 @@ import {
 
 const SLOTS = Array.from({ length: DIFFICULTY_MAX_SKULLS }, (_, i) => i);
 
-/**
- * A caveira do topo da escala: a mesma do Lucide, vazada como as outras, mas riscada de roxo e
- * com dois chifres curtos (no mural, em tinta preta: `--chifre-ink`). Crânio e chifres são um contorno só, sem traço separando um do outro,
- * e cabem na mesma caixa das outras caveiras.
- */
-@Component({
-  selector: 'app-horned-skull',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[style.width.px]': 'size()', '[style.height.px]': 'size()' },
-  template: `
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="var(--chifre-ink, var(--roxo-impossivel))"
-      [attr.stroke-width]="strokeWidth()"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <!-- o crânio do Lucide (centro 12,11, raio 8), com o arco do alto aberto para os chifres -->
-      <path
-        d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25A8 8 0 0 0 18.55 6.41Q20.6 4.6 20.9 1.1Q18.6 2.2 15.38 3.75A8 8 0 0 0 8.62 3.75Q5.4 2.2 3.1 1.1Q3.4 4.6 5.45 6.41A8 8 0 0 0 6.44 16.75A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"
-      />
-      <path d="m12.5 17-.5-1-.5 1h1z" />
-      <circle cx="15" cy="12" r="1" />
-      <circle cx="9" cy="12" r="1" />
-    </svg>
-  `,
-  styles: `
-    :host {
-      display: inline-flex;
-      flex: none;
-    }
-    svg {
-      width: 100%;
-      height: 100%;
-      overflow: visible;
-    }
-  `,
-})
-export class HornedSkull {
-  readonly size = input(15);
-  readonly strokeWidth = input(2.4);
-}
-
 /** Caveirinhas desenhadas a caneta: de 0 (Nenhuma) a 5 (Infernal, roxas e com chifres). */
 @Component({
   selector: 'app-skulls',
-  imports: [LucideAngularModule, HornedSkull],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { role: 'img', '[attr.aria-label]': '"Dificuldade: " + label()' },
   template: `
     @for (i of slots; track i) {
       @if (horned() && i < count()) {
-        <app-horned-skull [size]="size()" />
+        <!-- a do topo (Infernal): a caveira com chifres do acervo, riscada de roxo (no mural, em tinta
+             preta: --chifre-ink) -->
+        <lucide-icon class="on chifres" [img]="HornedIcon" [size]="size()" aria-hidden="true" />
       } @else if (ghosts() || i < count()) {
         <lucide-icon
           [img]="SkullIcon"
           [size]="size()"
-          [strokeWidth]="2.4"
           [class.on]="i < count()"
           aria-hidden="true"
         />
@@ -94,6 +50,9 @@ export class HornedSkull {
     lucide-icon.on {
       opacity: 1;
     }
+    .chifres {
+      color: var(--chifre-ink, var(--roxo-impossivel));
+    }
     .label {
       white-space: nowrap;
       margin-left: 6px;
@@ -111,7 +70,8 @@ export class Skulls {
   readonly showLabel = input(true);
   /** Mostra as posições vazias da escala (na leitura sim, no cartão não). */
   readonly ghosts = input(true);
-  protected readonly SkullIcon = Skull;
+  protected readonly SkullIcon = ICON.caveira;
+  protected readonly HornedIcon = ICON.caveiraComChifres;
   protected readonly slots = SLOTS;
   protected readonly count = computed(() => DIFFICULTY_SKULLS[this.value()]);
   protected readonly horned = computed(() => isHorned(this.value()));
@@ -127,7 +87,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-difficulty-picker',
-  imports: [LucideAngularModule, HornedSkull],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fieldset>
@@ -143,7 +103,7 @@ let uid = 0;
               [attr.aria-label]="labels.nenhuma"
               (change)="value.set('nenhuma')"
             />
-            <lucide-icon [img]="NoneIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+            <lucide-icon [img]="NoneIcon" [size]="22" aria-hidden="true" />
           </label>
           @for (d of levels; track d; let i = $index) {
             <label class="cav" [class.on]="i < count()" (pointerenter)="onEnter($event, d)">
@@ -155,8 +115,8 @@ let uid = 0;
                 [attr.aria-label]="labels[d]"
                 (change)="value.set(d)"
               />
-              <lucide-icon class="liso" [img]="SkullIcon" [size]="24" [strokeWidth]="2.2" aria-hidden="true" />
-              <app-horned-skull class="chifre" [size]="24" [strokeWidth]="2.2" />
+              <lucide-icon class="liso" [img]="SkullIcon" [size]="24" aria-hidden="true" />
+              <lucide-icon class="chifre" [img]="HornedIcon" [size]="24" aria-hidden="true" />
             </label>
           }
         </div>
@@ -272,6 +232,10 @@ let uid = 0;
     .caveiras:has(.cav:last-child:hover) .chifre {
       display: inline-flex;
     }
+    /* a caveira com chifres é riscada de roxo, como no mural */
+    .chifre {
+      color: var(--chifre-ink, var(--roxo-impossivel));
+    }
     .nome {
       font-family: var(--f-label);
       font-weight: 800;
@@ -305,8 +269,9 @@ export class DifficultyPicker {
   /** O nível sob o mouse: o nome ao lado mostra até onde a escolha iria, como a fileira. */
   protected readonly preview = signal<Difficulty | null>(null);
   protected readonly shown = computed(() => this.preview() ?? this.value());
-  protected readonly SkullIcon = Skull;
-  protected readonly NoneIcon = Ban;
+  protected readonly SkullIcon = ICON.caveira;
+  protected readonly HornedIcon = ICON.caveiraComChifres;
+  protected readonly NoneIcon = ICON.nenhum;
   protected readonly name = `dificuldade-${++uid}`;
 
   /** Só o mouse mostra a prévia; no toque, o dedo já escolhe. */

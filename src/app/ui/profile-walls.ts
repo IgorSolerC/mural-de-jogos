@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, PenLine } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { KINDS, Kind, countOf, profileOf } from '../core/kinds';
 import { Profile } from '../core/profile';
 import { Review, isDone, isNote, scoreOf } from '../core/review';
@@ -26,7 +26,7 @@ const WALL_COLOR: Record<Kind, string> = {
  */
 @Component({
   selector: 'app-profile-walls',
-  imports: [CoverSleeve, LucideAngularModule, MiniCartolina, RouterLink],
+  imports: [CoverSleeve, IconModule, MiniCartolina, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-walls.html',
   styleUrl: './profile-walls.scss',
@@ -41,7 +41,7 @@ export class ProfileWalls {
   readonly editable = input(false);
   readonly opened = output<Kind>();
 
-  protected readonly EditIcon = PenLine;
+  protected readonly EditIcon = ICON.editar;
 
   /** As pastas grandes (as de sempre) ou o arquivo, todas numa fileira. */
   protected readonly look = computed(() => this.profile().wallsLook);

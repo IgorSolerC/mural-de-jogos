@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { ChevronRight, LucideAngularModule, PenLine, SlidersHorizontal } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { IMPORTANCE_LABEL, KanbanCard } from '../core/kanban';
 import { Review } from '../core/review';
 import { Settings } from '../core/settings';
@@ -68,7 +68,7 @@ export class KanbanReviewCard extends ReviewCard {
  */
 @Component({
   selector: 'app-kanban-note',
-  imports: [KanbanReviewCard, LucideAngularModule, NgTemplateOutlet],
+  imports: [KanbanReviewCard, IconModule, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[attr.data-ficha]': 'review().id', '[class.titulo]': 'dense()' },
   template: `
@@ -78,7 +78,7 @@ export class KanbanReviewCard extends ReviewCard {
         @if (noText()) {
           <!-- só o título, ainda sem descrição: o lápis na tinta da tira, antes da importância -->
           <span class="sem-texto" title="Sem descrição" aria-hidden="true">
-            <lucide-icon [img]="NoTextIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="NoTextIcon" [size]="15" aria-hidden="true" />
           </span>
         }
         @if (card().importance; as imp) {
@@ -114,11 +114,11 @@ export class KanbanReviewCard extends ReviewCard {
       <!-- as ações da anotação, juntas numa etiqueta de tinta: os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
       <div class="acoes" [class.duas]="!!next()">
         <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância e tags de ' + review().game.name" title="Etapa, importância e tags" aria-haspopup="dialog" (click)="details.emit()">
-          <lucide-icon [img]="AdjustIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
         </button>
         @if (next(); as to) {
           <button type="button" class="avancar" [attr.aria-label]="'Levar ' + review().game.name + ' para ' + to" [title]="'Levar para ' + to" (click)="advanced.emit()">
-            <lucide-icon [img]="NextIcon" [size]="19" [strokeWidth]="3" aria-hidden="true" />
+            <lucide-icon [img]="NextIcon" [size]="19" aria-hidden="true" />
           </button>
         }
       </div>
@@ -138,9 +138,9 @@ export class KanbanNote {
   /** A seta: levar a anotação para a coluna seguinte. */
   readonly advanced = output<void>();
 
-  protected readonly AdjustIcon = SlidersHorizontal;
-  protected readonly NextIcon = ChevronRight;
-  protected readonly NoTextIcon = PenLine;
+  protected readonly AdjustIcon = ICON.ajustar;
+  protected readonly NextIcon = ICON.proximo;
+  protected readonly NoTextIcon = ICON.escrever;
   /** A anotação só com o título, sem descrição (a ficha diz na linha da data; a tira, com o lápis). */
   protected readonly noText = computed(() => !this.review().text.trim());
   protected readonly label = IMPORTANCE_LABEL;

@@ -1,6 +1,7 @@
 import { CardLook, lookFrom, sameLook, sanitizeLook } from './card-look';
 import { canonicalJson } from './canonical-json';
 import { CategoryColorId, lookKey } from './category-looks';
+import { ICON_CHOICES } from './icon-choices';
 import { SortRule, sanitizeSort } from './kanban-sort';
 import { mergeFields, mergeOrder } from './merge-parts';
 import { cleanTag } from './note-labels';
@@ -55,29 +56,8 @@ export const LEGACY_TRAIT_COLOR: Readonly<Record<string, CategoryColorId | null>
   rosa: 'rosa',
 };
 
-/** Os desenhos de uma coluna (o desenho de cada um fica em ui/kanban-icons.ts). */
-export const COLUMN_ICONS = [
-  'circulo',
-  'lista',
-  'lapis',
-  'martelo',
-  'engrenagem',
-  'olho',
-  'ampulheta',
-  'pausa',
-  'bloqueio',
-  'check',
-  'trofeu',
-  'foguete',
-  'lampada',
-  'inseto',
-  'bandeira',
-  'estrela',
-  'caixa',
-  'calendario',
-  'pessoas',
-  'chama',
-] as const;
+/** Os desenhos de uma coluna: a cartela do site, a mesma dos grupos das anotações (ver core/icon-choices.ts). */
+export const COLUMN_ICONS = ICON_CHOICES;
 export type ColumnIcon = (typeof COLUMN_ICONS)[number];
 
 /** Uma coluna (etapa) do quadro. */

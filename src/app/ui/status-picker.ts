@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
-import { LucideAngularModule } from 'lucide-angular';
+import { IconModule } from './icons';
 import { profileOf } from '../core/kinds';
 import { Kind, STATUSES, Status } from '../core/review';
 import { statusIcon, StatusLabel } from './status-label';
@@ -12,7 +12,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-status-picker',
-  imports: [LucideAngularModule, StatusLabel],
+  imports: [IconModule, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fieldset>
@@ -25,7 +25,7 @@ let uid = 0;
               <app-status-label class="colado" [status]="s" [kind]="kind()" />
             } @else {
               <span class="recorte">
-                <lucide-icon [img]="icon(s)" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="icon(s)" [size]="15" aria-hidden="true" />
                 <span>{{ labels()[s] }}</span>
               </span>
             }

@@ -10,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Eye, EyeOff, LayoutGrid, LucideAngularModule, PenLine, RefreshCw, Trash2, UserPlus, UserRound } from 'lucide-angular';
+import { ICON, IconModule } from '../../ui/icons';
 import { Colleague } from '../../core/colleague-store';
 import { plural } from '../../core/text';
 
@@ -23,7 +23,7 @@ const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 's
  */
 @Component({
   selector: 'app-name-tags',
-  imports: [LucideAngularModule, RouterLink],
+  imports: [IconModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="crachas">
@@ -54,7 +54,7 @@ const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 's
         } @else {
           <button type="button" class="nome" (click)="editing.set(true)" [attr.aria-label]="'Renomear ' + colleague().name">
             <span class="nome-txt">{{ colleague().name }}</span>
-            <lucide-icon class="lapis" [img]="PenIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon class="lapis" [img]="PenIcon" [size]="16" aria-hidden="true" />
           </button>
         }
       </div>
@@ -75,13 +75,13 @@ const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 's
       <p class="giz">{{ meta() }}</p>
       <div class="acoes">
         <a class="btn-quiet ver-mural" routerLink="/comparar/mural">
-          <lucide-icon [img]="WallIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="WallIcon" [size]="17" aria-hidden="true" />
           Ver o mural de {{ colleague().name }}
         </a>
         <!-- veio pelo código: dá para ir ao perfil da pessoa (o nome no crachá é para corrigir o apelido) -->
         @if (colleague().codigo; as code) {
           <a class="btn-quiet ver-perfil" [routerLink]="['/perfil', code]">
-            <lucide-icon [img]="ProfileIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="ProfileIcon" [size]="17" aria-hidden="true" />
             Ver o perfil de {{ colleague().name }}
           </a>
         }
@@ -94,20 +94,20 @@ const exportedFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 's
             (click)="reveal.emit()"
             [title]="revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
           >
-            <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="17" aria-hidden="true" />
             {{ revealed() ? 'Esconder as notas' : secrets() === 1 ? 'Mostrar 1 nota em segredo' : 'Mostrar ' + secrets() + ' notas em segredo' }}
           </button>
         }
         <button type="button" class="btn-quiet" [disabled]="busy()" (click)="arquivo.click()">
-          <lucide-icon [img]="RefreshIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="RefreshIcon" [size]="17" aria-hidden="true" />
           Atualizar backup
         </button>
         <button type="button" class="btn-quiet" [disabled]="busy()" (click)="added.emit()">
-          <lucide-icon [img]="AddIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
           Outro colega
         </button>
         <button type="button" class="btn-quiet" [disabled]="busy()" (click)="removed.emit()" [attr.aria-label]="'Tirar ' + colleague().name + ' da comparação'">
-          <lucide-icon [img]="TrashIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
           Tirar da comparação
         </button>
       </div>
@@ -133,14 +133,14 @@ export class NameTags {
   readonly added = output<void>();
   readonly removed = output<void>();
 
-  protected readonly PenIcon = PenLine;
-  protected readonly RefreshIcon = RefreshCw;
-  protected readonly AddIcon = UserPlus;
-  protected readonly TrashIcon = Trash2;
-  protected readonly WallIcon = LayoutGrid;
-  protected readonly ProfileIcon = UserRound;
-  protected readonly RevealIcon = Eye;
-  protected readonly HideIcon = EyeOff;
+  protected readonly PenIcon = ICON.editar;
+  protected readonly RefreshIcon = ICON.atualizar;
+  protected readonly AddIcon = ICON.seguir;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly WallIcon = ICON.simples;
+  protected readonly ProfileIcon = ICON.pessoa;
+  protected readonly RevealIcon = ICON.ver;
+  protected readonly HideIcon = ICON.esconder;
 
   protected readonly editing = linkedSignal(() => this.naming());
   private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');

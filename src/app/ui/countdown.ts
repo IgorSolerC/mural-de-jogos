@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { Hourglass, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Clock } from '../core/clock';
 import { CountdownLook, Remaining, When, everyText, readCountdown, remaining, repeats, targetOf } from '../core/widgets';
 import { cap } from '../core/text';
@@ -66,7 +66,7 @@ interface Flap {
  */
 @Component({
   selector: 'app-countdown',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (state(); as s) {
@@ -208,7 +208,7 @@ interface Flap {
     } @else {
       <!-- sem uma data que exista: o contador em branco diz como escrever -->
       <div class="contador quebrado" role="note">
-        <span class="vazio-icone" aria-hidden="true"><lucide-icon [img]="EmptyIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" /></span>
+        <span class="vazio-icone" aria-hidden="true"><lucide-icon [img]="EmptyIcon" [size]="22" aria-hidden="true" /></span>
         <span class="lado">
           <span class="nome">Contador sem data</span>
           <span class="dica">
@@ -912,7 +912,7 @@ export class Countdown {
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
 
-  protected readonly EmptyIcon = Hourglass;
+  protected readonly EmptyIcon = ICON.ampulheta;
   protected readonly SEGMENTS = SEGMENTS;
   private readonly clock = inject(Clock);
 

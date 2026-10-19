@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, input, output, signal, viewChild } from '@angular/core';
-import { BellOff, ChevronDown, GalleryVerticalEnd, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { closeOnOutsidePress } from './outside-press';
 
 let uid = 0;
@@ -15,7 +15,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-feed-menu',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(focusout)': 'onFocusOut($event)',
@@ -33,13 +33,13 @@ let uid = 0;
       (click)="toggle()"
       (keydown)="onTriggerKey($event)"
     >
-      <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+      <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" aria-hidden="true" />
     </button>
 
     @if (open()) {
       <div class="bilhete" role="menu" [id]="menuId" [attr.aria-label]="'Outro jeito de ' + verb()" (keydown)="onMenuKey($event)">
         <button type="button" role="menuitem" class="item" tabindex="-1" (mousedown)="$event.preventDefault()" (click)="choose()">
-          <lucide-icon class="ico" [img]="announce() ? FeedIcon : QuietIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon class="ico" [img]="announce() ? FeedIcon : QuietIcon" [size]="20" aria-hidden="true" />
           <span class="nome">{{ label() }}</span>
           <span class="dica">{{ hint() }}</span>
         </button>
@@ -174,9 +174,9 @@ export class FeedMenu {
   /** Escolheu o outro caminho. */
   readonly picked = output<void>();
 
-  protected readonly ChevronIcon = ChevronDown;
-  protected readonly QuietIcon = BellOff;
-  protected readonly FeedIcon = GalleryVerticalEnd;
+  protected readonly ChevronIcon = ICON.abrir;
+  protected readonly QuietIcon = ICON.silenciar;
+  protected readonly FeedIcon = ICON.feed;
   protected readonly menuId = `outro-jeito-${++uid}`;
   protected readonly open = signal(false);
 

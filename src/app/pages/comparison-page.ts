@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, Check, ChevronDown, Heart, LayoutGrid, Rows3 } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { ColleagueStore } from '../core/colleague-store';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals } from '../core/cloud-murals';
@@ -84,7 +84,7 @@ const byName = (a: Review, b: Review) => nameCollator.compare(a.game.name, b.gam
     BackupEnvelope,
     BonusSticker,
     Caderno,
-    LucideAngularModule,
+    IconModule,
     NameTags,
     NgTemplateOutlet,
     ReviewCard,
@@ -120,11 +120,11 @@ export class ComparisonPage {
   private readonly side = inject(SideBySide);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly ChevronIcon = ChevronDown;
-  protected readonly FullIcon = Rows3;
-  protected readonly CompactIcon = LayoutGrid;
-  protected readonly WishIcon = Heart;
-  protected readonly DoneIcon = Check;
+  protected readonly ChevronIcon = ICON.abrir;
+  protected readonly FullIcon = ICON.completas;
+  protected readonly CompactIcon = ICON.simples;
+  protected readonly WishIcon = ICON.querer;
+  protected readonly DoneIcon = ICON.naWishlist;
   protected readonly fmt = formatScore;
   protected readonly abs = Math.abs;
   protected readonly g = g;

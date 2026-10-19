@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { LucideAngularModule, TriangleAlert, UsersRound } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { canWrite } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
@@ -13,7 +13,7 @@ import { SyncConflicts } from '../core/sync-conflicts';
  */
 @Component({
   selector: 'app-shared-patch',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (state(); as s) {
@@ -26,7 +26,7 @@ import { SyncConflicts } from '../core/sync-conflicts';
         [title]="s.spoken"
         (click)="open($event)"
       >
-        <lucide-icon [img]="s.conflict ? ConflictIcon : PeopleIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+        <lucide-icon [img]="s.conflict ? ConflictIcon : PeopleIcon" [size]="16" aria-hidden="true" />
         <span class="n" aria-hidden="true">{{ s.conflict ? 'Conflito' : s.n }}</span>
       </button>
     }
@@ -38,8 +38,8 @@ export class SharedPatch {
   readonly opened = output<void>();
   private readonly shared = inject(SharedStore);
   private readonly conflicts = inject(SyncConflicts);
-  protected readonly PeopleIcon = UsersRound;
-  protected readonly ConflictIcon = TriangleAlert;
+  protected readonly PeopleIcon = ICON.pessoas;
+  protected readonly ConflictIcon = ICON.aviso;
 
   protected readonly state = computed(() => {
     const e = this.shared.get(this.noteId());

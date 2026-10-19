@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { LucideAngularModule } from 'lucide-angular';
+import { IconModule } from '../../ui/icons';
 import { Affinity, Portrait, STATUS_ORDER, favouriteVerdict, finishRate } from '../../core/comparison-stats';
 import { ReviewPair } from '../../core/comparison';
 import { KindProfile, countOf } from '../../core/kinds';
@@ -45,7 +45,7 @@ function dots(finals: readonly number[], top: number): Dot[] {
  */
 @Component({
   selector: 'app-caderno',
-  imports: [BonusSticker, CoverSleeve, LucideAngularModule, Tally],
+  imports: [BonusSticker, CoverSleeve, IconModule, Tally],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './caderno.html',
   styleUrl: './caderno.scss',

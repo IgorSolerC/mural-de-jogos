@@ -17,7 +17,7 @@
           [attr.tabindex]="tab() === t.id ? 0 : -1"
           (click)="go(t.id)"
         >
-          <lucide-icon [img]="t.icon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+          <lucide-icon [img]="t.icon" [size]="18" aria-hidden="true" />
           <span class="aba-nome">{{ t.label }}</span>
           @if (t.id === 'avisos' && freshNotices().size; as n) {
             <span class="conta" aria-hidden="true">{{ n > 99 ? '99+' : n }}</span>
@@ -84,7 +84,7 @@
               } @else {
                 <p>Siga alguém pelo código e, quando essa pessoa avaliar algo, a ficha aparece aqui.</p>
                 <button type="button" class="btn-ink" (click)="goFollow()">
-                  <lucide-icon [img]="FollowIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                  <lucide-icon [img]="FollowIcon" [size]="19" aria-hidden="true" />
                   Seguir alguém
                 </button>
               }
@@ -145,7 +145,7 @@
                 <p class="recado-txt" role="status">Buscando…</p>
               }
               <button type="button" class="btn-papel" (click)="goFollow()">
-                <lucide-icon [img]="FollowIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="FollowIcon" [size]="17" aria-hidden="true" />
                 Seguir alguém
               </button>
             </section>
@@ -247,13 +247,13 @@
                           <span class="lacos">
                             <span class="laco">
                               @if (x.sigo && x.segue) {
-                                <lucide-icon [img]="CheckIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+                                <lucide-icon [img]="CheckIcon" [size]="13" aria-hidden="true" />
                               }
                               {{ bond(x) }}
                             </span>
                             @if (x.sigo?.silenciado) {
                               <span class="laco">
-                                <lucide-icon [img]="MuteIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+                                <lucide-icon [img]="MuteIcon" [size]="13" aria-hidden="true" />
                                 Silenciada
                               </span>
                             }
@@ -274,7 +274,7 @@
                             [attr.aria-controls]="'opcoes-' + x.codigo"
                             (click)="toggleRow(x.codigo)"
                           >
-                            <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+                            <lucide-icon [img]="MoreIcon" [size]="20" aria-hidden="true" />
                             <span class="sr-only">Opções para {{ x.nome }}</span>
                           </button>
                         </div>
@@ -285,14 +285,14 @@
                             @if (x.sigo; as f) {
                               <div class="gaveta-item">
                                 <button type="button" class="btn-papel" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'silenciar')" (click)="toggleMute(f)">
-                                  <lucide-icon [img]="f.silenciado ? UnmuteIcon : MuteIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                  <lucide-icon [img]="f.silenciado ? UnmuteIcon : MuteIcon" [size]="16" aria-hidden="true" />
                                   {{ f.silenciado ? 'Voltar a contar' : 'Silenciar' }}
                                 </button>
                                 <span class="gaveta-dica">{{ f.silenciado ? 'As fichas aparecem, mas não contam no número do botão Amigos.' : 'As fichas continuam aparecendo, sem contar no número do botão Amigos.' }}</span>
                               </div>
                               <div class="gaveta-item">
                                 <button type="button" class="btn-papel perigo" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'deixar')" (click)="unfollow(f)">
-                                  <lucide-icon [img]="UnfollowIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                  <lucide-icon [img]="UnfollowIcon" [size]="16" aria-hidden="true" />
                                   {{ isBusy(x.codigo, 'deixar') ? 'Deixando de seguir…' : 'Deixar de seguir' }}
                                 </button>
                                 <span class="gaveta-dica">Dá para desfazer no aviso que aparece embaixo.</span>
@@ -301,7 +301,7 @@
                             @if (x.segue; as f) {
                               <div class="gaveta-item">
                                 <button type="button" class="btn-papel perigo" [disabled]="rowBusy(x.codigo)" [appBusy]="isBusy(x.codigo, 'tirar')" (click)="removeFollower(f)">
-                                  <lucide-icon [img]="RemoveIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                  <lucide-icon [img]="RemoveIcon" [size]="16" aria-hidden="true" />
                                   {{ isBusy(x.codigo, 'tirar') ? 'Removendo…' : 'Remover seguidor' }}
                                 </button>
                                 <span class="gaveta-dica">{{ x.nome }} para de ver as suas fichas no Feed.</span>
@@ -334,11 +334,11 @@
               <p class="meu-dica">Mande para quem quiser seguir você.</p>
               <div class="meu-copiar">
                 <button type="button" class="btn-quiet" (click)="copyCode(acc.codigo)">
-                  <lucide-icon [img]="CopyIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="CopyIcon" [size]="16" aria-hidden="true" />
                   Copiar código
                 </button>
                 <button type="button" class="btn-quiet" (click)="copyLink(acc.codigo)">
-                  <lucide-icon [img]="LinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="LinkIcon" [size]="16" aria-hidden="true" />
                   Copiar link
                 </button>
               </div>

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { LucideAngularModule, VolumeOff } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { soundVolume } from '../core/volume';
 import { hostOf, httpsUrl, parseAudio, readAudio } from '../core/widgets';
 import { EmbedBridge, EmbedReport } from './embed-bridge';
@@ -60,7 +60,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
  */
 @Component({
   selector: 'app-audio-track',
-  imports: [LucideAngularModule, NgTemplateOutlet, VolumeKnob],
+  imports: [IconModule, NgTemplateOutlet, VolumeKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.solta]': 'bare()' },
   template: `
@@ -68,7 +68,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
     <div class="peca">
     @if (problem(); as why) {
       <span class="falha">
-        <lucide-icon [img]="MuteIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+        <lucide-icon [img]="MuteIcon" [size]="22" aria-hidden="true" />
         <span class="falha-nome">{{ why }}</span>
         @if (host()) {
           <span class="falha-host">{{ host() }}</span>
@@ -887,7 +887,7 @@ export class AudioTrack implements Warmable {
   /** O nome que o botão de tocar diz ao leitor de tela, quando a faixa não tem nome escrito. */
   readonly spoken = input('');
 
-  protected readonly MuteIcon = VolumeOff;
+  protected readonly MuteIcon = ICON.semSom;
   protected readonly clock = clock;
   /** Os parafusos da fita: os quatro cantos e o do meio, embaixo. */
   protected readonly screws = [

@@ -5,11 +5,11 @@
     <p class="resumo">{{ summary() }}</p>
     <div class="cabeca-acoes">
       <button type="button" class="btn-quiet" (click)="pickMore()">
-        <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
         Marcar mais
       </button>
       <button type="button" class="btn-quiet" (click)="clear()" title="Desmarcar todas e escolher de novo no mural">
-        <lucide-icon [img]="RestartIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+        <lucide-icon [img]="RestartIcon" [size]="18" aria-hidden="true" />
         Recomeçar
       </button>
     </div>
@@ -21,7 +21,7 @@
       <label class="plate pick">
         <span class="pick-pre">Ordenar</span>
         <span class="pick-val" aria-hidden="true">{{ sortLabel() }}</span>
-        <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+        <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
         <select aria-label="Ordenar por" [value]="sort()" (change)="setSort($any($event.target).value)">
           @for (o of sortOptions; track o.value) {
             <option [value]="o.value" [selected]="o.value === sort()">{{ o.label }}</option>
@@ -70,7 +70,7 @@
                     </button>
                     <span class="sr-only">{{ r.game.name }}</span>
                     <button type="button" class="tirar" (click)="remove(r)" [attr.aria-label]="'Tirar ' + r.game.name + ' do lado a lado'" title="Tirar do lado a lado">
-                      <lucide-icon [img]="RemoveIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                      <lucide-icon [img]="RemoveIcon" [size]="16" aria-hidden="true" />
                     </button>
                   </div>
                 </th>
@@ -112,11 +112,11 @@
                             {{ fmt(score(r, row.score!)) }}
                             @switch (weightOf(r.weights, row.score!)) {
                               @case ('relevante') {
-                                <lucide-icon class="w" [img]="UpIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
+                                <lucide-icon class="w" [img]="UpIcon" [size]="13" aria-hidden="true" />
                                 <span class="sr-only">({{ weightLabels.relevante }})</span>
                               }
                               @case ('pouco') {
-                                <lucide-icon class="w" [img]="DownIcon" [size]="13" [strokeWidth]="3.2" aria-hidden="true" />
+                                <lucide-icon class="w" [img]="DownIcon" [size]="13" aria-hidden="true" />
                                 <span class="sr-only">({{ weightLabels.pouco }})</span>
                               }
                             }
@@ -208,7 +208,7 @@
           aria-label="Fichas completas"
           title="Fichas completas"
         >
-          <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="FullIcon" [size]="18" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -218,7 +218,7 @@
           aria-label="Fichas simples"
           title="Fichas simples"
         >
-          <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="CompactIcon" [size]="18" aria-hidden="true" />
         </button>
       </div>
     </div>

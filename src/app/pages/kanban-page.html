@@ -22,7 +22,6 @@
           <lucide-icon
             [img]="NewNoteIcon"
             [size]="18"
-            [strokeWidth]="2.4"
             aria-hidden="true"
           />
           Escrever uma anotação
@@ -36,7 +35,6 @@
             <lucide-icon
               [img]="iconOf[v.icon]"
               [size]="16"
-              [strokeWidth]="2.6"
               aria-hidden="true"
             />
             {{ v.name }}
@@ -103,7 +101,6 @@
             <lucide-icon
               [img]="CardsIcon"
               [size]="18"
-              [strokeWidth]="2.6"
               aria-hidden="true"
             />
           </button>
@@ -118,7 +115,6 @@
             <lucide-icon
               [img]="TitlesIcon"
               [size]="18"
-              [strokeWidth]="2.6"
               aria-hidden="true"
             />
           </button>
@@ -133,7 +129,6 @@
             <lucide-icon
               [img]="ColumnIcon"
               [size]="18"
-              [strokeWidth]="2.6"
               aria-hidden="true"
             />
             Nova coluna
@@ -154,7 +149,6 @@
             <lucide-icon
               [img]="SettingsIcon"
               [size]="18"
-              [strokeWidth]="2.6"
               aria-hidden="true"
             />
           </button>
@@ -211,7 +205,6 @@
               class="etiqueta-icone"
               [img]="iconOf[v.col.icon]"
               [size]="20"
-              [strokeWidth]="2.6"
               aria-hidden="true"
             />
             <h2 class="etiqueta-nome" [id]="'col-' + v.col.id">
@@ -235,7 +228,6 @@
               <lucide-icon
                 [img]="PencilIcon"
                 [size]="16"
-                [strokeWidth]="2.6"
                 aria-hidden="true"
               />
             </button>
@@ -245,7 +237,6 @@
                 <lucide-icon
                   [img]="SortIcon"
                   [size]="13"
-                  [strokeWidth]="2.6"
                   aria-hidden="true"
                 />
                 {{ sortShort(v.col.sort!) }}
@@ -260,7 +251,6 @@
                 <lucide-icon
                   [img]="DoneIcon"
                   [size]="12"
-                  [strokeWidth]="3"
                   aria-hidden="true"
                 />
                 Finaliza
@@ -313,7 +303,6 @@
                   <lucide-icon
                     [img]="MoreIcon"
                     [size]="17"
-                    [strokeWidth]="2.6"
                     aria-hidden="true"
                   />
                   Mostrar mais {{ v.hidden < showStep ? v.hidden : showStep }}
@@ -341,7 +330,6 @@
                   <lucide-icon
                     [img]="SearchIcon"
                     [size]="17"
-                    [strokeWidth]="2.6"
                     aria-hidden="true"
                   />
                   Buscar nota
@@ -354,7 +342,6 @@
                   <lucide-icon
                     [img]="NewNoteIcon"
                     [size]="17"
-                    [strokeWidth]="2.6"
                     aria-hidden="true"
                   />
                   Nova nota
@@ -368,7 +355,6 @@
                   <lucide-icon
                     [img]="CloseIcon"
                     [size]="17"
-                    [strokeWidth]="2.8"
                     aria-hidden="true"
                   />
                 </button>
@@ -382,7 +368,6 @@
                 <lucide-icon
                   [img]="PlusIcon"
                   [size]="17"
-                  [strokeWidth]="2.8"
                   aria-hidden="true"
                 />
                 Adicionar nota
@@ -429,7 +414,6 @@
           <lucide-icon
             [img]="BackIcon"
             [size]="24"
-            [strokeWidth]="2.8"
             aria-hidden="true"
           />
           <span class="seta-n" aria-hidden="true">{{ n }}</span>
@@ -453,7 +437,6 @@
           <lucide-icon
             [img]="NextIcon"
             [size]="24"
-            [strokeWidth]="2.8"
             aria-hidden="true"
           />
           <span class="seta-n" aria-hidden="true">{{ n }}</span>

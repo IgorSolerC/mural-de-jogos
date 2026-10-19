@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, viewChild } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { Check, CornerDownRight, LucideAngularModule, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Desk } from '../core/desk';
 import { backlinkLine, backlinksOf } from '../core/note-links';
 import { isDone } from '../core/review';
@@ -18,7 +18,7 @@ import { Pin } from './pin';
  */
 @Component({
   selector: 'app-note-backlinks',
-  imports: [BackdropClose, LucideAngularModule, Pin],
+  imports: [BackdropClose, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -34,13 +34,13 @@ import { Pin } from './pin';
           <header class="head">
             <h2 id="citada-titulo">{{ n.game.name }}</h2>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="backlinks.close()">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
           <div class="body">
             @if (rows().length) {
               <p class="conta">
-                <lucide-icon [img]="SubIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                <lucide-icon [img]="SubIcon" [size]="16" aria-hidden="true" />
                 {{ rows().length === 1 ? 'Sub-nota desta anotação' : 'Sub-nota citada nestas ' + rows().length + ' anotações' }}
               </p>
               <ul class="lista">
@@ -52,7 +52,7 @@ import { Pin } from './pin';
                         <span class="topo">
                           <span class="titulo">{{ r.title }}</span>
                           @if (r.done) {
-                            <lucide-icon class="feita-icone" [img]="DoneIcon" [size]="15" [strokeWidth]="3" aria-hidden="true" />
+                            <lucide-icon class="feita-icone" [img]="DoneIcon" [size]="15" aria-hidden="true" />
                             <span class="sr-only">, finalizada</span>
                           }
                           @if (r.category) {
@@ -263,9 +263,9 @@ export class NoteBacklinksDialog {
   private readonly desk = inject(Desk);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
-  protected readonly SubIcon = CornerDownRight;
-  protected readonly CloseIcon = X;
-  protected readonly DoneIcon = Check;
+  protected readonly SubIcon = ICON.dentro;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly DoneIcon = ICON.pronto;
 
   /** A sub-nota aberta (some se ela for apagada com a lista aberta). */
   protected readonly note = computed(() => {

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injectable, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { BackdropClose } from './backdrop-close';
-import { LucideAngularModule, Plus, SmilePlus, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Reaction, ReactionTarget, Reactions, spokenReactions, tally } from '../core/reactions';
 import { REACTIONS, ReactionId, isQuickReaction, reactionOf } from '../core/reaction-kinds';
 import { EmojiPanel } from './emoji-panel';
@@ -128,7 +128,7 @@ const PANEL_ROOM = 330;
  */
 @Component({
   selector: 'app-reaction-picker',
-  imports: [LucideAngularModule, EmojiPanel],
+  imports: [IconModule, EmojiPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button
@@ -150,7 +150,7 @@ const PANEL_ROOM = 330;
           <span class="rp-nome" aria-hidden="true">{{ k.label }}</span>
         }
       } @else {
-        <lucide-icon [img]="ReactIcon" [size]="wall() ? 19 : 17" [strokeWidth]="2.4" aria-hidden="true" />
+        <lucide-icon [img]="ReactIcon" [size]="wall() ? 19 : 17" aria-hidden="true" />
         @if (!quiet()) {
           <span aria-hidden="true">Reagir</span>
         }
@@ -185,7 +185,7 @@ const PANEL_ROOM = 330;
           <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mine() + '. Tirar'" (click)="pick(mine()!)">{{ mine() }}</button>
         }
         <button type="button" class="opcao mais" aria-label="Outro emoji" title="Outro emoji" [style.--i]="kinds.length" (click)="moreEmojis()">
-          <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="MoreIcon" [size]="20" aria-hidden="true" />
         </button>
       </div>
     }
@@ -375,12 +375,12 @@ export class ReactionPicker {
   readonly wall = input(false);
   /** A fileira abre por baixo do botão (não cabia em cima, dentro da folha que rola). */
   protected readonly below = signal(false);
-  protected readonly ReactIcon = SmilePlus;
+  protected readonly ReactIcon = ICON.reagir;
   protected readonly kinds = REACTIONS;
   private readonly reactions = inject(Reactions);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
-  protected readonly MoreIcon = Plus;
+  protected readonly MoreIcon = ICON.adicionar;
   protected readonly open = signal(false);
 
   /** O painel do "+" aberto, no lugar da fileira. */
@@ -476,7 +476,7 @@ export class ReactionPicker {
 /** A folha de quem reagiu, aberta pelo balão: abas por reação e a lista, como no WhatsApp. */
 @Component({
   selector: 'app-reaction-sheet',
-  imports: [BackdropClose, LucideAngularModule, EmojiPanel, PersonPhoto],
+  imports: [BackdropClose, IconModule, EmojiPanel, PersonPhoto],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reacoes" aria-labelledby="reacoes-titulo" (close)="sheet.target.set(null)" (backdropClose)="close()">
@@ -485,7 +485,7 @@ export class ReactionPicker {
           <header class="topo">
             <h2 id="reacoes-titulo">Reações <span class="obra">{{ t.titulo }}</span></h2>
             <button type="button" class="fechar" aria-label="Fechar" (click)="close()">
-              <lucide-icon [img]="CloseIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="20" aria-hidden="true" />
             </button>
           </header>
 
@@ -498,7 +498,7 @@ export class ReactionPicker {
                 <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mine() + '. Tirar'" (click)="pick(mine()!)">{{ mine() }}</button>
               }
               <button type="button" class="opcao mais" [attr.aria-expanded]="more()" aria-label="Outro emoji" title="Outro emoji" (click)="more.set(!more())">
-                <lucide-icon [img]="MoreIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="MoreIcon" [size]="20" aria-hidden="true" />
               </button>
             </div>
             @if (more()) {
@@ -769,8 +769,8 @@ export class ReactionSheetView {
   private readonly profiles = inject(ProfileStore);
   private readonly router = inject(Router);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
-  protected readonly CloseIcon = X;
-  protected readonly MoreIcon = Plus;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly MoreIcon = ICON.adicionar;
   protected readonly kinds = REACTIONS;
   protected readonly quick = isQuickReaction;
   /** O painel do "+" aberto embaixo da fileira. */

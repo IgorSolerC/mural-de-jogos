@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { LucideAngularModule, Plus } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { cap, g } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -38,7 +38,7 @@ const printed = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-dig
  */
 @Component({
   selector: 'app-ranking-page',
-  imports: [BonusSticker, CoverSleeve, LucideAngularModule],
+  imports: [BonusSticker, CoverSleeve, IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ranking-page.html',
   styleUrl: './ranking-page.scss',
@@ -48,7 +48,7 @@ export class RankingPage {
   protected readonly desk = inject(Desk);
   private readonly vt = inject(ViewTransitions);
 
-  protected readonly PlusIcon = Plus;
+  protected readonly PlusIcon = ICON.adicionar;
   protected readonly keys = computed(() => scoreKeys(this.mural.kind()));
   protected readonly labels = SCORE_LABEL;
   protected readonly fmt = formatScore;

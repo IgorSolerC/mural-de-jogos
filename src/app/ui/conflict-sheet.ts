@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
-import { Check, CloudUpload, LucideAngularModule, LucideIconData, Monitor, Smartphone, Tablet, Trash2, X } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CloudAccount } from '../core/cloud-account';
 import { DeviceTag } from '../core/device';
 import { FICHA_PART_LABEL, FichaPart } from '../core/ficha-merge';
@@ -73,7 +74,7 @@ const KEEP_CONTEXT = 2;
  */
 @Component({
   selector: 'app-conflict-sheet',
-  imports: [BackdropClose, LucideAngularModule, PersonPhoto, Pin],
+  imports: [BackdropClose, IconModule, PersonPhoto, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './conflict-sheet.html',
   styleUrl: './conflict-sheet.scss',
@@ -92,9 +93,9 @@ export class ConflictSheet {
   private readonly account = inject(CloudAccount);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
-  protected readonly CloseIcon = X;
-  protected readonly KeepIcon = Check;
-  protected readonly DeletedIcon = Trash2;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly KeepIcon = ICON.pronto;
+  protected readonly DeletedIcon = ICON.apagar;
 
   private readonly entry = computed(() => {
     const id = this.noteId();
@@ -171,8 +172,8 @@ export class ConflictSheet {
       if (d?.id === mine) return { heading: 'A deste aparelho', spoken: 'versão deste aparelho', icon: iconOf(d.nome), label: d.nome };
       if (d) return { heading: 'A do outro aparelho', spoken: `versão do outro aparelho, ${d.nome}`, icon: iconOf(d.nome), label: d.nome };
       return fallback === 'nuvem'
-        ? { heading: 'A que estava na nuvem', spoken: 'versão que estava na nuvem', icon: CloudUpload, label: null }
-        : { heading: 'A do outro aparelho', spoken: 'versão do outro aparelho', icon: Monitor, label: null };
+        ? { heading: 'A que estava na nuvem', spoken: 'versão que estava na nuvem', icon: ICON.subirNuvem, label: null }
+        : { heading: 'A do outro aparelho', spoken: 'versão do outro aparelho', icon: ICON.computador, label: null };
     };
     const da = deviceOf(c.deA, 'nuvem');
     const db = deviceOf(c.deB, 'outro');
@@ -280,9 +281,9 @@ const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 /** O desenho do aparelho pelo nome ("Chrome no Android"). */
 function iconOf(nome: string): LucideIconData {
-  if (/iPad/.test(nome)) return Tablet;
-  if (/Android|iPhone/.test(nome)) return Smartphone;
-  return Monitor;
+  if (/iPad/.test(nome)) return ICON.tablet;
+  if (/Android|iPhone/.test(nome)) return ICON.celular;
+  return ICON.computador;
 }
 
 /** O que muda entre duas versões da mesma anotação (o texto, o título…). */

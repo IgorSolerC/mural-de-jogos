@@ -1,5 +1,5 @@
 <a class="voltar btn-quiet" [routerLink]="back.link" (click)="goBack()">
-  <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+  <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
   {{ back.label }}
 </a>
 
@@ -40,7 +40,7 @@
         [appBusy]="followBusy() || followState() === null"
         (click)="toggleFollow()"
       >
-        <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+        <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" aria-hidden="true" />
         @if (followBusy()) {
           {{ following() ? 'Deixando de seguir…' : 'Seguindo…' }}
         } @else {

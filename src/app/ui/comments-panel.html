@@ -26,7 +26,7 @@
     <div class="vazio">
       <p>Não consegui buscar os comentários agora.</p>
       <button type="button" class="acao-caneta" (click)="retry()">
-        <lucide-icon [img]="RetryIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
         Tentar de novo
       </button>
     </div>
@@ -85,7 +85,7 @@
                 }
                 @if (canErase(k)) {
                   <button type="button" class="apagar" [attr.aria-label]="mine ? 'Apagar o seu comentário' : 'Apagar o comentário de ' + k.autor.nome" title="Apagar" (click)="erase(n)">
-                    <lucide-icon [img]="EraseIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="EraseIcon" [size]="16" aria-hidden="true" />
                   </button>
                 }
               </div>
@@ -94,12 +94,12 @@
           @if (flat && parent) {
             <!-- fundo demais para recuar: a fala diz a quem responde, como no Twitter -->
             <p class="a-quem">
-              <lucide-icon [img]="ReplyIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="ReplyIcon" [size]="13" aria-hidden="true" />
               {{ parent.gone ? 'Respondendo a um comentário apagado' : 'Respondendo a ' + nameOf(parent) }}
             </p>
           } @else if (n.lost) {
             <p class="a-quem">
-              <lucide-icon [img]="ReplyIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="ReplyIcon" [size]="13" aria-hidden="true" />
               Respondendo a um comentário mais antigo
             </p>
           }
@@ -128,7 +128,7 @@
               }
               @if (canReact()) {
                 <button type="button" class="responder" [attr.aria-label]="mine ? 'Responder ao seu comentário' : 'Responder a ' + k.autor.nome" (click)="answer(k)">
-                  <lucide-icon [img]="ReplyIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="ReplyIcon" [size]="15" aria-hidden="true" />
                   Responder
                 </button>
               }
@@ -155,7 +155,7 @@
       @if (collapsed().has(k.id)) {
         <!-- recolhida: só quantas respostas há, para abrir de novo -->
         <button type="button" class="mostrar" aria-expanded="false" (click)="toggle(k.id)">
-          <lucide-icon [img]="MoreIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="MoreIcon" [size]="15" aria-hidden="true" />
           {{ n.size === 1 ? 'Ver 1 resposta' : 'Ver ' + n.size + ' respostas' }}
         </button>
       } @else {
@@ -200,7 +200,7 @@
         <p>Para comentar, siga {{ ownerName() }}.</p>
         <button type="button" class="tinta" [appBusy]="following()" (click)="followOwner()">
           @if (!following()) {
-            <lucide-icon [img]="FollowIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon [img]="FollowIcon" [size]="17" aria-hidden="true" />
           }
           {{ following() ? 'Seguindo…' : 'Seguir' }}
         </button>
@@ -211,10 +211,10 @@
         @if (replyTo(); as r) {
           <!-- respondendo: a quem, e o X que volta a comentar na ficha (o texto fica) -->
           <p class="respondendo-a">
-            <lucide-icon [img]="ReplyIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="ReplyIcon" [size]="15" aria-hidden="true" />
             <span class="respondendo-texto">Respondendo a <button type="button" class="respondendo-nome" [attr.aria-label]="'Ver o comentário de ' + r.nome" (click)="show(r.id)">{{ r.nome }}</button></span>
             <button type="button" class="respondendo-tirar" aria-label="Não responder: comentar na ficha" title="Comentar na ficha" (click)="unanswer()">
-              <lucide-icon [img]="CloseIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
             </button>
           </p>
         }

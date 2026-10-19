@@ -1,22 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import {
-  ArrowLeft,
-  ArrowRight,
-  CalendarPlus,
-  CaseSensitive,
-  ChartNoAxesColumnIncreasing,
-  Check,
-  Columns3,
-  Hand,
-  History,
-  Palette,
-  ListTodo,
-  LucideAngularModule,
-  LucideIconData,
-  Tag,
-  Trash2,
-  X,
-} from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
 import { COLUMN_ICONS, ColumnIcon, NAME_MAX, cardsIn, moveColumn, nextStop, removeColumn, sortAllColumns, updateColumn } from '../core/kanban';
 import { SORT_DIRS, SORT_KEYS, SORT_LABEL, SortKey, SortRule, sameSort, sortSentence } from '../core/kanban-sort';
 import { KanbanStore } from '../core/kanban-store';
@@ -25,7 +9,6 @@ import { BackdropClose } from './backdrop-close';
 import { KanbanReviewCard } from './kanban-note';
 import { KanbanTemplateSheet, sampleNote } from './kanban-template-sheet';
 import { Confirm } from './confirm';
-import { COLUMN_ICON, COLUMN_ICON_LABEL } from './kanban-icons';
 import { Pin } from './pin';
 import { Toasts } from './toast';
 
@@ -44,12 +27,12 @@ const STOCK_LABEL: Record<LightStock, string> = {
 
 /** O desenho de cada critério de ordem. */
 const SORT_ICON: Record<SortKey, LucideIconData> = {
-  importancia: ChartNoAxesColumnIncreasing,
-  criacao: CalendarPlus,
-  alteracao: History,
-  titulo: CaseSensitive,
-  tag: Tag,
-  tarefas: ListTodo,
+  importancia: ICON.importancia,
+  criacao: ICON.novoNoCalendario,
+  alteracao: ICON.historico,
+  titulo: ICON.porNome,
+  tag: ICON.etiqueta,
+  tarefas: ICON.tarefas,
 };
 
 /**
@@ -60,7 +43,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
  */
 @Component({
   selector: 'app-kanban-column-sheet',
-  imports: [BackdropClose, KanbanReviewCard, KanbanTemplateSheet, LucideAngularModule, Pin],
+  imports: [BackdropClose, KanbanReviewCard, KanbanTemplateSheet, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet coluna-ajustes" aria-labelledby="ca-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -70,13 +53,13 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
           <header class="head">
             <div class="titulos">
               <h2 id="ca-titulo">
-                <lucide-icon class="titulo-icone" [img]="iconOf[d.col.icon]" [size]="26" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon class="titulo-icone" [img]="iconOf[d.col.icon]" [size]="26" aria-hidden="true" />
                 {{ d.col.name }}
               </h2>
               <p class="sub">Coluna {{ d.index + 1 }} de {{ d.board.columns.length }} · {{ d.count === 1 ? '1 anotação' : d.count + ' anotações' }}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
 
@@ -118,7 +101,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
                     <app-review-card [review]="sample()!" [compact]="true" [preview]="true" />
                   </div>
                   <button type="button" class="papel montar" (click)="templating.set(true)">
-                    <lucide-icon [img]="PaletteIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="PaletteIcon" [size]="16" aria-hidden="true" />
                     Montar o card padrão
                   </button>
                 </div>
@@ -150,13 +133,13 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
                 <div class="ordem-ops">
                   <label class="ordem-op">
                     <input type="radio" name="ca-ordem-1" [checked]="!first()" (change)="setFirst(null)" />
-                    <lucide-icon [img]="HandIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="HandIcon" [size]="17" aria-hidden="true" />
                     À mão
                   </label>
                   @for (k of sortKeys; track k) {
                     <label class="ordem-op">
                       <input type="radio" name="ca-ordem-1" [checked]="first()?.by === k" (change)="setFirst(k)" />
-                      <lucide-icon [img]="sortIcon[k]" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="sortIcon[k]" [size]="17" aria-hidden="true" />
                       {{ sortLabel[k] }}
                     </label>
                   }
@@ -185,7 +168,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
                       @if (k !== f.by) {
                         <label class="ordem-op">
                           <input type="radio" name="ca-ordem-2" [checked]="second()?.by === k" (change)="setSecond(k)" />
-                          <lucide-icon [img]="sortIcon[k]" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                          <lucide-icon [img]="sortIcon[k]" [size]="17" aria-hidden="true" />
                           {{ sortLabel[k] }}
                         </label>
                       }
@@ -207,7 +190,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
               @if (othersDiffer()) {
                 <div class="ordem-todas">
                   <button type="button" class="papel" (click)="sortAll()">
-                    <lucide-icon [img]="ColumnsIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="ColumnsIcon" [size]="16" aria-hidden="true" />
                     Usar esta ordem nas outras colunas
                   </button>
                 </div>
@@ -219,7 +202,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
               <div class="ops" role="radiogroup" aria-labelledby="ca-icone-t">
                 @for (i of icons; track i) {
                   <button type="button" role="radio" class="op icone" [attr.aria-checked]="d.col.icon === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="set({ icon: i })">
-                    <lucide-icon [img]="iconOf[i]" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
                   </button>
                 }
               </div>
@@ -231,7 +214,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
                 @for (s of stocks; track s) {
                   <button type="button" role="radio" class="op cor" [style.--stock]="'var(--stock-' + s + ')'" [attr.aria-checked]="d.col.color === s" [attr.aria-label]="stockLabel[s]" [title]="stockLabel[s]" (click)="set({ color: s })">
                     @if (d.col.color === s) {
-                      <lucide-icon [img]="CheckIcon" [size]="18" [strokeWidth]="3" aria-hidden="true" />
+                      <lucide-icon [img]="CheckIcon" [size]="18" aria-hidden="true" />
                     }
                   </button>
                 }
@@ -242,12 +225,12 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
               <h3 class="grupo-titulo" id="ca-lugar-t">Lugar no quadro</h3>
               <div class="lugar">
                 <button type="button" class="papel" [disabled]="d.index === 0" (click)="shift(-1)">
-                  <lucide-icon [img]="LeftIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="LeftIcon" [size]="16" aria-hidden="true" />
                   Para a esquerda
                 </button>
                 <button type="button" class="papel" [disabled]="d.index === d.board.columns.length - 1" (click)="shift(1)">
                   Para a direita
-                  <lucide-icon [img]="RightIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="RightIcon" [size]="16" aria-hidden="true" />
                 </button>
               </div>
             </section>
@@ -255,7 +238,7 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
 
           <footer class="foot">
             <button type="button" class="papel perigo" [disabled]="d.board.columns.length <= 1" (click)="remove()">
-              <lucide-icon [img]="TrashIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="TrashIcon" [size]="16" aria-hidden="true" />
               Tirar a coluna
             </button>
             <div class="actions">
@@ -278,14 +261,14 @@ export class KanbanColumnSheet {
   readonly fresh = input(false);
   readonly closed = output<void>();
 
-  protected readonly CloseIcon = X;
-  protected readonly CheckIcon = Check;
-  protected readonly LeftIcon = ArrowLeft;
-  protected readonly RightIcon = ArrowRight;
-  protected readonly TrashIcon = Trash2;
-  protected readonly HandIcon = Hand;
-  protected readonly ColumnsIcon = Columns3;
-  protected readonly PaletteIcon = Palette;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly CheckIcon = ICON.pronto;
+  protected readonly LeftIcon = ICON.voltar;
+  protected readonly RightIcon = ICON.ir;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly HandIcon = ICON.aMao;
+  protected readonly ColumnsIcon = ICON.colunas;
+  protected readonly PaletteIcon = ICON.paleta;
   /** A folha "Card padrão" aberta por cima desta. */
   protected readonly templating = signal(false);
   protected readonly sortKeys = SORT_KEYS;
@@ -293,8 +276,8 @@ export class KanbanColumnSheet {
   protected readonly sortDirs = SORT_DIRS;
   protected readonly sortIcon = SORT_ICON;
   protected readonly icons = COLUMN_ICONS;
-  protected readonly iconOf = COLUMN_ICON;
-  protected readonly iconLabel = COLUMN_ICON_LABEL;
+  protected readonly iconOf = ICON_CHOICE;
+  protected readonly iconLabel = ICON_CHOICE_LABEL;
   protected readonly stocks = LIGHT_STOCKS;
   protected readonly stockLabel = STOCK_LABEL;
   protected readonly nameMax = NAME_MAX;
@@ -447,7 +430,7 @@ export class KanbanColumnSheet {
         : 'Ela está vazia. Nenhuma anotação sai do mural.',
       confirm: 'Tirar a coluna',
       cancel: 'Deixar',
-      icon: Trash2,
+      icon: ICON.apagar,
     });
     if (!yes) return;
     const before = this.kanban.get(d.board.id);

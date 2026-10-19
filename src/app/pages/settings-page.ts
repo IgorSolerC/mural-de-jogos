@@ -4,45 +4,8 @@ import { Comments, CommentsFrom } from '../core/comments';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import {
-  BookOpen,
-  Cloud as CloudIcon,
-  Copy,
-  Link as LinkIconData,
-  Megaphone,
-  CircleCheck,
-  Disc3,
-  Download,
-  Eye,
-  EyeOff,
-  Film,
-  Gamepad2,
-  HardDriveDownload,
-  Gauge,
-  Gem,
-  LayoutGrid,
-  LogOut,
-  LucideIconData,
-  Pencil,
-  Search,
-  UserRound,
-  UsersRound,
-  LucideAngularModule,
-  RefreshCw,
-  RotateCcw,
-  Scale,
-  CloudOff,
-  Origami,
-  ShieldAlert,
-  Trash2,
-  TriangleAlert,
-  Tv,
-  Upload,
-  X,
-  Zap,
-  SlidersHorizontal,
-  Columns3,
-} from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
 import { eraseSave, takeErased } from '../core/erase-save';
@@ -101,7 +64,7 @@ function when(ms: number): string {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, LucideAngularModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet],
+  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
@@ -111,18 +74,18 @@ export class SettingsPage {
   private readonly router = inject(Router);
   /** As partes, na ordem do índice. A aberta fica no endereço (#/ajustes?aba=backup), para links irem direto. */
   protected readonly tabs: readonly { id: Tab; label: string; hint: string; icon: LucideIconData }[] = [
-    { id: 'conta', label: 'Conta', hint: 'Nome, perfil e nuvem', icon: UserRound },
-    { id: 'mural', label: 'Mural', hint: 'Notas, seções e spoilers', icon: LayoutGrid },
-    { id: 'amigos', label: 'Amigos', hint: 'O que chega dos outros', icon: UsersRound },
-    { id: 'backup', label: 'Backup', hint: 'Baixar e restaurar', icon: HardDriveDownload },
-    { id: 'busca', label: 'Busca', hint: 'De onde vêm as capas', icon: Search },
-    { id: 'desempenho', label: 'Desempenho', hint: 'Qualidade ou leveza', icon: Gauge },
+    { id: 'conta', label: 'Conta', hint: 'Nome, perfil e nuvem', icon: ICON.pessoa },
+    { id: 'mural', label: 'Mural', hint: 'Notas, seções e spoilers', icon: ICON.simples },
+    { id: 'amigos', label: 'Amigos', hint: 'O que chega dos outros', icon: ICON.pessoas },
+    { id: 'backup', label: 'Backup', hint: 'Baixar e restaurar', icon: ICON.baixarNoAparelho },
+    { id: 'busca', label: 'Busca', hint: 'De onde vêm as capas', icon: ICON.buscar },
+    { id: 'desempenho', label: 'Desempenho', hint: 'Qualidade ou leveza', icon: ICON.desempenho },
   ];
   /** As três predefinições de qualidade do mural (ver `PERFORMANCE_PRESETS`). */
   protected readonly presets: readonly { id: PerformancePreset; label: string; icon: LucideIconData }[] = [
-    { id: 'desempenho', label: 'Desempenho', icon: Zap },
-    { id: 'equilibrio', label: 'Equilíbrio', icon: Scale },
-    { id: 'qualidade', label: 'Qualidade', icon: Gem },
+    { id: 'desempenho', label: 'Desempenho', icon: ICON.raio },
+    { id: 'equilibrio', label: 'Equilíbrio', icon: ICON.balanca },
+    { id: 'qualidade', label: 'Qualidade', icon: ICON.joia },
   ];
   /** O que cada predefinição faz, numa frase. */
   protected readonly presetHint: Record<PerformancePreset, string> = {
@@ -218,7 +181,7 @@ export class SettingsPage {
   private readonly confirm = inject(Confirm);
   protected readonly cloud = inject(Cloud);
   protected readonly news = inject(News);
-  protected readonly MegaphoneIcon = Megaphone;
+  protected readonly MegaphoneIcon = ICON.megafone;
   private readonly lookup = inject(GameLookup);
   private readonly siteKeys = inject(SiteKeys);
   protected readonly account = inject(CloudAccount);
@@ -238,20 +201,20 @@ export class SettingsPage {
   protected readonly importing = signal(false);
   protected readonly accountMsg = signal<string | null>(null);
 
-  protected readonly DownloadIcon = Download;
-  protected readonly UploadIcon = Upload;
-  protected readonly ShowIcon = Eye;
-  protected readonly HideIcon = EyeOff;
-  protected readonly ClearIcon = X;
-  protected readonly OkIcon = CircleCheck;
-  protected readonly AlertIcon = TriangleAlert;
-  protected readonly ShieldIcon = ShieldAlert;
-  protected readonly TrashIcon = Trash2;
-  protected readonly CloudOnIcon = CloudIcon;
-  protected readonly CopyIcon = Copy;
-  protected readonly PenIcon = Pencil;
-  protected readonly ResetIcon = RotateCcw;
-  protected readonly FriendsIcon = UsersRound;
+  protected readonly DownloadIcon = ICON.baixar;
+  protected readonly UploadIcon = ICON.enviar;
+  protected readonly ShowIcon = ICON.ver;
+  protected readonly HideIcon = ICON.esconder;
+  protected readonly ClearIcon = ICON.fechar;
+  protected readonly OkIcon = ICON.concluido;
+  protected readonly AlertIcon = ICON.aviso;
+  protected readonly ShieldIcon = ICON.cuidado;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly CloudOnIcon = ICON.nuvem;
+  protected readonly CopyIcon = ICON.copiar;
+  protected readonly PenIcon = ICON.editar;
+  protected readonly ResetIcon = ICON.recomecar;
+  protected readonly FriendsIcon = ICON.pessoas;
   protected readonly mural = inject(Mural);
   protected readonly kindIcon = KIND_ICON;
   /** Os murais com fichas (a prévia de "Novidades em Amigos"). */
@@ -273,10 +236,10 @@ export class SettingsPage {
   ];
   protected readonly sampleLead = 'Valeu cada hora, mesmo com o final corrido.';
   protected readonly sampleLeadMasked = scramble(this.sampleLead, 'previa');
-  protected readonly LinkIcon = LinkIconData;
-  protected readonly LogOutIcon = LogOut;
-  protected readonly RefreshIcon = RefreshCw;
-  protected readonly CloudOffIcon = CloudOff;
+  protected readonly LinkIcon = ICON.link;
+  protected readonly LogOutIcon = ICON.sair;
+  protected readonly RefreshIcon = ICON.atualizar;
+  protected readonly CloudOffIcon = ICON.semNuvem;
 
   protected readonly showRawg = signal(false);
   protected readonly showTmdb = signal(false);
@@ -296,11 +259,11 @@ export class SettingsPage {
     const films = this.lookup.filmsSource();
     const yours = (own: boolean) => (own ? ', com a sua chave' : '');
     const rows: { wall: string; icons: LucideIconData[]; name: string; via: string }[] = [
-      { wall: 'Jogos', icons: [Gamepad2], name: games.name, via: games.name === 'RAWG' ? `com a capa da Steam${yours(games.own)}` : 'em inglês' },
-      { wall: 'Livros', icons: [BookOpen], name: 'Open Library', via: 'edição em português' },
-      { wall: 'Filmes e séries', icons: [Film, Tv], name: films.name, via: films.name === 'TMDB' ? `em português${yours(films.own)}` : 'em inglês' },
-      { wall: 'Animes', icons: [Origami], name: 'Kitsu', via: 'nome brasileiro quando tem' },
-      { wall: 'Músicas', icons: [Disc3], name: 'iTunes', via: 'capa e um trecho de cada faixa, sem chave' },
+      { wall: 'Jogos', icons: [ICON.jogos], name: games.name, via: games.name === 'RAWG' ? `com a capa da Steam${yours(games.own)}` : 'em inglês' },
+      { wall: 'Livros', icons: [ICON.livros], name: 'Open Library', via: 'edição em português' },
+      { wall: 'Filmes e séries', icons: [ICON.filmes, ICON.series], name: films.name, via: films.name === 'TMDB' ? `em português${yours(films.own)}` : 'em inglês' },
+      { wall: 'Animes', icons: [ICON.animes], name: 'Kitsu', via: 'nome brasileiro quando tem' },
+      { wall: 'Músicas', icons: [ICON.musicas], name: 'iTunes', via: 'capa e um trecho de cada faixa, sem chave' },
     ];
     return rows;
   });
@@ -490,7 +453,7 @@ export class SettingsPage {
       return {
         key: conflictKey(c),
         name: this.syncConflicts.titleOf(c),
-        icon: ficha ? this.kindIcon[ficha.kind] : tipo === 'kanban' ? Columns3 : SlidersHorizontal,
+        icon: ficha ? this.kindIcon[ficha.kind] : tipo === 'kanban' ? ICON.colunas : ICON.ajustar,
         wall: ficha ? cap(profileOf(ficha.kind).singular) : tipo === 'kanban' ? 'Kanban' : 'Ajuste',
         why: c.a === null || c.b === null ? 'apagada num aparelho e mudada no outro' : 'mudou em dois aparelhos',
         when: new Date(c.em).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),

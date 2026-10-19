@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ArrowDownWideNarrow, CheckCheck, ChevronLeft, ChevronRight, ChevronsDown, Columns3, FilePlus, List, LucideAngularModule, Pencil, Plus, Rows2, Search, Settings, X } from 'lucide-angular';
+import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
@@ -22,7 +22,6 @@ import { CategoryLabel } from '../ui/category-label';
 import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { ColumnWheel } from '../ui/column-wheel';
-import { COLUMN_ICON } from '../ui/kanban-icons';
 import { KanbanNote } from '../ui/kanban-note';
 import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
@@ -137,30 +136,30 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, TagChips],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, TagChips],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
 })
 export class KanbanPage {
-  protected readonly PlusIcon = Plus;
-  protected readonly SettingsIcon = Settings;
-  protected readonly PencilIcon = Pencil;
-  protected readonly DoneIcon = CheckCheck;
-  protected readonly SearchIcon = Search;
-  protected readonly NewNoteIcon = FilePlus;
-  protected readonly CloseIcon = X;
-  protected readonly ColumnIcon = Columns3;
-  protected readonly CardsIcon = Rows2;
-  protected readonly TitlesIcon = List;
-  protected readonly SortIcon = ArrowDownWideNarrow;
-  protected readonly BackIcon = ChevronLeft;
-  protected readonly NextIcon = ChevronRight;
-  protected readonly MoreIcon = ChevronsDown;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly SettingsIcon = ICON.configurar;
+  protected readonly PencilIcon = ICON.editar;
+  protected readonly DoneIcon = ICON.feito;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly NewNoteIcon = ICON.novaNota;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly ColumnIcon = ICON.colunas;
+  protected readonly CardsIcon = ICON.linhas;
+  protected readonly TitlesIcon = ICON.lista;
+  protected readonly SortIcon = ICON.ordenarDecrescente;
+  protected readonly BackIcon = ICON.anterior;
+  protected readonly NextIcon = ICON.proximo;
+  protected readonly MoreIcon = ICON.mostrarMais;
   protected readonly showStep = SHOW_STEP;
   protected readonly sortShort = sortShort;
   protected readonly sortSentence = sortSentence;
-  protected readonly iconOf = COLUMN_ICON;
+  protected readonly iconOf = ICON_CHOICE;
   protected readonly maxColumns = MAX_COLUMNS;
   protected readonly notesKind = NOTES;
   protected readonly firstColumns = defaultColumns();

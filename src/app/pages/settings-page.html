@@ -3,7 +3,7 @@
   <p class="resumo">Vale na hora e fica salvo neste navegador</p>
   <!-- o que mudou no site: a página de novidades, com quantas ainda não foram vistas -->
   <a class="btn-quiet novidades" routerLink="/novidades">
-    <lucide-icon [img]="MegaphoneIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+    <lucide-icon [img]="MegaphoneIcon" [size]="18" aria-hidden="true" />
     Novidades
     @if (news.unseen(); as n) {
       <span class="novas">{{ n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
@@ -11,7 +11,7 @@
   </a>
   <!-- as preferências de Mural e Amigos de volta ao começo (o nome, a conta e as chaves ficam) -->
   <button type="button" class="btn-quiet padrao" [disabled]="settings.atDefaults()" (click)="resetAll()">
-    <lucide-icon [img]="ResetIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+    <lucide-icon [img]="ResetIcon" [size]="18" aria-hidden="true" />
     {{ settings.atDefaults() ? 'Tudo no padrão' : 'Voltar ao padrão' }}
   </button>
 </header>
@@ -40,7 +40,7 @@
           [attr.tabindex]="tab() === t.id ? 0 : -1"
           (click)="go(t.id)"
         >
-          <lucide-icon class="etiqueta-icone" [img]="t.icon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon class="etiqueta-icone" [img]="t.icon" [size]="20" aria-hidden="true" />
           <span class="etiqueta-nome">{{ t.label }}</span>
           <span class="etiqueta-dica">{{ t.hint }}</span>
           @if (attention()[t.id]; as why) {
@@ -103,7 +103,7 @@
             </div>
             <div class="acoes">
               <a class="btn-papel" routerLink="/perfil/editar">
-                <lucide-icon [img]="PenIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="PenIcon" [size]="17" aria-hidden="true" />
                 Editar
               </a>
               <a class="btn-papel quieto" routerLink="/perfil">Ver</a>
@@ -118,7 +118,7 @@
             @if (account.account(); as acc) {
               <div class="linha">
                 <div class="estado" [class.problema]="syncTrouble()">
-                  <lucide-icon class="estado-icone" [img]="syncTrouble() ? CloudOffIcon : CloudOnIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+                  <lucide-icon class="estado-icone" [img]="syncTrouble() ? CloudOffIcon : CloudOnIcon" [size]="22" aria-hidden="true" />
                   <div>
                     <p class="estado-linha" role="status">{{ syncLine() }}</p>
                     <p class="linha-desc">O mural vai e volta entre os seus aparelhos sozinho.</p>
@@ -137,7 +137,7 @@
                       [disabled]="sync.status() === 'sincronizando'"
                       [appBusy]="sync.status() === 'sincronizando'"
                     >
-                      <lucide-icon [img]="RefreshIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="RefreshIcon" [size]="17" aria-hidden="true" />
                       Sincronizar
                     </button>
                   }
@@ -158,7 +158,7 @@
                 <div class="linha versoes-cabeca">
                   <div class="linha-texto">
                     <p class="linha-titulo" id="conflitos-titulo">
-                      <lucide-icon class="conflitos-icone" [img]="AlertIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon class="conflitos-icone" [img]="AlertIcon" [size]="18" aria-hidden="true" />
                       {{ pendingConflicts().length === 1 ? 'Um conflito para escolher' : pendingConflicts().length + ' conflitos para escolher' }}
                     </p>
                     <p class="linha-desc">
@@ -170,7 +170,7 @@
                 <ul class="versoes conflitos" aria-labelledby="conflitos-titulo">
                   @for (k of pendingConflicts(); track k.key) {
                     <li class="versao">
-                      <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
+                      <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" aria-hidden="true" />
                       <div class="versao-texto">
                         <p class="versao-nome">{{ k.name }}</p>
                         <p class="versao-meta">
@@ -200,11 +200,11 @@
                 <div class="codigo-linha" role="group" aria-labelledby="codigo-titulo">
                   <span class="codigo-valor" aria-hidden="true">{{ acc.codigo }}</span><span class="sr-only">{{ spelled(acc.codigo) }}</span>
                   <button type="button" class="btn-papel" (click)="copyCode(acc.codigo)">
-                    <lucide-icon [img]="CopyIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="CopyIcon" [size]="17" aria-hidden="true" />
                     Copiar
                   </button>
                   <button type="button" class="btn-papel" (click)="copyLink(acc.codigo)">
-                    <lucide-icon [img]="LinkIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="LinkIcon" [size]="17" aria-hidden="true" />
                     Copiar o link
                   </button>
                 </div>
@@ -257,7 +257,7 @@
                 </div>
                 <div class="acoes">
                   <button type="button" class="btn-papel" (click)="signOut()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'sair'">
-                    <lucide-icon [img]="LogOutIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="LogOutIcon" [size]="17" aria-hidden="true" />
                     {{ accountBusy() === 'sair' ? 'Saindo…' : 'Sair' }}
                   </button>
                 </div>
@@ -307,7 +307,7 @@
                 </div>
                 <div class="acoes">
                   <button type="button" class="btn-papel perigo" (click)="deleteAccount(acc.nome, acc.codigo)" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'apagar'">
-                    <lucide-icon [img]="TrashIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
                     {{ accountBusy() === 'apagar' ? 'Apagando…' : 'Apagar' }}
                   </button>
                 </div>
@@ -553,7 +553,7 @@
 
         <div class="grupo">
           <div class="estado cartao" [class.problema]="overdue()">
-            <lucide-icon class="estado-icone" [img]="backup.inCloud() ? CloudOnIcon : overdue() ? AlertIcon : OkIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon class="estado-icone" [img]="backup.inCloud() ? CloudOnIcon : overdue() ? AlertIcon : OkIcon" [size]="22" aria-hidden="true" />
             <div>
               <p class="estado-linha">{{ backup.inCloud() ? syncLine() : lastBackup() }}</p>
               <p class="linha-desc">
@@ -567,11 +567,11 @@
 
           <div class="acoes-backup">
             <button type="button" class="btn-ink" (click)="exportFile()" [disabled]="!hasData() || exporting()" [appBusy]="exporting()">
-              <lucide-icon [img]="DownloadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="DownloadIcon" [size]="18" aria-hidden="true" />
               {{ exporting() ? 'Preparando…' : 'Baixar backup' }}
             </button>
             <label class="btn-papel arquivo" [appBusy]="importing()">
-              <lucide-icon [img]="UploadIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="UploadIcon" [size]="17" aria-hidden="true" />
               {{ importing() ? 'Lendo o arquivo…' : 'Restaurar de um arquivo' }}
               <input type="file" accept="application/json,.json,application/gzip,.gz" [disabled]="importing()" (change)="importFile($event)" />
             </label>
@@ -586,7 +586,7 @@
 
           @if (backup.persisted() === false) {
             <p class="dica">
-              <lucide-icon [img]="ShieldIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="ShieldIcon" [size]="18" aria-hidden="true" />
               <span>
                 O navegador pode apagar o que um site guarda quando falta espaço (o Safari apaga depois de uma semana sem abrir). Instale o mural na
                 tela inicial para ele ficar protegido.
@@ -602,7 +602,7 @@
               </div>
               <div class="acoes">
                 <button type="button" class="btn-papel" (click)="downloadBefore(copy)">
-                  <lucide-icon [img]="DownloadIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                  <lucide-icon [img]="DownloadIcon" [size]="17" aria-hidden="true" />
                   Baixar
                 </button>
               </div>
@@ -622,7 +622,7 @@
             <ul class="versoes" aria-labelledby="versoes-titulo">
               @for (k of keptVersions(); track k.key) {
                 <li class="versao">
-                  <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
+                  <lucide-icon class="versao-mural" [img]="k.icon" [size]="20" aria-hidden="true" />
                   <div class="versao-texto">
                     <p class="versao-nome">{{ k.name }}</p>
                     <p class="versao-meta">
@@ -631,12 +631,12 @@
                   </div>
                   @if (k.current) {
                     <p class="versao-agora">
-                      <lucide-icon [img]="OkIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="OkIcon" [size]="16" aria-hidden="true" />
                       É a de agora
                     </p>
                   } @else {
                     <button type="button" class="btn-papel" (click)="restoreVersion(k.v)" [attr.aria-label]="'Restaurar a versão de ' + k.name + ' guardada ' + k.when">
-                      <lucide-icon [img]="ResetIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="ResetIcon" [size]="17" aria-hidden="true" />
                       Restaurar
                     </button>
                   }
@@ -661,7 +661,7 @@
             </div>
             <div class="acoes">
               <button type="button" class="btn-papel perigo" (click)="erase()" [disabled]="erasing()" [appBusy]="erasing()">
-                <lucide-icon [img]="TrashIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
                 {{ erasing() ? 'Apagando…' : 'Apagar' }}
               </button>
             </div>
@@ -689,7 +689,7 @@
               @for (o of presets; track o.id) {
                 <label class="segmento">
                   <input type="radio" name="qualidade" [value]="o.id" [checked]="settings.performancePreset() === o.id" (change)="settings.applyPerformancePreset(o.id)" />
-                  <span class="seg-num" aria-hidden="true"><lucide-icon [img]="o.icon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" /></span>
+                  <span class="seg-num" aria-hidden="true"><lucide-icon [img]="o.icon" [size]="22" aria-hidden="true" /></span>
                   <span class="seg-nome">{{ o.label }}</span>
                 </label>
               }
@@ -736,7 +736,7 @@
               <div>
                 <dt>
                   @for (icon of s.icons; track $index) {
-                    <lucide-icon [img]="icon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="icon" [size]="18" aria-hidden="true" />
                   }
                   {{ s.wall }}
                 </dt>
@@ -787,7 +787,7 @@
               />
               @if (settings.tmdbKey()) {
                 <button type="button" class="icone-btn" (click)="settings.setKey('tmdb', ''); tmdbInput.focus()" aria-label="Apagar a chave do TMDB">
-                  <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="ClearIcon" [size]="20" aria-hidden="true" />
                 </button>
               }
               <button
@@ -797,7 +797,7 @@
                 [attr.aria-label]="showTmdb() ? 'Esconder a chave do TMDB' : 'Mostrar a chave do TMDB'"
                 [attr.aria-pressed]="showTmdb()"
               >
-                <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="showTmdb() ? HideIcon : ShowIcon" [size]="20" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -823,7 +823,7 @@
               />
               @if (settings.rawgKey()) {
                 <button type="button" class="icone-btn" (click)="settings.setKey('rawg', ''); rawgInput.focus()" aria-label="Apagar a chave da RAWG">
-                  <lucide-icon [img]="ClearIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="ClearIcon" [size]="20" aria-hidden="true" />
                 </button>
               }
               <button
@@ -833,7 +833,7 @@
                 [attr.aria-label]="showRawg() ? 'Esconder a chave da RAWG' : 'Mostrar a chave da RAWG'"
                 [attr.aria-pressed]="showRawg()"
               >
-                <lucide-icon [img]="showRawg() ? HideIcon : ShowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="showRawg() ? HideIcon : ShowIcon" [size]="20" aria-hidden="true" />
               </button>
             </div>
           </div>
@@ -913,7 +913,7 @@
         <ul class="pv-murais">
           @for (k of wallKinds; track k) {
             <li [class.fora]="settings.friendKinds() === 'separado' && k !== mural.kind()">
-              <lucide-icon [img]="kindIcon[k]" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="kindIcon[k]" [size]="18" aria-hidden="true" />
             </li>
           }
         </ul>
@@ -925,7 +925,7 @@
     @case ('numero') {
       <div class="pv pv-botton">
         <span class="botton">
-          <lucide-icon [img]="FriendsIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="FriendsIcon" [size]="20" aria-hidden="true" />
           @if (settings.mailCount()) {
             <span class="botton-n">3</span>
           }

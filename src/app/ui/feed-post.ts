@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
-import { BookmarkCheck, BookmarkPlus, Eye, LucideAngularModule, MessageCircleMore, RefreshCw } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Comments, spokenComments } from '../core/comments';
 import { FeedItem, agoLabel, fullWhen } from '../core/follow';
 import { Kind, profileOf } from '../core/kinds';
@@ -46,7 +46,7 @@ const A_WORK: Record<Kind, string> = {
  */
 @Component({
   selector: 'app-feed-post',
-  imports: [LucideAngularModule, PersonPhoto, ReactionBubble, ReactionPicker, ReviewCard],
+  imports: [IconModule, PersonPhoto, ReactionBubble, ReactionPicker, ReviewCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './feed-post.html',
   styleUrl: './feed-post.scss',
@@ -71,11 +71,11 @@ export class FeedPost {
   private readonly reactions = inject(Reactions);
   private readonly comments = inject(Comments);
 
-  protected readonly CommentIcon = MessageCircleMore;
-  protected readonly RevealIcon = Eye;
-  protected readonly WishIcon = BookmarkPlus;
-  protected readonly WishedIcon = BookmarkCheck;
-  protected readonly RetryIcon = RefreshCw;
+  protected readonly CommentIcon = ICON.comentar;
+  protected readonly RevealIcon = ICON.ver;
+  protected readonly WishIcon = ICON.querer;
+  protected readonly WishedIcon = ICON.naWishlist;
+  protected readonly RetryIcon = ICON.atualizar;
   protected readonly formatScore = formatScore;
 
   protected readonly who = computed(() => this.post().item.pessoa);

@@ -1,13 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, input, model } from '@angular/core';
-import { Annoyed, Crown, LucideAngularModule, LucideIconData, Meh, Smile, ThumbsUp } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { VERDICTS, VERDICT_LABEL, Verdict } from '../core/review';
 
 export const VERDICT_ICON: Record<Verdict, LucideIconData> = {
-  masterpiece: Crown,
-  recomendo: ThumbsUp,
-  legalzinho: Smile,
-  meh: Meh,
-  chato: Annoyed,
+  masterpiece: ICON.coroa,
+  recomendo: ICON.joinha,
+  legalzinho: ICON.sorriso,
+  meh: ICON.meh,
+  chato: ICON.aborrecido,
 };
 
 /**
@@ -18,7 +19,7 @@ export const VERDICT_ICON: Record<Verdict, LucideIconData> = {
  */
 @Component({
   selector: 'app-verdict-stamp',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.big]': 'size() === "big"', role: 'img', '[attr.aria-label]': '"Veredito: " + label()' },
   template: `
@@ -29,7 +30,7 @@ export const VERDICT_ICON: Record<Verdict, LucideIconData> = {
       [class.rasgo-direita]="value() === 'chato'"
       [style.--v]="'var(--verdict-' + value() + '-lit)'"
     >
-      <lucide-icon [img]="icon()" [size]="size() === 'big' ? 19 : 15" [strokeWidth]="2.6" aria-hidden="true" />
+      <lucide-icon [img]="icon()" [size]="size() === 'big' ? 19 : 15" aria-hidden="true" />
       <span class="palavra" aria-hidden="true">{{ label() }}</span>
     </span>
   `,
@@ -115,7 +116,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-verdict-picker',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fieldset>
@@ -138,7 +139,7 @@ let uid = 0;
               [class.rasgo-direita]="value() === v && v === 'chato'"
               [style.--v]="'var(--verdict-' + v + '-lit)'"
             >
-              <lucide-icon [img]="icons[v]" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="icons[v]" [size]="18" aria-hidden="true" />
               <span class="palavra">{{ labels[v] }}</span>
             </span>
           </label>

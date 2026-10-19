@@ -1,44 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
-import {
-  Blocks,
-  Bold,
-  Check,
-  ChevronDown,
-  CircleHelp,
-  Code,
-  CornerDownRight,
-  Eye,
-  EyeOff,
-  Heading1,
-  Heading2,
-  Heading3,
-  Highlighter,
-  Hourglass,
-  CassetteTape,
-  Clapperboard,
-  Image,
-  Italic,
-  Link,
-  List,
-  ListChecks,
-  ListOrdered,
-  LucideAngularModule,
-  LucideIconData,
-  Maximize2,
-  Minimize2,
-  Minus,
-  PenLine,
-  Pilcrow,
-  Plus,
-  SquareCode,
-  Strikethrough,
-  Table,
-  Quote,
-  StickyNote,
-  Type,
-  X,
-} from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, ownerItem, tableCells, toggleCheck } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { cap, profileOf } from '../core/kinds';
@@ -98,32 +61,20 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  * Um clique na linha de um widget já abre o painel dele assim; num link (de anotação ou de
  * endereço), o painel do link, com o que está escrito, para trocar.
  */
-/**
- * O link para outra anotação: a folhinha (com a dobra no canto) e o elo de corrente dentro dela. Um
- * desenho só, no traço dos outros da régua; o link para um endereço é o elo sozinho.
- */
-const NOTE_LINK_ICON: LucideIconData = [
-  ['path', { d: 'M21 9a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z', key: 'folha' }],
-  ['path', { d: 'M15 3v5a1 1 0 0 0 1 1h5', key: 'dobra' }],
-  ['path', { d: 'M10 15.5H8.5a2.5 2.5 0 0 1 0-5H10', key: 'elo-esq' }],
-  ['path', { d: 'M14 10.5h1.5a2.5 2.5 0 0 1 0 5H14', key: 'elo-dir' }],
-  ['path', { d: 'M10 13h4', key: 'elo-meio' }],
-];
-
 /** O desenho de cada widget no menu "Widgets" (ver core/widgets.ts). */
 const WIDGET_ICONS: Record<string, LucideIconData> = {
-  contador: Hourglass,
-  imagem: Image,
-  video: Clapperboard,
-  audio: CassetteTape,
-  nota: StickyNote,
+  contador: ICON.ampulheta,
+  imagem: ICON.imagem,
+  video: ICON.video,
+  audio: ICON.fitaCassete,
+  nota: ICON.anotacoes,
 };
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [LucideAngularModule, NgTemplateOutlet, RichText, NoteWidget, CardPicker, MarkupGuide],
+  imports: [IconModule, NgTemplateOutlet, RichText, NoteWidget, CardPicker, MarkupGuide],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null' },
@@ -144,7 +95,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             (click)="see(false, big)"
             (keydown)="onTabKey($event, big)"
           >
-            <lucide-icon [img]="WriteIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="WriteIcon" [size]="16" aria-hidden="true" />
             <span>Escrever</span>
           </button>
           <button
@@ -158,7 +109,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             (click)="see(true, big)"
             (keydown)="onTabKey($event, big)"
           >
-            <lucide-icon [img]="SeeIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="SeeIcon" [size]="16" aria-hidden="true" />
             <span>Ver como fica</span>
           </button>
         </div>
@@ -171,17 +122,17 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           title="Ajuda: como escrever cada marca (Ctrl+/)"
           (click)="toggleGuide(big)"
         >
-          <lucide-icon [img]="HelpIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="HelpIcon" [size]="18" aria-hidden="true" />
           <span class="acao-txt" aria-hidden="true">Ajuda</span>
         </button>
         @if (big) {
           <button type="button" class="acao-folha tamanho" aria-label="Sair da tela cheia" title="Sair da tela cheia" (click)="shrink()">
-            <lucide-icon [img]="ShrinkIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <lucide-icon [img]="ShrinkIcon" [size]="18" aria-hidden="true" />
             <span class="acao-txt" aria-hidden="true">Sair da tela cheia</span>
           </button>
         } @else {
           <button type="button" class="acao-folha tamanho" aria-haspopup="dialog" aria-label="Tela cheia" title="Tela cheia: escrever na tela inteira" (click)="grow(area)">
-            <lucide-icon [img]="GrowIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <lucide-icon [img]="GrowIcon" [size]="18" aria-hidden="true" />
             <span class="acao-txt" aria-hidden="true">Tela cheia</span>
           </button>
         }
@@ -220,9 +171,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               (click)="toggleMenu('formatar', big, $event, area)"
               (keydown.arrowdown)="$event.preventDefault(); openMenu('formatar', big, true)"
             >
-              <lucide-icon [img]="FormatIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="FormatIcon" [size]="17" aria-hidden="true" />
               <span class="menu-nome">Formatar</span>
-              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
             </button>
             @if (isOpen('formatar', big)) {
               <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-formatar'" aria-label="Formatar" (keydown)="onMenuKey($event, area)">
@@ -230,7 +181,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                   <p class="menu-secao" [id]="areaId + '-sec-texto'" aria-hidden="true">Texto</p>
                   @for (t of textMarks; track t.act) {
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="t.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, t.act)">
-                      <lucide-icon [img]="t.icon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="t.icon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">
                         @switch (t.act) {
                           @case ('bold') { <b>Negrito</b> }
@@ -253,7 +204,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                   <span class="menu-fio" role="separator"></span>
                   @for (l of lists; track l.act) {
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, l.act)">
-                      <lucide-icon [img]="l.icon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="l.icon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">{{ l.name }}</span>
                       <kbd class="atalho" aria-hidden="true">{{ l.keys }}</kbd>
                     </button>
@@ -261,7 +212,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                   <!-- a descrição de um item: uma linha recuada que continua dele (no celular, o único jeito
                        fácil, sem Shift+Enter) -->
                   <button type="button" role="menuitem" tabindex="-1" class="menu-op" aria-keyshortcuts="Shift+Enter" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, 'inside')">
-                    <lucide-icon [img]="InsideIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="InsideIcon" [size]="17" aria-hidden="true" />
                     <span class="menu-op-nome">Linha dentro do item</span>
                     <kbd class="atalho" aria-hidden="true">Shift+Enter</kbd>
                   </button>
@@ -282,9 +233,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               (click)="toggleMenu('inserir', big, $event, area)"
               (keydown.arrowdown)="$event.preventDefault(); openMenu('inserir', big, true)"
             >
-              <lucide-icon [img]="PlusIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="PlusIcon" [size]="17" aria-hidden="true" />
               <span class="menu-nome">Inserir</span>
-              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
             </button>
             @if (isOpen('inserir', big)) {
               <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-inserir'" aria-label="Inserir" (keydown)="onMenuKey($event, area)">
@@ -292,7 +243,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                   <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e tabelas</p>
                   @for (o of inserts(); track o.act) {
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
-                      <lucide-icon [img]="o.icon" [size]="17" [strokeWidth]="2.5" aria-hidden="true" />
+                      <lucide-icon [img]="o.icon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">{{ o.name }}</span>
                       @if (o.keys) {
                         <kbd class="atalho" aria-hidden="true">{{ o.keys }}</kbd>
@@ -306,7 +257,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                   <p class="menu-secao" [id]="areaId + '-sec-widgets'" aria-hidden="true">Widgets</p>
                   @for (d of widgets; track d.name) {
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
-                      <lucide-icon [img]="iconOf(d.name)" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="iconOf(d.name)" [size]="18" aria-hidden="true" />
                       <span class="widget-op-texto">
                         <span class="menu-op-nome">{{ d.label }}</span>
                         <span class="widget-op-sobre">{{ d.about }}</span>
@@ -333,7 +284,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               (keydown.arrowdown)="$event.preventDefault(); openMenu('estilo', big, true)"
             >
               <span class="menu-nome">{{ styleName() }}</span>
-              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" />
+              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
             </button>
             @if (isOpen('estilo', big)) {
               <div class="menu" role="menu" tabindex="-1" [id]="areaId + '-estilo'" aria-label="Estilo do parágrafo" (keydown)="onMenuKey($event, area)">
@@ -345,21 +296,21 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           <!-- os botões de sempre, à mão (no estreito, rolam de lado; tudo também está nos menus) -->
           <div class="ferramentas">
             <button type="button" class="ferramenta" title="Negrito (Ctrl+B)" aria-label="Negrito" aria-keyshortcuts="Control+B" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'bold')">
-              <lucide-icon [img]="BoldIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="BoldIcon" [size]="18" aria-hidden="true" />
             </button>
             <button type="button" class="ferramenta" title="Itálico (Ctrl+I)" aria-label="Itálico" aria-keyshortcuts="Control+I" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'italic')">
-              <lucide-icon [img]="ItalicIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="ItalicIcon" [size]="18" aria-hidden="true" />
             </button>
             <button type="button" class="ferramenta extra" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" aria-keyshortcuts="Control+Shift+X" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'strike')">
-              <lucide-icon [img]="StrikeIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="StrikeIcon" [size]="18" aria-hidden="true" />
             </button>
             <button type="button" class="ferramenta extra" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" aria-keyshortcuts="Control+Shift+H" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'mark')">
-              <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
             </button>
             <span class="fio" aria-hidden="true"></span>
             @for (l of lists; track l.act) {
               <button type="button" class="ferramenta" [title]="l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
-                <lucide-icon [img]="l.icon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="l.icon" [size]="19" aria-hidden="true" />
               </button>
             }
             <span class="fio link-fio" aria-hidden="true"></span>
@@ -373,7 +324,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               (pointerdown)="$event.preventDefault()"
               (click)="act(area, big, 'url')"
             >
-              <lucide-icon [img]="UrlIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="UrlIcon" [size]="18" aria-hidden="true" />
             </button>
             @if (notes()) {
               <button
@@ -385,13 +336,13 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                 (pointerdown)="$event.preventDefault()"
                 (click)="act(area, big, 'note')"
               >
-                <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="LinkIcon" [size]="19" aria-hidden="true" />
               </button>
             }
           </div>
           <!-- presa em cima do teclado: "Pronto" fecha o teclado (e a régua volta para o alto da folha) -->
           <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="area.blur()">
-            <lucide-icon [img]="DoneIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+            <lucide-icon [img]="DoneIcon" [size]="20" aria-hidden="true" />
           </button>
         </div>
         @if (seeing()) {
@@ -439,7 +390,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           <div class="painel url-painel" role="group" aria-label="Link para um endereço" (keydown.escape)="closeUrl($event, area)">
             <div class="painel-topo">
               <p class="painel-titulo">Link para um endereço</p>
-              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeUrl(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeUrl(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
             </div>
             <label class="painel-campo">
               <span>Texto</span>
@@ -471,7 +422,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           <div class="painel tabela-painel" (keydown.escape)="closeTable($event, area)">
             <div class="painel-topo">
               <p class="painel-titulo" aria-live="polite">Tabela {{ t.cols }} × {{ t.rows }}</p>
-              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeTable(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeTable(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
             </div>
             <div class="grade" role="grid" aria-label="Tamanho da tabela: colunas por linhas" (keydown)="onGridKey($event)">
               @for (r of gridRows; track r) {
@@ -503,7 +454,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           <div class="painel widget-painel" role="group" [attr.aria-label]="(w.swap ? 'Trocar o widget: ' : 'Widget: ') + def.label" (keydown.escape)="closeWidget($event, area)">
             <div class="painel-topo">
               <p class="painel-titulo">{{ w.swap ? def.swap : 'Widget · ' + def.label }}</p>
-              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeWidget(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeWidget(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
             </div>
             @if (widgets.length > 1 && !w.swap) {
               <div class="widget-tipos" role="radiogroup" aria-label="Qual widget">
@@ -555,7 +506,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                         </span>
                         <span class="ficha-escolher-acao">Trocar</span>
                       } @else {
-                        <lucide-icon [img]="CardIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                        <lucide-icon [img]="CardIcon" [size]="18" aria-hidden="true" />
                         <span class="ficha-escolher-texto" [id]="areaId + '-qual-nome'">
                           <span class="ficha-escolher-nome">{{ w.values['title'] || 'Escolher a ficha' }}</span>
                           @if (w.values['title']) {
@@ -664,7 +615,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         <div class="painel guia" [id]="areaId + '-guia'" role="region" aria-label="Ajuda: como escrever" (keydown.escape)="closeGuide($event, area)">
           <div class="painel-topo">
             <p class="painel-titulo">Como escrever</p>
-            <button type="button" class="painel-fechar" aria-label="Fechar a ajuda" title="Fechar" (click)="closeGuide(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+            <button type="button" class="painel-fechar" aria-label="Fechar a ajuda" title="Fechar" (click)="closeGuide(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
           </div>
           <!-- a lista vem num pedaço à parte, quando a Ajuda abre pela primeira vez -->
           @defer {
@@ -686,7 +637,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             <div class="painel elo-painel" role="group" aria-label="Link para outra anotação" (keydown.escape)="closeLinkKey($event)">
               <div class="painel-topo">
                 <p class="painel-titulo">Link para outra anotação</p>
-                <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeLink(area)"><lucide-icon [img]="CloseIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" /></button>
+                <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeLink(area)"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
               </div>
               <label class="painel-campo">
                 <span>Texto</span>
@@ -714,10 +665,10 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                     <!-- escolhida: a lista fecha e fica o que o link vai abrir (escrever ou ↓ reabre) -->
                     <p class="elo-escolhida" aria-live="polite">
                       @if (chosenNote(); as n) {
-                        <lucide-icon [img]="ChosenIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+                        <lucide-icon [img]="ChosenIcon" [size]="16" aria-hidden="true" />
                         <span>{{ metaOf(n) || 'Sua anotação' }}</span>
                       } @else {
-                        <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+                        <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
                         <span>Ainda não existe: abra o link depois para criar</span>
                       }
                     </p>
@@ -763,7 +714,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             (pointerdown)="$event.preventDefault()"
             (click)="take(t)"
           >
-            <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+            <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
             <span class="elo-nome">Link para “{{ t }}”</span>
             <span class="elo-meta">a anotação ainda não existe: abra o link depois para criar</span>
           </li>
@@ -788,10 +739,10 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           (pointerenter)="$any($event.currentTarget).focus()"
           (click)="pickStyle(area, s.value)"
         >
-          <lucide-icon [img]="s.icon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="s.icon" [size]="17" aria-hidden="true" />
           <span class="menu-op-nome" [attr.data-estilo]="s.value">{{ s.name }}</span>
           @if (lineStyle() === s.value) {
-            <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+            <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
           }
         </button>
       }
@@ -2398,21 +2349,21 @@ export class RichEditor {
 
   /** Em qual folha a régua está presa em cima do teclado (null: no alto da folha, como sempre). */
   protected readonly docked = signal<boolean | null>(null);
-  protected readonly DoneIcon = Check;
+  protected readonly DoneIcon = ICON.pronto;
   private readonly dockMedia = typeof matchMedia === 'function' ? matchMedia(DOCK_MEDIA) : null;
 
   constructor() {
     watchVisualViewport();
   }
 
-  protected readonly LinkIcon = NOTE_LINK_ICON;
-  protected readonly UrlIcon = Link;
-  protected readonly PlusIcon = Plus;
-  protected readonly StrikeIcon = Strikethrough;
-  protected readonly MarkIcon = Highlighter;
-  protected readonly CloseIcon = X;
-  protected readonly HelpIcon = CircleHelp;
-  protected readonly FormatIcon = Type;
+  protected readonly LinkIcon = ICON.linkNota;
+  protected readonly UrlIcon = ICON.link;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly StrikeIcon = ICON.riscado;
+  protected readonly MarkIcon = ICON.marcaTexto;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly HelpIcon = ICON.ajuda;
+  protected readonly FormatIcon = ICON.letra;
 
   /**
    * O painel do link para um endereço: o trecho que ele vai ocupar, o texto e o endereço (`swap`: o
@@ -2435,36 +2386,36 @@ export class RichEditor {
 
   /** As marcas do texto, no "Formatar" (o nome vai escrito do jeito que fica), com o atalho. */
   protected readonly textMarks: readonly { act: Action; icon: LucideIconData; keys: string; aria: string | null }[] = [
-    { act: 'bold', icon: Bold, keys: 'Ctrl+B', aria: 'Control+B' },
-    { act: 'italic', icon: Italic, keys: 'Ctrl+I', aria: 'Control+I' },
-    { act: 'strike', icon: Strikethrough, keys: 'Ctrl+Shift+X', aria: 'Control+Shift+X' },
-    { act: 'mark', icon: Highlighter, keys: 'Ctrl+Shift+H', aria: 'Control+Shift+H' },
-    { act: 'spoiler', icon: EyeOff, keys: '', aria: null },
-    { act: 'code', icon: Code, keys: 'Ctrl+E', aria: 'Control+E' },
+    { act: 'bold', icon: ICON.negrito, keys: 'Ctrl+B', aria: 'Control+B' },
+    { act: 'italic', icon: ICON.italico, keys: 'Ctrl+I', aria: 'Control+I' },
+    { act: 'strike', icon: ICON.riscado, keys: 'Ctrl+Shift+X', aria: 'Control+Shift+X' },
+    { act: 'mark', icon: ICON.marcaTexto, keys: 'Ctrl+Shift+H', aria: 'Control+Shift+H' },
+    { act: 'spoiler', icon: ICON.esconder, keys: '', aria: null },
+    { act: 'code', icon: ICON.codigo, keys: 'Ctrl+E', aria: 'Control+E' },
   ];
-  protected readonly InsideIcon = CornerDownRight;
+  protected readonly InsideIcon = ICON.dentro;
   /** As listas: no "Formatar" e na régua, com os atalhos do Docs. */
   protected readonly lists: readonly { act: ListKind; name: string; icon: LucideIconData; keys: string; aria: string }[] = [
-    { act: 'check', name: 'Tarefas', icon: ListChecks, keys: 'Ctrl+Shift+9', aria: 'Control+Shift+9' },
-    { act: 'ul', name: 'Lista', icon: List, keys: 'Ctrl+Shift+8', aria: 'Control+Shift+8' },
-    { act: 'ol', name: 'Lista numerada', icon: ListOrdered, keys: 'Ctrl+Shift+7', aria: 'Control+Shift+7' },
+    { act: 'check', name: 'Tarefas', icon: ICON.tarefas, keys: 'Ctrl+Shift+9', aria: 'Control+Shift+9' },
+    { act: 'ul', name: 'Lista', icon: ICON.lista, keys: 'Ctrl+Shift+8', aria: 'Control+Shift+8' },
+    { act: 'ol', name: 'Lista numerada', icon: ICON.listaNumerada, keys: 'Ctrl+Shift+7', aria: 'Control+Shift+7' },
   ];
   /** Os estilos do parágrafo. */
   protected readonly styles: readonly { value: LineStyle; name: string; icon: LucideIconData }[] = [
-    { value: 'texto', name: 'Texto normal', icon: Pilcrow },
-    { value: 't1', name: 'Título 1', icon: Heading1 },
-    { value: 't2', name: 'Título 2', icon: Heading2 },
-    { value: 't3', name: 'Título 3', icon: Heading3 },
-    { value: 'citacao', name: 'Citação', icon: Quote },
-    { value: 'codigo', name: 'Bloco de código', icon: SquareCode },
+    { value: 'texto', name: 'Texto normal', icon: ICON.paragrafo },
+    { value: 't1', name: 'Título 1', icon: ICON.titulo1 },
+    { value: 't2', name: 'Título 2', icon: ICON.titulo2 },
+    { value: 't3', name: 'Título 3', icon: ICON.titulo3 },
+    { value: 'citacao', name: 'Citação', icon: ICON.aspas },
+    { value: 'codigo', name: 'Bloco de código', icon: ICON.blocoDeCodigo },
   ];
   /** O que o "Inserir" tem antes dos widgets (o link para outra anotação, só onde ele abre alguma). */
   protected readonly inserts = computed(() => {
     const all: { act: Action; name: string; icon: LucideIconData; keys: string; aria: string | null; typed: string }[] = [
-      { act: 'url', name: 'Link para um endereço', icon: Link, keys: 'Ctrl+K', aria: 'Control+K', typed: '' },
-      { act: 'note', name: 'Link para outra anotação', icon: NOTE_LINK_ICON, keys: '', aria: null, typed: '[[' },
-      { act: 'table', name: 'Tabela', icon: Table, keys: '', aria: null, typed: '' },
-      { act: 'rule', name: 'Divisória', icon: Minus, keys: '', aria: null, typed: '---' },
+      { act: 'url', name: 'Link para um endereço', icon: ICON.link, keys: 'Ctrl+K', aria: 'Control+K', typed: '' },
+      { act: 'note', name: 'Link para outra anotação', icon: ICON.linkNota, keys: '', aria: null, typed: '[[' },
+      { act: 'table', name: 'Tabela', icon: ICON.tabela, keys: '', aria: null, typed: '' },
+      { act: 'rule', name: 'Divisória', icon: ICON.tirar, keys: '', aria: null, typed: '---' },
     ];
     return this.notes() ? all : all.filter((o) => o.act !== 'note');
   });
@@ -2743,7 +2694,7 @@ export class RichEditor {
     const t = this.linking()?.chosen;
     return t ? resolveNote(this.notes() ?? [], t) : null;
   });
-  protected readonly ChosenIcon = Check;
+  protected readonly ChosenIcon = ICON.pronto;
 
   /** Os links em "Ver como fica": mostram se a anotação existe, mas não abrem nada. */
   protected readonly previewLinks = computed<NoteLinks | null>(() => {
@@ -2757,13 +2708,13 @@ export class RichEditor {
     return [cat, when].filter(Boolean).join(' · ');
   }
 
-  protected readonly BoldIcon = Bold;
-  protected readonly ItalicIcon = Italic;
-  protected readonly GrowIcon = Maximize2;
-  protected readonly ShrinkIcon = Minimize2;
+  protected readonly BoldIcon = ICON.negrito;
+  protected readonly ItalicIcon = ICON.italico;
+  protected readonly GrowIcon = ICON.aumentar;
+  protected readonly ShrinkIcon = ICON.diminuir;
 
-  protected readonly SeeIcon = Eye;
-  protected readonly WriteIcon = PenLine;
+  protected readonly SeeIcon = ICON.ver;
+  protected readonly WriteIcon = ICON.escrever;
   protected readonly toggle = toggleCheck;
   /** Mostrando a folha formatada no lugar do campo (a aba "Ver como fica"). */
   protected readonly seeing = signal(false);
@@ -3260,10 +3211,10 @@ export class RichEditor {
 
   protected readonly widgets = WIDGETS;
   protected readonly fieldsFor = fieldsFor;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly ChevronIcon = ICON.abrir;
   /** O desenho de cada widget no menu. */
   protected iconOf(name: string): LucideIconData {
-    return WIDGET_ICONS[name] ?? Blocks;
+    return WIDGET_ICONS[name] ?? ICON.widgets;
   }
 
   /** Escolheu um widget no menu: o painel dele abre. */
@@ -3363,7 +3314,7 @@ export class RichEditor {
 
   // ===== A Nota: a ficha colada =====
 
-  protected readonly CardIcon = StickyNote;
+  protected readonly CardIcon = ICON.anotacoes;
   private readonly store = inject(ReviewStore);
   /** A lista das fichas (ver ui/card-picker.ts) aberta. */
   protected readonly cardPickerOpen = signal(false);

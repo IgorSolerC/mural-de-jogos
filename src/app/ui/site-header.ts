@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
-import { LucideAngularModule, NotebookPen, Plus, Scissors, Settings as SettingsIcon, UsersRound } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
 import { Area, CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
 import { CalendarStore } from '../core/calendar-store';
@@ -42,7 +42,7 @@ const TILTS = [-2.2, 1.6, -1.2, 2];
  */
 @Component({
   selector: 'app-site-header',
-  imports: [LucideAngularModule, Pin, RouterLink],
+  imports: [IconModule, Pin, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './site-header.html',
   styleUrl: './site-header.scss',
@@ -56,11 +56,11 @@ export class SiteHeader {
   private readonly settings = inject(Settings);
   private readonly router = inject(Router);
 
-  protected readonly PlusIcon = Plus;
-  protected readonly NoteIcon = NotebookPen;
-  protected readonly CutIcon = Scissors;
-  protected readonly GearIcon = SettingsIcon;
-  protected readonly FriendsIcon = UsersRound;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly NoteIcon = ICON.praDepois;
+  protected readonly CutIcon = ICON.tesoura;
+  protected readonly GearIcon = ICON.configurar;
+  protected readonly FriendsIcon = ICON.pessoas;
 
   private readonly path = toSignal(
     this.router.events.pipe(

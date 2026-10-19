@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { ArrowLeft, LucideAngularModule, UserCheck, UserPlus } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals } from '../core/cloud-murals';
 import { ColleagueStore } from '../core/colleague-store';
@@ -33,7 +33,7 @@ const NO_PICKS: ReadonlyMap<string, number> = new Map();
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [Busy, LucideAngularModule, ReviewReader, RouterLink, WallBoard, WallToolbar],
+  imports: [Busy, IconModule, ReviewReader, RouterLink, WallBoard, WallToolbar],
   providers: [VisitView, { provide: WallState, useExisting: VisitView }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
@@ -48,9 +48,9 @@ export class ColleagueWallPage {
   private readonly side = inject(SideBySide);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly BackIcon = ArrowLeft;
-  protected readonly FollowIcon = UserPlus;
-  protected readonly FollowingIcon = UserCheck;
+  protected readonly BackIcon = ICON.voltar;
+  protected readonly FollowIcon = ICON.seguir;
+  protected readonly FollowingIcon = ICON.seguindo;
 
   protected readonly colleague = this.visit.colleague;
   protected readonly name = this.visit.owner;

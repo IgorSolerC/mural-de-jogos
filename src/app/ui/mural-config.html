@@ -7,7 +7,7 @@
         <p class="sub">Anotações · vale na hora e fica salvo</p>
       </div>
       <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
-        <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
       </button>
     </header>
 
@@ -25,7 +25,7 @@
             [attr.tabindex]="section() === s.id ? 0 : -1"
             (click)="pick(s.id)"
           >
-            <lucide-icon class="parte-icone" [img]="s.icon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+            <lucide-icon class="parte-icone" [img]="s.icon" [size]="18" aria-hidden="true" />
             <span class="parte-nome">{{ s.label }}</span>
             <span class="parte-dica">{{ s.hint }}</span>
           </button>
@@ -52,7 +52,7 @@
                   @for (o of audiences; track o.value) {
                     <label class="segmento">
                       <input type="radio" name="config-nasce" [checked]="config().audience === o.value" (change)="setAudience(o.value)" />
-                      <lucide-icon class="seg-icone" [img]="o.icon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                      <lucide-icon class="seg-icone" [img]="o.icon" [size]="18" aria-hidden="true" />
                       <span class="seg-nome">{{ o.label }}</span>
                     </label>
                   }
@@ -155,7 +155,7 @@
                           (pointerdown)="startDrag($event, c, i)"
                           (keydown)="onHandleKey($event, c, i)"
                         >
-                          <lucide-icon [img]="GripIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                          <lucide-icon [img]="GripIcon" [size]="20" aria-hidden="true" />
                         </button>
                       }
                       <button type="button" class="cat-abre" [attr.aria-expanded]="aberta" [attr.aria-controls]="'config-cat-' + i" (click)="toggle(c)">
@@ -175,7 +175,7 @@
                             }
                           </span>
                         </span>
-                        <lucide-icon class="chevron" [img]="ChevronIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+                        <lucide-icon class="chevron" [img]="ChevronIcon" [size]="20" aria-hidden="true" />
                       </button>
                       <!-- esconder: a aba da categoria sai de cima e fica sempre no "Mais" -->
                       <button
@@ -186,7 +186,7 @@
                         [title]="escondida ? 'Escondida: a aba fica no Mais. Toque para mostrar em cima' : 'Esconder: a aba vai para o Mais'"
                         (click)="toggleHidden(c)"
                       >
-                        <lucide-icon [img]="escondida ? HiddenIcon : ShownIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                        <lucide-icon [img]="escondida ? HiddenIcon : ShownIcon" [size]="20" aria-hidden="true" />
                       </button>
                     </div>
 
@@ -201,7 +201,7 @@
                               <input #nomeCat type="text" autocomplete="off" spellcheck="false" [id]="'config-nome-' + i" [maxLength]="labelMax" [value]="c.label" [attr.aria-describedby]="'config-nome-dica-' + i" (keydown.escape)="$event.preventDefault(); nomeCat.value = c.label" />
                             </span>
                             <button type="submit" class="papel">
-                              <lucide-icon [img]="RenameIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                              <lucide-icon [img]="RenameIcon" [size]="17" aria-hidden="true" />
                               Renomear
                             </button>
                           </div>
@@ -221,7 +221,7 @@
                             @for (o of audiences; track o.value) {
                               <label class="segmento">
                                 <input type="radio" [name]="'config-nasce-' + i" [checked]="p.audience === o.value" (change)="setPrefs(c, { audience: o.value })" />
-                                <lucide-icon class="seg-icone" [img]="o.icon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                <lucide-icon class="seg-icone" [img]="o.icon" [size]="16" aria-hidden="true" />
                                 <span class="seg-nome">{{ o.label }}</span>
                               </label>
                             }
@@ -267,12 +267,12 @@
                         <div class="cat-pe">
                           @if (resumo) {
                             <button type="button" class="voltar" (click)="resetPrefs(c)">
-                              <lucide-icon [img]="ResetIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                              <lucide-icon [img]="ResetIcon" [size]="17" aria-hidden="true" />
                               Voltar a seguir o mural
                             </button>
                           }
                           <button type="button" class="papel perigo apagar" (click)="deleteCategory(c)">
-                            <lucide-icon [img]="DeleteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                            <lucide-icon [img]="DeleteIcon" [size]="17" aria-hidden="true" />
                             Apagar o grupo
                           </button>
                         </div>
@@ -314,7 +314,7 @@
                             <input #nomeTag type="text" autocomplete="off" spellcheck="false" [attr.data-tag-campo]="id" [maxLength]="labelMax" [value]="t.label" (keydown.escape)="$event.preventDefault(); stopTagRename(id)" />
                           </span>
                           <button type="submit" class="papel">
-                            <lucide-icon [img]="OkIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+                            <lucide-icon [img]="OkIcon" [size]="17" aria-hidden="true" />
                             Renomear
                           </button>
                           <button type="button" class="papel quieto" (click)="stopTagRename(id)">Cancelar</button>
@@ -324,10 +324,10 @@
                         <span class="cat-n">{{ t.n }} {{ t.n === 1 ? 'anotação' : 'anotações' }}</span>
                         <span class="tag-acoes">
                           <button type="button" class="olho" [attr.data-tag-lapis]="id" [attr.aria-label]="'Renomear a tag ' + t.label + (g.category ? ' em ' + g.label : '')" title="Renomear" (click)="startTagRename(g, t)">
-                            <lucide-icon [img]="RenameIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                            <lucide-icon [img]="RenameIcon" [size]="18" aria-hidden="true" />
                           </button>
                           <button type="button" class="olho apagar-tag" [attr.aria-label]="'Apagar a tag ' + t.label + (g.category ? ' de ' + g.label : '')" title="Apagar" (click)="deleteTag(g, t)">
-                            <lucide-icon [img]="DeleteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                            <lucide-icon [img]="DeleteIcon" [size]="18" aria-hidden="true" />
                           </button>
                         </span>
                       }
@@ -338,12 +338,12 @@
                         <div class="filtro-ops">
                           <label class="filtro-op">
                             <input type="radio" [name]="'config-filtro-' + id" [checked]="!fora" (change)="setTagHidden(g, t, false)" />
-                            <lucide-icon [img]="ShownIcon" [size]="15" [strokeWidth]="2.5" aria-hidden="true" />
+                            <lucide-icon [img]="ShownIcon" [size]="15" aria-hidden="true" />
                             <span>Disponível</span>
                           </label>
                           <label class="filtro-op">
                             <input type="radio" [name]="'config-filtro-' + id" [checked]="fora" (change)="setTagHidden(g, t, true)" />
-                            <lucide-icon [img]="HiddenIcon" [size]="15" [strokeWidth]="2.5" aria-hidden="true" />
+                            <lucide-icon [img]="HiddenIcon" [size]="15" aria-hidden="true" />
                             <span>Excluído</span>
                           </label>
                         </div>
@@ -374,7 +374,7 @@
                     <p class="linha-desc" id="config-d-recomecar">As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro. Nenhuma sai do mural.</p>
                   </div>
                   <button type="button" class="papel perigo" aria-labelledby="config-t-recomecar" aria-describedby="config-d-recomecar" (click)="resetBoard()">
-                    <lucide-icon [img]="ResetBoardIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="ResetBoardIcon" [size]="17" aria-hidden="true" />
                     Recomeçar
                   </button>
                 </div>

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, untracked } from '@angular/core';
-import { LucideAngularModule, MessageCircleMore } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CommentTarget, Comments, spokenComments } from '../core/comments';
 
 /**
@@ -9,12 +9,12 @@ import { CommentTarget, Comments, spokenComments } from '../core/comments';
  */
 @Component({
   selector: 'app-comment-bubble',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (count(); as n) {
       <button type="button" class="balao" [style.--torto.deg]="tilt()" [attr.aria-label]="spoken() + '. Ver os comentários'" [title]="spoken()" (click)="open($event)">
-        <lucide-icon [img]="Icon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+        <lucide-icon [img]="Icon" [size]="17" aria-hidden="true" />
         <span class="n" aria-hidden="true">{{ n }}</span>
       </button>
     }
@@ -25,7 +25,7 @@ export class CommentBubble {
   readonly target = input.required<CommentTarget>();
   /** Tocaram no remendo: a ficha deve abrir com os comentários. */
   readonly opened = output<void>();
-  protected readonly Icon = MessageCircleMore;
+  protected readonly Icon = ICON.comentar;
   private readonly comments = inject(Comments);
   protected readonly count = computed(() => this.comments.countOf(this.target().code, this.target().ref));
   protected readonly spoken = computed(() => spokenComments(this.count()));

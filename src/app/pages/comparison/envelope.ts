@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 import { Busy } from '../../ui/busy';
-import { LucideAngularModule, Upload, X } from 'lucide-angular';
+import { ICON, IconModule } from '../../ui/icons';
 
 /**
  * O envelope pardo pregado no mural: é por ele que o backup do colega chega. A carta aparece na
@@ -8,7 +8,7 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
  */
 @Component({
   selector: 'app-backup-envelope',
-  imports: [Busy, LucideAngularModule],
+  imports: [Busy, IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.chegando]': 'over()',
@@ -73,12 +73,12 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
         <div class="acoes ou-arquivo">
           <span class="ou" aria-hidden="true">ou</span>
           <button type="button" class="btn-arquivo" [disabled]="busy()" [appBusy]="busy()" (click)="file.click()">
-            <lucide-icon [img]="UploadIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="UploadIcon" [size]="18" aria-hidden="true" />
             {{ busy() ? 'Abrindo o envelope…' : 'Escolher o backup' }}
           </button>
           @if (again()) {
             <button type="button" class="btn-quiet" (click)="cancel.emit()">
-              <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="18" aria-hidden="true" />
               Deixar pra depois
             </button>
           }
@@ -93,12 +93,12 @@ import { LucideAngularModule, Upload, X } from 'lucide-angular';
         </p>
         <div class="acoes">
           <button type="button" class="btn-ink" [disabled]="busy()" [appBusy]="busy()" (click)="file.click()" [attr.aria-describedby]="titleId">
-            <lucide-icon [img]="UploadIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="UploadIcon" [size]="20" aria-hidden="true" />
             {{ busy() ? 'Abrindo o envelope…' : 'Escolher o backup' }}
           </button>
           @if (again()) {
             <button type="button" class="btn-quiet" (click)="cancel.emit()">
-              <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="18" aria-hidden="true" />
               Deixar pra depois
             </button>
           }
@@ -131,8 +131,8 @@ export class BackupEnvelope {
   protected readonly typed = signal('');
 
   protected readonly over = signal(false);
-  protected readonly UploadIcon = Upload;
-  protected readonly CloseIcon = X;
+  protected readonly UploadIcon = ICON.enviar;
+  protected readonly CloseIcon = ICON.fechar;
   protected readonly titleId = `envelope-${Math.random().toString(36).slice(2, 8)}`;
   protected readonly codeId = `${this.titleId}-codigo`;
 

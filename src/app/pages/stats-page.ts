@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ArrowLeft, ArrowRight, ChevronDown, LucideAngularModule, Plus } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { getRecord, recordKey } from '../core/game-records';
 import { measuresFor } from '../core/higher-lower';
@@ -89,7 +89,7 @@ const KPI_STOCKS = [
     Folhinha,
     Linha,
     ListaRank,
-    LucideAngularModule,
+    IconModule,
     NgTemplateOutlet,
     Numeros,
     Pesos,
@@ -113,10 +113,10 @@ export class StatsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly BackIcon = ArrowLeft;
-  protected readonly NextIcon = ArrowRight;
-  protected readonly ChevronIcon = ChevronDown;
-  protected readonly PlusIcon = Plus;
+  protected readonly BackIcon = ICON.voltar;
+  protected readonly NextIcon = ICON.ir;
+  protected readonly ChevronIcon = ICON.abrir;
+  protected readonly PlusIcon = ICON.adicionar;
 
   protected readonly abas = ABAS;
   protected readonly profile = this.mural.profile;

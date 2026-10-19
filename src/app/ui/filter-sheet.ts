@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output } from '@angular/core';
-import { Ban, CircleSlash2, Disc3, LucideAngularModule, LucideIconData, Music, PenLine, PenOff, Sparkles, Square, X } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Kind, Status, Verdict } from '../core/review';
 import { isNotes } from '../core/kinds';
 import { Facet, FacetKey, FilterTag, GRADE_SHORT, GradeBand } from '../core/wall-filter';
@@ -26,7 +27,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
  */
 @Component({
   selector: 'app-filter-sheet',
-  imports: [LucideAngularModule, BonusSticker, NoteTag, Skulls, StatusLabel],
+  imports: [IconModule, BonusSticker, NoteTag, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { role: 'region', 'aria-label': 'Filtros', '(keydown.escape)': 'onEscape($event)' },
   template: `
@@ -59,7 +60,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
                       <app-status-label class="adesivo colado" [style.--cola]="tilt(i)" [status]="$any(o.value)" [kind]="kind()" />
                     } @else {
                       <span class="adesivo recorte">
-                        <lucide-icon [img]="statusIconOf(o.value)" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                        <lucide-icon [img]="statusIconOf(o.value)" [size]="15" aria-hidden="true" />
                         <span>{{ o.label }}</span>
                       </span>
                     }
@@ -73,7 +74,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
                       [style.--cola]="tilt(i)"
                       [style.--v]="o.value === 'sem' ? 'var(--paper)' : 'var(--verdict-' + o.value + '-lit)'"
                     >
-                      <lucide-icon [img]="verdictIconOf(o.value)" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="verdictIconOf(o.value)" [size]="16" aria-hidden="true" />
                       <span class="palavra">{{ o.label }}</span>
                     </span>
                   }
@@ -86,7 +87,7 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
                   @case ('difficulty') {
                     <span class="adesivo tinta caveiras" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
                       @if (o.value === 'nenhuma') {
-                        <lucide-icon [img]="NoneIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                        <lucide-icon [img]="NoneIcon" [size]="15" aria-hidden="true" />
                         <span>Nenhuma</span>
                       } @else {
                         <app-skulls [value]="$any(o.value)" [size]="15" [showLabel]="false" [ghosts]="false" />
@@ -95,20 +96,20 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
                   }
                   @case ('text') {
                     <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      <lucide-icon [img]="o.value === 'com' ? WithTextIcon : NoTextIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="o.value === 'com' ? WithTextIcon : NoTextIcon" [size]="15" aria-hidden="true" />
                       <span>{{ o.label }}</span>
                     </span>
                   }
                   @case ('form') {
                     <!-- o tipo da ficha de música: o álbum inteiro ou a música solta -->
                     <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      <lucide-icon [img]="o.value === 'album' ? AlbumIcon : SongIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="o.value === 'album' ? AlbumIcon : SongIcon" [size]="15" aria-hidden="true" />
                       <span>{{ o.label }}</span>
                     </span>
                   }
                   @case ('look') {
                     <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      <lucide-icon [img]="o.value === 'com' ? DecoratedIcon : PlainIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="o.value === 'com' ? DecoratedIcon : PlainIcon" [size]="15" aria-hidden="true" />
                       <span>{{ o.label }}</span>
                     </span>
                   }
@@ -546,14 +547,14 @@ export class FilterSheet {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  protected readonly NoneIcon = Ban;
-  protected readonly WithTextIcon = PenLine;
-  protected readonly NoTextIcon = PenOff;
-  protected readonly DecoratedIcon = Sparkles;
-  protected readonly PlainIcon = Square;
+  protected readonly NoneIcon = ICON.nenhum;
+  protected readonly WithTextIcon = ICON.escrever;
+  protected readonly NoTextIcon = ICON.semTexto;
+  protected readonly DecoratedIcon = ICON.brilho;
+  protected readonly PlainIcon = ICON.desmarcado;
 
-  protected readonly AlbumIcon = Disc3;
-  protected readonly SongIcon = Music;
+  protected readonly AlbumIcon = ICON.musicas;
+  protected readonly SongIcon = ICON.musica;
 
   /** A Dificuldade, ou o Tipo das músicas, que ocupa o lugar dela na folha. */
   protected readonly hasDifficulty = computed(() => this.facets().some((f) => f.key === 'difficulty' || f.key === 'form'));
@@ -587,7 +588,7 @@ export class FilterSheet {
   }
 
   protected verdictIconOf(v: string): LucideIconData {
-    return v === 'sem' ? CircleSlash2 : VERDICT_ICON[v as Verdict];
+    return v === 'sem' ? ICON.semNada : VERDICT_ICON[v as Verdict];
   }
 
   protected gradeShort(v: string): string {
@@ -612,7 +613,7 @@ export class FilterSheet {
  */
 @Component({
   selector: 'app-filter-tags',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { role: 'list', 'aria-label': 'Filtros ligados' },
   template: `
@@ -620,7 +621,7 @@ export class FilterSheet {
       <span class="tag" role="listitem" [style.--tilt]="tilt(i)">
         <span class="txt">{{ t.label }}</span>
         <button type="button" class="tirar" (click)="remove.emit(t)" [attr.aria-label]="'Tirar o filtro ' + t.label">
-          <lucide-icon [img]="XIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+          <lucide-icon [img]="XIcon" [size]="14" aria-hidden="true" />
         </button>
       </span>
     }
@@ -677,7 +678,7 @@ export class FilterSheet {
 export class FilterTags {
   readonly tags = input.required<FilterTag[]>();
   readonly remove = output<FilterTag>();
-  protected readonly XIcon = X;
+  protected readonly XIcon = ICON.fechar;
 
   protected tilt(i: number): string {
     return `${[-1.2, 0.9, -0.6, 1.3, -1, 0.7][i % 6]}deg`;

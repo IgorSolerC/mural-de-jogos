@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { ChevronDown, Dices, LucideAngularModule, Scissors, X } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { collage, SHELF_ORDERS, shelfColumns, shelfCompare, ShelfOrder } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { g } from '../core/kinds';
@@ -22,7 +22,7 @@ import { reducedMotion } from '../core/motion';
  */
 @Component({
   selector: 'app-wishlist-page',
-  imports: [LucideAngularModule, SearchHighlight, SearchStrip, WishClip],
+  imports: [IconModule, SearchHighlight, SearchStrip, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown.escape)': 'onEscape()', '[class.com-sorteio]': 'winner()' },
   template: `
@@ -49,7 +49,7 @@ import { reducedMotion } from '../core/motion';
               <label class="tinta campo">
                 <span class="campo-pre">Ordenar</span>
                 <span class="campo-val" aria-hidden="true">{{ orderLabel() }}</span>
-                <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+                <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
                 <select aria-label="Ordenar por" (change)="sort($any($event.target).value)">
                   @for (o of orders; track o.value) {
                     <option [value]="o.value" [selected]="o.value === order()">{{ o.label }}</option>
@@ -60,7 +60,7 @@ import { reducedMotion } from '../core/motion';
 
             <div class="pasta-grupo">
               <button #drawBtn type="button" class="tinta" [disabled]="visible().length < 2" (click)="draw()">
-                <lucide-icon [img]="DiceIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="DiceIcon" [size]="18" aria-hidden="true" />
                 Sortear
               </button>
             </div>
@@ -90,12 +90,12 @@ import { reducedMotion } from '../core/motion';
           <div class="sorteio-acoes">
             <button #startBtn type="button" class="btn-ink" (click)="startDrawn(w)">Começar a resenha</button>
             <button type="button" class="btn-quiet" (click)="draw()">
-              <lucide-icon [img]="DiceIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="DiceIcon" [size]="17" aria-hidden="true" />
               Outro
             </button>
           </div>
           <button type="button" class="sorteio-fechar" (click)="closeDraw()" aria-label="Fechar o sorteio">
-            <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="CloseIcon" [size]="18" aria-hidden="true" />
           </button>
         </aside>
       }
@@ -126,14 +126,14 @@ import { reducedMotion } from '../core/motion';
     } @else {
       <!-- um cupom de catálogo, com a linha de recortar em volta -->
       <section class="vazio" aria-labelledby="desejos-vazio">
-        <lucide-icon class="tesoura" [img]="CutIcon" [size]="26" [strokeWidth]="2" aria-hidden="true" />
+        <lucide-icon class="tesoura" [img]="CutIcon" [size]="26" aria-hidden="true" />
         <h2 id="desejos-vazio">{{ g(mural.profile(), 'Nenhum', 'Nenhuma') }} {{ mural.profile().singular }} na wishlist</h2>
         <p>
           Viu um trailer, ganhou uma indicação? Recorte aqui o que você quer {{ mural.profile().verb }}: fica só o nome e a
           capa, até a hora de resenhar.
         </p>
         <button type="button" class="btn-ink" (click)="desk.newWish()" aria-keyshortcuts="n">
-          <lucide-icon [img]="CutIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="CutIcon" [size]="19" aria-hidden="true" />
           Adicionar {{ g(mural.profile(), 'um', 'uma') }} {{ mural.profile().singular }}
         </button>
       </section>
@@ -315,11 +315,11 @@ export class WishlistPage {
   private readonly toasts = inject(Toasts);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly g = g;
-  protected readonly CutIcon = Scissors;
-  protected readonly DiceIcon = Dices;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly CutIcon = ICON.tesoura;
+  protected readonly DiceIcon = ICON.sortear;
+  protected readonly ChevronIcon = ICON.abrir;
   protected readonly orders = SHELF_ORDERS;
-  protected readonly CloseIcon = X;
+  protected readonly CloseIcon = ICON.fechar;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */
   protected readonly query = signal('');

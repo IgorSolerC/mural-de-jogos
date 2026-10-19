@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ArrowUpDown, ChartNoAxesColumn, ChartPie, LucideAngularModule, LucideIconData, Puzzle, Swords, Users } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
 
 interface Entry {
@@ -34,7 +35,7 @@ const SHELVES: Shelf[] = [
         path: '/ranking',
         name: 'Ranking',
         blurb: 'O mural em ordem de nota, por média ou por categoria, com os totais.',
-        icon: ChartNoAxesColumn,
+        icon: ICON.barras,
         stock: 'var(--stock-azul)',
         pin: '#f4f4f0',
         go: 'Ver',
@@ -43,7 +44,7 @@ const SHELVES: Shelf[] = [
         path: '/comparar',
         name: 'Comparar',
         blurb: 'Abra o backup de um colega e veja onde vocês combinam e o que ele recomenda.',
-        icon: Users,
+        icon: ICON.pessoas,
         stock: 'var(--stock-verde)',
         pin: '#ffd23f',
         go: 'Abrir',
@@ -52,7 +53,7 @@ const SHELVES: Shelf[] = [
         path: '/extras/estatisticas',
         name: 'Estatísticas',
         blurb: 'Tudo o que o mural conta sobre você: notas, manias, recordes, a folhinha do ano e muito gráfico de papel.',
-        icon: ChartPie,
+        icon: ICON.pizza,
         stock: 'var(--stock-laranja)',
         pin: '#2f6bff',
         go: 'Ver',
@@ -67,7 +68,7 @@ const SHELVES: Shelf[] = [
         path: '/extras/mata-mata',
         name: 'Mata-mata',
         blurb: 'As fichas duelam de duas em duas e você escolhe quem passa, até sobrar a favorita.',
-        icon: Swords,
+        icon: ICON.espadas,
         stock: 'var(--stock-amarelo)',
         pin: '#e62e2d',
         go: 'Jogar',
@@ -76,7 +77,7 @@ const SHELVES: Shelf[] = [
         path: '/extras/maior-ou-menor',
         name: 'Maior ou menor',
         blurb: 'Uma ficha com a nota à mostra, a próxima escondida: a dela é maior ou menor? Vale a sequência até errar.',
-        icon: ArrowUpDown,
+        icon: ICON.maiorOuMenor,
         stock: 'var(--stock-rosa)',
         pin: '#2f6bff',
         go: 'Jogar',
@@ -85,7 +86,7 @@ const SHELVES: Shelf[] = [
         path: '/extras/muraldle',
         name: 'Muraldle',
         blurb: 'Uma ficha secreta por dia. Chute outras fichas e os quadradinhos dizem o que bate: nota, status, ano, cartolina…',
-        icon: Puzzle,
+        icon: ICON.quebraCabeca,
         stock: 'var(--stock-lilas)',
         pin: '#1fb65a',
         go: 'Jogar',
@@ -100,7 +101,7 @@ const SHELVES: Shelf[] = [
  */
 @Component({
   selector: 'app-extras-page',
-  imports: [LucideAngularModule, Pin, RouterLink],
+  imports: [IconModule, Pin, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- o mural e o que é Extras ficam no índice embaixo do topo (ui/area-bar.ts) -->
@@ -114,7 +115,7 @@ const SHELVES: Shelf[] = [
             <li>
               <a class="jogo cartolina" [routerLink]="j.path" [style.--stock]="j.stock" [style.--tilt]="i % 2 ? 1.2 : -1.4">
                 <app-pin class="pin" [color]="j.pin" />
-                <lucide-icon class="icone" [img]="j.icon" [size]="34" [strokeWidth]="2.2" aria-hidden="true" />
+                <lucide-icon class="icone" [img]="j.icon" [size]="34" aria-hidden="true" />
                 <h3>{{ j.name }}</h3>
                 <p>{{ j.blurb }}</p>
                 <span class="jogar" aria-hidden="true">{{ j.go }}</span>

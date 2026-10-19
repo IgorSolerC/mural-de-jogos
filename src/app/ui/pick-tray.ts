@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { ArrowRight, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { reviewPath } from '../core/areas';
 import { Mural } from '../core/mural';
 import { SideBySide } from '../core/side-by-side';
@@ -13,7 +13,7 @@ import { Toasts } from './toast';
  */
 @Component({
   selector: 'app-pick-tray',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="tira" aria-label="Marcando fichas pra ver lado a lado">
@@ -38,7 +38,7 @@ import { Toasts } from './toast';
         <button type="button" class="btn-quiet" (click)="side.picking.set(false)" aria-keyshortcuts="Escape">Pronto</button>
         <button type="button" class="btn-ink ver" [disabled]="!side.count()" (click)="open()">
           Ver lado a lado
-          <lucide-icon [img]="GoIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+          <lucide-icon [img]="GoIcon" [size]="20" aria-hidden="true" />
         </button>
       </div>
     </section>
@@ -161,7 +161,7 @@ export class PickTray {
   private readonly mural = inject(Mural);
   private readonly toasts = inject(Toasts);
 
-  protected readonly GoIcon = ArrowRight;
+  protected readonly GoIcon = ICON.ir;
 
   /** Fichas que a busca ou o filtro mostram e que ainda não foram marcadas. */
   protected readonly rest = computed(() => this.view.visible().filter((r) => !this.side.order().has(r.id)));

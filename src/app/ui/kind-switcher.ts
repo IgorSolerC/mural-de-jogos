@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { BookOpen, ChevronDown, Disc3, Film, Gamepad2, LucideAngularModule, LucideIconData, Origami, StickyNote, Tv } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { reviewPath, reviewPlace } from '../core/areas';
 import { Kind, SCORED_KINDS, cap, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -10,13 +11,13 @@ import { WallView } from '../core/wall-view';
 import { closeOnOutsidePress } from './outside-press';
 
 export const KIND_ICON: Record<Kind, LucideIconData> = {
-  jogos: Gamepad2,
-  livros: BookOpen,
-  filmes: Film,
-  series: Tv,
-  animes: Origami,
-  musicas: Disc3,
-  anotacoes: StickyNote,
+  jogos: ICON.jogos,
+  livros: ICON.livros,
+  filmes: ICON.filmes,
+  series: ICON.series,
+  animes: ICON.animes,
+  musicas: ICON.musicas,
+  anotacoes: ICON.anotacoes,
 };
 
 let uid = 0;
@@ -30,7 +31,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-kind-switcher',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(focusout)': 'onFocusOut($event)',
@@ -47,9 +48,9 @@ let uid = 0;
       (click)="toggle()"
       (keydown)="onTriggerKey($event)"
     >
-      <lucide-icon class="ico-mural" [img]="icon()" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+      <lucide-icon class="ico-mural" [img]="icon()" [size]="20" aria-hidden="true" />
       <span class="nome-mural scribble">{{ label() }}</span>
-      <lucide-icon class="chev" [img]="ChevronIcon" [size]="18" [strokeWidth]="3.2" aria-hidden="true" />
+      <lucide-icon class="chev" [img]="ChevronIcon" [size]="18" aria-hidden="true" />
     </button>
 
     @if (open()) {
@@ -64,7 +65,7 @@ let uid = 0;
             (mousedown)="$event.preventDefault()"
             (click)="choose(o.kind)"
           >
-            <lucide-icon class="ico" [img]="o.icon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon class="ico" [img]="o.icon" [size]="20" aria-hidden="true" />
             <span class="nome" [class.scribble]="o.on">{{ o.label }}</span>
             @if (o.n) {
               <span class="n" aria-hidden="true">{{ o.n }}</span>
@@ -229,7 +230,7 @@ export class KindSwitcher {
   /** Os murais do bloquinho: os de resenhas (em Amigos, também o de anotações). */
   readonly kinds = input<readonly Kind[]>(SCORED_KINDS);
 
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly ChevronIcon = ICON.abrir;
   protected readonly menuId = `murais-${++uid}`;
   protected readonly open = signal(false);
 

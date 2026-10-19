@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
-import { FileQuestion, LockKeyhole, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
 import { NoteLinks } from '../core/note-links';
@@ -35,7 +35,7 @@ const EAR_GAP = 0.2;
 @Component({
   selector: 'app-linked-card',
   // (ela chega por um import() do widget: a ficha do mural desenha o texto, que desenha esta)
-  imports: [LucideAngularModule, GluedReviewCard],
+  imports: [IconModule, GluedReviewCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     // (não é o .tocavel do texto: com ele, a linha inteira pegava o toque, e o vazio ao lado da
@@ -66,13 +66,13 @@ const EAR_GAP = 0.2;
       <!-- sumiu: o pedaço de papel que ficou colado, com o nome dela (ou, a privada, o cadeado) -->
       <div class="perdida" [class.privada]="ref().hidden" data-colado role="note">
         @if (ref().hidden) {
-          <lucide-icon class="perdida-icone" [img]="PrivateIcon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
+          <lucide-icon class="perdida-icone" [img]="PrivateIcon" [size]="22" aria-hidden="true" />
           <span class="perdida-texto">
             <span class="perdida-nome">Nota privada</span>
             <span class="perdida-dica">A nota colada aqui é privada: só quem escreveu vê.</span>
           </span>
         } @else {
-          <lucide-icon class="perdida-icone" [img]="LostIcon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
+          <lucide-icon class="perdida-icone" [img]="LostIcon" [size]="22" aria-hidden="true" />
           <span class="perdida-texto">
             <span class="perdida-nome">{{ ref().title || 'Uma ficha' }}</span>
             <span class="perdida-dica">{{ ref().id ? 'Essa ficha foi apagada ou não está à mostra.' : 'Nenhuma anotação com esse nome.' }}</span>
@@ -176,8 +176,8 @@ export class LinkedCard {
   readonly lines = input<number | null>(null);
 
   protected readonly cardWidth = CARD_WIDTH;
-  protected readonly LostIcon = FileQuestion;
-  protected readonly PrivateIcon = LockKeyhole;
+  protected readonly LostIcon = ICON.notaSumida;
+  protected readonly PrivateIcon = ICON.privada;
   private readonly finder = inject(CardFinder);
 
   protected readonly ref = computed(() => readCardRef(this.args()));

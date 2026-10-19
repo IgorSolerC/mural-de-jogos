@@ -140,7 +140,7 @@
                 <label class="tinta campo">
                   <span class="campo-pre">Ordenar</span>
                   <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
-                  <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
                   @if (tab() === 'comum') {
                     <select aria-label="Ordenar as obras em comum" [value]="pairSort()" (change)="pairSort.set($any($event.target).value)">
                       <option value="briga">Maior briga</option>
@@ -163,10 +163,10 @@
 
               <div class="pasta-grupo" role="group" aria-label="Tipo de ficha">
                 <button type="button" class="tinta so-icone" [attr.aria-pressed]="!simple()" (click)="setDensity(false)" aria-label="Fichas completas" title="Fichas completas">
-                  <lucide-icon [img]="FullIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="FullIcon" [size]="18" aria-hidden="true" />
                 </button>
                 <button type="button" class="tinta so-icone" [attr.aria-pressed]="simple()" (click)="setDensity(true)" aria-label="Fichas simples" title="Fichas simples">
-                  <lucide-icon [img]="CompactIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="CompactIcon" [size]="18" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -219,7 +219,7 @@
                         (click)="toggleNotes(pair.key)"
                       >
                         Nota a nota
-                        <lucide-icon [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                        <lucide-icon [img]="ChevronIcon" [size]="16" aria-hidden="true" />
                       </button>
                     </div>
                     <div class="lado-b" role="group" [attr.aria-label]="'Ficha de ' + c.name">
@@ -303,12 +303,12 @@
                     <app-review-card [review]="r" [preview]="true" [compact]="simple()" [masked]="hidden().has(r.id)" (opened)="openReview(r, false)" />
                     @if (isWished(r)) {
                       <p class="quero feito">
-                        <lucide-icon [img]="DoneIcon" [size]="17" [strokeWidth]="2.8" aria-hidden="true" />
+                        <lucide-icon [img]="DoneIcon" [size]="17" aria-hidden="true" />
                         Na sua wishlist
                       </p>
                     } @else {
                       <button type="button" class="quero btn-quiet" (click)="wish(r)" [attr.aria-label]="'Quero ' + profile().verb + ' ' + r.game.name + ': pôr na wishlist'">
-                        <lucide-icon [img]="WishIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                        <lucide-icon [img]="WishIcon" [size]="17" aria-hidden="true" />
                         Quero {{ profile().verb }}
                       </button>
                     }

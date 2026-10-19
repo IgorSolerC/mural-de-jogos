@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { Check, LucideAngularModule, Pin } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Review, isDone, isPinnedNote } from '../core/review';
 import { checkCount } from '../core/rich-text';
 import { notebookDate } from '../core/notebook';
@@ -28,7 +28,7 @@ interface Row {
  */
 @Component({
   selector: 'app-note-index',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ul class="folha">
@@ -38,11 +38,11 @@ interface Row {
             <span class="cor" aria-hidden="true"></span>
             <span class="titulo">{{ r.title }}</span>
             @if (r.pinned) {
-              <lucide-icon class="marca" [img]="PinIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon class="marca" [img]="PinIcon" [size]="15" aria-hidden="true" />
               <span class="sr-only">, fixada</span>
             }
             @if (r.done) {
-              <lucide-icon class="marca" [img]="CheckIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+              <lucide-icon class="marca" [img]="CheckIcon" [size]="16" aria-hidden="true" />
               <span class="sr-only">, finalizada</span>
             }
             @if (r.category) {
@@ -277,8 +277,8 @@ export class NoteIndex {
   readonly showCategory = input(false);
   readonly opened = output<string>();
 
-  protected readonly PinIcon = Pin;
-  protected readonly CheckIcon = Check;
+  protected readonly PinIcon = ICON.fixar;
+  protected readonly CheckIcon = ICON.pronto;
 
   protected readonly rows = computed<Row[]>(() =>
     this.reviews().map((r) => {

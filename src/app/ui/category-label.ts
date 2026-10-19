@@ -1,89 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import {
-  BellRing,
-  Bookmark,
-  BookOpen,
-  Brain,
-  Briefcase,
-  Bug,
-  Camera,
-  ChefHat,
-  Clock,
-  Coins,
-  Cpu,
-  Crown,
-  Earth,
-  Feather,
-  Film,
-  Flag,
-  FolderOpen,
-  GraduationCap,
-  Heart,
-  Landmark,
-  Lightbulb,
-  ListTodo,
-  LucideAngularModule,
-  LucideIconData,
-  Megaphone,
-  Microscope,
-  Music,
-  NotebookPen,
-  Palette,
-  Plane,
-  Puzzle,
-  ShoppingCart,
-  Sparkles,
-  Tag,
-  Target,
-  Users,
-  Zap,
-} from 'lucide-angular';
-import { CategoryIconId, CategoryLook } from '../core/category-looks';
+import { LucideIconData } from 'lucide-angular';
+import { ICON_CHOICE, IconModule } from './icons';
+import { CategoryLook } from '../core/category-looks';
 import { categoryBonus } from '../core/note-labels';
 import { bonusIcon } from './bonus';
 
-/** O desenho de cada escolha (todos já vêm no site pelos adesivos de bônus: não pesam nada a mais). */
-export const CATEGORY_ICON: Record<CategoryIconId, LucideIconData> = {
-  maleta: Briefcase,
-  capelo: GraduationCap,
-  carrinho: ShoppingCart,
-  lista: ListTodo,
-  lampada: Lightbulb,
-  sino: BellRing,
-  chapeu: ChefHat,
-  alvo: Target,
-  aviao: Plane,
-  caderno: NotebookPen,
-  coracao: Heart,
-  musica: Music,
-  filme: Film,
-  pessoas: Users,
-  cerebro: Brain,
-  paleta: Palette,
-  moedas: Coins,
-  mundo: Earth,
-  predio: Landmark,
-  coroa: Crown,
-  brilho: Sparkles,
-  marcador: Bookmark,
-  livro: BookOpen,
-  pena: Feather,
-  camera: Camera,
-  'quebra-cabeca': Puzzle,
-  bandeira: Flag,
-  relogio: Clock,
-  microscopio: Microscope,
-  megafone: Megaphone,
-  etiqueta: Tag,
-  chip: Cpu,
-  inseto: Bug,
-  raio: Zap,
-  pasta: FolderOpen,
-};
-
 /** O desenho da categoria: o escolhido, ou o de sempre (o da cartela, ou a pasta). */
 export function categoryIcon(category: string, look: CategoryLook = {}): LucideIconData {
-  return look.icon ? CATEGORY_ICON[look.icon] : bonusIcon(categoryBonus(category));
+  return look.icon ? ICON_CHOICE[look.icon] : bonusIcon(categoryBonus(category));
 }
 
 /**
@@ -93,9 +17,9 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
  */
 @Component({
   selector: 'app-cat-label',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<lucide-icon class="icone" [img]="icon()" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" /><span class="nome">{{ label() }}</span>`,
+  template: `<lucide-icon class="icone" [img]="icon()" [size]="iconSize()" aria-hidden="true" /><span class="nome">{{ label() }}</span>`,
   styles: `
     :host {
       display: inline-flex;

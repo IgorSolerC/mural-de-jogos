@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal } from '@angular/core';
-import { LucideAngularModule, Sticker } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CUTOUT_STYLES, placeFor, stickerFor, titleFor } from '../core/clipping';
 import { RELEVANCES, Relevance, Wish, initialOf, relevanceLabel, relevanceOf } from '../core/review';
 import { SHAPE_RATIO, stripFor, tearFor } from '../core/tear';
@@ -17,7 +17,7 @@ import { closeOnOutsidePress } from './outside-press';
  */
 @Component({
   selector: 'app-wish-clip',
-  imports: [LucideAngularModule, RelevanceSticker],
+  imports: [IconModule, RelevanceSticker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.is-landing]': 'landing()',
@@ -191,7 +191,7 @@ import { closeOnOutsidePress } from './outside-press';
           >
             @if (rel() === 'comum') {
               <span class="fantasma" aria-hidden="true">
-                <lucide-icon [img]="StickerIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="StickerIcon" [size]="16" aria-hidden="true" />
               </span>
             } @else {
               <app-relevance-sticker class="adesivo" [relevance]="rel()" [kind]="wish().kind" />
@@ -918,7 +918,7 @@ export class WishClip {
   readonly relevance = output<Relevance>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  protected readonly StickerIcon = Sticker;
+  protected readonly StickerIcon = ICON.adesivo;
   protected readonly options = RELEVANCES;
   protected readonly menu = signal(false);
   protected readonly rel = computed(() => relevanceOf(this.wish()));

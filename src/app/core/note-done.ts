@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { CheckCheck } from 'lucide-angular';
+import { ICON } from '../ui/icons';
 import { linkedOnCheckedTask } from './note-links';
 import { isDone, isNote, withDone } from './review';
 import { ReviewStore } from './review-store';
@@ -75,7 +75,7 @@ export class NoteDone {
         : `A tarefa que você marcou aponta para ${linked.length} anotações: ${list}. Finalizar todas elas também?`,
       confirm: one ? 'Finalizar' : `Finalizar as ${linked.length}`,
       cancel: 'Agora não',
-      icon: CheckCheck,
+      icon: ICON.feito,
       tone: 'neutro',
     });
     if (!yes) return;

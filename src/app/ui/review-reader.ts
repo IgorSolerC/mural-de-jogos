@@ -14,7 +14,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { ArrowLeft, BellOff, ChevronLeft, ChevronRight, Eye, EyeOff, LockKeyhole, LogOut, LucideAngularModule, LucideIconData, MessageCircleMore, PenLine, Pin as PinGlyph, PinOff, Repeat, RotateCcw, Square, SquareCheckBig, TextQuote, TriangleAlert, Trash2, UsersRound, X } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { cap, g, profileOf } from '../core/kinds';
 import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -68,7 +69,7 @@ const PATCH_GAP = 8;
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CommentsPanel, ConflictSheet, ShareSheet, LucideAngularModule, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CommentsPanel, ConflictSheet, ShareSheet, IconModule, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="onClosed()">
@@ -80,7 +81,7 @@ const PATCH_GAP = 8;
           <!-- a cor da cartolina fica só na faixa do cabeçalho, como ficha de fichário -->
           <header class="head" [style]="headPaper()">
             <button type="button" class="icon-btn" (click)="close()" aria-label="Fechar">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
 
@@ -88,7 +89,7 @@ const PATCH_GAP = 8;
             <!-- duas versões brigando (de duas pessoas numa compartilhada, ou de dois aparelhos seus): escolher uma -->
             @if (conflictHere()) {
               <div class="aviso-conflito" role="status">
-                <lucide-icon class="aviso-icone" [img]="ConflictIcon" [size]="22" [strokeWidth]="2.5" aria-hidden="true" />
+                <lucide-icon class="aviso-icone" [img]="ConflictIcon" [size]="22" aria-hidden="true" />
                 <p class="aviso-texto"><strong>Conflito de sincronização.</strong> {{ conflictLine() }}</p>
                 <button type="button" class="btn-ink aviso-btn" aria-haspopup="dialog" (click)="openConflict()">Escolher a versão</button>
               </div>
@@ -96,7 +97,7 @@ const PATCH_GAP = 8;
             <!-- veio por um link de outra anotação: o caminho de volta -->
             @if (trail().at(-1); as from) {
               <button type="button" class="btn-quiet voltar-elo" (click)="back()">
-                <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
                 <span class="voltar-txt">Voltar para “{{ from.game.name }}”</span>
               </button>
             }
@@ -104,14 +105,14 @@ const PATCH_GAP = 8;
             @if (times().length > 1) {
               <nav class="vezes" [attr.aria-label]="'As vezes de ' + r.game.name">
                 <button type="button" class="vez-seta" [disabled]="at() === 0" (click)="go(-1)" [attr.aria-label]="prevLabel()">
-                  <lucide-icon [img]="PrevIcon" [size]="22" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="PrevIcon" [size]="22" aria-hidden="true" />
                 </button>
                 <p class="vez" aria-live="polite">
                   <span class="vez-nome">{{ timeLabel(at()) }}</span>
                   <span class="vez-conta">{{ at() + 1 }} de {{ times().length }}</span>
                 </p>
                 <button type="button" class="vez-seta" [disabled]="at() === times().length - 1" (click)="go(1)" [attr.aria-label]="nextLabel()">
-                  <lucide-icon [img]="NextIcon" [size]="22" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="NextIcon" [size]="22" aria-hidden="true" />
                 </button>
               </nav>
             }
@@ -189,18 +190,18 @@ const PATCH_GAP = 8;
                 @if (sharedHere(); as s) {
                   <!-- compartilhada: com quem (ou de quem) e o seu papel; a linha abre a folha das pessoas -->
                   <p class="privada compartilhada">
-                    <lucide-icon [img]="SharedIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="SharedIcon" [size]="16" aria-hidden="true" />
                     <span>{{ s.line }}</span>
                     <button type="button" class="parte-de" aria-haspopup="dialog" (click)="openShare()">{{ s.manages ? 'Pessoas' : 'Quem está' }}</button>
                   </p>
                 } @else if (r.private && owner() === null) {
                   <p class="privada">
-                    <lucide-icon [img]="PrivateIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="PrivateIcon" [size]="16" aria-hidden="true" />
                     Privada: só você vê. Ninguém foi avisado.
                   </p>
                 } @else if (r.quiet && owner() === null) {
                   <p class="privada">
-                    <lucide-icon [img]="QuietIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="QuietIcon" [size]="16" aria-hidden="true" />
                     Pública, sem aviso: está no seu mural, mas não foi para o Feed.
                   </p>
                 }
@@ -224,7 +225,7 @@ const PATCH_GAP = 8;
                 <!-- a ficha de outra pessoa em segredo: revelada aqui, fica revelada no mural de quem abriu (ver revealedChange) -->
                 @if (forceMask()) {
                   <button type="button" class="btn-quiet revelar" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
-                    <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" aria-hidden="true" />
                     {{ revealed() ? 'Esconder a nota' : 'Revelar a nota' }}
                   </button>
                 }
@@ -269,7 +270,7 @@ const PATCH_GAP = 8;
                 @if (foldable(); as n) {
                   <div class="feitas-linha">
                     <button type="button" class="btn-quiet feitas-btn" [attr.aria-pressed]="showDone()" (click)="showDone.set(!showDone())">
-                      <lucide-icon [img]="showDone() ? HideIcon : RevealIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="showDone() ? HideIcon : RevealIcon" [size]="17" aria-hidden="true" />
                       {{ showDone() ? 'Esconder as feitas' : n === 1 ? 'Mostrar a tarefa feita' : 'Mostrar as ' + n + ' tarefas feitas' }}
                     </button>
                   </div>
@@ -291,7 +292,7 @@ const PATCH_GAP = 8;
                   }
                   @if (commentable()) {
                     <button type="button" class="acao-caneta comentar" [attr.aria-expanded]="commentsOpen()" aria-controls="leitura-comentarios" (click)="toggleComments()">
-                      <lucide-icon [img]="CommentIcon" [size]="17" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="CommentIcon" [size]="17" aria-hidden="true" />
                       {{ commentCount() ? commentsLabel() : 'Comentar' }}
                     </button>
                   }
@@ -318,7 +319,7 @@ const PATCH_GAP = 8;
               <button type="button" class="btn-ink" (click)="close()">Fechar</button>
             } @else {
             <button type="button" class="btn-quiet danger" (click)="remove.emit(r.id)">
-              <lucide-icon [img]="leaves() ? LeaveIcon : TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="leaves() ? LeaveIcon : TrashIcon" [size]="18" aria-hidden="true" />
               <!-- a anotação finalizada também sai do mural; apagar é outra coisa. A compartilhada de outra
                    pessoa não se apaga: sai-se dela -->
               {{ leaves() ? 'Sair da anotação' : sharedWithOthers() ? 'Apagar para todos' : note() ? 'Apagar anotação' : 'Remover do mural' }}
@@ -326,7 +327,7 @@ const PATCH_GAP = 8;
             <div class="actions">
               @if (!note()) {
               <button type="button" class="btn-quiet" (click)="revisit.emit(r.id)">
-                <lucide-icon [img]="RevisitIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="RevisitIcon" [size]="19" aria-hidden="true" />
                 Escrever {{ profile().revisit.one }}
               </button>
               }
@@ -339,7 +340,7 @@ const PATCH_GAP = 8;
                 (click)="side.toggle(r.id)"
                 [title]="'Marcar pra comparar com ' + others()"
               >
-                <lucide-icon [img]="side.has(r.id) ? CheckedIcon : UncheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="side.has(r.id) ? CheckedIcon : UncheckedIcon" [size]="19" aria-hidden="true" />
                 Lado a lado
               </button>
               }
@@ -347,24 +348,24 @@ const PATCH_GAP = 8;
               @if (note()) {
                 <!-- fixar no topo do mural -->
                 <button type="button" class="btn-quiet" [attr.aria-pressed]="r.noteRank === 'fixada'" (click)="togglePin()">
-                  <lucide-icon [img]="r.noteRank === 'fixada' ? UnpinIcon : PinIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="r.noteRank === 'fixada' ? UnpinIcon : PinIcon" [size]="19" aria-hidden="true" />
                   {{ r.noteRank === 'fixada' ? 'Desafixar' : 'Fixar' }}
                 </button>
                 @if (writable()) {
                   <button type="button" class="btn-quiet" [attr.aria-pressed]="!!r.doneAt" (click)="finish()">
-                    <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="r.doneAt ? ReopenIcon : CheckedIcon" [size]="19" aria-hidden="true" />
                     {{ r.doneAt ? 'Abrir de novo' : 'Finalizar' }}
                   </button>
                 }
                 <!-- dividir com outras pessoas (ou ver quem está, para quem não gere a anotação) -->
                 <button type="button" class="btn-quiet" aria-haspopup="dialog" (click)="openShare()">
-                  <lucide-icon [img]="SharedIcon" [size]="19" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="SharedIcon" [size]="19" aria-hidden="true" />
                   {{ !sharedHere() || sharedHere()!.manages ? 'Compartilhar' : 'Pessoas' }}
                 </button>
               }
               @if (writable()) {
                 <button type="button" class="btn-ink" (click)="edit.emit(r.id)">
-                  <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                  <lucide-icon [img]="EditIcon" [size]="20" aria-hidden="true" />
                   Editar
                 </button>
               } @else {
@@ -389,7 +390,7 @@ const PATCH_GAP = 8;
               [attr.aria-label]="commentCount() ? 'Comentários: ' + commentCount() : 'Comentários'"
               (click)="toggleComments()"
             >
-              <lucide-icon [img]="CommentIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="CommentIcon" [size]="20" aria-hidden="true" />
               <span class="orelha-txt" aria-hidden="true">Comentários</span>
               @if (commentCount(); as n) {
                 <span class="orelha-n" aria-hidden="true">{{ n }}</span>
@@ -402,11 +403,11 @@ const PATCH_GAP = 8;
                 <header class="head" [style]="headPaper()">
                   <!-- em tela estreita a folha cobre a ficha: o caminho de volta fica à esquerda, escrito -->
                   <button type="button" class="btn-quiet volta-ficha" (click)="toggleComments(false)">
-                    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
                     Voltar para a ficha
                   </button>
                   <button type="button" class="icon-btn fecha-lado" (click)="toggleComments(false)" aria-label="Fechar os comentários">
-                    <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
                   </button>
                 </header>
                 @if (masked() && !spoilersOk()) {
@@ -414,7 +415,7 @@ const PATCH_GAP = 8;
                   <div class="guarda">
                     <p>Os comentários podem contar o que esta ficha está escondendo.</p>
                     <button type="button" class="btn-ink" (click)="spoilersOk.set(true)">
-                      <lucide-icon [img]="RevealIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+                      <lucide-icon [img]="RevealIcon" [size]="19" aria-hidden="true" />
                       Ver os comentários
                     </button>
                   </div>
@@ -434,7 +435,7 @@ const PATCH_GAP = 8;
         <!-- selecionou um trecho do texto: o remendo "Citar" aparece no fim da seleção -->
         @if (picked(); as p) {
           <button type="button" class="citar" [style.left.px]="p.left" [style.top.px]="p.top" (pointerdown)="$event.preventDefault()" (click)="quoteSelection()">
-            <lucide-icon [img]="QuoteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="QuoteIcon" [size]="17" aria-hidden="true" />
             Citar
           </button>
         }
@@ -468,20 +469,20 @@ export class ReviewReader {
 
   protected readonly side = inject(SideBySide);
   private readonly settings = inject(Settings);
-  protected readonly CloseIcon = X;
-  protected readonly CheckedIcon = SquareCheckBig;
-  protected readonly UncheckedIcon = Square;
-  protected readonly EditIcon = PenLine;
-  protected readonly TrashIcon = Trash2;
-  protected readonly RevisitIcon = Repeat;
-  protected readonly PrevIcon = ChevronLeft;
-  protected readonly NextIcon = ChevronRight;
-  protected readonly RevealIcon = Eye;
-  protected readonly HideIcon = EyeOff;
-  protected readonly PrivateIcon = LockKeyhole;
-  protected readonly QuietIcon = BellOff;
-  protected readonly BackIcon = ArrowLeft;
-  protected readonly ReopenIcon = RotateCcw;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly CheckedIcon = ICON.marcado;
+  protected readonly UncheckedIcon = ICON.desmarcado;
+  protected readonly EditIcon = ICON.editar;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly RevisitIcon = ICON.repetir;
+  protected readonly PrevIcon = ICON.anterior;
+  protected readonly NextIcon = ICON.proximo;
+  protected readonly RevealIcon = ICON.ver;
+  protected readonly HideIcon = ICON.esconder;
+  protected readonly PrivateIcon = ICON.privada;
+  protected readonly QuietIcon = ICON.silenciar;
+  protected readonly BackIcon = ICON.voltar;
+  protected readonly ReopenIcon = ICON.recomecar;
   protected readonly categorySticker = categoryBonus;
   /** O desenho escolhido para a categoria, só nas suas anotações (ver core/category-looks.ts). */
   protected categoryGlyph(category: string): LucideIconData | null {
@@ -492,11 +493,11 @@ export class ReviewReader {
   protected tagColor(tag: string): string | null {
     return this.owner() === null ? tagColorHex(this.settings.categoryLooks(), tag, this.review()?.category ?? '') : null;
   }
-  protected readonly PinIcon = PinGlyph;
-  protected readonly UnpinIcon = PinOff;
-  protected readonly SharedIcon = UsersRound;
-  protected readonly LeaveIcon = LogOut;
-  protected readonly ConflictIcon = TriangleAlert;
+  protected readonly PinIcon = ICON.fixar;
+  protected readonly UnpinIcon = ICON.desafixar;
+  protected readonly SharedIcon = ICON.pessoas;
+  protected readonly LeaveIcon = ICON.sair;
+  protected readonly ConflictIcon = ICON.aviso;
   private readonly store = inject(ReviewStore);
 
   // ===== As anotações compartilhadas (ver core/shared-store.ts) =====
@@ -693,8 +694,8 @@ export class ReviewReader {
   // ===== Os comentários: a folha presa ao lado da ficha (ver ui/comments-panel.ts) =====
   protected readonly comments = inject(Comments);
   private readonly account = inject(CloudAccount);
-  protected readonly CommentIcon = MessageCircleMore;
-  protected readonly QuoteIcon = TextQuote;
+  protected readonly CommentIcon = ICON.comentar;
+  protected readonly QuoteIcon = ICON.citacao;
   /**
    * A ficha aberta como alvo dos comentários: a de quem tem código (ou a sua, com a conta aberta). A
    * privada também: o dono escreve nela para si, e numa anotação compartilhada fala com quem está nela.

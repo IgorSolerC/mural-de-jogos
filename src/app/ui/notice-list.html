@@ -17,16 +17,16 @@
               }
             }
             @case ('comentou') {
-              <lucide-icon [img]="CommentIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CommentIcon" [size]="13" aria-hidden="true" />
             }
             @case ('respondeu') {
-              <lucide-icon [img]="ReplyIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="ReplyIcon" [size]="13" aria-hidden="true" />
             }
             @case ('compartilhou') {
-              <lucide-icon [img]="SharedIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="SharedIcon" [size]="13" aria-hidden="true" />
             }
             @default {
-              <lucide-icon [img]="FollowIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="FollowIcon" [size]="13" aria-hidden="true" />
             }
           }
         </span>
@@ -70,7 +70,7 @@
         <button type="button" class="abre" [attr.aria-label]="'Ver o perfil de ' + n.item.pessoa.nome" (click)="profile.emit(n.item.pessoa)"></button>
         @if (mutual(n)) {
           <span class="mutuo">
-            <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+            <lucide-icon [img]="CheckIcon" [size]="14" aria-hidden="true" />
             Vocês se seguem
           </span>
         } @else {

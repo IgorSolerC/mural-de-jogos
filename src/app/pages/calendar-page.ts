@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { BellOff, CalendarDays, CalendarRange, CalendarSearch, CalendarSync, ChevronLeft, ChevronRight, Clock, LucideAngularModule, LucideIconData, Paperclip, Pencil, Plus, Repeat, Square } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { map } from 'rxjs';
 import { MONTHS_LONG } from '../core/dates';
 import {
@@ -59,9 +60,9 @@ interface ViewTab {
 }
 
 const VIEWS: readonly ViewTab[] = [
-  { id: 'mes', label: 'Mês', icon: CalendarDays, key: 'm' },
-  { id: 'semana', label: 'Semana', icon: CalendarRange, key: 's' },
-  { id: 'dia', label: 'Dia', icon: Square, key: 'd' },
+  { id: 'mes', label: 'Mês', icon: ICON.calendario, key: 'm' },
+  { id: 'semana', label: 'Semana', icon: ICON.periodo, key: 's' },
+  { id: 'dia', label: 'Dia', icon: ICON.desmarcado, key: 'd' },
 ];
 
 /** Um dia da semana na vista da semana: o cabeçalho e os lembretes dele. */
@@ -100,22 +101,22 @@ function tiltOf(id: string): string {
  */
 @Component({
   selector: 'app-calendar-page',
-  imports: [CalendarMonth, ClippedReviewCard, GoogleAgendaSheet, LucideAngularModule, ReminderSheet],
+  imports: [CalendarMonth, ClippedReviewCard, GoogleAgendaSheet, IconModule, ReminderSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './calendar-page.html',
   styleUrl: './calendar-page.scss',
 })
 export class CalendarPage {
-  protected readonly PrevIcon = ChevronLeft;
-  protected readonly NextIcon = ChevronRight;
-  protected readonly JumpIcon = CalendarSearch;
-  protected readonly GoogleIcon = CalendarSync;
-  protected readonly PlusIcon = Plus;
-  protected readonly RepeatIcon = Repeat;
-  protected readonly ClipIcon = Paperclip;
-  protected readonly ClockIcon = Clock;
-  protected readonly QuietIcon = BellOff;
-  protected readonly PencilIcon = Pencil;
+  protected readonly PrevIcon = ICON.anterior;
+  protected readonly NextIcon = ICON.proximo;
+  protected readonly JumpIcon = ICON.irParaData;
+  protected readonly GoogleIcon = ICON.googleAgenda;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly RepeatIcon = ICON.repetir;
+  protected readonly ClipIcon = ICON.clipe;
+  protected readonly ClockIcon = ICON.relogio;
+  protected readonly QuietIcon = ICON.silenciar;
+  protected readonly PencilIcon = ICON.editar;
   protected readonly views = VIEWS;
   protected readonly timeLabel = timeLabel;
   protected readonly spanLabel = spanLabel;

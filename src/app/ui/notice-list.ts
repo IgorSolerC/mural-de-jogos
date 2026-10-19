@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
-import { Check, LucideAngularModule, MessageCircleMore, Reply, UserPlus, UsersRound } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CloudAccount } from '../core/cloud-account';
 import { Follow, Person, agoLabel, fullWhen } from '../core/follow';
 import { CardNotice, Notice, SharedNotice, noticeSpoken, noticeVerb, noticeWhere } from '../core/notices';
@@ -18,7 +18,7 @@ import { PersonFace, PersonPhoto } from './person-photo';
  */
 @Component({
   selector: 'app-notice-list',
-  imports: [Busy, LucideAngularModule, PersonPhoto],
+  imports: [Busy, IconModule, PersonPhoto],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './notice-list.html',
   styleUrl: './notice-list.scss',
@@ -51,11 +51,11 @@ export class NoticeList {
   /** O meu código (a resposta na minha ficha abre do meu mural). */
   private readonly me = () => this.account.account()?.codigo ?? null;
 
-  protected readonly CommentIcon = MessageCircleMore;
-  protected readonly ReplyIcon = Reply;
-  protected readonly FollowIcon = UserPlus;
-  protected readonly SharedIcon = UsersRound;
-  protected readonly CheckIcon = Check;
+  protected readonly CommentIcon = ICON.comentar;
+  protected readonly ReplyIcon = ICON.responder;
+  protected readonly FollowIcon = ICON.seguir;
+  protected readonly SharedIcon = ICON.pessoas;
+  protected readonly CheckIcon = ICON.pronto;
   protected readonly verb = noticeVerb;
   protected readonly where = noticeWhere;
   protected readonly spoken = noticeSpoken;

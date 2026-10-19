@@ -9,7 +9,7 @@
     <div class="podio">
       <figure class="campea">
         <figcaption class="faixa">
-          <lucide-icon [img]="TrophyIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="TrophyIcon" [size]="22" aria-hidden="true" />
           {{ profile().fem ? 'Campeã' : 'Campeão' }}
         </figcaption>
         <app-review-card [review]="res.champion" [preview]="true" (opened)="open(res.champion)" />
@@ -48,11 +48,11 @@
 
       <div class="acoes">
         <button type="button" class="btn-ink" (click)="again()">
-          <lucide-icon [img]="AgainIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="AgainIcon" [size]="20" aria-hidden="true" />
           Jogar de novo
         </button>
         <button type="button" class="btn-quiet" (click)="rules()">
-          <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="RulesIcon" [size]="18" aria-hidden="true" />
           Mudar as regras
         </button>
       </div>
@@ -116,14 +116,14 @@
 
     <div class="controles">
       <button type="button" class="btn-quiet" (click)="undo()" [disabled]="!game()!.picks.length">
-        <lucide-icon [img]="UndoIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="UndoIcon" [size]="18" aria-hidden="true" />
         Desfazer
       </button>
       <button type="button" class="btn-quiet" (click)="toggleMasked()" [attr.aria-pressed]="!game()!.masked">
         {{ game()!.masked ? 'Mostrar as notas' : 'Esconder as notas' }}
       </button>
       <button type="button" class="btn-quiet" (click)="rules()">
-        <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="RulesIcon" [size]="18" aria-hidden="true" />
         Recomeçar
       </button>
     </div>
@@ -132,7 +132,7 @@
   <!-- ===== As regras ===== -->
   <section class="regras" aria-labelledby="placar">
     <header class="r-head">
-      <lucide-icon class="icone" [img]="SwordsIcon" [size]="30" [strokeWidth]="2.2" aria-hidden="true" />
+      <lucide-icon class="icone" [img]="SwordsIcon" [size]="30" aria-hidden="true" />
       <h1 id="placar" tabindex="-1">Mata-mata</h1>
     </header>
     <p class="lead">
@@ -174,7 +174,7 @@
       <p class="resumo">{{ summary() }}</p>
 
       <button type="button" class="btn-ink comecar" (click)="start()">
-        <lucide-icon [img]="SwordsIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="SwordsIcon" [size]="20" aria-hidden="true" />
         Começar
       </button>
     }

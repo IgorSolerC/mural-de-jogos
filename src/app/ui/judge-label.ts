@@ -11,7 +11,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { EyeOff, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { VERDICT_LABEL, Verdict, formatScore, shownScore } from '../core/review';
 import { BRILHO_PATH } from './brilho';
 import { VERDICT_ICON } from './verdict';
@@ -44,7 +44,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
  */
 @Component({
   selector: 'app-judge-label',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class]': 'size()', '[class.fit]': 'fit()', '[class.so-icone]': 'iconOnly()', '[class.stack]': 'stack()' },
   template: `
@@ -74,7 +74,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
     @if (masked()) {
       <!-- sem spoilers: o canhoto preto de sempre, com "Segredo" no lugar do veredito, do mesmo tamanho -->
       <p class="band misterio" role="img" aria-label="Veredito escondido" [style.clip-path]="stack() ? torn().bottom : null">
-        <lucide-icon [img]="secretIcon" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="secretIcon" [size]="iconSize()" aria-hidden="true" />
         <span class="palavra" aria-hidden="true">Segredo</span>
       </p>
     } @else if (verdict(); as v) {
@@ -85,7 +85,7 @@ const ICON_ONLY_SIZE = { card: 24, compact: 20, big: 28 } as const;
         [class.rasgo-direita]="v === 'chato'"
         role="img" [attr.aria-label]="'Veredito: ' + verdictLabels[v]" [style.--v]="'var(--verdict-' + v + '-lit)'"
         [style.clip-path]="stack() ? torn().bottom : null">
-        <lucide-icon [img]="verdictIcons[v]" [size]="iconSize()" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="verdictIcons[v]" [size]="iconSize()" aria-hidden="true" />
         <span class="palavra" aria-hidden="true">{{ verdictLabels[v] }}</span>
       </p>
     }
@@ -501,7 +501,7 @@ export class JudgeLabel {
   protected readonly iconSize = computed(() => (this.iconOnly() ? ICON_ONLY_SIZE : ICON_SIZE)[this.size()]);
   protected readonly verdictLabels = VERDICT_LABEL;
   protected readonly verdictIcons = VERDICT_ICON;
-  protected readonly secretIcon = EyeOff;
+  protected readonly secretIcon = ICON.esconder;
   protected readonly brilhos = ['b1', 'b2', 'b3'];
   protected readonly brilhoPath = BRILHO_PATH;
 }

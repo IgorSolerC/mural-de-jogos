@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { ChevronDown, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { NEWS_KIND_LABEL, NewsChangeKind, NewsEntry, News } from '../core/news';
 import { NEWS, VERSION } from '../core/news-list';
 import { Pin } from '../ui/pin';
@@ -29,7 +29,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
  */
 @Component({
   selector: 'app-news-page',
-  imports: [LucideAngularModule, Pin],
+  imports: [IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabeca">
@@ -61,7 +61,7 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
                 <span class="etiqueta" [attr.data-tipo]="g.kind">{{ label[g.kind] }}</span>
               }
               <time class="data" [attr.datetime]="n.date">{{ when(n) }}</time>
-              <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+              <lucide-icon class="chev" [img]="ChevronIcon" [size]="20" aria-hidden="true" />
             </summary>
             <div class="corpo">
               @for (g of groups.get(n.id); track g.kind) {
@@ -339,7 +339,7 @@ export class NewsPage {
   protected readonly groups = new Map(NEWS.map((n) => [n.id, groupsOf(n)]));
   protected readonly version = VERSION;
   protected readonly label = NEWS_KIND_LABEL;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly ChevronIcon = ICON.abrir;
   /** O que era novo ao abrir a página: o adesivo fica enquanto ela estiver aberta. */
   protected readonly fresh = signal<ReadonlySet<string>>(new Set());
 

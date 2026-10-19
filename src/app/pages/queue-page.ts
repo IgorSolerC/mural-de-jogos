@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, signal } from '@angular/core';
-import { ChevronDown, LucideAngularModule, NotebookPen } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { collage, SHELF_ORDERS, shelfColumns, shelfCompare, ShelfOrder } from '../core/clipping';
 import { Desk } from '../core/desk';
 import { g } from '../core/kinds';
@@ -20,7 +20,7 @@ import { SearchStrip } from '../ui/search-strip';
  */
 @Component({
   selector: 'app-queue-page',
-  imports: [DraftCard, LucideAngularModule, SearchHighlight, SearchStrip],
+  imports: [DraftCard, IconModule, SearchHighlight, SearchStrip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- o nome e a contagem estão no índice embaixo do topo (ui/area-bar.ts) -->
@@ -45,7 +45,7 @@ import { SearchStrip } from '../ui/search-strip';
               <label class="tinta campo">
                 <span class="campo-pre">Ordenar</span>
                 <span class="campo-val" aria-hidden="true">{{ orderLabel() }}</span>
-                <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+                <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
                 <select aria-label="Ordenar por" (change)="sort($any($event.target).value)">
                   @for (o of orders; track o.value) {
                     <option [value]="o.value" [selected]="o.value === order()">{{ o.label }}</option>
@@ -91,7 +91,7 @@ import { SearchStrip } from '../ui/search-strip';
           <strong>Salvar pra depois</strong> também manda para cá.
         </p>
         <button type="button" class="btn-ink" (click)="desk.newDraft()" aria-keyshortcuts="n">
-          <lucide-icon [img]="NoteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="NoteIcon" [size]="18" aria-hidden="true" />
           Guardar {{ g(mural.profile(), 'um', 'uma') }} {{ mural.profile().singular }}
         </button>
       </section>
@@ -186,8 +186,8 @@ export class QueuePage {
   private readonly transitions = inject(ViewTransitions);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly g = g;
-  protected readonly NoteIcon = NotebookPen;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly NoteIcon = ICON.praDepois;
+  protected readonly ChevronIcon = ICON.abrir;
   protected readonly orders = SHELF_ORDERS;
 
   /** Busca pelo nome, sem ligar para acento nem maiúscula; some ao sair da página. */

@@ -9,7 +9,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { LucideAngularModule, LucideIconData, Trash2 } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Pin } from './pin';
 import { napWall } from '../core/wall-settle';
 
@@ -77,7 +78,7 @@ export class Confirm {
       this.open({
         title: 'Tem certeza?',
         cancel: 'Cancelar',
-        icon: Trash2,
+        icon: ICON.apagar,
         ...options,
         secondary: null,
         check: null,
@@ -124,7 +125,7 @@ export class Confirm {
 /** A fichinha da pergunta, pregada por cima de tudo (inclusive do editor e da leitura). */
 @Component({
   selector: 'app-confirm',
-  imports: [BackdropClose, LucideAngularModule, Pin],
+  imports: [BackdropClose, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -160,7 +161,7 @@ export class Confirm {
               }
               <button type="button" class="btn-ink" [class.danger]="q.tone === 'perigo'" (click)="confirm.answer(true)">
                 @if (q.icon) {
-                  <lucide-icon [img]="q.icon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                  <lucide-icon [img]="q.icon" [size]="18" aria-hidden="true" />
                 }
                 {{ q.confirm }}
               </button>

@@ -49,17 +49,17 @@
         }
         <div class="acoes">
           <button type="button" class="btn-ink" (click)="share()">
-            <lucide-icon [img]="ShareIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="ShareIcon" [size]="20" aria-hidden="true" />
             Copiar resultado
           </button>
           @if (mode() === 'dia') {
             <button type="button" class="btn-quiet" (click)="setMode('treino')">
-              <lucide-icon [img]="AgainIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="AgainIcon" [size]="18" aria-hidden="true" />
               Treinar
             </button>
           } @else {
             <button type="button" class="btn-quiet" (click)="newPractice()">
-              <lucide-icon [img]="AgainIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="AgainIcon" [size]="18" aria-hidden="true" />
               Outra ficha
             </button>
           }
@@ -113,7 +113,7 @@
         {{ rows().length }} {{ rows().length === 1 ? 'tentativa' : 'tentativas' }} · {{ countText() }} no mural
       </p>
       <button type="button" class="btn-quiet desistir" (click)="giveUp()" [disabled]="!rows().length">
-        <lucide-icon [img]="GiveUpIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="GiveUpIcon" [size]="18" aria-hidden="true" />
         Desistir
       </button>
     </section>
@@ -131,7 +131,7 @@
           <button type="button" class="btn-ink ver-dica" (click)="openHint()">Ver dica {{ opened() + 1 }}: {{ hints[opened()].toLowerCase() }}</button>
         } @else if (nextHintIn(); as n) {
           <p class="trancada">
-            <lucide-icon [img]="LockIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="LockIcon" [size]="16" aria-hidden="true" />
             Dica {{ unlocked() + 1 }} em {{ n }} {{ n === 1 ? 'erro' : 'erros' }}
           </p>
         }
@@ -215,9 +215,9 @@
                   [attr.aria-label]="cellLabel(cell, columns()[i].label)"
                 >
                   @if (cell.arrow === 'up') {
-                    <lucide-icon class="seta" [img]="UpIcon" [size]="44" [strokeWidth]="1.6" aria-hidden="true" />
+                    <lucide-icon class="seta" [img]="UpIcon" [size]="44" aria-hidden="true" />
                   } @else if (cell.arrow === 'down') {
-                    <lucide-icon class="seta" [img]="DownIcon" [size]="44" [strokeWidth]="1.6" aria-hidden="true" />
+                    <lucide-icon class="seta" [img]="DownIcon" [size]="44" aria-hidden="true" />
                   }
                   @if (cell.stock) {
                     <span class="amostra" [style.background]="'var(--stock-' + cell.stock + ')'" aria-hidden="true"></span>

@@ -1,47 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { LucideAngularModule } from 'lucide-angular';
 import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryColorId, CategoryIconId, CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Settings } from '../core/settings';
-import { CATEGORY_ICON, CategoryLabel, categoryIcon } from './category-label';
-
-/** O nome de cada ícone, para o leitor de tela e a dica. */
-const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
-  maleta: 'Maleta',
-  capelo: 'Capelo',
-  carrinho: 'Carrinho de compras',
-  lista: 'Lista de tarefas',
-  lampada: 'Lâmpada',
-  sino: 'Sino',
-  chapeu: 'Chapéu de cozinheiro',
-  alvo: 'Alvo',
-  aviao: 'Avião',
-  caderno: 'Caderno',
-  coracao: 'Coração',
-  musica: 'Música',
-  filme: 'Filme',
-  pessoas: 'Pessoas',
-  cerebro: 'Cérebro',
-  paleta: 'Paleta',
-  moedas: 'Moedas',
-  mundo: 'Mundo',
-  predio: 'Prédio',
-  coroa: 'Coroa',
-  brilho: 'Brilho',
-  marcador: 'Marcador de página',
-  livro: 'Livro',
-  pena: 'Pena',
-  camera: 'Câmera',
-  'quebra-cabeca': 'Quebra-cabeça',
-  bandeira: 'Bandeira',
-  relogio: 'Relógio',
-  microscopio: 'Microscópio',
-  megafone: 'Megafone',
-  etiqueta: 'Etiqueta',
-  chip: 'Chip',
-  inseto: 'Inseto',
-  raio: 'Raio',
-  pasta: 'Pasta',
-};
+import { CategoryLabel, categoryIcon } from './category-label';
+import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
 
 /**
  * A folha do ícone e da cor de uma categoria das anotações, no editor (ver core/category-looks.ts):
@@ -50,7 +11,7 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
  */
 @Component({
   selector: 'app-category-style',
-  imports: [LucideAngularModule, CategoryLabel],
+  imports: [IconModule, CategoryLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[attr.id]': 'id()', '[class.solta]': 'bare()' },
   template: `
@@ -64,7 +25,7 @@ const CATEGORY_ICON_LABEL: Record<CategoryIconId, string> = {
     <div class="ops" role="group" [attr.aria-labelledby]="id() + '-icones'">
       @for (i of icons; track i) {
         <button type="button" class="op icone" [attr.aria-pressed]="iconId() === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="setIcon(i)">
-          <lucide-icon [img]="iconOf[i]" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
         </button>
       }
     </div>
@@ -245,8 +206,8 @@ export class CategoryStyle {
 
   private readonly settings = inject(Settings);
   protected readonly icons = CATEGORY_ICONS;
-  protected readonly iconOf = CATEGORY_ICON;
-  protected readonly iconLabel = CATEGORY_ICON_LABEL;
+  protected readonly iconOf = ICON_CHOICE;
+  protected readonly iconLabel = ICON_CHOICE_LABEL;
   protected readonly colors = CATEGORY_COLORS;
 
   /** O ícone e a cor escolhidos para a categoria. */
@@ -255,12 +216,12 @@ export class CategoryStyle {
   /** O ícone que a categoria mostra agora: o escolhido, ou o de sempre. */
   protected readonly iconId = computed(() => {
     const now = categoryIcon(this.category(), this.look());
-    return CATEGORY_ICONS.find((i) => CATEGORY_ICON[i] === now) ?? null;
+    return CATEGORY_ICONS.find((i) => ICON_CHOICE[i] === now) ?? null;
   });
 
   /** Troca o ícone; o de sempre não fica guardado (assim "Voltar ao de sempre" some se só ele mudou). */
   protected setIcon(icon: CategoryIconId): void {
-    const same = CATEGORY_ICON[icon] === categoryIcon(this.category());
+    const same = ICON_CHOICE[icon] === categoryIcon(this.category());
     this.settings.setCategoryLook(this.category(), { ...this.look(), icon: same ? undefined : icon });
   }
 

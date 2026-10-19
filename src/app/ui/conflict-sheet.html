@@ -8,7 +8,7 @@
           <p class="sub">{{ v.sub }}</p>
         </div>
         <button type="button" class="icon-btn" aria-label="Decidir depois" (click)="close()">
-          <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
         </button>
       </header>
 
@@ -32,7 +32,7 @@
                 @if (s.device; as d) {
                   <!-- o aparelho no lugar da foto: um botão de lata com o desenho dele -->
                   <span class="aparelho" aria-hidden="true">
-                    <lucide-icon [img]="d.icon" [size]="20" [strokeWidth]="2.4" />
+                    <lucide-icon [img]="d.icon" [size]="20" />
                   </span>
                 } @else {
                   <app-person-photo [code]="s.who?.codigo ?? s.key" [name]="s.name" [face]="s.who?.foto" />
@@ -49,7 +49,7 @@
                 <!-- a versão que apaga: um carimbo no lugar do texto -->
                 <div class="carimbo-apagada">
                   <span class="carimbo-texto">
-                    <lucide-icon [img]="DeletedIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="DeletedIcon" [size]="18" aria-hidden="true" />
                     Apagada
                   </span>
                   <p class="apagada-desc">Neste lado, ela foi tirada do mural.</p>
@@ -82,7 +82,7 @@
               }
 
               <button type="button" class="btn-ink manter" [attr.aria-label]="'Manter a ' + s.spoken" (click)="keep(s)">
-                <lucide-icon [img]="s.deleted ? DeletedIcon : KeepIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+                <lucide-icon [img]="s.deleted ? DeletedIcon : KeepIcon" [size]="20" aria-hidden="true" />
                 {{ s.keep }}
               </button>
             </section>

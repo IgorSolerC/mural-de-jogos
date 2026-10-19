@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, model, output, signal, untracked } from '@angular/core';
-import { AudioLines, Ban, ChevronDown, Disc3, Link2, LucideAngularModule, LucideIconData, MicVocal, Music } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { AlbumTrack, GameLookup, isCatalogSample } from '../core/game-lookup';
 import { ARTIST_MAX, MUSIC_FORMS, MUSIC_FORM_LABEL, MusicForm, PickedGame, SAMPLE_MAX, cleanArtist, musicFormOf } from '../core/review';
 import { parseAudio, widgetDef } from '../core/widgets';
@@ -10,9 +11,9 @@ let uid = 0;
 type Sound = 'catalogo' | 'link' | 'nada';
 
 const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
-  catalogo: { label: 'Trecho do catálogo', icon: AudioLines },
-  link: { label: 'Um link meu', icon: Link2 },
-  nada: { label: 'Nada', icon: Ban },
+  catalogo: { label: 'Trecho do catálogo', icon: ICON.som },
+  link: { label: 'Um link meu', icon: ICON.link },
+  nada: { label: 'Nada', icon: ICON.nenhum },
 };
 
 /**
@@ -28,7 +29,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
  */
 @Component({
   selector: 'app-music-fields',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let g = game();
@@ -40,7 +41,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
             <label class="opcao">
               <input type="radio" [name]="id + '-tipo'" [value]="f" [checked]="form() === f" (change)="setForm(f)" />
               <span class="etiqueta" [class.recorte]="form() !== f" [class.colado]="form() === f">
-                <lucide-icon [img]="f === 'album' ? AlbumIcon : SongIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="f === 'album' ? AlbumIcon : SongIcon" [size]="15" aria-hidden="true" />
                 <span>{{ formLabel[f] }}</span>
               </span>
             </label>
@@ -52,7 +53,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
     <div class="campo">
       <label class="rotulo" [for]="id + '-artista'">Artista ou banda</label>
       <div class="tira">
-        <lucide-icon [img]="ArtistIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+        <lucide-icon [img]="ArtistIcon" [size]="19" aria-hidden="true" />
         <input
           [id]="id + '-artista'"
           type="text"
@@ -83,7 +84,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
           <label class="opcao">
             <input type="radio" [name]="id + '-som'" [value]="s" [checked]="sound() === s" (change)="setSound(s)" />
             <span class="etiqueta" [class.recorte]="sound() !== s" [class.colado]="sound() === s">
-              <lucide-icon [img]="soundOf[s].icon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="soundOf[s].icon" [size]="15" aria-hidden="true" />
               <span>{{ soundOf[s].label }}</span>
             </span>
           </label>
@@ -99,7 +100,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
                   <option [value]="t.sample" [selected]="t.sample === g.sample">{{ t.n }}. {{ t.name }}</option>
                 }
               </select>
-              <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
             </label>
             <p class="dica" [id]="id + '-som-dica'">A sua preferida do disco: toca um trecho de 30 segundos dela.</p>
           } @else {
@@ -108,7 +109,7 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
         }
         @case ('link') {
           <div class="tira" [class.errada]="!!linkProblem()">
-            <lucide-icon [img]="LinkIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon [img]="LinkIcon" [size]="19" aria-hidden="true" />
             <input
               class="link"
               type="url"
@@ -315,11 +316,11 @@ export class MusicFields {
   /** A vez que o editor abriu: cada vez recomeça os campos, mesmo com a mesma ficha de antes. */
   readonly session = input(0);
 
-  protected readonly AlbumIcon = Disc3;
-  protected readonly SongIcon = Music;
-  protected readonly ArtistIcon = MicVocal;
-  protected readonly LinkIcon = Link2;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly AlbumIcon = ICON.musicas;
+  protected readonly SongIcon = ICON.musica;
+  protected readonly ArtistIcon = ICON.vocal;
+  protected readonly LinkIcon = ICON.link;
+  protected readonly ChevronIcon = ICON.abrir;
   protected readonly forms = MUSIC_FORMS;
   protected readonly formLabel = MUSIC_FORM_LABEL;
   protected readonly soundOf = SOUNDS;

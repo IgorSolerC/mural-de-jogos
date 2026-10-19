@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, PenLine } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { profileOf } from '../core/kinds';
 import { ProfileSection } from '../core/profile';
 import { CategoryLooks } from '../core/category-looks';
@@ -17,7 +17,7 @@ import { ReviewCard } from './review-card';
  */
 @Component({
   selector: 'app-profile-section',
-  imports: [LucideAngularModule, MiniPolaroid, ReviewCard, RouterLink],
+  imports: [IconModule, MiniPolaroid, ReviewCard, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-section.html',
   styleUrl: './profile-section.scss',
@@ -34,7 +34,7 @@ export class ProfileSectionView {
   readonly editable = input(false);
   readonly opened = output<Review>();
 
-  protected readonly EditIcon = PenLine;
+  protected readonly EditIcon = ICON.editar;
 
   /** A arte da moldura desenhada (ver ui/frame-art). */
   protected readonly art = computed(() => (this.section().frame === 'quadro' ? frameArt(this.section().frameStyle) : null));

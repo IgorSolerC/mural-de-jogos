@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ChevronRight, LucideAngularModule, MicVocal, PenLine, Search, WifiOff } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { GameLookup, LookupError, artistHitId } from '../core/game-lookup';
 import { cap, g, isMusic, profileOf } from '../core/kinds';
 import { Kind, MUSIC_FORM_LABEL, PickedGame } from '../core/review';
@@ -29,12 +29,12 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
  */
 @Component({
   selector: 'app-game-search',
-  imports: [LucideAngularModule, CoverSleeve],
+  imports: [IconModule, CoverSleeve],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <label class="pergunta" [for]="inputId">{{ profile().ask ?? 'Qual ' + profile().singular + '?' }}</label>
     <div class="strip" [class.busy]="loading()">
-      <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+      <lucide-icon [img]="SearchIcon" [size]="20" aria-hidden="true" />
       <input
         #field
         [id]="inputId"
@@ -82,12 +82,12 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
           >
             @if (opt.kind === 'hit' && isArtist(opt.game)) {
               <!-- o artista: a porta para os álbuns dele -->
-              <lucide-icon class="manual-icon" [img]="ArtistIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+              <lucide-icon class="manual-icon" [img]="ArtistIcon" [size]="22" aria-hidden="true" />
               <span class="name">
                 {{ opt.game.name }}
                 <span class="by">Artista · ver os álbuns</span>
               </span>
-              <lucide-icon class="seta" [img]="GoIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon class="seta" [img]="GoIcon" [size]="18" aria-hidden="true" />
             } @else if (opt.kind === 'hit') {
               <app-cover-sleeve class="thumb" size="thumb" [game]="opt.game" />
               <span class="name">
@@ -138,11 +138,11 @@ export class GameSearch {
   });
   readonly picked = output<PickedGame>();
 
-  protected readonly SearchIcon = Search;
-  protected readonly PenIcon = PenLine;
-  protected readonly OfflineIcon = WifiOff;
-  protected readonly ArtistIcon = MicVocal;
-  protected readonly GoIcon = ChevronRight;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly PenIcon = ICON.escrever;
+  protected readonly OfflineIcon = ICON.semInternet;
+  protected readonly ArtistIcon = ICON.vocal;
+  protected readonly GoIcon = ICON.proximo;
   protected readonly formLabel = MUSIC_FORM_LABEL;
   /** O resultado é um artista (e não um álbum ou uma música)? */
   protected isArtist(game: PickedGame): boolean {

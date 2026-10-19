@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender } from '../ui/focus';
-import { LucideAngularModule, RotateCcw, Shuffle, Swords, Trophy, Undo2 } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
 import { SavedKnockout, loadKnockout, saveKnockout } from '../core/knockout-save';
@@ -20,7 +20,7 @@ import { plural } from '../core/text';
  */
 @Component({
   selector: 'app-knockout-page',
-  imports: [LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader],
+  imports: [IconModule, PlayerPicker, ReviewCard, ReviewReader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './knockout-page.html',
   styleUrl: './knockout-page.scss',
@@ -32,11 +32,11 @@ export class KnockoutPage {
   private readonly desk = inject(Desk);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly SwordsIcon = Swords;
-  protected readonly TrophyIcon = Trophy;
-  protected readonly UndoIcon = Undo2;
-  protected readonly AgainIcon = Shuffle;
-  protected readonly RulesIcon = RotateCcw;
+  protected readonly SwordsIcon = ICON.espadas;
+  protected readonly TrophyIcon = ICON.trofeu;
+  protected readonly UndoIcon = ICON.desfazer;
+  protected readonly AgainIcon = ICON.embaralhar;
+  protected readonly RulesIcon = ICON.recomecar;
 
   protected readonly options = DUEL_OPTIONS;
   protected readonly profile = this.mural.profile;

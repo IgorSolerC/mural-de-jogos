@@ -8,7 +8,7 @@
           <p class="sub" id="compartilhar-nota">“{{ n.game.name }}”</p>
         </div>
         <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
-          <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
         </button>
       </header>
 
@@ -26,7 +26,7 @@
               <h3 class="grupo-titulo" id="chamar-titulo">Chamar alguém</h3>
               <div class="chamar-linha">
                 <label class="campo">
-                  <lucide-icon class="lupa" [img]="SearchIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                  <lucide-icon class="lupa" [img]="SearchIcon" [size]="18" aria-hidden="true" />
                   <span class="sr-only">Nome ou código de quem chamar</span>
                   <input
                     #campo
@@ -47,7 +47,7 @@
                       <option [value]="r" [selected]="r === newRole()">{{ roleLabel[r] }}</option>
                     }
                   </select>
-                  <lucide-icon class="seta" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon class="seta" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
                 </label>
               </div>
               <p class="dica" id="chamar-dica">{{ roleLabel[newRole()] }}: {{ roleHint[newRole()].toLowerCase() }}.</p>
@@ -63,7 +63,7 @@
                           <span class="rel">{{ s.rel }}</span>
                         </span>
                         <span class="chamar-acao">
-                          <lucide-icon [img]="AddIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                          <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
                           Chamar
                         </span>
                       </button>
@@ -78,7 +78,7 @@
                           <span class="rel">Pelo código</span>
                         </span>
                         <span class="chamar-acao">
-                          <lucide-icon [img]="AddIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                          <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
                           Chamar
                         </span>
                       </button>
@@ -112,7 +112,7 @@
                   </span>
                   @if (p.papel === 'dono') {
                     <span class="papel-fixo dono">
-                      <lucide-icon [img]="OwnerIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="OwnerIcon" [size]="15" aria-hidden="true" />
                       Dono
                     </span>
                   } @else if (manages() && !p.voce) {
@@ -125,7 +125,7 @@
                         <option disabled>──────</option>
                         <option value="tirar">Tirar da anotação</option>
                       </select>
-                      <lucide-icon class="seta" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                      <lucide-icon class="seta" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
                     </label>
                   } @else {
                     <span class="papel-fixo">{{ roleLabel[p.papel] }}</span>
@@ -143,12 +143,12 @@
                 <div class="segmentos" role="radiogroup" aria-labelledby="visita-titulo">
                   <label class="segmento">
                     <input type="radio" name="compartilhar-visita" [checked]="isPrivate()" (change)="setPrivate(true)" />
-                    <lucide-icon class="seg-icone" [img]="PrivateIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                    <lucide-icon class="seg-icone" [img]="PrivateIcon" [size]="18" aria-hidden="true" />
                     <span class="seg-nome">Privada</span>
                   </label>
                   <label class="segmento">
                     <input type="radio" name="compartilhar-visita" [checked]="!isPrivate()" (change)="setPrivate(false)" />
-                    <lucide-icon class="seg-icone" [img]="PublicIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                    <lucide-icon class="seg-icone" [img]="PublicIcon" [size]="18" aria-hidden="true" />
                     <span class="seg-nome">Pública</span>
                   </label>
                 </div>
@@ -170,7 +170,7 @@
         @if (entry(); as e) {
           @if (e.papel !== 'dono') {
             <button type="button" class="papel perigo" [disabled]="!!busy()" [appBusy]="busy() === 'sair'" (click)="leave()">
-              <lucide-icon [img]="LeaveIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="LeaveIcon" [size]="17" aria-hidden="true" />
               Sair da anotação
             </button>
           }

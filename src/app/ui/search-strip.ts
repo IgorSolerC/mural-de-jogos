@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, input, model, viewChild } from '@angular/core';
-import { LucideAngularModule, Search, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 
 /**
  * A tira de papel de busca, colada na parede com fita-crepe. A mesma tira serve o mural e a fila
@@ -7,7 +7,7 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
  */
 @Component({
   selector: 'app-search-strip',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { role: 'search', '[class.colada]': 'glued()' },
   template: `
@@ -15,7 +15,7 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
       <span class="tape tape-l" aria-hidden="true"></span>
       <span class="tape tape-r" aria-hidden="true"></span>
     }
-    <lucide-icon [img]="SearchIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+    <lucide-icon [img]="SearchIcon" [size]="20" aria-hidden="true" />
     <label [for]="inputId()" class="sr-only">{{ label() }}</label>
     <input
       #field
@@ -32,7 +32,7 @@ import { LucideAngularModule, Search, X } from 'lucide-angular';
     />
     @if (value()) {
       <button type="button" class="clear" (click)="clear()" aria-label="Limpar busca">
-        <lucide-icon [img]="ClearIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="ClearIcon" [size]="18" aria-hidden="true" />
       </button>
     } @else {
       <kbd aria-hidden="true">/</kbd>
@@ -162,8 +162,8 @@ export class SearchStrip {
 
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
 
-  protected readonly SearchIcon = Search;
-  protected readonly ClearIcon = X;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly ClearIcon = ICON.fechar;
 
   protected clear(): void {
     this.value.set('');

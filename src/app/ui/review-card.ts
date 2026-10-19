@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
-import { Check, CheckCheck, CornerDownRight, ListChecks, LockKeyhole, LucideAngularModule, MicVocal, PenLine, Pin as PinGlyph, Repeat, Undo2, UsersRound } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { cap, g, profileOf, revisitCountOf } from '../core/kinds';
 import {
   Bonus,
@@ -90,7 +90,7 @@ function watchDistance(el: HTMLElement): () => void {
 }
 
 /** O que a ficha usa no molde (o mesmo da ficha colada, ver ui/glued-review-card.ts). */
-export const CARD_IMPORTS = [LucideAngularModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, SharedPatch, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
+export const CARD_IMPORTS = [IconModule, Rabisco, PaperArtLayer, Pin, PenMark, StatusLabel, CoverSleeve, RecordCover, BonusSticker, BonusTally, JudgeLabel, Boletim, Skulls, CommentBubble, SharedPatch, ReactionBubble, RichText, Corta, DoneStamp, NoteTag, CategoryLabel];
 
 /** O que vai no elemento da ficha: as classes e as variáveis do papel (a ficha colada herda, ver ui/glued-review-card.ts). */
 const CARD_HOST = {
@@ -175,22 +175,22 @@ export const CARD_TEMPLATE = `
             <span class="selos">
               @if (lockBadge()) {
                 <span class="selo privada-selo" title="Privada: só você vê">
-                  <lucide-icon [img]="PrivateIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="PrivateIcon" [size]="13" aria-hidden="true" />
                   <span class="sr-only">Privada: só você vê</span>
                 </span>
               }
               @if (publicBadge()) {
                 <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
-                  <lucide-icon [img]="PublicIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+                  <lucide-icon [img]="PublicIcon" [size]="13" aria-hidden="true" />
                   <span class="sr-only">Publicada: quem abre o seu mural vê</span>
                 </span>
               }
               @if (capas() && review().revisitOf) {
-                <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" /></span>
+                <span class="selo vez-selo" aria-hidden="true"><lucide-icon [img]="AgainIcon" [size]="13" aria-hidden="true" /></span>
               }
               <!-- só capa e nome: no lugar do carimbo, um selinho de feito -->
               @if (capas() && doneAt()) {
-                <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" /></span>
+                <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" /></span>
               }
             </span>
           }
@@ -202,12 +202,12 @@ export const CARD_TEMPLATE = `
         <span class="selos selos-ficha">
           @if (publicBadge()) {
             <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
-              <lucide-icon [img]="PublicIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="PublicIcon" [size]="13" aria-hidden="true" />
               <span class="sr-only">Publicada: quem abre o seu mural vê</span>
             </span>
           }
           @if (capas() && doneAt()) {
-            <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" [strokeWidth]="3" aria-hidden="true" /></span>
+            <span class="selo feito-selo" aria-hidden="true"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" /></span>
           }
         </span>
       }
@@ -231,7 +231,7 @@ export const CARD_TEMPLATE = `
               }
               <span class="quando">
                 @if (publicBadge()) {
-                  <span class="quem-ve" title="Publicada: quem abre o seu mural vê"><lucide-icon class="quem-ve-icone" [img]="PublicIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.6" aria-hidden="true" /><span class="sr-only">Publicada: quem abre o seu mural vê. </span></span>
+                  <span class="quem-ve" title="Publicada: quem abre o seu mural vê"><lucide-icon class="quem-ve-icone" [img]="PublicIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Publicada: quem abre o seu mural vê. </span></span>
                 }
                 @if (review().completedAt; as day) {
                   <time [attr.datetime]="day">{{ date() }}</time>
@@ -243,14 +243,14 @@ export const CARD_TEMPLATE = `
               @if (partShown() || review().completedAt || publicBadge()) {
                 <span aria-hidden="true"> · </span>
               }
-              <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
+              <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
             <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
             @if (noText()) {
               @if (partShown() || review().completedAt || publicBadge() || tasks()) {
                 <span aria-hidden="true"> · </span>
               }
-              <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.8" aria-hidden="true" />Sem descrição</span>
+              <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />Sem descrição</span>
             }
           </p>
         } @else if (!capas()) {
@@ -261,12 +261,12 @@ export const CARD_TEMPLATE = `
           }
           <!-- a rejogada diz o que é antes da data; a original jogada mais vezes diz quantas, depois -->
           @if (review().revisitOf) {
-            <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" [strokeWidth]="3" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
+            <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
           }
           <span class="quando">
             <!-- a resenha privada (só no seu mural): o cadeado antes da data -->
             @if (lockBadge()) {
-              <span class="quem-ve" title="Privada: só você vê"><lucide-icon class="quem-ve-icone" [img]="PrivateIcon" [size]="compact() ? 13 : 14" [strokeWidth]="2.6" aria-hidden="true" /><span class="sr-only">Privada: só você vê. </span></span>
+              <span class="quem-ve" title="Privada: só você vê"><lucide-icon class="quem-ve-icone" [img]="PrivateIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Privada: só você vê. </span></span>
             }
             @if (review().completedAt; as day) {
               <time [attr.datetime]="day">{{ date() }}</time>
@@ -276,7 +276,7 @@ export const CARD_TEMPLATE = `
           </span>
           <!-- sem spoilers, a linha fica só com a data: as horas e as caveiras também contam o que achou -->
           @if (!review().revisitOf && times() > 1) {
-            <span aria-hidden="true"> · </span><span class="vez-marca" [title]="timesTitle()"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" [strokeWidth]="3" aria-hidden="true" />{{ times() }}×<span class="sr-only"> ({{ timesTitle() }})</span></span>
+            <span aria-hidden="true"> · </span><span class="vez-marca" [title]="timesTitle()"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ times() }}×<span class="sr-only"> ({{ timesTitle() }})</span></span>
           }
           @if (review().hoursPlayed !== null && !compact() && !masked()) {
             <span aria-hidden="true"> · </span><span>{{ hours() }}</span>
@@ -349,7 +349,7 @@ export const CARD_TEMPLATE = `
           [title]="review().doneAt ? 'Abrir a anotação de novo' : 'Finalizar a anotação (bate o carimbo)'"
           (click)="finish()"
         >
-          <lucide-icon [img]="review().doneAt ? ReopenIcon : FinishIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+          <lucide-icon [img]="review().doneAt ? ReopenIcon : FinishIcon" [size]="16" aria-hidden="true" />
           <span class="acao-nome" aria-hidden="true">{{ review().doneAt ? 'Reabrir' : 'Finalizar' }}</span>
         </button>
         <button
@@ -361,7 +361,7 @@ export const CARD_TEMPLATE = `
           [title]="review().noteRank === 'fixada' ? 'Desafixar' : 'Fixar no topo do mural'"
           (click)="togglePin($event)"
         >
-          <lucide-icon [img]="PinIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="PinIcon" [size]="16" aria-hidden="true" />
         </button>
         <!-- a sub-nota: a seta de item de dentro, sempre à mostra (como o alfinete da fixada); abre
              a lista das anotações que apontam para ela -->
@@ -373,7 +373,7 @@ export const CARD_TEMPLATE = `
             [title]="s.count === 1 ? 'Sub-nota: ver de onde ela é parte' : 'Sub-nota: citada em ' + s.count + ' anotações'"
             (click)="backlinks.open(review().id)"
           >
-            <lucide-icon [img]="SubIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+            <lucide-icon [img]="SubIcon" [size]="16" aria-hidden="true" />
             @if (s.count) {
               <span class="sub-n" aria-hidden="true">{{ s.count }}</span>
             }
@@ -1716,9 +1716,9 @@ export class ReviewCard {
    * fica na leitura). A resenha nasce pública: nela, quem ganha selo é a privada.
    */
   protected readonly publicBadge = computed(() => this.note() && !isPrivate(this.review()) && this.checkable());
-  protected readonly PublicIcon = UsersRound;
-  protected readonly TasksIcon = ListChecks;
-  protected readonly NoTextIcon = PenLine;
+  protected readonly PublicIcon = ICON.publica;
+  protected readonly TasksIcon = ICON.tarefas;
+  protected readonly NoTextIcon = ICON.escrever;
   /** No quadro (Kanban), a anotação sem texto nenhum, só o título: a linha da data avisa. */
   protected readonly noText = computed(() => this.onBoard && isNote(this.review()) && !this.review().text.trim());
   /** As tarefas do texto da anotação: quantas feitas de quantas (null: sem tarefas). */
@@ -1741,7 +1741,7 @@ export class ReviewCard {
   });
 
   protected readonly backlinks = inject(NoteBacklinks);
-  protected readonly SubIcon = CornerDownRight;
+  protected readonly SubIcon = ICON.dentro;
   /**
    * O indicador de sub-nota (também na fixada que era sub-nota), com quantas anotações apontam para
    * ela. Só onde a ficha tem as etiquetas de cima (no seu mural).
@@ -1754,7 +1754,7 @@ export class ReviewCard {
 
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
   protected readonly canFinish = computed(() => this.note() && this.ticks() && !this.preview() && !this.capas());
-  protected readonly DoneIcon = CheckCheck;
+  protected readonly DoneIcon = ICON.feito;
   /**
    * O texto tem o que tocar (tarefas, links, um spoiler)? Só então ele sobe por cima do botão da ficha;
    * sem nada para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
@@ -1773,9 +1773,9 @@ export class ReviewCard {
   protected readonly stamping = computed(() => this.note() && !this.preview() && this.view.stamping().has(this.review().id));
 
   private readonly notePin = inject(NotePin);
-  protected readonly PinIcon = PinGlyph;
-  protected readonly FinishIcon = Check;
-  protected readonly ReopenIcon = Undo2;
+  protected readonly PinIcon = ICON.fixar;
+  protected readonly FinishIcon = ICON.pronto;
+  protected readonly ReopenIcon = ICON.recomecar;
   protected togglePin(e: Event): void {
     if (!this.canFinish()) return;
     const btn = e.currentTarget as HTMLElement;
@@ -1864,7 +1864,7 @@ export class ReviewCard {
   protected readonly spins = computed(() => this.music() && !this.compact() && !this.capas());
   /** "Álbum" ou "Música". */
   protected readonly formLabel = computed(() => MUSIC_FORM_LABEL[musicFormOf(this.review().game)]);
-  protected readonly ArtistIcon = MicVocal;
+  protected readonly ArtistIcon = ICON.vocal;
   /** A categoria (na orelha) e as tags que cabem ao lado da foto (até 4 na Completa, 2 na Simples); o resto vira "+N". */
   protected readonly noteLabels = computed(() => {
     const r = this.review();
@@ -1901,8 +1901,8 @@ export class ReviewCard {
     return { code, ref: r.id, titulo: r.game.name, mural: r.kind };
   });
 
-  protected readonly AgainIcon = Repeat;
-  protected readonly PrivateIcon = LockKeyhole;
+  protected readonly AgainIcon = ICON.repetir;
+  protected readonly PrivateIcon = ICON.privada;
   /** O papel da rejogada é desenhado com o id da original (ver artIdOf). */
   protected readonly artId = computed(() => artIdOf(this.review()));
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));

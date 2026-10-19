@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
-import { Copy, LucideAngularModule, PenLine, RefreshCw, UserCheck, UserPlus } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals, cloudColleagueId, normalizeCode } from '../core/cloud-murals';
@@ -54,7 +54,7 @@ type Who =
  */
 @Component({
   selector: 'app-profile-page',
-  imports: [Busy, LucideAngularModule, PageWall, PeopleSheet, Pin, ProfileHero, ProfileSectionView, ProfileWalls, ReviewReader, RouterLink],
+  imports: [Busy, IconModule, PageWall, PeopleSheet, Pin, ProfileHero, ProfileSectionView, ProfileWalls, ReviewReader, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.scss',
@@ -80,11 +80,11 @@ export class ProfilePage {
   private readonly peopleSheet = viewChild(PeopleSheet);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly EditIcon = PenLine;
-  protected readonly CopyIcon = Copy;
-  protected readonly RetryIcon = RefreshCw;
-  protected readonly FollowIcon = UserPlus;
-  protected readonly FollowingIcon = UserCheck;
+  protected readonly EditIcon = ICON.editar;
+  protected readonly CopyIcon = ICON.copiar;
+  protected readonly RetryIcon = ICON.atualizar;
+  protected readonly FollowIcon = ICON.seguir;
+  protected readonly FollowingIcon = ICON.seguindo;
 
   private readonly param = toSignal(this.route.paramMap.pipe(map((p) => p.get('codigo'))), { initialValue: null });
 

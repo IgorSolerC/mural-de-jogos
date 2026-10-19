@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Check, LucideAngularModule, Plus, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CloudAccount } from '../core/cloud-account';
 import { Follow } from '../core/follow';
 import { ListedPerson, PeopleTab, ProfilePeople, initialStock, orderPeople } from '../core/profile-people';
@@ -23,7 +23,7 @@ type Relation = 'voce' | 'segue' | 'seguir' | null;
  */
 @Component({
   selector: 'app-people-sheet',
-  imports: [BackdropClose, Busy, LucideAngularModule, MiniPolaroid, RouterLink],
+  imports: [BackdropClose, Busy, IconModule, MiniPolaroid, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet gente" aria-labelledby="gente-titulo" (close)="opened.set(false)" (backdropClose)="close()">
@@ -50,7 +50,7 @@ type Relation = 'voce' | 'segue' | 'seguir' | null;
               </div>
             </div>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
 
@@ -103,13 +103,13 @@ type Relation = 'voce' | 'segue' | 'seguir' | null;
                                 [attr.aria-label]="(followsMe(p) ? 'Seguir de volta ' : 'Seguir ') + p.nome"
                                 (click)="followPerson(p)"
                               >
-                                <lucide-icon [img]="PlusIcon" [size]="17" [strokeWidth]="3" aria-hidden="true" />
+                                <lucide-icon [img]="PlusIcon" [size]="17" aria-hidden="true" />
                                 {{ busy(p.codigo) ? 'Seguindo…' : followsMe(p) ? 'Seguir de volta' : 'Seguir' }}
                               </button>
                             }
                             @case ('segue') {
                               <span class="dymo">
-                                <lucide-icon [img]="CheckIcon" [size]="14" [strokeWidth]="3.2" aria-hidden="true" />
+                                <lucide-icon [img]="CheckIcon" [size]="14" aria-hidden="true" />
                                 Você segue
                               </span>
                             }
@@ -152,9 +152,9 @@ export class PeopleSheet {
   readonly stock = input<Stock>('amarelo');
   readonly own = input(false);
 
-  protected readonly CloseIcon = X;
-  protected readonly PlusIcon = Plus;
-  protected readonly CheckIcon = Check;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly CheckIcon = ICON.pronto;
   protected readonly tabs: readonly PeopleTab[] = ['seguindo', 'seguidores'];
 
   protected readonly opened = signal(false);

@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { LucideIconData } from 'lucide-angular';
 import {
   DAMAGES,
   DAMAGE_LABEL,
@@ -39,6 +40,7 @@ import {
 import { DAMAGE_ICON, DECOR_ICON, SCRIBBLE_ICON, STAIN_ICON, kitIcon } from '../core/kit-icons';
 import { motifIcon, paperVars } from '../core/paper-art';
 import { STOCKS, STOCK_LABEL, Stock, isDarkStock } from '../core/review';
+import { ICON, IconModule } from './icons';
 import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { swallowNextClick, tabStep } from './focus';
@@ -70,7 +72,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
  */
 @Component({
   selector: 'app-card-kit',
-  imports: [NgTemplateOutlet, PaperArtLayer, Pin],
+  imports: [IconModule, NgTemplateOutlet, PaperArtLayer, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="abas" role="tablist" aria-label="Personalizar a ficha" (keydown)="onTabKey($event)">
@@ -87,7 +89,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
           [attr.tabindex]="tab() === t.id ? 0 : -1"
           (click)="selectTab(t.id)"
         >
-          <svg class="aba-icone" viewBox="0 0 24 24" aria-hidden="true" [innerHTML]="tabIcons[t.id]"></svg>
+          <lucide-icon class="aba-icone" [img]="tabIcons[t.id]" [size]="20" aria-hidden="true" />
           <span>{{ t.label }}</span>
         </button>
       }
@@ -206,7 +208,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
               </label>
               @if (n) {
                 <button type="button" class="tirar" [attr.aria-label]="'Tirar ' + o.label" title="Tirar" (click)="unpick(n - 1)">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+                  <lucide-icon [img]="CloseIcon" [size]="13" aria-hidden="true" />
                 </button>
               }
               </div>
@@ -374,14 +376,8 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
       grid-column: 5;
     }
     .aba-icone {
-      width: 20px;
-      height: 20px;
+      display: inline-flex;
       flex: none;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
     }
     /* a aba de uma escolha já feita ganha um pontinho, para saber o que a ficha tem sem abrir */
     .plate.usada::after {
@@ -700,13 +696,8 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
         outline: 3px solid var(--hi);
         outline-offset: 1px;
       }
-      svg {
-        width: 13px;
-        height: 13px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 3;
-        stroke-linecap: round;
+      lucide-icon {
+        display: inline-flex;
       }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -965,19 +956,17 @@ export class CardKit {
     { id: 'decoracao', label: 'Decoração' },
   ];
   /** O desenho de cada aba, a traço: a amostra, a folha, o carimbo, o rabisco, o rasgo e a mancha. */
-  protected readonly tabIcons: Record<Tab, SafeHtml> = (() => {
-    const sanitizer = inject(DomSanitizer);
-    const icons: Record<Tab, string> = {
-      cor: `<path d='M12 3.5C8.6 8.4 6.5 11.4 6.5 14.6a5.5 5.5 0 0 0 11 0c0-3.2-2.1-6.2-5.5-11.1Z'/><path d='M9.6 15.2a2.6 2.6 0 0 0 2.2 2.4'/>`,
-      papel: `<path d='M6 3.5h8.5l3.5 3.5v13.5H6Z'/><path d='M14.5 3.5V7H18M8.8 11h6.4M8.8 14h6.4M8.8 17h4'/>`,
-      estampa: `<path d='M12 3.8l2.3 4.9 5.3.6-3.9 3.6 1 5.3-4.7-2.7-4.7 2.7 1-5.3-3.9-3.6 5.3-.6Z'/>`,
-      rabisco: `<path d='M3.5 16.5c2.4-5.4 5.2-8.8 6.6-7.2 1.6 1.8-3.4 6.6-1.4 7.8 2.2 1.3 5.4-8.6 8.2-7.6 2 .7-.6 5.2 1.2 5.6 1 .2 1.8-.8 2.4-1.8'/>`,
-      estrago: `<path d='M6 3.5h12v8.2l-2.2 1.3.9 2.2-2.6.6.5 2.6-2.8.8.4 2.3H6Z'/><path d='M9 7.5h6M9 10.5h4'/>`,
-      decoracao: `<path d='M12 3.6l1.9 4.2 4.5.4-3.4 3 1 4.5L12 13.3l-4 2.4 1-4.5-3.4-3 4.5-.4Z'/><path d='M5 19.4l.9 1.8M19 18.2l-.4 2M12 18.6v2.6M3.6 14.6l1.8.4M20.4 13.6l-1.8.6'/>`,
-      mancha: `<path d='M12 5.2a6.8 6.8 0 1 1-6.8 6.8'/><path d='M5.2 12a6.8 6.8 0 0 1 3.4-5.9' stroke-dasharray='2 2.4'/><path d='M12 9.3a2.7 2.7 0 1 1-2.7 2.7'/><circle cx='19.6' cy='19.4' r='1.1'/>`,
-    };
-    return Object.fromEntries(Object.entries(icons).map(([k, v]) => [k, sanitizer.bypassSecurityTrustHtml(v)])) as Record<Tab, SafeHtml>;
-  })();
+  /** O desenho de cada aba: os do estojo, no acervo de ícones do site (ver ui/icons.ts). */
+  protected readonly tabIcons: Record<Tab, LucideIconData> = {
+    cor: ICON.kitCor,
+    papel: ICON.kitPapel,
+    estampa: ICON.kitEstampa,
+    rabisco: ICON.kitRabisco,
+    estrago: ICON.kitEstrago,
+    decoracao: ICON.kitDecoracao,
+    mancha: ICON.kitMancha,
+  };
+  protected readonly CloseIcon = ICON.fechar;
   protected readonly stocks = STOCKS;
   protected readonly stockLabels = STOCK_LABEL;
   protected readonly lookKeys = LOOK_KEYS;

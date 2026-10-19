@@ -224,7 +224,7 @@
           @for (row of verdictRows(); track row.value) {
             <tr>
               <th scope="row" [class]="row.value">
-                <lucide-icon [img]="verdictIcon[row.value]" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="verdictIcon[row.value]" [size]="17" aria-hidden="true" />
                 {{ verdictLabel[row.value] }}
               </th>
               <td class="voce" [class.lider]="favourite().you?.value === row.value"><app-tally [n]="row.you" /></td>

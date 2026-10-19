@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender } from '../ui/focus';
-import { ArrowBigDown, ArrowBigUp, ArrowUpDown, LucideAngularModule, RotateCcw, Shuffle } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { cap } from '../core/kinds';
 import { getRecord, offerRecord, recordKey } from '../core/game-records';
@@ -31,7 +31,7 @@ interface Round {
  */
 @Component({
   selector: 'app-higher-lower-page',
-  imports: [LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader],
+  imports: [IconModule, PlayerPicker, ReviewCard, ReviewReader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './higher-lower-page.html',
   styleUrl: './higher-lower-page.scss',
@@ -43,11 +43,11 @@ export class HigherLowerPage {
   private readonly desk = inject(Desk);
   private readonly reader = viewChild.required(ReviewReader);
 
-  protected readonly GameIcon = ArrowUpDown;
-  protected readonly UpIcon = ArrowBigUp;
-  protected readonly DownIcon = ArrowBigDown;
-  protected readonly AgainIcon = Shuffle;
-  protected readonly RulesIcon = RotateCcw;
+  protected readonly GameIcon = ICON.maiorOuMenor;
+  protected readonly UpIcon = ICON.acima;
+  protected readonly DownIcon = ICON.abaixo;
+  protected readonly AgainIcon = ICON.embaralhar;
+  protected readonly RulesIcon = ICON.recomecar;
 
   protected readonly profile = this.mural.profile;
   protected readonly cap = cap;

@@ -3,7 +3,7 @@ import { CloudMurals } from './core/cloud-murals';
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
-import { Cloud as CloudIconData, LucideAngularModule, Megaphone, Truck, X } from 'lucide-angular';
+import { ICON, IconModule } from './ui/icons';
 import { MoveHouse } from './core/move-house';
 import { filter, map } from 'rxjs';
 import { CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
@@ -45,7 +45,7 @@ import { TRY_AGAIN } from './ui/follow-toasts';
 
 @Component({
   selector: 'app-root',
-  imports: [AreaBar, PageWall, ConfirmDialog, GoogleButton, NoteBacklinksDialog, LucideAngularModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
+  imports: [AreaBar, PageWall, ConfirmDialog, GoogleButton, NoteBacklinksDialog, IconModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -97,10 +97,10 @@ export class App {
   /** No Pra depois ou na Wishlist: lá o N e o botão do topo adicionam à lista, não ao mural. */
   protected readonly onList = computed(() => listOf(this.path()));
 
-  protected readonly NoticeIcon = Megaphone;
-  protected readonly CloudIcon = CloudIconData;
-  protected readonly MoveIcon = Truck;
-  protected readonly CloseIcon = X;
+  protected readonly NoticeIcon = ICON.megafone;
+  protected readonly CloudIcon = ICON.nuvem;
+  protected readonly MoveIcon = ICON.mudanca;
+  protected readonly CloseIcon = ICON.fechar;
   /** Nas Anotações: o N e o botão do topo pregam uma anotação. */
   protected readonly notes = computed(() => areaOf(this.path()) === 'anotacoes');
 

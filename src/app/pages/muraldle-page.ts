@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { focusAfterRender } from '../ui/focus';
-import { ArrowBigDown, ArrowBigUp, Flag, Lock, LucideAngularModule, Share2, Shuffle } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { countOf } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -35,7 +35,7 @@ interface Game {
  */
 @Component({
   selector: 'app-muraldle-page',
-  imports: [CoverSleeve, LucideAngularModule, PlayerPicker, ReviewCard, ReviewReader],
+  imports: [CoverSleeve, IconModule, PlayerPicker, ReviewCard, ReviewReader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './muraldle-page.html',
   styleUrl: './muraldle-page.scss',
@@ -48,12 +48,12 @@ export class MuraldlePage {
   private readonly reader = viewChild.required(ReviewReader);
   private readonly input = viewChild<ElementRef<HTMLInputElement>>('busca');
 
-  protected readonly UpIcon = ArrowBigUp;
-  protected readonly DownIcon = ArrowBigDown;
-  protected readonly LockIcon = Lock;
-  protected readonly ShareIcon = Share2;
-  protected readonly AgainIcon = Shuffle;
-  protected readonly GiveUpIcon = Flag;
+  protected readonly UpIcon = ICON.acima;
+  protected readonly DownIcon = ICON.abaixo;
+  protected readonly LockIcon = ICON.privada;
+  protected readonly ShareIcon = ICON.compartilhar;
+  protected readonly AgainIcon = ICON.embaralhar;
+  protected readonly GiveUpIcon = ICON.bandeira;
   protected readonly hints = HINTS;
   protected readonly minCards = MIN_CARDS;
 

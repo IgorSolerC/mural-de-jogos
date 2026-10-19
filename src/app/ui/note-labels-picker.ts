@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
-import { ChevronUp, LucideAngularModule, LucideIconData, Palette, Plus, Star, StarOff, Sticker, X } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { Bonus, fold } from '../core/review';
 import { LABEL_MAX, MAX_TAGS, TagEntry, categoryBonus, cleanCategory, cleanTag } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
 import { BonusSticker } from './bonus';
-import { CATEGORY_ICON } from './category-label';
 import { CategoryStyle } from './category-style';
 import { NoteTag } from './note-tag';
 
@@ -22,7 +22,7 @@ let uid = 0;
  */
 @Component({
   selector: 'app-note-labels-picker',
-  imports: [LucideAngularModule, BonusSticker, NoteTag, CategoryStyle],
+  imports: [IconModule, BonusSticker, NoteTag, CategoryStyle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- ===== Categoria ===== -->
@@ -33,16 +33,16 @@ let uid = 0;
         <div class="acoes">
           @if (category() && !open()) {
             <button type="button" class="toggle" [attr.aria-expanded]="styling()" [attr.aria-controls]="id + '-jeito'" (click)="styling.set(!styling())">
-              <lucide-icon [img]="styling() ? CloseIcon : PaletteIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="styling() ? CloseIcon : PaletteIcon" [size]="17" aria-hidden="true" />
               Ícone e cor
             </button>
             <button type="button" class="toggle" (click)="category.set(null)" [attr.aria-label]="'Tirar o grupo ' + category()">
-              <lucide-icon [img]="RemoveIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="RemoveIcon" [size]="17" aria-hidden="true" />
               Tirar
             </button>
           }
           <button type="button" class="toggle" [attr.aria-expanded]="open()" [attr.aria-controls]="id + '-cartela'" (click)="setOpen(!open())">
-            <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="open() ? CloseIcon : StickerIcon" [size]="17" aria-hidden="true" />
             {{ open() ? 'Fechar cartela' : category() ? 'Trocar' : 'Escolher' }}
           </button>
         </div>
@@ -70,7 +70,7 @@ let uid = 0;
               />
             } @else {
               <button type="button" class="slot write-btn" data-write (click)="startWriting()">
-                <lucide-icon [img]="PlusIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+                <lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />
                 Escrever outro
               </button>
             }
@@ -110,10 +110,10 @@ let uid = 0;
               [title]="settings.isPinnedTag(t) ? 'Tag fixa: fica sempre à mão. Toque para soltar.' : 'Fixar a tag: deixar sempre à mão nas anotações'"
               (click)="settings.togglePinnedTag(t)"
             >
-              <lucide-icon [img]="StarIcon" [size]="14" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="StarIcon" [size]="14" aria-hidden="true" />
             </button>
             <button type="button" class="mini-btn" [attr.aria-label]="'Tirar a tag ' + t" (click)="remove(t)">
-              <lucide-icon [img]="RemoveIcon" [size]="13" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="RemoveIcon" [size]="13" aria-hidden="true" />
             </button>
           </span>
         }
@@ -154,7 +154,7 @@ let uid = 0;
               <app-note-tag [label]="s.label" size="mini" [color]="colorOf(s.label)" />
               <span class="sug-meta">
                 @if (s.pinned) {
-                  <lucide-icon class="estrela" [img]="StarIcon" [size]="12" [strokeWidth]="2.6" aria-hidden="true" /> fixa
+                  <lucide-icon class="estrela" [img]="StarIcon" [size]="12" aria-hidden="true" /> fixa
                 }
                 @if (s.n) {
                   {{ s.pinned ? ' · ' : '' }}{{ s.n === 1 ? 'em 1 anotação' : 'em ' + s.n + ' anotações' }}
@@ -172,7 +172,7 @@ let uid = 0;
               (mousedown)="$event.preventDefault()"
               (click)="add(t)"
             >
-              <lucide-icon [img]="PlusIcon" [size]="14" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="PlusIcon" [size]="14" aria-hidden="true" />
               <span>Nova tag “{{ t }}”</span>
             </li>
           }
@@ -181,14 +181,14 @@ let uid = 0;
       <!-- as fixas que ainda não estão nesta anotação: a um toque -->
       @if (pinnedLeft().length) {
         <div class="fixas">
-          <span class="fixas-label"><lucide-icon class="estrela" [img]="StarIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" /> Fixas</span>
+          <span class="fixas-label"><lucide-icon class="estrela" [img]="StarIcon" [size]="13" aria-hidden="true" /> Fixas</span>
           @for (t of pinnedLeft(); track t) {
             <span class="fixa-op">
               <button type="button" class="slot" [attr.aria-label]="'Pôr a tag ' + t" (click)="add(t)" [disabled]="tags().length >= maxTags">
                 <app-note-tag [label]="t" size="mini" [ghost]="true" />
               </button>
               <button type="button" class="mini-btn soltar" [attr.aria-label]="'Soltar a tag fixa ' + t" title="Soltar: deixa de ficar sempre à mão" (click)="settings.togglePinnedTag(t)">
-                <lucide-icon [img]="UnpinIcon" [size]="12" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="UnpinIcon" [size]="12" aria-hidden="true" />
               </button>
             </span>
           }
@@ -544,13 +544,13 @@ export class NoteLabelsPicker {
   protected readonly id = `rotulos-${++uid}`;
   protected readonly max = LABEL_MAX;
   protected readonly maxTags = MAX_TAGS;
-  protected readonly StickerIcon = Sticker;
-  protected readonly CloseIcon = ChevronUp;
-  protected readonly PlusIcon = Plus;
-  protected readonly RemoveIcon = X;
-  protected readonly StarIcon = Star;
-  protected readonly UnpinIcon = StarOff;
-  protected readonly PaletteIcon = Palette;
+  protected readonly StickerIcon = ICON.adesivo;
+  protected readonly CloseIcon = ICON.recolher;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly RemoveIcon = ICON.fechar;
+  protected readonly StarIcon = ICON.estrela;
+  protected readonly UnpinIcon = ICON.semEstrela;
+  protected readonly PaletteIcon = ICON.paleta;
 
   /** A folha do ícone e da cor, aberta. */
   protected readonly styling = signal(false);
@@ -621,7 +621,7 @@ export class NoteLabelsPicker {
   /** O ícone escolhido para a categoria na cartela (o de sempre: null, e o adesivo usa o dele). */
   protected glyphOf(category: string): LucideIconData | null {
     const look = this.settings.categoryLook(category);
-    return look.icon ? CATEGORY_ICON[look.icon] : null;
+    return look.icon ? ICON_CHOICE[look.icon] : null;
   }
 
   /** A cor da tag na categoria escolhida, ou null (o papel pardo de sempre). */

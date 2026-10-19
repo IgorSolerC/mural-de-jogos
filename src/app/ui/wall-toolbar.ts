@@ -1,22 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, Injector, linkedSignal, signal, viewChild } from '@angular/core';
-import {
-  ArrowDownWideNarrow,
-  ArrowUpNarrowWide,
-  CheckCheck,
-  ChevronDown,
-  Eye,
-  Grid3x3,
-  LayoutDashboard,
-  LayoutGrid,
-  List,
-  ListChecks,
-  ListFilter,
-  LucideAngularModule,
-  Pin,
-  Rows3,
-  Settings,
-  SquareCheckBig,
-} from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Mural } from '../core/mural';
 import { countOf, g, isNotes, revisitCountOf } from '../core/kinds';
 import { SCORE_LABEL, ScoreKey, isPinnedNote, scoreKeys } from '../core/review';
@@ -50,7 +34,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, FilterTags, LucideAngularModule, MuralConfig, NoteTabsBar, SearchStrip, TagShortcuts],
+  imports: [FilterSheet, FilterTags, IconModule, MuralConfig, NoteTabsBar, SearchStrip, TagShortcuts],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -61,25 +45,25 @@ export class WallToolbar {
   protected readonly side = inject(SideBySide);
   private readonly motion = inject(WallMotion);
 
-  protected readonly DescIcon = ArrowDownWideNarrow;
-  protected readonly AscIcon = ArrowUpNarrowWide;
-  protected readonly TasksIcon = ListChecks;
+  protected readonly DescIcon = ICON.ordenarDecrescente;
+  protected readonly AscIcon = ICON.ordenarCrescente;
+  protected readonly TasksIcon = ICON.tarefas;
   /** Os tipos de ficha dos murais de resenhas. */
-  protected readonly reviewDensities: readonly { value: Density; label: string; icon: typeof List }[] = [
-    { value: 'completa', label: 'Fichas completas', icon: Rows3 },
-    { value: 'inteira', label: 'Fichas inteiras: o texto todo, em colagem', icon: LayoutDashboard },
-    { value: 'simples', label: 'Fichas simples', icon: LayoutGrid },
-    { value: 'capas', label: 'Só capa e nome', icon: Grid3x3 },
+  protected readonly reviewDensities: readonly { value: Density; label: string; icon: LucideIconData }[] = [
+    { value: 'completa', label: 'Fichas completas', icon: ICON.completas },
+    { value: 'inteira', label: 'Fichas inteiras: o texto todo, em colagem', icon: ICON.painel },
+    { value: 'simples', label: 'Fichas simples', icon: ICON.simples },
+    { value: 'capas', label: 'Só capa e nome', icon: ICON.grade },
   ];
   /** Os das anotações: os mesmos e a Lista, que só elas têm. */
-  protected readonly noteDensities = [...this.reviewDensities, { value: 'lista' as Density, label: 'Lista', icon: List }];
-  protected readonly ChevronIcon = ChevronDown;
-  protected readonly MarkIcon = SquareCheckBig;
-  protected readonly FilterIcon = ListFilter;
-  protected readonly DoneIcon = CheckCheck;
-  protected readonly PinIcon = Pin;
-  protected readonly RevealIcon = Eye;
-  protected readonly GearIcon = Settings;
+  protected readonly noteDensities = [...this.reviewDensities, { value: 'lista' as Density, label: 'Lista', icon: ICON.lista }];
+  protected readonly ChevronIcon = ICON.abrir;
+  protected readonly MarkIcon = ICON.marcado;
+  protected readonly FilterIcon = ICON.filtrar;
+  protected readonly DoneIcon = ICON.feito;
+  protected readonly PinIcon = ICON.fixar;
+  protected readonly RevealIcon = ICON.ver;
+  protected readonly GearIcon = ICON.configurar;
 
   private readonly injector = inject(Injector);
   /** O Filtrar da pasta (só nos murais de resenhas: as anotações não têm cartela). */

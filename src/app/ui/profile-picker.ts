@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Check, LockKeyhole, LucideAngularModule, Search, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { PROFILE_LIMITS } from '../core/profile';
 import { Review, formatScore, isNote, isPrivate } from '../core/review';
@@ -26,7 +26,7 @@ import { kindTabs, matchingCards } from './picker-kit';
  */
 @Component({
   selector: 'app-profile-picker',
-  imports: [BackdropClose, CoverSleeve, LucideAngularModule, Pin],
+  imports: [BackdropClose, CoverSleeve, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet escolher" aria-labelledby="escolher-titulo" (close)="open.set(false)" (backdropClose)="open.set(false)">
@@ -39,13 +39,13 @@ import { kindTabs, matchingCards } from './picker-kit';
               <p class="para">para “{{ sectionTitle() || 'Seção sem nome' }}”</p>
             </div>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="open.set(false)">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
 
           <div class="ferramentas">
             <label class="busca">
-              <lucide-icon [img]="SearchIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
               <span class="sr-only">Procurar pelo nome</span>
               <input #search type="search" autocomplete="off" placeholder="Procurar pelo nome" [value]="query()" (input)="query.set($any($event.target).value)" />
             </label>
@@ -53,7 +53,7 @@ import { kindTabs, matchingCards } from './picker-kit';
               <button type="button" class="filtro" [attr.aria-pressed]="kind() === null" (click)="kind.set(null)">Todos <span class="n">{{ cards().length }}</span></button>
               @for (k of kinds(); track k.kind) {
                 <button type="button" class="filtro" [attr.aria-pressed]="kind() === k.kind" (click)="kind.set(k.kind)">
-                  <lucide-icon [img]="k.icon" [size]="15" [strokeWidth]="2.5" aria-hidden="true" />
+                  <lucide-icon [img]="k.icon" [size]="15" aria-hidden="true" />
                   {{ k.label }} <span class="n">{{ k.count }}</span>
                 </button>
               }
@@ -78,14 +78,14 @@ import { kindTabs, matchingCards } from './picker-kit';
                       <span class="nome">{{ r.game.name }}</span>
                       <span class="meta">
                         {{ kindLabel(r.kind) }}@if (!isNote(r) && r.scores.final !== null) { · média {{ score(r) }} }
-                        @if (locked) { · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" /> privada: não aparece }
+                        @if (locked) { · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> privada: não aparece }
                       </span>
                     </span>
                     <span class="marca" aria-hidden="true">
                       @if (at >= 0) {
                         {{ at + 1 }}
                       } @else if (!locked) {
-                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+                        <lucide-icon [img]="CheckIcon" [size]="16" aria-hidden="true" />
                       }
                     </span>
                   </label>
@@ -127,10 +127,10 @@ export class ProfilePicker {
   readonly chosenChange = output<string[]>();
 
   protected readonly max = PROFILE_LIMITS.items;
-  protected readonly CloseIcon = X;
-  protected readonly SearchIcon = Search;
-  protected readonly CheckIcon = Check;
-  protected readonly LockIcon = LockKeyhole;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly CheckIcon = ICON.pronto;
+  protected readonly LockIcon = ICON.privada;
   protected readonly isNote = isNote;
   protected readonly isPrivate = isPrivate;
   protected readonly query = signal('');

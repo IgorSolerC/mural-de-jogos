@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
-import { ChevronDown, LucideAngularModule, Plus } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
@@ -25,7 +25,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [DoneStamp, LucideAngularModule, NoteIndex, Pin, SearchHighlight, WallCards],
+  imports: [DoneStamp, IconModule, NoteIndex, Pin, SearchHighlight, WallCards],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-board.html',
@@ -45,8 +45,8 @@ export class WallBoard {
   /** "Nova anotação" no cartão de "Tudo finalizado" (só no seu mural). */
   readonly create = output<void>();
 
-  protected readonly PlusIcon = Plus;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly ChevronIcon = ICON.abrir;
 
   /** De quem é o mural: null, o seu. */
   protected readonly owner = this.view.owner;

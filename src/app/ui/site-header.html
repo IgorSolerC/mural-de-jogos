@@ -52,7 +52,7 @@
         [attr.title]="unseen() ? 'Amigos: ' + unseen() + (unseen() === 1 ? ' novidade' : ' novidades') : 'Amigos'"
       >
         <span class="face">
-          <lucide-icon class="desenho" [class.balanca]="nudge()" [img]="FriendsIcon" [size]="21" [strokeWidth]="2.3" aria-hidden="true" />
+          <lucide-icon class="desenho" [class.balanca]="nudge()" [img]="FriendsIcon" [size]="21" aria-hidden="true" />
         </span>
         @if (unseen(); as n) {
           <span class="selo">{{ n > 99 ? '99+' : n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
@@ -68,7 +68,7 @@
       title="Ajustes"
     >
       <span class="face">
-        <lucide-icon class="desenho" [img]="GearIcon" [size]="21" [strokeWidth]="2.3" aria-hidden="true" />
+        <lucide-icon class="desenho" [img]="GearIcon" [size]="21" aria-hidden="true" />
       </span>
       <span class="legenda">Ajustes</span>
     </a>
@@ -80,7 +80,7 @@
     @switch (onList()) {
       @case ('fila') {
         <button type="button" class="anotar" (click)="desk.newDraft()" aria-keyshortcuts="n" [attr.aria-label]="'Guardar ' + mural.profile().singular + ' pra depois'">
-          <lucide-icon class="lapis" [img]="NoteIcon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
+          <lucide-icon class="lapis" [img]="NoteIcon" [size]="20" aria-hidden="true" />
           <span class="anotar-txt">
             <small aria-hidden="true">Anote aqui</small>
             <span>Guardar<span class="long"> {{ mural.profile().singular }}</span></span>
@@ -89,7 +89,7 @@
       }
       @case ('wishlist') {
         <button type="button" class="cupom" (click)="desk.newWish()" aria-keyshortcuts="n" [attr.aria-label]="'Adicionar ' + mural.profile().singular + ' à wishlist'">
-          <lucide-icon class="tesoura" [img]="CutIcon" [size]="20" [strokeWidth]="2.2" aria-hidden="true" />
+          <lucide-icon class="tesoura" [img]="CutIcon" [size]="20" aria-hidden="true" />
           <span class="cupom-txt">
             <small aria-hidden="true">Recorte aqui</small>
             <span>Adicionar<span class="long"> {{ mural.profile().singular }}</span></span>
@@ -100,7 +100,7 @@
         <span class="stack">
           @let a = addLabel();
           <button type="button" class="btn-cartolina" (click)="add()" aria-keyshortcuts="n" [attr.aria-label]="a.verb + ' ' + a.noun">
-            <lucide-icon [img]="PlusIcon" [size]="22" [strokeWidth]="3" aria-hidden="true" />
+            <lucide-icon [img]="PlusIcon" [size]="22" aria-hidden="true" />
             {{ a.verb }}<span class="long">&nbsp;{{ a.noun }}</span>
           </button>
         </span>

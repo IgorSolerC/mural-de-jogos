@@ -2,7 +2,7 @@
   <!-- ===== As regras ===== -->
   <section class="regras" aria-labelledby="placar">
     <header class="r-head">
-      <lucide-icon class="icone" [img]="GameIcon" [size]="30" [strokeWidth]="2.2" aria-hidden="true" />
+      <lucide-icon class="icone" [img]="GameIcon" [size]="30" aria-hidden="true" />
       <h1 id="placar" tabindex="-1">Maior ou menor</h1>
     </header>
     <p class="lead">
@@ -42,7 +42,7 @@
         }
       </p>
       <button type="button" class="btn-ink comecar" (click)="start()">
-        <lucide-icon [img]="GameIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="GameIcon" [size]="20" aria-hidden="true" />
         Começar
       </button>
     }
@@ -84,11 +84,11 @@
 
       <div class="botoes" role="group" aria-label="Maior ou menor">
         <button type="button" class="chute maior" [disabled]="revealed() || phase() !== 'jogando'" (click)="guess('maior')" aria-keyshortcuts="ArrowUp">
-          <lucide-icon [img]="UpIcon" [size]="26" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="UpIcon" [size]="26" aria-hidden="true" />
           Maior
         </button>
         <button type="button" class="chute menor" [disabled]="revealed() || phase() !== 'jogando'" (click)="guess('menor')" aria-keyshortcuts="ArrowDown">
-          <lucide-icon [img]="DownIcon" [size]="26" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="DownIcon" [size]="26" aria-hidden="true" />
           Menor
         </button>
       </div>
@@ -129,11 +129,11 @@
 
         <div class="acoes">
           <button type="button" class="btn-ink" (click)="again()">
-            <lucide-icon [img]="AgainIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="AgainIcon" [size]="20" aria-hidden="true" />
             Jogar de novo
           </button>
           <button type="button" class="btn-quiet" (click)="toRules()">
-            <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="RulesIcon" [size]="18" aria-hidden="true" />
             Mudar as regras
           </button>
         </div>
@@ -151,7 +151,7 @@
       <p class="dica">Escolha Maior ou Menor<span class="teclas"> (ou use ↑ e ↓)</span>.</p>
       <div class="controles">
         <button type="button" class="btn-quiet" (click)="toRules()">
-          <lucide-icon [img]="RulesIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="RulesIcon" [size]="18" aria-hidden="true" />
           Recomeçar
         </button>
       </div>

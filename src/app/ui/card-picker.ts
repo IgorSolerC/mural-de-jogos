@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, model, output, signal, viewChild } from '@angular/core';
-import { Check, LockKeyhole, LucideAngularModule, Search, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { KINDS, Kind, cap, profileOf } from '../core/kinds';
 import { Review, formatReviewDate, formatScore, isNote, isPrivate } from '../core/review';
 import { ReviewStore } from '../core/review-store';
@@ -25,7 +25,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
  */
 @Component({
   selector: 'app-card-picker',
-  imports: [BackdropClose, CoverSleeve, LucideAngularModule, Pin],
+  imports: [BackdropClose, CoverSleeve, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- as teclas ficam aqui: o painel e o editor por baixo não ouvem o Esc nem o que se digita -->
@@ -39,13 +39,13 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
               <p class="para">{{ hint() }}</p>
             </div>
             <button type="button" class="icon-btn" aria-label="Fechar" (click)="open.set(false)">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
 
           <div class="ferramentas">
             <label class="busca">
-              <lucide-icon [img]="SearchIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
               <span class="sr-only">Procurar pelo nome</span>
               <input
                 #search
@@ -68,7 +68,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
               <button type="button" class="filtro" [attr.aria-pressed]="kind() === null" (click)="kind.set(null)">Todos <span class="n">{{ cards().length }}</span></button>
               @for (k of kinds(); track k.kind) {
                 <button type="button" class="filtro" [attr.aria-pressed]="kind() === k.kind" (click)="kind.set(k.kind)">
-                  <lucide-icon [img]="k.icon" [size]="15" [strokeWidth]="2.5" aria-hidden="true" />
+                  <lucide-icon [img]="k.icon" [size]="15" aria-hidden="true" />
                   {{ k.label }} <span class="n">{{ k.count }}</span>
                 </button>
               }
@@ -87,22 +87,22 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                     } @else {
                       <!-- a anotação sem capa: um pedacinho da cartolina dela, na cor do mural -->
                       <span class="capa folhinha" [style.--stock]="'var(--stock-' + stockOf(r) + ')'" [attr.data-cor]="stockOf(r)" aria-hidden="true">
-                        <lucide-icon [img]="NoteIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                        <lucide-icon [img]="NoteIcon" [size]="18" aria-hidden="true" />
                       </span>
                     }
                     <span class="texto">
                       <span class="nome">{{ r.game.name }}</span>
                       <span class="meta">
-                        <lucide-icon class="mural-icone" [img]="iconOf(r.kind)" [size]="13" [strokeWidth]="2.6" aria-hidden="true" />
+                        <lucide-icon class="mural-icone" [img]="iconOf(r.kind)" [size]="13" aria-hidden="true" />
                         {{ metaOf(r) }}
                         @if (isPrivate(r) && !isNote(r)) {
-                          · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" [strokeWidth]="2.6" aria-hidden="true" /> privada: quem visita vê só o nome
+                          · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> privada: quem visita vê só o nome
                         }
                       </span>
                     </span>
                     <span class="marca" aria-hidden="true">
                       @if (on) {
-                        <lucide-icon [img]="CheckIcon" [size]="16" [strokeWidth]="3" aria-hidden="true" />
+                        <lucide-icon [img]="CheckIcon" [size]="16" aria-hidden="true" />
                       }
                     </span>
                     @if (on) {
@@ -155,10 +155,10 @@ export class CardPicker {
   protected readonly hideDone = signal(true);
   readonly emptyText = input('Você ainda não tem outras fichas. Pregue uma no mural e ela aparece aqui.');
 
-  protected readonly CloseIcon = X;
-  protected readonly SearchIcon = Search;
-  protected readonly CheckIcon = Check;
-  protected readonly LockIcon = LockKeyhole;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly CheckIcon = ICON.pronto;
+  protected readonly LockIcon = ICON.privada;
   protected readonly NoteIcon = KIND_ICON.anotacoes;
   protected readonly isNote = isNote;
   protected readonly isPrivate = isPrivate;

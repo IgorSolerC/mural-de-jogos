@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import { Check, ChevronDown, Columns3, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, Pencil, RotateCcw, SlidersHorizontal, Tag, Tags, Trash2, Undo2, X } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
@@ -25,26 +26,26 @@ import { tabStep } from './focus';
  * folha abre pela engrenagem do Kanban (ver `board`).
  */
 const SECTIONS = [
-  { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: SlidersHorizontal },
-  { id: 'categorias', label: 'Grupos', hint: 'Nome, ordem, cor e padrões', icon: Tags },
-  { id: 'tags', label: 'Tags', hint: 'Por grupo: nome e cor', icon: Tag },
-  { id: 'quadro', label: 'Quadro', hint: 'O quadro deste grupo', icon: Columns3 },
+  { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: ICON.ajustar },
+  { id: 'categorias', label: 'Grupos', hint: 'Nome, ordem, cor e padrões', icon: ICON.etiquetas },
+  { id: 'tags', label: 'Tags', hint: 'Por grupo: nome e cor', icon: ICON.etiqueta },
+  { id: 'quadro', label: 'Quadro', hint: 'O quadro deste grupo', icon: ICON.colunas },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
 /** A parte aberta da última vez (enquanto o site está aberto). */
 let lastSection: SectionId = 'padroes';
 
-const AUDIENCES: readonly { value: Audience; label: string; icon: typeof Eye; desc: string }[] = [
-  { value: 'privada', label: 'Privada', icon: LockKeyhole, desc: 'Fica só com você, e ninguém é avisado.' },
-  { value: 'visivel', label: 'Disponível', icon: Eye, desc: 'No seu mural e no seu perfil, sem aparecer no Feed.' },
-  { value: 'publicar', label: 'Publicar', icon: Megaphone, desc: 'No seu mural e no Feed de quem segue você.' },
+const AUDIENCES: readonly { value: Audience; label: string; icon: LucideIconData; desc: string }[] = [
+  { value: 'privada', label: 'Privada', icon: ICON.privada, desc: 'Fica só com você, e ninguém é avisado.' },
+  { value: 'visivel', label: 'Disponível', icon: ICON.publica, desc: 'No seu mural e no seu perfil, sem aparecer no Feed.' },
+  { value: 'publicar', label: 'Publicar', icon: ICON.megafone, desc: 'No seu mural e no Feed de quem segue você.' },
 ];
 const AUDIENCE_LABEL: Record<Audience, string> = { privada: 'Privada', visivel: 'Disponível', publicar: 'Publicar' };
 
-const SUB_COLORS: readonly { value: SubColor; label: string; icon: typeof Eye; desc: string }[] = [
-  { value: 'sorteada', label: 'Cor sorteada', icon: Dices, desc: 'A sub-nota nasce numa cartolina sorteada.' },
-  { value: 'mae', label: 'Cor da mãe', icon: Copy, desc: 'A sub-nota nasce na mesma cartolina da anotação de onde veio.' },
+const SUB_COLORS: readonly { value: SubColor; label: string; icon: LucideIconData; desc: string }[] = [
+  { value: 'sorteada', label: 'Cor sorteada', icon: ICON.sortear, desc: 'A sub-nota nasce numa cartolina sorteada.' },
+  { value: 'mae', label: 'Cor da mãe', icon: ICON.copiar, desc: 'A sub-nota nasce na mesma cartolina da anotação de onde veio.' },
 ];
 const SUB_LABEL: Record<SubColor, string> = { sorteada: 'Cor sorteada', mae: 'Cor da mãe' };
 
@@ -114,7 +115,7 @@ interface Drag {
  */
 @Component({
   selector: 'app-mural-config',
-  imports: [BackdropClose, CategoryLabel, CategoryStyle, LucideAngularModule, NoteTag, Pin, TagColors],
+  imports: [BackdropClose, CategoryLabel, CategoryStyle, IconModule, NoteTag, Pin, TagColors],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mural-config.html',
   styleUrl: './mural-config.scss',
@@ -138,17 +139,17 @@ export class MuralConfig {
   private readonly confirm = inject(Confirm);
   private readonly kanban = inject(KanbanStore);
 
-  protected readonly CloseIcon = X;
-  protected readonly GripIcon = GripVertical;
-  protected readonly ChevronIcon = ChevronDown;
-  protected readonly ResetIcon = Undo2;
-  protected readonly ShownIcon = Eye;
-  protected readonly HiddenIcon = EyeOff;
-  protected readonly RenameIcon = Pencil;
-  protected readonly DeleteIcon = Trash2;
-  protected readonly OkIcon = Check;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly GripIcon = ICON.arrastar;
+  protected readonly ChevronIcon = ICON.abrir;
+  protected readonly ResetIcon = ICON.recomecar;
+  protected readonly ShownIcon = ICON.ver;
+  protected readonly HiddenIcon = ICON.esconder;
+  protected readonly RenameIcon = ICON.editar;
+  protected readonly DeleteIcon = ICON.apagar;
+  protected readonly OkIcon = ICON.pronto;
   protected readonly labelMax = LABEL_MAX;
-  protected readonly ResetBoardIcon = RotateCcw;
+  protected readonly ResetBoardIcon = ICON.recomecar;
   /** As partes à mostra: o Quadro só pelo Kanban. */
   protected readonly sections = computed(() => SECTIONS.filter((s) => s.id !== 'quadro' || !!this.board()));
   protected readonly audiences = AUDIENCES;
@@ -258,7 +259,7 @@ export class MuralConfig {
         : 'As colunas voltam a ser A fazer, Fazendo e Feito. Nenhuma anotação muda.',
       confirm: 'Recomeçar',
       cancel: 'Deixar',
-      icon: RotateCcw,
+      icon: ICON.recomecar,
     });
     if (!yes) return;
     this.close();

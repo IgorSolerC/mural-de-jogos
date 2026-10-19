@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, effect, inject, input, linkedSignal, output, signal, untracked, viewChild } from '@angular/core';
-import { Bell, BellOff, Check, FilePlus, LucideAngularModule, Paperclip, SlidersHorizontal, Trash2, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import {
   MAX_COUNT,
   MAX_NOTES,
@@ -73,7 +73,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
  */
 @Component({
   selector: 'app-reminder-sheet',
-  imports: [BackdropClose, CardPicker, LucideAngularModule, Pin],
+  imports: [BackdropClose, CardPicker, IconModule, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet lembrete" aria-labelledby="lb-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -86,7 +86,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
             <p class="sub">{{ whenLine() }}</p>
           </div>
           <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
-            <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
           </button>
         </header>
 
@@ -127,12 +127,12 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
             <div class="segmentos dois" role="radiogroup" aria-labelledby="lb-tipo-t" aria-describedby="lb-tipo-d">
               <label class="segmento">
                 <input type="radio" name="lb-tipo" [checked]="!d.quiet" [disabled]="!!locked()" (change)="setQuiet(false)" />
-                <lucide-icon [img]="BellIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="BellIcon" [size]="17" aria-hidden="true" />
                 <span class="seg-nome">Lembrete</span>
               </label>
               <label class="segmento">
                 <input type="radio" name="lb-tipo" [checked]="!!d.quiet" [disabled]="!!locked()" (change)="setQuiet(true)" />
-                <lucide-icon [img]="QuietIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="QuietIcon" [size]="17" aria-hidden="true" />
                 <span class="seg-nome">Marcação</span>
               </label>
             </div>
@@ -207,7 +207,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
             </div>
             @if (d.repeat && !locked()) {
               <button type="button" class="papel personalizar-btn" [attr.aria-expanded]="custom()" aria-controls="lb-personalizar" (click)="custom.set(!custom())">
-                <lucide-icon [img]="CustomIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="CustomIcon" [size]="16" aria-hidden="true" />
                 {{ custom() ? 'Fechar o personalizar' : 'Personalizar' }}
               </button>
             }
@@ -291,7 +291,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
                   (click)="patch({ color: s })"
                 >
                   @if (d.color === s) {
-                    <lucide-icon [img]="CheckIcon" [size]="18" [strokeWidth]="3" aria-hidden="true" />
+                    <lucide-icon [img]="CheckIcon" [size]="18" aria-hidden="true" />
                   }
                 </button>
               }
@@ -312,7 +312,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
                       }
                     </span>
                     <button type="button" class="icon-btn tira" [attr.aria-label]="'Tirar “' + n.game.name + '” do lembrete'" [title]="'Tirar do lembrete'" (click)="detach(n.id)">
-                      <lucide-icon [img]="CloseIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon [img]="CloseIcon" [size]="18" aria-hidden="true" />
                     </button>
                   </li>
                 }
@@ -322,11 +322,11 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
             }
             <div class="anexar">
               <button type="button" class="papel" [disabled]="d.notes.length >= maxNotes" (click)="picking.set(true)">
-                <lucide-icon [img]="ClipIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="ClipIcon" [size]="16" aria-hidden="true" />
                 Anexar nota
               </button>
               <button type="button" class="papel" [disabled]="d.notes.length >= maxNotes" (click)="writeNote()">
-                <lucide-icon [img]="NewNoteIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                <lucide-icon [img]="NewNoteIcon" [size]="16" aria-hidden="true" />
                 Escrever uma nota nova
               </button>
             </div>
@@ -336,7 +336,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
         <footer class="foot">
           @if (!isNew() && removable()) {
             <button type="button" class="papel perigo" (click)="remove()">
-              <lucide-icon [img]="TrashIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="TrashIcon" [size]="16" aria-hidden="true" />
               Apagar
             </button>
           }
@@ -368,14 +368,14 @@ export class ReminderSheet {
   readonly day = input.required<string>();
   readonly closed = output<void>();
 
-  protected readonly CloseIcon = X;
-  protected readonly CheckIcon = Check;
-  protected readonly TrashIcon = Trash2;
-  protected readonly ClipIcon = Paperclip;
-  protected readonly NewNoteIcon = FilePlus;
-  protected readonly CustomIcon = SlidersHorizontal;
-  protected readonly BellIcon = Bell;
-  protected readonly QuietIcon = BellOff;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly CheckIcon = ICON.pronto;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly ClipIcon = ICON.clipe;
+  protected readonly NewNoteIcon = ICON.novaNota;
+  protected readonly CustomIcon = ICON.ajustar;
+  protected readonly BellIcon = ICON.avisos;
+  protected readonly QuietIcon = ICON.silenciar;
   protected readonly weekdaysShort = WEEKDAYS_SHORT;
   protected readonly weekdaysLong = WEEKDAYS_LONG;
   protected readonly maxCount = MAX_COUNT;

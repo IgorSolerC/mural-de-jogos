@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { CornerDownRight, LucideAngularModule, RefreshCw, Reply, Trash2, UserPlus, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CloudError } from '../core/cloud-account';
 import { COMMENT_MAX, Comment, CommentNode, CommentTarget, Comments, QuoteRequest, commentTree, commentWhen, liveCount, spokenComments, withQuote } from '../core/comments';
 import { reducedMotion } from '../core/motion';
@@ -37,7 +37,7 @@ const MAX_INDENT = 4;
 
 @Component({
   selector: 'app-comments-panel',
-  imports: [Busy, LucideAngularModule, NgTemplateOutlet, ReactionPicker, RichEditor, RichText],
+  imports: [Busy, IconModule, NgTemplateOutlet, ReactionPicker, RichEditor, RichText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './comments-panel.html',
   styleUrl: './comments-panel.scss',
@@ -65,12 +65,12 @@ export class CommentsPanel {
   private readonly editor = viewChild(RichEditor);
 
   protected readonly max = COMMENT_MAX;
-  protected readonly EraseIcon = Trash2;
-  protected readonly RetryIcon = RefreshCw;
-  protected readonly FollowIcon = UserPlus;
-  protected readonly ReplyIcon = Reply;
-  protected readonly MoreIcon = CornerDownRight;
-  protected readonly CloseIcon = X;
+  protected readonly EraseIcon = ICON.apagar;
+  protected readonly RetryIcon = ICON.atualizar;
+  protected readonly FollowIcon = ICON.seguir;
+  protected readonly ReplyIcon = ICON.responder;
+  protected readonly MoreIcon = ICON.dentro;
+  protected readonly CloseIcon = ICON.fechar;
   protected readonly maxIndent = MAX_INDENT;
   protected readonly when = commentWhen;
 

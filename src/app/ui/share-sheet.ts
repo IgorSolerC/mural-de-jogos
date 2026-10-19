@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { ChevronDown, Crown, Eye, LockKeyhole, LogOut, LucideAngularModule, Search, UserPlus, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { normalizeCode } from '../core/cloud-murals';
@@ -42,7 +42,7 @@ interface Row {
  */
 @Component({
   selector: 'app-share-sheet',
-  imports: [BackdropClose, Busy, LucideAngularModule, PersonPhoto, Pin],
+  imports: [BackdropClose, Busy, IconModule, PersonPhoto, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './share-sheet.html',
   styleUrl: './share-sheet.scss',
@@ -64,14 +64,14 @@ export class ShareSheet {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('campo');
 
-  protected readonly CloseIcon = X;
-  protected readonly AddIcon = UserPlus;
-  protected readonly SearchIcon = Search;
-  protected readonly ChevronIcon = ChevronDown;
-  protected readonly OwnerIcon = Crown;
-  protected readonly PrivateIcon = LockKeyhole;
-  protected readonly PublicIcon = Eye;
-  protected readonly LeaveIcon = LogOut;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly AddIcon = ICON.seguir;
+  protected readonly SearchIcon = ICON.buscar;
+  protected readonly ChevronIcon = ICON.abrir;
+  protected readonly OwnerIcon = ICON.coroa;
+  protected readonly PrivateIcon = ICON.privada;
+  protected readonly PublicIcon = ICON.publica;
+  protected readonly LeaveIcon = ICON.sair;
   protected readonly roles = MEMBER_ROLES;
   protected readonly roleLabel = ROLE_LABEL;
   protected readonly roleHint = ROLE_HINT;

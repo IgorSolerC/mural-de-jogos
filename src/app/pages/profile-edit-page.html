@@ -2,14 +2,14 @@
   <h1 class="tape-label big">Seu perfil</h1>
   <p class="resumo">Vale na hora{{ shared() ? ' e vai junto com a sua conta' : '' }}</p>
   <a class="btn-quiet voltar" routerLink="/perfil">
-    <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+    <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
     Ver o perfil
   </a>
 </header>
 
 @if (!shared()) {
   <aside class="bilhete" role="note">
-    <lucide-icon class="bilhete-icone" [img]="LockIcon" [size]="22" [strokeWidth]="2.4" aria-hidden="true" />
+    <lucide-icon class="bilhete-icone" [img]="LockIcon" [size]="22" aria-hidden="true" />
     <p>
       @if (cloud.config()) {
         Por enquanto, só você vê o seu perfil. Entre com o Google em
@@ -44,7 +44,7 @@
                 </span>
               </span>
               <span class="acao-caneta">
-                <lucide-icon [img]="EmojiIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="EmojiIcon" [size]="18" aria-hidden="true" />
                 {{ emojiOpen() ? 'Fechar os emojis' : 'Trocar o emoji' }}
               </span>
             </button>
@@ -135,7 +135,7 @@
                 <span class="dymo">
                   {{ t }}
                   <button type="button" class="dymo-x" [attr.aria-label]="'Tirar o assunto ' + t" (click)="removeTopic(t)">
-                    <lucide-icon [img]="XIcon" [size]="14" [strokeWidth]="3" aria-hidden="true" />
+                    <lucide-icon [img]="XIcon" [size]="14" aria-hidden="true" />
                   </button>
                 </span>
               }
@@ -234,7 +234,7 @@
             </div>
             @if (linkError(); as e) {
               <p id="fundo-link-erro" class="msg-erro" role="alert">
-                <lucide-icon [img]="BrokenIcon" [size]="16" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="BrokenIcon" [size]="16" aria-hidden="true" />
                 {{ e }}
               </p>
             } @else {
@@ -300,7 +300,7 @@
             @for (w of walls(); track w.kind) {
               <li class="mural-linha" [class.vazio]="!w.count" [class.escondido]="w.hidden && w.count">
                 <div class="mural-topo">
-                  <lucide-icon class="mural-icone" [img]="w.icon" [size]="22" [strokeWidth]="2.3" aria-hidden="true" />
+                  <lucide-icon class="mural-icone" [img]="w.icon" [size]="22" aria-hidden="true" />
                   <div class="mural-nomes">
                     <span class="mural-nome">{{ w.title }}</span>
                     <span class="mural-conta">{{ w.countText }}{{ w.count && w.hidden ? ' · a pasta não aparece' : '' }}</span>
@@ -308,10 +308,10 @@
                   @if (w.count) {
                     <div class="par" role="group" [attr.aria-label]="'A pasta do ' + w.title">
                       <button type="button" class="adesivo-btn" [class.colado]="!w.hidden" [class.recorte]="w.hidden" [attr.aria-pressed]="!w.hidden" (click)="setWallHidden(w.kind, false)">
-                        <lucide-icon [img]="ShowIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" /> Mostrar
+                        <lucide-icon [img]="ShowIcon" [size]="15" aria-hidden="true" /> Mostrar
                       </button>
                       <button type="button" class="adesivo-btn" [class.colado]="w.hidden" [class.recorte]="!w.hidden" [attr.aria-pressed]="w.hidden" (click)="setWallHidden(w.kind, true)">
-                        <lucide-icon [img]="HideIcon" [size]="15" [strokeWidth]="2.6" aria-hidden="true" /> Esconder
+                        <lucide-icon [img]="HideIcon" [size]="15" aria-hidden="true" /> Esconder
                       </button>
                     </div>
                   }
@@ -362,19 +362,19 @@
                     <span class="secao-fita" [class.sem-nome]="!s.title.trim()">{{ s.title.trim() || 'Seção sem nome' }}</span>
                     <span class="abre-acao">
                       {{ aberta ? 'Fechar' : 'Abrir' }}
-                      <lucide-icon class="abre-seta" [img]="ChevronIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                      <lucide-icon class="abre-seta" [img]="ChevronIcon" [size]="18" aria-hidden="true" />
                     </span>
                   </button>
                 </h3>
                 <div class="secao-acoes">
                   <button type="button" class="icone-btn" [disabled]="first" aria-label="Subir a seção" title="Subir" (click)="moveSection(s.id, -1)">
-                    <lucide-icon [img]="UpIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                    <lucide-icon [img]="UpIcon" [size]="18" aria-hidden="true" />
                   </button>
                   <button type="button" class="icone-btn" [disabled]="last" aria-label="Descer a seção" title="Descer" (click)="moveSection(s.id, 1)">
-                    <lucide-icon [img]="DownIcon" [size]="18" [strokeWidth]="2.5" aria-hidden="true" />
+                    <lucide-icon [img]="DownIcon" [size]="18" aria-hidden="true" />
                   </button>
                   <button type="button" class="icone-btn perigo" aria-label="Tirar a seção" title="Tirar a seção" (click)="removeSection(s)">
-                    <lucide-icon [img]="TrashIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                    <lucide-icon [img]="TrashIcon" [size]="18" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -491,7 +491,7 @@
                         </span>
                       </span>
                       <button type="button" class="btn-ink escolher" (click)="picking.set(s.id)">
-                        <lucide-icon [img]="PickIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                        <lucide-icon [img]="PickIcon" [size]="18" aria-hidden="true" />
                         Escolher fichas
                       </button>
                     </div>
@@ -508,7 +508,7 @@
                                 <span class="item-meta">
                                   {{ it.kind }}
                                   @if (it.hidden) {
-                                    · <lucide-icon [img]="LockIcon" [size]="12" [strokeWidth]="2.6" aria-hidden="true" /> privada: não aparece
+                                    · <lucide-icon [img]="LockIcon" [size]="12" aria-hidden="true" /> privada: não aparece
                                   }
                                 </span>
                               </span>
@@ -521,13 +521,13 @@
                             }
                             <span class="item-acoes">
                               <button type="button" class="icone-btn" [disabled]="firstItem" [attr.aria-label]="'Subir ' + (it.card?.game?.name ?? 'a ficha')" (click)="moveItem(s, j, -1)">
-                                <lucide-icon [img]="UpIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                <lucide-icon [img]="UpIcon" [size]="16" aria-hidden="true" />
                               </button>
                               <button type="button" class="icone-btn" [disabled]="j === s.items.length - 1" [attr.aria-label]="'Descer ' + (it.card?.game?.name ?? 'a ficha')" (click)="moveItem(s, j, 1)">
-                                <lucide-icon [img]="DownIcon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+                                <lucide-icon [img]="DownIcon" [size]="16" aria-hidden="true" />
                               </button>
                               <button type="button" class="icone-btn" [attr.aria-label]="'Tirar ' + (it.card?.game?.name ?? 'a ficha') + ' da seção'" (click)="removeItem(s, id)">
-                                <lucide-icon [img]="XIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                                <lucide-icon [img]="XIcon" [size]="16" aria-hidden="true" />
                               </button>
                             </span>
                           </li>
@@ -552,7 +552,7 @@
 
           <div class="nova-linha">
             <button type="button" class="btn-ink nova-secao" [disabled]="sectionsFull()" (click)="addSection()">
-              <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="PlusIcon" [size]="20" aria-hidden="true" />
               Nova seção
             </button>
             @if (sectionsFull()) {
@@ -625,11 +625,11 @@
         [attr.aria-describedby]="p.id + '-dica'"
         (click)="toggle(p.id, $event)"
       >
-        <lucide-icon class="abre-icone" [img]="p.icon" [size]="26" [strokeWidth]="2.2" aria-hidden="true" />
+        <lucide-icon class="abre-icone" [img]="p.icon" [size]="26" aria-hidden="true" />
         <span class="abre-nome">{{ p.title }}</span>
         <span class="abre-acao">
           {{ open() === p.id ? 'Fechar' : 'Abrir' }}
-          <lucide-icon class="abre-seta" [img]="ChevronIcon" [size]="20" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon class="abre-seta" [img]="ChevronIcon" [size]="20" aria-hidden="true" />
         </span>
       </button>
     </h2>

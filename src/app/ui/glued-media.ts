@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, linkedSignal, untracked, viewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Film, ImageOff, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { soundVolume } from '../core/volume';
 import { hostOf, httpsUrl, parseVideo, readMedia } from '../core/widgets';
 import { EmbedBridge } from './embed-bridge';
@@ -29,7 +29,7 @@ import { VolumeKnob } from './volume-knob';
  */
 @Component({
   selector: 'app-glued-media',
-  imports: [LucideAngularModule, VolumeKnob],
+  imports: [IconModule, VolumeKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let m = media();
@@ -37,7 +37,7 @@ import { VolumeKnob } from './volume-knob';
       <span class="foto" data-colado [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
         @if (broken()) {
           <span class="falha">
-            <lucide-icon [img]="BrokenIcon" [size]="22" [strokeWidth]="2.2" aria-hidden="true" />
+            <lucide-icon [img]="BrokenIcon" [size]="22" aria-hidden="true" />
             <span class="falha-nome">{{ broken() }}</span>
             @if (host()) {
               <span class="falha-host">{{ host() }}</span>
@@ -64,7 +64,7 @@ import { VolumeKnob } from './volume-knob';
             @if (v.kind === 'youtube') {
               <img class="capa" [src]="'https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg'" alt="" referrerpolicy="no-referrer" decoding="async" />
             } @else {
-              <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="FilmIcon" [size]="34" [strokeWidth]="1.8" aria-hidden="true" /></span>
+              <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="VideoIcon" [size]="34" aria-hidden="true" /></span>
             }
             <span class="reflexo" aria-hidden="true"></span>
             <!-- o adesivo redondo de tocar, colado no meio da foto -->
@@ -383,8 +383,8 @@ export class GluedMedia {
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
 
-  protected readonly BrokenIcon = ImageOff;
-  protected readonly FilmIcon = Film;
+  protected readonly BrokenIcon = ICON.semImagem;
+  protected readonly VideoIcon = ICON.video;
   private readonly sanitizer = inject(DomSanitizer);
 
   protected readonly media = computed(() => readMedia(this.args()));

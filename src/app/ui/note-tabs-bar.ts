@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, signal } from '@angular/core';
-import { ChevronDown, LucideAngularModule, MicVocal } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
@@ -20,7 +20,7 @@ const GAP = 3;
  */
 @Component({
   selector: 'app-note-tabs',
-  imports: [LucideAngularModule, CategoryLabel],
+  imports: [IconModule, CategoryLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (tabs(); as t) {
@@ -54,7 +54,7 @@ const GAP = 3;
             @if (moreOn()) {
               <span class="n">{{ moreCount() }}</span>
             }
-            <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+            <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
             <select [attr.aria-label]="music() ? 'Mais artistas' : 'Mais grupos'" (change)="choose($any($event.target).value)">
               <option value="" disabled [selected]="!moreOn()">{{ music() ? 'Mais artistas' : 'Mais grupos' }}</option>
               @for (x of layout().more; track x.key) {
@@ -219,7 +219,7 @@ export class NoteTabsBar {
   private readonly motion = inject(WallMotion);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly ChevronIcon = ICON.abrir;
   protected readonly ALL = ALL_TAB;
   protected readonly NONE = NO_CATEGORY_TAB;
 
@@ -261,7 +261,7 @@ export class NoteTabsBar {
   /** O mural de músicas: as abas são dos artistas. */
   protected readonly music = this.view.music;
   /** O desenho das abas dos artistas (o microfone); nas anotações, cada categoria tem o dela. */
-  protected readonly glyph = computed(() => (this.music() ? MicVocal : null));
+  protected readonly glyph = computed(() => (this.music() ? ICON.vocal : null));
 
   /** O desenho e a cor da categoria: os que o dono do mural escolheu (sem escolha, o de sempre). */
   protected lookOf(x: NoteTab): CategoryLook {

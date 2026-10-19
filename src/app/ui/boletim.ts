@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { ArrowDown, ArrowUp, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { RatedKey, Review, SCORE_LABEL, SCORE_SHORT, ScoreKey, WEIGHT_LABEL, formatScore, ratedKeys, scoreOf, weightOf } from '../core/review';
 import { PenMark } from './pen-mark';
 
@@ -9,7 +9,7 @@ import { PenMark } from './pen-mark';
  */
 @Component({
   selector: 'app-boletim',
-  imports: [LucideAngularModule, PenMark],
+  imports: [IconModule, PenMark],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class]': 'size()' },
   template: `
@@ -33,11 +33,11 @@ import { PenMark } from './pen-mark';
             <!-- o peso fica no nome: a categoria que conta mais ou menos, com a nota livre embaixo -->
             @switch (c.weight) {
               @case ('relevante') {
-                <lucide-icon class="w" [img]="UpIcon" [strokeWidth]="3.4" aria-hidden="true" [title]="weightLabels.relevante" />
+                <lucide-icon class="w" [img]="UpIcon" aria-hidden="true" [title]="weightLabels.relevante" />
                 <span class="sr-only">({{ weightLabels.relevante }})</span>
               }
               @case ('pouco') {
-                <lucide-icon class="w" [img]="DownIcon" [strokeWidth]="3.4" aria-hidden="true" [title]="weightLabels.pouco" />
+                <lucide-icon class="w" [img]="DownIcon" aria-hidden="true" [title]="weightLabels.pouco" />
                 <span class="sr-only">({{ weightLabels.pouco }})</span>
               }
             }
@@ -231,6 +231,6 @@ export class Boletim {
   protected readonly labels = SCORE_LABEL;
   protected readonly shortLabels: Partial<Record<RatedKey, string>> = SCORE_SHORT;
   protected readonly weightLabels = WEIGHT_LABEL;
-  protected readonly UpIcon = ArrowUp;
-  protected readonly DownIcon = ArrowDown;
+  protected readonly UpIcon = ICON.acima;
+  protected readonly DownIcon = ICON.abaixo;
 }

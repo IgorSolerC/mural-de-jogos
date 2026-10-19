@@ -1,17 +1,7 @@
 import { reviewPath } from '../core/areas';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, untracked } from '@angular/core';
 import { Router } from '@angular/router';
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  LayoutGrid,
-  LucideAngularModule,
-  RotateCcw,
-  Rows3,
-  SquareCheckBig,
-  X,
-} from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { countOf, g } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -75,7 +65,7 @@ interface Row {
  */
 @Component({
   selector: 'app-side-by-side-page',
-  imports: [BonusSticker, CoverSleeve, LucideAngularModule, PenMark, ReviewCard, Skulls, StatusLabel, VerdictStamp],
+  imports: [BonusSticker, CoverSleeve, IconModule, PenMark, ReviewCard, Skulls, StatusLabel, VerdictStamp],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './side-by-side-page.html',
   styleUrl: './side-by-side-page.scss',
@@ -89,14 +79,14 @@ export class SideBySidePage {
   private readonly toasts = inject(Toasts);
   private readonly vt = inject(ViewTransitions);
 
-  protected readonly ChevronIcon = ChevronDown;
-  protected readonly FullIcon = Rows3;
-  protected readonly CompactIcon = LayoutGrid;
-  protected readonly RestartIcon = RotateCcw;
-  protected readonly MarkIcon = SquareCheckBig;
-  protected readonly RemoveIcon = X;
-  protected readonly UpIcon = ArrowUp;
-  protected readonly DownIcon = ArrowDown;
+  protected readonly ChevronIcon = ICON.abrir;
+  protected readonly FullIcon = ICON.completas;
+  protected readonly CompactIcon = ICON.simples;
+  protected readonly RestartIcon = ICON.recomecar;
+  protected readonly MarkIcon = ICON.marcado;
+  protected readonly RemoveIcon = ICON.fechar;
+  protected readonly UpIcon = ICON.acima;
+  protected readonly DownIcon = ICON.abaixo;
   protected readonly sortOptions = SORT_OPTIONS;
   /** A Média e as quatro notas do mural aberto. */
   protected readonly scoreOptions = computed(() =>

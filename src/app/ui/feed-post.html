@@ -32,7 +32,7 @@
         @if (p.estado === 'erro') {
           <p class="espera-txt">Não consegui buscar o mural de {{ who().nome }} agora.</p>
           <button type="button" class="btn-ink tentar" (click)="retry.emit()">
-            <lucide-icon [img]="RetryIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="RetryIcon" [size]="17" aria-hidden="true" />
             Tentar de novo
           </button>
         } @else {
@@ -58,7 +58,7 @@
         }
         <!-- ler os comentários, todo mundo lê; a folha diz quem pode escrever -->
         <button type="button" class="acao comentar" [attr.aria-label]="commentSpoken()" [title]="commentCount() ? '' : 'Comentar'" (click)="opened.emit({ comments: true })">
-          <lucide-icon [img]="CommentIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="CommentIcon" [size]="19" aria-hidden="true" />
           @if (commentCount(); as n) {
             <span aria-hidden="true">{{ n }}</span>
           } @else {
@@ -68,7 +68,7 @@
         @if (p.secret) {
           <!-- em segredo: revelar mostra a nota e o texto só desta ficha, só desta vez -->
           <button type="button" class="acao" [attr.aria-label]="'Revelar spoilers: ' + theirs.game.name" (click)="revealed.emit()">
-            <lucide-icon [img]="RevealIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon [img]="RevealIcon" [size]="19" aria-hidden="true" />
             <span aria-hidden="true">Revelar</span>
           </button>
         }
@@ -91,12 +91,12 @@
           </p>
         } @else if (wished()) {
           <p class="guardada">
-            <lucide-icon [img]="WishedIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon [img]="WishedIcon" [size]="19" aria-hidden="true" />
             Na sua wishlist
           </p>
         } @else {
           <button type="button" class="acao querer" [attr.aria-label]="wantLabel()" [title]="wantLabel()" (click)="wish.emit()">
-            <lucide-icon [img]="WishIcon" [size]="19" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon [img]="WishIcon" [size]="19" aria-hidden="true" />
             <span class="palavra" aria-hidden="true">{{ wantLabel() }}</span>
           </button>
         }

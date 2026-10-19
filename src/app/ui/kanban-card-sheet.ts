@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
-import { BookOpen, LucideAngularModule, Plus, X } from 'lucide-angular';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
 import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, belongs, setImportance } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
@@ -12,7 +12,7 @@ import { canManage } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
-import { COLUMN_ICON, IMPORTANCE_LEVEL } from './kanban-icons';
+import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 
@@ -24,7 +24,7 @@ import { Pin } from './pin';
  */
 @Component({
   selector: 'app-kanban-card-sheet',
-  imports: [BackdropClose, LucideAngularModule, NoteTag, Pin],
+  imports: [BackdropClose, IconModule, NoteTag, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -37,7 +37,7 @@ import { Pin } from './pin';
               <p class="sub">No quadro de {{ d.label }}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
-              <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
             </button>
           </header>
 
@@ -48,7 +48,7 @@ import { Pin } from './pin';
                 @for (c of d.board.columns; track c.id) {
                   @let on = c.id === d.card.column;
                   <button type="button" role="radio" class="etapa" [attr.aria-checked]="on" [attr.data-cor]="c.color" (click)="moveTo(c.id)">
-                    <lucide-icon [img]="iconOf[c.icon]" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="iconOf[c.icon]" [size]="16" aria-hidden="true" />
                     <span class="etapa-nome">{{ c.name }}</span>
                     @if (c.finishes) {
                       <span class="sr-only">(finaliza)</span>
@@ -117,7 +117,7 @@ import { Pin } from './pin';
                     />
                   </label>
                   <button type="submit" class="papel" [disabled]="!typed().trim() || full()">
-                    <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+                    <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
                     Pôr
                   </button>
                 </form>
@@ -132,7 +132,7 @@ import { Pin } from './pin';
             <button type="button" class="papel perigo" (click)="removeFromBoard()">Tirar do quadro</button>
             <div class="actions">
               <button type="button" class="btn-ink" (click)="read()">
-                <lucide-icon [img]="ReadIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="ReadIcon" [size]="18" aria-hidden="true" />
                 Ler a anotação
               </button>
             </div>
@@ -150,10 +150,10 @@ export class KanbanCardSheet {
   /** Ler a anotação: a página abre a leitura (a folha já fechou). */
   readonly reading = output<string>();
 
-  protected readonly CloseIcon = X;
-  protected readonly PlusIcon = Plus;
-  protected readonly ReadIcon = BookOpen;
-  protected readonly iconOf = COLUMN_ICON;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly ReadIcon = ICON.livros;
+  protected readonly iconOf = ICON_CHOICE;
   protected readonly importances = IMPORTANCES;
   protected readonly impLabel = IMPORTANCE_LABEL;
   protected readonly level = IMPORTANCE_LEVEL;

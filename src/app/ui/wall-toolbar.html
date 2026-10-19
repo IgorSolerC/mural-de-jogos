@@ -28,7 +28,7 @@
               (click)="toggleDone()"
               [title]="view.showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
             >
-              <lucide-icon [img]="DoneIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="DoneIcon" [size]="18" aria-hidden="true" />
               <span class="finalizadas-txt" aria-hidden="true">Finalizadas</span>
               <span class="finalizadas-curto" aria-hidden="true">Feitas</span>
               <span class="tinta-n" aria-hidden="true">{{ view.doneCount() }}</span>
@@ -40,7 +40,7 @@
           <label class="tinta campo">
             <span class="campo-pre">Ordenar</span>
             <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
-            <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+            <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
             <select aria-label="Ordenar por" [value]="sortValue()" (change)="setSortValue($any($event.target).value)">
               @for (o of sortOptions(); track o.value) {
                 <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
@@ -54,7 +54,7 @@
             [attr.aria-label]="directionLabel() + '. Inverter ordem'"
             [title]="directionLabel()"
           >
-            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" aria-hidden="true" />
           </button>
           <!-- fora da Prioridade, as fixadas vão para o meio das outras, a não ser que a pessoa as queira no topo -->
           @if (showPinnedFirst()) {
@@ -66,7 +66,7 @@
               [title]="view.pinnedFirst() ? 'As fixadas ficam no topo, numa seção só delas' : 'As fixadas seguem a ordem, no meio das outras'"
               (click)="togglePinnedFirst()"
             >
-              <lucide-icon [img]="PinIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="PinIcon" [size]="18" aria-hidden="true" />
             </button>
           }
         </div>
@@ -81,7 +81,7 @@
               [attr.aria-label]="d.label"
               [title]="d.label"
             >
-              <lucide-icon [img]="d.icon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="d.icon" [size]="18" aria-hidden="true" />
             </button>
           }
         </div>
@@ -99,7 +99,7 @@
               title="Configurações do mural"
               (click)="configOpen.set(true)"
             >
-              <lucide-icon [img]="GearIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="GearIcon" [size]="18" aria-hidden="true" />
             </button>
           </div>
         }
@@ -122,7 +122,7 @@
         @if (view.tasks(); as t) {
           @if (t.total) {
             <p class="tarefas" [class.todas]="!t.todo">
-              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" aria-hidden="true" />
               @if (!t.todo) {
                 <span>{{ t.total === 1 ? 'A tarefa está feita' : 'As ' + t.total + ' tarefas estão feitas' }}</span>
               } @else {
@@ -167,7 +167,7 @@
             aria-controls="cartela-filtros"
             (click)="toggleOpen($event)"
           >
-            <lucide-icon [img]="FilterIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
             <span>Filtrar</span>
             @if (view.filterCount()) {
               <span class="tinta-n" aria-hidden="true">{{ view.filterCount() }}</span>
@@ -185,7 +185,7 @@
               (click)="view.toggleReveal()"
               [title]="view.revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
             >
-              <lucide-icon [img]="RevealIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="RevealIcon" [size]="18" aria-hidden="true" />
               <span>Mostrar notas</span>
             </button>
           }
@@ -195,7 +195,7 @@
           <label class="tinta campo">
             <span class="campo-pre">Ordenar</span>
             <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
-            <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" [strokeWidth]="2.8" aria-hidden="true" />
+            <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
             <select aria-label="Ordenar por" [value]="sortValue()" (change)="setSortValue($any($event.target).value)">
               @for (o of sortOptions(); track o.value) {
                 <option [value]="o.value" [selected]="o.value === sortValue()">{{ o.label }}</option>
@@ -217,7 +217,7 @@
             [attr.aria-label]="directionLabel() + '. Inverter ordem'"
             [title]="directionLabel()"
           >
-            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="view.direction() === 'desc' ? DescIcon : AscIcon" [size]="18" aria-hidden="true" />
           </button>
         </div>
 
@@ -232,7 +232,7 @@
               aria-label="Marcar fichas pra ver lado a lado"
               title="Marcar fichas pra ver lado a lado"
             >
-              <lucide-icon [img]="MarkIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
               <span class="marcar-txt" aria-hidden="true">Marcar</span>
               @if (side.count()) {
                 <span class="tinta-n" aria-hidden="true">{{ side.count() }}</span>
@@ -252,7 +252,7 @@
               [attr.aria-label]="d.label"
               [title]="d.label"
             >
-              <lucide-icon [img]="d.icon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon [img]="d.icon" [size]="18" aria-hidden="true" />
             </button>
           }
         </div>
@@ -280,7 +280,7 @@
         @if (view.tasks(); as t) {
           @if (t.total) {
             <p class="tarefas" [class.todas]="!t.todo">
-              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" aria-hidden="true" />
               @if (!t.todo) {
                 <span>{{ t.total === 1 ? 'A tarefa está feita' : 'As ' + t.total + ' tarefas estão feitas' }}</span>
               } @else {

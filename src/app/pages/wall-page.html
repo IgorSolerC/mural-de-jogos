@@ -12,7 +12,7 @@
       }
       <div class="empty-actions">
         <button type="button" class="btn-ink" (click)="desk.newReview()">
-          <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+          <lucide-icon [img]="PlusIcon" [size]="20" aria-hidden="true" />
           {{ notes() ? 'Pregar a primeira anotação' : 'Pregar a primeira resenha' }}
         </button>
         <a class="link" routerLink="/ajustes" [queryParams]="{ aba: 'backup' }">Tenho um backup</a>

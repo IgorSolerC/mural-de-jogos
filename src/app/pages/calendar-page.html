@@ -11,7 +11,7 @@
       [attr.aria-keyshortcuts]="v.key"
       (click)="go(v.id, day())"
     >
-      <lucide-icon class="divisoria-icone" [img]="v.icon" [size]="16" [strokeWidth]="2.5" aria-hidden="true" />
+      <lucide-icon class="divisoria-icone" [img]="v.icon" [size]="16" aria-hidden="true" />
       <span class="divisoria-nome">{{ v.label }}</span>
     </button>
   }
@@ -23,10 +23,10 @@
     <div class="navegar" role="group" aria-label="Período">
       <button type="button" class="tinta hoje" [attr.aria-current]="showsToday() ? 'date' : null" aria-keyshortcuts="t" (click)="goToday()">Hoje</button>
       <button type="button" class="tinta so-icone" [attr.aria-label]="stepNames().prev" [title]="stepNames().prev" (click)="step(-1)">
-        <lucide-icon [img]="PrevIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+        <lucide-icon [img]="PrevIcon" [size]="20" aria-hidden="true" />
       </button>
       <button type="button" class="tinta so-icone" [attr.aria-label]="stepNames().next" [title]="stepNames().next" (click)="step(1)">
-        <lucide-icon [img]="NextIcon" [size]="20" [strokeWidth]="2.8" aria-hidden="true" />
+        <lucide-icon [img]="NextIcon" [size]="20" aria-hidden="true" />
       </button>
     </div>
     <h2 class="periodo" aria-live="polite">{{ period() }}</h2>
@@ -34,14 +34,14 @@
       @if (googleShown()) {
         <div class="pasta-grupo">
           <button type="button" class="tinta google" aria-haspopup="dialog" [attr.aria-pressed]="google.status() === 'ligada'" (click)="googleOpen.set(true)">
-            <lucide-icon [class.girando]="google.syncing()" [img]="GoogleIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [class.girando]="google.syncing()" [img]="GoogleIcon" [size]="18" aria-hidden="true" />
             Google Agenda
           </button>
         </div>
       }
       <div class="pasta-grupo ir">
         <button type="button" class="tinta" (click)="openJump()">
-          <lucide-icon [img]="JumpIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="JumpIcon" [size]="18" aria-hidden="true" />
           Ir para
         </button>
         <input #ir type="date" class="ir-data" [class.aberto]="jumpShown()" [attr.tabindex]="jumpShown() ? 0 : -1" aria-label="Ir para a data" (change)="jump($any($event.target).value)" (blur)="jumpShown.set(false)" />
@@ -99,13 +99,13 @@
                       @if (r.repeat || r.notes.length || r.quiet) {
                         <span class="tira-pe" aria-hidden="true">
                           @if (r.repeat) {
-                            <lucide-icon [img]="RepeatIcon" [size]="13" [strokeWidth]="2.6" />
+                            <lucide-icon [img]="RepeatIcon" [size]="13" />
                           }
                           @if (r.quiet) {
-                            <lucide-icon [img]="QuietIcon" [size]="13" [strokeWidth]="2.6" />
+                            <lucide-icon [img]="QuietIcon" [size]="13" />
                           }
                           @if (notesOf(r).length; as n) {
-                            <span class="tira-clipe"><lucide-icon [img]="ClipIcon" [size]="13" [strokeWidth]="2.6" />{{ n }}</span>
+                            <span class="tira-clipe"><lucide-icon [img]="ClipIcon" [size]="13" />{{ n }}</span>
                           }
                         </span>
                       }
@@ -115,7 +115,7 @@
               </ul>
             }
             <button type="button" class="dia-mais" [attr.aria-label]="'Novo lembrete: ' + c.label" (click)="create(c.day)">
-              <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
               <span class="dia-mais-txt">Lembrete</span>
             </button>
           </li>
@@ -133,11 +133,11 @@
           <span class="espiral" aria-hidden="true"></span>
           <div class="mini-topo">
             <button type="button" class="mini-seta" aria-label="Mês anterior" title="Mês anterior" (click)="shiftMonth(-1)">
-              <lucide-icon [img]="PrevIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="PrevIcon" [size]="18" aria-hidden="true" />
             </button>
             <p class="mini-mes" aria-live="polite">{{ monthOfDay() }}</p>
             <button type="button" class="mini-seta" aria-label="Próximo mês" title="Próximo mês" (click)="shiftMonth(1)">
-              <lucide-icon [img]="NextIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="NextIcon" [size]="18" aria-hidden="true" />
             </button>
           </div>
           <app-calendar-month [mini]="true" [day]="day()" [today]="today()" [now]="now()" [reminders]="reminders()" (picked)="go('dia', $event)" (moved)="go('dia', $event, true)" />
@@ -153,7 +153,7 @@
             <p class="dia-mes" aria-hidden="true">{{ h.month }}@if (h.today) {<span class="dia-hoje"> · hoje</span>}</p>
           </div>
           <button type="button" class="papel novo" (click)="create(day())">
-            <lucide-icon [img]="PlusIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+            <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
             Novo lembrete
           </button>
         </header>
@@ -169,25 +169,25 @@
                     <p class="lembrete-nome">{{ r.title }}@if (passou) {<span class="sr-only"> (já passou)</span>}</p>
                     <p class="lembrete-meta">
                       <span class="meta-item">
-                        <lucide-icon [img]="ClockIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
+                        <lucide-icon [img]="ClockIcon" [size]="14" aria-hidden="true" />
                         {{ whenOn(r, day()) }}
                       </span>
                       @if (r.repeat) {
                         <span class="meta-item">
-                          <lucide-icon [img]="RepeatIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
+                          <lucide-icon [img]="RepeatIcon" [size]="14" aria-hidden="true" />
                           {{ repeatShort(r) }}
                         </span>
                       }
                       @if (r.quiet) {
                         <span class="meta-item">
-                          <lucide-icon [img]="QuietIcon" [size]="14" [strokeWidth]="2.6" aria-hidden="true" />
+                          <lucide-icon [img]="QuietIcon" [size]="14" aria-hidden="true" />
                           Marcação, sem aviso
                         </span>
                       }
                     </p>
                   </div>
                   <button type="button" class="editar" [attr.aria-label]="'Editar “' + r.title + '”'" title="Editar" (click)="edit(r, day())">
-                    <lucide-icon [img]="PencilIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                    <lucide-icon [img]="PencilIcon" [size]="18" aria-hidden="true" />
                   </button>
                 </div>
                 @if (notas.length) {

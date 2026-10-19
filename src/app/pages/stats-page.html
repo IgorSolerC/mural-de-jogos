@@ -19,7 +19,7 @@
         Pregue {{ g(profile(), 'uns', 'umas') }} {{ profile().plural }} e esta página se enche de gráfico, recorde e mania sua.
       </p>
       <button type="button" class="btn-ink" (click)="desk.newReview()">
-        <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+        <lucide-icon [img]="PlusIcon" [size]="20" aria-hidden="true" />
         Nova resenha
       </button>
     } @else {
@@ -61,7 +61,7 @@
               <option [value]="y" [selected]="year() === y">{{ y }}</option>
             }
           </select>
-          <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" [strokeWidth]="2.8" aria-hidden="true" />
+          <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
         </label>
       </div>
     }
@@ -797,7 +797,7 @@
   <nav class="virar" aria-label="Páginas">
     @if (prev(); as pr) {
       <button type="button" class="btn-quiet" (click)="setAba(pr.id, true)">
-        <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+        <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
         {{ pr.label }}
       </button>
     } @else {
@@ -807,7 +807,7 @@
     @if (next(); as nx) {
       <button type="button" class="btn-ink" (click)="setAba(nx.id, true)">
         {{ nx.label }}
-        <lucide-icon [img]="NextIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+        <lucide-icon [img]="NextIcon" [size]="18" aria-hidden="true" />
       </button>
     } @else {
       <span></span>

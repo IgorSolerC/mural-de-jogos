@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideAngularModule, Plus } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Desk } from '../core/desk';
 import { isNotes } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -15,7 +15,7 @@ import { WallAccess, WallBoard } from './wall-board';
 /** O mural: só a busca, os filtros e as fichas. Todo o resto mora nas outras abas. */
 @Component({
   selector: 'app-wall-page',
-  imports: [LucideAngularModule, PickTray, Pin, RouterLink, WallBoard, WallToolbar],
+  imports: [IconModule, PickTray, Pin, RouterLink, WallBoard, WallToolbar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-page.html',
   styleUrl: './wall-page.scss',
@@ -27,7 +27,7 @@ export class WallPage {
   private readonly settings = inject(Settings);
   private readonly reactions = inject(Reactions);
 
-  protected readonly PlusIcon = Plus;
+  protected readonly PlusIcon = ICON.adicionar;
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
   protected readonly notes = computed(() => isNotes(this.mural.kind()));
   protected readonly ghosts = [0, 1, 2];

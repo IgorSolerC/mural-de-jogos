@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CircleCheckBig, CircleDashed, LucideAngularModule, LucideIconData, Repeat, RotateCcw, SkipForward, Trophy } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { profileOf } from '../core/kinds';
 import { Kind, Status } from '../core/review';
 
@@ -8,9 +9,9 @@ import { Kind, Status } from '../core/review';
  * murais. Nas músicas, as teclas do toca-discos: pular a faixa (Pulei) e repetir (No repeat).
  */
 export function statusIcon(kind: Kind, s: Status): LucideIconData {
-  if (s === 'platinado') return kind === 'jogos' ? Trophy : kind === 'musicas' ? Repeat : RotateCcw;
-  if (s === 'incompleto') return kind === 'musicas' ? SkipForward : CircleDashed;
-  return CircleCheckBig;
+  if (s === 'platinado') return kind === 'jogos' ? ICON.trofeu : kind === 'musicas' ? ICON.repetir : ICON.recomecar;
+  if (s === 'incompleto') return kind === 'musicas' ? ICON.pular : ICON.emAndamento;
+  return ICON.concluido;
 }
 
 /**
@@ -19,11 +20,11 @@ export function statusIcon(kind: Kind, s: Status): LucideIconData {
  */
 @Component({
   selector: 'app-status-label',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class]': 'status()', '[class.printed]': 'band()' },
   template: `
-    <lucide-icon [img]="icon()" [size]="band() ? 12 : 15" [strokeWidth]="band() ? 2.8 : 2.6" aria-hidden="true" />
+    <lucide-icon [img]="icon()" [size]="band() ? 12 : 15" aria-hidden="true" />
     <span>{{ label() }}</span>
   `,
   styles: `

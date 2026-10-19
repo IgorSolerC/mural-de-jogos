@@ -1,3 +1,4 @@
+import { ICON_CHOICES } from './icon-choices';
 import { labelKey } from './text';
 
 /**
@@ -16,44 +17,8 @@ export interface CategoryLook {
   none?: true;
 }
 
-/** Os desenhos que dá para escolher (o desenho de cada um fica em ui/category-label.ts). */
-export const CATEGORY_ICONS = [
-  'maleta',
-  'capelo',
-  'carrinho',
-  'lista',
-  'lampada',
-  'sino',
-  'chapeu',
-  'alvo',
-  'aviao',
-  'caderno',
-  'coracao',
-  'musica',
-  'filme',
-  'pessoas',
-  'cerebro',
-  'paleta',
-  'moedas',
-  'mundo',
-  'predio',
-  'coroa',
-  'brilho',
-  'marcador',
-  'livro',
-  'pena',
-  'camera',
-  'quebra-cabeca',
-  'bandeira',
-  'relogio',
-  'microscopio',
-  'megafone',
-  'etiqueta',
-  'chip',
-  'inseto',
-  'raio',
-  'pasta',
-] as const;
+/** Os desenhos que dá para escolher: a cartela do site, a mesma das colunas do Kanban (ver core/icon-choices.ts). */
+export const CATEGORY_ICONS = ICON_CHOICES;
 export type CategoryIconId = (typeof CATEGORY_ICONS)[number];
 
 /** As cores da etiqueta: tintas fortes, para a borda fina continuar à vista no manilha. */

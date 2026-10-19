@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
-import { ArrowLeft, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
 import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
@@ -42,7 +42,7 @@ interface Summary {
  */
 @Component({
   selector: 'app-area-bar',
-  imports: [KindSwitcher, LucideAngularModule, QueueLogo, RouterLink, WishlistLogo],
+  imports: [KindSwitcher, IconModule, QueueLogo, RouterLink, WishlistLogo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.vazio]': '!shown()' },
   template: `
@@ -67,7 +67,7 @@ interface Summary {
         } @else if (inExtras() && !extrasHome()) {
           <nav class="secoes" aria-label="Voltar">
             <a class="secao volta" routerLink="/extras">
-              <lucide-icon [img]="BackIcon" [size]="18" [strokeWidth]="2.8" aria-hidden="true" />
+              <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
               Extras
             </a>
           </nav>
@@ -420,7 +420,7 @@ export class AreaBar {
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
 
-  protected readonly BackIcon = ArrowLeft;
+  protected readonly BackIcon = ICON.voltar;
 
   private readonly path = toSignal(
     this.router.events.pipe(

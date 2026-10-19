@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { LucideAngularModule, NotebookPen, RefreshCw, Scissors, Shuffle, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { sameGame } from '../core/game-lookup';
 import { g, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
@@ -23,7 +23,7 @@ export type AdderMode = 'wish' | 'draft';
  */
 @Component({
   selector: 'app-wish-adder',
-  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, GameSearch, LucideAngularModule, RelevanceSticker, WishClip],
+  imports: [BackdropClose, CoverPicker, CoverSleeve, DraftCard, GameSearch, IconModule, RelevanceSticker, WishClip],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wish-adder.html',
   styleUrl: './wish-adder.scss',
@@ -40,11 +40,11 @@ export class WishAdder {
   /** Já estava no Pra depois: a pessoa quer ver a folha. */
   readonly seenDraft = output<string>();
 
-  protected readonly CloseIcon = X;
-  protected readonly CutIcon = Scissors;
-  protected readonly SwapIcon = RefreshCw;
-  protected readonly NoteIcon = NotebookPen;
-  protected readonly RerollIcon = Shuffle;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly CutIcon = ICON.tesoura;
+  protected readonly SwapIcon = ICON.atualizar;
+  protected readonly NoteIcon = ICON.praDepois;
+  protected readonly RerollIcon = ICON.sortear;
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly search = viewChild(GameSearch);

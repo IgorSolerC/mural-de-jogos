@@ -12,7 +12,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { Bookmark, Check, CopyCheck, CornerDownRight, Images, LockKeyhole, LucideAngularModule, Pin as PinIcon, RefreshCw, Repeat, Square, Trash2, UsersRound, X } from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   Bonus,
@@ -113,7 +114,7 @@ const MIN_YEAR = 1971;
   selector: 'app-review-editor',
   imports: [
     BackdropClose,
-    LucideAngularModule,
+    IconModule,
     NgTemplateOutlet,
     BonusPicker,
     NoteLabelsPicker,
@@ -154,17 +155,18 @@ export class ReviewEditor {
   /** Pediu para tirar o desejo da wishlist. */
   readonly wishRemoved = output<string>();
 
-  protected readonly CloseIcon = X;
-  protected readonly LaterIcon = Bookmark;
-  protected readonly TrashIcon = Trash2;
-  protected readonly SwapIcon = RefreshCw;
-  protected readonly PinIcon = PinIcon;
-  protected readonly CoversIcon = Images;
-  protected readonly DoneIcon = Check;
-  protected readonly RevisitIcon = Repeat;
-  protected readonly KeepIcon = CopyCheck;
-  protected readonly PrivateIcon = LockKeyhole;
-  protected readonly EveryoneIcon = UsersRound;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly LaterIcon = ICON.marcador;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly SwapIcon = ICON.atualizar;
+  protected readonly PinIcon = ICON.fixar;
+  protected readonly CoversIcon = ICON.capas;
+  protected readonly DoneIcon = ICON.pronto;
+  protected readonly RevisitIcon = ICON.repetir;
+  protected readonly KeepIcon = ICON.copiado;
+  protected readonly PrivateIcon = ICON.privada;
+  protected readonly EveryoneIcon = ICON.publica;
+  protected readonly SharedIcon = ICON.pessoas;
   /**
    * Quem vê: Público (o mural que os outros veem) ou Privado (só a pessoa, e ninguém é avisado).
    * Se a pública vai também para o Feed de quem segue não é uma terceira opção: pregar publica, e o
@@ -173,8 +175,8 @@ export class ReviewEditor {
   protected readonly visibility = signal<'publica' | 'privada'>('publica');
   protected readonly isPrivate = computed(() => this.visibility() === 'privada');
   protected readonly visibilities = [
-    { value: 'publica', label: 'Público', icon: UsersRound },
-    { value: 'privada', label: 'Privado', icon: LockKeyhole },
+    { value: 'publica', label: 'Público', icon: ICON.pessoas },
+    { value: 'privada', label: 'Privado', icon: ICON.privada },
   ] as const;
   protected readonly labels = SCORE_LABEL;
 
@@ -317,10 +319,10 @@ export class ReviewEditor {
 
   /** O lugar da anotação no mural: fixada no topo, comum (null) ou sub-nota, no fim. */
   protected readonly noteRank = signal<NoteRank | null>(null);
-  protected readonly noteRanks: readonly { value: NoteRank | null; label: string; icon: typeof Square }[] = [
-    { value: 'fixada', label: 'Fixada', icon: PinIcon },
-    { value: null, label: 'Comum', icon: Square },
-    { value: 'sub', label: 'Sub-nota', icon: CornerDownRight },
+  protected readonly noteRanks: readonly { value: NoteRank | null; label: string; icon: LucideIconData }[] = [
+    { value: 'fixada', label: 'Fixada', icon: ICON.fixar },
+    { value: null, label: 'Comum', icon: ICON.desmarcado },
+    { value: 'sub', label: 'Sub-nota', icon: ICON.dentro },
   ];
   protected readonly profile = computed(() => profileOf(this.kind()));
   /** As quatro notas do mural, na ordem do boletim. */

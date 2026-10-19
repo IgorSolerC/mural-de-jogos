@@ -1,28 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  BrickWall,
-  ChevronDown,
-  Eye,
-  EyeOff,
-  FolderOpen,
-  Frame,
-  ImageOff,
-  LayoutGrid,
-  LayoutList,
-  ListChecks,
-  LockKeyhole,
-  LucideAngularModule,
-  Plus,
-  SmilePlus,
-  Trash2,
-  UserRound,
-  X,
-} from 'lucide-angular';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, IconModule } from '../ui/icons';
 import { Cloud } from '../core/cloud-config';
 import { CloudAccount } from '../core/cloud-account';
 import { KINDS, Kind, cap, countOf, profileOf } from '../core/kinds';
@@ -89,7 +69,7 @@ type Editing = Part | { section: string };
  */
 @Component({
   selector: 'app-profile-edit-page',
-  imports: [CoverSleeve, EmojiPanel, LucideAngularModule, FramePicker, NgTemplateOutlet, PageWall, Pin, ProfileHero, ProfilePicker, ProfileSectionView, ProfileWalls, RichEditor, RouterLink],
+  imports: [CoverSleeve, EmojiPanel, IconModule, FramePicker, NgTemplateOutlet, PageWall, Pin, ProfileHero, ProfilePicker, ProfileSectionView, ProfileWalls, RichEditor, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-edit-page.html',
   styleUrl: './profile-edit-page.scss',
@@ -116,20 +96,20 @@ export class ProfileEditPage {
     { id: 'quadro', label: 'Num quadro', hint: 'Dentro de um quadro de cortiça com moldura.' },
   ];
 
-  protected readonly BackIcon = ArrowLeft;
-  protected readonly UpIcon = ArrowUp;
-  protected readonly DownIcon = ArrowDown;
-  protected readonly ShowIcon = Eye;
-  protected readonly HideIcon = EyeOff;
-  protected readonly BrokenIcon = ImageOff;
-  protected readonly PickIcon = ListChecks;
-  protected readonly LockIcon = LockKeyhole;
-  protected readonly PlusIcon = Plus;
-  protected readonly EmojiIcon = SmilePlus;
-  protected readonly TrashIcon = Trash2;
-  protected readonly XIcon = X;
-  protected readonly WallsIcon = LayoutGrid;
-  protected readonly ChevronIcon = ChevronDown;
+  protected readonly BackIcon = ICON.voltar;
+  protected readonly UpIcon = ICON.acima;
+  protected readonly DownIcon = ICON.abaixo;
+  protected readonly ShowIcon = ICON.ver;
+  protected readonly HideIcon = ICON.esconder;
+  protected readonly BrokenIcon = ICON.semImagem;
+  protected readonly PickIcon = ICON.tarefas;
+  protected readonly LockIcon = ICON.privada;
+  protected readonly PlusIcon = ICON.adicionar;
+  protected readonly EmojiIcon = ICON.reagir;
+  protected readonly TrashIcon = ICON.apagar;
+  protected readonly XIcon = ICON.fechar;
+  protected readonly WallsIcon = ICON.simples;
+  protected readonly ChevronIcon = ICON.abrir;
 
   protected readonly profile = this.profiles.profile;
 
@@ -161,14 +141,14 @@ export class ProfileEditPage {
     secoes: this.partOf('secoes'),
   }));
 
-  private partOf(id: Part): { id: Part; title: string; icon: typeof UserRound; hint: string; bits: string[] } {
+  private partOf(id: Part): { id: Part; title: string; icon: LucideIconData; hint: string; bits: string[] } {
     const p = this.profile();
     switch (id) {
       case 'voce':
         return {
           id,
           title: 'Você',
-          icon: UserRound,
+          icon: ICON.pessoa,
           hint: 'A foto, o nome, a linha embaixo dele, o “Sobre mim” e os assuntos.',
           bits: [`${p.emoji} ${this.name()}`, `Foto: ${STOCK_LABEL[p.photo].toLowerCase()}`, ...(p.topics.length ? [plural(p.topics.length, 'assunto', 'assuntos')] : [])],
         };
@@ -176,7 +156,7 @@ export class ProfileEditPage {
         return {
           id,
           title: 'Moldura e fundo',
-          icon: Frame,
+          icon: ICON.moldura,
           hint: 'A moldura do quadro de cima e o que fica atrás da sua foto, dentro dela.',
           bits: [PROFILE_FRAMES.find((f) => f.id === p.frameStyle)?.label ?? '', backgroundLabel(p.background)],
         };
@@ -184,7 +164,7 @@ export class ProfileEditPage {
         return {
           id,
           title: 'Parede da página',
-          icon: BrickWall,
+          icon: ICON.parede,
           hint: 'A parede do seu site inteiro, e a que fica atrás do seu perfil quando alguém abre o seu nome.',
           bits: [PAGE_BACKGROUNDS.find((w) => w.id === p.page)?.label ?? ''],
         };
@@ -194,7 +174,7 @@ export class ProfileEditPage {
         return {
           id,
           title: 'Seus murais',
-          icon: FolderOpen,
+          icon: ICON.pasta,
           hint: 'Quais murais viram uma pasta no perfil, como as pastas aparecem, e uma linha sobre o que tem em cada uma.',
           bits: walls.length
             ? [
@@ -209,7 +189,7 @@ export class ProfileEditPage {
         return {
           id,
           title: 'Seções',
-          icon: LayoutList,
+          icon: ICON.listaComFotos,
           hint: 'Fichas de qualquer mural juntas com um nome seu, cada seção do seu jeito.',
           bits: p.sections.length ? p.sections.map((s) => (s.title.trim() ? `“${s.title.trim()}”` : 'Sem nome')) : ['Nenhuma seção'],
         };

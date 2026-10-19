@@ -27,12 +27,12 @@
           @if (own()) {
             @if (code()) {
               <button type="button" class="btn-quiet copiar" (click)="copyLink()">
-                <lucide-icon [img]="CopyIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+                <lucide-icon [img]="CopyIcon" [size]="18" aria-hidden="true" />
                 Copiar o link
               </button>
             }
             <a class="btn-ink" routerLink="/perfil/editar">
-              <lucide-icon [img]="EditIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="EditIcon" [size]="20" aria-hidden="true" />
               Editar o perfil
             </a>
           } @else if (canFollow()) {
@@ -45,7 +45,7 @@
               [appBusy]="followBusy() || followState() === null"
               (click)="toggleFollow()"
             >
-              <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+              <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" aria-hidden="true" />
               @if (followBusy()) {
                 {{ following() ? 'Deixando de seguir…' : 'Seguindo…' }}
               } @else {
@@ -100,7 +100,7 @@
         <h1 id="aviso-titulo">Não consegui abrir esse perfil</h1>
         <p>Pode ser a conexão, ou o código pode ter mudado. Confira com quem te passou.</p>
         <button type="button" class="btn-ink" (click)="fetch()">
-          <lucide-icon [img]="RetryIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+          <lucide-icon [img]="RetryIcon" [size]="18" aria-hidden="true" />
           Tentar de novo
         </button>
       </section>

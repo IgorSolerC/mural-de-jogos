@@ -13,7 +13,7 @@
     <div class="acoes-vazio">
       @if (owner() === null) {
         <button type="button" class="btn-ink" (click)="create.emit()">
-          <lucide-icon [img]="PlusIcon" [size]="20" [strokeWidth]="3" aria-hidden="true" />
+          <lucide-icon [img]="PlusIcon" [size]="20" aria-hidden="true" />
           Nova anotação
         </button>
         <button type="button" class="btn-quiet" (click)="showDone()">Mostrar finalizadas</button>
@@ -71,7 +71,7 @@
             @if (foldable()) {
               <button type="button" class="dobra" [attr.aria-expanded]="!shut" [attr.aria-controls]="shut ? null : 'fichas-' + idOf(g.key)" (click)="toggleGroup(g.key)">
                 {{ g.label }}
-                <lucide-icon class="dobra-seta" [img]="ChevronIcon" [size]="18" [strokeWidth]="3" aria-hidden="true" />
+                <lucide-icon class="dobra-seta" [img]="ChevronIcon" [size]="18" aria-hidden="true" />
               </button>
             } @else {
               {{ g.label }}

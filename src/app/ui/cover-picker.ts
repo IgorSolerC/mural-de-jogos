@@ -12,7 +12,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { Link, LucideAngularModule } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { CoverChoice, GameLookup, LookupError, coverFrom, imageLoads } from '../core/game-lookup';
 import { Kind, PickedGame, initialOf } from '../core/review';
 import { Settings } from '../core/settings';
@@ -33,7 +33,7 @@ function joinSources(list: string[]): string {
  */
 @Component({
   selector: 'app-cover-picker',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="grade">
@@ -98,7 +98,7 @@ function joinSources(list: string[]): string {
         <label class="rotulo" [for]="group() + '-link'">Link da imagem</label>
         <div class="colar-linha">
           <div class="tira-link" [class.busy]="pasteBusy()">
-            <lucide-icon [img]="LinkIcon" [size]="18" [strokeWidth]="2.4" aria-hidden="true" />
+            <lucide-icon [img]="LinkIcon" [size]="18" aria-hidden="true" />
             <input
               #pasteField
               type="url"
@@ -125,7 +125,7 @@ function joinSources(list: string[]): string {
     <div class="acoes">
       @if (!pasting()) {
         <button type="button" class="acao-caneta colar-btn" (click)="openPaste()">
-          <lucide-icon [img]="LinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="LinkIcon" [size]="16" aria-hidden="true" />
           Colar link de imagem
         </button>
       }
@@ -448,7 +448,7 @@ export class CoverPicker {
   /** O item com a capa escolhida (e a fonte de onde ela veio). */
   readonly changed = output<PickedGame>();
 
-  protected readonly LinkIcon = Link;
+  protected readonly LinkIcon = ICON.link;
   protected readonly initialOf = initialOf;
 
   private readonly pasteField = viewChild<ElementRef<HTMLInputElement>>('pasteField');

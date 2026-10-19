@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { LucideAngularModule, Moon } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { Kind, Relevance, relevanceLabel } from '../core/review';
 
 /** O contorno do estouro: vinte pontas, como o "NOVO!" da capa de revista. */
@@ -21,7 +21,7 @@ const BURST = (() => {
  */
 @Component({
   selector: 'app-relevance-sticker',
-  imports: [LucideAngularModule],
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class]': '"rel-" + relevance() + " tam-" + size()',
@@ -42,7 +42,7 @@ const BURST = (() => {
       @case ('later') {
         <span class="borda"></span>
         <span class="miolo">
-          <lucide-icon [img]="MoonIcon" [size]="size() === 'mini' ? 10 : 12" [strokeWidth]="2.6" aria-hidden="true" />
+          <lucide-icon [img]="MoonIcon" [size]="size() === 'mini' ? 10 : 12" aria-hidden="true" />
           <span>{{ label() }}</span>
         </span>
       }
@@ -177,7 +177,7 @@ export class RelevanceSticker {
   readonly kind = input.required<Kind>();
   readonly size = input<'normal' | 'mini'>('normal');
 
-  protected readonly MoonIcon = Moon;
+  protected readonly MoonIcon = ICON.lua;
   protected readonly burst = BURST;
   protected readonly label = computed(() => relevanceLabel(this.kind(), this.relevance()));
   /** "MUST" em cima, pequeno; o verbo embaixo, grande. */

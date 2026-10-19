@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, output, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { CalendarSync, LucideAngularModule, RefreshCw, Unlink, X } from 'lucide-angular';
+import { ICON, IconModule } from './icons';
 import { longDay } from '../core/calendar';
 import { localDay } from '../core/dates';
 import { GoogleAgenda } from '../core/google-agenda-sync';
@@ -16,7 +16,7 @@ import { Pin } from './pin';
  */
 @Component({
   selector: 'app-google-agenda-sheet',
-  imports: [BackdropClose, Busy, LucideAngularModule, Pin, RouterLink],
+  imports: [BackdropClose, Busy, IconModule, Pin, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet google-agenda" aria-labelledby="ga-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -28,7 +28,7 @@ import { Pin } from './pin';
             <p class="sub">A sua agenda principal, nos dois sentidos</p>
           </div>
           <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
-            <lucide-icon [img]="CloseIcon" [size]="22" [strokeWidth]="2.6" aria-hidden="true" />
+            <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
           </button>
         </header>
 
@@ -44,7 +44,7 @@ import { Pin } from './pin';
               <section class="grupo" aria-labelledby="ga-estado-t">
                 <h3 class="grupo-titulo" id="ga-estado-t">Ligado</h3>
                 <p class="estado">
-                  <lucide-icon class="estado-icone" [img]="SyncIcon" [size]="20" [strokeWidth]="2.4" aria-hidden="true" />
+                  <lucide-icon class="estado-icone" [img]="SyncIcon" [size]="20" aria-hidden="true" />
                   <span>{{ sinceLine() }}</span>
                 </p>
                 <p class="texto ralo" aria-live="polite">{{ google.syncing() ? 'Sincronizando…' : lastLine() }}</p>
@@ -54,11 +54,11 @@ import { Pin } from './pin';
               </section>
               <div class="acoes-linha">
                 <button type="button" class="papel" [appBusy]="google.syncing()" (click)="google.sync()">
-                  <lucide-icon [img]="RefreshIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="RefreshIcon" [size]="16" aria-hidden="true" />
                   Sincronizar agora
                 </button>
                 <button type="button" class="papel perigo" (click)="disconnect()">
-                  <lucide-icon [img]="UnlinkIcon" [size]="16" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="UnlinkIcon" [size]="16" aria-hidden="true" />
                   Desconectar
                 </button>
               </div>
@@ -76,7 +76,7 @@ import { Pin } from './pin';
               </section>
               <div class="acoes-linha">
                 <button type="button" class="btn-ink" [appBusy]="google.status() === 'ligando'" (click)="google.connect()">
-                  <lucide-icon [img]="SyncIcon" [size]="18" [strokeWidth]="2.6" aria-hidden="true" />
+                  <lucide-icon [img]="SyncIcon" [size]="18" aria-hidden="true" />
                   {{ google.status() === 'ligando' ? 'Esperando o Google…' : 'Conectar o Google Agenda' }}
                 </button>
               </div>
@@ -103,10 +103,10 @@ import { Pin } from './pin';
 export class GoogleAgendaSheet {
   readonly closed = output<void>();
 
-  protected readonly CloseIcon = X;
-  protected readonly SyncIcon = CalendarSync;
-  protected readonly RefreshIcon = RefreshCw;
-  protected readonly UnlinkIcon = Unlink;
+  protected readonly CloseIcon = ICON.fechar;
+  protected readonly SyncIcon = ICON.googleAgenda;
+  protected readonly RefreshIcon = ICON.atualizar;
+  protected readonly UnlinkIcon = ICON.desconectar;
 
   protected readonly google = inject(GoogleAgenda);
   private readonly confirm = inject(Confirm);
