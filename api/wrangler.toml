@@ -18,7 +18,7 @@ COTA_LINHAS_DIA = "60000"
 VER_MURAIS = "todos"
 # Quem vê o Google Agenda no Calendário: os códigos das contas, separados por vírgula (os usuários de
 # teste, enquanto o app não é verificado pelo Google); vazio, ninguém; "*", todo mundo.
-AGENDA_CODIGOS = ""
+AGENDA_CODIGOS = "G11T-G00D"
 # Público (vai também no site); é o `aud` que o login confere.
 GOOGLE_CLIENT_ID = "891037362218-0d8ncsj5p4n6pmvqlei60qs7l1oo7f4t.apps.googleusercontent.com"
 
