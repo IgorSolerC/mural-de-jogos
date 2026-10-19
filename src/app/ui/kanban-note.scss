@@ -57,6 +57,50 @@
   rotate: -2deg;
 }
 
+/* O status: a etiqueta de bloco da importância (as duas listras finas, a letra de etiqueta), na tinta
+   preta do selo das dependências, com as palavras da pessoa ("Em revisão", "Com o Sérgio"). Quando não
+   cabe ao lado, desce para a linha de baixo (ver .pe:has(.status)); só o que nem sozinho cabe corta
+   nas reticências. Tocar abre a folha, como a importância. */
+.status {
+  @include kk.importancia;
+  --imp: #151515;
+  /* em bloco, para cortar nas reticências; a altura da linha põe a letra no meio, como na etiqueta */
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  line-height: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  rotate: 1deg;
+  cursor: pointer;
+  transition:
+    translate var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical);
+
+  &:hover {
+    translate: 0 -1px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+.pe:has(.status) {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  margin: 4px -4px -26px -2px;
+}
+
+.pe .dependencias {
+  flex: none;
+}
+
 .escala {
   @include kk.escala;
 }
@@ -260,6 +304,39 @@
   z-index: 1;
 }
 
+/* As etiquetas da ponta da tira (o status, o selo das dependências e a importância), num bloco de até
+   metade da tira: o nome fica com o resto. Cabendo, numa linha (o status, o selo, a importância);
+   não cabendo, o status sobe para cima dos outros dois, encostado na direita (a ordem invertida, e as
+   linhas de baixo para cima, fazem isso sem medir nada). Sem status, o mesmo de antes. */
+.selos {
+  flex: none;
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap-reverse;
+  align-items: center;
+  gap: 4px 8px;
+  max-width: 50%;
+}
+
+/* o status na tira: a mesma etiqueta, do tamanho do selo pequeno das dependências; só o que nem
+   sozinho na linha cabe corta nas reticências */
+.status-mini {
+  @include kk.importancia;
+  --imp: #151515;
+  display: block;
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 20px;
+  padding: 4px 5px 3px;
+  font-size: 0.68rem;
+  line-height: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  rotate: -1.5deg;
+}
+
 /* a importância: a etiqueta de bloco sem o nome, só a escala, colada na ponta da tira */
 .imp-mini {
   @include kk.importancia;
@@ -312,6 +389,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .imp,
+  .status,
   .acoes,
   .mexer,
   .avancar,

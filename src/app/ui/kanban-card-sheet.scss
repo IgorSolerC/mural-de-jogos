@@ -319,6 +319,13 @@ dialog.ficha-quadro {
   height: 40px;
 }
 
+/* ===== Status: o campo com a linha de caneta; o x tira, dentro dele ===== */
+.status-tirar {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+}
+
 .por-dep {
   justify-self: start;
   min-height: 44px;

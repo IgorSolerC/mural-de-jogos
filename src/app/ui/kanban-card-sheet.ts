@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, linkedSignal, output, signal, viewChild } from '@angular/core';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
-import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, MAX_DEPS, belongs, setImportance } from '../core/kanban';
+import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, MAX_DEPS, STATUS_MAX, belongs, setImportance, setStatus } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
 import { NOTES } from '../core/kinds';
@@ -21,8 +21,9 @@ import { Pin } from './pin';
 
 /**
  * A folha de uma anotação no quadro (o botão de ajustes, ou a importância da ficha): em que etapa
- * ela está, a importância, as dependências (as anotações que precisam estar finalizadas antes, ver
- * `KanbanDeps`) e as tags (as da anotação mesmo). Tudo vale na hora (não tem "Salvar"); mudar de etapa
+ * ela está, a importância, o status (umas palavras livres, ao lado da importância), as dependências (as anotações que precisam estar finalizadas antes, ver
+ * `KanbanDeps`) e as tags (as da anotação mesmo). Tudo vale na hora (não tem "Salvar"; o status, ao
+ * sair do campo, no Enter ou ao fechar); mudar de etapa
  * passa por `KanbanActions` (finaliza ou abre de novo, como arrastar). Ler a anotação fecha a folha
  * e abre a leitura; Tirar do quadro deixa a anotação no mural.
  */
@@ -31,7 +32,7 @@ import { Pin } from './pin';
   imports: [BackdropClose, CardPicker, IconModule, NoteTag, Pin],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="closed.emit()" (backdropClose)="close()">
+    <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="saveStatus(); closed.emit()" (backdropClose)="close()">
       @if (data(); as d) {
         <div class="ficha cartolina" [style.--stock]="'var(--stock-' + d.stock + ')'" [attr.data-cor]="d.stock">
           <app-pin class="pin" />
@@ -81,6 +82,32 @@ import { Pin } from './pin';
                 }
                 <button type="button" role="radio" class="imp nenhuma" [class.colado]="!d.card.importance" [attr.aria-checked]="!d.card.importance" (click)="setImp(null)">Nenhuma</button>
               </div>
+            </section>
+
+            <section class="grupo" aria-labelledby="fq-status">
+              <h3 class="grupo-titulo" id="fq-status">Status</h3>
+              <p class="dica" id="fq-status-dica">Umas palavras ao lado da importância: Em revisão, Aguardando cliente, o nome de quem está com ela.</p>
+              <form class="status" (submit)="$event.preventDefault(); saveStatus()">
+                <label class="campo">
+                  <span class="sr-only">Status</span>
+                  <input
+                    type="text"
+                    autocomplete="off"
+                    enterkeyhint="done"
+                    aria-describedby="fq-status-dica"
+                    [maxLength]="statusMax"
+                    placeholder="Em revisão, Com o Sérgio…"
+                    [value]="statusDraft()"
+                    (input)="statusDraft.set($any($event.target).value)"
+                    (change)="saveStatus()"
+                  />
+                  @if (statusDraft().trim()) {
+                    <button type="button" class="icon-btn status-tirar" aria-label="Tirar o status" title="Tirar o status" (click)="clearStatus()">
+                      <lucide-icon [img]="CloseIcon" [size]="16" aria-hidden="true" />
+                    </button>
+                  }
+                </label>
+              </form>
             </section>
 
             <section class="grupo" aria-labelledby="fq-deps">
@@ -216,6 +243,7 @@ export class KanbanCardSheet {
   protected readonly DepsIcon = ICON.dependencias;
   protected readonly CheckIcon = ICON.pronto;
   protected readonly maxDeps = MAX_DEPS;
+  protected readonly statusMax = STATUS_MAX;
   protected readonly notesKind = NOTES;
   /** O seletor da dependência nova aberto. */
   protected readonly pickingDep = signal(false);
@@ -286,6 +314,9 @@ export class KanbanCardSheet {
     return { board, note, card, label: this.kanban.labelOf(board) ?? note.category ?? '', stock: pinningFor(note.id, note.stock).stock };
   });
 
+  /** O status sendo escrito: o guardado, até a pessoa mexer (e de novo quando o guardado muda). */
+  protected readonly statusDraft = linkedSignal(() => this.data()?.card.status ?? '');
+
   /** O que a etapa de agora faz com a anotação, quando ela finaliza. */
   protected readonly finishHint = computed(() => {
     const d = this.data();
@@ -317,6 +348,18 @@ export class KanbanCardSheet {
 
   protected setImp(i: Importance | null): void {
     this.kanban.update(this.boardId(), (b, at) => setImportance(b, this.noteId(), i, at));
+  }
+
+  /** Guarda o status escrito (vazio tira). */
+  protected saveStatus(): void {
+    const d = this.data();
+    if (!d || this.statusDraft() === (d.card.status ?? '')) return;
+    this.kanban.update(this.boardId(), (b, at) => setStatus(b, this.noteId(), this.statusDraft(), at));
+  }
+
+  protected clearStatus(): void {
+    this.statusDraft.set('');
+    this.saveStatus();
   }
 
   /** A categoria da anotação: a cor de cada tag é a dela ali. */

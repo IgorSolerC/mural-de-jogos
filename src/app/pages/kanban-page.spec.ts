@@ -192,7 +192,7 @@ describe('página do Kanban', () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     const mexer = column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!;
-    expect(mexer.getAttribute('aria-label')).toBe('Etapa, importância, dependências e tags de Sincronizar quadros');
+    expect(mexer.getAttribute('aria-label')).toBe('Etapa, importância, status, dependências e tags de Sincronizar quadros');
     mexer.click();
     await settle();
     const sheet = host.querySelector('app-kanban-card-sheet')!;
@@ -1270,6 +1270,113 @@ describe('página do Kanban', () => {
       const ids = cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note);
       expect(ids.indexOf('nlogin01')).toBe(10);
       expect(namesIn('feito')).toContain('nlogin01');
+    });
+  });
+  describe('status', () => {
+    const withStatus = () => {
+      const b = board();
+      b.cards[0] = { ...b.cards[0], status: 'Aguardando cliente' };
+      b.cards[1] = { ...b.cards[1], status: 'Sérgio' };
+      return b;
+    };
+
+    it('na ficha, a etiqueta da importância com as palavras da pessoa, logo depois da importância; tocar abre a folha', async () => {
+      kanban.state.set(state(withStatus()));
+      await go(TRAB_URL);
+      const pe = column('afazer').querySelector<HTMLElement>('[data-nota="nlogin01"] app-review-card .pe')!;
+      expect([...pe.children].map((e) => e.className.split(' ')[0])).toEqual(['imp', 'status']);
+      const status = pe.querySelector<HTMLButtonElement>('.status')!;
+      expect(status.textContent!.trim()).toBe('Aguardando cliente');
+      expect(status.getAttribute('aria-label')).toBe('Status: Aguardando cliente. Mudar');
+      // a mesma etiqueta de bloco da importância: a letra de etiqueta, na tinta preta
+      expect(getComputedStyle(status).fontFamily).toBe(getComputedStyle(pe.querySelector('.imp')!).fontFamily);
+      expect(getComputedStyle(status).color).toBe('rgb(21, 21, 21)');
+      // só com status (sem importância), o pé aparece com ele
+      expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .status')!.textContent!.trim()).toBe('Sérgio');
+      expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .imp')).toBeNull();
+      status.click();
+      await settle();
+      expect(host.querySelector<HTMLInputElement>('app-kanban-card-sheet .status input')!.value).toBe('Aguardando cliente');
+    });
+
+    it('com o status, a fileira do pé desce de linha em vez de cobrir a ficha de baixo', async () => {
+      kanban.state.set(state(withStatus()));
+      await go(TRAB_URL);
+      const card = column('afazer').querySelector<HTMLElement>('[data-nota="nlogin01"] app-review-card')!;
+      const pe = card.querySelector<HTMLElement>('.pe')!;
+      expect(getComputedStyle(pe).position).toBe('relative');
+      // metade para fora da ficha, como a de antes
+      expect(Math.round(pe.getBoundingClientRect().bottom - card.getBoundingClientRect().bottom)).toBeGreaterThan(0);
+    });
+
+    it('"Só os títulos": a etiqueta pequena na tira, e o leitor de tela diz', async () => {
+      kanban.state.set(state(withStatus()));
+      await go(TRAB_URL);
+      host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
+      await settle();
+      const tira = column('afazer').querySelector('[data-nota="nlogin01"] .tira')!;
+      expect(tira.querySelector('.status-mini')!.textContent!.trim()).toBe('Aguardando cliente');
+      expect(tira.querySelector('.tira-nome')!.getAttribute('aria-label')).toBe('Corrigir o login, importância crítico, status Aguardando cliente');
+      expect(column('afazer').querySelector('[data-nota="nsync001"] .status-mini')!.textContent!.trim()).toBe('Sérgio');
+    });
+
+    it('"Só os títulos": cabendo, numa linha com a importância; com muita coisa, o status sobe para cima do selo e da importância', async () => {
+      const b = withStatus();
+      b.cards[0] = { ...b.cards[0], status: 'Aguardando a assinatura do', deps: ['nprova01'] };
+      b.cards[1] = { ...b.cards[1], importance: 'baixo' };
+      kanban.state.set(state(b));
+      await go(TRAB_URL);
+      host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
+      await settle();
+      const top = (id: string, sel: string) => column('afazer').querySelector(`[data-nota="${id}"] .tira ${sel}`)!.getBoundingClientRect();
+      // curto: lado a lado, o status antes da importância
+      expect(Math.abs(top('nsync001', '.status-mini').top - top('nsync001', '.imp-mini').top)).toBeLessThan(6);
+      expect(top('nsync001', '.status-mini').right).toBeLessThan(top('nsync001', '.imp-mini').left);
+      // com muita coisa: o status em cima, o selo e a importância embaixo, na mesma linha
+      expect(top('nlogin01', '.status-mini').bottom).toBeLessThanOrEqual(top('nlogin01', '.imp-mini').top + 2);
+      expect(Math.abs(top('nlogin01', '.selo').top - top('nlogin01', '.imp-mini').top)).toBeLessThan(6);
+      // e o nome fica com pelo menos metade da tira
+      expect(top('nlogin01', '.tira-nome').width).toBeGreaterThanOrEqual(top('nlogin01', '').width * 0.4);
+    });
+
+    it('a folha escreve o status (vale no Enter, ao sair do campo ou ao fechar) e o x tira', async () => {
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+      const cardOf = (id: string) => kanban.get(TRAB)!.cards.find((c) => c.note === id)!;
+      column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
+      await settle();
+      const sheet = host.querySelector('app-kanban-card-sheet')!;
+      expect(sheet.querySelector('#fq-status')!.textContent).toBe('Status');
+      const input = sheet.querySelector<HTMLInputElement>('.status input')!;
+      expect(input.value).toBe('');
+      expect(sheet.querySelector('.status-tirar')).toBeNull();
+      input.value = '  Em   revisão ';
+      input.dispatchEvent(new Event('input'));
+      await settle();
+      // escrevendo, ainda não guardou
+      expect(cardOf('nsync001').status).toBeUndefined();
+      sheet.querySelector<HTMLFormElement>('form.status')!.requestSubmit();
+      await settle();
+      expect(cardOf('nsync001').status).toBe('Em revisão');
+      expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .status')!.textContent!.trim()).toBe('Em revisão');
+      // ao sair do campo
+      input.value = 'Com o Sérgio';
+      input.dispatchEvent(new Event('input'));
+      input.dispatchEvent(new Event('change'));
+      await settle();
+      expect(cardOf('nsync001').status).toBe('Com o Sérgio');
+      // o x tira
+      sheet.querySelector<HTMLButtonElement>('.status-tirar')!.click();
+      await settle();
+      expect(cardOf('nsync001').status).toBeUndefined();
+      expect(input.value).toBe('');
+      expect(column('afazer').querySelector('[data-nota="nsync001"] .pe')).toBeNull();
+      // fechar a folha (o Esc, ou o x) guarda o que estava escrito
+      input.value = 'Aguardando cliente';
+      input.dispatchEvent(new Event('input'));
+      sheet.querySelector<HTMLDialogElement>('dialog')!.close();
+      await settle();
+      expect(cardOf('nsync001').status).toBe('Aguardando cliente');
     });
   });
 });

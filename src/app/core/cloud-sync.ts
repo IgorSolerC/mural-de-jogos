@@ -138,11 +138,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     tinha (o grupo ficaria com o de sempre, a coluna com o círculo) e enviaria assim.
  * 30: as dependências de uma anotação no quadro Kanban (`deps`). Um site antigo jogaria o campo fora e
  *     enviaria o quadro assim, e as dependências sumiriam em todo aparelho.
+ * 31: o status de uma anotação no quadro Kanban (`status`, as palavras ao lado da importância). Um site
+ *     antigo jogaria o campo fora e enviaria o quadro assim, e o status sumiria em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 30;
+export const SYNC_SCHEMA = 31;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

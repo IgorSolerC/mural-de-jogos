@@ -115,7 +115,12 @@ export interface KanbanCard {
    */
   deps?: string[];
   /**
-   * Quando a pessoa a pôs no lugar (ou mudou a importância) pela última vez: na junção de dois
+   * O status: umas palavras soltas, escritas à mão, ao lado da importância ("Em revisão", "Aguardando
+   * cliente", "Com o Sérgio"). Livre, sem lista de onde escolher: vale só para esta anotação.
+   */
+  status?: string;
+  /**
+   * Quando a pessoa a pôs no lugar (ou mudou a importância ou o status) pela última vez: na junção de dois
    * aparelhos que mexeram na mesma anotação, vale a mexida por último (e não o quadro mexido por último).
    */
   at?: string;
@@ -172,6 +177,8 @@ export const MAX_CARDS = 1000;
 /** Quantas dependências uma anotação pode ter. */
 export const MAX_DEPS = 30;
 export const NAME_MAX = 40;
+/** O tamanho do status de uma anotação no quadro: curto, um adendo ao lado da importância. */
+export const STATUS_MAX = 28;
 /** A hora de um quadro em que ninguém mexeu: qualquer quadro de verdade passa na frente dele. */
 export const FRESH_AT = '1970-01-01T00:00:00.000Z';
 
@@ -276,6 +283,11 @@ function sanitizeColumns(raw: unknown, prefix?: string): KanbanColumn[] {
   return columns.length ? columns : defaultColumns(prefix);
 }
 
+/** O status escrito ou guardado de uma anotação: numa linha só, sem espaço sobrando, do tamanho que se guarda. */
+export function cleanStatus(v: unknown): string {
+  return [...cleanName(v, STATUS_MAX * 2)].slice(0, STATUS_MAX).join('').trim();
+}
+
 /** As dependências guardadas de uma anotação: ids, sem repetir, sem ela mesma. */
 function sanitizeDeps(raw: unknown, note: string): string[] {
   return [...new Set(asList(raw).map(cleanId))].filter((d) => d && d !== note).slice(0, MAX_DEPS);
@@ -291,8 +303,17 @@ function sanitizeCards(raw: unknown, columns: readonly KanbanColumn[]): { card: 
     if (!note || !columns.some((x) => x.id === column) || out.some((x) => x.card.note === note) || out.length >= MAX_CARDS) continue;
     const dress = sanitizeDress(cr['dress'], columns);
     const deps = sanitizeDeps(cr['deps'], note);
+    const status = cleanStatus(cr['status']);
     out.push({
-      card: { note, column, importance: importanceOf(cr['importance']), ...(dress ? { dress } : {}), ...(deps.length ? { deps } : {}), ...(isIso(cr['at']) ? { at: cr['at'] } : {}) },
+      card: {
+        note,
+        column,
+        importance: importanceOf(cr['importance']),
+        ...(status ? { status } : {}),
+        ...(dress ? { dress } : {}),
+        ...(deps.length ? { deps } : {}),
+        ...(isIso(cr['at']) ? { at: cr['at'] } : {}),
+      },
       raw: cr,
     });
   }
@@ -700,6 +721,24 @@ export function setImportance(b: KanbanBoard, note: string, importance: Importan
   return touch(b, { cards: b.cards.map((c) => (c.note === note ? { ...c, importance, at } : c)) }, at);
 }
 
+/** O status da anotação passa a ser `status` (vazio: sem status). */
+export function setStatus(b: KanbanBoard, note: string, status: string, at: string): KanbanBoard {
+  const card = b.cards.find((c) => c.note === note);
+  const next = cleanStatus(status);
+  if (!card || next === (card.status ?? '')) return b;
+  return touch(
+    b,
+    {
+      cards: b.cards.map((c) => {
+        if (c.note !== note) return c;
+        const { status: _, ...plain } = c;
+        return { ...plain, ...(next ? { status: next } : {}), at };
+      }),
+    },
+    at,
+  );
+}
+
 /**
  * As dependências da anotação passam a ser `deps` (na ordem dada; vazia: nenhuma). As que fariam uma
  * roda (ver `dependsOn`) ficam de fora. Quem confere a roda pelos quadros todos é quem chama; aqui,
@@ -775,7 +814,7 @@ export function lookVersion(look: CardLook): string {
  * cada marca fica "por refazer" (sem coluna nem versão), com o visual de antes mais antigo que se
  * conhece (o de agora, ou o de `before`), e o vestidor veste ou despe cada anotação de novo conforme
  * a coluna em que ela volta a estar. Com `at`, as anotações que voltam para outro lugar (ou outra
- * importância) ficam com essa hora: desfazer é mexer agora.
+ * importância, ou outro status) ficam com essa hora: desfazer é mexer agora.
  */
 export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined, at?: string): KanbanBoard {
   const current = new Map((now?.cards ?? []).map((c) => [c.note, c]));
@@ -783,7 +822,7 @@ export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined,
     const was = current.get(c.note);
     const own = was?.dress?.own ?? c.dress?.own;
     const { dress: _, ...plain } = c;
-    const moved = at && (!was || was.column !== c.column || was.importance !== c.importance) ? { at } : {};
+    const moved = at && (!was || was.column !== c.column || was.importance !== c.importance || was.status !== c.status) ? { at } : {};
     return own ? { ...plain, ...moved, dress: { col: '', v: '', own } } : { ...plain, ...moved };
   });
   return { ...before, cards };

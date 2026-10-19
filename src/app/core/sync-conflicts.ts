@@ -234,7 +234,7 @@ export function boardLines(b: KanbanBoard, title: (id: string) => string | null)
     for (const card of b.cards.filter((c) => c.column === col.id)) {
       const name = title(card.note);
       if (name === null) continue;
-      out.push(`“${name}” em ${col.name}${card.importance ? ` · ${IMPORTANCE_LABEL[card.importance]}` : ''}`);
+      out.push(`“${name}” em ${col.name}${card.importance ? ` · ${IMPORTANCE_LABEL[card.importance]}` : ''}${card.status ? ` · ${card.status}` : ''}`);
     }
   }
   return out;

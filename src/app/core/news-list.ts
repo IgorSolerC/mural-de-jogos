@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-19-status-kanban',
+    version: '1.28.0',
+    kind: 'funcionalidade',
+    date: '2026-10-19',
+    title: 'Status no Kanban',
+    items: [
+      'Uma anotação do Kanban pode ter um status, escrito do seu jeito: Em revisão, Aguardando cliente ou o nome de quem está com ela. Ele fica em Status, na folha da anotação no quadro, e o x tira.',
+      'O status aparece na ficha logo depois da importância, na mesma etiqueta, e também na vista Só os títulos; tocar nele abre a folha.',
+    ],
+  },
+  {
     id: '2026-10-19-dependencias',
     version: '1.27.0',
     kind: 'funcionalidade',

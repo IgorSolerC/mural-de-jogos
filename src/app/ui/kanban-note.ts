@@ -60,9 +60,10 @@ export class KanbanReviewCard extends ReviewCard {
 /**
  * Uma anotação no quadro (ver pages/kanban-page.ts), numa de duas vistas:
  * - **fichas**: a ficha simples dela (com as tags dela, cada uma na sua cor) e, coladas na beirada
- *   de baixo, a etiqueta de importância e o selo das dependências; tocar na ficha abre a leitura.
- * - **títulos** (`dense`): só uma tira da cartolina dela com o nome, o selo das dependências e a
- *   escala da importância, para caber o quadro inteiro na tela.
+ *   de baixo, a etiqueta de importância, o status (a mesma etiqueta, com as palavras da pessoa) e o
+ *   selo das dependências; tocar na ficha abre a leitura.
+ * - **títulos** (`dense`): só uma tira da cartolina dela com o nome, o status, o selo das dependências
+ *   e a escala da importância, para caber o quadro inteiro na tela.
  * Nas duas, a etiqueta de tinta das ações (como o Fixar e o Finalizar do mural) aparece com o mouse
  * em cima ou o foco do teclado: os ajustes, que abrem a folha da anotação no quadro, e, fora da última
  * coluna, a seta que a leva para a coluna seguinte (a ponta só, como a do iPhone); no toque, fica
@@ -83,16 +84,25 @@ export class KanbanReviewCard extends ReviewCard {
             <lucide-icon [img]="NoTextIcon" [size]="15" aria-hidden="true" />
           </span>
         }
-        @if (hasDeps()) {
-          <app-kanban-deps class="dependencias" [noteId]="review().id" [owner]="review().game.name" [deps]="card().deps!" [mini]="true" (opened)="opened.emit($event)" (edit)="details.emit()" />
-        }
-        @if (card().importance; as imp) {
-          <span class="imp-mini" [attr.data-imp]="imp" [title]="'Importância: ' + label[imp]" aria-hidden="true">
-            <span class="escala">
-              @for (n of steps; track n) {
-                <i [class.acesa]="n <= level[imp]"></i>
-              }
-            </span>
+        @if (card().importance || card().status || hasDeps()) {
+          <!-- as etiquetas da ponta: numa linha, o status, o selo e a importância; quando não cabem, o
+               status sobe para cima dos outros dois (em ordem invertida, ver .selos) -->
+          <span class="selos">
+            @if (card().importance; as imp) {
+              <span class="imp-mini" [attr.data-imp]="imp" [title]="'Importância: ' + label[imp]" aria-hidden="true">
+                <span class="escala">
+                  @for (n of steps; track n) {
+                    <i [class.acesa]="n <= level[imp]"></i>
+                  }
+                </span>
+              </span>
+            }
+            @if (hasDeps()) {
+              <app-kanban-deps class="dependencias" [noteId]="review().id" [owner]="review().game.name" [deps]="card().deps!" [mini]="true" (opened)="opened.emit($event)" (edit)="details.emit()" />
+            }
+            @if (card().status; as st) {
+              <span class="status-mini" [title]="'Status: ' + st" aria-hidden="true">{{ st }}</span>
+            }
           </span>
         }
         <ng-container [ngTemplateOutlet]="adjust" />
@@ -100,7 +110,7 @@ export class KanbanReviewCard extends ReviewCard {
     } @else {
       <app-review-card [review]="review()" [compact]="true" [preview]="true" [checkable]="true" [looks]="looks()" (opened)="opened.emit(review().id)">
         <!-- dentro da ficha: sobe e gira com ela quando o mouse chega -->
-        @if (card().importance || hasDeps()) {
+        @if (card().importance || card().status || hasDeps()) {
           <div class="pe">
             @if (card().importance; as imp) {
               <button type="button" class="imp" [attr.data-imp]="imp" [attr.aria-label]="'Importância: ' + label[imp] + '. Mudar'" (click)="details.emit()">
@@ -111,6 +121,9 @@ export class KanbanReviewCard extends ReviewCard {
                 </span>
                 {{ label[imp] }}
               </button>
+            }
+            @if (card().status; as st) {
+              <button type="button" class="status" [title]="st" [attr.aria-label]="'Status: ' + st + '. Mudar'" (click)="details.emit()">{{ st }}</button>
             }
             @if (hasDeps()) {
               <app-kanban-deps class="dependencias" [noteId]="review().id" [owner]="review().game.name" [deps]="card().deps!" (opened)="opened.emit($event)" (edit)="details.emit()" />
@@ -123,7 +136,7 @@ export class KanbanReviewCard extends ReviewCard {
     <ng-template #adjust>
       <!-- as ações da anotação, juntas numa etiqueta de tinta: os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
       <div class="acoes" [class.duas]="!!next()">
-        <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância, dependências e tags de ' + review().game.name" title="Etapa, importância, dependências e tags" aria-haspopup="dialog" (click)="details.emit()">
+        <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância, status, dependências e tags de ' + review().game.name" title="Etapa, importância, status, dependências e tags" aria-haspopup="dialog" (click)="details.emit()">
           <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
         </button>
         @if (next(); as to) {
@@ -162,10 +175,10 @@ export class KanbanNote {
   protected readonly looks = inject(Settings).categoryLooks;
   /** A cartolina e a inclinação da ficha no mural: a tira é do mesmo papel. */
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
-  /** O que o leitor de tela diz da tira: o nome, a importância e se está finalizada. */
+  /** O que o leitor de tela diz da tira: o nome, a importância, o status e se está finalizada. */
   protected readonly spoken = computed(() => {
     const r = this.review();
-    const imp = this.card().importance;
-    return [r.game.name, imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
+    const { importance: imp, status } = this.card();
+    return [r.game.name, imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', status ? `status ${status}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
   });
 }
