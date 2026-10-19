@@ -19,12 +19,12 @@ import { Settings as SettingsStore } from '../core/settings';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, outTags, releaseTag, showAllTags } from '../core/tag-filter';
 import { CardPicker } from '../ui/card-picker';
 import { CategoryLabel } from '../ui/category-label';
-import { KanbanBoardSheet } from '../ui/kanban-board-sheet';
 import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { ColumnWheel } from '../ui/column-wheel';
 import { COLUMN_ICON } from '../ui/kanban-icons';
 import { KanbanNote } from '../ui/kanban-note';
+import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
 import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
@@ -137,7 +137,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanBoardSheet, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, PageWall, Pin, RouterLink, SearchStrip, TagChips],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, LucideAngularModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, TagChips],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -219,7 +219,9 @@ export class KanbanPage {
   private pickColumn: string | null = null;
   protected readonly cardSheet = signal<string | null>(null);
   protected readonly columnSheet = signal<{ id: string; fresh: boolean } | null>(null);
-  protected readonly boardSheet = signal<string | null>(null);
+  /** As configurações do mural abertas pela engrenagem (a folha chega por @defer, ver ui/mural-config.ts). */
+  protected readonly configOpen = signal(false);
+  private readonly gear = viewChild<ElementRef<HTMLButtonElement>>('gear');
   protected readonly drag = signal<Drag | null>(null);
   /** O que o leitor de tela ouve depois de mover pelo teclado. */
   protected readonly said = signal('');
@@ -581,6 +583,11 @@ export class KanbanPage {
   /** Nenhuma categoria ainda: o editor, para a primeira anotação (com a categoria, ela ganha o quadro). */
   protected firstNote(): void {
     this.desk.newReview();
+  }
+
+  protected closeConfig(): void {
+    this.configOpen.set(false);
+    this.gear()?.nativeElement.focus();
   }
 
   /** Recomeça o quadro (a folha já perguntou): as três colunas de sempre e nenhuma anotação, com Desfazer. */

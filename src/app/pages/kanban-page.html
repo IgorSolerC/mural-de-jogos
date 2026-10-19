@@ -138,17 +138,22 @@
             />
             Nova coluna
           </button>
+        </div>
+        <!-- a engrenagem: as mesmas configurações do mural (grupos, tags, padrões), com o quadro deste grupo -->
+        <div class="pasta-grupo">
           <button
+            #gear
             type="button"
             class="tinta so-icone"
-            aria-label="Ajustes do quadro"
             aria-haspopup="dialog"
-            title="Ajustes do quadro"
-            (click)="boardSheet.set(b.id)"
+            [attr.aria-expanded]="configOpen()"
+            aria-label="Configurações do mural"
+            title="Configurações do mural"
+            (click)="configOpen.set(true)"
           >
             <lucide-icon
               [img]="SettingsIcon"
-              [size]="19"
+              [size]="18"
               [strokeWidth]="2.6"
               aria-hidden="true"
             />
@@ -492,12 +497,14 @@
       (closed)="columnSheet.set(null)"
     />
   }
-  @if (boardSheet(); as id) {
-    <app-kanban-board-sheet
-      [boardId]="id"
-      [category]="category()!.label"
-      (closed)="boardSheet.set(null)"
-      (resetting)="resetBoard($event)"
-    />
+  <!-- as configurações do mural: o mesmo pedaço à parte da engrenagem do mural, com a parte Quadro -->
+  @if (configOpen()) {
+    @defer (on immediate) {
+      <app-mural-config
+        [board]="b.id"
+        (closed)="closeConfig()"
+        (resetting)="resetBoard($event)"
+      />
+    }
   }
 }

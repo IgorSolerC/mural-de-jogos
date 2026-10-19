@@ -14,7 +14,7 @@
     <div class="corpo">
       <!-- o índice: uma etiqueta por parte, na faixa de manilha (a pasta do mural) -->
       <div class="indice" role="tablist" aria-label="Partes das configurações" aria-orientation="vertical" (keydown)="onIndexKey($event)">
-        @for (s of sections; track s.id) {
+        @for (s of sections(); track s.id) {
           <button
             type="button"
             class="parte"
@@ -354,6 +354,31 @@
               </section>
             } @empty {
               <p class="vazio">Ainda não há tags. Ponha uma no editor de uma anotação e ela aparece aqui, pronta para ganhar cor.</p>
+            }
+          }
+
+          @case ('quadro') {
+            <h3>Quadro</h3>
+            @if (quadro(); as b) {
+              <p class="lead">
+                O quadro de {{ quadroGrupo() }} no Kanban: {{ b.columns.length === 1 ? '1 coluna' : b.columns.length + ' colunas' }} e
+                {{ quadroNotas() === 1 ? '1 anotação' : quadroNotas() + ' anotações' }}. Cada coluna se ajusta pela etiqueta dela; a cor das tags do grupo fica em
+                <button type="button" class="link" (click)="pick('tags')">Tags</button>.
+              </p>
+
+              <div class="grupo">
+                <p class="grupo-titulo">Começar de novo</p>
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" id="config-t-recomecar">Recomeçar o quadro</p>
+                    <p class="linha-desc" id="config-d-recomecar">As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro. Nenhuma sai do mural.</p>
+                  </div>
+                  <button type="button" class="papel perigo" aria-labelledby="config-t-recomecar" aria-describedby="config-d-recomecar" (click)="resetBoard()">
+                    <lucide-icon [img]="ResetBoardIcon" [size]="17" [strokeWidth]="2.6" aria-hidden="true" />
+                    Recomeçar
+                  </button>
+                </div>
+              </div>
             }
           }
         }

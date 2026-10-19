@@ -8,6 +8,8 @@ import { Review, isDone, sanitizeReview } from '../core/review';
 import { ProfileStore } from '../core/profile-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { Confirm } from '../ui/confirm';
+import { MuralConfig } from '../ui/mural-config';
 import { KanbanPage } from './kanban-page';
 
 /** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
@@ -217,24 +219,96 @@ describe('página do Kanban', () => {
     expect(TestBed.inject(Settings).tagColor('Urgente', 'Estudos')).toBeUndefined();
   });
 
-  it('os ajustes do quadro trocam a cor das tags da categoria, e a ficha muda junto', async () => {
+  /** A folha das configurações chega num pedaço à parte (@defer): espera por ela. */
+  async function configSheet(): Promise<HTMLElement> {
+    for (let i = 0; i < 100 && !host.querySelector('app-mural-config dialog'); i++) await settle();
+    return host.querySelector<HTMLElement>('app-mural-config')!;
+  }
+
+  it('a engrenagem é a do mural: num grupo só dela, abrindo as mesmas configurações, com a parte Quadro', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
-    host.querySelector<HTMLButtonElement>('button[aria-label="Ajustes do quadro"]')!.click();
+    const gear = host.querySelector<HTMLButtonElement>('button[aria-label="Configurações do mural"]')!;
+    // sozinha no grupo dela, do tamanho da do mural
+    expect(gear.parentElement!.classList).toContain('pasta-grupo');
+    expect(gear.parentElement!.children.length).toBe(1);
+    expect(gear.querySelector('svg')!.getAttribute('width')).toBe('18');
+    expect(host.querySelector('button[aria-label="Ajustes do quadro"]')).toBeNull();
+    gear.click();
     await settle();
-    const sheet = host.querySelector('app-kanban-board-sheet')!;
-    expect(sheet.querySelector('.sub')!.textContent).toContain('Trabalho · 2 anotações');
-    expect([...sheet.querySelectorAll('.item .previa')].map((t) => t.textContent!.trim())).toEqual(['Correção']);
-    sheet.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Verde"]')!.click();
+    expect(gear.getAttribute('aria-expanded')).toBe('true');
+    const sheet = await configSheet();
+    expect(sheet.querySelector('h2')!.textContent).toBe('Configurações do mural');
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Tags', 'Quadro']);
+    sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
     await settle();
-    // só na categoria do quadro
+    expect(sheet.querySelector('h3')!.textContent).toBe('Quadro');
+    expect(sheet.querySelector('.lead')!.textContent!.replace(/\s+/g, ' ')).toContain('O quadro de Trabalho no Kanban: 3 colunas e 2 anotações.');
+    // fechar devolve o foco à engrenagem
+    sheet.querySelector('dialog')!.close();
+    await settle();
+    expect(host.querySelector('app-mural-config')).toBeNull();
+    expect(document.activeElement).toBe(gear);
+  });
+
+  it('pelas configurações, a cor das tags do grupo muda a ficha do quadro junto', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    host.querySelector<HTMLButtonElement>('button[aria-label="Configurações do mural"]')!.click();
+    const sheet = await configSheet();
+    sheet.querySelector<HTMLButtonElement>('#config-aba-tags')!.click();
+    await settle();
+    const grupo = sheet.querySelector('[aria-label="Tags de Trabalho"]')!;
+    expect([...grupo.querySelectorAll('.tag-previa')].map((t) => t.textContent!.trim())).toEqual(['Correção']);
+    grupo.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Verde"]')!.click();
+    await settle();
+    // só no grupo do quadro
     expect(TestBed.inject(Settings).tagColor('correcao', 'Trabalho')).toBe('verde');
     expect(TestBed.inject(Settings).tagColor('correcao', 'Estudos')).toBeUndefined();
     expect(column('afazer').querySelector('[data-nota="nlogin01"] app-note-tag')!.classList).toContain('cor');
-    sheet.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Sem cor"]')!.click();
+    grupo.querySelector<HTMLButtonElement>('app-tag-colors [aria-label="Sem cor"]')!.click();
     await settle();
     expect(TestBed.inject(Settings).tagColor('correcao', 'Trabalho')).toBeUndefined();
     expect(column('afazer').querySelector('[data-nota="nlogin01"] app-note-tag')!.classList).not.toContain('cor');
+  });
+
+  it('o Quadro das configurações recomeça o quadro depois da pergunta', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(true);
+    host.querySelector<HTMLButtonElement>('button[aria-label="Configurações do mural"]')!.click();
+    const sheet = await configSheet();
+    sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
+    await settle();
+    sheet.querySelector<HTMLButtonElement>('.papel.perigo')!.click();
+    await settle();
+    expect(ask.calls.mostRecent().args[0].title).toBe('Recomeçar o quadro de Trabalho?');
+    expect(host.querySelector('app-mural-config')).toBeNull();
+    expect(kanban.get(TRAB)!.cards).toEqual([]);
+    expect(host.querySelectorAll('.coluna .lugar').length).toBe(0);
+    expect(kanban.get(TRAB)!.columns.map((c) => c.name)).toEqual(['A fazer', 'Fazendo', 'Feito']);
+    // as anotações continuam no mural
+    expect(store.get('nlogin01')).toBeTruthy();
+  });
+
+  it('pela engrenagem do mural, a folha não tem a parte Quadro', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    host.querySelector<HTMLButtonElement>('button[aria-label="Configurações do mural"]')!.click();
+    let sheet = await configSheet();
+    // a última parte aberta foi o Quadro: sem quadro, a folha abre nos Padrões
+    sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
+    await settle();
+    sheet.querySelector('dialog')!.close();
+    await settle();
+    const solo = TestBed.createComponent(MuralConfig);
+    document.body.appendChild(solo.nativeElement);
+    await solo.whenStable();
+    sheet = solo.nativeElement;
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Tags']);
+    expect(sheet.querySelector('h3')!.textContent).toBe('Padrões');
+    sheet.querySelector('dialog')!.close();
+    solo.nativeElement.remove();
   });
 
   it('"Só os títulos": a tira com o nome e a importância, lembrada por quadro neste aparelho', async () => {

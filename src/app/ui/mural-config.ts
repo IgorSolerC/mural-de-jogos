@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, output, signal, viewChild } from '@angular/core';
-import { Check, ChevronDown, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, Pencil, SlidersHorizontal, Tag, Tags, Trash2, Undo2, X } from 'lucide-angular';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Check, ChevronDown, Columns3, Copy, Dices, Eye, EyeOff, GripVertical, LockKeyhole, LucideAngularModule, Megaphone, Pencil, RotateCcw, SlidersHorizontal, Tag, Tags, Trash2, Undo2, X } from 'lucide-angular';
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
+import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
 import { CategoryPrefs, SubColor, arrangedKeys, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
 import type { Audience } from '../core/review';
@@ -20,12 +21,14 @@ import { tabStep } from './focus';
 
 /**
  * As partes da folha, uma por vez, como as partes dos Ajustes. Para crescer, uma entrada aqui e o
- * bloco dela no template: o índice e o teclado já dão conta.
+ * bloco dela no template: o índice e o teclado já dão conta. A última, Quadro, só aparece quando a
+ * folha abre pela engrenagem do Kanban (ver `board`).
  */
 const SECTIONS = [
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: SlidersHorizontal },
   { id: 'categorias', label: 'Grupos', hint: 'Nome, ordem, cor e padrões', icon: Tags },
   { id: 'tags', label: 'Tags', hint: 'Por grupo: nome e cor', icon: Tag },
+  { id: 'quadro', label: 'Quadro', hint: 'O quadro deste grupo', icon: Columns3 },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -100,10 +103,12 @@ interface Drag {
  * As configurações do mural de anotações: a engrenagem da pasta abre esta folha (ver WallToolbar).
  * Padrões: como nasce toda anotação (privacidade, cor da sub-nota) e as perguntas antes de salvar.
  * Categorias: a ordem das abas e, em cada uma, o ícone e a cor e o que ela muda em cima do mural.
- * Tags: as tags de cada categoria, com a cor de cada uma ali (a mesma escolha do quadro do Kanban
- * daquela categoria, ver KanbanBoardSheet).
+ * Tags: as tags de cada categoria, com a cor de cada uma ali (a mesma no mural e no quadro do Kanban
+ * daquela categoria).
  * Nas duas, renomear e apagar (em toda anotação que usa; ver core/label-edits.ts), apagar com a
  * pergunta antes.
+ * Quadro: só pela engrenagem do Kanban, que abre esta mesma folha com o quadro dela; recomeçar o
+ * quadro (a página recomeça, com o Desfazer).
  * Tudo vale na hora e fica guardado (ver core/mural-config.ts). Chega num pedaço à parte, só quando
  * a engrenagem é tocada.
  */
@@ -115,8 +120,12 @@ interface Drag {
   styleUrl: './mural-config.scss',
 })
 export class MuralConfig {
+  /** O quadro do Kanban de onde a folha abriu (o id): com ele, a parte Quadro. */
+  readonly board = input<string | null>(null);
   /** A folha fechou. */
   readonly closed = output<void>();
+  /** Recomeçar o quadro: a página recomeça (com o Desfazer) depois da pergunta. */
+  readonly resetting = output<string>();
 
   protected readonly settings = inject(Settings);
   private readonly store = inject(ReviewStore);
@@ -127,6 +136,7 @@ export class MuralConfig {
   private readonly injector = inject(Injector);
   private readonly edits = inject(LabelEdits);
   private readonly confirm = inject(Confirm);
+  private readonly kanban = inject(KanbanStore);
 
   protected readonly CloseIcon = X;
   protected readonly GripIcon = GripVertical;
@@ -138,13 +148,32 @@ export class MuralConfig {
   protected readonly DeleteIcon = Trash2;
   protected readonly OkIcon = Check;
   protected readonly labelMax = LABEL_MAX;
-  protected readonly sections = SECTIONS;
+  protected readonly ResetBoardIcon = RotateCcw;
+  /** As partes à mostra: o Quadro só pelo Kanban. */
+  protected readonly sections = computed(() => SECTIONS.filter((s) => s.id !== 'quadro' || !!this.board()));
   protected readonly audiences = AUDIENCES;
   protected readonly audienceLabel = AUDIENCE_LABEL;
   protected readonly subColors = SUB_COLORS;
   protected readonly subLabel = SUB_LABEL;
 
-  protected readonly section = signal<SectionId>(lastSection);
+  /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
+  protected readonly section = signal<SectionId>(lastSection === 'quadro' && !this.board() ? 'padroes' : lastSection);
+
+  /** O quadro do Kanban de onde a folha abriu (ou nada, pela engrenagem do mural). */
+  protected readonly quadro = computed(() => {
+    const id = this.board();
+    return id ? (this.kanban.get(id) ?? null) : null;
+  });
+  /** O nome do grupo do quadro, como no mural. */
+  protected readonly quadroGrupo = computed(() => {
+    const b = this.quadro();
+    return b ? (this.kanban.labelOf(b) ?? b.category) : '';
+  });
+  /** Quantas anotações estão no quadro de verdade. */
+  protected readonly quadroNotas = computed(() => {
+    const b = this.quadro();
+    return b ? this.kanban.live(b).length : 0;
+  });
   protected readonly config = this.settings.notesConfig;
   /** A ordem montada à mão está valendo. */
   protected readonly manual = computed(() => this.config().orderBy === 'minha');
@@ -208,11 +237,32 @@ export class MuralConfig {
 
   /** ←/→ (e ↑/↓), Home e End andam pelas partes, como numa lista de abas. */
   protected onIndexKey(e: KeyboardEvent): void {
-    const next = tabStep(e.key, SECTIONS.findIndex((s) => s.id === this.section()), SECTIONS.length);
+    const sections = this.sections();
+    const next = tabStep(e.key, sections.findIndex((s) => s.id === this.section()), sections.length);
     if (next < 0) return;
     e.preventDefault();
-    this.pick(SECTIONS[next].id);
+    this.pick(sections[next].id);
     afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('.parte[aria-selected="true"]')?.focus(), { injector: this.injector });
+  }
+
+  // ===== quadro =====
+
+  protected async resetBoard(): Promise<void> {
+    const b = this.quadro();
+    if (!b) return;
+    const n = this.quadroNotas();
+    const yes = await this.confirm.ask({
+      title: `Recomeçar o quadro de ${this.quadroGrupo()}?`,
+      text: n
+        ? `As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro. ${n === 1 ? 'Ela continua' : `As ${n} continuam`} no mural, como ${n === 1 ? 'está' : 'estão'}.`
+        : 'As colunas voltam a ser A fazer, Fazendo e Feito. Nenhuma anotação muda.',
+      confirm: 'Recomeçar',
+      cancel: 'Deixar',
+      icon: RotateCcw,
+    });
+    if (!yes) return;
+    this.close();
+    this.resetting.emit(b.id);
   }
 
   // ===== padrões =====
