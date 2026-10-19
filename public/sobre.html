@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sobre · Murall</title>
+<meta name="description" content="O Murall é um mural pessoal de resenhas e anotações, com um calendário que pode se ligar ao Google Agenda.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  :root { color-scheme: dark; --fundo: #1f1c1a; --papel: #f6f1e7; --tinta: #151515; --tinta-2: #4a4540; --vermelho: #b81d1c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 32px 16px 64px; }
+  main { max-width: 720px; margin: 0 auto; background: var(--papel); color: var(--tinta); padding: 40px clamp(20px, 5vw, 48px); border-radius: 4px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.45); }
+  h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 2em 0 0.4em; }
+  p, li { color: var(--tinta); }
+  .data { color: var(--tinta-2); margin: 0 0 1.5em; font-size: 0.95rem; }
+  ul { padding-left: 1.2em; }
+  li { margin: 0.3em 0; }
+  a { color: var(--vermelho); }
+  .abrir { display: inline-block; margin-top: 1.5em; padding: 10px 18px; background: var(--tinta); color: #ffda42; font-weight: 700; text-decoration: none; border-radius: 3px; }
+  .en { margin-top: 2.5em; padding-top: 1.5em; border-top: 2px dashed rgb(21 21 21 / 0.25); }
+  footer { margin-top: 2.5em; font-size: 0.95rem; color: var(--tinta-2); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Murall</h1>
+  <p class="data">O mural de tudo · murall.igorsc.com.br</p>
+
+  <p>O Murall é um mural pessoal, feito de papelaria: resenhas dos jogos, livros, filmes, séries, animes e músicas que você terminou, como fichas de cartolina pregadas numa parede, e anotações para listas, ideias e tarefas, com quadros Kanban e um calendário de lembretes.</p>
+  <ul>
+    <li>Funciona sem conta: tudo fica só no navegador do seu aparelho.</li>
+    <li>Com uma conta (entrando com o Google), o mural vai para a nuvem para abrir em qualquer aparelho, e dá para seguir amigos.</li>
+    <li>Sem anúncios, sem rastreamento, sem venda de dados.</li>
+  </ul>
+
+  <h2>Calendário e Google Agenda</h2>
+  <p>No Calendário das anotações você marca lembretes, de um dia só ou que se repetem, e prende neles as anotações que ajudam. Se quiser, liga a sua agenda principal do Google para os dois se acompanharem: os lembretes do Murall aparecem como eventos no Google Agenda, e os eventos da sua agenda aparecem no Calendário do Murall. É opcional, só acontece se você tocar em "Conectar o Google Agenda", e dá para desligar a qualquer hora. O que o Murall acessa e guarda está na <a href="privacidade.html">página de privacidade</a>.</p>
+
+  <a class="abrir" href="./">Abrir o Murall</a>
+
+  <div class="en" lang="en">
+    <h2>About (English)</h2>
+    <p>Murall is a personal web journal: reviews of games, books, films, series, anime and music, pinned as paper cards on a wall, plus notes with Kanban boards and a reminders calendar. It works without an account (data stays in the browser); with a Google sign-in, the wall syncs across the user's devices.</p>
+    <p>Optional Google Calendar integration: in the Calendar section, users can connect their primary Google Calendar for two-way sync. Murall reminders are created, updated and deleted as events in the user's calendar, and the user's events are shown as reminders in Murall. Google user data is only shown to that user, is never shared, sold, used for advertising or used to train AI models, and the integration can be disconnected at any time. See the <a href="privacidade.html">privacy policy</a>.</p>
+  </div>
+
+  <footer><a href="privacidade.html">Privacidade</a> · Contato: <a href="https://github.com/IgorSolerC/mural-de-jogos/issues">github.com/IgorSolerC/mural-de-jogos/issues</a></footer>
+</main>
+</body>
+</html>
